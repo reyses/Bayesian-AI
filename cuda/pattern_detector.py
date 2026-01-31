@@ -2,11 +2,21 @@ import pandas as pd
 import numpy as np
 from typing import Tuple
 
+try:
+    from numba import cuda
+    NUMBA_AVAILABLE = True
+except ImportError:
+    NUMBA_AVAILABLE = False
+
 class CUDAPatternDetector:
     def __init__(self, use_gpu: bool = True):
-        self.use_gpu = use_gpu
-        if not self.use_gpu:
-             # print("[CUDA] GPU not available for pattern detector, using CPU")
+        self.use_gpu = use_gpu and NUMBA_AVAILABLE
+
+        if self.use_gpu:
+            self.use_gpu = cuda.is_available()
+
+        if not self.use_gpu and use_gpu:
+             # GPU requested but not available
              pass
 
     def detect(self, bars: pd.DataFrame, window_size: int = 20) -> Tuple[str, float]:
@@ -22,7 +32,7 @@ class CUDAPatternDetector:
         highs = bars['high'].values
         lows = bars['low'].values
 
-        if len(highs) >= 10:
+        if len(highs) >= 5:
             recent_range = highs[-5:].max() - lows[-5:].min()
             prev_range = highs[-10:-5].max() - lows[-10:-5].min()
 

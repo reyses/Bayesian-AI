@@ -1,11 +1,21 @@
 import pandas as pd
 import numpy as np
 
+try:
+    from numba import cuda
+    NUMBA_AVAILABLE = True
+except ImportError:
+    NUMBA_AVAILABLE = False
+
 class CUDAConfirmationEngine:
     def __init__(self, use_gpu: bool = True):
-        self.use_gpu = use_gpu
-        if not self.use_gpu:
-             # print("[CUDA] GPU not available for confirmation engine, using CPU")
+        self.use_gpu = use_gpu and NUMBA_AVAILABLE
+
+        if self.use_gpu:
+            self.use_gpu = cuda.is_available()
+
+        if not self.use_gpu and use_gpu:
+             # GPU requested but not available
              pass
 
     def confirm(self, bars: pd.DataFrame, L7_pattern_active: bool) -> bool:
