@@ -3,51 +3,52 @@ ProjectX v2.0 - CUDA Velocity Gate (Layer 9)
 Numba-accelerated tick-level cascade detection: 10+ points in <0.5sec
 """
 import numpy as np
-from numba import cuda, jit
 import time
 
-@cuda.jit
-def detect_cascade_kernel(tick_prices, tick_times, cascade_threshold, time_window, results):
-    """
-    CUDA kernel: Detect velocity cascades in tick stream
-    
-    Args:
-        tick_prices: Array of tick prices (last N ticks)
-        tick_times: Array of tick timestamps
-        cascade_threshold: Minimum point move (default 10.0)
-        time_window: Maximum time window in seconds (default 0.5)
-        results: Output [0=no cascade, 1=cascade detected]
-    """
-    idx = cuda.grid(1)
-    
-    if idx >= tick_prices.shape[0] - 50:  # Need at least 50 ticks
-        return
-    
-    # Scan last 50 ticks for cascade
-    window_start = max(0, idx)
-    window_end = min(tick_prices.shape[0], idx + 50)
-    
-    max_price = tick_prices[window_start]
-    min_price = tick_prices[window_start]
-    start_time = tick_times[window_start]
-    end_time = tick_times[window_end - 1]
-    
-    # Find max/min in window
-    for i in range(window_start, window_end):
-        if tick_prices[i] > max_price:
-            max_price = tick_prices[i]
-        if tick_prices[i] < min_price:
-            min_price = tick_prices[i]
-    
-    # Calculate move and time elapsed
-    price_move = abs(max_price - min_price)
-    time_elapsed = end_time - start_time
-    
-    # Cascade condition: Large move in short time
-    if price_move >= cascade_threshold and time_elapsed <= time_window:
-        results[idx] = 1
-    else:
-        results[idx] = 0
+try:
+    from numba import cuda, jit
+    NUMBA_AVAILABLE = True
+except ImportError:
+    NUMBA_AVAILABLE = False
+
+if NUMBA_AVAILABLE:
+    @cuda.jit
+    def detect_cascade_kernel(tick_prices, tick_times, cascade_threshold, time_window, results):
+        """
+        CUDA kernel: Detect velocity cascades in tick stream
+        """
+        idx = cuda.grid(1)
+
+        if idx >= tick_prices.shape[0] - 50:  # Need at least 50 ticks
+            return
+
+        # Scan last 50 ticks for cascade
+        window_start = max(0, idx)
+        window_end = min(tick_prices.shape[0], idx + 50)
+
+        max_price = tick_prices[window_start]
+        min_price = tick_prices[window_start]
+        start_time = tick_times[window_start]
+        end_time = tick_times[window_end - 1]
+
+        # Find max/min in window
+        for i in range(window_start, window_end):
+            if tick_prices[i] > max_price:
+                max_price = tick_prices[i]
+            if tick_prices[i] < min_price:
+                min_price = tick_prices[i]
+
+        # Calculate move and time elapsed
+        price_move = abs(max_price - min_price)
+        time_elapsed = end_time - start_time
+
+        # Cascade condition: Large move in short time
+        if price_move >= cascade_threshold and time_elapsed <= time_window:
+            results[idx] = 1
+        else:
+            results[idx] = 0
+else:
+    detect_cascade_kernel = None
 
 class CUDAVelocityGate:
     """High-level interface for CUDA velocity cascade detection"""
@@ -55,9 +56,12 @@ class CUDAVelocityGate:
     def __init__(self, cascade_threshold=10.0, time_window=0.5, use_gpu=True):
         self.cascade_threshold = cascade_threshold  # Points
         self.time_window = time_window  # Seconds
-        self.use_gpu = use_gpu and cuda.is_available()
+        self.use_gpu = use_gpu and NUMBA_AVAILABLE
         
-        if not self.use_gpu:
+        if self.use_gpu:
+            self.use_gpu = cuda.is_available()
+
+        if not self.use_gpu and use_gpu: # User requested GPU but not available
             print("[CUDA] GPU not available for velocity gate, using CPU")
     
     def detect_cascade(self, tick_data):
@@ -91,7 +95,7 @@ class CUDAVelocityGate:
             else:
                 times = np.arange(len(prices), dtype=np.float32) * 0.01
         
-        if self.use_gpu:
+        if self.use_gpu and NUMBA_AVAILABLE:
             # GPU execution
             d_prices = cuda.to_device(prices)
             d_times = cuda.to_device(times)
@@ -128,7 +132,7 @@ class CUDAVelocityGate:
         price_move = abs(window_prices.max() - window_prices.min())
         time_elapsed = window_times[-1] - window_times[0]
         
-        return price_move >= self.cascade_threshold and time_elapsed <= self.time_window
+        return bool(price_move >= self.cascade_threshold and time_elapsed <= self.time_window)
 
 # Singleton
 _velocity_gate = None
