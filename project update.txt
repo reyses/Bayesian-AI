@@ -1,0 +1,640 @@
+ProjectX v2.0 - 9-Layer Algorithmic Trading System
+Build Specification for Gemini
+EXECUTIVE SUMMARY
+Build a CUDA-accelerated futures trading system that mimics human pattern recognition across 9 temporal layers (90-day to 1-second resolution). System uses Bayesian learning to build probability fingerprints from historical outcomes, fires trades only when edge >80%, and rides volatility waves using multi-timeframe structure breaks for exits.
+Target: Train on 1 year NQ data, execute live on MES/MNQ minis starting Tuesday Jan 28, 2026.
+
+SYSTEM ARCHITECTURE
+9-Layer Temporal Hierarchy
+STATIC CONTEXT (Computed once at session start - CPU only):
+Layer 1 (90-day): Quarterly structure
+python{
+    'support_zones': [21000, 20500],
+    'resistance_zones': [22000, 22500],
+    'secular_bias': 'bull'  # bull/bear/range
+}
+Layer 2 (30-day): Monthly regime
+python{
+    'support': [21300],
+    'resistance': [21800],
+    'regime': 'trending'  # trending/chopping
+}
+Layer 3 (1-week): Swing structure
+python{
+    'swing_low': 21450,
+    'swing_high': 21720
+}
+Layer 4 (Daily): Session context (user pre-marks these)
+python{
+    'prev_close': 21580,
+    'today_open': 21590,
+    'gap_zone': None,  # or [price_low, price_high]
+    'kill_zones': [21500, 21600, 21700]  # User's horizontal lines
+}
+FLUID CONTEXT (Updates as candles form):
+Layer 5 (4-hour): Updates 2x per session
+
+Compute: CPU (every 4 hours)
+Structure: Trend direction, higher highs/lower lows
+
+Layer 6 (1-hour): Updates hourly
+
+Compute: CPU (every hour)
+Structure: Volume profile, last bar OHLC
+
+Layer 7 (15-min): Pattern detection - CUDA REQUIRED
+
+Compute: GPU parallel scan (every 15min)
+Patterns: Flag, wedge, compression detection
+Output: Pattern maturity score (0-100%)
+
+Layer 8 (5-min): Confirmation engine - CUDA REQUIRED
+
+Compute: GPU parallel scan (every 5min)
+Validates: Layer 7 pattern still intact
+Output: Setup ready signal (boolean)
+
+Layer 9 (1-second): Execution trigger - CUDA REQUIRED
+
+Compute: GPU tick stream (continuous)
+Detects: Velocity cascades (10+ points in <0.5sec)
+Output: FIRE command
+
+
+CORE COMPONENTS TO BUILD
+Component 1: Layer State Engine
+File: projectx/layers/state_engine.py
+pythonfrom dataclasses import dataclass
+import pandas as pd
+import numpy as np
+
+@dataclass
+class LayerState:
+    """Immutable snapshot of all 9 layers at single timestamp"""
+    timestamp: float
+    L1_90d: dict
+    L2_30d: dict
+    L3_1wk: dict
+    L4_daily: dict
+    L5_4hr: dict
+    L6_1hr: dict
+    L7_15m: dict  # {'pattern_type': 'flag', 'maturity': 0.85}
+    L8_5m: dict   # {'setup_ready': True, 'volume_confirm': True}
+    L9_1s: dict   # {'velocity': 12.3, 'cascade': True}
+    
+    def to_fingerprint(self) -> int:
+        """Hash all layer states into unique ID"""
+        state_str = f"{self.L1_90d}{self.L2_30d}{self.L3_1wk}{self.L4_daily}"
+        state_str += f"{self.L5_4hr}{self.L6_1hr}{self.L7_15m}{self.L8_5m}{self.L9_1s}"
+        return hash(state_str)
+
+class StaticContextBuilder:
+    """Builds Layers 1-4 once at session start"""
+    def __init__(self, historical_data: pd.DataFrame):
+        self.data = historical_data
+    
+    def build_L1_90d(self) -> dict:
+        # Calculate support/resistance from 90-day data
+        # Return: {'support': [...], 'resistance': [...], 'bias': '...'}
+        pass
+    
+    def build_L2_30d(self) -> dict:
+        # Calculate 30-day regime
+        pass
+    
+    def build_L3_1wk(self) -> dict:
+        # Calculate swing highs/lows
+        pass
+    
+    def build_L4_daily(self, user_levels: list) -> dict:
+        # User provides kill zones (horizontal lines from chart)
+        # Return: {'prev_close': X, 'kill_zones': [...]}
+        pass
+
+class FluidContextEngine:
+    """Updates Layers 5-9 in real-time"""
+    def __init__(self, static_context: dict):
+        self.static = static_context
+        self.L5_buffer = []  # 4hr candles
+        self.L6_buffer = []  # 1hr candles
+        self.L7_buffer = []  # 15min candles
+        self.L8_buffer = []  # 5min candles
+    
+    def update_L5_4hr(self, new_4hr_bar: dict) -> dict:
+        # CPU update every 4 hours
+        pass
+    
+    def update_L6_1hr(self, new_1hr_bar: dict) -> dict:
+        # CPU update every hour
+        pass
+    
+    def update_L7_15m_CUDA(self, candles: np.ndarray) -> dict:
+        # CUDA pattern detection (flag/wedge)
+        # Input: Last 20 x 15min candles
+        # Output: {'pattern_type': 'flag', 'maturity': 0.85}
+        pass
+    
+    def update_L8_5m_CUDA(self, candles: np.ndarray, L7_state: dict) -> dict:
+        # CUDA confirmation check
+        # Validates L7 pattern still valid
+        pass
+    
+    def update_L9_1s_CUDA(self, tick_stream: np.ndarray) -> dict:
+        # CUDA velocity cascade detector
+        # Input: Last 100 ticks
+        # Output: {'velocity': 12.3, 'cascade': True/False}
+        pass
+
+Component 2: Probability Engine
+File: projectx/learning/probability_engine.py
+pythonimport pickle
+from collections import defaultdict
+from dataclasses import dataclass
+
+@dataclass
+class TradeOutcome:
+    fingerprint: int
+    timestamp: float
+    entry_price: float
+    exit_price: float
+    pnl: float
+    result: str  # 'WIN' or 'LOSS'
+    layer_state: LayerState  # Full snapshot at entry
+
+class BayesianProbabilityTable:
+    """Learns from trade outcomes using Bayesian updates"""
+    def __init__(self):
+        self.table = defaultdict(lambda: {'wins': 0, 'losses': 0, 'total': 0})
+    
+    def update(self, outcome: TradeOutcome):
+        """Update probability after trade completion"""
+        fp = outcome.fingerprint
+        
+        if outcome.result == 'WIN':
+            self.table[fp]['wins'] += 1
+        else:
+            self.table[fp]['losses'] += 1
+        
+        self.table[fp]['total'] += 1
+    
+    def get_probability(self, fingerprint: int) -> float:
+        """Get win probability for specific layer configuration"""
+        if fingerprint not in self.table:
+            return 0.50  # Neutral prior (no data)
+        
+        data = self.table[fingerprint]
+        if data['total'] == 0:
+            return 0.50
+        
+        # Bayesian estimate with Laplace smoothing
+        wins = data['wins'] + 1  # Add 1 to avoid 0/0
+        total = data['total'] + 2
+        return wins / total
+    
+    def get_confidence(self, fingerprint: int) -> float:
+        """How much data supports this probability?"""
+        if fingerprint not in self.table:
+            return 0.0
+        
+        total = self.table[fingerprint]['total']
+        # Confidence grows with sample size (caps at 1.0)
+        return min(total / 30.0, 1.0)  # 30 trades = full confidence
+    
+    def save(self, filepath: str):
+        with open(filepath, 'wb') as f:
+            pickle.dump(dict(self.table), f)
+    
+    def load(self, filepath: str):
+        with open(filepath, 'rb') as f:
+            self.table = defaultdict(lambda: {'wins': 0, 'losses': 0, 'total': 0}, pickle.load(f))
+
+Component 3: CUDA Backtesting Engine
+File: projectx/training/cuda_backtest.py
+pythonimport numpy as np
+import cupy as cp  # GPU arrays
+from numba import cuda
+
+class CUDABacktester:
+    """Parallel backtesting across 1000 parameter combinations"""
+    def __init__(self, tick_data: np.ndarray):
+        # Convert to GPU
+        self.ticks_gpu = cp.array(tick_data)
+    
+    def generate_param_grid(self, n_combinations=1000) -> np.ndarray:
+        """Generate random parameter combinations"""
+        params = np.zeros((n_combinations, 3))
+        params[:, 0] = np.random.uniform(2.0, 5.0, n_combinations)  # min_velocity
+        params[:, 1] = np.random.randint(50, 200, n_combinations)   # min_density
+        params[:, 2] = np.random.uniform(0.5, 2.0, n_combinations)  # stop_multiplier
+        return params
+    
+    @cuda.jit
+    def backtest_kernel(ticks, params, results):
+        """CUDA kernel - each thread = 1 parameter combination"""
+        thread_id = cuda.grid(1)
+        
+        if thread_id >= params.shape[0]:
+            return
+        
+        # Get this thread's parameters
+        min_vel = params[thread_id, 0]
+        min_dens = params[thread_id, 1]
+        
+        # Initialize counters
+        wins = 0
+        losses = 0
+        
+        # Scan through all ticks
+        for i in range(ticks.shape[0] - 1000):  # Leave room for exit simulation
+            tick = ticks[i]
+            
+            # Fire condition
+            if tick[3] > min_vel and tick[2] > min_dens:  # velocity > min_vel AND volume > min_dens
+                # Simulate trade outcome (simplified)
+                exit_price = ticks[i + 100, 0]  # Look 100 ticks ahead
+                pnl = exit_price - tick[0]
+                
+                if pnl > 0:
+                    wins += 1
+                else:
+                    losses += 1
+        
+        # Store results
+        results[thread_id, 0] = wins
+        results[thread_id, 1] = losses
+    
+    def run_parallel_backtest(self, param_grid: np.ndarray):
+        """Execute backtest on GPU"""
+        n_params = param_grid.shape[0]
+        
+        # Allocate results buffer
+        results = cp.zeros((n_params, 2), dtype=cp.int32)
+        
+        # Launch kernel
+        threads_per_block = 256
+        blocks = (n_params + threads_per_block - 1) // threads_per_block
+        
+        self.backtest_kernel[blocks, threads_per_block](
+            self.ticks_gpu, 
+            cp.array(param_grid), 
+            results
+        )
+        
+        # Copy results back to CPU
+        results_cpu = cp.asnumpy(results)
+        
+        # Calculate win rates
+        winrates = results_cpu[:, 0] / (results_cpu[:, 0] + results_cpu[:, 1] + 1e-9)
+        
+        return winrates
+
+Component 4: Wave Rider Exit System
+File: projectx/execution/wave_rider.py
+pythonfrom dataclasses import dataclass
+import numpy as np
+
+@dataclass
+class Position:
+    entry_price: float
+    entry_time: float
+    side: str  # 'long' or 'short'
+    stop_loss: float
+    high_water_mark: float  # Best profit point
+    entry_layer_state: LayerState
+
+class WaveRider:
+    """Multi-timeframe trailing stop manager"""
+    def __init__(self, asset_profile):
+        self.asset = asset_profile
+        self.position = None
+    
+    def open_position(self, entry_price: float, side: str, layer_state: LayerState):
+        """Initialize position with basic stop"""
+        stop_distance = 20 * self.asset.tick_size  # 20 ticks
+        
+        if side == 'short':
+            stop_loss = entry_price + stop_distance
+            self.position = Position(entry_price, time.time(), side, stop_loss, entry_price)
+        else:
+            stop_loss = entry_price - stop_distance
+            self.position = Position(entry_price, time.time(), side, stop_loss, entry_price)
+        
+        self.position.entry_layer_state = layer_state
+    
+    def update_trail(self, current_price: float, current_layer_state: LayerState) -> dict:
+        """Adjust trailing stop based on profit + layer structure"""
+        if not self.position:
+            return {'should_exit': False}
+        
+        # Update high water mark
+        if self.position.side == 'short':
+            profit = self.position.entry_price - current_price
+            if current_price < self.position.high_water_mark:
+                self.position.high_water_mark = current_price
+        else:
+            profit = current_price - self.position.entry_price
+            if current_price > self.position.high_water_mark:
+                self.position.high_water_mark = current_price
+        
+        profit_usd = profit * self.asset.point_value
+        
+        # Adaptive trail based on profit level
+        if profit_usd < 50:
+            # Small profit: Use tight tick-based trail (Layer 9)
+            trail_distance = 10 * self.asset.tick_size
+        elif profit_usd < 150:
+            # Medium profit: Use 15min structure (Layer 7)
+            trail_distance = 20 * self.asset.tick_size
+        else:
+            # Large profit: Use 4hr structure (Layer 5)
+            trail_distance = 30 * self.asset.tick_size
+        
+        # Calculate new trailing stop
+        if self.position.side == 'short':
+            new_stop = self.position.high_water_mark + trail_distance
+        else:
+            new_stop = self.position.high_water_mark - trail_distance
+        
+        # Check for structure breaks (any layer invalidation = exit)
+        structure_broken = self._check_layer_breaks(current_layer_state)
+        
+        # Check if stop hit
+        stop_hit = (self.position.side == 'short' and current_price >= new_stop) or \
+                   (self.position.side == 'long' and current_price <= new_stop)
+        
+        if stop_hit or structure_broken:
+            return {
+                'should_exit': True,
+                'exit_price': current_price,
+                'exit_reason': 'structure_break' if structure_broken else 'trail_stop',
+                'pnl': profit_usd
+            }
+        
+        # Update stop
+        self.position.stop_loss = new_stop
+        return {'should_exit': False, 'current_stop': new_stop}
+    
+    def _check_layer_breaks(self, current_state: LayerState) -> bool:
+        """Check if any critical layer structure invalidated"""
+        entry_state = self.position.entry_layer_state
+        
+        # Layer 7 (15min pattern) broken?
+        if entry_state.L7_15m.get('pattern_type') != current_state.L7_15m.get('pattern_type'):
+            return True
+        
+        # Layer 8 (5min confirmation) lost?
+        if not current_state.L8_5m.get('setup_ready', False):
+            return True
+        
+        return False
+
+Component 5: Main Execution Engine
+File: projectx/engine_core.py
+pythonfrom projectx.layers.state_engine import StaticContextBuilder, FluidContextEngine, LayerState
+from projectx.learning.probability_engine import BayesianProbabilityTable, TradeOutcome
+from projectx.execution.wave_rider import WaveRider
+from projectx.config.symbols import AssetProfile
+import time
+
+class ProjectXEngine:
+    """Main trading engine"""
+    def __init__(self, asset: AssetProfile):
+        self.asset = asset
+        self.prob_table = BayesianProbabilityTable()
+        self.wave_rider = WaveRider(asset)
+        self.trades = []
+        self.daily_pnl = 0.0
+        self.daily_drawdown = 0.0
+        
+        # Fire thresholds
+        self.MIN_PROBABILITY = 0.80  # 80% edge required
+        self.MIN_CONFIDENCE = 0.30   # At least 10 prior trades (0.3 * 30 = 9)
+        
+        # Risk limits
+        self.MAX_DAILY_LOSS = -200.0
+        
+    def initialize_session(self, historical_data, user_kill_zones: list):
+        """Build static context layers 1-4"""
+        builder = StaticContextBuilder(historical_data)
+        self.static_context = {
+            'L1': builder.build_L1_90d(),
+            'L2': builder.build_L2_30d(),
+            'L3': builder.build_L3_1wk(),
+            'L4': builder.build_L4_daily(user_kill_zones)
+        }
+        
+        self.fluid_engine = FluidContextEngine(self.static_context)
+    
+    def on_tick(self, tick: dict):
+        """Process incoming tick"""
+        # Check daily limits
+        if self.daily_pnl <= self.MAX_DAILY_LOSS:
+            return  # Stop trading
+        
+        # Update Layer 9 (1sec velocity)
+        L9_state = self.fluid_engine.update_L9_1s_CUDA([tick])
+        
+        # Build current layer snapshot
+        current_state = LayerState(
+            timestamp=tick['timestamp'],
+            L1_90d=self.static_context['L1'],
+            L2_30d=self.static_context['L2'],
+            L3_1wk=self.static_context['L3'],
+            L4_daily=self.static_context['L4'],
+            L5_4hr=self.fluid_engine.L5_buffer[-1] if self.fluid_engine.L5_buffer else {},
+            L6_1hr=self.fluid_engine.L6_buffer[-1] if self.fluid_engine.L6_buffer else {},
+            L7_15m=self.fluid_engine.L7_buffer[-1] if self.fluid_engine.L7_buffer else {},
+            L8_5m=self.fluid_engine.L8_buffer[-1] if self.fluid_engine.L8_buffer else {},
+            L9_1s=L9_state
+        )
+        
+        # If in position, manage exit
+        if self.wave_rider.position:
+            exit_decision = self.wave_rider.update_trail(tick['price'], current_state)
+            if exit_decision['should_exit']:
+                self._close_position(tick['price'], exit_decision)
+            return
+        
+        # Entry logic: Check fire conditions
+        fingerprint = current_state.to_fingerprint()
+        probability = self.prob_table.get_probability(fingerprint)
+        confidence = self.prob_table.get_confidence(fingerprint)
+        
+        # FIRE CONDITION
+        cascade_detected = L9_state.get('cascade', False)
+        at_kill_zone = self._check_kill_zone(tick['price'])
+        
+        if cascade_detected and at_kill_zone and probability >= self.MIN_PROBABILITY and confidence >= self.MIN_CONFIDENCE:
+            self._open_position(tick['price'], current_state)
+    
+    def _check_kill_zone(self, price: float) -> bool:
+        """Is price at user-marked level?"""
+        kill_zones = self.static_context['L4'].get('kill_zones', [])
+        tolerance = 5 * self.asset.tick_size  # Within 5 ticks of level
+        
+        for zone in kill_zones:
+            if abs(price - zone) <= tolerance:
+                return True
+        return False
+    
+    def _open_position(self, price: float, layer_state: LayerState):
+        """Fire trade"""
+        side = 'short'  # Simplified: always short cascades (can be dynamic later)
+        self.wave_rider.open_position(price, side, layer_state)
+        print(f">>> [FIRE] {side.upper()} @ {price} | Fingerprint: {layer_state.to_fingerprint()}")
+    
+    def _close_position(self, exit_price: float, exit_info: dict):
+        """Close trade and log outcome"""
+        pos = self.wave_rider.position
+        pnl = exit_info['pnl']
+        
+        outcome = TradeOutcome(
+            fingerprint=pos.entry_layer_state.to_fingerprint(),
+            timestamp=time.time(),
+            entry_price=pos.entry_price,
+            exit_price=exit_price,
+            pnl=pnl,
+            result='WIN' if pnl > 0 else 'LOSS',
+            layer_state=pos.entry_layer_state
+        )
+        
+        # Update probability table (LEARNING)
+        self.prob_table.update(outcome)
+        
+        # Log trade
+        self.trades.append(outcome)
+        self.daily_pnl += pnl
+        
+        print(f">>> [EXIT] {exit_info['exit_reason']} | PnL: ${pnl:.2f} | Daily: ${self.daily_pnl:.2f}")
+        
+        # Clear position
+        self.wave_rider.position = None
+
+Component 6: Training Orchestrator
+File: projectx/training/orchestrator.py
+pythonimport pandas as pd
+from projectx.engine_core import ProjectXEngine
+from projectx.config.symbols import SYMBOL_MAP
+
+class TrainingOrchestrator:
+    """Runs 1000 iterations on historical data"""
+    def __init__(self, data_path: str, asset_ticker: str):
+        self.data = pd.read_parquet(data_path)
+        self.asset = SYMBOL_MAP[asset_ticker]
+        self.engine = ProjectXEngine(self.asset)
+    
+    def run_training(self, iterations=1000):
+        """Brute force train on all data"""
+        print(f"[TRAINING] Starting {iterations} iterations on {len(self.data)} ticks...")
+        
+        # Initialize session (build static context)
+        user_kill_zones = [21500, 21600, 21700]  # Example levels
+        self.engine.initialize_session(self.data, user_kill_zones)
+        
+        # Load existing probability table if available
+        try:
+            self.engine.prob_table.load('probability_table.pkl')
+            print("[TRAINING] Loaded existing probability table")
+        except:
+            print("[TRAINING] Starting fresh probability table")
+        
+        # Run iterations
+        for iteration in range(iterations):
+            print(f"\n=== ITERATION {iteration + 1}/{iterations} ===")
+            
+            # Reset daily state
+            self.engine.daily_pnl = 0.0
+            self.engine.trades = []
+            
+            # Stream through ticks
+            for tick in self.data.itertuples():
+                tick_dict = {
+                    'timestamp': tick.timestamp,
+                    'price': tick.price,
+                    'volume': tick.volume,
+                    'type': tick.type
+                }
+                self.engine.on_tick(tick_dict)
+            
+            # Log iteration results
+            total_trades = len(self.engine.trades)
+            wins = sum(1 for t in self.engine.trades if t.result == 'WIN')
+            winrate = wins / total_trades if total_trades > 0 else 0
+            
+            print(f"Iteration {iteration + 1}: {total_trades} trades, {winrate:.1%} winrate, PnL: ${self.engine.daily_pnl:.2f}")
+        
+        # Save learned probability table
+        self.engine.prob_table.save('probability_table.pkl')
+        print("\n[TRAINING] Complete. Probability table saved.")
+        
+        return self.engine.trades
+
+if __name__ == "__main__":
+    orchestrator = TrainingOrchestrator(
+        data_path="./data/nq_2025_full_year.parquet",
+        asset_ticker="NQ"
+    )
+    orchestrator.run_training(iterations=1000)
+
+BUILD CHECKLIST
+Phase 1: Core Architecture (2-3 hours)
+
+ Create file structure (projectx/layers/, projectx/learning/, etc.)
+ Implement state_engine.py (9-layer system)
+ Implement probability_engine.py (Bayesian learner)
+ Implement wave_rider.py (exit manager)
+ Implement engine_core.py (main loop)
+
+Phase 2: CUDA Optimization (1-2 hours)
+
+ Install CuPy: pip install cupy-cuda11x (match your CUDA version)
+ Implement cuda_backtest.py (parallel training)
+ Add CUDA kernels for L7/L8/L9 pattern detection
+ Test on synthetic data (verify GPU acceleration works)
+
+Phase 3: Integration (1 hour)
+
+ Implement orchestrator.py (training loop)
+ Add data ingestion (Parquet → DataFrame)
+ Add logging/monitoring
+ Create test suite
+
+Phase 4: Validation (Tomorrow)
+
+ Run on synthetic data (verify learning curve)
+ Download real NQ data (Databento)
+ Train 1000 iterations
+ Validate: Probability table achieves 80%+ on test set
+
+
+TESTING REQUIREMENTS
+Unit Tests:
+
+Layer state fingerprinting (same inputs = same hash)
+Probability updates (Bayesian math correct)
+Wave rider trail logic (stops tighten as profit grows)
+
+Integration Tests:
+
+Full pipeline on 1 session of synthetic data
+Verify: Trades fire, probability table updates, PnL tracked
+
+Performance Tests:
+
+1000 iterations should complete in <1 hour on GTX 3060
+Memory usage <8GB VRAM
+
+
+DELIVERABLES
+By Tomorrow Morning:
+
+projectx/ - Complete codebase (all components above)
+probability_table.pkl - Trained model (ready for live)
+test_results.txt - Validation metrics (winrate, Sharpe, max drawdown)
+README.md - How to run training + live execution
+
+Ready for Tuesday: System loads probability table, executes on MES/MNQ via manual entry (AI suggests, user clicks)
+
+END OF SPECIFICATION
+
+Copy everything above and paste into Gemini. Ask Gemini: "Build this system. Start with Phase 1, then Phase 2, then integrate. Test on synthetic data before I download real data."
