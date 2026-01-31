@@ -240,15 +240,10 @@ class LayerEngine:
         
         return self.confirmation_engine.confirm(bars, L7_pattern != 'none')
     
-    def _compute_L9_1s(self, ticks: Optional[np.ndarray]) -> bool:
+    def _compute_L9_1s(self, ticks) -> bool:
         """Layer 9: 1-sec velocity cascade detector"""
         if ticks is None or len(ticks) < 50:
             return False
         
-        # Convert to proper format for velocity gate
-        if isinstance(ticks, np.ndarray):
-            tick_data = ticks
-        else:
-            tick_data = np.array(ticks)
-
-        return self.velocity_gate.detect_cascade(tick_data)
+        # Pass directly to VelocityGate which handles DataFrame/Array/List
+        return self.velocity_gate.detect_cascade(ticks)
