@@ -3,12 +3,13 @@ ProjectX v2.0 - Phase 1 Integration Test
 Validates StateVector + BayesianBrain + LayerEngine work together
 """
 import sys
+import os
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 
 # Add parent directory to path
-sys.path.insert(0, '/home/claude/projectx_v2')
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from core.state_vector import StateVector
 from core.bayesian_brain import BayesianBrain, TradeOutcome
