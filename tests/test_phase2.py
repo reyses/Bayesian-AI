@@ -19,8 +19,8 @@ from config.symbols import MNQ
 
 def generate_synthetic_session():
     """Generate synthetic session data for testing"""
-    # 6 hours of 1-second ticks
-    n_ticks = 6 * 60 * 60
+    # 1000 ticks for faster testing
+    n_ticks = 1000
     dates = pd.date_range(start=datetime.now(), periods=n_ticks, freq='1s')
     
     # Random walk with trend

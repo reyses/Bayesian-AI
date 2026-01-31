@@ -5,6 +5,7 @@ File: projectx/engine_core.py
 from core.bayesian_brain import BayesianBrain, TradeOutcome
 from execution.wave_rider import WaveRider
 from core.layer_engine import LayerEngine
+from core.data_aggregator import DataAggregator
 import time
 
 class ProjectXEngine:
@@ -13,6 +14,7 @@ class ProjectXEngine:
         self.prob_table = BayesianBrain()
         self.wave_rider = WaveRider(asset)
         self.fluid_engine = LayerEngine(use_gpu=use_gpu)
+        self.aggregator = DataAggregator()
         self.daily_pnl = 0.0
         self.MAX_DAILY_LOSS = -200.0
         self.MIN_PROB = 0.80
@@ -25,8 +27,14 @@ class ProjectXEngine:
     def on_tick(self, tick_data: dict):
         if self.daily_pnl <= self.MAX_DAILY_LOSS: return
 
+        # Add tick to aggregator
+        self.aggregator.add_tick(tick_data)
+
+        # Get full data context for LayerEngine
+        current_data = self.aggregator.get_current_data()
+
         # Process State
-        current_state = self.fluid_engine.compute_current_state(tick_data)
+        current_state = self.fluid_engine.compute_current_state(current_data)
 
         # Exit Management
         if self.wave_rider.position:
@@ -45,7 +53,7 @@ class ProjectXEngine:
     def _close_position(self, price, info):
         pos = self.wave_rider.position
         outcome = TradeOutcome(
-            state=pos.entry_layer_state, # Fixed attribute name (was pos.entry_state)
+            state=pos.entry_layer_state,
             entry_price=pos.entry_price,
             exit_price=price,
             pnl=info['pnl'],

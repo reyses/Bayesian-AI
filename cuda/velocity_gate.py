@@ -3,6 +3,7 @@ ProjectX v2.0 - CUDA Velocity Gate (Layer 9)
 Numba-accelerated tick-level cascade detection: 10+ points in <0.5sec
 """
 import numpy as np
+import pandas as pd
 import time
 
 try:
@@ -79,8 +80,8 @@ class CUDAVelocityGate:
                 return False
             prices = tick_data.astype(np.float32)
             times = np.arange(len(prices), dtype=np.float32) * 0.01  # Assume 10ms between ticks
-        else:
-            # DataFrame
+        elif isinstance(tick_data, pd.DataFrame):
+            # DataFrame from DataAggregator
             if len(tick_data) < 50:
                 return False
             prices = tick_data['price'].values.astype(np.float32)
@@ -88,12 +89,20 @@ class CUDAVelocityGate:
             # Handle timestamp conversion
             if 'timestamp' in tick_data.columns:
                 timestamps = tick_data['timestamp'].values
-                if hasattr(timestamps[0], 'timestamp'):
+                # Check if it's datetime64
+                if pd.api.types.is_datetime64_any_dtype(timestamps):
+                    # Convert to float (seconds)
+                    times = timestamps.astype('int64') // 10**9 # ns to s
+                    times = times.astype(np.float32)
+                elif hasattr(timestamps[0], 'timestamp'): # List of objects?
                     times = np.array([t.timestamp() for t in timestamps], dtype=np.float32)
                 else:
+                    # Already float/int
                     times = timestamps.astype(np.float32)
             else:
                 times = np.arange(len(prices), dtype=np.float32) * 0.01
+        else:
+             return False # Unknown format
         
         if self.use_gpu and NUMBA_AVAILABLE:
             # GPU execution
