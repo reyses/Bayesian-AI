@@ -22,7 +22,7 @@ class CUDAPatternDetector:
         highs = bars['high'].values
         lows = bars['low'].values
 
-        if len(highs) >= 5:
+        if len(highs) >= 10:
             recent_range = highs[-5:].max() - lows[-5:].min()
             prev_range = highs[-10:-5].max() - lows[-10:-5].min()
 
