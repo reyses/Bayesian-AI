@@ -11,10 +11,20 @@ jobs:
           python-version: '3.10'
       - name: Dependencies
         run: pip install -r requirements.txt pytest
+      - name: Mock Data
+        run: |
+          mkdir -p DATA/RAW
+          python -c "import pandas as pd; df = pd.DataFrame({'timestamp': [1.0], 'price': [100.0], 'volume': [10], 'type': ['trade']}); df.to_parquet('DATA/RAW/ohlcv-1s.parquet'); df.to_parquet('DATA/RAW/trades.parquet')"
       - name: Run Integrity
         run: |
           export PYTHONPATH=$PYTHONPATH:.
           python manifest_integrity_check.py
+      - name: Run Topic Tests
+        run: |
+          export PYTHONPATH=$PYTHONPATH:.
+          python tests/topic_build.py
+          pytest tests/topic_math.py
+          python tests/topic_diagnostics.py
       - name: Run Math Audit
         run: |
           export PYTHONPATH=$PYTHONPATH:.

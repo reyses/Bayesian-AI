@@ -26,6 +26,14 @@ def check_file_existence(manifest_path):
     for layer, filepath in manifest.get('layers', {}).items():
         all_files.append(filepath)
 
+    # Collect config files
+    for conf, filepath in manifest.get('config', {}).items():
+        all_files.append(filepath)
+
+    # Collect resources
+    for res, filepath in manifest.get('resources', {}).items():
+        all_files.append(filepath)
+
     # Unique files
     all_files = list(set(all_files))
 

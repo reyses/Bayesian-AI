@@ -1,5 +1,11 @@
 {
   "project": "ProjectX v2.0",
+  "config": {
+    "settings": "config/settings.py"
+  },
+  "resources": {
+    "raw_data": "DATA/RAW"
+  },
   "pipeline": {
     "LOAD": [
       "training/databento_loader.py",
