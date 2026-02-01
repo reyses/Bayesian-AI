@@ -12,11 +12,18 @@ if __name__ == "__main__":
 
 from engine_core import ProjectXEngine
 from config.symbols import SYMBOL_MAP
+from training.databento_loader import DatabentoLoader
 
 class TrainingOrchestrator:
     """Runs 1000 iterations on historical data to build the Bayesian prior"""
     def __init__(self, asset_ticker: str, data_path: str = None, use_gpu: bool = True):
-        self.data = pd.read_parquet(data_path) if data_path else None
+        self.data = None
+        if data_path:
+            if data_path.endswith('.dbn'):
+                self.data = DatabentoLoader.load_data(data_path)
+            else:
+                self.data = pd.read_parquet(data_path)
+
         self.asset = SYMBOL_MAP[asset_ticker]
         self.engine = ProjectXEngine(self.asset, use_gpu=use_gpu)
         self.model_path = 'probability_table.pkl'
@@ -27,7 +34,10 @@ class TrainingOrchestrator:
 
     def load_historical_data(self, data_path: str):
         """Load data if not loaded in init (helper for tests)"""
-        self.data = pd.read_parquet(data_path)
+        if data_path.endswith('.dbn'):
+            self.data = DatabentoLoader.load_data(data_path)
+        else:
+            self.data = pd.read_parquet(data_path)
         self.raw_data = self.data
 
     def run_training(self, iterations=1000):
