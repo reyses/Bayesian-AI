@@ -11,7 +11,7 @@ def run_test():
     print("=======================================")
 
     # Load Manifest
-    manifest_path = 'workflow_manifest.json'
+    manifest_path = 'config/workflow_manifest.json'
     if not os.path.exists(manifest_path):
         print(f"FAIL: {manifest_path} not found")
         sys.exit(1)

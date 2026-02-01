@@ -30,7 +30,7 @@ jobs:
       run: python tests/test_full_system.py
 
     - name: Build Executable
-      run: python build_executable.py
+      run: python scripts/build_executable.py
 
     - name: Archive Executable
       uses: actions/upload-artifact@v4

@@ -9,7 +9,7 @@ def run_verification():
     try:
         # Import the verification function directly to avoid subprocess issues if possible
         # but subprocess is safer to ensure clean state or separation
-        result = subprocess.run([sys.executable, "verify_environment.py"], capture_output=False)
+        result = subprocess.run([sys.executable, "scripts/verify_environment.py"], capture_output=False)
         if result.returncode != 0:
             print("Verification failed. Aborting build.")
             sys.exit(1)
