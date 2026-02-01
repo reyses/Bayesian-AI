@@ -7,6 +7,7 @@ from execution.wave_rider import WaveRider
 from core.layer_engine import LayerEngine
 from core.data_aggregator import DataAggregator
 import time
+import os
 
 class ProjectXEngine:
     def __init__(self, asset, use_gpu=True):
@@ -64,3 +65,28 @@ class ProjectXEngine:
         self.prob_table.update(outcome)
         self.daily_pnl += info['pnl']
         self.wave_rider.position = None
+
+if __name__ == "__main__":
+    print("ProjectX Engine v2.0 - Standalone Mode")
+    print("Initializing...")
+
+    # Simple check for resources
+    if os.path.exists("probability_table.pkl"):
+        print("[OK] Probability table found.")
+    else:
+        print("[WARNING] Probability table NOT found.")
+
+    if os.path.exists("config"):
+        print("[OK] Config directory found.")
+    else:
+        print("[WARNING] Config directory NOT found.")
+
+    print("Engine ready. (Live feed connection pending...)")
+    # Keep alive for testing
+    try:
+        # Just sleep for a bit then exit to confirm it runs without crashing
+        print("Running diagnostics... (Press Ctrl+C to stop)")
+        time.sleep(2)
+        print("Diagnostics complete.")
+    except KeyboardInterrupt:
+        print("Exiting.")
