@@ -10,7 +10,7 @@ jobs:
         with:
           python-version: '3.10'
       - name: Install Dependencies
-        run: pip install "numpy<2.0" numba pytest
+        run: pip install "numpy<2.0" numba pytest pandas
       - name: Topic 1 - Executable Build
         run: python tests/topic_build.py
       - name: Topic 2 - Math and Logic
