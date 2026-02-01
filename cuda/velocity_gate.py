@@ -1,5 +1,5 @@
 """
-Bayesian AI v2.0 - CUDA Velocity Gate (Layer 9)
+Algorithm V2 - CUDA Velocity Gate (Layer 9)
 Numba-accelerated tick-level cascade detection: 10+ points in <0.5sec
 """
 import numpy as np
