@@ -1,9 +1,9 @@
-# Changelog - Algorithm V2
+# Changelog - Bayesian-AI
 
 ## [V2.0.0] - Unified System Realignment
 
 ### Refactoring & Architecture
-- **Global Rename**: Rebranded all modules from legacy "Sniper" nomenclature to "Algorithm V2".
+- **Global Rename**: Rebranded all modules from legacy "Sniper" nomenclature to "Bayesian-AI".
 - **Functional Naming**: Standardized file naming convention (e.g., `velocity_gate.py`, `bayesian_brain.py`).
 - **Pipeline Definition**: Formalized **LOAD -> TRANSFORM -> ANALYZE -> VISUALIZE** workflow.
 

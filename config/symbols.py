@@ -1,5 +1,5 @@
 """
-Algorithm V2 - Asset Profiles
+Bayesian-AI - Asset Profiles
 Futures contract specifications for risk calculations
 """
 from dataclasses import dataclass

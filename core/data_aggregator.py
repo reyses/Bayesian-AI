@@ -1,5 +1,5 @@
 """
-Algorithm V2 - Data Aggregator
+Bayesian-AI - Data Aggregator
 Manages real-time tick buffer and bar generation
 """
 import pandas as pd

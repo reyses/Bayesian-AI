@@ -1,5 +1,5 @@
 """
-Algorithm V2 - Wave Rider Exit System
+Bayesian-AI - Wave Rider Exit System
 File: bayesian_ai/execution/wave_rider.py
 """
 import time

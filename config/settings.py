@@ -1,5 +1,5 @@
 """
-Algorithm V2 - System State Control
+Bayesian-AI - System State Control
 """
 
 # Operational Mode: "LEARNING" or "EXECUTE"

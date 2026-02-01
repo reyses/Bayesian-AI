@@ -1,5 +1,5 @@
 """
-Algorithm V2 - Main Execution Engine
+Bayesian-AI - Main Execution Engine
 File: bayesian_ai/engine_core.py
 """
 from core.bayesian_brain import BayesianBrain, TradeOutcome

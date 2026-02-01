@@ -1,4 +1,4 @@
-name: Algorithm V2 - Consolidated Audit
+name: Bayesian-AI - Consolidated Audit
 on: [push, pull_request]
 jobs:
   unified_tests:
@@ -15,9 +15,9 @@ jobs:
         run: |
           mkdir -p DATA/RAW
           python -c "import pandas as pd; pd.DataFrame({'timestamp': [0], 'price': [0.0], 'volume': [0], 'type': ['T']}).to_parquet('DATA/RAW/trades.parquet'); pd.DataFrame({'timestamp': [0]}).to_parquet('DATA/RAW/ohlcv-1s.parquet')"
-      - name: Topic 1 - Executable Build
+      - name: Integrity Test
         run: python tests/topic_build.py
-      - name: Topic 2 - Math and Logic
+      - name: Math & Logic Test
         run: pytest tests/topic_math.py
-      - name: Topic 3 - Diagnostics
+      - name: Diagnostics Test
         run: python tests/topic_diagnostics.py

@@ -1,5 +1,5 @@
 """
-Algorithm V2 - Pattern Detector
+Bayesian-AI - Pattern Detector
 CUDA-accelerated pattern recognition (L7)
 """
 import pandas as pd
