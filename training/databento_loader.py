@@ -1,5 +1,5 @@
 """
-Algorithm V2 - Databento Loader
+Bayesian-AI - Databento Loader
 Loads and normalizes Databento DBN files
 """
 import pandas as pd

@@ -1,4 +1,4 @@
-# Algorithm V2 - System Logic
+# Bayesian-AI - System Logic
 
 ## Pipeline Overview
 

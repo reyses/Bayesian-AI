@@ -7,7 +7,7 @@ import importlib
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 def run_test():
-    print("Algorithm V2 - Topic Build Verification")
+    print("Bayesian-AI - Integrity Test")
     print("=======================================")
 
     # Load Manifest
@@ -20,8 +20,8 @@ def run_test():
         manifest = json.load(f)
 
     print(f"Project: {manifest.get('project')}")
-    if manifest.get('project') != "Algorithm V2":
-         print(f"FAIL: Project name mismatch. Expected 'Algorithm V2', got '{manifest.get('project')}'")
+    if manifest.get('project') != "Bayesian-AI":
+         print(f"FAIL: Project name mismatch. Expected 'Bayesian-AI', got '{manifest.get('project')}'")
          sys.exit(1)
 
     # Collect files
