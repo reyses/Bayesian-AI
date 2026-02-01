@@ -33,13 +33,13 @@ def run_test():
             files_to_check.add(fpath)
             # Convert path to module format (e.g., core/state_vector.py -> core.state_vector)
             if fpath.endswith('.py'):
-                module_name = fpath.replace('/', '.').replace('.py', '')
+                module_name = fpath[:-3].replace('/', '.')
                 modules_to_check.add(module_name)
 
     for layer, fpath in manifest.get('layers', {}).items():
         files_to_check.add(fpath)
         if fpath.endswith('.py'):
-             module_name = fpath.replace('/', '.').replace('.py', '')
+             module_name = fpath[:-3].replace('/', '.')
              modules_to_check.add(module_name)
 
     # Verify Files
