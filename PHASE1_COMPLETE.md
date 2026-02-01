@@ -1,4 +1,4 @@
-# ProjectX v2.0 - Phase 1 COMPLETE ✓
+# Bayesian AI v2.0 - Phase 1 COMPLETE ✓
 
 ## Deliverables
 
@@ -135,7 +135,7 @@
 ## File Structure Created:
 
 ```
-/home/claude/projectx_v2/
+/home/claude/bayesian_ai_v2/
 ├── core/
 │   ├── __init__.py
 │   ├── state_vector.py       ✓ COMPLETE
@@ -149,7 +149,7 @@
 
 ### Next Files Needed (Phase 2):
 ```
-projectx_v2/
+bayesian_ai_v2/
 ├── cuda/
 │   ├── pattern_detector.py  ← L7 CUDA kernel
 │   ├── confirmation.py       ← L8 CUDA kernel

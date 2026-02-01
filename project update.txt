@@ -1,4 +1,4 @@
-ProjectX v2.0 - 9-Layer Algorithmic Trading System
+Bayesian AI v2.0 - 9-Layer Algorithmic Trading System
 Build Specification for Gemini
 EXECUTIVE SUMMARY
 Build a CUDA-accelerated futures trading system that mimics human pattern recognition across 9 temporal layers (90-day to 1-second resolution). System uses Bayesian learning to build probability fingerprints from historical outcomes, fires trades only when edge >80%, and rides volatility waves using multi-timeframe structure breaks for exits.
@@ -63,7 +63,7 @@ Output: FIRE command
 
 CORE COMPONENTS TO BUILD
 Component 1: Layer State Engine
-File: projectx/layers/state_engine.py
+File: bayesian_ai/layers/state_engine.py
 pythonfrom dataclasses import dataclass
 import pandas as pd
 import numpy as np
@@ -146,7 +146,7 @@ class FluidContextEngine:
         pass
 
 Component 2: Probability Engine
-File: projectx/learning/probability_engine.py
+File: bayesian_ai/learning/probability_engine.py
 pythonimport pickle
 from collections import defaultdict
 from dataclasses import dataclass
@@ -209,7 +209,7 @@ class BayesianProbabilityTable:
             self.table = defaultdict(lambda: {'wins': 0, 'losses': 0, 'total': 0}, pickle.load(f))
 
 Component 3: CUDA Backtesting Engine
-File: projectx/training/cuda_backtest.py
+File: bayesian_ai/training/cuda_backtest.py
 pythonimport numpy as np
 import cupy as cp  # GPU arrays
 from numba import cuda
@@ -289,7 +289,7 @@ class CUDABacktester:
         return winrates
 
 Component 4: Wave Rider Exit System
-File: projectx/execution/wave_rider.py
+File: bayesian_ai/execution/wave_rider.py
 pythonfrom dataclasses import dataclass
 import numpy as np
 
@@ -389,14 +389,14 @@ class WaveRider:
         return False
 
 Component 5: Main Execution Engine
-File: projectx/engine_core.py
-pythonfrom projectx.layers.state_engine import StaticContextBuilder, FluidContextEngine, LayerState
-from projectx.learning.probability_engine import BayesianProbabilityTable, TradeOutcome
-from projectx.execution.wave_rider import WaveRider
-from projectx.config.symbols import AssetProfile
+File: bayesian_ai/engine_core.py
+pythonfrom bayesian_ai.layers.state_engine import StaticContextBuilder, FluidContextEngine, LayerState
+from bayesian_ai.learning.probability_engine import BayesianProbabilityTable, TradeOutcome
+from bayesian_ai.execution.wave_rider import WaveRider
+from bayesian_ai.config.symbols import AssetProfile
 import time
 
-class ProjectXEngine:
+class BayesianEngine:
     """Main trading engine"""
     def __init__(self, asset: AssetProfile):
         self.asset = asset
@@ -511,17 +511,17 @@ class ProjectXEngine:
         self.wave_rider.position = None
 
 Component 6: Training Orchestrator
-File: projectx/training/orchestrator.py
+File: bayesian_ai/training/orchestrator.py
 pythonimport pandas as pd
-from projectx.engine_core import ProjectXEngine
-from projectx.config.symbols import SYMBOL_MAP
+from bayesian_ai.engine_core import BayesianEngine
+from bayesian_ai.config.symbols import SYMBOL_MAP
 
 class TrainingOrchestrator:
     """Runs 1000 iterations on historical data"""
     def __init__(self, data_path: str, asset_ticker: str):
         self.data = pd.read_parquet(data_path)
         self.asset = SYMBOL_MAP[asset_ticker]
-        self.engine = ProjectXEngine(self.asset)
+        self.engine = BayesianEngine(self.asset)
     
     def run_training(self, iterations=1000):
         """Brute force train on all data"""
@@ -579,7 +579,7 @@ if __name__ == "__main__":
 BUILD CHECKLIST
 Phase 1: Core Architecture (2-3 hours)
 
- Create file structure (projectx/layers/, projectx/learning/, etc.)
+ Create file structure (bayesian_ai/layers/, bayesian_ai/learning/, etc.)
  Implement state_engine.py (9-layer system)
  Implement probability_engine.py (Bayesian learner)
  Implement wave_rider.py (exit manager)
@@ -628,7 +628,7 @@ Memory usage <8GB VRAM
 DELIVERABLES
 By Tomorrow Morning:
 
-projectx/ - Complete codebase (all components above)
+bayesian_ai/ - Complete codebase (all components above)
 probability_table.pkl - Trained model (ready for live)
 test_results.txt - Validation metrics (winrate, Sharpe, max drawdown)
 README.md - How to run training + live execution

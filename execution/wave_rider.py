@@ -1,6 +1,6 @@
 """
-ProjectX v2.0 - Wave Rider Exit System
-File: projectx/execution/wave_rider.py
+Bayesian AI v2.0 - Wave Rider Exit System
+File: bayesian_ai/execution/wave_rider.py
 """
 import time
 from dataclasses import dataclass
