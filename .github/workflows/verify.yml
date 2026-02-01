@@ -12,6 +12,10 @@ jobs:
       - name: Dependencies
         run: pip install -r requirements.txt pytest
       - name: Run Integrity
-        run: python manifest_integrity_check.py
+        run: |
+          export PYTHONPATH=$PYTHONPATH:.
+          python manifest_integrity_check.py
       - name: Run Math Audit
-        run: pytest tests/math_verify.py
+        run: |
+          export PYTHONPATH=$PYTHONPATH:.
+          pytest tests/math_verify.py
