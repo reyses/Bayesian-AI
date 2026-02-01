@@ -72,6 +72,17 @@ def run_test():
     else:
         print(f"PASS: All {len(modules_to_check)} modules imported successfully.")
 
+    # Verify OPERATIONAL_MODE
+    try:
+        from config.settings import OPERATIONAL_MODE
+        print(f"PASS: OPERATIONAL_MODE accessible (Value: {OPERATIONAL_MODE})")
+    except ImportError:
+        print("FAIL: Could not import OPERATIONAL_MODE from config.settings")
+        sys.exit(1)
+    except Exception as e:
+        print(f"FAIL: Error accessing OPERATIONAL_MODE: {e}")
+        sys.exit(1)
+
     print("BUILD INTEGRITY CHECK PASSED")
     sys.exit(0)
 

@@ -1,5 +1,11 @@
 {
   "project": "Algorithm V2",
+  "config": [
+    "config/settings.py"
+  ],
+  "resources": [
+    "DATA/RAW"
+  ],
   "pipeline": {
     "LOAD": [
       "training/databento_loader.py",

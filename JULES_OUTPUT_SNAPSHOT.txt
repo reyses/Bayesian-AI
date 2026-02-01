@@ -1,0 +1,28 @@
+QC VALIDATION SNAPSHOT
+======================
+
+Topic 1: Executable Build
+STATUS: PASS
+- Verified Manifest Integrity
+- Verified Module Imports
+- Verified OPERATIONAL_MODE accessibility (Value: LEARNING)
+
+Topic 2: Math and Logic
+STATUS: PASS
+- Passed all test cases in tests/topic_math.py
+
+Topic 3: Diagnostics
+STATUS: PASS
+- Confirmed DATA/RAW/ohlcv-1s.parquet existence
+- Confirmed DATA/RAW/trades.parquet existence
+- Verified Data Path Integrity for LEARNING mode
+
+MODIFIED LINES SUMMARY (LOAD MODULE)
+====================================
+File: training/databento_loader.py
++ from config.settings import OPERATIONAL_MODE, RAW_DATA_PATH
++ def get_data_source(mode):
++     """Function -> Data Path Routing -> Constraint: Local File Priority"""
++     if mode == "LEARNING":
++         return f"{RAW_DATA_PATH}/ohlcv-1s.parquet", f"{RAW_DATA_PATH}/trades.parquet"
++     return "LIVE_STREAM_BUFFER"

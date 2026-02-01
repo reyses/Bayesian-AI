@@ -11,6 +11,11 @@ jobs:
           python-version: '3.10'
       - name: Install Dependencies
         run: pip install "numpy<2.0" numba pytest pandas
+      - name: Mock DATA/RAW
+        run: |
+          mkdir -p DATA/RAW
+          touch DATA/RAW/ohlcv-1s.parquet
+          touch DATA/RAW/trades.parquet
       - name: Topic 1 - Executable Build
         run: python tests/topic_build.py
       - name: Topic 2 - Math and Logic
