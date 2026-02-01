@@ -1,5 +1,5 @@
 """
-Bayesian AI v2.0 - Bayesian Probability Engine
+Algorithm V2 - Bayesian Probability Engine
 HashMap-based learning system: StateVector -> WinRate
 """
 import pickle
