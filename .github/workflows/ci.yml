@@ -33,7 +33,7 @@ jobs:
       run: python build_executable.py
 
     - name: Archive Executable
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: Bayesian_AI_Engine
         path: dist/Bayesian_AI_Engine
