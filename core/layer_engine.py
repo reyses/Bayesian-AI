@@ -1,5 +1,5 @@
 """
-Algorithm V2 - Layer Computation Engine (CUDA-Enhanced)
+Bayesian-AI - Layer Computation Engine (CUDA-Enhanced)
 Extracts 9-layer state from raw tick/OHLC data with GPU acceleration
 """
 import pandas as pd

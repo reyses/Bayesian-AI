@@ -1,4 +1,4 @@
-name: CI
+name: Bayesian-AI CI
 
 on:
   push:
@@ -23,10 +23,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Run Phase 1 Tests
+    - name: Phase 1 Test
       run: python tests/test_phase1.py
 
-    - name: Run Full System Tests
+    - name: Full System Test
       run: python tests/test_full_system.py
 
     - name: Build Executable

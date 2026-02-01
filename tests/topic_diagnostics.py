@@ -7,7 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from numba import cuda
 
 def run_diagnostics():
-    print("Algorithm V2 - Topic Diagnostics")
+    print("Bayesian-AI - Diagnostics Test")
     print("================================")
 
     is_available = cuda.is_available()

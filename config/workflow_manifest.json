@@ -1,5 +1,5 @@
 {
-  "project": "Algorithm V2",
+  "project": "Bayesian-AI",
   "pipeline": {
     "LOAD": [
       "config/settings.py",

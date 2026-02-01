@@ -1,6 +1,6 @@
 # Agent Instructions
 
-This repository contains "Algorithm V2", an algorithmic trading system.
+This repository contains "Bayesian-AI", an algorithmic trading system.
 
 ## Workflow
 

@@ -1,5 +1,5 @@
 """
-Algorithm V2 - Confirmation Engine
+Bayesian-AI - Confirmation Engine
 CUDA-accelerated trade confirmation (L8)
 """
 import pandas as pd
