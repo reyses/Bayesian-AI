@@ -1,16 +1,19 @@
+================================================================================
+INTEGRITY CHECK LOG
+================================================================================
 [INTEGRITY] Starting Integrity Check...
 [INTEGRITY] Checking file existence from manifest...
-[INTEGRITY] OK: Found training/databento_loader.py
-[INTEGRITY] OK: Found engine_core.py
-[INTEGRITY] OK: Found cuda/velocity_gate.py
 [INTEGRITY] OK: Found core/layer_engine.py
-[INTEGRITY] OK: Found training/orchestrator.py
-[INTEGRITY] OK: Found core/data_aggregator.py
-[INTEGRITY] OK: Found execution/wave_rider.py
-[INTEGRITY] OK: Found cuda/confirmation.py
 [INTEGRITY] OK: Found core/state_vector.py
-[INTEGRITY] OK: Found cuda/pattern_detector.py
 [INTEGRITY] OK: Found core/bayesian_brain.py
+[INTEGRITY] OK: Found execution/wave_rider.py
+[INTEGRITY] OK: Found engine_core.py
+[INTEGRITY] OK: Found training/databento_loader.py
+[INTEGRITY] OK: Found cuda/velocity_gate.py
+[INTEGRITY] OK: Found cuda/pattern_detector.py
+[INTEGRITY] OK: Found cuda/confirmation.py
+[INTEGRITY] OK: Found core/data_aggregator.py
+[INTEGRITY] OK: Found training/orchestrator.py
 [INTEGRITY] Verifying imports...
 [INTEGRITY] OK: Imported core.bayesian_brain
 [INTEGRITY] OK: Imported core.state_vector
@@ -33,6 +36,22 @@
 [INTEGRITY] Verifying DatabentoLoader...
 [INTEGRITY] OK: DatabentoLoader class and method found.
 [INTEGRITY] Integrity Check COMPLETE: ALL PASS
+
+================================================================================
+MATH VERIFICATION LOG
+================================================================================
+============================= test session starts ==============================
+platform linux -- Python 3.12.12, pytest-9.0.2, pluggy-1.6.0
+rootdir: /app
+collected 2 items
+
+tests/math_verify.py ..                                                  [100%]
+
+============================== 2 passed in 0.02s ===============================
+
+================================================================================
+FINAL MANIFEST (workflow_manifest.json)
+================================================================================
 {
   "project": "ProjectX v2.0",
   "pipeline": {
