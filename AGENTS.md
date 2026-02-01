@@ -11,7 +11,7 @@ The workflow performs the following steps:
 2.  **Runs Tests**:
     *   `tests/test_phase1.py`: Validates core components (StateVector, BayesianBrain, LayerEngine).
     *   `tests/test_full_system.py`: Validates full system integration.
-3.  **Builds Executable**: Runs `build_executable.py` to package the application using PyInstaller.
+3.  **Builds Executable**: Runs `scripts/build_executable.py` to package the application using PyInstaller.
 
 ## Local Development
 
@@ -30,7 +30,7 @@ To run the workflow locally, ensure you have Python 3.10+ installed.
 
 3.  **Build Executable**:
     ```bash
-    python build_executable.py
+    python scripts/build_executable.py
     ```
     The output will be in `dist/Bayesian_AI_Engine/`.
 
