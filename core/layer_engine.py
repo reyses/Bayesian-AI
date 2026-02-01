@@ -7,15 +7,9 @@ import numpy as np
 from core.state_vector import StateVector
 from typing import Dict, List, Optional
 
-# Import CUDA modules (fallback to CPU if not available)
-try:
-    from cuda.pattern_detector import get_pattern_detector
-    from cuda.confirmation import get_confirmation_engine
-    from cuda.velocity_gate import get_velocity_gate
-    CUDA_AVAILABLE = True
-except ImportError:
-    CUDA_AVAILABLE = False
-    print("[LAYER ENGINE] CUDA modules not available, using CPU fallback")
+from cuda.pattern_detector import get_pattern_detector
+from cuda.confirmation import get_confirmation_engine
+from cuda.velocity_gate import get_velocity_gate
 
 class LayerEngine:
     """
@@ -35,12 +29,17 @@ class LayerEngine:
         # User-provided kill zones
         self.kill_zones = []
         
-        # CUDA engines
-        self.use_gpu = use_gpu and CUDA_AVAILABLE
+        # Initialize helpers
+        self.pattern_detector = get_pattern_detector(use_gpu=use_gpu)
+        self.confirmation_engine = get_confirmation_engine(use_gpu=use_gpu)
+        self.velocity_gate = get_velocity_gate(use_gpu=use_gpu)
+
+        # Check effective GPU usage (if any component uses GPU)
+        self.use_gpu = (self.pattern_detector.use_gpu or
+                        self.confirmation_engine.use_gpu or
+                        self.velocity_gate.use_gpu)
+
         if self.use_gpu:
-            self.pattern_detector = get_pattern_detector(use_gpu=True)
-            self.confirmation_engine = get_confirmation_engine(use_gpu=True)
-            self.velocity_gate = get_velocity_gate(use_gpu=True)
             print("[LAYER ENGINE] CUDA acceleration ENABLED")
         else:
             print("[LAYER ENGINE] CUDA acceleration DISABLED (CPU mode)")
@@ -63,7 +62,7 @@ class LayerEngine:
             'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'
         }).dropna()
         
-        self.monthly_data = historical_data.resample('1ME').agg({  # Updated from '1M'
+        self.monthly_data = historical_data.resample('1ME').agg({
             'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'
         }).dropna()
         
@@ -130,7 +129,7 @@ class LayerEngine:
     
     def _compute_L4_daily(self) -> str:
         """Layer 4: Daily zone (at support/resistance/killzone/mid)"""
-        return 'mid_range'  # Default, updated in compute_current_state
+        return 'mid_range'
     
     def _check_kill_zone(self, price: float, tolerance: float = 5.0) -> bool:
         """Check if price is within tolerance of any kill zone"""
@@ -142,7 +141,6 @@ class LayerEngine:
     def compute_current_state(self, current_data: Dict) -> StateVector:
         """
         Compute full 9-layer state from current market snapshot
-        Uses CUDA acceleration for L7-L9
         """
         if self.static_context is None:
             raise ValueError("Must call initialize_static_context() first")
@@ -173,14 +171,14 @@ class LayerEngine:
         # L6: 1-hour structure
         L6_structure = self._compute_L6_1hr(current_data.get('bars_1hr'))
         
-        # L7: 15-min pattern (CUDA-accelerated)
-        L7_pattern, L7_maturity = self._compute_L7_15m_CUDA(current_data.get('bars_15m'))
+        # L7: 15-min pattern
+        L7_pattern, L7_maturity = self._compute_L7_15m(current_data.get('bars_15m'))
         
-        # L8: 5-min confirmation (CUDA-accelerated)
-        L8_confirm = self._compute_L8_5m_CUDA(current_data.get('bars_5m'), L7_pattern)
+        # L8: 5-min confirmation
+        L8_confirm = self._compute_L8_5m(current_data.get('bars_5m'), L7_pattern)
         
-        # L9: 1-sec velocity cascade (CUDA-accelerated)
-        L9_cascade = self._compute_L9_1s_CUDA(current_data.get('ticks'))
+        # L9: 1-sec velocity cascade
+        L9_cascade = self._compute_L9_1s(current_data.get('ticks'))
         
         return StateVector(
             L1_bias=L1_bias,
@@ -225,82 +223,27 @@ class LayerEngine:
         else:
             return 'neutral'
     
-    def _compute_L7_15m_CUDA(self, bars: Optional[pd.DataFrame]) -> tuple:
-        """Layer 7: 15-min pattern detection (CUDA)"""
+    def _compute_L7_15m(self, bars: Optional[pd.DataFrame]) -> tuple:
+        """Layer 7: 15-min pattern detection"""
         if bars is None or len(bars) < 10:
             return ('none', 0.0)
         
-        if self.use_gpu:
-            pattern_name, maturity = self.pattern_detector.detect(bars, window_size=20)
-            return (pattern_name, maturity)
-        else:
-            # CPU fallback
-            return self._compute_L7_15m_CPU(bars)
+        return self.pattern_detector.detect(bars, window_size=20)
     
-    def _compute_L7_15m_CPU(self, bars: pd.DataFrame) -> tuple:
-        """CPU fallback for L7"""
-        highs = bars['high'].values
-        lows = bars['low'].values
-        
-        if len(highs) >= 5:
-            recent_range = highs[-5:].max() - lows[-5:].min()
-            prev_range = highs[-10:-5].max() - lows[-10:-5].min()
-            
-            if prev_range > 0 and recent_range < prev_range * 0.7:
-                return ('compression', 0.85)
-        
-        if lows[-1] > lows[-5] and highs[-1] < highs[-5]:
-            return ('wedge', 0.75)
-        
-        if lows[-1] < lows[-5:].min():
-            return ('breakdown', 0.90)
-        
-        return ('none', 0.0)
-    
-    def _compute_L8_5m_CUDA(self, bars: Optional[pd.DataFrame], L7_pattern: str) -> bool:
-        """Layer 8: 5-min confirmation (CUDA)"""
+    def _compute_L8_5m(self, bars: Optional[pd.DataFrame], L7_pattern: str) -> bool:
+        """Layer 8: 5-min confirmation"""
         if bars is None or len(bars) < 3:
             return False
         
         if L7_pattern == 'none':
             return False
         
-        if self.use_gpu:
-            return self.confirmation_engine.confirm(bars, L7_pattern != 'none')
-        else:
-            # CPU fallback
-            return self._compute_L8_5m_CPU(bars, L7_pattern)
+        return self.confirmation_engine.confirm(bars, L7_pattern != 'none')
     
-    def _compute_L8_5m_CPU(self, bars: pd.DataFrame, L7_pattern: str) -> bool:
-        """CPU fallback for L8"""
-        if L7_pattern == 'none':
-            return False
-        
-        volumes = bars['volume'].values
-        if volumes[-1] > volumes[-3:].mean() * 1.2:
-            return True
-        
-        return False
-    
-    def _compute_L9_1s_CUDA(self, ticks: Optional[np.ndarray]) -> bool:
-        """Layer 9: 1-sec velocity cascade detector (CUDA)"""
+    def _compute_L9_1s(self, ticks) -> bool:
+        """Layer 9: 1-sec velocity cascade detector"""
         if ticks is None or len(ticks) < 50:
             return False
         
-        if self.use_gpu:
-            # Convert to proper format for velocity gate
-            if isinstance(ticks, np.ndarray):
-                tick_data = ticks
-            else:
-                tick_data = np.array(ticks)
-            
-            return self.velocity_gate.detect_cascade(tick_data)
-        else:
-            # CPU fallback
-            return self._compute_L9_1s_CPU(ticks)
-    
-    def _compute_L9_1s_CPU(self, ticks: np.ndarray) -> bool:
-        """CPU fallback for L9"""
-        recent_ticks = ticks[-50:]
-        price_move = abs(recent_ticks[-1] - recent_ticks[0])
-        return price_move >= 10.0
+        # Pass directly to VelocityGate which handles DataFrame/Array/List
+        return self.velocity_gate.detect_cascade(ticks)

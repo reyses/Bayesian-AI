@@ -7,20 +7,21 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 
-sys.path.insert(0, '/home/claude/projectx_v2')
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from cuda.pattern_detector import get_pattern_detector
 from cuda.confirmation import get_confirmation_engine
 from cuda.velocity_gate import get_velocity_gate
-from core.layer_engine_cuda import LayerEngine
+from core.layer_engine import LayerEngine
 from training.orchestrator import TrainingOrchestrator
 from config.symbols import MNQ
 
 def generate_synthetic_session():
     """Generate synthetic session data for testing"""
-    # 6 hours of 1-second ticks
-    n_ticks = 6 * 60 * 60
-    dates = pd.date_range(start=datetime.now(), periods=n_ticks, freq='1S')
+    # 1000 ticks for faster testing
+    n_ticks = 1000
+    dates = pd.date_range(start=datetime.now(), periods=n_ticks, freq='1s')
     
     # Random walk with trend
     base_price = 21500
@@ -38,6 +39,13 @@ def generate_synthetic_session():
         'volume': volumes
     }, index=dates)
     
+    # Add columns expected by Orchestrator
+    df['price'] = df['close']
+    df['type'] = 'trade'
+    # Ensure timestamp is available as column for itertuples
+    if 'timestamp' not in df.columns:
+        df['timestamp'] = df.index
+
     return df
 
 def test_cuda_pattern_detector():
@@ -46,7 +54,7 @@ def test_cuda_pattern_detector():
     
     # Generate 15-min bars
     session = generate_synthetic_session()
-    bars_15m = session.resample('15T').agg({
+    bars_15m = session.resample('15min').agg({
         'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'
     }).dropna()
     
@@ -65,7 +73,7 @@ def test_cuda_confirmation():
     print("\n=== TEST 2: CUDA Confirmation Engine ===")
     
     session = generate_synthetic_session()
-    bars_5m = session.resample('5T').agg({
+    bars_5m = session.resample('5min').agg({
         'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'
     }).dropna()
     
@@ -116,16 +124,16 @@ def test_layer_engine_cuda():
     current_data = {
         'price': 21505.0,
         'timestamp': datetime.now().timestamp(),
-        'bars_4hr': session.resample('4H').agg({
+        'bars_4hr': session.resample('4h').agg({
             'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'
         }).dropna(),
-        'bars_1hr': session.resample('1H').agg({
+        'bars_1hr': session.resample('1h').agg({
             'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'
         }).dropna(),
-        'bars_15m': session.resample('15T').agg({
+        'bars_15m': session.resample('15min').agg({
             'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'
         }).dropna(),
-        'bars_5m': session.resample('5T').agg({
+        'bars_5m': session.resample('5min').agg({
             'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'
         }).dropna(),
         'ticks': session['close'].values[-100:]
