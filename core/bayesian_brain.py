@@ -1,5 +1,5 @@
 """
-ProjectX v2.0 - Bayesian Probability Engine
+Bayesian AI v2.0 - Bayesian Probability Engine
 HashMap-based learning system: StateVector -> WinRate
 """
 import pickle

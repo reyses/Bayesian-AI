@@ -1,5 +1,5 @@
 """
-ProjectX v2.0 - Phase 2 CUDA Validation
+Bayesian AI v2.0 - Phase 2 CUDA Validation
 Tests CUDA kernels and training orchestrator
 """
 import sys
@@ -182,7 +182,7 @@ def test_training_orchestrator():
     print("✓ Training orchestrator working")
 
 if __name__ == "__main__":
-    print("ProjectX v2.0 - Phase 2 CUDA Validation")
+    print("Bayesian AI v2.0 - Phase 2 CUDA Validation")
     print("=" * 60)
     
     try:
