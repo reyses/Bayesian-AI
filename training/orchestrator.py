@@ -1,6 +1,6 @@
 """
-ProjectX v2.0 - Training Orchestrator
-File: projectx/training/orchestrator.py
+Bayesian AI v2.0 - Training Orchestrator
+File: bayesian_ai/training/orchestrator.py
 """
 import pandas as pd
 import os
@@ -10,7 +10,7 @@ import sys
 if __name__ == "__main__":
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from engine_core import ProjectXEngine
+from engine_core import BayesianEngine
 from config.symbols import SYMBOL_MAP
 from training.databento_loader import DatabentoLoader
 
@@ -25,7 +25,7 @@ class TrainingOrchestrator:
                 self.data = pd.read_parquet(data_path)
 
         self.asset = SYMBOL_MAP[asset_ticker]
-        self.engine = ProjectXEngine(self.asset, use_gpu=use_gpu)
+        self.engine = BayesianEngine(self.asset, use_gpu=use_gpu)
         self.model_path = 'probability_table.pkl'
 
         # Helper variables for test introspection

@@ -1,6 +1,6 @@
 """
-ProjectX v2.0 - CUDA Backtesting Engine
-File: projectx/training/cuda_backtest.py
+Bayesian AI v2.0 - CUDA Backtesting Engine
+File: bayesian_ai/training/cuda_backtest.py
 """
 import numpy as np
 

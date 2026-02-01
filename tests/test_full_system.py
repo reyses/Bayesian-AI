@@ -1,6 +1,6 @@
 """
-ProjectX v2.0 - Phase 4 Validation Script
-File: projectx/test_full_system.py
+Bayesian AI v2.0 - Phase 4 Validation Script
+File: bayesian_ai/test_full_system.py
 """
 import sys
 import os
@@ -10,13 +10,13 @@ from unittest.mock import MagicMock
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from engine_core import ProjectXEngine
+from engine_core import BayesianEngine
 from config.symbols import MNQ
 from core.state_vector import StateVector
 
 def run_validation():
-    print("=== PROJECTX V2.0 VALIDATION ===")
-    engine = ProjectXEngine(MNQ)
+    print("=== BAYESIAN AI V2.0 VALIDATION ===")
+    engine = BayesianEngine(MNQ)
 
     # Initialize session with dummy data
     dates = pd.date_range(end=pd.Timestamp.now(), periods=100, freq='D')

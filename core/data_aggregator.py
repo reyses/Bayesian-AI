@@ -1,5 +1,5 @@
 """
-ProjectX v2.0 - Data Aggregator
+Bayesian AI v2.0 - Data Aggregator
 Manages real-time tick buffer and bar generation
 """
 import pandas as pd

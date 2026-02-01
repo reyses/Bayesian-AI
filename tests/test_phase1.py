@@ -1,5 +1,5 @@
 """
-ProjectX v2.0 - Phase 1 Integration Test
+Bayesian AI v2.0 - Phase 1 Integration Test
 Validates StateVector + BayesianBrain + LayerEngine work together
 """
 import sys
@@ -201,7 +201,7 @@ def test_integration():
     print(f"  Total trades: {summary['total_trades']}")
 
 if __name__ == "__main__":
-    print("ProjectX v2.0 - Phase 1 Validation")
+    print("Bayesian AI v2.0 - Phase 1 Validation")
     print("=" * 50)
     
     test_state_vector()

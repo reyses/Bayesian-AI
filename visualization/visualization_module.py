@@ -1,5 +1,5 @@
 """
-ProjectX v2.0 - Visualization Module
+Bayesian AI v2.0 - Visualization Module
 Plots equity curves and high-probability Bayesian states
 """
 import matplotlib.pyplot as plt
