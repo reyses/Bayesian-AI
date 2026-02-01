@@ -58,6 +58,7 @@ def run_test():
     failed_imports = []
     # Add config.symbols as it is important
     modules_to_check.add('config.symbols')
+    modules_to_check.add('config.settings')
 
     for module in modules_to_check:
         try:
@@ -71,6 +72,17 @@ def run_test():
         sys.exit(1)
     else:
         print(f"PASS: All {len(modules_to_check)} modules imported successfully.")
+
+    # Verify OPERATIONAL_MODE accessibility
+    try:
+        from config.settings import OPERATIONAL_MODE
+        if OPERATIONAL_MODE not in ["LEARNING", "EXECUTE"]:
+             print(f"FAIL: Invalid OPERATIONAL_MODE: {OPERATIONAL_MODE}")
+             sys.exit(1)
+        print(f"PASS: OPERATIONAL_MODE is valid: {OPERATIONAL_MODE}")
+    except ImportError:
+        print("FAIL: Could not import OPERATIONAL_MODE from config.settings")
+        sys.exit(1)
 
     print("BUILD INTEGRITY CHECK PASSED")
     sys.exit(0)
