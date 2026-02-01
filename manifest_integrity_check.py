@@ -13,8 +13,8 @@ def check_file_existence(manifest_path):
     try:
         with open(manifest_path, 'r') as f:
             manifest = json.load(f)
-    except FileNotFoundError:
-        log(f"FAIL: Manifest file not found at {manifest_path}")
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        log(f"FAIL: Could not read or parse manifest file {manifest_path}: {e}")
         return False
 
     all_files = []
