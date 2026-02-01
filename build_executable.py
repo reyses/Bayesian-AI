@@ -29,14 +29,14 @@ def build():
     args = [
         'engine_core.py',
         '--onedir',
-        '--name=ProjectX_Engine',
+        '--name=Bayesian_AI_Engine',
         f'--add-data=config{sep}config',
         f'--add-data=probability_table.pkl{sep}.',
         '--hidden-import=numba',
         '--hidden-import=llvmlite',
         '--collect-all=numba',
         '--collect-all=llvmlite',
-        '--contents-directory=.', # Force flat structure in dist/ProjectX_Engine
+        '--contents-directory=.', # Force flat structure in dist/Bayesian_AI_Engine
         '--clean',
         '--noconfirm',
     ]
@@ -49,8 +49,8 @@ def build():
     print("Build complete.")
 
     # Verify output exists
-    dist_dir = os.path.join("dist", "ProjectX_Engine")
-    exe_name = "ProjectX_Engine"
+    dist_dir = os.path.join("dist", "Bayesian_AI_Engine")
+    exe_name = "Bayesian_AI_Engine"
     if platform.system() == "Windows":
         exe_name += ".exe"
 

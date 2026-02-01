@@ -1,6 +1,6 @@
 """
-ProjectX v2.0 - Main Execution Engine
-File: projectx/engine_core.py
+Bayesian AI v2.0 - Main Execution Engine
+File: bayesian_ai/engine_core.py
 """
 from core.bayesian_brain import BayesianBrain, TradeOutcome
 from execution.wave_rider import WaveRider
@@ -9,7 +9,7 @@ from core.data_aggregator import DataAggregator
 import time
 import os
 
-class ProjectXEngine:
+class BayesianEngine:
     def __init__(self, asset, use_gpu=True):
         self.asset = asset
         self.prob_table = BayesianBrain()
@@ -67,7 +67,7 @@ class ProjectXEngine:
         self.wave_rider.position = None
 
 if __name__ == "__main__":
-    print("ProjectX Engine v2.0 - Standalone Mode")
+    print("Bayesian AI Engine v2.0 - Standalone Mode")
     print("Initializing...")
 
     # Simple check for resources

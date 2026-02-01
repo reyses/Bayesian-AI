@@ -7,7 +7,7 @@ class DatabentoLoader:
     def load_data(filepath: str, filter_trades: bool = True) -> pd.DataFrame:
         """
         Loads data from a databento DBN file and converts it to a pandas DataFrame
-        compatible with the ProjectX training pipeline.
+        compatible with the Bayesian AI training pipeline.
 
         Args:
             filepath (str): Path to the .dbn file.

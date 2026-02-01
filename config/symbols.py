@@ -1,5 +1,5 @@
 """
-ProjectX v2.0 - Asset Profiles
+Bayesian AI v2.0 - Asset Profiles
 Futures contract specifications for risk calculations
 """
 from dataclasses import dataclass
