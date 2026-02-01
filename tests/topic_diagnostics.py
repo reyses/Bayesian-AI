@@ -34,6 +34,29 @@ def run_diagnostics():
     else:
         print("WARNING: CUDA not available. System running in CPU fallback mode.")
 
+    # Check Data Path for LEARNING mode
+    try:
+        from config.settings import OPERATIONAL_MODE, RAW_DATA_PATH
+        import pathlib
+        print(f"Operational Mode: {OPERATIONAL_MODE}")
+        if OPERATIONAL_MODE == "LEARNING":
+            print(f"Checking Data Path: {RAW_DATA_PATH}")
+            path = pathlib.Path(RAW_DATA_PATH)
+            if not path.exists():
+                print(f"FAIL: {RAW_DATA_PATH} does not exist.")
+            else:
+                files = ["ohlcv-1s.parquet", "trades.parquet"]
+                missing = []
+                for f in files:
+                    if not (path / f).exists():
+                        missing.append(f)
+                if missing:
+                    print(f"FAIL: Missing files in {RAW_DATA_PATH}: {missing}")
+                else:
+                    print(f"PASS: Required files found in {RAW_DATA_PATH}")
+    except ImportError:
+        print("WARNING: Could not import config.settings")
+
     print("DIAGNOSTICS COMPLETE")
     sys.exit(0)
 

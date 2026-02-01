@@ -36,6 +36,31 @@ def test_laplace_smoothing():
 
     assert prob == pytest.approx(expected, abs=1e-9)
 
+def test_synthetic_baseline_10w_2l():
+    """
+    Verify 10W-2L synthetic baseline (P=78.57%)
+    (10 wins, 2 losses) -> (10+1)/(12+2) = 11/14 = 0.785714...
+    """
+    brain = BayesianBrain()
+    state = StateVector.null_state()
+
+    for _ in range(10):
+        brain.update(TradeOutcome(
+            state=state, entry_price=0, exit_price=0, pnl=0, result='WIN',
+            timestamp=0, exit_reason='test'
+        ))
+
+    for _ in range(2):
+        brain.update(TradeOutcome(
+            state=state, entry_price=0, exit_price=0, pnl=0, result='LOSS',
+            timestamp=0, exit_reason='test'
+        ))
+
+    prob = brain.get_probability(state)
+    expected = 11.0 / 14.0
+    # 78.57% ~ 0.7857
+    assert prob == pytest.approx(expected, abs=1e-4)
+
 def test_hash_determinism():
     """
     Verify Hash Determinism: Identical StateVector inputs must yield identical hashes.
