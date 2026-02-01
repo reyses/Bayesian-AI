@@ -1,0 +1,48 @@
+name: Generate Status Report
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Generate CURRENT_STATUS.md
+        run: |
+          python3 scripts/generate_status_report.py
+          # Optional: output content to logs for debugging
+          # cat CURRENT_STATUS.md
+
+      - name: Commit and Push Report
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Check if there are changes to CURRENT_STATUS.md
+          if [[ -n $(git status -s CURRENT_STATUS.md) ]]; then
+            git add CURRENT_STATUS.md
+            git commit -m "docs: auto-update CURRENT_STATUS.md [skip ci]"
+            # Push to the current branch
+            git push origin HEAD:${{ github.ref_name }} || git push origin HEAD:${{ github.head_ref }}
+          else
+            echo "No changes to CURRENT_STATUS.md"
+          fi
+        continue-on-error: true
