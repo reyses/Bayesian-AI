@@ -2,6 +2,7 @@
   "project": "Algorithm V2",
   "pipeline": {
     "LOAD": [
+      "config/settings.py",
       "training/databento_loader.py",
       "training/orchestrator.py"
     ],
@@ -37,5 +38,8 @@
     "L7_15m": "cuda/pattern_detector.py",
     "L8_5m": "cuda/confirmation.py",
     "L9_1s": "cuda/velocity_gate.py"
+  },
+  "resources": {
+    "DATA_RAW": "DATA/RAW"
   }
 }
