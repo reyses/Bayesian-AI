@@ -9,40 +9,29 @@ def test_laplace_smoothing():
     # Create a dummy state for testing
     state = StateVector.null_state()
 
-    # 7 wins
-    for _ in range(7):
-        # Adapting the prompt's brain.update("state_test", 1) to the actual API
+    def add_trade(is_win):
         outcome = TradeOutcome(
             state=state,
             entry_price=100.0,
-            exit_price=110.0,
-            pnl=10.0,
-            result='WIN',
-            timestamp=1234567890,
+            exit_price=110.0 if is_win else 90.0,
+            pnl=10.0 if is_win else -10.0,
+            result='WIN' if is_win else 'LOSS',
+            timestamp=1234567890.0,
             exit_reason='test'
         )
         brain.update(outcome)
 
+    # 7 wins
+    for _ in range(7):
+        add_trade(True)
+
     # 3 losses
     for _ in range(3):
-        # Adapting the prompt's brain.update("state_test", 0) to the actual API
-        outcome = TradeOutcome(
-            state=state,
-            entry_price=100.0,
-            exit_price=90.0,
-            pnl=-10.0,
-            result='LOSS',
-            timestamp=1234567890,
-            exit_reason='test'
-        )
-        brain.update(outcome)
+        add_trade(False)
 
     assert abs(brain.get_probability(state) - (8/12)) < 1e-6
 
 def test_hash_consistency():
-    # Adapting the prompt's StateVector usage to match the actual class definition
-    # s1 = StateVector(l1_bias=1, l9_velocity=10.5)
-
     s1 = StateVector(
         L1_bias='bull',
         L2_regime='trending',
