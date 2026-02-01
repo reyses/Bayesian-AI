@@ -13,6 +13,13 @@ The workflow performs the following steps:
     *   `tests/test_full_system.py`: Validates full system integration.
 3.  **Builds Executable**: Runs `scripts/build_executable.py` to package the application using PyInstaller.
 
+## Status Reporting
+
+An automated status report is generated on every push/PR via `.github/workflows/status-report.yml`.
+- **Script**: `scripts/generate_status_report.py`
+- **Output**: `CURRENT_STATUS.md`
+- **Purpose**: Provides a living snapshot of project health, code stats, and validation checks.
+
 ## Local Development
 
 To run the workflow locally, ensure you have Python 3.10+ installed.
@@ -33,6 +40,11 @@ To run the workflow locally, ensure you have Python 3.10+ installed.
     python scripts/build_executable.py
     ```
     The output will be in `dist/Bayesian_AI_Engine/`.
+
+4.  **Generate Status Report**:
+    ```bash
+    python scripts/generate_status_report.py
+    ```
 
 ## Important Notes
 
