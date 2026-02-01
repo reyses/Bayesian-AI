@@ -3,6 +3,9 @@ import os
 import sys
 import importlib
 import time
+
+# Ensure root directory is in python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import traceback
 
 def log(msg):
@@ -166,7 +169,7 @@ def main():
     log("Starting Integrity Check...")
 
     checks = [
-        check_file_existence('workflow_manifest.json'),
+        check_file_existence('config/workflow_manifest.json'),
         check_imports(),
         check_cuda(),
         check_bayesian_io(),
