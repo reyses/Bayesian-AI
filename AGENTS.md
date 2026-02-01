@@ -15,7 +15,7 @@ The workflow performs the following steps:
 
 ## Local Development
 
-To run the workflow locally, ensure you have Python 3.10 installed.
+To run the workflow locally, ensure you have Python 3.10+ installed.
 
 1.  **Install Dependencies**:
     ```bash
