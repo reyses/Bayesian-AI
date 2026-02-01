@@ -1,5 +1,5 @@
 """
-Algorithm V2 - State Vector Module
+Bayesian-AI - State Vector Module
 9-Layer market state representation for Bayesian probability mapping
 """
 from dataclasses import dataclass
