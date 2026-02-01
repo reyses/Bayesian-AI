@@ -13,8 +13,8 @@ def check_file_existence(manifest_path):
     try:
         with open(manifest_path, 'r') as f:
             manifest = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        log(f"FAIL: Could not read or parse manifest file {manifest_path}: {e}")
+    except FileNotFoundError:
+        log(f"FAIL: Manifest file not found at {manifest_path}")
         return False
 
     all_files = []
@@ -137,13 +137,16 @@ def check_bayesian_io():
              return False
 
         # Cleanup
-        os.remove(test_file)
+        if os.path.exists(test_file):
+            os.remove(test_file)
         log("OK: BayesianBrain save/load verification passed.")
         return True
 
     except Exception as e:
         log(f"FAIL: BayesianBrain I/O error: {e}")
         traceback.print_exc()
+        if os.path.exists(test_file):
+            os.remove(test_file)
         return False
 
 def check_databento_loader():
