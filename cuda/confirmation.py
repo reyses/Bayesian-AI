@@ -1,3 +1,7 @@
+"""
+Algorithm V2 - Confirmation Engine
+CUDA-accelerated trade confirmation (L8)
+"""
 import pandas as pd
 import numpy as np
 

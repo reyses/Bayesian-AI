@@ -1,3 +1,7 @@
+"""
+Algorithm V2 - Databento Loader
+Loads and normalizes Databento DBN files
+"""
 import pandas as pd
 import os
 import databento as db

@@ -1,5 +1,5 @@
 """
-Bayesian AI v2.0 - Training Orchestrator
+Algorithm V2 - Training Orchestrator
 File: bayesian_ai/training/orchestrator.py
 """
 import pandas as pd

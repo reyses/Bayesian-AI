@@ -1,3 +1,7 @@
+"""
+Algorithm V2 - Pattern Detector
+CUDA-accelerated pattern recognition (L7)
+"""
 import pandas as pd
 import numpy as np
 from typing import Tuple
