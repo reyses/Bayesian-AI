@@ -14,16 +14,19 @@ from engine_core import BayesianEngine
 from config.symbols import SYMBOL_MAP
 from training.databento_loader import DatabentoLoader
 
+def get_data_source(data_path: str) -> pd.DataFrame:
+    """Loads data from a file path, supporting .dbn and .parquet files."""
+    if data_path.endswith('.dbn'):
+        return DatabentoLoader.load_data(data_path)
+    elif data_path.endswith('.parquet'):
+        return pd.read_parquet(data_path)
+    else:
+        raise ValueError(f"Unsupported data file format: {data_path}")
+
 class TrainingOrchestrator:
     """Runs 1000 iterations on historical data to build the Bayesian prior"""
-    def __init__(self, asset_ticker: str, data_path: str = None, use_gpu: bool = True):
-        self.data = None
-        if data_path:
-            if data_path.endswith('.dbn'):
-                self.data = DatabentoLoader.load_data(data_path)
-            else:
-                self.data = pd.read_parquet(data_path)
-
+    def __init__(self, asset_ticker: str, data: pd.DataFrame = None, use_gpu: bool = True):
+        self.data = data
         self.asset = SYMBOL_MAP[asset_ticker]
         self.engine = BayesianEngine(self.asset, use_gpu=use_gpu)
         self.model_path = 'probability_table.pkl'
@@ -32,12 +35,9 @@ class TrainingOrchestrator:
         self.kill_zones = [21500, 21600, 21700] # Default
         self.raw_data = self.data # Alias for test
 
-    def load_historical_data(self, data_path: str):
+    def load_historical_data(self, data: pd.DataFrame):
         """Load data if not loaded in init (helper for tests)"""
-        if data_path.endswith('.dbn'):
-            self.data = DatabentoLoader.load_data(data_path)
-        else:
-            self.data = pd.read_parquet(data_path)
+        self.data = data
         self.raw_data = self.data
 
     def run_training(self, iterations=1000):
@@ -113,8 +113,9 @@ class TrainingOrchestrator:
 if __name__ == "__main__":
     # Example usage
     try:
+        data = get_data_source("./data/nq_2025_full_year.parquet")
         orchestrator = TrainingOrchestrator(
-            data_path="./data/nq_2025_full_year.parquet",
+            data=data,
             asset_ticker="MNQ" # Changed to MNQ as NQ might not be in SYMBOL_MAP or requires funds
         )
         orchestrator.run_training(iterations=1000)

@@ -6,6 +6,7 @@ import sys
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
+import tempfile
 
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -14,7 +15,7 @@ from cuda.pattern_detector import get_pattern_detector
 from cuda.confirmation import get_confirmation_engine
 from cuda.velocity_gate import get_velocity_gate
 from core.layer_engine import LayerEngine
-from training.orchestrator import TrainingOrchestrator
+from training.orchestrator import TrainingOrchestrator, get_data_source
 from config.symbols import MNQ
 
 def generate_synthetic_session():
@@ -151,35 +152,44 @@ def test_layer_engine_cuda():
     assert isinstance(state.L9_cascade, bool)
     print("✓ LayerEngine CUDA integration working")
 
+import tempfile
+
 def test_training_orchestrator():
     """Test training orchestrator setup"""
     print("\n=== TEST 5: Training Orchestrator ===")
     
-    orchestrator = TrainingOrchestrator(asset_ticker="MNQ", use_gpu=False)
-    
     # Generate synthetic data file
     session = generate_synthetic_session()
-    test_file = '/tmp/test_nq_session.parquet'
-    session.to_parquet(test_file)
     
-    # Load data
-    orchestrator.load_historical_data(test_file)
+    tmp = tempfile.NamedTemporaryFile(suffix=".parquet", delete=False)
+    test_file = tmp.name
+    tmp.close()
+
+    try:
+        session.to_parquet(test_file)
+        
+        # Load data
+        data = get_data_source(test_file)
+        
+        orchestrator = TrainingOrchestrator(asset_ticker="MNQ", data=data, use_gpu=False)
     
-    print(f"✓ Data loaded: {len(orchestrator.raw_data)} ticks")
-    print(f"✓ Static context initialized")
-    print(f"✓ Asset: {orchestrator.asset.ticker}")
-    print(f"✓ Kill zones: {orchestrator.kill_zones}")
+        print(f"✓ Data loaded: {len(orchestrator.raw_data)} ticks")
+        print(f"✓ Static context initialized")
+        print(f"✓ Asset: {orchestrator.asset.ticker}")
+        print(f"✓ Kill zones: {orchestrator.kill_zones}")
     
-    # Run single iteration (not full 1000)
-    print("\n[TEST] Running 1 training iteration...")
-    result = orchestrator._run_single_iteration(0)
+        # Run single iteration (not full 1000)
+        print("\n[TEST] Running 1 training iteration...")
+        result = orchestrator._run_single_iteration(0)
     
-    print(f"✓ Iteration complete:")
-    print(f"  Trades: {result['total_trades']}")
-    print(f"  P&L: ${result['pnl']:.2f}")
-    print(f"  States learned: {result['unique_states']}")
+        print(f"✓ Iteration complete:")
+        print(f"  Trades: {result['total_trades']}")
+        print(f"  P&L: ${result['pnl']:.2f}")
+        print(f"  States learned: {result['unique_states']}")
     
-    print("✓ Training orchestrator working")
+        print("✓ Training orchestrator working")
+    finally:
+        os.remove(test_file)
 
 if __name__ == "__main__":
     print("Bayesian AI v2.0 - Phase 2 CUDA Validation")
