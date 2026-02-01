@@ -1,5 +1,5 @@
 {
-  "project": "ProjectX v2.0",
+  "project": "Algorithm V2",
   "pipeline": {
     "LOAD": [
       "training/databento_loader.py",

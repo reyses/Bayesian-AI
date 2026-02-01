@@ -1,21 +1,19 @@
-name: Algorithm V2 Logic Audit
+name: Algorithm V2 - Consolidated Audit
 on: [push, pull_request]
 jobs:
-  verify:
+  unified_tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Python Setup
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-      - name: Dependencies
-        run: pip install -r requirements.txt pytest
-      - name: Run Integrity
-        run: |
-          export PYTHONPATH=$PYTHONPATH:.
-          python manifest_integrity_check.py
-      - name: Run Math Audit
-        run: |
-          export PYTHONPATH=$PYTHONPATH:.
-          pytest tests/math_verify.py
+      - name: Install Dependencies
+        run: pip install "numpy<2.0" numba pytest
+      - name: Topic 1 - Executable Build
+        run: python tests/topic_build.py
+      - name: Topic 2 - Math and Logic
+        run: pytest tests/topic_math.py
+      - name: Topic 3 - Diagnostics
+        run: python tests/topic_diagnostics.py
