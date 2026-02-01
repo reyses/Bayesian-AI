@@ -24,7 +24,7 @@ class DatabentoLoader:
             data = db.DBNStore.from_file(filepath)
             df = data.to_df()
         except Exception as e:
-            raise ValueError(f"Failed to load databento file: {e}")
+            raise ValueError(f"Failed to load databento file: {e}") from e
 
         # Reset index if it's the timestamp
         if isinstance(df.index, pd.DatetimeIndex):
@@ -88,10 +88,7 @@ class DatabentoLoader:
         required_cols = ['timestamp', 'price', 'volume', 'type']
         for col in required_cols:
             if col not in df.columns:
-                # If volume is missing, maybe default to 1?
-                if col == 'volume':
-                    df['volume'] = 1.0
-                elif col == 'type':
+                if col == 'type':
                     df['type'] = 'trade'
                 else:
                     raise ValueError(f"Missing required column: {col} in databento file")
