@@ -5,6 +5,14 @@ Loads and normalizes Databento DBN files
 import pandas as pd
 import os
 import databento as db
+from config.settings import OPERATIONAL_MODE, RAW_DATA_PATH
+
+def get_data_source(mode):
+    """Function -> Data Path Routing -> Constraint: Local File Priority"""
+    if mode == "LEARNING":
+        # Ingest ohlcv-1s and trades parquet files from local DATA/RAW
+        return f"{RAW_DATA_PATH}/ohlcv-1s.parquet", f"{RAW_DATA_PATH}/trades.parquet"
+    return "LIVE_STREAM_BUFFER" # Future: Live API Integration
 
 class DatabentoLoader:
     @staticmethod
