@@ -8,8 +8,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from training.databento_loader import DatabentoLoader
 
-def setup_mock_data():
-    print("Bayesian-AI - Setup Mock Data")
+def setup_test_data():
+    print("Bayesian-AI - Setup Test Data")
     print("=============================")
 
     # Define paths
@@ -74,4 +74,4 @@ def setup_mock_data():
         sys.exit(1)
 
 if __name__ == "__main__":
-    setup_mock_data()
+    setup_test_data()

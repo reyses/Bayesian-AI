@@ -54,6 +54,10 @@ def get_tree():
 
         for f in files:
             if f.startswith("."): continue
+            # Handle rename of setup_mock_data.py in the output if it still persists in the logic for some reason,
+            # but more importantly, we just want to list files.
+            # If the file on disk is setup_test_data.py, it will list that.
+
             annotation = ""
             if f.endswith(".py"):
                 # Basic annotation logic

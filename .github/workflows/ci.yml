@@ -24,7 +24,7 @@ jobs:
         pip install -r requirements.txt
 
     - name: Setup Real Test Data
-      run: python scripts/setup_mock_data.py
+      run: python scripts/setup_test_data.py
 
     - name: Integrity Test
       run: python tests/topic_build.py
