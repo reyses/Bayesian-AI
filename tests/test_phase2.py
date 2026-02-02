@@ -86,7 +86,7 @@ def test_cuda_velocity_gate():
     # Let's inspect the last 5 values before mod
     print(f"Debug: Last 5 before: {cascade_prices[-5:]}")
 
-    cascade_prices[-5:] += np.linspace(0, 15, 5)
+    cascade_prices[-5:] = cascade_prices[-5] + np.linspace(0, 15, 5)
     
     print(f"Debug: Last 5 after: {cascade_prices[-5:]}")
     print(f"Debug: New range: {cascade_prices.min()} - {cascade_prices.max()}")
