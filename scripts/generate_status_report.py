@@ -4,6 +4,7 @@ import subprocess
 import datetime
 import re
 from pathlib import Path
+import json
 
 OUTPUT_FILE = "CURRENT_STATUS.md"
 
@@ -196,6 +197,46 @@ def get_reviewer_checklist():
 - [ ] Performance Concerns
 """
 
+def get_logic_core_validation():
+    print("Running Logic Core Tests (topic_math.py)...")
+
+    # We can try running pytest and capturing output
+    # Since we are in scripts/, we need to adjust path or run from root
+    # This script is usually run from root in CI
+
+    cmd = [sys.executable, "-m", "pytest", "tests/topic_math.py", "-v"]
+
+    try:
+        # Capture stdout and stderr
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        status = "PASS" if result.returncode == 0 else "FAIL"
+        output = result.stdout + "\n" + result.stderr
+
+        # Parse for summary line like "4 passed in 0.05s"
+        summary_line = "No summary found"
+        for line in output.splitlines():
+            if "passed" in line and "in" in line and "=" in line:
+                summary_line = line.strip("= ")
+                break
+
+        details = f"""
+- **Status:** {status}
+- **Command:** `pytest tests/topic_math.py`
+- **Summary:** {summary_line}
+"""
+        if status == "FAIL":
+             details += f"\n**Failure Output:**\n```\n{output[-1000:]}\n```" # Last 1000 chars
+
+        return f"""### 12. LOGIC CORE VALIDATION
+{details}
+"""
+    except Exception as e:
+        return f"""### 12. LOGIC CORE VALIDATION
+- **Status:** ERROR
+- **Details:** Failed to execute tests: {e}
+"""
+
 def main():
     content = "# CURRENT STATUS REPORT\n\n"
     content += get_metadata()
@@ -209,6 +250,7 @@ def main():
     content += "\n" + get_testing_status()
     content += "\n" + get_modified_files()
     content += "\n" + get_reviewer_checklist()
+    content += "\n" + get_logic_core_validation()
 
     with open(OUTPUT_FILE, "w", encoding='utf-8') as f:
         f.write(content)
