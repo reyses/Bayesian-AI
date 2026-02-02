@@ -1,14 +1,16 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-02 04:20:21
-- **Git Branch:** chore/status-report-improvements-13984992279921062233
-- **Last Commit:** a43e496ea680f6d232b98dfcdd92ec6c9448c59b
+- **Timestamp:** 2026-02-02 04:29:58
+- **Git Branch:** main
+- **Last Commit:** cdeb41aee85988873677fe9eb856d14efd4fdf03
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+cdeb41a - Merge pull request #22 from reyses/chore/status-report-improvements-13984992279921062233 (reyses)
+739bfcc - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 a43e496 - Rename setup_mock_data.py to setup_test_data.py and update workflows (google-labs-jules[bot])
 3649fb4 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 4afa071 - Enhance status report generation and CI workflows (google-labs-jules[bot])
@@ -17,8 +19,6 @@ da223d0 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 f99c2d5 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 58f6311 - Merge branch 'main' into ci-consolidation-15555141800871672443 (reyses)
 c6733d9 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-db60bdf - docs: add training workflow documentation and pipeline script (google-labs-jules[bot])
-5531cc0 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 ```
 
 ### 3. FILE STRUCTURE
@@ -165,8 +165,11 @@ pytest
 M	.github/workflows/ci.yml
 M	.github/workflows/status-report.yml
 M	CURRENT_STATUS.md
+A	DATA/RAW/glbx-mdp3-20250730.trades.0000.dbn.zst
+A	DATA/RAW/ohlcv-1s.parquet
+A	DATA/RAW/trades.parquet
 M	scripts/generate_status_report.py
-R096	scripts/setup_mock_data.py	scripts/setup_test_data.py
+A	scripts/setup_test_data.py
 ```
 
 ### 11. REVIEWER CHECKLIST
