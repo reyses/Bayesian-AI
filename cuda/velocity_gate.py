@@ -75,20 +75,33 @@ class CUDAVelocityGate:
         Returns:
             bool: True if cascade detected
         """
+        # Optimization: Only process recent history
+        # We only need the last 50 ticks for the algorithm + some buffer
+        # This prevents O(N) transfer/processing on every tick
+        LOOKBACK = 200
+
         if isinstance(tick_data, np.ndarray):
             if len(tick_data) < 50:
                 return False
-            prices = tick_data.astype(np.float32)
+
+            # Slice to relevant window
+            relevant_data = tick_data[-LOOKBACK:] if len(tick_data) > LOOKBACK else tick_data
+
+            prices = relevant_data.astype(np.float32)
             times = np.arange(len(prices), dtype=np.float32) * 0.01  # Assume 10ms between ticks
         elif isinstance(tick_data, pd.DataFrame):
             # DataFrame from DataAggregator
             if len(tick_data) < 50:
                 return False
-            prices = tick_data['price'].values.astype(np.float32)
+
+            # Slice to relevant window
+            relevant_data = tick_data.iloc[-LOOKBACK:] if len(tick_data) > LOOKBACK else tick_data
+
+            prices = relevant_data['price'].values.astype(np.float32)
             
             # Handle timestamp conversion
-            if 'timestamp' in tick_data.columns:
-                timestamps = tick_data['timestamp'].values
+            if 'timestamp' in relevant_data.columns:
+                timestamps = relevant_data['timestamp'].values
                 # Check if it's datetime64
                 if pd.api.types.is_datetime64_any_dtype(timestamps):
                     # Convert to float (seconds)
