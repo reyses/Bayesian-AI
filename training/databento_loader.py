@@ -44,14 +44,10 @@ class DatabentoLoader:
             ('ts_event', 'timestamp'),
             ('ts_recv', 'timestamp'),
             ('price', 'price'),
-            ('close', 'price'),
             ('size', 'volume'),
             ('volume', 'volume'),
             ('action', 'type'),
-            ('side', 'type'),
-            ('open', 'open'),
-            ('high', 'high'),
-            ('low', 'low')
+            ('side', 'type')
         ]
 
         for source, target in potential_maps:
@@ -88,16 +84,4 @@ class DatabentoLoader:
                 else:
                     raise ValueError(f"Missing required column: {col} in databento file")
 
-        # Restore OHLC columns if they were renamed or missing
-        # If we have price, we can use it as close/open/high/low if missing (approximate for tick data)
-        # But for OHLC data, we want to preserve them if possible.
-
-        # If 'close' was mapped to 'price', duplicate it back to 'close'
-        if 'close' not in df.columns and 'price' in df.columns:
-             df['close'] = df['price']
-
-        # Return all required columns plus any OHLC columns found
-        final_cols = list(set(required_cols + ['open', 'high', 'low', 'close']))
-        final_cols = [c for c in final_cols if c in df.columns]
-
-        return df[final_cols]
+        return df[required_cols]
