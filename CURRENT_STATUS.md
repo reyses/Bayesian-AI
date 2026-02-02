@@ -1,75 +1,83 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-02 02:05:17
-- **Git Branch:** jules-15555141800871672443-b85d9f06
-- **Last Commit:** 8e4c003e0350b4d13ed1cf8a44c1dd3c1cb229c5
+- **Timestamp:** 2026-02-02 02:09:18
+- **Git Branch:** ci-consolidation-15555141800871672443
+- **Last Commit:** f8df33c94f1be7d2c59f5b5c616992b3eac38edf
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+f8df33c - docs: include logic core test results in status report (google-labs-jules[bot])
 8e4c003 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+a331c6f - Merge pull request #19 from reyses/perf/velocity-gate-optimization-15684259968469451948 (reyses)
+dc8568d - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+562fce3 - Merge branch 'main' into perf/velocity-gate-optimization-15684259968469451948 (reyses)
+456de8f - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+b3a12a0 - Update cuda/velocity_gate.py (reyses)
+eae964b - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+92acf3e - Address PR comments (replied to user) (google-labs-jules[bot])
+7abe328 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 ```
 
 ### 3. FILE STRUCTURE
 ```
 Bayesian-AI/
 │   ├── requirements.txt
-│   ├── engine_core.py [COMPLETE]
-│   ├── AGENTS.md
-│   ├── __init__.py [COMPLETE]
 │   ├── JULES_OUTPUT_SNAPSHOT.txt
+│   ├── AGENTS.md
+│   ├── engine_core.py [COMPLETE]
 │   ├── SYSTEM_LOGIC.md
-│   ├── CURRENT_STATUS.md
 │   ├── CHANGELOG_V2.md
+│   ├── CURRENT_STATUS.md
+│   ├── __init__.py [COMPLETE]
 │   ├── training/
-│   │   ├── __init__.py [COMPLETE]
+│   │   ├── orchestrator.py [COMPLETE]
 │   │   ├── databento_loader.py [COMPLETE]
 │   │   ├── cuda_backtest.py [TESTED]
-│   │   ├── orchestrator.py [COMPLETE]
-│   ├── config/
-│   │   ├── symbols.py [COMPLETE]
 │   │   ├── __init__.py [COMPLETE]
-│   │   ├── workflow_manifest.json
-│   │   ├── settings.py [COMPLETE]
-│   ├── docs/
-│   │   ├── project_update.txt
-│   │   ├── PHASE1_COMPLETE.md
-│   ├── visualization/
-│   │   ├── __init__.py [COMPLETE]
-│   │   ├── visualization_module.py [COMPLETE]
-│   ├── DATA/
 │   ├── scripts/
 │   │   ├── manifest_integrity_check.py [COMPLETE]
-│   │   ├── verify_environment.py [COMPLETE]
 │   │   ├── build_executable.py [COMPLETE]
+│   │   ├── verify_environment.py [COMPLETE]
 │   │   ├── generate_status_report.py [WIP]
-│   ├── tests/
-│   │   ├── test_phase2.py [TESTED]
-│   │   ├── test_full_system.py [TESTED]
-│   │   ├── test_real_data_velocity.py [TESTED]
-│   │   ├── test_phase1.py [TESTED]
-│   │   ├── math_verify.py [COMPLETE]
-│   │   ├── topic_build.py [COMPLETE]
-│   │   ├── topic_diagnostics.py [COMPLETE]
-│   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
-│   │   ├── topic_math.py [COMPLETE]
-│   │   ├── test_databento_loading.py [TESTED]
+│   ├── cuda/
+│   │   ├── pattern_detector.py [WIP]
+│   │   ├── confirmation.py [WIP]
+│   │   ├── velocity_gate.py [COMPLETE]
+│   │   ├── __init__.py [COMPLETE]
 │   ├── execution/
 │   │   ├── wave_rider.py [COMPLETE]
 │   │   ├── __init__.py [COMPLETE]
-│   ├── cuda/
-│   │   ├── velocity_gate.py [COMPLETE]
-│   │   ├── __init__.py [COMPLETE]
-│   │   ├── confirmation.py [WIP]
-│   │   ├── pattern_detector.py [WIP]
+│   ├── docs/
+│   │   ├── project_update.txt
+│   │   ├── PHASE1_COMPLETE.md
 │   ├── core/
+│   │   ├── layer_engine.py [COMPLETE]
 │   │   ├── data_aggregator.py [COMPLETE]
 │   │   ├── __init__.py [COMPLETE]
-│   │   ├── state_vector.py [COMPLETE]
-│   │   ├── layer_engine.py [COMPLETE]
 │   │   ├── bayesian_brain.py [COMPLETE]
+│   │   ├── state_vector.py [COMPLETE]
+│   ├── tests/
+│   │   ├── test_phase2.py [TESTED]
+│   │   ├── test_full_system.py [TESTED]
+│   │   ├── test_databento_loading.py [TESTED]
+│   │   ├── test_real_data_velocity.py [TESTED]
+│   │   ├── math_verify.py [COMPLETE]
+│   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
+│   │   ├── topic_math.py [COMPLETE]
+│   │   ├── topic_diagnostics.py [COMPLETE]
+│   │   ├── test_phase1.py [TESTED]
+│   │   ├── topic_build.py [COMPLETE]
+│   ├── config/
+│   │   ├── workflow_manifest.json
+│   │   ├── symbols.py [COMPLETE]
+│   │   ├── settings.py [COMPLETE]
+│   │   ├── __init__.py [COMPLETE]
+│   ├── visualization/
+│   │   ├── visualization_module.py [COMPLETE]
+│   │   ├── __init__.py [COMPLETE]
 
 ```
 
@@ -146,9 +154,12 @@ pytest
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
-fatal: ambiguous argument 'HEAD^': unknown revision or path not in the working tree.
-Use '--' to separate paths from revisions, like this:
-'git <command> [<revision>...] -- [<file>...]'
+M	.github/workflows/ci.yml
+D	.github/workflows/verify.yml
+M	CURRENT_STATUS.md
+D	DATA/RAW/glbx-mdp3-20250730.trades.0000.dbn.zst
+M	requirements.txt
+M	scripts/generate_status_report.py
 ```
 
 ### 11. REVIEWER CHECKLIST
@@ -159,6 +170,13 @@ Use '--' to separate paths from revisions, like this:
 
 ### 12. LOGIC CORE VALIDATION
 
-- **Status:** PASS
+- **Status:** FAIL
 - **Command:** `pytest tests/topic_math.py`
-- **Summary:** 4 passed in 0.05s
+- **Summary:** No summary found
+
+**Failure Output:**
+```
+
+/opt/hostedtoolcache/Python/3.10.19/x64/bin/python3: No module named pytest
+
+```
