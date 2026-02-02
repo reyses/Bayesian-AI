@@ -54,8 +54,25 @@ class TrainingOrchestrator:
 
         print(f"[TRAINING] Data: {len(self.data)} ticks. Target: {iterations} iterations.")
 
+        # Prepare data for static context (needs DatetimeIndex)
+        static_data = self.data.copy()
+        if 'timestamp' in static_data.columns:
+            static_data['timestamp'] = pd.to_datetime(static_data['timestamp'])
+            static_data.set_index('timestamp', inplace=True)
+
+        # Ensure OHLC data for LayerEngine
+        required_cols = {'open', 'high', 'low', 'close'}
+        if not required_cols.issubset(static_data.columns) and 'price' in static_data.columns:
+            print("[TRAINING] Resampling tick data to 1s OHLC for Static Context...")
+            ohlc = static_data['price'].resample('1s').ohlc()
+            if 'volume' in static_data.columns:
+                ohlc['volume'] = static_data['volume'].resample('1s').sum()
+            else:
+                raise ValueError("'volume' column is required for OHLC resampling but was not found.")
+            static_data = ohlc.dropna()
+
         # Build Static Context (L1-L4)
-        self.engine.initialize_session(self.data, self.kill_zones)
+        self.engine.initialize_session(static_data, self.kill_zones)
 
         # Load Existing Table for Progressive Learning
         if os.path.exists(self.model_path):
