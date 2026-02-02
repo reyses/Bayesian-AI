@@ -1,14 +1,16 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-02 00:48:41
-- **Git Branch:** main
-- **Last Commit:** a331c6f247e9eb01df0ea01e13aad88ce6b6a8fb
+- **Timestamp:** 2026-02-02 01:00:03
+- **Git Branch:** ci-consolidation-15555141800871672443
+- **Last Commit:** c773e5e30c907ac76ad5003cdc09c1f8787c1d25
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+c773e5e - ci: consolidate all tests into main CI workflow and enable for all PRs (google-labs-jules[bot])
+8e4c003 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 a331c6f - Merge pull request #19 from reyses/perf/velocity-gate-optimization-15684259968469451948 (reyses)
 dc8568d - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 562fce3 - Merge branch 'main' into perf/velocity-gate-optimization-15684259968469451948 (reyses)
@@ -17,8 +19,6 @@ b3a12a0 - Update cuda/velocity_gate.py (reyses)
 eae964b - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 92acf3e - Address PR comments (replied to user) (google-labs-jules[bot])
 7abe328 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-642213b - ⚡ Optimize Velocity Gate data transfer & Add Real Data Test (google-labs-jules[bot])
-80d6538 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 ```
 
 ### 3. FILE STRUCTURE
@@ -37,9 +37,6 @@ Bayesian-AI/
 │   │   ├── databento_loader.py [COMPLETE]
 │   │   ├── cuda_backtest.py [TESTED]
 │   │   ├── __init__.py [COMPLETE]
-│   ├── DATA/
-│   │   ├── RAW/
-│   │   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
 │   ├── scripts/
 │   │   ├── manifest_integrity_check.py [COMPLETE]
 │   │   ├── build_executable.py [COMPLETE]
@@ -123,6 +120,7 @@ zstandard==0.25.0
 numba==0.63.1
 llvmlite==0.46.0
 pyinstaller==6.18.0
+pytest
 
 ```
 - **Installation:** `pip install -r requirements.txt`
@@ -156,10 +154,10 @@ pyinstaller==6.18.0
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
-M	CURRENT_STATUS.md
-M	cuda/velocity_gate.py
-M	tests/test_databento_loading.py
-A	tests/test_real_data_velocity.py
+M	.github/workflows/ci.yml
+D	.github/workflows/verify.yml
+D	DATA/RAW/glbx-mdp3-20250730.trades.0000.dbn.zst
+M	requirements.txt
 ```
 
 ### 11. REVIEWER CHECKLIST
