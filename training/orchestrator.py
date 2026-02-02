@@ -247,7 +247,7 @@ class TrainingOrchestrator:
                 self.reset_engine()
                 self.data = train_data
                 # Use params to indicate this is a temporary run (suppress saving)
-                self.run_training(iterations=1, params={'mode': 'walk_forward_train'})
+                self.run_training(iterations=1, params={})
 
                 # Test
                 self.data = test_data
