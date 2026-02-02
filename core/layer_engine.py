@@ -69,8 +69,8 @@ class LayerEngine:
         }).dropna()
         
         # Pre-compute static stats
-        self.daily_low_5d = self.daily_data.tail(5)['low'].min()
-        self.daily_high_5d = self.daily_data.tail(5)['high'].max()
+        stats = self.daily_data.tail(5).agg({'low': 'min', 'high': 'max'})
+        self.daily_low_5d, self.daily_high_5d = stats['low'], stats['high']
 
         # Compute static layers
         self.static_context = {
