@@ -104,6 +104,10 @@ class TrainingOrchestrator:
             print("[TRAINING] Resuming from existing probability table.")
 
         # Pre-compute tick data for performance (TRANSFORM Layer)
+        # Ensure 'price' column exists (use 'close' if available for OHLC data)
+        if 'price' not in self.data.columns and 'close' in self.data.columns:
+            self.data['price'] = self.data['close']
+
         # Converting DataFrame to list of dicts once avoids repetitive overhead in the loop
         cols_to_use = ['timestamp', 'price', 'volume']
         if 'type' in self.data.columns:
