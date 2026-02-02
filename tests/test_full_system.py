@@ -13,35 +13,48 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from engine_core import BayesianEngine
 from config.symbols import MNQ
 from core.state_vector import StateVector
+from tests.utils import load_test_data
 
 def run_validation():
     print("=== BAYESIAN AI V2.0 VALIDATION ===")
     engine = BayesianEngine(MNQ)
 
-    # Initialize session with dummy data
-    dates = pd.date_range(end=pd.Timestamp.now(), periods=100, freq='D')
-    dummy_hist = pd.DataFrame({
-        'open': 21500.0, 'high': 21600.0, 'low': 21400.0, 'close': 21500.0, 'volume': 1000
-    }, index=dates)
-    engine.initialize_session(dummy_hist, [21500, 21600])
+    # Initialize session with real data
+    print("Loading test data...")
+    hist_data = load_test_data()
+    engine.initialize_session(hist_data, [21500, 21600])
 
-    # 1. LOAD: Create a synthetic cascade event
+    # Get baseline from end of history
+    last_row = hist_data.iloc[-1]
+    base_price = last_row['close']
+    base_time = hist_data.index[-1].timestamp()
+
+    print(f"Baseline Price: {base_price}, Time: {base_time}")
+
+    # 1. LOAD: Create a synthetic cascade event starting from baseline
     # Inject 50 flat ticks to satisfy VelocityGate requirement (min 50 ticks)
     ticks = []
-    base_time = 100.0
+
+    # We advance time slightly from history end
+    start_time = base_time + 1.0
+
     for i in range(50):
         ticks.append({
-            'timestamp': base_time + i*0.001,  # High density: 1ms spacing
-            'price': 21500.0,
+            'timestamp': start_time + i*0.001,  # High density: 1ms spacing
+            'price': base_price,
             'volume': 10,
             'type': 'trade'
         })
 
     # Add Cascade
-    last_time = ticks[-1]['timestamp']
-    ticks.append({'timestamp': last_time + 0.01, 'price': 21500.0, 'volume': 10, 'type': 'trade'})
-    ticks.append({'timestamp': last_time + 0.05, 'price': 21495.0, 'volume': 15, 'type': 'trade'})
-    ticks.append({'timestamp': last_time + 0.1, 'price': 21485.0, 'volume': 50, 'type': 'trade'}) # Cascade: 15pt drop in 0.1s
+    last_tick_time = ticks[-1]['timestamp']
+    # Cascade: 15pt drop.
+    # Tick 1: start
+    ticks.append({'timestamp': last_tick_time + 0.01, 'price': base_price, 'volume': 10, 'type': 'trade'})
+    # Tick 2: -5
+    ticks.append({'timestamp': last_tick_time + 0.05, 'price': base_price - 5.0, 'volume': 15, 'type': 'trade'})
+    # Tick 3: -15 (Total 15pt drop from base in < 0.1s)
+    ticks.append({'timestamp': last_tick_time + 0.1, 'price': base_price - 15.0, 'volume': 50, 'type': 'trade'})
 
     # Mock Probability Engine to ensure fire
     engine.prob_table.get_probability = MagicMock(return_value=0.95)
@@ -63,14 +76,19 @@ def run_validation():
         print(f"✓ Initial Stop: {pos.stop_loss}")
 
         # Simulate profit move to trigger adaptive trail
-        print("Simulating $200 profit move...")
-        exit_tick = {'timestamp': last_time + 10.0, 'price': 21400.0, 'volume': 10}
+        print("Simulating profit move...")
+        # Move price down (assuming short on drop)
+        target_price = base_price - 200.0
+        exit_tick = {'timestamp': last_tick_time + 10.0, 'price': target_price, 'volume': 10}
         engine.on_tick(exit_tick)
 
         if engine.wave_rider.position is None:
             print(f"✓ Position Closed. Daily PnL: ${engine.daily_pnl:.2f}")
         else:
-            print("Position still open.")
+            print(f"Position still open at {target_price}.")
+            current_pnl = engine.wave_rider.calculate_unrealized_pnl(target_price)
+            print(f"Unrealized PnL: ${current_pnl:.2f}")
+
     else:
         print("✗ Position failed to fire. Check L9/Probability thresholds.")
         # Debug

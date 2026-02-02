@@ -15,24 +15,7 @@ from core.state_vector import StateVector
 from core.bayesian_brain import BayesianBrain, TradeOutcome
 from core.layer_engine import LayerEngine
 from config.symbols import MNQ, calculate_pnl
-
-def generate_test_data():
-    """Generate minimal synthetic data for testing"""
-    # 90 days of daily OHLC data
-    dates = pd.date_range(end=datetime.now(), periods=90, freq='D')
-    
-    daily_data = pd.DataFrame({
-        'open': np.random.uniform(21400, 21600, 90),
-        'high': np.random.uniform(21500, 21700, 90),
-        'low': np.random.uniform(21300, 21500, 90),
-        'close': np.random.uniform(21400, 21600, 90),
-        'volume': np.random.randint(10000, 50000, 90)
-    }, index=dates)
-    
-    # Add upward trend to last 30 days
-    daily_data.loc[dates[-30]:, 'close'] += np.linspace(0, 200, 30)
-    
-    return daily_data
+from tests.utils import load_test_data
 
 def test_state_vector():
     """Test StateVector hashing and equality"""
@@ -124,22 +107,32 @@ def test_layer_engine():
     """Test LayerEngine computation"""
     print("\n=== TEST 3: LayerEngine ===")
     
-    # Generate test data
-    daily_data = generate_test_data()
+    # Load test data
+    data = load_test_data()
+    print(f"Loaded {len(data)} rows of data.")
+
+    # Resample for different timeframes
+    bars_4hr = data.resample('4h').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'}).dropna()
+    bars_1hr = data.resample('1h').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'}).dropna()
+    bars_15m = data.resample('15min').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'}).dropna()
+    bars_5m = data.resample('5min').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'}).dropna()
     
     # Initialize engine
     engine = LayerEngine()
-    engine.initialize_static_context(daily_data, kill_zones=[21500, 21600, 21700])
+    engine.initialize_static_context(data, kill_zones=[21500, 21600, 21700])
     
+    last_price = data.iloc[-1]['close']
+    last_timestamp = data.index[-1].timestamp()
+
     # Create current snapshot
     current_data = {
-        'price': 21550.0,
-        'timestamp': datetime.now().timestamp(),
-        'bars_4hr': daily_data.tail(6),
-        'bars_1hr': daily_data.tail(10),
-        'bars_15m': daily_data.tail(20),
-        'bars_5m': daily_data.tail(20),
-        'ticks': np.array([21540, 21545, 21550, 21555, 21560] * 10)  # 50 ticks
+        'price': last_price,
+        'timestamp': last_timestamp,
+        'bars_4hr': bars_4hr.tail(6),
+        'bars_1hr': bars_1hr.tail(10),
+        'bars_15m': bars_15m.tail(20),
+        'bars_5m': bars_5m.tail(20),
+        'ticks': data['close'].values[-50:]  # Use last 50 closes as ticks
     }
     
     # Compute state
@@ -155,28 +148,40 @@ def test_integration():
     print("\n=== TEST 4: Full Integration ===")
     
     # Setup
-    daily_data = generate_test_data()
+    data = load_test_data()
+    bars_4hr = data.resample('4h').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'}).dropna()
+    bars_1hr = data.resample('1h').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'}).dropna()
+    bars_15m = data.resample('15min').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'}).dropna()
+    bars_5m = data.resample('5min').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'}).dropna()
+
     engine = LayerEngine()
-    engine.initialize_static_context(daily_data, kill_zones=[21500, 21600])
+    engine.initialize_static_context(data, kill_zones=[21500, 21600])
     brain = BayesianBrain()
     
     # Simulate 5 trades
+    # We will just iterate over the last 5 data points
+    subset = data.tail(5)
+
     for i in range(5):
+        row = subset.iloc[i]
+        price = row['close']
+        timestamp = subset.index[i].timestamp()
+
         current_data = {
-            'price': 21500 + i * 10,
-            'timestamp': datetime.now().timestamp(),
-            'bars_4hr': daily_data.tail(6),
-            'bars_1hr': daily_data.tail(10),
-            'bars_15m': daily_data.tail(20),
-            'bars_5m': daily_data.tail(20),
-            'ticks': np.random.uniform(21490, 21510, 50)
+            'price': price,
+            'timestamp': timestamp,
+            'bars_4hr': bars_4hr,
+            'bars_1hr': bars_1hr,
+            'bars_15m': bars_15m,
+            'bars_5m': bars_5m,
+            'ticks': data['close'].values[-(50+i):-i] if i > 0 else data['close'].values[-50:]
         }
         
         # Compute state
         state = engine.compute_current_state(current_data)
         
         # Simulate trade outcome
-        entry_price = current_data['price']
+        entry_price = price
         exit_price = entry_price + np.random.choice([20, -10])  # Random win/loss
         pnl = calculate_pnl(MNQ, entry_price, exit_price, 'short')
         
