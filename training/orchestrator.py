@@ -5,18 +5,20 @@ File: bayesian_ai/training/orchestrator.py
 import pandas as pd
 import os
 import sys
+import glob
+import argparse
 
 # Add project root to sys.path if running as script
 if __name__ == "__main__":
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from engine_core import BayesianEngine
-from config.symbols import SYMBOL_MAP
+from config.symbols import SYMBOL_MAP, MNQ
 from training.databento_loader import DatabentoLoader
 
 def get_data_source(data_path: str) -> pd.DataFrame:
     """Loads data from a file path, supporting .dbn and .parquet files."""
-    if data_path.endswith('.dbn'):
+    if data_path.endswith('.dbn') or data_path.endswith('.dbn.zst'):
         return DatabentoLoader.load_data(data_path)
     elif data_path.endswith('.parquet'):
         return pd.read_parquet(data_path)
@@ -24,16 +26,22 @@ def get_data_source(data_path: str) -> pd.DataFrame:
         raise ValueError(f"Unsupported data file format: {data_path}")
 
 class TrainingOrchestrator:
-    """Runs 1000 iterations on historical data to build the Bayesian prior"""
-    def __init__(self, asset_ticker: str, data: pd.DataFrame = None, use_gpu: bool = True):
+    """Runs iterations on historical data to build the Bayesian prior"""
+    def __init__(self, asset_ticker: str, data: pd.DataFrame = None, use_gpu: bool = True, output_dir: str = '.'):
         self.data = data
-        self.asset = SYMBOL_MAP[asset_ticker]
+        # Default to MNQ if ticker not found, or use provided ticker
+        self.asset = SYMBOL_MAP.get(asset_ticker, MNQ)
         self.engine = BayesianEngine(self.asset, use_gpu=use_gpu)
-        self.model_path = 'probability_table.pkl'
+        self.output_dir = output_dir
+        self.model_path = os.path.join(self.output_dir, 'probability_table.pkl')
 
         # Helper variables for test introspection
         self.kill_zones = [21500, 21600, 21700] # Default
         self.raw_data = self.data # Alias for test
+
+        # Create output directory if it doesn't exist
+        if self.output_dir and self.output_dir != '.':
+            os.makedirs(self.output_dir, exist_ok=True)
 
     def load_historical_data(self, data: pd.DataFrame):
         """Load data if not loaded in init (helper for tests)"""
@@ -110,14 +118,73 @@ class TrainingOrchestrator:
             'unique_states': unique_states
         }
 
+def load_data_from_directory(data_dir: str) -> pd.DataFrame:
+    """Loads all supported files from a directory and concatenates them."""
+    if not os.path.isdir(data_dir):
+        raise ValueError(f"Directory not found: {data_dir}")
+
+    files = []
+    # Find .dbn.zst, .dbn, and .parquet files
+    extensions = ['*.dbn.zst', '*.dbn', '*.parquet']
+    for ext in extensions:
+        files.extend(glob.glob(os.path.join(data_dir, ext)))
+
+    if not files:
+        raise ValueError(f"No supported data files found in {data_dir}")
+
+    print(f"Found {len(files)} data files. Loading...")
+    dfs = []
+    for f in sorted(files): # Sort to ensure chronological order if named appropriately
+        print(f"  - Loading {os.path.basename(f)}...")
+        try:
+            df = get_data_source(f)
+            dfs.append(df)
+        except Exception as e:
+            print(f"    Warning: Failed to load {f}: {e}")
+
+    if not dfs:
+        raise ValueError("Failed to load any data files.")
+
+    print("Concatenating data...")
+    full_df = pd.concat(dfs, ignore_index=True)
+
+    # Sort by timestamp to ensure correct playback
+    if 'timestamp' in full_df.columns:
+        full_df = full_df.sort_values('timestamp').reset_index(drop=True)
+
+    return full_df
+
 if __name__ == "__main__":
-    # Example usage
+    parser = argparse.ArgumentParser(description="Bayesian-AI Training Orchestrator")
+    parser.add_argument("--data-dir", type=str, help="Directory containing .dbn.zst or .parquet files")
+    parser.add_argument("--data-file", type=str, help="Single data file path (optional alternative to --data-dir)")
+    parser.add_argument("--iterations", type=int, default=10, help="Number of training iterations")
+    parser.add_argument("--output", type=str, default="models/", help="Output directory for the model")
+    parser.add_argument("--ticker", type=str, default="MNQ", help="Asset ticker symbol (default: MNQ)")
+
+    args = parser.parse_args()
+
     try:
-        data = get_data_source("./data/nq_2025_full_year.parquet")
+        data = None
+        if args.data_dir:
+            data = load_data_from_directory(args.data_dir)
+        elif args.data_file:
+            data = get_data_source(args.data_file)
+        else:
+            # Fallback for dev/testing if no args provided, or print help
+            if len(sys.argv) == 1:
+                parser.print_help()
+                sys.exit(0)
+            else:
+                 raise ValueError("Must provide --data-dir or --data-file")
+
         orchestrator = TrainingOrchestrator(
+            asset_ticker=args.ticker,
             data=data,
-            asset_ticker="MNQ" # Changed to MNQ as NQ might not be in SYMBOL_MAP or requires funds
+            output_dir=args.output
         )
-        orchestrator.run_training(iterations=1000)
+        orchestrator.run_training(iterations=args.iterations)
+
     except Exception as e:
-        print(f"Skipping execution: {e}")
+        print(f"Error: {e}")
+        sys.exit(1)
