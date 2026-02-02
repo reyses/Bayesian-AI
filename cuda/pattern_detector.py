@@ -20,62 +20,62 @@ if NUMBA_AVAILABLE:
 
     @cuda.jit
     def detect_pattern_kernel(highs, lows, out_type, out_conf):
-        idx = cuda.grid(1)
-        if idx >= highs.shape[0]:
-            return
+        start = cuda.grid(1)
+        stride = cuda.gridsize(1)
 
-        # Initialize
-        out_type[idx] = PATTERN_NONE
-        out_conf[idx] = 0.0
+        for idx in range(start, highs.shape[0], stride):
+            # Initialize
+            out_type[idx] = PATTERN_NONE
+            out_conf[idx] = 0.0
 
-        # Check Compression (Priority 1)
-        # Needs at least 10 bars (indices idx-9 to idx)
-        if idx >= 9:
-            # Recent range: idx-4 to idx
-            recent_max = -1e9
-            recent_min = 1e9
-            for k in range(idx - 4, idx + 1):
-                val_h = highs[k]
-                val_l = lows[k]
-                if val_h > recent_max: recent_max = val_h
-                if val_l < recent_min: recent_min = val_l
-            recent_range = recent_max - recent_min
+            # Check Compression (Priority 1)
+            # Needs at least 10 bars (indices idx-9 to idx)
+            if idx >= 9:
+                # Recent range: idx-4 to idx
+                recent_max = -1e9
+                recent_min = 1e9
+                for k in range(idx - 4, idx + 1):
+                    val_h = highs[k]
+                    val_l = lows[k]
+                    if val_h > recent_max: recent_max = val_h
+                    if val_l < recent_min: recent_min = val_l
+                recent_range = recent_max - recent_min
 
-            # Previous range: idx-9 to idx-5
-            prev_max = -1e9
-            prev_min = 1e9
-            for k in range(idx - 9, idx - 4):
-                val_h = highs[k]
-                val_l = lows[k]
-                if val_h > prev_max: prev_max = val_h
-                if val_l < prev_min: prev_min = val_l
-            prev_range = prev_max - prev_min
+                # Previous range: idx-9 to idx-5
+                prev_max = -1e9
+                prev_min = 1e9
+                for k in range(idx - 9, idx - 4):
+                    val_h = highs[k]
+                    val_l = lows[k]
+                    if val_h > prev_max: prev_max = val_h
+                    if val_l < prev_min: prev_min = val_l
+                prev_range = prev_max - prev_min
 
-            if prev_range > 0 and recent_range < prev_range * 0.7:
-                 out_type[idx] = PATTERN_COMPRESSION
-                 out_conf[idx] = 0.85
-                 return
+                if prev_range > 0 and recent_range < prev_range * 0.7:
+                     out_type[idx] = PATTERN_COMPRESSION
+                     out_conf[idx] = 0.85
+                     continue
 
-        # Check Wedge and Breakdown (Priority 2 & 3)
-        # Needs at least 5 bars (indices idx-4 to idx)
-        if idx >= 4:
-            # Wedge
-            if lows[idx] > lows[idx-4] and highs[idx] < highs[idx-4]:
-                 out_type[idx] = PATTERN_WEDGE
-                 out_conf[idx] = 0.75
-                 return
+            # Check Wedge and Breakdown (Priority 2 & 3)
+            # Needs at least 5 bars (indices idx-4 to idx)
+            if idx >= 4:
+                # Wedge
+                if lows[idx] > lows[idx-4] and highs[idx] < highs[idx-4]:
+                     out_type[idx] = PATTERN_WEDGE
+                     out_conf[idx] = 0.75
+                     continue
 
-            # Breakdown
-            # lows[idx] < min(lows[idx-4 : idx]) (strictly previous 4 bars)
-            min_prev = 1e9
-            for k in range(idx - 4, idx):
-                if lows[k] < min_prev:
-                    min_prev = lows[k]
+                # Breakdown
+                # lows[idx] < min(lows[idx-4 : idx]) (strictly previous 4 bars)
+                min_prev = 1e9
+                for k in range(idx - 4, idx):
+                    if lows[k] < min_prev:
+                        min_prev = lows[k]
 
-            if lows[idx] < min_prev:
-                out_type[idx] = PATTERN_BREAKDOWN
-                out_conf[idx] = 0.90
-                return
+                if lows[idx] < min_prev:
+                    out_type[idx] = PATTERN_BREAKDOWN
+                    out_conf[idx] = 0.90
+                    continue
 
 class CUDAPatternDetector:
     def __init__(self, use_gpu: bool = True):
