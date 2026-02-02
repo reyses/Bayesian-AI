@@ -103,18 +103,25 @@ class TrainingOrchestrator:
             self.engine.prob_table.load(self.model_path)
             print("[TRAINING] Resuming from existing probability table.")
 
+        # Pre-compute tick data for performance (TRANSFORM Layer)
+        # Converting DataFrame to list of dicts once avoids repetitive overhead in the loop
+        cols_to_use = ['timestamp', 'price', 'volume']
+        if 'type' in self.data.columns:
+            cols_to_use.append('type')
+
+        tick_records = self.data[cols_to_use].to_dict('records')
+
+        # Ensure 'type' field exists if missing from source data
+        if 'type' not in self.data.columns:
+            for tick in tick_records:
+                tick['type'] = 'trade'
+
         for iteration in range(iterations):
             self.engine.daily_pnl = 0.0
             self.engine.trades = []
 
-            # Simulated Tick Stream (TRANSFORM Layer)
-            for tick in self.data.itertuples():
-                tick_dict = {
-                    'timestamp': tick.timestamp,
-                    'price': tick.price,
-                    'volume': tick.volume,
-                    'type': getattr(tick, 'type', 'trade')
-                }
+            # Simulated Tick Stream
+            for tick_dict in tick_records:
                 self.engine.on_tick(tick_dict)
 
             # Metrics Logging (ANALYZE Layer)
