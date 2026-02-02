@@ -67,6 +67,8 @@ class TrainingOrchestrator:
             ohlc = static_data['price'].resample('1s').ohlc()
             if 'volume' in static_data.columns:
                 ohlc['volume'] = static_data['volume'].resample('1s').sum()
+            else:
+                raise ValueError("'volume' column is required for OHLC resampling but was not found.")
             static_data = ohlc.dropna()
 
         # Build Static Context (L1-L4)

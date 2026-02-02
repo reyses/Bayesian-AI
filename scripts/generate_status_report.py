@@ -183,7 +183,7 @@ def get_testing_status():
 """
 
 def get_modified_files():
-    diff = run_command("git diff --name-status HEAD^ HEAD")
+    diff = run_command("git show --pretty='' --name-status HEAD")
     return f"""### 10. FILES MODIFIED (Last Commit)
 ```
 {diff}
@@ -311,7 +311,7 @@ def get_training_validation_metrics():
     print("Running Training Validation...")
     cmd = [sys.executable, "tests/test_training_validation.py"]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
         output = result.stdout
 
         start_tag = "::METRICS::"
@@ -349,12 +349,12 @@ def get_training_validation_metrics():
 | Metric | Value | Status |
 | :--- | :--- | :--- |
 | Training Status | {status} | {status_icon} |
-| Iterations Completed | {iters}/10 | {status_icon} |
+| Iterations Completed | {iters}/{iters} | {status_icon} |
 | Runtime | {runtime}s | - |
-| Data Files Loaded | {files} | {status_icon if files else '✗'} |
+| Data Files Loaded | {files} | {status_icon if isinstance(files, int) and files > 0 else '✗'} |
 | Total Ticks Processed | {ticks:,} | - |
 | Unique States Learned | {unique} | - |
-| High-Confidence States (80%+) | {high_conf} | {status_icon if high_conf is not None else '✗'} |
+| High-Confidence States (80%+) | {high_conf} | {status_icon if isinstance(high_conf, int) and high_conf >= 0 else '✗'} |
 
 **Top 5 States by Probability:**
 {top_5_str}
@@ -366,6 +366,8 @@ def get_training_validation_metrics():
         else:
              return f"### 13. TRAINING VALIDATION METRICS\n\nERROR: Metrics tags not found in output.\nOutput:\n{output[-500:]}"
 
+    except subprocess.TimeoutExpired:
+        return f"### 13. TRAINING VALIDATION METRICS\n\nERROR: Execution failed: Training validation timed out.\n"
     except Exception as e:
         return f"### 13. TRAINING VALIDATION METRICS\n\nERROR: Execution failed: {e}\n"
 
