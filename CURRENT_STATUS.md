@@ -1,24 +1,24 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-02 01:45:21
-- **Git Branch:** main
-- **Last Commit:** 1df57850b79fc90f588da338db72ce450d4c47ab
+- **Timestamp:** 2026-02-02 03:22:13
+- **Git Branch:** ci-consolidation-15555141800871672443
+- **Last Commit:** 58f63114a31ab3a7de544eeebd1fdfc8d64a15c9
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+58f6311 - Merge branch 'main' into ci-consolidation-15555141800871672443 (reyses)
+c6733d9 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+db60bdf - docs: add training workflow documentation and pipeline script (google-labs-jules[bot])
+5531cc0 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+f6172ee - feat: enhance orchestrator for multi-file training and add result inspection tool (google-labs-jules[bot])
+631dfad - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+f8df33c - docs: include logic core test results in status report (google-labs-jules[bot])
+dea3d47 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 1df5785 - Merge pull request #20 from reyses/ci-consolidation-15555141800871672443 (reyses)
 e12f6c9 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-2a1c4d7 - ci: consolidate tests and use real databento data (google-labs-jules[bot])
-5cab07a - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-c773e5e - ci: consolidate all tests into main CI workflow and enable for all PRs (google-labs-jules[bot])
-8e4c003 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-a331c6f - Merge pull request #19 from reyses/perf/velocity-gate-optimization-15684259968469451948 (reyses)
-dc8568d - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-562fce3 - Merge branch 'main' into perf/velocity-gate-optimization-15684259968469451948 (reyses)
-456de8f - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 ```
 
 ### 3. FILE STRUCTURE
@@ -38,8 +38,10 @@ Bayesian-AI/
 │   │   ├── cuda_backtest.py [TESTED]
 │   │   ├── __init__.py [COMPLETE]
 │   ├── scripts/
+│   │   ├── run_training_pipeline.sh
 │   │   ├── manifest_integrity_check.py [COMPLETE]
 │   │   ├── build_executable.py [COMPLETE]
+│   │   ├── inspect_results.py [COMPLETE]
 │   │   ├── verify_environment.py [COMPLETE]
 │   │   ├── generate_status_report.py [WIP]
 │   ├── cuda/
@@ -82,8 +84,8 @@ Bayesian-AI/
 ```
 
 ### 4. CODE STATISTICS
-- **Python Files:** 35
-- **Total Lines of Code:** 3017
+- **Python Files:** 36
+- **Total Lines of Code:** 3202
 
 ### 5. CRITICAL INTEGRATION POINTS
 - **Databento API:**
@@ -142,7 +144,7 @@ pytest
 - CUDA: YES
 
 #### orchestrator.py
-- DOE: NO
+- DOE: YES
 - grid: NO
 - Walk-forward: NO
 - Monte Carlo: NO
@@ -154,11 +156,7 @@ pytest
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
-M	.github/workflows/ci.yml
-D	.github/workflows/verify.yml
-M	CURRENT_STATUS.md
-D	DATA/RAW/glbx-mdp3-20250730.trades.0000.dbn.zst
-M	requirements.txt
+
 ```
 
 ### 11. REVIEWER CHECKLIST
@@ -166,3 +164,16 @@ M	requirements.txt
 - [ ] Potential Bugs
 - [ ] Missing Features
 - [ ] Performance Concerns
+
+### 12. LOGIC CORE VALIDATION
+
+- **Status:** FAIL
+- **Command:** `pytest tests/topic_math.py`
+- **Summary:** No summary found
+
+**Failure Output:**
+```
+
+/opt/hostedtoolcache/Python/3.10.19/x64/bin/python3: No module named pytest
+
+```
