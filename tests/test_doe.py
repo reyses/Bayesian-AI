@@ -30,14 +30,9 @@ def synthetic_data():
     })
     return df
 
-def test_grid_search(synthetic_data):
+def test_grid_search(synthetic_data, tmp_path):
     """Verify Grid Search logic"""
-    # Use temporary directory for output
-    output_dir = 'temp_test_doe_grid'
-    if os.path.exists(output_dir):
-        shutil.rmtree(output_dir)
-
-    orchestrator = TrainingOrchestrator("MNQ", data=synthetic_data, use_gpu=False, output_dir=output_dir)
+    orchestrator = TrainingOrchestrator("MNQ", data=synthetic_data, use_gpu=False, output_dir=str(tmp_path))
 
     # Minimal grid
     param_grid = {
@@ -50,10 +45,6 @@ def test_grid_search(synthetic_data):
     assert 'params' in result
     assert 'metrics' in result
     assert result['params']['min_prob'] == 0.7
-
-    # Cleanup
-    if os.path.exists(output_dir):
-        shutil.rmtree(output_dir)
 
 def test_walk_forward(synthetic_data):
     """Verify Walk Forward logic"""
