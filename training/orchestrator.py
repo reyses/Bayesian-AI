@@ -7,6 +7,11 @@ import os
 import sys
 import glob
 import argparse
+import itertools
+import copy
+import random
+import numpy as np
+from typing import Dict, List, Any
 
 # Add project root to sys.path if running as script
 if __name__ == "__main__":
@@ -31,6 +36,7 @@ class TrainingOrchestrator:
         self.data = data
         # Default to MNQ if ticker not found, or use provided ticker
         self.asset = SYMBOL_MAP.get(asset_ticker, MNQ)
+        self.use_gpu = use_gpu
         self.engine = BayesianEngine(self.asset, use_gpu=use_gpu)
         self.output_dir = output_dir
         self.model_path = os.path.join(self.output_dir, 'probability_table.pkl')
@@ -48,9 +54,24 @@ class TrainingOrchestrator:
         self.data = data
         self.raw_data = self.data
 
-    def run_training(self, iterations=1000):
+    def reset_engine(self):
+        """Resets the engine to a fresh state."""
+        self.engine = BayesianEngine(self.asset, use_gpu=self.use_gpu)
+
+    def run_training(self, iterations=1000, params: Dict[str, Any] = None):
         if self.data is None:
             raise ValueError("Data not loaded")
+
+        # Apply parameters if provided
+        if params:
+            if 'min_prob' in params:
+                self.engine.MIN_PROB = params['min_prob']
+            if 'min_conf' in params:
+                self.engine.MIN_CONF = params['min_conf']
+            if 'max_daily_loss' in params:
+                self.engine.MAX_DAILY_LOSS = params['max_daily_loss']
+            if 'kill_zones' in params:
+                self.kill_zones = params['kill_zones']
 
         print(f"[TRAINING] Data: {len(self.data)} ticks. Target: {iterations} iterations.")
 
@@ -75,7 +96,10 @@ class TrainingOrchestrator:
         self.engine.initialize_session(static_data, self.kill_zones)
 
         # Load Existing Table for Progressive Learning
-        if os.path.exists(self.model_path):
+        # Note: If params are provided (e.g. for grid search), we typically want fresh learning,
+        # but unless reset_engine() was called before, we might load.
+        # For simplicity, if we are tuning, we assume the caller manages reset.
+        if os.path.exists(self.model_path) and not params:
             self.engine.prob_table.load(self.model_path)
             print("[TRAINING] Resuming from existing probability table.")
 
@@ -97,8 +121,21 @@ class TrainingOrchestrator:
             self._log_iteration(iteration)
 
         # Persist Learned States (L1-L9 Fingerprints)
-        self.engine.prob_table.save(self.model_path)
-        print(f"\n[TRAINING] Complete. Table saved to {self.model_path}")
+        # Only save if not in a temporary tuning run (params present often implies tuning)
+        if not params:
+            self.engine.prob_table.save(self.model_path)
+            print(f"\n[TRAINING] Complete. Table saved to {self.model_path}")
+
+        return {
+            'total_trades': len(self.engine.trades), # Last iteration stats
+            'pnl': self.engine.daily_pnl,
+            'win_rate': self._get_win_rate()
+        }
+
+    def _get_win_rate(self):
+        total = len(self.engine.trades)
+        wins = sum(1 for t in self.engine.trades if t.result == 'WIN')
+        return (wins / total) if total > 0 else 0.0
 
     def _log_iteration(self, idx):
         total = len(self.engine.trades)
@@ -134,6 +171,159 @@ class TrainingOrchestrator:
             'pnl': self.engine.daily_pnl,
             'unique_states': unique_states
         }
+
+    def run_grid_search(self, param_grid: Dict[str, List[Any]]) -> Dict[str, Any]:
+        """
+        Runs grid search over specified parameters.
+        Args:
+            param_grid: Dictionary where keys are parameter names and values are lists of values to try.
+                        Supported keys: 'min_prob', 'min_conf', 'max_daily_loss', 'kill_zones'
+        Returns:
+            Dictionary with best parameters and results.
+        """
+        keys, values = zip(*param_grid.items())
+        combinations = [dict(zip(keys, v)) for v in itertools.product(*values)]
+
+        print(f"[GRID SEARCH] Testing {len(combinations)} combinations...")
+
+        results = []
+        for i, params in enumerate(combinations):
+            print(f"  [{i+1}/{len(combinations)}] Testing params: {params}")
+            self.reset_engine()
+            # Run for 1 iteration for grid search usually, or small number
+            # We don't save model during grid search
+            res = self.run_training(iterations=1, params=params)
+            results.append({
+                'params': params,
+                'metrics': res
+            })
+
+        # Find best by PnL
+        if not results:
+            return {}
+
+        best_result = max(results, key=lambda x: x['metrics']['pnl'])
+        print("\n[GRID SEARCH] Best Result:")
+        print(f"  Params: {best_result['params']}")
+        print(f"  Metrics: {best_result['metrics']}")
+
+        return best_result
+
+    def run_walk_forward(self, train_window: int, test_window: int, step: int) -> List[Dict]:
+        """
+        Runs walk-forward validation.
+        Args:
+            train_window: Number of ticks for training.
+            test_window: Number of ticks for testing.
+            step: Number of ticks to move forward.
+        """
+        if self.data is None:
+            raise ValueError("Data not loaded")
+
+        total_ticks = len(self.data)
+        if total_ticks < train_window + test_window:
+            raise ValueError("Not enough data for walk-forward analysis")
+
+        results = []
+        start_idx = 0
+
+        print(f"[WALK FORWARD] Starting analysis. Data length: {total_ticks}")
+
+        # Save original data reference
+        original_data = self.data
+
+        try:
+            while start_idx + train_window + test_window <= total_ticks:
+                train_end = start_idx + train_window
+                test_end = train_end + test_window
+
+                # Slice data
+                train_data = original_data.iloc[start_idx:train_end].copy()
+                test_data = original_data.iloc[train_end:test_end].copy()
+
+                print(f"  Window {len(results)+1}: Train [{start_idx}:{train_end}] | Test [{train_end}:{test_end}]")
+
+                # Train
+                self.reset_engine()
+                self.data = train_data
+                # Use params to indicate this is a temporary run (suppress saving)
+                self.run_training(iterations=1, params={})
+
+                # Test
+                self.data = test_data
+                test_res = self.run_training(iterations=1, params={'mode': 'walk_forward_test'})
+
+                results.append({
+                    'window_index': len(results),
+                    'train_range': (start_idx, train_end),
+                    'test_range': (train_end, test_end),
+                    'test_metrics': test_res
+                })
+
+                start_idx += step
+
+        finally:
+            # Always restore data
+            self.data = original_data
+
+        return results
+
+    def run_monte_carlo(self, iterations: int = 100, sample_fraction: float = 0.8) -> Dict[str, Any]:
+        """
+        Runs Monte Carlo simulation via random contiguous window sampling.
+        Args:
+            iterations: Number of simulations.
+            sample_fraction: Fraction of data to sample (contiguous block).
+        """
+        if self.data is None:
+            raise ValueError("Data not loaded")
+
+        print(f"[MONTE CARLO] Running {iterations} simulations with sample fraction {sample_fraction}")
+
+        results = []
+        original_data = self.data
+
+        try:
+            n_samples = int(len(original_data) * sample_fraction)
+            if n_samples < 100: # Minimum reasonable size
+                 raise ValueError("Sample size too small for Monte Carlo")
+
+            for i in range(iterations):
+                # Random contiguous block to preserve temporal structure (L9 requirements)
+                start_idx = random.randint(0, len(original_data) - n_samples)
+                sample_data = original_data.iloc[start_idx : start_idx + n_samples].copy()
+
+                # Train/Run
+                self.reset_engine()
+                self.data = sample_data
+                res = self.run_training(iterations=1, params={'mode': 'monte_carlo'})
+                results.append(res['pnl'])
+
+                if (i+1) % 10 == 0:
+                     print(f"  Sim {i+1}/{iterations}: PnL=${res['pnl']:.2f}")
+
+        finally:
+            self.data = original_data
+
+        # Stats
+        if not results:
+            return {}
+
+        pnls = np.array(results)
+        stats = {
+            'mean': np.mean(pnls),
+            'std': np.std(pnls),
+            'min': np.min(pnls),
+            'max': np.max(pnls),
+            'var_95': np.percentile(pnls, 5) # 5th percentile as simple VaR
+        }
+
+        print("\n[MONTE CARLO] Results:")
+        print(f"  Mean PnL: ${stats['mean']:.2f}")
+        print(f"  Std Dev: ${stats['std']:.2f}")
+        print(f"  VaR (95%): ${stats['var_95']:.2f}")
+
+        return stats
 
 def load_data_from_directory(data_dir: str) -> pd.DataFrame:
     """Loads all supported files from a directory and concatenates them."""
