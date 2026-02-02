@@ -14,8 +14,10 @@ class TestDatabentoLoading:
         Tests loading of a real .dbn.zst file to ensure the loader can
         handle actual data correctly. This is an integration test.
         """
-        # Define path to the test file
-        file_path = os.path.join(os.path.dirname(__file__), 'glbx-mdp3-20250730.trades.0000.dbn.zst')
+        # Define path to the test file (adjusted to point to DATA/RAW)
+        # Using relative path from project root assuming test is run from root or finding it relative to this file
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        file_path = os.path.join(project_root, 'DATA', 'RAW', 'glbx-mdp3-20250730.trades.0000.dbn.zst')
 
         # Check if the file exists before running the test
         if not os.path.exists(file_path):
