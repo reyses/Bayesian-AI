@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main, master ]
   pull_request:
-    branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -22,6 +22,20 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+
+    - name: Setup Mock Data
+      run: |
+        mkdir -p DATA/RAW
+        python -c "import pandas as pd; pd.DataFrame({'timestamp': [0], 'price': [0.0], 'volume': [0], 'type': ['T']}).to_parquet('DATA/RAW/trades.parquet'); pd.DataFrame({'timestamp': [0]}).to_parquet('DATA/RAW/ohlcv-1s.parquet')"
+
+    - name: Integrity Test
+      run: python tests/topic_build.py
+
+    - name: Math & Logic Test
+      run: pytest tests/topic_math.py
+
+    - name: Diagnostics Test
+      run: python tests/topic_diagnostics.py
 
     - name: Phase 1 Test
       run: python tests/test_phase1.py
