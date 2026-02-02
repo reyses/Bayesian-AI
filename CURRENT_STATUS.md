@@ -1,24 +1,24 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-02 03:22:40
-- **Git Branch:** main
-- **Last Commit:** 083069eed83debb0034c2ff808b67ef2bbf44d89
+- **Timestamp:** 2026-02-02 04:20:21
+- **Git Branch:** chore/status-report-improvements-13984992279921062233
+- **Last Commit:** a43e496ea680f6d232b98dfcdd92ec6c9448c59b
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+a43e496 - Rename setup_mock_data.py to setup_test_data.py and update workflows (google-labs-jules[bot])
+3649fb4 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+4afa071 - Enhance status report generation and CI workflows (google-labs-jules[bot])
+da223d0 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 083069e - Merge pull request #21 from reyses/ci-consolidation-15555141800871672443 (reyses)
 f99c2d5 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 58f6311 - Merge branch 'main' into ci-consolidation-15555141800871672443 (reyses)
 c6733d9 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 db60bdf - docs: add training workflow documentation and pipeline script (google-labs-jules[bot])
 5531cc0 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-f6172ee - feat: enhance orchestrator for multi-file training and add result inspection tool (google-labs-jules[bot])
-631dfad - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-f8df33c - docs: include logic core test results in status report (google-labs-jules[bot])
-dea3d47 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 ```
 
 ### 3. FILE STRUCTURE
@@ -37,8 +37,14 @@ Bayesian-AI/
 │   │   ├── databento_loader.py [COMPLETE]
 │   │   ├── cuda_backtest.py [TESTED]
 │   │   ├── __init__.py [COMPLETE]
+│   ├── DATA/
+│   │   ├── RAW/
+│   │   │   ├── trades.parquet
+│   │   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
+│   │   │   ├── ohlcv-1s.parquet
 │   ├── scripts/
 │   │   ├── run_training_pipeline.sh
+│   │   ├── setup_test_data.py [TESTED]
 │   │   ├── manifest_integrity_check.py [COMPLETE]
 │   │   ├── build_executable.py [COMPLETE]
 │   │   ├── inspect_results.py [COMPLETE]
@@ -84,8 +90,8 @@ Bayesian-AI/
 ```
 
 ### 4. CODE STATISTICS
-- **Python Files:** 36
-- **Total Lines of Code:** 3202
+- **Python Files:** 37
+- **Total Lines of Code:** 3359
 
 ### 5. CRITICAL INTEGRATION POINTS
 - **Databento API:**
@@ -156,12 +162,11 @@ pytest
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
-M	AGENTS.md
+M	.github/workflows/ci.yml
+M	.github/workflows/status-report.yml
 M	CURRENT_STATUS.md
 M	scripts/generate_status_report.py
-A	scripts/inspect_results.py
-A	scripts/run_training_pipeline.sh
-M	training/orchestrator.py
+R096	scripts/setup_mock_data.py	scripts/setup_test_data.py
 ```
 
 ### 11. REVIEWER CHECKLIST
@@ -172,13 +177,24 @@ M	training/orchestrator.py
 
 ### 12. LOGIC CORE VALIDATION
 
-- **Status:** FAIL
+- **Status:** PASS
 - **Command:** `pytest tests/topic_math.py`
-- **Summary:** No summary found
+- **Summary:** 4 passed in 0.03s
 
-**Failure Output:**
-```
 
-/opt/hostedtoolcache/Python/3.10.19/x64/bin/python3: No module named pytest
+QC VALIDATION SNAPSHOT
+======================
 
-```
+Topic 1: Executable Build
+PASS: All 16 manifest files exist.
+PASS: All 17 modules imported successfully.
+PASS: OPERATIONAL_MODE is valid: LEARNING
+
+Topic 2: Math and Logic
+PASS: Logic Core verified
+
+Topic 3: Diagnostics
+PASS: Required files found in DATA/RAW
+
+Manifest Integrity
+PASS: Manifest Integrity Check Passed

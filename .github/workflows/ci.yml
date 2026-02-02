@@ -24,52 +24,7 @@ jobs:
         pip install -r requirements.txt
 
     - name: Setup Real Test Data
-      run: |
-        mkdir -p DATA/RAW
-        cp tests/glbx-mdp3-20250730.trades.0000.dbn.zst DATA/RAW/
-        export PYTHONPATH=$PYTHONPATH:.
-        python -c "
-        import sys
-        import os
-        import pandas as pd
-        from training.databento_loader import DatabentoLoader
-
-        dbn_path = 'DATA/RAW/glbx-mdp3-20250730.trades.0000.dbn.zst'
-        trades_path = 'DATA/RAW/trades.parquet'
-        ohlcv_path = 'DATA/RAW/ohlcv-1s.parquet'
-
-        print(f'Loading {dbn_path}...')
-        try:
-            df = DatabentoLoader.load_data(dbn_path)
-            print(f'Loaded {len(df)} rows.')
-
-            print(f'Saving trades to {trades_path}...')
-            df.to_parquet(trades_path)
-
-            print('Generating OHLCV...')
-            # Ensure timestamp is datetime for resampling
-            df['datetime'] = pd.to_datetime(df['timestamp'], unit='s')
-            df_idx = df.set_index('datetime')
-
-            ohlcv = df_idx['price'].resample('1s').ohlc()
-            ohlcv['volume'] = df_idx['volume'].resample('1s').sum()
-
-            # Reset index to get timestamp column back
-            ohlcv = ohlcv.reset_index()
-            # Convert datetime back to float seconds if needed, or keep as datetime.
-            # Existing tests seem to use float timestamp mostly, but pandas parquet handles datetime fine.
-            # topic_diagnostics checks file existence only.
-            # Let's verify what columns expected if used.
-            # For safety, let's keep a timestamp float column too.
-            ohlcv['timestamp'] = ohlcv['datetime'].astype('int64') // 10**9
-
-            print(f'Saving OHLCV to {ohlcv_path}...')
-            ohlcv.to_parquet(ohlcv_path)
-            print('Data setup complete.')
-        except Exception as e:
-            print(f'Error setting up data: {e}')
-            sys.exit(1)
-        "
+      run: python scripts/setup_test_data.py
 
     - name: Integrity Test
       run: python tests/topic_build.py

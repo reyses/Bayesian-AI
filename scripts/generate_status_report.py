@@ -54,6 +54,10 @@ def get_tree():
 
         for f in files:
             if f.startswith("."): continue
+            # Handle rename of setup_mock_data.py in the output if it still persists in the logic for some reason,
+            # but more importantly, we just want to list files.
+            # If the file on disk is setup_test_data.py, it will list that.
+
             annotation = ""
             if f.endswith(".py"):
                 # Basic annotation logic
@@ -200,10 +204,6 @@ def get_reviewer_checklist():
 def get_logic_core_validation():
     print("Running Logic Core Tests (topic_math.py)...")
 
-    # We can try running pytest and capturing output
-    # Since we are in scripts/, we need to adjust path or run from root
-    # This script is usually run from root in CI
-
     cmd = [sys.executable, "-m", "pytest", "tests/topic_math.py", "-v"]
 
     try:
@@ -237,6 +237,85 @@ def get_logic_core_validation():
 - **Details:** Failed to execute tests: {e}
 """
 
+def run_test_script(script_path):
+    cmd = [sys.executable, script_path]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        status = "PASS" if result.returncode == 0 else "FAIL"
+        return status, result.stdout + result.stderr
+    except Exception as e:
+        return "ERROR", str(e)
+
+def extract_pass_lines(output):
+    lines = []
+    for line in output.splitlines():
+        if line.strip().startswith("PASS:"):
+             lines.append(line.strip())
+    if not lines:
+        return "PASS: Check passed (no details)"
+    return "\n".join(lines)
+
+def get_qc_snapshot():
+    print("Generating QC Validation Snapshot...")
+
+    snapshot = "QC VALIDATION SNAPSHOT\n======================\n\n"
+
+    # Topic 1: Executable Build
+    print("Running Topic 1: Integrity...")
+    status, output = run_test_script("tests/topic_build.py")
+    snapshot += "Topic 1: Executable Build\n"
+    if status == "PASS":
+        snapshot += extract_pass_lines(output) + "\n"
+    else:
+        snapshot += "FAIL: Integrity Check Failed\n"
+        snapshot += f"```\n{output[-500:]}\n```\n"
+
+    snapshot += "\n"
+
+    # Topic 2: Math and Logic
+    # We rely on Logic Core Validation result, but summarize here.
+    snapshot += "Topic 2: Math and Logic\n"
+    # Re-run quickly to check status or parse from Logic Core step if we passed state?
+    # Simpler to re-run pytest with -q to get quiet status
+    try:
+        cmd = [sys.executable, "-m", "pytest", "tests/topic_math.py", "-q"]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode == 0:
+            snapshot += "PASS: Logic Core verified\n"
+        else:
+            snapshot += "FAIL: Logic Core failed\n"
+    except:
+        snapshot += "FAIL: Logic Core execution error\n"
+
+    snapshot += "\n"
+
+    # Topic 3: Diagnostics
+    print("Running Topic 3: Diagnostics...")
+    status, output = run_test_script("tests/topic_diagnostics.py")
+    snapshot += "Topic 3: Diagnostics\n"
+    if status == "PASS":
+        snapshot += extract_pass_lines(output) + "\n"
+    else:
+        snapshot += "FAIL: Diagnostics Check Failed\n"
+        snapshot += f"```\n{output[-500:]}\n```\n"
+
+    snapshot += "\n"
+
+    # Manifest Integrity
+    print("Running Manifest Integrity Check...")
+    status, output = run_test_script("scripts/manifest_integrity_check.py")
+    snapshot += "Manifest Integrity\n"
+    if status == "PASS":
+        # manifest_integrity_check.py prints [INTEGRITY] OK: ... and [INTEGRITY] Integrity Check COMPLETE: ALL PASS
+        # Let's check for final line or [INTEGRITY] OK lines?
+        # Maybe too verbose. Just say passed.
+        snapshot += "PASS: Manifest Integrity Check Passed\n"
+    else:
+        snapshot += "FAIL: Manifest Integrity Check Failed\n"
+        snapshot += f"```\n{output[-500:]}\n```\n"
+
+    return snapshot
+
 def main():
     content = "# CURRENT STATUS REPORT\n\n"
     content += get_metadata()
@@ -251,6 +330,7 @@ def main():
     content += "\n" + get_modified_files()
     content += "\n" + get_reviewer_checklist()
     content += "\n" + get_logic_core_validation()
+    content += "\n" + get_qc_snapshot()
 
     with open(OUTPUT_FILE, "w", encoding='utf-8') as f:
         f.write(content)
