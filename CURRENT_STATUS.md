@@ -1,84 +1,93 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-02 05:31:34
-- **Git Branch:** jules-10263977677072687230-c8355d21
-- **Last Commit:** b11ef694057ed678e9e48bab1510604fa1d0d65b
+- **Timestamp:** 2026-02-02 05:36:26
+- **Git Branch:** jules-feature-training-metrics-10263977677072687230
+- **Last Commit:** b52ad23c0b2fbd5398d483dfce654d1707348e49
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+b52ad23 - feat: Add automated training validation and reporting to status workflow (google-labs-jules[bot])
 b11ef69 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+601641a - Merge pull request #23 from reyses/refactor-tests-real-data-5099760636961371544 (reyses)
+5335a7c - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+8bdadf0 - Update tests/test_phase2.py (reyses)
+6355524 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+8ac466f - Merge cca3d43175071a34b81c46f490d16c7dd1138f13 into cc7e9860b6f98a235e61c438df2373beabe94e28 (reyses)
+cca3d43 - Refactor tests to use real sample data from DATA/RAW (google-labs-jules[bot])
+cc7e986 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+cdeb41a - Merge pull request #22 from reyses/chore/status-report-improvements-13984992279921062233 (reyses)
 ```
 
 ### 3. FILE STRUCTURE
 ```
 Bayesian-AI/
 │   ├── requirements.txt
-│   ├── engine_core.py [COMPLETE]
-│   ├── AGENTS.md
-│   ├── __init__.py [COMPLETE]
 │   ├── JULES_OUTPUT_SNAPSHOT.txt
+│   ├── AGENTS.md
+│   ├── engine_core.py [COMPLETE]
 │   ├── SYSTEM_LOGIC.md
-│   ├── CURRENT_STATUS.md
 │   ├── CHANGELOG_V2.md
+│   ├── CURRENT_STATUS.md
+│   ├── __init__.py [COMPLETE]
 │   ├── training/
-│   │   ├── __init__.py [COMPLETE]
+│   │   ├── orchestrator.py [COMPLETE]
 │   │   ├── databento_loader.py [COMPLETE]
 │   │   ├── cuda_backtest.py [TESTED]
-│   │   ├── orchestrator.py [COMPLETE]
-│   ├── config/
-│   │   ├── symbols.py [COMPLETE]
 │   │   ├── __init__.py [COMPLETE]
-│   │   ├── workflow_manifest.json
-│   │   ├── settings.py [COMPLETE]
-│   ├── docs/
-│   │   ├── project_update.txt
-│   │   ├── PHASE1_COMPLETE.md
-│   ├── visualization/
-│   │   ├── __init__.py [COMPLETE]
-│   │   ├── visualization_module.py [COMPLETE]
 │   ├── DATA/
 │   │   ├── RAW/
-│   │   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
 │   │   │   ├── trades.parquet
+│   │   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
 │   │   │   ├── ohlcv-1s.parquet
 │   ├── scripts/
-│   │   ├── manifest_integrity_check.py [COMPLETE]
-│   │   ├── inspect_results.py [COMPLETE]
-│   │   ├── verify_environment.py [COMPLETE]
-│   │   ├── build_executable.py [COMPLETE]
 │   │   ├── run_training_pipeline.sh
 │   │   ├── setup_test_data.py [TESTED]
+│   │   ├── manifest_integrity_check.py [COMPLETE]
+│   │   ├── build_executable.py [COMPLETE]
+│   │   ├── inspect_results.py [COMPLETE]
+│   │   ├── verify_environment.py [COMPLETE]
 │   │   ├── generate_status_report.py [WIP]
-│   ├── tests/
-│   │   ├── test_phase2.py [TESTED]
-│   │   ├── test_full_system.py [TESTED]
-│   │   ├── test_real_data_velocity.py [TESTED]
-│   │   ├── test_phase1.py [TESTED]
-│   │   ├── math_verify.py [COMPLETE]
-│   │   ├── utils.py [COMPLETE]
-│   │   ├── topic_build.py [COMPLETE]
-│   │   ├── test_training_validation.py [TESTED]
-│   │   ├── topic_diagnostics.py [COMPLETE]
-│   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
-│   │   ├── topic_math.py [COMPLETE]
-│   │   ├── test_databento_loading.py [TESTED]
+│   ├── cuda/
+│   │   ├── pattern_detector.py [WIP]
+│   │   ├── confirmation.py [WIP]
+│   │   ├── velocity_gate.py [COMPLETE]
+│   │   ├── __init__.py [COMPLETE]
 │   ├── execution/
 │   │   ├── wave_rider.py [COMPLETE]
 │   │   ├── __init__.py [COMPLETE]
-│   ├── cuda/
-│   │   ├── velocity_gate.py [COMPLETE]
-│   │   ├── __init__.py [COMPLETE]
-│   │   ├── confirmation.py [WIP]
-│   │   ├── pattern_detector.py [WIP]
+│   ├── docs/
+│   │   ├── project_update.txt
+│   │   ├── PHASE1_COMPLETE.md
 │   ├── core/
+│   │   ├── layer_engine.py [COMPLETE]
 │   │   ├── data_aggregator.py [COMPLETE]
 │   │   ├── __init__.py [COMPLETE]
-│   │   ├── state_vector.py [COMPLETE]
-│   │   ├── layer_engine.py [COMPLETE]
 │   │   ├── bayesian_brain.py [COMPLETE]
+│   │   ├── state_vector.py [COMPLETE]
+│   ├── tests/
+│   │   ├── test_phase2.py [TESTED]
+│   │   ├── test_full_system.py [TESTED]
+│   │   ├── utils.py [COMPLETE]
+│   │   ├── test_databento_loading.py [TESTED]
+│   │   ├── test_real_data_velocity.py [TESTED]
+│   │   ├── test_training_validation.py [TESTED]
+│   │   ├── math_verify.py [COMPLETE]
+│   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
+│   │   ├── topic_math.py [COMPLETE]
+│   │   ├── topic_diagnostics.py [COMPLETE]
+│   │   ├── test_phase1.py [TESTED]
+│   │   ├── topic_build.py [COMPLETE]
+│   ├── config/
+│   │   ├── workflow_manifest.json
+│   │   ├── symbols.py [COMPLETE]
+│   │   ├── settings.py [COMPLETE]
+│   │   ├── __init__.py [COMPLETE]
+│   ├── visualization/
+│   │   ├── visualization_module.py [COMPLETE]
+│   │   ├── __init__.py [COMPLETE]
 
 ```
 
@@ -155,9 +164,11 @@ pytest
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
-fatal: ambiguous argument 'HEAD^': unknown revision or path not in the working tree.
-Use '--' to separate paths from revisions, like this:
-'git <command> [<revision>...] -- [<file>...]'
+M	.github/workflows/status-report.yml
+M	CURRENT_STATUS.md
+M	scripts/generate_status_report.py
+A	tests/test_training_validation.py
+M	training/orchestrator.py
 ```
 
 ### 11. REVIEWER CHECKLIST
@@ -170,7 +181,7 @@ Use '--' to separate paths from revisions, like this:
 
 - **Status:** PASS
 - **Command:** `pytest tests/topic_math.py`
-- **Summary:** 4 passed in 0.05s
+- **Summary:** 4 passed in 0.03s
 
 
 ### 13. TRAINING VALIDATION METRICS
@@ -178,7 +189,7 @@ Use '--' to separate paths from revisions, like this:
 | :--- | :--- | :--- |
 | Training Status | SUCCESS | ✓ |
 | Iterations Completed | 10/10 | ✓ |
-| Runtime | 20.68s | - |
+| Runtime | 12.44s | - |
 | Data Files Loaded | 1 | ✓ |
 | Total Ticks Processed | 1,000 | - |
 | Unique States Learned | 0 | - |
