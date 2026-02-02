@@ -7,19 +7,28 @@ import sys
 import time
 from training.databento_loader import DatabentoLoader
 from cuda.velocity_gate import get_velocity_gate
+from tests.utils import find_test_data_file
+
+# List of test files
+TEST_FILES = [
+    'glbx-mdp3-20250730.trades.0000.dbn.zst',
+    'glbx-mdp3-20250731.trades.0000.dbn.zst',
+    'glbx-mdp3-20250801.trades.0000.dbn.zst',
+    'glbx-mdp3-20250803.trades.0000.dbn.zst'
+]
 
 class TestRealDataVelocity:
-    def test_velocity_gate_performance_real_data(self):
+    @pytest.mark.parametrize("filename", TEST_FILES)
+    def test_velocity_gate_performance_real_data(self, filename):
         """
         Loads the real Databento file and passes the full DataFrame to VelocityGate.
         Verifies that the optimization effectively handles large inputs by not processing the whole history.
         """
         # 1. Setup paths
-        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-        file_path = os.path.join(project_root, 'DATA', 'RAW', 'glbx-mdp3-20250730.trades.0000.dbn.zst')
+        file_path = find_test_data_file(filename)
 
-        if not os.path.exists(file_path):
-            pytest.skip("Real data file not found in DATA/RAW")
+        if not file_path or not os.path.exists(file_path):
+            pytest.skip(f"Real data file {filename} not found in DATA/RAW or tests/Testing DATA")
 
         # 2. Load Data
         print(f"Loading data from {file_path}...")
