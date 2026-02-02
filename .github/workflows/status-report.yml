@@ -33,6 +33,9 @@ jobs:
       - name: Setup Test Data
         run: python scripts/setup_test_data.py
 
+      - name: Run Training Validation
+        run: python -m pytest tests/test_training_validation.py
+
       - name: Generate CURRENT_STATUS.md
         run: |
           python3 scripts/generate_status_report.py

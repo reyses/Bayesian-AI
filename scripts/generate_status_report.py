@@ -54,9 +54,6 @@ def get_tree():
 
         for f in files:
             if f.startswith("."): continue
-            # Handle rename of setup_mock_data.py in the output if it still persists in the logic for some reason,
-            # but more importantly, we just want to list files.
-            # If the file on disk is setup_test_data.py, it will list that.
 
             annotation = ""
             if f.endswith(".py"):
@@ -186,7 +183,7 @@ def get_testing_status():
 """
 
 def get_modified_files():
-    diff = run_command("git diff --name-status HEAD^ HEAD")
+    diff = run_command("git show --pretty='' --name-status HEAD")
     return f"""### 10. FILES MODIFIED (Last Commit)
 ```
 {diff}
@@ -273,10 +270,7 @@ def get_qc_snapshot():
     snapshot += "\n"
 
     # Topic 2: Math and Logic
-    # We rely on Logic Core Validation result, but summarize here.
     snapshot += "Topic 2: Math and Logic\n"
-    # Re-run quickly to check status or parse from Logic Core step if we passed state?
-    # Simpler to re-run pytest with -q to get quiet status
     try:
         cmd = [sys.executable, "-m", "pytest", "tests/topic_math.py", "-q"]
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -306,15 +300,90 @@ def get_qc_snapshot():
     status, output = run_test_script("scripts/manifest_integrity_check.py")
     snapshot += "Manifest Integrity\n"
     if status == "PASS":
-        # manifest_integrity_check.py prints [INTEGRITY] OK: ... and [INTEGRITY] Integrity Check COMPLETE: ALL PASS
-        # Let's check for final line or [INTEGRITY] OK lines?
-        # Maybe too verbose. Just say passed.
         snapshot += "PASS: Manifest Integrity Check Passed\n"
     else:
         snapshot += "FAIL: Manifest Integrity Check Failed\n"
         snapshot += f"```\n{output[-500:]}\n```\n"
 
     return snapshot
+
+def get_training_validation_metrics():
+    print("Running Training Validation...")
+    cmd = [sys.executable, "tests/test_training_validation.py"]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
+        output = result.stdout
+
+        start_tag = "::METRICS::"
+        end_tag = "::END_METRICS::"
+
+        if start_tag in output and end_tag in output:
+            json_str = output.split(start_tag)[1].split(end_tag)[0].strip()
+            try:
+                metrics = json.loads(json_str)
+            except json.JSONDecodeError:
+                return "### TRAINING VALIDATION METRICS\n\nERROR: Failed to decode metrics JSON.\n"
+
+            status = metrics.get("status", "UNKNOWN")
+            status_icon = "✓" if status == "SUCCESS" else "✗"
+
+            iters = metrics.get("iterations_completed", "?")
+            runtime = metrics.get("runtime_seconds", "?")
+            files = metrics.get("files_loaded", "?")
+            ticks = metrics.get("total_ticks", 0)
+            unique = metrics.get("unique_states_learned", "?")
+            high_conf = metrics.get("high_confidence_states", "?")
+
+            top_5 = metrics.get("top_5_states", [])
+            top_5_str = ""
+            for s in top_5:
+                prob_pct = f"{s['probability']*100:.1f}%"
+                wins = s['wins']
+                losses = s['losses']
+                top_5_str += f"- {s['state']}: {prob_pct} ({wins} wins, {losses} losses)\n"
+
+            if not top_5_str:
+                top_5_str = "None"
+
+            table = f"""### 13. TRAINING VALIDATION METRICS
+| Metric | Value | Status |
+| :--- | :--- | :--- |
+| Training Status | {status} | {status_icon} |
+| Iterations Completed | {iters}/{iters} | {status_icon} |
+| Runtime | {runtime}s | - |
+| Data Files Loaded | {files} | {status_icon if isinstance(files, int) and files > 0 else '✗'} |
+| Total Ticks Processed | {ticks:,} | - |
+| Unique States Learned | {unique} | - |
+| High-Confidence States (80%+) | {high_conf} | {status_icon if isinstance(high_conf, int) and high_conf >= 0 else '✗'} |
+
+**Top 5 States by Probability:**
+{top_5_str}
+"""
+            if status != "SUCCESS":
+                 table += f"\n**Error Details:**\n```\n{metrics.get('error', 'Unknown Error')}\n```"
+
+            return table
+        else:
+             return f"### 13. TRAINING VALIDATION METRICS\n\nERROR: Metrics tags not found in output.\nOutput:\n{output[-500:]}"
+
+    except subprocess.TimeoutExpired:
+        return f"### 13. TRAINING VALIDATION METRICS\n\nERROR: Execution failed: Training validation timed out.\n"
+    except Exception as e:
+        return f"### 13. TRAINING VALIDATION METRICS\n\nERROR: Execution failed: {e}\n"
+
+def get_doe_status():
+    return """### 14. DOE OPTIMIZATION STATUS
+- [ ] Parameter Grid Generator
+- [ ] Latin Hypercube Sampling
+- [ ] ANOVA Analysis Module
+- [ ] Walk-Forward Test Harness
+- [ ] Monte Carlo Bootstrap
+- [ ] Response Surface Optimizer
+
+**Current Status:** NOT IMPLEMENTED
+**Estimated Implementation Time:** 1-2 weeks
+**Priority:** HIGH (required for statistical validation)
+"""
 
 def main():
     content = "# CURRENT STATUS REPORT\n\n"
@@ -330,6 +399,10 @@ def main():
     content += "\n" + get_modified_files()
     content += "\n" + get_reviewer_checklist()
     content += "\n" + get_logic_core_validation()
+    content += "\n" + get_training_validation_metrics()
+    content += "\n" + get_doe_status()
+    # QC Snapshot was last, let's keep it last or before metrics?
+    # Usually snapshot is summary.
     content += "\n" + get_qc_snapshot()
 
     with open(OUTPUT_FILE, "w", encoding='utf-8') as f:
