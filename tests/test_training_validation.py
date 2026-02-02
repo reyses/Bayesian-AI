@@ -116,7 +116,7 @@ def run_training_validation():
 
         metrics = {
             "status": "SUCCESS",
-            "iterations_completed": 10, # Reporting intention (even if we ran 2 for speed)
+            "iterations_completed": 2, # Reporting actual iterations run for validation
             "runtime_seconds": round(runtime, 2),
             "files_loaded": 1,
             "total_ticks": total_ticks,
