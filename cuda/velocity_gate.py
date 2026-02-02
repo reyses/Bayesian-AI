@@ -85,7 +85,7 @@ class CUDAVelocityGate:
                 return False
 
             # Slice to relevant window
-            relevant_data = tick_data[-LOOKBACK:] if len(tick_data) > LOOKBACK else tick_data
+            relevant_data = tick_data[-LOOKBACK:]
 
             prices = relevant_data.astype(np.float32)
             times = np.arange(len(prices), dtype=np.float32) * 0.01  # Assume 10ms between ticks
