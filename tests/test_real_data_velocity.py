@@ -6,7 +6,7 @@ import os
 import sys
 import time
 from training.databento_loader import DatabentoLoader
-from cuda.velocity_gate import get_velocity_gate
+from cuda_modules.velocity_gate import get_velocity_gate
 from tests.utils import find_test_data_file
 
 # List of test files

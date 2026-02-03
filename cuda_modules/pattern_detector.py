@@ -6,18 +6,18 @@ import pandas as pd
 import numpy as np
 from typing import Tuple
 
+PATTERN_NONE = 0
+PATTERN_COMPRESSION = 1
+PATTERN_WEDGE = 2
+PATTERN_BREAKDOWN = 3
+
 try:
     from numba import cuda, jit
     NUMBA_AVAILABLE = True
-except ImportError:
+except (ImportError, Exception):
     NUMBA_AVAILABLE = False
 
 if NUMBA_AVAILABLE:
-    PATTERN_NONE = 0
-    PATTERN_COMPRESSION = 1
-    PATTERN_WEDGE = 2
-    PATTERN_BREAKDOWN = 3
-
     @cuda.jit
     def detect_pattern_kernel(highs, lows, out_type, out_conf):
         start = cuda.grid(1)
@@ -76,6 +76,8 @@ if NUMBA_AVAILABLE:
                     out_type[idx] = PATTERN_BREAKDOWN
                     out_conf[idx] = 0.90
                     continue
+else:
+    detect_pattern_kernel = None
 
 class CUDAPatternDetector:
     def __init__(self, use_gpu: bool = True):

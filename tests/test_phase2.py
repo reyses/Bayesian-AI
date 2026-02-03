@@ -11,9 +11,9 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from cuda.pattern_detector import get_pattern_detector
-from cuda.confirmation import get_confirmation_engine
-from cuda.velocity_gate import get_velocity_gate
+from cuda_modules.pattern_detector import get_pattern_detector
+from cuda_modules.confirmation import get_confirmation_engine
+from cuda_modules.velocity_gate import get_velocity_gate
 from core.layer_engine import LayerEngine
 from training.orchestrator import TrainingOrchestrator, get_data_source
 from config.symbols import MNQ
