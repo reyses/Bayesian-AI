@@ -1,3 +1,7 @@
+"""
+Bayesian-AI - Build Topic Test
+Tests build integrity and configuration.
+"""
 import json
 import os
 import sys
