@@ -25,6 +25,8 @@ class LayerEngine:
         
         # Static context (computed once per session)
         self.static_context = None
+        self.daily_low_5d = None
+        self.daily_high_5d = None
         
         # User-provided kill zones
         self.kill_zones = []
@@ -66,6 +68,10 @@ class LayerEngine:
             'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'
         }).dropna()
         
+        # Pre-compute static stats
+        self.daily_low_5d = self.daily_data.tail(5)['low'].min()
+        self.daily_high_5d = self.daily_data.tail(5)['high'].max()
+
         # Compute static layers
         self.static_context = {
             'L1': self._compute_L1_90d(),
@@ -155,12 +161,10 @@ class LayerEngine:
         if self._check_kill_zone(price):
             L4_zone = 'at_killzone'
         else:
-            daily_low = self.daily_data.tail(5)['low'].min()
-            daily_high = self.daily_data.tail(5)['high'].max()
-
-            if abs(price - daily_low) < abs(price - daily_high):
+            # Use pre-computed static stats
+            if abs(price - self.daily_low_5d) < abs(price - self.daily_high_5d):
                 L4_zone = 'at_support'
-            elif abs(price - daily_high) < abs(price - daily_low):
+            elif abs(price - self.daily_high_5d) < abs(price - self.daily_low_5d):
                 L4_zone = 'at_resistance'
             else:
                 L4_zone = 'mid_range'

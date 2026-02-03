@@ -48,7 +48,10 @@ class DatabentoLoader:
             ('size', 'volume'),
             ('volume', 'volume'),
             ('action', 'type'),
-            ('side', 'type')
+            ('side', 'type'),
+            ('open', 'open'),
+            ('high', 'high'),
+            ('low', 'low')
         ]
 
         for source, target in potential_maps:

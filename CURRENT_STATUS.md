@@ -1,38 +1,41 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-03 02:43:59
-- **Git Branch:** main
-- **Last Commit:** ca345b2f866d4028b9ac166aca1c0bb7a89cb97b
+- **Timestamp:** 2026-02-03 02:55:28
+- **Git Branch:** debug-dashboard-notebook-10146543662829972020
+- **Last Commit:** 71cb1c4fd6c3513fcd131c6104ae7621c04c151a
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+71cb1c4 - Merge branch 'main' into debug-dashboard-notebook-10146543662829972020 (reyses)
+e891e19 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+56a376f - Resolve conflicts and finalize debug notebook (google-labs-jules[bot])
+e83be9c - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 ca345b2 - Merge pull request #34 from reyses/fix-databento-loader-and-orchestrator-3573186696355379127 (reyses)
+031af43 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+7ec5b9f - Merge branch 'main' into debug-dashboard-notebook-10146543662829972020 (reyses)
+4199f1d - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+f0eb6f5 - Fix: Remove unnecessary torch import from debug notebook (google-labs-jules[bot])
 06df3d0 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-110fd5e - Fix DatabentoLoader to preserve OHLC columns and TrainingOrchestrator to handle parquet inputs correctly (google-labs-jules[bot])
-2fcb8d2 - Merge pull request #32 from reyses/perf-aggregator-incremental-2406530553394707883 (reyses)
-f08e27d - Merge branch 'main' into perf-aggregator-incremental-2406530553394707883 (reyses)
-404bf02 - Merge pull request #28 from reyses/perf-state-vector-eq-447180227177136214 (reyses)
-f1663c5 - Merge branch 'main' into perf-aggregator-incremental-2406530553394707883 (reyses)
-dd1f6b8 - Optimize DataAggregator with incremental updates (google-labs-jules[bot])
-7ce675c - Merge branch 'main' into perf-state-vector-eq-447180227177136214 (reyses)
-64decad - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 ```
 
 ### 3. FILE STRUCTURE
 ```
 Bayesian-AI/
 │   ├── requirements.txt
+│   ├── debug_dashboard.ipynb
 │   ├── JULES_OUTPUT_SNAPSHOT.txt
+│   ├── README_NOTEBOOK.md
 │   ├── AGENTS.md
 │   ├── engine_core.py [COMPLETE]
 │   ├── SYSTEM_LOGIC.md
-│   ├── conflict_check.diff
 │   ├── CHANGELOG_V2.md
 │   ├── CURRENT_STATUS.md
+│   ├── requirements_notebook.txt
 │   ├── REPORT.md
+│   ├── inspect_dbn.py [COMPLETE]
 │   ├── __init__.py [COMPLETE]
 │   ├── training/
 │   │   ├── orchestrator.py [COMPLETE]
@@ -51,10 +54,11 @@ Bayesian-AI/
 │   │   ├── build_executable.py [COMPLETE]
 │   │   ├── inspect_results.py [COMPLETE]
 │   │   ├── verify_environment.py [COMPLETE]
+│   │   ├── generate_debug_notebook.py [COMPLETE]
 │   │   ├── generate_status_report.py [WIP]
 │   ├── cuda/
-│   │   ├── pattern_detector.py [WIP]
-│   │   ├── confirmation.py [WIP]
+│   │   ├── pattern_detector.py [COMPLETE]
+│   │   ├── confirmation.py [COMPLETE]
 │   │   ├── velocity_gate.py [COMPLETE]
 │   │   ├── __init__.py [COMPLETE]
 │   ├── execution/
@@ -101,8 +105,8 @@ Bayesian-AI/
 ```
 
 ### 4. CODE STATISTICS
-- **Python Files:** 40
-- **Total Lines of Code:** 4159
+- **Python Files:** 42
+- **Total Lines of Code:** 4729
 
 ### 5. CRITICAL INTEGRATION POINTS
 - **Databento API:**
@@ -173,7 +177,9 @@ pytest
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
-
+MM	CURRENT_STATUS.md
+MM	tests/utils.py
+MM	training/databento_loader.py
 ```
 
 ### 11. REVIEWER CHECKLIST
@@ -186,49 +192,12 @@ pytest
 
 - **Status:** PASS
 - **Command:** `pytest tests/topic_math.py`
-- **Summary:** 4 passed in 0.04s
+- **Summary:** 4 passed in 0.03s
 
 
 ### 13. TRAINING VALIDATION METRICS
 
-#### File: glbx-mdp3-20250730.trades.0000.dbn.zst
-| Metric | Value | Status |
-| :--- | :--- | :--- |
-| Training Status | SUCCESS | ✓ |
-| Iterations Completed | 2 | ✓ |
-| Runtime | 1.88s | - |
-| Total Ticks Processed | 1,000 | - |
-| Unique States Learned | 0 | - |
-| High-Confidence States (80%+) | 0 | ✓ |
-
-**Top 5 States by Probability:**
-None
-
-#### File: trades.parquet
-| Metric | Value | Status |
-| :--- | :--- | :--- |
-| Training Status | SUCCESS | ✓ |
-| Iterations Completed | 2 | ✓ |
-| Runtime | 1.24s | - |
-| Total Ticks Processed | 1,000 | - |
-| Unique States Learned | 0 | - |
-| High-Confidence States (80%+) | 0 | ✓ |
-
-**Top 5 States by Probability:**
-None
-
-#### File: ohlcv-1s.parquet
-| Metric | Value | Status |
-| :--- | :--- | :--- |
-| Training Status | SUCCESS | ✓ |
-| Iterations Completed | 2 | ✓ |
-| Runtime | 1.22s | - |
-| Total Ticks Processed | 1,000 | - |
-| Unique States Learned | 0 | - |
-| High-Confidence States (80%+) | 0 | ✓ |
-
-**Top 5 States by Probability:**
-None
+ERROR: Execution failed: 'list' object has no attribute 'get'
 
 ### 14. DOE OPTIMIZATION STATUS
 - [ ] Parameter Grid Generator
