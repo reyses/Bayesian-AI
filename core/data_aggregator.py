@@ -10,10 +10,7 @@ class DataAggregator:
     def __init__(self, max_ticks: int = 10000):
         self.max_ticks = max_ticks
         self._df_cache: Optional[pd.DataFrame] = None
-        self._bars_cache: Dict[str, pd.DataFrame] = {}
-        # Track total ticks added to manage incremental updates
-        self._total_ticks_added = 0
-        self._last_processed_ticks = 0
+        self._last_tick_count = 0
 
         # Ring buffer storage
         self._buffers: Dict[str, np.ndarray] = {}
@@ -46,11 +43,57 @@ class DataAggregator:
         if 'timestamp' not in tick:
             tick['timestamp'] = pd.Timestamp.now().timestamp()
 
-        self.ticks.append(tick)
-        self._total_ticks_added += 1
+        if not self._initialized:
+            self._init_buffers(tick)
 
-        if len(self.ticks) > self.max_ticks:
-            self.ticks.pop(0)
+        # Update buffers
+        # Iterate over ALL known buffers to ensure we overwrite stale data at current index
+        for key, arr in self._buffers.items():
+            val = tick.get(key)
+            if val is not None:
+                arr[self._idx] = val
+            else:
+                # Key missing in this tick: overwrite with NaN/None
+                if np.issubdtype(arr.dtype, np.number):
+                    arr[self._idx] = np.nan
+                else:
+                    arr[self._idx] = None
+
+        self._idx = (self._idx + 1) % self.max_ticks
+        if self._size < self.max_ticks:
+            self._size += 1
+
+        # Invalidate cache
+        self._df_cache = None
+
+    def _init_buffers(self, sample_tick: Dict):
+        """Initialize numpy arrays based on first tick structure"""
+        for key, value in sample_tick.items():
+            if isinstance(value, (int, float, np.number)):
+                dtype = np.float64
+                fill_value = np.nan
+            else:
+                dtype = object
+                fill_value = None
+
+            self._buffers[key] = np.full(self.max_ticks, fill_value, dtype=dtype)
+
+        self._initialized = True
+
+    def _get_ordered_data(self) -> Dict[str, np.ndarray]:
+        """Return dict of arrays ordered chronologically"""
+        if not self._initialized or self._size == 0:
+            return {}
+
+        if self._size < self.max_ticks:
+            # Not full, just slice 0 to size
+            return {k: v[:self._size] for k, v in self._buffers.items()}
+        else:
+            # Full, wrap around.
+            # Current _idx points to the OLDEST data (next to be overwritten)
+            # So data is [idx:] + [:idx]
+            idx = self._idx
+            return {k: np.concatenate((v[idx:], v[:idx])) for k, v in self._buffers.items()}
 
     def get_current_data(self) -> Dict:
         """
@@ -68,34 +111,22 @@ class DataAggregator:
                 'bars_4hr': None
             }
 
-        # Initialize or Update _df_cache
+        # Convert to DataFrame
         if self._df_cache is None:
-            # Initial build
-            self._df_cache = pd.DataFrame(self.ticks)
-            self._prepare_df_index(self._df_cache)
-            self._last_processed_ticks = self._total_ticks_added
-        else:
-            # Incremental update
-            new_count = self._total_ticks_added - self._last_processed_ticks
+            data = self._get_ordered_data()
+            self._df_cache = pd.DataFrame(data)
 
-            if new_count > 0:
-                if new_count >= len(self.ticks):
-                    # Should be rare/impossible unless max_ticks is huge or logic error,
-                    # but if we need to add more than we have, just rebuild.
-                    self._df_cache = pd.DataFrame(self.ticks)
-                    self._prepare_df_index(self._df_cache)
+            # Ensure timestamp column is datetime for resampling
+            if 'timestamp' in self._df_cache.columns:
+                if not pd.api.types.is_datetime64_any_dtype(self._df_cache['timestamp']):
+                    # Assuming timestamp is float (epoch)
+                    self._df_cache['datetime'] = pd.to_datetime(self._df_cache['timestamp'], unit='s')
                 else:
-                    # Append new ticks
-                    new_ticks_data = self.ticks[-new_count:]
-                    new_df = pd.DataFrame(new_ticks_data)
-                    self._prepare_df_index(new_df)
-                    self._df_cache = pd.concat([self._df_cache, new_df])
+                    self._df_cache['datetime'] = self._df_cache['timestamp']
 
-                # Maintain cache size
-                if len(self._df_cache) > self.max_ticks:
-                    self._df_cache = self._df_cache.iloc[-self.max_ticks:]
-
-                self._last_processed_ticks = self._total_ticks_added
+                self._df_cache.set_index('datetime', inplace=True)
+            else:
+                pass
 
         df = self._df_cache
 
@@ -113,68 +144,23 @@ class DataAggregator:
         current_price = get_last_val('price')
         current_ts = get_last_val('timestamp')
 
-        # Helper to safely resample with caching
+        # Generate bars
+        # Note: In a real high-freq system, we wouldn't resample full history every tick.
+        # We would update the last bar. This is a simplified implementation.
+
+        # Helper to safely resample
         def get_bars(rule):
             try:
                 if df.empty: return None
-
-                # Use cache if available
-                cached = self._bars_cache.get(rule)
-
-                start_subset_idx = None
-
-                if cached is not None and not cached.empty:
-                    # Identify the last bar in the cache
-                    last_bar_idx = cached.index[-1]
-
-                    # Check if last_bar_idx is still within df range
-                    if last_bar_idx <= df.index[-1]:
-                         start_subset_idx = last_bar_idx
-
-                if start_subset_idx is not None:
-                    # Incremental update
-                    # Get relevant data slice
-                    subset = df[df.index >= start_subset_idx]
-
-                    if subset.empty:
-                        return cached
-
-                    resampled_subset = subset.resample(rule).agg({
-                        'open': 'first',
-                        'high': 'max',
-                        'low': 'min',
-                        'close': 'last',
-                        'volume': 'sum'
-                    }).dropna()
-
-                    if resampled_subset.empty:
-                        return cached
-
-                    # Merge: Cache (minus last bar) + Resampled Subset
-                    base_cache = cached.loc[:start_subset_idx]
-                    if not base_cache.empty and base_cache.index[-1] == start_subset_idx:
-                         base_cache = base_cache.iloc[:-1]
-
-                    updated_cache = pd.concat([base_cache, resampled_subset])
-                else:
-                    # Full resample (initial or cache invalid)
-                    updated_cache = df.resample(rule).agg({
-                        'open': 'first',
-                        'high': 'max',
-                        'low': 'min',
-                        'close': 'last',
-                        'volume': 'sum'
-                    }).dropna()
-
-                # Trim cache to match the window of ticks we hold
-                if len(updated_cache) > self.max_ticks:
-                    updated_cache = updated_cache.iloc[-self.max_ticks:]
-
-                self._bars_cache[rule] = updated_cache
-                return updated_cache
-
+                resampled = df.resample(rule).agg({
+                    'open': 'first',
+                    'high': 'max',
+                    'low': 'min',
+                    'close': 'last',
+                    'volume': 'sum'
+                }).dropna()
+                return resampled
             except Exception:
-                # In case of missing columns or other errors
                 return None
 
         # Prepare ticks DataFrame for return
@@ -195,18 +181,3 @@ class DataAggregator:
             'bars_1h': get_bars('1h'),
             'bars_4hr': get_bars('4h')
         }
-
-    def _prepare_df_index(self, df: pd.DataFrame):
-        """Helper to ensure datetime index exists"""
-        if 'datetime' not in df.columns:
-            if 'timestamp' in df.columns:
-                if not pd.api.types.is_datetime64_any_dtype(df['timestamp']):
-                     df['datetime'] = pd.to_datetime(df['timestamp'], unit='s')
-                else:
-                     df['datetime'] = df['timestamp']
-            else:
-                # Should not happen given add_tick logic
-                pass
-
-        if 'datetime' in df.columns:
-            df.set_index('datetime', inplace=True)
