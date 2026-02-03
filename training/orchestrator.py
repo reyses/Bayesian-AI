@@ -19,6 +19,7 @@ if __name__ == "__main__":
 
 from engine_core import BayesianEngine
 from config.symbols import SYMBOL_MAP, MNQ
+from config.settings import OPERATIONAL_MODE, RAW_DATA_PATH
 from training.databento_loader import DatabentoLoader
 
 def get_data_source(data_path: str) -> pd.DataFrame:
@@ -384,6 +385,12 @@ if __name__ == "__main__":
     parser.add_argument("--ticker", type=str, default="MNQ", help="Asset ticker symbol (default: MNQ)")
 
     args = parser.parse_args()
+
+    # Enforce OPERATIONAL_MODE
+    if OPERATIONAL_MODE == "LEARNING":
+        print(f"[ORCHESTRATOR] OPERATIONAL_MODE is '{OPERATIONAL_MODE}'. Enforcing ingestion from {RAW_DATA_PATH}.")
+        args.data_dir = RAW_DATA_PATH
+        args.data_file = None
 
     try:
         data = None
