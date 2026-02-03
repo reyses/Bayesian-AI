@@ -1,4 +1,0 @@
-jupyter
-plotly
-ipywidgets
-tqdm
