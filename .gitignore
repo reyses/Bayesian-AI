@@ -7,4 +7,3 @@ build/
 *.spec
 
 debug_outputs/
-.ipynb_checkpoints
