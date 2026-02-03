@@ -8,7 +8,7 @@ import numpy as np
 try:
     from numba import cuda
     NUMBA_AVAILABLE = True
-except ImportError:
+except (ImportError, Exception):
     NUMBA_AVAILABLE = False
 
 if NUMBA_AVAILABLE:

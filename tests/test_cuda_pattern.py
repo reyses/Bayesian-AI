@@ -8,7 +8,7 @@ import sys
 # Add project root to path
 sys.path.append(os.getcwd())
 
-from cuda.pattern_detector import get_pattern_detector, PATTERN_COMPRESSION, PATTERN_WEDGE, PATTERN_BREAKDOWN, PATTERN_NONE
+from cuda_modules.pattern_detector import get_pattern_detector, PATTERN_COMPRESSION, PATTERN_WEDGE, PATTERN_BREAKDOWN, PATTERN_NONE
 
 class TestCUDAPatternDetector:
     def setup_method(self):
