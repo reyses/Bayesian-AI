@@ -1,3 +1,7 @@
+"""
+Bayesian-AI - Build Executable
+Compiles the application into a standalone executable using PyInstaller.
+"""
 import PyInstaller.__main__
 import os
 import sys
