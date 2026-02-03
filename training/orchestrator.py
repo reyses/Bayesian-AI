@@ -26,7 +26,10 @@ def get_data_source(data_path: str) -> pd.DataFrame:
     if data_path.endswith('.dbn') or data_path.endswith('.dbn.zst'):
         return DatabentoLoader.load_data(data_path)
     elif data_path.endswith('.parquet'):
-        return pd.read_parquet(data_path)
+        df = pd.read_parquet(data_path)
+        if 'price' not in df.columns and 'close' in df.columns:
+            df['price'] = df['close']
+        return df
     else:
         raise ValueError(f"Unsupported data file format: {data_path}")
 
