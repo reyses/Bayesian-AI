@@ -47,25 +47,57 @@ class TestCUDAImportsAndInit:
 
     def test_gpu_request_robustness(self):
         """
-        Requesting GPU on a system (likely without CUDA in CI) should not crash.
-        It should initialize, though .use_gpu might be False depending on hardware presence.
+        Requesting GPU on a system (likely without CUDA in CI) SHOULD fail if drivers are missing.
+        Strict configuration now disables silent fallback.
         """
         try:
-            from cuda_modules.velocity_gate import get_velocity_gate
-            from cuda_modules.pattern_detector import get_pattern_detector
-            from cuda_modules.confirmation import get_confirmation_engine
+            from numba import cuda
+            # In this sandbox environment, importing numba.cuda alone can trigger DynamicLibNotFoundError
+            # if drivers are missing. We catch that here to determine availability.
+            cuda_available = cuda.is_available()
+        except Exception:
+            cuda_available = False
 
-            # These might print "GPU not available" to stdout, which is fine.
-            gate = get_velocity_gate(use_gpu=True)
-            detector = get_pattern_detector(use_gpu=True)
-            engine = get_confirmation_engine(use_gpu=True)
+        # Override for testing environment: if we are in a sandbox without drivers,
+        # we treat it as "CUDA NOT available" regardless of what numba says initially.
+        # This ensures our test expectation matches reality.
+        # Check if we can actually run a dummy kernel or check device
+        if cuda_available:
+            try:
+                cuda.get_current_device()
+            except Exception:
+                cuda_available = False
 
-            assert gate is not None
-            assert detector is not None
-            assert engine is not None
+        from cuda_modules.velocity_gate import get_velocity_gate
+        from cuda_modules.pattern_detector import get_pattern_detector
+        from cuda_modules.confirmation import get_confirmation_engine
 
-        except Exception as e:
-            pytest.fail(f"Initialization with use_gpu=True crashed: {e}")
+        if cuda_available:
+            # If CUDA is really available, it should succeed
+            try:
+                gate = get_velocity_gate(use_gpu=True)
+                assert gate.use_gpu is True
+            except RuntimeError:
+                pytest.fail("CUDA available but VelocityGate failed to init with GPU")
+        else:
+            # If CUDA is NOT available, it MUST raise RuntimeError
+            # We expect these to fail because we are enforcing "No Silent Fallback"
+
+            # Important: get_velocity_gate uses a singleton pattern. If it was already
+            # initialized in a previous test (e.g. imports above), it might return the existing instance.
+            # We must test the classes directly to ensure we are testing the constructor logic.
+            from cuda_modules.velocity_gate import CUDAVelocityGate
+            from cuda_modules.pattern_detector import CUDAPatternDetector
+            from cuda_modules.confirmation import CUDAConfirmationEngine
+
+            with pytest.raises(RuntimeError, match="CUDA requested.*but not available"):
+                CUDAVelocityGate(use_gpu=True)
+
+            with pytest.raises(RuntimeError, match="CUDA requested.*but not available"):
+                CUDAPatternDetector(use_gpu=True)
+
+            with pytest.raises(RuntimeError, match="CUDA requested.*but not available"):
+                CUDAConfirmationEngine(use_gpu=True)
 
 if __name__ == "__main__":
     sys.exit(pytest.main(["-v", __file__]))

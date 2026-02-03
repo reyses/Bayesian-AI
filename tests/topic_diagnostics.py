@@ -23,6 +23,7 @@ def run_diagnostics():
     else:
         is_available = False
         print(f"CUDA Import Failed: {CUDA_IMPORT_ERROR}")
+        print("INFO: Imports failed, but this is expected in CPU-only environments if drivers are missing.")
 
     print(f"CUDA Available: {is_available}")
 
