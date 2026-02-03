@@ -58,10 +58,7 @@ def load_test_data():
     df = DatabentoLoader.load_data(data_path)
 
     # Ensure datetime is the index
-    if 'timestamp' in df.columns and not isinstance(df.index, pd.DatetimeIndex):
-        df['datetime'] = pd.to_datetime(df['timestamp'], unit='s')
-        df.set_index('datetime', inplace=True)
-    elif 'datetime' in df.columns:
+    if 'datetime' in df.columns:
         df['datetime'] = pd.to_datetime(df['datetime'])
         df.set_index('datetime', inplace=True)
 
