@@ -9,12 +9,33 @@ from typing import Dict, List, Optional
 class DataAggregator:
     def __init__(self, max_ticks: int = 10000):
         self.max_ticks = max_ticks
-        self.ticks: List[Dict] = []
         self._df_cache: Optional[pd.DataFrame] = None
         self._bars_cache: Dict[str, pd.DataFrame] = {}
         # Track total ticks added to manage incremental updates
         self._total_ticks_added = 0
         self._last_processed_ticks = 0
+
+        # Ring buffer storage
+        self._buffers: Dict[str, np.ndarray] = {}
+        self._idx = 0  # Points to the next insertion slot
+        self._size = 0 # Current number of valid items
+        self._initialized = False
+
+    @property
+    def ticks(self) -> List[Dict]:
+        """
+        Reconstructs the list of ticks from buffers for backward compatibility.
+        Warning: This is expensive. Avoid using in performance-critical paths.
+        """
+        if not self._initialized or self._size == 0:
+            return []
+
+        # Get data in chronological order
+        data = self._get_ordered_data()
+
+        # Convert to DataFrame then to records
+        # This preserves types and column names
+        return pd.DataFrame(data).to_dict('records')
 
     def add_tick(self, tick: Dict):
         """
@@ -36,7 +57,7 @@ class DataAggregator:
         Get snapshot of data for LayerEngine
         Returns dict with 'ticks', 'bars_5m', 'bars_15m', etc.
         """
-        if not self.ticks:
+        if not self._initialized or self._size == 0:
             return {
                 'price': 0.0,
                 'timestamp': 0.0,
@@ -77,8 +98,20 @@ class DataAggregator:
                 self._last_processed_ticks = self._total_ticks_added
 
         df = self._df_cache
-        current_price = self.ticks[-1]['price']
-        current_ts = self.ticks[-1]['timestamp']
+
+        # Get current price/ts from buffers directly for speed
+        last_idx = (self._idx - 1) % self.max_ticks
+
+        # Helper to get value safely
+        def get_last_val(key):
+            if key in self._buffers:
+                val = self._buffers[key][last_idx]
+                if pd.isna(val): return 0.0 # Handle NaN
+                return val
+            return 0.0
+
+        current_price = get_last_val('price')
+        current_ts = get_last_val('timestamp')
 
         # Helper to safely resample with caching
         def get_bars(rule):
@@ -144,10 +177,19 @@ class DataAggregator:
                 # In case of missing columns or other errors
                 return None
 
+        # Prepare ticks DataFrame for return
+        if not df.empty:
+            ticks_df = df.reset_index()
+            # Ensure columns exist before selecting
+            cols = [c for c in ['price', 'timestamp'] if c in ticks_df.columns]
+            ticks_df = ticks_df[cols]
+        else:
+            ticks_df = pd.DataFrame(columns=['price', 'timestamp'])
+
         return {
             'price': current_price,
             'timestamp': current_ts,
-            'ticks': df.reset_index()[['price', 'timestamp']], # Pass DataFrame with price/timestamp columns
+            'ticks': ticks_df,
             'bars_5m': get_bars('5min'),
             'bars_15m': get_bars('15min'),
             'bars_1h': get_bars('1h'),
