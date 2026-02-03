@@ -88,16 +88,10 @@ class DatabentoLoader:
                 else:
                     raise ValueError(f"Missing required column: {col} in databento file")
 
-        # Restore OHLC columns if they were renamed or missing
-        # If we have price, we can use it as close/open/high/low if missing (approximate for tick data)
-        # But for OHLC data, we want to preserve them if possible.
+        # Preserve OHLC columns if present
+        ohlc_cols = []
+        for col in ['open', 'high', 'low']:
+            if col in df.columns:
+                ohlc_cols.append(col)
 
-        # If 'close' was mapped to 'price', duplicate it back to 'close'
-        if 'close' not in df.columns and 'price' in df.columns:
-             df['close'] = df['price']
-
-        # Return all required columns plus any OHLC columns found
-        final_cols = list(set(required_cols + ['open', 'high', 'low', 'close']))
-        final_cols = [c for c in final_cols if c in df.columns]
-
-        return df[final_cols]
+        return df[required_cols + ohlc_cols]
