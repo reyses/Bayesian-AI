@@ -1,3 +1,7 @@
+"""
+Bayesian-AI - Diagnostics Topic Test
+Checks system diagnostics and environment.
+"""
 import sys
 import os
 

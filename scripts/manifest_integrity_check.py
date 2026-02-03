@@ -1,3 +1,7 @@
+"""
+Bayesian-AI - Manifest Integrity Check
+Validates that the workflow manifest matches the actual file structure.
+"""
 import json
 import os
 import sys

@@ -1,4 +1,8 @@
 
+"""
+Bayesian-AI - CUDA Confirmation Test
+Tests the confirmation engine logic.
+"""
 import pytest
 import pandas as pd
 import numpy as np
@@ -9,6 +13,7 @@ import sys
 sys.path.append(os.getcwd())
 
 from cuda_modules.confirmation import get_confirmation_engine
+import cuda_modules.confirmation
 
 class TestCUDAConfirmationEngine:
     def setup_method(self):
@@ -71,12 +76,28 @@ class TestCUDAConfirmationEngine:
         assert confirmed is False
 
     def test_gpu_fallback_init(self):
-        """Verify initialization with use_gpu=True does not crash"""
+        """Verify initialization behaves correctly based on environment"""
+        # Reset singleton to ensure we test initialization logic
+        cuda_modules.confirmation._confirmation_engine = None
+
         try:
-            engine_gpu = get_confirmation_engine(use_gpu=True)
-            assert engine_gpu is not None
-        except Exception as e:
-            pytest.fail(f"Initialization with use_gpu=True failed: {e}")
+            from numba import cuda
+            can_use_cuda = cuda.is_available()
+        except:
+            can_use_cuda = False
+
+        if can_use_cuda:
+            # Should succeed
+            engine = get_confirmation_engine(use_gpu=True)
+            assert engine.use_gpu is True
+        else:
+            # Should fail strictly
+            with pytest.raises(RuntimeError):
+                get_confirmation_engine(use_gpu=True)
+
+            # CPU mode should work
+            engine = get_confirmation_engine(use_gpu=False)
+            assert engine.use_gpu is False
 
 if __name__ == "__main__":
     sys.exit(pytest.main(["-v", __file__]))
