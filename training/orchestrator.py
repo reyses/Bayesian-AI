@@ -399,10 +399,21 @@ if __name__ == "__main__":
             else:
                  raise ValueError("Must provide --data-dir or --data-file")
 
+        # Auto-detect GPU capability for safe default
+        try:
+            from numba import cuda
+            use_gpu = cuda.is_available()
+        except:
+            use_gpu = False
+
+        if not use_gpu:
+            print("[ORCHESTRATOR] CUDA not available. Running in CPU mode.")
+
         orchestrator = TrainingOrchestrator(
             asset_ticker=args.ticker,
             data=data,
-            output_dir=args.output
+            output_dir=args.output,
+            use_gpu=use_gpu
         )
         orchestrator.run_training(iterations=args.iterations)
 

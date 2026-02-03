@@ -1,3 +1,7 @@
+"""
+Bayesian-AI - Test Data Setup
+Prepares test data by copying or generating necessary files.
+"""
 import sys
 import os
 import shutil

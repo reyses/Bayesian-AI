@@ -1,3 +1,7 @@
+"""
+Bayesian-AI - Debug Notebook Generator
+Generates a Jupyter notebook for debugging system state.
+"""
 import json
 import os
 

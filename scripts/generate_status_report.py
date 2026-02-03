@@ -1,3 +1,7 @@
+"""
+Bayesian-AI - Status Report Generator
+Generates a comprehensive status report (CURRENT_STATUS.md) from test results.
+"""
 import os
 import sys
 import subprocess
