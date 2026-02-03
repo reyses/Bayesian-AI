@@ -1,3 +1,7 @@
+"""
+Bayesian-AI - Math Topic Test
+Tests mathematical core functions.
+"""
 import pytest
 import sys
 import os

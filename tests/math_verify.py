@@ -1,3 +1,7 @@
+"""
+Bayesian-AI - Math Verification
+Verifies mathematical logic of the Bayesian Brain.
+"""
 import pytest
 from core.bayesian_brain import BayesianBrain, TradeOutcome
 from core.state_vector import StateVector
