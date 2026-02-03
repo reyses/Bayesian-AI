@@ -1,14 +1,16 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-03 04:19:49
+- **Timestamp:** 2026-02-03 05:29:24
 - **Git Branch:** main
-- **Last Commit:** c22bc3bc29ecd4f8e4cf69331b1d1dbe65359b62
+- **Last Commit:** 2b745c3c94f2fbbfbafaffcb4e1e420156b7564b
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+2b745c3 - Remove notebook-specific requirements file and consolidate dependencies into main requirements.txt (reyses)
+da2b04d - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 c22bc3b - Merge pull request #36 from reyses/refactor-notebook-path-handling-18148758468187037191 (reyses)
 0b5e8f9 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 d7c67d8 - Refactor notebook structure and path handling (google-labs-jules[bot])
@@ -17,8 +19,6 @@ d3aed63 - Merge pull request #35 from reyses/jules-verify-tests-1058770162905890
 8184b1f - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 68050ce - Merge 12948dff5312d84f0540681f784f027afdbb2a57 into fbe97c457fedcdceca856b85a57502b5d0febc40 (reyses)
 12948df - Verify all tests pass (google-labs-jules[bot])
-fbe97c4 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-7b48048 - Merge pull request #33 from reyses/debug-dashboard-notebook-10146543662829972020 (reyses)
 ```
 
 ### 3. FILE STRUCTURE
@@ -34,6 +34,7 @@ Bayesian-AI/
 │   ├── REPORT.md
 │   ├── inspect_dbn.py [COMPLETE]
 │   ├── __init__.py [COMPLETE]
+│   ├── all_requirements.txt
 │   ├── training/
 │   │   ├── orchestrator.py [COMPLETE]
 │   │   ├── databento_loader.py [COMPLETE]
@@ -98,7 +99,7 @@ Bayesian-AI/
 │   ├── notebooks/
 │   │   ├── debug_dashboard.ipynb
 │   │   ├── README_NOTEBOOK.md
-│   │   ├── requirements_notebook.txt
+│   │   ├── debug_dashboard_output.html
 │   ├── visualization/
 │   │   ├── visualization_module.py [COMPLETE]
 │   │   ├── __init__.py [COMPLETE]
@@ -142,9 +143,14 @@ urllib3==2.6.3
 yarl==1.22.0
 zstandard==0.25.0
 numba==0.63.1
+numba-cuda
 llvmlite==0.46.0
 pyinstaller==6.18.0
 pytest
+jupyter
+plotly
+ipywidgets
+tqdm
 
 ```
 - **Installation:** `pip install -r requirements.txt`
@@ -178,7 +184,11 @@ pytest
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
-
+A	all_requirements.txt
+M	notebooks/debug_dashboard.ipynb
+A	notebooks/debug_dashboard_output.html
+D	notebooks/requirements_notebook.txt
+M	requirements.txt
 ```
 
 ### 11. REVIEWER CHECKLIST
@@ -191,7 +201,7 @@ pytest
 
 - **Status:** PASS
 - **Command:** `pytest tests/topic_math.py`
-- **Summary:** 4 passed in 0.04s
+- **Summary:** 4 passed in 0.02s
 
 
 ### 13. TRAINING VALIDATION METRICS
@@ -222,7 +232,29 @@ Topic 2: Math and Logic
 PASS: Logic Core verified
 
 Topic 3: Diagnostics
-PASS: Required files found in DATA/RAW
+FAIL: Diagnostics Check Failed
+```
+Traceback (most recent call last):
+  File "/home/runner/work/Bayesian-AI/Bayesian-AI/tests/topic_diagnostics.py", line 7, in <module>
+    from numba import cuda
+  File "/opt/hostedtoolcache/Python/3.10.19/x64/lib/python3.10/site-packages/numba_cuda/numba/cuda/__init__.py", line 26, in <module>
+    raise ImportError(
+ImportError: NVIDIA CUDA Python bindings not found. Install the 'cuda' package (e.g. pip install "cuda-bindings==XY.*" or "numba-cuda[cuXY]", with XY=12 or XY=13).
+
+```
 
 Manifest Integrity
-PASS: Manifest Integrity Check Passed
+FAIL: Manifest Integrity Check Failed
+```
+Imported engine_core
+[INTEGRITY] Checking CUDA availability...
+[INTEGRITY] FAIL: Numba not installed or CUDA support missing.
+[INTEGRITY] Verifying BayesianBrain I/O...
+[BAYESIAN] Saved 1 state patterns to test_prob_table.pkl
+[BAYESIAN] Loaded 1 state patterns from test_prob_table.pkl
+[INTEGRITY] OK: BayesianBrain save/load verification passed.
+[INTEGRITY] Verifying DatabentoLoader...
+[INTEGRITY] OK: DatabentoLoader class and method found.
+[INTEGRITY] Integrity Check COMPLETE: FAILURES DETECTED
+
+```
