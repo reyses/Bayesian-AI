@@ -109,10 +109,13 @@ class CUDAPatternDetector:
             return ('none', 0.0)
 
         # Optimization: process only a relevant window on GPU if data is huge
-        # But for now, we process everything or just ensure we cover the end.
-        # Since we only return the result for the LAST bar, we can slice the input.
         # We need at least 10 bars for compression check at the end.
         # So we can send the last 20 bars (or window_size, if larger).
+        LOOKBACK = 200
+        if n > LOOKBACK:
+            highs = highs[-LOOKBACK:]
+            lows = lows[-LOOKBACK:]
+            n = LOOKBACK
 
         # Let's handle the data transfer
         d_highs = cuda.to_device(highs)

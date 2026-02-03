@@ -1,3 +1,7 @@
+"""
+Bayesian-AI - Environment Verification
+Checks for required dependencies, directories, and compute capabilities.
+"""
 import sys
 import os
 import importlib.util
@@ -19,19 +23,25 @@ def verify_environment():
     all_passed = True
 
     # Check dependencies
+    if not check_import("numpy"): all_passed = False
+    if not check_import("pandas"): all_passed = False
     if not check_import("numba"): all_passed = False
     if not check_import("llvmlite"): all_passed = False
     if not check_import("PyInstaller"): all_passed = False
 
-    # Check CUDA (optional but good to know)
+    # Check CUDA and Determine Backend
+    compute_backend = "CPU"
     try:
         from numba import cuda
         if cuda.is_available():
             print("[OK] CUDA is available.")
+            compute_backend = "CUDA"
         else:
-            print("[WARNING] CUDA is NOT available. Executable may fall back to CPU.")
-    except ImportError:
-        print("[WARNING] Could not check CUDA availability (numba not found?).")
+            print("[INFO] CUDA is NOT available. Fallback to CPU.")
+    except Exception as e:
+        print(f"[INFO] CUDA is NOT available ({type(e).__name__}). Fallback to CPU.")
+
+    print(f"\nActive Compute Backend: {compute_backend}")
 
     # Check config directory
     if os.path.isdir("config"):

@@ -1,3 +1,7 @@
+"""
+Bayesian-AI - Training Validation Test
+Validates training metrics and performance.
+"""
 import sys
 import os
 import json

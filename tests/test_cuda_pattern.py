@@ -1,4 +1,8 @@
 
+"""
+Bayesian-AI - CUDA Pattern Test
+Tests pattern detection logic.
+"""
 import pytest
 import pandas as pd
 import numpy as np
@@ -9,6 +13,7 @@ import sys
 sys.path.append(os.getcwd())
 
 from cuda_modules.pattern_detector import get_pattern_detector, PATTERN_COMPRESSION, PATTERN_WEDGE, PATTERN_BREAKDOWN, PATTERN_NONE
+import cuda_modules.pattern_detector
 
 class TestCUDAPatternDetector:
     def setup_method(self):
@@ -97,15 +102,32 @@ class TestCUDAPatternDetector:
 
     def test_gpu_fallback(self):
         """
-        Verify that requesting GPU falls back gracefully or works.
-        If NUMBA_AVAILABLE is False (likely in CI), it should just use CPU logic or pass.
+        Verify that we can initialize in the correct mode for the environment.
         """
+        # Reset singleton to ensure we test initialization logic
+        cuda_modules.pattern_detector._pattern_detector = None
+
         try:
-            detector_gpu = get_pattern_detector(use_gpu=True)
-            # Just ensure it doesn't crash on init
-            assert detector_gpu is not None
-        except Exception as e:
-            pytest.fail(f"Initialization with use_gpu=True failed: {e}")
+            from numba import cuda
+            can_use_cuda = cuda.is_available()
+        except:
+            can_use_cuda = False
+
+        if can_use_cuda:
+            # If CUDA is available, use_gpu=True should work
+            try:
+                detector = get_pattern_detector(use_gpu=True)
+                assert detector.use_gpu is True
+            except Exception as e:
+                pytest.fail(f"CUDA available but init failed: {e}")
+        else:
+            # If CUDA is NOT available, use_gpu=True should RAISE RuntimeError (strict mode)
+            with pytest.raises(RuntimeError):
+                get_pattern_detector(use_gpu=True)
+
+            # But use_gpu=False should work
+            detector = get_pattern_detector(use_gpu=False)
+            assert detector.use_gpu is False
 
 if __name__ == "__main__":
     sys.exit(pytest.main(["-v", __file__]))
