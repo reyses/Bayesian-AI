@@ -1,3 +1,7 @@
+"""
+Bayesian-AI - Test Utils
+Utility functions for testing.
+"""
 import pandas as pd
 import os
 import sys

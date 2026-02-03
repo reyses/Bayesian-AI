@@ -1,16 +1,34 @@
+"""
+Bayesian-AI - Diagnostics Topic Test
+Checks system diagnostics and environment.
+"""
 import sys
 import os
 
 # Ensure root directory is in python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from numba import cuda
+try:
+    from numba import cuda
+    CUDA_LIB_AVAILABLE = True
+except Exception as e:
+    CUDA_LIB_AVAILABLE = False
+    CUDA_IMPORT_ERROR = str(e)
 
 def run_diagnostics():
     print("Bayesian-AI - Diagnostics Test")
     print("================================")
 
-    is_available = cuda.is_available()
+    if CUDA_LIB_AVAILABLE:
+        try:
+            is_available = cuda.is_available()
+        except Exception:
+            is_available = False
+    else:
+        is_available = False
+        print(f"CUDA Import Failed: {CUDA_IMPORT_ERROR}")
+        print("INFO: Imports failed, but this is expected in CPU-only environments if drivers are missing.")
+
     print(f"CUDA Available: {is_available}")
 
     if is_available:

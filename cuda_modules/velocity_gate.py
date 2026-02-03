@@ -60,10 +60,14 @@ class CUDAVelocityGate:
         self.use_gpu = use_gpu and NUMBA_AVAILABLE
         
         if self.use_gpu:
-            self.use_gpu = cuda.is_available()
+            try:
+                self.use_gpu = cuda.is_available()
+            except Exception:
+                # Catch dynamic lib errors (missing drivers)
+                self.use_gpu = False
 
         if not self.use_gpu and use_gpu: # User requested GPU but not available
-            print("[CUDA] GPU not available for velocity gate, using CPU")
+            raise RuntimeError("CUDA requested for VelocityGate but not available. CPU fallback disabled by configuration.")
     
     def detect_cascade(self, tick_data):
         """
