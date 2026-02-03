@@ -1,4 +1,8 @@
 
+"""
+Bayesian-AI - CUDA Init Test
+Tests import and initialization of CUDA modules.
+"""
 import pytest
 import os
 import sys
