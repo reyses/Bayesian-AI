@@ -84,11 +84,13 @@ class CUDAPatternDetector:
         self.use_gpu = use_gpu and NUMBA_AVAILABLE
 
         if self.use_gpu:
-            self.use_gpu = cuda.is_available()
+            try:
+                self.use_gpu = cuda.is_available()
+            except Exception:
+                self.use_gpu = False
 
         if not self.use_gpu and use_gpu:
-             # GPU requested but not available
-             pass
+             raise RuntimeError("CUDA requested for PatternDetector but not available. CPU fallback disabled by configuration.")
 
     def detect(self, bars: pd.DataFrame, window_size: int = 20) -> Tuple[str, float]:
         if self.use_gpu:
