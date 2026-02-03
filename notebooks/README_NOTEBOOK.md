@@ -6,17 +6,18 @@ Interactive Jupyter notebook for rapid validation, troubleshooting, and debuggin
 
 1. **Install Requirements**
    ```bash
-   pip install -r requirements_notebook.txt
+   pip install -r notebooks/requirements_notebook.txt
    ```
 
 2. **Launch Notebook**
    ```bash
-   jupyter notebook debug_dashboard.ipynb
+   jupyter notebook notebooks/debug_dashboard.ipynb
    ```
+   *Alternatively, you can navigate to the `notebooks/` directory and run it from there.*
 
 3. **Run All Cells**
    - Click "Run All" to perform a full system health check.
-   - Use interactive buttons for Mini Training and Utilities.
+   - The notebook now dynamically locates the project root, so it can be run from anywhere in the project tree.
 
 ## 📘 Sections Overview
 
@@ -40,6 +41,6 @@ Interactive Jupyter notebook for rapid validation, troubleshooting, and debuggin
 
 ## ⚠️ Notes
 
-- **Output Directory:** Temporary files are saved to `debug_outputs/`.
+- **Output Directory:** Temporary files are saved to `debug_outputs/` in the **project root**, regardless of where the notebook is run from.
 - **Parallel Execution:** The notebook runs `orchestrator.py` as a subprocess to avoid blocking the kernel, but avoid running multiple training instances simultaneously.
 - **CUDA:** If CUDA is unavailable, the system (and notebook) will fall back to CPU.
