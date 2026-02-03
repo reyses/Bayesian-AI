@@ -30,7 +30,6 @@ notebook = {
     "import sys\n",
     "import os\n",
     "import glob\n",
-    "import torch\n",
     "import pandas as pd\n",
     "import numpy as np\n",
     "import plotly.graph_objects as go\n",

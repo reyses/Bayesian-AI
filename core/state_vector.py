@@ -38,22 +38,9 @@ class StateVector:
     
     def __eq__(self, other):
         """Equality check for HashMap lookups"""
-        if self is other:
-            return True
         if not isinstance(other, StateVector):
             return False
-
-        return (
-            self.L1_bias == other.L1_bias and
-            self.L2_regime == other.L2_regime and
-            self.L3_swing == other.L3_swing and
-            self.L4_zone == other.L4_zone and
-            self.L5_trend == other.L5_trend and
-            self.L6_structure == other.L6_structure and
-            self.L7_pattern == other.L7_pattern and
-            self.L8_confirm == other.L8_confirm and
-            self.L9_cascade == other.L9_cascade
-        )
+        return hash(self) == hash(other)
     
     def to_dict(self):
         """Export for logging/analysis"""
