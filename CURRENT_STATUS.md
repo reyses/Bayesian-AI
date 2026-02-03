@@ -1,6 +1,12 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
+- **Timestamp:** 2026-02-02 21:17:25
+- **Git Branch:** jules-447180227177136214-7dc52807
+- **Last Commit:** 4abd3783ba4181120be59da4583ec6371c618c8b
+- **Timestamp:** 2026-02-02 18:19:36
+- **Git Branch:** HEAD
+- **Last Commit:** dd16bbd5c80bbb5f741bef7066afa729c637e787
 - **Timestamp:** 2026-02-03 00:47:39
 - **Git Branch:** main
 - **Last Commit:** 2a41543a37b4cfbe5380e67a6c17726c493f861b
@@ -9,6 +15,7 @@
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+4abd378 - feat(tests): Refactor tests to use testing data (reyses)
 2a41543 - Merge pull request #29 from reyses/perf-data-aggregator-numpy-buffer-6682808903128093997 (reyses)
 57fca89 - Merge branch 'main' into perf-data-aggregator-numpy-buffer-6682808903128093997 (reyses)
 bef32d0 - Merge pull request #27 from reyses/cuda-confirmation-kernel-1715269900666613438 (reyses)
@@ -25,31 +32,41 @@ d86c5e3 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 ```
 Bayesian-AI/
 │   ├── requirements.txt
-│   ├── JULES_OUTPUT_SNAPSHOT.txt
-│   ├── AGENTS.md
 │   ├── engine_core.py [COMPLETE]
-│   ├── SYSTEM_LOGIC.md
-│   ├── CHANGELOG_V2.md
-│   ├── CURRENT_STATUS.md
-│   ├── inspect_dbn.py [COMPLETE]
+│   ├── AGENTS.md
 │   ├── __init__.py [COMPLETE]
+│   ├── JULES_OUTPUT_SNAPSHOT.txt
+│   ├── SYSTEM_LOGIC.md
+│   ├── CURRENT_STATUS.md
+│   ├── CHANGELOG_V2.md
 │   ├── training/
-│   │   ├── orchestrator.py [COMPLETE]
+│   │   ├── __init__.py [COMPLETE]
 │   │   ├── databento_loader.py [COMPLETE]
 │   │   ├── cuda_backtest.py [TESTED]
+│   │   ├── orchestrator.py [COMPLETE]
+│   ├── config/
+│   │   ├── symbols.py [COMPLETE]
 │   │   ├── __init__.py [COMPLETE]
+│   │   ├── workflow_manifest.json
+│   │   ├── settings.py [COMPLETE]
+│   ├── docs/
+│   │   ├── project_update.txt
+│   │   ├── PHASE1_COMPLETE.md
+│   ├── visualization/
+│   │   ├── __init__.py [COMPLETE]
+│   │   ├── visualization_module.py [COMPLETE]
 │   ├── DATA/
 │   │   ├── RAW/
-│   │   │   ├── trades.parquet
 │   │   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
+│   │   │   ├── trades.parquet
 │   │   │   ├── ohlcv-1s.parquet
 │   ├── scripts/
-│   │   ├── run_training_pipeline.sh
-│   │   ├── setup_test_data.py [TESTED]
 │   │   ├── manifest_integrity_check.py [COMPLETE]
-│   │   ├── build_executable.py [COMPLETE]
 │   │   ├── inspect_results.py [COMPLETE]
 │   │   ├── verify_environment.py [COMPLETE]
+│   │   ├── build_executable.py [COMPLETE]
+│   │   ├── run_training_pipeline.sh
+│   │   ├── setup_test_data.py [TESTED]
 │   │   ├── generate_status_report.py [WIP]
 │   ├── cuda/
 │   │   ├── pattern_detector.py [COMPLETE]
@@ -71,35 +88,43 @@ Bayesian-AI/
 │   ├── tests/
 │   │   ├── test_phase2.py [TESTED]
 │   │   ├── test_full_system.py [TESTED]
-│   │   ├── utils.py [COMPLETE]
-│   │   ├── test_databento_loading.py [TESTED]
-│   │   ├── test_doe.py [TESTED]
 │   │   ├── test_real_data_velocity.py [TESTED]
-│   │   ├── test_training_validation.py [TESTED]
+│   │   ├── test_phase1.py [TESTED]
 │   │   ├── math_verify.py [COMPLETE]
+│   │   ├── utils.py [COMPLETE]
+│   │   ├── topic_build.py [COMPLETE]
+│   │   ├── test_training_validation.py [TESTED]
+│   │   ├── topic_diagnostics.py [COMPLETE]
 │   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
 │   │   ├── topic_math.py [COMPLETE]
-│   │   ├── topic_diagnostics.py [COMPLETE]
-│   │   ├── test_phase1.py [TESTED]
-│   │   ├── topic_build.py [COMPLETE]
+│   │   ├── test_databento_loading.py [TESTED]
+│   │   ├── test_doe.py [TESTED]
 │   │   ├── Testing DATA/
 │   │   │   ├── glbx-mdp3-20251230-20260129.ohlcv-1s.dbn.zst
-│   │   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
-│   │   │   ├── glbx-mdp3-20250801.trades.0000.dbn.zst
 │   │   │   ├── glbx-mdp3-20250803.trades.0000.dbn.zst
 │   │   │   ├── glbx-mdp3-20250731.trades.0000.dbn.zst
-│   ├── config/
-│   │   ├── workflow_manifest.json
-│   │   ├── symbols.py [COMPLETE]
-│   │   ├── settings.py [COMPLETE]
+│   │   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250801.trades.0000.dbn.zst
+│   ├── execution/
+│   │   ├── wave_rider.py [COMPLETE]
 │   │   ├── __init__.py [COMPLETE]
-│   ├── visualization/
-│   │   ├── visualization_module.py [COMPLETE]
+│   ├── cuda/
+│   │   ├── velocity_gate.py [COMPLETE]
 │   │   ├── __init__.py [COMPLETE]
+│   │   ├── confirmation.py [WIP]
+│   │   ├── pattern_detector.py [WIP]
+│   ├── core/
+│   │   ├── data_aggregator.py [COMPLETE]
+│   │   ├── __init__.py [COMPLETE]
+│   │   ├── state_vector.py [COMPLETE]
+│   │   ├── layer_engine.py [COMPLETE]
+│   │   ├── bayesian_brain.py [COMPLETE]
 
 ```
 
 ### 4. CODE STATISTICS
+- **Python Files:** 40
+- **Total Lines of Code:** 4021
 - **Python Files:** 41
 - **Total Lines of Code:** 4310
 
@@ -172,7 +197,68 @@ pytest
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
-
+A	.github/workflows/ci.yml
+A	.github/workflows/status-report.yml
+A	.gitignore
+A	AGENTS.md
+A	CHANGELOG_V2.md
+A	CURRENT_STATUS.md
+A	DATA/RAW/glbx-mdp3-20250730.trades.0000.dbn.zst
+A	DATA/RAW/ohlcv-1s.parquet
+A	DATA/RAW/trades.parquet
+A	JULES_OUTPUT_SNAPSHOT.txt
+A	SYSTEM_LOGIC.md
+A	__init__.py
+A	config/__init__.py
+A	config/settings.py
+A	config/symbols.py
+A	config/workflow_manifest.json
+A	core/__init__.py
+A	core/bayesian_brain.py
+A	core/data_aggregator.py
+A	core/layer_engine.py
+A	core/state_vector.py
+A	cuda/__init__.py
+A	cuda/confirmation.py
+A	cuda/pattern_detector.py
+A	cuda/velocity_gate.py
+A	docs/PHASE1_COMPLETE.md
+A	docs/project_update.txt
+A	engine_core.py
+A	execution/__init__.py
+A	execution/wave_rider.py
+A	requirements.txt
+A	scripts/build_executable.py
+A	scripts/generate_status_report.py
+A	scripts/inspect_results.py
+A	scripts/manifest_integrity_check.py
+A	scripts/run_training_pipeline.sh
+A	scripts/setup_test_data.py
+A	scripts/verify_environment.py
+A	tests/Testing DATA/glbx-mdp3-20250730.trades.0000.dbn.zst
+A	tests/Testing DATA/glbx-mdp3-20250731.trades.0000.dbn.zst
+A	tests/Testing DATA/glbx-mdp3-20250801.trades.0000.dbn.zst
+A	tests/Testing DATA/glbx-mdp3-20250803.trades.0000.dbn.zst
+A	tests/Testing DATA/glbx-mdp3-20251230-20260129.ohlcv-1s.dbn.zst
+A	tests/glbx-mdp3-20250730.trades.0000.dbn.zst
+A	tests/math_verify.py
+A	tests/test_databento_loading.py
+A	tests/test_doe.py
+A	tests/test_full_system.py
+A	tests/test_phase1.py
+A	tests/test_phase2.py
+A	tests/test_real_data_velocity.py
+A	tests/test_training_validation.py
+A	tests/topic_build.py
+A	tests/topic_diagnostics.py
+A	tests/topic_math.py
+A	tests/utils.py
+A	training/__init__.py
+A	training/cuda_backtest.py
+A	training/databento_loader.py
+A	training/orchestrator.py
+A	visualization/__init__.py
+A	visualization/visualization_module.py
 ```
 
 ### 11. REVIEWER CHECKLIST
@@ -186,12 +272,65 @@ pytest
 - **Status:** PASS
 - **Command:** `pytest tests/topic_math.py`
 - **Summary:** 4 passed in 0.04s
+- **Summary:** 4 passed in 0.03s
 
 
 ### 13. TRAINING VALIDATION METRICS
 
-ERROR: Execution failed: 'list' object has no attribute 'get'
+#### File: glbx-mdp3-20250730.trades.0000.dbn.zst
+| Metric | Value | Status |
+| :--- | :--- | :--- |
+| Training Status | SUCCESS | ✓ |
+| Iterations Completed | 2 | ✓ |
+| Runtime | 23.52s | - |
+| Total Ticks Processed | 1,000 | - |
+| Unique States Learned | 0 | - |
+| High-Confidence States (80%+) | 0 | ✓ |
 
+**Top 5 States by Probability:**
+None
+
+#### File: trades.parquet
+| Metric | Value | Status |
+| :--- | :--- | :--- |
+| Training Status | SUCCESS | ✓ |
+| Iterations Completed | 2 | ✓ |
+| Runtime | 21.97s | - |
+| Total Ticks Processed | 1,000 | - |
+| Unique States Learned | 0 | - |
+| High-Confidence States (80%+) | 0 | ✓ |
+
+**Top 5 States by Probability:**
+None
+
+#### File: Unknown File 3
+| Metric | Value | Status |
+| :--- | :--- | :--- |
+| Training Status | FAILED | ✗ |
+| Iterations Completed | ? | ✗ |
+| Runtime | ?s | - |
+| Total Ticks Processed | 0 | - |
+| Unique States Learned | ? | - |
+| High-Confidence States (80%+) | ? | ✗ |
+
+**Top 5 States by Probability:**
+None
+
+**Error Details:**
+```
+Orchestrator failed for /app/DATA/RAW/ohlcv-1s.parquet.
+Stdout: [CUDA] GPU not available for velocity gate, using CPU
+[LAYER ENGINE] CUDA acceleration DISABLED (CPU mode)
+[TRAINING] Data: 1000 ticks. Target: 2 iterations.
+[LAYER ENGINE] Static context initialized:
+  L1 (90d): range
+  L2 (30d): chopping
+  L3 (1wk): sideways
+  L4 (daily): mid_range
+Error: 'Pandas' object has no attribute 'price'
+
+Stderr:
+```
 ### 14. DOE OPTIMIZATION STATUS
 - [ ] Parameter Grid Generator
 - [ ] Latin Hypercube Sampling

@@ -320,49 +320,61 @@ def get_training_validation_metrics():
         if start_tag in output and end_tag in output:
             json_str = output.split(start_tag)[1].split(end_tag)[0].strip()
             try:
-                metrics = json.loads(json_str)
+                metrics_data = json.loads(json_str)
             except json.JSONDecodeError:
-                return "### TRAINING VALIDATION METRICS\n\nERROR: Failed to decode metrics JSON.\n"
+                return "### 13. TRAINING VALIDATION METRICS\n\nERROR: Failed to decode metrics JSON.\n"
 
-            status = metrics.get("status", "UNKNOWN")
-            status_icon = "✓" if status == "SUCCESS" else "✗"
+            if isinstance(metrics_data, dict):
+                metrics_list = [metrics_data]
+            else:
+                metrics_list = metrics_data
 
-            iters = metrics.get("iterations_completed", "?")
-            runtime = metrics.get("runtime_seconds", "?")
-            files = metrics.get("files_loaded", "?")
-            ticks = metrics.get("total_ticks", 0)
-            unique = metrics.get("unique_states_learned", "?")
-            high_conf = metrics.get("high_confidence_states", "?")
+            full_report = "### 13. TRAINING VALIDATION METRICS\n"
 
-            top_5 = metrics.get("top_5_states", [])
-            top_5_str = ""
-            for s in top_5:
-                prob_pct = f"{s['probability']*100:.1f}%"
-                wins = s['wins']
-                losses = s['losses']
-                top_5_str += f"- {s['state']}: {prob_pct} ({wins} wins, {losses} losses)\n"
+            for i, metrics in enumerate(metrics_list):
+                status = metrics.get("status", "UNKNOWN")
+                status_icon = "✓" if status == "SUCCESS" else "✗"
+                file_name = os.path.basename(metrics.get("file", f"Unknown File {i+1}"))
 
-            if not top_5_str:
-                top_5_str = "None"
+                iters = metrics.get("iterations_completed", "?")
+                runtime = metrics.get("runtime_seconds", "?")
+                total_ticks = metrics.get("total_ticks", 0)
+                unique = metrics.get("unique_states_learned", "?")
+                high_conf = metrics.get("high_confidence_states", "?")
 
-            table = f"""### 13. TRAINING VALIDATION METRICS
+                top_5 = metrics.get("top_5_states", [])
+                top_5_str = ""
+                if isinstance(top_5, list):
+                    for s in top_5:
+                        prob_pct = f"{s.get('probability', 0)*100:.1f}%"
+                        wins = s.get('wins', 0)
+                        losses = s.get('losses', 0)
+                        state = s.get('state', 'Unknown')
+                        top_5_str += f"- {state}: {prob_pct} ({wins} wins, {losses} losses)\n"
+
+                if not top_5_str:
+                    top_5_str = "None"
+
+                table = f"""
+#### File: {file_name}
 | Metric | Value | Status |
 | :--- | :--- | :--- |
 | Training Status | {status} | {status_icon} |
-| Iterations Completed | {iters}/{iters} | {status_icon} |
+| Iterations Completed | {iters} | {status_icon} |
 | Runtime | {runtime}s | - |
-| Data Files Loaded | {files} | {status_icon if isinstance(files, int) and files > 0 else '✗'} |
-| Total Ticks Processed | {ticks:,} | - |
+| Total Ticks Processed | {total_ticks:,} | - |
 | Unique States Learned | {unique} | - |
 | High-Confidence States (80%+) | {high_conf} | {status_icon if isinstance(high_conf, int) and high_conf >= 0 else '✗'} |
 
 **Top 5 States by Probability:**
 {top_5_str}
 """
-            if status != "SUCCESS":
-                 table += f"\n**Error Details:**\n```\n{metrics.get('error', 'Unknown Error')}\n```"
+                if status != "SUCCESS":
+                     table += f"\n**Error Details:**\n```\n{metrics.get('error', 'Unknown Error')}\n```"
 
-            return table
+                full_report += table
+
+            return full_report
         else:
              return f"### 13. TRAINING VALIDATION METRICS\n\nERROR: Metrics tags not found in output.\nOutput:\n{output[-500:]}"
 
