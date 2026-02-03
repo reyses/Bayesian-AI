@@ -39,11 +39,13 @@ class CUDAConfirmationEngine:
         self.use_gpu = use_gpu and NUMBA_AVAILABLE
 
         if self.use_gpu:
-            self.use_gpu = cuda.is_available()
+            try:
+                self.use_gpu = cuda.is_available()
+            except Exception:
+                self.use_gpu = False
 
         if not self.use_gpu and use_gpu:
-             # GPU requested but not available
-             pass
+             raise RuntimeError("CUDA requested for ConfirmationEngine but not available. CPU fallback disabled by configuration.")
 
     def confirm(self, bars: pd.DataFrame, L7_pattern_active: bool) -> bool:
         if not L7_pattern_active:
