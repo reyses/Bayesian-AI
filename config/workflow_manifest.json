@@ -9,9 +9,9 @@
     "TRANSFORM": [
       "core/data_aggregator.py",
       "core/layer_engine.py",
-      "cuda/pattern_detector.py",
-      "cuda/confirmation.py",
-      "cuda/velocity_gate.py"
+      "cuda_modules/pattern_detector.py",
+      "cuda_modules/confirmation.py",
+      "cuda_modules/velocity_gate.py"
     ],
     "ANALYZE": [
       "core/state_vector.py",
@@ -35,9 +35,9 @@
     "L4_daily": "core/layer_engine.py",
     "L5_4hr": "core/layer_engine.py",
     "L6_1hr": "core/layer_engine.py",
-    "L7_15m": "cuda/pattern_detector.py",
-    "L8_5m": "cuda/confirmation.py",
-    "L9_1s": "cuda/velocity_gate.py"
+    "L7_15m": "cuda_modules/pattern_detector.py",
+    "L8_5m": "cuda_modules/confirmation.py",
+    "L9_1s": "cuda_modules/velocity_gate.py"
   },
   "resources": {
     "DATA_RAW": "DATA/RAW"
