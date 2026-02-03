@@ -1,93 +1,102 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-03 01:20:04
-- **Git Branch:** jules-3573186696355379127-ac2337cf
-- **Last Commit:** 2fcb8d2fa9c527f338af5f50f704bac52e48ef6f
+- **Timestamp:** 2026-02-03 01:26:07
+- **Git Branch:** fix-databento-loader-and-orchestrator-3573186696355379127
+- **Last Commit:** 110fd5ee9bfdb214b8f030a267eb5b0a47ebb258
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+110fd5e - Fix DatabentoLoader to preserve OHLC columns and TrainingOrchestrator to handle parquet inputs correctly (google-labs-jules[bot])
 2fcb8d2 - Merge pull request #32 from reyses/perf-aggregator-incremental-2406530553394707883 (reyses)
+f08e27d - Merge branch 'main' into perf-aggregator-incremental-2406530553394707883 (reyses)
+404bf02 - Merge pull request #28 from reyses/perf-state-vector-eq-447180227177136214 (reyses)
+f1663c5 - Merge branch 'main' into perf-aggregator-incremental-2406530553394707883 (reyses)
+dd1f6b8 - Optimize DataAggregator with incremental updates (google-labs-jules[bot])
+7ce675c - Merge branch 'main' into perf-state-vector-eq-447180227177136214 (reyses)
+64decad - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+2a41543 - Merge pull request #29 from reyses/perf-data-aggregator-numpy-buffer-6682808903128093997 (reyses)
+d6f841e - Merge branch 'main' into perf-state-vector-eq-447180227177136214 (reyses)
 ```
 
 ### 3. FILE STRUCTURE
 ```
 Bayesian-AI/
 │   ├── requirements.txt
-│   ├── conflict_check.diff
-│   ├── probability_table.pkl
-│   ├── engine_core.py [COMPLETE]
-│   ├── AGENTS.md
-│   ├── __init__.py [COMPLETE]
 │   ├── JULES_OUTPUT_SNAPSHOT.txt
+│   ├── AGENTS.md
+│   ├── engine_core.py [COMPLETE]
 │   ├── SYSTEM_LOGIC.md
-│   ├── CURRENT_STATUS.md
+│   ├── conflict_check.diff
 │   ├── CHANGELOG_V2.md
+│   ├── CURRENT_STATUS.md
+│   ├── REPORT.md
+│   ├── __init__.py [COMPLETE]
 │   ├── training/
-│   │   ├── __init__.py [COMPLETE]
+│   │   ├── orchestrator.py [COMPLETE]
 │   │   ├── databento_loader.py [COMPLETE]
 │   │   ├── cuda_backtest.py [TESTED]
-│   │   ├── orchestrator.py [COMPLETE]
-│   ├── config/
-│   │   ├── symbols.py [COMPLETE]
 │   │   ├── __init__.py [COMPLETE]
-│   │   ├── workflow_manifest.json
-│   │   ├── settings.py [COMPLETE]
-│   ├── docs/
-│   │   ├── project_update.txt
-│   │   ├── PHASE1_COMPLETE.md
-│   ├── visualization/
-│   │   ├── __init__.py [COMPLETE]
-│   │   ├── visualization_module.py [COMPLETE]
 │   ├── DATA/
 │   │   ├── RAW/
-│   │   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
 │   │   │   ├── trades.parquet
+│   │   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
 │   │   │   ├── ohlcv-1s.parquet
 │   ├── scripts/
-│   │   ├── manifest_integrity_check.py [COMPLETE]
-│   │   ├── inspect_results.py [COMPLETE]
-│   │   ├── verify_environment.py [COMPLETE]
-│   │   ├── build_executable.py [COMPLETE]
 │   │   ├── run_training_pipeline.sh
 │   │   ├── setup_test_data.py [TESTED]
+│   │   ├── manifest_integrity_check.py [COMPLETE]
+│   │   ├── build_executable.py [COMPLETE]
+│   │   ├── inspect_results.py [COMPLETE]
+│   │   ├── verify_environment.py [COMPLETE]
 │   │   ├── generate_status_report.py [WIP]
-│   ├── tests/
-│   │   ├── test_phase2.py [TESTED]
-│   │   ├── test_full_system.py [TESTED]
-│   │   ├── test_real_data_velocity.py [TESTED]
-│   │   ├── test_phase1.py [TESTED]
-│   │   ├── math_verify.py [COMPLETE]
-│   │   ├── utils.py [COMPLETE]
-│   │   ├── topic_build.py [COMPLETE]
-│   │   ├── test_training_validation.py [TESTED]
-│   │   ├── topic_diagnostics.py [COMPLETE]
-│   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
-│   │   ├── topic_math.py [COMPLETE]
-│   │   ├── test_databento_loading.py [TESTED]
-│   │   ├── test_doe.py [TESTED]
-│   │   ├── Testing DATA/
-│   │   │   ├── glbx-mdp3-20251230-20260129.ohlcv-1s.dbn.zst
-│   │   │   ├── glbx-mdp3-20250803.trades.0000.dbn.zst
-│   │   │   ├── glbx-mdp3-20250731.trades.0000.dbn.zst
-│   │   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
-│   │   │   ├── glbx-mdp3-20250801.trades.0000.dbn.zst
+│   ├── cuda/
+│   │   ├── pattern_detector.py [WIP]
+│   │   ├── confirmation.py [WIP]
+│   │   ├── velocity_gate.py [COMPLETE]
+│   │   ├── __init__.py [COMPLETE]
 │   ├── execution/
 │   │   ├── wave_rider.py [COMPLETE]
 │   │   ├── __init__.py [COMPLETE]
-│   ├── cuda/
-│   │   ├── velocity_gate.py [COMPLETE]
-│   │   ├── __init__.py [COMPLETE]
-│   │   ├── confirmation.py [WIP]
-│   │   ├── pattern_detector.py [WIP]
+│   ├── docs/
+│   │   ├── project_update.txt
+│   │   ├── PHASE1_COMPLETE.md
 │   ├── core/
+│   │   ├── layer_engine.py [COMPLETE]
 │   │   ├── data_aggregator.py [COMPLETE]
 │   │   ├── __init__.py [COMPLETE]
-│   │   ├── state_vector.py [COMPLETE]
-│   │   ├── layer_engine.py [COMPLETE]
 │   │   ├── bayesian_brain.py [COMPLETE]
+│   │   ├── state_vector.py [COMPLETE]
+│   ├── tests/
+│   │   ├── test_phase2.py [TESTED]
+│   │   ├── test_full_system.py [TESTED]
+│   │   ├── utils.py [COMPLETE]
+│   │   ├── test_databento_loading.py [TESTED]
+│   │   ├── test_doe.py [TESTED]
+│   │   ├── test_real_data_velocity.py [TESTED]
+│   │   ├── test_training_validation.py [TESTED]
+│   │   ├── math_verify.py [COMPLETE]
+│   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
+│   │   ├── topic_math.py [COMPLETE]
+│   │   ├── topic_diagnostics.py [COMPLETE]
+│   │   ├── test_phase1.py [TESTED]
+│   │   ├── topic_build.py [COMPLETE]
+│   │   ├── Testing DATA/
+│   │   │   ├── glbx-mdp3-20251230-20260129.ohlcv-1s.dbn.zst
+│   │   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250801.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250803.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250731.trades.0000.dbn.zst
+│   ├── config/
+│   │   ├── workflow_manifest.json
+│   │   ├── symbols.py [COMPLETE]
+│   │   ├── settings.py [COMPLETE]
+│   │   ├── __init__.py [COMPLETE]
+│   ├── visualization/
+│   │   ├── visualization_module.py [COMPLETE]
+│   │   ├── __init__.py [COMPLETE]
 
 ```
 
@@ -164,69 +173,11 @@ pytest
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
-A	.github/workflows/ci.yml
-A	.github/workflows/status-report.yml
-A	.gitignore
-A	AGENTS.md
-A	CHANGELOG_V2.md
-A	CURRENT_STATUS.md
-A	DATA/RAW/glbx-mdp3-20250730.trades.0000.dbn.zst
-A	DATA/RAW/ohlcv-1s.parquet
-A	DATA/RAW/trades.parquet
-A	JULES_OUTPUT_SNAPSHOT.txt
-A	SYSTEM_LOGIC.md
-A	__init__.py
-A	config/__init__.py
-A	config/settings.py
-A	config/symbols.py
-A	config/workflow_manifest.json
-A	conflict_check.diff
-A	core/__init__.py
-A	core/bayesian_brain.py
-A	core/data_aggregator.py
-A	core/layer_engine.py
-A	core/state_vector.py
-A	cuda/__init__.py
-A	cuda/confirmation.py
-A	cuda/pattern_detector.py
-A	cuda/velocity_gate.py
-A	docs/PHASE1_COMPLETE.md
-A	docs/project_update.txt
-A	engine_core.py
-A	execution/__init__.py
-A	execution/wave_rider.py
-A	requirements.txt
-A	scripts/build_executable.py
-A	scripts/generate_status_report.py
-A	scripts/inspect_results.py
-A	scripts/manifest_integrity_check.py
-A	scripts/run_training_pipeline.sh
-A	scripts/setup_test_data.py
-A	scripts/verify_environment.py
-A	tests/Testing DATA/glbx-mdp3-20250730.trades.0000.dbn.zst
-A	tests/Testing DATA/glbx-mdp3-20250731.trades.0000.dbn.zst
-A	tests/Testing DATA/glbx-mdp3-20250801.trades.0000.dbn.zst
-A	tests/Testing DATA/glbx-mdp3-20250803.trades.0000.dbn.zst
-A	tests/Testing DATA/glbx-mdp3-20251230-20260129.ohlcv-1s.dbn.zst
-A	tests/glbx-mdp3-20250730.trades.0000.dbn.zst
-A	tests/math_verify.py
-A	tests/test_databento_loading.py
-A	tests/test_doe.py
-A	tests/test_full_system.py
-A	tests/test_phase1.py
-A	tests/test_phase2.py
-A	tests/test_real_data_velocity.py
-A	tests/test_training_validation.py
-A	tests/topic_build.py
-A	tests/topic_diagnostics.py
-A	tests/topic_math.py
-A	tests/utils.py
-A	training/__init__.py
-A	training/cuda_backtest.py
-A	training/databento_loader.py
-A	training/orchestrator.py
-A	visualization/__init__.py
-A	visualization/visualization_module.py
+M	CURRENT_STATUS.md
+A	REPORT.md
+M	tests/utils.py
+M	training/databento_loader.py
+M	training/orchestrator.py
 ```
 
 ### 11. REVIEWER CHECKLIST
@@ -239,7 +190,7 @@ A	visualization/visualization_module.py
 
 - **Status:** PASS
 - **Command:** `pytest tests/topic_math.py`
-- **Summary:** 4 passed in 0.05s
+- **Summary:** 4 passed in 0.04s
 
 
 ### 13. TRAINING VALIDATION METRICS
@@ -249,7 +200,7 @@ A	visualization/visualization_module.py
 | :--- | :--- | :--- |
 | Training Status | SUCCESS | ✓ |
 | Iterations Completed | 2 | ✓ |
-| Runtime | 3.44s | - |
+| Runtime | 1.97s | - |
 | Total Ticks Processed | 1,000 | - |
 | Unique States Learned | 0 | - |
 | High-Confidence States (80%+) | 0 | ✓ |
@@ -262,7 +213,7 @@ None
 | :--- | :--- | :--- |
 | Training Status | SUCCESS | ✓ |
 | Iterations Completed | 2 | ✓ |
-| Runtime | 2.14s | - |
+| Runtime | 1.32s | - |
 | Total Ticks Processed | 1,000 | - |
 | Unique States Learned | 0 | - |
 | High-Confidence States (80%+) | 0 | ✓ |
@@ -275,7 +226,7 @@ None
 | :--- | :--- | :--- |
 | Training Status | SUCCESS | ✓ |
 | Iterations Completed | 2 | ✓ |
-| Runtime | 2.11s | - |
+| Runtime | 1.28s | - |
 | Total Ticks Processed | 1,000 | - |
 | Unique States Learned | 0 | - |
 | High-Confidence States (80%+) | 0 | ✓ |
