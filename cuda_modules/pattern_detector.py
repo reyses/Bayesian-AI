@@ -14,7 +14,7 @@ PATTERN_BREAKDOWN = 3
 try:
     from numba import cuda, jit
     NUMBA_AVAILABLE = True
-except ImportError:
+except (ImportError, Exception):
     NUMBA_AVAILABLE = False
 
 if NUMBA_AVAILABLE:

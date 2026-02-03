@@ -95,7 +95,7 @@ def run_validation():
         current_data = engine.aggregator.get_current_data()
         print(f"Ticks in buffer: {len(current_data['ticks'])}")
         # Check logic manually
-        from cuda.velocity_gate import get_velocity_gate
+        from cuda_modules.velocity_gate import get_velocity_gate
         vg = get_velocity_gate(use_gpu=False)
         is_cascade = vg.detect_cascade(current_data['ticks'])
         print(f"Manual Cascade Check: {is_cascade}")
