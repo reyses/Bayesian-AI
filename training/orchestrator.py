@@ -114,15 +114,17 @@ class TrainingOrchestrator:
 
         # Converting DataFrame to list of dicts once avoids repetitive overhead in the loop
         cols_to_use = ['timestamp', 'price', 'volume']
+
+        # Ensure 'type' field exists and is string
         if 'type' in self.data.columns:
+            self.data = self.data.copy()
+            self.data['type'] = self.data['type'].fillna('trade').astype(str)
+            cols_to_use.append('type')
+        else:
+            self.data['type'] = 'trade'
             cols_to_use.append('type')
 
         tick_records = self.data[cols_to_use].to_dict('records')
-
-        # Ensure 'type' field exists if missing from source data
-        if 'type' not in self.data.columns:
-            for tick in tick_records:
-                tick['type'] = 'trade'
 
         for iteration in range(iterations):
             self.engine.daily_pnl = 0.0
@@ -387,10 +389,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Enforce OPERATIONAL_MODE
-    if OPERATIONAL_MODE == "LEARNING":
+    if OPERATIONAL_MODE == "LEARNING" and not args.data_file:
         print(f"[ORCHESTRATOR] OPERATIONAL_MODE is '{OPERATIONAL_MODE}'. Enforcing ingestion from {RAW_DATA_PATH}.")
         args.data_dir = RAW_DATA_PATH
-        args.data_file = None
 
     try:
         data = None
