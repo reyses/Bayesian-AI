@@ -61,5 +61,12 @@ def load_test_data():
     if 'datetime' in df.columns:
         df['datetime'] = pd.to_datetime(df['datetime'])
         df.set_index('datetime', inplace=True)
+    elif 'timestamp' in df.columns:
+        df['datetime'] = pd.to_datetime(df['timestamp'], unit='s')
+        df.set_index('datetime', inplace=True)
+
+    # Alias price to close if close is missing (for OHLCV tests)
+    if 'price' in df.columns and 'close' not in df.columns:
+        df['close'] = df['price']
 
     return df

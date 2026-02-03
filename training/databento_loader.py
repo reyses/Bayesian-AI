@@ -44,6 +44,7 @@ class DatabentoLoader:
             ('ts_event', 'timestamp'),
             ('ts_recv', 'timestamp'),
             ('price', 'price'),
+            ('close', 'price'),
             ('size', 'volume'),
             ('volume', 'volume'),
             ('action', 'type'),
@@ -84,4 +85,10 @@ class DatabentoLoader:
                 else:
                     raise ValueError(f"Missing required column: {col} in databento file")
 
-        return df[required_cols]
+        # Preserve OHLC columns if present
+        ohlc_cols = []
+        for col in ['open', 'high', 'low']:
+            if col in df.columns:
+                ohlc_cols.append(col)
+
+        return df[required_cols + ohlc_cols]
