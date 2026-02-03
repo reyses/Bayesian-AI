@@ -1,24 +1,24 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-03 06:59:47
-- **Git Branch:** main
-- **Last Commit:** dcc8b4e69411a50388c66a75c4635e286beaa66f
+- **Timestamp:** 2026-02-03 07:18:59
+- **Git Branch:** fix-cuda-modules-imports-14486302816901152059
+- **Last Commit:** e21ae4a47de0f4a12ae2f06c391c550a18f4d755
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+e21ae4a - Make CUDA diagnostics robust to missing drivers (google-labs-jules[bot])
+ccdf42a - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+cff0d41 - Fix CUDA module imports and manifest paths (google-labs-jules[bot])
+1d33136 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 dcc8b4e - Refactor code structure for improved readability and maintainability (reyses)
 52007dc - Merge pull request #38 from reyses/cuda-pattern-module-2041681708363521925 (reyses)
 e0c2d2d - Merge branch 'main' into cuda-pattern-module-2041681708363521925 (reyses)
 72abbbf - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 0f0d3e3 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 015874d - Merge pull request #37 from reyses/cuda-pattern-module-2041681708363521925 (reyses)
-f4b646c - Rename local cuda module to cuda_modules to fix import collision (google-labs-jules[bot])
-be35846 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-37ded34 - Merge a2782a01af48c3bce75624ca0922bdbb8c5fdeff into 17854197749cc499cdb52aa41583e3e61c279f63 (reyses)
-a2782a0 - Fix debug dashboard notebook (google-labs-jules[bot])
 ```
 
 ### 3. FILE STRUCTURE
@@ -110,7 +110,7 @@ Bayesian-AI/
 
 ### 4. CODE STATISTICS
 - **Python Files:** 44
-- **Total Lines of Code:** 4891
+- **Total Lines of Code:** 4905
 
 ### 5. CRITICAL INTEGRATION POINTS
 - **Databento API:**
@@ -186,10 +186,9 @@ tqdm
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
-M	.gitignore
-M	debug_cell_1.py
-A	notebooks/.ipynb_checkpoints/debug_dashboard-checkpoint.ipynb
-M	notebooks/debug_dashboard.ipynb
+M	CURRENT_STATUS.md
+M	scripts/manifest_integrity_check.py
+M	tests/topic_diagnostics.py
 ```
 
 ### 11. REVIEWER CHECKLIST
@@ -225,41 +224,15 @@ QC VALIDATION SNAPSHOT
 ======================
 
 Topic 1: Executable Build
-FAIL: Integrity Check Failed
-```
-Bayesian-AI - Integrity Test
-=======================================
-Project: Bayesian-AI
-FAIL: Missing files: ['cuda/pattern_detector.py', 'cuda/velocity_gate.py', 'cuda/confirmation.py']
-
-```
+PASS: All 16 manifest files exist.
+PASS: All 17 modules imported successfully.
+PASS: OPERATIONAL_MODE is valid: LEARNING
 
 Topic 2: Math and Logic
 PASS: Logic Core verified
 
 Topic 3: Diagnostics
-FAIL: Diagnostics Check Failed
-```
-lib.py", line 55, in _load_lib_no_cache
-    finder.raise_not_found_error()
-  File "/opt/hostedtoolcache/Python/3.10.19/x64/lib/python3.10/site-packages/cuda/pathfinder/_dynamic_libs/find_nvidia_dynamic_lib.py", line 209, in raise_not_found_error
-    raise DynamicLibNotFoundError(f'Failure finding "{self.lib_searched_for}": {err}\n{att}')
-cuda.pathfinder._dynamic_libs.load_dl_common.DynamicLibNotFoundError: Failure finding "libcudart.so": No such file: libcudart.so*, No such file: libcudart.so*
-
-
-```
+PASS: Required files found in DATA/RAW
 
 Manifest Integrity
-FAIL: Manifest Integrity Check Failed
-```
-TEGRITY] FAIL: Error checking CUDA: Failure finding "libcudart.so": No such file: libcudart.so*, No such file: libcudart.so*
-
-[INTEGRITY] Verifying BayesianBrain I/O...
-[BAYESIAN] Saved 1 state patterns to test_prob_table.pkl
-[BAYESIAN] Loaded 1 state patterns from test_prob_table.pkl
-[INTEGRITY] OK: BayesianBrain save/load verification passed.
-[INTEGRITY] Verifying DatabentoLoader...
-[INTEGRITY] OK: DatabentoLoader class and method found.
-[INTEGRITY] Integrity Check COMPLETE: FAILURES DETECTED
-
-```
+PASS: Manifest Integrity Check Passed
