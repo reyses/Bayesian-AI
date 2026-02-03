@@ -1,57 +1,29 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-02 07:11:11
-- **Git Branch:** main
-- **Last Commit:** 92af931f62cb5c9fdef6ad75d200ef4f2ba47045
-- **Timestamp:** 2026-02-02 21:17:25
-- **Git Branch:** jules-447180227177136214-7dc52807
-- **Last Commit:** 4abd3783ba4181120be59da4583ec6371c618c8b
-- **Timestamp:** 2026-02-02 18:19:36
-- **Git Branch:** HEAD
-- **Last Commit:** dd16bbd5c80bbb5f741bef7066afa729c637e787
-- **Timestamp:** 2026-02-03 00:47:39
-- **Git Branch:** main
-- **Last Commit:** 2a41543a37b4cfbe5380e67a6c17726c493f861b
+- **Timestamp:** 2026-02-03 01:20:04
+- **Git Branch:** jules-3573186696355379127-ac2337cf
+- **Last Commit:** 2fcb8d2fa9c527f338af5f50f704bac52e48ef6f
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
-92af931 - Merge pull request #25 from reyses/jules-feature-doe-optimization-1452421981464949379 (reyses)
-aed8c75 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-b57e24c - Update tests/test_doe.py (reyses)
-0c69792 - Update training/orchestrator.py (reyses)
-595a208 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-c433bf4 - feat: Implement Grid Search, Walk-Forward, Monte Carlo & Fix Portable Executable (google-labs-jules[bot])
-1f81141 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-a474796 - Merge pull request #24 from reyses/jules-feature-training-metrics-10263977677072687230 (reyses)
-8474ca6 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-47258db - feat: Add automated training validation and reporting to status workflow (google-labs-jules[bot])
-4abd378 - feat(tests): Refactor tests to use testing data (reyses)
-2a41543 - Merge pull request #29 from reyses/perf-data-aggregator-numpy-buffer-6682808903128093997 (reyses)
-57fca89 - Merge branch 'main' into perf-data-aggregator-numpy-buffer-6682808903128093997 (reyses)
-bef32d0 - Merge pull request #27 from reyses/cuda-confirmation-kernel-1715269900666613438 (reyses)
-3f74d0f - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-008e780 - Merge 9c2f19353fbc36c5bba13f8e20c714b56eeadeae into d86c5e3d45b572dd6222e1260eaeb1c8a12165e3 (reyses)
-9c2f193 - Address PR comments: Confirm fixes for uninitialized memory and stale data (google-labs-jules[bot])
-f580bfb - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-dd16bbd - Merge b426f1b704d441ca73297f122e9f03385bdaa7ec into d86c5e3d45b572dd6222e1260eaeb1c8a12165e3 (reyses)
-b426f1b - Implement CUDA kernel for confirmation logic (google-labs-jules[bot])
-d86c5e3 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+2fcb8d2 - Merge pull request #32 from reyses/perf-aggregator-incremental-2406530553394707883 (reyses)
 ```
 
 ### 3. FILE STRUCTURE
 ```
 Bayesian-AI/
 │   ├── requirements.txt
+│   ├── conflict_check.diff
+│   ├── probability_table.pkl
 │   ├── engine_core.py [COMPLETE]
 │   ├── AGENTS.md
 │   ├── __init__.py [COMPLETE]
 │   ├── JULES_OUTPUT_SNAPSHOT.txt
 │   ├── SYSTEM_LOGIC.md
 │   ├── CURRENT_STATUS.md
-│   ├── __init__.py [COMPLETE]
 │   ├── CHANGELOG_V2.md
 │   ├── training/
 │   │   ├── __init__.py [COMPLETE]
@@ -82,23 +54,6 @@ Bayesian-AI/
 │   │   ├── run_training_pipeline.sh
 │   │   ├── setup_test_data.py [TESTED]
 │   │   ├── generate_status_report.py [WIP]
-│   ├── cuda/
-│   │   ├── pattern_detector.py [WIP]
-│   │   ├── confirmation.py [WIP]
-│   │   ├── velocity_gate.py [COMPLETE]
-│   │   ├── __init__.py [COMPLETE]
-│   ├── execution/
-│   │   ├── wave_rider.py [COMPLETE]
-│   │   ├── __init__.py [COMPLETE]
-│   ├── docs/
-│   │   ├── project_update.txt
-│   │   ├── PHASE1_COMPLETE.md
-│   ├── core/
-│   │   ├── layer_engine.py [COMPLETE]
-│   │   ├── data_aggregator.py [COMPLETE]
-│   │   ├── __init__.py [COMPLETE]
-│   │   ├── bayesian_brain.py [COMPLETE]
-│   │   ├── state_vector.py [COMPLETE]
 │   ├── tests/
 │   │   ├── test_phase2.py [TESTED]
 │   │   ├── test_full_system.py [TESTED]
@@ -111,13 +66,6 @@ Bayesian-AI/
 │   │   ├── topic_diagnostics.py [COMPLETE]
 │   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
 │   │   ├── topic_math.py [COMPLETE]
-│   │   ├── topic_diagnostics.py [COMPLETE]
-│   │   ├── test_phase1.py [TESTED]
-│   │   ├── topic_build.py [COMPLETE]
-│   ├── config/
-│   │   ├── workflow_manifest.json
-│   │   ├── symbols.py [COMPLETE]
-│   │   ├── settings.py [COMPLETE]
 │   │   ├── test_databento_loading.py [TESTED]
 │   │   ├── test_doe.py [TESTED]
 │   │   ├── Testing DATA/
@@ -145,10 +93,7 @@ Bayesian-AI/
 
 ### 4. CODE STATISTICS
 - **Python Files:** 40
-- **Total Lines of Code:** 3938
-- **Total Lines of Code:** 4021
-- **Python Files:** 41
-- **Total Lines of Code:** 4310
+- **Total Lines of Code:** 4159
 
 ### 5. CRITICAL INTEGRATION POINTS
 - **Databento API:**
@@ -235,6 +180,7 @@ A	config/__init__.py
 A	config/settings.py
 A	config/symbols.py
 A	config/workflow_manifest.json
+A	conflict_check.diff
 A	core/__init__.py
 A	core/bayesian_brain.py
 A	core/data_aggregator.py
@@ -293,24 +239,17 @@ A	visualization/visualization_module.py
 
 - **Status:** PASS
 - **Command:** `pytest tests/topic_math.py`
-- **Summary:** 4 passed in 0.04s
-- **Summary:** 4 passed in 0.03s
+- **Summary:** 4 passed in 0.05s
 
 
 ### 13. TRAINING VALIDATION METRICS
-| Metric | Value | Status |
-| :--- | :--- | :--- |
-| Training Status | SUCCESS | ✓ |
-| Iterations Completed | 2/2 | ✓ |
-| Runtime | 12.47s | - |
-| Data Files Loaded | 1 | ✓ |
 
 #### File: glbx-mdp3-20250730.trades.0000.dbn.zst
 | Metric | Value | Status |
 | :--- | :--- | :--- |
 | Training Status | SUCCESS | ✓ |
 | Iterations Completed | 2 | ✓ |
-| Runtime | 23.52s | - |
+| Runtime | 3.44s | - |
 | Total Ticks Processed | 1,000 | - |
 | Unique States Learned | 0 | - |
 | High-Confidence States (80%+) | 0 | ✓ |
@@ -323,7 +262,7 @@ None
 | :--- | :--- | :--- |
 | Training Status | SUCCESS | ✓ |
 | Iterations Completed | 2 | ✓ |
-| Runtime | 21.97s | - |
+| Runtime | 2.14s | - |
 | Total Ticks Processed | 1,000 | - |
 | Unique States Learned | 0 | - |
 | High-Confidence States (80%+) | 0 | ✓ |
@@ -331,34 +270,19 @@ None
 **Top 5 States by Probability:**
 None
 
-#### File: Unknown File 3
+#### File: ohlcv-1s.parquet
 | Metric | Value | Status |
 | :--- | :--- | :--- |
-| Training Status | FAILED | ✗ |
-| Iterations Completed | ? | ✗ |
-| Runtime | ?s | - |
-| Total Ticks Processed | 0 | - |
-| Unique States Learned | ? | - |
-| High-Confidence States (80%+) | ? | ✗ |
+| Training Status | SUCCESS | ✓ |
+| Iterations Completed | 2 | ✓ |
+| Runtime | 2.11s | - |
+| Total Ticks Processed | 1,000 | - |
+| Unique States Learned | 0 | - |
+| High-Confidence States (80%+) | 0 | ✓ |
 
 **Top 5 States by Probability:**
 None
 
-**Error Details:**
-```
-Orchestrator failed for /app/DATA/RAW/ohlcv-1s.parquet.
-Stdout: [CUDA] GPU not available for velocity gate, using CPU
-[LAYER ENGINE] CUDA acceleration DISABLED (CPU mode)
-[TRAINING] Data: 1000 ticks. Target: 2 iterations.
-[LAYER ENGINE] Static context initialized:
-  L1 (90d): range
-  L2 (30d): chopping
-  L3 (1wk): sideways
-  L4 (daily): mid_range
-Error: 'Pandas' object has no attribute 'price'
-
-Stderr:
-```
 ### 14. DOE OPTIMIZATION STATUS
 - [ ] Parameter Grid Generator
 - [ ] Latin Hypercube Sampling
