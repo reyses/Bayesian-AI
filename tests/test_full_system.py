@@ -17,7 +17,14 @@ from tests.utils import load_test_data
 
 def run_validation():
     print("=== BAYESIAN AI V2.0 VALIDATION ===")
-    engine = BayesianEngine(MNQ)
+
+    try:
+        from numba import cuda
+        use_gpu = cuda.is_available()
+    except:
+        use_gpu = False
+
+    engine = BayesianEngine(MNQ, use_gpu=use_gpu)
 
     # Initialize session with real data
     print("Loading test data...")
