@@ -77,3 +77,14 @@ def load_test_data():
         df['close'] = df['price']
 
     return df
+
+def get_cuda_availability():
+    """
+    Safely checks for CUDA availability.
+    Returns True if CUDA is available, False otherwise.
+    """
+    try:
+        from numba import cuda
+        return cuda.is_available()
+    except Exception:
+        return False

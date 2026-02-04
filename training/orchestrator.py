@@ -119,10 +119,11 @@ class TrainingOrchestrator:
         if 'type' in self.data.columns:
             self.data = self.data.copy()
             self.data['type'] = self.data['type'].fillna('trade').astype(str)
-            cols_to_use.append('type')
         else:
+            self.data = self.data.copy()
             self.data['type'] = 'trade'
-            cols_to_use.append('type')
+
+        cols_to_use.append('type')
 
         tick_records = self.data[cols_to_use].to_dict('records')
 
