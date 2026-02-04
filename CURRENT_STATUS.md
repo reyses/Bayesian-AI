@@ -1,17 +1,14 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-04 05:42:54
-- **Git Branch:** HEAD
-- **Last Commit:** 57eb5a7ea3642098743b41f4181b81aa69ac4e88
+- **Timestamp:** 2026-02-04 05:12:37
+- **Git Branch:** main
+- **Last Commit:** e853093346bad53b17f6ad13e3e47a34aa9940eb
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
-57eb5a7 - Merge 8e4d2b04ec4ccd3cffee0a8c74c4ec11d2006bee into 64b27ceaaa364fd722a1684f7570d54e20286792 (reyses)
-8e4d2b0 - Fix missing debug log in notebook and improve path resolution. (google-labs-jules[bot])
-64b27ce - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 e853093 - fix: update execution counts and fix output messages in debug_dashboard.ipynb (reyses)
 7583ddf - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 c09d0c8 - Merge pull request #43 from reyses/legacy-cleanup-and-test-fixes-10232073797411404608 (reyses)
@@ -19,6 +16,9 @@ c09d0c8 - Merge pull request #43 from reyses/legacy-cleanup-and-test-fixes-10232
 baff168 - Merge c87d15997c3bcc98c91cae35804e02f68ad3cf5e into 54a59dd68f6a11032cf9e1f0ff83a927f60c7e3f (reyses)
 c87d159 - Cleanup legacy files, fix CPU fallback, and improve scripts (google-labs-jules[bot])
 0609fe7 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+c9839aa - Cleanup legacy files and fix tests for CPU environment (google-labs-jules[bot])
+61eaa74 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+5df8e3c - Cleanup legacy files and fix tests for CPU environment (google-labs-jules[bot])
 ```
 
 ### 3. FILE STRUCTURE
@@ -114,7 +114,7 @@ Bayesian-AI/
 
 ### 4. CODE STATISTICS
 - **Python Files:** 46
-- **Total Lines of Code:** 5464
+- **Total Lines of Code:** 5417
 
 ### 5. CRITICAL INTEGRATION POINTS
 - **Databento API:**
@@ -190,7 +190,7 @@ tqdm
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
-
+M	notebooks/debug_dashboard.ipynb
 ```
 
 ### 11. REVIEWER CHECKLIST
@@ -203,7 +203,7 @@ tqdm
 
 - **Status:** PASS
 - **Command:** `pytest tests/topic_math.py`
-- **Summary:** 4 passed in 0.04s
+- **Summary:** 4 passed in 0.03s
 
 
 ### 13. TRAINING VALIDATION METRICS
@@ -211,7 +211,7 @@ tqdm
 | :--- | :--- | :--- |
 | Training Status | SUCCESS | ✓ |
 | Iterations Completed | 2 | ✓ |
-| Runtime | 10.67s | - |
+| Runtime | 10.46s | - |
 | Data Files Tested | 3 | ✓ |
 | Total Ticks (Sample) | 1,000 | - |
 | Unique States Learned | 0 | - |
