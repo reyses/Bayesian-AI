@@ -36,14 +36,18 @@ def get_data_source(data_path: str) -> pd.DataFrame:
 
 class TrainingOrchestrator:
     """Runs iterations on historical data to build the Bayesian prior"""
-    def __init__(self, asset_ticker: str, data: pd.DataFrame = None, use_gpu: bool = True, output_dir: str = '.'):
+    def __init__(self, asset_ticker: str, data: pd.DataFrame = None, use_gpu: bool = True, output_dir: str = '.', verbose: bool = False, debug_file: str = None):
         self.data = data
         # Default to MNQ if ticker not found, or use provided ticker
         self.asset = SYMBOL_MAP.get(asset_ticker, MNQ)
         self.use_gpu = use_gpu
-        self.engine = BayesianEngine(self.asset, use_gpu=use_gpu)
         self.output_dir = output_dir
         self.model_path = os.path.join(self.output_dir, 'probability_table.pkl')
+
+        self.verbose = verbose
+        self.debug_file = debug_file
+
+        self.engine = BayesianEngine(self.asset, use_gpu=use_gpu, verbose=verbose, log_path=debug_file)
 
         # Helper variables for test introspection
         self.kill_zones = [21500, 21600, 21700] # Default
@@ -60,7 +64,7 @@ class TrainingOrchestrator:
 
     def reset_engine(self):
         """Resets the engine to a fresh state."""
-        self.engine = BayesianEngine(self.asset, use_gpu=self.use_gpu)
+        self.engine = BayesianEngine(self.asset, use_gpu=self.use_gpu, verbose=self.verbose, log_path=self.debug_file)
 
     def run_training(self, iterations=1000, params: Dict[str, Any] = None):
         if self.data is None:
@@ -389,6 +393,10 @@ if __name__ == "__main__":
     parser.add_argument("--start-date", type=str, help="Start date (YYYY-MM-DD) for data filtering")
     parser.add_argument("--end-date", type=str, help="End date (YYYY-MM-DD) for data filtering")
 
+    # New logging arguments
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
+    parser.add_argument("--debug-file", type=str, help="Path to debug log file")
+
     args = parser.parse_args()
 
     # Enforce OPERATIONAL_MODE
@@ -451,7 +459,9 @@ if __name__ == "__main__":
             asset_ticker=args.ticker,
             data=data,
             output_dir=args.output,
-            use_gpu=use_gpu
+            use_gpu=use_gpu,
+            verbose=args.verbose,
+            debug_file=args.debug_file
         )
         orchestrator.run_training(iterations=args.iterations)
 
