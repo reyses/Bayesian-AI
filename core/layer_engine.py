@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 from core.state_vector import StateVector
 from typing import Dict, List, Optional
+import logging
 
 from cuda_modules.pattern_detector import get_pattern_detector
 from cuda_modules.confirmation import get_confirmation_engine
@@ -17,7 +18,7 @@ class LayerEngine:
     Separates STATIC (L1-L4) from FLUID (L5-L9) computation
     Uses CUDA acceleration for L7-L9 when available
     """
-    def __init__(self, use_gpu=True):
+    def __init__(self, use_gpu=True, logger=None):
         # Buffers for different timeframes
         self.daily_data = None
         self.weekly_data = None
@@ -31,6 +32,9 @@ class LayerEngine:
         # User-provided kill zones
         self.kill_zones = []
         
+        # Logging
+        self.logger = logger
+
         # Initialize helpers
         self.pattern_detector = get_pattern_detector(use_gpu=use_gpu)
         self.confirmation_engine = get_confirmation_engine(use_gpu=use_gpu)
@@ -45,6 +49,10 @@ class LayerEngine:
             print("[LAYER ENGINE] CUDA acceleration ENABLED")
         else:
             print("[LAYER ENGINE] CUDA acceleration DISABLED (CPU mode)")
+
+    def _log(self, msg):
+        if self.logger:
+            self.logger.debug(msg)
     
     def initialize_static_context(self, historical_data: pd.DataFrame, kill_zones: List[float]):
         """
@@ -80,6 +88,7 @@ class LayerEngine:
             'L4': self._compute_L4_daily()
         }
         
+        self._log(f"[LAYER ENGINE] Static context initialized: {self.static_context}")
         print(f"[LAYER ENGINE] Static context initialized:")
         print(f"  L1 (90d): {self.static_context['L1']}")
         print(f"  L2 (30d): {self.static_context['L2']}")
@@ -141,6 +150,7 @@ class LayerEngine:
         """Check if price is within tolerance of any kill zone"""
         for zone in self.kill_zones:
             if abs(price - zone) <= tolerance:
+                self._log(f"Price {price} inside killzone {zone} (tol={tolerance})")
                 return True
         return False
     
@@ -184,7 +194,7 @@ class LayerEngine:
         # L9: 1-sec velocity cascade
         L9_cascade = self._compute_L9_1s(current_data.get('ticks'))
         
-        return StateVector(
+        state = StateVector(
             L1_bias=L1_bias,
             L2_regime=L2_regime,
             L3_swing=L3_swing,
@@ -197,6 +207,12 @@ class LayerEngine:
             timestamp=current_data['timestamp'],
             price=price
         )
+
+        # Detailed logging if enabled
+        if self.logger and self.logger.isEnabledFor(logging.DEBUG):
+             self._log(f"Computed State: {state}")
+
+        return state
     
     def _compute_L5_4hr(self, bars: Optional[pd.DataFrame]) -> str:
         """Layer 5: 4-hour trend"""
@@ -204,12 +220,15 @@ class LayerEngine:
             return 'flat'
         
         closes = bars['close'].values
+        res = 'flat'
         if closes[-1] > closes[-2] > closes[-3]:
-            return 'up'
+            res = 'up'
         elif closes[-1] < closes[-2] < closes[-3]:
-            return 'down'
-        else:
-            return 'flat'
+            res = 'down'
+
+        if self.logger and res != 'flat':
+             self._log(f"L5 Trend: {res} (Closes: {closes[-3:]})")
+        return res
     
     def _compute_L6_1hr(self, bars: Optional[pd.DataFrame]) -> str:
         """Layer 6: 1-hour structure"""
@@ -220,19 +239,25 @@ class LayerEngine:
         bullish = sum(1 for i in range(len(closes)-1) if closes[i+1] > closes[i])
         bearish = sum(1 for i in range(len(closes)-1) if closes[i+1] < closes[i])
         
+        res = 'neutral'
         if bullish > bearish * 1.5:
-            return 'bullish'
+            res = 'bullish'
         elif bearish > bullish * 1.5:
-            return 'bearish'
-        else:
-            return 'neutral'
+            res = 'bearish'
+
+        if self.logger and res != 'neutral':
+             self._log(f"L6 Structure: {res} (Bull: {bullish}, Bear: {bearish})")
+        return res
     
     def _compute_L7_15m(self, bars: Optional[pd.DataFrame]) -> tuple:
         """Layer 7: 15-min pattern detection"""
         if bars is None or len(bars) < 10:
             return ('none', 0.0)
         
-        return self.pattern_detector.detect(bars, window_size=20)
+        res, maturity = self.pattern_detector.detect(bars, window_size=20)
+        if self.logger and res != 'none':
+            self._log(f"L7 Pattern: {res} (Maturity: {maturity})")
+        return res, maturity
     
     def _compute_L8_5m(self, bars: Optional[pd.DataFrame], L7_pattern: str) -> bool:
         """Layer 8: 5-min confirmation"""
@@ -242,7 +267,10 @@ class LayerEngine:
         if L7_pattern == 'none':
             return False
         
-        return self.confirmation_engine.confirm(bars, L7_pattern != 'none')
+        confirmed = self.confirmation_engine.confirm(bars, L7_pattern != 'none')
+        if self.logger and confirmed:
+            self._log(f"L8 Confirmed for pattern {L7_pattern}")
+        return confirmed
     
     def _compute_L9_1s(self, ticks) -> bool:
         """Layer 9: 1-sec velocity cascade detector"""
@@ -250,4 +278,7 @@ class LayerEngine:
             return False
         
         # Pass directly to VelocityGate which handles DataFrame/Array/List
-        return self.velocity_gate.detect_cascade(ticks)
+        cascade = self.velocity_gate.detect_cascade(ticks)
+        if self.logger and cascade:
+            self._log("L9 CASCADE DETECTED")
+        return cascade
