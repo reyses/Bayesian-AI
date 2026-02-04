@@ -1,14 +1,17 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-04 06:13:12
+- **Timestamp:** 2026-02-04 06:28:46
 - **Git Branch:** main
-- **Last Commit:** 977cefe061e07e580b0c562857479e218b260f65
+- **Last Commit:** 2690c029017955e3d8ca5aad462ddc659c839176
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+2690c02 - Merge pull request #45 from reyses/docs/consolidate-system-logic-15228223901294832572 (reyses)
+e2dded1 - Consolidate system logic documentation and create project map (google-labs-jules[bot])
+658061a - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 977cefe - Merge pull request #44 from reyses/fix-debug-log-notebook-10660244051169647280 (reyses)
 08b4560 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 5c8168e - Merge e5c5be7ccd02092c4b7edce325fc57ff86669c64 into 64b27ceaaa364fd722a1684f7570d54e20286792 (reyses)
@@ -16,9 +19,6 @@ e5c5be7 - Add comprehensive system logic manual (google-labs-jules[bot])
 24c5ce9 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 f49d202 - Refactor debug notebook generator to use pathlib and update emojis (google-labs-jules[bot])
 ed9f9ed - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-57eb5a7 - Merge 8e4d2b04ec4ccd3cffee0a8c74c4ec11d2006bee into 64b27ceaaa364fd722a1684f7570d54e20286792 (reyses)
-8e4d2b0 - Fix missing debug log in notebook and improve path resolution. (google-labs-jules[bot])
-64b27ce - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 ```
 
 ### 3. FILE STRUCTURE
@@ -31,7 +31,7 @@ Bayesian-AI/
 │   ├── CHANGELOG_V2.md
 │   ├── CURRENT_STATUS.md
 │   ├── REPORT.md
-│   ├── SYSTEM_LOGIC_MANUAL.md
+│   ├── PROJECT_MAP.md
 │   ├── __init__.py [COMPLETE]
 │   ├── training/
 │   │   ├── orchestrator.py [COMPLETE]
@@ -212,7 +212,7 @@ tqdm
 | :--- | :--- | :--- |
 | Training Status | SUCCESS | ✓ |
 | Iterations Completed | 2 | ✓ |
-| Runtime | 10.56s | - |
+| Runtime | 10.75s | - |
 | Data Files Tested | 3 | ✓ |
 | Total Ticks (Sample) | 1,000 | - |
 | Unique States Learned | 0 | - |
