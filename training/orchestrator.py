@@ -386,6 +386,8 @@ if __name__ == "__main__":
     parser.add_argument("--iterations", type=int, default=10, help="Number of training iterations")
     parser.add_argument("--output", type=str, default="models/", help="Output directory for the model")
     parser.add_argument("--ticker", type=str, default="MNQ", help="Asset ticker symbol (default: MNQ)")
+    parser.add_argument("--start-date", type=str, help="Start date (YYYY-MM-DD) for data filtering")
+    parser.add_argument("--end-date", type=str, help="End date (YYYY-MM-DD) for data filtering")
 
     args = parser.parse_args()
 
@@ -407,6 +409,33 @@ if __name__ == "__main__":
                 sys.exit(0)
             else:
                  raise ValueError("Must provide --data-dir or --data-file")
+
+        # Filter data by date if requested
+        if args.start_date or args.end_date:
+            if 'timestamp' in data.columns:
+                # Ensure datetime
+                if not pd.api.types.is_datetime64_any_dtype(data['timestamp']):
+                     # Try to infer format or assume float seconds
+                     try:
+                         data['dt_temp'] = pd.to_datetime(data['timestamp'])
+                     except:
+                         data['dt_temp'] = pd.to_datetime(data['timestamp'], unit='s')
+                else:
+                    data['dt_temp'] = data['timestamp']
+
+                if args.start_date:
+                    print(f"[ORCHESTRATOR] Filtering start date: {args.start_date}")
+                    data = data[data['dt_temp'] >= pd.to_datetime(args.start_date)]
+
+                if args.end_date:
+                    print(f"[ORCHESTRATOR] Filtering end date: {args.end_date}")
+                    # Make end date inclusive for the day
+                    end_dt = pd.to_datetime(args.end_date) + pd.Timedelta(days=1)
+                    data = data[data['dt_temp'] < end_dt]
+
+                # Cleanup
+                data = data.drop(columns=['dt_temp'])
+                print(f"[ORCHESTRATOR] Data rows after filtering: {len(data)}")
 
         # Auto-detect GPU capability for safe default
         try:
