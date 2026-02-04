@@ -44,7 +44,7 @@ def get_tree():
     # Filter only relevant top-level directories or use walk with depth control
     for root, dirs, files in os.walk("."):
         # Exclude hidden dirs and specific folders
-        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ["__pycache__", "venv", "env"]]
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ["__pycache__", "venv", "env", "dist", "build"]]
 
         level = root.count(os.sep)
         if level > 2: # 3 levels deep (0, 1, 2)
@@ -92,7 +92,11 @@ def get_code_stats():
     py_files = 0
     total_lines = 0
     for root, dirs, files in os.walk("."):
+        # Exclude hidden dirs and specific folders
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ["__pycache__", "venv", "env", "dist", "build"]]
+
         if ".git" in root: continue
+
         for f in files:
             if f.endswith(".py"):
                 py_files += 1
@@ -324,16 +328,26 @@ def get_training_validation_metrics():
         if start_tag in output and end_tag in output:
             json_str = output.split(start_tag)[1].split(end_tag)[0].strip()
             try:
-                metrics = json.loads(json_str)
+                all_metrics = json.loads(json_str)
             except json.JSONDecodeError:
                 return "### TRAINING VALIDATION METRICS\n\nERROR: Failed to decode metrics JSON.\n"
+
+            if not isinstance(all_metrics, list):
+                all_metrics = [all_metrics]
+
+            if not all_metrics:
+                return "### TRAINING VALIDATION METRICS\n\nNo metrics returned.\n"
+
+            # Use the first success, or the first failure if all failed
+            metrics = next((m for m in all_metrics if m.get("status") == "SUCCESS"), all_metrics[0])
 
             status = metrics.get("status", "UNKNOWN")
             status_icon = "✓" if status == "SUCCESS" else "✗"
 
             iters = metrics.get("iterations_completed", "?")
             runtime = metrics.get("runtime_seconds", "?")
-            files = metrics.get("files_loaded", "?")
+            # Files loaded is effectively 1 per metric entry in the new system
+            files_loaded = len(all_metrics)
             ticks = metrics.get("total_ticks", 0)
             unique = metrics.get("unique_states_learned", "?")
             high_conf = metrics.get("high_confidence_states", "?")
@@ -353,14 +367,14 @@ def get_training_validation_metrics():
 | Metric | Value | Status |
 | :--- | :--- | :--- |
 | Training Status | {status} | {status_icon} |
-| Iterations Completed | {iters}/{iters} | {status_icon} |
+| Iterations Completed | {iters} | {status_icon} |
 | Runtime | {runtime}s | - |
-| Data Files Loaded | {files} | {status_icon if isinstance(files, int) and files > 0 else '✗'} |
-| Total Ticks Processed | {ticks:,} | - |
+| Data Files Tested | {files_loaded} | {status_icon} |
+| Total Ticks (Sample) | {ticks:,} | - |
 | Unique States Learned | {unique} | - |
 | High-Confidence States (80%+) | {high_conf} | {status_icon if isinstance(high_conf, int) and high_conf >= 0 else '✗'} |
 
-**Top 5 States by Probability:**
+**Top 5 States by Probability (Sample):**
 {top_5_str}
 """
             if status != "SUCCESS":
