@@ -132,37 +132,52 @@ The system delegates computationally intensive tasks to the GPU via Numba.
 
 ```text
 .
+├── AGENTS.md               # Instructions for AI agents
+├── CURRENT_STATUS.md       # Live project health and code stats
+├── DATA/                   # Data storage
+│   └── RAW/                # Raw market data (DBN/Parquet)
+├── README.md               # Project Entry Point
 ├── config/                 # Configuration and Constants
-│   ├── settings.py         # Global system settings (Operational Mode, Paths)
-│   ├── symbols.py          # Ticker symbol definitions and mappings
+│   ├── settings.py
+│   ├── symbols.py
 │   └── workflow_manifest.json
 ├── core/                   # Core Logic Engines
-│   ├── engine_core.py      # (Root) Main BayesianEngine class
-│   ├── layer_engine.py     # 9-Layer State Computation (Static & Fluid)
-│   ├── bayesian_brain.py   # Probability Learning & Persistence
-│   ├── data_aggregator.py  # Real-time Tick/Bar Data Management
-│   └── state_vector.py     # Immutable State Data Structure
+│   ├── bayesian_brain.py
+│   ├── data_aggregator.py
+│   ├── engine_core.py
+│   ├── layer_engine.py
+│   └── state_vector.py
 ├── cuda_modules/           # GPU-Accelerated Components (Numba)
-│   ├── pattern_detector.py # L7 Pattern Recognition
-│   ├── confirmation.py     # L8 Volume Confirmation
-│   ├── velocity_gate.py    # L9 Cascade Detection
-│   └── hardened_verification.py # GPU Audit & Verification
-├── execution/              # Trade Execution & Management
-│   └── wave_rider.py       # Position Entry, Exit, and Trailing Stops
-├── training/               # Historical Learning Pipeline
-│   ├── orchestrator.py     # Training Orchestrator (Grid Search, Walk-Forward)
-│   └── databento_loader.py # Data Ingestion & Normalization
-├── scripts/                # Utility & Build Scripts
-│   ├── generate_status_report.py
-│   ├── build_executable.py
-│   ├── sentinel_bridge.py
-│   └── ...
-├── tests/                  # Test Suite
-│   ├── topic_math.py
-│   ├── topic_diagnostics.py
-│   ├── test_phase1.py
-│   └── ...
+│   ├── confirmation.py
+│   ├── hardened_verification.py
+│   ├── pattern_detector.py
+│   └── velocity_gate.py
+├── docs/                   # Documentation
+│   ├── CHANGELOG.md
+│   ├── LEARNING_DASHBOARD_GUIDE.md
+│   ├── TECHNICAL_MANUAL.md
+│   └── archive/
 ├── engine_core.py          # (Entry Point Alias)
+├── execution/              # Trade Execution & Management
+│   └── wave_rider.py
+├── notebooks/              # Jupyter Notebooks
+│   └── learning_dashboard.ipynb
+├── requirements.txt        # Python Dependencies
+├── scripts/                # Utility & Build Scripts
+│   ├── build_executable.py
+│   ├── generate_learning_dashboard.py
+│   ├── generate_status_report.py
+│   ├── inspect_results.py
+│   ├── manifest_integrity_check.py
+│   ├── sentinel_bridge.py
+│   ├── setup_test_data.py
+│   └── verify_environment.py
+├── tests/                  # Test Suite
+│   ├── test_*.py
+│   └── topic_*.py
+└── training/               # Historical Learning Pipeline
+    ├── databento_loader.py
+    └── orchestrator.py
 ```
 
 ### Module Reference
