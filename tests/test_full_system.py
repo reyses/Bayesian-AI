@@ -13,11 +13,13 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from engine_core import BayesianEngine
 from config.symbols import MNQ
 from core.state_vector import StateVector
-from tests.utils import load_test_data
+from tests.utils import load_test_data, get_cuda_availability
 
 def run_validation():
     print("=== BAYESIAN AI V2.0 VALIDATION ===")
-    engine = BayesianEngine(MNQ)
+
+    use_gpu = get_cuda_availability()
+    engine = BayesianEngine(MNQ, use_gpu=use_gpu)
 
     # Initialize session with real data
     print("Loading test data...")

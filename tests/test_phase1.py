@@ -15,7 +15,7 @@ from core.state_vector import StateVector
 from core.bayesian_brain import BayesianBrain, TradeOutcome
 from core.layer_engine import LayerEngine
 from config.symbols import MNQ, calculate_pnl
-from tests.utils import load_test_data
+from tests.utils import load_test_data, get_cuda_availability
 
 def test_state_vector():
     """Test StateVector hashing and equality"""
@@ -118,7 +118,8 @@ def test_layer_engine():
     bars_5m = data.resample('5min').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'}).dropna()
     
     # Initialize engine
-    engine = LayerEngine()
+    use_gpu = get_cuda_availability()
+    engine = LayerEngine(use_gpu=use_gpu)
     engine.initialize_static_context(data, kill_zones=[21500, 21600, 21700])
     
     last_price = data.iloc[-1]['close']
@@ -154,7 +155,8 @@ def test_integration():
     bars_15m = data.resample('15min').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'}).dropna()
     bars_5m = data.resample('5min').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'}).dropna()
 
-    engine = LayerEngine()
+    use_gpu = get_cuda_availability()
+    engine = LayerEngine(use_gpu=use_gpu)
     engine.initialize_static_context(data, kill_zones=[21500, 21600])
     brain = BayesianBrain()
     
