@@ -4,18 +4,22 @@ This repository contains "Bayesian-AI", an algorithmic trading system.
 
 ## Workflow
 
-A CI/CD workflow is defined in `.github/workflows/ci.yml`. It runs on every push and pull request to the `main` or `master` branches.
+A unified CI/CD workflow is defined in `.github/workflows/unified_test_pipeline.yml`. It runs on every push and pull request to the `main` or `master` branches.
 
 The workflow performs the following steps:
 1.  **Installs Dependencies**: From `requirements.txt`.
 2.  **Runs Tests**:
+    *   Integrity and Math verification.
     *   `tests/test_phase1.py`: Validates core components (StateVector, BayesianBrain, LayerEngine).
     *   `tests/test_full_system.py`: Validates full system integration.
-3.  **Builds Executable**: Runs `scripts/build_executable.py` to package the application using PyInstaller.
+    *   CUDA Audit & Sentinel Bridge (Feedback Loop).
+    *   Training Validation.
+3.  **Generates Status Report**: Runs `scripts/generate_status_report.py` and updates `CURRENT_STATUS.md`.
+4.  **Builds Executable**: Runs `scripts/build_executable.py` to package the application using PyInstaller.
 
 ## Status Reporting
 
-An automated status report is generated on every push/PR via `.github/workflows/status-report.yml`.
+An automated status report is included in the unified workflow.
 - **Script**: `scripts/generate_status_report.py`
 - **Output**: `CURRENT_STATUS.md`
 - **Purpose**: Provides a living snapshot of project health, code stats, and validation checks.
@@ -31,16 +35,14 @@ To train the Bayesian probability model using real Databento data:
     cp /path/to/databento/downloads/*.dbn.zst data/raw/
     ```
 
-2.  **Run Automation Script**:
-    We provide a script to automate validation, training, and inspection.
-    ```bash
-    ./scripts/run_training_pipeline.sh
-    ```
+2.  **Run Pipeline**:
 
-    **Manual Steps:**
-    If you prefer to run steps manually:
+    *   **Setup & Verify Data**:
+        ```bash
+        python scripts/setup_test_data.py
+        ```
 
-    *   **Run Existing Tests First**:
+    *   **Run Training**:
         ```bash
         python -m pytest tests/test_real_data_velocity.py -v
         python -m pytest tests/test_databento_loading.py -v
