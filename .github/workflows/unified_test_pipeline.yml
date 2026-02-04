@@ -1,0 +1,105 @@
+name: Unified Test Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+    # --- SETUP ---
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        # Ensure dev dependencies are present
+        pip install pytest pandas numpy numba
+
+    - name: Setup Real Test Data
+      run: python scripts/setup_test_data.py
+
+    # --- CORE TESTING (from ci.yml) ---
+    - name: Integrity Test
+      run: python tests/topic_build.py
+
+    - name: Math & Logic Test
+      run: pytest tests/topic_math.py
+
+    - name: Diagnostics Test
+      run: python tests/topic_diagnostics.py
+
+    - name: Phase 1 Test
+      run: python tests/test_phase1.py
+
+    - name: Full System Test
+      run: python tests/test_full_system.py
+
+    # --- FEEDBACK LOOP (from jules_feedback_loop.yml) ---
+    - name: Run CUDA Audit
+      # Run the verification script. It handles CPU fallback or logging failures.
+      run: python cuda_modules/hardened_verification.py
+      continue-on-error: true
+
+    - name: Run Sentinel Bridge
+      run: python scripts/sentinel_bridge.py
+
+    # --- TRAINING VALIDATION & STATUS REPORT (from status-report.yml) ---
+    - name: Run Training Validation
+      run: python -m pytest tests/test_training_validation.py
+
+    - name: Generate CURRENT_STATUS.md
+      run: |
+        python3 scripts/generate_status_report.py
+        # Optional: output content to logs for debugging
+        # cat CURRENT_STATUS.md
+
+    - name: Commit and Push Report
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+        # Check if there are changes to CURRENT_STATUS.md
+        if [[ -n $(git status -s CURRENT_STATUS.md) ]]; then
+          git add CURRENT_STATUS.md
+          git commit -m "docs: auto-update CURRENT_STATUS.md [skip ci]"
+          # Push to the current branch
+          git push origin HEAD:${{ github.ref_name }} || git push origin HEAD:${{ github.head_ref }}
+        else
+          echo "No changes to CURRENT_STATUS.md"
+        fi
+      continue-on-error: true
+
+    # --- BUILD & ARTIFACTS (from ci.yml & jules_feedback_loop.yml) ---
+    - name: Build Executable
+      run: python scripts/build_executable.py
+
+    - name: Archive Executable
+      uses: actions/upload-artifact@v4
+      with:
+        name: Bayesian_AI_Engine
+        path: dist/Bayesian_AI_Engine
+
+    - name: Upload CUDA Debug Log
+      uses: actions/upload-artifact@v4
+      with:
+        name: cuda-debug-log
+        path: CUDA_Debug.log
+        if-no-files-found: warn
