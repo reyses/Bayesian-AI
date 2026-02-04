@@ -43,7 +43,15 @@ notebook = {
     "from numba import cuda\n",
     "\n",
     "# Add root to path\n",
-    "sys.path.append(os.getcwd())\n",
+    "current_dir = os.getcwd()\n",
+    "while not os.path.exists(os.path.join(current_dir, 'requirements.txt')):\n",
+    "    parent = os.path.dirname(current_dir)\n",
+    "    if parent == current_dir:\n",
+    "        break\n",
+    "    current_dir = parent\n",
+    "if current_dir not in sys.path:\n",
+    "    sys.path.append(current_dir)\n",
+    "print(f\"Project Root: {current_dir}\")\n",
     "\n",
     "print(f\"Python Version: {sys.version.split()[0]}\")\n",
     "\n",
@@ -62,6 +70,39 @@ notebook = {
     "    print(f\"🟢 Data Files Found ({len(raw_files)}): {', '.join([os.path.basename(f) for f in raw_files])}\")\n",
     "else:\n",
     "    print(\"🔴 No files in DATA/RAW/\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 1.1 Deep CUDA Audit 🕵️‍♂️\n",
+    "Run the hardened 3-stage verification logic and generate `CUDA_Debug.log`."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": None,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import cuda_modules.hardened_verification as hv\n",
+    "import os\n",
+    "\n",
+    "print(\"Running 3-Stage CUDA Audit...\")\n",
+    "try:\n",
+    "    success = hv.run_audit()\n",
+    "    if success:\n",
+    "        print(\"🟢 Audit Passed! (See CUDA_Debug.log)\")\n",
+    "    else:\n",
+    "        print(\"🔴 Audit Failed! (See CUDA_Debug.log for details)\")\n",
+    "except Exception as e:\n",
+    "    print(f\"🔴 Execution Error: {e}\")\n",
+    "\n",
+    "if os.path.exists(\"CUDA_Debug.log\"):\n",
+    "    print(f\"Log file created at: {os.path.abspath('CUDA_Debug.log')}\")\n",
+    "else:\n",
+    "    print(\"⚠️ No log file found.\")"
    ]
   },
   {

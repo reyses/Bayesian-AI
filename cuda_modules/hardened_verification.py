@@ -13,15 +13,21 @@ import numpy as np
 import logging
 
 # Setup Logging to CUDA_Debug.log
-logging.basicConfig(
-    filename='CUDA_Debug.log',
-    level=logging.DEBUG,
-    format='%(asctime)s | [%(levelname)s] | %(message)s'
-)
-# Also print to console
+# We explicitly add handlers to ensure logging works even if basicConfig was skipped
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+
+# File Handler (explicitly added)
+file_handler = logging.FileHandler('CUDA_Debug.log', mode='a')
+file_handler.setLevel(logging.DEBUG)
+file_formatter = logging.Formatter('%(asctime)s | [%(levelname)s] | %(message)s')
+file_handler.setFormatter(file_formatter)
+logger.addHandler(file_handler)
+
+# Console Handler
 console = logging.StreamHandler()
 console.setLevel(logging.INFO)
-logging.getLogger().addHandler(console)
+logger.addHandler(console)
 
 try:
     from numba import cuda
