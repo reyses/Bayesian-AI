@@ -45,6 +45,7 @@ def get_tree():
     for root, dirs, files in os.walk("."):
         # Exclude hidden dirs and specific folders
         dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ["__pycache__", "venv", "env", "dist", "build"]]
+        dirs.sort() # Sort directories alphabetically
 
         level = root.count(os.sep)
         if level > 2: # 3 levels deep (0, 1, 2)
@@ -56,6 +57,7 @@ def get_tree():
         if root != ".":
             tree_str += f"{indent}├── {os.path.basename(root)}/\n"
 
+        files.sort() # Sort files alphabetically
         for f in files:
             if f.startswith("."): continue
 
