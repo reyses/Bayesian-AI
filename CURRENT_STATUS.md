@@ -1,106 +1,115 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-04 06:37:05
-- **Git Branch:** jules-13193271538335309034-d73bd6cb
-- **Last Commit:** 2690c029017955e3d8ca5aad462ddc659c839176
+- **Timestamp:** 2026-02-04 06:42:06
+- **Git Branch:** docs/consolidate-system-logic-13193271538335309034
+- **Last Commit:** 1312f385b7c3557531ad38c94474d8a7cae22505
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+1312f38 - Consolidate documentation into Technical Manual and README (google-labs-jules[bot])
 2690c02 - Merge pull request #45 from reyses/docs/consolidate-system-logic-15228223901294832572 (reyses)
+e2dded1 - Consolidate system logic documentation and create project map (google-labs-jules[bot])
+658061a - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+977cefe - Merge pull request #44 from reyses/fix-debug-log-notebook-10660244051169647280 (reyses)
+08b4560 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+5c8168e - Merge e5c5be7ccd02092c4b7edce325fc57ff86669c64 into 64b27ceaaa364fd722a1684f7570d54e20286792 (reyses)
+e5c5be7 - Add comprehensive system logic manual (google-labs-jules[bot])
+24c5ce9 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+f49d202 - Refactor debug notebook generator to use pathlib and update emojis (google-labs-jules[bot])
 ```
 
 ### 3. FILE STRUCTURE
 ```
 Bayesian-AI/
 │   ├── requirements.txt
+│   ├── AGENTS.md
 │   ├── engine_core.py [COMPLETE]
 │   ├── README.md
-│   ├── AGENTS.md
-│   ├── __init__.py [COMPLETE]
 │   ├── CURRENT_STATUS.md
+│   ├── __init__.py [COMPLETE]
 │   ├── training/
-│   │   ├── __init__.py [COMPLETE]
+│   │   ├── orchestrator.py [COMPLETE]
 │   │   ├── databento_loader.py [COMPLETE]
 │   │   ├── cuda_backtest.py [TESTED]
-│   │   ├── orchestrator.py [COMPLETE]
-│   ├── config/
-│   │   ├── symbols.py [COMPLETE]
 │   │   ├── __init__.py [COMPLETE]
-│   │   ├── workflow_manifest.json
-│   │   ├── settings.py [COMPLETE]
+│   ├── DATA/
+│   │   ├── RAW/
+│   │   │   ├── trades.parquet
+│   │   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
+│   │   │   ├── ohlcv-1s.parquet
+│   ├── scripts/
+│   │   ├── run_training_pipeline.sh
+│   │   ├── setup_test_data.py [TESTED]
+│   │   ├── sentinel_bridge.py [COMPLETE]
+│   │   ├── manifest_integrity_check.py [COMPLETE]
+│   │   ├── build_executable.py [COMPLETE]
+│   │   ├── inspect_results.py [COMPLETE]
+│   │   ├── verify_environment.py [COMPLETE]
+│   │   ├── generate_debug_notebook.py [COMPLETE]
+│   │   ├── generate_status_report.py [WIP]
+│   ├── cuda_modules/
+│   │   ├── pattern_detector.py [COMPLETE]
+│   │   ├── confirmation.py [COMPLETE]
+│   │   ├── velocity_gate.py [COMPLETE]
+│   │   ├── __init__.py [COMPLETE]
+│   │   ├── hardened_verification.py [COMPLETE]
+│   ├── execution/
+│   │   ├── wave_rider.py [COMPLETE]
+│   │   ├── __init__.py [COMPLETE]
+│   ├── Recycling Bin/
+│   │   ├── JULES_OUTPUT_SNAPSHOT.txt
+│   │   ├── DELIVERABLE.md
+│   │   ├── all_requirements.txt
 │   ├── docs/
 │   │   ├── CHANGELOG.md
 │   │   ├── TECHNICAL_MANUAL.md
 │   │   ├── archive/
 │   │   │   ├── project_update.txt
 │   │   │   ├── PHASE1_COMPLETE.md
-│   ├── visualization/
+│   ├── core/
+│   │   ├── layer_engine.py [COMPLETE]
+│   │   ├── data_aggregator.py [COMPLETE]
 │   │   ├── __init__.py [COMPLETE]
-│   │   ├── visualization_module.py [COMPLETE]
+│   │   ├── bayesian_brain.py [COMPLETE]
+│   │   ├── state_vector.py [COMPLETE]
+│   ├── tests/
+│   │   ├── test_phase2.py [TESTED]
+│   │   ├── test_cuda_pattern.py [TESTED]
+│   │   ├── test_full_system.py [TESTED]
+│   │   ├── test_cuda_confirmation.py [TESTED]
+│   │   ├── utils.py [COMPLETE]
+│   │   ├── test_databento_loading.py [TESTED]
+│   │   ├── test_doe.py [TESTED]
+│   │   ├── test_real_data_velocity.py [TESTED]
+│   │   ├── test_training_validation.py [TESTED]
+│   │   ├── math_verify.py [COMPLETE]
+│   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
+│   │   ├── test_cuda_imports_and_init.py [TESTED]
+│   │   ├── topic_math.py [COMPLETE]
+│   │   ├── topic_diagnostics.py [COMPLETE]
+│   │   ├── test_phase1.py [TESTED]
+│   │   ├── topic_build.py [COMPLETE]
+│   │   ├── Testing DATA/
+│   │   │   ├── glbx-mdp3-20251230-20260129.ohlcv-1s.dbn.zst
+│   │   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250801.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250803.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250731.trades.0000.dbn.zst
+│   ├── config/
+│   │   ├── workflow_manifest.json
+│   │   ├── symbols.py [COMPLETE]
+│   │   ├── settings.py [COMPLETE]
+│   │   ├── __init__.py [COMPLETE]
 │   ├── notebooks/
 │   │   ├── debug_dashboard.ipynb
 │   │   ├── README_NOTEBOOK.md
 │   │   ├── debug_dashboard_output.html
-│   ├── DATA/
-│   │   ├── RAW/
-│   │   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
-│   │   │   ├── trades.parquet
-│   │   │   ├── ohlcv-1s.parquet
-│   ├── scripts/
-│   │   ├── manifest_integrity_check.py [COMPLETE]
-│   │   ├── inspect_results.py [COMPLETE]
-│   │   ├── verify_environment.py [COMPLETE]
-│   │   ├── build_executable.py [COMPLETE]
-│   │   ├── run_training_pipeline.sh
-│   │   ├── generate_debug_notebook.py [COMPLETE]
-│   │   ├── setup_test_data.py [TESTED]
-│   │   ├── generate_status_report.py [WIP]
-│   │   ├── sentinel_bridge.py [COMPLETE]
-│   ├── tests/
-│   │   ├── test_phase2.py [TESTED]
-│   │   ├── test_full_system.py [TESTED]
-│   │   ├── test_real_data_velocity.py [TESTED]
-│   │   ├── test_phase1.py [TESTED]
-│   │   ├── math_verify.py [COMPLETE]
-│   │   ├── utils.py [COMPLETE]
-│   │   ├── topic_build.py [COMPLETE]
-│   │   ├── test_training_validation.py [TESTED]
-│   │   ├── test_cuda_confirmation.py [TESTED]
-│   │   ├── test_cuda_pattern.py [TESTED]
-│   │   ├── topic_diagnostics.py [COMPLETE]
-│   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
-│   │   ├── topic_math.py [COMPLETE]
-│   │   ├── test_cuda_imports_and_init.py [TESTED]
-│   │   ├── test_databento_loading.py [TESTED]
-│   │   ├── test_doe.py [TESTED]
-│   │   ├── Testing DATA/
-│   │   │   ├── glbx-mdp3-20251230-20260129.ohlcv-1s.dbn.zst
-│   │   │   ├── glbx-mdp3-20250803.trades.0000.dbn.zst
-│   │   │   ├── glbx-mdp3-20250731.trades.0000.dbn.zst
-│   │   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
-│   │   │   ├── glbx-mdp3-20250801.trades.0000.dbn.zst
-│   ├── execution/
-│   │   ├── wave_rider.py [COMPLETE]
+│   ├── visualization/
+│   │   ├── visualization_module.py [COMPLETE]
 │   │   ├── __init__.py [COMPLETE]
-│   ├── Recycling Bin/
-│   │   ├── DELIVERABLE.md
-│   │   ├── JULES_OUTPUT_SNAPSHOT.txt
-│   │   ├── all_requirements.txt
-│   ├── core/
-│   │   ├── data_aggregator.py [COMPLETE]
-│   │   ├── __init__.py [COMPLETE]
-│   │   ├── state_vector.py [COMPLETE]
-│   │   ├── layer_engine.py [COMPLETE]
-│   │   ├── bayesian_brain.py [COMPLETE]
-│   ├── cuda_modules/
-│   │   ├── velocity_gate.py [COMPLETE]
-│   │   ├── __init__.py [COMPLETE]
-│   │   ├── confirmation.py [COMPLETE]
-│   │   ├── pattern_detector.py [COMPLETE]
-│   │   ├── hardened_verification.py [COMPLETE]
 
 ```
 
@@ -182,83 +191,15 @@ tqdm
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
-A	.github/workflows/ci.yml
-A	.github/workflows/jules_feedback_loop.yml
-A	.github/workflows/status-report.yml
-A	.gitignore
-A	AGENTS.md
-A	CHANGELOG_V2.md
-A	CURRENT_STATUS.md
-A	DATA/RAW/glbx-mdp3-20250730.trades.0000.dbn.zst
-A	DATA/RAW/ohlcv-1s.parquet
-A	DATA/RAW/trades.parquet
-A	PROJECT_MAP.md
-A	REPORT.md
-A	Recycling Bin/DELIVERABLE.md
-A	Recycling Bin/JULES_OUTPUT_SNAPSHOT.txt
-A	Recycling Bin/all_requirements.txt
-A	SYSTEM_LOGIC.md
-A	__init__.py
-A	config/__init__.py
-A	config/settings.py
-A	config/symbols.py
-A	config/workflow_manifest.json
-A	core/__init__.py
-A	core/bayesian_brain.py
-A	core/data_aggregator.py
-A	core/layer_engine.py
-A	core/state_vector.py
-A	cuda_modules/__init__.py
-A	cuda_modules/confirmation.py
-A	cuda_modules/hardened_verification.py
-A	cuda_modules/pattern_detector.py
-A	cuda_modules/velocity_gate.py
-A	docs/PHASE1_COMPLETE.md
-A	docs/project_update.txt
-A	engine_core.py
-A	execution/__init__.py
-A	execution/wave_rider.py
-A	notebooks/.ipynb_checkpoints/debug_dashboard-checkpoint.ipynb
-A	notebooks/README_NOTEBOOK.md
-A	notebooks/debug_dashboard.ipynb
-A	notebooks/debug_dashboard_output.html
-A	requirements.txt
-A	scripts/build_executable.py
-A	scripts/generate_debug_notebook.py
-A	scripts/generate_status_report.py
-A	scripts/inspect_results.py
-A	scripts/manifest_integrity_check.py
-A	scripts/run_training_pipeline.sh
-A	scripts/sentinel_bridge.py
-A	scripts/setup_test_data.py
-A	scripts/verify_environment.py
-A	tests/Testing DATA/glbx-mdp3-20250730.trades.0000.dbn.zst
-A	tests/Testing DATA/glbx-mdp3-20250731.trades.0000.dbn.zst
-A	tests/Testing DATA/glbx-mdp3-20250801.trades.0000.dbn.zst
-A	tests/Testing DATA/glbx-mdp3-20250803.trades.0000.dbn.zst
-A	tests/Testing DATA/glbx-mdp3-20251230-20260129.ohlcv-1s.dbn.zst
-A	tests/glbx-mdp3-20250730.trades.0000.dbn.zst
-A	tests/math_verify.py
-A	tests/test_cuda_confirmation.py
-A	tests/test_cuda_imports_and_init.py
-A	tests/test_cuda_pattern.py
-A	tests/test_databento_loading.py
-A	tests/test_doe.py
-A	tests/test_full_system.py
-A	tests/test_phase1.py
-A	tests/test_phase2.py
-A	tests/test_real_data_velocity.py
-A	tests/test_training_validation.py
-A	tests/topic_build.py
-A	tests/topic_diagnostics.py
-A	tests/topic_math.py
-A	tests/utils.py
-A	training/__init__.py
-A	training/cuda_backtest.py
-A	training/databento_loader.py
-A	training/orchestrator.py
-A	visualization/__init__.py
-A	visualization/visualization_module.py
+M	CURRENT_STATUS.md
+D	PROJECT_MAP.md
+A	README.md
+D	REPORT.md
+D	SYSTEM_LOGIC.md
+R100	CHANGELOG_V2.md	docs/CHANGELOG.md
+A	docs/TECHNICAL_MANUAL.md
+R100	docs/PHASE1_COMPLETE.md	docs/archive/PHASE1_COMPLETE.md
+R100	docs/project_update.txt	docs/archive/project_update.txt
 ```
 
 ### 11. REVIEWER CHECKLIST
@@ -271,7 +212,7 @@ A	visualization/visualization_module.py
 
 - **Status:** PASS
 - **Command:** `pytest tests/topic_math.py`
-- **Summary:** 4 passed in 0.05s
+- **Summary:** 4 passed in 0.03s
 
 
 ### 13. TRAINING VALIDATION METRICS
@@ -279,7 +220,7 @@ A	visualization/visualization_module.py
 | :--- | :--- | :--- |
 | Training Status | SUCCESS | ✓ |
 | Iterations Completed | 2 | ✓ |
-| Runtime | 19.83s | - |
+| Runtime | 10.34s | - |
 | Data Files Tested | 3 | ✓ |
 | Total Ticks (Sample) | 1,000 | - |
 | Unique States Learned | 0 | - |
