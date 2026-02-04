@@ -4,6 +4,9 @@
 - **Timestamp:** 2026-02-04 06:28:03
 - **Git Branch:** docs/consolidate-system-logic-15228223901294832572
 - **Last Commit:** e2dded178932a2f776b9a9cf8e32a840052f8c54
+- **Timestamp:** 2026-02-04 07:28:02
+- **Git Branch:** HEAD
+- **Last Commit:** e399d3cacb9ce04ae7611fb5e5ca9c7f6a10a670
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 2. CHANGELOG
@@ -19,103 +22,115 @@ e5c5be7 - Add comprehensive system logic manual (google-labs-jules[bot])
 f49d202 - Refactor debug notebook generator to use pathlib and update emojis (google-labs-jules[bot])
 ed9f9ed - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 57eb5a7 - Merge 8e4d2b04ec4ccd3cffee0a8c74c4ec11d2006bee into 64b27ceaaa364fd722a1684f7570d54e20286792 (reyses)
+e399d3c - Merge ee17fb2a91778024581b46c18193f600f3b1faa9 into 74d12a87421911761e7724ca685fb0fb0c31ae3f (reyses)
+ee17fb2 - Refactor Documentation, Workflows, and Scripts (google-labs-jules[bot])
+27de49e - Merge branch 'main' into docs/consolidate-system-logic-13193271538335309034 (reyses)
+c8d65ad - Refactor Learning Dashboard with Pop-up Monitor (google-labs-jules[bot])
+60a2d8c - Refactor Learning Dashboard and Orchestrator (google-labs-jules[bot])
+46e4f25 - Refactor workflows into unified pipeline and consolidate scripts (google-labs-jules[bot])
+7b9ba93 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+1312f38 - Consolidate documentation into Technical Manual and README (google-labs-jules[bot])
+74d12a8 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+2690c02 - Merge pull request #45 from reyses/docs/consolidate-system-logic-15228223901294832572 (reyses)
 ```
 
 ### 3. FILE STRUCTURE
 ```
 Bayesian-AI/
-│   ├── requirements.txt
 │   ├── AGENTS.md
-│   ├── engine_core.py [COMPLETE]
-│   ├── SYSTEM_LOGIC.md
-│   ├── CHANGELOG_V2.md
+│   ├── CUDA_Debug.log
 │   ├── CURRENT_STATUS.md
 │   ├── REPORT.md
 │   ├── PROJECT_MAP.md
+│   ├── README.md
 │   ├── __init__.py [COMPLETE]
-│   ├── training/
-│   │   ├── orchestrator.py [COMPLETE]
-│   │   ├── databento_loader.py [COMPLETE]
-│   │   ├── cuda_backtest.py [TESTED]
-│   │   ├── __init__.py [COMPLETE]
+│   ├── engine_core.py [COMPLETE]
+│   ├── requirements.txt
 │   ├── DATA/
 │   │   ├── RAW/
-│   │   │   ├── trades.parquet
 │   │   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
 │   │   │   ├── ohlcv-1s.parquet
-│   ├── scripts/
-│   │   ├── run_training_pipeline.sh
-│   │   ├── setup_test_data.py [TESTED]
-│   │   ├── sentinel_bridge.py [COMPLETE]
-│   │   ├── manifest_integrity_check.py [COMPLETE]
-│   │   ├── build_executable.py [COMPLETE]
-│   │   ├── inspect_results.py [COMPLETE]
-│   │   ├── verify_environment.py [COMPLETE]
-│   │   ├── generate_debug_notebook.py [COMPLETE]
-│   │   ├── generate_status_report.py [WIP]
-│   ├── cuda_modules/
-│   │   ├── pattern_detector.py [COMPLETE]
-│   │   ├── confirmation.py [COMPLETE]
-│   │   ├── velocity_gate.py [COMPLETE]
+│   │   │   ├── trades.parquet
+│   ├── config/
 │   │   ├── __init__.py [COMPLETE]
-│   │   ├── hardened_verification.py [COMPLETE]
-│   ├── execution/
-│   │   ├── wave_rider.py [COMPLETE]
-│   │   ├── __init__.py [COMPLETE]
-│   ├── Recycling Bin/
-│   │   ├── JULES_OUTPUT_SNAPSHOT.txt
-│   │   ├── DELIVERABLE.md
-│   │   ├── all_requirements.txt
-│   ├── docs/
-│   │   ├── project_update.txt
-│   │   ├── PHASE1_COMPLETE.md
+│   │   ├── settings.py [COMPLETE]
+│   │   ├── symbols.py [COMPLETE]
+│   │   ├── workflow_manifest.json
 │   ├── core/
-│   │   ├── layer_engine.py [COMPLETE]
-│   │   ├── data_aggregator.py [COMPLETE]
 │   │   ├── __init__.py [COMPLETE]
 │   │   ├── bayesian_brain.py [COMPLETE]
+│   │   ├── data_aggregator.py [COMPLETE]
+│   │   ├── layer_engine.py [COMPLETE]
 │   │   ├── state_vector.py [COMPLETE]
-│   ├── tests/
-│   │   ├── test_phase2.py [TESTED]
-│   │   ├── test_cuda_pattern.py [TESTED]
-│   │   ├── test_full_system.py [TESTED]
-│   │   ├── test_cuda_confirmation.py [TESTED]
-│   │   ├── utils.py [COMPLETE]
-│   │   ├── test_databento_loading.py [TESTED]
-│   │   ├── test_doe.py [TESTED]
-│   │   ├── test_real_data_velocity.py [TESTED]
-│   │   ├── test_training_validation.py [TESTED]
-│   │   ├── math_verify.py [COMPLETE]
-│   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
-│   │   ├── test_cuda_imports_and_init.py [TESTED]
-│   │   ├── topic_math.py [COMPLETE]
-│   │   ├── topic_diagnostics.py [COMPLETE]
-│   │   ├── test_phase1.py [TESTED]
-│   │   ├── topic_build.py [COMPLETE]
-│   │   ├── Testing DATA/
-│   │   │   ├── glbx-mdp3-20251230-20260129.ohlcv-1s.dbn.zst
-│   │   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
-│   │   │   ├── glbx-mdp3-20250801.trades.0000.dbn.zst
-│   │   │   ├── glbx-mdp3-20250803.trades.0000.dbn.zst
-│   │   │   ├── glbx-mdp3-20250731.trades.0000.dbn.zst
-│   ├── config/
-│   │   ├── workflow_manifest.json
-│   │   ├── symbols.py [COMPLETE]
-│   │   ├── settings.py [COMPLETE]
+│   ├── cuda_modules/
 │   │   ├── __init__.py [COMPLETE]
+│   │   ├── confirmation.py [COMPLETE]
+│   │   ├── hardened_verification.py [COMPLETE]
+│   │   ├── pattern_detector.py [COMPLETE]
+│   │   ├── velocity_gate.py [COMPLETE]
+│   ├── docs/
+│   │   ├── CHANGELOG.md
+│   │   ├── LEARNING_DASHBOARD_GUIDE.md
+│   │   ├── TECHNICAL_MANUAL.md
+│   │   ├── archive/
+│   │   │   ├── JULES_OUTPUT_SNAPSHOT.txt
+│   │   │   ├── PHASE1_COMPLETE.md
+│   │   │   ├── UNIFIED_MASTER_DIRECTIVE.md
+│   │   │   ├── all_requirements.txt
+│   │   │   ├── project_update.txt
+│   ├── execution/
+│   │   ├── __init__.py [COMPLETE]
+│   │   ├── wave_rider.py [COMPLETE]
 │   ├── notebooks/
 │   │   ├── debug_dashboard.ipynb
-│   │   ├── README_NOTEBOOK.md
 │   │   ├── debug_dashboard_output.html
-│   ├── visualization/
-│   │   ├── visualization_module.py [COMPLETE]
+│   │   ├── learning_dashboard.ipynb
+│   ├── scripts/
+│   │   ├── build_executable.py [COMPLETE]
+│   │   ├── generate_learning_dashboard.py [COMPLETE]
+│   │   ├── generate_status_report.py [WIP]
+│   │   ├── inspect_results.py [COMPLETE]
+│   │   ├── manifest_integrity_check.py [COMPLETE]
+│   │   ├── sentinel_bridge.py [COMPLETE]
+│   │   ├── setup_test_data.py [TESTED]
+│   │   ├── verify_environment.py [COMPLETE]
+│   ├── tests/
+│   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
+│   │   ├── math_verify.py [COMPLETE]
+│   │   ├── test_cuda_confirmation.py [TESTED]
+│   │   ├── test_cuda_imports_and_init.py [TESTED]
+│   │   ├── test_cuda_pattern.py [TESTED]
+│   │   ├── test_databento_loading.py [TESTED]
+│   │   ├── test_doe.py [TESTED]
+│   │   ├── test_full_system.py [TESTED]
+│   │   ├── test_phase1.py [TESTED]
+│   │   ├── test_phase2.py [TESTED]
+│   │   ├── test_real_data_velocity.py [TESTED]
+│   │   ├── test_training_validation.py [TESTED]
+│   │   ├── topic_build.py [COMPLETE]
+│   │   ├── topic_diagnostics.py [COMPLETE]
+│   │   ├── topic_math.py [COMPLETE]
+│   │   ├── utils.py [COMPLETE]
+│   │   ├── Testing DATA/
+│   │   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250731.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250801.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250803.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251230-20260129.ohlcv-1s.dbn.zst
+│   ├── training/
 │   │   ├── __init__.py [COMPLETE]
+│   │   ├── cuda_backtest.py [TESTED]
+│   │   ├── databento_loader.py [COMPLETE]
+│   │   ├── orchestrator.py [COMPLETE]
+│   ├── visualization/
+│   │   ├── __init__.py [COMPLETE]
+│   │   ├── visualization_module.py [COMPLETE]
 
 ```
 
 ### 4. CODE STATISTICS
 - **Python Files:** 46
-- **Total Lines of Code:** 5469
+- **Total Lines of Code:** 5443
 
 ### 5. CRITICAL INTEGRATION POINTS
 - **Databento API:**
@@ -206,7 +221,7 @@ D	SYSTEM_LOGIC_MANUAL.md
 
 - **Status:** PASS
 - **Command:** `pytest tests/topic_math.py`
-- **Summary:** 4 passed in 0.03s
+- **Summary:** 4 passed in 0.02s
 
 
 ### 13. TRAINING VALIDATION METRICS
@@ -215,6 +230,7 @@ D	SYSTEM_LOGIC_MANUAL.md
 | Training Status | SUCCESS | ✓ |
 | Iterations Completed | 2 | ✓ |
 | Runtime | 10.44s | - |
+| Runtime | 10.48s | - |
 | Data Files Tested | 3 | ✓ |
 | Total Ticks (Sample) | 1,000 | - |
 | Unique States Learned | 0 | - |

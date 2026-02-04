@@ -1,16 +1,39 @@
 """
-Bayesian-AI - Test Data Setup
-Prepares test data by copying or generating necessary files.
+Bayesian-AI - Test Data Setup & Validation
+Prepares test data by copying files and running initial integrity checks.
 """
 import sys
 import os
 import shutil
+import subprocess
 import pandas as pd
 
 # Add project root to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from training.databento_loader import DatabentoLoader
+
+def run_validation_tests():
+    """Runs data integrity and velocity tests."""
+    print("\nRunning Validation Tests...")
+
+    tests = [
+        "tests/test_real_data_velocity.py",
+        "tests/test_databento_loading.py"
+    ]
+
+    for test in tests:
+        print(f"Executing {test}...")
+        result = subprocess.run([sys.executable, "-m", "pytest", test, "-v"], capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"FAIL: {test}")
+            print(result.stdout)
+            print(result.stderr)
+            return False
+        else:
+            print(f"PASS: {test}")
+
+    return True
 
 def setup_test_data():
     print("Bayesian-AI - Setup Test Data")
@@ -69,6 +92,11 @@ def setup_test_data():
         ohlcv.to_parquet(ohlcv_parquet_path)
 
         print("Data setup complete.")
+
+        # Run validation after setup
+        if not run_validation_tests():
+            print("WARNING: Validation tests failed after data setup.")
+            sys.exit(1)
 
     except Exception as e:
         print(f"Error setting up data: {e}")
