@@ -4,10 +4,12 @@ The Local Feedback Loop
 """
 import logging
 import subprocess
-import requests
 import os
+import shutil
+import datetime
 
-logging.basicConfig(filename='CUDA_Debug.log', level=logging.DEBUG, format='%(asctime)s | [%(levelname)s] | %(message)s')
+# We avoid configuring basicConfig to write to CUDA_Debug.log here
+# to prevent the sentinel from modifying the file it is monitoring.
 
 def trigger_jules_repair(fault_details):
     """Logic -> Cloud Correction -> Constraint: Async API Pull"""
@@ -21,8 +23,17 @@ def trigger_jules_repair(fault_details):
 
         # subprocess.run(["git", "pull", "origin", "jules-fix-branch"], check=True)
         print("subprocess.run(['git', 'pull', ...]) executed")
+
+        # Log rotation to prevent re-triggering
+        log_file = 'CUDA_Debug.log'
+        if os.path.exists(log_file):
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            processed_log = f"{log_file}.processed_{timestamp}"
+            shutil.move(log_file, processed_log)
+            print(f"Rotated {log_file} to {processed_log}")
+
     except Exception as e:
-        logging.error(f"Failed to trigger repair: {e}")
+        print(f"Failed to trigger repair: {e}")
 
 def main():
     log_file = 'CUDA_Debug.log'
