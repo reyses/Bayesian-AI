@@ -1,14 +1,17 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-05 05:02:23
+- **Timestamp:** 2026-02-05 05:45:12
 - **Git Branch:** main
-- **Last Commit:** 962842e6bf55fe86401361b7a3083a68817cf960
+- **Last Commit:** d4cffe1b531670d8dce0877a5fa5bece6b77bf2d
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+d4cffe1 - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
+b6bf344 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+e643dd8 - commited raws (reyses)
 962842e - logs: add new CUDA audit entries and error messages (reyses)
 ef40060 - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
 639799a - Update CUDA_Debug.log (reyses)
@@ -16,16 +19,13 @@ b73c91c - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 a3509cb - Merge pull request #50 from reyses/fix-sentinel-bridge-log-loop-14189283288297968823 (reyses)
 6cf1601 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 65a4e46 - Merge 71afc24dd7ca521393b155940cd44d8032115dbc into aedad74b378a022be3961eb6dd13e8a299486aa0 (reyses)
-71afc24 - Consolidate notebooks and enforce GPU usage (google-labs-jules[bot])
-0285a4a - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-2b41c32 - Merge 732e1ed3a53e3f6c94cbee105a32a568d6c84038 into aedad74b378a022be3961eb6dd13e8a299486aa0 (reyses)
 ```
 
 ### 3. FILE STRUCTURE
 ```
 Bayesian-AI/
 │   ├── AGENTS.md
-│   ├── CUDA_Debug.log.processed_20260205_050151
+│   ├── CUDA_Debug.log.processed_20260205_051654
 │   ├── CURRENT_STATUS.md
 │   ├── README.md
 │   ├── __init__.py [COMPLETE]
@@ -33,8 +33,170 @@ Bayesian-AI/
 │   ├── requirements.txt
 │   ├── DATA/
 │   │   ├── RAW/
+│   │   │   ├── condition.json
 │   │   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250731.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250801.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250803.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250804.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250805.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250806.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250807.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250808.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250810.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250811.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250812.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250813.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250814.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250815.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250817.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250818.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250819.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250820.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250821.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250822.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250824.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250825.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250826.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250827.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250828.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250829.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250831.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250901.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250902.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250903.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250904.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250905.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250907.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250908.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250909.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250910.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250911.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250912.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250914.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250915.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250916.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250917.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250918.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250919.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250921.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250922.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250923.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250924.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250925.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250926.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250928.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250929.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20250930.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251001.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251002.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251003.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251005.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251006.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251007.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251008.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251009.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251010.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251012.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251013.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251014.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251015.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251016.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251017.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251019.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251020.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251021.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251022.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251023.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251024.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251026.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251027.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251028.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251029.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251030.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251031.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251102.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251103.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251104.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251105.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251106.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251107.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251109.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251110.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251111.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251112.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251113.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251114.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251116.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251117.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251118.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251119.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251120.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251121.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251123.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251124.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251125.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251126.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251127.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251128.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251130.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251201.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251202.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251203.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251204.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251205.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251207.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251208.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251209.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251210.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251211.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251212.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251214.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251215.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251216.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251217.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251218.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251219.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251221.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251222.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251223.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251224.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251225.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251226.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251228.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251229.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251230-20260129.ohlcv-1s.dbn.zst
+│   │   │   ├── glbx-mdp3-20251230.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20251231.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260101.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260102.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260104.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260105.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260106.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260107.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260108.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260109.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260111.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260112.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260113.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260114.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260115.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260116.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260118.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260119.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260120.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260121.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260122.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260123.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260125.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260126.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260127.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260128.trades.0000.dbn.zst
+│   │   │   ├── glbx-mdp3-20260129.trades.0000.dbn.zst
+│   │   │   ├── manifest.json
+│   │   │   ├── metadata.json
 │   │   │   ├── ohlcv-1s.parquet
+│   │   │   ├── symbology.json
 │   │   │   ├── trades.parquet
 │   ├── config/
 │   │   ├── __init__.py [COMPLETE]
@@ -193,7 +355,7 @@ tqdm
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
-M	notebooks/CUDA_Debug.log
+
 ```
 
 ### 11. REVIEWER CHECKLIST
@@ -210,18 +372,8 @@ M	notebooks/CUDA_Debug.log
 
 
 ### 13. TRAINING VALIDATION METRICS
-| Metric | Value | Status |
-| :--- | :--- | :--- |
-| Training Status | SUCCESS | ✓ |
-| Iterations Completed | 2 | ✓ |
-| Runtime | 10.68s | - |
-| Data Files Tested | 3 | ✓ |
-| Total Ticks (Sample) | 1,000 | - |
-| Unique States Learned | 0 | - |
-| High-Confidence States (80%+) | 0 | ✓ |
 
-**Top 5 States by Probability (Sample):**
-None
+ERROR: Execution failed: Training validation timed out.
 
 ### 14. DOE OPTIMIZATION STATUS
 - [ ] Parameter Grid Generator
