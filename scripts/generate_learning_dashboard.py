@@ -1,6 +1,6 @@
 """
 Bayesian-AI - Learning Dashboard Generator
-Generates a Jupyter notebook for Preflight Checks and Quick Learning Simulations.
+Generates a consolidated Jupyter notebook for Preflight Checks, System Debugging, and Learning Simulations.
 """
 import json
 import os
@@ -11,18 +11,18 @@ notebook = {
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "# 🧠 Bayesian-AI Learning Dashboard: Preflight & Quick Learn\n",
+    "# 🧠 Bayesian-AI Master Dashboard\n",
     "\n",
-    "**Objective:** Validate environment and perform rapid learning simulations before full training cycles.\n",
-    "**Workflow:** Preflight -> Data Check -> 3-Day Discrete Simulation -> Full Learn Cycle"
+    "**Objective:** Consolidated interface for System Verification, Debugging, and Learning Simulations.\n",
+    "**Workflow:** Preflight -> Component Check -> Data Verification -> Simulation -> Analysis"
    ]
   },
   {
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "## 1. Preflight Checks ✈️\n",
-    "Verify Operational Mode, Environment, and CUDA Audit."
+    "## 1. Preflight & Environment Checks ✈️\n",
+    "Verify Operational Mode, Environment, and CUDA Availability."
    ]
   },
   {
@@ -65,19 +65,22 @@ notebook = {
     "else:\n",
     "    print(\"🟢 Mode Checked\")\n",
     "\n",
-    "# 2. Check CUDA\n",
+    "# 2. Check CUDA (Strict)\n",
     "try:\n",
     "    if cuda.is_available():\n",
     "        print(f\"🟢 CUDA Available: {cuda.detect()}\")\n",
+    "        device = cuda.get_current_device()\n",
+    "        print(f\"   Device: {device.name}\")\n",
     "    else:\n",
-    "        print(\"🟡 CUDA Not Available (using CPU)\")\n",
+    "        print(\"🔴 CUDA Not Available. System requires GPU.\")\n",
     "except Exception as e:\n",
     "    print(f\"🔴 CUDA Check Failed: {e}\")\n",
     "\n",
     "# 3. Run Deep Audit\n",
     "import cuda_modules.hardened_verification as hv\n",
-    "print(\"\\nRunning 3-Stage CUDA Audit...\")\n",
+    "print(\"\\nRunning 3-Stage CUDA Audit (Handshake -> Injection -> Handoff)...\")\n",
     "try:\n",
+    "    # This validates the CPU->GPU injection path and pure GPU handoff\n",
     "    success = hv.run_audit()\n",
     "    if success:\n",
     "        print(\"🟢 Audit Passed! (See CUDA_Debug.log)\")\n",
@@ -91,7 +94,80 @@ notebook = {
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "## 2. Data Setup & Verification 📊\n",
+    "## 2. Core Component Verification ⚙️\n",
+    "Verify initialization of critical modules with **Strict GPU Enforcement**."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": None,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from core.state_vector import StateVector\n",
+    "from core.bayesian_brain import BayesianBrain\n",
+    "from core.layer_engine import LayerEngine\n",
+    "from cuda_modules.velocity_gate import CUDAVelocityGate\n",
+    "from cuda_modules.pattern_detector import CUDAPatternDetector\n",
+    "\n",
+    "print(\"--- Component Status ---\")\n",
+    "\n",
+    "# 1. StateVector\n",
+    "try:\n",
+    "    sv = StateVector.null_state()\n",
+    "    assert hash(sv) is not None\n",
+    "    print(\"🟢 StateVector: Operational\")\n",
+    "except Exception as e:\n",
+    "    print(f\"🔴 StateVector: Failed ({e})\")\n",
+    "\n",
+    "# 2. BayesianBrain\n",
+    "try:\n",
+    "    bb = BayesianBrain()\n",
+    "    print(\"🟢 BayesianBrain: Initialized\")\n",
+    "except Exception as e:\n",
+    "    print(f\"🔴 BayesianBrain: Failed ({e})\")\n",
+    "\n",
+    "# 3. LayerEngine (GPU ONLY)\n",
+    "try:\n",
+    "    if cuda.is_available():\n",
+    "        # Explicitly requesting GPU. If fallback logic exists in class, we want to ensure\n",
+    "        # we are using the GPU path.\n",
+    "        le = LayerEngine(use_gpu=True)\n",
+    "        if le.use_gpu:\n",
+    "             print(\"🟢 LayerEngine: Initialized (GPU Active)\")\n",
+    "        else:\n",
+    "             print(\"🔴 LayerEngine: Fallback to CPU detected (Unexpected)\")\n",
+    "    else:\n",
+    "        print(\"🔴 LayerEngine: Skipped (No CUDA)\")\n",
+    "except Exception as e:\n",
+    "    print(f\"🔴 LayerEngine: Failed ({e})\")\n",
+    "\n",
+    "# 4. CUDA VelocityGate (GPU ONLY)\n",
+    "try:\n",
+    "    if cuda.is_available():\n",
+    "        vg = CUDAVelocityGate(use_gpu=True)\n",
+    "        print(f\"🟢 VelocityGate: Initialized (GPU={vg.use_gpu})\")\n",
+    "    else:\n",
+    "        print(\"🔴 VelocityGate: Skipped (No CUDA)\")\n",
+    "except Exception as e:\n",
+    "    print(f\"🔴 VelocityGate: Failed ({e})\")\n",
+    "\n",
+    "# 5. Pattern Detector (GPU ONLY)\n",
+    "try:\n",
+    "    if cuda.is_available():\n",
+    "        pd_cuda = CUDAPatternDetector(use_gpu=True)\n",
+    "        print(f\"🟢 PatternDetector: Initialized (GPU={pd_cuda.use_gpu})\")\n",
+    "    else:\n",
+    "         print(\"🔴 PatternDetector: Skipped (No CUDA)\")\n",
+    "except Exception as e:\n",
+    "    print(f\"🔴 PatternDetector: Failed ({e})\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 3. Data Setup & Verification 📊\n",
     "Ensure `DATA/RAW` contains valid data and visualize a sample."
    ]
   },
@@ -111,6 +187,9 @@ notebook = {
     "    # Ensure timestamp conversion\n",
     "    if 'timestamp' in full_data.columns:\n",
     "        full_data['datetime'] = pd.to_datetime(full_data['timestamp'], unit='s' if full_data['timestamp'].dtype == 'float64' else None)\n",
+    "    else:\n",
+    "        # Fallback if index is datetime\n",
+    "        full_data['datetime'] = full_data.index\n",
     "    \n",
     "    # Show date range\n",
     "    min_date = full_data['datetime'].min()\n",
@@ -179,7 +258,7 @@ notebook = {
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "## 3. Quick Learn: 3 Discrete Day Simulation 🎲\n",
+    "## 4. Quick Learn: 3 Discrete Day Simulation 🎲\n",
     "Randomly select 3 days and run isolated learning simulations to verify logic and win rates."
    ]
   },
@@ -265,7 +344,7 @@ notebook = {
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "## 4. Full Learning Cycle 🚀\n",
+    "## 5. Full Learning Cycle 🚀\n",
     "Execute the full training pipeline on all available data."
    ]
   },
@@ -333,8 +412,8 @@ notebook = {
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "## 5. Result Analysis 📈\n",
-    "Analyze the probability tables generated."
+    "## 6. Result Analysis & Profiling 📈\n",
+    "Analyze the probability tables and performance metrics."
    ]
   },
   {
@@ -344,6 +423,8 @@ notebook = {
    "outputs": [],
    "source": [
     "import pickle\n",
+    "import timeit\n",
+    "import itertools\n",
     "\n",
     "def inspect_table(path, title):\n",
     "    if not os.path.exists(path):\n",
@@ -354,10 +435,78 @@ notebook = {
     "        data = pickle.load(f)\n",
     "    table = data['table'] if isinstance(data, dict) and 'table' in data else data.table\n",
     "    print(f\"🟢 {title}: {len(table)} states learned.\")\n",
+    "    \n",
+    "    # Convert to DataFrame for deep dive\n",
+    "    records = []\n",
+    "    for state, stats in table.items():\n",
+    "        total = stats['total']\n",
+    "        wins = stats['wins']\n",
+    "        if total > 0:\n",
+    "            records.append({\n",
+    "                'total': total,\n",
+    "                'wins': wins,\n",
+    "                'win_rate': wins/total,\n",
+    "                'L1': state.L1_bias,\n",
+    "                'L5': state.L5_trend\n",
+    "            })\n",
+    "    \n",
+    "    if records:\n",
+    "        df_stats = pd.DataFrame(records)\n",
+    "        # Win Rate vs Sample Size\n",
+    "        fig = px.scatter(df_stats, x='total', y='win_rate', title=f'{title}: Win Rate vs Sample Size',\n",
+    "                          hover_data=['L1', 'L5'])\n",
+    "        fig.show()\n",
     "\n",
     "print(\"--- Model Status ---\")\n",
     "inspect_table('debug_outputs/quick_learn/probability_table.pkl', \"Quick Learn Temp\")\n",
-    "inspect_table('models/probability_table.pkl', \"Main Model\")"
+    "inspect_table('models/probability_table.pkl', \"Main Model\")\n",
+    "\n",
+    "print(\"\\n--- Performance Profiling ---\")\n",
+    "print(\"Benchmarking StateVector Hashing...\")\n",
+    "setup_code = \"from core.state_vector import StateVector; sv = StateVector.null_state()\"\n",
+    "t = timeit.timeit(\"hash(sv)\", setup=setup_code, number=100000)\n",
+    "print(f\"Create & Hash 100k states: {t:.4f}s\")\n",
+    "\n",
+    "print(\"\\n--- DOE Simulation Preview ---\")\n",
+    "param_grid = {\n",
+    "    'min_prob': [0.70, 0.75, 0.80, 0.85],\n",
+    "    'min_conf': [0.20, 0.30, 0.40],\n",
+    "    'stop_loss': [10, 20, 30],\n",
+    "    'kill_zones': ['tight', 'wide']\n",
+    "}\n",
+    "keys, values = zip(*param_grid.items())\n",
+    "combinations = [dict(zip(keys, v)) for v in itertools.product(*values)]\n",
+    "print(f\"Total Parameter Combinations: {len(combinations)}\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 7. Utilities \ud83d\udee0\ufe0f"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": None,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import shutil\n",
+    "\n",
+    "def clean_pycache():\n",
+    "    print(\"Cleaning __pycache__...\")\n",
+    "    count = 0\n",
+    "    for root, dirs, files in os.walk('.'):\n",
+    "        for d in dirs:\n",
+    "            if d == '__pycache__':\n",
+    "                shutil.rmtree(os.path.join(root, d))\n",
+    "                count += 1\n",
+    "    print(f\"Removed {count} directories.\")\n",
+    "\n",
+    "btn_clean = widgets.Button(description=\"Clear PyCache\")\n",
+    "btn_clean.on_click(lambda b: clean_pycache())\n",
+    "display(btn_clean)"
    ]
   }
  ],
