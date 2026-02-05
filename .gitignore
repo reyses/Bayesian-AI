@@ -1,9 +1,0 @@
-__pycache__/
-*.pyc
-*.pkl
-.pytest_cache/
-dist/
-build/
-*.spec
-
-debug_outputs/
