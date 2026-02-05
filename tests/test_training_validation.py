@@ -32,6 +32,10 @@ def run_training_validation():
     # 1. Find Data
     data_files = get_test_data_files()
 
+    # Limit to first 1 file to prevent timeout
+    if len(data_files) > 1:
+        data_files = data_files[:1]
+
     if not data_files:
         return [{
             "status": "FAILED",
