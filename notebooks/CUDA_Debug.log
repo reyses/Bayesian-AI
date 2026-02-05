@@ -4,3 +4,199 @@
 2026-02-04 20:28:40,556 | [INFO] | RTX 3060 (or compatible NVIDIA GPU) recognized.
 2026-02-04 20:28:40,556 | [INFO] | [STAGE B] Injection: CPU-to-GPU deterministic verification...
 2026-02-04 20:28:40,557 | [CRITICAL] | FAIL: No suitable data file found in DATA/RAW.
+2026-02-04 20:28:41,982 | [DEBUG] | Using selector: SelectSelector
+2026-02-04 20:28:42,021 | [ERROR] | Uncaught exception in ZMQStream callback
+Traceback (most recent call last):
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 103, in json_packer
+    ).encode("utf8", errors="surrogateescape")
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'utf-8' codec can't encode characters in position 54-55: surrogates not allowed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\zmq\eventloop\zmqstream.py", line 550, in _run_callback
+    f = callback(*args, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\ipykernel\iostream.py", line 171, in _handle_event
+    event_f()
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\ipykernel\iostream.py", line 644, in _flush
+    self.session.send(
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 856, in send
+    to_send = self.serialize(msg, ident)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 727, in serialize
+    content = self.pack(content)
+              ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 111, in json_packer
+    ).encode("utf8", errors="surrogateescape")
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'utf-8' codec can't encode characters in position 54-55: surrogates not allowed
+2026-02-04 20:28:42,054 | [ERROR] | Uncaught exception in zmqstream callback
+Traceback (most recent call last):
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 103, in json_packer
+    ).encode("utf8", errors="surrogateescape")
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'utf-8' codec can't encode characters in position 54-55: surrogates not allowed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\zmq\eventloop\zmqstream.py", line 600, in _handle_events
+    self._handle_recv()
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\zmq\eventloop\zmqstream.py", line 629, in _handle_recv
+    self._run_callback(callback, msg)
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\zmq\eventloop\zmqstream.py", line 550, in _run_callback
+    f = callback(*args, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\ipykernel\iostream.py", line 171, in _handle_event
+    event_f()
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\ipykernel\iostream.py", line 644, in _flush
+    self.session.send(
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 856, in send
+    to_send = self.serialize(msg, ident)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 727, in serialize
+    content = self.pack(content)
+              ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 111, in json_packer
+    ).encode("utf8", errors="surrogateescape")
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'utf-8' codec can't encode characters in position 54-55: surrogates not allowed
+2026-02-04 20:28:42,055 | [ERROR] | Exception in callback BaseAsyncIOLoop._handle_events(1900, 1)
+handle: <Handle BaseAsyncIOLoop._handle_events(1900, 1)>
+Traceback (most recent call last):
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 103, in json_packer
+    ).encode("utf8", errors="surrogateescape")
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'utf-8' codec can't encode characters in position 54-55: surrogates not allowed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\asyncio\events.py", line 84, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\tornado\platform\asyncio.py", line 208, in _handle_events
+    handler_func(fileobj, events)
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\zmq\eventloop\zmqstream.py", line 600, in _handle_events
+    self._handle_recv()
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\zmq\eventloop\zmqstream.py", line 629, in _handle_recv
+    self._run_callback(callback, msg)
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\zmq\eventloop\zmqstream.py", line 550, in _run_callback
+    f = callback(*args, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\ipykernel\iostream.py", line 171, in _handle_event
+    event_f()
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\ipykernel\iostream.py", line 644, in _flush
+    self.session.send(
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 856, in send
+    to_send = self.serialize(msg, ident)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 727, in serialize
+    content = self.pack(content)
+              ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 111, in json_packer
+    ).encode("utf8", errors="surrogateescape")
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'utf-8' codec can't encode characters in position 54-55: surrogates not allowed
+2026-02-04 20:29:03,292 | [DEBUG] | handle_msg[ddebba3300814b7cac794dae2e58a6c5]({'header': {'date': datetime.datetime(2026, 2, 5, 4, 29, 3, 290000, tzinfo=tzutc()), 'msg_id': 'befb4206-c85a-4cea-abf0-8e02fd79a3d9', 'msg_type': 'comm_msg', 'session': '5b8cdc2b-5504-4e27-8144-a005971e2e07', 'username': '4290ec55-e577-42ba-8221-ea938af7b127', 'version': '5.2'}, 'msg_id': 'befb4206-c85a-4cea-abf0-8e02fd79a3d9', 'msg_type': 'comm_msg', 'parent_header': {}, 'metadata': {}, 'content': {'comm_id': 'ddebba3300814b7cac794dae2e58a6c5', 'data': {'method': 'custom', 'content': {'event': 'click'}}}, 'buffers': []})
+2026-02-04 20:30:08,782 | [INFO] | STARTING 3-STAGE CUDA AUDIT
+2026-02-04 20:30:08,783 | [INFO] | [STAGE A] Handshake: Verifying GPU...
+2026-02-04 20:30:08,785 | [INFO] | Device found: NVIDIA GeForce RTX 3060
+2026-02-04 20:30:08,785 | [INFO] | RTX 3060 (or compatible NVIDIA GPU) recognized.
+2026-02-04 20:30:08,785 | [INFO] | [STAGE B] Injection: CPU-to-GPU deterministic verification...
+2026-02-04 20:30:08,786 | [CRITICAL] | FAIL: No suitable data file found in DATA/RAW.
+2026-02-04 20:30:08,807 | [ERROR] | Uncaught exception in ZMQStream callback
+Traceback (most recent call last):
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 103, in json_packer
+    ).encode("utf8", errors="surrogateescape")
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'utf-8' codec can't encode characters in position 54-55: surrogates not allowed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\zmq\eventloop\zmqstream.py", line 550, in _run_callback
+    f = callback(*args, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\ipykernel\iostream.py", line 171, in _handle_event
+    event_f()
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\ipykernel\iostream.py", line 644, in _flush
+    self.session.send(
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 856, in send
+    to_send = self.serialize(msg, ident)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 727, in serialize
+    content = self.pack(content)
+              ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 111, in json_packer
+    ).encode("utf8", errors="surrogateescape")
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'utf-8' codec can't encode characters in position 54-55: surrogates not allowed
+2026-02-04 20:30:08,807 | [ERROR] | Uncaught exception in zmqstream callback
+Traceback (most recent call last):
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 103, in json_packer
+    ).encode("utf8", errors="surrogateescape")
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'utf-8' codec can't encode characters in position 54-55: surrogates not allowed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\zmq\eventloop\zmqstream.py", line 600, in _handle_events
+    self._handle_recv()
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\zmq\eventloop\zmqstream.py", line 629, in _handle_recv
+    self._run_callback(callback, msg)
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\zmq\eventloop\zmqstream.py", line 550, in _run_callback
+    f = callback(*args, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\ipykernel\iostream.py", line 171, in _handle_event
+    event_f()
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\ipykernel\iostream.py", line 644, in _flush
+    self.session.send(
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 856, in send
+    to_send = self.serialize(msg, ident)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 727, in serialize
+    content = self.pack(content)
+              ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 111, in json_packer
+    ).encode("utf8", errors="surrogateescape")
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'utf-8' codec can't encode characters in position 54-55: surrogates not allowed
+2026-02-04 20:30:08,809 | [ERROR] | Exception in callback BaseAsyncIOLoop._handle_events(1900, 1)
+handle: <Handle BaseAsyncIOLoop._handle_events(1900, 1)>
+Traceback (most recent call last):
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 103, in json_packer
+    ).encode("utf8", errors="surrogateescape")
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'utf-8' codec can't encode characters in position 54-55: surrogates not allowed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\asyncio\events.py", line 84, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\tornado\platform\asyncio.py", line 208, in _handle_events
+    handler_func(fileobj, events)
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\zmq\eventloop\zmqstream.py", line 600, in _handle_events
+    self._handle_recv()
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\zmq\eventloop\zmqstream.py", line 629, in _handle_recv
+    self._run_callback(callback, msg)
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\zmq\eventloop\zmqstream.py", line 550, in _run_callback
+    f = callback(*args, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\ipykernel\iostream.py", line 171, in _handle_event
+    event_f()
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\ipykernel\iostream.py", line 644, in _flush
+    self.session.send(
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 856, in send
+    to_send = self.serialize(msg, ident)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 727, in serialize
+    content = self.pack(content)
+              ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\reyse\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jupyter_client\session.py", line 111, in json_packer
+    ).encode("utf8", errors="surrogateescape")
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'utf-8' codec can't encode characters in position 54-55: surrogates not allowed
