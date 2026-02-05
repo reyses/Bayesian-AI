@@ -1,31 +1,31 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-05 04:58:33
+- **Timestamp:** 2026-02-05 05:02:23
 - **Git Branch:** main
-- **Last Commit:** a3509cb9c30ca7405365524b03860ddeb3ad0f67
+- **Last Commit:** 962842e6bf55fe86401361b7a3083a68817cf960
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+962842e - logs: add new CUDA audit entries and error messages (reyses)
+ef40060 - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
+639799a - Update CUDA_Debug.log (reyses)
+b73c91c - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 a3509cb - Merge pull request #50 from reyses/fix-sentinel-bridge-log-loop-14189283288297968823 (reyses)
 6cf1601 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 65a4e46 - Merge 71afc24dd7ca521393b155940cd44d8032115dbc into aedad74b378a022be3961eb6dd13e8a299486aa0 (reyses)
 71afc24 - Consolidate notebooks and enforce GPU usage (google-labs-jules[bot])
 0285a4a - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 2b41c32 - Merge 732e1ed3a53e3f6c94cbee105a32a568d6c84038 into aedad74b378a022be3961eb6dd13e8a299486aa0 (reyses)
-732e1ed - Fix sentinel bridge infinite loop and enable log rotation (google-labs-jules[bot])
-aedad74 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-bc3b46a - Merge pull request #49 from reyses/cleanup-debug-files-13878013354966050014 (reyses)
-ac41e6f - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 ```
 
 ### 3. FILE STRUCTURE
 ```
 Bayesian-AI/
 │   ├── AGENTS.md
-│   ├── CUDA_Debug.log.processed_20260205_045802
+│   ├── CUDA_Debug.log.processed_20260205_050151
 │   ├── CURRENT_STATUS.md
 │   ├── README.md
 │   ├── __init__.py [COMPLETE]
@@ -54,6 +54,8 @@ Bayesian-AI/
 │   │   ├── hardened_verification.py [COMPLETE]
 │   │   ├── pattern_detector.py [COMPLETE]
 │   │   ├── velocity_gate.py [COMPLETE]
+│   ├── debug_outputs/
+│   │   ├── probability_table.pkl
 │   ├── docs/
 │   │   ├── CHANGELOG.md
 │   │   ├── LEARNING_DASHBOARD_GUIDE.md
@@ -68,6 +70,7 @@ Bayesian-AI/
 │   │   ├── __init__.py [COMPLETE]
 │   │   ├── wave_rider.py [COMPLETE]
 │   ├── notebooks/
+│   │   ├── CUDA_Debug.log
 │   │   ├── learning_dashboard.ipynb
 │   ├── scripts/
 │   │   ├── build_executable.py [COMPLETE]
@@ -190,7 +193,7 @@ tqdm
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
-
+M	notebooks/CUDA_Debug.log
 ```
 
 ### 11. REVIEWER CHECKLIST
@@ -211,7 +214,7 @@ tqdm
 | :--- | :--- | :--- |
 | Training Status | SUCCESS | ✓ |
 | Iterations Completed | 2 | ✓ |
-| Runtime | 10.61s | - |
+| Runtime | 10.68s | - |
 | Data Files Tested | 3 | ✓ |
 | Total Ticks (Sample) | 1,000 | - |
 | Unique States Learned | 0 | - |
