@@ -7,3 +7,7 @@ build/
 *.spec
 
 debug_outputs/
+*.log
+*.html
+notebooks/learning_dashboard.ipynb
+.ipynb_checkpoints/
