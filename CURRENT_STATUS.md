@@ -1,31 +1,31 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-05 05:45:12
-- **Git Branch:** main
-- **Last Commit:** d4cffe1b531670d8dce0877a5fa5bece6b77bf2d
+- **Timestamp:** 2026-02-05 23:05:47
+- **Git Branch:** HEAD
+- **Last Commit:** d05441d194f2d0402315acca81abea418c6d98af
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
-d4cffe1 - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
-b6bf344 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-e643dd8 - commited raws (reyses)
-962842e - logs: add new CUDA audit entries and error messages (reyses)
-ef40060 - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
-639799a - Update CUDA_Debug.log (reyses)
-b73c91c - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-a3509cb - Merge pull request #50 from reyses/fix-sentinel-bridge-log-loop-14189283288297968823 (reyses)
-6cf1601 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-65a4e46 - Merge 71afc24dd7ca521393b155940cd44d8032115dbc into aedad74b378a022be3961eb6dd13e8a299486aa0 (reyses)
+d05441d - Merge 4379070283bc5be5e77033cb6daa9b82a8926326 into 9a46cec72731490a006dde350a8c352c58e85d77 (reyses)
+4379070 - Include all project debug logs in git (google-labs-jules[bot])
+efe6a7a - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+03b646f - Merge effedddd4a396eb0d9d03f3fc6e332464e43345d into 9a46cec72731490a006dde350a8c352c58e85d77 (reyses)
+effeddd - Restore tracked CUDA_Debug.log (google-labs-jules[bot])
+6796a37 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+a3c8d5c - Merge 075354c472b545c4613baf2ae917911fbcde1ee3 into 9a46cec72731490a006dde350a8c352c58e85d77 (reyses)
+075354c - Remove tracked log files (google-labs-jules[bot])
+b57a0b3 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+ce4eebf - Merge aa95a82e882d391d0f17760168cc957c5b004a23 into 9a46cec72731490a006dde350a8c352c58e85d77 (reyses)
 ```
 
 ### 3. FILE STRUCTURE
 ```
 Bayesian-AI/
 │   ├── AGENTS.md
-│   ├── CUDA_Debug.log.processed_20260205_051654
+│   ├── CUDA_Debug.log.processed_20260205_230536
 │   ├── CURRENT_STATUS.md
 │   ├── README.md
 │   ├── __init__.py [COMPLETE]
@@ -279,7 +279,7 @@ Bayesian-AI/
 
 ### 4. CODE STATISTICS
 - **Python Files:** 47
-- **Total Lines of Code:** 5723
+- **Total Lines of Code:** 5727
 
 ### 5. CRITICAL INTEGRATION POINTS
 - **Databento API:**
@@ -372,8 +372,18 @@ tqdm
 
 
 ### 13. TRAINING VALIDATION METRICS
+| Metric | Value | Status |
+| :--- | :--- | :--- |
+| Training Status | SUCCESS | ✓ |
+| Iterations Completed | 2 | ✓ |
+| Runtime | 10.17s | - |
+| Data Files Tested | 1 | ✓ |
+| Total Ticks (Sample) | 1,000 | - |
+| Unique States Learned | 0 | - |
+| High-Confidence States (80%+) | 0 | ✓ |
 
-ERROR: Execution failed: Training validation timed out.
+**Top 5 States by Probability (Sample):**
+None
 
 ### 14. DOE OPTIMIZATION STATUS
 - [ ] Parameter Grid Generator
