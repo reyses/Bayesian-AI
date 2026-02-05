@@ -1,21 +1,31 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-05 22:28:32
-- **Git Branch:** jules-4617406897254353631-2d9faafb
-- **Last Commit:** 9a46cec72731490a006dde350a8c352c58e85d77
+- **Timestamp:** 2026-02-05 22:37:55
+- **Git Branch:** HEAD
+- **Last Commit:** ce4eebf98bc1526c9e34c154258a4da5a8575a3b
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+ce4eebf - Merge aa95a82e882d391d0f17760168cc957c5b004a23 into 9a46cec72731490a006dde350a8c352c58e85d77 (reyses)
+aa95a82 - Fix training validation timeout and clean up artifacts (google-labs-jules[bot])
 9a46cec - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+d4cffe1 - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
+b6bf344 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+e643dd8 - commited raws (reyses)
+962842e - logs: add new CUDA audit entries and error messages (reyses)
+ef40060 - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
+639799a - Update CUDA_Debug.log (reyses)
+b73c91c - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 ```
 
 ### 3. FILE STRUCTURE
 ```
 Bayesian-AI/
 │   ├── AGENTS.md
+│   ├── CUDA_Debug.log.processed_20260205_223743
 │   ├── CURRENT_STATUS.md
 │   ├── README.md
 │   ├── __init__.py [COMPLETE]
@@ -345,261 +355,7 @@ tqdm
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
-A	.github/workflows/unified_test_pipeline.yml
-A	AGENTS.md
-A	CURRENT_STATUS.md
-A	DATA/RAW/condition.json
-A	DATA/RAW/glbx-mdp3-20250730.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250731.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250801.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250803.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250804.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250805.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250806.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250807.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250808.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250810.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250811.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250812.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250813.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250814.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250815.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250817.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250818.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250819.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250820.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250821.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250822.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250824.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250825.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250826.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250827.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250828.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250829.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250831.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250901.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250902.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250903.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250904.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250905.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250907.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250908.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250909.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250910.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250911.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250912.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250914.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250915.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250916.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250917.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250918.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250919.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250921.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250922.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250923.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250924.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250925.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250926.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250928.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250929.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20250930.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251001.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251002.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251003.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251005.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251006.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251007.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251008.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251009.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251010.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251012.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251013.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251014.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251015.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251016.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251017.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251019.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251020.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251021.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251022.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251023.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251024.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251026.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251027.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251028.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251029.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251030.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251031.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251102.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251103.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251104.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251105.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251106.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251107.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251109.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251110.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251111.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251112.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251113.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251114.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251116.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251117.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251118.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251119.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251120.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251121.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251123.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251124.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251125.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251126.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251127.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251128.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251130.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251201.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251202.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251203.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251204.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251205.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251207.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251208.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251209.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251210.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251211.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251212.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251214.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251215.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251216.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251217.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251218.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251219.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251221.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251222.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251223.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251224.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251225.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251226.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251228.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251229.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251230-20260129.ohlcv-1s.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251230.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20251231.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260101.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260102.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260104.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260105.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260106.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260107.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260108.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260109.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260111.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260112.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260113.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260114.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260115.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260116.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260118.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260119.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260120.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260121.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260122.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260123.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260125.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260126.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260127.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260128.trades.0000.dbn.zst
-A	DATA/RAW/glbx-mdp3-20260129.trades.0000.dbn.zst
-A	DATA/RAW/manifest.json
-A	DATA/RAW/metadata.json
-A	DATA/RAW/ohlcv-1s.parquet
-A	DATA/RAW/symbology.json
-A	DATA/RAW/trades.parquet
-A	README.md
-A	__init__.py
-A	__pycache__/engine_core.cpython-311.pyc
-A	config/__init__.py
-A	config/__pycache__/__init__.cpython-311.pyc
-A	config/__pycache__/settings.cpython-311.pyc
-A	config/__pycache__/symbols.cpython-311.pyc
-A	config/settings.py
-A	config/symbols.py
-A	config/workflow_manifest.json
-A	core/__init__.py
-A	core/__pycache__/__init__.cpython-311.pyc
-A	core/__pycache__/bayesian_brain.cpython-311.pyc
-A	core/__pycache__/data_aggregator.cpython-311.pyc
-A	core/__pycache__/layer_engine.cpython-311.pyc
-A	core/__pycache__/logger.cpython-311.pyc
-A	core/__pycache__/state_vector.cpython-311.pyc
-A	core/bayesian_brain.py
-A	core/data_aggregator.py
-A	core/layer_engine.py
-A	core/logger.py
-A	core/state_vector.py
-A	cuda_modules/__init__.py
-A	cuda_modules/__pycache__/__init__.cpython-311.pyc
-A	cuda_modules/__pycache__/confirmation.cpython-311.pyc
-A	cuda_modules/__pycache__/hardened_verification.cpython-311.pyc
-A	cuda_modules/__pycache__/pattern_detector.cpython-311.pyc
-A	cuda_modules/__pycache__/velocity_gate.cpython-311.pyc
-A	cuda_modules/confirmation.py
-A	cuda_modules/hardened_verification.py
-A	cuda_modules/pattern_detector.py
-A	cuda_modules/velocity_gate.py
-A	debug_outputs/probability_table.pkl
-A	docs/CHANGELOG.md
-A	docs/LEARNING_DASHBOARD_GUIDE.md
-A	docs/TECHNICAL_MANUAL.md
-A	docs/archive/JULES_OUTPUT_SNAPSHOT.txt
-A	docs/archive/PHASE1_COMPLETE.md
-A	docs/archive/UNIFIED_MASTER_DIRECTIVE.md
-A	docs/archive/all_requirements.txt
-A	docs/archive/project_update.txt
-A	engine_core.py
-A	execution/__init__.py
-A	execution/__pycache__/__init__.cpython-311.pyc
-A	execution/__pycache__/wave_rider.cpython-311.pyc
-A	execution/wave_rider.py
-A	notebooks/CUDA_Debug.log
-A	notebooks/learning_dashboard.ipynb
-A	requirements.txt
-A	scripts/build_executable.py
-A	scripts/generate_learning_dashboard.py
-A	scripts/generate_status_report.py
-A	scripts/inspect_results.py
-A	scripts/manifest_integrity_check.py
-A	scripts/sentinel_bridge.py
-A	scripts/setup_test_data.py
-A	scripts/verify_environment.py
-A	tests/Testing DATA/glbx-mdp3-20250730.trades.0000.dbn.zst
-A	tests/Testing DATA/glbx-mdp3-20250731.trades.0000.dbn.zst
-A	tests/Testing DATA/glbx-mdp3-20250801.trades.0000.dbn.zst
-A	tests/Testing DATA/glbx-mdp3-20250803.trades.0000.dbn.zst
-A	tests/Testing DATA/glbx-mdp3-20251230-20260129.ohlcv-1s.dbn.zst
-A	tests/glbx-mdp3-20250730.trades.0000.dbn.zst
-A	tests/math_verify.py
-A	tests/test_cuda_confirmation.py
-A	tests/test_cuda_imports_and_init.py
-A	tests/test_cuda_pattern.py
-A	tests/test_databento_loading.py
-A	tests/test_doe.py
-A	tests/test_full_system.py
-A	tests/test_phase1.py
-A	tests/test_phase2.py
-A	tests/test_real_data_velocity.py
-A	tests/test_training_validation.py
-A	tests/topic_build.py
-A	tests/topic_diagnostics.py
-A	tests/topic_math.py
-A	tests/utils.py
-A	training/__init__.py
-A	training/__pycache__/__init__.cpython-311.pyc
-A	training/__pycache__/databento_loader.cpython-311.pyc
-A	training/__pycache__/orchestrator.cpython-311.pyc
-A	training/cuda_backtest.py
-A	training/databento_loader.py
-A	training/orchestrator.py
-A	visualization/__init__.py
-A	visualization/visualization_module.py
+
 ```
 
 ### 11. REVIEWER CHECKLIST
@@ -612,7 +368,7 @@ A	visualization/visualization_module.py
 
 - **Status:** PASS
 - **Command:** `pytest tests/topic_math.py`
-- **Summary:** 4 passed in 0.05s
+- **Summary:** 4 passed in 0.02s
 
 
 ### 13. TRAINING VALIDATION METRICS
@@ -620,7 +376,7 @@ A	visualization/visualization_module.py
 | :--- | :--- | :--- |
 | Training Status | SUCCESS | ✓ |
 | Iterations Completed | 2 | ✓ |
-| Runtime | 22.55s | - |
+| Runtime | 10.42s | - |
 | Data Files Tested | 1 | ✓ |
 | Total Ticks (Sample) | 1,000 | - |
 | Unique States Learned | 0 | - |
