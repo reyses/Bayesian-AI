@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 *.log
+!notebooks/CUDA_Debug.log
 *.egg-info
 dist/
 build/
