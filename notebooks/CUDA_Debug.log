@@ -200,3 +200,9 @@ Traceback (most recent call last):
     ).encode("utf8", errors="surrogateescape")
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 UnicodeEncodeError: 'utf-8' codec can't encode characters in position 54-55: surrogates not allowed
+2026-02-04 20:59:57,363 | [INFO] | STARTING 3-STAGE CUDA AUDIT
+2026-02-04 20:59:57,363 | [INFO] | [STAGE A] Handshake: Verifying GPU...
+2026-02-04 20:59:57,364 | [INFO] | Device found: NVIDIA GeForce RTX 3060
+2026-02-04 20:59:57,365 | [INFO] | RTX 3060 (or compatible NVIDIA GPU) recognized.
+2026-02-04 20:59:57,365 | [INFO] | [STAGE B] Injection: CPU-to-GPU deterministic verification...
+2026-02-04 20:59:57,366 | [CRITICAL] | FAIL: No suitable data file found in DATA/RAW.
