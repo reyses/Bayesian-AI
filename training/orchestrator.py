@@ -69,7 +69,7 @@ class TrainingOrchestrator:
         """Resets the engine to a fresh state."""
         self.engine = BayesianEngine(self.asset, use_gpu=self.use_gpu, verbose=self.verbose, log_path=self.debug_file)
 
-    def run_training(self, iterations=1000, params: Dict[str, Any] = None):
+    def run_training(self, iterations=1000, params: Dict[str, Any] = None, on_progress=None):
         if self.data is None:
             raise ValueError("Data not loaded")
 
@@ -150,6 +150,29 @@ class TrainingOrchestrator:
             # Metrics Logging (ANALYZE Layer)
             self._log_iteration(iteration)
             self._save_progress_json(iteration + 1, iterations, start_time)
+
+            if on_progress:
+                # Calculate metrics for callback
+                avg_conf = 0.0
+                high_conf = 0
+                if hasattr(self.engine.prob_table, 'table'):
+                    if len(self.engine.prob_table.table) > 0:
+                        total_conf = sum(self.engine.prob_table.get_confidence(s) for s in self.engine.prob_table.table)
+                        avg_conf = total_conf / len(self.engine.prob_table.table)
+
+                    if hasattr(self.engine.prob_table, 'get_all_states_above_threshold'):
+                         high_conf = len(self.engine.prob_table.get_all_states_above_threshold(0.8))
+
+                metrics = {
+                    'iteration': iteration + 1,
+                    'total_iterations': iterations,
+                    'pnl': self.engine.daily_pnl,
+                    'win_rate': self._get_win_rate(),
+                    'total_trades': len(self.engine.trades),
+                    'average_confidence': avg_conf,
+                    'high_confidence_states': high_conf
+                }
+                on_progress(metrics)
 
         # Persist Learned States (L1-L9 Fingerprints)
         # Only save if not in a temporary tuning run (params present often implies tuning)
