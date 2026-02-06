@@ -1,0 +1,24 @@
+{
+  "iteration": 10,
+  "total_iterations": 10,
+  "elapsed_seconds": 18.29644250869751,
+  "states_learned": 0,
+  "high_confidence_states": 0,
+  "trades": [],
+  "current_bar": {
+    "timestamp": "2025-12-30T00:00:00",
+    "open": 25707.75,
+    "high": 25714.75,
+    "low": 25702.25,
+    "close": 25712.5
+  },
+  "recent_candles": [
+    {
+      "timestamp": "2025-12-30T00:00:00",
+      "open": 25707.75,
+      "high": 25714.75,
+      "low": 25702.25,
+      "close": 25712.5
+    }
+  ]
+}
