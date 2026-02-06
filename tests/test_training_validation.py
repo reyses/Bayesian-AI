@@ -30,7 +30,13 @@ def run_training_validation():
     Uses a small slice of real data to ensure speed.
     """
     # 1. Find Data
-    data_files = get_test_data_files()
+    # Prefer Testing DATA for validation speed
+    testing_data_dir = os.path.join(PROJECT_ROOT, 'tests', 'Testing DATA')
+    data_files = glob.glob(os.path.join(testing_data_dir, "*.dbn*"))
+    data_files.extend(glob.glob(os.path.join(testing_data_dir, "*.parquet")))
+
+    if not data_files:
+         data_files = get_test_data_files()
 
     # Limit to first 1 file to prevent timeout
     if len(data_files) > 1:
@@ -47,17 +53,17 @@ def run_training_validation():
     for source_file in data_files:
         # 2. Setup Temp Dir
         temp_dir = tempfile.mkdtemp()
-        model_path = os.path.join(temp_dir, "quantum_probability_table.pkl")
+        model_path = os.path.join(temp_dir, "probability_table.pkl")
         temp_data_path = os.path.join(temp_dir, "validation_data.parquet")
 
         start_time = time.time()
 
         try:
-            # 3. Prepare Data Slice (limit to 1000 ticks for speed)
+            # 3. Prepare Data Slice (limit to 200 ticks for speed)
             try:
                 df = get_data_source(source_file)
-                if len(df) > 1000:
-                    df = df.head(1000)
+                if len(df) > 200:
+                    df = df.head(200)
 
                 # Ensure timestamp is preserved/converted for parquet
                 df.reset_index(drop=True, inplace=True)
@@ -69,16 +75,18 @@ def run_training_validation():
 
             # 4. Run Orchestrator
             # Reduced iterations to 2 to avoid timeouts in slow envs
+            # Updated to 10 iterations as per validation requirements
             cmd = [
                 sys.executable,
                 os.path.join(PROJECT_ROOT, "training", "orchestrator.py"),
                 "--data-file", temp_data_path,
-                "--iterations", "2",
+                "--iterations", "10",
+                "--no-gpu",
                 "--output", temp_dir
             ]
 
-            # Timeout set to 60s
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            # Timeout set to 180s
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
             runtime = time.time() - start_time
 
             stdout = result.stdout
@@ -125,7 +133,7 @@ def run_training_validation():
             metrics = {
                 "status": "SUCCESS",
                 "file": source_file,
-                "iterations_completed": 2,
+                "iterations_completed": 10,
                 "runtime_seconds": round(runtime, 2),
                 "total_ticks": total_ticks,
                 "unique_states_learned": unique_states,
@@ -138,7 +146,7 @@ def run_training_validation():
             all_metrics.append({
                 "status": "FAILED",
                 "file": source_file,
-                "error": "Orchestrator timed out after 60s"
+                "error": "Orchestrator timed out after 180s"
             })
         except Exception as e:
             all_metrics.append({
