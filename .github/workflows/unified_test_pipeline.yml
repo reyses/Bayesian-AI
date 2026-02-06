@@ -105,14 +105,13 @@ jobs:
         for f in CUDA_Debug.log*; do
           if [ -f "$f" ]; then
             size=$(stat -c%s "$f")
-            # 10MB limit
-            if [ $size -gt 10485760 ]; then
-              echo "Truncating large log file: $f ($size bytes)"
-              mv "$f" "${f}.original"
-              head -c 5242880 "${f}.original" > "$f"
-              echo -e "\n\n... [LOG TRUNCATED BY GITHUB ACTIONS] ...\n\n" >> "$f"
-              tail -c 5242880 "${f}.original" >> "$f"
-              rm "${f}.original"
+            # 5MB limit check (5242880 bytes)
+            if [ $size -gt 5242880 ]; then
+              echo "Splitting large log file: $f ($size bytes)"
+              # Split into 5MB chunks with numeric suffixes (e.g., CUDA_Debug.log.part00, .part01)
+              split -b 5M -d "$f" "${f}.part"
+              # Remove the original large file to save space
+              rm "$f"
             fi
           fi
         done
