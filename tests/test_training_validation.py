@@ -47,7 +47,7 @@ def run_training_validation():
     for source_file in data_files:
         # 2. Setup Temp Dir
         temp_dir = tempfile.mkdtemp()
-        model_path = os.path.join(temp_dir, "probability_table.pkl")
+        model_path = os.path.join(temp_dir, "quantum_probability_table.pkl")
         temp_data_path = os.path.join(temp_dir, "validation_data.parquet")
 
         start_time = time.time()
