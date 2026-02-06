@@ -29,6 +29,25 @@ def get_metadata():
 - **Build Status:** (See GitHub Actions Badge)
 """
 
+def get_architecture_status():
+    has_legacy = os.path.exists("core/layer_engine.py")
+    has_quantum = os.path.exists("core/fractal_three_body.py")
+    
+    status = "UNKNOWN"
+    if has_legacy and has_quantum:
+        status = "TRANSITIONAL (Dual Architecture)"
+    elif has_legacy:
+        status = "LEGACY (9-Layer Hierarchy)"
+    elif has_quantum:
+        status = "NEXT-GEN (Fractal Quantum)"
+        
+    return f"""### 1A. ARCHITECTURE STATUS
+- **Current State:** {status}
+- **Active Engine:** 9-Layer Hierarchy (Legacy)
+- **Experimental Engine:** Fractal Three-Body Quantum (Inactive)
+- **Details:** See `AUDIT_REPORT.md`
+"""
+
 def get_changelog():
     log = run_command('git log --pretty=format:"%h - %s (%an)" -n 10')
     return f"""### 2. CHANGELOG
@@ -408,6 +427,7 @@ def get_doe_status():
 def main():
     content = "# CURRENT STATUS REPORT\n\n"
     content += get_metadata()
+    content += "\n" + get_architecture_status()
     content += "\n" + get_changelog()
     content += "\n" + get_tree()
     content += "\n" + get_code_stats()

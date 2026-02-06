@@ -1,7 +1,7 @@
 {
   "iteration": 10,
   "total_iterations": 10,
-  "elapsed_seconds": 18.29644250869751,
+  "elapsed_seconds": 15.627261638641357,
   "states_learned": 0,
   "high_confidence_states": 0,
   "trades": [],
