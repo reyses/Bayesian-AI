@@ -19,10 +19,9 @@ notebook = {
     "2. Data Pipeline Test\n",
     "3. Core Component Tests\n",
     "4. Quick Learn (3-Day Simulation)\n",
-    "5. Full Learning Cycle\n",
-    "6. Mini Training Run (5 Iterations)\n",
-    "7. Result Analysis\n",
-    "8. Utilities"
+    "5. Mini Training Run (5 Iterations)\n",
+    "6. Result Analysis\n",
+    "7. Utilities"
    ]
   },
   {
@@ -282,74 +281,7 @@ notebook = {
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "## 5. Full Learning Cycle 🚀\n",
-    "Execute the full training pipeline on all available data via subprocess."
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": None,
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "import subprocess\n",
-    "\n",
-    "def run_full_training(iterations=10, monitor=None):\n",
-    "    if monitor:\n",
-    "        monitor.log(f\"Starting Full Training ({iterations} iterations)...\")\n",
-    "    \n",
-    "    cmd = [\n",
-    "        \"python\", \"training/orchestrator.py\",\n",
-    "        \"--data-dir\", \"DATA/RAW\",\n",
-    "        \"--iterations\", str(iterations),\n",
-    "        \"--output\", \"models/\"\n",
-    "    ]\n",
-    "    \n",
-    "    process = subprocess.Popen(\n",
-    "        cmd,\n",
-    "        stdout=subprocess.PIPE,\n",
-    "        stderr=subprocess.STDOUT,\n",
-    "        text=True,\n",
-    "        bufsize=1\n",
-    "    )\n",
-    "    \n",
-    "    monitor.progress.max = iterations\n",
-    "    current_iter = 0\n",
-    "    \n",
-    "    while True:\n",
-    "        line = process.stdout.readline()\n",
-    "        if not line and process.poll() is not None:\n",
-    "            break\n",
-    "        if line:\n",
-    "            clean_line = line.strip()\n",
-    "            monitor.log(clean_line)\n",
-    "            if \"Iter\" in clean_line:\n",
-    "                current_iter += 1\n",
-    "                monitor.update_progress(current_iter, f\"Running Iteration {current_iter}/{iterations}\")\n",
-    "            \n",
-    "    if process.returncode == 0:\n",
-    "        monitor.complete(True)\n",
-    "        monitor.log(\"✅ Full Training Complete!\")\n",
-    "    else:\n",
-    "        monitor.complete(False)\n",
-    "        monitor.log(f\"❌ Training Failed (Code {process.returncode})\")\n",
-    "\n",
-    "btn_full = widgets.Button(description=\"Execute Full Learn\", button_style='danger')\n",
-    "\n",
-    "def on_full_click(b):\n",
-    "    mon = SimulationMonitor(\"Full Learning Cycle\", max_steps=10)\n",
-    "    mon.show()\n",
-    "    run_full_training(iterations=10, monitor=mon)\n",
-    "\n",
-    "btn_full.on_click(on_full_click)\n",
-    "display(btn_full)"
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "## 6. Mini Training Run (5 Iterations) 🏃‍♂️\n",
+    "## 5. Mini Training Run (5 Iterations) 🏃‍♂️\n",
     "Interactive 5-iteration training on sample data (loaded in Sec 2)."
    ]
   },
@@ -405,7 +337,7 @@ notebook = {
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "## 7. Result Analysis 📈\n",
+    "## 6. Result Analysis 📈\n",
     "Analyze the learned probability tables."
    ]
   },
@@ -469,7 +401,7 @@ notebook = {
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "## 8. Utilities 🛠️"
+    "## 7. Utilities 🛠️"
    ]
   },
   {
