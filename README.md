@@ -48,3 +48,11 @@ The system operates on a **LOAD -> TRANSFORM -> ANALYZE -> VISUALIZE** pipeline.
 *   **CUDA Acceleration**: Offloads high-frequency pattern detection (L7), confirmation (L8), and velocity checks (L9) to the GPU via Numba.
 
 For detailed architecture, see the [Technical Manual](docs/TECHNICAL_MANUAL.md).
+
+## 🧪 Next-Generation Architecture (Experimental)
+
+The repository also includes a **Fractal Three-Body Quantum** trading engine (`core/fractal_three_body.py`, `core/quantum_field_engine.py`). This is a next-generation system currently in development and is **not yet active** in the main execution loop.
+
+*   **Fractal States**: Nested three-body systems across all timeframes.
+*   **Quantum Physics**: Uses Roche limits, wave functions, and tunnel probabilities instead of simple pattern matching.
+*   **Status**: Inactive / Research Phase. See [Audit Report](AUDIT_REPORT.md) for details.
