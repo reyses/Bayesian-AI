@@ -3,7 +3,7 @@ Bayesian-AI - 3-Stage CUDA Audit Logic
 File: cuda_modules/hardened_verification.py
 
 Stage A (Handshake): Verify RTX 3060 recognition.
-Stage B (Injection): CPU-to-GPU deterministic verification using DATA/RAW snippets.
+Stage B (Injection): CPU-to-GPU deterministic verification using DATA/RAW snippets or synthetic data.
 Stage C (Handoff): Pure VRAM data-passing between L7, L8, and L9 kernels.
 """
 import sys
@@ -11,6 +11,13 @@ import os
 import pandas as pd
 import numpy as np
 import logging
+import glob
+
+# Add project root to path for imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_dir, '..'))
+if project_root not in sys.path:
+    sys.path.append(project_root)
 
 # Setup Logging to CUDA_Debug.log
 # We explicitly add handlers to ensure logging works even if basicConfig was skipped
@@ -73,34 +80,47 @@ def run_audit():
     # --- STAGE B: INJECTION ---
     logging.info("[STAGE B] Injection: CPU-to-GPU deterministic verification...")
     try:
-        # Load snippet from DATA/RAW
-        # We try trades first, then ohlcv
-        data_path = 'DATA/RAW/trades.parquet'
-        if not os.path.exists(data_path):
-             data_path = 'DATA/RAW/ohlcv-1s.parquet'
-
-        if not os.path.exists(data_path):
-             logging.critical(f"FAIL: No suitable data file found in DATA/RAW.")
-             return False
-
-        logging.info(f"Loading data snippet from {data_path}")
-        df = pd.read_parquet(data_path)
-
-        # Use price or close column
+        # Load snippet from DATA/RAW or Synthetic
         prices = None
-        for col in ['price', 'close']:
-            if col in df.columns:
-                prices = df[col].values
-                break
 
+        # 1. Search for Parquet
+        parquet_files = glob.glob(os.path.join(project_root, 'DATA', 'RAW', '*.parquet'))
+        if parquet_files:
+            logging.info(f"Loading data snippet from {parquet_files[0]}")
+            try:
+                df = pd.read_parquet(parquet_files[0])
+                for col in ['price', 'close']:
+                    if col in df.columns:
+                        prices = df[col].values
+                        break
+            except Exception as e:
+                logging.warning(f"Failed to load parquet: {e}")
+
+        # 2. Search for DBN if no prices yet
         if prices is None:
-             logging.critical("FAIL: No price/close column in data.")
-             return False
+            dbn_files = glob.glob(os.path.join(project_root, 'DATA', 'RAW', '*.dbn*'))
+            if dbn_files:
+                logging.info(f"Loading data snippet from {dbn_files[0]}")
+                try:
+                    from training.databento_loader import DatabentoLoader
+                    df = DatabentoLoader.load_data(dbn_files[0])
+                    for col in ['price', 'close']:
+                        if col in df.columns:
+                            prices = df[col].values
+                            break
+                except ImportError:
+                    logging.warning("DatabentoLoader not found, skipping .dbn files.")
+                except Exception as e:
+                    logging.warning(f"Failed to load dbn: {e}")
 
-        # Take first 100
+        # 3. Fallback to Synthetic
+        if prices is None:
+             logging.warning("No suitable data found in DATA/RAW. Using SYNTHETIC data for audit.")
+             prices = np.random.uniform(100, 200, 100).astype(np.float32)
+
+        # Truncate and Ensure Float32
         if len(prices) > 100:
              prices = prices[:100]
-
         prices = prices.astype(np.float32)
 
         # Define Kernel 1 (Injection)

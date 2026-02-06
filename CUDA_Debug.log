@@ -1,0 +1,5 @@
+2026-02-06 06:26:00,047 | [ERROR] | Numba import failed: Failure finding "libcudart.so": No such file: libcudart.so*, No such file: libcudart.so*
+
+2026-02-06 06:26:00,048 | [INFO] | STARTING 3-STAGE CUDA AUDIT
+2026-02-06 06:26:00,048 | [INFO] | [STAGE A] Handshake: Verifying GPU...
+2026-02-06 06:26:00,048 | [CRITICAL] | FAIL: Numba not available.
