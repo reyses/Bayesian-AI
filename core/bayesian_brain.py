@@ -5,13 +5,14 @@ HashMap-based learning system: StateVector -> WinRate
 import pickle
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict, Optional, Union, Any
 from core.state_vector import StateVector
+from core.three_body_state import ThreeBodyQuantumState
 
 @dataclass
 class TradeOutcome:
     """Single trade result for learning"""
-    state: StateVector
+    state: Union[StateVector, ThreeBodyQuantumState]
     entry_price: float
     exit_price: float
     pnl: float
@@ -25,7 +26,7 @@ class BayesianBrain:
     Core logic: probability_table[StateVector] = {'wins': X, 'losses': Y}
     """
     def __init__(self):
-        self.table: Dict[StateVector, Dict[str, int]] = defaultdict(
+        self.table: Dict[Any, Dict[str, int]] = defaultdict(
             lambda: {'wins': 0, 'losses': 0, 'total': 0}
         )
         self.trade_history = []
@@ -49,7 +50,7 @@ class BayesianBrain:
         # Log trade
         self.trade_history.append(outcome)
     
-    def get_probability(self, state: StateVector) -> float:
+    def get_probability(self, state: Any) -> float:
         """
         Get win probability for given state
         Returns:
@@ -68,7 +69,7 @@ class BayesianBrain:
         
         return wins / total
     
-    def get_confidence(self, state: StateVector) -> float:
+    def get_confidence(self, state: Any) -> float:
         """
         How confident are we in this probability estimate?
         Based on sample size
@@ -86,7 +87,7 @@ class BayesianBrain:
         # 1 trade = 3% confidence
         return min(total / 30.0, 1.0)
     
-    def should_fire(self, state: StateVector, min_prob: float = 0.80, min_conf: float = 0.30) -> bool:
+    def should_fire(self, state: Any, min_prob: float = 0.80, min_conf: float = 0.30) -> bool:
         """
         CORE DECISION FUNCTION
         Fire trade only if:
@@ -106,7 +107,7 @@ class BayesianBrain:
         
         return prob >= min_prob and conf >= min_conf
     
-    def get_stats(self, state: StateVector) -> Dict:
+    def get_stats(self, state: Any) -> Dict:
         """Get detailed statistics for a state"""
         if state not in self.table:
             return {
@@ -185,3 +186,43 @@ class BayesianBrain:
             'high_probability_states': high_prob_states,
             'avg_trades_per_state': total_trades / total_states if total_states > 0 else 0
         }
+
+class QuantumBayesianBrain(BayesianBrain):
+    """Extends BayesianBrain for ThreeBodyQuantumState"""
+    
+    def get_quantum_probability(self, state: ThreeBodyQuantumState) -> float:
+        """Get learned tunnel probability for quantum state"""
+        # Bin continuous values for lookup
+        # Note: The ThreeBodyQuantumState.__hash__ already bins values, 
+        # so using state as key works.
+        
+        # Use hashed state for lookup
+        return self.get_probability(state)
+    
+    def should_fire_quantum(
+        self, 
+        state: ThreeBodyQuantumState, 
+        min_prob: float = 0.80,
+        min_conf: float = 0.30
+    ) -> bool:
+        """
+        Quantum decision function
+        Fire if:
+        1. At Roche limit
+        2. Wave function collapsed
+        3. Learned probability > threshold
+        4. Confidence sufficient
+        """
+        if state.lagrange_zone not in ['L2_ROCHE', 'L3_ROCHE']:
+            return False
+        
+        if not (state.structure_confirmed and state.cascade_detected):
+            return False
+        
+        if state.F_momentum > state.F_reversion * 1.5:
+            return False
+        
+        prob = self.get_quantum_probability(state)
+        conf = self.get_confidence(state)
+        
+        return prob >= min_prob and conf >= min_conf
