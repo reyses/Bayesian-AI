@@ -7,9 +7,7 @@ __pycache__/
 *.egg-info
 dist/
 build/
-.pytest_cache
-.ipynb_checkpoints
-debug_outputs/*.pkl
+.pytest_cach
 venv/
 env/
 .DS_Store
