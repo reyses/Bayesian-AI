@@ -1,31 +1,24 @@
 {
-  "iteration": 5,
-  "total_iterations": 5,
-  "elapsed_seconds": 28.184253692626953,
+  "iteration": 10,
+  "total_iterations": 10,
+  "elapsed_seconds": 15.946199178695679,
   "states_learned": 0,
   "high_confidence_states": 0,
   "trades": [],
   "current_bar": {
-    "timestamp": "2025-07-30T00:15:00",
-    "open": 23486.0,
-    "high": 23486.0,
-    "low": 23477.75,
-    "close": 23481.25
+    "timestamp": "2025-12-30T00:00:00",
+    "open": 25707.75,
+    "high": 25714.75,
+    "low": 25702.25,
+    "close": 25712.5
   },
   "recent_candles": [
     {
-      "timestamp": "2025-07-30T00:00:00",
-      "open": 23474.75,
-      "high": 23712.5,
-      "low": 23471.5,
-      "close": 23485.5
-    },
-    {
-      "timestamp": "2025-07-30T00:15:00",
-      "open": 23486.0,
-      "high": 23486.0,
-      "low": 23477.75,
-      "close": 23481.25
+      "timestamp": "2025-12-30T00:00:00",
+      "open": 25707.75,
+      "high": 25714.75,
+      "low": 25702.25,
+      "close": 25712.5
     }
   ]
 }

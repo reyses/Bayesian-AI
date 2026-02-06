@@ -24,7 +24,7 @@ def setup_logger(name, log_file, level=logging.DEBUG, console=False):
             log_path = Path(log_file)
             log_path.parent.mkdir(parents=True, exist_ok=True)
 
-            fh = logging.FileHandler(log_file, mode='w') # Overwrite for new session
+            fh = logging.FileHandler(log_file, mode='a') # Append for history
             fh.setFormatter(formatter)
             logger.addHandler(fh)
         except Exception as e:
