@@ -28,3 +28,4 @@ jupyter
 plotly
 ipywidgets
 tqdm
+scipy
