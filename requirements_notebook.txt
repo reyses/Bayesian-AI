@@ -1,0 +1,7 @@
+jupyter
+plotly
+ipywidgets
+pandas
+numpy
+matplotlib
+tqdm
