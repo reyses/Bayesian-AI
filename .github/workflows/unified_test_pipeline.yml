@@ -97,9 +97,30 @@ jobs:
         name: Bayesian_AI_Engine
         path: dist/Bayesian_AI_Engine
 
+    - name: Manage Log Size
+      run: |
+        # Check for any log files matching the pattern
+        # Use nullglob to handle case where no files exist
+        shopt -s nullglob
+        for f in CUDA_Debug.log*; do
+          if [ -f "$f" ]; then
+            size=$(stat -c%s "$f")
+            # 10MB limit
+            if [ $size -gt 10485760 ]; then
+              echo "Truncating large log file: $f ($size bytes)"
+              mv "$f" "${f}.original"
+              head -c 5242880 "${f}.original" > "$f"
+              echo -e "\n\n... [LOG TRUNCATED BY GITHUB ACTIONS] ...\n\n" >> "$f"
+              tail -c 5242880 "${f}.original" >> "$f"
+              rm "${f}.original"
+            fi
+          fi
+        done
+      continue-on-error: true
+
     - name: Upload CUDA Debug Log
       uses: actions/upload-artifact@v4
       with:
         name: cuda-debug-log
-        path: CUDA_Debug.log
+        path: CUDA_Debug.log*
         if-no-files-found: warn
