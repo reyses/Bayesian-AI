@@ -1,9 +1,9 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-06 06:09:41
+- **Timestamp:** 2026-02-06 06:14:12
 - **Git Branch:** main
-- **Last Commit:** c56fe8c4c57dca22dbf81a7ccb95a9776e7af8e3
+- **Last Commit:** 807f6c0883f3ba72c523149926463ac1f18041b4
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 1A. ARCHITECTURE STATUS
@@ -15,6 +15,9 @@
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+807f6c0 - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
+2dd0ce9 - fix: update CUDA debug log and training progress data; add probability table (reyses)
+4da3534 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 c56fe8c - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
 64b3a24 - jules update (reyses)
 c1ee2a3 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
@@ -22,9 +25,6 @@ fede18a - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
 6b6120d - update (reyses)
 c804397 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 999ed18 - thre bodytheory (reyses)
-c00eb6d - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-55e6f24 - Add files via upload (reyses)
-d88934c - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 ```
 
 ### 3. FILE STRUCTURE
@@ -33,7 +33,7 @@ Bayesian-AI/
 │   ├── AGENTS.md
 │   ├── AUDIT_REPORT.md
 │   ├── COMPLETE_IMPLEMENTATION_SPEC.md
-│   ├── CUDA_Debug.log.processed_20260206_060927
+│   ├── CUDA_Debug.log.processed_20260206_061358
 │   ├── CURRENT_STATUS.md
 │   ├── README.md
 │   ├── __init__.py [COMPLETE]
@@ -251,6 +251,7 @@ Bayesian-AI/
 │   │   ├── CUDA_Debug.log
 │   │   ├── debug_dashboard.ipynb
 │   │   ├── learning_dashboard.ipynb
+│   │   ├── debug_outputs/
 │   ├── scripts/
 │   │   ├── build_executable.py [COMPLETE]
 │   │   ├── generate_debug_dashboard.py [COMPLETE]
@@ -377,7 +378,7 @@ scipy
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
-MM	CURRENT_STATUS.md
+
 ```
 
 ### 11. REVIEWER CHECKLIST
@@ -390,7 +391,7 @@ MM	CURRENT_STATUS.md
 
 - **Status:** PASS
 - **Command:** `pytest tests/topic_math.py`
-- **Summary:** 4 passed in 0.12s
+- **Summary:** 4 passed in 0.11s
 
 
 ### 13. TRAINING VALIDATION METRICS
@@ -398,7 +399,7 @@ MM	CURRENT_STATUS.md
 | :--- | :--- | :--- |
 | Training Status | SUCCESS | ✓ |
 | Iterations Completed | 10 | ✓ |
-| Runtime | 12.44s | - |
+| Runtime | 12.01s | - |
 | Data Files Tested | 1 | ✓ |
 | Total Ticks (Sample) | 200 | - |
 | Unique States Learned | 0 | - |
