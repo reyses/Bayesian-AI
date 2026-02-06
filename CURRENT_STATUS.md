@@ -1,9 +1,12 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-06 04:57:55
-- **Git Branch:** jules-7809395776870566065-6d03dbfe
-- **Last Commit:** fede18a780a71968a7e0ac631e26c44683a3c4ee
+- **Timestamp:** 2026-02-06 00:20:44
+- **Git Branch:** jules-15785641124686352248-fdbba075
+- **Last Commit:** f08f834dc61460d70de49fb3c5b8590fc2290934
+- **Timestamp:** 2026-02-06 04:20:59
+- **Git Branch:** main
+- **Last Commit:** 999ed1833dcec073b093417d08efdd552e473b97
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 1A. ARCHITECTURE STATUS
@@ -15,16 +18,25 @@
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
-fede18a - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
+999ed18 - thre bodytheory (reyses)
+c00eb6d - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+55e6f24 - Add files via upload (reyses)
+d88934c - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+75188b2 - Update CUDA_Debug.log (reyses)
+63a8d43 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+f08f834 - Merge pull request #51 from reyses/fix-training-validation-timeout-4617406897254353631 (reyses)
+6447040 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+d05441d - Merge 4379070283bc5be5e77033cb6daa9b82a8926326 into 9a46cec72731490a006dde350a8c352c58e85d77 (reyses)
+4379070 - Include all project debug logs in git (google-labs-jules[bot])
 ```
 
 ### 3. FILE STRUCTURE
 ```
 Bayesian-AI/
 │   ├── AGENTS.md
-│   ├── AUDIT_REPORT.md
-│   ├── COMPLETE_IMPLEMENTATION_SPEC.md
 │   ├── CUDA_Debug.log
+│   ├── COMPLETE_IMPLEMENTATION_SPEC.md
+│   ├── CUDA_Debug.log.processed_20260206_042056
 │   ├── CURRENT_STATUS.md
 │   ├── README.md
 │   ├── __init__.py [COMPLETE]
@@ -290,8 +302,10 @@ Bayesian-AI/
 ```
 
 ### 4. CODE STATISTICS
-- **Python Files:** 55
-- **Total Lines of Code:** 7545
+- **Python Files:** 49
+- **Total Lines of Code:** 6465
+- **Python Files:** 53
+- **Total Lines of Code:** 6573
 
 ### 5. CRITICAL INTEGRATION POINTS
 - **Databento API:**
@@ -371,7 +385,6 @@ scipy
 A	.github/workflows/unified_test_pipeline.yml
 A	.gitignore
 A	AGENTS.md
-A	COMPLETE_IMPLEMENTATION_SPEC.md
 A	CUDA_Debug.log
 A	CURRENT_STATUS.md
 A	DATA/RAW/condition.json
@@ -546,16 +559,11 @@ A	config/settings.py
 A	config/symbols.py
 A	config/workflow_manifest.json
 A	core/__init__.py
-A	core/adaptive_confidence.py
 A	core/bayesian_brain.py
 A	core/data_aggregator.py
-A	core/fractal_three_body.py
 A	core/layer_engine.py
 A	core/logger.py
-A	core/quantum_field_engine.py
-A	core/resonance_cascade.py
 A	core/state_vector.py
-A	core/three_body_state.py
 A	cuda_modules/__init__.py
 A	cuda_modules/confirmation.py
 A	cuda_modules/hardened_verification.py
@@ -564,7 +572,6 @@ A	cuda_modules/velocity_gate.py
 A	debug_outputs/probability_table.pkl
 A	docs/CHANGELOG.md
 A	docs/LEARNING_DASHBOARD_GUIDE.md
-A	docs/README_DASHBOARD.md
 A	docs/TECHNICAL_MANUAL.md
 A	docs/archive/JULES_OUTPUT_SNAPSHOT.txt
 A	docs/archive/PHASE1_COMPLETE.md
@@ -575,13 +582,9 @@ A	engine_core.py
 A	execution/__init__.py
 A	execution/wave_rider.py
 A	notebooks/CUDA_Debug.log
-A	notebooks/debug_dashboard.ipynb
 A	notebooks/learning_dashboard.ipynb
 A	requirements.txt
-A	requirements_dashboard.txt
-A	requirements_notebook.txt
 A	scripts/build_executable.py
-A	scripts/generate_debug_dashboard.py
 A	scripts/generate_learning_dashboard.py
 A	scripts/generate_status_report.py
 A	scripts/inspect_results.py
@@ -604,7 +607,6 @@ A	tests/test_doe.py
 A	tests/test_full_system.py
 A	tests/test_phase1.py
 A	tests/test_phase2.py
-A	tests/test_quantum_system.py
 A	tests/test_real_data_velocity.py
 A	tests/test_training_validation.py
 A	tests/topic_build.py
@@ -615,10 +617,18 @@ A	training/__init__.py
 A	training/cuda_backtest.py
 A	training/databento_loader.py
 A	training/orchestrator.py
-A	training/training_progress.json
 A	visualization/__init__.py
-A	visualization/live_training_dashboard.py
 A	visualization/visualization_module.py
+A	core/adaptive_confidence.py
+M	core/bayesian_brain.py
+A	core/fractal_three_body.py
+A	core/quantum_field_engine.py
+A	core/resonance_cascade.py
+A	core/three_body_state.py
+M	requirements.txt
+A	tests/test_quantum_system.py
+M	tests/test_training_validation.py
+M	training/orchestrator.py
 ```
 
 ### 11. REVIEWER CHECKLIST
@@ -631,7 +641,8 @@ A	visualization/visualization_module.py
 
 - **Status:** PASS
 - **Command:** `pytest tests/topic_math.py`
-- **Summary:** 4 passed in 0.22s
+- **Summary:** 4 passed in 0.04s
+- **Summary:** 4 passed in 0.11s
 
 
 ### 13. TRAINING VALIDATION METRICS
@@ -639,7 +650,9 @@ A	visualization/visualization_module.py
 | :--- | :--- | :--- |
 | Training Status | SUCCESS | ✓ |
 | Iterations Completed | 10 | ✓ |
-| Runtime | 21.9s | - |
+| Runtime | 22.99s | - |
+| Iterations Completed | 2 | ✓ |
+| Runtime | 1.61s | - |
 | Data Files Tested | 1 | ✓ |
 | Total Ticks (Sample) | 200 | - |
 | Unique States Learned | 0 | - |
