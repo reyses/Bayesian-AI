@@ -29,3 +29,13 @@ plotly
 ipywidgets
 tqdm
 scipy
+jupyter
+plotly
+ipywidgets
+pandas
+numpy
+matplotlib
+tqdm
+matplotlib
+pandas
+numpy
