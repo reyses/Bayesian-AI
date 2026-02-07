@@ -1,9 +1,9 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-07 13:40:21
-- **Git Branch:** main
-- **Last Commit:** 21920347375af5f245ee061acff80dfb75f922a2
+- **Timestamp:** 2026-02-07 14:03:56
+- **Git Branch:** HEAD
+- **Last Commit:** 22b0e8948fad3830b4814ca25706d63cfef65a64
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 1A. ARCHITECTURE STATUS
@@ -15,16 +15,16 @@
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+22b0e89 - Merge 5ccb48aa4615b314113f5b55ab6682f3af88e8bd into b1e01d0923ee71a9e944439479a083c14ed10afa (reyses)
+5ccb48a - Consolidate dependencies into requirements.txt and update documentation (google-labs-jules[bot])
+b1e01d0 - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
+e33a779 - Refactor learning_dashboard.ipynb for enhanced structure and clarity (reyses)
+0231187 - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
+afd4c61 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 2192034 - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
 239fc13 - Enhance dashboards with emoji updates and error handling (reyses)
 1e5fdfa - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 425fd22 - Merge pull request #59 from reyses/palette-ux-dashboard-controls-7270127091516636128 (reyses)
-e007703 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-31c9fa0 - Merge 565e54a1f828aa4339dd76e1f8ddd562a1ad900c into d7bd166e73405539b34fd4dbf155d7f4449f0647 (reyses)
-565e54a - feat(dashboard): add control buttons (Pause, Resume, Stop, Export) and tooltips to Live Dashboard (google-labs-jules[bot])
-603f1dc - Update visualization/live_training_dashboard.py (reyses)
-d7bd166 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-7921e71 - Update visualization/live_training_dashboard.py (reyses)
 ```
 
 ### 3. FILE STRUCTURE
@@ -33,7 +33,7 @@ Bayesian-AI/
 │   ├── AGENTS.md
 │   ├── AUDIT_REPORT.md
 │   ├── COMPLETE_IMPLEMENTATION_SPEC.md
-│   ├── CUDA_Debug.log.processed_20260207_134017
+│   ├── CUDA_Debug.log.processed_20260207_140351
 │   ├── CURRENT_STATUS.md
 │   ├── README.md
 │   ├── Training Orchestrator.txt
@@ -41,8 +41,6 @@ Bayesian-AI/
 │   ├── engine_core.py [COMPLETE]
 │   ├── nconstrained Exploration.txt
 │   ├── requirements.txt
-│   ├── requirements_dashboard.txt
-│   ├── requirements_notebook.txt
 │   ├── DATA/
 │   │   ├── RAW/
 │   │   │   ├── condition.json
@@ -330,37 +328,28 @@ databento==0.70.0
 databento-dbn==0.48.0
 frozenlist==1.8.0
 idna==3.11
+ipywidgets
+jupyter
+llvmlite==0.46.0
+matplotlib
 multidict==6.7.1
+numba==0.63.1
+numba-cuda
 numpy==1.26.4
 pandas==2.2.3
+plotly
 propcache==0.4.1
 pyarrow==23.0.0
+pyinstaller==6.18.0
+pytest
 python-dateutil==2.9.0.post0
 requests==2.32.5
+scipy
 six==1.17.0
+tqdm
 urllib3==2.6.3
 yarl==1.22.0
 zstandard==0.25.0
-numba==0.63.1
-numba-cuda
-llvmlite==0.46.0
-pyinstaller==6.18.0
-pytest
-jupyter
-plotly
-ipywidgets
-tqdm
-scipy
-jupyter
-plotly
-ipywidgets
-pandas
-numpy
-matplotlib
-tqdm
-matplotlib
-pandas
-numpy
 
 ```
 - **Installation:** `pip install -r requirements.txt`
@@ -407,7 +396,7 @@ numpy
 
 - **Status:** PASS
 - **Command:** `pytest tests/topic_math.py`
-- **Summary:** 4 passed in 0.12s
+- **Summary:** 4 passed in 0.11s
 
 
 ### 13. TRAINING VALIDATION METRICS
@@ -415,7 +404,7 @@ numpy
 | :--- | :--- | :--- |
 | Training Status | SUCCESS | ✓ |
 | Iterations Completed | 10 | ✓ |
-| Runtime | 2.57s | - |
+| Runtime | 2.69s | - |
 | Data Files Tested | 1 | ✓ |
 | Total Ticks (Sample) | 5 | - |
 | Unique States Learned | 0 | - |
