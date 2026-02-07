@@ -3,11 +3,11 @@ __pycache__/
 *.log
 !notebooks/CUDA_Debug.log
 !CUDA_Debug.log
-!debug_outputs/**/*.log
+debug_outputs/
 *.egg-info
 dist/
 build/
-.pytest_cach
+.pytest_cache
 venv/
 env/
 .DS_Store
