@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from engine_core import BayesianEngine
+from core.engine_core import BayesianEngine
 from config.symbols import MNQ
 from core.state_vector import StateVector
 from tests.utils import load_test_data, get_cuda_availability
