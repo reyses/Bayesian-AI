@@ -4,8 +4,9 @@ File: bayesian_ai/execution/wave_rider.py
 """
 import time
 from dataclasses import dataclass
-from typing import Optional, Dict
+from typing import Optional, Dict, Union
 from core.state_vector import StateVector
+from core.three_body_state import ThreeBodyQuantumState
 
 @dataclass
 class Position:
@@ -14,14 +15,14 @@ class Position:
     side: str  # 'long' or 'short'
     stop_loss: float
     high_water_mark: float
-    entry_layer_state: StateVector
+    entry_layer_state: Union[StateVector, ThreeBodyQuantumState]
 
 class WaveRider:
     def __init__(self, asset_profile):
         self.asset = asset_profile
         self.position: Optional[Position] = None
 
-    def open_position(self, entry_price: float, side: str, state: StateVector):
+    def open_position(self, entry_price: float, side: str, state: Union[StateVector, ThreeBodyQuantumState]):
         stop_dist = 20 * self.asset.tick_size
         stop_loss = entry_price + stop_dist if side == 'short' else entry_price - stop_dist
         self.position = Position(entry_price, time.time(), side, stop_loss, entry_price, state)
@@ -64,7 +65,10 @@ class WaveRider:
         self.position.stop_loss = new_stop
         return {'should_exit': False, 'current_stop': new_stop}
 
-    def _check_layer_breaks(self, current: StateVector) -> bool:
+    def _check_layer_breaks(self, current: Union[StateVector, ThreeBodyQuantumState]) -> bool:
+        if isinstance(current, ThreeBodyQuantumState):
+            return False  # Phase 0: No structure checks, rely on trail stop
+
         entry = self.position.entry_layer_state
         if entry.L7_pattern != current.L7_pattern: return True
         if not current.L8_confirm: return True
