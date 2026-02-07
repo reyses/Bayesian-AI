@@ -251,7 +251,7 @@ class LiveDashboard:
             with open(os.path.join(self.training_dir, 'PAUSE'), 'w') as f:
                 f.write('PAUSE')
             self.log("Signal sent: PAUSE")
-        except Exception as e:
+        except (IOError, OSError) as e:
             self.log(f"Error pausing: {e}")
 
     def resume_training(self):
