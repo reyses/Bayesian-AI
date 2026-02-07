@@ -67,6 +67,7 @@ def test_roche_limit_detection():
 def test_adaptive_confidence_progression():
     """Test phase advancement logic"""
     from core.bayesian_brain import QuantumBayesianBrain, TradeOutcome
+    from dataclasses import replace
 
     brain = QuantumBayesianBrain()
     mgr = AdaptiveConfidenceManager(brain)
@@ -74,25 +75,27 @@ def test_adaptive_confidence_progression():
     assert mgr.phase == 1
     assert mgr.PHASES[1]['prob_threshold'] == 0.0
     
-    # Simulate trades to trigger advancement
-    # Need 200 trades, >55% WR, >10 high conf states, Sharpe > 0.5
-
-    # Create a dummy state
-    state = ThreeBodyQuantumState.null_state()
+    # Create 10 different states with high confidence and good win rate
+    base_state = ThreeBodyQuantumState.null_state()
     
-    # Populate brain with high confidence states
-    # Brain needs >10 high conf states.
-    # Conf = total / 30. So we need 30 trades on 10 different states.
-    for i in range(10):
-        # Create distinct states by modifying z_score (which affects hash)
-        # However, frozen dataclass.
-        # We can simulate different hashes by mocking or just creating new states
-        # But we need 30 trades for each to get high confidence
-        # This loop is expensive if we do it fully.
-        pass
+    for k in range(15): # 15 states
+        # Create unique state by modifying z_score which affects hash
+        s = replace(base_state, z_score=float(k))
 
-    # Since this is a unit test, we might mock brain or just test the logic if feasible.
-    # For now, just asserting initialization is good.
+        # Add 30 trades (full confidence) with all WINs (100% winrate)
+        for _ in range(30):
+            outcome = TradeOutcome(
+                 state=s, entry_price=100, exit_price=110, pnl=10,
+                 result='WIN', timestamp=0, exit_reason='test'
+            )
+            brain.update(outcome)
+            mgr.record_trade(outcome) # Call record_trade to advance
+
+    # Now check if we advanced
+    # We have 15 * 30 = 450 trades
+    # Phase 1 needs 200 trades
     
+    assert mgr.phase >= 2
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
