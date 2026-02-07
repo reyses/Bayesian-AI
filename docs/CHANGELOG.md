@@ -1,5 +1,10 @@
 # Changelog - Bayesian-AI
 
+## [V2.0.1] - Naming Consistency Verification
+- **Verified**: Conducted comprehensive search for "ProjectX" placeholder.
+- **Confirmed**: Codebase consistently uses "Bayesian-AI".
+- **Cleanup**: Removed temporary verification scripts.
+
 ## [V2.0.0] - Unified System Realignment
 
 ### Refactoring & Architecture
