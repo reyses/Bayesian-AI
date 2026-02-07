@@ -1,9 +1,9 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-07 17:00:26
-- **Git Branch:** main
-- **Last Commit:** cb75e94049203450f76c136001ff44c408e01c1d
+- **Timestamp:** 2026-02-07 17:15:58
+- **Git Branch:** jules-5545302631605815761-2284e3cc
+- **Last Commit:** b64124c959d6de6507dd70a06119e767d4511a7a
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 1A. ARCHITECTURE STATUS
@@ -15,26 +15,16 @@
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
-cb75e94 - Merge pull request #63 from reyses/system-audit-cleanup-15224198926483554490 (reyses)
-1a6156d - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-d155485 - Merge 698e3e5e33534249c7a58cd801e72efc21219959 into 6174b2bb0ab9b40419b5a8b7d0103bbcd5f4090c (reyses)
-698e3e5 - Perform system audit and cleanup obsolete files (google-labs-jules[bot])
-6174b2b - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-c6d2d2c - Add files via upload (reyses)
-673a255 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-7895d72 - Merge pull request #62 from reyses/refactor-project-name-verification-1337553667000251861 (reyses)
-4f78dcd - Verify codebase for 'ProjectX' placeholder and confirm 'Bayesian-AI' usage (google-labs-jules[bot])
-7df85ed - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+b64124c - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 ```
 
 ### 3. FILE STRUCTURE
 ```
 Bayesian-AI/
 │   ├── AGENTS.md
-│   ├── CUDA_Debug.log.processed_20260207_170021
+│   ├── CUDA_Debug.log
 │   ├── CURRENT_STATUS.md
 │   ├── README.md
-│   ├── engine_core.py [COMPLETE]
 │   ├── requirements.txt
 │   ├── DATA/
 │   │   ├── RAW/
@@ -213,6 +203,7 @@ Bayesian-AI/
 │   │   ├── adaptive_confidence.py [COMPLETE]
 │   │   ├── bayesian_brain.py [COMPLETE]
 │   │   ├── data_aggregator.py [COMPLETE]
+│   │   ├── engine_core.py [COMPLETE]
 │   │   ├── exploration_mode.py [COMPLETE]
 │   │   ├── fractal_three_body.py [COMPLETE]
 │   │   ├── layer_engine.py [COMPLETE]
@@ -234,7 +225,6 @@ Bayesian-AI/
 │   │   ├── CHANGELOG.md
 │   │   ├── LEARNING_DASHBOARD_GUIDE.md
 │   │   ├── README_DASHBOARD.md
-│   │   ├── SYSTEM_AUDIT_REPORT_2026_02.md
 │   │   ├── TECHNICAL_MANUAL.md
 │   │   ├── archive/
 │   │   │   ├── AUDIT_REPORT.md
@@ -242,6 +232,7 @@ Bayesian-AI/
 │   │   │   ├── JULES_COMPLETE_SYSTEM_AUDIT.md
 │   │   │   ├── JULES_OUTPUT_SNAPSHOT.txt
 │   │   │   ├── PHASE1_COMPLETE.md
+│   │   │   ├── SYSTEM_AUDIT_REPORT_2026_02.md
 │   │   │   ├── UNIFIED_MASTER_DIRECTIVE.md
 │   │   │   ├── all_requirements.txt
 │   │   │   ├── project_update.txt
@@ -271,6 +262,7 @@ Bayesian-AI/
 │   │   ├── test_cuda_confirmation.py [TESTED]
 │   │   ├── test_cuda_imports_and_init.py [TESTED]
 │   │   ├── test_cuda_pattern.py [TESTED]
+│   │   ├── test_dashboard_controls.py [TESTED]
 │   │   ├── test_databento_loading.py [TESTED]
 │   │   ├── test_doe.py [TESTED]
 │   │   ├── test_full_system.py [TESTED]
@@ -304,8 +296,8 @@ Bayesian-AI/
 ```
 
 ### 4. CODE STATISTICS
-- **Python Files:** 58
-- **Total Lines of Code:** 8527
+- **Python Files:** 59
+- **Total Lines of Code:** 8621
 
 ### 5. CRITICAL INTEGRATION POINTS
 - **Databento API:**
@@ -355,7 +347,7 @@ matplotlib
 - **Installation:** `pip install -r requirements.txt`
 
 ### 7. EXECUTION READINESS
-- **Entry Point:** `python engine_core.py`
+- **Entry Point:** `python -m core.engine_core`
 - **Exists:** YES
 - **Expected Runtime:** Long-running process (Server/Loop)
 
@@ -379,11 +371,268 @@ matplotlib
 
 ### 9. TESTING STATUS
 - **Tests Directory:** YES
-- **Test Files Count:** 15
+- **Test Files Count:** 16
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
-
+A	.Jules/palette.md
+A	.github/workflows/unified_test_pipeline.yml
+A	.gitignore
+A	AGENTS.md
+A	CUDA_Debug.log
+A	CURRENT_STATUS.md
+A	DATA/RAW/condition.json
+A	DATA/RAW/glbx-mdp3-20250730.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250731.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250801.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250803.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250804.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250805.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250806.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250807.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250808.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250810.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250811.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250812.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250813.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250814.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250815.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250817.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250818.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250819.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250820.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250821.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250822.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250824.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250825.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250826.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250827.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250828.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250829.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250831.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250901.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250902.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250903.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250904.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250905.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250907.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250908.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250909.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250910.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250911.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250912.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250914.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250915.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250916.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250917.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250918.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250919.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250921.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250922.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250923.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250924.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250925.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250926.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250928.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250929.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20250930.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251001.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251002.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251003.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251005.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251006.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251007.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251008.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251009.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251010.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251012.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251013.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251014.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251015.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251016.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251017.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251019.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251020.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251021.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251022.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251023.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251024.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251026.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251027.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251028.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251029.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251030.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251031.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251102.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251103.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251104.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251105.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251106.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251107.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251109.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251110.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251111.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251112.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251113.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251114.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251116.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251117.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251118.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251119.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251120.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251121.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251123.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251124.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251125.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251126.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251127.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251128.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251130.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251201.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251202.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251203.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251204.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251205.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251207.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251208.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251209.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251210.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251211.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251212.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251214.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251215.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251216.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251217.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251218.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251219.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251221.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251222.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251223.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251224.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251225.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251226.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251228.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251229.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251230-20260129.ohlcv-1s.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251230.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20251231.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260101.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260102.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260104.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260105.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260106.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260107.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260108.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260109.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260111.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260112.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260113.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260114.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260115.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260116.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260118.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260119.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260120.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260121.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260122.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260123.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260125.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260126.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260127.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260128.trades.0000.dbn.zst
+A	DATA/RAW/glbx-mdp3-20260129.trades.0000.dbn.zst
+A	DATA/RAW/manifest.json
+A	DATA/RAW/metadata.json
+A	DATA/RAW/ohlcv-1s.parquet
+A	DATA/RAW/symbology.json
+A	DATA/RAW/trades.parquet
+A	README.md
+A	config/__init__.py
+A	config/settings.py
+A	config/symbols.py
+A	config/workflow_manifest.json
+A	core/__init__.py
+A	core/adaptive_confidence.py
+A	core/bayesian_brain.py
+A	core/data_aggregator.py
+A	core/exploration_mode.py
+A	core/fractal_three_body.py
+A	core/layer_engine.py
+A	core/logger.py
+A	core/quantum_field_engine.py
+A	core/resonance_cascade.py
+A	core/state_vector.py
+A	core/three_body_state.py
+A	core/unconstrained_explorer.py
+A	cuda_modules/__init__.py
+A	cuda_modules/confirmation.py
+A	cuda_modules/hardened_verification.py
+A	cuda_modules/pattern_detector.py
+A	cuda_modules/velocity_gate.py
+A	debug_outputs/test_phase0.log
+A	docs/CHANGELOG.md
+A	docs/LEARNING_DASHBOARD_GUIDE.md
+A	docs/README_DASHBOARD.md
+A	docs/SYSTEM_AUDIT_REPORT_2026_02.md
+A	docs/TECHNICAL_MANUAL.md
+A	docs/archive/AUDIT_REPORT.md
+A	docs/archive/COMPLETE_IMPLEMENTATION_SPEC.md
+A	docs/archive/JULES_COMPLETE_SYSTEM_AUDIT.md
+A	docs/archive/JULES_OUTPUT_SNAPSHOT.txt
+A	docs/archive/PHASE1_COMPLETE.md
+A	docs/archive/UNIFIED_MASTER_DIRECTIVE.md
+A	docs/archive/all_requirements.txt
+A	docs/archive/project_update.txt
+A	engine_core.py
+A	execution/__init__.py
+A	execution/wave_rider.py
+A	notebooks/CUDA_Debug.log
+A	notebooks/debug_dashboard.ipynb
+A	notebooks/debug_outputs/mini_run/probability_table.pkl
+A	notebooks/learning_dashboard.ipynb
+A	notebooks/master_dashboard.ipynb
+A	requirements.txt
+A	scripts/build_executable.py
+A	scripts/generate_debug_dashboard.py
+A	scripts/generate_learning_dashboard.py
+A	scripts/generate_master_dashboard.py
+A	scripts/generate_status_report.py
+A	scripts/inspect_results.py
+A	scripts/manifest_integrity_check.py
+A	scripts/sentinel_bridge.py
+A	scripts/setup_test_data.py
+A	scripts/verify_environment.py
+A	tests/Testing DATA/glbx-mdp3-20250730.trades.0000.dbn.zst
+A	tests/Testing DATA/glbx-mdp3-20250731.trades.0000.dbn.zst
+A	tests/Testing DATA/glbx-mdp3-20250801.trades.0000.dbn.zst
+A	tests/Testing DATA/glbx-mdp3-20250803.trades.0000.dbn.zst
+A	tests/Testing DATA/glbx-mdp3-20251230-20260129.ohlcv-1s.dbn.zst
+A	tests/glbx-mdp3-20250730.trades.0000.dbn.zst
+A	tests/math_verify.py
+A	tests/test_cuda_confirmation.py
+A	tests/test_cuda_imports_and_init.py
+A	tests/test_cuda_pattern.py
+A	tests/test_databento_loading.py
+A	tests/test_doe.py
+A	tests/test_full_system.py
+A	tests/test_phase0.py
+A	tests/test_phase1.py
+A	tests/test_phase2.py
+A	tests/test_quantum_system.py
+A	tests/test_real_data_velocity.py
+A	tests/test_training_validation.py
+A	tests/topic_build.py
+A	tests/topic_diagnostics.py
+A	tests/topic_math.py
+A	tests/utils.py
+A	training/__init__.py
+A	training/cuda_backtest.py
+A	training/databento_loader.py
+A	training/orchestrator.py
+A	training/training_progress.json
+A	visualization/__init__.py
+A	visualization/live_training_dashboard.py
+A	visualization/visualization_module.py
 ```
 
 ### 11. REVIEWER CHECKLIST
@@ -394,24 +643,21 @@ matplotlib
 
 ### 12. LOGIC CORE VALIDATION
 
-- **Status:** PASS
+- **Status:** FAIL
 - **Command:** `pytest tests/topic_math.py`
-- **Summary:** 4 passed in 0.12s
+- **Summary:** No summary found
 
+**Failure Output:**
+```
+
+/home/jules/.pyenv/versions/3.12.12/bin/python: No module named pytest
+
+```
 
 ### 13. TRAINING VALIDATION METRICS
-| Metric | Value | Status |
-| :--- | :--- | :--- |
-| Training Status | SUCCESS | ✓ |
-| Iterations Completed | 10 | ✓ |
-| Runtime | 2.83s | - |
-| Data Files Tested | 1 | ✓ |
-| Total Ticks (Sample) | 5 | - |
-| Unique States Learned | 0 | - |
-| High-Confidence States (80%+) | 0 | ✓ |
 
-**Top 5 States by Probability (Sample):**
-None
+ERROR: Metrics tags not found in output.
+Output:
 
 ### 14. DOE OPTIMIZATION STATUS
 - [ ] Parameter Grid Generator
@@ -429,15 +675,35 @@ QC VALIDATION SNAPSHOT
 ======================
 
 Topic 1: Executable Build
+FAIL: Integrity Check Failed
+```
+Bayesian-AI - Integrity Test
+=======================================
+Project: Bayesian-AI
 PASS: All 16 manifest files exist.
-PASS: All 17 modules imported successfully.
-PASS: OPERATIONAL_MODE is valid: LEARNING
+ERROR importing scripts.build_executable: No module named 'PyInstaller'
+FAIL: Failed to import modules: ['scripts.build_executable']
+
+```
 
 Topic 2: Math and Logic
-PASS: Logic Core verified
+FAIL: Logic Core failed
 
 Topic 3: Diagnostics
 PASS: Required files found in DATA/RAW
 
 Manifest Integrity
-PASS: Manifest Integrity Check Passed
+FAIL: Manifest Integrity Check Failed
+```
+ted core.engine_core
+[INTEGRITY] Checking CUDA availability...
+[INTEGRITY] FAIL: Numba not installed or CUDA support missing.
+[INTEGRITY] Verifying BayesianBrain I/O...
+[BAYESIAN] Saved 1 state patterns to test_prob_table.pkl
+[BAYESIAN] Loaded 1 state patterns from test_prob_table.pkl
+[INTEGRITY] OK: BayesianBrain save/load verification passed.
+[INTEGRITY] Verifying DatabentoLoader...
+[INTEGRITY] OK: DatabentoLoader class and method found.
+[INTEGRITY] Integrity Check COMPLETE: FAILURES DETECTED
+
+```
