@@ -414,7 +414,7 @@ def train_complete_system_with_exploration(historical_data_path: str, max_iterat
 
 class TrainingOrchestrator:
     """Runs iterations on historical data to build the Bayesian prior"""
-    def __init__(self, asset_ticker: str, data: pd.DataFrame = None, use_gpu: bool = True, output_dir: str = '.', verbose: bool = False, debug_file: str = None):
+    def __init__(self, asset_ticker: str, data: pd.DataFrame = None, use_gpu: bool = True, output_dir: str = '.', verbose: bool = False, debug_file: str = None, mode: str = "LEGACY"):
         self.data = data
         self.asset = MNQ # Default
         self.use_gpu = use_gpu
@@ -422,7 +422,8 @@ class TrainingOrchestrator:
         self.model_path = os.path.join(self.output_dir, 'probability_table.pkl')
         self.verbose = verbose
         self.debug_file = debug_file
-        self.engine = BayesianEngine(self.asset, use_gpu=use_gpu, verbose=verbose, log_path=debug_file)
+        self.mode = mode
+        self.engine = BayesianEngine(self.asset, use_gpu=use_gpu, verbose=verbose, log_path=debug_file, mode=mode)
         self.kill_zones = [21500, 21600, 21700]
         self.raw_data = self.data
 
@@ -434,7 +435,7 @@ class TrainingOrchestrator:
         self.raw_data = self.data
 
     def reset_engine(self):
-        self.engine = BayesianEngine(self.asset, use_gpu=self.use_gpu, verbose=self.verbose, log_path=self.debug_file)
+        self.engine = BayesianEngine(self.asset, use_gpu=self.use_gpu, verbose=self.verbose, log_path=self.debug_file, mode=self.mode)
 
     def run_training(self, iterations=1000, params: Dict[str, Any] = None, on_progress=None):
         if self.data is None:
