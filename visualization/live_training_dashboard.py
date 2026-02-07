@@ -22,6 +22,53 @@ try:
 except:
     pass
 
+class Tooltip:
+    """
+    It creates a tooltip for a given widget as the mouse goes on it.
+    """
+    def __init__(self, widget, text='widget info'):
+        self.widget = widget
+        self.text = text
+        self.tip_window = None
+        self.id = None
+        self.x = self.y = 0
+        self.widget.bind("<Enter>", self.enter)
+        self.widget.bind("<Leave>", self.leave)
+
+    def enter(self, event=None):
+        self.schedule()
+
+    def leave(self, event=None):
+        self.unschedule()
+        self.hidetip()
+
+    def schedule(self):
+        self.unschedule()
+        self.id = self.widget.after(500, self.showtip)
+
+    def unschedule(self):
+        id = self.id
+        self.id = None
+        if id:
+            self.widget.after_cancel(id)
+
+    def showtip(self, event=None):
+        x = self.widget.winfo_rootx() + 20
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 5
+        self.tip_window = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry("+%d+%d" % (x, y))
+        label = tk.Label(tw, text=self.text, justify='left',
+                       background="#ffffe0", relief='solid', borderwidth=1,
+                       font=("tahoma", "8", "normal"))
+        label.pack(ipadx=1)
+
+    def hidetip(self):
+        tw = self.tip_window
+        self.tip_window = None
+        if tw:
+            tw.destroy()
+
 class LiveDashboard:
     def __init__(self, root):
         self.root = root
@@ -31,6 +78,7 @@ class LiveDashboard:
 
         # Data Path
         self.json_path = os.path.join(os.path.dirname(__file__), '..', 'training', 'training_progress.json')
+        self.training_dir = os.path.join(os.path.dirname(__file__), '..', 'training')
         self.last_update = 0
         self.is_running = True
 
@@ -124,12 +172,28 @@ class LiveDashboard:
         
         ttk.Label(self.frame_controls, text="Controls", style="Header.TLabel").pack(anchor="w", pady=5)
         
+        # Status Indicator
+        self.lbl_status = ttk.Label(self.frame_controls, text="Status: RUNNING", style="Header.TLabel", foreground="#00ff00")
+        self.lbl_status.pack(anchor="w", pady=2)
+
         btn_frame = ttk.Frame(self.frame_controls)
         btn_frame.pack(fill='x', pady=5)
         
-        ttk.Button(btn_frame, text="Pause").pack(side="left", padx=5)
-        ttk.Button(btn_frame, text="Resume").pack(side="left", padx=5)
-        ttk.Button(btn_frame, text="Export PNG").pack(side="left", padx=5)
+        self.btn_pause = ttk.Button(btn_frame, text="Pause", command=self.pause_training)
+        self.btn_pause.pack(side="left", padx=5)
+        Tooltip(self.btn_pause, "Pause training by creating a PAUSE signal file")
+
+        self.btn_resume = ttk.Button(btn_frame, text="Resume", command=self.resume_training)
+        self.btn_resume.pack(side="left", padx=5)
+        Tooltip(self.btn_resume, "Resume training by removing the PAUSE signal file")
+
+        self.btn_stop = ttk.Button(btn_frame, text="Stop", command=self.stop_training)
+        self.btn_stop.pack(side="left", padx=5)
+        Tooltip(self.btn_stop, "Stop training gracefully by creating a STOP signal file")
+
+        self.btn_export = ttk.Button(btn_frame, text="Export PNG", command=self.export_chart)
+        self.btn_export.pack(side="left", padx=5)
+        Tooltip(self.btn_export, "Save the current chart as a PNG image")
         
         ttk.Separator(self.frame_controls, orient='horizontal').pack(fill='x', pady=10)
         
@@ -162,7 +226,60 @@ class LiveDashboard:
             self.new_data_event = False
             self.refresh_dashboard()
         
+        # Check status files
+        pause_file = os.path.join(self.training_dir, 'PAUSE')
+        stop_file = os.path.join(self.training_dir, 'STOP')
+
+        if os.path.exists(stop_file):
+            self.lbl_status.config(text="Status: STOPPED", foreground="red")
+            self.btn_pause.state(['disabled'])
+            self.btn_resume.state(['disabled'])
+            self.btn_stop.state(['disabled'])
+        elif os.path.exists(pause_file):
+            self.lbl_status.config(text="Status: PAUSED", foreground="orange")
+            self.btn_pause.state(['disabled'])
+            self.btn_resume.state(['!disabled'])
+        else:
+            self.lbl_status.config(text="Status: RUNNING", foreground="#00ff00")
+            self.btn_pause.state(['!disabled'])
+            self.btn_resume.state(['disabled'])
+
         self.root.after(1000, self.update_gui)
+
+    def pause_training(self):
+        try:
+            with open(os.path.join(self.training_dir, 'PAUSE'), 'w') as f:
+                f.write('PAUSE')
+            self.log("Signal sent: PAUSE")
+        except Exception as e:
+            self.log(f"Error pausing: {e}")
+
+    def resume_training(self):
+        try:
+            p = os.path.join(self.training_dir, 'PAUSE')
+            if os.path.exists(p):
+                os.remove(p)
+            self.log("Signal sent: RESUME")
+        except Exception as e:
+            self.log(f"Error resuming: {e}")
+
+    def stop_training(self):
+        if messagebox.askyesno("Confirm Stop", "Are you sure you want to stop training?"):
+            try:
+                with open(os.path.join(self.training_dir, 'STOP'), 'w') as f:
+                    f.write('STOP')
+                self.log("Signal sent: STOP")
+            except Exception as e:
+                self.log(f"Error stopping: {e}")
+
+    def export_chart(self):
+        try:
+            filename = f"dashboard_export_{int(time.time())}.png"
+            self.fig_pnl.savefig(filename)
+            self.log(f"Chart exported to {filename}")
+            messagebox.showinfo("Export", f"Chart saved to {filename}")
+        except Exception as e:
+            self.log(f"Error exporting: {e}")
 
     def refresh_dashboard(self):
         d = self.data
