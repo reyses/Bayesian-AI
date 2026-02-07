@@ -59,7 +59,7 @@ class Tooltip:
         tw.wm_overrideredirect(True)
         tw.wm_geometry("+%d+%d" % (x, y))
         label = tk.Label(tw, text=self.text, justify='left',
-                       background="#3c3f41", foreground="white", relief='solid', borderwidth=1,
+                       background="#ffffe0", relief='solid', borderwidth=1,
                        font=("tahoma", "8", "normal"))
         label.pack(ipadx=1)
 
@@ -79,8 +79,11 @@ class LiveDashboard:
         # Data Path
         self.json_path = os.path.join(os.path.dirname(__file__), '..', 'training', 'training_progress.json')
         self.training_dir = os.path.join(os.path.dirname(__file__), '..', 'training')
+        self.pause_file = os.path.join(self.training_dir, 'PAUSE')
+        self.stop_file = os.path.join(self.training_dir, 'STOP')
         self.last_update = 0
         self.is_running = True
+        self.remote_status = "RUNNING"
 
         # Styles
         style = ttk.Style()
@@ -209,6 +212,7 @@ class LiveDashboard:
     def poll_data(self):
         while self.is_running:
             try:
+                # Poll JSON data
                 if os.path.exists(self.json_path):
                     mtime = os.path.getmtime(self.json_path)
                     if mtime > self.last_update:
@@ -216,6 +220,15 @@ class LiveDashboard:
                             self.data = json.load(f)
                         self.last_update = mtime
                         self.new_data_event = True
+
+                # Poll Status Files (avoid I/O in main thread)
+                if os.path.exists(self.stop_file):
+                    self.remote_status = "STOPPED"
+                elif os.path.exists(self.pause_file):
+                    self.remote_status = "PAUSED"
+                else:
+                    self.remote_status = "RUNNING"
+
             except Exception as e:
                 print(f"Polling error: {e}")
             
@@ -226,16 +239,13 @@ class LiveDashboard:
             self.new_data_event = False
             self.refresh_dashboard()
         
-        # Check status files
-        pause_file = os.path.join(self.training_dir, 'PAUSE')
-        stop_file = os.path.join(self.training_dir, 'STOP')
-
-        if os.path.exists(stop_file):
+        # Update Status Indicator
+        if self.remote_status == "STOPPED":
             self.lbl_status.config(text="Status: STOPPED", foreground="red")
             self.btn_pause.state(['disabled'])
             self.btn_resume.state(['disabled'])
             self.btn_stop.state(['disabled'])
-        elif os.path.exists(pause_file):
+        elif self.remote_status == "PAUSED":
             self.lbl_status.config(text="Status: PAUSED", foreground="orange")
             self.btn_pause.state(['disabled'])
             self.btn_resume.state(['!disabled'])
@@ -248,17 +258,16 @@ class LiveDashboard:
 
     def pause_training(self):
         try:
-            with open(os.path.join(self.training_dir, 'PAUSE'), 'w') as f:
+            with open(self.pause_file, 'w') as f:
                 f.write('PAUSE')
             self.log("Signal sent: PAUSE")
-        except (IOError, OSError) as e:
+        except Exception as e:
             self.log(f"Error pausing: {e}")
 
     def resume_training(self):
         try:
-            p = os.path.join(self.training_dir, 'PAUSE')
-            if os.path.exists(p):
-                os.remove(p)
+            if os.path.exists(self.pause_file):
+                os.remove(self.pause_file)
             self.log("Signal sent: RESUME")
         except Exception as e:
             self.log(f"Error resuming: {e}")
@@ -266,7 +275,7 @@ class LiveDashboard:
     def stop_training(self):
         if messagebox.askyesno("Confirm Stop", "Are you sure you want to stop training?"):
             try:
-                with open(os.path.join(self.training_dir, 'STOP'), 'w') as f:
+                with open(self.stop_file, 'w') as f:
                     f.write('STOP')
                 self.log("Signal sent: STOP")
             except Exception as e:
@@ -274,7 +283,7 @@ class LiveDashboard:
 
     def export_chart(self):
         try:
-            filename = os.path.join(self.training_dir, f"dashboard_export_{int(time.time())}.png")
+            filename = f"dashboard_export_{int(time.time())}.png"
             self.fig_pnl.savefig(filename)
             self.log(f"Chart exported to {filename}")
             messagebox.showinfo("Export", f"Chart saved to {filename}")
