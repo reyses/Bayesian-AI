@@ -34,6 +34,8 @@ To train the Bayesian probability model using real Databento data:
     # Copy your .dbn.zst files here
     cp /path/to/databento/downloads/*.dbn.zst data/raw/
     ```
+"Only one notebook should be created, unless User specifies that an additional is needed."
+
 
 2.  **Run Pipeline**:
 
