@@ -3055,3 +3055,1345 @@ AdaptBlockInfo(insts=((452, {'res': '$const452.0.2'}), (454, {'res': '$results45
 2026-02-06 16:14:49,632 | [DEBUG] | on stmt: $const462.3.4 = const(NoneType, None)
 2026-02-06 16:14:49,632 | [DEBUG] | on stmt: $464return_value.4 = cast(value=$const462.3.4)
 2026-02-06 16:14:49,632 | [DEBUG] | on stmt: return $464return_value.4
+2026-02-06 16:22:47,353 | [INFO] | STARTING 3-STAGE CUDA AUDIT
+2026-02-06 16:22:47,354 | [INFO] | [STAGE A] Handshake: Verifying GPU...
+2026-02-06 16:22:47,354 | [INFO] | Device found: NVIDIA GeForce RTX 3060
+2026-02-06 16:22:47,355 | [INFO] | RTX 3060 (or compatible NVIDIA GPU) recognized.
+2026-02-06 16:22:47,356 | [INFO] | [STAGE B] Injection: CPU-to-GPU deterministic verification...
+2026-02-06 16:22:47,357 | [INFO] | Loading data snippet from c:\Users\reyse\OneDrive\Desktop\Bayesian-AI\DATA\RAW\ohlcv-1s.parquet
+2026-02-06 16:22:47,659 | [DEBUG] | pending: deque([State(pc_initial=0 nstack_initial=0)])
+2026-02-06 16:22:47,659 | [DEBUG] | stack: []
+2026-02-06 16:22:47,660 | [DEBUG] | state.pc_initial: State(pc_initial=0 nstack_initial=0)
+2026-02-06 16:22:47,660 | [DEBUG] | dispatch pc=0, inst=NOP(arg=None, lineno=127)
+2026-02-06 16:22:47,660 | [DEBUG] | stack []
+2026-02-06 16:22:47,660 | [DEBUG] | dispatch pc=2, inst=RESUME(arg=0, lineno=127)
+2026-02-06 16:22:47,660 | [DEBUG] | stack []
+2026-02-06 16:22:47,660 | [DEBUG] | dispatch pc=4, inst=LOAD_GLOBAL(arg=1, lineno=129)
+2026-02-06 16:22:47,660 | [DEBUG] | stack []
+2026-02-06 16:22:47,661 | [DEBUG] | dispatch pc=16, inst=LOAD_ATTR(arg=1, lineno=129)
+2026-02-06 16:22:47,661 | [DEBUG] | stack ['$null$4.1', '$4load_global.0']
+2026-02-06 16:22:47,661 | [DEBUG] | dispatch pc=26, inst=LOAD_CONST(arg=1, lineno=129)
+2026-02-06 16:22:47,661 | [DEBUG] | stack ['$null$4.1', '$16load_attr.2']
+2026-02-06 16:22:47,661 | [DEBUG] | dispatch pc=28, inst=PRECALL(arg=1, lineno=129)
+2026-02-06 16:22:47,661 | [DEBUG] | stack ['$null$4.1', '$16load_attr.2', '$const26.3.1']
+2026-02-06 16:22:47,661 | [DEBUG] | dispatch pc=32, inst=CALL(arg=1, lineno=129)
+2026-02-06 16:22:47,661 | [DEBUG] | stack ['$null$4.1', '$16load_attr.2', '$const26.3.1']
+2026-02-06 16:22:47,661 | [DEBUG] | dispatch pc=42, inst=STORE_FAST(arg=3, lineno=129)
+2026-02-06 16:22:47,661 | [DEBUG] | stack ['$32call.4']
+2026-02-06 16:22:47,661 | [DEBUG] | dispatch pc=44, inst=LOAD_FAST(arg=3, lineno=130)
+2026-02-06 16:22:47,661 | [DEBUG] | stack []
+2026-02-06 16:22:47,661 | [DEBUG] | dispatch pc=46, inst=LOAD_FAST(arg=0, lineno=130)
+2026-02-06 16:22:47,661 | [DEBUG] | stack ['$i44.5']
+2026-02-06 16:22:47,661 | [DEBUG] | dispatch pc=48, inst=LOAD_ATTR(arg=2, lineno=130)
+2026-02-06 16:22:47,661 | [DEBUG] | stack ['$i44.5', '$input_arr46.6']
+2026-02-06 16:22:47,662 | [DEBUG] | dispatch pc=58, inst=COMPARE_OP(arg=0, lineno=130)
+2026-02-06 16:22:47,662 | [DEBUG] | stack ['$i44.5', '$48load_attr.7']
+2026-02-06 16:22:47,662 | [DEBUG] | dispatch pc=64, inst=POP_JUMP_FORWARD_IF_FALSE(arg=16, lineno=130)
+2026-02-06 16:22:47,662 | [DEBUG] | stack ['$58compare_op.8']
+2026-02-06 16:22:47,662 | [DEBUG] | end state. edges=[Edge(pc=66, stack=(), blockstack=(), npush=0), Edge(pc=98, stack=(), blockstack=(), npush=0)]
+2026-02-06 16:22:47,662 | [DEBUG] | pending: deque([State(pc_initial=66 nstack_initial=0), State(pc_initial=98 nstack_initial=0)])
+2026-02-06 16:22:47,662 | [DEBUG] | stack: []
+2026-02-06 16:22:47,662 | [DEBUG] | state.pc_initial: State(pc_initial=66 nstack_initial=0)
+2026-02-06 16:22:47,662 | [DEBUG] | dispatch pc=66, inst=LOAD_FAST(arg=0, lineno=131)
+2026-02-06 16:22:47,662 | [DEBUG] | stack []
+2026-02-06 16:22:47,662 | [DEBUG] | dispatch pc=68, inst=LOAD_FAST(arg=3, lineno=131)
+2026-02-06 16:22:47,662 | [DEBUG] | stack ['$input_arr66.0']
+2026-02-06 16:22:47,662 | [DEBUG] | dispatch pc=70, inst=BINARY_SUBSCR(arg=None, lineno=131)
+2026-02-06 16:22:47,662 | [DEBUG] | stack ['$input_arr66.0', '$i68.1']
+2026-02-06 16:22:47,662 | [DEBUG] | dispatch pc=80, inst=LOAD_FAST(arg=2, lineno=131)
+2026-02-06 16:22:47,662 | [DEBUG] | stack ['$70binary_subscr.2']
+2026-02-06 16:22:47,662 | [DEBUG] | dispatch pc=82, inst=BINARY_OP(arg=5, lineno=131)
+2026-02-06 16:22:47,662 | [DEBUG] | stack ['$70binary_subscr.2', '$factor80.3']
+2026-02-06 16:22:47,662 | [DEBUG] | dispatch pc=86, inst=LOAD_FAST(arg=1, lineno=131)
+2026-02-06 16:22:47,662 | [DEBUG] | stack ['$binop_mul82.4']
+2026-02-06 16:22:47,662 | [DEBUG] | dispatch pc=88, inst=LOAD_FAST(arg=3, lineno=131)
+2026-02-06 16:22:47,662 | [DEBUG] | stack ['$binop_mul82.4', '$output_arr86.5']
+2026-02-06 16:22:47,662 | [DEBUG] | dispatch pc=90, inst=STORE_SUBSCR(arg=None, lineno=131)
+2026-02-06 16:22:47,662 | [DEBUG] | stack ['$binop_mul82.4', '$output_arr86.5', '$i88.6']
+2026-02-06 16:22:47,662 | [DEBUG] | dispatch pc=94, inst=LOAD_CONST(arg=0, lineno=131)
+2026-02-06 16:22:47,662 | [DEBUG] | stack []
+2026-02-06 16:22:47,662 | [DEBUG] | dispatch pc=96, inst=RETURN_VALUE(arg=None, lineno=131)
+2026-02-06 16:22:47,663 | [DEBUG] | stack ['$const94.7.0']
+2026-02-06 16:22:47,663 | [DEBUG] | end state. edges=[]
+2026-02-06 16:22:47,663 | [DEBUG] | pending: deque([State(pc_initial=98 nstack_initial=0)])
+2026-02-06 16:22:47,663 | [DEBUG] | stack: []
+2026-02-06 16:22:47,663 | [DEBUG] | state.pc_initial: State(pc_initial=98 nstack_initial=0)
+2026-02-06 16:22:47,663 | [DEBUG] | dispatch pc=98, inst=LOAD_CONST(arg=0, lineno=130)
+2026-02-06 16:22:47,663 | [DEBUG] | stack []
+2026-02-06 16:22:47,663 | [DEBUG] | dispatch pc=100, inst=RETURN_VALUE(arg=None, lineno=130)
+2026-02-06 16:22:47,663 | [DEBUG] | stack ['$const98.0.0']
+2026-02-06 16:22:47,663 | [DEBUG] | end state. edges=[]
+2026-02-06 16:22:47,663 | [DEBUG] | -------------------------Prune PHIs-------------------------
+2026-02-06 16:22:47,663 | [DEBUG] | Used_phis: defaultdict(<class 'set'>,
+            {State(pc_initial=0 nstack_initial=0): set(),
+             State(pc_initial=66 nstack_initial=0): set(),
+             State(pc_initial=98 nstack_initial=0): set()})
+2026-02-06 16:22:47,663 | [DEBUG] | defmap: {}
+2026-02-06 16:22:47,663 | [DEBUG] | phismap: defaultdict(<class 'set'>, {})
+2026-02-06 16:22:47,663 | [DEBUG] | changing phismap: defaultdict(<class 'set'>, {})
+2026-02-06 16:22:47,663 | [DEBUG] | keep phismap: {}
+2026-02-06 16:22:47,663 | [DEBUG] | new_out: defaultdict(<class 'dict'>, {})
+2026-02-06 16:22:47,663 | [DEBUG] | ----------------------DONE Prune PHIs-----------------------
+2026-02-06 16:22:47,663 | [DEBUG] | block_infos State(pc_initial=0 nstack_initial=0):
+AdaptBlockInfo(insts=((0, {}), (2, {}), (4, {'idx': 0, 'res': '$4load_global.0'}), (6, {}), (8, {}), (10, {}), (12, {}), (14, {}), (16, {'item': '$4load_global.0', 'res': '$16load_attr.2'}), (18, {}), (20, {}), (22, {}), (24, {}), (26, {'res': '$const26.3.1'}), (28, {}), (30, {}), (32, {'func': '$16load_attr.2', 'args': ['$const26.3.1'], 'kw_names': None, 'res': '$32call.4'}), (34, {}), (36, {}), (38, {}), (40, {}), (42, {'value': '$32call.4'}), (44, {'res': '$i44.5'}), (46, {'res': '$input_arr46.6'}), (48, {'item': '$input_arr46.6', 'res': '$48load_attr.7'}), (50, {}), (52, {}), (54, {}), (56, {}), (58, {'lhs': '$i44.5', 'rhs': '$48load_attr.7', 'res': '$58compare_op.8'}), (60, {}), (62, {}), (64, {'pred': '$58compare_op.8'})), outgoing_phis={}, blockstack=(), active_try_block=None, outgoing_edgepushed={66: (), 98: ()})
+2026-02-06 16:22:47,663 | [DEBUG] | block_infos State(pc_initial=66 nstack_initial=0):
+AdaptBlockInfo(insts=((66, {'res': '$input_arr66.0'}), (68, {'res': '$i68.1'}), (70, {'index': '$i68.1', 'target': '$input_arr66.0', 'res': '$70binary_subscr.2'}), (72, {}), (74, {}), (76, {}), (78, {}), (80, {'res': '$factor80.3'}), (82, {'op': '*', 'lhs': '$70binary_subscr.2', 'rhs': '$factor80.3', 'res': '$binop_mul82.4'}), (84, {}), (86, {'res': '$output_arr86.5'}), (88, {'res': '$i88.6'}), (90, {'target': '$output_arr86.5', 'index': '$i88.6', 'value': '$binop_mul82.4'}), (92, {}), (94, {'res': '$const94.7.0'}), (96, {'retval': '$const94.7.0', 'castval': '$96return_value.8'})), outgoing_phis={}, blockstack=(), active_try_block=None, outgoing_edgepushed={})
+2026-02-06 16:22:47,663 | [DEBUG] | block_infos State(pc_initial=98 nstack_initial=0):
+AdaptBlockInfo(insts=((98, {'res': '$const98.0.0'}), (100, {'retval': '$const98.0.0', 'castval': '$100return_value.1'})), outgoing_phis={}, blockstack=(), active_try_block=None, outgoing_edgepushed={})
+2026-02-06 16:22:47,668 | [DEBUG] | ==== SSA block analysis pass on 0
+2026-02-06 16:22:47,669 | [DEBUG] | Running <numba.cuda.core.ssa._GatherDefsHandler object at 0x0000023B019EDC50>
+2026-02-06 16:22:47,669 | [DEBUG] | on stmt: input_arr = arg(0, name=input_arr)
+2026-02-06 16:22:47,669 | [DEBUG] | on stmt: output_arr = arg(1, name=output_arr)
+2026-02-06 16:22:47,669 | [DEBUG] | on stmt: factor = arg(2, name=factor)
+2026-02-06 16:22:47,669 | [DEBUG] | on stmt: $4load_global.0 = global(cuda: <module 'numba.cuda' from 'C:\\Users\\reyse\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python311\\site-packages\\numba_cuda\\numba\\cuda\\__init__.py'>)
+2026-02-06 16:22:47,669 | [DEBUG] | on stmt: $16load_attr.2 = getattr(value=$4load_global.0, attr=grid)
+2026-02-06 16:22:47,669 | [DEBUG] | on stmt: $const26.3.1 = const(int, 1)
+2026-02-06 16:22:47,669 | [DEBUG] | on stmt: i = call $16load_attr.2($const26.3.1, func=$16load_attr.2, args=[Var($const26.3.1, hardened_verification.py:129)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:22:47,669 | [DEBUG] | on stmt: $48load_attr.7 = getattr(value=input_arr, attr=size)
+2026-02-06 16:22:47,669 | [DEBUG] | on stmt: $58compare_op.8 = i < $48load_attr.7
+2026-02-06 16:22:47,669 | [DEBUG] | on stmt: $bool64 = global(bool: <class 'bool'>)
+2026-02-06 16:22:47,669 | [DEBUG] | on stmt: $64pred = call $bool64($58compare_op.8, func=$bool64, args=(Var($58compare_op.8, hardened_verification.py:130),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:22:47,669 | [DEBUG] | on stmt: branch $64pred, 66, 98
+2026-02-06 16:22:47,669 | [DEBUG] | ==== SSA block analysis pass on 66
+2026-02-06 16:22:47,669 | [DEBUG] | Running <numba.cuda.core.ssa._GatherDefsHandler object at 0x0000023B019EDC50>
+2026-02-06 16:22:47,669 | [DEBUG] | on stmt: $70binary_subscr.2 = getitem(value=input_arr, index=i, fn=<built-in function getitem>)
+2026-02-06 16:22:47,669 | [DEBUG] | on stmt: $binop_mul82.4 = $70binary_subscr.2 * factor
+2026-02-06 16:22:47,669 | [DEBUG] | on stmt: output_arr[i] = $binop_mul82.4
+2026-02-06 16:22:47,669 | [DEBUG] | on stmt: $const94.7.0 = const(NoneType, None)
+2026-02-06 16:22:47,669 | [DEBUG] | on stmt: $96return_value.8 = cast(value=$const94.7.0)
+2026-02-06 16:22:47,670 | [DEBUG] | on stmt: return $96return_value.8
+2026-02-06 16:22:47,670 | [DEBUG] | ==== SSA block analysis pass on 98
+2026-02-06 16:22:47,670 | [DEBUG] | Running <numba.cuda.core.ssa._GatherDefsHandler object at 0x0000023B019EDC50>
+2026-02-06 16:22:47,670 | [DEBUG] | on stmt: $const98.0.0 = const(NoneType, None)
+2026-02-06 16:22:47,670 | [DEBUG] | on stmt: $100return_value.1 = cast(value=$const98.0.0)
+2026-02-06 16:22:47,670 | [DEBUG] | on stmt: return $100return_value.1
+2026-02-06 16:22:47,670 | [DEBUG] | defs defaultdict(<class 'list'>,
+            {'$100return_value.1': [(<numba.cuda.core.ir.Assign object at 0x0000023B01C0F110>,
+                                     98)],
+             '$16load_attr.2': [(<numba.cuda.core.ir.Assign object at 0x0000023B01C0C610>,
+                                 0)],
+             '$48load_attr.7': [(<numba.cuda.core.ir.Assign object at 0x0000023B01C0D290>,
+                                 0)],
+             '$4load_global.0': [(<numba.cuda.core.ir.Assign object at 0x0000023B01C0C390>,
+                                  0)],
+             '$58compare_op.8': [(<numba.cuda.core.ir.Assign object at 0x0000023B01C0D5D0>,
+                                  0)],
+             '$64pred': [(<numba.cuda.core.ir.Assign object at 0x0000023B01C0D9D0>,
+                          0)],
+             '$70binary_subscr.2': [(<numba.cuda.core.ir.Assign object at 0x0000023B01C0DF10>,
+                                     66)],
+             '$96return_value.8': [(<numba.cuda.core.ir.Assign object at 0x0000023B01C0ECD0>,
+                                    66)],
+             '$binop_mul82.4': [(<numba.cuda.core.ir.Assign object at 0x0000023B01C0E410>,
+                                 66)],
+             '$bool64': [(<numba.cuda.core.ir.Assign object at 0x0000023B01C0D810>,
+                          0)],
+             '$const26.3.1': [(<numba.cuda.core.ir.Assign object at 0x0000023B01C0C890>,
+                               0)],
+             '$const94.7.0': [(<numba.cuda.core.ir.Assign object at 0x0000023B01C0EAD0>,
+                               66)],
+             '$const98.0.0': [(<numba.cuda.core.ir.Assign object at 0x0000023B01C0EE90>,
+                               98)],
+             'factor': [(<numba.cuda.core.ir.Assign object at 0x0000023B01C0C150>,
+                         0)],
+             'i': [(<numba.cuda.core.ir.Assign object at 0x0000023B01C0CAD0>,
+                    0)],
+             'input_arr': [(<numba.cuda.core.ir.Assign object at 0x0000023B01BFFD10>,
+                            0)],
+             'output_arr': [(<numba.cuda.core.ir.Assign object at 0x0000023B01C0C050>,
+                             0)]})
+2026-02-06 16:22:47,670 | [DEBUG] | SSA violators []
+2026-02-06 16:22:47,717 | [CRITICAL] | FAIL: Stage B Verification mismatch.
+2026-02-06 16:35:10,751 | [DEBUG] | handle_msg[f3e1481574444595aa81cbaf9ea361ee]({'header': {'date': datetime.datetime(2026, 2, 7, 0, 35, 10, 749000, tzinfo=tzutc()), 'msg_id': 'd7c91665-f163-4fdb-b83a-f27876a02cab', 'msg_type': 'comm_msg', 'session': '35555ee9-106e-41a4-9ed5-4ea90cc07f7f', 'username': '987eec15-e83a-4ef8-8f90-061abaadea60', 'version': '5.2'}, 'msg_id': 'd7c91665-f163-4fdb-b83a-f27876a02cab', 'msg_type': 'comm_msg', 'parent_header': {}, 'metadata': {}, 'content': {'comm_id': 'f3e1481574444595aa81cbaf9ea361ee', 'data': {'method': 'update', 'state': {'value': True}, 'buffer_paths': []}}, 'buffers': []})
+2026-02-06 16:35:13,556 | [DEBUG] | handle_msg[31770635dc874becaa4017e4258a7565]({'header': {'date': datetime.datetime(2026, 2, 7, 0, 35, 13, 554000, tzinfo=tzutc()), 'msg_id': '8e9182a6-9938-4096-ba6a-6403232fb45b', 'msg_type': 'comm_msg', 'session': '35555ee9-106e-41a4-9ed5-4ea90cc07f7f', 'username': '987eec15-e83a-4ef8-8f90-061abaadea60', 'version': '5.2'}, 'msg_id': '8e9182a6-9938-4096-ba6a-6403232fb45b', 'msg_type': 'comm_msg', 'parent_header': {}, 'metadata': {}, 'content': {'comm_id': '31770635dc874becaa4017e4258a7565', 'data': {'method': 'custom', 'content': {'event': 'click'}}}, 'buffers': []})
+2026-02-06 16:35:27,076 | [DEBUG] | pending: deque([State(pc_initial=0 nstack_initial=0)])
+2026-02-06 16:35:27,076 | [DEBUG] | stack: []
+2026-02-06 16:35:27,076 | [DEBUG] | state.pc_initial: State(pc_initial=0 nstack_initial=0)
+2026-02-06 16:35:27,076 | [DEBUG] | dispatch pc=0, inst=NOP(arg=None, lineno=16)
+2026-02-06 16:35:27,076 | [DEBUG] | stack []
+2026-02-06 16:35:27,076 | [DEBUG] | dispatch pc=2, inst=RESUME(arg=0, lineno=16)
+2026-02-06 16:35:27,076 | [DEBUG] | stack []
+2026-02-06 16:35:27,076 | [DEBUG] | dispatch pc=4, inst=LOAD_GLOBAL(arg=1, lineno=21)
+2026-02-06 16:35:27,076 | [DEBUG] | stack []
+2026-02-06 16:35:27,076 | [DEBUG] | dispatch pc=16, inst=LOAD_ATTR(arg=1, lineno=21)
+2026-02-06 16:35:27,076 | [DEBUG] | stack ['$null$4.1', '$4load_global.0']
+2026-02-06 16:35:27,076 | [DEBUG] | dispatch pc=26, inst=LOAD_CONST(arg=1, lineno=21)
+2026-02-06 16:35:27,076 | [DEBUG] | stack ['$null$4.1', '$16load_attr.2']
+2026-02-06 16:35:27,076 | [DEBUG] | dispatch pc=28, inst=PRECALL(arg=1, lineno=21)
+2026-02-06 16:35:27,076 | [DEBUG] | stack ['$null$4.1', '$16load_attr.2', '$const26.3.1']
+2026-02-06 16:35:27,076 | [DEBUG] | dispatch pc=32, inst=CALL(arg=1, lineno=21)
+2026-02-06 16:35:27,076 | [DEBUG] | stack ['$null$4.1', '$16load_attr.2', '$const26.3.1']
+2026-02-06 16:35:27,076 | [DEBUG] | dispatch pc=42, inst=STORE_FAST(arg=5, lineno=21)
+2026-02-06 16:35:27,076 | [DEBUG] | stack ['$32call.4']
+2026-02-06 16:35:27,076 | [DEBUG] | dispatch pc=44, inst=LOAD_FAST(arg=5, lineno=23)
+2026-02-06 16:35:27,076 | [DEBUG] | stack []
+2026-02-06 16:35:27,076 | [DEBUG] | dispatch pc=46, inst=LOAD_FAST(arg=0, lineno=23)
+2026-02-06 16:35:27,077 | [DEBUG] | stack ['$idx44.5']
+2026-02-06 16:35:27,077 | [DEBUG] | dispatch pc=48, inst=LOAD_ATTR(arg=2, lineno=23)
+2026-02-06 16:35:27,077 | [DEBUG] | stack ['$idx44.5', '$tick_prices46.6']
+2026-02-06 16:35:27,077 | [DEBUG] | dispatch pc=58, inst=LOAD_CONST(arg=2, lineno=23)
+2026-02-06 16:35:27,077 | [DEBUG] | stack ['$idx44.5', '$48load_attr.7']
+2026-02-06 16:35:27,077 | [DEBUG] | dispatch pc=60, inst=BINARY_SUBSCR(arg=None, lineno=23)
+2026-02-06 16:35:27,077 | [DEBUG] | stack ['$idx44.5', '$48load_attr.7', '$const58.8.2']
+2026-02-06 16:35:27,077 | [DEBUG] | dispatch pc=70, inst=LOAD_CONST(arg=3, lineno=23)
+2026-02-06 16:35:27,077 | [DEBUG] | stack ['$idx44.5', '$60binary_subscr.9']
+2026-02-06 16:35:27,077 | [DEBUG] | dispatch pc=72, inst=BINARY_OP(arg=10, lineno=23)
+2026-02-06 16:35:27,077 | [DEBUG] | stack ['$idx44.5', '$60binary_subscr.9', '$const70.10.3']
+2026-02-06 16:35:27,077 | [DEBUG] | dispatch pc=76, inst=COMPARE_OP(arg=5, lineno=23)
+2026-02-06 16:35:27,077 | [DEBUG] | stack ['$idx44.5', '$binop_sub72.11']
+2026-02-06 16:35:27,077 | [DEBUG] | dispatch pc=82, inst=POP_JUMP_FORWARD_IF_FALSE(arg=2, lineno=23)
+2026-02-06 16:35:27,077 | [DEBUG] | stack ['$76compare_op.12']
+2026-02-06 16:35:27,077 | [DEBUG] | end state. edges=[Edge(pc=84, stack=(), blockstack=(), npush=0), Edge(pc=88, stack=(), blockstack=(), npush=0)]
+2026-02-06 16:35:27,077 | [DEBUG] | pending: deque([State(pc_initial=84 nstack_initial=0), State(pc_initial=88 nstack_initial=0)])
+2026-02-06 16:35:27,077 | [DEBUG] | stack: []
+2026-02-06 16:35:27,077 | [DEBUG] | state.pc_initial: State(pc_initial=84 nstack_initial=0)
+2026-02-06 16:35:27,077 | [DEBUG] | dispatch pc=84, inst=LOAD_CONST(arg=4, lineno=24)
+2026-02-06 16:35:27,077 | [DEBUG] | stack []
+2026-02-06 16:35:27,077 | [DEBUG] | dispatch pc=86, inst=RETURN_VALUE(arg=None, lineno=24)
+2026-02-06 16:35:27,077 | [DEBUG] | stack ['$const84.0.4']
+2026-02-06 16:35:27,077 | [DEBUG] | end state. edges=[]
+2026-02-06 16:35:27,077 | [DEBUG] | pending: deque([State(pc_initial=88 nstack_initial=0)])
+2026-02-06 16:35:27,077 | [DEBUG] | stack: []
+2026-02-06 16:35:27,077 | [DEBUG] | state.pc_initial: State(pc_initial=88 nstack_initial=0)
+2026-02-06 16:35:27,078 | [DEBUG] | dispatch pc=88, inst=LOAD_GLOBAL(arg=7, lineno=27)
+2026-02-06 16:35:27,078 | [DEBUG] | stack []
+2026-02-06 16:35:27,078 | [DEBUG] | dispatch pc=100, inst=LOAD_CONST(arg=2, lineno=27)
+2026-02-06 16:35:27,078 | [DEBUG] | stack ['$null$88.1', '$88load_global.0']
+2026-02-06 16:35:27,078 | [DEBUG] | dispatch pc=102, inst=LOAD_FAST(arg=5, lineno=27)
+2026-02-06 16:35:27,078 | [DEBUG] | stack ['$null$88.1', '$88load_global.0', '$const100.2.2']
+2026-02-06 16:35:27,078 | [DEBUG] | dispatch pc=104, inst=PRECALL(arg=2, lineno=27)
+2026-02-06 16:35:27,078 | [DEBUG] | stack ['$null$88.1', '$88load_global.0', '$const100.2.2', '$idx102.3']
+2026-02-06 16:35:27,078 | [DEBUG] | dispatch pc=108, inst=CALL(arg=2, lineno=27)
+2026-02-06 16:35:27,078 | [DEBUG] | stack ['$null$88.1', '$88load_global.0', '$const100.2.2', '$idx102.3']
+2026-02-06 16:35:27,078 | [DEBUG] | dispatch pc=118, inst=STORE_FAST(arg=6, lineno=27)
+2026-02-06 16:35:27,078 | [DEBUG] | stack ['$108call.4']
+2026-02-06 16:35:27,078 | [DEBUG] | dispatch pc=120, inst=LOAD_GLOBAL(arg=9, lineno=28)
+2026-02-06 16:35:27,078 | [DEBUG] | stack []
+2026-02-06 16:35:27,078 | [DEBUG] | dispatch pc=132, inst=LOAD_FAST(arg=0, lineno=28)
+2026-02-06 16:35:27,078 | [DEBUG] | stack ['$null$120.6', '$120load_global.5']
+2026-02-06 16:35:27,078 | [DEBUG] | dispatch pc=134, inst=LOAD_ATTR(arg=2, lineno=28)
+2026-02-06 16:35:27,078 | [DEBUG] | stack ['$null$120.6', '$120load_global.5', '$tick_prices132.7']
+2026-02-06 16:35:27,078 | [DEBUG] | dispatch pc=144, inst=LOAD_CONST(arg=2, lineno=28)
+2026-02-06 16:35:27,078 | [DEBUG] | stack ['$null$120.6', '$120load_global.5', '$134load_attr.8']
+2026-02-06 16:35:27,078 | [DEBUG] | dispatch pc=146, inst=BINARY_SUBSCR(arg=None, lineno=28)
+2026-02-06 16:35:27,078 | [DEBUG] | stack ['$null$120.6', '$120load_global.5', '$134load_attr.8', '$const144.9.2']
+2026-02-06 16:35:27,078 | [DEBUG] | dispatch pc=156, inst=LOAD_FAST(arg=5, lineno=28)
+2026-02-06 16:35:27,078 | [DEBUG] | stack ['$null$120.6', '$120load_global.5', '$146binary_subscr.10']
+2026-02-06 16:35:27,078 | [DEBUG] | dispatch pc=158, inst=LOAD_CONST(arg=3, lineno=28)
+2026-02-06 16:35:27,078 | [DEBUG] | stack ['$null$120.6', '$120load_global.5', '$146binary_subscr.10', '$idx156.11']
+2026-02-06 16:35:27,078 | [DEBUG] | dispatch pc=160, inst=BINARY_OP(arg=0, lineno=28)
+2026-02-06 16:35:27,078 | [DEBUG] | stack ['$null$120.6', '$120load_global.5', '$146binary_subscr.10', '$idx156.11', '$const158.12.3']
+2026-02-06 16:35:27,078 | [DEBUG] | dispatch pc=164, inst=PRECALL(arg=2, lineno=28)
+2026-02-06 16:35:27,079 | [DEBUG] | stack ['$null$120.6', '$120load_global.5', '$146binary_subscr.10', '$binop_add160.13']
+2026-02-06 16:35:27,079 | [DEBUG] | dispatch pc=168, inst=CALL(arg=2, lineno=28)
+2026-02-06 16:35:27,079 | [DEBUG] | stack ['$null$120.6', '$120load_global.5', '$146binary_subscr.10', '$binop_add160.13']
+2026-02-06 16:35:27,079 | [DEBUG] | dispatch pc=178, inst=STORE_FAST(arg=7, lineno=28)
+2026-02-06 16:35:27,079 | [DEBUG] | stack ['$168call.14']
+2026-02-06 16:35:27,079 | [DEBUG] | dispatch pc=180, inst=LOAD_FAST(arg=0, lineno=30)
+2026-02-06 16:35:27,079 | [DEBUG] | stack []
+2026-02-06 16:35:27,079 | [DEBUG] | dispatch pc=182, inst=LOAD_FAST(arg=6, lineno=30)
+2026-02-06 16:35:27,079 | [DEBUG] | stack ['$tick_prices180.15']
+2026-02-06 16:35:27,079 | [DEBUG] | dispatch pc=184, inst=BINARY_SUBSCR(arg=None, lineno=30)
+2026-02-06 16:35:27,079 | [DEBUG] | stack ['$tick_prices180.15', '$window_start182.16']
+2026-02-06 16:35:27,079 | [DEBUG] | dispatch pc=194, inst=STORE_FAST(arg=8, lineno=30)
+2026-02-06 16:35:27,079 | [DEBUG] | stack ['$184binary_subscr.17']
+2026-02-06 16:35:27,079 | [DEBUG] | dispatch pc=196, inst=LOAD_FAST(arg=0, lineno=31)
+2026-02-06 16:35:27,079 | [DEBUG] | stack []
+2026-02-06 16:35:27,079 | [DEBUG] | dispatch pc=198, inst=LOAD_FAST(arg=6, lineno=31)
+2026-02-06 16:35:27,079 | [DEBUG] | stack ['$tick_prices196.18']
+2026-02-06 16:35:27,079 | [DEBUG] | dispatch pc=200, inst=BINARY_SUBSCR(arg=None, lineno=31)
+2026-02-06 16:35:27,079 | [DEBUG] | stack ['$tick_prices196.18', '$window_start198.19']
+2026-02-06 16:35:27,079 | [DEBUG] | dispatch pc=210, inst=STORE_FAST(arg=9, lineno=31)
+2026-02-06 16:35:27,079 | [DEBUG] | stack ['$200binary_subscr.20']
+2026-02-06 16:35:27,079 | [DEBUG] | dispatch pc=212, inst=LOAD_FAST(arg=1, lineno=32)
+2026-02-06 16:35:27,079 | [DEBUG] | stack []
+2026-02-06 16:35:27,079 | [DEBUG] | dispatch pc=214, inst=LOAD_FAST(arg=6, lineno=32)
+2026-02-06 16:35:27,079 | [DEBUG] | stack ['$tick_times212.21']
+2026-02-06 16:35:27,079 | [DEBUG] | dispatch pc=216, inst=BINARY_SUBSCR(arg=None, lineno=32)
+2026-02-06 16:35:27,079 | [DEBUG] | stack ['$tick_times212.21', '$window_start214.22']
+2026-02-06 16:35:27,079 | [DEBUG] | dispatch pc=226, inst=STORE_FAST(arg=10, lineno=32)
+2026-02-06 16:35:27,079 | [DEBUG] | stack ['$216binary_subscr.23']
+2026-02-06 16:35:27,079 | [DEBUG] | dispatch pc=228, inst=LOAD_FAST(arg=1, lineno=33)
+2026-02-06 16:35:27,080 | [DEBUG] | stack []
+2026-02-06 16:35:27,080 | [DEBUG] | dispatch pc=230, inst=LOAD_FAST(arg=7, lineno=33)
+2026-02-06 16:35:27,080 | [DEBUG] | stack ['$tick_times228.24']
+2026-02-06 16:35:27,080 | [DEBUG] | dispatch pc=232, inst=LOAD_CONST(arg=1, lineno=33)
+2026-02-06 16:35:27,080 | [DEBUG] | stack ['$tick_times228.24', '$window_end230.25']
+2026-02-06 16:35:27,080 | [DEBUG] | dispatch pc=234, inst=BINARY_OP(arg=10, lineno=33)
+2026-02-06 16:35:27,080 | [DEBUG] | stack ['$tick_times228.24', '$window_end230.25', '$const232.26.1']
+2026-02-06 16:35:27,080 | [DEBUG] | dispatch pc=238, inst=BINARY_SUBSCR(arg=None, lineno=33)
+2026-02-06 16:35:27,080 | [DEBUG] | stack ['$tick_times228.24', '$binop_sub234.27']
+2026-02-06 16:35:27,080 | [DEBUG] | dispatch pc=248, inst=STORE_FAST(arg=11, lineno=33)
+2026-02-06 16:35:27,080 | [DEBUG] | stack ['$238binary_subscr.28']
+2026-02-06 16:35:27,080 | [DEBUG] | dispatch pc=250, inst=LOAD_GLOBAL(arg=11, lineno=36)
+2026-02-06 16:35:27,080 | [DEBUG] | stack []
+2026-02-06 16:35:27,080 | [DEBUG] | dispatch pc=262, inst=LOAD_FAST(arg=6, lineno=36)
+2026-02-06 16:35:27,080 | [DEBUG] | stack ['$null$250.30', '$250load_global.29']
+2026-02-06 16:35:27,080 | [DEBUG] | dispatch pc=264, inst=LOAD_FAST(arg=7, lineno=36)
+2026-02-06 16:35:27,080 | [DEBUG] | stack ['$null$250.30', '$250load_global.29', '$window_start262.31']
+2026-02-06 16:35:27,080 | [DEBUG] | dispatch pc=266, inst=PRECALL(arg=2, lineno=36)
+2026-02-06 16:35:27,080 | [DEBUG] | stack ['$null$250.30', '$250load_global.29', '$window_start262.31', '$window_end264.32']
+2026-02-06 16:35:27,080 | [DEBUG] | dispatch pc=270, inst=CALL(arg=2, lineno=36)
+2026-02-06 16:35:27,080 | [DEBUG] | stack ['$null$250.30', '$250load_global.29', '$window_start262.31', '$window_end264.32']
+2026-02-06 16:35:27,080 | [DEBUG] | dispatch pc=280, inst=GET_ITER(arg=None, lineno=36)
+2026-02-06 16:35:27,080 | [DEBUG] | stack ['$270call.33']
+2026-02-06 16:35:27,080 | [DEBUG] | end state. edges=[Edge(pc=282, stack=('$280get_iter.34',), blockstack=(), npush=0)]
+2026-02-06 16:35:27,080 | [DEBUG] | pending: deque([State(pc_initial=282 nstack_initial=1)])
+2026-02-06 16:35:27,080 | [DEBUG] | stack: ['$phi282.0']
+2026-02-06 16:35:27,080 | [DEBUG] | state.pc_initial: State(pc_initial=282 nstack_initial=1)
+2026-02-06 16:35:27,080 | [DEBUG] | dispatch pc=282, inst=FOR_ITER(arg=42, lineno=36)
+2026-02-06 16:35:27,080 | [DEBUG] | stack ['$phi282.0']
+2026-02-06 16:35:27,081 | [DEBUG] | end state. edges=[Edge(pc=368, stack=(), blockstack=(), npush=0), Edge(pc=284, stack=('$phi282.0', '$282for_iter.2'), blockstack=(), npush=0)]
+2026-02-06 16:35:27,081 | [DEBUG] | pending: deque([State(pc_initial=368 nstack_initial=0), State(pc_initial=284 nstack_initial=2)])
+2026-02-06 16:35:27,081 | [DEBUG] | stack: []
+2026-02-06 16:35:27,081 | [DEBUG] | state.pc_initial: State(pc_initial=368 nstack_initial=0)
+2026-02-06 16:35:27,081 | [DEBUG] | dispatch pc=368, inst=LOAD_GLOBAL(arg=13, lineno=43)
+2026-02-06 16:35:27,081 | [DEBUG] | stack []
+2026-02-06 16:35:27,081 | [DEBUG] | dispatch pc=380, inst=LOAD_FAST(arg=8, lineno=43)
+2026-02-06 16:35:27,081 | [DEBUG] | stack ['$null$368.1', '$368load_global.0']
+2026-02-06 16:35:27,081 | [DEBUG] | dispatch pc=382, inst=LOAD_FAST(arg=9, lineno=43)
+2026-02-06 16:35:27,081 | [DEBUG] | stack ['$null$368.1', '$368load_global.0', '$max_price380.2']
+2026-02-06 16:35:27,081 | [DEBUG] | dispatch pc=384, inst=BINARY_OP(arg=10, lineno=43)
+2026-02-06 16:35:27,081 | [DEBUG] | stack ['$null$368.1', '$368load_global.0', '$max_price380.2', '$min_price382.3']
+2026-02-06 16:35:27,081 | [DEBUG] | dispatch pc=388, inst=PRECALL(arg=1, lineno=43)
+2026-02-06 16:35:27,081 | [DEBUG] | stack ['$null$368.1', '$368load_global.0', '$binop_sub384.4']
+2026-02-06 16:35:27,081 | [DEBUG] | dispatch pc=392, inst=CALL(arg=1, lineno=43)
+2026-02-06 16:35:27,081 | [DEBUG] | stack ['$null$368.1', '$368load_global.0', '$binop_sub384.4']
+2026-02-06 16:35:27,081 | [DEBUG] | dispatch pc=402, inst=STORE_FAST(arg=13, lineno=43)
+2026-02-06 16:35:27,081 | [DEBUG] | stack ['$392call.5']
+2026-02-06 16:35:27,081 | [DEBUG] | dispatch pc=404, inst=LOAD_FAST(arg=11, lineno=44)
+2026-02-06 16:35:27,081 | [DEBUG] | stack []
+2026-02-06 16:35:27,081 | [DEBUG] | dispatch pc=406, inst=LOAD_FAST(arg=10, lineno=44)
+2026-02-06 16:35:27,081 | [DEBUG] | stack ['$end_time404.6']
+2026-02-06 16:35:27,081 | [DEBUG] | dispatch pc=408, inst=BINARY_OP(arg=10, lineno=44)
+2026-02-06 16:35:27,081 | [DEBUG] | stack ['$end_time404.6', '$start_time406.7']
+2026-02-06 16:35:27,081 | [DEBUG] | dispatch pc=412, inst=STORE_FAST(arg=14, lineno=44)
+2026-02-06 16:35:27,081 | [DEBUG] | stack ['$binop_sub408.8']
+2026-02-06 16:35:27,081 | [DEBUG] | dispatch pc=414, inst=LOAD_FAST(arg=13, lineno=47)
+2026-02-06 16:35:27,081 | [DEBUG] | stack []
+2026-02-06 16:35:27,081 | [DEBUG] | dispatch pc=416, inst=LOAD_FAST(arg=2, lineno=47)
+2026-02-06 16:35:27,081 | [DEBUG] | stack ['$price_move414.9']
+2026-02-06 16:35:27,082 | [DEBUG] | dispatch pc=418, inst=COMPARE_OP(arg=5, lineno=47)
+2026-02-06 16:35:27,082 | [DEBUG] | stack ['$price_move414.9', '$cascade_threshold416.10']
+2026-02-06 16:35:27,082 | [DEBUG] | dispatch pc=424, inst=POP_JUMP_FORWARD_IF_FALSE(arg=13, lineno=47)
+2026-02-06 16:35:27,082 | [DEBUG] | stack ['$418compare_op.11']
+2026-02-06 16:35:27,082 | [DEBUG] | end state. edges=[Edge(pc=426, stack=(), blockstack=(), npush=0), Edge(pc=452, stack=(), blockstack=(), npush=0)]
+2026-02-06 16:35:27,082 | [DEBUG] | pending: deque([State(pc_initial=284 nstack_initial=2), State(pc_initial=426 nstack_initial=0), State(pc_initial=452 nstack_initial=0)])
+2026-02-06 16:35:27,082 | [DEBUG] | stack: ['$phi284.0', '$phi284.1']
+2026-02-06 16:35:27,082 | [DEBUG] | state.pc_initial: State(pc_initial=284 nstack_initial=2)
+2026-02-06 16:35:27,082 | [DEBUG] | dispatch pc=284, inst=STORE_FAST(arg=12, lineno=36)
+2026-02-06 16:35:27,082 | [DEBUG] | stack ['$phi284.0', '$phi284.1']
+2026-02-06 16:35:27,082 | [DEBUG] | dispatch pc=286, inst=LOAD_FAST(arg=0, lineno=37)
+2026-02-06 16:35:27,082 | [DEBUG] | stack ['$phi284.0']
+2026-02-06 16:35:27,082 | [DEBUG] | dispatch pc=288, inst=LOAD_FAST(arg=12, lineno=37)
+2026-02-06 16:35:27,082 | [DEBUG] | stack ['$phi284.0', '$tick_prices286.2']
+2026-02-06 16:35:27,082 | [DEBUG] | dispatch pc=290, inst=BINARY_SUBSCR(arg=None, lineno=37)
+2026-02-06 16:35:27,082 | [DEBUG] | stack ['$phi284.0', '$tick_prices286.2', '$i288.3']
+2026-02-06 16:35:27,082 | [DEBUG] | dispatch pc=300, inst=LOAD_FAST(arg=8, lineno=37)
+2026-02-06 16:35:27,082 | [DEBUG] | stack ['$phi284.0', '$290binary_subscr.4']
+2026-02-06 16:35:27,082 | [DEBUG] | dispatch pc=302, inst=COMPARE_OP(arg=4, lineno=37)
+2026-02-06 16:35:27,082 | [DEBUG] | stack ['$phi284.0', '$290binary_subscr.4', '$max_price300.5']
+2026-02-06 16:35:27,082 | [DEBUG] | dispatch pc=308, inst=POP_JUMP_FORWARD_IF_FALSE(arg=8, lineno=37)
+2026-02-06 16:35:27,082 | [DEBUG] | stack ['$phi284.0', '$302compare_op.6']
+2026-02-06 16:35:27,082 | [DEBUG] | end state. edges=[Edge(pc=310, stack=('$phi284.0',), blockstack=(), npush=0), Edge(pc=326, stack=('$phi284.0',), blockstack=(), npush=0)]
+2026-02-06 16:35:27,082 | [DEBUG] | pending: deque([State(pc_initial=426 nstack_initial=0), State(pc_initial=452 nstack_initial=0), State(pc_initial=310 nstack_initial=1), State(pc_initial=326 nstack_initial=1)])
+2026-02-06 16:35:27,082 | [DEBUG] | stack: []
+2026-02-06 16:35:27,082 | [DEBUG] | state.pc_initial: State(pc_initial=426 nstack_initial=0)
+2026-02-06 16:35:27,082 | [DEBUG] | dispatch pc=426, inst=LOAD_FAST(arg=14, lineno=47)
+2026-02-06 16:35:27,082 | [DEBUG] | stack []
+2026-02-06 16:35:27,082 | [DEBUG] | dispatch pc=428, inst=LOAD_FAST(arg=3, lineno=47)
+2026-02-06 16:35:27,082 | [DEBUG] | stack ['$time_elapsed426.0']
+2026-02-06 16:35:27,083 | [DEBUG] | dispatch pc=430, inst=COMPARE_OP(arg=1, lineno=47)
+2026-02-06 16:35:27,083 | [DEBUG] | stack ['$time_elapsed426.0', '$time_window428.1']
+2026-02-06 16:35:27,083 | [DEBUG] | dispatch pc=436, inst=POP_JUMP_FORWARD_IF_FALSE(arg=7, lineno=47)
+2026-02-06 16:35:27,083 | [DEBUG] | stack ['$430compare_op.2']
+2026-02-06 16:35:27,083 | [DEBUG] | end state. edges=[Edge(pc=438, stack=(), blockstack=(), npush=0), Edge(pc=452, stack=(), blockstack=(), npush=0)]
+2026-02-06 16:35:27,083 | [DEBUG] | pending: deque([State(pc_initial=452 nstack_initial=0), State(pc_initial=310 nstack_initial=1), State(pc_initial=326 nstack_initial=1), State(pc_initial=438 nstack_initial=0), State(pc_initial=452 nstack_initial=0)])
+2026-02-06 16:35:27,083 | [DEBUG] | stack: []
+2026-02-06 16:35:27,083 | [DEBUG] | state.pc_initial: State(pc_initial=452 nstack_initial=0)
+2026-02-06 16:35:27,083 | [DEBUG] | dispatch pc=452, inst=LOAD_CONST(arg=2, lineno=50)
+2026-02-06 16:35:27,083 | [DEBUG] | stack []
+2026-02-06 16:35:27,083 | [DEBUG] | dispatch pc=454, inst=LOAD_FAST(arg=4, lineno=50)
+2026-02-06 16:35:27,083 | [DEBUG] | stack ['$const452.0.2']
+2026-02-06 16:35:27,083 | [DEBUG] | dispatch pc=456, inst=LOAD_FAST(arg=5, lineno=50)
+2026-02-06 16:35:27,083 | [DEBUG] | stack ['$const452.0.2', '$results454.1']
+2026-02-06 16:35:27,083 | [DEBUG] | dispatch pc=458, inst=STORE_SUBSCR(arg=None, lineno=50)
+2026-02-06 16:35:27,083 | [DEBUG] | stack ['$const452.0.2', '$results454.1', '$idx456.2']
+2026-02-06 16:35:27,083 | [DEBUG] | dispatch pc=462, inst=LOAD_CONST(arg=4, lineno=50)
+2026-02-06 16:35:27,083 | [DEBUG] | stack []
+2026-02-06 16:35:27,083 | [DEBUG] | dispatch pc=464, inst=RETURN_VALUE(arg=None, lineno=50)
+2026-02-06 16:35:27,083 | [DEBUG] | stack ['$const462.3.4']
+2026-02-06 16:35:27,083 | [DEBUG] | end state. edges=[]
+2026-02-06 16:35:27,083 | [DEBUG] | pending: deque([State(pc_initial=310 nstack_initial=1), State(pc_initial=326 nstack_initial=1), State(pc_initial=438 nstack_initial=0), State(pc_initial=452 nstack_initial=0)])
+2026-02-06 16:35:27,083 | [DEBUG] | stack: ['$phi310.0']
+2026-02-06 16:35:27,083 | [DEBUG] | state.pc_initial: State(pc_initial=310 nstack_initial=1)
+2026-02-06 16:35:27,083 | [DEBUG] | dispatch pc=310, inst=LOAD_FAST(arg=0, lineno=38)
+2026-02-06 16:35:27,083 | [DEBUG] | stack ['$phi310.0']
+2026-02-06 16:35:27,083 | [DEBUG] | dispatch pc=312, inst=LOAD_FAST(arg=12, lineno=38)
+2026-02-06 16:35:27,083 | [DEBUG] | stack ['$phi310.0', '$tick_prices310.1']
+2026-02-06 16:35:27,083 | [DEBUG] | dispatch pc=314, inst=BINARY_SUBSCR(arg=None, lineno=38)
+2026-02-06 16:35:27,083 | [DEBUG] | stack ['$phi310.0', '$tick_prices310.1', '$i312.2']
+2026-02-06 16:35:27,083 | [DEBUG] | dispatch pc=324, inst=STORE_FAST(arg=8, lineno=38)
+2026-02-06 16:35:27,084 | [DEBUG] | stack ['$phi310.0', '$314binary_subscr.3']
+2026-02-06 16:35:27,084 | [DEBUG] | end state. edges=[Edge(pc=326, stack=('$phi310.0',), blockstack=(), npush=0)]
+2026-02-06 16:35:27,084 | [DEBUG] | pending: deque([State(pc_initial=326 nstack_initial=1), State(pc_initial=438 nstack_initial=0), State(pc_initial=452 nstack_initial=0), State(pc_initial=326 nstack_initial=1)])
+2026-02-06 16:35:27,084 | [DEBUG] | stack: ['$phi326.0']
+2026-02-06 16:35:27,084 | [DEBUG] | state.pc_initial: State(pc_initial=326 nstack_initial=1)
+2026-02-06 16:35:27,084 | [DEBUG] | dispatch pc=326, inst=LOAD_FAST(arg=0, lineno=39)
+2026-02-06 16:35:27,084 | [DEBUG] | stack ['$phi326.0']
+2026-02-06 16:35:27,084 | [DEBUG] | dispatch pc=328, inst=LOAD_FAST(arg=12, lineno=39)
+2026-02-06 16:35:27,084 | [DEBUG] | stack ['$phi326.0', '$tick_prices326.1']
+2026-02-06 16:35:27,084 | [DEBUG] | dispatch pc=330, inst=BINARY_SUBSCR(arg=None, lineno=39)
+2026-02-06 16:35:27,084 | [DEBUG] | stack ['$phi326.0', '$tick_prices326.1', '$i328.2']
+2026-02-06 16:35:27,084 | [DEBUG] | dispatch pc=340, inst=LOAD_FAST(arg=9, lineno=39)
+2026-02-06 16:35:27,084 | [DEBUG] | stack ['$phi326.0', '$330binary_subscr.3']
+2026-02-06 16:35:27,084 | [DEBUG] | dispatch pc=342, inst=COMPARE_OP(arg=0, lineno=39)
+2026-02-06 16:35:27,084 | [DEBUG] | stack ['$phi326.0', '$330binary_subscr.3', '$min_price340.4']
+2026-02-06 16:35:27,084 | [DEBUG] | dispatch pc=348, inst=POP_JUMP_FORWARD_IF_FALSE(arg=8, lineno=39)
+2026-02-06 16:35:27,084 | [DEBUG] | stack ['$phi326.0', '$342compare_op.5']
+2026-02-06 16:35:27,084 | [DEBUG] | end state. edges=[Edge(pc=350, stack=('$phi326.0',), blockstack=(), npush=0), Edge(pc=366, stack=('$phi326.0',), blockstack=(), npush=0)]
+2026-02-06 16:35:27,084 | [DEBUG] | pending: deque([State(pc_initial=438 nstack_initial=0), State(pc_initial=452 nstack_initial=0), State(pc_initial=326 nstack_initial=1), State(pc_initial=350 nstack_initial=1), State(pc_initial=366 nstack_initial=1)])
+2026-02-06 16:35:27,084 | [DEBUG] | stack: []
+2026-02-06 16:35:27,084 | [DEBUG] | state.pc_initial: State(pc_initial=438 nstack_initial=0)
+2026-02-06 16:35:27,084 | [DEBUG] | dispatch pc=438, inst=LOAD_CONST(arg=1, lineno=48)
+2026-02-06 16:35:27,084 | [DEBUG] | stack []
+2026-02-06 16:35:27,084 | [DEBUG] | dispatch pc=440, inst=LOAD_FAST(arg=4, lineno=48)
+2026-02-06 16:35:27,084 | [DEBUG] | stack ['$const438.0.1']
+2026-02-06 16:35:27,084 | [DEBUG] | dispatch pc=442, inst=LOAD_FAST(arg=5, lineno=48)
+2026-02-06 16:35:27,084 | [DEBUG] | stack ['$const438.0.1', '$results440.1']
+2026-02-06 16:35:27,084 | [DEBUG] | dispatch pc=444, inst=STORE_SUBSCR(arg=None, lineno=48)
+2026-02-06 16:35:27,084 | [DEBUG] | stack ['$const438.0.1', '$results440.1', '$idx442.2']
+2026-02-06 16:35:27,085 | [DEBUG] | dispatch pc=448, inst=LOAD_CONST(arg=4, lineno=48)
+2026-02-06 16:35:27,085 | [DEBUG] | stack []
+2026-02-06 16:35:27,085 | [DEBUG] | dispatch pc=450, inst=RETURN_VALUE(arg=None, lineno=48)
+2026-02-06 16:35:27,085 | [DEBUG] | stack ['$const448.3.4']
+2026-02-06 16:35:27,085 | [DEBUG] | end state. edges=[]
+2026-02-06 16:35:27,085 | [DEBUG] | pending: deque([State(pc_initial=452 nstack_initial=0), State(pc_initial=326 nstack_initial=1), State(pc_initial=350 nstack_initial=1), State(pc_initial=366 nstack_initial=1)])
+2026-02-06 16:35:27,085 | [DEBUG] | pending: deque([State(pc_initial=326 nstack_initial=1), State(pc_initial=350 nstack_initial=1), State(pc_initial=366 nstack_initial=1)])
+2026-02-06 16:35:27,085 | [DEBUG] | pending: deque([State(pc_initial=350 nstack_initial=1), State(pc_initial=366 nstack_initial=1)])
+2026-02-06 16:35:27,085 | [DEBUG] | stack: ['$phi350.0']
+2026-02-06 16:35:27,085 | [DEBUG] | state.pc_initial: State(pc_initial=350 nstack_initial=1)
+2026-02-06 16:35:27,085 | [DEBUG] | dispatch pc=350, inst=LOAD_FAST(arg=0, lineno=40)
+2026-02-06 16:35:27,085 | [DEBUG] | stack ['$phi350.0']
+2026-02-06 16:35:27,085 | [DEBUG] | dispatch pc=352, inst=LOAD_FAST(arg=12, lineno=40)
+2026-02-06 16:35:27,085 | [DEBUG] | stack ['$phi350.0', '$tick_prices350.1']
+2026-02-06 16:35:27,085 | [DEBUG] | dispatch pc=354, inst=BINARY_SUBSCR(arg=None, lineno=40)
+2026-02-06 16:35:27,085 | [DEBUG] | stack ['$phi350.0', '$tick_prices350.1', '$i352.2']
+2026-02-06 16:35:27,085 | [DEBUG] | dispatch pc=364, inst=STORE_FAST(arg=9, lineno=40)
+2026-02-06 16:35:27,085 | [DEBUG] | stack ['$phi350.0', '$354binary_subscr.3']
+2026-02-06 16:35:27,085 | [DEBUG] | end state. edges=[Edge(pc=366, stack=('$phi350.0',), blockstack=(), npush=0)]
+2026-02-06 16:35:27,085 | [DEBUG] | pending: deque([State(pc_initial=366 nstack_initial=1), State(pc_initial=366 nstack_initial=1)])
+2026-02-06 16:35:27,085 | [DEBUG] | stack: ['$phi366.0']
+2026-02-06 16:35:27,085 | [DEBUG] | state.pc_initial: State(pc_initial=366 nstack_initial=1)
+2026-02-06 16:35:27,085 | [DEBUG] | dispatch pc=366, inst=JUMP_BACKWARD(arg=43, lineno=40)
+2026-02-06 16:35:27,085 | [DEBUG] | stack ['$phi366.0']
+2026-02-06 16:35:27,085 | [DEBUG] | end state. edges=[Edge(pc=282, stack=('$phi366.0',), blockstack=(), npush=0)]
+2026-02-06 16:35:27,085 | [DEBUG] | pending: deque([State(pc_initial=366 nstack_initial=1), State(pc_initial=282 nstack_initial=1)])
+2026-02-06 16:35:27,085 | [DEBUG] | pending: deque([State(pc_initial=282 nstack_initial=1)])
+2026-02-06 16:35:27,085 | [DEBUG] | -------------------------Prune PHIs-------------------------
+2026-02-06 16:35:27,086 | [DEBUG] | Used_phis: defaultdict(<class 'set'>,
+            {State(pc_initial=0 nstack_initial=0): set(),
+             State(pc_initial=84 nstack_initial=0): set(),
+             State(pc_initial=88 nstack_initial=0): set(),
+             State(pc_initial=282 nstack_initial=1): {'$phi282.0'},
+             State(pc_initial=284 nstack_initial=2): {'$phi284.1'},
+             State(pc_initial=310 nstack_initial=1): set(),
+             State(pc_initial=326 nstack_initial=1): set(),
+             State(pc_initial=350 nstack_initial=1): set(),
+             State(pc_initial=366 nstack_initial=1): set(),
+             State(pc_initial=368 nstack_initial=0): set(),
+             State(pc_initial=426 nstack_initial=0): set(),
+             State(pc_initial=438 nstack_initial=0): set(),
+             State(pc_initial=452 nstack_initial=0): set()})
+2026-02-06 16:35:27,086 | [DEBUG] | defmap: {'$phi282.0': State(pc_initial=88 nstack_initial=0),
+ '$phi284.1': State(pc_initial=282 nstack_initial=1)}
+2026-02-06 16:35:27,086 | [DEBUG] | phismap: defaultdict(<class 'set'>,
+            {'$phi282.0': {('$280get_iter.34',
+                            State(pc_initial=88 nstack_initial=0)),
+                           ('$phi366.0',
+                            State(pc_initial=366 nstack_initial=1))},
+             '$phi284.0': {('$phi282.0',
+                            State(pc_initial=282 nstack_initial=1))},
+             '$phi284.1': {('$282for_iter.2',
+                            State(pc_initial=282 nstack_initial=1))},
+             '$phi310.0': {('$phi284.0',
+                            State(pc_initial=284 nstack_initial=2))},
+             '$phi326.0': {('$phi284.0',
+                            State(pc_initial=284 nstack_initial=2)),
+                           ('$phi310.0',
+                            State(pc_initial=310 nstack_initial=1))},
+             '$phi350.0': {('$phi326.0',
+                            State(pc_initial=326 nstack_initial=1))},
+             '$phi366.0': {('$phi326.0',
+                            State(pc_initial=326 nstack_initial=1)),
+                           ('$phi350.0',
+                            State(pc_initial=350 nstack_initial=1))}})
+2026-02-06 16:35:27,086 | [DEBUG] | changing phismap: defaultdict(<class 'set'>,
+            {'$phi282.0': {('$280get_iter.34',
+                            State(pc_initial=88 nstack_initial=0)),
+                           ('$phi326.0',
+                            State(pc_initial=326 nstack_initial=1)),
+                           ('$phi350.0',
+                            State(pc_initial=350 nstack_initial=1))},
+             '$phi284.0': {('$280get_iter.34',
+                            State(pc_initial=88 nstack_initial=0)),
+                           ('$phi326.0',
+                            State(pc_initial=326 nstack_initial=1)),
+                           ('$phi350.0',
+                            State(pc_initial=350 nstack_initial=1))},
+             '$phi284.1': {('$282for_iter.2',
+                            State(pc_initial=282 nstack_initial=1))},
+             '$phi310.0': {('$280get_iter.34',
+                            State(pc_initial=88 nstack_initial=0)),
+                           ('$phi326.0',
+                            State(pc_initial=326 nstack_initial=1)),
+                           ('$phi350.0',
+                            State(pc_initial=350 nstack_initial=1))},
+             '$phi326.0': {('$280get_iter.34',
+                            State(pc_initial=88 nstack_initial=0)),
+                           ('$phi326.0',
+                            State(pc_initial=326 nstack_initial=1)),
+                           ('$phi350.0',
+                            State(pc_initial=350 nstack_initial=1))},
+             '$phi350.0': {('$280get_iter.34',
+                            State(pc_initial=88 nstack_initial=0)),
+                           ('$phi350.0',
+                            State(pc_initial=350 nstack_initial=1))},
+             '$phi366.0': {('$280get_iter.34',
+                            State(pc_initial=88 nstack_initial=0))}})
+2026-02-06 16:35:27,086 | [DEBUG] | changing phismap: defaultdict(<class 'set'>,
+            {'$phi282.0': {('$280get_iter.34',
+                            State(pc_initial=88 nstack_initial=0))},
+             '$phi284.0': {('$280get_iter.34',
+                            State(pc_initial=88 nstack_initial=0))},
+             '$phi284.1': {('$282for_iter.2',
+                            State(pc_initial=282 nstack_initial=1))},
+             '$phi310.0': {('$280get_iter.34',
+                            State(pc_initial=88 nstack_initial=0))},
+             '$phi326.0': {('$280get_iter.34',
+                            State(pc_initial=88 nstack_initial=0))},
+             '$phi350.0': {('$280get_iter.34',
+                            State(pc_initial=88 nstack_initial=0))},
+             '$phi366.0': {('$280get_iter.34',
+                            State(pc_initial=88 nstack_initial=0))}})
+2026-02-06 16:35:27,086 | [DEBUG] | changing phismap: defaultdict(<class 'set'>,
+            {'$phi282.0': {('$280get_iter.34',
+                            State(pc_initial=88 nstack_initial=0))},
+             '$phi284.0': {('$280get_iter.34',
+                            State(pc_initial=88 nstack_initial=0))},
+             '$phi284.1': {('$282for_iter.2',
+                            State(pc_initial=282 nstack_initial=1))},
+             '$phi310.0': {('$280get_iter.34',
+                            State(pc_initial=88 nstack_initial=0))},
+             '$phi326.0': {('$280get_iter.34',
+                            State(pc_initial=88 nstack_initial=0))},
+             '$phi350.0': {('$280get_iter.34',
+                            State(pc_initial=88 nstack_initial=0))},
+             '$phi366.0': {('$280get_iter.34',
+                            State(pc_initial=88 nstack_initial=0))}})
+2026-02-06 16:35:27,086 | [DEBUG] | keep phismap: {'$phi282.0': {('$280get_iter.34', State(pc_initial=88 nstack_initial=0))},
+ '$phi284.1': {('$282for_iter.2', State(pc_initial=282 nstack_initial=1))}}
+2026-02-06 16:35:27,086 | [DEBUG] | new_out: defaultdict(<class 'dict'>,
+            {State(pc_initial=88 nstack_initial=0): {'$phi282.0': '$280get_iter.34'},
+             State(pc_initial=282 nstack_initial=1): {'$phi284.1': '$282for_iter.2'}})
+2026-02-06 16:35:27,087 | [DEBUG] | ----------------------DONE Prune PHIs-----------------------
+2026-02-06 16:35:27,087 | [DEBUG] | block_infos State(pc_initial=0 nstack_initial=0):
+AdaptBlockInfo(insts=((0, {}), (2, {}), (4, {'idx': 0, 'res': '$4load_global.0'}), (6, {}), (8, {}), (10, {}), (12, {}), (14, {}), (16, {'item': '$4load_global.0', 'res': '$16load_attr.2'}), (18, {}), (20, {}), (22, {}), (24, {}), (26, {'res': '$const26.3.1'}), (28, {}), (30, {}), (32, {'func': '$16load_attr.2', 'args': ['$const26.3.1'], 'kw_names': None, 'res': '$32call.4'}), (34, {}), (36, {}), (38, {}), (40, {}), (42, {'value': '$32call.4'}), (44, {'res': '$idx44.5'}), (46, {'res': '$tick_prices46.6'}), (48, {'item': '$tick_prices46.6', 'res': '$48load_attr.7'}), (50, {}), (52, {}), (54, {}), (56, {}), (58, {'res': '$const58.8.2'}), (60, {'index': '$const58.8.2', 'target': '$48load_attr.7', 'res': '$60binary_subscr.9'}), (62, {}), (64, {}), (66, {}), (68, {}), (70, {'res': '$const70.10.3'}), (72, {'op': '-', 'lhs': '$60binary_subscr.9', 'rhs': '$const70.10.3', 'res': '$binop_sub72.11'}), (74, {}), (76, {'lhs': '$idx44.5', 'rhs': '$binop_sub72.11', 'res': '$76compare_op.12'}), (78, {}), (80, {}), (82, {'pred': '$76compare_op.12'})), outgoing_phis={}, blockstack=(), active_try_block=None, outgoing_edgepushed={84: (), 88: ()})
+2026-02-06 16:35:27,087 | [DEBUG] | block_infos State(pc_initial=84 nstack_initial=0):
+AdaptBlockInfo(insts=((84, {'res': '$const84.0.4'}), (86, {'retval': '$const84.0.4', 'castval': '$86return_value.1'})), outgoing_phis={}, blockstack=(), active_try_block=None, outgoing_edgepushed={})
+2026-02-06 16:35:27,087 | [DEBUG] | block_infos State(pc_initial=88 nstack_initial=0):
+AdaptBlockInfo(insts=((88, {'idx': 3, 'res': '$88load_global.0'}), (90, {}), (92, {}), (94, {}), (96, {}), (98, {}), (100, {'res': '$const100.2.2'}), (102, {'res': '$idx102.3'}), (104, {}), (106, {}), (108, {'func': '$88load_global.0', 'args': ['$const100.2.2', '$idx102.3'], 'kw_names': None, 'res': '$108call.4'}), (110, {}), (112, {}), (114, {}), (116, {}), (118, {'value': '$108call.4'}), (120, {'idx': 4, 'res': '$120load_global.5'}), (122, {}), (124, {}), (126, {}), (128, {}), (130, {}), (132, {'res': '$tick_prices132.7'}), (134, {'item': '$tick_prices132.7', 'res': '$134load_attr.8'}), (136, {}), (138, {}), (140, {}), (142, {}), (144, {'res': '$const144.9.2'}), (146, {'index': '$const144.9.2', 'target': '$134load_attr.8', 'res': '$146binary_subscr.10'}), (148, {}), (150, {}), (152, {}), (154, {}), (156, {'res': '$idx156.11'}), (158, {'res': '$const158.12.3'}), (160, {'op': '+', 'lhs': '$idx156.11', 'rhs': '$const158.12.3', 'res': '$binop_add160.13'}), (162, {}), (164, {}), (166, {}), (168, {'func': '$120load_global.5', 'args': ['$146binary_subscr.10', '$binop_add160.13'], 'kw_names': None, 'res': '$168call.14'}), (170, {}), (172, {}), (174, {}), (176, {}), (178, {'value': '$168call.14'}), (180, {'res': '$tick_prices180.15'}), (182, {'res': '$window_start182.16'}), (184, {'index': '$window_start182.16', 'target': '$tick_prices180.15', 'res': '$184binary_subscr.17'}), (186, {}), (188, {}), (190, {}), (192, {}), (194, {'value': '$184binary_subscr.17'}), (196, {'res': '$tick_prices196.18'}), (198, {'res': '$window_start198.19'}), (200, {'index': '$window_start198.19', 'target': '$tick_prices196.18', 'res': '$200binary_subscr.20'}), (202, {}), (204, {}), (206, {}), (208, {}), (210, {'value': '$200binary_subscr.20'}), (212, {'res': '$tick_times212.21'}), (214, {'res': '$window_start214.22'}), (216, {'index': '$window_start214.22', 'target': '$tick_times212.21', 'res': '$216binary_subscr.23'}), (218, {}), (220, {}), (222, {}), (224, {}), (226, {'value': '$216binary_subscr.23'}), (228, {'res': '$tick_times228.24'}), (230, {'res': '$window_end230.25'}), (232, {'res': '$const232.26.1'}), (234, {'op': '-', 'lhs': '$window_end230.25', 'rhs': '$const232.26.1', 'res': '$binop_sub234.27'}), (236, {}), (238, {'index': '$binop_sub234.27', 'target': '$tick_times228.24', 'res': '$238binary_subscr.28'}), (240, {}), (242, {}), (244, {}), (246, {}), (248, {'value': '$238binary_subscr.28'}), (250, {'idx': 5, 'res': '$250load_global.29'}), (252, {}), (254, {}), (256, {}), (258, {}), (260, {}), (262, {'res': '$window_start262.31'}), (264, {'res': '$window_end264.32'}), (266, {}), (268, {}), (270, {'func': '$250load_global.29', 'args': ['$window_start262.31', '$window_end264.32'], 'kw_names': None, 'res': '$270call.33'}), (272, {}), (274, {}), (276, {}), (278, {}), (280, {'value': '$270call.33', 'res': '$280get_iter.34'})), outgoing_phis={'$phi282.0': '$280get_iter.34'}, blockstack=(), active_try_block=None, outgoing_edgepushed={282: ('$280get_iter.34',)})
+2026-02-06 16:35:27,087 | [DEBUG] | block_infos State(pc_initial=282 nstack_initial=1):
+AdaptBlockInfo(insts=((282, {'iterator': '$phi282.0', 'pair': '$282for_iter.1', 'indval': '$282for_iter.2', 'pred': '$282for_iter.3'}),), outgoing_phis={'$phi284.1': '$282for_iter.2'}, blockstack=(), active_try_block=None, outgoing_edgepushed={368: (), 284: ('$phi282.0', '$282for_iter.2')})
+2026-02-06 16:35:27,087 | [DEBUG] | block_infos State(pc_initial=284 nstack_initial=2):
+AdaptBlockInfo(insts=((284, {'value': '$phi284.1'}), (286, {'res': '$tick_prices286.2'}), (288, {'res': '$i288.3'}), (290, {'index': '$i288.3', 'target': '$tick_prices286.2', 'res': '$290binary_subscr.4'}), (292, {}), (294, {}), (296, {}), (298, {}), (300, {'res': '$max_price300.5'}), (302, {'lhs': '$290binary_subscr.4', 'rhs': '$max_price300.5', 'res': '$302compare_op.6'}), (304, {}), (306, {}), (308, {'pred': '$302compare_op.6'})), outgoing_phis={}, blockstack=(), active_try_block=None, outgoing_edgepushed={310: ('$phi284.0',), 326: ('$phi284.0',)})
+2026-02-06 16:35:27,087 | [DEBUG] | block_infos State(pc_initial=310 nstack_initial=1):
+AdaptBlockInfo(insts=((310, {'res': '$tick_prices310.1'}), (312, {'res': '$i312.2'}), (314, {'index': '$i312.2', 'target': '$tick_prices310.1', 'res': '$314binary_subscr.3'}), (316, {}), (318, {}), (320, {}), (322, {}), (324, {'value': '$314binary_subscr.3'})), outgoing_phis={}, blockstack=(), active_try_block=None, outgoing_edgepushed={326: ('$phi310.0',)})
+2026-02-06 16:35:27,087 | [DEBUG] | block_infos State(pc_initial=326 nstack_initial=1):
+AdaptBlockInfo(insts=((326, {'res': '$tick_prices326.1'}), (328, {'res': '$i328.2'}), (330, {'index': '$i328.2', 'target': '$tick_prices326.1', 'res': '$330binary_subscr.3'}), (332, {}), (334, {}), (336, {}), (338, {}), (340, {'res': '$min_price340.4'}), (342, {'lhs': '$330binary_subscr.3', 'rhs': '$min_price340.4', 'res': '$342compare_op.5'}), (344, {}), (346, {}), (348, {'pred': '$342compare_op.5'})), outgoing_phis={}, blockstack=(), active_try_block=None, outgoing_edgepushed={350: ('$phi326.0',), 366: ('$phi326.0',)})
+2026-02-06 16:35:27,087 | [DEBUG] | block_infos State(pc_initial=350 nstack_initial=1):
+AdaptBlockInfo(insts=((350, {'res': '$tick_prices350.1'}), (352, {'res': '$i352.2'}), (354, {'index': '$i352.2', 'target': '$tick_prices350.1', 'res': '$354binary_subscr.3'}), (356, {}), (358, {}), (360, {}), (362, {}), (364, {'value': '$354binary_subscr.3'})), outgoing_phis={}, blockstack=(), active_try_block=None, outgoing_edgepushed={366: ('$phi350.0',)})
+2026-02-06 16:35:27,087 | [DEBUG] | block_infos State(pc_initial=366 nstack_initial=1):
+AdaptBlockInfo(insts=((366, {}),), outgoing_phis={}, blockstack=(), active_try_block=None, outgoing_edgepushed={282: ('$phi366.0',)})
+2026-02-06 16:35:27,087 | [DEBUG] | block_infos State(pc_initial=368 nstack_initial=0):
+AdaptBlockInfo(insts=((368, {'idx': 6, 'res': '$368load_global.0'}), (370, {}), (372, {}), (374, {}), (376, {}), (378, {}), (380, {'res': '$max_price380.2'}), (382, {'res': '$min_price382.3'}), (384, {'op': '-', 'lhs': '$max_price380.2', 'rhs': '$min_price382.3', 'res': '$binop_sub384.4'}), (386, {}), (388, {}), (390, {}), (392, {'func': '$368load_global.0', 'args': ['$binop_sub384.4'], 'kw_names': None, 'res': '$392call.5'}), (394, {}), (396, {}), (398, {}), (400, {}), (402, {'value': '$392call.5'}), (404, {'res': '$end_time404.6'}), (406, {'res': '$start_time406.7'}), (408, {'op': '-', 'lhs': '$end_time404.6', 'rhs': '$start_time406.7', 'res': '$binop_sub408.8'}), (410, {}), (412, {'value': '$binop_sub408.8'}), (414, {'res': '$price_move414.9'}), (416, {'res': '$cascade_threshold416.10'}), (418, {'lhs': '$price_move414.9', 'rhs': '$cascade_threshold416.10', 'res': '$418compare_op.11'}), (420, {}), (422, {}), (424, {'pred': '$418compare_op.11'})), outgoing_phis={}, blockstack=(), active_try_block=None, outgoing_edgepushed={426: (), 452: ()})
+2026-02-06 16:35:27,087 | [DEBUG] | block_infos State(pc_initial=426 nstack_initial=0):
+AdaptBlockInfo(insts=((426, {'res': '$time_elapsed426.0'}), (428, {'res': '$time_window428.1'}), (430, {'lhs': '$time_elapsed426.0', 'rhs': '$time_window428.1', 'res': '$430compare_op.2'}), (432, {}), (434, {}), (436, {'pred': '$430compare_op.2'})), outgoing_phis={}, blockstack=(), active_try_block=None, outgoing_edgepushed={438: (), 452: ()})
+2026-02-06 16:35:27,087 | [DEBUG] | block_infos State(pc_initial=438 nstack_initial=0):
+AdaptBlockInfo(insts=((438, {'res': '$const438.0.1'}), (440, {'res': '$results440.1'}), (442, {'res': '$idx442.2'}), (444, {'target': '$results440.1', 'index': '$idx442.2', 'value': '$const438.0.1'}), (446, {}), (448, {'res': '$const448.3.4'}), (450, {'retval': '$const448.3.4', 'castval': '$450return_value.4'})), outgoing_phis={}, blockstack=(), active_try_block=None, outgoing_edgepushed={})
+2026-02-06 16:35:27,087 | [DEBUG] | block_infos State(pc_initial=452 nstack_initial=0):
+AdaptBlockInfo(insts=((452, {'res': '$const452.0.2'}), (454, {'res': '$results454.1'}), (456, {'res': '$idx456.2'}), (458, {'target': '$results454.1', 'index': '$idx456.2', 'value': '$const452.0.2'}), (460, {}), (462, {'res': '$const462.3.4'}), (464, {'retval': '$const462.3.4', 'castval': '$464return_value.4'})), outgoing_phis={}, blockstack=(), active_try_block=None, outgoing_edgepushed={})
+2026-02-06 16:35:27,098 | [DEBUG] | ==== SSA block analysis pass on 0
+2026-02-06 16:35:27,098 | [DEBUG] | Running <numba.cuda.core.ssa._GatherDefsHandler object at 0x0000023B01C05D90>
+2026-02-06 16:35:27,098 | [DEBUG] | on stmt: tick_prices = arg(0, name=tick_prices)
+2026-02-06 16:35:27,098 | [DEBUG] | on stmt: tick_times = arg(1, name=tick_times)
+2026-02-06 16:35:27,098 | [DEBUG] | on stmt: cascade_threshold = arg(2, name=cascade_threshold)
+2026-02-06 16:35:27,098 | [DEBUG] | on stmt: time_window = arg(3, name=time_window)
+2026-02-06 16:35:27,098 | [DEBUG] | on stmt: results = arg(4, name=results)
+2026-02-06 16:35:27,098 | [DEBUG] | on stmt: $4load_global.0 = global(cuda: <module 'numba.cuda' from 'C:\\Users\\reyse\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python311\\site-packages\\numba_cuda\\numba\\cuda\\__init__.py'>)
+2026-02-06 16:35:27,098 | [DEBUG] | on stmt: $16load_attr.2 = getattr(value=$4load_global.0, attr=grid)
+2026-02-06 16:35:27,098 | [DEBUG] | on stmt: $const26.3.1 = const(int, 1)
+2026-02-06 16:35:27,098 | [DEBUG] | on stmt: idx = call $16load_attr.2($const26.3.1, func=$16load_attr.2, args=[Var($const26.3.1, velocity_gate.py:21)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,098 | [DEBUG] | on stmt: $48load_attr.7 = getattr(value=tick_prices, attr=shape)
+2026-02-06 16:35:27,098 | [DEBUG] | on stmt: $const58.8.2 = const(int, 0)
+2026-02-06 16:35:27,098 | [DEBUG] | on stmt: $60binary_subscr.9 = static_getitem(value=$48load_attr.7, index=0, index_var=$const58.8.2, fn=<built-in function getitem>)
+2026-02-06 16:35:27,098 | [DEBUG] | on stmt: $const70.10.3 = const(int, 50)
+2026-02-06 16:35:27,098 | [DEBUG] | on stmt: $binop_sub72.11 = $60binary_subscr.9 - $const70.10.3
+2026-02-06 16:35:27,098 | [DEBUG] | on stmt: $76compare_op.12 = idx >= $binop_sub72.11
+2026-02-06 16:35:27,098 | [DEBUG] | on stmt: $bool82 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,098 | [DEBUG] | on stmt: $82pred = call $bool82($76compare_op.12, func=$bool82, args=(Var($76compare_op.12, velocity_gate.py:23),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,098 | [DEBUG] | on stmt: branch $82pred, 84, 88
+2026-02-06 16:35:27,099 | [DEBUG] | ==== SSA block analysis pass on 84
+2026-02-06 16:35:27,099 | [DEBUG] | Running <numba.cuda.core.ssa._GatherDefsHandler object at 0x0000023B01C05D90>
+2026-02-06 16:35:27,099 | [DEBUG] | on stmt: $const84.0.4 = const(NoneType, None)
+2026-02-06 16:35:27,099 | [DEBUG] | on stmt: $86return_value.1 = cast(value=$const84.0.4)
+2026-02-06 16:35:27,099 | [DEBUG] | on stmt: return $86return_value.1
+2026-02-06 16:35:27,099 | [DEBUG] | ==== SSA block analysis pass on 88
+2026-02-06 16:35:27,099 | [DEBUG] | Running <numba.cuda.core.ssa._GatherDefsHandler object at 0x0000023B01C05D90>
+2026-02-06 16:35:27,099 | [DEBUG] | on stmt: $88load_global.0 = global(max: <built-in function max>)
+2026-02-06 16:35:27,099 | [DEBUG] | on stmt: $const100.2.2 = const(int, 0)
+2026-02-06 16:35:27,099 | [DEBUG] | on stmt: window_start = call $88load_global.0($const100.2.2, idx, func=$88load_global.0, args=[Var($const100.2.2, velocity_gate.py:27), Var(idx, velocity_gate.py:21)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,099 | [DEBUG] | on stmt: $120load_global.5 = global(min: <built-in function min>)
+2026-02-06 16:35:27,099 | [DEBUG] | on stmt: $134load_attr.8 = getattr(value=tick_prices, attr=shape)
+2026-02-06 16:35:27,099 | [DEBUG] | on stmt: $const144.9.2 = const(int, 0)
+2026-02-06 16:35:27,099 | [DEBUG] | on stmt: $146binary_subscr.10 = static_getitem(value=$134load_attr.8, index=0, index_var=$const144.9.2, fn=<built-in function getitem>)
+2026-02-06 16:35:27,099 | [DEBUG] | on stmt: $const158.12.3 = const(int, 50)
+2026-02-06 16:35:27,099 | [DEBUG] | on stmt: $binop_add160.13 = idx + $const158.12.3
+2026-02-06 16:35:27,099 | [DEBUG] | on stmt: window_end = call $120load_global.5($146binary_subscr.10, $binop_add160.13, func=$120load_global.5, args=[Var($146binary_subscr.10, velocity_gate.py:28), Var($binop_add160.13, velocity_gate.py:28)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,099 | [DEBUG] | on stmt: max_price = getitem(value=tick_prices, index=window_start, fn=<built-in function getitem>)
+2026-02-06 16:35:27,099 | [DEBUG] | on stmt: min_price = getitem(value=tick_prices, index=window_start, fn=<built-in function getitem>)
+2026-02-06 16:35:27,099 | [DEBUG] | on stmt: start_time = getitem(value=tick_times, index=window_start, fn=<built-in function getitem>)
+2026-02-06 16:35:27,099 | [DEBUG] | on stmt: $const232.26.1 = const(int, 1)
+2026-02-06 16:35:27,099 | [DEBUG] | on stmt: $binop_sub234.27 = window_end - $const232.26.1
+2026-02-06 16:35:27,099 | [DEBUG] | on stmt: end_time = getitem(value=tick_times, index=$binop_sub234.27, fn=<built-in function getitem>)
+2026-02-06 16:35:27,099 | [DEBUG] | on stmt: $250load_global.29 = global(range: <class 'range'>)
+2026-02-06 16:35:27,099 | [DEBUG] | on stmt: $270call.33 = call $250load_global.29(window_start, window_end, func=$250load_global.29, args=[Var(window_start, velocity_gate.py:27), Var(window_end, velocity_gate.py:28)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,100 | [DEBUG] | on stmt: $280get_iter.34 = getiter(value=$270call.33)
+2026-02-06 16:35:27,100 | [DEBUG] | on stmt: $phi282.0 = $280get_iter.34
+2026-02-06 16:35:27,100 | [DEBUG] | on stmt: jump 282
+2026-02-06 16:35:27,100 | [DEBUG] | ==== SSA block analysis pass on 282
+2026-02-06 16:35:27,100 | [DEBUG] | Running <numba.cuda.core.ssa._GatherDefsHandler object at 0x0000023B01C05D90>
+2026-02-06 16:35:27,100 | [DEBUG] | on stmt: $282for_iter.1 = iternext(value=$phi282.0)
+2026-02-06 16:35:27,100 | [DEBUG] | on stmt: $282for_iter.2 = pair_first(value=$282for_iter.1)
+2026-02-06 16:35:27,100 | [DEBUG] | on stmt: $282for_iter.3 = pair_second(value=$282for_iter.1)
+2026-02-06 16:35:27,100 | [DEBUG] | on stmt: $phi284.1 = $282for_iter.2
+2026-02-06 16:35:27,100 | [DEBUG] | on stmt: branch $282for_iter.3, 284, 368
+2026-02-06 16:35:27,100 | [DEBUG] | ==== SSA block analysis pass on 284
+2026-02-06 16:35:27,100 | [DEBUG] | Running <numba.cuda.core.ssa._GatherDefsHandler object at 0x0000023B01C05D90>
+2026-02-06 16:35:27,100 | [DEBUG] | on stmt: i = $phi284.1
+2026-02-06 16:35:27,100 | [DEBUG] | on stmt: $290binary_subscr.4 = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,100 | [DEBUG] | on stmt: $302compare_op.6 = $290binary_subscr.4 > max_price
+2026-02-06 16:35:27,100 | [DEBUG] | on stmt: $bool308 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,100 | [DEBUG] | on stmt: $308pred = call $bool308($302compare_op.6, func=$bool308, args=(Var($302compare_op.6, velocity_gate.py:37),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,100 | [DEBUG] | on stmt: branch $308pred, 310, 326
+2026-02-06 16:35:27,100 | [DEBUG] | ==== SSA block analysis pass on 310
+2026-02-06 16:35:27,100 | [DEBUG] | Running <numba.cuda.core.ssa._GatherDefsHandler object at 0x0000023B01C05D90>
+2026-02-06 16:35:27,100 | [DEBUG] | on stmt: max_price = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,100 | [DEBUG] | on stmt: jump 326
+2026-02-06 16:35:27,100 | [DEBUG] | ==== SSA block analysis pass on 326
+2026-02-06 16:35:27,100 | [DEBUG] | Running <numba.cuda.core.ssa._GatherDefsHandler object at 0x0000023B01C05D90>
+2026-02-06 16:35:27,100 | [DEBUG] | on stmt: $330binary_subscr.3 = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,100 | [DEBUG] | on stmt: $342compare_op.5 = $330binary_subscr.3 < min_price
+2026-02-06 16:35:27,100 | [DEBUG] | on stmt: $bool348 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,100 | [DEBUG] | on stmt: $348pred = call $bool348($342compare_op.5, func=$bool348, args=(Var($342compare_op.5, velocity_gate.py:39),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,100 | [DEBUG] | on stmt: branch $348pred, 350, 366
+2026-02-06 16:35:27,101 | [DEBUG] | ==== SSA block analysis pass on 350
+2026-02-06 16:35:27,101 | [DEBUG] | Running <numba.cuda.core.ssa._GatherDefsHandler object at 0x0000023B01C05D90>
+2026-02-06 16:35:27,101 | [DEBUG] | on stmt: min_price = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,101 | [DEBUG] | on stmt: jump 366
+2026-02-06 16:35:27,101 | [DEBUG] | ==== SSA block analysis pass on 366
+2026-02-06 16:35:27,101 | [DEBUG] | Running <numba.cuda.core.ssa._GatherDefsHandler object at 0x0000023B01C05D90>
+2026-02-06 16:35:27,101 | [DEBUG] | on stmt: jump 282
+2026-02-06 16:35:27,101 | [DEBUG] | ==== SSA block analysis pass on 368
+2026-02-06 16:35:27,101 | [DEBUG] | Running <numba.cuda.core.ssa._GatherDefsHandler object at 0x0000023B01C05D90>
+2026-02-06 16:35:27,101 | [DEBUG] | on stmt: $368load_global.0 = global(abs: <built-in function abs>)
+2026-02-06 16:35:27,101 | [DEBUG] | on stmt: $binop_sub384.4 = max_price - min_price
+2026-02-06 16:35:27,101 | [DEBUG] | on stmt: price_move = call $368load_global.0($binop_sub384.4, func=$368load_global.0, args=[Var($binop_sub384.4, velocity_gate.py:43)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,101 | [DEBUG] | on stmt: time_elapsed = end_time - start_time
+2026-02-06 16:35:27,101 | [DEBUG] | on stmt: $418compare_op.11 = price_move >= cascade_threshold
+2026-02-06 16:35:27,101 | [DEBUG] | on stmt: $bool424 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,101 | [DEBUG] | on stmt: $424pred = call $bool424($418compare_op.11, func=$bool424, args=(Var($418compare_op.11, velocity_gate.py:47),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,101 | [DEBUG] | on stmt: branch $424pred, 426, 452
+2026-02-06 16:35:27,101 | [DEBUG] | ==== SSA block analysis pass on 426
+2026-02-06 16:35:27,101 | [DEBUG] | Running <numba.cuda.core.ssa._GatherDefsHandler object at 0x0000023B01C05D90>
+2026-02-06 16:35:27,101 | [DEBUG] | on stmt: $430compare_op.2 = time_elapsed <= time_window
+2026-02-06 16:35:27,101 | [DEBUG] | on stmt: $bool436 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,101 | [DEBUG] | on stmt: $436pred = call $bool436($430compare_op.2, func=$bool436, args=(Var($430compare_op.2, velocity_gate.py:47),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,101 | [DEBUG] | on stmt: branch $436pred, 438, 452
+2026-02-06 16:35:27,101 | [DEBUG] | ==== SSA block analysis pass on 438
+2026-02-06 16:35:27,101 | [DEBUG] | Running <numba.cuda.core.ssa._GatherDefsHandler object at 0x0000023B01C05D90>
+2026-02-06 16:35:27,101 | [DEBUG] | on stmt: $const438.0.1 = const(int, 1)
+2026-02-06 16:35:27,101 | [DEBUG] | on stmt: results[idx] = $const438.0.1
+2026-02-06 16:35:27,101 | [DEBUG] | on stmt: $const448.3.4 = const(NoneType, None)
+2026-02-06 16:35:27,102 | [DEBUG] | on stmt: $450return_value.4 = cast(value=$const448.3.4)
+2026-02-06 16:35:27,102 | [DEBUG] | on stmt: return $450return_value.4
+2026-02-06 16:35:27,102 | [DEBUG] | ==== SSA block analysis pass on 452
+2026-02-06 16:35:27,102 | [DEBUG] | Running <numba.cuda.core.ssa._GatherDefsHandler object at 0x0000023B01C05D90>
+2026-02-06 16:35:27,102 | [DEBUG] | on stmt: $const452.0.2 = const(int, 0)
+2026-02-06 16:35:27,102 | [DEBUG] | on stmt: results[idx] = $const452.0.2
+2026-02-06 16:35:27,102 | [DEBUG] | on stmt: $const462.3.4 = const(NoneType, None)
+2026-02-06 16:35:27,102 | [DEBUG] | on stmt: $464return_value.4 = cast(value=$const462.3.4)
+2026-02-06 16:35:27,102 | [DEBUG] | on stmt: return $464return_value.4
+2026-02-06 16:35:27,102 | [DEBUG] | defs defaultdict(<class 'list'>,
+            {'$120load_global.5': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA23FD0>,
+                                    88)],
+             '$134load_attr.8': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA284D0>,
+                                  88)],
+             '$146binary_subscr.10': [(<numba.cuda.core.ir.Assign object at 0x0000023B129326D0>,
+                                       88)],
+             '$16load_attr.2': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA1E590>,
+                                 0)],
+             '$250load_global.29': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA2B5D0>,
+                                     88)],
+             '$270call.33': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA2BC50>,
+                              88)],
+             '$280get_iter.34': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA2BF50>,
+                                  88)],
+             '$282for_iter.1': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA2A290>,
+                                 282)],
+             '$282for_iter.2': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA2B410>,
+                                 282)],
+             '$282for_iter.3': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA340D0>,
+                                 282)],
+             '$290binary_subscr.4': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA34950>,
+                                      284)],
+             '$302compare_op.6': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA34DD0>,
+                                   284)],
+             '$308pred': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA35210>,
+                           284)],
+             '$330binary_subscr.3': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA35E90>,
+                                      326)],
+             '$342compare_op.5': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA36290>,
+                                   326)],
+             '$348pred': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA366D0>,
+                           326)],
+             '$368load_global.0': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA37090>,
+                                    368)],
+             '$418compare_op.11': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA386D0>,
+                                    368)],
+             '$424pred': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA38A90>,
+                           368)],
+             '$430compare_op.2': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA38DD0>,
+                                   426)],
+             '$436pred': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA391D0>,
+                           426)],
+             '$450return_value.4': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA39C10>,
+                                     438)],
+             '$464return_value.4': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA3A650>,
+                                     452)],
+             '$48load_attr.7': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA21350>,
+                                 0)],
+             '$4load_global.0': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA1E310>,
+                                  0)],
+             '$60binary_subscr.9': [(<numba.cuda.core.ir.Assign object at 0x0000023B01C6F810>,
+                                     0)],
+             '$76compare_op.12': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA22C10>,
+                                   0)],
+             '$82pred': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA22F50>,
+                          0)],
+             '$86return_value.1': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA23290>,
+                                    84)],
+             '$88load_global.0': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA23490>,
+                                   88)],
+             '$binop_add160.13': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA28F50>,
+                                   88)],
+             '$binop_sub234.27': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA2B0D0>,
+                                   88)],
+             '$binop_sub384.4': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA376D0>,
+                                  368)],
+             '$binop_sub72.11': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA22A50>,
+                                  0)],
+             '$bool308': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA35050>,
+                           284)],
+             '$bool348': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA36510>,
+                           326)],
+             '$bool424': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA388D0>,
+                           368)],
+             '$bool436': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA39010>,
+                           426)],
+             '$bool82': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA22E10>,
+                          0)],
+             '$const100.2.2': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA23750>,
+                                88)],
+             '$const144.9.2': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA28790>,
+                                88)],
+             '$const158.12.3': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA28D10>,
+                                 88)],
+             '$const232.26.1': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA2AE90>,
+                                 88)],
+             '$const26.3.1': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA1CE90>,
+                               0)],
+             '$const438.0.1': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA39390>,
+                                438)],
+             '$const448.3.4': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA399D0>,
+                                438)],
+             '$const452.0.2': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA39E10>,
+                                452)],
+             '$const462.3.4': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA3A410>,
+                                452)],
+             '$const58.8.2': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA202D0>,
+                               0)],
+             '$const70.10.3': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA22890>,
+                                0)],
+             '$const84.0.4': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA230D0>,
+                               84)],
+             '$phi282.0': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA23DD0>,
+                            88)],
+             '$phi284.1': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA34190>,
+                            282)],
+             'cascade_threshold': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA1F4D0>,
+                                    0)],
+             'end_time': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA2B250>,
+                           88)],
+             'i': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA34450>,
+                    284)],
+             'idx': [(<numba.cuda.core.ir.Assign object at 0x0000023B01C6E8D0>,
+                      0)],
+             'max_price': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA29950>,
+                            88),
+                           (<numba.cuda.core.ir.Assign object at 0x0000023BBBA35750>,
+                            310)],
+             'min_price': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA2A090>,
+                            88),
+                           (<numba.cuda.core.ir.Assign object at 0x0000023BBBA36BD0>,
+                            350)],
+             'price_move': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA378D0>,
+                             368)],
+             'results': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA1F450>,
+                          0)],
+             'start_time': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA2A7D0>,
+                             88)],
+             'tick_prices': [(<numba.cuda.core.ir.Assign object at 0x0000023BBACFB590>,
+                              0)],
+             'tick_times': [(<numba.cuda.core.ir.Assign object at 0x0000023B129ED3D0>,
+                             0)],
+             'time_elapsed': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA37FD0>,
+                               368)],
+             'time_window': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA1F490>,
+                              0)],
+             'window_end': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA29210>,
+                             88)],
+             'window_start': [(<numba.cuda.core.ir.Assign object at 0x0000023BBBA23B90>,
+                               88)]})
+2026-02-06 16:35:27,103 | [DEBUG] | SSA violators ['max_price', 'min_price']
+2026-02-06 16:35:27,103 | [DEBUG] | Fix SSA violator on var max_price
+2026-02-06 16:35:27,103 | [DEBUG] | ==== SSA block rewrite pass on 0
+2026-02-06 16:35:27,103 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023B129EA910>
+2026-02-06 16:35:27,103 | [DEBUG] | on stmt: tick_prices = arg(0, name=tick_prices)
+2026-02-06 16:35:27,103 | [DEBUG] | on stmt: tick_times = arg(1, name=tick_times)
+2026-02-06 16:35:27,103 | [DEBUG] | on stmt: cascade_threshold = arg(2, name=cascade_threshold)
+2026-02-06 16:35:27,103 | [DEBUG] | on stmt: time_window = arg(3, name=time_window)
+2026-02-06 16:35:27,103 | [DEBUG] | on stmt: results = arg(4, name=results)
+2026-02-06 16:35:27,103 | [DEBUG] | on stmt: $4load_global.0 = global(cuda: <module 'numba.cuda' from 'C:\\Users\\reyse\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python311\\site-packages\\numba_cuda\\numba\\cuda\\__init__.py'>)
+2026-02-06 16:35:27,103 | [DEBUG] | on stmt: $16load_attr.2 = getattr(value=$4load_global.0, attr=grid)
+2026-02-06 16:35:27,103 | [DEBUG] | on stmt: $const26.3.1 = const(int, 1)
+2026-02-06 16:35:27,103 | [DEBUG] | on stmt: idx = call $16load_attr.2($const26.3.1, func=$16load_attr.2, args=[Var($const26.3.1, velocity_gate.py:21)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,103 | [DEBUG] | on stmt: $48load_attr.7 = getattr(value=tick_prices, attr=shape)
+2026-02-06 16:35:27,103 | [DEBUG] | on stmt: $const58.8.2 = const(int, 0)
+2026-02-06 16:35:27,103 | [DEBUG] | on stmt: $60binary_subscr.9 = static_getitem(value=$48load_attr.7, index=0, index_var=$const58.8.2, fn=<built-in function getitem>)
+2026-02-06 16:35:27,103 | [DEBUG] | on stmt: $const70.10.3 = const(int, 50)
+2026-02-06 16:35:27,103 | [DEBUG] | on stmt: $binop_sub72.11 = $60binary_subscr.9 - $const70.10.3
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: $76compare_op.12 = idx >= $binop_sub72.11
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: $bool82 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: $82pred = call $bool82($76compare_op.12, func=$bool82, args=(Var($76compare_op.12, velocity_gate.py:23),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: branch $82pred, 84, 88
+2026-02-06 16:35:27,104 | [DEBUG] | ==== SSA block rewrite pass on 84
+2026-02-06 16:35:27,104 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023B129EA910>
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: $const84.0.4 = const(NoneType, None)
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: $86return_value.1 = cast(value=$const84.0.4)
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: return $86return_value.1
+2026-02-06 16:35:27,104 | [DEBUG] | ==== SSA block rewrite pass on 88
+2026-02-06 16:35:27,104 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023B129EA910>
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: $88load_global.0 = global(max: <built-in function max>)
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: $const100.2.2 = const(int, 0)
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: window_start = call $88load_global.0($const100.2.2, idx, func=$88load_global.0, args=[Var($const100.2.2, velocity_gate.py:27), Var(idx, velocity_gate.py:21)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: $120load_global.5 = global(min: <built-in function min>)
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: $134load_attr.8 = getattr(value=tick_prices, attr=shape)
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: $const144.9.2 = const(int, 0)
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: $146binary_subscr.10 = static_getitem(value=$134load_attr.8, index=0, index_var=$const144.9.2, fn=<built-in function getitem>)
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: $const158.12.3 = const(int, 50)
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: $binop_add160.13 = idx + $const158.12.3
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: window_end = call $120load_global.5($146binary_subscr.10, $binop_add160.13, func=$120load_global.5, args=[Var($146binary_subscr.10, velocity_gate.py:28), Var($binop_add160.13, velocity_gate.py:28)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: max_price = getitem(value=tick_prices, index=window_start, fn=<built-in function getitem>)
+2026-02-06 16:35:27,104 | [DEBUG] | first assign: max_price
+2026-02-06 16:35:27,104 | [DEBUG] | replaced with: max_price = getitem(value=tick_prices, index=window_start, fn=<built-in function getitem>)
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: min_price = getitem(value=tick_prices, index=window_start, fn=<built-in function getitem>)
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: start_time = getitem(value=tick_times, index=window_start, fn=<built-in function getitem>)
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: $const232.26.1 = const(int, 1)
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: $binop_sub234.27 = window_end - $const232.26.1
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: end_time = getitem(value=tick_times, index=$binop_sub234.27, fn=<built-in function getitem>)
+2026-02-06 16:35:27,104 | [DEBUG] | on stmt: $250load_global.29 = global(range: <class 'range'>)
+2026-02-06 16:35:27,105 | [DEBUG] | on stmt: $270call.33 = call $250load_global.29(window_start, window_end, func=$250load_global.29, args=[Var(window_start, velocity_gate.py:27), Var(window_end, velocity_gate.py:28)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,105 | [DEBUG] | on stmt: $280get_iter.34 = getiter(value=$270call.33)
+2026-02-06 16:35:27,105 | [DEBUG] | on stmt: $phi282.0 = $280get_iter.34
+2026-02-06 16:35:27,105 | [DEBUG] | on stmt: jump 282
+2026-02-06 16:35:27,105 | [DEBUG] | ==== SSA block rewrite pass on 282
+2026-02-06 16:35:27,105 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023B129EA910>
+2026-02-06 16:35:27,105 | [DEBUG] | on stmt: $282for_iter.1 = iternext(value=$phi282.0)
+2026-02-06 16:35:27,105 | [DEBUG] | on stmt: $282for_iter.2 = pair_first(value=$282for_iter.1)
+2026-02-06 16:35:27,105 | [DEBUG] | on stmt: $282for_iter.3 = pair_second(value=$282for_iter.1)
+2026-02-06 16:35:27,105 | [DEBUG] | on stmt: $phi284.1 = $282for_iter.2
+2026-02-06 16:35:27,105 | [DEBUG] | on stmt: branch $282for_iter.3, 284, 368
+2026-02-06 16:35:27,105 | [DEBUG] | ==== SSA block rewrite pass on 284
+2026-02-06 16:35:27,105 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023B129EA910>
+2026-02-06 16:35:27,105 | [DEBUG] | on stmt: i = $phi284.1
+2026-02-06 16:35:27,105 | [DEBUG] | on stmt: $290binary_subscr.4 = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,105 | [DEBUG] | on stmt: $302compare_op.6 = $290binary_subscr.4 > max_price
+2026-02-06 16:35:27,105 | [DEBUG] | on stmt: $bool308 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,105 | [DEBUG] | on stmt: $308pred = call $bool308($302compare_op.6, func=$bool308, args=(Var($302compare_op.6, velocity_gate.py:37),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,105 | [DEBUG] | on stmt: branch $308pred, 310, 326
+2026-02-06 16:35:27,105 | [DEBUG] | ==== SSA block rewrite pass on 310
+2026-02-06 16:35:27,105 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023B129EA910>
+2026-02-06 16:35:27,105 | [DEBUG] | on stmt: max_price = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,105 | [DEBUG] | replaced with: max_price.1 = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,105 | [DEBUG] | on stmt: jump 326
+2026-02-06 16:35:27,105 | [DEBUG] | ==== SSA block rewrite pass on 326
+2026-02-06 16:35:27,105 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023B129EA910>
+2026-02-06 16:35:27,105 | [DEBUG] | on stmt: $330binary_subscr.3 = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,105 | [DEBUG] | on stmt: $342compare_op.5 = $330binary_subscr.3 < min_price
+2026-02-06 16:35:27,105 | [DEBUG] | on stmt: $bool348 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,105 | [DEBUG] | on stmt: $348pred = call $bool348($342compare_op.5, func=$bool348, args=(Var($342compare_op.5, velocity_gate.py:39),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,105 | [DEBUG] | on stmt: branch $348pred, 350, 366
+2026-02-06 16:35:27,105 | [DEBUG] | ==== SSA block rewrite pass on 350
+2026-02-06 16:35:27,105 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023B129EA910>
+2026-02-06 16:35:27,106 | [DEBUG] | on stmt: min_price = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,106 | [DEBUG] | on stmt: jump 366
+2026-02-06 16:35:27,106 | [DEBUG] | ==== SSA block rewrite pass on 366
+2026-02-06 16:35:27,106 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023B129EA910>
+2026-02-06 16:35:27,106 | [DEBUG] | on stmt: jump 282
+2026-02-06 16:35:27,106 | [DEBUG] | ==== SSA block rewrite pass on 368
+2026-02-06 16:35:27,106 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023B129EA910>
+2026-02-06 16:35:27,106 | [DEBUG] | on stmt: $368load_global.0 = global(abs: <built-in function abs>)
+2026-02-06 16:35:27,106 | [DEBUG] | on stmt: $binop_sub384.4 = max_price - min_price
+2026-02-06 16:35:27,106 | [DEBUG] | on stmt: price_move = call $368load_global.0($binop_sub384.4, func=$368load_global.0, args=[Var($binop_sub384.4, velocity_gate.py:43)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,106 | [DEBUG] | on stmt: time_elapsed = end_time - start_time
+2026-02-06 16:35:27,106 | [DEBUG] | on stmt: $418compare_op.11 = price_move >= cascade_threshold
+2026-02-06 16:35:27,106 | [DEBUG] | on stmt: $bool424 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,106 | [DEBUG] | on stmt: $424pred = call $bool424($418compare_op.11, func=$bool424, args=(Var($418compare_op.11, velocity_gate.py:47),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,106 | [DEBUG] | on stmt: branch $424pred, 426, 452
+2026-02-06 16:35:27,106 | [DEBUG] | ==== SSA block rewrite pass on 426
+2026-02-06 16:35:27,106 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023B129EA910>
+2026-02-06 16:35:27,106 | [DEBUG] | on stmt: $430compare_op.2 = time_elapsed <= time_window
+2026-02-06 16:35:27,106 | [DEBUG] | on stmt: $bool436 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,106 | [DEBUG] | on stmt: $436pred = call $bool436($430compare_op.2, func=$bool436, args=(Var($430compare_op.2, velocity_gate.py:47),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,106 | [DEBUG] | on stmt: branch $436pred, 438, 452
+2026-02-06 16:35:27,106 | [DEBUG] | ==== SSA block rewrite pass on 438
+2026-02-06 16:35:27,106 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023B129EA910>
+2026-02-06 16:35:27,106 | [DEBUG] | on stmt: $const438.0.1 = const(int, 1)
+2026-02-06 16:35:27,106 | [DEBUG] | on stmt: results[idx] = $const438.0.1
+2026-02-06 16:35:27,106 | [DEBUG] | on stmt: $const448.3.4 = const(NoneType, None)
+2026-02-06 16:35:27,106 | [DEBUG] | on stmt: $450return_value.4 = cast(value=$const448.3.4)
+2026-02-06 16:35:27,106 | [DEBUG] | on stmt: return $450return_value.4
+2026-02-06 16:35:27,106 | [DEBUG] | ==== SSA block rewrite pass on 452
+2026-02-06 16:35:27,106 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023B129EA910>
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: $const452.0.2 = const(int, 0)
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: results[idx] = $const452.0.2
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: $const462.3.4 = const(NoneType, None)
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: $464return_value.4 = cast(value=$const462.3.4)
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: return $464return_value.4
+2026-02-06 16:35:27,108 | [DEBUG] | Replaced assignments: defaultdict(<class 'list'>,
+            {88: [<numba.cuda.core.ir.Assign object at 0x0000023B01C0FF90>],
+             310: [<numba.cuda.core.ir.Assign object at 0x0000023BBBA1ED10>]})
+2026-02-06 16:35:27,108 | [DEBUG] | ==== SSA block rewrite pass on 0
+2026-02-06 16:35:27,108 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023BBBA3BED0>
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: tick_prices = arg(0, name=tick_prices)
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: tick_times = arg(1, name=tick_times)
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: cascade_threshold = arg(2, name=cascade_threshold)
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: time_window = arg(3, name=time_window)
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: results = arg(4, name=results)
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: $4load_global.0 = global(cuda: <module 'numba.cuda' from 'C:\\Users\\reyse\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python311\\site-packages\\numba_cuda\\numba\\cuda\\__init__.py'>)
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: $16load_attr.2 = getattr(value=$4load_global.0, attr=grid)
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: $const26.3.1 = const(int, 1)
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: idx = call $16load_attr.2($const26.3.1, func=$16load_attr.2, args=[Var($const26.3.1, velocity_gate.py:21)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: $48load_attr.7 = getattr(value=tick_prices, attr=shape)
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: $const58.8.2 = const(int, 0)
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: $60binary_subscr.9 = static_getitem(value=$48load_attr.7, index=0, index_var=$const58.8.2, fn=<built-in function getitem>)
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: $const70.10.3 = const(int, 50)
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: $binop_sub72.11 = $60binary_subscr.9 - $const70.10.3
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: $76compare_op.12 = idx >= $binop_sub72.11
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: $bool82 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: $82pred = call $bool82($76compare_op.12, func=$bool82, args=(Var($76compare_op.12, velocity_gate.py:23),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,108 | [DEBUG] | on stmt: branch $82pred, 84, 88
+2026-02-06 16:35:27,108 | [DEBUG] | ==== SSA block rewrite pass on 84
+2026-02-06 16:35:27,109 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023BBBA3BED0>
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: $const84.0.4 = const(NoneType, None)
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: $86return_value.1 = cast(value=$const84.0.4)
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: return $86return_value.1
+2026-02-06 16:35:27,109 | [DEBUG] | ==== SSA block rewrite pass on 88
+2026-02-06 16:35:27,109 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023BBBA3BED0>
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: $88load_global.0 = global(max: <built-in function max>)
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: $const100.2.2 = const(int, 0)
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: window_start = call $88load_global.0($const100.2.2, idx, func=$88load_global.0, args=[Var($const100.2.2, velocity_gate.py:27), Var(idx, velocity_gate.py:21)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: $120load_global.5 = global(min: <built-in function min>)
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: $134load_attr.8 = getattr(value=tick_prices, attr=shape)
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: $const144.9.2 = const(int, 0)
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: $146binary_subscr.10 = static_getitem(value=$134load_attr.8, index=0, index_var=$const144.9.2, fn=<built-in function getitem>)
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: $const158.12.3 = const(int, 50)
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: $binop_add160.13 = idx + $const158.12.3
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: window_end = call $120load_global.5($146binary_subscr.10, $binop_add160.13, func=$120load_global.5, args=[Var($146binary_subscr.10, velocity_gate.py:28), Var($binop_add160.13, velocity_gate.py:28)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: max_price = getitem(value=tick_prices, index=window_start, fn=<built-in function getitem>)
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: min_price = getitem(value=tick_prices, index=window_start, fn=<built-in function getitem>)
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: start_time = getitem(value=tick_times, index=window_start, fn=<built-in function getitem>)
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: $const232.26.1 = const(int, 1)
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: $binop_sub234.27 = window_end - $const232.26.1
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: end_time = getitem(value=tick_times, index=$binop_sub234.27, fn=<built-in function getitem>)
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: $250load_global.29 = global(range: <class 'range'>)
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: $270call.33 = call $250load_global.29(window_start, window_end, func=$250load_global.29, args=[Var(window_start, velocity_gate.py:27), Var(window_end, velocity_gate.py:28)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: $280get_iter.34 = getiter(value=$270call.33)
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: $phi282.0 = $280get_iter.34
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: jump 282
+2026-02-06 16:35:27,109 | [DEBUG] | ==== SSA block rewrite pass on 282
+2026-02-06 16:35:27,109 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023BBBA3BED0>
+2026-02-06 16:35:27,109 | [DEBUG] | on stmt: $282for_iter.1 = iternext(value=$phi282.0)
+2026-02-06 16:35:27,110 | [DEBUG] | on stmt: $282for_iter.2 = pair_first(value=$282for_iter.1)
+2026-02-06 16:35:27,110 | [DEBUG] | on stmt: $282for_iter.3 = pair_second(value=$282for_iter.1)
+2026-02-06 16:35:27,110 | [DEBUG] | on stmt: $phi284.1 = $282for_iter.2
+2026-02-06 16:35:27,110 | [DEBUG] | on stmt: branch $282for_iter.3, 284, 368
+2026-02-06 16:35:27,110 | [DEBUG] | ==== SSA block rewrite pass on 284
+2026-02-06 16:35:27,110 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023BBBA3BED0>
+2026-02-06 16:35:27,110 | [DEBUG] | on stmt: i = $phi284.1
+2026-02-06 16:35:27,110 | [DEBUG] | on stmt: $290binary_subscr.4 = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,110 | [DEBUG] | on stmt: $302compare_op.6 = $290binary_subscr.4 > max_price
+2026-02-06 16:35:27,110 | [DEBUG] | find_def var='max_price' stmt=$302compare_op.6 = $290binary_subscr.4 > max_price
+2026-02-06 16:35:27,110 | [DEBUG] | find_def_from_top label 284
+2026-02-06 16:35:27,110 | [DEBUG] | idom 282 from label 284
+2026-02-06 16:35:27,110 | [DEBUG] | find_def_from_bottom label 282
+2026-02-06 16:35:27,110 | [DEBUG] | find_def_from_top label 282
+2026-02-06 16:35:27,110 | [DEBUG] | insert phi node max_price.2 = phi(incoming_values=[], incoming_blocks=[]) at 282
+2026-02-06 16:35:27,110 | [DEBUG] | find_def_from_bottom label 88
+2026-02-06 16:35:27,110 | [DEBUG] | incoming_def max_price = getitem(value=tick_prices, index=window_start, fn=<built-in function getitem>)
+2026-02-06 16:35:27,110 | [DEBUG] | find_def_from_bottom label 366
+2026-02-06 16:35:27,110 | [DEBUG] | find_def_from_top label 366
+2026-02-06 16:35:27,110 | [DEBUG] | idom 326 from label 366
+2026-02-06 16:35:27,110 | [DEBUG] | find_def_from_bottom label 326
+2026-02-06 16:35:27,110 | [DEBUG] | find_def_from_top label 326
+2026-02-06 16:35:27,110 | [DEBUG] | insert phi node max_price.3 = phi(incoming_values=[], incoming_blocks=[]) at 326
+2026-02-06 16:35:27,110 | [DEBUG] | find_def_from_bottom label 284
+2026-02-06 16:35:27,110 | [DEBUG] | find_def_from_top label 284
+2026-02-06 16:35:27,110 | [DEBUG] | idom 282 from label 284
+2026-02-06 16:35:27,110 | [DEBUG] | find_def_from_bottom label 282
+2026-02-06 16:35:27,110 | [DEBUG] | incoming_def max_price.2 = phi(incoming_values=[Var(max_price, velocity_gate.py:30)], incoming_blocks=[88])
+2026-02-06 16:35:27,110 | [DEBUG] | find_def_from_bottom label 310
+2026-02-06 16:35:27,110 | [DEBUG] | incoming_def max_price.1 = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,110 | [DEBUG] | incoming_def max_price.3 = phi(incoming_values=[Var(max_price.2, velocity_gate.py:36), Var(max_price.1, velocity_gate.py:38)], incoming_blocks=[284, 310])
+2026-02-06 16:35:27,111 | [DEBUG] | replaced with: $302compare_op.6 = $290binary_subscr.4 > max_price.2
+2026-02-06 16:35:27,111 | [DEBUG] | on stmt: $bool308 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,111 | [DEBUG] | on stmt: $308pred = call $bool308($302compare_op.6, func=$bool308, args=(Var($302compare_op.6, velocity_gate.py:37),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,111 | [DEBUG] | on stmt: branch $308pred, 310, 326
+2026-02-06 16:35:27,111 | [DEBUG] | ==== SSA block rewrite pass on 310
+2026-02-06 16:35:27,111 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023BBBA3BED0>
+2026-02-06 16:35:27,111 | [DEBUG] | on stmt: max_price.1 = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,111 | [DEBUG] | on stmt: jump 326
+2026-02-06 16:35:27,111 | [DEBUG] | ==== SSA block rewrite pass on 326
+2026-02-06 16:35:27,111 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023BBBA3BED0>
+2026-02-06 16:35:27,111 | [DEBUG] | on stmt: $330binary_subscr.3 = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,111 | [DEBUG] | on stmt: $342compare_op.5 = $330binary_subscr.3 < min_price
+2026-02-06 16:35:27,111 | [DEBUG] | on stmt: $bool348 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,111 | [DEBUG] | on stmt: $348pred = call $bool348($342compare_op.5, func=$bool348, args=(Var($342compare_op.5, velocity_gate.py:39),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,111 | [DEBUG] | on stmt: branch $348pred, 350, 366
+2026-02-06 16:35:27,111 | [DEBUG] | ==== SSA block rewrite pass on 350
+2026-02-06 16:35:27,111 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023BBBA3BED0>
+2026-02-06 16:35:27,111 | [DEBUG] | on stmt: min_price = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,111 | [DEBUG] | on stmt: jump 366
+2026-02-06 16:35:27,111 | [DEBUG] | ==== SSA block rewrite pass on 366
+2026-02-06 16:35:27,111 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023BBBA3BED0>
+2026-02-06 16:35:27,111 | [DEBUG] | on stmt: jump 282
+2026-02-06 16:35:27,111 | [DEBUG] | ==== SSA block rewrite pass on 368
+2026-02-06 16:35:27,111 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023BBBA3BED0>
+2026-02-06 16:35:27,111 | [DEBUG] | on stmt: $368load_global.0 = global(abs: <built-in function abs>)
+2026-02-06 16:35:27,111 | [DEBUG] | on stmt: $binop_sub384.4 = max_price - min_price
+2026-02-06 16:35:27,111 | [DEBUG] | find_def var='max_price' stmt=$binop_sub384.4 = max_price - min_price
+2026-02-06 16:35:27,111 | [DEBUG] | find_def_from_top label 368
+2026-02-06 16:35:27,111 | [DEBUG] | idom 282 from label 368
+2026-02-06 16:35:27,111 | [DEBUG] | find_def_from_bottom label 282
+2026-02-06 16:35:27,112 | [DEBUG] | replaced with: $binop_sub384.4 = max_price.2 - min_price
+2026-02-06 16:35:27,112 | [DEBUG] | on stmt: price_move = call $368load_global.0($binop_sub384.4, func=$368load_global.0, args=[Var($binop_sub384.4, velocity_gate.py:43)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,112 | [DEBUG] | on stmt: time_elapsed = end_time - start_time
+2026-02-06 16:35:27,112 | [DEBUG] | on stmt: $418compare_op.11 = price_move >= cascade_threshold
+2026-02-06 16:35:27,112 | [DEBUG] | on stmt: $bool424 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,112 | [DEBUG] | on stmt: $424pred = call $bool424($418compare_op.11, func=$bool424, args=(Var($418compare_op.11, velocity_gate.py:47),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,112 | [DEBUG] | on stmt: branch $424pred, 426, 452
+2026-02-06 16:35:27,112 | [DEBUG] | ==== SSA block rewrite pass on 426
+2026-02-06 16:35:27,112 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023BBBA3BED0>
+2026-02-06 16:35:27,112 | [DEBUG] | on stmt: $430compare_op.2 = time_elapsed <= time_window
+2026-02-06 16:35:27,112 | [DEBUG] | on stmt: $bool436 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,112 | [DEBUG] | on stmt: $436pred = call $bool436($430compare_op.2, func=$bool436, args=(Var($430compare_op.2, velocity_gate.py:47),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,112 | [DEBUG] | on stmt: branch $436pred, 438, 452
+2026-02-06 16:35:27,112 | [DEBUG] | ==== SSA block rewrite pass on 438
+2026-02-06 16:35:27,112 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023BBBA3BED0>
+2026-02-06 16:35:27,112 | [DEBUG] | on stmt: $const438.0.1 = const(int, 1)
+2026-02-06 16:35:27,112 | [DEBUG] | on stmt: results[idx] = $const438.0.1
+2026-02-06 16:35:27,112 | [DEBUG] | on stmt: $const448.3.4 = const(NoneType, None)
+2026-02-06 16:35:27,112 | [DEBUG] | on stmt: $450return_value.4 = cast(value=$const448.3.4)
+2026-02-06 16:35:27,112 | [DEBUG] | on stmt: return $450return_value.4
+2026-02-06 16:35:27,112 | [DEBUG] | ==== SSA block rewrite pass on 452
+2026-02-06 16:35:27,112 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023BBBA3BED0>
+2026-02-06 16:35:27,112 | [DEBUG] | on stmt: $const452.0.2 = const(int, 0)
+2026-02-06 16:35:27,112 | [DEBUG] | on stmt: results[idx] = $const452.0.2
+2026-02-06 16:35:27,112 | [DEBUG] | on stmt: $const462.3.4 = const(NoneType, None)
+2026-02-06 16:35:27,112 | [DEBUG] | on stmt: $464return_value.4 = cast(value=$const462.3.4)
+2026-02-06 16:35:27,112 | [DEBUG] | on stmt: return $464return_value.4
+2026-02-06 16:35:27,112 | [DEBUG] | Fix SSA violator on var min_price
+2026-02-06 16:35:27,112 | [DEBUG] | ==== SSA block rewrite pass on 0
+2026-02-06 16:35:27,112 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023BBBA1FF90>
+2026-02-06 16:35:27,112 | [DEBUG] | on stmt: tick_prices = arg(0, name=tick_prices)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: tick_times = arg(1, name=tick_times)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: cascade_threshold = arg(2, name=cascade_threshold)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: time_window = arg(3, name=time_window)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: results = arg(4, name=results)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: $4load_global.0 = global(cuda: <module 'numba.cuda' from 'C:\\Users\\reyse\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python311\\site-packages\\numba_cuda\\numba\\cuda\\__init__.py'>)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: $16load_attr.2 = getattr(value=$4load_global.0, attr=grid)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: $const26.3.1 = const(int, 1)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: idx = call $16load_attr.2($const26.3.1, func=$16load_attr.2, args=[Var($const26.3.1, velocity_gate.py:21)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: $48load_attr.7 = getattr(value=tick_prices, attr=shape)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: $const58.8.2 = const(int, 0)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: $60binary_subscr.9 = static_getitem(value=$48load_attr.7, index=0, index_var=$const58.8.2, fn=<built-in function getitem>)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: $const70.10.3 = const(int, 50)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: $binop_sub72.11 = $60binary_subscr.9 - $const70.10.3
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: $76compare_op.12 = idx >= $binop_sub72.11
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: $bool82 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: $82pred = call $bool82($76compare_op.12, func=$bool82, args=(Var($76compare_op.12, velocity_gate.py:23),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: branch $82pred, 84, 88
+2026-02-06 16:35:27,113 | [DEBUG] | ==== SSA block rewrite pass on 84
+2026-02-06 16:35:27,113 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023BBBA1FF90>
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: $const84.0.4 = const(NoneType, None)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: $86return_value.1 = cast(value=$const84.0.4)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: return $86return_value.1
+2026-02-06 16:35:27,113 | [DEBUG] | ==== SSA block rewrite pass on 88
+2026-02-06 16:35:27,113 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023BBBA1FF90>
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: $88load_global.0 = global(max: <built-in function max>)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: $const100.2.2 = const(int, 0)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: window_start = call $88load_global.0($const100.2.2, idx, func=$88load_global.0, args=[Var($const100.2.2, velocity_gate.py:27), Var(idx, velocity_gate.py:21)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: $120load_global.5 = global(min: <built-in function min>)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: $134load_attr.8 = getattr(value=tick_prices, attr=shape)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: $const144.9.2 = const(int, 0)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: $146binary_subscr.10 = static_getitem(value=$134load_attr.8, index=0, index_var=$const144.9.2, fn=<built-in function getitem>)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: $const158.12.3 = const(int, 50)
+2026-02-06 16:35:27,113 | [DEBUG] | on stmt: $binop_add160.13 = idx + $const158.12.3
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: window_end = call $120load_global.5($146binary_subscr.10, $binop_add160.13, func=$120load_global.5, args=[Var($146binary_subscr.10, velocity_gate.py:28), Var($binop_add160.13, velocity_gate.py:28)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: max_price = getitem(value=tick_prices, index=window_start, fn=<built-in function getitem>)
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: min_price = getitem(value=tick_prices, index=window_start, fn=<built-in function getitem>)
+2026-02-06 16:35:27,114 | [DEBUG] | first assign: min_price
+2026-02-06 16:35:27,114 | [DEBUG] | replaced with: min_price = getitem(value=tick_prices, index=window_start, fn=<built-in function getitem>)
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: start_time = getitem(value=tick_times, index=window_start, fn=<built-in function getitem>)
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: $const232.26.1 = const(int, 1)
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: $binop_sub234.27 = window_end - $const232.26.1
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: end_time = getitem(value=tick_times, index=$binop_sub234.27, fn=<built-in function getitem>)
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: $250load_global.29 = global(range: <class 'range'>)
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: $270call.33 = call $250load_global.29(window_start, window_end, func=$250load_global.29, args=[Var(window_start, velocity_gate.py:27), Var(window_end, velocity_gate.py:28)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: $280get_iter.34 = getiter(value=$270call.33)
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: $phi282.0 = $280get_iter.34
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: jump 282
+2026-02-06 16:35:27,114 | [DEBUG] | ==== SSA block rewrite pass on 282
+2026-02-06 16:35:27,114 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023BBBA1FF90>
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: max_price.2 = phi(incoming_values=[Var(max_price, velocity_gate.py:30), Var(max_price.3, velocity_gate.py:36)], incoming_blocks=[88, 366])
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: $282for_iter.1 = iternext(value=$phi282.0)
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: $282for_iter.2 = pair_first(value=$282for_iter.1)
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: $282for_iter.3 = pair_second(value=$282for_iter.1)
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: $phi284.1 = $282for_iter.2
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: branch $282for_iter.3, 284, 368
+2026-02-06 16:35:27,114 | [DEBUG] | ==== SSA block rewrite pass on 284
+2026-02-06 16:35:27,114 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023BBBA1FF90>
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: i = $phi284.1
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: $290binary_subscr.4 = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: $302compare_op.6 = $290binary_subscr.4 > max_price.2
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: $bool308 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: $308pred = call $bool308($302compare_op.6, func=$bool308, args=(Var($302compare_op.6, velocity_gate.py:37),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,114 | [DEBUG] | on stmt: branch $308pred, 310, 326
+2026-02-06 16:35:27,114 | [DEBUG] | ==== SSA block rewrite pass on 310
+2026-02-06 16:35:27,114 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023BBBA1FF90>
+2026-02-06 16:35:27,115 | [DEBUG] | on stmt: max_price.1 = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,115 | [DEBUG] | on stmt: jump 326
+2026-02-06 16:35:27,115 | [DEBUG] | ==== SSA block rewrite pass on 326
+2026-02-06 16:35:27,115 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023BBBA1FF90>
+2026-02-06 16:35:27,115 | [DEBUG] | on stmt: max_price.3 = phi(incoming_values=[Var(max_price.2, velocity_gate.py:36), Var(max_price.1, velocity_gate.py:38)], incoming_blocks=[284, 310])
+2026-02-06 16:35:27,115 | [DEBUG] | on stmt: $330binary_subscr.3 = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,115 | [DEBUG] | on stmt: $342compare_op.5 = $330binary_subscr.3 < min_price
+2026-02-06 16:35:27,115 | [DEBUG] | on stmt: $bool348 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,115 | [DEBUG] | on stmt: $348pred = call $bool348($342compare_op.5, func=$bool348, args=(Var($342compare_op.5, velocity_gate.py:39),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,115 | [DEBUG] | on stmt: branch $348pred, 350, 366
+2026-02-06 16:35:27,115 | [DEBUG] | ==== SSA block rewrite pass on 350
+2026-02-06 16:35:27,115 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023BBBA1FF90>
+2026-02-06 16:35:27,115 | [DEBUG] | on stmt: min_price = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,115 | [DEBUG] | replaced with: min_price.1 = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,115 | [DEBUG] | on stmt: jump 366
+2026-02-06 16:35:27,115 | [DEBUG] | ==== SSA block rewrite pass on 366
+2026-02-06 16:35:27,115 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023BBBA1FF90>
+2026-02-06 16:35:27,115 | [DEBUG] | on stmt: jump 282
+2026-02-06 16:35:27,115 | [DEBUG] | ==== SSA block rewrite pass on 368
+2026-02-06 16:35:27,115 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023BBBA1FF90>
+2026-02-06 16:35:27,115 | [DEBUG] | on stmt: $368load_global.0 = global(abs: <built-in function abs>)
+2026-02-06 16:35:27,115 | [DEBUG] | on stmt: $binop_sub384.4 = max_price.2 - min_price
+2026-02-06 16:35:27,115 | [DEBUG] | on stmt: price_move = call $368load_global.0($binop_sub384.4, func=$368load_global.0, args=[Var($binop_sub384.4, velocity_gate.py:43)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,115 | [DEBUG] | on stmt: time_elapsed = end_time - start_time
+2026-02-06 16:35:27,115 | [DEBUG] | on stmt: $418compare_op.11 = price_move >= cascade_threshold
+2026-02-06 16:35:27,115 | [DEBUG] | on stmt: $bool424 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,115 | [DEBUG] | on stmt: $424pred = call $bool424($418compare_op.11, func=$bool424, args=(Var($418compare_op.11, velocity_gate.py:47),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,115 | [DEBUG] | on stmt: branch $424pred, 426, 452
+2026-02-06 16:35:27,115 | [DEBUG] | ==== SSA block rewrite pass on 426
+2026-02-06 16:35:27,115 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023BBBA1FF90>
+2026-02-06 16:35:27,115 | [DEBUG] | on stmt: $430compare_op.2 = time_elapsed <= time_window
+2026-02-06 16:35:27,115 | [DEBUG] | on stmt: $bool436 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,115 | [DEBUG] | on stmt: $436pred = call $bool436($430compare_op.2, func=$bool436, args=(Var($430compare_op.2, velocity_gate.py:47),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: branch $436pred, 438, 452
+2026-02-06 16:35:27,116 | [DEBUG] | ==== SSA block rewrite pass on 438
+2026-02-06 16:35:27,116 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023BBBA1FF90>
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: $const438.0.1 = const(int, 1)
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: results[idx] = $const438.0.1
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: $const448.3.4 = const(NoneType, None)
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: $450return_value.4 = cast(value=$const448.3.4)
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: return $450return_value.4
+2026-02-06 16:35:27,116 | [DEBUG] | ==== SSA block rewrite pass on 452
+2026-02-06 16:35:27,116 | [DEBUG] | Running <numba.cuda.core.ssa._FreshVarHandler object at 0x0000023BBBA1FF90>
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: $const452.0.2 = const(int, 0)
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: results[idx] = $const452.0.2
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: $const462.3.4 = const(NoneType, None)
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: $464return_value.4 = cast(value=$const462.3.4)
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: return $464return_value.4
+2026-02-06 16:35:27,116 | [DEBUG] | Replaced assignments: defaultdict(<class 'list'>,
+            {88: [<numba.cuda.core.ir.Assign object at 0x0000023BBBA23A10>],
+             350: [<numba.cuda.core.ir.Assign object at 0x0000023BBBA1C5D0>]})
+2026-02-06 16:35:27,116 | [DEBUG] | ==== SSA block rewrite pass on 0
+2026-02-06 16:35:27,116 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023B04B39D10>
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: tick_prices = arg(0, name=tick_prices)
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: tick_times = arg(1, name=tick_times)
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: cascade_threshold = arg(2, name=cascade_threshold)
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: time_window = arg(3, name=time_window)
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: results = arg(4, name=results)
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: $4load_global.0 = global(cuda: <module 'numba.cuda' from 'C:\\Users\\reyse\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python311\\site-packages\\numba_cuda\\numba\\cuda\\__init__.py'>)
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: $16load_attr.2 = getattr(value=$4load_global.0, attr=grid)
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: $const26.3.1 = const(int, 1)
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: idx = call $16load_attr.2($const26.3.1, func=$16load_attr.2, args=[Var($const26.3.1, velocity_gate.py:21)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: $48load_attr.7 = getattr(value=tick_prices, attr=shape)
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: $const58.8.2 = const(int, 0)
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: $60binary_subscr.9 = static_getitem(value=$48load_attr.7, index=0, index_var=$const58.8.2, fn=<built-in function getitem>)
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: $const70.10.3 = const(int, 50)
+2026-02-06 16:35:27,116 | [DEBUG] | on stmt: $binop_sub72.11 = $60binary_subscr.9 - $const70.10.3
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: $76compare_op.12 = idx >= $binop_sub72.11
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: $bool82 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: $82pred = call $bool82($76compare_op.12, func=$bool82, args=(Var($76compare_op.12, velocity_gate.py:23),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: branch $82pred, 84, 88
+2026-02-06 16:35:27,117 | [DEBUG] | ==== SSA block rewrite pass on 84
+2026-02-06 16:35:27,117 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023B04B39D10>
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: $const84.0.4 = const(NoneType, None)
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: $86return_value.1 = cast(value=$const84.0.4)
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: return $86return_value.1
+2026-02-06 16:35:27,117 | [DEBUG] | ==== SSA block rewrite pass on 88
+2026-02-06 16:35:27,117 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023B04B39D10>
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: $88load_global.0 = global(max: <built-in function max>)
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: $const100.2.2 = const(int, 0)
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: window_start = call $88load_global.0($const100.2.2, idx, func=$88load_global.0, args=[Var($const100.2.2, velocity_gate.py:27), Var(idx, velocity_gate.py:21)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: $120load_global.5 = global(min: <built-in function min>)
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: $134load_attr.8 = getattr(value=tick_prices, attr=shape)
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: $const144.9.2 = const(int, 0)
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: $146binary_subscr.10 = static_getitem(value=$134load_attr.8, index=0, index_var=$const144.9.2, fn=<built-in function getitem>)
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: $const158.12.3 = const(int, 50)
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: $binop_add160.13 = idx + $const158.12.3
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: window_end = call $120load_global.5($146binary_subscr.10, $binop_add160.13, func=$120load_global.5, args=[Var($146binary_subscr.10, velocity_gate.py:28), Var($binop_add160.13, velocity_gate.py:28)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: max_price = getitem(value=tick_prices, index=window_start, fn=<built-in function getitem>)
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: min_price = getitem(value=tick_prices, index=window_start, fn=<built-in function getitem>)
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: start_time = getitem(value=tick_times, index=window_start, fn=<built-in function getitem>)
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: $const232.26.1 = const(int, 1)
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: $binop_sub234.27 = window_end - $const232.26.1
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: end_time = getitem(value=tick_times, index=$binop_sub234.27, fn=<built-in function getitem>)
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: $250load_global.29 = global(range: <class 'range'>)
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: $270call.33 = call $250load_global.29(window_start, window_end, func=$250load_global.29, args=[Var(window_start, velocity_gate.py:27), Var(window_end, velocity_gate.py:28)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: $280get_iter.34 = getiter(value=$270call.33)
+2026-02-06 16:35:27,117 | [DEBUG] | on stmt: $phi282.0 = $280get_iter.34
+2026-02-06 16:35:27,118 | [DEBUG] | on stmt: jump 282
+2026-02-06 16:35:27,118 | [DEBUG] | ==== SSA block rewrite pass on 282
+2026-02-06 16:35:27,118 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023B04B39D10>
+2026-02-06 16:35:27,118 | [DEBUG] | on stmt: max_price.2 = phi(incoming_values=[Var(max_price, velocity_gate.py:30), Var(max_price.3, velocity_gate.py:36)], incoming_blocks=[88, 366])
+2026-02-06 16:35:27,118 | [DEBUG] | on stmt: $282for_iter.1 = iternext(value=$phi282.0)
+2026-02-06 16:35:27,118 | [DEBUG] | on stmt: $282for_iter.2 = pair_first(value=$282for_iter.1)
+2026-02-06 16:35:27,118 | [DEBUG] | on stmt: $282for_iter.3 = pair_second(value=$282for_iter.1)
+2026-02-06 16:35:27,118 | [DEBUG] | on stmt: $phi284.1 = $282for_iter.2
+2026-02-06 16:35:27,118 | [DEBUG] | on stmt: branch $282for_iter.3, 284, 368
+2026-02-06 16:35:27,118 | [DEBUG] | ==== SSA block rewrite pass on 284
+2026-02-06 16:35:27,118 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023B04B39D10>
+2026-02-06 16:35:27,118 | [DEBUG] | on stmt: i = $phi284.1
+2026-02-06 16:35:27,118 | [DEBUG] | on stmt: $290binary_subscr.4 = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,118 | [DEBUG] | on stmt: $302compare_op.6 = $290binary_subscr.4 > max_price.2
+2026-02-06 16:35:27,118 | [DEBUG] | on stmt: $bool308 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,118 | [DEBUG] | on stmt: $308pred = call $bool308($302compare_op.6, func=$bool308, args=(Var($302compare_op.6, velocity_gate.py:37),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,118 | [DEBUG] | on stmt: branch $308pred, 310, 326
+2026-02-06 16:35:27,118 | [DEBUG] | ==== SSA block rewrite pass on 310
+2026-02-06 16:35:27,118 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023B04B39D10>
+2026-02-06 16:35:27,118 | [DEBUG] | on stmt: max_price.1 = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,118 | [DEBUG] | on stmt: jump 326
+2026-02-06 16:35:27,118 | [DEBUG] | ==== SSA block rewrite pass on 326
+2026-02-06 16:35:27,118 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023B04B39D10>
+2026-02-06 16:35:27,118 | [DEBUG] | on stmt: max_price.3 = phi(incoming_values=[Var(max_price.2, velocity_gate.py:36), Var(max_price.1, velocity_gate.py:38)], incoming_blocks=[284, 310])
+2026-02-06 16:35:27,118 | [DEBUG] | on stmt: $330binary_subscr.3 = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,118 | [DEBUG] | on stmt: $342compare_op.5 = $330binary_subscr.3 < min_price
+2026-02-06 16:35:27,118 | [DEBUG] | find_def var='min_price' stmt=$342compare_op.5 = $330binary_subscr.3 < min_price
+2026-02-06 16:35:27,118 | [DEBUG] | find_def_from_top label 326
+2026-02-06 16:35:27,118 | [DEBUG] | idom 284 from label 326
+2026-02-06 16:35:27,118 | [DEBUG] | find_def_from_bottom label 284
+2026-02-06 16:35:27,118 | [DEBUG] | find_def_from_top label 284
+2026-02-06 16:35:27,118 | [DEBUG] | idom 282 from label 284
+2026-02-06 16:35:27,119 | [DEBUG] | find_def_from_bottom label 282
+2026-02-06 16:35:27,119 | [DEBUG] | find_def_from_top label 282
+2026-02-06 16:35:27,119 | [DEBUG] | insert phi node min_price.2 = phi(incoming_values=[], incoming_blocks=[]) at 282
+2026-02-06 16:35:27,119 | [DEBUG] | find_def_from_bottom label 88
+2026-02-06 16:35:27,119 | [DEBUG] | incoming_def min_price = getitem(value=tick_prices, index=window_start, fn=<built-in function getitem>)
+2026-02-06 16:35:27,119 | [DEBUG] | find_def_from_bottom label 366
+2026-02-06 16:35:27,119 | [DEBUG] | find_def_from_top label 366
+2026-02-06 16:35:27,119 | [DEBUG] | insert phi node min_price.3 = phi(incoming_values=[], incoming_blocks=[]) at 366
+2026-02-06 16:35:27,119 | [DEBUG] | find_def_from_bottom label 350
+2026-02-06 16:35:27,119 | [DEBUG] | incoming_def min_price.1 = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,119 | [DEBUG] | find_def_from_bottom label 326
+2026-02-06 16:35:27,119 | [DEBUG] | find_def_from_top label 326
+2026-02-06 16:35:27,119 | [DEBUG] | idom 284 from label 326
+2026-02-06 16:35:27,119 | [DEBUG] | find_def_from_bottom label 284
+2026-02-06 16:35:27,119 | [DEBUG] | find_def_from_top label 284
+2026-02-06 16:35:27,119 | [DEBUG] | idom 282 from label 284
+2026-02-06 16:35:27,119 | [DEBUG] | find_def_from_bottom label 282
+2026-02-06 16:35:27,119 | [DEBUG] | incoming_def min_price.2 = phi(incoming_values=[Var(min_price, velocity_gate.py:31)], incoming_blocks=[88])
+2026-02-06 16:35:27,119 | [DEBUG] | incoming_def min_price.3 = phi(incoming_values=[Var(min_price.1, velocity_gate.py:40), Var(min_price.2, velocity_gate.py:39)], incoming_blocks=[350, 326])
+2026-02-06 16:35:27,119 | [DEBUG] | replaced with: $342compare_op.5 = $330binary_subscr.3 < min_price.2
+2026-02-06 16:35:27,119 | [DEBUG] | on stmt: $bool348 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,119 | [DEBUG] | on stmt: $348pred = call $bool348($342compare_op.5, func=$bool348, args=(Var($342compare_op.5, velocity_gate.py:39),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,119 | [DEBUG] | on stmt: branch $348pred, 350, 366
+2026-02-06 16:35:27,119 | [DEBUG] | ==== SSA block rewrite pass on 350
+2026-02-06 16:35:27,119 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023B04B39D10>
+2026-02-06 16:35:27,119 | [DEBUG] | on stmt: min_price.1 = getitem(value=tick_prices, index=i, fn=<built-in function getitem>)
+2026-02-06 16:35:27,119 | [DEBUG] | on stmt: jump 366
+2026-02-06 16:35:27,119 | [DEBUG] | ==== SSA block rewrite pass on 366
+2026-02-06 16:35:27,119 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023B04B39D10>
+2026-02-06 16:35:27,119 | [DEBUG] | on stmt: jump 282
+2026-02-06 16:35:27,119 | [DEBUG] | ==== SSA block rewrite pass on 368
+2026-02-06 16:35:27,119 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023B04B39D10>
+2026-02-06 16:35:27,119 | [DEBUG] | on stmt: $368load_global.0 = global(abs: <built-in function abs>)
+2026-02-06 16:35:27,120 | [DEBUG] | on stmt: $binop_sub384.4 = max_price.2 - min_price
+2026-02-06 16:35:27,120 | [DEBUG] | find_def var='min_price' stmt=$binop_sub384.4 = max_price.2 - min_price
+2026-02-06 16:35:27,120 | [DEBUG] | find_def_from_top label 368
+2026-02-06 16:35:27,120 | [DEBUG] | idom 282 from label 368
+2026-02-06 16:35:27,120 | [DEBUG] | find_def_from_bottom label 282
+2026-02-06 16:35:27,120 | [DEBUG] | replaced with: $binop_sub384.4 = max_price.2 - min_price.2
+2026-02-06 16:35:27,120 | [DEBUG] | on stmt: price_move = call $368load_global.0($binop_sub384.4, func=$368load_global.0, args=[Var($binop_sub384.4, velocity_gate.py:43)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,120 | [DEBUG] | on stmt: time_elapsed = end_time - start_time
+2026-02-06 16:35:27,120 | [DEBUG] | on stmt: $418compare_op.11 = price_move >= cascade_threshold
+2026-02-06 16:35:27,120 | [DEBUG] | on stmt: $bool424 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,120 | [DEBUG] | on stmt: $424pred = call $bool424($418compare_op.11, func=$bool424, args=(Var($418compare_op.11, velocity_gate.py:47),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,120 | [DEBUG] | on stmt: branch $424pred, 426, 452
+2026-02-06 16:35:27,120 | [DEBUG] | ==== SSA block rewrite pass on 426
+2026-02-06 16:35:27,120 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023B04B39D10>
+2026-02-06 16:35:27,120 | [DEBUG] | on stmt: $430compare_op.2 = time_elapsed <= time_window
+2026-02-06 16:35:27,120 | [DEBUG] | on stmt: $bool436 = global(bool: <class 'bool'>)
+2026-02-06 16:35:27,120 | [DEBUG] | on stmt: $436pred = call $bool436($430compare_op.2, func=$bool436, args=(Var($430compare_op.2, velocity_gate.py:47),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-06 16:35:27,120 | [DEBUG] | on stmt: branch $436pred, 438, 452
+2026-02-06 16:35:27,120 | [DEBUG] | ==== SSA block rewrite pass on 438
+2026-02-06 16:35:27,120 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023B04B39D10>
+2026-02-06 16:35:27,120 | [DEBUG] | on stmt: $const438.0.1 = const(int, 1)
+2026-02-06 16:35:27,120 | [DEBUG] | on stmt: results[idx] = $const438.0.1
+2026-02-06 16:35:27,120 | [DEBUG] | on stmt: $const448.3.4 = const(NoneType, None)
+2026-02-06 16:35:27,120 | [DEBUG] | on stmt: $450return_value.4 = cast(value=$const448.3.4)
+2026-02-06 16:35:27,120 | [DEBUG] | on stmt: return $450return_value.4
+2026-02-06 16:35:27,120 | [DEBUG] | ==== SSA block rewrite pass on 452
+2026-02-06 16:35:27,120 | [DEBUG] | Running <numba.cuda.core.ssa._FixSSAVars object at 0x0000023B04B39D10>
+2026-02-06 16:35:27,120 | [DEBUG] | on stmt: $const452.0.2 = const(int, 0)
+2026-02-06 16:35:27,120 | [DEBUG] | on stmt: results[idx] = $const452.0.2
+2026-02-06 16:35:27,120 | [DEBUG] | on stmt: $const462.3.4 = const(NoneType, None)
+2026-02-06 16:35:27,120 | [DEBUG] | on stmt: $464return_value.4 = cast(value=$const462.3.4)
+2026-02-06 16:35:27,120 | [DEBUG] | on stmt: return $464return_value.4
