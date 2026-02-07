@@ -274,7 +274,7 @@ class LiveDashboard:
 
     def export_chart(self):
         try:
-            filename = f"dashboard_export_{int(time.time())}.png"
+            filename = os.path.join(self.training_dir, f"dashboard_export_{int(time.time())}.png")
             self.fig_pnl.savefig(filename)
             self.log(f"Chart exported to {filename}")
             messagebox.showinfo("Export", f"Chart saved to {filename}")
