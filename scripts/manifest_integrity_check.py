@@ -101,6 +101,7 @@ def check_cuda():
 
 def check_bayesian_io():
     log("Verifying BayesianBrain I/O...")
+    test_file = "test_prob_table.pkl"
     try:
         from core.bayesian_brain import BayesianBrain, TradeOutcome
         from core.state_vector import StateVector
@@ -123,7 +124,6 @@ def check_bayesian_io():
         brain.update(outcome)
 
         # Save
-        test_file = "test_prob_table.pkl"
         brain.save(test_file)
 
         if not os.path.exists(test_file):
