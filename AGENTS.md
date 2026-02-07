@@ -97,7 +97,9 @@ To run the workflow locally, ensure you have Python 3.10+ installed.
 
 ## Debugging & Troubleshooting
 
-When troubleshooting issues with Jules (or other AI agents), please include the following generated files if available:
+When troubleshooting issues with Jules (or other AI agents), please include the following generated files if available.
+
+**NOTE:** These files are auto-generated and should be excluded from version control via `.gitignore`. Do **not** commit these files unless explicitly instructed to preserve them for a specific audit snapshot.
 
 *   **`CUDA_Debug.log`**: Captures root-level CUDA initialization and verification events.
 *   **`notebooks/CUDA_Debug.log`**: Captures GPU kernel execution details and pattern detection logs from notebook runs.
