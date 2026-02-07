@@ -9,7 +9,7 @@ This document provides a comprehensive technical reference for the Bayesian-AI t
 The system operates on a strict **LOAD -> TRANSFORM -> ANALYZE -> VISUALIZE** pipeline. It utilizes a 9-layer hierarchical state model to capture market conditions across multiple timeframes, from 90 days down to 1 second.
 
 ### Core Components
-- **`engine_core.py` (BayesianEngine):** The central coordinator that manages the trading session, data aggregation, state computation, and trade execution.
+- **`core/engine_core.py` (BayesianEngine):** The central coordinator that manages the trading session, data aggregation, state computation, and trade execution.
 - **`core/layer_engine.py` (LayerEngine):** Responsible for computing the 9-layer state vector. It separates computation into **Static** (L1-L4) and **Fluid** (L5-L9) contexts.
 - **`core/bayesian_brain.py` (BayesianBrain):** The learning module that maintains a probability table mapping state vectors to win rates.
 - **`training/orchestrator.py` (TrainingOrchestrator):** Manages historical data replay to train the Bayesian Brain.
@@ -144,7 +144,7 @@ The system delegates computationally intensive tasks to the GPU via Numba.
 ├── core/                   # Core Logic Engines
 │   ├── bayesian_brain.py
 │   ├── data_aggregator.py
-│   ├── engine_core.py
+│   ├── engine_core.py      # (Entry Point Alias)
 │   ├── layer_engine.py
 │   └── state_vector.py
 ├── cuda_modules/           # GPU-Accelerated Components (Numba)
@@ -157,7 +157,6 @@ The system delegates computationally intensive tasks to the GPU via Numba.
 │   ├── LEARNING_DASHBOARD_GUIDE.md
 │   ├── TECHNICAL_MANUAL.md
 │   └── archive/
-├── engine_core.py          # (Entry Point Alias)
 ├── execution/              # Trade Execution & Management
 │   └── wave_rider.py
 ├── notebooks/              # Jupyter Notebooks
@@ -184,7 +183,7 @@ The system delegates computationally intensive tasks to the GPU via Numba.
 
 #### 2.1 Core Modules (`core/`)
 
-**`engine_core.py` (BayesianEngine)**
+**`core/engine_core.py` (BayesianEngine)**
 *   **Purpose:** Central coordinator that ties together Data, Logic, Learning, and Execution.
 *   **Key Methods:**
     *   `initialize_session(historical_data, user_kill_zones)`: Pre-computes Static Context (L1-L4).

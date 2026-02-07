@@ -175,11 +175,11 @@ def get_dependencies():
 """
 
 def get_execution_readiness():
-    entry_point = "engine_core.py"
+    entry_point = "core/engine_core.py"
     ready = "YES" if os.path.exists(entry_point) else "NO"
 
     return f"""### 7. EXECUTION READINESS
-- **Entry Point:** `python {entry_point}`
+- **Entry Point:** `python -m core.engine_core`
 - **Exists:** {ready}
 - **Expected Runtime:** Long-running process (Server/Loop)
 """
