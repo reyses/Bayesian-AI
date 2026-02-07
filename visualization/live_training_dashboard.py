@@ -59,7 +59,7 @@ class Tooltip:
         tw.wm_overrideredirect(True)
         tw.wm_geometry("+%d+%d" % (x, y))
         label = tk.Label(tw, text=self.text, justify='left',
-                       background="#ffffe0", relief='solid', borderwidth=1,
+                       background="#3c3f41", foreground="white", relief='solid', borderwidth=1,
                        font=("tahoma", "8", "normal"))
         label.pack(ipadx=1)
 
