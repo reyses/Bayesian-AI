@@ -33,7 +33,7 @@ A real-time visual interface for monitoring the Bayesian-AI training process.
 
 Install python deps:
 ```bash
-pip install -r requirements_dashboard.txt
+pip install -r requirements.txt
 ```
 
 ## Data Source
