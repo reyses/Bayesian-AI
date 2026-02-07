@@ -4397,3 +4397,188 @@ AdaptBlockInfo(insts=((452, {'res': '$const452.0.2'}), (454, {'res': '$results45
 2026-02-06 16:35:27,120 | [DEBUG] | on stmt: $const462.3.4 = const(NoneType, None)
 2026-02-06 16:35:27,120 | [DEBUG] | on stmt: $464return_value.4 = cast(value=$const462.3.4)
 2026-02-06 16:35:27,120 | [DEBUG] | on stmt: return $464return_value.4
+2026-02-07 05:40:21,008 | [INFO] | init
+2026-02-07 05:40:21,010 | [DEBUG] | call driver api: cuInit
+2026-02-07 05:40:21,170 | [DEBUG] | call driver api: cuDeviceGetCount
+2026-02-07 05:40:21,171 | [DEBUG] | call driver api: cuDeviceGetAttribute
+2026-02-07 05:40:21,171 | [DEBUG] | call driver api: cuDeviceGetAttribute
+2026-02-07 05:40:21,171 | [DEBUG] | call driver api: cuDeviceGetAttribute
+2026-02-07 05:40:21,171 | [DEBUG] | call driver api: cuDeviceGetAttribute
+2026-02-07 05:40:21,171 | [DEBUG] | call driver api: cuDeviceGetAttribute
+2026-02-07 05:40:21,172 | [DEBUG] | call driver api: cuCtxGetCurrent
+2026-02-07 05:40:21,309 | [DEBUG] | call driver api: cuCtxPushCurrent
+2026-02-07 05:40:21,310 | [DEBUG] | call driver api: cuMemGetInfo
+2026-02-07 05:40:21,311 | [INFO] | STARTING 3-STAGE CUDA AUDIT
+2026-02-07 05:40:21,311 | [INFO] | [STAGE A] Handshake: Verifying GPU...
+2026-02-07 05:40:21,312 | [DEBUG] | call driver api: cuCtxGetCurrent
+2026-02-07 05:40:21,312 | [DEBUG] | call driver api: cuCtxGetDevice
+2026-02-07 05:40:21,312 | [INFO] | Device found: NVIDIA GeForce RTX 3060
+2026-02-07 05:40:21,313 | [INFO] | RTX 3060 (or compatible NVIDIA GPU) recognized.
+2026-02-07 05:40:21,314 | [INFO] | [STAGE B] Injection: CPU-to-GPU deterministic verification...
+2026-02-07 05:40:21,315 | [INFO] | Loading data snippet from c:\Users\reyse\OneDrive\Desktop\Bayesian-AI\DATA\RAW\ohlcv-1s.parquet
+2026-02-07 05:40:21,986 | [DEBUG] | call driver api: cuCtxGetCurrent
+2026-02-07 05:40:21,987 | [DEBUG] | call driver api: cuCtxGetDevice
+2026-02-07 05:40:21,987 | [DEBUG] | call driver api: cuMemAlloc
+2026-02-07 05:40:21,988 | [DEBUG] | call driver api: cuMemcpyHtoD
+2026-02-07 05:40:21,988 | [DEBUG] | call driver api: cuCtxGetCurrent
+2026-02-07 05:40:21,988 | [DEBUG] | call driver api: cuCtxGetDevice
+2026-02-07 05:40:21,988 | [DEBUG] | call driver api: cuMemAlloc
+2026-02-07 05:40:22,002 | [DEBUG] | call driver api: cuCtxGetCurrent
+2026-02-07 05:40:22,002 | [DEBUG] | call driver api: cuCtxGetDevice
+2026-02-07 05:40:22,800 | [DEBUG] | pending: deque([State(pc_initial=0 nstack_initial=0)])
+2026-02-07 05:40:22,800 | [DEBUG] | stack: []
+2026-02-07 05:40:22,800 | [DEBUG] | state.pc_initial: State(pc_initial=0 nstack_initial=0)
+2026-02-07 05:40:22,800 | [DEBUG] | dispatch pc=0, inst=NOP(arg=None, lineno=127)
+2026-02-07 05:40:22,800 | [DEBUG] | stack []
+2026-02-07 05:40:22,800 | [DEBUG] | dispatch pc=2, inst=RESUME(arg=0, lineno=127)
+2026-02-07 05:40:22,800 | [DEBUG] | stack []
+2026-02-07 05:40:22,800 | [DEBUG] | dispatch pc=4, inst=LOAD_GLOBAL(arg=1, lineno=129)
+2026-02-07 05:40:22,800 | [DEBUG] | stack []
+2026-02-07 05:40:22,800 | [DEBUG] | dispatch pc=16, inst=LOAD_ATTR(arg=1, lineno=129)
+2026-02-07 05:40:22,801 | [DEBUG] | stack ['$null$4.1', '$4load_global.0']
+2026-02-07 05:40:22,801 | [DEBUG] | dispatch pc=26, inst=LOAD_CONST(arg=1, lineno=129)
+2026-02-07 05:40:22,801 | [DEBUG] | stack ['$null$4.1', '$16load_attr.2']
+2026-02-07 05:40:22,801 | [DEBUG] | dispatch pc=28, inst=PRECALL(arg=1, lineno=129)
+2026-02-07 05:40:22,801 | [DEBUG] | stack ['$null$4.1', '$16load_attr.2', '$const26.3.1']
+2026-02-07 05:40:22,801 | [DEBUG] | dispatch pc=32, inst=CALL(arg=1, lineno=129)
+2026-02-07 05:40:22,801 | [DEBUG] | stack ['$null$4.1', '$16load_attr.2', '$const26.3.1']
+2026-02-07 05:40:22,801 | [DEBUG] | dispatch pc=42, inst=STORE_FAST(arg=3, lineno=129)
+2026-02-07 05:40:22,801 | [DEBUG] | stack ['$32call.4']
+2026-02-07 05:40:22,801 | [DEBUG] | dispatch pc=44, inst=LOAD_FAST(arg=3, lineno=130)
+2026-02-07 05:40:22,801 | [DEBUG] | stack []
+2026-02-07 05:40:22,801 | [DEBUG] | dispatch pc=46, inst=LOAD_FAST(arg=0, lineno=130)
+2026-02-07 05:40:22,801 | [DEBUG] | stack ['$i44.5']
+2026-02-07 05:40:22,801 | [DEBUG] | dispatch pc=48, inst=LOAD_ATTR(arg=2, lineno=130)
+2026-02-07 05:40:22,801 | [DEBUG] | stack ['$i44.5', '$input_arr46.6']
+2026-02-07 05:40:22,801 | [DEBUG] | dispatch pc=58, inst=COMPARE_OP(arg=0, lineno=130)
+2026-02-07 05:40:22,801 | [DEBUG] | stack ['$i44.5', '$48load_attr.7']
+2026-02-07 05:40:22,801 | [DEBUG] | dispatch pc=64, inst=POP_JUMP_FORWARD_IF_FALSE(arg=16, lineno=130)
+2026-02-07 05:40:22,801 | [DEBUG] | stack ['$58compare_op.8']
+2026-02-07 05:40:22,801 | [DEBUG] | end state. edges=[Edge(pc=66, stack=(), blockstack=(), npush=0), Edge(pc=98, stack=(), blockstack=(), npush=0)]
+2026-02-07 05:40:22,802 | [DEBUG] | pending: deque([State(pc_initial=66 nstack_initial=0), State(pc_initial=98 nstack_initial=0)])
+2026-02-07 05:40:22,802 | [DEBUG] | stack: []
+2026-02-07 05:40:22,802 | [DEBUG] | state.pc_initial: State(pc_initial=66 nstack_initial=0)
+2026-02-07 05:40:22,802 | [DEBUG] | dispatch pc=66, inst=LOAD_FAST(arg=0, lineno=131)
+2026-02-07 05:40:22,802 | [DEBUG] | stack []
+2026-02-07 05:40:22,802 | [DEBUG] | dispatch pc=68, inst=LOAD_FAST(arg=3, lineno=131)
+2026-02-07 05:40:22,802 | [DEBUG] | stack ['$input_arr66.0']
+2026-02-07 05:40:22,802 | [DEBUG] | dispatch pc=70, inst=BINARY_SUBSCR(arg=None, lineno=131)
+2026-02-07 05:40:22,802 | [DEBUG] | stack ['$input_arr66.0', '$i68.1']
+2026-02-07 05:40:22,802 | [DEBUG] | dispatch pc=80, inst=LOAD_FAST(arg=2, lineno=131)
+2026-02-07 05:40:22,802 | [DEBUG] | stack ['$70binary_subscr.2']
+2026-02-07 05:40:22,802 | [DEBUG] | dispatch pc=82, inst=BINARY_OP(arg=5, lineno=131)
+2026-02-07 05:40:22,802 | [DEBUG] | stack ['$70binary_subscr.2', '$factor80.3']
+2026-02-07 05:40:22,802 | [DEBUG] | dispatch pc=86, inst=LOAD_FAST(arg=1, lineno=131)
+2026-02-07 05:40:22,802 | [DEBUG] | stack ['$binop_mul82.4']
+2026-02-07 05:40:22,802 | [DEBUG] | dispatch pc=88, inst=LOAD_FAST(arg=3, lineno=131)
+2026-02-07 05:40:22,802 | [DEBUG] | stack ['$binop_mul82.4', '$output_arr86.5']
+2026-02-07 05:40:22,802 | [DEBUG] | dispatch pc=90, inst=STORE_SUBSCR(arg=None, lineno=131)
+2026-02-07 05:40:22,802 | [DEBUG] | stack ['$binop_mul82.4', '$output_arr86.5', '$i88.6']
+2026-02-07 05:40:22,802 | [DEBUG] | dispatch pc=94, inst=LOAD_CONST(arg=0, lineno=131)
+2026-02-07 05:40:22,803 | [DEBUG] | stack []
+2026-02-07 05:40:22,803 | [DEBUG] | dispatch pc=96, inst=RETURN_VALUE(arg=None, lineno=131)
+2026-02-07 05:40:22,803 | [DEBUG] | stack ['$const94.7.0']
+2026-02-07 05:40:22,803 | [DEBUG] | end state. edges=[]
+2026-02-07 05:40:22,803 | [DEBUG] | pending: deque([State(pc_initial=98 nstack_initial=0)])
+2026-02-07 05:40:22,803 | [DEBUG] | stack: []
+2026-02-07 05:40:22,803 | [DEBUG] | state.pc_initial: State(pc_initial=98 nstack_initial=0)
+2026-02-07 05:40:22,803 | [DEBUG] | dispatch pc=98, inst=LOAD_CONST(arg=0, lineno=130)
+2026-02-07 05:40:22,803 | [DEBUG] | stack []
+2026-02-07 05:40:22,803 | [DEBUG] | dispatch pc=100, inst=RETURN_VALUE(arg=None, lineno=130)
+2026-02-07 05:40:22,803 | [DEBUG] | stack ['$const98.0.0']
+2026-02-07 05:40:22,803 | [DEBUG] | end state. edges=[]
+2026-02-07 05:40:22,803 | [DEBUG] | -------------------------Prune PHIs-------------------------
+2026-02-07 05:40:22,803 | [DEBUG] | Used_phis: defaultdict(<class 'set'>,
+            {State(pc_initial=0 nstack_initial=0): set(),
+             State(pc_initial=66 nstack_initial=0): set(),
+             State(pc_initial=98 nstack_initial=0): set()})
+2026-02-07 05:40:22,803 | [DEBUG] | defmap: {}
+2026-02-07 05:40:22,803 | [DEBUG] | phismap: defaultdict(<class 'set'>, {})
+2026-02-07 05:40:22,803 | [DEBUG] | changing phismap: defaultdict(<class 'set'>, {})
+2026-02-07 05:40:22,803 | [DEBUG] | keep phismap: {}
+2026-02-07 05:40:22,803 | [DEBUG] | new_out: defaultdict(<class 'dict'>, {})
+2026-02-07 05:40:22,803 | [DEBUG] | ----------------------DONE Prune PHIs-----------------------
+2026-02-07 05:40:22,803 | [DEBUG] | block_infos State(pc_initial=0 nstack_initial=0):
+AdaptBlockInfo(insts=((0, {}), (2, {}), (4, {'idx': 0, 'res': '$4load_global.0'}), (6, {}), (8, {}), (10, {}), (12, {}), (14, {}), (16, {'item': '$4load_global.0', 'res': '$16load_attr.2'}), (18, {}), (20, {}), (22, {}), (24, {}), (26, {'res': '$const26.3.1'}), (28, {}), (30, {}), (32, {'func': '$16load_attr.2', 'args': ['$const26.3.1'], 'kw_names': None, 'res': '$32call.4'}), (34, {}), (36, {}), (38, {}), (40, {}), (42, {'value': '$32call.4'}), (44, {'res': '$i44.5'}), (46, {'res': '$input_arr46.6'}), (48, {'item': '$input_arr46.6', 'res': '$48load_attr.7'}), (50, {}), (52, {}), (54, {}), (56, {}), (58, {'lhs': '$i44.5', 'rhs': '$48load_attr.7', 'res': '$58compare_op.8'}), (60, {}), (62, {}), (64, {'pred': '$58compare_op.8'})), outgoing_phis={}, blockstack=(), active_try_block=None, outgoing_edgepushed={66: (), 98: ()})
+2026-02-07 05:40:22,804 | [DEBUG] | block_infos State(pc_initial=66 nstack_initial=0):
+AdaptBlockInfo(insts=((66, {'res': '$input_arr66.0'}), (68, {'res': '$i68.1'}), (70, {'index': '$i68.1', 'target': '$input_arr66.0', 'res': '$70binary_subscr.2'}), (72, {}), (74, {}), (76, {}), (78, {}), (80, {'res': '$factor80.3'}), (82, {'op': '*', 'lhs': '$70binary_subscr.2', 'rhs': '$factor80.3', 'res': '$binop_mul82.4'}), (84, {}), (86, {'res': '$output_arr86.5'}), (88, {'res': '$i88.6'}), (90, {'target': '$output_arr86.5', 'index': '$i88.6', 'value': '$binop_mul82.4'}), (92, {}), (94, {'res': '$const94.7.0'}), (96, {'retval': '$const94.7.0', 'castval': '$96return_value.8'})), outgoing_phis={}, blockstack=(), active_try_block=None, outgoing_edgepushed={})
+2026-02-07 05:40:22,804 | [DEBUG] | block_infos State(pc_initial=98 nstack_initial=0):
+AdaptBlockInfo(insts=((98, {'res': '$const98.0.0'}), (100, {'retval': '$const98.0.0', 'castval': '$100return_value.1'})), outgoing_phis={}, blockstack=(), active_try_block=None, outgoing_edgepushed={})
+2026-02-07 05:40:22,809 | [DEBUG] | ==== SSA block analysis pass on 0
+2026-02-07 05:40:22,809 | [DEBUG] | Running <numba.cuda.core.ssa._GatherDefsHandler object at 0x000001D05B4B5A10>
+2026-02-07 05:40:22,809 | [DEBUG] | on stmt: input_arr = arg(0, name=input_arr)
+2026-02-07 05:40:22,809 | [DEBUG] | on stmt: output_arr = arg(1, name=output_arr)
+2026-02-07 05:40:22,809 | [DEBUG] | on stmt: factor = arg(2, name=factor)
+2026-02-07 05:40:22,809 | [DEBUG] | on stmt: $4load_global.0 = global(cuda: <module 'numba.cuda' from 'C:\\Users\\reyse\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python311\\site-packages\\numba_cuda\\numba\\cuda\\__init__.py'>)
+2026-02-07 05:40:22,809 | [DEBUG] | on stmt: $16load_attr.2 = getattr(value=$4load_global.0, attr=grid)
+2026-02-07 05:40:22,810 | [DEBUG] | on stmt: $const26.3.1 = const(int, 1)
+2026-02-07 05:40:22,810 | [DEBUG] | on stmt: i = call $16load_attr.2($const26.3.1, func=$16load_attr.2, args=[Var($const26.3.1, hardened_verification.py:129)], kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-07 05:40:22,810 | [DEBUG] | on stmt: $48load_attr.7 = getattr(value=input_arr, attr=size)
+2026-02-07 05:40:22,810 | [DEBUG] | on stmt: $58compare_op.8 = i < $48load_attr.7
+2026-02-07 05:40:22,810 | [DEBUG] | on stmt: $bool64 = global(bool: <class 'bool'>)
+2026-02-07 05:40:22,810 | [DEBUG] | on stmt: $64pred = call $bool64($58compare_op.8, func=$bool64, args=(Var($58compare_op.8, hardened_verification.py:130),), kws=(), vararg=None, varkwarg=None, target=None)
+2026-02-07 05:40:22,810 | [DEBUG] | on stmt: branch $64pred, 66, 98
+2026-02-07 05:40:22,810 | [DEBUG] | ==== SSA block analysis pass on 66
+2026-02-07 05:40:22,810 | [DEBUG] | Running <numba.cuda.core.ssa._GatherDefsHandler object at 0x000001D05B4B5A10>
+2026-02-07 05:40:22,810 | [DEBUG] | on stmt: $70binary_subscr.2 = getitem(value=input_arr, index=i, fn=<built-in function getitem>)
+2026-02-07 05:40:22,810 | [DEBUG] | on stmt: $binop_mul82.4 = $70binary_subscr.2 * factor
+2026-02-07 05:40:22,810 | [DEBUG] | on stmt: output_arr[i] = $binop_mul82.4
+2026-02-07 05:40:22,810 | [DEBUG] | on stmt: $const94.7.0 = const(NoneType, None)
+2026-02-07 05:40:22,810 | [DEBUG] | on stmt: $96return_value.8 = cast(value=$const94.7.0)
+2026-02-07 05:40:22,810 | [DEBUG] | on stmt: return $96return_value.8
+2026-02-07 05:40:22,810 | [DEBUG] | ==== SSA block analysis pass on 98
+2026-02-07 05:40:22,810 | [DEBUG] | Running <numba.cuda.core.ssa._GatherDefsHandler object at 0x000001D05B4B5A10>
+2026-02-07 05:40:22,810 | [DEBUG] | on stmt: $const98.0.0 = const(NoneType, None)
+2026-02-07 05:40:22,810 | [DEBUG] | on stmt: $100return_value.1 = cast(value=$const98.0.0)
+2026-02-07 05:40:22,810 | [DEBUG] | on stmt: return $100return_value.1
+2026-02-07 05:40:22,810 | [DEBUG] | defs defaultdict(<class 'list'>,
+            {'$100return_value.1': [(<numba.cuda.core.ir.Assign object at 0x000001D05B6CEE90>,
+                                     98)],
+             '$16load_attr.2': [(<numba.cuda.core.ir.Assign object at 0x000001D05B6CC490>,
+                                 0)],
+             '$48load_attr.7': [(<numba.cuda.core.ir.Assign object at 0x000001D05B6CD090>,
+                                 0)],
+             '$4load_global.0': [(<numba.cuda.core.ir.Assign object at 0x000001D05B6CC250>,
+                                  0)],
+             '$58compare_op.8': [(<numba.cuda.core.ir.Assign object at 0x000001D05B6CD3D0>,
+                                  0)],
+             '$64pred': [(<numba.cuda.core.ir.Assign object at 0x000001D05B6CD790>,
+                          0)],
+             '$70binary_subscr.2': [(<numba.cuda.core.ir.Assign object at 0x000001D05B6CDC90>,
+                                     66)],
+             '$96return_value.8': [(<numba.cuda.core.ir.Assign object at 0x000001D05B6CEA50>,
+                                    66)],
+             '$binop_mul82.4': [(<numba.cuda.core.ir.Assign object at 0x000001D05B6CE190>,
+                                 66)],
+             '$bool64': [(<numba.cuda.core.ir.Assign object at 0x000001D05B6CD5D0>,
+                          0)],
+             '$const26.3.1': [(<numba.cuda.core.ir.Assign object at 0x000001D05B6CC6D0>,
+                               0)],
+             '$const94.7.0': [(<numba.cuda.core.ir.Assign object at 0x000001D05B6CE850>,
+                               66)],
+             '$const98.0.0': [(<numba.cuda.core.ir.Assign object at 0x000001D05B6CEC10>,
+                               98)],
+             'factor': [(<numba.cuda.core.ir.Assign object at 0x000001D05B6BFFD0>,
+                         0)],
+             'i': [(<numba.cuda.core.ir.Assign object at 0x000001D05B6CC890>,
+                    0)],
+             'input_arr': [(<numba.cuda.core.ir.Assign object at 0x000001D05B4B6250>,
+                            0)],
+             'output_arr': [(<numba.cuda.core.ir.Assign object at 0x000001D05B6BFED0>,
+                             0)]})
+2026-02-07 05:40:22,811 | [DEBUG] | SSA violators []
+2026-02-07 05:40:22,846 | [DEBUG] | call driver api: cuCtxGetCurrent
+2026-02-07 05:40:22,846 | [DEBUG] | call driver api: cuCtxGetDevice
+2026-02-07 05:40:22,869 | [DEBUG] | call driver api: cuCtxGetCurrent
+2026-02-07 05:40:22,869 | [DEBUG] | call driver api: cuCtxGetDevice
+2026-02-07 05:40:22,869 | [DEBUG] | call driver api: cuCtxGetCurrent
+2026-02-07 05:40:22,869 | [DEBUG] | call driver api: cuCtxGetDevice
+2026-02-07 05:40:22,891 | [DEBUG] | call driver api: cuCtxGetCurrent
+2026-02-07 05:40:22,891 | [DEBUG] | call driver api: cuCtxGetDevice
+2026-02-07 05:40:22,891 | [DEBUG] | call driver api: cuCtxGetCurrent
+2026-02-07 05:40:22,891 | [DEBUG] | call driver api: cuCtxGetDevice
+2026-02-07 05:40:22,892 | [DEBUG] | call driver api: cuMemcpyDtoH
+2026-02-07 05:40:22,892 | [CRITICAL] | FAIL: Stage B Verification mismatch.
+2026-02-07 05:40:22,893 | [INFO] | add pending dealloc: cuMemFree 400 bytes
+2026-02-07 05:40:22,893 | [INFO] | add pending dealloc: cuMemFree 400 bytes
+2026-02-07 05:41:20,027 | [DEBUG] | handle_msg[704aa434fc8b43ac9568896b991dca29]({'header': {'date': datetime.datetime(2026, 2, 7, 13, 41, 20, 25000, tzinfo=tzutc()), 'msg_id': 'ac5601d6-3da5-4ad9-9bb3-f07252c78685', 'msg_type': 'comm_msg', 'session': '0a2be2f1-e815-4219-b442-9ca57e3ee02d', 'username': '83e1ea56-b649-4066-9b1a-92b9e8696098', 'version': '5.2'}, 'msg_id': 'ac5601d6-3da5-4ad9-9bb3-f07252c78685', 'msg_type': 'comm_msg', 'parent_header': {}, 'metadata': {}, 'content': {'comm_id': '704aa434fc8b43ac9568896b991dca29', 'data': {'method': 'custom', 'content': {'event': 'click'}}}, 'buffers': []})
