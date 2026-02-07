@@ -31,7 +31,7 @@ def build():
 
     # Define arguments
     args = [
-        'engine_core.py',
+        'core/engine_core.py',
         '--onedir',
         '--name=Bayesian_AI_Engine',
         '--paths=.',
