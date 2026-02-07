@@ -19,7 +19,7 @@
       "execution/wave_rider.py"
     ],
     "VISUALIZE": [
-      "engine_core.py"
+      "core/engine_core.py"
     ],
     "MAINTENANCE": [
       "scripts/generate_status_report.py",

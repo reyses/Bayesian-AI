@@ -62,7 +62,7 @@ def check_imports():
         'training.databento_loader',
         'training.orchestrator',
         'config.symbols',
-        'engine_core'
+        'core.engine_core'
     ]
 
     success = True

@@ -29,7 +29,7 @@ from core.fractal_three_body import FractalMarketState, FractalTradingLogic
 from core.resonance_cascade import ResonanceCascadeDetector
 from core.exploration_mode import UnconstrainedExplorer, ExplorationConfig
 from config.symbols import MNQ, calculate_pnl
-from engine_core import BayesianEngine
+from core.engine_core import BayesianEngine
 from config.settings import OPERATIONAL_MODE, RAW_DATA_PATH
 from training.databento_loader import DatabentoLoader
 
