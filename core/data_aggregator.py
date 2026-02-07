@@ -105,6 +105,7 @@ class DataAggregator:
                 'price': 0.0,
                 'timestamp': 0.0,
                 'ticks': np.array([]),
+                'bars_15s': None,
                 'bars_5m': None,
                 'bars_15m': None,
                 'bars_1h': None,
@@ -152,13 +153,27 @@ class DataAggregator:
         def get_bars(rule):
             try:
                 if df.empty: return None
-                resampled = df.resample(rule).agg({
-                    'open': 'first',
-                    'high': 'max',
-                    'low': 'min',
-                    'close': 'last',
-                    'volume': 'sum'
-                }).dropna()
+
+                # Check if we have OHLC columns, if not, try to use 'price'
+                has_ohlc = all(c in df.columns for c in ['open', 'high', 'low', 'close'])
+
+                if has_ohlc:
+                    resampled = df.resample(rule).agg({
+                        'open': 'first',
+                        'high': 'max',
+                        'low': 'min',
+                        'close': 'last',
+                        'volume': 'sum'
+                    }).dropna()
+                elif 'price' in df.columns:
+                    # Aggregate price to OHLC
+                    resampled = df['price'].resample(rule).ohlc()
+                    if 'volume' in df.columns:
+                         resampled['volume'] = df['volume'].resample(rule).sum()
+                    resampled = resampled.dropna()
+                else:
+                    return None
+
                 return resampled
             except Exception:
                 return None
@@ -176,6 +191,7 @@ class DataAggregator:
             'price': current_price,
             'timestamp': current_ts,
             'ticks': ticks_df,
+            'bars_15s': get_bars('15s'),
             'bars_5m': get_bars('5min'),
             'bars_15m': get_bars('15min'),
             'bars_1h': get_bars('1h'),

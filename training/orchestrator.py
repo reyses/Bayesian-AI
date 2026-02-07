@@ -39,18 +39,19 @@ def get_data_source(data_path: str) -> pd.DataFrame:
 
 class TrainingOrchestrator:
     """Runs iterations on historical data to build the Bayesian prior"""
-    def __init__(self, asset_ticker: str, data: pd.DataFrame = None, use_gpu: bool = True, output_dir: str = '.', verbose: bool = False, debug_file: str = None):
+    def __init__(self, asset_ticker: str, data: pd.DataFrame = None, use_gpu: bool = True, output_dir: str = '.', verbose: bool = False, debug_file: str = None, mode: str = "LEGACY"):
         self.data = data
         # Default to MNQ if ticker not found, or use provided ticker
         self.asset = SYMBOL_MAP.get(asset_ticker, MNQ)
         self.use_gpu = use_gpu
         self.output_dir = output_dir
+        self.mode = mode
         self.model_path = os.path.join(self.output_dir, 'probability_table.pkl')
 
         self.verbose = verbose
         self.debug_file = debug_file
 
-        self.engine = BayesianEngine(self.asset, use_gpu=use_gpu, verbose=verbose, log_path=debug_file)
+        self.engine = BayesianEngine(self.asset, use_gpu=use_gpu, verbose=verbose, log_path=debug_file, mode=mode)
 
         # Helper variables for test introspection
         self.kill_zones = [21500, 21600, 21700] # Default
@@ -67,7 +68,7 @@ class TrainingOrchestrator:
 
     def reset_engine(self):
         """Resets the engine to a fresh state."""
-        self.engine = BayesianEngine(self.asset, use_gpu=self.use_gpu, verbose=self.verbose, log_path=self.debug_file)
+        self.engine = BayesianEngine(self.asset, use_gpu=self.use_gpu, verbose=self.verbose, log_path=self.debug_file, mode=self.mode)
 
     def run_training(self, iterations=1000, params: Dict[str, Any] = None, on_progress=None):
         if self.data is None:
@@ -146,6 +147,20 @@ class TrainingOrchestrator:
             # Simulated Tick Stream
             for tick_dict in tick_records:
                 self.engine.on_tick(tick_dict)
+
+                # Check Phase 0 Completion
+                if self.mode == "PHASE0" and hasattr(self.engine, 'explorer') and self.engine.explorer.is_complete():
+                    print(self.engine.explorer.get_completion_report())
+                    # Persist Learned States
+                    if not params:
+                        self.engine.prob_table.save(self.model_path)
+                        print(f"[PHASE0] Table saved to {self.model_path}")
+
+                    return {
+                        'total_trades': len(self.engine.trades) + getattr(self.engine.explorer, 'trades_executed', 0),
+                        'pnl': self.engine.daily_pnl,
+                        'win_rate': self._get_win_rate()
+                    }
 
             # Metrics Logging (ANALYZE Layer)
             self._log_iteration(iteration)
@@ -505,6 +520,7 @@ if __name__ == "__main__":
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     parser.add_argument("--debug-file", type=str, help="Path to debug log file")
     parser.add_argument("--no-gpu", action="store_true", help="Force CPU mode")
+    parser.add_argument("--phase0", action="store_true", help="Enable Phase 0: Unconstrained Exploration")
 
     args = parser.parse_args()
 
@@ -567,13 +583,15 @@ if __name__ == "__main__":
         if not use_gpu:
             print("[ORCHESTRATOR] CUDA not available. Running in CPU mode.")
 
+        mode = "PHASE0" if args.phase0 else "LEGACY"
         orchestrator = TrainingOrchestrator(
             asset_ticker=args.ticker,
             data=data,
             output_dir=args.output,
             use_gpu=use_gpu,
             verbose=args.verbose,
-            debug_file=args.debug_file
+            debug_file=args.debug_file,
+            mode=mode
         )
         orchestrator.run_training(iterations=args.iterations)
 
