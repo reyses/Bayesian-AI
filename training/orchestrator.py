@@ -72,8 +72,17 @@ def load_data_from_directory(data_dir: str) -> pd.DataFrame:
 
 def load_databento_data(path: str) -> pd.DataFrame:
     """Load .dbn.zst or .parquet files"""
+    if not os.path.exists(path):
+        print(f"Error: File not found: {path}")
+        return pd.DataFrame()
+
     if path.endswith('.parquet'):
-        df = pd.read_parquet(path)
+        try:
+            df = pd.read_parquet(path)
+        except Exception as e:
+            print(f"Error reading parquet file: {e}")
+            return pd.DataFrame()
+
         # Ensure timestamp index
         if 'timestamp' in df.columns:
             if not pd.api.types.is_datetime64_any_dtype(df['timestamp']):
