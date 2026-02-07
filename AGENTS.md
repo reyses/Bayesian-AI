@@ -5,6 +5,7 @@ This repository contains "Bayesian-AI", an algorithmic trading system.
 ## 1. Core Directives
 
 *   **Single Source of Truth**: `requirements.txt` is the ONLY allowed file for defining project dependencies. Do not create separate requirements files (e.g., `requirements_dashboard.txt`, `requirements_notebook.txt`).
+*   **Dependency Pinning**: Critical dependencies should be pinned to specific versions in `requirements.txt` to ensure build reproducibility and prevent unexpected breakages from upstream changes.
 *   **Notebook Limit**: Only one notebook should be created, unless the User specifies that an additional one is needed.
 *   **Artifacts**: Do not modify files in `dist/` or `build/` directly. Edit the source code and rebuild.
 
