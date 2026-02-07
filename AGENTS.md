@@ -88,6 +88,12 @@ To run the workflow locally, ensure you have Python 3.10+ installed.
     python scripts/generate_status_report.py
     ```
 
+## Dependency Management
+
+*   **Single Source of Truth**: `requirements.txt` is the ONLY allowed file for defining project dependencies.
+*   **Consolidation**: Do not create separate requirements files (e.g., `requirements_dashboard.txt`, `requirements_notebook.txt`). All dependencies must be merged into `requirements.txt`.
+*   **Pinning**: Critical dependencies (like `numpy`) should be pinned to ensure compatibility.
+
 ## Important Notes
 
 *   **Dependencies**: `numpy` must be kept `<2.0` for compatibility with `numba`. `numba` and `llvmlite` are required.
