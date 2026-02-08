@@ -489,7 +489,7 @@ class TrainingOrchestrator:
             self.engine.prob_table.save(self.model_path)
 
         wins = sum(1 for t in self.engine.trades if t.result == 'WIN')
-        losses = sum(1 for t in self.engine.trades if t.result != 'WIN')
+        losses = len(self.engine.trades) - wins
         unique_states = len(self.engine.prob_table.table) if hasattr(self.engine.prob_table, 'table') else 0
 
         return {
