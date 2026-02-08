@@ -36,19 +36,24 @@ class BayesianEngine:
         self.MIN_CONF = 0.30
 
         # Mode-specific initialization
-        if self.mode == "PHASE0":
-            self.prob_table = QuantumBayesianBrain()
-            self.quantum_engine = QuantumFieldEngine()
-            self.explorer = UnconstrainedExplorer()
-            # Note: fluid_engine might not be needed for Phase 0, but keeping it initialized doesn't hurt
-            # providing it doesn't consume resources if not used.
-            # However, LayerEngine does static context init which might be useful or redundant.
-            # Let's keep it initialized for now as it doesn't conflict.
-            self.fluid_engine = LayerEngine(use_gpu=use_gpu, logger=self.logger)
-        else:
-            self.prob_table = BayesianBrain()
-            # Pass logger to LayerEngine for deep inspection
-            self.fluid_engine = LayerEngine(use_gpu=use_gpu, logger=self.logger)
+        try:
+            if self.mode == "PHASE0":
+                self.prob_table = QuantumBayesianBrain()
+                self.quantum_engine = QuantumFieldEngine()
+                self.explorer = UnconstrainedExplorer()
+                # Note: fluid_engine might not be needed for Phase 0, but keeping it initialized doesn't hurt
+                # providing it doesn't consume resources if not used.
+                # However, LayerEngine does static context init which might be useful or redundant.
+                # Let's keep it initialized for now as it doesn't conflict.
+                self.fluid_engine = LayerEngine(use_gpu=use_gpu, logger=self.logger)
+            else:
+                self.prob_table = BayesianBrain()
+                # Pass logger to LayerEngine for deep inspection
+                self.fluid_engine = LayerEngine(use_gpu=use_gpu, logger=self.logger)
+        except Exception as e:
+            if self.logger:
+                self.logger.critical(f"Failed to initialize engine components: {e}")
+            raise e
 
     def initialize_session(self, historical_data, user_kill_zones):
         """Initialize static context (L1-L4)"""
