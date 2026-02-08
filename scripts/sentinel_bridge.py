@@ -20,7 +20,7 @@ def trigger_jules_repair(fault_details):
         if shutil.which("jules") is None:
             raise FileNotFoundError("'jules' command not found in PATH")
 
-        subprocess.run(["jules", "fix", "--context", "CUDA_Debug.log"], check=True)
+        subprocess.run(["jules", "fix", "--context", "CUDA_Debug.log", "--target=cuda/"], check=True)
 
         subprocess.run(["git", "pull", "origin", "jules-fix-branch"], check=True)
 
