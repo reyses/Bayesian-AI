@@ -103,14 +103,15 @@ def get_data_source(filepath: str) -> pd.DataFrame:
     else:
         raise ValueError(f"Unsupported file format: {filepath}")
 
-def load_data_from_directory(data_dir: str) -> List[str]:
-    """
-    Finds .dbn and .parquet files in directory.
-    """
-    files = glob.glob(os.path.join(data_dir, "**", "*.dbn"), recursive=True)
-    files.extend(glob.glob(os.path.join(data_dir, "**", "*.dbn.zst"), recursive=True))
-    files.extend(glob.glob(os.path.join(data_dir, "**", "*.parquet"), recursive=True))
-    return sorted(files)
+def load_data_from_directory(directory: str):
+    from data_loading_optimizer import parallel_load_dbn
+    
+    files = glob.glob(os.path.join(directory, "*.dbn.zst"))
+    
+    print(f"Loading {len(files)} files in parallel...")
+    data = parallel_load_dbn(files, max_workers=4)
+    
+    return data
 
 class TrainingOrchestrator:
     """
