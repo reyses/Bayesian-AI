@@ -9,7 +9,7 @@ Bayesian-AI is a high-frequency trading system that utilizes a 9-layer hierarchi
 ## 📖 Documentation
 
 *   **[Technical Manual](docs/TECHNICAL_MANUAL.md)**: Comprehensive system logic, architecture, and module reference.
-*   **[Learning Dashboard Guide](docs/LEARNING_DASHBOARD_GUIDE.md)**: Instructions for using the interactive validation and learning notebook.
+*   **[Dashboard Guide](docs/DASHBOARD_GUIDE.md)**: Instructions for using the interactive validation, debugging, and learning dashboard.
 *   **[Current Status](CURRENT_STATUS.md)**: Live project health, code statistics, and validation metrics.
 *   **[Agent Instructions](AGENTS.md)**: Guidelines for AI agents working on this codebase.
 
