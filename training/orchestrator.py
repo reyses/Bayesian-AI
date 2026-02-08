@@ -188,7 +188,8 @@ class TrainingOrchestrator:
                 # Update macro view (simple sliding window for demo/test)
                 # In real system, this would be proper resampling
                 df_macro = self.data.iloc[i-21:i+1].copy()
-                df_macro['close'] = df_macro['price'] if 'price' in df_macro.columns else df_macro['close']
+                if 'price' in df_macro.columns and 'close' not in df_macro.columns:
+                    df_macro['close'] = df_macro['price']
 
                 # Calculate State
                 state = self.engine.calculate_three_body_state(
