@@ -1,0 +1,223 @@
+name: Parallel Data Preprocessing (Advanced)
+
+# Use GitHub's compute for heavy data processing
+# Processes multiple files in parallel across runners
+
+on:
+  workflow_dispatch:
+    inputs:
+      batch_size:
+        description: 'Number of files per batch'
+        required: true
+        default: '10'
+  
+  push:
+    paths:
+      - 'DATA/RAW/**'
+
+jobs:
+  discover-files:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      total_files: ${{ steps.count.outputs.total }}
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Count files
+      id: count
+      run: |
+        TOTAL=$(find DATA/RAW -name "*.dbn*" | wc -l)
+        echo "total=$TOTAL" >> $GITHUB_OUTPUT
+        echo "Found $TOTAL DBN files"
+    
+    - name: Create batch matrix
+      id: set-matrix
+      run: |
+        # Split files into batches for parallel processing
+        FILES=($(find DATA/RAW -name "*.dbn*"))
+        BATCH_SIZE=${{ github.event.inputs.batch_size || 10 }}
+        
+        BATCHES='{"batch":['
+        for i in $(seq 0 $BATCH_SIZE $((${#FILES[@]}-1))); do
+          END=$((i+BATCH_SIZE))
+          BATCH_FILES="${FILES[@]:$i:$BATCH_SIZE}"
+          BATCHES="${BATCHES}\"$i\","
+        done
+        BATCHES="${BATCHES%,}]}"
+        
+        echo "matrix=$BATCHES" >> $GITHUB_OUTPUT
+        echo "Created batches: $BATCHES"
+
+
+  process-batch:
+    needs: discover-files
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    strategy:
+      matrix: ${{ fromJson(needs.discover-files.outputs.matrix) }}
+      fail-fast: false
+      max-parallel: 5  # Process 5 batches simultaneously
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install databento zstandard pandas pyarrow
+    
+    - name: Process batch ${{ matrix.batch }}
+      run: |
+        echo "Processing batch starting at index ${{ matrix.batch }}"
+        
+        # Get files for this batch
+        FILES=($(find DATA/RAW -name "*.dbn*"))
+        BATCH_SIZE=${{ github.event.inputs.batch_size || 10 }}
+        START=${{ matrix.batch }}
+        END=$((START + BATCH_SIZE))
+        
+        mkdir -p DATA/PARQUET/batch_${{ matrix.batch }}
+        
+        # Process each file in batch
+        for i in $(seq $START $((END-1))); do
+          if [ $i -lt ${#FILES[@]} ]; then
+            FILE="${FILES[$i]}"
+            echo "Converting: $(basename $FILE)"
+            
+            python -c "
+import databento as db
+import pandas as pd
+import os
+
+store = db.DBNStore.from_file('$FILE')
+df = store.to_df()
+df['timestamp'] = df.index.astype('int64') / 1e9
+df = df.reset_index(drop=True)
+
+output = 'DATA/PARQUET/batch_${{ matrix.batch }}/' + os.path.basename('$FILE').replace('.dbn.zst', '.parquet')
+df.to_parquet(output, compression='snappy')
+print(f'  Saved: {len(df):,} rows')
+            "
+          fi
+        done
+    
+    - name: Upload batch
+      uses: actions/upload-artifact@v4
+      with:
+        name: parquet-batch-${{ matrix.batch }}
+        path: DATA/PARQUET/batch_${{ matrix.batch }}/**/*.parquet
+
+
+  combine-results:
+    needs: [discover-files, process-batch]
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Download all batches
+      uses: actions/download-artifact@v4
+      with:
+        pattern: parquet-batch-*
+        path: DATA/PARQUET
+    
+    - name: Flatten directory structure
+      run: |
+        # Move all parquet files to root PARQUET directory
+        find DATA/PARQUET -name "*.parquet" -exec mv {} DATA/PARQUET/ \;
+        
+        # Remove batch directories
+        find DATA/PARQUET -type d -name "batch_*" -exec rm -rf {} \; 2>/dev/null || true
+    
+    - name: Verify results
+      run: |
+        echo "=== Final Parquet Files ==="
+        PARQUET_COUNT=$(find DATA/PARQUET -name "*.parquet" | wc -l)
+        EXPECTED=${{ needs.discover-files.outputs.total_files }}
+        
+        echo "Expected: $EXPECTED files"
+        echo "Got: $PARQUET_COUNT files"
+        
+        if [ $PARQUET_COUNT -ne $EXPECTED ]; then
+          echo "⚠️ Warning: File count mismatch!"
+        else
+          echo "✓ All files converted successfully"
+        fi
+        
+        du -sh DATA/PARQUET/
+    
+    - name: Create final artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: parquet-data-complete
+        path: DATA/PARQUET/**/*.parquet
+        retention-days: 90
+    
+    - name: Cache for future runs
+      uses: actions/cache/save@v4
+      with:
+        path: DATA/PARQUET
+        key: parquet-complete-${{ github.sha }}
+
+
+  benchmark:
+    needs: combine-results
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Download preprocessed data
+      uses: actions/download-artifact@v4
+      with:
+        name: parquet-data-complete
+        path: DATA/PARQUET
+    
+    - name: Benchmark loading speed
+      run: |
+        pip install pandas pyarrow
+        
+        python -c "
+import time
+import pandas as pd
+import glob
+import os
+
+print('='*60)
+print('PARQUET LOADING BENCHMARK')
+print('='*60)
+
+files = glob.glob('DATA/PARQUET/*.parquet')
+print(f'Files: {len(files)}')
+
+# Measure single file
+start = time.time()
+df1 = pd.read_parquet(files[0])
+single_time = time.time() - start
+print(f'Single file: {single_time:.3f}s ({len(df1):,} rows)')
+
+# Measure all files
+start = time.time()
+dfs = [pd.read_parquet(f) for f in files]
+all_time = time.time() - start
+print(f'All files: {all_time:.2f}s')
+
+# Concatenate
+start = time.time()
+combined = pd.concat(dfs, ignore_index=True)
+concat_time = time.time() - start
+print(f'Concatenate: {concat_time:.2f}s')
+
+total_time = all_time + concat_time
+print(f'\\nTotal: {total_time:.2f}s for {len(combined):,} rows')
+print(f'Speed: {len(combined)/total_time:,.0f} rows/sec')
+print('='*60)
+        "
