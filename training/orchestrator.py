@@ -11,8 +11,20 @@ import datetime
 import argparse
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from tqdm import tqdm
+import pickle
+
+# Add project root to path
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.append(PROJECT_ROOT)
+
+from core.quantum_field_engine import QuantumFieldEngine
+from core.bayesian_brain import QuantumBayesianBrain, TradeOutcome
+from core.adaptive_confidence import AdaptiveConfidenceManager
+from core.three_body_state import ThreeBodyQuantumState
+from training.databento_loader import DatabentoLoader
 
 # Progress Display Helper
 class TrainingProgressBar:
@@ -78,149 +90,329 @@ class TrainingProgressBar:
         self.pbar_metrics.close()
 
 
-def train_with_progress(historical_data_path: str, max_iterations: int = 1000, output_dir: str = 'models/'):
+def get_data_source(filepath: str) -> pd.DataFrame:
     """
-    Training with real-time progress display
-    
-    PHASE 0: Unconstrained exploration (500 trades)
-    PHASE 1-4: Adaptive confidence (progressive tightening)
+    Loads data from .dbn (via DatabentoLoader) or .parquet files.
     """
-    
-    print("\n" + "="*80)
-    print("BAYESIAN-AI TRAINING ENGINE")
-    print("="*80)
-    print(f"Data: {historical_data_path}")
-    print(f"Iterations: {max_iterations}")
-    print(f"Output: {output_dir}")
-    print("="*80 + "\n")
-    
-    # Initialize progress tracking
-    progress = TrainingProgressBar(total_iterations=max_iterations, phase_name="PHASE 0: EXPLORATION")
-    
-    # Load data (simplified for example)
-    print("Loading data...")
-    # Your data loading logic here
-    
-    # Example training loop with progress
-    exploration_trades = []
-    
-    for iteration in range(max_iterations):
-        # Simulate training iteration
-        time.sleep(0.01)  # Remove this - just for demo
-        
-        # Simulate metrics update
-        trades_count = iteration * 5
-        states_count = iteration * 2
-        pnl = np.random.randn() * 100
-        win_rate = 0.5 + (iteration / max_iterations) * 0.3
-        
-        # Update progress with metrics
-        progress.update(
-            n=1,
-            trades=trades_count,
-            states=states_count,
-            pnl=pnl,
-            win_rate=win_rate
-        )
-        
-        # Phase transition at 500 iterations
-        if iteration == 500:
-            progress.set_phase("PHASE 1: ADAPTIVE LEARNING")
-            print("\n\n" + "="*80)
-            print("PHASE TRANSITION: Starting Adaptive Confidence Learning")
-            print("="*80 + "\n")
-    
-    progress.close()
-    
-    print("\n" + "="*80)
-    print("TRAINING COMPLETE")
-    print("="*80)
-    print(f"Total Iterations: {max_iterations}")
-    print(f"Final Metrics:")
-    print(f"  Trades: {trades_count}")
-    print(f"  States: {states_count}")
-    print(f"  P&L: ${pnl:,.2f}")
-    print(f"  Win Rate: {win_rate:.1%}")
-    print("="*80 + "\n")
+    if filepath.endswith('.dbn') or filepath.endswith('.dbn.zst'):
+        return DatabentoLoader.load_data(filepath)
+    elif filepath.endswith('.parquet'):
+        return pd.read_parquet(filepath)
+    else:
+        raise ValueError(f"Unsupported file format: {filepath}")
 
-
-# Integration example for your TrainingOrchestrator class
-class EnhancedTrainingOrchestrator:
+def load_data_from_directory(data_dir: str) -> List[str]:
     """
-    Drop-in replacement for your existing TrainingOrchestrator
-    with progress tracking
+    Finds .dbn and .parquet files in directory.
+    """
+    files = glob.glob(os.path.join(data_dir, "**", "*.dbn"), recursive=True)
+    files.extend(glob.glob(os.path.join(data_dir, "**", "*.dbn.zst"), recursive=True))
+    files.extend(glob.glob(os.path.join(data_dir, "**", "*.parquet"), recursive=True))
+    return sorted(files)
+
+class TrainingOrchestrator:
+    """
+    Orchestrates the training process using the Quantum System logic.
+    Supports both legacy API (for tests) and new CLI usage.
     """
     
-    def __init__(self, asset_ticker: str, data: pd.DataFrame = None, 
-                 use_gpu: bool = True, output_dir: str = '.', 
+    def __init__(self, asset_ticker: str = "MNQ", data: pd.DataFrame = None,
+                 use_gpu: bool = False, output_dir: str = '.',
                  verbose: bool = False, debug_file: str = None, 
-                 mode: str = "LEGACY"):
+                 mode: str = "QUANTUM"):
+        self.asset_ticker = asset_ticker
         self.data = data
+        self.use_gpu = use_gpu # Legacy flag, currently unused in new logic
         self.output_dir = output_dir
         self.verbose = verbose
         self.mode = mode
-        # ... rest of your init code
-    
-    def run_training(self, iterations=1000, params: Dict[str, Any] = None, 
+        self.debug_file = debug_file
+
+        # Initialize Core Components
+        self.brain = QuantumBayesianBrain()
+        self.manager = AdaptiveConfidenceManager(self.brain)
+        self.engine = QuantumFieldEngine() # Default regression period 21
+
+        # Internal State
+        self.trades: List[TradeOutcome] = []
+        self.daily_pnl = 0.0
+        self.start_time = None
+
+        # For legacy compatibility
+        self.kill_zones = [21500, 21550] # Example kill zones
+        self.asset = type('Asset', (), {'ticker': asset_ticker})
+        self.raw_data = data # Legacy attribute
+
+    def _get_win_rate(self) -> float:
+        if not self.trades:
+            return 0.0
+        wins = sum(1 for t in self.trades if t.result == 'WIN')
+        return wins / len(self.trades)
+
+    def run_training(self, iterations: int = 1000, params: Dict[str, Any] = None,
                     on_progress=None):
         """
-        Enhanced run_training with progress bars
+        Main training loop.
+        Iterates through the data bar-by-bar, computing state and simulating trades.
         """
         if self.data is None:
             raise ValueError("Data not loaded")
         
+        # Ensure data is sorted by timestamp
+        if 'timestamp' in self.data.columns:
+            self.data = self.data.sort_values('timestamp').reset_index(drop=True)
+
+        self.start_time = time.time()
+
         # Initialize progress tracking
         progress = TrainingProgressBar(
             total_iterations=iterations,
             phase_name=f"{self.mode} MODE"
         )
         
-        total_trades = 0
         total_pnl = 0.0
         
+        # Dashboard JSON path
+        json_path = os.path.join(os.path.dirname(__file__), 'training_progress.json')
+
         try:
-            for iteration in range(iterations):
-                # Your existing training logic here
-                # ...
+            # We need enough history for regression (21 bars)
+            start_idx = 21
+            # Limit iterations if specified, else run through data
+            max_idx = min(len(self.data) - 1, start_idx + iterations)
+
+            # Simple simulation loop
+            for i in range(start_idx, max_idx):
+                current_row = self.data.iloc[i]
+
+                # Update macro view (simple sliding window for demo/test)
+                # In real system, this would be proper resampling
+                df_macro = self.data.iloc[i-21:i+1].copy()
+                df_macro['close'] = df_macro['price'] if 'price' in df_macro.columns else df_macro['close']
+
+                # Calculate State
+                state = self.engine.calculate_three_body_state(
+                    df_macro=df_macro,
+                    df_micro=df_macro, # Using same data for micro for simplicity in this loop
+                    current_price=current_row['price'] if 'price' in current_row else current_row['close'],
+                    current_volume=current_row['volume'] if 'volume' in current_row else 0,
+                    tick_velocity=0.0 # Velocity calc requires prev tick
+                )
+
+                # Decision
+                decision = self.manager.should_fire(state)
+
+                if decision['should_fire']:
+                    # Simulate Trade
+                    entry_price = current_row['price'] if 'price' in current_row else current_row['close']
+                    outcome = self._simulate_trade_with_state(i, entry_price, state)
+
+                    if outcome:
+                        self.trades.append(outcome)
+                        self.brain.update(outcome)
+                        self.manager.record_trade(outcome)
+                        total_pnl += outcome.pnl
+
+                # Update progress
+                progress_val = i - start_idx
                 
-                # Update progress every iteration
                 progress.update(
                     n=1,
-                    trades=total_trades,
-                    states=len(self.engine.prob_table.table) if hasattr(self, 'engine') else 0,
+                    trades=len(self.trades),
+                    states=len(self.brain.table),
                     pnl=total_pnl,
-                    win_rate=self._get_win_rate() if hasattr(self, '_get_win_rate') else 0.0
+                    win_rate=self._get_win_rate()
                 )
                 
-                # Call custom progress callback if provided
-                if on_progress and iteration % 10 == 0:
-                    metrics = {
-                        'iteration': iteration,
-                        'total_iterations': iterations,
-                        'total_trades': total_trades,
-                        'pnl': total_pnl,
-                        'win_rate': self._get_win_rate() if hasattr(self, '_get_win_rate') else 0.0,
-                        'average_confidence': 0.5  # Your actual confidence calc
-                    }
-                    on_progress(metrics)
+                # Periodic JSON update (every 10 iters or 1 sec)
+                if progress_val % 10 == 0:
+                    self._update_dashboard_json(json_path, progress_val, iterations, total_pnl, i)
         
         finally:
             progress.close()
+            # Save final model
+            self.save_model(os.path.join(self.output_dir, "quantum_probability_table.pkl"))
         
         return {
-            'total_trades': total_trades,
+            'total_trades': len(self.trades),
             'pnl': total_pnl,
-            'win_rate': self._get_win_rate() if hasattr(self, '_get_win_rate') else 0.0,
-            'unique_states': 0  # Your actual count
+            'win_rate': self._get_win_rate(),
+            'unique_states': len(self.brain.table)
         }
 
+    def _simulate_trade(self, current_idx: int, entry_price: float) -> Optional[TradeOutcome]:
+        """
+        Simulate a trade by looking ahead in data.
+        Simple logic: 20 ticks TP, 10 ticks SL.
+        """
+        # Look ahead up to 100 ticks
+        max_lookahead = 100
+        end_idx = min(len(self.data), current_idx + max_lookahead)
 
-# Example usage
+        future_data = self.data.iloc[current_idx+1:end_idx]
+        if future_data.empty:
+            return None
+
+        # Simple random-ish or trend logic for test
+        # Let's use a fixed TP/SL for now
+        tp = 20.0
+        sl = 10.0
+
+        for idx, row in future_data.iterrows():
+            price = row['price'] if 'price' in row else row['close']
+            pnl = price - entry_price # Long only for simplicity
+
+            if pnl >= tp:
+                return TradeOutcome(
+                    state=ThreeBodyQuantumState.null_state(),
+                    entry_price=entry_price,
+                    exit_price=price,
+                    pnl=tp,
+                    result='WIN',
+                    timestamp=row['timestamp'] if 'timestamp' in row else 0,
+                    exit_reason='TP'
+                )
+            elif pnl <= -sl:
+                return TradeOutcome(
+                    state=ThreeBodyQuantumState.null_state(),
+                    entry_price=entry_price,
+                    exit_price=price,
+                    pnl=-sl,
+                    result='LOSS',
+                    timestamp=row['timestamp'] if 'timestamp' in row else 0,
+                    exit_reason='SL'
+                )
+
+        # Time exit
+        last_price = future_data.iloc[-1]['price'] if 'price' in future_data.iloc[-1] else future_data.iloc[-1]['close']
+        pnl = last_price - entry_price
+        return TradeOutcome(
+            state=ThreeBodyQuantumState.null_state(),
+            entry_price=entry_price,
+            exit_price=last_price,
+            pnl=pnl,
+            result='WIN' if pnl > 0 else 'LOSS',
+            timestamp=future_data.iloc[-1]['timestamp'] if 'timestamp' in future_data.iloc[-1] else 0,
+            exit_reason='TIME'
+        )
+
+    def _simulate_trade_with_state(self, current_idx: int, entry_price: float, state: ThreeBodyQuantumState) -> Optional[TradeOutcome]:
+        outcome = self._simulate_trade(current_idx, entry_price)
+        if outcome:
+            outcome.state = state
+        return outcome
+
+    def _update_dashboard_json(self, json_path: str, iteration: int, total_iterations: int, pnl: float, current_data_idx: int = 0):
+        """Write progress to JSON for dashboard"""
+        elapsed = time.time() - self.start_time if self.start_time else 0
+
+        # Get recent candles for chart
+        recent_candles = []
+        if self.data is not None and current_data_idx > 0:
+            start = max(0, current_data_idx - 50)
+            subset = self.data.iloc[start:current_data_idx+1]
+            # Convert to list of dicts
+            for _, row in subset.iterrows():
+                candle = {
+                    'timestamp': str(row['timestamp']) if 'timestamp' in row else '', # Convert to string for JSON
+                    'close': float(row['price']) if 'price' in row else float(row['close']),
+                    # Add open/high/low/volume if available, else simulate
+                    'open': float(row['open']) if 'open' in row else float(row['price']),
+                    'high': float(row['high']) if 'high' in row else float(row['price']),
+                    'low': float(row['low']) if 'low' in row else float(row['price']),
+                    'volume': float(row['volume']) if 'volume' in row else 0
+                }
+                recent_candles.append(candle)
+
+        data = {
+            'iteration': iteration,
+            'total_iterations': total_iterations,
+            'elapsed_seconds': elapsed,
+            'states_learned': len(self.brain.table),
+            'high_confidence_states': len(self.brain.get_all_states_above_threshold()),
+            'trades': [
+                {'pnl': t.pnl, 'result': t.result} for t in self.trades[-50:] # Last 50 trades
+            ],
+            'recent_candles': recent_candles
+        }
+        try:
+            with open(json_path, 'w') as f:
+                json.dump(data, f)
+        except Exception:
+            pass # Ignore write errors (race conditions)
+
+    def _run_single_iteration(self, iteration_num: int):
+        """
+        Legacy adapter for tests/test_phase2.py.
+        Runs logic for a single 'tick' or step.
+        """
+        if self.data is None:
+             return {'total_trades': 0, 'pnl': 0.0, 'unique_states': 0}
+
+        # Determine index
+        idx = iteration_num + 21 # Offset for regression
+        if idx >= len(self.data):
+            idx = len(self.data) - 1
+
+        current_row = self.data.iloc[idx]
+        df_macro = self.data.iloc[max(0, idx-21):idx+1].copy()
+        if 'price' in df_macro.columns and 'close' not in df_macro.columns:
+            df_macro['close'] = df_macro['price']
+
+        state = self.engine.calculate_three_body_state(
+            df_macro=df_macro,
+            df_micro=df_macro,
+            current_price=current_row['price'] if 'price' in current_row else current_row['close'],
+            current_volume=current_row['volume'] if 'volume' in current_row else 0,
+            tick_velocity=0.0
+        )
+
+        decision = self.manager.should_fire(state)
+        if decision['should_fire']:
+            entry_price = current_row['price'] if 'price' in current_row else current_row['close']
+            outcome = self._simulate_trade_with_state(idx, entry_price, state)
+            if outcome:
+                self.trades.append(outcome)
+                self.brain.update(outcome)
+                self.manager.record_trade(outcome)
+
+        return {
+            'total_trades': len(self.trades),
+            'pnl': sum(t.pnl for t in self.trades),
+            'unique_states': len(self.brain.table)
+        }
+
+    def save_model(self, filepath: str):
+        # Create directory if not exists
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        self.brain.save(filepath)
+
+# CLI Entry Point
 if __name__ == "__main__":
-    # Simple test
-    print("Testing progress display...\n")
-    train_with_progress(
-        historical_data_path="test.parquet",
-        max_iterations=100,
-        output_dir="models/"
-    )
+    parser = argparse.ArgumentParser(description="Bayesian-AI Training Orchestrator")
+    parser.add_argument("--data-file", type=str, required=True, help="Path to .dbn or .parquet file")
+    parser.add_argument("--iterations", type=int, default=1000, help="Number of iterations")
+    parser.add_argument("--output", type=str, default="models/", help="Output directory")
+    parser.add_argument("--no-gpu", action="store_true", help="Disable GPU (Legacy)")
+
+    args = parser.parse_args()
+
+    # Load Data
+    try:
+        print(f"Loading data from {args.data_file}...")
+        df = get_data_source(args.data_file)
+        print(f"Loaded {len(df)} rows.")
+
+        # Run Training
+        orchestrator = TrainingOrchestrator(
+            asset_ticker="MNQ",
+            data=df,
+            output_dir=args.output,
+            mode="QUANTUM"
+        )
+
+        orchestrator.run_training(iterations=args.iterations)
+
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
