@@ -137,6 +137,7 @@ class TrainingOrchestrator:
 
         # Internal State
         self.trades: List[TradeOutcome] = []
+        self.total_duration = 0.0
         self.daily_pnl = 0.0
         self.start_time = None
 
@@ -218,6 +219,7 @@ class TrainingOrchestrator:
 
                     if outcome:
                         self.trades.append(outcome)
+                        self.total_duration += outcome.duration
                         self.brain.update(outcome)
                         self.manager.record_trade(outcome)
                         total_pnl += outcome.pnl
@@ -227,7 +229,7 @@ class TrainingOrchestrator:
                 
                 avg_duration = 0.0
                 if self.trades:
-                    avg_duration = sum(t.duration for t in self.trades) / len(self.trades)
+                    avg_duration = self.total_duration / len(self.trades)
 
                 progress.update(
                     n=1,
@@ -414,6 +416,7 @@ class TrainingOrchestrator:
             outcome = self._simulate_trade_with_state(idx, entry_price, state)
             if outcome:
                 self.trades.append(outcome)
+                self.total_duration += outcome.duration
                 self.brain.update(outcome)
                 self.manager.record_trade(outcome)
 
