@@ -30,3 +30,4 @@ ipywidgets
 tqdm
 scipy
 matplotlib
+colorama
