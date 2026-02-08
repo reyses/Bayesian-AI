@@ -12,9 +12,14 @@ def setup_logger(name, log_file, level=logging.DEBUG, console=False):
     logger = logging.getLogger(name)
     logger.setLevel(level)
 
-    # Clear existing handlers to avoid duplicates
+    # Clear existing handlers to avoid duplicates and release file locks
     if logger.hasHandlers():
-        logger.handlers.clear()
+        for handler in list(logger.handlers):
+            try:
+                handler.close()
+            except Exception:
+                pass
+            logger.removeHandler(handler)
 
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
@@ -24,6 +29,17 @@ def setup_logger(name, log_file, level=logging.DEBUG, console=False):
             # Ensure directory exists
             log_path = Path(log_file)
             log_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Remove existing log file to start fresh on new run
+            # Truncate the file by opening it in write mode instead of unlinking
+            if log_path.exists():
+                try:
+                    with open(log_path, 'w'):
+                        pass
+                except Exception as e:
+                    print(f"Warning: Could not truncate old log file {log_file}: {e}")
+                except Exception as e:
+                    print(f"Warning: Could not delete old log file {log_file}: {e}")
 
             fh = RotatingFileHandler(str(log_path), maxBytes=10*1024*1024, backupCount=1)
             fh.setFormatter(formatter)
