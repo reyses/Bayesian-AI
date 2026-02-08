@@ -1,9 +1,9 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-08 16:58:08
+- **Timestamp:** 2026-02-08 18:04:41
 - **Git Branch:** main
-- **Last Commit:** eb0fd383fb149f43424519bfeafd96732865147b
+- **Last Commit:** 1ec36d27537cbc5328c98a9417c7d436fff1723a
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 1A. ARCHITECTURE STATUS
@@ -15,23 +15,23 @@
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
-eb0fd38 - Initual run after mayor changes (reyses)
-b783d28 - initial run after mayor changes (reyses)
-d61045e - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-88101bc - Merge pull request #70 from reyses/feat/orchestrator-integration-dashboard-15158105287559044499 (reyses)
-c9c576c - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-ff7a6dd - Merge 824b6584c4b1257a52fc6e946ae0dc5fdaac550d into d638a91c2744369e88904e5327eb12a34443a626 (reyses)
-824b658 - chore: Verify dependencies in requirements.txt (google-labs-jules[bot])
-8509398 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-af881b3 - Merge 09e556af8e683cb4c6c57d4c5e4d88bda12aa3be into d638a91c2744369e88904e5327eb12a34443a626 (reyses)
-09e556a - Update training/orchestrator.py (reyses)
+1ec36d2 - test run of anchor date (reyses)
+fce8dd7 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+7fc7c8b - Merge pull request #71 from reyses/fix-missing-open-crash-181556566606784880 (reyses)
+1edb0b4 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+0b291a1 - Merge fd6b63d3f2fa98eee0dcaa84455c80b66e25c572 into 63006a05a7ac51372e385cf5fc01c6150a489aec (reyses)
+fd6b63d - Update core/quantum_field_engine.py (reyses)
+709bdd4 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+fc3f4aa - Merge e6ca078f6a475370dc51a091a0f56b23d14c7ee0 into 63006a05a7ac51372e385cf5fc01c6150a489aec (reyses)
+e6ca078 - feat(dashboard): implement deterministic file selection with ANCHOR_DATE (google-labs-jules[bot])
+74c1344 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 ```
 
 ### 3. FILE STRUCTURE
 ```
 Bayesian-AI/
 │   ├── AGENTS.md
-│   ├── CUDA_Debug.log.processed_20260208_165804
+│   ├── CUDA_Debug.log.processed_20260208_180437
 │   ├── CURRENT_STATUS.md
 │   ├── ISSUE_TRIAGE.md
 │   ├── README.md
@@ -305,7 +305,7 @@ Bayesian-AI/
 
 ### 4. CODE STATISTICS
 - **Python Files:** 60
-- **Total Lines of Code:** 8158
+- **Total Lines of Code:** 8205
 
 ### 5. CRITICAL INTEGRATION POINTS
 - **Databento API:**
@@ -384,6 +384,7 @@ colorama
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
+M	config/settings.py
 M	notebooks/dashboard.ipynb
 ```
 
@@ -405,7 +406,7 @@ M	notebooks/dashboard.ipynb
 | :--- | :--- | :--- |
 | Training Status | SUCCESS | ✓ |
 | Iterations Completed | 10 | ✓ |
-| Runtime | 2.47s | - |
+| Runtime | 2.49s | - |
 | Data Files Tested | 1 | ✓ |
 | Total Ticks (Sample) | 0 | - |
 | Unique States Learned | 10 | - |
