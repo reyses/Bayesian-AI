@@ -63,6 +63,9 @@ notebook = {
     "    sys.path.append(str(project_root))\n",
     "print(f\"Project Root: {project_root}\")\n",
     "\n",
+    "import importlib\n",
+    "import config.settings\n",
+    "importlib.reload(config.settings)\n",
     "from config.settings import OPERATIONAL_MODE, RAW_DATA_PATH, ANCHOR_DATE\n",
     "import cuda_modules.hardened_verification as hv\n",
     "from training.orchestrator import TrainingOrchestrator, load_data_from_directory, get_data_source\n",
@@ -518,7 +521,7 @@ notebook = {
     "        # Handle both raw dict and BayesianBrain object\n",
     "        table = data['table'] if isinstance(data, dict) and 'table' in data else getattr(data, 'table', {})\n",
     "        \n",
-    "        print(f\"🟢 {title}: {len(table)} states learned.\n",
+    "        print(f\"🟢 {title}: {len(table)} states learned.\")\n",
     "        \n",
     "        # Convert to DF\n",
     "        records = []\n",
@@ -654,7 +657,7 @@ notebook = {
 
 # Output to notebooks/dashboard.ipynb
 os.makedirs('notebooks', exist_ok=True)
-with open('notebooks/dashboard.ipynb', 'w') as f:
-    json.dump(notebook, f, indent=1)
+with open('notebooks/dashboard.ipynb', 'w', encoding='utf-8') as f:
+    json.dump(notebook, f, indent=1, ensure_ascii=False)
 
 print("Notebook generated successfully: notebooks/dashboard.ipynb")
