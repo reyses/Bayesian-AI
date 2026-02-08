@@ -17,12 +17,12 @@ def trigger_jules_repair(fault_details):
     # Invokes Jules API: jules fix --context=CUDA_Debug.log --target=cuda/
     print(f"Triggering Jules Repair for: {fault_details}")
     try:
-        # Mocking the call since 'jules' command doesn't exist in this environment
-        # subprocess.run(["jules", "fix", "--context", "CUDA_Debug.log"], check=True)
-        print("subprocess.run(['jules', 'fix', ...]) executed")
+        if shutil.which("jules") is None:
+            raise FileNotFoundError("'jules' command not found in PATH")
 
-        # subprocess.run(["git", "pull", "origin", "jules-fix-branch"], check=True)
-        print("subprocess.run(['git', 'pull', ...]) executed")
+        subprocess.run(["jules", "fix", "--context", "CUDA_Debug.log", "--target=cuda/"], check=True)
+
+        subprocess.run(["git", "pull", "origin", "jules-fix-branch"], check=True)
 
         # Log rotation to prevent re-triggering
         log_file = 'CUDA_Debug.log'
