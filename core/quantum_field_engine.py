@@ -196,10 +196,13 @@ class QuantumFieldEngine:
         cascade_detected = abs(velocity) > cascade_threshold
         
         current_candle = df_micro.iloc[-1]
+        # Use open price if available, otherwise fallback to close
+        open_price = current_candle.get('open', current_candle['close'])
+
         if z_score > 2.0:
-            spin_inverted = current_candle['close'] < current_candle['open']
+            spin_inverted = current_candle['close'] < open_price
         elif z_score < -2.0:
-            spin_inverted = current_candle['close'] > current_candle['open']
+            spin_inverted = current_candle['close'] > open_price
         else:
             spin_inverted = False
         
