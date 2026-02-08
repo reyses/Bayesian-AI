@@ -88,14 +88,18 @@ class ThreeBodyQuantumState:
     timeframe_macro: str = '15m'
     timeframe_micro: str = '15s'
     
-    def __hash__(self):
-        """Hash for Bayesian table lookups"""
-        # Handle NaN values defensively
+    def _get_hash_bins(self):
+        """Helper to get standardized bins for hash/eq, handling NaNs"""
         z_val = self.z_score if not np.isnan(self.z_score) else 0.0
         mom_val = self.momentum_strength if not np.isnan(self.momentum_strength) else 0.0
 
         z_bin = int(z_val * 2) / 2
         momentum_bin = int(mom_val * 10) / 10
+        return z_bin, momentum_bin
+
+    def __hash__(self):
+        """Hash for Bayesian table lookups"""
+        z_bin, momentum_bin = self._get_hash_bins()
         
         return hash((
             z_bin,
@@ -114,18 +118,8 @@ class ThreeBodyQuantumState:
         if not isinstance(other, ThreeBodyQuantumState):
             return False
             
-        # Handle NaN values defensively
-        z_val = self.z_score if not np.isnan(self.z_score) else 0.0
-        mom_val = self.momentum_strength if not np.isnan(self.momentum_strength) else 0.0
-
-        other_z_val = other.z_score if not np.isnan(other.z_score) else 0.0
-        other_mom_val = other.momentum_strength if not np.isnan(other.momentum_strength) else 0.0
-
-        z_bin = int(z_val * 2) / 2
-        other_z_bin = int(other_z_val * 2) / 2
-        
-        mom_bin = int(mom_val * 10) / 10
-        other_mom_bin = int(other_mom_val * 10) / 10
+        z_bin, mom_bin = self._get_hash_bins()
+        other_z_bin, other_mom_bin = other._get_hash_bins()
         
         return (
             z_bin == other_z_bin and
