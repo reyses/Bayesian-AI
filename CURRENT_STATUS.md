@@ -1,9 +1,9 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-08 21:11:10
-- **Git Branch:** HEAD
-- **Last Commit:** 35630804ae094f86b5b803bc148a1997ebbf0bf0
+- **Timestamp:** 2026-02-08 20:44:28
+- **Git Branch:** main
+- **Last Commit:** 8bfece584436d218d2a1a39baf34a0d874384ebd
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 1A. ARCHITECTURE STATUS
@@ -15,16 +15,16 @@
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
-3563080 - Merge 985f583cbdde4dda58508a95afcefdeba7a0dbf3 into ff407dd9a030d37e2ff4261333974887c26be39b (reyses)
-985f583 - Update scripts/generate_dashboard.py (reyses)
-a1c0d4c - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-d1c76aa - Merge bda0e0c966311c16ec8953e0dafa66695159bdbb into ff407dd9a030d37e2ff4261333974887c26be39b (reyses)
-bda0e0c - Fix dashboard data loading crash and add trade duration metric (google-labs-jules[bot])
-ff407dd - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 8bfece5 - update (reyses)
 1637000 - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
 fc13b94 - update (reyses)
 8bbcdea - updates to dashboard (reyses)
+f45f5e1 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+3c3a9d1 - update (reyses)
+fee2cb0 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+7a60769 - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
+f6847c8 - update (reyses)
+4a60260 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 ```
 
 ### 3. FILE STRUCTURE
@@ -32,7 +32,7 @@ fc13b94 - update (reyses)
 Bayesian-AI/
 │   ├── AGENTS.md
 │   ├── CUDA_Debug.log.processed_20260208_174942
-│   ├── CUDA_Debug.log.processed_20260208_211106
+│   ├── CUDA_Debug.log.processed_20260208_204424
 │   ├── CURRENT_STATUS.md
 │   ├── ISSUE_TRIAGE.md
 │   ├── README.md
@@ -308,7 +308,7 @@ Bayesian-AI/
 
 ### 4. CODE STATISTICS
 - **Python Files:** 61
-- **Total Lines of Code:** 8329
+- **Total Lines of Code:** 8275
 
 ### 5. CRITICAL INTEGRATION POINTS
 - **Databento API:**
@@ -388,7 +388,9 @@ anywidget
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
-
+M	notebooks/CUDA_Debug.log
+M	notebooks/dashboard.ipynb
+M	training/training_progress.json
 ```
 
 ### 11. REVIEWER CHECKLIST
@@ -401,7 +403,7 @@ anywidget
 
 - **Status:** PASS
 - **Command:** `pytest tests/topic_math.py`
-- **Summary:** 4 passed in 0.12s
+- **Summary:** 4 passed in 0.11s
 
 
 ### 13. TRAINING VALIDATION METRICS
@@ -409,7 +411,7 @@ anywidget
 | :--- | :--- | :--- |
 | Training Status | SUCCESS | ✓ |
 | Iterations Completed | 10 | ✓ |
-| Runtime | 2.55s | - |
+| Runtime | 2.66s | - |
 | Data Files Tested | 1 | ✓ |
 | Total Ticks (Sample) | 0 | - |
 | Unique States Learned | 10 | - |
