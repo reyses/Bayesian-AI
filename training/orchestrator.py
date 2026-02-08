@@ -188,15 +188,14 @@ class TrainingOrchestrator:
                 # Update macro view (simple sliding window for demo/test)
                 # In real system, this would be proper resampling
                 df_macro = self.data.iloc[i-21:i+1].copy()
-                if 'price' in df_macro.columns and 'close' not in df_macro.columns:
-                    df_macro['close'] = df_macro['price']
+                df_macro['close'] = df_macro['price'] if 'price' in df_macro.columns else df_macro['close']
 
                 # Calculate State
                 state = self.engine.calculate_three_body_state(
                     df_macro=df_macro,
                     df_micro=df_macro, # Using same data for micro for simplicity in this loop
                     current_price=current_row['price'] if 'price' in current_row else current_row['close'],
-                    current_volume=current_row['volume'],
+                    current_volume=current_row['volume'] if 'volume' in current_row else 0,
                     tick_velocity=0.0 # Velocity calc requires prev tick
                 )
 
@@ -339,8 +338,8 @@ class TrainingOrchestrator:
         try:
             with open(json_path, 'w') as f:
                 json.dump(data, f)
-        except Exception as e:
-            print(f"Warning: Failed to update dashboard JSON: {e}", file=sys.stderr)
+        except Exception:
+            pass # Ignore write errors (race conditions)
 
     def _run_single_iteration(self, iteration_num: int):
         """
@@ -416,6 +415,4 @@ if __name__ == "__main__":
 
     except Exception as e:
         print(f"Error: {e}")
-        import traceback
-        traceback.print_exc()
         sys.exit(1)
