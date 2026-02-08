@@ -11,6 +11,7 @@ import os
 import pandas as pd
 import numpy as np
 import logging
+from logging.handlers import RotatingFileHandler
 import glob
 
 # Add project root to path for imports
@@ -25,7 +26,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
 # File Handler (explicitly added)
-file_handler = logging.FileHandler('CUDA_Debug.log', mode='a')
+file_handler = RotatingFileHandler('CUDA_Debug.log', maxBytes=10*1024*1024, backupCount=1)
 file_handler.setLevel(logging.DEBUG)
 file_formatter = logging.Formatter('%(asctime)s | [%(levelname)s] | %(message)s')
 file_handler.setFormatter(file_formatter)
