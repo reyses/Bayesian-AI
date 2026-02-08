@@ -1,9 +1,9 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-08 20:44:28
-- **Git Branch:** main
-- **Last Commit:** 8bfece584436d218d2a1a39baf34a0d874384ebd
+- **Timestamp:** 2026-02-08 21:04:04
+- **Git Branch:** HEAD
+- **Last Commit:** d1c76aa9898f33da28f0bbe266c384513ad04960
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 1A. ARCHITECTURE STATUS
@@ -15,6 +15,9 @@
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+d1c76aa - Merge bda0e0c966311c16ec8953e0dafa66695159bdbb into ff407dd9a030d37e2ff4261333974887c26be39b (reyses)
+bda0e0c - Fix dashboard data loading crash and add trade duration metric (google-labs-jules[bot])
+ff407dd - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 8bfece5 - update (reyses)
 1637000 - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
 fc13b94 - update (reyses)
@@ -22,9 +25,6 @@ fc13b94 - update (reyses)
 f45f5e1 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 3c3a9d1 - update (reyses)
 fee2cb0 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-7a60769 - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
-f6847c8 - update (reyses)
-4a60260 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 ```
 
 ### 3. FILE STRUCTURE
@@ -32,7 +32,7 @@ f6847c8 - update (reyses)
 Bayesian-AI/
 │   ├── AGENTS.md
 │   ├── CUDA_Debug.log.processed_20260208_174942
-│   ├── CUDA_Debug.log.processed_20260208_204424
+│   ├── CUDA_Debug.log.processed_20260208_210400
 │   ├── CURRENT_STATUS.md
 │   ├── ISSUE_TRIAGE.md
 │   ├── README.md
@@ -308,7 +308,7 @@ Bayesian-AI/
 
 ### 4. CODE STATISTICS
 - **Python Files:** 61
-- **Total Lines of Code:** 8275
+- **Total Lines of Code:** 8329
 
 ### 5. CRITICAL INTEGRATION POINTS
 - **Databento API:**
@@ -388,9 +388,7 @@ anywidget
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
-M	notebooks/CUDA_Debug.log
-M	notebooks/dashboard.ipynb
-M	training/training_progress.json
+
 ```
 
 ### 11. REVIEWER CHECKLIST
@@ -403,7 +401,7 @@ M	training/training_progress.json
 
 - **Status:** PASS
 - **Command:** `pytest tests/topic_math.py`
-- **Summary:** 4 passed in 0.11s
+- **Summary:** 4 passed in 0.12s
 
 
 ### 13. TRAINING VALIDATION METRICS
@@ -411,7 +409,7 @@ M	training/training_progress.json
 | :--- | :--- | :--- |
 | Training Status | SUCCESS | ✓ |
 | Iterations Completed | 10 | ✓ |
-| Runtime | 2.66s | - |
+| Runtime | 2.72s | - |
 | Data Files Tested | 1 | ✓ |
 | Total Ticks (Sample) | 0 | - |
 | Unique States Learned | 10 | - |
