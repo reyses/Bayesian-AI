@@ -2,6 +2,7 @@ import logging
 import sys
 import os
 from pathlib import Path
+from logging.handlers import RotatingFileHandler
 
 def setup_logger(name, log_file, level=logging.DEBUG, console=False):
     """
@@ -24,7 +25,7 @@ def setup_logger(name, log_file, level=logging.DEBUG, console=False):
             log_path = Path(log_file)
             log_path.parent.mkdir(parents=True, exist_ok=True)
 
-            fh = logging.FileHandler(log_file, mode='a') # Append for history
+            fh = RotatingFileHandler(str(log_path), maxBytes=10*1024*1024, backupCount=1)
             fh.setFormatter(formatter)
             logger.addHandler(fh)
         except Exception as e:
