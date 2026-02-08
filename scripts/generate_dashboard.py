@@ -1,10 +1,17 @@
-{
+"""
+Bayesian-AI - Dashboard Generator
+Generates a consolidated Jupyter notebook for System Verification, Debugging, and Full Learning Cycle.
+"""
+import json
+import os
+
+notebook = {
  "cells": [
   {
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "# 🧠 Bayesian-AI Master Dashboard\n",
+    "# 🧠 Bayesian-AI Dashboard\n",
     "\n",
     "**Objective:** Consolidated interface for System Verification, Debugging, and Full Learning Cycle.\n",
     "**Sections:**\n",
@@ -28,18 +35,7 @@
   },
   {
    "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "# Install dependencies\n",
-    "import sys\n",
-    "!{sys.executable} -m pip install -r ../requirements.txt"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
+   "execution_count": None,
    "metadata": {},
    "outputs": [],
    "source": [
@@ -110,7 +106,7 @@
   },
   {
    "cell_type": "code",
-   "execution_count": null,
+   "execution_count": None,
    "metadata": {},
    "outputs": [],
    "source": [
@@ -143,7 +139,7 @@
   },
   {
    "cell_type": "code",
-   "execution_count": null,
+   "execution_count": None,
    "metadata": {},
    "outputs": [],
    "source": [
@@ -186,7 +182,7 @@
   },
   {
    "cell_type": "code",
-   "execution_count": null,
+   "execution_count": None,
    "metadata": {},
    "outputs": [],
    "source": [
@@ -296,7 +292,7 @@
   },
   {
    "cell_type": "code",
-   "execution_count": null,
+   "execution_count": None,
    "metadata": {},
    "outputs": [],
    "source": [
@@ -345,7 +341,7 @@
   },
   {
    "cell_type": "code",
-   "execution_count": null,
+   "execution_count": None,
    "metadata": {},
    "outputs": [],
    "source": [
@@ -463,7 +459,7 @@
   },
   {
    "cell_type": "code",
-   "execution_count": null,
+   "execution_count": None,
    "metadata": {},
    "outputs": [],
    "source": [
@@ -520,7 +516,7 @@
   },
   {
    "cell_type": "code",
-   "execution_count": null,
+   "execution_count": None,
    "metadata": {},
    "outputs": [],
    "source": [
@@ -571,7 +567,7 @@
   },
   {
    "cell_type": "code",
-   "execution_count": null,
+   "execution_count": None,
    "metadata": {},
    "outputs": [],
    "source": [
@@ -615,3 +611,10 @@
  "nbformat": 4,
  "nbformat_minor": 4
 }
+
+# Output to notebooks/dashboard.ipynb
+os.makedirs('notebooks', exist_ok=True)
+with open('notebooks/dashboard.ipynb', 'w') as f:
+    json.dump(notebook, f, indent=1)
+
+print("Notebook generated successfully: notebooks/dashboard.ipynb")
