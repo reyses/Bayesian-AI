@@ -146,12 +146,17 @@ class LiveDashboard:
         
         self.lbl_states = ttk.Label(self.frame_metrics, text="States Learned: 0", style="Metric.TLabel")
         self.lbl_states.pack(anchor="w")
+        Tooltip(self.lbl_states, "Number of unique market states encountered and stored in memory.")
         
         self.lbl_conf = ttk.Label(self.frame_metrics, text="High Conf States: 0", style="Metric.TLabel")
         self.lbl_conf.pack(anchor="w")
+        Tooltip(self.lbl_conf, "Number of states with sufficient statistical confidence to enable trading.")
         
         self.lbl_trades = ttk.Label(self.frame_metrics, text="Total Trades: 0", style="Metric.TLabel")
         self.lbl_trades.pack(anchor="w")
+
+        self.lbl_pnl = ttk.Label(self.frame_metrics, text="Total P&L: $0.00", style="Metric.TLabel")
+        self.lbl_pnl.pack(anchor="w")
         
         self.lbl_wr = ttk.Label(self.frame_metrics, text="Win Rate: 0.0%", style="Metric.TLabel")
         self.lbl_wr.pack(anchor="w")
@@ -309,11 +314,21 @@ class LiveDashboard:
         
         trades = d.get('trades', [])
         self.lbl_trades.config(text=f"Total Trades: {len(trades)}")
+
+        # Calculate Total P&L
+        total_pnl = sum(t.get('pnl', 0.0) for t in trades)
+        pnl_text = f"${total_pnl:,.2f}" if total_pnl >= 0 else f"-${abs(total_pnl):,.2f}"
+        pnl_color = "#00ff00" if total_pnl >= 0 else "#ff4444"
+        self.lbl_pnl.config(text=f"Total P&L: {pnl_text}", foreground=pnl_color)
         
         wins = sum(1 for t in trades if t.get('result') == 'WIN')
         total = len(trades)
         wr = (wins/total*100) if total > 0 else 0
-        self.lbl_wr.config(text=f"Win Rate: {wr:.1f}%")
+
+        wr_color = "#00ff00" if wr >= 50 else "#ff4444"
+        if total == 0: wr_color = "white"
+
+        self.lbl_wr.config(text=f"Win Rate: {wr:.1f}%", foreground=wr_color)
         
         # Charts
         self.update_charts(d)
