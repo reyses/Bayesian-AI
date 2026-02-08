@@ -48,13 +48,7 @@ from visualization.live_training_dashboard import LiveDashboard
 
 class TestDashboardMetrics(unittest.TestCase):
     def setUp(self):
-        self.test_dir = "tests/test_dashboard_data_metrics"
-        os.makedirs(self.test_dir, exist_ok=True)
         self.root = MagicMock()
-
-    def tearDown(self):
-        if os.path.exists(self.test_dir):
-            shutil.rmtree(self.test_dir)
 
     @patch('visualization.live_training_dashboard.threading.Thread')
     def test_metrics_update(self, mock_thread):
