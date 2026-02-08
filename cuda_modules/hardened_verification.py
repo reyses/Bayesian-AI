@@ -37,6 +37,9 @@ console = logging.StreamHandler()
 console.setLevel(logging.INFO)
 logger.addHandler(console)
 
+# Suppress Numba debug logs to avoid formatting errors
+logging.getLogger('numba').setLevel(logging.INFO)
+
 try:
     from numba import cuda
     NUMBA_AVAILABLE = True
