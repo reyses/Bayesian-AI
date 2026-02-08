@@ -134,8 +134,8 @@ class QuantumFieldEngine:
         F_lower_repulsion = min(1.0 / (dist_lower ** 3 + 0.01), 100.0) if z_score < 0 else 0.0
         
         # Momentum - sanitize inputs to prevent NaN
-        safe_velocity = velocity if not np.isnan(velocity) else 0.0
-        safe_volume = volume if not np.isnan(volume) else 0.0
+        safe_velocity = np.nan_to_num(velocity)
+        safe_volume = np.nan_to_num(volume)
 
         F_momentum = abs(safe_velocity) * safe_volume / (sigma + 1e-6)
         
