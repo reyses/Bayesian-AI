@@ -44,6 +44,7 @@ Both engines are functional and pass their respective validation suites. However
 1.  **Update Documentation**:
     -   Modify `README.md`: Change the status of "Fractal Three-Body Quantum" from "Experimental/Inactive" to **"Active / Primary"**.
     -   Modify `README.md`: Mark "9-Layer Hierarchy" as **"Legacy / Fallback"**.
+    -   Modify `README.md`: Update the `Quick Start` section to replace individual test script execution with a single `pytest` command.
     -   Update `CURRENT_STATUS.md` to reflect "Architecture Status: MIGRATED (Quantum Engine Active)".
 
 2.  **Standardize Testing**:
