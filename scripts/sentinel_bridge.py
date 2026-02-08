@@ -23,7 +23,7 @@ def trigger_jules_repair(fault_details):
             print(f"PROTOCOL_OVERRIDE: @Jules, please manually inspect and fix: {fault_details}")
             # Try gh cli if available
             if shutil.which("gh"):
-                subprocess.run(["gh", "pr", "comment", "--body", f"@Jules fix {fault_details}"], check=False)
+                subprocess.run(["gh", "pr", "comment", "--body", f"@Jules {fault_details}"], check=False)
         else:
             subprocess.run(["jules", "fix", "--context", "CUDA_Debug.log", "--target=cuda/"], check=True)
             subprocess.run(["git", "pull", "origin", "jules-fix-branch"], check=True)
@@ -50,7 +50,7 @@ def main():
             content = f.read()
             if 'CRITICAL' in content:
                 print("CRITICAL error found in logs. Initiating repair...")
-                trigger_jules_repair("CRITICAL Error Detected")
+                trigger_jules_repair("CRITICAL Error Detected in CUDA_Debug.log. Please repair.")
             else:
                 print("No critical errors found in logs.")
     except Exception as e:
