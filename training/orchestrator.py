@@ -104,7 +104,7 @@ def get_data_source(filepath: str) -> pd.DataFrame:
         raise ValueError(f"Unsupported file format: {filepath}")
 
 def load_data_from_directory(directory: str):
-    from data_loading_optimizer import parallel_load_dbn
+    from training.data_loading_optimizer import parallel_load_dbn
     
     files = glob.glob(os.path.join(directory, "*.dbn.zst"))
     
