@@ -53,7 +53,7 @@ class BayesianEngine:
         except Exception as e:
             if self.logger:
                 self.logger.critical(f"Failed to initialize engine components: {e}")
-            raise e
+            raise type(e)(str(e)) from e
 
     def initialize_session(self, historical_data, user_kill_zones):
         """Initialize static context (L1-L4)"""
