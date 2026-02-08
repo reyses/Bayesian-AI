@@ -153,9 +153,15 @@ class QuantumFieldEngine:
     def _calculate_wave_function(self, z_score, F_net, F_momentum):
         """Quantum superposition state"""
         # Gaussian probabilities
-        P0 = np.exp(-z_score**2 / 2)
-        P1 = np.exp(-(z_score - 2.0)**2 / 2)
-        P2 = np.exp(-(z_score + 2.0)**2 / 2)
+        E0 = -z_score**2 / 2
+        E1 = -(z_score - 2.0)**2 / 2
+        E2 = -(z_score + 2.0)**2 / 2
+        
+        # Shift by max to prevent underflow
+        max_E = max(E0, E1, E2)
+        P0 = np.exp(E0 - max_E)
+        P1 = np.exp(E1 - max_E)
+        P2 = np.exp(E2 - max_E)
         
         # Normalize
         total = P0 + P1 + P2
