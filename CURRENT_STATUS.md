@@ -1,9 +1,9 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-08 23:31:17
+- **Timestamp:** 2026-02-08 23:45:52
 - **Git Branch:** main
-- **Last Commit:** 9b9098582f771557af1c90968356fff652f3e2ee
+- **Last Commit:** f7160a599f61ea1978fab660d4501d80978e86ec
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 1A. ARCHITECTURE STATUS
@@ -15,6 +15,8 @@
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+f7160a5 - moved workflows (reyses)
+6c449aa - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 9b90985 - changes (reyses)
 e64627f - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 3a65a8f - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
@@ -23,8 +25,6 @@ e849f07 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 150ee22 - Merge pull request #77 from reyses/fix-nan-error-full-learning-cycle-13721676058687409194 (reyses)
 71399ff - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 7b98376 - Merge 631db1267a441ff1432d49ee2b9e01e40dab0dc2 into dff029f464f4eb8006c82f75d7c0c0a3fda23c73 (reyses)
-631db12 - Fix: Set continue-on-error for CI artifact uploads (google-labs-jules[bot])
-e05060b - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 ```
 
 ### 3. FILE STRUCTURE
@@ -32,7 +32,7 @@ e05060b - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 Bayesian-AI/
 │   ├── AGENTS.md
 │   ├── CUDA_Debug.log.processed_20260208_174942
-│   ├── CUDA_Debug.log.processed_20260208_233112
+│   ├── CUDA_Debug.log.processed_20260208_234548
 │   ├── CURRENT_STATUS.md
 │   ├── ISSUE_TRIAGE.md
 │   ├── README.md
@@ -260,8 +260,6 @@ Bayesian-AI/
 │   │   ├── data_loading_optimizer.py [COMPLETE]
 │   │   ├── generate_dashboard.py [COMPLETE]
 │   │   ├── generate_status_report.py [WIP]
-│   │   ├── github_workflows_data_preprocessing.yml
-│   │   ├── github_workflows_parallel_preprocessing.yml
 │   │   ├── inspect_results.py [COMPLETE]
 │   │   ├── manifest_integrity_check.py [COMPLETE]
 │   │   ├── sentinel_bridge.py [COMPLETE]
@@ -392,10 +390,8 @@ anywidget
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
-A	.vscode/settings.json
-M	notebooks/CUDA_Debug.log
-M	notebooks/dashboard.ipynb
-M	training/orchestrator.py
+R100	scripts/github_workflows_data_preprocessing.yml	.github/workflows/github_workflows_data_preprocessing.yml
+R100	scripts/github_workflows_parallel_preprocessing.yml	.github/workflows/github_workflows_parallel_preprocessing.yml
 ```
 
 ### 11. REVIEWER CHECKLIST
@@ -416,7 +412,7 @@ M	training/orchestrator.py
 | :--- | :--- | :--- |
 | Training Status | SUCCESS | ✓ |
 | Iterations Completed | 10 | ✓ |
-| Runtime | 2.5s | - |
+| Runtime | 2.47s | - |
 | Data Files Tested | 1 | ✓ |
 | Total Ticks (Sample) | 0 | - |
 | Unique States Learned | 10 | - |
