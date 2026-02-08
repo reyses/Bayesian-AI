@@ -103,11 +103,14 @@ class BayesianEngine:
 
             # Exit Management
             if self.wave_rider.position:
+                # Capture position snapshot before update_trail might clear it
+                position_snapshot = self.wave_rider.position
                 decision = self.wave_rider.update_trail(current_price, current_state)
+
                 if decision['should_exit']:
                     if self.logger:
                         self.logger.info(f"Exit Triggered: {decision}")
-                    self._close_position(current_price, decision)
+                    self._close_position(current_price, decision, position_snapshot)
                 return
 
             # Entry Logic (Unconstrained)
@@ -132,11 +135,14 @@ class BayesianEngine:
 
             # Exit Management
             if self.wave_rider.position:
+                # Capture position snapshot before update_trail might clear it
+                position_snapshot = self.wave_rider.position
                 decision = self.wave_rider.update_trail(current_price, current_state)
+
                 if decision['should_exit']:
                     if self.logger:
                         self.logger.info(f"Exit Triggered: {decision}")
-                    self._close_position(current_price, decision)
+                    self._close_position(current_price, decision, position_snapshot)
                 return
 
             # Entry Logic
@@ -151,8 +157,15 @@ class BayesianEngine:
                     self.logger.info(f"Opening SHORT at {current_price}. Prob={prob}, Conf={conf}")
                 self.wave_rider.open_position(current_price, 'short', current_state)
 
-    def _close_position(self, price, info):
-        pos = self.wave_rider.position
+    def _close_position(self, price, info, position_snapshot=None):
+        # Use snapshot if provided (as update_trail clears position), else current
+        pos = position_snapshot if position_snapshot else self.wave_rider.position
+
+        if pos is None:
+            if self.logger:
+                self.logger.error("Attempted to close position but no position found.")
+            return
+
         outcome = TradeOutcome(
             state=pos.entry_layer_state,
             entry_price=pos.entry_price,
