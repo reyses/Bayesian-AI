@@ -92,6 +92,7 @@ def run_audit():
                 for col in ['price', 'close']:
                     if col in df.columns:
                         prices = df[col].values
+                        prices = df[col].dropna().values
                         break
             except Exception as e:
                 logging.warning(f"Failed to load parquet: {e}")
@@ -107,6 +108,7 @@ def run_audit():
                     for col in ['price', 'close']:
                         if col in df.columns:
                             prices = df[col].values
+                            prices = df[col].dropna().values
                             break
                 except ImportError:
                     logging.warning("DatabentoLoader not found, skipping .dbn files.")
@@ -114,7 +116,7 @@ def run_audit():
                     logging.warning(f"Failed to load dbn: {e}")
 
         # 3. Fallback to Synthetic
-        if prices is None:
+        if prices is None or len(prices) == 0:
              logging.warning("No suitable data found in DATA/RAW. Using SYNTHETIC data for audit.")
              prices = np.random.uniform(100, 200, 100).astype(np.float32)
 
