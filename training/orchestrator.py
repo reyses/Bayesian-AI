@@ -195,7 +195,7 @@ class TrainingOrchestrator:
                     df_macro=df_macro,
                     df_micro=df_macro, # Using same data for micro for simplicity in this loop
                     current_price=current_row['price'] if 'price' in current_row else current_row['close'],
-                    current_volume=current_row['volume'] if 'volume' in current_row else 0,
+                    current_volume=current_row['volume'],
                     tick_velocity=0.0 # Velocity calc requires prev tick
                 )
 
