@@ -201,11 +201,17 @@ class TrainingOrchestrator:
                 df_macro['close'] = df_macro['price'] if 'price' in df_macro.columns else df_macro['close']
 
                 # Calculate State
+                current_price = current_row['price'] if 'price' in current_row else current_row['close']
+
+                # Sanitize volume (handle NaN)
+                raw_volume = current_row['volume'] if 'volume' in current_row else 0
+                current_volume = raw_volume if not pd.isna(raw_volume) else 0.0
+
                 state = self.engine.calculate_three_body_state(
                     df_macro=df_macro,
                     df_micro=df_macro, # Using same data for micro for simplicity in this loop
-                    current_price=current_row['price'] if 'price' in current_row else current_row['close'],
-                    current_volume=current_row['volume'] if 'volume' in current_row else 0,
+                    current_price=current_price,
+                    current_volume=current_volume,
                     tick_velocity=0.0 # Velocity calc requires prev tick
                 )
 
@@ -402,11 +408,15 @@ class TrainingOrchestrator:
         if 'price' in df_macro.columns and 'close' not in df_macro.columns:
             df_macro['close'] = df_macro['price']
 
+        current_price = current_row['price'] if 'price' in current_row else current_row['close']
+        raw_volume = current_row['volume'] if 'volume' in current_row else 0
+        current_volume = raw_volume if not pd.isna(raw_volume) else 0.0
+
         state = self.engine.calculate_three_body_state(
             df_macro=df_macro,
             df_micro=df_macro,
-            current_price=current_row['price'] if 'price' in current_row else current_row['close'],
-            current_volume=current_row['volume'] if 'volume' in current_row else 0,
+            current_price=current_price,
+            current_volume=current_volume,
             tick_velocity=0.0
         )
 
