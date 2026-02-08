@@ -338,8 +338,8 @@ class TrainingOrchestrator:
         try:
             with open(json_path, 'w') as f:
                 json.dump(data, f)
-        except Exception:
-            pass # Ignore write errors (race conditions)
+        except Exception as e:
+            print(f"Warning: Failed to update dashboard JSON: {e}", file=sys.stderr)
 
     def _run_single_iteration(self, iteration_num: int):
         """
