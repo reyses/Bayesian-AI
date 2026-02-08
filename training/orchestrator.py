@@ -476,18 +476,28 @@ class TrainingOrchestrator:
         for iteration in range(iterations):
             self.engine.daily_pnl = 0.0
             self.engine.trades = []
-            for tick_dict in tick_records:
+            total_ticks = len(tick_records)
+            for i, tick_dict in enumerate(tick_records):
                 self.engine.on_tick(tick_dict)
+                # Print progress every 10%
+                if self.verbose and total_ticks > 1000 and i % (total_ticks // 10) == 0:
+                     print(f"  Iteration {iteration+1}: {i/total_ticks:.0%} complete")
 
             self._log_iteration(iteration)
 
         if not params:
             self.engine.prob_table.save(self.model_path)
 
+        wins = sum(1 for t in self.engine.trades if t.result == 'WIN')
+        losses = sum(1 for t in self.engine.trades if t.result != 'WIN')
+        unique_states = len(self.engine.prob_table.table) if hasattr(self.engine.prob_table, 'table') else 0
+
         return {
             'total_trades': len(self.engine.trades),
             'pnl': self.engine.daily_pnl,
-            'win_rate': self._get_win_rate()
+            'win_rate': self._get_win_rate(),
+            'unique_states': unique_states,
+            'win_loss_ratio': (wins / losses) if losses > 0 else (float('inf') if wins > 0 else 0.0)
         }
 
     def _get_win_rate(self):
