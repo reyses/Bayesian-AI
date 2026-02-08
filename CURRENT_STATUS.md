@@ -1,9 +1,9 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-08 17:32:53
-- **Git Branch:** HEAD
-- **Last Commit:** 0b291a13a1aef875731d65d86ef1d40237d813d9
+- **Timestamp:** 2026-02-08 17:47:04
+- **Git Branch:** main
+- **Last Commit:** 7fc7c8bdca9d424d43e4fee417fcca013b70d097
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 1A. ARCHITECTURE STATUS
@@ -15,6 +15,8 @@
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+7fc7c8b - Merge pull request #71 from reyses/fix-missing-open-crash-181556566606784880 (reyses)
+1edb0b4 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 0b291a1 - Merge fd6b63d3f2fa98eee0dcaa84455c80b66e25c572 into 63006a05a7ac51372e385cf5fc01c6150a489aec (reyses)
 fd6b63d - Update core/quantum_field_engine.py (reyses)
 709bdd4 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
@@ -23,15 +25,13 @@ e6ca078 - feat(dashboard): implement deterministic file selection with ANCHOR_DA
 74c1344 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 a7f9f56 - Merge a0024c275cbd1c4f998f82147c45c452feb20a59 into 63006a05a7ac51372e385cf5fc01c6150a489aec (reyses)
 a0024c2 - fix(core): handle missing open column in quantum engine (google-labs-jules[bot])
-63006a0 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-eb0fd38 - Initual run after mayor changes (reyses)
 ```
 
 ### 3. FILE STRUCTURE
 ```
 Bayesian-AI/
 │   ├── AGENTS.md
-│   ├── CUDA_Debug.log.processed_20260208_173249
+│   ├── CUDA_Debug.log.processed_20260208_174659
 │   ├── CURRENT_STATUS.md
 │   ├── ISSUE_TRIAGE.md
 │   ├── README.md
@@ -397,7 +397,7 @@ colorama
 
 - **Status:** PASS
 - **Command:** `pytest tests/topic_math.py`
-- **Summary:** 4 passed in 0.12s
+- **Summary:** 4 passed in 0.11s
 
 
 ### 13. TRAINING VALIDATION METRICS
@@ -405,7 +405,7 @@ colorama
 | :--- | :--- | :--- |
 | Training Status | SUCCESS | ✓ |
 | Iterations Completed | 10 | ✓ |
-| Runtime | 2.58s | - |
+| Runtime | 2.56s | - |
 | Data Files Tested | 1 | ✓ |
 | Total Ticks (Sample) | 0 | - |
 | Unique States Learned | 10 | - |
