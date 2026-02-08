@@ -56,7 +56,8 @@ class TrainingProgressBar:
             'trades': 0,
             'states': 0,
             'pnl': 0.0,
-            'win_rate': 0.0
+            'win_rate': 0.0,
+            'avg_duration': 0.0
         }
     
     def update(self, n=1, **metrics):
@@ -72,8 +73,9 @@ class TrainingProgressBar:
         states = self.current_metrics.get('states', 0)
         pnl = self.current_metrics.get('pnl', 0.0)
         wr = self.current_metrics.get('win_rate', 0.0)
+        avg_dur = self.current_metrics.get('avg_duration', 0.0)
         
-        metrics_str = f"Trades: {trades:>6} | States: {states:>5} | P&L: ${pnl:>8,.2f} | WR: {wr:>5.1%}"
+        metrics_str = f"Trades: {trades:>6} | States: {states:>5} | P&L: ${pnl:>8,.2f} | WR: {wr:>5.1%} | AvgDur: {avg_dur:.1f}s"
         self.pbar_metrics.set_description_str(metrics_str)
     
     def set_phase(self, phase_name: str, day: int = None, total_days: int = None):
@@ -135,6 +137,7 @@ class TrainingOrchestrator:
 
         # Internal State
         self.trades: List[TradeOutcome] = []
+        self.total_duration = 0.0
         self.daily_pnl = 0.0
         self.start_time = None
 
@@ -148,6 +151,13 @@ class TrainingOrchestrator:
             return 0.0
         wins = sum(1 for t in self.trades if t.result == 'WIN')
         return wins / len(self.trades)
+
+    def _get_avg_confidence(self) -> float:
+        """Calculate average confidence of all learned states"""
+        if not self.brain.table:
+            return 0.0
+        total_conf = sum(self.brain.get_confidence(s) for s in self.brain.table)
+        return total_conf / len(self.brain.table)
 
     def run_training(self, iterations: int = 1000, params: Dict[str, Any] = None,
                     on_progress=None):
@@ -209,6 +219,7 @@ class TrainingOrchestrator:
 
                     if outcome:
                         self.trades.append(outcome)
+                        self.total_duration += outcome.duration
                         self.brain.update(outcome)
                         self.manager.record_trade(outcome)
                         total_pnl += outcome.pnl
@@ -216,17 +227,33 @@ class TrainingOrchestrator:
                 # Update progress
                 progress_val = i - start_idx
                 
+                avg_duration = 0.0
+                if self.trades:
+                    avg_duration = self.total_duration / len(self.trades)
+
                 progress.update(
                     n=1,
                     trades=len(self.trades),
                     states=len(self.brain.table),
                     pnl=total_pnl,
-                    win_rate=self._get_win_rate()
+                    win_rate=self._get_win_rate(),
+                    avg_duration=avg_duration
                 )
                 
-                # Periodic JSON update (every 10 iters or 1 sec)
+                # Periodic updates
                 if progress_val % 10 == 0:
                     self._update_dashboard_json(json_path, progress_val, iterations, total_pnl, i)
+
+                    if on_progress:
+                        metrics = {
+                            'iteration': progress_val,
+                            'total_iterations': iterations,
+                            'pnl': total_pnl,
+                            'win_rate': self._get_win_rate(),
+                            'average_confidence': self._get_avg_confidence(),
+                            'avg_duration': avg_duration
+                        }
+                        on_progress(metrics)
         
         finally:
             progress.close()
@@ -253,6 +280,9 @@ class TrainingOrchestrator:
         if future_data.empty:
             return None
 
+        # Get Entry Time
+        entry_time = self.data.iloc[current_idx]['timestamp'] if 'timestamp' in self.data.columns else 0
+
         # Simple random-ish or trend logic for test
         # Let's use a fixed TP/SL for now
         tp = 20.0
@@ -262,6 +292,9 @@ class TrainingOrchestrator:
             price = row['price'] if 'price' in row else row['close']
             pnl = price - entry_price # Long only for simplicity
 
+            exit_time = row['timestamp'] if 'timestamp' in row else 0
+            duration = exit_time - entry_time
+
             if pnl >= tp:
                 return TradeOutcome(
                     state=ThreeBodyQuantumState.null_state(),
@@ -269,8 +302,10 @@ class TrainingOrchestrator:
                     exit_price=price,
                     pnl=tp,
                     result='WIN',
-                    timestamp=row['timestamp'] if 'timestamp' in row else 0,
-                    exit_reason='TP'
+                    timestamp=exit_time,
+                    exit_reason='TP',
+                    entry_time=entry_time,
+                    duration=duration
                 )
             elif pnl <= -sl:
                 return TradeOutcome(
@@ -279,21 +314,29 @@ class TrainingOrchestrator:
                     exit_price=price,
                     pnl=-sl,
                     result='LOSS',
-                    timestamp=row['timestamp'] if 'timestamp' in row else 0,
-                    exit_reason='SL'
+                    timestamp=exit_time,
+                    exit_reason='SL',
+                    entry_time=entry_time,
+                    duration=duration
                 )
 
         # Time exit
         last_price = future_data.iloc[-1]['price'] if 'price' in future_data.iloc[-1] else future_data.iloc[-1]['close']
         pnl = last_price - entry_price
+
+        exit_time = future_data.iloc[-1]['timestamp'] if 'timestamp' in future_data.iloc[-1] else 0
+        duration = exit_time - entry_time
+
         return TradeOutcome(
             state=ThreeBodyQuantumState.null_state(),
             entry_price=entry_price,
             exit_price=last_price,
             pnl=pnl,
             result='WIN' if pnl > 0 else 'LOSS',
-            timestamp=future_data.iloc[-1]['timestamp'] if 'timestamp' in future_data.iloc[-1] else 0,
-            exit_reason='TIME'
+            timestamp=exit_time,
+            exit_reason='TIME',
+            entry_time=entry_time,
+            duration=duration
         )
 
     def _simulate_trade_with_state(self, current_idx: int, entry_price: float, state: ThreeBodyQuantumState) -> Optional[TradeOutcome]:
@@ -331,7 +374,7 @@ class TrainingOrchestrator:
             'states_learned': len(self.brain.table),
             'high_confidence_states': len(self.brain.get_all_states_above_threshold()),
             'trades': [
-                {'pnl': t.pnl, 'result': t.result} for t in self.trades[-50:] # Last 50 trades
+                {'pnl': t.pnl, 'result': t.result, 'duration': t.duration} for t in self.trades[-50:] # Last 50 trades
             ],
             'recent_candles': recent_candles
         }
@@ -373,6 +416,7 @@ class TrainingOrchestrator:
             outcome = self._simulate_trade_with_state(idx, entry_price, state)
             if outcome:
                 self.trades.append(outcome)
+                self.total_duration += outcome.duration
                 self.brain.update(outcome)
                 self.manager.record_trade(outcome)
 
