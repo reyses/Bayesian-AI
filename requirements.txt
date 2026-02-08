@@ -31,3 +31,4 @@ tqdm
 scipy
 matplotlib
 colorama
+anywidget
