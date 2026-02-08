@@ -101,7 +101,7 @@ def load_databento_data(path: str) -> pd.DataFrame:
         if 'volume' not in df.columns and 'size' in df.columns:
              df = df.rename(columns={'size': 'volume'})
 
-        return df
+        return df.dropna()
 
     # Default to Databento
     import databento as db

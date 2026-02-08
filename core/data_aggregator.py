@@ -5,12 +5,14 @@ Manages real-time tick buffer and bar generation
 import pandas as pd
 import numpy as np
 from typing import Dict, List, Optional
+import time
 
 class DataAggregator:
     def __init__(self, max_ticks: int = 10000):
         self.max_ticks = max_ticks
         self._df_cache: Optional[pd.DataFrame] = None
         self._last_tick_count = 0
+        self._last_timestamp = 0.0
 
         # Ring buffer storage
         self._buffers: Dict[str, np.ndarray] = {}
@@ -40,8 +42,15 @@ class DataAggregator:
         tick: {'timestamp': float, 'price': float, 'volume': float, ...}
         """
         # Ensure timestamp is present
-        if 'timestamp' not in tick:
-            tick['timestamp'] = pd.Timestamp.now().timestamp()
+        if 'timestamp' not in tick or tick['timestamp'] is None:
+            # Compressed time: if we have history, increment by 10ms
+            if self._last_timestamp > 0:
+                tick['timestamp'] = self._last_timestamp + 0.01
+            else:
+                tick['timestamp'] = time.time()
+
+        if isinstance(tick['timestamp'], (int, float)):
+             self._last_timestamp = tick['timestamp']
 
         if not self._initialized:
             self._init_buffers(tick)
@@ -50,11 +59,26 @@ class DataAggregator:
         # Iterate over ALL known buffers to ensure we overwrite stale data at current index
         for key, arr in self._buffers.items():
             val = tick.get(key)
-            if val is not None:
+            
+            # Validate value (check for None or NaN)
+            is_valid = val is not None
+            if is_valid and isinstance(val, float) and np.isnan(val):
+                is_valid = False
+
+            if is_valid:
                 arr[self._idx] = val
             else:
-                # Key missing in this tick: overwrite with NaN/None
-                if np.issubdtype(arr.dtype, np.number):
+                # Key missing or invalid: overwrite with safe defaults
+                if key == 'price':
+                    # Forward fill price from previous tick if available
+                    prev_idx = (self._idx - 1) % self.max_ticks
+                    if self._size > 0 and not np.isnan(arr[prev_idx]):
+                        arr[self._idx] = arr[prev_idx]
+                    else:
+                        arr[self._idx] = np.nan
+                elif key == 'volume':
+                    arr[self._idx] = 0.0
+                elif np.issubdtype(arr.dtype, np.number):
                     arr[self._idx] = np.nan
                 else:
                     arr[self._idx] = None
@@ -121,7 +145,7 @@ class DataAggregator:
             if 'timestamp' in self._df_cache.columns:
                 if not pd.api.types.is_datetime64_any_dtype(self._df_cache['timestamp']):
                     # Assuming timestamp is float (epoch)
-                    self._df_cache['datetime'] = pd.to_datetime(self._df_cache['timestamp'], unit='s')
+                    self._df_cache['datetime'] = pd.to_datetime(self._df_cache['timestamp'], unit='s', utc=True)
                 else:
                     self._df_cache['datetime'] = self._df_cache['timestamp']
 
