@@ -481,7 +481,7 @@ class TrainingOrchestrator:
                 self.engine.on_tick(tick_dict)
                 # Print progress every 10%
                 if self.verbose and total_ticks > 1000 and i % (total_ticks // 10) == 0:
-                     print(f"  Iteration {iteration+1}: {i/total_ticks:.0%} complete")
+                    print(f"  Iteration {iteration+1}: {i/total_ticks:.0%} complete")
 
             self._log_iteration(iteration)
 
