@@ -100,7 +100,7 @@ class QuantumFieldEngine:
             entropy=quantum['entropy'],
             coherence=quantum['coherence'],
             pattern_maturity=measurements['pattern_maturity'],
-            momentum_strength=forces['F_momentum'] / (forces['F_reversion'] + 1e-6),
+            momentum_strength=np.nan_to_num(forces['F_momentum'] / (forces['F_reversion'] + 1e-6)),
             structure_confirmed=measurements['structure_confirmed'],
             cascade_detected=measurements['cascade_detected'],
             spin_inverted=measurements['spin_inverted'],
@@ -133,8 +133,11 @@ class QuantumFieldEngine:
         F_upper_repulsion = min(1.0 / (dist_upper ** 3 + 0.01), 100.0) if z_score > 0 else 0.0
         F_lower_repulsion = min(1.0 / (dist_lower ** 3 + 0.01), 100.0) if z_score < 0 else 0.0
         
-        # Momentum
-        F_momentum = abs(velocity) * volume / (sigma + 1e-6)
+        # Momentum - sanitize inputs to prevent NaN
+        safe_velocity = np.nan_to_num(velocity)
+        safe_volume = np.nan_to_num(volume)
+
+        F_momentum = abs(safe_velocity) * safe_volume / (sigma + 1e-6)
         
         # Net force
         if z_score > 0:
