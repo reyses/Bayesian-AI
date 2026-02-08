@@ -31,9 +31,13 @@ def setup_logger(name, log_file, level=logging.DEBUG, console=False):
             log_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Remove existing log file to start fresh on new run
+            # Truncate the file by opening it in write mode instead of unlinking
             if log_path.exists():
                 try:
-                    log_path.unlink()
+                    with open(log_path, 'w'):
+                        pass
+                except Exception as e:
+                    print(f"Warning: Could not truncate old log file {log_file}: {e}")
                 except Exception as e:
                     print(f"Warning: Could not delete old log file {log_file}: {e}")
 
