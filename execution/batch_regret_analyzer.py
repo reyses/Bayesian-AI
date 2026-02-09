@@ -120,8 +120,16 @@ class BatchRegretAnalyzer:
 
         # Get price history after entry
         try:
+            # Convert float timestamps to pd.Timestamp for DatetimeIndex comparison
+            if isinstance(entry_time, (int, float)):
+                entry_ts = pd.Timestamp(entry_time, unit='s')
+                exit_ts = pd.Timestamp(exit_time, unit='s') + pd.Timedelta(minutes=5)
+            else:
+                entry_ts = entry_time
+                exit_ts = exit_time + pd.Timedelta(minutes=5)
+
             # Find data between entry and 5 minutes after exit
-            mask = (price_data.index >= entry_time) & (price_data.index <= exit_time + 300)
+            mask = (price_data.index >= entry_ts) & (price_data.index <= exit_ts)
             price_history = price_data[mask]
 
             if price_history.empty:
