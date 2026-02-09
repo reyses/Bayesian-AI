@@ -5,6 +5,7 @@ Numba-accelerated tick-level cascade detection: 10+ points in <0.5sec
 import numpy as np
 import pandas as pd
 import time
+import logging
 
 try:
     from numba import cuda, jit
@@ -20,7 +21,7 @@ if NUMBA_AVAILABLE:
         """
         idx = cuda.grid(1)
 
-        if idx >= tick_prices.shape[0] - 50:  # Need at least 50 ticks
+        if idx >= tick_prices.shape[0]:
             return
 
         # Scan last 50 ticks for cascade
@@ -67,7 +68,7 @@ class CUDAVelocityGate:
                 self.use_gpu = False
 
         if not self.use_gpu and use_gpu: # User requested GPU but not available
-            raise RuntimeError("CUDA requested for VelocityGate but not available. CPU fallback disabled by configuration.")
+            logging.warning("CUDA requested for VelocityGate but not available. Falling back to CPU.")
     
     def detect_cascade(self, tick_data):
         """
@@ -109,8 +110,8 @@ class CUDAVelocityGate:
                 # Check if it's datetime64
                 if pd.api.types.is_datetime64_any_dtype(timestamps):
                     # Convert to float (seconds)
-                    times = timestamps.astype('int64') // 10**9 # ns to s
-                    times = times.astype(np.float32)
+                    # Use float division to preserve sub-second precision
+                    times = (timestamps.astype('int64') / 1e9).astype(np.float32)
                 elif hasattr(timestamps[0], 'timestamp'): # List of objects?
                     times = np.array([t.timestamp() for t in timestamps], dtype=np.float32)
                 else:
