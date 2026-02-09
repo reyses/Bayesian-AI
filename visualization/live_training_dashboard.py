@@ -135,12 +135,15 @@ class LiveDashboard:
         
         self.lbl_iter = ttk.Label(self.frame_metrics, text="Iteration: -- / --", style="Metric.TLabel")
         self.lbl_iter.pack(anchor="w")
+        Tooltip(self.lbl_iter, "Current training iteration / Total iterations")
         
         self.lbl_time = ttk.Label(self.frame_metrics, text="Elapsed: --:--:--", style="Metric.TLabel")
         self.lbl_time.pack(anchor="w")
+        Tooltip(self.lbl_time, "Total elapsed training time")
         
         self.lbl_eta = ttk.Label(self.frame_metrics, text="ETA: --:--:--", style="Metric.TLabel")
         self.lbl_eta.pack(anchor="w")
+        Tooltip(self.lbl_eta, "Estimated time remaining based on current speed")
         
         ttk.Separator(self.frame_metrics, orient='horizontal').pack(fill='x', pady=10)
         
@@ -154,12 +157,15 @@ class LiveDashboard:
         
         self.lbl_trades = ttk.Label(self.frame_metrics, text="Total Trades: 0", style="Metric.TLabel")
         self.lbl_trades.pack(anchor="w")
+        Tooltip(self.lbl_trades, "Total number of completed trades")
 
         self.lbl_pnl = ttk.Label(self.frame_metrics, text="Total P&L: $0.00", style="Metric.TLabel")
         self.lbl_pnl.pack(anchor="w")
+        Tooltip(self.lbl_pnl, "Total Profit and Loss realized")
         
         self.lbl_wr = ttk.Label(self.frame_metrics, text="Win Rate: 0.0%", style="Metric.TLabel")
         self.lbl_wr.pack(anchor="w")
+        Tooltip(self.lbl_wr, "Win Rate (Percentage of profitable trades)")
 
         # Panel 3: P&L Chart (Bottom Left)
         self.frame_pnl = ttk.Frame(self.root, padding=5)
@@ -246,16 +252,16 @@ class LiveDashboard:
         
         # Update Status Indicator
         if self.remote_status == "STOPPED":
-            self.lbl_status.config(text="Status: STOPPED", foreground="red")
+            self.lbl_status.config(text="Status: 🛑 STOPPED", foreground="red")
             self.btn_pause.state(['disabled'])
             self.btn_resume.state(['disabled'])
             self.btn_stop.state(['disabled'])
         elif self.remote_status == "PAUSED":
-            self.lbl_status.config(text="Status: PAUSED", foreground="orange")
+            self.lbl_status.config(text="Status: ⏸️ PAUSED", foreground="orange")
             self.btn_pause.state(['disabled'])
             self.btn_resume.state(['!disabled'])
         else:
-            self.lbl_status.config(text="Status: RUNNING", foreground="#00ff00")
+            self.lbl_status.config(text="Status: 🟢 RUNNING", foreground="#00ff00")
             self.btn_pause.state(['!disabled'])
             self.btn_resume.state(['disabled'])
 
