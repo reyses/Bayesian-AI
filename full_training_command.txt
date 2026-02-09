@@ -1,0 +1,5 @@
+# Full Training Command (will run after smoke test)
+python training/walk_forward_trainer.py     --data 'DATA/glbx-mdp3-20251230-20260129.ohlcv-1s.parquet'     --iterations 1000     --checkpoint-dir 'checkpoints/full_training'
+
+# Estimated: ~173 hours for 27 days × 1000 iterations
+# Will save checkpoints after each day
