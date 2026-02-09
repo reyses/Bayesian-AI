@@ -103,15 +103,43 @@ def get_data_source(filepath: str) -> pd.DataFrame:
     else:
         raise ValueError(f"Unsupported file format: {filepath}")
 
-def load_data_from_directory(directory: str):
-    from training.data_loading_optimizer import parallel_load_dbn
+def load_data_from_directory(directory: str) -> List[str]:
+    """
+    Finds data files, preferring .parquet.
+    If not found, finds .dbn.zst and converts them to .parquet.
+    Returns a list of file paths (parquet).
+    """
+    from training.data_loading_optimizer import convert_dbn_to_parquet
+
+    # 1. Search for existing .parquet files
+    # Check both root directory and 'parquet' subdirectory
+    parquet_files = glob.glob(os.path.join(directory, "*.parquet"))
+    parquet_subdir = os.path.join(directory, "parquet")
+    if os.path.exists(parquet_subdir):
+        parquet_files.extend(glob.glob(os.path.join(parquet_subdir, "*.parquet")))
+
+    if parquet_files:
+        print(f"Found {len(parquet_files)} .parquet files.")
+        return sorted(parquet_files)
+
+    # 2. If no parquet, look for .dbn.zst
+    dbn_files = glob.glob(os.path.join(directory, "*.dbn.zst"))
+    if not dbn_files:
+        print(f"No .parquet or .dbn.zst files found in {directory}")
+        return []
+
+    print(f"Found {len(dbn_files)} .dbn.zst files. Converting to Parquet...")
     
-    files = glob.glob(os.path.join(directory, "*.dbn.zst"))
+    # Create parquet output directory
+    output_dir = os.path.join(directory, "parquet")
+    os.makedirs(output_dir, exist_ok=True)
     
-    print(f"Loading {len(files)} files in parallel...")
-    data = parallel_load_dbn(files, max_workers=4)
+    # Convert
+    convert_dbn_to_parquet(directory, output_dir)
     
-    return data
+    # Return new parquet files
+    new_parquet_files = glob.glob(os.path.join(output_dir, "*.parquet"))
+    return sorted(new_parquet_files)
 
 class TrainingOrchestrator:
     """
