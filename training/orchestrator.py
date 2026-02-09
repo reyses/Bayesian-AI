@@ -316,21 +316,21 @@ class BayesianTrainingOrchestrator:
                     outcome = TradeOutcome(
                         state=bar['state'], entry_price=entry_price, exit_price=price,
                         pnl=take_profit, result='WIN', timestamp=exit_time,
-                        exit_reason='TP', entry_time=entry_time, duration=duration
+                        exit_reason='TP', entry_time=entry_time, exit_time=exit_time, duration=duration
                     )
                     break
                 elif pnl <= -stop_loss:
                     outcome = TradeOutcome(
                         state=bar['state'], entry_price=entry_price, exit_price=price,
                         pnl=-stop_loss, result='LOSS', timestamp=exit_time,
-                        exit_reason='SL', entry_time=entry_time, duration=duration
+                        exit_reason='SL', entry_time=entry_time, exit_time=exit_time, duration=duration
                     )
                     break
                 elif duration >= max_hold:
                     outcome = TradeOutcome(
                         state=bar['state'], entry_price=entry_price, exit_price=price,
                         pnl=pnl, result='WIN' if pnl > 0 else 'LOSS', timestamp=exit_time,
-                        exit_reason='TIME', entry_time=entry_time, duration=duration
+                        exit_reason='TIME', entry_time=entry_time, exit_time=exit_time, duration=duration
                     )
                     break
 
@@ -346,7 +346,7 @@ class BayesianTrainingOrchestrator:
                 outcome = TradeOutcome(
                     state=bar['state'], entry_price=entry_price, exit_price=last_price,
                     pnl=pnl, result='WIN' if pnl > 0 else 'LOSS', timestamp=last_time,
-                    exit_reason='EOD', entry_time=entry_time, duration=last_time - entry_time
+                    exit_reason='EOD', entry_time=entry_time, exit_time=last_time, duration=last_time - entry_time
                 )
 
             if outcome:
@@ -671,6 +671,7 @@ class BayesianTrainingOrchestrator:
                 timestamp=entry_time_val + dur,
                 exit_reason='GPU',
                 entry_time=entry_time_val,
+                exit_time=entry_time_val + dur,
                 duration=dur,
             ))
 

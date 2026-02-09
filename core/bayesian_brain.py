@@ -31,6 +31,7 @@ class TradeOutcome:
     timestamp: float
     exit_reason: str  # 'trail_stop', 'structure_break', 'time_exit'
     entry_time: float = 0.0
+    exit_time: float = 0.0
     duration: float = 0.0
 
 class BayesianBrain:
