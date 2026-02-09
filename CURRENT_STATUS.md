@@ -1,9 +1,9 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-09 06:37:52
-- **Git Branch:** main
-- **Last Commit:** 7edd229a0f6a437f69dbb6d58fc63d97820458f2
+- **Timestamp:** 2026-02-09 06:54:49
+- **Git Branch:** HEAD
+- **Last Commit:** 62e8712f41b7d8fa8773306ca2ac5387e62259ef
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 1A. ARCHITECTURE STATUS
@@ -15,6 +15,9 @@
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+62e8712 - Merge 362bd147aefdecd9dfafa84628303484539a8019 into 5d131ec396ee0f363f375625503e9b5a0958ebb9 (reyses)
+362bd14 - feat(dashboard): add status icons and metric tooltips (google-labs-jules[bot])
+5d131ec - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 7edd229 - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
 e39b0c3 - {hase 2 auit (reyses)
 d394895 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
@@ -22,9 +25,6 @@ d394895 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 247abd8 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 faa043a - failed run (reyses)
 ada8748 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-be49b71 - Merge pull request #78 from reyses/audit-phase1-core-fixes-9190516911871483356 (reyses)
-64fc8ac - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-0af37b4 - Merge 182444837c349991d6ed82114af9e4f7d0b79989 into b222bc500b8c5a1937fe6e506b533b43af13dfec (reyses)
 ```
 
 ### 3. FILE STRUCTURE
@@ -33,7 +33,7 @@ Bayesian-AI/
 │   ├── AGENTS.md
 │   ├── AUDIT_FINDINGS_PHASE1.md
 │   ├── CUDA_Debug.log.processed_20260208_174942
-│   ├── CUDA_Debug.log.processed_20260209_063747
+│   ├── CUDA_Debug.log.processed_20260209_065445
 │   ├── CURRENT_STATUS.md
 │   ├── ISSUE_TRIAGE.md
 │   ├── README.md
@@ -274,6 +274,7 @@ Bayesian-AI/
 │   │   ├── test_cuda_pattern.py [TESTED]
 │   │   ├── test_dashboard_controls.py [TESTED]
 │   │   ├── test_dashboard_metrics.py [TESTED]
+│   │   ├── test_dashboard_ux.py [TESTED]
 │   │   ├── test_databento_loading.py [TESTED]
 │   │   ├── test_doe.py [TESTED]
 │   │   ├── test_full_system.py [TESTED]
@@ -312,8 +313,8 @@ Bayesian-AI/
 ```
 
 ### 4. CODE STATISTICS
-- **Python Files:** 63
-- **Total Lines of Code:** 9245
+- **Python Files:** 64
+- **Total Lines of Code:** 9357
 
 ### 5. CRITICAL INTEGRATION POINTS
 - **Databento API:**
@@ -389,7 +390,7 @@ anywidget
 
 ### 9. TESTING STATUS
 - **Tests Directory:** YES
-- **Test Files Count:** 19
+- **Test Files Count:** 20
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
@@ -406,7 +407,7 @@ anywidget
 
 - **Status:** PASS
 - **Command:** `pytest tests/topic_math.py`
-- **Summary:** 4 passed in 0.11s
+- **Summary:** 4 passed in 0.12s
 
 
 ### 13. TRAINING VALIDATION METRICS
@@ -414,7 +415,7 @@ anywidget
 | :--- | :--- | :--- |
 | Training Status | SUCCESS | ✓ |
 | Iterations Completed | 10 | ✓ |
-| Runtime | 2.52s | - |
+| Runtime | 2.54s | - |
 | Data Files Tested | 1 | ✓ |
 | Total Ticks (Sample) | 0 | - |
 | Unique States Learned | 10 | - |
