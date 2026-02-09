@@ -28,29 +28,23 @@ class StateVector:
     timestamp: Optional[float] = None
     price: Optional[float] = None
     
-    def __hash__(self):
-        """Hash only the state attributes (not metadata)"""
-        return hash((
+    def _get_state_tuple(self):
+        """Helper to get only the state attributes for hash/eq"""
+        return (
             self.L1_bias, self.L2_regime, self.L3_swing, self.L4_zone,
             self.L5_trend, self.L6_structure, self.L7_pattern,
             self.L8_confirm, self.L9_cascade
-        ))
+        )
+
+    def __hash__(self):
+        """Hash only the state attributes (not metadata)"""
+        return hash(self._get_state_tuple())
     
     def __eq__(self, other):
         """Equality check for HashMap lookups"""
         if not isinstance(other, StateVector):
             return False
-        return (
-            self.L1_bias == other.L1_bias and
-            self.L2_regime == other.L2_regime and
-            self.L3_swing == other.L3_swing and
-            self.L4_zone == other.L4_zone and
-            self.L5_trend == other.L5_trend and
-            self.L6_structure == other.L6_structure and
-            self.L7_pattern == other.L7_pattern and
-            self.L8_confirm == other.L8_confirm and
-            self.L9_cascade == other.L9_cascade
-        )
+        return self._get_state_tuple() == other._get_state_tuple()
     
     def to_dict(self):
         """Export for logging/analysis"""
