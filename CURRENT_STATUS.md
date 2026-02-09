@@ -1,9 +1,9 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-09 07:45:13
+- **Timestamp:** 2026-02-09 08:01:55
 - **Git Branch:** main
-- **Last Commit:** 536342b2506c71b99de15acc733bb18d3d3afbf9
+- **Last Commit:** 55689218a717013d9349db635df11baa333d6a83
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 1A. ARCHITECTURE STATUS
@@ -15,6 +15,9 @@
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+5568921 - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
+ba7a1af - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+a1482e7 - parquet (reyses)
 536342b - Updates (reyses)
 93a8dad - @cahnges to be committed: (reyses)
 5d131ec - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
@@ -22,9 +25,6 @@
 e39b0c3 - {hase 2 auit (reyses)
 d394895 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 5a25e8b - Update dashboard.ipynb (reyses)
-247abd8 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
-faa043a - failed run (reyses)
-ada8748 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
 ```
 
 ### 3. FILE STRUCTURE
@@ -33,7 +33,7 @@ Bayesian-AI/
 │   ├── AGENTS.md
 │   ├── AUDIT_FINDINGS_PHASE1.md
 │   ├── CUDA_Debug.log.processed_20260208_174942
-│   ├── CUDA_Debug.log.processed_20260209_074509
+│   ├── CUDA_Debug.log.processed_20260209_080150
 │   ├── CURRENT_STATUS.md
 │   ├── ISSUE_TRIAGE.md
 │   ├── README.md
@@ -50,6 +50,166 @@ Bayesian-AI/
 │   │   ├── JULES_PHASE6_FIXES.md
 │   │   ├── SYSTEM_AUDIT_REPORT_2026_02.md
 │   ├── DATA/
+│   │   ├── glbx-mdp3-20251230-20260129.ohlcv-1s.parquet
+│   │   ├── Parquet/
+│   │   │   ├── glbx-mdp3-20250730.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250731.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250801.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250803.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250804.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250805.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250806.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250807.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250808.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250810.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250811.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250812.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250813.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250814.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250815.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250817.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250818.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250819.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250820.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250821.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250822.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250824.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250825.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250826.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250827.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250828.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250829.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250831.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250901.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250902.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250903.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250904.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250905.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250907.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250908.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250909.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250910.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250911.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250912.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250914.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250915.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250916.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250917.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250918.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250919.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250921.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250922.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250923.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250924.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250925.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250926.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250928.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250929.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20250930.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251001.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251002.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251003.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251005.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251006.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251007.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251008.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251009.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251010.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251012.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251013.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251014.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251015.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251016.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251017.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251019.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251020.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251021.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251022.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251023.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251024.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251026.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251027.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251028.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251029.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251030.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251031.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251102.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251103.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251104.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251105.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251106.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251107.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251109.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251110.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251111.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251112.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251113.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251114.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251116.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251117.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251118.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251119.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251120.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251121.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251123.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251124.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251125.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251126.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251127.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251128.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251130.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251201.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251202.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251203.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251204.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251205.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251207.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251208.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251209.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251210.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251211.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251212.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251214.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251215.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251216.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251217.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251218.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251219.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251221.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251222.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251223.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251224.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251225.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251226.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251228.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251229.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251230.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20251231.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260101.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260102.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260104.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260105.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260106.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260107.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260108.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260109.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260111.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260112.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260113.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260114.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260115.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260116.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260118.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260119.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260120.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260121.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260122.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260123.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260125.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260126.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260127.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260128.trades.0000.parquet
+│   │   │   ├── glbx-mdp3-20260129.trades.0000.parquet
 │   │   ├── RAW/
 │   │   │   ├── condition.json
 │   │   │   ├── glbx-mdp3-20250730.trades.0000.dbn.zst
@@ -251,7 +411,10 @@ Bayesian-AI/
 │   │   ├── TECHNICAL_MANUAL.md
 │   ├── execution/
 │   │   ├── __init__.py [COMPLETE]
+│   │   ├── integrated_statistical_system.py [COMPLETE]
 │   │   ├── wave_rider.py [TESTED]
+│   ├── models/
+│   │   ├── quantum_probability_table.pkl
 │   ├── notebooks/
 │   │   ├── CUDA_Debug.log
 │   │   ├── dashboard.ipynb
@@ -302,6 +465,7 @@ Bayesian-AI/
 │   │   ├── data_loading_optimizer.py [COMPLETE]
 │   │   ├── databento_loader.py [COMPLETE]
 │   │   ├── orchestrator.py [COMPLETE]
+│   │   ├── run_optimizer.py [COMPLETE]
 │   │   ├── test_progress_display.py [TESTED]
 │   │   ├── training_progress.json
 │   ├── visualization/
@@ -312,8 +476,8 @@ Bayesian-AI/
 ```
 
 ### 4. CODE STATISTICS
-- **Python Files:** 63
-- **Total Lines of Code:** 9245
+- **Python Files:** 65
+- **Total Lines of Code:** 9926
 
 ### 5. CRITICAL INTEGRATION POINTS
 - **Databento API:**
@@ -393,7 +557,7 @@ anywidget
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
-M	notebooks/CUDA_Debug.log
+
 ```
 
 ### 11. REVIEWER CHECKLIST
@@ -406,7 +570,7 @@ M	notebooks/CUDA_Debug.log
 
 - **Status:** PASS
 - **Command:** `pytest tests/topic_math.py`
-- **Summary:** 4 passed in 0.11s
+- **Summary:** 4 passed in 0.12s
 
 
 ### 13. TRAINING VALIDATION METRICS
@@ -414,7 +578,7 @@ M	notebooks/CUDA_Debug.log
 | :--- | :--- | :--- |
 | Training Status | SUCCESS | ✓ |
 | Iterations Completed | 10 | ✓ |
-| Runtime | 2.61s | - |
+| Runtime | 2.59s | - |
 | Data Files Tested | 1 | ✓ |
 | Total Ticks (Sample) | 0 | - |
 | Unique States Learned | 10 | - |
