@@ -26,6 +26,7 @@ from core.adaptive_confidence import AdaptiveConfidenceManager
 from core.three_body_state import ThreeBodyQuantumState
 from training.databento_loader import DatabentoLoader
 
+
 # Progress Display Helper
 class TrainingProgressBar:
     """Manages nested progress bars for phases and iterations"""
@@ -103,15 +104,56 @@ def get_data_source(filepath: str) -> pd.DataFrame:
     else:
         raise ValueError(f"Unsupported file format: {filepath}")
 
+
 def load_data_from_directory(directory: str):
-    from training.data_loading_optimizer import parallel_load_dbn
+    """
+    Load all data files from directory
+    Checks for parquet first (fast), falls back to DBN (slower)
+    """
+    # Try parquet first (much faster if available)
+    parquet_dir = directory.replace("RAW", "PARQUET")
+    parquet_files = glob.glob(os.path.join(parquet_dir, "*.parquet"))
     
-    files = glob.glob(os.path.join(directory, "*.dbn.zst"))
+    # Also check the directory itself for parquet
+    if not parquet_files:
+        parquet_files = glob.glob(os.path.join(directory, "*.parquet"))
     
-    print(f"Loading {len(files)} files in parallel...")
-    data = parallel_load_dbn(files, max_workers=4)
+    if parquet_files:
+        print(f"Found {len(parquet_files)} parquet file(s) (loading fast)...")
+        
+        if len(parquet_files) == 1:
+            # Single file - load directly
+            print(f"Loading: {os.path.basename(parquet_files[0])}")
+            return pd.read_parquet(parquet_files[0])
+        else:
+            # Multiple files - load and concatenate
+            try:
+                from training.data_loading_optimizer import load_parquet_from_directory
+                return load_parquet_from_directory(parquet_dir if os.path.exists(parquet_dir) else directory)
+            except Exception as e:
+                print(f"Parquet multi-file load failed: {e}, falling back to simple load...")
+                dfs = [pd.read_parquet(f) for f in parquet_files]
+                return pd.concat(dfs, ignore_index=True)
     
-    return data
+    # Fall back to DBN files
+    files = glob.glob(os.path.join(directory, "*.dbn")) + \
+            glob.glob(os.path.join(directory, "*.dbn.zst"))
+    
+    if not files:
+        raise ValueError(f"No data files found in {directory} or {parquet_dir}")
+    
+    print(f"Loading {len(files)} DBN file(s)...")
+    
+    try:
+        # Try parallel loading (Windows-compatible version)
+        from training.data_loading_optimizer import load_data_from_directory as loader
+        return loader(directory, use_parallel=True, max_workers=4)
+    except Exception as e:
+        print(f"Parallel load failed: {e}, falling back to sequential...")
+        # Sequential fallback
+        from training.data_loading_optimizer import load_data_from_directory as loader
+        return loader(directory, use_parallel=False)
+
 
 class TrainingOrchestrator:
     """
@@ -442,6 +484,7 @@ class TrainingOrchestrator:
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         self.brain.save(filepath)
 
+
 # CLI Entry Point
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Bayesian-AI Training Orchestrator")
@@ -470,4 +513,6 @@ if __name__ == "__main__":
 
     except Exception as e:
         print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
