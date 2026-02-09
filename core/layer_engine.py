@@ -18,6 +18,9 @@ class LayerEngine:
     Separates STATIC (L1-L4) from FLUID (L5-L9) computation
     Uses CUDA acceleration for L7-L9 when available
     """
+    # Threshold for L2 regime detection (random walk expansion ~2.2x)
+    L2_TRENDING_THRESHOLD = 3.0
+
     def __init__(self, use_gpu=True, logger=None):
         # Buffers for different timeframes
         self.daily_data = None
@@ -121,7 +124,9 @@ class LayerEngine:
         avg_range = (last_30['high'] - last_30['low']).mean()
         recent_range = (last_30.tail(5)['high'].max() - last_30.tail(5)['low'].min())
         
-        if recent_range > avg_range * 1.5:
+        # AUDIT FIX: Increased threshold to prevent false positives in random walk.
+        # Original 1.5 was too low (random walk ~2.2x).
+        if recent_range > avg_range * self.L2_TRENDING_THRESHOLD:
             return 'trending'
         else:
             return 'chopping'
@@ -143,7 +148,12 @@ class LayerEngine:
         return 'sideways'
     
     def _compute_L4_daily(self) -> str:
-        """Layer 4: Daily zone (at support/resistance/killzone/mid)"""
+        """
+        Layer 4: Daily zone (at support/resistance/killzone/mid)
+        NOTE: This static method returns a placeholder.
+        The actual L4 state depends on current price and is computed dynamically
+        in compute_current_state().
+        """
         return 'mid_range'
     
     def _check_kill_zone(self, price: float, tolerance: float = 5.0) -> bool:
