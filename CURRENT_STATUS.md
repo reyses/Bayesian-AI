@@ -1,6 +1,9 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
+- **Timestamp:** 2026-02-09 07:46:10
+- **Git Branch:** HEAD
+- **Last Commit:** 36b2f531620ebab32d0067c2b36bf7561dfc47d1
 - **Timestamp:** 2026-02-09 18:48:35
 - **Git Branch:** main
 - **Last Commit:** 250ea0a89b4a5b6d749f84e3e96d0d922f27cfac
@@ -15,6 +18,16 @@
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
+36b2f53 - Merge df929dba3bddbbf0fafc5787e46d2b9c6481e3ac into 536342b2506c71b99de15acc733bb18d3d3afbf9 (reyses)
+df929db - test(dashboard): refactor ux tests based on review (google-labs-jules[bot])
+536342b - Updates (reyses)
+f8df9a5 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+62e8712 - Merge 362bd147aefdecd9dfafa84628303484539a8019 into 5d131ec396ee0f363f375625503e9b5a0958ebb9 (reyses)
+362bd14 - feat(dashboard): add status icons and metric tooltips (google-labs-jules[bot])
+93a8dad - @cahnges to be committed: (reyses)
+5d131ec - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
+7edd229 - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
+e39b0c3 - {hase 2 auit (reyses)
 250ea0a - Merge branch 'main' of https://github.com/reyses/Bayesian-AI (reyses)
 91f0926 - updates (reyses)
 e55aef7 - docs: auto-update CURRENT_STATUS.md [skip ci] (github-actions[bot])
@@ -33,6 +46,7 @@ Bayesian-AI/
 │   ├── AGENTS.md
 │   ├── AUDIT_FINDINGS_PHASE1.md
 │   ├── CUDA_Debug.log.processed_20260208_174942
+│   ├── CUDA_Debug.log.processed_20260209_074606
 │   ├── CUDA_Debug.log.processed_20260209_184830
 │   ├── CURRENT_STATUS.md
 │   ├── ISSUE_TRIAGE.md
@@ -436,6 +450,7 @@ Bayesian-AI/
 │   │   ├── test_cuda_pattern.py [TESTED]
 │   │   ├── test_dashboard_controls.py [TESTED]
 │   │   ├── test_dashboard_metrics.py [TESTED]
+│   │   ├── test_dashboard_ux.py [TESTED]
 │   │   ├── test_databento_loading.py [TESTED]
 │   │   ├── test_doe.py [TESTED]
 │   │   ├── test_full_system.py [TESTED]
@@ -477,6 +492,8 @@ Bayesian-AI/
 ```
 
 ### 4. CODE STATISTICS
+- **Python Files:** 64
+- **Total Lines of Code:** 9356
 - **Python Files:** 68
 - **Total Lines of Code:** 11674
 
@@ -554,7 +571,7 @@ anywidget
 
 ### 9. TESTING STATUS
 - **Tests Directory:** YES
-- **Test Files Count:** 19
+- **Test Files Count:** 20
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
