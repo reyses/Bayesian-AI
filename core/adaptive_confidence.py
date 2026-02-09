@@ -42,16 +42,16 @@ class AdaptiveConfidenceManager:
         },
         2: {
             'name': 'REFINEMENT',
-            'prob_threshold': 0.50,
+            'prob_threshold': 0.45,
             'conf_threshold': 0.20,
-            'duration_trades': 200,
+            'duration_trades': 400,  # Slower transition (was 200)
             'goal': 'Filter obvious losers'
         },
         3: {
             'name': 'OPTIMIZATION',
-            'prob_threshold': 0.65,
+            'prob_threshold': 0.55,  # FIXED: Was 0.65 (unreachable), now 0.55
             'conf_threshold': 0.30,
-            'duration_trades': 200,
+            'duration_trades': 400,  # Slower transition (was 200)
             'goal': 'Focus on high-probability setups'
         },
         4: {
