@@ -1,473 +1,594 @@
 """
-Adaptive Learning Training Orchestrator - ENHANCED WITH PROGRESS TRACKING
-Integrates all components for end-to-end learning with real-time progress display
+BAYESIAN-AI TRAINING ORCHESTRATOR
+Single entry point for all training operations
+
+Integrates:
+- Walk-forward training (day-by-day DOE)
+- Live dashboard (real-time visualization)
+- Pattern analysis (strongest states)
+- Progress reporting (terminal output)
+- Batch regret analysis (end-of-day evaluation)
+- Checkpoint management (resume capability)
 """
 import os
 import sys
-import glob
-import json
-import time
-import datetime
+import pickle
 import argparse
+import threading
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Tuple, Optional
+from dataclasses import dataclass
+from datetime import datetime
 from tqdm import tqdm
-import pickle
+import time
 
-# Add project root to path
+# Add project root
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if PROJECT_ROOT not in sys.path:
     sys.path.append(PROJECT_ROOT)
 
-from core.quantum_field_engine import QuantumFieldEngine
+# Core components
 from core.bayesian_brain import QuantumBayesianBrain, TradeOutcome
+from core.quantum_field_engine import QuantumFieldEngine
+from core.context_detector import ContextDetector
 from core.adaptive_confidence import AdaptiveConfidenceManager
-from core.three_body_state import ThreeBodyQuantumState
+
+# Training components
+from training.doe_parameter_generator import DOEParameterGenerator
+from training.pattern_analyzer import PatternAnalyzer
+from training.progress_reporter import ProgressReporter, DayMetrics
 from training.databento_loader import DatabentoLoader
 
-# Progress Display Helper
-class TrainingProgressBar:
-    """Manages nested progress bars for phases and iterations"""
-    
-    def __init__(self, total_iterations: int, phase_name: str = "Training"):
-        self.total_iterations = total_iterations
-        self.phase_name = phase_name
-        self.start_time = time.time()
-        
-        # Main progress bar
-        self.pbar_main = tqdm(
-            total=total_iterations,
-            desc=f"[{phase_name}]",
-            position=0,
-            leave=True,
-            bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]'
-        )
-        
-        # Metrics display (position 1, below main bar)
-        self.pbar_metrics = tqdm(
-            total=0,
-            bar_format='{desc}',
-            position=1,
-            leave=False
-        )
-        
-        self.current_metrics = {
-            'trades': 0,
-            'states': 0,
-            'pnl': 0.0,
-            'win_rate': 0.0,
-            'avg_duration': 0.0
-        }
-    
-    def update(self, n=1, **metrics):
-        """Update progress and metrics"""
-        self.pbar_main.update(n)
-        
-        # Update stored metrics
-        for key, value in metrics.items():
-            self.current_metrics[key] = value
-        
-        # Format metrics display
-        trades = self.current_metrics.get('trades', 0)
-        states = self.current_metrics.get('states', 0)
-        pnl = self.current_metrics.get('pnl', 0.0)
-        wr = self.current_metrics.get('win_rate', 0.0)
-        avg_dur = self.current_metrics.get('avg_duration', 0.0)
-        
-        metrics_str = f"Trades: {trades:>6} | States: {states:>5} | P&L: ${pnl:>8,.2f} | WR: {wr:>5.1%} | AvgDur: {avg_dur:.1f}s"
-        self.pbar_metrics.set_description_str(metrics_str)
-    
-    def set_phase(self, phase_name: str, day: int = None, total_days: int = None):
-        """Update phase information"""
-        if day and total_days:
-            desc = f"[{phase_name}] Day {day}/{total_days}"
-        else:
-            desc = f"[{phase_name}]"
-        self.pbar_main.set_description(desc)
-    
-    def close(self):
-        """Close all progress bars"""
-        self.pbar_main.close()
-        self.pbar_metrics.close()
+# Execution components
+from execution.integrated_statistical_system import IntegratedStatisticalEngine
+from execution.batch_regret_analyzer import BatchRegretAnalyzer
+
+# Visualization
+try:
+    from visualization.live_training_dashboard import LiveDashboard
+    DASHBOARD_AVAILABLE = True
+except ImportError:
+    DASHBOARD_AVAILABLE = False
+    print("WARNING: Live dashboard not available")
+
+# Configuration
+from config.symbols import MNQ
 
 
-def get_data_source(filepath: str) -> pd.DataFrame:
+@dataclass
+class DayResults:
+    """Results from one day of training"""
+    day_number: int
+    date: str
+    total_iterations: int
+    best_iteration: int
+    best_params: Dict[str, Any]
+    best_sharpe: float
+    best_win_rate: float
+    best_pnl: float
+    total_trades: int
+    states_learned: int
+    high_confidence_states: int
+    execution_time_seconds: float
+    avg_duration: float
+
+
+class BayesianTrainingOrchestrator:
     """
-    Loads data from .dbn (via DatabentoLoader) or .parquet files.
-    """
-    if filepath.endswith('.dbn') or filepath.endswith('.dbn.zst'):
-        return DatabentoLoader.load_data(filepath)
-    elif filepath.endswith('.parquet'):
-        return pd.read_parquet(filepath)
-    else:
-        raise ValueError(f"Unsupported file format: {filepath}")
+    UNIFIED TRAINING ORCHESTRATOR
 
-def load_data_from_directory(directory: str):
-    from training.data_loading_optimizer import parallel_load_dbn
-    
-    files = glob.glob(os.path.join(directory, "*.dbn.zst"))
-    
-    print(f"Loading {len(files)} files in parallel...")
-    data = parallel_load_dbn(files, max_workers=4)
-    
-    return data
-
-class TrainingOrchestrator:
+    Runs complete walk-forward training with:
+    - Day-by-day DOE parameter optimization
+    - Live visualization dashboard
+    - Real-time terminal progress
+    - Pattern analysis and reporting
+    - Batch regret analysis
+    - Automatic checkpointing
     """
-    Orchestrates the training process using the Quantum System logic.
-    Supports both legacy API (for tests) and new CLI usage.
-    """
-    
-    def __init__(self, asset_ticker: str = "MNQ", data: pd.DataFrame = None,
-                 use_gpu: bool = False, output_dir: str = '.',
-                 verbose: bool = False, debug_file: str = None, 
-                 mode: str = "QUANTUM"):
-        self.asset_ticker = asset_ticker
-        self.data = data
-        self.use_gpu = use_gpu # Legacy flag, currently unused in new logic
-        self.output_dir = output_dir
-        self.verbose = verbose
-        self.mode = mode
-        self.debug_file = debug_file
 
-        # Initialize Core Components
+    def __init__(self, config):
+        self.config = config
+        self.asset = MNQ  # Default asset
+        self.checkpoint_dir = config.checkpoint_dir
+
+        # Create checkpoint directory
+        os.makedirs(self.checkpoint_dir, exist_ok=True)
+
+        # Initialize core components
         self.brain = QuantumBayesianBrain()
-        self.manager = AdaptiveConfidenceManager(self.brain)
-        self.engine = QuantumFieldEngine() # Default regression period 21
+        self.engine = QuantumFieldEngine()
+        self.context_detector = ContextDetector()
+        self.param_generator = DOEParameterGenerator(self.context_detector)
+        self.confidence_manager = AdaptiveConfidenceManager(self.brain)
+        self.stat_validator = IntegratedStatisticalEngine(self.asset)
 
-        # Internal State
-        self.trades: List[TradeOutcome] = []
-        self.total_duration = 0.0
-        self.daily_pnl = 0.0
-        self.start_time = None
+        # Analysis components
+        self.pattern_analyzer = PatternAnalyzer()
+        self.progress_reporter = ProgressReporter()
+        self.regret_analyzer = BatchRegretAnalyzer()
 
-        # For legacy compatibility
-        self.kill_zones = [21500, 21550] # Example kill zones
-        self.asset = type('Asset', (), {'ticker': asset_ticker})
-        self.raw_data = data # Legacy attribute
+        # Training state
+        self.day_results: List[DayResults] = []
+        self.todays_trades: List[TradeOutcome] = []
+        self.dashboard = None
+        self.dashboard_thread = None
 
-    def _get_win_rate(self) -> float:
-        if not self.trades:
-            return 0.0
-        wins = sum(1 for t in self.trades if t.result == 'WIN')
-        return wins / len(self.trades)
-
-    def _get_avg_confidence(self) -> float:
-        """Calculate average confidence of all learned states"""
-        if not self.brain.table:
-            return 0.0
-        total_conf = sum(self.brain.get_confidence(s) for s in self.brain.table)
-        return total_conf / len(self.brain.table)
-
-    def run_training(self, iterations: int = 1000, params: Dict[str, Any] = None,
-                    on_progress=None):
+    def train(self, data: pd.DataFrame):
         """
-        Main training loop.
-        Iterates through the data bar-by-bar, computing state and simulating trades.
+        Master training loop
+
+        Args:
+            data: Full dataset with timestamps
         """
-        if self.data is None:
-            raise ValueError("Data not loaded")
-        
-        # Ensure data is sorted by timestamp
-        if 'timestamp' in self.data.columns:
-            self.data = self.data.sort_values('timestamp').reset_index(drop=True)
+        print("\n" + "="*80)
+        print("BAYESIAN-AI TRAINING ORCHESTRATOR")
+        print("="*80)
+        print(f"Asset: {self.asset.ticker}")
+        print(f"Checkpoint Dir: {self.checkpoint_dir}")
+        print(f"Iterations per Day: {self.config.iterations}")
 
-        self.start_time = time.time()
+        # Launch dashboard if available
+        if DASHBOARD_AVAILABLE and not self.config.no_dashboard:
+            self.launch_dashboard()
 
-        # Initialize progress tracking
-        progress = TrainingProgressBar(
-            total_iterations=iterations,
-            phase_name=f"{self.mode} MODE"
+        # Split into trading days
+        days = self.split_into_trading_days(data)
+        total_days = len(days)
+
+        if self.config.max_days:
+            days = days[:self.config.max_days]
+            total_days = len(days)
+            print(f"Limiting to first {total_days} days")
+
+        print(f"\nTraining on {total_days} trading days...")
+        print(f"Date range: {days[0][0]} to {days[-1][0]}")
+        print("="*80 + "\n")
+
+        # Train day by day
+        for day_idx, (date, day_data) in enumerate(days):
+            day_number = day_idx + 1
+
+            # Print day header
+            self.progress_reporter.print_day_header(
+                day_number, date, total_days, len(day_data)
+            )
+
+            # Optimize this day (DOE)
+            day_result = self.optimize_day(day_number, date, day_data)
+
+            # Batch regret analysis (end of day)
+            if self.todays_trades:
+                regret_analysis = self.regret_analyzer.batch_analyze_day(
+                    self.todays_trades,
+                    day_data
+                )
+                self.regret_analyzer.print_analysis(regret_analysis)
+            else:
+                regret_analysis = None
+
+            # Update reports
+            day_metrics = DayMetrics(
+                day_number=day_number,
+                date=date,
+                total_trades=day_result.total_trades,
+                win_rate=day_result.best_win_rate,
+                sharpe=day_result.best_sharpe,
+                pnl=day_result.best_pnl,
+                states_learned=day_result.states_learned,
+                high_conf_states=day_result.high_confidence_states,
+                avg_duration=day_result.avg_duration,
+                execution_time=day_result.execution_time_seconds
+            )
+
+            self.progress_reporter.print_day_summary(day_metrics)
+
+            # Get top patterns
+            top_patterns = self.pattern_analyzer.get_strongest_patterns(self.brain, top_n=5)
+            self.progress_reporter.print_cumulative_summary(top_patterns)
+
+            # Update dashboard if available
+            if self.dashboard:
+                try:
+                    self.dashboard.update(day_metrics, regret_analysis)
+                except:
+                    pass  # Dashboard update is non-critical
+
+            # Save checkpoint
+            self.save_checkpoint(day_number, date, day_result)
+
+            self.day_results.append(day_result)
+
+        # Final summary
+        self.print_final_summary()
+
+        return self.day_results
+
+    def optimize_day(self, day_number: int, date: str, day_data: pd.DataFrame) -> DayResults:
+        """
+        Run DOE optimization for single day
+
+        Tests N parameter combinations and finds best
+
+        Args:
+            day_number: Day index in sequence
+            date: Date string (YYYY-MM-DD)
+            day_data: OHLCV data for this day
+
+        Returns:
+            DayResults with best parameters and metrics
+        """
+        start_time = time.time()
+        self.todays_trades = []  # Reset
+
+        iteration_results = []
+        best_sharpe = -999.0
+        best_params = None
+        best_trades = []
+
+        # Progress bar
+        pbar = tqdm(
+            range(self.config.iterations),
+            desc=f"Optimizing Day {day_number}",
+            ncols=100
         )
-        
-        total_pnl = 0.0
-        
-        # Dashboard JSON path
-        json_path = os.path.join(os.path.dirname(__file__), 'training_progress.json')
 
-        try:
-            # We need enough history for regression (21 bars)
-            start_idx = 21
-            # Limit iterations if specified, else run through data
-            max_idx = min(len(self.data) - 1, start_idx + iterations)
+        for iteration in pbar:
+            # Generate parameters
+            param_set = self.param_generator.generate_parameter_set(
+                iteration=iteration,
+                day=day_number,
+                context='CORE'
+            )
 
-            # Simple simulation loop
-            for i in range(start_idx, max_idx):
-                current_row = self.data.iloc[i]
+            # Simulate trading day (FAST - no regret overhead)
+            trades = self.simulate_trading_day(day_data, param_set.parameters)
 
-                # Update macro view (simple sliding window for demo/test)
-                # In real system, this would be proper resampling
-                df_macro = self.data.iloc[i-21:i+1].copy()
-                df_macro['close'] = df_macro['price'] if 'price' in df_macro.columns else df_macro['close']
+            # Calculate metrics
+            if trades:
+                pnls = [t.pnl for t in trades]
+                wins = sum(1 for t in trades if t.result == 'WIN')
+                win_rate = wins / len(trades)
+                sharpe = np.mean(pnls) / (np.std(pnls) + 1e-6)
+            else:
+                win_rate = 0.0
+                sharpe = 0.0
 
-                # Calculate State
-                current_price = current_row['price'] if 'price' in current_row else current_row['close']
+            # Track best
+            if sharpe > best_sharpe and len(trades) >= 5:
+                best_sharpe = sharpe
+                best_params = param_set.parameters
+                best_trades = trades
 
-                # Sanitize volume (handle NaN)
-                raw_volume = current_row['volume'] if 'volume' in current_row else 0
-                current_volume = raw_volume if not pd.isna(raw_volume) else 0.0
+                # Update progress bar
+                pbar.set_postfix({
+                    'Trades': len(trades),
+                    'WR': f'{win_rate:.1%}',
+                    'Sharpe': f'{sharpe:.2f}'
+                })
 
-                state = self.engine.calculate_three_body_state(
-                    df_macro=df_macro,
-                    df_micro=df_macro, # Using same data for micro for simplicity in this loop
-                    current_price=current_price,
-                    current_volume=current_volume,
-                    tick_velocity=0.0 # Velocity calc requires prev tick
+            # Collect all trades for regret analysis
+            self.todays_trades.extend(trades)
+
+        pbar.close()
+
+        # Update brain with best iteration's trades
+        for trade in best_trades:
+            self.brain.update(trade)
+            self.confidence_manager.record_trade(trade)
+
+        # Record best parameters
+        if best_params:
+            self.param_generator.update_best_params(best_params)
+
+        # Calculate metrics
+        execution_time = time.time() - start_time
+
+        if best_trades:
+            pnls = [t.pnl for t in best_trades]
+            durations = [t.duration for t in best_trades]
+            wins = sum(1 for t in best_trades if t.result == 'WIN')
+            best_win_rate = wins / len(best_trades)
+            best_pnl = sum(pnls)
+            avg_duration = np.mean(durations)
+        else:
+            best_win_rate = 0.0
+            best_pnl = 0.0
+            avg_duration = 0.0
+
+        return DayResults(
+            day_number=day_number,
+            date=date,
+            total_iterations=self.config.iterations,
+            best_iteration=0,  # TODO: Track which iteration was best
+            best_params=best_params or {},
+            best_sharpe=best_sharpe,
+            best_win_rate=best_win_rate,
+            best_pnl=best_pnl,
+            total_trades=len(best_trades),
+            states_learned=len(self.brain.table),
+            high_confidence_states=len(self.brain.get_all_states_above_threshold()),
+            execution_time_seconds=execution_time,
+            avg_duration=avg_duration
+        )
+
+    def simulate_trading_day(self, day_data: pd.DataFrame, params: Dict[str, Any]) -> List[TradeOutcome]:
+        """
+        Fast simulation of trading day with given parameters
+
+        No regret analysis overhead - just execute trades
+
+        Args:
+            day_data: OHLCV data for single day
+            params: Parameter set to test
+
+        Returns:
+            List of TradeOutcome objects
+        """
+        trades = []
+
+        # Need at least 21 bars for regression
+        if len(day_data) < 21:
+            return trades
+
+        # Simulate bar-by-bar
+        for i in range(21, len(day_data)):
+            current_row = day_data.iloc[i]
+
+            # Get macro context
+            df_macro = day_data.iloc[i-21:i+1].copy()
+            if 'price' in df_macro.columns and 'close' not in df_macro.columns:
+                df_macro['close'] = df_macro['price']
+
+            # Calculate state
+            current_price = current_row['price'] if 'price' in current_row else current_row['close']
+            current_volume = current_row.get('volume', 0)
+            if pd.isna(current_volume):
+                current_volume = 0.0
+
+            state = self.engine.calculate_three_body_state(
+                df_macro=df_macro,
+                df_micro=df_macro,
+                current_price=current_price,
+                current_volume=float(current_volume),
+                tick_velocity=0.0
+            )
+
+            # Decision (using parameters)
+            min_prob = params.get('confidence_threshold', 0.80)
+            min_conf = 0.30
+
+            prob = self.brain.get_probability(state)
+            conf = self.brain.get_confidence(state)
+
+            # Check if should fire
+            should_fire = (
+                state.lagrange_zone in ['L2_ROCHE', 'L3_ROCHE'] and
+                state.structure_confirmed and
+                state.cascade_detected and
+                prob >= min_prob and
+                conf >= min_conf
+            )
+
+            if should_fire:
+                # Simulate trade
+                outcome = self._simulate_trade(
+                    current_idx=i,
+                    entry_price=current_price,
+                    data=day_data,
+                    state=state,
+                    params=params
                 )
 
-                # Decision
-                decision = self.manager.should_fire(state)
+                if outcome:
+                    trades.append(outcome)
 
-                if decision['should_fire']:
-                    # Simulate Trade
-                    entry_price = current_row['price'] if 'price' in current_row else current_row['close']
-                    outcome = self._simulate_trade_with_state(i, entry_price, state)
+        return trades
 
-                    if outcome:
-                        self.trades.append(outcome)
-                        self.total_duration += outcome.duration
-                        self.brain.update(outcome)
-                        self.manager.record_trade(outcome)
-                        total_pnl += outcome.pnl
-
-                # Update progress
-                progress_val = i - start_idx
-                
-                avg_duration = 0.0
-                if self.trades:
-                    avg_duration = self.total_duration / len(self.trades)
-
-                progress.update(
-                    n=1,
-                    trades=len(self.trades),
-                    states=len(self.brain.table),
-                    pnl=total_pnl,
-                    win_rate=self._get_win_rate(),
-                    avg_duration=avg_duration
-                )
-                
-                # Periodic updates
-                if progress_val % 10 == 0:
-                    self._update_dashboard_json(json_path, progress_val, iterations, total_pnl, i)
-
-                    if on_progress:
-                        metrics = {
-                            'iteration': progress_val,
-                            'total_iterations': iterations,
-                            'pnl': total_pnl,
-                            'win_rate': self._get_win_rate(),
-                            'average_confidence': self._get_avg_confidence(),
-                            'avg_duration': avg_duration
-                        }
-                        on_progress(metrics)
-        
-        finally:
-            progress.close()
-            # Save final model
-            self.save_model(os.path.join(self.output_dir, "quantum_probability_table.pkl"))
-        
-        return {
-            'total_trades': len(self.trades),
-            'pnl': total_pnl,
-            'win_rate': self._get_win_rate(),
-            'unique_states': len(self.brain.table)
-        }
-
-    def _simulate_trade(self, current_idx: int, entry_price: float) -> Optional[TradeOutcome]:
+    def _simulate_trade(self, current_idx: int, entry_price: float,
+                       data: pd.DataFrame, state: Any, params: Dict[str, Any]) -> Optional[TradeOutcome]:
         """
-        Simulate a trade by looking ahead in data.
-        Simple logic: 20 ticks TP, 10 ticks SL.
-        """
-        # Look ahead up to 100 ticks
-        max_lookahead = 100
-        end_idx = min(len(self.data), current_idx + max_lookahead)
+        Simulate single trade with lookahead
 
-        future_data = self.data.iloc[current_idx+1:end_idx]
+        Uses params for stop loss and take profit
+        """
+        stop_loss = params.get('stop_loss_ticks', 15) * 0.25  # Convert ticks to points
+        take_profit = params.get('take_profit_ticks', 40) * 0.25
+        max_hold = params.get('max_hold_seconds', 600)
+
+        # Look ahead
+        max_lookahead = 200
+        end_idx = min(len(data), current_idx + max_lookahead)
+        future_data = data.iloc[current_idx+1:end_idx]
+
         if future_data.empty:
             return None
 
-        # Get Entry Time
-        entry_time = self.data.iloc[current_idx]['timestamp'] if 'timestamp' in self.data.columns else 0
-
-        # Simple random-ish or trend logic for test
-        # Let's use a fixed TP/SL for now
-        tp = 20.0
-        sl = 10.0
+        entry_time = data.iloc[current_idx].get('timestamp', 0)
+        if isinstance(entry_time, pd.Timestamp):
+            entry_time = entry_time.timestamp()
 
         for idx, row in future_data.iterrows():
             price = row['price'] if 'price' in row else row['close']
-            pnl = price - entry_price # Long only for simplicity
+            pnl = price - entry_price  # Long only
 
-            exit_time = row['timestamp'] if 'timestamp' in row else 0
+            exit_time = row.get('timestamp', 0)
+            if isinstance(exit_time, pd.Timestamp):
+                exit_time = exit_time.timestamp()
+
             duration = exit_time - entry_time
 
-            if pnl >= tp:
+            # Check TP/SL
+            if pnl >= take_profit:
                 return TradeOutcome(
-                    state=ThreeBodyQuantumState.null_state(),
+                    state=state,
                     entry_price=entry_price,
                     exit_price=price,
-                    pnl=tp,
+                    pnl=take_profit,
                     result='WIN',
                     timestamp=exit_time,
                     exit_reason='TP',
                     entry_time=entry_time,
                     duration=duration
                 )
-            elif pnl <= -sl:
+            elif pnl <= -stop_loss:
                 return TradeOutcome(
-                    state=ThreeBodyQuantumState.null_state(),
+                    state=state,
                     entry_price=entry_price,
                     exit_price=price,
-                    pnl=-sl,
+                    pnl=-stop_loss,
                     result='LOSS',
                     timestamp=exit_time,
                     exit_reason='SL',
                     entry_time=entry_time,
                     duration=duration
                 )
+            elif duration >= max_hold:
+                return TradeOutcome(
+                    state=state,
+                    entry_price=entry_price,
+                    exit_price=price,
+                    pnl=pnl,
+                    result='WIN' if pnl > 0 else 'LOSS',
+                    timestamp=exit_time,
+                    exit_reason='TIME',
+                    entry_time=entry_time,
+                    duration=duration
+                )
 
-        # Time exit
+        # Reached end of data
         last_price = future_data.iloc[-1]['price'] if 'price' in future_data.iloc[-1] else future_data.iloc[-1]['close']
         pnl = last_price - entry_price
 
-        exit_time = future_data.iloc[-1]['timestamp'] if 'timestamp' in future_data.iloc[-1] else 0
-        duration = exit_time - entry_time
+        last_time = future_data.iloc[-1].get('timestamp', 0)
+        if isinstance(last_time, pd.Timestamp):
+            last_time = last_time.timestamp()
 
         return TradeOutcome(
-            state=ThreeBodyQuantumState.null_state(),
+            state=state,
             entry_price=entry_price,
             exit_price=last_price,
             pnl=pnl,
             result='WIN' if pnl > 0 else 'LOSS',
-            timestamp=exit_time,
-            exit_reason='TIME',
+            timestamp=last_time,
+            exit_reason='EOD',
             entry_time=entry_time,
-            duration=duration
+            duration=last_time - entry_time
         )
 
-    def _simulate_trade_with_state(self, current_idx: int, entry_price: float, state: ThreeBodyQuantumState) -> Optional[TradeOutcome]:
-        outcome = self._simulate_trade(current_idx, entry_price)
-        if outcome:
-            outcome.state = state
-        return outcome
+    def split_into_trading_days(self, data: pd.DataFrame) -> List[Tuple[str, pd.DataFrame]]:
+        """Split data into trading days"""
+        if 'timestamp' not in data.columns:
+            raise ValueError("Data must have 'timestamp' column")
 
-    def _update_dashboard_json(self, json_path: str, iteration: int, total_iterations: int, pnl: float, current_data_idx: int = 0):
-        """Write progress to JSON for dashboard"""
-        elapsed = time.time() - self.start_time if self.start_time else 0
+        # Convert timestamp to datetime if needed
+        if not pd.api.types.is_datetime64_any_dtype(data['timestamp']):
+            data['timestamp'] = pd.to_datetime(data['timestamp'], unit='s')
 
-        # Get recent candles for chart
-        recent_candles = []
-        if self.data is not None and current_data_idx > 0:
-            start = max(0, current_data_idx - 50)
-            subset = self.data.iloc[start:current_data_idx+1]
-            # Convert to list of dicts
-            for _, row in subset.iterrows():
-                candle = {
-                    'timestamp': str(row['timestamp']) if 'timestamp' in row else '', # Convert to string for JSON
-                    'close': float(row['price']) if 'price' in row else float(row['close']),
-                    # Add open/high/low/volume if available, else simulate
-                    'open': float(row['open']) if 'open' in row else float(row['price']),
-                    'high': float(row['high']) if 'high' in row else float(row['price']),
-                    'low': float(row['low']) if 'low' in row else float(row['price']),
-                    'volume': float(row['volume']) if 'volume' in row else 0
-                }
-                recent_candles.append(candle)
+        # Extract date
+        data['date'] = data['timestamp'].dt.date
 
-        data = {
-            'iteration': iteration,
-            'total_iterations': total_iterations,
-            'elapsed_seconds': elapsed,
-            'states_learned': len(self.brain.table),
-            'high_confidence_states': len(self.brain.get_all_states_above_threshold()),
-            'trades': [
-                {'pnl': t.pnl, 'result': t.result, 'duration': t.duration} for t in self.trades[-50:] # Last 50 trades
-            ],
-            'recent_candles': recent_candles
-        }
-        try:
-            with open(json_path, 'w') as f:
-                json.dump(data, f)
-        except Exception:
-            pass # Ignore write errors (race conditions)
+        # Group by date
+        days = []
+        for date, day_df in data.groupby('date'):
+            date_str = str(date)
+            days.append((date_str, day_df.reset_index(drop=True)))
 
-    def _run_single_iteration(self, iteration_num: int):
-        """
-        Legacy adapter for tests/test_phase2.py.
-        Runs logic for a single 'tick' or step.
-        """
-        if self.data is None:
-             return {'total_trades': 0, 'pnl': 0.0, 'unique_states': 0}
+        return days
 
-        # Determine index
-        idx = iteration_num + 21 # Offset for regression
-        if idx >= len(self.data):
-            idx = len(self.data) - 1
+    def launch_dashboard(self):
+        """Launch dashboard in background thread"""
+        def run_dashboard():
+            try:
+                self.dashboard = LiveDashboard()
+                self.dashboard.launch()
+            except Exception as e:
+                print(f"WARNING: Dashboard failed to launch: {e}")
 
-        current_row = self.data.iloc[idx]
-        df_macro = self.data.iloc[max(0, idx-21):idx+1].copy()
-        if 'price' in df_macro.columns and 'close' not in df_macro.columns:
-            df_macro['close'] = df_macro['price']
+        self.dashboard_thread = threading.Thread(target=run_dashboard, daemon=True)
+        self.dashboard_thread.start()
+        print("Dashboard launching in background...")
+        time.sleep(2)  # Give it time to initialize
 
-        current_price = current_row['price'] if 'price' in current_row else current_row['close']
-        raw_volume = current_row['volume'] if 'volume' in current_row else 0
-        current_volume = raw_volume if not pd.isna(raw_volume) else 0.0
+    def save_checkpoint(self, day_number: int, date: str, day_result: DayResults):
+        """Save brain and parameters to checkpoint"""
+        # Save brain
+        brain_path = os.path.join(self.checkpoint_dir, f"day_{day_number:03d}_brain.pkl")
+        self.brain.save(brain_path)
 
-        state = self.engine.calculate_three_body_state(
-            df_macro=df_macro,
-            df_micro=df_macro,
-            current_price=current_price,
-            current_volume=current_volume,
-            tick_velocity=0.0
+        # Save best params
+        if day_result.best_params:
+            params_path = os.path.join(self.checkpoint_dir, f"day_{day_number:03d}_params.pkl")
+            with open(params_path, 'wb') as f:
+                pickle.dump(day_result.best_params, f)
+
+        # Save day results
+        results_path = os.path.join(self.checkpoint_dir, f"day_{day_number:03d}_results.pkl")
+        with open(results_path, 'wb') as f:
+            pickle.dump(day_result, f)
+
+    def print_final_summary(self):
+        """Print comprehensive final summary"""
+        self.progress_reporter.print_final_summary()
+
+        # Pattern analysis report
+        pattern_report = self.pattern_analyzer.generate_pattern_report(
+            self.brain,
+            self.day_results
         )
+        print(pattern_report)
 
-        decision = self.manager.should_fire(state)
-        if decision['should_fire']:
-            entry_price = current_row['price'] if 'price' in current_row else current_row['close']
-            outcome = self._simulate_trade_with_state(idx, entry_price, state)
-            if outcome:
-                self.trades.append(outcome)
-                self.total_duration += outcome.duration
-                self.brain.update(outcome)
-                self.manager.record_trade(outcome)
+        # Save progress log
+        log_path = os.path.join(self.checkpoint_dir, "training_log.json")
+        self.progress_reporter.save_progress_log(log_path)
 
-        return {
-            'total_trades': len(self.trades),
-            'pnl': sum(t.pnl for t in self.trades),
-            'unique_states': len(self.brain.table)
-        }
 
-    def save_model(self, filepath: str):
-        # Create directory if not exists
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        self.brain.save(filepath)
+def main():
+    """Single entry point - command line interface"""
+    parser = argparse.ArgumentParser(
+        description="Bayesian-AI Training Orchestrator",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
 
-# CLI Entry Point
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Bayesian-AI Training Orchestrator")
-    parser.add_argument("--data-file", type=str, required=True, help="Path to .dbn or .parquet file")
-    parser.add_argument("--iterations", type=int, default=1000, help="Number of iterations")
-    parser.add_argument("--output", type=str, default="models/", help="Output directory")
-    parser.add_argument("--no-gpu", action="store_true", help="Disable GPU (Legacy)")
+    parser.add_argument('--data', required=True, help="Path to parquet data file")
+    parser.add_argument('--iterations', type=int, default=1000, help="Iterations per day (default: 1000)")
+    parser.add_argument('--max-days', type=int, default=None, help="Limit number of days")
+    parser.add_argument('--checkpoint-dir', type=str, default="checkpoints", help="Checkpoint directory")
+    parser.add_argument('--no-dashboard', action='store_true', help="Disable live dashboard")
 
     args = parser.parse_args()
 
-    # Load Data
+    # Load data
+    print(f"Loading data from {args.data}...")
     try:
-        print(f"Loading data from {args.data_file}...")
-        df = get_data_source(args.data_file)
-        print(f"Loaded {len(df)} rows.")
-
-        # Run Training
-        orchestrator = TrainingOrchestrator(
-            asset_ticker="MNQ",
-            data=df,
-            output_dir=args.output,
-            mode="QUANTUM"
-        )
-
-        orchestrator.run_training(iterations=args.iterations)
-
+        if args.data.endswith('.parquet'):
+            data = pd.read_parquet(args.data)
+        else:
+            # Try databento loader
+            data = DatabentoLoader.load_data(args.data)
     except Exception as e:
-        print(f"Error: {e}")
-        sys.exit(1)
+        print(f"ERROR: Failed to load data: {e}")
+        return 1
+
+    print(f"Loaded {len(data):,} rows")
+
+    # Create orchestrator
+    orchestrator = BayesianTrainingOrchestrator(args)
+
+    # Run training
+    try:
+        results = orchestrator.train(data)
+        print("\n=== Training Complete ===")
+        return 0
+    except KeyboardInterrupt:
+        print("\n\nWARNING: Training interrupted by user")
+        return 1
+    except Exception as e:
+        print(f"\nERROR: Training failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
