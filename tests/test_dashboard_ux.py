@@ -3,8 +3,7 @@ import sys
 import os
 from unittest.mock import MagicMock, patch
 
-# Add project root to sys.path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Note: We rely on python -m unittest for path resolution now.
 
 # Create Mocks
 mock_tk = MagicMock()
@@ -71,36 +70,36 @@ class TestDashboardUX(unittest.TestCase):
         mock_thread.return_value.start = MagicMock()
         dashboard = LiveDashboard(self.root)
 
-        # Test RUNNING
-        dashboard.remote_status = "RUNNING"
-        dashboard.update_gui()
+        status_tests = {
+            "RUNNING": "🟢",
+            "PAUSED": "⏸️",
+            "STOPPED": "🛑",
+        }
 
-        found = False
-        for call in dashboard.lbl_status.config.call_args_list:
-             if 'text' in call[1] and "🟢" in call[1]['text']:
-                 found = True
-                 break
-        self.assertTrue(found, "Status icon 🟢 should be present for RUNNING")
+        for status, icon in status_tests.items():
+            with self.subTest(status=status):
+                dashboard.remote_status = status
+                # Reset mock to clear previous calls for clean checking
+                dashboard.lbl_status.config.reset_mock()
 
-        # Test PAUSED
-        dashboard.remote_status = "PAUSED"
-        dashboard.update_gui()
-        found = False
-        for call in dashboard.lbl_status.config.call_args_list:
-             if 'text' in call[1] and "⏸️" in call[1]['text']:
-                 found = True
-                 break
-        self.assertTrue(found, "Status icon ⏸️ should be present for PAUSED")
+                dashboard.update_gui()
 
-        # Test STOPPED
-        dashboard.remote_status = "STOPPED"
-        dashboard.update_gui()
-        found = False
-        for call in dashboard.lbl_status.config.call_args_list:
-             if 'text' in call[1] and "🛑" in call[1]['text']:
-                 found = True
-                 break
-        self.assertTrue(found, "Status icon 🛑 should be present for STOPPED")
+                # Check the keyword arguments of the call to config
+                # We expect one call to config since we reset the mock
+                call_args = dashboard.lbl_status.config.call_args
+                self.assertIsNotNone(call_args, f"config() not called for {status}")
+
+                kwargs = call_args.kwargs
+                # If config was called with positional args? Usually config(text=...)
+                if not kwargs and call_args.args:
+                     # This shouldn't happen based on code but handle defensively if needed
+                     pass
+
+                self.assertIn('text', kwargs, f"text argument missing in config call for {status}")
+                called_text = kwargs['text']
+
+                self.assertIn(icon, called_text, f"Icon {icon} for {status} not found in '{called_text}'")
+                self.assertIn(status, called_text, f"Status text {status} not found in '{called_text}'")
 
 if __name__ == '__main__':
     unittest.main()
