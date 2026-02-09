@@ -4,6 +4,7 @@ CUDA-accelerated pattern recognition (L7)
 """
 import pandas as pd
 import numpy as np
+import logging
 from typing import Tuple
 
 PATTERN_NONE = 0
@@ -90,7 +91,7 @@ class CUDAPatternDetector:
                 self.use_gpu = False
 
         if not self.use_gpu and use_gpu:
-             raise RuntimeError("CUDA requested for PatternDetector but not available. CPU fallback disabled by configuration.")
+             logging.warning("CUDA requested for PatternDetector but not available. Falling back to CPU.")
 
     def detect(self, bars: pd.DataFrame, window_size: int = 20) -> Tuple[str, float]:
         if self.use_gpu:

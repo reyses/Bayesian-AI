@@ -4,6 +4,7 @@ CUDA-accelerated trade confirmation (L8)
 """
 import pandas as pd
 import numpy as np
+import logging
 
 try:
     from numba import cuda
@@ -45,7 +46,7 @@ class CUDAConfirmationEngine:
                 self.use_gpu = False
 
         if not self.use_gpu and use_gpu:
-             raise RuntimeError("CUDA requested for ConfirmationEngine but not available. CPU fallback disabled by configuration.")
+             logging.warning("CUDA requested for ConfirmationEngine but not available. Falling back to CPU.")
 
     def confirm(self, bars: pd.DataFrame, L7_pattern_active: bool) -> bool:
         if not L7_pattern_active:
@@ -89,6 +90,9 @@ class CUDAConfirmationEngine:
     def _confirm_cpu(self, bars: pd.DataFrame, L7_pattern_active: bool) -> bool:
         # Logic from layer_engine_cuda.py _compute_L8_5m_CPU
         if not L7_pattern_active:
+            return False
+
+        if 'volume' not in bars.columns:
             return False
 
         volumes = bars['volume'].values
