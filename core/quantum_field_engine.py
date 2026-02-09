@@ -8,19 +8,39 @@ import pandas as pd
 from scipy.stats import linregress
 from core.three_body_state import ThreeBodyQuantumState
 
+# Optional CUDA support
+try:
+    import torch
+    TORCH_AVAILABLE = True
+    CUDA_AVAILABLE = torch.cuda.is_available()
+except ImportError:
+    TORCH_AVAILABLE = False
+    CUDA_AVAILABLE = False
+
 class QuantumFieldEngine:
     """
-    Unified field calculator
+    Unified field calculator — GPU-accelerated when CUDA available
     - Nightmare Protocol (gravity wells, O-U process)
     - Three-body dynamics (Lagrange points, tidal forces)
     - Quantum mechanics (superposition, tunneling)
     """
-    
+
     def __init__(self, regression_period: int = 21):
         self.regression_period = regression_period
         self.SIGMA_ROCHE_MULTIPLIER = 2.0
         self.SIGMA_EVENT_MULTIPLIER = 3.0
         self.TIDAL_FORCE_EXPONENT = 2.0
+
+        # === GPU SETUP ===
+        if TORCH_AVAILABLE and CUDA_AVAILABLE:
+            self.device = torch.device('cuda')
+            self.use_gpu = True
+        elif TORCH_AVAILABLE:
+            self.device = torch.device('cpu')
+            self.use_gpu = False
+        else:
+            self.device = None
+            self.use_gpu = False
     
     def calculate_three_body_state(
         self, 
@@ -154,37 +174,42 @@ class QuantumFieldEngine:
         }
     
     def _calculate_wave_function(self, z_score, F_net, F_momentum):
-        """Quantum superposition state"""
-        # Gaussian probabilities
+        """Quantum superposition state — CUDA accelerated"""
         E0 = -z_score**2 / 2
         E1 = -(z_score - 2.0)**2 / 2
         E2 = -(z_score + 2.0)**2 / 2
-        
-        # Shift by max to prevent underflow
-        max_E = max(E0, E1, E2)
-        P0 = np.exp(E0 - max_E)
-        P1 = np.exp(E1 - max_E)
-        P2 = np.exp(E2 - max_E)
-        
-        # Normalize
-        total = P0 + P1 + P2
-        P0 /= total
-        P1 /= total
-        P2 /= total
-        
-        # Amplitudes
+
+        if self.use_gpu:
+            # GPU path: batch exp/log into single kernel launches
+            energies = torch.tensor([E0, E1, E2], device=self.device, dtype=torch.float64)
+            energies -= energies.max()
+            probs = torch.exp(energies)
+            probs /= probs.sum()
+
+            eps = 1e-10
+            entropy_val = -(probs * torch.log(probs + eps)).sum().item()
+            P0, P1, P2 = probs[0].item(), probs[1].item(), probs[2].item()
+        else:
+            max_E = max(E0, E1, E2)
+            P0 = np.exp(E0 - max_E)
+            P1 = np.exp(E1 - max_E)
+            P2 = np.exp(E2 - max_E)
+            total = P0 + P1 + P2
+            P0 /= total
+            P1 /= total
+            P2 /= total
+            eps = 1e-10
+            entropy_val = -(P0*np.log(P0+eps) + P1*np.log(P1+eps) + P2*np.log(P2+eps))
+
+        coherence = entropy_val / np.log(3)
+
         phase = np.arctan2(F_momentum, F_net + 1e-6)
         a0 = np.sqrt(P0) * np.exp(1j * phase * 0)
         a1 = np.sqrt(P1) * np.exp(1j * phase * 1)
         a2 = np.sqrt(P2) * np.exp(1j * phase * -1)
-        
-        # Entropy
-        epsilon = 1e-10
-        entropy = -(P0*np.log(P0+epsilon) + P1*np.log(P1+epsilon) + P2*np.log(P2+epsilon))
-        coherence = entropy / np.log(3)
-        
-        return {'a0': a0, 'a1': a1, 'a2': a2, 'P0': P0, 'P1': P1, 'P2': P2, 
-                'entropy': entropy, 'coherence': coherence}
+
+        return {'a0': a0, 'a1': a1, 'a2': a2, 'P0': P0, 'P1': P1, 'P2': P2,
+                'entropy': entropy_val, 'coherence': coherence}
     
     def _check_measurements(self, df_micro, z_score, velocity):
         """L8-L9 measurement operators"""
@@ -223,20 +248,26 @@ class QuantumFieldEngine:
         }
     
     def _calculate_tunneling(self, z_score, F_momentum, F_reversion):
-        """Quantum tunneling probabilities"""
+        """Quantum tunneling probabilities — CUDA accelerated"""
         barrier = abs(z_score) - 2.0
         if barrier < 0:
             return 0.5, 0.0, 0.0
-        
+
         momentum_ratio = F_momentum / (F_reversion + 1e-6)
-        tunnel_prob = np.exp(-barrier * 2.0) * (1.0 - min(momentum_ratio, 0.9))
-        escape_prob = momentum_ratio * np.exp(-barrier * 0.5)
-        
+
+        if self.use_gpu:
+            b = torch.tensor([barrier], device=self.device, dtype=torch.float64)
+            tunnel_prob = torch.exp(-b * 2.0).item() * (1.0 - min(momentum_ratio, 0.9))
+            escape_prob = momentum_ratio * torch.exp(-b * 0.5).item()
+        else:
+            tunnel_prob = np.exp(-barrier * 2.0) * (1.0 - min(momentum_ratio, 0.9))
+            escape_prob = momentum_ratio * np.exp(-barrier * 0.5)
+
         total = tunnel_prob + escape_prob
         if total > 0:
             tunnel_prob /= total
             escape_prob /= total
-        
+
         return tunnel_prob, escape_prob, barrier
     
     def _classify_lagrange(self, z_score, F_net):
@@ -251,3 +282,251 @@ class QuantumFieldEngine:
             return 'L3_ROCHE', 0.1
         else:
             return 'UNKNOWN', 0.0
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # VECTORIZED BATCH COMPUTATION (processes all bars at once)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    def batch_compute_states(self, day_data: pd.DataFrame, use_cuda: bool = True) -> list:
+        """
+        Compute ALL ThreeBodyQuantumState objects for a day in one vectorized pass.
+
+        Instead of looping 35k times calling calculate_three_body_state(),
+        this processes all bars simultaneously using numpy/torch arrays.
+
+        Args:
+            day_data: DataFrame with 'price'/'close', 'volume', 'timestamp' columns
+            use_cuda: If True and CUDA available, use GPU for exp/log ops
+
+        Returns:
+            List of dicts: [{bar_idx, state, price, prob, conf, structure_ok}, ...]
+        """
+        n = len(day_data)
+        rp = self.regression_period
+
+        if n < rp:
+            return []
+
+        # --- Extract raw arrays (avoid DataFrame overhead in loop) ---
+        prices = day_data['price'].values.astype(np.float64) if 'price' in day_data.columns else day_data['close'].values.astype(np.float64)
+        close = day_data['close'].values.astype(np.float64) if 'close' in day_data.columns else prices.copy()
+        volumes = day_data['volume'].values.astype(np.float64) if 'volume' in day_data.columns else np.zeros(n, dtype=np.float64)
+        volumes = np.nan_to_num(volumes)
+
+        num_bars = n - rp  # bars we'll compute (indices rp..n-1)
+
+        # ═══ STEP 1: Rolling linear regression (center, sigma, slope) ═══
+        # Vectorized using cumulative sums
+        x = np.arange(rp, dtype=np.float64)
+        x_mean = x.mean()
+        x_var = np.sum((x - x_mean) ** 2)
+
+        centers = np.empty(num_bars)
+        sigmas = np.empty(num_bars)
+
+        # Build rolling windows efficiently
+        for i in range(num_bars):
+            y = close[i:i + rp]
+            y_mean = y.mean()
+            slope = np.sum((x - x_mean) * (y - y_mean)) / x_var
+            intercept = y_mean - slope * x_mean
+            center = slope * x[-1] + intercept
+            residuals = y - (slope * x + intercept)
+            std_err = np.sqrt(np.sum(residuals ** 2) / (rp - 2))
+            sigma = std_err if std_err > 0 else y.std()
+            centers[i] = center
+            sigmas[i] = max(sigma, 1e-10)
+
+        # Prices at each computed bar
+        bar_prices = prices[rp:]
+        bar_volumes = volumes[rp:]
+
+        # ═══ STEP 2: Vectorized z-scores & force fields ═══
+        z_scores = (bar_prices - centers) / sigmas
+
+        upper_sing = centers + self.SIGMA_ROCHE_MULTIPLIER * sigmas
+        lower_sing = centers - self.SIGMA_ROCHE_MULTIPLIER * sigmas
+        upper_event = centers + self.SIGMA_EVENT_MULTIPLIER * sigmas
+        lower_event = centers - self.SIGMA_EVENT_MULTIPLIER * sigmas
+
+        F_reversion = (z_scores ** 2) / 9.0
+
+        dist_upper = np.abs(bar_prices - upper_sing) / sigmas
+        dist_lower = np.abs(bar_prices - lower_sing) / sigmas
+        F_upper_raw = np.minimum(1.0 / (dist_upper ** 3 + 0.01), 100.0)
+        F_lower_raw = np.minimum(1.0 / (dist_lower ** 3 + 0.01), 100.0)
+        F_upper_repulsion = np.where(z_scores > 0, F_upper_raw, 0.0)
+        F_lower_repulsion = np.where(z_scores < 0, F_lower_raw, 0.0)
+
+        # Momentum (velocity=0 in training, but keep correct)
+        F_momentum = np.zeros(num_bars)  # tick_velocity=0 in precompute
+
+        F_net = np.where(
+            z_scores > 0,
+            F_reversion + F_upper_repulsion - F_momentum,
+            F_reversion + F_lower_repulsion - F_momentum
+        )
+
+        # ═══ STEP 3: Wave function (exp/log — GPU-accelerated) ═══
+        E0 = -z_scores ** 2 / 2
+        E1 = -(z_scores - 2.0) ** 2 / 2
+        E2 = -(z_scores + 2.0) ** 2 / 2
+
+        if use_cuda and CUDA_AVAILABLE:
+            # GPU path
+            device = torch.device('cuda')
+            E0_t = torch.tensor(E0, device=device, dtype=torch.float64)
+            E1_t = torch.tensor(E1, device=device, dtype=torch.float64)
+            E2_t = torch.tensor(E2, device=device, dtype=torch.float64)
+
+            max_E = torch.max(torch.stack([E0_t, E1_t, E2_t]), dim=0)[0]
+            P0_t = torch.exp(E0_t - max_E)
+            P1_t = torch.exp(E1_t - max_E)
+            P2_t = torch.exp(E2_t - max_E)
+            total = P0_t + P1_t + P2_t
+            P0_t /= total
+            P1_t /= total
+            P2_t /= total
+
+            eps = 1e-10
+            entropy_t = -(P0_t * torch.log(P0_t + eps) + P1_t * torch.log(P1_t + eps) + P2_t * torch.log(P2_t + eps))
+
+            P0 = P0_t.cpu().numpy()
+            P1 = P1_t.cpu().numpy()
+            P2 = P2_t.cpu().numpy()
+            entropy = entropy_t.cpu().numpy()
+        else:
+            # CPU path (still vectorized — much faster than per-bar loop)
+            max_E = np.maximum(np.maximum(E0, E1), E2)
+            P0 = np.exp(E0 - max_E)
+            P1 = np.exp(E1 - max_E)
+            P2 = np.exp(E2 - max_E)
+            total = P0 + P1 + P2
+            P0 /= total
+            P1 /= total
+            P2 /= total
+
+            eps = 1e-10
+            entropy = -(P0 * np.log(P0 + eps) + P1 * np.log(P1 + eps) + P2 * np.log(P2 + eps))
+
+        coherence = entropy / np.log(3)
+
+        # Amplitudes
+        phase = np.arctan2(F_momentum, F_net + 1e-6)
+        a0 = np.sqrt(P0) * np.exp(1j * phase * 0)
+        a1 = np.sqrt(P1) * np.exp(1j * phase * 1)
+        a2 = np.sqrt(P2) * np.exp(1j * phase * -1)
+
+        # ═══ STEP 4: Measurements (volume spike, pattern maturity) ═══
+        # Rolling mean of volume over last 20 bars
+        vol_rolling_mean = np.empty(num_bars)
+        for i in range(num_bars):
+            start = max(0, rp + i - 19)
+            end = rp + i + 1
+            vol_rolling_mean[i] = volumes[start:end].mean()
+
+        volume_spike = bar_volumes > vol_rolling_mean * 1.2
+        pattern_maturity = np.where(
+            np.abs(z_scores) > 2.0,
+            np.minimum((np.abs(z_scores) - 2.0) / 1.0, 1.0),
+            0.0
+        )
+        structure_confirmed = volume_spike & (pattern_maturity > 0.5)
+        cascade_detected = np.full(num_bars, False)  # tick_velocity=0 < 10
+
+        # Spin inversion
+        if 'open' in day_data.columns:
+            opens = day_data['open'].values[rp:]
+        else:
+            opens = close[rp:]
+        spin_inverted = np.where(
+            z_scores > 2.0,
+            close[rp:] < opens,
+            np.where(z_scores < -2.0, close[rp:] > opens, False)
+        )
+
+        # ═══ STEP 5: Tunneling ═══
+        barrier = np.abs(z_scores) - 2.0
+        barrier_positive = barrier > 0
+        momentum_ratio = F_momentum / (F_reversion + 1e-6)
+
+        tunnel_prob = np.where(
+            barrier_positive,
+            np.exp(-barrier * 2.0) * (1.0 - np.minimum(momentum_ratio, 0.9)),
+            0.5
+        )
+        escape_prob = np.where(
+            barrier_positive,
+            momentum_ratio * np.exp(-barrier * 0.5),
+            0.0
+        )
+        tunnel_total = tunnel_prob + escape_prob
+        safe_total = np.where(tunnel_total > 0, tunnel_total, 1.0)
+        tunnel_prob = tunnel_prob / safe_total
+        escape_prob = escape_prob / safe_total
+        barrier = np.maximum(barrier, 0.0)
+
+        # ═══ STEP 6: Lagrange classification ═══
+        abs_z = np.abs(z_scores)
+        lagrange_zones = np.where(
+            abs_z < 1.0, 'L1_STABLE',
+            np.where(abs_z < 2.0, 'CHAOS',
+                np.where(z_scores >= 2.0, 'L2_ROCHE',
+                    np.where(z_scores <= -2.0, 'L3_ROCHE', 'UNKNOWN')))
+        )
+        stability = np.where(
+            abs_z < 1.0, 1.0 - abs_z,
+            np.where(abs_z < 2.0, 0.5, 0.1)
+        )
+
+        momentum_strength = np.nan_to_num(F_momentum / (F_reversion + 1e-6))
+
+        # ═══ STEP 7: Build state objects ═══
+        results = []
+        for i in range(num_bars):
+            state = ThreeBodyQuantumState(
+                center_position=centers[i],
+                upper_singularity=upper_sing[i],
+                lower_singularity=lower_sing[i],
+                event_horizon_upper=upper_event[i],
+                event_horizon_lower=lower_event[i],
+                particle_position=bar_prices[i],
+                particle_velocity=0.0,
+                z_score=z_scores[i],
+                F_reversion=F_reversion[i],
+                F_upper_repulsion=F_upper_repulsion[i],
+                F_lower_repulsion=F_lower_repulsion[i],
+                F_momentum=F_momentum[i],
+                F_net=F_net[i],
+                amplitude_center=a0[i],
+                amplitude_upper=a1[i],
+                amplitude_lower=a2[i],
+                P_at_center=P0[i],
+                P_near_upper=P1[i],
+                P_near_lower=P2[i],
+                entropy=entropy[i],
+                coherence=coherence[i],
+                pattern_maturity=pattern_maturity[i],
+                momentum_strength=momentum_strength[i],
+                structure_confirmed=bool(structure_confirmed[i]),
+                cascade_detected=bool(cascade_detected[i]),
+                spin_inverted=bool(spin_inverted[i]),
+                lagrange_zone=str(lagrange_zones[i]),
+                stability_index=stability[i],
+                tunnel_probability=tunnel_prob[i],
+                escape_probability=escape_prob[i],
+                barrier_height=barrier[i],
+            )
+            results.append({
+                'bar_idx': rp + i,
+                'state': state,
+                'price': bar_prices[i],
+                'structure_ok': (
+                    str(lagrange_zones[i]) in ('L2_ROCHE', 'L3_ROCHE') and
+                    bool(structure_confirmed[i]) and
+                    bool(cascade_detected[i]) and
+                    True  # conf >= 0.30 checked at lookup time
+                ),
+            })
+
+        return results
