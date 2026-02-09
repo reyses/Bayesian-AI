@@ -166,10 +166,15 @@ class DataLoadingProfiler:
 
 # Optimization Solutions
 
-def convert_dbn_to_parquet(dbn_directory: str, output_directory: str):
+def convert_dbn_to_parquet(dbn_directory: str, output_directory: str, dbn_files: List[str] = None):
     """
     One-time conversion: .dbn.zst → .parquet
     Parquet loads 10-100x faster
+
+    Args:
+        dbn_directory: Source directory (used if dbn_files is None)
+        output_directory: Destination directory
+        dbn_files: Optional list of specific files to convert. If None, scans dbn_directory.
     """
     import glob
     import databento as db
@@ -178,7 +183,8 @@ def convert_dbn_to_parquet(dbn_directory: str, output_directory: str):
     
     os.makedirs(output_directory, exist_ok=True)
     
-    dbn_files = glob.glob(os.path.join(dbn_directory, "*.dbn.zst"))
+    if dbn_files is None:
+        dbn_files = glob.glob(os.path.join(dbn_directory, "*.dbn.zst"))
     
     print(f"\nConverting {len(dbn_files)} files to Parquet...")
     

@@ -135,7 +135,7 @@ def load_data_from_directory(directory: str) -> List[str]:
     os.makedirs(output_dir, exist_ok=True)
     
     # Convert
-    convert_dbn_to_parquet(directory, output_dir)
+    convert_dbn_to_parquet(directory, output_dir, dbn_files=dbn_files)
     
     # Return new parquet files
     new_parquet_files = glob.glob(os.path.join(output_dir, "*.parquet"))

@@ -11,6 +11,7 @@ class TestDashboardDataLoading(unittest.TestCase):
         if os.path.exists(self.test_dir):
             shutil.rmtree(self.test_dir)
         os.makedirs(self.test_dir)
+        self.addCleanup(shutil.rmtree, self.test_dir, ignore_errors=True)
 
         # Copy a small dbn file from DATA/RAW if available
         self.raw_dir = "DATA/RAW"
@@ -26,10 +27,6 @@ class TestDashboardDataLoading(unittest.TestCase):
         else:
             print("WARNING: No .dbn.zst files found in DATA/RAW. Skipping conversion test.")
             self.has_dbn = False
-
-    def tearDown(self):
-        if os.path.exists(self.test_dir):
-            shutil.rmtree(self.test_dir)
 
     def test_load_data_creates_parquet(self):
         if not self.has_dbn:
