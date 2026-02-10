@@ -26,8 +26,8 @@ Crucially, the `training/orchestrator.py` script—the primary entry point for t
 *   `tests/verify_phase1_fixes.py`: **PASSES**. Validates fixes to `StateVector` equality and `LayerEngine` logic.
 
 ### 2.3 Dependency Management
-*   `requirements.txt` contains a `torch` installation line with `--index-url`, which can cause issues with standard `pip install` commands in some environments.
-*   `numba-cuda` is listed without a version, potentially leading to compatibility issues.
+*   `requirements.txt` previously contained a `torch` installation line with `--index-url`, which caused disk space issues in CI environments by downloading massive CUDA libraries. This has been updated to use the standard `torch` package from PyPI.
+*   `numba-cuda` was removed to rely on `numba`'s standard CUDA support or CPU fallback, reducing dependency bloat.
 
 ## 3. Recommendations
 
@@ -49,4 +49,4 @@ Specifically:
 2.  **Remove or Update Tests**:
     *   Delete `tests/test_full_system.py` (Legacy).
     *   Refactor `tests/test_quantum_system.py` to test the current `QuantumFieldEngine` properly, or remove it if `tests/test_quantum_field_engine.py` is sufficient.
-3.  **Fix `requirements.txt`**: Ensure `torch` and `numba-cuda` are specified correctly for standard installation.
+3.  **Fix `requirements.txt`**: Ensure `torch` is specified correctly for standard installation without forcing large CUDA downloads in CI.
