@@ -111,6 +111,8 @@ class BayesianTrainingOrchestrator:
         # Training state
         self.day_results: List[DayResults] = []
         self.todays_trades: List[TradeOutcome] = []
+        self._best_trades_today: List[TradeOutcome] = []
+        self._cumulative_best_trades: List[TradeOutcome] = []
         self.dashboard = None
         self.dashboard_thread = None
 
@@ -121,6 +123,11 @@ class BayesianTrainingOrchestrator:
         Args:
             data: Full dataset with timestamps
         """
+        # Clear debug log for fresh run
+        debug_log = os.path.join(PROJECT_ROOT, 'debug_output', 'precompute_debug.log')
+        if os.path.exists(debug_log):
+            os.remove(debug_log)
+
         print("\n" + "="*80)
         print("BAYESIAN-AI TRAINING ORCHESTRATOR")
         print("="*80)
@@ -130,7 +137,7 @@ class BayesianTrainingOrchestrator:
             import torch
             if torch.cuda.is_available():
                 gpu_name = torch.cuda.get_device_name(0)
-                gpu_mem = torch.cuda.get_device_properties(0).total_mem / (1024**3)
+                gpu_mem = torch.cuda.get_device_properties(0).total_memory / (1024**3)
                 print(f"CUDA: ENABLED  |  GPU: {gpu_name}  |  VRAM: {gpu_mem:.1f} GB")
             else:
                 print("CUDA: NOT AVAILABLE  |  Running on CPU")
@@ -145,21 +152,29 @@ class BayesianTrainingOrchestrator:
         if DASHBOARD_AVAILABLE and not self.config.no_dashboard:
             self.launch_dashboard()
 
-        # Split into trading days
-        days = self.split_into_trading_days(data)
-        total_days = len(days)
+        # Pre-aggregate 1s → 15s once for the entire dataset (cached to disk)
+        data_15s = self._get_or_create_aggregated_data(data)
+
+        # Split into trading days (both 1s and 15s)
+        days_1s = self.split_into_trading_days(data)
+        days_15s = self.split_into_trading_days(data_15s)
+
+        # Build lookup: date → 15s day_data
+        days_15s_lookup = {date: df for date, df in days_15s}
+
+        total_days = len(days_1s)
 
         if self.config.max_days:
-            days = days[:self.config.max_days]
-            total_days = len(days)
+            days_1s = days_1s[:self.config.max_days]
+            total_days = len(days_1s)
             print(f"Limiting to first {total_days} days")
 
         print(f"\nTraining on {total_days} trading days...")
-        print(f"Date range: {days[0][0]} to {days[-1][0]}")
+        print(f"Date range: {days_1s[0][0]} to {days_1s[-1][0]}")
         print("="*80 + "\n")
 
         # Train day by day
-        for day_idx, (date, day_data) in enumerate(days):
+        for day_idx, (date, day_data) in enumerate(days_1s):
             day_number = day_idx + 1
 
             # Print day header
@@ -168,7 +183,8 @@ class BayesianTrainingOrchestrator:
             )
 
             # Optimize this day (DOE)
-            day_result = self.optimize_day(day_number, date, day_data)
+            day_data_15s = days_15s_lookup.get(date)
+            day_result = self.optimize_day(day_number, date, day_data, day_data_15s=day_data_15s)
 
             # Batch regret analysis (end of day)
             if self.todays_trades:
@@ -200,12 +216,11 @@ class BayesianTrainingOrchestrator:
             top_patterns = self.pattern_analyzer.get_strongest_patterns(self.brain, top_n=5)
             self.progress_reporter.print_cumulative_summary(top_patterns)
 
-            # Update dashboard if available
-            if self.dashboard:
-                try:
-                    self.dashboard.update(day_metrics, regret_analysis)
-                except:
-                    pass  # Dashboard update is non-critical
+            # Accumulate best trades across days (NOT all iterations)
+            self._cumulative_best_trades.extend(self._best_trades_today)
+
+            # Write dashboard JSON (polled by LiveDashboard every 1s)
+            self._write_dashboard_json(day_metrics, day_result, total_days)
 
             # Save checkpoint
             self.save_checkpoint(day_number, date, day_result)
@@ -217,12 +232,16 @@ class BayesianTrainingOrchestrator:
 
         return self.day_results
 
-    def _precompute_day_states(self, day_data: pd.DataFrame):
+    def _precompute_day_states(self, day_data: pd.DataFrame, day_data_15s: pd.DataFrame = None):
         """
         Pre-compute all states, probabilities, and confidences for a day ONCE.
 
         Uses vectorized batch computation (numpy arrays + optional CUDA)
         instead of per-bar loop. ~10-50x faster than original.
+
+        Args:
+            day_data: 1s OHLCV data for the day (used for trade simulation)
+            day_data_15s: Pre-aggregated 15s data (if None, resamples on the fly)
 
         Returns:
             List of dicts with bar_idx, state, price, prob, conf, structure_ok
@@ -235,34 +254,291 @@ class BayesianTrainingOrchestrator:
             day_data = day_data.copy()
             day_data['close'] = day_data['price']
 
-        # Pre-extract arrays for fast trade simulation
+        # Pre-extract 1s arrays for fast trade simulation (kept at 1s resolution)
         prices = day_data['price'].values if 'price' in day_data.columns else day_data['close'].values
         timestamps = day_data['timestamp'].values if 'timestamp' in day_data.columns else np.zeros(len(day_data))
 
-        print(f"  Pre-computing states for {len(day_data) - 21:,} bars (vectorized)...", end='', flush=True)
+        # Use pre-aggregated 15s data or resample on the fly
+        if day_data_15s is not None and len(day_data_15s) >= 21:
+            resampled_15s = day_data_15s
+            # Build index mapping from 15s timestamps to 1s indices
+            idx_map_15s_to_1s = self._build_15s_to_1s_index_map(resampled_15s, day_data)
+        else:
+            resampled_15s, idx_map_15s_to_1s = self._resample_to_15s(day_data)
+
+        if len(resampled_15s) < 21:
+            self._day_prices = prices
+            self._day_timestamps = timestamps
+            return []
+
+        print(f"  Pre-computing states for {len(resampled_15s) - 21:,} bars "
+              f"(15s, {len(day_data):,} 1s bars)...", end='', flush=True)
         precompute_start = time.time()
 
-        # === VECTORIZED BATCH COMPUTATION ===
-        batch_results = self.engine.batch_compute_states(day_data, use_cuda=True)
+        # === VECTORIZED BATCH COMPUTATION on 15s bars ===
+        batch_results = self.engine.batch_compute_states(resampled_15s, use_cuda=True)
+
+        # === REMAP: 15s bar_idx → 1s bar_idx for trade simulation ===
+        for bar in batch_results:
+            idx_15s = bar['bar_idx']
+            if idx_15s < len(idx_map_15s_to_1s):
+                bar['bar_idx'] = idx_map_15s_to_1s[idx_15s]
+            else:
+                bar['bar_idx'] = len(prices) - 1
+            # Use 1s price for consistency with trade sim
+            bar['price'] = prices[bar['bar_idx']]
 
         # Add prob/conf from brain (these are dict lookups, fast)
         for bar in batch_results:
             state = bar['state']
+            is_unseen = state not in self.brain.table
             prob = self.brain.get_probability(state)
             conf = self.brain.get_confidence(state)
-            bar['prob'] = prob
+            # Unseen states: force prob=1.0 so they pass threshold gate during training
+            # This lets the brain explore and learn from new states
+            bar['prob'] = 1.0 if is_unseen else prob
             bar['conf'] = conf
-            # Refine structure_ok with confidence check
-            bar['structure_ok'] = bar['structure_ok'] and conf >= 0.30
+            # Allow unseen states through confidence gate too (no data yet — let brain learn)
+            bar['structure_ok'] = bar['structure_ok'] and (conf >= 0.30 or is_unseen)
 
         elapsed = time.time() - precompute_start
         print(f" done ({elapsed:.1f}s)")
+
+        # === DEBUG OUTPUT ===
+        debug_dir = os.path.join(PROJECT_ROOT, 'debug_output')
+        os.makedirs(debug_dir, exist_ok=True)
+        debug_file = os.path.join(debug_dir, f'precompute_debug.log')
+        with open(debug_file, 'a') as f:
+            f.write(f"\n{'='*80}\n")
+            f.write(f"PRECOMPUTE DEBUG — {len(batch_results)} bars computed in {elapsed:.1f}s\n")
+            f.write(f"{'='*80}\n")
+
+            # Count filter stages
+            total = len(batch_results)
+            zones = {}
+            n_structure = 0
+            n_cascade = 0
+            n_both = 0
+            n_structure_ok = 0
+            for bar in batch_results:
+                s = bar['state']
+                z = s.lagrange_zone
+                zones[z] = zones.get(z, 0) + 1
+                if s.structure_confirmed:
+                    n_structure += 1
+                if s.cascade_detected:
+                    n_cascade += 1
+                if s.structure_confirmed and s.cascade_detected:
+                    n_both += 1
+                if bar['structure_ok']:
+                    n_structure_ok += 1
+
+            f.write(f"\nLAGRANGE ZONE DISTRIBUTION:\n")
+            for z, cnt in sorted(zones.items(), key=lambda x: -x[1]):
+                f.write(f"  {z}: {cnt} ({cnt/total*100:.1f}%)\n")
+
+            roche_count = zones.get('L2_ROCHE', 0) + zones.get('L3_ROCHE', 0)
+            f.write(f"\nFILTER PIPELINE:\n")
+            f.write(f"  Total bars:             {total}\n")
+            f.write(f"  In L2/L3 ROCHE zone:    {roche_count} ({roche_count/total*100:.1f}%)\n")
+            f.write(f"  structure_confirmed:     {n_structure} ({n_structure/total*100:.1f}%)\n")
+            f.write(f"  cascade_detected:        {n_cascade} ({n_cascade/total*100:.1f}%)\n")
+            f.write(f"  Both struct+cascade:     {n_both} ({n_both/total*100:.1f}%)\n")
+            f.write(f"  Final structure_ok:      {n_structure_ok} ({n_structure_ok/total*100:.1f}%)\n")
+
+            # Sample states
+            if batch_results:
+                f.write(f"\nSAMPLE STATES (first 5 with structure_ok=True):\n")
+                shown = 0
+                for bar in batch_results:
+                    if bar['structure_ok'] and shown < 5:
+                        s = bar['state']
+                        f.write(f"  Bar {bar['bar_idx']}: zone={s.lagrange_zone} "
+                                f"z={s.z_score:.2f} vel={s.particle_velocity:.2f} "
+                                f"cascade={s.cascade_detected} struct={s.structure_confirmed} "
+                                f"prob={bar['prob']:.2f} conf={bar['conf']:.2f}\n")
+                        shown += 1
+                if shown == 0:
+                    f.write("  (NONE — all bars filtered out)\n")
+                    # Show why: sample 5 bars in ROCHE zones
+                    f.write(f"\n  DIAGNOSTIC — Sample ROCHE zone bars:\n")
+                    shown2 = 0
+                    for bar in batch_results:
+                        s = bar['state']
+                        if s.lagrange_zone in ('L2_ROCHE', 'L3_ROCHE') and shown2 < 5:
+                            f.write(f"    Bar {bar['bar_idx']}: z={s.z_score:.2f} "
+                                    f"vel={s.particle_velocity:.2f} "
+                                    f"cascade={s.cascade_detected} struct={s.structure_confirmed} "
+                                    f"vol_spike={s.structure_confirmed} maturity={s.pattern_maturity:.2f}\n")
+                            shown2 += 1
+                    if shown2 == 0:
+                        f.write("    (No bars in ROCHE zones either)\n")
 
         # Store prices/timestamps as arrays for fast trade sim
         self._day_prices = prices
         self._day_timestamps = timestamps
 
         return batch_results
+
+    def _resample_to_15s(self, day_data: pd.DataFrame):
+        """
+        Resample 1s OHLCV bars to 15s bars for state computation.
+
+        Returns:
+            resampled_df: DataFrame with timestamp, close, price, volume columns
+            idx_map: numpy array where idx_map[i] = last 1s index in 15s bar i
+        """
+        df = day_data.copy()
+
+        # Ensure timestamp is datetime for resampling
+        if 'timestamp' in df.columns:
+            if not pd.api.types.is_datetime64_any_dtype(df['timestamp']):
+                df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
+
+        # Track original 1s indices
+        df['_1s_idx'] = np.arange(len(df))
+
+        df = df.set_index('timestamp')
+
+        # Build aggregation dict
+        agg_dict = {'_1s_idx': 'last'}
+
+        if 'close' in df.columns:
+            agg_dict['close'] = 'last'
+        if 'price' in df.columns:
+            agg_dict['price'] = 'last'
+        if 'volume' in df.columns:
+            agg_dict['volume'] = 'sum'
+        if 'open' in df.columns:
+            agg_dict['open'] = 'first'
+        if 'high' in df.columns:
+            agg_dict['high'] = 'max'
+        if 'low' in df.columns:
+            agg_dict['low'] = 'min'
+
+        # If no close but price exists, derive it
+        if 'close' not in df.columns and 'price' in df.columns:
+            df['close'] = df['price']
+            agg_dict['close'] = 'last'
+
+        resampled = df.resample('15s').agg(agg_dict).dropna(subset=['close'] if 'close' in agg_dict else ['price'])
+
+        # Extract index mapping
+        idx_map = resampled['_1s_idx'].values.astype(int)
+
+        # Reset index: timestamp back as column
+        resampled = resampled.reset_index()
+
+        # Ensure price column exists
+        if 'price' not in resampled.columns:
+            resampled['price'] = resampled['close']
+
+        # Drop helper column
+        resampled = resampled.drop(columns=['_1s_idx'], errors='ignore')
+
+        return resampled, idx_map
+
+    def _get_or_create_aggregated_data(self, data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Pre-aggregate full 1s dataset to 15s bars once. Caches to parquet for reuse.
+        """
+        # Derive cache path from source data path
+        source_path = getattr(self.config, 'data', None)
+        if source_path:
+            base = os.path.splitext(source_path)[0]
+            cache_path = f"{base}_15s.parquet"
+        else:
+            cache_path = os.path.join(self.checkpoint_dir, "aggregated_15s.parquet")
+
+        # Check cache
+        if os.path.exists(cache_path):
+            print(f"Loading cached 15s data from {cache_path}...")
+            data_15s = pd.read_parquet(cache_path)
+            print(f"  {len(data_15s):,} 15s bars loaded (from {len(data):,} 1s bars)")
+            return data_15s
+
+        # Resample full dataset
+        print(f"Aggregating {len(data):,} 1s bars to 15s (one-time)...", end='', flush=True)
+        start = time.time()
+
+        df = data.copy()
+
+        # Ensure timestamp is datetime for resampling
+        if 'timestamp' in df.columns:
+            if not pd.api.types.is_datetime64_any_dtype(df['timestamp']):
+                df['timestamp'] = pd.to_datetime(pd.to_numeric(df['timestamp']), unit='s')
+            df = df.set_index('timestamp')
+
+        # Build aggregation dict
+        agg_dict = {}
+        if 'close' in df.columns:
+            agg_dict['close'] = 'last'
+        if 'price' in df.columns:
+            agg_dict['price'] = 'last'
+        if 'volume' in df.columns:
+            agg_dict['volume'] = 'sum'
+        if 'open' in df.columns:
+            agg_dict['open'] = 'first'
+        if 'high' in df.columns:
+            agg_dict['high'] = 'max'
+        if 'low' in df.columns:
+            agg_dict['low'] = 'min'
+
+        # Derive close from price if needed
+        if 'close' not in df.columns and 'price' in df.columns:
+            df['close'] = df['price']
+            agg_dict['close'] = 'last'
+
+        dropna_col = 'close' if 'close' in agg_dict else 'price'
+        resampled = df.resample('15s').agg(agg_dict).dropna(subset=[dropna_col])
+
+        # Reset index: timestamp back as column
+        resampled = resampled.reset_index()
+
+        # Ensure price column exists
+        if 'price' not in resampled.columns and 'close' in resampled.columns:
+            resampled['price'] = resampled['close']
+
+        elapsed = time.time() - start
+        print(f" done ({elapsed:.1f}s) -> {len(resampled):,} bars")
+
+        # Save cache
+        try:
+            os.makedirs(os.path.dirname(cache_path) or '.', exist_ok=True)
+            resampled.to_parquet(cache_path, index=False)
+            print(f"  Cached to {cache_path}")
+        except Exception as e:
+            print(f"  WARNING: Could not cache: {e}")
+
+        return resampled
+
+    def _build_15s_to_1s_index_map(self, data_15s: pd.DataFrame, data_1s: pd.DataFrame) -> np.ndarray:
+        """
+        Map each 15s bar index to the corresponding last 1s bar index.
+        Uses np.searchsorted on timestamps.
+        """
+        ts_15s = data_15s['timestamp'].values
+        ts_1s = data_1s['timestamp'].values
+
+        # Convert to int64 nanoseconds for searchsorted comparison
+        if pd.api.types.is_datetime64_any_dtype(ts_15s):
+            ts_15s_num = ts_15s.astype('int64')
+        else:
+            ts_15s_num = pd.to_numeric(pd.Series(ts_15s)).values.astype('int64')
+
+        if pd.api.types.is_datetime64_any_dtype(ts_1s):
+            ts_1s_num = ts_1s.astype('int64')
+        else:
+            ts_1s_num = pd.to_numeric(pd.Series(ts_1s)).values.astype('int64')
+
+        # searchsorted 'right' gives the first 1s index AFTER the 15s timestamp
+        # subtract 1 to get the last 1s bar AT or BEFORE the 15s bar
+        indices = np.searchsorted(ts_1s_num, ts_15s_num, side='right') - 1
+
+        # Clamp to valid range
+        indices = np.clip(indices, 0, len(ts_1s) - 1)
+
+        return indices.astype(int)
 
     def _simulate_from_precomputed(self, precomputed: list, day_data: pd.DataFrame,
                                     params: Dict[str, Any], pbar=None, best_sharpe: float = -999.0) -> List[TradeOutcome]:
@@ -366,7 +642,8 @@ class BayesianTrainingOrchestrator:
 
         return trades
 
-    def optimize_day(self, day_number: int, date: str, day_data: pd.DataFrame) -> DayResults:
+    def optimize_day(self, day_number: int, date: str, day_data: pd.DataFrame,
+                     day_data_15s: pd.DataFrame = None) -> DayResults:
         """
         Run DOE optimization for single day.
         Routes to GPU-parallel path when CUDA available, CPU sequential otherwise.
@@ -375,7 +652,7 @@ class BayesianTrainingOrchestrator:
         self.todays_trades = []
 
         # === PRE-COMPUTE ALL STATES ONCE ===
-        precomputed = self._precompute_day_states(day_data)
+        precomputed = self._precompute_day_states(day_data, day_data_15s=day_data_15s)
 
         if not precomputed:
             return DayResults(
@@ -412,6 +689,7 @@ class BayesianTrainingOrchestrator:
         best_sharpe = all_results[best_idx]['sharpe']
         best_params = all_param_sets[best_idx]
         best_trades = all_results[best_idx]['trades']
+        self._best_trades_today = best_trades
 
         # Collect all trades for regret analysis
         for r in all_results:
@@ -916,8 +1194,10 @@ class BayesianTrainingOrchestrator:
         """Launch dashboard in background thread"""
         def run_dashboard():
             try:
-                self.dashboard = LiveDashboard()
-                self.dashboard.launch()
+                import tkinter as tk
+                root = tk.Tk()
+                self.dashboard = LiveDashboard(root)
+                root.mainloop()
             except Exception as e:
                 print(f"WARNING: Dashboard failed to launch: {e}")
 
@@ -925,6 +1205,102 @@ class BayesianTrainingOrchestrator:
         self.dashboard_thread.start()
         print("Dashboard launching in background...")
         time.sleep(2)  # Give it time to initialize
+
+    def _write_dashboard_json(self, day_metrics, day_result: DayResults, total_days: int):
+        """Write training_progress.json for the LiveDashboard to poll."""
+        import json as _json
+
+        json_path = os.path.join(os.path.dirname(__file__), 'training_progress.json')
+
+        # Build CUMULATIVE best-iteration trades (not all iterations!)
+        trades_data = []
+        for t in self._cumulative_best_trades:
+            trades_data.append({
+                'pnl': t.pnl,
+                'result': t.result,
+                'entry_price': t.entry_price,
+                'exit_price': t.exit_price,
+                'exit_reason': t.exit_reason,
+                'duration': t.duration,
+                'timestamp': t.timestamp,
+            })
+
+        # Compute cumulative stats from best trades only
+        all_pnls = [t.pnl for t in self._cumulative_best_trades]
+        total_pnl = sum(all_pnls)
+        total_trades = len(all_pnls)
+        total_wins = sum(1 for t in self._cumulative_best_trades if t.result == 'WIN')
+        cum_win_rate = (total_wins / total_trades * 100) if total_trades > 0 else 0.0
+        cum_sharpe = (np.mean(all_pnls) / (np.std(all_pnls) + 1e-6)) if total_trades >= 2 else 0.0
+        avg_duration = np.mean([t.duration for t in self._cumulative_best_trades]) if total_trades > 0 else 0.0
+
+        # Max drawdown
+        cum_pnl = np.cumsum(all_pnls) if all_pnls else np.array([0.0])
+        peak = np.maximum.accumulate(cum_pnl)
+        drawdown = peak - cum_pnl
+        max_drawdown = float(np.max(drawdown)) if len(drawdown) > 0 else 0.0
+
+        # Per-day summary
+        day_summaries = []
+        for dr in self.day_results:
+            day_summaries.append({
+                'day': dr.day_number,
+                'date': dr.date,
+                'trades': dr.total_trades,
+                'win_rate': dr.best_win_rate,
+                'pnl': dr.best_pnl,
+                'sharpe': dr.best_sharpe,
+            })
+        # Current day (not yet appended to self.day_results)
+        day_summaries.append({
+            'day': day_result.day_number,
+            'date': day_result.date,
+            'trades': day_result.total_trades,
+            'win_rate': day_result.best_win_rate,
+            'pnl': day_result.best_pnl,
+            'sharpe': day_result.best_sharpe,
+        })
+
+        # Best params for display
+        best_params_display = {}
+        if day_result.best_params:
+            best_params_display = {
+                'TP': f"{day_result.best_params.get('take_profit_ticks', 0) * 0.25:.1f} pts",
+                'SL': f"{day_result.best_params.get('stop_loss_ticks', 0) * 0.25:.1f} pts",
+                'Threshold': f"{day_result.best_params.get('confidence_threshold', 0):.2f}",
+                'MaxHold': f"{day_result.best_params.get('max_hold_seconds', 0)}s",
+            }
+
+        elapsed = time.time() - self.progress_reporter.start_time
+
+        payload = {
+            'iteration': day_result.day_number,
+            'total_iterations': total_days,
+            'elapsed_seconds': elapsed,
+            'current_date': day_result.date,
+            'states_learned': day_result.states_learned,
+            'high_confidence_states': day_result.high_confidence_states,
+            'trades': trades_data,
+            'total_trades': total_trades,
+            'total_pnl': total_pnl,
+            'cumulative_win_rate': cum_win_rate,
+            'cumulative_sharpe': cum_sharpe,
+            'avg_duration': avg_duration,
+            'max_drawdown': max_drawdown,
+            'best_params': best_params_display,
+            'day_summaries': day_summaries,
+            # Today's best iteration stats
+            'today_trades': day_result.total_trades,
+            'today_pnl': day_result.best_pnl,
+            'today_win_rate': day_result.best_win_rate,
+            'today_sharpe': day_result.best_sharpe,
+        }
+
+        try:
+            with open(json_path, 'w') as f:
+                _json.dump(payload, f, default=str)
+        except Exception:
+            pass  # Non-critical
 
     def save_checkpoint(self, day_number: int, date: str, day_result: DayResults):
         """Save brain and parameters to checkpoint"""
@@ -947,12 +1323,29 @@ class BayesianTrainingOrchestrator:
         """Print comprehensive final summary"""
         self.progress_reporter.print_final_summary()
 
-        # Pattern analysis report
+        # Pattern analysis report (original — may show nothing if min_samples too high)
         pattern_report = self.pattern_analyzer.generate_pattern_report(
             self.brain,
             self.day_results
         )
         print(pattern_report)
+
+        # Comprehensive pattern report (coarse-bin analysis — always shows data)
+        comprehensive_report = self.pattern_analyzer.generate_comprehensive_report(
+            self.brain,
+            self.day_results,
+            self._cumulative_best_trades
+        )
+        print(comprehensive_report)
+
+        # Save comprehensive report to file
+        report_path = os.path.join(PROJECT_ROOT, 'training_pattern_report.txt')
+        try:
+            with open(report_path, 'w', encoding='utf-8') as f:
+                f.write(comprehensive_report)
+            print(f"\nPattern report saved to: {report_path}")
+        except Exception as e:
+            print(f"WARNING: Could not save pattern report: {e}")
 
         # Save progress log
         log_path = os.path.join(self.checkpoint_dir, "training_log.json")
