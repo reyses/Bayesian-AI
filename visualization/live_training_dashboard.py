@@ -59,8 +59,8 @@ class Tooltip:
         tw.wm_overrideredirect(True)
         tw.wm_geometry("+%d+%d" % (x, y))
         label = tk.Label(tw, text=self.text, justify='left',
-                       background="#ffffe0", relief='solid', borderwidth=1,
-                       font=("tahoma", "8", "normal"))
+                       background="#333333", foreground="#ffffff", relief='solid', borderwidth=1,
+                       font=("Arial", "9", "normal"))
         label.pack(ipadx=1)
 
     def hidetip(self):
@@ -193,19 +193,19 @@ class LiveDashboard:
         btn_frame = ttk.Frame(self.frame_controls)
         btn_frame.pack(fill='x', pady=5)
         
-        self.btn_pause = ttk.Button(btn_frame, text="Pause", command=self.pause_training)
+        self.btn_pause = ttk.Button(btn_frame, text="⏸️ Pause", command=self.pause_training)
         self.btn_pause.pack(side="left", padx=5)
         Tooltip(self.btn_pause, "Pause training by creating a PAUSE signal file")
 
-        self.btn_resume = ttk.Button(btn_frame, text="Resume", command=self.resume_training)
+        self.btn_resume = ttk.Button(btn_frame, text="▶️ Resume", command=self.resume_training)
         self.btn_resume.pack(side="left", padx=5)
         Tooltip(self.btn_resume, "Resume training by removing the PAUSE signal file")
 
-        self.btn_stop = ttk.Button(btn_frame, text="Stop", command=self.stop_training)
+        self.btn_stop = ttk.Button(btn_frame, text="🛑 Stop", command=self.stop_training)
         self.btn_stop.pack(side="left", padx=5)
         Tooltip(self.btn_stop, "Stop training gracefully by creating a STOP signal file")
 
-        self.btn_export = ttk.Button(btn_frame, text="Export PNG", command=self.export_chart)
+        self.btn_export = ttk.Button(btn_frame, text="📸 Export PNG", command=self.export_chart)
         self.btn_export.pack(side="left", padx=5)
         Tooltip(self.btn_export, "Save the current chart as a PNG image")
         
