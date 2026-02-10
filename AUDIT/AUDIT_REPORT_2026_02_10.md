@@ -26,7 +26,7 @@ Crucially, the `training/orchestrator.py` script—the primary entry point for t
 *   `tests/verify_phase1_fixes.py`: **PASSES**. Validates fixes to `StateVector` equality and `LayerEngine` logic.
 
 ### 2.3 Dependency Management
-*   `requirements.txt` previously contained a `torch` installation line with `--index-url`, which caused disk space issues in CI environments by downloading massive CUDA libraries. This has been updated to use the standard `torch` package from PyPI.
+*   `requirements.txt` has been updated to use `torch==2.2.2+cpu` with `--extra-index-url https://download.pytorch.org/whl/cpu`. This forces the use of the CPU-only version of PyTorch (~187MB) instead of the standard CUDA-bundled version (~900MB + 3GB+ of dependencies). This change is crucial to prevent "No space left on device" errors in GitHub Actions CI environments.
 *   `numba-cuda` was removed to rely on `numba`'s standard CUDA support or CPU fallback, reducing dependency bloat.
 
 ## 3. Recommendations
