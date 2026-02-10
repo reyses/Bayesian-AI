@@ -226,7 +226,7 @@ class QuantumFieldEngine:
         pattern_maturity = min((abs(z_score) - 2.0) / 1.0, 1.0) if abs(z_score) > 2.0 else 0.0
         structure_confirmed = volume_spike and pattern_maturity > 0.5
         
-        cascade_threshold = 10.0
+        cascade_threshold = 1.0  # 1 point = 4 ticks (significant 1-second move)
         cascade_detected = abs(velocity) > cascade_threshold
         
         current_candle = df_micro.iloc[-1]
@@ -358,8 +358,14 @@ class QuantumFieldEngine:
         F_upper_repulsion = np.where(z_scores > 0, F_upper_raw, 0.0)
         F_lower_repulsion = np.where(z_scores < 0, F_lower_raw, 0.0)
 
-        # Momentum (velocity=0 in training, but keep correct)
-        F_momentum = np.zeros(num_bars)  # tick_velocity=0 in precompute
+        # Tick velocity: price change between consecutive bars
+        tick_velocity = np.zeros(num_bars)
+        tick_velocity[1:] = bar_prices[1:] - bar_prices[:-1]
+
+        # Momentum: |velocity| * volume / sigma (matches per-bar _calculate_force_fields)
+        safe_velocity = np.nan_to_num(tick_velocity)
+        safe_volumes = np.nan_to_num(bar_volumes)
+        F_momentum = np.abs(safe_velocity) * safe_volumes / (sigmas + 1e-6)
 
         F_net = np.where(
             z_scores > 0,
@@ -432,7 +438,8 @@ class QuantumFieldEngine:
             0.0
         )
         structure_confirmed = volume_spike & (pattern_maturity > 0.5)
-        cascade_detected = np.full(num_bars, False)  # tick_velocity=0 < 10
+        # Cascade threshold: 1.0 point = 4 ticks for 1s bars (significant 1-second move)
+        cascade_detected = np.abs(tick_velocity) > 1.0
 
         # Spin inversion
         if 'open' in day_data.columns:
@@ -491,7 +498,7 @@ class QuantumFieldEngine:
                 event_horizon_upper=upper_event[i],
                 event_horizon_lower=lower_event[i],
                 particle_position=bar_prices[i],
-                particle_velocity=0.0,
+                particle_velocity=tick_velocity[i],
                 z_score=z_scores[i],
                 F_reversion=F_reversion[i],
                 F_upper_repulsion=F_upper_repulsion[i],
