@@ -33,6 +33,7 @@ class TradeOutcome:
     entry_time: float = 0.0
     exit_time: float = 0.0
     duration: float = 0.0
+    direction: str = 'LONG'  # 'LONG' or 'SHORT'
 
 class BayesianBrain:
     """

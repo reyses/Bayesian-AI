@@ -87,29 +87,44 @@ class ThreeBodyQuantumState:
     timestamp: float = 0.0
     timeframe_macro: str = '15m'
     timeframe_micro: str = '15s'
-    
+
+    # ═══ MACRO TREND (from 15m timeframe) ═══
+    trend_direction_15m: str = 'UNKNOWN'  # UP | DOWN | RANGE | UNKNOWN
+
     def _get_hash_bins(self):
         """Helper to get standardized bins for hash/eq, handling NaNs"""
         z_val = self.z_score if not np.isnan(self.z_score) else 0.0
         mom_val = self.momentum_strength if not np.isnan(self.momentum_strength) else 0.0
 
+        # Z-score bin: 0.5 steps (unchanged — already coarse enough)
         z_bin = int(z_val * 2) / 2
-        momentum_bin = int(mom_val * 10) / 10
-        return z_bin, momentum_bin
+
+        # Momentum: categorical bins instead of fine-grained 0.1 steps
+        # This reduces ~80,000 unique states to ~180 manageable buckets
+        abs_mom = abs(mom_val)
+        if abs_mom < 0.5:
+            momentum_cat = 'LOW'
+        elif abs_mom < 2.0:
+            momentum_cat = 'MED'
+        else:
+            momentum_cat = 'HIGH'
+
+        return z_bin, momentum_cat
 
     def __hash__(self):
         """Hash for Bayesian table lookups"""
-        z_bin, momentum_bin = self._get_hash_bins()
-        
+        z_bin, momentum_cat = self._get_hash_bins()
+
         return hash((
             z_bin,
-            momentum_bin,
+            momentum_cat,
             self.lagrange_zone,
             self.structure_confirmed,
             self.cascade_detected,
-            self.spin_inverted
+            self.spin_inverted,
+            self.trend_direction_15m
         ))
-        
+
     def __eq__(self, other):
         """
         Equality check for Bayesian table lookups.
@@ -117,17 +132,18 @@ class ThreeBodyQuantumState:
         """
         if not isinstance(other, ThreeBodyQuantumState):
             return False
-            
-        z_bin, mom_bin = self._get_hash_bins()
-        other_z_bin, other_mom_bin = other._get_hash_bins()
-        
+
+        z_bin, mom_cat = self._get_hash_bins()
+        other_z_bin, other_mom_cat = other._get_hash_bins()
+
         return (
             z_bin == other_z_bin and
-            mom_bin == other_mom_bin and
+            mom_cat == other_mom_cat and
             self.lagrange_zone == other.lagrange_zone and
             self.structure_confirmed == other.structure_confirmed and
             self.cascade_detected == other.cascade_detected and
-            self.spin_inverted == other.spin_inverted
+            self.spin_inverted == other.spin_inverted and
+            self.trend_direction_15m == other.trend_direction_15m
         )
     
     def get_trade_directive(self) -> dict:
