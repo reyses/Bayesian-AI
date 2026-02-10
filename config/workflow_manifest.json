@@ -19,13 +19,13 @@
       "execution/wave_rider.py"
     ],
     "VISUALIZE": [
-      "core/engine_core.py"
+      "core/quantum_field_engine.py"
     ],
     "MAINTENANCE": [
-      "scripts/generate_status_report.py",
-      "scripts/manifest_integrity_check.py",
-      "scripts/verify_environment.py",
-      "scripts/build_executable.py"
+      "archive/old_scripts/generate_status_report.py",
+      "archive/old_scripts/manifest_integrity_check.py",
+      "archive/old_scripts/verify_environment.py",
+      "archive/old_scripts/build_executable.py"
     ]
   },
   "layers": {
