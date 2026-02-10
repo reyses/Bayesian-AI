@@ -55,9 +55,6 @@ jobs:
         # Ensure dev dependencies are present
         pip install --no-cache-dir pytest pandas numpy numba
 
-    - name: Setup Real Test Data
-      run: python scripts/setup_test_data.py
-
     # --- CORE TESTING (from ci.yml) ---
     - name: Integrity Test
       run: python tests/topic_build.py
@@ -80,18 +77,9 @@ jobs:
       run: python cuda_modules/hardened_verification.py
       continue-on-error: true
 
-    - name: Run Sentinel Bridge
-      run: python scripts/sentinel_bridge.py
-
     # --- TRAINING VALIDATION & STATUS REPORT (from status-report.yml) ---
     - name: Run Training Validation
       run: python -m pytest tests/test_training_validation.py
-
-    - name: Generate CURRENT_STATUS.md
-      run: |
-        python3 scripts/generate_status_report.py
-        # Optional: output content to logs for debugging
-        # cat CURRENT_STATUS.md
 
     - name: Commit and Push Report
       run: |
@@ -110,15 +98,16 @@ jobs:
       continue-on-error: true
 
     # --- BUILD & ARTIFACTS (from ci.yml & jules_feedback_loop.yml) ---
-    - name: Build Executable
-      run: python scripts/build_executable.py
-
-    - name: Archive Executable
-      uses: actions/upload-artifact@v4
-      with:
-        name: Bayesian_AI_Engine
-        path: dist/Bayesian_AI_Engine
-      continue-on-error: true
+    # Scripts have been archived, skipping build for now until new build process is defined.
+    # - name: Build Executable
+    #   run: python scripts/build_executable.py
+    #
+    # - name: Archive Executable
+    #   uses: actions/upload-artifact@v4
+    #   with:
+    #     name: Bayesian_AI_Engine
+    #     path: dist/Bayesian_AI_Engine
+    #   continue-on-error: true
 
     - name: Manage Log Size
       run: |
