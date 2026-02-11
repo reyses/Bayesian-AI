@@ -928,8 +928,6 @@ class BayesianTrainingOrchestrator:
             device=device, dtype=torch.float64
         )
 
-        max_lookahead = 200
-
         # === CORE GPU KERNEL: simulate all trades in parallel ===
         # For each candidate × each iteration: compute trade result
         # Result tensors: [n_candidates, n_iters]
@@ -1262,7 +1260,6 @@ class BayesianTrainingOrchestrator:
         dir_sign = -1.0 if direction == 'SHORT' else 1.0
 
         # Look ahead
-        max_lookahead = 200
         max_lookahead = int(max_hold + 100)
         end_idx = min(len(data), current_idx + max_lookahead)
         future_data = data.iloc[current_idx+1:end_idx]
