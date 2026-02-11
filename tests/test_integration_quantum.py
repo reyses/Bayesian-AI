@@ -7,7 +7,6 @@ import os
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
-from dataclasses import replace
 
 # Add parent directory to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -66,6 +65,7 @@ def test_quantum_brain():
 
     # Create test state
     state = ThreeBodyQuantumState.null_state()
+    from dataclasses import replace
     state = replace(state,
         z_score=3.0,
         lagrange_zone='L2_ROCHE',
@@ -184,7 +184,7 @@ def test_full_quantum_integration():
             outcome = TradeOutcome(
                 state=state,
                 entry_price=entry_price,
-                exit_price=entry_price + (pnl / 2.0 if directive['action'] == 'BUY' else -pnl / 2.0), # Approximate
+                exit_price=entry_price + (pnl/2.0), # Approximate
                 pnl=pnl,
                 result='WIN' if pnl > 0 else 'LOSS',
                 timestamp=state.timestamp,

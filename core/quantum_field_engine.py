@@ -8,6 +8,16 @@ import pandas as pd
 from scipy.stats import linregress
 from core.three_body_state import ThreeBodyQuantumState
 
+# Pattern Constants
+PATTERN_NONE = 'NONE'
+PATTERN_COMPRESSION = 'COMPRESSION'
+PATTERN_WEDGE = 'WEDGE'
+PATTERN_BREAKDOWN = 'BREAKDOWN'
+
+# Cascade Constants
+VELOCITY_CASCADE_THRESHOLD = 1.0  # Points per second
+RANGE_CASCADE_THRESHOLD = 10.0    # Points range in candle
+
 # Optional CUDA support
 try:
     import torch
@@ -159,6 +169,7 @@ class QuantumFieldEngine:
             tunnel_probability=tunnel_prob,
             escape_probability=escape_prob,
             barrier_height=barrier,
+            pattern_type=measurements['pattern_type'],
             timestamp=df_macro.index[-1].timestamp() if hasattr(df_macro.index[-1], 'timestamp') else 0.0
         )
     
@@ -251,7 +262,8 @@ class QuantumFieldEngine:
                 'structure_confirmed': False,
                 'cascade_detected': False,
                 'spin_inverted': False,
-                'pattern_maturity': 0.0
+                'pattern_maturity': 0.0,
+                'pattern_type': PATTERN_NONE
             }
         
         recent = df_micro.iloc[-20:]
@@ -259,10 +271,16 @@ class QuantumFieldEngine:
         pattern_maturity = min((abs(z_score) - 2.0) / 1.0, 1.0) if abs(z_score) > 2.0 else 0.0
         structure_confirmed = volume_spike and pattern_maturity > 0.5
         
-        cascade_threshold = 1.0  # 1 point = 4 ticks (significant 1-second move)
-        cascade_detected = abs(velocity) > cascade_threshold
+        # Cascade Logic: Velocity OR Range
+        velocity_cascade = abs(velocity) > VELOCITY_CASCADE_THRESHOLD
         
         current_candle = df_micro.iloc[-1]
+        high = current_candle.get('high', current_candle['close'])
+        low = current_candle.get('low', current_candle['close'])
+        range_cascade = (high - low) > RANGE_CASCADE_THRESHOLD
+
+        cascade_detected = velocity_cascade or range_cascade
+
         # Use open price if available, otherwise fallback to close
         open_price = current_candle.get('open', current_candle['close'])
 
@@ -273,11 +291,24 @@ class QuantumFieldEngine:
         else:
             spin_inverted = False
         
+        # Geometric Pattern Detection
+        highs = df_micro['high'].values if 'high' in df_micro.columns else df_micro['close'].values
+        lows = df_micro['low'].values if 'low' in df_micro.columns else df_micro['close'].values
+
+        # We need to detect pattern for the LAST bar.
+        # _detect_geometric_patterns returns array for all bars.
+        # We can optimize by passing only last 20 bars.
+        check_highs = highs[-20:]
+        check_lows = lows[-20:]
+        patterns = self._detect_geometric_patterns(check_highs, check_lows)
+        pattern_type = patterns[-1]
+
         return {
             'structure_confirmed': structure_confirmed,
             'cascade_detected': cascade_detected,
             'spin_inverted': spin_inverted,
-            'pattern_maturity': pattern_maturity
+            'pattern_maturity': pattern_maturity,
+            'pattern_type': pattern_type
         }
     
     def _calculate_tunneling(self, z_score, F_momentum, F_reversion):
@@ -315,6 +346,51 @@ class QuantumFieldEngine:
             return 'L3_ROCHE', 0.1
         else:
             return 'UNKNOWN', 0.0
+
+    def _detect_geometric_patterns(self, highs: np.ndarray, lows: np.ndarray) -> np.ndarray:
+        """
+        Vectorized geometric pattern detection (Compression, Wedge, Breakdown)
+        Returns array of pattern strings.
+        Uses pandas rolling windows for efficiency and correct boundary handling.
+        """
+        n = len(highs)
+        patterns = np.full(n, PATTERN_NONE, dtype=object)
+
+        if n < 10:
+            return patterns
+
+        # Convert to pandas Series for efficient rolling operations
+        highs_s = pd.Series(highs)
+        lows_s = pd.Series(lows)
+
+        # Recent 5 bars range (window=5)
+        rec_range = highs_s.rolling(5).max() - lows_s.rolling(5).min()
+
+        # Previous 5 bars range (shifted by 5)
+        prev_range = rec_range.shift(5)
+
+        # Compression (Priority 1)
+        # Compare ranges. Pandas handles NaNs (result is False), so no mask needed.
+        compression_mask = (prev_range > 0) & (rec_range < prev_range * 0.7)
+        # Fill patterns where mask is True. Use .to_numpy() to align with array.
+        # fillna(False) ensures we don't have boolean ambiguity with NaNs
+        patterns[compression_mask.fillna(False).to_numpy()] = PATTERN_COMPRESSION
+
+        # Wedge (Higher Lows AND Lower Highs) over 5 bars (Priority 2)
+        # Compare current vs 4 bars ago
+        wedge_mask = (lows > lows_s.shift(4)) & (highs < highs_s.shift(4))
+        patterns[wedge_mask.fillna(False).to_numpy()] = PATTERN_WEDGE
+
+        # Breakdown (Low < min of previous 4 lows) (Priority 3)
+        # Previous 4 lows: shift 1, then rolling min 4
+        prev_4_min = lows_s.shift(1).rolling(4).min()
+        breakdown_mask = lows < prev_4_min
+        patterns[breakdown_mask.fillna(False).to_numpy()] = PATTERN_BREAKDOWN
+
+        # Clear first 9 bars explicitly (warmup period for rolling windows)
+        patterns[:9] = PATTERN_NONE
+
+        return patterns
 
     # ═══════════════════════════════════════════════════════════════════════
     # VECTORIZED BATCH COMPUTATION (processes all bars at once)
@@ -415,6 +491,23 @@ class QuantumFieldEngine:
         bar_prices = prices[rp:]
         bar_volumes = volumes[rp:]
 
+        # Extract highs/lows for pattern detection and cascade
+        if 'high' in day_data.columns and 'low' in day_data.columns:
+            highs_full = day_data['high'].values.astype(np.float64)
+            lows_full = day_data['low'].values.astype(np.float64)
+        else:
+            highs_full = prices.copy()
+            lows_full = prices.copy()
+
+        # Compute patterns for the whole dataset first
+        pattern_types_full = self._detect_geometric_patterns(highs_full, lows_full)
+        # Slice to matched bars
+        pattern_types = pattern_types_full[rp:]
+
+        # Slice highs/lows to matched bars for cascade check
+        bar_highs = highs_full[rp:]
+        bar_lows = lows_full[rp:]
+
         # ═══ STEP 2: Vectorized z-scores & force fields ═══
         z_scores = (bar_prices - centers) / sigmas
 
@@ -512,8 +605,11 @@ class QuantumFieldEngine:
             0.0
         )
         structure_confirmed = volume_spike & (pattern_maturity > 0.5)
-        # Cascade threshold: 1.0 point = 4 ticks for 1s bars (significant 1-second move)
-        cascade_detected = np.abs(tick_velocity) > 1.0
+
+        # Cascade Logic: Velocity OR Range
+        velocity_cascade = np.abs(tick_velocity) > VELOCITY_CASCADE_THRESHOLD
+        range_cascade = (bar_highs - bar_lows) > RANGE_CASCADE_THRESHOLD
+        cascade_detected = velocity_cascade | range_cascade
 
         # Spin inversion
         if 'open' in day_data.columns:
@@ -597,6 +693,7 @@ class QuantumFieldEngine:
                 tunnel_probability=tunnel_prob[i],
                 escape_probability=escape_prob[i],
                 barrier_height=barrier[i],
+                pattern_type=str(pattern_types[i]),
                 trend_direction_15m=str(trend_directions[i]),
             )
             results.append({
