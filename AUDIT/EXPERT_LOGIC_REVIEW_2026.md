@@ -2,7 +2,7 @@
 
 **Date:** 2026-02-12
 **Target:** Full Codebase Review (`core/`, `cuda_modules/`, `training/`)
-**Reviewers:** Expert Panel (Statistician, Market Analyst, Astrophysicist, Quantum Physicist)
+**Reviewers:** Expert Panel (Statistician, Market Analyst, Astrophysicist, Quantum Physicist, Probabilist, CUDA AI Expert)
 
 ---
 
@@ -99,13 +99,77 @@
 
 ---
 
-## 5. Summary of Recommendations for Improvement
+## 5. Probabilist Review
+**Focus:** Uncertainty Quantification, Epistemic vs. Aleatory Risk
+
+### Critical Findings
+
+1.  **Conflation of Uncertainties**:
+    *   **Location:** `core/bayesian_brain.py`
+    *   **Issue:** The system generates a single "Probability" scalar.
+    *   **Reality:** It fails to distinguish between **Aleatory Uncertainty** (randomness inherent to the market, e.g., liquidity noise) and **Epistemic Uncertainty** (lack of knowledge due to limited samples). A state with 1 win / 1 total has 100% win rate but massive epistemic uncertainty. A state with 500 wins / 1000 total has 50% win rate but low epistemic uncertainty.
+    *   **Recommendation:** The system should output a *distribution* of probabilities (Beta distribution), not a point estimate. Trading sizing should be inversely proportional to the variance of this distribution.
+
+2.  **Lack of Prior Distribution**:
+    *   **Location:** `core/bayesian_brain.py`
+    *   **Issue:** The `defaultdict` initialization essentially uses a flat prior (or rather, a "counter" starting at zero).
+    *   **Reality:** A true Bayesian approach requires a Prior. "No prior" is actually a Uniform Prior, which is often too optimistic for trading (implies 50/50 chance of profit by default).
+    *   **Recommendation:** Use a **Pessimistic Prior** (e.g., Beta(1, 10)) to model the base rate of trading strategies (most fail). The system should "prove" it works before risking capital, rather than assuming neutrality.
+
+3.  **Gambler's Ruin / Ergodicity**:
+    *   **Location:** `training/orchestrator.py`
+    *   **Issue:** The simulation optimizes for "Sharpe" or "PnL" using arithmetic summation.
+    *   **Reality:** Markets are non-ergodic. A strategy with positive expected value can still ruin the gambler if bet sizing is too aggressive during a streak of losses (which are guaranteed by the Independence Assumption critique above).
+    *   **Recommendation:** Optimize for **Geometric Growth Rate** (Kelly Criterion) rather than arithmetic PnL to ensure long-term survival.
+
+---
+
+## 6. CUDA AI Expert Review
+**Focus:** High-Performance Computing, Kernel Efficiency, Hardware Utilization
+
+### Critical Findings
+
+1.  **Fragility of "Strict GPU" Policy**:
+    *   **Location:** `cuda_modules/velocity_gate.py`, `cuda_modules/pattern_detector.py`
+    *   **Issue:** Modules raise `RuntimeError` if CUDA is unavailable.
+    *   **Reality:** This creates a single point of failure. CI environments (like GitHub Actions) often lack GPUs, causing build failures or requiring complex mocking. It also prevents deployment on CPU-only inference nodes.
+    *   **Recommendation:** Implement transparent **CPU Fallbacks** using `numpy` or `scipy`. Numba's `@jit(nopython=True)` can often provide "good enough" performance for CPU fallbacks without rewriting logic.
+
+2.  **PCIe Bottleneck (Host-to-Device Transfer)**:
+    *   **Location:** `core/layer_engine.py` -> `compute_current_state`
+    *   **Issue:** The system appears to transfer small data chunks (windows of ticks/bars) to the GPU frequently (e.g., every few seconds for `velocity_gate`).
+    *   **Reality:** The latency of transferring data across the PCIe bus (~15-50µs) often exceeds the compute time for small arrays (<1000 elements). GPU acceleration is only beneficial when compute intensity outweighs transfer latency (high arithmetic intensity).
+    *   **Recommendation:**
+        *   **Batching:** Accumulate state updates and process them in larger batches if possible.
+        *   **Zero-Copy:** Use Unified Memory or pinned memory (`cuda.pinned_array`) to reduce transfer overhead.
+        *   **Benchmark:** Verify if CPU `numpy` is actually faster for the small window sizes used in live inference.
+
+3.  **Kernel Efficiency & Memory Coalescing**:
+    *   **Location:** `cuda_modules/velocity_gate.py` -> `detect_cascade_kernel`
+    *   **Issue:** The kernel iterates over a sliding window inside the thread (`for i in range(window_start, window_end)`).
+    *   **Reality:** This is a "Naive" convolution. It causes redundant global memory reads (each price is read 50 times by 50 different threads). It does not utilize Shared Memory or register tiling.
+    *   **Recommendation:**
+        *   **Shared Memory:** Load the price block into `cuda.shared.array` first, then have threads read from fast shared memory.
+        *   **Algorithm:** For rolling min/max, simpler algorithms (like monotonic queues or segment trees) might be more efficient than brute-force O(N*W).
+
+4.  **Precision Hazards**:
+    *   **Location:** General CUDA Modules
+    *   **Issue:** Use of `float` (32-bit) vs `double` (64-bit).
+    *   **Reality:** Consumer GPUs (GeForce) have poor FP64 performance (1/32 or 1/64 of FP32). Financial data often requires high precision, but `float32` is usually sufficient for "price distance" features. However, accumulated PnL or variance calculations can suffer from catastrophic cancellation with FP32.
+    *   **Recommendation:** Ensure `time` and `price` accumulation uses `float64` (double) where necessary, even if it incurs a performance penalty, or use Kahan Summation algorithms.
+
+---
+
+## 7. Summary of Recommendations for Improvement
 
 1.  **Switch to Walk-Forward Training**: Stop optimizing parameters on the same day they are tested. Use Day $N$ params for Day $N+1$.
 2.  **Implement Fat-Tail Stats**: Replace Standard Deviation ($\sigma$) with Percentile-based thresholds (e.g., 98th percentile) for "Singularities".
 3.  **Hamiltonian Dynamics**: Formalize the "Forces" by defining a Potential Energy surface $V(price, time)$ and deriving forces mathematically.
-4.  **Complex Interference**: If maintaining the "Quantum" moniker, implement complex number addition for probabilities to model "constructive/destructive interference" of trends (e.g., when Daily and Hourly trends align, probability should boost non-linearly).
+4.  **Complex Interference**: If maintaining the "Quantum" moniker, implement complex number addition for probabilities to model "constructive/destructive interference" of trends.
 5.  **Increase Sample Size**: Raise Bayesian confidence threshold to $N=100$.
+6.  **Probabilistic Outputs**: Output Beta distributions instead of scalar probabilities to capture model uncertainty.
+7.  **CPU Fallbacks**: Ensure the system runs robustly on CPU-only hardware for CI/CD and low-cost inference.
+8.  **Shared Memory Kernels**: Optimize CUDA kernels to reduce redundant global memory access.
 
 ---
 **Status:** Audit Complete. Codebase is logically consistent within its own metaphors but relies on "Physics-Inpsired" heuristics rather than rigorous physical or statistical laws.
