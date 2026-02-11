@@ -1,4 +1,3 @@
-
 """
 Bayesian-AI - Real Data Velocity Test
 Tests Velocity Gate on real Databento data.
@@ -45,13 +44,14 @@ class TestRealDataVelocity:
         assert len(df) > 1000, "Dataset too small for meaningful performance test"
 
         # 3. Initialize Velocity Gate
-        # If GPU is available, use it. If not, use CPU to verify fallback *without* crashing.
-        # But we must explicitly request CPU if GPU is missing, because modules now raise Error on mismatch.
         try:
             from numba import cuda
             use_gpu = cuda.is_available()
         except:
             use_gpu = False
+
+        if not use_gpu:
+             pytest.skip("Velocity Gate requires GPU (CPU fallback removed)")
 
         gate = get_velocity_gate(use_gpu=use_gpu)
         assert gate.use_gpu == use_gpu

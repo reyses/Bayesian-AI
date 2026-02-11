@@ -1,4 +1,3 @@
-
 """
 Bayesian-AI - CUDA Pattern Test
 Tests pattern detection logic.
@@ -14,11 +13,13 @@ sys.path.append(os.getcwd())
 
 from cuda_modules.pattern_detector import get_pattern_detector, PATTERN_COMPRESSION, PATTERN_WEDGE, PATTERN_BREAKDOWN, PATTERN_NONE
 import cuda_modules.pattern_detector
+from tests.utils import get_cuda_availability
 
 class TestCUDAPatternDetector:
     def setup_method(self):
-        # By default use CPU for reliable testing in CI
-        self.detector_cpu = get_pattern_detector(use_gpu=False)
+        if not get_cuda_availability():
+            pytest.skip("GPU required for pattern detection logic")
+        self.detector = get_pattern_detector(use_gpu=True)
 
     def test_compression_pattern(self):
         """Test compression pattern detection (range contraction)"""
@@ -41,7 +42,7 @@ class TestCUDAPatternDetector:
             'low': np.array(lows, dtype=np.float32)
         })
 
-        pattern, conf = self.detector_cpu.detect(df)
+        pattern, conf = self.detector.detect(df)
         assert pattern == 'compression'
         assert conf == 0.85
 
@@ -56,7 +57,7 @@ class TestCUDAPatternDetector:
             'low': np.array(lows, dtype=np.float32)
         })
 
-        pattern, conf = self.detector_cpu.detect(df)
+        pattern, conf = self.detector.detect(df)
         assert pattern == 'wedge'
         assert conf == 0.75
 
@@ -71,7 +72,7 @@ class TestCUDAPatternDetector:
             'low': np.array(lows, dtype=np.float32)
         })
 
-        pattern, conf = self.detector_cpu.detect(df)
+        pattern, conf = self.detector.detect(df)
         assert pattern == 'breakdown'
         assert conf == 0.90
 
@@ -84,7 +85,7 @@ class TestCUDAPatternDetector:
             'low': np.array(lows, dtype=np.float32)
         })
 
-        pattern, conf = self.detector_cpu.detect(df)
+        pattern, conf = self.detector.detect(df)
         assert pattern == 'none'
         assert conf == 0.0
 
@@ -97,37 +98,30 @@ class TestCUDAPatternDetector:
             'low': np.array(lows, dtype=np.float32)
         })
 
-        pattern, conf = self.detector_cpu.detect(df)
+        pattern, conf = self.detector.detect(df)
         assert pattern == 'none'
 
-    def test_gpu_fallback(self):
-        """
-        Verify that we can initialize in the correct mode for the environment.
-        """
-        # Reset singleton to ensure we test initialization logic
-        cuda_modules.pattern_detector._pattern_detector = None
+def test_gpu_fallback_enforcement():
+    """
+    Verify that strict GPU enforcement works.
+    """
+    # Reset singleton
+    cuda_modules.pattern_detector._pattern_detector = None
 
-        try:
-            from numba import cuda
-            can_use_cuda = cuda.is_available()
-        except:
-            can_use_cuda = False
+    cuda_available = get_cuda_availability()
 
-        if can_use_cuda:
-            # If CUDA is available, use_gpu=True should work
-            try:
-                detector = get_pattern_detector(use_gpu=True)
-                assert detector.use_gpu is True
-            except Exception as e:
-                pytest.fail(f"CUDA available but init failed: {e}")
-        else:
-            # If CUDA is NOT available, use_gpu=True should RAISE RuntimeError (strict mode)
-            with pytest.raises(RuntimeError):
-                get_pattern_detector(use_gpu=True)
+    if cuda_available:
+        # Should succeed
+        detector = get_pattern_detector(use_gpu=True)
+        assert detector.use_gpu is True
+    else:
+        # Should fail strictly
+        with pytest.raises(RuntimeError):
+            get_pattern_detector(use_gpu=True)
 
-            # But use_gpu=False should work
-            detector = get_pattern_detector(use_gpu=False)
-            assert detector.use_gpu is False
+        # Even explicit False should fail as CPU support is removed
+        with pytest.raises(RuntimeError):
+            get_pattern_detector(use_gpu=False)
 
 if __name__ == "__main__":
     sys.exit(pytest.main(["-v", __file__]))
