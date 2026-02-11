@@ -53,7 +53,7 @@ class DOEParameterGenerator:
             'stop_loss_ticks': (10, 25, 'int'),
             'take_profit_ticks': (30, 60, 'int'),
             'min_samples_required': (20, 50, 'int'),
-            'confidence_threshold': (0.70, 0.90, 'float'),
+            'confidence_threshold': (0.30, 0.70, 'float'),
             'max_hold_seconds': (300, 900, 'int'),
             'trail_activation_profit': (30, 100, 'int'),
             'trail_distance_tight': (5, 15, 'int'),
@@ -94,7 +94,10 @@ class DOEParameterGenerator:
             # Session parameters
             'opening_range_minutes': (10, 30, 'int'),
             'min_hold_seconds': (30, 120, 'int'),
-            'max_hold_seconds': (600, 1800, 'int')
+            'max_hold_seconds': (600, 1800, 'int'),
+
+            # Trading cost (round-trip: commission + slippage in points)
+            'trading_cost_points': (0.25, 1.0, 'float')
         }
 
     def generate_baseline_set(self, iteration: int, day: int, context: str) -> ParameterSet:
@@ -108,7 +111,7 @@ class DOEParameterGenerator:
             {
                 'stop_loss_ticks': 15,
                 'take_profit_ticks': 40,
-                'confidence_threshold': 0.85,
+                'confidence_threshold': 0.50,
                 'trail_distance_tight': 10,
                 'trail_distance_wide': 30
             },
@@ -116,7 +119,7 @@ class DOEParameterGenerator:
             {
                 'stop_loss_ticks': 10,
                 'take_profit_ticks': 50,
-                'confidence_threshold': 0.80,
+                'confidence_threshold': 0.45,
                 'trail_distance_tight': 7,
                 'trail_distance_wide': 25
             },
@@ -124,7 +127,7 @@ class DOEParameterGenerator:
             {
                 'stop_loss_ticks': 12,
                 'take_profit_ticks': 45,
-                'confidence_threshold': 0.82,
+                'confidence_threshold': 0.48,
                 'trail_distance_tight': 8,
                 'trail_distance_wide': 28
             },
@@ -132,7 +135,7 @@ class DOEParameterGenerator:
             {
                 'stop_loss_ticks': 20,
                 'take_profit_ticks': 35,
-                'confidence_threshold': 0.90,
+                'confidence_threshold': 0.65,
                 'trail_distance_tight': 12,
                 'trail_distance_wide': 35
             },
@@ -140,7 +143,7 @@ class DOEParameterGenerator:
             {
                 'stop_loss_ticks': 8,
                 'take_profit_ticks': 30,
-                'confidence_threshold': 0.80,
+                'confidence_threshold': 0.40,
                 'trail_distance_tight': 5,
                 'trail_distance_wide': 20
             },
@@ -148,7 +151,7 @@ class DOEParameterGenerator:
             {
                 'stop_loss_ticks': 20,
                 'take_profit_ticks': 60,
-                'confidence_threshold': 0.85,
+                'confidence_threshold': 0.55,
                 'trail_distance_tight': 15,
                 'trail_distance_wide': 40
             },
@@ -156,7 +159,7 @@ class DOEParameterGenerator:
             {
                 'stop_loss_ticks': 10,
                 'take_profit_ticks': 40,
-                'confidence_threshold': 0.83,
+                'confidence_threshold': 0.50,
                 'trail_distance_tight': 7,
                 'trail_distance_wide': 25
             },
@@ -164,7 +167,7 @@ class DOEParameterGenerator:
             {
                 'stop_loss_ticks': 15,
                 'take_profit_ticks': 45,
-                'confidence_threshold': 0.82,
+                'confidence_threshold': 0.50,
                 'trail_distance_tight': 10,
                 'trail_distance_wide': 30
             },
@@ -172,7 +175,7 @@ class DOEParameterGenerator:
             {
                 'stop_loss_ticks': 8,
                 'take_profit_ticks': 25,
-                'confidence_threshold': 0.78,
+                'confidence_threshold': 0.35,
                 'trail_distance_tight': 5,
                 'trail_distance_wide': 15
             },
@@ -180,7 +183,7 @@ class DOEParameterGenerator:
             {
                 'stop_loss_ticks': 25,
                 'take_profit_ticks': 60,
-                'confidence_threshold': 0.88,
+                'confidence_threshold': 0.60,
                 'trail_distance_tight': 15,
                 'trail_distance_wide': 40
             }
