@@ -1,6 +1,8 @@
 """
 Bayesian-AI - CUDA Velocity Gate (Layer 9)
 Numba-accelerated tick-level cascade detection: 10+ points in <0.5sec
+
+DEPRECATED: This module is part of the legacy 9-Layer Hierarchy engine.
 """
 import numpy as np
 import pandas as pd
@@ -56,6 +58,7 @@ class CUDAVelocityGate:
     """High-level interface for CUDA velocity cascade detection"""
     
     def __init__(self, cascade_threshold=10.0, time_window=0.5, use_gpu=True):
+        print("WARNING: CUDAVelocityGate is DEPRECATED.")
         self.cascade_threshold = cascade_threshold  # Points
         self.time_window = time_window  # Seconds
         self.use_gpu = use_gpu and NUMBA_AVAILABLE

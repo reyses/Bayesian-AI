@@ -1,6 +1,8 @@
 """
 Bayesian-AI - Confirmation Engine
 CUDA-accelerated trade confirmation (L8)
+
+DEPRECATED: This module is part of the legacy 9-Layer Hierarchy engine.
 """
 import pandas as pd
 import numpy as np
@@ -37,6 +39,7 @@ else:
 
 class CUDAConfirmationEngine:
     def __init__(self, use_gpu: bool = True):
+        print("WARNING: CUDAConfirmationEngine is DEPRECATED.")
         self.use_gpu = use_gpu and NUMBA_AVAILABLE
 
         if self.use_gpu:
