@@ -20,8 +20,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.append(PROJECT_ROOT)
 
 from core.bayesian_brain import BayesianBrain, QuantumBayesianBrain
-# Import get_data_source to reuse loading logic (handles .dbn and .parquet)
-from training.orchestrator import get_data_source
+from training.databento_loader import DatabentoLoader
 from tests.utils import get_test_data_files
 
 def run_training_validation():
@@ -61,16 +60,12 @@ def run_training_validation():
 
         try:
             # 3. Prepare Data Slice (limit to 200 ticks for speed)
-            # For 15m/15s bars, 200 ticks is very small.
-            # 15m bar = 900s. 15s bar = 15s.
-            # If we slice only 200 ticks, we might not get enough bars for regression (21 lookback).
-            # The new system requires 15min bars. 21 15min bars = 5.25 hours.
-            # If data is tick data, we need enough duration.
-            # Let's increase the slice size if possible, or assume get_data_source returns enough context.
-            # If get_data_source returns dataframe, we can check timestamp span.
-
             try:
-                df = get_data_source(source_file)
+                if source_file.endswith('.parquet'):
+                    df = pd.read_parquet(source_file)
+                else:
+                    df = DatabentoLoader.load_data(source_file)
+
                 # If we slice by rows, we might cut time.
                 # Let's try to get at least 1000 rows if available, to cover some time.
                 if len(df) > 1000:
@@ -90,10 +85,10 @@ def run_training_validation():
             cmd = [
                 sys.executable,
                 os.path.join(PROJECT_ROOT, "training", "orchestrator.py"),
-                "--data-file", temp_data_path,
+                "--data", temp_data_path,
                 "--iterations", "10",
-                "--no-gpu",
-                "--output", temp_dir
+                "--checkpoint-dir", temp_dir,
+                "--no-dashboard" # Ensure dashboard is disabled for tests
             ]
 
             # Timeout set to 180s
@@ -125,12 +120,17 @@ def run_training_validation():
                  old_model_path = os.path.join(temp_dir, "probability_table.pkl")
                  if os.path.exists(old_model_path):
                      model_path = old_model_path
+                 # Check for per-day model (day_001_brain.pkl)
                  else:
-                     all_metrics.append({
-                        "status": "FAILED",
-                        "error": f"Model file not generated for {source_file}. Stdout: {stdout}"
-                    })
-                     continue
+                     brain_files = glob.glob(os.path.join(temp_dir, "day_*_brain.pkl"))
+                     if brain_files:
+                         model_path = brain_files[0]
+                     else:
+                         all_metrics.append({
+                            "status": "FAILED",
+                            "error": f"Model file not generated for {source_file}. Stdout: {stdout}"
+                        })
+                         continue
 
             # Use QuantumBayesianBrain if it's the new model
             try:

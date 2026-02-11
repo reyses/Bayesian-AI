@@ -19,12 +19,9 @@
       "execution/wave_rider.py"
     ],
     "VISUALIZE": [
-      "core/engine_core.py"
     ],
     "MAINTENANCE": [
       "scripts/generate_status_report.py",
-      "scripts/manifest_integrity_check.py",
-      "scripts/verify_environment.py",
       "scripts/build_executable.py"
     ]
   },
