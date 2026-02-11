@@ -172,4 +172,4 @@
 8.  **Shared Memory Kernels**: Optimize CUDA kernels to reduce redundant global memory access.
 
 ---
-**Status:** Audit Complete. Codebase is logically consistent within its own metaphors but relies on "Physics-Inpsired" heuristics rather than rigorous physical or statistical laws.
+**Status:** Audit Complete. Codebase is logically consistent within its own metaphors but relies on "Physics-Inspired" heuristics rather than rigorous physical or statistical laws.
