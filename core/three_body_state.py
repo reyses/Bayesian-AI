@@ -89,6 +89,7 @@ class ThreeBodyQuantumState:
     tunnel_probability: float      # P(revert to center)
     escape_probability: float      # P(break through horizon)
     barrier_height: float          # Potential energy
+    pattern_type: str = 'NONE'     # NONE | COMPRESSION | WEDGE | BREAKDOWN
 
     # ═══ RESONANCE (PHASE 3 EXTENSION) ═══
     resonance_coherence: float = 0.0      # Phase alignment
@@ -181,7 +182,8 @@ class ThreeBodyQuantumState:
             self.lagrange_zone,
             self.structure_confirmed,
             self.cascade_detected,
-            self.trend_direction_15m
+            self.trend_direction_15m,
+            self.pattern_type
         )
 
         return hash(core + self._get_context_tuple())
@@ -203,7 +205,8 @@ class ThreeBodyQuantumState:
             self.lagrange_zone == other.lagrange_zone and
             self.structure_confirmed == other.structure_confirmed and
             self.cascade_detected == other.cascade_detected and
-            self.trend_direction_15m == other.trend_direction_15m
+            self.trend_direction_15m == other.trend_direction_15m and
+            self.pattern_type == other.pattern_type
         )
 
         if not core_match:
@@ -280,7 +283,7 @@ class ThreeBodyQuantumState:
             amplitude_center=0+0j, amplitude_upper=0+0j, amplitude_lower=0+0j,
             P_at_center=0.0, P_near_upper=0.0, P_near_lower=0.0,
             entropy=0.0, coherence=0.0, pattern_maturity=0.0, momentum_strength=0.0,
-            structure_confirmed=False, cascade_detected=False, spin_inverted=False,
+            structure_confirmed=False, cascade_detected=False, spin_inverted=False, pattern_type='NONE',
             lagrange_zone='L1_STABLE', stability_index=1.0,
             tunnel_probability=0.0, escape_probability=0.0, barrier_height=0.0
         )
