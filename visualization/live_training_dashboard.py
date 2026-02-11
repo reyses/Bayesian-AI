@@ -140,22 +140,26 @@ class LiveDashboard:
         self._card_params = self._make_card(top_frame, 7, "BEST PARAMS", "--", "TP/SL: --")
 
         # Tooltips for Cards
-        Tooltip(self._card_progress[0], "Current training iteration / Total iterations")
-        Tooltip(self._card_progress[1], "Current simulated date | Estimated Time Remaining")
-        Tooltip(self._card_pnl[0], "Total Profit/Loss across all trades")
-        Tooltip(self._card_pnl[1], "Profit/Loss for the current simulated day")
-        Tooltip(self._card_wr[0], "Percentage of winning trades (cumulative)")
-        Tooltip(self._card_wr[1], "Win rate for today")
-        Tooltip(self._card_sharpe[0], "Sharpe Ratio (Risk-adjusted return)")
-        Tooltip(self._card_sharpe[1], "Sharpe Ratio for today")
-        Tooltip(self._card_trades[0], "Total number of trades")
-        Tooltip(self._card_trades[1], "Trades executed today")
-        Tooltip(self._card_states[0], "Total market states learned")
-        Tooltip(self._card_states[1], "High confidence states (count)")
-        Tooltip(self._card_dd[0], "Maximum Drawdown (Peak to Trough)")
-        Tooltip(self._card_dd[1], "Average Trade Duration")
-        Tooltip(self._card_params[0], "Best Parameters (Take Profit / Stop Loss)")
-        Tooltip(self._card_params[1], "Threshold / Max Hold")
+        card_tooltips = [
+            (self._card_progress[0], "Current training iteration / Total iterations"),
+            (self._card_progress[1], "Current simulated date | Estimated Time Remaining"),
+            (self._card_pnl[0], "Total Profit/Loss across all trades"),
+            (self._card_pnl[1], "Profit/Loss for the current simulated day"),
+            (self._card_wr[0], "Percentage of winning trades (cumulative)"),
+            (self._card_wr[1], "Win rate for today"),
+            (self._card_sharpe[0], "Sharpe Ratio (Risk-adjusted return)"),
+            (self._card_sharpe[1], "Sharpe Ratio for today"),
+            (self._card_trades[0], "Total number of trades"),
+            (self._card_trades[1], "Trades executed today"),
+            (self._card_states[0], "Total market states learned"),
+            (self._card_states[1], "High confidence states (count)"),
+            (self._card_dd[0], "Maximum Drawdown (Peak to Trough)"),
+            (self._card_dd[1], "Average Trade Duration"),
+            (self._card_params[0], "Best Parameters (Take Profit / Stop Loss)"),
+            (self._card_params[1], "Threshold / Max Hold"),
+        ]
+        for widget, text in card_tooltips:
+            Tooltip(widget, text)
 
         # === ROW 1 LEFT: Cumulative P&L Chart ===
         self.frame_pnl = ttk.Frame(self.root, padding=5)
