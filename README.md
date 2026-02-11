@@ -4,7 +4,7 @@
 
 [![Status](https://img.shields.io/badge/Status-Active-success.svg)](CURRENT_STATUS.md)
 
-Bayesian-AI is a high-frequency trading system that utilizes a 9-layer hierarchical state model to capture market conditions across multiple timeframes (from 90 days down to 1 second) and applies Bayesian probability to estimate win rates.
+Bayesian-AI is a high-frequency trading system that utilizes a Fractal Three-Body Quantum model to capture market conditions across multiple timeframes (from 90 days down to 1 second) and applies Bayesian probability to estimate win rates.
 
 ## 📖 Documentation
 
@@ -43,16 +43,15 @@ To run the workflow locally, ensure you have Python 3.10+ installed.
 
 The system operates on a **LOAD -> TRANSFORM -> ANALYZE -> VISUALIZE** pipeline.
 
-*   **9-Layer Hierarchy**: Decomposes market state into Static (L1-L4) and Fluid (L5-L9) layers.
-*   **Bayesian Brain**: Learns probability distributions of "WIN" outcomes for unique market states.
-*   **CUDA Acceleration**: Offloads high-frequency pattern detection (L7), confirmation (L8), and velocity checks (L9) to the GPU via Numba.
+*   **Fractal Three-Body Quantum**: Uses Roche limits, wave functions, and tunnel probabilities to model market state.
+*   **Bayesian Brain**: Learns probability distributions of "WIN" outcomes for unique quantum states.
+*   **CUDA Acceleration**: Offloads quantum wave function calculations and simulations to the GPU via PyTorch.
 
 For detailed architecture, see the [Technical Manual](docs/TECHNICAL_MANUAL.md).
 
-## 🧪 Next-Generation Architecture (Experimental)
+## 🏛 Legacy Architecture (Deprecated)
 
-The repository also includes a **Fractal Three-Body Quantum** trading engine (`core/fractal_three_body.py`, `core/quantum_field_engine.py`). This is a next-generation system currently in development and is **not yet active** in the main execution loop.
+The repository also includes the legacy **9-Layer Hierarchy** trading engine (`core/layer_engine.py`, `cuda_modules/`). This system is **deprecated** and no longer active in the main execution loop.
 
-*   **Fractal States**: Nested three-body systems across all timeframes.
-*   **Quantum Physics**: Uses Roche limits, wave functions, and tunnel probabilities instead of simple pattern matching.
-*   **Status**: Inactive / Research Phase. See [Audit Report](AUDIT_REPORT.md) for details.
+*   **9-Layer Hierarchy**: Decomposes market state into Static (L1-L4) and Fluid (L5-L9) layers.
+*   **Status**: Deprecated / Maintenance Mode.
