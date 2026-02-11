@@ -21,6 +21,8 @@
     "VISUALIZE": [
     ],
     "MAINTENANCE": [
+      "scripts/generate_status_report.py",
+      "scripts/build_executable.py"
     ]
   },
   "layers": {
