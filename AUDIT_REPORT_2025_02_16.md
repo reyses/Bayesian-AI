@@ -38,7 +38,7 @@ This discrepancy means the production code (training loop) is running on an expe
 2.  **Deprecate Legacy:** Mark `LayerEngine` and `cuda_modules/` for removal or archive them.
 3.  **Unify GPU Stack:** Standardize on PyTorch (`torch`). Remove `numba` dependency if legacy modules are removed.
 4.  **Migrate Tests:** Create `tests/test_integration_quantum.py` mirroring the depth of `test_phase1.py`.
-5.  **Update Documentation:** Rewrite `README.md` and `CURRENT_STATUS.md` to reflect the Quantum-first architecture.
+5.  **Update Documentation:** Rewrite `README.md`, `CURRENT_STATUS.md`, and `docs/TECHNICAL_MANUAL.md` to reflect the Quantum-first architecture.
 
 ---
 
