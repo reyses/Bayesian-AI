@@ -84,7 +84,7 @@ else:
 
 class CUDAPatternDetector:
     def __init__(self, use_gpu: bool = True):
-        print("WARNING: CUDAPatternDetector is DEPRECATED.")
+        warnings.warn("CUDAPatternDetector is DEPRECATED.", DeprecationWarning, stacklevel=2)
         self.use_gpu = use_gpu and NUMBA_AVAILABLE
 
         if self.use_gpu:
