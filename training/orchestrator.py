@@ -1327,7 +1327,7 @@ class BayesianTrainingOrchestrator:
 
         # Dynamic Slippage (Single Trade)
         velocity = state.particle_velocity
-        slippage = 0.25 + 0.1 * abs(velocity)
+        slippage = self.BASE_SLIPPAGE + self.VELOCITY_SLIPPAGE_FACTOR * abs(velocity)
         total_slippage = slippage * 2.0
 
         for idx, row in future_data.iterrows():
