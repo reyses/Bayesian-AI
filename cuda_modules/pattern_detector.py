@@ -1,6 +1,8 @@
 """
 Bayesian-AI - Pattern Detector
 CUDA-accelerated pattern recognition (L7)
+
+DEPRECATED: This module is part of the legacy 9-Layer Hierarchy engine.
 """
 import pandas as pd
 import numpy as np
@@ -82,6 +84,7 @@ else:
 
 class CUDAPatternDetector:
     def __init__(self, use_gpu: bool = True):
+        warnings.warn("CUDAPatternDetector is DEPRECATED.", DeprecationWarning, stacklevel=2)
         self.use_gpu = use_gpu and NUMBA_AVAILABLE
 
         if self.use_gpu:
