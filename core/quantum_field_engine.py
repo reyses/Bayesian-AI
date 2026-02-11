@@ -133,13 +133,16 @@ class QuantumFieldEngine:
         )
     
     def _calculate_center_mass(self, df: pd.DataFrame):
-        """Linear regression for center star"""
+        """Linear regression for center star — uses residual std (not slope std_err)"""
         window = df.iloc[-self.regression_period:]
         y = window['close'].values
         x = np.arange(len(y))
-        slope, intercept, _, _, std_err = linregress(x, y)
+        slope, intercept, _, _, _ = linregress(x, y)
         center = slope * x[-1] + intercept
-        sigma = std_err if std_err > 0 else y.std()
+        # Residual standard deviation (matches batch_compute_states)
+        residuals = y - (slope * x + intercept)
+        sigma = np.sqrt(np.sum(residuals ** 2) / (len(y) - 2))
+        sigma = sigma if sigma > 0 else y.std()
         return center, sigma, slope
     
     def _calculate_force_fields(self, price, center, upper_sing, lower_sing, z_score, sigma, volume, velocity):
