@@ -14,6 +14,10 @@ PATTERN_COMPRESSION = 'COMPRESSION'
 PATTERN_WEDGE = 'WEDGE'
 PATTERN_BREAKDOWN = 'BREAKDOWN'
 
+# Cascade Constants
+VELOCITY_CASCADE_THRESHOLD = 1.0  # Points per second
+RANGE_CASCADE_THRESHOLD = 10.0    # Points range in candle
+
 # Optional CUDA support
 try:
     import torch
@@ -268,12 +272,12 @@ class QuantumFieldEngine:
         structure_confirmed = volume_spike and pattern_maturity > 0.5
         
         # Cascade Logic: Velocity OR Range
-        velocity_cascade = abs(velocity) > 1.0
+        velocity_cascade = abs(velocity) > VELOCITY_CASCADE_THRESHOLD
         
         current_candle = df_micro.iloc[-1]
         high = current_candle.get('high', current_candle['close'])
         low = current_candle.get('low', current_candle['close'])
-        range_cascade = (high - low) > 10.0
+        range_cascade = (high - low) > RANGE_CASCADE_THRESHOLD
 
         cascade_detected = velocity_cascade or range_cascade
 
@@ -347,6 +351,7 @@ class QuantumFieldEngine:
         """
         Vectorized geometric pattern detection (Compression, Wedge, Breakdown)
         Returns array of pattern strings.
+        Uses pandas rolling windows for efficiency and correct boundary handling.
         """
         n = len(highs)
         patterns = np.full(n, PATTERN_NONE, dtype=object)
@@ -354,45 +359,35 @@ class QuantumFieldEngine:
         if n < 10:
             return patterns
 
-        # Helper for rolling window
-        def rolling_max(arr, window):
-            res = arr.copy()
-            for i in range(1, window):
-                res = np.maximum(res, np.roll(arr, i))
-            return res
+        # Convert to pandas Series for efficient rolling operations
+        highs_s = pd.Series(highs)
+        lows_s = pd.Series(lows)
 
-        def rolling_min(arr, window):
-            res = arr.copy()
-            for i in range(1, window):
-                res = np.minimum(res, np.roll(arr, i))
-            return res
+        # Recent 5 bars range (window=5)
+        rec_range = highs_s.rolling(5).max() - lows_s.rolling(5).min()
 
-        # Recent 5 bars (idx-4 to idx)
-        rec_max = rolling_max(highs, 5)
-        rec_min = rolling_min(lows, 5)
-        rec_range = rec_max - rec_min
-
-        # Previous 5 bars (idx-9 to idx-5)
-        prev_highs = np.roll(highs, 5)
-        prev_lows = np.roll(lows, 5)
-        prev_max = rolling_max(prev_highs, 5)
-        prev_min = rolling_min(prev_lows, 5)
-        prev_range = prev_max - prev_min
+        # Previous 5 bars range (shifted by 5)
+        prev_range = rec_range.shift(5)
 
         # Compression (Priority 1)
+        # Compare ranges. Pandas handles NaNs (result is False), so no mask needed.
         compression_mask = (prev_range > 0) & (rec_range < prev_range * 0.7)
-        patterns[compression_mask] = PATTERN_COMPRESSION
+        # Fill patterns where mask is True. Use .to_numpy() to align with array.
+        # fillna(False) ensures we don't have boolean ambiguity with NaNs
+        patterns[compression_mask.fillna(False).to_numpy()] = PATTERN_COMPRESSION
 
         # Wedge (Higher Lows AND Lower Highs) over 5 bars (Priority 2)
-        wedge_mask = (lows > np.roll(lows, 4)) & (highs < np.roll(highs, 4))
-        patterns[wedge_mask] = PATTERN_WEDGE
+        # Compare current vs 4 bars ago
+        wedge_mask = (lows > lows_s.shift(4)) & (highs < highs_s.shift(4))
+        patterns[wedge_mask.fillna(False).to_numpy()] = PATTERN_WEDGE
 
         # Breakdown (Low < min of previous 4 lows) (Priority 3)
-        prev_4_min = rolling_min(np.roll(lows, 1), 4)
+        # Previous 4 lows: shift 1, then rolling min 4
+        prev_4_min = lows_s.shift(1).rolling(4).min()
         breakdown_mask = lows < prev_4_min
-        patterns[breakdown_mask] = PATTERN_BREAKDOWN
+        patterns[breakdown_mask.fillna(False).to_numpy()] = PATTERN_BREAKDOWN
 
-        # Clear first 9 bars as invalid due to rolling
+        # Clear first 9 bars explicitly (warmup period for rolling windows)
         patterns[:9] = PATTERN_NONE
 
         return patterns
@@ -612,8 +607,8 @@ class QuantumFieldEngine:
         structure_confirmed = volume_spike & (pattern_maturity > 0.5)
 
         # Cascade Logic: Velocity OR Range
-        velocity_cascade = np.abs(tick_velocity) > 1.0
-        range_cascade = (bar_highs - bar_lows) > 10.0
+        velocity_cascade = np.abs(tick_velocity) > VELOCITY_CASCADE_THRESHOLD
+        range_cascade = (bar_highs - bar_lows) > RANGE_CASCADE_THRESHOLD
         cascade_detected = velocity_cascade | range_cascade
 
         # Spin inversion
