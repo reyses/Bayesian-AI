@@ -75,6 +75,11 @@ class DayResults:
     high_confidence_states: int
     execution_time_seconds: float
     avg_duration: float
+    # Walk-Forward "Real" Results (using prior day's params)
+    real_pnl: float = 0.0
+    real_trades_count: int = 0
+    real_win_rate: float = 0.0
+    real_sharpe: float = 0.0
 
 
 class BayesianTrainingOrchestrator:
@@ -189,6 +194,9 @@ class BayesianTrainingOrchestrator:
         print(f"Date range: {days_1s[0][0]} to {days_1s[-1][0]}")
         print("="*80 + "\n")
 
+        # Initialize active params with baseline (Day 0)
+        active_params = self.param_generator.generate_baseline_set(0, 1, 'CORE').parameters
+
         # Train day by day
         prev_day_15s = None
         for day_idx, (date, day_data) in enumerate(days_1s):
@@ -204,13 +212,43 @@ class BayesianTrainingOrchestrator:
                 day_idx, self.all_tf_data, date
             )
 
-            # Optimize this day (DOE)
             day_data_15s = days_15s_lookup.get(date)
+
+            # === STEP 1: PRE-COMPUTE STATES ===
+            precomputed = self._precompute_day_states(
+                day_data, day_data_15s=day_data_15s, tf_context=tf_context,
+                prev_day_15s=prev_day_15s
+            )
+
+            # === STEP 2: WALK-FORWARD SIMULATION (Real PnL) ===
+            # Trade today using yesterday's parameters (active_params)
+            real_trades = self._simulate_from_precomputed(
+                precomputed, day_data, active_params, pbar=None
+            )
+            real_pnl = sum(t.pnl for t in real_trades)
+            real_win_rate = (sum(1 for t in real_trades if t.result == 'WIN') / len(real_trades)) if real_trades else 0.0
+            real_sharpe = (np.mean([t.pnl for t in real_trades]) / (np.std([t.pnl for t in real_trades]) + 1e-6)) if len(real_trades) > 1 else 0.0
+
+            print(f"  [WALK-FORWARD] Real PnL: ${real_pnl:.2f} ({len(real_trades)} trades, WR: {real_win_rate:.1%})")
+
+            # === STEP 3: OPTIMIZE (Oracle Learning for Brain & Tomorrow's Params) ===
             day_result = self.optimize_day(
                 day_number, date, day_data,
                 day_data_15s=day_data_15s, tf_context=tf_context,
-                prev_day_15s=prev_day_15s
+                prev_day_15s=prev_day_15s,
+                precomputed_states=precomputed # Reuse precomputed
             )
+
+            # Add Real stats to day_result for reporting
+            day_result.real_pnl = real_pnl
+            day_result.real_trades_count = len(real_trades)
+            day_result.real_win_rate = real_win_rate
+            day_result.real_sharpe = real_sharpe
+
+            # Update params for NEXT day
+            if day_result.best_params:
+                active_params = day_result.best_params
+
             prev_day_15s = day_data_15s
 
             # Batch regret analysis (end of day)
@@ -223,14 +261,14 @@ class BayesianTrainingOrchestrator:
             else:
                 regret_analysis = None
 
-            # Update reports
+            # Update reports - USE REAL PNL for report integrity
             day_metrics = DayMetrics(
                 day_number=day_number,
                 date=date,
-                total_trades=day_result.total_trades,
-                win_rate=day_result.best_win_rate,
-                sharpe=day_result.best_sharpe,
-                pnl=day_result.best_pnl,
+                total_trades=day_result.real_trades_count, # REPORT REAL
+                win_rate=day_result.real_win_rate,         # REPORT REAL
+                sharpe=day_result.real_sharpe,             # REPORT REAL
+                pnl=day_result.real_pnl,                   # REPORT REAL
                 states_learned=day_result.states_learned,
                 high_conf_states=day_result.high_confidence_states,
                 avg_duration=day_result.avg_duration,
@@ -697,9 +735,14 @@ class BayesianTrainingOrchestrator:
             end_idx = min(n_bars, entry_idx + max_lookahead)
             outcome = None
 
+            # Dynamic Slippage (Walk-Forward)
+            velocity = bar['state'].particle_velocity
+            slippage = self.BASE_SLIPPAGE + self.VELOCITY_SLIPPAGE_FACTOR * abs(velocity)
+            total_slippage = slippage * 2.0
+
             for j in range(entry_idx + 1, end_idx):
                 price = prices[j]
-                pnl = (price - entry_price) * dir_sign - trading_cost
+                pnl = (price - entry_price) * dir_sign - trading_cost - total_slippage
 
                 exit_time = timestamps[j]
                 if isinstance(exit_time, pd.Timestamp):
@@ -770,7 +813,8 @@ class BayesianTrainingOrchestrator:
     def optimize_day(self, day_number: int, date: str, day_data: pd.DataFrame,
                      day_data_15s: pd.DataFrame = None,
                      tf_context: Dict = None,
-                     prev_day_15s: pd.DataFrame = None) -> DayResults:
+                     prev_day_15s: pd.DataFrame = None,
+                     precomputed_states: list = None) -> DayResults:
         """
         Run DOE optimization for single day.
         Routes to GPU-parallel path when CUDA available, CPU sequential otherwise.
@@ -779,10 +823,13 @@ class BayesianTrainingOrchestrator:
         self.todays_trades = []
 
         # === PRE-COMPUTE ALL STATES ONCE ===
-        precomputed = self._precompute_day_states(
-            day_data, day_data_15s=day_data_15s, tf_context=tf_context,
-            prev_day_15s=prev_day_15s
-        )
+        if precomputed_states is not None:
+            precomputed = precomputed_states
+        else:
+            precomputed = self._precompute_day_states(
+                day_data, day_data_15s=day_data_15s, tf_context=tf_context,
+                prev_day_15s=prev_day_15s
+            )
 
         if not precomputed:
             return DayResults(
@@ -928,6 +975,11 @@ class BayesianTrainingOrchestrator:
             device=device, dtype=torch.float64
         )
 
+        # Dynamic Slippage (GPU Pre-calculation)
+        cand_velocities = torch.tensor([b['state'].particle_velocity for b in candidate_bars], device=device, dtype=torch.float64)
+        cand_slippage = self.BASE_SLIPPAGE + self.VELOCITY_SLIPPAGE_FACTOR * torch.abs(cand_velocities)
+        cand_slippage_cost = cand_slippage * 2.0 # Round trip
+
         # === CORE GPU KERNEL: simulate all trades in parallel ===
         # For each candidate × each iteration: compute trade result
         # Result tensors: [n_candidates, n_iters]
@@ -963,7 +1015,9 @@ class BayesianTrainingOrchestrator:
 
             # For each firing iteration, find exit bar
             # Expand for broadcasting: raw_pnl [window,1] vs tp/sl [1,n_iters]
-            pnl_expanded = raw_pnl.unsqueeze(1) - trade_costs.unsqueeze(0)  # [window, n_iters] with cost
+            # Include dynamic slippage cost [n_iters] (actually scalar for this candidate, but broadcasted)
+            total_cost = trade_costs.unsqueeze(0) + cand_slippage_cost[c_idx]
+            pnl_expanded = raw_pnl.unsqueeze(1) - total_cost  # [window, n_iters] with cost
             dur_expanded = durations.unsqueeze(1)        # [window, 1]
             tp_expanded = tp_points.unsqueeze(0)         # [1, n_iters]
             sl_expanded = sl_points.unsqueeze(0)         # [1, n_iters]
@@ -1271,9 +1325,14 @@ class BayesianTrainingOrchestrator:
         if isinstance(entry_time, pd.Timestamp):
             entry_time = entry_time.timestamp()
 
+        # Dynamic Slippage (Single Trade)
+        velocity = state.particle_velocity
+        slippage = self.BASE_SLIPPAGE + self.VELOCITY_SLIPPAGE_FACTOR * abs(velocity)
+        total_slippage = slippage * 2.0
+
         for idx, row in future_data.iterrows():
             price = row['price'] if 'price' in row else row['close']
-            pnl = (price - entry_price) * dir_sign - trading_cost
+            pnl = (price - entry_price) * dir_sign - trading_cost - total_slippage
 
             exit_time = row.get('timestamp', 0)
             if isinstance(exit_time, pd.Timestamp):
