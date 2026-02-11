@@ -184,7 +184,7 @@ def test_full_quantum_integration():
             outcome = TradeOutcome(
                 state=state,
                 entry_price=entry_price,
-                exit_price=entry_price + (pnl/2.0), # Approximate
+                exit_price=entry_price + (pnl / 2.0 if directive['action'] == 'BUY' else -pnl / 2.0), # Approximate
                 pnl=pnl,
                 result='WIN' if pnl > 0 else 'LOSS',
                 timestamp=state.timestamp,
