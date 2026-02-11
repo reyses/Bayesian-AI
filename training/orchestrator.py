@@ -737,7 +737,7 @@ class BayesianTrainingOrchestrator:
 
             # Dynamic Slippage (Walk-Forward)
             velocity = bar['state'].particle_velocity
-            slippage = 0.25 + 0.1 * abs(velocity)
+            slippage = self.BASE_SLIPPAGE + self.VELOCITY_SLIPPAGE_FACTOR * abs(velocity)
             total_slippage = slippage * 2.0
 
             for j in range(entry_idx + 1, end_idx):
