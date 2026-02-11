@@ -31,6 +31,11 @@ class QuantumFieldEngine:
         self.SIGMA_EVENT_MULTIPLIER = 3.0
         self.TIDAL_FORCE_EXPONENT = 2.0
 
+        # Historical residuals for fat-tail sigma calculation (rolling window)
+        # Using 500 bars (~2 hours at 15s) to estimate distribution
+        self.residual_history = []
+        self.residual_window = 500
+
         # === GPU SETUP ===
         if TORCH_AVAILABLE and CUDA_AVAILABLE:
             self.device = torch.device('cuda')
@@ -66,9 +71,34 @@ class QuantumFieldEngine:
             return ThreeBodyQuantumState.null_state()
         
         # Body 1: Center star
-        center, sigma, slope = self._calculate_center_mass(df_macro)
+        # Use residuals from regression to update historical distribution
+        center, reg_sigma, slope, residuals = self._calculate_center_mass(df_macro)
         
-        # Bodies 2 & 3: Singularities
+        # Update residual history with latest residual
+        # The latest residual is (current_price - center)
+        # But _calculate_center_mass uses historical window.
+        # We need to be consistent. Let's use the residual of the last point in regression.
+        latest_residual = residuals[-1]
+        self.residual_history.append(abs(latest_residual))
+        if len(self.residual_history) > self.residual_window:
+            self.residual_history.pop(0)
+
+        # Compute Fat-Tail Sigma (98th percentile of historical residuals)
+        if len(self.residual_history) >= 20:
+            sigma = np.percentile(self.residual_history, 98)
+            # Fallback to regression sigma if percentile is too small (e.g. tight consolidation)
+            sigma = max(sigma, reg_sigma)
+        else:
+            sigma = reg_sigma
+
+        # Trend Direction (15m slope)
+        slope_strength = (slope * len(df_macro)) / (sigma + 1e-6)
+        if slope_strength > 1.0:
+            trend_direction = 'UP' if slope > 0 else 'DOWN'
+        else:
+            trend_direction = 'RANGE'
+
+        # Bodies 2 & 3: Singularities (using robust sigma)
         upper_sing = center + self.SIGMA_ROCHE_MULTIPLIER * sigma
         lower_sing = center - self.SIGMA_ROCHE_MULTIPLIER * sigma
         upper_event = center + self.SIGMA_EVENT_MULTIPLIER * sigma
@@ -143,7 +173,7 @@ class QuantumFieldEngine:
         residuals = y - (slope * x + intercept)
         sigma = np.sqrt(np.sum(residuals ** 2) / (len(y) - 2))
         sigma = sigma if sigma > 0 else y.std()
-        return center, sigma, slope
+        return center, sigma, slope, residuals
     
     def _calculate_force_fields(self, price, center, upper_sing, lower_sing, z_score, sigma, volume, velocity):
         """Compute competing gravitational forces"""
@@ -325,20 +355,61 @@ class QuantumFieldEngine:
         x_var = np.sum((x - x_mean) ** 2)
 
         centers = np.empty(num_bars)
+        # Using rolling percentile for sigma (fat-tail distribution)
         sigmas = np.empty(num_bars)
+        trend_directions = np.empty(num_bars, dtype=object)
 
-        # Build rolling windows efficiently
+        # Pre-calculate rolling residuals for robust sigma
+        # Rolling residuals history (maxlen=500)
+        # We'll maintain a rolling buffer of residuals
+        rolling_residuals = []
+
         for i in range(num_bars):
-            y = close[i:i + rp]
+            # Window ending at current bar (inclusive)
+            # FIX: Align window to match calculate_three_body_state (coincident, not predictive)
+            start_idx = i + 1
+            end_idx = i + 1 + rp
+            if end_idx > len(close):
+                # End of data logic
+                centers[i:] = centers[i-1] if i > 0 else 0
+                sigmas[i:] = sigmas[i-1] if i > 0 else 1.0
+                trend_directions[i:] = 'RANGE'
+                break
+
+            y = close[start_idx : end_idx]
             y_mean = y.mean()
             slope = np.sum((x - x_mean) * (y - y_mean)) / x_var
             intercept = y_mean - slope * x_mean
             center = slope * x[-1] + intercept
+
+            # Residuals for this window
             residuals = y - (slope * x + intercept)
+            current_residual = residuals[-1]
+
+            # Std Dev Sigma (Regression Sigma)
             std_err = np.sqrt(np.sum(residuals ** 2) / (rp - 2))
-            sigma = std_err if std_err > 0 else y.std()
+            reg_sigma = std_err if std_err > 0 else y.std()
+
+            # Robust Sigma (98th percentile of history)
+            rolling_residuals.append(abs(current_residual))
+            if len(rolling_residuals) > 500:
+                rolling_residuals.pop(0)
+
+            if len(rolling_residuals) >= 20:
+                robust_sigma = np.percentile(rolling_residuals, 98)
+                sigma = max(robust_sigma, reg_sigma)
+            else:
+                sigma = reg_sigma
+
             centers[i] = center
             sigmas[i] = max(sigma, 1e-10)
+
+            # Trend Direction
+            slope_strength = (slope * rp) / (sigma + 1e-6)
+            if slope_strength > 1.0:
+                trend_directions[i] = 'UP' if slope > 0 else 'DOWN'
+            else:
+                trend_directions[i] = 'RANGE'
 
         # Prices at each computed bar
         bar_prices = prices[rp:]
@@ -526,6 +597,7 @@ class QuantumFieldEngine:
                 tunnel_probability=tunnel_prob[i],
                 escape_probability=escape_prob[i],
                 barrier_height=barrier[i],
+                trend_direction_15m=str(trend_directions[i]),
             )
             results.append({
                 'bar_idx': rp + i,
