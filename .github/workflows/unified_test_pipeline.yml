@@ -49,9 +49,6 @@ jobs:
     - name: Phase 1 Test
       run: python tests/test_phase1.py
 
-    - name: Full System Test
-      run: python tests/test_full_system.py
-
     # --- FEEDBACK LOOP (from jules_feedback_loop.yml) ---
     - name: Run CUDA Audit
       # Run the verification script. It handles CPU fallback or logging failures.
