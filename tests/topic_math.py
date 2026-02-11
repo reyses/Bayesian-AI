@@ -12,9 +12,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from core.bayesian_brain import BayesianBrain, TradeOutcome
 from core.state_vector import StateVector
 
-def test_laplace_smoothing():
+def test_pessimistic_prior_smoothing():
     """
-    Verify Laplace Smoothing: (7 wins, 3 losses) must return exactly 0.666666...
+    Verify Pessimistic Prior Beta(1, 10): (7 wins, 3 losses)
+    Old Laplace: (7+1)/(10+2) = 0.666...
+    New Pessimistic: (7+1)/(10+11) = 8/21 = 0.380952...
     """
     brain = BayesianBrain()
     state = StateVector.null_state()
@@ -35,15 +37,15 @@ def test_laplace_smoothing():
 
     prob = brain.get_probability(state)
 
-    # (7 + 1) / (10 + 2) = 8 / 12 = 2/3
-    expected = 2.0 / 3.0
+    # (7 + 1) / (10 + 11) = 8 / 21
+    expected = 8.0 / 21.0
 
     assert prob == pytest.approx(expected, abs=1e-9)
 
 def test_synthetic_baseline_10w_2l():
     """
-    Verify 10W-2L synthetic baseline (P=78.57%)
-    (10 wins, 2 losses) -> (10+1)/(12+2) = 11/14 = 0.785714...
+    Verify 10W-2L with Pessimistic Prior Beta(1, 10)
+    (10 wins, 2 losses) -> (10+1)/(12+11) = 11/23 = 0.47826...
     """
     brain = BayesianBrain()
     state = StateVector.null_state()
@@ -61,8 +63,8 @@ def test_synthetic_baseline_10w_2l():
         ))
 
     prob = brain.get_probability(state)
-    expected = 11.0 / 14.0
-    # 78.57% ~ 0.7857
+    expected = 11.0 / 23.0
+
     assert prob == pytest.approx(expected, abs=1e-4)
 
 def test_hash_determinism():
