@@ -234,6 +234,22 @@ class ThreeBodyQuantumState:
                 'reason': f'Wave function not collapsed'
             }
 
+        # REGIME FILTER: Prevent fighting strong volatility expansion trends
+        # If daily volatility is HIGH, respect the daily trend
+        if self.daily_volatility == 'HIGH':
+            # Don't short a Bullish Expansion
+            if self.daily_trend == 'BULL' and self.z_score > 2.0:
+                return {
+                    'action': 'WAIT',
+                    'reason': 'Regime Filter: Cannot short BULL expansion'
+                }
+            # Don't buy a Bearish Crash
+            if self.daily_trend == 'BEAR' and self.z_score < -2.0:
+                return {
+                    'action': 'WAIT',
+                    'reason': 'Regime Filter: Cannot buy BEAR crash'
+                }
+
         # Trade if tunnel probability sufficient
         if self.tunnel_probability >= 0.80:
             if self.z_score > 2.0:
