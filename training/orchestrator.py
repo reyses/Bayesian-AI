@@ -977,7 +977,7 @@ class BayesianTrainingOrchestrator:
 
         # Dynamic Slippage (GPU Pre-calculation)
         cand_velocities = torch.tensor([b['state'].particle_velocity for b in candidate_bars], device=device, dtype=torch.float64)
-        cand_slippage = 0.25 + 0.1 * torch.abs(cand_velocities)
+        cand_slippage = self.BASE_SLIPPAGE + self.VELOCITY_SLIPPAGE_FACTOR * torch.abs(cand_velocities)
         cand_slippage_cost = cand_slippage * 2.0 # Round trip
 
         # === CORE GPU KERNEL: simulate all trades in parallel ===
