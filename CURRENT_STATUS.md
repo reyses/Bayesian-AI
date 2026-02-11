@@ -7,9 +7,9 @@
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 1A. ARCHITECTURE STATUS
-- **Current State:** LEGACY (9-Layer Hierarchy)
-- **Active Engine:** 9-Layer Hierarchy (Legacy)
-- **Experimental Engine:** Fractal Three-Body Quantum (Inactive)
+- **Current State:** QUANTUM (Fractal Three-Body)
+- **Active Engine:** Fractal Three-Body Quantum
+- **Experimental Engine:** Legacy 9-Layer Hierarchy (Deprecated)
 - **Details:** See `AUDIT_REPORT.md`
 
 ### 2. CHANGELOG

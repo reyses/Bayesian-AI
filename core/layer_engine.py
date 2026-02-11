@@ -1,6 +1,9 @@
 """
 Bayesian-AI - Layer Computation Engine (CUDA-Enhanced)
 Extracts 9-layer state from raw tick/OHLC data with GPU acceleration
+
+DEPRECATED: This module is part of the legacy 9-Layer Hierarchy engine.
+It has been superseded by the Fractal Three-Body Quantum engine.
 """
 import pandas as pd
 import numpy as np
@@ -22,6 +25,7 @@ class LayerEngine:
     L2_TRENDING_THRESHOLD = 3.0
 
     def __init__(self, use_gpu=True, logger=None):
+        warnings.warn("LayerEngine is DEPRECATED. Use QuantumFieldEngine instead.", DeprecationWarning, stacklevel=2)
         # Buffers for different timeframes
         self.daily_data = None
         self.weekly_data = None
