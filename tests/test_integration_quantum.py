@@ -7,6 +7,7 @@ import os
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
+from dataclasses import replace
 
 # Add parent directory to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -25,7 +26,6 @@ def test_quantum_state():
     state1 = ThreeBodyQuantumState.null_state()
     # Mocking fields for testing hash
     # Note: dataclasses are immutable (frozen=True), so we must create new instances
-    from dataclasses import replace
     state1 = replace(state1,
         z_score=2.5,
         momentum_strength=0.8,
@@ -66,7 +66,6 @@ def test_quantum_brain():
 
     # Create test state
     state = ThreeBodyQuantumState.null_state()
-    from dataclasses import replace
     state = replace(state,
         z_score=3.0,
         lagrange_zone='L2_ROCHE',

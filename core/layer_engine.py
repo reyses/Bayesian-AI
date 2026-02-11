@@ -7,6 +7,7 @@ It has been superseded by the Fractal Three-Body Quantum engine.
 """
 import pandas as pd
 import numpy as np
+import warnings
 from core.state_vector import StateVector
 from typing import Dict, List, Optional
 import logging
@@ -25,7 +26,7 @@ class LayerEngine:
     L2_TRENDING_THRESHOLD = 3.0
 
     def __init__(self, use_gpu=True, logger=None):
-        print("WARNING: LayerEngine is DEPRECATED. Use QuantumFieldEngine instead.")
+        warnings.warn("LayerEngine is DEPRECATED. Use QuantumFieldEngine instead.", DeprecationWarning, stacklevel=2)
         # Buffers for different timeframes
         self.daily_data = None
         self.weekly_data = None
