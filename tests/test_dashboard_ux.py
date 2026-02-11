@@ -16,6 +16,9 @@ def create_mock_label(*args, **kwargs):
 # Set it on the mock_ttk object
 mock_ttk.Label = create_mock_label
 
+# Set it on mock_tk.Label too (because LiveDashboard uses tk.Label for cards)
+mock_tk.Label = MagicMock(side_effect=create_mock_label)
+
 # IMPORTANT: Link mock_tk.ttk to mock_ttk!
 mock_tk.ttk = mock_ttk
 
@@ -44,7 +47,7 @@ class TestDashboardUX(unittest.TestCase):
         dashboard = LiveDashboard(self.root)
 
         # Verify ids are different (Sanity check)
-        self.assertNotEqual(id(dashboard.lbl_states), id(dashboard.lbl_iter), "Labels should be different objects")
+        self.assertNotEqual(id(dashboard._card_states[0]), id(dashboard._card_progress[0]), "Labels should be different objects")
 
         def check_binding(widget, widget_name):
             calls = widget.bind.call_args_list
@@ -54,16 +57,17 @@ class TestDashboardUX(unittest.TestCase):
             return has_enter
 
         # These already have tooltips
-        self.assertTrue(check_binding(dashboard.lbl_states, "lbl_states"), "lbl_states should have tooltip")
-        self.assertTrue(check_binding(dashboard.lbl_conf, "lbl_conf"), "lbl_conf should have tooltip")
+        self.assertTrue(check_binding(dashboard._card_states[0], "lbl_states"), "lbl_states should have tooltip")
+        self.assertTrue(check_binding(dashboard._card_states[1], "lbl_conf"), "lbl_conf should have tooltip")
 
         # These SHOULD have tooltips after my changes
-        self.assertTrue(check_binding(dashboard.lbl_iter, "lbl_iter"), "lbl_iter should have tooltip")
-        self.assertTrue(check_binding(dashboard.lbl_time, "lbl_time"), "lbl_time should have tooltip")
-        self.assertTrue(check_binding(dashboard.lbl_eta, "lbl_eta"), "lbl_eta should have tooltip")
-        self.assertTrue(check_binding(dashboard.lbl_trades, "lbl_trades"), "lbl_trades should have tooltip")
-        self.assertTrue(check_binding(dashboard.lbl_pnl, "lbl_pnl"), "lbl_pnl should have tooltip")
-        self.assertTrue(check_binding(dashboard.lbl_wr, "lbl_wr"), "lbl_wr should have tooltip")
+        self.assertTrue(check_binding(dashboard._card_progress[0], "lbl_iter"), "lbl_iter should have tooltip")
+        self.assertTrue(check_binding(dashboard._card_progress[1], "lbl_time"), "lbl_time should have tooltip")
+        # lbl_eta is the same as lbl_time in implementation
+        self.assertTrue(check_binding(dashboard._card_progress[1], "lbl_eta"), "lbl_eta should have tooltip")
+        self.assertTrue(check_binding(dashboard._card_trades[0], "lbl_trades"), "lbl_trades should have tooltip")
+        self.assertTrue(check_binding(dashboard._card_pnl[0], "lbl_pnl"), "lbl_pnl should have tooltip")
+        self.assertTrue(check_binding(dashboard._card_wr[0], "lbl_wr"), "lbl_wr should have tooltip")
 
     @patch('visualization.live_training_dashboard.threading.Thread')
     def test_status_icons(self, mock_thread):
