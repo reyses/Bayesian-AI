@@ -58,7 +58,7 @@ class CUDAVelocityGate:
     """High-level interface for CUDA velocity cascade detection"""
     
     def __init__(self, cascade_threshold=10.0, time_window=0.5, use_gpu=True):
-        print("WARNING: CUDAVelocityGate is DEPRECATED.")
+        warnings.warn("CUDAVelocityGate is DEPRECATED.", DeprecationWarning, stacklevel=2)
         self.cascade_threshold = cascade_threshold  # Points
         self.time_window = time_window  # Seconds
         self.use_gpu = use_gpu and NUMBA_AVAILABLE
