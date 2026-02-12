@@ -140,7 +140,8 @@ class ProgressReporter:
         print(f"\nLEARNING METRICS:")
         print(f"  Final States Learned: {latest.states_learned:>5}")
         print(f"  High-Confidence States: {latest.high_conf_states:>5}")
-        print(f"  Approval Rate: {(latest.high_conf_states/latest.states_learned*100):>5.1f}%")
+        approval = (latest.high_conf_states / latest.states_learned * 100) if latest.states_learned > 0 else 0.0
+        print(f"  Approval Rate: {approval:>5.1f}%")
 
         # Calculate learning curve
         if total_days >= 5:
