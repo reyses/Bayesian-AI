@@ -1,0 +1,83 @@
+
+================================================================================
+COMPREHENSIVE PATTERN ANALYSIS
+================================================================================
+
+--- 1. STATE SPACE DIAGNOSTICS ---
+
+  Total unique states: 7
+  Total brain trades:  13
+  Avg trades/state:    1.86
+
+  State bucket distribution:
+          1 trade:     2 ( 28.6%) ##############
+       2-3 trades:     5 ( 71.4%) ###################################
+      4-10 trades:     0 (  0.0%)
+     11-30 trades:     0 (  0.0%)
+       30+ trades:     0 (  0.0%)
+
+--- 2. PERFORMANCE BY ZONE + Z-SCORE RANGE ---
+
+  Zone + Z-Range             Trades      WR   Avg P&L   Total P&L  Avg Dur
+  ----------------------------------------------------------------------
+  L2_ROCHE | z=2.5-3.0            2   0.0% $  -12.50 $    -25.00     147s
+  L2_ROCHE | z=3.0-4.0            3  66.7% $    8.17 $     24.50     462s
+  L2_ROCHE | z=4.0-6.0            2   0.0% $   -8.00 $    -16.00      34s
+  L3_ROCHE | z=2.5-3.0            4  25.0% $   -6.38 $    -25.50     224s
+  L3_ROCHE | z=3.0-4.0            2   0.0% $  -12.50 $    -25.00      82s
+
+--- 3. PERFORMANCE BY EXIT REASON ---
+
+  Exit Reason   Trades      WR   Avg P&L   Total P&L
+  --------------------------------------------------
+  EOD                1   0.0% $   -3.50 $     -3.50
+  SL                 9   0.0% $  -12.50 $   -112.50
+  TIME               2 100.0% $    9.50 $     19.00
+  TP                 1 100.0% $   30.00 $     30.00
+
+--- 4. PERFORMANCE BY SPIN INVERSION (Candle Reversal) ---
+
+  Zone + Spin                     Trades      WR   Avg P&L   Total P&L
+  --------------------------------------------------------------------
+  L2_ROCHE | spin=NO                   7  28.6% $   -2.36 $    -16.50
+  L3_ROCHE | spin=NO                   6  16.7% $   -8.42 $    -50.50
+
+--- 5. PERFORMANCE BY MOMENTUM STRENGTH ---
+
+  Momentum Range        Trades      WR   Avg P&L   Total P&L
+  ----------------------------------------------------------
+  EXTREME (10+)             13  23.1% $   -5.15 $    -67.00
+
+--- 6. LEARNING PROGRESSION (All Days) ---
+
+  Day   Date          Trades      WR        P&L  Sharpe  States  HiConf
+  ----------------------------------------------------------------------
+  1     2025-12-30        13  23.1% $   -67.00   -0.40       7       0
+
+--- 7. TOP PATTERNS (min 2 samples) ---
+
+  #       WR     W/L   Avg P&L Zone          Z-Bin  Mom-Bin Spin 
+  ----------------------------------------------------------------------
+  1     50%   1/2   $   -0.25 L3_ROCHE       -2.6 52024.50 N
+  2     50%   1/2   $   -2.75 L2_ROCHE        3.6 52024.50 N
+  3     33%   1/3   $    1.67 L2_ROCHE        3.1 52024.50 N
+  4      0%   0/2   $  -12.50 L3_ROCHE       -3.1 52024.50 N
+  5      0%   0/2   $  -12.50 L3_ROCHE       -3.7 52024.50 N
+
+--- 8. P&L DISTRIBUTION ---
+
+  Total trades:   13
+  Wins:           3 (23.1%)
+  Losses:         10 (76.9%)
+  Total P&L:      $-67.00
+  Avg win:        $16.33
+  Max win:        $30.00
+  Avg loss:       $-11.60
+  Max loss:       $-12.50
+
+  TP:SL ratio:    16.33 : 11.60 = 1.4:1
+  Breakeven WR:   41.5%
+  Actual WR:      23.1%
+  Edge over BE:   -18.5%
+
+================================================================================

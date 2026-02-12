@@ -1,6 +1,8 @@
 """
 Bayesian-AI - Confirmation Engine
 CUDA-accelerated trade confirmation (L8)
+
+DEPRECATED: This module is part of the legacy 9-Layer Hierarchy engine.
 """
 import pandas as pd
 import numpy as np
@@ -37,69 +39,57 @@ else:
 
 class CUDAConfirmationEngine:
     def __init__(self, use_gpu: bool = True):
+        print("WARNING: CUDAConfirmationEngine is DEPRECATED.")
         self.use_gpu = use_gpu and NUMBA_AVAILABLE
 
         if self.use_gpu:
             try:
-                self.use_gpu = cuda.is_available()
+                if not cuda.is_available():
+                    self.use_gpu = False
             except Exception:
                 self.use_gpu = False
 
-        if not self.use_gpu and use_gpu:
-             logging.warning("CUDA requested for ConfirmationEngine but not available. Falling back to CPU.")
+        if not self.use_gpu:
+             raise RuntimeError("CUDA Confirmation Engine requires a GPU. CPU fallback has been removed.")
 
     def confirm(self, bars: pd.DataFrame, L7_pattern_active: bool) -> bool:
         if not L7_pattern_active:
             return False
 
-        if self.use_gpu and NUMBA_AVAILABLE:
-             # CUDA Implementation
-             if 'volume' not in bars.columns:
-                 return False
+        if not self.use_gpu:
+             raise RuntimeError("CUDA Confirmation Engine requires a GPU.")
 
-             volumes = bars['volume'].values
-             if len(volumes) < 3:
-                 return False
-
-             # Optimization: Only process recent history to minimize transfer overhead
-             LOOKBACK = 100
-             if len(volumes) > LOOKBACK:
-                 volumes = volumes[-LOOKBACK:]
-
-             # Prepare data for GPU
-             # Numba needs contiguous arrays, astype returns a copy which is usually contiguous
-             volumes_gpu = volumes.astype(np.float32)
-
-             d_volumes = cuda.to_device(volumes_gpu)
-             results = np.zeros(len(volumes_gpu), dtype=np.int32)
-             d_results = cuda.to_device(results)
-
-             # Launch kernel
-             threads_per_block = 256
-             blocks = (len(volumes_gpu) + threads_per_block - 1) // threads_per_block
-
-             confirm_kernel[blocks, threads_per_block](d_volumes, d_results)
-
-             results = d_results.copy_to_host()
-
-             # We only care about the confirmation status of the latest bar
-             return bool(results[-1] == 1)
-        else:
-             return self._confirm_cpu(bars, L7_pattern_active)
-
-    def _confirm_cpu(self, bars: pd.DataFrame, L7_pattern_active: bool) -> bool:
-        # Logic from layer_engine_cuda.py _compute_L8_5m_CPU
-        if not L7_pattern_active:
-            return False
-
+        # CUDA Implementation
         if 'volume' not in bars.columns:
             return False
 
         volumes = bars['volume'].values
-        if len(volumes) >= 3 and volumes[-1] > volumes[-3:].mean() * 1.2:
-            return True
+        if len(volumes) < 3:
+            return False
 
-        return False
+        # Optimization: Only process recent history to minimize transfer overhead
+        LOOKBACK = 100
+        if len(volumes) > LOOKBACK:
+            volumes = volumes[-LOOKBACK:]
+
+        # Prepare data for GPU
+        # Numba needs contiguous arrays, astype returns a copy which is usually contiguous
+        volumes_gpu = volumes.astype(np.float32)
+
+        d_volumes = cuda.to_device(volumes_gpu)
+        results = np.zeros(len(volumes_gpu), dtype=np.int32)
+        d_results = cuda.to_device(results)
+
+        # Launch kernel
+        threads_per_block = 256
+        blocks = (len(volumes_gpu) + threads_per_block - 1) // threads_per_block
+
+        confirm_kernel[blocks, threads_per_block](d_volumes, d_results)
+
+        results = d_results.copy_to_host()
+
+        # We only care about the confirmation status of the latest bar
+        return bool(results[-1] == 1)
 
 _confirmation_engine = None
 def get_confirmation_engine(use_gpu: bool = True) -> CUDAConfirmationEngine:

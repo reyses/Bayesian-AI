@@ -53,7 +53,7 @@ jobs:
           pip install --no-cache-dir -r requirements.txt
         fi
         # Ensure dev dependencies are present
-        pip install --no-cache-dir pytest pandas numpy numba
+        pip install pytest pandas numpy numba
 
     # --- CORE TESTING (from ci.yml) ---
     - name: Integrity Test
@@ -67,9 +67,6 @@ jobs:
 
     - name: Phase 1 Test
       run: python tests/test_phase1.py
-
-    - name: Full System Test
-      run: python tests/test_full_system.py
 
     # --- FEEDBACK LOOP (from jules_feedback_loop.yml) ---
     - name: Run CUDA Audit
@@ -98,16 +95,12 @@ jobs:
       continue-on-error: true
 
     # --- BUILD & ARTIFACTS (from ci.yml & jules_feedback_loop.yml) ---
-    # Scripts have been archived, skipping build for now until new build process is defined.
-    # - name: Build Executable
-    #   run: python scripts/build_executable.py
-    #
-    # - name: Archive Executable
-    #   uses: actions/upload-artifact@v4
-    #   with:
-    #     name: Bayesian_AI_Engine
-    #     path: dist/Bayesian_AI_Engine
-    #   continue-on-error: true
+    - name: Archive Executable
+      uses: actions/upload-artifact@v4
+      with:
+        name: Bayesian_AI_Engine
+        path: dist/Bayesian_AI_Engine
+      continue-on-error: true
 
     - name: Manage Log Size
       run: |

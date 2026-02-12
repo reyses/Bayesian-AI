@@ -72,7 +72,13 @@ def test_bayesian_brain():
     
     # Initial probability (no data)
     initial_prob = brain.get_probability(state)
-    assert initial_prob == 0.50, "Initial probability should be 50% (neutral prior)"
+    # Pessimistic Prior Beta(1, 10) = 1/11 ~ 9%
+    # Note: In `core/bayesian_brain.py`, the code says:
+    # if state not in self.table: return 0.09
+    # This is an approximation of 1/11 (0.090909...)
+    # So we should expect exactly 0.09 if the state is new
+    expected_prior = 0.09
+    assert abs(initial_prob - expected_prior) < 1e-9, f"Initial probability should be exactly 0.09 (hardcoded approximation), got {initial_prob}"
     print(f"✓ Initial probability: {initial_prob:.2%}")
     
     # Simulate 10 wins, 2 losses

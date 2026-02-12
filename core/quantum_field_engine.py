@@ -8,6 +8,16 @@ import pandas as pd
 from scipy.stats import linregress
 from core.three_body_state import ThreeBodyQuantumState
 
+# Pattern Constants
+PATTERN_NONE = 'NONE'
+PATTERN_COMPRESSION = 'COMPRESSION'
+PATTERN_WEDGE = 'WEDGE'
+PATTERN_BREAKDOWN = 'BREAKDOWN'
+
+# Cascade Constants
+VELOCITY_CASCADE_THRESHOLD = 1.0  # Points per second
+RANGE_CASCADE_THRESHOLD = 10.0    # Points range in candle
+
 # Optional CUDA support
 try:
     import torch
@@ -30,6 +40,11 @@ class QuantumFieldEngine:
         self.SIGMA_ROCHE_MULTIPLIER = 2.0
         self.SIGMA_EVENT_MULTIPLIER = 3.0
         self.TIDAL_FORCE_EXPONENT = 2.0
+
+        # Historical residuals for fat-tail sigma calculation (rolling window)
+        # Using 500 bars (~2 hours at 15s) to estimate distribution
+        self.residual_history = []
+        self.residual_window = 500
 
         # === GPU SETUP ===
         if TORCH_AVAILABLE and CUDA_AVAILABLE:
@@ -66,9 +81,34 @@ class QuantumFieldEngine:
             return ThreeBodyQuantumState.null_state()
         
         # Body 1: Center star
-        center, sigma, slope = self._calculate_center_mass(df_macro)
+        # Use residuals from regression to update historical distribution
+        center, reg_sigma, slope, residuals = self._calculate_center_mass(df_macro)
         
-        # Bodies 2 & 3: Singularities
+        # Update residual history with latest residual
+        # The latest residual is (current_price - center)
+        # But _calculate_center_mass uses historical window.
+        # We need to be consistent. Let's use the residual of the last point in regression.
+        latest_residual = residuals[-1]
+        self.residual_history.append(abs(latest_residual))
+        if len(self.residual_history) > self.residual_window:
+            self.residual_history.pop(0)
+
+        # Compute Fat-Tail Sigma (98th percentile of historical residuals)
+        if len(self.residual_history) >= 20:
+            sigma = np.percentile(self.residual_history, 98)
+            # Fallback to regression sigma if percentile is too small (e.g. tight consolidation)
+            sigma = max(sigma, reg_sigma)
+        else:
+            sigma = reg_sigma
+
+        # Trend Direction (15m slope)
+        slope_strength = (slope * len(df_macro)) / (sigma + 1e-6)
+        if slope_strength > 1.0:
+            trend_direction = 'UP' if slope > 0 else 'DOWN'
+        else:
+            trend_direction = 'RANGE'
+
+        # Bodies 2 & 3: Singularities (using robust sigma)
         upper_sing = center + self.SIGMA_ROCHE_MULTIPLIER * sigma
         lower_sing = center - self.SIGMA_ROCHE_MULTIPLIER * sigma
         upper_event = center + self.SIGMA_EVENT_MULTIPLIER * sigma
@@ -129,18 +169,22 @@ class QuantumFieldEngine:
             tunnel_probability=tunnel_prob,
             escape_probability=escape_prob,
             barrier_height=barrier,
+            pattern_type=measurements['pattern_type'],
             timestamp=df_macro.index[-1].timestamp() if hasattr(df_macro.index[-1], 'timestamp') else 0.0
         )
     
     def _calculate_center_mass(self, df: pd.DataFrame):
-        """Linear regression for center star"""
+        """Linear regression for center star — uses residual std (not slope std_err)"""
         window = df.iloc[-self.regression_period:]
         y = window['close'].values
         x = np.arange(len(y))
-        slope, intercept, _, _, std_err = linregress(x, y)
+        slope, intercept, _, _, _ = linregress(x, y)
         center = slope * x[-1] + intercept
-        sigma = std_err if std_err > 0 else y.std()
-        return center, sigma, slope
+        # Residual standard deviation (matches batch_compute_states)
+        residuals = y - (slope * x + intercept)
+        sigma = np.sqrt(np.sum(residuals ** 2) / (len(y) - 2))
+        sigma = sigma if sigma > 0 else y.std()
+        return center, sigma, slope, residuals
     
     def _calculate_force_fields(self, price, center, upper_sing, lower_sing, z_score, sigma, volume, velocity):
         """Compute competing gravitational forces"""
@@ -218,7 +262,8 @@ class QuantumFieldEngine:
                 'structure_confirmed': False,
                 'cascade_detected': False,
                 'spin_inverted': False,
-                'pattern_maturity': 0.0
+                'pattern_maturity': 0.0,
+                'pattern_type': PATTERN_NONE
             }
         
         recent = df_micro.iloc[-20:]
@@ -226,10 +271,16 @@ class QuantumFieldEngine:
         pattern_maturity = min((abs(z_score) - 2.0) / 1.0, 1.0) if abs(z_score) > 2.0 else 0.0
         structure_confirmed = volume_spike and pattern_maturity > 0.5
         
-        cascade_threshold = 1.0  # 1 point = 4 ticks (significant 1-second move)
-        cascade_detected = abs(velocity) > cascade_threshold
+        # Cascade Logic: Velocity OR Range
+        velocity_cascade = abs(velocity) > VELOCITY_CASCADE_THRESHOLD
         
         current_candle = df_micro.iloc[-1]
+        high = current_candle.get('high', current_candle['close'])
+        low = current_candle.get('low', current_candle['close'])
+        range_cascade = (high - low) > RANGE_CASCADE_THRESHOLD
+
+        cascade_detected = velocity_cascade or range_cascade
+
         # Use open price if available, otherwise fallback to close
         open_price = current_candle.get('open', current_candle['close'])
 
@@ -240,11 +291,24 @@ class QuantumFieldEngine:
         else:
             spin_inverted = False
         
+        # Geometric Pattern Detection
+        highs = df_micro['high'].values if 'high' in df_micro.columns else df_micro['close'].values
+        lows = df_micro['low'].values if 'low' in df_micro.columns else df_micro['close'].values
+
+        # We need to detect pattern for the LAST bar.
+        # _detect_geometric_patterns returns array for all bars.
+        # We can optimize by passing only last 20 bars.
+        check_highs = highs[-20:]
+        check_lows = lows[-20:]
+        patterns = self._detect_geometric_patterns(check_highs, check_lows)
+        pattern_type = patterns[-1]
+
         return {
             'structure_confirmed': structure_confirmed,
             'cascade_detected': cascade_detected,
             'spin_inverted': spin_inverted,
-            'pattern_maturity': pattern_maturity
+            'pattern_maturity': pattern_maturity,
+            'pattern_type': pattern_type
         }
     
     def _calculate_tunneling(self, z_score, F_momentum, F_reversion):
@@ -282,6 +346,51 @@ class QuantumFieldEngine:
             return 'L3_ROCHE', 0.1
         else:
             return 'UNKNOWN', 0.0
+
+    def _detect_geometric_patterns(self, highs: np.ndarray, lows: np.ndarray) -> np.ndarray:
+        """
+        Vectorized geometric pattern detection (Compression, Wedge, Breakdown)
+        Returns array of pattern strings.
+        Uses pandas rolling windows for efficiency and correct boundary handling.
+        """
+        n = len(highs)
+        patterns = np.full(n, PATTERN_NONE, dtype=object)
+
+        if n < 10:
+            return patterns
+
+        # Convert to pandas Series for efficient rolling operations
+        highs_s = pd.Series(highs)
+        lows_s = pd.Series(lows)
+
+        # Recent 5 bars range (window=5)
+        rec_range = highs_s.rolling(5).max() - lows_s.rolling(5).min()
+
+        # Previous 5 bars range (shifted by 5)
+        prev_range = rec_range.shift(5)
+
+        # Compression (Priority 1)
+        # Compare ranges. Pandas handles NaNs (result is False), so no mask needed.
+        compression_mask = (prev_range > 0) & (rec_range < prev_range * 0.7)
+        # Fill patterns where mask is True. Use .to_numpy() to align with array.
+        # fillna(False) ensures we don't have boolean ambiguity with NaNs
+        patterns[compression_mask.fillna(False).to_numpy()] = PATTERN_COMPRESSION
+
+        # Wedge (Higher Lows AND Lower Highs) over 5 bars (Priority 2)
+        # Compare current vs 4 bars ago
+        wedge_mask = (lows > lows_s.shift(4)) & (highs < highs_s.shift(4))
+        patterns[wedge_mask.fillna(False).to_numpy()] = PATTERN_WEDGE
+
+        # Breakdown (Low < min of previous 4 lows) (Priority 3)
+        # Previous 4 lows: shift 1, then rolling min 4
+        prev_4_min = lows_s.shift(1).rolling(4).min()
+        breakdown_mask = lows < prev_4_min
+        patterns[breakdown_mask.fillna(False).to_numpy()] = PATTERN_BREAKDOWN
+
+        # Clear first 9 bars explicitly (warmup period for rolling windows)
+        patterns[:9] = PATTERN_NONE
+
+        return patterns
 
     # ═══════════════════════════════════════════════════════════════════════
     # VECTORIZED BATCH COMPUTATION (processes all bars at once)
@@ -322,24 +431,82 @@ class QuantumFieldEngine:
         x_var = np.sum((x - x_mean) ** 2)
 
         centers = np.empty(num_bars)
+        # Using rolling percentile for sigma (fat-tail distribution)
         sigmas = np.empty(num_bars)
+        trend_directions = np.empty(num_bars, dtype=object)
 
-        # Build rolling windows efficiently
+        # Pre-calculate rolling residuals for robust sigma
+        # Rolling residuals history (maxlen=500)
+        # We'll maintain a rolling buffer of residuals
+        rolling_residuals = []
+
         for i in range(num_bars):
-            y = close[i:i + rp]
+            # Window ending at current bar (inclusive)
+            # FIX: Align window to match calculate_three_body_state (coincident, not predictive)
+            start_idx = i + 1
+            end_idx = i + 1 + rp
+            if end_idx > len(close):
+                # End of data logic
+                centers[i:] = centers[i-1] if i > 0 else 0
+                sigmas[i:] = sigmas[i-1] if i > 0 else 1.0
+                trend_directions[i:] = 'RANGE'
+                break
+
+            y = close[start_idx : end_idx]
             y_mean = y.mean()
             slope = np.sum((x - x_mean) * (y - y_mean)) / x_var
             intercept = y_mean - slope * x_mean
             center = slope * x[-1] + intercept
+
+            # Residuals for this window
             residuals = y - (slope * x + intercept)
+            current_residual = residuals[-1]
+
+            # Std Dev Sigma (Regression Sigma)
             std_err = np.sqrt(np.sum(residuals ** 2) / (rp - 2))
-            sigma = std_err if std_err > 0 else y.std()
+            reg_sigma = std_err if std_err > 0 else y.std()
+
+            # Robust Sigma (98th percentile of history)
+            rolling_residuals.append(abs(current_residual))
+            if len(rolling_residuals) > 500:
+                rolling_residuals.pop(0)
+
+            if len(rolling_residuals) >= 20:
+                robust_sigma = np.percentile(rolling_residuals, 98)
+                sigma = max(robust_sigma, reg_sigma)
+            else:
+                sigma = reg_sigma
+
             centers[i] = center
             sigmas[i] = max(sigma, 1e-10)
+
+            # Trend Direction
+            slope_strength = (slope * rp) / (sigma + 1e-6)
+            if slope_strength > 1.0:
+                trend_directions[i] = 'UP' if slope > 0 else 'DOWN'
+            else:
+                trend_directions[i] = 'RANGE'
 
         # Prices at each computed bar
         bar_prices = prices[rp:]
         bar_volumes = volumes[rp:]
+
+        # Extract highs/lows for pattern detection and cascade
+        if 'high' in day_data.columns and 'low' in day_data.columns:
+            highs_full = day_data['high'].values.astype(np.float64)
+            lows_full = day_data['low'].values.astype(np.float64)
+        else:
+            highs_full = prices.copy()
+            lows_full = prices.copy()
+
+        # Compute patterns for the whole dataset first
+        pattern_types_full = self._detect_geometric_patterns(highs_full, lows_full)
+        # Slice to matched bars
+        pattern_types = pattern_types_full[rp:]
+
+        # Slice highs/lows to matched bars for cascade check
+        bar_highs = highs_full[rp:]
+        bar_lows = lows_full[rp:]
 
         # ═══ STEP 2: Vectorized z-scores & force fields ═══
         z_scores = (bar_prices - centers) / sigmas
@@ -438,8 +605,11 @@ class QuantumFieldEngine:
             0.0
         )
         structure_confirmed = volume_spike & (pattern_maturity > 0.5)
-        # Cascade threshold: 1.0 point = 4 ticks for 1s bars (significant 1-second move)
-        cascade_detected = np.abs(tick_velocity) > 1.0
+
+        # Cascade Logic: Velocity OR Range
+        velocity_cascade = np.abs(tick_velocity) > VELOCITY_CASCADE_THRESHOLD
+        range_cascade = (bar_highs - bar_lows) > RANGE_CASCADE_THRESHOLD
+        cascade_detected = velocity_cascade | range_cascade
 
         # Spin inversion
         if 'open' in day_data.columns:
@@ -523,6 +693,8 @@ class QuantumFieldEngine:
                 tunnel_probability=tunnel_prob[i],
                 escape_probability=escape_prob[i],
                 barrier_height=barrier[i],
+                pattern_type=str(pattern_types[i]),
+                trend_direction_15m=str(trend_directions[i]),
             )
             results.append({
                 'bar_idx': rp + i,

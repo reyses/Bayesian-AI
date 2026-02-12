@@ -1,6 +1,8 @@
 """
 Bayesian-AI - Pattern Detector
 CUDA-accelerated pattern recognition (L7)
+
+DEPRECATED: This module is part of the legacy 9-Layer Hierarchy engine.
 """
 import pandas as pd
 import numpy as np
@@ -82,22 +84,23 @@ else:
 
 class CUDAPatternDetector:
     def __init__(self, use_gpu: bool = True):
+        warnings.warn("CUDAPatternDetector is DEPRECATED.", DeprecationWarning, stacklevel=2)
         self.use_gpu = use_gpu and NUMBA_AVAILABLE
 
         if self.use_gpu:
             try:
-                self.use_gpu = cuda.is_available()
+                if not cuda.is_available():
+                    self.use_gpu = False
             except Exception:
                 self.use_gpu = False
 
-        if not self.use_gpu and use_gpu:
-             logging.warning("CUDA requested for PatternDetector but not available. Falling back to CPU.")
+        if not self.use_gpu:
+            raise RuntimeError("CUDA Pattern Detector requires a GPU. CPU fallback has been removed.")
 
     def detect(self, bars: pd.DataFrame, window_size: int = 20) -> Tuple[str, float]:
-        if self.use_gpu:
-             return self._detect_gpu(bars)
-        else:
-             return self._detect_cpu(bars)
+        if not self.use_gpu:
+             raise RuntimeError("CUDA Pattern Detector requires a GPU.")
+        return self._detect_gpu(bars)
 
     def _detect_gpu(self, bars: pd.DataFrame) -> Tuple[str, float]:
         # Convert to numpy arrays
@@ -150,33 +153,6 @@ class CUDAPatternDetector:
             pattern_name = 'breakdown'
 
         return (pattern_name, float(last_conf))
-
-    def _detect_cpu(self, bars: pd.DataFrame) -> Tuple[str, float]:
-        # Logic from layer_engine_cuda.py _compute_L7_15m_CPU
-        highs = bars['high'].values
-        lows = bars['low'].values
-
-        if len(highs) >= 5:
-            # Note: This compression check implicitly requires at least 10 bars
-            # for prev_range calculation to be safe/meaningful, otherwise slicing
-            # like [-10:-5] on small array yields empty and .max() raises error.
-            # We add a check for safety.
-            if len(highs) >= 10:
-                recent_range = highs[-5:].max() - lows[-5:].min()
-                prev_range = highs[-10:-5].max() - lows[-10:-5].min()
-
-                if prev_range > 0 and recent_range < prev_range * 0.7:
-                    return ('compression', 0.85)
-
-        # Need to ensure we have enough data for these checks
-        if len(lows) >= 5:
-            if lows[-1] > lows[-5] and highs[-1] < highs[-5]:
-                return ('wedge', 0.75)
-
-            if lows[-1] < lows[-5:-1].min():
-                return ('breakdown', 0.90)
-
-        return ('none', 0.0)
 
 _pattern_detector = None
 def get_pattern_detector(use_gpu: bool = True) -> CUDAPatternDetector:

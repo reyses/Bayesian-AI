@@ -1,12 +1,16 @@
 """
 Bayesian-AI - Layer Computation Engine (CUDA-Enhanced)
 Extracts 9-layer state from raw tick/OHLC data with GPU acceleration
+
+DEPRECATED: This module is part of the legacy 9-Layer Hierarchy engine.
+It has been superseded by the Fractal Three-Body Quantum engine.
 """
 import pandas as pd
 import numpy as np
 from core.state_vector import StateVector
 from typing import Dict, List, Optional
 import logging
+import warnings
 
 from cuda_modules.pattern_detector import get_pattern_detector
 from cuda_modules.confirmation import get_confirmation_engine
@@ -22,6 +26,7 @@ class LayerEngine:
     L2_TRENDING_THRESHOLD = 3.0
 
     def __init__(self, use_gpu=True, logger=None):
+        warnings.warn("LayerEngine is DEPRECATED. Use QuantumFieldEngine instead.", DeprecationWarning, stacklevel=2)
         # Buffers for different timeframes
         self.daily_data = None
         self.weekly_data = None
@@ -39,19 +44,39 @@ class LayerEngine:
         self.logger = logger
 
         # Initialize helpers
-        self.pattern_detector = get_pattern_detector(use_gpu=use_gpu)
-        self.confirmation_engine = get_confirmation_engine(use_gpu=use_gpu)
-        self.velocity_gate = get_velocity_gate(use_gpu=use_gpu)
+        self.pattern_detector = None
+        self.confirmation_engine = None
+        self.velocity_gate = None
+
+        # Attempt to initialize CUDA modules. If they fail (e.g. no GPU), catch RuntimeError.
+        if use_gpu:
+            try:
+                self.pattern_detector = get_pattern_detector(use_gpu=True)
+            except RuntimeError:
+                print("[LAYER ENGINE] PatternDetector not available (No GPU). CPU fallback disabled.")
+                self.pattern_detector = None
+
+            try:
+                self.confirmation_engine = get_confirmation_engine(use_gpu=True)
+            except RuntimeError:
+                 self.confirmation_engine = None
+
+            try:
+                self.velocity_gate = get_velocity_gate(use_gpu=True)
+            except RuntimeError:
+                 self.velocity_gate = None
 
         # Check effective GPU usage (if any component uses GPU)
-        self.use_gpu = (self.pattern_detector.use_gpu or
-                        self.confirmation_engine.use_gpu or
-                        self.velocity_gate.use_gpu)
+        self.use_gpu = (
+            (self.pattern_detector and self.pattern_detector.use_gpu) or
+            (self.confirmation_engine and self.confirmation_engine.use_gpu) or
+            (self.velocity_gate and self.velocity_gate.use_gpu)
+        )
 
         if self.use_gpu:
             print("[LAYER ENGINE] CUDA acceleration ENABLED")
         else:
-            print("[LAYER ENGINE] CUDA acceleration DISABLED (CPU mode)")
+            print("[LAYER ENGINE] CUDA acceleration DISABLED (GPU modules unavailable)")
 
     def _log(self, msg):
         if self.logger:
@@ -264,6 +289,9 @@ class LayerEngine:
         if bars is None or len(bars) < 10:
             return ('none', 0.0)
         
+        if self.pattern_detector is None:
+             return ('none', 0.0)
+
         res, maturity = self.pattern_detector.detect(bars, window_size=20)
         if self.logger and res != 'none':
             self._log(f"L7 Pattern: {res} (Maturity: {maturity})")
@@ -277,6 +305,9 @@ class LayerEngine:
         if L7_pattern == 'none':
             return False
         
+        if self.confirmation_engine is None:
+             return False
+
         confirmed = self.confirmation_engine.confirm(bars, L7_pattern != 'none')
         if self.logger and confirmed:
             self._log(f"L8 Confirmed for pattern {L7_pattern}")
@@ -287,6 +318,9 @@ class LayerEngine:
         if ticks is None or len(ticks) < 50:
             return False
         
+        if self.velocity_gate is None:
+             return False
+
         # Pass directly to VelocityGate which handles DataFrame/Array/List
         cascade = self.velocity_gate.detect_cascade(ticks)
         if self.logger and cascade:
