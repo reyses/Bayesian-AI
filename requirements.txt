@@ -10,8 +10,8 @@ databento-dbn==0.48.0
 frozenlist==1.8.0
 idna==3.11
 multidict==6.7.1
-numpy==2.2.6
-pandas==3.0.0
+numpy>=1.26.0
+pandas>=2.2.0
 propcache==0.4.1
 pyarrow==23.0.0
 python-dateutil==2.9.0.post0
@@ -24,9 +24,7 @@ numba==0.61.2
 llvmlite==0.44.0
 pyinstaller==6.18.0
 pytest
-jupyter
 plotly
-ipywidgets
 tqdm
 scipy==1.13.1
 matplotlib>=3.8.0
