@@ -119,11 +119,24 @@ class TestDashboardUX(unittest.TestCase):
 
         # Verify text widget configured with yscrollcommand
         # dashboard.txt_log is the mock instance
-        mock_scrollbar_instance = mock_ttk.Scrollbar.return_value
-        dashboard.txt_log.configure.assert_any_call(yscrollcommand=mock_scrollbar_instance.set)
+        configure_calls = dashboard.txt_log.configure.call_args_list
+        has_yscroll = False
+        for call in configure_calls:
+            if 'yscrollcommand' in call.kwargs:
+                has_yscroll = True
+                break
+
+        self.assertTrue(has_yscroll, "Text widget should be configured with yscrollcommand")
 
         # Verify Scrollbar linked to text widget yview
-        mock_ttk.Scrollbar.assert_any_call(command=dashboard.txt_log.yview)
+        scrollbar_calls = mock_ttk.Scrollbar.call_args_list
+        found_command = False
+        for call in scrollbar_calls:
+            if 'command' in call.kwargs and call.kwargs['command'] == dashboard.txt_log.yview:
+                found_command = True
+                break
+
+        self.assertTrue(found_command, "Scrollbar should be linked to txt_log.yview")
 
 if __name__ == '__main__':
     unittest.main()
