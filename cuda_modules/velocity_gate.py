@@ -1,6 +1,8 @@
 """
 Bayesian-AI - CUDA Velocity Gate (Layer 9)
 Numba-accelerated tick-level cascade detection: 10+ points in <0.5sec
+
+DEPRECATED: This module is part of the legacy 9-Layer Hierarchy engine.
 """
 import numpy as np
 import pandas as pd
@@ -56,19 +58,21 @@ class CUDAVelocityGate:
     """High-level interface for CUDA velocity cascade detection"""
     
     def __init__(self, cascade_threshold=10.0, time_window=0.5, use_gpu=True):
+        warnings.warn("CUDAVelocityGate is DEPRECATED.", DeprecationWarning, stacklevel=2)
         self.cascade_threshold = cascade_threshold  # Points
         self.time_window = time_window  # Seconds
         self.use_gpu = use_gpu and NUMBA_AVAILABLE
         
         if self.use_gpu:
             try:
-                self.use_gpu = cuda.is_available()
+                if not cuda.is_available():
+                    self.use_gpu = False
             except Exception:
                 # Catch dynamic lib errors (missing drivers)
                 self.use_gpu = False
 
-        if not self.use_gpu and use_gpu: # User requested GPU but not available
-            logging.warning("CUDA requested for VelocityGate but not available. Falling back to CPU.")
+        if not self.use_gpu:
+            raise RuntimeError("CUDA Velocity Gate requires a GPU. CPU fallback has been removed.")
     
     def detect_cascade(self, tick_data):
         """
@@ -80,6 +84,9 @@ class CUDAVelocityGate:
         Returns:
             bool: True if cascade detected
         """
+        if not self.use_gpu:
+            raise RuntimeError("CUDA Velocity Gate requires a GPU.")
+
         # Optimization: Only process recent history
         # We only need the last 50 ticks for the algorithm + some buffer
         # This prevents O(N) transfer/processing on every tick
@@ -122,44 +129,25 @@ class CUDAVelocityGate:
         else:
              return False # Unknown format
         
-        if self.use_gpu and NUMBA_AVAILABLE:
-            # GPU execution
-            d_prices = cuda.to_device(prices)
-            d_times = cuda.to_device(times)
-            
-            results = np.zeros(len(prices), dtype=np.int32)
-            d_results = cuda.to_device(results)
-            
-            # Launch kernel
-            threads_per_block = 256
-            blocks = (len(prices) + threads_per_block - 1) // threads_per_block
-            
-            detect_cascade_kernel[blocks, threads_per_block](
-                d_prices, d_times, self.cascade_threshold, self.time_window, d_results
-            )
-            
-            results = d_results.copy_to_host()
-            
-            # Any cascade in recent window?
-            return bool(results[-10:].sum() > 0)
-            
-        else:
-            # CPU fallback
-            return self._cpu_detect(prices, times)
-    
-    def _cpu_detect(self, prices, times):
-        """CPU fallback implementation"""
-        if len(prices) < 50:
-            return False
+        # GPU execution
+        d_prices = cuda.to_device(prices)
+        d_times = cuda.to_device(times)
+
+        results = np.zeros(len(prices), dtype=np.int32)
+        d_results = cuda.to_device(results)
+
+        # Launch kernel
+        threads_per_block = 256
+        blocks = (len(prices) + threads_per_block - 1) // threads_per_block
         
-        # Check last 50 ticks
-        window_prices = prices[-50:]
-        window_times = times[-50:]
+        detect_cascade_kernel[blocks, threads_per_block](
+            d_prices, d_times, self.cascade_threshold, self.time_window, d_results
+        )
         
-        price_move = abs(window_prices.max() - window_prices.min())
-        time_elapsed = window_times[-1] - window_times[0]
+        results = d_results.copy_to_host()
         
-        return bool(price_move >= self.cascade_threshold and time_elapsed <= self.time_window)
+        # Any cascade in recent window?
+        return bool(results[-10:].sum() > 0)
 
 # Singleton
 _velocity_gate = None

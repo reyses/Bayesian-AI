@@ -139,6 +139,28 @@ class LiveDashboard:
         # Card: Best Params
         self._card_params = self._make_card(top_frame, 7, "BEST PARAMS", "--", "TP/SL: --")
 
+        # Tooltips for Cards
+        card_tooltips = [
+            (self._card_progress[0], "Current training iteration / Total iterations"),
+            (self._card_progress[1], "Current simulated date | Estimated Time Remaining"),
+            (self._card_pnl[0], "Total Profit/Loss across all trades"),
+            (self._card_pnl[1], "Profit/Loss for the current simulated day"),
+            (self._card_wr[0], "Percentage of winning trades (cumulative)"),
+            (self._card_wr[1], "Win rate for today"),
+            (self._card_sharpe[0], "Sharpe Ratio (Risk-adjusted return)"),
+            (self._card_sharpe[1], "Sharpe Ratio for today"),
+            (self._card_trades[0], "Total number of trades"),
+            (self._card_trades[1], "Trades executed today"),
+            (self._card_states[0], "Total market states learned"),
+            (self._card_states[1], "High confidence states (count)"),
+            (self._card_dd[0], "Maximum Drawdown (Peak to Trough)"),
+            (self._card_dd[1], "Average Trade Duration"),
+            (self._card_params[0], "Best Parameters (Take Profit / Stop Loss)"),
+            (self._card_params[1], "Threshold / Max Hold"),
+        ]
+        for widget, text in card_tooltips:
+            Tooltip(widget, text)
+
         # === ROW 1 LEFT: Cumulative P&L Chart ===
         self.frame_pnl = ttk.Frame(self.root, padding=5)
         self.frame_pnl.grid(row=1, column=0, sticky="nsew", padx=(5, 2))
@@ -188,21 +210,22 @@ class LiveDashboard:
 
         btn_frame = ttk.Frame(self.frame_controls)
         btn_frame.pack(fill='x', pady=5)
-        
-        self.btn_pause = ttk.Button(btn_frame, text="⏸️ Pause", command=self.pause_training)
-        self.btn_pause.pack(side="left", padx=5)
-        Tooltip(self.btn_pause, "Pause training by creating a PAUSE signal file")
 
-        self.btn_resume = ttk.Button(btn_frame, text="▶️ Resume", command=self.resume_training)
+        self.btn_pause = ttk.Button(btn_frame, text="⏸ Pause", command=self.pause_training)
+        self.btn_pause.pack(side="left", padx=5)
+        Tooltip(self.btn_pause, "Pause training temporarily")
+
+        self.btn_resume = ttk.Button(btn_frame, text="▶ Resume", command=self.resume_training)
         self.btn_resume.pack(side="left", padx=5)
-        Tooltip(self.btn_resume, "Resume training by removing the PAUSE signal file")
+        Tooltip(self.btn_resume, "Resume training")
 
         self.btn_stop = ttk.Button(btn_frame, text="🛑 Stop", command=self.stop_training)
         self.btn_stop.pack(side="left", padx=5)
-        Tooltip(self.btn_stop, "Stop training gracefully by creating a STOP signal file")
+        Tooltip(self.btn_stop, "Stop training and save")
 
         self.btn_export = ttk.Button(btn_frame, text="📸 Export PNG", command=self.export_chart)
         self.btn_export.pack(side="left", padx=5)
+        Tooltip(self.btn_export, "Export current chart to PNG")
 
         ttk.Separator(self.frame_controls, orient='horizontal').pack(fill='x', pady=5)
 
@@ -266,11 +289,11 @@ class LiveDashboard:
             self.refresh_dashboard()
 
         if self.remote_status == "STOPPED":
-            self.lbl_status.config(text="Status: STOPPED", foreground="red")
+            self.lbl_status.config(text="Status: 🛑 STOPPED", foreground="red")
         elif self.remote_status == "PAUSED":
-            self.lbl_status.config(text="Status: PAUSED", foreground="orange")
+            self.lbl_status.config(text="Status: ⏸️ PAUSED", foreground="orange")
         else:
-            self.lbl_status.config(text="Status: RUNNING", foreground="#00ff00")
+            self.lbl_status.config(text="Status: 🟢 RUNNING", foreground="#00ff00")
 
         self.root.after(1000, self.update_gui)
 

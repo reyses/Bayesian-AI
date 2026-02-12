@@ -17,3 +17,4 @@ checkpoints/
 training/training_progress.json
 *.pkl
 *.parquet
+nul

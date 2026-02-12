@@ -467,7 +467,7 @@ class PatternAnalyzer:
                 if hasattr(state, '_get_hash_bins'):
                     z_b, m_b = state._get_hash_bins()
                     z_bin = f"{z_b:.1f}"
-                    mom_bin = f"{m_b:.1f}"
+                    mom_bin = f"{m_b:.2f}" if isinstance(m_b, (int, float)) else f"{m_b}"
                 if hasattr(state, 'spin_inverted'):
                     spin = 'Y' if state.spin_inverted else 'N'
                 report.append(
