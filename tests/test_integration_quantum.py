@@ -15,6 +15,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from core.three_body_state import ThreeBodyQuantumState
 from core.bayesian_brain import QuantumBayesianBrain, TradeOutcome
 from core.quantum_field_engine import QuantumFieldEngine
+from core.multi_timeframe_context import TimeframeContext
 from config.symbols import MNQ
 from tests.utils import load_test_data
 
@@ -232,6 +233,71 @@ def test_full_quantum_integration():
     print(f"  Unique states learned: {summary['total_unique_states']}")
     print(f"  Total trades: {summary['total_trades']}")
 
+def test_rolling_cascade_and_context():
+    """Test Rolling Window Cascade logic and Multi-Timeframe Context injection"""
+    print("\n=== TEST 5: Rolling Cascade & Context Injection ===")
+
+    engine = QuantumFieldEngine(regression_period=21)
+
+    # Create synthetic data with a "Cascade" (large range > 10 in 5 bars)
+    # Bars 0-20: flat
+    # Bar 21: High=21000, Low=21000
+    # Bar 22: High=21000, Low=21000
+    # Bar 23: High=21000, Low=21000
+    # Bar 24: High=21015, Low=21000 (Range 15 > 10 threshold)
+
+    timestamps = pd.date_range('2025-01-01', periods=30, freq='1s')
+    prices = [21000.0] * 30
+    highs = [21000.0] * 30
+    lows = [21000.0] * 30
+
+    # Induce cascade in last 5 bars
+    highs[-1] = 21015.0 # Last bar spikes up
+
+    df = pd.DataFrame({
+        'timestamp': timestamps,
+        'close': prices,
+        'price': prices,
+        'high': highs,
+        'low': lows,
+        'volume': [100.0] * 30,
+        'open': prices
+    }).set_index('timestamp')
+
+    # Context
+    ctx = {
+        'daily': TimeframeContext(trend='BULL', volatility='HIGH'),
+        'h4': TimeframeContext(trend='UP', session='US')
+    }
+
+    # Call calculate_three_body_state
+    # Pass last 21 bars as macro, last 21 as micro (contains the cascade at the end)
+    df_window = df.iloc[-21:]
+
+    state = engine.calculate_three_body_state(
+        df_macro=df_window,
+        df_micro=df_window,
+        current_price=21000.0,
+        current_volume=100.0,
+        tick_velocity=0.0,
+        context=ctx
+    )
+
+    # Verify Cascade Detected
+    # Range is 21015 - 21000 = 15 > 10
+    print(f"  Cascade Detected: {state.cascade_detected}")
+    assert state.cascade_detected == True, "Should detect rolling cascade (range=15)"
+
+    # Verify Context Injection
+    print(f"  Daily Trend: {state.daily_trend}")
+    print(f"  H4 Session: {state.session}")
+
+    assert state.daily_trend == 'BULL', "Daily trend should be BULL"
+    assert state.daily_volatility == 'HIGH', "Daily vol should be HIGH"
+    assert state.session == 'US', "Session should be US"
+
+    print("✓ Rolling Cascade and Context Injection verified")
+
 if __name__ == "__main__":
     print("Bayesian AI v2.0 - Quantum Integration Validation")
     print("=" * 60)
@@ -240,6 +306,7 @@ if __name__ == "__main__":
     test_quantum_brain()
     test_quantum_field_engine()
     test_full_quantum_integration()
+    test_rolling_cascade_and_context()
 
     print("\n" + "=" * 60)
     print("✓ ALL QUANTUM INTEGRATION TESTS PASSED")
