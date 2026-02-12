@@ -232,10 +232,10 @@ class QuantumFieldEngine:
             adx_val, dmp_val, dmn_val = 0.0, 0.0, 0.0
 
         # Replace NaNs
-        hurst_val = 0.5 if np.isnan(hurst_val) else hurst_val
-        adx_val = 0.0 if np.isnan(adx_val) else adx_val
-        dmp_val = 0.0 if np.isnan(dmp_val) else dmp_val
-        dmn_val = 0.0 if np.isnan(dmn_val) else dmn_val
+        hurst_val = np.nan_to_num(hurst_val, nan=0.5)
+        adx_val = np.nan_to_num(adx_val, nan=0.0)
+        dmp_val = np.nan_to_num(dmp_val, nan=0.0)
+        dmn_val = np.nan_to_num(dmn_val, nan=0.0)
 
         return ThreeBodyQuantumState(
             center_position=center,
