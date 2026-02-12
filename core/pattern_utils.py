@@ -128,13 +128,13 @@ def detect_geometric_patterns_vectorized(highs: np.ndarray, lows: np.ndarray) ->
     # Wedge (Higher Lows AND Lower Highs) over 5 bars (Priority 2)
     # Compare current vs 4 bars ago
     wedge_mask = (lows > lows_s.shift(4)) & (highs < highs_s.shift(4))
-    patterns[wedge_mask.fillna(False).to_numpy() & (patterns == PATTERN_NONE)] = PATTERN_WEDGE
+    patterns[wedge_mask.fillna(False).to_numpy()] = PATTERN_WEDGE
 
     # Breakdown (Low < min of previous 4 lows) (Priority 3)
     # Previous 4 lows: shift 1, then rolling min 4
     prev_4_min = lows_s.shift(1).rolling(4).min()
     breakdown_mask = lows < prev_4_min
-    patterns[breakdown_mask.fillna(False).to_numpy() & (patterns == PATTERN_NONE)] = PATTERN_BREAKDOWN
+    patterns[breakdown_mask.fillna(False).to_numpy()] = PATTERN_BREAKDOWN
 
     # Clear first 9 bars explicitly (warmup period for rolling windows)
     patterns[:9] = PATTERN_NONE
@@ -145,7 +145,8 @@ def detect_candlestick_patterns_vectorized(opens: np.ndarray, highs: np.ndarray,
                                            lows: np.ndarray, closes: np.ndarray) -> np.ndarray:
     """
     Vectorized candlestick pattern detection.
-    Detects: Engulfing (Bull/Bear), Hammer, Doji
+    Detects: Doji (High Priority), Hammer, Engulfing (Low Priority)
+    Priority: Doji > Hammer > Engulfing
     """
     n = len(closes)
     patterns = np.full(n, CANDLESTICK_NONE, dtype=object)
@@ -162,25 +163,29 @@ def detect_candlestick_patterns_vectorized(opens: np.ndarray, highs: np.ndarray,
     # Avoid division by zero
     total_range = np.where(total_range == 0, 1e-10, total_range)
 
-    # 1. DOJI: Body is very small relative to range (< 10%)
+    # 1. DOJI (Priority 1: Overwrites any lower priority)
     doji_mask = (body / total_range) < DOJI_BODY_RATIO
     patterns[doji_mask] = CANDLESTICK_DOJI
 
-    # 2. HAMMER:
-    # - Small body (top 30%)
-    # - Long lower shadow (> 2x body)
-    # - Small upper shadow (< 10% range)
+    # 2. HAMMER (Priority 2: Apply only where patterns is NONE)
     hammer_mask = (
         (lower_shadow > (HAMMER_LOWER_SHADOW_RATIO * body)) &
         (upper_shadow < (HAMMER_UPPER_SHADOW_RATIO * total_range)) &
         (body < (HAMMER_BODY_RATIO * total_range))
     )
-    patterns[hammer_mask] = CANDLESTICK_HAMMER
+    # Only update where no pattern detected (Doji takes precedence)
+    patterns[hammer_mask & (patterns == CANDLESTICK_NONE)] = CANDLESTICK_HAMMER
 
-    # 3. ENGULFING (Bullish/Bearish)
-    # Needs previous bar data
-    prev_opens = np.roll(opens, 1)
-    prev_closes = np.roll(closes, 1)
+    # 3. ENGULFING (Priority 3: Apply only where patterns is NONE)
+    # Use pd.Series.shift(1) to avoid wrap-around (np.roll wraps end to start)
+    # Convert back to numpy for mask operations
+    prev_opens = pd.Series(opens).shift(1).to_numpy()
+    prev_closes = pd.Series(closes).shift(1).to_numpy()
+
+    # Fill NaNs from shift with a safe value that won't trigger pattern
+    # (e.g. same as current open/close to avoid crossover)
+    prev_opens = np.nan_to_num(prev_opens, nan=opens)
+    prev_closes = np.nan_to_num(prev_closes, nan=closes)
 
     # Bullish Engulfing:
     # Prev Red, Curr Green, Curr Open < Prev Close, Curr Close > Prev Open
@@ -200,10 +205,11 @@ def detect_candlestick_patterns_vectorized(opens: np.ndarray, highs: np.ndarray,
         (closes <= prev_opens)        # Close below prev open
     )
 
-    patterns[bull_eng_mask] = CANDLESTICK_ENGULFING_BULL
-    patterns[bear_eng_mask] = CANDLESTICK_ENGULFING_BEAR
+    # Only update where no pattern detected (Doji/Hammer take precedence)
+    patterns[bull_eng_mask & (patterns == CANDLESTICK_NONE)] = CANDLESTICK_ENGULFING_BULL
+    patterns[bear_eng_mask & (patterns == CANDLESTICK_NONE)] = CANDLESTICK_ENGULFING_BEAR
 
-    # Clear first bar (due to rolling)
+    # Clear first bar (due to shift/rolling) explicitly just in case
     patterns[0] = CANDLESTICK_NONE
 
     return patterns
