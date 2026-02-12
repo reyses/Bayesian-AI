@@ -8,9 +8,9 @@
 
 ### 1A. ARCHITECTURE STATUS
 - **Current State:** QUANTUM (Fractal Three-Body)
-- **Active Engine:** Fractal Three-Body Quantum
-- **Experimental Engine:** Legacy 9-Layer Hierarchy (Deprecated)
-- **Details:** See `AUDIT_REPORT.md`
+- **Active Engine:** Fractal Three-Body Quantum (PyTorch)
+- **Archived Engine:** Legacy 9-Layer Hierarchy (Moved to `archive/`)
+- **Details:** See `AUDIT_REPORT_2026_02_12.md`
 
 ### 2. CHANGELOG
 #### Last 10 Commits
