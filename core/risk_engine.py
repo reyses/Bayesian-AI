@@ -14,11 +14,7 @@ class QuantumRiskEngine:
     """
 
     def __init__(self):
-        # Parameters
-        self.dt = 1.0 / (24.0 * 60.0 * 60.0) # 1 second in days (approx, if theta is annual)
-        # Actually, let's keep everything in "bar units" or "seconds" to be consistent.
-        # If theta is per second, dt=1.
-        self.dt_seconds = 1.0
+        pass
 
     def calculate_probabilities(self,
                               price: float,
