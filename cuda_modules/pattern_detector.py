@@ -7,7 +7,6 @@ DEPRECATED: This module is part of the legacy 9-Layer Hierarchy engine.
 import pandas as pd
 import numpy as np
 import logging
-import warnings
 from typing import Tuple
 
 PATTERN_NONE = 0
