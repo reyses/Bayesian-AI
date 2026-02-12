@@ -229,9 +229,18 @@ class LiveDashboard:
 
         ttk.Separator(self.frame_controls, orient='horizontal').pack(fill='x', pady=5)
 
-        self.txt_log = tk.Text(self.frame_controls, height=8, bg="#111111", fg="#cccccc",
+        # Log Frame with Scrollbar
+        log_container = ttk.Frame(self.frame_controls)
+        log_container.pack(fill=tk.BOTH, expand=True)
+
+        self.txt_log = tk.Text(log_container, height=8, bg="#111111", fg="#cccccc",
                                borderwidth=0, font=("Consolas", 9))
-        self.txt_log.pack(fill=tk.BOTH, expand=True)
+
+        scrollbar = ttk.Scrollbar(log_container, orient="vertical", command=self.txt_log.yview)
+        self.txt_log.configure(yscrollcommand=scrollbar.set)
+
+        scrollbar.pack(side="right", fill="y")
+        self.txt_log.pack(side="left", fill=tk.BOTH, expand=True)
         self.log("Dashboard initialized. Waiting for training data...")
 
     def _make_card(self, parent, col, title, value_text, sub_text):
