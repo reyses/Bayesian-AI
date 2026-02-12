@@ -8,7 +8,7 @@
       "Bash(ls:*)",
       "Bash(wc:*)",
       "Bash(python:*)",
-      "Bash(del \"c:\\\\Users\\\\reyse\\\\OneDrive\\\\Desktop\\\\Bayesian-AI\\\\debug_output\\\\precompute_debug.log\")"
+      "Bash(del \"debug_output\\precompute_debug.log\")"
     ]
   }
 }

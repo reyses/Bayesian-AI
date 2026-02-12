@@ -139,9 +139,9 @@ class BayesianTrainingOrchestrator:
             data: Full dataset with timestamps
         """
         # Clear debug log for fresh run
-        debug_log = os.path.join(PROJECT_ROOT, 'debug_output', 'precompute_debug.log')
-        if os.path.exists(debug_log):
-            os.remove(debug_log)
+        debug_log_path = os.path.join(PROJECT_ROOT, 'debug_output', PRECOMPUTE_DEBUG_LOG_FILENAME)
+        if os.path.exists(debug_log_path):
+            os.remove(debug_log_path)
 
         print("\n" + "="*80)
         print("BAYESIAN-AI TRAINING ORCHESTRATOR")
