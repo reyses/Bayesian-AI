@@ -4,6 +4,7 @@ __pycache__/
 !notebooks/CUDA_Debug.log
 !CUDA_Debug.log
 debug_outputs/
+debug_output/
 *.egg-info
 dist/
 build/
@@ -12,3 +13,7 @@ venv/
 env/
 .DS_Store
 DATA/
+checkpoints/
+training/training_progress.json
+*.pkl
+*.parquet
