@@ -13,7 +13,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from core.state_vector import StateVector
 from core.bayesian_brain import BayesianBrain, TradeOutcome
-from core.layer_engine import LayerEngine
+from archive.layer_engine import LayerEngine
 from config.symbols import MNQ, calculate_pnl
 from tests.utils import load_test_data, get_cuda_availability
 
