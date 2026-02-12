@@ -34,6 +34,10 @@ class DOEParameterGenerator:
     4. Crossover (iterations 800-999): Combine good parameter sets
     """
 
+    # Constants for constraints
+    MIN_REWARD_RISK_RATIO = 1.5
+    MIN_PROFIT_TICKS = 5
+
     def __init__(self, context_detector):
         self.context_detector = context_detector
         self.best_params_history = []  # Stores best params per day
@@ -319,9 +323,9 @@ class DOEParameterGenerator:
         if tp is not None and sl is not None:
             if tp <= sl:
                 # Force TP to be at least 1.5x SL, but ensure some profit
-                new_tp = int(sl * 1.5)
+                new_tp = int(sl * self.MIN_REWARD_RISK_RATIO)
                 # Ensure TP > SL
-                params['take_profit_ticks'] = max(new_tp, sl + 5)
+                params['take_profit_ticks'] = max(new_tp, sl + self.MIN_PROFIT_TICKS)
 
     def generate_parameter_set(self, iteration: int, day: int, context: str = 'CORE') -> ParameterSet:
         """
