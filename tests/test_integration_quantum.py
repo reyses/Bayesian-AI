@@ -25,7 +25,6 @@ def test_quantum_state():
     state1 = ThreeBodyQuantumState.null_state()
     # Mocking fields for testing hash
     # Note: dataclasses are immutable (frozen=True), so we must create new instances
-    from dataclasses import replace
     state1 = replace(state1,
         z_score=2.5,
         momentum_strength=0.8,
@@ -178,8 +177,9 @@ def test_full_quantum_integration():
         if directive['action'] in ['BUY', 'SELL']:
             # Simulate a trade outcome
             entry_price = price
-            # Random win/loss for learning test
-            pnl = 20.0 if np.random.random() > 0.4 else -20.0
+            # Use a deterministic sequence for win/loss simulation.
+            # For example, cycle through a pattern like [WIN, WIN, WIN, WIN, LOSS].
+            pnl = 20.0 if (trades_simulated % 5) < 4 else -20.0
 
             outcome = TradeOutcome(
                 state=state,
