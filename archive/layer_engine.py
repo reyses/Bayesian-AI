@@ -12,9 +12,9 @@ from typing import Dict, List, Optional
 import logging
 import warnings
 
-from cuda_modules.pattern_detector import get_pattern_detector
-from cuda_modules.confirmation import get_confirmation_engine
-from cuda_modules.velocity_gate import get_velocity_gate
+from archive.cuda_modules.pattern_detector import get_pattern_detector
+from archive.cuda_modules.confirmation import get_confirmation_engine
+from archive.cuda_modules.velocity_gate import get_velocity_gate
 
 class LayerEngine:
     """
