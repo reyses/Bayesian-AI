@@ -26,6 +26,7 @@ def test_quantum_state():
     state1 = ThreeBodyQuantumState.null_state()
     # Mocking fields for testing hash
     # Note: dataclasses are immutable (frozen=True), so we must create new instances
+    from dataclasses import replace
     state1 = replace(state1,
         z_score=2.5,
         momentum_strength=0.8,
@@ -129,8 +130,19 @@ def test_quantum_field_engine():
         subset['volume'] = 0.0
 
     print("  Running batch_compute_states...")
-    # UPDATED: Use CUDA if available to verify the active logic path
-    use_cuda = torch.cuda.is_available()
+
+    # Check environment variable for deterministic testing
+    use_cuda_env = os.environ.get("TEST_USE_CUDA", "auto").lower()
+    if use_cuda_env == "true":
+        use_cuda = True
+        if not torch.cuda.is_available():
+            import pytest
+            pytest.skip("TEST_USE_CUDA is 'true' but CUDA is not available.")
+    elif use_cuda_env == "false":
+        use_cuda = False
+    else:  # 'auto'
+        use_cuda = torch.cuda.is_available()
+
     print(f"  Using CUDA: {use_cuda}")
     results = engine.batch_compute_states(subset, use_cuda=use_cuda)
 
@@ -167,8 +179,19 @@ def test_full_quantum_integration():
     brain = QuantumBayesianBrain()
 
     print("  Computing states...")
-    # UPDATED: Use CUDA if available
-    use_cuda = torch.cuda.is_available()
+
+    # Check environment variable for deterministic testing
+    use_cuda_env = os.environ.get("TEST_USE_CUDA", "auto").lower()
+    if use_cuda_env == "true":
+        use_cuda = True
+        if not torch.cuda.is_available():
+            import pytest
+            pytest.skip("TEST_USE_CUDA is 'true' but CUDA is not available.")
+    elif use_cuda_env == "false":
+        use_cuda = False
+    else:  # 'auto'
+        use_cuda = torch.cuda.is_available()
+
     print(f"  Using CUDA: {use_cuda}")
     results = engine.batch_compute_states(subset, use_cuda=use_cuda)
 
@@ -184,9 +207,8 @@ def test_full_quantum_integration():
         if directive['action'] in ['BUY', 'SELL']:
             # Simulate a trade outcome
             entry_price = price
-            # Use a deterministic sequence for win/loss simulation.
-            # For example, cycle through a pattern like [WIN, WIN, WIN, WIN, LOSS].
-            pnl = 20.0 if (trades_simulated % 5) < 4 else -20.0
+            # Random win/loss for learning test
+            pnl = 20.0 if np.random.random() > 0.4 else -20.0
 
             outcome = TradeOutcome(
                 state=state,
