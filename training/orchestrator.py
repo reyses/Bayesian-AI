@@ -151,7 +151,7 @@ class BayesianTrainingOrchestrator:
             data: Full dataset with timestamps
         """
         # Clear debug log for fresh run
-        debug_log_path = os.path.join(PROJECT_ROOT, 'debug_output', PRECOMPUTE_DEBUG_LOG_FILENAME)
+        debug_log_path = os.path.join(PROJECT_ROOT, 'debug_outputs', PRECOMPUTE_DEBUG_LOG_FILENAME)
         if os.path.exists(debug_log_path):
             os.remove(debug_log_path)
 
@@ -458,7 +458,7 @@ class BayesianTrainingOrchestrator:
         print(f" done ({elapsed:.1f}s) | Context: {context_level} (modifier={conf_modifier:.1f})")
 
         # === DEBUG OUTPUT ===
-        debug_dir = os.path.join(PROJECT_ROOT, 'debug_output')
+        debug_dir = os.path.join(PROJECT_ROOT, 'debug_outputs')
         os.makedirs(debug_dir, exist_ok=True)
         debug_file = os.path.join(debug_dir, PRECOMPUTE_DEBUG_LOG_FILENAME)
         with open(debug_file, 'a') as f:
@@ -1565,7 +1565,7 @@ class BayesianTrainingOrchestrator:
         print(comprehensive_report)
 
         # Save comprehensive report to file
-        report_path = os.path.join(PROJECT_ROOT, 'training_pattern_report.txt')
+        report_path = os.path.join(PROJECT_ROOT, 'debug_outputs', 'training_pattern_report.txt')
         try:
             with open(report_path, 'w', encoding='utf-8') as f:
                 f.write(comprehensive_report)
