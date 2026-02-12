@@ -13,16 +13,15 @@ class QuantumRiskEngine:
     Uses Ornstein-Uhlenbeck process to model mean-reversion dynamics.
     """
 
-    def __init__(self):
-        pass
+    def __init__(self, theta: float = 0.05, horizon_seconds: int = 600, num_paths: int = 500):
+        self.theta = theta
+        self.horizon_seconds = horizon_seconds
+        self.num_paths = num_paths
 
     def calculate_probabilities(self,
                               price: float,
                               center: float,
-                              sigma: float,
-                              theta: float = 0.05,
-                              horizon_seconds: int = 600,
-                              num_paths: int = 500) -> Tuple[float, float]:
+                              sigma: float) -> Tuple[float, float]:
         """
         Run Monte Carlo simulation to estimate:
         1. Tunnel Probability (Revert to Center)
@@ -40,14 +39,14 @@ class QuantumRiskEngine:
         # Note: QuantLib OU process sigma is volatility of the process, NOT price distribution width.
         # Stationary std dev = sigma_proc / sqrt(2*theta).
         # We want stationary std dev to match our 'sigma' (Regression Sigma).
-        # So sigma_proc = sigma * sqrt(2*theta)
+        # So sigma_proc = sigma * sqrt(2*self.theta)
 
-        sigma_proc = sigma * np.sqrt(2 * theta)
-        process = ql.OrnsteinUhlenbeckProcess(theta, sigma_proc, price, center)
+        sigma_proc = sigma * np.sqrt(2 * self.theta)
+        process = ql.OrnsteinUhlenbeckProcess(self.theta, sigma_proc, price, center)
 
         # Path Generator
-        time_horizon = float(horizon_seconds)
-        steps = int(horizon_seconds) # 1 step per second
+        time_horizon = float(self.horizon_seconds)
+        steps = int(self.horizon_seconds) # 1 step per second
 
         # We need a sequence generator
         rng = ql.MersenneTwisterUniformRng(42)
@@ -74,7 +73,7 @@ class QuantumRiskEngine:
         # Note: In Python this loop is slow. 500 paths * 600 steps = 300k steps.
         # Might take ~0.5s - 1s.
 
-        for i in range(num_paths):
+        for i in range(self.num_paths):
             sample_path = path_gen.next()
             path = sample_path.value()
 
