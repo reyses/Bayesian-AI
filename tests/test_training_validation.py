@@ -88,7 +88,8 @@ def run_training_validation():
                 "--data", temp_data_path,
                 "--iterations", "10",
                 "--checkpoint-dir", temp_dir,
-                "--no-dashboard" # Ensure dashboard is disabled for tests
+                "--no-dashboard", # Ensure dashboard is disabled for tests
+                "--skip-deps"
             ]
 
             # Timeout set to 180s

@@ -1613,9 +1613,6 @@ def check_and_install_requirements():
 
 def main():
     """Single entry point - command line interface"""
-    # Auto-install dependencies
-    check_and_install_requirements()
-
     parser = argparse.ArgumentParser(
         description="Bayesian-AI Training Orchestrator",
         formatter_class=argparse.RawDescriptionHelpFormatter
@@ -1629,6 +1626,10 @@ def main():
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
 
     args = parser.parse_args()
+
+    # Auto-install dependencies
+    if not args.skip_deps:
+        check_and_install_requirements()
 
     # Load data
     print(f"Loading data from {args.data}...")
