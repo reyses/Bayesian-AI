@@ -8,6 +8,11 @@ import pandas as pd
 from scipy.stats import linregress
 from core.three_body_state import ThreeBodyQuantumState
 from core.risk_engine import QuantumRiskEngine
+from core.pattern_utils import (
+    PATTERN_NONE, PATTERN_COMPRESSION, PATTERN_WEDGE, PATTERN_BREAKDOWN,
+    detect_geometric_pattern, detect_candlestick_pattern,
+    detect_geometric_patterns_vectorized, detect_candlestick_patterns_vectorized
+)
 
 # Optional: Fractal & Trend Libraries
 try:
@@ -22,15 +27,15 @@ try:
 except ImportError:
     HURST_AVAILABLE = False
 
-# Pattern Constants
-PATTERN_NONE = 'NONE'
-PATTERN_COMPRESSION = 'COMPRESSION'
-PATTERN_WEDGE = 'WEDGE'
-PATTERN_BREAKDOWN = 'BREAKDOWN'
-
 # Cascade Constants
 VELOCITY_CASCADE_THRESHOLD = 1.0  # Points per second
 RANGE_CASCADE_THRESHOLD = 10.0    # Points range in candle
+
+# Risk & Trend Constants
+RISK_THETA = 0.1
+RISK_HORIZON_SECONDS = 600
+HURST_WINDOW = 100
+ADX_LENGTH = 14
 
 # Optional CUDA support
 try:
@@ -72,7 +77,10 @@ class QuantumFieldEngine:
             self.use_gpu = False
 
         # Risk Engine (Monte Carlo)
-        self.risk_engine = QuantumRiskEngine()
+        self.risk_engine = QuantumRiskEngine(
+            theta=RISK_THETA,
+            horizon_seconds=RISK_HORIZON_SECONDS
+        )
     
     def calculate_three_body_state(
         self, 
@@ -156,12 +164,11 @@ class QuantumFieldEngine:
         # Only run if in Roche Limit (critical zone) to save compute
         if abs(z_score) > 2.0:
             try:
+                # Use initialized parameters (theta, horizon)
                 mc_tunnel, mc_escape = self.risk_engine.calculate_probabilities(
                     price=current_price,
                     center=center,
-                    sigma=sigma,
-                    theta=0.1, # Mean reversion speed
-                    horizon_seconds=600
+                    sigma=sigma
                 )
                 # Blend MC with Heuristic (50/50) or Replace?
                 # Let's average them for robustness
@@ -197,9 +204,9 @@ class QuantumFieldEngine:
 
         # FRACTAL & TREND INDICATORS
         # Hurst Exponent (Fractal Dimension) - using df_micro close prices
-        if HURST_AVAILABLE and len(df_micro) >= 100:
-            # Use last 100 bars for Hurst calculation
-            hurst_series = df_micro['close'].iloc[-100:]
+        if HURST_AVAILABLE and len(df_micro) >= HURST_WINDOW:
+            # Use last HURST_WINDOW bars for calculation
+            hurst_series = df_micro['close'].iloc[-HURST_WINDOW:]
             try:
                 H, c, _ = compute_Hc(hurst_series, kind='price', simplified=True)
                 hurst_val = H
@@ -209,12 +216,12 @@ class QuantumFieldEngine:
             hurst_val = 0.5
 
         # ADX/DMI (Trend Strength) - using df_macro (15m) for robust trend
-        if PANDAS_TA_AVAILABLE and len(df_macro) >= 14:
+        if PANDAS_TA_AVAILABLE and len(df_macro) >= ADX_LENGTH:
             try:
                 # pandas_ta requires DataFrame with high, low, close
                 # df_macro might be missing high/low if just close prices passed
                 if 'high' in df_macro.columns and 'low' in df_macro.columns:
-                    adx_df = df_macro.ta.adx(length=14)
+                    adx_df = df_macro.ta.adx(length=ADX_LENGTH)
                     if adx_df is not None and not adx_df.empty:
                         # Columns are usually ADX_14, DMP_14, DMN_14
                         # Get last row
@@ -369,7 +376,8 @@ class QuantumFieldEngine:
                 'cascade_detected': False,
                 'spin_inverted': False,
                 'pattern_maturity': 0.0,
-                'pattern_type': PATTERN_NONE
+                'pattern_type': PATTERN_NONE,
+                'candlestick_pattern': 'NONE'
             }
         
         recent = df_micro.iloc[-20:]
@@ -416,20 +424,18 @@ class QuantumFieldEngine:
         lows = df_micro['low'].values if 'low' in df_micro.columns else df_micro['close'].values
 
         # We need to detect pattern for the LAST bar.
-        # _detect_geometric_patterns returns array for all bars.
-        # We can optimize by passing only last 20 bars.
         check_highs = highs[-20:]
         check_lows = lows[-20:]
-        patterns = self._detect_geometric_patterns(check_highs, check_lows)
-        pattern_type = patterns[-1]
+        # Use scalar version for efficiency on last bar check
+        pattern_type = detect_geometric_pattern(check_highs, check_lows)
 
         # Candlestick Pattern Detection
         opens = df_micro['open'].values if 'open' in df_micro.columns else df_micro['close'].values
         check_opens = opens[-20:]
         check_closes = df_micro['close'].values[-20:]
 
-        candlestick_patterns = self._detect_candlestick_patterns(check_opens, check_highs, check_lows, check_closes)
-        candlestick_pattern = candlestick_patterns[-1]
+        # Use scalar version for efficiency
+        candlestick_pattern = detect_candlestick_pattern(check_opens, check_highs, check_lows, check_closes)
 
         return {
             'structure_confirmed': structure_confirmed,
@@ -478,115 +484,18 @@ class QuantumFieldEngine:
 
     def _detect_geometric_patterns(self, highs: np.ndarray, lows: np.ndarray) -> np.ndarray:
         """
-        Vectorized geometric pattern detection (Compression, Wedge, Breakdown)
-        Returns array of pattern strings.
-        Uses pandas rolling windows for efficiency and correct boundary handling.
+        Vectorized geometric pattern detection.
+        Wraps core.pattern_utils.detect_geometric_patterns_vectorized.
         """
-        n = len(highs)
-        patterns = np.full(n, PATTERN_NONE, dtype=object)
-
-        if n < 10:
-            return patterns
-
-        # Convert to pandas Series for efficient rolling operations
-        highs_s = pd.Series(highs)
-        lows_s = pd.Series(lows)
-
-        # Recent 5 bars range (window=5)
-        rec_range = highs_s.rolling(5).max() - lows_s.rolling(5).min()
-
-        # Previous 5 bars range (shifted by 5)
-        prev_range = rec_range.shift(5)
-
-        # Compression (Priority 1)
-        # Compare ranges. Pandas handles NaNs (result is False), so no mask needed.
-        compression_mask = (prev_range > 0) & (rec_range < prev_range * 0.7)
-        # Fill patterns where mask is True. Use .to_numpy() to align with array.
-        # fillna(False) ensures we don't have boolean ambiguity with NaNs
-        patterns[compression_mask.fillna(False).to_numpy()] = PATTERN_COMPRESSION
-
-        # Wedge (Higher Lows AND Lower Highs) over 5 bars (Priority 2)
-        # Compare current vs 4 bars ago
-        wedge_mask = (lows > lows_s.shift(4)) & (highs < highs_s.shift(4))
-        patterns[wedge_mask.fillna(False).to_numpy()] = PATTERN_WEDGE
-
-        # Breakdown (Low < min of previous 4 lows) (Priority 3)
-        # Previous 4 lows: shift 1, then rolling min 4
-        prev_4_min = lows_s.shift(1).rolling(4).min()
-        breakdown_mask = lows < prev_4_min
-        patterns[breakdown_mask.fillna(False).to_numpy()] = PATTERN_BREAKDOWN
-
-        # Clear first 9 bars explicitly (warmup period for rolling windows)
-        patterns[:9] = PATTERN_NONE
-
-        return patterns
+        return detect_geometric_patterns_vectorized(highs, lows)
 
     def _detect_candlestick_patterns(self, opens: np.ndarray, highs: np.ndarray,
                                      lows: np.ndarray, closes: np.ndarray) -> np.ndarray:
         """
         Vectorized candlestick pattern detection.
-        Detects: Engulfing (Bull/Bear), Hammer, Doji
+        Wraps core.pattern_utils.detect_candlestick_patterns_vectorized.
         """
-        n = len(closes)
-        patterns = np.full(n, 'NONE', dtype=object)
-
-        if n < 2:
-            return patterns
-
-        # Helper arrays
-        body = np.abs(closes - opens)
-        upper_shadow = highs - np.maximum(closes, opens)
-        lower_shadow = np.minimum(closes, opens) - lows
-        total_range = highs - lows
-
-        # Avoid division by zero
-        total_range = np.where(total_range == 0, 1e-10, total_range)
-
-        # 1. DOJI: Body is very small relative to range (< 10%)
-        doji_mask = (body / total_range) < 0.1
-        patterns[doji_mask] = 'DOJI'
-
-        # 2. HAMMER:
-        # - Small body (top 30%)
-        # - Long lower shadow (> 2x body)
-        # - Small upper shadow (< 10% range)
-        hammer_mask = (
-            ((np.minimum(closes, opens) - lows) > (2.0 * body)) &
-            (upper_shadow < (0.1 * total_range)) &
-            (body < (0.3 * total_range))
-        )
-        patterns[hammer_mask] = 'HAMMER'
-
-        # 3. ENGULFING (Bullish/Bearish)
-        # Needs previous bar data
-        prev_opens = np.roll(opens, 1)
-        prev_closes = np.roll(closes, 1)
-
-        # Bullish Engulfing:
-        # Prev Red, Curr Green, Curr Open < Prev Close, Curr Close > Prev Open
-        bull_eng_mask = (
-            (prev_closes < prev_opens) &  # Prev Red
-            (closes > opens) &            # Curr Green
-            (opens <= prev_closes) &      # Open below prev close
-            (closes >= prev_opens)        # Close above prev open
-        )
-
-        # Bearish Engulfing:
-        # Prev Green, Curr Red, Curr Open > Prev Close, Curr Close < Prev Open
-        bear_eng_mask = (
-            (prev_closes > prev_opens) &  # Prev Green
-            (closes < opens) &            # Curr Red
-            (opens >= prev_closes) &      # Open above prev close
-            (closes <= prev_opens)        # Close below prev open
-        )
-
-        patterns[bull_eng_mask] = 'ENGULFING_BULL'
-        patterns[bear_eng_mask] = 'ENGULFING_BEAR'
-
-        # Clear first bar (due to rolling)
-        patterns[0] = 'NONE'
-
-        return patterns
+        return detect_candlestick_patterns_vectorized(opens, highs, lows, closes)
 
     # ═══════════════════════════════════════════════════════════════════════
     # VECTORIZED BATCH COMPUTATION (processes all bars at once)
@@ -718,7 +627,7 @@ class QuantumFieldEngine:
         if PANDAS_TA_AVAILABLE and 'high' in day_data.columns and 'low' in day_data.columns:
             try:
                 # Compute ADX for full dataset
-                adx_df = day_data.ta.adx(length=14)
+                adx_df = day_data.ta.adx(length=ADX_LENGTH)
                 if adx_df is not None:
                     # Align with computed bars (rp:)
                     # Columns usually: ADX_14, DMP_14, DMN_14
@@ -764,11 +673,11 @@ class QuantumFieldEngine:
                 # So n ~ 2000 bars. This is fast enough.
 
                 # Check if we have enough data
-                if len(close) >= 100:
+                if len(close) >= HURST_WINDOW:
                     series = pd.Series(close)
                     # rolling(100).apply(get_hurst)
                     # raw=True for speed (passes ndarray)
-                    rolling_hurst = series.rolling(100).apply(get_hurst, raw=True).values
+                    rolling_hurst = series.rolling(HURST_WINDOW).apply(get_hurst, raw=True).values
                     hurst_vals = np.nan_to_num(rolling_hurst[rp:], nan=0.5)
             except Exception:
                 pass
