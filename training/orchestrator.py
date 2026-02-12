@@ -103,8 +103,8 @@ class BayesianTrainingOrchestrator:
         self.checkpoint_dir = config.checkpoint_dir
 
         # Slippage configuration
-        self.BASE_SLIPPAGE = 0.25
-        self.VELOCITY_SLIPPAGE_FACTOR = 0.1
+        self.BASE_SLIPPAGE = DEFAULT_BASE_SLIPPAGE
+        self.VELOCITY_SLIPPAGE_FACTOR = DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 
         # Create checkpoint directory
         os.makedirs(self.checkpoint_dir, exist_ok=True)
