@@ -29,7 +29,7 @@ plotly
 ipywidgets
 tqdm
 scipy
-matplotlib
+matplotlib>=3.8.0
 colorama
 anywidget
 torch==2.2.2+cpu
