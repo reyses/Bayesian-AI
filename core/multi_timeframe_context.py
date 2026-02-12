@@ -23,6 +23,7 @@ import pandas as pd
 from scipy.stats import linregress
 from typing import Dict, Optional, Tuple
 from dataclasses import dataclass
+from core.pattern_utils import detect_geometric_pattern, detect_candlestick_pattern
 
 
 @dataclass
@@ -216,64 +217,10 @@ class MultiTimeframeContext:
             volatility = 'NORMAL'
 
         # Detect Fractal Patterns
-        from core.quantum_field_engine import QuantumFieldEngine
-        # Use helper methods directly if static or instantiate engine lightly
-        # For now, we'll instantiate engine just to access the methods or refactor them to static.
-        # Since we can't easily refactor huge files without risk, we'll reimplement the simple logic here
-        # or use a lightweight static helper if we moved it.
-        # Let's reimplement the vectorized logic for single check (last bar) to avoid circular imports or heavy init.
-
-        # Fractal Geometric Pattern (Last 5 bars)
-        fractal_pattern = 'NONE'
-        if len(bars) >= 10:
-            # Recent range (5 bars)
-            rec_range = max(high[-5:]) - min(low[-5:])
-            # Prev range (5 bars before)
-            prev_range = max(high[-10:-5]) - min(low[-10:-5])
-
-            if prev_range > 0 and rec_range < prev_range * 0.7:
-                fractal_pattern = 'COMPRESSION'
-
-            # Wedge: Higher Lows AND Lower Highs over 5 bars
-            # Compare current vs 4 bars ago
-            if low[-1] > low[-5] and high[-1] < high[-5]:
-                fractal_pattern = 'WEDGE'
-
-            # Breakdown: Current low < min of previous 4 lows
-            if low[-1] < min(low[-5:-1]):
-                fractal_pattern = 'BREAKDOWN'
+        fractal_pattern = detect_geometric_pattern(high, low)
 
         # Candlestick Pattern (Last bar)
-        candlestick_pattern = 'NONE'
-        if len(bars) >= 2:
-            c = close[-1]
-            o = open_p[-1]
-            h = high[-1]
-            l = low[-1]
-
-            pc = close[-2]
-            po = open_p[-2]
-
-            body = abs(c - o)
-            rng = h - l
-            if rng == 0: rng = 1e-10
-
-            # Doji
-            if body / rng < 0.1:
-                candlestick_pattern = 'DOJI'
-
-            # Hammer
-            upper_shadow = h - max(c, o)
-            if (min(c, o) - l) > 2.0 * body and upper_shadow < 0.1 * rng and body < 0.3 * rng:
-                candlestick_pattern = 'HAMMER'
-
-            # Engulfing Bull
-            if pc < po and c > o and o <= pc and c >= po:
-                candlestick_pattern = 'ENGULFING_BULL'
-
-            # Engulfing Bear
-            if pc > po and c < o and o >= pc and c <= po:
-                candlestick_pattern = 'ENGULFING_BEAR'
+        candlestick_pattern = detect_candlestick_pattern(open_p, high, low, close)
 
         return TimeframeContext(
             trend=trend,
