@@ -21,6 +21,27 @@ try:
 except:
     pass
 
+# --- Constants ---
+# UI Colors
+COLOR_BG = "#1e1e1e"
+COLOR_FG = "white"
+COLOR_CARD_BG = "#2b2b2b"
+COLOR_ACCENT = "#4080ff"
+COLOR_ACCENT_ACTIVE = "#5090ff"
+COLOR_PROFIT = "#00ff00"
+COLOR_LOSS = "#ff4444"
+COLOR_TEXT_DIM = "#888888"
+COLOR_LOG_BG = "#111111"
+COLOR_LOG_FG = "#cccccc"
+
+# UI Fonts
+FONT_HEADER = ("Arial", 13, "bold")
+FONT_BIG_METRIC = ("Consolas", 20, "bold")
+FONT_METRIC = ("Consolas", 11)
+FONT_SMALL = ("Consolas", 9)
+FONT_LOG = ("Consolas", 9)
+FONT_LABEL = ("Arial", 10)
+
 
 class Tooltip:
     def __init__(self, widget, text='widget info'):
@@ -68,7 +89,7 @@ class LiveDashboard:
         self.root = root
         self.root.title("Bayesian-AI Live Training Dashboard")
         self.root.geometry("1400x850")
-        self.root.configure(bg="#1e1e1e")
+        self.root.configure(bg=COLOR_BG)
 
         # Data Path
         self.json_path = os.path.join(os.path.dirname(__file__), '..', 'training', 'training_progress.json')
@@ -82,15 +103,15 @@ class LiveDashboard:
         # Styles
         style = ttk.Style()
         style.theme_use('clam')
-        style.configure(".", background="#1e1e1e", foreground="white", fieldbackground="#2b2b2b")
-        style.configure("TLabel", background="#1e1e1e", foreground="white", font=("Arial", 10))
-        style.configure("TButton", background="#4080ff", foreground="white", borderwidth=0)
-        style.map("TButton", background=[('active', '#5090ff')])
-        style.configure("Header.TLabel", font=("Arial", 13, "bold"), background="#1e1e1e")
-        style.configure("BigMetric.TLabel", font=("Consolas", 20, "bold"), background="#1e1e1e")
-        style.configure("Metric.TLabel", font=("Consolas", 11), background="#1e1e1e")
-        style.configure("SmallMetric.TLabel", font=("Consolas", 9), background="#1e1e1e", foreground="#aaaaaa")
-        style.configure("Card.TFrame", background="#2b2b2b")
+        style.configure(".", background=COLOR_BG, foreground=COLOR_FG, fieldbackground=COLOR_CARD_BG)
+        style.configure("TLabel", background=COLOR_BG, foreground=COLOR_FG, font=FONT_LABEL)
+        style.configure("TButton", background=COLOR_ACCENT, foreground=COLOR_FG, borderwidth=0)
+        style.map("TButton", background=[('active', COLOR_ACCENT_ACTIVE)])
+        style.configure("Header.TLabel", font=FONT_HEADER, background=COLOR_BG)
+        style.configure("BigMetric.TLabel", font=FONT_BIG_METRIC, background=COLOR_BG)
+        style.configure("Metric.TLabel", font=FONT_METRIC, background=COLOR_BG)
+        style.configure("SmallMetric.TLabel", font=FONT_SMALL, background=COLOR_BG, foreground="#aaaaaa")
+        style.configure("Card.TFrame", background=COLOR_CARD_BG)
 
         self.create_layout()
 
@@ -233,8 +254,8 @@ class LiveDashboard:
         log_container = ttk.Frame(self.frame_controls)
         log_container.pack(fill=tk.BOTH, expand=True)
 
-        self.txt_log = tk.Text(log_container, height=8, bg="#111111", fg="#cccccc",
-                               borderwidth=0, font=("Consolas", 9))
+        self.txt_log = tk.Text(log_container, height=8, bg=COLOR_LOG_BG, fg=COLOR_LOG_FG,
+                               borderwidth=0, font=FONT_LOG)
 
         scrollbar = ttk.Scrollbar(log_container, orient="vertical", command=self.txt_log.yview)
         self.txt_log.configure(yscrollcommand=scrollbar.set)
