@@ -752,7 +752,8 @@ class QuantumFieldEngine:
                     try:
                         H, _, _ = compute_Hc(x, kind='price', simplified=True)
                         return H
-                    except:
+                    except Exception as e:
+                        # Consider logging the exception here, e.g., logging.error(f"Error computing Hurst: {e}")
                         return 0.5
 
                 # We apply to the *original* series, then slice
