@@ -6,6 +6,7 @@ DEPRECATED: This module is part of the legacy 9-Layer Hierarchy engine.
 """
 import numpy as np
 import pandas as pd
+import warnings
 import time
 import logging
 
