@@ -33,6 +33,9 @@ from core.bayesian_brain import QuantumBayesianBrain, TradeOutcome
 from core.quantum_field_engine import QuantumFieldEngine
 from core.context_detector import ContextDetector
 from core.adaptive_confidence import AdaptiveConfidenceManager
+from core.multi_timeframe_context import MultiTimeframeContext
+from core.dynamic_binner import DynamicBinner
+from core.three_body_state import ThreeBodyQuantumState
 
 # Training components
 from training.doe_parameter_generator import DOEParameterGenerator
@@ -72,6 +75,11 @@ class DayResults:
     high_confidence_states: int
     execution_time_seconds: float
     avg_duration: float
+    # Walk-Forward "Real" Results (using prior day's params)
+    real_pnl: float = 0.0
+    real_trades_count: int = 0
+    real_win_rate: float = 0.0
+    real_sharpe: float = 0.0
 
 
 class BayesianTrainingOrchestrator:
@@ -102,6 +110,13 @@ class BayesianTrainingOrchestrator:
         self.param_generator = DOEParameterGenerator(self.context_detector)
         self.confidence_manager = AdaptiveConfidenceManager(self.brain)
         self.stat_validator = IntegratedStatisticalEngine(self.asset)
+
+        # Multi-timeframe context engine
+        self.mtf_context = MultiTimeframeContext()
+        self.all_tf_data = None  # Populated in train()
+
+        # Dynamic histogram binner (fitted from first day's data)
+        self.dynamic_binner = None  # Populated on first _precompute_day_states()
 
         # Analysis components
         self.pattern_analyzer = PatternAnalyzer()
@@ -155,6 +170,12 @@ class BayesianTrainingOrchestrator:
         # Pre-aggregate 1s → 15s once for the entire dataset (cached to disk)
         data_15s = self._get_or_create_aggregated_data(data)
 
+        # Resample full dataset to all higher timeframes (1d, 4h, 1h, 15m, 5m, 1m)
+        print("Resampling to all higher timeframes (1d, 4h, 1h, 15m, 5m, 1m)...", end='', flush=True)
+        self.all_tf_data = self.mtf_context.resample_all(data)
+        tf_counts = {k: len(v) for k, v in self.all_tf_data.items()}
+        print(f" done | Bars: {tf_counts}")
+
         # Split into trading days (both 1s and 15s)
         days_1s = self.split_into_trading_days(data)
         days_15s = self.split_into_trading_days(data_15s)
@@ -173,7 +194,11 @@ class BayesianTrainingOrchestrator:
         print(f"Date range: {days_1s[0][0]} to {days_1s[-1][0]}")
         print("="*80 + "\n")
 
+        # Initialize active params with baseline (Day 0)
+        active_params = self.param_generator.generate_baseline_set(0, 1, 'CORE').parameters
+
         # Train day by day
+        prev_day_15s = None
         for day_idx, (date, day_data) in enumerate(days_1s):
             day_number = day_idx + 1
 
@@ -182,9 +207,49 @@ class BayesianTrainingOrchestrator:
                 day_number, date, total_days, len(day_data)
             )
 
-            # Optimize this day (DOE)
+            # Compute higher-TF context for this day
+            tf_context = self.mtf_context.get_context_for_day(
+                day_idx, self.all_tf_data, date
+            )
+
             day_data_15s = days_15s_lookup.get(date)
-            day_result = self.optimize_day(day_number, date, day_data, day_data_15s=day_data_15s)
+
+            # === STEP 1: PRE-COMPUTE STATES ===
+            precomputed = self._precompute_day_states(
+                day_data, day_data_15s=day_data_15s, tf_context=tf_context,
+                prev_day_15s=prev_day_15s
+            )
+
+            # === STEP 2: WALK-FORWARD SIMULATION (Real PnL) ===
+            # Trade today using yesterday's parameters (active_params)
+            real_trades = self._simulate_from_precomputed(
+                precomputed, day_data, active_params, pbar=None
+            )
+            real_pnl = sum(t.pnl for t in real_trades)
+            real_win_rate = (sum(1 for t in real_trades if t.result == 'WIN') / len(real_trades)) if real_trades else 0.0
+            real_sharpe = (np.mean([t.pnl for t in real_trades]) / (np.std([t.pnl for t in real_trades]) + 1e-6)) if len(real_trades) > 1 else 0.0
+
+            print(f"  [WALK-FORWARD] Real PnL: ${real_pnl:.2f} ({len(real_trades)} trades, WR: {real_win_rate:.1%})")
+
+            # === STEP 3: OPTIMIZE (Oracle Learning for Brain & Tomorrow's Params) ===
+            day_result = self.optimize_day(
+                day_number, date, day_data,
+                day_data_15s=day_data_15s, tf_context=tf_context,
+                prev_day_15s=prev_day_15s,
+                precomputed_states=precomputed # Reuse precomputed
+            )
+
+            # Add Real stats to day_result for reporting
+            day_result.real_pnl = real_pnl
+            day_result.real_trades_count = len(real_trades)
+            day_result.real_win_rate = real_win_rate
+            day_result.real_sharpe = real_sharpe
+
+            # Update params for NEXT day
+            if day_result.best_params:
+                active_params = day_result.best_params
+
+            prev_day_15s = day_data_15s
 
             # Batch regret analysis (end of day)
             if self.todays_trades:
@@ -196,14 +261,14 @@ class BayesianTrainingOrchestrator:
             else:
                 regret_analysis = None
 
-            # Update reports
+            # Update reports - USE REAL PNL for report integrity
             day_metrics = DayMetrics(
                 day_number=day_number,
                 date=date,
-                total_trades=day_result.total_trades,
-                win_rate=day_result.best_win_rate,
-                sharpe=day_result.best_sharpe,
-                pnl=day_result.best_pnl,
+                total_trades=day_result.real_trades_count, # REPORT REAL
+                win_rate=day_result.real_win_rate,         # REPORT REAL
+                sharpe=day_result.real_sharpe,             # REPORT REAL
+                pnl=day_result.real_pnl,                   # REPORT REAL
                 states_learned=day_result.states_learned,
                 high_conf_states=day_result.high_confidence_states,
                 avg_duration=day_result.avg_duration,
@@ -232,7 +297,9 @@ class BayesianTrainingOrchestrator:
 
         return self.day_results
 
-    def _precompute_day_states(self, day_data: pd.DataFrame, day_data_15s: pd.DataFrame = None):
+    def _precompute_day_states(self, day_data: pd.DataFrame, day_data_15s: pd.DataFrame = None,
+                               tf_context: Dict = None,
+                               prev_day_15s: pd.DataFrame = None):
         """
         Pre-compute all states, probabilities, and confidences for a day ONCE.
 
@@ -242,9 +309,11 @@ class BayesianTrainingOrchestrator:
         Args:
             day_data: 1s OHLCV data for the day (used for trade simulation)
             day_data_15s: Pre-aggregated 15s data (if None, resamples on the fly)
+            tf_context: Multi-timeframe context from MultiTimeframeContext.get_context_for_day()
+            prev_day_15s: Previous day's 15s data for warming up regression windows
 
         Returns:
-            List of dicts with bar_idx, state, price, prob, conf, structure_ok
+            List of dicts with bar_idx, state, price, prob, conf, structure_ok, direction
         """
         if len(day_data) < 21:
             return []
@@ -266,6 +335,14 @@ class BayesianTrainingOrchestrator:
         else:
             resampled_15s, idx_map_15s_to_1s = self._resample_to_15s(day_data)
 
+        # === WARMUP: Prepend previous day's tail to fix cold-start regression ===
+        warmup_bars = 0
+        if prev_day_15s is not None and not prev_day_15s.empty:
+            # Need 21 bars for regression, take 50 for safety
+            warmup_df = prev_day_15s.tail(50).copy()
+            warmup_bars = len(warmup_df)
+            resampled_15s = pd.concat([warmup_df, resampled_15s], ignore_index=True)
+
         if len(resampled_15s) < 21:
             self._day_prices = prices
             self._day_timestamps = timestamps
@@ -278,9 +355,50 @@ class BayesianTrainingOrchestrator:
         # === VECTORIZED BATCH COMPUTATION on 15s bars ===
         batch_results = self.engine.batch_compute_states(resampled_15s, use_cuda=True)
 
+        # === FIT DYNAMIC BINNER on first day (before any hashing) ===
+        if self.dynamic_binner is None and batch_results:
+            z_scores = np.array([b['state'].z_score for b in batch_results], dtype=np.float64)
+            momentums = np.array([b['state'].momentum_strength for b in batch_results], dtype=np.float64)
+            self.dynamic_binner = DynamicBinner(min_bins=5, max_bins=30)
+            self.dynamic_binner.fit({'z_score': z_scores, 'momentum': momentums})
+            ThreeBodyQuantumState.set_binner(self.dynamic_binner)
+            print(f"\n  {self.dynamic_binner.summary()}")
+
+        # === INJECT MULTI-TIMEFRAME CONTEXT into each state ===
+        if tf_context:
+            from dataclasses import replace as dc_replace
+            daily_ctx = tf_context.get('daily')
+            h4_ctx = tf_context.get('h4')
+            h1_ctx = tf_context.get('h1')
+            context_level = tf_context.get('context_level', 'MINIMAL')
+
+            tf_kwargs = {'context_level': context_level}
+            if daily_ctx:
+                tf_kwargs['daily_trend'] = daily_ctx.trend
+                tf_kwargs['daily_volatility'] = daily_ctx.volatility
+            if h4_ctx:
+                tf_kwargs['h4_trend'] = h4_ctx.trend
+                tf_kwargs['session'] = h4_ctx.session
+            if h1_ctx:
+                tf_kwargs['h1_trend'] = h1_ctx.trend
+
+            for bar in batch_results:
+                bar['state'] = dc_replace(bar['state'], **tf_kwargs)
+                # Re-evaluate structure_ok with context (Lagrange zone check unchanged)
+                bar['structure_ok'] = (
+                    bar['state'].lagrange_zone in ('L2_ROCHE', 'L3_ROCHE') and
+                    bool(bar['state'].structure_confirmed) and
+                    bool(bar['state'].cascade_detected)
+                )
+
+        # === SLICE WARMUP: Remove the prepended bars from results ===
+        if warmup_bars > 0:
+            batch_results = batch_results[warmup_bars:]
+
         # === REMAP: 15s bar_idx → 1s bar_idx for trade simulation ===
         for bar in batch_results:
-            idx_15s = bar['bar_idx']
+            # Adjust index to account for warmup offset
+            idx_15s = bar['bar_idx'] - warmup_bars
             if idx_15s < len(idx_map_15s_to_1s):
                 bar['bar_idx'] = idx_map_15s_to_1s[idx_15s]
             else:
@@ -288,21 +406,44 @@ class BayesianTrainingOrchestrator:
             # Use 1s price for consistency with trade sim
             bar['price'] = prices[bar['bar_idx']]
 
-        # Add prob/conf from brain (these are dict lookups, fast)
+        # Cold start confidence modifier based on context availability
+        context_level = tf_context.get('context_level', 'MINIMAL') if tf_context else 'MINIMAL'
+        conf_modifier = self.mtf_context.get_confidence_modifier(context_level)
+
+        # Add prob/conf from brain + trade direction (these are dict lookups, fast)
+        #
+        # CONFIDENCE-WEIGHTED PROBABILITY:
+        #   Blends neutral prior (50%) with learned probability based on sample count.
+        #   This prevents single observations from dominating (avoids Catch-22 where
+        #   a state seen once gets locked out forever due to low confidence).
+        #
+        #   conf=0.0 (0 trades)  -> prob = 50% prior (explore)
+        #   conf=0.33 (10 trades) -> prob = 67% prior + 33% learned
+        #   conf=1.0 (30 trades) -> prob = 100% learned (exploit)
+        #
+        prior = 0.50
         for bar in batch_results:
             state = bar['state']
             is_unseen = state not in self.brain.table
-            prob = self.brain.get_probability(state)
+            learned_prob = self.brain.get_probability(state)
             conf = self.brain.get_confidence(state)
-            # Unseen states: force prob=1.0 so they pass threshold gate during training
-            # This lets the brain explore and learn from new states
-            bar['prob'] = 1.0 if is_unseen else prob
+
+            if is_unseen:
+                # Never seen: use prior (allows exploration of new states)
+                bar['prob'] = prior
+            else:
+                # Blend prior toward learned probability as confidence grows
+                effective_conf = conf * conf_modifier
+                bar['prob'] = prior * (1.0 - effective_conf) + learned_prob * effective_conf
+
             bar['conf'] = conf
-            # Allow unseen states through confidence gate too (no data yet — let brain learn)
-            bar['structure_ok'] = bar['structure_ok'] and (conf >= 0.30 or is_unseen)
+            # structure_ok is purely physical: Roche zone + wave collapsed
+            # No confidence gate here — let DOE threshold decide which trades fire
+            # Direction: L2_ROCHE (z>+2) -> SHORT, L3_ROCHE (z<-2) -> LONG
+            bar['direction'] = 'SHORT' if state.z_score > 0 else 'LONG'
 
         elapsed = time.time() - precompute_start
-        print(f" done ({elapsed:.1f}s)")
+        print(f" done ({elapsed:.1f}s) | Context: {context_level} (modifier={conf_modifier:.1f})")
 
         # === DEBUG OUTPUT ===
         debug_dir = os.path.join(PROJECT_ROOT, 'debug_output')
@@ -311,6 +452,16 @@ class BayesianTrainingOrchestrator:
         with open(debug_file, 'a') as f:
             f.write(f"\n{'='*80}\n")
             f.write(f"PRECOMPUTE DEBUG — {len(batch_results)} bars computed in {elapsed:.1f}s\n")
+            f.write(f"Context Level: {context_level} | Confidence Modifier: {conf_modifier:.2f}\n")
+            if self.dynamic_binner is not None:
+                f.write(f"{self.dynamic_binner.summary()}\n")
+            if tf_context:
+                for k in ('daily', 'h4', 'h1'):
+                    ctx = tf_context.get(k)
+                    if ctx:
+                        f.write(f"  {k}: trend={ctx.trend}, vol={ctx.volatility}, session={getattr(ctx, 'session', 'N/A')}\n")
+                    else:
+                        f.write(f"  {k}: NOT AVAILABLE\n")
             f.write(f"{'='*80}\n")
 
             # Count filter stages
@@ -546,14 +697,20 @@ class BayesianTrainingOrchestrator:
         Fast simulation using pre-computed states. Only applies param thresholds + trade sim.
         """
         trades = []
-        min_prob = params.get('confidence_threshold', 0.80)
+        # Phase-aware threshold: use the LOWER of DOE param and phase threshold
+        phase_threshold = self.confidence_manager.PHASES[self.confidence_manager.phase]['prob_threshold']
+        min_prob = min(params.get('confidence_threshold', 0.50), phase_threshold) if phase_threshold > 0 else 0.0
         stop_loss = params.get('stop_loss_ticks', 15) * 0.25
         take_profit = params.get('take_profit_ticks', 40) * 0.25
         max_hold = params.get('max_hold_seconds', 600)
+        trading_cost = params.get('trading_cost_points', 0.50)  # Round-trip cost in points
+        pv = self.asset.point_value  # Points -> dollars (MNQ: $2.0/point)
 
         prices = self._day_prices
         timestamps = self._day_timestamps
-        max_lookahead = 200
+        # DYNAMIC LOOKAHEAD: Ensure we look far enough to cover max_hold time
+        # Assuming roughly 1 bar per second, plus buffer for regret analysis (5 min)
+        max_lookahead = int(max_hold + 300)
         n_bars = len(prices)
 
         trade_wins = 0
@@ -567,6 +724,8 @@ class BayesianTrainingOrchestrator:
             # --- Inline fast trade simulation (avoid DataFrame overhead) ---
             entry_idx = bar['bar_idx']
             entry_price = bar['price']
+            direction = bar.get('direction', 'LONG')
+            dir_sign = -1.0 if direction == 'SHORT' else 1.0
             entry_time = timestamps[entry_idx]
             if isinstance(entry_time, pd.Timestamp):
                 entry_time = entry_time.timestamp()
@@ -576,9 +735,14 @@ class BayesianTrainingOrchestrator:
             end_idx = min(n_bars, entry_idx + max_lookahead)
             outcome = None
 
+            # Dynamic Slippage (Walk-Forward)
+            velocity = bar['state'].particle_velocity
+            slippage = self.BASE_SLIPPAGE + self.VELOCITY_SLIPPAGE_FACTOR * abs(velocity)
+            total_slippage = slippage * 2.0
+
             for j in range(entry_idx + 1, end_idx):
                 price = prices[j]
-                pnl = price - entry_price
+                pnl = (price - entry_price) * dir_sign - trading_cost - total_slippage
 
                 exit_time = timestamps[j]
                 if isinstance(exit_time, pd.Timestamp):
@@ -591,29 +755,32 @@ class BayesianTrainingOrchestrator:
                 if pnl >= take_profit:
                     outcome = TradeOutcome(
                         state=bar['state'], entry_price=entry_price, exit_price=price,
-                        pnl=take_profit, result='WIN', timestamp=exit_time,
-                        exit_reason='TP', entry_time=entry_time, exit_time=exit_time, duration=duration
+                        pnl=take_profit * pv, result='WIN', timestamp=exit_time,
+                        exit_reason='TP', entry_time=entry_time, exit_time=exit_time,
+                        duration=duration, direction=direction
                     )
                     break
                 elif pnl <= -stop_loss:
                     outcome = TradeOutcome(
                         state=bar['state'], entry_price=entry_price, exit_price=price,
-                        pnl=-stop_loss, result='LOSS', timestamp=exit_time,
-                        exit_reason='SL', entry_time=entry_time, exit_time=exit_time, duration=duration
+                        pnl=-stop_loss * pv, result='LOSS', timestamp=exit_time,
+                        exit_reason='SL', entry_time=entry_time, exit_time=exit_time,
+                        duration=duration, direction=direction
                     )
                     break
                 elif duration >= max_hold:
                     outcome = TradeOutcome(
                         state=bar['state'], entry_price=entry_price, exit_price=price,
-                        pnl=pnl, result='WIN' if pnl > 0 else 'LOSS', timestamp=exit_time,
-                        exit_reason='TIME', entry_time=entry_time, exit_time=exit_time, duration=duration
+                        pnl=pnl * pv, result='WIN' if pnl > 0 else 'LOSS', timestamp=exit_time,
+                        exit_reason='TIME', entry_time=entry_time, exit_time=exit_time,
+                        duration=duration, direction=direction
                     )
                     break
 
             # End of data fallback
             if outcome is None and entry_idx + 1 < n_bars:
                 last_price = prices[end_idx - 1]
-                pnl = last_price - entry_price
+                pnl = (last_price - entry_price) * dir_sign - trading_cost
                 last_time = timestamps[end_idx - 1]
                 if isinstance(last_time, pd.Timestamp):
                     last_time = last_time.timestamp()
@@ -621,8 +788,9 @@ class BayesianTrainingOrchestrator:
                     last_time = pd.Timestamp(last_time).timestamp()
                 outcome = TradeOutcome(
                     state=bar['state'], entry_price=entry_price, exit_price=last_price,
-                    pnl=pnl, result='WIN' if pnl > 0 else 'LOSS', timestamp=last_time,
-                    exit_reason='EOD', entry_time=entry_time, exit_time=last_time, duration=last_time - entry_time
+                    pnl=pnl * pv, result='WIN' if pnl > 0 else 'LOSS', timestamp=last_time,
+                    exit_reason='EOD', entry_time=entry_time, exit_time=last_time,
+                    duration=last_time - entry_time, direction=direction
                 )
 
             if outcome:
@@ -643,7 +811,10 @@ class BayesianTrainingOrchestrator:
         return trades
 
     def optimize_day(self, day_number: int, date: str, day_data: pd.DataFrame,
-                     day_data_15s: pd.DataFrame = None) -> DayResults:
+                     day_data_15s: pd.DataFrame = None,
+                     tf_context: Dict = None,
+                     prev_day_15s: pd.DataFrame = None,
+                     precomputed_states: list = None) -> DayResults:
         """
         Run DOE optimization for single day.
         Routes to GPU-parallel path when CUDA available, CPU sequential otherwise.
@@ -652,7 +823,13 @@ class BayesianTrainingOrchestrator:
         self.todays_trades = []
 
         # === PRE-COMPUTE ALL STATES ONCE ===
-        precomputed = self._precompute_day_states(day_data, day_data_15s=day_data_15s)
+        if precomputed_states is not None:
+            precomputed = precomputed_states
+        else:
+            precomputed = self._precompute_day_states(
+                day_data, day_data_15s=day_data_15s, tf_context=tf_context,
+                prev_day_15s=prev_day_15s
+            )
 
         if not precomputed:
             return DayResults(
@@ -742,15 +919,27 @@ class BayesianTrainingOrchestrator:
         device = torch.device('cuda')
         n_iters = len(all_param_sets)
 
-        # Extract param arrays → GPU tensors [n_iters]
-        thresholds = torch.tensor([p.get('confidence_threshold', 0.80) for p in all_param_sets],
-                                  device=device, dtype=torch.float64)
+        # Phase-aware threshold: in EXPLORATION phase, force threshold=0 so all structure_ok bars fire
+        phase_threshold = self.confidence_manager.PHASES[self.confidence_manager.phase]['prob_threshold']
+        if phase_threshold == 0:
+            # EXPLORATION: take all trades
+            thresholds = torch.zeros(n_iters, device=device, dtype=torch.float64)
+        else:
+            thresholds = torch.tensor(
+                [min(p.get('confidence_threshold', 0.50), phase_threshold) for p in all_param_sets],
+                device=device, dtype=torch.float64)
         tp_points = torch.tensor([p.get('take_profit_ticks', 40) * 0.25 for p in all_param_sets],
                                  device=device, dtype=torch.float64)
         sl_points = torch.tensor([p.get('stop_loss_ticks', 15) * 0.25 for p in all_param_sets],
                                  device=device, dtype=torch.float64)
         max_holds = torch.tensor([p.get('max_hold_seconds', 600) for p in all_param_sets],
                                  device=device, dtype=torch.float64)
+        trade_costs = torch.tensor([p.get('trading_cost_points', 0.50) for p in all_param_sets],
+                                   device=device, dtype=torch.float64)
+
+        # DYNAMIC LOOKAHEAD: Ensure we look far enough to cover max_hold time
+        # Take the maximum hold time across all parameter sets + buffer for regret analysis
+        max_lookahead = int(max_holds.max().item() + 300)
 
         # Price/time arrays → GPU
         prices_gpu = torch.tensor(self._day_prices, device=device, dtype=torch.float64)
@@ -769,18 +958,27 @@ class BayesianTrainingOrchestrator:
         candidate_bars = [b for b in precomputed if b['structure_ok']]
         n_candidates = len(candidate_bars)
 
-        print(f"  GPU parallel: {n_iters} iterations × {n_candidates} candidate bars on CUDA")
+        phase_name = self.confidence_manager.PHASES[self.confidence_manager.phase]['name']
+        print(f"  GPU parallel: {n_iters} iterations x {n_candidates} candidates on CUDA | Phase: {phase_name} (threshold={phase_threshold:.2f})")
 
         if n_candidates == 0:
             empty = [{'trades': [], 'sharpe': -999.0, 'win_rate': 0.0, 'pnl': 0.0} for _ in range(n_iters)]
             return 0, empty
 
-        # Extract candidate probs → GPU [n_candidates]
+        # Extract candidate probs + direction → GPU [n_candidates]
         cand_probs = torch.tensor([b['prob'] for b in candidate_bars], device=device, dtype=torch.float64)
         cand_indices = [b['bar_idx'] for b in candidate_bars]
         cand_prices_entry = torch.tensor([b['price'] for b in candidate_bars], device=device, dtype=torch.float64)
+        # Direction: +1.0 for LONG, -1.0 for SHORT
+        cand_dir_signs = torch.tensor(
+            [-1.0 if b.get('direction', 'LONG') == 'SHORT' else 1.0 for b in candidate_bars],
+            device=device, dtype=torch.float64
+        )
 
-        max_lookahead = 200
+        # Dynamic Slippage (GPU Pre-calculation)
+        cand_velocities = torch.tensor([b['state'].particle_velocity for b in candidate_bars], device=device, dtype=torch.float64)
+        cand_slippage = self.BASE_SLIPPAGE + self.VELOCITY_SLIPPAGE_FACTOR * torch.abs(cand_velocities)
+        cand_slippage_cost = cand_slippage * 2.0 # Round trip
 
         # === CORE GPU KERNEL: simulate all trades in parallel ===
         # For each candidate × each iteration: compute trade result
@@ -794,6 +992,7 @@ class BayesianTrainingOrchestrator:
             bar_idx = cand_indices[c_idx]
             prob = cand_probs[c_idx]
             entry_price = cand_prices_entry[c_idx]
+            dir_sign = cand_dir_signs[c_idx]  # +1 LONG, -1 SHORT
             entry_time = times_gpu[bar_idx]
 
             # Which iterations fire? (prob >= threshold)
@@ -810,13 +1009,15 @@ class BayesianTrainingOrchestrator:
             future_times = times_gpu[bar_idx + 1:end_idx]    # [window]
             window_len = len(future_prices)
 
-            # P&L for each future bar: [window]
-            pnl_curve = future_prices - entry_price
+            # P&L for each future bar: direction-aware + trading cost
+            raw_pnl = (future_prices - entry_price) * dir_sign  # [window]
             durations = future_times - entry_time  # [window]
 
             # For each firing iteration, find exit bar
-            # Expand for broadcasting: pnl_curve [window,1] vs tp/sl [1,n_iters]
-            pnl_expanded = pnl_curve.unsqueeze(1)       # [window, 1]
+            # Expand for broadcasting: raw_pnl [window,1] vs tp/sl [1,n_iters]
+            # Include dynamic slippage cost [n_iters] (actually scalar for this candidate, but broadcasted)
+            total_cost = trade_costs.unsqueeze(0) + cand_slippage_cost[c_idx]
+            pnl_expanded = raw_pnl.unsqueeze(1) - total_cost  # [window, n_iters] with cost
             dur_expanded = durations.unsqueeze(1)        # [window, 1]
             tp_expanded = tp_points.unsqueeze(0)         # [1, n_iters]
             sl_expanded = sl_points.unsqueeze(0)         # [1, n_iters]
@@ -829,7 +1030,6 @@ class BayesianTrainingOrchestrator:
             exit_mask = hit_tp | hit_sl | hit_time  # [window, n_iters]
 
             # Find first exit bar for each iteration
-            # Use argmax on exit_mask (returns first True index along dim=0)
             any_exit = exit_mask.any(dim=0)  # [n_iters]
 
             # For iterations that have an exit
@@ -837,26 +1037,25 @@ class BayesianTrainingOrchestrator:
             if not firing_and_exiting.any():
                 # All firing iterations reach EOD
                 fire_indices = fires.nonzero(as_tuple=True)[0]
-                last_pnl = pnl_curve[-1]
+                last_pnl_per_iter = pnl_expanded[-1]  # [n_iters] includes cost
                 last_dur = durations[-1]
                 trade_fired[c_idx, fire_indices] = True
-                trade_pnl[c_idx, fire_indices] = last_pnl
-                trade_won[c_idx, fire_indices] = last_pnl > 0
+                trade_pnl[c_idx, fire_indices] = last_pnl_per_iter[fire_indices]
+                trade_won[c_idx, fire_indices] = last_pnl_per_iter[fire_indices] > 0
                 trade_duration[c_idx, fire_indices] = last_dur
                 continue
 
             # Get first exit index per iteration: [n_iters]
-            # Set non-exit positions to window_len so argmax ignores them
             exit_indices = exit_mask.float().argmax(dim=0)  # [n_iters]
 
             for iter_idx in firing_and_exiting.nonzero(as_tuple=True)[0]:
                 ii = iter_idx.item()
                 exit_bar = exit_indices[ii].item()
-                pnl_val = pnl_curve[exit_bar].item()
+                pnl_val = pnl_expanded[exit_bar, ii].item()
                 dur_val = durations[exit_bar].item()
 
                 if hit_tp[exit_bar, ii]:
-                    final_pnl = tp_points[ii].item()
+                    final_pnl = tp_points[ii].item()  # TP already net of structure
                     won = True
                 elif hit_sl[exit_bar, ii]:
                     final_pnl = -sl_points[ii].item()
@@ -874,12 +1073,15 @@ class BayesianTrainingOrchestrator:
             fire_no_exit = fires & ~any_exit
             if fire_no_exit.any():
                 fe_indices = fire_no_exit.nonzero(as_tuple=True)[0]
-                last_pnl = pnl_curve[-1]
+                last_pnl_per_iter = pnl_expanded[-1]
                 last_dur = durations[-1]
                 trade_fired[c_idx, fe_indices] = True
-                trade_pnl[c_idx, fe_indices] = last_pnl
-                trade_won[c_idx, fe_indices] = last_pnl > 0
+                trade_pnl[c_idx, fe_indices] = last_pnl_per_iter[fe_indices]
+                trade_won[c_idx, fe_indices] = last_pnl_per_iter[fe_indices] > 0
                 trade_duration[c_idx, fe_indices] = last_dur
+
+        # === CONVERT P&L from points to dollars ===
+        trade_pnl *= self.asset.point_value
 
         # === AGGREGATE RESULTS PER ITERATION (on GPU) ===
         # trade_fired: [n_candidates, n_iters]
@@ -909,12 +1111,22 @@ class BayesianTrainingOrchestrator:
         total_pnl_cpu = total_pnl.cpu().numpy()
         sharpes_cpu = sharpes.cpu().numpy()
 
-        # Print best
-        if best_sharpe > -999.0:
-            best_n = int(n_trades_cpu[best_idx])
-            best_wr = int(n_wins_cpu[best_idx]) / best_n if best_n > 0 else 0
-            print(f"  GPU result: Best iter {best_idx} | Sharpe: {best_sharpe:.2f} | "
-                  f"WR: {best_wr:.1%} | Trades: {best_n} | P&L: ${total_pnl_cpu[best_idx]:.2f}")
+        # Print top-5 iterations for visibility
+        valid_mask = sharpes_cpu > -999.0
+        if valid_mask.any():
+            top_indices = np.argsort(sharpes_cpu)[::-1][:5]
+            n_long = sum(1 for b in candidate_bars if b.get('direction') == 'LONG')
+            n_short = sum(1 for b in candidate_bars if b.get('direction') == 'SHORT')
+            print(f"  Candidates: {n_candidates} ({n_long} LONG, {n_short} SHORT) | "
+                  f"Valid iters: {valid_mask.sum()}/{n_iters}")
+            for rank, idx in enumerate(top_indices):
+                if sharpes_cpu[idx] <= -999.0:
+                    break
+                n_t = int(n_trades_cpu[idx])
+                wr = int(n_wins_cpu[idx]) / n_t if n_t > 0 else 0
+                marker = " <-- BEST" if idx == best_idx else ""
+                print(f"    #{rank+1} Iter {idx:4d} | Sharpe: {sharpes_cpu[idx]:6.2f} | "
+                      f"WR: {wr:.1%} | Trades: {n_t:3d} | P&L: ${total_pnl_cpu[idx]:8.2f}{marker}")
 
         # Build result dicts — reconstruct TradeOutcome objects only for best iteration
         all_results = []
@@ -939,11 +1151,13 @@ class BayesianTrainingOrchestrator:
             won = trade_won[c_idx, best_idx].item()
             dur = trade_duration[c_idx, best_idx].item()
             entry_time_val = ts_float[bar['bar_idx']]
+            direction = bar.get('direction', 'LONG')
+            dir_sign = -1.0 if direction == 'SHORT' else 1.0
 
             best_trades.append(TradeOutcome(
                 state=bar['state'],
                 entry_price=bar['price'],
-                exit_price=bar['price'] + pnl_val,
+                exit_price=bar['price'] + pnl_val / dir_sign if dir_sign != 0 else bar['price'],
                 pnl=pnl_val,
                 result='WIN' if won else 'LOSS',
                 timestamp=entry_time_val + dur,
@@ -951,6 +1165,7 @@ class BayesianTrainingOrchestrator:
                 entry_time=entry_time_val,
                 exit_time=entry_time_val + dur,
                 duration=dur,
+                direction=direction,
             ))
 
         all_results[best_idx]['trades'] = best_trades
@@ -1046,9 +1261,10 @@ class BayesianTrainingOrchestrator:
                 tick_velocity=0.0
             )
 
-            # Decision (using parameters)
-            min_prob = params.get('confidence_threshold', 0.80)
-            min_conf = 0.30
+            # Decision (using parameters) — phase-aware threshold
+            phase_threshold = self.confidence_manager.PHASES[self.confidence_manager.phase]['prob_threshold']
+            min_prob = min(params.get('confidence_threshold', 0.50), phase_threshold) if phase_threshold > 0 else 0.0
+            min_conf = 0.0 if self.confidence_manager.phase == 1 else 0.30
 
             prob = self.brain.get_probability(state)
             conf = self.brain.get_confidence(state)
@@ -1082,16 +1298,23 @@ class BayesianTrainingOrchestrator:
     def _simulate_trade(self, current_idx: int, entry_price: float,
                        data: pd.DataFrame, state: Any, params: Dict[str, Any]) -> Optional[TradeOutcome]:
         """
-        Simulate single trade with lookahead
+        Simulate single trade with lookahead — direction-aware
 
         Uses params for stop loss and take profit
+        Direction from Lagrange zone: L2_ROCHE → SHORT, L3_ROCHE → LONG
         """
         stop_loss = params.get('stop_loss_ticks', 15) * 0.25  # Convert ticks to points
         take_profit = params.get('take_profit_ticks', 40) * 0.25
         max_hold = params.get('max_hold_seconds', 600)
+        trading_cost = params.get('trading_cost_points', 0.50)
+        pv = self.asset.point_value  # Points → dollars (MNQ: $2.0/point)
+
+        # Direction from z-score: positive z → SHORT (mean reversion down), negative z → LONG
+        direction = 'SHORT' if state.z_score > 0 else 'LONG'
+        dir_sign = -1.0 if direction == 'SHORT' else 1.0
 
         # Look ahead
-        max_lookahead = 200
+        max_lookahead = int(max_hold + 100)
         end_idx = min(len(data), current_idx + max_lookahead)
         future_data = data.iloc[current_idx+1:end_idx]
 
@@ -1102,9 +1325,14 @@ class BayesianTrainingOrchestrator:
         if isinstance(entry_time, pd.Timestamp):
             entry_time = entry_time.timestamp()
 
+        # Dynamic Slippage (Single Trade)
+        velocity = state.particle_velocity
+        slippage = self.BASE_SLIPPAGE + self.VELOCITY_SLIPPAGE_FACTOR * abs(velocity)
+        total_slippage = slippage * 2.0
+
         for idx, row in future_data.iterrows():
             price = row['price'] if 'price' in row else row['close']
-            pnl = price - entry_price  # Long only
+            pnl = (price - entry_price) * dir_sign - trading_cost - total_slippage
 
             exit_time = row.get('timestamp', 0)
             if isinstance(exit_time, pd.Timestamp):
@@ -1115,59 +1343,39 @@ class BayesianTrainingOrchestrator:
             # Check TP/SL
             if pnl >= take_profit:
                 return TradeOutcome(
-                    state=state,
-                    entry_price=entry_price,
-                    exit_price=price,
-                    pnl=take_profit,
-                    result='WIN',
-                    timestamp=exit_time,
-                    exit_reason='TP',
-                    entry_time=entry_time,
-                    duration=duration
+                    state=state, entry_price=entry_price, exit_price=price,
+                    pnl=take_profit * pv, result='WIN', timestamp=exit_time,
+                    exit_reason='TP', entry_time=entry_time,
+                    duration=duration, direction=direction
                 )
             elif pnl <= -stop_loss:
                 return TradeOutcome(
-                    state=state,
-                    entry_price=entry_price,
-                    exit_price=price,
-                    pnl=-stop_loss,
-                    result='LOSS',
-                    timestamp=exit_time,
-                    exit_reason='SL',
-                    entry_time=entry_time,
-                    duration=duration
+                    state=state, entry_price=entry_price, exit_price=price,
+                    pnl=-stop_loss * pv, result='LOSS', timestamp=exit_time,
+                    exit_reason='SL', entry_time=entry_time,
+                    duration=duration, direction=direction
                 )
             elif duration >= max_hold:
                 return TradeOutcome(
-                    state=state,
-                    entry_price=entry_price,
-                    exit_price=price,
-                    pnl=pnl,
-                    result='WIN' if pnl > 0 else 'LOSS',
-                    timestamp=exit_time,
-                    exit_reason='TIME',
-                    entry_time=entry_time,
-                    duration=duration
+                    state=state, entry_price=entry_price, exit_price=price,
+                    pnl=pnl * pv, result='WIN' if pnl > 0 else 'LOSS', timestamp=exit_time,
+                    exit_reason='TIME', entry_time=entry_time,
+                    duration=duration, direction=direction
                 )
 
         # Reached end of data
         last_price = future_data.iloc[-1]['price'] if 'price' in future_data.iloc[-1] else future_data.iloc[-1]['close']
-        pnl = last_price - entry_price
+        pnl = (last_price - entry_price) * dir_sign - trading_cost
 
         last_time = future_data.iloc[-1].get('timestamp', 0)
         if isinstance(last_time, pd.Timestamp):
             last_time = last_time.timestamp()
 
         return TradeOutcome(
-            state=state,
-            entry_price=entry_price,
-            exit_price=last_price,
-            pnl=pnl,
-            result='WIN' if pnl > 0 else 'LOSS',
-            timestamp=last_time,
-            exit_reason='EOD',
-            entry_time=entry_time,
-            duration=last_time - entry_time
+            state=state, entry_price=entry_price, exit_price=last_price,
+            pnl=pnl * pv, result='WIN' if pnl > 0 else 'LOSS', timestamp=last_time,
+            exit_reason='EOD', entry_time=entry_time,
+            duration=last_time - entry_time, direction=direction
         )
 
     def split_into_trading_days(self, data: pd.DataFrame) -> List[Tuple[str, pd.DataFrame]]:
@@ -1319,6 +1527,12 @@ class BayesianTrainingOrchestrator:
         with open(results_path, 'wb') as f:
             pickle.dump(day_result, f)
 
+        # Save dynamic binner (once, shared across all days)
+        if self.dynamic_binner is not None:
+            binner_path = os.path.join(self.checkpoint_dir, "dynamic_binner.pkl")
+            if not os.path.exists(binner_path):
+                self.dynamic_binner.save(binner_path)
+
     def print_final_summary(self):
         """Print comprehensive final summary"""
         self.progress_reporter.print_final_summary()
@@ -1395,7 +1609,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
-    parser.add_argument('--data', required=True, help="Path to parquet data file")
+    parser.add_argument('--data', default=r"DATA\glbx-mdp3-20250101-20260209.ohlcv-1s.parquet", help="Path to parquet data file")
     parser.add_argument('--iterations', type=int, default=1000, help="Iterations per day (default: 1000)")
     parser.add_argument('--max-days', type=int, default=None, help="Limit number of days")
     parser.add_argument('--checkpoint-dir', type=str, default="checkpoints", help="Checkpoint directory")
@@ -1425,6 +1639,15 @@ def main():
     try:
         results = orchestrator.train(data)
         print("\n=== Training Complete ===")
+
+        # Keep dashboard open if running
+        if orchestrator.dashboard_thread and orchestrator.dashboard_thread.is_alive():
+            print("Dashboard is open. Close the window to exit.")
+            try:
+                orchestrator.dashboard_thread.join()
+            except KeyboardInterrupt:
+                print("Dashboard closed.")
+
         return 0
     except KeyboardInterrupt:
         print("\n\nWARNING: Training interrupted by user")

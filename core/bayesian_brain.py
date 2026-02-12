@@ -33,6 +33,7 @@ class TradeOutcome:
     entry_time: float = 0.0
     exit_time: float = 0.0
     duration: float = 0.0
+    direction: str = 'LONG'  # 'LONG' or 'SHORT'
 
 class BayesianBrain:
     """
@@ -71,15 +72,14 @@ class BayesianBrain:
             float: Win probability (0.0 to 1.0)
         """
         if state not in self.table:
-            return 0.50  # Neutral prior (no historical data)
+            return 0.09  # Pessimistic prior Beta(1, 10) -> 1/11 ~ 9%
         
         data = self.table[state]
-        if data['total'] == 0:
-            return 0.50
         
-        # Bayesian estimate with Laplace smoothing (avoid 0/0)
+        # Bayesian estimate with Pessimistic Prior Beta(1, 10)
+        # This assumes most strategies fail, requiring proof to rise above 50%
         wins = data['wins'] + 1
-        total = data['total'] + 2
+        total = data['total'] + 11  # alpha=1 + beta=10 = 11
         
         return wins / total
     
@@ -96,10 +96,9 @@ class BayesianBrain:
         total = self.table[state]['total']
         
         # Confidence grows with sample size
-        # 30 trades = full confidence (100%)
-        # 10 trades = 33% confidence
-        # 1 trade = 3% confidence
-        return min(total / 30.0, 1.0)
+        # 100 trades = full confidence (100%)
+        # 30 trades = 30% confidence (minimum for validation)
+        return min(total / 100.0, 1.0)
     
     def should_fire(self, state: Any, min_prob: float = 0.80, min_conf: float = 0.30) -> bool:
         """
