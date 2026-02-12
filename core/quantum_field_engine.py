@@ -167,7 +167,8 @@ class QuantumFieldEngine:
                 # Let's average them for robustness
                 tunnel_prob = (tunnel_prob + mc_tunnel) / 2.0
                 escape_prob = (escape_prob + mc_escape) / 2.0
-            except Exception:
+            except Exception as e:
+                # Consider logging the exception, e.g., logging.warning(f"Risk engine failed: {e}")
                 pass # Fallback to heuristic
         
         # Lagrange
