@@ -33,3 +33,6 @@ matplotlib
 colorama
 anywidget
 torch==2.2.2+cpu
+pandas_ta
+hurst
+QuantLib

@@ -35,10 +35,10 @@ jobs:
         docker-images: true
         swap-storage: true
 
-    - name: Set up Python 3.10
+    - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
-        python-version: "3.10"
+        python-version: "3.12"
 
     - name: Install dependencies
       run: |
@@ -71,7 +71,7 @@ jobs:
     # --- FEEDBACK LOOP (from jules_feedback_loop.yml) ---
     - name: Run CUDA Audit
       # Run the verification script. It handles CPU fallback or logging failures.
-      run: python cuda_modules/hardened_verification.py
+      run: python scripts/gpu_health_check.py
       continue-on-error: true
 
     # --- TRAINING VALIDATION & STATUS REPORT (from status-report.yml) ---

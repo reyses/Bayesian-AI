@@ -7,6 +7,20 @@ import numpy as np
 import pandas as pd
 from scipy.stats import linregress
 from core.three_body_state import ThreeBodyQuantumState
+from core.risk_engine import QuantumRiskEngine
+
+# Optional: Fractal & Trend Libraries
+try:
+    import pandas_ta as ta
+    PANDAS_TA_AVAILABLE = True
+except ImportError:
+    PANDAS_TA_AVAILABLE = False
+
+try:
+    from hurst import compute_Hc
+    HURST_AVAILABLE = True
+except ImportError:
+    HURST_AVAILABLE = False
 
 # Pattern Constants
 PATTERN_NONE = 'NONE'
@@ -56,6 +70,9 @@ class QuantumFieldEngine:
         else:
             self.device = None
             self.use_gpu = False
+
+        # Risk Engine (Monte Carlo)
+        self.risk_engine = QuantumRiskEngine()
     
     def calculate_three_body_state(
         self, 
@@ -63,7 +80,8 @@ class QuantumFieldEngine:
         df_micro: pd.DataFrame,   # 15sec bars
         current_price: float,
         current_volume: float,
-        tick_velocity: float
+        tick_velocity: float,
+        context: dict = None      # Optional multi-timeframe context
     ) -> ThreeBodyQuantumState:
         """
         MASTER FUNCTION: Computes complete quantum state
@@ -129,16 +147,102 @@ class QuantumFieldEngine:
         # Measurements
         measurements = self._check_measurements(df_micro, z_score, tick_velocity)
         
-        # Tunneling
+        # Tunneling (Heuristic by default)
         tunnel_prob, escape_prob, barrier = self._calculate_tunneling(
             z_score, forces['F_momentum'], forces['F_reversion']
         )
+
+        # MONTE CARLO REFINEMENT (QuantLib)
+        # Only run if in Roche Limit (critical zone) to save compute
+        if abs(z_score) > 2.0:
+            try:
+                mc_tunnel, mc_escape = self.risk_engine.calculate_probabilities(
+                    price=current_price,
+                    center=center,
+                    sigma=sigma,
+                    theta=0.1, # Mean reversion speed
+                    horizon_seconds=600
+                )
+                # Blend MC with Heuristic (50/50) or Replace?
+                # Let's average them for robustness
+                tunnel_prob = (tunnel_prob + mc_tunnel) / 2.0
+                escape_prob = (escape_prob + mc_escape) / 2.0
+            except Exception as e:
+                # Consider logging the exception, e.g., logging.warning(f"Risk engine failed: {e}")
+                pass # Fallback to heuristic
         
         # Lagrange
         lagrange_zone, stability = self._classify_lagrange(z_score, forces['F_net'])
         
+        # Build context args
+        context_args = {}
+        if context:
+            # Map dictionary keys to dataclass fields
+            if 'daily' in context and context['daily']:
+                context_args['daily_trend'] = context['daily'].trend
+                context_args['daily_volatility'] = context['daily'].volatility
+                context_args['daily_pattern'] = context['daily'].fractal_pattern
+            if 'h4' in context and context['h4']:
+                context_args['h4_trend'] = context['h4'].trend
+                context_args['session'] = context['h4'].session
+                context_args['h4_pattern'] = context['h4'].fractal_pattern
+            if 'h1' in context and context['h1']:
+                context_args['h1_trend'] = context['h1'].trend
+                context_args['h1_pattern'] = context['h1'].fractal_pattern
+            if 'context_level' in context:
+                context_args['context_level'] = context['context_level']
+
+        # Apply trend direction from calculation
+        context_args['trend_direction_15m'] = trend_direction
+
+        # FRACTAL & TREND INDICATORS
+        # Hurst Exponent (Fractal Dimension) - using df_micro close prices
+        if HURST_AVAILABLE and len(df_micro) >= 100:
+            # Use last 100 bars for Hurst calculation
+            hurst_series = df_micro['close'].iloc[-100:]
+            try:
+                H, c, _ = compute_Hc(hurst_series, kind='price', simplified=True)
+                hurst_val = H
+            except Exception:
+                hurst_val = 0.5
+        else:
+            hurst_val = 0.5
+
+        # ADX/DMI (Trend Strength) - using df_macro (15m) for robust trend
+        if PANDAS_TA_AVAILABLE and len(df_macro) >= 14:
+            try:
+                # pandas_ta requires DataFrame with high, low, close
+                # df_macro might be missing high/low if just close prices passed
+                if 'high' in df_macro.columns and 'low' in df_macro.columns:
+                    adx_df = df_macro.ta.adx(length=14)
+                    if adx_df is not None and not adx_df.empty:
+                        # Columns are usually ADX_14, DMP_14, DMN_14
+                        # Get last row
+                        last_row = adx_df.iloc[-1]
+                        adx_val = last_row.iloc[0] # ADX is usually first
+                        dmp_val = last_row.iloc[1] # DMP
+                        dmn_val = last_row.iloc[2] # DMN
+                    else:
+                        adx_val, dmp_val, dmn_val = 0.0, 0.0, 0.0
+                else:
+                    adx_val, dmp_val, dmn_val = 0.0, 0.0, 0.0
+            except Exception:
+                adx_val, dmp_val, dmn_val = 0.0, 0.0, 0.0
+        else:
+            adx_val, dmp_val, dmn_val = 0.0, 0.0, 0.0
+
+        # Replace NaNs
+        hurst_val = np.nan_to_num(hurst_val, nan=0.5)
+        adx_val = np.nan_to_num(adx_val, nan=0.0)
+        dmp_val = np.nan_to_num(dmp_val, nan=0.0)
+        dmn_val = np.nan_to_num(dmn_val, nan=0.0)
+
         return ThreeBodyQuantumState(
             center_position=center,
+            hurst_exponent=hurst_val,
+            adx_strength=adx_val,
+            dmi_plus=dmp_val,
+            dmi_minus=dmn_val,
             upper_singularity=upper_sing,
             lower_singularity=lower_sing,
             event_horizon_upper=upper_event,
@@ -170,7 +274,9 @@ class QuantumFieldEngine:
             escape_probability=escape_prob,
             barrier_height=barrier,
             pattern_type=measurements['pattern_type'],
-            timestamp=df_macro.index[-1].timestamp() if hasattr(df_macro.index[-1], 'timestamp') else 0.0
+            candlestick_pattern=measurements['candlestick_pattern'],
+            timestamp=df_macro.index[-1].timestamp() if hasattr(df_macro.index[-1], 'timestamp') else 0.0,
+            **context_args
         )
     
     def _calculate_center_mass(self, df: pd.DataFrame):
@@ -271,15 +377,29 @@ class QuantumFieldEngine:
         pattern_maturity = min((abs(z_score) - 2.0) / 1.0, 1.0) if abs(z_score) > 2.0 else 0.0
         structure_confirmed = volume_spike and pattern_maturity > 0.5
         
-        # Cascade Logic: Velocity OR Range
+        # Cascade Logic: Velocity OR Rolling Range (5s window)
         velocity_cascade = abs(velocity) > VELOCITY_CASCADE_THRESHOLD
         
-        current_candle = df_micro.iloc[-1]
-        high = current_candle.get('high', current_candle['close'])
-        low = current_candle.get('low', current_candle['close'])
-        range_cascade = (high - low) > RANGE_CASCADE_THRESHOLD
+        # Rolling Window Cascade: Max High - Min Low over last 5 bars (assuming 1s bars)
+        # If bars are not 1s (e.g. 15s), this checks the range of the last 5 aggregate bars (75s),
+        # which is safer (captures large moves) than missing them.
+        if len(df_micro) >= 5:
+            window = df_micro.iloc[-5:]
+            h = window['high'].max() if 'high' in window.columns else window['close'].max()
+            l = window['low'].min() if 'low' in window.columns else window['close'].min()
+            rolling_range = h - l
+            rolling_cascade = rolling_range > RANGE_CASCADE_THRESHOLD
+        else:
+            # Fallback to current bar range if not enough history
+            current_candle = df_micro.iloc[-1]
+            h = current_candle.get('high', current_candle['close'])
+            l = current_candle.get('low', current_candle['close'])
+            rolling_cascade = (h - l) > RANGE_CASCADE_THRESHOLD
 
-        cascade_detected = velocity_cascade or range_cascade
+        cascade_detected = velocity_cascade or rolling_cascade
+
+        # Define current_candle for spin inversion check
+        current_candle = df_micro.iloc[-1]
 
         # Use open price if available, otherwise fallback to close
         open_price = current_candle.get('open', current_candle['close'])
@@ -303,12 +423,21 @@ class QuantumFieldEngine:
         patterns = self._detect_geometric_patterns(check_highs, check_lows)
         pattern_type = patterns[-1]
 
+        # Candlestick Pattern Detection
+        opens = df_micro['open'].values if 'open' in df_micro.columns else df_micro['close'].values
+        check_opens = opens[-20:]
+        check_closes = df_micro['close'].values[-20:]
+
+        candlestick_patterns = self._detect_candlestick_patterns(check_opens, check_highs, check_lows, check_closes)
+        candlestick_pattern = candlestick_patterns[-1]
+
         return {
             'structure_confirmed': structure_confirmed,
             'cascade_detected': cascade_detected,
             'spin_inverted': spin_inverted,
             'pattern_maturity': pattern_maturity,
-            'pattern_type': pattern_type
+            'pattern_type': pattern_type,
+            'candlestick_pattern': candlestick_pattern
         }
     
     def _calculate_tunneling(self, z_score, F_momentum, F_reversion):
@@ -389,6 +518,73 @@ class QuantumFieldEngine:
 
         # Clear first 9 bars explicitly (warmup period for rolling windows)
         patterns[:9] = PATTERN_NONE
+
+        return patterns
+
+    def _detect_candlestick_patterns(self, opens: np.ndarray, highs: np.ndarray,
+                                     lows: np.ndarray, closes: np.ndarray) -> np.ndarray:
+        """
+        Vectorized candlestick pattern detection.
+        Detects: Engulfing (Bull/Bear), Hammer, Doji
+        """
+        n = len(closes)
+        patterns = np.full(n, 'NONE', dtype=object)
+
+        if n < 2:
+            return patterns
+
+        # Helper arrays
+        body = np.abs(closes - opens)
+        upper_shadow = highs - np.maximum(closes, opens)
+        lower_shadow = np.minimum(closes, opens) - lows
+        total_range = highs - lows
+
+        # Avoid division by zero
+        total_range = np.where(total_range == 0, 1e-10, total_range)
+
+        # 1. DOJI: Body is very small relative to range (< 10%)
+        doji_mask = (body / total_range) < 0.1
+        patterns[doji_mask] = 'DOJI'
+
+        # 2. HAMMER:
+        # - Small body (top 30%)
+        # - Long lower shadow (> 2x body)
+        # - Small upper shadow (< 10% range)
+        hammer_mask = (
+            ((np.minimum(closes, opens) - lows) > (2.0 * body)) &
+            (upper_shadow < (0.1 * total_range)) &
+            (body < (0.3 * total_range))
+        )
+        patterns[hammer_mask] = 'HAMMER'
+
+        # 3. ENGULFING (Bullish/Bearish)
+        # Needs previous bar data
+        prev_opens = np.roll(opens, 1)
+        prev_closes = np.roll(closes, 1)
+
+        # Bullish Engulfing:
+        # Prev Red, Curr Green, Curr Open < Prev Close, Curr Close > Prev Open
+        bull_eng_mask = (
+            (prev_closes < prev_opens) &  # Prev Red
+            (closes > opens) &            # Curr Green
+            (opens <= prev_closes) &      # Open below prev close
+            (closes >= prev_opens)        # Close above prev open
+        )
+
+        # Bearish Engulfing:
+        # Prev Green, Curr Red, Curr Open > Prev Close, Curr Close < Prev Open
+        bear_eng_mask = (
+            (prev_closes > prev_opens) &  # Prev Green
+            (closes < opens) &            # Curr Red
+            (opens >= prev_closes) &      # Open above prev close
+            (closes <= prev_opens)        # Close below prev open
+        )
+
+        patterns[bull_eng_mask] = 'ENGULFING_BULL'
+        patterns[bear_eng_mask] = 'ENGULFING_BEAR'
+
+        # Clear first bar (due to rolling)
+        patterns[0] = 'NONE'
 
         return patterns
 
@@ -504,9 +700,78 @@ class QuantumFieldEngine:
         # Slice to matched bars
         pattern_types = pattern_types_full[rp:]
 
+        # Compute candlestick patterns for whole dataset
+        opens_full = day_data['open'].values.astype(np.float64) if 'open' in day_data.columns else prices.copy()
+        candlestick_types_full = self._detect_candlestick_patterns(opens_full, highs_full, lows_full, close)
+        candlestick_types = candlestick_types_full[rp:]
+
         # Slice highs/lows to matched bars for cascade check
         bar_highs = highs_full[rp:]
         bar_lows = lows_full[rp:]
+
+        # ═══ FRACTAL & TREND PRE-COMPUTATION ═══
+        # ADX/DMI (Trend Strength)
+        adx_vals = np.zeros(num_bars)
+        dmp_vals = np.zeros(num_bars)
+        dmn_vals = np.zeros(num_bars)
+
+        if PANDAS_TA_AVAILABLE and 'high' in day_data.columns and 'low' in day_data.columns:
+            try:
+                # Compute ADX for full dataset
+                adx_df = day_data.ta.adx(length=14)
+                if adx_df is not None:
+                    # Align with computed bars (rp:)
+                    # Columns usually: ADX_14, DMP_14, DMN_14
+                    adx_col = adx_df.iloc[:, 0].values
+                    dmp_col = adx_df.iloc[:, 1].values
+                    dmn_col = adx_df.iloc[:, 2].values
+
+                    # Slice to match rp:
+                    adx_vals = np.nan_to_num(adx_col[rp:])
+                    dmp_vals = np.nan_to_num(dmp_col[rp:])
+                    dmn_vals = np.nan_to_num(dmn_col[rp:])
+            except Exception:
+                pass
+
+        # Hurst Exponent (Fractal Dimension)
+        # Computing rolling Hurst is expensive. We'll approximate or skip for batch speed if needed.
+        # For training accuracy, we should compute it.
+        # We can use a simple rolling window apply if dataset isn't too huge.
+        hurst_vals = np.full(num_bars, 0.5)
+
+        if HURST_AVAILABLE:
+            # We need a rolling apply on 'close'
+            # simplified=True is faster.
+            # Using a stride can speed it up (compute every N bars, interpolate).
+            # For now, let's just do it for every bar but use a smaller window? No, H needs ~100 bars.
+            # Optimization: Compute only if we need it.
+            # Let's try to do it via rolling apply.
+            try:
+                # Custom function for rolling apply
+                def get_hurst(x):
+                    try:
+                        H, _, _ = compute_Hc(x, kind='price', simplified=True)
+                        return H
+                    except Exception as e:
+                        # Consider logging the exception here, e.g., logging.error(f"Error computing Hurst: {e}")
+                        return 0.5
+
+                # We apply to the *original* series, then slice
+                # Calculating on 1s data (35k bars) with window=100 is 35k*100 ops.
+                # It might take a few seconds. Acceptable.
+                # However, calculate_three_body_state uses df_micro (15s usually).
+                # batch_compute_states is called with 15s data in Orchestrator.
+                # So n ~ 2000 bars. This is fast enough.
+
+                # Check if we have enough data
+                if len(close) >= 100:
+                    series = pd.Series(close)
+                    # rolling(100).apply(get_hurst)
+                    # raw=True for speed (passes ndarray)
+                    rolling_hurst = series.rolling(100).apply(get_hurst, raw=True).values
+                    hurst_vals = np.nan_to_num(rolling_hurst[rp:], nan=0.5)
+            except Exception:
+                pass
 
         # ═══ STEP 2: Vectorized z-scores & force fields ═══
         z_scores = (bar_prices - centers) / sigmas
@@ -695,6 +960,11 @@ class QuantumFieldEngine:
                 barrier_height=barrier[i],
                 pattern_type=str(pattern_types[i]),
                 trend_direction_15m=str(trend_directions[i]),
+                hurst_exponent=hurst_vals[i],
+                adx_strength=adx_vals[i],
+                dmi_plus=dmp_vals[i],
+                dmi_minus=dmn_vals[i],
+                candlestick_pattern=str(candlestick_types[i]),
             )
             results.append({
                 'bar_idx': rp + i,

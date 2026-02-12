@@ -91,6 +91,13 @@ class ThreeBodyQuantumState:
     barrier_height: float          # Potential energy
     pattern_type: str = 'NONE'     # NONE | COMPRESSION | WEDGE | BREAKDOWN
 
+    # ═══ FRACTAL & TREND INDICATORS ═══
+    hurst_exponent: float = 0.5     # Fractal dimension (0.0-1.0)
+    adx_strength: float = 0.0       # Trend strength (0-100)
+    dmi_plus: float = 0.0           # Directional Movement Plus
+    dmi_minus: float = 0.0          # Directional Movement Minus
+    candlestick_pattern: str = 'NONE' # HAMMER | ENGULFING_BULL | ENGULFING_BEAR | DOJI | NONE
+
     # ═══ RESONANCE (PHASE 3 EXTENSION) ═══
     resonance_coherence: float = 0.0      # Phase alignment
     cascade_probability: float = 0.0      # P(flash move)
@@ -123,6 +130,11 @@ class ThreeBodyQuantumState:
 
     # Layer 3: 1-hour context (available Day 2+)
     h1_trend: Optional[str] = None           # 'UP', 'DOWN', 'RANGE'
+
+    # Multi-timeframe Fractal Patterns
+    daily_pattern: Optional[str] = 'NONE'    # Daily fractal pattern
+    h4_pattern: Optional[str] = 'NONE'       # H4 fractal pattern
+    h1_pattern: Optional[str] = 'NONE'       # H1 fractal pattern
 
     # Context tracking
     context_level: str = 'MINIMAL'           # 'MINIMAL', 'PARTIAL', 'FULL'
@@ -216,6 +228,19 @@ class ThreeBodyQuantumState:
 
     def get_trade_directive(self) -> dict:
         """Convert quantum state to trade decision"""
+        # FRACTAL FILTER: Halt if market is mean reverting/choppy (H < 0.5)
+        # Exception: Allow if we are strictly looking for mean reversion at extremes,
+        # but typically H < 0.5 means "random walk / chop" which is dangerous.
+        # Actually, H < 0.5 is anti-persistent (mean reverting), H > 0.5 is persistent (trending).
+        # If we are betting on a reversal (Roche limit), H < 0.5 might actually be good?
+        # User Instruction: "H < 0.5: Mean Reverting/Chop (Halt execution)."
+        # So we treat H < 0.5 as "Noise/Chop" and avoid.
+        if self.hurst_exponent < 0.5:
+             return {
+                'action': 'WAIT',
+                'reason': f'Fractal Filter: H={self.hurst_exponent:.2f} < 0.5 (Chop)'
+            }
+
         # No trade if not at Roche limit
         if self.lagrange_zone not in ['L2_ROCHE', 'L3_ROCHE']:
             return {
@@ -285,5 +310,7 @@ class ThreeBodyQuantumState:
             entropy=0.0, coherence=0.0, pattern_maturity=0.0, momentum_strength=0.0,
             structure_confirmed=False, cascade_detected=False, spin_inverted=False, pattern_type='NONE',
             lagrange_zone='L1_STABLE', stability_index=1.0,
-            tunnel_probability=0.0, escape_probability=0.0, barrier_height=0.0
+            tunnel_probability=0.0, escape_probability=0.0, barrier_height=0.0,
+            hurst_exponent=0.5, adx_strength=0.0, dmi_plus=0.0, dmi_minus=0.0,
+            candlestick_pattern='NONE'
         )
