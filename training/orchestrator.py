@@ -58,6 +58,8 @@ except ImportError:
 # Configuration
 from config.symbols import MNQ
 
+PRECOMPUTE_DEBUG_LOG_FILENAME = 'precompute_debug.log'
+
 
 @dataclass
 class DayResults:
@@ -448,7 +450,7 @@ class BayesianTrainingOrchestrator:
         # === DEBUG OUTPUT ===
         debug_dir = os.path.join(PROJECT_ROOT, 'debug_output')
         os.makedirs(debug_dir, exist_ok=True)
-        debug_file = os.path.join(debug_dir, f'precompute_debug.log')
+        debug_file = os.path.join(debug_dir, PRECOMPUTE_DEBUG_LOG_FILENAME)
         with open(debug_file, 'a') as f:
             f.write(f"\n{'='*80}\n")
             f.write(f"PRECOMPUTE DEBUG — {len(batch_results)} bars computed in {elapsed:.1f}s\n")
