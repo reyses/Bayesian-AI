@@ -60,6 +60,8 @@ from config.symbols import MNQ
 
 PRECOMPUTE_DEBUG_LOG_FILENAME = 'precompute_debug.log'
 
+DEFAULT_BASE_SLIPPAGE = 0.25
+DEFAULT_VELOCITY_SLIPPAGE_FACTOR = 0.1
 
 @dataclass
 class DayResults:
@@ -132,6 +134,10 @@ class BayesianTrainingOrchestrator:
         self._cumulative_best_trades: List[TradeOutcome] = []
         self.dashboard = None
         self.dashboard_thread = None
+
+        # Slippage parameters
+        self.BASE_SLIPPAGE = DEFAULT_BASE_SLIPPAGE
+        self.VELOCITY_SLIPPAGE_FACTOR = DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 
     def train(self, data: pd.DataFrame):
         """
