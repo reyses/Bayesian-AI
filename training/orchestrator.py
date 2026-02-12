@@ -102,6 +102,10 @@ class BayesianTrainingOrchestrator:
         self.asset = MNQ  # Default asset
         self.checkpoint_dir = config.checkpoint_dir
 
+        # Slippage configuration
+        self.BASE_SLIPPAGE = 0.25
+        self.VELOCITY_SLIPPAGE_FACTOR = 0.1
+
         # Create checkpoint directory
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
