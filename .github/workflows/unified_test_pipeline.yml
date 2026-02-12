@@ -21,6 +21,20 @@ jobs:
       with:
         fetch-depth: 0
 
+    - name: Free Disk Space (Ubuntu)
+      uses: jlumbroso/free-disk-space@main
+      with:
+        # this might remove tools that are actually needed,
+        # if set to "true" but frees about 6GB
+        tool-cache: false
+        # all of these default to true, but feel free to set to "false" if necessary for your workflow
+        android: true
+        dotnet: true
+        haskell: true
+        large-packages: true
+        docker-images: true
+        swap-storage: true
+
     - name: Set up Python 3.10
       uses: actions/setup-python@v5
       with:
@@ -29,12 +43,17 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        # Use --no-cache-dir to save space.
+        # Prefer CPU-only torch to save space and time on CPU runners
+        # Check requirements.txt, if it forces CUDA, we might need to override
+        if [ -f requirements.txt ]; then
+          # Attempt to install CPU version of torch first if possible, or just install
+          # We force --index-url for torch CPU if possible, but requirements might lock it.
+          # For this repo, we'll stick to simple no-cache-dir first.
+          pip install --no-cache-dir -r requirements.txt
+        fi
         # Ensure dev dependencies are present
-        pip install pytest pandas numpy numba
-
-    - name: Setup Real Test Data
-      run: python scripts/setup_test_data.py
+        pip install --no-cache-dir pytest pandas numpy numba
 
     # --- CORE TESTING (from ci.yml) ---
     - name: Integrity Test
@@ -58,18 +77,9 @@ jobs:
       run: python cuda_modules/hardened_verification.py
       continue-on-error: true
 
-    - name: Run Sentinel Bridge
-      run: python scripts/sentinel_bridge.py
-
     # --- TRAINING VALIDATION & STATUS REPORT (from status-report.yml) ---
     - name: Run Training Validation
       run: python -m pytest tests/test_training_validation.py
-
-    - name: Generate CURRENT_STATUS.md
-      run: |
-        python3 scripts/generate_status_report.py
-        # Optional: output content to logs for debugging
-        # cat CURRENT_STATUS.md
 
     - name: Commit and Push Report
       run: |
@@ -88,15 +98,16 @@ jobs:
       continue-on-error: true
 
     # --- BUILD & ARTIFACTS (from ci.yml & jules_feedback_loop.yml) ---
-    - name: Build Executable
-      run: python scripts/build_executable.py
-
-    - name: Archive Executable
-      uses: actions/upload-artifact@v4
-      with:
-        name: Bayesian_AI_Engine
-        path: dist/Bayesian_AI_Engine
-      continue-on-error: true
+    # Scripts have been archived, skipping build for now until new build process is defined.
+    # - name: Build Executable
+    #   run: python scripts/build_executable.py
+    #
+    # - name: Archive Executable
+    #   uses: actions/upload-artifact@v4
+    #   with:
+    #     name: Bayesian_AI_Engine
+    #     path: dist/Bayesian_AI_Engine
+    #   continue-on-error: true
 
     - name: Manage Log Size
       run: |
