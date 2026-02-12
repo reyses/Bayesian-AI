@@ -105,5 +105,38 @@ class TestDashboardUX(unittest.TestCase):
                 self.assertIn(icon, called_text, f"Icon {icon} for {status} not found in '{called_text}'")
                 self.assertIn(status, called_text, f"Status text {status} not found in '{called_text}'")
 
+    @patch('visualization.live_training_dashboard.threading.Thread')
+    def test_log_scrollbar(self, mock_thread):
+        mock_thread.return_value.start = MagicMock()
+
+        # Reset mock to spy on creation
+        mock_ttk.Scrollbar.reset_mock()
+
+        dashboard = LiveDashboard(self.root)
+
+        # Verify Scrollbar was instantiated
+        self.assertTrue(mock_ttk.Scrollbar.called, "Scrollbar should be instantiated")
+
+        # Verify text widget configured with yscrollcommand
+        # dashboard.txt_log is the mock instance
+        configure_calls = dashboard.txt_log.configure.call_args_list
+        has_yscroll = False
+        for call in configure_calls:
+            if 'yscrollcommand' in call.kwargs:
+                has_yscroll = True
+                break
+
+        self.assertTrue(has_yscroll, "Text widget should be configured with yscrollcommand")
+
+        # Verify Scrollbar linked to text widget yview
+        scrollbar_calls = mock_ttk.Scrollbar.call_args_list
+        found_command = False
+        for call in scrollbar_calls:
+            if 'command' in call.kwargs and call.kwargs['command'] == dashboard.txt_log.yview:
+                found_command = True
+                break
+
+        self.assertTrue(found_command, "Scrollbar should be linked to txt_log.yview")
+
 if __name__ == '__main__':
     unittest.main()
