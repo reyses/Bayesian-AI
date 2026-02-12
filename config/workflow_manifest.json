@@ -7,34 +7,29 @@
       "training/orchestrator.py"
     ],
     "TRANSFORM": [
-      "core/data_aggregator.py",
-      "core/layer_engine.py",
-      "cuda_modules/pattern_detector.py",
-      "cuda_modules/confirmation.py",
-      "cuda_modules/velocity_gate.py"
+      "core/quantum_field_engine.py",
+      "core/multi_timeframe_context.py",
+      "core/pattern_utils.py"
     ],
     "ANALYZE": [
-      "core/state_vector.py",
+      "core/three_body_state.py",
       "core/bayesian_brain.py",
-      "execution/wave_rider.py"
+      "core/risk_engine.py"
     ],
     "VISUALIZE": [
+      "visualization/live_training_dashboard.py"
     ],
     "MAINTENANCE": [
-      "scripts/generate_status_report.py",
-      "scripts/build_executable.py"
+      "archive/old_scripts/generate_status_report.py",
+      "archive/old_scripts/build_executable.py"
     ]
   },
   "layers": {
-    "L1_90d": "core/layer_engine.py",
-    "L2_30d": "core/layer_engine.py",
-    "L3_1wk": "core/layer_engine.py",
-    "L4_daily": "core/layer_engine.py",
-    "L5_4hr": "core/layer_engine.py",
-    "L6_1hr": "core/layer_engine.py",
-    "L7_15m": "cuda_modules/pattern_detector.py",
-    "L8_5m": "cuda_modules/confirmation.py",
-    "L9_1s": "cuda_modules/velocity_gate.py"
+    "Quantum_Field": "core/quantum_field_engine.py",
+    "Three_Body_State": "core/three_body_state.py",
+    "Bayesian_Brain": "core/bayesian_brain.py",
+    "Risk_Engine": "core/risk_engine.py",
+    "Dashboard": "visualization/live_training_dashboard.py"
   },
   "resources": {
     "DATA_RAW": "DATA/RAW"
