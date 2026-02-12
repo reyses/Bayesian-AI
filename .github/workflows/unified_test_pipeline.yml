@@ -50,10 +50,8 @@ jobs:
           # Attempt to install CPU version of torch first if possible, or just install
           # We force --index-url for torch CPU if possible, but requirements might lock it.
           # For this repo, we'll stick to simple no-cache-dir first.
-          pip install --no-cache-dir -r requirements.txt
+          pip install --no-cache-dir --prefer-binary -r requirements.txt
         fi
-        # Ensure dev dependencies are present
-        pip install pytest pandas numpy numba
 
     # --- CORE TESTING (from ci.yml) ---
     - name: Integrity Test
