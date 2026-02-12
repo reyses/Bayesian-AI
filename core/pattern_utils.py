@@ -128,13 +128,13 @@ def detect_geometric_patterns_vectorized(highs: np.ndarray, lows: np.ndarray) ->
     # Wedge (Higher Lows AND Lower Highs) over 5 bars (Priority 2)
     # Compare current vs 4 bars ago
     wedge_mask = (lows > lows_s.shift(4)) & (highs < highs_s.shift(4))
-    patterns[wedge_mask.fillna(False).to_numpy()] = PATTERN_WEDGE
+    patterns[wedge_mask.fillna(False).to_numpy() & (patterns == PATTERN_NONE)] = PATTERN_WEDGE
 
     # Breakdown (Low < min of previous 4 lows) (Priority 3)
     # Previous 4 lows: shift 1, then rolling min 4
     prev_4_min = lows_s.shift(1).rolling(4).min()
     breakdown_mask = lows < prev_4_min
-    patterns[breakdown_mask.fillna(False).to_numpy()] = PATTERN_BREAKDOWN
+    patterns[breakdown_mask.fillna(False).to_numpy() & (patterns == PATTERN_NONE)] = PATTERN_BREAKDOWN
 
     # Clear first 9 bars explicitly (warmup period for rolling windows)
     patterns[:9] = PATTERN_NONE
