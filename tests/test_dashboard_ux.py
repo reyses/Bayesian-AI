@@ -164,8 +164,8 @@ class TestDashboardUX(unittest.TestCase):
         # Check call args of tk.Text constructor
         call_args = mock_tk.Text.call_args
 
-        if call_args:
-             self.assertEqual(call_args.kwargs.get('state'), 'disabled', "Log text widget should be initialized as disabled")
+        mock_tk.Text.assert_called_once()
+        self.assertEqual(call_args.kwargs.get('state'), 'disabled', "Log text widget should be initialized as disabled")
 
     @patch('visualization.live_training_dashboard.threading.Thread')
     def test_toggle_pause(self, mock_thread):
