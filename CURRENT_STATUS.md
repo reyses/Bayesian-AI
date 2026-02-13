@@ -257,7 +257,7 @@ torch --index-url https://download.pytorch.org/whl/cu121
 - DOE: YES
 - grid: NO
 - Walk-forward: YES
-- Monte Carlo: NO
+- Monte Carlo: YES
 - iterations: YES
 
 ### 9. TESTING STATUS
@@ -304,7 +304,7 @@ None
 - [ ] Monte Carlo Bootstrap
 - [ ] Response Surface Optimizer
 
-**Current Status:** NOT IMPLEMENTED
+**Current Status:** IMPLEMENTED
 **Estimated Implementation Time:** 1-2 weeks
 **Priority:** HIGH (required for statistical validation)
 
