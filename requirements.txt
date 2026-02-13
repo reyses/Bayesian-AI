@@ -31,6 +31,6 @@ matplotlib>=3.8.0
 colorama
 anywidget
 torch==2.2.2+cpu
-pandas_ta
+git+https://github.com/MerlinR/Pandas-ta-fork.git#egg=pandas_ta
 hurst
 QuantLib
