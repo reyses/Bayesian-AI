@@ -33,7 +33,7 @@ def run_command(command, description, critical=True):
         # Run the command and let it print to stdout/stderr
         process = subprocess.run(
             command,
-            shell=True,
+            shell=False,
             check=False  # Don't raise exception on non-zero exit code
         )
 
