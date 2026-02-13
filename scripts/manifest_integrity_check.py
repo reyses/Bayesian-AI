@@ -13,8 +13,8 @@ def check_manifest():
         return 1
 
     try:
-        with open(manifest_path, 'r') as f:
-            manifest = json.load(f)
+    try:
+        with open(MANIFEST_PATH, 'r') as f:
     except json.JSONDecodeError as e:
         print(f"ERROR: Failed to parse manifest: {e}")
         return 1
