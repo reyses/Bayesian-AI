@@ -100,7 +100,7 @@ EOF
 # Update Monte Carlo status
 sed -i 's/Monte Carlo: NO/Monte Carlo: YES/' CURRENT_STATUS.md
 # Update DOE status
-sed -i 's/Current Status: NOT IMPLEMENTED/Current Status: IMPLEMENTED/' CURRENT_STATUS.md
+sed -i 's|**Current Status:** NOT IMPLEMENTED|**Current Status:** IMPLEMENTED|' CURRENT_STATUS.md
 
 # 4. Clean up verify_cuda_readiness.py output (suppress specific numpy warnings)
 # This is handled by fixing the dependency, but we can add a check in the script too if needed.
