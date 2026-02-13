@@ -115,6 +115,15 @@ class LiveDashboard:
 
         self.create_layout()
 
+        # Keyboard Shortcuts
+        self.root.bind('<space>', self.toggle_pause)
+        self.root.bind('p', self.toggle_pause)
+        self.root.bind('P', self.toggle_pause)
+        self.root.bind('s', lambda e: self.stop_training())
+        self.root.bind('S', lambda e: self.stop_training())
+        self.root.bind('x', lambda e: self.export_chart())
+        self.root.bind('X', lambda e: self.export_chart())
+
         # Start Polling Thread
         self.poll_thread = threading.Thread(target=self.poll_data, daemon=True)
         self.poll_thread.start()
@@ -234,19 +243,19 @@ class LiveDashboard:
 
         self.btn_pause = ttk.Button(btn_frame, text="⏸ Pause", command=self.pause_training)
         self.btn_pause.pack(side="left", padx=5)
-        Tooltip(self.btn_pause, "Pause training temporarily")
+        Tooltip(self.btn_pause, "Pause training temporarily (Space/P)")
 
         self.btn_resume = ttk.Button(btn_frame, text="▶ Resume", command=self.resume_training)
         self.btn_resume.pack(side="left", padx=5)
-        Tooltip(self.btn_resume, "Resume training")
+        Tooltip(self.btn_resume, "Resume training (Space/P)")
 
         self.btn_stop = ttk.Button(btn_frame, text="🛑 Stop", command=self.stop_training)
         self.btn_stop.pack(side="left", padx=5)
-        Tooltip(self.btn_stop, "Stop training and save")
+        Tooltip(self.btn_stop, "Stop training and save (S)")
 
         self.btn_export = ttk.Button(btn_frame, text="📸 Export PNG", command=self.export_chart)
         self.btn_export.pack(side="left", padx=5)
-        Tooltip(self.btn_export, "Export current chart to PNG")
+        Tooltip(self.btn_export, "Export current chart to PNG (X)")
 
         ttk.Separator(self.frame_controls, orient='horizontal').pack(fill='x', pady=5)
 
@@ -255,7 +264,7 @@ class LiveDashboard:
         log_container.pack(fill=tk.BOTH, expand=True)
 
         self.txt_log = tk.Text(log_container, height=8, bg=COLOR_LOG_BG, fg=COLOR_LOG_FG,
-                               borderwidth=0, font=FONT_LOG)
+                               borderwidth=0, font=FONT_LOG, state='disabled')
 
         scrollbar = ttk.Scrollbar(log_container, orient="vertical", command=self.txt_log.yview)
         self.txt_log.configure(yscrollcommand=scrollbar.set)
@@ -289,8 +298,10 @@ class LiveDashboard:
 
     def log(self, message):
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+        self.txt_log.config(state='normal')
         self.txt_log.insert(tk.END, f"[{timestamp}] {message}\n")
         self.txt_log.see(tk.END)
+        self.txt_log.config(state='disabled')
 
     def poll_data(self):
         while self.is_running:
@@ -326,6 +337,12 @@ class LiveDashboard:
             self.lbl_status.config(text="Status: 🟢 RUNNING", foreground="#00ff00")
 
         self.root.after(1000, self.update_gui)
+
+    def toggle_pause(self, event=None):
+        if self.remote_status == "PAUSED":
+            self.resume_training()
+        else:
+            self.pause_training()
 
     def pause_training(self):
         try:
