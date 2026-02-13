@@ -83,6 +83,12 @@ def check_manifest():
             if not os.path.exists(filepath):
                 missing_files.append(f"Layer [{layer}]: {filepath}")
 
+    # Check 'resources' section (key-value pairs)
+    if 'resources' in manifest:
+        for resource, path in manifest['resources'].items():
+            if not os.path.exists(path):
+                missing_files.append(f"Resource [{resource}]: {path}")
+
     if missing_files:
         print("FAIL: The following files are missing from the manifest:")
         for missing in missing_files:
