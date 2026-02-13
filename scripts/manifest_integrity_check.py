@@ -37,6 +37,9 @@ def check_manifest():
     # Check 'layers' section (key-value pairs)
     if 'layers' in manifest:
         for layer, filepath in manifest['layers'].items():
+            if not isinstance(filepath, str):
+                print(f"WARNING: Layer '{layer}' in manifest does not have a string filepath. Skipping.")
+                continue
             if not os.path.exists(filepath):
                 missing_files.append(f"Layer [{layer}]: {filepath}")
 
