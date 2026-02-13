@@ -33,7 +33,7 @@ def run_command(command, description, critical=True):
         # Run the command and let it print to stdout/stderr
         process = subprocess.run(
             command,
-            shell=False,
+            shell=True,
             check=False  # Don't raise exception on non-zero exit code
         )
 
@@ -87,8 +87,18 @@ def main():
             "critical": True
         },
         {
-            "command": f"{python_cmd} tests/test_phase1.py",
-            "description": "Phase 1 Test",
+            "command": f"{python_cmd} tests/test_bayesian_brain.py",
+            "description": "Bayesian Brain Test",
+            "critical": True
+        },
+        {
+            "command": f"{python_cmd} tests/test_state_vector.py",
+            "description": "State Vector Test",
+            "critical": True
+        },
+        {
+            "command": f"{python_cmd} tests/test_legacy_layer_engine.py",
+            "description": "Legacy Layer Engine Test",
             "critical": True
         },
         {
