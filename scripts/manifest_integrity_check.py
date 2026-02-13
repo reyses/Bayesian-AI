@@ -23,8 +23,11 @@ def check_manifest():
 
     # Check 'pipeline' section (lists of files)
     if 'pipeline' in manifest:
-        for stage, files in manifest['pipeline'].items():
-            for filepath in files:
+        for stage, files_list in manifest['pipeline'].items():
+            if not isinstance(files_list, list):
+                print(f"WARNING: Pipeline stage '{stage}' in manifest does not contain a list of files. Skipping.")
+                continue
+            for filepath in files_list:
                 if not os.path.exists(filepath):
                     missing_files.append(f"Pipeline [{stage}]: {filepath}")
 
