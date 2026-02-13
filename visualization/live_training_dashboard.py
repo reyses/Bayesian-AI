@@ -299,9 +299,11 @@ class LiveDashboard:
     def log(self, message):
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
         self.txt_log.config(state='normal')
-        self.txt_log.insert(tk.END, f"[{timestamp}] {message}\n")
-        self.txt_log.see(tk.END)
-        self.txt_log.config(state='disabled')
+        try:
+            self.txt_log.insert(tk.END, f"[{timestamp}] {message}\n")
+            self.txt_log.see(tk.END)
+        finally:
+            self.txt_log.config(state='disabled')
 
     def poll_data(self):
         while self.is_running:
