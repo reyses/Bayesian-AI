@@ -33,6 +33,8 @@ sys.modules['matplotlib.backends.backend_tkagg'] = MagicMock()
 sys.modules['matplotlib.figure'] = MagicMock()
 sys.modules['matplotlib.dates'] = MagicMock()
 sys.modules['matplotlib.style'] = MagicMock()
+sys.modules['pandas'] = MagicMock()
+sys.modules['numpy'] = MagicMock()
 
 # Now import the dashboard
 from visualization.live_training_dashboard import LiveDashboard, Tooltip
@@ -137,6 +139,60 @@ class TestDashboardUX(unittest.TestCase):
                 break
 
         self.assertTrue(found_command, "Scrollbar should be linked to txt_log.yview")
+
+    @patch('visualization.live_training_dashboard.threading.Thread')
+    def test_shortcuts_binding(self, mock_thread):
+        mock_thread.return_value.start = MagicMock()
+        dashboard = LiveDashboard(self.root)
+
+        # Check bindings on root
+        bind_calls = self.root.bind.call_args_list
+        bound_keys = [call[0][0] for call in bind_calls]
+
+        expected_keys = ['<space>', 'p', 'P', 's', 'S', 'x', 'X']
+
+        for key in expected_keys:
+            self.assertIn(key, bound_keys, f"Key {key} should be bound")
+
+    @patch('visualization.live_training_dashboard.threading.Thread')
+    def test_log_read_only(self, mock_thread):
+        mock_thread.return_value.start = MagicMock()
+
+        # Instantiate dashboard
+        dashboard = LiveDashboard(self.root)
+
+        # Check call args of tk.Text constructor
+        call_args = mock_tk.Text.call_args
+
+        if call_args:
+             self.assertEqual(call_args.kwargs.get('state'), 'disabled', "Log text widget should be initialized as disabled")
+
+    @patch('visualization.live_training_dashboard.threading.Thread')
+    def test_toggle_pause(self, mock_thread):
+        mock_thread.return_value.start = MagicMock()
+        dashboard = LiveDashboard(self.root)
+
+        if not hasattr(dashboard, 'toggle_pause'):
+            self.fail("toggle_pause method not found")
+
+        # Mock pause/resume methods
+        dashboard.pause_training = MagicMock()
+        dashboard.resume_training = MagicMock()
+
+        # Case 1: Running -> Pause
+        dashboard.remote_status = "RUNNING"
+        dashboard.toggle_pause()
+        dashboard.pause_training.assert_called_once()
+        dashboard.resume_training.assert_not_called()
+
+        dashboard.pause_training.reset_mock()
+        dashboard.resume_training.reset_mock()
+
+        # Case 2: Paused -> Resume
+        dashboard.remote_status = "PAUSED"
+        dashboard.toggle_pause()
+        dashboard.resume_training.assert_called_once()
+        dashboard.pause_training.assert_not_called()
 
 if __name__ == '__main__':
     unittest.main()
