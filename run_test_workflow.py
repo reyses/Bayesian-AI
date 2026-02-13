@@ -3,6 +3,7 @@ import subprocess
 import sys
 import time
 import argparse
+import shlex
 
 def install_dependencies():
     """Installs dependencies from requirements.txt."""
@@ -22,18 +23,28 @@ def run_command(command, description, critical=True):
     Runs a shell command.
     Returns True if successful, False otherwise.
     """
+    # Create a display string for the command
+    if isinstance(command, list):
+        cmd_str = shlex.join(command)
+    else:
+        cmd_str = command
+
     print(f"\n{'='*60}")
     print(f"Running: {description}")
-    print(f"Command: {command}")
+    print(f"Command: {cmd_str}")
     print(f"{'='*60}\n")
 
     start_time = time.time()
 
     try:
         # Run the command and let it print to stdout/stderr
+        # If command is a list, subprocess runs it directly (safer, no shell injection)
+        # If command is a string, we might need shell=True, but we're moving to lists.
+        use_shell = isinstance(command, str)
+
         process = subprocess.run(
             command,
-            shell=True,
+            shell=use_shell,
             check=False  # Don't raise exception on non-zero exit code
         )
 
@@ -72,42 +83,42 @@ def main():
 
     steps = [
         {
-            "command": f"{python_cmd} tests/topic_build.py",
+            "command": [python_cmd, "tests/topic_build.py"],
             "description": "Integrity Test (Topic Build)",
             "critical": True
         },
         {
-            "command": f"{python_cmd} -m pytest tests/topic_math.py",
+            "command": [python_cmd, "-m", "pytest", "tests/topic_math.py"],
             "description": "Math & Logic Test",
             "critical": True
         },
         {
-            "command": f"{python_cmd} tests/topic_diagnostics.py",
+            "command": [python_cmd, "tests/topic_diagnostics.py"],
             "description": "Diagnostics Test",
             "critical": True
         },
         {
-            "command": f"{python_cmd} tests/test_bayesian_brain.py",
+            "command": [python_cmd, "tests/test_bayesian_brain.py"],
             "description": "Bayesian Brain Test",
             "critical": True
         },
         {
-            "command": f"{python_cmd} tests/test_state_vector.py",
+            "command": [python_cmd, "tests/test_state_vector.py"],
             "description": "State Vector Test",
             "critical": True
         },
         {
-            "command": f"{python_cmd} tests/test_legacy_layer_engine.py",
+            "command": [python_cmd, "tests/test_legacy_layer_engine.py"],
             "description": "Legacy Layer Engine Test",
             "critical": True
         },
         {
-            "command": f"{python_cmd} scripts/gpu_health_check.py",
+            "command": [python_cmd, "scripts/gpu_health_check.py"],
             "description": "GPU Health Check",
             "critical": False  # Allow failure if no GPU (continue-on-error: true)
         },
         {
-            "command": f"{python_cmd} -m pytest tests/test_training_validation.py",
+            "command": [python_cmd, "-m", "pytest", "tests/test_training_validation.py"],
             "description": "Training Validation",
             "critical": True
         }
@@ -116,7 +127,7 @@ def main():
     failed_steps = []
 
     for step in steps:
-        # Pass the command string directly
+        # Pass the command list directly
         success = run_command(step["command"], step["description"], step["critical"])
         if not success:
             failed_steps.append(step["description"])
