@@ -33,6 +33,13 @@ class DOEParameterGenerator:
     3. Mutation (iterations 510-799): Variations around best params
     4. Crossover (iterations 800-999): Combine good parameter sets
     """
+    # Parameter keys
+    STOP_LOSS_KEY = 'stop_loss_ticks'
+    TAKE_PROFIT_KEY = 'take_profit_ticks'
+
+    # Constraints constants
+    TP_SL_RATIO = 1.5
+    TP_SL_MIN_DIFFERENCE_TICKS = 5
 
     def __init__(self, context_detector):
         self.context_detector = context_detector
@@ -371,14 +378,14 @@ class DOEParameterGenerator:
     def _enforce_constraints(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Ensure logical consistency of parameters"""
         # TP > SL constraint
-        if 'stop_loss_ticks' in params and 'take_profit_ticks' in params:
-            sl = params['stop_loss_ticks']
-            tp = params['take_profit_ticks']
+        if self.STOP_LOSS_KEY in params and self.TAKE_PROFIT_KEY in params:
+            sl = params[self.STOP_LOSS_KEY]
+            tp = params[self.TAKE_PROFIT_KEY]
 
             if tp <= sl:
                 # Force TP to be at least SL + 5 or 1.5x SL
-                new_tp = max(int(sl * 1.5), sl + 5)
-                params['take_profit_ticks'] = new_tp
+                new_tp = max(int(sl * self.TP_SL_RATIO), sl + self.TP_SL_MIN_DIFFERENCE_TICKS)
+                params[self.TAKE_PROFIT_KEY] = new_tp
 
         return params
 
