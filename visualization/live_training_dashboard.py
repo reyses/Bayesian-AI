@@ -91,6 +91,12 @@ class LiveDashboard:
         self.root.geometry("1400x850")
         self.root.configure(bg=COLOR_BG)
 
+        # Bring window to front
+        self.root.lift()
+        self.root.attributes('-topmost', True)
+        self.root.after(100, lambda: self.root.attributes('-topmost', False))
+        self.root.focus_force()
+
         # Data Path
         self.json_path = os.path.join(os.path.dirname(__file__), '..', 'training', 'training_progress.json')
         self.training_dir = os.path.join(os.path.dirname(__file__), '..', 'training')
@@ -299,11 +305,9 @@ class LiveDashboard:
     def log(self, message):
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
         self.txt_log.config(state='normal')
-        try:
-            self.txt_log.insert(tk.END, f"[{timestamp}] {message}\n")
-            self.txt_log.see(tk.END)
-        finally:
-            self.txt_log.config(state='disabled')
+        self.txt_log.insert(tk.END, f"[{timestamp}] {message}\n")
+        self.txt_log.see(tk.END)
+        self.txt_log.config(state='disabled')
 
     def poll_data(self):
         while self.is_running:

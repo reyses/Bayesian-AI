@@ -33,13 +33,6 @@ class DOEParameterGenerator:
     3. Mutation (iterations 510-799): Variations around best params
     4. Crossover (iterations 800-999): Combine good parameter sets
     """
-    # Parameter keys
-    STOP_LOSS_KEY = 'stop_loss_ticks'
-    TAKE_PROFIT_KEY = 'take_profit_ticks'
-
-    # Constraints constants
-    TP_SL_RATIO = 1.5
-    TP_SL_MIN_DIFFERENCE_TICKS = 5
 
     def __init__(self, context_detector):
         self.context_detector = context_detector
@@ -61,6 +54,7 @@ class DOEParameterGenerator:
             'take_profit_ticks': (30, 60, 'int'),
             'min_samples_required': (20, 50, 'int'),
             'confidence_threshold': (0.30, 0.70, 'float'),
+            'max_hold_seconds': (300, 900, 'int'),
             'trail_activation_profit': (30, 100, 'int'),
             'trail_distance_tight': (5, 15, 'int'),
             'trail_distance_wide': (20, 40, 'int'),
@@ -330,11 +324,11 @@ class DOEParameterGenerator:
         """
         if iteration < 10:
             # Baseline sets
-            ps = self.generate_baseline_set(iteration, day, context)
+            return self.generate_baseline_set(iteration, day, context)
 
         elif iteration < 510:
             # Latin Hypercube sampling
-            ps = self.generate_latin_hypercube_set(iteration, day, context)
+            return self.generate_latin_hypercube_set(iteration, day, context)
 
         elif iteration < 800:
             # Mutation around best
@@ -345,7 +339,7 @@ class DOEParameterGenerator:
                 # Fall back to baseline
                 best_params = self.generate_baseline_set(0, day, context).parameters
 
-            ps = self.generate_mutation_set(iteration, day, context, best_params)
+            return self.generate_mutation_set(iteration, day, context, best_params)
 
         else:
             # Crossover between top performers
@@ -357,11 +351,7 @@ class DOEParameterGenerator:
                 parent1 = self.generate_baseline_set(0, day, context).parameters
                 parent2 = self.generate_baseline_set(1, day, context).parameters
 
-            ps = self.generate_crossover_set(iteration, day, context, parent1, parent2)
-
-        # Enforce constraints on the generated set
-        ps.parameters = self._enforce_constraints(ps.parameters)
-        return ps
+            return self.generate_crossover_set(iteration, day, context, parent1, parent2)
 
     def update_best_params(self, params: Dict[str, Any]):
         """
@@ -374,20 +364,6 @@ class DOEParameterGenerator:
         # Keep only last 20 days of history
         if len(self.best_params_history) > 20:
             self.best_params_history.pop(0)
-
-    def _enforce_constraints(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Ensure logical consistency of parameters"""
-        # TP > SL constraint
-        if self.STOP_LOSS_KEY in params and self.TAKE_PROFIT_KEY in params:
-            sl = params[self.STOP_LOSS_KEY]
-            tp = params[self.TAKE_PROFIT_KEY]
-
-            if tp <= sl:
-                # Force TP to be at least SL + 5 or 1.5x SL
-                new_tp = max(int(sl * self.TP_SL_RATIO), sl + self.TP_SL_MIN_DIFFERENCE_TICKS)
-                params[self.TAKE_PROFIT_KEY] = new_tp
-
-        return params
 
     def get_exploitation_ratio(self, day: int) -> float:
         """
