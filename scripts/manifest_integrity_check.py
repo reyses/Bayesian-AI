@@ -40,6 +40,9 @@ def check_manifest():
     # Check 'resources' section (key-value pairs)
     if 'resources' in manifest:
         for resource, path in manifest['resources'].items():
+            if not isinstance(path, str):
+                print(f"WARNING: Resource '{resource}' in manifest does not have a string path. Skipping.")
+                continue
             if not os.path.exists(path):
                 missing_files.append(f"Resource [{resource}]: {path}")
 
