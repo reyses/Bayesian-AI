@@ -7,7 +7,10 @@ import sys
 import json
 
 def check_manifest():
-    manifest_path = 'config/workflow_manifest.json'
+MANIFEST_PATH = 'config/workflow_manifest.json'
+
+def check_manifest():
+    if not os.path.exists(MANIFEST_PATH):
     if not os.path.exists(manifest_path):
         print(f"ERROR: Manifest file not found at {manifest_path}")
         return 1
