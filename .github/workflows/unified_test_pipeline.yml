@@ -63,8 +63,14 @@ jobs:
     - name: Diagnostics Test
       run: python tests/topic_diagnostics.py
 
-    - name: Phase 1 Test
-      run: python tests/test_phase1.py
+    - name: Bayesian Brain Test
+      run: python tests/test_bayesian_brain.py
+
+    - name: State Vector Test
+      run: python tests/test_state_vector.py
+
+    - name: Legacy Layer Engine Test
+      run: python tests/test_legacy_layer_engine.py
 
     # --- FEEDBACK LOOP (from jules_feedback_loop.yml) ---
     - name: Run CUDA Audit
