@@ -1260,8 +1260,8 @@ class BayesianTrainingOrchestrator:
                     best_win_rate=best_win_rate,
                     best_pnl=best_pnl_so_far,
                     total_trades=len(best_trades),
-                    states_learned=len(self.brain.table),
-                    high_confidence_states=len(self.brain.get_all_states_above_threshold()),
+                    states_learned=states_learned,
+                    high_confidence_states=high_confidence_states,
                     execution_time_seconds=0.0,
                     avg_duration=best_avg_duration,
                     real_pnl=0.0
