@@ -1,0 +1,213 @@
+"""
+Training Orchestrator with Phase 0: Unconstrained Exploration
+"""
+from core.quantum_field_engine import QuantumFieldEngine
+from core.bayesian_brain import QuantumBayesianBrain, TradeOutcome
+from core.exploration_mode import UnconstrainedExplorer, ExplorationConfig
+from core.adaptive_confidence import AdaptiveConfidenceManager
+from config.symbols import MNQ, calculate_pnl
+import pandas as pd
+
+def train_complete_system_with_exploration(historical_data_path: str):
+    """
+    Complete training with Phase 0 exploration
+    
+    PHASE 0: Unconstrained exploration (500 trades, no rules)
+    PHASE 1-4: Adaptive confidence (0% → 80% threshold)
+    """
+    
+    # Initialize components
+    field_engine = QuantumFieldEngine(regression_period=21)
+    brain = QuantumBayesianBrain()
+    
+    # PHASE 0: Unconstrained exploration
+    explorer = UnconstrainedExplorer(
+        ExplorationConfig(
+            max_trades=500,
+            min_unique_states=50,
+            fire_probability=1.0,      # Fire on everything
+            ignore_all_gates=True,     # Ignore L8/L9
+            allow_chaos_zone=True,     # Trade anywhere
+            learn_from_failures=True
+        )
+    )
+    
+    print("\n" + "="*70)
+    print("PHASE 0: UNCONSTRAINED EXPLORATION")
+    print("="*70)
+    print("Trading without constraints to discover patterns...")
+    print()
+    
+    # Load data
+    df_raw = load_databento_data(historical_data_path)
+    df_15m = df_raw.resample('15min').agg({
+        'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'
+    })
+    df_15s = df_raw.resample('15s').agg({
+        'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'
+    })
+    
+    trades_phase0 = []
+    
+    # PHASE 0 LOOP: Trade everything until exploration complete
+    for i in range(100, len(df_15m) - 20):
+        if explorer.is_complete():
+            break
+        
+        # Get market snapshot
+        macro_window = df_15m.iloc[i-100:i]
+        micro_idx_start = i * 60
+        micro_idx_end = (i+1) * 60
+        micro_window = df_15s.iloc[micro_idx_start:micro_idx_end]
+        
+        if len(micro_window) == 0:
+            continue
+        
+        current_price = macro_window['close'].iloc[-1]
+        current_volume = macro_window['volume'].iloc[-1]
+        tick_velocity = (micro_window['close'].iloc[-1] - micro_window['close'].iloc[-2]) / 15.0
+        
+        # Compute quantum state
+        quantum_state = field_engine.calculate_three_body_state(
+            macro_window, micro_window, current_price, current_volume, tick_velocity
+        )
+        
+        # UNCONSTRAINED DECISION (no gates)
+        decision = explorer.should_fire(quantum_state)
+        
+        if decision['should_fire']:
+            # Simulate trade
+            entry_price = current_price
+            
+            # EXPLORATION: Try BOTH directions randomly to learn
+            # (In Phase 1+, we'll use quantum_state.z_score for direction)
+            if quantum_state.z_score > 0:
+                side = 'short'
+                target = quantum_state.center_position
+                stop = quantum_state.event_horizon_upper
+            else:
+                side = 'long'
+                target = quantum_state.center_position
+                stop = quantum_state.event_horizon_lower
+            
+            # Look ahead for outcome
+            future = df_15m.iloc[i+1:i+21]
+            if len(future) == 0:
+                continue
+            
+            if side == 'short':
+                hit_target = future['low'].min() <= target
+                hit_stop = future['high'].max() >= stop
+                exit_price = target if hit_target and not hit_stop else stop
+            else:
+                hit_target = future['high'].max() >= target
+                hit_stop = future['low'].min() <= stop
+                exit_price = target if hit_target and not hit_stop else stop
+            
+            result = 'WIN' if (hit_target and not hit_stop) else 'LOSS'
+            pnl = calculate_pnl(MNQ, entry_price, exit_price, side)
+            
+            # Record outcome
+            outcome = TradeOutcome(
+                state=quantum_state,
+                entry_price=entry_price,
+                exit_price=exit_price,
+                pnl=pnl,
+                result=result,
+                timestamp=quantum_state.timestamp,
+                exit_reason='target' if result == 'WIN' else 'stop'
+            )
+            
+            brain.update(outcome)
+            explorer.record_trade(outcome)
+            trades_phase0.append(outcome)
+    
+    # PHASE 0 COMPLETE
+    print(explorer.get_completion_report())
+    
+    # Calculate Phase 0 statistics
+    phase0_winrate = sum(1 for t in trades_phase0 if t.result == 'WIN') / len(trades_phase0)
+    phase0_pnl = sum(t.pnl for t in trades_phase0)
+    
+    print(f"Phase 0 Results:")
+    print(f"  Win Rate: {phase0_winrate:.2%}")
+    print(f"  Total P&L: ${phase0_pnl:.2f}")
+    print(f"  States Learned: {len(brain.table)}")
+    print()
+    
+    # NOW START PHASE 1-4 with learned probability table
+    print("\n" + "="*70)
+    print("PHASE 1-4: ADAPTIVE CONFIDENCE LEARNING")
+    print("="*70)
+    print("Starting with pre-populated probability table from exploration...")
+    print()
+    
+    confidence_mgr = AdaptiveConfidenceManager(brain)
+    
+    # Continue training with adaptive confidence...
+    # (Rest of training loop with phases 1-4)
+    
+    return brain, confidence_mgr
+
+
+def load_databento_data(path: str) -> pd.DataFrame:
+    """Load .dbn.zst files from Databento"""
+    import databento as db
+    data = db.DBNStore.from_file(path)
+    df = data.to_df()
+    df = df.rename(columns={'ts_event': 'timestamp', 'price': 'close'})
+    df = df.set_index('timestamp')
+    return df
+```
+
+---
+
+## KEY CHANGES:
+
+### What Gets Removed:
+❌ Lagrange zone checks (trade anywhere)  
+❌ L8/L9 measurement gates (ignored)  
+❌ Momentum override checks (ignored)  
+❌ Probability thresholds (no table yet)  
+❌ Confidence requirements (building from zero)  
+
+### What Stays:
+✅ State vector computation (need to hash states)  
+✅ Trade outcome recording (learning mechanism)  
+✅ P&L calculation (need results)  
+✅ Entry/exit simulation (need to know win/loss)  
+
+### What Gets Learned:
+📊 Which states actually win (natural 80% emerge)  
+📊 Which z-scores are tradeable (discover Roche limit)  
+📊 Which patterns matter (L7 compression vs none)  
+📊 When measurements help (L8/L9 correlation with wins)  
+
+---
+
+## EXECUTION INSTRUCTION FOR JULES:
+```
+PRIORITY: CRITICAL - UNBLOCK TRAINING
+
+1. CREATE: core/exploration_mode.py (copy code above)
+
+2. MODIFY: training/orchestrator.py 
+   - Replace train_complete_system() with train_complete_system_with_exploration()
+   - Add Phase 0 loop before Phase 1-4
+
+3. RUN: python training/orchestrator.py
+   - Should execute 500 trades immediately
+   - Should print "EXPLORATION PROGRESS" every 50 trades
+   - Should build probability table from raw experience
+
+4. EXPECTED OUTPUT:
+   - 500 trades in ~5-10 minutes
+   - 50-100 unique states discovered
+   - Win rate somewhere 30-70% (random baseline)
+   - Probability table ready for Phase 1
+
+5. THEN: Phase 1-4 will have data to work with
+   - System can now apply adaptive thresholds
+   - Will naturally converge on high-prob states
+
+This approach lets the AI be the "novice trader" who learns by doing.
