@@ -156,15 +156,6 @@ class BayesianTrainingOrchestrator:
         self.BASE_SLIPPAGE = DEFAULT_BASE_SLIPPAGE
         self.VELOCITY_SLIPPAGE_FACTOR = DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 
-        # Enforce CUDA if requested
-        if getattr(self.config, 'force_cuda', False):
-            try:
-                import torch
-                if not torch.cuda.is_available():
-                    raise RuntimeError("CUDA requested but not available")
-            except ImportError:
-                raise RuntimeError("CUDA requested but PyTorch not installed")
-
     def train(self, data: pd.DataFrame):
         """
         Master training loop
@@ -780,35 +771,70 @@ class BayesianTrainingOrchestrator:
             ps = self.param_generator.generate_parameter_set(iteration=i, day=day_number, context='CORE')
             all_param_sets.append(ps.parameters)
 
-        # Route to GPU or CPU path
-        force_cuda = getattr(self.config, 'force_cuda', False)
-        training_device_env = os.environ.get('TRAINING_DEVICE', '').upper()
+        # Group iterations by timeframe to optimize batching
+        grouped_params = {} # timeframe_idx -> {indices: [], params: []}
+        for idx, p in enumerate(all_param_sets):
+            tf_idx = p.get('timeframe_idx', 1)
+            if tf_idx not in grouped_params:
+                grouped_params[tf_idx] = {'indices': [], 'params': []}
+            grouped_params[tf_idx]['indices'].append(idx)
+            grouped_params[tf_idx]['params'].append(p)
 
-        use_gpu = False
+        # Container for results: index -> result_dict
+        results_map = {}
 
-        if force_cuda:
-            use_gpu = True
-        elif training_device_env == 'GPU':
-            use_gpu = True
-        elif training_device_env == 'CPU':
-            use_gpu = False
-        else:
-            # Auto-detection (default if not specified)
+        # Process each timeframe group
+        for tf_idx, group in grouped_params.items():
+            interval = TIMEFRAME_MAP.get(tf_idx, '15s')
+
+            # Precompute states for this timeframe
+            precomputed = self._precompute_day_states(
+                day_data, interval=interval, tf_context=tf_context,
+                prev_day_1s=prev_day_1s
+            )
+
+            if not precomputed:
+                # Fill with empty results
+                for idx in group['indices']:
+                    results_map[idx] = {'trades': [], 'sharpe': -999.0, 'win_rate': 0.0, 'pnl': 0.0}
+                continue
+
+            subset_params = group['params']
+
+            # Route to GPU or CPU path for this subset
             try:
                 import torch
-                use_gpu = torch.cuda.is_available()
+                if torch.cuda.is_available():
+                    _, subset_results = self._optimize_gpu_parallel(
+                        precomputed, day_data, subset_params, day_number
+                    )
+                else:
+                    _, subset_results = self._optimize_cpu_sequential(
+                        precomputed, day_data, subset_params, day_number,
+                        date=date, total_days=total_days
+                    )
             except ImportError:
-                use_gpu = False
+                _, subset_results = self._optimize_cpu_sequential(
+                    precomputed, day_data, subset_params, day_number,
+                    date=date, total_days=total_days
+                )
 
-        if use_gpu:
-            best_idx, all_results = self._optimize_gpu_parallel(
-                precomputed, day_data, all_param_sets, day_number
-            )
-        else:
-            best_idx, all_results = self._optimize_cpu_sequential(
-                precomputed, day_data, all_param_sets, day_number,
-                date=date, total_days=total_days
-            )
+            # Map subset results back to global indices
+            for i, res in enumerate(subset_results):
+                global_idx = group['indices'][i]
+                results_map[global_idx] = res
+
+        # Reconstruct ordered list of results
+        all_results = [results_map[i] for i in range(len(all_param_sets))]
+
+        # Find best result
+        best_idx = 0
+        best_sharpe = -999.0
+
+        for i, res in enumerate(all_results):
+            if res['sharpe'] > best_sharpe:
+                best_sharpe = res['sharpe']
+                best_idx = i
 
         # Unpack best result
         best_sharpe = all_results[best_idx]['sharpe']
@@ -1628,7 +1654,6 @@ def main():
     parser.add_argument('--no-dashboard', action='store_true', help="Disable live dashboard")
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
-    parser.add_argument('--force-cuda', action='store_true', help="Enforce CUDA usage (fail if not available)")
 
     args = parser.parse_args()
 
