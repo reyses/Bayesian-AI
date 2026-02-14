@@ -8,16 +8,18 @@ import numpy as np
 import os
 import sys
 import time
+
+# Add project root to path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from training.databento_loader import DatabentoLoader
-from cuda_modules.velocity_gate import get_velocity_gate
-from tests.utils import find_test_data_file
+# Import from archive directly (requires archive/__init__.py)
+from archive.cuda_modules.velocity_gate import get_velocity_gate
+from tests.utils import find_test_data_file, DEFAULT_TEST_DATA_FILE
 
 # List of test files
 TEST_FILES = [
-    'glbx-mdp3-20250730.trades.0000.dbn.zst',
-    'glbx-mdp3-20250731.trades.0000.dbn.zst',
-    'glbx-mdp3-20250801.trades.0000.dbn.zst',
-    'glbx-mdp3-20250803.trades.0000.dbn.zst'
+    DEFAULT_TEST_DATA_FILE
 ]
 
 class TestRealDataVelocity:
