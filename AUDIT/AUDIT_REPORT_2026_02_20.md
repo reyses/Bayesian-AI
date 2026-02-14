@@ -54,14 +54,14 @@ import json
 def check_manifest():
     manifest_path = 'config/workflow_manifest.json'
     if not os.path.exists(manifest_path):
-        print(f"ERROR: Manifest file not found at {manifest_path}")
+        print(f"ERROR: Manifest file not found at {manifest_path}", file=sys.stderr)
         return 1
 
     try:
         with open(manifest_path, 'r') as f:
             manifest = json.load(f)
     except json.JSONDecodeError as e:
-        print(f"ERROR: Failed to parse manifest: {e}")
+        print(f"ERROR: Failed to parse manifest: {e}", file=sys.stderr)
         return 1
 
     missing_files = []
@@ -73,22 +73,17 @@ def check_manifest():
                 if not os.path.exists(filepath):
                     missing_files.append(f"Pipeline [{stage}]: {filepath}")
 
-    # Check 'layers' section (key-value pairs)
-    if 'layers' in manifest:
-        for layer, filepath in manifest['layers'].items():
-            if not os.path.exists(filepath):
-                missing_files.append(f"Layer [{layer}]: {filepath}")
-
-    # Check 'resources' section (key-value pairs)
-    if 'resources' in manifest:
-        for resource, path in manifest['resources'].items():
-            if not os.path.exists(path):
-                missing_files.append(f"Resource [{resource}]: {path}")
+    # Check sections with key-value pairs
+    for section_name, item_name in [('layers', 'Layer'), ('resources', 'Resource')]:
+        if section_name in manifest:
+            for key, path in manifest[section_name].items():
+                if not os.path.exists(path):
+                    missing_files.append(f"{item_name} [{key}]: {path}")
 
     if missing_files:
-        print("FAIL: The following files are missing from the manifest:")
+        print("FAIL: The following files are missing from the manifest:", file=sys.stderr)
         for missing in missing_files:
-            print(f"  - {missing}")
+            print(f"  - {missing}", file=sys.stderr)
         return 1
 
     print("PASS: All manifest files exist.")
