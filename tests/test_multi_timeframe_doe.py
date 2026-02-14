@@ -33,6 +33,19 @@ class TestMultiTimeframeDOE(unittest.TestCase):
             tf_idx = pset.parameters.get('timeframe_idx')
             self.assertEqual(tf_idx, 1, f"Baseline iteration {i} should use timeframe_idx=1")
 
+    def test_mutation_bounds_timeframe(self):
+        """Verify mutation keeps timeframe_idx within [0, 2]"""
+        # Start with max value
+        params = {'timeframe_idx': 2, 'stop_loss_ticks': 10}
+
+        # Run many mutations to try and force out of bounds
+        for i in range(50):
+            pset = self.generator.generate_mutation_set(600 + i, 1, 'CORE', params)
+            tf_idx = pset.parameters.get('timeframe_idx')
+            self.assertIsNotNone(tf_idx)
+            self.assertGreaterEqual(tf_idx, 0)
+            self.assertLessEqual(tf_idx, 2)
+
     @patch('training.orchestrator.QuantumBayesianBrain')
     @patch('training.orchestrator.QuantumFieldEngine')
     @patch('training.orchestrator.ContextDetector')
