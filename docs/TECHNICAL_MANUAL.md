@@ -18,6 +18,10 @@ This document is the **single source of truth** for the Bayesian-AI trading syst
 3.  [**Part 3: Legacy Reference (Archived)**](#part-3-legacy-reference-archived)
     *   [Original 9-Layer Architecture](#original-9-layer-architecture)
     *   [Module Reference](#module-reference)
+4.  [**Part 4: Current Project Status**](#part-4-current-project-status)
+    *   [Architecture Status](#architecture-status)
+    *   [File Structure](#file-structure)
+    *   [Testing Status](#testing-status)
 
 ---
 
@@ -308,3 +312,44 @@ The system's "vision" was defined by a 9-layer state vector.
 *   **Methods:** `detect_cascade(tick_data)`.
 *   **Logic:** Checks if price moves ≥ 10 points in ≤ 0.5s within the last 50 ticks.
 *   **Optimization:** Processes only relevant tail of tick data.
+
+---
+
+# Part 4: Current Project Status
+
+> **Snapshot Timestamp:** 2026-02-11
+
+## Architecture Status
+- **Current State:** QUANTUM (Fractal Three-Body)
+- **Active Engine:** Fractal Three-Body Quantum (PyTorch)
+- **Archived Engine:** Legacy 9-Layer Hierarchy (Moved to `archive/`)
+- **Details:** See `AUDIT_REPORT_2026_02_12.md`
+
+## File Structure
+*Key directories and files relevant to current development.*
+
+```
+Bayesian-AI/
+│   ├── AGENTS.md
+│   ├── README.md
+│   ├── launch_full_training.sh
+│   ├── requirements.txt
+│   ├── AUDIT/                  # Audit reports
+│   ├── DATA/                   # Data storage
+│   ├── archive/                # Deprecated code
+│   ├── config/                 # Configuration
+│   ├── core/                   # Core Logic Engines (Quantum Field, Brain)
+│   ├── cuda_modules/           # GPU-Accelerated Components (Legacy/Mixed)
+│   ├── docs/                   # Documentation (Technical Manual)
+│   ├── execution/              # Trade Execution Logic
+│   ├── notebooks/              # Jupyter Notebooks (Dashboard)
+│   ├── scripts/                # Utility & Build Scripts
+│   ├── tests/                  # Test Suite
+│   ├── training/               # Historical Learning Pipeline
+│   └── visualization/          # Dashboard Code
+```
+
+## Testing Status
+*   **Logic Core Validation:** PASS (`pytest tests/topic_math.py`)
+*   **Manifest Integrity:** PASS (All required files present)
+*   **Training Validation:** SUCCESS (End-to-end training loop functional)

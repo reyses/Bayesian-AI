@@ -2,7 +2,7 @@
 
 > **Algorithmic Trading System with 9-Layer Temporal Hierarchy & Bayesian Inference**
 
-[![Status](https://img.shields.io/badge/Status-Active-success.svg)](CURRENT_STATUS.md)
+[![Status](https://img.shields.io/badge/Status-Active-success.svg)](docs/TECHNICAL_MANUAL.md#part-4-current-project-status)
 
 Bayesian-AI is a high-frequency trading system that utilizes a Fractal Three-Body Quantum model to capture market conditions across multiple timeframes (from 90 days down to 1 second) and applies Bayesian probability to estimate win rates.
 
@@ -15,7 +15,7 @@ Bayesian-AI is a high-frequency trading system that utilizes a Fractal Three-Bod
     *   **System Logic & Parameters**: Physics Engine, Math ("Nightmare Protocol"), Learning Cycle.
     *   **Dashboard Guide**: Interactive validation and debugging.
     *   **Legacy Reference**: Archived architecture for historical context.
-*   **[Current Status](CURRENT_STATUS.md)**: Live project health, code statistics, and validation metrics.
+    *   **Current Status**: Live project health, code statistics, and validation metrics.
 *   **[Agent Instructions](AGENTS.md)**: Guidelines for AI agents working on this codebase.
 
 ## 🚀 Quick Start (Local Development)
