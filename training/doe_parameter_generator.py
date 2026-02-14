@@ -160,7 +160,7 @@ class DOEParameterGenerator:
             'opening_range_minutes': (10, 30, 'int'),
             'min_hold_seconds': (30, 120, 'int'),
             'max_hold_seconds': (600, 1800, 'int'),
-            'timeframe_idx': (0, 2, 'int'),  # 0: 5s, 1: 15s, 2: 60s
+            'timeframe_idx': (0, 5, 'int'),  # 0: 5s, 1: 15s, 2: 60s, 3: 5m, 4: 15m, 5: 1h
 
             # Trading cost (round-trip: commission + slippage in points)
             'trading_cost_points': (0.25, 1.0, 'float'),
