@@ -185,12 +185,14 @@ class BayesianTrainingOrchestrator:
                 print(f"CUDA: ENABLED  |  GPU: {gpu_name}  |  VRAM: {gpu_mem:.1f} GB")
             else:
                 if getattr(self.config, 'force_cuda', False):
-                    raise RuntimeError("CUDA requested via --force-cuda but not available.")
+                    raise RuntimeError("CUDA requested via --force-cuda but not available.\nTry running: python scripts/fix_cuda.py")
                 print("CUDA: NOT AVAILABLE  |  Running on CPU")
+                print("      (To fix CUDA issues, run: python scripts/fix_cuda.py)")
         except ImportError:
             if getattr(self.config, 'force_cuda', False):
-                raise RuntimeError("CUDA requested via --force-cuda but PyTorch not installed.")
+                raise RuntimeError("CUDA requested via --force-cuda but PyTorch not installed.\nTry running: python scripts/fix_cuda.py")
             print("CUDA: NOT AVAILABLE (PyTorch not installed)  |  Running on CPU")
+            print("      (To install with CUDA support, run: python scripts/fix_cuda.py)")
 
         print(f"Asset: {self.asset.ticker}")
         print(f"Checkpoint Dir: {self.checkpoint_dir}")
@@ -1660,9 +1662,10 @@ def check_and_install_requirements():
                     print(f"Dependencies OK | CUDA ready: {torch.cuda.get_device_name(0)}")
                 else:
                     print("Dependencies OK | WARNING: CUDA not available — GPU acceleration disabled")
+                    print("      (To enable CUDA, run: python scripts/fix_cuda.py)")
             except ImportError:
-                print("Dependencies OK | WARNING: PyTorch not installed — install manually:")
-                print("  pip install torch --index-url https://download.pytorch.org/whl/cu121")
+                print("Dependencies OK | WARNING: PyTorch not installed — install manually or run:")
+                print("  python scripts/fix_cuda.py")
     except subprocess.TimeoutExpired:
         print("WARNING: pip install timed out, continuing anyway...")
     except Exception as e:

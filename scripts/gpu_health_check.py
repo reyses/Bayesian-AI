@@ -5,22 +5,50 @@ Verifies PyTorch CUDA stack functionality.
 """
 import sys
 import time
+import shutil
+import subprocess
 
 try:
     import torch
 except ImportError:
     print("ERROR: PyTorch not installed.")
-    # Exit with 0 to allow build to proceed in non-GPU environments,
-    # but print error. Use --strict to fail.
+    print("Run: pip install -r requirements.txt")
     if '--strict' in sys.argv:
         sys.exit(1)
     sys.exit(0)
 
+def check_nvidia_smi():
+    """Check if nvidia-smi is available."""
+    if shutil.which("nvidia-smi") is None:
+        return False
+    try:
+        result = subprocess.run(["nvidia-smi"], capture_output=True, text=True)
+        return result.returncode == 0
+    except Exception:
+        return False
+
 def check_gpu():
     print("=== PyTorch GPU Health Check ===")
 
-    if not torch.cuda.is_available():
-        print("FAIL: CUDA is not available.")
+    print(f"PyTorch Version: {torch.__version__}")
+    print(f"CUDA Version (PyTorch): {torch.version.cuda}")
+
+    driver_ok = check_nvidia_smi()
+    cuda_ok = torch.cuda.is_available()
+
+    if not cuda_ok:
+        print("\nFAIL: CUDA is not available to PyTorch.")
+        if driver_ok:
+            print("  - NVIDIA Driver is DETECTED via nvidia-smi.")
+            print("  - PyTorch cannot see the GPU.")
+            print("  - Likely Cause: CPU-only PyTorch version installed.")
+            print("\nSUGGESTED FIX:")
+            print("  Run: python scripts/fix_cuda.py")
+        else:
+            print("  - NVIDIA Driver is NOT DETECTED via nvidia-smi.")
+            print("  - Please install NVIDIA drivers first.")
+            print("  - If drivers are installed, ensure 'nvidia-smi' is in PATH.")
+
         return False
 
     try:
