@@ -21,7 +21,7 @@ if PROJECT_ROOT not in sys.path:
 
 from core.bayesian_brain import BayesianBrain, QuantumBayesianBrain
 from training.databento_loader import DatabentoLoader
-from tests.utils import get_test_data_files, find_test_data_file
+from tests.utils import get_test_data_files, find_test_data_file, DEFAULT_TEST_DATA_FILE
 
 def run_training_validation():
     """
@@ -30,7 +30,7 @@ def run_training_validation():
     """
     # 1. Find Data
     # Prefer the specific requested file if available
-    specific_file = find_test_data_file('glbx-mdp3-20250730.trades.0000.dbn.zst')
+    specific_file = find_test_data_file(DEFAULT_TEST_DATA_FILE)
     if specific_file:
         data_files = [specific_file]
     else:
