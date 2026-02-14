@@ -289,9 +289,11 @@ class BayesianTrainingOrchestrator:
 
             # Batch regret analysis (end of day)
             if self.todays_trades:
+                current_interval = TIMEFRAME_MAP.get(active_params.get('timeframe_idx', 1), '15s')
                 regret_analysis = self.regret_analyzer.batch_analyze_day(
                     self.todays_trades,
-                    day_data
+                    day_data,
+                    current_timeframe=current_interval
                 )
                 self.regret_analyzer.print_analysis(regret_analysis)
 
