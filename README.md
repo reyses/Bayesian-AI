@@ -42,6 +42,22 @@ To run the workflow locally, ensure you have Python 3.10+ installed.
     python scripts/generate_status_report.py
     ```
 
+## 🔧 Troubleshooting
+
+### CUDA Not Detected / Running on CPU
+If you have an NVIDIA GPU but the system says "CUDA: NOT AVAILABLE" or runs slowly on CPU:
+
+1.  **Check GPU Health**:
+    ```bash
+    python scripts/gpu_health_check.py
+    ```
+2.  **Fix PyTorch Installation**:
+    If the above check fails or reports CPU-only torch, run the fix script to force a CUDA-enabled reinstallation:
+    ```bash
+    python scripts/fix_cuda.py
+    ```
+    This will uninstall existing PyTorch packages and reinstall the correct CUDA 12.1 version.
+
 ## 🏗 System Architecture
 
 The system operates on a **LOAD -> TRANSFORM -> ANALYZE -> VISUALIZE** pipeline.
