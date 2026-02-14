@@ -928,7 +928,7 @@ class BayesianTrainingOrchestrator:
             self.stat_validator.record_trade(record)
 
         if best_params:
-            self.param_generator.update_best_params(best_params)
+            self.param_generator.update_best_params(best_params, performance=best_sharpe)
 
         execution_time = time.time() - start_time
 
