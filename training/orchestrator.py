@@ -106,8 +106,13 @@ class BayesianTrainingOrchestrator:
     - Live visualization dashboard
     - Real-time terminal progress
     - Pattern analysis and reporting
-    - Batch regret analysis
+    - Batch regret analysis (fully integrated)
     - Automatic checkpointing
+
+    Integrated Execution Modules:
+    - BatchRegretAnalyzer: Active (end-of-day feedback loop)
+    - IntegratedStatisticalEngine: Inactive (commented out, pending future integration)
+    - WaveRider: Inactive (not imported, logic bypassed)
     """
 
     def __init__(self, config):
