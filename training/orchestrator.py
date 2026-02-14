@@ -894,29 +894,33 @@ class BayesianTrainingOrchestrator:
 
         # Route to GPU or CPU path
         force_cuda = getattr(self.config, 'force_cuda', False)
+        training_device_env = os.environ.get('TRAINING_DEVICE', '').upper()
+
+        use_gpu = False
 
         if force_cuda:
-            # Bypass fallback logic if CUDA enforced
+            use_gpu = True
+        elif training_device_env == 'GPU':
+            use_gpu = True
+        elif training_device_env == 'CPU':
+            use_gpu = False
+        else:
+            # Auto-detection (default if not specified)
+            try:
+                import torch
+                use_gpu = torch.cuda.is_available()
+            except ImportError:
+                use_gpu = False
+
+        if use_gpu:
             best_idx, all_results = self._optimize_gpu_parallel(
                 precomputed, day_data, all_param_sets, day_number
             )
         else:
-            try:
-                import torch
-                if torch.cuda.is_available():
-                    best_idx, all_results = self._optimize_gpu_parallel(
-                        precomputed, day_data, all_param_sets, day_number
-                    )
-                else:
-                    best_idx, all_results = self._optimize_cpu_sequential(
-                        precomputed, day_data, all_param_sets, day_number,
-                        date=date, total_days=total_days
-                    )
-            except ImportError:
-                best_idx, all_results = self._optimize_cpu_sequential(
-                    precomputed, day_data, all_param_sets, day_number,
-                    date=date, total_days=total_days
-                )
+            best_idx, all_results = self._optimize_cpu_sequential(
+                precomputed, day_data, all_param_sets, day_number,
+                date=date, total_days=total_days
+            )
 
         # Unpack best result
         best_sharpe = all_results[best_idx]['sharpe']
