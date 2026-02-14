@@ -60,6 +60,11 @@ class BatchRegretAnalyzer:
     # Note: '60s' is preferred over '1m' to avoid pandas 'm' (month) vs 'min' (minute) ambiguity
     TIMEFRAME_HIERARCHY = ['5s', '15s', '60s', '5min', '15min', '1h']
 
+    # Weighting to prefer early exits (leaving money on table) over late exits (giving back profit).
+    # A value > 1.0 means we penalize "giving back" more heavily.
+    # This pushes the system to recommend tightening stops rather than relaxing them.
+    LATE_EXIT_PENALTY = 1.3
+
     def __init__(self):
         self.analysis_history = []
 
@@ -224,21 +229,19 @@ class BatchRegretAnalyzer:
             # Classify exit type
             if exit_efficiency >= 0.90:
                 regret_type = 'optimal'
-            elif pnl_left_on_table > gave_back:
-                # Exited too early.
-                regret_type = 'closed_too_early'
-            elif gave_back > pnl_left_on_table:
-                # Held too long (gave back profit)
-                regret_type = 'closed_too_late'
             else:
-                # Equal (e.g. Winner where Peak > Exit > Entry, so Left == GaveBack)
-                # Differentiate by checking if peak was AFTER exit (left on table) or BEFORE (gave back)
-                # Since we don't have peak timestamp easily accessible here without re-finding,
-                # we assume if it's a Fractal Peak (TF1) significantly higher than exit, it's Early Exit.
-                if true_peak > (exit_price * 1.0005 if side == 'long' else exit_price * 0.9995):
-                     regret_type = 'closed_too_early'
+                # Weighted comparison to prefer Early Exit (penalize Late Exit)
+                # late_score = gave_back * PENALTY.
+                # If late_score > early_score, we call it Late (bad).
+                # Else Early (acceptable).
+
+                early_score = pnl_left_on_table
+                late_score = gave_back * self.LATE_EXIT_PENALTY
+
+                if late_score > early_score:
+                    regret_type = 'closed_too_late'
                 else:
-                     regret_type = 'closed_too_late'
+                    regret_type = 'closed_too_early'
 
             return RegretMarkers(
                 trade_id=trade_id,
