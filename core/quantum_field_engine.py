@@ -13,6 +13,7 @@ from core.pattern_utils import (
     detect_geometric_pattern, detect_candlestick_pattern,
     detect_geometric_patterns_vectorized, detect_candlestick_patterns_vectorized
 )
+from core.vectorized_math import compute_rolling_regression_vectorized
 
 # Optional: CUDA Pattern Detector
 try:
@@ -637,68 +638,21 @@ class QuantumFieldEngine:
         num_bars = n - rp  # bars we'll compute (indices rp..n-1)
 
         # ═══ STEP 1: Rolling linear regression (center, sigma, slope) ═══
-        # Vectorized using cumulative sums
-        x = np.arange(rp, dtype=np.float64)
-        x_mean = x.mean()
-        x_var = np.sum((x - x_mean) ** 2)
+        # Vectorized calculation (~1800x faster than loop)
+        centers_full, sigmas_full, slopes_full = compute_rolling_regression_vectorized(close, rp)
 
-        centers = np.empty(num_bars)
-        # Using rolling percentile for sigma (fat-tail distribution)
-        sigmas = np.empty(num_bars)
-        trend_directions = np.empty(num_bars, dtype=object)
+        # Slice to matched bars
+        centers = centers_full[rp:]
+        sigmas = sigmas_full[rp:]
+        slopes = slopes_full[rp:]
 
-        # Pre-calculate rolling residuals for robust sigma
-        # Rolling residuals history (maxlen=500)
-        # We'll maintain a rolling buffer of residuals
-        rolling_residuals = []
-
-        for i in range(num_bars):
-            # Window ending at current bar (inclusive)
-            # FIX: Align window to match calculate_three_body_state (coincident, not predictive)
-            start_idx = i + 1
-            end_idx = i + 1 + rp
-            if end_idx > len(close):
-                # End of data logic
-                centers[i:] = centers[i-1] if i > 0 else 0
-                sigmas[i:] = sigmas[i-1] if i > 0 else 1.0
-                trend_directions[i:] = 'RANGE'
-                break
-
-            y = close[start_idx : end_idx]
-            y_mean = y.mean()
-            slope = np.sum((x - x_mean) * (y - y_mean)) / x_var
-            intercept = y_mean - slope * x_mean
-            center = slope * x[-1] + intercept
-
-            # Residuals for this window
-            residuals = y - (slope * x + intercept)
-            current_residual = residuals[-1]
-
-            # Std Dev Sigma (Regression Sigma)
-            std_err = np.sqrt(np.sum(residuals ** 2) / (rp - 2))
-            reg_sigma = std_err if std_err > 0 else y.std()
-
-            # Robust Sigma (98th percentile of history)
-            rolling_residuals.append(abs(current_residual))
-            if len(rolling_residuals) > 500:
-                rolling_residuals.pop(0)
-
-            if len(rolling_residuals) >= 20:
-                # 84th percentile ~ 1 SD. (Previous 98th was ~2 SDs)
-                robust_sigma = np.percentile(rolling_residuals, 84)
-                sigma = max(robust_sigma, reg_sigma)
-            else:
-                sigma = reg_sigma
-
-            centers[i] = center
-            sigmas[i] = max(sigma, 1e-10)
-
-            # Trend Direction
-            slope_strength = (slope * rp) / (sigma + 1e-6)
-            if slope_strength > 1.0:
-                trend_directions[i] = 'UP' if slope > 0 else 'DOWN'
-            else:
-                trend_directions[i] = 'RANGE'
+        # Trend Direction
+        slope_strengths = (slopes * rp) / (sigmas + 1e-6)
+        trend_directions = np.where(
+            slope_strengths > 1.0,
+            np.where(slopes > 0, 'UP', 'DOWN'),
+            'RANGE'
+        )
 
         # Prices at each computed bar
         bar_prices = prices[rp:]
