@@ -34,7 +34,7 @@ def reinstall_torch():
     # Uninstall existing torch packages
     pkgs = ["torch", "torchvision", "torchaudio"]
     print(f"Uninstalling existing packages: {', '.join(pkgs)}...")
-    subprocess.call([sys.executable, "-m", "pip", "uninstall", "-y"] + pkgs)
+    subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "-y"] + pkgs)
 
     # Install with correct index-url
     # We prioritize the CUDA index URL to avoid pulling CPU versions from PyPI
