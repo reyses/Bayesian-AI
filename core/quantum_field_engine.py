@@ -14,6 +14,12 @@ from core.pattern_utils import (
     detect_geometric_patterns_vectorized, detect_candlestick_patterns_vectorized
 )
 
+# Optional: CUDA Pattern Detector
+try:
+    from core.cuda_pattern_detector import detect_geometric_patterns_cuda, NUMBA_AVAILABLE as CUDA_PATTERNS_AVAILABLE
+except ImportError:
+    CUDA_PATTERNS_AVAILABLE = False
+
 # Optional: Fractal & Trend Libraries
 try:
     import pandas_ta as ta
@@ -371,7 +377,7 @@ class QuantumFieldEngine:
         # F_gravity = -theta * z_score * sigma
         # Using fixed GRAVITY_THETA
         F_gravity = -GRAVITY_THETA * (z_score * sigma)
-        
+
         # Keep F_reversion name for compatibility, but updated logic
         F_reversion = F_gravity
 
@@ -568,7 +574,14 @@ class QuantumFieldEngine:
         """
         Vectorized geometric pattern detection.
         Wraps core.pattern_utils.detect_geometric_patterns_vectorized.
+        Unless CUDA is enabled and available.
         """
+        if self.use_gpu and CUDA_PATTERNS_AVAILABLE:
+            try:
+                return detect_geometric_patterns_cuda(highs, lows)
+            except Exception as e:
+                # Fallback on error (e.g. CUDA context issues)
+                return detect_geometric_patterns_vectorized(highs, lows)
         return detect_geometric_patterns_vectorized(highs, lows)
 
     def _detect_candlestick_patterns(self, opens: np.ndarray, highs: np.ndarray,
