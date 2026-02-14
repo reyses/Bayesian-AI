@@ -15,6 +15,7 @@ import sys
 import pickle
 import argparse
 import threading
+import tempfile
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Any, Tuple, Optional
@@ -45,7 +46,7 @@ from training.progress_reporter import ProgressReporter, DayMetrics
 from training.databento_loader import DatabentoLoader
 
 # Execution components
-from execution.integrated_statistical_system import IntegratedStatisticalEngine
+# from execution.integrated_statistical_system import IntegratedStatisticalEngine
 from execution.batch_regret_analyzer import BatchRegretAnalyzer
 
 # Visualization
@@ -127,7 +128,7 @@ class BayesianTrainingOrchestrator:
         self.context_detector = ContextDetector()
         self.param_generator = DOEParameterGenerator(self.context_detector)
         self.confidence_manager = AdaptiveConfidenceManager(self.brain)
-        self.stat_validator = IntegratedStatisticalEngine(self.asset)
+        # self.stat_validator = IntegratedStatisticalEngine(self.asset)  # Currently unused - intended for future integration
 
         # Multi-timeframe context engine
         self.mtf_context = MultiTimeframeContext()
@@ -1465,6 +1466,10 @@ class BayesianTrainingOrchestrator:
 
         json_path = os.path.join(os.path.dirname(__file__), 'training_progress.json')
 
+        # NOTE: Dashboard visualization shows the "Oracle/Optimized" results (Best PnL found today),
+        # whereas the terminal output reports the "Walk-Forward/Real" results (using yesterday's params).
+        # This discrepancy is intentional to visualize the optimization potential vs realized performance.
+
         # Merge current trades with pre-calculated history
         current_trades_data = []
         current_pnls = []
@@ -1552,12 +1557,17 @@ class BayesianTrainingOrchestrator:
         }
 
         try:
-            with open(json_path, 'w') as f:
-                _json.dump(payload, f, default=str)
-        except Exception:
-            pass  # Non-critical
-
-    def _write_dashboard_json(self, day_metrics, day_result: DayResults, total_days: int, current_day_trades: List[TradeOutcome] = None):
+            # Atomic write to prevent race conditions with dashboard reader
+            with tempfile.NamedTemporaryFile('w', dir=os.path.dirname(json_path), delete=False) as tmp:
+                _json.dump(payload, tmp, default=str)
+                tmp_path = tmp.name
+            os.replace(tmp_path, json_path)
+        except OSError as e:
+            if 'tmp_path' in locals() and os.path.exists(tmp_path):
+                os.remove(tmp_path)
+            import traceback
+            print(f"WARNING: Failed to update training_progress.json: {e}\n{traceback.format_exc()}") # Log the error with full traceback
+            pass
         """Legacy wrapper or direct update (can be used for end-of-day update)."""
         # Ensure history is prepped if called directly (e.g. end of day)
         self._prepare_dashboard_history()
@@ -1629,8 +1639,9 @@ def check_and_install_requirements():
     print("Checking dependencies...")
     try:
         # pip install --quiet skips already-installed packages fast
+        # Added --no-cache-dir and --prefer-binary for better compatibility/speed in CI/CD
         result = subprocess.run(
-            [sys.executable, '-m', 'pip', 'install', '-q', '-r', requirements_path],
+            [sys.executable, '-m', 'pip', 'install', '-q', '--no-cache-dir', '--prefer-binary', '-r', requirements_path],
             capture_output=True, text=True, timeout=300
         )
         if result.returncode != 0:
