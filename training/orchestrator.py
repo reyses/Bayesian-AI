@@ -19,7 +19,7 @@ import tempfile
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Any, Tuple, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict, fields
 from datetime import datetime
 from tqdm import tqdm
 import time
@@ -329,6 +329,68 @@ class BayesianTrainingOrchestrator:
 
         return self.day_results
 
+    def _serialize_states_to_parquet(self, batch_results: List[Dict], filepath: str):
+        """Serialize batch_results (list of dicts with ThreeBodyQuantumState) to Parquet."""
+        if not batch_results:
+            return
+
+        # Flatten data
+        flat_data = []
+        for r in batch_results:
+            state_dict = asdict(r['state'])
+            # Add metadata columns
+            state_dict['bar_idx'] = r['bar_idx']
+            state_dict['price'] = r['price']
+            state_dict['structure_ok'] = r['structure_ok']
+            flat_data.append(state_dict)
+
+        df = pd.DataFrame(flat_data)
+
+        # Handle Complex Numbers (Parquet doesn't support them)
+        complex_cols = ['amplitude_center', 'amplitude_upper', 'amplitude_lower']
+        for col in complex_cols:
+            if col in df.columns:
+                df[f'{col}_real'] = df[col].apply(lambda x: x.real)
+                df[f'{col}_imag'] = df[col].apply(lambda x: x.imag)
+                df = df.drop(columns=[col])
+
+        # Save to Parquet
+        df.to_parquet(filepath, compression='snappy')
+
+    def _deserialize_states_from_parquet(self, filepath: str) -> List[Dict]:
+        """Deserialize Parquet file back to batch_results structure."""
+        df = pd.read_parquet(filepath)
+
+        # Reconstruct Complex Numbers
+        complex_cols = ['amplitude_center', 'amplitude_upper', 'amplitude_lower']
+        for col in complex_cols:
+            if f'{col}_real' in df.columns and f'{col}_imag' in df.columns:
+                df[col] = df[f'{col}_real'] + 1j * df[f'{col}_imag']
+
+        # Get State Fields
+        state_field_names = {f.name for f in fields(ThreeBodyQuantumState)}
+
+        results = []
+        for _, row in df.iterrows():
+            # Extract state kwargs
+            state_kwargs = {}
+            for k in state_field_names:
+                if k in row:
+                    state_kwargs[k] = row[k]
+
+            # Reconstruct State
+            state = ThreeBodyQuantumState(**state_kwargs)
+
+            # Reconstruct Dict
+            results.append({
+                'bar_idx': int(row['bar_idx']),
+                'state': state,
+                'price': float(row['price']),
+                'structure_ok': bool(row['structure_ok'])
+            })
+
+        return results
+
     def _precompute_day_states(self, day_data: pd.DataFrame, interval: str = '15s',
                                tf_context: Dict = None,
                                prev_day_1s: pd.DataFrame = None,
@@ -375,13 +437,12 @@ class BayesianTrainingOrchestrator:
             cache_dir = os.path.join(PROJECT_ROOT, 'cache', 'precomputed_states')
             os.makedirs(cache_dir, exist_ok=True)
             safe_interval = interval.replace('/', '_') # Safety for filenames
-            cache_file = os.path.join(cache_dir, f"states_v1.0_{date}_{safe_interval}.pkl")
+            cache_file = os.path.join(cache_dir, f"states_{date}_{safe_interval}.parquet")
 
             if os.path.exists(cache_file):
                 print(f"  Loading precomputed states from {cache_file}...", end='', flush=True)
                 try:
-                    with open(cache_file, 'rb') as f:
-                        batch_results = pickle.load(f)
+                    batch_results = self._deserialize_states_from_parquet(cache_file)
                     print(" done.")
                 except Exception as e:
                     print(f" failed ({e}). Recomputing.")
@@ -438,10 +499,7 @@ class BayesianTrainingOrchestrator:
             # Save to Cache (if date provided)
             if cache_file:
                 try:
-                    with tempfile.NamedTemporaryFile('wb', dir=cache_dir, delete=False) as tmp_f:
-                        pickle.dump(batch_results, tmp_f)
-                        tmp_path = tmp_f.name
-                    os.replace(tmp_path, cache_file)
+                    self._serialize_states_to_parquet(batch_results, cache_file)
                 except Exception as e:
                     print(f"  WARNING: Failed to cache states: {e}")
 
