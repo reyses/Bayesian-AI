@@ -1,17 +1,16 @@
 # Agent Instructions
 
-This repository contains "Bayesian-AI", an algorithmic trading system.
+This repository contains "Bayesian-AI", a sophisticated algorithmic trading system leveraging quantum probability fields and Bayesian inference.
 
 ## 1. Core Directives
 
-*   **Single Source of Truth**: `requirements.txt` is the ONLY allowed file for defining project dependencies. Do not create separate requirements files (e.g., `requirements_dashboard.txt`, `requirements_notebook.txt`).
-*   **Dependency Pinning**: Critical dependencies should be pinned to specific versions in `requirements.txt` to ensure build reproducibility and prevent unexpected breakages from upstream changes.
-*   **Notebook Limit**: Only one notebook should be created, unless the User specifies that an additional one is needed.
+*   **Single Source of Truth**: `requirements.txt` is the ONLY allowed file for defining project dependencies. Do not create separate requirements files.
+*   **Dependency Pinning**: Critical dependencies must be pinned in `requirements.txt`.
+*   **Notebook Limit**: Only one notebook is permitted unless explicitly authorized.
 *   **Artifacts**: Do not modify files in `dist/` or `build/` directly. Edit the source code and rebuild.
+*   **Documentation**: The primary documentation source is `docs/TECHNICAL_MANUAL.md`.
 
 ## 2. Development Workflow
-
-To run the workflow locally, ensure you have Python 3.10+ installed.
 
 ### Local Setup
 1.  **Install Dependencies**:
@@ -20,16 +19,15 @@ To run the workflow locally, ensure you have Python 3.10+ installed.
     ```
 
 ### Running Tests
-*   **Phase 1 Tests**:
+Use `pytest` to run the test suite.
+*   **Run All Tests**:
     ```bash
-    python tests/test_phase1.py
+    python -m pytest
     ```
-    Validates core components (StateVector, BayesianBrain, LayerEngine).
-*   **Full System Tests**:
-    ```bash
-    python tests/test_full_system.py
-    ```
-    Validates full system integration.
+*   **Key Test Modules**:
+    -   `tests/test_bayesian_brain.py`: Validates core decision logic.
+    -   `tests/test_quantum_field_engine.py`: Tests the vectorized math engine.
+    -   `tests/test_integration_quantum.py`: Verifies system integration.
 
 ### Building Executable
 *   **Build Script**:
@@ -40,67 +38,49 @@ To run the workflow locally, ensure you have Python 3.10+ installed.
 
 ## 3. Training Workflow
 
-To train the Bayesian probability model using real Databento data:
+The system learns by optimizing parameters over historical data using a Bayesian approach.
 
 ### Data Setup
-1.  **Create Directory**:
+1.  **Directory Structure**:
+    Ensure `DATA/RAW` exists. If missing, create it:
     ```bash
-    mkdir -p data/raw
+    mkdir -p DATA/RAW
     ```
-2.  **Copy Files**:
-    Place your `.dbn.zst` files in `data/raw/`.
-3.  **Setup & Verify**:
-    ```bash
-    python scripts/setup_test_data.py
-    ```
+2.  **Data Files**:
+    Place `.dbn.zst` (Databento compressed) files in `DATA/RAW`.
 
 ### Pipeline Execution
-1.  **Verify Data Loading & Velocity**:
-    ```bash
-    python -m pytest tests/test_real_data_velocity.py -v
-    python -m pytest tests/test_databento_loading.py -v
-    ```
-2.  **Run Training Loop**:
-    ```bash
-    # Start small (e.g., 10 iterations)
-    python training/orchestrator.py \
-      --data-dir data/raw \
-      --iterations 10 \
-      --output models/
-    ```
-3.  **Inspect Results**:
-    ```bash
-    python scripts/inspect_results.py models/probability_table.pkl
-    ```
+Run the `BayesianTrainingOrchestrator`:
+```bash
+python training/orchestrator.py --data-dir DATA/RAW --iterations 50 --output checkpoints/
+```
+*   **--data-dir**: Path to raw data files.
+*   **--iterations**: Number of optimization loops per day.
+*   **--output**: Directory for saving models and logs.
 
-## 4. CI/CD & Automation
+## 4. Project Structure
+
+*   **`core/`**: The heart of the system. Contains `QuantumFieldEngine` (vectorized math), `BayesianBrain`, and `ThreeBodyQuantumState`.
+*   **`training/`**: Orchestration logic (`BayesianTrainingOrchestrator`), DOE (Design of Experiments), and parameter generation.
+*   **`tests/`**: Comprehensive test suite using `pytest`.
+*   **`scripts/`**: Utility scripts for building, CUDA health checks (`gpu_health_check.py`), and status reporting.
+*   **`docs/`**: Documentation, primarily `TECHNICAL_MANUAL.md`.
+
+## 5. CI/CD & Automation
 
 ### Unified Pipeline
-A unified CI/CD workflow is defined in `.github/workflows/unified_test_pipeline.yml`. It runs on every push and pull request to the `main` or `master` branches.
-*   **Steps**: Installs dependencies, runs integrity/math checks, executes tests (Phase 1, Full System, CUDA Audit), generates status report, and builds the executable.
+The workflow is defined in `.github/workflows/unified_test_pipeline.yml`. It runs automatically on push/PR to `main`.
 
 ### Status Reporting
-An automated status report is included in the unified workflow.
 *   **Script**: `scripts/generate_status_report.py`
-*   **Output**: `CURRENT_STATUS.md`
-*   **Purpose**: Provides a living snapshot of project health, code stats, and validation checks.
-
-## 5. Debugging & Logging
-
-When troubleshooting issues, please include the following generated files if available.
-
-### Log Files
-*   **`CUDA_Debug.log`**: Captures root-level CUDA initialization and verification events.
-*   **`notebooks/CUDA_Debug.log`**: Captures GPU kernel execution details and pattern detection logs from notebook runs.
-*   **`debug_outputs/*.log`**: Specific test execution logs (e.g., `tests/test_phase0.py` generates detailed logs here).
-*   **`CURRENT_STATUS.md`**: The latest system health report.
-
-### Git Policy
-**NOTE:** The files listed above are auto-generated but are **whitelisted** in `.gitignore`. **Do** commit these files unless explicitly instructed not to, as they provide critical debugging history.
+*   **Output**: Console output and potentially updated docs.
+*   **Purpose**: Snapshots project health and validation status.
 
 ## 6. Technical Context
 
-*   **Dependencies**: `numpy` must be kept `<2.0` for compatibility with `numba`. `numba` and `llvmlite` are required.
-*   **Hardware**: The system supports CUDA acceleration via `numba.cuda` and `cupy`. The CI environment does not have GPUs, so the code automatically falls back to CPU mode.
-*   **Configuration**: The `config/` directory contains system settings and is bundled with the executable.
-*   **Data**: `probability_table.pkl` is required for the engine to function and will be generated if missing.
+*   **Dependencies**:
+    -   `numpy < 2`: Required for compatibility.
+    -   `torch`: Used for tensor operations, configured for CUDA (`cu121`) where available.
+    -   `numba`: Used for JIT compilation acceleration.
+    -   `pandas` & `pandas_ta`: Data manipulation and technical analysis.
+*   **Hardware**: The system is optimized for NVIDIA GPUs (CUDA) but will fallback to CPU if necessary. Use `scripts/gpu_health_check.py` to verify GPU status.
