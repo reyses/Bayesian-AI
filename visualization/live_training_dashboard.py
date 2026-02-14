@@ -234,7 +234,6 @@ class LiveDashboard:
         # Tag colors for table rows
         self.day_tree.tag_configure('profit', foreground='#00ff00')
         self.day_tree.tag_configure('loss', foreground='#ff4444')
-        self.day_tree.tag_configure('oddrow', background=COLOR_CARD_BG)
 
         # === ROW 2 RIGHT: Controls + Log ===
         self.frame_controls = ttk.Frame(self.root, padding=10)
@@ -507,12 +506,10 @@ class LiveDashboard:
             self.day_tree.delete(item)
 
         day_summaries = data.get('day_summaries', [])
-        for i, s in enumerate(day_summaries):
+        for s in day_summaries:
             pnl = s.get('pnl', 0)
             wr = s.get('win_rate', 0) * 100
             tag = 'profit' if pnl >= 0 else 'loss'
-            row_tag = 'oddrow' if i % 2 == 1 else ''
-            tags = (tag, row_tag) if row_tag else (tag,)
             self.day_tree.insert('', 'end', values=(
                 s.get('day', ''),
                 s.get('date', ''),
@@ -520,7 +517,7 @@ class LiveDashboard:
                 f"{wr:.1f}",
                 f"${pnl:,.2f}",
                 f"{s.get('sharpe', 0):.2f}",
-            ), tags=tags)
+            ), tags=(tag,))
 
         # Auto-scroll to bottom
         children = self.day_tree.get_children()

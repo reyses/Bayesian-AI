@@ -42,15 +42,6 @@ To run the workflow locally, ensure you have Python 3.10+ installed.
     python scripts/generate_status_report.py
     ```
 
-## ⚡ Performance Optimization
-
-### Caching Precomputed States
-The training orchestrator automatically caches expensive physical state calculations (resampling, Z-scores, etc.) to disk in `cache/precomputed_states/`. This significantly speeds up subsequent training runs or iterations on the same day/interval.
-
-- **Location**: `cache/precomputed_states/states_{date}_{interval}.pkl`
-- **Behavior**: Immutable physical states are loaded from cache; dynamic probabilities and confidence scores are re-injected on load to ensure learning continuity.
-- **Invalidation**: Delete the cache file to force re-computation if the underlying physics logic changes.
-
 ## 🔧 Troubleshooting
 
 ### CUDA Not Detected / Running on CPU
