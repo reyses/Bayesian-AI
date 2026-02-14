@@ -1,5 +1,17 @@
 # Bayesian-AI Technical Manual
 
+> **⚠️ NOTE: LEGACY REFERENCE**
+>
+> This document describes the original 9-layer architecture. While the core concepts (Bayesian probability, Data pipelines) remain valid, the specific logic for state computation and parameter optimization has evolved.
+>
+> For the most up-to-date explanation of:
+> *   **System Logic (Quantum Field Engine)**
+> *   **Mathematical Models ("Nightmare Protocol")**
+> *   **Optimized Parameters**
+> *   **Troubleshooting Guide**
+>
+> **Please refer to: [docs/SYSTEM_LOGIC_AND_PARAMETERS.md](SYSTEM_LOGIC_AND_PARAMETERS.md)**
+
 This document provides a comprehensive technical reference for the Bayesian-AI trading system, consolidating system logic, architecture, module references, and mathematical foundations.
 
 ---
