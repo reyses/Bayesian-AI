@@ -24,6 +24,28 @@ class ParameterSet:
     generation_method: str  # 'baseline', 'latin_hypercube', 'mutation', 'crossover'
 
 
+# --- DOE Configuration Constants ---
+BIAS_THRESHOLD_HIGH = 0.30
+BIAS_THRESHOLD_MEDIUM = 0.15
+BIAS_STRENGTH_HIGH = 0.5
+BIAS_STRENGTH_MEDIUM = 0.2
+
+PARAMS_AFFECTED_BY_EARLY_TREND = {
+    'take_profit_ticks', 'trail_distance_wide', 'max_hold_seconds', 'trail_activation_profit'
+}
+PARAMS_AFFECTED_BY_LATE_EXIT = {
+    'max_hold_seconds', 'trail_distance_wide', 'trail_activation_profit', 'take_profit_ticks'
+}
+
+# Mutation Constants
+INT_SKEW_FACTOR = 6
+INT_MUTATION_MIN = -3
+INT_MUTATION_MAX = 4
+
+FLOAT_SKEW_FACTOR = 0.20
+FLOAT_NOISE_RANGE = 0.15
+
+
 class DOEParameterGenerator:
     """
     Generates parameter combinations using multiple strategies:
@@ -37,9 +59,52 @@ class DOEParameterGenerator:
     def __init__(self, context_detector):
         self.context_detector = context_detector
         self.best_params_history = []  # Stores best params per day
+        self.latest_regret_analysis = None  # Regret analysis from previous day
 
         # Define parameter ranges for exploration
         self.param_ranges = self._define_parameter_ranges()
+
+    def update_regret_analysis(self, analysis: Dict):
+        """Store regret analysis to guide parameter generation"""
+        self.latest_regret_analysis = analysis
+
+    def _get_mutation_bias(self, param_name: str) -> float:
+        """
+        Returns a bias factor (-1.0 to 1.0) based on regret analysis.
+        Positive: encourage increase.
+        Negative: encourage decrease.
+        Zero: neutral.
+        """
+        if not self.latest_regret_analysis:
+            return 0.0
+
+        dist = self.latest_regret_analysis.get('patterns', {}).get('regret_distribution', {})
+        total = sum(dist.values())
+        if total == 0:
+            return 0.0
+
+        early_trend = dist.get('closed_too_early_trend', 0) / total
+        too_late = dist.get('closed_too_late', 0) / total
+
+        bias = 0.0
+
+        # Mapping parameters to regret types
+        # Early trend -> We want to hold longer / target higher
+        if param_name in PARAMS_AFFECTED_BY_EARLY_TREND:
+            if early_trend > BIAS_THRESHOLD_HIGH:
+                bias += BIAS_STRENGTH_HIGH  # Strong push up
+            elif early_trend > BIAS_THRESHOLD_MEDIUM:
+                bias += BIAS_STRENGTH_MEDIUM
+
+        # Too late -> We want to exit sooner
+        if param_name in PARAMS_AFFECTED_BY_LATE_EXIT:
+            if too_late > BIAS_THRESHOLD_HIGH:
+                bias -= BIAS_STRENGTH_HIGH  # Strong push down
+            elif too_late > BIAS_THRESHOLD_MEDIUM:
+                bias -= BIAS_STRENGTH_MEDIUM
+
+        # Conflict resolution (if both high, maybe neutral or slight bias based on which is higher)
+        return np.clip(bias, -0.8, 0.8)
 
     def _define_parameter_ranges(self) -> Dict[str, tuple]:
         """
@@ -95,6 +160,7 @@ class DOEParameterGenerator:
             'opening_range_minutes': (10, 30, 'int'),
             'min_hold_seconds': (30, 120, 'int'),
             'max_hold_seconds': (600, 1800, 'int'),
+            'timeframe_idx': (0, 5, 'int'),  # 0: 5s, 1: 15s, 2: 60s, 3: 5m, 4: 15m, 5: 1h
 
             # Trading cost (round-trip: commission + slippage in points)
             'trading_cost_points': (0.25, 1.0, 'float'),
@@ -118,61 +184,71 @@ class DOEParameterGenerator:
             {
                 'stop_loss_ticks': 15, 'take_profit_ticks': 40, 'confidence_threshold': 0.50,
                 'trail_distance_tight': 10, 'trail_distance_wide': 30,
-                'pid_kp': 0.5, 'pid_ki': 0.1, 'pid_kd': 0.2, 'gravity_theta': 0.5, 'sigma_decay': 0.95
+                'pid_kp': 0.5, 'pid_ki': 0.1, 'pid_kd': 0.2, 'gravity_theta': 0.5, 'sigma_decay': 0.95,
+                'timeframe_idx': 1
             },
             # Aggressive (iteration 1)
             {
                 'stop_loss_ticks': 10, 'take_profit_ticks': 50, 'confidence_threshold': 0.45,
                 'trail_distance_tight': 7, 'trail_distance_wide': 25,
-                'pid_kp': 0.8, 'pid_ki': 0.05, 'pid_kd': 0.1, 'gravity_theta': 0.3, 'sigma_decay': 0.90
+                'pid_kp': 0.8, 'pid_ki': 0.05, 'pid_kd': 0.1, 'gravity_theta': 0.3, 'sigma_decay': 0.90,
+                'timeframe_idx': 1
             },
             # Balanced (iteration 2)
             {
                 'stop_loss_ticks': 12, 'take_profit_ticks': 45, 'confidence_threshold': 0.48,
                 'trail_distance_tight': 8, 'trail_distance_wide': 28,
-                'pid_kp': 0.5, 'pid_ki': 0.1, 'pid_kd': 0.2, 'gravity_theta': 0.5, 'sigma_decay': 0.95
+                'pid_kp': 0.5, 'pid_ki': 0.1, 'pid_kd': 0.2, 'gravity_theta': 0.5, 'sigma_decay': 0.95,
+                'timeframe_idx': 1
             },
             # High confidence (iteration 3)
             {
                 'stop_loss_ticks': 20, 'take_profit_ticks': 35, 'confidence_threshold': 0.65,
                 'trail_distance_tight': 12, 'trail_distance_wide': 35,
-                'pid_kp': 0.4, 'pid_ki': 0.15, 'pid_kd': 0.3, 'gravity_theta': 0.6, 'sigma_decay': 0.98
+                'pid_kp': 0.4, 'pid_ki': 0.15, 'pid_kd': 0.3, 'gravity_theta': 0.6, 'sigma_decay': 0.98,
+                'timeframe_idx': 1
             },
             # Quick exit (iteration 4)
             {
                 'stop_loss_ticks': 8, 'take_profit_ticks': 30, 'confidence_threshold': 0.40,
                 'trail_distance_tight': 5, 'trail_distance_wide': 20,
-                'pid_kp': 0.6, 'pid_ki': 0.05, 'pid_kd': 0.1, 'gravity_theta': 0.4, 'sigma_decay': 0.92
+                'pid_kp': 0.6, 'pid_ki': 0.05, 'pid_kd': 0.1, 'gravity_theta': 0.4, 'sigma_decay': 0.92,
+                'timeframe_idx': 1
             },
             # Wide targets (iteration 5)
             {
                 'stop_loss_ticks': 20, 'take_profit_ticks': 60, 'confidence_threshold': 0.55,
                 'trail_distance_tight': 15, 'trail_distance_wide': 40,
-                'pid_kp': 0.3, 'pid_ki': 0.1, 'pid_kd': 0.4, 'gravity_theta': 0.7, 'sigma_decay': 0.99
+                'pid_kp': 0.3, 'pid_ki': 0.1, 'pid_kd': 0.4, 'gravity_theta': 0.7, 'sigma_decay': 0.99,
+                'timeframe_idx': 1
             },
             # Tight stops (iteration 6)
             {
                 'stop_loss_ticks': 10, 'take_profit_ticks': 40, 'confidence_threshold': 0.50,
                 'trail_distance_tight': 7, 'trail_distance_wide': 25,
-                'pid_kp': 0.7, 'pid_ki': 0.05, 'pid_kd': 0.15, 'gravity_theta': 0.4, 'sigma_decay': 0.94
+                'pid_kp': 0.7, 'pid_ki': 0.05, 'pid_kd': 0.15, 'gravity_theta': 0.4, 'sigma_decay': 0.94,
+                'timeframe_idx': 1
             },
             # Standard (iteration 7)
             {
                 'stop_loss_ticks': 15, 'take_profit_ticks': 45, 'confidence_threshold': 0.50,
                 'trail_distance_tight': 10, 'trail_distance_wide': 30,
-                'pid_kp': 0.5, 'pid_ki': 0.1, 'pid_kd': 0.2, 'gravity_theta': 0.5, 'sigma_decay': 0.95
+                'pid_kp': 0.5, 'pid_ki': 0.1, 'pid_kd': 0.2, 'gravity_theta': 0.5, 'sigma_decay': 0.95,
+                'timeframe_idx': 1
             },
             # Scalper (iteration 8)
             {
                 'stop_loss_ticks': 8, 'take_profit_ticks': 25, 'confidence_threshold': 0.35,
                 'trail_distance_tight': 5, 'trail_distance_wide': 15,
-                'pid_kp': 0.9, 'pid_ki': 0.01, 'pid_kd': 0.05, 'gravity_theta': 0.2, 'sigma_decay': 0.85
+                'pid_kp': 0.9, 'pid_ki': 0.01, 'pid_kd': 0.05, 'gravity_theta': 0.2, 'sigma_decay': 0.85,
+                'timeframe_idx': 1
             },
             # Swing (iteration 9)
             {
                 'stop_loss_ticks': 25, 'take_profit_ticks': 60, 'confidence_threshold': 0.60,
                 'trail_distance_tight': 15, 'trail_distance_wide': 40,
-                'pid_kp': 0.2, 'pid_ki': 0.2, 'pid_kd': 0.5, 'gravity_theta': 0.8, 'sigma_decay': 0.99
+                'pid_kp': 0.2, 'pid_ki': 0.2, 'pid_kd': 0.5, 'gravity_theta': 0.8, 'sigma_decay': 0.99,
+                'timeframe_idx': 1
             }
         ]
 
@@ -228,35 +304,60 @@ class DOEParameterGenerator:
         Iterations 510-799: Mutation around best parameters
 
         Takes best params and mutates 10% of values
+        Incorporates Regret Analysis bias to guide mutation
         """
         np.random.seed(day * 1000 + iteration)
 
         params = best_params.copy()
 
-        # Mutate 10% of parameters
+        # Identify parameters with bias
+        biased_params = []
         param_names = list(self.param_ranges.keys())
+        for name in param_names:
+            bias = self._get_mutation_bias(name)
+            if abs(bias) > 0.1:
+                biased_params.append(name)
+
+        # Mutate 10% of parameters + any strongly biased ones
         n_mutations = max(1, int(len(param_names) * mutation_rate))
 
-        mutated_params = np.random.choice(param_names, n_mutations, replace=False)
+        # Always include biased parameters in mutation set
+        random_params = np.random.choice(param_names, n_mutations, replace=False)
+        mutated_params = set(list(random_params) + biased_params)
 
         for param_name in mutated_params:
             if param_name not in self.param_ranges:
                 continue
 
             min_val, max_val, param_type = self.param_ranges[param_name]
+            bias = self._get_mutation_bias(param_name)
 
             if param_type == 'int':
-                # Mutate ±20% with bounds
                 current_val = params.get(param_name, (min_val + max_val) // 2)
-                mutation = np.random.randint(-3, 4)
+
+                # Apply bias: positive bias -> likely positive mutation
+                # Skew distribution:
+                # bias=0.0 -> [-3, 3] centered at 0
+                # bias=0.5 -> [-1, 5] centered at 2
+                # bias=-0.5 -> [-5, 1] centered at -2
+
+                skew = int(bias * INT_SKEW_FACTOR)  # Up to +/- 4.8 shift
+                base_mutation = np.random.randint(INT_MUTATION_MIN, INT_MUTATION_MAX)
+                mutation = base_mutation + skew
+
                 new_val = np.clip(current_val + mutation, min_val, max_val)
                 params[param_name] = int(new_val)
 
             elif param_type == 'float':
-                # Mutate ±15% with bounds
                 current_val = params.get(param_name, (min_val + max_val) / 2)
-                mutation = np.random.uniform(-0.15, 0.15) * current_val
-                new_val = np.clip(current_val + mutation, min_val, max_val)
+
+                # Skew distribution for floats
+                # bias=0.5 -> mean shift +10%
+                skew = bias * FLOAT_SKEW_FACTOR # up to +/- 20% shift
+                noise = np.random.uniform(-FLOAT_NOISE_RANGE, FLOAT_NOISE_RANGE)
+
+                mutation_pct = noise + skew
+                new_val = np.clip(current_val * (1 + mutation_pct), min_val, max_val)
                 params[param_name] = float(new_val)
 
         return ParameterSet(
