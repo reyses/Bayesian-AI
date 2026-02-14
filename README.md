@@ -65,6 +65,7 @@ The system operates on a **LOAD -> TRANSFORM -> ANALYZE -> VISUALIZE** pipeline.
 *   **Fractal Three-Body Quantum**: Uses Roche limits, wave functions, and tunnel probabilities to model market state.
 *   **Bayesian Brain**: Learns probability distributions of "WIN" outcomes for unique quantum states.
 *   **CUDA Acceleration**: Offloads quantum wave function calculations and simulations to the GPU via PyTorch.
+*   **Design of Experiments (DOE)**: Advanced parameter optimization using Latin Hypercube Sampling (LHS), Response Surface Optimization, and PnL-prioritized Regret Analysis.
 
 For detailed architecture, see the [Technical Manual](docs/TECHNICAL_MANUAL.md).
 
