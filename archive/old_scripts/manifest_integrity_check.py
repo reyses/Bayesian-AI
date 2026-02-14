@@ -58,7 +58,7 @@ def check_imports():
         'cuda_modules.velocity_gate',
         'cuda_modules.pattern_detector',
         'cuda_modules.confirmation',
-        'execution.wave_rider',
+        'training.wave_rider',
         'training.databento_loader',
         'training.orchestrator',
         'config.symbols',
