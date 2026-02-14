@@ -1636,12 +1636,12 @@ class BayesianTrainingOrchestrator:
                 _json.dump(payload, tmp, default=str)
                 tmp_path = tmp.name
             os.replace(tmp_path, json_path)
-        except Exception:
+        except OSError as e:
             if 'tmp_path' in locals() and os.path.exists(tmp_path):
                 os.remove(tmp_path)
-            pass  # Non-critical
-
-    def _write_dashboard_json(self, day_metrics, day_result: DayResults, total_days: int, current_day_trades: List[TradeOutcome] = None):
+            import traceback
+            print(f"WARNING: Failed to update training_progress.json: {e}\n{traceback.format_exc()}") # Log the error with full traceback
+            pass
         """Legacy wrapper or direct update (can be used for end-of-day update)."""
         # Ensure history is prepped if called directly (e.g. end of day)
         self._prepare_dashboard_history()
