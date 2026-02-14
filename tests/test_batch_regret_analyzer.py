@@ -115,3 +115,55 @@ def test_fractal_lookahead_logic():
     # Exit: 10:01:00. Peak: 10:06:00.
     # Peak > Exit -> Early Exit.
     assert markers.regret_type == 'closed_too_early'
+
+def test_exit_efficiency_calculation():
+    """Verify exit_efficiency follows the rule: 0 to 1 for wins, negative for losses."""
+    analyzer = BatchRegretAnalyzer()
+
+    # Simple data: flat 100
+    dates = pd.date_range(start='2024-01-01 10:00:00', periods=300, freq='s')
+    prices = np.full(300, 100.0)
+    # Peak at 110 at 10:02:00 (120s)
+    prices[120] = 110.0
+
+    df = pd.DataFrame({'timestamp': dates, 'close': prices, 'high': prices, 'low': prices, 'open': prices, 'volume': 100})
+    df['price'] = df['close']
+
+    entry_time = dates[0].timestamp()
+    peak_time = dates[120].timestamp()
+
+    # Case 1: Perfect Win (Exit at Peak)
+    # Entry 100, Exit 110. Peak 110.
+    # Actual=10. Potential=10. Eff=1.0.
+    t1 = TradeOutcome(state=MockState(), entry_price=100.0, exit_price=110.0, pnl=10.0, result='WIN',
+                      timestamp=peak_time, exit_reason='TP', entry_time=entry_time, exit_time=peak_time, direction='LONG')
+
+    res1 = analyzer.batch_analyze_day([t1], df, current_timeframe='15s')
+    m1 = res1['regret_markers'][0]
+    assert 0.99 < m1.exit_efficiency <= 1.01
+
+    # Case 2: Partial Win (Exit halfway)
+    # Entry 100, Exit 105. Peak 110.
+    # Actual=5. Potential=10. Eff=0.5.
+    mid_time = dates[60].timestamp()
+    t2 = TradeOutcome(state=MockState(), entry_price=100.0, exit_price=105.0, pnl=5.0, result='WIN',
+                      timestamp=mid_time, exit_reason='TP', entry_time=entry_time, exit_time=mid_time, direction='LONG')
+
+    res2 = analyzer.batch_analyze_day([t2], df, current_timeframe='15s')
+    m2 = res2['regret_markers'][0]
+    assert 0.49 < m2.exit_efficiency < 0.51
+
+    # Case 3: Loss (Exit below entry)
+    # Entry 100, Exit 90. Peak 110.
+    # Actual = -10. Potential = 10. Eff = -1.0.
+    # Note: price doesn't actually go to 90 in data, but logic uses exit_price passed in trade.
+    # (assuming peak is found in lookahead even if trade closed lower)
+    stop_time = dates[30].timestamp()
+    t3 = TradeOutcome(state=MockState(), entry_price=100.0, exit_price=90.0, pnl=-10.0, result='LOSS',
+                      timestamp=stop_time, exit_reason='SL', entry_time=entry_time, exit_time=stop_time, direction='LONG')
+
+    res3 = analyzer.batch_analyze_day([t3], df, current_timeframe='15s')
+    m3 = res3['regret_markers'][0]
+    # Potential = 110 - 100 = 10. Actual = 90 - 100 = -10. Eff = -1.0.
+    assert m3.exit_efficiency < 0
+    assert -1.01 < m3.exit_efficiency < -0.99
