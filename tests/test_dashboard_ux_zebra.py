@@ -47,16 +47,7 @@ class TestDashboardZebra(unittest.TestCase):
         tree = dashboard.day_tree
         calls = tree.tag_configure.call_args_list
 
-        found_oddrow_config = False
-        for call in calls:
-            # call.args[0] is the tag name
-            if call.args and call.args[0] == 'oddrow':
-                found_oddrow_config = True
-                # Check background color in kwargs
-                self.assertEqual(call.kwargs.get('background'), COLOR_CARD_BG)
-                break
-
-        self.assertTrue(found_oddrow_config, "Should configure 'oddrow' tag on Treeview with correct background color")
+        tree.tag_configure.assert_any_call('oddrow', background=COLOR_CARD_BG)
 
         # 2. Verify update_day_table applies tags correctly
         # Create dummy data
