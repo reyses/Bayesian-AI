@@ -21,7 +21,7 @@ if PROJECT_ROOT not in sys.path:
 
 from core.bayesian_brain import BayesianBrain, QuantumBayesianBrain
 from training.databento_loader import DatabentoLoader
-from tests.utils import get_test_data_files
+from tests.utils import get_test_data_files, find_test_data_file
 
 def run_training_validation():
     """
@@ -29,13 +29,18 @@ def run_training_validation():
     Uses a small slice of real data to ensure speed.
     """
     # 1. Find Data
-    # Prefer Testing DATA for validation speed
-    testing_data_dir = os.path.join(PROJECT_ROOT, 'tests', 'Testing DATA')
-    data_files = glob.glob(os.path.join(testing_data_dir, "*.dbn*"))
-    data_files.extend(glob.glob(os.path.join(testing_data_dir, "*.parquet")))
+    # Prefer the specific requested file if available
+    specific_file = find_test_data_file('glbx-mdp3-20250730.trades.0000.dbn.zst')
+    if specific_file:
+        data_files = [specific_file]
+    else:
+        # Prefer Testing DATA for validation speed
+        testing_data_dir = os.path.join(PROJECT_ROOT, 'tests', 'Testing DATA')
+        data_files = glob.glob(os.path.join(testing_data_dir, "*.dbn*"))
+        data_files.extend(glob.glob(os.path.join(testing_data_dir, "*.parquet")))
 
-    if not data_files:
-         data_files = get_test_data_files()
+        if not data_files:
+             data_files = get_test_data_files()
 
     # Limit to first 1 file to prevent timeout
     if len(data_files) > 1:
