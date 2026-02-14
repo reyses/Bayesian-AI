@@ -85,8 +85,18 @@ def load_test_data():
         df.set_index('datetime', inplace=True)
 
     # Alias price to close if close is missing (for OHLCV tests)
-    if 'price' in df.columns and 'close' not in df.columns:
-        df['close'] = df['price']
+    if 'price' in df.columns:
+        if 'close' not in df.columns:
+            df['close'] = df['price']
+        if 'open' not in df.columns:
+            df['open'] = df['price']
+        if 'high' not in df.columns:
+            df['high'] = df['price']
+        if 'low' not in df.columns:
+            df['low'] = df['price']
+        if 'volume' not in df.columns:
+            # If volume is missing (unlikely in trades but possible), fill with 1
+            df['volume'] = 1
 
     return df
 
