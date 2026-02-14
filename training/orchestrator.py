@@ -278,6 +278,9 @@ class BayesianTrainingOrchestrator:
                     day_data
                 )
                 self.regret_analyzer.print_analysis(regret_analysis)
+
+                # Feedback loop: Use regret analysis to guide DOE for next day
+                self.param_generator.update_regret_analysis(regret_analysis)
             else:
                 regret_analysis = None
 
