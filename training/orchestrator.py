@@ -255,7 +255,8 @@ class BayesianTrainingOrchestrator:
                 day_number, date, day_data,
                 day_data_15s=day_data_15s, tf_context=tf_context,
                 prev_day_15s=prev_day_15s,
-                precomputed_states=precomputed # Reuse precomputed
+                precomputed_states=precomputed, # Reuse precomputed
+                total_days=total_days
             )
 
             # Add Real stats to day_result for reporting
@@ -843,7 +844,8 @@ class BayesianTrainingOrchestrator:
                      day_data_15s: pd.DataFrame = None,
                      tf_context: Dict = None,
                      prev_day_15s: pd.DataFrame = None,
-                     precomputed_states: list = None) -> DayResults:
+                     precomputed_states: list = None,
+                     total_days: int = 1) -> DayResults:
         """
         Run DOE optimization for single day.
         Routes to GPU-parallel path when CUDA available, CPU sequential otherwise.
@@ -884,11 +886,13 @@ class BayesianTrainingOrchestrator:
                 )
             else:
                 best_idx, all_results = self._optimize_cpu_sequential(
-                    precomputed, day_data, all_param_sets, day_number
+                    precomputed, day_data, all_param_sets, day_number,
+                    date=date, total_days=total_days
                 )
         except ImportError:
             best_idx, all_results = self._optimize_cpu_sequential(
-                precomputed, day_data, all_param_sets, day_number
+                precomputed, day_data, all_param_sets, day_number,
+                date=date, total_days=total_days
             )
 
         # Unpack best result
@@ -1201,12 +1205,16 @@ class BayesianTrainingOrchestrator:
 
         return best_idx, all_results
 
-    def _optimize_cpu_sequential(self, precomputed, day_data, all_param_sets, day_number):
+    def _optimize_cpu_sequential(self, precomputed, day_data, all_param_sets, day_number, date: str = "", total_days: int = 1):
         """CPU fallback: run iterations sequentially (still uses precomputed states)."""
         n_iters = len(all_param_sets)
         best_sharpe = -999.0
         best_idx = 0
         all_results = []
+        best_trades = []
+        best_pnl_so_far = 0.0
+        best_win_rate = 0.0
+        best_avg_duration = 0.0
 
         pbar = tqdm(range(n_iters), desc=f"Optimizing Day {day_number} (CPU)", ncols=100)
 
@@ -1235,7 +1243,30 @@ class BayesianTrainingOrchestrator:
                 best_sharpe = sharpe
                 best_idx = iteration
                 best_pnl_so_far = sum(t.pnl for t in trades)
+                best_win_rate = win_rate
+                best_trades = trades
+                best_avg_duration = np.mean([t.duration for t in trades])
                 tqdm.write(f"  [Iter {iteration:3d}] New best! Sharpe: {best_sharpe:.2f} | WR: {win_rate:.1%} | Trades: {len(trades)} | P&L: ${best_pnl_so_far:.2f}")
+
+            # Update dashboard immediately with current best result
+            if best_trades:
+                current_best_result = DayResults(
+                    day_number=day_number,
+                    date=date,
+                    total_iterations=self.config.iterations,
+                    best_iteration=best_idx,
+                    best_params=all_param_sets[best_idx],
+                    best_sharpe=best_sharpe,
+                    best_win_rate=best_win_rate,
+                    best_pnl=best_pnl_so_far,
+                    total_trades=len(best_trades),
+                    states_learned=len(self.brain.table),
+                    high_confidence_states=len(self.brain.get_all_states_above_threshold()),
+                    execution_time_seconds=0.0,
+                    avg_duration=best_avg_duration,
+                    real_pnl=0.0
+                )
+                self._write_dashboard_json(None, current_best_result, total_days, current_day_trades=best_trades)
 
             pbar.set_postfix({
                 'Trades': len(trades),
@@ -1443,15 +1474,19 @@ class BayesianTrainingOrchestrator:
         print("Dashboard launching in background...")
         time.sleep(2)  # Give it time to initialize
 
-    def _write_dashboard_json(self, day_metrics, day_result: DayResults, total_days: int):
+    def _write_dashboard_json(self, day_metrics, day_result: DayResults, total_days: int, current_day_trades: List[TradeOutcome] = None):
         """Write training_progress.json for the LiveDashboard to poll."""
         import json as _json
 
         json_path = os.path.join(os.path.dirname(__file__), 'training_progress.json')
 
         # Build CUMULATIVE best-iteration trades (not all iterations!)
+        cumulative_trades = self._cumulative_best_trades.copy()
+        if current_day_trades:
+            cumulative_trades.extend(current_day_trades)
+
         trades_data = []
-        for t in self._cumulative_best_trades:
+        for t in cumulative_trades:
             trades_data.append({
                 'pnl': t.pnl,
                 'result': t.result,
@@ -1463,13 +1498,13 @@ class BayesianTrainingOrchestrator:
             })
 
         # Compute cumulative stats from best trades only
-        all_pnls = [t.pnl for t in self._cumulative_best_trades]
+        all_pnls = [t.pnl for t in cumulative_trades]
         total_pnl = sum(all_pnls)
         total_trades = len(all_pnls)
-        total_wins = sum(1 for t in self._cumulative_best_trades if t.result == 'WIN')
+        total_wins = sum(1 for t in cumulative_trades if t.result == 'WIN')
         cum_win_rate = (total_wins / total_trades * 100) if total_trades > 0 else 0.0
         cum_sharpe = (np.mean(all_pnls) / (np.std(all_pnls) + 1e-6)) if total_trades >= 2 else 0.0
-        avg_duration = np.mean([t.duration for t in self._cumulative_best_trades]) if total_trades > 0 else 0.0
+        avg_duration = np.mean([t.duration for t in cumulative_trades]) if total_trades > 0 else 0.0
 
         # Max drawdown
         cum_pnl = np.cumsum(all_pnls) if all_pnls else np.array([0.0])
