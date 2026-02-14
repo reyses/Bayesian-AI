@@ -17,15 +17,44 @@ from core.state_vector import StateVector
 from core.bayesian_brain import BayesianBrain, TradeOutcome
 from archive.layer_engine import LayerEngine
 from config.symbols import MNQ, calculate_pnl
-from tests.utils import load_test_data, get_cuda_availability
+from tests.utils import load_test_data, get_cuda_availability, find_test_data_file
+from training.databento_loader import DatabentoLoader
 
 class TestLegacyLayerEngine(unittest.TestCase):
+    def load_ohlcv_data(self):
+        """Helper to load specific OHLCV data for legacy tests"""
+        # Prefer the OHLCV file in Testing DATA as legacy engine expects OHLCV
+        ohlcv_file = 'glbx-mdp3-20251230-20260129.ohlcv-1s.dbn.zst'
+        path = find_test_data_file(ohlcv_file)
+
+        if path and os.path.exists(path):
+            print(f"Loading OHLCV data from {path}...")
+            df = DatabentoLoader.load_data(path)
+            # Ensure index
+            if 'timestamp' in df.columns and not isinstance(df.index, pd.DatetimeIndex):
+                df['datetime'] = pd.to_datetime(df['timestamp'], unit='s')
+                df.set_index('datetime', inplace=True)
+            elif 'datetime' in df.columns:
+                df['datetime'] = pd.to_datetime(df['datetime'])
+                df.set_index('datetime', inplace=True)
+            elif 'timestamp' in df.columns:
+                df['datetime'] = pd.to_datetime(df['timestamp'], unit='s')
+                df.set_index('datetime', inplace=True)
+
+            if 'price' in df.columns and 'close' not in df.columns:
+                df['close'] = df['price']
+            return df
+
+        # Fallback to default if specific file not found (will likely fail resample if trades only)
+        print("OHLCV file not found, falling back to default load_test_data...")
+        return load_test_data()
+
     def test_layer_engine_computation(self):
         """Test LayerEngine computation (from test_phase1.py)"""
         print("\n=== TEST: LayerEngine Computation ===")
 
-        # Load test data
-        data = load_test_data()
+        # Load test data (specifically OHLCV)
+        data = self.load_ohlcv_data()
         print(f"Loaded {len(data)} rows of data.")
 
         # Resample for different timeframes
@@ -70,7 +99,7 @@ class TestLegacyLayerEngine(unittest.TestCase):
         print("\n=== TEST: Full Integration ===")
 
         # Setup
-        data = load_test_data()
+        data = self.load_ohlcv_data()
         bars_4hr = data.resample('4h').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'}).dropna()
         bars_1hr = data.resample('1h').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'}).dropna()
         bars_15m = data.resample('15min').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'}).dropna()
