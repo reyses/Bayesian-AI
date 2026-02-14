@@ -54,10 +54,8 @@ def get_test_data_files():
         data_files.extend(glob.glob(os.path.join(testing_data_dir, "*.parquet")))
         
     if not data_files and os.path.exists(tests_dir):
-        # Specifically look for the requested file if not found elsewhere
-        specific_file = os.path.join(tests_dir, 'glbx-mdp3-20250730.trades.0000.dbn.zst')
-        if os.path.exists(specific_file):
-            data_files.append(specific_file)
+        data_files.extend(sorted(glob.glob(os.path.join(tests_dir, "*.dbn*"))))
+        data_files.extend(sorted(glob.glob(os.path.join(tests_dir, "*.parquet"))))
 
     return data_files
 
