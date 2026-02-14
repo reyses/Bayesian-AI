@@ -51,8 +51,19 @@ def check_manifest():
             if not isinstance(path, str):
                 print(f"WARNING: Resource '{resource}' in manifest does not have a string path. Skipping.")
                 continue
+
+            # Auto-create directory resources if missing (e.g., DATA/RAW)
             if not os.path.exists(path):
-                missing_files.append(f"Resource [{resource}]: {path}")
+                # If it looks like a directory (no extension), try creating it
+                if '.' not in os.path.basename(path):
+                    try:
+                        print(f"INFO: Creating missing resource directory: {path}")
+                        os.makedirs(path, exist_ok=True)
+                    except OSError as e:
+                        print(f"WARNING: Failed to create resource directory {path}: {e}")
+                        missing_files.append(f"Resource [{resource}]: {path}")
+                else:
+                    missing_files.append(f"Resource [{resource}]: {path}")
 
     if missing_files:
         print("FAIL: The following files are missing from the manifest:")
