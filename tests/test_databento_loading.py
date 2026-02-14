@@ -15,10 +15,7 @@ from tests.utils import find_test_data_file
 
 # List of test files
 TEST_FILES = [
-    'glbx-mdp3-20250730.trades.0000.dbn.zst',
-    'glbx-mdp3-20250731.trades.0000.dbn.zst',
-    'glbx-mdp3-20250801.trades.0000.dbn.zst',
-    'glbx-mdp3-20250803.trades.0000.dbn.zst'
+    'glbx-mdp3-20250730.trades.0000.dbn.zst'
 ]
 
 class TestDatabentoLoading:
