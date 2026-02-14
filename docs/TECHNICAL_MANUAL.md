@@ -1,23 +1,289 @@
 # Bayesian-AI Technical Manual
 
-This document provides a comprehensive technical reference for the Bayesian-AI trading system, consolidating system logic, architecture, module references, and mathematical foundations.
+This document is the **single source of truth** for the Bayesian-AI trading system. It consolidates system logic, parameters, dashboard usage, and legacy architecture references.
 
 ---
 
-## 1. System Logic & Architecture
+## 📚 Table of Contents
 
-The system operates on a strict **LOAD -> TRANSFORM -> ANALYZE -> VISUALIZE** pipeline. It utilizes a 9-layer hierarchical state model to capture market conditions across multiple timeframes, from 90 days down to 1 second.
+1.  [**Part 1: System Logic & Parameters (Current Architecture)**](#part-1-system-logic--parameters-current-architecture)
+    *   [System Architecture Overview](#1-system-architecture-overview)
+    *   [The Learning Cycle (Process Flow)](#2-the-learning-cycle-process-flow)
+    *   [Mathematical Model ("The Nightmare Protocol")](#3-mathematical-model-the-nightmare-protocol)
+    *   [Optimized Parameter Reference](#4-optimized-parameter-reference)
+    *   [Learning Persistence Policy](#5-learning-persistence-policy)
+    *   [Troubleshooting Logic & Math](#6-troubleshooting-logic--math)
+2.  [**Part 2: Dashboard Guide**](#part-2-dashboard-guide)
+    *   [Quick Start](#quick-start)
+    *   [Workflow Sections](#workflow-sections)
+3.  [**Part 3: Legacy Reference (Archived)**](#part-3-legacy-reference-archived)
+    *   [Original 9-Layer Architecture](#original-9-layer-architecture)
+    *   [Module Reference](#module-reference)
+4.  [**Part 4: Current Project Status**](#part-4-current-project-status)
+    *   [Architecture Status](#architecture-status)
+    *   [File Structure](#file-structure)
+    *   [Testing Status](#testing-status)
+
+---
+
+# Part 1: System Logic & Parameters (Current Architecture)
+
+This section details the active **Quantum-Bayesian Hybrid** system, including the "Nightmare Protocol" physics engine and Design of Experiments (DOE) optimization.
+
+## 1. System Architecture Overview
+
+The system combines physics-based state estimation with probabilistic learning.
 
 ### Core Components
-- **`core/engine_core.py` (BayesianEngine):** The central coordinator that manages the trading session, data aggregation, state computation, and trade execution.
-- **`core/layer_engine.py` (LayerEngine):** Responsible for computing the 9-layer state vector. It separates computation into **Static** (L1-L4) and **Fluid** (L5-L9) contexts.
-- **`core/bayesian_brain.py` (BayesianBrain):** The learning module that maintains a probability table mapping state vectors to win rates.
-- **`training/orchestrator.py` (TrainingOrchestrator):** Manages historical data replay to train the Bayesian Brain.
-- **`training/wave_rider.py` (WaveRider):** Handles trade execution, position management, and exit logic.
 
-### The 9-Layer Hierarchy
+1.  **`TrainingOrchestrator` (`training/orchestrator.py`)**: The central nervous system. It manages the data pipeline, simulation loops, and optimization strategies.
+2.  **`QuantumFieldEngine` (`core/quantum_field_engine.py`)**: The physics engine. It computes the "Three-Body Quantum State" for every market tick, applying gravitational and quantum mechanical models to price action.
+3.  **`DOEParameterGenerator` (`training/doe_parameter_generator.py`)**: The strategist. It generates experimental parameter sets using Design of Experiments (DOE) techniques (LHS, Mutation, Response Surface) to optimize performance.
+4.  **`QuantumBayesianBrain` (`core/bayesian_brain.py`)**: The memory. It maps discrete quantum states to historical win/loss probabilities.
+5.  **`WaveRider` (`training/wave_rider.py`)**: The executioner. It manages active positions, trailing stops, and exit logic during simulation.
 
-The system's "vision" is defined by a 9-layer state vector. A trade is only considered when a high-probability state is identified.
+## 2. The Learning Cycle (Process Flow)
+
+The system learns by replaying historical data, simulating trades, and refining its internal probability map (`BayesianBrain`) and external control parameters (`ParameterSet`).
+
+### Logic Flow Diagram
+
+```mermaid
+graph TD
+    A[Start Day] --> B{Pre-compute States}
+    B -->|Vectorized Physics| C[Quantum States Array]
+    C --> D{Walk-Forward Simulation}
+    D -->|Active Params| E[Real PnL Calculation]
+    E --> F{DOE Optimization Loop}
+    F -->|Generate Params| G[Simulate Iteration]
+    G -->|Update Brain| H[Record Outcome]
+    H --> I{Best Iteration?}
+    I -->|Yes| J[Update Best Params]
+    I -->|No| F
+    J --> K[Regret Analysis]
+    K -->|Feedback| L[Next Day Params]
+    L --> A
+```
+
+### Step-by-Step Explanation
+
+1.  **Data Ingestion**: Raw 1-second OHLCV data is loaded and resampled to the target timeframe (default: 15s).
+2.  **Vectorized Pre-computation**: The `QuantumFieldEngine` processes the entire day's data in one pass (using `numpy` or `torch`), computing the `ThreeBodyQuantumState` for every bar. This includes:
+    *   **Gravity Wells**: Attractors based on linear regression centers.
+    *   **Singularities**: "Roche Limits" defined by volatility (Sigma).
+    *   **Wave Function**: Probability amplitudes for price position.
+3.  **Walk-Forward Simulation**: The system trades the current day using the *best parameters found yesterday*. This generates the **"Real PnL"** metric, which represents actual performance on unseen data.
+4.  **Oracle Optimization (DOE)**: The system then "peeks" at the current day to find the optimal parameters *for that specific day*. This updates the `BayesianBrain` with high-quality trade data and sets the baseline for the *next* day's Walk-Forward step.
+    *   **Strategies**: Baseline (fixed), Latin Hypercube (space-filling), Mutation (evolutionary), Response Surface (quadratic optimization).
+5.  **Regret Analysis**: At the end of the day, the system analyzes "money left on the table" (e.g., exiting too early). This feedback biases the Mutation strategy for the next day (e.g., "try holding longer").
+
+## 3. Mathematical Model ("The Nightmare Protocol")
+
+The core physics engine applies concepts from celestial mechanics and quantum mechanics to financial time series.
+
+### A. Three-Body Gravity
+The market is modeled as a particle (Price) moving in a potential field generated by three "bodies":
+1.  **Center Mass (Mean)**: The linear regression line of the macro trend (default: 21 bars).
+2.  **Upper Singularity (Resistance)**: $Center + 2\sigma$.
+3.  **Lower Singularity (Support)**: $Center - 2\sigma$.
+
+**Force Equation**:
+$$ F_{gravity} = -\theta \cdot (Price - Center) $$
+*   $\theta$ (`gravity_theta`): The mean reversion speed (Ornstein-Uhlenbeck parameter).
+
+### B. Fractal Diffusion
+Volatility ($\sigma$) is not constant. It scales based on the **Hurst Exponent ($H$)**, which measures the time series' "roughness" or trend persistence.
+
+**Nightmare Sigma Formula**:
+$$ \sigma_{fractal} = \sigma_{base} \cdot \left( \frac{v_{micro}}{v_{macro}} \right)^H $$
+*   $v_{micro}$: Tick-by-tick velocity.
+*   $v_{macro}$: Rolling average volatility.
+*   $H$: Hurst exponent ($0.5 = Random, >0.5 = Trending, <0.5 = Mean Reverting$).
+
+### C. PID Control (Algorithmic Counter-Force)
+To model algorithmic trading reaction, a PID controller applies a force opposing the price error (deviation from mean).
+
+**PID Force**:
+$$ F_{pid} = -(K_p \cdot e + K_i \cdot \int e dt + K_d \cdot \frac{de}{dt}) $$
+*   $e$: Error ($Price - Center$).
+*   $K_p, K_i, K_d$: Optimized parameters.
+
+### D. Quantum Wave Function
+The probability of the price being at a location is modeled by a superposition of states.
+
+**Wave Equation**:
+$$ \Psi(x) = a_0 \cdot \psi_{center} + a_1 \cdot \psi_{upper} + a_2 \cdot \psi_{lower} $$
+*   The square of the amplitude $|\Psi(x)|^2$ gives the probability density.
+*   **Tunneling**: The probability of price "tunneling" through a barrier (Roche Limit) is calculated using the WKB approximation:
+    $$ P_{tunnel} \approx \exp\left(-2 \int \sqrt{2m(V(x)-E)} dx\right) $$
+
+## 4. Optimized Parameter Reference
+
+These parameters are dynamically tuned by `DOEParameterGenerator` to maximize PnL and Sharpe Ratio.
+
+### Core Strategy Parameters
+
+| Parameter | Range | Type | Description |
+| :--- | :--- | :--- | :--- |
+| `stop_loss_ticks` | 10 - 25 | Int | Initial stop loss distance (in ticks). 1 tick = 0.25 pts (MNQ). |
+| `take_profit_ticks` | 30 - 60 | Int | Fixed take profit target (in ticks). |
+| `confidence_threshold` | 0.30 - 0.70 | Float | Minimum Bayesian confidence required to enter a trade. |
+| `max_hold_seconds` | 300 - 900 | Int | Time limit before forcing a trade exit. |
+| `trading_cost_points` | 0.25 - 1.0 | Float | Simulated slippage + commission per round trip. |
+| `timeframe_idx` | 0 - 5 | Int | Aggregation interval: 0=5s, 1=15s, 2=60s, 3=5m, 4=15m, 5=1h. |
+
+### Trailing Stop Logic
+
+| Parameter | Range | Type | Description |
+| :--- | :--- | :--- | :--- |
+| `trail_activation_profit` | 30 - 100 | Int | Profit (ticks) required to activate trailing stop. |
+| `trail_distance_tight` | 5 - 15 | Int | Trailing distance (ticks) when profit is low. |
+| `trail_distance_wide` | 20 - 40 | Int | Trailing distance (ticks) when profit is high. |
+
+### Physics & Control (Nightmare Equation)
+
+| Parameter | Range | Type | Description |
+| :--- | :--- | :--- | :--- |
+| `gravity_theta` | 0.1 - 0.8 | Float | Strength of mean reversion pull ($F_{gravity}$). |
+| `pid_kp` | 0.1 - 1.0 | Float | Proportional gain (Reaction to immediate error). |
+| `pid_ki` | 0.01 - 0.2 | Float | Integral gain (Reaction to accumulated error). |
+| `pid_kd` | 0.1 - 0.5 | Float | Derivative gain (Dampening of error rate). |
+| `sigma_decay` | 0.8 - 0.99 | Float | Decay rate for volatility memory. |
+
+### Signal Confirmation Filters
+
+| Parameter | Range | Type | Description |
+| :--- | :--- | :--- | :--- |
+| `cascade_min_points` | 5 - 20 | Int | Minimum price move to trigger L9 Cascade detection. |
+| `min_entry_velocity` | 2 - 10 | Int | Minimum tick velocity required for entry. |
+| `volume_spike_threshold` | 1.5 - 3.0 | Float | Volume multiple above mean required for confirmation. |
+| `killzone_tolerance_ticks`| 3 - 10 | Int | Allowed deviation from key support/resistance zones. |
+
+## 5. Learning Persistence Policy
+
+The system enforces a strict checkpointing policy to ensure training progress is never lost and results are reproducible.
+
+### A. Checkpoint Triggers
+Persistence operations are triggered automatically at the **End of Every Training Day**, immediately after the Optimization Loop completes.
+
+### B. Artifact Storage
+All artifacts are saved to the `checkpoints/` directory (configurable via `--checkpoint-dir`).
+
+| Artifact | File Pattern | Content Description |
+| :--- | :--- | :--- |
+| **Brain State** | `day_{NNN}_brain.pkl` | The complete `BayesianBrain` probability table, including all learned states and win/loss counts up to this day. |
+| **Best Parameters** | `day_{NNN}_params.pkl` | The optimal `ParameterSet` discovered for this specific day (used for the next day's Walk-Forward). |
+| **Day Results** | `day_{NNN}_results.pkl` | A `DayResults` object containing performance metrics (PnL, Sharpe, Win Rate) for both Walk-Forward and Optimized runs. |
+| **Dynamic Binner** | `dynamic_binner.pkl` | The shared histogram binning model, saved once initialized to ensure consistent state discretization across all days. |
+| **Training Log** | `training_log.json` | A cumulative JSON log of daily summaries for external analysis. |
+
+### C. Atomic Operations
+To prevent data corruption or race conditions with the Live Dashboard:
+*   The `training_progress.json` file (used by the dashboard) is updated using an **atomic write pattern** (write to temp file -> `os.replace`).
+
+## 6. Troubleshooting Logic & Math
+
+### Interpreting the Dashboard vs. Terminal
+*   **Terminal Output**: Shows **"Walk-Forward / Real"** results. This is the performance using parameters optimized on *past* data applied to *current* (unseen) data. This is the true test of the system's predictive power.
+*   **Live Dashboard**: Shows **"Oracle / Optimized"** results. This is the best possible PnL found for the *current* day after optimization. It represents the "potential" of the strategy if it had perfect foresight.
+
+### Convergence Issues
+If `Real PnL` is consistently negative while `Optimized PnL` is positive:
+1.  **Overfitting**: The DOE is finding parameters that work only for specific noise patterns. Increase `min_samples_required` or reduce parameter ranges.
+2.  **Regime Change**: The market dynamics (volatility, trend) are shifting faster than the learning rate. Check `sigma_decay` and `gravity_theta`.
+
+### CUDA vs. CPU Execution
+*   The system auto-detects CUDA.
+*   **Physics Engine**: Vectorized on CPU (numpy) or GPU (torch).
+*   **DOE Optimization**:
+    *   **CPU**: Sequential processing of parameter sets.
+    *   **GPU**: Parallel simulation of all parameter sets simultaneously.
+*   If `scripts/fix_cuda.py` is needed, run it to force a reinstall of PyTorch with CUDA support.
+
+### Common Errors
+*   **"Insufficient Data"**: The `QuantumFieldEngine` requires a warmup period (default 21 bars) to compute regression slopes. Ensure data feeds have enough history.
+*   **"Singular Matrix"**: Occurs in Response Surface Optimization (Ridge Regression) if parameter sets are too similar. The system automatically falls back to Mutation strategy.
+
+---
+
+# Part 2: Dashboard Guide
+
+The **Bayesian-AI Dashboard** (`notebooks/dashboard.ipynb`) is the primary consolidated interface for verifying the system environment, performing rapid learning simulations, and executing full training cycles.
+
+## Quick Start
+
+1. **Install Requirements**
+   ```bash
+   pip install -r requirements.txt
+   ```
+   *Note: Ensure `jupyter` and `ipywidgets` are installed.*
+
+2. **Generate/Reset Notebook**
+   If the notebook is missing or you want to reset it to the latest version:
+   ```bash
+   python scripts/generate_dashboard.py
+   ```
+
+3. **Launch Notebook**
+   ```bash
+   jupyter notebook notebooks/dashboard.ipynb
+   ```
+
+## Workflow Sections
+
+### 1. Preflight & Environment Checks ✈️
+Verifies the operational readiness of the system.
+*   **Operational Mode**: Must be set to `LEARNING` in `config/settings.py`.
+*   **Environment**: Checks Python version and path resolution.
+*   **CUDA Audit**: Runs the 3-stage hardened verification (Handshake -> Injection -> Handoff) to ensure the GPU is ready for heavy lifting. Logs details to `CUDA_Debug.log`.
+
+### 2. Data Pipeline Test 📊
+*   Validates loading of a single data file from `DATA/RAW`.
+*   Ensures that data can be read and processed correctly before attempting larger operations.
+
+### 3. Core Component Tests ⚙️
+*   Verifies initialization of critical modules: `StateVector`, `BayesianBrain`, and `LayerEngine`.
+*   Checks if CUDA acceleration is active for the Layer Engine.
+
+### 4. Quick Learn: 3 Discrete Day Simulation 🎲
+This is the "Quick Learning" phase.
+*   **Action**: Randomly selects 3 distinct files/days from the available dataset.
+*   **Process**: Runs a "simulation" (1 training iteration) for each file individually using the `TrainingOrchestrator`.
+*   **Goal**: Rapidly verify that the logic holds up across different market conditions without waiting for a full historical run.
+*   **Output**: Displays Win Rate and PnL for each of the 3 sampled files.
+
+### 5. Mini Training Run (5 Iterations) 🏃‍♂️
+*   Runs a short, interactive 5-iteration training session on the sample data loaded in Section 2.
+*   Useful for a quick end-to-end test of the training loop logic.
+
+### 6. Full Learning Cycle (Production Run) 🚀
+Once confident in the Quick Learn and Mini Run results:
+*   **Action**: Triggers the `TrainingOrchestrator` on the **entire** dataset.
+*   **Parameters**: Default 50 iterations (can be adjusted in the cell code).
+*   **Output**: Saves the final trained model to `models/production_learning/probability_table.pkl` and visualizes PnL/Confidence in real-time.
+
+### 7. Result Analysis & Visualization 📈
+*   Inspects the learned probability tables.
+*   Compares the "Quick Learn", "Mini Run", and "Production Model" results.
+*   Integrates with the Visualization Module to plot training results.
+
+## ⚠️ Notes
+
+- **Operational Mode**: The system enforces `LEARNING` mode to prevent accidental live execution commands during training.
+- **Resource Usage**: The "Quick Learn" step loads data into memory. Ensure you have sufficient RAM.
+- **CUDA**: The Full Learning Cycle enforces GPU usage by default. Ensure your environment is CUDA-ready.
+
+---
+
+# Part 3: Legacy Reference (Archived)
+
+> **⚠️ NOTE: DEPRECATED ARCHITECTURE**
+>
+> This section describes the original **9-Layer Hierarchy**. While concepts like the Data Pipeline and Bayesian Brain remain, the specific Layer 1-9 logic has been superseded by the Quantum Field Engine described in Part 1.
+
+## Original 9-Layer Architecture
+
+The system's "vision" was defined by a 9-layer state vector.
 
 | Layer | Timeframe | Description | Computation Type | Logic / Thresholds |
 |-------|-----------|-------------|------------------|-------------------|
@@ -31,156 +297,9 @@ The system's "vision" is defined by a 9-layer state vector. A trade is only cons
 | **L8** | 5-Min | **Confirmation** (Volume) | Fluid (**CUDA**) | **Confirmed:** Current volume > 1.2x mean of last 3 volumes.<br>**Unconfirmed:** Otherwise. |
 | **L9** | 1-Sec | **Velocity** (Cascade) | Fluid (**CUDA**) | **Cascade:** ≥ 10 points movement in ≤ 0.5 seconds.<br>(Uses sliding window of last 50 ticks). |
 
-### Learning Function (Training)
+## Module Reference
 
-The learning process involves replaying historical data to populate the `BayesianBrain`'s probability table. This is orchestrated by `training/orchestrator.py`.
-
-#### Workflow
-1.  **Data Loading:**
-    - Loads `.dbn` (Databento) or `.parquet` files.
-    - Concatenates multiple files and sorts by timestamp.
-    - Resamples tick data to 1-second OHLC for static context generation if needed.
-
-2.  **Static Context Initialization:**
-    - The `LayerEngine` computes L1-L4 based on the entire historical dataset up to the start point.
-
-3.  **Iteration Loop:**
-    - The system runs for a specified number of `iterations` (default: 1000).
-    - For each iteration:
-        - **Tick Simulation:** Processes historical ticks sequentially.
-        - **State Computation:** `LayerEngine` computes the current 9-layer state.
-        - **Trade Simulation:**
-            - If `L9_cascade` triggers AND `BayesianBrain` confirms high probability, a trade is simulated.
-        - **Outcome Recording:** WIN/LOSS results update the `BayesianBrain`.
-
-4.  **Bayesian Update Logic (`bayesian_brain.py`):**
-    - **Probability:** Calculated using Laplace Smoothing:
-      $$ P = \frac{\text{wins} + 1}{\text{total} + 2} $$
-    - **Confidence:** Based on sample size (saturation at 30 samples):
-      $$ C = \min\left(\frac{\text{total}}{30.0}, 1.0\right) $$
-
-#### Optimization Modes
-- **Grid Search:** Systematically tests combinations of `min_prob`, `min_conf`, etc.
-- **Walk-Forward:** Trains on a window (e.g., Week 1), tests on the next (Week 2), moves forward.
-- **Monte Carlo:** Randomly samples contiguous data blocks to test robustness.
-
-### Live Trading Function
-
-In live mode, the system uses the pre-trained `BayesianBrain` to make real-time decisions.
-
-#### Workflow
-1.  **Initialization:**
-    - `BayesianEngine` loads `probability_table.pkl`.
-    - `LayerEngine` initializes L1-L4 using recent history.
-    - Auto-detects GPU availability; falls back to CPU if necessary.
-
-2.  **Real-Time Tick Processing:**
-    - **Aggregation:** Ticks -> 1s, 5m, 15m, 1h, 4h bars.
-    - **Computation:** L5-L6 (CPU), L7-L9 (CUDA).
-
-3.  **Decision Logic:**
-    - **Entry Trigger:**
-        1.  **L9 Velocity:** `True` (Cascade detected).
-        2.  **Bayesian Check:** `Probability >= MIN_PROB` (0.80) AND `Confidence >= MIN_CONF` (0.30).
-    - **Execution:** `WaveRider.open_position()`.
-
-4.  **Position Management (`WaveRider`):**
-    - **Initial Stop Loss:** Entry ± 20 ticks.
-    - **Adaptive Trailing Stop:**
-        - Profit < $50: Trail 10 ticks.
-        - Profit < $150: Trail 20 ticks.
-        - Profit >= $150: Trail 30 ticks.
-    - **Exits:**
-        - Stop Loss Hit.
-        - Trailing Stop Hit.
-        - **Structure Break:** L7 pattern changes or L8 volume confirmation lost.
-
-### CUDA Acceleration Modules
-
-The system delegates computationally intensive tasks to the GPU via Numba.
-
-#### Pattern Detector (L7)
-- **File:** `cuda_modules/pattern_detector.py`
-- **Logic:** Parallelizes pattern checks over bar windows.
-- **Optimization:** Transfers only the last 200 bars (`LOOKBACK`) to GPU to minimize latency.
-- **Priorities:** Checks **Compression** first (highest priority), then **Wedge**, then **Breakdown**.
-
-#### Confirmation Engine (L8)
-- **File:** `cuda_modules/confirmation.py`
-- **Logic:** Vectorized volume analysis.
-- **Threshold:** Volume > 1.2 * Mean(Last 3 Volumes).
-- **Optimization:** Transfers last 100 volume points.
-
-#### Velocity Gate (L9)
-- **File:** `cuda_modules/velocity_gate.py`
-- **Logic:** High-speed cascade detection on raw ticks.
-- **Kernel:** Scans last 50 ticks per thread.
-- **Condition:** Absolute price move ≥ 10.0 points within ≤ 0.5 seconds.
-- **Optimization:** Only processes recent tick buffer.
-
-### Safety & Risk Management
-
-- **Max Daily Loss:** Trading halts if `daily_pnl < MAX_DAILY_LOSS` (default -$200).
-- **Kill Zones:** Specific price levels where trading can be restricted or emphasized.
-- **Graceful Degradation:** All CUDA modules have explicit CPU fallbacks if `numba.cuda` is unavailable or fails to initialize.
-
----
-
-## 2. Project Map & Module Reference
-
-### File Structure
-
-```text
-.
-├── AGENTS.md               # Instructions for AI agents
-├── CURRENT_STATUS.md       # Live project health and code stats
-├── DATA/                   # Data storage
-│   └── RAW/                # Raw market data (DBN/Parquet)
-├── README.md               # Project Entry Point
-├── config/                 # Configuration and Constants
-│   ├── settings.py
-│   ├── symbols.py
-│   └── workflow_manifest.json
-├── core/                   # Core Logic Engines
-│   ├── bayesian_brain.py
-│   ├── data_aggregator.py
-│   ├── engine_core.py      # (Entry Point Alias)
-│   ├── layer_engine.py
-│   └── state_vector.py
-├── cuda_modules/           # GPU-Accelerated Components (Numba)
-│   ├── confirmation.py
-│   ├── hardened_verification.py
-│   ├── pattern_detector.py
-│   └── velocity_gate.py
-├── docs/                   # Documentation
-│   ├── CHANGELOG.md
-│   ├── LEARNING_DASHBOARD_GUIDE.md
-│   ├── TECHNICAL_MANUAL.md
-│   └── archive/
-├── notebooks/              # Jupyter Notebooks
-│   └── learning_dashboard.ipynb
-├── requirements.txt        # Python Dependencies
-├── scripts/                # Utility & Build Scripts
-│   ├── build_executable.py
-│   ├── generate_learning_dashboard.py
-│   ├── generate_status_report.py
-│   ├── inspect_results.py
-│   ├── manifest_integrity_check.py
-│   ├── sentinel_bridge.py
-│   ├── setup_test_data.py
-│   └── verify_environment.py
-├── tests/                  # Test Suite
-│   ├── test_*.py
-│   └── topic_*.py
-└── training/               # Historical Learning Pipeline
-    ├── databento_loader.py
-    ├── orchestrator.py
-    └── wave_rider.py
-```
-
-### Module Reference
-
-#### 2.1 Core Modules (`core/`)
+### Core Modules (`core/`)
 
 **`core/engine_core.py` (BayesianEngine)**
 *   **Purpose:** Central coordinator that ties together Data, Logic, Learning, and Execution.
@@ -198,28 +317,7 @@ The system delegates computationally intensive tasks to the GPU via Numba.
     *   `_compute_L7_15m(...)`: Delegates to `pattern_detector`.
     *   `_compute_L9_1s(...)`: Delegates to `velocity_gate`.
 
-**`bayesian_brain.py` (BayesianBrain)**
-*   **Purpose:** Learns win probabilities for state vectors. Uses a HashMap (`StateVector` -> `TradeStats`).
-*   **Key Methods:**
-    *   `update(outcome)`: Updates `wins`/`losses` for a specific state.
-    *   `get_probability(state)`: Returns `(wins + 1) / (total + 2)` (Laplace Smoothing).
-    *   `get_confidence(state)`: Returns `min(total / 30.0, 1.0)`.
-    *   `should_fire(state)`: Returns True if Prob and Conf meet thresholds.
-    *   `save/load(filepath)`: Persists knowledge to `probability_table.pkl`.
-
-**`state_vector.py` (StateVector)**
-*   **Purpose:** Immutable hashable object representing the market state.
-*   **Fields:** `L1_bias`, `L2_regime`, `L3_swing`, `L4_zone`, `L5_trend`, `L6_structure`, `L7_pattern`, `L8_confirm`, `L9_cascade`.
-*   **Logic:** `__hash__` and `__eq__` strictly exclude metadata (`timestamp`, `price`) to ensure identical market conditions map to the same key.
-
-**`data_aggregator.py` (DataAggregator)**
-*   **Purpose:** Manages a ring buffer of ticks and generates OHLC bars on demand.
-*   **Key Methods:**
-    *   `add_tick(tick)`: Inserts new tick into numpy buffers.
-    *   `get_current_data()`: Returns a snapshot dict with 'ticks', 'bars_5m', 'bars_15m', etc.
-    *   `_get_ordered_data()`: Reconstructs chronological arrays from ring buffer.
-
-#### 2.2 CUDA Modules (`cuda_modules/`)
+### CUDA Modules (`cuda_modules/`)
 
 **`pattern_detector.py` (CUDAPatternDetector)**
 *   **Purpose:** L7 Pattern Recognition on 15m bars.
@@ -238,134 +336,43 @@ The system delegates computationally intensive tasks to the GPU via Numba.
 *   **Logic:** Checks if price moves ≥ 10 points in ≤ 0.5s within the last 50 ticks.
 *   **Optimization:** Processes only relevant tail of tick data.
 
-#### 2.3 Execution (`training/`)
-
-**`wave_rider.py` (WaveRider)**
-*   **Purpose:** Manages active positions.
-*   **Key Methods:**
-    *   `open_position(entry_price, side, state)`: Sets initial Stop Loss (20 ticks).
-    *   `update_trail(current_price, current_state)`: Updates High Water Mark and calculates Adaptive Trailing Stop.
-*   **Adaptive Trail:**
-    *   Profit < $50: Trail 10 ticks.
-    *   Profit < $150: Trail 20 ticks.
-    *   Profit >= $150: Trail 30 ticks.
-*   **Exits:** Stop Loss, Trailing Stop, or Structure Break (L7 change / L8 loss).
-
-#### 2.4 Training (`training/`)
-
-**`orchestrator.py` (TrainingOrchestrator)**
-*   **Purpose:** Runs backtests/training loops.
-*   **Key Methods:**
-    *   `run_training(iterations)`: Main loop. Replays data -> `BayesianEngine.on_tick`.
-    *   `run_grid_search(param_grid)`: Optimizes `min_prob`, `min_conf`, etc.
-    *   `run_walk_forward(...)`: Tests robustness over sliding time windows.
-    *   `run_monte_carlo(...)`: Randomly samples data blocks.
-
-**`databento_loader.py` (DatabentoLoader)**
-*   **Purpose:** Loads `.dbn` files.
-*   **Logic:** Normalizes columns to `['timestamp', 'price', 'volume', 'type']`. Preserves OHLC if present. Filters for trade events (`action='T'`).
-
-### Configuration & Constants (`config/`)
-
-**`settings.py`**
-*   `OPERATIONAL_MODE`: "LEARNING" (Default) or "EXECUTE".
-*   `RAW_DATA_PATH`: "DATA/RAW".
-
-**`symbols.py`**
-*   Defines asset profiles (Tick Size, Point Value, Fee).
-*   **MNQ:** Tick 0.25, Point $2, Fee $0.50.
-*   **ES:** Tick 0.25, Point $50, Fee $2.00.
-
-### Global Variables & Thresholds
-
-| Component | Variable | Value | Description |
-|-----------|----------|-------|-------------|
-| **BayesianEngine** | `MAX_DAILY_LOSS` | -200.0 | Daily stop loss limit ($) |
-| **BayesianEngine** | `MIN_PROB` | 0.80 | Minimum win probability to trade |
-| **BayesianEngine** | `MIN_CONF` | 0.30 | Minimum confidence score |
-| **LayerEngine** | `L1_bias` | ±5% | 90-day change threshold |
-| **LayerEngine** | `L2_regime` | 1.5x | Trending vs Chopping range multiplier |
-| **VelocityGate** | `cascade_threshold` | 10.0 | Points moved for cascade |
-| **VelocityGate** | `time_window` | 0.5 | Time (s) for cascade move |
-| **WaveRider** | `stop_dist` | 20 ticks | Initial stop loss distance |
-
 ---
 
-## 3. Mathematical & Data Report
+# Part 4: Current Project Status
 
-### Mathematical Application
+> **Snapshot Timestamp:** 2026-02-11
 
-The Bayesian-AI system applies mathematics primarily through its **Bayesian Probability Engine** and **High-Frequency State Analysis**.
+## Architecture Status
+- **Current State:** QUANTUM (Fractal Three-Body)
+- **Active Engine:** Fractal Three-Body Quantum (PyTorch)
+- **Archived Engine:** Legacy 9-Layer Hierarchy (Moved to `archive/`)
+- **Details:** See `AUDIT_REPORT_2026_02_12.md`
 
-#### A. Bayesian Probability (`core/bayesian_brain.py`)
+## File Structure
+*Key directories and files relevant to current development.*
 
-The core decision-making logic relies on Bayesian inference to estimate the probability of a "WIN" outcome given a specific market state.
+```
+Bayesian-AI/
+│   ├── AGENTS.md
+│   ├── README.md
+│   ├── launch_full_training.sh
+│   ├── requirements.txt
+│   ├── AUDIT/                  # Audit reports
+│   ├── DATA/                   # Data storage
+│   ├── archive/                # Deprecated code
+│   ├── config/                 # Configuration
+│   ├── core/                   # Core Logic Engines (Quantum Field, Brain)
+│   ├── cuda_modules/           # GPU-Accelerated Components (Legacy/Mixed)
+│   ├── docs/                   # Documentation (Technical Manual)
+│   ├── execution/              # Trade Execution Logic
+│   ├── notebooks/              # Jupyter Notebooks (Dashboard)
+│   ├── scripts/                # Utility & Build Scripts
+│   ├── tests/                  # Test Suite
+│   ├── training/               # Historical Learning Pipeline
+│   └── visualization/          # Dashboard Code
+```
 
-1.  **State Representation**:
-    The market is discretized into a unique `StateVector` composed of 9 hierarchical layers (L1-L9).
-    $$ S = \{L1, L2, L3, L4, L5, L6, L7, L8, L9\} $$
-    This vector serves as the key for the probability lookup table.
-
-2.  **Probability Estimation**:
-    The system calculates the win probability $P(Win|S)$ using **Laplace Smoothing** to handle small sample sizes and avoid zero-probability issues.
-
-    $$ P(Win|S) = \frac{Wins + 1}{Total\_Trials + 2} $$
-
-    *   **Prior**: With 0 data, $P(Win|S) = \frac{0+1}{0+2} = 0.5$ (Neutral 50%).
-    *   **Updates**: As trades execute, the counts ($Wins$, $Total$) are updated in the `probability_table.pkl`.
-
-3.  **Confidence Metric**:
-    A confidence score determines if the sample size is sufficient to trust the probability estimate.
-
-    $$ C(S) = \min\left(\frac{Total\_Trials}{30}, 1.0\right) $$
-
-    *   Full confidence (1.0) is achieved at **30 samples**.
-    *   A trade is only executed if $P(Win|S) \ge 0.80$ and $C(S) \ge 0.30$.
-
-#### B. High-Frequency Math (`cuda/velocity_gate.py`)
-
-The **L9 Velocity Gate** prevents execution during adverse high-volatility events (cascades) using a sliding window algorithm.
-
-1.  **Cascade Detection**:
-    The system analyzes the last **50 ticks** to detect rapid price displacements.
-
-    $$ \Delta P = | \max(P_{window}) - \min(P_{window}) | $$
-    $$ \Delta t = t_{end} - t_{start} $$
-
-    A cascade is flagged if:
-    $$ \Delta P \ge 10.0 \text{ points} \quad \text{AND} \quad \Delta t \le 0.5 \text{ seconds} $$
-
-2.  **Optimization**:
-    To maintain $O(1)$ performance on high-frequency data streams, the system creates a localized slice (buffer) of the last **200 ticks** before passing data to the CPU/GPU, ensuring processing time does not scale with total history size.
-
-### Databento File Usage
-
-The system is designed to ingest and process high-fidelity market data from **Databento** (`.dbn` files).
-
-#### A. Ingestion Pipeline (`training/databento_loader.py`)
-
-1.  **Loading**:
-    The system uses the `databento` Python library to read compressed Databento files (`.dbn.zst`).
-    ```python
-    data = db.DBNStore.from_file(filepath)
-    df = data.to_df()
-    ```
-
-2.  **Normalization**:
-    Raw Databento columns are mapped to the internal schema:
-    *   `ts_event` / `ts_recv` $\rightarrow$ `timestamp` (converted to UNIX float seconds)
-    *   `price` / `close` $\rightarrow$ `price`
-    *   `size` / `volume` $\rightarrow$ `volume`
-    *   `action` / `side` $\rightarrow$ `type`
-
-    *Update*: The loader was enhanced to preserve OHLC columns (`open`, `high`, `low`) when processing OHLCV data, ensuring compatibility with Layer 1-4 static context generation.
-
-#### B. Data Flow
-
-1.  **Training Mode**:
-    *   **Input**: Historical `.dbn` files or `.parquet` archives in `DATA/RAW`.
-    *   **Process**: `TrainingOrchestrator` iterates through ticks, simulating the `BayesianEngine` response to build the probability table.
-    *   **Output**: A trained `probability_table.pkl`.
-
-2.  **Verification**:
-    *   Scripts like `scripts/setup_test_data.py` convert raw Databento trades into standardized Parquet files (`trades.parquet`, `ohlcv-1s.parquet`) to facilitate rapid integration testing without re-parsing large `.dbn` files repeatedly.
+## Testing Status
+*   **Logic Core Validation:** PASS (`pytest tests/topic_math.py`)
+*   **Manifest Integrity:** PASS (All required files present)
+*   **Training Validation:** SUCCESS (End-to-end training loop functional)
