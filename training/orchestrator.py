@@ -245,7 +245,8 @@ class BayesianTrainingOrchestrator:
 
             precomputed = self._precompute_day_states(
                 day_data, interval=interval, tf_context=tf_context,
-                prev_day_1s=prev_day_1s
+                prev_day_1s=prev_day_1s,
+                date=date
             )
 
             # === STEP 2: WALK-FORWARD SIMULATION (Real PnL) ===
@@ -330,18 +331,21 @@ class BayesianTrainingOrchestrator:
 
     def _precompute_day_states(self, day_data: pd.DataFrame, interval: str = '15s',
                                tf_context: Dict = None,
-                               prev_day_1s: pd.DataFrame = None):
+                               prev_day_1s: pd.DataFrame = None,
+                               date: str = None):
         """
         Pre-compute all states, probabilities, and confidences for a day ONCE.
 
         Uses vectorized batch computation (numpy arrays + optional CUDA)
         instead of per-bar loop. ~10-50x faster than original.
+        Now includes caching mechanism to avoid recomputing states.
 
         Args:
             day_data: 1s OHLCV data for the day (used for trade simulation)
             interval: Aggregation interval (e.g., '5s', '15s', '60s')
             tf_context: Multi-timeframe context from MultiTimeframeContext.get_context_for_day()
             prev_day_1s: Previous day's 1s data for warming up regression windows
+            date: Date string (YYYY-MM-DD) for caching. If None, caching is disabled.
 
         Returns:
             List of dicts with bar_idx, state, price, prob, conf, structure_ok, direction
@@ -358,35 +362,86 @@ class BayesianTrainingOrchestrator:
         prices = day_data['price'].values if 'price' in day_data.columns else day_data['close'].values
         timestamps = day_data['timestamp'].values if 'timestamp' in day_data.columns else np.zeros(len(day_data))
 
-        # Resample on the fly
-        resampled_data, idx_map_agg_to_1s = self._resample_data(day_data, interval)
+        # Always set these (needed for simulation even if cached)
+        self._day_prices = prices
+        self._day_timestamps = timestamps
 
-        # === WARMUP: Prepend previous day's tail to fix cold-start regression ===
-        warmup_bars = 0
-        if prev_day_1s is not None and not prev_day_1s.empty:
-            # Need 21 bars of aggregated history
-            # Estimate how many 1s bars we need: 21 * interval_seconds (approx) + buffer
-            # Safe bet: last 1000 bars of 1s data, resampled
-            prev_tail = prev_day_1s.tail(2000).copy()
-            warmup_agg, _ = self._resample_data(prev_tail, interval)
-
-            if not warmup_agg.empty:
-                # Take last 50 aggregated bars
-                warmup_agg = warmup_agg.tail(50)
-                warmup_bars = len(warmup_agg)
-                resampled_data = pd.concat([warmup_agg, resampled_data], ignore_index=True)
-
-        if len(resampled_data) < 21:
-            self._day_prices = prices
-            self._day_timestamps = timestamps
-            return []
-
-        print(f"  Pre-computing states for {len(resampled_data) - 21:,} bars "
-              f"({interval}, {len(day_data):,} 1s bars)...", end='', flush=True)
         precompute_start = time.time()
+        batch_results = None
+        cache_file = None
 
-        # === VECTORIZED BATCH COMPUTATION on aggregated bars ===
-        batch_results = self.engine.batch_compute_states(resampled_data, use_cuda=True)
+        # 1. Check Cache
+        if date:
+            cache_dir = os.path.join(PROJECT_ROOT, 'cache', 'precomputed_states')
+            os.makedirs(cache_dir, exist_ok=True)
+            safe_interval = interval.replace('/', '_') # Safety for filenames
+            cache_file = os.path.join(cache_dir, f"states_{date}_{safe_interval}.pkl")
+
+            if os.path.exists(cache_file):
+                print(f"  Loading precomputed states from {cache_file}...", end='', flush=True)
+                try:
+                    with open(cache_file, 'rb') as f:
+                        batch_results = pickle.load(f)
+                    print(" done.")
+                except Exception as e:
+                    print(f" failed ({e}). Recomputing.")
+                    batch_results = None
+
+        # 2. Compute if not in Cache
+        if batch_results is None:
+            # Resample on the fly
+            resampled_data, idx_map_agg_to_1s = self._resample_data(day_data, interval)
+
+            # === WARMUP: Prepend previous day's tail to fix cold-start regression ===
+            warmup_bars = 0
+            if prev_day_1s is not None and not prev_day_1s.empty:
+                # Need 21 bars of aggregated history
+                # Estimate how many 1s bars we need: 21 * interval_seconds (approx) + buffer
+                # Safe bet: last 1000 bars of 1s data, resampled
+                prev_tail = prev_day_1s.tail(2000).copy()
+                warmup_agg, _ = self._resample_data(prev_tail, interval)
+
+                if not warmup_agg.empty:
+                    # Take last 50 aggregated bars
+                    warmup_agg = warmup_agg.tail(50)
+                    warmup_bars = len(warmup_agg)
+                    resampled_data = pd.concat([warmup_agg, resampled_data], ignore_index=True)
+
+            if len(resampled_data) < 21:
+                return []
+
+            print(f"  Pre-computing states for {len(resampled_data) - 21:,} bars "
+                  f"({interval}, {len(day_data):,} 1s bars)...", end='', flush=True)
+            precompute_start = time.time()
+
+            # === VECTORIZED BATCH COMPUTATION on aggregated bars ===
+            batch_results = self.engine.batch_compute_states(resampled_data, use_cuda=True)
+
+            # === SLICE WARMUP: Remove the prepended bars from results ===
+            if warmup_bars > 0:
+                batch_results = batch_results[warmup_bars:]
+
+            # === REMAP: Aggregated bar_idx → 1s bar_idx for trade simulation ===
+            for bar in batch_results:
+                # Adjust index to account for warmup offset
+                idx_agg = bar['bar_idx'] - warmup_bars
+                if idx_agg < len(idx_map_agg_to_1s):
+                    bar['bar_idx'] = idx_map_agg_to_1s[idx_agg]
+                else:
+                    bar['bar_idx'] = len(prices) - 1
+                # Use 1s price for consistency with trade sim
+                bar['price'] = prices[bar['bar_idx']]
+
+            elapsed = time.time() - precompute_start
+            print(f" done ({elapsed:.1f}s)")
+
+            # Save to Cache (if date provided)
+            if cache_file:
+                try:
+                    with open(cache_file, 'wb') as f:
+                        pickle.dump(batch_results, f)
+                except Exception as e:
+                    print(f"  WARNING: Failed to cache states: {e}")
 
         # === FIT DYNAMIC BINNER on first day (before any hashing) ===
         # If not fitted, fit it. If fitted, reuse it.
@@ -428,21 +483,6 @@ class BayesianTrainingOrchestrator:
                     bool(bar['state'].structure_confirmed) and
                     bool(bar['state'].cascade_detected)
                 )
-
-        # === SLICE WARMUP: Remove the prepended bars from results ===
-        if warmup_bars > 0:
-            batch_results = batch_results[warmup_bars:]
-
-        # === REMAP: Aggregated bar_idx → 1s bar_idx for trade simulation ===
-        for bar in batch_results:
-            # Adjust index to account for warmup offset
-            idx_agg = bar['bar_idx'] - warmup_bars
-            if idx_agg < len(idx_map_agg_to_1s):
-                bar['bar_idx'] = idx_map_agg_to_1s[idx_agg]
-            else:
-                bar['bar_idx'] = len(prices) - 1
-            # Use 1s price for consistency with trade sim
-            bar['price'] = prices[bar['bar_idx']]
 
         # Cold start confidence modifier based on context availability
         context_level = tf_context.get('context_level', 'MINIMAL') if tf_context else 'MINIMAL'
@@ -809,7 +849,8 @@ class BayesianTrainingOrchestrator:
             # Precompute states for this timeframe
             precomputed = self._precompute_day_states(
                 day_data, interval=interval, tf_context=tf_context,
-                prev_day_1s=prev_day_1s
+                prev_day_1s=prev_day_1s,
+                date=date
             )
 
             if not precomputed:
