@@ -34,7 +34,7 @@ PARAMS_AFFECTED_BY_EARLY_TREND = {
     'take_profit_ticks', 'trail_distance_wide', 'max_hold_seconds', 'trail_activation_profit'
 }
 PARAMS_AFFECTED_BY_LATE_EXIT = {
-    'max_hold_seconds', 'trail_distance_wide', 'trail_activation_profit'
+    'max_hold_seconds', 'trail_distance_wide', 'trail_activation_profit', 'take_profit_ticks'
 }
 
 # Mutation Constants
@@ -160,6 +160,7 @@ class DOEParameterGenerator:
             'opening_range_minutes': (10, 30, 'int'),
             'min_hold_seconds': (30, 120, 'int'),
             'max_hold_seconds': (600, 1800, 'int'),
+            'timeframe_idx': (0, 5, 'int'),  # 0: 5s, 1: 15s, 2: 60s, 3: 5m, 4: 15m, 5: 1h
 
             # Trading cost (round-trip: commission + slippage in points)
             'trading_cost_points': (0.25, 1.0, 'float'),
@@ -183,61 +184,71 @@ class DOEParameterGenerator:
             {
                 'stop_loss_ticks': 15, 'take_profit_ticks': 40, 'confidence_threshold': 0.50,
                 'trail_distance_tight': 10, 'trail_distance_wide': 30,
-                'pid_kp': 0.5, 'pid_ki': 0.1, 'pid_kd': 0.2, 'gravity_theta': 0.5, 'sigma_decay': 0.95
+                'pid_kp': 0.5, 'pid_ki': 0.1, 'pid_kd': 0.2, 'gravity_theta': 0.5, 'sigma_decay': 0.95,
+                'timeframe_idx': 1
             },
             # Aggressive (iteration 1)
             {
                 'stop_loss_ticks': 10, 'take_profit_ticks': 50, 'confidence_threshold': 0.45,
                 'trail_distance_tight': 7, 'trail_distance_wide': 25,
-                'pid_kp': 0.8, 'pid_ki': 0.05, 'pid_kd': 0.1, 'gravity_theta': 0.3, 'sigma_decay': 0.90
+                'pid_kp': 0.8, 'pid_ki': 0.05, 'pid_kd': 0.1, 'gravity_theta': 0.3, 'sigma_decay': 0.90,
+                'timeframe_idx': 1
             },
             # Balanced (iteration 2)
             {
                 'stop_loss_ticks': 12, 'take_profit_ticks': 45, 'confidence_threshold': 0.48,
                 'trail_distance_tight': 8, 'trail_distance_wide': 28,
-                'pid_kp': 0.5, 'pid_ki': 0.1, 'pid_kd': 0.2, 'gravity_theta': 0.5, 'sigma_decay': 0.95
+                'pid_kp': 0.5, 'pid_ki': 0.1, 'pid_kd': 0.2, 'gravity_theta': 0.5, 'sigma_decay': 0.95,
+                'timeframe_idx': 1
             },
             # High confidence (iteration 3)
             {
                 'stop_loss_ticks': 20, 'take_profit_ticks': 35, 'confidence_threshold': 0.65,
                 'trail_distance_tight': 12, 'trail_distance_wide': 35,
-                'pid_kp': 0.4, 'pid_ki': 0.15, 'pid_kd': 0.3, 'gravity_theta': 0.6, 'sigma_decay': 0.98
+                'pid_kp': 0.4, 'pid_ki': 0.15, 'pid_kd': 0.3, 'gravity_theta': 0.6, 'sigma_decay': 0.98,
+                'timeframe_idx': 1
             },
             # Quick exit (iteration 4)
             {
                 'stop_loss_ticks': 8, 'take_profit_ticks': 30, 'confidence_threshold': 0.40,
                 'trail_distance_tight': 5, 'trail_distance_wide': 20,
-                'pid_kp': 0.6, 'pid_ki': 0.05, 'pid_kd': 0.1, 'gravity_theta': 0.4, 'sigma_decay': 0.92
+                'pid_kp': 0.6, 'pid_ki': 0.05, 'pid_kd': 0.1, 'gravity_theta': 0.4, 'sigma_decay': 0.92,
+                'timeframe_idx': 1
             },
             # Wide targets (iteration 5)
             {
                 'stop_loss_ticks': 20, 'take_profit_ticks': 60, 'confidence_threshold': 0.55,
                 'trail_distance_tight': 15, 'trail_distance_wide': 40,
-                'pid_kp': 0.3, 'pid_ki': 0.1, 'pid_kd': 0.4, 'gravity_theta': 0.7, 'sigma_decay': 0.99
+                'pid_kp': 0.3, 'pid_ki': 0.1, 'pid_kd': 0.4, 'gravity_theta': 0.7, 'sigma_decay': 0.99,
+                'timeframe_idx': 1
             },
             # Tight stops (iteration 6)
             {
                 'stop_loss_ticks': 10, 'take_profit_ticks': 40, 'confidence_threshold': 0.50,
                 'trail_distance_tight': 7, 'trail_distance_wide': 25,
-                'pid_kp': 0.7, 'pid_ki': 0.05, 'pid_kd': 0.15, 'gravity_theta': 0.4, 'sigma_decay': 0.94
+                'pid_kp': 0.7, 'pid_ki': 0.05, 'pid_kd': 0.15, 'gravity_theta': 0.4, 'sigma_decay': 0.94,
+                'timeframe_idx': 1
             },
             # Standard (iteration 7)
             {
                 'stop_loss_ticks': 15, 'take_profit_ticks': 45, 'confidence_threshold': 0.50,
                 'trail_distance_tight': 10, 'trail_distance_wide': 30,
-                'pid_kp': 0.5, 'pid_ki': 0.1, 'pid_kd': 0.2, 'gravity_theta': 0.5, 'sigma_decay': 0.95
+                'pid_kp': 0.5, 'pid_ki': 0.1, 'pid_kd': 0.2, 'gravity_theta': 0.5, 'sigma_decay': 0.95,
+                'timeframe_idx': 1
             },
             # Scalper (iteration 8)
             {
                 'stop_loss_ticks': 8, 'take_profit_ticks': 25, 'confidence_threshold': 0.35,
                 'trail_distance_tight': 5, 'trail_distance_wide': 15,
-                'pid_kp': 0.9, 'pid_ki': 0.01, 'pid_kd': 0.05, 'gravity_theta': 0.2, 'sigma_decay': 0.85
+                'pid_kp': 0.9, 'pid_ki': 0.01, 'pid_kd': 0.05, 'gravity_theta': 0.2, 'sigma_decay': 0.85,
+                'timeframe_idx': 1
             },
             # Swing (iteration 9)
             {
                 'stop_loss_ticks': 25, 'take_profit_ticks': 60, 'confidence_threshold': 0.60,
                 'trail_distance_tight': 15, 'trail_distance_wide': 40,
-                'pid_kp': 0.2, 'pid_ki': 0.2, 'pid_kd': 0.5, 'gravity_theta': 0.8, 'sigma_decay': 0.99
+                'pid_kp': 0.2, 'pid_ki': 0.2, 'pid_kd': 0.5, 'gravity_theta': 0.8, 'sigma_decay': 0.99,
+                'timeframe_idx': 1
             }
         ]
 
