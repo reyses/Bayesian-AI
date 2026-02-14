@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Manifest Integrity Checker
 Validates that all files listed in config/workflow_manifest.json exist.
@@ -6,20 +7,21 @@ import os
 import sys
 import json
 
-def check_manifest():
 MANIFEST_PATH = 'config/workflow_manifest.json'
 
 def check_manifest():
     if not os.path.exists(MANIFEST_PATH):
-    if not os.path.exists(manifest_path):
-        print(f"ERROR: Manifest file not found at {manifest_path}")
+        print(f"ERROR: Manifest file not found at {MANIFEST_PATH}")
         return 1
 
     try:
-    try:
         with open(MANIFEST_PATH, 'r') as f:
+            manifest = json.load(f)
     except json.JSONDecodeError as e:
         print(f"ERROR: Failed to parse manifest: {e}")
+        return 1
+    except Exception as e:
+        print(f"ERROR: Failed to read manifest: {e}")
         return 1
 
     missing_files = []
