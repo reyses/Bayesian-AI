@@ -43,11 +43,11 @@ RISK_HORIZON_SECONDS = 600
 HURST_WINDOW = 100
 ADX_LENGTH = 14
 
-# PID Control Constants (Nightmare Protocol)
-PID_KP = 0.5  # Proportional (Reaction)
-PID_KI = 0.1  # Integral (Accumulation)
-PID_KD = 0.2  # Derivative (Jitter/Dampening)
-GRAVITY_THETA = 0.5 # Restoring Force Coefficient
+# PID Control Constants (Default/Fallback)
+DEFAULT_PID_KP = 0.5
+DEFAULT_PID_KI = 0.1
+DEFAULT_PID_KD = 0.2
+DEFAULT_GRAVITY_THETA = 0.5
 
 # Optional CUDA support
 try:
@@ -101,7 +101,8 @@ class QuantumFieldEngine:
         current_price: float,
         current_volume: float,
         tick_velocity: float,
-        context: dict = None      # Optional multi-timeframe context
+        context: dict = None,     # Optional multi-timeframe context
+        params: dict = None       # Optional physics parameters
     ) -> ThreeBodyQuantumState:
         """
         MASTER FUNCTION: Computes complete quantum state using NIGHTMARE FIELD EQUATION
@@ -116,6 +117,13 @@ class QuantumFieldEngine:
         
         if len(df_macro) < self.regression_period:
             return ThreeBodyQuantumState.null_state()
+
+        # Extract physics parameters (with defaults)
+        params = params or {}
+        kp = params.get('pid_kp', DEFAULT_PID_KP)
+        ki = params.get('pid_ki', DEFAULT_PID_KI)
+        kd = params.get('pid_kd', DEFAULT_PID_KD)
+        theta = params.get('gravity_theta', DEFAULT_GRAVITY_THETA)
         
         # 1. ATTRACTORS (Center Mass)
         center, reg_sigma, slope, residuals = self._calculate_center_mass(df_macro)
@@ -181,11 +189,11 @@ class QuantumFieldEngine:
 
         # Need history for Integral and Derivative. Use df_macro residuals.
         # residuals = price - center_line (approx error history)
-        pid_force = self._calculate_pid_force(residuals)
+        pid_force = self._calculate_pid_force(residuals, kp, ki, kd)
 
         forces = self._calculate_force_fields(
             current_price, center, upper_sing, lower_sing,
-            z_score, sigma, current_volume, tick_velocity, pid_force
+            z_score, sigma, current_volume, tick_velocity, pid_force, theta
         )
         
         # 5. LYAPUNOV STABILITY
@@ -331,7 +339,7 @@ class QuantumFieldEngine:
             **context_args
         )
     
-    def _calculate_pid_force(self, residuals: np.ndarray):
+    def _calculate_pid_force(self, residuals: np.ndarray, kp: float, ki: float, kd: float):
         """
         Calculate Algorithmic Control Force (PID)
         F_pid = Kp*e + Ki*int(e) + Kd*de/dt
@@ -349,7 +357,7 @@ class QuantumFieldEngine:
 
         # PID Formula (Restoring force opposes error)
         # If error > 0 (Price > Mean), F_pid should be negative
-        f_pid = -(PID_KP * e + PID_KI * e_integral + PID_KD * e_derivative)
+        f_pid = -(kp * e + ki * e_integral + kd * e_derivative)
 
         return f_pid
 
@@ -366,7 +374,7 @@ class QuantumFieldEngine:
         sigma = sigma if sigma > 0 else y.std()
         return center, sigma, slope, residuals
     
-    def _calculate_force_fields(self, price, center, upper_sing, lower_sing, z_score, sigma, volume, velocity, pid_force):
+    def _calculate_force_fields(self, price, center, upper_sing, lower_sing, z_score, sigma, volume, velocity, pid_force, theta):
         """Compute competing gravitational forces (Unified Field Equation)"""
 
         # 1. Gravity Well (Ornstein-Uhlenbeck)
@@ -375,8 +383,7 @@ class QuantumFieldEngine:
         # F_gravity = -theta * error.
         # Note: z_score = error / sigma. So error = z_score * sigma.
         # F_gravity = -theta * z_score * sigma
-        # Using fixed GRAVITY_THETA
-        F_gravity = -GRAVITY_THETA * (z_score * sigma)
+        F_gravity = -theta * (z_score * sigma)
 
         # Keep F_reversion name for compatibility, but updated logic
         F_reversion = F_gravity
@@ -596,20 +603,25 @@ class QuantumFieldEngine:
     # VECTORIZED BATCH COMPUTATION (processes all bars at once)
     # ═══════════════════════════════════════════════════════════════════════
 
-    def batch_compute_states(self, day_data: pd.DataFrame, use_cuda: bool = True) -> list:
+    def batch_compute_states(self, day_data: pd.DataFrame, use_cuda: bool = True, params: dict = None) -> list:
         """
         Compute ALL ThreeBodyQuantumState objects for a day in one vectorized pass.
-
-        Instead of looping 35k times calling calculate_three_body_state(),
-        this processes all bars simultaneously using numpy/torch arrays.
 
         Args:
             day_data: DataFrame with 'price'/'close', 'volume', 'timestamp' columns
             use_cuda: If True and CUDA available, use GPU for exp/log ops
+            params: Optional physics parameters (pid_kp, gravity_theta, etc.)
 
         Returns:
             List of dicts: [{bar_idx, state, price, prob, conf, structure_ok}, ...]
         """
+        # Default physics parameters if not provided
+        params = params or {}
+        kp = params.get('pid_kp', DEFAULT_PID_KP)
+        ki = params.get('pid_ki', DEFAULT_PID_KI)
+        kd = params.get('pid_kd', DEFAULT_PID_KD)
+        theta = params.get('gravity_theta', DEFAULT_GRAVITY_THETA)
+
         n = len(day_data)
         rp = self.regression_period
 
@@ -836,7 +848,7 @@ class QuantumFieldEngine:
         e_integ = errors_series.rolling(window=rp, min_periods=1).sum().values
 
         # F_pid = -(Kp*e + Ki*int + Kd*deriv)
-        F_pid = -(PID_KP * errors + PID_KI * e_integ + PID_KD * e_deriv)
+        F_pid = -(kp * errors + ki * e_integ + kd * e_deriv)
 
         # 2c. Gravity & Repulsion
         upper_sing = centers + self.SIGMA_ROCHE_MULTIPLIER * sigmas
@@ -845,7 +857,7 @@ class QuantumFieldEngine:
         lower_event = centers - self.SIGMA_EVENT_MULTIPLIER * sigmas
 
         # F_gravity = -theta * z * sigma (which is -theta * error)
-        F_gravity = -GRAVITY_THETA * errors
+        F_gravity = -theta * errors
         F_reversion = F_gravity # Alias
 
         dist_upper = np.abs(bar_prices - upper_sing) / sigmas
