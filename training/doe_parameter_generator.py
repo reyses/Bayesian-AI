@@ -294,7 +294,7 @@ class DOEParameterGenerator:
 
                     if param_type == 'int':
                         # Scale [0,1] to [min, max]
-                        val = int(min_val + unit_val * (max_val - min_val + 0.999))
+                        val = int(min_val + unit_val * (max_val - min_val + 1))
                         val = min(val, max_val) # Clamp
                     elif param_type == 'float':
                         val = float(min_val + unit_val * (max_val - min_val))
