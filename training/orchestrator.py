@@ -15,6 +15,7 @@ import sys
 import pickle
 import argparse
 import threading
+import tempfile
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Any, Tuple, Optional
@@ -45,7 +46,7 @@ from training.progress_reporter import ProgressReporter, DayMetrics
 from training.databento_loader import DatabentoLoader
 
 # Execution components
-from execution.integrated_statistical_system import IntegratedStatisticalEngine
+# from execution.integrated_statistical_system import IntegratedStatisticalEngine
 from execution.batch_regret_analyzer import BatchRegretAnalyzer
 
 # Visualization
@@ -78,6 +79,14 @@ class DualLogger:
     def flush(self):
         self.stream.flush()
         self.file.flush()
+TIMEFRAME_MAP = {
+    0: '5s',
+    1: '15s',
+    2: '60s',
+    3: '5m',
+    4: '15m',
+    5: '1h'
+}
 
 @dataclass
 class DayResults:
@@ -133,7 +142,7 @@ class BayesianTrainingOrchestrator:
         self.context_detector = ContextDetector()
         self.param_generator = DOEParameterGenerator(self.context_detector)
         self.confidence_manager = AdaptiveConfidenceManager(self.brain)
-        self.stat_validator = IntegratedStatisticalEngine(self.asset)
+        # self.stat_validator = IntegratedStatisticalEngine(self.asset)  # Currently unused - intended for future integration
 
         # Multi-timeframe context engine
         self.mtf_context = MultiTimeframeContext()
@@ -189,9 +198,15 @@ class BayesianTrainingOrchestrator:
                 gpu_mem = torch.cuda.get_device_properties(0).total_memory / (1024**3)
                 print(f"CUDA: ENABLED  |  GPU: {gpu_name}  |  VRAM: {gpu_mem:.1f} GB")
             else:
+                if getattr(self.config, 'force_cuda', False):
+                    raise RuntimeError("CUDA requested via --force-cuda but not available.\nTry running: python scripts/fix_cuda.py")
                 print("CUDA: NOT AVAILABLE  |  Running on CPU")
+                print("      (To fix CUDA issues, run: python scripts/fix_cuda.py)")
         except ImportError:
+            if getattr(self.config, 'force_cuda', False):
+                raise RuntimeError("CUDA requested via --force-cuda but PyTorch not installed.\nTry running: python scripts/fix_cuda.py")
             print("CUDA: NOT AVAILABLE (PyTorch not installed)  |  Running on CPU")
+            print("      (To install with CUDA support, run: python scripts/fix_cuda.py)")
 
         print(f"Asset: {self.asset.ticker}")
         print(f"Checkpoint Dir: {self.checkpoint_dir}")
@@ -201,22 +216,14 @@ class BayesianTrainingOrchestrator:
         if DASHBOARD_AVAILABLE and not self.config.no_dashboard:
             self.launch_dashboard()
 
-        # Pre-aggregate 1s → 15s once for the entire dataset (cached to disk)
-        data_15s = self._get_or_create_aggregated_data(data)
-
         # Resample full dataset to all higher timeframes (1d, 4h, 1h, 15m, 5m, 1m)
         print("Resampling to all higher timeframes (1d, 4h, 1h, 15m, 5m, 1m)...", end='', flush=True)
         self.all_tf_data = self.mtf_context.resample_all(data)
         tf_counts = {k: len(v) for k, v in self.all_tf_data.items()}
         print(f" done | Bars: {tf_counts}")
 
-        # Split into trading days (both 1s and 15s)
+        # Split into trading days
         days_1s = self.split_into_trading_days(data)
-        days_15s = self.split_into_trading_days(data_15s)
-
-        # Build lookup: date → 15s day_data
-        days_15s_lookup = {date: df for date, df in days_15s}
-
         total_days = len(days_1s)
 
         if self.config.max_days:
@@ -232,7 +239,7 @@ class BayesianTrainingOrchestrator:
         active_params = self.param_generator.generate_baseline_set(0, 1, 'CORE').parameters
 
         # Train day by day
-        prev_day_15s = None
+        prev_day_1s = None
         for day_idx, (date, day_data) in enumerate(days_1s):
             day_number = day_idx + 1
 
@@ -246,12 +253,13 @@ class BayesianTrainingOrchestrator:
                 day_idx, self.all_tf_data, date
             )
 
-            day_data_15s = days_15s_lookup.get(date)
+            # === STEP 1: PRE-COMPUTE STATES (WALK-FORWARD) ===
+            # Resolve interval from active params (from yesterday)
+            interval = TIMEFRAME_MAP.get(active_params.get('timeframe_idx', 1), '15s')
 
-            # === STEP 1: PRE-COMPUTE STATES ===
             precomputed = self._precompute_day_states(
-                day_data, day_data_15s=day_data_15s, tf_context=tf_context,
-                prev_day_15s=prev_day_15s
+                day_data, interval=interval, tf_context=tf_context,
+                prev_day_1s=prev_day_1s
             )
 
             # === STEP 2: WALK-FORWARD SIMULATION (Real PnL) ===
@@ -268,9 +276,8 @@ class BayesianTrainingOrchestrator:
             # === STEP 3: OPTIMIZE (Oracle Learning for Brain & Tomorrow's Params) ===
             day_result = self.optimize_day(
                 day_number, date, day_data,
-                day_data_15s=day_data_15s, tf_context=tf_context,
-                prev_day_15s=prev_day_15s,
-                precomputed_states=precomputed, # Reuse precomputed
+                tf_context=tf_context,
+                prev_day_1s=prev_day_1s,
                 total_days=total_days
             )
 
@@ -284,7 +291,7 @@ class BayesianTrainingOrchestrator:
             if day_result.best_params:
                 active_params = day_result.best_params
 
-            prev_day_15s = day_data_15s
+            prev_day_1s = day_data
 
             # Batch regret analysis (end of day)
             if self.todays_trades:
@@ -293,6 +300,9 @@ class BayesianTrainingOrchestrator:
                     day_data
                 )
                 self.regret_analyzer.print_analysis(regret_analysis)
+
+                # Feedback loop: Use regret analysis to guide DOE for next day
+                self.param_generator.update_regret_analysis(regret_analysis)
             else:
                 regret_analysis = None
 
@@ -332,9 +342,9 @@ class BayesianTrainingOrchestrator:
 
         return self.day_results
 
-    def _precompute_day_states(self, day_data: pd.DataFrame, day_data_15s: pd.DataFrame = None,
+    def _precompute_day_states(self, day_data: pd.DataFrame, interval: str = '15s',
                                tf_context: Dict = None,
-                               prev_day_15s: pd.DataFrame = None):
+                               prev_day_1s: pd.DataFrame = None):
         """
         Pre-compute all states, probabilities, and confidences for a day ONCE.
 
@@ -343,9 +353,9 @@ class BayesianTrainingOrchestrator:
 
         Args:
             day_data: 1s OHLCV data for the day (used for trade simulation)
-            day_data_15s: Pre-aggregated 15s data (if None, resamples on the fly)
+            interval: Aggregation interval (e.g., '5s', '15s', '60s')
             tf_context: Multi-timeframe context from MultiTimeframeContext.get_context_for_day()
-            prev_day_15s: Previous day's 15s data for warming up regression windows
+            prev_day_1s: Previous day's 1s data for warming up regression windows
 
         Returns:
             List of dicts with bar_idx, state, price, prob, conf, structure_ok, direction
@@ -362,42 +372,49 @@ class BayesianTrainingOrchestrator:
         prices = day_data['price'].values if 'price' in day_data.columns else day_data['close'].values
         timestamps = day_data['timestamp'].values if 'timestamp' in day_data.columns else np.zeros(len(day_data))
 
-        # Use pre-aggregated 15s data or resample on the fly
-        if day_data_15s is not None and len(day_data_15s) >= 21:
-            resampled_15s = day_data_15s
-            # Build index mapping from 15s timestamps to 1s indices
-            idx_map_15s_to_1s = self._build_15s_to_1s_index_map(resampled_15s, day_data)
-        else:
-            resampled_15s, idx_map_15s_to_1s = self._resample_to_15s(day_data)
+        # Resample on the fly
+        resampled_data, idx_map_agg_to_1s = self._resample_data(day_data, interval)
 
         # === WARMUP: Prepend previous day's tail to fix cold-start regression ===
         warmup_bars = 0
-        if prev_day_15s is not None and not prev_day_15s.empty:
-            # Need 21 bars for regression, take 50 for safety
-            warmup_df = prev_day_15s.tail(50).copy()
-            warmup_bars = len(warmup_df)
-            resampled_15s = pd.concat([warmup_df, resampled_15s], ignore_index=True)
+        if prev_day_1s is not None and not prev_day_1s.empty:
+            # Need 21 bars of aggregated history
+            # Estimate how many 1s bars we need: 21 * interval_seconds (approx) + buffer
+            # Safe bet: last 1000 bars of 1s data, resampled
+            prev_tail = prev_day_1s.tail(2000).copy()
+            warmup_agg, _ = self._resample_data(prev_tail, interval)
 
-        if len(resampled_15s) < 21:
+            if not warmup_agg.empty:
+                # Take last 50 aggregated bars
+                warmup_agg = warmup_agg.tail(50)
+                warmup_bars = len(warmup_agg)
+                resampled_data = pd.concat([warmup_agg, resampled_data], ignore_index=True)
+
+        if len(resampled_data) < 21:
             self._day_prices = prices
             self._day_timestamps = timestamps
             return []
 
-        print(f"  Pre-computing states for {len(resampled_15s) - 21:,} bars "
-              f"(15s, {len(day_data):,} 1s bars)...", end='', flush=True)
+        print(f"  Pre-computing states for {len(resampled_data) - 21:,} bars "
+              f"({interval}, {len(day_data):,} 1s bars)...", end='', flush=True)
         precompute_start = time.time()
 
-        # === VECTORIZED BATCH COMPUTATION on 15s bars ===
-        batch_results = self.engine.batch_compute_states(resampled_15s, use_cuda=True)
+        # === VECTORIZED BATCH COMPUTATION on aggregated bars ===
+        batch_results = self.engine.batch_compute_states(resampled_data, use_cuda=True)
 
         # === FIT DYNAMIC BINNER on first day (before any hashing) ===
-        if self.dynamic_binner is None and batch_results:
-            z_scores = np.array([b['state'].z_score for b in batch_results], dtype=np.float64)
-            momentums = np.array([b['state'].momentum_strength for b in batch_results], dtype=np.float64)
-            self.dynamic_binner = DynamicBinner(min_bins=5, max_bins=30)
-            self.dynamic_binner.fit({'z_score': z_scores, 'momentum': momentums})
+        # If not fitted, fit it. If fitted, reuse it.
+        # This allows cross-timeframe state compatibility.
+        if batch_results:
+            if self.dynamic_binner is None:
+                z_scores = np.array([b['state'].z_score for b in batch_results], dtype=np.float64)
+                momentums = np.array([b['state'].momentum_strength for b in batch_results], dtype=np.float64)
+                self.dynamic_binner = DynamicBinner(min_bins=5, max_bins=30)
+                self.dynamic_binner.fit({'z_score': z_scores, 'momentum': momentums})
+                print(f"\n  {self.dynamic_binner.summary()}")
+
+            # Always ensure the correct binner is attached
             ThreeBodyQuantumState.set_binner(self.dynamic_binner)
-            print(f"\n  {self.dynamic_binner.summary()}")
 
         # === INJECT MULTI-TIMEFRAME CONTEXT into each state ===
         if tf_context:
@@ -430,12 +447,12 @@ class BayesianTrainingOrchestrator:
         if warmup_bars > 0:
             batch_results = batch_results[warmup_bars:]
 
-        # === REMAP: 15s bar_idx → 1s bar_idx for trade simulation ===
+        # === REMAP: Aggregated bar_idx → 1s bar_idx for trade simulation ===
         for bar in batch_results:
             # Adjust index to account for warmup offset
-            idx_15s = bar['bar_idx'] - warmup_bars
-            if idx_15s < len(idx_map_15s_to_1s):
-                bar['bar_idx'] = idx_map_15s_to_1s[idx_15s]
+            idx_agg = bar['bar_idx'] - warmup_bars
+            if idx_agg < len(idx_map_agg_to_1s):
+                bar['bar_idx'] = idx_map_agg_to_1s[idx_agg]
             else:
                 bar['bar_idx'] = len(prices) - 1
             # Use 1s price for consistency with trade sim
@@ -566,13 +583,17 @@ class BayesianTrainingOrchestrator:
 
         return batch_results
 
-    def _resample_to_15s(self, day_data: pd.DataFrame):
+    def _resample_data(self, day_data: pd.DataFrame, interval: str):
         """
-        Resample 1s OHLCV bars to 15s bars for state computation.
+        Resample 1s OHLCV bars to {interval} bars for state computation.
+
+        Args:
+            day_data: DataFrame with 1s data
+            interval: Pandas offset string (e.g. '5s', '15s', '60s')
 
         Returns:
             resampled_df: DataFrame with timestamp, close, price, volume columns
-            idx_map: numpy array where idx_map[i] = last 1s index in 15s bar i
+            idx_map: numpy array where idx_map[i] = last 1s index in aggregated bar i
         """
         df = day_data.copy()
 
@@ -607,7 +628,7 @@ class BayesianTrainingOrchestrator:
             df['close'] = df['price']
             agg_dict['close'] = 'last'
 
-        resampled = df.resample('15s').agg(agg_dict).dropna(subset=['close'] if 'close' in agg_dict else ['price'])
+        resampled = df.resample(interval).agg(agg_dict).dropna(subset=['close'] if 'close' in agg_dict else ['price'])
 
         # Extract index mapping
         idx_map = resampled['_1s_idx'].values.astype(int)
@@ -624,107 +645,6 @@ class BayesianTrainingOrchestrator:
 
         return resampled, idx_map
 
-    def _get_or_create_aggregated_data(self, data: pd.DataFrame) -> pd.DataFrame:
-        """
-        Pre-aggregate full 1s dataset to 15s bars once. Caches to parquet for reuse.
-        """
-        # Derive cache path from source data path
-        source_path = getattr(self.config, 'data', None)
-        if source_path:
-            base = os.path.splitext(source_path)[0]
-            cache_path = f"{base}_15s.parquet"
-        else:
-            cache_path = os.path.join(self.checkpoint_dir, "aggregated_15s.parquet")
-
-        # Check cache
-        if os.path.exists(cache_path):
-            print(f"Loading cached 15s data from {cache_path}...")
-            data_15s = pd.read_parquet(cache_path)
-            print(f"  {len(data_15s):,} 15s bars loaded (from {len(data):,} 1s bars)")
-            return data_15s
-
-        # Resample full dataset
-        print(f"Aggregating {len(data):,} 1s bars to 15s (one-time)...", end='', flush=True)
-        start = time.time()
-
-        df = data.copy()
-
-        # Ensure timestamp is datetime for resampling
-        if 'timestamp' in df.columns:
-            if not pd.api.types.is_datetime64_any_dtype(df['timestamp']):
-                df['timestamp'] = pd.to_datetime(pd.to_numeric(df['timestamp']), unit='s')
-            df = df.set_index('timestamp')
-
-        # Build aggregation dict
-        agg_dict = {}
-        if 'close' in df.columns:
-            agg_dict['close'] = 'last'
-        if 'price' in df.columns:
-            agg_dict['price'] = 'last'
-        if 'volume' in df.columns:
-            agg_dict['volume'] = 'sum'
-        if 'open' in df.columns:
-            agg_dict['open'] = 'first'
-        if 'high' in df.columns:
-            agg_dict['high'] = 'max'
-        if 'low' in df.columns:
-            agg_dict['low'] = 'min'
-
-        # Derive close from price if needed
-        if 'close' not in df.columns and 'price' in df.columns:
-            df['close'] = df['price']
-            agg_dict['close'] = 'last'
-
-        dropna_col = 'close' if 'close' in agg_dict else 'price'
-        resampled = df.resample('15s').agg(agg_dict).dropna(subset=[dropna_col])
-
-        # Reset index: timestamp back as column
-        resampled = resampled.reset_index()
-
-        # Ensure price column exists
-        if 'price' not in resampled.columns and 'close' in resampled.columns:
-            resampled['price'] = resampled['close']
-
-        elapsed = time.time() - start
-        print(f" done ({elapsed:.1f}s) -> {len(resampled):,} bars")
-
-        # Save cache
-        try:
-            os.makedirs(os.path.dirname(cache_path) or '.', exist_ok=True)
-            resampled.to_parquet(cache_path, index=False)
-            print(f"  Cached to {cache_path}")
-        except Exception as e:
-            print(f"  WARNING: Could not cache: {e}")
-
-        return resampled
-
-    def _build_15s_to_1s_index_map(self, data_15s: pd.DataFrame, data_1s: pd.DataFrame) -> np.ndarray:
-        """
-        Map each 15s bar index to the corresponding last 1s bar index.
-        Uses np.searchsorted on timestamps.
-        """
-        ts_15s = data_15s['timestamp'].values
-        ts_1s = data_1s['timestamp'].values
-
-        # Convert to int64 nanoseconds for searchsorted comparison
-        if pd.api.types.is_datetime64_any_dtype(ts_15s):
-            ts_15s_num = ts_15s.astype('int64')
-        else:
-            ts_15s_num = pd.to_numeric(pd.Series(ts_15s)).values.astype('int64')
-
-        if pd.api.types.is_datetime64_any_dtype(ts_1s):
-            ts_1s_num = ts_1s.astype('int64')
-        else:
-            ts_1s_num = pd.to_numeric(pd.Series(ts_1s)).values.astype('int64')
-
-        # searchsorted 'right' gives the first 1s index AFTER the 15s timestamp
-        # subtract 1 to get the last 1s bar AT or BEFORE the 15s bar
-        indices = np.searchsorted(ts_1s_num, ts_15s_num, side='right') - 1
-
-        # Clamp to valid range
-        indices = np.clip(indices, 0, len(ts_1s) - 1)
-
-        return indices.astype(int)
 
     def _simulate_from_precomputed(self, precomputed: list, day_data: pd.DataFrame,
                                     params: Dict[str, Any], pbar=None, best_sharpe: float = -999.0) -> List[TradeOutcome]:
@@ -856,10 +776,8 @@ class BayesianTrainingOrchestrator:
         return trades
 
     def optimize_day(self, day_number: int, date: str, day_data: pd.DataFrame,
-                     day_data_15s: pd.DataFrame = None,
                      tf_context: Dict = None,
-                     prev_day_15s: pd.DataFrame = None,
-                     precomputed_states: list = None,
+                     prev_day_1s: pd.DataFrame = None,
                      total_days: int = 1) -> DayResults:
         """
         Run DOE optimization for single day.
@@ -871,16 +789,13 @@ class BayesianTrainingOrchestrator:
         start_time = time.time()
         self.todays_trades = []
 
-        # === PRE-COMPUTE ALL STATES ONCE ===
-        if precomputed_states is not None:
-            precomputed = precomputed_states
-        else:
-            precomputed = self._precompute_day_states(
-                day_data, day_data_15s=day_data_15s, tf_context=tf_context,
-                prev_day_15s=prev_day_15s
-            )
+        # Generate ALL param sets upfront
+        all_param_sets = []
+        for i in range(self.config.iterations):
+            ps = self.param_generator.generate_parameter_set(iteration=i, day=day_number, context='CORE')
+            all_param_sets.append(ps.parameters)
 
-        if not precomputed:
+        if not all_param_sets:
             return DayResults(
                 day_number=day_number, date=date, total_iterations=self.config.iterations,
                 best_iteration=0, best_params={}, best_sharpe=0.0, best_win_rate=0.0,
@@ -889,29 +804,70 @@ class BayesianTrainingOrchestrator:
                 execution_time_seconds=time.time() - start_time, avg_duration=0.0
             )
 
-        # Generate ALL param sets upfront
-        all_param_sets = []
-        for i in range(self.config.iterations):
-            ps = self.param_generator.generate_parameter_set(iteration=i, day=day_number, context='CORE')
-            all_param_sets.append(ps.parameters)
+        # Group iterations by timeframe to optimize batching
+        grouped_params = {} # timeframe_idx -> {indices: [], params: []}
+        for idx, p in enumerate(all_param_sets):
+            tf_idx = p.get('timeframe_idx', 1)
+            if tf_idx not in grouped_params:
+                grouped_params[tf_idx] = {'indices': [], 'params': []}
+            grouped_params[tf_idx]['indices'].append(idx)
+            grouped_params[tf_idx]['params'].append(p)
 
-        # Route to GPU or CPU path
-        try:
-            import torch
-            if torch.cuda.is_available():
-                best_idx, all_results = self._optimize_gpu_parallel(
-                    precomputed, day_data, all_param_sets, day_number
-                )
-            else:
-                best_idx, all_results = self._optimize_cpu_sequential(
-                    precomputed, day_data, all_param_sets, day_number,
+        # Container for results: index -> result_dict
+        results_map = {}
+
+        # Process each timeframe group
+        for tf_idx, group in grouped_params.items():
+            interval = TIMEFRAME_MAP.get(tf_idx, '15s')
+
+            # Precompute states for this timeframe
+            precomputed = self._precompute_day_states(
+                day_data, interval=interval, tf_context=tf_context,
+                prev_day_1s=prev_day_1s
+            )
+
+            if not precomputed:
+                # Fill with empty results
+                for idx in group['indices']:
+                    results_map[idx] = {'trades': [], 'sharpe': -999.0, 'win_rate': 0.0, 'pnl': 0.0}
+                continue
+
+            subset_params = group['params']
+
+            # Route to GPU or CPU path for this subset
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    _, subset_results = self._optimize_gpu_parallel(
+                        precomputed, day_data, subset_params, day_number
+                    )
+                else:
+                    _, subset_results = self._optimize_cpu_sequential(
+                        precomputed, day_data, subset_params, day_number,
+                        date=date, total_days=total_days
+                    )
+            except ImportError:
+                _, subset_results = self._optimize_cpu_sequential(
+                    precomputed, day_data, subset_params, day_number,
                     date=date, total_days=total_days
                 )
-        except ImportError:
-            best_idx, all_results = self._optimize_cpu_sequential(
-                precomputed, day_data, all_param_sets, day_number,
-                date=date, total_days=total_days
-            )
+
+            # Map subset results back to global indices
+            for i, res in enumerate(subset_results):
+                global_idx = group['indices'][i]
+                results_map[global_idx] = res
+
+        # Reconstruct ordered list of results
+        all_results = [results_map[i] for i in range(len(all_param_sets))]
+
+        # Find best result
+        best_idx = 0
+        best_sharpe = -999.0
+
+        for i, res in enumerate(all_results):
+            if res['sharpe'] > best_sharpe:
+                best_sharpe = res['sharpe']
+                best_idx = i
 
         # Unpack best result
         best_sharpe = all_results[best_idx]['sharpe']
@@ -1530,6 +1486,10 @@ class BayesianTrainingOrchestrator:
 
         json_path = os.path.join(os.path.dirname(__file__), 'training_progress.json')
 
+        # NOTE: Dashboard visualization shows the "Oracle/Optimized" results (Best PnL found today),
+        # whereas the terminal output reports the "Walk-Forward/Real" results (using yesterday's params).
+        # This discrepancy is intentional to visualize the optimization potential vs realized performance.
+
         # Merge current trades with pre-calculated history
         current_trades_data = []
         current_pnls = []
@@ -1617,16 +1577,23 @@ class BayesianTrainingOrchestrator:
         }
 
         try:
-            with open(json_path, 'w') as f:
-                _json.dump(payload, f, default=str)
-        except Exception:
-            pass  # Non-critical
+            # Atomic write to prevent race conditions with dashboard reader
+            with tempfile.NamedTemporaryFile('w', dir=os.path.dirname(json_path), delete=False) as tmp:
+                _json.dump(payload, tmp, default=str)
+                tmp_path = tmp.name
+            os.replace(tmp_path, json_path)
+        except OSError as e:
+            if 'tmp_path' in locals() and os.path.exists(tmp_path):
+                os.remove(tmp_path)
+            import traceback
+            print(f"WARNING: Failed to update training_progress.json: {e}\n{traceback.format_exc()}") # Log the error with full traceback
+            pass
 
-    def _write_dashboard_json(self, day_metrics, day_result: DayResults, total_days: int, current_day_trades: List[TradeOutcome] = None):
+    def _write_dashboard_json(self, day_metrics, day_result, total_days):
         """Legacy wrapper or direct update (can be used for end-of-day update)."""
         # Ensure history is prepped if called directly (e.g. end of day)
         self._prepare_dashboard_history()
-        self._update_dashboard_with_current(day_result, total_days, current_day_trades)
+        self._update_dashboard_with_current(day_result, total_days, current_day_trades=None)
 
     def save_checkpoint(self, day_number: int, date: str, day_result: DayResults):
         """Save brain and parameters to checkpoint"""
@@ -1694,8 +1661,9 @@ def check_and_install_requirements():
     print("Checking dependencies...")
     try:
         # pip install --quiet skips already-installed packages fast
+        # Added --no-cache-dir and --prefer-binary for better compatibility/speed in CI/CD
         result = subprocess.run(
-            [sys.executable, '-m', 'pip', 'install', '-q', '-r', requirements_path],
+            [sys.executable, '-m', 'pip', 'install', '-q', '--no-cache-dir', '--prefer-binary', '-r', requirements_path],
             capture_output=True, text=True, timeout=300
         )
         if result.returncode != 0:
@@ -1708,9 +1676,10 @@ def check_and_install_requirements():
                     print(f"Dependencies OK | CUDA ready: {torch.cuda.get_device_name(0)}")
                 else:
                     print("Dependencies OK | WARNING: CUDA not available — GPU acceleration disabled")
+                    print("      (To enable CUDA, run: python scripts/fix_cuda.py)")
             except ImportError:
-                print("Dependencies OK | WARNING: PyTorch not installed — install manually:")
-                print("  pip install torch --index-url https://download.pytorch.org/whl/cu121")
+                print("Dependencies OK | WARNING: PyTorch not installed — install manually or run:")
+                print("  python scripts/fix_cuda.py")
     except subprocess.TimeoutExpired:
         print("WARNING: pip install timed out, continuing anyway...")
     except Exception as e:
@@ -1741,6 +1710,7 @@ def main():
     parser.add_argument('--no-dashboard', action='store_true', help="Disable live dashboard")
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
+    parser.add_argument('--force-cuda', action='store_true', help="Force CUDA usage (fail if unavailable)")
 
     args = parser.parse_args()
 
