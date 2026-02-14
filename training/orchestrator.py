@@ -65,6 +65,20 @@ PRECOMPUTE_DEBUG_LOG_FILENAME = 'precompute_debug.log'
 DEFAULT_BASE_SLIPPAGE = 0.25
 DEFAULT_VELOCITY_SLIPPAGE_FACTOR = 0.1
 
+class DualLogger:
+    """Logger that writes to both terminal and file"""
+    def __init__(self, file_handle, stream):
+        self.file = file_handle
+        self.stream = stream
+
+    def write(self, message):
+        self.stream.write(message)
+        self.file.write(message)
+        self.file.flush()
+
+    def flush(self):
+        self.stream.flush()
+        self.file.flush()
 TIMEFRAME_MAP = {
     0: '5s',
     1: '15s',
@@ -1775,6 +1789,16 @@ def check_and_install_requirements():
 
 def main():
     """Single entry point - command line interface"""
+    # Redirect stdout and stderr to file
+    log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Training Output')
+    try:
+        log_file = open(log_path, 'w', encoding='utf-8')
+        sys.stdout = DualLogger(log_file, sys.stdout)
+        sys.stderr = DualLogger(log_file, sys.stderr)
+        print(f"Logging output to: {log_path}")
+    except Exception as e:
+        print(f"WARNING: Failed to setup file logging: {e}")
+
     parser = argparse.ArgumentParser(
         description="Bayesian-AI Training Orchestrator",
         formatter_class=argparse.RawDescriptionHelpFormatter
