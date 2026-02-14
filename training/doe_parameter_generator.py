@@ -275,7 +275,7 @@ class DOEParameterGenerator:
         Systematically explores parameter space with good coverage using Stratified LHS.
         """
         # Check cache for this day's batch
-        if day not in self._lhs_cache:
+        if (day, n_samples) not in self._lhs_cache:
             # Generate new batch for the day
             param_names = sorted(list(self.param_ranges.keys()))
             d = len(param_names)
