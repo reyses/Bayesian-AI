@@ -14,6 +14,12 @@ from core.pattern_utils import (
     detect_geometric_patterns_vectorized, detect_candlestick_patterns_vectorized
 )
 
+# Optional: CUDA Pattern Detector
+try:
+    from core.cuda_pattern_detector import detect_geometric_patterns_cuda, NUMBA_AVAILABLE as CUDA_PATTERNS_AVAILABLE
+except ImportError:
+    CUDA_PATTERNS_AVAILABLE = False
+
 # Optional: Fractal & Trend Libraries
 try:
     import pandas_ta as ta
@@ -36,6 +42,12 @@ RISK_THETA = 0.1
 RISK_HORIZON_SECONDS = 600
 HURST_WINDOW = 100
 ADX_LENGTH = 14
+
+# PID Control Constants (Default/Fallback)
+DEFAULT_PID_KP = 0.5
+DEFAULT_PID_KI = 0.1
+DEFAULT_PID_KD = 0.2
+DEFAULT_GRAVITY_THETA = 0.5
 
 # Optional CUDA support
 try:
@@ -89,43 +101,64 @@ class QuantumFieldEngine:
         current_price: float,
         current_volume: float,
         tick_velocity: float,
-        context: dict = None      # Optional multi-timeframe context
+        context: dict = None,     # Optional multi-timeframe context
+        params: dict = None       # Optional physics parameters
     ) -> ThreeBodyQuantumState:
         """
-        MASTER FUNCTION: Computes complete quantum state
+        MASTER FUNCTION: Computes complete quantum state using NIGHTMARE FIELD EQUATION
         
         Process:
-        1. Calculate attractors (center, upper, lower)
-        2. Compute force fields
-        3. Calculate wave function
-        4. Check measurements
-        5. Compute tunneling probabilities
-        6. Classify Lagrange zone
+        1. Calculate Attractors (Center Mass)
+        2. Calculate Fractal Diffusion (Sigma)
+        3. Calculate Force Vectors (Gravity, PID, Momentum)
+        4. Calculate Lyapunov Stability
+        5. Compute Wave Function & Tunneling
         """
         
         if len(df_macro) < self.regression_period:
             return ThreeBodyQuantumState.null_state()
+
+        # Extract physics parameters (with defaults)
+        params = params or {}
+        kp = params.get('pid_kp', DEFAULT_PID_KP)
+        ki = params.get('pid_ki', DEFAULT_PID_KI)
+        kd = params.get('pid_kd', DEFAULT_PID_KD)
+        theta = params.get('gravity_theta', DEFAULT_GRAVITY_THETA)
         
-        # Body 1: Center star
-        # Use residuals from regression to update historical distribution
+        # 1. ATTRACTORS (Center Mass)
         center, reg_sigma, slope, residuals = self._calculate_center_mass(df_macro)
         
-        # Update residual history with latest residual
-        # The latest residual is (current_price - center)
-        # But _calculate_center_mass uses historical window.
-        # We need to be consistent. Let's use the residual of the last point in regression.
-        latest_residual = residuals[-1]
-        self.residual_history.append(abs(latest_residual))
-        if len(self.residual_history) > self.residual_window:
-            self.residual_history.pop(0)
-
-        # Compute Fat-Tail Sigma (98th percentile of historical residuals)
-        if len(self.residual_history) >= 20:
-            sigma = np.percentile(self.residual_history, 98)
-            # Fallback to regression sigma if percentile is too small (e.g. tight consolidation)
-            sigma = max(sigma, reg_sigma)
+        # 2. FRACTAL & TREND INDICATORS (Needed for Fractal Diffusion)
+        if HURST_AVAILABLE and len(df_micro) >= HURST_WINDOW:
+            hurst_series = df_micro['close'].iloc[-HURST_WINDOW:]
+            try:
+                H, c, _ = compute_Hc(hurst_series, kind='price', simplified=True)
+                hurst_val = H
+            except Exception:
+                hurst_val = 0.5
         else:
-            sigma = reg_sigma
+            hurst_val = 0.5
+
+        # 3. FRACTAL DIFFUSION (Volatility)
+        # σ(v, τ) = σ_base * (v_micro / v_macro)^H
+        v_micro = abs(tick_velocity)
+        # Macro velocity: Mean absolute change in macro window
+        macro_diffs = df_macro['close'].diff().abs()
+        v_macro = macro_diffs.mean() if not macro_diffs.empty else 1.0
+        v_macro = max(v_macro, 1e-6)
+
+        # Base sigma is the regression residual std dev (historical volatility)
+        sigma_base = reg_sigma
+
+        # Apply Nightmare Formula for Fractal Sigma
+        velocity_ratio = v_micro / v_macro if v_macro > 0 else 1.0
+        # Cap ratio to prevent explosion
+        velocity_ratio = min(max(velocity_ratio, 0.1), 10.0)
+
+        sigma_fractal = sigma_base * (velocity_ratio ** hurst_val)
+
+        # Use the computed fractal sigma as the system sigma
+        sigma = max(sigma_fractal, 1e-6)
 
         # Trend Direction (15m slope)
         slope_strength = (slope * len(df_macro)) / (sigma + 1e-6)
@@ -134,7 +167,7 @@ class QuantumFieldEngine:
         else:
             trend_direction = 'RANGE'
 
-        # Bodies 2 & 3: Singularities (using robust sigma)
+        # Bodies 2 & 3: Singularities (using fractal sigma)
         upper_sing = center + self.SIGMA_ROCHE_MULTIPLIER * sigma
         lower_sing = center - self.SIGMA_ROCHE_MULTIPLIER * sigma
         upper_event = center + self.SIGMA_EVENT_MULTIPLIER * sigma
@@ -143,12 +176,41 @@ class QuantumFieldEngine:
         # Particle state
         z_score = (current_price - center) / sigma if sigma > 0 else 0.0
         
-        # Force fields
+        # 4. FORCE VECTORS (Gravity, PID, Momentum)
+        # F_gravity (OU) = theta * (mean - price)
+        # F_pid = Kp*e + Ki*int(e) + Kd*de/dt
+        # F_net = F_gravity + F_pid + F_momentum
+
+        # Calculate PID components
+        # Error = Price - Mean. (So restoring force is negative of error)
+        # But wait, OU definition in text: F = theta * (mean - price).
+        # if price > mean, mean - price is negative. Force is down. Correct.
+        error = current_price - center
+
+        # Need history for Integral and Derivative. Use df_macro residuals.
+        # residuals = price - center_line (approx error history)
+        pid_force = self._calculate_pid_force(residuals, kp, ki, kd)
+
         forces = self._calculate_force_fields(
             current_price, center, upper_sing, lower_sing,
-            z_score, sigma, current_volume, tick_velocity
+            z_score, sigma, current_volume, tick_velocity, pid_force, theta
         )
         
+        # 5. LYAPUNOV STABILITY
+        # Estimate from Z-score divergence
+        # Need recent Z-history. We can approximate using recent df_micro prices against current center/sigma
+        # or just track it. For now, use simple heuristic: expanding vs decaying Z.
+        if len(df_micro) >= 3:
+            recent_prices = df_micro['close'].iloc[-3:].values
+            recent_z = (recent_prices - center) / sigma
+            # Divergence: |Z_t| - |Z_{t-1}|
+            delta_z = np.abs(recent_z[-1]) - np.abs(recent_z[-2])
+            lyapunov = delta_z # Simple proxy: > 0 expanding, < 0 decaying
+        else:
+            lyapunov = 0.0
+
+        market_regime = 'CHAOTIC' if lyapunov > 0 else 'STABLE'
+
         # Wave function
         quantum = self._calculate_wave_function(z_score, forces['F_net'], forces['F_momentum'])
         
@@ -201,19 +263,6 @@ class QuantumFieldEngine:
 
         # Apply trend direction from calculation
         context_args['trend_direction_15m'] = trend_direction
-
-        # FRACTAL & TREND INDICATORS
-        # Hurst Exponent (Fractal Dimension) - using df_micro close prices
-        if HURST_AVAILABLE and len(df_micro) >= HURST_WINDOW:
-            # Use last HURST_WINDOW bars for calculation
-            hurst_series = df_micro['close'].iloc[-HURST_WINDOW:]
-            try:
-                H, c, _ = compute_Hc(hurst_series, kind='price', simplified=True)
-                hurst_val = H
-            except Exception:
-                hurst_val = 0.5
-        else:
-            hurst_val = 0.5
 
         # ADX/DMI (Trend Strength) - using df_macro (15m) for robust trend
         if PANDAS_TA_AVAILABLE and len(df_macro) >= ADX_LENGTH:
@@ -271,7 +320,7 @@ class QuantumFieldEngine:
             entropy=quantum['entropy'],
             coherence=quantum['coherence'],
             pattern_maturity=measurements['pattern_maturity'],
-            momentum_strength=np.nan_to_num(forces['F_momentum'] / (forces['F_reversion'] + 1e-6)),
+            momentum_strength=np.nan_to_num(forces['F_momentum'] / (abs(forces['F_reversion']) + 1e-6)),
             structure_confirmed=measurements['structure_confirmed'],
             cascade_detected=measurements['cascade_detected'],
             spin_inverted=measurements['spin_inverted'],
@@ -283,9 +332,35 @@ class QuantumFieldEngine:
             pattern_type=measurements['pattern_type'],
             candlestick_pattern=measurements['candlestick_pattern'],
             timestamp=df_macro.index[-1].timestamp() if hasattr(df_macro.index[-1], 'timestamp') else 0.0,
+            sigma_fractal=sigma_fractal,
+            term_pid=pid_force,
+            lyapunov_exponent=lyapunov,
+            market_regime=market_regime,
             **context_args
         )
     
+    def _calculate_pid_force(self, residuals: np.ndarray, kp: float, ki: float, kd: float):
+        """
+        Calculate Algorithmic Control Force (PID)
+        F_pid = Kp*e + Ki*int(e) + Kd*de/dt
+        """
+        if len(residuals) < 2:
+            return 0.0
+
+        e = residuals[-1] # Current error
+
+        # Integral: Sum of recent errors (limit memory to regression window)
+        e_integral = np.sum(residuals)
+
+        # Derivative: Rate of change of error
+        e_derivative = residuals[-1] - residuals[-2]
+
+        # PID Formula (Restoring force opposes error)
+        # If error > 0 (Price > Mean), F_pid should be negative
+        f_pid = -(kp * e + ki * e_integral + kd * e_derivative)
+
+        return f_pid
+
     def _calculate_center_mass(self, df: pd.DataFrame):
         """Linear regression for center star — uses residual std (not slope std_err)"""
         window = df.iloc[-self.regression_period:]
@@ -299,28 +374,47 @@ class QuantumFieldEngine:
         sigma = sigma if sigma > 0 else y.std()
         return center, sigma, slope, residuals
     
-    def _calculate_force_fields(self, price, center, upper_sing, lower_sing, z_score, sigma, volume, velocity):
-        """Compute competing gravitational forces"""
-        # Tidal force (mean reversion)
-        F_reversion = (z_score ** self.TIDAL_FORCE_EXPONENT) / 9.0
-        
-        # Singularity repulsion (inverse cube law)
+    def _calculate_force_fields(self, price, center, upper_sing, lower_sing, z_score, sigma, volume, velocity, pid_force, theta):
+        """Compute competing gravitational forces (Unified Field Equation)"""
+
+        # 1. Gravity Well (Ornstein-Uhlenbeck)
+        # F = theta * (mu - X)
+        # mu - X = -error
+        # F_gravity = -theta * error.
+        # Note: z_score = error / sigma. So error = z_score * sigma.
+        # F_gravity = -theta * z_score * sigma
+        F_gravity = -theta * (z_score * sigma)
+
+        # Keep F_reversion name for compatibility, but updated logic
+        F_reversion = F_gravity
+
+        # 2. Singularity repulsion (inverse cube law) - Remains the same
         dist_upper = abs(price - upper_sing) / sigma if sigma > 0 else 1.0
         dist_lower = abs(price - lower_sing) / sigma if sigma > 0 else 1.0
         F_upper_repulsion = min(1.0 / (dist_upper ** 3 + 0.01), 100.0) if z_score > 0 else 0.0
         F_lower_repulsion = min(1.0 / (dist_lower ** 3 + 0.01), 100.0) if z_score < 0 else 0.0
         
-        # Momentum - sanitize inputs to prevent NaN
+        # 3. Momentum (Fractal Diffusion Vector)
+        # In Nightmare model, diffusion is volatility.
+        # But we also have "Jump Diffusion J(lambda)".
+        # And "F_momentum" in the prompt's Net Force equation.
+        # Let's keep Kinetic Energy formulation but scaled.
         safe_velocity = np.nan_to_num(velocity)
         safe_volume = np.nan_to_num(volume)
-
-        F_momentum = abs(safe_velocity) * safe_volume / (sigma + 1e-6)
         
-        # Net force
-        if z_score > 0:
-            F_net = F_reversion + F_upper_repulsion - F_momentum
-        else:
-            F_net = F_reversion + F_lower_repulsion - F_momentum
+        # Directional momentum
+        F_momentum = safe_velocity * safe_volume / (sigma + 1e-6)
+
+        # 4. PID Control (passed in)
+        F_pid = pid_force
+
+        # NET FORCE VECTOR
+        # V_net = F_gravity + F_momentum + F_algo
+        # F_upper/lower_repulsion act as "Roche Limit" forces (part of gravity well boundary conditions)
+
+        repulsion = -F_upper_repulsion if z_score > 0 else F_lower_repulsion
+
+        F_net = F_gravity + F_momentum + F_pid + repulsion
         
         return {
             'F_reversion': F_reversion,
@@ -383,7 +477,8 @@ class QuantumFieldEngine:
         recent = df_micro.iloc[-20:]
         volume_spike = recent['volume'].iloc[-1] > recent['volume'].mean() * 1.2
         pattern_maturity = min((abs(z_score) - 2.0) / 1.0, 1.0) if abs(z_score) > 2.0 else 0.0
-        structure_confirmed = volume_spike and pattern_maturity > 0.5
+        # Relaxed from > 0.5 (z > 2.5) to > 0.1 (z > 2.1)
+        structure_confirmed = volume_spike and pattern_maturity > 0.1
         
         # Cascade Logic: Velocity OR Rolling Range (5s window)
         velocity_cascade = abs(velocity) > VELOCITY_CASCADE_THRESHOLD
@@ -486,7 +581,14 @@ class QuantumFieldEngine:
         """
         Vectorized geometric pattern detection.
         Wraps core.pattern_utils.detect_geometric_patterns_vectorized.
+        Unless CUDA is enabled and available.
         """
+        if self.use_gpu and CUDA_PATTERNS_AVAILABLE:
+            try:
+                return detect_geometric_patterns_cuda(highs, lows)
+            except Exception as e:
+                # Fallback on error (e.g. CUDA context issues)
+                return detect_geometric_patterns_vectorized(highs, lows)
         return detect_geometric_patterns_vectorized(highs, lows)
 
     def _detect_candlestick_patterns(self, opens: np.ndarray, highs: np.ndarray,
@@ -501,20 +603,25 @@ class QuantumFieldEngine:
     # VECTORIZED BATCH COMPUTATION (processes all bars at once)
     # ═══════════════════════════════════════════════════════════════════════
 
-    def batch_compute_states(self, day_data: pd.DataFrame, use_cuda: bool = True) -> list:
+    def batch_compute_states(self, day_data: pd.DataFrame, use_cuda: bool = True, params: dict = None) -> list:
         """
         Compute ALL ThreeBodyQuantumState objects for a day in one vectorized pass.
-
-        Instead of looping 35k times calling calculate_three_body_state(),
-        this processes all bars simultaneously using numpy/torch arrays.
 
         Args:
             day_data: DataFrame with 'price'/'close', 'volume', 'timestamp' columns
             use_cuda: If True and CUDA available, use GPU for exp/log ops
+            params: Optional physics parameters (pid_kp, gravity_theta, etc.)
 
         Returns:
             List of dicts: [{bar_idx, state, price, prob, conf, structure_ok}, ...]
         """
+        # Default physics parameters if not provided
+        params = params or {}
+        kp = params.get('pid_kp', DEFAULT_PID_KP)
+        ki = params.get('pid_ki', DEFAULT_PID_KI)
+        kd = params.get('pid_kd', DEFAULT_PID_KD)
+        theta = params.get('gravity_theta', DEFAULT_GRAVITY_THETA)
+
         n = len(day_data)
         rp = self.regression_period
 
@@ -577,7 +684,8 @@ class QuantumFieldEngine:
                 rolling_residuals.pop(0)
 
             if len(rolling_residuals) >= 20:
-                robust_sigma = np.percentile(rolling_residuals, 98)
+                # 84th percentile ~ 1 SD. (Previous 98th was ~2 SDs)
+                robust_sigma = np.percentile(rolling_residuals, 84)
                 sigma = max(robust_sigma, reg_sigma)
             else:
                 sigma = reg_sigma
@@ -683,14 +791,74 @@ class QuantumFieldEngine:
                 pass
 
         # ═══ STEP 2: Vectorized z-scores & force fields ═══
+
+        # 2a. Fractal Diffusion & PID (Requires loop or complex rolling)
+        # Since we have the loop above for regression, let's just integrate logic there?
+        # Actually, the loop above calculated centers/sigmas but didn't store residuals history for PID.
+        # Let's re-run a lightweight loop or vectorization for PID/Fractal Sigma.
+
+        # Tick velocity: price change between consecutive bars
+        tick_velocity = np.zeros(num_bars)
+        tick_velocity[1:] = bar_prices[1:] - bar_prices[:-1]
+
+        # We need to refine sigma using Fractal Diffusion Formula
+        # σ = σ_base * (v_micro / v_macro)^H
+        # v_micro = |tick_velocity|
+        # v_macro = rolling mean of |diff(close)| over window rp
+
+        # Calculate v_macro vectorized
+        abs_diffs = np.abs(np.diff(close, prepend=close[0]))
+        # Rolling mean of abs_diffs with window rp, aligned to 'right' (current time)
+        # We need alignment: index i corresponds to window [i+1 : i+1+rp] in the regression loop?
+        # No, in regression loop: close[start_idx : end_idx] where end_idx = i + 1 + rp
+        # So it's looking ahead if day_data is full?
+        # Wait, batch_compute_states: num_bars = n - rp.
+        # indices i=0 corresponds to rp.
+        # So we look at data up to rp+i.
+
+        # Let's use pandas rolling for simplicity and speed
+        close_series = pd.Series(close)
+        # Rolling mean of absolute diffs
+        v_macro_series = close_series.diff().abs().rolling(window=rp).mean().fillna(1.0)
+        v_macro_vals = v_macro_series.values[rp:] # Slice to match num_bars
+
+        v_micro_vals = np.abs(tick_velocity)
+
+        # Calculate Fractal Sigma
+        velocity_ratios = np.divide(v_micro_vals, v_macro_vals + 1e-9)
+        velocity_ratios = np.clip(velocity_ratios, 0.1, 10.0)
+
+        fractal_sigmas = sigmas * (velocity_ratios ** hurst_vals)
+        sigmas = np.maximum(fractal_sigmas, 1e-6)
+
+        # Re-calculate Z-scores with Fractal Sigma
         z_scores = (bar_prices - centers) / sigmas
 
+        # 2b. PID Forces
+        # Need error history. Error = Price - Center.
+        errors = bar_prices - centers
+
+        # Derivative: dE/dt
+        e_deriv = np.zeros(num_bars)
+        e_deriv[1:] = errors[1:] - errors[:-1]
+
+        # Integral: Sum of errors over window rp
+        # Vectorized rolling sum
+        errors_series = pd.Series(errors)
+        e_integ = errors_series.rolling(window=rp, min_periods=1).sum().values
+
+        # F_pid = -(Kp*e + Ki*int + Kd*deriv)
+        F_pid = -(kp * errors + ki * e_integ + kd * e_deriv)
+
+        # 2c. Gravity & Repulsion
         upper_sing = centers + self.SIGMA_ROCHE_MULTIPLIER * sigmas
         lower_sing = centers - self.SIGMA_ROCHE_MULTIPLIER * sigmas
         upper_event = centers + self.SIGMA_EVENT_MULTIPLIER * sigmas
         lower_event = centers - self.SIGMA_EVENT_MULTIPLIER * sigmas
 
-        F_reversion = (z_scores ** 2) / 9.0
+        # F_gravity = -theta * z * sigma (which is -theta * error)
+        F_gravity = -theta * errors
+        F_reversion = F_gravity # Alias
 
         dist_upper = np.abs(bar_prices - upper_sing) / sigmas
         dist_lower = np.abs(bar_prices - lower_sing) / sigmas
@@ -699,20 +867,14 @@ class QuantumFieldEngine:
         F_upper_repulsion = np.where(z_scores > 0, F_upper_raw, 0.0)
         F_lower_repulsion = np.where(z_scores < 0, F_lower_raw, 0.0)
 
-        # Tick velocity: price change between consecutive bars
-        tick_velocity = np.zeros(num_bars)
-        tick_velocity[1:] = bar_prices[1:] - bar_prices[:-1]
-
-        # Momentum: |velocity| * volume / sigma (matches per-bar _calculate_force_fields)
+        # Momentum: velocity * volume / sigma
         safe_velocity = np.nan_to_num(tick_velocity)
         safe_volumes = np.nan_to_num(bar_volumes)
-        F_momentum = np.abs(safe_velocity) * safe_volumes / (sigmas + 1e-6)
+        F_momentum = safe_velocity * safe_volumes / (sigmas + 1e-6)
 
-        F_net = np.where(
-            z_scores > 0,
-            F_reversion + F_upper_repulsion - F_momentum,
-            F_reversion + F_lower_repulsion - F_momentum
-        )
+        # Net Force: Gravity + Momentum + PID + Repulsion
+        repulsion = np.where(z_scores > 0, -F_upper_repulsion, F_lower_repulsion)
+        F_net = F_gravity + F_momentum + F_pid + repulsion
 
         # ═══ STEP 3: Wave function (exp/log — GPU-accelerated) ═══
         E0 = -z_scores ** 2 / 2
@@ -778,7 +940,8 @@ class QuantumFieldEngine:
             np.minimum((np.abs(z_scores) - 2.0) / 1.0, 1.0),
             0.0
         )
-        structure_confirmed = volume_spike & (pattern_maturity > 0.5)
+        # Relaxed from > 0.5 to > 0.1 (z > 2.1)
+        structure_confirmed = volume_spike & (pattern_maturity > 0.1)
 
         # Cascade Logic: Velocity OR Range
         velocity_cascade = np.abs(tick_velocity) > VELOCITY_CASCADE_THRESHOLD
@@ -830,7 +993,13 @@ class QuantumFieldEngine:
             np.where(abs_z < 2.0, 0.5, 0.1)
         )
 
-        momentum_strength = np.nan_to_num(F_momentum / (F_reversion + 1e-6))
+        # Lyapunov Proxy
+        lyapunov = np.zeros(num_bars)
+        abs_z = np.abs(z_scores)
+        lyapunov[1:] = abs_z[1:] - abs_z[:-1] # >0 expanding, <0 decaying
+        market_regimes = np.where(lyapunov > 0, 'CHAOTIC', 'STABLE')
+
+        momentum_strength = np.nan_to_num(F_momentum / (np.abs(F_reversion) + 1e-6))
 
         # ═══ STEP 7: Build state objects ═══
         results = []
@@ -874,6 +1043,10 @@ class QuantumFieldEngine:
                 dmi_plus=dmp_vals[i],
                 dmi_minus=dmn_vals[i],
                 candlestick_pattern=str(candlestick_types[i]),
+                sigma_fractal=sigmas[i],
+                term_pid=F_pid[i],
+                lyapunov_exponent=lyapunov[i],
+                market_regime=str(market_regimes[i]),
             )
             results.append({
                 'bar_idx': rp + i,

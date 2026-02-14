@@ -1,127 +1,74 @@
-"""
-Bayesian-AI - CUDA Pattern Test
-Tests pattern detection logic.
-"""
 import pytest
-import pandas as pd
 import numpy as np
-import os
-import sys
+import pandas as pd
+from core.pattern_utils import detect_geometric_patterns_vectorized, PATTERN_COMPRESSION, PATTERN_WEDGE, PATTERN_BREAKDOWN
 
-# Add project root to path
-sys.path.append(os.getcwd())
+# Try importing CUDA module
+try:
+    from core.cuda_pattern_detector import detect_geometric_patterns_cuda, NUMBA_AVAILABLE
+    from numba import cuda
+    CUDA_READY = NUMBA_AVAILABLE and cuda.is_available()
+except (ImportError, Exception):
+    CUDA_READY = False
 
-from cuda_modules.pattern_detector import get_pattern_detector, PATTERN_COMPRESSION, PATTERN_WEDGE, PATTERN_BREAKDOWN, PATTERN_NONE
-import cuda_modules.pattern_detector
-from tests.utils import get_cuda_availability
-
-class TestCUDAPatternDetector:
-    def setup_method(self):
-        if not get_cuda_availability():
-            pytest.skip("GPU required for pattern detection logic")
-        self.detector = get_pattern_detector(use_gpu=True)
-
-    def test_compression_pattern(self):
-        """Test compression pattern detection (range contraction)"""
-        # Create data where first 5 bars have large range, next 5 have small range
-        highs = []
-        lows = []
-
-        # Previous range (large): idx 0-4
-        for i in range(5):
-            highs.append(100.0 + (i % 2) * 10) # Ranges approx 10
-            lows.append(90.0)
-
-        # Recent range (small): idx 5-9
-        for i in range(5):
-            highs.append(100.0 + (i % 2) * 2) # Ranges approx 2
-            lows.append(98.0)
-
-        df = pd.DataFrame({
-            'high': np.array(highs, dtype=np.float32),
-            'low': np.array(lows, dtype=np.float32)
-        })
-
-        pattern, conf = self.detector.detect(df)
-        assert pattern == 'compression'
-        assert conf == 0.85
-
-    def test_wedge_pattern(self):
-        """Test wedge pattern (higher lows, lower highs)"""
-        # highs decreasing, lows increasing over 5 bars
-        highs = [110, 109, 108, 107, 105]
-        lows =  [90,  91,  92,  93,  95]
-
-        df = pd.DataFrame({
-            'high': np.array(highs, dtype=np.float32),
-            'low': np.array(lows, dtype=np.float32)
-        })
-
-        pattern, conf = self.detector.detect(df)
-        assert pattern == 'wedge'
-        assert conf == 0.75
-
-    def test_breakdown_pattern(self):
-        """Test breakdown pattern (new low below previous support)"""
-        # flat support then drop
-        highs = [100, 100, 100, 100, 100]
-        lows =  [90,  90,  90,  90,  80] # Drop to 80
-
-        df = pd.DataFrame({
-            'high': np.array(highs, dtype=np.float32),
-            'low': np.array(lows, dtype=np.float32)
-        })
-
-        pattern, conf = self.detector.detect(df)
-        assert pattern == 'breakdown'
-        assert conf == 0.90
-
-    def test_no_pattern(self):
-        """Test no pattern detected"""
-        highs = [100, 101, 102, 103, 104]
-        lows =  [90,  91,  92,  93,  94]
-        df = pd.DataFrame({
-            'high': np.array(highs, dtype=np.float32),
-            'low': np.array(lows, dtype=np.float32)
-        })
-
-        pattern, conf = self.detector.detect(df)
-        assert pattern == 'none'
-        assert conf == 0.0
-
-    def test_insufficient_data(self):
-        """Test behavior with insufficient data"""
-        highs = [100, 101]
-        lows =  [90,  91]
-        df = pd.DataFrame({
-            'high': np.array(highs, dtype=np.float32),
-            'low': np.array(lows, dtype=np.float32)
-        })
-
-        pattern, conf = self.detector.detect(df)
-        assert pattern == 'none'
-
-def test_gpu_fallback_enforcement():
+@pytest.mark.skipif(not CUDA_READY, reason="CUDA not available")
+def test_cuda_pattern_equivalence():
     """
-    Verify that strict GPU enforcement works.
+    Verify that CUDA pattern detection produces identical results to CPU vectorization.
     """
-    # Reset singleton
-    cuda_modules.pattern_detector._pattern_detector = None
+    np.random.seed(42)
+    n = 1000
 
-    cuda_available = get_cuda_availability()
+    # Generate synthetic OHLC data
+    # Create random walk for close
+    close = np.cumsum(np.random.randn(n)) + 100
+    highs = close + np.random.rand(n) * 2
+    lows = close - np.random.rand(n) * 2
 
-    if cuda_available:
-        # Should succeed
-        detector = get_pattern_detector(use_gpu=True)
-        assert detector.use_gpu is True
-    else:
-        # Should fail strictly
-        with pytest.raises(RuntimeError):
-            get_pattern_detector(use_gpu=True)
+    # Inject patterns manually to ensure coverage
 
-        # Even explicit False should fail as CPU support is removed
-        with pytest.raises(RuntimeError):
-            get_pattern_detector(use_gpu=False)
+    # Inject Compression at index 100
+    # prev_range (90-95): large
+    highs[90:95] = 110
+    lows[90:95] = 90
+    # rec_range (95-100): small
+    highs[95:101] = 101
+    lows[95:101] = 99
+
+    # Inject Wedge at index 200 (Higher Lows, Lower Highs)
+    # i-4 to i
+    base = 200
+    lows[base-4] = 50; highs[base-4] = 60
+    lows[base] = 52;   highs[base] = 58
+
+    # Inject Breakdown at index 300
+    # i-4 to i-1 min low = 50
+    # i low = 48
+    base = 300
+    lows[base-4:base] = 50
+    lows[base] = 48
+
+    # Run CPU
+    cpu_result = detect_geometric_patterns_vectorized(highs, lows)
+
+    # Run GPU
+    gpu_result = detect_geometric_patterns_cuda(highs, lows)
+
+    # Compare
+    # Check if injected patterns were detected by both (sanity check)
+    assert cpu_result[100] == PATTERN_COMPRESSION
+    assert gpu_result[100] == PATTERN_COMPRESSION
+
+    assert cpu_result[200] == PATTERN_WEDGE
+    assert gpu_result[200] == PATTERN_WEDGE
+
+    assert cpu_result[300] == PATTERN_BREAKDOWN
+    assert gpu_result[300] == PATTERN_BREAKDOWN
+
+    # Check full equality
+    # Note: There might be edge cases with NaNs or types
+    # Ensure string equality
+    np.testing.assert_array_equal(cpu_result, gpu_result)
 
 if __name__ == "__main__":
-    sys.exit(pytest.main(["-v", __file__]))
+    test_cuda_pattern_equivalence()
