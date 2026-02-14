@@ -438,8 +438,10 @@ class BayesianTrainingOrchestrator:
             # Save to Cache (if date provided)
             if cache_file:
                 try:
-                    with open(cache_file, 'wb') as f:
-                        pickle.dump(batch_results, f)
+                    with tempfile.NamedTemporaryFile('wb', dir=cache_dir, delete=False) as tmp_f:
+                        pickle.dump(batch_results, tmp_f)
+                        tmp_path = tmp_f.name
+                    os.replace(tmp_path, cache_file)
                 except Exception as e:
                     print(f"  WARNING: Failed to cache states: {e}")
 
