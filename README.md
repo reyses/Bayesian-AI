@@ -11,9 +11,10 @@ Bayesian-AI is a high-frequency trading system that utilizes a Fractal Three-Bod
 
 ## 📖 Documentation
 
-*   **[System Logic & Parameters](docs/SYSTEM_LOGIC_AND_PARAMETERS.md)**: **(NEW)** Detailed explanation of the Physics Engine, Math, Learning Cycle, and Optimized Parameters.
-*   **[Technical Manual](docs/TECHNICAL_MANUAL.md)**: Legacy reference for system architecture and module overview.
-*   **[Dashboard Guide](docs/DASHBOARD_GUIDE.md)**: Instructions for using the interactive validation, debugging, and learning dashboard.
+*   **[Technical Manual](docs/TECHNICAL_MANUAL.md)**: The single source of truth. Contains:
+    *   **System Logic & Parameters**: Physics Engine, Math ("Nightmare Protocol"), Learning Cycle.
+    *   **Dashboard Guide**: Interactive validation and debugging.
+    *   **Legacy Reference**: Archived architecture for historical context.
 *   **[Current Status](CURRENT_STATUS.md)**: Live project health, code statistics, and validation metrics.
 *   **[Agent Instructions](AGENTS.md)**: Guidelines for AI agents working on this codebase.
 
