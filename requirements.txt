@@ -1,4 +1,4 @@
---extra-index-url https://download.pytorch.org/whl/cpu
+--extra-index-url https://download.pytorch.org/whl/cu121
 aiohappyeyeballs==2.6.1
 aiohttp==3.13.3
 aiosignal==1.4.0
@@ -30,7 +30,7 @@ scipy==1.13.1
 matplotlib>=3.8.0
 colorama
 anywidget
-torch==2.2.2+cpu
+torch
 git+https://github.com/MerlinR/Pandas-ta-fork.git#egg=pandas_ta
 hurst
 QuantLib

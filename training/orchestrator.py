@@ -184,8 +184,12 @@ class BayesianTrainingOrchestrator:
                 gpu_mem = torch.cuda.get_device_properties(0).total_memory / (1024**3)
                 print(f"CUDA: ENABLED  |  GPU: {gpu_name}  |  VRAM: {gpu_mem:.1f} GB")
             else:
+                if getattr(self.config, 'force_cuda', False):
+                    raise RuntimeError("CUDA requested via --force-cuda but not available.")
                 print("CUDA: NOT AVAILABLE  |  Running on CPU")
         except ImportError:
+            if getattr(self.config, 'force_cuda', False):
+                raise RuntimeError("CUDA requested via --force-cuda but PyTorch not installed.")
             print("CUDA: NOT AVAILABLE (PyTorch not installed)  |  Running on CPU")
 
         print(f"Asset: {self.asset.ticker}")
@@ -1679,6 +1683,7 @@ def main():
     parser.add_argument('--no-dashboard', action='store_true', help="Disable live dashboard")
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
+    parser.add_argument('--force-cuda', action='store_true', help="Force CUDA usage (fail if unavailable)")
 
     args = parser.parse_args()
 
