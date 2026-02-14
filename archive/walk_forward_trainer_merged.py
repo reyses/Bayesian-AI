@@ -27,7 +27,7 @@ from core.bayesian_brain import QuantumBayesianBrain, TradeOutcome
 from core.quantum_field_engine import QuantumFieldEngine
 from core.context_detector import ContextDetector
 from training.doe_parameter_generator import DOEParameterGenerator, ParameterSet
-from execution.integrated_statistical_system import IntegratedStatisticalEngine, TradeRecord
+from training.integrated_statistical_system import IntegratedStatisticalEngine, TradeRecord
 from config.symbols import MNQ
 
 

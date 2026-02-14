@@ -3,7 +3,7 @@ Bayesian-AI - Main Execution Engine
 File: bayesian_ai/engine_core.py
 """
 from core.bayesian_brain import BayesianBrain, TradeOutcome, QuantumBayesianBrain
-from execution.wave_rider import WaveRider
+from training.wave_rider import WaveRider
 from core.layer_engine import LayerEngine
 from core.data_aggregator import DataAggregator
 from core.logger import setup_logger
