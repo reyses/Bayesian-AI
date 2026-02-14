@@ -80,6 +80,9 @@ def compute_rolling_regression_vectorized(close: np.ndarray, rp: int = 21):
     sum_squared_residuals = np.maximum(sum_squared_residuals, 0)
 
     std_err = np.sqrt(sum_squared_residuals / (rp - 2))
+    # Use rolling std as fallback for perfect fits, matching original logic
+    y_std = s_prices.rolling(window=rp).std().values
+    std_err = np.where(std_err > 0, std_err, y_std)
     std_err = np.nan_to_num(std_err)
 
     # 3. Robust Sigma
