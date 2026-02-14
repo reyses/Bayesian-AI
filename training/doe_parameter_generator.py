@@ -77,6 +77,52 @@ class DOEParameterGenerator:
         # Define parameter ranges for exploration
         self.param_ranges = self._define_parameter_ranges()
 
+        # Log configuration on startup
+        self._log_parameter_configuration()
+
+    def _log_parameter_configuration(self):
+        """Log the parameters being optimized and their associated modules"""
+        print("\n" + "="*60)
+        print("DOE PARAMETER CONFIGURATION")
+        print("="*60)
+
+        # Define module mappings based on parameter prefixes or explicit lists
+        module_map = {
+            'Unified Market Physics': ['pid_', 'gravity_', 'sigma_decay'],
+            'Kill Zone': ['killzone_', 'wick_', 'zone_strength'],
+            'Velocity': ['cascade_', 'min_entry_velocity'],
+            'Volatility': ['layer_', 'min_sigma_differential'],
+            'Resonance': ['resonance_'],
+            'Transition': ['transition_', 'hysteresis_', 'min_bars_in_state'],
+            'Session': ['opening_range', 'min_hold', 'max_hold', 'timeframe_idx'],
+            'Confirmation': ['volume_spike', 'aggressive_', 'bid_ask_'],
+            'Trading Cost': ['trading_cost_points'],
+            'Core': [] # Catch-all
+        }
+
+        categorized = set()
+
+        for module, prefixes in module_map.items():
+            if module == 'Core': continue
+
+            params = [p for p in self.param_ranges.keys() if any(prefix in p for prefix in prefixes)]
+            if params:
+                print(f"\n[{module}]")
+                for p in params:
+                    min_v, max_v, p_type = self.param_ranges[p]
+                    print(f"  - {p:<30} Range: {min_v} to {max_v} ({p_type})")
+                    categorized.add(p)
+
+        # Print Core (remaining)
+        core_params = [p for p in self.param_ranges.keys() if p not in categorized]
+        if core_params:
+            print(f"\n[Core Strategy]")
+            for p in core_params:
+                min_v, max_v, p_type = self.param_ranges[p]
+                print(f"  - {p:<30} Range: {min_v} to {max_v} ({p_type})")
+
+        print("="*60 + "\n")
+
     def update_regret_analysis(self, analysis: Dict):
         """Store regret analysis to guide parameter generation"""
         self.latest_regret_analysis = analysis
