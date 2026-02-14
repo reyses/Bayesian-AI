@@ -60,11 +60,6 @@ class BatchRegretAnalyzer:
     # Note: '60s' is preferred over '1m' to avoid pandas 'm' (month) vs 'min' (minute) ambiguity
     TIMEFRAME_HIERARCHY = ['5s', '15s', '60s', '5min', '15min', '1h']
 
-    # Weighting to prefer early exits (leaving money on table) over late exits (giving back profit).
-    # A value > 1.0 means we penalize "giving back" more heavily.
-    # This pushes the system to recommend tightening stops rather than relaxing them.
-    LATE_EXIT_PENALTY = 1.3
-
     def __init__(self):
         self.analysis_history = []
 
@@ -204,13 +199,14 @@ class BatchRegretAnalyzer:
             delta_tf2 = parse_interval(tf2_str) * 5
 
             # Find peaks on each timeframe with respective 5-bar lookahead
-            peak_base = self._find_peak(data_base, entry_ts, exit_ts + delta_base, side)
-            peak_tf1 = self._find_peak(data_tf1, entry_ts, exit_ts + delta_tf1, side)
-            peak_tf2 = self._find_peak(data_tf2, entry_ts, exit_ts + delta_tf2, side)
+            # Returns (peak_price, peak_time)
+            p_base, t_base = self._find_peak(data_base, entry_ts, exit_ts + delta_base, side)
+            p_tf1, t_tf1 = self._find_peak(data_tf1, entry_ts, exit_ts + delta_tf1, side)
+            p_tf2, t_tf2 = self._find_peak(data_tf2, entry_ts, exit_ts + delta_tf2, side)
 
-            # Use TF+1 as the "True" target for efficiency calculation (sustained move)
-            # Fallback to base if TF+1 unavailable
-            true_peak = peak_tf1 if peak_tf1 is not None else (peak_base if peak_base is not None else entry_price)
+            # Use TF+1 as the "True" target
+            true_peak = p_tf1 if p_tf1 is not None else (p_base if p_base is not None else entry_price)
+            true_peak_time = t_tf1 if t_tf1 is not None else t_base
 
             # Compute potential and actual PnL
             if side == 'long':
@@ -226,22 +222,17 @@ class BatchRegretAnalyzer:
             pnl_left_on_table = max(0, potential_max_pnl - actual_pnl)
             exit_efficiency = actual_pnl / potential_max_pnl if potential_max_pnl > 0 else 0.0
 
-            # Classify exit type
+            # Classify exit type using Time Comparison to remove ambiguity
             if exit_efficiency >= 0.90:
                 regret_type = 'optimal'
             else:
-                # Weighted comparison to prefer Early Exit (penalize Late Exit)
-                # late_score = gave_back * PENALTY.
-                # If late_score > early_score, we call it Late (bad).
-                # Else Early (acceptable).
-
-                early_score = pnl_left_on_table
-                late_score = gave_back * self.LATE_EXIT_PENALTY
-
-                if late_score > early_score:
-                    regret_type = 'closed_too_late'
-                else:
+                # If True Peak Time > Exit Time: We exited before the peak -> Early Exit (Left on table)
+                # If True Peak Time <= Exit Time: We exited after the peak -> Late Exit (Gave back)
+                # Note: exit_ts is Timestamp. true_peak_time is Timestamp.
+                if true_peak_time and true_peak_time > exit_ts:
                     regret_type = 'closed_too_early'
+                else:
+                    regret_type = 'closed_too_late'
 
             return RegretMarkers(
                 trade_id=trade_id,
@@ -258,9 +249,9 @@ class BatchRegretAnalyzer:
                 gave_back_pnl=gave_back,
                 exit_efficiency=exit_efficiency,
                 regret_type=regret_type,
-                peak_current_tf=peak_base or 0.0,
-                peak_tf1=peak_tf1 or 0.0,
-                peak_tf2=peak_tf2 or 0.0,
+                peak_current_tf=p_base or 0.0,
+                peak_tf1=p_tf1 or 0.0,
+                peak_tf2=p_tf2 or 0.0,
                 timeframe_used=base_tf_str,
                 tf1_interval=tf1_str,
                 tf2_interval=tf2_str,
@@ -272,28 +263,29 @@ class BatchRegretAnalyzer:
             # print(f"Error analyzing trade {trade_id}: {e}")
             return None
 
-    def _find_peak(self, data: pd.DataFrame, entry_ts, end_ts, side: str) -> Optional[float]:
-        """Find peak favorable price between entry and end_ts."""
+    def _find_peak(self, data: pd.DataFrame, entry_ts, end_ts, side: str) -> Tuple[Optional[float], Optional[pd.Timestamp]]:
+        """Find peak favorable price between entry and end_ts. Returns (price, timestamp)."""
         if data is None or data.empty:
-            return None
+            return None, None
 
         # Look in window [entry, end_ts]
         mask = (data.index >= entry_ts) & (data.index <= end_ts)
         window = data[mask]
 
         if window.empty:
-            # Fallback: check closest bar after entry if window empty (e.g. sparse data)
+            # Fallback
             after = data[data.index >= entry_ts]
             if not after.empty:
-                # Take first bar
                 window = after.iloc[:1]
             else:
-                return None
+                return None, None
 
         if side == 'long':
-            return float(window['high'].max()) if 'high' in window.columns else float(window['close'].max())
+            col = 'high' if 'high' in window.columns else 'close'
+            return float(window[col].max()), window[col].idxmax()
         else:
-            return float(window['low'].min()) if 'low' in window.columns else float(window['close'].min())
+            col = 'low' if 'low' in window.columns else 'close'
+            return float(window[col].min()), window[col].idxmin()
 
     def _resample_data(self, data: pd.DataFrame, timeframe: str) -> pd.DataFrame:
         """Resample OHLCV data to broader timeframe"""
