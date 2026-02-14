@@ -137,14 +137,14 @@ def main():
     print(f"\n{'='*60}")
     if not failed_steps:
         print(f"Workflow Completed Successfully in {total_duration:.2f}s")
-        sys.exit(0)
     else:
         print(f"Workflow Completed with Non-Critical Failures in {total_duration:.2f}s")
         print("Failed Steps (Non-Critical):")
         for step in failed_steps:
             print(f" - {step}")
         # Exit with success because failed steps were non-critical
-        sys.exit(0)
+
+    sys.exit(0)
 
 if __name__ == "__main__":
     main()
