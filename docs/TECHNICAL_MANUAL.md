@@ -13,7 +13,7 @@ The system operates on a strict **LOAD -> TRANSFORM -> ANALYZE -> VISUALIZE** pi
 - **`core/layer_engine.py` (LayerEngine):** Responsible for computing the 9-layer state vector. It separates computation into **Static** (L1-L4) and **Fluid** (L5-L9) contexts.
 - **`core/bayesian_brain.py` (BayesianBrain):** The learning module that maintains a probability table mapping state vectors to win rates.
 - **`training/orchestrator.py` (TrainingOrchestrator):** Manages historical data replay to train the Bayesian Brain.
-- **`execution/wave_rider.py` (WaveRider):** Handles trade execution, position management, and exit logic.
+- **`training/wave_rider.py` (WaveRider):** Handles trade execution, position management, and exit logic.
 
 ### The 9-Layer Hierarchy
 
@@ -157,8 +157,6 @@ The system delegates computationally intensive tasks to the GPU via Numba.
 │   ├── LEARNING_DASHBOARD_GUIDE.md
 │   ├── TECHNICAL_MANUAL.md
 │   └── archive/
-├── execution/              # Trade Execution & Management
-│   └── wave_rider.py
 ├── notebooks/              # Jupyter Notebooks
 │   └── learning_dashboard.ipynb
 ├── requirements.txt        # Python Dependencies
@@ -176,7 +174,8 @@ The system delegates computationally intensive tasks to the GPU via Numba.
 │   └── topic_*.py
 └── training/               # Historical Learning Pipeline
     ├── databento_loader.py
-    └── orchestrator.py
+    ├── orchestrator.py
+    └── wave_rider.py
 ```
 
 ### Module Reference
@@ -239,7 +238,7 @@ The system delegates computationally intensive tasks to the GPU via Numba.
 *   **Logic:** Checks if price moves ≥ 10 points in ≤ 0.5s within the last 50 ticks.
 *   **Optimization:** Processes only relevant tail of tick data.
 
-#### 2.3 Execution (`execution/`)
+#### 2.3 Execution (`training/`)
 
 **`wave_rider.py` (WaveRider)**
 *   **Purpose:** Manages active positions.

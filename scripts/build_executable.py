@@ -40,7 +40,7 @@ def build():
         '--hidden-import=numba',
         '--hidden-import=llvmlite',
         '--hidden-import=core',
-        '--hidden-import=execution',
+        '--hidden-import=training',
         '--hidden-import=cuda',
         '--hidden-import=training',
         '--hidden-import=visualization',

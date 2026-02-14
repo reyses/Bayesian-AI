@@ -12,7 +12,7 @@ from core.three_body_state import ThreeBodyQuantumState
 
 # Statistical validation components (optional imports)
 try:
-    from execution.integrated_statistical_system import (
+    from training.integrated_statistical_system import (
         BayesianStateValidator,
         MonteCarloRiskAnalyzer
     )
