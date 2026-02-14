@@ -67,7 +67,10 @@ DEFAULT_VELOCITY_SLIPPAGE_FACTOR = 0.1
 TIMEFRAME_MAP = {
     0: '5s',
     1: '15s',
-    2: '60s'
+    2: '60s',
+    3: '5m',
+    4: '15m',
+    5: '1h'
 }
 
 @dataclass
