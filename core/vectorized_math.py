@@ -23,7 +23,7 @@ def compute_rolling_regression_vectorized(close: np.ndarray, rp: int = 21):
         slopes: Array of regression slopes
     """
     n = len(close)
-    if n < rp:
+    if n < rp or rp <= 2:
         # QuantumFieldEngine expects arrays of length num_bars (n-rp) usually,
         # but here we return full length arrays for simpler indexing.
         return np.full(n, np.nan), np.full(n, np.nan), np.full(n, np.nan)
