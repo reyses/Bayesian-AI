@@ -771,6 +771,15 @@ class BayesianTrainingOrchestrator:
             ps = self.param_generator.generate_parameter_set(iteration=i, day=day_number, context='CORE')
             all_param_sets.append(ps.parameters)
 
+        if not all_param_sets:
+            return DayResults(
+                day_number=day_number, date=date, total_iterations=self.config.iterations,
+                best_iteration=0, best_params={}, best_sharpe=0.0, best_win_rate=0.0,
+                best_pnl=0.0, total_trades=0, states_learned=len(self.brain.table),
+                high_confidence_states=len(self.brain.get_all_states_above_threshold()),
+                execution_time_seconds=time.time() - start_time, avg_duration=0.0
+            )
+
         # Group iterations by timeframe to optimize batching
         grouped_params = {} # timeframe_idx -> {indices: [], params: []}
         for idx, p in enumerate(all_param_sets):
