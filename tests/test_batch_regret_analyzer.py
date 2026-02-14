@@ -167,3 +167,60 @@ def test_exit_efficiency_calculation():
     # Potential = 110 - 100 = 10. Actual = 90 - 100 = -10. Eff = -1.0.
     assert m3.exit_efficiency < 0
     assert -1.01 < m3.exit_efficiency < -0.99
+
+def test_regret_classification_scenarios():
+    """Verify classification logic for Early, Late, and Loss."""
+    analyzer = BatchRegretAnalyzer()
+
+    dates = pd.date_range(start='2024-01-01 10:00:00', periods=600, freq='s')
+    prices = np.full(600, 100.0)
+
+    # A) Early Exit Scenario
+    # Price rises to 110 at T=300. Trade exits at T=100 price=105.
+    # Peak (300) > Exit (100) -> Early.
+    prices_a = prices.copy()
+    prices_a[300] = 110.0
+    df_a = pd.DataFrame({'timestamp': dates, 'close': prices_a, 'high': prices_a, 'low': prices_a, 'open': prices_a, 'volume': 100})
+    df_a['price'] = df_a['close']
+
+    t_early = TradeOutcome(
+        state=MockState(), entry_price=100.0, exit_price=105.0, pnl=5.0, result='WIN',
+        timestamp=dates[100].timestamp(), exit_reason='TP', entry_time=dates[0].timestamp(), exit_time=dates[100].timestamp(), direction='LONG'
+    )
+
+    res_a = analyzer.batch_analyze_day([t_early], df_a, current_timeframe='15s')
+    assert res_a['regret_markers'][0].regret_type == 'closed_too_early'
+
+    # B) Late Exit Scenario
+    # Price rises to 110 at T=100. Drops to 105 at T=300 (exit).
+    # Peak (100) < Exit (300) -> Late.
+    prices_b = prices.copy()
+    prices_b[100] = 110.0
+    prices_b[300] = 105.0
+    df_b = pd.DataFrame({'timestamp': dates, 'close': prices_b, 'high': prices_b, 'low': prices_b, 'open': prices_b, 'volume': 100})
+    df_b['price'] = df_b['close']
+
+    t_late = TradeOutcome(
+        state=MockState(), entry_price=100.0, exit_price=105.0, pnl=5.0, result='WIN',
+        timestamp=dates[300].timestamp(), exit_reason='TP', entry_time=dates[0].timestamp(), exit_time=dates[300].timestamp(), direction='LONG'
+    )
+
+    res_b = analyzer.batch_analyze_day([t_late], df_b, current_timeframe='15s')
+    assert res_b['regret_markers'][0].regret_type == 'closed_too_late'
+
+    # C) Wrong Direction (Loss) Scenario
+    # Price drops immediately. Peak is Entry (T=0). Exit at T=100.
+    # Peak (0) < Exit (100) -> Late.
+    prices_c = prices.copy()
+    prices_c[100] = 90.0
+    df_c = pd.DataFrame({'timestamp': dates, 'close': prices_c, 'high': prices_c, 'low': prices_c, 'open': prices_c, 'volume': 100})
+    df_c['price'] = df_c['close']
+
+    t_loss = TradeOutcome(
+        state=MockState(), entry_price=100.0, exit_price=90.0, pnl=-10.0, result='LOSS',
+        timestamp=dates[100].timestamp(), exit_reason='SL', entry_time=dates[0].timestamp(), exit_time=dates[100].timestamp(), direction='LONG'
+    )
+
+    res_c = analyzer.batch_analyze_day([t_loss], df_c, current_timeframe='15s')
+    assert res_c['regret_markers'][0].regret_type == 'closed_too_late'
+    assert res_c['regret_markers'][0].exit_efficiency < 0.0
