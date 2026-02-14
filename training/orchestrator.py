@@ -375,7 +375,7 @@ class BayesianTrainingOrchestrator:
             cache_dir = os.path.join(PROJECT_ROOT, 'cache', 'precomputed_states')
             os.makedirs(cache_dir, exist_ok=True)
             safe_interval = interval.replace('/', '_') # Safety for filenames
-            cache_file = os.path.join(cache_dir, f"states_{date}_{safe_interval}.pkl")
+            cache_file = os.path.join(cache_dir, f"states_v1.0_{date}_{safe_interval}.pkl")
 
             if os.path.exists(cache_file):
                 print(f"  Loading precomputed states from {cache_file}...", end='', flush=True)
