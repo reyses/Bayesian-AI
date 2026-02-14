@@ -877,17 +877,20 @@ class BayesianTrainingOrchestrator:
         # Reconstruct ordered list of results
         all_results = [results_map[i] for i in range(len(all_param_sets))]
 
-        # Find best result
-        best_idx = 0
-        best_sharpe = -999.0
-
+        # Find best result (Prioritize PnL > Sharpe)
+        # Create a list of (index, pnl, sharpe)
+        candidates = []
         for i, res in enumerate(all_results):
-            if res['sharpe'] > best_sharpe:
-                best_sharpe = res['sharpe']
-                best_idx = i
+            candidates.append((i, res['pnl'], res['sharpe']))
+
+        # Sort by PnL (desc), then Sharpe (desc)
+        candidates.sort(key=lambda x: (x[1], x[2]), reverse=True)
+
+        best_idx = candidates[0][0]
 
         # Unpack best result
         best_sharpe = all_results[best_idx]['sharpe']
+        best_pnl = all_results[best_idx]['pnl']
         best_params = all_param_sets[best_idx]
         best_trades = all_results[best_idx]['trades']
         self._best_trades_today = best_trades
@@ -928,7 +931,8 @@ class BayesianTrainingOrchestrator:
             self.stat_validator.record_trade(record)
 
         if best_params:
-            self.param_generator.update_best_params(best_params, performance=best_sharpe)
+            # Pass PnL as performance metric for Response Surface optimization
+            self.param_generator.update_best_params(best_params, performance=best_pnl)
 
         execution_time = time.time() - start_time
 
@@ -1151,8 +1155,20 @@ class BayesianTrainingOrchestrator:
                 std_pnl = pnls_iter.std() + 1e-6
                 sharpes[ii] = mean_pnl / std_pnl
 
-        # Find best iteration
-        best_idx = sharpes.argmax().item()
+        # Find best iteration (Prioritize PnL > Sharpe)
+        # On GPU, simple argmax on PnL is fastest.
+        # total_pnl is [n_iters]. Mask out invalid iterations (low trade count) first.
+        # We can use sharpes > -900 as a mask for valid iterations (>= 5 trades).
+        valid_mask_gpu = sharpes > -900.0
+
+        if valid_mask_gpu.any():
+            # Set invalid PnL to -inf for argmax
+            masked_pnl = total_pnl.clone()
+            masked_pnl[~valid_mask_gpu] = -float('inf')
+            best_idx = masked_pnl.argmax().item()
+        else:
+            best_idx = 0 # Fallback
+
         best_sharpe = sharpes[best_idx].item()
 
         # Move results to CPU
@@ -1229,7 +1245,7 @@ class BayesianTrainingOrchestrator:
         best_idx = 0
         all_results = []
         best_trades = []
-        best_pnl_so_far = 0.0
+        best_pnl_so_far = -float('inf')
         best_win_rate = 0.0
         best_avg_duration = 0.0
 
@@ -1240,11 +1256,13 @@ class BayesianTrainingOrchestrator:
                 precomputed, day_data, all_param_sets[iteration], pbar, best_sharpe
             )
 
+            current_pnl = 0.0
             if trades:
                 pnls = [t.pnl for t in trades]
                 wins = sum(1 for t in trades if t.result == 'WIN')
                 win_rate = wins / len(trades)
                 sharpe = np.mean(pnls) / (np.std(pnls) + 1e-6)
+                current_pnl = sum(pnls)
             else:
                 win_rate = 0.0
                 sharpe = 0.0
@@ -1253,17 +1271,25 @@ class BayesianTrainingOrchestrator:
                 'trades': trades,
                 'sharpe': sharpe,
                 'win_rate': win_rate,
-                'pnl': sum(t.pnl for t in trades),
+                'pnl': current_pnl,
             })
 
-            if sharpe > best_sharpe and len(trades) >= 5:
+            # New Best Logic: Prioritize PnL, then Sharpe
+            is_new_best = False
+            if len(trades) >= 5:
+                if current_pnl > best_pnl_so_far:
+                    is_new_best = True
+                elif current_pnl == best_pnl_so_far and sharpe > best_sharpe:
+                    is_new_best = True
+
+            if is_new_best:
                 best_sharpe = sharpe
                 best_idx = iteration
-                best_pnl_so_far = sum(t.pnl for t in trades)
+                best_pnl_so_far = current_pnl
                 best_win_rate = win_rate
                 best_trades = trades
                 best_avg_duration = np.mean([t.duration for t in trades])
-                tqdm.write(f"  [Iter {iteration:3d}] New best! Sharpe: {best_sharpe:.2f} | WR: {win_rate:.1%} | Trades: {len(trades)} | P&L: ${best_pnl_so_far:.2f}")
+                tqdm.write(f"  [Iter {iteration:3d}] New best! P&L: ${best_pnl_so_far:.2f} | Sharpe: {best_sharpe:.2f} | WR: {win_rate:.1%} | Trades: {len(trades)}")
 
             # Update dashboard immediately with current best result
             if best_trades:
