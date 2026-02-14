@@ -47,6 +47,13 @@ INT_MUTATION_MAX = 4
 FLOAT_SKEW_FACTOR = 0.20
 FLOAT_NOISE_RANGE = 0.15
 
+# Iteration Thresholds
+ITER_BASELINE_END = 10
+ITER_LHS_END = 510
+ITER_MUTATION_END = 800
+ITER_RSM_END = 900
+ITER_CROSSOVER_END = 1000
+
 
 class DOEParameterGenerator:
     """
@@ -55,7 +62,8 @@ class DOEParameterGenerator:
     1. Baseline (iterations 0-9): Known good starting points
     2. Latin Hypercube (iterations 10-509): Systematic space filling
     3. Mutation (iterations 510-799): Variations around best params
-    4. Crossover (iterations 800-999): Combine good parameter sets
+    4. Response Surface (iterations 800-899): Quadratic optimization of PnL
+    5. Crossover (iterations 900-999): Combine good parameter sets
     """
 
     def __init__(self, context_detector):
@@ -275,7 +283,7 @@ class DOEParameterGenerator:
         Systematically explores parameter space with good coverage using Stratified LHS.
         """
         # Check cache for this day's batch
-        if (day, n_samples) not in self._lhs_cache:
+        if day not in self._lhs_cache:
             # Generate new batch for the day
             param_names = sorted(list(self.param_ranges.keys()))
             d = len(param_names)
@@ -294,7 +302,7 @@ class DOEParameterGenerator:
 
                     if param_type == 'int':
                         # Scale [0,1] to [min, max]
-                        val = int(min_val + unit_val * (max_val - min_val + 1))
+                        val = int(min_val + unit_val * (max_val - min_val + 0.999))
                         val = min(val, max_val) # Clamp
                     elif param_type == 'float':
                         val = float(min_val + unit_val * (max_val - min_val))
@@ -408,9 +416,15 @@ class DOEParameterGenerator:
 
         # Extract features (params) and targets (sharpe)
         # Use only numeric parameters
-        numeric_params = [k for k, v in self.param_ranges.items() if v[2] in ('int', 'float')]
+        numeric_params = sorted([k for k, v in self.param_ranges.items() if v[2] in ('int', 'float')])
         X = []
         y = []
+
+        # Scaling parameters (Min-Max)
+        min_vals = np.array([self.param_ranges[k][0] for k in numeric_params])
+        max_vals = np.array([self.param_ranges[k][1] for k in numeric_params])
+        range_vals = max_vals - min_vals
+        range_vals[range_vals == 0] = 1.0 # Avoid div/0
 
         for params, perf in self.best_params_history:
             row = [params.get(k, 0) for k in numeric_params]
@@ -420,45 +434,59 @@ class DOEParameterGenerator:
         X = np.array(X)
         y = np.array(y)
 
+        # Normalize X to [0, 1] for numerical stability
+        X_norm = (X - min_vals) / range_vals
+
         # Fit Quadratic Model: y = c + w*x + x*Q*x
         # Simplified: Linear + Diagonal Quadratic terms (to reduce degrees of freedom)
         # Design matrix: [1, x1...xn, x1^2...xn^2]
-        n_samples, n_features = X.shape
-        X_design = np.hstack([np.ones((n_samples, 1)), X, X**2])
+        n_samples, n_features = X_norm.shape
+        X_design = np.hstack([np.ones((n_samples, 1)), X_norm, X_norm**2])
 
-        # Solve least squares: w = (X.T X)^-1 X.T y
+        # Solve Ridge Regression: w = (X'X + alpha*I)^-1 X'y
+        # Use simple L2 regularization to handle underdetermined system (few samples vs many params)
+        alpha = 1e-3 # Regularization strength
+        n_coeffs = X_design.shape[1]
+
         try:
-            w, _, _, _ = np.linalg.lstsq(X_design, y, rcond=None)
+            # Manual Ridge: (A + alpha*I) * w = b, where A = X.T @ X, b = X.T @ y
+            A = X_design.T @ X_design + alpha * np.eye(n_coeffs)
+            b = X_design.T @ y
+            w = np.linalg.solve(A, b)
         except Exception:
-            # Fallback if singular
+            # Fallback if singular or solver fails
             best = self.best_params_history[-1][0]
             return self.generate_mutation_set(iteration, day, context, best)
 
-        # Optimization Function
-        def objective(x_vec):
+        # Optimization Function (in normalized space)
+        def objective(x_vec_norm):
             # Predict negative performance (minimize negative = maximize positive)
-            # x_vec shape (n_features,)
-            x_aug = np.hstack([1, x_vec, x_vec**2])
+            # x_vec_norm shape (n_features,)
+            x_aug = np.hstack([1, x_vec_norm, x_vec_norm**2])
             pred = np.dot(x_aug, w)
-            return -pred # Minimize negative Sharpe
+            return -pred # Minimize negative PnL/Sharpe
 
-        # Bounds
-        bounds = []
-        x0 = [] # Start search at best known point
+        # Bounds in normalized space are [0, 1]
+        bounds = [(0.0, 1.0)] * n_features
+
+        # Start search at best known point (normalized)
         best_known_idx = np.argmax(y)
-        x0 = X[best_known_idx]
+        x0_norm = X_norm[best_known_idx]
 
-        for name in numeric_params:
-            min_v, max_v, _ = self.param_ranges[name]
-            bounds.append((min_v, max_v))
+        try:
+            # Optimize
+            res = minimize(objective, x0_norm, bounds=bounds, method='L-BFGS-B')
+            x_opt_norm = res.x
+        except Exception:
+            x_opt_norm = x0_norm # Fallback to best known
 
-        # Optimize
-        res = minimize(objective, x0, bounds=bounds, method='L-BFGS-B')
+        # Denormalize results
+        x_opt = x_opt_norm * range_vals + min_vals
 
         # Construct result params
         opt_params = self.best_params_history[-1][0].copy() # Base on last best to keep non-numeric
         for i, name in enumerate(numeric_params):
-            val = res.x[i]
+            val = x_opt[i]
             # Snap to int if needed
             if self.param_ranges[name][2] == 'int':
                 opt_params[name] = int(round(val))
@@ -515,15 +543,15 @@ class DOEParameterGenerator:
         Returns:
             ParameterSet with generated parameters
         """
-        if iteration < 10:
+        if iteration < ITER_BASELINE_END:
             # Baseline sets
             return self.generate_baseline_set(iteration, day, context)
 
-        elif iteration < 510:
+        elif iteration < ITER_LHS_END:
             # Latin Hypercube sampling
             return self.generate_latin_hypercube_set(iteration, day, context)
 
-        elif iteration < 800:
+        elif iteration < ITER_MUTATION_END:
             # Mutation around best
             if self.best_params_history:
                 # Use most recent best params
@@ -534,7 +562,7 @@ class DOEParameterGenerator:
 
             return self.generate_mutation_set(iteration, day, context, best_params)
 
-        elif iteration < 900:
+        elif iteration < ITER_RSM_END:
              # Response Surface Optimization
              return self.generate_response_surface_set(iteration, day, context)
 
