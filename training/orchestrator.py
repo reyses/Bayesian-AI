@@ -896,8 +896,8 @@ class BayesianTrainingOrchestrator:
         self._best_trades_today = best_trades
 
         # Collect all trades for regret analysis
-        for r in all_results:
-            self.todays_trades.extend(r['trades'])
+        # Only use best trades to avoid noise and performance issues
+        self.todays_trades = best_trades
 
         # Update brain with best iteration's trades
         for trade in best_trades:
