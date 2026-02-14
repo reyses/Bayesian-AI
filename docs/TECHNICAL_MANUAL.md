@@ -11,7 +11,8 @@ This document is the **single source of truth** for the Bayesian-AI trading syst
     *   [The Learning Cycle (Process Flow)](#2-the-learning-cycle-process-flow)
     *   [Mathematical Model ("The Nightmare Protocol")](#3-mathematical-model-the-nightmare-protocol)
     *   [Optimized Parameter Reference](#4-optimized-parameter-reference)
-    *   [Troubleshooting Logic & Math](#5-troubleshooting-logic--math)
+    *   [Learning Persistence Policy](#5-learning-persistence-policy)
+    *   [Troubleshooting Logic & Math](#6-troubleshooting-logic--math)
 2.  [**Part 2: Dashboard Guide**](#part-2-dashboard-guide)
     *   [Quick Start](#quick-start)
     *   [Workflow Sections](#workflow-sections)
@@ -158,7 +159,29 @@ These parameters are dynamically tuned by `DOEParameterGenerator` to maximize Pn
 | `volume_spike_threshold` | 1.5 - 3.0 | Float | Volume multiple above mean required for confirmation. |
 | `killzone_tolerance_ticks`| 3 - 10 | Int | Allowed deviation from key support/resistance zones. |
 
-## 5. Troubleshooting Logic & Math
+## 5. Learning Persistence Policy
+
+The system enforces a strict checkpointing policy to ensure training progress is never lost and results are reproducible.
+
+### A. Checkpoint Triggers
+Persistence operations are triggered automatically at the **End of Every Training Day**, immediately after the Optimization Loop completes.
+
+### B. Artifact Storage
+All artifacts are saved to the `checkpoints/` directory (configurable via `--checkpoint-dir`).
+
+| Artifact | File Pattern | Content Description |
+| :--- | :--- | :--- |
+| **Brain State** | `day_{NNN}_brain.pkl` | The complete `BayesianBrain` probability table, including all learned states and win/loss counts up to this day. |
+| **Best Parameters** | `day_{NNN}_params.pkl` | The optimal `ParameterSet` discovered for this specific day (used for the next day's Walk-Forward). |
+| **Day Results** | `day_{NNN}_results.pkl` | A `DayResults` object containing performance metrics (PnL, Sharpe, Win Rate) for both Walk-Forward and Optimized runs. |
+| **Dynamic Binner** | `dynamic_binner.pkl` | The shared histogram binning model, saved once initialized to ensure consistent state discretization across all days. |
+| **Training Log** | `training_log.json` | A cumulative JSON log of daily summaries for external analysis. |
+
+### C. Atomic Operations
+To prevent data corruption or race conditions with the Live Dashboard:
+*   The `training_progress.json` file (used by the dashboard) is updated using an **atomic write pattern** (write to temp file -> `os.replace`).
+
+## 6. Troubleshooting Logic & Math
 
 ### Interpreting the Dashboard vs. Terminal
 *   **Terminal Output**: Shows **"Walk-Forward / Real"** results. This is the performance using parameters optimized on *past* data applied to *current* (unseen) data. This is the true test of the system's predictive power.
