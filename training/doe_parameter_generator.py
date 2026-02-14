@@ -37,9 +37,52 @@ class DOEParameterGenerator:
     def __init__(self, context_detector):
         self.context_detector = context_detector
         self.best_params_history = []  # Stores best params per day
+        self.latest_regret_analysis = None  # Regret analysis from previous day
 
         # Define parameter ranges for exploration
         self.param_ranges = self._define_parameter_ranges()
+
+    def update_regret_analysis(self, analysis: Dict):
+        """Store regret analysis to guide parameter generation"""
+        self.latest_regret_analysis = analysis
+
+    def _get_mutation_bias(self, param_name: str) -> float:
+        """
+        Returns a bias factor (-1.0 to 1.0) based on regret analysis.
+        Positive: encourage increase.
+        Negative: encourage decrease.
+        Zero: neutral.
+        """
+        if not self.latest_regret_analysis:
+            return 0.0
+
+        dist = self.latest_regret_analysis.get('patterns', {}).get('regret_distribution', {})
+        total = sum(dist.values())
+        if total == 0:
+            return 0.0
+
+        early_trend = dist.get('closed_too_early_trend', 0) / total
+        too_late = dist.get('closed_too_late', 0) / total
+
+        bias = 0.0
+
+        # Mapping parameters to regret types
+        # Early trend -> We want to hold longer / target higher
+        if param_name in ['take_profit_ticks', 'trail_distance_wide', 'max_hold_seconds', 'trail_activation_profit']:
+            if early_trend > 0.30:
+                bias += 0.5  # Strong push up
+            elif early_trend > 0.15:
+                bias += 0.2
+
+        # Too late -> We want to exit sooner
+        if param_name in ['max_hold_seconds', 'trail_distance_wide', 'trail_activation_profit']:
+            if too_late > 0.30:
+                bias -= 0.5  # Strong push down
+            elif too_late > 0.15:
+                bias -= 0.2
+
+        # Conflict resolution (if both high, maybe neutral or slight bias based on which is higher)
+        return np.clip(bias, -0.8, 0.8)
 
     def _define_parameter_ranges(self) -> Dict[str, tuple]:
         """
@@ -228,35 +271,60 @@ class DOEParameterGenerator:
         Iterations 510-799: Mutation around best parameters
 
         Takes best params and mutates 10% of values
+        Incorporates Regret Analysis bias to guide mutation
         """
         np.random.seed(day * 1000 + iteration)
 
         params = best_params.copy()
 
-        # Mutate 10% of parameters
+        # Identify parameters with bias
+        biased_params = []
         param_names = list(self.param_ranges.keys())
+        for name in param_names:
+            bias = self._get_mutation_bias(name)
+            if abs(bias) > 0.1:
+                biased_params.append(name)
+
+        # Mutate 10% of parameters + any strongly biased ones
         n_mutations = max(1, int(len(param_names) * mutation_rate))
 
-        mutated_params = np.random.choice(param_names, n_mutations, replace=False)
+        # Always include biased parameters in mutation set
+        random_params = np.random.choice(param_names, n_mutations, replace=False)
+        mutated_params = set(list(random_params) + biased_params)
 
         for param_name in mutated_params:
             if param_name not in self.param_ranges:
                 continue
 
             min_val, max_val, param_type = self.param_ranges[param_name]
+            bias = self._get_mutation_bias(param_name)
 
             if param_type == 'int':
-                # Mutate ±20% with bounds
                 current_val = params.get(param_name, (min_val + max_val) // 2)
-                mutation = np.random.randint(-3, 4)
+
+                # Apply bias: positive bias -> likely positive mutation
+                # Skew distribution:
+                # bias=0.0 -> [-3, 3] centered at 0
+                # bias=0.5 -> [-1, 5] centered at 2
+                # bias=-0.5 -> [-5, 1] centered at -2
+
+                skew = int(bias * 6)  # Up to +/- 4.8 shift
+                base_mutation = np.random.randint(-3, 4)
+                mutation = base_mutation + skew
+
                 new_val = np.clip(current_val + mutation, min_val, max_val)
                 params[param_name] = int(new_val)
 
             elif param_type == 'float':
-                # Mutate ±15% with bounds
                 current_val = params.get(param_name, (min_val + max_val) / 2)
-                mutation = np.random.uniform(-0.15, 0.15) * current_val
-                new_val = np.clip(current_val + mutation, min_val, max_val)
+
+                # Skew distribution for floats
+                # bias=0.5 -> mean shift +10%
+                skew = bias * 0.20 # up to +/- 20% shift
+                noise = np.random.uniform(-0.15, 0.15)
+
+                mutation_pct = noise + skew
+                new_val = np.clip(current_val * (1 + mutation_pct), min_val, max_val)
                 params[param_name] = float(new_val)
 
         return ParameterSet(
