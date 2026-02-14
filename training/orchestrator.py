@@ -150,6 +150,15 @@ class BayesianTrainingOrchestrator:
         self.BASE_SLIPPAGE = DEFAULT_BASE_SLIPPAGE
         self.VELOCITY_SLIPPAGE_FACTOR = DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 
+        # Enforce CUDA if requested
+        if getattr(self.config, 'force_cuda', False):
+            try:
+                import torch
+                if not torch.cuda.is_available():
+                    raise RuntimeError("CUDA requested but not available")
+            except ImportError:
+                raise RuntimeError("CUDA requested but PyTorch not installed")
+
     def train(self, data: pd.DataFrame):
         """
         Master training loop
@@ -884,22 +893,30 @@ class BayesianTrainingOrchestrator:
             all_param_sets.append(ps.parameters)
 
         # Route to GPU or CPU path
-        try:
-            import torch
-            if torch.cuda.is_available():
-                best_idx, all_results = self._optimize_gpu_parallel(
-                    precomputed, day_data, all_param_sets, day_number
-                )
-            else:
+        force_cuda = getattr(self.config, 'force_cuda', False)
+
+        if force_cuda:
+            # Bypass fallback logic if CUDA enforced
+            best_idx, all_results = self._optimize_gpu_parallel(
+                precomputed, day_data, all_param_sets, day_number
+            )
+        else:
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    best_idx, all_results = self._optimize_gpu_parallel(
+                        precomputed, day_data, all_param_sets, day_number
+                    )
+                else:
+                    best_idx, all_results = self._optimize_cpu_sequential(
+                        precomputed, day_data, all_param_sets, day_number,
+                        date=date, total_days=total_days
+                    )
+            except ImportError:
                 best_idx, all_results = self._optimize_cpu_sequential(
                     precomputed, day_data, all_param_sets, day_number,
                     date=date, total_days=total_days
                 )
-        except ImportError:
-            best_idx, all_results = self._optimize_cpu_sequential(
-                precomputed, day_data, all_param_sets, day_number,
-                date=date, total_days=total_days
-            )
 
         # Unpack best result
         best_sharpe = all_results[best_idx]['sharpe']
@@ -1719,6 +1736,7 @@ def main():
     parser.add_argument('--no-dashboard', action='store_true', help="Disable live dashboard")
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
+    parser.add_argument('--force-cuda', action='store_true', help="Enforce CUDA usage (fail if not available)")
 
     args = parser.parse_args()
 
