@@ -119,9 +119,11 @@ class QuantumFieldEngine:
         if len(self.residual_history) > self.residual_window:
             self.residual_history.pop(0)
 
-        # Compute Fat-Tail Sigma (98th percentile of historical residuals)
+        # Compute Fat-Tail Sigma (84th percentile of historical residuals)
+        # 84th percentile ~ 1 Standard Deviation (assuming normal distribution)
+        # 98th percentile ~ 2 SDs, which made z=2 equivalent to 4 SDs (too strict)
         if len(self.residual_history) >= 20:
-            sigma = np.percentile(self.residual_history, 98)
+            sigma = np.percentile(self.residual_history, 84)
             # Fallback to regression sigma if percentile is too small (e.g. tight consolidation)
             sigma = max(sigma, reg_sigma)
         else:
@@ -383,7 +385,8 @@ class QuantumFieldEngine:
         recent = df_micro.iloc[-20:]
         volume_spike = recent['volume'].iloc[-1] > recent['volume'].mean() * 1.2
         pattern_maturity = min((abs(z_score) - 2.0) / 1.0, 1.0) if abs(z_score) > 2.0 else 0.0
-        structure_confirmed = volume_spike and pattern_maturity > 0.5
+        # Relaxed from > 0.5 (z > 2.5) to > 0.1 (z > 2.1)
+        structure_confirmed = volume_spike and pattern_maturity > 0.1
         
         # Cascade Logic: Velocity OR Rolling Range (5s window)
         velocity_cascade = abs(velocity) > VELOCITY_CASCADE_THRESHOLD
@@ -577,7 +580,8 @@ class QuantumFieldEngine:
                 rolling_residuals.pop(0)
 
             if len(rolling_residuals) >= 20:
-                robust_sigma = np.percentile(rolling_residuals, 98)
+                # 84th percentile ~ 1 SD. (Previous 98th was ~2 SDs)
+                robust_sigma = np.percentile(rolling_residuals, 84)
                 sigma = max(robust_sigma, reg_sigma)
             else:
                 sigma = reg_sigma
@@ -778,7 +782,8 @@ class QuantumFieldEngine:
             np.minimum((np.abs(z_scores) - 2.0) / 1.0, 1.0),
             0.0
         )
-        structure_confirmed = volume_spike & (pattern_maturity > 0.5)
+        # Relaxed from > 0.5 to > 0.1 (z > 2.1)
+        structure_confirmed = volume_spike & (pattern_maturity > 0.1)
 
         # Cascade Logic: Velocity OR Range
         velocity_cascade = np.abs(tick_velocity) > VELOCITY_CASCADE_THRESHOLD
