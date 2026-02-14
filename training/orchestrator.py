@@ -36,6 +36,7 @@ from core.adaptive_confidence import AdaptiveConfidenceManager
 from core.multi_timeframe_context import MultiTimeframeContext
 from core.dynamic_binner import DynamicBinner
 from core.three_body_state import ThreeBodyQuantumState
+from core.exploration_mode import UnconstrainedExplorer, ExplorationConfig
 
 # Training components
 from training.doe_parameter_generator import DOEParameterGenerator
@@ -130,6 +131,12 @@ class BayesianTrainingOrchestrator:
         self.pattern_analyzer = PatternAnalyzer()
         self.progress_reporter = ProgressReporter()
         self.regret_analyzer = BatchRegretAnalyzer()
+
+        # Exploration Mode (optional)
+        self.exploration_mode = getattr(config, 'exploration_mode', False)
+        self.explorer = UnconstrainedExplorer(ExplorationConfig(max_trades=5000, fire_probability=1.0)) if self.exploration_mode else None
+        if self.exploration_mode:
+            print("WARNING: UNCONSTRAINED EXPLORATION MODE ENABLED (Entry filters bypassed)")
 
         # Training state
         self.day_results: List[DayResults] = []
@@ -729,8 +736,18 @@ class BayesianTrainingOrchestrator:
         trade_pnl = 0.0
 
         for bar in precomputed:
-            # Only param-dependent check: probability threshold
-            if not bar['structure_ok'] or bar['prob'] < min_prob:
+            # Decide if we should trade
+            should_trade = False
+
+            if self.exploration_mode and self.explorer:
+                # Use Explorer logic (bypasses structure_ok and prob thresholds)
+                decision = self.explorer.should_fire(bar['state'])
+                should_trade = decision['should_fire']
+            else:
+                # Standard Logic
+                should_trade = bar['structure_ok'] and bar['prob'] >= min_prob
+
+            if not should_trade:
                 continue
 
             # --- Inline fast trade simulation (avoid DataFrame overhead) ---
@@ -1624,6 +1641,7 @@ def main():
     parser.add_argument('--checkpoint-dir', type=str, default="checkpoints", help="Checkpoint directory")
     parser.add_argument('--no-dashboard', action='store_true', help="Disable live dashboard")
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
+    parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
 
     args = parser.parse_args()
 

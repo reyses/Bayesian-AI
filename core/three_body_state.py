@@ -98,6 +98,12 @@ class ThreeBodyQuantumState:
     dmi_minus: float = 0.0          # Directional Movement Minus
     candlestick_pattern: str = 'NONE' # HAMMER | ENGULFING_BULL | ENGULFING_BEAR | DOJI | NONE
 
+    # ═══ NIGHTMARE FIELD EQUATION COMPONENTS ═══
+    sigma_fractal: float = 0.0      # Fractal diffusion volatility
+    term_pid: float = 0.0           # Algorithmic control force
+    lyapunov_exponent: float = 0.0  # Stability coefficient (lambda)
+    market_regime: str = 'UNKNOWN'  # STABLE | CHAOTIC
+
     # ═══ RESONANCE (PHASE 3 EXTENSION) ═══
     resonance_coherence: float = 0.0      # Phase alignment
     cascade_probability: float = 0.0      # P(flash move)
@@ -195,7 +201,8 @@ class ThreeBodyQuantumState:
             self.structure_confirmed,
             self.cascade_detected,
             self.trend_direction_15m,
-            self.pattern_type
+            self.pattern_type,
+            self.market_regime
         )
 
         return hash(core + self._get_context_tuple())
@@ -218,7 +225,8 @@ class ThreeBodyQuantumState:
             self.structure_confirmed == other.structure_confirmed and
             self.cascade_detected == other.cascade_detected and
             self.trend_direction_15m == other.trend_direction_15m and
-            self.pattern_type == other.pattern_type
+            self.pattern_type == other.pattern_type and
+            self.market_regime == other.market_regime
         )
 
         if not core_match:
@@ -312,5 +320,6 @@ class ThreeBodyQuantumState:
             lagrange_zone='L1_STABLE', stability_index=1.0,
             tunnel_probability=0.0, escape_probability=0.0, barrier_height=0.0,
             hurst_exponent=0.5, adx_strength=0.0, dmi_plus=0.0, dmi_minus=0.0,
-            candlestick_pattern='NONE'
+            candlestick_pattern='NONE',
+            sigma_fractal=0.0, term_pid=0.0, lyapunov_exponent=0.0, market_regime='STABLE'
         )
