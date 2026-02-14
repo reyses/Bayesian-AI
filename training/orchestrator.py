@@ -46,8 +46,9 @@ from training.progress_reporter import ProgressReporter, DayMetrics
 from training.databento_loader import DatabentoLoader
 
 # Execution components
-# from execution.integrated_statistical_system import IntegratedStatisticalEngine
-from execution.batch_regret_analyzer import BatchRegretAnalyzer
+from training.integrated_statistical_system import IntegratedStatisticalEngine
+from training.batch_regret_analyzer import BatchRegretAnalyzer
+from training.wave_rider import WaveRider
 
 # Visualization
 try:
@@ -133,7 +134,8 @@ class BayesianTrainingOrchestrator:
         self.context_detector = ContextDetector()
         self.param_generator = DOEParameterGenerator(self.context_detector)
         self.confidence_manager = AdaptiveConfidenceManager(self.brain)
-        # self.stat_validator = IntegratedStatisticalEngine(self.asset)  # Currently unused - intended for future integration
+        self.stat_validator = IntegratedStatisticalEngine(self.asset)
+        self.wave_rider = WaveRider(self.asset)
 
         # Multi-timeframe context engine
         self.mtf_context = MultiTimeframeContext()
@@ -255,8 +257,9 @@ class BayesianTrainingOrchestrator:
 
             # === STEP 2: WALK-FORWARD SIMULATION (Real PnL) ===
             # Trade today using yesterday's parameters (active_params)
-            real_trades = self._simulate_from_precomputed(
-                precomputed, day_data, active_params, pbar=None
+            # Use High-Fidelity WaveRider simulation for Real PnL
+            real_trades = self.simulate_trading_day(
+                day_data, active_params
             )
             real_pnl = sum(t.pnl for t in real_trades)
             real_win_rate = (sum(1 for t in real_trades if t.result == 'WIN') / len(real_trades)) if real_trades else 0.0
@@ -672,7 +675,28 @@ class BayesianTrainingOrchestrator:
                 should_trade = decision['should_fire']
             else:
                 # Standard Logic
-                should_trade = bar['structure_ok'] and bar['prob'] >= min_prob
+                # Check 1: Structure and Probability
+                basic_check = bar['structure_ok'] and bar['prob'] >= min_prob
+
+                # Check 2: Statistical Validation (if integrated)
+                if basic_check:
+                    # Validate with IntegratedStatisticalEngine (Bayesian + Monte Carlo)
+                    state_hash = hash(bar['state'])
+                    stat_decision = self.stat_validator.should_fire(state_hash)
+
+                    # If validator has enough data (not just 'Insufficient data'), respect it
+                    # But if it's just 'Insufficient data', rely on min_prob (exploration phase)
+                    if not stat_decision['should_fire']:
+                        # Only block if we have a concrete reason to block (risk/regret)
+                        # If reason is insufficient data, allow trade if min_prob met (to gather data)
+                        if 'Insufficient data' not in stat_decision['reason']:
+                            should_trade = False
+                        else:
+                            should_trade = True
+                    else:
+                        should_trade = True
+                else:
+                    should_trade = False
 
             if not should_trade:
                 continue
@@ -874,6 +898,32 @@ class BayesianTrainingOrchestrator:
         for trade in best_trades:
             self.brain.update(trade)
             self.confidence_manager.record_trade(trade)
+
+            # Record trade in IntegratedStatisticalEngine for validation
+            # Create TradeRecord from TradeOutcome
+            from training.integrated_statistical_system import TradeRecord
+
+            # Estimate regret markers for now (BatchRegretAnalyzer does detailed analysis later)
+            # This allows the statistical engine to build sample size
+            record = TradeRecord(
+                state_hash=hash(trade.state),
+                entry_price=trade.entry_price,
+                exit_price=trade.exit_price,
+                entry_time=trade.entry_time,
+                exit_time=trade.exit_time,
+                side=trade.direction,
+                pnl=trade.pnl,
+                result=trade.result,
+                exit_reason=trade.exit_reason,
+                # Placeholders - refined by BatchRegretAnalyzer but needed for Record
+                peak_favorable=trade.exit_price if trade.result == 'WIN' else trade.entry_price,
+                potential_max_pnl=max(0, trade.pnl),
+                pnl_left_on_table=0.0,
+                gave_back_pnl=0.0,
+                exit_efficiency=1.0 if trade.result == 'WIN' else 0.0,
+                regret_type='optimal' if trade.result == 'WIN' else 'closed_too_late'
+            )
+            self.stat_validator.record_trade(record)
 
         if best_params:
             self.param_generator.update_best_params(best_params)
@@ -1245,9 +1295,9 @@ class BayesianTrainingOrchestrator:
 
     def simulate_trading_day(self, day_data: pd.DataFrame, params: Dict[str, Any], on_trade=None) -> List[TradeOutcome]:
         """
-        Fast simulation of trading day with given parameters
+        High-fidelity simulation using WaveRider for trade management.
 
-        No regret analysis overhead - just execute trades
+        Iterates bar-by-bar and delegates position management to WaveRider.
 
         Args:
             day_data: OHLCV data for single day
@@ -1263,20 +1313,133 @@ class BayesianTrainingOrchestrator:
         if len(day_data) < 21:
             return trades
 
+        # Configure WaveRider with current params for trailing stops
+        # Assuming params can provide trail config (or use defaults)
+        trail_config = {
+            'tight': params.get('trail_tight_ticks', 10),
+            'medium': params.get('trail_medium_ticks', 20),
+            'wide': params.get('trail_wide_ticks', 30)
+        }
+        # Re-initialize or update WaveRider config if needed (WaveRider init takes config)
+        # For now, we assume the instance uses its internal adaptive logic or defaults.
+        # But we can update the config manually if WaveRider supports it.
+        self.wave_rider.trail_config.update(trail_config)
+
+        # Clear any existing position
+        self.wave_rider.position = None
+        self.wave_rider.price_history = []
+
         # Simulate bar-by-bar
         for i in range(21, len(day_data)):
             current_row = day_data.iloc[i]
+            current_price = current_row['price'] if 'price' in current_row else current_row['close']
+            current_time = current_row.get('timestamp', 0)
+            if isinstance(current_time, pd.Timestamp):
+                current_time = current_time.timestamp()
 
-            # Get macro context
+            # 1. Manage existing position
+            if self.wave_rider.position:
+                # Need current state for structure break checks
+                # Optimization: reuse state if calculated below, or calculate it here
+                # Calculating state is expensive. Only calc if needed.
+                # WaveRider needs state for structure breaks.
+
+                # Get macro context for state calc
+                df_macro = day_data.iloc[i-21:i+1].copy()
+                if 'price' in df_macro.columns and 'close' not in df_macro.columns:
+                    df_macro['close'] = df_macro['price']
+                current_volume = current_row.get('volume', 0.0)
+
+                state = self.engine.calculate_three_body_state(
+                    df_macro=df_macro,
+                    df_micro=df_macro,
+                    current_price=current_price,
+                    current_volume=float(current_volume),
+                    tick_velocity=0.0
+                )
+
+                decision = self.wave_rider.update_trail(current_price, state)
+
+                if decision['should_exit']:
+                    # Trade closed
+                    pos = self.wave_rider.position # It was cleared in update_trail, wait.
+                    # WaveRider clears self.position inside update_trail before returning decision.
+                    # We need to capture entry details before update_trail?
+                    # Actually, update_trail returns the PnL and exit reason, but we need entry time etc for TradeOutcome.
+                    # WaveRider's update_trail clears position.
+                    # We need to hack WaveRider or rely on the fact that we can't reconstruct everything easily
+                    # without modifying WaveRider to return the full closed trade object.
+                    # Looking at WaveRider.update_trail: returns {'should_exit': True, 'pnl': ..., 'regret_markers': ...}
+                    # And it clears self.position.
+                    # So we lose entry_time/price unless we stored it locally.
+                    pass
+                    # FIX: We can't access self.wave_rider.position after it's cleared.
+                    # However, we can track it externally or modify WaveRider.
+                    # WaveRider is in `training/wave_rider.py`.
+                    # Let's assume we can't modify it too much right now (or we can since we own it).
+                    # Actually, the returned `regret_markers` contains entry_price, entry_time, exit_price, exit_time.
+
+                    markers = decision.get('regret_markers')
+                    if markers:
+                        outcome = TradeOutcome(
+                            state=state, # Closing state
+                            entry_price=markers.entry_price,
+                            exit_price=markers.exit_price,
+                            pnl=markers.actual_pnl,
+                            result='WIN' if markers.actual_pnl > 0 else 'LOSS',
+                            timestamp=markers.exit_time,
+                            exit_reason=markers.exit_reason,
+                            entry_time=markers.entry_time,
+                            exit_time=markers.exit_time,
+                            duration=markers.exit_time - markers.entry_time,
+                            direction='SHORT' if markers.entry_price > markers.exit_price else 'LONG' # Infer direction or pass it
+                            # Actually markers.side is usually not in RegretMarkers dataclass?
+                            # Checking RegretMarkers definition in wave_rider.py...
+                            # It has entry/exit prices. We can infer direction or add it.
+                            # The code I read earlier for RegretMarkers didn't show 'side'.
+                            # Wait, `RegretMarkers` has `entry_price`, `exit_price`.
+                            # WaveRider.analyze_exit takes `side`.
+                            # RegretMarkers definition:
+                            # entry_price, exit_price, exit_time, actual_pnl, exit_reason...
+                            # It DOES NOT have side.
+                            # But we can infer side from prices + PnL sign? Not reliably if loss.
+                            # But we know entry/exit prices.
+                            # If (entry > exit) and (pnl > 0) -> SHORT
+                            # If (entry < exit) and (pnl > 0) -> LONG
+                            # If (entry > exit) and (pnl < 0) -> LONG (failed long) OR SHORT (failed short)?
+                            # Wait.
+                            # Short: Profit = Entry - Exit. Loss = Exit - Entry.
+                            # Long: Profit = Exit - Entry. Loss = Entry - Exit.
+                            # If Entry=100, Exit=90.
+                            # If Short: +10. If Long: -10.
+                            # So PnL sign tells us.
+                            # PnL = (Exit - Entry) * dir (1 or -1) * value.
+                            # So PnL / ((Exit-Entry)*value) = dir.
+                            # If Exit != Entry.
+                        )
+                        # Fix direction inference using PnL sign relative to price delta
+                        price_delta = markers.exit_price - markers.entry_price
+                        if price_delta != 0:
+                            # pnl is in dollars.
+                            # Long: delta > 0 -> PnL > 0. delta < 0 -> PnL < 0. (Sign matches)
+                            # Short: delta < 0 -> PnL > 0. delta > 0 -> PnL < 0. (Sign opposite)
+                            # So if PnL and delta have same sign -> LONG. Different sign -> SHORT.
+                            is_long = (markers.actual_pnl * price_delta) > 0
+                            outcome.direction = 'LONG' if is_long else 'SHORT'
+
+                        trades.append(outcome)
+                        if on_trade:
+                            on_trade(outcome)
+
+                continue # Skip entry logic if in position
+
+            # 2. Look for Entry
+            # Calculate state (if not already calc'd)
+            # Need macro context
             df_macro = day_data.iloc[i-21:i+1].copy()
             if 'price' in df_macro.columns and 'close' not in df_macro.columns:
                 df_macro['close'] = df_macro['price']
-
-            # Calculate state
-            current_price = current_row['price'] if 'price' in current_row else current_row['close']
-            current_volume = current_row.get('volume', 0)
-            if pd.isna(current_volume):
-                current_volume = 0.0
+            current_volume = current_row.get('volume', 0.0)
 
             state = self.engine.calculate_three_body_state(
                 df_macro=df_macro,
@@ -1286,7 +1449,7 @@ class BayesianTrainingOrchestrator:
                 tick_velocity=0.0
             )
 
-            # Decision (using parameters) — phase-aware threshold
+            # Decision Logic
             phase_threshold = self.confidence_manager.PHASES[self.confidence_manager.phase]['prob_threshold']
             min_prob = min(params.get('confidence_threshold', 0.50), phase_threshold) if phase_threshold > 0 else 0.0
             min_conf = 0.0 if self.confidence_manager.phase == 1 else 0.30
@@ -1294,8 +1457,7 @@ class BayesianTrainingOrchestrator:
             prob = self.brain.get_probability(state)
             conf = self.brain.get_confidence(state)
 
-            # Check if should fire
-            should_fire = (
+            basic_check = (
                 state.lagrange_zone in ['L2_ROCHE', 'L3_ROCHE'] and
                 state.structure_confirmed and
                 state.cascade_detected and
@@ -1303,20 +1465,29 @@ class BayesianTrainingOrchestrator:
                 conf >= min_conf
             )
 
-            if should_fire:
-                # Simulate trade
-                outcome = self._simulate_trade(
-                    current_idx=i,
-                    entry_price=current_price,
-                    data=day_data,
-                    state=state,
-                    params=params
-                )
+            should_fire = False
+            if basic_check:
+                # Validator Check
+                state_hash = hash(state)
+                stat_decision = self.stat_validator.should_fire(state_hash)
+                if not stat_decision['should_fire']:
+                    if 'Insufficient data' not in stat_decision['reason']:
+                        should_fire = False
+                    else:
+                        should_fire = True
+                else:
+                    should_fire = True
 
-                if outcome:
-                    trades.append(outcome)
-                    if on_trade:
-                        on_trade(outcome)
+            if should_fire:
+                direction = 'SHORT' if state.z_score > 0 else 'LONG'
+                # Open Position in WaveRider
+                # WaveRider expects 'long' or 'short' (lowercase)
+                self.wave_rider.open_position(
+                    entry_price=current_price,
+                    side=direction.lower(),
+                    state=state,
+                    stop_distance_ticks=params.get('stop_loss_ticks', 20)
+                )
 
         return trades
 
