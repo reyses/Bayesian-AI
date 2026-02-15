@@ -16,7 +16,9 @@ class RegretMarkers:
     """Post-trade analysis markers"""
     entry_price: float
     exit_price: float
+    entry_time: float
     exit_time: float
+    side: str
     actual_pnl: float
     exit_reason: str
     peak_favorable: float
@@ -121,7 +123,9 @@ class RegretAnalyzer:
         markers = RegretMarkers(
             entry_price=entry_price,
             exit_price=exit_price,
+            entry_time=entry_time,
             exit_time=exit_time,
+            side=side,
             actual_pnl=actual_pnl,
             exit_reason=exit_reason,
             peak_favorable=peak_price,
