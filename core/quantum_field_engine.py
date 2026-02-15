@@ -52,6 +52,7 @@ DEFAULT_GRAVITY_THETA = 0.5
 # Optional CUDA support
 try:
     import torch
+    import torch.nn.functional as F
     TORCH_AVAILABLE = True
     CUDA_AVAILABLE = torch.cuda.is_available()
 except ImportError:
@@ -83,7 +84,7 @@ class QuantumFieldEngine:
             self.use_gpu = True
         elif TORCH_AVAILABLE:
             self.device = torch.device('cpu')
-            self.use_gpu = False
+            self.use_gpu = False # Default to false on CPU unless specifically testing
         else:
             self.device = None
             self.use_gpu = False
@@ -376,44 +377,20 @@ class QuantumFieldEngine:
     
     def _calculate_force_fields(self, price, center, upper_sing, lower_sing, z_score, sigma, volume, velocity, pid_force, theta):
         """Compute competing gravitational forces (Unified Field Equation)"""
-
-        # 1. Gravity Well (Ornstein-Uhlenbeck)
-        # F = theta * (mu - X)
-        # mu - X = -error
-        # F_gravity = -theta * error.
-        # Note: z_score = error / sigma. So error = z_score * sigma.
-        # F_gravity = -theta * z_score * sigma
         F_gravity = -theta * (z_score * sigma)
-
-        # Keep F_reversion name for compatibility, but updated logic
         F_reversion = F_gravity
 
-        # 2. Singularity repulsion (inverse cube law) - Remains the same
         dist_upper = abs(price - upper_sing) / sigma if sigma > 0 else 1.0
         dist_lower = abs(price - lower_sing) / sigma if sigma > 0 else 1.0
         F_upper_repulsion = min(1.0 / (dist_upper ** 3 + 0.01), 100.0) if z_score > 0 else 0.0
         F_lower_repulsion = min(1.0 / (dist_lower ** 3 + 0.01), 100.0) if z_score < 0 else 0.0
         
-        # 3. Momentum (Fractal Diffusion Vector)
-        # In Nightmare model, diffusion is volatility.
-        # But we also have "Jump Diffusion J(lambda)".
-        # And "F_momentum" in the prompt's Net Force equation.
-        # Let's keep Kinetic Energy formulation but scaled.
         safe_velocity = np.nan_to_num(velocity)
         safe_volume = np.nan_to_num(volume)
-        
-        # Directional momentum
         F_momentum = safe_velocity * safe_volume / (sigma + 1e-6)
-
-        # 4. PID Control (passed in)
         F_pid = pid_force
 
-        # NET FORCE VECTOR
-        # V_net = F_gravity + F_momentum + F_algo
-        # F_upper/lower_repulsion act as "Roche Limit" forces (part of gravity well boundary conditions)
-
         repulsion = -F_upper_repulsion if z_score > 0 else F_lower_repulsion
-
         F_net = F_gravity + F_momentum + F_pid + repulsion
         
         return {
@@ -431,12 +408,10 @@ class QuantumFieldEngine:
         E2 = -(z_score + 2.0)**2 / 2
 
         if self.use_gpu:
-            # GPU path: batch exp/log into single kernel launches
             energies = torch.tensor([E0, E1, E2], device=self.device, dtype=torch.float64)
             energies -= energies.max()
             probs = torch.exp(energies)
             probs /= probs.sum()
-
             eps = 1e-10
             entropy_val = -(probs * torch.log(probs + eps)).sum().item()
             P0, P1, P2 = probs[0].item(), probs[1].item(), probs[2].item()
@@ -453,12 +428,10 @@ class QuantumFieldEngine:
             entropy_val = -(P0*np.log(P0+eps) + P1*np.log(P1+eps) + P2*np.log(P2+eps))
 
         coherence = entropy_val / np.log(3)
-
         phase = np.arctan2(F_momentum, F_net + 1e-6)
         a0 = np.sqrt(P0) * np.exp(1j * phase * 0)
         a1 = np.sqrt(P1) * np.exp(1j * phase * 1)
         a2 = np.sqrt(P2) * np.exp(1j * phase * -1)
-
         return {'a0': a0, 'a1': a1, 'a2': a2, 'P0': P0, 'P1': P1, 'P2': P2,
                 'entropy': entropy_val, 'coherence': coherence}
     
@@ -477,15 +450,9 @@ class QuantumFieldEngine:
         recent = df_micro.iloc[-20:]
         volume_spike = recent['volume'].iloc[-1] > recent['volume'].mean() * 1.2
         pattern_maturity = min((abs(z_score) - 2.0) / 1.0, 1.0) if abs(z_score) > 2.0 else 0.0
-        # Relaxed from > 0.5 (z > 2.5) to > 0.1 (z > 2.1)
         structure_confirmed = volume_spike and pattern_maturity > 0.1
-        
-        # Cascade Logic: Velocity OR Rolling Range (5s window)
         velocity_cascade = abs(velocity) > VELOCITY_CASCADE_THRESHOLD
         
-        # Rolling Window Cascade: Max High - Min Low over last 5 bars (assuming 1s bars)
-        # If bars are not 1s (e.g. 15s), this checks the range of the last 5 aggregate bars (75s),
-        # which is safer (captures large moves) than missing them.
         if len(df_micro) >= 5:
             window = df_micro.iloc[-5:]
             h = window['high'].max() if 'high' in window.columns else window['close'].max()
@@ -493,18 +460,13 @@ class QuantumFieldEngine:
             rolling_range = h - l
             rolling_cascade = rolling_range > RANGE_CASCADE_THRESHOLD
         else:
-            # Fallback to current bar range if not enough history
             current_candle = df_micro.iloc[-1]
             h = current_candle.get('high', current_candle['close'])
             l = current_candle.get('low', current_candle['close'])
             rolling_cascade = (h - l) > RANGE_CASCADE_THRESHOLD
 
         cascade_detected = velocity_cascade or rolling_cascade
-
-        # Define current_candle for spin inversion check
         current_candle = df_micro.iloc[-1]
-
-        # Use open price if available, otherwise fallback to close
         open_price = current_candle.get('open', current_candle['close'])
 
         if z_score > 2.0:
@@ -514,22 +476,15 @@ class QuantumFieldEngine:
         else:
             spin_inverted = False
         
-        # Geometric Pattern Detection
         highs = df_micro['high'].values if 'high' in df_micro.columns else df_micro['close'].values
         lows = df_micro['low'].values if 'low' in df_micro.columns else df_micro['close'].values
-
-        # We need to detect pattern for the LAST bar.
         check_highs = highs[-20:]
         check_lows = lows[-20:]
-        # Use scalar version for efficiency on last bar check
         pattern_type = detect_geometric_pattern(check_highs, check_lows)
 
-        # Candlestick Pattern Detection
         opens = df_micro['open'].values if 'open' in df_micro.columns else df_micro['close'].values
         check_opens = opens[-20:]
         check_closes = df_micro['close'].values[-20:]
-
-        # Use scalar version for efficiency
         candlestick_pattern = detect_candlestick_pattern(check_opens, check_highs, check_lows, check_closes)
 
         return {
@@ -599,6 +554,500 @@ class QuantumFieldEngine:
         """
         return detect_candlestick_patterns_vectorized(opens, highs, lows, closes)
 
+    def _rolling_regression_torch(self, prices: torch.Tensor, window_size: int):
+        """
+        Vectorized rolling linear regression using PyTorch convolutions.
+        Returns: centers, slopes, sigmas (std dev of residuals)
+        """
+        # prices: (N,) tensor
+        N = prices.shape[0]
+        if N < window_size:
+            return None, None, None
+
+        # Prepare kernels (use float64 for precision)
+        # x = [0, 1, ..., W-1]
+        x = torch.arange(window_size, device=self.device, dtype=torch.float64)
+        sum_x = x.sum()
+        sum_x_sq = (x**2).sum()
+        mean_x = x.mean()
+
+        # Slope formula denominator: N * sum(x^2) - (sum(x))^2
+        denom = window_size * sum_x_sq - sum_x**2
+
+        # Convolutions for sums
+        # prices view as (1, 1, N)
+        prices_reshaped = prices.view(1, 1, -1)
+
+        # Kernel for sum_y: ones
+        ones_kernel = torch.ones((1, 1, window_size), device=self.device, dtype=torch.float64)
+
+        # Kernel for sum_xy: x (reversed? conv1d computes correlation sum(I[t+j]*K[j]))
+        # We want sum(y[t+j] * x[j]). So Kernel should be x.
+        xy_kernel = x.view(1, 1, window_size)
+
+        sum_y = F.conv1d(prices_reshaped, ones_kernel).view(-1)
+        sum_xy = F.conv1d(prices_reshaped, xy_kernel).view(-1)
+
+        # Slope
+        # num = N * sum_xy - sum_x * sum_y
+        num = window_size * sum_xy - sum_x * sum_y
+        slopes = num / (denom + 1e-10)
+
+        # Intercept
+        # c = mean_y - m * mean_x = (sum_y / N) - m * mean_x
+        intercepts = (sum_y / window_size) - slopes * mean_x
+
+        # Centers (at end of window): y = mx + c where x is (W-1)
+        centers = slopes * (window_size - 1) + intercepts
+
+        # Residuals Sigma
+        # sum((y - (mx+c))^2) = sum(y^2) - 2m sum(xy) - 2c sum(y) + m^2 sum(x^2) + 2mc sum(x) + N c^2
+
+        prices_sq = prices ** 2
+        sum_y_sq = F.conv1d(prices_sq.view(1, 1, -1), ones_kernel).view(-1)
+
+        ssr = sum_y_sq - 2 * slopes * sum_xy - 2 * intercepts * sum_y + \
+              (slopes**2) * sum_x_sq + 2 * slopes * intercepts * sum_x + \
+              window_size * (intercepts**2)
+
+        ssr = torch.clamp(ssr, min=0.0)
+        sigmas = torch.sqrt(ssr / (window_size - 2))
+
+        return centers, slopes, sigmas
+
+    def _batch_compute_states_gpu(self, day_data: pd.DataFrame, params: dict) -> list:
+        """
+        GPU-accelerated batch state computation using Torch.
+        """
+        params = params or {}
+        # Move data to GPU
+        # Check columns
+        if 'price' in day_data.columns:
+            prices_np = day_data['price'].values
+        else:
+            prices_np = day_data['close'].values
+
+        if 'volume' in day_data.columns:
+            volumes_np = day_data['volume'].values
+        else:
+            volumes_np = np.zeros(len(prices_np))
+
+        # We also need highs/lows for patterns and cascades
+        if 'high' in day_data.columns:
+            highs_np = day_data['high'].values
+        else:
+            highs_np = prices_np
+        if 'low' in day_data.columns:
+            lows_np = day_data['low'].values
+        else:
+            lows_np = prices_np
+        if 'open' in day_data.columns:
+            opens_np = day_data['open'].values
+        else:
+            opens_np = prices_np
+
+        # Convert to Tensor
+        prices = torch.tensor(prices_np, device=self.device, dtype=torch.float64)
+        volumes = torch.tensor(volumes_np, device=self.device, dtype=torch.float64)
+        highs = torch.tensor(highs_np, device=self.device, dtype=torch.float64)
+        lows = torch.tensor(lows_np, device=self.device, dtype=torch.float64)
+        opens = torch.tensor(opens_np, device=self.device, dtype=torch.float64)
+
+        n = prices.shape[0]
+        rp = self.regression_period
+        num_bars = n - rp
+
+        if num_bars <= 0:
+            return []
+
+        # 1. Rolling Regression (Centers, Slopes, Sigmas)
+        centers, slopes, reg_sigmas = self._rolling_regression_torch(prices, rp)
+
+        # Note: _rolling_regression_torch returns vectors of length N - rp + 1.
+        # Output[0] corresponds to window prices[0..rp-1].
+        # In batch_compute_states (CPU), the first bar we compute is at index rp.
+        # It uses the window ending at rp (indices 1..rp inclusive, or 1..21).
+        # So we need output index 1.
+        if centers is not None:
+            centers = centers[1:]
+            slopes = slopes[1:]
+            reg_sigmas = reg_sigmas[1:]
+
+        # 2. Fractal Sigma & Robust Sigma
+        # Current Residuals: Price - Center (at end of window)
+        bar_prices = prices[rp:]
+        current_residuals = bar_prices - centers
+        abs_res = torch.abs(current_residuals)
+
+        # Rolling Robust Sigma (Window 500, Percentile 84)
+        # We need a robust sigma based on the LAST 500 residuals.
+        # Use Unfold.
+        if len(abs_res) >= 500:
+            # Unfold creates view (N-499, 500).
+            # Output[i] corresponds to window ending at i+499.
+            # So robust_vals[i] corresponds to bar at i+499.
+            windows = abs_res.unfold(0, 500, 1)
+            robust_vals = torch.quantile(windows, 0.84, dim=1)
+
+            # Pad beginning with reg_sigmas (fallback for startup)
+            # Create tensor of same shape as reg_sigmas
+            robust_sigmas = reg_sigmas.clone()
+            robust_sigmas[499:] = robust_vals
+
+            # Combine: max(robust, reg)
+            sigmas_base = torch.max(robust_sigmas, reg_sigmas)
+        else:
+            sigmas_base = reg_sigmas
+
+        # Need v_micro (tick velocity) and v_macro (rolling mean of abs diffs)
+        # Tick velocity: diff(prices)
+        # We need this aligned with the bars we are computing (rp to n-1)
+
+        # Full velocity vector
+        zeros = torch.zeros(1, device=self.device, dtype=torch.float64)
+        price_diffs = torch.cat((zeros, prices[1:] - prices[:-1]))
+        tick_velocity = price_diffs[rp:] # Aligned with computed bars
+        v_micro = torch.abs(tick_velocity)
+
+        # v_macro: rolling mean of abs(diff(close))
+        abs_diffs = torch.abs(price_diffs)
+        # Rolling mean of abs_diffs. Use conv1d with ones kernel.
+        ones_kernel = torch.ones((1, 1, rp), device=self.device, dtype=torch.float64) / rp
+        # Convolution gives result for window 0..rp-1 at index 0.
+        # We want result for window 1..rp at index 0 (corresponding to bar rp).
+        # So we slice [1:]
+        v_macro_full = F.conv1d(abs_diffs.view(1, 1, -1), ones_kernel).view(-1)
+        v_macro = v_macro_full[1:] # Aligned with centers
+
+        # Hurst (Approximate or use default 0.5 for GPU speedup)
+        # Vectorizing Hurst is hard. Let's assume 0.5 or allow CPU precalc passed in.
+        # For now, default 0.5.
+        hurst_val = 0.5
+
+        # Fractal Sigma
+        velocity_ratios = v_micro / (v_macro + 1e-9)
+        velocity_ratios = torch.clamp(velocity_ratios, 0.1, 10.0)
+
+        fractal_sigmas = sigmas_base * (velocity_ratios ** hurst_val)
+        sigmas = torch.max(fractal_sigmas, torch.tensor(1e-6, device=self.device, dtype=torch.float64))
+
+        # 3. Z-Score & Forces
+        z_scores = (bar_prices - centers) / sigmas
+
+        # PID Forces
+        # Errors = Price - Center
+        errors = bar_prices - centers
+
+        # Derivative: errors[i] - errors[i-1]
+        # Prepend 0 for first element
+        zeros_err = torch.zeros(1, device=self.device, dtype=torch.float64)
+        prev_errors = torch.cat((zeros_err, errors[:-1]))
+        e_deriv = errors - prev_errors
+
+        # Integral: rolling sum of errors over window rp
+        # Use conv1d again
+        ones_kernel_sum = torch.ones((1, 1, rp), device=self.device, dtype=torch.float64)
+        # Pad errors at start to allow full window
+        padding = torch.zeros(rp - 1, device=self.device, dtype=torch.float64)
+        errors_padded = torch.cat((padding, errors))
+        e_integ = F.conv1d(errors_padded.view(1, 1, -1), ones_kernel_sum).view(-1)
+
+        kp = params.get('pid_kp', DEFAULT_PID_KP)
+        ki = params.get('pid_ki', DEFAULT_PID_KI)
+        kd = params.get('pid_kd', DEFAULT_PID_KD)
+        theta = params.get('gravity_theta', DEFAULT_GRAVITY_THETA)
+
+        F_pid = -(kp * errors + ki * e_integ + kd * e_deriv)
+
+        # Gravity
+        F_gravity = -theta * errors # -theta * z * sigma
+
+        # Repulsion
+        upper_sing = centers + self.SIGMA_ROCHE_MULTIPLIER * sigmas
+        lower_sing = centers - self.SIGMA_ROCHE_MULTIPLIER * sigmas
+        upper_event = centers + self.SIGMA_EVENT_MULTIPLIER * sigmas
+        lower_event = centers - self.SIGMA_EVENT_MULTIPLIER * sigmas
+
+        dist_upper = torch.abs(bar_prices - upper_sing) / sigmas
+        dist_lower = torch.abs(bar_prices - lower_sing) / sigmas
+
+        F_upper_raw = torch.clamp(1.0 / (dist_upper ** 3 + 0.01), max=100.0)
+        F_lower_raw = torch.clamp(1.0 / (dist_lower ** 3 + 0.01), max=100.0)
+
+        F_upper_repulsion = torch.where(z_scores > 0, F_upper_raw, torch.tensor(0.0, device=self.device, dtype=torch.float64))
+        F_lower_repulsion = torch.where(z_scores < 0, F_lower_raw, torch.tensor(0.0, device=self.device, dtype=torch.float64))
+
+        # Momentum
+        bar_volumes = volumes[rp:]
+        F_momentum = tick_velocity * bar_volumes / (sigmas + 1e-6)
+
+        # Net Force
+        repulsion = torch.where(z_scores > 0, -F_upper_repulsion, F_lower_repulsion)
+        F_net = F_gravity + F_momentum + F_pid + repulsion
+        F_reversion = F_gravity
+
+        # 4. Wave Function
+        E0 = -z_scores**2 / 2
+        E1 = -(z_scores - 2.0)**2 / 2
+        E2 = -(z_scores + 2.0)**2 / 2
+
+        # LogSumExp trick for stability? Or just exp
+        # max_E per bar
+        max_E, _ = torch.max(torch.stack([E0, E1, E2]), dim=0)
+        P0 = torch.exp(E0 - max_E)
+        P1 = torch.exp(E1 - max_E)
+        P2 = torch.exp(E2 - max_E)
+        total_P = P0 + P1 + P2
+        P0 /= total_P
+        P1 /= total_P
+        P2 /= total_P
+
+        eps = 1e-10
+        entropy = -(P0 * torch.log(P0 + eps) + P1 * torch.log(P1 + eps) + P2 * torch.log(P2 + eps))
+        coherence = entropy / np.log(3)
+
+        # Amplitudes (Complex numbers not supported well in all torch ops, keeping components)
+        # We need numpy for complex usually, but we can compute phase and pull back
+        phase = torch.atan2(F_momentum, F_net + 1e-6)
+
+        # 5. Measurements (Structure, Cascade)
+        # Volume Spike: bar_volume > rolling_mean * 1.2
+        # Rolling mean of volume (window 20)
+        vol_kernel = torch.ones((1, 1, 20), device=self.device, dtype=torch.float64) / 20.0
+        # Padding for volume
+        vol_padding = torch.zeros(19, device=self.device, dtype=torch.float64)
+        vol_padded = torch.cat((vol_padding, bar_volumes))
+        vol_rolling_mean = F.conv1d(vol_padded.view(1, 1, -1), vol_kernel).view(-1)
+
+        volume_spike = bar_volumes > vol_rolling_mean * 1.2
+
+        pattern_maturity = torch.where(
+            torch.abs(z_scores) > 2.0,
+            torch.clamp((torch.abs(z_scores) - 2.0), max=1.0),
+            torch.tensor(0.0, device=self.device, dtype=torch.float64)
+        )
+
+        structure_confirmed = volume_spike & (pattern_maturity > 0.1)
+
+        velocity_cascade = torch.abs(tick_velocity) > VELOCITY_CASCADE_THRESHOLD
+
+        # Range Cascade: High - Low > Threshold
+        bar_highs = highs[rp:]
+        bar_lows = lows[rp:]
+        range_cascade = (bar_highs - bar_lows) > RANGE_CASCADE_THRESHOLD
+        cascade_detected = velocity_cascade | range_cascade
+
+        # Spin Inverted
+        bar_opens = opens[rp:]
+        spin_inverted = torch.where(
+            z_scores > 2.0,
+            bar_prices < bar_opens,
+            torch.where(z_scores < -2.0, bar_prices > bar_opens, torch.tensor(False, device=self.device))
+        )
+
+        # Tunneling
+        barrier = torch.abs(z_scores) - 2.0
+        barrier_pos = barrier > 0
+        momentum_ratio = F_momentum / (F_reversion + 1e-6)
+
+        tunnel_prob = torch.where(
+            barrier_pos,
+            torch.exp(-barrier * 2.0) * (1.0 - torch.clamp(momentum_ratio, max=0.9)),
+            torch.tensor(0.5, device=self.device, dtype=torch.float64)
+        )
+        escape_prob = torch.where(
+            barrier_pos,
+            momentum_ratio * torch.exp(-barrier * 0.5),
+            torch.tensor(0.0, device=self.device, dtype=torch.float64)
+        )
+        t_total = tunnel_prob + escape_prob
+        # Avoid div/0
+        mask_nonzero = t_total > 0
+        tunnel_prob[mask_nonzero] /= t_total[mask_nonzero]
+        escape_prob[mask_nonzero] /= t_total[mask_nonzero]
+        barrier = torch.clamp(barrier, min=0.0)
+
+        # Lagrange Zones
+        abs_z = torch.abs(z_scores)
+        # We need string labels. We'll do this on CPU or use integer codes.
+        # Let's use integer codes and map on CPU.
+        # 0: L1, 1: CHAOS, 2: L2, 3: L3
+        lz_codes = torch.zeros(num_bars, device=self.device, dtype=torch.long)
+        lz_codes[abs_z < 1.0] = 0
+        lz_codes[(abs_z >= 1.0) & (abs_z < 2.0)] = 1
+        lz_codes[z_scores >= 2.0] = 2
+        lz_codes[z_scores <= -2.0] = 3
+
+        stability = torch.where(
+            abs_z < 1.0, 1.0 - abs_z,
+            torch.where(abs_z < 2.0, torch.tensor(0.5, device=self.device, dtype=torch.float64), torch.tensor(0.1, device=self.device, dtype=torch.float64))
+        )
+
+        # Lyapunov Proxy
+        lyapunov = torch.zeros(num_bars, device=self.device, dtype=torch.float64)
+        lyapunov[1:] = abs_z[1:] - abs_z[:-1]
+
+        momentum_strength = F_momentum / (torch.abs(F_reversion) + 1e-6)
+
+        # === Transfer back to CPU ===
+        # Use .detach().cpu().numpy()
+
+        centers_np = centers.detach().cpu().numpy()
+        upper_sing_np = upper_sing.detach().cpu().numpy()
+        lower_sing_np = lower_sing.detach().cpu().numpy()
+        upper_event_np = upper_event.detach().cpu().numpy()
+        lower_event_np = lower_event.detach().cpu().numpy()
+
+        prices_out = bar_prices.detach().cpu().numpy()
+        tick_vel_out = tick_velocity.detach().cpu().numpy()
+        z_scores_out = z_scores.detach().cpu().numpy()
+
+        F_rev_out = F_reversion.detach().cpu().numpy()
+        F_up_out = F_upper_repulsion.detach().cpu().numpy()
+        F_low_out = F_lower_repulsion.detach().cpu().numpy()
+        F_mom_out = F_momentum.detach().cpu().numpy()
+        F_net_out = F_net.detach().cpu().numpy()
+        F_pid_out = F_pid.detach().cpu().numpy()
+
+        P0_out = P0.detach().cpu().numpy()
+        P1_out = P1.detach().cpu().numpy()
+        P2_out = P2.detach().cpu().numpy()
+        entropy_out = entropy.detach().cpu().numpy()
+        coherence_out = coherence.detach().cpu().numpy()
+        phase_out = phase.detach().cpu().numpy()
+
+        pat_mat_out = pattern_maturity.detach().cpu().numpy()
+        mom_str_out = momentum_strength.detach().cpu().numpy()
+
+        struct_conf_out = structure_confirmed.detach().cpu().numpy()
+        casc_det_out = cascade_detected.detach().cpu().numpy()
+        spin_inv_out = spin_inverted.detach().cpu().numpy()
+
+        lz_codes_out = lz_codes.detach().cpu().numpy()
+        stab_out = stability.detach().cpu().numpy()
+
+        tun_prob_out = tunnel_prob.detach().cpu().numpy()
+        esc_prob_out = escape_prob.detach().cpu().numpy()
+        barrier_out = barrier.detach().cpu().numpy()
+
+        lyap_out = lyapunov.detach().cpu().numpy()
+        sigmas_out = sigmas.detach().cpu().numpy()
+        slopes_out = slopes.detach().cpu().numpy()
+
+        # Trend directions from slopes
+        trend_dirs = np.where(slopes_out > 0, 'UP', 'DOWN') # Simplified
+
+        # Pattern Detection (CPU or CUDA via detector)
+        # Use the CPU helper which handles fallback
+        highs_full = highs_np
+        lows_full = lows_np
+        pattern_types_full = self._detect_geometric_patterns(highs_full, lows_full)
+        pattern_types = pattern_types_full[rp:]
+
+        opens_full = opens_np
+        candlestick_types_full = self._detect_candlestick_patterns(opens_full, highs_full, lows_full, prices_np)
+        candlestick_types = candlestick_types_full[rp:]
+
+        # Hurst/ADX placeholders (since we didn't calculate them on GPU)
+        hurst_vals = np.full(num_bars, 0.5)
+
+        # Calculate ADX on CPU using pandas_ta (same as CPU path)
+        adx_vals = np.zeros(num_bars)
+        dmp_vals = np.zeros(num_bars)
+        dmn_vals = np.zeros(num_bars)
+
+        if PANDAS_TA_AVAILABLE and 'high' in day_data.columns and 'low' in day_data.columns:
+            try:
+                # Compute ADX for full dataset
+                adx_df = day_data.ta.adx(length=ADX_LENGTH)
+                if adx_df is not None:
+                    # Align with computed bars (rp:)
+                    # Columns usually: ADX_14, DMP_14, DMN_14
+                    adx_col = adx_df.iloc[:, 0].values
+                    dmp_col = adx_df.iloc[:, 1].values
+                    dmn_col = adx_df.iloc[:, 2].values
+
+                    # Slice to match rp:
+                    # Ensure alignment: day_data is same length as prices
+                    if len(adx_col) >= rp + num_bars:
+                        adx_vals = np.nan_to_num(adx_col[rp:])
+                        dmp_vals = np.nan_to_num(dmp_col[rp:])
+                        dmn_vals = np.nan_to_num(dmn_col[rp:])
+            except Exception:
+                pass
+
+        # Build Results
+        results = []
+
+        # Complex amplitudes reconstruction
+        a0 = np.sqrt(P0_out) * np.exp(1j * phase_out * 0)
+        a1 = np.sqrt(P1_out) * np.exp(1j * phase_out * 1)
+        a2 = np.sqrt(P2_out) * np.exp(1j * phase_out * -1)
+
+        lz_map = {0: 'L1_STABLE', 1: 'CHAOS', 2: 'L2_ROCHE', 3: 'L3_ROCHE'}
+
+        for i in range(num_bars):
+            # Map LZ
+            lz_str = lz_map.get(lz_codes_out[i], 'UNKNOWN')
+            market_reg = 'CHAOTIC' if lyap_out[i] > 0 else 'STABLE'
+
+            state = ThreeBodyQuantumState(
+                center_position=centers_np[i],
+                upper_singularity=upper_sing_np[i],
+                lower_singularity=lower_sing_np[i],
+                event_horizon_upper=upper_event_np[i],
+                event_horizon_lower=lower_event_np[i],
+                particle_position=prices_out[i],
+                particle_velocity=tick_vel_out[i],
+                z_score=z_scores_out[i],
+                F_reversion=F_rev_out[i],
+                F_upper_repulsion=F_up_out[i],
+                F_lower_repulsion=F_low_out[i],
+                F_momentum=F_mom_out[i],
+                F_net=F_net_out[i],
+                amplitude_center=a0[i],
+                amplitude_upper=a1[i],
+                amplitude_lower=a2[i],
+                P_at_center=P0_out[i],
+                P_near_upper=P1_out[i],
+                P_near_lower=P2_out[i],
+                entropy=entropy_out[i],
+                coherence=coherence_out[i],
+                pattern_maturity=pat_mat_out[i],
+                momentum_strength=mom_str_out[i],
+                structure_confirmed=bool(struct_conf_out[i]),
+                cascade_detected=bool(casc_det_out[i]),
+                spin_inverted=bool(spin_inv_out[i]),
+                lagrange_zone=lz_str,
+                stability_index=stab_out[i],
+                tunnel_probability=tun_prob_out[i],
+                escape_probability=esc_prob_out[i],
+                barrier_height=barrier_out[i],
+                pattern_type=str(pattern_types[i]),
+                trend_direction_15m=str(trend_dirs[i]),
+                hurst_exponent=hurst_vals[i],
+                adx_strength=adx_vals[i],
+                dmi_plus=dmp_vals[i],
+                dmi_minus=dmn_vals[i],
+                candlestick_pattern=str(candlestick_types[i]),
+                sigma_fractal=sigmas_out[i],
+                term_pid=F_pid_out[i],
+                lyapunov_exponent=lyap_out[i],
+                market_regime=market_reg,
+            )
+            results.append({
+                'bar_idx': rp + i,
+                'state': state,
+                'price': prices_out[i],
+                'structure_ok': (
+                    lz_str in ('L2_ROCHE', 'L3_ROCHE') and
+                    bool(struct_conf_out[i]) and
+                    bool(casc_det_out[i])
+                ),
+            })
+
+        return results
+
     # ═══════════════════════════════════════════════════════════════════════
     # VECTORIZED BATCH COMPUTATION (processes all bars at once)
     # ═══════════════════════════════════════════════════════════════════════
@@ -615,6 +1064,17 @@ class QuantumFieldEngine:
         Returns:
             List of dicts: [{bar_idx, state, price, prob, conf, structure_ok}, ...]
         """
+        # Dispatch to GPU implementation if requested and available
+        if use_cuda and self.use_gpu and TORCH_AVAILABLE:
+            try:
+                return self._batch_compute_states_gpu(day_data, params)
+            except Exception as e:
+                # Fallback to CPU if GPU run fails
+                print(f"WARNING: GPU batch computation failed: {e}. Falling back to CPU.")
+                import traceback
+                traceback.print_exc()
+                pass
+
         # Default physics parameters if not provided
         params = params or {}
         kp = params.get('pid_kp', DEFAULT_PID_KP)
@@ -751,40 +1211,18 @@ class QuantumFieldEngine:
                 pass
 
         # Hurst Exponent (Fractal Dimension)
-        # Computing rolling Hurst is expensive. We'll approximate or skip for batch speed if needed.
-        # For training accuracy, we should compute it.
-        # We can use a simple rolling window apply if dataset isn't too huge.
         hurst_vals = np.full(num_bars, 0.5)
 
         if HURST_AVAILABLE:
-            # We need a rolling apply on 'close'
-            # simplified=True is faster.
-            # Using a stride can speed it up (compute every N bars, interpolate).
-            # For now, let's just do it for every bar but use a smaller window? No, H needs ~100 bars.
-            # Optimization: Compute only if we need it.
-            # Let's try to do it via rolling apply.
             try:
-                # Custom function for rolling apply
                 def get_hurst(x):
                     try:
                         H, _, _ = compute_Hc(x, kind='price', simplified=True)
                         return H
                     except Exception as e:
-                        # Consider logging the exception here, e.g., logging.error(f"Error computing Hurst: {e}")
                         return 0.5
-
-                # We apply to the *original* series, then slice
-                # Calculating on 1s data (35k bars) with window=100 is 35k*100 ops.
-                # It might take a few seconds. Acceptable.
-                # However, calculate_three_body_state uses df_micro (15s usually).
-                # batch_compute_states is called with 15s data in Orchestrator.
-                # So n ~ 2000 bars. This is fast enough.
-
-                # Check if we have enough data
                 if len(close) >= HURST_WINDOW:
                     series = pd.Series(close)
-                    # rolling(100).apply(get_hurst)
-                    # raw=True for speed (passes ndarray)
                     rolling_hurst = series.rolling(HURST_WINDOW).apply(get_hurst, raw=True).values
                     hurst_vals = np.nan_to_num(rolling_hurst[rp:], nan=0.5)
             except Exception:
@@ -793,32 +1231,10 @@ class QuantumFieldEngine:
         # ═══ STEP 2: Vectorized z-scores & force fields ═══
 
         # 2a. Fractal Diffusion & PID (Requires loop or complex rolling)
-        # Since we have the loop above for regression, let's just integrate logic there?
-        # Actually, the loop above calculated centers/sigmas but didn't store residuals history for PID.
-        # Let's re-run a lightweight loop or vectorization for PID/Fractal Sigma.
-
-        # Tick velocity: price change between consecutive bars
         tick_velocity = np.zeros(num_bars)
         tick_velocity[1:] = bar_prices[1:] - bar_prices[:-1]
 
-        # We need to refine sigma using Fractal Diffusion Formula
-        # σ = σ_base * (v_micro / v_macro)^H
-        # v_micro = |tick_velocity|
-        # v_macro = rolling mean of |diff(close)| over window rp
-
-        # Calculate v_macro vectorized
-        abs_diffs = np.abs(np.diff(close, prepend=close[0]))
-        # Rolling mean of abs_diffs with window rp, aligned to 'right' (current time)
-        # We need alignment: index i corresponds to window [i+1 : i+1+rp] in the regression loop?
-        # No, in regression loop: close[start_idx : end_idx] where end_idx = i + 1 + rp
-        # So it's looking ahead if day_data is full?
-        # Wait, batch_compute_states: num_bars = n - rp.
-        # indices i=0 corresponds to rp.
-        # So we look at data up to rp+i.
-
-        # Let's use pandas rolling for simplicity and speed
         close_series = pd.Series(close)
-        # Rolling mean of absolute diffs
         v_macro_series = close_series.diff().abs().rolling(window=rp).mean().fillna(1.0)
         v_macro_vals = v_macro_series.values[rp:] # Slice to match num_bars
 
@@ -835,19 +1251,13 @@ class QuantumFieldEngine:
         z_scores = (bar_prices - centers) / sigmas
 
         # 2b. PID Forces
-        # Need error history. Error = Price - Center.
         errors = bar_prices - centers
-
-        # Derivative: dE/dt
         e_deriv = np.zeros(num_bars)
         e_deriv[1:] = errors[1:] - errors[:-1]
 
-        # Integral: Sum of errors over window rp
-        # Vectorized rolling sum
         errors_series = pd.Series(errors)
         e_integ = errors_series.rolling(window=rp, min_periods=1).sum().values
 
-        # F_pid = -(Kp*e + Ki*int + Kd*deriv)
         F_pid = -(kp * errors + ki * e_integ + kd * e_deriv)
 
         # 2c. Gravity & Repulsion
@@ -856,7 +1266,6 @@ class QuantumFieldEngine:
         upper_event = centers + self.SIGMA_EVENT_MULTIPLIER * sigmas
         lower_event = centers - self.SIGMA_EVENT_MULTIPLIER * sigmas
 
-        # F_gravity = -theta * z * sigma (which is -theta * error)
         F_gravity = -theta * errors
         F_reversion = F_gravity # Alias
 
@@ -867,12 +1276,10 @@ class QuantumFieldEngine:
         F_upper_repulsion = np.where(z_scores > 0, F_upper_raw, 0.0)
         F_lower_repulsion = np.where(z_scores < 0, F_lower_raw, 0.0)
 
-        # Momentum: velocity * volume / sigma
         safe_velocity = np.nan_to_num(tick_velocity)
         safe_volumes = np.nan_to_num(bar_volumes)
         F_momentum = safe_velocity * safe_volumes / (sigmas + 1e-6)
 
-        # Net Force: Gravity + Momentum + PID + Repulsion
         repulsion = np.where(z_scores > 0, -F_upper_repulsion, F_lower_repulsion)
         F_net = F_gravity + F_momentum + F_pid + repulsion
 
@@ -882,7 +1289,10 @@ class QuantumFieldEngine:
         E2 = -(z_scores + 2.0) ** 2 / 2
 
         if use_cuda and CUDA_AVAILABLE:
-            # GPU path
+            # GPU path (partial usage for wave function in legacy/CPU mode)
+            # But normally we dispatch to _batch_compute_states_gpu entirely
+            # So this is just fallback acceleration for CPU loop?
+            # Keeping as is.
             device = torch.device('cuda')
             E0_t = torch.tensor(E0, device=device, dtype=torch.float64)
             E1_t = torch.tensor(E1, device=device, dtype=torch.float64)
@@ -905,7 +1315,6 @@ class QuantumFieldEngine:
             P2 = P2_t.cpu().numpy()
             entropy = entropy_t.cpu().numpy()
         else:
-            # CPU path (still vectorized — much faster than per-bar loop)
             max_E = np.maximum(np.maximum(E0, E1), E2)
             P0 = np.exp(E0 - max_E)
             P1 = np.exp(E1 - max_E)
@@ -920,14 +1329,12 @@ class QuantumFieldEngine:
 
         coherence = entropy / np.log(3)
 
-        # Amplitudes
         phase = np.arctan2(F_momentum, F_net + 1e-6)
         a0 = np.sqrt(P0) * np.exp(1j * phase * 0)
         a1 = np.sqrt(P1) * np.exp(1j * phase * 1)
         a2 = np.sqrt(P2) * np.exp(1j * phase * -1)
 
         # ═══ STEP 4: Measurements (volume spike, pattern maturity) ═══
-        # Rolling mean of volume over last 20 bars
         vol_rolling_mean = np.empty(num_bars)
         for i in range(num_bars):
             start = max(0, rp + i - 19)
@@ -940,15 +1347,12 @@ class QuantumFieldEngine:
             np.minimum((np.abs(z_scores) - 2.0) / 1.0, 1.0),
             0.0
         )
-        # Relaxed from > 0.5 to > 0.1 (z > 2.1)
         structure_confirmed = volume_spike & (pattern_maturity > 0.1)
 
-        # Cascade Logic: Velocity OR Range
         velocity_cascade = np.abs(tick_velocity) > VELOCITY_CASCADE_THRESHOLD
         range_cascade = (bar_highs - bar_lows) > RANGE_CASCADE_THRESHOLD
         cascade_detected = velocity_cascade | range_cascade
 
-        # Spin inversion
         if 'open' in day_data.columns:
             opens = day_data['open'].values[rp:]
         else:
@@ -993,10 +1397,9 @@ class QuantumFieldEngine:
             np.where(abs_z < 2.0, 0.5, 0.1)
         )
 
-        # Lyapunov Proxy
         lyapunov = np.zeros(num_bars)
         abs_z = np.abs(z_scores)
-        lyapunov[1:] = abs_z[1:] - abs_z[:-1] # >0 expanding, <0 decaying
+        lyapunov[1:] = abs_z[1:] - abs_z[:-1]
         market_regimes = np.where(lyapunov > 0, 'CHAOTIC', 'STABLE')
 
         momentum_strength = np.nan_to_num(F_momentum / (np.abs(F_reversion) + 1e-6))
@@ -1056,7 +1459,7 @@ class QuantumFieldEngine:
                     str(lagrange_zones[i]) in ('L2_ROCHE', 'L3_ROCHE') and
                     bool(structure_confirmed[i]) and
                     bool(cascade_detected[i]) and
-                    True  # conf >= 0.30 checked at lookup time
+                    True
                 ),
             })
 
