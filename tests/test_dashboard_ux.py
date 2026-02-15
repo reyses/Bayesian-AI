@@ -6,63 +6,58 @@ import importlib
 
 class TestDashboardUX(unittest.TestCase):
     def setUp(self):
-        # Create fresh mocks for this test execution
+        # Create Mocks FRESH for each test
         self.mock_tk = MagicMock()
         self.mock_ttk = MagicMock()
 
         def create_mock_label(*args, **kwargs):
             m = MagicMock()
+            # Ensure bind is a mock
+            m.bind = MagicMock()
+            m.config = MagicMock()
+            m.pack = MagicMock()
+            m.grid = MagicMock()
             return m
 
         # Set it on the mock_ttk object
         self.mock_ttk.Label = create_mock_label
+        # Also mock Scrollbar
+        self.mock_ttk.Scrollbar = MagicMock()
+
         # Set it on mock_tk.Label too (because LiveDashboard uses tk.Label for cards)
         self.mock_tk.Label = MagicMock(side_effect=create_mock_label)
+
+        # Mock Text widget
+        self.mock_tk.Text = MagicMock()
 
         # IMPORTANT: Link mock_tk.ttk to mock_ttk!
         self.mock_tk.ttk = self.mock_ttk
 
-        # Link mock_tk.messagebox to mock_messagebox so imports resolve correctly
-        self.mock_messagebox = MagicMock()
-        self.mock_tk.messagebox = self.mock_messagebox
-
-        # Prepare other mocks
-        # self.mock_messagebox = MagicMock() # Already created above
-        self.mock_mpl = MagicMock()
-        self.mock_plt = MagicMock()
-        self.mock_tkagg = MagicMock()
-        self.mock_figure = MagicMock()
-        self.mock_dates = MagicMock()
-        self.mock_style = MagicMock()
-
-        # Patch sys.modules
-        self.patcher = patch.dict(sys.modules, {
+        # Patch dict for sys.modules
+        self.modules_patcher = patch.dict(sys.modules, {
             'tkinter': self.mock_tk,
             'tkinter.ttk': self.mock_ttk,
-            'tkinter.messagebox': self.mock_messagebox,
-            'matplotlib': self.mock_mpl,
-            'matplotlib.pyplot': self.mock_plt,
+            'tkinter.messagebox': MagicMock(),
+            'matplotlib': MagicMock(),
+            'matplotlib.pyplot': MagicMock(),
             'matplotlib.backends': MagicMock(),
-            'matplotlib.backends.backend_tkagg': self.mock_tkagg,
-            'matplotlib.figure': self.mock_figure,
-            'matplotlib.dates': self.mock_dates,
-            'matplotlib.style': self.mock_style,
+            'matplotlib.backends.backend_tkagg': MagicMock(),
+            'matplotlib.figure': MagicMock(),
+            'matplotlib.dates': MagicMock(),
+            'matplotlib.style': MagicMock(),
         })
-        self.patcher.start()
+        self.modules_patcher.start()
 
-        # Reload the dashboard module to use these fresh mocks
+        # Import module inside patched environment
         import visualization.live_training_dashboard
         importlib.reload(visualization.live_training_dashboard)
-
-        # Get the reloaded class
-        from visualization.live_training_dashboard import LiveDashboard, Tooltip
-        self.LiveDashboard = LiveDashboard
-        self.Tooltip = Tooltip
+        self.dashboard_module = visualization.live_training_dashboard
+        self.LiveDashboard = self.dashboard_module.LiveDashboard
 
         self.root = MagicMock()
 
     def tearDown(self):
-        self.patcher.stop()
+        self.modules_patcher.stop()
 
     @patch('visualization.live_training_dashboard.threading.Thread')
     def test_tooltips_presence(self, mock_thread):
@@ -70,6 +65,8 @@ class TestDashboardUX(unittest.TestCase):
         dashboard = self.LiveDashboard(self.root)
 
         # Verify ids are different (Sanity check)
+        # Note: _card_states is a tuple (val_label, sub_label)
+        # We compare the value labels
         self.assertNotEqual(id(dashboard._card_states[0]), id(dashboard._card_progress[0]), "Labels should be different objects")
 
         def check_binding(widget, widget_name):
@@ -196,6 +193,7 @@ class TestDashboardUX(unittest.TestCase):
         dashboard = self.LiveDashboard(self.root)
 
         # Check call args of tk.Text constructor
+        # self.mock_tk is the mock object for 'tkinter'
         call_args = self.mock_tk.Text.call_args
 
         if call_args:

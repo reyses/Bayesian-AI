@@ -396,7 +396,13 @@ class BayesianTrainingOrchestrator:
         precompute_start = time.time()
 
         # === VECTORIZED BATCH COMPUTATION on aggregated bars ===
-        batch_results = self.engine.batch_compute_states(resampled_data, use_cuda=True)
+        # Explicitly disable Hurst for speed (aligns with GPU path which uses 0.5)
+        # This provides ~5x speedup on CPU fallback
+        batch_results = self.engine.batch_compute_states(
+            resampled_data,
+            use_cuda=True,
+            params={'use_hurst': False}
+        )
 
         # === FIT DYNAMIC BINNER on first day (before any hashing) ===
         # If not fitted, fit it. If fitted, reuse it.
@@ -881,7 +887,10 @@ class BayesianTrainingOrchestrator:
         # Create a list of (index, pnl, sharpe)
         candidates = []
         for i, res in enumerate(all_results):
-            candidates.append((i, res['pnl'], res['sharpe']))
+            # Defensive get() in case result dict is malformed (e.g. from mocks)
+            pnl = res.get('pnl', 0.0)
+            sharpe = res.get('sharpe', -999.0)
+            candidates.append((i, pnl, sharpe))
 
         # Sort by PnL (desc), then Sharpe (desc)
         candidates.sort(key=lambda x: (x[1], x[2]), reverse=True)
@@ -889,10 +898,11 @@ class BayesianTrainingOrchestrator:
         best_idx = candidates[0][0]
 
         # Unpack best result
-        best_sharpe = all_results[best_idx]['sharpe']
-        best_pnl = all_results[best_idx]['pnl']
+        best_result = all_results[best_idx]
+        best_sharpe = best_result.get('sharpe', -999.0)
+        best_pnl = best_result.get('pnl', 0.0)
         best_params = all_param_sets[best_idx]
-        best_trades = all_results[best_idx]['trades']
+        best_trades = best_result.get('trades', [])
         self._best_trades_today = best_trades
 
         # Collect all trades for regret analysis
@@ -1348,14 +1358,20 @@ class BayesianTrainingOrchestrator:
             'medium': params.get('trail_medium_ticks', 20),
             'wide': params.get('trail_wide_ticks', 30)
         }
-        # Re-initialize or update WaveRider config if needed (WaveRider init takes config)
-        # For now, we assume the instance uses its internal adaptive logic or defaults.
-        # But we can update the config manually if WaveRider supports it.
+        # Re-initialize or update WaveRider config if needed
         self.wave_rider.trail_config.update(trail_config)
+
+        # Set timeframe for regret analysis lookahead
+        tf_idx = params.get('timeframe_idx', 1)
+        self.wave_rider.trading_timeframe = TIMEFRAME_MAP.get(tf_idx, '15s')
 
         # Clear any existing position
         self.wave_rider.position = None
         self.wave_rider.price_history = []
+        # Note: We do NOT clear pending_reviews here if we want continuity,
+        # but simulate_trading_day is often called fresh.
+        # For simulation purity, clearing is safer unless simulating continuous days.
+        self.wave_rider.pending_reviews = []
 
         # Simulate bar-by-bar
         for i in range(21, len(day_data)):
@@ -1364,6 +1380,9 @@ class BayesianTrainingOrchestrator:
             current_time = current_row.get('timestamp', 0)
             if isinstance(current_time, pd.Timestamp):
                 current_time = current_time.timestamp()
+
+            # Process pending regret analysis (even if flat)
+            self.wave_rider.process_pending_reviews(float(current_time), float(current_price))
 
             # 1. Manage existing position
             if self.wave_rider.position:
