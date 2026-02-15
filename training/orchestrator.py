@@ -133,15 +133,16 @@ def process_data_chunk(file_path: str) -> Dict[str, Any]:
     Worker function to process a data file.
     Initializes its own QuantumFieldEngine to avoid pickling issues.
     """
+    start_time = time.time()
     try:
         # Load data
         # Check if file is parquet
         if not file_path.endswith('.parquet'):
-             return {'file': file_path, 'status': 'skipped', 'reason': 'not parquet'}
+             return {'file': file_path, 'status': 'skipped', 'reason': 'not parquet', 'duration': time.time() - start_time}
 
         df = pd.read_parquet(file_path)
         if df.empty:
-             return {'file': file_path, 'status': 'empty', 'count': 0}
+             return {'file': file_path, 'status': 'empty', 'count': 0, 'duration': time.time() - start_time}
 
         # Initialize Engine
         engine = QuantumFieldEngine()
@@ -151,7 +152,7 @@ def process_data_chunk(file_path: str) -> Dict[str, Any]:
         states = engine.batch_compute_states(df, use_cuda=True)
 
         if not states:
-            return {'file': file_path, 'status': 'no_states', 'count': 0}
+            return {'file': file_path, 'status': 'no_states', 'count': 0, 'duration': time.time() - start_time}
 
         # Aggregate metrics
         max_force = 0.0
@@ -175,13 +176,14 @@ def process_data_chunk(file_path: str) -> Dict[str, Any]:
             'count': len(states),
             'max_force': float(max_force),
             'critical_events': int(critical_events),
-            'mean_z': float(mean_z)
+            'mean_z': float(mean_z),
+            'duration': time.time() - start_time
         }
 
     except Exception as e:
         # Log error but don't crash
         print(f"Error processing {file_path}: {e}")
-        return {'file': file_path, 'status': 'error', 'error': str(e)}
+        return {'file': file_path, 'status': 'error', 'error': str(e), 'duration': time.time() - start_time}
 
 @dataclass
 class DayResults:
@@ -286,6 +288,8 @@ class BayesianTrainingOrchestrator:
         print("BAYESIAN-AI TRAINING ORCHESTRATOR (PARALLEL)")
         print("="*80)
 
+        train_start_time = time.time()
+
         # 1. Pre-Flight Checks
         print("Performing pre-flight checks...")
         verify_cuda_availability()
@@ -329,13 +333,20 @@ class BayesianTrainingOrchestrator:
 
         max_forces = [r['max_force'] for r in results if r['status'] == 'success']
         total_critical = sum(r['critical_events'] for r in results if r['status'] == 'success')
+        durations = [r.get('duration', 0.0) for r in results if r['status'] == 'success']
 
         global_max_force = max(max_forces) if max_forces else 0.0
+
+        avg_duration = sum(durations) / len(durations) if durations else 0.0
+        min_duration = min(durations) if durations else 0.0
+        max_duration = max(durations) if durations else 0.0
 
         print(f"Files Processed: {total_files}")
         print(f"Success: {success} | Failed: {failed}")
         print(f"Global Max Force: {global_max_force:.4f}")
         print(f"Total Critical Events: {total_critical}")
+        print(f"Processing Time (per file): Avg: {avg_duration:.2f}s | Min: {min_duration:.2f}s | Max: {max_duration:.2f}s")
+        print(f"Total Batch Duration: {time.time() - train_start_time:.2f}s")
 
         if failed > 0:
             print("\nFailures:")
