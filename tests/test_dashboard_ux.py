@@ -149,10 +149,29 @@ class TestDashboardUX(unittest.TestCase):
         bind_calls = self.root.bind.call_args_list
         bound_keys = [call[0][0] for call in bind_calls]
 
-        expected_keys = ['<space>', 'p', 'P', 's', 'S', 'x', 'X']
+        expected_keys = ['<space>', 'p', 'P', 's', 'S', 'x', 'X', 'h', 'H', '?']
 
         for key in expected_keys:
             self.assertIn(key, bound_keys, f"Key {key} should be bound")
+
+    @patch('visualization.live_training_dashboard.threading.Thread')
+    def test_show_help(self, mock_thread):
+        mock_thread.return_value.start = MagicMock()
+        dashboard = LiveDashboard(self.root)
+
+        # Get the mocked messagebox
+        from visualization.live_training_dashboard import messagebox
+
+        # Reset any previous calls
+        messagebox.showinfo.reset_mock()
+
+        dashboard.show_help()
+
+        # Check that messagebox.showinfo was called
+        self.assertTrue(messagebox.showinfo.called, "messagebox.showinfo should be called")
+        call_args = messagebox.showinfo.call_args
+        self.assertEqual(call_args[0][0], "Keyboard Shortcuts", "Title should be 'Keyboard Shortcuts'")
+        self.assertIn("Space / P", call_args[0][1], "Help text should contain shortcuts")
 
     @patch('visualization.live_training_dashboard.threading.Thread')
     def test_log_read_only(self, mock_thread):
