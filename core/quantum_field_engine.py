@@ -675,14 +675,14 @@ class QuantumFieldEngine:
         )
 
         # Apply to cdl[1:] where 0
-        full_bull_mask = torch.zeros(N, dtype=torch.bool, device=device)
-        full_bull_mask[1:] = bull_mask
+        # Apply to cdl[1:] where 0
+        cdl_slice = cdl[1:]
+        not_set_mask = cdl_slice == 0
+        cdl_slice[bull_mask & not_set_mask] = 3 # ENGULFING_BULL
 
-        full_bear_mask = torch.zeros(N, dtype=torch.bool, device=device)
-        full_bear_mask[1:] = bear_mask
-
-        cdl[full_bull_mask & (cdl == 0)] = 3 # ENGULFING_BULL
-        cdl[full_bear_mask & (cdl == 0)] = 4 # ENGULFING_BEAR
+        # Re-evaluate not_set_mask as it might have been modified by the bull pattern assignment
+        not_set_mask = cdl_slice == 0
+        cdl_slice[bear_mask & not_set_mask] = 4 # ENGULFING_BEAR
 
         return geo, cdl
 
