@@ -140,7 +140,7 @@ class QuantumFieldEngine:
         
         # 2. FRACTAL & TREND INDICATORS (Needed for Fractal Diffusion)
         # Default to True for single-state calculation to preserve precision
-        use_hurst = params.get('use_hurst', True) if params else True
+        use_hurst = params.get('use_hurst', True)
         if use_hurst and HURST_AVAILABLE and len(df_micro) >= HURST_WINDOW:
             hurst_series = df_micro['close'].iloc[-HURST_WINDOW:]
             try:
