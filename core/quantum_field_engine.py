@@ -1225,7 +1225,7 @@ class QuantumFieldEngine:
         # Hurst Exponent (Fractal Dimension)
         # Defaults to True (Calculated) to preserve legacy behavior.
         # Set params={'use_hurst': False} for performance boost (aligns with GPU 0.5).
-        use_hurst = params.get('use_hurst', True) if params else True
+        use_hurst = params.get('use_hurst', True)
         hurst_vals = np.full(num_bars, 0.5)
 
         if use_hurst and HURST_AVAILABLE:
