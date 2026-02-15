@@ -546,21 +546,17 @@ class QuantumFieldEngine:
         Falls back to vectorized CPU implementation.
         """
         # Threshold to avoid Numba performance warning on small grids (grid size 1)
-        if len(highs) < 1024:
-             geo = detect_geometric_patterns_vectorized(highs, lows)
-             cdl = detect_candlestick_patterns_vectorized(opens, highs, lows, closes)
-             return geo, cdl
+        MIN_CUDA_LEN = 1024
 
-        if self.use_gpu and CUDA_PATTERNS_AVAILABLE:
+        if self.use_gpu and CUDA_PATTERNS_AVAILABLE and len(highs) >= MIN_CUDA_LEN:
             try:
                 return detect_patterns_cuda(opens, highs, lows, closes)
             except Exception as e:
-                # Fallback on error (e.g. CUDA context issues)
-                geo = detect_geometric_patterns_vectorized(highs, lows)
-                cdl = detect_candlestick_patterns_vectorized(opens, highs, lows, closes)
-                return geo, cdl
+                # Fallback on error (e.g. CUDA context issues).
+                # Consider logging 'e' if logging system available.
+                pass
 
-        # Default CPU
+        # Default to CPU implementation for small datasets or if CUDA is unavailable/fails
         geo = detect_geometric_patterns_vectorized(highs, lows)
         cdl = detect_candlestick_patterns_vectorized(opens, highs, lows, closes)
         return geo, cdl
