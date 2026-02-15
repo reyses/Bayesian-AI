@@ -22,6 +22,14 @@ except ImportError:
 
 # Optional: Fractal & Trend Libraries
 try:
+    import matplotlib
+    # Force matplotlib to use a non-interactive backend if possible to avoid some display issues
+    matplotlib.use('Agg')
+    import matplotlib.pyplot
+except ImportError:
+    pass
+
+try:
     import pandas_ta as ta
     PANDAS_TA_AVAILABLE = True
 except ImportError:
