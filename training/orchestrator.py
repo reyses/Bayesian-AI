@@ -449,10 +449,9 @@ class BayesianTrainingOrchestrator:
         if 'timestamp' in day_data.columns:
             ts_val = day_data['timestamp'].iloc[0]
             if isinstance(ts_val, (int, float, np.number)):
-                dt_obj = pd.to_datetime(ts_val, unit='s')
+                 current_date = str(pd.to_datetime(ts_val, unit='s').date())
             else:
-                dt_obj = pd.to_datetime(ts_val)
-            current_date = str(dt_obj.date())
+                 current_date = str(pd.to_datetime(ts_val).date())
 
         if current_date and interval in self.resampled_cache and current_date in self.resampled_cache[interval]:
             # Use cached data
@@ -1510,8 +1509,40 @@ class BayesianTrainingOrchestrator:
                             entry_time=markers.entry_time,
                             exit_time=markers.exit_time,
                             duration=markers.exit_time - markers.entry_time,
-                            direction=markers.side.upper()
+                            direction='SHORT' if markers.entry_price > markers.exit_price else 'LONG' # Infer direction or pass it
+                            # Actually markers.side is usually not in RegretMarkers dataclass?
+                            # Checking RegretMarkers definition in wave_rider.py...
+                            # It has entry/exit prices. We can infer direction or add it.
+                            # The code I read earlier for RegretMarkers didn't show 'side'.
+                            # Wait, `RegretMarkers` has `entry_price`, `exit_price`.
+                            # WaveRider.analyze_exit takes `side`.
+                            # RegretMarkers definition:
+                            # entry_price, exit_price, exit_time, actual_pnl, exit_reason...
+                            # It DOES NOT have side.
+                            # But we can infer side from prices + PnL sign? Not reliably if loss.
+                            # But we know entry/exit prices.
+                            # If (entry > exit) and (pnl > 0) -> SHORT
+                            # If (entry < exit) and (pnl > 0) -> LONG
+                            # If (entry > exit) and (pnl < 0) -> LONG (failed long) OR SHORT (failed short)?
+                            # Wait.
+                            # Short: Profit = Entry - Exit. Loss = Exit - Entry.
+                            # Long: Profit = Exit - Entry. Loss = Entry - Exit.
+                            # If Entry=100, Exit=90.
+                            # If Short: +10. If Long: -10.
+                            # So PnL sign tells us.
+                            # PnL = (Exit - Entry) * dir (1 or -1) * value.
+                            # So PnL / ((Exit-Entry)*value) = dir.
+                            # If Exit != Entry.
                         )
+                        # Fix direction inference using PnL sign relative to price delta
+                        price_delta = markers.exit_price - markers.entry_price
+                        if price_delta != 0:
+                            # pnl is in dollars.
+                            # Long: delta > 0 -> PnL > 0. delta < 0 -> PnL < 0. (Sign matches)
+                            # Short: delta < 0 -> PnL > 0. delta > 0 -> PnL < 0. (Sign opposite)
+                            # So if PnL and delta have same sign -> LONG. Different sign -> SHORT.
+                            is_long = (markers.actual_pnl * price_delta) > 0
+                            outcome.direction = 'LONG' if is_long else 'SHORT'
 
                         trades.append(outcome)
                         if on_trade:
