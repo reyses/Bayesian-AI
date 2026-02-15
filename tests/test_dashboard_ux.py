@@ -114,11 +114,6 @@ class TestDashboardUX(unittest.TestCase):
                 self.assertIsNotNone(call_args, f"config() not called for {status}")
 
                 kwargs = call_args.kwargs
-                # If config was called with positional args? Usually config(text=...)
-                if not kwargs and call_args.args:
-                     # This shouldn't happen based on code but handle defensively if needed
-                     pass
-
                 self.assertIn('text', kwargs, f"text argument missing in config call for {status}")
                 called_text = kwargs['text']
 
@@ -167,10 +162,28 @@ class TestDashboardUX(unittest.TestCase):
         bind_calls = self.root.bind.call_args_list
         bound_keys = [call[0][0] for call in bind_calls]
 
-        expected_keys = ['<space>', 'p', 'P', 's', 'S', 'x', 'X']
+        expected_keys = ['<space>', 'p', 'P', 's', 'S', 'x', 'X', 'h', 'H', '?']
 
         for key in expected_keys:
             self.assertIn(key, bound_keys, f"Key {key} should be bound")
+
+    @patch('visualization.live_training_dashboard.threading.Thread')
+    def test_show_help(self, mock_thread):
+        mock_thread.return_value.start = MagicMock()
+        dashboard = self.LiveDashboard(self.root)
+
+        # Get the mocked messagebox (from our own mock!)
+        # Since we patched sys.modules, imports inside the module point to self.mock_messagebox
+
+        self.mock_messagebox.showinfo.reset_mock()
+
+        dashboard.show_help()
+
+        # Check that messagebox.showinfo was called
+        self.assertTrue(self.mock_messagebox.showinfo.called, "messagebox.showinfo should be called")
+        call_args = self.mock_messagebox.showinfo.call_args
+        self.assertEqual(call_args[0][0], "Keyboard Shortcuts", "Title should be 'Keyboard Shortcuts'")
+        self.assertIn("Space / P", call_args[0][1], "Help text should contain shortcuts")
 
     @patch('visualization.live_training_dashboard.threading.Thread')
     def test_log_read_only(self, mock_thread):
