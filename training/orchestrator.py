@@ -449,9 +449,10 @@ class BayesianTrainingOrchestrator:
         if 'timestamp' in day_data.columns:
             ts_val = day_data['timestamp'].iloc[0]
             if isinstance(ts_val, (int, float, np.number)):
-                 current_date = str(pd.to_datetime(ts_val, unit='s').date())
+                dt_obj = pd.to_datetime(ts_val, unit='s')
             else:
-                 current_date = str(pd.to_datetime(ts_val).date())
+                dt_obj = pd.to_datetime(ts_val)
+            current_date = str(dt_obj.date())
 
         if current_date and interval in self.resampled_cache and current_date in self.resampled_cache[interval]:
             # Use cached data
