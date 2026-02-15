@@ -129,6 +129,9 @@ class LiveDashboard:
         self.root.bind('S', lambda e: self.stop_training())
         self.root.bind('x', lambda e: self.export_chart())
         self.root.bind('X', lambda e: self.export_chart())
+        self.root.bind('h', lambda e: self.show_help())
+        self.root.bind('H', lambda e: self.show_help())
+        self.root.bind('?', lambda e: self.show_help())
 
         # Start Polling Thread
         self.poll_thread = threading.Thread(target=self.poll_data, daemon=True)
@@ -263,6 +266,10 @@ class LiveDashboard:
         self.btn_export.pack(side="left", padx=5)
         Tooltip(self.btn_export, "Export current chart to PNG (X)")
 
+        self.btn_help = ttk.Button(btn_frame, text="❓ Help", command=self.show_help)
+        self.btn_help.pack(side="left", padx=5)
+        Tooltip(self.btn_help, "Show keyboard shortcuts (H/?)")
+
         ttk.Separator(self.frame_controls, orient='horizontal').pack(fill='x', pady=5)
 
         # Log Frame with Scrollbar
@@ -383,6 +390,15 @@ class LiveDashboard:
             messagebox.showinfo("Export", f"Chart saved to {filename}")
         except Exception as e:
             self.log(f"Error exporting: {e}")
+
+    def show_help(self):
+        shortcuts = (
+            "Space / P: Pause/Resume Training\n"
+            "S: Stop Training (Save & Exit)\n"
+            "X: Export Chart to PNG\n"
+            "H / ?: Show this help"
+        )
+        messagebox.showinfo("Keyboard Shortcuts", shortcuts)
 
     def refresh_dashboard(self):
         d = self.data
