@@ -149,7 +149,9 @@ def process_data_chunk(file_path: str) -> Dict[str, Any]:
 
         # Run Batch Computation
         # Note: Engine now mandates CUDA, so this will use GPU
-        states = engine.batch_compute_states(df, use_cuda=True)
+        # Show progress for this specific file
+        file_desc = os.path.basename(file_path)[:15]  # Shorten name for UI
+        states = engine.batch_compute_states(df, use_cuda=True, progress_bar=True, desc=f"File: {file_desc}")
 
         if not states:
             return {'file': file_path, 'status': 'no_states', 'count': 0, 'duration': time.time() - start_time}
@@ -316,7 +318,7 @@ class BayesianTrainingOrchestrator:
             ctx = multiprocessing.get_context('spawn')
             with ctx.Pool(processes=num_workers) as pool:
                 # Map
-                results = list(tqdm(pool.imap(process_data_chunk, files), total=len(files), desc="Processing Files"))
+                results = list(tqdm(pool.imap(process_data_chunk, files), total=len(files), desc="Training Batch Progress", unit="file"))
 
         # 3. Aggregation
         print("\n" + "="*80)
