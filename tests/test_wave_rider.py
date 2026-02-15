@@ -95,7 +95,7 @@ def test_regret_analysis_loss_no_peak():
     # The fix should make efficiency 0.0 (0%) and regret type NOT 'optimal'
 
     assert markers.exit_efficiency == 0.0, f"Expected 0.0 efficiency for loss, got {markers.exit_efficiency}"
-    assert markers.regret_type != 'optimal', f"Expected non-optimal regret type for loss, got {markers.regret_type}"
+    assert markers.regret_type == 'wrong_direction', f"Expected 'wrong_direction' for loss, got {markers.regret_type}"
     assert markers.potential_max_pnl == 0.0
     assert markers.actual_pnl < 0
 

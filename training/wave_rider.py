@@ -112,7 +112,9 @@ class RegretAnalyzer:
         exit_efficiency = min(1.0, max(0.0, exit_efficiency))
         
         # Classify regret
-        if exit_efficiency >= 0.90:
+        if actual_pnl < 0:
+            regret_type = 'wrong_direction'
+        elif exit_efficiency >= 0.90:
             regret_type = 'optimal'
         else:
             # Without lookahead, sub-optimal means we held too long after peak
