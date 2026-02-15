@@ -297,10 +297,7 @@ class BayesianTrainingOrchestrator:
         elif isinstance(data_source, list):
             files = data_source
         elif isinstance(data_source, pd.DataFrame):
-            print("WARNING: DataFrame passed to train(). Using single-process legacy flow (limited functionality).")
-            # Logic to handle DF if needed, or fail.
-            # For this refactor, we emphasize parallel file processing.
-            pass
+            raise TypeError("Passing a DataFrame to train() is deprecated in the parallel pipeline. Please provide a file path to your data.")
 
         print(f"Asset: {self.asset.ticker}")
         print(f"Checkpoint Dir: {self.checkpoint_dir}")
