@@ -613,10 +613,9 @@ class QuantumFieldEngine:
         # Compare min_prev_4[i-4] with lows[i].
         # So compare min_prev_4 with lows[4:].
         # min_prev_4 indices 0..N-4 corresponds to bars 4..N.
-        # Wait.
-        # Index 0: window [0, 3]. min of lows[0..3]. Compare with lows[4]. Correct.
-        # Index N-5: window [N-5, N-2]. Compare with lows[N-1]. Correct.
-        # So we need min_prev_4[:-1] if len is N-3.
+        # For bar i, we need the min of the window [i-4, i-1].
+        # This corresponds to the window created by l_windows_4 at index i-4.
+        # Therefore, we compare lows[4:] with min_prev_4[:-1] to align the series.
 
         min_prev_vals = min_prev_4[:-1]
         l_curr_bd = lows[4:]
