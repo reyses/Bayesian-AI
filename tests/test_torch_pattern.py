@@ -24,10 +24,11 @@ def test_torch_pattern_equivalence():
     n = 1000
 
     # Random Walk
-    close = np.cumsum(np.random.randn(n)) + 1000
-    highs = close + np.abs(np.random.randn(n)) * 2
-    lows = close - np.abs(np.random.randn(n)) * 2
-    opens = close + np.random.randn(n) * 0.5 # Close to close
+    rng = np.random.default_rng(seed=42) # Use a fixed seed for determinism
+    closes = np.cumsum(rng.standard_normal(n)) + 1000
+    highs = closes + np.abs(rng.standard_normal(n)) * 2
+    lows = closes - np.abs(rng.standard_normal(n)) * 2
+    opens = closes + rng.standard_normal(n) * 0.5 # Close to close
 
     # Inject Geometric Patterns
     # Compression (idx 100)
