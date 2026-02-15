@@ -396,7 +396,13 @@ class BayesianTrainingOrchestrator:
         precompute_start = time.time()
 
         # === VECTORIZED BATCH COMPUTATION on aggregated bars ===
-        batch_results = self.engine.batch_compute_states(resampled_data, use_cuda=True)
+        # Explicitly disable Hurst for speed (aligns with GPU path which uses 0.5)
+        # This provides ~5x speedup on CPU fallback
+        batch_results = self.engine.batch_compute_states(
+            resampled_data,
+            use_cuda=True,
+            params={'use_hurst': False}
+        )
 
         # === FIT DYNAMIC BINNER on first day (before any hashing) ===
         # If not fitted, fit it. If fitted, reuse it.

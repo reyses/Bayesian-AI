@@ -138,7 +138,9 @@ class QuantumFieldEngine:
         center, reg_sigma, slope, residuals = self._calculate_center_mass(df_macro)
         
         # 2. FRACTAL & TREND INDICATORS (Needed for Fractal Diffusion)
-        if HURST_AVAILABLE and len(df_micro) >= HURST_WINDOW:
+        # Default to True for single-state calculation to preserve precision
+        use_hurst = params.get('use_hurst', True) if params else True
+        if use_hurst and HURST_AVAILABLE and len(df_micro) >= HURST_WINDOW:
             hurst_series = df_micro['close'].iloc[-HURST_WINDOW:]
             try:
                 H, c, _ = compute_Hc(hurst_series, kind='price', simplified=True)
@@ -1069,6 +1071,7 @@ class QuantumFieldEngine:
             day_data: DataFrame with 'price'/'close', 'volume', 'timestamp' columns
             use_cuda: If True and CUDA available, use GPU for exp/log ops
             params: Optional physics parameters (pid_kp, gravity_theta, etc.)
+                    use_hurst (bool): Enable Hurst calculation (slow, default: True)
 
         Returns:
             List of dicts: [{bar_idx, state, price, prob, conf, structure_ok}, ...]
@@ -1219,9 +1222,12 @@ class QuantumFieldEngine:
                 pass
 
         # Hurst Exponent (Fractal Dimension)
+        # Defaults to True (Calculated) to preserve legacy behavior.
+        # Set params={'use_hurst': False} for performance boost (aligns with GPU 0.5).
+        use_hurst = params.get('use_hurst', True) if params else True
         hurst_vals = np.full(num_bars, 0.5)
 
-        if HURST_AVAILABLE:
+        if use_hurst and HURST_AVAILABLE:
             try:
                 def get_hurst(x):
                     try:
