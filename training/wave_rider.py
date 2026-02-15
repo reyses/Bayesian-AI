@@ -15,6 +15,7 @@ from core.three_body_state import ThreeBodyQuantumState
 class RegretMarkers:
     """Post-trade analysis markers"""
     entry_price: float
+    entry_time: float
     exit_price: float
     exit_time: float
     actual_pnl: float
@@ -120,6 +121,7 @@ class RegretAnalyzer:
         
         markers = RegretMarkers(
             entry_price=entry_price,
+            entry_time=entry_time,
             exit_price=exit_price,
             exit_time=exit_time,
             actual_pnl=actual_pnl,
