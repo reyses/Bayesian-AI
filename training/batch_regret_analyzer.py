@@ -436,7 +436,7 @@ class BatchRegretAnalyzer:
 
         # True Peak logic: TF1 if valid, else Base, else Entry
         true_peak = torch.where(t1_valid, p_tf1, torch.where(b_valid, p_base, entry_prices))
-        true_peak_time = torch.where(t1_valid, t_tf1, t_base)
+        true_peak_time = torch.where(t1_valid, t_tf1, torch.where(b_valid, t_base, t_entry_gpu))
 
         # PnLs
         # Potential: (Peak - Entry) * Dir
