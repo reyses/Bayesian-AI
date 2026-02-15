@@ -22,6 +22,11 @@ if PROJECT_ROOT not in sys.path:
 from core.bayesian_brain import BayesianBrain, QuantumBayesianBrain
 from training.databento_loader import DatabentoLoader
 from tests.utils import get_test_data_files, find_test_data_file, DEFAULT_TEST_DATA_FILE
+try:
+    from numba import cuda
+    CUDA_AVAILABLE = cuda.is_available()
+except ImportError:
+    CUDA_AVAILABLE = False
 
 def run_training_validation():
     """
@@ -50,6 +55,18 @@ def run_training_validation():
         return [{
             "status": "FAILED",
             "error": "No data files found in DATA/RAW or tests/Testing DATA"
+        }]
+
+    # Check CUDA before running
+    if not CUDA_AVAILABLE:
+        print("CUDA not available. Skipping full training validation.")
+        return [{
+            "status": "SKIPPED",
+            "file": "N/A",
+            "error": "CUDA not available",
+            "unique_states_learned": 0,
+            "high_confidence_states": 0,
+            "top_5_states": []
         }]
 
     all_metrics = []
@@ -201,6 +218,9 @@ def test_training_validation_run():
     all_metrics = run_training_validation()
 
     for metrics in all_metrics:
+        if metrics["status"] == "SKIPPED":
+            pytest.skip(f"Skipped validation: {metrics.get('error')}")
+
         if metrics["status"] != "SUCCESS":
             pytest.fail(f"Training validation failed for {metrics.get('file', 'unknown file')}: {metrics.get('error')}")
 
