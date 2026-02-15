@@ -16,8 +16,10 @@ class TestPatternRecognition(unittest.TestCase):
 
         highs = np.array([120, 120, 120, 120, 120, 112, 112, 112, 112, 112, 112, 112], dtype=float)
         lows =  np.array([100, 100, 100, 100, 100, 108, 108, 108, 108, 108, 108, 108], dtype=float)
+        opens = highs # Dummy
+        closes = lows # Dummy
 
-        patterns = self.engine._detect_geometric_patterns(highs, lows)
+        patterns, _ = self.engine._detect_patterns_unified(opens, highs, lows, closes)
 
         self.assertEqual(patterns[9], PATTERN_COMPRESSION)
         self.assertEqual(patterns[8], PATTERN_NONE) # Not yet complete window (needs 9 prior bars + current = 10 bars total? No.)
@@ -42,7 +44,10 @@ class TestPatternRecognition(unittest.TestCase):
         highs[10] = 115.0 # Lower High
         lows[10] = 105.0  # Higher Low
 
-        patterns = self.engine._detect_geometric_patterns(highs, lows)
+        opens = highs # Dummy
+        closes = lows # Dummy
+
+        patterns, _ = self.engine._detect_patterns_unified(opens, highs, lows, closes)
         self.assertEqual(patterns[10], PATTERN_WEDGE)
 
     def test_breakdown_pattern(self):
@@ -54,7 +59,10 @@ class TestPatternRecognition(unittest.TestCase):
         # Prev 4 lows (6,7,8,9) are 100.
         lows[10] = 95.0
 
-        patterns = self.engine._detect_geometric_patterns(highs, lows)
+        opens = highs # Dummy
+        closes = lows # Dummy
+
+        patterns, _ = self.engine._detect_patterns_unified(opens, highs, lows, closes)
         self.assertEqual(patterns[10], PATTERN_BREAKDOWN)
 
     def test_batch_compute_integration(self):
