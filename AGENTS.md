@@ -13,7 +13,8 @@ This repository contains "Bayesian-AI", a sophisticated algorithmic trading syst
 ## 2. Development Workflow
 
 ### Local Setup
-1.  **Install Dependencies**:
+1.  **Python Version**: Ensure you have Python 3.10+ installed.
+2.  **Install Dependencies**:
     ```bash
     pip install -r requirements.txt
     ```
@@ -46,6 +47,8 @@ The system learns by optimizing parameters over historical data using a Bayesian
     ```bash
     mkdir -p DATA/RAW
     ```
+    *Note: The system strictly uses `DATA/RAW` (uppercase) as the default data path in configuration.*
+
 2.  **Data Files**:
     Place `.dbn.zst` (Databento compressed) files in `DATA/RAW`.
 
@@ -66,17 +69,26 @@ python training/orchestrator.py --data-dir DATA/RAW --iterations 50 --output che
 *   **`scripts/`**: Utility scripts for building, CUDA health checks (`gpu_health_check.py`), and status reporting.
 *   **`docs/`**: Documentation, primarily `TECHNICAL_MANUAL.md`.
 
-## 5. CI/CD & Automation
+## 5. Debugging & Logging
+
+Use these resources to troubleshoot issues.
+
+*   **Log Files**:
+    *   `CUDA_Debug.log`: Logs related to GPU initialization and kernel execution.
+    *   `training.log` / `orchestrator.log`: Runtime logs from the training process (if configured).
+*   **Git Policy**: Do not commit generated log files unless explicitly requested for debugging history. They should be ignored by `.gitignore`.
+
+## 6. CI/CD & Automation
 
 ### Unified Pipeline
 The workflow is defined in `.github/workflows/unified_test_pipeline.yml`. It runs automatically on push/PR to `main`.
 
 ### Status Reporting
 *   **Script**: `scripts/generate_status_report.py`
-*   **Output**: Console output and potentially updated docs.
+*   **Output**: Console output and potentially updated docs (`CURRENT_STATUS.md`).
 *   **Purpose**: Snapshots project health and validation status.
 
-## 6. Technical Context
+## 7. Technical Context
 
 *   **Dependencies**:
     -   `numpy < 2`: Required for compatibility.
