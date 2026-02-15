@@ -282,6 +282,27 @@ class BatchRegretAnalyzer:
             # print(f"Error analyzing trade {trade_id}: {e}")
             return None
 
+    def _df_to_tensor(self, df, device):
+        """Helper: Convert DataFrame to GPU tensors"""
+        # timestamps to float seconds
+        ts = df.index.values.astype(np.float64) / 1e9 # ns to s
+        # highs/lows
+        highs = df['high'].values.astype(np.float32)
+        lows = df['low'].values.astype(np.float32)
+        return (
+            torch.tensor(ts, device=device, dtype=torch.float64),
+            torch.tensor(highs, device=device, dtype=torch.float32),
+            torch.tensor(lows, device=device, dtype=torch.float32)
+        )
+
+    def _parse_seconds(self, s):
+        """Helper: Parse timeframe string to seconds"""
+        if s.endswith('s'): return int(s[:-1])
+        if s.endswith('min'): return int(s[:-3]) * 60
+        if s.endswith('m'): return int(s[:-1]) * 60
+        if s.endswith('h'): return int(s[:-1]) * 3600
+        return 60
+
     def _batch_analyze_gpu(self, all_trades, data_base, data_tf1, data_tf2,
                            base_tf, tf1, tf2) -> List[RegretMarkers]:
         """
@@ -289,23 +310,11 @@ class BatchRegretAnalyzer:
         """
         device = torch.device('cuda')
 
-        def df_to_tensor(df):
-            # timestamps to float seconds
-            ts = df.index.values.astype(np.float64) / 1e9 # ns to s
-            # highs/lows
-            highs = df['high'].values.astype(np.float32)
-            lows = df['low'].values.astype(np.float32)
-            return (
-                torch.tensor(ts, device=device, dtype=torch.float64),
-                torch.tensor(highs, device=device, dtype=torch.float32),
-                torch.tensor(lows, device=device, dtype=torch.float32)
-            )
-
         # 1. Prepare Data Tensors (3 sets: base, tf1, tf2)
         # Note: We need separate tensors for each timeframe because they have different lengths/indices
-        ts_b, h_b, l_b = df_to_tensor(data_base)
-        ts_1, h_1, l_1 = df_to_tensor(data_tf1)
-        ts_2, h_2, l_2 = df_to_tensor(data_tf2)
+        ts_b, h_b, l_b = self._df_to_tensor(data_base, device)
+        ts_1, h_1, l_1 = self._df_to_tensor(data_tf1, device)
+        ts_2, h_2, l_2 = self._df_to_tensor(data_tf2, device)
 
         # 2. Prepare Trade Tensors
         n_trades = len(all_trades)
@@ -320,16 +329,9 @@ class BatchRegretAnalyzer:
         dirs_gpu = torch.tensor(dirs, device=device, dtype=torch.float32)
 
         # 3. Calculate Lookahead Deltas
-        def parse_seconds(s):
-            if s.endswith('s'): return int(s[:-1])
-            if s.endswith('min'): return int(s[:-3]) * 60
-            if s.endswith('m'): return int(s[:-1]) * 60
-            if s.endswith('h'): return int(s[:-1]) * 3600
-            return 60
-
-        d_base = parse_seconds(base_tf) * 5.0
-        d_tf1 = parse_seconds(tf1) * 5.0
-        d_tf2 = parse_seconds(tf2) * 5.0
+        d_base = self._parse_seconds(base_tf) * 5.0
+        d_tf1 = self._parse_seconds(tf1) * 5.0
+        d_tf2 = self._parse_seconds(tf2) * 5.0
 
         # 4. Define Search Function (Vectorized over trades)
         def find_peaks_batch(data_ts, data_high, data_low, trade_entries, trade_exits, deltas):
