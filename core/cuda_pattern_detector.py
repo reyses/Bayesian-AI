@@ -140,6 +140,9 @@ def detect_patterns_cuda(opens: np.ndarray, highs: np.ndarray, lows: np.ndarray,
     if not cuda.is_available():
         raise RuntimeError("CUDA GPU not available")
 
+    if not (len(opens) == len(highs) == len(lows) == len(closes)):
+        raise ValueError(f"All input arrays must have the same length. Got: opens={len(opens)}, highs={len(highs)}, lows={len(lows)}, closes={len(closes)}")
+
     n = len(highs)
     # Ensure contiguous float32 arrays
     opens = np.ascontiguousarray(opens.astype(np.float32))
