@@ -6,7 +6,7 @@ ENHANCED: Now includes post-trade regret analysis for adaptive trail optimizatio
 """
 import time
 from dataclasses import dataclass
-from typing import Optional, Dict, Union, List, Tuple, Literal
+from typing import Optional, Dict, Union, List, Tuple
 from core.state_vector import StateVector
 from core.three_body_state import ThreeBodyQuantumState
 
@@ -15,10 +15,9 @@ from core.three_body_state import ThreeBodyQuantumState
 class RegretMarkers:
     """Post-trade analysis markers"""
     entry_price: float
-    exit_price: float
     entry_time: float
+    exit_price: float
     exit_time: float
-    side: Literal['long', 'short']
     actual_pnl: float
     exit_reason: str
     peak_favorable: float
@@ -122,10 +121,9 @@ class RegretAnalyzer:
         
         markers = RegretMarkers(
             entry_price=entry_price,
-            exit_price=exit_price,
             entry_time=entry_time,
+            exit_price=exit_price,
             exit_time=exit_time,
-            side=side,
             actual_pnl=actual_pnl,
             exit_reason=exit_reason,
             peak_favorable=peak_price,
