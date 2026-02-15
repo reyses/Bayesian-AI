@@ -120,11 +120,20 @@ class RegretAnalyzer:
             gave_back = max(0, (exit_price - peak_price) / 0.25 * tick_value)
         
         # Exit efficiency
-        exit_efficiency = actual_pnl / potential_max_pnl if potential_max_pnl > 0 else 1.0
+        if potential_max_pnl > 0:
+            exit_efficiency = actual_pnl / potential_max_pnl
+        else:
+            # If no potential profit existed:
+            # Loss -> 0.0 efficiency
+            # Breakeven/Profit (rare if potential=0) -> 1.0 efficiency
+            exit_efficiency = 1.0 if actual_pnl >= 0 else 0.0
+
         exit_efficiency = min(1.0, max(0.0, exit_efficiency))
         
         # Classify regret
-        if exit_efficiency >= 0.90:
+        if actual_pnl < 0:
+            regret_type = 'wrong_direction'
+        elif exit_efficiency >= 0.90:
             regret_type = 'optimal'
         elif peak_time > exit_time:
             regret_type = 'closed_too_early'
