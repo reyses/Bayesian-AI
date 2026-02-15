@@ -242,7 +242,9 @@ class BatchRegretAnalyzer:
             exit_efficiency = actual_pnl / potential_max_pnl if potential_max_pnl > 0 else 0.0
 
             # Classify exit type using Time Comparison to remove ambiguity
-            if exit_efficiency >= 0.90:
+            if actual_pnl < 0:
+                regret_type = 'wrong_direction'
+            elif exit_efficiency >= 0.90:
                 regret_type = 'optimal'
             else:
                 # If True Peak Time > Exit Time: We exited before the peak -> Early Exit (Left on table)
@@ -452,6 +454,8 @@ class BatchRegretAnalyzer:
         efficiency = torch.where(pot_pnl > 0, act_pnl / pot_pnl, torch.zeros_like(pot_pnl))
 
         # Regret Type Logic
+        # Wrong Direction if actual PnL < 0
+        is_loss = act_pnl < 0
         # Optimal if eff >= 0.90
         is_optimal = efficiency >= 0.90
         # Early if True Peak Time > Exit Time
@@ -467,9 +471,11 @@ class BatchRegretAnalyzer:
         p_tf2_cpu = p_tf2.cpu().numpy()
         true_peak_cpu = true_peak.cpu().numpy()
         pot_pnl_cpu = pot_pnl.cpu().numpy()
+        act_pnl_cpu = act_pnl.cpu().numpy()
         left_cpu = left_on_table.cpu().numpy()
         gave_cpu = gave_back.cpu().numpy()
         eff_cpu = efficiency.cpu().numpy()
+        loss_cpu = is_loss.cpu().numpy()
         opt_cpu = is_optimal.cpu().numpy()
         early_cpu = is_early.cpu().numpy()
 
@@ -477,7 +483,8 @@ class BatchRegretAnalyzer:
             t = all_trades[i]
 
             # Determine type string
-            if opt_cpu[i]: r_type = 'optimal'
+            if loss_cpu[i]: r_type = 'wrong_direction'
+            elif opt_cpu[i]: r_type = 'optimal'
             elif early_cpu[i]: r_type = 'closed_too_early'
             else: r_type = 'closed_too_late'
 
