@@ -32,7 +32,7 @@ except ImportError:
 try:
     import pandas_ta as ta
     PANDAS_TA_AVAILABLE = True
-except ImportError:
+except (ImportError, ValueError):
     PANDAS_TA_AVAILABLE = False
 
 try:
