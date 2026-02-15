@@ -15,7 +15,6 @@ from core.three_body_state import ThreeBodyQuantumState
 class RegretMarkers:
     """Post-trade analysis markers"""
     entry_price: float
-    entry_time: float
     exit_price: float
     exit_time: float
     actual_pnl: float
@@ -121,7 +120,6 @@ class RegretAnalyzer:
         
         markers = RegretMarkers(
             entry_price=entry_price,
-            entry_time=entry_time,
             exit_price=exit_price,
             exit_time=exit_time,
             actual_pnl=actual_pnl,
@@ -256,8 +254,7 @@ class WaveRider:
 
     def open_position(self, entry_price: float, side: str, 
                      state: Union[StateVector, ThreeBodyQuantumState],
-                     stop_distance_ticks: int = 20,
-                     timestamp: Optional[float] = None):
+                     stop_distance_ticks: int = 20):
         """
         Open new position
         
@@ -266,26 +263,13 @@ class WaveRider:
             side: 'long' or 'short'
             state: StateVector or ThreeBodyQuantumState at entry
             stop_distance_ticks: Initial stop distance (default 20)
-            timestamp: Optional timestamp (if None, tries state.timestamp or uses time.time())
         """
-        # Determine timestamp: explicit > state > system time
-        if timestamp is None:
-            if hasattr(state, 'timestamp'):
-                # Handle possible types of timestamp in state
-                ts = state.timestamp
-                if hasattr(ts, 'timestamp'): # pd.Timestamp
-                    timestamp = ts.timestamp()
-                else:
-                    timestamp = float(ts)
-            else:
-                timestamp = time.time()
-
         stop_dist = stop_distance_ticks * self.asset.tick_size
         stop_loss = entry_price + stop_dist if side == 'short' else entry_price - stop_dist
         
         self.position = Position(
             entry_price=entry_price,
-            entry_time=timestamp,
+            entry_time=time.time(),
             side=side,
             stop_loss=stop_loss,
             high_water_mark=entry_price,
@@ -293,11 +277,10 @@ class WaveRider:
         )
         
         # Reset price history
-        self.price_history = [(timestamp, entry_price)]
+        self.price_history = [(time.time(), entry_price)]
 
     def update_trail(self, current_price: float, 
-                    current_state: Union[StateVector, ThreeBodyQuantumState],
-                    timestamp: Optional[float] = None) -> Dict:
+                    current_state: Union[StateVector, ThreeBodyQuantumState]) -> Dict:
         """
         Update trailing stop and check exit conditions
         
@@ -306,7 +289,6 @@ class WaveRider:
         Args:
             current_price: Current market price
             current_state: Current StateVector or ThreeBodyQuantumState
-            timestamp: Optional timestamp (if None, tries state.timestamp or uses time.time())
             
         Returns:
             Dict with 'should_exit', 'pnl', 'exit_reason', 'regret_markers' (if exit)
@@ -314,19 +296,8 @@ class WaveRider:
         if not self.position:
             return {'should_exit': False}
         
-        # Determine timestamp: explicit > state > system time
-        if timestamp is None:
-            if hasattr(current_state, 'timestamp'):
-                ts = current_state.timestamp
-                if hasattr(ts, 'timestamp'):
-                    timestamp = ts.timestamp()
-                else:
-                    timestamp = float(ts)
-            else:
-                timestamp = time.time()
-
         # Track price for regret analysis
-        self.price_history.append((timestamp, current_price))
+        self.price_history.append((time.time(), current_price))
         
         # Keep last 200 ticks
         if len(self.price_history) > 200:
@@ -367,7 +338,7 @@ class WaveRider:
                 entry_price=self.position.entry_price,
                 exit_price=current_price,
                 entry_time=self.position.entry_time,
-                exit_time=timestamp,
+                exit_time=time.time(),
                 side=self.position.side,
                 exit_reason=exit_reason,
                 price_history=self.price_history,
@@ -386,20 +357,17 @@ class WaveRider:
                 self._calibrate_trail_stops()
                 self.trades_since_calibration = 0
             
-            # Perform exit logic first, return result
-            result = {
+            # Clear position and price history
+            self.position = None
+            self.price_history = []
+
+            return {
                 'should_exit': True,
                 'exit_price': current_price,
                 'exit_reason': exit_reason,
                 'pnl': profit_usd,
                 'regret_markers': markers
             }
-
-            # Clear position and price history
-            self.position = None
-            self.price_history = []
-
-            return result
 
         self.position.stop_loss = new_stop
         return {'should_exit': False, 'current_stop': new_stop}
