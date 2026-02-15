@@ -1358,20 +1358,14 @@ class BayesianTrainingOrchestrator:
             'medium': params.get('trail_medium_ticks', 20),
             'wide': params.get('trail_wide_ticks', 30)
         }
-        # Re-initialize or update WaveRider config if needed
+        # Re-initialize or update WaveRider config if needed (WaveRider init takes config)
+        # For now, we assume the instance uses its internal adaptive logic or defaults.
+        # But we can update the config manually if WaveRider supports it.
         self.wave_rider.trail_config.update(trail_config)
-
-        # Set timeframe for regret analysis lookahead
-        tf_idx = params.get('timeframe_idx', 1)
-        self.wave_rider.trading_timeframe = TIMEFRAME_MAP.get(tf_idx, '15s')
 
         # Clear any existing position
         self.wave_rider.position = None
         self.wave_rider.price_history = []
-        # Note: We do NOT clear pending_reviews here if we want continuity,
-        # but simulate_trading_day is often called fresh.
-        # For simulation purity, clearing is safer unless simulating continuous days.
-        self.wave_rider.pending_reviews = []
 
         # Simulate bar-by-bar
         for i in range(21, len(day_data)):
@@ -1380,9 +1374,6 @@ class BayesianTrainingOrchestrator:
             current_time = current_row.get('timestamp', 0)
             if isinstance(current_time, pd.Timestamp):
                 current_time = current_time.timestamp()
-
-            # Process pending regret analysis (even if flat)
-            self.wave_rider.process_pending_reviews(float(current_time), float(current_price))
 
             # 1. Manage existing position
             if self.wave_rider.position:
