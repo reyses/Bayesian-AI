@@ -32,7 +32,8 @@ except ImportError:
 try:
     import pandas_ta as ta
     PANDAS_TA_AVAILABLE = True
-except ImportError:
+except (ImportError, ValueError):
+    # ValueError can occur if matplotlib is present but spec not set correctly
     PANDAS_TA_AVAILABLE = False
 
 try:
