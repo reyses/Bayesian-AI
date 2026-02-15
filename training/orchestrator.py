@@ -70,8 +70,8 @@ TIMEFRAME_MAP = {
     0: '5s',
     1: '15s',
     2: '60s',
-    3: '5m',
-    4: '15m',
+    3: '5min',
+    4: '15min',
     5: '1h'
 }
 
@@ -163,6 +163,9 @@ class BayesianTrainingOrchestrator:
         self.dashboard = None
         self.dashboard_thread = None
 
+        # Cache for pre-resampled data (interval -> date -> (df, idx_map))
+        self.resampled_cache = {}
+
         # Slippage parameters
         self.BASE_SLIPPAGE = DEFAULT_BASE_SLIPPAGE
         self.VELOCITY_SLIPPAGE_FACTOR = DEFAULT_VELOCITY_SLIPPAGE_FACTOR
@@ -214,6 +217,75 @@ class BayesianTrainingOrchestrator:
         self.all_tf_data = self.mtf_context.resample_all(data)
         tf_counts = {k: len(v) for k, v in self.all_tf_data.items()}
         print(f" done | Bars: {tf_counts}")
+
+        # === PRE-LOAD RESAMPLED CACHE ===
+        # If input is a parquet file (e.g. ohlcv-1s.parquet), check for sibling files
+        if hasattr(self.config, 'data') and isinstance(self.config.data, str) and self.config.data.endswith('.parquet'):
+             # Try to find sibling files
+             base_dir = os.path.dirname(os.path.abspath(self.config.data))
+             base_name = os.path.basename(self.config.data)
+
+             # Assuming standard naming: ohlcv-1s.parquet -> ohlcv-{interval}.parquet
+             if 'ohlcv-1s.parquet' in base_name:
+                 print("\nChecking for pre-resampled data files...")
+
+                 # Prepare mapping for 1s global indices
+                 # We need global start index for each day to adjust _1s_idx in resampled files
+                 # Add _1s_idx to data temporarily if not present
+                 if '_1s_idx' not in data.columns:
+                     data = data.copy()
+                     data['_1s_idx'] = np.arange(len(data))
+
+                 # Get start index for each day
+                 day_offsets = {}
+                 if 'timestamp' in data.columns:
+                     temp_df = data[['timestamp', '_1s_idx']].copy()
+                     if not pd.api.types.is_datetime64_any_dtype(temp_df['timestamp']):
+                         temp_df['timestamp'] = pd.to_datetime(temp_df['timestamp'], unit='s')
+                     temp_df['date'] = temp_df['timestamp'].dt.date
+                     day_offsets = temp_df.groupby('date')['_1s_idx'].first().to_dict()
+                     # Convert keys to string for consistency
+                     day_offsets = {str(k): v for k, v in day_offsets.items()}
+
+                 for interval in set(TIMEFRAME_MAP.values()):
+                     fname = f"ohlcv-{interval}.parquet"
+                     fpath = os.path.join(base_dir, fname)
+                     if os.path.exists(fpath):
+                         print(f"  Loading pre-resampled cache: {fname}...", end='', flush=True)
+                         try:
+                             cached_df = pd.read_parquet(fpath)
+
+                             # Ensure _1s_idx exists
+                             if '_1s_idx' not in cached_df.columns:
+                                 print(" (skipped: missing _1s_idx)", flush=True)
+                                 continue
+
+                             # Split into days
+                             cached_days = self.split_into_trading_days(cached_df)
+
+                             # Store in cache
+                             self.resampled_cache[interval] = {}
+                             for day_date, day_df in cached_days:
+                                 # Adjust _1s_idx to be local to the day
+                                 if day_date in day_offsets:
+                                     global_offset = day_offsets[day_date]
+                                     # Convert to local index
+                                     day_df['_1s_idx'] = day_df['_1s_idx'] - global_offset
+
+                                     # Extract idx_map
+                                     idx_map = day_df['_1s_idx'].values.astype(int)
+
+                                     # Drop _1s_idx column to match _resample_data output structure (optional but clean)
+                                     day_df = day_df.drop(columns=['_1s_idx'])
+
+                                     self.resampled_cache[interval][day_date] = (day_df, idx_map)
+
+                             print(f" loaded ({len(cached_days)} days)", flush=True)
+
+                         except Exception as e:
+                             print(f" error ({e})", flush=True)
+             else:
+                 pass
 
         # Split into trading days
         days_1s = self.split_into_trading_days(data)
@@ -368,8 +440,25 @@ class BayesianTrainingOrchestrator:
         prices = day_data['price'].values if 'price' in day_data.columns else day_data['close'].values
         timestamps = day_data['timestamp'].values if 'timestamp' in day_data.columns else np.zeros(len(day_data))
 
-        # Resample on the fly
-        resampled_data, idx_map_agg_to_1s = self._resample_data(day_data, interval)
+        # Check cache first
+        resampled_data = None
+        idx_map_agg_to_1s = None
+
+        # Attempt to find date from day_data
+        current_date = None
+        if 'timestamp' in day_data.columns:
+            ts_val = day_data['timestamp'].iloc[0]
+            if isinstance(ts_val, (int, float, np.number)):
+                 current_date = str(pd.to_datetime(ts_val, unit='s').date())
+            else:
+                 current_date = str(pd.to_datetime(ts_val).date())
+
+        if current_date and interval in self.resampled_cache and current_date in self.resampled_cache[interval]:
+            # Use cached data
+            resampled_data, idx_map_agg_to_1s = self.resampled_cache[interval][current_date]
+        else:
+            # Resample on the fly
+            resampled_data, idx_map_agg_to_1s = self._resample_data(day_data, interval)
 
         # === WARMUP: Prepend previous day's tail to fix cold-start regression ===
         warmup_bars = 0
