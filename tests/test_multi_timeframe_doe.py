@@ -90,7 +90,7 @@ class TestMultiTimeframeDOE(unittest.TestCase):
         # We need to return a result for EACH param in 'params'
         def side_effect_optimize(precomputed, day_data, params, day, date=None, total_days=None):
             # Return dummy results
-            results = [{'sharpe': 1.0, 'trades': []} for _ in params]
+            results = [{'sharpe': 1.0, 'trades': [], 'pnl': 0.0, 'win_rate': 0.0} for _ in params]
             return 0, results
 
         orchestrator._optimize_cpu_sequential = MagicMock(side_effect=side_effect_optimize)
