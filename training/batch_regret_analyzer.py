@@ -16,6 +16,12 @@ from typing import List, Dict, Any, Tuple, Optional
 from dataclasses import dataclass
 from collections import defaultdict
 
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+
 
 @dataclass
 class RegretMarkers:
@@ -121,17 +127,30 @@ class BatchRegretAnalyzer:
         data_tf1 = self._resample_data(day_data, tf1)
         data_tf2 = self._resample_data(day_data, tf2)
 
-        # Analyze each trade
-        regret_markers = []
-        for idx, trade in enumerate(all_trades):
-            markers = self._analyze_single_trade_fractal(
-                trade,
-                data_base, data_tf1, data_tf2,
-                current_timeframe, tf1, tf2,
-                trade_id=idx
-            )
-            if markers:
-                regret_markers.append(markers)
+        # Use CUDA if available and sufficient trades
+        use_gpu = TORCH_AVAILABLE and torch.cuda.is_available() and len(all_trades) > 10
+        if use_gpu:
+            try:
+                regret_markers = self._batch_analyze_gpu(
+                    all_trades, data_base, data_tf1, data_tf2,
+                    current_timeframe, tf1, tf2
+                )
+            except Exception as e:
+                print(f"  WARNING: GPU Regret Analysis failed: {e}. Falling back to CPU.")
+                use_gpu = False
+
+        if not use_gpu:
+            # CPU Fallback (Iterative)
+            regret_markers = []
+            for idx, trade in enumerate(all_trades):
+                markers = self._analyze_single_trade_fractal(
+                    trade,
+                    data_base, data_tf1, data_tf2,
+                    current_timeframe, tf1, tf2,
+                    trade_id=idx
+                )
+                if markers:
+                    regret_markers.append(markers)
 
         # Aggregate analysis
         analysis = self._aggregate_analysis(regret_markers)
@@ -262,6 +281,233 @@ class BatchRegretAnalyzer:
         except Exception as e:
             # print(f"Error analyzing trade {trade_id}: {e}")
             return None
+
+    def _batch_analyze_gpu(self, all_trades, data_base, data_tf1, data_tf2,
+                           base_tf, tf1, tf2) -> List[RegretMarkers]:
+        """
+        Accelerated batch analysis using Torch for parallel peak finding.
+        """
+        device = torch.device('cuda')
+
+        def df_to_tensor(df):
+            # timestamps to float seconds
+            ts = df.index.values.astype(np.float64) / 1e9 # ns to s
+            # highs/lows
+            highs = df['high'].values.astype(np.float32)
+            lows = df['low'].values.astype(np.float32)
+            return (
+                torch.tensor(ts, device=device, dtype=torch.float64),
+                torch.tensor(highs, device=device, dtype=torch.float32),
+                torch.tensor(lows, device=device, dtype=torch.float32)
+            )
+
+        # 1. Prepare Data Tensors (3 sets: base, tf1, tf2)
+        # Note: We need separate tensors for each timeframe because they have different lengths/indices
+        ts_b, h_b, l_b = df_to_tensor(data_base)
+        ts_1, h_1, l_1 = df_to_tensor(data_tf1)
+        ts_2, h_2, l_2 = df_to_tensor(data_tf2)
+
+        # 2. Prepare Trade Tensors
+        n_trades = len(all_trades)
+        entry_times = np.array([t.entry_time for t in all_trades], dtype=np.float64)
+        exit_times = np.array([t.exit_time for t in all_trades], dtype=np.float64)
+
+        # Directions: 1 for LONG, -1 for SHORT
+        dirs = np.array([1 if t.direction == 'LONG' else -1 for t in all_trades], dtype=np.float32)
+
+        t_entry_gpu = torch.tensor(entry_times, device=device, dtype=torch.float64)
+        t_exit_gpu = torch.tensor(exit_times, device=device, dtype=torch.float64)
+        dirs_gpu = torch.tensor(dirs, device=device, dtype=torch.float32)
+
+        # 3. Calculate Lookahead Deltas
+        def parse_seconds(s):
+            if s.endswith('s'): return int(s[:-1])
+            if s.endswith('min'): return int(s[:-3]) * 60
+            if s.endswith('m'): return int(s[:-1]) * 60
+            if s.endswith('h'): return int(s[:-1]) * 3600
+            return 60
+
+        d_base = parse_seconds(base_tf) * 5.0
+        d_tf1 = parse_seconds(tf1) * 5.0
+        d_tf2 = parse_seconds(tf2) * 5.0
+
+        # 4. Define Search Function (Vectorized over trades)
+        def find_peaks_batch(data_ts, data_high, data_low, trade_entries, trade_exits, deltas):
+            """
+            Find peaks for all trades in a specific data tensor.
+            Naive O(N*M) is expensive if data is huge.
+            However, we can broadcast or use searchsorted.
+
+            Approach: Use searchsorted to find start/end indices for each trade window.
+            Then find max/min in those slices.
+            Since slices are variable length, strict vectorization is tricky without padding.
+
+            Hybrid approach:
+            - Find start/end indices on CPU or GPU (searchsorted).
+            - Launch a kernel or loop over trades?
+            - Or: For specific timeframe, the window size in BARS is roughly constant (5 bars lookahead).
+            - Actually, the lookahead is 5 bars *after the exit*, but we search from *entry* to *exit+5bars*.
+            - So window length varies by trade duration.
+
+            Let's use a simplified approach:
+            - Masking is O(N_trades * N_bars) -> Memory heavy.
+            - Iterating on CPU with searchsorted indices, then slicing tensor -> fast enough?
+            - No, we want GPU.
+
+            If we use CUDA, we can write a custom kernel or use Torch logic.
+            Given N_trades ~1000 and N_bars ~5000, masking is 5M elements (20MB), which is fine.
+            Let's use broadcasting/masking for small-medium scale.
+
+            Matrix: [Trades, Bars]
+            mask = (bars_ts >= entry) & (bars_ts <= exit + delta)
+            """
+            # Expand dims: Trades (N, 1), Bars (1, M)
+            t_entry_exp = trade_entries.unsqueeze(1)
+            t_end_exp = (trade_exits + deltas).unsqueeze(1)
+            bars_ts_exp = data_ts.unsqueeze(0)
+
+            # Mask: [N_trades, N_bars]
+            # This might be too big if N_bars is huge (e.g. 1s data for a day = 23400 bars).
+            # 1000 trades * 23400 bars = 23M bools = 23MB. Very safe.
+            mask = (bars_ts_exp >= t_entry_exp) & (bars_ts_exp <= t_end_exp)
+
+            # Apply mask to highs/lows
+            # We want max high where mask is True.
+            # Set non-masked to -inf (for max) or +inf (for min)
+
+            # Highs [1, M] -> [N, M]
+            h_exp = data_high.unsqueeze(0).expand(n_trades, -1)
+            l_exp = data_low.unsqueeze(0).expand(n_trades, -1)
+
+            # Clone to avoid modifying original
+            h_masked = h_exp.clone()
+            l_masked = l_exp.clone()
+
+            h_masked[~mask] = -1e9
+            l_masked[~mask] = 1e9
+
+            # Max/Min along dim 1 (bars)
+            max_highs, max_idx = torch.max(h_masked, dim=1)
+            min_lows, min_idx = torch.min(l_masked, dim=1)
+
+            # Handle cases where mask is all false (no bars in window) -> should be rare
+            # Check if any true in mask
+            any_valid = mask.any(dim=1)
+
+            # Get timestamps of peaks
+            # max_idx is index in bars dimension
+            peak_ts_high = data_ts[max_idx]
+            peak_ts_low = data_ts[min_idx]
+
+            return max_highs, peak_ts_high, min_lows, peak_ts_low, any_valid
+
+        # 5. Run Search on 3 Timeframes
+        # Base
+        bh_max, bt_max, bl_min, bt_min, b_valid = find_peaks_batch(
+            ts_b, h_b, l_b, t_entry_gpu, t_exit_gpu, d_base)
+        # TF1
+        t1h_max, t1t_max, t1l_min, t1t_min, t1_valid = find_peaks_batch(
+            ts_1, h_1, l_1, t_entry_gpu, t_exit_gpu, d_tf1)
+        # TF2
+        t2h_max, t2t_max, t2l_min, t2t_min, t2_valid = find_peaks_batch(
+            ts_2, h_2, l_2, t_entry_gpu, t_exit_gpu, d_tf2)
+
+        # 6. Select Based on Direction (LONG/SHORT)
+        # dirs: 1 (long), -1 (short)
+        is_long = dirs_gpu > 0
+
+        # Peaks (Prices)
+        p_base = torch.where(is_long, bh_max, bl_min)
+        p_tf1 = torch.where(is_long, t1h_max, t1l_min)
+        p_tf2 = torch.where(is_long, t2h_max, t2l_min)
+
+        # Times
+        t_base = torch.where(is_long, bt_max, bt_min)
+        t_tf1 = torch.where(is_long, t1t_max, t1t_min)
+
+        # Apply validity mask (if invalid, 0.0)
+        p_base[~b_valid] = 0.0
+        p_tf1[~t1_valid] = 0.0
+        p_tf2[~t2_valid] = 0.0
+
+        # 7. Compute Regret Metrics (Vectorized)
+        entry_prices = torch.tensor([t.entry_price for t in all_trades], device=device, dtype=torch.float32)
+        exit_prices = torch.tensor([t.exit_price for t in all_trades], device=device, dtype=torch.float32)
+
+        # True Peak logic: TF1 if valid, else Base, else Entry
+        true_peak = torch.where(t1_valid, p_tf1, torch.where(b_valid, p_base, entry_prices))
+        true_peak_time = torch.where(t1_valid, t_tf1, t_base)
+
+        # PnLs
+        # Potential: (Peak - Entry) * Dir
+        pot_pnl = (true_peak - entry_prices) * dirs_gpu
+        # Actual: (Exit - Entry) * Dir
+        act_pnl = (exit_prices - entry_prices) * dirs_gpu
+        # Gave Back: (Peak - Exit) * Dir. Clamped >= 0
+        gave_back = (true_peak - exit_prices) * dirs_gpu
+        gave_back = torch.clamp(gave_back, min=0.0)
+
+        pot_pnl = torch.clamp(pot_pnl, min=0.001)
+        left_on_table = torch.clamp(pot_pnl - act_pnl, min=0.0)
+        efficiency = torch.where(pot_pnl > 0, act_pnl / pot_pnl, torch.zeros_like(pot_pnl))
+
+        # Regret Type Logic
+        # Optimal if eff >= 0.90
+        is_optimal = efficiency >= 0.90
+        # Early if True Peak Time > Exit Time
+        is_early = true_peak_time > t_exit_gpu
+        # Late if not optimal and not early
+
+        # 8. Extract to CPU Objects
+        results = []
+
+        # Download everything once
+        p_base_cpu = p_base.cpu().numpy()
+        p_tf1_cpu = p_tf1.cpu().numpy()
+        p_tf2_cpu = p_tf2.cpu().numpy()
+        true_peak_cpu = true_peak.cpu().numpy()
+        pot_pnl_cpu = pot_pnl.cpu().numpy()
+        left_cpu = left_on_table.cpu().numpy()
+        gave_cpu = gave_back.cpu().numpy()
+        eff_cpu = efficiency.cpu().numpy()
+        opt_cpu = is_optimal.cpu().numpy()
+        early_cpu = is_early.cpu().numpy()
+
+        for i in range(n_trades):
+            t = all_trades[i]
+
+            # Determine type string
+            if opt_cpu[i]: r_type = 'optimal'
+            elif early_cpu[i]: r_type = 'closed_too_early'
+            else: r_type = 'closed_too_late'
+
+            markers = RegretMarkers(
+                trade_id=i,
+                entry_price=t.entry_price,
+                exit_price=t.exit_price,
+                entry_time=t.entry_time,
+                exit_time=t.exit_time,
+                side=t.direction.lower(),
+                pnl=act_pnl[i].item(), # use original or tensor
+                result=t.result,
+                peak_favorable=float(true_peak_cpu[i]),
+                potential_max_pnl=float(pot_pnl_cpu[i]),
+                pnl_left_on_table=float(left_cpu[i]),
+                gave_back_pnl=float(gave_cpu[i]),
+                exit_efficiency=float(eff_cpu[i]),
+                regret_type=r_type,
+                peak_current_tf=float(p_base_cpu[i]),
+                peak_tf1=float(p_tf1_cpu[i]),
+                peak_tf2=float(p_tf2_cpu[i]),
+                timeframe_used=base_tf,
+                tf1_interval=tf1,
+                tf2_interval=tf2,
+                state_hash=hash(t.state) if hasattr(t, 'state') else 0,
+                context=t.exit_reason
+            )
+            results.append(markers)
+
+        return results
 
     def _find_peak(self, data: pd.DataFrame, entry_ts, end_ts, side: str) -> Tuple[Optional[float], Optional[pd.Timestamp]]:
         """Find peak favorable price between entry and end_ts. Returns (price, timestamp)."""
