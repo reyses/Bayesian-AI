@@ -103,18 +103,20 @@ class RegretAnalyzer:
             gave_back = max(0, (exit_price - peak_price) / 0.25 * tick_value)
         
         # Exit efficiency
-        exit_efficiency = actual_pnl / potential_max_pnl if potential_max_pnl > 0 else 1.0
+        if potential_max_pnl > 0:
+            exit_efficiency = actual_pnl / potential_max_pnl
+        else:
+            # If no potential profit, efficiency is 0.0 for losses, 1.0 for break-even/profit
+            exit_efficiency = 1.0 if actual_pnl >= 0 else 0.0
+
         exit_efficiency = min(1.0, max(0.0, exit_efficiency))
         
         # Classify regret
         if exit_efficiency >= 0.90:
             regret_type = 'optimal'
-        elif pnl_left > gave_back:
-            regret_type = 'closed_too_early'
-        elif gave_back > pnl_left:
-            regret_type = 'closed_too_late'
         else:
-            regret_type = 'optimal'
+            # Without lookahead, sub-optimal means we held too long after peak
+            regret_type = 'closed_too_late'
         
         # Bar counts
         bars_held = len([t for t, _ in price_history if entry_time <= t <= exit_time])
