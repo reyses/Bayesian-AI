@@ -1,9 +1,8 @@
 """
 Quantum Risk Engine
-Powered by QuantLib
+Powered by Numpy Vectorization (formerly QuantLib)
 Performs Monte Carlo simulations for event horizon probability
 """
-import QuantLib as ql
 import numpy as np
 from typing import Tuple
 
@@ -34,29 +33,23 @@ class QuantumRiskEngine:
         if sigma <= 0:
             return 0.5, 0.0
 
-        # Define OU Process
-        # dx = theta * (mu - x) * dt + sigma * dW
-        # Note: QuantLib OU process sigma is volatility of the process, NOT price distribution width.
-        # Stationary std dev = sigma_proc / sqrt(2*theta).
-        # We want stationary std dev to match our 'sigma' (Regression Sigma).
-        # So sigma_proc = sigma * sqrt(2*self.theta)
+        dt = 1.0
+        steps = int(self.horizon_seconds)
 
-        sigma_proc = sigma * np.sqrt(2 * self.theta)
-        process = ql.OrnsteinUhlenbeckProcess(self.theta, sigma_proc, price, center)
+        # OU Parameters for Exact Solution
+        # X_{t+1} = X_t * exp(-theta*dt) + center * (1 - exp(-theta*dt)) + sigma_step * epsilon
+        # Stationary variance = sigma^2
+        # Variance over dt = sigma^2 * (1 - exp(-2*theta*dt))
 
-        # Path Generator
-        time_horizon = float(self.horizon_seconds)
-        steps = int(self.horizon_seconds) # 1 step per second
+        decay = np.exp(-self.theta * dt)
+        mu_term = center * (1 - decay)
+        sigma_step = sigma * np.sqrt(1 - np.exp(-2 * self.theta * dt))
 
-        # We need a sequence generator
-        rng = ql.MersenneTwisterUniformRng(42)
-        # Sequence generator for Brownian motion (dimension 1)
-        seq_gen = ql.GaussianRandomSequenceGenerator(ql.UniformRandomSequenceGenerator(steps, rng))
-        path_gen = ql.GaussianPathGenerator(process, time_horizon, steps, seq_gen, False)
+        # Current paths state
+        current_prices = np.full(self.num_paths, price)
 
-        # Boundaries
-        # If price > center (L2), target is center, stop is center + 3*sigma
-        # If price < center (L3), target is center, stop is center - 3*sigma
+        # Status of paths: 0 = running, 1 = hit target, 2 = hit stop
+        status = np.zeros(self.num_paths, dtype=int)
 
         is_l2 = price > center
         if is_l2:
@@ -66,51 +59,82 @@ class QuantumRiskEngine:
             target_level = center
             stop_level = center - 3.0 * sigma
 
-        hits_target = 0
-        hits_stop = 0
+        # Check initial condition
+        # If starting price is already crossing boundaries
+        if is_l2:
+            if price <= target_level: # Impossible given is_l2 definition unless ==
+                status[:] = 1
+            elif price >= stop_level:
+                status[:] = 2
+        else:
+            if price >= target_level: # Impossible given is_l2 definition unless ==
+                status[:] = 1
+            elif price <= stop_level:
+                status[:] = 2
 
-        # Simulation Loop
-        # Note: In Python this loop is slow. 500 paths * 600 steps = 300k steps.
-        # Might take ~0.5s - 1s.
+        # If already finished, return immediately
+        if np.all(status != 0):
+            hits_target = np.sum(status == 1)
+            hits_stop = np.sum(status == 2)
+            total = hits_target + hits_stop
+            return hits_target / total, hits_stop / total
 
-        for i in range(self.num_paths):
-            sample_path = path_gen.next()
-            path = sample_path.value()
+        # Vectorized Simulation
+        rng = np.random.default_rng(42)
+        active_mask = status == 0
 
-            # Check path for boundary crossing
-            # path is a Path object, iterable
+        for t in range(steps):
+            if not np.any(active_mask):
+                break
 
-            # Optimization: check min/max of path first?
-            # QuantLib Path doesn't expose min/max easily without iteration.
+            # Update only active paths
+            n_active = np.sum(active_mask)
+            epsilon = rng.standard_normal(n_active)
 
-            hit_t = False
-            hit_s = False
+            # Vectorized update
+            current_prices[active_mask] = current_prices[active_mask] * decay + mu_term + sigma_step * epsilon
 
-            for j in range(len(path)):
-                p = path[j]
+            # Check boundaries
+            active_prices = current_prices[active_mask]
 
-                if is_l2:
-                    if p <= target_level:
-                        hit_t = True
-                        break
-                    if p >= stop_level:
-                        hit_s = True
-                        break
-                else:
-                    if p >= target_level:
-                        hit_t = True
-                        break
-                    if p <= stop_level:
-                        hit_s = True
-                        break
+            if is_l2:
+                # target: <= center
+                hit_t_mask = active_prices <= target_level
+                # stop: >= center + 3sigma
+                hit_s_mask = active_prices >= stop_level
+            else:
+                # target: >= center
+                hit_t_mask = active_prices >= target_level
+                # stop: <= center - 3sigma
+                hit_s_mask = active_prices <= stop_level
 
-            if hit_t:
-                hits_target += 1
-            elif hit_s:
-                hits_stop += 1
+            combined_hit = hit_t_mask | hit_s_mask
+
+            if np.any(combined_hit):
+                # indices relative to active set
+                # We need global indices to update status and active_mask
+                # active_mask is a boolean array of shape (num_paths,)
+                # just_finished_indices are indices in the *compressed* array of active paths?
+                # No, np.where(active_mask)[0] gives global indices of active paths.
+
+                active_global_indices = np.where(active_mask)[0]
+                just_finished_global_indices = active_global_indices[combined_hit]
+
+                # Identify type
+                t_hits = hit_t_mask[combined_hit]
+
+                # Update status
+                # status[idx] = 1 where t_hits is True
+                status[just_finished_global_indices[t_hits]] = 1
+                status[just_finished_global_indices[~t_hits]] = 2
+
+                # Update active_mask
+                active_mask[just_finished_global_indices] = False
+
+        hits_target = np.sum(status == 1)
+        hits_stop = np.sum(status == 2)
 
         total_finished = hits_target + hits_stop
-        # Normalize (ignoring paths that didn't hit either in time horizon)
         if total_finished > 0:
             p_tunnel = hits_target / total_finished
             p_escape = hits_stop / total_finished
