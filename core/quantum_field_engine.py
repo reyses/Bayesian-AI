@@ -578,49 +578,49 @@ class QuantumFieldEngine:
         sum_x = x.sum()
         sum_x_sq = (x**2).sum()
         mean_x = x.mean()
-
+        
         # Slope formula denominator: N * sum(x^2) - (sum(x))^2
         denom = window_size * sum_x_sq - sum_x**2
-
+        
         # Convolutions for sums
         # prices view as (1, 1, N)
         prices_reshaped = prices.view(1, 1, -1)
-
+        
         # Kernel for sum_y: ones
         ones_kernel = torch.ones((1, 1, window_size), device=self.device, dtype=torch.float64)
-
+        
         # Kernel for sum_xy: x (reversed? conv1d computes correlation sum(I[t+j]*K[j]))
         # We want sum(y[t+j] * x[j]). So Kernel should be x.
         xy_kernel = x.view(1, 1, window_size)
-
+        
         sum_y = F.conv1d(prices_reshaped, ones_kernel).view(-1)
         sum_xy = F.conv1d(prices_reshaped, xy_kernel).view(-1)
-
+        
         # Slope
         # num = N * sum_xy - sum_x * sum_y
         num = window_size * sum_xy - sum_x * sum_y
         slopes = num / (denom + 1e-10)
-
+        
         # Intercept
         # c = mean_y - m * mean_x = (sum_y / N) - m * mean_x
         intercepts = (sum_y / window_size) - slopes * mean_x
-
+        
         # Centers (at end of window): y = mx + c where x is (W-1)
         centers = slopes * (window_size - 1) + intercepts
-
+        
         # Residuals Sigma
         # sum((y - (mx+c))^2) = sum(y^2) - 2m sum(xy) - 2c sum(y) + m^2 sum(x^2) + 2mc sum(x) + N c^2
-
+        
         prices_sq = prices ** 2
         sum_y_sq = F.conv1d(prices_sq.view(1, 1, -1), ones_kernel).view(-1)
-
+        
         ssr = sum_y_sq - 2 * slopes * sum_xy - 2 * intercepts * sum_y + \
               (slopes**2) * sum_x_sq + 2 * slopes * intercepts * sum_x + \
               window_size * (intercepts**2)
-
+              
         ssr = torch.clamp(ssr, min=0.0)
         sigmas = torch.sqrt(ssr / (window_size - 2))
-
+        
         return centers, slopes, sigmas
 
     def _batch_compute_states_gpu(self, day_data: pd.DataFrame, params: dict) -> list:
@@ -634,7 +634,7 @@ class QuantumFieldEngine:
             prices_np = day_data['price'].values
         else:
             prices_np = day_data['close'].values
-
+        
         if 'volume' in day_data.columns:
             volumes_np = day_data['volume'].values
         else:
@@ -660,17 +660,17 @@ class QuantumFieldEngine:
         highs = torch.tensor(highs_np, device=self.device, dtype=torch.float64)
         lows = torch.tensor(lows_np, device=self.device, dtype=torch.float64)
         opens = torch.tensor(opens_np, device=self.device, dtype=torch.float64)
-
+        
         n = prices.shape[0]
         rp = self.regression_period
         num_bars = n - rp
-
+        
         if num_bars <= 0:
             return []
-
+            
         # 1. Rolling Regression (Centers, Slopes, Sigmas)
         centers, slopes, reg_sigmas = self._rolling_regression_torch(prices, rp)
-
+        
         # Note: _rolling_regression_torch returns vectors of length N - rp + 1.
         # Output[0] corresponds to window prices[0..rp-1].
         # In batch_compute_states (CPU), the first bar we compute is at index rp.
@@ -680,13 +680,13 @@ class QuantumFieldEngine:
             centers = centers[1:]
             slopes = slopes[1:]
             reg_sigmas = reg_sigmas[1:]
-
+        
         # 2. Fractal Sigma & Robust Sigma
         # Current Residuals: Price - Center (at end of window)
         bar_prices = prices[rp:]
         current_residuals = bar_prices - centers
         abs_res = torch.abs(current_residuals)
-
+        
         # Rolling Robust Sigma (Window 500, Percentile 84)
         # We need a robust sigma based on the LAST 500 residuals.
         # Use Unfold.
@@ -696,12 +696,12 @@ class QuantumFieldEngine:
             # So robust_vals[i] corresponds to bar at i+499.
             windows = abs_res.unfold(0, 500, 1)
             robust_vals = torch.quantile(windows, 0.84, dim=1)
-
+            
             # Pad beginning with reg_sigmas (fallback for startup)
             # Create tensor of same shape as reg_sigmas
             robust_sigmas = reg_sigmas.clone()
             robust_sigmas[499:] = robust_vals
-
+            
             # Combine: max(robust, reg)
             sigmas_base = torch.max(robust_sigmas, reg_sigmas)
         else:
@@ -710,13 +710,13 @@ class QuantumFieldEngine:
         # Need v_micro (tick velocity) and v_macro (rolling mean of abs diffs)
         # Tick velocity: diff(prices)
         # We need this aligned with the bars we are computing (rp to n-1)
-
+        
         # Full velocity vector
         zeros = torch.zeros(1, device=self.device, dtype=torch.float64)
         price_diffs = torch.cat((zeros, prices[1:] - prices[:-1]))
         tick_velocity = price_diffs[rp:] # Aligned with computed bars
         v_micro = torch.abs(tick_velocity)
-
+        
         # v_macro: rolling mean of abs(diff(close))
         abs_diffs = torch.abs(price_diffs)
         # Rolling mean of abs_diffs. Use conv1d with ones kernel.
@@ -726,32 +726,32 @@ class QuantumFieldEngine:
         # So we slice [1:]
         v_macro_full = F.conv1d(abs_diffs.view(1, 1, -1), ones_kernel).view(-1)
         v_macro = v_macro_full[1:] # Aligned with centers
-
+        
         # Hurst (Approximate or use default 0.5 for GPU speedup)
         # Vectorizing Hurst is hard. Let's assume 0.5 or allow CPU precalc passed in.
         # For now, default 0.5.
         hurst_val = 0.5
-
+        
         # Fractal Sigma
         velocity_ratios = v_micro / (v_macro + 1e-9)
         velocity_ratios = torch.clamp(velocity_ratios, 0.1, 10.0)
-
+        
         fractal_sigmas = sigmas_base * (velocity_ratios ** hurst_val)
         sigmas = torch.max(fractal_sigmas, torch.tensor(1e-6, device=self.device, dtype=torch.float64))
-
+        
         # 3. Z-Score & Forces
         z_scores = (bar_prices - centers) / sigmas
-
+        
         # PID Forces
         # Errors = Price - Center
         errors = bar_prices - centers
-
+        
         # Derivative: errors[i] - errors[i-1]
         # Prepend 0 for first element
         zeros_err = torch.zeros(1, device=self.device, dtype=torch.float64)
         prev_errors = torch.cat((zeros_err, errors[:-1]))
         e_deriv = errors - prev_errors
-
+        
         # Integral: rolling sum of errors over window rp
         # Use conv1d again
         ones_kernel_sum = torch.ones((1, 1, rp), device=self.device, dtype=torch.float64)
@@ -759,46 +759,46 @@ class QuantumFieldEngine:
         padding = torch.zeros(rp - 1, device=self.device, dtype=torch.float64)
         errors_padded = torch.cat((padding, errors))
         e_integ = F.conv1d(errors_padded.view(1, 1, -1), ones_kernel_sum).view(-1)
-
+        
         kp = params.get('pid_kp', DEFAULT_PID_KP)
         ki = params.get('pid_ki', DEFAULT_PID_KI)
         kd = params.get('pid_kd', DEFAULT_PID_KD)
         theta = params.get('gravity_theta', DEFAULT_GRAVITY_THETA)
-
+        
         F_pid = -(kp * errors + ki * e_integ + kd * e_deriv)
-
+        
         # Gravity
         F_gravity = -theta * errors # -theta * z * sigma
-
+        
         # Repulsion
         upper_sing = centers + self.SIGMA_ROCHE_MULTIPLIER * sigmas
         lower_sing = centers - self.SIGMA_ROCHE_MULTIPLIER * sigmas
         upper_event = centers + self.SIGMA_EVENT_MULTIPLIER * sigmas
         lower_event = centers - self.SIGMA_EVENT_MULTIPLIER * sigmas
-
+        
         dist_upper = torch.abs(bar_prices - upper_sing) / sigmas
         dist_lower = torch.abs(bar_prices - lower_sing) / sigmas
-
+        
         F_upper_raw = torch.clamp(1.0 / (dist_upper ** 3 + 0.01), max=100.0)
         F_lower_raw = torch.clamp(1.0 / (dist_lower ** 3 + 0.01), max=100.0)
-
+        
         F_upper_repulsion = torch.where(z_scores > 0, F_upper_raw, torch.tensor(0.0, device=self.device, dtype=torch.float64))
         F_lower_repulsion = torch.where(z_scores < 0, F_lower_raw, torch.tensor(0.0, device=self.device, dtype=torch.float64))
-
+        
         # Momentum
         bar_volumes = volumes[rp:]
         F_momentum = tick_velocity * bar_volumes / (sigmas + 1e-6)
-
+        
         # Net Force
         repulsion = torch.where(z_scores > 0, -F_upper_repulsion, F_lower_repulsion)
         F_net = F_gravity + F_momentum + F_pid + repulsion
         F_reversion = F_gravity
-
+        
         # 4. Wave Function
         E0 = -z_scores**2 / 2
         E1 = -(z_scores - 2.0)**2 / 2
         E2 = -(z_scores + 2.0)**2 / 2
-
+        
         # LogSumExp trick for stability? Or just exp
         # max_E per bar
         max_E, _ = torch.max(torch.stack([E0, E1, E2]), dim=0)
@@ -809,15 +809,15 @@ class QuantumFieldEngine:
         P0 /= total_P
         P1 /= total_P
         P2 /= total_P
-
+        
         eps = 1e-10
         entropy = -(P0 * torch.log(P0 + eps) + P1 * torch.log(P1 + eps) + P2 * torch.log(P2 + eps))
         coherence = entropy / np.log(3)
-
+        
         # Amplitudes (Complex numbers not supported well in all torch ops, keeping components)
         # We need numpy for complex usually, but we can compute phase and pull back
         phase = torch.atan2(F_momentum, F_net + 1e-6)
-
+        
         # 5. Measurements (Structure, Cascade)
         # Volume Spike: bar_volume > rolling_mean * 1.2
         # Rolling mean of volume (window 20)
@@ -826,25 +826,25 @@ class QuantumFieldEngine:
         vol_padding = torch.zeros(19, device=self.device, dtype=torch.float64)
         vol_padded = torch.cat((vol_padding, bar_volumes))
         vol_rolling_mean = F.conv1d(vol_padded.view(1, 1, -1), vol_kernel).view(-1)
-
+        
         volume_spike = bar_volumes > vol_rolling_mean * 1.2
-
+        
         pattern_maturity = torch.where(
             torch.abs(z_scores) > 2.0,
             torch.clamp((torch.abs(z_scores) - 2.0), max=1.0),
             torch.tensor(0.0, device=self.device, dtype=torch.float64)
         )
-
+        
         structure_confirmed = volume_spike & (pattern_maturity > 0.1)
-
+        
         velocity_cascade = torch.abs(tick_velocity) > VELOCITY_CASCADE_THRESHOLD
-
+        
         # Range Cascade: High - Low > Threshold
         bar_highs = highs[rp:]
         bar_lows = lows[rp:]
         range_cascade = (bar_highs - bar_lows) > RANGE_CASCADE_THRESHOLD
         cascade_detected = velocity_cascade | range_cascade
-
+        
         # Spin Inverted
         bar_opens = opens[rp:]
         spin_inverted = torch.where(
@@ -852,12 +852,12 @@ class QuantumFieldEngine:
             bar_prices < bar_opens,
             torch.where(z_scores < -2.0, bar_prices > bar_opens, torch.tensor(False, device=self.device))
         )
-
+        
         # Tunneling
         barrier = torch.abs(z_scores) - 2.0
         barrier_pos = barrier > 0
         momentum_ratio = F_momentum / (F_reversion + 1e-6)
-
+        
         tunnel_prob = torch.where(
             barrier_pos,
             torch.exp(-barrier * 2.0) * (1.0 - torch.clamp(momentum_ratio, max=0.9)),
@@ -874,7 +874,7 @@ class QuantumFieldEngine:
         tunnel_prob[mask_nonzero] /= t_total[mask_nonzero]
         escape_prob[mask_nonzero] /= t_total[mask_nonzero]
         barrier = torch.clamp(barrier, min=0.0)
-
+        
         # Lagrange Zones
         abs_z = torch.abs(z_scores)
         # We need string labels. We'll do this on CPU or use integer codes.
@@ -885,80 +885,80 @@ class QuantumFieldEngine:
         lz_codes[(abs_z >= 1.0) & (abs_z < 2.0)] = 1
         lz_codes[z_scores >= 2.0] = 2
         lz_codes[z_scores <= -2.0] = 3
-
+        
         stability = torch.where(
             abs_z < 1.0, 1.0 - abs_z,
             torch.where(abs_z < 2.0, torch.tensor(0.5, device=self.device, dtype=torch.float64), torch.tensor(0.1, device=self.device, dtype=torch.float64))
         )
-
+        
         # Lyapunov Proxy
         lyapunov = torch.zeros(num_bars, device=self.device, dtype=torch.float64)
         lyapunov[1:] = abs_z[1:] - abs_z[:-1]
-
+        
         momentum_strength = F_momentum / (torch.abs(F_reversion) + 1e-6)
-
+        
         # === Transfer back to CPU ===
         # Use .detach().cpu().numpy()
-
+        
         centers_np = centers.detach().cpu().numpy()
         upper_sing_np = upper_sing.detach().cpu().numpy()
         lower_sing_np = lower_sing.detach().cpu().numpy()
         upper_event_np = upper_event.detach().cpu().numpy()
         lower_event_np = lower_event.detach().cpu().numpy()
-
+        
         prices_out = bar_prices.detach().cpu().numpy()
         tick_vel_out = tick_velocity.detach().cpu().numpy()
         z_scores_out = z_scores.detach().cpu().numpy()
-
+        
         F_rev_out = F_reversion.detach().cpu().numpy()
         F_up_out = F_upper_repulsion.detach().cpu().numpy()
         F_low_out = F_lower_repulsion.detach().cpu().numpy()
         F_mom_out = F_momentum.detach().cpu().numpy()
         F_net_out = F_net.detach().cpu().numpy()
         F_pid_out = F_pid.detach().cpu().numpy()
-
+        
         P0_out = P0.detach().cpu().numpy()
         P1_out = P1.detach().cpu().numpy()
         P2_out = P2.detach().cpu().numpy()
         entropy_out = entropy.detach().cpu().numpy()
         coherence_out = coherence.detach().cpu().numpy()
         phase_out = phase.detach().cpu().numpy()
-
+        
         pat_mat_out = pattern_maturity.detach().cpu().numpy()
         mom_str_out = momentum_strength.detach().cpu().numpy()
-
+        
         struct_conf_out = structure_confirmed.detach().cpu().numpy()
         casc_det_out = cascade_detected.detach().cpu().numpy()
         spin_inv_out = spin_inverted.detach().cpu().numpy()
-
+        
         lz_codes_out = lz_codes.detach().cpu().numpy()
         stab_out = stability.detach().cpu().numpy()
-
+        
         tun_prob_out = tunnel_prob.detach().cpu().numpy()
         esc_prob_out = escape_prob.detach().cpu().numpy()
         barrier_out = barrier.detach().cpu().numpy()
-
+        
         lyap_out = lyapunov.detach().cpu().numpy()
         sigmas_out = sigmas.detach().cpu().numpy()
         slopes_out = slopes.detach().cpu().numpy()
-
+        
         # Trend directions from slopes
         trend_dirs = np.where(slopes_out > 0, 'UP', 'DOWN') # Simplified
-
+        
         # Pattern Detection (CPU or CUDA via detector)
         # Use the CPU helper which handles fallback
         highs_full = highs_np
         lows_full = lows_np
         pattern_types_full = self._detect_geometric_patterns(highs_full, lows_full)
         pattern_types = pattern_types_full[rp:]
-
+        
         opens_full = opens_np
         candlestick_types_full = self._detect_candlestick_patterns(opens_full, highs_full, lows_full, prices_np)
         candlestick_types = candlestick_types_full[rp:]
-
+        
         # Hurst/ADX placeholders (since we didn't calculate them on GPU)
         hurst_vals = np.full(num_bars, 0.5)
-
+        
         # Calculate ADX on CPU using pandas_ta (same as CPU path)
         adx_vals = np.zeros(num_bars)
         dmp_vals = np.zeros(num_bars)
@@ -987,19 +987,19 @@ class QuantumFieldEngine:
 
         # Build Results
         results = []
-
+        
         # Complex amplitudes reconstruction
         a0 = np.sqrt(P0_out) * np.exp(1j * phase_out * 0)
         a1 = np.sqrt(P1_out) * np.exp(1j * phase_out * 1)
         a2 = np.sqrt(P2_out) * np.exp(1j * phase_out * -1)
-
+        
         lz_map = {0: 'L1_STABLE', 1: 'CHAOS', 2: 'L2_ROCHE', 3: 'L3_ROCHE'}
-
+        
         for i in range(num_bars):
             # Map LZ
             lz_str = lz_map.get(lz_codes_out[i], 'UNKNOWN')
             market_reg = 'CHAOTIC' if lyap_out[i] > 0 else 'STABLE'
-
+            
             state = ThreeBodyQuantumState(
                 center_position=centers_np[i],
                 upper_singularity=upper_sing_np[i],
@@ -1054,7 +1054,7 @@ class QuantumFieldEngine:
                     bool(casc_det_out[i])
                 ),
             })
-
+            
         return results
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -1083,7 +1083,7 @@ class QuantumFieldEngine:
                 import traceback
                 traceback.print_exc()
                 pass
-
+        
         # Default physics parameters if not provided
         params = params or {}
         kp = params.get('pid_kp', DEFAULT_PID_KP)
