@@ -1353,6 +1353,21 @@ class BayesianTrainingOrchestrator:
         # But we can update the config manually if WaveRider supports it.
         self.wave_rider.trail_config.update(trail_config)
 
+        # Configure delayed review wait time based on timeframe
+        # Find next higher timeframe from active params
+        tf_idx = params.get('timeframe_idx', 1)
+        next_tf_idx = min(5, tf_idx + 1)
+        next_tf_str = TIMEFRAME_MAP[next_tf_idx]
+
+        # Convert to seconds
+        seconds_map = {
+            '5s': 5, '15s': 15, '60s': 60,
+            '5m': 300, '15m': 900, '1h': 3600
+        }
+        # Wait 5 bars of higher timeframe
+        wait_time = seconds_map.get(next_tf_str, 60) * 5
+        self.wave_rider.review_wait_time = float(wait_time)
+
         # Clear any existing position
         self.wave_rider.position = None
         self.wave_rider.price_history = []
@@ -1364,6 +1379,9 @@ class BayesianTrainingOrchestrator:
             current_time = current_row.get('timestamp', 0)
             if isinstance(current_time, pd.Timestamp):
                 current_time = current_time.timestamp()
+
+            # Process delayed reviews (and update price history)
+            self.wave_rider.process_pending_reviews(current_time, current_price)
 
             # 1. Manage existing position
             if self.wave_rider.position:
@@ -1386,7 +1404,7 @@ class BayesianTrainingOrchestrator:
                     tick_velocity=0.0
                 )
 
-                decision = self.wave_rider.update_trail(current_price, state)
+                decision = self.wave_rider.update_trail(current_price, state, timestamp=current_time)
 
                 if decision['should_exit']:
                     # Trade closed
