@@ -32,8 +32,7 @@ except ImportError:
 try:
     import pandas_ta as ta
     PANDAS_TA_AVAILABLE = True
-except (ImportError, ValueError):
-    # ValueError can occur if matplotlib is present but spec not set correctly
+except ImportError:
     PANDAS_TA_AVAILABLE = False
 
 try:
@@ -139,9 +138,7 @@ class QuantumFieldEngine:
         center, reg_sigma, slope, residuals = self._calculate_center_mass(df_macro)
         
         # 2. FRACTAL & TREND INDICATORS (Needed for Fractal Diffusion)
-        # Default to True for single-state calculation to preserve precision
-        use_hurst = params.get('use_hurst', True)
-        if use_hurst and HURST_AVAILABLE and len(df_micro) >= HURST_WINDOW:
+        if HURST_AVAILABLE and len(df_micro) >= HURST_WINDOW:
             hurst_series = df_micro['close'].iloc[-HURST_WINDOW:]
             try:
                 H, c, _ = compute_Hc(hurst_series, kind='price', simplified=True)
@@ -542,6 +539,153 @@ class QuantumFieldEngine:
             return 'L3_ROCHE', 0.1
         else:
             return 'UNKNOWN', 0.0
+
+    def _detect_patterns_torch(self, opens, highs, lows, closes):
+        """
+        PyTorch implementation of pattern detection to avoid CPU transfer.
+        Returns integer tensors for Geometric and Candlestick patterns.
+        """
+        N = highs.shape[0]
+        device = highs.device
+
+        # Output placeholders
+        geo = torch.zeros(N, dtype=torch.long, device=device) # 0 = NONE
+        cdl = torch.zeros(N, dtype=torch.long, device=device) # 0 = NONE
+
+        if N < 10:
+            return geo, cdl
+
+        # === GEOMETRIC PATTERNS ===
+
+        # 1. COMPRESSION (Priority 1)
+        # Windows of size 5
+        h_windows = highs.unfold(0, 5, 1)
+        l_windows = lows.unfold(0, 5, 1)
+
+        rec_max = h_windows.max(dim=1).values
+        rec_min = l_windows.min(dim=1).values
+        rec_range = rec_max - rec_min
+
+        # rec_range has length N-4. Index i corresponds to window [i, i+4].
+        # We want window ending at current bar.
+        # At bar k (k >= 4), window is [k-4, k]. corresponds to unfold index k-4.
+        # So rec_range[k-4] is range for window ending at k.
+
+        # We need previous range: window [k-9, k-5] -> index k-9.
+        # Valid for k >= 9.
+
+        # We want to populate geo[9:].
+        # Current range: rec_range[5:] (indices 5..N-5, corresponding to bars 9..N-1)
+        # Previous range: rec_range[:-5] (indices 0..N-10, corresponding to bars 4..N-6)
+
+        curr_rec_range = rec_range[5:]
+        prev_rec_range = rec_range[:-5]
+
+        comp_mask = (prev_rec_range > 0) & (curr_rec_range < prev_rec_range * 0.7)
+
+        # Apply to geo[9:]
+        geo[9:][comp_mask] = 1 # COMPRESSION
+
+        # 2. WEDGE (Priority 2)
+        # lows[i] > lows[i-4] and highs[i] < highs[i-4]
+        # Valid for i >= 4.
+        l_curr = lows[4:]
+        l_prev = lows[:-4]
+        h_curr = highs[4:]
+        h_prev = highs[:-4]
+
+        wedge_mask = (l_curr > l_prev) & (h_curr < h_prev)
+
+        # Apply to geo[4:] (Overwrites Compression)
+        geo[4:][wedge_mask] = 2 # WEDGE
+
+        # 3. BREAKDOWN (Priority 3)
+        # lows[i] < min(lows[i-4:i])
+        # min of window 4 ending at i-1.
+        # rolling min of window 4.
+        l_windows_4 = lows.unfold(0, 4, 1)
+        min_prev_4 = l_windows_4.min(dim=1).values
+
+        # min_prev_4 has length N-3.
+        # Index j corresponds to window [j, j+3].
+        # We want window [i-4, i-1]. This corresponds to unfold index i-4.
+        # Valid for i >= 4.
+        # Compare min_prev_4[i-4] with lows[i].
+        # So compare min_prev_4 with lows[4:].
+        # min_prev_4 indices 0..N-4 corresponds to bars 4..N.
+        # Wait.
+        # Index 0: window [0, 3]. min of lows[0..3]. Compare with lows[4]. Correct.
+        # Index N-5: window [N-5, N-2]. Compare with lows[N-1]. Correct.
+        # So we need min_prev_4[:-1] if len is N-3.
+
+        min_prev_vals = min_prev_4[:-1]
+        l_curr_bd = lows[4:]
+
+        bd_mask = l_curr_bd < min_prev_vals
+
+        geo[4:][bd_mask] = 3 # BREAKDOWN
+
+        # Enforce legacy/kernel warmup period (first 9 bars are NONE)
+        geo[:9] = 0
+
+        # === CANDLESTICK PATTERNS ===
+
+        # 1. DOJI (Priority 1)
+        body = (closes - opens).abs()
+        rng = highs - lows
+        rng = torch.where(rng == 0, torch.tensor(1e-10, device=device, dtype=rng.dtype), rng)
+
+        doji_mask = (body / rng) < 0.1
+        cdl[doji_mask] = 1 # DOJI
+
+        # 2. HAMMER (Priority 2)
+        upper_shadow = highs - torch.max(closes, opens)
+        lower_shadow = torch.min(closes, opens) - lows
+
+        hammer_mask = (
+            (lower_shadow > 2.0 * body) &
+            (upper_shadow < 0.1 * rng) &
+            (body < 0.3 * rng)
+        )
+
+        # Apply where cdl is NONE
+        mask_h = hammer_mask & (cdl == 0)
+        cdl[mask_h] = 2 # HAMMER
+
+        # 3. ENGULFING (Priority 3)
+        # Needs i-1. Valid for i >= 1.
+        o_curr = opens[1:]
+        c_curr = closes[1:]
+        o_prev = opens[:-1]
+        c_prev = closes[:-1]
+
+        # Bull
+        bull_mask = (
+            (c_prev < o_prev) &
+            (c_curr > o_curr) &
+            (o_curr <= c_prev) &
+            (c_curr >= o_prev)
+        )
+
+        # Bear
+        bear_mask = (
+            (c_prev > o_prev) &
+            (c_curr < o_curr) &
+            (o_curr >= c_prev) &
+            (c_curr <= o_prev)
+        )
+
+        # Apply to cdl[1:] where 0
+        full_bull_mask = torch.zeros(N, dtype=torch.bool, device=device)
+        full_bull_mask[1:] = bull_mask
+
+        full_bear_mask = torch.zeros(N, dtype=torch.bool, device=device)
+        full_bear_mask[1:] = bear_mask
+
+        cdl[full_bull_mask & (cdl == 0)] = 3 # ENGULFING_BULL
+        cdl[full_bear_mask & (cdl == 0)] = 4 # ENGULFING_BEAR
+
+        return geo, cdl
 
     def _detect_patterns_unified(self, opens: np.ndarray, highs: np.ndarray, lows: np.ndarray, closes: np.ndarray):
         """
@@ -947,17 +1091,30 @@ class QuantumFieldEngine:
         # Trend directions from slopes
         trend_dirs = np.where(slopes_out > 0, 'UP', 'DOWN') # Simplified
         
-        # Pattern Detection (CPU or CUDA via detector)
-        highs_full = highs_np
-        lows_full = lows_np
-        opens_full = opens_np
-        prices_full = prices_np
+        # Pattern Detection (Torch / GPU)
+        # Avoids transfer to CPU for pattern detection
+        geo_codes, cdl_codes = self._detect_patterns_torch(opens, highs, lows, prices)
 
-        # Calls unified detector
-        pattern_types_full, candlestick_types_full = self._detect_patterns_unified(opens_full, highs_full, lows_full, prices_full)
+        # Slice to rp:
+        geo_codes = geo_codes[rp:]
+        cdl_codes = cdl_codes[rp:]
 
-        pattern_types = pattern_types_full[rp:]
-        candlestick_types = candlestick_types_full[rp:]
+        # Transfer to CPU
+        geo_codes_np = geo_codes.detach().cpu().numpy()
+        cdl_codes_np = cdl_codes.detach().cpu().numpy()
+
+        # Map to strings
+        geo_lookup = np.array([
+            PATTERN_NONE, PATTERN_COMPRESSION, PATTERN_WEDGE, PATTERN_BREAKDOWN
+        ], dtype=object)
+
+        cdl_lookup = np.array([
+            CANDLESTICK_NONE, CANDLESTICK_DOJI, CANDLESTICK_HAMMER,
+            CANDLESTICK_ENGULFING_BULL, CANDLESTICK_ENGULFING_BEAR
+        ], dtype=object)
+
+        pattern_types = geo_lookup[geo_codes_np]
+        candlestick_types = cdl_lookup[cdl_codes_np]
         
         # Hurst/ADX placeholders (since we didn't calculate them on GPU)
         hurst_vals = np.full(num_bars, 0.5)
@@ -1072,7 +1229,6 @@ class QuantumFieldEngine:
             day_data: DataFrame with 'price'/'close', 'volume', 'timestamp' columns
             use_cuda: If True and CUDA available, use GPU for exp/log ops
             params: Optional physics parameters (pid_kp, gravity_theta, etc.)
-                    use_hurst (bool): Enable Hurst calculation (slow, default: True)
 
         Returns:
             List of dicts: [{bar_idx, state, price, prob, conf, structure_ok}, ...]
@@ -1223,12 +1379,9 @@ class QuantumFieldEngine:
                 pass
 
         # Hurst Exponent (Fractal Dimension)
-        # Defaults to True (Calculated) to preserve legacy behavior.
-        # Set params={'use_hurst': False} for performance boost (aligns with GPU 0.5).
-        use_hurst = params.get('use_hurst', True)
         hurst_vals = np.full(num_bars, 0.5)
 
-        if use_hurst and HURST_AVAILABLE:
+        if HURST_AVAILABLE:
             try:
                 def get_hurst(x):
                     try:
