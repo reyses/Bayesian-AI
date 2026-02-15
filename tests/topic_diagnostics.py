@@ -61,7 +61,7 @@ def run_diagnostics():
             print(f"Checking Data Path: {RAW_DATA_PATH}")
             path = pathlib.Path(RAW_DATA_PATH)
             if not path.exists():
-                print(f"WARNING: {RAW_DATA_PATH} does not exist (Expected in CI/Test environments without data mounted).")
+                print(f"FAIL: {RAW_DATA_PATH} does not exist.")
             else:
                 files = ["ohlcv-1s.parquet", "trades.parquet"]
                 missing = []
@@ -69,7 +69,7 @@ def run_diagnostics():
                     if not (path / f).exists():
                         missing.append(f)
                 if missing:
-                    print(f"WARNING: Missing files in {RAW_DATA_PATH}: {missing} (Expected in CI/Test environments)")
+                    print(f"FAIL: Missing files in {RAW_DATA_PATH}: {missing}")
                 else:
                     print(f"PASS: Required files found in {RAW_DATA_PATH}")
     except ImportError:

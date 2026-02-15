@@ -11,11 +11,11 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from cuda_modules.pattern_detector import get_pattern_detector
-from cuda_modules.confirmation import get_confirmation_engine
-from cuda_modules.velocity_gate import get_velocity_gate
-from core.layer_engine import LayerEngine
-from training.orchestrator import TrainingOrchestrator, get_data_source
+from archive.cuda_modules.pattern_detector import get_pattern_detector
+from archive.cuda_modules.confirmation import get_confirmation_engine
+from archive.cuda_modules.velocity_gate import get_velocity_gate
+from archive.layer_engine import LayerEngine
+from archive.orchestrator_pre_consolidation import TrainingOrchestrator, get_data_source
 from config.symbols import MNQ
 from tests.utils import load_test_data
 
@@ -25,6 +25,11 @@ def test_cuda_pattern_detector():
     
     # Load real data
     session = load_test_data()
+    # Add dummy OHLC if missing
+    if 'open' not in session.columns:
+        session['open'] = session['close']
+        session['high'] = session['close']
+        session['low'] = session['close']
     print(f"Loaded {len(session)} rows.")
 
     bars_15m = session.resample('15min').agg({
@@ -46,6 +51,11 @@ def test_cuda_confirmation():
     print("\n=== TEST 2: CUDA Confirmation Engine ===")
     
     session = load_test_data()
+    # Add dummy OHLC if missing
+    if 'open' not in session.columns:
+        session['open'] = session['close']
+        session['high'] = session['close']
+        session['low'] = session['close']
     bars_5m = session.resample('5min').agg({
         'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'
     }).dropna()
@@ -111,6 +121,11 @@ def test_layer_engine_cuda():
     print("\n=== TEST 4: LayerEngine with CUDA ===")
     
     session = load_test_data()
+    # Add dummy OHLC if missing
+    if 'open' not in session.columns:
+        session['open'] = session['close']
+        session['high'] = session['close']
+        session['low'] = session['close']
     engine = LayerEngine(use_gpu=False)
     engine.initialize_static_context(session, kill_zones=[21500, 21550])
     
@@ -164,6 +179,10 @@ def test_training_orchestrator():
     data_orch = data.copy()
     data_orch['price'] = data_orch['close']
     data_orch['type'] = 'trade'
+    if 'open' not in data_orch.columns:
+        data_orch['open'] = data_orch['close']
+        data_orch['high'] = data_orch['close']
+        data_orch['low'] = data_orch['close']
     
     # Note: load_test_data sets datetime index, but checks for 'timestamp' column presence in file.
     # The file had 'timestamp'. But let's ensure it's there.
