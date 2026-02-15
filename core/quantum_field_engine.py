@@ -32,8 +32,7 @@ except ImportError:
 try:
     import pandas_ta as ta
     PANDAS_TA_AVAILABLE = True
-except (ImportError, ValueError):
-    # ValueError can occur if matplotlib is present but spec not set correctly
+except ImportError:
     PANDAS_TA_AVAILABLE = False
 
 try:
@@ -139,9 +138,7 @@ class QuantumFieldEngine:
         center, reg_sigma, slope, residuals = self._calculate_center_mass(df_macro)
         
         # 2. FRACTAL & TREND INDICATORS (Needed for Fractal Diffusion)
-        # Default to True for single-state calculation to preserve precision
-        use_hurst = params.get('use_hurst', True)
-        if use_hurst and HURST_AVAILABLE and len(df_micro) >= HURST_WINDOW:
+        if HURST_AVAILABLE and len(df_micro) >= HURST_WINDOW:
             hurst_series = df_micro['close'].iloc[-HURST_WINDOW:]
             try:
                 H, c, _ = compute_Hc(hurst_series, kind='price', simplified=True)
@@ -616,9 +613,10 @@ class QuantumFieldEngine:
         # Compare min_prev_4[i-4] with lows[i].
         # So compare min_prev_4 with lows[4:].
         # min_prev_4 indices 0..N-4 corresponds to bars 4..N.
-        # For bar i, we need the min of the window [i-4, i-1].
-        # This corresponds to the window created by l_windows_4 at index i-4.
-        # Therefore, we compare lows[4:] with min_prev_4[:-1] to align the series.
+        # Wait.
+        # Index 0: window [0, 3]. min of lows[0..3]. Compare with lows[4]. Correct.
+        # Index N-5: window [N-5, N-2]. Compare with lows[N-1]. Correct.
+        # So we need min_prev_4[:-1] if len is N-3.
 
         min_prev_vals = min_prev_4[:-1]
         l_curr_bd = lows[4:]
@@ -678,14 +676,14 @@ class QuantumFieldEngine:
         )
 
         # Apply to cdl[1:] where 0
-        # Apply to cdl[1:] where 0
-        cdl_slice = cdl[1:]
-        not_set_mask = cdl_slice == 0
-        cdl_slice[bull_mask & not_set_mask] = 3 # ENGULFING_BULL
+        full_bull_mask = torch.zeros(N, dtype=torch.bool, device=device)
+        full_bull_mask[1:] = bull_mask
 
-        # Re-evaluate not_set_mask as it might have been modified by the bull pattern assignment
-        not_set_mask = cdl_slice == 0
-        cdl_slice[bear_mask & not_set_mask] = 4 # ENGULFING_BEAR
+        full_bear_mask = torch.zeros(N, dtype=torch.bool, device=device)
+        full_bear_mask[1:] = bear_mask
+
+        cdl[full_bull_mask & (cdl == 0)] = 3 # ENGULFING_BULL
+        cdl[full_bear_mask & (cdl == 0)] = 4 # ENGULFING_BEAR
 
         return geo, cdl
 
@@ -1231,7 +1229,6 @@ class QuantumFieldEngine:
             day_data: DataFrame with 'price'/'close', 'volume', 'timestamp' columns
             use_cuda: If True and CUDA available, use GPU for exp/log ops
             params: Optional physics parameters (pid_kp, gravity_theta, etc.)
-                    use_hurst (bool): Enable Hurst calculation (slow, default: True)
 
         Returns:
             List of dicts: [{bar_idx, state, price, prob, conf, structure_ok}, ...]
@@ -1382,12 +1379,9 @@ class QuantumFieldEngine:
                 pass
 
         # Hurst Exponent (Fractal Dimension)
-        # Defaults to True (Calculated) to preserve legacy behavior.
-        # Set params={'use_hurst': False} for performance boost (aligns with GPU 0.5).
-        use_hurst = params.get('use_hurst', True)
         hurst_vals = np.full(num_bars, 0.5)
 
-        if use_hurst and HURST_AVAILABLE:
+        if HURST_AVAILABLE:
             try:
                 def get_hurst(x):
                     try:
