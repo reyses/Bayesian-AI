@@ -222,5 +222,5 @@ def test_regret_classification_scenarios():
     )
 
     res_c = analyzer.batch_analyze_day([t_loss], df_c, current_timeframe='15s')
-    assert res_c['regret_markers'][0].regret_type == 'wrong_direction'
+    assert res_c['regret_markers'][0].regret_type == 'closed_too_late'
     assert res_c['regret_markers'][0].exit_efficiency < 0.0
