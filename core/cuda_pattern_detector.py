@@ -4,16 +4,31 @@ Modernized implementation of legacy pattern recognition logic using Numba CUDA k
 Designed for high-throughput batch processing in QuantumFieldEngine.
 """
 import numpy as np
-from core.pattern_utils import PATTERN_NONE, PATTERN_COMPRESSION, PATTERN_WEDGE, PATTERN_BREAKDOWN
+from core.pattern_utils import (
+    PATTERN_NONE, PATTERN_COMPRESSION, PATTERN_WEDGE, PATTERN_BREAKDOWN,
+    CANDLESTICK_NONE, CANDLESTICK_DOJI, CANDLESTICK_HAMMER,
+    CANDLESTICK_ENGULFING_BULL, CANDLESTICK_ENGULFING_BEAR
+)
 
-# Constants for kernel (must be int)
-K_NONE = 0
-K_COMPRESSION = 1
-K_WEDGE = 2
-K_BREAKDOWN = 3
+# Geometric Constants (must be int)
+K_GEO_NONE = 0
+K_GEO_COMPRESSION = 1
+K_GEO_WEDGE = 2
+K_GEO_BREAKDOWN = 3
+
+# Candlestick Constants (must be int)
+K_CDL_NONE = 0
+K_CDL_DOJI = 1
+K_CDL_HAMMER = 2
+K_CDL_ENGULFING_BULL = 3
+K_CDL_ENGULFING_BEAR = 4
 
 # Thresholds (must match core/pattern_utils.py)
 COMPRESSION_RATIO = 0.7
+DOJI_BODY_RATIO = 0.1
+HAMMER_BODY_RATIO = 0.3
+HAMMER_LOWER_SHADOW_RATIO = 2.0
+HAMMER_UPPER_SHADOW_RATIO = 0.1
 
 try:
     from numba import cuda
@@ -23,92 +38,101 @@ except ImportError:
 
 if NUMBA_AVAILABLE:
     @cuda.jit
-    def detect_geometric_pattern_kernel(highs, lows, out_type):
+    def detect_patterns_kernel(opens, highs, lows, closes, out_geo, out_cdl):
         """
-        CUDA Kernel to detect geometric patterns for every bar in parallel.
-
-        Logic matches core.pattern_utils.detect_geometric_patterns_vectorized:
-        - Compression: Recent range < 0.7 * Prev range
-        - Wedge: Higher Lows AND Lower Highs (5 bars)
-        - Breakdown: Low < Min(Prev 4 Lows)
+        Unified CUDA Kernel to detect both Geometric and Candlestick patterns in parallel.
         """
         start = cuda.grid(1)
         stride = cuda.gridsize(1)
         n = highs.shape[0]
 
         for idx in range(start, n, stride):
-            # Initialize
-            out_type[idx] = K_NONE
+            # === GEOMETRIC PATTERNS ===
+            out_geo[idx] = K_GEO_NONE
 
-            # Needs at least 10 bars for full lookback (Compression needs 10)
-            if idx < 9:
-                continue
+            if idx >= 9: # Need 10 bars (idx-9 to idx)
+                # 1. COMPRESSION (Priority 1)
+                rec_max = -1e30
+                rec_min = 1e30
+                for k in range(idx - 4, idx + 1):
+                    h = highs[k]
+                    l = lows[k]
+                    if h > rec_max: rec_max = h
+                    if l < rec_min: rec_min = l
+                rec_range = rec_max - rec_min
 
-            # 1. COMPRESSION (Priority 1)
-            # Recent range: idx-4 to idx (5 bars)
-            # Prev range: idx-9 to idx-5 (5 bars)
+                prev_max = -1e30
+                prev_min = 1e30
+                for k in range(idx - 9, idx - 4):
+                    h = highs[k]
+                    l = lows[k]
+                    if h > prev_max: prev_max = h
+                    if l < prev_min: prev_min = l
+                prev_range = prev_max - prev_min
 
-            # Compute recent range
-            rec_max = -1e30
-            rec_min = 1e30
-            for k in range(idx - 4, idx + 1):
-                h = highs[k]
-                l = lows[k]
-                if h > rec_max: rec_max = h
-                if l < rec_min: rec_min = l
-            rec_range = rec_max - rec_min
+                if prev_range > 0 and rec_range < prev_range * COMPRESSION_RATIO:
+                    out_geo[idx] = K_GEO_COMPRESSION
 
-            # Compute prev range
-            prev_max = -1e30
-            prev_min = 1e30
-            for k in range(idx - 9, idx - 4): # indices idx-9, -8, -7, -6, -5
-                h = highs[k]
-                l = lows[k]
-                if h > prev_max: prev_max = h
-                if l < prev_min: prev_min = l
-            prev_range = prev_max - prev_min
+                # 2. WEDGE (Priority 2)
+                if lows[idx] > lows[idx-4] and highs[idx] < highs[idx-4]:
+                    out_geo[idx] = K_GEO_WEDGE
 
-            if prev_range > 0 and rec_range < prev_range * COMPRESSION_RATIO:
-                out_type[idx] = K_COMPRESSION
-                # Continue to next priority?
-                # CPU version uses masks:
-                # patterns[compression_mask] = PATTERN_COMPRESSION
-                # patterns[wedge_mask] = PATTERN_WEDGE
-                # patterns[breakdown_mask] = PATTERN_BREAKDOWN
-                # So Breakdown overwrites Wedge overwrites Compression?
-                # Let's check priority in pattern_utils.py:
-                # 1. patterns[...] = PATTERN_COMPRESSION
-                # 2. patterns[wedge_mask] = PATTERN_WEDGE (Overwrites!)
-                # 3. patterns[breakdown_mask] = PATTERN_BREAKDOWN (Overwrites!)
-                # So Priority is Breakdown > Wedge > Compression.
-                # We should check in reverse order or use a variable.
+                # 3. BREAKDOWN (Priority 3)
+                min_prev_4 = 1e30
+                for k in range(idx - 4, idx):
+                    if lows[k] < min_prev_4:
+                        min_prev_4 = lows[k]
 
-                # Let's mimic the CPU overwrite logic.
+                if lows[idx] < min_prev_4:
+                    out_geo[idx] = K_GEO_BREAKDOWN
 
-            # 2. WEDGE (Priority 2)
-            # lows[idx] > lows[idx-4] and highs[idx] < highs[idx-4]
-            if lows[idx] > lows[idx-4] and highs[idx] < highs[idx-4]:
-                out_type[idx] = K_WEDGE
+            # === CANDLESTICK PATTERNS ===
+            out_cdl[idx] = K_CDL_NONE
 
-            # 3. BREAKDOWN (Priority 3)
-            # lows[idx] < min(lows[idx-4 : idx])
-            # Min of previous 4 bars (idx-4, -3, -2, -1)
-            min_prev_4 = 1e30
-            for k in range(idx - 4, idx):
-                if lows[k] < min_prev_4:
-                    min_prev_4 = lows[k]
+            if idx >= 1: # Need at least 2 bars (idx-1, idx)
+                c = closes[idx]
+                o = opens[idx]
+                h = highs[idx]
+                l = lows[idx]
 
-            if lows[idx] < min_prev_4:
-                out_type[idx] = K_BREAKDOWN
+                pc = closes[idx-1]
+                po = opens[idx-1]
+
+                body = abs(c - o)
+                rng = h - l
+                if rng == 0: rng = 1e-10
+
+                upper_shadow = h - max(c, o)
+                lower_shadow = min(c, o) - l
+
+                # 1. DOJI (Priority 1)
+                if body / rng < DOJI_BODY_RATIO:
+                    out_cdl[idx] = K_CDL_DOJI
+                else:
+                    # 2. HAMMER (Priority 2, only if not Doji)
+                    is_hammer = (lower_shadow > HAMMER_LOWER_SHADOW_RATIO * body and
+                                 upper_shadow < HAMMER_UPPER_SHADOW_RATIO * rng and
+                                 body < HAMMER_BODY_RATIO * rng)
+
+                    if is_hammer:
+                        out_cdl[idx] = K_CDL_HAMMER
+                    else:
+                        # 3. ENGULFING (Priority 3, only if not Doji/Hammer)
+                        # Bullish
+                        if pc < po and c > o and o <= pc and c >= po:
+                            out_cdl[idx] = K_CDL_ENGULFING_BULL
+                        # Bearish
+                        elif pc > po and c < o and o >= pc and c <= po:
+                            out_cdl[idx] = K_CDL_ENGULFING_BEAR
 
 else:
-    detect_geometric_pattern_kernel = None
+    detect_patterns_kernel = None
 
 
-def detect_geometric_patterns_cuda(highs: np.ndarray, lows: np.ndarray) -> np.ndarray:
+def detect_patterns_cuda(opens: np.ndarray, highs: np.ndarray, lows: np.ndarray, closes: np.ndarray):
     """
-    Execute CUDA kernel for geometric pattern detection.
-    Returns array of pattern strings (matching CPU implementation).
+    Execute unified CUDA kernel for pattern detection.
+    Returns tuple: (geometric_patterns, candlestick_patterns)
     """
     if not NUMBA_AVAILABLE:
         raise RuntimeError("Numba not installed/available for CUDA patterns")
@@ -116,39 +140,58 @@ def detect_geometric_patterns_cuda(highs: np.ndarray, lows: np.ndarray) -> np.nd
     if not cuda.is_available():
         raise RuntimeError("CUDA GPU not available")
 
+    if not (len(opens) == len(highs) == len(lows) == len(closes)):
+        raise ValueError(f"All input arrays must have the same length. Got: opens={len(opens)}, highs={len(highs)}, lows={len(lows)}, closes={len(closes)}")
+
     n = len(highs)
+    # Ensure contiguous float32 arrays
+    opens = np.ascontiguousarray(opens.astype(np.float32))
     highs = np.ascontiguousarray(highs.astype(np.float32))
     lows = np.ascontiguousarray(lows.astype(np.float32))
+    closes = np.ascontiguousarray(closes.astype(np.float32))
 
     # Alloc GPU memory
+    d_opens = cuda.to_device(opens)
     d_highs = cuda.to_device(highs)
     d_lows = cuda.to_device(lows)
-    d_out_type = cuda.device_array(n, dtype=np.int32)
+    d_closes = cuda.to_device(closes)
+
+    d_out_geo = cuda.device_array(n, dtype=np.int32)
+    d_out_cdl = cuda.device_array(n, dtype=np.int32)
 
     # Config
     threads_per_block = 256
     blocks_per_grid = (n + (threads_per_block - 1)) // threads_per_block
 
     # Launch
-    detect_geometric_pattern_kernel[blocks_per_grid, threads_per_block](
-        d_highs, d_lows, d_out_type
+    detect_patterns_kernel[blocks_per_grid, threads_per_block](
+        d_opens, d_highs, d_lows, d_closes, d_out_geo, d_out_cdl
     )
 
     # Copy back
-    out_types = d_out_type.copy_to_host()
+    out_geo = d_out_geo.copy_to_host()
+    out_cdl = d_out_cdl.copy_to_host()
 
-    # Map int to string (Vectorized map)
-    # Default 'NONE'
-    # We can use np.choose or a lookup array
+    # Create lookups
+    geo_lookup = np.array([
+        PATTERN_NONE, PATTERN_COMPRESSION, PATTERN_WEDGE, PATTERN_BREAKDOWN
+    ], dtype=object)
 
-    # Create lookup table
-    # 0: NONE, 1: COMPRESSION, 2: WEDGE, 3: BREAKDOWN
-    # Note: PATTERN_* are strings.
-
-    # Fast mapping using object array
-    lookup = np.array([PATTERN_NONE, PATTERN_COMPRESSION, PATTERN_WEDGE, PATTERN_BREAKDOWN], dtype=object)
+    cdl_lookup = np.array([
+        CANDLESTICK_NONE, CANDLESTICK_DOJI, CANDLESTICK_HAMMER,
+        CANDLESTICK_ENGULFING_BULL, CANDLESTICK_ENGULFING_BEAR
+    ], dtype=object)
 
     # Safety clamp
-    out_types = np.clip(out_types, 0, 3)
+    out_geo = np.clip(out_geo, 0, 3)
+    out_cdl = np.clip(out_cdl, 0, 4)
 
-    return lookup[out_types]
+    return geo_lookup[out_geo], cdl_lookup[out_cdl]
+
+# Legacy wrapper for backward compatibility if needed (though we will update caller)
+def detect_geometric_patterns_cuda(highs: np.ndarray, lows: np.ndarray) -> np.ndarray:
+    """Legacy wrapper: Runs unified kernel but passes dummy open/close and returns only geo."""
+    n = len(highs)
+    dummy = np.zeros(n, dtype=np.float32)
+    geo, _ = detect_patterns_cuda(dummy, highs, lows, dummy)
+    return geo

@@ -16,7 +16,7 @@ from core.pattern_utils import (
 
 # Optional: CUDA Pattern Detector
 try:
-    from core.cuda_pattern_detector import detect_geometric_patterns_cuda, NUMBA_AVAILABLE as CUDA_PATTERNS_AVAILABLE
+    from core.cuda_pattern_detector import detect_patterns_cuda, NUMBA_AVAILABLE as CUDA_PATTERNS_AVAILABLE
 except ImportError:
     CUDA_PATTERNS_AVAILABLE = False
 
@@ -540,27 +540,26 @@ class QuantumFieldEngine:
         else:
             return 'UNKNOWN', 0.0
 
-    def _detect_geometric_patterns(self, highs: np.ndarray, lows: np.ndarray) -> np.ndarray:
+    def _detect_patterns_unified(self, opens: np.ndarray, highs: np.ndarray, lows: np.ndarray, closes: np.ndarray):
         """
-        Vectorized geometric pattern detection.
-        Wraps core.pattern_utils.detect_geometric_patterns_vectorized.
-        Unless CUDA is enabled and available.
+        Detects both geometric and candlestick patterns using unified CUDA kernel if available/efficient.
+        Falls back to vectorized CPU implementation.
         """
-        if self.use_gpu and CUDA_PATTERNS_AVAILABLE:
-            try:
-                return detect_geometric_patterns_cuda(highs, lows)
-            except Exception as e:
-                # Fallback on error (e.g. CUDA context issues)
-                return detect_geometric_patterns_vectorized(highs, lows)
-        return detect_geometric_patterns_vectorized(highs, lows)
+        # Threshold to avoid Numba performance warning on small grids (grid size 1)
+        MIN_CUDA_LEN = 1024
 
-    def _detect_candlestick_patterns(self, opens: np.ndarray, highs: np.ndarray,
-                                     lows: np.ndarray, closes: np.ndarray) -> np.ndarray:
-        """
-        Vectorized candlestick pattern detection.
-        Wraps core.pattern_utils.detect_candlestick_patterns_vectorized.
-        """
-        return detect_candlestick_patterns_vectorized(opens, highs, lows, closes)
+        if self.use_gpu and CUDA_PATTERNS_AVAILABLE and len(highs) >= MIN_CUDA_LEN:
+            try:
+                return detect_patterns_cuda(opens, highs, lows, closes)
+            except Exception as e:
+                # Fallback on error (e.g. CUDA context issues).
+                # Consider logging 'e' if logging system available.
+                pass
+
+        # Default to CPU implementation for small datasets or if CUDA is unavailable/fails
+        geo = detect_geometric_patterns_vectorized(highs, lows)
+        cdl = detect_candlestick_patterns_vectorized(opens, highs, lows, closes)
+        return geo, cdl
 
     def _rolling_regression_torch(self, prices: torch.Tensor, window_size: int):
         """
@@ -946,14 +945,15 @@ class QuantumFieldEngine:
         trend_dirs = np.where(slopes_out > 0, 'UP', 'DOWN') # Simplified
         
         # Pattern Detection (CPU or CUDA via detector)
-        # Use the CPU helper which handles fallback
         highs_full = highs_np
         lows_full = lows_np
-        pattern_types_full = self._detect_geometric_patterns(highs_full, lows_full)
-        pattern_types = pattern_types_full[rp:]
-        
         opens_full = opens_np
-        candlestick_types_full = self._detect_candlestick_patterns(opens_full, highs_full, lows_full, prices_np)
+        prices_full = prices_np
+
+        # Calls unified detector
+        pattern_types_full, candlestick_types_full = self._detect_patterns_unified(opens_full, highs_full, lows_full, prices_full)
+
+        pattern_types = pattern_types_full[rp:]
         candlestick_types = candlestick_types_full[rp:]
         
         # Hurst/ADX placeholders (since we didn't calculate them on GPU)
@@ -1182,13 +1182,12 @@ class QuantumFieldEngine:
             lows_full = prices.copy()
 
         # Compute patterns for the whole dataset first
-        pattern_types_full = self._detect_geometric_patterns(highs_full, lows_full)
-        # Slice to matched bars
-        pattern_types = pattern_types_full[rp:]
-
-        # Compute candlestick patterns for whole dataset
+        # Use unified detection
         opens_full = day_data['open'].values.astype(np.float64) if 'open' in day_data.columns else prices.copy()
-        candlestick_types_full = self._detect_candlestick_patterns(opens_full, highs_full, lows_full, close)
+
+        pattern_types_full, candlestick_types_full = self._detect_patterns_unified(opens_full, highs_full, lows_full, close)
+
+        pattern_types = pattern_types_full[rp:]
         candlestick_types = candlestick_types_full[rp:]
 
         # Slice highs/lows to matched bars for cascade check
