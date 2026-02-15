@@ -981,7 +981,8 @@ class QuantumFieldEngine:
                         adx_vals = np.nan_to_num(adx_col[rp:])
                         dmp_vals = np.nan_to_num(dmp_col[rp:])
                         dmn_vals = np.nan_to_num(dmn_col[rp:])
-            except Exception:
+            except Exception as e:
+                print(f"WARNING: ADX calculation failed in GPU path and was skipped: {e}")
                 pass
 
         # Build Results
@@ -1228,12 +1229,14 @@ class QuantumFieldEngine:
                         H, _, _ = compute_Hc(x, kind='price', simplified=True)
                         return H
                     except Exception as e:
+                        print(f"WARNING: Hurst calculation failed for a window: {e}. Defaulting to 0.5.")
                         return 0.5
                 if len(close) >= HURST_WINDOW:
                     series = pd.Series(close)
                     rolling_hurst = series.rolling(HURST_WINDOW).apply(get_hurst, raw=True).values
                     hurst_vals = np.nan_to_num(rolling_hurst[rp:], nan=0.5)
-            except Exception:
+            except Exception as e:
+                print(f"WARNING: Rolling Hurst calculation failed: {e}. Defaulting to 0.5 for all bars.")
                 pass
 
         # ═══ STEP 2: Vectorized z-scores & force fields ═══
