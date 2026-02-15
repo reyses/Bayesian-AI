@@ -66,19 +66,12 @@ PRECOMPUTE_DEBUG_LOG_FILENAME = 'precompute_debug.log'
 DEFAULT_BASE_SLIPPAGE = 0.25
 DEFAULT_VELOCITY_SLIPPAGE_FACTOR = 0.1
 
-# Constants for caching
-SUFFIX_OHLCV_1S = '.ohlcv-1s'
-SUFFIX_PARQUET = '.parquet'
-COL_1S_IDX = '_1s_idx'
-COL_DATE_STR = 'date_str'
-DIR_DATA = 'DATA'
-
 TIMEFRAME_MAP = {
     0: '5s',
     1: '15s',
     2: '60s',
-    3: '5min',
-    4: '15min',
+    3: '5m',
+    4: '15m',
     5: '1h'
 }
 
@@ -231,109 +224,6 @@ class BayesianTrainingOrchestrator:
             total_days = len(days_1s)
             print(f"Limiting to first {total_days} days")
 
-        # Pre-resample optimization timeframes with persistence
-        print("Pre-resampling optimization timeframes...")
-        self.resampled_cache = {}
-
-        # Calculate day start indices for global index mapping
-        day_start_indices = {}
-        if 'date' in data.columns:
-            try:
-                # Group by date and get the first index of each group
-                # Assumes data index is strictly increasing (RangeIndex or sorted timestamp)
-                date_groups = data.groupby('date')
-                day_start_indices = {str(k): v[0] for k, v in date_groups.indices.items()}
-            except Exception as e:
-                print(f"WARNING: Could not calculate day start indices: {e}")
-
-        # Determine persistence directory
-        # Check if config.data is set and its directory exists
-        if self.config.data and os.path.isdir(os.path.dirname(self.config.data)):
-            persistence_dir = os.path.dirname(self.config.data)
-        else:
-            persistence_dir = DIR_DATA
-
-        os.makedirs(persistence_dir, exist_ok=True)
-
-        base_filename = os.path.splitext(os.path.basename(self.config.data))[0] if self.config.data else "data"
-        # If filename has .ohlcv-1s, remove it for the stem (safe removal)
-        if base_filename.endswith(SUFFIX_OHLCV_1S):
-            base_filename = base_filename[:-len(SUFFIX_OHLCV_1S)]
-
-        # Load or generate full resampled datasets
-        full_resampled_dfs = {}
-
-        for interval in TIMEFRAME_MAP.values():
-            # Convention: stem.ohlcv-{interval}.parquet
-            new_name = f"{base_filename}.ohlcv-{interval}{SUFFIX_PARQUET}"
-            cache_path = os.path.join(persistence_dir, new_name)
-
-            if os.path.exists(cache_path):
-                print(f"  Loading cached {interval} data from {cache_path}...", end='', flush=True)
-                try:
-                    df_resampled = pd.read_parquet(cache_path)
-                    # Check if _1s_idx exists
-                    if COL_1S_IDX not in df_resampled.columns:
-                        print(f" (missing {COL_1S_IDX}, regenerating)...", end='', flush=True)
-                        df_resampled = None
-                    else:
-                        print(" done")
-                except Exception as e:
-                    print(f" (error: {e}, regenerating)...", end='', flush=True)
-                    df_resampled = None
-            else:
-                df_resampled = None
-
-            if df_resampled is None:
-                print(f"  Resampling full dataset to {interval}...", end='', flush=True)
-                df_resampled, _ = self._resample_data(data, interval, keep_index_col=True)
-
-                # Ensure date column exists for splitting later
-                if 'date' not in df_resampled.columns and 'timestamp' in df_resampled.columns:
-                    df_resampled['date'] = df_resampled['timestamp'].dt.date
-
-                try:
-                    df_resampled.to_parquet(cache_path)
-                    print(f" saved to {cache_path}")
-                except Exception as e:
-                    print(f" (save failed: {e})")
-
-            # Pre-calculate date string column for efficient splitting
-            if df_resampled is not None and not df_resampled.empty:
-                if COL_DATE_STR not in df_resampled.columns:
-                    # Ensure we have a date column to convert
-                    if 'date' not in df_resampled.columns and 'timestamp' in df_resampled.columns:
-                        df_resampled['date'] = df_resampled['timestamp'].dt.date
-
-                    if 'date' in df_resampled.columns:
-                        df_resampled[COL_DATE_STR] = df_resampled['date'].astype(str)
-
-            full_resampled_dfs[interval] = df_resampled
-
-        # Populate per-day cache from full dataframes
-        print("  Populating memory cache...", end='', flush=True)
-        for date_str, _ in days_1s:
-            self.resampled_cache[date_str] = {}
-            offset = day_start_indices.get(date_str, 0)
-
-            for interval, full_df in full_resampled_dfs.items():
-                if full_df is None or full_df.empty:
-                    continue
-
-                if COL_DATE_STR not in full_df.columns:
-                    continue
-
-                day_slice = full_df[full_df[COL_DATE_STR] == date_str].copy()
-
-                if not day_slice.empty:
-                    # Adjust indices: global -> local
-                    idx_map_global = day_slice[COL_1S_IDX].values
-                    idx_map_local = (idx_map_global - offset).astype(int)
-
-                    # Store tuple (df, idx_map)
-                    self.resampled_cache[date_str][interval] = (day_slice, idx_map_local)
-        print(" done")
-
         print(f"\nTraining on {total_days} trading days...")
         print(f"Date range: {days_1s[0][0]} to {days_1s[-1][0]}")
         print("="*80 + "\n")
@@ -359,12 +249,10 @@ class BayesianTrainingOrchestrator:
             # === STEP 1: PRE-COMPUTE STATES (WALK-FORWARD) ===
             # Resolve interval from active params (from yesterday)
             interval = TIMEFRAME_MAP.get(active_params.get('timeframe_idx', 1), '15s')
-            cached = self.resampled_cache.get(date, {}).get(interval)
 
             precomputed = self._precompute_day_states(
                 day_data, interval=interval, tf_context=tf_context,
-                prev_day_1s=prev_day_1s,
-                pre_resampled_data=cached
+                prev_day_1s=prev_day_1s
             )
 
             # === STEP 2: WALK-FORWARD SIMULATION (Real PnL) ===
@@ -452,8 +340,7 @@ class BayesianTrainingOrchestrator:
 
     def _precompute_day_states(self, day_data: pd.DataFrame, interval: str = '15s',
                                tf_context: Dict = None,
-                               prev_day_1s: pd.DataFrame = None,
-                               pre_resampled_data: Tuple[pd.DataFrame, np.ndarray] = None):
+                               prev_day_1s: pd.DataFrame = None):
         """
         Pre-compute all states, probabilities, and confidences for a day ONCE.
 
@@ -465,7 +352,6 @@ class BayesianTrainingOrchestrator:
             interval: Aggregation interval (e.g., '5s', '15s', '60s')
             tf_context: Multi-timeframe context from MultiTimeframeContext.get_context_for_day()
             prev_day_1s: Previous day's 1s data for warming up regression windows
-            pre_resampled_data: Optional tuple of (resampled_df, idx_map) from cache
 
         Returns:
             List of dicts with bar_idx, state, price, prob, conf, structure_ok, direction
@@ -482,11 +368,8 @@ class BayesianTrainingOrchestrator:
         prices = day_data['price'].values if 'price' in day_data.columns else day_data['close'].values
         timestamps = day_data['timestamp'].values if 'timestamp' in day_data.columns else np.zeros(len(day_data))
 
-        # Use pre-resampled data if available, otherwise resample on the fly
-        if pre_resampled_data:
-            resampled_data, idx_map_agg_to_1s = pre_resampled_data
-        else:
-            resampled_data, idx_map_agg_to_1s = self._resample_data(day_data, interval)
+        # Resample on the fly
+        resampled_data, idx_map_agg_to_1s = self._resample_data(day_data, interval)
 
         # === WARMUP: Prepend previous day's tail to fix cold-start regression ===
         warmup_bars = 0
@@ -696,14 +579,13 @@ class BayesianTrainingOrchestrator:
 
         return batch_results
 
-    def _resample_data(self, day_data: pd.DataFrame, interval: str, keep_index_col: bool = False):
+    def _resample_data(self, day_data: pd.DataFrame, interval: str):
         """
         Resample 1s OHLCV bars to {interval} bars for state computation.
 
         Args:
             day_data: DataFrame with 1s data
             interval: Pandas offset string (e.g. '5s', '15s', '60s')
-            keep_index_col: If True, preserves '_1s_idx' column in returned DataFrame
 
         Returns:
             resampled_df: DataFrame with timestamp, close, price, volume columns
@@ -754,9 +636,8 @@ class BayesianTrainingOrchestrator:
         if 'price' not in resampled.columns:
             resampled['price'] = resampled['close']
 
-        # Drop helper column unless requested
-        if not keep_index_col:
-            resampled = resampled.drop(columns=['_1s_idx'], errors='ignore')
+        # Drop helper column
+        resampled = resampled.drop(columns=['_1s_idx'], errors='ignore')
 
         return resampled, idx_map
 
@@ -955,13 +836,11 @@ class BayesianTrainingOrchestrator:
         # Process each timeframe group
         for tf_idx, group in grouped_params.items():
             interval = TIMEFRAME_MAP.get(tf_idx, '15s')
-            cached = self.resampled_cache.get(date, {}).get(interval)
 
             # Precompute states for this timeframe
             precomputed = self._precompute_day_states(
                 day_data, interval=interval, tf_context=tf_context,
-                prev_day_1s=prev_day_1s,
-                pre_resampled_data=cached
+                prev_day_1s=prev_day_1s
             )
 
             if not precomputed:

@@ -11,8 +11,8 @@ import sys
 # Add project root to path
 sys.path.append(os.getcwd())
 
-from cuda_modules.confirmation import get_confirmation_engine
-import cuda_modules.confirmation
+from archive.cuda_modules.confirmation import get_confirmation_engine
+import archive.cuda_modules.confirmation
 from tests.utils import get_cuda_availability
 
 class TestCUDAConfirmationEngine:
@@ -79,7 +79,7 @@ class TestCUDAConfirmationEngine:
 def test_gpu_fallback_enforcement():
     """Verify initialization behaves correctly based on environment"""
     # Reset singleton to ensure we test initialization logic
-    cuda_modules.confirmation._confirmation_engine = None
+    archive.cuda_modules.confirmation._confirmation_engine = None
 
     cuda_available = get_cuda_availability()
 

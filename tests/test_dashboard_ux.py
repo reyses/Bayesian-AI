@@ -33,8 +33,8 @@ sys.modules['matplotlib.backends.backend_tkagg'] = MagicMock()
 sys.modules['matplotlib.figure'] = MagicMock()
 sys.modules['matplotlib.dates'] = MagicMock()
 sys.modules['matplotlib.style'] = MagicMock()
-sys.modules['pandas'] = MagicMock()
-sys.modules['numpy'] = MagicMock()
+# sys.modules['pandas'] = MagicMock()
+# sys.modules['numpy'] = MagicMock()
 
 # Now import the dashboard
 from visualization.live_training_dashboard import LiveDashboard, Tooltip
