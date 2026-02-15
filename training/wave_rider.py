@@ -360,7 +360,7 @@ class WaveRider:
             # Clear position and price history
             self.position = None
             self.price_history = []
-            
+
             return {
                 'should_exit': True,
                 'exit_price': current_price,
