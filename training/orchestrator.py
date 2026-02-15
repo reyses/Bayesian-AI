@@ -66,6 +66,13 @@ PRECOMPUTE_DEBUG_LOG_FILENAME = 'precompute_debug.log'
 DEFAULT_BASE_SLIPPAGE = 0.25
 DEFAULT_VELOCITY_SLIPPAGE_FACTOR = 0.1
 
+# Constants for caching
+SUFFIX_OHLCV_1S = '.ohlcv-1s'
+SUFFIX_PARQUET = '.parquet'
+COL_1S_IDX = '_1s_idx'
+COL_DATE_STR = 'date_str'
+DIR_DATA = 'DATA'
+
 TIMEFRAME_MAP = {
     0: '5s',
     1: '15s',
@@ -240,22 +247,25 @@ class BayesianTrainingOrchestrator:
                 print(f"WARNING: Could not calculate day start indices: {e}")
 
         # Determine persistence directory
-        persistence_dir = os.path.dirname(self.config.data) if self.config.data and os.path.exists(os.path.dirname(self.config.data)) else "DATA"
-        if not os.path.exists(persistence_dir):
-             # Fallback to DATA if parent of file doesn't exist
-             persistence_dir = "DATA"
+        # Check if config.data is set and its directory exists
+        if self.config.data and os.path.isdir(os.path.dirname(self.config.data)):
+            persistence_dir = os.path.dirname(self.config.data)
+        else:
+            persistence_dir = DIR_DATA
+
+        os.makedirs(persistence_dir, exist_ok=True)
 
         base_filename = os.path.splitext(os.path.basename(self.config.data))[0] if self.config.data else "data"
-        # If filename has .ohlcv-1s, remove it for the stem
-        if '.ohlcv-1s' in base_filename:
-            base_filename = base_filename.replace('.ohlcv-1s', '')
+        # If filename has .ohlcv-1s, remove it for the stem (safe removal)
+        if base_filename.endswith(SUFFIX_OHLCV_1S):
+            base_filename = base_filename[:-len(SUFFIX_OHLCV_1S)]
 
         # Load or generate full resampled datasets
         full_resampled_dfs = {}
 
         for interval in TIMEFRAME_MAP.values():
             # Convention: stem.ohlcv-{interval}.parquet
-            new_name = f"{base_filename}.ohlcv-{interval}.parquet"
+            new_name = f"{base_filename}.ohlcv-{interval}{SUFFIX_PARQUET}"
             cache_path = os.path.join(persistence_dir, new_name)
 
             if os.path.exists(cache_path):
@@ -263,8 +273,8 @@ class BayesianTrainingOrchestrator:
                 try:
                     df_resampled = pd.read_parquet(cache_path)
                     # Check if _1s_idx exists
-                    if '_1s_idx' not in df_resampled.columns:
-                        print(" (missing _1s_idx, regenerating)...", end='', flush=True)
+                    if COL_1S_IDX not in df_resampled.columns:
+                        print(f" (missing {COL_1S_IDX}, regenerating)...", end='', flush=True)
                         df_resampled = None
                     else:
                         print(" done")
@@ -288,6 +298,16 @@ class BayesianTrainingOrchestrator:
                 except Exception as e:
                     print(f" (save failed: {e})")
 
+            # Pre-calculate date string column for efficient splitting
+            if df_resampled is not None and not df_resampled.empty:
+                if COL_DATE_STR not in df_resampled.columns:
+                    # Ensure we have a date column to convert
+                    if 'date' not in df_resampled.columns and 'timestamp' in df_resampled.columns:
+                        df_resampled['date'] = df_resampled['timestamp'].dt.date
+
+                    if 'date' in df_resampled.columns:
+                        df_resampled[COL_DATE_STR] = df_resampled['date'].astype(str)
+
             full_resampled_dfs[interval] = df_resampled
 
         # Populate per-day cache from full dataframes
@@ -300,16 +320,14 @@ class BayesianTrainingOrchestrator:
                 if full_df is None or full_df.empty:
                     continue
 
-                # Ensure date column exists (might be object or date type)
-                # Convert to string for robust comparison
-                if 'date_str' not in full_df.columns:
-                    full_df['date_str'] = full_df['date'].astype(str)
+                if COL_DATE_STR not in full_df.columns:
+                    continue
 
-                day_slice = full_df[full_df['date_str'] == date_str].copy()
+                day_slice = full_df[full_df[COL_DATE_STR] == date_str].copy()
 
                 if not day_slice.empty:
                     # Adjust indices: global -> local
-                    idx_map_global = day_slice['_1s_idx'].values
+                    idx_map_global = day_slice[COL_1S_IDX].values
                     idx_map_local = (idx_map_global - offset).astype(int)
 
                     # Store tuple (df, idx_map)
