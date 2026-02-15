@@ -339,9 +339,14 @@ class BayesianTrainingOrchestrator:
 
         global_max_force = max(max_forces) if max_forces else 0.0
 
-        avg_duration = sum(durations) / len(durations) if durations else 0.0
-        min_duration = min(durations) if durations else 0.0
-        max_duration = max(durations) if durations else 0.0
+        if durations:
+            avg_duration = sum(durations) / len(durations)
+            min_duration = min(durations)
+            max_duration = max(durations)
+        else:
+            avg_duration = 0.0
+            max_duration = 0.0
+            min_duration = 0.0
 
         print(f"Files Processed: {total_files}")
         print(f"Success: {success} | Failed: {failed}")
