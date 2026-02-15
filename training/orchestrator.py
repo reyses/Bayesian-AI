@@ -881,10 +881,6 @@ class BayesianTrainingOrchestrator:
         # Create a list of (index, pnl, sharpe)
         candidates = []
         for i, res in enumerate(all_results):
-            if 'pnl' not in res:
-                print(f"WARNING: Result {i} missing 'pnl': {list(res.keys())}")
-                res['pnl'] = 0.0
-                res['sharpe'] = -999.0
             candidates.append((i, res['pnl'], res['sharpe']))
 
         # Sort by PnL (desc), then Sharpe (desc)

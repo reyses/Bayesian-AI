@@ -38,19 +38,9 @@ sys.modules['matplotlib.style'] = MagicMock()
 
 # Now import the dashboard
 from visualization.live_training_dashboard import LiveDashboard, Tooltip
-import importlib
-import visualization.live_training_dashboard
 
 class TestDashboardUX(unittest.TestCase):
     def setUp(self):
-        # Reload module to ensure it uses the mocks defined in THIS file
-        # (avoiding stale mocks from other tests if run in suite)
-        # Re-assign sys.modules just in case
-        sys.modules['tkinter'] = mock_tk
-        sys.modules['tkinter.ttk'] = mock_ttk
-
-        importlib.reload(visualization.live_training_dashboard)
-
         self.root = MagicMock()
 
     @patch('visualization.live_training_dashboard.threading.Thread')
