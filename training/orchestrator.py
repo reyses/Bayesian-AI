@@ -887,7 +887,10 @@ class BayesianTrainingOrchestrator:
         # Create a list of (index, pnl, sharpe)
         candidates = []
         for i, res in enumerate(all_results):
-            candidates.append((i, res['pnl'], res['sharpe']))
+            # Defensive get() in case result dict is malformed (e.g. from mocks)
+            pnl = res.get('pnl', 0.0)
+            sharpe = res.get('sharpe', -999.0)
+            candidates.append((i, pnl, sharpe))
 
         # Sort by PnL (desc), then Sharpe (desc)
         candidates.sort(key=lambda x: (x[1], x[2]), reverse=True)
@@ -895,10 +898,11 @@ class BayesianTrainingOrchestrator:
         best_idx = candidates[0][0]
 
         # Unpack best result
-        best_sharpe = all_results[best_idx]['sharpe']
-        best_pnl = all_results[best_idx]['pnl']
+        best_result = all_results[best_idx]
+        best_sharpe = best_result.get('sharpe', -999.0)
+        best_pnl = best_result.get('pnl', 0.0)
         best_params = all_param_sets[best_idx]
-        best_trades = all_results[best_idx]['trades']
+        best_trades = best_result.get('trades', [])
         self._best_trades_today = best_trades
 
         # Collect all trades for regret analysis
