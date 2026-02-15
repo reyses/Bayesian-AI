@@ -129,9 +129,9 @@ class LiveDashboard:
         self.root.bind('S', lambda e: self.stop_training())
         self.root.bind('x', lambda e: self.export_chart())
         self.root.bind('X', lambda e: self.export_chart())
-        self.root.bind('h', lambda e: self.show_help())
-        self.root.bind('H', lambda e: self.show_help())
-        self.root.bind('?', lambda e: self.show_help())
+        show_help_handler = lambda e: self.show_help()
+        for key in ('h', 'H', '?'):
+            self.root.bind(key, show_help_handler)
 
         # Start Polling Thread
         self.poll_thread = threading.Thread(target=self.poll_data, daemon=True)
