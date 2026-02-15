@@ -2,53 +2,71 @@ import unittest
 import sys
 import os
 from unittest.mock import MagicMock, patch
-
-# Note: We rely on python -m unittest for path resolution now.
-
-# Create Mocks
-mock_tk = MagicMock()
-mock_ttk = MagicMock()
-
-def create_mock_label(*args, **kwargs):
-    m = MagicMock()
-    return m
-
-# Set it on the mock_ttk object
-mock_ttk.Label = create_mock_label
-
-# Set it on mock_tk.Label too (because LiveDashboard uses tk.Label for cards)
-mock_tk.Label = MagicMock(side_effect=create_mock_label)
-
-# IMPORTANT: Link mock_tk.ttk to mock_ttk!
-mock_tk.ttk = mock_ttk
-
-# Assign to sys.modules
-sys.modules['tkinter'] = mock_tk
-sys.modules['tkinter.ttk'] = mock_ttk
-sys.modules['tkinter.messagebox'] = MagicMock()
-sys.modules['matplotlib'] = MagicMock()
-sys.modules['matplotlib.pyplot'] = MagicMock()
-sys.modules['matplotlib.backends'] = MagicMock()
-sys.modules['matplotlib.backends.backend_tkagg'] = MagicMock()
-sys.modules['matplotlib.figure'] = MagicMock()
-sys.modules['matplotlib.dates'] = MagicMock()
-sys.modules['matplotlib.style'] = MagicMock()
-# sys.modules['pandas'] = MagicMock()
-# sys.modules['numpy'] = MagicMock()
-
-# Now import the dashboard
-from visualization.live_training_dashboard import LiveDashboard, Tooltip
+import importlib
 
 class TestDashboardUX(unittest.TestCase):
     def setUp(self):
+        # Create Mocks FRESH for each test
+        self.mock_tk = MagicMock()
+        self.mock_ttk = MagicMock()
+
+        def create_mock_label(*args, **kwargs):
+            m = MagicMock()
+            # Ensure bind is a mock
+            m.bind = MagicMock()
+            m.config = MagicMock()
+            m.pack = MagicMock()
+            m.grid = MagicMock()
+            return m
+
+        # Set it on the mock_ttk object
+        self.mock_ttk.Label = create_mock_label
+        # Also mock Scrollbar
+        self.mock_ttk.Scrollbar = MagicMock()
+
+        # Set it on mock_tk.Label too (because LiveDashboard uses tk.Label for cards)
+        self.mock_tk.Label = MagicMock(side_effect=create_mock_label)
+
+        # Mock Text widget
+        self.mock_tk.Text = MagicMock()
+
+        # IMPORTANT: Link mock_tk.ttk to mock_ttk!
+        self.mock_tk.ttk = self.mock_ttk
+
+        # Patch dict for sys.modules
+        self.modules_patcher = patch.dict(sys.modules, {
+            'tkinter': self.mock_tk,
+            'tkinter.ttk': self.mock_ttk,
+            'tkinter.messagebox': MagicMock(),
+            'matplotlib': MagicMock(),
+            'matplotlib.pyplot': MagicMock(),
+            'matplotlib.backends': MagicMock(),
+            'matplotlib.backends.backend_tkagg': MagicMock(),
+            'matplotlib.figure': MagicMock(),
+            'matplotlib.dates': MagicMock(),
+            'matplotlib.style': MagicMock(),
+        })
+        self.modules_patcher.start()
+
+        # Import module inside patched environment
+        import visualization.live_training_dashboard
+        importlib.reload(visualization.live_training_dashboard)
+        self.dashboard_module = visualization.live_training_dashboard
+        self.LiveDashboard = self.dashboard_module.LiveDashboard
+
         self.root = MagicMock()
+
+    def tearDown(self):
+        self.modules_patcher.stop()
 
     @patch('visualization.live_training_dashboard.threading.Thread')
     def test_tooltips_presence(self, mock_thread):
         mock_thread.return_value.start = MagicMock()
-        dashboard = LiveDashboard(self.root)
+        dashboard = self.LiveDashboard(self.root)
 
         # Verify ids are different (Sanity check)
+        # Note: _card_states is a tuple (val_label, sub_label)
+        # We compare the value labels
         self.assertNotEqual(id(dashboard._card_states[0]), id(dashboard._card_progress[0]), "Labels should be different objects")
 
         def check_binding(widget, widget_name):
@@ -74,7 +92,7 @@ class TestDashboardUX(unittest.TestCase):
     @patch('visualization.live_training_dashboard.threading.Thread')
     def test_status_icons(self, mock_thread):
         mock_thread.return_value.start = MagicMock()
-        dashboard = LiveDashboard(self.root)
+        dashboard = self.LiveDashboard(self.root)
 
         status_tests = {
             "RUNNING": "🟢",
@@ -112,12 +130,12 @@ class TestDashboardUX(unittest.TestCase):
         mock_thread.return_value.start = MagicMock()
 
         # Reset mock to spy on creation
-        mock_ttk.Scrollbar.reset_mock()
+        self.mock_ttk.Scrollbar.reset_mock()
 
-        dashboard = LiveDashboard(self.root)
+        dashboard = self.LiveDashboard(self.root)
 
         # Verify Scrollbar was instantiated
-        self.assertTrue(mock_ttk.Scrollbar.called, "Scrollbar should be instantiated")
+        self.assertTrue(self.mock_ttk.Scrollbar.called, "Scrollbar should be instantiated")
 
         # Verify text widget configured with yscrollcommand
         # dashboard.txt_log is the mock instance
@@ -131,7 +149,7 @@ class TestDashboardUX(unittest.TestCase):
         self.assertTrue(has_yscroll, "Text widget should be configured with yscrollcommand")
 
         # Verify Scrollbar linked to text widget yview
-        scrollbar_calls = mock_ttk.Scrollbar.call_args_list
+        scrollbar_calls = self.mock_ttk.Scrollbar.call_args_list
         found_command = False
         for call in scrollbar_calls:
             if 'command' in call.kwargs and call.kwargs['command'] == dashboard.txt_log.yview:
@@ -143,7 +161,7 @@ class TestDashboardUX(unittest.TestCase):
     @patch('visualization.live_training_dashboard.threading.Thread')
     def test_shortcuts_binding(self, mock_thread):
         mock_thread.return_value.start = MagicMock()
-        dashboard = LiveDashboard(self.root)
+        dashboard = self.LiveDashboard(self.root)
 
         # Check bindings on root
         bind_calls = self.root.bind.call_args_list
@@ -159,10 +177,11 @@ class TestDashboardUX(unittest.TestCase):
         mock_thread.return_value.start = MagicMock()
 
         # Instantiate dashboard
-        dashboard = LiveDashboard(self.root)
+        dashboard = self.LiveDashboard(self.root)
 
         # Check call args of tk.Text constructor
-        call_args = mock_tk.Text.call_args
+        # self.mock_tk is the mock object for 'tkinter'
+        call_args = self.mock_tk.Text.call_args
 
         if call_args:
              self.assertEqual(call_args.kwargs.get('state'), 'disabled', "Log text widget should be initialized as disabled")
@@ -170,7 +189,7 @@ class TestDashboardUX(unittest.TestCase):
     @patch('visualization.live_training_dashboard.threading.Thread')
     def test_toggle_pause(self, mock_thread):
         mock_thread.return_value.start = MagicMock()
-        dashboard = LiveDashboard(self.root)
+        dashboard = self.LiveDashboard(self.root)
 
         if not hasattr(dashboard, 'toggle_pause'):
             self.fail("toggle_pause method not found")
