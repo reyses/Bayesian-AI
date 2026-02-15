@@ -3,59 +3,70 @@ import sys
 import os
 import shutil
 from unittest.mock import MagicMock, patch
-
-# Add project root to sys.path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-# Create Mocks
-mock_tk = MagicMock()
-mock_ttk = MagicMock()
-mock_messagebox = MagicMock()
-mock_mpl = MagicMock()
-mock_plt = MagicMock()
-mock_tkagg = MagicMock()
-mock_figure = MagicMock()
-mock_dates = MagicMock()
-mock_style = MagicMock()
-
-# Configure specific mocks
-mock_tk.Tk = MagicMock()
-mock_tk.Toplevel = MagicMock()
-mock_tk.Label = MagicMock()
-mock_tk.Text = MagicMock()
-mock_tk.Button = MagicMock()
-
-mock_ttk.Frame = MagicMock()
-mock_ttk.Label = MagicMock()
-mock_ttk.Button = MagicMock()
-mock_ttk.Style = MagicMock()
-mock_ttk.Separator = MagicMock()
-
-# Assign to sys.modules
-sys.modules['tkinter'] = mock_tk
-sys.modules['tkinter.ttk'] = mock_ttk
-sys.modules['tkinter.messagebox'] = mock_messagebox
-sys.modules['matplotlib'] = mock_mpl
-sys.modules['matplotlib.pyplot'] = mock_plt
-sys.modules['matplotlib.backends'] = MagicMock()
-sys.modules['matplotlib.backends.backend_tkagg'] = mock_tkagg
-sys.modules['matplotlib.figure'] = mock_figure
-sys.modules['matplotlib.dates'] = mock_dates
-sys.modules['matplotlib.style'] = mock_style
-
-# Now import the dashboard
-from visualization.live_training_dashboard import LiveDashboard
+import importlib
 
 class TestDashboardMetrics(unittest.TestCase):
     def setUp(self):
+        # Create fresh mocks
+        self.mock_tk = MagicMock()
+        self.mock_ttk = MagicMock()
+        self.mock_messagebox = MagicMock()
+        self.mock_mpl = MagicMock()
+        self.mock_plt = MagicMock()
+        self.mock_tkagg = MagicMock()
+        self.mock_figure = MagicMock()
+        self.mock_dates = MagicMock()
+        self.mock_style = MagicMock()
+
+        # Configure specific mocks
+        self.mock_tk.Tk = MagicMock()
+        self.mock_tk.Toplevel = MagicMock()
+        self.mock_tk.Label = MagicMock()
+        self.mock_tk.Text = MagicMock()
+        self.mock_tk.Button = MagicMock()
+
+        self.mock_ttk.Frame = MagicMock()
+        self.mock_ttk.Label = MagicMock()
+        self.mock_ttk.Button = MagicMock()
+        self.mock_ttk.Style = MagicMock()
+        self.mock_ttk.Separator = MagicMock()
+
+        # Link mock_tk.messagebox
+        self.mock_tk.messagebox = self.mock_messagebox
+
+        # Patch sys.modules
+        self.patcher = patch.dict(sys.modules, {
+            'tkinter': self.mock_tk,
+            'tkinter.ttk': self.mock_ttk,
+            'tkinter.messagebox': self.mock_messagebox,
+            'matplotlib': self.mock_mpl,
+            'matplotlib.pyplot': self.mock_plt,
+            'matplotlib.backends': MagicMock(),
+            'matplotlib.backends.backend_tkagg': self.mock_tkagg,
+            'matplotlib.figure': self.mock_figure,
+            'matplotlib.dates': self.mock_dates,
+            'matplotlib.style': self.mock_style,
+        })
+        self.patcher.start()
+
+        # Reload the dashboard module
+        import visualization.live_training_dashboard
+        importlib.reload(visualization.live_training_dashboard)
+
+        from visualization.live_training_dashboard import LiveDashboard
+        self.LiveDashboard = LiveDashboard
+
         self.root = MagicMock()
+
+    def tearDown(self):
+        self.patcher.stop()
 
     @patch('visualization.live_training_dashboard.threading.Thread')
     def test_metrics_update(self, mock_thread):
         # Prevent thread from starting
         mock_thread.return_value.start = MagicMock()
 
-        dashboard = LiveDashboard(self.root)
+        dashboard = self.LiveDashboard(self.root)
 
         # Inject mock labels to capture config calls
         # The dashboard uses tuples for cards: (value_label, sub_label)
@@ -81,22 +92,11 @@ class TestDashboardMetrics(unittest.TestCase):
             ]
         }
         # Precompute values that LiveDashboard calculates from trades
-        # The dashboard logic actually computes these from 'cumulative_win_rate' and 'total_pnl' in data
-        # So we must provide those in dashboard.data OR ensure LiveDashboard calculates them.
-        # Looking at LiveDashboard.refresh_dashboard:
-        # total_pnl = d.get('total_pnl', 0.0)
-        # cum_wr = d.get('cumulative_win_rate', 0.0)
-
-        # So we need to provide these pre-calculated values in data for the test to pass
         dashboard.data['total_pnl'] = 70.0
         dashboard.data['cumulative_win_rate'] = 66.7
 
         # Call refresh
         dashboard.refresh_dashboard()
-
-        # Verify Win Rate Logic
-        # Wins: 2, Total: 3 => 66.66...% -> 66.7%
-        # Expected color: Green (#00ff00) because >= 50%
 
         # Check Win Rate
         call_args_wr = mock_wr_val.config.call_args
@@ -105,7 +105,6 @@ class TestDashboardMetrics(unittest.TestCase):
         self.assertEqual(call_args_wr[1].get('fg'), "#00ff00")
 
         # Check P&L
-        # Total: 70.0
         call_args_pnl = mock_pnl_val.config.call_args
         self.assertIsNotNone(call_args_pnl, "lbl_pnl.config was not called")
         self.assertEqual(call_args_pnl[1].get('text'), "$70.00")
@@ -115,7 +114,7 @@ class TestDashboardMetrics(unittest.TestCase):
     def test_metrics_update_negative(self, mock_thread):
         # Test negative scenarios (Losses)
         mock_thread.return_value.start = MagicMock()
-        dashboard = LiveDashboard(self.root)
+        dashboard = self.LiveDashboard(self.root)
 
         # Inject mocks
         mock_wr_val = MagicMock()
