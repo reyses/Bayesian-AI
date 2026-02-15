@@ -32,6 +32,18 @@ class RegretMarkers:
     bars_to_peak: int
 
 
+@dataclass
+class PendingReview:
+    """Trade waiting for delayed regret analysis"""
+    entry_price: float
+    exit_price: float
+    entry_time: float
+    exit_time: float
+    review_end_time: float
+    side: str
+    exit_reason: str
+
+
 class RegretAnalyzer:
     """Analyzes trade exits to learn optimal timing"""
     
@@ -46,9 +58,10 @@ class RegretAnalyzer:
                     side: str,
                     exit_reason: str,
                     price_history: List[Tuple[float, float]],
-                    tick_value: float) -> RegretMarkers:
+                    tick_value: float,
+                    review_end_time: Optional[float] = None) -> RegretMarkers:
         """
-        Analyze trade exit quality
+        Analyze trade exit quality with optional lookahead
         
         Args:
             entry_price: Entry price
@@ -59,6 +72,7 @@ class RegretAnalyzer:
             exit_reason: Why trade closed
             price_history: List of (timestamp, price) tuples
             tick_value: Dollar per tick
+            review_end_time: Look ahead until this time for true peak
             
         Returns:
             RegretMarkers with analysis
@@ -73,10 +87,13 @@ class RegretAnalyzer:
         peak_price = entry_price
         peak_time = entry_time
         
+        # Use provided review_end_time or default to exit_time (no lookahead)
+        search_end_time = review_end_time if review_end_time is not None else exit_time
+
         for timestamp, price in price_history:
             if timestamp < entry_time:
                 continue
-            if timestamp > exit_time:
+            if timestamp > search_end_time:
                 break
             
             if side == 'long':
@@ -103,15 +120,24 @@ class RegretAnalyzer:
             gave_back = max(0, (exit_price - peak_price) / 0.25 * tick_value)
         
         # Exit efficiency
-        exit_efficiency = actual_pnl / potential_max_pnl if potential_max_pnl > 0 else 1.0
+        if potential_max_pnl > 0:
+            exit_efficiency = actual_pnl / potential_max_pnl
+        else:
+            # If no potential profit existed:
+            # Loss -> 0.0 efficiency
+            # Breakeven/Profit (rare if potential=0) -> 1.0 efficiency
+            exit_efficiency = 1.0 if actual_pnl >= 0 else 0.0
+
         exit_efficiency = min(1.0, max(0.0, exit_efficiency))
         
         # Classify regret
-        if exit_efficiency >= 0.90:
+        if actual_pnl < 0:
+            regret_type = 'wrong_direction'
+        elif exit_efficiency >= 0.90:
             regret_type = 'optimal'
-        elif pnl_left > gave_back:
+        elif peak_time > exit_time:
             regret_type = 'closed_too_early'
-        elif gave_back > pnl_left:
+        elif gave_back > potential_max_pnl * 0.20:
             regret_type = 'closed_too_late'
         else:
             regret_type = 'optimal'
@@ -250,6 +276,8 @@ class WaveRider:
         # Regret analysis
         self.regret_analyzer = RegretAnalyzer()
         self.price_history: List[Tuple[float, float]] = []
+        self.pending_reviews: List[PendingReview] = []
+        self.review_wait_time = 300.0  # Default 5 minutes (can be overridden)
         
         # Statistics
         self.total_trades = 0
@@ -280,32 +308,83 @@ class WaveRider:
             entry_layer_state=state
         )
         
-        # Reset price history
-        self.price_history = [(time.time(), entry_price)]
+        # Note: Do not clear price_history here as we need it for delayed analysis
+        # Just ensure it's not growing indefinitely (handled in update/process methods)
+
+    def process_pending_reviews(self, current_time: float, current_price: float):
+        """
+        Process any pending reviews that have reached their wait time.
+        Also updates price history buffer.
+        """
+        # Always track price for analysis (prevent duplicates if called multiple times per tick)
+        if not self.price_history or self.price_history[-1] != (current_time, current_price):
+            self.price_history.append((current_time, current_price))
+
+        # Keep buffer manageable (e.g. last 5000 ticks ~ 1.5 hours at 1s resolution)
+        if len(self.price_history) > 5000:
+            self.price_history = self.price_history[-5000:]
+
+        if not self.pending_reviews:
+            return
+
+        # Check for ripe reviews
+        remaining_reviews = []
+        for review in self.pending_reviews:
+            if current_time >= review.review_end_time:
+                # Time to analyze!
+                markers = self.regret_analyzer.analyze_exit(
+                    entry_price=review.entry_price,
+                    exit_price=review.exit_price,
+                    entry_time=review.entry_time,
+                    exit_time=review.exit_time,
+                    side=review.side,
+                    exit_reason=review.exit_reason,
+                    price_history=self.price_history,
+                    tick_value=self.asset.tick_value,
+                    review_end_time=review.review_end_time
+                )
+
+                # Visualize regret
+                self._visualize_regret(markers)
+
+                # Update statistics
+                self.total_trades += 1
+                self.trades_since_calibration += 1
+
+                # Calibrate trail stops periodically
+                if self.trades_since_calibration >= self.calibration_interval:
+                    self._calibrate_trail_stops()
+                    self.trades_since_calibration = 0
+            else:
+                remaining_reviews.append(review)
+
+        self.pending_reviews = remaining_reviews
 
     def update_trail(self, current_price: float, 
-                    current_state: Union[StateVector, ThreeBodyQuantumState]) -> Dict:
+                    current_state: Union[StateVector, ThreeBodyQuantumState],
+                    timestamp: Optional[float] = None) -> Dict:
         """
         Update trailing stop and check exit conditions
         
-        ENHANCED: Now tracks price history for regret analysis
+        ENHANCED: Now uses delayed regret analysis
         
         Args:
             current_price: Current market price
             current_state: Current StateVector or ThreeBodyQuantumState
+            timestamp: Optional timestamp (uses time.time() if None)
             
         Returns:
             Dict with 'should_exit', 'pnl', 'exit_reason', 'regret_markers' (if exit)
         """
+        current_time = timestamp if timestamp is not None else time.time()
+
         if not self.position:
+            # Still update price history for context if called
+            self.process_pending_reviews(current_time, current_price)
             return {'should_exit': False}
         
-        # Track price for regret analysis
-        self.price_history.append((time.time(), current_price))
-        
-        # Keep last 200 ticks
-        if len(self.price_history) > 200:
-            self.price_history = self.price_history[-200:]
+        # Update history via process_pending_reviews
+        self.process_pending_reviews(current_time, current_price)
 
         # Update High Water Mark
         if self.position.side == 'short':
@@ -337,40 +416,54 @@ class WaveRider:
         if stop_hit or structure_broken:
             exit_reason = 'structure_break' if structure_broken else 'trail_stop'
             
-            # PERFORM REGRET ANALYSIS
-            markers = self.regret_analyzer.analyze_exit(
+            # QUEUE FOR REGRET ANALYSIS (Delayed)
+            review = PendingReview(
                 entry_price=self.position.entry_price,
                 exit_price=current_price,
                 entry_time=self.position.entry_time,
-                exit_time=time.time(),
+                exit_time=current_time,
+                review_end_time=current_time + self.review_wait_time,
                 side=self.position.side,
-                exit_reason=exit_reason,
-                price_history=self.price_history,
-                tick_value=self.asset.tick_value
+                exit_reason=exit_reason
             )
+            self.pending_reviews.append(review)
             
-            # Visualize regret
-            self._visualize_regret(markers)
+            # Capture data for return
+            entry_price = self.position.entry_price
+            entry_time = self.position.entry_time
+            side = self.position.side
             
-            # Update statistics
-            self.total_trades += 1
-            self.trades_since_calibration += 1
-            
-            # Calibrate trail stops periodically
-            if self.trades_since_calibration >= self.calibration_interval:
-                self._calibrate_trail_stops()
-                self.trades_since_calibration = 0
-            
-            # Clear position and price history
+            # Clear position (but NOT price history/pending reviews)
             self.position = None
-            self.price_history = []
+
+            # Create a placeholder or partial markers object if needed immediately,
+            # or just return None for markers. Orchestrator can handle it.
+            # We'll return a partial object so orchestrator can log the trade.
+            partial_markers = RegretMarkers(
+                entry_price=entry_price,
+                exit_price=current_price,
+                entry_time=entry_time,
+                exit_time=current_time,
+                side=side,
+                actual_pnl=profit_usd,
+                exit_reason=exit_reason,
+                peak_favorable=entry_price, # Placeholder
+                peak_favorable_time=entry_time, # Placeholder
+                potential_max_pnl=0.0, # Placeholder
+                pnl_left_on_table=0.0,
+                gave_back_pnl=0.0,
+                exit_efficiency=0.0,
+                regret_type='pending', # Indicate pending
+                bars_held=0,
+                bars_to_peak=0
+            )
 
             return {
                 'should_exit': True,
                 'exit_price': current_price,
                 'exit_reason': exit_reason,
                 'pnl': profit_usd,
-                'regret_markers': markers
+                'regret_markers': partial_markers
             }
 
         self.position.stop_loss = new_stop
@@ -395,7 +488,7 @@ class WaveRider:
         print(f"\n{'='*60}")
         print(f"POST-TRADE REGRET ANALYSIS")
         print(f"{'='*60}")
-        print(f"Side: {self.position.side.upper()}")
+        print(f"Side: {markers.side.upper()}")
         print(f"Entry: {markers.entry_price:.2f}")
         print(f"Exit:  {markers.exit_price:.2f} ({markers.exit_reason})")
         print(f"Peak:  {markers.peak_favorable:.2f}")
