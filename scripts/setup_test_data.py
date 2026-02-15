@@ -44,8 +44,8 @@ def setup_test_data():
     data_raw_dir = os.path.join(root_dir, 'DATA', 'RAW')
     tests_dir = os.path.join(root_dir, 'tests')
 
-    dbn_filename = 'glbx-mdp3-20250101-20260209.ohlcv-1s.dbn.zst'
-    source_dbn_path = os.path.join(root_dir, 'DATA', 'OHLCV_raw', dbn_filename) # Corrected path
+    dbn_filename = 'glbx-mdp3-20250730.trades.0000.dbn.zst'
+    source_dbn_path = os.path.join(tests_dir, dbn_filename)
     dest_dbn_path = os.path.join(data_raw_dir, dbn_filename)
     trades_parquet_path = os.path.join(data_raw_dir, 'trades.parquet')
     ohlcv_parquet_path = os.path.join(data_raw_dir, 'ohlcv-1s.parquet')
