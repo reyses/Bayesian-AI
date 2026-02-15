@@ -5,6 +5,7 @@ Addresses ISSUE-003: Missing test coverage for execution logic.
 import pytest
 import sys
 import os
+import time
 
 # Add project root to path
 sys.path.append(os.getcwd())
@@ -49,3 +50,130 @@ def test_adaptive_trail():
     # Since trail is tight (2.5 pts), this SHOULD trigger exit
     decision = rider.update_trail(93.0, state)
     assert decision['should_exit']
+
+def test_delayed_regret_analysis_early_exit():
+    """Test 'closed_too_early' detection with delayed lookahead."""
+    rider = WaveRider(MNQ)
+    rider.review_wait_time = 60.0 # 60 seconds wait
+    state = replace(StateVector.null_state(), L8_confirm=True)
+
+    start_time = time.time()
+    rider.open_position(100.0, 'long', state)
+
+    # Price moves up to 110 (Small Peak)
+    rider.process_pending_reviews(start_time + 10, 110.0)
+    rider.update_trail(110.0, state)
+
+    # Price drops to 105 (Exit)
+    exit_time = start_time + 20
+    decision = rider.update_trail(105.0, state, timestamp=exit_time)
+    assert decision['should_exit']
+    assert len(rider.pending_reviews) == 1
+
+    # Lookahead: Price goes to 120 (True Peak)
+    rider.process_pending_reviews(start_time + 40, 120.0)
+
+    # Trigger review
+    rider.process_pending_reviews(start_time + 90, 115.0)
+
+    assert len(rider.pending_reviews) == 0
+    assert len(rider.regret_analyzer.regret_history) == 1
+
+    markers = rider.regret_analyzer.regret_history[0]
+    assert markers.peak_favorable == pytest.approx(120.0)
+    assert markers.regret_type == 'closed_too_early'
+    assert markers.peak_favorable_time > markers.exit_time
+
+def test_delayed_regret_analysis_late_exit():
+    """Test 'closed_too_late' detection."""
+    rider = WaveRider(MNQ)
+    rider.review_wait_time = 60.0
+    state = replace(StateVector.null_state(), L8_confirm=True)
+
+    start_time = time.time()
+    rider.open_position(100.0, 'long', state)
+
+    # Price moves up to 120 (Major Peak)
+    rider.process_pending_reviews(start_time + 10, 120.0)
+    rider.update_trail(120.0, state)
+
+    # Price drops significantly to 105 (Exit)
+    # Profit was 20 pts ($40). Exit profit 5 pts ($10).
+    # Gave back 15 pts ($30). Potential 20 pts ($40).
+    # Gave back > 20% of Potential (30 > 8).
+
+    exit_time = start_time + 30
+    decision = rider.update_trail(105.0, state, timestamp=exit_time) # Exit due to trail stop hit
+
+    # Lookahead: Price stays low
+    rider.process_pending_reviews(start_time + 50, 100.0)
+
+    # Trigger review
+    rider.process_pending_reviews(start_time + 100, 100.0)
+
+    markers = rider.regret_analyzer.regret_history[0]
+    assert markers.peak_favorable == pytest.approx(120.0)
+    assert markers.regret_type == 'closed_too_late'
+    # Peak was before exit
+    assert markers.peak_favorable_time < markers.exit_time
+
+def test_regret_analysis_wrong_direction():
+    """Test 'wrong_direction' detection for losses."""
+    rider = WaveRider(MNQ)
+    rider.review_wait_time = 60.0
+    state = replace(StateVector.null_state(), L8_confirm=True)
+
+    start_time = time.time()
+    rider.open_position(100.0, 'long', state)
+
+    # Price goes DOWN immediately to 95.0
+    rider.process_pending_reviews(start_time + 10, 98.0)
+    rider.update_trail(98.0, state)
+
+    # Hit stop loss (assume 20 ticks = 5 pts) -> 95.0
+    exit_time = start_time + 20
+    decision = rider.update_trail(95.0, state, timestamp=exit_time)
+
+    if not decision['should_exit']:
+        rider.position.stop_loss = 96.0
+        decision = rider.update_trail(95.0, state, timestamp=exit_time)
+
+    assert decision['should_exit']
+
+    # Trigger review
+    rider.process_pending_reviews(start_time + 100, 95.0)
+
+    markers = rider.regret_analyzer.regret_history[0]
+    assert markers.actual_pnl < 0
+    assert markers.regret_type == 'wrong_direction'
+
+def test_efficiency_zero_potential_loss():
+    """Test efficiency is 0.0 when potential is 0 and outcome is loss."""
+    rider = WaveRider(MNQ)
+    start_time = time.time()
+
+    # Short at 100. Price goes UP immediately (Bad).
+    # Entry 100. Exit 105 (Loss 5 pts).
+    # Peak favorable = 100 (Entry). Potential = 0.
+
+    history = [
+        (start_time, 100.0),
+        (start_time + 10, 102.0),
+        (start_time + 20, 105.0)
+    ]
+
+    markers = rider.regret_analyzer.analyze_exit(
+        entry_price=100.0,
+        exit_price=105.0, # Loss for Short
+        entry_time=start_time,
+        exit_time=start_time+20,
+        side='short',
+        exit_reason='stop',
+        price_history=history,
+        tick_value=rider.asset.tick_value
+    )
+
+    assert markers.potential_max_pnl == 0.0
+    assert markers.actual_pnl < 0
+    assert markers.exit_efficiency == 0.0
+    assert markers.regret_type == 'wrong_direction'
