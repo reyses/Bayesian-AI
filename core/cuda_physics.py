@@ -17,11 +17,8 @@ PID_KI = 0.1
 PID_KD = 0.2
 
 # Precomputed Regression Constants
-_SUM_X = 0.0
-_SUM_XX = 0.0
-for _k in range(reg_period):
-    _SUM_X += float(_k)
-    _SUM_XX += float(_k * _k)
+_SUM_X = reg_period * (reg_period - 1) / 2.0
+_SUM_XX = (reg_period - 1) * reg_period * (2 * reg_period - 1) / 6.0
 
 _MEAN_X = _SUM_X / reg_period
 _DENOM = _SUM_XX - (_SUM_X * _SUM_X) / reg_period
