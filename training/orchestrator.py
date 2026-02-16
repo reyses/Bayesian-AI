@@ -56,6 +56,7 @@ from training.integrated_statistical_system import IntegratedStatisticalEngine
 from training.batch_regret_analyzer import BatchRegretAnalyzer
 from training.wave_rider import WaveRider
 
+
 # Visualization
 try:
     from visualization.live_training_dashboard import LiveDashboard
@@ -72,6 +73,10 @@ PRECOMPUTE_DEBUG_LOG_FILENAME = 'precompute_debug.log'
 DEFAULT_BASE_SLIPPAGE = 0.25
 DEFAULT_VELOCITY_SLIPPAGE_FACTOR = 0.1
 REPRESENTATIVE_SUBSET_SIZE = 20
+
+INITIAL_CLUSTER_DIVISOR = 100
+FISSION_SUBSET_SIZE = 50
+INDIVIDUAL_OPTIMIZATION_ITERATIONS = 20
 
 TIMEFRAME_MAP = {
     0: '5s',
@@ -403,7 +408,7 @@ class BayesianTrainingOrchestrator:
         print("\nPhase 2.5: Generating Physically Tight Templates...")
 
         # Start with fewer clusters, let recursion expand them
-        n_initial = max(10, len(manifest) // 100)
+        n_initial = max(10, len(manifest) // INITIAL_CLUSTER_DIVISOR)
 
         # Max Variance 0.5 means Z-Score spread of +/- 0.5 sigma is allowed.
         clustering_engine = FractalClusteringEngine(n_clusters=n_initial, max_variance=0.5)
@@ -417,53 +422,62 @@ class BayesianTrainingOrchestrator:
         # Initialize Pattern Library
         self.pattern_library = {}
 
-        from collections import deque
-        template_queue = deque(templates)
+        template_queue = templates.copy()
         processed_count = 0
+        num_workers = self.calculate_optimal_workers()
+        batch_size = num_workers * 2
 
-        while template_queue:
-            tmpl = template_queue.popleft()
-            processed_count += 1
-            print(f"Processing Template {tmpl.template_id} ({tmpl.member_count} members)...")
+        # Import worker function here to avoid circular import
+        from training.orchestrator_worker import _process_template_job
 
-            # 1. Select Training Subset
-            subset = tmpl.patterns[:50]
+        with multiprocessing.Pool(processes=num_workers) as pool:
+            while template_queue:
+                # Prepare Batch
+                current_batch = []
+                for _ in range(batch_size):
+                    if not template_queue:
+                        break
+                    current_batch.append(template_queue.pop(0))
 
-            # 2. Run Individual Optimization (for Fission Check)
-            # Parallelize this in production
-            num_workers = self.calculate_optimal_workers()
-            with multiprocessing.Pool(processes=num_workers) as pool:
-                tasks = [(p, 20, self.param_generator, self.asset.point_value) for p in subset]
-                results = pool.map(self._optimize_pattern_task, tasks)
-            member_optimals = [best_p for best_p, _ in results]
+                if not current_batch:
+                    break
 
-            # 3. Check for Behavioral Fission (Regret-Based)
-            new_sub_templates = clustering_engine.refine_clusters(tmpl.template_id, member_optimals, subset)
+                # Prepare Tasks
+                tasks = []
+                for tmpl in current_batch:
+                    tasks.append((tmpl, clustering_engine, self.config.iterations, self.param_generator, self.asset.point_value))
 
-            if new_sub_templates:
-                print(f"  -> Template {tmpl.template_id} shattered into {len(new_sub_templates)} behavioral subsets.")
-                template_queue.extend(new_sub_templates)
-                continue
+                # Run Batch
+                results = pool.map(_process_template_job, tasks)
 
-            # 4. Consensus Optimization
-            best_group_params = self._optimize_template_batch(subset)
-            self.register_template_logic(tmpl, best_group_params)
+                for result in results:
+                    processed_count += 1
+                    status = result['status']
+                    tmpl_id = result['template_id']
 
-            # 5. Validation
-            val_pnl = 0.0
-            validation_subset = tmpl.patterns[50:]
-            if validation_subset:
-                val_pnl = self.validate_template_group(validation_subset, best_group_params)
-                print(f"  -> Validated PnL: ${val_pnl:.2f}")
+                    if status == 'SPLIT':
+                        new_sub_templates = result['new_templates']
+                        print(f"Template {tmpl_id}: FISSION -> Shattered into {len(new_sub_templates)} subsets.")
+                        template_queue.extend(new_sub_templates)
 
-            # Update Dashboard
-            if self.dashboard_queue:
-                self.dashboard_queue.put({
-                    'type': 'TEMPLATE_UPDATE',
-                    'id': tmpl.template_id,
-                    'count': tmpl.member_count,
-                    'pnl': val_pnl
-                })
+                    elif status == 'DONE':
+                        tmpl = result['template'] # Modified template object might be returned or just ID if unchanged
+                        best_params = result['best_params']
+                        val_pnl = result['val_pnl']
+                        member_count = result['member_count']
+
+                        self.register_template_logic(tmpl, best_params)
+                        print(f"Template {tmpl_id}: OPTIMIZED ({member_count} members) -> Validated PnL: ${val_pnl:.2f}")
+
+                        # Update Dashboard
+                        if self.dashboard_queue:
+                            self.dashboard_queue.put({
+                                'type': 'TEMPLATE_UPDATE',
+                                'id': tmpl_id,
+                                'count': member_count,
+                                'pnl': val_pnl
+                            })
+
         print("\n=== Training Complete ===")
         self.print_final_summary()
         return self.day_results
