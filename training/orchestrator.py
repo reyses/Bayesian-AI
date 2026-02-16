@@ -20,7 +20,6 @@ import multiprocessing
 import glob
 import numpy as np
 import pandas as pd
-import asyncio
 from typing import Dict, List, Any, Tuple, Optional
 from dataclasses import dataclass
 from datetime import datetime
@@ -540,22 +539,15 @@ class BayesianTrainingOrchestrator:
         return best_params
 
     def _run_discovery(self, data_source: Any) -> List[PatternEvent]:
-        """Wrapper to run async discovery"""
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
+        """Run parallel discovery across all data files"""
         manifest = []
 
-        async def collect():
-            if isinstance(data_source, str):
-                async for pattern in self.discovery_agent.scan_atlas_async(data_source):
-                    manifest.append(pattern)
-            elif isinstance(data_source, list):
-                for path in data_source:
-                    async for pattern in self.discovery_agent.scan_atlas_async(path):
-                        manifest.append(pattern)
+        if isinstance(data_source, str):
+            manifest = self.discovery_agent.scan_atlas_parallel(data_source)
+        elif isinstance(data_source, list):
+            for path in data_source:
+                manifest.extend(self.discovery_agent.scan_atlas_parallel(path))
 
-        loop.run_until_complete(collect())
         return manifest
 
     def register_template_logic(self, template: PatternTemplate, params: Dict):
