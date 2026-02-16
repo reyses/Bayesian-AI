@@ -335,9 +335,9 @@ class WaveRider:
                 print(f"[WAVERIDER] Playbook loaded but empty/invalid: {path}")
 
         except FileNotFoundError:
-            print(f"[WAVERIDER] Playbook not found at {path}. Running in Adaptive Mode.")
+            logging.warning(f"[WAVERIDER] Playbook not found at {path}. Running in Adaptive Mode.")
         except Exception as e:
-            print(f"[WAVERIDER] Error loading playbook: {e}")
+            logging.error(f"[WAVERIDER] Error loading playbook: {e}")
 
     def match_current_state(self, state: Union[StateVector, ThreeBodyQuantumState]) -> Optional[int]:
         """
