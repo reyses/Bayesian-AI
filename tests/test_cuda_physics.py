@@ -84,6 +84,18 @@ class TestQuantumFieldEngineGPU(unittest.TestCase):
         # Verify kernels were called
         # mock_compute_physics[blocks, threads](...)
         self.assertTrue(mock_compute_physics.__getitem__.return_value.called, "compute_physics_kernel should be called via []")
+
+        # Verify call arguments (including new constants)
+        call_args = mock_compute_physics.__getitem__.return_value.call_args
+        self.assertIsNotNone(call_args)
+
+        # Args should be: d_prices, d_volumes, ..., d_prob2, rp, mean_x, inv_reg_period, inv_denom, denom
+        # Total 14 array args + 5 scalar args = 19
+        self.assertEqual(len(call_args[0]), 19, "compute_physics_kernel should be called with 19 arguments")
+
+        # Verify reg_period passed correctly (default 21)
+        self.assertEqual(call_args[0][14], 21)
+
         self.assertTrue(mock_detect_archetype.__getitem__.return_value.called, "detect_archetype_kernel should be called via []")
 
         # Verify results structure
