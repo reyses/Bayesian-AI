@@ -332,6 +332,7 @@ class WaveRider:
     def match_current_state(self, state: Union[StateVector, ThreeBodyQuantumState]) -> Optional[int]:
         """
         Real-time Vector Matching: State -> Template ID
+        Uses Euclidean distance on absolute physics values (Z, V, M, C).
         """
         if self.centroids is None or not isinstance(state, ThreeBodyQuantumState):
             return None
