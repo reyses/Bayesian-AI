@@ -39,7 +39,7 @@ class TestBayesianBrain(unittest.TestCase):
         # So it is exactly 0.09.
 
         self.assertAlmostEqual(initial_prob, 0.09, delta=1e-9, msg="Initial probability should be exactly 0.09")
-        print(f"✓ Initial probability: {initial_prob:.2%}")
+        print(f"[OK] Initial probability: {initial_prob:.2%}")
 
         # Simulate 10 wins, 2 losses
         for i in range(10):
@@ -77,7 +77,7 @@ class TestBayesianBrain(unittest.TestCase):
         expected_posterior = 11/23
         self.assertAlmostEqual(learned_prob, expected_posterior, delta=1e-9, msg=f"Posterior probability should be {expected_posterior}")
 
-        print(f"✓ After 12 trades (10W-2L):")
+        print(f"[OK] After 12 trades (10W-2L):")
         print(f"  Probability: {learned_prob:.2%}")
         print(f"  Confidence: {confidence:.2%}")
 
@@ -96,7 +96,7 @@ class TestBayesianBrain(unittest.TestCase):
         stats = brain.get_stats(state)
         self.assertEqual(stats['wins'], 10)
         self.assertEqual(stats['losses'], 2)
-        print(f"✓ Stats: {stats}")
+        print(f"[OK] Stats: {stats}")
 
 if __name__ == "__main__":
     unittest.main()

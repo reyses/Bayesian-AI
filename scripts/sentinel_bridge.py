@@ -11,6 +11,9 @@ import datetime
 # We avoid configuring basicConfig to write to CUDA_Debug.log here
 # to prevent the sentinel from modifying the file it is monitoring.
 
+LOG_DIR = 'debug_outputs'
+LOG_FILE = os.path.join(LOG_DIR, 'CUDA_Debug.log')
+
 def trigger_jules_repair(fault_details):
     """Logic -> Cloud Correction -> Constraint: Async API Pull"""
     # Sentinel detects CRITICAL error in CUDA_Debug.log
@@ -25,22 +28,21 @@ def trigger_jules_repair(fault_details):
             if shutil.which("gh"):
                 subprocess.run(["gh", "pr", "comment", "--body", f"@Jules {fault_details}"], check=False)
         else:
-            subprocess.run(["jules", "fix", "--context", "CUDA_Debug.log", "--target=cuda/"], check=True)
+            subprocess.run(["jules", "fix", "--context", LOG_FILE, "--target=cuda/"], check=True)
             subprocess.run(["git", "pull", "origin", "jules-fix-branch"], check=True)
 
         # Log rotation to prevent re-triggering
-        log_file = 'CUDA_Debug.log'
-        if os.path.exists(log_file):
+        if os.path.exists(LOG_FILE):
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            processed_log = f"{log_file}.processed_{timestamp}"
-            shutil.move(log_file, processed_log)
-            print(f"Rotated {log_file} to {processed_log}")
+            processed_log = f"{LOG_FILE}.processed_{timestamp}"
+            shutil.move(LOG_FILE, processed_log)
+            print(f"Rotated {LOG_FILE} to {processed_log}")
 
     except Exception as e:
         print(f"Failed to trigger repair: {e}")
 
 def main():
-    log_file = 'CUDA_Debug.log'
+    log_file = LOG_FILE
     if not os.path.exists(log_file):
         print(f"{log_file} not found.")
         return

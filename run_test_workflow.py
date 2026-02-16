@@ -118,6 +118,11 @@ def main():
             "critical": False  # Allow failure if no GPU (continue-on-error: true)
         },
         {
+            "command": [python_cmd, "-m", "pytest", "tests/test_fractal_dashboard.py"],
+            "description": "Fractal Dashboard Test",
+            "critical": True
+        },
+        {
             "command": [python_cmd, "-m", "pytest", "tests/test_training_validation.py"],
             "description": "Training Validation",
             "critical": True

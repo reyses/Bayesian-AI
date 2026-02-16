@@ -19,6 +19,8 @@ def run_diagnostics():
     print("Bayesian-AI - Diagnostics Test")
     print("================================")
 
+    errors = 0
+
     if CUDA_LIB_AVAILABLE:
         try:
             is_available = cuda.is_available()
@@ -61,7 +63,8 @@ def run_diagnostics():
             print(f"Checking Data Path: {RAW_DATA_PATH}")
             path = pathlib.Path(RAW_DATA_PATH)
             if not path.exists():
-                print(f"WARNING: {RAW_DATA_PATH} does not exist (Expected in CI).")
+                print(f"FAIL: {RAW_DATA_PATH} does not exist.")
+                errors += 1
             else:
                 files = ["ohlcv-1s.parquet", "trades.parquet"]
                 missing = []
@@ -73,10 +76,11 @@ def run_diagnostics():
                 else:
                     print(f"PASS: Required files found in {RAW_DATA_PATH}")
     except ImportError:
-        print("WARNING: Could not import config.settings")
+        print("FAIL: Could not import config.settings")
+        errors += 1
 
     print("DIAGNOSTICS COMPLETE")
-    sys.exit(0)
+    sys.exit(1 if errors > 0 else 0)
 
 if __name__ == "__main__":
     run_diagnostics()
