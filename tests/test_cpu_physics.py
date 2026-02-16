@@ -12,13 +12,14 @@ from core.quantum_field_engine import QuantumFieldEngine
 
 class TestCPUPhysics(unittest.TestCase):
     def test_cpu_fallback(self):
-        print("Initializing Engine...")
+        # Deterministic seed
+        np.random.seed(42)
+
         # This should log a warning about CUDA not available, which is expected/good
         engine = QuantumFieldEngine(regression_period=21)
 
         # Force CPU usage explicitly to test the logic
         engine.use_gpu = False
-        print(f"Engine initialized. use_gpu={engine.use_gpu}")
 
         # Create dummy data
         n = 100
@@ -35,7 +36,6 @@ class TestCPUPhysics(unittest.TestCase):
             'volume': volumes
         })
 
-        print("Running batch_compute_states...")
         results = engine.batch_compute_states(df, use_cuda=False)
 
         self.assertGreater(len(results), 0)
@@ -61,10 +61,6 @@ class TestCPUPhysics(unittest.TestCase):
         # Probabilities should sum to ~1
         total_prob = state.P_at_center + state.P_near_upper + state.P_near_lower
         self.assertAlmostEqual(total_prob, 1.0, places=5)
-
-        print(f"Computed {len(results)} states on CPU.")
-        print(f"Sample State: Z={state.z_score:.2f}, Center={state.center_position:.2f}, Sigma={state.sigma_fractal:.4f}")
-        print("CPU Fallback Test Passed!")
 
 if __name__ == '__main__':
     unittest.main()
