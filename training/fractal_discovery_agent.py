@@ -39,33 +39,45 @@ class FractalDiscoveryAgent:
         Asynchronously scans data files for physics archetypes.
         """
         files = self._find_files(data_path)
-        print(f"FractalDiscoveryAgent: Found {len(files)} files to scan.")
+        print(f"FractalDiscoveryAgent: Found {len(files)} files to scan in '{data_path}'")
+        total_patterns = 0
 
-        for file_path in files:
+        for file_idx, file_path in enumerate(files):
+            fname = os.path.basename(file_path)
             # Offload IO to thread
             try:
                 loop = asyncio.get_event_loop()
                 df = await loop.run_in_executor(self.executor, pd.read_parquet, file_path)
 
                 if df.empty:
+                    print(f"  [{file_idx+1}/{len(files)}] {fname}: EMPTY - skipped")
                     continue
+
+                print(f"  [{file_idx+1}/{len(files)}] {fname}: {len(df):,} bars loaded, computing states...", end="", flush=True)
 
                 # Process on GPU
                 patterns = self.detect_patterns(df, file_path)
+                total_patterns += len(patterns)
+                roche = sum(1 for p in patterns if p.pattern_type == 'ROCHE_SNAP')
+                struct = sum(1 for p in patterns if p.pattern_type == 'STRUCTURAL_DRIVE')
+                print(f" -> {len(patterns)} patterns (ROCHE: {roche}, STRUCT: {struct}) [total: {total_patterns}]")
 
                 for p in patterns:
                     yield p
 
             except Exception as e:
-                print(f"Error scanning {file_path}: {e}")
+                print(f"  [{file_idx+1}/{len(files)}] {fname}: ERROR - {e}")
 
     def _find_files(self, data_path: str) -> List[str]:
         if os.path.isfile(data_path):
+            print(f"  Source: single file '{data_path}'")
             return [data_path]
         elif os.path.isdir(data_path):
             files = glob.glob(os.path.join(data_path, "*.parquet"))
             files.sort()
+            print(f"  Source: directory '{data_path}' -> {len(files)} parquet files")
             return files
+        print(f"  WARNING: '{data_path}' not found (not a file or directory)")
         return []
 
     def detect_patterns(self, df: pd.DataFrame, file_path: str) -> List[PatternEvent]:
