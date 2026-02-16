@@ -32,8 +32,6 @@ class FractalClusteringEngine:
         self.n_clusters = n_clusters
         self.max_variance = max_variance  # Max allowed std deviation for Z-score in a cluster
         self.scaler = StandardScaler()
-        # Use MiniBatch for speed on large datasets
-        self.model = MiniBatchKMeans(n_clusters=n_clusters, batch_size=256, random_state=42)
 
     def create_templates(self, manifest: List[Any]) -> List[PatternTemplate]:
         """
@@ -89,8 +87,13 @@ class FractalClusteringEngine:
 
         t1 = _time.perf_counter()
         print(f"  Coarse KMeans: fitting {len(valid_patterns)} patterns into {target_k} clusters...", end="", flush=True)
-        self.model.n_clusters = target_k
-        labels = self.model.fit_predict(X_scaled)
+
+        if len(valid_patterns) < 500:
+            model = KMeans(n_clusters=target_k, random_state=42, n_init=10)
+        else:
+            model = MiniBatchKMeans(n_clusters=target_k, batch_size=min(256, len(valid_patterns)), random_state=42)
+
+        labels = model.fit_predict(X_scaled)
         print(f" done ({_time.perf_counter() - t1:.2f}s)")
 
         # Group indices by label
