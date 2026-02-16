@@ -29,7 +29,8 @@ To run the workflow locally, ensure you have Python 3.10+ installed.
 
 2.  **Run Tests**:
     ```bash
-    python scripts/run_tests.py
+    python tests/test_phase1.py
+    python tests/test_integration_quantum.py
     ```
 
 3.  **Build Executable**:
@@ -45,19 +46,12 @@ To run the workflow locally, ensure you have Python 3.10+ installed.
 
 ## 🔧 Troubleshooting
 
-### System Health & CUDA Check
-Run the unified health check script to verify Python environment, dependencies, and CUDA availability:
-
-```bash
-python scripts/system_health.py
-```
-
 ### CUDA Not Detected / Running on CPU
 If you have an NVIDIA GPU but the system says "CUDA: NOT AVAILABLE" or runs slowly on CPU:
 
-1.  **Run Health Check**:
+1.  **Check GPU Health**:
     ```bash
-    python scripts/system_health.py
+    python scripts/gpu_health_check.py
     ```
 2.  **Fix PyTorch Installation**:
     If the above check fails or reports CPU-only torch, run the fix script to force a CUDA-enabled reinstallation:

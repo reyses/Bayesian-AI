@@ -123,7 +123,8 @@ class TestFractalDashboard(unittest.TestCase):
         # Add mock templates directly
         dashboard.templates = {
             1: {'id': 1, 'pnl': 100, 'count': 10},
-            2: {'id': 2, 'pnl': -50, 'count': 5}
+            2: {'id': 2, 'pnl': -50, 'count': 5},
+            3: {'id': 3, 'pnl': 0, 'count': 20}
         }
 
         # Trigger update
@@ -133,20 +134,10 @@ class TestFractalDashboard(unittest.TestCase):
         # tree_ranks is a mock, so we inspect its insert calls
         insert_calls = dashboard.tree_ranks.insert.call_args_list
 
-        # We expect 2 calls (sorted by PnL desc: 100, then -50)
-        self.assertEqual(len(insert_calls), 2)
+        # We expect 3 calls (sorted by PnL desc: 100, 0, -50)
+        self.assertEqual(len(insert_calls), 3)
 
         # Check first call (Profit)
-        args1, kwargs1 = insert_calls[0]
-        # args: parent, index
-        # insert(parent, index, iid=None, **kw)
-        # Check call arguments structure. Mock call arguments are (args, kwargs)
-        # insert("", tk.END, values=..., tags=...)
-
-        # Extract kwargs from the call
-        # insert call args: ("", tk.END)
-        # insert call kwargs: {values: ..., tags: ...}
-
         call_kwargs1 = insert_calls[0].kwargs
         values1 = call_kwargs1.get('values')
         tags1 = call_kwargs1.get('tags')
@@ -155,14 +146,23 @@ class TestFractalDashboard(unittest.TestCase):
         self.assertIn("▲ $100", values1[2]) # PnL string
         self.assertEqual(tags1, ('profit',)) # Tag
 
-        # Check second call (Loss)
+        # Check second call (Neutral / Zero PnL)
         call_kwargs2 = insert_calls[1].kwargs
         values2 = call_kwargs2.get('values')
         tags2 = call_kwargs2.get('tags')
 
-        self.assertEqual(values2[0], 2) # ID
-        self.assertIn("▼ $-50", values2[2]) # PnL string
-        self.assertEqual(tags2, ('loss',)) # Tag
+        self.assertEqual(values2[0], 3) # ID
+        self.assertEqual("$0", values2[2]) # PnL string (no icon)
+        self.assertEqual(tags2, ('',)) # Empty Tag
+
+        # Check third call (Loss)
+        call_kwargs3 = insert_calls[2].kwargs
+        values3 = call_kwargs3.get('values')
+        tags3 = call_kwargs3.get('tags')
+
+        self.assertEqual(values3[0], 2) # ID
+        self.assertIn("▼ $-50", values3[2]) # PnL string
+        self.assertEqual(tags3, ('loss',)) # Tag
 
 if __name__ == '__main__':
     # Patching infinite loop in _process_queue for testing
