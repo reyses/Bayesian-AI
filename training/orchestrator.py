@@ -49,6 +49,7 @@ from training.pattern_analyzer import PatternAnalyzer
 from training.progress_reporter import ProgressReporter, DayMetrics
 from training.databento_loader import DatabentoLoader
 from training.fractal_discovery_agent import FractalDiscoveryAgent, PatternEvent
+from training.fractal_clustering import FractalClusteringEngine, PatternTemplate
 
 # Execution components
 from training.integrated_statistical_system import IntegratedStatisticalEngine
@@ -70,6 +71,7 @@ PRECOMPUTE_DEBUG_LOG_FILENAME = 'precompute_debug.log'
 
 DEFAULT_BASE_SLIPPAGE = 0.25
 DEFAULT_VELOCITY_SLIPPAGE_FACTOR = 0.1
+REPRESENTATIVE_SUBSET_SIZE = 20
 
 TIMEFRAME_MAP = {
     0: '5s',
@@ -208,6 +210,66 @@ def _optimize_pattern_task(args):
 
     return best_params, best_result_dict
 
+def _optimize_template_task(args):
+    """
+    Optimizes a Template Group.
+    args: (template, subset, iterations, generator, point_value)
+    Returns: (best_params, best_sharpe)
+    """
+    template, subset, iterations, generator, point_value = args
+
+    # 1. Generate Parameter Sets (DOE)
+    # We use the first pattern in subset to drive the generator context,
+    # but params are applicable to all.
+    ref_pattern = subset[0]
+    param_sets = []
+    for i in range(iterations):
+        ps = generator.generate_parameter_set(iteration=i, day=ref_pattern.idx, context='TEMPLATE')
+        param_sets.append(ps.parameters)
+
+    best_sharpe = -float('inf')
+    best_params = {}
+
+    # 2. Iterate through Parameter Sets
+    for params in param_sets:
+        pnls = []
+
+        # 3. Test Params on ALL members of the subset
+        for pattern in subset:
+            window = pattern.window_data
+            if window is None or window.empty:
+                continue
+
+            outcome = simulate_trade_standalone(
+                entry_price=pattern.price,
+                data=window,
+                state=pattern.state,
+                params=params,
+                point_value=point_value
+            )
+
+            if outcome:
+                pnls.append(outcome.pnl)
+            else:
+                pnls.append(0.0) # No trade = 0 PnL
+
+        if not pnls:
+            continue
+
+        # 4. Calculate Combined Metric (Sharpe)
+        # combined_pnl = sum(pnls)
+        pnl_array = np.array(pnls)
+        if len(pnl_array) > 1 and np.std(pnl_array) > 1e-9:
+            sharpe = np.mean(pnl_array) / np.std(pnl_array)
+        else:
+            sharpe = 0.0
+
+        if sharpe > best_sharpe:
+            best_sharpe = sharpe
+            best_params = params
+
+    return best_params, best_sharpe
+
 # --------------------------------------------------
 
 @dataclass
@@ -337,93 +399,73 @@ class BayesianTrainingOrchestrator:
         # Sort manifest chronologically
         manifest.sort(key=lambda x: x.timestamp)
 
-        # 3. Iterative Learning Chain (Phase 3)
-        print("\nPhase 3: Iterative Learning Chain (Pattern-Adaptive Loop)...")
+        # --- PHASE 2.5: CLUSTERING (The Template Factory) ---
+        print("\nPhase 2.5: Generating Pattern Templates...")
+
+        # Initialize Clustering Engine
+        # Heuristic: 1 Template for every 50 raw patterns found
+        n_templates = max(10, len(manifest) // 50)
+        clustering_engine = FractalClusteringEngine(n_clusters=n_templates)
+
+        templates = clustering_engine.create_templates(manifest)
+        print(f"Condensed {len(manifest)} raw patterns into {len(templates)} Unique Templates.")
+
+        # --- PHASE 3: TEMPLATE OPTIMIZATION (The Foundry) ---
+        print("\nPhase 3: Template Optimization Loop...")
 
         num_workers = self.calculate_optimal_workers()
-        print(f"Using {num_workers} workers for optimization.")
+        batch_size = num_workers * 2
 
         # Initialize Pattern Library
         self.pattern_library = {}
 
-        total_patterns = len(manifest)
-        pbar = tqdm(total=total_patterns, desc="Processing Patterns")
+        # Iterate through Templates (biggest first)
+        pbar = tqdm(total=len(templates), desc="Optimizing Templates")
 
-        # Process in batches to balance parallelism and chronological updates
-        batch_size = num_workers * 4
+        with multiprocessing.Pool(processes=num_workers) as pool:
+            for i in range(0, len(templates), batch_size):
+                template_batch = templates[i : i + batch_size]
 
-        for i in range(0, total_patterns, batch_size):
-            batch = manifest[i : i + batch_size]
+                # Prepare Tasks: One task per TEMPLATE (not per pattern)
+                tasks = []
+                for tmpl in template_batch:
+                    # OPTIMIZATION HACK:
+                    # We do not simulate all 500 members of a cluster.
+                    # We select a "Representative Subset" (Top 20) to find the parameters.
+                    subset = tmpl.patterns[:REPRESENTATIVE_SUBSET_SIZE]
 
-            # Prepare tasks
-            tasks = []
-            for pattern in batch:
-                tasks.append((pattern, self.config.iterations, self.param_generator, self.asset.point_value))
+                    # We pass the SUBSET to the worker, which will run DOE on all of them
+                    # and find the best "Consensus Params" that work for the group.
+                    tasks.append((tmpl, subset, self.config.iterations, self.param_generator, self.asset.point_value))
 
-            # Run batch in parallel
-            with multiprocessing.Pool(processes=num_workers) as pool:
-                results = pool.map(_optimize_pattern_task, tasks)
+                # Run Parallel Optimization
+                results = pool.map(_optimize_template_task, tasks)
 
-            # Process results sequentially to update library and report
-            for j, (best_params, best_result) in enumerate(results):
-                pattern = batch[j]
+                # Process Results
+                for j, (best_params, best_score) in enumerate(results):
+                    tmpl = template_batch[j]
 
-                # --- FIX: LOOKAHEAD BIAS ---
-                # 1. Fetch prior params *before* update
-                prior_params = self.pattern_library.get(pattern.pattern_type, {}).get('params', {})
+                    # Register the logic: "If physics matches Template X, use Params Y"
+                    # The 'key' in the library is now the Template Centroid Signature (or ID)
+                    self.register_template_logic(tmpl, best_params)
 
-                # 2. Validate using prior knowledge (Walk-Forward)
-                validation_result = self.validate_pattern(pattern, prior_params)
+                    # VALIDATION (The Test)
+                    # Run the newly found params on the Out-of-Sample members (index 20+)
+                    validation_subset = tmpl.patterns[REPRESENTATIVE_SUBSET_SIZE:]
+                    val_pnl = 0.0
+                    if validation_subset:
+                        val_pnl = self.validate_template_group(validation_subset, best_params)
 
-                # 3. Update Library with NEW knowledge (Bayesian Update)
-                self.update_library(pattern, best_params, best_result)
+                    # Update Dashboard
+                    if self.dashboard_queue:
+                        self.dashboard_queue.put({
+                            'type': 'TEMPLATE_UPDATE',
+                            'id': tmpl.template_id,
+                            'count': tmpl.member_count,
+                            'pnl': val_pnl
+                        })
 
-                # Report
-                if self.dashboard_queue:
-                    self.dashboard_queue.put({
-                        'type': 'PATTERN_UPDATE',
-                        'pattern_type': pattern.pattern_type,
-                        'timestamp': pattern.timestamp,
-                        'score': best_result['sharpe'],
-                        'pnl': best_result['pnl'],
-                        'validation_pnl': validation_result.pnl if validation_result else 0.0
-                    })
-
-                pbar.set_postfix({
-                    'Batch': f"{i//batch_size}",
-                    'Type': pattern.pattern_type,
-                    'PnL': f"${best_result['pnl']:.0f}",
-                    'Val': f"${validation_result.pnl:.0f}" if validation_result else "N/A"
-                })
-                pbar.update(1)
-
-                # Record metrics
-                if best_result['trades']:
-                    self._best_trades_today = best_result['trades']
-                    self._cumulative_best_trades.extend(best_result['trades'])
-
-                    current_metrics = DayResults(
-                        day_number=i + j,
-                        date=datetime.fromtimestamp(pattern.timestamp).strftime('%Y-%m-%d'),
-                        total_iterations=self.config.iterations,
-                        best_iteration=0,
-                        best_params=best_params,
-                        best_sharpe=best_result['sharpe'],
-                        best_win_rate=best_result['win_rate'],
-                        best_pnl=best_result['pnl'],
-                        total_trades=len(best_result['trades']),
-                        states_learned=len(self.brain.table),
-                        high_confidence_states=len(self.brain.get_all_states_above_threshold()),
-                        execution_time_seconds=0.0,
-                        avg_duration=0.0,
-                        real_pnl=validation_result.pnl if validation_result else 0.0
-                    )
-                    self._update_dashboard_with_current(current_metrics, total_patterns, current_day_trades=best_result['trades'])
-
-                    # --- FIX: CHECKPOINTING ---
-                    # Save checkpoint every batch (or every N patterns)
-                    if (i + j) % 10 == 0:
-                        self.save_checkpoint(i + j, current_metrics.date, current_metrics)
+                pbar.update(len(template_batch))
 
         pbar.close()
         print("\n=== Training Complete ===")
@@ -448,6 +490,33 @@ class BayesianTrainingOrchestrator:
 
         loop.run_until_complete(collect())
         return manifest
+
+    def register_template_logic(self, template: PatternTemplate, params: Dict):
+        """
+        Saves the centroid and params to the pattern_library.
+        """
+        self.pattern_library[template.template_id] = {
+            'centroid': template.centroid,
+            'params': params,
+            'member_count': template.member_count
+        }
+
+    def validate_template_group(self, patterns: List[PatternEvent], params: Dict) -> float:
+        """
+        Validates a group of patterns with fixed params. Returns total PnL.
+        """
+        total_pnl = 0.0
+        for p in patterns:
+            outcome = simulate_trade_standalone(
+                entry_price=p.price,
+                data=p.window_data,
+                state=p.state,
+                params=params,
+                point_value=self.asset.point_value
+            )
+            if outcome:
+                total_pnl += outcome.pnl
+        return total_pnl
 
     def update_library(self, pattern: PatternEvent, params: Dict, result: Dict):
         """
