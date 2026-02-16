@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Optional, Dict, Union, List, Tuple, Literal
 from core.state_vector import StateVector
 from core.three_body_state import ThreeBodyQuantumState
+from core.bayesian_brain import TradeOutcome
 
 
 @dataclass
@@ -237,6 +238,7 @@ class Position:
     stop_loss: float
     high_water_mark: float
     entry_layer_state: Union[StateVector, ThreeBodyQuantumState]
+    template_id: Optional[Union[str, int]] = None
 
 
 class WaveRider:
@@ -286,7 +288,8 @@ class WaveRider:
 
     def open_position(self, entry_price: float, side: str, 
                      state: Union[StateVector, ThreeBodyQuantumState],
-                     stop_distance_ticks: int = 20):
+                     stop_distance_ticks: int = 20,
+                     template_id: Optional[Union[str, int]] = None):
         """
         Open new position
         
@@ -295,6 +298,7 @@ class WaveRider:
             side: 'long' or 'short'
             state: StateVector or ThreeBodyQuantumState at entry
             stop_distance_ticks: Initial stop distance (default 20)
+            template_id: Optional template ID associated with the entry
         """
         stop_dist = stop_distance_ticks * self.asset.tick_size
         stop_loss = entry_price + stop_dist if side == 'short' else entry_price - stop_dist
@@ -305,7 +309,8 @@ class WaveRider:
             side=side,
             stop_loss=stop_loss,
             high_water_mark=entry_price,
-            entry_layer_state=state
+            entry_layer_state=state,
+            template_id=template_id
         )
         
         # Note: Do not clear price_history here as we need it for delayed analysis
@@ -432,6 +437,8 @@ class WaveRider:
             entry_price = self.position.entry_price
             entry_time = self.position.entry_time
             side = self.position.side
+            entry_state = self.position.entry_layer_state
+            template_id = self.position.template_id
             
             # Clear position (but NOT price history/pending reviews)
             self.position = None
@@ -458,12 +465,29 @@ class WaveRider:
                 bars_to_peak=0
             )
 
+            # Create full TradeOutcome object
+            trade_outcome = TradeOutcome(
+                state=entry_state,
+                entry_price=entry_price,
+                exit_price=current_price,
+                pnl=profit_usd,
+                result='WIN' if profit_usd > 0 else 'LOSS',
+                timestamp=current_time,
+                exit_reason=exit_reason,
+                entry_time=entry_time,
+                exit_time=current_time,
+                duration=current_time - entry_time,
+                direction=side.upper(),
+                template_id=template_id
+            )
+
             return {
                 'should_exit': True,
                 'exit_price': current_price,
                 'exit_reason': exit_reason,
                 'pnl': profit_usd,
-                'regret_markers': partial_markers
+                'regret_markers': partial_markers,
+                'trade_outcome': trade_outcome
             }
 
         self.position.stop_loss = new_stop

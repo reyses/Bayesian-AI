@@ -177,3 +177,30 @@ def test_efficiency_zero_potential_loss():
     assert markers.actual_pnl < 0
     assert markers.exit_efficiency == 0.0
     assert markers.regret_type == 'wrong_direction'
+
+def test_update_trail_returns_trade_outcome():
+    """Test that update_trail returns a TradeOutcome object upon exit."""
+    rider = WaveRider(MNQ)
+    state = replace(StateVector.null_state(), L8_confirm=True)
+    template_id = "test_template_123"
+
+    # Open position with template_id
+    rider.open_position(100.0, 'long', state, template_id=template_id)
+
+    # Force exit
+    exit_time = time.time() + 10
+    decision = rider.update_trail(90.0, state, timestamp=exit_time) # Stop loss hit (20 ticks = 5 pts)
+
+    assert decision['should_exit']
+    assert 'trade_outcome' in decision, "Return value should contain 'trade_outcome'"
+
+    outcome = decision['trade_outcome']
+    # Check fields
+    assert outcome.entry_price == 100.0
+    assert outcome.exit_price == 90.0
+    assert outcome.result == 'LOSS'
+    assert outcome.exit_reason == 'trail_stop' # or stop_loss
+    assert outcome.state == state
+
+    # Verify template_id persistence
+    assert outcome.template_id == template_id
