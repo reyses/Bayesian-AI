@@ -12,6 +12,7 @@ import numpy as np
 import threading
 import sys
 import datetime
+import queue
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 import matplotlib.style as mplstyle
@@ -85,8 +86,9 @@ class Tooltip:
 
 
 class LiveDashboard:
-    def __init__(self, root):
+    def __init__(self, root, queue=None):
         self.root = root
+        self.queue = queue
         self.root.title("Bayesian-AI Live Training Dashboard")
         self.root.geometry("1400x850")
         self.root.configure(bg=COLOR_BG)
@@ -105,6 +107,7 @@ class LiveDashboard:
         self.last_update = 0
         self.is_running = True
         self.remote_status = "RUNNING"
+        self.data = {} # Initialize empty data
 
         # Styles
         style = ttk.Style()
@@ -130,12 +133,19 @@ class LiveDashboard:
         self.root.bind('x', lambda e: self.export_chart())
         self.root.bind('X', lambda e: self.export_chart())
 
-        # Start Polling Thread
-        self.poll_thread = threading.Thread(target=self.poll_data, daemon=True)
-        self.poll_thread.start()
+        # Start Polling Thread (File based)
+        if not self.queue:
+            self.poll_thread = threading.Thread(target=self.poll_data, daemon=True)
+            self.poll_thread.start()
+        else:
+            self.log("Running in Queue Mode (Parallel Scan)")
 
         # Update GUI loop
         self.root.after(1000, self.update_gui)
+
+        # Poll queue loop
+        if self.queue:
+            self.root.after(100, self.poll_queue)
 
     def create_layout(self):
         """
@@ -343,6 +353,62 @@ class LiveDashboard:
             self.lbl_status.config(text="Status: 🟢 RUNNING", foreground="#00ff00")
 
         self.root.after(1000, self.update_gui)
+
+    def poll_queue(self):
+        """Poll the multiprocessing queue for updates"""
+        if not self.queue:
+            return
+
+        try:
+            while True:
+                # Non-blocking get
+                msg = self.queue.get_nowait()
+
+                if msg == "STOP":
+                    self.remote_status = "STOPPED"
+                    self.log("Received STOP signal from orchestrator")
+                    self.is_running = False
+                    return
+
+                msg_type = msg.get('type')
+
+                if msg_type == 'worker_update':
+                    f = msg.get('file', 'unknown')
+                    s = msg.get('status', '')
+                    # We can log this or update a worker table if we had one
+                    # For now, just log interesting status changes
+                    if s not in ('STARTING', 'COMPLETE'):
+                        self.log(f"[{f}] {s}")
+
+                elif msg_type == 'metric_update':
+                    # Aggregate metrics
+                    # Note: Parallel scan (scan_data_parallel) produces 'states' and 'critical_events'
+                    # It does NOT produce PnL or trades because it doesn't simulate trades.
+
+                    states = msg.get('states', 0)
+                    crit = msg.get('critical_events', 0)
+
+                    # Update local aggregate state
+                    current_states = self.data.get('states_learned', 0)
+                    current_crit = self.data.get('high_confidence_states', 0) # Mapping crit to high_conf slot for display
+
+                    self.data['states_learned'] = current_states + states
+                    self.data['high_confidence_states'] = current_crit + crit
+
+                    # Update iteration count as files processed
+                    processed = self.data.get('iteration', 0)
+                    self.data['iteration'] = processed + 1
+
+                    # Trigger refresh
+                    self.new_data_event = True
+
+        except queue.Empty:
+            pass
+        except Exception as e:
+            print(f"Queue poll error: {e}")
+
+        if self.is_running:
+            self.root.after(100, self.poll_queue)
 
     def toggle_pause(self, event=None):
         if self.remote_status == "PAUSED":

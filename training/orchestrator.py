@@ -128,13 +128,16 @@ def verify_data_integrity(data_path: str) -> List[str]:
     files.sort()
     return files
 
-def process_data_chunk(file_path: str) -> Dict[str, Any]:
+def process_data_chunk(file_path: str, queue: Optional[multiprocessing.Queue] = None) -> Dict[str, Any]:
     """
     Worker function to process a data file.
     Initializes its own QuantumFieldEngine to avoid pickling issues.
     """
     start_time = time.time()
     try:
+        if queue:
+            queue.put({'type': 'worker_update', 'file': os.path.basename(file_path), 'status': 'STARTING'})
+
         # Load data
         # Check if file is parquet
         if not file_path.endswith('.parquet'):
@@ -154,6 +157,8 @@ def process_data_chunk(file_path: str) -> Dict[str, Any]:
         states = engine.batch_compute_states(df, use_cuda=True, progress_bar=True, desc=f"File: {file_desc}")
 
         if not states:
+            if queue:
+                queue.put({'type': 'worker_update', 'file': os.path.basename(file_path), 'status': 'NO STATES'})
             return {'file': file_path, 'status': 'no_states', 'count': 0, 'duration': time.time() - start_time}
 
         # Aggregate metrics
@@ -172,6 +177,15 @@ def process_data_chunk(file_path: str) -> Dict[str, Any]:
 
         mean_z = z_sum / len(states) if states else 0.0
 
+        if queue:
+             queue.put({
+                 'type': 'metric_update',
+                 'file': os.path.basename(file_path),
+                 'states': len(states),
+                 'critical_events': critical_events
+             })
+             queue.put({'type': 'worker_update', 'file': os.path.basename(file_path), 'status': 'COMPLETE'})
+
         return {
             'file': file_path,
             'status': 'success',
@@ -185,6 +199,8 @@ def process_data_chunk(file_path: str) -> Dict[str, Any]:
     except Exception as e:
         # Log error but don't crash
         print(f"Error processing {file_path}: {e}")
+        if queue:
+            queue.put({'type': 'worker_update', 'file': os.path.basename(file_path), 'status': f"ERROR: {e}"})
         return {'file': file_path, 'status': 'error', 'error': str(e), 'duration': time.time() - start_time}
 
 @dataclass
@@ -316,11 +332,43 @@ class BayesianTrainingOrchestrator:
             num_workers = min(len(files), multiprocessing.cpu_count())
             print(f"\nStarting parallel processing with {num_workers} workers (spawn context)...")
 
-            # Use spawn context for CUDA compatibility
-            ctx = multiprocessing.get_context('spawn')
-            with ctx.Pool(processes=num_workers) as pool:
-                # Map
-                results = list(tqdm(pool.imap(process_data_chunk, files), total=len(files), desc="Scanning Batch Progress", unit="file"))
+            # Setup Manager for shared queue
+            manager = multiprocessing.Manager()
+            shared_queue = manager.Queue()
+
+            # Start Dashboard Process if available and requested
+            # Since this is "scan_data_parallel", the user used --scan-only
+            # If they didn't pass --no-dashboard, we try to launch it.
+            dashboard_proc = None
+            if not self.config.no_dashboard and DASHBOARD_AVAILABLE:
+                print("Launching Dashboard for Parallel Scan...")
+                # We need to launch the dashboard in a separate process that consumes the queue
+                dashboard_proc = multiprocessing.Process(
+                    target=run_dashboard_process,
+                    args=(shared_queue,)
+                )
+                dashboard_proc.start()
+
+            # Prepare args for starmap (file, queue)
+            # We use starmap instead of imap because we need multiple args
+            tasks = [(f, shared_queue) for f in files]
+
+            try:
+                # Use spawn context for CUDA compatibility
+                ctx = multiprocessing.get_context('spawn')
+                with ctx.Pool(processes=num_workers) as pool:
+                    # Map
+                    # Note: tqdm + starmap isn't direct. We use imap_unordered or similar wrapper if we want progress.
+                    # Or we just rely on dashboard.
+                    # Let's use starmap directly and wrap in tqdm if possible, or just print.
+                    # Actually, starmap blocks until complete.
+                    # We can use pool.imap with a helper function if we pack args.
+
+                    results = list(tqdm(pool.starmap(process_data_chunk, tasks), total=len(files), desc="Scanning Batch Progress", unit="file"))
+            finally:
+                if dashboard_proc:
+                    shared_queue.put("STOP")
+                    dashboard_proc.join()
 
         # 3. Aggregation
         print("\n" + "="*80)
@@ -364,6 +412,17 @@ class BayesianTrainingOrchestrator:
                     print(f"  {r['file']}: {r.get('error', r.get('status'))}")
 
         return results
+
+def run_dashboard_process(queue):
+    """Entry point for the separate dashboard process"""
+    try:
+        import tkinter as tk
+        from visualization.live_training_dashboard import LiveDashboard
+        root = tk.Tk()
+        app = LiveDashboard(root, queue=queue)
+        root.mainloop()
+    except Exception as e:
+        print(f"Dashboard process failed: {e}")
 
     def train(self, data_source: Any):
         """
