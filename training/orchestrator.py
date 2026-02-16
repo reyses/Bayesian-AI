@@ -174,11 +174,6 @@ def _optimize_pattern_task(args):
         return {}, {'trades': [], 'sharpe': 0.0, 'win_rate': 0.0, 'pnl': 0.0}
 
     # Generate parameters
-    # Note: Generator has state (LHS cache), but pickling might clone it.
-    # LHS cache is keyed by 'day'. We pass pattern.idx as day.
-    # If generator state is not shared, LHS might be deterministic but repetitive across workers if seed same.
-    # Generator uses seed=day. So it's fine.
-
     all_param_sets = []
     for i in range(iterations):
         ps = generator.generate_parameter_set(iteration=i, day=pattern.idx, context='PATTERN')
@@ -355,7 +350,7 @@ class BayesianTrainingOrchestrator:
         pbar = tqdm(total=total_patterns, desc="Processing Patterns")
 
         # Process in batches to balance parallelism and chronological updates
-        batch_size = num_workers * 4 # e.g. 12 workers -> 48 patterns per batch
+        batch_size = num_workers * 4
 
         for i in range(0, total_patterns, batch_size):
             batch = manifest[i : i + batch_size]
@@ -373,30 +368,14 @@ class BayesianTrainingOrchestrator:
             for j, (best_params, best_result) in enumerate(results):
                 pattern = batch[j]
 
-                # Update Library (Bayesian Update)
-                self.update_library(pattern, best_params, best_result)
-
-                # Validation (Walk-Forward)
-                # Note: Validation should conceptually use PRIOR params.
-                # Since we process batch in parallel, they all used same prior lib state.
-                # So we can run validation now using the library state *before* this batch (which is effectively what happened implicitly?)
-                # Or we can re-run validation using the library *as it was*?
-                # Actually, `validate_pattern` uses `self.pattern_library`.
-                # If we updated `self.pattern_library` just now, we are validating on *updated* params (Look-ahead bias within batch?)
-                # To be strict, we should validate *before* update.
-                # But we didn't run validation in the task.
-
-                # Correction: "Validation (Phase 3): Re-run the segment using the previous best parameters"
-                # We should have run validation *before* updating.
-                # But we need the `prior_params`.
-                # We can fetch them now, but `update_library` modified it!
-                # Wait, `update_library` modifies self.pattern_library.
-                # So I should validate *before* calling `update_library`.
-
+                # --- FIX: LOOKAHEAD BIAS ---
+                # 1. Fetch prior params *before* update
                 prior_params = self.pattern_library.get(pattern.pattern_type, {}).get('params', {})
+
+                # 2. Validate using prior knowledge (Walk-Forward)
                 validation_result = self.validate_pattern(pattern, prior_params)
 
-                # Now update library
+                # 3. Update Library with NEW knowledge (Bayesian Update)
                 self.update_library(pattern, best_params, best_result)
 
                 # Report
@@ -440,6 +419,11 @@ class BayesianTrainingOrchestrator:
                         real_pnl=validation_result.pnl if validation_result else 0.0
                     )
                     self._update_dashboard_with_current(current_metrics, total_patterns, current_day_trades=best_result['trades'])
+
+                    # --- FIX: CHECKPOINTING ---
+                    # Save checkpoint every batch (or every N patterns)
+                    if (i + j) % 10 == 0:
+                        self.save_checkpoint(i + j, current_metrics.date, current_metrics)
 
         pbar.close()
         print("\n=== Training Complete ===")
@@ -620,7 +604,26 @@ class BayesianTrainingOrchestrator:
             pass
 
     def save_checkpoint(self, day_number: int, date: str, day_result: DayResults):
-        pass
+        """Save brain, params, and pattern library to checkpoint"""
+        # Save brain
+        brain_path = os.path.join(self.checkpoint_dir, f"pattern_{day_number:04d}_brain.pkl")
+        self.brain.save(brain_path)
+
+        # Save pattern library
+        lib_path = os.path.join(self.checkpoint_dir, f"pattern_library.pkl")
+        with open(lib_path, 'wb') as f:
+            pickle.dump(self.pattern_library, f)
+
+        # Save best params
+        if day_result.best_params:
+            params_path = os.path.join(self.checkpoint_dir, f"pattern_{day_number:04d}_params.pkl")
+            with open(params_path, 'wb') as f:
+                pickle.dump(day_result.best_params, f)
+
+        # Save day results
+        results_path = os.path.join(self.checkpoint_dir, f"pattern_{day_number:04d}_results.pkl")
+        with open(results_path, 'wb') as f:
+            pickle.dump(day_result, f)
 
     def print_final_summary(self):
         print(f"Total PnL: ${sum(t.pnl for t in self._cumulative_best_trades):.2f}")
@@ -635,12 +638,28 @@ def check_and_install_requirements():
 
     print("Checking dependencies...")
     try:
+        # pip install
         result = subprocess.run(
             [sys.executable, '-m', 'pip', 'install', '-q', '--no-cache-dir', '--prefer-binary', '-r', requirements_path],
             capture_output=True, text=True, timeout=300
         )
-    except Exception:
-        pass
+        if result.returncode != 0:
+            print(f"WARNING: Some dependencies failed to install:\n{result.stderr[:500]}")
+        else:
+            # Check CUDA status after install
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    print(f"Dependencies OK | CUDA ready: {torch.cuda.get_device_name(0)}")
+                else:
+                    print("Dependencies OK | WARNING: CUDA not available — GPU acceleration disabled")
+                    print("      (To enable CUDA, run: python scripts/fix_cuda.py)")
+            except ImportError:
+                print("Dependencies OK | WARNING: PyTorch not installed.")
+    except subprocess.TimeoutExpired:
+        print("WARNING: pip install timed out, continuing anyway...")
+    except Exception as e:
+        print(f"WARNING: Could not check dependencies: {e}")
 
 
 def main():

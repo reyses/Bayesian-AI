@@ -158,8 +158,6 @@ class QuantumFieldEngine:
             if 'context_level' in context:
                 context_args['context_level'] = context['context_level']
 
-        # Trend Direction (15m slope) - Not fully implemented in batch but fine for now
-        
         return state
 
     def _detect_patterns_unified(self, opens: np.ndarray, highs: np.ndarray, lows: np.ndarray, closes: np.ndarray):
@@ -313,6 +311,13 @@ class QuantumFieldEngine:
             a1 = math.sqrt(prob1[i])
             a2 = math.sqrt(prob2[i])
 
+            # Trend Direction Logic (Restored)
+            slope_strength = (abs(slope[i]) * rp) / (sigma[i] + 1e-6)
+            if slope_strength > 1.0:
+                trend_direction = 'UP' if slope[i] > 0 else 'DOWN'
+            else:
+                trend_direction = 'RANGE'
+
             state = ThreeBodyQuantumState(
                 center_position=center[i],
                 upper_singularity=center[i] + 2.0 * sigma[i],
@@ -346,14 +351,14 @@ class QuantumFieldEngine:
                 barrier_height=0.0,
                 pattern_type=str(pattern_types[i]),
                 candlestick_pattern=str(candlestick_types[i]),
-                trend_direction_15m='UP' if slope[i] > 0 else 'DOWN',
+                trend_direction_15m=trend_direction, # Restored logic
                 hurst_exponent=0.5,
                 adx_strength=0.0, dmi_plus=0.0, dmi_minus=0.0,
                 sigma_fractal=sigma[i],
                 term_pid=0.0,
                 lyapunov_exponent=0.0,
                 market_regime='STABLE',
-                timestamp=timestamps[i] # Fixed: Passing timestamp
+                timestamp=timestamps[i]
             )
 
             results.append({

@@ -16,6 +16,15 @@ PID_KP = 0.5
 PID_KI = 0.1
 PID_KD = 0.2
 
+# Repulsion Constants
+REPULSION_EPSILON = 0.01
+REPULSION_FORCE_CAP = 100.0
+
+# Archetype Thresholds
+VELOCITY_THRESHOLD = 0.5
+MOMENTUM_THRESHOLD = 5.0
+COHERENCE_THRESHOLD = 0.3
+
 @cuda.jit
 def compute_physics_kernel(prices, volumes,
                            out_center, out_sigma, out_slope,
@@ -124,13 +133,13 @@ def compute_physics_kernel(prices, volumes,
 
             F_upper = 0.0
             if z > 0:
-                F_upper = 1.0 / (dist_upper**3 + 0.01)
-                if F_upper > 100.0: F_upper = 100.0
+                F_upper = 1.0 / (dist_upper**3 + REPULSION_EPSILON)
+                if F_upper > REPULSION_FORCE_CAP: F_upper = REPULSION_FORCE_CAP
 
             F_lower = 0.0
             if z < 0:
-                F_lower = 1.0 / (dist_lower**3 + 0.01)
-                if F_lower > 100.0: F_lower = 100.0
+                F_lower = 1.0 / (dist_lower**3 + REPULSION_EPSILON)
+                if F_lower > REPULSION_FORCE_CAP: F_lower = REPULSION_FORCE_CAP
 
             repulsion = -F_upper if z > 0 else F_lower
 
@@ -176,21 +185,11 @@ def detect_archetype_kernel(z_scores, velocities, momentums, coherences,
     i = cuda.grid(1)
     n = z_scores.shape[0]
 
-    # Thresholds
-    VELOCITY_THRESHOLD = 0.5
-    MOMENTUM_THRESHOLD = 5.0
-    COHERENCE_THRESHOLD = 0.3
-
     if i < n:
         # Roche Snap
-        # Note: Velocity here is raw tick velocity (price change).
-        # Need to consider scale. But assuming inputs are consistent.
-        # Check |Velocity| or signed? "Velocity > Threshold" usually implies Speed (Magnitude).
         is_roche = abs(z_scores[i]) > 2.0 and abs(velocities[i]) > VELOCITY_THRESHOLD
         out_roche_snap[i] = is_roche
 
         # Structural Drive
-        # Momentum > 5.0 (Absolute Magnitude for now to catch UP and DOWN drives)
-        # Coherence < 0.3 (Low entropy -> Organized state)
         is_drive = abs(momentums[i]) > MOMENTUM_THRESHOLD and coherences[i] < COHERENCE_THRESHOLD
         out_structural_drive[i] = is_drive
