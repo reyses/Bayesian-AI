@@ -49,6 +49,7 @@ def check_nvidia_smi():
 
 def check_cuda():
     print("\n=== CUDA & GPU ===")
+    success = True
 
     # 1. NVIDIA Driver
     driver_ok = check_nvidia_smi()
@@ -73,13 +74,16 @@ def check_cuda():
                 print("  - Tensor allocation on GPU successful.")
             except Exception as e:
                 print(f"  - FAIL: Tensor allocation failed: {e}")
+                success = False
 
         else:
             print("FAIL: PyTorch CUDA NOT available.")
+            success = False
             if driver_ok:
                 print("  - Driver is present but PyTorch cannot see GPU.")
     except ImportError:
         print("FAIL: PyTorch not installed.")
+        success = False
 
     # 3. Numba CUDA
     try:
@@ -97,7 +101,7 @@ def check_cuda():
     except ImportError:
         print("WARNING: Numba not installed.")
 
-    return True
+    return success
 
 def check_data():
     print("\n=== Data Availability ===")
