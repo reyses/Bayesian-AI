@@ -127,18 +127,15 @@ class FractalDashboard:
         m_vals = [d.get('mom', 0) for d in self.templates.values()]
         p_vals = [d.get('pnl', 0) for d in self.templates.values()]
 
-        # Normalize PnL for color (Red=Loss, Green=Profit)
-        # Simple clamp for visualization
-        colors = np.array(p_vals)
+        # Update scatter data instead of clearing and re-plotting
+        offsets = np.c_[z_vals, m_vals]
+        self.scatter.set_offsets(offsets)
+        self.scatter.set_array(np.array(p_vals))
 
-        self.ax.clear()
-        self.ax.set_xlabel("Z-Score (Sigma)")
-        self.ax.set_ylabel("Momentum Strength")
-        self.ax.grid(True, linestyle='--', alpha=0.3)
+        # Rescale axes to fit new data
+        self.ax.relim()
+        self.ax.autoscale_view()
 
-        # Re-plot
-        # Use vmin/vmax to center around 0 for red/green
-        sc = self.ax.scatter(z_vals, m_vals, c=colors, cmap='RdYlGn', vmin=-500, vmax=500, s=80, edgecolors='white', linewidth=0.5)
         self.canvas.draw()
 
     def _update_leaderboard(self):
