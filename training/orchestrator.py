@@ -453,7 +453,12 @@ class BayesianTrainingOrchestrator:
 
         template_queue = templates.copy()
         processed_count = 0
+        optimized_count = 0
+        fission_count = 0
+        total_val_pnl = 0.0
         batch_size = num_workers * 2
+        batch_number = 0
+        t_phase3_start = time.perf_counter()
 
         # Import worker function here to avoid circular import
         from training.orchestrator_worker import _process_template_job
@@ -470,6 +475,11 @@ class BayesianTrainingOrchestrator:
                 if not current_batch:
                     break
 
+                batch_number += 1
+                t_batch = time.perf_counter()
+                total_in_queue = len(template_queue)
+                print(f"\n  Batch {batch_number}: processing {len(current_batch)} templates ({total_in_queue} remaining in queue)...")
+
                 # Prepare Tasks
                 tasks = []
                 for tmpl in current_batch:
@@ -477,6 +487,10 @@ class BayesianTrainingOrchestrator:
 
                 # Run Batch
                 results = pool.map(_process_template_job, tasks)
+
+                batch_done = 0
+                batch_split = 0
+                batch_pnl = 0.0
 
                 for j, result in enumerate(results):
                     processed_count += 1
@@ -488,7 +502,10 @@ class BayesianTrainingOrchestrator:
 
                     if status == 'SPLIT':
                         new_sub_templates = result['new_templates']
-                        print(f"Template {tmpl_id}: FISSION -> Shattered into {len(new_sub_templates)} subsets.")
+                        batch_split += 1
+                        fission_count += 1
+                        timing = result.get('timing', '')
+                        print(f"    [{processed_count}] Template {tmpl_id}: FISSION -> {len(new_sub_templates)} subsets | {timing}")
                         template_queue.extend(new_sub_templates)
 
                         # FISSION EVENT LOGGING
@@ -501,28 +518,47 @@ class BayesianTrainingOrchestrator:
                             })
 
                     elif status == 'DONE':
-                        tmpl = result['template'] # Modified template object might be returned or just ID if unchanged
+                        tmpl = result['template']
                         best_params = result['best_params']
                         val_pnl = result['val_pnl']
                         member_count = result['member_count']
 
+                        batch_done += 1
+                        optimized_count += 1
+                        batch_pnl += val_pnl
+                        total_val_pnl += val_pnl
+
                         self.register_template_logic(tmpl, best_params)
-                        print(f"Template {tmpl_id}: OPTIMIZED ({member_count} members) -> Validated PnL: ${val_pnl:.2f}")
+                        timing = result.get('timing', '')
+                        print(f"    [{processed_count}] Template {tmpl_id}: DONE ({member_count} members) -> PnL: ${val_pnl:.2f} | {timing}")
 
                         # Update Dashboard
                         if self.dashboard_queue:
-                            # Construct Physics Vector for Visualization
-                            # We need the centroid to plot it (Z-Score vs Momentum)
-                            centroid = original_tmpl.centroid # [z, vel, mom, coh]
-
+                            centroid = original_tmpl.centroid
                             self.dashboard_queue.put({
                                 'type': 'TEMPLATE_UPDATE',
                                 'id': tmpl_id,
-                                'z': centroid[0],   # Z-Score
-                                'mom': centroid[2], # Momentum
+                                'z': centroid[0],
+                                'mom': centroid[2],
                                 'pnl': val_pnl,
                                 'count': member_count
                             })
+
+                batch_elapsed = time.perf_counter() - t_batch
+                print(
+                    f"  Batch {batch_number} complete: "
+                    f"{batch_done} optimized, {batch_split} fissioned, "
+                    f"batch PnL: ${batch_pnl:.2f} | {batch_elapsed:.1f}s"
+                )
+
+        phase3_elapsed = time.perf_counter() - t_phase3_start
+        print(f"\n  Phase 3 Summary:")
+        print(f"    Batches: {batch_number}")
+        print(f"    Templates processed: {processed_count}")
+        print(f"    Optimized: {optimized_count} | Fissioned: {fission_count}")
+        print(f"    Library size: {len(self.pattern_library)} entries")
+        print(f"    Total validated PnL: ${total_val_pnl:.2f}")
+        print(f"    Time: {phase3_elapsed:.1f}s")
 
         print("\n=== Training Complete ===")
         self.print_final_summary()
