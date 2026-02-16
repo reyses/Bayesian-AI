@@ -18,6 +18,7 @@ Usage:
     z_bin = binner.transform('z_score', 2.37)   # → e.g. 2.25
     m_bin = binner.transform('momentum', 0.81)  # → e.g. 0.75
 """
+import bisect
 import numpy as np
 import pickle
 from typing import Dict, Optional
@@ -26,20 +27,24 @@ from typing import Dict, Optional
 class VariableBins:
     """Bin specification for a single continuous variable."""
 
-    __slots__ = ('edges', 'centers', 'n_bins')
+    __slots__ = ('edges', 'centers', 'n_bins', 'edges_list', 'centers_list')
 
     def __init__(self, edges: np.ndarray):
         self.edges = edges                               # (n_bins + 1,)
         self.centers = (edges[:-1] + edges[1:]) / 2.0   # (n_bins,)
         self.n_bins = len(self.centers)
 
+        # Optimization: Pre-convert to lists for faster scalar lookup via bisect
+        self.edges_list = self.edges.tolist()
+        self.centers_list = self.centers.tolist()
+
     def transform(self, value: float) -> float:
         """Map a single value to its bin center."""
-        # np.searchsorted: find the bin index
+        # bisect: find the bin index (faster than np.searchsorted for scalars)
         # clip to [0, n_bins-1] so values outside range map to edge bins
-        idx = np.searchsorted(self.edges, value, side='right') - 1
+        idx = bisect.bisect_right(self.edges_list, value) - 1
         idx = max(0, min(idx, self.n_bins - 1))
-        return float(self.centers[idx])
+        return float(self.centers_list[idx])
 
     def transform_array(self, values: np.ndarray) -> np.ndarray:
         """Vectorized: map array of values to bin centers."""
