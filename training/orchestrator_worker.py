@@ -50,6 +50,30 @@ def _fast_sim_loop(entry_price, prices, timestamps, dir_sign,
 
     return 0.0, 0.0, 0, 0.0, 0, 0.0
 
+def _extract_arrays_from_df(df: Any) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    """Helper to extract prices and timestamps from DataFrame."""
+    prices = None
+    timestamps = None
+
+    if 'price' in df.columns:
+        prices = df['price'].values
+    elif 'close' in df.columns:
+        prices = df['close'].values
+    else:
+        return None
+
+    if 'timestamp' in df.columns:
+        ts_data = df['timestamp'].values
+        # Handle datetime64[ns] conversion to float seconds
+        if ts_data.dtype.type == np.datetime64:
+             timestamps = ts_data.astype('int64') / 1e9
+        else:
+             timestamps = ts_data.astype(np.float64)
+    else:
+        return None
+
+    return prices, timestamps
+
 def simulate_trade_standalone(entry_price: float, data: Any, state: Any,
                               params: Dict[str, Any], point_value: float) -> Optional[TradeOutcome]:
     """
@@ -90,24 +114,11 @@ def simulate_trade_standalone(entry_price: float, data: Any, state: Any,
         # Optimized path: Pass tuple (prices, timestamps) directly
         prices, timestamps = data
     elif hasattr(data, 'values'): # DataFrame or Series
-        # Slow path: Extract numpy arrays
-        # Check column names
-        if 'price' in data.columns:
-            prices = data['price'].values
-        elif 'close' in data.columns:
-            prices = data['close'].values
-        else:
+        # Slow path: Extract numpy arrays using helper
+        arrays = _extract_arrays_from_df(data)
+        if arrays is None:
             return None
-
-        if 'timestamp' in data.columns:
-            ts_data = data['timestamp'].values
-            # Handle datetime64[ns] conversion to float seconds
-            if ts_data.dtype.type == np.datetime64:
-                 timestamps = ts_data.astype('int64') / 1e9
-            else:
-                 timestamps = ts_data.astype(np.float64)
-        else:
-            return None
+        prices, timestamps = arrays
     else:
         return None
 
@@ -145,25 +156,11 @@ def _optimize_pattern_task(args):
         return {}, {'trades': [], 'sharpe': 0.0, 'win_rate': 0.0, 'pnl': 0.0}
 
     # Pre-extract arrays for speed optimization
-    prices = None
-    timestamps = None
-
-    if 'price' in window.columns:
-        prices = window['price'].values
-    elif 'close' in window.columns:
-        prices = window['close'].values
-
-    if 'timestamp' in window.columns:
-        ts_data = window['timestamp'].values
-        if ts_data.dtype.type == np.datetime64:
-             timestamps = ts_data.astype('int64') / 1e9
-        else:
-             timestamps = ts_data.astype(np.float64)
-
-    if prices is None or timestamps is None:
+    arrays = _extract_arrays_from_df(window)
+    if arrays is None:
          return {}, {'trades': [], 'sharpe': 0.0, 'win_rate': 0.0, 'pnl': 0.0}
 
-    sim_data = (prices, timestamps)
+    sim_data = arrays
 
     # Generate parameters
     all_param_sets = []
@@ -227,23 +224,9 @@ def _optimize_template_task(args):
         if window is None or window.empty:
             continue
 
-        prices = None
-        timestamps = None
-
-        if 'price' in window.columns:
-            prices = window['price'].values
-        elif 'close' in window.columns:
-            prices = window['close'].values
-
-        if 'timestamp' in window.columns:
-            ts_data = window['timestamp'].values
-            if ts_data.dtype.type == np.datetime64:
-                 timestamps = ts_data.astype('int64') / 1e9
-            else:
-                 timestamps = ts_data.astype(np.float64)
-
-        if prices is not None and timestamps is not None:
-            processed_subset.append((pattern, (prices, timestamps)))
+        arrays = _extract_arrays_from_df(window)
+        if arrays is not None:
+            processed_subset.append((pattern, arrays))
 
     # 2. Iterate through Parameter Sets
     for params in param_sets:
