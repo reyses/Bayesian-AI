@@ -394,7 +394,7 @@ class AtlasBuilder:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", default="DATA/glbx-mdp3-2025.parquet")
+    parser.add_argument("--input", default=r"DATA\glbx-mdp3-20250101-20260209.ohlcv-1s.parquet")
     parser.add_argument("--output", default="DATA/ATLAS")
     args = parser.parse_args()
 
