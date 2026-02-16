@@ -53,9 +53,34 @@ jobs:
           pip install --no-cache-dir --prefer-binary -r requirements.txt
         fi
 
-    # --- CORE TESTING & VALIDATION ---
-    - name: Run Unified Test Suite
-      run: python scripts/run_tests.py
+    # --- CORE TESTING (from ci.yml) ---
+    - name: Integrity Test
+      run: python tests/topic_build.py
+
+    - name: Math & Logic Test
+      run: pytest tests/topic_math.py
+
+    - name: Diagnostics Test
+      run: python tests/topic_diagnostics.py
+
+    - name: Bayesian Brain Test
+      run: python tests/test_bayesian_brain.py
+
+    - name: State Vector Test
+      run: python tests/test_state_vector.py
+
+    - name: Legacy Layer Engine Test
+      run: python tests/test_legacy_layer_engine.py
+
+    # --- FEEDBACK LOOP (from jules_feedback_loop.yml) ---
+    - name: Run CUDA Audit
+      # Run the verification script. It handles CPU fallback or logging failures.
+      run: python scripts/gpu_health_check.py
+      continue-on-error: true
+
+    # --- TRAINING VALIDATION & STATUS REPORT (from status-report.yml) ---
+    - name: Run Training Validation
+      run: python -m pytest tests/test_training_validation.py
 
     - name: Commit and Push Report
       run: |
