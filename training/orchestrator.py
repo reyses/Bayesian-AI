@@ -391,6 +391,18 @@ class BayesianTrainingOrchestrator:
 
         print(f"Asset: {self.asset.ticker}")
         print(f"Checkpoint Dir: {self.checkpoint_dir}")
+        print(f"Data Source: {data_source}")
+        if os.path.isdir(str(data_source)):
+            import glob as _glob
+            _files = sorted(_glob.glob(os.path.join(str(data_source), "*.parquet")))
+            print(f"  Mode: ATLAS directory ({len(_files)} parquet files)")
+            for _f in _files:
+                print(f"    {os.path.basename(_f)}")
+        elif os.path.isfile(str(data_source)):
+            _sz = os.path.getsize(str(data_source)) / (1024*1024)
+            print(f"  Mode: Single file ({_sz:.1f} MB)")
+        else:
+            print(f"  WARNING: Path does not exist!")
 
         # Launch Dashboard
         if not self.config.no_dashboard and DASHBOARD_AVAILABLE:
@@ -399,32 +411,49 @@ class BayesianTrainingOrchestrator:
         # 2. Pattern Discovery (Phase 2)
         print("\nPhase 2: Scanning Atlas for Physics Archetypes...")
         manifest = self._run_discovery(data_source)
-        print(f"Discovery Complete. Found {len(manifest)} patterns.")
+        roche = sum(1 for p in manifest if p.pattern_type == 'ROCHE_SNAP')
+        struct = sum(1 for p in manifest if p.pattern_type == 'STRUCTURAL_DRIVE')
+        print(f"Discovery Complete. Found {len(manifest)} patterns (ROCHE_SNAP: {roche}, STRUCTURAL_DRIVE: {struct})")
 
         # Sort manifest chronologically
         manifest.sort(key=lambda x: x.timestamp)
+        if len(manifest) > 0:
+            from datetime import datetime as _dt
+            first_ts = manifest[0].timestamp
+            last_ts = manifest[-1].timestamp
+            print(f"  Time range: {_dt.fromtimestamp(first_ts).strftime('%Y-%m-%d %H:%M')} -> {_dt.fromtimestamp(last_ts).strftime('%Y-%m-%d %H:%M')}")
+            # Show per-file breakdown
+            from collections import Counter
+            file_counts = Counter(os.path.basename(p.file_source) for p in manifest)
+            print(f"  Per-file breakdown:")
+            for fname, count in sorted(file_counts.items()):
+                print(f"    {fname}: {count} patterns")
 
         # --- PHASE 2.5: RECURSIVE CLUSTERING ---
         print("\nPhase 2.5: Generating Physically Tight Templates...")
 
         # Start with fewer clusters, let recursion expand them
         n_initial = max(10, len(manifest) // INITIAL_CLUSTER_DIVISOR)
+        print(f"  Initial clusters: {n_initial} (from {len(manifest)} patterns / {INITIAL_CLUSTER_DIVISOR})")
 
         # Max Variance 0.5 means Z-Score spread of +/- 0.5 sigma is allowed.
         clustering_engine = FractalClusteringEngine(n_clusters=n_initial, max_variance=0.5)
 
         templates = clustering_engine.create_templates(manifest)
-        print(f"Condensed {len(manifest)} raw patterns into {len(templates)} Tight Templates.")
+        print(f"  Condensed {len(manifest)} raw patterns into {len(templates)} Tight Templates.")
 
         # --- PHASE 3: TEMPLATE OPTIMIZATION (THE FOUNDRY) ---
-        print("\nPhase 3: Template Optimization & Fission Loop...")
+        num_workers = self.calculate_optimal_workers()
+        print(f"\nPhase 3: Template Optimization & Fission Loop...")
+        print(f"  Templates to process: {len(templates)}")
+        print(f"  Workers: {num_workers}")
+        print(f"  Iterations per template: {self.config.iterations}")
 
         # Initialize Pattern Library
         self.pattern_library = {}
 
         template_queue = templates.copy()
         processed_count = 0
-        num_workers = self.calculate_optimal_workers()
         batch_size = num_workers * 2
 
         # Import worker function here to avoid circular import
@@ -767,7 +796,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
-    parser.add_argument('--data', default=r"DATA\glbx-mdp3-20250101-20260209.ohlcv-1s.parquet", help="Path to parquet data file")
+    parser.add_argument('--data', default=os.path.join("DATA", "ATLAS", "15s"), help="Path to parquet file or ATLAS directory")
     parser.add_argument('--iterations', type=int, default=1000, help="Iterations per pattern (default: 1000)")
     parser.add_argument('--checkpoint-dir', type=str, default="checkpoints", help="Checkpoint directory")
     parser.add_argument('--no-dashboard', action='store_true', help="Disable live dashboard")
