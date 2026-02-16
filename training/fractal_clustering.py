@@ -32,9 +32,13 @@ class FractalClusteringEngine:
         Groups raw PatternEvents into Templates using RECURSIVE REFINEMENT.
         Ensures every template is physically homogeneous before optimization begins.
         """
+        import time as _time
+
         if not manifest:
             print("WARNING: FractalClusteringEngine received empty manifest.")
             return []
+
+        t0 = _time.perf_counter()
 
         # 1. Extract Feature Matrix
         # Vector: [Z-Score (abs), Velocity (abs), Momentum (abs), Coherence]
@@ -57,15 +61,18 @@ class FractalClusteringEngine:
 
         X = np.array(features)
         X_scaled = self.scaler.fit_transform(X)
+        print(f"  Feature matrix: {X.shape[0]} patterns x {X.shape[1]} features (extracted in {_time.perf_counter() - t0:.2f}s)")
 
         # 2. Initial Coarse Clustering
         # Start with a conservative K
         target_k = min(self.n_clusters, len(valid_patterns) // 20)
         target_k = max(target_k, 1)
 
-        print(f"Clustering: Initial coarse fit ({len(valid_patterns)} -> {target_k})...")
+        t1 = _time.perf_counter()
+        print(f"  Coarse KMeans: fitting {len(valid_patterns)} patterns into {target_k} clusters...", end="", flush=True)
         self.model.n_clusters = target_k
         labels = self.model.fit_predict(X_scaled)
+        print(f" done ({_time.perf_counter() - t1:.2f}s)")
 
         # Group indices by label
         cluster_indices = {}
@@ -73,9 +80,16 @@ class FractalClusteringEngine:
             if label not in cluster_indices: cluster_indices[label] = []
             cluster_indices[label].append(idx)
 
+        # Show cluster size distribution
+        sizes = [len(v) for v in cluster_indices.values()]
+        print(f"  Cluster sizes: min={min(sizes)}, max={max(sizes)}, median={sorted(sizes)[len(sizes)//2]}, avg={np.mean(sizes):.0f}")
+
         # 3. Recursive Refinement (The "Physics Tightening" Loop)
+        t2 = _time.perf_counter()
+        print(f"  Recursive refinement (max_variance={self.max_variance})...", end="", flush=True)
         final_templates = []
         next_id = 0
+        splits_count = 0
 
         for label, indices in cluster_indices.items():
             sub_X = X_scaled[indices]
@@ -87,7 +101,7 @@ class FractalClusteringEngine:
 
             if z_variance > self.max_variance and len(indices) > 20:
                 # CLUSTER IS TOO LOOSE -> RECURSIVE SPLIT
-                # Split into sub-clusters until variance is acceptable
+                splits_count += 1
                 refined_subsets = self._recursive_split(sub_X, sub_patterns, next_id)
                 final_templates.extend(refined_subsets)
                 next_id += len(refined_subsets)
@@ -105,10 +119,19 @@ class FractalClusteringEngine:
                 ))
                 next_id += 1
 
-        print(f"Refinement: Expanded {target_k} coarse clusters into {len(final_templates)} tight templates.")
+        print(f" done ({_time.perf_counter() - t2:.2f}s)")
+        print(f"  Refinement: {target_k} coarse -> {len(final_templates)} tight templates ({splits_count} clusters split)")
 
         # Sort by size
         final_templates.sort(key=lambda x: x.member_count, reverse=True)
+
+        # Summary stats
+        tmpl_sizes = [t.member_count for t in final_templates]
+        variances = [t.physics_variance for t in final_templates]
+        print(f"  Template sizes: min={min(tmpl_sizes)}, max={max(tmpl_sizes)}, avg={np.mean(tmpl_sizes):.0f}")
+        print(f"  Z-variance: min={min(variances):.3f}, max={max(variances):.3f}, avg={np.mean(variances):.3f}")
+        print(f"  Total clustering time: {_time.perf_counter() - t0:.2f}s")
+
         return final_templates
 
     def _recursive_split(self, X_subset, patterns_subset, start_id) -> List[PatternTemplate]:
