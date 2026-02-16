@@ -1,8 +1,11 @@
 import os
 import glob
+import sys
 
 def find_test_data_file(filename):
-    project_root = os.getcwd() # Assuming running from root
+    # Calculate project root dynamically based on script location
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
     raw_data_dir = os.path.join(project_root, 'DATA', 'RAW')
     testing_data_dir = os.path.join(project_root, 'tests', 'Testing DATA')
 
@@ -22,6 +25,7 @@ def find_test_data_file(filename):
 
     return None
 
-filename = 'glbx-mdp3-20250730.trades.0000.dbn.zst'
-found = find_test_data_file(filename)
-print(f"Found: {found}")
+if __name__ == "__main__":
+    filename = 'glbx-mdp3-20250730.trades.0000.dbn.zst'
+    found = find_test_data_file(filename)
+    print(f"Found: {found}")
