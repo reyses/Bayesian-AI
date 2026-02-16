@@ -430,10 +430,11 @@ class BayesianTrainingOrchestrator:
 
             # 2. Run Individual Optimization (for Fission Check)
             # Parallelize this in production
-            member_optimals = []
-            for pattern in subset:
-                best_p, _ = self._optimize_pattern_task((pattern, 20, self.param_generator, self.asset.point_value))
-                member_optimals.append(best_p)
+            num_workers = self.calculate_optimal_workers()
+            with multiprocessing.Pool(processes=num_workers) as pool:
+                tasks = [(p, 20, self.param_generator, self.asset.point_value) for p in subset]
+                results = pool.map(self._optimize_pattern_task, tasks)
+            member_optimals = [best_p for best_p, _ in results]
 
             # 3. Check for Behavioral Fission (Regret-Based)
             new_sub_templates = clustering_engine.refine_clusters(tmpl.template_id, member_optimals, subset)
