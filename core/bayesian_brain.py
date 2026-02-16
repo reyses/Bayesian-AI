@@ -23,7 +23,7 @@ except ImportError:
 @dataclass
 class TradeOutcome:
     """Single trade result for learning"""
-    state: Union[StateVector, ThreeBodyQuantumState]
+    state: Union[StateVector, ThreeBodyQuantumState, str, int]
     entry_price: float
     exit_price: float
     pnl: float
@@ -34,6 +34,7 @@ class TradeOutcome:
     exit_time: float = 0.0
     duration: float = 0.0
     direction: str = 'LONG'  # 'LONG' or 'SHORT'
+    template_id: Optional[Union[str, int]] = None
 
 class BayesianBrain:
     """
@@ -52,15 +53,16 @@ class BayesianBrain:
         Args:
             outcome: TradeOutcome with state vector and result
         """
-        state = outcome.state
+        # Prefer template_id if available, otherwise use state as key
+        key = outcome.template_id if outcome.template_id is not None else outcome.state
         
         # Update counts
         if outcome.result == 'WIN':
-            self.table[state]['wins'] += 1
+            self.table[key]['wins'] += 1
         else:
-            self.table[state]['losses'] += 1
+            self.table[key]['losses'] += 1
         
-        self.table[state]['total'] += 1
+        self.table[key]['total'] += 1
         
         # Log trade
         self.trade_history.append(outcome)
