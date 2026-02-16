@@ -9,7 +9,8 @@
       "Bash(wc:*)",
       "Bash(python:*)",
       "Bash(del \"debug_output\\precompute_debug.log\")",
-      "Bash(PYTHONIOENCODING=utf-8 python -m pytest:*)"
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest:*)",
+      "Bash(find:*)"
     ]
   }
 }
