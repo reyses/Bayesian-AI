@@ -2,6 +2,11 @@
 Fractal Clustering Engine
 Reduces massive pattern datasets into manageable 'Templates' using Recursive K-Means.
 Maps raw physics events into "Archetypal Centroids" that are both Physically Tight and Behaviorally Consistent.
+
+Feature vector per pattern (7D):
+  [|z_score|, |velocity|, |momentum|, coherence, log2(tf_seconds), depth, parent_is_roche]
+The timeframe scale + depth + parent context let the clustering naturally separate
+patterns that look similar in physics but live at different fractal scales.
 """
 import numpy as np
 import pandas as pd
@@ -11,10 +16,13 @@ from sklearn.cluster import MiniBatchKMeans, KMeans
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import silhouette_score
 
+# Local import of timeframe mapping
+from training.fractal_discovery_agent import TIMEFRAME_SECONDS
+
 @dataclass
 class PatternTemplate:
     template_id: int
-    centroid: np.ndarray  # [z, vel, mom, coh]
+    centroid: np.ndarray  # [z, vel, mom, coh, tf_scale, depth, parent_ctx]
     member_count: int
     patterns: List[Any]   # References to the original PatternEvents
     physics_variance: float # Measure of how "tight" the cluster is
@@ -40,8 +48,9 @@ class FractalClusteringEngine:
 
         t0 = _time.perf_counter()
 
-        # 1. Extract Feature Matrix
-        # Vector: [Z-Score (abs), Velocity (abs), Momentum (abs), Coherence]
+        # 1. Extract Feature Matrix (7D)
+        # Vector: [|Z-Score|, |Velocity|, |Momentum|, Coherence,
+        #          log2(tf_seconds), depth, parent_is_roche]
         features = []
         valid_patterns = []
 
@@ -51,7 +60,17 @@ class FractalClusteringEngine:
                 v = getattr(p, 'velocity', 0.0)
                 m = getattr(p, 'momentum', 0.0)
                 c = getattr(p, 'coherence', 0.0)
-                features.append([abs(z), abs(v), abs(m), c])
+
+                # Fractal hierarchy features
+                tf = getattr(p, 'timeframe', '15s')
+                tf_secs = TIMEFRAME_SECONDS.get(tf, 15)
+                tf_scale = np.log2(max(1, tf_secs))  # log2 for even spacing
+
+                depth = float(getattr(p, 'depth', 0))
+                parent_type = getattr(p, 'parent_type', '')
+                parent_ctx = 1.0 if parent_type == 'ROCHE_SNAP' else 0.0
+
+                features.append([abs(z), abs(v), abs(m), c, tf_scale, depth, parent_ctx])
                 valid_patterns.append(p)
             except AttributeError:
                 continue
@@ -206,14 +225,20 @@ class FractalClusteringEngine:
             split_map[label].append(original_patterns[idx])
 
         for label, sub_patterns in split_map.items():
-            # Re-calculate Physics Centroid
+            # Re-calculate Physics Centroid (7D to match create_templates)
             sub_features = []
             for p in sub_patterns:
                 z = getattr(p, 'z_score', 0.0)
                 v = getattr(p, 'velocity', 0.0)
                 m = getattr(p, 'momentum', 0.0)
                 c = getattr(p, 'coherence', 0.0)
-                sub_features.append([abs(z), abs(v), abs(m), c])
+                tf = getattr(p, 'timeframe', '15s')
+                tf_secs = TIMEFRAME_SECONDS.get(tf, 15)
+                tf_scale = np.log2(max(1, tf_secs))
+                depth = float(getattr(p, 'depth', 0))
+                parent_type = getattr(p, 'parent_type', '')
+                parent_ctx = 1.0 if parent_type == 'ROCHE_SNAP' else 0.0
+                sub_features.append([abs(z), abs(v), abs(m), c, tf_scale, depth, parent_ctx])
 
             if not sub_features: continue
             new_phys_centroid = np.mean(sub_features, axis=0)

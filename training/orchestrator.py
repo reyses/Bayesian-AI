@@ -47,8 +47,9 @@ from training.doe_parameter_generator import DOEParameterGenerator
 from training.pattern_analyzer import PatternAnalyzer
 from training.progress_reporter import ProgressReporter, DayMetrics
 from training.databento_loader import DatabentoLoader
-from training.fractal_discovery_agent import FractalDiscoveryAgent, PatternEvent
+from training.fractal_discovery_agent import FractalDiscoveryAgent, PatternEvent, TIMEFRAME_SECONDS
 from training.fractal_clustering import FractalClusteringEngine, PatternTemplate
+from training.pipeline_checkpoint import PipelineCheckpoint
 
 # Execution components
 from training.integrated_statistical_system import IntegratedStatisticalEngine
@@ -376,6 +377,7 @@ class BayesianTrainingOrchestrator:
     def train(self, data_source: Any):
         """
         Master training loop (Pattern-Adaptive Walk-Forward)
+        Supports full resume from any phase via PipelineCheckpoint.
 
         Args:
             data_source: Path to data (str) or list of files.
@@ -384,19 +386,33 @@ class BayesianTrainingOrchestrator:
         print("BAYESIAN-AI TRAINING ORCHESTRATOR (PATTERN-ADAPTIVE)")
         print("="*80)
 
+        # 0. Pipeline Checkpoint
+        ckpt = PipelineCheckpoint(self.checkpoint_dir)
+
+        # Handle --fresh flag
+        if getattr(self.config, 'fresh', False):
+            print("--fresh flag: clearing all pipeline checkpoints...")
+            ckpt.clear()
+
+        print(ckpt.summary())
+
         # 1. Pre-Flight Checks
-        print("Performing pre-flight checks...")
+        print("\nPerforming pre-flight checks...")
         verify_cuda_availability()
 
         print(f"Asset: {self.asset.ticker}")
         print(f"Checkpoint Dir: {self.checkpoint_dir}")
         print(f"Data Source: {data_source}")
         if os.path.isdir(str(data_source)):
-            import glob as _glob
-            _files = sorted(_glob.glob(os.path.join(str(data_source), "*.parquet")))
-            print(f"  Mode: ATLAS directory ({len(_files)} parquet files)")
-            for _f in _files:
-                print(f"    {os.path.basename(_f)}")
+            # Check if ATLAS root with TF subdirs
+            subdirs = [d for d in os.listdir(str(data_source))
+                       if os.path.isdir(os.path.join(str(data_source), d))]
+            if subdirs:
+                print(f"  Mode: ATLAS root ({len(subdirs)} timeframe dirs: {', '.join(sorted(subdirs))})")
+            else:
+                import glob as _glob
+                _files = sorted(_glob.glob(os.path.join(str(data_source), "*.parquet")))
+                print(f"  Mode: ATLAS directory ({len(_files)} parquet files)")
         elif os.path.isfile(str(data_source)):
             _sz = os.path.getsize(str(data_source)) / (1024*1024)
             print(f"  Mode: Single file ({_sz:.1f} MB)")
@@ -407,60 +423,136 @@ class BayesianTrainingOrchestrator:
         if not self.config.no_dashboard and DASHBOARD_AVAILABLE:
             self.launch_dashboard()
 
-        # 2. Pattern Discovery (Phase 2)
-        print("\nPhase 2: Scanning Atlas for Physics Archetypes...")
-        manifest = self._run_discovery(data_source)
+        # ===================================================================
+        # PHASE 2: Pattern Discovery (with checkpoint/resume)
+        # ===================================================================
+        manifest = None
+        templates = None
+
+        if ckpt.has_discovery():
+            cached_manifest, cached_levels = ckpt.load_discovery()
+            if cached_manifest is not None:
+                print(f"\n[RESUME] Phase 2: Loaded {len(cached_manifest)} patterns "
+                      f"from {len(cached_levels)} completed levels")
+                manifest = cached_manifest
+
+        if manifest is None:
+            print("\nPhase 2: Fractal Top-Down Discovery...")
+            ckpt.update_phase('discovery', 'in_progress')
+
+            # Check for partial resume (some levels done)
+            partial_manifest, partial_levels = ckpt.load_discovery()
+
+            manifest = self._run_discovery(
+                data_source,
+                checkpoint_callback=lambda lvl, tf, patterns, levels:
+                    ckpt.save_discovery_level(patterns, levels),
+                resume_manifest=partial_manifest,
+                resume_levels=partial_levels
+            )
+
+            # Save completed discovery
+            from collections import Counter
+            completed_levels = list(set(p.timeframe for p in manifest))
+            ckpt.save_discovery(manifest, completed_levels)
+
+        # Print manifest summary
         roche = sum(1 for p in manifest if p.pattern_type == 'ROCHE_SNAP')
         struct = sum(1 for p in manifest if p.pattern_type == 'STRUCTURAL_DRIVE')
-        print(f"Discovery Complete. Found {len(manifest)} patterns (ROCHE_SNAP: {roche}, STRUCTURAL_DRIVE: {struct})")
+        print(f"Discovery: {len(manifest)} patterns (ROCHE: {roche}, STRUCT: {struct})")
 
-        # Sort manifest chronologically
         manifest.sort(key=lambda x: x.timestamp)
         if len(manifest) > 0:
             from datetime import datetime as _dt
+            from collections import Counter
             first_ts = manifest[0].timestamp
             last_ts = manifest[-1].timestamp
             print(f"  Time range: {_dt.fromtimestamp(first_ts).strftime('%Y-%m-%d %H:%M')} -> {_dt.fromtimestamp(last_ts).strftime('%Y-%m-%d %H:%M')}")
-            # Show per-file breakdown
-            from collections import Counter
-            file_counts = Counter(os.path.basename(p.file_source) for p in manifest)
-            print(f"  Per-file breakdown:")
-            for fname, count in sorted(file_counts.items()):
-                print(f"    {fname}: {count} patterns")
 
-        # --- PHASE 2.5: RECURSIVE CLUSTERING ---
-        print("\nPhase 2.5: Generating Physically Tight Templates...")
+            tf_counts = Counter(p.timeframe for p in manifest)
+            depth_counts = Counter(p.depth for p in manifest)
+            print(f"  By timeframe:")
+            for tf, count in sorted(tf_counts.items(), key=lambda x: TIMEFRAME_SECONDS.get(x[0], 0), reverse=True):
+                r = sum(1 for p in manifest if p.timeframe == tf and p.pattern_type == 'ROCHE_SNAP')
+                s = sum(1 for p in manifest if p.timeframe == tf and p.pattern_type == 'STRUCTURAL_DRIVE')
+                print(f"    [{tf:>4s}] {count:>7,} (R:{r:,} S:{s:,})")
+            print(f"  By depth: {dict(sorted(depth_counts.items()))}")
 
-        # Start with fewer clusters, let recursion expand them
-        n_initial = max(10, len(manifest) // INITIAL_CLUSTER_DIVISOR)
-        print(f"  Initial clusters: {n_initial} (from {len(manifest)} patterns / {INITIAL_CLUSTER_DIVISOR})")
+        # ===================================================================
+        # PHASE 2.5: Recursive Clustering (with checkpoint)
+        # ===================================================================
+        if ckpt.has_templates():
+            templates = ckpt.load_templates()
+            if templates is not None:
+                print(f"\n[RESUME] Phase 2.5: Loaded {len(templates)} templates from checkpoint")
 
-        # Max Variance 0.5 means Z-Score spread of +/- 0.5 sigma is allowed.
-        clustering_engine = FractalClusteringEngine(n_clusters=n_initial, max_variance=0.5)
+        if templates is None:
+            print("\nPhase 2.5: Generating Physically Tight Templates...")
+            ckpt.update_phase('clustering', 'in_progress')
 
-        templates = clustering_engine.create_templates(manifest)
-        print(f"  Condensed {len(manifest)} raw patterns into {len(templates)} Tight Templates.")
+            n_initial = max(10, len(manifest) // INITIAL_CLUSTER_DIVISOR)
+            print(f"  Initial clusters: {n_initial} (from {len(manifest)} patterns / {INITIAL_CLUSTER_DIVISOR})")
 
-        # --- PHASE 3: TEMPLATE OPTIMIZATION (THE FOUNDRY) ---
+            clustering_engine = FractalClusteringEngine(n_clusters=n_initial, max_variance=0.5)
+            templates = clustering_engine.create_templates(manifest)
+            print(f"  Condensed {len(manifest)} raw patterns into {len(templates)} Tight Templates.")
+
+            ckpt.save_templates(templates)
+
+        # ===================================================================
+        # PHASE 3: Template Optimization & Fission (with persistent scheduler)
+        # ===================================================================
         num_workers = self.calculate_optimal_workers()
+
+        # Check for Phase 3 resume
+        completed_results = {}
+        fissioned_ids = set()
+        template_queue = []
+        resumed_phase3 = False
+
+        if ckpt.has_scheduler_state():
+            prev_completed, prev_fissioned, prev_pending, prev_metrics = ckpt.load_scheduler_state()
+            if prev_completed is not None:
+                completed_results = prev_completed
+                fissioned_ids = prev_fissioned or set()
+                template_queue = prev_pending or []
+                resumed_phase3 = True
+
+                print(f"\n[RESUME] Phase 3: {len(completed_results)} done, "
+                      f"{len(fissioned_ids)} fissioned, {len(template_queue)} pending")
+
+                # Restore pattern library from completed results
+                for tmpl_id, result in completed_results.items():
+                    if result.get('status') == 'DONE' and 'template' in result:
+                        self.register_template_logic(result['template'], result['best_params'])
+
+        if not resumed_phase3:
+            template_queue = templates.copy()
+
         print(f"\nPhase 3: Template Optimization & Fission Loop...")
-        print(f"  Templates to process: {len(templates)}")
+        print(f"  Templates to process: {len(template_queue)}")
+        print(f"  Already completed: {len(completed_results)}")
         print(f"  Workers: {num_workers}")
         print(f"  Iterations per template: {self.config.iterations}")
 
-        # Initialize Pattern Library
-        self.pattern_library = {}
+        ckpt.update_phase('optimization', 'in_progress')
 
-        template_queue = templates.copy()
-        processed_count = 0
-        optimized_count = 0
-        fission_count = 0
-        total_val_pnl = 0.0
+        # We need a clustering engine for fission checks (may not exist if we resumed past Phase 2.5)
+        try:
+            clustering_engine
+        except NameError:
+            n_initial = max(10, len(manifest) // INITIAL_CLUSTER_DIVISOR)
+            clustering_engine = FractalClusteringEngine(n_clusters=n_initial, max_variance=0.5)
+
+        self.pattern_library = self.pattern_library or {}
+        processed_count = len(completed_results)
+        optimized_count = sum(1 for r in completed_results.values() if r.get('status') == 'DONE')
+        fission_count = len(fissioned_ids)
+        total_val_pnl = sum(r.get('val_pnl', 0.0) for r in completed_results.values() if r.get('status') == 'DONE')
         batch_size = num_workers * 2
         batch_number = 0
         t_phase3_start = time.perf_counter()
 
-        # Import worker function here to avoid circular import
         from training.orchestrator_worker import _process_template_job
 
         with multiprocessing.Pool(processes=num_workers) as pool:
@@ -480,12 +572,10 @@ class BayesianTrainingOrchestrator:
                 total_in_queue = len(template_queue)
                 print(f"\n  Batch {batch_number}: processing {len(current_batch)} templates ({total_in_queue} remaining in queue)...")
 
-                # Prepare Tasks
                 tasks = []
                 for tmpl in current_batch:
                     tasks.append((tmpl, clustering_engine, self.config.iterations, self.param_generator, self.asset.point_value))
 
-                # Run Batch
                 results = pool.map(_process_template_job, tasks)
 
                 batch_done = 0
@@ -496,19 +586,17 @@ class BayesianTrainingOrchestrator:
                     processed_count += 1
                     status = result['status']
                     tmpl_id = result['template_id']
-
-                    # Get original template object from batch
                     original_tmpl = current_batch[j]
 
                     if status == 'SPLIT':
                         new_sub_templates = result['new_templates']
                         batch_split += 1
                         fission_count += 1
+                        fissioned_ids.add(tmpl_id)
                         timing = result.get('timing', '')
                         print(f"    [{processed_count}] Template {tmpl_id}: FISSION -> {len(new_sub_templates)} subsets | {timing}")
                         template_queue.extend(new_sub_templates)
 
-                        # FISSION EVENT LOGGING
                         if self.dashboard_queue:
                             self.dashboard_queue.put({
                                 'type': 'FISSION_EVENT',
@@ -528,11 +616,11 @@ class BayesianTrainingOrchestrator:
                         batch_pnl += val_pnl
                         total_val_pnl += val_pnl
 
+                        completed_results[tmpl_id] = result
                         self.register_template_logic(tmpl, best_params)
                         timing = result.get('timing', '')
                         print(f"    [{processed_count}] Template {tmpl_id}: DONE ({member_count} members) -> PnL: ${val_pnl:.2f} | {timing}")
 
-                        # Update Dashboard
                         if self.dashboard_queue:
                             centroid = original_tmpl.centroid
                             self.dashboard_queue.put({
@@ -551,7 +639,25 @@ class BayesianTrainingOrchestrator:
                     f"batch PnL: ${batch_pnl:.2f} | {batch_elapsed:.1f}s"
                 )
 
+                # CHECKPOINT after each batch
+                ckpt.save_scheduler_state(
+                    completed_results, fissioned_ids, template_queue,
+                    metrics={
+                        'processed': processed_count,
+                        'optimized': optimized_count,
+                        'fission_count': fission_count,
+                        'total_val_pnl': total_val_pnl,
+                        'batch_number': batch_number
+                    }
+                )
+
         phase3_elapsed = time.perf_counter() - t_phase3_start
+        ckpt.update_phase('optimization', 'complete', {
+            'optimized': optimized_count,
+            'fissioned': fission_count,
+            'total_val_pnl': total_val_pnl
+        })
+
         print(f"\n  Phase 3 Summary:")
         print(f"    Batches: {batch_number}")
         print(f"    Templates processed: {processed_count}")
@@ -574,12 +680,33 @@ class BayesianTrainingOrchestrator:
         best_params, best_sharpe = _optimize_template_task((None, subset, self.config.iterations, self.param_generator, self.asset.point_value))
         return best_params
 
-    def _run_discovery(self, data_source: Any) -> List[PatternEvent]:
-        """Run parallel discovery across all data files"""
+    def _run_discovery(self, data_source: Any,
+                       checkpoint_callback=None,
+                       resume_manifest=None,
+                       resume_levels=None) -> List[PatternEvent]:
+        """
+        Run top-down fractal discovery across ATLAS timeframes.
+        If data_source points to the ATLAS root (contains TF subdirectories),
+        uses hierarchical top-down scanning. Otherwise falls back to flat scan.
+        """
         manifest = []
 
         if isinstance(data_source, str):
-            manifest = self.discovery_agent.scan_atlas_parallel(data_source)
+            is_atlas_root = os.path.isdir(data_source) and any(
+                os.path.isdir(os.path.join(data_source, tf))
+                for tf in TIMEFRAME_SECONDS
+            )
+
+            if is_atlas_root:
+                manifest = self.discovery_agent.scan_atlas_topdown(
+                    data_source,
+                    on_level_complete=checkpoint_callback,
+                    resume_manifest=resume_manifest,
+                    resume_levels=resume_levels
+                )
+            else:
+                manifest = self.discovery_agent.scan_atlas_parallel(data_source)
+
         elif isinstance(data_source, list):
             for path in data_source:
                 manifest.extend(self.discovery_agent.scan_atlas_parallel(path))
@@ -824,12 +951,13 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
-    parser.add_argument('--data', default=os.path.join("DATA", "ATLAS", "15s"), help="Path to parquet file or ATLAS directory")
+    parser.add_argument('--data', default=os.path.join("DATA", "ATLAS"), help="Path to ATLAS root, single TF directory, or parquet file")
     parser.add_argument('--iterations', type=int, default=1000, help="Iterations per pattern (default: 1000)")
     parser.add_argument('--checkpoint-dir', type=str, default="checkpoints", help="Checkpoint directory")
     parser.add_argument('--no-dashboard', action='store_true', help="Disable live dashboard")
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
+    parser.add_argument('--fresh', action='store_true', help="Clear all pipeline checkpoints and start fresh")
 
     args = parser.parse_args()
 
