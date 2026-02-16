@@ -421,50 +421,50 @@ class BayesianTrainingOrchestrator:
         # Iterate through Templates (biggest first)
         pbar = tqdm(total=len(templates), desc="Optimizing Templates")
 
-        for i in range(0, len(templates), batch_size):
-            template_batch = templates[i : i + batch_size]
+        with multiprocessing.Pool(processes=num_workers) as pool:
+            for i in range(0, len(templates), batch_size):
+                template_batch = templates[i : i + batch_size]
 
-            # Prepare Tasks: One task per TEMPLATE (not per pattern)
-            tasks = []
-            for tmpl in template_batch:
-                # OPTIMIZATION HACK:
-                # We do not simulate all 500 members of a cluster.
-                # We select a "Representative Subset" (Top 20) to find the parameters.
-                subset = tmpl.patterns[:20]
+                # Prepare Tasks: One task per TEMPLATE (not per pattern)
+                tasks = []
+                for tmpl in template_batch:
+                    # OPTIMIZATION HACK:
+                    # We do not simulate all 500 members of a cluster.
+                    # We select a "Representative Subset" (Top 20) to find the parameters.
+                    subset = tmpl.patterns[:20]
 
-                # We pass the SUBSET to the worker, which will run DOE on all of them
-                # and find the best "Consensus Params" that work for the group.
-                tasks.append((tmpl, subset, self.config.iterations, self.param_generator, self.asset.point_value))
+                    # We pass the SUBSET to the worker, which will run DOE on all of them
+                    # and find the best "Consensus Params" that work for the group.
+                    tasks.append((tmpl, subset, self.config.iterations, self.param_generator, self.asset.point_value))
 
-            # Run Parallel Optimization
-            with multiprocessing.Pool(processes=num_workers) as pool:
+                # Run Parallel Optimization
                 results = pool.map(_optimize_template_task, tasks)
 
-            # Process Results
-            for j, (best_params, best_score) in enumerate(results):
-                tmpl = template_batch[j]
+                # Process Results
+                for j, (best_params, best_score) in enumerate(results):
+                    tmpl = template_batch[j]
 
-                # Register the logic: "If physics matches Template X, use Params Y"
-                # The 'key' in the library is now the Template Centroid Signature (or ID)
-                self.register_template_logic(tmpl, best_params)
+                    # Register the logic: "If physics matches Template X, use Params Y"
+                    # The 'key' in the library is now the Template Centroid Signature (or ID)
+                    self.register_template_logic(tmpl, best_params)
 
-                # VALIDATION (The Test)
-                # Run the newly found params on the Out-of-Sample members (index 20+)
-                validation_subset = tmpl.patterns[20:]
-                val_pnl = 0.0
-                if validation_subset:
-                    val_pnl = self.validate_template_group(validation_subset, best_params)
+                    # VALIDATION (The Test)
+                    # Run the newly found params on the Out-of-Sample members (index 20+)
+                    validation_subset = tmpl.patterns[20:]
+                    val_pnl = 0.0
+                    if validation_subset:
+                        val_pnl = self.validate_template_group(validation_subset, best_params)
 
-                # Update Dashboard
-                if self.dashboard_queue:
-                    self.dashboard_queue.put({
-                        'type': 'TEMPLATE_UPDATE',
-                        'id': tmpl.template_id,
-                        'count': tmpl.member_count,
-                        'pnl': val_pnl
-                    })
+                    # Update Dashboard
+                    if self.dashboard_queue:
+                        self.dashboard_queue.put({
+                            'type': 'TEMPLATE_UPDATE',
+                            'id': tmpl.template_id,
+                            'count': tmpl.member_count,
+                            'pnl': val_pnl
+                        })
 
-            pbar.update(len(template_batch))
+                pbar.update(len(template_batch))
 
         pbar.close()
         print("\n=== Training Complete ===")
