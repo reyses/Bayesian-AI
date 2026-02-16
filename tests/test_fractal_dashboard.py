@@ -108,6 +108,58 @@ class TestFractalDashboard(unittest.TestCase):
         self.assertEqual(len(dashboard.fission_events), 1)
         self.assertEqual(dashboard.fission_events[0]['parent_id'], 101)
 
+    @patch('visualization.live_training_dashboard.plt.subplots')
+    def test_leaderboard_pnl_formatting(self, mock_subplots):
+        mock_fig = MagicMock()
+        mock_ax = MagicMock()
+        mock_subplots.return_value = (mock_fig, mock_ax)
+
+        dashboard = FractalDashboard(self.root, self.queue)
+
+        # Add mock templates directly
+        dashboard.templates = {
+            1: {'id': 1, 'pnl': 100, 'count': 10},
+            2: {'id': 2, 'pnl': -50, 'count': 5}
+        }
+
+        # Trigger update
+        dashboard._update_leaderboard()
+
+        # Check insert calls
+        # tree_ranks is a mock, so we inspect its insert calls
+        insert_calls = dashboard.tree_ranks.insert.call_args_list
+
+        # We expect 2 calls (sorted by PnL desc: 100, then -50)
+        self.assertEqual(len(insert_calls), 2)
+
+        # Check first call (Profit)
+        args1, kwargs1 = insert_calls[0]
+        # args: parent, index
+        # insert(parent, index, iid=None, **kw)
+        # Check call arguments structure. Mock call arguments are (args, kwargs)
+        # insert("", tk.END, values=..., tags=...)
+
+        # Extract kwargs from the call
+        # insert call args: ("", tk.END)
+        # insert call kwargs: {values: ..., tags: ...}
+
+        call_kwargs1 = insert_calls[0].kwargs
+        values1 = call_kwargs1.get('values')
+        tags1 = call_kwargs1.get('tags')
+
+        self.assertEqual(values1[0], 1) # ID
+        self.assertIn("▲ $100", values1[2]) # PnL string
+        self.assertEqual(tags1, ('profit',)) # Tag
+
+        # Check second call (Loss)
+        call_kwargs2 = insert_calls[1].kwargs
+        values2 = call_kwargs2.get('values')
+        tags2 = call_kwargs2.get('tags')
+
+        self.assertEqual(values2[0], 2) # ID
+        self.assertIn("▼ $-50", values2[2]) # PnL string
+        self.assertEqual(tags2, ('loss',)) # Tag
+
 if __name__ == '__main__':
     # Patching infinite loop in _process_queue for testing
     # We'll just call _handle_message directly or catch the recursion
