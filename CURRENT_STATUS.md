@@ -24,9 +24,6 @@ Bayesian-AI/
 │   ├── AGENTS.md
 │   ├── CURRENT_STATUS.md
 │   ├── README.md
-│   ├── debug_databento.py [COMPLETE]
-│   ├── debug_utils.py [COMPLETE]
-│   ├── reproduce_loader_error.py [COMPLETE]
 │   ├── requirements.txt
 │   ├── run_test_workflow.py [TESTED]
 │   ├── AUDIT/
@@ -129,10 +126,13 @@ Bayesian-AI/
 │   │   ├── models/
 │   ├── scripts/
 │   │   ├── build_executable.py [COMPLETE]
+│   │   ├── debug_utils.py [COMPLETE]
 │   │   ├── fix_cuda.py [COMPLETE]
 │   │   ├── generate_status_report.py [WIP]
 │   │   ├── gpu_health_check.py [COMPLETE]
+│   │   ├── inspect_databento.py [COMPLETE]
 │   │   ├── manifest_integrity_check.py [COMPLETE]
+│   │   ├── reproduce_loader_error.py [COMPLETE]
 │   │   ├── sentinel_bridge.py [COMPLETE]
 │   │   ├── setup_test_data.py [TESTED]
 │   │   ├── verify_cuda_readiness.py [COMPLETE]
