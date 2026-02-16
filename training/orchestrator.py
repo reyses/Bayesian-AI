@@ -417,11 +417,12 @@ class BayesianTrainingOrchestrator:
         # Initialize Pattern Library
         self.pattern_library = {}
 
-        template_queue = templates.copy()
+        from collections import deque
+        template_queue = deque(templates)
         processed_count = 0
 
         while template_queue:
-            tmpl = template_queue.pop(0)
+            tmpl = template_queue.popleft()
             processed_count += 1
             print(f"Processing Template {tmpl.template_id} ({tmpl.member_count} members)...")
 
