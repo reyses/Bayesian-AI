@@ -59,7 +59,7 @@ from training.wave_rider import WaveRider
 
 # Visualization
 try:
-    from visualization.live_training_dashboard import LiveDashboard
+    from visualization.live_training_dashboard import launch_dashboard
     DASHBOARD_AVAILABLE = True
 except ImportError:
     DASHBOARD_AVAILABLE = False
@@ -450,15 +450,27 @@ class BayesianTrainingOrchestrator:
                 # Run Batch
                 results = pool.map(_process_template_job, tasks)
 
-                for result in results:
+                for j, result in enumerate(results):
                     processed_count += 1
                     status = result['status']
                     tmpl_id = result['template_id']
+
+                    # Get original template object from batch
+                    original_tmpl = current_batch[j]
 
                     if status == 'SPLIT':
                         new_sub_templates = result['new_templates']
                         print(f"Template {tmpl_id}: FISSION -> Shattered into {len(new_sub_templates)} subsets.")
                         template_queue.extend(new_sub_templates)
+
+                        # FISSION EVENT LOGGING
+                        if self.dashboard_queue:
+                            self.dashboard_queue.put({
+                                'type': 'FISSION_EVENT',
+                                'parent_id': tmpl_id,
+                                'children_count': len(new_sub_templates),
+                                'reason': 'Regret Divergence'
+                            })
 
                     elif status == 'DONE':
                         tmpl = result['template'] # Modified template object might be returned or just ID if unchanged
@@ -471,11 +483,17 @@ class BayesianTrainingOrchestrator:
 
                         # Update Dashboard
                         if self.dashboard_queue:
+                            # Construct Physics Vector for Visualization
+                            # We need the centroid to plot it (Z-Score vs Momentum)
+                            centroid = original_tmpl.centroid # [z, vel, mom, coh]
+
                             self.dashboard_queue.put({
                                 'type': 'TEMPLATE_UPDATE',
                                 'id': tmpl_id,
-                                'count': member_count,
-                                'pnl': val_pnl
+                                'z': centroid[0],   # Z-Score
+                                'mom': centroid[2], # Momentum
+                                'pnl': val_pnl,
+                                'count': member_count
                             })
 
         print("\n=== Training Complete ===")
@@ -584,16 +602,7 @@ class BayesianTrainingOrchestrator:
     # Helpers
     def launch_dashboard(self):
         """Launch dashboard in background thread"""
-        def run_dashboard():
-            try:
-                import tkinter as tk
-                root = tk.Tk()
-                self.dashboard = LiveDashboard(root, queue=self.dashboard_queue)
-                root.mainloop()
-            except Exception as e:
-                print(f"WARNING: Dashboard failed to launch: {e}")
-
-        self.dashboard_thread = threading.Thread(target=run_dashboard, daemon=True)
+        self.dashboard_thread = threading.Thread(target=launch_dashboard, args=(self.dashboard_queue,), daemon=True)
         self.dashboard_thread.start()
         print("Dashboard launching in background...")
         time.sleep(2)
