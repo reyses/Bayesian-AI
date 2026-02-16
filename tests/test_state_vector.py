@@ -49,7 +49,7 @@ class TestStateVector(unittest.TestCase):
         self.assertEqual(state1, state2, "States should be equal despite different metadata")
         self.assertEqual(hash(state1), hash(state2), "Hashes should match")
 
-        print("✓ StateVector hashing works correctly")
+        print("[OK] StateVector hashing works correctly")
         print(f"  Hash: {hash(state1)}")
         print(f"  State dict: {state1.to_dict()}")
 
@@ -83,7 +83,7 @@ class TestStateVector(unittest.TestCase):
         # Verify hash consistency
         self.assertEqual(hash(s1), hash(s2))
         self.assertNotEqual(hash(s1), hash(s3))
-        print("✓ StateVector strict equality works correctly")
+        print("[OK] StateVector strict equality works correctly")
 
 if __name__ == "__main__":
     unittest.main()

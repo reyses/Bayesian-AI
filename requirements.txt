@@ -30,7 +30,7 @@ scipy==1.13.1
 matplotlib>=3.8.0
 colorama
 anywidget
-torch
+torch>=2.1.0,<2.6
 git+https://github.com/MerlinR/Pandas-ta-fork.git#egg=pandas_ta
 hurst
 QuantLib
