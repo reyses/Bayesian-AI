@@ -42,6 +42,10 @@ class MockQueue:
         return self.messages.pop(0)
 
 # Import Dashboard
+import importlib
+import visualization.live_training_dashboard
+# Reload to ensure it picks up the mocked tkinter from sys.modules
+importlib.reload(visualization.live_training_dashboard)
 from visualization.live_training_dashboard import FractalDashboard
 
 class TestFractalDashboard(unittest.TestCase):
