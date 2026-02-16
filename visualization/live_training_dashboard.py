@@ -1,566 +1,189 @@
 """
-Bayesian-AI - Live Training Dashboard
-Real-time monitoring of training progress.
+Fractal Command Center (Live Dashboard)
+Visualizes the Pattern Discovery, Clustering, and Fission process in real-time.
 """
 import tkinter as tk
-from tkinter import ttk, messagebox
-import json
-import os
-import time
-import pandas as pd
-import numpy as np
-import threading
-import sys
-import datetime
+from tkinter import ttk
+import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.figure import Figure
-import matplotlib.style as mplstyle
+import queue
+import datetime
+import numpy as np
 
-try:
-    mplstyle.use('fast')
-except:
-    pass
-
-# --- Constants ---
-# UI Colors
-COLOR_BG = "#1e1e1e"
-COLOR_FG = "white"
-COLOR_CARD_BG = "#2b2b2b"
-COLOR_ACCENT = "#4080ff"
-COLOR_ACCENT_ACTIVE = "#5090ff"
-COLOR_PROFIT = "#00ff00"
-COLOR_LOSS = "#ff4444"
-COLOR_TEXT_DIM = "#888888"
-COLOR_LOG_BG = "#111111"
-COLOR_LOG_FG = "#cccccc"
-
-# UI Fonts
-FONT_HEADER = ("Arial", 13, "bold")
-FONT_BIG_METRIC = ("Consolas", 20, "bold")
-FONT_METRIC = ("Consolas", 11)
-FONT_SMALL = ("Consolas", 9)
-FONT_LOG = ("Consolas", 9)
-FONT_LABEL = ("Arial", 10)
-
-
-class Tooltip:
-    def __init__(self, widget, text='widget info'):
-        self.widget = widget
-        self.text = text
-        self.tip_window = None
-        self.id = None
-        self.widget.bind("<Enter>", self.enter)
-        self.widget.bind("<Leave>", self.leave)
-
-    def enter(self, event=None):
-        self.unschedule()
-        self.id = self.widget.after(500, self.showtip)
-
-    def leave(self, event=None):
-        self.unschedule()
-        self.hidetip()
-
-    def unschedule(self):
-        id = self.id
-        self.id = None
-        if id:
-            self.widget.after_cancel(id)
-
-    def showtip(self, event=None):
-        x = self.widget.winfo_rootx() + 20
-        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 5
-        self.tip_window = tw = tk.Toplevel(self.widget)
-        tw.wm_overrideredirect(True)
-        tw.wm_geometry("+%d+%d" % (x, y))
-        label = tk.Label(tw, text=self.text, justify='left',
-                       background="#333333", foreground="#ffffff", relief='solid', borderwidth=1,
-                       font=("Arial", "9", "normal"))
-        label.pack(ipadx=1)
-
-    def hidetip(self):
-        tw = self.tip_window
-        self.tip_window = None
-        if tw:
-            tw.destroy()
-
-
-class LiveDashboard:
-    def __init__(self, root, queue=None):
+class FractalDashboard:
+    def __init__(self, root, queue):
         self.root = root
-        self.queue = queue # For cross-process communication (Template Updates)
-        self.root.title("Bayesian-AI Live Training Dashboard (Template Engine)")
-        self.root.geometry("1400x850")
-        self.root.configure(bg=COLOR_BG)
+        self.queue = queue
+        self.root.title("BAYESIAN-AI: FRACTAL COMMAND CENTER")
+        self.root.geometry("1400x900")
 
-        # Bring window to front
-        self.root.lift()
-        self.root.attributes('-topmost', True)
-        self.root.after(100, lambda: self.root.attributes('-topmost', False))
-        self.root.focus_force()
-
-        # Data Path
-        self.json_path = os.path.join(os.path.dirname(__file__), '..', 'training', 'training_progress.json')
-        self.training_dir = os.path.join(os.path.dirname(__file__), '..', 'training')
-        self.pause_file = os.path.join(self.training_dir, 'PAUSE')
-        self.stop_file = os.path.join(self.training_dir, 'STOP')
-        self.last_update = 0
-        self.is_running = True
-        self.remote_status = "RUNNING"
-        self.data = {} # Initialize data dict
-
-        # Template Engine Metrics (Updated via Queue)
-        self.templates_optimized = 0
-        self.patterns_covered = 0
-        self.latest_template_pnl = 0.0
-
-        # Styles
+        # Style
         style = ttk.Style()
         style.theme_use('clam')
-        style.configure(".", background=COLOR_BG, foreground=COLOR_FG, fieldbackground=COLOR_CARD_BG)
-        style.configure("TLabel", background=COLOR_BG, foreground=COLOR_FG, font=FONT_LABEL)
-        style.configure("TButton", background=COLOR_ACCENT, foreground=COLOR_FG, borderwidth=0)
-        style.map("TButton", background=[('active', COLOR_ACCENT_ACTIVE)])
-        style.configure("Header.TLabel", font=FONT_HEADER, background=COLOR_BG)
-        style.configure("BigMetric.TLabel", font=FONT_BIG_METRIC, background=COLOR_BG)
-        style.configure("Metric.TLabel", font=FONT_METRIC, background=COLOR_BG)
-        style.configure("SmallMetric.TLabel", font=FONT_SMALL, background=COLOR_BG, foreground="#aaaaaa")
-        style.configure("Card.TFrame", background=COLOR_CARD_BG)
+        style.configure("TFrame", background="#1e1e1e")
+        style.configure("TLabel", background="#1e1e1e", foreground="#00ff00", font=("Consolas", 10))
+        style.configure("Header.TLabel", font=("Consolas", 14, "bold"), foreground="#ffffff")
 
-        self.create_layout()
+        self.main_frame = ttk.Frame(root)
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Keyboard Shortcuts
-        self.root.bind('<space>', self.toggle_pause)
-        self.root.bind('p', self.toggle_pause)
-        self.root.bind('P', self.toggle_pause)
-        self.root.bind('s', lambda e: self.stop_training())
-        self.root.bind('S', lambda e: self.stop_training())
-        self.root.bind('x', lambda e: self.export_chart())
-        self.root.bind('X', lambda e: self.export_chart())
+        # Data Stores
+        self.templates = {} # ID -> {z, mom, pnl, count}
+        self.fission_events = []
 
-        # Start Polling Thread
-        self.poll_thread = threading.Thread(target=self.poll_data, daemon=True)
-        self.poll_thread.start()
+        self._setup_layout()
+        self.root.after(100, self._process_queue)
 
-        # Start Queue Polling (if available)
-        if self.queue:
-            self.root.after(100, self.poll_queue)
+    def _setup_layout(self):
+        # Top: Metrics Bar
+        self.top_bar = ttk.Frame(self.main_frame, height=50)
+        self.top_bar.pack(fill=tk.X, padx=5, pady=5)
 
-        # Update GUI loop
-        self.root.after(1000, self.update_gui)
+        self.lbl_status = ttk.Label(self.top_bar, text="SYSTEM STATUS: INITIALIZING", style="Header.TLabel")
+        self.lbl_status.pack(side=tk.LEFT)
 
-    def create_layout(self):
-        """
-        Layout:
-        Row 0: Top metric cards (P&L, Win Rate, Sharpe, Trades) — spans full width
-        Row 1 col 0: Cumulative P&L chart (left)
-        Row 1 col 1: Per-day P&L bar chart (right)
-        Row 2 col 0: Day-by-day table (left)
-        Row 2 col 1: Controls + log (right)
-        """
-        self.root.columnconfigure(0, weight=1)
-        self.root.columnconfigure(1, weight=1)
-        self.root.rowconfigure(0, weight=0)
-        self.root.rowconfigure(1, weight=3)
-        self.root.rowconfigure(2, weight=2)
+        self.lbl_stats = ttk.Label(self.top_bar, text="TEMPLATES: 0 | FISSIONS: 0 | TOTAL PnL: $0")
+        self.lbl_stats.pack(side=tk.RIGHT)
 
-        # === ROW 0: Top metric cards ===
-        top_frame = ttk.Frame(self.root, padding=5)
-        top_frame.grid(row=0, column=0, columnspan=2, sticky="ew", padx=5, pady=(5, 0))
-        for i in range(8):
-            top_frame.columnconfigure(i, weight=1)
+        # Split: Left (Visuals) | Right (Logs)
+        split_frame = ttk.Frame(self.main_frame)
+        split_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        # Card: Templates
-        self._card_progress = self._make_card(top_frame, 0, "TEMPLATES", "0", "Patterns: 0")
-        # Card: Total P&L
-        self._card_pnl = self._make_card(top_frame, 1, "TOTAL P&L", "$0.00", "Last: $0.00")
-        # Card: Win Rate
-        self._card_wr = self._make_card(top_frame, 2, "WIN RATE", "0.0%", "Today: 0.0%")
-        # Card: Sharpe
-        self._card_sharpe = self._make_card(top_frame, 3, "SHARPE", "0.00", "Today: 0.00")
-        # Card: Trades
-        self._card_trades = self._make_card(top_frame, 4, "TRADES", "0", "Today: 0")
-        # Card: States
-        self._card_states = self._make_card(top_frame, 5, "STATES", "0", "High Conf: 0")
-        # Card: Drawdown
-        self._card_dd = self._make_card(top_frame, 6, "MAX DD", "$0.00", "Avg Dur: --")
-        # Card: Best Params
-        self._card_params = self._make_card(top_frame, 7, "BEST PARAMS", "--", "TP/SL: --")
+        # LEFT: Physics Map
+        left_pane = ttk.Frame(split_frame, width=900)
+        left_pane.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        # Tooltips for Cards
-        card_tooltips = [
-            (self._card_progress[0], "Total Templates Optimized | Total Patterns Covered"),
-            (self._card_progress[1], "Optimization Status"),
-            (self._card_pnl[0], "Total Profit/Loss across all trades"),
-            (self._card_pnl[1], "PnL of Latest Template"),
-            (self._card_wr[0], "Percentage of winning trades (cumulative)"),
-            (self._card_wr[1], "Win rate for today"),
-            (self._card_sharpe[0], "Sharpe Ratio (Risk-adjusted return)"),
-            (self._card_sharpe[1], "Sharpe Ratio for today"),
-            (self._card_trades[0], "Total number of trades"),
-            (self._card_trades[1], "Trades executed today"),
-            (self._card_states[0], "Total market states learned"),
-            (self._card_states[1], "High confidence states (count)"),
-            (self._card_dd[0], "Maximum Drawdown (Peak to Trough)"),
-            (self._card_dd[1], "Average Trade Duration"),
-            (self._card_params[0], "Best Parameters (Take Profit / Stop Loss)"),
-            (self._card_params[1], "Threshold / Max Hold"),
-        ]
-        for widget, text in card_tooltips:
-            Tooltip(widget, text)
+        ttk.Label(left_pane, text="PHYSICS MANIFOLD (Z-Score vs Momentum)", style="Header.TLabel").pack(anchor=tk.W)
 
-        # === ROW 1 LEFT: Cumulative P&L Chart ===
-        self.frame_pnl = ttk.Frame(self.root, padding=5)
-        self.frame_pnl.grid(row=1, column=0, sticky="nsew", padx=(5, 2))
+        self.fig, self.ax = plt.subplots(figsize=(8, 6), facecolor='#1e1e1e')
+        self.ax.set_facecolor('#1e1e1e')
+        self.ax.tick_params(colors='white')
+        self.ax.xaxis.label.set_color('white')
+        self.ax.yaxis.label.set_color('white')
+        self.ax.spines['bottom'].set_color('white')
+        self.ax.spines['left'].set_color('white')
+        self.ax.set_xlabel("Z-Score (Sigma)")
+        self.ax.set_ylabel("Momentum Strength")
+        self.ax.grid(True, linestyle='--', alpha=0.3)
 
-        self.fig_pnl = Figure(figsize=(6, 3), dpi=100, facecolor="#1e1e1e")
-        self.ax_pnl = self.fig_pnl.add_subplot(111)
-        self._style_axis(self.ax_pnl, "Cumulative P&L (Best Iteration)")
-        self.canvas_pnl = FigureCanvasTkAgg(self.fig_pnl, self.frame_pnl)
-        self.canvas_pnl.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        self.scatter = self.ax.scatter([], [], c=[], cmap='viridis', s=50, alpha=0.8)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=left_pane)
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        # === ROW 1 RIGHT: Per-Day P&L Bar Chart ===
-        self.frame_daily = ttk.Frame(self.root, padding=5)
-        self.frame_daily.grid(row=1, column=1, sticky="nsew", padx=(2, 5))
+        # RIGHT: Fission Log & Leaderboard
+        right_pane = ttk.Frame(split_frame, width=400)
+        right_pane.pack(side=tk.RIGHT, fill=tk.BOTH, padx=10)
 
-        self.fig_daily = Figure(figsize=(6, 3), dpi=100, facecolor="#1e1e1e")
-        self.ax_daily = self.fig_daily.add_subplot(111)
-        self._style_axis(self.ax_daily, "Daily P&L")
-        self.canvas_daily = FigureCanvasTkAgg(self.fig_daily, self.frame_daily)
-        self.canvas_daily.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        # Leaderboard
+        ttk.Label(right_pane, text="TOP PERFORMING TEMPLATES", style="Header.TLabel").pack(anchor=tk.W)
+        cols = ("ID", "Count", "PnL", "Status")
+        self.tree_ranks = ttk.Treeview(right_pane, columns=cols, show='headings', height=15)
+        for col in cols:
+            self.tree_ranks.heading(col, text=col)
+            self.tree_ranks.column(col, width=80)
+        self.tree_ranks.pack(fill=tk.X, pady=5)
 
-        # === ROW 2 LEFT: Day-by-day table ===
-        table_frame = ttk.Frame(self.root, padding=5)
-        table_frame.grid(row=2, column=0, sticky="nsew", padx=(5, 2))
+        # Fission Log
+        ttk.Label(right_pane, text="FISSION EVENTS & ALERTS", style="Header.TLabel").pack(anchor=tk.W, pady=(10,0))
+        self.log_text = tk.Text(right_pane, height=15, bg="#000000", fg="#00ff00", font=("Consolas", 9))
+        self.log_text.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(table_frame, text="Day-by-Day Results", style="Header.TLabel").pack(anchor="w")
-
-        cols = ("Day", "Date", "Trades", "WR%", "P&L", "Sharpe")
-        self.day_tree = ttk.Treeview(table_frame, columns=cols, show="headings", height=8)
-        for c in cols:
-            self.day_tree.heading(c, text=c)
-            self.day_tree.column(c, width=80, anchor="center")
-        self.day_tree.column("Date", width=100)
-        self.day_tree.pack(fill=tk.BOTH, expand=True)
-
-        # Tag colors for table rows
-        self.day_tree.tag_configure('profit', foreground='#00ff00')
-        self.day_tree.tag_configure('loss', foreground='#ff4444')
-
-        # === ROW 2 RIGHT: Controls + Log ===
-        self.frame_controls = ttk.Frame(self.root, padding=10)
-        self.frame_controls.grid(row=2, column=1, sticky="nsew", padx=(2, 5))
-
-        # Status
-        self.lbl_status = ttk.Label(self.frame_controls, text="Status: RUNNING",
-                                     style="Header.TLabel", foreground="#00ff00")
-        self.lbl_status.pack(anchor="w", pady=2)
-
-        btn_frame = ttk.Frame(self.frame_controls)
-        btn_frame.pack(fill='x', pady=5)
-
-        self.btn_pause = ttk.Button(btn_frame, text="⏸ Pause", command=self.pause_training)
-        self.btn_pause.pack(side="left", padx=5)
-        Tooltip(self.btn_pause, "Pause training temporarily (Space/P)")
-
-        self.btn_resume = ttk.Button(btn_frame, text="▶ Resume", command=self.resume_training)
-        self.btn_resume.pack(side="left", padx=5)
-        Tooltip(self.btn_resume, "Resume training (Space/P)")
-
-        self.btn_stop = ttk.Button(btn_frame, text="🛑 Stop", command=self.stop_training)
-        self.btn_stop.pack(side="left", padx=5)
-        Tooltip(self.btn_stop, "Stop training and save (S)")
-
-        self.btn_export = ttk.Button(btn_frame, text="📸 Export PNG", command=self.export_chart)
-        self.btn_export.pack(side="left", padx=5)
-        Tooltip(self.btn_export, "Export current chart to PNG (X)")
-
-        ttk.Separator(self.frame_controls, orient='horizontal').pack(fill='x', pady=5)
-
-        # Log Frame with Scrollbar
-        log_container = ttk.Frame(self.frame_controls)
-        log_container.pack(fill=tk.BOTH, expand=True)
-
-        self.txt_log = tk.Text(log_container, height=8, bg=COLOR_LOG_BG, fg=COLOR_LOG_FG,
-                               borderwidth=0, font=FONT_LOG, state='disabled')
-
-        scrollbar = ttk.Scrollbar(log_container, orient="vertical", command=self.txt_log.yview)
-        self.txt_log.configure(yscrollcommand=scrollbar.set)
-
-        scrollbar.pack(side="right", fill="y")
-        self.txt_log.pack(side="left", fill=tk.BOTH, expand=True)
-        self.log("Dashboard initialized. Waiting for training data...")
-
-    def _make_card(self, parent, col, title, value_text, sub_text):
-        """Create a metric card widget. Returns (value_label, sub_label)."""
-        frame = tk.Frame(parent, bg="#2b2b2b", padx=8, pady=6, highlightthickness=1,
-                        highlightbackground="#3b3b3b")
-        frame.grid(row=0, column=col, sticky="nsew", padx=3, pady=3)
-
-        tk.Label(frame, text=title, font=("Arial", 8, "bold"), fg="#888888",
-                bg="#2b2b2b").pack(anchor="w")
-        lbl_val = tk.Label(frame, text=value_text, font=("Consolas", 16, "bold"),
-                          fg="white", bg="#2b2b2b")
-        lbl_val.pack(anchor="w")
-        lbl_sub = tk.Label(frame, text=sub_text, font=("Consolas", 9),
-                          fg="#888888", bg="#2b2b2b")
-        lbl_sub.pack(anchor="w")
-        return lbl_val, lbl_sub
-
-    def _style_axis(self, ax, title):
-        ax.set_facecolor("#1e1e1e")
-        ax.tick_params(colors='#888888', labelsize=8)
-        ax.set_title(title, color="white", fontsize=10)
-        for spine in ax.spines.values():
-            spine.set_color('#3b3b3b')
-
-    def log(self, message):
-        timestamp = datetime.datetime.now().strftime("%H:%M:%S")
-        self.txt_log.config(state='normal')
-        self.txt_log.insert(tk.END, f"[{timestamp}] {message}\n")
-        self.txt_log.see(tk.END)
-        self.txt_log.config(state='disabled')
-
-    def poll_data(self):
-        """Polls the JSON status file (legacy/persistence)"""
-        while self.is_running:
-            try:
-                if os.path.exists(self.json_path):
-                    mtime = os.path.getmtime(self.json_path)
-                    if mtime > self.last_update:
-                        with open(self.json_path, 'r') as f:
-                            self.data = json.load(f)
-                        self.last_update = mtime
-                        self.new_data_event = True
-
-                if os.path.exists(self.stop_file):
-                    self.remote_status = "STOPPED"
-                elif os.path.exists(self.pause_file):
-                    self.remote_status = "PAUSED"
-                else:
-                    self.remote_status = "RUNNING"
-            except Exception as e:
-                print(f"Polling error: {e}")
-            time.sleep(1)
-
-    def poll_queue(self):
-        """Polls the multiprocessing Queue for real-time Template Updates"""
+    def _process_queue(self):
         try:
-            while not self.queue.empty():
+            while True:
                 msg = self.queue.get_nowait()
-                if msg.get('type') == 'TEMPLATE_UPDATE':
-                    self.templates_optimized += 1
-                    self.patterns_covered += msg.get('count', 0)
-                    self.latest_template_pnl = msg.get('pnl', 0.0)
+                self._handle_message(msg)
+        except queue.Empty:
+            pass
+        finally:
+            self.root.after(500, self._process_queue)
 
-                    # Update local data dict immediately for smoother UI
-                    self.data['total_templates'] = self.templates_optimized
-                    self.data['total_patterns'] = self.patterns_covered
-                    self.data['latest_pnl'] = self.latest_template_pnl
+    def _handle_message(self, msg):
+        msg_type = msg.get('type')
 
-                    self.new_data_event = True # Trigger GUI refresh
-        except Exception as e:
-            print(f"Queue poll error: {e}")
+        if msg_type == 'TEMPLATE_UPDATE':
+            # msg: {'id': 42, 'z': 2.5, 'mom': 5.0, 'pnl': 150.0, 'count': 50}
+            tid = msg['id']
+            self.templates[tid] = msg
+            self._update_leaderboard()
+            self._update_plot()
+            self._log(f"UPDATED: Template {tid} | PnL: ${msg['pnl']:.0f}")
 
-        # Schedule next poll
-        if self.is_running:
-            self.root.after(100, self.poll_queue)
+        elif msg_type == 'FISSION_EVENT':
+            # msg: {'parent_id': 42, 'children_count': 3, 'reason': 'Variance'}
+            txt = f"⚠️ FISSION: Template {msg['parent_id']} shattered into {msg['children_count']} subsets ({msg['reason']})"
+            self._log(txt, error=True)
+            self.fission_events.append(msg)
+            self.lbl_stats.config(text=self._get_stats_str())
 
-    def update_gui(self):
-        if hasattr(self, 'new_data_event') and self.new_data_event:
-            self.new_data_event = False
-            self.refresh_dashboard()
+        elif msg_type == 'STATUS':
+            self.lbl_status.config(text=f"SYSTEM STATUS: {msg['text']}")
 
-        if self.remote_status == "STOPPED":
-            self.lbl_status.config(text="Status: 🛑 STOPPED", foreground="red")
-        elif self.remote_status == "PAUSED":
-            self.lbl_status.config(text="Status: ⏸️ PAUSED", foreground="orange")
-        else:
-            self.lbl_status.config(text="Status: 🟢 RUNNING", foreground="#00ff00")
+    def _update_plot(self):
+        # Refresh Scatter Plot
+        if not self.templates: return
 
-        self.root.after(1000, self.update_gui)
+        z_vals = [d.get('z', 0) for d in self.templates.values()]
+        m_vals = [d.get('mom', 0) for d in self.templates.values()]
+        p_vals = [d.get('pnl', 0) for d in self.templates.values()]
 
-    def toggle_pause(self, event=None):
-        if self.remote_status == "PAUSED":
-            self.resume_training()
-        else:
-            self.pause_training()
+        # Update scatter data instead of clearing and re-plotting
+        offsets = np.c_[z_vals, m_vals]
+        self.scatter.set_offsets(offsets)
+        self.scatter.set_array(np.array(p_vals))
 
-    def pause_training(self):
-        try:
-            with open(self.pause_file, 'w') as f:
-                f.write('PAUSE')
-            self.log("Signal sent: PAUSE")
-        except Exception as e:
-            self.log(f"Error pausing: {e}")
+        # Rescale axes to fit new data
+        self.ax.relim()
+        self.ax.autoscale_view()
 
-    def resume_training(self):
-        try:
-            if os.path.exists(self.pause_file):
-                os.remove(self.pause_file)
-            self.log("Signal sent: RESUME")
-        except Exception as e:
-            self.log(f"Error resuming: {e}")
+        self.canvas.draw()
 
-    def stop_training(self):
-        if messagebox.askyesno("Confirm Stop", "Are you sure you want to stop training?"):
-            try:
-                with open(self.stop_file, 'w') as f:
-                    f.write('STOP')
-                self.log("Signal sent: STOP")
-            except Exception as e:
-                self.log(f"Error stopping: {e}")
+    def _update_leaderboard(self):
+        # Clear
+        for i in self.tree_ranks.get_children():
+            self.tree_ranks.delete(i)
 
-    def export_chart(self):
-        try:
-            filename = f"dashboard_export_{int(time.time())}.png"
-            self.fig_pnl.savefig(filename, facecolor="#1e1e1e")
-            self.log(f"Chart exported to {filename}")
-            messagebox.showinfo("Export", f"Chart saved to {filename}")
-        except Exception as e:
-            self.log(f"Error exporting: {e}")
+        # Sort by PnL
+        sorted_templates = sorted(self.templates.values(), key=lambda x: x.get('pnl', 0), reverse=True)
 
-    def refresh_dashboard(self):
-        d = self.data
+        # Top 15
+        for t in sorted_templates[:15]:
+            self.tree_ranks.insert("", tk.END, values=(t['id'], t.get('count',0), f"${t.get('pnl',0):.0f}", "ACTIVE"))
 
-        # === TOP CARDS ===
-        # Update using Queue Data (if available) or fallback to JSON
-        total_templates = d.get('total_templates', 0)
-        total_patterns = d.get('total_patterns', 0)
+        # Update Stats Label
+        self.lbl_stats.config(text=self._get_stats_str())
 
-        self._card_progress[0].config(text=f"{total_templates} Optimized")
-        self._card_progress[1].config(text=f"Patterns Covered: {total_patterns}")
+    def _log(self, text, error=False):
+        timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+        prefix = "🔴 " if error else "🟢 "
+        self.log_text.insert(tk.END, f"[{timestamp}] {prefix}{text}\n")
+        self.log_text.see(tk.END)
 
-        # P&L
-        total_pnl = d.get('total_pnl', 0.0)
-        latest_pnl = d.get('latest_pnl', 0.0)
+    def _get_stats_str(self):
+        total_pnl = sum(t.get('pnl', 0) for t in self.templates.values())
+        return f"TEMPLATES: {len(self.templates)} | FISSIONS: {len(self.fission_events)} | TOTAL PnL: ${total_pnl:.0f}"
 
-        pnl_color = "#00ff00" if total_pnl >= 0 else "#ff4444"
-        self._card_pnl[0].config(text=f"${total_pnl:,.2f}", fg=pnl_color)
-
-        latest_pnl_color = "#00ff00" if latest_pnl >= 0 else "#ff4444"
-        self._card_pnl[1].config(text=f"Last: ${latest_pnl:,.2f}", fg=latest_pnl_color)
-
-        # Win Rate
-        cum_wr = d.get('cumulative_win_rate', 0.0)
-        today_wr = d.get('today_win_rate', 0.0) * 100
-        wr_color = "#00ff00" if cum_wr >= 50 else "#ff4444"
-        self._card_wr[0].config(text=f"{cum_wr:.1f}%", fg=wr_color)
-        self._card_wr[1].config(text=f"Today: {today_wr:.1f}%")
-
-        # Sharpe
-        cum_sharpe = d.get('cumulative_sharpe', 0.0)
-        today_sharpe = d.get('today_sharpe', 0.0)
-        sharpe_color = "#00ff00" if cum_sharpe > 0 else "#ff4444"
-        self._card_sharpe[0].config(text=f"{cum_sharpe:.2f}", fg=sharpe_color)
-        self._card_sharpe[1].config(text=f"Today: {today_sharpe:.2f}")
-
-        # Trades
-        total_trades = d.get('total_trades', 0)
-        today_trades = d.get('today_trades', 0)
-        self._card_trades[0].config(text=f"{total_trades}")
-        self._card_trades[1].config(text=f"Today: {today_trades}")
-
-        # States
-        states = d.get('states_learned', 0)
-        high_conf = d.get('high_confidence_states', 0)
-        self._card_states[0].config(text=f"{states:,}")
-        self._card_states[1].config(text=f"High Conf: {high_conf}")
-
-        # Drawdown + Avg Duration
-        max_dd = d.get('max_drawdown', 0.0)
-        avg_dur = d.get('avg_duration', 0.0)
-        dur_str = f"{avg_dur:.0f}s" if avg_dur < 120 else f"{avg_dur/60:.1f}m"
-        self._card_dd[0].config(text=f"${max_dd:,.2f}", fg="#ff4444" if max_dd > 0 else "white")
-        self._card_dd[1].config(text=f"Avg Dur: {dur_str}")
-
-        # Best Params
-        bp = d.get('best_params', {})
-        if bp:
-            tp_sl = f"TP:{bp.get('TP','?')} SL:{bp.get('SL','?')}"
-            thresh = f"Thr:{bp.get('Threshold','?')} {bp.get('MaxHold','')}"
-            self._card_params[0].config(text=tp_sl, font=("Consolas", 11, "bold"))
-            self._card_params[1].config(text=thresh)
-        else:
-            self._card_params[0].config(text="--")
-            self._card_params[1].config(text="Waiting...")
-
-        # === CHARTS ===
-        self.update_charts(d)
-
-        # === DAY TABLE ===
-        self.update_day_table(d)
-
-        self.log(f"Templates: {total_templates} | Patterns: {total_patterns} | "
-                 f"P&L: ${total_pnl:,.2f} | WR: {cum_wr:.1f}% | Trades: {total_trades}")
-
-    def update_charts(self, data):
-        # 1. Cumulative P&L
-        trades = data.get('trades', [])
-        if trades:
-            pnls = [t.get('pnl', 0) for t in trades]
-            cum_pnl = np.cumsum(pnls)
-
-            self.ax_pnl.clear()
-            self._style_axis(self.ax_pnl, "Cumulative P&L (Best Iteration)")
-
-            x = range(len(cum_pnl))
-            self.ax_pnl.plot(x, cum_pnl, color='#00ff00', linewidth=1.5)
-            self.ax_pnl.axhline(0, color='#555555', linestyle='--', linewidth=0.5)
-            self.ax_pnl.fill_between(x, cum_pnl, 0,
-                                      where=(cum_pnl >= 0), facecolor='#00ff00', alpha=0.15)
-            self.ax_pnl.fill_between(x, cum_pnl, 0,
-                                      where=(cum_pnl < 0), facecolor='#ff4444', alpha=0.15)
-            self.ax_pnl.set_xlabel("Trade #", color="#888888", fontsize=8)
-            self.ax_pnl.set_ylabel("P&L ($)", color="#888888", fontsize=8)
-            self.fig_pnl.tight_layout()
-            self.canvas_pnl.draw()
-
-        # 2. Daily P&L bar chart
-        day_summaries = data.get('day_summaries', [])
-        if day_summaries:
-            days = [s.get('day', 0) for s in day_summaries]
-            pnls = [s.get('pnl', 0) for s in day_summaries]
-            colors = ['#00ff00' if p >= 0 else '#ff4444' for p in pnls]
-
-            self.ax_daily.clear()
-            self._style_axis(self.ax_daily, "Daily P&L")
-            self.ax_daily.bar(days, pnls, color=colors, alpha=0.8, width=0.7)
-            self.ax_daily.axhline(0, color='#555555', linestyle='--', linewidth=0.5)
-            self.ax_daily.set_xlabel("Day", color="#888888", fontsize=8)
-            self.ax_daily.set_ylabel("P&L ($)", color="#888888", fontsize=8)
-            self.fig_daily.tight_layout()
-            self.canvas_daily.draw()
-
-    def update_day_table(self, data):
-        # Clear existing rows
-        for item in self.day_tree.get_children():
-            self.day_tree.delete(item)
-
-        day_summaries = data.get('day_summaries', [])
-        for s in day_summaries:
-            pnl = s.get('pnl', 0)
-            wr = s.get('win_rate', 0) * 100
-            tag = 'profit' if pnl >= 0 else 'loss'
-            self.day_tree.insert('', 'end', values=(
-                s.get('day', ''),
-                s.get('date', ''),
-                s.get('trades', 0),
-                f"{wr:.1f}",
-                f"${pnl:,.2f}",
-                f"{s.get('sharpe', 0):.2f}",
-            ), tags=(tag,))
-
-        # Auto-scroll to bottom
-        children = self.day_tree.get_children()
-        if children:
-            self.day_tree.see(children[-1])
-
-
-if __name__ == "__main__":
-    if not os.environ.get('DISPLAY', '') and sys.platform != 'win32':
-        print("No display found. Dashboard requires a GUI environment.")
-        sys.exit(1)
-
+def launch_dashboard(queue):
     root = tk.Tk()
-    app = LiveDashboard(root)
+    app = FractalDashboard(root, queue)
     root.mainloop()
+
+if __name__ == '__main__':
+    # Test Run
+    import threading, time
+    q = queue.Queue()
+
+    def simulate_feed():
+        time.sleep(2)
+        q.put({'type': 'STATUS', 'text': 'SCANNING ATLAS...'})
+        time.sleep(1)
+        q.put({'type': 'TEMPLATE_UPDATE', 'id': 101, 'z': 2.1, 'mom': 4.5, 'pnl': 120, 'count': 45})
+        time.sleep(0.5)
+        q.put({'type': 'TEMPLATE_UPDATE', 'id': 102, 'z': -1.5, 'mom': -3.2, 'pnl': -50, 'count': 30})
+        time.sleep(1)
+        q.put({'type': 'FISSION_EVENT', 'parent_id': 101, 'children_count': 3, 'reason': 'Variance limit'})
+
+    t = threading.Thread(target=simulate_feed, daemon=True)
+    t.start()
+
+    launch_dashboard(q)
