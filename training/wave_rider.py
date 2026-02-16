@@ -305,7 +305,17 @@ class WaveRider:
         """Load pattern playbook and build centroid matrix"""
         try:
             with open(path, 'rb') as f:
-                self.playbook_data = pickle.load(f)
+    def _load_playbook(self, path: str):
+        """Load pattern playbook and build centroid matrix"""
+        try:
+            # Example using JSON for safer loading of parameters
+            import json
+            with open(path, 'r') as f:
+                self.playbook_data = json.load(f)
+            
+            # If centroids are numpy arrays, they can be stored separately 
+            # or encoded/decoded safely.
+            # ... rest of the logic ...
 
             # Extract centroids and IDs
             ids = []
