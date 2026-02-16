@@ -51,7 +51,7 @@ def test_quantum_state():
     state3 = replace(state1, z_score=-2.5, lagrange_zone='L3_ROCHE')
     assert state1 != state3, "States with different z_score/zone should not be equal"
 
-    print("✓ ThreeBodyQuantumState hashing works correctly")
+    print("[OK] ThreeBodyQuantumState hashing works correctly")
     print(f"  Hash: {hash(state1)}")
 
     # Test trade directive
@@ -80,7 +80,7 @@ def test_quantum_brain():
     initial_prob = brain.get_quantum_probability(state)
     expected_prior = 0.09
     assert abs(initial_prob - expected_prior) < 1e-9, f"Initial probability should be {expected_prior}, got {initial_prob}"
-    print(f"✓ Initial probability: {initial_prob:.2%}")
+    print(f"[OK] Initial probability: {initial_prob:.2%}")
 
     # Simulate 10 wins, 2 losses
     for i in range(10):
@@ -101,14 +101,14 @@ def test_quantum_brain():
     learned_prob = brain.get_quantum_probability(state)
     confidence = brain.get_confidence(state)
 
-    print(f"✓ After 12 trades (10W-2L):")
+    print(f"[OK] After 12 trades (10W-2L):")
     print(f"  Probability: {learned_prob:.2%}")
     print(f"  Confidence: {confidence:.2%}")
     print(f"  Should fire (80% threshold): {brain.should_fire_quantum(state)}")
 
     # Test statistics
     stats = brain.get_stats(state)
-    print(f"✓ Stats: {stats}")
+    print(f"[OK] Stats: {stats}")
 
 def test_quantum_field_engine():
     """Test QuantumFieldEngine computation"""
@@ -152,7 +152,7 @@ def test_quantum_field_engine():
     if len(results) > 0:
         first_res = results[0]
         state = first_res['state']
-        print(f"✓ Sample State (Bar {first_res['bar_idx']}):")
+        print(f"[OK] Sample State (Bar {first_res['bar_idx']}):")
         print(f"  Zone: {state.lagrange_zone}")
         print(f"  Z-Score: {state.z_score:.2f}")
         print(f"  Tunnel Prob: {state.tunnel_probability:.2%}")
@@ -229,7 +229,7 @@ def test_full_quantum_integration():
 
     # Summary
     summary = brain.get_summary()
-    print(f"\n✓ Learning Summary:")
+    print(f"\n[OK] Learning Summary:")
     print(f"  Unique states learned: {summary['total_unique_states']}")
     print(f"  Total trades: {summary['total_trades']}")
 
@@ -296,7 +296,7 @@ def test_rolling_cascade_and_context():
     assert state.daily_volatility == 'HIGH', "Daily vol should be HIGH"
     assert state.session == 'US', "Session should be US"
 
-    print("✓ Rolling Cascade and Context Injection verified")
+    print("[OK] Rolling Cascade and Context Injection verified")
 
 if __name__ == "__main__":
     print("Bayesian AI v2.0 - Quantum Integration Validation")
@@ -309,4 +309,4 @@ if __name__ == "__main__":
     test_rolling_cascade_and_context()
 
     print("\n" + "=" * 60)
-    print("✓ ALL QUANTUM INTEGRATION TESTS PASSED")
+    print("[OK] ALL QUANTUM INTEGRATION TESTS PASSED")

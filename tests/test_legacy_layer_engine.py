@@ -85,7 +85,7 @@ class TestLegacyLayerEngine(unittest.TestCase):
         # Compute state
         state = engine.compute_current_state(current_data)
 
-        print(f"✓ Computed state:")
+        print(f"[OK] Computed state:")
         state_dict = state.to_dict()
         for key, value in state_dict.items():
             if key not in ['timestamp', 'price']:
@@ -152,7 +152,7 @@ class TestLegacyLayerEngine(unittest.TestCase):
 
         # Summary
         summary = brain.get_summary()
-        print(f"\n✓ Learning Summary:")
+        print(f"\n[OK] Learning Summary:")
         print(f"  Unique states learned: {summary['total_unique_states']}")
         print(f"  Total trades: {summary['total_trades']}")
 
