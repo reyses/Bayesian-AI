@@ -47,7 +47,8 @@ class FractalClusteringEngine:
 
                 features.append([abs(z), abs(v), abs(m), c])
                 valid_patterns.append(p)
-            except AttributeError:
+            except AttributeError as e:
+                print(f"WARNING: Skipping pattern due to missing attribute: {e}")
                 continue
 
         if not features:
