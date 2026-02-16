@@ -10,16 +10,12 @@ from training.databento_loader import DatabentoLoader
 
 DEFAULT_TEST_DATA_FILE = 'glbx-mdp3-20250730.trades.0000.dbn.zst'
 
-def get_project_root():
-    """Returns the absolute path to the project root directory."""
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-
 def find_test_data_file(filename):
     """
     Finds a test data file.
     It first checks in DATA/RAW, and if DATA/RAW is empty, it checks in tests/Testing DATA.
     """
-    project_root = get_project_root()
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     raw_data_dir = os.path.join(project_root, 'DATA', 'RAW')
     
     # Prefer DATA/RAW if it has any files
@@ -45,7 +41,7 @@ def get_test_data_files():
     Returns a list of paths to test data files.
     It first checks in DATA/RAW, then in tests/Testing DATA, then in tests/.
     """
-    project_root = get_project_root()
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     raw_data_dir = os.path.join(project_root, 'DATA', 'RAW')
     testing_data_dir = os.path.join(project_root, 'tests', 'Testing DATA')
     tests_dir = os.path.join(project_root, 'tests')
