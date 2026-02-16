@@ -83,6 +83,10 @@ class FractalDashboard:
             self.tree_ranks.column(col, width=80)
         self.tree_ranks.pack(fill=tk.X, pady=5)
 
+        # Configure tags for PnL coloring
+        self.tree_ranks.tag_configure('profit', foreground='#00ff00')
+        self.tree_ranks.tag_configure('loss', foreground='#ff4444')
+
         # Fission Log
         ttk.Label(right_pane, text="FISSION EVENTS & ALERTS", style="Header.TLabel").pack(anchor=tk.W, pady=(10,0))
         self.log_text = tk.Text(right_pane, height=15, bg="#000000", fg="#00ff00", font=("Consolas", 9))
@@ -148,7 +152,10 @@ class FractalDashboard:
 
         # Top 15
         for t in sorted_templates[:15]:
-            self.tree_ranks.insert("", tk.END, values=(t['id'], t.get('count',0), f"${t.get('pnl',0):.0f}", "ACTIVE"))
+            pnl = t.get('pnl', 0)
+            tag = 'profit' if pnl >= 0 else 'loss'
+            icon = "▲" if pnl >= 0 else "▼"
+            self.tree_ranks.insert("", tk.END, values=(t['id'], t.get('count', 0), f"{icon} ${pnl:.0f}", "ACTIVE"), tags=(tag,))
 
         # Update Stats Label
         self.lbl_stats.config(text=self._get_stats_str())
