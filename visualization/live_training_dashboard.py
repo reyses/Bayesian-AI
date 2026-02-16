@@ -85,9 +85,10 @@ class Tooltip:
 
 
 class LiveDashboard:
-    def __init__(self, root):
+    def __init__(self, root, queue=None):
         self.root = root
-        self.root.title("Bayesian-AI Live Training Dashboard")
+        self.queue = queue # For cross-process communication (Template Updates)
+        self.root.title("Bayesian-AI Live Training Dashboard (Template Engine)")
         self.root.geometry("1400x850")
         self.root.configure(bg=COLOR_BG)
 
@@ -105,6 +106,12 @@ class LiveDashboard:
         self.last_update = 0
         self.is_running = True
         self.remote_status = "RUNNING"
+        self.data = {} # Initialize data dict
+
+        # Template Engine Metrics (Updated via Queue)
+        self.templates_optimized = 0
+        self.patterns_covered = 0
+        self.latest_template_pnl = 0.0
 
         # Styles
         style = ttk.Style()
@@ -134,6 +141,10 @@ class LiveDashboard:
         self.poll_thread = threading.Thread(target=self.poll_data, daemon=True)
         self.poll_thread.start()
 
+        # Start Queue Polling (if available)
+        if self.queue:
+            self.root.after(100, self.poll_queue)
+
         # Update GUI loop
         self.root.after(1000, self.update_gui)
 
@@ -158,10 +169,10 @@ class LiveDashboard:
         for i in range(8):
             top_frame.columnconfigure(i, weight=1)
 
-        # Card: Progress
-        self._card_progress = self._make_card(top_frame, 0, "PROGRESS", "Day -- / --", "-- | ETA: --")
+        # Card: Templates
+        self._card_progress = self._make_card(top_frame, 0, "TEMPLATES", "0", "Patterns: 0")
         # Card: Total P&L
-        self._card_pnl = self._make_card(top_frame, 1, "TOTAL P&L", "$0.00", "Today: $0.00")
+        self._card_pnl = self._make_card(top_frame, 1, "TOTAL P&L", "$0.00", "Last: $0.00")
         # Card: Win Rate
         self._card_wr = self._make_card(top_frame, 2, "WIN RATE", "0.0%", "Today: 0.0%")
         # Card: Sharpe
@@ -177,10 +188,10 @@ class LiveDashboard:
 
         # Tooltips for Cards
         card_tooltips = [
-            (self._card_progress[0], "Current training iteration / Total iterations"),
-            (self._card_progress[1], "Current simulated date | Estimated Time Remaining"),
+            (self._card_progress[0], "Total Templates Optimized | Total Patterns Covered"),
+            (self._card_progress[1], "Optimization Status"),
             (self._card_pnl[0], "Total Profit/Loss across all trades"),
-            (self._card_pnl[1], "Profit/Loss for the current simulated day"),
+            (self._card_pnl[1], "PnL of Latest Template"),
             (self._card_wr[0], "Percentage of winning trades (cumulative)"),
             (self._card_wr[1], "Win rate for today"),
             (self._card_sharpe[0], "Sharpe Ratio (Risk-adjusted return)"),
@@ -310,6 +321,7 @@ class LiveDashboard:
         self.txt_log.config(state='disabled')
 
     def poll_data(self):
+        """Polls the JSON status file (legacy/persistence)"""
         while self.is_running:
             try:
                 if os.path.exists(self.json_path):
@@ -329,6 +341,29 @@ class LiveDashboard:
             except Exception as e:
                 print(f"Polling error: {e}")
             time.sleep(1)
+
+    def poll_queue(self):
+        """Polls the multiprocessing Queue for real-time Template Updates"""
+        try:
+            while not self.queue.empty():
+                msg = self.queue.get_nowait()
+                if msg.get('type') == 'TEMPLATE_UPDATE':
+                    self.templates_optimized += 1
+                    self.patterns_covered += msg.get('count', 0)
+                    self.latest_template_pnl = msg.get('pnl', 0.0)
+
+                    # Update local data dict immediately for smoother UI
+                    self.data['total_templates'] = self.templates_optimized
+                    self.data['total_patterns'] = self.patterns_covered
+                    self.data['latest_pnl'] = self.latest_template_pnl
+
+                    self.new_data_event = True # Trigger GUI refresh
+        except Exception as e:
+            print(f"Queue poll error: {e}")
+
+        # Schedule next poll
+        if self.is_running:
+            self.root.after(100, self.poll_queue)
 
     def update_gui(self):
         if hasattr(self, 'new_data_event') and self.new_data_event:
@@ -388,26 +423,22 @@ class LiveDashboard:
         d = self.data
 
         # === TOP CARDS ===
-        iter_current = d.get('iteration', 0)
-        iter_total = d.get('total_iterations', 1)
-        elapsed = int(d.get('elapsed_seconds', 0))
-        elapsed_str = str(datetime.timedelta(seconds=elapsed))
-        eta_str = "--"
-        if iter_current > 0:
-            eta_seconds = int((elapsed / iter_current) * (iter_total - iter_current))
-            eta_str = str(datetime.timedelta(seconds=eta_seconds))
-        current_date = d.get('current_date', '')
+        # Update using Queue Data (if available) or fallback to JSON
+        total_templates = d.get('total_templates', 0)
+        total_patterns = d.get('total_patterns', 0)
 
-        self._card_progress[0].config(text=f"Day {iter_current} / {iter_total}")
-        self._card_progress[1].config(text=f"{current_date} | ETA: {eta_str}")
+        self._card_progress[0].config(text=f"{total_templates} Optimized")
+        self._card_progress[1].config(text=f"Patterns Covered: {total_patterns}")
 
         # P&L
         total_pnl = d.get('total_pnl', 0.0)
-        today_pnl = d.get('today_pnl', 0.0)
+        latest_pnl = d.get('latest_pnl', 0.0)
+
         pnl_color = "#00ff00" if total_pnl >= 0 else "#ff4444"
         self._card_pnl[0].config(text=f"${total_pnl:,.2f}", fg=pnl_color)
-        today_pnl_color = "#00ff00" if today_pnl >= 0 else "#ff4444"
-        self._card_pnl[1].config(text=f"Today: ${today_pnl:,.2f}", fg=today_pnl_color)
+
+        latest_pnl_color = "#00ff00" if latest_pnl >= 0 else "#ff4444"
+        self._card_pnl[1].config(text=f"Last: ${latest_pnl:,.2f}", fg=latest_pnl_color)
 
         # Win Rate
         cum_wr = d.get('cumulative_win_rate', 0.0)
@@ -459,7 +490,7 @@ class LiveDashboard:
         # === DAY TABLE ===
         self.update_day_table(d)
 
-        self.log(f"Day {iter_current}/{iter_total} | {current_date} | "
+        self.log(f"Templates: {total_templates} | Patterns: {total_patterns} | "
                  f"P&L: ${total_pnl:,.2f} | WR: {cum_wr:.1f}% | Trades: {total_trades}")
 
     def update_charts(self, data):
