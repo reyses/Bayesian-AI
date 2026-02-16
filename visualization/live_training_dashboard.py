@@ -10,6 +10,11 @@ import queue
 import datetime
 import numpy as np
 
+PROFIT_COLOR = '#00ff00'
+LOSS_COLOR = '#ff4444'
+PROFIT_TAG = 'profit'
+LOSS_TAG = 'loss'
+
 class FractalDashboard:
     def __init__(self, root, queue):
         self.root = root
@@ -83,6 +88,10 @@ class FractalDashboard:
             self.tree_ranks.column(col, width=80)
         self.tree_ranks.pack(fill=tk.X, pady=5)
 
+        # Configure tags for PnL coloring
+        self.tree_ranks.tag_configure(PROFIT_TAG, foreground=PROFIT_COLOR)
+        self.tree_ranks.tag_configure(LOSS_TAG, foreground=LOSS_COLOR)
+
         # Fission Log
         ttk.Label(right_pane, text="FISSION EVENTS & ALERTS", style="Header.TLabel").pack(anchor=tk.W, pady=(10,0))
         self.log_text = tk.Text(right_pane, height=15, bg="#000000", fg="#00ff00", font=("Consolas", 9))
@@ -148,7 +157,22 @@ class FractalDashboard:
 
         # Top 15
         for t in sorted_templates[:15]:
-            self.tree_ranks.insert("", tk.END, values=(t['id'], t.get('count',0), f"${t.get('pnl',0):.0f}", "ACTIVE"))
+            pnl = t.get('pnl', 0)
+            if pnl > 0:
+                tag = PROFIT_TAG
+                icon = "▲"
+            elif pnl < 0:
+                tag = LOSS_TAG
+                icon = "▼"
+            else:
+                tag = ''
+                icon = ""
+
+            # Format PnL string (handle 0 specially if needed, but icon handles visual)
+            # If 0, no icon, just $0
+            pnl_str = f"{icon} ${pnl:.0f}" if icon else f"${pnl:.0f}"
+
+            self.tree_ranks.insert("", tk.END, values=(t['id'], t.get('count', 0), pnl_str, "ACTIVE"), tags=(tag,))
 
         # Update Stats Label
         self.lbl_stats.config(text=self._get_stats_str())
