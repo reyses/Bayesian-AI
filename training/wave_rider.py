@@ -530,7 +530,7 @@ class WaveRider:
 
         profit_usd = profit * self.asset.point_value
 
-        # Adaptive Trail logic (using calibrated config OR position-specific config)
+        active_config = self.position.trailing_config if self.position.trailing_config is not None else self.trail_config
         active_config = self.position.trailing_config if self.position.trailing_config else self.trail_config
 
         if profit_usd < 50:
