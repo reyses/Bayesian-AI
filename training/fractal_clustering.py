@@ -19,6 +19,9 @@ from sklearn.metrics import silhouette_score
 # Local import of timeframe mapping
 from training.fractal_discovery_agent import TIMEFRAME_SECONDS
 
+MINIBATCH_KMEANS_SAMPLES_THRESHOLD = 500
+DEFAULT_KMEANS_BATCH_SIZE = 256
+
 @dataclass
 class PatternTemplate:
     template_id: int
@@ -88,10 +91,10 @@ class FractalClusteringEngine:
         t1 = _time.perf_counter()
         print(f"  Coarse KMeans: fitting {len(valid_patterns)} patterns into {target_k} clusters...", end="", flush=True)
 
-        if len(valid_patterns) < 500:
+        if len(valid_patterns) < MINIBATCH_KMEANS_SAMPLES_THRESHOLD:
             model = KMeans(n_clusters=target_k, random_state=42, n_init=10)
         else:
-            model = MiniBatchKMeans(n_clusters=target_k, batch_size=min(256, len(valid_patterns)), random_state=42)
+            model = MiniBatchKMeans(n_clusters=target_k, batch_size=min(DEFAULT_KMEANS_BATCH_SIZE, len(valid_patterns)), random_state=42)
 
         labels = model.fit_predict(X_scaled)
         print(f" done ({_time.perf_counter() - t1:.2f}s)")
