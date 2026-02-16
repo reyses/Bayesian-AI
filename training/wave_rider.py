@@ -397,9 +397,9 @@ class WaveRider:
             template_id: Optional template ID to load params from
             stop_distance_ticks: Optional override for stop distance
         """
-        # 1. Determine Parameters
-        stop_ticks = 20 # Default
+        stop_ticks = 20  # Default stop loss in ticks
         tp_price = None
+        trail_config = None
         trail_config = None
 
         # If template provided, load params
