@@ -16,17 +16,6 @@ PID_KP = 0.5
 PID_KI = 0.1
 PID_KD = 0.2
 
-# Precomputed Regression Constants
-_SUM_X = reg_period * (reg_period - 1) / 2.0
-_SUM_XX = (reg_period - 1) * reg_period * (2 * reg_period - 1) / 6.0
-
-_MEAN_X = _SUM_X / reg_period
-_DENOM = _SUM_XX - (_SUM_X * _SUM_X) / reg_period
-_INV_REG_PERIOD = 1.0 / reg_period
-_INV_DENOM = 0.0
-if abs(_DENOM) > 1e-9:
-    _INV_DENOM = 1.0 / _DENOM
-
 # Repulsion Constants
 REPULSION_EPSILON = 0.01
 REPULSION_FORCE_CAP = 100.0
@@ -41,7 +30,8 @@ def compute_physics_kernel(prices, volumes,
                            out_center, out_sigma, out_slope,
                            out_z, out_velocity, out_force, out_momentum,
                            out_coherence, out_entropy,
-                           out_prob0, out_prob1, out_prob2):
+                           out_prob0, out_prob1, out_prob2,
+                           reg_period, mean_x, inv_reg_period, inv_denom, denom):
     """
     Fused Physics Kernel:
     1. Rolling Linear Regression (Center, Sigma, Slope)
@@ -80,17 +70,17 @@ def compute_physics_kernel(prices, volumes,
                 sum_xy += x * val
                 sum_yy += val * val
 
-            mean_y = sum_y * _INV_REG_PERIOD
+            mean_y = sum_y * inv_reg_period
 
             # Slope calculation using precomputed constants
-            slope = (sum_xy - _MEAN_X * sum_y) * _INV_DENOM
-            intercept = mean_y - slope * _MEAN_X
+            slope = (sum_xy - mean_x * sum_y) * inv_denom
+            intercept = mean_y - slope * mean_x
 
             # Center at end of window (x = reg_period - 1)
             # center = slope * (reg_period - 1) + intercept
             # Simplified: center = slope * (reg_period - 1) + (mean_y - slope * mean_x)
             #            = mean_y + slope * (reg_period - 1 - mean_x)
-            center = mean_y + slope * ((reg_period - 1) - _MEAN_X)
+            center = mean_y + slope * ((reg_period - 1) - mean_x)
             out_center[i] = center
             out_slope[i] = slope
 
@@ -98,7 +88,7 @@ def compute_physics_kernel(prices, volumes,
             # RSS = SST - slope^2 * DENOM
             # SST = sum_yy - n * mean_y^2
             sst = sum_yy - reg_period * mean_y * mean_y
-            rss = sst - slope * slope * _DENOM
+            rss = sst - slope * slope * denom
 
             # Clamp for numerical stability
             if rss < 0.0:

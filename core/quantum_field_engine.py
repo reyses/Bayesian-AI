@@ -228,13 +228,28 @@ class QuantumFieldEngine:
         threads_per_block = 256
         blocks_per_grid = (n + (threads_per_block - 1)) // threads_per_block
 
+        # Precompute regression constants
+        sum_x = 0.0
+        sum_xx = 0.0
+        for _k in range(rp):
+            sum_x += float(_k)
+            sum_xx += float(_k * _k)
+
+        mean_x = sum_x / rp
+        denom = sum_xx - (sum_x * sum_x) / rp
+        inv_reg_period = 1.0 / rp
+        inv_denom = 0.0
+        if abs(denom) > 1e-9:
+            inv_denom = 1.0 / denom
+
         # 1. Physics Kernel
         compute_physics_kernel[blocks_per_grid, threads_per_block](
             d_prices, d_volumes,
             d_center, d_sigma, d_slope,
             d_z, d_velocity, d_force, d_momentum,
             d_coherence, d_entropy,
-            d_prob0, d_prob1, d_prob2
+            d_prob0, d_prob1, d_prob2,
+            rp, mean_x, inv_reg_period, inv_denom, denom
         )
 
         # 2. Archetype Kernel
