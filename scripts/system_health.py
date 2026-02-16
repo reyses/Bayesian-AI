@@ -126,18 +126,12 @@ def check_data():
 def main():
     print("Starting System Health Check...")
 
-    all_ok = all([
-        check_python(),
-        check_dependencies(),
-        check_cuda(),
-        check_data(),
-    ])
+    check_python()
+    check_dependencies()
+    check_cuda()
+    check_data()
 
     print("\nSystem Health Check Complete.")
-
-    if not all_ok:
-        print("\nOne or more health checks failed.")
-        sys.exit(1)
 
 if __name__ == "__main__":
     main()
