@@ -5,6 +5,9 @@ File: bayesian_ai/execution/wave_rider.py
 ENHANCED: Now includes post-trade regret analysis for adaptive trail optimization
 """
 import time
+import pickle
+import numpy as np
+from scipy.spatial.distance import cdist
 from dataclasses import dataclass
 from typing import Optional, Dict, Union, List, Tuple, Literal
 from core.state_vector import StateVector
@@ -237,6 +240,9 @@ class Position:
     stop_loss: float
     high_water_mark: float
     entry_layer_state: Union[StateVector, ThreeBodyQuantumState]
+    template_id: Optional[int] = None
+    take_profit: Optional[float] = None
+    trailing_config: Optional[Dict] = None
 
 
 class WaveRider:
@@ -251,7 +257,7 @@ class WaveRider:
     - Price history tracking for learning
     """
     
-    def __init__(self, asset_profile, trail_config: Optional[Dict] = None):
+    def __init__(self, asset_profile, trail_config: Optional[Dict] = None, playbook_path: str = 'pattern_playbook.pkl'):
         """
         Initialize WaveRider
         
@@ -259,6 +265,7 @@ class WaveRider:
             asset_profile: AssetProfile with tick_size, tick_value, point_value
             trail_config: Optional dict with 'tight', 'medium', 'wide' trail distances
                          Default: {'tight': 10, 'medium': 20, 'wide': 30}
+            playbook_path: Path to the pattern playbook pickle file
         """
         self.asset = asset_profile
         self.position: Optional[Position] = None
@@ -273,6 +280,16 @@ class WaveRider:
         else:
             self.trail_config = trail_config
         
+        # Playbook & Template Matching
+        self.playbook_path = playbook_path
+        self.centroids = None      # Numpy array [N, 4]
+        self.template_ids = []     # List of IDs corresponding to centroids
+        self.playbook_data = {}    # Dict mapping ID -> Params
+        self.active_template_params = None
+
+        # Load playbook if available
+        self._load_playbook(self.playbook_path)
+
         # Regret analysis
         self.regret_analyzer = RegretAnalyzer()
         self.price_history: List[Tuple[float, float]] = []
@@ -284,9 +301,92 @@ class WaveRider:
         self.trades_since_calibration = 0
         self.calibration_interval = 10
 
+    def _load_playbook(self, path: str):
+        """Load pattern playbook and build centroid matrix"""
+        try:
+            with open(path, 'rb') as f:
+    def _load_playbook(self, path: str):
+        """Load pattern playbook and build centroid matrix"""
+        try:
+            # Example using JSON for safer loading of parameters
+            import json
+            with open(path, 'r') as f:
+                self.playbook_data = json.load(f)
+            
+            # If centroids are numpy arrays, they can be stored separately 
+            # or encoded/decoded safely.
+            # ... rest of the logic ...
+
+            # Extract centroids and IDs
+            ids = []
+            centroids = []
+
+            # Playbook structure: {id: {'centroid': np.array, 'params': dict, ...}}
+            for tid, data in self.playbook_data.items():
+                if 'centroid' in data:
+                    ids.append(tid)
+                    centroids.append(data['centroid'])
+
+            if ids:
+                self.template_ids = ids
+                self.centroids = np.array(centroids)
+                print(f"[WAVERIDER] Loaded {len(ids)} templates from {path}")
+            else:
+                print(f"[WAVERIDER] Playbook loaded but empty/invalid: {path}")
+
+        except FileNotFoundError:
+            logging.warning(f"[WAVERIDER] Playbook not found at {path}. Running in Adaptive Mode.")
+        except Exception as e:
+            logging.error(f"[WAVERIDER] Error loading playbook: {e}")
+
+    def match_current_state(self, state: Union[StateVector, ThreeBodyQuantumState]) -> Optional[int]:
+        """
+        Real-time Vector Matching: State -> Template ID
+        Uses Euclidean distance on absolute physics values (Z, V, M, C).
+        """
+        if self.centroids is None or not isinstance(state, ThreeBodyQuantumState):
+            return None
+
+        # Extract Physics Vector: [Z, V, M, C]
+        # Use abs() as per training clustering logic
+        try:
+            vector = np.array([[
+                abs(state.z_score),
+                abs(state.particle_velocity),
+                abs(state.momentum_strength),
+                state.coherence
+        except AttributeError as e:
+            logging.error(f"[WAVERIDER] Error extracting vector from state: {e}")
+            return None
+            return None
+
+        # Calculate Euclidean distance to all centroids
+        dists = cdist(vector, self.centroids, metric='euclidean')
+
+        # Find nearest
+        min_idx = np.argmin(dists)
+        min_dist = dists[0, min_idx]
+
+        # Threshold Check (Normalized Distance > 0.5 means unknown state)
+        if min_dist > 0.5:
+            return None
+
+        return self.template_ids[min_idx]
+
+    def configure_for_template(self, template_id: int):
+        """
+        Configure WaveRider with parameters from the playbook template.
+        if template_id not in self.playbook_data:
+            logging.warning(f"[WAVERIDER] Attempted to configure for non-existent template_id: {template_id}")
+            return
+
+        params = self.playbook_data[template_id].get('params', {})
+        self.active_template_params = params
+
     def open_position(self, entry_price: float, side: str, 
                      state: Union[StateVector, ThreeBodyQuantumState],
-                     stop_distance_ticks: int = 20):
+                     template_id: Optional[int] = None,
+                     stop_distance_ticks: Optional[int] = None):
         """
         Open new position
         
@@ -294,9 +394,40 @@ class WaveRider:
             entry_price: Entry price
             side: 'long' or 'short'
             state: StateVector or ThreeBodyQuantumState at entry
-            stop_distance_ticks: Initial stop distance (default 20)
+            template_id: Optional template ID to load params from
+            stop_distance_ticks: Optional override for stop distance
         """
-        stop_dist = stop_distance_ticks * self.asset.tick_size
+        stop_ticks = 20  # Default stop loss in ticks
+        tp_price = None
+        trail_config = None
+        trail_config = None
+
+        # If template provided, load params
+        if template_id is not None:
+            self.configure_for_template(template_id)
+
+        # Apply Template Params if active
+        if self.active_template_params:
+            # Stop Loss
+            if 'stop_loss_ticks' in self.active_template_params:
+                stop_ticks = int(self.active_template_params['stop_loss_ticks'])
+
+            # Take Profit
+            if 'take_profit_ticks' in self.active_template_params:
+                tp_ticks = int(self.active_template_params['take_profit_ticks'])
+                dist = tp_ticks * self.asset.tick_size
+                tp_price = entry_price + dist if side == 'long' else entry_price - dist
+
+            # Trailing Stop
+            if 'trailing_stop_ticks' in self.active_template_params:
+                fixed_trail = int(self.active_template_params['trailing_stop_ticks'])
+                trail_config = {'tight': fixed_trail, 'medium': fixed_trail, 'wide': fixed_trail}
+
+        # Override with explicit args if provided
+        if stop_distance_ticks is not None:
+            stop_ticks = stop_distance_ticks
+
+        stop_dist = stop_ticks * self.asset.tick_size
         stop_loss = entry_price + stop_dist if side == 'short' else entry_price - stop_dist
         
         self.position = Position(
@@ -305,7 +436,10 @@ class WaveRider:
             side=side,
             stop_loss=stop_loss,
             high_water_mark=entry_price,
-            entry_layer_state=state
+            entry_layer_state=state,
+            template_id=template_id,
+            take_profit=tp_price,
+            trailing_config=trail_config
         )
         
         # Note: Do not clear price_history here as we need it for delayed analysis
@@ -396,25 +530,39 @@ class WaveRider:
 
         profit_usd = profit * self.asset.point_value
 
-        # Adaptive Trail logic (using calibrated config)
+        active_config = self.position.trailing_config if self.position.trailing_config is not None else self.trail_config
+        active_config = self.position.trailing_config if self.position.trailing_config else self.trail_config
+
         if profit_usd < 50:
-            trail_ticks = self.trail_config['tight']
+            trail_ticks = active_config['tight']
         elif profit_usd < 150:
-            trail_ticks = self.trail_config['medium']
+            trail_ticks = active_config['medium']
         else:
-            trail_ticks = self.trail_config['wide']
+            trail_ticks = active_config['wide']
 
         trail_dist = trail_ticks * self.asset.tick_size
         new_stop = self.position.high_water_mark + trail_dist if self.position.side == 'short' else self.position.high_water_mark - trail_dist
 
-        # Check Stop Hit or Structure Break
+        # Check Stop Hit
         stop_hit = (self.position.side == 'short' and current_price >= new_stop) or \
                    (self.position.side == 'long' and current_price <= new_stop)
 
+        # Check Take Profit
+        tp_hit = False
+        if self.position.take_profit:
+            tp_hit = (self.position.side == 'long' and current_price >= self.position.take_profit) or \
+                     (self.position.side == 'short' and current_price <= self.position.take_profit)
+
+        # Check Structure Break
         structure_broken = self._check_layer_breaks(current_state)
 
-        if stop_hit or structure_broken:
-            exit_reason = 'structure_break' if structure_broken else 'trail_stop'
+        if stop_hit or tp_hit or structure_broken:
+            if tp_hit:
+                exit_reason = 'take_profit'
+            elif structure_broken:
+                exit_reason = 'structure_break'
+            else:
+                exit_reason = 'trail_stop'
             
             # QUEUE FOR REGRET ANALYSIS (Delayed)
             review = PendingReview(
