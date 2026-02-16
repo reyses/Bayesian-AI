@@ -399,78 +399,82 @@ class BayesianTrainingOrchestrator:
         # Sort manifest chronologically
         manifest.sort(key=lambda x: x.timestamp)
 
-        # --- PHASE 2.5: CLUSTERING (The Template Factory) ---
-        print("\nPhase 2.5: Generating Pattern Templates...")
+        # --- PHASE 2.5: RECURSIVE CLUSTERING ---
+        print("\nPhase 2.5: Generating Physically Tight Templates...")
 
-        # Initialize Clustering Engine
-        # Heuristic: 1 Template for every 50 raw patterns found
-        n_templates = max(10, len(manifest) // 50)
-        clustering_engine = FractalClusteringEngine(n_clusters=n_templates)
+        # Start with fewer clusters, let recursion expand them
+        n_initial = max(10, len(manifest) // 100)
+
+        # Max Variance 0.5 means Z-Score spread of +/- 0.5 sigma is allowed.
+        clustering_engine = FractalClusteringEngine(n_clusters=n_initial, max_variance=0.5)
 
         templates = clustering_engine.create_templates(manifest)
-        print(f"Condensed {len(manifest)} raw patterns into {len(templates)} Unique Templates.")
+        print(f"Condensed {len(manifest)} raw patterns into {len(templates)} Tight Templates.")
 
-        # --- PHASE 3: TEMPLATE OPTIMIZATION (The Foundry) ---
-        print("\nPhase 3: Template Optimization Loop...")
-
-        num_workers = self.calculate_optimal_workers()
-        batch_size = num_workers * 2
+        # --- PHASE 3: TEMPLATE OPTIMIZATION (THE FOUNDRY) ---
+        print("\nPhase 3: Template Optimization & Fission Loop...")
 
         # Initialize Pattern Library
         self.pattern_library = {}
 
-        # Iterate through Templates (biggest first)
-        pbar = tqdm(total=len(templates), desc="Optimizing Templates")
+        template_queue = templates.copy()
+        processed_count = 0
 
-        with multiprocessing.Pool(processes=num_workers) as pool:
-            for i in range(0, len(templates), batch_size):
-                template_batch = templates[i : i + batch_size]
+        while template_queue:
+            tmpl = template_queue.pop(0)
+            processed_count += 1
+            print(f"Processing Template {tmpl.template_id} ({tmpl.member_count} members)...")
 
-                # Prepare Tasks: One task per TEMPLATE (not per pattern)
-                tasks = []
-                for tmpl in template_batch:
-                    # OPTIMIZATION HACK:
-                    # We do not simulate all 500 members of a cluster.
-                    # We select a "Representative Subset" (Top 20) to find the parameters.
-                    subset = tmpl.patterns[:REPRESENTATIVE_SUBSET_SIZE]
+            # 1. Select Training Subset
+            subset = tmpl.patterns[:50]
 
-                    # We pass the SUBSET to the worker, which will run DOE on all of them
-                    # and find the best "Consensus Params" that work for the group.
-                    tasks.append((tmpl, subset, self.config.iterations, self.param_generator, self.asset.point_value))
+            # 2. Run Individual Optimization (for Fission Check)
+            # Parallelize this in production
+            member_optimals = []
+            for pattern in subset:
+                best_p, _ = self._optimize_pattern_task((pattern, 20, self.param_generator, self.asset.point_value))
+                member_optimals.append(best_p)
 
-                # Run Parallel Optimization
-                results = pool.map(_optimize_template_task, tasks)
+            # 3. Check for Behavioral Fission (Regret-Based)
+            new_sub_templates = clustering_engine.refine_clusters(tmpl.template_id, member_optimals, subset)
 
-                # Process Results
-                for j, (best_params, best_score) in enumerate(results):
-                    tmpl = template_batch[j]
+            if new_sub_templates:
+                print(f"  -> Template {tmpl.template_id} shattered into {len(new_sub_templates)} behavioral subsets.")
+                template_queue.extend(new_sub_templates)
+                continue
 
-                    # Register the logic: "If physics matches Template X, use Params Y"
-                    # The 'key' in the library is now the Template Centroid Signature (or ID)
-                    self.register_template_logic(tmpl, best_params)
+            # 4. Consensus Optimization
+            best_group_params = self._optimize_template_batch(subset)
+            self.register_template_logic(tmpl, best_group_params)
 
-                    # VALIDATION (The Test)
-                    # Run the newly found params on the Out-of-Sample members (index 20+)
-                    validation_subset = tmpl.patterns[REPRESENTATIVE_SUBSET_SIZE:]
-                    val_pnl = 0.0
-                    if validation_subset:
-                        val_pnl = self.validate_template_group(validation_subset, best_params)
+            # 5. Validation
+            val_pnl = 0.0
+            validation_subset = tmpl.patterns[50:]
+            if validation_subset:
+                val_pnl = self.validate_template_group(validation_subset, best_group_params)
+                print(f"  -> Validated PnL: ${val_pnl:.2f}")
 
-                    # Update Dashboard
-                    if self.dashboard_queue:
-                        self.dashboard_queue.put({
-                            'type': 'TEMPLATE_UPDATE',
-                            'id': tmpl.template_id,
-                            'count': tmpl.member_count,
-                            'pnl': val_pnl
-                        })
-
-                pbar.update(len(template_batch))
-
-        pbar.close()
+            # Update Dashboard
+            if self.dashboard_queue:
+                self.dashboard_queue.put({
+                    'type': 'TEMPLATE_UPDATE',
+                    'id': tmpl.template_id,
+                    'count': tmpl.member_count,
+                    'pnl': val_pnl
+                })
         print("\n=== Training Complete ===")
         self.print_final_summary()
         return self.day_results
+
+    def _optimize_pattern_task(self, args):
+        """Wrapper for standalone _optimize_pattern_task"""
+        return _optimize_pattern_task(args)
+
+    def _optimize_template_batch(self, subset):
+        """Wrapper for standalone _optimize_template_task (Consensus Optimization)"""
+        # We pass None for template as it is not used in the optimization logic
+        best_params, best_sharpe = _optimize_template_task((None, subset, self.config.iterations, self.param_generator, self.asset.point_value))
+        return best_params
 
     def _run_discovery(self, data_source: Any) -> List[PatternEvent]:
         """Wrapper to run async discovery"""
