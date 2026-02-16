@@ -1,14 +1,15 @@
 """
 Fractal Clustering Engine
-Reduces massive pattern datasets into manageable 'Templates' using K-Means.
-Maps raw physics events into "Archetypal Centroids" for optimization.
+Reduces massive pattern datasets into manageable 'Templates' using Recursive K-Means.
+Maps raw physics events into "Archetypal Centroids" that are both Physically Tight and Behaviorally Consistent.
 """
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass
-from typing import List, Dict, Any
-from sklearn.cluster import MiniBatchKMeans
+from typing import List, Dict, Any, Optional
+from sklearn.cluster import MiniBatchKMeans, KMeans
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import silhouette_score
 
 @dataclass
 class PatternTemplate:
@@ -16,16 +17,20 @@ class PatternTemplate:
     centroid: np.ndarray  # [z, vel, mom, coh]
     member_count: int
     patterns: List[Any]   # References to the original PatternEvents
+    physics_variance: float # Measure of how "tight" the cluster is
 
 class FractalClusteringEngine:
-    def __init__(self, n_clusters=1000):
+    def __init__(self, n_clusters=1000, max_variance=0.5):
         self.n_clusters = n_clusters
+        self.max_variance = max_variance  # Max allowed std deviation for Z-score in a cluster
         self.scaler = StandardScaler()
+        # Use MiniBatch for speed on large datasets
         self.model = MiniBatchKMeans(n_clusters=n_clusters, batch_size=256, random_state=42)
 
     def create_templates(self, manifest: List[Any]) -> List[PatternTemplate]:
         """
-        Groups raw PatternEvents into Templates based on physics vectors.
+        Groups raw PatternEvents into Templates using RECURSIVE REFINEMENT.
+        Ensures every template is physically homogeneous before optimization begins.
         """
         if not manifest:
             print("WARNING: FractalClusteringEngine received empty manifest.")
@@ -33,66 +38,169 @@ class FractalClusteringEngine:
 
         # 1. Extract Feature Matrix
         # Vector: [Z-Score (abs), Velocity (abs), Momentum (abs), Coherence]
-        # We use absolute values to group symmetrical Long/Short structures.
         features = []
         valid_patterns = []
 
         for p in manifest:
-            # Ensure attributes exist (handling potential data gaps)
             try:
                 z = getattr(p, 'z_score', 0.0)
                 v = getattr(p, 'velocity', 0.0)
                 m = getattr(p, 'momentum', 0.0)
                 c = getattr(p, 'coherence', 0.0)
-
                 features.append([abs(z), abs(v), abs(m), c])
                 valid_patterns.append(p)
-            except AttributeError as e:
-                print(f"WARNING: Skipping pattern due to missing attribute: {e}")
+            except AttributeError:
                 continue
 
         if not features:
             return []
 
         X = np.array(features)
-
-        # 2. Normalize
         X_scaled = self.scaler.fit_transform(X)
 
-        # 3. Fit K-Means
-        # Dynamic K adjustment: Ensure we don't ask for more clusters than samples
-        # Heuristic: Target avg 10 items per cluster, but capped at self.n_clusters
-        target_k = min(self.n_clusters, len(valid_patterns) // 10)
-        target_k = max(target_k, 1) # Minimum 1 cluster
+        # 2. Initial Coarse Clustering
+        # Start with a conservative K
+        target_k = min(self.n_clusters, len(valid_patterns) // 20)
+        target_k = max(target_k, 1)
 
+        print(f"Clustering: Initial coarse fit ({len(valid_patterns)} -> {target_k})...")
         self.model.n_clusters = target_k
-
-        print(f"Clustering: Fitting {len(valid_patterns)} patterns into {target_k} templates...")
         labels = self.model.fit_predict(X_scaled)
-        centroids = self.model.cluster_centers_
 
-        # 4. Group into Templates
-        template_map = {}
+        # Group indices by label
+        cluster_indices = {}
         for idx, label in enumerate(labels):
-            if label not in template_map:
-                template_map[label] = {
-                    'patterns': []
-                }
-            template_map[label]['patterns'].append(valid_patterns[idx])
+            if label not in cluster_indices: cluster_indices[label] = []
+            cluster_indices[label].append(idx)
 
-        # 5. Convert to Objects
-        result = []
-        for label, data in template_map.items():
-            # Denormalize centroid for human-readable logging
-            raw_centroid = self.scaler.inverse_transform([centroids[label]])[0]
+        # 3. Recursive Refinement (The "Physics Tightening" Loop)
+        final_templates = []
+        next_id = 0
 
-            result.append(PatternTemplate(
-                template_id=int(label),
+        for label, indices in cluster_indices.items():
+            sub_X = X_scaled[indices]
+            sub_patterns = [valid_patterns[i] for i in indices]
+
+            # Check Variance (Goodness of Fit on Physics)
+            # We look primarily at Z-Score variance (Feature 0)
+            z_variance = np.std(sub_X[:, 0])
+
+            if z_variance > self.max_variance and len(indices) > 20:
+                # CLUSTER IS TOO LOOSE -> RECURSIVE SPLIT
+                # Split into sub-clusters until variance is acceptable
+                refined_subsets = self._recursive_split(sub_X, sub_patterns, next_id)
+                final_templates.extend(refined_subsets)
+                next_id += len(refined_subsets)
+            else:
+                # CLUSTER IS TIGHT -> KEEP
+                centroid = np.mean(sub_X, axis=0)
+                raw_centroid = self.scaler.inverse_transform([centroid])[0]
+
+                final_templates.append(PatternTemplate(
+                    template_id=next_id,
+                    centroid=raw_centroid,
+                    member_count=len(sub_patterns),
+                    patterns=sub_patterns,
+                    physics_variance=z_variance
+                ))
+                next_id += 1
+
+        print(f"Refinement: Expanded {target_k} coarse clusters into {len(final_templates)} tight templates.")
+
+        # Sort by size
+        final_templates.sort(key=lambda x: x.member_count, reverse=True)
+        return final_templates
+
+    def _recursive_split(self, X_subset, patterns_subset, start_id) -> List[PatternTemplate]:
+        """
+        Recursively splits a cluster using KMeans(k=2) until variance is low.
+        """
+        # Base case: Small enough or Tight enough
+        z_std = np.std(X_subset[:, 0])
+        if z_std <= self.max_variance or len(X_subset) < 20:
+            centroid = np.mean(X_subset, axis=0)
+            raw_centroid = self.scaler.inverse_transform([centroid])[0]
+            return [PatternTemplate(
+                template_id=start_id,
                 centroid=raw_centroid,
-                member_count=len(data['patterns']),
-                patterns=data['patterns']
+                member_count=len(patterns_subset),
+                patterns=patterns_subset,
+                physics_variance=z_std
+            )]
+
+        # Split
+        kmeans = KMeans(n_clusters=2, random_state=42, n_init=5).fit(X_subset)
+        labels = kmeans.labels_
+
+        results = []
+        current_id = start_id
+
+        for i in [0, 1]:
+            mask = labels == i
+            if np.sum(mask) == 0: continue
+
+            child_X = X_subset[mask]
+            child_patterns = [patterns_subset[j] for j in range(len(mask)) if mask[j]]
+
+            # Recurse
+            child_templates = self._recursive_split(child_X, child_patterns, current_id)
+            results.extend(child_templates)
+            current_id += len(child_templates)
+
+        return results
+
+    def refine_clusters(self, template_id: int, member_params: List[Dict[str, float]], original_patterns: List[Any]) -> List[PatternTemplate]:
+        """
+        CLUSTER FISSION (Regret-Based):
+        Analyzes 'Optimal Parameters' (Outcome) to split clusters that are physically tight but behaviorally different.
+        """
+        if len(member_params) < 10: return []
+
+        # Vectorize Parameters [Stop, TP, Trail]
+        param_vectors = [[p.get('stop_loss_ticks', 0), p.get('take_profit_ticks', 0), p.get('trailing_stop_ticks', 0)] for p in member_params]
+        X_params = np.array(param_vectors)
+
+        # Silhouette Check
+        best_n, best_score, best_labels = 1, -1.0, None
+
+        for n in range(2, 6):
+            if len(X_params) < n * 5: break
+            kmeans = KMeans(n_clusters=n, random_state=42, n_init=10).fit(X_params)
+            score = silhouette_score(X_params, kmeans.labels_)
+            if score > best_score:
+                best_score = score
+                best_n = n
+                best_labels = kmeans.labels_
+
+        # Decision Gate (High Silhouette = Distinct Behaviors)
+        if best_score < 0.45: return []
+
+        print(f"Template {template_id}: FISSION! (Score: {best_score:.2f}) -> Splitting into {best_n}.")
+
+        new_templates = []
+        split_map = {i: [] for i in range(best_n)}
+        for idx, label in enumerate(best_labels):
+            split_map[label].append(original_patterns[idx])
+
+        for label, sub_patterns in split_map.items():
+            # Re-calculate Physics Centroid
+            sub_features = []
+            for p in sub_patterns:
+                z = getattr(p, 'z_score', 0.0)
+                v = getattr(p, 'velocity', 0.0)
+                m = getattr(p, 'momentum', 0.0)
+                c = getattr(p, 'coherence', 0.0)
+                sub_features.append([abs(z), abs(v), abs(m), c])
+
+            if not sub_features: continue
+            new_phys_centroid = np.mean(sub_features, axis=0)
+
+            new_templates.append(PatternTemplate(
+                template_id=int(f"{template_id}{label}"),
+                centroid=new_phys_centroid,
+                member_count=len(sub_patterns),
+                patterns=sub_patterns,
+                physics_variance=0.0 # Assumed tight since parent was tight
             ))
 
-        # Sort by member count (Optimize biggest/most frequent groups first)
-        result.sort(key=lambda x: x.member_count, reverse=True)
-        return result
+        return new_templates
