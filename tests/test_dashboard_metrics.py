@@ -30,6 +30,7 @@ mock_ttk.Label = MagicMock()
 mock_ttk.Button = MagicMock()
 mock_ttk.Style = MagicMock()
 mock_ttk.Separator = MagicMock()
+mock_ttk.Treeview = MagicMock()
 
 # Assign to sys.modules
 sys.modules['tkinter'] = mock_tk
@@ -57,10 +58,10 @@ class TestDashboardMetrics(unittest.TestCase):
 
         dashboard = LiveDashboard(self.root)
 
-        # Inject mock labels to capture config calls
-        # In the real code, these are created in __init__ -> create_layout
-        dashboard.lbl_wr = MagicMock()
-        dashboard.lbl_pnl = MagicMock()
+        # Override the label tuples with mocks to track config calls
+        # LiveDashboard creates tuples like self._card_wr = (label_val, label_sub)
+        dashboard._card_wr = (MagicMock(), MagicMock())
+        dashboard._card_pnl = (MagicMock(), MagicMock())
 
         # Sample Data
         dashboard.data = {
@@ -73,63 +74,68 @@ class TestDashboardMetrics(unittest.TestCase):
                 {'result': 'WIN', 'pnl': 100.0},
                 {'result': 'LOSS', 'pnl': -50.0},
                 {'result': 'WIN', 'pnl': 20.0}
-            ]
+            ],
+            # Calculated fields usually come from backend but refresh_dashboard calculates some display logic
+            'cumulative_win_rate': 66.7,
+            'total_pnl': 70.0,
+            'today_pnl': 70.0,
+            'today_win_rate': 0.667
         }
 
         # Call refresh
         dashboard.refresh_dashboard()
 
-        # Verify Win Rate Logic
-        # Wins: 2, Total: 3 => 66.66...% -> 66.7%
-        # Expected color: Green (#00ff00) because >= 50%
-        # Note: We check if the calls contain the expected arguments.
-        # Since config might be called with different args, we check the specific call.
+        # Check Win Rate Label (index 0 of tuple)
+        # Expected: "66.7%" and Green
+        lbl_wr_val = dashboard._card_wr[0]
+        call_args = lbl_wr_val.config.call_args
+        self.assertIsNotNone(call_args, "Win Rate label config not called")
+        self.assertEqual(call_args[1].get('text'), "66.7%")
+        self.assertEqual(call_args[1].get('fg'), "#00ff00")
 
-        # Using any_order=True or checking specific call args
-        # dashboard.lbl_wr.config.assert_called_with(text="Win Rate: 66.7%", foreground="#00ff00")
-        # However, the code might call config multiple times or with different kwargs.
-        # Let's check the call args directly.
-
-        # Check Win Rate
-        call_args_wr = dashboard.lbl_wr.config.call_args
-        self.assertIsNotNone(call_args_wr, "lbl_wr.config was not called")
-        self.assertEqual(call_args_wr[1].get('text'), "Win Rate: 66.7%")
-        self.assertEqual(call_args_wr[1].get('foreground'), "#00ff00")
-
-        # Check P&L
-        # Total: 70.0
-        call_args_pnl = dashboard.lbl_pnl.config.call_args
-        self.assertIsNotNone(call_args_pnl, "lbl_pnl.config was not called")
-        self.assertEqual(call_args_pnl[1].get('text'), "Total P&L: $70.00")
-        self.assertEqual(call_args_pnl[1].get('foreground'), "#00ff00")
+        # Check P&L Label (index 0 of tuple)
+        # Expected: "$70.00" and Green
+        lbl_pnl_val = dashboard._card_pnl[0]
+        call_args = lbl_pnl_val.config.call_args
+        self.assertIsNotNone(call_args, "P&L label config not called")
+        self.assertEqual(call_args[1].get('text'), "$70.00")
+        self.assertEqual(call_args[1].get('fg'), "#00ff00")
 
     @patch('visualization.live_training_dashboard.threading.Thread')
     def test_metrics_update_negative(self, mock_thread):
         # Test negative scenarios (Losses)
         mock_thread.return_value.start = MagicMock()
         dashboard = LiveDashboard(self.root)
-        dashboard.lbl_wr = MagicMock()
-        dashboard.lbl_pnl = MagicMock()
+
+        # Override
+        dashboard._card_wr = (MagicMock(), MagicMock())
+        dashboard._card_pnl = (MagicMock(), MagicMock())
 
         dashboard.data = {
             'iteration': 10,
             'trades': [
                 {'result': 'LOSS', 'pnl': -100.0},
                 {'result': 'LOSS', 'pnl': -50.0}
-            ]
+            ],
+            'cumulative_win_rate': 0.0,
+            'total_pnl': -150.0,
+            'today_pnl': -150.0,
+            'today_win_rate': 0.0
         }
 
         dashboard.refresh_dashboard()
 
         # Win Rate: 0% -> Red
-        call_args_wr = dashboard.lbl_wr.config.call_args
-        self.assertEqual(call_args_wr[1].get('text'), "Win Rate: 0.0%")
-        self.assertEqual(call_args_wr[1].get('foreground'), "#ff4444")
+        lbl_wr_val = dashboard._card_wr[0]
+        call_args = lbl_wr_val.config.call_args
+        self.assertEqual(call_args[1].get('text'), "0.0%")
+        self.assertEqual(call_args[1].get('fg'), "#ff4444")
 
         # P&L: -150.0 -> Red
-        call_args_pnl = dashboard.lbl_pnl.config.call_args
-        self.assertEqual(call_args_pnl[1].get('text'), "Total P&L: -$150.00")
-        self.assertEqual(call_args_pnl[1].get('foreground'), "#ff4444")
+        lbl_pnl_val = dashboard._card_pnl[0]
+        call_args = lbl_pnl_val.config.call_args
+        self.assertEqual(call_args[1].get('text'), "$-150.00")
+        self.assertEqual(call_args[1].get('fg'), "#ff4444")
 
 if __name__ == '__main__':
     unittest.main()

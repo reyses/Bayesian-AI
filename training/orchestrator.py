@@ -279,15 +279,17 @@ class BayesianTrainingOrchestrator:
         self.BASE_SLIPPAGE = DEFAULT_BASE_SLIPPAGE
         self.VELOCITY_SLIPPAGE_FACTOR = DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 
-    def train(self, data_source: Any):
+    def scan_data_parallel(self, data_source: Any):
         """
-        Master training loop (Parallel Execution)
+        Parallel Data Scan (formerly 'train' in parallel mode)
+        Computes states and extracts physics metrics across all files using multiprocessing.
+        Does NOT perform parameter optimization or trade simulation.
 
         Args:
-            data_source: Path to data (str) or list of files. DataFrame is supported for legacy but deprecated for parallel flow.
+            data_source: Path to data (str) or list of files.
         """
         print("\n" + "="*80)
-        print("BAYESIAN-AI TRAINING ORCHESTRATOR (PARALLEL)")
+        print("BAYESIAN-AI PARALLEL DATA SCAN")
         print("="*80)
 
         train_start_time = time.time()
@@ -303,7 +305,7 @@ class BayesianTrainingOrchestrator:
         elif isinstance(data_source, list):
             files = data_source
         elif isinstance(data_source, pd.DataFrame):
-            raise TypeError("Passing a DataFrame to train() is deprecated in the parallel pipeline. Please provide a file path to your data.")
+            raise TypeError("Passing a DataFrame to scan_data_parallel() is deprecated. Please provide a file path.")
 
         print(f"Asset: {self.asset.ticker}")
         print(f"Checkpoint Dir: {self.checkpoint_dir}")
@@ -318,7 +320,7 @@ class BayesianTrainingOrchestrator:
             ctx = multiprocessing.get_context('spawn')
             with ctx.Pool(processes=num_workers) as pool:
                 # Map
-                results = list(tqdm(pool.imap(process_data_chunk, files), total=len(files), desc="Training Batch Progress", unit="file"))
+                results = list(tqdm(pool.imap(process_data_chunk, files), total=len(files), desc="Scanning Batch Progress", unit="file"))
 
         # 3. Aggregation
         print("\n" + "="*80)
@@ -362,6 +364,133 @@ class BayesianTrainingOrchestrator:
                     print(f"  {r['file']}: {r.get('error', r.get('status'))}")
 
         return results
+
+    def train(self, data_source: Any):
+        """
+        Master Training Loop (Sequential/Walk-Forward)
+
+        Restores the full training pipeline:
+        1. Loads data (single or multi-file)
+        2. Splits into trading days
+        3. Optimizes parameters day-by-day (DOE)
+        4. Simulates trades
+        5. Updates dashboard
+        6. Prints summary
+        """
+        print("\n" + "="*80)
+        print("BAYESIAN-AI TRAINING ORCHESTRATOR")
+        print("="*80)
+
+        # 1. Launch Dashboard
+        if not self.config.no_dashboard and DASHBOARD_AVAILABLE:
+            self.launch_dashboard()
+        else:
+            print("Dashboard: DISABLED or NOT AVAILABLE")
+
+        # 2. Data Loading
+        print("Loading data...")
+        verify_cuda_availability()
+        files = []
+        if isinstance(data_source, str):
+            files = verify_data_integrity(data_source)
+        elif isinstance(data_source, list):
+            files = data_source
+        else:
+            raise ValueError("data_source must be path (str) or list of files")
+
+        # 3. Training Loop
+        day_counter = 1
+        prev_day_1s = None
+
+        # Estimate total days (rough if multi-file)
+        total_days_est = len(files) # Minimum estimate, assumes 1 day per file
+
+        # If single big file, we'll know better after split
+
+        print(f"Processing {len(files)} file(s)...")
+
+        for file_path in files:
+            if self.config.max_days and day_counter > self.config.max_days:
+                break
+
+            print(f"\nLoading: {os.path.basename(file_path)}")
+            try:
+                df_chunk = pd.read_parquet(file_path)
+            except Exception as e:
+                print(f"Error loading {file_path}: {e}")
+                continue
+
+            # Split chunk into trading days
+            # Note: If files are already daily, this returns 1 day
+            try:
+                days = self.split_into_trading_days(df_chunk)
+            except Exception as e:
+                print(f"Error splitting days in {file_path}: {e}")
+                continue
+
+            # Update total days estimate if we found more
+            if len(days) > 1:
+                # We are processing a big file, so total_days_est might need update
+                # But this is just for UI, so simple accumulation is fine
+                pass
+
+            for date_str, day_data in days:
+                if self.config.max_days and day_counter > self.config.max_days:
+                    print(f"Max days ({self.config.max_days}) reached.")
+                    break
+
+                # Header
+                self.progress_reporter.print_day_header(day_counter, date_str, total_days_est, len(day_data))
+
+                # Verify data length
+                if len(day_data) < 100:
+                    print("  Skipping (insufficient data)")
+                    continue
+
+                # Context (Simplified for now - can use prev_day_1s if needed or MTF engine)
+                # For now, we pass empty context or what MTF can derive if we implement full load
+                # As agreed, we proceed with minimal context to restore functionality
+                tf_context = None
+                # TODO: Restore full MTF context loading if needed by loading prior data
+
+                # Optimize Day
+                day_result = self.optimize_day(
+                    day_number=day_counter,
+                    date=date_str,
+                    day_data=day_data,
+                    tf_context=tf_context,
+                    prev_day_1s=prev_day_1s,
+                    total_days=total_days_est
+                )
+
+                # Store Results
+                self.day_results.append(day_result)
+
+                # Print Summary
+                metrics = DayMetrics(
+                    day_number=day_counter,
+                    date=date_str,
+                    total_trades=day_result.total_trades,
+                    win_rate=day_result.best_win_rate,
+                    sharpe=day_result.best_sharpe,
+                    pnl=day_result.best_pnl,
+                    states_learned=day_result.states_learned,
+                    high_conf_states=day_result.high_confidence_states,
+                    avg_duration=day_result.avg_duration,
+                    execution_time=day_result.execution_time_seconds
+                )
+                self.progress_reporter.print_day_summary(metrics)
+
+                # Save Checkpoint
+                self.save_checkpoint(day_counter, date_str, day_result)
+
+                # Prepare for next day
+                prev_day_1s = day_data
+                day_counter += 1
+
+        # 4. Final Summary
+        self.print_final_summary()
+        return self.day_results
 
     def _precompute_day_states(self, day_data: pd.DataFrame, interval: str = '15s',
                                tf_context: Dict = None,
@@ -1902,6 +2031,7 @@ def main():
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
     parser.add_argument('--force-cuda', action='store_true', help="Force CUDA usage (fail if unavailable)")
+    parser.add_argument('--scan-only', action='store_true', help="Run parallel data scan only (no training)")
 
     args = parser.parse_args()
 
@@ -1912,11 +2042,14 @@ def main():
     # Create orchestrator
     orchestrator = BayesianTrainingOrchestrator(args)
 
-    # Run training (Parallel Pipeline)
-    # Note: We pass the path 'args.data' directly to allow parallel file processing
+    # Run training or scan
     try:
-        results = orchestrator.train(args.data)
-        print("\n=== Training Complete ===")
+        if args.scan_only:
+            orchestrator.scan_data_parallel(args.data)
+        else:
+            orchestrator.train(args.data)
+
+        print("\n=== Complete ===")
 
         # Keep dashboard open if running
         if orchestrator.dashboard_thread and orchestrator.dashboard_thread.is_alive():
@@ -1928,7 +2061,7 @@ def main():
 
         return 0
     except KeyboardInterrupt:
-        print("\n\nWARNING: Training interrupted by user")
+        print("\n\nWARNING: Interrupted by user")
         return 1
     except Exception as e:
         print(f"\nERROR: Training failed: {e}")
