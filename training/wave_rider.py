@@ -376,8 +376,8 @@ class WaveRider:
     def configure_for_template(self, template_id: int):
         """
         Configure WaveRider with parameters from the playbook template.
-        """
         if template_id not in self.playbook_data:
+            logging.warning(f"[WAVERIDER] Attempted to configure for non-existent template_id: {template_id}")
             return
 
         params = self.playbook_data[template_id].get('params', {})
