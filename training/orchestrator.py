@@ -58,6 +58,7 @@ from training.wave_rider import WaveRider
 from training.orchestrator_worker import simulate_trade_standalone, _optimize_pattern_task, _optimize_template_task, _process_template_job
 from training.orchestrator_worker import FISSION_SUBSET_SIZE, INDIVIDUAL_OPTIMIZATION_ITERATIONS, DEFAULT_BASE_SLIPPAGE, DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 
+INITIAL_CLUSTER_DIVISOR = 100
 
 # Visualization
 try:
