@@ -355,8 +355,9 @@ class WaveRider:
                 abs(state.particle_velocity),
                 abs(state.momentum_strength),
                 state.coherence
-            ]])
-        except Exception:
+        except AttributeError as e:
+            logging.error(f"[WAVERIDER] Error extracting vector from state: {e}")
+            return None
             return None
 
         # Calculate Euclidean distance to all centroids
