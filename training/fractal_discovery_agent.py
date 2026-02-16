@@ -190,7 +190,16 @@ class FractalDiscoveryAgent:
                 break
 
             # Build time windows for next level
-            drilldown_secs = tf_secs  # One bar's worth of time
+            child_tf_idx = TIMEFRAME_HIERARCHY.index(tf) + 1
+            if child_tf_idx < len(timeframes):
+                child_tf = timeframes[child_tf_idx]
+                child_tf_secs = TIMEFRAME_SECONDS.get(child_tf, 15)
+                min_bars_needed = 30  # regression_period(21) + some margin
+                min_window_secs = child_tf_secs * min_bars_needed
+                drilldown_secs = max(tf_secs, min_window_secs)
+            else:
+                drilldown_secs = tf_secs
+
             current_windows = []
             for p in level_patterns:
                 w_start = p.timestamp
