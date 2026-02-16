@@ -16,6 +16,20 @@ PID_KP = 0.5
 PID_KI = 0.1
 PID_KD = 0.2
 
+# Precomputed Regression Constants
+_SUM_X = 0.0
+_SUM_XX = 0.0
+for _k in range(reg_period):
+    _SUM_X += float(_k)
+    _SUM_XX += float(_k * _k)
+
+_MEAN_X = _SUM_X / reg_period
+_DENOM = _SUM_XX - (_SUM_X * _SUM_X) / reg_period
+_INV_REG_PERIOD = 1.0 / reg_period
+_INV_DENOM = 0.0
+if abs(_DENOM) > 1e-9:
+    _INV_DENOM = 1.0 / _DENOM
+
 # Repulsion Constants
 REPULSION_EPSILON = 0.01
 REPULSION_FORCE_CAP = 100.0
@@ -55,49 +69,46 @@ def compute_physics_kernel(prices, volumes,
 
         # Need full regression window
         if i >= reg_period - 1:
-            # 1. Rolling Linear Regression (One Pass)
-            sum_x = 0.0
+            # 1. Rolling Linear Regression (Optimized One Pass)
             sum_y = 0.0
             sum_xy = 0.0
-            sum_xx = 0.0
+            sum_yy = 0.0
 
             for k in range(reg_period):
                 idx = i - (reg_period - 1) + k
                 val = prices[idx]
                 x = float(k)
 
-                sum_x += x
                 sum_y += val
                 sum_xy += x * val
-                sum_xx += x * x
+                sum_yy += val * val
 
-            mean_x = sum_x / reg_period
-            mean_y = sum_y / reg_period
+            mean_y = sum_y * _INV_REG_PERIOD
 
-            denom = sum_xx - (sum_x * sum_x) / reg_period
-            if abs(denom) < 1e-9:
-                slope = 0.0
-            else:
-                slope = (sum_xy - (sum_x * sum_y) / reg_period) / denom
+            # Slope calculation using precomputed constants
+            slope = (sum_xy - _MEAN_X * sum_y) * _INV_DENOM
+            intercept = mean_y - slope * _MEAN_X
 
-            intercept = mean_y - slope * mean_x
-
-            center = slope * (reg_period - 1) + intercept
+            # Center at end of window (x = reg_period - 1)
+            # center = slope * (reg_period - 1) + intercept
+            # Simplified: center = slope * (reg_period - 1) + (mean_y - slope * mean_x)
+            #            = mean_y + slope * (reg_period - 1 - mean_x)
+            center = mean_y + slope * ((reg_period - 1) - _MEAN_X)
             out_center[i] = center
             out_slope[i] = slope
 
             # Compute Sigma (Standard Deviation of Residuals)
-            sum_sq_resid = 0.0
-            for k in range(reg_period):
-                idx = i - (reg_period - 1) + k
-                val = prices[idx]
-                x = float(k)
-                pred = slope * x + intercept
-                resid = val - pred
-                sum_sq_resid += resid * resid
+            # RSS = SST - slope^2 * DENOM
+            # SST = sum_yy - n * mean_y^2
+            sst = sum_yy - reg_period * mean_y * mean_y
+            rss = sst - slope * slope * _DENOM
+
+            # Clamp for numerical stability
+            if rss < 0.0:
+                rss = 0.0
 
             if reg_period > 2:
-                sigma = math.sqrt(sum_sq_resid / (reg_period - 2))
+                sigma = math.sqrt(rss / (reg_period - 2))
             else:
                 sigma = 0.0
 
