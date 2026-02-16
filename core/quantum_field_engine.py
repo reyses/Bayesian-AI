@@ -8,6 +8,8 @@ import pandas as pd
 import math
 import numba
 from numba import cuda
+from numpy.lib.stride_tricks import sliding_window_view
+import logging
 
 from core.three_body_state import ThreeBodyQuantumState
 from core.risk_engine import QuantumRiskEngine
@@ -75,6 +77,8 @@ try:
 except ImportError:
     TORCH_AVAILABLE = False
 
+logger = logging.getLogger(__name__)
+
 class QuantumFieldEngine:
     """
     Unified field calculator — GPU-accelerated when CUDA available
@@ -89,19 +93,25 @@ class QuantumFieldEngine:
         self.SIGMA_EVENT_MULTIPLIER = 3.0
         self.TIDAL_FORCE_EXPONENT = 2.0
 
+        # Physics Constants matching CUDA kernel
+        self.GRAVITY_THETA = 0.5
+        self.REPULSION_EPSILON = 0.01
+        self.REPULSION_FORCE_CAP = 100.0
+        self.VELOCITY_THRESHOLD = 0.5
+        self.MOMENTUM_THRESHOLD = 5.0
+        self.COHERENCE_THRESHOLD = 0.3
+
         # Historical residuals for fat-tail sigma calculation (rolling window)
         # Using 500 bars (~2 hours at 15s) to estimate distribution
         self.residual_history = []
         self.residual_window = 500
 
         # === GPU SETUP ===
-        if not cuda.is_available():
-            raise RuntimeError("CUDA accelerator is mandatory but not available on this system.")
-
-        if not CUDA_PHYSICS_AVAILABLE:
-             raise RuntimeError("core.cuda_physics module is missing.")
-
-        self.use_gpu = True
+        self.use_gpu = False
+        if cuda.is_available() and CUDA_PHYSICS_AVAILABLE:
+            self.use_gpu = True
+        else:
+            logger.warning("CUDA accelerator not available. Falling back to vectorized CPU execution.")
 
         # Keep Torch device for legacy compatibility if needed, but primary compute is Numba
         if TORCH_AVAILABLE and torch.cuda.is_available():
@@ -133,7 +143,8 @@ class QuantumFieldEngine:
             return ThreeBodyQuantumState.null_state()
 
         # We can reuse batch_compute_states logic but for a single step (the last one)
-        results = self.batch_compute_states(df_macro, use_cuda=True)
+        # Pass use_cuda explicitly based on self.use_gpu to allow fallback
+        results = self.batch_compute_states(df_macro, use_cuda=self.use_gpu)
         if not results:
              return ThreeBodyQuantumState.null_state()
 
@@ -178,6 +189,169 @@ class QuantumFieldEngine:
         cdl = detect_candlestick_patterns_vectorized(opens, highs, lows, closes)
         return geo, cdl
 
+    def _batch_compute_cpu(self, prices: np.ndarray, volumes: np.ndarray, rp: int) -> dict:
+        """
+        Vectorized CPU implementation of physics calculations using NumPy sliding window view.
+        Matches logic in core/cuda_physics.py.
+        """
+        n = len(prices)
+
+        # Initialize output arrays
+        center = np.zeros(n, dtype=np.float64)
+        sigma = np.zeros(n, dtype=np.float64)
+        slope = np.zeros(n, dtype=np.float64)
+        z_scores = np.zeros(n, dtype=np.float64)
+        velocity = np.zeros(n, dtype=np.float64)
+        force = np.zeros(n, dtype=np.float64)
+        momentum = np.zeros(n, dtype=np.float64)
+        coherence = np.ones(n, dtype=np.float64)
+        entropy = np.zeros(n, dtype=np.float64)
+        prob0 = np.ones(n, dtype=np.float64)
+        prob1 = np.zeros(n, dtype=np.float64)
+        prob2 = np.zeros(n, dtype=np.float64)
+
+        roche_snap = np.zeros(n, dtype=bool)
+        structural_drive = np.zeros(n, dtype=bool)
+
+        if n < rp:
+            return {
+                'center': center, 'sigma': sigma, 'slope': slope, 'z': z_scores,
+                'velocity': velocity, 'force': force, 'momentum': momentum,
+                'coherence': coherence, 'entropy': entropy,
+                'prob0': prob0, 'prob1': prob1, 'prob2': prob2,
+                'roche': roche_snap, 'drive': structural_drive
+            }
+
+        # 1. Rolling Linear Regression
+        windows = sliding_window_view(prices, window_shape=rp)
+        # windows shape: (n - rp + 1, rp)
+
+        # X constants
+        x = np.arange(rp)
+        mean_x = np.mean(x)
+        sum_xx = np.sum(x*x)
+        sum_x = np.sum(x)
+        denom = sum_xx - (sum_x * sum_x) / rp
+        inv_denom = 1.0 / denom if abs(denom) > 1e-9 else 0.0
+
+        # Y constants per window
+        sum_y = np.sum(windows, axis=1)
+        mean_y = sum_y / rp
+
+        # sum_xy per window
+        # Broadcast x: (rp,) -> (1, rp)
+        sum_xy = np.sum(windows * x[np.newaxis, :], axis=1)
+        sum_yy = np.sum(windows * windows, axis=1)
+
+        # Slope
+        # slope = (sum_xy - mean_x * sum_y) * inv_denom
+        slopes_valid = (sum_xy - mean_x * sum_y) * inv_denom
+
+        # Center (at end of window)
+        # center = mean_y + slope * ((rp - 1) - mean_x)
+        centers_valid = mean_y + slopes_valid * ((rp - 1) - mean_x)
+
+        # Sigma
+        # sst = sum_yy - rp * mean_y * mean_y
+        sst = sum_yy - rp * mean_y * mean_y
+        # rss = sst - slope * slope * denom
+        rss = sst - slopes_valid * slopes_valid * denom
+        rss = np.maximum(rss, 0.0) # Clamp
+
+        if rp > 2:
+            sigmas_valid = np.sqrt(rss / (rp - 2))
+        else:
+            sigmas_valid = np.zeros_like(rss)
+
+        sigmas_valid = np.maximum(sigmas_valid, 1e-6)
+
+        # Fill arrays (offset by rp-1)
+        start_idx = rp - 1
+        slope[start_idx:] = slopes_valid
+        center[start_idx:] = centers_valid
+        sigma[start_idx:] = sigmas_valid
+
+        # 2. Z-Score & Velocity & Momentum
+        # Vectorized operations on full arrays (valid where i >= rp-1)
+
+        # Z-Score
+        z_scores[start_idx:] = (prices[start_idx:] - center[start_idx:]) / sigma[start_idx:]
+
+        # Velocity
+        velocity[1:] = prices[1:] - prices[:-1]
+
+        # Momentum
+        momentum[start_idx:] = (velocity[start_idx:] * volumes[start_idx:]) / sigma[start_idx:]
+
+        # Forces (Gravity)
+        F_gravity = -self.GRAVITY_THETA * (z_scores * sigma)
+
+        # Repulsion
+        upper_sing = center + self.SIGMA_ROCHE_MULTIPLIER * sigma
+        lower_sing = center - self.SIGMA_ROCHE_MULTIPLIER * sigma
+
+        # Use slicing to avoid division by zero on uninitialized parts
+        dist_upper = np.abs(prices[start_idx:] - upper_sing[start_idx:]) / sigma[start_idx:]
+        dist_lower = np.abs(prices[start_idx:] - lower_sing[start_idx:]) / sigma[start_idx:]
+
+        # Avoid division by zero with epsilon
+        dist_upper_cubed = np.power(dist_upper, 3) + self.REPULSION_EPSILON
+        dist_lower_cubed = np.power(dist_lower, 3) + self.REPULSION_EPSILON
+
+        # Slice z_scores for condition check
+        z_valid = z_scores[start_idx:]
+
+        F_upper = np.where(z_valid > 0, 1.0 / dist_upper_cubed, 0.0)
+        F_upper = np.minimum(F_upper, self.REPULSION_FORCE_CAP)
+
+        F_lower = np.where(z_valid < 0, 1.0 / dist_lower_cubed, 0.0)
+        F_lower = np.minimum(F_lower, self.REPULSION_FORCE_CAP)
+
+        repulsion = np.where(z_valid > 0, -F_upper, F_lower)
+
+        F_net = F_gravity[start_idx:] + momentum[start_idx:] + repulsion
+        force[start_idx:] = F_net
+
+        # 4. Wave Function
+        z = z_scores
+        E0 = - (z * z) / 2.0
+        E1 = - (z - 2.0)**2 / 2.0
+        E2 = - (z + 2.0)**2 / 2.0
+
+        max_E = np.maximum(E0, np.maximum(E1, E2))
+
+        p0 = np.exp(E0 - max_E)
+        p1 = np.exp(E1 - max_E)
+        p2 = np.exp(E2 - max_E)
+
+        total_p = p0 + p1 + p2
+        p0 /= total_p
+        p1 /= total_p
+        p2 /= total_p
+
+        prob0[start_idx:] = p0[start_idx:]
+        prob1[start_idx:] = p1[start_idx:]
+        prob2[start_idx:] = p2[start_idx:]
+
+        eps = 1e-10
+        ent = - (p0 * np.log(p0 + eps) +
+                 p1 * np.log(p1 + eps) +
+                 p2 * np.log(p2 + eps))
+
+        entropy[start_idx:] = ent[start_idx:]
+        coherence[start_idx:] = ent[start_idx:] / 1.09861228867
+
+        # Archetypes
+        roche_snap[start_idx:] = (np.abs(z_scores[start_idx:]) > 2.0) & (np.abs(velocity[start_idx:]) > self.VELOCITY_THRESHOLD)
+        structural_drive[start_idx:] = (np.abs(momentum[start_idx:]) > self.MOMENTUM_THRESHOLD) & (coherence[start_idx:] < self.COHERENCE_THRESHOLD)
+
+        return {
+            'center': center, 'sigma': sigma, 'slope': slope, 'z': z_scores,
+            'velocity': velocity, 'force': force, 'momentum': momentum,
+            'coherence': coherence, 'entropy': entropy,
+            'prob0': prob0, 'prob1': prob1, 'prob2': prob2,
+            'roche': roche_snap, 'drive': structural_drive
+        }
 
     # ═══════════════════════════════════════════════════════════════════════
     # VECTORIZED BATCH COMPUTATION (processes all bars at once)
@@ -185,7 +359,7 @@ class QuantumFieldEngine:
 
     def batch_compute_states(self, day_data: pd.DataFrame, use_cuda: bool = True, params: dict = None) -> list:
         """
-        Compute ALL ThreeBodyQuantumState objects for a day using Fused CUDA Physics Kernels.
+        Compute ALL ThreeBodyQuantumState objects for a day using Fused CUDA Physics Kernels or Optimized CPU Fallback.
         """
         params = params or {}
         n = len(day_data)
@@ -204,77 +378,6 @@ class QuantumFieldEngine:
         if not volumes.flags['C_CONTIGUOUS']:
             volumes = np.ascontiguousarray(volumes)
 
-        # Output arrays (allocated on GPU directly or mapped)
-        d_prices = cuda.to_device(prices)
-        d_volumes = cuda.to_device(volumes)
-
-        d_center = cuda.device_array(n, dtype=np.float64)
-        d_sigma = cuda.device_array(n, dtype=np.float64)
-        d_slope = cuda.device_array(n, dtype=np.float64)
-        d_z = cuda.device_array(n, dtype=np.float64)
-        d_velocity = cuda.device_array(n, dtype=np.float64)
-        d_force = cuda.device_array(n, dtype=np.float64)
-        d_momentum = cuda.device_array(n, dtype=np.float64)
-        d_coherence = cuda.device_array(n, dtype=np.float64)
-        d_entropy = cuda.device_array(n, dtype=np.float64)
-        d_prob0 = cuda.device_array(n, dtype=np.float64)
-        d_prob1 = cuda.device_array(n, dtype=np.float64)
-        d_prob2 = cuda.device_array(n, dtype=np.float64)
-
-        d_roche = cuda.device_array(n, dtype=np.bool_)
-        d_drive = cuda.device_array(n, dtype=np.bool_)
-
-        # Kernel Launch Configuration
-        threads_per_block = 256
-        blocks_per_grid = (n + (threads_per_block - 1)) // threads_per_block
-
-        # Precompute regression constants
-        sum_x = 0.0
-        sum_xx = 0.0
-        for _k in range(rp):
-            sum_x += float(_k)
-            sum_xx += float(_k * _k)
-
-        mean_x = sum_x / rp
-        denom = sum_xx - (sum_x * sum_x) / rp
-        inv_reg_period = 1.0 / rp
-        inv_denom = 0.0
-        if abs(denom) > 1e-9:
-            inv_denom = 1.0 / denom
-
-        # 1. Physics Kernel
-        compute_physics_kernel[blocks_per_grid, threads_per_block](
-            d_prices, d_volumes,
-            d_center, d_sigma, d_slope,
-            d_z, d_velocity, d_force, d_momentum,
-            d_coherence, d_entropy,
-            d_prob0, d_prob1, d_prob2,
-            rp, mean_x, inv_reg_period, inv_denom, denom
-        )
-
-        # 2. Archetype Kernel
-        detect_archetype_kernel[blocks_per_grid, threads_per_block](
-            d_z, d_velocity, d_momentum, d_coherence,
-            d_roche, d_drive
-        )
-
-        # Copy back results
-        center = d_center.copy_to_host()
-        sigma = d_sigma.copy_to_host()
-        slope = d_slope.copy_to_host()
-        z_scores = d_z.copy_to_host()
-        velocity = d_velocity.copy_to_host()
-        force = d_force.copy_to_host()
-        momentum = d_momentum.copy_to_host()
-        coherence = d_coherence.copy_to_host()
-        entropy = d_entropy.copy_to_host()
-        prob0 = d_prob0.copy_to_host()
-        prob1 = d_prob1.copy_to_host()
-        prob2 = d_prob2.copy_to_host()
-
-        roche_snap = d_roche.copy_to_host()
-        structural_drive = d_drive.copy_to_host()
-
         # Unified pattern detection (Geometric/Candlestick)
         if 'high' in day_data.columns:
             highs = day_data['high'].values.astype(np.float64)
@@ -286,6 +389,113 @@ class QuantumFieldEngine:
             opens = prices
 
         pattern_types, candlestick_types = self._detect_patterns_unified(opens, highs, lows, prices)
+
+        # Output variables to be filled by either GPU or CPU path
+        center = None
+        sigma = None
+        slope = None
+        z_scores = None
+        velocity = None
+        force = None
+        momentum = None
+        coherence = None
+        entropy = None
+        prob0 = None
+        prob1 = None
+        prob2 = None
+        roche_snap = None
+        structural_drive = None
+
+        if use_cuda and self.use_gpu and CUDA_PHYSICS_AVAILABLE:
+            # Output arrays (allocated on GPU directly or mapped)
+            d_prices = cuda.to_device(prices)
+            d_volumes = cuda.to_device(volumes)
+
+            d_center = cuda.device_array(n, dtype=np.float64)
+            d_sigma = cuda.device_array(n, dtype=np.float64)
+            d_slope = cuda.device_array(n, dtype=np.float64)
+            d_z = cuda.device_array(n, dtype=np.float64)
+            d_velocity = cuda.device_array(n, dtype=np.float64)
+            d_force = cuda.device_array(n, dtype=np.float64)
+            d_momentum = cuda.device_array(n, dtype=np.float64)
+            d_coherence = cuda.device_array(n, dtype=np.float64)
+            d_entropy = cuda.device_array(n, dtype=np.float64)
+            d_prob0 = cuda.device_array(n, dtype=np.float64)
+            d_prob1 = cuda.device_array(n, dtype=np.float64)
+            d_prob2 = cuda.device_array(n, dtype=np.float64)
+
+            d_roche = cuda.device_array(n, dtype=np.bool_)
+            d_drive = cuda.device_array(n, dtype=np.bool_)
+
+            # Kernel Launch Configuration
+            threads_per_block = 256
+            blocks_per_grid = (n + (threads_per_block - 1)) // threads_per_block
+
+            # Precompute regression constants
+            sum_x = 0.0
+            sum_xx = 0.0
+            for _k in range(rp):
+                sum_x += float(_k)
+                sum_xx += float(_k * _k)
+
+            mean_x = sum_x / rp
+            denom = sum_xx - (sum_x * sum_x) / rp
+            inv_reg_period = 1.0 / rp
+            inv_denom = 0.0
+            if abs(denom) > 1e-9:
+                inv_denom = 1.0 / denom
+
+            # 1. Physics Kernel
+            compute_physics_kernel[blocks_per_grid, threads_per_block](
+                d_prices, d_volumes,
+                d_center, d_sigma, d_slope,
+                d_z, d_velocity, d_force, d_momentum,
+                d_coherence, d_entropy,
+                d_prob0, d_prob1, d_prob2,
+                rp, mean_x, inv_reg_period, inv_denom, denom
+            )
+
+            # 2. Archetype Kernel
+            detect_archetype_kernel[blocks_per_grid, threads_per_block](
+                d_z, d_velocity, d_momentum, d_coherence,
+                d_roche, d_drive
+            )
+
+            # Copy back results
+            center = d_center.copy_to_host()
+            sigma = d_sigma.copy_to_host()
+            slope = d_slope.copy_to_host()
+            z_scores = d_z.copy_to_host()
+            velocity = d_velocity.copy_to_host()
+            force = d_force.copy_to_host()
+            momentum = d_momentum.copy_to_host()
+            coherence = d_coherence.copy_to_host()
+            entropy = d_entropy.copy_to_host()
+            prob0 = d_prob0.copy_to_host()
+            prob1 = d_prob1.copy_to_host()
+            prob2 = d_prob2.copy_to_host()
+
+            roche_snap = d_roche.copy_to_host()
+            structural_drive = d_drive.copy_to_host()
+
+        else:
+            # CPU Fallback
+            cpu_results = self._batch_compute_cpu(prices, volumes, rp)
+            center = cpu_results['center']
+            sigma = cpu_results['sigma']
+            slope = cpu_results['slope']
+            z_scores = cpu_results['z']
+            velocity = cpu_results['velocity']
+            force = cpu_results['force']
+            momentum = cpu_results['momentum']
+            coherence = cpu_results['coherence']
+            entropy = cpu_results['entropy']
+            prob0 = cpu_results['prob0']
+            prob1 = cpu_results['prob1']
+            prob2 = cpu_results['prob2']
+            roche_snap = cpu_results['roche']
+            structural_drive = cpu_results['drive']
+
 
         # Extract timestamps
         timestamps = np.zeros(n, dtype=np.float64)
