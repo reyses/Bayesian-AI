@@ -39,11 +39,10 @@ class TestClusteringIntegration(unittest.TestCase):
             self.patterns.append(p)
 
     def test_clustering_engine(self):
-        engine = FractalClusteringEngine(n_clusters=10)
+        engine = FractalClusteringEngine(n_clusters=10, max_variance=0.5)
         templates = engine.create_templates(self.patterns)
 
         self.assertTrue(len(templates) > 0)
-        self.assertTrue(len(templates) <= 10)
 
         # Check total members
         total_members = sum(t.member_count for t in templates)
@@ -52,6 +51,11 @@ class TestClusteringIntegration(unittest.TestCase):
         # Check sorting
         counts = [t.member_count for t in templates]
         self.assertEqual(counts, sorted(counts, reverse=True))
+
+        # Check physics_variance
+        for t in templates:
+            self.assertTrue(hasattr(t, 'physics_variance'))
+            self.assertGreaterEqual(t.physics_variance, 0.0)
 
     @patch('training.orchestrator.simulate_trade_standalone')
     def test_optimize_template_task(self, mock_simulate):

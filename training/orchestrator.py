@@ -71,6 +71,7 @@ PRECOMPUTE_DEBUG_LOG_FILENAME = 'precompute_debug.log'
 
 DEFAULT_BASE_SLIPPAGE = 0.25
 DEFAULT_VELOCITY_SLIPPAGE_FACTOR = 0.1
+REPRESENTATIVE_SUBSET_SIZE = 20
 
 TIMEFRAME_MAP = {
     0: '5s',
@@ -431,7 +432,7 @@ class BayesianTrainingOrchestrator:
                     # OPTIMIZATION HACK:
                     # We do not simulate all 500 members of a cluster.
                     # We select a "Representative Subset" (Top 20) to find the parameters.
-                    subset = tmpl.patterns[:20]
+                    subset = tmpl.patterns[:REPRESENTATIVE_SUBSET_SIZE]
 
                     # We pass the SUBSET to the worker, which will run DOE on all of them
                     # and find the best "Consensus Params" that work for the group.
@@ -450,7 +451,7 @@ class BayesianTrainingOrchestrator:
 
                     # VALIDATION (The Test)
                     # Run the newly found params on the Out-of-Sample members (index 20+)
-                    validation_subset = tmpl.patterns[20:]
+                    validation_subset = tmpl.patterns[REPRESENTATIVE_SUBSET_SIZE:]
                     val_pnl = 0.0
                     if validation_subset:
                         val_pnl = self.validate_template_group(validation_subset, best_params)
