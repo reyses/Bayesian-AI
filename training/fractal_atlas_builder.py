@@ -196,8 +196,8 @@ class ParquetWriterManager:
         for w in self.writers.values():
             try:
                 w.close()
-            except:
-                pass
+            except Exception as e:
+                print(f"Error closing writer: {e}")
         self.writers.clear()
 
 class AtlasBuilder:
@@ -215,7 +215,7 @@ class AtlasBuilder:
             # Safe limit: 40% of VRAM.
             batch_size = int((free_mem * 0.4) / 64)
             return max(min(batch_size, 10_000_000), 100_000)
-        except:
+        except Exception:
             return 500_000
 
     def process_gpu(self, df, interval):
@@ -340,7 +340,9 @@ class AtlasBuilder:
 
                     # Handle float (e.g. 1735689600.0)
                     if pd.api.types.is_float_dtype(df['timestamp']):
-                         df['timestamp'] = df['timestamp'].fillna(0).astype('int64')
+                        if df['timestamp'].isnull().any():
+                            raise ValueError("Critical column 'timestamp' contains missing values.")
+                        df['timestamp'] = df['timestamp'].astype('int64')
 
                 df = df.sort_values('timestamp')
 
