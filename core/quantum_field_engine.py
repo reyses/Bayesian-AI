@@ -101,6 +101,25 @@ class QuantumFieldEngine:
         self.MOMENTUM_THRESHOLD = 5.0
         self.COHERENCE_THRESHOLD = 0.3
 
+        # New Constant for entropy calculation
+        self.LOG_3 = np.log(3.0)
+
+        # Precompute regression constants
+        # This removes duplication between CUDA setup and CPU fallback
+        rp = self.regression_period
+        sum_x = 0.0
+        sum_xx = 0.0
+        for _k in range(rp):
+            sum_x += float(_k)
+            sum_xx += float(_k * _k)
+
+        self.mean_x = sum_x / rp
+        self.denom = sum_xx - (sum_x * sum_x) / rp
+        self.inv_reg_period = 1.0 / rp
+        self.inv_denom = 0.0
+        if abs(self.denom) > 1e-9:
+            self.inv_denom = 1.0 / self.denom
+
         # Historical residuals for fat-tail sigma calculation (rolling window)
         # Using 500 bars (~2 hours at 15s) to estimate distribution
         self.residual_history = []
@@ -226,13 +245,8 @@ class QuantumFieldEngine:
         windows = sliding_window_view(prices, window_shape=rp)
         # windows shape: (n - rp + 1, rp)
 
-        # X constants
+        # X constants (using precomputed self.mean_x, self.inv_denom, etc)
         x = np.arange(rp)
-        mean_x = np.mean(x)
-        sum_xx = np.sum(x*x)
-        sum_x = np.sum(x)
-        denom = sum_xx - (sum_x * sum_x) / rp
-        inv_denom = 1.0 / denom if abs(denom) > 1e-9 else 0.0
 
         # Y constants per window
         sum_y = np.sum(windows, axis=1)
@@ -245,17 +259,17 @@ class QuantumFieldEngine:
 
         # Slope
         # slope = (sum_xy - mean_x * sum_y) * inv_denom
-        slopes_valid = (sum_xy - mean_x * sum_y) * inv_denom
+        slopes_valid = (sum_xy - self.mean_x * sum_y) * self.inv_denom
 
         # Center (at end of window)
         # center = mean_y + slope * ((rp - 1) - mean_x)
-        centers_valid = mean_y + slopes_valid * ((rp - 1) - mean_x)
+        centers_valid = mean_y + slopes_valid * ((rp - 1) - self.mean_x)
 
         # Sigma
         # sst = sum_yy - rp * mean_y * mean_y
         sst = sum_yy - rp * mean_y * mean_y
         # rss = sst - slope * slope * denom
-        rss = sst - slopes_valid * slopes_valid * denom
+        rss = sst - slopes_valid * slopes_valid * self.denom
         rss = np.maximum(rss, 0.0) # Clamp
 
         if rp > 2:
@@ -339,7 +353,7 @@ class QuantumFieldEngine:
                  p2 * np.log(p2 + eps))
 
         entropy[start_idx:] = ent[start_idx:]
-        coherence[start_idx:] = ent[start_idx:] / 1.09861228867
+        coherence[start_idx:] = ent[start_idx:] / self.LOG_3
 
         # Archetypes
         roche_snap[start_idx:] = (np.abs(z_scores[start_idx:]) > 2.0) & (np.abs(velocity[start_idx:]) > self.VELOCITY_THRESHOLD)
@@ -431,19 +445,8 @@ class QuantumFieldEngine:
             threads_per_block = 256
             blocks_per_grid = (n + (threads_per_block - 1)) // threads_per_block
 
-            # Precompute regression constants
-            sum_x = 0.0
-            sum_xx = 0.0
-            for _k in range(rp):
-                sum_x += float(_k)
-                sum_xx += float(_k * _k)
-
-            mean_x = sum_x / rp
-            denom = sum_xx - (sum_x * sum_x) / rp
-            inv_reg_period = 1.0 / rp
-            inv_denom = 0.0
-            if abs(denom) > 1e-9:
-                inv_denom = 1.0 / denom
+            # Use precomputed regression constants from self
+            # This avoids recalculating them here
 
             # 1. Physics Kernel
             compute_physics_kernel[blocks_per_grid, threads_per_block](
@@ -452,7 +455,7 @@ class QuantumFieldEngine:
                 d_z, d_velocity, d_force, d_momentum,
                 d_coherence, d_entropy,
                 d_prob0, d_prob1, d_prob2,
-                rp, mean_x, inv_reg_period, inv_denom, denom
+                rp, self.mean_x, self.inv_reg_period, self.inv_denom, self.denom
             )
 
             # 2. Archetype Kernel
