@@ -17,6 +17,7 @@ from training.fractal_atlas_builder import AtlasBuilder
 
 class TestFractalAtlas(unittest.TestCase):
     def setUp(self):
+        np.random.seed(42)  # Ensure deterministic tests
         self.test_dir = tempfile.mkdtemp()
         self.input_file = Path(self.test_dir) / "test_input.parquet"
         self.output_dir = Path(self.test_dir) / "ATLAS"
