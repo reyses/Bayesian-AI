@@ -9,6 +9,7 @@ import math
 from scipy.stats import linregress
 import numba
 from numba import cuda
+from tqdm import tqdm
 
 from core.three_body_state import ThreeBodyQuantumState
 from core.risk_engine import QuantumRiskEngine
@@ -622,7 +623,7 @@ class QuantumFieldEngine:
     # VECTORIZED BATCH COMPUTATION (processes all bars at once)
     # ═══════════════════════════════════════════════════════════════════════
 
-    def batch_compute_states(self, day_data: pd.DataFrame, use_cuda: bool = True, params: dict = None) -> list:
+    def batch_compute_states(self, day_data: pd.DataFrame, use_cuda: bool = True, params: dict = None, progress_bar: bool = False, desc: str = "Computing States") -> list:
         """
         Compute ALL ThreeBodyQuantumState objects for a day using Numba CUDA kernels.
         """
@@ -696,7 +697,11 @@ class QuantumFieldEngine:
         tick_velocity[1:] = prices[1:] - prices[:-1]
 
         # Loop from rp to n
-        for i in range(rp, n):
+        iterator = range(rp, n)
+        if progress_bar:
+            iterator = tqdm(iterator, desc=desc, leave=False, unit="bar")
+
+        for i in iterator:
             # Map simple Lagrange zones
             z = z_scores[i]
             abs_z = abs(z)
