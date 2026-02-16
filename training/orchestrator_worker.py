@@ -1,7 +1,8 @@
 
 import time
 import numpy as np
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, Tuple
+from numba import jit
 from core.bayesian_brain import TradeOutcome
 from training.doe_parameter_generator import DOEParameterGenerator
 
@@ -14,11 +15,71 @@ INDIVIDUAL_OPTIMIZATION_ITERATIONS = 20
 
 # --- Standalone Helpers for Multiprocessing ---
 
+@jit(nopython=True)
+def _fast_sim_loop(entry_price, prices, timestamps, dir_sign,
+                   take_profit, stop_loss, max_hold, trading_cost, total_slippage,
+                   entry_time):
+    """
+    Numba-optimized simulation loop.
+    Iterates through prices/timestamps arrays to find exit condition.
+    Returns tuple: (exit_price, raw_pnl, result_code, exit_time, exit_reason_code, duration)
+    result_code: 0=None, 1=WIN, -1=LOSS
+    exit_reason_code: 1=TP, 2=SL, 3=TIME
+    """
+    n = len(prices)
+    # Start from index 1 (next bar) as index 0 is entry bar
+    for i in range(1, n):
+        price = prices[i]
+        curr_time = timestamps[i]
+
+        # Calculate PnL (points)
+        raw_diff = (price - entry_price) * dir_sign
+        pnl = raw_diff - trading_cost - total_slippage
+
+        duration = curr_time - entry_time
+
+        if pnl >= take_profit:
+            # WIN (TP)
+            return price, take_profit, 1, curr_time, 1, duration
+        elif pnl <= -stop_loss:
+            # LOSS (SL) - assumes fill at stop
+            return price, -stop_loss, -1, curr_time, 2, duration
+        elif duration >= max_hold:
+            # TIME EXIT
+            return price, pnl, (1 if pnl > 0 else -1), curr_time, 3, duration
+
+    return 0.0, 0.0, 0, 0.0, 0, 0.0
+
+def _extract_arrays_from_df(df: Any) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    """Helper to extract prices and timestamps from DataFrame."""
+    prices = None
+    timestamps = None
+
+    if 'price' in df.columns:
+        prices = df['price'].values
+    elif 'close' in df.columns:
+        prices = df['close'].values
+    else:
+        return None
+
+    if 'timestamp' in df.columns:
+        ts_data = df['timestamp'].values
+        # Handle datetime64[ns] conversion to float seconds
+        if ts_data.dtype.type == np.datetime64:
+             timestamps = ts_data.astype('int64') / 1e9
+        else:
+             timestamps = ts_data.astype(np.float64)
+    else:
+        return None
+
+    return prices, timestamps
+
 def simulate_trade_standalone(entry_price: float, data: Any, state: Any,
                               params: Dict[str, Any], point_value: float) -> Optional[TradeOutcome]:
     """
     Simulate single trade with lookahead — direction-aware
-    Uses params for stop loss and take profit
+    Uses params for stop loss and take profit.
+    Optimized with Numba.
     """
     stop_loss = params.get('stop_loss_ticks', 15) * 0.25
     take_profit = params.get('take_profit_ticks', 40) * 0.25
@@ -45,42 +106,42 @@ def simulate_trade_standalone(entry_price: float, data: Any, state: Any,
 
     entry_time = state.timestamp
 
-    for i in range(1, len(data)):
-        row = data.iloc[i]
-        price = row['price'] if 'price' in row else row['close']
-        pnl = (price - entry_price) * dir_sign - trading_cost - total_slippage
+    # Prepare data arrays
+    prices = None
+    timestamps = None
 
-        exit_time = row['timestamp']
-        # Handle timestamp types safely
-        if hasattr(exit_time, 'timestamp'):
-            exit_time = exit_time.timestamp()
+    if isinstance(data, tuple) and len(data) == 2:
+        # Optimized path: Pass tuple (prices, timestamps) directly
+        prices, timestamps = data
+    elif hasattr(data, 'values'): # DataFrame or Series
+        # Slow path: Extract numpy arrays using helper
+        arrays = _extract_arrays_from_df(data)
+        if arrays is None:
+            return None
+        prices, timestamps = arrays
+    else:
+        return None
 
-        duration = exit_time - entry_time
+    # Call Numba function
+    exit_price, final_pnl, res_code, exit_time, exit_reason_code, duration = _fast_sim_loop(
+        float(entry_price), prices, timestamps, float(dir_sign),
+        float(take_profit), float(stop_loss), float(max_hold), float(trading_cost), float(total_slippage),
+        float(entry_time)
+    )
 
-        # Check TP/SL
-        if pnl >= take_profit:
-            return TradeOutcome(
-                state=state, entry_price=entry_price, exit_price=price,
-                pnl=take_profit * point_value, result='WIN', timestamp=exit_time,
-                exit_reason='TP', entry_time=entry_time, exit_time=exit_time,
-                duration=duration, direction=direction
-            )
-        elif pnl <= -stop_loss:
-            return TradeOutcome(
-                state=state, entry_price=entry_price, exit_price=price,
-                pnl=-stop_loss * point_value, result='LOSS', timestamp=exit_time,
-                exit_reason='SL', entry_time=entry_time, exit_time=exit_time,
-                duration=duration, direction=direction
-            )
-        elif duration >= max_hold:
-            return TradeOutcome(
-                state=state, entry_price=entry_price, exit_price=price,
-                pnl=pnl * point_value, result='WIN' if pnl > 0 else 'LOSS', timestamp=exit_time,
-                exit_reason='TIME', entry_time=entry_time, exit_time=exit_time,
-                duration=duration, direction=direction
-            )
+    if res_code == 0:
+        return None
 
-    return None
+    result_str = 'WIN' if res_code == 1 else 'LOSS'
+    reason_map = {1: 'TP', 2: 'SL', 3: 'TIME'}
+    exit_reason = reason_map.get(exit_reason_code, 'UNKNOWN')
+
+    return TradeOutcome(
+        state=state, entry_price=entry_price, exit_price=exit_price,
+        pnl=final_pnl * point_value, result=result_str, timestamp=exit_time,
+        exit_reason=exit_reason, entry_time=entry_time, exit_time=exit_time,
+        duration=duration, direction=direction
+    )
 
 def _optimize_pattern_task(args):
     """
@@ -93,6 +154,13 @@ def _optimize_pattern_task(args):
     window = pattern.window_data
     if window is None or window.empty:
         return {}, {'trades': [], 'sharpe': 0.0, 'win_rate': 0.0, 'pnl': 0.0}
+
+    # Pre-extract arrays for speed optimization
+    arrays = _extract_arrays_from_df(window)
+    if arrays is None:
+         return {}, {'trades': [], 'sharpe': 0.0, 'win_rate': 0.0, 'pnl': 0.0}
+
+    sim_data = arrays
 
     # Generate parameters
     all_param_sets = []
@@ -110,7 +178,7 @@ def _optimize_pattern_task(args):
     for params in all_param_sets:
         outcome = simulate_trade_standalone(
             entry_price=entry_price,
-            data=window,
+            data=sim_data,
             state=state,
             params=params,
             point_value=point_value
@@ -149,19 +217,26 @@ def _optimize_template_task(args):
     best_sharpe = -float('inf')
     best_params = {}
 
+    # Pre-process subset for speed
+    processed_subset = []
+    for pattern in subset:
+        window = pattern.window_data
+        if window is None or window.empty:
+            continue
+
+        arrays = _extract_arrays_from_df(window)
+        if arrays is not None:
+            processed_subset.append((pattern, arrays))
+
     # 2. Iterate through Parameter Sets
     for params in param_sets:
         pnls = []
 
         # 3. Test Params on ALL members of the subset
-        for pattern in subset:
-            window = pattern.window_data
-            if window is None or window.empty:
-                continue
-
+        for pattern, sim_data in processed_subset:
             outcome = simulate_trade_standalone(
                 entry_price=pattern.price,
-                data=window,
+                data=sim_data,
                 state=pattern.state,
                 params=params,
                 point_value=point_value
