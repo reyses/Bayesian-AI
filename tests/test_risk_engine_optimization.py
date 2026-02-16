@@ -64,5 +64,49 @@ class TestQuantumRiskEngine:
         p2 = engine.calculate_probabilities(price=101.0, center=100.0, sigma=1.0)
         assert p1 == p2
 
+    def test_boundary_logic_L2(self):
+        # Test explicit boundary conditions for L2 (Price > Center)
+        # If price is EXACTLY stop_level, should be 100% escape.
+        engine = QuantumRiskEngine(num_paths=100)
+        price = 103.0
+        center = 100.0
+        sigma = 1.0
+        # Stop level = 100 + 3*1 = 103.
+        # Price == Stop Level.
+        p_tunnel, p_escape = engine.calculate_probabilities(price=price, center=center, sigma=sigma)
+        assert p_escape == 1.0
+        assert p_tunnel == 0.0
+
+        # If price is slightly BELOW stop_level, should act normally.
+        p_tunnel, p_escape = engine.calculate_probabilities(price=102.99, center=center, sigma=sigma)
+        assert p_escape < 1.0 # Due to random noise some might revert or stay within bounds
+
+        # If price is slightly ABOVE stop_level, should be 100% escape.
+        p_tunnel, p_escape = engine.calculate_probabilities(price=103.01, center=center, sigma=sigma)
+        assert p_escape == 1.0
+        assert p_tunnel == 0.0
+
+    def test_boundary_logic_L3(self):
+        # Test explicit boundary conditions for L3 (Price < Center)
+        # If price is EXACTLY stop_level, should be 100% escape.
+        engine = QuantumRiskEngine(num_paths=100)
+        price = 97.0
+        center = 100.0
+        sigma = 1.0
+        # Stop level = 100 - 3*1 = 97.
+        # Price == Stop Level.
+        p_tunnel, p_escape = engine.calculate_probabilities(price=price, center=center, sigma=sigma)
+        assert p_escape == 1.0
+        assert p_tunnel == 0.0
+
+        # If price is slightly ABOVE stop_level (closer to center), normal.
+        p_tunnel, p_escape = engine.calculate_probabilities(price=97.01, center=center, sigma=sigma)
+        assert p_escape < 1.0
+
+        # If price is slightly BELOW stop_level (further away), 100% escape.
+        p_tunnel, p_escape = engine.calculate_probabilities(price=96.99, center=center, sigma=sigma)
+        assert p_escape == 1.0
+        assert p_tunnel == 0.0
+
 if __name__ == "__main__":
     pytest.main([__file__])
