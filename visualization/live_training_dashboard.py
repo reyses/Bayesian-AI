@@ -153,8 +153,8 @@ class FractalDashboard:
         # Top 15
         for t in sorted_templates[:15]:
             pnl = t.get('pnl', 0)
-            tag = 'profit' if pnl >= 0 else 'loss'
-            icon = "▲" if pnl >= 0 else "▼"
+            tag = 'profit' if pnl > 0 else ('loss' if pnl < 0 else '')
+            icon = "▲" if pnl > 0 else ("▼" if pnl < 0 else "")
             self.tree_ranks.insert("", tk.END, values=(t['id'], t.get('count', 0), f"{icon} ${pnl:.0f}", "ACTIVE"), tags=(tag,))
 
         # Update Stats Label
