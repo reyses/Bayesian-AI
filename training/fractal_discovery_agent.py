@@ -34,6 +34,7 @@ TIMEFRAME_SECONDS = {
     '15m': 900, '1h': 3600, '4h': 14400, '1D': 86400, '1W': 604800
 }
 
+MIN_BARS_FOR_CHILD_REGRESSION = 30
 
 @dataclass
 class PatternEvent:
@@ -194,7 +195,7 @@ class FractalDiscoveryAgent:
             if child_tf_idx < len(timeframes):
                 child_tf = timeframes[child_tf_idx]
                 child_tf_secs = TIMEFRAME_SECONDS.get(child_tf, 15)
-                min_bars_needed = 30  # regression_period(21) + some margin
+                min_bars_needed = MIN_BARS_FOR_CHILD_REGRESSION  # regression_period(21) + some margin
                 min_window_secs = child_tf_secs * min_bars_needed
                 drilldown_secs = max(tf_secs, min_window_secs)
             else:
