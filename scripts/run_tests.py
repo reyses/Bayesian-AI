@@ -83,39 +83,39 @@ def main():
 
     steps = [
         {
-            "command": [python_cmd, "tests/topic_build.py"],
-            "description": "Integrity Test (Topic Build)",
+            "command": [python_cmd, "-m", "pytest", "tests/test_build_integrity.py"],
+            "description": "Integrity Test (Build)",
             "critical": True
         },
         {
-            "command": [python_cmd, "-m", "pytest", "tests/topic_math.py"],
+            "command": [python_cmd, "-m", "pytest", "tests/test_core_math.py"],
             "description": "Math & Logic Test",
             "critical": True
         },
         {
-            "command": [python_cmd, "tests/topic_diagnostics.py"],
-            "description": "Diagnostics Test",
+            "command": [python_cmd, "-m", "pytest", "tests/test_environment.py"],
+            "description": "Environment Test",
             "critical": True
         },
         {
-            "command": [python_cmd, "tests/test_bayesian_brain.py"],
+            "command": [python_cmd, "scripts/system_health.py"],
+            "description": "System Health Check",
+            "critical": False
+        },
+        {
+            "command": [python_cmd, "-m", "pytest", "tests/test_bayesian_brain.py"],
             "description": "Bayesian Brain Test",
             "critical": True
         },
         {
-            "command": [python_cmd, "tests/test_state_vector.py"],
+            "command": [python_cmd, "-m", "pytest", "tests/test_state_vector.py"],
             "description": "State Vector Test",
             "critical": True
         },
         {
-            "command": [python_cmd, "tests/test_legacy_layer_engine.py"],
+            "command": [python_cmd, "-m", "pytest", "tests/test_legacy_layer_engine.py"],
             "description": "Legacy Layer Engine Test",
             "critical": True
-        },
-        {
-            "command": [python_cmd, "scripts/gpu_health_check.py"],
-            "description": "GPU Health Check",
-            "critical": False  # Allow failure if no GPU (continue-on-error: true)
         },
         {
             "command": [python_cmd, "-m", "pytest", "tests/test_training_validation.py"],
