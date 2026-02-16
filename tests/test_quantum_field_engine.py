@@ -1,6 +1,7 @@
 
 import pytest
 import numpy as np
+import pandas as pd
 import sys
 import os
 
@@ -8,6 +9,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from core.quantum_field_engine import QuantumFieldEngine
+from core.three_body_state import ThreeBodyQuantumState
 
 def test_calculate_wave_function_numerical_stability():
     """Test that _calculate_wave_function handles large z_scores without division by zero"""
@@ -49,6 +51,50 @@ def test_calculate_wave_function_numerical_stability():
     # normalized P1 approx 1/1.135 = 0.88
     assert res['P1'] > res['P0']
     assert res['P1'] > res['P2']
+
+def test_batch_compute_states_cpu():
+    """Test CPU fallback for batch_compute_states"""
+    engine = QuantumFieldEngine()
+    engine.use_gpu = False # Force CPU
+
+    # Create dummy data
+    n = 100
+    dates = pd.date_range(start='2025-01-01', periods=n, freq='15s')
+    data = pd.DataFrame({
+        'timestamp': dates.astype('int64') // 10**9,
+        'open': np.linspace(100, 110, n),
+        'high': np.linspace(101, 111, n),
+        'low': np.linspace(99, 109, n),
+        'close': np.linspace(100.5, 110.5, n),
+        'volume': np.random.rand(n) * 1000
+    })
+
+    # Add trend to verify physics
+    # Linear trend should result in stable slope and small sigma
+
+    results = engine.batch_compute_states(data, use_cuda=False)
+
+    assert len(results) > 0
+    # Should start from rp (21)
+    rp = engine.regression_period
+    assert len(results) == n - rp
+
+    first_res = results[0]
+    assert isinstance(first_res['state'], ThreeBodyQuantumState)
+    assert first_res['bar_idx'] == rp
+
+    # Check physics values are calculated (not all zeros)
+    state = first_res['state']
+    # With linear price 100->110 over 100 steps
+    # Slope should be approx 0.1
+    # Center should track price
+
+    assert state.center_position != 0.0
+    # sigma might be small but non-zero due to noise or perfect fit
+    # In perfect linear fit, sigma -> 0. But we used linspace for open/high/low/close differently?
+    # close is linspace. So sigma should be very small (epsilon).
+    # Wait, code sets sigma = max(sigma, 1e-6)
+    assert state.sigma_fractal >= 1e-6
 
 if __name__ == "__main__":
     pytest.main([__file__])
