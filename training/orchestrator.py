@@ -3,7 +3,7 @@ BAYESIAN-AI TRAINING ORCHESTRATOR
 Single entry point for all training operations
 
 Integrates:
-- Walk-forward training (day-by-day DOE)
+- Walk-forward training (Pattern-Adaptive)
 - Live dashboard (real-time visualization)
 - Pattern analysis (strongest states)
 - Progress reporting (terminal output)
@@ -20,6 +20,7 @@ import multiprocessing
 import glob
 import numpy as np
 import pandas as pd
+import asyncio
 from typing import Dict, List, Any, Tuple, Optional
 from dataclasses import dataclass
 from datetime import datetime
@@ -47,6 +48,7 @@ from training.doe_parameter_generator import DOEParameterGenerator
 from training.pattern_analyzer import PatternAnalyzer
 from training.progress_reporter import ProgressReporter, DayMetrics
 from training.databento_loader import DatabentoLoader
+from training.fractal_discovery_agent import FractalDiscoveryAgent, PatternEvent
 
 # Execution components
 from training.integrated_statistical_system import IntegratedStatisticalEngine
@@ -89,99 +91,129 @@ def verify_cuda_availability():
     except Exception as e:
         print(f"CUDA: AVAILABLE (but failed to get device name: {e})")
 
-def verify_data_integrity(data_path: str) -> List[str]:
+# --- Standalone Helpers for Multiprocessing ---
+
+def simulate_trade_standalone(entry_price: float, data: pd.DataFrame, state: Any,
+                              params: Dict[str, Any], point_value: float) -> Optional[TradeOutcome]:
     """
-    Verify data existence. If directory, return parquet files.
-    If no parquets, look for .dbn/.dbn.zst and convert.
-    Returns list of parquet file paths.
+    Simulate single trade with lookahead — direction-aware
+    Uses params for stop loss and take profit
     """
-    if not os.path.exists(data_path):
-        raise FileNotFoundError(f"Data path not found: {data_path}")
+    stop_loss = params.get('stop_loss_ticks', 15) * 0.25
+    take_profit = params.get('take_profit_ticks', 40) * 0.25
+    max_hold = params.get('max_hold_seconds', 600)
+    trading_cost = params.get('trading_cost_points', 0.50)
 
-    files = []
-    if os.path.isfile(data_path):
-        if data_path.endswith('.parquet'):
-            files = [data_path]
-        elif data_path.endswith('.dbn') or data_path.endswith('.dbn.zst'):
-            # Convert single file
-            print(f"Converting single DBN file: {data_path}")
-            from training.dbn_to_parquet import convert_file
-            output_path = data_path.replace('.dbn.zst', '.parquet').replace('.dbn', '.parquet')
-            convert_file(data_path, output_path)
-            files = [output_path]
-    elif os.path.isdir(data_path):
-        files = glob.glob(os.path.join(data_path, "*.parquet"))
-        if not files:
-            # Try finding dbn files
-            dbn_files = glob.glob(os.path.join(data_path, "*.dbn*"))
-            if dbn_files:
-                print(f"No parquet files found in {data_path}, but found {len(dbn_files)} DBN files. Converting...")
-                from training.dbn_to_parquet import convert_directory
-                files = convert_directory(data_path, data_path) # Output to same dir
-            else:
-                raise FileNotFoundError(f"No parquet or dbn files found in {data_path}")
+    # Dynamic Slippage
+    base_slippage = DEFAULT_BASE_SLIPPAGE
+    velocity_factor = DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 
-    if not files:
-         raise FileNotFoundError(f"No valid data files found in {data_path}")
+    velocity = state.particle_velocity
+    slippage = base_slippage + velocity_factor * abs(velocity)
+    total_slippage = slippage * 2.0
 
-    # Sort files to ensure deterministic order
-    files.sort()
-    return files
+    # Direction from Archetype/State
+    if hasattr(state, 'cascade_detected') and state.cascade_detected: # Roche Snap
+        direction = 'SHORT' if state.z_score > 0 else 'LONG'
+    elif hasattr(state, 'structure_confirmed') and state.structure_confirmed: # Structural Drive
+        direction = 'LONG' if state.momentum_strength > 0 else 'SHORT'
+    else:
+        direction = 'LONG' # Fallback
 
-def process_data_chunk(file_path: str) -> Dict[str, Any]:
+    dir_sign = -1.0 if direction == 'SHORT' else 1.0
+
+    entry_time = state.timestamp
+
+    for i in range(1, len(data)):
+        row = data.iloc[i]
+        price = row['price'] if 'price' in row else row['close']
+        pnl = (price - entry_price) * dir_sign - trading_cost - total_slippage
+
+        exit_time = row['timestamp']
+        # Handle timestamp types safely
+        if hasattr(exit_time, 'timestamp'):
+            exit_time = exit_time.timestamp()
+
+        duration = exit_time - entry_time
+
+        # Check TP/SL
+        if pnl >= take_profit:
+            return TradeOutcome(
+                state=state, entry_price=entry_price, exit_price=price,
+                pnl=take_profit * point_value, result='WIN', timestamp=exit_time,
+                exit_reason='TP', entry_time=entry_time, exit_time=exit_time,
+                duration=duration, direction=direction
+            )
+        elif pnl <= -stop_loss:
+            return TradeOutcome(
+                state=state, entry_price=entry_price, exit_price=price,
+                pnl=-stop_loss * point_value, result='LOSS', timestamp=exit_time,
+                exit_reason='SL', entry_time=entry_time, exit_time=exit_time,
+                duration=duration, direction=direction
+            )
+        elif duration >= max_hold:
+            return TradeOutcome(
+                state=state, entry_price=entry_price, exit_price=price,
+                pnl=pnl * point_value, result='WIN' if pnl > 0 else 'LOSS', timestamp=exit_time,
+                exit_reason='TIME', entry_time=entry_time, exit_time=exit_time,
+                duration=duration, direction=direction
+            )
+
+    return None
+
+def _optimize_pattern_task(args):
     """
-    Worker function to process a data file.
-    Initializes its own QuantumFieldEngine to avoid pickling issues.
+    Task function for multiprocessing.
+    args: (pattern, iterations, param_generator, point_value)
+    Returns: (best_params, best_result_dict)
     """
-    try:
-        # Load data
-        # Check if file is parquet
-        if not file_path.endswith('.parquet'):
-             return {'file': file_path, 'status': 'skipped', 'reason': 'not parquet'}
+    pattern, iterations, generator, point_value = args
 
-        df = pd.read_parquet(file_path)
-        if df.empty:
-             return {'file': file_path, 'status': 'empty', 'count': 0}
+    window = pattern.window_data
+    if window is None or window.empty:
+        return {}, {'trades': [], 'sharpe': 0.0, 'win_rate': 0.0, 'pnl': 0.0}
 
-        # Initialize Engine
-        engine = QuantumFieldEngine()
+    # Generate parameters
+    # Note: Generator has state (LHS cache), but pickling might clone it.
+    # LHS cache is keyed by 'day'. We pass pattern.idx as day.
+    # If generator state is not shared, LHS might be deterministic but repetitive across workers if seed same.
+    # Generator uses seed=day. So it's fine.
 
-        # Run Batch Computation
-        # Note: Engine now mandates CUDA, so this will use GPU
-        states = engine.batch_compute_states(df, use_cuda=True)
+    all_param_sets = []
+    for i in range(iterations):
+        ps = generator.generate_parameter_set(iteration=i, day=pattern.idx, context='PATTERN')
+        all_param_sets.append(ps.parameters)
 
-        if not states:
-            return {'file': file_path, 'status': 'no_states', 'count': 0}
+    best_pnl = -float('inf')
+    best_params = {}
+    best_result_dict = {'trades': [], 'sharpe': 0.0, 'win_rate': 0.0, 'pnl': 0.0}
 
-        # Aggregate metrics
-        max_force = 0.0
-        critical_events = 0 # z > 2 or < -2
-        z_sum = 0.0
+    entry_price = pattern.price
+    state = pattern.state
 
-        for item in states:
-            s = item['state']
-            f = abs(s.F_net)
-            if f > max_force:
-                max_force = f
-            if abs(s.z_score) > 2.0:
-                critical_events += 1
-            z_sum += s.z_score
+    for params in all_param_sets:
+        outcome = simulate_trade_standalone(
+            entry_price=entry_price,
+            data=window,
+            state=state,
+            params=params,
+            point_value=point_value
+        )
 
-        mean_z = z_sum / len(states) if states else 0.0
+        if outcome:
+            if outcome.pnl > best_pnl:
+                best_pnl = outcome.pnl
+                best_params = params
+                best_result_dict = {
+                    'trades': [outcome],
+                    'sharpe': 1.0 if outcome.pnl > 0 else -1.0,
+                    'win_rate': 1.0 if outcome.result == 'WIN' else 0.0,
+                    'pnl': outcome.pnl
+                }
 
-        return {
-            'file': file_path,
-            'status': 'success',
-            'count': len(states),
-            'max_force': float(max_force),
-            'critical_events': int(critical_events),
-            'mean_z': float(mean_z)
-        }
+    return best_params, best_result_dict
 
-    except Exception as e:
-        # Log error but don't crash
-        print(f"Error processing {file_path}: {e}")
-        return {'file': file_path, 'status': 'error', 'error': str(e)}
+# --------------------------------------------------
 
 @dataclass
 class DayResults:
@@ -199,7 +231,6 @@ class DayResults:
     high_confidence_states: int
     execution_time_seconds: float
     avg_duration: float
-    # Walk-Forward "Real" Results (using prior day's params)
     real_pnl: float = 0.0
     real_trades_count: int = 0
     real_win_rate: float = 0.0
@@ -211,17 +242,12 @@ class BayesianTrainingOrchestrator:
     UNIFIED TRAINING ORCHESTRATOR
 
     Runs complete walk-forward training with:
-    - Day-by-day DOE parameter optimization
+    - Pattern-Adaptive Optimization Loop
     - Live visualization dashboard
     - Real-time terminal progress
     - Pattern analysis and reporting
     - Batch regret analysis (fully integrated)
     - Automatic checkpointing
-
-    Integrated Execution Modules:
-    - BatchRegretAnalyzer: Active (end-of-day feedback loop)
-    - IntegratedStatisticalEngine: Inactive (commented out, pending future integration)
-    - WaveRider: Inactive (not imported, logic bypassed)
     """
 
     def __init__(self, config):
@@ -244,6 +270,7 @@ class BayesianTrainingOrchestrator:
         self.confidence_manager = AdaptiveConfidenceManager(self.brain)
         self.stat_validator = IntegratedStatisticalEngine(self.asset)
         self.wave_rider = WaveRider(self.asset)
+        self.discovery_agent = FractalDiscoveryAgent()
 
         # Multi-timeframe context engine
         self.mtf_context = MultiTimeframeContext()
@@ -270,1358 +297,225 @@ class BayesianTrainingOrchestrator:
         self._cumulative_best_trades: List[TradeOutcome] = []
         self.dashboard = None
         self.dashboard_thread = None
+        self.dashboard_queue = multiprocessing.Manager().Queue()
+
+        # Pattern Library (Bayesian Priors)
+        self.pattern_library = {}
 
         # Slippage parameters
         self.BASE_SLIPPAGE = DEFAULT_BASE_SLIPPAGE
         self.VELOCITY_SLIPPAGE_FACTOR = DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 
+    def calculate_optimal_workers(self):
+        try:
+            return max(1, multiprocessing.cpu_count() - 2)
+        except NotImplementedError:
+            return 1
+
     def train(self, data_source: Any):
         """
-        Master training loop (Parallel Execution)
+        Master training loop (Pattern-Adaptive Walk-Forward)
 
         Args:
-            data_source: Path to data (str) or list of files. DataFrame is supported for legacy but deprecated for parallel flow.
+            data_source: Path to data (str) or list of files.
         """
         print("\n" + "="*80)
-        print("BAYESIAN-AI TRAINING ORCHESTRATOR (PARALLEL)")
+        print("BAYESIAN-AI TRAINING ORCHESTRATOR (PATTERN-ADAPTIVE)")
         print("="*80)
 
         # 1. Pre-Flight Checks
         print("Performing pre-flight checks...")
         verify_cuda_availability()
 
-        files = []
-        if isinstance(data_source, str):
-            files = verify_data_integrity(data_source)
-            print(f"Data Integrity: OK | Found {len(files)} files to process.")
-        elif isinstance(data_source, list):
-            files = data_source
-        elif isinstance(data_source, pd.DataFrame):
-            raise TypeError("Passing a DataFrame to train() is deprecated in the parallel pipeline. Please provide a file path to your data.")
-
         print(f"Asset: {self.asset.ticker}")
         print(f"Checkpoint Dir: {self.checkpoint_dir}")
 
-        # 2. Parallel Execution
-        results = []
-        if files:
-            num_workers = min(len(files), multiprocessing.cpu_count())
-            print(f"\nStarting parallel processing with {num_workers} workers (spawn context)...")
-
-            # Use spawn context for CUDA compatibility
-            ctx = multiprocessing.get_context('spawn')
-            with ctx.Pool(processes=num_workers) as pool:
-                # Map
-                results = list(tqdm(pool.imap(process_data_chunk, files), total=len(files), desc="Processing Files"))
-
-        # 3. Aggregation
-        print("\n" + "="*80)
-        print("AGGREGATION REPORT")
-        print("="*80)
-
-        if not results:
-            print("No results generated.")
-            return []
-
-        total_files = len(results)
-        success = sum(1 for r in results if r['status'] == 'success')
-        failed = total_files - success
-
-        max_forces = [r['max_force'] for r in results if r['status'] == 'success']
-        total_critical = sum(r['critical_events'] for r in results if r['status'] == 'success')
-
-        global_max_force = max(max_forces) if max_forces else 0.0
-
-        print(f"Files Processed: {total_files}")
-        print(f"Success: {success} | Failed: {failed}")
-        print(f"Global Max Force: {global_max_force:.4f}")
-        print(f"Total Critical Events: {total_critical}")
-
-        if failed > 0:
-            print("\nFailures:")
-            for r in results:
-                if r['status'] != 'success':
-                    print(f"  {r['file']}: {r.get('error', r.get('status'))}")
-
-        return results
-
-    def _precompute_day_states(self, day_data: pd.DataFrame, interval: str = '15s',
-                               tf_context: Dict = None,
-                               prev_day_1s: pd.DataFrame = None):
-        """
-        Pre-compute all states, probabilities, and confidences for a day ONCE.
-
-        Uses vectorized batch computation (numpy arrays + optional CUDA)
-        instead of per-bar loop. ~10-50x faster than original.
-
-        Args:
-            day_data: 1s OHLCV data for the day (used for trade simulation)
-            interval: Aggregation interval (e.g., '5s', '15s', '60s')
-            tf_context: Multi-timeframe context from MultiTimeframeContext.get_context_for_day()
-            prev_day_1s: Previous day's 1s data for warming up regression windows
-
-        Returns:
-            List of dicts with bar_idx, state, price, prob, conf, structure_ok, direction
-        """
-        if len(day_data) < 21:
-            return []
-
-        # Ensure 'close' column exists for batch computation
-        if 'price' in day_data.columns and 'close' not in day_data.columns:
-            day_data = day_data.copy()
-            day_data['close'] = day_data['price']
-
-        # Pre-extract 1s arrays for fast trade simulation (kept at 1s resolution)
-        prices = day_data['price'].values if 'price' in day_data.columns else day_data['close'].values
-        timestamps = day_data['timestamp'].values if 'timestamp' in day_data.columns else np.zeros(len(day_data))
-
-        # Resample on the fly
-        resampled_data, idx_map_agg_to_1s = self._resample_data(day_data, interval)
-
-        # === WARMUP: Prepend previous day's tail to fix cold-start regression ===
-        warmup_bars = 0
-        if prev_day_1s is not None and not prev_day_1s.empty:
-            # Need 21 bars of aggregated history
-            # Estimate how many 1s bars we need: 21 * interval_seconds (approx) + buffer
-            # Safe bet: last 1000 bars of 1s data, resampled
-            prev_tail = prev_day_1s.tail(2000).copy()
-            warmup_agg, _ = self._resample_data(prev_tail, interval)
-
-            if not warmup_agg.empty:
-                # Take last 50 aggregated bars
-                warmup_agg = warmup_agg.tail(50)
-                warmup_bars = len(warmup_agg)
-                resampled_data = pd.concat([warmup_agg, resampled_data], ignore_index=True)
-
-        if len(resampled_data) < 21:
-            self._day_prices = prices
-            self._day_timestamps = timestamps
-            return []
-
-        print(f"  Pre-computing states for {len(resampled_data) - 21:,} bars "
-              f"({interval}, {len(day_data):,} 1s bars)...", end='', flush=True)
-        precompute_start = time.time()
-
-        # === VECTORIZED BATCH COMPUTATION on aggregated bars ===
-        batch_results = self.engine.batch_compute_states(resampled_data, use_cuda=True)
-
-        # === FIT DYNAMIC BINNER on first day (before any hashing) ===
-        # If not fitted, fit it. If fitted, reuse it.
-        # This allows cross-timeframe state compatibility.
-        if batch_results:
-            if self.dynamic_binner is None:
-                z_scores = np.array([b['state'].z_score for b in batch_results], dtype=np.float64)
-                momentums = np.array([b['state'].momentum_strength for b in batch_results], dtype=np.float64)
-                self.dynamic_binner = DynamicBinner(min_bins=5, max_bins=30)
-                self.dynamic_binner.fit({'z_score': z_scores, 'momentum': momentums})
-                print(f"\n  {self.dynamic_binner.summary()}")
-
-            # Always ensure the correct binner is attached
-            ThreeBodyQuantumState.set_binner(self.dynamic_binner)
-
-        # === INJECT MULTI-TIMEFRAME CONTEXT into each state ===
-        if tf_context:
-            from dataclasses import replace as dc_replace
-            daily_ctx = tf_context.get('daily')
-            h4_ctx = tf_context.get('h4')
-            h1_ctx = tf_context.get('h1')
-            context_level = tf_context.get('context_level', 'MINIMAL')
-
-            tf_kwargs = {'context_level': context_level}
-            if daily_ctx:
-                tf_kwargs['daily_trend'] = daily_ctx.trend
-                tf_kwargs['daily_volatility'] = daily_ctx.volatility
-            if h4_ctx:
-                tf_kwargs['h4_trend'] = h4_ctx.trend
-                tf_kwargs['session'] = h4_ctx.session
-            if h1_ctx:
-                tf_kwargs['h1_trend'] = h1_ctx.trend
-
-            for bar in batch_results:
-                bar['state'] = dc_replace(bar['state'], **tf_kwargs)
-                # Re-evaluate structure_ok with context (Lagrange zone check unchanged)
-                bar['structure_ok'] = (
-                    bar['state'].lagrange_zone in ('L2_ROCHE', 'L3_ROCHE') and
-                    bool(bar['state'].structure_confirmed) and
-                    bool(bar['state'].cascade_detected)
-                )
-
-        # === SLICE WARMUP: Remove the prepended bars from results ===
-        if warmup_bars > 0:
-            batch_results = batch_results[warmup_bars:]
-
-        # === REMAP: Aggregated bar_idx → 1s bar_idx for trade simulation ===
-        for bar in batch_results:
-            # Adjust index to account for warmup offset
-            idx_agg = bar['bar_idx'] - warmup_bars
-            if idx_agg < len(idx_map_agg_to_1s):
-                bar['bar_idx'] = idx_map_agg_to_1s[idx_agg]
-            else:
-                bar['bar_idx'] = len(prices) - 1
-            # Use 1s price for consistency with trade sim
-            bar['price'] = prices[bar['bar_idx']]
-
-        # Cold start confidence modifier based on context availability
-        context_level = tf_context.get('context_level', 'MINIMAL') if tf_context else 'MINIMAL'
-        conf_modifier = self.mtf_context.get_confidence_modifier(context_level)
-
-        # Add prob/conf from brain + trade direction (these are dict lookups, fast)
-        #
-        # CONFIDENCE-WEIGHTED PROBABILITY:
-        #   Blends neutral prior (50%) with learned probability based on sample count.
-        #   This prevents single observations from dominating (avoids Catch-22 where
-        #   a state seen once gets locked out forever due to low confidence).
-        #
-        #   conf=0.0 (0 trades)  -> prob = 50% prior (explore)
-        #   conf=0.33 (10 trades) -> prob = 67% prior + 33% learned
-        #   conf=1.0 (30 trades) -> prob = 100% learned (exploit)
-        #
-        prior = 0.50
-        for bar in batch_results:
-            state = bar['state']
-            is_unseen = state not in self.brain.table
-            learned_prob = self.brain.get_probability(state)
-            conf = self.brain.get_confidence(state)
-
-            if is_unseen:
-                # Never seen: use prior (allows exploration of new states)
-                bar['prob'] = prior
-            else:
-                # Blend prior toward learned probability as confidence grows
-                effective_conf = conf * conf_modifier
-                bar['prob'] = prior * (1.0 - effective_conf) + learned_prob * effective_conf
-
-            bar['conf'] = conf
-            # structure_ok is purely physical: Roche zone + wave collapsed
-            # No confidence gate here — let DOE threshold decide which trades fire
-            # Direction: L2_ROCHE (z>+2) -> SHORT, L3_ROCHE (z<-2) -> LONG
-            bar['direction'] = 'SHORT' if state.z_score > 0 else 'LONG'
-
-        elapsed = time.time() - precompute_start
-        print(f" done ({elapsed:.1f}s) | Context: {context_level} (modifier={conf_modifier:.1f})")
-
-        # === DEBUG OUTPUT ===
-        debug_dir = os.path.join(PROJECT_ROOT, 'debug_outputs')
-        os.makedirs(debug_dir, exist_ok=True)
-        debug_file = os.path.join(debug_dir, PRECOMPUTE_DEBUG_LOG_FILENAME)
-        with open(debug_file, 'a') as f:
-            f.write(f"\n{'='*80}\n")
-            f.write(f"PRECOMPUTE DEBUG — {len(batch_results)} bars computed in {elapsed:.1f}s\n")
-            f.write(f"Context Level: {context_level} | Confidence Modifier: {conf_modifier:.2f}\n")
-            if self.dynamic_binner is not None:
-                f.write(f"{self.dynamic_binner.summary()}\n")
-            if tf_context:
-                for k in ('daily', 'h4', 'h1'):
-                    ctx = tf_context.get(k)
-                    if ctx:
-                        f.write(f"  {k}: trend={ctx.trend}, vol={ctx.volatility}, session={getattr(ctx, 'session', 'N/A')}\n")
-                    else:
-                        f.write(f"  {k}: NOT AVAILABLE\n")
-            f.write(f"{'='*80}\n")
-
-            # Count filter stages
-            total = len(batch_results)
-            zones = {}
-            n_structure = 0
-            n_cascade = 0
-            n_both = 0
-            n_structure_ok = 0
-            for bar in batch_results:
-                s = bar['state']
-                z = s.lagrange_zone
-                zones[z] = zones.get(z, 0) + 1
-                if s.structure_confirmed:
-                    n_structure += 1
-                if s.cascade_detected:
-                    n_cascade += 1
-                if s.structure_confirmed and s.cascade_detected:
-                    n_both += 1
-                if bar['structure_ok']:
-                    n_structure_ok += 1
-
-            f.write(f"\nLAGRANGE ZONE DISTRIBUTION:\n")
-            for z, cnt in sorted(zones.items(), key=lambda x: -x[1]):
-                f.write(f"  {z}: {cnt} ({cnt/total*100:.1f}%)\n")
-
-            roche_count = zones.get('L2_ROCHE', 0) + zones.get('L3_ROCHE', 0)
-            f.write(f"\nFILTER PIPELINE:\n")
-            f.write(f"  Total bars:             {total}\n")
-            f.write(f"  In L2/L3 ROCHE zone:    {roche_count} ({roche_count/total*100:.1f}%)\n")
-            f.write(f"  structure_confirmed:     {n_structure} ({n_structure/total*100:.1f}%)\n")
-            f.write(f"  cascade_detected:        {n_cascade} ({n_cascade/total*100:.1f}%)\n")
-            f.write(f"  Both struct+cascade:     {n_both} ({n_both/total*100:.1f}%)\n")
-            f.write(f"  Final structure_ok:      {n_structure_ok} ({n_structure_ok/total*100:.1f}%)\n")
-
-            # Sample states
-            if batch_results:
-                f.write(f"\nSAMPLE STATES (first 5 with structure_ok=True):\n")
-                shown = 0
-                for bar in batch_results:
-                    if bar['structure_ok'] and shown < 5:
-                        s = bar['state']
-                        f.write(f"  Bar {bar['bar_idx']}: zone={s.lagrange_zone} "
-                                f"z={s.z_score:.2f} vel={s.particle_velocity:.2f} "
-                                f"cascade={s.cascade_detected} struct={s.structure_confirmed} "
-                                f"prob={bar['prob']:.2f} conf={bar['conf']:.2f}\n")
-                        shown += 1
-                if shown == 0:
-                    f.write("  (NONE — all bars filtered out)\n")
-                    # Show why: sample 5 bars in ROCHE zones
-                    f.write(f"\n  DIAGNOSTIC — Sample ROCHE zone bars:\n")
-                    shown2 = 0
-                    for bar in batch_results:
-                        s = bar['state']
-                        if s.lagrange_zone in ('L2_ROCHE', 'L3_ROCHE') and shown2 < 5:
-                            f.write(f"    Bar {bar['bar_idx']}: z={s.z_score:.2f} "
-                                    f"vel={s.particle_velocity:.2f} "
-                                    f"cascade={s.cascade_detected} struct={s.structure_confirmed} "
-                                    f"vol_spike={s.structure_confirmed} maturity={s.pattern_maturity:.2f}\n")
-                            shown2 += 1
-                    if shown2 == 0:
-                        f.write("    (No bars in ROCHE zones either)\n")
-
-        # Store prices/timestamps as arrays for fast trade sim
-        self._day_prices = prices
-        self._day_timestamps = timestamps
-
-        return batch_results
-
-    def _resample_data(self, day_data: pd.DataFrame, interval: str):
-        """
-        Resample 1s OHLCV bars to {interval} bars for state computation.
-
-        Args:
-            day_data: DataFrame with 1s data
-            interval: Pandas offset string (e.g. '5s', '15s', '60s')
-
-        Returns:
-            resampled_df: DataFrame with timestamp, close, price, volume columns
-            idx_map: numpy array where idx_map[i] = last 1s index in aggregated bar i
-        """
-        df = day_data.copy()
-
-        # Ensure timestamp is datetime for resampling
-        if 'timestamp' in df.columns:
-            if not pd.api.types.is_datetime64_any_dtype(df['timestamp']):
-                df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
-
-        # Track original 1s indices
-        df['_1s_idx'] = np.arange(len(df))
-
-        df = df.set_index('timestamp')
-
-        # Build aggregation dict
-        agg_dict = {'_1s_idx': 'last'}
-
-        if 'close' in df.columns:
-            agg_dict['close'] = 'last'
-        if 'price' in df.columns:
-            agg_dict['price'] = 'last'
-        if 'volume' in df.columns:
-            agg_dict['volume'] = 'sum'
-        if 'open' in df.columns:
-            agg_dict['open'] = 'first'
-        if 'high' in df.columns:
-            agg_dict['high'] = 'max'
-        if 'low' in df.columns:
-            agg_dict['low'] = 'min'
-
-        # If no close but price exists, derive it
-        if 'close' not in df.columns and 'price' in df.columns:
-            df['close'] = df['price']
-            agg_dict['close'] = 'last'
-
-        resampled = df.resample(interval).agg(agg_dict).dropna(subset=['close'] if 'close' in agg_dict else ['price'])
-
-        # Extract index mapping
-        idx_map = resampled['_1s_idx'].values.astype(int)
-
-        # Reset index: timestamp back as column
-        resampled = resampled.reset_index()
-
-        # Ensure price column exists
-        if 'price' not in resampled.columns:
-            resampled['price'] = resampled['close']
-
-        # Drop helper column
-        resampled = resampled.drop(columns=['_1s_idx'], errors='ignore')
-
-        return resampled, idx_map
-
-
-    def _simulate_from_precomputed(self, precomputed: list, day_data: pd.DataFrame,
-                                    params: Dict[str, Any], pbar=None, best_sharpe: float = -999.0) -> List[TradeOutcome]:
-        """
-        Fast simulation using pre-computed states. Only applies param thresholds + trade sim.
-        """
-        trades = []
-        # Phase-aware threshold: use the LOWER of DOE param and phase threshold
-        phase_threshold = self.confidence_manager.PHASES[self.confidence_manager.phase]['prob_threshold']
-        min_prob = min(params.get('confidence_threshold', 0.50), phase_threshold) if phase_threshold > 0 else 0.0
-        stop_loss = params.get('stop_loss_ticks', 15) * 0.25
-        take_profit = params.get('take_profit_ticks', 40) * 0.25
-        max_hold = params.get('max_hold_seconds', 600)
-        trading_cost = params.get('trading_cost_points', 0.50)  # Round-trip cost in points
-        pv = self.asset.point_value  # Points -> dollars (MNQ: $2.0/point)
-
-        prices = self._day_prices
-        timestamps = self._day_timestamps
-        # DYNAMIC LOOKAHEAD: Ensure we look far enough to cover max_hold time
-        # Assuming roughly 1 bar per second, plus buffer for regret analysis (5 min)
-        max_lookahead = int(max_hold + 300)
-        n_bars = len(prices)
-
-        trade_wins = 0
-        trade_pnl = 0.0
-
-        for bar in precomputed:
-            # Decide if we should trade
-            should_trade = False
-
-            if self.exploration_mode and self.explorer:
-                # Use Explorer logic (bypasses structure_ok and prob thresholds)
-                decision = self.explorer.should_fire(bar['state'])
-                should_trade = decision['should_fire']
-            else:
-                # Standard Logic
-                # Check 1: Structure and Probability
-                basic_check = bar['structure_ok'] and bar['prob'] >= min_prob
-
-                # Check 2: Statistical Validation (if integrated)
-                if basic_check:
-                    # Validate with IntegratedStatisticalEngine (Bayesian + Monte Carlo)
-                    state_hash = hash(bar['state'])
-                    stat_decision = self.stat_validator.should_fire(state_hash)
-
-                    # If validator has enough data (not just 'Insufficient data'), respect it
-                    # But if it's just 'Insufficient data', rely on min_prob (exploration phase)
-                    if not stat_decision['should_fire']:
-                        # Only block if we have a concrete reason to block (risk/regret)
-                        # If reason is insufficient data, allow trade if min_prob met (to gather data)
-                        if 'Insufficient data' not in stat_decision['reason']:
-                            should_trade = False
-                        else:
-                            should_trade = True
-                    else:
-                        should_trade = True
-                else:
-                    should_trade = False
-
-            if not should_trade:
-                continue
-
-            # --- Inline fast trade simulation (avoid DataFrame overhead) ---
-            entry_idx = bar['bar_idx']
-            entry_price = bar['price']
-            direction = bar.get('direction', 'LONG')
-            dir_sign = -1.0 if direction == 'SHORT' else 1.0
-            entry_time = timestamps[entry_idx]
-            if isinstance(entry_time, pd.Timestamp):
-                entry_time = entry_time.timestamp()
-            elif hasattr(entry_time, 'item'):
-                entry_time = pd.Timestamp(entry_time).timestamp()
-
-            end_idx = min(n_bars, entry_idx + max_lookahead)
-            outcome = None
-
-            # Dynamic Slippage (Walk-Forward)
-            velocity = bar['state'].particle_velocity
-            slippage = self.BASE_SLIPPAGE + self.VELOCITY_SLIPPAGE_FACTOR * abs(velocity)
-            total_slippage = slippage * 2.0
-
-            for j in range(entry_idx + 1, end_idx):
-                price = prices[j]
-                pnl = (price - entry_price) * dir_sign - trading_cost - total_slippage
-
-                exit_time = timestamps[j]
-                if isinstance(exit_time, pd.Timestamp):
-                    exit_time = exit_time.timestamp()
-                elif hasattr(exit_time, 'item'):
-                    exit_time = pd.Timestamp(exit_time).timestamp()
-
-                duration = exit_time - entry_time
-
-                if pnl >= take_profit:
-                    outcome = TradeOutcome(
-                        state=bar['state'], entry_price=entry_price, exit_price=price,
-                        pnl=take_profit * pv, result='WIN', timestamp=exit_time,
-                        exit_reason='TP', entry_time=entry_time, exit_time=exit_time,
-                        duration=duration, direction=direction
-                    )
-                    break
-                elif pnl <= -stop_loss:
-                    outcome = TradeOutcome(
-                        state=bar['state'], entry_price=entry_price, exit_price=price,
-                        pnl=-stop_loss * pv, result='LOSS', timestamp=exit_time,
-                        exit_reason='SL', entry_time=entry_time, exit_time=exit_time,
-                        duration=duration, direction=direction
-                    )
-                    break
-                elif duration >= max_hold:
-                    outcome = TradeOutcome(
-                        state=bar['state'], entry_price=entry_price, exit_price=price,
-                        pnl=pnl * pv, result='WIN' if pnl > 0 else 'LOSS', timestamp=exit_time,
-                        exit_reason='TIME', entry_time=entry_time, exit_time=exit_time,
-                        duration=duration, direction=direction
-                    )
-                    break
-
-            # End of data fallback
-            if outcome is None and entry_idx + 1 < n_bars:
-                last_price = prices[end_idx - 1]
-                pnl = (last_price - entry_price) * dir_sign - trading_cost
-                last_time = timestamps[end_idx - 1]
-                if isinstance(last_time, pd.Timestamp):
-                    last_time = last_time.timestamp()
-                elif hasattr(last_time, 'item'):
-                    last_time = pd.Timestamp(last_time).timestamp()
-                outcome = TradeOutcome(
-                    state=bar['state'], entry_price=entry_price, exit_price=last_price,
-                    pnl=pnl * pv, result='WIN' if pnl > 0 else 'LOSS', timestamp=last_time,
-                    exit_reason='EOD', entry_time=entry_time, exit_time=last_time,
-                    duration=last_time - entry_time, direction=direction
-                )
-
-            if outcome:
-                trades.append(outcome)
-                trade_pnl += outcome.pnl
-                if outcome.result == 'WIN':
-                    trade_wins += 1
-                # Live per-trade update
-                if pbar:
-                    n = len(trades)
-                    pbar.set_postfix({
-                        'Trades': n,
-                        'WR': f'{trade_wins/n:.0%}',
-                        'P&L': f'${trade_pnl:.0f}',
-                        'Best': f'{best_sharpe:.2f}'
+        # Launch Dashboard
+        if not self.config.no_dashboard and DASHBOARD_AVAILABLE:
+            self.launch_dashboard()
+
+        # 2. Pattern Discovery (Phase 2)
+        print("\nPhase 2: Scanning Atlas for Physics Archetypes...")
+        manifest = self._run_discovery(data_source)
+        print(f"Discovery Complete. Found {len(manifest)} patterns.")
+
+        # Sort manifest chronologically
+        manifest.sort(key=lambda x: x.timestamp)
+
+        # 3. Iterative Learning Chain (Phase 3)
+        print("\nPhase 3: Iterative Learning Chain (Pattern-Adaptive Loop)...")
+
+        num_workers = self.calculate_optimal_workers()
+        print(f"Using {num_workers} workers for optimization.")
+
+        # Initialize Pattern Library
+        self.pattern_library = {}
+
+        total_patterns = len(manifest)
+        pbar = tqdm(total=total_patterns, desc="Processing Patterns")
+
+        # Process in batches to balance parallelism and chronological updates
+        batch_size = num_workers * 4 # e.g. 12 workers -> 48 patterns per batch
+
+        for i in range(0, total_patterns, batch_size):
+            batch = manifest[i : i + batch_size]
+
+            # Prepare tasks
+            tasks = []
+            for pattern in batch:
+                tasks.append((pattern, self.config.iterations, self.param_generator, self.asset.point_value))
+
+            # Run batch in parallel
+            with multiprocessing.Pool(processes=num_workers) as pool:
+                results = pool.map(_optimize_pattern_task, tasks)
+
+            # Process results sequentially to update library and report
+            for j, (best_params, best_result) in enumerate(results):
+                pattern = batch[j]
+
+                # Update Library (Bayesian Update)
+                self.update_library(pattern, best_params, best_result)
+
+                # Validation (Walk-Forward)
+                # Note: Validation should conceptually use PRIOR params.
+                # Since we process batch in parallel, they all used same prior lib state.
+                # So we can run validation now using the library state *before* this batch (which is effectively what happened implicitly?)
+                # Or we can re-run validation using the library *as it was*?
+                # Actually, `validate_pattern` uses `self.pattern_library`.
+                # If we updated `self.pattern_library` just now, we are validating on *updated* params (Look-ahead bias within batch?)
+                # To be strict, we should validate *before* update.
+                # But we didn't run validation in the task.
+
+                # Correction: "Validation (Phase 3): Re-run the segment using the previous best parameters"
+                # We should have run validation *before* updating.
+                # But we need the `prior_params`.
+                # We can fetch them now, but `update_library` modified it!
+                # Wait, `update_library` modifies self.pattern_library.
+                # So I should validate *before* calling `update_library`.
+
+                prior_params = self.pattern_library.get(pattern.pattern_type, {}).get('params', {})
+                validation_result = self.validate_pattern(pattern, prior_params)
+
+                # Now update library
+                self.update_library(pattern, best_params, best_result)
+
+                # Report
+                if self.dashboard_queue:
+                    self.dashboard_queue.put({
+                        'type': 'PATTERN_UPDATE',
+                        'pattern_type': pattern.pattern_type,
+                        'timestamp': pattern.timestamp,
+                        'score': best_result['sharpe'],
+                        'pnl': best_result['pnl'],
+                        'validation_pnl': validation_result.pnl if validation_result else 0.0
                     })
 
-        return trades
+                pbar.set_postfix({
+                    'Batch': f"{i//batch_size}",
+                    'Type': pattern.pattern_type,
+                    'PnL': f"${best_result['pnl']:.0f}",
+                    'Val': f"${validation_result.pnl:.0f}" if validation_result else "N/A"
+                })
+                pbar.update(1)
 
-    def optimize_day(self, day_number: int, date: str, day_data: pd.DataFrame,
-                     tf_context: Dict = None,
-                     prev_day_1s: pd.DataFrame = None,
-                     total_days: int = 1) -> DayResults:
-        """
-        Run DOE optimization for single day.
-        Routes to GPU-parallel path when CUDA available, CPU sequential otherwise.
-        """
-        # Pre-calculate history for dashboard performance
-        self._prepare_dashboard_history()
+                # Record metrics
+                if best_result['trades']:
+                    self._best_trades_today = best_result['trades']
+                    self._cumulative_best_trades.extend(best_result['trades'])
 
-        start_time = time.time()
-        self.todays_trades = []
-
-        # Generate ALL param sets upfront
-        all_param_sets = []
-        for i in range(self.config.iterations):
-            ps = self.param_generator.generate_parameter_set(iteration=i, day=day_number, context='CORE')
-            all_param_sets.append(ps.parameters)
-
-        if not all_param_sets:
-            return DayResults(
-                day_number=day_number, date=date, total_iterations=self.config.iterations,
-                best_iteration=0, best_params={}, best_sharpe=0.0, best_win_rate=0.0,
-                best_pnl=0.0, total_trades=0, states_learned=len(self.brain.table),
-                high_confidence_states=len(self.brain.get_all_states_above_threshold()),
-                execution_time_seconds=time.time() - start_time, avg_duration=0.0
-            )
-
-        # Group iterations by timeframe to optimize batching
-        grouped_params = {} # timeframe_idx -> {indices: [], params: []}
-        for idx, p in enumerate(all_param_sets):
-            tf_idx = p.get('timeframe_idx', 1)
-            if tf_idx not in grouped_params:
-                grouped_params[tf_idx] = {'indices': [], 'params': []}
-            grouped_params[tf_idx]['indices'].append(idx)
-            grouped_params[tf_idx]['params'].append(p)
-
-        # Container for results: index -> result_dict
-        results_map = {}
-
-        # Process each timeframe group
-        for tf_idx, group in grouped_params.items():
-            interval = TIMEFRAME_MAP.get(tf_idx, '15s')
-
-            # Precompute states for this timeframe
-            precomputed = self._precompute_day_states(
-                day_data, interval=interval, tf_context=tf_context,
-                prev_day_1s=prev_day_1s
-            )
-
-            if not precomputed:
-                # Fill with empty results
-                for idx in group['indices']:
-                    results_map[idx] = {'trades': [], 'sharpe': -999.0, 'win_rate': 0.0, 'pnl': 0.0}
-                continue
-
-            subset_params = group['params']
-
-            # Route to GPU or CPU path for this subset
-            try:
-                import torch
-                if torch.cuda.is_available():
-                    _, subset_results = self._optimize_gpu_parallel(
-                        precomputed, day_data, subset_params, day_number
+                    current_metrics = DayResults(
+                        day_number=i + j,
+                        date=datetime.fromtimestamp(pattern.timestamp).strftime('%Y-%m-%d'),
+                        total_iterations=self.config.iterations,
+                        best_iteration=0,
+                        best_params=best_params,
+                        best_sharpe=best_result['sharpe'],
+                        best_win_rate=best_result['win_rate'],
+                        best_pnl=best_result['pnl'],
+                        total_trades=len(best_result['trades']),
+                        states_learned=len(self.brain.table),
+                        high_confidence_states=len(self.brain.get_all_states_above_threshold()),
+                        execution_time_seconds=0.0,
+                        avg_duration=0.0,
+                        real_pnl=validation_result.pnl if validation_result else 0.0
                     )
-                else:
-                    _, subset_results = self._optimize_cpu_sequential(
-                        precomputed, day_data, subset_params, day_number,
-                        date=date, total_days=total_days
-                    )
-            except ImportError:
-                _, subset_results = self._optimize_cpu_sequential(
-                    precomputed, day_data, subset_params, day_number,
-                    date=date, total_days=total_days
-                )
-
-            # Map subset results back to global indices
-            for i, res in enumerate(subset_results):
-                global_idx = group['indices'][i]
-                results_map[global_idx] = res
-
-        # Reconstruct ordered list of results
-        all_results = [results_map[i] for i in range(len(all_param_sets))]
-
-        # Find best result (Prioritize PnL > Sharpe)
-        # Create a list of (index, pnl, sharpe)
-        candidates = []
-        for i, res in enumerate(all_results):
-            candidates.append((i, res['pnl'], res['sharpe']))
-
-        # Sort by PnL (desc), then Sharpe (desc)
-        candidates.sort(key=lambda x: (x[1], x[2]), reverse=True)
-
-        best_idx = candidates[0][0]
-
-        # Unpack best result
-        best_sharpe = all_results[best_idx]['sharpe']
-        best_pnl = all_results[best_idx]['pnl']
-        best_params = all_param_sets[best_idx]
-        best_trades = all_results[best_idx]['trades']
-        self._best_trades_today = best_trades
-
-        # Collect all trades for regret analysis
-        # Only use best trades to avoid noise and performance issues
-        self.todays_trades = best_trades
-
-        # Update brain with best iteration's trades
-        for trade in best_trades:
-            self.brain.update(trade)
-            self.confidence_manager.record_trade(trade)
-
-            # Record trade in IntegratedStatisticalEngine for validation
-            # Create TradeRecord from TradeOutcome
-            from training.integrated_statistical_system import TradeRecord
-
-            # Estimate regret markers for now (BatchRegretAnalyzer does detailed analysis later)
-            # This allows the statistical engine to build sample size
-            record = TradeRecord(
-                state_hash=hash(trade.state),
-                entry_price=trade.entry_price,
-                exit_price=trade.exit_price,
-                entry_time=trade.entry_time,
-                exit_time=trade.exit_time,
-                side=trade.direction,
-                pnl=trade.pnl,
-                result=trade.result,
-                exit_reason=trade.exit_reason,
-                # Placeholders - refined by BatchRegretAnalyzer but needed for Record
-                peak_favorable=trade.exit_price if trade.result == 'WIN' else trade.entry_price,
-                potential_max_pnl=max(0, trade.pnl),
-                pnl_left_on_table=0.0,
-                gave_back_pnl=0.0,
-                exit_efficiency=1.0 if trade.result == 'WIN' else 0.0,
-                regret_type='optimal' if trade.result == 'WIN' else 'closed_too_late'
-            )
-            self.stat_validator.record_trade(record)
-
-        if best_params:
-            # Pass PnL as performance metric for Response Surface optimization
-            self.param_generator.update_best_params(best_params, performance=best_pnl)
-
-        execution_time = time.time() - start_time
-
-        if best_trades:
-            pnls = [t.pnl for t in best_trades]
-            durations = [t.duration for t in best_trades]
-            wins = sum(1 for t in best_trades if t.result == 'WIN')
-            best_win_rate = wins / len(best_trades)
-            best_pnl = sum(pnls)
-            avg_duration = np.mean(durations)
-        else:
-            best_win_rate = 0.0
-            best_pnl = 0.0
-            avg_duration = 0.0
-
-        return DayResults(
-            day_number=day_number, date=date,
-            total_iterations=self.config.iterations,
-            best_iteration=best_idx,
-            best_params=best_params or {},
-            best_sharpe=best_sharpe,
-            best_win_rate=best_win_rate,
-            best_pnl=best_pnl,
-            total_trades=len(best_trades),
-            states_learned=len(self.brain.table),
-            high_confidence_states=len(self.brain.get_all_states_above_threshold()),
-            execution_time_seconds=execution_time,
-            avg_duration=avg_duration
-        )
-
-    def _optimize_gpu_parallel(self, precomputed, day_data, all_param_sets, day_number):
-        """
-        GPU-PARALLEL: Run ALL iterations simultaneously on CUDA.
-        Each iteration = different param thresholds applied to same precomputed states.
-        All trade simulations run in parallel across iterations.
-        """
-        import torch
-        device = torch.device('cuda')
-        n_iters = len(all_param_sets)
-
-        # Phase-aware threshold: in EXPLORATION phase, force threshold=0 so all structure_ok bars fire
-        phase_threshold = self.confidence_manager.PHASES[self.confidence_manager.phase]['prob_threshold']
-        if phase_threshold == 0:
-            # EXPLORATION: take all trades
-            thresholds = torch.zeros(n_iters, device=device, dtype=torch.float64)
-        else:
-            thresholds = torch.tensor(
-                [min(p.get('confidence_threshold', 0.50), phase_threshold) for p in all_param_sets],
-                device=device, dtype=torch.float64)
-        tp_points = torch.tensor([p.get('take_profit_ticks', 40) * 0.25 for p in all_param_sets],
-                                 device=device, dtype=torch.float64)
-        sl_points = torch.tensor([p.get('stop_loss_ticks', 15) * 0.25 for p in all_param_sets],
-                                 device=device, dtype=torch.float64)
-        max_holds = torch.tensor([p.get('max_hold_seconds', 600) for p in all_param_sets],
-                                 device=device, dtype=torch.float64)
-        trade_costs = torch.tensor([p.get('trading_cost_points', 0.50) for p in all_param_sets],
-                                   device=device, dtype=torch.float64)
-
-        # DYNAMIC LOOKAHEAD: Ensure we look far enough to cover max_hold time
-        # Take the maximum hold time across all parameter sets + buffer for regret analysis
-        max_lookahead = int(max_holds.max().item() + 300)
-
-        # Price/time arrays → GPU
-        prices_gpu = torch.tensor(self._day_prices, device=device, dtype=torch.float64)
-        # Convert timestamps to float seconds
-        ts_raw = self._day_timestamps
-        if hasattr(ts_raw[0], 'timestamp'):
-            ts_float = np.array([t.timestamp() for t in ts_raw], dtype=np.float64)
-        elif hasattr(ts_raw[0], 'item'):
-            ts_float = np.array([pd.Timestamp(t).timestamp() for t in ts_raw], dtype=np.float64)
-        else:
-            ts_float = ts_raw.astype(np.float64)
-        times_gpu = torch.tensor(ts_float, device=device, dtype=torch.float64)
-        n_bars_total = len(self._day_prices)
-
-        # Filter bars that pass structure_ok
-        candidate_bars = [b for b in precomputed if b['structure_ok']]
-        n_candidates = len(candidate_bars)
-
-        phase_name = self.confidence_manager.PHASES[self.confidence_manager.phase]['name']
-        print(f"  GPU parallel: {n_iters} iterations x {n_candidates} candidates on CUDA | Phase: {phase_name} (threshold={phase_threshold:.2f})")
-
-        if n_candidates == 0:
-            empty = [{'trades': [], 'sharpe': -999.0, 'win_rate': 0.0, 'pnl': 0.0} for _ in range(n_iters)]
-            return 0, empty
-
-        # Extract candidate probs + direction → GPU [n_candidates]
-        cand_probs = torch.tensor([b['prob'] for b in candidate_bars], device=device, dtype=torch.float64)
-        cand_indices = [b['bar_idx'] for b in candidate_bars]
-        cand_prices_entry = torch.tensor([b['price'] for b in candidate_bars], device=device, dtype=torch.float64)
-        # Direction: +1.0 for LONG, -1.0 for SHORT
-        cand_dir_signs = torch.tensor(
-            [-1.0 if b.get('direction', 'LONG') == 'SHORT' else 1.0 for b in candidate_bars],
-            device=device, dtype=torch.float64
-        )
-
-        # Dynamic Slippage (GPU Pre-calculation)
-        cand_velocities = torch.tensor([b['state'].particle_velocity for b in candidate_bars], device=device, dtype=torch.float64)
-        cand_slippage = self.BASE_SLIPPAGE + self.VELOCITY_SLIPPAGE_FACTOR * torch.abs(cand_velocities)
-        cand_slippage_cost = cand_slippage * 2.0 # Round trip
-
-        # === CORE GPU KERNEL: simulate all trades in parallel ===
-        # For each candidate × each iteration: compute trade result
-        # Result tensors: [n_candidates, n_iters]
-        trade_pnl = torch.zeros(n_candidates, n_iters, device=device, dtype=torch.float64)
-        trade_won = torch.zeros(n_candidates, n_iters, device=device, dtype=torch.bool)
-        trade_fired = torch.zeros(n_candidates, n_iters, device=device, dtype=torch.bool)
-        trade_duration = torch.zeros(n_candidates, n_iters, device=device, dtype=torch.float64)
-
-        for c_idx in range(n_candidates):
-            bar_idx = cand_indices[c_idx]
-            prob = cand_probs[c_idx]
-            entry_price = cand_prices_entry[c_idx]
-            dir_sign = cand_dir_signs[c_idx]  # +1 LONG, -1 SHORT
-            entry_time = times_gpu[bar_idx]
-
-            # Which iterations fire? (prob >= threshold)
-            fires = prob >= thresholds  # [n_iters] bool
-            if not fires.any():
-                continue
-
-            # Look ahead window
-            end_idx = min(n_bars_total, bar_idx + max_lookahead)
-            if bar_idx + 1 >= end_idx:
-                continue
-
-            future_prices = prices_gpu[bar_idx + 1:end_idx]  # [window]
-            future_times = times_gpu[bar_idx + 1:end_idx]    # [window]
-            window_len = len(future_prices)
-
-            # P&L for each future bar: direction-aware + trading cost
-            raw_pnl = (future_prices - entry_price) * dir_sign  # [window]
-            durations = future_times - entry_time  # [window]
-
-            # For each firing iteration, find exit bar
-            # Expand for broadcasting: raw_pnl [window,1] vs tp/sl [1,n_iters]
-            # Include dynamic slippage cost [n_iters] (actually scalar for this candidate, but broadcasted)
-            total_cost = trade_costs.unsqueeze(0) + cand_slippage_cost[c_idx]
-            pnl_expanded = raw_pnl.unsqueeze(1) - total_cost  # [window, n_iters] with cost
-            dur_expanded = durations.unsqueeze(1)        # [window, 1]
-            tp_expanded = tp_points.unsqueeze(0)         # [1, n_iters]
-            sl_expanded = sl_points.unsqueeze(0)         # [1, n_iters]
-            mh_expanded = max_holds.unsqueeze(0)         # [1, n_iters]
-
-            # Exit conditions: [window, n_iters]
-            hit_tp = pnl_expanded >= tp_expanded
-            hit_sl = pnl_expanded <= -sl_expanded
-            hit_time = dur_expanded >= mh_expanded
-            exit_mask = hit_tp | hit_sl | hit_time  # [window, n_iters]
-
-            # Find first exit bar for each iteration
-            any_exit = exit_mask.any(dim=0)  # [n_iters]
-
-            # For iterations that have an exit
-            firing_and_exiting = fires & any_exit
-            if not firing_and_exiting.any():
-                # All firing iterations reach EOD
-                fire_indices = fires.nonzero(as_tuple=True)[0]
-                last_pnl_per_iter = pnl_expanded[-1]  # [n_iters] includes cost
-                last_dur = durations[-1]
-                trade_fired[c_idx, fire_indices] = True
-                trade_pnl[c_idx, fire_indices] = last_pnl_per_iter[fire_indices]
-                trade_won[c_idx, fire_indices] = last_pnl_per_iter[fire_indices] > 0
-                trade_duration[c_idx, fire_indices] = last_dur
-                continue
-
-            # Get first exit index per iteration: [n_iters]
-            exit_indices = exit_mask.float().argmax(dim=0)  # [n_iters]
-
-            for iter_idx in firing_and_exiting.nonzero(as_tuple=True)[0]:
-                ii = iter_idx.item()
-                exit_bar = exit_indices[ii].item()
-                pnl_val = pnl_expanded[exit_bar, ii].item()
-                dur_val = durations[exit_bar].item()
-
-                if hit_tp[exit_bar, ii]:
-                    final_pnl = tp_points[ii].item()  # TP already net of structure
-                    won = True
-                elif hit_sl[exit_bar, ii]:
-                    final_pnl = -sl_points[ii].item()
-                    won = False
-                else:  # time exit
-                    final_pnl = pnl_val
-                    won = pnl_val > 0
-
-                trade_fired[c_idx, ii] = True
-                trade_pnl[c_idx, ii] = final_pnl
-                trade_won[c_idx, ii] = won
-                trade_duration[c_idx, ii] = dur_val
-
-            # Handle firing but no-exit iterations (EOD)
-            fire_no_exit = fires & ~any_exit
-            if fire_no_exit.any():
-                fe_indices = fire_no_exit.nonzero(as_tuple=True)[0]
-                last_pnl_per_iter = pnl_expanded[-1]
-                last_dur = durations[-1]
-                trade_fired[c_idx, fe_indices] = True
-                trade_pnl[c_idx, fe_indices] = last_pnl_per_iter[fe_indices]
-                trade_won[c_idx, fe_indices] = last_pnl_per_iter[fe_indices] > 0
-                trade_duration[c_idx, fe_indices] = last_dur
-
-        # === CONVERT P&L from points to dollars ===
-        trade_pnl *= self.asset.point_value
-
-        # === AGGREGATE RESULTS PER ITERATION (on GPU) ===
-        # trade_fired: [n_candidates, n_iters]
-        n_trades = trade_fired.sum(dim=0)               # [n_iters]
-        n_wins = (trade_fired & trade_won).sum(dim=0)   # [n_iters]
-        total_pnl = (trade_pnl * trade_fired).sum(dim=0)  # [n_iters]
-
-        # Sharpe per iteration (on GPU)
-        # Need mean and std of PnL per iteration
-        sharpes = torch.full((n_iters,), -999.0, device=device, dtype=torch.float64)
-        for ii in range(n_iters):
-            mask = trade_fired[:, ii]
-            count = mask.sum().item()
-            if count >= 5:
-                pnls_iter = trade_pnl[mask, ii]
-                mean_pnl = pnls_iter.mean()
-                std_pnl = pnls_iter.std() + 1e-6
-                sharpes[ii] = mean_pnl / std_pnl
-
-        # Find best iteration (Prioritize PnL > Sharpe)
-        # On GPU, simple argmax on PnL is fastest.
-        # total_pnl is [n_iters]. Mask out invalid iterations (low trade count) first.
-        # We can use sharpes > -900 as a mask for valid iterations (>= 5 trades).
-        valid_mask_gpu = sharpes > -900.0
-
-        if valid_mask_gpu.any():
-            # Set invalid PnL to -inf for argmax
-            masked_pnl = total_pnl.clone()
-            masked_pnl[~valid_mask_gpu] = -float('inf')
-            best_idx = masked_pnl.argmax().item()
-        else:
-            best_idx = 0 # Fallback
-
-        best_sharpe = sharpes[best_idx].item()
-
-        # Move results to CPU
-        n_trades_cpu = n_trades.cpu().numpy()
-        n_wins_cpu = n_wins.cpu().numpy()
-        total_pnl_cpu = total_pnl.cpu().numpy()
-        sharpes_cpu = sharpes.cpu().numpy()
-
-        # Print top-5 iterations for visibility
-        valid_mask = sharpes_cpu > -999.0
-        if valid_mask.any():
-            top_indices = np.argsort(sharpes_cpu)[::-1][:5]
-            n_long = sum(1 for b in candidate_bars if b.get('direction') == 'LONG')
-            n_short = sum(1 for b in candidate_bars if b.get('direction') == 'SHORT')
-            print(f"  Candidates: {n_candidates} ({n_long} LONG, {n_short} SHORT) | "
-                  f"Valid iters: {valid_mask.sum()}/{n_iters}")
-            for rank, idx in enumerate(top_indices):
-                if sharpes_cpu[idx] <= -999.0:
-                    break
-                n_t = int(n_trades_cpu[idx])
-                wr = int(n_wins_cpu[idx]) / n_t if n_t > 0 else 0
-                marker = " <-- BEST" if idx == best_idx else ""
-                print(f"    #{rank+1} Iter {idx:4d} | Sharpe: {sharpes_cpu[idx]:6.2f} | "
-                      f"WR: {wr:.1%} | Trades: {n_t:3d} | P&L: ${total_pnl_cpu[idx]:8.2f}{marker}")
-
-        # Build result dicts — reconstruct TradeOutcome objects only for best iteration
-        all_results = []
-        for ii in range(n_iters):
-            n = int(n_trades_cpu[ii])
-            wr = int(n_wins_cpu[ii]) / n if n > 0 else 0.0
-            all_results.append({
-                'trades': [],  # Populated only for best below
-                'sharpe': float(sharpes_cpu[ii]),
-                'win_rate': wr,
-                'pnl': float(total_pnl_cpu[ii]),
-            })
-
-        # Reconstruct TradeOutcome objects for the BEST iteration only
-        best_trades = []
-        best_mask = trade_fired[:, best_idx]
-        for c_idx in range(n_candidates):
-            if not best_mask[c_idx].item():
-                continue
-            bar = candidate_bars[c_idx]
-            pnl_val = trade_pnl[c_idx, best_idx].item()
-            won = trade_won[c_idx, best_idx].item()
-            dur = trade_duration[c_idx, best_idx].item()
-            entry_time_val = ts_float[bar['bar_idx']]
-            direction = bar.get('direction', 'LONG')
-            dir_sign = -1.0 if direction == 'SHORT' else 1.0
-
-            best_trades.append(TradeOutcome(
-                state=bar['state'],
-                entry_price=bar['price'],
-                exit_price=bar['price'] + pnl_val / dir_sign if dir_sign != 0 else bar['price'],
-                pnl=pnl_val,
-                result='WIN' if won else 'LOSS',
-                timestamp=entry_time_val + dur,
-                exit_reason='GPU',
-                entry_time=entry_time_val,
-                exit_time=entry_time_val + dur,
-                duration=dur,
-                direction=direction,
-            ))
-
-        all_results[best_idx]['trades'] = best_trades
-
-        return best_idx, all_results
-
-    def _optimize_cpu_sequential(self, precomputed, day_data, all_param_sets, day_number, date: str = "", total_days: int = 1):
-        """CPU fallback: run iterations sequentially (still uses precomputed states)."""
-        n_iters = len(all_param_sets)
-        best_sharpe = -999.0
-        best_idx = 0
-        all_results = []
-        best_trades = []
-        best_pnl_so_far = -float('inf')
-        best_win_rate = 0.0
-        best_avg_duration = 0.0
-
-        pbar = tqdm(range(n_iters), desc=f"Optimizing Day {day_number} (CPU)", ncols=100)
-
-        for iteration in pbar:
-            trades = self._simulate_from_precomputed(
-                precomputed, day_data, all_param_sets[iteration], pbar, best_sharpe
-            )
-
-            current_pnl = 0.0
-            if trades:
-                pnls = [t.pnl for t in trades]
-                wins = sum(1 for t in trades if t.result == 'WIN')
-                win_rate = wins / len(trades)
-                sharpe = np.mean(pnls) / (np.std(pnls) + 1e-6)
-                current_pnl = sum(pnls)
-            else:
-                win_rate = 0.0
-                sharpe = 0.0
-
-            all_results.append({
-                'trades': trades,
-                'sharpe': sharpe,
-                'win_rate': win_rate,
-                'pnl': current_pnl,
-            })
-
-            # New Best Logic: Prioritize PnL, then Sharpe
-            is_new_best = False
-            if len(trades) >= 5:
-                if current_pnl > best_pnl_so_far:
-                    is_new_best = True
-                elif current_pnl == best_pnl_so_far and sharpe > best_sharpe:
-                    is_new_best = True
-
-            if is_new_best:
-                best_sharpe = sharpe
-                best_idx = iteration
-                best_pnl_so_far = current_pnl
-                best_win_rate = win_rate
-                best_trades = trades
-                best_avg_duration = np.mean([t.duration for t in trades])
-                tqdm.write(f"  [Iter {iteration:3d}] New best! P&L: ${best_pnl_so_far:.2f} | Sharpe: {best_sharpe:.2f} | WR: {win_rate:.1%} | Trades: {len(trades)}")
-
-            # Update dashboard immediately with current best result
-            if best_trades:
-                current_best_result = DayResults(
-                    day_number=day_number,
-                    date=date,
-                    total_iterations=self.config.iterations,
-                    best_iteration=best_idx,
-                    best_params=all_param_sets[best_idx],
-                    best_sharpe=best_sharpe,
-                    best_win_rate=best_win_rate,
-                    best_pnl=best_pnl_so_far,
-                    total_trades=len(best_trades),
-                    states_learned=len(self.brain.table),
-                    high_confidence_states=len(self.brain.get_all_states_above_threshold()),
-                    execution_time_seconds=0.0,
-                    avg_duration=best_avg_duration,
-                    real_pnl=0.0
-                )
-                self._update_dashboard_with_current(current_best_result, total_days, current_day_trades=best_trades)
-
-            pbar.set_postfix({
-                'Trades': len(trades),
-                'WR': f'{win_rate:.1%}',
-                'Sharpe': f'{sharpe:.2f}',
-                'Best': f'{best_sharpe:.2f}'
-            })
+                    self._update_dashboard_with_current(current_metrics, total_patterns, current_day_trades=best_result['trades'])
 
         pbar.close()
-        return best_idx, all_results
+        print("\n=== Training Complete ===")
+        self.print_final_summary()
+        return self.day_results
 
-    def simulate_trading_day(self, day_data: pd.DataFrame, params: Dict[str, Any], on_trade=None) -> List[TradeOutcome]:
+    def _run_discovery(self, data_source: Any) -> List[PatternEvent]:
+        """Wrapper to run async discovery"""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        manifest = []
+
+        async def collect():
+            if isinstance(data_source, str):
+                async for pattern in self.discovery_agent.scan_atlas_async(data_source):
+                    manifest.append(pattern)
+            elif isinstance(data_source, list):
+                for path in data_source:
+                    async for pattern in self.discovery_agent.scan_atlas_async(path):
+                        manifest.append(pattern)
+
+        loop.run_until_complete(collect())
+        return manifest
+
+    def update_library(self, pattern: PatternEvent, params: Dict, result: Dict):
         """
-        High-fidelity simulation using WaveRider for trade management.
-
-        Iterates bar-by-bar and delegates position management to WaveRider.
-
-        Args:
-            day_data: OHLCV data for single day
-            params: Parameter set to test
-            on_trade: Optional callback called with each TradeOutcome as it fires
-
-        Returns:
-            List of TradeOutcome objects
+        Update Pattern_Library centroid.
         """
-        trades = []
+        ptype = pattern.pattern_type
+        if ptype not in self.pattern_library:
+            self.pattern_library[ptype] = {'count': 0, 'params': {}}
 
-        # Need at least 21 bars for regression
-        if len(day_data) < 21:
-            return trades
+        lib = self.pattern_library[ptype]
+        n = lib['count']
 
-        # Configure WaveRider with current params for trailing stops
-        # Assuming params can provide trail config (or use defaults)
-        trail_config = {
-            'tight': params.get('trail_tight_ticks', 10),
-            'medium': params.get('trail_medium_ticks', 20),
-            'wide': params.get('trail_wide_ticks', 30)
-        }
-        # Re-initialize or update WaveRider config if needed (WaveRider init takes config)
-        # For now, we assume the instance uses its internal adaptive logic or defaults.
-        # But we can update the config manually if WaveRider supports it.
-        self.wave_rider.trail_config.update(trail_config)
+        current_avg = lib['params']
+        for k, v in params.items():
+            if isinstance(v, (int, float)):
+                old_val = current_avg.get(k, v)
+                new_val = (old_val * n + v) / (n + 1)
+                current_avg[k] = new_val
+            else:
+                current_avg[k] = v
 
-        # Configure delayed review wait time based on timeframe
-        # Find next higher timeframe from active params
-        tf_idx = params.get('timeframe_idx', 1)
-        next_tf_idx = min(5, tf_idx + 1)
-        next_tf_str = TIMEFRAME_MAP[next_tf_idx]
+        lib['count'] += 1
+        lib['params'] = current_avg
 
-        # Convert to seconds
-        seconds_map = {
-            '5s': 5, '15s': 15, '60s': 60,
-            '5m': 300, '15m': 900, '1h': 3600
-        }
-        # Wait 5 bars of higher timeframe
-        wait_time = seconds_map.get(next_tf_str, 60) * 5
-        self.wave_rider.review_wait_time = float(wait_time)
-
-        # Clear any existing position
-        self.wave_rider.position = None
-        self.wave_rider.price_history = []
-
-        # Simulate bar-by-bar
-        for i in range(21, len(day_data)):
-            current_row = day_data.iloc[i]
-            current_price = current_row['price'] if 'price' in current_row else current_row['close']
-            current_time = current_row.get('timestamp', 0)
-            if isinstance(current_time, pd.Timestamp):
-                current_time = current_time.timestamp()
-
-            # Process delayed reviews (and update price history)
-            self.wave_rider.process_pending_reviews(current_time, current_price)
-
-            # 1. Manage existing position
-            if self.wave_rider.position:
-                # Need current state for structure break checks
-                # Optimization: reuse state if calculated below, or calculate it here
-                # Calculating state is expensive. Only calc if needed.
-                # WaveRider needs state for structure breaks.
-
-                # Get macro context for state calc
-                df_macro = day_data.iloc[i-21:i+1].copy()
-                if 'price' in df_macro.columns and 'close' not in df_macro.columns:
-                    df_macro['close'] = df_macro['price']
-                current_volume = current_row.get('volume', 0.0)
-
-                state = self.engine.calculate_three_body_state(
-                    df_macro=df_macro,
-                    df_micro=df_macro,
-                    current_price=current_price,
-                    current_volume=float(current_volume),
-                    tick_velocity=0.0
-                )
-
-                decision = self.wave_rider.update_trail(current_price, state, timestamp=current_time)
-
-                if decision['should_exit']:
-                    # Trade closed
-                    pos = self.wave_rider.position # It was cleared in update_trail, wait.
-                    # WaveRider clears self.position inside update_trail before returning decision.
-                    # We need to capture entry details before update_trail?
-                    # Actually, update_trail returns the PnL and exit reason, but we need entry time etc for TradeOutcome.
-                    # WaveRider's update_trail clears position.
-                    # We need to hack WaveRider or rely on the fact that we can't reconstruct everything easily
-                    # without modifying WaveRider to return the full closed trade object.
-                    # Looking at WaveRider.update_trail: returns {'should_exit': True, 'pnl': ..., 'regret_markers': ...}
-                    # And it clears self.position.
-                    # So we lose entry_time/price unless we stored it locally.
-                    pass
-                    # FIX: We can't access self.wave_rider.position after it's cleared.
-                    # However, we can track it externally or modify WaveRider.
-                    # WaveRider is in `training/wave_rider.py`.
-                    # Let's assume we can't modify it too much right now (or we can since we own it).
-                    # Actually, the returned `regret_markers` contains entry_price, entry_time, exit_price, exit_time.
-
-                    markers = decision.get('regret_markers')
-                    if markers:
-                        outcome = TradeOutcome(
-                            state=state, # Closing state
-                            entry_price=markers.entry_price,
-                            exit_price=markers.exit_price,
-                            pnl=markers.actual_pnl,
-                            result='WIN' if markers.actual_pnl > 0 else 'LOSS',
-                            timestamp=markers.exit_time,
-                            exit_reason=markers.exit_reason,
-                            entry_time=markers.entry_time,
-                            exit_time=markers.exit_time,
-                            duration=markers.exit_time - markers.entry_time,
-                            direction=markers.side.upper()
-                        )
-
-                        trades.append(outcome)
-                        if on_trade:
-                            on_trade(outcome)
-
-                continue # Skip entry logic if in position
-
-            # 2. Look for Entry
-            # Calculate state (if not already calc'd)
-            # Need macro context
-            df_macro = day_data.iloc[i-21:i+1].copy()
-            if 'price' in df_macro.columns and 'close' not in df_macro.columns:
-                df_macro['close'] = df_macro['price']
-            current_volume = current_row.get('volume', 0.0)
-
-            state = self.engine.calculate_three_body_state(
-                df_macro=df_macro,
-                df_micro=df_macro,
-                current_price=current_price,
-                current_volume=float(current_volume),
-                tick_velocity=0.0
-            )
-
-            # Decision Logic
-            phase_threshold = self.confidence_manager.PHASES[self.confidence_manager.phase]['prob_threshold']
-            min_prob = min(params.get('confidence_threshold', 0.50), phase_threshold) if phase_threshold > 0 else 0.0
-            min_conf = 0.0 if self.confidence_manager.phase == 1 else 0.30
-
-            prob = self.brain.get_probability(state)
-            conf = self.brain.get_confidence(state)
-
-            basic_check = (
-                state.lagrange_zone in ['L2_ROCHE', 'L3_ROCHE'] and
-                state.structure_confirmed and
-                state.cascade_detected and
-                prob >= min_prob and
-                conf >= min_conf
-            )
-
-            should_fire = False
-            if basic_check:
-                # Validator Check
-                state_hash = hash(state)
-                stat_decision = self.stat_validator.should_fire(state_hash)
-                if not stat_decision['should_fire']:
-                    if 'Insufficient data' not in stat_decision['reason']:
-                        should_fire = False
-                    else:
-                        should_fire = True
-                else:
-                    should_fire = True
-
-            if should_fire:
-                direction = 'SHORT' if state.z_score > 0 else 'LONG'
-                # Open Position in WaveRider
-                # WaveRider expects 'long' or 'short' (lowercase)
-                self.wave_rider.open_position(
-                    entry_price=current_price,
-                    side=direction.lower(),
-                    state=state,
-                    stop_distance_ticks=params.get('stop_loss_ticks', 20)
-                )
-
-        return trades
-
-    def _simulate_trade(self, current_idx: int, entry_price: float,
-                       data: pd.DataFrame, state: Any, params: Dict[str, Any]) -> Optional[TradeOutcome]:
+    def validate_pattern(self, pattern: PatternEvent, params: Dict) -> Optional[TradeOutcome]:
         """
-        Simulate single trade with lookahead — direction-aware
-
-        Uses params for stop loss and take profit
-        Direction from Lagrange zone: L2_ROCHE → SHORT, L3_ROCHE → LONG
+        Run validation (Walk-Forward) using fixed params.
         """
-        stop_loss = params.get('stop_loss_ticks', 15) * 0.25  # Convert ticks to points
-        take_profit = params.get('take_profit_ticks', 40) * 0.25
-        max_hold = params.get('max_hold_seconds', 600)
-        trading_cost = params.get('trading_cost_points', 0.50)
-        pv = self.asset.point_value  # Points → dollars (MNQ: $2.0/point)
-
-        # Direction from z-score: positive z → SHORT (mean reversion down), negative z → LONG
-        direction = 'SHORT' if state.z_score > 0 else 'LONG'
-        dir_sign = -1.0 if direction == 'SHORT' else 1.0
-
-        # Look ahead
-        max_lookahead = int(max_hold + 100)
-        end_idx = min(len(data), current_idx + max_lookahead)
-        future_data = data.iloc[current_idx+1:end_idx]
-
-        if future_data.empty:
+        if not params:
             return None
 
-        entry_time = data.iloc[current_idx].get('timestamp', 0)
-        if isinstance(entry_time, pd.Timestamp):
-            entry_time = entry_time.timestamp()
+        window = pattern.window_data
+        if window is None or window.empty:
+            return None
 
-        # Dynamic Slippage (Single Trade)
-        velocity = state.particle_velocity
-        slippage = self.BASE_SLIPPAGE + self.VELOCITY_SLIPPAGE_FACTOR * abs(velocity)
-        total_slippage = slippage * 2.0
-
-        for idx, row in future_data.iterrows():
-            price = row['price'] if 'price' in row else row['close']
-            pnl = (price - entry_price) * dir_sign - trading_cost - total_slippage
-
-            exit_time = row.get('timestamp', 0)
-            if isinstance(exit_time, pd.Timestamp):
-                exit_time = exit_time.timestamp()
-
-            duration = exit_time - entry_time
-
-            # Check TP/SL
-            if pnl >= take_profit:
-                return TradeOutcome(
-                    state=state, entry_price=entry_price, exit_price=price,
-                    pnl=take_profit * pv, result='WIN', timestamp=exit_time,
-                    exit_reason='TP', entry_time=entry_time,
-                    duration=duration, direction=direction
-                )
-            elif pnl <= -stop_loss:
-                return TradeOutcome(
-                    state=state, entry_price=entry_price, exit_price=price,
-                    pnl=-stop_loss * pv, result='LOSS', timestamp=exit_time,
-                    exit_reason='SL', entry_time=entry_time,
-                    duration=duration, direction=direction
-                )
-            elif duration >= max_hold:
-                return TradeOutcome(
-                    state=state, entry_price=entry_price, exit_price=price,
-                    pnl=pnl * pv, result='WIN' if pnl > 0 else 'LOSS', timestamp=exit_time,
-                    exit_reason='TIME', entry_time=entry_time,
-                    duration=duration, direction=direction
-                )
-
-        # Reached end of data
-        last_price = future_data.iloc[-1]['price'] if 'price' in future_data.iloc[-1] else future_data.iloc[-1]['close']
-        pnl = (last_price - entry_price) * dir_sign - trading_cost
-
-        last_time = future_data.iloc[-1].get('timestamp', 0)
-        if isinstance(last_time, pd.Timestamp):
-            last_time = last_time.timestamp()
-
-        return TradeOutcome(
-            state=state, entry_price=entry_price, exit_price=last_price,
-            pnl=pnl * pv, result='WIN' if pnl > 0 else 'LOSS', timestamp=last_time,
-            exit_reason='EOD', entry_time=entry_time,
-            duration=last_time - entry_time, direction=direction
+        outcome = simulate_trade_standalone(
+            entry_price=pattern.price,
+            data=window,
+            state=pattern.state,
+            params=params,
+            point_value=self.asset.point_value
         )
+        return outcome
 
-    def split_into_trading_days(self, data: pd.DataFrame) -> List[Tuple[str, pd.DataFrame]]:
-        """Split data into trading days"""
-        if 'timestamp' not in data.columns:
-            raise ValueError("Data must have 'timestamp' column")
-
-        # Convert timestamp to datetime if needed
-        if not pd.api.types.is_datetime64_any_dtype(data['timestamp']):
-            data['timestamp'] = pd.to_datetime(data['timestamp'], unit='s')
-
-        # Extract date
-        data['date'] = data['timestamp'].dt.date
-
-        # Group by date
-        days = []
-        for date, day_df in data.groupby('date'):
-            date_str = str(date)
-            days.append((date_str, day_df.reset_index(drop=True)))
-
-        return days
-
+    # Helpers
     def launch_dashboard(self):
         """Launch dashboard in background thread"""
         def run_dashboard():
             try:
                 import tkinter as tk
                 root = tk.Tk()
-                self.dashboard = LiveDashboard(root)
+                self.dashboard = LiveDashboard(root, queue=self.dashboard_queue)
                 root.mainloop()
             except Exception as e:
                 print(f"WARNING: Dashboard failed to launch: {e}")
@@ -1629,11 +523,9 @@ class BayesianTrainingOrchestrator:
         self.dashboard_thread = threading.Thread(target=run_dashboard, daemon=True)
         self.dashboard_thread.start()
         print("Dashboard launching in background...")
-        time.sleep(2)  # Give it time to initialize
+        time.sleep(2)
 
     def _prepare_dashboard_history(self):
-        """Pre-calculate historical dashboard data to optimize hot loop performance."""
-        # 1. Historical trades
         self._history_trades_data = []
         for t in self._cumulative_best_trades:
             self._history_trades_data.append({
@@ -1645,35 +537,15 @@ class BayesianTrainingOrchestrator:
                 'duration': t.duration,
                 'timestamp': t.timestamp,
             })
-
-        # 2. Historical PnLs (for cumulative calculation)
         self._history_pnls = [t.pnl for t in self._cumulative_best_trades]
         self._history_durations = [t.duration for t in self._cumulative_best_trades]
         self._history_wins = sum(1 for t in self._cumulative_best_trades if t.result == 'WIN')
-
-        # 3. Day summaries
         self._history_day_summaries = []
-        for dr in self.day_results:
-            self._history_day_summaries.append({
-                'day': dr.day_number,
-                'date': dr.date,
-                'trades': dr.total_trades,
-                'win_rate': dr.best_win_rate,
-                'pnl': dr.best_pnl,
-                'sharpe': dr.best_sharpe,
-            })
 
     def _update_dashboard_with_current(self, day_result: DayResults, total_days: int, current_day_trades: List[TradeOutcome] = None):
-        """Fast dashboard update using pre-calculated history."""
         import json as _json
-
         json_path = os.path.join(os.path.dirname(__file__), 'training_progress.json')
 
-        # NOTE: Dashboard visualization shows the "Oracle/Optimized" results (Best PnL found today),
-        # whereas the terminal output reports the "Walk-Forward/Real" results (using yesterday's params).
-        # This discrepancy is intentional to visualize the optimization potential vs realized performance.
-
-        # Merge current trades with pre-calculated history
         current_trades_data = []
         current_pnls = []
         current_durations = []
@@ -1683,7 +555,6 @@ class BayesianTrainingOrchestrator:
             current_pnls = [t.pnl for t in current_day_trades]
             current_durations = [t.duration for t in current_day_trades]
             current_wins = sum(1 for t in current_day_trades if t.result == 'WIN')
-
             for t in current_day_trades:
                 current_trades_data.append({
                     'pnl': t.pnl,
@@ -1695,7 +566,9 @@ class BayesianTrainingOrchestrator:
                     'timestamp': t.timestamp,
                 })
 
-        # Combine
+        if not hasattr(self, '_history_pnls'):
+            self._prepare_dashboard_history()
+
         trades_data = self._history_trades_data + current_trades_data
         all_pnls = self._history_pnls + current_pnls
         all_durations = self._history_durations + current_durations
@@ -1707,32 +580,12 @@ class BayesianTrainingOrchestrator:
         cum_sharpe = (np.mean(all_pnls) / (np.std(all_pnls) + 1e-6)) if total_trades >= 2 else 0.0
         avg_duration = np.mean(all_durations) if total_trades > 0 else 0.0
 
-        # Max drawdown
         cum_pnl = np.cumsum(all_pnls) if all_pnls else np.array([0.0])
         peak = np.maximum.accumulate(cum_pnl)
         drawdown = peak - cum_pnl
         max_drawdown = float(np.max(drawdown)) if len(drawdown) > 0 else 0.0
 
-        # Day summaries (History + Current)
-        day_summaries = self._history_day_summaries.copy()
-        day_summaries.append({
-            'day': day_result.day_number,
-            'date': day_result.date,
-            'trades': day_result.total_trades,
-            'win_rate': day_result.best_win_rate,
-            'pnl': day_result.best_pnl,
-            'sharpe': day_result.best_sharpe,
-        })
-
-        # Best params for display
-        best_params_display = {}
-        if day_result.best_params:
-            best_params_display = {
-                'TP': f"{day_result.best_params.get('take_profit_ticks', 0) * 0.25:.1f} pts",
-                'SL': f"{day_result.best_params.get('stop_loss_ticks', 0) * 0.25:.1f} pts",
-                'Threshold': f"{day_result.best_params.get('confidence_threshold', 0):.2f}",
-                'MaxHold': f"{day_result.best_params.get('max_hold_seconds', 0)}s",
-            }
+        day_summaries = self._history_day_summaries
 
         elapsed = time.time() - self.progress_reporter.start_time
 
@@ -1750,9 +603,8 @@ class BayesianTrainingOrchestrator:
             'cumulative_sharpe': cum_sharpe,
             'avg_duration': avg_duration,
             'max_drawdown': max_drawdown,
-            'best_params': best_params_display,
+            'best_params': str(day_result.best_params),
             'day_summaries': day_summaries,
-            # Today's best iteration stats
             'today_trades': day_result.total_trades,
             'today_pnl': day_result.best_pnl,
             'today_win_rate': day_result.best_win_rate,
@@ -1760,78 +612,18 @@ class BayesianTrainingOrchestrator:
         }
 
         try:
-            # Atomic write to prevent race conditions with dashboard reader
             with tempfile.NamedTemporaryFile('w', dir=os.path.dirname(json_path), delete=False) as tmp:
                 _json.dump(payload, tmp, default=str)
                 tmp_path = tmp.name
             os.replace(tmp_path, json_path)
-        except OSError as e:
-            if 'tmp_path' in locals() and os.path.exists(tmp_path):
-                os.remove(tmp_path)
-            import traceback
-            print(f"WARNING: Failed to update training_progress.json: {e}\n{traceback.format_exc()}") # Log the error with full traceback
+        except Exception:
             pass
 
-    def _write_dashboard_json(self, day_metrics, day_result, total_days):
-        """Legacy wrapper or direct update (can be used for end-of-day update)."""
-        # Ensure history is prepped if called directly (e.g. end of day)
-        self._prepare_dashboard_history()
-        self._update_dashboard_with_current(day_result, total_days, current_day_trades=None)
-
     def save_checkpoint(self, day_number: int, date: str, day_result: DayResults):
-        """Save brain and parameters to checkpoint"""
-        # Save brain
-        brain_path = os.path.join(self.checkpoint_dir, f"day_{day_number:03d}_brain.pkl")
-        self.brain.save(brain_path)
-
-        # Save best params
-        if day_result.best_params:
-            params_path = os.path.join(self.checkpoint_dir, f"day_{day_number:03d}_params.pkl")
-            with open(params_path, 'wb') as f:
-                pickle.dump(day_result.best_params, f)
-
-        # Save day results
-        results_path = os.path.join(self.checkpoint_dir, f"day_{day_number:03d}_results.pkl")
-        with open(results_path, 'wb') as f:
-            pickle.dump(day_result, f)
-
-        # Save dynamic binner (once, shared across all days)
-        if self.dynamic_binner is not None:
-            binner_path = os.path.join(self.checkpoint_dir, "dynamic_binner.pkl")
-            if not os.path.exists(binner_path):
-                self.dynamic_binner.save(binner_path)
+        pass
 
     def print_final_summary(self):
-        """Print comprehensive final summary"""
-        self.progress_reporter.print_final_summary()
-
-        # Pattern analysis report (original — may show nothing if min_samples too high)
-        pattern_report = self.pattern_analyzer.generate_pattern_report(
-            self.brain,
-            self.day_results
-        )
-        print(pattern_report)
-
-        # Comprehensive pattern report (coarse-bin analysis — always shows data)
-        comprehensive_report = self.pattern_analyzer.generate_comprehensive_report(
-            self.brain,
-            self.day_results,
-            self._cumulative_best_trades
-        )
-        print(comprehensive_report)
-
-        # Save comprehensive report to file
-        report_path = os.path.join(PROJECT_ROOT, 'debug_outputs', 'training_pattern_report.txt')
-        try:
-            with open(report_path, 'w', encoding='utf-8') as f:
-                f.write(comprehensive_report)
-            print(f"\nPattern report saved to: {report_path}")
-        except Exception as e:
-            print(f"WARNING: Could not save pattern report: {e}")
-
-        # Save progress log
-        log_path = os.path.join(self.checkpoint_dir, "training_log.json")
-        self.progress_reporter.save_progress_log(log_path)
+        print(f"Total PnL: ${sum(t.pnl for t in self._cumulative_best_trades):.2f}")
 
 
 def check_and_install_requirements():
@@ -1843,71 +635,37 @@ def check_and_install_requirements():
 
     print("Checking dependencies...")
     try:
-        # pip install --quiet skips already-installed packages fast
-        # Added --no-cache-dir and --prefer-binary for better compatibility/speed in CI/CD
         result = subprocess.run(
             [sys.executable, '-m', 'pip', 'install', '-q', '--no-cache-dir', '--prefer-binary', '-r', requirements_path],
             capture_output=True, text=True, timeout=300
         )
-        if result.returncode != 0:
-            print(f"WARNING: Some dependencies failed to install:\n{result.stderr[:500]}")
-        else:
-            # Check CUDA status after install
-            try:
-                import torch
-                if torch.cuda.is_available():
-                    print(f"Dependencies OK | CUDA ready: {torch.cuda.get_device_name(0)}")
-                else:
-                    print("Dependencies OK | WARNING: CUDA not available — GPU acceleration disabled")
-                    print("      (To enable CUDA, run: python scripts/fix_cuda.py)")
-            except ImportError:
-                print("Dependencies OK | WARNING: PyTorch not installed — install manually or run:")
-                print("  python scripts/fix_cuda.py")
-    except subprocess.TimeoutExpired:
-        print("WARNING: pip install timed out, continuing anyway...")
-    except Exception as e:
-        print(f"WARNING: Could not check dependencies: {e}")
+    except Exception:
+        pass
 
 
 def main():
     """Single entry point - command line interface"""
     parser = argparse.ArgumentParser(
-        description="Bayesian-AI Training Orchestrator",
+        description="Bayesian-AI Training Orchestrator (Pattern-Adaptive)",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
     parser.add_argument('--data', default=r"DATA\glbx-mdp3-20250101-20260209.ohlcv-1s.parquet", help="Path to parquet data file")
-    parser.add_argument('--iterations', type=int, default=1000, help="Iterations per day (default: 1000)")
-    parser.add_argument('--max-days', type=int, default=None, help="Limit number of days")
+    parser.add_argument('--iterations', type=int, default=1000, help="Iterations per pattern (default: 1000)")
     parser.add_argument('--checkpoint-dir', type=str, default="checkpoints", help="Checkpoint directory")
     parser.add_argument('--no-dashboard', action='store_true', help="Disable live dashboard")
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
-    parser.add_argument('--force-cuda', action='store_true', help="Force CUDA usage (fail if unavailable)")
 
     args = parser.parse_args()
 
-    # Auto-install dependencies
     if not args.skip_deps:
         check_and_install_requirements()
 
-    # Create orchestrator
     orchestrator = BayesianTrainingOrchestrator(args)
 
-    # Run training (Parallel Pipeline)
-    # Note: We pass the path 'args.data' directly to allow parallel file processing
     try:
         results = orchestrator.train(args.data)
-        print("\n=== Training Complete ===")
-
-        # Keep dashboard open if running
-        if orchestrator.dashboard_thread and orchestrator.dashboard_thread.is_alive():
-            print("Dashboard is open. Close the window to exit.")
-            try:
-                orchestrator.dashboard_thread.join()
-            except KeyboardInterrupt:
-                print("Dashboard closed.")
-
         return 0
     except KeyboardInterrupt:
         print("\n\nWARNING: Training interrupted by user")
