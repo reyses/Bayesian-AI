@@ -83,6 +83,11 @@ def main():
 
     steps = [
         {
+            "command": [python_cmd, "scripts/manifest_integrity_check.py"],
+            "description": "Manifest Integrity Check",
+            "critical": True
+        },
+        {
             "command": [python_cmd, "tests/topic_build.py"],
             "description": "Integrity Test (Topic Build)",
             "critical": True
@@ -116,6 +121,11 @@ def main():
             "command": [python_cmd, "scripts/gpu_health_check.py"],
             "description": "GPU Health Check",
             "critical": False  # Allow failure if no GPU (continue-on-error: true)
+        },
+        {
+            "command": [python_cmd, "scripts/verify_cuda_readiness.py"],
+            "description": "CUDA Readiness Verification",
+            "critical": False  # Diagnostic only
         },
         {
             "command": [python_cmd, "-m", "pytest", "tests/test_training_validation.py"],
