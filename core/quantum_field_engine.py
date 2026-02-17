@@ -283,8 +283,7 @@ class QuantumFieldEngine:
             log_ns = []
             log_rs_vals = []
 
-            for sz in [window//8, window//4, window//2, window]:
-                sz = max(sz, 4)
+            for sz in [max(window // 8, 4), max(window // 4, 8), max(window // 2, 16), window]:
                 segment = prices[i-sz+1:i+1]
                 returns = np.diff(segment)
                 if len(returns) < 2:
