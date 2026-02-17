@@ -12,21 +12,11 @@ import numpy as np
 import pandas as pd
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
-from sklearn.cluster import MiniBatchKMeans, KMeans
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import silhouette_score
-
-try:
-    import torch
-    from training.cuda_kmeans import CUDAKMeans
-except ImportError:
-    CUDAKMeans = None
+from training.cuda_kmeans import CUDAKMeans, cuda_silhouette_score
 
 # Local import of timeframe mapping
 from training.fractal_discovery_agent import TIMEFRAME_SECONDS
-
-MINIBATCH_KMEANS_SAMPLES_THRESHOLD = 500
-DEFAULT_KMEANS_BATCH_SIZE = 256
 
 @dataclass
 class PatternTemplate:
@@ -42,17 +32,9 @@ class FractalClusteringEngine:
         self.max_variance = max_variance  # Max allowed std deviation for Z-score in a cluster
         self.scaler = StandardScaler()
 
-    def _get_kmeans_model(self, n_clusters: int, n_samples: int, random_state: int = 42, n_init: int = 10):
-        """
-        Factory method to return the appropriate KMeans model.
-        Prioritizes CUDAKMeans, falls back to MiniBatchKMeans or KMeans based on sample size.
-        """
-        if CUDAKMeans is not None and torch.cuda.is_available():
-            return CUDAKMeans(n_clusters=n_clusters, random_state=random_state, n_init=n_init)
-        elif n_samples < MINIBATCH_KMEANS_SAMPLES_THRESHOLD:
-            return KMeans(n_clusters=n_clusters, random_state=random_state, n_init=n_init)
-        else:
-            return MiniBatchKMeans(n_clusters=n_clusters, batch_size=min(DEFAULT_KMEANS_BATCH_SIZE, n_samples), random_state=random_state, n_init=n_init)
+    def _get_kmeans_model(self, n_clusters: int, n_samples: int, random_state: int = 42, n_init: int = 3):
+        """Returns a CUDAKMeans model."""
+        return CUDAKMeans(n_clusters=n_clusters, random_state=random_state, n_init=n_init)
 
     def create_templates(self, manifest: List[Any]) -> List[PatternTemplate]:
         """
@@ -228,7 +210,7 @@ class FractalClusteringEngine:
         for n in range(2, 6):
             if len(X_params) < n * 5: break
             kmeans = self._get_kmeans_model(n_clusters=n, n_samples=len(X_params)).fit(X_params)
-            score = silhouette_score(X_params, kmeans.labels_)
+            score = cuda_silhouette_score(X_params, kmeans.labels_)
             if score > best_score:
                 best_score = score
                 best_n = n
