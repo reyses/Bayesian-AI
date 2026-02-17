@@ -5,7 +5,9 @@ Replacing CPU-bound physics calculations with parallel GPU compute.
 """
 import math
 import numpy as np
+import numba
 from numba import cuda
+from core.physics_utils import ADX_PERIOD, HURST_WINDOW, HURST_MIN_WINDOW
 
 # Physics Constants
 reg_period = 21
@@ -191,3 +193,120 @@ def detect_archetype_kernel(z_scores, velocities, momentums, coherences,
         # Structural Drive
         is_drive = abs(momentums[i]) > MOMENTUM_THRESHOLD and coherences[i] < COHERENCE_THRESHOLD
         out_structural_drive[i] = is_drive
+
+@cuda.jit
+def compute_dm_tr_kernel(highs, lows, closes,
+                          out_tr, out_plus_dm, out_minus_dm):
+    """
+    Pass 1: Compute raw True Range and Directional Movement per bar.
+    Fully parallel — one thread per bar.
+    """
+    i = cuda.grid(1)
+    n = highs.shape[0]
+
+    if i < n:
+        if i == 0:
+            out_tr[i] = highs[i] - lows[i]
+            out_plus_dm[i] = 0.0
+            out_minus_dm[i] = 0.0
+        else:
+            # True Range = max(H-L, |H-prevC|, |L-prevC|)
+            hl = highs[i] - lows[i]
+            hc = abs(highs[i] - closes[i-1])
+            lc = abs(lows[i] - closes[i-1])
+            out_tr[i] = max(hl, max(hc, lc))
+
+            # +DM and -DM
+            up_move = highs[i] - highs[i-1]
+            down_move = lows[i-1] - lows[i]
+
+            if up_move > down_move and up_move > 0:
+                out_plus_dm[i] = up_move
+            else:
+                out_plus_dm[i] = 0.0
+
+            if down_move > up_move and down_move > 0:
+                out_minus_dm[i] = down_move
+            else:
+                out_minus_dm[i] = 0.0
+
+@cuda.jit
+def compute_hurst_kernel(prices, out_hurst, window_size):
+    """
+    Rescaled Range (R/S) Hurst exponent per bar.
+    Uses 4 sub-window sizes: window/8, window/4, window/2, window.
+    Linear regression of log(R/S) vs log(n) gives Hurst.
+    """
+    i = cuda.grid(1)
+    n = prices.shape[0]
+
+    if i < n:
+        out_hurst[i] = 0.5  # Default: Brownian
+
+        if i < window_size:
+            return
+
+        # Sub-window sizes for R/S regression
+        # We'll use 4 sizes: w/8, w/4, w/2, w
+        sizes = cuda.local.array(4, dtype=numba.int32)
+        sizes[0] = max(window_size // 8, 4)
+        sizes[1] = max(window_size // 4, 8)
+        sizes[2] = max(window_size // 2, 16)
+        sizes[3] = window_size
+
+        log_n = cuda.local.array(4, dtype=numba.float64)
+        log_rs = cuda.local.array(4, dtype=numba.float64)
+
+        for s_idx in range(4):
+            sz = sizes[s_idx]
+            start = i - sz + 1
+
+            # Compute returns within sub-window
+            mean_ret = 0.0
+            for k in range(start + 1, i + 1):
+                mean_ret += (prices[k] - prices[k-1])
+            mean_ret /= (sz - 1)
+
+            # Cumulative deviation from mean
+            cum_dev = 0.0
+            max_dev = -1e30
+            min_dev = 1e30
+            std_sum = 0.0
+
+            for k in range(start + 1, i + 1):
+                ret = (prices[k] - prices[k-1]) - mean_ret
+                cum_dev += ret
+                if cum_dev > max_dev:
+                    max_dev = cum_dev
+                if cum_dev < min_dev:
+                    min_dev = cum_dev
+                std_sum += ret * ret
+
+            R = max_dev - min_dev
+            S = math.sqrt(std_sum / (sz - 1)) if sz > 1 else 1e-10
+            S = max(S, 1e-10)
+
+            rs = R / S
+            log_n[s_idx] = math.log(float(sz))
+            log_rs[s_idx] = math.log(max(rs, 1e-10))
+
+        # Linear regression: log(R/S) = H * log(n) + c
+        # Hurst = slope
+        sum_x = 0.0
+        sum_y = 0.0
+        sum_xy = 0.0
+        sum_xx = 0.0
+        for j in range(4):
+            sum_x += log_n[j]
+            sum_y += log_rs[j]
+            sum_xy += log_n[j] * log_rs[j]
+            sum_xx += log_n[j] * log_n[j]
+
+        denom = 4.0 * sum_xx - sum_x * sum_x
+        if abs(denom) > 1e-12:
+            hurst = (4.0 * sum_xy - sum_x * sum_y) / denom
+        else:
+            hurst = 0.5
+
+        # Clamp to [0, 1]
+        out_hurst[i] = max(0.0, min(1.0, hurst))
