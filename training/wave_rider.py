@@ -237,6 +237,9 @@ class Position:
     stop_loss: float
     high_water_mark: float
     entry_layer_state: Union[StateVector, ThreeBodyQuantumState]
+    template_id: Optional[int] = None
+    profit_target: Optional[float] = None
+    trailing_stop_ticks: Optional[int] = None
 
 
 class WaveRider:
@@ -286,7 +289,10 @@ class WaveRider:
 
     def open_position(self, entry_price: float, side: str, 
                      state: Union[StateVector, ThreeBodyQuantumState],
-                     stop_distance_ticks: int = 20):
+                     stop_distance_ticks: int = 20,
+                     profit_target_ticks: Optional[int] = None,
+                     trailing_stop_ticks: Optional[int] = None,
+                     template_id: Optional[int] = None):
         """
         Open new position
         
@@ -295,17 +301,28 @@ class WaveRider:
             side: 'long' or 'short'
             state: StateVector or ThreeBodyQuantumState at entry
             stop_distance_ticks: Initial stop distance (default 20)
+            profit_target_ticks: Optional profit target in ticks
+            trailing_stop_ticks: Optional fixed trailing stop in ticks
+            template_id: ID of the template triggering this trade
         """
         stop_dist = stop_distance_ticks * self.asset.tick_size
         stop_loss = entry_price + stop_dist if side == 'short' else entry_price - stop_dist
         
+        profit_target = None
+        if profit_target_ticks:
+            pt_dist = profit_target_ticks * self.asset.tick_size
+            profit_target = entry_price - pt_dist if side == 'short' else entry_price + pt_dist
+
         self.position = Position(
             entry_price=entry_price,
             entry_time=time.time(),
             side=side,
             stop_loss=stop_loss,
             high_water_mark=entry_price,
-            entry_layer_state=state
+            entry_layer_state=state,
+            template_id=template_id,
+            profit_target=profit_target,
+            trailing_stop_ticks=trailing_stop_ticks
         )
         
         # Note: Do not clear price_history here as we need it for delayed analysis
@@ -396,25 +413,40 @@ class WaveRider:
 
         profit_usd = profit * self.asset.point_value
 
-        # Adaptive Trail logic (using calibrated config)
-        if profit_usd < 50:
-            trail_ticks = self.trail_config['tight']
-        elif profit_usd < 150:
-            trail_ticks = self.trail_config['medium']
+        # Check Profit Target
+        pt_hit = False
+        if self.position.profit_target:
+             pt_hit = (self.position.side == 'short' and current_price <= self.position.profit_target) or \
+                      (self.position.side == 'long' and current_price >= self.position.profit_target)
+
+        # Trail logic: Fixed (from template) or Adaptive (from config)
+        if self.position.trailing_stop_ticks:
+             trail_ticks = self.position.trailing_stop_ticks
         else:
-            trail_ticks = self.trail_config['wide']
+            # Adaptive Trail logic (using calibrated config)
+            if profit_usd < 50:
+                trail_ticks = self.trail_config['tight']
+            elif profit_usd < 150:
+                trail_ticks = self.trail_config['medium']
+            else:
+                trail_ticks = self.trail_config['wide']
 
         trail_dist = trail_ticks * self.asset.tick_size
         new_stop = self.position.high_water_mark + trail_dist if self.position.side == 'short' else self.position.high_water_mark - trail_dist
 
-        # Check Stop Hit or Structure Break
+        # Check Stop Hit, Profit Target, or Structure Break
         stop_hit = (self.position.side == 'short' and current_price >= new_stop) or \
                    (self.position.side == 'long' and current_price <= new_stop)
 
         structure_broken = self._check_layer_breaks(current_state)
 
-        if stop_hit or structure_broken:
-            exit_reason = 'structure_break' if structure_broken else 'trail_stop'
+        if stop_hit or structure_broken or pt_hit:
+            if pt_hit:
+                exit_reason = 'profit_target'
+            elif structure_broken:
+                exit_reason = 'structure_break'
+            else:
+                exit_reason = 'trail_stop'
             
             # QUEUE FOR REGRET ANALYSIS (Delayed)
             review = PendingReview(

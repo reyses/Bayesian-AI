@@ -21,10 +21,76 @@ from core.pattern_utils import (
 
 # Core CUDA Physics
 try:
-    from core.cuda_physics import compute_physics_kernel, detect_archetype_kernel
+    from core.cuda_physics import (
+        compute_physics_kernel, detect_archetype_kernel,
+        compute_dm_tr_kernel, compute_adx_dmi_cpu, compute_hurst_kernel,
+        ADX_PERIOD, HURST_WINDOW
+    )
     CUDA_PHYSICS_AVAILABLE = True
 except ImportError:
     CUDA_PHYSICS_AVAILABLE = False
+    ADX_PERIOD = 14
+    HURST_WINDOW = 100
+
+    def compute_adx_dmi_cpu(tr_raw, plus_dm_raw, minus_dm_raw, period=14):
+        """
+        Pass 2: Wilder's smoothed ADX/DMI computation (CPU Fallback).
+        """
+        n = len(tr_raw)
+        adx = np.zeros(n)
+        dmi_plus = np.zeros(n)
+        dmi_minus = np.zeros(n)
+
+        if n < period + 1:
+            return adx, dmi_plus, dmi_minus
+
+        # Initial sums (first `period` bars)
+        smooth_tr = np.sum(tr_raw[1:period+1])
+        smooth_plus = np.sum(plus_dm_raw[1:period+1])
+        smooth_minus = np.sum(minus_dm_raw[1:period+1])
+
+        # First DI values
+        if smooth_tr > 0:
+            dmi_plus[period] = 100.0 * smooth_plus / smooth_tr
+            dmi_minus[period] = 100.0 * smooth_minus / smooth_tr
+
+        # First DX
+        di_sum = dmi_plus[period] + dmi_minus[period]
+        if di_sum > 0:
+            dx_first = 100.0 * abs(dmi_plus[period] - dmi_minus[period]) / di_sum
+        else:
+            dx_first = 0.0
+
+        # Wilder smoothing for remaining bars
+        dx_sum = dx_first
+        dx_count = 1
+
+        for i in range(period + 1, n):
+            # Wilder smoothing: smooth = prev_smooth - (prev_smooth / period) + current
+            smooth_tr = smooth_tr - (smooth_tr / period) + tr_raw[i]
+            smooth_plus = smooth_plus - (smooth_plus / period) + plus_dm_raw[i]
+            smooth_minus = smooth_minus - (smooth_minus / period) + minus_dm_raw[i]
+
+            if smooth_tr > 0:
+                dmi_plus[i] = 100.0 * smooth_plus / smooth_tr
+                dmi_minus[i] = 100.0 * smooth_minus / smooth_tr
+
+            di_sum = dmi_plus[i] + dmi_minus[i]
+            if di_sum > 0:
+                dx = 100.0 * abs(dmi_plus[i] - dmi_minus[i]) / di_sum
+            else:
+                dx = 0.0
+
+            # ADX = Wilder smoothed DX
+            if dx_count < period:
+                dx_sum += dx
+                dx_count += 1
+                if dx_count == period:
+                    adx[i] = dx_sum / period
+            else:
+                adx[i] = (adx[i-1] * (period - 1) + dx) / period
+
+        return adx, dmi_plus, dmi_minus
 
 # Optional: CUDA Pattern Detector
 try:
@@ -60,8 +126,8 @@ RANGE_CASCADE_THRESHOLD = 10.0    # Points range in candle
 # Risk & Trend Constants
 RISK_THETA = 0.1
 RISK_HORIZON_SECONDS = 600
-HURST_WINDOW = 100
-ADX_LENGTH = 14
+# HURST_WINDOW and ADX_LENGTH might be redefined here but we prefer constants from cuda_physics if available
+ADX_LENGTH = ADX_PERIOD
 
 # PID Control Constants (Default/Fallback)
 DEFAULT_PID_KP = 0.5
@@ -208,7 +274,38 @@ class QuantumFieldEngine:
         cdl = detect_candlestick_patterns_vectorized(opens, highs, lows, closes)
         return geo, cdl
 
-    def _batch_compute_cpu(self, prices: np.ndarray, volumes: np.ndarray, rp: int) -> dict:
+    def _compute_hurst_numpy(self, prices: np.ndarray, window: int = 100):
+        """Numpy Hurst exponent via R/S method."""
+        n = len(prices)
+        hurst = np.full(n, 0.5)
+
+        for i in range(window, n):
+            log_ns = []
+            log_rs_vals = []
+
+            for sz in [window//8, window//4, window//2, window]:
+                sz = max(sz, 4)
+                segment = prices[i-sz+1:i+1]
+                returns = np.diff(segment)
+                if len(returns) < 2:
+                    continue
+
+                mean_r = returns.mean()
+                devs = np.cumsum(returns - mean_r)
+                R = devs.max() - devs.min()
+                S = max(returns.std(ddof=1), 1e-10)
+
+                log_ns.append(np.log(sz))
+                log_rs_vals.append(np.log(max(R/S, 1e-10)))
+
+            if len(log_ns) >= 2:
+                # np.polyfit returns coefficients, slope is first
+                coeffs = np.polyfit(log_ns, log_rs_vals, 1)
+                hurst[i] = np.clip(coeffs[0], 0.0, 1.0)
+
+        return hurst
+
+    def _batch_compute_cpu(self, prices: np.ndarray, highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, volumes: np.ndarray, rp: int) -> dict:
         """
         Vectorized CPU implementation of physics calculations using NumPy sliding window view.
         Matches logic in core/cuda_physics.py.
@@ -232,13 +329,20 @@ class QuantumFieldEngine:
         roche_snap = np.zeros(n, dtype=bool)
         structural_drive = np.zeros(n, dtype=bool)
 
+        # Indicators
+        hurst = np.full(n, 0.5, dtype=np.float64)
+        adx_strength = np.zeros(n, dtype=np.float64)
+        dmi_plus = np.zeros(n, dtype=np.float64)
+        dmi_minus = np.zeros(n, dtype=np.float64)
+
         if n < rp:
             return {
                 'center': center, 'sigma': sigma, 'slope': slope, 'z': z_scores,
                 'velocity': velocity, 'force': force, 'momentum': momentum,
                 'coherence': coherence, 'entropy': entropy,
                 'prob0': prob0, 'prob1': prob1, 'prob2': prob2,
-                'roche': roche_snap, 'drive': structural_drive
+                'roche': roche_snap, 'drive': structural_drive,
+                'hurst': hurst, 'adx': adx_strength, 'dmi_plus': dmi_plus, 'dmi_minus': dmi_minus
             }
 
         # 1. Rolling Linear Regression
@@ -359,12 +463,43 @@ class QuantumFieldEngine:
         roche_snap[start_idx:] = (np.abs(z_scores[start_idx:]) > 2.0) & (np.abs(velocity[start_idx:]) > self.VELOCITY_THRESHOLD)
         structural_drive[start_idx:] = (np.abs(momentum[start_idx:]) > self.MOMENTUM_THRESHOLD) & (coherence[start_idx:] < self.COHERENCE_THRESHOLD)
 
+        # ═════ INDICATORS (CPU Fallback) ═════
+
+        # 1. ADX/DMI
+        # Compute TR, +DM, -DM manually
+        tr_raw = np.zeros(n)
+        plus_dm_raw = np.zeros(n)
+        minus_dm_raw = np.zeros(n)
+
+        tr_raw[0] = highs[0] - lows[0]
+        # Rest computed in loop or vectorized
+        # Vectorized TR/DM
+        hl = highs[1:] - lows[1:]
+        hc = np.abs(highs[1:] - closes[:-1])
+        lc = np.abs(lows[1:] - closes[:-1])
+        tr_raw[1:] = np.maximum(hl, np.maximum(hc, lc))
+
+        up_move = highs[1:] - highs[:-1]
+        down_move = lows[:-1] - lows[1:]
+
+        plus_dm_raw[1:] = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
+        minus_dm_raw[1:] = np.where((down_move > up_move) & (down_move > 0), down_move, 0.0)
+
+        # Use the provided CPU function for Wilder smoothing
+        # Note: compute_adx_dmi_cpu is imported from cuda_physics (it's a python function)
+        if 'compute_adx_dmi_cpu' in globals():
+             adx_strength, dmi_plus, dmi_minus = compute_adx_dmi_cpu(tr_raw, plus_dm_raw, minus_dm_raw, ADX_PERIOD)
+
+        # 2. Hurst
+        hurst = self._compute_hurst_numpy(prices, HURST_WINDOW)
+
         return {
             'center': center, 'sigma': sigma, 'slope': slope, 'z': z_scores,
             'velocity': velocity, 'force': force, 'momentum': momentum,
             'coherence': coherence, 'entropy': entropy,
             'prob0': prob0, 'prob1': prob1, 'prob2': prob2,
-            'roche': roche_snap, 'drive': structural_drive
+            'roche': roche_snap, 'drive': structural_drive,
+            'hurst': hurst, 'adx': adx_strength, 'dmi_plus': dmi_plus, 'dmi_minus': dmi_minus
         }
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -402,7 +537,12 @@ class QuantumFieldEngine:
             lows = prices
             opens = prices
 
-        pattern_types, candlestick_types = self._detect_patterns_unified(opens, highs, lows, prices)
+        if 'close' in day_data.columns:
+            closes = day_data['close'].values.astype(np.float64)
+        else:
+            closes = prices
+
+        pattern_types, candlestick_types = self._detect_patterns_unified(opens, highs, lows, closes)
 
         # Output variables to be filled by either GPU or CPU path
         center = None
@@ -420,10 +560,21 @@ class QuantumFieldEngine:
         roche_snap = None
         structural_drive = None
 
+        # New Indicators
+        hurst_arr = None
+        adx_arr = None
+        dmi_plus_arr = None
+        dmi_minus_arr = None
+
         if use_cuda and self.use_gpu and CUDA_PHYSICS_AVAILABLE:
             # Output arrays (allocated on GPU directly or mapped)
             d_prices = cuda.to_device(prices)
             d_volumes = cuda.to_device(volumes)
+
+            # Needed for ADX
+            d_highs = cuda.to_device(highs)
+            d_lows = cuda.to_device(lows)
+            d_closes = cuda.to_device(closes)
 
             d_center = cuda.device_array(n, dtype=np.float64)
             d_sigma = cuda.device_array(n, dtype=np.float64)
@@ -440,6 +591,14 @@ class QuantumFieldEngine:
 
             d_roche = cuda.device_array(n, dtype=np.bool_)
             d_drive = cuda.device_array(n, dtype=np.bool_)
+
+            # Arrays for ADX
+            d_tr = cuda.device_array(n, dtype=np.float64)
+            d_plus_dm = cuda.device_array(n, dtype=np.float64)
+            d_minus_dm = cuda.device_array(n, dtype=np.float64)
+
+            # Array for Hurst
+            d_hurst = cuda.device_array(n, dtype=np.float64)
 
             # Kernel Launch Configuration
             threads_per_block = 256
@@ -464,6 +623,20 @@ class QuantumFieldEngine:
                 d_roche, d_drive
             )
 
+            # 3. ADX/DMI Kernel (Pass 1)
+            compute_dm_tr_kernel[blocks_per_grid, threads_per_block](
+                d_highs, d_lows, d_closes,
+                d_tr, d_plus_dm, d_minus_dm
+            )
+
+            # 4. Hurst Kernel
+            compute_hurst_kernel[blocks_per_grid, threads_per_block](
+                d_prices, d_hurst, HURST_WINDOW
+            )
+
+            # Synchronize before CPU pass
+            cuda.synchronize()
+
             # Copy back results
             center = d_center.copy_to_host()
             sigma = d_sigma.copy_to_host()
@@ -481,9 +654,17 @@ class QuantumFieldEngine:
             roche_snap = d_roche.copy_to_host()
             structural_drive = d_drive.copy_to_host()
 
+            hurst_arr = d_hurst.copy_to_host()
+
+            # Pass 2 ADX on CPU
+            tr_raw = d_tr.copy_to_host()
+            plus_dm_raw = d_plus_dm.copy_to_host()
+            minus_dm_raw = d_minus_dm.copy_to_host()
+            adx_arr, dmi_plus_arr, dmi_minus_arr = compute_adx_dmi_cpu(tr_raw, plus_dm_raw, minus_dm_raw, ADX_PERIOD)
+
         else:
             # CPU Fallback
-            cpu_results = self._batch_compute_cpu(prices, volumes, rp)
+            cpu_results = self._batch_compute_cpu(prices, highs, lows, closes, volumes, rp)
             center = cpu_results['center']
             sigma = cpu_results['sigma']
             slope = cpu_results['slope']
@@ -498,6 +679,11 @@ class QuantumFieldEngine:
             prob2 = cpu_results['prob2']
             roche_snap = cpu_results['roche']
             structural_drive = cpu_results['drive']
+
+            hurst_arr = cpu_results['hurst']
+            adx_arr = cpu_results['adx']
+            dmi_plus_arr = cpu_results['dmi_plus']
+            dmi_minus_arr = cpu_results['dmi_minus']
 
 
         # Extract timestamps
@@ -580,8 +766,8 @@ class QuantumFieldEngine:
                 pattern_type=str(pattern_types[i]),
                 candlestick_pattern=str(candlestick_types[i]),
                 trend_direction_15m=trend_direction, # Restored logic
-                hurst_exponent=0.5,
-                adx_strength=0.0, dmi_plus=0.0, dmi_minus=0.0,
+                hurst_exponent=hurst_arr[i],
+                adx_strength=adx_arr[i], dmi_plus=dmi_plus_arr[i], dmi_minus=dmi_minus_arr[i],
                 sigma_fractal=sigma[i],
                 term_pid=0.0,
                 lyapunov_exponent=0.0,
