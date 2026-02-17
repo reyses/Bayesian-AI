@@ -11,6 +11,7 @@ import itertools
 import multiprocessing
 import numpy as np
 import pandas as pd
+from numba import jit
 from typing import Dict, List, Any, Optional, Set, Tuple
 from dataclasses import dataclass
 from sklearn.preprocessing import StandardScaler
@@ -105,115 +106,144 @@ def extract_features_from_state(state: ThreeBodyQuantumState, timeframe: str) ->
         parent_z, parent_dmi_diff, root_is_roche, tf_alignment
     ])
 
-def simulate_month(data: pd.DataFrame, match_indices: np.ndarray, params: Dict[str, Any],
-                   asset: Any, template_id: int, z_scores: np.ndarray) -> List[TradeResult]:
-    """
-    Simulate trades for matched bars in one month.
-    """
-    trades = []
+@jit(nopython=True)
+def _fast_month_sim_loop(
+    prices, timestamps, match_mask, z_scores,
+    stop_ticks, tp_ticks, max_hold, trail_tight, trail_wide, cost_points,
+    tick_size, point_value
+):
+    n = len(prices)
+
+    out_pnl = []
+    out_side = [] # 0=long, 1=short
+    out_bars_held = []
+    out_reason = [] # 1=stop, 2=target, 3=trail, 4=timeout
+    out_entry_price = []
+    out_exit_price = []
+    out_entry_time = []
+    out_exit_time = []
+
     in_position = False
     entry_price = 0.0
     entry_idx = 0
-    entry_side = 'long'
+    entry_side = 0 # 0=long, 1=short
     entry_time = 0.0
     high_water = 0.0
 
-    stop_ticks = params.get('stop_loss_ticks', 15)
-    tp_ticks = params.get('take_profit_ticks', 40)
-    max_hold = params.get('max_hold_bars', 50)
-    trail_tight = params.get('trail_distance_tight', 10)
-    trail_wide = params.get('trail_distance_wide', 30)
-    cost_points = params.get('trading_cost_points', 0.5)
-
-    prices = data['close'].values
-    timestamps = data['timestamp'].values if 'timestamp' in data.columns else np.arange(len(prices))
-
-    # Convert match_indices to a set for O(1) lookup
-    match_set = set(match_indices)
-
-    tick_size = asset.tick_size
-    point_value = asset.point_value
-
-    for idx in range(len(prices)):
+    for idx in range(n):
         price = prices[idx]
         ts = timestamps[idx]
 
         if in_position:
-            # Check exits
             bars_held = idx - entry_idx
 
-            if entry_side == 'long':
+            pnl_points = 0.0
+            if entry_side == 0: # Long
                 pnl_points = price - entry_price
-                high_water = max(high_water, pnl_points)
-                exit_res = None
-
-                # Stop loss
-                if pnl_points <= -stop_ticks * tick_size:
-                    exit_res = 'stop'
-                # Take profit
-                elif pnl_points >= tp_ticks * tick_size:
-                    exit_res = 'target'
-                # Trailing stop
-                elif high_water > 0:
-                    trail = trail_tight * tick_size if high_water < 2.0 else trail_wide * tick_size
-                    if pnl_points < high_water - trail:
-                        exit_res = 'trail'
-                # Max hold
-                elif bars_held >= max_hold:
-                    exit_res = 'timeout'
-
-                if exit_res:
-                    pnl_usd = (pnl_points - cost_points) * point_value
-                    trades.append(TradeResult(
-                        pnl=pnl_usd, side='long', bars_held=bars_held, exit_reason=exit_res,
-                        template_id=template_id, entry_price=entry_price, exit_price=price,
-                        entry_time=entry_time, exit_time=ts
-                    ))
-                    in_position = False
-
-            else:  # short
+            else: # Short
                 pnl_points = entry_price - price
-                high_water = max(high_water, pnl_points)
-                exit_res = None
 
-                # Stop loss
-                if pnl_points <= -stop_ticks * tick_size:
-                    exit_res = 'stop'
-                # Take profit
-                elif pnl_points >= tp_ticks * tick_size:
-                    exit_res = 'target'
-                # Trailing stop
-                elif high_water > 0:
-                    trail = trail_tight * tick_size if high_water < 2.0 else trail_wide * tick_size
-                    if pnl_points < high_water - trail:
-                        exit_res = 'trail'
-                # Max hold
-                elif bars_held >= max_hold:
-                    exit_res = 'timeout'
+            if pnl_points > high_water:
+                high_water = pnl_points
 
-                if exit_res:
-                    pnl_usd = (pnl_points - cost_points) * point_value
-                    trades.append(TradeResult(
-                        pnl=pnl_usd, side='short', bars_held=bars_held, exit_reason=exit_res,
-                        template_id=template_id, entry_price=entry_price, exit_price=price,
-                        entry_time=entry_time, exit_time=ts
-                    ))
-                    in_position = False
+            exit_code = 0
+
+            # Stop loss
+            if pnl_points <= -stop_ticks * tick_size:
+                exit_code = 1
+            # Take profit
+            elif pnl_points >= tp_ticks * tick_size:
+                exit_code = 2
+            # Trailing stop
+            elif high_water > 0:
+                trail = trail_tight * tick_size if high_water < 2.0 else trail_wide * tick_size
+                if pnl_points < high_water - trail:
+                    exit_code = 3
+            # Max hold
+            elif bars_held >= max_hold:
+                exit_code = 4
+
+            if exit_code > 0:
+                pnl_usd = (pnl_points - cost_points) * point_value
+
+                out_pnl.append(pnl_usd)
+                out_side.append(entry_side)
+                out_bars_held.append(bars_held)
+                out_reason.append(exit_code)
+                out_entry_price.append(entry_price)
+                out_exit_price.append(price)
+                out_entry_time.append(entry_time)
+                out_exit_time.append(ts)
+
+                in_position = False
 
         else:
-            # Check for new entry
-            if idx in match_set:
+            if match_mask[idx]:
                 entry_price = price
                 entry_idx = idx
                 entry_time = ts
                 high_water = 0.0
-                # Direction: use z_score from the state (mean reversion)
-                # z > 0 → overbought → short; z < 0 → oversold → long
-                # Note: This logic assumes we trade AGAINST the Z-score (Reversion).
-                # If we want Momentum, we'd trade WITH it.
-                # Doc says: "z > 0 → overbought → short; z < 0 → oversold → long"
-                entry_side = 'short' if z_scores[idx] > 0 else 'long'
+                # z > 0 -> short (1), z < 0 -> long (0)
+                if z_scores[idx] > 0:
+                    entry_side = 1
+                else:
+                    entry_side = 0
                 in_position = True
+
+    return out_pnl, out_side, out_bars_held, out_reason, out_entry_price, out_exit_price, out_entry_time, out_exit_time
+
+def simulate_month(data: pd.DataFrame, match_indices: np.ndarray, params: Dict[str, Any],
+                   asset: Any, template_id: int, z_scores: np.ndarray,
+                   prices: Optional[np.ndarray] = None, timestamps: Optional[np.ndarray] = None) -> List[TradeResult]:
+    """
+    Simulate trades for matched bars in one month.
+    Refactored to use Numba-optimized core loop.
+    """
+    stop_ticks = float(params.get('stop_loss_ticks', 15))
+    tp_ticks = float(params.get('take_profit_ticks', 40))
+    max_hold = float(params.get('max_hold_bars', 50))
+    trail_tight = float(params.get('trail_distance_tight', 10))
+    trail_wide = float(params.get('trail_distance_wide', 30))
+    cost_points = float(params.get('trading_cost_points', 0.5))
+
+    if prices is None:
+        prices = data['close'].values
+    if timestamps is None:
+        timestamps = data['timestamp'].values if 'timestamp' in data.columns else np.arange(len(prices))
+
+    # Create boolean mask for Numba
+    n = len(prices)
+    match_mask = np.zeros(n, dtype=np.bool_)
+    # Filter indices that are out of bounds (just in case)
+    valid_indices = match_indices[match_indices < n]
+    match_mask[valid_indices] = True
+
+    tick_size = float(asset.tick_size)
+    point_value = float(asset.point_value)
+
+    pnl_arr, side_arr, bars_held_arr, reason_arr, entry_p_arr, exit_p_arr, entry_t_arr, exit_t_arr = _fast_month_sim_loop(
+        prices, timestamps, match_mask, z_scores,
+        stop_ticks, tp_ticks, max_hold, trail_tight, trail_wide, cost_points,
+        tick_size, point_value
+    )
+
+    # Reconstruct TradeResult objects
+    trades = []
+    reason_map = {1: 'stop', 2: 'target', 3: 'trail', 4: 'timeout'}
+    side_map = {0: 'long', 1: 'short'}
+
+    for i in range(len(pnl_arr)):
+        trades.append(TradeResult(
+            pnl=pnl_arr[i],
+            side=side_map[side_arr[i]],
+            bars_held=bars_held_arr[i],
+            exit_reason=reason_map[reason_arr[i]],
+            template_id=template_id,
+            entry_price=entry_p_arr[i],
+            exit_price=exit_p_arr[i],
+            entry_time=entry_t_arr[i],
+            exit_time=exit_t_arr[i]
+        ))
 
     return trades
 
@@ -255,17 +285,25 @@ def simulate_template_tf_combo(template_id: int, timeframe: str, n_iterations: i
              return ComboResult(template_id, timeframe, [], None, 0, 0, n_iterations)
 
         # Pre-compute physics states
-        engine = QuantumFieldEngine()
+        engine = QuantumFieldEngine(asset=asset, use_gpu=False)
         all_states = []
         all_z_scores = []
 
+        # Pre-extract arrays for speed
+        all_prices = []
+        all_timestamps = []
+
         for month_data in all_data:
-            raw_results = engine.batch_compute_states(month_data)
-            # batch_compute_states returns list of {'bar_idx', 'state', 'price', 'structure_ok'}
-            states = [r['state'] for r in raw_results]
+            states = engine.batch_compute_states(month_data)
             all_states.append(states)
+            # Store z_scores for direction logic
             z_s = np.array([s.z_score for s in states])
             all_z_scores.append(z_s)
+
+            # Extract prices and timestamps
+            all_prices.append(month_data['close'].values)
+            ts_vals = month_data['timestamp'].values if 'timestamp' in month_data.columns else np.arange(len(month_data))
+            all_timestamps.append(ts_vals)
 
         # Extract features
         all_features = []
@@ -350,7 +388,9 @@ def simulate_template_tf_combo(template_id: int, timeframe: str, n_iterations: i
                 month_trades = simulate_month(
                     month_data, matches, params, asset,
                     template_id=template_id,
-                    z_scores=all_z_scores[month_idx]
+                    z_scores=all_z_scores[month_idx],
+                    prices=all_prices[month_idx],
+                    timestamps=all_timestamps[month_idx]
                 )
                 trades.extend(month_trades)
                 total_pnl += sum(t.pnl for t in month_trades)
