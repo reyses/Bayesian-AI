@@ -140,15 +140,7 @@ class FractalDiscoveryAgent:
                     current_windows = []
                     for p in level_patterns:
                         # Rebuild chain entry for resumed patterns
-                        chain_entry = {
-                            'tf': p.timeframe,
-                            'type': p.pattern_type,
-                            'z': p.z_score,
-                            'mom': p.momentum,
-                            'coh': p.coherence,
-                            'timestamp': p.timestamp
-                        }
-                        full_chain = [chain_entry] + (p.parent_chain or [])
+                        full_chain = self._build_parent_chain(p)
 
                         current_windows.append((p.timestamp, p.timestamp + drilldown_secs,
                                                 p.pattern_type, tf, full_chain))
@@ -219,15 +211,7 @@ class FractalDiscoveryAgent:
                 w_end = p.timestamp + drilldown_secs
 
                 # Build star schema parent chain
-                chain_entry = {
-                    'tf': p.timeframe,
-                    'type': p.pattern_type,
-                    'z': p.z_score,
-                    'mom': p.momentum,
-                    'coh': p.coherence,
-                    'timestamp': p.timestamp
-                }
-                full_chain = [chain_entry] + (p.parent_chain or [])
+                full_chain = self._build_parent_chain(p)
 
                 current_windows.append((w_start, w_end, p.pattern_type, tf, full_chain))
 
@@ -303,11 +287,7 @@ class FractalDiscoveryAgent:
 
             next_windows = []
             for p in patterns:
-                chain_entry = {
-                    'tf': p.timeframe, 'type': p.pattern_type,
-                    'z': p.z_score, 'mom': p.momentum, 'coh': p.coherence, 'timestamp': p.timestamp
-                }
-                full_chain = [chain_entry] + (p.parent_chain or [])
+                full_chain = self._build_parent_chain(p)
                 next_windows.append((p.timestamp, p.timestamp + drilldown, p.pattern_type, tf, full_chain))
 
             current_windows = self._merge_windows(next_windows)
@@ -531,6 +511,18 @@ class FractalDiscoveryAgent:
         print(f"    Extracted {len(detected)} patterns (R:{roche} S:{struct})")
 
         return detected
+
+    def _build_parent_chain(self, p: PatternEvent) -> List[Dict]:
+        """Builds the full parent chain for a given pattern."""
+        chain_entry = {
+            'tf': p.timeframe,
+            'type': p.pattern_type,
+            'z': p.z_score,
+            'mom': p.momentum,
+            'coh': p.coherence,
+            'timestamp': p.timestamp
+        }
+        return [chain_entry] + (p.parent_chain or [])
 
     # ------------------------------------------------------------------
     # I/O helpers
