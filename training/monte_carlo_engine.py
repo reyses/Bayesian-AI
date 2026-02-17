@@ -260,9 +260,10 @@ def simulate_template_tf_combo(template_id: int, timeframe: str, n_iterations: i
         all_z_scores = []
 
         for month_data in all_data:
-            states = engine.batch_compute_states(month_data)
+            raw_results = engine.batch_compute_states(month_data)
+            # batch_compute_states returns list of {'bar_idx', 'state', 'price', 'structure_ok'}
+            states = [r['state'] for r in raw_results]
             all_states.append(states)
-            # Store z_scores for direction logic
             z_s = np.array([s.z_score for s in states])
             all_z_scores.append(z_s)
 
