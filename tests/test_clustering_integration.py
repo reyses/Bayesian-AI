@@ -5,12 +5,6 @@ import pandas as pd
 import numpy as np
 from dataclasses import dataclass
 from typing import Any
-import sys
-import os
-
-# Add project root to sys.path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 from training.fractal_clustering import FractalClusteringEngine, PatternTemplate
 from training.orchestrator import _optimize_template_task
 
