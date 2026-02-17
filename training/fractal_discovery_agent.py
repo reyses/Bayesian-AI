@@ -243,13 +243,13 @@ class FractalDiscoveryAgent:
         Scans a single day top-down (4H -> 15s) to find actionable patterns.
         Used for Forward Pass execution.
         """
-        # We start at 4H.
+        # We start at 4H (depth=1 in the full hierarchy, since 1D=depth 0).
         current_windows = None
 
-        # Define hierarchy subset
-        hierarchy = ['4h', '1h', '15m', '5m', '1m', '15s']
+        # Define hierarchy subset — depths must match discovery (1D=0, 4h=1, 1h=2, ...)
+        hierarchy = [('4h', 1), ('1h', 2), ('15m', 3), ('5m', 4), ('1m', 5), ('15s', 6)]
 
-        for level, tf in enumerate(hierarchy):
+        for tf, depth in hierarchy:
             tf_path = os.path.join(atlas_root, tf)
             # Find file for this date
             files = sorted(glob.glob(os.path.join(tf_path, '*.parquet')))
@@ -265,11 +265,11 @@ class FractalDiscoveryAgent:
 
             # Scan
             if current_windows is None:
-                 # Level 0 (4H) - scan full file
-                 patterns = self._batch_scan_full([day_file], tf, level, 1)
+                 # First level (4H) - scan full file
+                 patterns = self._batch_scan_full([day_file], tf, depth, 1)
             else:
                  # Drill down
-                 patterns = self._batch_scan_windowed([day_file], tf, level, current_windows, 1)
+                 patterns = self._batch_scan_windowed([day_file], tf, depth, current_windows, 1)
 
             if not patterns:
                 return []
@@ -280,7 +280,9 @@ class FractalDiscoveryAgent:
 
             # Otherwise build windows for next level
             tf_secs = TIMEFRAME_SECONDS.get(tf, 15)
-            child_tf = hierarchy[level+1]
+            # Find next TF in hierarchy
+            current_idx = [t for t, d in hierarchy].index(tf)
+            child_tf = hierarchy[current_idx + 1][0]
             child_tf_secs = TIMEFRAME_SECONDS.get(child_tf, 15)
             min_window = child_tf_secs * 30
             drilldown = max(tf_secs, min_window)
@@ -437,8 +439,9 @@ class FractalDiscoveryAgent:
                 new_bars = in_window & ~mask
                 bar_parent_type[new_bars] = p_type
                 bar_parent_tf[new_bars] = p_tf
-                # Assign the list object to each matching index without broadcasting
-                bar_parent_chain[new_bars] = [p_chain] * int(np.sum(new_bars))
+                # Assign the list object to each matching index individually
+                for idx in np.where(new_bars)[0]:
+                    bar_parent_chain[idx] = p_chain
                 mask |= in_window
 
             n_in = int(np.sum(mask))
