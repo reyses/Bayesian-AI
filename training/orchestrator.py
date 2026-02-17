@@ -62,8 +62,6 @@ from training.orchestrator_worker import FISSION_SUBSET_SIZE, INDIVIDUAL_OPTIMIZ
 INITIAL_CLUSTER_DIVISOR = 100
 _ADX_TREND_CONFIRMATION = 25.0
 _HURST_TREND_CONFIRMATION = 0.6
-_ADX_TREND_CONFIRMATION = 25.0
-_HURST_TREND_CONFIRMATION = 0.6
 
 # Visualization
 try:
@@ -313,6 +311,10 @@ class BayesianTrainingOrchestrator:
             # Let's assume exit logic primarily uses price action (trail, stop).
 
             current_position_open = False
+            active_entry_price = 0.0
+            active_entry_time = 0.0
+            active_side = 'long'
+            active_template_id = None
 
             for row in df_15s.itertuples():
                 ts = row.timestamp
@@ -320,34 +322,21 @@ class BayesianTrainingOrchestrator:
 
                 # 1. Manage existing position
                 if self.wave_rider.position is not None:
-                    # Dummy state for update_trail if we don't have it calculated for every bar
-                    # WaveRider.update_trail uses state?
-                    # "result = wave_rider.update_trail(bar.price, bar.state, bar.timestamp)"
-                    # If we don't have state for every bar (expensive to compute), pass None?
-                    # Checking WaveRider: update_trail(price, state, timestamp)
-                    # It uses state for dynamic trail if enabled.
-                    # For now, pass None or a dummy state if not available.
-                    # Ideally we have it, but computing it for every 15s bar on CPU is slow.
-                    # Discovery agent computes it on GPU.
-                    # Maybe we should have computed states for ALL 15s bars in _scan_day_cascade?
-                    # _scan_day_cascade returns actionable patterns.
-                    # Let's assume simple trail for now or that WaveRider handles None.
-
                     res = self.wave_rider.update_trail(price, None, ts)
                     if res['should_exit']:
                         outcome = TradeOutcome(
-                            state='EXIT', # Placeholder
-                            entry_price=self.wave_rider.last_trade_entry,
+                            state='EXIT',
+                            entry_price=active_entry_price,
                             exit_price=res['exit_price'],
                             pnl=res['pnl'],
                             result='WIN' if res['pnl'] > 0 else 'LOSS',
                             timestamp=ts,
                             exit_reason=res['exit_reason'],
-                            entry_time=self.wave_rider.last_trade_time,
+                            entry_time=active_entry_time,
                             exit_time=ts,
-                            duration=ts - self.wave_rider.last_trade_time,
-                            direction='LONG' if self.wave_rider.last_trade_side == 'long' else 'SHORT',
-                            template_id=self.wave_rider.position.template_id if hasattr(self.wave_rider.position, 'template_id') else None
+                            duration=ts - active_entry_time,
+                            direction='LONG' if active_side == 'long' else 'SHORT',
+                            template_id=active_template_id
                         )
                         self.brain.update(outcome)
                         day_trades.append(outcome)
@@ -419,8 +408,10 @@ class BayesianTrainingOrchestrator:
                         tid = valid_template_ids[nearest_idx]
 
                         if dist < 3.0: # Threshold
-                            # Check Brain
-                            if self.brain.should_fire(tid):
+                            # Brain gate — use low threshold for exploration
+                            # (Brain starts with pessimistic Beta(1,10) prior,
+                            #  so 80% default would block everything)
+                            if self.brain.should_fire(tid, min_prob=0.05, min_conf=0.0):
                                 if dist < best_dist:
                                     best_dist = dist
                                     best_candidate = p
@@ -440,27 +431,36 @@ class BayesianTrainingOrchestrator:
                             template_id=best_tid
                         )
                         current_position_open = True
+                        active_entry_price = price
+                        active_entry_time = ts
+                        active_side = side
+                        active_template_id = best_tid
 
-            # End of day cleanup
+            # End of day cleanup — force close any open position
             if self.wave_rider.position is not None:
-                res = self.wave_rider.close_position(price, ts, "TIME_EXIT")
-                if res:
-                    outcome = TradeOutcome(
-                        state='EXIT',
-                        entry_price=self.wave_rider.last_trade_entry,
-                        exit_price=res['exit_price'],
-                        pnl=res['pnl'],
-                        result='WIN' if res['pnl'] > 0 else 'LOSS',
-                        timestamp=ts,
-                        exit_reason=res['exit_reason'],
-                        entry_time=self.wave_rider.last_trade_time,
-                        exit_time=ts,
-                        duration=ts - self.wave_rider.last_trade_time,
-                        direction='LONG' if self.wave_rider.last_trade_side == 'long' else 'SHORT',
-                        template_id=self.wave_rider.position.template_id if hasattr(self.wave_rider.position, 'template_id') else None
-                    )
-                    self.brain.update(outcome)
-                    day_trades.append(outcome)
+                pos = self.wave_rider.position
+                if pos.side == 'short':
+                    eod_pnl = (pos.entry_price - price) * self.asset.point_value
+                else:
+                    eod_pnl = (price - pos.entry_price) * self.asset.point_value
+                self.wave_rider.position = None
+
+                outcome = TradeOutcome(
+                    state='EXIT',
+                    entry_price=active_entry_price,
+                    exit_price=price,
+                    pnl=eod_pnl,
+                    result='WIN' if eod_pnl > 0 else 'LOSS',
+                    timestamp=ts,
+                    exit_reason='TIME_EXIT',
+                    entry_time=active_entry_time,
+                    exit_time=ts,
+                    duration=ts - active_entry_time,
+                    direction='LONG' if active_side == 'long' else 'SHORT',
+                    template_id=active_template_id
+                )
+                self.brain.update(outcome)
+                day_trades.append(outcome)
 
             # Analyze day
             if day_trades:
@@ -953,6 +953,12 @@ class BayesianTrainingOrchestrator:
         print(f"    Total validated PnL: ${total_val_pnl:.2f}")
         print(f"    Time: {phase3_elapsed:.1f}s")
 
+        # Save pattern library for Phase 4
+        lib_path = os.path.join(self.checkpoint_dir, 'pattern_library.pkl')
+        with open(lib_path, 'wb') as f:
+            pickle.dump(self.pattern_library, f)
+        print(f"  Saved pattern_library.pkl ({len(self.pattern_library)} entries)")
+
         print("\n=== Training Complete ===")
         self.print_final_summary()
         return self.day_results
@@ -1256,14 +1262,20 @@ def main():
     orchestrator = BayesianTrainingOrchestrator(args)
 
     try:
-        if args.forward_pass:
+        if args.forward_pass and not args.fresh:
+            # Phase 4 only (using existing playbook)
             orchestrator.run_forward_pass(args.data)
             if args.strategy_report:
                 orchestrator.run_strategy_selection()
-        elif args.strategy_report:
+        elif args.strategy_report and not args.forward_pass:
             orchestrator.run_strategy_selection()
         else:
+            # Full pipeline: Phase 2 → 3 → (optionally 4 → 5)
             results = orchestrator.train(args.data)
+            if args.forward_pass:
+                orchestrator.run_forward_pass(args.data)
+            if args.strategy_report:
+                orchestrator.run_strategy_selection()
         return 0
     except KeyboardInterrupt:
         print("\n\nWARNING: Training interrupted by user")
