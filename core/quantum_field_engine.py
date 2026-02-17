@@ -92,7 +92,7 @@ class QuantumFieldEngine:
     - Quantum mechanics (superposition, tunneling)
     """
 
-    def __init__(self, regression_period: int = 21):
+    def __init__(self, regression_period: int = 21, use_gpu: bool = None):
         self.regression_period = regression_period
         self.SIGMA_ROCHE_MULTIPLIER = 2.0
         self.SIGMA_EVENT_MULTIPLIER = 3.0
@@ -131,11 +131,18 @@ class QuantumFieldEngine:
         self.residual_window = 500
 
         # === GPU SETUP ===
-        self.use_gpu = False
-        if cuda.is_available() and CUDA_PHYSICS_AVAILABLE:
-            self.use_gpu = True
+        if use_gpu is not None:
+             self.use_gpu = use_gpu
+             if self.use_gpu and not (cuda.is_available() and CUDA_PHYSICS_AVAILABLE):
+                 logger.warning("GPU requested but CUDA/Kernels unavailable. Falling back to CPU.")
+                 self.use_gpu = False
         else:
-            logger.warning("CUDA accelerator not available. Falling back to vectorized CPU execution.")
+             # Auto-detect
+             self.use_gpu = False
+             if cuda.is_available() and CUDA_PHYSICS_AVAILABLE:
+                 self.use_gpu = True
+             else:
+                 logger.warning("CUDA accelerator not available. Falling back to vectorized CPU execution.")
 
         # Keep Torch device for legacy compatibility if needed, but primary compute is Numba
         if TORCH_AVAILABLE and torch.cuda.is_available():
