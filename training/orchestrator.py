@@ -20,6 +20,7 @@ import multiprocessing
 import glob
 import numpy as np
 import pandas as pd
+from collections import defaultdict
 from typing import Dict, List, Any, Tuple, Optional
 from dataclasses import dataclass
 from datetime import datetime
@@ -192,6 +193,433 @@ class BayesianTrainingOrchestrator:
         except NotImplementedError:
             return 1
 
+    def run_forward_pass(self, data_source: str):
+        """
+        Phase 4: Forward pass — replay full year using playbook.
+        Scans fractal cascade per day, matches templates, trades via WaveRider.
+        Brain learns from outcomes.
+        """
+        print("\n" + "="*80)
+        print("PHASE 4: FORWARD PASS (EXECUTION MODE)")
+        print("="*80)
+
+        # 1. Load Prerequisites
+        lib_path = os.path.join(self.checkpoint_dir, 'pattern_library.pkl')
+        scaler_path = os.path.join(self.checkpoint_dir, 'clustering_scaler.pkl')
+
+        if not os.path.exists(lib_path) or not os.path.exists(scaler_path):
+            print("ERROR: pattern_library.pkl or clustering_scaler.pkl not found.")
+            print("Run with --fresh to build from scratch.")
+            return
+
+        with open(lib_path, 'rb') as f:
+            self.pattern_library = pickle.load(f)
+        with open(scaler_path, 'rb') as f:
+            self.scaler = pickle.load(f)
+
+        print(f"  Loaded library: {len(self.pattern_library)} templates")
+        print(f"  Loaded scaler: {self.scaler.mean_.shape[0]} features")
+
+        # Build centroid index for fast matching
+        template_ids = list(self.pattern_library.keys())
+        # Filter only templates with valid centroids (some might be empty/invalid if manually edited)
+        valid_template_ids = [tid for tid in template_ids if 'centroid' in self.pattern_library[tid]]
+
+        if not valid_template_ids:
+            print("ERROR: No valid templates in library.")
+            return
+
+        centroids = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
+        # Centroids are already in raw space (PatternTemplate stores raw), so we scale them
+        # Wait, PatternTemplate stores raw_centroid. But clustering scaler was fit on X (features).
+        # We need to scale features before matching, OR scale centroids.
+        # Usually we scale input features to match the scaler's space.
+        # But here we want to find nearest neighbor.
+        # Ideally we scale BOTH into the normalized space.
+        # So we transform centroids once.
+        centroids_scaled = self.scaler.transform(centroids)
+
+        print(f"  Prepared {len(centroids)} centroids for matching.")
+
+        # 2. Iterate Days
+        # Assume data_source is ATLAS root. Look for 15s files to define "days".
+        daily_files_15s = sorted(glob.glob(os.path.join(data_source, '15s', '*.parquet')))
+        if not daily_files_15s:
+            print(f"  No 15s data found in {data_source}/15s/")
+            return
+
+        print(f"  Found {len(daily_files_15s)} days to simulate.")
+
+        total_pnl = 0.0
+        total_trades = 0
+        total_wins = 0
+
+        for day_idx, day_file in enumerate(daily_files_15s):
+            day_date = os.path.basename(day_file).replace('.parquet', '')
+            print(f"\n  Day {day_idx+1}/{len(daily_files_15s)}: {day_date} ... ", end='', flush=True)
+
+            # A. Fractal Cascade Scan (get actionable patterns with chains)
+            # This uses the discovery agent logic but focused on this day
+            actionable_patterns = self.discovery_agent.scan_day_cascade(data_source, day_date)
+
+            # Sort by timestamp to simulate real-time feed
+            actionable_patterns.sort(key=lambda x: x.timestamp)
+
+            day_trades = []
+
+            # Load 15s data for position management
+            # We need the full dataframe to step through it
+            try:
+                df_15s = pd.read_parquet(day_file)
+                # Ensure timestamps are floats for comparison
+                if 'timestamp' in df_15s.columns and not np.issubdtype(df_15s['timestamp'].dtype, np.number):
+                     df_15s['timestamp'] = df_15s['timestamp'].apply(lambda x: x.timestamp())
+            except Exception as e:
+                print(f"FAILED to load {day_file}: {e}")
+                continue
+
+            # Map patterns to bar indices for efficient processing
+            # Or just iterate bars and check if a pattern triggered?
+            # Better: Iterate patterns, attempt entry.
+            # But we also need to manage exits tick-by-tick (or bar-by-bar).
+            # Hybrid approach:
+            # 1. Patterns queue.
+            # 2. Iterate bars.
+            # 3. If bar matches pattern timestamp, try entry.
+            # 4. Always update open position.
+
+            # Create a lookup for patterns by timestamp (or index)
+            # Round timestamp to nearest 15s? They should match exactly if from same source.
+            pattern_map = defaultdict(list)
+            for p in actionable_patterns:
+                pattern_map[p.timestamp].append(p)
+
+            # B. Simulation Loop
+            t_sim_start = time.perf_counter()
+
+            # We iterate through the dataframe row by row
+            # To speed up, we can convert to list of namedtuples or similar?
+            # Or just iterate row tuples.
+            # WaveRider expects: price, state (optional for trail?), timestamp
+
+            # Pre-compute states for the day?
+            # _scan_day_cascade already computed states for the patterns.
+            # For 15s bars that are NOT patterns, we might need state for exit logic?
+            # WaveRider usually needs price and timestamp. Some logic might use state.
+            # Let's assume exit logic primarily uses price action (trail, stop).
+
+            current_position_open = False
+
+            for row in df_15s.itertuples():
+                ts = row.timestamp
+                price = getattr(row, 'close', getattr(row, 'price', 0.0))
+
+                # 1. Manage existing position
+                if self.wave_rider.position is not None:
+                    # Dummy state for update_trail if we don't have it calculated for every bar
+                    # WaveRider.update_trail uses state?
+                    # "result = wave_rider.update_trail(bar.price, bar.state, bar.timestamp)"
+                    # If we don't have state for every bar (expensive to compute), pass None?
+                    # Checking WaveRider: update_trail(price, state, timestamp)
+                    # It uses state for dynamic trail if enabled.
+                    # For now, pass None or a dummy state if not available.
+                    # Ideally we have it, but computing it for every 15s bar on CPU is slow.
+                    # Discovery agent computes it on GPU.
+                    # Maybe we should have computed states for ALL 15s bars in _scan_day_cascade?
+                    # _scan_day_cascade returns actionable patterns.
+                    # Let's assume simple trail for now or that WaveRider handles None.
+
+                    res = self.wave_rider.update_trail(price, None, ts)
+                    if res['should_exit']:
+                        outcome = TradeOutcome(
+                            state='EXIT', # Placeholder
+                            entry_price=self.wave_rider.last_trade_entry,
+                            exit_price=res['exit_price'],
+                            pnl=res['pnl'],
+                            result='WIN' if res['pnl'] > 0 else 'LOSS',
+                            timestamp=ts,
+                            exit_reason=res['exit_reason'],
+                            entry_time=self.wave_rider.last_trade_time,
+                            exit_time=ts,
+                            duration=ts - self.wave_rider.last_trade_time,
+                            direction='LONG' if self.wave_rider.last_trade_side == 'long' else 'SHORT',
+                            template_id=self.wave_rider.position.template_id if hasattr(self.wave_rider.position, 'template_id') else None
+                        )
+                        self.brain.update(outcome)
+                        day_trades.append(outcome)
+                        current_position_open = False
+
+                # 2. Check for entries (if no position)
+                if not current_position_open and ts in pattern_map:
+                    candidates = pattern_map[ts]
+                    best_candidate = None
+                    best_dist = 999.0
+                    best_tid = None
+
+                    for p in candidates:
+                        # Extract 11D features
+                        chain = getattr(p, 'parent_chain', None) or []
+                        if chain:
+                            p_z = abs(chain[0].get('z', 0.0))
+                            p_mom = abs(chain[0].get('mom', 0.0))
+                            root = chain[-1]
+                            root_z = abs(root.get('z', 0.0))
+                            root_is_roche = 1.0 if root.get('type') == 'ROCHE_SNAP' else 0.0
+                        else:
+                            p_z, p_mom, root_z, root_is_roche = 0.0, 0.0, 0.0, 0.0
+
+                        tf_secs = TIMEFRAME_SECONDS.get(p.timeframe, 15)
+                        tf_scale = np.log2(max(1, tf_secs))
+                        parent_ctx = 1.0 if p.parent_type == 'ROCHE_SNAP' else 0.0
+
+                        features = np.array([[
+                            abs(p.z_score), abs(p.velocity), abs(p.momentum), p.coherence,
+                            tf_scale, float(p.depth), parent_ctx,
+                            p_z, p_mom, root_z, root_is_roche
+                        ]])
+
+                        # Scale
+                        feat_scaled = self.scaler.transform(features)
+
+                        # Match
+                        dists = np.linalg.norm(centroids_scaled - feat_scaled, axis=1)
+                        nearest_idx = np.argmin(dists)
+                        dist = dists[nearest_idx]
+                        tid = valid_template_ids[nearest_idx]
+
+                        if dist < 3.0: # Threshold
+                            # Check Brain
+                            if self.brain.should_fire(tid):
+                                if dist < best_dist:
+                                    best_dist = dist
+                                    best_candidate = p
+                                    best_tid = tid
+
+                    if best_candidate:
+                        # FIRE
+                        params = self.pattern_library[best_tid]['params']
+                        side = 'short' if best_candidate.z_score > 0 else 'long'
+                        self.wave_rider.open_position(
+                            entry_price=price,
+                            side=side,
+                            state=best_candidate.state,
+                            stop_distance_ticks=params.get('stop_loss_ticks', 15),
+                            profit_target_ticks=params.get('take_profit_ticks', 50),
+                            trailing_stop_ticks=params.get('trailing_stop_ticks', 10),
+                            template_id=best_tid
+                        )
+                        current_position_open = True
+
+            # End of day cleanup
+            if self.wave_rider.position is not None:
+                res = self.wave_rider.close_position(price, ts, "TIME_EXIT")
+                if res:
+                    outcome = TradeOutcome(
+                        state='EXIT',
+                        entry_price=self.wave_rider.last_trade_entry,
+                        exit_price=res['exit_price'],
+                        pnl=res['pnl'],
+                        result='WIN' if res['pnl'] > 0 else 'LOSS',
+                        timestamp=ts,
+                        exit_reason=res['exit_reason'],
+                        entry_time=self.wave_rider.last_trade_time,
+                        exit_time=ts,
+                        duration=ts - self.wave_rider.last_trade_time,
+                        direction='LONG' if self.wave_rider.last_trade_side == 'long' else 'SHORT',
+                        template_id=self.wave_rider.position.template_id if hasattr(self.wave_rider.position, 'template_id') else None
+                    )
+                    self.brain.update(outcome)
+                    day_trades.append(outcome)
+
+            # Analyze day
+            if day_trades:
+                # Regret analysis (optional, or just stats)
+                d_pnl = sum(t.pnl for t in day_trades)
+                d_wins = sum(1 for t in day_trades if t.result == 'WIN')
+                total_pnl += d_pnl
+                total_trades += len(day_trades)
+                total_wins += d_wins
+                print(f"Trades: {len(day_trades)}, Wins: {d_wins}, PnL: ${d_pnl:.2f} ({time.perf_counter() - t_sim_start:.1f}s)")
+            else:
+                print("No trades.")
+
+        # Final Report
+        print("\n" + "="*80)
+        print("FORWARD PASS COMPLETE")
+        print(f"Total Trades: {total_trades}")
+        print(f"Win Rate: {total_wins/total_trades*100:.1f}%" if total_trades > 0 else "Win Rate: N/A")
+        print(f"Total PnL: ${total_pnl:.2f}")
+        print("="*80)
+
+    def run_strategy_selection(self):
+        """
+        Phase 5: Analyze brain data + regret history to rank strategies.
+        """
+        print("\n" + "="*80)
+        print("PHASE 5: STRATEGY SELECTION & RISK SCORING")
+        print("="*80)
+
+        lib_path = os.path.join(self.checkpoint_dir, 'pattern_library.pkl')
+        if not os.path.exists(lib_path):
+            print("ERROR: pattern_library.pkl not found.")
+            return
+
+        with open(lib_path, 'rb') as f:
+            self.pattern_library = pickle.load(f)
+
+        # Try to load brain from latest checkpoint or assume it's loaded
+        # The orchestrator init loads a fresh brain. If we ran forward pass in same process, it's populated.
+        # If running separately, we need to load the brain.
+        # Look for the latest brain checkpoint.
+        brain_files = sorted(glob.glob(os.path.join(self.checkpoint_dir, '*_brain.pkl')))
+        if brain_files:
+            latest_brain = brain_files[-1]
+            self.brain.load(latest_brain)
+            print(f"  Loaded brain state from {os.path.basename(latest_brain)}")
+        else:
+            print("  WARNING: No brain checkpoint found. Using empty brain (or current memory if chained).")
+
+        tier1_templates = []
+        report_data = []
+
+        print(f"\nAnalyzing {len(self.pattern_library)} strategies...")
+
+        for tid in self.pattern_library:
+            stats = self.brain.get_stats(tid)
+            prob = stats['probability']
+            conf = stats['confidence']
+            total = stats['total']
+
+            # Calculate Risk Metrics from history
+            # Filter trade history for this template
+            history = [t for t in self.brain.trade_history if t.template_id == tid]
+
+            if not history:
+                sharpe = 0.0
+                max_dd = 0.0
+                win_rate = 0.0
+                risk_score = 1.0 # High risk if unknown
+                avg_pnl = 0.0
+            else:
+                pnls = [t.pnl for t in history]
+                wins = [p for p in pnls if p > 0]
+                losses = [p for p in pnls if p <= 0]
+
+                avg_win = np.mean(wins) if wins else 0
+                avg_loss = np.mean(losses) if losses else 0
+                avg_pnl = np.mean(pnls)
+
+                std_pnl = np.std(pnls)
+                sharpe = avg_pnl / (std_pnl + 1e-6) if std_pnl > 0 else 0.0
+
+                # Max Drawdown
+                cum_pnl = np.cumsum(pnls)
+                peak = np.maximum.accumulate(cum_pnl)
+                dd = peak - cum_pnl
+                max_dd = np.max(dd) if len(dd) > 0 else 0.0
+
+                win_rate = len(wins) / len(pnls)
+
+                # Consec losses
+                max_consec_loss = 0
+                curr_consec = 0
+                for p in pnls:
+                    if p <= 0:
+                        curr_consec += 1
+                        max_consec_loss = max(max_consec_loss, curr_consec)
+                    else:
+                        curr_consec = 0
+
+                # Risk Score Formula
+                # 0.3 * (1 - win_rate) +
+                # 0.3 * (abs(avg_loss) / (avg_win + 1e-6)) +
+                # 0.2 * (max_consec_loss / 10.0) +
+                # 0.2 * (abs(max_dd) / (sum(wins) + 1e-6))  # vs total gains? or total pnl?
+                # Prompt said: abs(max_dd) / (total_pnl + 1e-6)
+
+                total_gain = sum(wins)
+                dd_ratio = abs(max_dd) / (total_gain + 1e-6) if total_gain > 0 else 1.0
+                loss_ratio = abs(avg_loss) / (avg_win + 1e-6)
+
+                risk_score = (
+                    0.3 * (1.0 - win_rate) +
+                    0.3 * min(loss_ratio, 2.0) + # Cap ratio
+                    0.2 * min(max_consec_loss / 10.0, 1.0) +
+                    0.2 * min(dd_ratio, 1.0)
+                )
+
+            # Determine Tier
+            tier = 4 # Toxic/Unknown
+            if total > 30 and prob > 0.55 and conf > 0.30 and sharpe > 0.5:
+                tier = 1
+            elif total > 15 and prob > 0.50 and conf > 0.20:
+                tier = 2
+            elif total < 15:
+                tier = 3
+            elif prob < 0.45 and total > 20:
+                tier = 4
+
+            report_data.append({
+                'id': tid,
+                'tier': tier,
+                'trades': total,
+                'win_rate': win_rate,
+                'sharpe': sharpe,
+                'pnl': sum(t.pnl for t in history),
+                'max_dd': max_dd,
+                'risk': risk_score
+            })
+
+            if tier == 1:
+                # Add to production playbook
+                entry = self.pattern_library[tid].copy()
+                entry['tier'] = 1
+                entry['stats'] = {
+                    'win_rate': win_rate,
+                    'sharpe': sharpe,
+                    'risk_score': risk_score,
+                    'total_trades': total
+                }
+                tier1_templates.append((tid, entry))
+
+        # Sort report
+        report_data.sort(key=lambda x: (x['tier'], -x['sharpe']))
+
+        # Print Report
+        print("\nSTRATEGY PERFORMANCE REPORT")
+        print(f"{'ID':<10} | {'Tier':<4} | {'Trades':<6} | {'Win%':<5} | {'Sharpe':<6} | {'PnL':<10} | {'MaxDD':<10} | {'Risk':<5}")
+        print("-" * 85)
+        for r in report_data[:50]: # Top 50
+            print(f"{r['id']:<10} | {r['tier']:<4} | {r['trades']:<6} | {r['win_rate']*100:5.1f} | {r['sharpe']:6.2f} | ${r['pnl']:<9.2f} | ${r['max_dd']:<9.2f} | {r['risk']:.2f}")
+
+        if len(report_data) > 50:
+            print(f"... and {len(report_data)-50} more strategies.")
+
+        # Save Playbook
+        playbook = {tid: data for tid, data in tier1_templates}
+        pb_path = os.path.join(self.checkpoint_dir, 'production_playbook.pkl')
+        with open(pb_path, 'wb') as f:
+            pickle.dump(playbook, f)
+
+        print(f"\nSaved {len(playbook)} Tier 1 strategies to {pb_path}")
+
+        # Ancestry Analysis
+        # Count how many Tier 1s have Roche vs Structure roots
+        roche_roots = 0
+        struct_roots = 0
+        for tid, data in tier1_templates:
+            centroid = data['centroid']
+            # Last element is root_is_roche
+            if centroid[-1] > 0.5:
+                roche_roots += 1
+            else:
+                struct_roots += 1
+
+        print("\nANCESTRY ANALYSIS (Tier 1):")
+        print(f"  Roche-backed: {roche_roots}")
+        print(f"  Structure-backed: {struct_roots}")
+
+
     def train(self, data_source: Any):
         """
         Master training loop (Pattern-Adaptive Walk-Forward)
@@ -314,6 +742,13 @@ class BayesianTrainingOrchestrator:
             clustering_engine = FractalClusteringEngine(n_clusters=n_initial, max_variance=0.5)
             templates = clustering_engine.create_templates(manifest)
             print(f"  Condensed {len(manifest)} raw patterns into {len(templates)} Tight Templates.")
+
+            # Save scaler for Phase 4
+            import pickle as _pickle
+            scaler_path = os.path.join(self.checkpoint_dir, 'clustering_scaler.pkl')
+            with open(scaler_path, 'wb') as f:
+                _pickle.dump(clustering_engine.scaler, f)
+            print(f"  Saved clustering scaler to {scaler_path}")
 
             ckpt.save_templates(templates)
 
@@ -774,6 +1209,8 @@ def main():
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
     parser.add_argument('--fresh', action='store_true', help="Clear all pipeline checkpoints and start fresh")
+    parser.add_argument('--forward-pass', action='store_true', help="Run Phase 4 forward pass using existing playbook")
+    parser.add_argument('--strategy-report', action='store_true', help="Run Phase 5 strategy selection report")
 
     args = parser.parse_args()
 
@@ -783,7 +1220,14 @@ def main():
     orchestrator = BayesianTrainingOrchestrator(args)
 
     try:
-        results = orchestrator.train(args.data)
+        if args.forward_pass:
+            orchestrator.run_forward_pass(args.data)
+            if args.strategy_report:
+                orchestrator.run_strategy_selection()
+        elif args.strategy_report:
+            orchestrator.run_strategy_selection()
+        else:
+            results = orchestrator.train(args.data)
         return 0
     except KeyboardInterrupt:
         print("\n\nWARNING: Training interrupted by user")
