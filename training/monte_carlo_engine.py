@@ -201,7 +201,7 @@ def simulate_month(data: pd.DataFrame, match_indices: np.ndarray, params: Dict[s
     """
     stop_ticks = float(params.get('stop_loss_ticks', 15))
     tp_ticks = float(params.get('take_profit_ticks', 40))
-    max_hold = int(params.get('max_hold_bars', 50))
+    max_hold = float(params.get('max_hold_bars', 50))
     trail_tight = float(params.get('trail_distance_tight', 10))
     trail_wide = float(params.get('trail_distance_wide', 30))
     cost_points = float(params.get('trading_cost_points', 0.5))
@@ -285,7 +285,7 @@ def simulate_template_tf_combo(template_id: int, timeframe: str, n_iterations: i
              return ComboResult(template_id, timeframe, [], None, 0, 0, n_iterations)
 
         # Pre-compute physics states
-        engine = QuantumFieldEngine()
+        engine = QuantumFieldEngine(asset=asset, use_gpu=False)
         all_states = []
         all_z_scores = []
 
@@ -294,10 +294,9 @@ def simulate_template_tf_combo(template_id: int, timeframe: str, n_iterations: i
         all_timestamps = []
 
         for month_data in all_data:
-            raw_results = engine.batch_compute_states(month_data)
-            # batch_compute_states returns list of {'bar_idx', 'state', 'price', 'structure_ok'}
-            states = [r['state'] for r in raw_results]
+            states = engine.batch_compute_states(month_data)
             all_states.append(states)
+            # Store z_scores for direction logic
             z_s = np.array([s.z_score for s in states])
             all_z_scores.append(z_s)
 

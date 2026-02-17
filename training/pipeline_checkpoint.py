@@ -161,11 +161,6 @@ class PipelineCheckpoint:
             if os.path.exists(path):
                 os.remove(path)
                 print(f"  [CHECKPOINT] Removed: {os.path.basename(path)}")
-        # Also clear MC sweep checkpoint
-        mc_path = os.path.join(self.checkpoint_dir, 'mc_sweep_state.pkl')
-        if os.path.exists(mc_path):
-            os.remove(mc_path)
-            print(f"  [CHECKPOINT] Removed: mc_sweep_state.pkl")
         print("  [CHECKPOINT] All pipeline checkpoints cleared.")
 
     def summary(self) -> str:

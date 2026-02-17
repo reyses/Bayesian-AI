@@ -67,13 +67,6 @@ class FractalDashboard:
         self.ax.grid(True, linestyle='--', alpha=0.3)
 
         self.scatter = self.ax.scatter([], [], c=[], cmap='viridis', s=50, alpha=0.8)
-
-        # Add Colorbar for PnL
-        cbar = self.fig.colorbar(self.scatter, ax=self.ax)
-        cbar.set_label('Profit/Loss ($)', color='white')
-        cbar.ax.tick_params(colors='white')
-        cbar.outline.set_edgecolor('white')
-
         self.canvas = FigureCanvasTkAgg(self.fig, master=left_pane)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
