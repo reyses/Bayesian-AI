@@ -1,6 +1,5 @@
 import torch
 import numpy as np
-from sklearn.cluster import kmeans_plusplus
 
 class CUDAKMeans:
     """
@@ -65,16 +64,9 @@ class CUDAKMeans:
         rng = np.random.RandomState(self.random_state)
 
         for init_idx in range(self.n_init):
-            # 1. Initialization (CPU for kmeans++)
-            try:
-                centroids_cpu, _ = kmeans_plusplus(X_cpu, n_clusters=self.n_clusters, random_state=rng)
-                centroids = torch.from_numpy(centroids_cpu).float().cuda()
-            except Exception as e:
-                # Fallback to random choice if kmeans++ fails
-                if self.verbose:
-                    print(f"CUDAKMeans: kmeans++ failed ({e}), using random init.")
-                indices = torch.randperm(n_samples)[:self.n_clusters]
-                centroids = X_tensor[indices].clone()
+            # 1. KMeans++ Initialization (CPU — only K iterations, cheap)
+            centroids_cpu = self._kmeans_plus_plus_init(X_cpu, rng)
+            centroids = torch.from_numpy(centroids_cpu).float().cuda()
 
             current_centroids = centroids.clone()
 
@@ -145,3 +137,68 @@ class CUDAKMeans:
     def fit_predict(self, X):
         self.fit(X)
         return self.labels_
+
+    def _kmeans_plus_plus_init(self, X, rng):
+        """KMeans++ initialization on CPU (only K iterations, cheap)."""
+        n_samples, n_features = X.shape
+        centroids = np.empty((self.n_clusters, n_features), dtype=np.float64)
+
+        # First centroid: random
+        centroids[0] = X[rng.randint(n_samples)]
+
+        for c in range(1, self.n_clusters):
+            # Distance from each point to nearest existing centroid
+            dists = np.full(n_samples, np.inf)
+            for j in range(c):
+                d = np.sum((X - centroids[j]) ** 2, axis=1)
+                dists = np.minimum(dists, d)
+
+            # Probability proportional to distance
+            total = dists.sum()
+            if total < 1e-30:
+                # All points coincide with existing centroids — pick random
+                centroids[c] = X[rng.randint(n_samples)]
+            else:
+                probs = dists / total
+                centroids[c] = X[rng.choice(n_samples, p=probs)]
+
+        return centroids
+
+
+def cuda_silhouette_score(X, labels):
+    """GPU-accelerated silhouette score using PyTorch."""
+    X_tensor = torch.from_numpy(np.ascontiguousarray(X, dtype=np.float64)).float().cuda()
+    labels_tensor = torch.from_numpy(np.ascontiguousarray(labels, dtype=np.int64)).cuda()
+
+    n_samples = X_tensor.shape[0]
+    n_clusters = int(labels_tensor.max().item()) + 1
+
+    # Pairwise distance matrix (n_samples x n_samples)
+    dist_matrix = torch.cdist(X_tensor, X_tensor)
+
+    a_scores = torch.zeros(n_samples, device=X_tensor.device)
+    b_scores = torch.full((n_samples,), float('inf'), device=X_tensor.device)
+
+    for c in range(n_clusters):
+        mask = (labels_tensor == c)
+        count = mask.sum().float()
+
+        # Mean distance from every point to all points in cluster c
+        cluster_dists = dist_matrix[:, mask].sum(dim=1)  # (n_samples,)
+
+        # For points IN this cluster: a(i) = mean intra-cluster distance
+        in_cluster = mask
+        if count > 1:
+            a_scores[in_cluster] = cluster_dists[in_cluster] / (count - 1)
+
+        # For points NOT in this cluster: candidate for b(i)
+        out_cluster = ~mask
+        if count > 0:
+            mean_dist = cluster_dists[out_cluster] / count
+            b_scores[out_cluster] = torch.minimum(b_scores[out_cluster], mean_dist)
+
+    # Silhouette: (b - a) / max(a, b)
+    max_ab = torch.maximum(a_scores, b_scores)
+    sil = torch.where(max_ab > 0, (b_scores - a_scores) / max_ab, torch.zeros_like(a_scores))
+
+    return float(sil.mean().item())
