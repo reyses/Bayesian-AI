@@ -328,7 +328,7 @@ def _process_template_job(args):
     return {
         'status': 'DONE',
         'template_id': template.template_id,
-        'centroid': template.centroid,
+        'template': template,
         'best_params': best_params,
         'val_pnl': val_pnl,
         'member_count': template.member_count,
