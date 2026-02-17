@@ -39,8 +39,8 @@ class FractalClusteringEngine:
     @staticmethod
     def extract_features(p: Any) -> List[float]:
         """
-        Extracts 11D feature vector from a PatternEvent.
-        [|z|, |v|, |m|, coh, tf_scale, depth, parent_ctx, p_z, p_mom, root_z, root_is_roche]
+        Extracts 14D feature vector from a PatternEvent.
+        [7 base] + [3 self regime] + [4 ancestry]
         """
         z = getattr(p, 'z_score', 0.0)
         v = getattr(p, 'velocity', 0.0)
@@ -56,19 +56,42 @@ class FractalClusteringEngine:
         parent_type = getattr(p, 'parent_type', '')
         parent_ctx = 1.0 if parent_type == 'ROCHE_SNAP' else 0.0
 
+        # Self Regime features
+        state = getattr(p, 'state', None)
+        if state:
+             self_adx = getattr(state, 'adx_strength', 0.0) / 100.0
+             self_hurst = getattr(state, 'hurst_exponent', 0.5)
+             self_dmi_diff = (getattr(state, 'dmi_plus', 0.0) - getattr(state, 'dmi_minus', 0.0)) / 100.0
+        else:
+             self_adx = 0.0
+             self_hurst = 0.5
+             self_dmi_diff = 0.0
+
         # Ancestry features
         chain = getattr(p, 'parent_chain', None) or []
         if chain:
-            p_z = abs(chain[0].get('z', 0.0))
-            p_mom = abs(chain[0].get('mom', 0.0))
+            # Immediate parent
+            parent_z = abs(chain[0].get('z', 0.0))
+            parent_dmi_diff = (chain[0].get('dmi_plus', 0.0) - chain[0].get('dmi_minus', 0.0)) / 100.0
+
+            # Root ancestor
             root = chain[-1]
-            root_z = abs(root.get('z', 0.0))
             root_is_roche = 1.0 if root.get('type') == 'ROCHE_SNAP' else 0.0
+            root_dmi_diff = (root.get('dmi_plus', 0.0) - root.get('dmi_minus', 0.0)) / 100.0
+
+            # TF Alignment
+            self_dir = 1.0 if self_dmi_diff > 0 else -1.0
+            root_dir = 1.0 if root_dmi_diff > 0 else -1.0
+            tf_alignment = self_dir * root_dir
         else:
-            p_z, p_mom, root_z, root_is_roche = 0.0, 0.0, 0.0, 0.0
+            parent_z = 0.0
+            parent_dmi_diff = 0.0
+            root_is_roche = 0.0
+            tf_alignment = 0.0
 
         return [abs(z), abs(v), abs(m), c, tf_scale, depth, parent_ctx,
-                p_z, p_mom, root_z, root_is_roche]
+                self_adx, self_hurst, self_dmi_diff,
+                parent_z, parent_dmi_diff, root_is_roche, tf_alignment]
 
     def create_templates(self, manifest: List[Any]) -> List[PatternTemplate]:
         """
