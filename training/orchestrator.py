@@ -1247,8 +1247,11 @@ class BayesianTrainingOrchestrator:
 
                 # Restore pattern library from completed results
                 for tmpl_id, result in completed_results.items():
-                    if result.get('status') == 'DONE' and 'template' in result:
-                        self.register_template_logic(result['template'], result['best_params'])
+                    if result.get('status') == 'DONE':
+                        if 'template' in result:
+                            self.register_template_logic(result['template'], result['best_params'])
+                        else:
+                            self.register_template_result(tmpl_id, result['centroid'], result['member_count'], result['best_params'])
 
         if not resumed_phase3:
             template_queue = templates.copy()
@@ -1328,7 +1331,7 @@ class BayesianTrainingOrchestrator:
                             })
 
                     elif status == 'DONE':
-                        tmpl = result['template']
+                        # tmpl = result['template'] # Removed to save memory
                         best_params = result['best_params']
                         val_pnl = result['val_pnl']
                         member_count = result['member_count']
@@ -1339,7 +1342,7 @@ class BayesianTrainingOrchestrator:
                         total_val_pnl += val_pnl
 
                         completed_results[tmpl_id] = result
-                        self.register_template_logic(tmpl, best_params)
+                        self.register_template_result(tmpl_id, result['centroid'], member_count, best_params)
                         timing = result.get('timing', '')
                         print(f"    [{processed_count}] Template {tmpl_id}: DONE ({member_count} members) -> PnL: ${val_pnl:.2f} | {timing}")
 
@@ -1441,15 +1444,21 @@ class BayesianTrainingOrchestrator:
 
         return manifest
 
+    def register_template_result(self, template_id, centroid, member_count, params: Dict):
+        """
+        Saves the centroid and params to the pattern_library using explicit fields.
+        """
+        self.pattern_library[template_id] = {
+            'centroid': centroid,
+            'params': params,
+            'member_count': member_count
+        }
+
     def register_template_logic(self, template: PatternTemplate, params: Dict):
         """
-        Saves the centroid and params to the pattern_library.
+        Wrapper for register_template_result using PatternTemplate object.
         """
-        self.pattern_library[template.template_id] = {
-            'centroid': template.centroid,
-            'params': params,
-            'member_count': template.member_count
-        }
+        self.register_template_result(template.template_id, template.centroid, template.member_count, params)
 
     def validate_template_group(self, patterns: List[PatternEvent], params: Dict) -> float:
         """
