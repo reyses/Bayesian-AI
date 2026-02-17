@@ -208,7 +208,20 @@ class PipelineCheckpoint:
         tmp_path = path + '.tmp'
         with open(tmp_path, 'w') as f:
             json.dump(data, f, indent=2, default=str)
-        os.replace(tmp_path, path)
+        # Windows: os.replace can fail if target is locked (OneDrive, antivirus, etc.)
+        for attempt in range(3):
+            try:
+                os.replace(tmp_path, path)
+                return
+            except PermissionError:
+                import time as _t
+                _t.sleep(0.1 * (attempt + 1))
+        # Last resort: direct overwrite
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            pass
+        os.rename(tmp_path, path)
 
     def _load_json(self, path: str) -> Optional[Dict]:
         if not os.path.exists(path):
