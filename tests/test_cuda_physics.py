@@ -1,5 +1,6 @@
 
 import sys
+import os
 import unittest
 from unittest.mock import MagicMock, patch
 import pandas as pd
@@ -29,6 +30,11 @@ mock_detect_archetype = MagicMock()
 sys.modules['core.cuda_physics'] = MagicMock()
 sys.modules['core.cuda_physics'].compute_physics_kernel = mock_compute_physics
 sys.modules['core.cuda_physics'].detect_archetype_kernel = mock_detect_archetype
+sys.modules['core.cuda_physics'].compute_dm_tr_kernel = MagicMock()
+sys.modules['core.cuda_physics'].compute_adx_dmi_cpu = MagicMock(return_value=(np.zeros(100), np.zeros(100), np.zeros(100)))
+sys.modules['core.cuda_physics'].compute_hurst_kernel = MagicMock()
+sys.modules['core.cuda_physics'].ADX_PERIOD = 14
+sys.modules['core.cuda_physics'].HURST_WINDOW = 100
 
 # Mock core.cuda_pattern_detector
 sys.modules['core.cuda_pattern_detector'] = MagicMock()

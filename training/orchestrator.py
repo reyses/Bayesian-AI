@@ -60,6 +60,10 @@ from training.orchestrator_worker import simulate_trade_standalone, _optimize_pa
 from training.orchestrator_worker import FISSION_SUBSET_SIZE, INDIVIDUAL_OPTIMIZATION_ITERATIONS, DEFAULT_BASE_SLIPPAGE, DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 
 INITIAL_CLUSTER_DIVISOR = 100
+_ADX_TREND_CONFIRMATION = 25.0
+_HURST_TREND_CONFIRMATION = 0.6
+_ADX_TREND_CONFIRMATION = 25.0
+_HURST_TREND_CONFIRMATION = 0.6
 
 # Visualization
 try:
@@ -357,7 +361,52 @@ class BayesianTrainingOrchestrator:
                     best_tid = None
 
                     for p in candidates:
-                        # Extract 11D features using shared logic
+                        # --- Gate 0: Headroom Gate (Nightmare Field Equation) ---
+                        micro_z = abs(p.z_score)
+                        micro_pattern = p.pattern_type
+
+                        # Macro context
+                        chain = getattr(p, 'parent_chain', [])
+                        root_entry = chain[-1] if chain else None
+                        macro_z = abs(root_entry['z']) if root_entry else 0.0
+
+                        should_skip = False
+
+                        # RULE 1: No pattern = no trade
+                        if not micro_pattern:
+                            should_skip = True
+
+                        # RULE 2: Noise zone (<1.0 sigma)
+                        elif micro_z < 1.0:
+                            should_skip = True
+
+                        # RULE 3: Approach zone (1.0 - 2.0 sigma)
+                        elif 1.0 <= micro_z < 2.0:
+                            if micro_pattern == 'STRUCTURAL_DRIVE':
+                                # Only trade if strong trend confirmed
+                                if p.state.adx_strength < _ADX_TREND_CONFIRMATION or p.state.hurst_exponent < _HURST_TREND_CONFIRMATION:
+                                    should_skip = True
+                            elif micro_pattern == 'ROCHE_SNAP':
+                                # Snap hasn't reached tradeable zone
+                                should_skip = True
+
+                        # RULE 4: Mean Reversion / Extreme zone (>= 2.0 sigma)
+                        elif micro_z >= 2.0:
+                            headroom = macro_z < 2.0
+
+                            if micro_pattern == 'ROCHE_SNAP':
+                                # Extreme + Wall = Nightmare Field (Skip)
+                                if not headroom and micro_z > 3.0:
+                                    should_skip = True
+                            elif micro_pattern == 'STRUCTURAL_DRIVE':
+                                # Momentum into a wall = don't chase
+                                if not headroom:
+                                    should_skip = True
+
+                        if should_skip:
+                            continue
+
+                        # Extract 14D features using shared logic
                         features = np.array([FractalClusteringEngine.extract_features(p)])
 
                         # Scale
