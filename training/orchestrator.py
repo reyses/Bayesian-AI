@@ -260,6 +260,7 @@ class BayesianTrainingOrchestrator:
         total_pnl = 0.0
         total_trades = 0
         total_wins = 0
+        all_regret = []  # Regret analysis across all days
 
         for day_idx, day_file in enumerate(daily_files_15s):
             day_date = os.path.basename(day_file).replace('.parquet', '')
@@ -285,21 +286,15 @@ class BayesianTrainingOrchestrator:
                 print(f"FAILED to load {day_file}: {e}")
                 continue
 
-            # Map patterns to bar indices for efficient processing
-            # Or just iterate bars and check if a pattern triggered?
-            # Better: Iterate patterns, attempt entry.
-            # But we also need to manage exits tick-by-tick (or bar-by-bar).
-            # Hybrid approach:
-            # 1. Patterns queue.
-            # 2. Iterate bars.
-            # 3. If bar matches pattern timestamp, try entry.
-            # 4. Always update open position.
-
-            # Create a lookup for patterns by timestamp (or index)
-            # Round timestamp to nearest 15s? They should match exactly if from same source.
             pattern_map = defaultdict(list)
             for p in actionable_patterns:
                 pattern_map[p.timestamp].append(p)
+
+            # Pre-extract numpy arrays for regret analysis (lookahead after exit)
+            day_prices = df_15s['close'].values if 'close' in df_15s.columns else df_15s['price'].values
+            day_timestamps = df_15s['timestamp'].values
+            day_highs = df_15s['high'].values if 'high' in df_15s.columns else day_prices
+            day_lows = df_15s['low'].values if 'low' in df_15s.columns else day_prices
 
             # B. Simulation Loop
             t_sim_start = time.perf_counter()
@@ -321,7 +316,10 @@ class BayesianTrainingOrchestrator:
             active_side = 'long'
             active_template_id = None
 
-            for row in df_15s.itertuples():
+            active_entry_bar_idx = 0  # Track bar index for regret lookahead
+            regret_records = []  # Per-trade regret data
+
+            for bar_idx, row in enumerate(df_15s.itertuples()):
                 ts = row.timestamp
                 price = getattr(row, 'close', getattr(row, 'price', 0.0))
 
@@ -345,6 +343,20 @@ class BayesianTrainingOrchestrator:
                         )
                         self.brain.update(outcome)
                         day_trades.append(outcome)
+
+                        # --- Regret Analysis ---
+                        regret = self._compute_trade_regret(
+                            day_prices, day_highs, day_lows,
+                            active_entry_bar_idx, bar_idx,
+                            active_entry_price, res['exit_price'],
+                            active_side
+                        )
+                        regret['template_id'] = active_template_id
+                        regret['pnl'] = res['pnl']
+                        regret['exit_reason'] = res['exit_reason']
+                        regret['direction'] = active_side
+                        regret_records.append(regret)
+
                         current_position_open = False
 
                 # 2. Check for entries (if no position)
@@ -442,6 +454,7 @@ class BayesianTrainingOrchestrator:
                         active_entry_time = ts
                         active_side = side
                         active_template_id = best_tid
+                        active_entry_bar_idx = bar_idx
 
             # End of day cleanup — force close any open position
             if self.wave_rider.position is not None:
@@ -469,6 +482,20 @@ class BayesianTrainingOrchestrator:
                 self.brain.update(outcome)
                 day_trades.append(outcome)
 
+                # Regret for EOD close
+                regret = self._compute_trade_regret(
+                    day_prices, day_highs, day_lows,
+                    active_entry_bar_idx, len(day_prices) - 1,
+                    active_entry_price, price, active_side
+                )
+                regret['template_id'] = active_template_id
+                regret['pnl'] = eod_pnl
+                regret['exit_reason'] = 'TIME_EXIT'
+                regret['direction'] = active_side
+                regret_records.append(regret)
+
+            all_regret.extend(regret_records)
+
             # Analyze day
             if day_trades:
                 # Regret analysis (optional, or just stats)
@@ -481,14 +508,10 @@ class BayesianTrainingOrchestrator:
             else:
                 print("No trades.")
 
-        # Final Report
-        report_lines = []
-        report_lines.append("=" * 80)
-        report_lines.append("FORWARD PASS COMPLETE")
-        report_lines.append(f"Total Trades: {total_trades}")
-        report_lines.append(f"Win Rate: {total_wins/total_trades*100:.1f}%" if total_trades > 0 else "Win Rate: N/A")
-        report_lines.append(f"Total PnL: ${total_pnl:.2f}")
-        report_lines.append("=" * 80)
+        # Final Report with Regret Analysis
+        report_lines = self._build_regret_report(
+            total_trades, total_wins, total_pnl, all_regret
+        )
 
         for line in report_lines:
             print(line)
@@ -498,6 +521,228 @@ class BayesianTrainingOrchestrator:
         with open(report_path, 'w') as f:
             f.write('\n'.join(report_lines) + '\n')
         print(f"  Report saved to {report_path}")
+
+    def _compute_trade_regret(self, prices, highs, lows, entry_idx, exit_idx,
+                               entry_price, exit_price, side):
+        """
+        Compute regret metrics for a single trade.
+        Returns dict with MFE, MAE, post-exit continuation, and wrong-direction check.
+        """
+        pv = self.asset.point_value
+        trade_highs = highs[entry_idx:exit_idx + 1]
+        trade_lows = lows[entry_idx:exit_idx + 1]
+
+        # Lookahead: 20 bars after exit (5 min at 15s)
+        lookahead = 20
+        post_end = min(exit_idx + lookahead + 1, len(prices))
+        post_prices = prices[exit_idx:post_end] if exit_idx < len(prices) else np.array([exit_price])
+
+        if side == 'long':
+            # Max Favorable Excursion: best price during trade
+            mfe = (np.max(trade_highs) - entry_price) * pv if len(trade_highs) > 0 else 0.0
+            # Max Adverse Excursion: worst price during trade
+            mae = (entry_price - np.min(trade_lows)) * pv if len(trade_lows) > 0 else 0.0
+            # Actual captured
+            captured = (exit_price - entry_price) * pv
+            # Post-exit: how far price went in our direction after we left
+            post_max = (np.max(post_prices) - exit_price) * pv if len(post_prices) > 0 else 0.0
+            # Wrong direction: if price moved favorably in the OTHER direction
+            wrong_dir_pnl = (entry_price - np.min(trade_lows)) * pv  # If we'd gone short
+        else:  # short
+            mfe = (entry_price - np.min(trade_lows)) * pv if len(trade_lows) > 0 else 0.0
+            mae = (np.max(trade_highs) - entry_price) * pv if len(trade_highs) > 0 else 0.0
+            captured = (entry_price - exit_price) * pv
+            post_max = (exit_price - np.min(post_prices)) * pv if len(post_prices) > 0 else 0.0
+            wrong_dir_pnl = (np.max(trade_highs) - entry_price) * pv  # If we'd gone long
+
+        # Left on table = MFE - captured (how much more we could have made)
+        left_on_table = mfe - captured
+
+        # Exited too early = post-exit continuation > $1 (profitable move after we left)
+        exited_early = post_max > 1.0
+
+        # Exited too late = captured < MFE * 0.5 (gave back more than half the move)
+        exited_late = captured < mfe * 0.5 and mfe > 1.0
+
+        # Wrong direction = other side would have been more profitable
+        wrong_dir = wrong_dir_pnl > mfe and wrong_dir_pnl > 1.0
+
+        return {
+            'mfe': mfe,
+            'mae': mae,
+            'captured': captured,
+            'left_on_table': left_on_table,
+            'post_exit_continuation': post_max,
+            'exited_early': exited_early,
+            'exited_late': exited_late,
+            'wrong_direction': wrong_dir,
+            'wrong_dir_pnl': wrong_dir_pnl,
+            'bars_held': exit_idx - entry_idx,
+        }
+
+    def _build_regret_report(self, total_trades, total_wins, total_pnl, all_regret):
+        """Build comprehensive report with regret analysis."""
+        lines = []
+        lines.append("=" * 80)
+        lines.append("FORWARD PASS REPORT — WITH REGRET ANALYSIS")
+        lines.append("=" * 80)
+
+        # --- Section 1: Overall Stats ---
+        lines.append("")
+        lines.append("OVERALL PERFORMANCE")
+        lines.append("-" * 40)
+        lines.append(f"  Total Trades:  {total_trades}")
+        if total_trades > 0:
+            lines.append(f"  Win Rate:      {total_wins/total_trades*100:.1f}%")
+        lines.append(f"  Total PnL:     ${total_pnl:.2f}")
+        if total_trades > 0:
+            lines.append(f"  Avg PnL/Trade: ${total_pnl/total_trades:.2f}")
+
+        if not all_regret:
+            lines.append("\n  No regret data available.")
+            return lines
+
+        # --- Section 2: Regret Summary ---
+        n = len(all_regret)
+        early_count = sum(1 for r in all_regret if r['exited_early'])
+        late_count = sum(1 for r in all_regret if r['exited_late'])
+        wrong_count = sum(1 for r in all_regret if r['wrong_direction'])
+
+        avg_mfe = sum(r['mfe'] for r in all_regret) / n
+        avg_mae = sum(r['mae'] for r in all_regret) / n
+        avg_captured = sum(r['captured'] for r in all_regret) / n
+        avg_left = sum(r['left_on_table'] for r in all_regret) / n
+        total_left = sum(r['left_on_table'] for r in all_regret)
+
+        lines.append("")
+        lines.append("REGRET ANALYSIS SUMMARY")
+        lines.append("-" * 40)
+        lines.append(f"  Exited Too Early:    {early_count}/{n} ({early_count/n*100:.0f}%)")
+        lines.append(f"  Exited Too Late:     {late_count}/{n} ({late_count/n*100:.0f}%)")
+        lines.append(f"  Wrong Direction:     {wrong_count}/{n} ({wrong_count/n*100:.0f}%)")
+        lines.append("")
+        lines.append(f"  Avg MFE (best possible):    ${avg_mfe:.2f}")
+        lines.append(f"  Avg MAE (worst drawdown):   ${avg_mae:.2f}")
+        lines.append(f"  Avg Captured:               ${avg_captured:.2f}")
+        lines.append(f"  Avg Left on Table:          ${avg_left:.2f}")
+        lines.append(f"  Total Left on Table:        ${total_left:.2f}")
+        capture_ratio = avg_captured / avg_mfe * 100 if avg_mfe > 0 else 0
+        lines.append(f"  Capture Ratio (captured/MFE): {capture_ratio:.0f}%")
+
+        # --- Section 3: By Exit Reason ---
+        lines.append("")
+        lines.append("BY EXIT REASON")
+        lines.append("-" * 40)
+        lines.append(f"  {'Reason':<15s} {'Count':>6s} {'Avg PnL':>10s} {'Avg MFE':>10s} {'Avg Left':>10s} {'Early%':>7s} {'Late%':>7s}")
+        lines.append(f"  {'-'*15} {'-'*6} {'-'*10} {'-'*10} {'-'*10} {'-'*7} {'-'*7}")
+
+        reasons = {}
+        for r in all_regret:
+            reason = r['exit_reason']
+            if reason not in reasons:
+                reasons[reason] = []
+            reasons[reason].append(r)
+
+        for reason, trades in sorted(reasons.items(), key=lambda x: -len(x[1])):
+            cnt = len(trades)
+            a_pnl = sum(t['pnl'] for t in trades) / cnt
+            a_mfe = sum(t['mfe'] for t in trades) / cnt
+            a_left = sum(t['left_on_table'] for t in trades) / cnt
+            e_pct = sum(1 for t in trades if t['exited_early']) / cnt * 100
+            l_pct = sum(1 for t in trades if t['exited_late']) / cnt * 100
+            lines.append(f"  {reason:<15s} {cnt:>6d} {a_pnl:>+10.2f} {a_mfe:>10.2f} {a_left:>10.2f} {e_pct:>6.0f}% {l_pct:>6.0f}%")
+
+        # --- Section 4: By Direction ---
+        lines.append("")
+        lines.append("BY DIRECTION")
+        lines.append("-" * 40)
+        lines.append(f"  {'Side':<8s} {'Count':>6s} {'Wins':>6s} {'WR%':>6s} {'Avg PnL':>10s} {'Wrong%':>7s}")
+        lines.append(f"  {'-'*8} {'-'*6} {'-'*6} {'-'*6} {'-'*10} {'-'*7}")
+
+        for side in ['long', 'short']:
+            side_trades = [r for r in all_regret if r['direction'] == side]
+            if not side_trades:
+                continue
+            cnt = len(side_trades)
+            wins = sum(1 for t in side_trades if t['pnl'] > 0)
+            wr = wins / cnt * 100
+            a_pnl = sum(t['pnl'] for t in side_trades) / cnt
+            w_pct = sum(1 for t in side_trades if t['wrong_direction']) / cnt * 100
+            lines.append(f"  {side:<8s} {cnt:>6d} {wins:>6d} {wr:>5.1f}% {a_pnl:>+10.2f} {w_pct:>6.0f}%")
+
+        # --- Section 5: Worst Wrong-Direction Trades ---
+        wrong_trades = [r for r in all_regret if r['wrong_direction']]
+        if wrong_trades:
+            lines.append("")
+            lines.append("TOP 10 WORST WRONG-DIRECTION TRADES")
+            lines.append("-" * 40)
+            lines.append(f"  {'TID':>5s} {'Side':<6s} {'Actual PnL':>11s} {'If Flipped':>11s} {'Missed':>11s}")
+            lines.append(f"  {'-'*5} {'-'*6} {'-'*11} {'-'*11} {'-'*11}")
+
+            # Sort by how much the other direction would have made
+            wrong_sorted = sorted(wrong_trades, key=lambda x: -x['wrong_dir_pnl'])[:10]
+            for t in wrong_sorted:
+                missed = t['wrong_dir_pnl'] - t['captured']
+                lines.append(f"  T-{t['template_id']:<3} {t['direction']:<6s} "
+                           f"${t['pnl']:>+9.2f} ${t['wrong_dir_pnl']:>+9.2f} ${missed:>+9.2f}")
+
+        # --- Section 6: Worst Exited-Too-Early Trades ---
+        early_trades = [r for r in all_regret if r['exited_early']]
+        if early_trades:
+            lines.append("")
+            lines.append("TOP 10 WORST EXITED-TOO-EARLY TRADES")
+            lines.append("-" * 40)
+            lines.append(f"  {'TID':>5s} {'ExitReason':<15s} {'PnL':>9s} {'Post-Exit':>10s} {'Left':>10s}")
+            lines.append(f"  {'-'*5} {'-'*15} {'-'*9} {'-'*10} {'-'*10}")
+
+            early_sorted = sorted(early_trades, key=lambda x: -x['post_exit_continuation'])[:10]
+            for t in early_sorted:
+                lines.append(f"  T-{t['template_id']:<3} {t['exit_reason']:<15s} "
+                           f"${t['pnl']:>+7.2f} ${t['post_exit_continuation']:>+8.2f} ${t['left_on_table']:>+8.2f}")
+
+        # --- Section 7: Worst Exited-Too-Late Trades ---
+        late_trades = [r for r in all_regret if r['exited_late']]
+        if late_trades:
+            lines.append("")
+            lines.append("TOP 10 WORST EXITED-TOO-LATE TRADES (gave back >50% of MFE)")
+            lines.append("-" * 40)
+            lines.append(f"  {'TID':>5s} {'MFE':>9s} {'Captured':>10s} {'Gave Back':>10s} {'Bars':>5s}")
+            lines.append(f"  {'-'*5} {'-'*9} {'-'*10} {'-'*10} {'-'*5}")
+
+            late_sorted = sorted(late_trades, key=lambda x: -(x['mfe'] - x['captured']))[:10]
+            for t in late_sorted:
+                gave_back = t['mfe'] - t['captured']
+                lines.append(f"  T-{t['template_id']:<3} ${t['mfe']:>+7.2f} "
+                           f"${t['captured']:>+8.2f} ${gave_back:>+8.2f} {t['bars_held']:>5d}")
+
+        # --- Section 8: Actionable Recommendations ---
+        lines.append("")
+        lines.append("ACTIONABLE RECOMMENDATIONS")
+        lines.append("-" * 40)
+
+        if wrong_count > n * 0.3:
+            lines.append(f"  [CRITICAL] {wrong_count/n*100:.0f}% of trades had WRONG DIRECTION.")
+            lines.append(f"             Template centroid z_score sign may not match actual edge.")
+            lines.append(f"             Consider: re-cluster with signed z, or add direction as feature.")
+
+        if early_count > n * 0.4:
+            lines.append(f"  [HIGH] {early_count/n*100:.0f}% exited too early. Price kept moving after exit.")
+            lines.append(f"         Consider: wider trailing stops, longer max_hold_bars.")
+
+        if late_count > n * 0.3:
+            lines.append(f"  [HIGH] {late_count/n*100:.0f}% exited too late (gave back >50% of MFE).")
+            lines.append(f"         Consider: tighter trailing stops, profit targets closer to MFE.")
+
+        if capture_ratio < 30:
+            lines.append(f"  [HIGH] Capture ratio is only {capture_ratio:.0f}%. Leaving ${total_left:.0f} on the table.")
+            lines.append(f"         The system sees moves but can't hold them. Trail logic needs work.")
+
+        if not wrong_trades and early_count < n * 0.2 and late_count < n * 0.2:
+            lines.append("  System execution looks clean. Focus on signal quality (template matching).")
+
+        lines.append("")
+        lines.append("=" * 80)
+        return lines
 
     def run_final_validation(self, top_strategies):
         """
