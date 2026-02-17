@@ -4,9 +4,6 @@ import os
 import unittest
 from unittest.mock import MagicMock, patch
 import pandas as pd
-
-# Add project root to sys.path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import numpy as np
 
 # Mock numba.cuda before importing core modules
