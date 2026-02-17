@@ -83,6 +83,11 @@ class ThompsonRefiner:
 
         print(f"Starting Thompson Refinement: {len(self.top_combos)} combos, {rounds} rounds, {self.iteration_budget} iterations.")
 
+        if len(self.top_combos) == 0:
+            print("WARNING: No combos to refine — Monte Carlo sweep produced no valid trades.")
+            print("Check that QuantumFieldEngine.batch_compute_states() works for all timeframes.")
+            return []
+
         for round_num in range(rounds):
             # Thompson sampling: draw from each combo's posterior
             thompson_scores = []
