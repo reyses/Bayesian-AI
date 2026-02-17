@@ -57,10 +57,7 @@ from training.integrated_statistical_system import IntegratedStatisticalEngine
 from training.batch_regret_analyzer import BatchRegretAnalyzer
 from training.wave_rider import WaveRider
 from training.orchestrator_worker import simulate_trade_standalone, _optimize_pattern_task, _optimize_template_task, _process_template_job
-from config.settings import (
-    DEFAULT_BASE_SLIPPAGE, DEFAULT_VELOCITY_SLIPPAGE_FACTOR,
-    FISSION_SUBSET_SIZE, INDIVIDUAL_OPTIMIZATION_ITERATIONS
-)
+from training.orchestrator_worker import FISSION_SUBSET_SIZE, INDIVIDUAL_OPTIMIZATION_ITERATIONS, DEFAULT_BASE_SLIPPAGE, DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 
 # Monte Carlo Pipeline
 from training.monte_carlo_engine import MonteCarloEngine, simulate_template_tf_combo
