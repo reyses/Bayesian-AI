@@ -575,6 +575,24 @@ class DOEParameterGenerator:
             generation_method='crossover'
         )
 
+    def generate_random_set(self, iteration_id: int) -> Dict[str, Any]:
+        """
+        Pure random sampling from parameter ranges (Monte Carlo).
+        No DOE structure, just uniform sampling.
+        """
+        params = {}
+        for name, (lo, hi, dtype) in self._define_parameter_ranges().items():
+            if dtype == 'int':
+                params[name] = np.random.randint(lo, hi + 1)
+            elif dtype == 'float':
+                params[name] = np.random.uniform(lo, hi)
+
+        # Add max_hold_bars (in bars, not seconds — depends on timeframe)
+        # Random range [10, 200] bars
+        params['max_hold_bars'] = np.random.randint(10, 201)
+
+        return params
+
     def generate_parameter_set(self, iteration: int, day: int, context: str = 'CORE') -> ParameterSet:
         """
         Master generation function
