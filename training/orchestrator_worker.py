@@ -5,10 +5,9 @@ from typing import Any, Dict, Optional, List, Tuple
 from numba import jit
 from core.bayesian_brain import TradeOutcome
 from training.doe_parameter_generator import DOEParameterGenerator
+from config.settings import DEFAULT_BASE_SLIPPAGE, DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 
 # Constants moved from orchestrator.py
-DEFAULT_BASE_SLIPPAGE = 0.25
-DEFAULT_VELOCITY_SLIPPAGE_FACTOR = 0.1
 REPRESENTATIVE_SUBSET_SIZE = 20
 FISSION_SUBSET_SIZE = 50
 INDIVIDUAL_OPTIMIZATION_ITERATIONS = 20
