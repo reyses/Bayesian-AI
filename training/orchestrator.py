@@ -1199,7 +1199,7 @@ class BayesianTrainingOrchestrator:
 
         return manifest
 
-    def register_template_result(self, template_id, centroid, member_count, params: Dict):
+    def register_template_result(self, template_id: int, centroid: np.ndarray, member_count: int, params: Dict):
         """
         Saves the centroid and params to the pattern_library using explicit fields.
         """
