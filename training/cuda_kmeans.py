@@ -19,11 +19,7 @@ class CUDAKMeans:
         self.labels_ = None
         self.inertia_ = None
 
-    def fit(self, X):
-        """
-        Compute k-means clustering.
-        X: numpy array or torch tensor (n_samples, n_features)
-        """
+    def _to_tensor(self, X):
         if isinstance(X, np.ndarray):
             X_tensor = torch.from_numpy(X).float().cuda()
             X_cpu = X
@@ -32,6 +28,14 @@ class CUDAKMeans:
             X_cpu = X.cpu().numpy()
         else:
             raise ValueError("X must be numpy array or torch tensor")
+        return X_tensor, X_cpu
+
+    def fit(self, X):
+        """
+        Compute k-means clustering.
+        X: numpy array or torch tensor (n_samples, n_features)
+        """
+        X_tensor, X_cpu = self._to_tensor(X)
 
         n_samples, n_features = X_tensor.shape
 
@@ -58,7 +62,7 @@ class CUDAKMeans:
         best_labels = None
 
         # Determine seed for numpy (kmeans++)
-        rng = np.random.RandomState(self.random_state) if self.random_state is not None else np.random
+        rng = np.random.RandomState(self.random_state)
 
         for init_idx in range(self.n_init):
             # 1. Initialization (CPU for kmeans++)
@@ -84,27 +88,23 @@ class CUDAKMeans:
                 # Assign labels
                 labels = torch.argmin(dists, dim=1)
 
-                # Update centroids
+                # Update centroids (Vectorized)
                 new_centroids = torch.zeros_like(current_centroids)
+                counts = torch.bincount(labels, minlength=self.n_clusters).float()
 
-                # Fast update using scatter_add logic or loop
-                # For K < 1000, loop is acceptable on GPU
-                # Or use index_add_ (requires expanding dimensions)
+                new_centroids.index_add_(0, labels, X_tensor)
 
-                unique_labels, counts = torch.unique(labels, return_counts=True)
+                # Handle empty clusters
+                empty_mask = (counts == 0)
+                if empty_mask.any():
+                    # Re-initialize empty clusters to random points
+                    num_empty = empty_mask.sum()
+                    rand_indices = torch.randint(0, n_samples, (num_empty,), device=X_tensor.device)
+                    new_centroids[empty_mask] = X_tensor[rand_indices]
+                    counts[empty_mask] = 1.0 # Avoid division by zero
 
-                # We need to handle empty clusters
-                # A simple way: mask loop
-                for k in range(self.n_clusters):
-                    mask = (labels == k)
-                    if mask.any():
-                        new_centroids[k] = X_tensor[mask].mean(dim=0)
-                    else:
-                        # Empty cluster: Re-initialize to a random point (far from others?)
-                        # Or just keep old centroid (simplest)
-                        # Or pick random point from X
-                        rand_idx = torch.randint(0, n_samples, (1,)).item()
-                        new_centroids[k] = X_tensor[rand_idx]
+                # Compute the mean
+                new_centroids /= counts.unsqueeze(1)
 
                 # Check convergence
                 # Shift: sum of squared distances between old and new centroids
@@ -136,12 +136,7 @@ class CUDAKMeans:
         if self.centroids is None:
             raise ValueError("Model not fitted")
 
-        if isinstance(X, np.ndarray):
-            X_tensor = torch.from_numpy(X).float().cuda()
-        elif torch.is_tensor(X):
-            X_tensor = X.float().cuda()
-        else:
-            raise ValueError("X must be numpy array or torch tensor")
+        X_tensor, _ = self._to_tensor(X)
 
         dists = torch.cdist(X_tensor, self.centroids)
         labels = torch.argmin(dists, dim=1)
