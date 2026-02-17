@@ -294,6 +294,98 @@ def run_forward_pass(self, data_source: str):
       - `match_distance = distances[nearest_idx]`
       - `template_id = template_ids[nearest_idx]`
 
+      - **Gate 0 — Headroom Gate (Nightmare Field Equation)**:
+        The error bands (sigma zones) only have meaning IN CONJUNCTION with the detected pattern type. The sigma tells you WHERE price is in the distribution; the pattern tells you HOW it got there. The combination determines the trade action.
+
+        **Sigma Zones** (at micro level):
+        - `|z| < 1.0σ` → **Noise Zone** → SKIP (no edge, price is random walk)
+        - `1.0σ ≤ |z| < 2.0σ` → **Approach Zone** → pattern must be present to act
+        - `2.0σ ≤ |z| ≤ 3.0σ` → **Mean Reversion Zone** → PRIMARY TRADE ZONE
+        - `|z| > 3.0σ` → **Extreme Zone** → CHECK MACRO (unpredictable alone)
+
+        **Pattern × Sigma Decision Matrix**:
+        ```
+        Pattern Type        | Noise (<1σ) | Approach (1-2σ) | Mean Rev (2-3σ)  | Extreme (>3σ)
+        --------------------|-------------|-----------------|------------------|------------------
+        ROCHE_SNAP           | skip        | watch only      | FADE (primary)   | check headroom
+        (|z|>2, |vel|>0.5)  |             |                 | high-confidence  | macro decides
+                             |             |                 | mean-reversion   |
+        --------------------|-------------|-----------------|------------------|------------------
+        STRUCTURAL_DRIVE     | skip        | ENTRY if ADX>25 | ride momentum    | check headroom
+        (|mom|>5, coh<0.3)  |             | + Hurst>0.6     | trail tight      | macro decides
+                             |             | (trending+persistent)|              |
+        --------------------|-------------|-----------------|------------------|------------------
+        NO PATTERN           | skip        | skip            | skip             | skip
+        (neither trigger)   | (Brownian)  | (no structure)  | (anomaly w/o     | (pure chaos)
+                             |             |                 |  cause = danger) |
+        ```
+
+        **Key rule**: No pattern = no trade, regardless of sigma. A 2.5σ z-score WITHOUT a Roche/Structural trigger is an anomaly without a cause — dangerous, not tradeable.
+
+        **Cross-TF Headroom Logic** (when micro `|z| ≥ 2.0σ` AND pattern is detected):
+        ```python
+        # Extract macro z from parent_chain (root = highest TF ancestor)
+        root_entry = parent_chain[0]  # 4H or highest available
+        macro_z = abs(root_entry['z'])
+        micro_z = abs(state.z_score)
+        micro_pattern = state.pattern_type  # 'ROCHE_SNAP', 'STRUCTURAL_DRIVE', or None
+        macro_pattern = root_entry.get('type', None)
+
+        # RULE 1: No pattern at micro = no trade (sigma alone is not a signal)
+        if micro_pattern is None:
+            skip
+
+        # RULE 2: Noise zone = no trade (even with pattern, no statistical edge)
+        if micro_z < 1.0:
+            skip
+
+        # RULE 3: Approach zone — only act on Structural Drive with confirming indicators
+        if 1.0 <= micro_z < 2.0:
+            if micro_pattern == 'STRUCTURAL_DRIVE':
+                if state.adx_strength < 25 or state.hurst_exponent < 0.6:
+                    skip  # trend not confirmed / random walk
+                # else: proceed — genuine developing trend
+            elif micro_pattern == 'ROCHE_SNAP':
+                skip  # snap hasn't reached tradeable zone yet
+
+        # RULE 4: Mean Reversion / Extreme zone — check macro headroom
+        if micro_z >= 2.0:
+            if macro_z < 2.0:
+                headroom = True   # macro hasn't stretched, move can run
+            else:
+                headroom = False  # macro extended, reversal likely
+
+            if micro_pattern == 'ROCHE_SNAP':
+                if headroom:
+                    # Snap WITH headroom = strong mean-reversion entry
+                    # micro snapped to 2.5σ but macro is 0.8σ → room to mean-revert
+                    action = 'FADE'
+                else:
+                    # Snap WITHOUT headroom = wall
+                    # Roche at micro 3σ + macro 2.5σ = exhaustion snap
+                    if micro_z > 3.0:
+                        skip  # extreme + wall = nightmare field
+                    else:
+                        action = 'FADE_CAUTIOUS'  # tighter stops
+
+            elif micro_pattern == 'STRUCTURAL_DRIVE':
+                if headroom:
+                    # Momentum WITH headroom = breakout continuation
+                    action = 'RIDE'
+                else:
+                    # Momentum INTO a wall = don't chase
+                    skip
+        ```
+
+        **Key insight**: The pattern type flips the meaning of the sigma zone:
+        - **Roche Snap at 2.5σ** = price SNAPPED there violently → likely to snap back (fade it)
+        - **Structural Drive at 2.5σ** = price GROUND there slowly → trend continuation (ride it)
+        - **Nothing at 2.5σ** = price drifted randomly → no edge (skip)
+
+        And the macro headroom modifies the confidence:
+        - 4σ micro + 1σ macro = the micro extreme has room to breathe
+        - 3σ micro + 2.5σ macro = the whole structure is stretched, reversal imminent
+
       - **Gate 1**: `match_distance < 3.0` (configurable threshold — reject if no close template)
       - **Gate 2**: `brain.should_fire(template_id)` (probability + confidence gate)
       - **Gate 3**: `wave_rider.position is None` (no overlapping trades)
@@ -358,6 +450,9 @@ def run_forward_pass(self, data_source: str):
 - **Reuse `_batch_scan_windowed` logic** from discovery agent for the cascade — but instead of saving all patterns, filter for actionable ones only
 - **The cascade scan can be simplified**: You don't need to scan ALL bars at each TF. Only scan within the time windows of the parent trigger. This is exactly what discovery already does.
 - **Consider creating a `FractalCascadeScanner` helper** that wraps the discovery agent's logic but returns actionable signals instead of a full manifest
+- **Headroom Gate is Gate 0** — it runs BEFORE template matching (Gate 1) because there's no point matching a template if the sigma relationship says "no trade". This saves compute.
+- **Sigma zone should be stored on TradeOutcome** — add a `sigma_zone: str` field ('NOISE', 'APPROACH', 'MEAN_REVERT', 'EXTREME') and `headroom: Optional[bool]` so Phase 5 can analyze win rates per zone
+- **The Headroom Gate naturally handles the "Nightmare Field"** — the zone where micro z > 3σ is unpredictable on its own, but becomes predictable when you check the macro. This is the entire point of the fractal cascade.
 
 ### Data Access
 
@@ -440,7 +535,39 @@ def run_strategy_selection(self):
    print(f"Structure-backed strategies: {len(struct_backed)} templates, avg Sharpe: ...")
    ```
 
-5. **Output report**:
+5. **Pattern × Sigma zone analysis** — win rates by pattern type, zone, and headroom:
+   ```python
+   # Group trades by (pattern_type, sigma_zone, headroom) — stored on TradeOutcome in Phase 4
+   combo_stats = {}
+   for trade in all_trades:
+       pattern = getattr(trade, 'pattern_type', 'UNKNOWN')
+       zone = getattr(trade, 'sigma_zone', 'UNKNOWN')
+       headroom = getattr(trade, 'headroom', None)
+       key = (pattern, zone, headroom)
+       if key not in combo_stats:
+           combo_stats[key] = {'wins': 0, 'losses': 0, 'pnls': []}
+       combo_stats[key]['wins' if trade.pnl > 0 else 'losses'] += 1
+       combo_stats[key]['pnls'].append(trade.pnl)
+
+   # The pattern type flips the meaning of the sigma zone:
+   # - ROCHE_SNAP in MEAN_REVERT zone = fade (snap back expected)
+   # - STRUCTURAL_DRIVE in MEAN_REVERT zone = ride (momentum continuation)
+   # - Same sigma zone, opposite trade logic — pattern is the key
+   ```
+
+   Output:
+   ```
+   PATTERN × SIGMA ANALYSIS:
+     ROCHE_SNAP + MEAN_REVERT + Headroom:      89 trades, 63% win, Sharpe 2.1  ← best edge
+     ROCHE_SNAP + MEAN_REVERT + Wall:           24 trades, 50% win, Sharpe 0.4  ← cautious fade
+     ROCHE_SNAP + EXTREME + Headroom:           12 trades, 50% win, Sharpe 0.3  ← risky
+     ROCHE_SNAP + EXTREME + Wall:                5 trades, 20% win, Sharpe -1.8 ← nightmare
+     STRUCTURAL_DRIVE + APPROACH + confirmed:   53 trades, 57% win, Sharpe 1.4  ← early trend
+     STRUCTURAL_DRIVE + MEAN_REVERT + Headroom: 41 trades, 59% win, Sharpe 1.7  ← trend cont.
+     STRUCTURAL_DRIVE + MEAN_REVERT + Wall:      8 trades, 25% win, Sharpe -0.9 ← chasing
+   ```
+
+6. **Output report**:
    ```
    === Phase 5: Strategy Selection ===
 
@@ -464,10 +591,15 @@ def run_strategy_selection(self):
      4H Structural → lower TF entry: 4/12 Tier 1 templates (33%)
      Best macro context: 4H Roche Snap (avg Sharpe 1.6)
 
+   NIGHTMARE FIELD EQUATION VALIDATION:
+     ROCHE + MEAN_REVERT + Headroom:  89 trades, 63% win, Sharpe 2.1  ← primary edge
+     STRUCT + APPROACH + confirmed:   53 trades, 57% win, Sharpe 1.4  ← early trend edge
+     ROCHE + EXTREME + Wall:           5 trades, 20% win, Sharpe -1.8 ← confirmed toxic
+
    PRODUCTION PLAYBOOK: 12 templates saved to checkpoints/production_playbook.pkl
    ```
 
-6. **Save production playbook**:
+7. **Save production playbook**:
    ```python
    production = {
        tid: {
