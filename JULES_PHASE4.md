@@ -51,6 +51,10 @@ Each dict in `parent_chain`:
     'z': 2.5,                     # z_score at that level
     'mom': 1.4,                   # momentum at that level
     'coh': 0.85,                  # coherence at that level
+    'adx': 35.2,                  # trend strength at that level
+    'dmi_plus': 28.1,             # directional movement +
+    'dmi_minus': 15.3,            # directional movement -
+    'hurst': 0.62,                # regime at that level
     'timestamp': 1706832000.0     # when the parent triggered
 }
 ```
@@ -73,6 +77,10 @@ chain_entry = {
     'z': pattern.z_score,
     'mom': pattern.momentum,
     'coh': pattern.coherence,
+    'adx': getattr(pattern.state, 'adx_strength', 0.0),
+    'dmi_plus': getattr(pattern.state, 'dmi_plus', 0.0),
+    'dmi_minus': getattr(pattern.state, 'dmi_minus', 0.0),
+    'hurst': getattr(pattern.state, 'hurst_exponent', 0.5),
     'timestamp': pattern.timestamp
 }
 # Prepend this pattern's info to its own chain
@@ -148,25 +156,51 @@ Since chains vary in length (depth 0 has 0 ancestors, depth 8 has 8), encode a f
 # Existing 7D features
 base = [abs(z), abs(v), abs(m), c, tf_scale, depth, parent_ctx]
 
-# NEW: ancestry summary (4 additional features)
+# NEW: ancestry + regime features
 chain = getattr(p, 'parent_chain', None) or []
 
+# Self regime (from JULES_INDICATORS: adx, hurst, dmi_diff)
+self_adx = getattr(p.state, 'adx_strength', 0.0) / 100.0
+self_hurst = getattr(p.state, 'hurst_exponent', 0.5)
+self_dmi_diff = (getattr(p.state, 'dmi_plus', 0.0) - getattr(p.state, 'dmi_minus', 0.0)) / 100.0
+
 if chain:
-    # Immediate parent physics
+    # Immediate parent physics + regime
     parent_z = abs(chain[0].get('z', 0.0))
     parent_mom = abs(chain[0].get('mom', 0.0))
+    parent_dmi_diff = (chain[0].get('dmi_plus', 0.0) - chain[0].get('dmi_minus', 0.0)) / 100.0
+    parent_hurst = chain[0].get('hurst', 0.5)
 
-    # Root ancestor physics (macro context)
+    # Root ancestor (macro context)
     root = chain[-1]
     root_z = abs(root.get('z', 0.0))
     root_is_roche = 1.0 if root.get('type') == 'ROCHE_SNAP' else 0.0
+    root_dmi_diff = (root.get('dmi_plus', 0.0) - root.get('dmi_minus', 0.0)) / 100.0
+
+    # DIRECTIONAL DIVERGENCE: sign mismatch between self and root DMI
+    # +1 = aligned (both bullish or both bearish)
+    # -1 = divergent (micro long, macro short or vice versa)
+    self_dir = 1.0 if self_dmi_diff > 0 else -1.0
+    root_dir = 1.0 if root_dmi_diff > 0 else -1.0
+    tf_alignment = self_dir * root_dir  # +1 aligned, -1 divergent
 else:
     parent_z = 0.0
     parent_mom = 0.0
+    parent_dmi_diff = 0.0
+    parent_hurst = 0.5
     root_z = 0.0
     root_is_roche = 0.0
+    root_dmi_diff = 0.0
+    tf_alignment = 0.0
 
-features.append(base + [parent_z, parent_mom, root_z, root_is_roche])
+# 14D feature vector:
+# [7 base] + [3 self regime] + [4 ancestry]
+features.append(base + [
+    self_adx, self_hurst, self_dmi_diff,           # self regime (3)
+    parent_z, parent_dmi_diff,                       # parent context (2)
+    root_is_roche, tf_alignment                      # macro context (2)
+])
+# Total: 7 + 3 + 2 + 2 = 14D
 ```
 
 This makes the feature vector **11D** instead of 7D. The clustering will naturally separate patterns with different ancestry contexts.
