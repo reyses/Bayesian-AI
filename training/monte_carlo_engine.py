@@ -255,7 +255,7 @@ def simulate_template_tf_combo(template_id: int, timeframe: str, n_iterations: i
              return ComboResult(template_id, timeframe, [], None, 0, 0, n_iterations)
 
         # Pre-compute physics states
-        engine = QuantumFieldEngine(asset=asset, use_gpu=False)
+        engine = QuantumFieldEngine()
         all_states = []
         all_z_scores = []
 
