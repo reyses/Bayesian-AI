@@ -36,6 +36,40 @@ class FractalClusteringEngine:
         """Returns a CUDAKMeans model."""
         return CUDAKMeans(n_clusters=n_clusters, random_state=random_state, n_init=n_init)
 
+    @staticmethod
+    def extract_features(p: Any) -> List[float]:
+        """
+        Extracts 11D feature vector from a PatternEvent.
+        [|z|, |v|, |m|, coh, tf_scale, depth, parent_ctx, p_z, p_mom, root_z, root_is_roche]
+        """
+        z = getattr(p, 'z_score', 0.0)
+        v = getattr(p, 'velocity', 0.0)
+        m = getattr(p, 'momentum', 0.0)
+        c = getattr(p, 'coherence', 0.0)
+
+        # Fractal hierarchy features
+        tf = getattr(p, 'timeframe', '15s')
+        tf_secs = TIMEFRAME_SECONDS.get(tf, 15)
+        tf_scale = np.log2(max(1, tf_secs))  # log2 for even spacing
+
+        depth = float(getattr(p, 'depth', 0))
+        parent_type = getattr(p, 'parent_type', '')
+        parent_ctx = 1.0 if parent_type == 'ROCHE_SNAP' else 0.0
+
+        # Ancestry features
+        chain = getattr(p, 'parent_chain', None) or []
+        if chain:
+            p_z = abs(chain[0].get('z', 0.0))
+            p_mom = abs(chain[0].get('mom', 0.0))
+            root = chain[-1]
+            root_z = abs(root.get('z', 0.0))
+            root_is_roche = 1.0 if root.get('type') == 'ROCHE_SNAP' else 0.0
+        else:
+            p_z, p_mom, root_z, root_is_roche = 0.0, 0.0, 0.0, 0.0
+
+        return [abs(z), abs(v), abs(m), c, tf_scale, depth, parent_ctx,
+                p_z, p_mom, root_z, root_is_roche]
+
     def create_templates(self, manifest: List[Any]) -> List[PatternTemplate]:
         """
         Groups raw PatternEvents into Templates using RECURSIVE REFINEMENT.
@@ -58,40 +92,8 @@ class FractalClusteringEngine:
 
         for p in manifest:
             try:
-                z = getattr(p, 'z_score', 0.0)
-                v = getattr(p, 'velocity', 0.0)
-                m = getattr(p, 'momentum', 0.0)
-                c = getattr(p, 'coherence', 0.0)
-
-                # Fractal hierarchy features
-                tf = getattr(p, 'timeframe', '15s')
-                tf_secs = TIMEFRAME_SECONDS.get(tf, 15)
-                tf_scale = np.log2(max(1, tf_secs))  # log2 for even spacing
-
-                depth = float(getattr(p, 'depth', 0))
-                parent_type = getattr(p, 'parent_type', '')
-                parent_ctx = 1.0 if parent_type == 'ROCHE_SNAP' else 0.0
-
-                # Ancestry features (from Star Schema)
-                chain = getattr(p, 'parent_chain', None) or []
-                if chain:
-                    # Immediate parent
-                    parent = chain[0]
-                    p_z = abs(parent.get('z', 0.0))
-                    p_mom = abs(parent.get('mom', 0.0))
-
-                    # Root ancestor (macro context)
-                    root = chain[-1]
-                    root_z = abs(root.get('z', 0.0))
-                    root_is_roche = 1.0 if root.get('type') == 'ROCHE_SNAP' else 0.0
-                else:
-                    p_z = 0.0
-                    p_mom = 0.0
-                    root_z = 0.0
-                    root_is_roche = 0.0
-
-                features.append([abs(z), abs(v), abs(m), c, tf_scale, depth, parent_ctx,
-                                 p_z, p_mom, root_z, root_is_roche])
+                feat = self.extract_features(p)
+                features.append(feat)
                 valid_patterns.append(p)
             except AttributeError:
                 continue
@@ -250,33 +252,8 @@ class FractalClusteringEngine:
             # Re-calculate Physics Centroid (11D to match create_templates)
             sub_features = []
             for p in sub_patterns:
-                z = getattr(p, 'z_score', 0.0)
-                v = getattr(p, 'velocity', 0.0)
-                m = getattr(p, 'momentum', 0.0)
-                c = getattr(p, 'coherence', 0.0)
-                tf = getattr(p, 'timeframe', '15s')
-                tf_secs = TIMEFRAME_SECONDS.get(tf, 15)
-                tf_scale = np.log2(max(1, tf_secs))
-                depth = float(getattr(p, 'depth', 0))
-                parent_type = getattr(p, 'parent_type', '')
-                parent_ctx = 1.0 if parent_type == 'ROCHE_SNAP' else 0.0
-
-                # Ancestry features
-                chain = getattr(p, 'parent_chain', None) or []
-                if chain:
-                    p_z = abs(chain[0].get('z', 0.0))
-                    p_mom = abs(chain[0].get('mom', 0.0))
-                    root = chain[-1]
-                    root_z = abs(root.get('z', 0.0))
-                    root_is_roche = 1.0 if root.get('type') == 'ROCHE_SNAP' else 0.0
-                else:
-                    p_z = 0.0
-                    p_mom = 0.0
-                    root_z = 0.0
-                    root_is_roche = 0.0
-
-                sub_features.append([abs(z), abs(v), abs(m), c, tf_scale, depth, parent_ctx,
-                                     p_z, p_mom, root_z, root_is_roche])
+                feat = self.extract_features(p)
+                sub_features.append(feat)
 
             if not sub_features: continue
             new_phys_centroid = np.mean(sub_features, axis=0)

@@ -357,26 +357,8 @@ class BayesianTrainingOrchestrator:
                     best_tid = None
 
                     for p in candidates:
-                        # Extract 11D features
-                        chain = getattr(p, 'parent_chain', None) or []
-                        if chain:
-                            p_z = abs(chain[0].get('z', 0.0))
-                            p_mom = abs(chain[0].get('mom', 0.0))
-                            root = chain[-1]
-                            root_z = abs(root.get('z', 0.0))
-                            root_is_roche = 1.0 if root.get('type') == 'ROCHE_SNAP' else 0.0
-                        else:
-                            p_z, p_mom, root_z, root_is_roche = 0.0, 0.0, 0.0, 0.0
-
-                        tf_secs = TIMEFRAME_SECONDS.get(p.timeframe, 15)
-                        tf_scale = np.log2(max(1, tf_secs))
-                        parent_ctx = 1.0 if p.parent_type == 'ROCHE_SNAP' else 0.0
-
-                        features = np.array([[
-                            abs(p.z_score), abs(p.velocity), abs(p.momentum), p.coherence,
-                            tf_scale, float(p.depth), parent_ctx,
-                            p_z, p_mom, root_z, root_is_roche
-                        ]])
+                        # Extract 11D features using shared logic
+                        features = np.array([FractalClusteringEngine.extract_features(p)])
 
                         # Scale
                         feat_scaled = self.scaler.transform(features)
@@ -484,6 +466,12 @@ class BayesianTrainingOrchestrator:
 
         print(f"\nAnalyzing {len(self.pattern_library)} strategies...")
 
+        # Pre-group history by template_id for O(1) lookup
+        history_by_template = defaultdict(list)
+        for trade in self.brain.trade_history:
+            if trade.template_id is not None:
+                history_by_template[trade.template_id].append(trade)
+
         for tid in self.pattern_library:
             stats = self.brain.get_stats(tid)
             prob = stats['probability']
@@ -491,8 +479,7 @@ class BayesianTrainingOrchestrator:
             total = stats['total']
 
             # Calculate Risk Metrics from history
-            # Filter trade history for this template
-            history = [t for t in self.brain.trade_history if t.template_id == tid]
+            history = history_by_template.get(tid, [])
 
             if not history:
                 sharpe = 0.0
