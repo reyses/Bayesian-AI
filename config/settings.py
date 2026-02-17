@@ -11,3 +11,7 @@ RAW_DATA_PATH = "DATA/RAW"
 # Anchor Date for Training/Simulation (YYYY-MM-DD)
 # Determines the start date for data file selection
 ANCHOR_DATE = "2025-07-30"
+
+# --- EXECUTION PHYSICS (GLOBAL TRUTH) ---
+DEFAULT_BASE_SLIPPAGE = 0.25
+DEFAULT_VELOCITY_SLIPPAGE_FACTOR = 0.1
