@@ -71,9 +71,8 @@ class FractalDashboard:
         # Add Colorbar for PnL
         cbar = self.fig.colorbar(self.scatter, ax=self.ax)
         cbar.set_label('Profit/Loss ($)', color='white')
-        cbar.ax.yaxis.set_tick_params(color='white')
+        cbar.ax.tick_params(colors='white')
         cbar.outline.set_edgecolor('white')
-        plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color='white')
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=left_pane)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
