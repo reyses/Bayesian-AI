@@ -61,6 +61,9 @@ class TestFractalDashboard(unittest.TestCase):
         self.assertEqual(dashboard.templates, {})
         self.assertEqual(dashboard.fission_events, [])
 
+        # Verify colorbar creation
+        mock_fig.colorbar.assert_called()
+
     @patch('visualization.live_training_dashboard.plt.subplots')
     def test_template_update(self, mock_subplots):
         mock_fig = MagicMock()
