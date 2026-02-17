@@ -201,7 +201,7 @@ def simulate_month(data: pd.DataFrame, match_indices: np.ndarray, params: Dict[s
     """
     stop_ticks = float(params.get('stop_loss_ticks', 15))
     tp_ticks = float(params.get('take_profit_ticks', 40))
-    max_hold = float(params.get('max_hold_bars', 50))
+    max_hold = int(params.get('max_hold_bars', 50))
     trail_tight = float(params.get('trail_distance_tight', 10))
     trail_wide = float(params.get('trail_distance_wide', 30))
     cost_points = float(params.get('trading_cost_points', 0.5))
