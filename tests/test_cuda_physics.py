@@ -7,6 +7,7 @@ import numpy as np
 
 # Mock numba.cuda before importing core modules
 mock_numba = MagicMock()
+mock_numba.__spec__ = MagicMock() # Fix for pandas_ta import check
 mock_cuda = MagicMock()
 mock_cuda.is_available.return_value = True
 
