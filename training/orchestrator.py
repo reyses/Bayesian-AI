@@ -475,12 +475,22 @@ class BayesianTrainingOrchestrator:
                 print("No trades.")
 
         # Final Report
-        print("\n" + "="*80)
-        print("FORWARD PASS COMPLETE")
-        print(f"Total Trades: {total_trades}")
-        print(f"Win Rate: {total_wins/total_trades*100:.1f}%" if total_trades > 0 else "Win Rate: N/A")
-        print(f"Total PnL: ${total_pnl:.2f}")
-        print("="*80)
+        report_lines = []
+        report_lines.append("=" * 80)
+        report_lines.append("FORWARD PASS COMPLETE")
+        report_lines.append(f"Total Trades: {total_trades}")
+        report_lines.append(f"Win Rate: {total_wins/total_trades*100:.1f}%" if total_trades > 0 else "Win Rate: N/A")
+        report_lines.append(f"Total PnL: ${total_pnl:.2f}")
+        report_lines.append("=" * 80)
+
+        for line in report_lines:
+            print(line)
+
+        # Save report
+        report_path = os.path.join(self.checkpoint_dir, 'phase4_report.txt')
+        with open(report_path, 'w') as f:
+            f.write('\n'.join(report_lines) + '\n')
+        print(f"  Report saved to {report_path}")
 
     def run_strategy_selection(self):
         """
@@ -621,15 +631,15 @@ class BayesianTrainingOrchestrator:
         # Sort report
         report_data.sort(key=lambda x: (x['tier'], -x['sharpe']))
 
-        # Print Report
-        print("\nSTRATEGY PERFORMANCE REPORT")
-        print(f"{'ID':<10} | {'Tier':<4} | {'Trades':<6} | {'Win%':<5} | {'Sharpe':<6} | {'PnL':<10} | {'MaxDD':<10} | {'Risk':<5}")
-        print("-" * 85)
-        for r in report_data[:50]: # Top 50
-            print(f"{r['id']:<10} | {r['tier']:<4} | {r['trades']:<6} | {r['win_rate']*100:5.1f} | {r['sharpe']:6.2f} | ${r['pnl']:<9.2f} | ${r['max_dd']:<9.2f} | {r['risk']:.2f}")
-
-        if len(report_data) > 50:
-            print(f"... and {len(report_data)-50} more strategies.")
+        # Build report
+        rpt = []
+        rpt.append("")
+        rpt.append("STRATEGY PERFORMANCE REPORT")
+        header = f"{'ID':<10} | {'Tier':<4} | {'Trades':<6} | {'Win%':<5} | {'Sharpe':<6} | {'PnL':<10} | {'MaxDD':<10} | {'Risk':<5}"
+        rpt.append(header)
+        rpt.append("-" * 85)
+        for r in report_data:
+            rpt.append(f"{r['id']:<10} | {r['tier']:<4} | {r['trades']:<6} | {r['win_rate']*100:5.1f} | {r['sharpe']:6.2f} | ${r['pnl']:<9.2f} | ${r['max_dd']:<9.2f} | {r['risk']:.2f}")
 
         # Save Playbook
         playbook = {tid: data for tid, data in tier1_templates}
@@ -637,23 +647,41 @@ class BayesianTrainingOrchestrator:
         with open(pb_path, 'wb') as f:
             pickle.dump(playbook, f)
 
-        print(f"\nSaved {len(playbook)} Tier 1 strategies to {pb_path}")
+        rpt.append(f"\nSaved {len(playbook)} Tier 1 strategies to {pb_path}")
+
+        # Tier summary
+        from collections import Counter
+        tier_counts = Counter(r['tier'] for r in report_data)
+        rpt.append("")
+        rpt.append("TIER SUMMARY:")
+        for t in sorted(tier_counts.keys()):
+            label = {1: 'PRODUCTION', 2: 'PROMISING', 3: 'UNPROVEN', 4: 'TOXIC'}.get(t, '?')
+            rpt.append(f"  Tier {t} ({label}): {tier_counts[t]} templates")
 
         # Ancestry Analysis
-        # Count how many Tier 1s have Roche vs Structure roots
         roche_roots = 0
         struct_roots = 0
         for tid, data in tier1_templates:
             centroid = data['centroid']
-            # Last element is root_is_roche
             if centroid[-1] > 0.5:
                 roche_roots += 1
             else:
                 struct_roots += 1
 
-        print("\nANCESTRY ANALYSIS (Tier 1):")
-        print(f"  Roche-backed: {roche_roots}")
-        print(f"  Structure-backed: {struct_roots}")
+        rpt.append("")
+        rpt.append("ANCESTRY ANALYSIS (Tier 1):")
+        rpt.append(f"  Roche-backed: {roche_roots}")
+        rpt.append(f"  Structure-backed: {struct_roots}")
+
+        # Print to console
+        for line in rpt:
+            print(line)
+
+        # Save to file
+        report_path = os.path.join(self.checkpoint_dir, 'phase5_report.txt')
+        with open(report_path, 'w') as f:
+            f.write('\n'.join(rpt) + '\n')
+        print(f"\n  Report saved to {report_path}")
 
 
     def train(self, data_source: Any):
