@@ -325,7 +325,7 @@ class BayesianTrainingOrchestrator:
                     res = self.wave_rider.update_trail(price, None, ts)
                     if res['should_exit']:
                         outcome = TradeOutcome(
-                            state='EXIT',
+                            state=active_template_id,
                             entry_price=active_entry_price,
                             exit_price=res['exit_price'],
                             pnl=res['pnl'],
@@ -446,7 +446,7 @@ class BayesianTrainingOrchestrator:
                 self.wave_rider.position = None
 
                 outcome = TradeOutcome(
-                    state='EXIT',
+                    state=active_template_id,
                     entry_price=active_entry_price,
                     exit_price=price,
                     pnl=eod_pnl,
