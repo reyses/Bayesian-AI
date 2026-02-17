@@ -66,6 +66,13 @@ class BayesianBrain:
         
         # Log trade
         self.trade_history.append(outcome)
+
+    def batch_update(self, outcomes: list[TradeOutcome]):
+        """
+        Batch update for bulk outcome recording (Monte Carlo)
+        """
+        for outcome in outcomes:
+            self.update(outcome)
     
     def get_probability(self, state: Any) -> float:
         """
