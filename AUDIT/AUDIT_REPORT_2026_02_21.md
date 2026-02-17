@@ -70,6 +70,8 @@ Please execute the following improvements to clean up the project structure and 
     -   Move `run_test_workflow.py` to `scripts/run_test_workflow.py`.
 
 3.  **Update CURRENT_STATUS.md**:
+    -   Update metadata (timestamp, git branch, commit hash).
+    -   Update architecture status.
     -   Update DOE status to "IMPLEMENTED".
     -   Update file structure section to reflect the moved scripts.
 
