@@ -16,6 +16,12 @@ from sklearn.cluster import MiniBatchKMeans, KMeans
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import silhouette_score
 
+try:
+    import torch
+    from training.cuda_kmeans import CUDAKMeans
+except ImportError:
+    CUDAKMeans = None
+
 # Local import of timeframe mapping
 from training.fractal_discovery_agent import TIMEFRAME_SECONDS
 
@@ -35,6 +41,18 @@ class FractalClusteringEngine:
         self.n_clusters = n_clusters
         self.max_variance = max_variance  # Max allowed std deviation for Z-score in a cluster
         self.scaler = StandardScaler()
+
+    def _get_kmeans_model(self, n_clusters: int, n_samples: int, random_state: int = 42, n_init: int = 10):
+        """
+        Factory method to return the appropriate KMeans model.
+        Prioritizes CUDAKMeans, falls back to MiniBatchKMeans or KMeans based on sample size.
+        """
+        if CUDAKMeans is not None and torch.cuda.is_available():
+            return CUDAKMeans(n_clusters=n_clusters, random_state=random_state, n_init=n_init)
+        elif n_samples < MINIBATCH_KMEANS_SAMPLES_THRESHOLD:
+            return KMeans(n_clusters=n_clusters, random_state=random_state, n_init=n_init)
+        else:
+            return MiniBatchKMeans(n_clusters=n_clusters, batch_size=min(DEFAULT_KMEANS_BATCH_SIZE, n_samples), random_state=random_state, n_init=n_init)
 
     def create_templates(self, manifest: List[Any]) -> List[PatternTemplate]:
         """
@@ -91,11 +109,7 @@ class FractalClusteringEngine:
         t1 = _time.perf_counter()
         print(f"  Coarse KMeans: fitting {len(valid_patterns)} patterns into {target_k} clusters...", end="", flush=True)
 
-        if len(valid_patterns) < MINIBATCH_KMEANS_SAMPLES_THRESHOLD:
-            model = KMeans(n_clusters=target_k, random_state=42, n_init=10)
-        else:
-            model = MiniBatchKMeans(n_clusters=target_k, batch_size=min(DEFAULT_KMEANS_BATCH_SIZE, len(valid_patterns)), random_state=42)
-
+        model = self._get_kmeans_model(n_clusters=target_k, n_samples=len(valid_patterns))
         labels = model.fit_predict(X_scaled)
         print(f" done ({_time.perf_counter() - t1:.2f}s)")
 
@@ -177,7 +191,7 @@ class FractalClusteringEngine:
             )]
 
         # Split
-        kmeans = KMeans(n_clusters=2, random_state=42, n_init=5).fit(X_subset)
+        kmeans = self._get_kmeans_model(n_clusters=2, n_samples=len(X_subset), n_init=5).fit(X_subset)
         labels = kmeans.labels_
 
         results = []
@@ -213,7 +227,7 @@ class FractalClusteringEngine:
 
         for n in range(2, 6):
             if len(X_params) < n * 5: break
-            kmeans = KMeans(n_clusters=n, random_state=42, n_init=10).fit(X_params)
+            kmeans = self._get_kmeans_model(n_clusters=n, n_samples=len(X_params)).fit(X_params)
             score = silhouette_score(X_params, kmeans.labels_)
             if score > best_score:
                 best_score = score
