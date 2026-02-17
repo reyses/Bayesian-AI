@@ -420,7 +420,9 @@ class BayesianTrainingOrchestrator:
                     if best_candidate:
                         # FIRE
                         params = self.pattern_library[best_tid]['params']
-                        side = 'short' if best_candidate.z_score > 0 else 'long'
+                        # Direction from template centroid, not current bar
+                        template_z = self.pattern_library[best_tid]['centroid'][0]  # z_score is feature[0]
+                        side = 'short' if template_z > 0 else 'long'
                         self.wave_rider.open_position(
                             entry_price=price,
                             side=side,
