@@ -80,7 +80,18 @@ def _load_parquet(file_path: str) -> Tuple[str, pd.DataFrame]:
         return (file_path, df)
     except Exception as e:
         # Robust handling for concatenated files with conflicting dictionaries
-        if "Column cannot have more than one dictionary" in str(e):
+        is_dictionary_error = "Column cannot have more than one dictionary" in str(e)
+
+        # Also check for specific pyarrow exception type if available
+        if not is_dictionary_error:
+            try:
+                import pyarrow.lib
+                if isinstance(e, pyarrow.lib.ArrowInvalid):
+                    is_dictionary_error = True
+            except ImportError:
+                pass
+
+        if is_dictionary_error:
             try:
                 import pyarrow.parquet as pq
                 # Fallback: force decoding of all dictionary columns
