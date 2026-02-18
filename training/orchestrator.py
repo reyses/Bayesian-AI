@@ -1051,7 +1051,15 @@ class BayesianTrainingOrchestrator:
 
                 tasks = []
                 for tmpl in current_batch:
-                    tasks.append((tmpl, clustering_engine, self.config.iterations, self.param_generator, self.asset.point_value))
+                    # Pass arguments as a dictionary to _process_template_job
+                    tasks.append({
+                        'template': tmpl,
+                        'clustering_engine': clustering_engine,
+                        'iterations': self.config.iterations,
+                        'generator': self.param_generator,
+                        'point_value': self.asset.point_value,
+                        'pattern_library': self.pattern_library
+                    })
 
                 results = pool.map(_process_template_job, tasks)
 
@@ -1094,6 +1102,18 @@ class BayesianTrainingOrchestrator:
                         total_val_pnl += val_pnl
 
                         completed_results[tmpl_id] = result
+
+                        # Set Risk & Reward Metrics
+                        val_count = result.get('val_count', 0)
+                        if val_count > 0:
+                            tmpl.expected_value = val_pnl / val_count
+                        else:
+                            tmpl.expected_value = 0.0
+
+                        tmpl.outcome_variance = result.get('outcome_variance', 0.0)
+                        tmpl.avg_drawdown = result.get('avg_drawdown', 0.0)
+                        tmpl.risk_score = result.get('risk_score', 0.0)
+
                         self.register_template_logic(tmpl, best_params)
                         timing = result.get('timing', '')
                         print(f"    [{processed_count}] Template {tmpl_id}: DONE ({member_count} members) -> PnL: ${val_pnl:.2f} | {timing}")
@@ -1106,7 +1126,8 @@ class BayesianTrainingOrchestrator:
                                 'z': centroid[0],
                                 'mom': centroid[2],
                                 'pnl': val_pnl,
-                                'count': member_count
+                                'count': member_count,
+                                'transitions': tmpl.transition_probs
                             })
 
                 batch_elapsed = time.perf_counter() - t_batch
@@ -1203,7 +1224,12 @@ class BayesianTrainingOrchestrator:
         self.pattern_library[template.template_id] = {
             'centroid': template.centroid,
             'params': params,
-            'member_count': template.member_count
+            'member_count': template.member_count,
+            'transition_map': template.transition_map or template.transition_probs, # Support alias
+            'expected_value': template.expected_value,
+            'outcome_variance': template.outcome_variance,
+            'avg_drawdown': template.avg_drawdown,
+            'risk_score': template.risk_score
         }
 
     def validate_template_group(self, patterns: List[PatternEvent], params: Dict) -> float:
