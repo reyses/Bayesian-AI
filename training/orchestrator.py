@@ -1470,7 +1470,8 @@ def main():
     parser.add_argument('--forward-pass', action='store_true', help="Run Phase 4 forward pass using existing playbook")
     parser.add_argument('--strategy-report', action='store_true', help="Run Phase 5 strategy selection report")
 
-    # Monte Carlo Flags
+    # Monte Carlo Flags (opt-in with --mc)
+    parser.add_argument('--mc', action='store_true', help='Enable Monte Carlo sweep after Bayesian Phase 3')
     parser.add_argument('--mc-iters', type=int, default=2000, help='Monte Carlo iterations per (template, timeframe) combo')
     parser.add_argument('--mc-only', action='store_true', help='Skip discovery, just run Monte Carlo from existing templates')
     parser.add_argument('--anova-only', action='store_true', help='Skip MC sweep, just run ANOVA on existing results')
@@ -1531,9 +1532,9 @@ def main():
         elif args.strategy_report and not args.forward_pass:
             orchestrator.run_strategy_selection()
         else:
-            # Full pipeline: Phase 2 → 2.5 (Discovery/Clustering)
-            # If --mc-only, we skip train() but need to load pattern library
+            # Full pipeline
             if args.mc_only:
+                # MC-only: skip discovery, load existing library
                 print("Skipping Phase 2/2.5, loading existing library...")
                 lib_path = os.path.join(orchestrator.checkpoint_dir, 'pattern_library.pkl')
                 if os.path.exists(lib_path):
@@ -1543,43 +1544,35 @@ def main():
                     print("ERROR: pattern_library.pkl not found for --mc-only")
                     return 1
             else:
-                # Run Phase 2 and 2.5 (and old Phase 3 if integrated, but we want to replace it?)
-                # orchestrator.train() runs Phase 2, 2.5, AND 3.
-                # The prompt says: "Replace the current Phase 3 + Phase 4 with a unified Monte Carlo Simulation Engine"
-                # But orchestrator.train() is monolithic.
-                # I should modify orchestrator.train() to STOP after Phase 2.5 if I can, OR just let it run and overwrite?
-                # The doc says "Modify training/orchestrator.py main(): ... orch.train() ... NEW Phase 3".
-                # It implies running standard train() (which does 2+2.5+3) then running MC.
-                # The old Phase 3 generates 'pattern_library' with optimized params.
-                # MC uses 'pattern_library' but re-optimizes.
-                # It's fine to run standard train first.
+                # Phase 2 (Discovery) + 2.5 (Clustering) + 3 (Bayesian DOE Optimization)
                 orchestrator.train(args.data)
 
-            # NEW Phase 3: Monte Carlo Sweep
-            mc = MonteCarloEngine(
-                checkpoint_dir=orchestrator.checkpoint_dir,
-                asset=orchestrator.asset,
-                pattern_library=orchestrator.pattern_library,
-                brain=orchestrator.brain
-            )
-            mc.run_sweep(data_root=args.data, iterations_per_combo=args.mc_iters)
+            if args.mc or args.mc_only:
+                # Optional: Monte Carlo Sweep → ANOVA → Thompson → Validation
+                mc = MonteCarloEngine(
+                    checkpoint_dir=orchestrator.checkpoint_dir,
+                    asset=orchestrator.asset,
+                    pattern_library=orchestrator.pattern_library,
+                    brain=orchestrator.brain
+                )
+                mc.run_sweep(data_root=args.data, iterations_per_combo=args.mc_iters)
 
-            # NEW Phase 4: ANOVA
-            anova = ANOVAAnalyzer()
-            factor_results, top_combos = anova.analyze(mc.results_db)
+                anova = ANOVAAnalyzer()
+                factor_results, top_combos = anova.analyze(mc.results_db)
 
-            # NEW Phase 5: Thompson Refinement
-            refiner = ThompsonRefiner(
-                brain=orchestrator.brain,
-                asset=orchestrator.asset,
-                top_combos=top_combos,
-                pattern_library=orchestrator.pattern_library,
-                checkpoint_dir=orchestrator.checkpoint_dir
-            )
-            refined_strategies = refiner.refine()
-
-            # NEW Phase 6: Walk-Forward Validation
-            orchestrator.run_final_validation(refined_strategies)
+                refiner = ThompsonRefiner(
+                    brain=orchestrator.brain,
+                    asset=orchestrator.asset,
+                    top_combos=top_combos,
+                    pattern_library=orchestrator.pattern_library,
+                    checkpoint_dir=orchestrator.checkpoint_dir
+                )
+                refined_strategies = refiner.refine()
+                orchestrator.run_final_validation(refined_strategies)
+            else:
+                # Default: Bayesian path → Forward Pass → Strategy Report
+                orchestrator.run_forward_pass(args.data)
+                orchestrator.run_strategy_selection()
 
         return 0
     except KeyboardInterrupt:
