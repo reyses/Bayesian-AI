@@ -77,8 +77,11 @@ class DOEParameterGenerator:
         # Define parameter ranges for exploration
         self.param_ranges = self._define_parameter_ranges()
 
-        # Log configuration on startup
-        self._log_parameter_configuration()
+        # Log configuration on startup (only in main process)
+        import multiprocessing
+        if multiprocessing.current_process().name == 'MainProcess' and not getattr(DOEParameterGenerator, '_config_printed', False):
+            self._log_parameter_configuration()
+            DOEParameterGenerator._config_printed = True
 
     def _log_parameter_configuration(self):
         """Log the parameters being optimized and their associated modules"""
