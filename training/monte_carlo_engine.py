@@ -52,24 +52,29 @@ class TradeResult:
         )
 
 @dataclass
-class IterationResult:
+class IterationSummary:
+    """Lightweight summary — no individual trades stored"""
     params: Dict[str, Any]
     total_pnl: float
     num_trades: int
     win_rate: float
     wins: int
     losses: int
-    trades: List[TradeResult]
+    sharpe: float
+    max_drawdown: float
 
 @dataclass
 class ComboResult:
     template_id: int
     timeframe: str
-    iterations: List[IterationResult]
     best_params: Optional[Dict[str, Any]]
     best_pnl: float
     best_win_rate: float
+    best_sharpe: float
     total_iterations: int
+    total_wins: int
+    total_losses: int
+    top_iterations: List[IterationSummary]  # Only top 10 by PnL
 
 def extract_features_from_state(state: ThreeBodyQuantumState, timeframe: str) -> np.ndarray:
     """
@@ -233,7 +238,7 @@ def simulate_template_tf_combo(template_id: int, timeframe: str, n_iterations: i
         # Load data
         tf_dir = os.path.join(data_root, timeframe)
         if not os.path.exists(tf_dir):
-            return ComboResult(template_id, timeframe, [], None, 0, 0, n_iterations)
+            return ComboResult(template_id, timeframe, None, 0, 0, 0, n_iterations, 0, 0, [])
 
         if month_filter:
             monthly_files = month_filter
@@ -252,7 +257,7 @@ def simulate_template_tf_combo(template_id: int, timeframe: str, n_iterations: i
                 print(f"Error loading {f}: {e}")
 
         if not all_data:
-             return ComboResult(template_id, timeframe, [], None, 0, 0, n_iterations)
+             return ComboResult(template_id, timeframe, None, 0, 0, 0, n_iterations, 0, 0, [])
 
         # Pre-compute physics states
         engine = QuantumFieldEngine(use_gpu=False)
@@ -279,7 +284,7 @@ def simulate_template_tf_combo(template_id: int, timeframe: str, n_iterations: i
         combined_features = np.vstack(all_features) if all_features else np.array([])
 
         if combined_features.size == 0:
-             return ComboResult(template_id, timeframe, [], None, 0, 0, n_iterations)
+             return ComboResult(template_id, timeframe, None, 0, 0, 0, n_iterations, 0, 0, [])
 
         local_scaler = StandardScaler()
         local_scaler.fit(combined_features)
@@ -332,7 +337,15 @@ def simulate_template_tf_combo(template_id: int, timeframe: str, n_iterations: i
                         p[name] = np.clip(val + change, lo, hi)
             return p
 
-        iteration_results = []
+        # Keep only top 10 summaries by PnL (no individual trades in memory)
+        import heapq
+        top_heap = []  # min-heap of (pnl, IterationSummary)
+        best_pnl = -float('inf')
+        best_params = None
+        best_win_rate = 0.0
+        best_sharpe = -float('inf')
+        grand_wins = 0
+        grand_losses = 0
 
         for i in range(n_iterations):
             if mutation_base:
@@ -341,7 +354,7 @@ def simulate_template_tf_combo(template_id: int, timeframe: str, n_iterations: i
                 params = param_generator.generate_random_set(i)
 
             total_pnl = 0.0
-            trades = []
+            trade_pnls = []
 
             for month_idx, (month_data, matches) in enumerate(zip(all_data, match_indices_per_month)):
                 if len(matches) == 0:
@@ -352,40 +365,69 @@ def simulate_template_tf_combo(template_id: int, timeframe: str, n_iterations: i
                     template_id=template_id,
                     z_scores=all_z_scores[month_idx]
                 )
-                trades.extend(month_trades)
-                total_pnl += sum(t.pnl for t in month_trades)
+                for t in month_trades:
+                    trade_pnls.append(t.pnl)
+                    total_pnl += t.pnl
 
-            wins = sum(1 for t in trades if t.pnl > 0)
-            losses = len(trades) - wins
-            win_rate = wins / len(trades) if trades else 0.0
+            wins = sum(1 for p in trade_pnls if p > 0)
+            losses = len(trade_pnls) - wins
+            win_rate = wins / len(trade_pnls) if trade_pnls else 0.0
+            grand_wins += wins
+            grand_losses += losses
 
-            iteration_results.append(IterationResult(
-                params=params,
-                total_pnl=total_pnl,
-                num_trades=len(trades),
-                win_rate=win_rate,
-                wins=wins,
-                losses=losses,
-                trades=trades
-            ))
+            # Compute sharpe
+            if len(trade_pnls) > 1:
+                arr = np.array(trade_pnls)
+                sharpe = float(np.mean(arr) / np.std(arr)) if np.std(arr) > 0 else 0.0
+            else:
+                sharpe = 0.0
 
-        best = max(iteration_results, key=lambda r: r.total_pnl) if iteration_results else None
+            # Max drawdown
+            max_dd = 0.0
+            if trade_pnls:
+                cumsum = np.cumsum(trade_pnls)
+                peak = np.maximum.accumulate(cumsum)
+                max_dd = float(np.max(peak - cumsum))
+
+            summary = IterationSummary(
+                params=params, total_pnl=total_pnl, num_trades=len(trade_pnls),
+                win_rate=win_rate, wins=wins, losses=losses,
+                sharpe=sharpe, max_drawdown=max_dd
+            )
+
+            # Track best
+            if total_pnl > best_pnl:
+                best_pnl = total_pnl
+                best_params = params
+                best_win_rate = win_rate
+                best_sharpe = sharpe
+
+            # Keep top 10 (i as tie-breaker so heapq never compares dataclasses)
+            if len(top_heap) < 10:
+                heapq.heappush(top_heap, (total_pnl, i, summary))
+            elif total_pnl > top_heap[0][0]:
+                heapq.heapreplace(top_heap, (total_pnl, i, summary))
+
+        top_iterations = [s for _, _, s in sorted(top_heap, key=lambda x: -x[0])]
 
         return ComboResult(
             template_id=template_id,
             timeframe=timeframe,
-            iterations=iteration_results,
-            best_params=best.params if best else None,
-            best_pnl=best.total_pnl if best else 0.0,
-            best_win_rate=best.win_rate if best else 0.0,
-            total_iterations=n_iterations
+            best_params=best_params,
+            best_pnl=best_pnl if best_pnl > -float('inf') else 0.0,
+            best_win_rate=best_win_rate,
+            best_sharpe=best_sharpe if best_sharpe > -float('inf') else 0.0,
+            total_iterations=n_iterations,
+            total_wins=grand_wins,
+            total_losses=grand_losses,
+            top_iterations=top_iterations
         )
 
     except Exception as e:
         print(f"Worker Exception {template_id} {timeframe}: {e}")
         import traceback
         traceback.print_exc()
-        return ComboResult(template_id, timeframe, [], None, 0, 0, n_iterations)
+        return ComboResult(template_id, timeframe, None, 0, 0, 0, n_iterations, 0, 0, [])
 
 
 class MonteCarloEngine:
@@ -452,11 +494,37 @@ class MonteCarloEngine:
         completed = self._load_checkpoint()
         remaining = [(tid, tf) for tid, tf in combos if (tid, tf) not in completed]
 
-        print(f"Monte Carlo Sweep: {len(combos)} combos, {len(remaining)} remaining")
+        total = len(combos)
+        done = len(completed)
+        print(f"Monte Carlo Sweep: {total} combos, {len(remaining)} remaining, {self.num_workers} workers")
+        print(f"  Iterations per combo: {iterations_per_combo}")
 
         if not remaining:
             print("All combos completed.")
             return
+
+        import time as _time
+        t_start = _time.perf_counter()
+        bar_width = 40
+
+        def _print_bar(done, total, elapsed, best_pnl, best_combo):
+            pct = done / total if total else 0
+            filled = int(bar_width * pct)
+            bar = '█' * filled + '░' * (bar_width - filled)
+            # ETA
+            if done > 0 and elapsed > 0:
+                eta_s = elapsed / done * (total - done)
+                eta_m, eta_sec = divmod(int(eta_s), 60)
+                eta_str = f"{eta_m}m{eta_sec:02d}s"
+            else:
+                eta_str = "???"
+            elapsed_m, elapsed_s = divmod(int(elapsed), 60)
+            print(f"\r  [{bar}] {done}/{total} ({pct*100:.1f}%) | "
+                  f"{elapsed_m}m{elapsed_s:02d}s elapsed | ETA {eta_str} | "
+                  f"Best: ${best_pnl:+.0f} ({best_combo})", end='', flush=True)
+
+        best_global_pnl = 0.0
+        best_global_combo = "---"
 
         batch_size = self.num_workers
         for batch_start in range(0, len(remaining), batch_size):
@@ -475,23 +543,23 @@ class MonteCarloEngine:
             for (tid, tf), result in zip(batch, results):
                 self.results_db[(tid, tf)] = result
 
-                # Feed to brain
-                all_outcomes = []
-                for iter_res in result.iterations:
-                    for trade in iter_res.trades:
-                        key = f"{tid}_{tf}"
-                        all_outcomes.append(trade.to_outcome(key))
+                # Feed aggregate stats to brain
+                key = f"{tid}_{tf}"
+                self.brain.table[key]['wins'] += result.total_wins
+                self.brain.table[key]['losses'] += result.total_losses
+                self.brain.table[key]['total'] += result.total_wins + result.total_losses
 
-                if all_outcomes:
-                    self.brain.batch_update(all_outcomes)
+                # Track global best
+                if result.best_pnl > best_global_pnl:
+                    best_global_pnl = result.best_pnl
+                    best_global_combo = f"T-{tid}@{tf}"
 
                 completed.add((tid, tf))
 
-                # Save individual result (optional, for deep analysis later)
-                # res_path = os.path.join(self.checkpoint_dir, 'mc_combo_results')
-                # os.makedirs(res_path, exist_ok=True)
-                # with open(os.path.join(res_path, f"{tid}_{tf}.pkl"), 'wb') as f:
-                #     pickle.dump(result, f)
-
+            done = len(completed)
+            elapsed = _time.perf_counter() - t_start
             self._save_checkpoint(completed)
-            print(f"  Progress: {len(completed)}/{len(combos)} ({(len(completed)/len(combos)*100):.1f}%)")
+            _print_bar(done, total, elapsed, best_global_pnl, best_global_combo)
+
+        # Final newline after progress bar
+        print(f"\n  Sweep complete! Best: ${best_global_pnl:+.2f} ({best_global_combo})")

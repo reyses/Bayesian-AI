@@ -51,17 +51,17 @@ class ANOVAAnalyzer:
         # Build DataFrame from all iteration results
         rows = []
         for (tid, tf), combo_result in results_db.items():
-            for iteration in combo_result.iterations:
+            for iteration in combo_result.top_iterations:
                 if iteration.num_trades > 0:
                     rows.append({
                         'template_id': tid,
                         'timeframe': tf,
-                        'stop_bucket': self._bucket(iteration.params['stop_loss_ticks'], [12, 18]),
-                        'tp_bucket': self._bucket(iteration.params['take_profit_ticks'], [40, 50]),
-                        'hold_bucket': self._bucket(iteration.params['max_hold_bars'], [30, 100]),
+                        'stop_bucket': self._bucket(iteration.params.get('stop_loss_ticks', 15), [12, 18]),
+                        'tp_bucket': self._bucket(iteration.params.get('take_profit_ticks', 40), [40, 50]),
+                        'hold_bucket': self._bucket(iteration.params.get('max_hold_bars', 50), [30, 100]),
                         'pnl_per_trade': iteration.total_pnl / iteration.num_trades,
                         'win_rate': iteration.win_rate,
-                        'sharpe': self._compute_sharpe(iteration.trades),
+                        'sharpe': iteration.sharpe,
                         'total_pnl': iteration.total_pnl,
                         'num_trades': iteration.num_trades,
                         'params': iteration.params
@@ -125,7 +125,10 @@ class ANOVAAnalyzer:
             tf = row['timeframe']
             # Find best params for this combo from original results
             if (tid, tf) in results_db:
-                best_iter = max(results_db[(tid, tf)].iterations, key=lambda x: x.total_pnl)
-                top_combos_list.append((tid, tf, best_iter.params))
+                combo = results_db[(tid, tf)]
+                if combo.best_params:
+                    top_combos_list.append((tid, tf, combo.best_params))
+                elif combo.top_iterations:
+                    top_combos_list.append((tid, tf, combo.top_iterations[0].params))
 
         return results, top_combos_list
