@@ -79,6 +79,29 @@ def _load_parquet(file_path: str) -> Tuple[str, pd.DataFrame]:
         df = pd.read_parquet(file_path)
         return (file_path, df)
     except Exception as e:
+        # Robust handling for concatenated files with conflicting dictionaries
+        is_dictionary_error = "Column cannot have more than one dictionary" in str(e)
+
+        # Also check for specific pyarrow exception type if available
+        if not is_dictionary_error:
+            try:
+                import pyarrow.lib
+                if isinstance(e, pyarrow.lib.ArrowInvalid):
+                    is_dictionary_error = True
+            except ImportError:
+                pass
+
+        if is_dictionary_error:
+            try:
+                import pyarrow.parquet as pq
+                # Fallback: force decoding of all dictionary columns
+                table = pq.read_table(file_path, read_dictionary=[])
+                df = table.to_pandas()
+                return (file_path, df)
+            except Exception as e2:
+                print(f"    WARNING: Failed to load {os.path.basename(file_path)} (fallback failed): {e2}")
+                return (file_path, pd.DataFrame())
+
         print(f"    WARNING: Failed to load {os.path.basename(file_path)}: {e}")
         return (file_path, pd.DataFrame())
 
