@@ -137,8 +137,16 @@ class FractalDashboard:
                 pass # Already removed
         self._transition_arrows.clear()
 
-        z_vals = [d.get('z', 0) for d in self.templates.values()]
-        m_vals = [d.get('mom', 0) for d in self.templates.values()]
+        z_vals = np.array([d.get('z', 0) for d in self.templates.values()])
+        m_vals = np.array([d.get('mom', 0) for d in self.templates.values()])
+
+        # Clip momentum outliers using IQR so plot isn't dominated by extremes
+        if len(m_vals) > 4:
+            q1, q3 = np.percentile(m_vals, [25, 75])
+            iqr = q3 - q1
+            m_lo = q1 - 1.5 * iqr
+            m_hi = q3 + 1.5 * iqr
+            m_vals = np.clip(m_vals, m_lo, m_hi)
         # Color by Risk Score if available, else PnL (fallback to old behavior if risk not present)
         # Risk Score: 0 (Green) -> 1 (Red).
         # We need a colormap. 'RdYlGn_r' (Red-Yellow-Green reversed) maps 0 to Green, 1 to Red.
