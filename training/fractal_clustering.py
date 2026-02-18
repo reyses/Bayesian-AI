@@ -267,7 +267,7 @@ class FractalClusteringEngine:
             p2 = all_patterns[i+1]
 
             # Check time proximity (e.g., within 60 seconds)
-            if p2.timestamp - p1.timestamp <= 60:
+            if p2.timestamp - p1.timestamp <= TRANSITION_TIME_WINDOW_SECONDS:
                 c1 = pattern_to_cluster.get(id(p1))
                 c2 = pattern_to_cluster.get(id(p2))
 
