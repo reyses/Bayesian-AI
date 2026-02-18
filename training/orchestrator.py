@@ -200,14 +200,25 @@ class BayesianTrainingOrchestrator:
         except NotImplementedError:
             return 1
 
-    def run_forward_pass(self, data_source: str):
+    def run_forward_pass(self, data_source: str,
+                         start_date: str = None, end_date: str = None):
         """
         Phase 4: Forward pass — replay full year using playbook.
         Scans fractal cascade per day, matches templates, trades via WaveRider.
         Brain learns from outcomes.
+
+        Args:
+            start_date: Inclusive lower bound YYYYMMDD (e.g. '20260101').
+                        If None, no lower bound — all days included.
+            end_date:   Inclusive upper bound YYYYMMDD (e.g. '20260209').
+                        If None, no upper bound — all days included.
         """
         print("\n" + "="*80)
         print("PHASE 4: FORWARD PASS (EXECUTION MODE)")
+        if start_date or end_date:
+            _lo = start_date or "start"
+            _hi = end_date   or "end"
+            print(f"  Date slice: {_lo} → {_hi}")
         print("="*80)
         if self.dashboard_queue:
             self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
@@ -265,6 +276,18 @@ class BayesianTrainingOrchestrator:
         if not daily_files_15s:
             print(f"  No 15s data found in {data_source}/15s/")
             return
+
+        # ── Time-slice filter ────────────────────────────────────────────────
+        # Filenames are YYYYMMDD.parquet; lexicographic comparison works fine.
+        if start_date or end_date:
+            _before = len(daily_files_15s)
+            daily_files_15s = [
+                f for f in daily_files_15s
+                if (not start_date or os.path.basename(f).replace('.parquet', '') >= start_date)
+                and (not end_date   or os.path.basename(f).replace('.parquet', '') <= end_date)
+            ]
+            print(f"  Date filter applied: {_before} → {len(daily_files_15s)} days "
+                  f"({start_date or 'start'} → {end_date or 'end'})")
 
         print(f"  Found {len(daily_files_15s)} days to simulate.")
 
@@ -607,6 +630,13 @@ class BayesianTrainingOrchestrator:
         report_lines = []
         report_lines.append("=" * 80)
         report_lines.append("FORWARD PASS COMPLETE")
+        _date_range = (
+            f"  Period: {start_date or daily_files_15s[0] if daily_files_15s else 'N/A'} "
+            f"to {end_date or (os.path.basename(daily_files_15s[-1]).replace('.parquet','') if daily_files_15s else 'N/A')} "
+            f"({len(daily_files_15s)} days)"
+        ) if daily_files_15s else ""
+        if _date_range:
+            report_lines.append(_date_range)
         report_lines.append(f"Total Trades: {total_trades}")
         report_lines.append(f"Win Rate: {total_wins/total_trades*100:.1f}%" if total_trades > 0 else "Win Rate: N/A")
         report_lines.append(f"Total PnL: ${total_pnl:.2f}")
@@ -1699,6 +1729,10 @@ def main():
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
     parser.add_argument('--fresh', action='store_true', help="Clear all pipeline checkpoints and start fresh")
     parser.add_argument('--forward-pass', action='store_true', help="Run Phase 4 forward pass using existing playbook")
+    parser.add_argument('--forward-start', type=str, default=None, metavar='YYYYMMDD',
+                        help="First day to include in forward pass (inclusive, e.g. 20260101)")
+    parser.add_argument('--forward-end', type=str, default=None, metavar='YYYYMMDD',
+                        help="Last day to include in forward pass (inclusive, e.g. 20260209)")
     parser.add_argument('--strategy-report', action='store_true', help="Run Phase 5 strategy selection report")
 
     # Monte Carlo Flags (opt-in with --mc)
@@ -1786,7 +1820,9 @@ def main():
 
         if args.forward_pass and not args.fresh:
             # Phase 4 only (using existing playbook)
-            orchestrator.run_forward_pass(args.data)
+            orchestrator.run_forward_pass(args.data,
+                                          start_date=args.forward_start,
+                                          end_date=args.forward_end)
             if args.strategy_report:
                 orchestrator.run_strategy_selection()
         elif args.strategy_report and not args.forward_pass:
@@ -1831,7 +1867,9 @@ def main():
                 orchestrator.run_final_validation(refined_strategies)
             else:
                 # Default: Bayesian path → Forward Pass → Strategy Report
-                orchestrator.run_forward_pass(args.data)
+                orchestrator.run_forward_pass(args.data,
+                                          start_date=args.forward_start,
+                                          end_date=args.forward_end)
                 orchestrator.run_strategy_selection()
 
         return 0
