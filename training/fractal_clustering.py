@@ -26,6 +26,20 @@ class PatternTemplate:
     patterns: List[Any]   # References to the original PatternEvents
     physics_variance: float # Measure of how "tight" the cluster is
 
+    # NAVIGATION & RISK DATA
+    transition_map: Dict[int, float] = None   # {Next_Cluster_ID: Probability}
+    transition_probs: Dict[int, float] = None # Alias for backward compatibility
+
+    # REWARD
+    expected_value: float = 0.0               # (WinRate * AvgWin) - (LossRate * AvgLoss)
+
+    # RISK
+    outcome_variance: float = 0.0             # StdDev of PnL outcomes
+    avg_drawdown: float = 0.0                 # Average Maximum Adverse Excursion (MAE)
+    risk_score: float = 0.0                   # 0.0 (Safe) to 1.0 (Toxic)
+
+    parent_cluster_id: int = None             # The "Macro" state this belongs to
+
 class FractalClusteringEngine:
     def __init__(self, n_clusters=1000, max_variance=0.5):
         self.n_clusters = n_clusters
@@ -237,6 +251,75 @@ class FractalClusteringEngine:
             current_id += len(child_templates)
 
         return results
+
+    def build_transition_map(self, templates: List[PatternTemplate]):
+        """
+        SEQUENCE ANALYSIS:
+        Maps how market states flow into each other (A -> B).
+        Populates template.transition_probs based on sequential pattern events.
+        """
+        print(f"  Building Navigation Map (Sequence Analysis)...", end="", flush=True)
+
+        # 1. Map Pattern -> Cluster ID
+        # pattern object identity -> template_id
+        pattern_to_cluster = {}
+        all_patterns = []
+
+        for tmpl in templates:
+            for p in tmpl.patterns:
+                pattern_to_cluster[id(p)] = tmpl.template_id
+                all_patterns.append(p)
+
+        # 2. Sort by Timestamp
+        all_patterns.sort(key=lambda p: p.timestamp)
+
+        # 3. Analyze Transitions
+        transitions = {t.template_id: {} for t in templates} # from -> {to: count}
+
+        for i in range(len(all_patterns) - 1):
+            p1 = all_patterns[i]
+            p2 = all_patterns[i+1]
+
+            # Check time proximity (e.g., within 60 seconds)
+            if p2.timestamp - p1.timestamp <= 60:
+                c1 = pattern_to_cluster.get(id(p1))
+                c2 = pattern_to_cluster.get(id(p2))
+
+                if c1 is not None and c2 is not None:
+                    if c2 not in transitions[c1]:
+                        transitions[c1][c2] = 0
+                    transitions[c1][c2] += 1
+
+        # 4. Calculate Probabilities
+        count_edges = 0
+        for tmpl in templates:
+            t_counts = transitions.get(tmpl.template_id, {})
+            total = sum(t_counts.values())
+
+            if total > 0:
+                tmpl.transition_probs = {
+                    next_id: count / total
+                    for next_id, count in t_counts.items()
+                }
+                count_edges += len(tmpl.transition_probs)
+            else:
+                tmpl.transition_probs = {}
+
+            # Map alias
+            tmpl.transition_map = tmpl.transition_probs
+
+            # 5. Risk Analysis (Physics Variance)
+            # Instruction: "Variance = Standard Deviation of these outcomes [Z-scores]"
+            # This is already captured in physics_variance, but we map it to outcome_variance for schema
+            # If outcome_variance isn't set (e.g. by orchestrator yet), we use physics variance as proxy
+            if tmpl.outcome_variance == 0.0:
+                tmpl.outcome_variance = tmpl.physics_variance
+
+                # Heuristic Risk Score (if no trade data): Sigmoid of Z-variance
+                # Assume Z-variance > 1.0 is risky
+                tmpl.risk_score = 1.0 - (1.0 / (1.0 + tmpl.physics_variance))
+
+        print(f" done. Mapped {count_edges} transitions. Risk analysis complete.")
 
     def refine_clusters(self, template_id: int, member_params: List[Dict[str, float]], original_patterns: List[Any]) -> List[PatternTemplate]:
         """
