@@ -57,6 +57,7 @@ class FractalDashboard:
             'too_early': 0.0, 'noise': 0.0,
         }
 
+        self._running = True   # set False on SHUTDOWN to stop rescheduling
         self._setup_layout()
         self.root.after(100, self._process_queue)
 
@@ -171,7 +172,9 @@ class FractalDashboard:
         except queue.Empty:
             pass
         finally:
-            self.root.after(500, self._process_queue)
+            # Only reschedule while running — stops dangling callbacks after SHUTDOWN
+            if self._running:
+                self.root.after(500, self._process_queue)
 
     def _handle_message(self, msg):
         t = msg.get('type')
@@ -206,6 +209,13 @@ class FractalDashboard:
             self._log(f"Oracle attribution updated | Captured: {self._capture_pct():.1f}%")
 
         elif t == 'SHUTDOWN':
+            self._running = False
+            # Close all matplotlib figures while still in the main loop so tkinter
+            # Image objects are deleted here, not from the GC in a daemon thread.
+            try:
+                plt.close('all')
+            except Exception:
+                pass
             self.root.quit()
 
     # ── Pareto chart ──────────────────────────────────────────────────────────
