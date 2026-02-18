@@ -108,6 +108,50 @@ class TestFractalDashboard(unittest.TestCase):
         self.assertEqual(len(dashboard.fission_events), 1)
         self.assertEqual(dashboard.fission_events[0]['parent_id'], 101)
 
+    @patch('visualization.live_training_dashboard.plt.subplots')
+    def test_leaderboard_sorting(self, mock_subplots):
+        mock_fig = MagicMock()
+        mock_ax = MagicMock()
+        mock_subplots.return_value = (mock_fig, mock_ax)
+
+        dashboard = FractalDashboard(self.root, self.queue)
+
+        # Add templates
+        t1 = {'id': 1, 'pnl': 100, 'count': 10}
+        t2 = {'id': 2, 'pnl': 200, 'count': 5}
+        t3 = {'id': 3, 'pnl': 50, 'count': 20}
+        dashboard.templates = {1: t1, 2: t2, 3: t3}
+
+        # 1. Default Sort (PnL Descending): 2 ($200), 1 ($100), 3 ($50)
+        dashboard._update_leaderboard()
+        # Get calls to insert
+        calls = dashboard.tree_ranks.insert.call_args_list
+        # We expect 3 calls.
+        self.assertEqual(len(calls), 3)
+        ids = [call.kwargs['values'][0] for call in calls]
+        self.assertEqual(ids, [2, 1, 3])
+
+        # 2. Click "ID" (New col -> default Descending): 3, 2, 1
+        dashboard.tree_ranks.insert.reset_mock()
+        dashboard._on_header_click("ID")
+        calls = dashboard.tree_ranks.insert.call_args_list
+        ids = [call.kwargs['values'][0] for call in calls]
+        self.assertEqual(ids, [3, 2, 1])
+
+        # 3. Click "ID" again (Same col -> toggle to Ascending): 1, 2, 3
+        dashboard.tree_ranks.insert.reset_mock()
+        dashboard._on_header_click("ID")
+        calls = dashboard.tree_ranks.insert.call_args_list
+        ids = [call.kwargs['values'][0] for call in calls]
+        self.assertEqual(ids, [1, 2, 3])
+
+        # 4. Click "Count" (New col -> default Descending): 3 (20), 1 (10), 2 (5)
+        dashboard.tree_ranks.insert.reset_mock()
+        dashboard._on_header_click("Count")
+        calls = dashboard.tree_ranks.insert.call_args_list
+        ids = [call.kwargs['values'][0] for call in calls]
+        self.assertEqual(ids, [3, 1, 2])
+
 if __name__ == '__main__':
     # Patching infinite loop in _process_queue for testing
     # We'll just call _handle_message directly or catch the recursion

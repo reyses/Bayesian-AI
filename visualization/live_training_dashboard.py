@@ -37,6 +37,9 @@ class FractalDashboard:
         self.ARROW_LENGTH_FACTOR = 0.9
         self.ARROW_HEAD_WIDTH = 0.1
 
+        self._sort_col = "PnL"
+        self._sort_reverse = True
+
         self._setup_layout()
         self.root.after(100, self._process_queue)
 
@@ -85,7 +88,7 @@ class FractalDashboard:
         cols = ("ID", "Count", "PnL", "Status")
         self.tree_ranks = ttk.Treeview(right_pane, columns=cols, show='headings', height=15)
         for col in cols:
-            self.tree_ranks.heading(col, text=col)
+            self.tree_ranks.heading(col, text=col, command=lambda c=col: self._on_header_click(c))
             self.tree_ranks.column(col, width=80)
         self.tree_ranks.pack(fill=tk.X, pady=5)
 
@@ -201,13 +204,28 @@ class FractalDashboard:
 
         self.canvas.draw()
 
+    def _on_header_click(self, col):
+        if col == self._sort_col:
+            self._sort_reverse = not self._sort_reverse
+        else:
+            self._sort_col = col
+            self._sort_reverse = True
+        self._update_leaderboard()
+
     def _update_leaderboard(self):
         # Clear
         for i in self.tree_ranks.get_children():
             self.tree_ranks.delete(i)
 
-        # Sort by PnL
-        sorted_templates = sorted(self.templates.values(), key=lambda x: x.get('pnl', 0), reverse=True)
+        # Sort dynamically
+        key_map = {"ID": "id", "Count": "count", "PnL": "pnl"}
+        sort_key = key_map.get(self._sort_col, "pnl")
+
+        sorted_templates = sorted(
+            self.templates.values(),
+            key=lambda x: x.get(sort_key, 0),
+            reverse=self._sort_reverse
+        )
 
         # Top 15
         for t in sorted_templates[:15]:
