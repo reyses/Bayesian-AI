@@ -1,5 +1,11 @@
+import warnings
 import torch
 import numpy as np
+
+# Silence CUDA underutilization / perf warnings for small datasets
+warnings.filterwarnings("ignore", message=".*not.*fully.*utilizing.*")
+warnings.filterwarnings("ignore", message=".*CUDA.*performance.*")
+warnings.filterwarnings("ignore", category=UserWarning, module="torch")
 
 class CUDAKMeans:
     """
@@ -139,30 +145,27 @@ class CUDAKMeans:
         return self.labels_
 
     def _kmeans_plus_plus_init(self, X, rng):
-        """KMeans++ initialization on CPU (only K iterations, cheap)."""
+        """KMeans++ initialization on GPU."""
         n_samples, n_features = X.shape
-        centroids = np.empty((self.n_clusters, n_features), dtype=np.float64)
+        X_t = torch.from_numpy(X).float().cuda()
+        centroids = torch.empty((self.n_clusters, n_features), dtype=torch.float32, device='cuda')
 
         # First centroid: random
-        centroids[0] = X[rng.randint(n_samples)]
+        centroids[0] = X_t[rng.randint(n_samples)]
 
         for c in range(1, self.n_clusters):
-            # Distance from each point to nearest existing centroid
-            dists = np.full(n_samples, np.inf)
-            for j in range(c):
-                d = np.sum((X - centroids[j]) ** 2, axis=1)
-                dists = np.minimum(dists, d)
+            # Squared distance from each point to nearest existing centroid (all on GPU)
+            dists = torch.cdist(X_t, centroids[:c]).pow(2).min(dim=1).values
 
             # Probability proportional to distance
             total = dists.sum()
             if total < 1e-30:
-                # All points coincide with existing centroids — pick random
-                centroids[c] = X[rng.randint(n_samples)]
+                centroids[c] = X_t[rng.randint(n_samples)]
             else:
-                probs = dists / total
-                centroids[c] = X[rng.choice(n_samples, p=probs)]
+                probs = (dists / total).cpu().numpy()
+                centroids[c] = X_t[rng.choice(n_samples, p=probs)]
 
-        return centroids
+        return centroids.cpu().numpy()
 
 
 def cuda_silhouette_score(X, labels):

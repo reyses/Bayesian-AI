@@ -33,12 +33,14 @@ from config.oracle_config import (
 from config.symbols import MNQ
 
 # Timeframe hierarchy: largest to smallest (top-down scan order)
-TIMEFRAME_HIERARCHY = ['1D', '4h', '1h', '15m', '5m', '1m', '15s', '5s', '1s']
+TIMEFRAME_HIERARCHY = ['1M', '1W', '1D', '4h', '1h', '30m', '15m', '5m', '3m', '2m', '1m', '30s', '15s', '5s', '1s']
 
 # Maps timeframe labels to seconds
 TIMEFRAME_SECONDS = {
-    '1s': 1, '5s': 5, '15s': 15, '1m': 60, '5m': 300,
-    '15m': 900, '1h': 3600, '4h': 14400, '1D': 86400, '1W': 604800
+    '1s': 1, '5s': 5, '15s': 15, '30s': 30,
+    '1m': 60, '2m': 120, '3m': 180, '5m': 300,
+    '15m': 900, '30m': 1800, '1h': 3600, '4h': 14400,
+    '1D': 86400, '1W': 604800, '1M': 2592000
 }
 
 MIN_BARS_FOR_CHILD_REGRESSION = 30
@@ -319,17 +321,20 @@ class FractalDiscoveryAgent:
     def scan_day_cascade(self, atlas_root: str, date_str: str) -> List[PatternEvent]:
         """
         Scans a single day top-down (4H -> 15s) to find actionable patterns.
-        Used for Forward Pass execution.
+        Returns patterns from ALL cascade levels with their source timeframe.
+        Higher-TF patterns carry more weight for trade decisions.
         """
-        # We start at 4H (depth=1 in the full hierarchy, since 1D=depth 0).
         current_windows = None
+        all_patterns = []
 
-        # Define hierarchy subset — depths must match discovery (1D=0, 4h=1, 1h=2, ...)
-        hierarchy = [('4h', 1), ('1h', 2), ('15m', 3), ('5m', 4), ('1m', 5), ('15s', 6)]
+        hierarchy = [
+            ('1D', 0), ('4h', 1), ('1h', 2), ('30m', 3), ('15m', 4),
+            ('5m', 5), ('3m', 6), ('2m', 7), ('1m', 8),
+            ('30s', 9), ('15s', 10), ('5s', 11), ('1s', 12)
+        ]
 
         for tf, depth in hierarchy:
             tf_path = os.path.join(atlas_root, tf)
-            # Find file for this date
             files = sorted(glob.glob(os.path.join(tf_path, '*.parquet')))
             day_file = None
             for f in files:
@@ -338,41 +343,44 @@ class FractalDiscoveryAgent:
                     break
 
             if not day_file:
-                # If macro data missing, can't start cascade
-                return []
+                if current_windows is None:
+                    return all_patterns  # Can't start cascade without macro
+                continue  # Skip missing TF but continue cascade
 
-            # Scan
             if current_windows is None:
-                 # First level (4H) - scan full file
-                 patterns = self._batch_scan_full([day_file], tf, depth, 1)
+                patterns = self._batch_scan_full([day_file], tf, depth, 1)
             else:
-                 # Drill down
-                 patterns = self._batch_scan_windowed([day_file], tf, depth, current_windows, 1)
+                patterns = self._batch_scan_windowed([day_file], tf, depth, current_windows, 1)
 
             if not patterns:
-                return []
+                if current_windows is None:
+                    return all_patterns  # No macro signal, stop
+                continue  # No patterns at this level, keep going
 
-            # If we are at 15s, return these
+            # Collect patterns from this level
+            all_patterns.extend(patterns)
+
+            # If at finest level, we're done
             if tf == '15s':
-                return patterns
+                break
 
-            # Otherwise build windows for next level
+            # Build windows for next level
             tf_secs = TIMEFRAME_SECONDS.get(tf, 15)
-            # Find next TF in hierarchy
             current_idx = [t for t, d in hierarchy].index(tf)
-            child_tf = hierarchy[current_idx + 1][0]
-            child_tf_secs = TIMEFRAME_SECONDS.get(child_tf, 15)
-            min_window = child_tf_secs * 30
-            drilldown = max(tf_secs, min_window)
+            if current_idx + 1 < len(hierarchy):
+                child_tf = hierarchy[current_idx + 1][0]
+                child_tf_secs = TIMEFRAME_SECONDS.get(child_tf, 15)
+                min_window = child_tf_secs * 30
+                drilldown = max(tf_secs, min_window)
 
-            next_windows = []
-            for p in patterns:
-                full_chain = self._build_parent_chain(p)
-                next_windows.append((p.timestamp, p.timestamp + drilldown, p.pattern_type, tf, full_chain))
+                next_windows = []
+                for p in patterns:
+                    full_chain = self._build_parent_chain(p)
+                    next_windows.append((p.timestamp, p.timestamp + drilldown, p.pattern_type, tf, full_chain))
 
-            current_windows = self._merge_windows(next_windows)
+                current_windows = self._merge_windows(next_windows)
 
-        return []
+        return all_patterns
 
     # ------------------------------------------------------------------
     # Batch scan methods (single GPU engine, threaded I/O)
