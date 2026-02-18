@@ -267,6 +267,19 @@ class BayesianTrainingOrchestrator:
         # So we transform centroids once.
         centroids_scaled = self.scaler.transform(centroids)
 
+        # Load tier map if available (written by Phase 5 on previous run)
+        # Tier weights: Tier 1 = -1.5 bonus, Tier 2 = -0.5, Tier 3 = 0, Tier 4 = +0.5 penalty
+        _TIER_SCORE_ADJ = {1: -1.5, 2: -0.5, 3: 0.0, 4: 0.5}
+        tiers_path = os.path.join(self.checkpoint_dir, 'template_tiers.pkl')
+        template_tier_map = {}
+        if os.path.exists(tiers_path):
+            with open(tiers_path, 'rb') as f:
+                template_tier_map = pickle.load(f)
+            t1 = sum(1 for v in template_tier_map.values() if v == 1)
+            print(f"  Loaded tier map: {len(template_tier_map)} templates ({t1} Tier 1)")
+        else:
+            print("  No tier map found — all templates weighted equally (run strategy report first)")
+
         print(f"  Prepared {len(centroids)} centroids for matching.")
 
         # 2. Iterate Days
@@ -489,10 +502,12 @@ class BayesianTrainingOrchestrator:
                         if dist < 3.0: # Threshold
                             # Brain gate — use low threshold for exploration
                             if self.brain.should_fire(tid, min_prob=0.05, min_conf=0.0):
-                                # Score: lower depth (higher TF) gets priority, then closer centroid distance
-                                # depth: 1=4h, 2=1h, 3=15m, 4=5m, 5=1m, 6=15s
+                                # Score: lower is better
+                                # depth: 1=4h (best) → 6=15s (worst)
+                                # Tier bonus: Tier 1 = -1.5, Tier 2 = -0.5, Tier 3 = 0, Tier 4 = +0.5
                                 p_depth = getattr(p, 'depth', 6)
-                                score = p_depth + dist  # Lower is better
+                                tier_adj = _TIER_SCORE_ADJ.get(template_tier_map.get(tid, 3), 0.0)
+                                score = p_depth + dist + tier_adj
                                 if score < best_dist:
                                     best_dist = score
                                     best_candidate = p
@@ -501,9 +516,23 @@ class BayesianTrainingOrchestrator:
                     if best_candidate:
                         # FIRE
                         params = self.pattern_library[best_tid]['params']
-                        # Direction from template centroid, not current bar
-                        template_z = self.pattern_library[best_tid]['centroid'][0]  # z_score is feature[0]
-                        side = 'short' if template_z > 0 else 'long'
+                        lib_entry = self.pattern_library[best_tid]
+
+                        # ── Direction gate ───────────────────────────────────────────
+                        # Use template's oracle-derived bias if it is decisive (>65%).
+                        # Guardrail: strong bias locks direction; ambiguous bias falls
+                        # back to the centroid z_score (positive z = mean-revert = short).
+                        _BIAS_THRESH = 0.65
+                        long_bias  = lib_entry.get('long_bias',  0.5)
+                        short_bias = lib_entry.get('short_bias', 0.5)
+                        if long_bias >= _BIAS_THRESH:
+                            side = 'long'
+                        elif short_bias >= _BIAS_THRESH:
+                            side = 'short'
+                        else:
+                            # Centroid z_score fallback (positive z = overbought = short)
+                            template_z = lib_entry['centroid'][0]
+                            side = 'short' if template_z > 0 else 'long'
                         self.wave_rider.open_position(
                             entry_price=price,
                             side=side,
@@ -1063,6 +1092,12 @@ class BayesianTrainingOrchestrator:
 
         rpt.append(f"\nSaved {len(playbook)} Tier 1 strategies to {pb_path}")
 
+        # Save full tier map — used by forward pass for candidate weighting
+        tier_map = {r['id']: r['tier'] for r in report_data}
+        tiers_path = os.path.join(self.checkpoint_dir, 'template_tiers.pkl')
+        with open(tiers_path, 'wb') as f:
+            pickle.dump(tier_map, f)
+
         # Tier summary
         from collections import Counter
         tier_counts = Counter(r['tier'] for r in report_data)
@@ -1086,6 +1121,80 @@ class BayesianTrainingOrchestrator:
         rpt.append("ANCESTRY ANALYSIS (Tier 1):")
         rpt.append(f"  Roche-backed: {roche_roots}")
         rpt.append(f"  Structure-backed: {struct_roots}")
+
+        # ── PARETO ANALYSIS ──────────────────────────────────────────────────
+        # Read oracle_trade_log.csv and find the 20% of trades driving 80% of profit.
+        # Dimensions: template, direction, oracle_label, time-of-day.
+        import csv as _csv
+        import datetime as _dt
+        oracle_csv = os.path.join(self.checkpoint_dir, 'oracle_trade_log.csv')
+        if os.path.exists(oracle_csv):
+            try:
+                with open(oracle_csv, newline='', encoding='utf-8') as f:
+                    rows = list(_csv.DictReader(f))
+
+                # Only winning trades with positive actual_pnl
+                profit_rows = [r for r in rows if float(r.get('actual_pnl', 0)) > 0]
+                total_profit = sum(float(r['actual_pnl']) for r in profit_rows)
+
+                rpt.append("")
+                rpt.append("=" * 80)
+                rpt.append("PARETO ANALYSIS  (top contributors to gross profit)")
+                rpt.append("=" * 80)
+                rpt.append(f"  Gross profit from winning trades: ${total_profit:,.2f}  "
+                           f"({len(profit_rows):,} wins of {len(rows):,} total)")
+
+                def _pareto_table(label, key_fn, top_n=10):
+                    """Aggregate by key_fn, sort desc, find 80% threshold."""
+                    from collections import defaultdict
+                    buckets = defaultdict(float)
+                    counts  = defaultdict(int)
+                    for r in profit_rows:
+                        k = key_fn(r)
+                        buckets[k] += float(r['actual_pnl'])
+                        counts[k]  += 1
+                    ranked = sorted(buckets.items(), key=lambda x: -x[1])
+                    if not ranked:
+                        return
+                    cum = 0.0
+                    threshold_idx = len(ranked)
+                    for i, (k, v) in enumerate(ranked):
+                        cum += v
+                        if cum >= total_profit * 0.80 and threshold_idx == len(ranked):
+                            threshold_idx = i + 1
+
+                    rpt.append(f"\n  -- {label} --")
+                    rpt.append(f"  {'Key':<18} {'PnL':>10} {'Trades':>7} {'Cum%':>7}")
+                    cum = 0.0
+                    for i, (k, v) in enumerate(ranked[:top_n]):
+                        cum += v
+                        marker = " <-- 80%" if i + 1 == threshold_idx else ""
+                        rpt.append(f"  {str(k):<18} ${v:>9,.2f} {counts[k]:>7,}  {cum/total_profit*100:>6.1f}%{marker}")
+                    pct_keys = threshold_idx / max(len(ranked), 1) * 100
+                    rpt.append(f"  => {threshold_idx} of {len(ranked)} keys ({pct_keys:.0f}%) drive 80% of profit")
+
+                # By template
+                _pareto_table("BY TEMPLATE",
+                              lambda r: r.get('template_id', '?'))
+
+                # By direction
+                _pareto_table("BY DIRECTION",
+                              lambda r: r.get('direction', '?'), top_n=4)
+
+                # By oracle label
+                _pareto_table("BY ORACLE LABEL",
+                              lambda r: r.get('oracle_label_name', '?'), top_n=6)
+
+                # By hour-of-day (entry_price timestamp not available; use row order proxy)
+                # oracle_trade_log has no timestamp col — skip if not present
+                if rows and 'entry_price' in rows[0]:
+                    pass  # no timestamp in log, skip hour breakdown
+
+            except Exception as e:
+                rpt.append(f"\n  (Pareto analysis skipped: {e})")
+        else:
+            rpt.append("")
+            rpt.append("  (Pareto analysis: oracle_trade_log.csv not found — run forward pass first)")
 
         # Print to console
         for line in rpt:
@@ -1481,7 +1590,11 @@ class BayesianTrainingOrchestrator:
             'expected_value': template.expected_value,
             'outcome_variance': template.outcome_variance,
             'avg_drawdown': template.avg_drawdown,
-            'risk_score': template.risk_score
+            'risk_score': template.risk_score,
+            # Direction bias from oracle labels (used in forward pass direction gate)
+            'long_bias': getattr(template, 'long_bias', 0.5),
+            'short_bias': getattr(template, 'short_bias', 0.5),
+            'stats_win_rate': getattr(template, 'stats_win_rate', 0.0),
         }
 
     def validate_template_group(self, patterns: List[PatternEvent], params: Dict) -> float:
