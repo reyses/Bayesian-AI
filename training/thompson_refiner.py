@@ -130,21 +130,11 @@ class ThompsonRefiner:
                     mutation_scale=0.1 # Tight mutations
                 )
 
-                # Update brain with results
-                for iter_result in result.iterations:
-                    for trade in iter_result.trades:
-                        key = f"{tid}_{tf}"
-                        self.brain.update(trade.to_outcome(key))
-
-                    # Also update "best params" for this combo if better PnL found?
-                    # The `base_params` in `self.top_combos` is fixed from ANOVA step.
-                    # Should we update it?
-                    # The prompt says: "Run simulations with tighter parameter mutations around best known"
-                    # But doesn't explicitly say to update the base.
-                    # Ideally we should track the best params found during refinement.
-                    if iter_result.total_pnl > 0: # Check against previous best?
-                         # For now, keep mutating around the ANOVA best.
-                         pass
+                # Update brain with aggregate win/loss counts
+                key = f"{tid}_{tf}"
+                self.brain.table[key]['wins'] += result.total_wins
+                self.brain.table[key]['losses'] += result.total_losses
+                self.brain.table[key]['total'] += result.total_wins + result.total_losses
 
             # Report progress
             print(f"  Round {round_num+1}/{rounds} — Best: {self._get_best_combo()}")
