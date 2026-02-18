@@ -276,6 +276,12 @@ class BayesianTrainingOrchestrator:
         audit_tn = 0
         audit_fn = 0
 
+        # Per-trade oracle tracking
+        _ORACLE_LABEL_NAMES = {2: 'MEGA_LONG', 1: 'SCALP_LONG', 0: 'NOISE', -1: 'SCALP_SHORT', -2: 'MEGA_SHORT'}
+        oracle_trade_records = []  # completed per-trade oracle dicts
+        pending_oracle = None      # oracle facts for currently open trade
+        fn_potential_pnl = 0.0    # dollar potential of real moves we skipped
+
         for day_idx, day_file in enumerate(daily_files_15s):
             day_date = os.path.basename(day_file).replace('.parquet', '')
             print(f"\n  Day {day_idx+1}/{len(daily_files_15s)}: {day_date} ... ", end='', flush=True)
@@ -364,6 +370,24 @@ class BayesianTrainingOrchestrator:
                         self.brain.update(outcome)
                         day_trades.append(outcome)
                         current_position_open = False
+
+                        # Complete oracle record for this trade
+                        if pending_oracle is not None:
+                            o_mfe = pending_oracle['oracle_mfe']
+                            o_mae = pending_oracle['oracle_mae']
+                            oracle_favorable = o_mfe if pending_oracle['direction'] == 'LONG' else o_mae
+                            oracle_potential = oracle_favorable * self.asset.point_value
+                            capture = outcome.pnl / oracle_potential if oracle_potential > 0 else 0.0
+                            oracle_trade_records.append({
+                                **pending_oracle,
+                                'exit_price': outcome.exit_price,
+                                'exit_reason': outcome.exit_reason,
+                                'actual_pnl': outcome.pnl,
+                                'oracle_potential_pnl': oracle_potential,
+                                'capture_rate': round(min(capture, 9.99), 4),
+                                'result': outcome.result,
+                            })
+                            pending_oracle = None
 
                 # 2. Check for entries (if no position)
                 if not current_position_open and ts in pattern_map:
@@ -463,6 +487,17 @@ class BayesianTrainingOrchestrator:
                         active_side = side
                         active_template_id = best_tid
 
+                        # Store oracle facts for this trade (linked at exit)
+                        pending_oracle = {
+                            'template_id': best_tid,
+                            'direction': 'LONG' if side == 'long' else 'SHORT',
+                            'entry_price': price,
+                            'oracle_label': best_candidate.oracle_marker,
+                            'oracle_label_name': _ORACLE_LABEL_NAMES.get(best_candidate.oracle_marker, 'UNKNOWN'),
+                            'oracle_mfe': best_candidate.oracle_meta.get('mfe', 0.0),
+                            'oracle_mae': best_candidate.oracle_meta.get('mae', 0.0),
+                        }
+
                         # AUDIT: True Positive or False Positive
                         audit_outcome = TradeOutcome(
                             state=best_candidate.state,
@@ -484,14 +519,24 @@ class BayesianTrainingOrchestrator:
                         for p in candidates:
                             if p == best_candidate: continue
                             audit_res = _audit_trade(None, p)
-                            if audit_res['classification'] == 'TN': audit_tn += 1
-                            elif audit_res['classification'] == 'FN': audit_fn += 1
+                            if audit_res['classification'] == 'TN':
+                                audit_tn += 1
+                            elif audit_res['classification'] == 'FN':
+                                audit_fn += 1
+                                _om = getattr(p, 'oracle_marker', 0)
+                                _meta = getattr(p, 'oracle_meta', {})
+                                fn_potential_pnl += (_meta.get('mfe', 0.0) if _om > 0 else _meta.get('mae', 0.0)) * self.asset.point_value
                     else:
                         # Audit all candidates as SKIPPED
                         for p in candidates:
                             audit_res = _audit_trade(None, p)
-                            if audit_res['classification'] == 'TN': audit_tn += 1
-                            elif audit_res['classification'] == 'FN': audit_fn += 1
+                            if audit_res['classification'] == 'TN':
+                                audit_tn += 1
+                            elif audit_res['classification'] == 'FN':
+                                audit_fn += 1
+                                _om = getattr(p, 'oracle_marker', 0)
+                                _meta = getattr(p, 'oracle_meta', {})
+                                fn_potential_pnl += (_meta.get('mfe', 0.0) if _om > 0 else _meta.get('mae', 0.0)) * self.asset.point_value
 
             # End of day cleanup — force close any open position
             if self.wave_rider.position is not None:
@@ -519,6 +564,24 @@ class BayesianTrainingOrchestrator:
                 self.brain.update(outcome)
                 day_trades.append(outcome)
 
+                # Complete oracle record for EOD-forced close
+                if pending_oracle is not None:
+                    o_mfe = pending_oracle['oracle_mfe']
+                    o_mae = pending_oracle['oracle_mae']
+                    oracle_favorable = o_mfe if pending_oracle['direction'] == 'LONG' else o_mae
+                    oracle_potential = oracle_favorable * self.asset.point_value
+                    capture = outcome.pnl / oracle_potential if oracle_potential > 0 else 0.0
+                    oracle_trade_records.append({
+                        **pending_oracle,
+                        'exit_price': outcome.exit_price,
+                        'exit_reason': 'TIME_EXIT',
+                        'actual_pnl': outcome.pnl,
+                        'oracle_potential_pnl': oracle_potential,
+                        'capture_rate': round(min(capture, 9.99), 4),
+                        'result': outcome.result,
+                    })
+                    pending_oracle = None
+
             # Analyze day
             if day_trades:
                 # Regret analysis (optional, or just stats)
@@ -540,22 +603,91 @@ class BayesianTrainingOrchestrator:
         report_lines.append(f"Total PnL: ${total_pnl:.2f}")
         report_lines.append("=" * 80)
 
-        # Oracle Report
-        report_lines.append("")
-        report_lines.append("ORACLE AUDIT SUMMARY")
-        report_lines.append("-" * 40)
-        total_audit = audit_tp + audit_fp_noise + audit_fp_wrong + audit_fn + audit_tn
-        report_lines.append(f"  True Positive (correct trade):     {audit_tp} ({audit_tp/total_audit*100:.1f}%)" if total_audit else "  True Positive (correct trade):     0")
-        report_lines.append(f"  False Positive - Noise:             {audit_fp_noise} ({audit_fp_noise/total_audit*100:.1f}%)" if total_audit else "  False Positive - Noise:             0")
-        report_lines.append(f"  False Positive - Wrong Dir:         {audit_fp_wrong} ({audit_fp_wrong/total_audit*100:.1f}%)" if total_audit else "  False Positive - Wrong Dir:         0")
-        report_lines.append(f"  False Negative (missed move):       {audit_fn} ({audit_fn/total_audit*100:.1f}%)" if total_audit else "  False Negative (missed move):       0")
-
-        precision = audit_tp / (audit_tp + audit_fp_noise + audit_fp_wrong) if (audit_tp + audit_fp_noise + audit_fp_wrong) > 0 else 0.0
-        recall = audit_tp / (audit_tp + audit_fn) if (audit_tp + audit_fn) > 0 else 0.0
+        # ── ORACLE PROFIT ATTRIBUTION ────────────────────────────────────────────
+        import csv as _csv
+        from collections import defaultdict
 
         report_lines.append("")
-        report_lines.append(f"  Precision: {precision*100:.1f}%")
-        report_lines.append(f"  Recall: {recall*100:.1f}%")
+        report_lines.append("=" * 80)
+        report_lines.append("ORACLE PROFIT ATTRIBUTION")
+        report_lines.append("=" * 80)
+
+        # ── 1. Opportunity landscape ─────────────────────────────────────────────
+        total_real_opps = audit_tp + audit_fp_wrong + audit_fn  # oracle said real move
+        total_noise_opps = audit_fp_noise + audit_tn              # oracle said noise
+        tp_potential  = sum(r['oracle_potential_pnl'] for r in oracle_trade_records if r['oracle_label'] != 0 and r['oracle_label_name'] not in ('NOISE',))
+        ideal_profit  = tp_potential + fn_potential_pnl           # perfect execution on everything
+
+        report_lines.append("")
+        report_lines.append(f"  TOTAL SIGNALS SEEN BY ORACLE: {total_real_opps + total_noise_opps:,}")
+        report_lines.append(f"    Real moves (MEGA/SCALP):  {total_real_opps:>6,}   — worth ${ideal_profit:>10,.2f} if perfectly traded")
+        report_lines.append(f"    Noise (no real move):     {total_noise_opps:>6,}")
+
+        # ── 2. What we did ───────────────────────────────────────────────────────
+        n_traded   = len(oracle_trade_records)
+        n_skipped  = audit_fn + audit_tn
+        report_lines.append("")
+        report_lines.append(f"  WHAT WE DID:")
+        report_lines.append(f"    Traded:  {n_traded:>6,}  ({n_traded/(total_real_opps+total_noise_opps)*100:.1f}% of all signals)")
+        report_lines.append(f"    Skipped: {n_skipped:>6,}  ({n_skipped/(total_real_opps+total_noise_opps)*100:.1f}% of all signals)")
+
+        # ── 3. Of trades taken ───────────────────────────────────────────────────
+        tp_recs       = [r for r in oracle_trade_records if r['oracle_label'] != 0 and
+                         ((r['direction']=='LONG' and r['oracle_label']>0) or
+                          (r['direction']=='SHORT' and r['oracle_label']<0))]
+        fp_wrong_recs = [r for r in oracle_trade_records if r['oracle_label'] != 0 and r not in tp_recs]
+        fp_noise_recs = [r for r in oracle_trade_records if r['oracle_label'] == 0]
+
+        tp_pnl       = sum(r['actual_pnl'] for r in tp_recs)
+        fp_wrong_pnl = sum(r['actual_pnl'] for r in fp_wrong_recs)
+        fp_noise_pnl = sum(r['actual_pnl'] for r in fp_noise_recs)
+
+        report_lines.append("")
+        report_lines.append(f"  OF {n_traded:,} TRADES TAKEN:")
+        report_lines.append(f"    Correct direction:  {len(tp_recs):>6,}  ({len(tp_recs)/n_traded*100:.1f}%)  →  actual: ${tp_pnl:>10,.2f}")
+        report_lines.append(f"    Wrong direction:    {len(fp_wrong_recs):>6,}  ({len(fp_wrong_recs)/n_traded*100:.1f}%)  →  losses: ${fp_wrong_pnl:>10,.2f}")
+        report_lines.append(f"    Traded noise:       {len(fp_noise_recs):>6,}  ({len(fp_noise_recs)/n_traded*100:.1f}%)  →  losses: ${fp_noise_pnl:>10,.2f}")
+
+        # ── 4. Exit quality on correct-direction trades ──────────────────────────
+        if tp_recs:
+            optimal   = [r for r in tp_recs if r['capture_rate'] >= 0.80]
+            partial   = [r for r in tp_recs if 0.20 <= r['capture_rate'] < 0.80]
+            too_early = [r for r in tp_recs if 0 < r['capture_rate'] < 0.20]
+            reversed_ = [r for r in tp_recs if r['capture_rate'] <= 0]
+
+            left_on_table = sum(max(0, r['oracle_potential_pnl'] - r['actual_pnl']) for r in tp_recs)
+
+            report_lines.append("")
+            report_lines.append(f"  EXIT QUALITY (correct-direction trades):")
+            report_lines.append(f"    Optimal  (≥80% of move captured): {len(optimal):>6,}  →  ${sum(r['actual_pnl'] for r in optimal):>10,.2f}")
+            report_lines.append(f"    Partial  (20-80% captured):        {len(partial):>6,}  →  ${sum(r['actual_pnl'] for r in partial):>10,.2f}")
+            report_lines.append(f"    Too early (<20% captured):         {len(too_early):>6,}  →  ${sum(r['actual_pnl'] for r in too_early):>10,.2f}")
+            report_lines.append(f"    Reversed (went wrong after entry): {len(reversed_):>6,}  →  ${sum(r['actual_pnl'] for r in reversed_):>10,.2f}")
+            report_lines.append(f"    Left on table (TP underperform):                      ${left_on_table:>10,.2f}")
+
+        # ── 5. Profit gap summary ────────────────────────────────────────────────
+        left_on_table_val = sum(max(0, r['oracle_potential_pnl'] - r['actual_pnl']) for r in tp_recs) if tp_recs else 0.0
+
+        report_lines.append("")
+        report_lines.append(f"  PROFIT GAP ANALYSIS:")
+        report_lines.append(f"    Ideal (all real moves, perfect exits):  ${ideal_profit:>12,.2f}")
+        report_lines.append(f"    ─────────────────────────────────────────────────────")
+        report_lines.append(f"    Lost — missed opportunities (skipped):  ${fn_potential_pnl:>12,.2f}  ({fn_potential_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    Lost — wrong direction trades:          ${abs(fp_wrong_pnl):>12,.2f}  ({abs(fp_wrong_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    Lost — noise trades:                    ${abs(fp_noise_pnl):>12,.2f}  ({abs(fp_noise_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    Lost — exited too early/late:           ${left_on_table_val:>12,.2f}  ({left_on_table_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    ─────────────────────────────────────────────────────")
+        report_lines.append(f"    Actual profit:                          ${total_pnl:>12,.2f}  ({total_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else f"    Actual profit: ${total_pnl:.2f}")
+
+        # ── 6. Save CSV ──────────────────────────────────────────────────────────
+        if oracle_trade_records:
+            csv_path = os.path.join(self.checkpoint_dir, 'oracle_trade_log.csv')
+            with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+                writer = _csv.DictWriter(f, fieldnames=list(oracle_trade_records[0].keys()))
+                writer.writeheader()
+                writer.writerows(oracle_trade_records)
+            report_lines.append("")
+            report_lines.append(f"  Per-trade oracle log saved: {csv_path}")
 
         for line in report_lines:
             print(line)
