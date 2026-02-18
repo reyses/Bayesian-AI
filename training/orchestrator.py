@@ -225,7 +225,14 @@ class BayesianTrainingOrchestrator:
             self.scaler = pickle.load(f)
 
         print(f"  Loaded library: {len(self.pattern_library)} templates")
-        print(f"  Loaded scaler: {self.scaler.mean_.shape[0]} features")
+
+        if hasattr(self.scaler, 'mean_'):
+            print(f"  Loaded scaler: {self.scaler.mean_.shape[0]} features")
+        else:
+            print(f"  Loaded scaler: Not fitted (no patterns found)")
+            if not self.pattern_library:
+                print("  No patterns/templates to simulate. Exiting Phase 4.")
+                return
 
         # Build centroid index for fast matching
         template_ids = list(self.pattern_library.keys())
