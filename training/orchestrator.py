@@ -256,13 +256,14 @@ class BayesianTrainingOrchestrator:
         print(f"  Prepared {len(centroids)} centroids for matching.")
 
         # 2. Iterate Days
-        # Use 1m bars for forward pass (less noise than 15s)
-        daily_files_15s = sorted(glob.glob(os.path.join(data_source, '1m', '*.parquet')))
+        # Use 15s daily files for position management (daily granularity).
+        # Pattern entry timestamps are snapped to 1m for signal quality.
+        daily_files_15s = sorted(glob.glob(os.path.join(data_source, '15s', '*.parquet')))
         if not daily_files_15s:
-            print(f"  No 1m data found in {data_source}/1m/")
+            print(f"  No 15s data found in {data_source}/15s/")
             return
 
-        print(f"  Found {len(daily_files_15s)} days of 1m data to simulate.")
+        print(f"  Found {len(daily_files_15s)} days to simulate.")
 
         total_pnl = 0.0
         total_trades = 0
@@ -1364,6 +1365,15 @@ class BayesianTrainingOrchestrator:
         print("Dashboard launching in background...")
         time.sleep(2)
 
+    def shutdown_dashboard(self):
+        """Cleanly stop the dashboard before process exit to avoid tkinter GC errors."""
+        if self.dashboard_thread and self.dashboard_thread.is_alive():
+            try:
+                self.dashboard_queue.put({'type': 'SHUTDOWN'})
+                self.dashboard_thread.join(timeout=5)
+            except Exception:
+                pass
+
     def _prepare_dashboard_history(self):
         self._history_trades_data = []
         for t in self._cumulative_best_trades:
@@ -1543,6 +1553,35 @@ def main():
 
     args = parser.parse_args()
 
+    # ── Tee stdout → checkpoints/training_log.txt (append, one file per project) ──
+    import io
+    class _Tee(io.TextIOWrapper):
+        def __init__(self, log_path):
+            self._file = open(log_path, 'a', encoding='utf-8', buffering=1)
+            self._stdout = sys.stdout
+        def write(self, data):
+            self._stdout.write(data)
+            self._file.write(data)
+            return len(data)
+        def flush(self):
+            self._stdout.flush()
+            self._file.flush()
+        def isatty(self):
+            return self._stdout.isatty()
+        def fileno(self):
+            return self._stdout.fileno()
+
+    os.makedirs(args.checkpoint_dir, exist_ok=True)
+    log_path = os.path.join(args.checkpoint_dir, 'training_log.txt')
+    _tee = _Tee(log_path)
+    sys.stdout = _tee
+
+    # Print a run separator so phases from different runs are easy to distinguish
+    import datetime as _dt
+    print(f"\n{'='*80}")
+    print(f"RUN STARTED: {_dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"{'='*80}")
+
     if not args.skip_deps:
         check_and_install_requirements()
 
@@ -1647,6 +1686,12 @@ def main():
         import traceback
         traceback.print_exc()
         return 1
+    finally:
+        orchestrator.shutdown_dashboard()
+        # Restore stdout and close log file
+        if isinstance(sys.stdout, _Tee):
+            sys.stdout = _tee._stdout
+            _tee._file.close()
 
 
 if __name__ == "__main__":

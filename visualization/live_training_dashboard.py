@@ -125,6 +125,9 @@ class FractalDashboard:
         elif msg_type == 'STATUS':
             self.lbl_status.config(text=f"SYSTEM STATUS: {msg['text']}")
 
+        elif msg_type == 'SHUTDOWN':
+            self.root.quit()
+
     def _update_plot(self):
         # Refresh Scatter Plot
         if not self.templates: return
@@ -229,7 +232,13 @@ class FractalDashboard:
 def launch_dashboard(queue):
     root = tk.Tk()
     app = FractalDashboard(root, queue)
-    root.mainloop()
+    try:
+        root.mainloop()
+    finally:
+        try:
+            root.destroy()
+        except Exception:
+            pass
 
 if __name__ == '__main__':
     # Test Run
