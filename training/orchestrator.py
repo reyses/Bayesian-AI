@@ -190,6 +190,10 @@ class BayesianTrainingOrchestrator:
         # Pattern Library (Bayesian Priors)
         self.pattern_library = {}
 
+        # Bottom-line accumulators — populated by run_forward_pass / run_strategy_selection
+        self._fp_summary   = {}   # Phase 4 key metrics
+        self._tier_summary = {}   # Phase 5 tier counts + top templates
+
         # Slippage parameters
         self.BASE_SLIPPAGE = DEFAULT_BASE_SLIPPAGE
         self.VELOCITY_SLIPPAGE_FACTOR = DEFAULT_VELOCITY_SLIPPAGE_FACTOR
@@ -746,6 +750,24 @@ class BayesianTrainingOrchestrator:
         report_lines.append(f"    -----------------------------------------------------")
         report_lines.append(f"    Actual profit:                          ${total_pnl:>12,.2f}  ({total_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else f"    Actual profit: ${total_pnl:.2f}")
 
+        # Store for bottom-line summary at program exit
+        self._fp_summary = {
+            'total_trades':    total_trades,
+            'total_pnl':       total_pnl,
+            'win_rate':        total_wins / total_trades if total_trades else 0.0,
+            'n_days':          len(daily_files_15s),
+            'date_start':      start_date or (os.path.basename(daily_files_15s[0]).replace('.parquet','') if daily_files_15s else '?'),
+            'date_end':        end_date   or (os.path.basename(daily_files_15s[-1]).replace('.parquet','') if daily_files_15s else '?'),
+            'pct_correct':     len(tp_recs) / n_traded * 100 if n_traded else 0.0,
+            'pct_wrong':       len(fp_wrong_recs) / n_traded * 100 if n_traded else 0.0,
+            'pct_noise':       len(fp_noise_recs) / n_traded * 100 if n_traded else 0.0,
+            'pct_skipped':     n_skipped / (total_real_opps + total_noise_opps) * 100 if (total_real_opps + total_noise_opps) else 0.0,
+            'ideal_profit':    ideal_profit,
+            'left_on_table':   left_on_table_val,
+            'missed':          fn_potential_pnl,
+            'wrong_dir_loss':  abs(fp_wrong_pnl),
+        }
+
         # Send to dashboard
         if self.dashboard_queue:
             self.dashboard_queue.put({
@@ -1106,6 +1128,19 @@ class BayesianTrainingOrchestrator:
         for t in sorted(tier_counts.keys()):
             label = {1: 'PRODUCTION', 2: 'PROMISING', 3: 'UNPROVEN', 4: 'TOXIC'}.get(t, '?')
             rpt.append(f"  Tier {t} ({label}): {tier_counts[t]} templates")
+
+        # Store for bottom-line summary
+        top_t1 = sorted(
+            [(r['id'], r['sharpe'], r['win_rate'], r['pnl'], r['trades'])
+             for r in report_data if r['tier'] == 1],
+            key=lambda x: -x[1]
+        )[:5]
+        self._tier_summary = {
+            'tier_counts':  dict(tier_counts),
+            'total':        len(report_data),
+            'top_t1':       top_t1,
+            'tier1_pnl':    sum(r['pnl'] for r in report_data if r['tier'] == 1),
+        }
 
         # Ancestry Analysis
         roche_roots = 0
@@ -1793,6 +1828,77 @@ class BayesianTrainingOrchestrator:
     def print_final_summary(self):
         print(f"Total PnL: ${sum(t.pnl for t in self._cumulative_best_trades):.2f}")
 
+    def print_bottom_line(self):
+        """
+        Consolidated bottom line printed after ALL phases complete.
+        Mirrors the Oracle attribution structure the user finds most readable.
+        """
+        W = 80
+        fp  = self._fp_summary
+        ts  = self._tier_summary
+        if not fp and not ts:
+            return
+
+        lines = []
+        lines.append("")
+        lines.append("=" * W)
+        lines.append("BOTTOM LINE")
+        lines.append("=" * W)
+
+        # ── Library ──────────────────────────────────────────────────────────
+        if ts:
+            tc = ts['tier_counts']
+            lines.append(f"\n  LIBRARY   {ts['total']} templates total")
+            lines.append(
+                f"    Tier 1 (PRODUCTION): {tc.get(1,0):>4}   "
+                f"Tier 2 (PROMISING): {tc.get(2,0):>4}   "
+                f"Tier 3 (UNPROVEN): {tc.get(3,0):>4}   "
+                f"Tier 4 (TOXIC): {tc.get(4,0):>4}"
+            )
+
+        # ── Forward Pass ─────────────────────────────────────────────────────
+        if fp:
+            lines.append(
+                f"\n  FORWARD PASS   {fp.get('date_start','?')} to {fp.get('date_end','?')}"
+                f"  ({fp.get('n_days',0)} files)"
+            )
+            lines.append(
+                f"    Trades: {fp['total_trades']:>6,}  |  "
+                f"Win rate: {fp['win_rate']*100:5.1f}%  |  "
+                f"Total PnL: ${fp['total_pnl']:>10,.2f}"
+            )
+            if fp['total_trades']:
+                lines.append(
+                    f"    Correct direction: {fp['pct_correct']:4.1f}%  |  "
+                    f"Wrong: {fp['pct_wrong']:4.1f}%  |  "
+                    f"Noise: {fp['pct_noise']:4.1f}%  |  "
+                    f"Skipped: {fp['pct_skipped']:4.1f}%"
+                )
+
+        # ── Opportunity gap ───────────────────────────────────────────────────
+        if fp and fp.get('ideal_profit', 0):
+            ideal = fp['ideal_profit']
+            captured_pct = fp['total_pnl'] / ideal * 100 if ideal else 0
+            lines.append(f"\n  OPPORTUNITY GAP   (ideal if every signal traded perfectly)")
+            lines.append(f"    Ideal:          ${ideal:>12,.2f}")
+            lines.append(f"    Actual:         ${fp['total_pnl']:>12,.2f}   ({captured_pct:.2f}% captured)")
+            lines.append(f"    #1 leak  skipped signals:   ${fp['missed']:>12,.2f}   ({fp['missed']/ideal*100:.1f}%)")
+            lines.append(f"    #2 leak  exits too early:   ${fp['left_on_table']:>12,.2f}   ({fp['left_on_table']/ideal*100:.1f}%)")
+            lines.append(f"    #3 leak  wrong direction:   ${fp['wrong_dir_loss']:>12,.2f}   ({fp['wrong_dir_loss']/ideal*100:.1f}%)")
+
+        # ── Top Tier 1 ────────────────────────────────────────────────────────
+        if ts and ts.get('top_t1'):
+            lines.append(f"\n  TOP TIER 1   (combined PnL: ${ts['tier1_pnl']:,.2f})")
+            lines.append(f"    {'ID':<10} {'Sharpe':>7} {'Win%':>6} {'PnL':>10} {'Trades':>7}")
+            for tid, sharpe, wr, pnl, trades in ts['top_t1']:
+                lines.append(f"    {str(tid):<10} {sharpe:>7.2f} {wr*100:>5.1f}% ${pnl:>9,.2f} {trades:>7,}")
+
+        lines.append("")
+        lines.append("=" * W)
+
+        for line in lines:
+            print(line)
+
 
 def check_and_install_requirements():
     """Auto-install requirements.txt if missing packages detected"""
@@ -1985,6 +2091,7 @@ def main():
                                           end_date=args.forward_end)
                 orchestrator.run_strategy_selection()
 
+        orchestrator.print_bottom_line()
         return 0
     except KeyboardInterrupt:
         print("\n\nWARNING: Training interrupted by user")
