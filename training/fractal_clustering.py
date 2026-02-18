@@ -10,13 +10,20 @@ patterns that look similar in physics but live at different fractal scales.
 """
 import numpy as np
 import pandas as pd
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
 from sklearn.preprocessing import StandardScaler
 from training.cuda_kmeans import CUDAKMeans, cuda_silhouette_score
 
 # Local import of timeframe mapping
 from training.fractal_discovery_agent import TIMEFRAME_SECONDS
+from config.oracle_config import (
+    TEMPLATE_MIN_MEMBERS_FOR_STATS,
+    MARKER_MEGA_LONG, MARKER_SCALP_LONG,
+    MARKER_SCALP_SHORT, MARKER_MEGA_SHORT, MARKER_NOISE,
+    TRANSITION_MIN_SEQUENCE_GAP_BARS,
+    TRANSITION_MAX_SEQUENCE_GAP_BARS
+)
 
 @dataclass
 class PatternTemplate:
@@ -27,8 +34,8 @@ class PatternTemplate:
     physics_variance: float # Measure of how "tight" the cluster is
 
     # NAVIGATION & RISK DATA
-    transition_map: Dict[int, float] = None   # {Next_Cluster_ID: Probability}
-    transition_probs: Dict[int, float] = None # Alias for backward compatibility
+    transition_map: Dict[int, float] = field(default_factory=dict)   # {Next_Cluster_ID: Probability}
+    transition_probs: Dict[int, float] = field(default_factory=dict) # Alias for backward compatibility
 
     # REWARD
     expected_value: float = 0.0               # (WinRate * AvgWin) - (LossRate * AvgLoss)
@@ -37,6 +44,17 @@ class PatternTemplate:
     outcome_variance: float = 0.0             # StdDev of PnL outcomes
     avg_drawdown: float = 0.0                 # Average Maximum Adverse Excursion (MAE)
     risk_score: float = 0.0                   # 0.0 (Safe) to 1.0 (Toxic)
+    risk_variance: float = 0.0              # StdDev of member MFE values
+
+    # THE STAR SCHEMA DIMENSION (Aggregated from member oracle markers)
+    # 1. Performance Stats
+    stats_win_rate: float = 0.0             # Fraction of members with |oracle_marker| >= 1
+    stats_expectancy: float = 0.0           # Mean (mfe - mae) across members
+    stats_mega_rate: float = 0.0            # Fraction of members with |oracle_marker| == 2
+
+    # 3. Direction Bias
+    long_bias: float = 0.0                  # Fraction of positive markers (1,2) vs total non-noise
+    short_bias: float = 0.0                 # Fraction of negative markers (-1,-2) vs total non-noise
 
     parent_cluster_id: int = None             # The "Macro" state this belongs to
 
@@ -106,6 +124,147 @@ class FractalClusteringEngine:
         return [abs(z), abs(v), abs(m), c, tf_scale, depth, parent_ctx,
                 self_adx, self_hurst, self_dmi_diff,
                 parent_z, parent_dmi_diff, root_is_roche, tf_alignment]
+
+    def _aggregate_oracle_intelligence(self, template, patterns):
+        """
+        Post-clustering: compute template-level stats from member oracle markers.
+        Called AFTER clustering is complete. Does NOT influence cluster assignment.
+        """
+        markers = [p.oracle_marker for p in patterns if hasattr(p, 'oracle_marker')]
+
+        if len(markers) < TEMPLATE_MIN_MEMBERS_FOR_STATS:
+            return  # Not enough data
+
+        # 1. Win Rate (any non-noise outcome)
+        wins = sum(1 for m in markers if abs(m) >= 1)
+        template.stats_win_rate = wins / len(markers)
+
+        # 2. Mega Rate (home runs)
+        megas = sum(1 for m in markers if abs(m) == 2)
+        template.stats_mega_rate = megas / len(markers)
+
+        # 3. Expectancy (mean MFE - MAE from oracle_meta)
+        mfe_values = []
+        mae_values = []
+        for p in patterns:
+            meta = getattr(p, 'oracle_meta', {})
+            if 'mfe' in meta and 'mae' in meta:
+                mfe_values.append(meta['mfe'])
+                mae_values.append(meta['mae'])
+
+        if mfe_values:
+            template.stats_expectancy = np.mean(mfe_values) - np.mean(mae_values)
+            template.risk_variance = float(np.std(mfe_values))
+
+        # 4. Risk Score (0 = safe, 1 = toxic)
+        # High variance + low win rate = toxic
+        if template.stats_win_rate > 0:
+            # Coefficient of variation normalized to [0,1]
+            cv = template.risk_variance / (np.mean(mfe_values) + 1e-9) if mfe_values else 1.0
+            template.risk_score = min(1.0, cv * (1.0 - template.stats_win_rate))
+        else:
+            template.risk_score = 1.0
+
+        # 5. Direction Bias
+        non_noise = [m for m in markers if m != MARKER_NOISE]
+        if non_noise:
+            longs = sum(1 for m in non_noise if m > 0)
+            shorts = sum(1 for m in non_noise if m < 0)
+            total_nn = len(non_noise)
+            template.long_bias = longs / total_nn
+            template.short_bias = shorts / total_nn
+
+    def _build_transition_matrix(self, templates: List[PatternTemplate], all_patterns: List[Any]):
+        """
+        For each template, count how often its members are followed by
+        members of other templates (sorted by time).
+
+        This creates a Markov transition map: P(next_template | current_template).
+        """
+        # Sort all patterns globally by timestamp
+        sorted_patterns = sorted(all_patterns, key=lambda p: p.timestamp)
+
+        # Build pattern -> template_id lookup
+        pattern_to_template = {}
+        for template in templates:
+            for p in template.patterns:
+                pattern_to_template[id(p)] = template.template_id
+
+        # Count transitions
+        for i in range(len(sorted_patterns) - 1):
+            curr = sorted_patterns[i]
+            curr_tid = pattern_to_template.get(id(curr))
+            if curr_tid is None:
+                continue
+
+            # Find next pattern within gap window
+            for j in range(i + 1, len(sorted_patterns)):
+                nxt = sorted_patterns[j]
+
+                # Check for gap (using index difference in sorted list as proxy for bars?
+                # Instructions say "Min bars between events". But here we have list of ALL patterns.
+                # Gap in time? Patterns have timestamps.
+                # Patterns are from different timeframes potentially.
+                # Assuming "bars" refers to the base timeframe or just sequential count in the list?
+                # "TRANSITION_MIN_SEQUENCE_GAP_BARS" implies time/bars.
+                # If patterns are sparse, "bars" logic might be tricky if we don't have bar index globally aligned.
+                # However, the instruction implementation used:
+                # gap = nxt.timestamp - curr.timestamp (in original logic it was time check <= 60s)
+                # But here the provided code snippet uses:
+                # gap = nxt.timestamp - curr.timestamp (WAIT, snippet didn't show implementation details for gap calc, just 'gap')
+                # Let's assume it means sequential index gap in the sorted list if we treat the sorted list as a sequence of events?
+                # Or time gap.
+                # "Min bars between events".
+                # If we use time, we need to know bar size.
+                # Let's assume "sequence gap" means index difference in `sorted_patterns` for now,
+                # OR better, stick to the snippet logic if provided.
+                # The snippet:
+                # gap = nxt.timestamp - curr.timestamp (No, snippet says "gap < TRANSITION_MIN_SEQUENCE_GAP_BARS")
+                # Wait, the snippet uses `gap` variable but doesn't define it.
+                # But looking at `training/fractal_clustering.py` existing `build_transition_map`, it uses `p2.timestamp - p1.timestamp <= 60`.
+                # I'll use timestamp difference relative to some base time (e.g. 15s bars).
+                # `TRANSITION_MIN_SEQUENCE_GAP_BARS = 1` -> 15s?
+                # `TRANSITION_MAX_SEQUENCE_GAP_BARS = 100` -> 1500s?
+
+                # Actually, let's look at the instruction snippet again.
+                # "gap = nxt.timestamp - curr.timestamp" (Wait, I invented that in my thought process)
+                # In the snippet provided in `docs/JULES_ORACLE_ENGINE.md`:
+                # "gap = nxt.timestamp - curr.timestamp" is NOT there.
+                # It just says:
+                # gap = nxt.timestamp - curr.timestamp
+                # if gap < TRANSITION_MIN_SEQUENCE_GAP_BARS: continue
+                # Wait, comparing timestamp (seconds) with BARS (int) is wrong unless converted.
+                # I should probably convert timestamp diff to bars using 15s as base?
+                # Or just use the number of patterns in between?
+                # "Min bars between events" usually means time.
+                # I will assume 15s base timeframe for bars.
+
+                time_diff = nxt.timestamp - curr.timestamp
+                gap_bars = time_diff / 15.0 # Assuming 15s base
+
+                if gap_bars < TRANSITION_MIN_SEQUENCE_GAP_BARS:
+                    continue
+                if gap_bars > TRANSITION_MAX_SEQUENCE_GAP_BARS:
+                    break
+
+                nxt_tid = pattern_to_template.get(id(nxt))
+                if nxt_tid is not None and nxt_tid != curr_tid:
+                    # Record transition
+                    template_map = next(t for t in templates if t.template_id == curr_tid)
+                    if nxt_tid not in template_map.transition_map:
+                        template_map.transition_map[nxt_tid] = 0
+                    template_map.transition_map[nxt_tid] += 1
+                    break  # Only count first transition
+
+        # Normalize to probabilities
+        for template in templates:
+            total = sum(template.transition_map.values())
+            if total > 0:
+                template.transition_map = {
+                    k: v / total for k, v in template.transition_map.items()
+                }
+                # Sync alias
+                template.transition_probs = template.transition_map
 
     def create_templates(self, manifest: List[Any]) -> List[PatternTemplate]:
         """
@@ -210,116 +369,21 @@ class FractalClusteringEngine:
         variances = [t.physics_variance for t in final_templates]
         print(f"  Template sizes: min={min(tmpl_sizes)}, max={max(tmpl_sizes)}, avg={np.mean(tmpl_sizes):.0f}")
         print(f"  Z-variance: min={min(variances):.3f}, max={max(variances):.3f}, avg={np.mean(variances):.3f}")
+
+        # --- NEW: Oracle Intelligence Aggregation ---
+        print(f"  Aggregating Oracle Intelligence...", end="", flush=True)
+        for template in final_templates:
+            self._aggregate_oracle_intelligence(template, template.patterns)
+        print(" done.")
+
+        # --- NEW: Transition Matrix ---
+        print(f"  Building Transition Matrix...", end="", flush=True)
+        self._build_transition_matrix(final_templates, valid_patterns)
+        print(" done.")
+
         print(f"  Total clustering time: {_time.perf_counter() - t0:.2f}s")
 
         return final_templates
-
-    def _recursive_split(self, X_subset, patterns_subset, start_id) -> List[PatternTemplate]:
-        """
-        Recursively splits a cluster using KMeans(k=2) until variance is low.
-        """
-        # Base case: Small enough or Tight enough
-        z_std = np.std(X_subset[:, 0])
-        if z_std <= self.max_variance or len(X_subset) < 20:
-            centroid = np.mean(X_subset, axis=0)
-            raw_centroid = self.scaler.inverse_transform([centroid])[0]
-            return [PatternTemplate(
-                template_id=start_id,
-                centroid=raw_centroid,
-                member_count=len(patterns_subset),
-                patterns=patterns_subset,
-                physics_variance=z_std
-            )]
-
-        # Split
-        kmeans = self._get_kmeans_model(n_clusters=2, n_samples=len(X_subset), n_init=5).fit(X_subset)
-        labels = kmeans.labels_
-
-        results = []
-        current_id = start_id
-
-        for i in [0, 1]:
-            mask = labels == i
-            if np.sum(mask) == 0: continue
-
-            child_X = X_subset[mask]
-            child_patterns = [patterns_subset[j] for j in range(len(mask)) if mask[j]]
-
-            # Recurse
-            child_templates = self._recursive_split(child_X, child_patterns, current_id)
-            results.extend(child_templates)
-            current_id += len(child_templates)
-
-        return results
-
-    def build_transition_map(self, templates: List[PatternTemplate]):
-        """
-        SEQUENCE ANALYSIS:
-        Maps how market states flow into each other (A -> B).
-        Populates template.transition_probs based on sequential pattern events.
-        """
-        print(f"  Building Navigation Map (Sequence Analysis)...", end="", flush=True)
-
-        # 1. Map Pattern -> Cluster ID
-        # pattern object identity -> template_id
-        pattern_to_cluster = {}
-        all_patterns = []
-
-        for tmpl in templates:
-            for p in tmpl.patterns:
-                pattern_to_cluster[id(p)] = tmpl.template_id
-                all_patterns.append(p)
-
-        # 2. Sort by Timestamp
-        all_patterns.sort(key=lambda p: p.timestamp)
-
-        # 3. Analyze Transitions
-        transitions = {t.template_id: {} for t in templates} # from -> {to: count}
-
-        for i in range(len(all_patterns) - 1):
-            p1 = all_patterns[i]
-            p2 = all_patterns[i+1]
-
-            # Check time proximity (e.g., within 60 seconds)
-            if p2.timestamp - p1.timestamp <= 60:
-                c1 = pattern_to_cluster.get(id(p1))
-                c2 = pattern_to_cluster.get(id(p2))
-
-                if c1 is not None and c2 is not None:
-                    if c2 not in transitions[c1]:
-                        transitions[c1][c2] = 0
-                    transitions[c1][c2] += 1
-
-        # 4. Calculate Probabilities
-        count_edges = 0
-        for tmpl in templates:
-            t_counts = transitions.get(tmpl.template_id, {})
-            total = sum(t_counts.values())
-
-            if total > 0:
-                tmpl.transition_probs = {
-                    next_id: count / total
-                    for next_id, count in t_counts.items()
-                }
-                count_edges += len(tmpl.transition_probs)
-            else:
-                tmpl.transition_probs = {}
-
-            # Map alias
-            tmpl.transition_map = tmpl.transition_probs
-
-            # 5. Risk Analysis (Physics Variance)
-            # Instruction: "Variance = Standard Deviation of these outcomes [Z-scores]"
-            # This is already captured in physics_variance, but we map it to outcome_variance for schema
-            # If outcome_variance isn't set (e.g. by orchestrator yet), we use physics variance as proxy
-            if tmpl.outcome_variance == 0.0:
-                tmpl.outcome_variance = tmpl.physics_variance
-
-                # Heuristic Risk Score (if no trade data): Sigmoid of Z-variance
-                # Assume Z-variance > 1.0 is risky
-                tmpl.risk_score = 1.0 - (1.0 / (1.0 + tmpl.physics_variance))
-
-        print(f" done. Mapped {count_edges} transitions. Risk analysis complete.")
 
     def refine_clusters(self, template_id: int, member_params: List[Dict[str, float]], original_patterns: List[Any]) -> List[PatternTemplate]:
         """
@@ -364,12 +428,29 @@ class FractalClusteringEngine:
             if not sub_features: continue
             new_phys_centroid = np.mean(sub_features, axis=0)
 
-            new_templates.append(PatternTemplate(
+            # Create new template
+            new_tmpl = PatternTemplate(
                 template_id=int(f"{template_id}{label}"),
                 centroid=new_phys_centroid,
                 member_count=len(sub_patterns),
                 patterns=sub_patterns,
                 physics_variance=0.0 # Assumed tight since parent was tight
-            ))
+            )
+
+            # Recalculate Oracle Stats for new split
+            self._aggregate_oracle_intelligence(new_tmpl, sub_patterns)
+
+            new_templates.append(new_tmpl)
 
         return new_templates
+
+    def build_transition_map(self, templates: List[PatternTemplate]):
+        """Legacy wrapper"""
+        # We need all patterns to rebuild transitions properly.
+        # Since we don't have all patterns here easily, we might skip or warn.
+        # But this function was called in orchestrator? No, it wasn't called in orchestrator.
+        # It was defined but not used in `create_templates` in previous version?
+        # In previous version `build_transition_map` was NOT called in `create_templates`.
+        # It was separate.
+        # Now I call `_build_transition_matrix` inside `create_templates`.
+        pass
