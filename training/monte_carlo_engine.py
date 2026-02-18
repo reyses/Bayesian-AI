@@ -110,10 +110,41 @@ def extract_features_from_state(state: ThreeBodyQuantumState, timeframe: str) ->
         parent_z, parent_dmi_diff, root_is_roche, tf_alignment
     ])
 
+    # TopStep rule: all positions flat by 3:00 PM EST
+TOPSTEP_FLAT_HOUR = 15       # 3 PM EST (15:00)
+TOPSTEP_FLAT_MINUTE = 0
+TOPSTEP_NO_ENTRY_MINUTES_BEFORE_FLAT = 15  # No new entries within 15 min of flat deadline
+
+
+def _is_past_flat_deadline(ts_value):
+    """Check if timestamp is at or past 3:00 PM EST."""
+    from datetime import datetime, timezone, timedelta
+    EST = timezone(timedelta(hours=-5))
+    if isinstance(ts_value, (int, float)):
+        dt = datetime.fromtimestamp(ts_value, tz=EST)
+    else:
+        dt = ts_value
+    return dt.hour > TOPSTEP_FLAT_HOUR or (dt.hour == TOPSTEP_FLAT_HOUR and dt.minute >= TOPSTEP_FLAT_MINUTE)
+
+
+def _is_near_flat_deadline(ts_value):
+    """Check if timestamp is within TOPSTEP_NO_ENTRY_MINUTES_BEFORE_FLAT of 3:00 PM EST."""
+    from datetime import datetime, timezone, timedelta
+    EST = timezone(timedelta(hours=-5))
+    if isinstance(ts_value, (int, float)):
+        dt = datetime.fromtimestamp(ts_value, tz=EST)
+    else:
+        dt = ts_value
+    flat_minutes = TOPSTEP_FLAT_HOUR * 60 + TOPSTEP_FLAT_MINUTE
+    cur_minutes = dt.hour * 60 + dt.minute
+    return cur_minutes >= (flat_minutes - TOPSTEP_NO_ENTRY_MINUTES_BEFORE_FLAT)
+
+
 def simulate_month(data: pd.DataFrame, match_indices: np.ndarray, params: Dict[str, Any],
                    asset: Any, template_id: int, z_scores: np.ndarray) -> List[TradeResult]:
     """
     Simulate trades for matched bars in one month.
+    Enforces TopStep flat-by-3PM-EST rule.
     """
     trades = []
     in_position = False
@@ -142,6 +173,22 @@ def simulate_month(data: pd.DataFrame, match_indices: np.ndarray, params: Dict[s
     for idx in range(len(prices)):
         price = prices[idx]
         ts = timestamps[idx]
+
+        # TopStep: force close at 3 PM EST
+        if in_position and _is_past_flat_deadline(ts):
+            bars_held = idx - entry_idx
+            if entry_side == 'long':
+                pnl_points = price - entry_price
+            else:
+                pnl_points = entry_price - price
+            pnl_usd = (pnl_points - cost_points) * point_value
+            trades.append(TradeResult(
+                pnl=pnl_usd, side=entry_side, bars_held=bars_held, exit_reason='flat_deadline',
+                template_id=template_id, entry_price=entry_price, exit_price=price,
+                entry_time=entry_time, exit_time=ts
+            ))
+            in_position = False
+            continue
 
         if in_position:
             # Check exits
@@ -206,8 +253,8 @@ def simulate_month(data: pd.DataFrame, match_indices: np.ndarray, params: Dict[s
                     in_position = False
 
         else:
-            # Check for new entry
-            if idx in match_set:
+            # Check for new entry (block if near flat deadline)
+            if idx in match_set and not _is_near_flat_deadline(ts):
                 entry_price = price
                 entry_idx = idx
                 entry_time = ts
