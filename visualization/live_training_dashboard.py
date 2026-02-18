@@ -30,6 +30,12 @@ class FractalDashboard:
         # Data Stores
         self.templates = {} # ID -> {z, mom, pnl, count}
         self.fission_events = []
+        self._transition_arrows = [] # Keep track of arrow artists
+
+        # Constants
+        self.ARROW_TRANSITION_PROB_THRESHOLD = 0.5
+        self.ARROW_LENGTH_FACTOR = 0.9
+        self.ARROW_HEAD_WIDTH = 0.1
 
         self._setup_layout()
         self.root.after(100, self._process_queue)
@@ -123,29 +129,41 @@ class FractalDashboard:
         # Refresh Scatter Plot
         if not self.templates: return
 
-        # Clear existing arrows
-        for artist in self.ax.patches:
-            artist.remove()
+        # Clear existing arrows using managed list
+        for artist in self._transition_arrows:
+            try:
+                artist.remove()
+            except ValueError:
+                pass # Already removed
+        self._transition_arrows.clear()
 
         z_vals = [d.get('z', 0) for d in self.templates.values()]
         m_vals = [d.get('mom', 0) for d in self.templates.values()]
-        p_vals = [d.get('pnl', 0) for d in self.templates.values()]
+        # Color by Risk Score if available, else PnL (fallback to old behavior if risk not present)
+        # Risk Score: 0 (Green) -> 1 (Red).
+        # We need a colormap. 'RdYlGn_r' (Red-Yellow-Green reversed) maps 0 to Green, 1 to Red.
 
-        # Update scatter data instead of clearing and re-plotting
+        c_vals = []
+        use_risk_color = False
+        for d in self.templates.values():
+            if 'risk_score' in d:
+                c_vals.append(d['risk_score'])
+                use_risk_color = True
+            else:
+                c_vals.append(d.get('pnl', 0)) # Fallback to PnL
+
         offsets = np.c_[z_vals, m_vals]
         self.scatter.set_offsets(offsets)
-        self.scatter.set_array(np.array(p_vals))
+        self.scatter.set_array(np.array(c_vals))
 
-        # Draw Navigation Arrows (Transitions > 50%)
-        # Note: We need full transition map here.
-        # Since templates only stores scalar data in msg, we need to pass transition info
-        # Let's assume TEMPLATE_UPDATE might contain 'transitions' or we fetch from somewhere else.
-        # Ideally, we should receive transition updates.
+        if use_risk_color:
+            self.scatter.set_cmap('RdYlGn_r')
+            self.scatter.set_clim(0.0, 1.0)
+        else:
+            self.scatter.set_cmap('viridis')
+            self.scatter.autoscale() # Reset clim for PnL
 
-        # Currently the dashboard message is simple dict.
-        # Let's assume orchestrator passes 'transitions' dict in TEMPLATE_UPDATE msg
-        # msg: {'id': 42, ..., 'transitions': {99: 0.8}}
-
+        # Draw Navigation Arrows
         for tid, data in self.templates.items():
             trans = data.get('transitions', {})
             if not trans: continue
@@ -153,14 +171,21 @@ class FractalDashboard:
             x1, y1 = data.get('z', 0), data.get('mom', 0)
 
             for next_id, prob in trans.items():
-                if prob > 0.5 and next_id in self.templates:
+                if prob > self.ARROW_TRANSITION_PROB_THRESHOLD and next_id in self.templates:
                     next_data = self.templates[next_id]
                     x2, y2 = next_data.get('z', 0), next_data.get('mom', 0)
 
                     # Draw Arrow
-                    self.ax.arrow(x1, y1, (x2-x1)*0.9, (y2-y1)*0.9,
-                                  head_width=0.1, head_length=0.1, fc='white', ec='white', alpha=0.6,
-                                  length_includes_head=True)
+                    arrow = self.ax.arrow(
+                        x1, y1,
+                        (x2-x1) * self.ARROW_LENGTH_FACTOR,
+                        (y2-y1) * self.ARROW_LENGTH_FACTOR,
+                        head_width=self.ARROW_HEAD_WIDTH,
+                        head_length=self.ARROW_HEAD_WIDTH,
+                        fc='white', ec='white', alpha=0.6,
+                        length_includes_head=True
+                    )
+                    self._transition_arrows.append(arrow)
 
         # Rescale axes to fit new data
         self.ax.relim()
