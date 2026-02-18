@@ -1051,7 +1051,7 @@ class BayesianTrainingOrchestrator:
 
                 tasks = []
                 for tmpl in current_batch:
-                    tasks.append((tmpl, clustering_engine, self.config.iterations, self.param_generator, self.asset.point_value))
+                    tasks.append((tmpl, clustering_engine, self.config.iterations, self.param_generator, self.asset.point_value, self.pattern_library))
 
                 results = pool.map(_process_template_job, tasks)
 
@@ -1106,7 +1106,8 @@ class BayesianTrainingOrchestrator:
                                 'z': centroid[0],
                                 'mom': centroid[2],
                                 'pnl': val_pnl,
-                                'count': member_count
+                                'count': member_count,
+                                'transitions': tmpl.transition_probs
                             })
 
                 batch_elapsed = time.perf_counter() - t_batch

@@ -74,12 +74,38 @@ def _extract_arrays_from_df(df: Any) -> Optional[Tuple[np.ndarray, np.ndarray]]:
     return prices, timestamps
 
 def simulate_trade_standalone(entry_price: float, data: Any, state: Any,
-                              params: Dict[str, Any], point_value: float) -> Optional[TradeOutcome]:
+                              params: Dict[str, Any], point_value: float,
+                              template: Any = None,
+                              template_library: Dict = None) -> Optional[TradeOutcome]:
     """
     Simulate single trade with lookahead — direction-aware
     Uses params for stop loss and take profit.
     Optimized with Numba.
+
+    Includes Opportunity Cost logic if template/library provided.
     """
+    # 0. OPPORTUNITY COST CHECK (The "Marshmallow Test")
+    if template and template_library and getattr(template, 'transition_probs', None):
+        current_ev = getattr(template, 'expected_value', 0.0)
+
+        # Check connected clusters
+        for next_id, prob in template.transition_probs.items():
+            if prob < 0.2: continue # Ignore low probability paths
+
+            next_entry = template_library.get(next_id)
+            if not next_entry: continue
+
+            # Retrieve EV from library entry
+            next_ev = next_entry.get('expected_value', 0.0)
+
+            # Discounted Future Value
+            future_ev = next_ev * prob
+
+            # If future is significantly better (e.g. 50% better)
+            if future_ev > (current_ev * 1.5) and future_ev > 10.0: # Ensure absolute value is meaningful
+                 # WAITING FOR BETTER OPPORTUNITY
+                 return None
+
     stop_loss = params.get('stop_loss_ticks', 15) * 0.25
     take_profit = params.get('take_profit_ticks', 40) * 0.25
     max_hold = params.get('max_hold_seconds', 600)
@@ -145,10 +171,15 @@ def simulate_trade_standalone(entry_price: float, data: Any, state: Any,
 def _optimize_pattern_task(args):
     """
     Task function for multiprocessing.
-    args: (pattern, iterations, param_generator, point_value)
+    args: (pattern, iterations, param_generator, point_value, template, pattern_library)
     Returns: (best_params, best_result_dict)
     """
-    pattern, iterations, generator, point_value = args
+    if len(args) == 6:
+        pattern, iterations, generator, point_value, template, pattern_library = args
+    else:
+        pattern, iterations, generator, point_value = args
+        template = None
+        pattern_library = None
 
     window = pattern.window_data
     if window is None or window.empty:
@@ -180,7 +211,9 @@ def _optimize_pattern_task(args):
             data=sim_data,
             state=state,
             params=params,
-            point_value=point_value
+            point_value=point_value,
+            template=template,
+            template_library=pattern_library
         )
 
         if outcome:
@@ -199,10 +232,14 @@ def _optimize_pattern_task(args):
 def _optimize_template_task(args):
     """
     Optimizes a Template Group.
-    args: (template, subset, iterations, generator, point_value)
+    args: (template, subset, iterations, generator, point_value, pattern_library)
     Returns: (best_params, best_sharpe)
     """
-    template, subset, iterations, generator, point_value = args
+    if len(args) == 6:
+        template, subset, iterations, generator, point_value, pattern_library = args
+    else:
+        template, subset, iterations, generator, point_value = args
+        pattern_library = None
 
     # 1. Generate Parameter Sets (DOE)
     # We use the first pattern in subset to drive the generator context,
@@ -238,7 +275,9 @@ def _optimize_template_task(args):
                 data=sim_data,
                 state=pattern.state,
                 params=params,
-                point_value=point_value
+                point_value=point_value,
+                template=template,
+                template_library=pattern_library
             )
 
             if outcome:
@@ -269,7 +308,13 @@ def _process_template_job(args):
     Executes the Fission/Optimization logic for a single template.
     Returns a result dict with timing breakdown.
     """
-    template, clustering_engine, iterations, generator, point_value = args
+    # Unpack with optional pattern_library for backward compatibility or robust handling
+    if len(args) == 6:
+        template, clustering_engine, iterations, generator, point_value, pattern_library = args
+    else:
+        template, clustering_engine, iterations, generator, point_value = args
+        pattern_library = {}
+
     t0 = time.perf_counter()
 
     # 1. Select Training Subset
@@ -279,7 +324,17 @@ def _process_template_job(args):
     t1 = time.perf_counter()
     member_optimals = []
     for pattern in subset:
-        best_p, _ = _optimize_pattern_task((pattern, INDIVIDUAL_OPTIMIZATION_ITERATIONS, generator, point_value))
+        # Pass template and library if needed, but per-pattern optimization focuses on parameters
+        # Opportunity cost is usually relevant for decision making (validation/execution), not optimization of parameters?
+        # Actually, if we optimize params, we might want to know if we should skip trades?
+        # But 'simulate_trade_standalone' skips if we wait. If we skip, PnL is 0.
+        # This penalizes parameters that trigger entry when we should wait?
+        # No, waiting is a decision made AT entry time.
+        # If we pass template/library, simulate_trade_standalone will return None (Skip).
+        # This affects optimization: params that generate entry signal will be ignored if opp cost says wait.
+        # This seems correct: we optimize for trades we actually TAKE.
+
+        best_p, _ = _optimize_pattern_task((pattern, INDIVIDUAL_OPTIMIZATION_ITERATIONS, generator, point_value, template, pattern_library))
         member_optimals.append(best_p)
     t_individual = time.perf_counter() - t1
 
@@ -300,7 +355,7 @@ def _process_template_job(args):
 
     # 4. Consensus Optimization (No Fission)
     t3 = time.perf_counter()
-    best_params, _ = _optimize_template_task((template, subset, iterations, generator, point_value))
+    best_params, _ = _optimize_template_task((template, subset, iterations, generator, point_value, pattern_library))
     t_consensus = time.perf_counter() - t3
 
     # 5. Validation
@@ -315,7 +370,9 @@ def _process_template_job(args):
                 data=p.window_data,
                 state=p.state,
                 params=best_params,
-                point_value=point_value
+                point_value=point_value,
+                template=template,
+                template_library=pattern_library
             )
              if outcome:
                  val_pnl += outcome.pnl
