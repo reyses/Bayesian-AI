@@ -33,14 +33,23 @@ from config.oracle_config import (
 from config.symbols import MNQ
 
 # Timeframe hierarchy: largest to smallest (top-down scan order)
-TIMEFRAME_HIERARCHY = ['1M', '1W', '1D', '4h', '1h', '30m', '15m', '5m', '3m', '2m', '1m', '30s', '15s', '5s', '1s']
+# 1D/4h/1h/30m/15m = context-only (enrich parent_chain, not pattern gates)
+# 5m = primary day-trading signal level (macro scan starts here)
+# 3m/2m/1m/30s/15s/5s/1s = drill-down for precise entry timing
+TIMEFRAME_HIERARCHY = ['1D', '4h', '1h', '30m', '15m', '5m', '3m', '2m', '1m', '30s', '15s', '5s', '1s']
+
+# These TFs are scanned for context only — no patterns required, never block drill-down
+CONTEXT_ONLY_TIMEFRAMES = {'1D', '4h', '1h', '30m'}
+
+# Primary signal level — macro scan starts here (15m: stable intraday signal)
+PRIMARY_SIGNAL_TIMEFRAME = '15m'
 
 # Maps timeframe labels to seconds
 TIMEFRAME_SECONDS = {
     '1s': 1, '5s': 5, '15s': 15, '30s': 30,
     '1m': 60, '2m': 120, '3m': 180, '5m': 300,
     '15m': 900, '30m': 1800, '1h': 3600, '4h': 14400,
-    '1D': 86400, '1W': 604800, '1M': 2592000
+    '1D': 86400, '1W': 604800,
 }
 
 MIN_BARS_FOR_CHILD_REGRESSION = 30
@@ -74,36 +83,45 @@ class PatternEvent:
 # ---------------------------------------------------------------------------
 
 def _load_parquet(file_path: str) -> Tuple[str, pd.DataFrame]:
-    """Load a parquet file. Returns (path, df)."""
+    """Load a parquet file. Returns (path, df). Handles dictionary encoding issues."""
+    import pyarrow.parquet as pq
+
+    # Strategy 1: standard pandas read
     try:
         df = pd.read_parquet(file_path)
         return (file_path, df)
-    except Exception as e:
-        # Robust handling for concatenated files with conflicting dictionaries
-        is_dictionary_error = "Column cannot have more than one dictionary" in str(e)
+    except Exception:
+        pass
 
-        # Also check for specific pyarrow exception type if available
-        if not is_dictionary_error:
-            try:
-                import pyarrow.lib
-                if isinstance(e, pyarrow.lib.ArrowInvalid):
-                    is_dictionary_error = True
-            except ImportError:
-                pass
+    # Strategy 2: pyarrow with no dictionary columns
+    try:
+        table = pq.read_table(file_path, read_dictionary=[])
+        df = table.to_pandas()
+        return (file_path, df)
+    except Exception:
+        pass
 
-        if is_dictionary_error:
-            try:
-                import pyarrow.parquet as pq
-                # Fallback: force decoding of all dictionary columns
-                table = pq.read_table(file_path, read_dictionary=[])
-                df = table.to_pandas()
-                return (file_path, df)
-            except Exception as e2:
-                print(f"    WARNING: Failed to load {os.path.basename(file_path)} (fallback failed): {e2}")
-                return (file_path, pd.DataFrame())
+    # Strategy 3: read column-by-column, casting dict columns to plain
+    try:
+        import pyarrow as pa
+        pf = pq.ParquetFile(file_path)
+        schema = pf.schema_arrow
+        frames = []
+        for batch in pf.iter_batches():
+            row = {}
+            for i, col in enumerate(batch.schema.names):
+                arr = batch.column(i)
+                # Cast dictionary arrays to their value type
+                if pa.types.is_dictionary(arr.type):
+                    arr = arr.cast(arr.type.value_type)
+                row[col] = arr.to_pylist()
+            frames.append(pd.DataFrame(row))
+        if frames:
+            return (file_path, pd.concat(frames, ignore_index=True))
+    except Exception as e3:
+        print(f"    WARNING: Failed to load {os.path.basename(file_path)}: {e3}")
 
-        print(f"    WARNING: Failed to load {os.path.basename(file_path)}: {e}")
-        return (file_path, pd.DataFrame())
+    return (file_path, pd.DataFrame())
 
 
 # ---------------------------------------------------------------------------
@@ -261,17 +279,25 @@ class FractalDiscoveryAgent:
             t_level = time.perf_counter()
             tf_secs = TIMEFRAME_SECONDS.get(tf, 15)
 
-            if current_windows is None:
-                # --- LEVEL 0: Full scan (macro patterns) ---
-                print(f"\n  Level {level} [{tf}] MACRO: scanning {len(files)} files (full scan)...")
+            is_context_only = tf in CONTEXT_ONLY_TIMEFRAMES
+            reached_primary = (tf == PRIMARY_SIGNAL_TIMEFRAME)
+
+            if current_windows is None and not reached_primary:
+                # --- Context TF: full scan for parent chain enrichment only ---
+                print(f"\n  Level {level} [{tf}] CONTEXT: scanning {len(files)} files (context enrichment)...")
+                level_patterns = self._batch_scan_full(files, tf, level, io_workers)
+            elif current_windows is None and reached_primary:
+                # --- PRIMARY level: full macro scan, real patterns start here ---
+                print(f"\n  Level {level} [{tf}] MACRO (primary signal): scanning {len(files)} files...")
                 level_patterns = self._batch_scan_full(files, tf, level, io_workers)
             else:
-                # --- LEVEL 1+: Windowed scan (drill into parent bodies) ---
+                # --- Drill-down into parent windows ---
                 n_windows = len(current_windows)
                 total_window_secs = sum(w[1] - w[0] for w in current_windows)
+                label = "CONTEXT" if is_context_only else "DRILL-DOWN"
                 print(
-                    f"\n  Level {level} [{tf}] DRILL-DOWN: "
-                    f"scanning {len(files)} files within {n_windows} parent windows "
+                    f"\n  Level {level} [{tf}] {label}: "
+                    f"scanning {len(files)} files within {n_windows} windows "
                     f"({total_window_secs/3600:.1f}h total coverage)..."
                 )
                 level_patterns = self._batch_scan_windowed(
@@ -294,8 +320,13 @@ class FractalDiscoveryAgent:
                 on_level_complete(level, tf, all_patterns, list(completed_levels))
 
             if not level_patterns:
-                print(f"  No patterns at [{tf}] — stopping drill-down.")
-                break
+                if is_context_only or current_windows is None:
+                    # Context TFs and pre-primary macro levels never block — always continue
+                    continue
+                else:
+                    # Signal level found no children — skip level, keep cascading
+                    print(f"  No patterns at [{tf}] — skipping level, continuing cascade.")
+                    continue
 
             # Build time windows for next level
             child_tf_idx = TIMEFRAME_HIERARCHY.index(tf) + 1
@@ -366,26 +397,35 @@ class FractalDiscoveryAgent:
                     break
 
             if not day_file:
-                if current_windows is None:
-                    return all_patterns  # Can't start cascade without macro
-                continue  # Skip missing TF but continue cascade
+                continue  # Missing TF — skip, don't abort cascade
+
+            is_context = tf in CONTEXT_ONLY_TIMEFRAMES
+            is_primary = (tf == PRIMARY_SIGNAL_TIMEFRAME)
 
             if current_windows is None:
+                # Context TFs: scan full for parent chain enrichment, don't gate
                 patterns = self._batch_scan_full([day_file], tf, depth, 1)
             else:
                 patterns = self._batch_scan_windowed([day_file], tf, depth, current_windows, 1)
 
             if not patterns:
-                if current_windows is None:
-                    return all_patterns  # No macro signal, stop
-                continue  # No patterns at this level, keep going
+                if is_context:
+                    continue  # Context TFs never block — always proceed
+                if current_windows is None and not is_primary:
+                    continue  # Haven't reached primary signal level yet
+                continue  # No patterns at this level — keep drilling
 
             # Collect patterns from this level
             all_patterns.extend(patterns)
 
-            # If at finest level, we're done
-            if tf == '15s':
+            # If at finest level, done
+            if depth == hierarchy[-1][1]:
                 break
+
+            # Context TFs: scan but don't narrow windows (preserve full coverage)
+            if is_context and current_windows is None:
+                # Don't build windows from context patterns — wait for primary level
+                continue
 
             # Build windows for next level
             tf_secs = TIMEFRAME_SECONDS.get(tf, 15)
