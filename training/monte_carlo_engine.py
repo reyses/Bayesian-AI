@@ -116,25 +116,33 @@ TOPSTEP_FLAT_MINUTE = 0
 TOPSTEP_NO_ENTRY_MINUTES_BEFORE_FLAT = 15  # No new entries within 15 min of flat deadline
 
 
+def _ts_to_est_datetime(ts_value):
+    """Convert a timestamp value to EST datetime, handling numpy.int64 and nanoseconds."""
+    from datetime import datetime, timezone, timedelta
+    import numpy as np
+    EST = timezone(timedelta(hours=-5))
+    if hasattr(ts_value, 'hour'):
+        # Already a datetime-like object
+        return ts_value
+    ts = int(ts_value)
+    # Detect nanoseconds: timestamps > 1e15 are nanoseconds (year ~33658 in seconds)
+    if ts > 1_000_000_000_000_000:
+        ts = ts // 1_000_000_000
+    elif ts > 1_000_000_000_000:
+        # Milliseconds
+        ts = ts // 1_000
+    return datetime.fromtimestamp(ts, tz=EST)
+
+
 def _is_past_flat_deadline(ts_value):
     """Check if timestamp is at or past 3:00 PM EST."""
-    from datetime import datetime, timezone, timedelta
-    EST = timezone(timedelta(hours=-5))
-    if isinstance(ts_value, (int, float)):
-        dt = datetime.fromtimestamp(ts_value, tz=EST)
-    else:
-        dt = ts_value
+    dt = _ts_to_est_datetime(ts_value)
     return dt.hour > TOPSTEP_FLAT_HOUR or (dt.hour == TOPSTEP_FLAT_HOUR and dt.minute >= TOPSTEP_FLAT_MINUTE)
 
 
 def _is_near_flat_deadline(ts_value):
     """Check if timestamp is within TOPSTEP_NO_ENTRY_MINUTES_BEFORE_FLAT of 3:00 PM EST."""
-    from datetime import datetime, timezone, timedelta
-    EST = timezone(timedelta(hours=-5))
-    if isinstance(ts_value, (int, float)):
-        dt = datetime.fromtimestamp(ts_value, tz=EST)
-    else:
-        dt = ts_value
+    dt = _ts_to_est_datetime(ts_value)
     flat_minutes = TOPSTEP_FLAT_HOUR * 60 + TOPSTEP_FLAT_MINUTE
     cur_minutes = dt.hour * 60 + dt.minute
     return cur_minutes >= (flat_minutes - TOPSTEP_NO_ENTRY_MINUTES_BEFORE_FLAT)
