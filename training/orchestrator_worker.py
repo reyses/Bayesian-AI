@@ -355,13 +355,24 @@ def _process_template_job(args):
 
     # 4. Consensus Optimization (No Fission)
     t3 = time.perf_counter()
-    best_params, _ = _optimize_template_task((template, subset, iterations, generator, point_value, pattern_library))
+    consensus_args = {
+        'template': template,
+        'subset': subset,
+        'iterations': iterations,
+        'generator': generator,
+        'point_value': point_value,
+        'pattern_library': pattern_library
+    }
+    best_params, _ = _optimize_template_task(consensus_args)
     t_consensus = time.perf_counter() - t3
 
-    # 5. Validation
+    # 5. Validation & Risk Calculation
     t4 = time.perf_counter()
     val_pnl = 0.0
     val_count = 0
+    val_wins = 0
+    pnls = []
+
     validation_subset = template.patterns[FISSION_SUBSET_SIZE:]
     if validation_subset:
         for p in validation_subset:
@@ -377,6 +388,25 @@ def _process_template_job(args):
              if outcome:
                  val_pnl += outcome.pnl
                  val_count += 1
+                 pnls.append(outcome.pnl)
+                 if outcome.pnl > 0:
+                     val_wins += 1
+
+    # Calculate Risk Metrics
+    if pnls:
+        outcome_variance = float(np.std(pnls))
+        # Drawdown approximation (using average loss as proxy)
+        avg_drawdown = float(abs(np.mean([p for p in pnls if p < 0]))) if any(p < 0 for p in pnls) else 0.0
+    else:
+        outcome_variance = 0.0
+        avg_drawdown = 0.0
+
+    # Risk Score (0..1)
+    # Simple heuristic: 1 - WinRate is base risk. Add penalty for variance.
+    win_rate = val_wins / val_count if val_count > 0 else 0.0
+    var_risk = 1.0 - (1.0 / (1.0 + outcome_variance / 100.0))
+    risk_score = (1.0 - win_rate) * 0.5 + var_risk * 0.5
+
     t_validation = time.perf_counter() - t4
 
     elapsed = time.perf_counter() - t0
@@ -387,6 +417,11 @@ def _process_template_job(args):
         'template': template,
         'best_params': best_params,
         'val_pnl': val_pnl,
+        'val_count': val_count,
+        'val_wins': val_wins,
+        'outcome_variance': outcome_variance,
+        'avg_drawdown': avg_drawdown,
+        'risk_score': risk_score,
         'member_count': template.member_count,
         'timing': (
             f'individual={t_individual:.1f}s consensus={t_consensus:.1f}s '
