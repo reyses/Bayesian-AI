@@ -58,6 +58,13 @@ class PatternTemplate:
 
     parent_cluster_id: int = None             # The "Macro" state this belongs to
 
+    # ORACLE EXIT CALIBRATION (in ticks; populated by _aggregate_oracle_intelligence)
+    # Used by workers to anchor TP/SL to what this pattern historically achieves.
+    mean_mfe_ticks: float = 0.0   # Mean max-favorable-excursion seen across members
+    mean_mae_ticks: float = 0.0   # Mean max-adverse-excursion seen across members
+    p75_mfe_ticks:  float = 0.0   # 75th-pct MFE — conservative TP ceiling
+    p25_mae_ticks:  float = 0.0   # 25th-pct MAE — tight SL floor
+
 class FractalClusteringEngine:
     def __init__(self, n_clusters=1000, max_variance=0.5):
         self.n_clusters = n_clusters
@@ -186,6 +193,15 @@ class FractalClusteringEngine:
         if mfe_values:
             template.stats_expectancy = np.mean(mfe_values) - np.mean(mae_values)
             template.risk_variance = float(np.std(mfe_values))
+
+            # Oracle exit calibration: convert price-points → ticks (MNQ: 1 tick = 0.25 pts)
+            _tick = 0.25
+            mfe_ticks = np.array(mfe_values) / _tick
+            mae_ticks = np.array(mae_values) / _tick
+            template.mean_mfe_ticks = float(np.mean(mfe_ticks))
+            template.mean_mae_ticks = float(np.mean(mae_ticks))
+            template.p75_mfe_ticks  = float(np.percentile(mfe_ticks, 75))
+            template.p25_mae_ticks  = float(np.percentile(mae_ticks, 25))
 
         # 4. Risk Score (0 = safe, 1 = toxic)
         # High variance + low win rate = toxic
