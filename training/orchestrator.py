@@ -249,13 +249,13 @@ class BayesianTrainingOrchestrator:
         print(f"  Prepared {len(centroids)} centroids for matching.")
 
         # 2. Iterate Days
-        # Assume data_source is ATLAS root. Look for 15s files to define "days".
-        daily_files_15s = sorted(glob.glob(os.path.join(data_source, '15s', '*.parquet')))
+        # Use 1m bars for forward pass (less noise than 15s)
+        daily_files_15s = sorted(glob.glob(os.path.join(data_source, '1m', '*.parquet')))
         if not daily_files_15s:
-            print(f"  No 15s data found in {data_source}/15s/")
+            print(f"  No 1m data found in {data_source}/1m/")
             return
 
-        print(f"  Found {len(daily_files_15s)} days to simulate.")
+        print(f"  Found {len(daily_files_15s)} days of 1m data to simulate.")
 
         total_pnl = 0.0
         total_trades = 0
@@ -302,11 +302,12 @@ class BayesianTrainingOrchestrator:
             # 3. If bar matches pattern timestamp, try entry.
             # 4. Always update open position.
 
-            # Create a lookup for patterns by timestamp (or index)
-            # Round timestamp to nearest 15s? They should match exactly if from same source.
+            # Snap pattern timestamps to nearest 1m bar for matching
+            # Patterns come from all TFs (4h down to 15s), snap to 60s boundary
             pattern_map = defaultdict(list)
             for p in actionable_patterns:
-                pattern_map[p.timestamp].append(p)
+                snapped_ts = int(p.timestamp) // 60 * 60  # Floor to nearest minute
+                pattern_map[snapped_ts].append(p)
 
             # B. Simulation Loop
             t_sim_start = time.perf_counter()
@@ -329,12 +330,14 @@ class BayesianTrainingOrchestrator:
             active_template_id = None
 
             for row in df_15s.itertuples():
-                ts = row.timestamp
+                ts_raw = row.timestamp
+                # Snap to 60s boundary to match pattern_map keys
+                ts = int(ts_raw) // 60 * 60
                 price = getattr(row, 'close', getattr(row, 'price', 0.0))
 
                 # 1. Manage existing position
                 if self.wave_rider.position is not None:
-                    res = self.wave_rider.update_trail(price, None, ts)
+                    res = self.wave_rider.update_trail(price, None, ts_raw)
                     if res['should_exit']:
                         outcome = TradeOutcome(
                             state=active_template_id,
@@ -342,11 +345,11 @@ class BayesianTrainingOrchestrator:
                             exit_price=res['exit_price'],
                             pnl=res['pnl'],
                             result='WIN' if res['pnl'] > 0 else 'LOSS',
-                            timestamp=ts,
+                            timestamp=ts_raw,
                             exit_reason=res['exit_reason'],
                             entry_time=active_entry_time,
-                            exit_time=ts,
-                            duration=ts - active_entry_time,
+                            exit_time=ts_raw,
+                            duration=ts_raw - active_entry_time,
                             direction='LONG' if active_side == 'long' else 'SHORT',
                             template_id=active_template_id
                         )
@@ -377,12 +380,12 @@ class BayesianTrainingOrchestrator:
                         if not micro_pattern:
                             should_skip = True
 
-                        # RULE 2: Noise zone (<1.0 sigma)
-                        elif micro_z < 1.0:
+                        # RULE 2: Noise zone (<0.5 sigma)
+                        elif micro_z < 0.5:
                             should_skip = True
 
-                        # RULE 3: Approach zone (1.0 - 2.0 sigma)
-                        elif 1.0 <= micro_z < 2.0:
+                        # RULE 3: Approach zone (0.5 - 2.0 sigma)
+                        elif 0.5 <= micro_z < 2.0:
                             if micro_pattern == 'STRUCTURAL_DRIVE':
                                 # Only trade if strong trend confirmed
                                 if p.state.adx_strength < _ADX_TREND_CONFIRMATION or p.state.hurst_exponent < _HURST_TREND_CONFIRMATION:
@@ -421,11 +424,13 @@ class BayesianTrainingOrchestrator:
 
                         if dist < 3.0: # Threshold
                             # Brain gate — use low threshold for exploration
-                            # (Brain starts with pessimistic Beta(1,10) prior,
-                            #  so 80% default would block everything)
                             if self.brain.should_fire(tid, min_prob=0.05, min_conf=0.0):
-                                if dist < best_dist:
-                                    best_dist = dist
+                                # Score: lower depth (higher TF) gets priority, then closer centroid distance
+                                # depth: 1=4h, 2=1h, 3=15m, 4=5m, 5=1m, 6=15s
+                                p_depth = getattr(p, 'depth', 6)
+                                score = p_depth + dist  # Lower is better
+                                if score < best_dist:
+                                    best_dist = score
                                     best_candidate = p
                                     best_tid = tid
 
@@ -810,16 +815,14 @@ class BayesianTrainingOrchestrator:
                     0.2 * min(dd_ratio, 1.0)
                 )
 
-            # Determine Tier
-            tier = 4 # Toxic/Unknown
-            if total > 30 and prob > 0.55 and conf > 0.30 and sharpe > 0.5:
-                tier = 1
-            elif total > 15 and prob > 0.50 and conf > 0.20:
-                tier = 2
-            elif total < 15:
-                tier = 3
-            elif prob < 0.45 and total > 20:
-                tier = 4
+            # Determine Tier (use actual win_rate from history, not brain's Bayesian prob)
+            tier = 3  # Default: UNPROVEN
+            if total >= 20 and win_rate > 0.45 and avg_pnl > 0 and sharpe > 0.3:
+                tier = 1  # PRODUCTION
+            elif total >= 10 and win_rate > 0.40 and avg_pnl > 0:
+                tier = 2  # PROMISING
+            elif total >= 10 and (win_rate < 0.35 or avg_pnl < 0):
+                tier = 4  # TOXIC
 
             report_data.append({
                 'id': tid,

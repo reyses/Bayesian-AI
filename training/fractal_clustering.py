@@ -125,6 +125,37 @@ class FractalClusteringEngine:
                 self_adx, self_hurst, self_dmi_diff,
                 parent_z, parent_dmi_diff, root_is_roche, tf_alignment]
 
+    def _recursive_split(self, X: np.ndarray, patterns: list, start_id: int, depth: int = 0) -> list:
+        """Recursively split a cluster until z-variance <= max_variance or too small."""
+        z_var = np.std(X[:, 0])
+        if z_var <= self.max_variance or len(patterns) <= 20 or depth > 5:
+            centroid = np.mean(X, axis=0)
+            raw_centroid = self.scaler.inverse_transform([centroid])[0]
+            return [PatternTemplate(
+                template_id=start_id,
+                centroid=raw_centroid,
+                member_count=len(patterns),
+                patterns=patterns,
+                physics_variance=z_var
+            )]
+
+        k = min(3, max(2, len(patterns) // 20))
+        km = self._get_kmeans_model(n_clusters=k, n_samples=len(X))
+        labels = km.fit_predict(X)
+
+        result = []
+        nid = start_id
+        for lbl in range(k):
+            mask = labels == lbl
+            if mask.sum() == 0:
+                continue
+            sub_X = X[mask]
+            sub_p = [patterns[i] for i in np.where(mask)[0]]
+            children = self._recursive_split(sub_X, sub_p, nid, depth + 1)
+            result.extend(children)
+            nid += len(children)
+        return result
+
     def _aggregate_oracle_intelligence(self, template, patterns):
         """
         Post-clustering: compute template-level stats from member oracle markers.
