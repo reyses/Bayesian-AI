@@ -209,6 +209,9 @@ class BayesianTrainingOrchestrator:
         print("\n" + "="*80)
         print("PHASE 4: FORWARD PASS (EXECUTION MODE)")
         print("="*80)
+        if self.dashboard_queue:
+            self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
+                                      'step': 'FORWARD_PASS', 'pct': 0})
 
         # 1. Load Prerequisites
         lib_path = os.path.join(self.checkpoint_dir, 'pattern_library.pkl')
@@ -282,9 +285,15 @@ class BayesianTrainingOrchestrator:
         pending_oracle = None      # oracle facts for currently open trade
         fn_potential_pnl = 0.0    # dollar potential of real moves we skipped
 
+        n_days = len(daily_files_15s)
         for day_idx, day_file in enumerate(daily_files_15s):
             day_date = os.path.basename(day_file).replace('.parquet', '')
-            print(f"\n  Day {day_idx+1}/{len(daily_files_15s)}: {day_date} ... ", end='', flush=True)
+            print(f"\n  Day {day_idx+1}/{n_days}: {day_date} ... ", end='', flush=True)
+            if self.dashboard_queue and day_idx % 5 == 0:
+                pct = (day_idx / n_days) * 100
+                self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
+                                          'step': f'FORWARD_PASS  day {day_idx+1}/{n_days}',
+                                          'pct': round(pct, 1)})
 
             # A. Fractal Cascade Scan (get actionable patterns with chains)
             # This uses the discovery agent logic but focused on this day
@@ -605,7 +614,6 @@ class BayesianTrainingOrchestrator:
 
         # ── ORACLE PROFIT ATTRIBUTION ────────────────────────────────────────────
         import csv as _csv
-        from collections import defaultdict
 
         report_lines.append("")
         report_lines.append("=" * 80)
@@ -678,6 +686,20 @@ class BayesianTrainingOrchestrator:
         report_lines.append(f"    Lost — exited too early/late:           ${left_on_table_val:>12,.2f}  ({left_on_table_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
         report_lines.append(f"    -----------------------------------------------------")
         report_lines.append(f"    Actual profit:                          ${total_pnl:>12,.2f}  ({total_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else f"    Actual profit: ${total_pnl:.2f}")
+
+        # Send to dashboard
+        if self.dashboard_queue:
+            self.dashboard_queue.put({
+                'type': 'ORACLE_ATTRIBUTION',
+                'ideal':     ideal_profit,
+                'actual':    total_pnl,
+                'missed':    fn_potential_pnl,
+                'wrong_dir': abs(fp_wrong_pnl),
+                'too_early': left_on_table_val,
+                'noise':     abs(fp_noise_pnl),
+            })
+            self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
+                                      'step': 'FORWARD_PASS COMPLETE', 'pct': 100})
 
         # ── 6. Save CSV ──────────────────────────────────────────────────────────
         if oracle_trade_records:
@@ -860,6 +882,9 @@ class BayesianTrainingOrchestrator:
         print("\n" + "="*80)
         print("PHASE 5: STRATEGY SELECTION & RISK SCORING")
         print("="*80)
+        if self.dashboard_queue:
+            self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Improve',
+                                      'step': 'STRATEGY_SELECTION', 'pct': 0})
 
         lib_path = os.path.join(self.checkpoint_dir, 'pattern_library.pkl')
         if not os.path.exists(lib_path):
