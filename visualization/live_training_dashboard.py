@@ -123,6 +123,10 @@ class FractalDashboard:
         # Refresh Scatter Plot
         if not self.templates: return
 
+        # Clear existing arrows
+        for artist in self.ax.patches:
+            artist.remove()
+
         z_vals = [d.get('z', 0) for d in self.templates.values()]
         m_vals = [d.get('mom', 0) for d in self.templates.values()]
         p_vals = [d.get('pnl', 0) for d in self.templates.values()]
@@ -131,6 +135,32 @@ class FractalDashboard:
         offsets = np.c_[z_vals, m_vals]
         self.scatter.set_offsets(offsets)
         self.scatter.set_array(np.array(p_vals))
+
+        # Draw Navigation Arrows (Transitions > 50%)
+        # Note: We need full transition map here.
+        # Since templates only stores scalar data in msg, we need to pass transition info
+        # Let's assume TEMPLATE_UPDATE might contain 'transitions' or we fetch from somewhere else.
+        # Ideally, we should receive transition updates.
+
+        # Currently the dashboard message is simple dict.
+        # Let's assume orchestrator passes 'transitions' dict in TEMPLATE_UPDATE msg
+        # msg: {'id': 42, ..., 'transitions': {99: 0.8}}
+
+        for tid, data in self.templates.items():
+            trans = data.get('transitions', {})
+            if not trans: continue
+
+            x1, y1 = data.get('z', 0), data.get('mom', 0)
+
+            for next_id, prob in trans.items():
+                if prob > 0.5 and next_id in self.templates:
+                    next_data = self.templates[next_id]
+                    x2, y2 = next_data.get('z', 0), next_data.get('mom', 0)
+
+                    # Draw Arrow
+                    self.ax.arrow(x1, y1, (x2-x1)*0.9, (y2-y1)*0.9,
+                                  head_width=0.1, head_length=0.1, fc='white', ec='white', alpha=0.6,
+                                  length_includes_head=True)
 
         # Rescale axes to fit new data
         self.ax.relim()

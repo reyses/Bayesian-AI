@@ -238,6 +238,61 @@ class FractalClusteringEngine:
 
         return results
 
+    def build_transition_map(self, templates: List[PatternTemplate]):
+        """
+        SEQUENCE ANALYSIS:
+        Maps how market states flow into each other (A -> B).
+        Populates template.transition_probs based on sequential pattern events.
+        """
+        print(f"  Building Navigation Map (Sequence Analysis)...", end="", flush=True)
+
+        # 1. Map Pattern -> Cluster ID
+        # pattern object identity -> template_id
+        pattern_to_cluster = {}
+        all_patterns = []
+
+        for tmpl in templates:
+            for p in tmpl.patterns:
+                pattern_to_cluster[id(p)] = tmpl.template_id
+                all_patterns.append(p)
+
+        # 2. Sort by Timestamp
+        all_patterns.sort(key=lambda p: p.timestamp)
+
+        # 3. Analyze Transitions
+        transitions = {t.template_id: {} for t in templates} # from -> {to: count}
+
+        for i in range(len(all_patterns) - 1):
+            p1 = all_patterns[i]
+            p2 = all_patterns[i+1]
+
+            # Check time proximity (e.g., within 60 seconds)
+            if p2.timestamp - p1.timestamp <= 60:
+                c1 = pattern_to_cluster.get(id(p1))
+                c2 = pattern_to_cluster.get(id(p2))
+
+                if c1 is not None and c2 is not None:
+                    if c2 not in transitions[c1]:
+                        transitions[c1][c2] = 0
+                    transitions[c1][c2] += 1
+
+        # 4. Calculate Probabilities
+        count_edges = 0
+        for tmpl in templates:
+            t_counts = transitions.get(tmpl.template_id, {})
+            total = sum(t_counts.values())
+
+            if total > 0:
+                tmpl.transition_probs = {
+                    next_id: count / total
+                    for next_id, count in t_counts.items()
+                }
+                count_edges += len(tmpl.transition_probs)
+            else:
+                tmpl.transition_probs = {}
+
+        print(f" done. Mapped {count_edges} transitions.")
+
     def refine_clusters(self, template_id: int, member_params: List[Dict[str, float]], original_patterns: List[Any]) -> List[PatternTemplate]:
         """
         CLUSTER FISSION (Regret-Based):
