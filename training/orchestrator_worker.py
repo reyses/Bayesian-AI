@@ -235,7 +235,14 @@ def _optimize_template_task(args):
     args: (template, subset, iterations, generator, point_value, pattern_library)
     Returns: (best_params, best_sharpe)
     """
-    if len(args) == 6:
+    if isinstance(args, dict):
+        template = args['template']
+        subset = args['subset']
+        iterations = args['iterations']
+        generator = args['generator']
+        point_value = args['point_value']
+        pattern_library = args.get('pattern_library')
+    elif len(args) == 6:
         template, subset, iterations, generator, point_value, pattern_library = args
     else:
         template, subset, iterations, generator, point_value = args
@@ -308,8 +315,15 @@ def _process_template_job(args):
     Executes the Fission/Optimization logic for a single template.
     Returns a result dict with timing breakdown.
     """
-    # Unpack with optional pattern_library for backward compatibility or robust handling
-    if len(args) == 6:
+    # Unpack — support both dict and tuple formats
+    if isinstance(args, dict):
+        template = args['template']
+        clustering_engine = args['clustering_engine']
+        iterations = args['iterations']
+        generator = args['generator']
+        point_value = args['point_value']
+        pattern_library = args.get('pattern_library', {})
+    elif len(args) == 6:
         template, clustering_engine, iterations, generator, point_value, pattern_library = args
     else:
         template, clustering_engine, iterations, generator, point_value = args
