@@ -24,6 +24,13 @@ from typing import List, Dict, Any, Optional, Tuple
 from core.quantum_field_engine import QuantumFieldEngine
 from core.three_body_state import ThreeBodyQuantumState
 
+from config.oracle_config import (
+    ORACLE_LOOKAHEAD_BARS, ORACLE_MIN_MOVE_TICKS,
+    ORACLE_HOME_RUN_RATIO, ORACLE_SCALP_RATIO,
+    MARKER_MEGA_LONG, MARKER_SCALP_LONG, MARKER_NOISE,
+    MARKER_SCALP_SHORT, MARKER_MEGA_SHORT
+)
+from config.symbols import MNQ
 
 # Timeframe hierarchy: largest to smallest (top-down scan order)
 TIMEFRAME_HIERARCHY = ['1D', '4h', '1h', '15m', '5m', '1m', '15s', '5s', '1s']
@@ -55,6 +62,10 @@ class PatternEvent:
     window_data: Optional[pd.DataFrame] = None
     parent_chain: Optional[List[Dict]] = None  # Full ancestry chain
 
+    # THE ORACLE FACT (Hidden from Clustering, Visible to Audit)
+    oracle_marker: int = 0                  # MARKER_* constants from oracle_config
+    oracle_meta: Dict = field(default_factory=dict)  # {'mfe': float, 'mae': float, 'lookahead_bars': int}
+
 
 # ---------------------------------------------------------------------------
 # I/O helper (top-level for ThreadPool pickling)
@@ -78,6 +89,73 @@ class FractalDiscoveryAgent:
     def __init__(self):
         # Single GPU engine — all compute goes through this
         self.engine = QuantumFieldEngine()
+        self.tick_size = MNQ.tick_size # Default to MNQ
+
+    def _consult_oracle(self, df, bar_index, timeframe, tick_size):
+        """
+        Judge a pattern using future price data.
+
+        Looks ahead N bars (timeframe-dependent) and classifies the outcome
+        based on the ratio of max favorable vs max adverse excursion.
+
+        Args:
+            df: DataFrame with 'high', 'low', 'close' columns
+            bar_index: Index of the pattern bar
+            timeframe: String timeframe key (e.g., '15m', '1h')
+            tick_size: Asset tick size for min-move calculation
+
+        Returns:
+            (marker: int, meta: dict)
+            marker: One of MARKER_* constants
+            meta: {'mfe': float, 'mae': float, 'lookahead_bars': int}
+        """
+        lookahead = ORACLE_LOOKAHEAD_BARS.get(timeframe, 60)
+
+        if bar_index + lookahead >= len(df):
+            return MARKER_NOISE, {}
+
+        # Handle different column names
+        close_col = 'close' if 'close' in df.columns else 'price'
+        high_col = 'high' if 'high' in df.columns else close_col
+        low_col = 'low' if 'low' in df.columns else close_col
+
+        entry_price = df.iloc[bar_index][close_col]
+        future_slice = df.iloc[bar_index + 1 : bar_index + 1 + lookahead]
+
+        if future_slice.empty:
+            return MARKER_NOISE, {}
+
+        max_up = float(future_slice[high_col].max() - entry_price)
+        max_down = float(entry_price - future_slice[low_col].min())
+
+        min_move = ORACLE_MIN_MOVE_TICKS * tick_size
+        marker = MARKER_NOISE
+
+        # Long-side classification (price went up more than down)
+        if max_up > min_move:
+            if max_down > 0 and max_up > ORACLE_HOME_RUN_RATIO * max_down:
+                marker = MARKER_MEGA_LONG
+            elif max_down > 0 and max_up > ORACLE_SCALP_RATIO * max_down:
+                marker = MARKER_SCALP_LONG
+            elif max_down == 0:
+                marker = MARKER_MEGA_LONG  # No adverse move at all
+
+        # Short-side classification (price went down more than up)
+        if max_down > min_move:
+            if max_up > 0 and max_down > ORACLE_HOME_RUN_RATIO * max_up:
+                marker = MARKER_MEGA_SHORT
+            elif max_up > 0 and max_down > ORACLE_SCALP_RATIO * max_up:
+                marker = MARKER_SCALP_SHORT
+            elif max_up == 0:
+                marker = MARKER_MEGA_SHORT
+
+        meta = {
+            'mfe': max_up,
+            'mae': max_down,
+            'lookahead_bars': lookahead
+        }
+
+        return marker, meta
 
     def scan_atlas_topdown(self, atlas_root: str, timeframes: List[str] = None,
                            max_workers: int = None,
@@ -359,6 +437,9 @@ class FractalDiscoveryAgent:
             window_end = min(total_bars, bar_idx + lookahead_bars)
             window_slice = combined.iloc[bar_idx:window_end].copy()
 
+            # --- Consult Oracle ---
+            marker, meta = self._consult_oracle(combined, bar_idx, timeframe, self.tick_size)
+
             if state.cascade_detected:
                 detected.append(PatternEvent(
                     pattern_type='ROCHE_SNAP', timestamp=state.timestamp,
@@ -366,7 +447,8 @@ class FractalDiscoveryAgent:
                     velocity=state.particle_velocity, momentum=state.momentum_strength,
                     coherence=state.coherence, file_source=file_path, idx=bar_idx,
                     state=state, timeframe=timeframe, depth=depth,
-                    parent_type='', parent_tf='', window_data=window_slice
+                    parent_type='', parent_tf='', window_data=window_slice,
+                    oracle_marker=marker, oracle_meta=meta
                 ))
 
             if state.structure_confirmed:
@@ -376,7 +458,8 @@ class FractalDiscoveryAgent:
                     velocity=state.particle_velocity, momentum=state.momentum_strength,
                     coherence=state.coherence, file_source=file_path, idx=bar_idx,
                     state=state, timeframe=timeframe, depth=depth,
-                    parent_type='', parent_tf='', window_data=window_slice
+                    parent_type='', parent_tf='', window_data=window_slice,
+                    oracle_marker=marker, oracle_meta=meta
                 ))
 
         # Per-file summary
@@ -487,6 +570,9 @@ class FractalDiscoveryAgent:
             window_end = min(n_bars, bar_idx + lookahead_bars)
             window_slice = combined.iloc[bar_idx:window_end].copy()
 
+            # --- Consult Oracle ---
+            marker, meta = self._consult_oracle(combined, bar_idx, timeframe, self.tick_size)
+
             if state.cascade_detected:
                 detected.append(PatternEvent(
                     pattern_type='ROCHE_SNAP', timestamp=state.timestamp,
@@ -495,7 +581,8 @@ class FractalDiscoveryAgent:
                     coherence=state.coherence, file_source=file_path, idx=bar_idx,
                     state=state, timeframe=timeframe, depth=depth,
                     parent_type=p_type, parent_tf=p_tf, window_data=window_slice,
-                    parent_chain=p_chain
+                    parent_chain=p_chain,
+                    oracle_marker=marker, oracle_meta=meta
                 ))
 
             if state.structure_confirmed:
@@ -506,7 +593,8 @@ class FractalDiscoveryAgent:
                     coherence=state.coherence, file_source=file_path, idx=bar_idx,
                     state=state, timeframe=timeframe, depth=depth,
                     parent_type=p_type, parent_tf=p_tf, window_data=window_slice,
-                    parent_chain=p_chain
+                    parent_chain=p_chain,
+                    oracle_marker=marker, oracle_meta=meta
                 ))
 
         roche = sum(1 for p in detected if p.pattern_type == 'ROCHE_SNAP')
@@ -626,13 +714,17 @@ class FractalDiscoveryAgent:
             window_end = min(n_bars, bar_idx + 1000)
             window_slice = df.iloc[bar_idx:window_end].copy()
 
+            # --- Consult Oracle ---
+            marker, meta = self._consult_oracle(df, bar_idx, timeframe, self.tick_size)
+
             if state.cascade_detected:
                 detected.append(PatternEvent(
                     pattern_type='ROCHE_SNAP', timestamp=state.timestamp,
                     price=state.particle_position, z_score=state.z_score,
                     velocity=state.particle_velocity, momentum=state.momentum_strength,
                     coherence=state.coherence, file_source=file_path, idx=bar_idx,
-                    state=state, timeframe=timeframe, window_data=window_slice
+                    state=state, timeframe=timeframe, window_data=window_slice,
+                    oracle_marker=marker, oracle_meta=meta
                 ))
 
             if state.structure_confirmed:
@@ -641,7 +733,8 @@ class FractalDiscoveryAgent:
                     price=state.particle_position, z_score=state.z_score,
                     velocity=state.particle_velocity, momentum=state.momentum_strength,
                     coherence=state.coherence, file_source=file_path, idx=bar_idx,
-                    state=state, timeframe=timeframe, window_data=window_slice
+                    state=state, timeframe=timeframe, window_data=window_slice,
+                    oracle_marker=marker, oracle_meta=meta
                 ))
 
         return detected

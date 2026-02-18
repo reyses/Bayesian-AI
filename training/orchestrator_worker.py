@@ -6,6 +6,7 @@ from numba import jit
 from core.bayesian_brain import TradeOutcome
 from training.doe_parameter_generator import DOEParameterGenerator
 from config.settings import DEFAULT_BASE_SLIPPAGE, DEFAULT_VELOCITY_SLIPPAGE_FACTOR
+from config.oracle_config import MARKER_NOISE
 
 # Constants moved from orchestrator.py
 REPRESENTATIVE_SUBSET_SIZE = 20
@@ -441,4 +442,47 @@ def _process_template_job(args):
             f'individual={t_individual:.1f}s consensus={t_consensus:.1f}s '
             f'validation={t_validation:.1f}s ({val_count} trades) total={elapsed:.1f}s'
         )
+    }
+
+def _audit_trade(outcome, pattern):
+    """
+    Compare strategy decision against oracle ground truth.
+
+    Returns dict with audit metrics:
+        - oracle_match: bool (did strategy agree with oracle?)
+        - oracle_marker: int (what the oracle said)
+        - classification: str (TP, FP, TN, FN)
+    """
+    oracle_says = getattr(pattern, 'oracle_marker', MARKER_NOISE)
+
+    # True Positive: Agent traded in oracle's direction and oracle was right
+    # False Positive: Agent traded but oracle said noise or opposite
+    # True Negative: Agent skipped and oracle said noise
+    # False Negative: Agent skipped but oracle said profitable
+
+    if outcome is not None:
+        # Agent traded
+        agent_long = outcome.direction == 'LONG'
+        oracle_long = oracle_says > 0
+        oracle_short = oracle_says < 0
+
+        if agent_long and oracle_long:
+            classification = 'TP'
+        elif not agent_long and oracle_short:
+            classification = 'TP'
+        elif oracle_says == MARKER_NOISE:
+            classification = 'FP_NOISE'   # Traded noise
+        else:
+            classification = 'FP_WRONG'   # Traded wrong direction
+    else:
+        # Agent skipped
+        if oracle_says == MARKER_NOISE:
+            classification = 'TN'
+        else:
+            classification = 'FN'  # Missed a real move
+
+    return {
+        'oracle_match': classification == 'TP',
+        'oracle_marker': oracle_says,
+        'classification': classification
     }

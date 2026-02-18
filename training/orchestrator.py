@@ -56,7 +56,7 @@ from training.pipeline_checkpoint import PipelineCheckpoint
 from training.integrated_statistical_system import IntegratedStatisticalEngine
 from training.batch_regret_analyzer import BatchRegretAnalyzer
 from training.wave_rider import WaveRider
-from training.orchestrator_worker import simulate_trade_standalone, _optimize_pattern_task, _optimize_template_task, _process_template_job
+from training.orchestrator_worker import simulate_trade_standalone, _optimize_pattern_task, _optimize_template_task, _process_template_job, _audit_trade
 from training.orchestrator_worker import FISSION_SUBSET_SIZE, INDIVIDUAL_OPTIMIZATION_ITERATIONS, DEFAULT_BASE_SLIPPAGE, DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 
 # Monte Carlo Pipeline
@@ -261,6 +261,13 @@ class BayesianTrainingOrchestrator:
         total_trades = 0
         total_wins = 0
 
+        # Audit counters
+        audit_tp = 0
+        audit_fp_noise = 0
+        audit_fp_wrong = 0
+        audit_tn = 0
+        audit_fn = 0
+
         for day_idx, day_file in enumerate(daily_files_15s):
             day_date = os.path.basename(day_file).replace('.parquet', '')
             print(f"\n  Day {day_idx+1}/{len(daily_files_15s)}: {day_date} ... ", end='', flush=True)
@@ -443,6 +450,36 @@ class BayesianTrainingOrchestrator:
                         active_side = side
                         active_template_id = best_tid
 
+                        # AUDIT: True Positive or False Positive
+                        audit_outcome = TradeOutcome(
+                            state=best_candidate.state,
+                            entry_price=price,
+                            exit_price=0.0,
+                            pnl=0.0,
+                            result='PENDING',
+                            timestamp=ts,
+                            exit_reason='PENDING',
+                            direction='LONG' if side == 'long' else 'SHORT'
+                        )
+                        audit_res = _audit_trade(audit_outcome, best_candidate)
+                        cls = audit_res['classification']
+                        if cls == 'TP': audit_tp += 1
+                        elif cls == 'FP_NOISE': audit_fp_noise += 1
+                        elif cls == 'FP_WRONG': audit_fp_wrong += 1
+
+                        # Audit other candidates as SKIPPED
+                        for p in candidates:
+                            if p == best_candidate: continue
+                            audit_res = _audit_trade(None, p)
+                            if audit_res['classification'] == 'TN': audit_tn += 1
+                            elif audit_res['classification'] == 'FN': audit_fn += 1
+                    else:
+                        # Audit all candidates as SKIPPED
+                        for p in candidates:
+                            audit_res = _audit_trade(None, p)
+                            if audit_res['classification'] == 'TN': audit_tn += 1
+                            elif audit_res['classification'] == 'FN': audit_fn += 1
+
             # End of day cleanup — force close any open position
             if self.wave_rider.position is not None:
                 pos = self.wave_rider.position
@@ -489,6 +526,23 @@ class BayesianTrainingOrchestrator:
         report_lines.append(f"Win Rate: {total_wins/total_trades*100:.1f}%" if total_trades > 0 else "Win Rate: N/A")
         report_lines.append(f"Total PnL: ${total_pnl:.2f}")
         report_lines.append("=" * 80)
+
+        # Oracle Report
+        report_lines.append("")
+        report_lines.append("ORACLE AUDIT SUMMARY")
+        report_lines.append("-" * 40)
+        total_audit = audit_tp + audit_fp_noise + audit_fp_wrong + audit_fn + audit_tn
+        report_lines.append(f"  True Positive (correct trade):     {audit_tp} ({audit_tp/total_audit*100:.1f}%)" if total_audit else "  True Positive (correct trade):     0")
+        report_lines.append(f"  False Positive - Noise:             {audit_fp_noise} ({audit_fp_noise/total_audit*100:.1f}%)" if total_audit else "  False Positive - Noise:             0")
+        report_lines.append(f"  False Positive - Wrong Dir:         {audit_fp_wrong} ({audit_fp_wrong/total_audit*100:.1f}%)" if total_audit else "  False Positive - Wrong Dir:         0")
+        report_lines.append(f"  False Negative (missed move):       {audit_fn} ({audit_fn/total_audit*100:.1f}%)" if total_audit else "  False Negative (missed move):       0")
+
+        precision = audit_tp / (audit_tp + audit_fp_noise + audit_fp_wrong) if (audit_tp + audit_fp_noise + audit_fp_wrong) > 0 else 0.0
+        recall = audit_tp / (audit_tp + audit_fn) if (audit_tp + audit_fn) > 0 else 0.0
+
+        report_lines.append("")
+        report_lines.append(f"  Precision: {precision*100:.1f}%")
+        report_lines.append(f"  Recall: {recall*100:.1f}%")
 
         for line in report_lines:
             print(line)
