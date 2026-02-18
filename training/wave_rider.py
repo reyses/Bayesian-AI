@@ -574,7 +574,7 @@ class WaveRider:
             print(f"Reason: {recs.get('reason', 'Holding too long')}")
         
         else:
-            print(f"\n✓ KEEPING CURRENT TRAIL STOPS")
+            print(f"\n[OK] KEEPING CURRENT TRAIL STOPS")
             print(f"Tight={self.trail_config['tight']}, Medium={self.trail_config['medium']}, Wide={self.trail_config['wide']}")
             print(f"Reason: {recs.get('reason', 'Exits are optimal')}")
         
