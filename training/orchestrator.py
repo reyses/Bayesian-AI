@@ -659,7 +659,7 @@ class BayesianTrainingOrchestrator:
 
             report_lines.append("")
             report_lines.append(f"  EXIT QUALITY (correct-direction trades):")
-            report_lines.append(f"    Optimal  (≥80% of move captured): {len(optimal):>6,}  →  ${sum(r['actual_pnl'] for r in optimal):>10,.2f}")
+            report_lines.append(f"    Optimal  (>=80% of move captured): {len(optimal):>6,}  →  ${sum(r['actual_pnl'] for r in optimal):>10,.2f}")
             report_lines.append(f"    Partial  (20-80% captured):        {len(partial):>6,}  →  ${sum(r['actual_pnl'] for r in partial):>10,.2f}")
             report_lines.append(f"    Too early (<20% captured):         {len(too_early):>6,}  →  ${sum(r['actual_pnl'] for r in too_early):>10,.2f}")
             report_lines.append(f"    Reversed (went wrong after entry): {len(reversed_):>6,}  →  ${sum(r['actual_pnl'] for r in reversed_):>10,.2f}")
@@ -671,12 +671,12 @@ class BayesianTrainingOrchestrator:
         report_lines.append("")
         report_lines.append(f"  PROFIT GAP ANALYSIS:")
         report_lines.append(f"    Ideal (all real moves, perfect exits):  ${ideal_profit:>12,.2f}")
-        report_lines.append(f"    ─────────────────────────────────────────────────────")
+        report_lines.append(f"    -----------------------------------------------------")
         report_lines.append(f"    Lost — missed opportunities (skipped):  ${fn_potential_pnl:>12,.2f}  ({fn_potential_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
         report_lines.append(f"    Lost — wrong direction trades:          ${abs(fp_wrong_pnl):>12,.2f}  ({abs(fp_wrong_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
         report_lines.append(f"    Lost — noise trades:                    ${abs(fp_noise_pnl):>12,.2f}  ({abs(fp_noise_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
         report_lines.append(f"    Lost — exited too early/late:           ${left_on_table_val:>12,.2f}  ({left_on_table_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    ─────────────────────────────────────────────────────")
+        report_lines.append(f"    -----------------------------------------------------")
         report_lines.append(f"    Actual profit:                          ${total_pnl:>12,.2f}  ({total_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else f"    Actual profit: ${total_pnl:.2f}")
 
         # ── 6. Save CSV ──────────────────────────────────────────────────────────
@@ -694,7 +694,7 @@ class BayesianTrainingOrchestrator:
 
         # Save report
         report_path = os.path.join(self.checkpoint_dir, 'phase4_report.txt')
-        with open(report_path, 'w') as f:
+        with open(report_path, 'w', encoding='utf-8') as f:
             f.write('\n'.join(report_lines) + '\n')
         print(f"  Report saved to {report_path}")
 
@@ -1038,7 +1038,7 @@ class BayesianTrainingOrchestrator:
 
         # Save to file
         report_path = os.path.join(self.checkpoint_dir, 'phase5_report.txt')
-        with open(report_path, 'w') as f:
+        with open(report_path, 'w', encoding='utf-8') as f:
             f.write('\n'.join(rpt) + '\n')
         print(f"\n  Report saved to {report_path}")
 
