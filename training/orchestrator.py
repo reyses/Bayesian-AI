@@ -205,7 +205,8 @@ class BayesianTrainingOrchestrator:
             return 1
 
     def run_forward_pass(self, data_source: str,
-                         start_date: str = None, end_date: str = None):
+                         start_date: str = None, end_date: str = None,
+                         min_tier: int = None):
         """
         Phase 4: Forward pass — replay full year using playbook.
         Scans fractal cascade per day, matches templates, trades via WaveRider.
@@ -261,18 +262,7 @@ class BayesianTrainingOrchestrator:
             print("ERROR: No valid templates in library.")
             return
 
-        centroids = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
-        # Centroids are already in raw space (PatternTemplate stores raw), so we scale them
-        # Wait, PatternTemplate stores raw_centroid. But clustering scaler was fit on X (features).
-        # We need to scale features before matching, OR scale centroids.
-        # Usually we scale input features to match the scaler's space.
-        # But here we want to find nearest neighbor.
-        # Ideally we scale BOTH into the normalized space.
-        # So we transform centroids once.
-        centroids_scaled = self.scaler.transform(centroids)
-
-        # Load tier map if available (written by Phase 5 on previous run)
-        # Tier weights: Tier 1 = -1.5 bonus, Tier 2 = -0.5, Tier 3 = 0, Tier 4 = +0.5 penalty
+        # Load tier map before centroid build so we can pre-filter by min_tier
         _TIER_SCORE_ADJ = {1: -1.5, 2: -0.5, 3: 0.0, 4: 0.5}
         tiers_path = os.path.join(self.checkpoint_dir, 'template_tiers.pkl')
         template_tier_map = {}
@@ -284,7 +274,17 @@ class BayesianTrainingOrchestrator:
         else:
             print("  No tier map found — all templates weighted equally (run strategy report first)")
 
-        print(f"  Prepared {len(centroids)} centroids for matching.")
+        # Apply min_tier filter — removes losing tiers from the centroid index entirely
+        # (oracle_trade_log shows Tier 4 = -$52K drag; min_tier=3 → +$96K vs $44K baseline)
+        if min_tier is not None and template_tier_map:
+            _before = len(valid_template_ids)
+            valid_template_ids = [tid for tid in valid_template_ids
+                                  if template_tier_map.get(tid, 4) <= min_tier]
+            print(f"  Min-tier filter (tier <= {min_tier}): {_before} → {len(valid_template_ids)} active templates")
+
+        centroids = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
+        centroids_scaled = self.scaler.transform(centroids)
+        print(f"  Prepared {len(valid_template_ids)} centroids for matching.")
 
         # 2. Iterate Days
         # Use 15s daily files for position management (daily granularity).
@@ -1828,6 +1828,144 @@ class BayesianTrainingOrchestrator:
     def print_final_summary(self):
         print(f"Total PnL: ${sum(t.pnl for t in self._cumulative_best_trades):.2f}")
 
+    def run_param_sweep(self):
+        """
+        Post-hoc DOE: sweep filter combinations on oracle_trade_log.csv.
+        Reads the log from the last forward pass and ranks every combination of:
+          min_tier × direction × noise_filter
+        by net PnL.  Runs in seconds — no re-simulation needed.
+
+        Usage:
+            python training/orchestrator.py --sweep-params
+        """
+        from itertools import product as _product
+
+        log_path   = os.path.join(self.checkpoint_dir, 'oracle_trade_log.csv')
+        tiers_path = os.path.join(self.checkpoint_dir, 'template_tiers.pkl')
+
+        if not os.path.exists(log_path):
+            print("ERROR: oracle_trade_log.csv not found — run a forward pass first.")
+            return
+
+        df = pd.read_csv(log_path)
+        template_tier_map = {}
+        if os.path.exists(tiers_path):
+            with open(tiers_path, 'rb') as f:
+                template_tier_map = pickle.load(f)
+        df['tier'] = df['template_id'].map(template_tier_map).fillna(4).astype(int)
+
+        total_trades = len(df)
+        total_pnl    = df['actual_pnl'].sum()
+
+        print("\n" + "="*80)
+        print("PARAMETER SWEEP — Post-Hoc DOE on oracle_trade_log.csv")
+        print(f"  Baseline  : {total_trades:,} trades  |  Net PnL: ${total_pnl:,.0f}")
+        print(f"  Sweep dims: min_tier × direction × noise_filter")
+        print("="*80)
+
+        # ── Sweep grid ────────────────────────────────────────────────────────
+        min_tiers   = [1, 2, 3, 4]            # 4 = all tiers (baseline)
+        directions  = ['all', 'SHORT', 'LONG']
+        noise_modes = ['all', 'no_noise', 'mega_only']
+        # Note: noise_filter is analysis-only (we can't know oracle_label in live trading).
+        #       min_tier and direction ARE live-tradeable levers.
+
+        rows = []
+        for mt, dr, nm in _product(min_tiers, directions, noise_modes):
+            sub = df[df['tier'] <= mt]
+            if dr != 'all':
+                sub = sub[sub['direction'] == dr]
+            if nm == 'no_noise':
+                sub = sub[sub['oracle_label'] != 0]
+            elif nm == 'mega_only':
+                sub = sub[sub['oracle_label'].isin([-2, 2])]
+            n = len(sub)
+            if n == 0:
+                continue
+            pnl  = sub['actual_pnl'].sum()
+            wr   = (sub['actual_pnl'] > 0).mean() * 100
+            avg  = pnl / n
+            rows.append({
+                'min_tier': mt, 'direction': dr, 'noise_filter': nm,
+                'trades': n, 'net_pnl': round(pnl, 1),
+                'win_rate': round(wr, 1), 'avg_pnl': round(avg, 2),
+                'live_tradeable': (nm == 'all'),   # noise_filter not usable live
+            })
+
+        rows.sort(key=lambda r: r['net_pnl'], reverse=True)
+
+        # ── Print section 1: live-tradeable combos hitting $50K+ ─────────────
+        live_hits = [r for r in rows if r['live_tradeable'] and r['net_pnl'] >= 50_000]
+        print(f"\n{'':2}LIVE-TRADEABLE combos  ≥ $50K  (noise_filter='all')")
+        print(f"  {'min_tier':>8}  {'direction':>9}  {'trades':>7}  {'net_pnl':>10}  {'win_rate':>9}  {'avg$/trade':>10}")
+        print(f"  {'-'*8}  {'-'*9}  {'-'*7}  {'-'*10}  {'-'*9}  {'-'*10}")
+        if live_hits:
+            for r in live_hits:
+                flag = "  ← RECOMMENDED" if r == live_hits[0] else ""
+                print(f"  {r['min_tier']:>8}  {r['direction']:>9}  {r['trades']:>7,}  "
+                      f"${r['net_pnl']:>9,.0f}  {r['win_rate']:>8.1f}%  ${r['avg_pnl']:>9.2f}{flag}")
+        else:
+            print("  (none — tune thresholds or collect more data)")
+
+        # ── Print section 2: all combos top 15 ───────────────────────────────
+        print(f"\n{'':2}TOP 15 COMBINATIONS  (including analysis-only noise filters)")
+        print(f"  {'min_tier':>8}  {'direction':>9}  {'noise_filter':>12}  {'trades':>7}  {'net_pnl':>10}  {'win_rate':>9}  {'avg$/trade':>10}  {'live?':>5}")
+        print(f"  {'-'*8}  {'-'*9}  {'-'*12}  {'-'*7}  {'-'*10}  {'-'*9}  {'-'*10}  {'-'*5}")
+        for r in rows[:15]:
+            live = 'YES' if r['live_tradeable'] else 'no'
+            print(f"  {r['min_tier']:>8}  {r['direction']:>9}  {r['noise_filter']:>12}  {r['trades']:>7,}  "
+                  f"${r['net_pnl']:>9,.0f}  {r['win_rate']:>8.1f}%  ${r['avg_pnl']:>9.2f}  {live:>5}")
+
+        # ── Print section 3: per-tier PnL attribution ─────────────────────────
+        print(f"\n{'':2}PER-TIER ATTRIBUTION  (all directions, no filter)")
+        print(f"  {'tier':>4}  {'templates':>9}  {'trades':>7}  {'net_pnl':>10}  {'avg$/trade':>10}  {'win_rate':>9}")
+        print(f"  {'-'*4}  {'-'*9}  {'-'*7}  {'-'*10}  {'-'*10}  {'-'*9}")
+        tier_counts = {}
+        if template_tier_map:
+            import collections as _col
+            tier_counts = dict(_col.Counter(template_tier_map.values()))
+        for t in [1, 2, 3, 4]:
+            sub = df[df['tier'] == t]
+            n   = len(sub)
+            if n == 0:
+                continue
+            pnl = sub['actual_pnl'].sum()
+            wr  = (sub['actual_pnl'] > 0).mean() * 100
+            avg = pnl / n
+            tmpl_count = tier_counts.get(t, 0)
+            flag = '  ← DRAG' if pnl < 0 else ('  ← STAR' if t == 1 else '')
+            print(f"  {t:>4}  {tmpl_count:>9}  {n:>7,}  ${pnl:>9,.0f}  ${avg:>9.2f}  {wr:>8.1f}%{flag}")
+
+        # ── Print section 4: expectation grounding ───────────────────────────
+        print(f"\n{'':2}OUT-OF-SAMPLE EXPECTATION GUIDE")
+        print(f"  These numbers are IN-SAMPLE (trained on same data).")
+        print(f"  For UNKNOWN future data, apply a realistic discount:")
+        print(f"  {'Scenario':30s}  {'Discount':>8}  {'Projected PnL':>14}")
+        print(f"  {'-'*30}  {'-'*8}  {'-'*14}")
+        best_live_pnl = live_hits[0]['net_pnl'] if live_hits else total_pnl
+        for label, disc in [("Conservative (new regime / drawdown)", 0.30),
+                             ("Realistic  (normal out-of-sample)",    0.50),
+                             ("Optimistic (similar market regime)",    0.70)]:
+            proj = best_live_pnl * disc
+            flag = '  ← meets $50K target' if proj >= 50_000 else ''
+            print(f"  {label:30s}  {disc*100:>7.0f}%  ${proj:>12,.0f}{flag}")
+        print()
+        print(f"  NOTE: The oracle gap ($69M ideal) is NEVER achievable in live trading.")
+        print(f"  It assumes perfect entries + perfect exits on every move — physically")
+        print(f"  impossible. Ground truth baseline is in-sample net PnL × discount.")
+        print("="*80)
+
+        # ── Recommendation ────────────────────────────────────────────────────
+        if live_hits:
+            best = live_hits[0]
+            print(f"\nRECOMMENDED NEXT RUN:")
+            print(f"  python training/orchestrator.py --forward-pass "
+                  f"--min-tier {best['min_tier']}" +
+                  (f" --direction {best['direction']}" if best['direction'] != 'all' else ''))
+            print(f"  Expected in-sample PnL: ${best['net_pnl']:,.0f} "
+                  f"({best['trades']:,} trades, {best['win_rate']:.1f}% win rate)")
+        print()
+
     def print_bottom_line(self):
         """
         Consolidated bottom line printed after ALL phases complete.
@@ -1952,6 +2090,10 @@ def main():
                         help="First day to include in forward pass (inclusive, e.g. 20260101)")
     parser.add_argument('--forward-end', type=str, default=None, metavar='YYYYMMDD',
                         help="Last day to include in forward pass (inclusive, e.g. 20260209)")
+    parser.add_argument('--min-tier', type=int, default=None, choices=[1, 2, 3, 4],
+                        help="Only activate templates of this tier or better (1=Tier1 only, 3=drop Tier4 losers)")
+    parser.add_argument('--sweep-params', action='store_true',
+                        help="Post-hoc DOE: sweep filter combinations on oracle_trade_log.csv and rank by net PnL")
     parser.add_argument('--strategy-report', action='store_true', help="Run Phase 5 strategy selection report")
 
     # Monte Carlo Flags (opt-in with --mc)
@@ -2037,11 +2179,16 @@ def main():
             orchestrator.run_final_validation(refined_strategies)
             return 0
 
+        if args.sweep_params:
+            orchestrator.run_param_sweep()
+            return 0
+
         if args.forward_pass and not args.fresh:
             # Phase 4 only (using existing playbook)
             orchestrator.run_forward_pass(args.data,
                                           start_date=args.forward_start,
-                                          end_date=args.forward_end)
+                                          end_date=args.forward_end,
+                                          min_tier=args.min_tier)
             if args.strategy_report:
                 orchestrator.run_strategy_selection()
         elif args.strategy_report and not args.forward_pass:
@@ -2088,7 +2235,8 @@ def main():
                 # Default: Bayesian path → Forward Pass → Strategy Report
                 orchestrator.run_forward_pass(args.data,
                                           start_date=args.forward_start,
-                                          end_date=args.forward_end)
+                                          end_date=args.forward_end,
+                                          min_tier=args.min_tier)
                 orchestrator.run_strategy_selection()
 
         orchestrator.print_bottom_line()
