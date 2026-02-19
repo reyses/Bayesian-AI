@@ -90,7 +90,7 @@ class ProgressReporter:
 
     def print_trade_detail(self, trade_num: int, trade, state_str: str):
         """Print individual trade result (for debugging)"""
-        result_symbol = "✓" if trade.result == 'WIN' else "✗"
+        result_symbol = "WIN" if trade.result == 'WIN' else "LOSS"
         print(f"  {result_symbol} Trade #{trade_num}: "
               f"${trade.pnl:>7.2f} | "
               f"{trade.duration:>5.1f}s | "
