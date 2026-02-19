@@ -51,6 +51,7 @@ from training.databento_loader import DatabentoLoader
 from training.fractal_discovery_agent import FractalDiscoveryAgent, PatternEvent, TIMEFRAME_SECONDS
 from training.fractal_clustering import FractalClusteringEngine, PatternTemplate
 from training.pipeline_checkpoint import PipelineCheckpoint
+from training.timeframe_belief_network import TimeframeBeliefNetwork, BeliefState
 
 # Execution components
 from training.integrated_statistical_system import IntegratedStatisticalEngine
@@ -288,6 +289,19 @@ class BayesianTrainingOrchestrator:
         centroids_scaled = self.scaler.transform(centroids)
         print(f"  Prepared {len(valid_template_ids)} centroids for matching.")
 
+        # Fractal belief network: 8 TF workers (1h -> 15s), path conviction
+        # Each worker: Task1 = aggregate TF bars (once/day), Task2 = cluster match + regression
+        # 1h worker fires ~7x/day (light); 15s fires every bar (heavy: top-3 matching)
+        belief_network = TimeframeBeliefNetwork(
+            pattern_library  = self.pattern_library,
+            scaler           = self.scaler,
+            engine           = self.engine,
+            valid_tids       = valid_template_ids,
+            centroids_scaled = centroids_scaled,
+        )
+        print(f"  Belief network: {len(TimeframeBeliefNetwork.TIMEFRAMES_SECONDS)} TF workers "
+              f"(conviction threshold: {TimeframeBeliefNetwork.MIN_CONVICTION:.2f})")
+
         # 2. Iterate Days
         # Use 15s daily files for position management (daily granularity).
         # Pattern entry timestamps are snapped to 1m for signal quality.
@@ -357,6 +371,16 @@ class BayesianTrainingOrchestrator:
                 print(f"FAILED to load {day_file}: {e}")
                 continue
 
+            # Belief network: Task 1 for all 8 TF workers
+            # Aggregates 15s -> 30s/1m/3m/5m/15m/30m/1h bars + computes quantum states
+            # 1h worker: ~7 states; 15s worker: ~5300 states (pre-computed, fast lookup)
+            try:
+                _states_15s = self.engine.batch_compute_states(df_15s, use_cuda=True)
+                belief_network.prepare_day(df_15s, states_15s=_states_15s)
+            except Exception as _bn_err:
+                _states_15s = []
+                belief_network.prepare_day(df_15s, states_15s=[])
+
             # Map patterns to bar indices for efficient processing
             # Or just iterate bars and check if a pattern triggered?
             # Better: Iterate patterns, attempt entry.
@@ -394,11 +418,18 @@ class BayesianTrainingOrchestrator:
             active_side = 'long'
             active_template_id = None
 
+            _bar_i = 0  # 15s bar index for belief network worker ticks
+
             for row in df_15s.itertuples():
                 ts_raw = row.timestamp
                 # Snap to 60s boundary to match pattern_map keys
                 ts = int(ts_raw) // 60 * 60
                 price = getattr(row, 'close', getattr(row, 'price', 0.0))
+
+                # Belief network: tick all workers (event-driven by TF bar change)
+                # 1h worker updates once per 240 bars; 15s worker updates every bar
+                belief_network.tick_all(_bar_i)
+                _bar_i += 1
 
                 # 1. Manage existing position
                 if self.wave_rider.position is not None:
@@ -581,6 +612,24 @@ class BayesianTrainingOrchestrator:
                                     _vel = getattr(_live_s, 'particle_velocity', 0.0)
                                     side = 'long' if _vel >= 0 else 'short'
 
+                        # ── Path conviction gate (fractal belief network) ─────────
+                        # Collect all 8 TF workers' current beliefs.
+                        # If the fractal tree is uncertain (conviction < threshold) -> skip.
+                        # If tree agrees but disagrees with our leaf direction -> flip.
+                        # If tree agrees and TP from decision-level worker is better -> use it.
+                        _belief = belief_network.get_belief()
+                        if _belief is not None:
+                            if not _belief.is_confident:
+                                # Tree uncertain across scales -- skip this bar
+                                continue
+                            # Path direction override for NOISE oracle_marker patterns
+                            if _nn_marker == 0 and _belief.direction != side:
+                                side = _belief.direction  # fractal tree overrides leaf heuristics
+                            # Use network's predicted MFE if better than leaf-level estimate
+                            _network_tp = max(4, int(round(_belief.predicted_mfe))) if _belief.predicted_mfe > 2.0 else None
+                        else:
+                            _network_tp = None
+
                         # ── Exit sizing from per-cluster regression models ────────
                         # Trail = regression_sigma_ticks * 1.1  (OLS residual std -> breathing room)
                         # TP    = OLS predicted MFE for THIS bar's features (per-bar estimate)
@@ -604,19 +653,25 @@ class BayesianTrainingOrchestrator:
                                      if _p25_mae > 2.0
                                      else params.get('stop_loss_ticks', 15))
 
-                        # TP: per-bar OLS prediction (primary) or template p75 (fallback)
-                        _mfe_coeff = lib_entry.get('mfe_coeff')
-                        if _mfe_coeff is not None:
-                            _pred_mfe_pts   = (np.dot(_live_scaled, np.array(_mfe_coeff))
-                                               + lib_entry.get('mfe_intercept', 0.0))
-                            _pred_mfe_ticks = max(0.0, _pred_mfe_pts / 0.25)
-                            _tp_ticks = max(4, int(round(_pred_mfe_ticks))) if _pred_mfe_ticks > 2.0 else (
-                                max(4, int(round(_p75_mfe))) if _p75_mfe > 2.0
-                                else params.get('take_profit_ticks', 50))
-                        elif _p75_mfe > 2.0:
-                            _tp_ticks = max(4, int(round(_p75_mfe)))
+                        # TP: network path prediction (highest priority, sees all scales)
+                        #     -> per-bar OLS (leaf cluster model)
+                        #     -> template p75 (historical average)
+                        #     -> DOE param (last resort)
+                        if _network_tp is not None:
+                            _tp_ticks = _network_tp
                         else:
-                            _tp_ticks = params.get('take_profit_ticks', 50)
+                            _mfe_coeff = lib_entry.get('mfe_coeff')
+                            if _mfe_coeff is not None:
+                                _pred_mfe_pts   = (np.dot(_live_scaled, np.array(_mfe_coeff))
+                                                   + lib_entry.get('mfe_intercept', 0.0))
+                                _pred_mfe_ticks = max(0.0, _pred_mfe_pts / 0.25)
+                                _tp_ticks = max(4, int(round(_pred_mfe_ticks))) if _pred_mfe_ticks > 2.0 else (
+                                    max(4, int(round(_p75_mfe))) if _p75_mfe > 2.0
+                                    else params.get('take_profit_ticks', 50))
+                            elif _p75_mfe > 2.0:
+                                _tp_ticks = max(4, int(round(_p75_mfe)))
+                            else:
+                                _tp_ticks = params.get('take_profit_ticks', 50)
 
                         self.wave_rider.open_position(
                             entry_price=price,
@@ -1402,12 +1457,16 @@ class BayesianTrainingOrchestrator:
             # Check for partial resume (some levels done)
             partial_manifest, partial_levels = ckpt.load_discovery()
 
+            _train_end = getattr(self.config, 'train_end', None)
+            if _train_end:
+                print(f"  Out-of-sample guard: training data capped at {_train_end}")
             manifest = self._run_discovery(
                 data_source,
                 checkpoint_callback=lambda lvl, tf, patterns, levels:
                     ckpt.save_discovery_level(patterns, levels),
                 resume_manifest=partial_manifest,
-                resume_levels=partial_levels
+                resume_levels=partial_levels,
+                train_end=_train_end
             )
 
             # Save completed discovery
@@ -1674,11 +1733,15 @@ class BayesianTrainingOrchestrator:
     def _run_discovery(self, data_source: Any,
                        checkpoint_callback=None,
                        resume_manifest=None,
-                       resume_levels=None) -> List[PatternEvent]:
+                       resume_levels=None,
+                       train_end: str = None) -> List[PatternEvent]:
         """
         Run top-down fractal discovery across ATLAS timeframes.
         If data_source points to the ATLAS root (contains TF subdirectories),
         uses hierarchical top-down scanning. Otherwise falls back to flat scan.
+
+        train_end: YYYYMMDD cutoff -- files after this date are excluded from
+                   discovery so the model has no knowledge of the test period.
         """
         manifest = []
 
@@ -1693,7 +1756,8 @@ class BayesianTrainingOrchestrator:
                     data_source,
                     on_level_complete=checkpoint_callback,
                     resume_manifest=resume_manifest,
-                    resume_levels=resume_levels
+                    resume_levels=resume_levels,
+                    train_end=train_end
                 )
             else:
                 manifest = self.discovery_agent.scan_atlas_parallel(data_source)
@@ -2265,6 +2329,9 @@ def main():
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
     parser.add_argument('--fresh', action='store_true', help="Clear all pipeline checkpoints and start fresh")
     parser.add_argument('--forward-pass', action='store_true', help="Run Phase 4 forward pass using existing playbook")
+    parser.add_argument('--train-end', type=str, default=None, metavar='YYYYMMDD',
+                        help="Out-of-sample guard: cap training data at this date (e.g. 20251231). "
+                             "Use with --forward-start for a clean train/test split.")
     parser.add_argument('--forward-start', type=str, default=None, metavar='YYYYMMDD',
                         help="First day to include in forward pass (inclusive, e.g. 20260101)")
     parser.add_argument('--forward-end', type=str, default=None, metavar='YYYYMMDD',
