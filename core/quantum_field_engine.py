@@ -221,33 +221,77 @@ class QuantumFieldEngine:
         return geo, cdl
 
     def _compute_hurst_numpy(self, prices: np.ndarray, window: int = 100):
-        """Numpy Hurst exponent via R/S method."""
+        """
+        Numpy Hurst exponent via R/S method (Vectorized).
+        Significantly faster than iterative polyfit.
+        """
         n = len(prices)
         hurst = np.full(n, 0.5)
 
-        for i in range(window, n):
-            log_ns = []
-            log_rs_vals = []
+        if n < window:
+            return hurst
 
-            for sz in [window//8, window//4, window//2, window]:
-                sz = max(sz, 4)
-                segment = prices[i-sz+1:i+1]
-                returns = np.diff(segment)
-                if len(returns) < 2:
-                    continue
+        all_returns = np.diff(prices)
 
-                mean_r = returns.mean()
-                devs = np.cumsum(returns - mean_r)
-                R = devs.max() - devs.min()
-                S = max(returns.std(ddof=1), 1e-10)
+        raw_sizes = [window//8, window//4, window//2, window]
+        valid_sizes = [max(sz, 4) for sz in raw_sizes]
 
-                log_ns.append(np.log(sz))
-                log_rs_vals.append(np.log(max(R/S, 1e-10)))
+        # Check if we have enough distinct sizes for regression
+        if len(set(valid_sizes)) < 2:
+            return hurst
 
-            if len(log_ns) >= 2:
-                # np.polyfit returns coefficients, slope is first
-                coeffs = np.polyfit(log_ns, log_rs_vals, 1)
-                hurst[i] = np.clip(coeffs[0], 0.0, 1.0)
+        log_ns = np.log(valid_sizes)
+
+        # Precompute pseudo-inverse
+        A = np.vstack([log_ns, np.ones(len(log_ns))]).T
+
+        if np.linalg.matrix_rank(A) < 2:
+            return hurst
+
+        pinv = np.linalg.pinv(A)
+        pinv_slope = pinv[0, :] # Shape (4,)
+
+        unique_sizes = sorted(list(set(valid_sizes)))
+        size_results = {}
+
+        for sz in unique_sizes:
+            w_ret = sz - 1
+            # Vectorized R/S over all possible windows of size w_ret
+            windows = sliding_window_view(all_returns, window_shape=w_ret)
+
+            mean_r = windows.mean(axis=1, keepdims=True)
+            devs = np.cumsum(windows - mean_r, axis=1)
+            R = devs.max(axis=1) - devs.min(axis=1)
+            S = windows.std(axis=1, ddof=1)
+            S = np.maximum(S, 1e-10)
+
+            RS = R / S
+            log_RS = np.log(np.maximum(RS, 1e-10))
+
+            size_results[sz] = log_RS
+
+        Y_rows = []
+        for sz in valid_sizes:
+            res = size_results[sz]
+            w_ret = sz - 1
+            start_idx = window - w_ret
+
+            # Ensure we don't go out of bounds (although start_idx >= 1 usually)
+            if start_idx < 0:
+                 start_idx = 0
+
+            # Slice results to align with `hurst[window:]`
+            # res has length `n - w_ret`.
+            # We need `n - window` points.
+            sliced_res = res[start_idx : start_idx + (n - window)]
+            Y_rows.append(sliced_res)
+
+        Y = np.vstack(Y_rows)
+
+        slopes = pinv_slope @ Y
+        slopes = np.clip(slopes, 0.0, 1.0)
+
+        hurst[window:] = slopes
 
         return hurst
 
@@ -292,20 +336,26 @@ class QuantumFieldEngine:
             }
 
         # 1. Rolling Linear Regression
-        windows = sliding_window_view(prices, window_shape=rp)
-        # windows shape: (n - rp + 1, rp)
+        # Use convolution for O(N) calculation instead of O(N*rp)
 
-        # X constants (using precomputed self.mean_x, self.inv_denom, etc)
+        # Kernel for sum_y: ones
+        kernel_sum = np.ones(rp)
+
+        # Kernel for sum_xy: x reversed [rp-1, ..., 0]
+        # We want sum(prices[i+j] * x[j]) for j in 0..rp-1
+        # Convolve(f, g)[n] = sum f[m] g[n-m].
+        # Let n be the index of the result. Corresponds to window ending at n (in valid mode).
+        # We want kernel such that k[j] matches x[rp-1-j].
+        # x = [0, 1, ... rp-1].
+        # kernel = [rp-1, ..., 0].
         x = np.arange(rp)
+        kernel_xy = x[::-1]
 
-        # Y constants per window
-        sum_y = np.sum(windows, axis=1)
+        sum_y = np.convolve(prices, kernel_sum, mode='valid')
+        sum_xy = np.convolve(prices, kernel_xy, mode='valid')
+        sum_yy = np.convolve(prices**2, kernel_sum, mode='valid')
+
         mean_y = sum_y / rp
-
-        # sum_xy per window
-        # Broadcast x: (rp,) -> (1, rp)
-        sum_xy = np.sum(windows * x[np.newaxis, :], axis=1)
-        sum_yy = np.sum(windows * windows, axis=1)
 
         # Slope
         # slope = (sum_xy - mean_x * sum_y) * inv_denom
