@@ -186,12 +186,40 @@ class TimeframeWorker:
             dir_prob = float(np.mean(dir_probs))
             pred_mfe = float(np.mean(pred_mfes))
             primary_tid = valid_tids[np.argmin(dists)]
+            _any_fitted = any(
+                pattern_library[valid_tids[i]].get('dir_coeff') is not None
+                for i in top_k_idx
+            )
         else:
             best_idx    = int(np.argmin(dists))
             primary_tid = valid_tids[best_idx]
             lib         = pattern_library[primary_tid]
             dir_prob    = _logistic_prob(feat_s, lib)
             pred_mfe    = _ols_mfe(feat_s, lib)
+            _any_fitted = lib.get('dir_coeff') is not None
+
+        # ── Physics blend: Roche limit oscillation gives direction from z_score ──
+        # The market oscillates between standard error bands at every timeframe.
+        # z_score < 0  (below mean) → expect reversion UP  → P(LONG) > 0.5
+        # z_score > 0  (above mean) → expect reversion DOWN → P(LONG) < 0.5
+        #
+        # Sensitivity scales with log(bars_aggregated) — higher TF workers have
+        # more samples in their z_score so the signal is statistically stronger.
+        #   1h (240 bars): sensitivity ≈ 1.00   → at z=±2 → dir_prob ≈ 0.88
+        #   5m  (20 bars): sensitivity ≈ 0.67   → at z=±2 → dir_prob ≈ 0.76
+        #   15s  (1 bar):  sensitivity ≈ 0.50   → at z=±2 → dir_prob ≈ 0.73
+        _n_bars = max(1, self.bars_per_update)
+        _phys_sensitivity = 0.5 + 0.5 * (np.log(_n_bars) / np.log(240))  # [0.5, 1.0]
+        _z_raw    = float(getattr(state, 'z_score', 0.0))
+        _phys_dir = _sigmoid(-_z_raw * _phys_sensitivity)
+
+        # Blend with ML signal only if a fitted logistic regression exists.
+        # Unfitted templates fall back to long_bias ≈ 0.59 (NQ bullish noise).
+        # In that case, use pure physics to avoid degenerate uniform dir_prob values.
+        if _any_fitted:
+            dir_prob = 0.5 * _phys_dir + 0.5 * dir_prob
+        else:
+            dir_prob = _phys_dir
 
         # Wave maturity: estimate of how "mature" (near completion) the current wave is.
         # High value = wave is well-developed / near exhaustion = higher entry risk.
