@@ -523,20 +523,36 @@ class BayesianTrainingOrchestrator:
                         lib_entry = self.pattern_library[best_tid]
 
                         # ── Direction gate ───────────────────────────────────────────
-                        # Use template's oracle-derived bias if it is decisive (>65%).
-                        # Guardrail: strong bias locks direction; ambiguous bias falls
-                        # back to the centroid z_score (positive z = mean-revert = short).
-                        _BIAS_THRESH = 0.65
-                        long_bias  = lib_entry.get('long_bias',  0.5)
-                        short_bias = lib_entry.get('short_bias', 0.5)
+                        # Priority 1: Oracle bias >= 55% → lock direction
+                        #   Template's historical fraction of LONG vs SHORT oracle markers
+                        # Priority 2: Any oracle data → use majority direction
+                        #   Even weak bias (e.g. 55% SHORT) is better than a static fallback
+                        # Priority 3: No oracle data → live DMI sign (trend-following)
+                        #   Features use abs(z), so centroid[0] is ALWAYS positive → the old
+                        #   z_score fallback always returned SHORT.  DMI diff is directional.
+                        _BIAS_THRESH = 0.55
+                        long_bias  = lib_entry.get('long_bias',  0.0)
+                        short_bias = lib_entry.get('short_bias', 0.0)
                         if long_bias >= _BIAS_THRESH:
                             side = 'long'
                         elif short_bias >= _BIAS_THRESH:
                             side = 'short'
+                        elif long_bias + short_bias >= 0.10:
+                            # Soft oracle signal — use whichever bias dominates
+                            side = 'long' if long_bias >= short_bias else 'short'
                         else:
-                            # Centroid z_score fallback (positive z = overbought = short)
-                            template_z = lib_entry['centroid'][0]
-                            side = 'short' if template_z > 0 else 'long'
+                            # No oracle data → live DMI direction (trend-following)
+                            _live = best_candidate.state
+                            _dmi_diff = (getattr(_live, 'dmi_plus',  0.0)
+                                       - getattr(_live, 'dmi_minus', 0.0))
+                            if _dmi_diff > 0:
+                                side = 'long'    # DMI+>DMI-: upward pressure
+                            elif _dmi_diff < 0:
+                                side = 'short'   # DMI->DMI+: downward pressure
+                            else:
+                                # Perfect tie — fall back to particle_velocity
+                                _vel = getattr(_live, 'particle_velocity', 0.0)
+                                side = 'long' if _vel >= 0 else 'short'
                         self.wave_rider.open_position(
                             entry_price=price,
                             side=side,
