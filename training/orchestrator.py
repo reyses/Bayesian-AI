@@ -516,6 +516,7 @@ class BayesianTrainingOrchestrator:
                     best_candidate = None
                     best_dist = 999.0
                     best_tid = None
+                    _candidate_gate = {}  # id(p) -> gate that blocked it (for FN audit)
 
                     for p in candidates:
                         n_signals_seen += 1
@@ -563,6 +564,7 @@ class BayesianTrainingOrchestrator:
 
                         if should_skip:
                             skip_headroom += 1
+                            _candidate_gate[id(p)] = 'gate0'
                             continue
 
                         # Gate 0.5: depth filter -- exclude depths that had negative avg
@@ -571,6 +573,7 @@ class BayesianTrainingOrchestrator:
                         _cand_depth = getattr(p, 'depth', 6)
                         if _cand_depth in _DEPTH_FILTER_OUT:
                             skip_headroom += 1
+                            _candidate_gate[id(p)] = 'gate0_5'
                             continue
 
                         # Extract 14D features using shared logic
@@ -604,8 +607,10 @@ class BayesianTrainingOrchestrator:
                                     best_tid = tid
                             else:
                                 skip_brain += 1
+                                _candidate_gate[id(p)] = 'gate2'
                         else:
                             skip_dist += 1
+                            _candidate_gate[id(p)] = 'gate1'
 
                     if best_candidate:
                         # FIRE
@@ -679,6 +684,7 @@ class BayesianTrainingOrchestrator:
                             if not _belief.is_confident:
                                 # Tree uncertain across scales -- skip this bar
                                 skip_conviction += 1
+                                _candidate_gate[id(p)] = 'gate3'
                                 continue
                             # Path direction override for NOISE oracle_marker patterns
                             if _nn_marker == 0 and _belief.direction != side:
@@ -836,6 +842,7 @@ class BayesianTrainingOrchestrator:
                                     'oracle_dir':      'LONG' if _om > 0 else 'SHORT',
                                     'fn_potential_pnl': round(_fn_pot, 2),
                                     'reason':          'competed',  # had a trade this bar, but not this candidate
+                                    'gate_blocked':    _candidate_gate.get(id(p), 'passed'),  # 'passed' = scored but lost to better candidate
                                     'workers':         __import__('json').dumps(belief_network.get_worker_snapshot()),
                                 })
                     else:
@@ -858,6 +865,7 @@ class BayesianTrainingOrchestrator:
                                     'oracle_dir':      'LONG' if _om > 0 else 'SHORT',
                                     'fn_potential_pnl': round(_fn_pot, 2),
                                     'reason':          'no_match',  # nothing passed gates at this bar
+                                    'gate_blocked':    _candidate_gate.get(id(p), 'unknown'),
                                     'workers':         __import__('json').dumps(belief_network.get_worker_snapshot()),
                                 })
 
@@ -1297,6 +1305,35 @@ class BayesianTrainingOrchestrator:
                 s_nomatch = f"{a_nomatch:.2f}" if a_nomatch is not None else "  n/a"
                 flag = "  <-- workers right, gate wrong" if (a_all or 0) > 0.60 else ""
                 report_lines.append(f"    {tf:<6} {s_all:>8} {s_comp:>9} {s_nomatch:>9}{flag}")
+
+            # FN gate breakdown: which gate is responsible for blocking profitable signals?
+            # Shows how many FN records (missed real moves) were blocked by each gate.
+            # gate0/gate0_5 = structural rules; gate1 = no cluster match; gate2/gate3 = brain/conviction
+            # 'passed' = scored fine but another candidate at same bar was chosen instead
+            _GATE_LABELS = {
+                'gate0':   'Gate 0  headroom/pattern rule',
+                'gate0_5': 'Gate 0.5 depth filter',
+                'gate1':   'Gate 1  no cluster match (dist>3.0)',
+                'gate2':   'Gate 2  brain rejected',
+                'gate3':   'Gate 3  conviction below threshold',
+                'passed':  'Passed gates, lost to better score',
+                'unknown': 'Unknown (pre-gate tracking)',
+            }
+            _gate_counts = {}
+            for _fr in fn_oracle_records:
+                _gk = _fr.get('gate_blocked', 'unknown')
+                _gate_counts[_gk] = _gate_counts.get(_gk, 0) + 1
+            _fn_total = len(fn_oracle_records)
+            report_lines.append("")
+            report_lines.append(f"  FN GATE BREAKDOWN (which gate blocked profitable signals):")
+            for _gk in ['gate0', 'gate0_5', 'gate1', 'gate2', 'gate3', 'passed', 'unknown']:
+                _gc = _gate_counts.get(_gk, 0)
+                if _gc == 0 and _gk == 'unknown':
+                    continue
+                _pct = 100.0 * _gc / _fn_total if _fn_total else 0.0
+                _lbl = _GATE_LABELS.get(_gk, _gk)
+                flag2 = "  <-- main bottleneck" if _pct >= 40.0 else ""
+                report_lines.append(f"    {_lbl:<42} {_gc:>6,}  ({_pct:5.1f}%){flag2}")
 
         # ── Compute and save per-depth weights for the NEXT run ──────────────────
         # score_adj is normalised relative to the best-performing depth so it
