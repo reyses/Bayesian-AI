@@ -631,16 +631,26 @@ class BayesianTrainingOrchestrator:
                             _network_tp = None
 
                         # ── Exit sizing from per-cluster regression models ────────
-                        # Trail = regression_sigma_ticks * 1.1  (OLS residual std -> breathing room)
-                        # TP    = OLS predicted MFE for THIS bar's features (per-bar estimate)
-                        #         fallback: p75_mfe_ticks (template average)
-                        # SL    = p25_mae_ticks * 1.1 (tight floor from cluster history)
+                        # TWO-PHASE EXIT DESIGN
+                        # Phase 1 (initial hard stop): wide enough to survive entry
+                        #   noise at the Roche limit before mean reversion kicks in.
+                        #   = mean_mae_ticks * 2.0  (cluster's avg adverse excursion x2)
+                        # Phase 2 (trailing stop): activates once price has moved
+                        #   trail_activation_ticks in our favour, then trails HWM.
+                        #   = regression_sigma_ticks * 1.1  (OLS breathing room)
+                        # Trail activation threshold = p25_mae_ticks * 0.5
+                        #   (half the 25th-pct adverse excursion -- modest confirmation)
                         _reg_sigma = lib_entry.get('regression_sigma_ticks', 0.0)
                         _mean_mae  = lib_entry.get('mean_mae_ticks', 0.0)
                         _p75_mfe   = lib_entry.get('p75_mfe_ticks',  0.0)
                         _p25_mae   = lib_entry.get('p25_mae_ticks',  0.0)
 
-                        # Trail
+                        # Phase 1: initial hard stop (wide)
+                        _sl_ticks = (max(4, int(round(_mean_mae * 2.0)))
+                                     if _mean_mae > 2.0
+                                     else params.get('stop_loss_ticks', 20))
+
+                        # Phase 2: trailing stop distance (tight, from HWM)
                         if _reg_sigma > 2.0:
                             _trail_ticks = max(2, int(round(_reg_sigma * 1.1)))
                         elif _mean_mae > 2.0:
@@ -648,10 +658,10 @@ class BayesianTrainingOrchestrator:
                         else:
                             _trail_ticks = params.get('trailing_stop_ticks', 10)
 
-                        # SL
-                        _sl_ticks = (max(2, int(round(_p25_mae * 1.1)))
-                                     if _p25_mae > 2.0
-                                     else params.get('stop_loss_ticks', 15))
+                        # Trail activation: needs p25_mae * 0.5 profit ticks to engage
+                        _trail_act_ticks = (max(2, int(round(_p25_mae * 0.5)))
+                                            if _p25_mae > 2.0
+                                            else None)  # None = immediate (legacy)
 
                         # TP: network path prediction (highest priority, sees all scales)
                         #     -> per-bar OLS (leaf cluster model)
@@ -680,6 +690,7 @@ class BayesianTrainingOrchestrator:
                             stop_distance_ticks=_sl_ticks,
                             profit_target_ticks=_tp_ticks,
                             trailing_stop_ticks=_trail_ticks,
+                            trail_activation_ticks=_trail_act_ticks,
                             template_id=best_tid
                         )
                         current_position_open = True

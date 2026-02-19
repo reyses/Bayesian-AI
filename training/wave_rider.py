@@ -234,12 +234,13 @@ class Position:
     entry_price: float
     entry_time: float
     side: str  # 'long' or 'short'
-    stop_loss: float
+    stop_loss: float          # initial wide hard stop (absolute price level)
     high_water_mark: float
     entry_layer_state: Union[StateVector, ThreeBodyQuantumState]
     template_id: Optional[int] = None
     profit_target: Optional[float] = None
     trailing_stop_ticks: Optional[int] = None
+    trail_activation_ticks: Optional[int] = None  # profit ticks needed before trail engages
 
 
 class WaveRider:
@@ -287,22 +288,26 @@ class WaveRider:
         self.trades_since_calibration = 0
         self.calibration_interval = 10
 
-    def open_position(self, entry_price: float, side: str, 
+    def open_position(self, entry_price: float, side: str,
                      state: Union[StateVector, ThreeBodyQuantumState],
                      stop_distance_ticks: int = 20,
                      profit_target_ticks: Optional[int] = None,
                      trailing_stop_ticks: Optional[int] = None,
+                     trail_activation_ticks: Optional[int] = None,
                      template_id: Optional[int] = None):
         """
         Open new position
-        
+
         Args:
             entry_price: Entry price
             side: 'long' or 'short'
             state: StateVector or ThreeBodyQuantumState at entry
-            stop_distance_ticks: Initial stop distance (default 20)
+            stop_distance_ticks: Initial WIDE hard stop -- held until trail activates
             profit_target_ticks: Optional profit target in ticks
-            trailing_stop_ticks: Optional fixed trailing stop in ticks
+            trailing_stop_ticks: Trail distance once the trail is active
+            trail_activation_ticks: Profit ticks needed before trail engages.
+                                    Until then the initial hard stop is used.
+                                    None = trail active from bar 1 (legacy behaviour).
             template_id: ID of the template triggering this trade
         """
         stop_dist = stop_distance_ticks * self.asset.tick_size
@@ -322,7 +327,8 @@ class WaveRider:
             entry_layer_state=state,
             template_id=template_id,
             profit_target=profit_target,
-            trailing_stop_ticks=trailing_stop_ticks
+            trailing_stop_ticks=trailing_stop_ticks,
+            trail_activation_ticks=trail_activation_ticks,
         )
         
         # Note: Do not clear price_history here as we need it for delayed analysis
@@ -419,20 +425,33 @@ class WaveRider:
              pt_hit = (self.position.side == 'short' and current_price <= self.position.profit_target) or \
                       (self.position.side == 'long' and current_price >= self.position.profit_target)
 
-        # Trail logic: Fixed (from template) or Adaptive (from config)
-        if self.position.trailing_stop_ticks:
-             trail_ticks = self.position.trailing_stop_ticks
-        else:
-            # Adaptive Trail logic (using calibrated config)
-            if profit_usd < 50:
-                trail_ticks = self.trail_config['tight']
-            elif profit_usd < 150:
-                trail_ticks = self.trail_config['medium']
-            else:
-                trail_ticks = self.trail_config['wide']
+        # Two-phase stop logic
+        # Phase 1 (initial): use wide hard stop until trail_activation_ticks profit reached
+        # Phase 2 (trail):   once activated, trail from high_water_mark
+        activation = self.position.trail_activation_ticks
+        profit_ticks = profit / self.asset.tick_size  # points -> ticks
 
-        trail_dist = trail_ticks * self.asset.tick_size
-        new_stop = self.position.high_water_mark + trail_dist if self.position.side == 'short' else self.position.high_water_mark - trail_dist
+        trail_active = (activation is None) or (profit_ticks >= activation)
+
+        if trail_active:
+            # Trail logic: Fixed (from template) or Adaptive (from config)
+            if self.position.trailing_stop_ticks:
+                trail_ticks = self.position.trailing_stop_ticks
+            else:
+                if profit_usd < 50:
+                    trail_ticks = self.trail_config['tight']
+                elif profit_usd < 150:
+                    trail_ticks = self.trail_config['medium']
+                else:
+                    trail_ticks = self.trail_config['wide']
+
+            trail_dist = trail_ticks * self.asset.tick_size
+            new_stop = (self.position.high_water_mark + trail_dist
+                        if self.position.side == 'short'
+                        else self.position.high_water_mark - trail_dist)
+        else:
+            # Phase 1: use the initial wide hard stop (absolute level set at entry)
+            new_stop = self.position.stop_loss
 
         # Check Stop Hit, Profit Target, or Structure Break
         stop_hit = (self.position.side == 'short' and current_price >= new_stop) or \
