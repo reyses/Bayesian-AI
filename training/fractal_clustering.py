@@ -82,9 +82,14 @@ class FractalClusteringEngine:
         self.max_variance = max_variance  # Max allowed std deviation for Z-score in a cluster
         self.scaler = StandardScaler()
 
-    def _get_kmeans_model(self, n_clusters: int, n_samples: int, random_state: int = 42, n_init: int = 3):
-        """Returns a CUDAKMeans model."""
-        return CUDAKMeans(n_clusters=n_clusters, random_state=random_state, n_init=n_init)
+    def _get_kmeans_model(self, n_clusters: int, n_samples: int, random_state: int = 42,
+                          n_init: int = 3, use_cuda: bool = True):
+        """Returns a KMeans model -- CUDA for main process, sklearn CPU for workers."""
+        if use_cuda:
+            return CUDAKMeans(n_clusters=n_clusters, random_state=random_state, n_init=n_init)
+        from sklearn.cluster import KMeans
+        return KMeans(n_clusters=n_clusters, random_state=random_state,
+                      n_init=n_init, max_iter=300)
 
     @staticmethod
     def extract_features(p: Any) -> List[float]:
@@ -513,13 +518,18 @@ class FractalClusteringEngine:
         param_vectors = [[p.get('stop_loss_ticks', 0), p.get('take_profit_ticks', 0), p.get('trailing_stop_ticks', 0)] for p in member_params]
         X_params = np.array(param_vectors)
 
-        # Silhouette Check
+        # Silhouette Check (CPU-only -- called from multiprocessing workers, no CUDA context)
+        from sklearn.metrics import silhouette_score as cpu_silhouette_score
         best_n, best_score, best_labels = 1, -1.0, None
 
         for n in range(2, 6):
             if len(X_params) < n * 5: break
-            kmeans = self._get_kmeans_model(n_clusters=n, n_samples=len(X_params)).fit(X_params)
-            score = cuda_silhouette_score(X_params, kmeans.labels_)
+            kmeans = self._get_kmeans_model(n_clusters=n, n_samples=len(X_params),
+                                            use_cuda=False).fit(X_params)
+            try:
+                score = cpu_silhouette_score(X_params, kmeans.labels_)
+            except Exception:
+                score = -1.0
             if score > best_score:
                 best_score = score
                 best_n = n
