@@ -258,6 +258,24 @@ def _optimize_template_task(args):
         ps = generator.generate_parameter_set(iteration=i, day=ref_pattern.idx, context='TEMPLATE')
         param_sets.append(ps.parameters)
 
+    # Oracle exit anchoring: re-calibrate TP/SL across all param sets
+    # if this template has enough oracle data to know its typical MFE/MAE.
+    # Workers were "getting the frights" because a SCALP template (mean_mfe ~8 ticks)
+    # would never hit a DOE-generated 30-tick TP, always exiting at max_hold or reversing.
+    mean_mfe = getattr(template, 'mean_mfe_ticks', 0.0)
+    if mean_mfe > 5.0:
+        p75_mfe  = getattr(template, 'p75_mfe_ticks',  mean_mfe)
+        mean_mae = getattr(template, 'mean_mae_ticks',  mean_mfe * 0.5)
+        p25_mae  = getattr(template, 'p25_mae_ticks',   mean_mae * 0.5)
+        tp_lo = max(5,  int(mean_mfe * 0.30))          # floor: 30% of avg move
+        tp_hi = max(tp_lo + 3, int(p75_mfe * 0.85))   # ceiling: 85% of p75 move
+        sl_lo = max(3,  int(p25_mae * 0.80))           # floor: just inside tight MAE
+        sl_hi = max(sl_lo + 2, int(mean_mae * 2.00))  # ceiling: 2x avg adverse
+        rng = np.random.default_rng(template.template_id)  # deterministic per template
+        for ps in param_sets:
+            ps['take_profit_ticks'] = int(rng.integers(tp_lo, tp_hi + 1))
+            ps['stop_loss_ticks']   = int(rng.integers(sl_lo, sl_hi + 1))
+
     best_sharpe = -float('inf')
     best_params = {}
 

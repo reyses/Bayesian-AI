@@ -13,6 +13,7 @@ import pandas as pd
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
 from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LinearRegression, LogisticRegression
 from training.cuda_kmeans import CUDAKMeans, cuda_silhouette_score
 
 # Local import of timeframe mapping
@@ -58,26 +59,56 @@ class PatternTemplate:
 
     parent_cluster_id: int = None             # The "Macro" state this belongs to
 
+    # ORACLE EXIT CALIBRATION (in ticks; populated by _aggregate_oracle_intelligence)
+    # Used by workers to anchor TP/SL to what this pattern historically achieves.
+    mean_mfe_ticks: float = 0.0   # Mean max-favorable-excursion seen across members
+    mean_mae_ticks: float = 0.0   # Mean max-adverse-excursion seen across members
+    p75_mfe_ticks:  float = 0.0   # 75th-pct MFE — conservative TP ceiling
+    p25_mae_ticks:  float = 0.0   # 25th-pct MAE — tight SL floor
+    regression_sigma_ticks: float = 0.0  # Residual std from per-cluster OLS; trail = this * 1.1
+
+    # PER-CLUSTER REGRESSION MODELS (fitted on 14D scaled feature vectors of members)
+    # MFE model: predicted_mfe = live_features @ mfe_coeff + mfe_intercept
+    # Dir model: P(LONG) = sigmoid(live_features @ dir_coeff + dir_intercept)
+    # Both None when cluster has too few members for reliable fitting.
+    mfe_coeff:     Optional[List[float]] = field(default=None)  # 14 OLS weights
+    mfe_intercept: float = 0.0
+    dir_coeff:     Optional[List[float]] = field(default=None)  # 14 logistic weights
+    dir_intercept: float = 0.0
+
 class FractalClusteringEngine:
     def __init__(self, n_clusters=1000, max_variance=0.5):
         self.n_clusters = n_clusters
         self.max_variance = max_variance  # Max allowed std deviation for Z-score in a cluster
         self.scaler = StandardScaler()
 
-    def _get_kmeans_model(self, n_clusters: int, n_samples: int, random_state: int = 42, n_init: int = 3):
-        """Returns a CUDAKMeans model."""
-        return CUDAKMeans(n_clusters=n_clusters, random_state=random_state, n_init=n_init)
+    def _get_kmeans_model(self, n_clusters: int, n_samples: int, random_state: int = 42,
+                          n_init: int = 3, use_cuda: bool = True):
+        """Returns a KMeans model -- CUDA for main process, sklearn CPU for workers."""
+        if use_cuda:
+            return CUDAKMeans(n_clusters=n_clusters, random_state=random_state, n_init=n_init)
+        from sklearn.cluster import KMeans
+        return KMeans(n_clusters=n_clusters, random_state=random_state,
+                      n_init=n_init, max_iter=300)
 
     @staticmethod
     def extract_features(p: Any) -> List[float]:
         """
         Extracts 14D feature vector from a PatternEvent.
         [7 base] + [3 self regime] + [4 ancestry]
+
+        velocity and momentum use log1p(|x|) compression so that
+        high-timeframe bars (where volume * velocity blows up) remain
+        comparable to 15s bars.  The scaler then standardizes the
+        log-compressed values across the full training set.
         """
         z = getattr(p, 'z_score', 0.0)
         v = getattr(p, 'velocity', 0.0)
         m = getattr(p, 'momentum', 0.0)
         c = getattr(p, 'coherence', 0.0)
+        # log1p compression keeps extreme TF values finite
+        v_feat = np.log1p(abs(v))
+        m_feat = np.log1p(abs(m))
 
         # Fractal hierarchy features
         tf = getattr(p, 'timeframe', '15s')
@@ -121,7 +152,7 @@ class FractalClusteringEngine:
             root_is_roche = 0.0
             tf_alignment = 0.0
 
-        return [abs(z), abs(v), abs(m), c, tf_scale, depth, parent_ctx,
+        return [abs(z), v_feat, m_feat, c, tf_scale, depth, parent_ctx,
                 self_adx, self_hurst, self_dmi_diff,
                 parent_z, parent_dmi_diff, root_is_roche, tf_alignment]
 
@@ -186,6 +217,66 @@ class FractalClusteringEngine:
         if mfe_values:
             template.stats_expectancy = np.mean(mfe_values) - np.mean(mae_values)
             template.risk_variance = float(np.std(mfe_values))
+
+            # Oracle exit calibration: convert price-points -> ticks (MNQ: 1 tick = 0.25 pts)
+            _tick = 0.25
+            mfe_ticks = np.array(mfe_values) / _tick
+            mae_ticks = np.array(mae_values) / _tick
+            template.mean_mfe_ticks = float(np.mean(mfe_ticks))
+            template.mean_mae_ticks = float(np.mean(mae_ticks))
+            template.p75_mfe_ticks  = float(np.percentile(mfe_ticks, 75))
+            template.p25_mae_ticks  = float(np.percentile(mae_ticks, 25))
+
+            # ---------------------------------------------------------------
+            # PER-CLUSTER REGRESSION MODELS (14D feature space)
+            # ---------------------------------------------------------------
+            # Build aligned (features, mfe) pairs for members that have oracle data
+            feat_mfe_pairs = [
+                (self.extract_features(p), p.oracle_meta['mfe'])
+                for p in patterns
+                if getattr(p, 'oracle_meta', {}).get('mfe') is not None
+            ]
+            _MIN_REG = 15  # need at least 15 members for stable regression
+
+            if len(feat_mfe_pairs) >= _MIN_REG:
+                raw_X  = np.array([f for f, _ in feat_mfe_pairs])
+                mfe_y  = np.array([m for _, m in feat_mfe_pairs])
+
+                # Scale features using the engine's fitted scaler
+                X_scaled = self.scaler.transform(raw_X)
+
+                # --- OLS: predicted_mfe = X @ mfe_coeff + mfe_intercept ---
+                ols = LinearRegression().fit(X_scaled, mfe_y)
+                template.mfe_coeff     = ols.coef_.tolist()
+                template.mfe_intercept = float(ols.intercept_)
+                residuals = mfe_y - ols.predict(X_scaled)
+                template.regression_sigma_ticks = float(np.std(residuals) / _tick)
+
+                # --- Logistic: P(LONG) = sigmoid(X @ dir_coeff + dir_intercept) ---
+                # Use only non-noise members; label +1=LONG, 0=SHORT
+                dir_pairs = [
+                    (self.extract_features(p), 1 if p.oracle_marker > 0 else 0)
+                    for p in patterns
+                    if getattr(p, 'oracle_marker', 0) != 0
+                    and getattr(p, 'oracle_meta', {}).get('mfe') is not None
+                ]
+                if len(dir_pairs) >= _MIN_REG:
+                    dir_raw = np.array([self.extract_features(p)
+                                        for p in patterns
+                                        if getattr(p, 'oracle_marker', 0) != 0
+                                        and getattr(p, 'oracle_meta', {}).get('mfe') is not None])
+                    dir_labels = np.array([1 if p.oracle_marker > 0 else 0
+                                           for p in patterns
+                                           if getattr(p, 'oracle_marker', 0) != 0
+                                           and getattr(p, 'oracle_meta', {}).get('mfe') is not None])
+                    # Only fit if both classes present
+                    if len(np.unique(dir_labels)) == 2:
+                        dir_X = self.scaler.transform(dir_raw)
+                        lr = LogisticRegression(max_iter=300, C=1.0, solver='lbfgs').fit(dir_X, dir_labels)
+                        template.dir_coeff     = lr.coef_[0].tolist()
+                        template.dir_intercept = float(lr.intercept_[0])
+            else:
+                template.regression_sigma_ticks = template.mean_mae_ticks  # fallback
 
         # 4. Risk Score (0 = safe, 1 = toxic)
         # High variance + low win rate = toxic
@@ -427,13 +518,18 @@ class FractalClusteringEngine:
         param_vectors = [[p.get('stop_loss_ticks', 0), p.get('take_profit_ticks', 0), p.get('trailing_stop_ticks', 0)] for p in member_params]
         X_params = np.array(param_vectors)
 
-        # Silhouette Check
+        # Silhouette Check (CPU-only -- called from multiprocessing workers, no CUDA context)
+        from sklearn.metrics import silhouette_score as cpu_silhouette_score
         best_n, best_score, best_labels = 1, -1.0, None
 
         for n in range(2, 6):
             if len(X_params) < n * 5: break
-            kmeans = self._get_kmeans_model(n_clusters=n, n_samples=len(X_params)).fit(X_params)
-            score = cuda_silhouette_score(X_params, kmeans.labels_)
+            kmeans = self._get_kmeans_model(n_clusters=n, n_samples=len(X_params),
+                                            use_cuda=False).fit(X_params)
+            try:
+                score = cpu_silhouette_score(X_params, kmeans.labels_)
+            except Exception:
+                score = -1.0
             if score > best_score:
                 best_score = score
                 best_n = n
