@@ -204,7 +204,8 @@ class FractalDiscoveryAgent:
                            max_workers: int = None,
                            on_level_complete=None,
                            resume_manifest: List[PatternEvent] = None,
-                           resume_levels: List[str] = None) -> List[PatternEvent]:
+                           resume_levels: List[str] = None,
+                           train_end: str = None) -> List[PatternEvent]:
         """
         TOP-DOWN FRACTAL DISCOVERY (Single-Engine GPU)
 
@@ -272,6 +273,11 @@ class FractalDiscoveryAgent:
 
             tf_path = os.path.join(atlas_root, tf)
             files = self._find_files(tf_path)
+            if train_end:
+                # Out-of-sample guard: exclude any file whose date > train_end
+                # Files are named YYYYMMDD.parquet -- lexicographic comparison works
+                files = [f for f in files
+                         if os.path.basename(f).replace('.parquet', '') <= train_end]
             if not files:
                 print(f"\n  Level {level} [{tf}]: no files, skipping")
                 continue

@@ -12,7 +12,8 @@
       "Bash(PYTHONIOENCODING=utf-8 python -m pytest:*)",
       "Bash(find:*)",
       "Bash(dir:*)",
-      "Bash(cmd /c:*)"
+      "Bash(cmd /c:*)",
+      "Bash(findstr:*)"
     ]
   }
 }
