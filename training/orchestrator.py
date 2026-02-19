@@ -206,7 +206,9 @@ class BayesianTrainingOrchestrator:
 
     def run_forward_pass(self, data_source: str,
                          start_date: str = None, end_date: str = None,
-                         min_tier: int = None):
+                         min_tier: int = None,
+                         bias_threshold: float = None,
+                         dmi_threshold: float = None):
         """
         Phase 4: Forward pass — replay full year using playbook.
         Scans fractal cascade per day, matches templates, trades via WaveRider.
@@ -523,43 +525,74 @@ class BayesianTrainingOrchestrator:
                         lib_entry = self.pattern_library[best_tid]
 
                         # ── Direction gate ───────────────────────────────────────────
-                        # Priority 1: Oracle bias >= 55% → lock direction
-                        #   Template's historical fraction of LONG vs SHORT oracle markers
-                        # Priority 2: Any oracle data → use majority direction
-                        #   Even weak bias (e.g. 55% SHORT) is better than a static fallback
-                        # Priority 3: No oracle data → live DMI sign (trend-following)
-                        #   Features use abs(z), so centroid[0] is ALWAYS positive → the old
-                        #   z_score fallback always returned SHORT.  DMI diff is directional.
-                        _BIAS_THRESH = 0.55
+                        # Priority 0: Nearest-neighbour oracle marker (INDIVIDUAL pattern)
+                        #   The matched training pattern's oracle_marker is the highest-
+                        #   resolution directional signal.  Template aggregate bias blends
+                        #   all members together and loses this — analysis showed 45.9% of
+                        #   non-noise trades were firing AGAINST their own matched pattern's
+                        #   oracle direction (same template fires both MEGA_LONG and MEGA_SHORT
+                        #   bars because features use abs() — no direction in cluster shape).
+                        #   oracle_marker > 0 → LONG move followed this exact pattern
+                        #   oracle_marker < 0 → SHORT move followed this exact pattern
+                        #   oracle_marker = 0 → NOISE → fall through to bias/DMI tiers
+                        _BIAS_THRESH = bias_threshold if bias_threshold is not None else 0.55
+                        _DMI_THRESH  = dmi_threshold  if dmi_threshold  is not None else 0.0
                         long_bias  = lib_entry.get('long_bias',  0.0)
                         short_bias = lib_entry.get('short_bias', 0.0)
-                        if long_bias >= _BIAS_THRESH:
+                        _nn_marker = getattr(best_candidate, 'oracle_marker', 0)
+                        if _nn_marker > 0:
+                            side = 'long'        # matched pattern had a LONG move in training
+                        elif _nn_marker < 0:
+                            side = 'short'       # matched pattern had a SHORT move in training
+                        # Fallback tiers for NOISE patterns (oracle_marker == 0)
+                        elif long_bias >= _BIAS_THRESH:
                             side = 'long'
                         elif short_bias >= _BIAS_THRESH:
                             side = 'short'
                         elif long_bias + short_bias >= 0.10:
-                            # Soft oracle signal — use whichever bias dominates
                             side = 'long' if long_bias >= short_bias else 'short'
                         else:
                             # No oracle data → live DMI direction (trend-following)
                             _live = best_candidate.state
                             _dmi_diff = (getattr(_live, 'dmi_plus',  0.0)
                                        - getattr(_live, 'dmi_minus', 0.0))
-                            if _dmi_diff > 0:
-                                side = 'long'    # DMI+>DMI-: upward pressure
-                            elif _dmi_diff < 0:
-                                side = 'short'   # DMI->DMI+: downward pressure
+                            if abs(_dmi_diff) >= _DMI_THRESH and _dmi_diff > 0:
+                                side = 'long'
+                            elif abs(_dmi_diff) >= _DMI_THRESH and _dmi_diff < 0:
+                                side = 'short'
                             else:
-                                # Perfect tie — fall back to particle_velocity
                                 _vel = getattr(_live, 'particle_velocity', 0.0)
                                 side = 'long' if _vel >= 0 else 'short'
+                        # ── Oracle-calibrated exit sizing ──────────────────────────
+                        # trail = mean adverse excursion + 10% breathing room
+                        # TP    = 75th-pct favorable excursion (captures most moves)
+                        # SL    = 25th-pct adverse excursion   (tight but not noisy)
+                        # Falls back to DOE params when template has too few members
+                        # for oracle stats (mean_mae_ticks / mean_mfe_ticks == 0).
+                        _mean_mae = lib_entry.get('mean_mae_ticks', 0.0)
+                        _mean_mfe = lib_entry.get('mean_mfe_ticks', 0.0)
+                        _p75_mfe  = lib_entry.get('p75_mfe_ticks',  0.0)
+                        _p25_mae  = lib_entry.get('p25_mae_ticks',  0.0)
+
+                        if _mean_mae > 2.0:   # at least 0.5 pts of oracle data
+                            _trail_ticks = max(2, int(round(_mean_mae * 1.1)))
+                            _sl_ticks    = max(2, int(round(_p25_mae  * 1.1)))
+                        else:
+                            _trail_ticks = params.get('trailing_stop_ticks', 10)
+                            _sl_ticks    = params.get('stop_loss_ticks',     15)
+
+                        if _p75_mfe > 2.0:
+                            _tp_ticks = max(4, int(round(_p75_mfe)))
+                        else:
+                            _tp_ticks = params.get('take_profit_ticks', 50)
+
                         self.wave_rider.open_position(
                             entry_price=price,
                             side=side,
                             state=best_candidate.state,
-                            stop_distance_ticks=params.get('stop_loss_ticks', 15),
-                            profit_target_ticks=params.get('take_profit_ticks', 50),
-                            trailing_stop_ticks=params.get('trailing_stop_ticks', 10),
+                            stop_distance_ticks=_sl_ticks,
+                            profit_target_ticks=_tp_ticks,
+                            trailing_stop_ticks=_trail_ticks,
                             template_id=best_tid
                         )
                         current_position_open = True
@@ -569,14 +602,24 @@ class BayesianTrainingOrchestrator:
                         active_template_id = best_tid
 
                         # Store oracle facts for this trade (linked at exit)
+                        # Direction-gate diagnostic columns enable offline DOE sweep of
+                        # bias_threshold without re-running the forward pass.
+                        _live_state  = best_candidate.state
+                        _dmi_at_entry = round(
+                            getattr(_live_state, 'dmi_plus',  0.0)
+                          - getattr(_live_state, 'dmi_minus', 0.0), 2)
                         pending_oracle = {
-                            'template_id': best_tid,
-                            'direction': 'LONG' if side == 'long' else 'SHORT',
-                            'entry_price': price,
-                            'oracle_label': best_candidate.oracle_marker,
-                            'oracle_label_name': _ORACLE_LABEL_NAMES.get(best_candidate.oracle_marker, 'UNKNOWN'),
-                            'oracle_mfe': best_candidate.oracle_meta.get('mfe', 0.0),
-                            'oracle_mae': best_candidate.oracle_meta.get('mae', 0.0),
+                            'template_id':      best_tid,
+                            'direction':        'LONG' if side == 'long' else 'SHORT',
+                            'entry_price':      price,
+                            'oracle_label':     best_candidate.oracle_marker,
+                            'oracle_label_name':_ORACLE_LABEL_NAMES.get(best_candidate.oracle_marker, 'UNKNOWN'),
+                            'oracle_mfe':       best_candidate.oracle_meta.get('mfe', 0.0),
+                            'oracle_mae':       best_candidate.oracle_meta.get('mae', 0.0),
+                            # Direction DOE diagnostics
+                            'long_bias':        round(long_bias,  4),
+                            'short_bias':       round(short_bias, 4),
+                            'dmi_diff':         _dmi_at_entry,
                         }
 
                         # AUDIT: True Positive or False Positive
@@ -1643,9 +1686,17 @@ class BayesianTrainingOrchestrator:
             'avg_drawdown': template.avg_drawdown,
             'risk_score': template.risk_score,
             # Direction bias from oracle labels (used in forward pass direction gate)
-            'long_bias': getattr(template, 'long_bias', 0.5),
-            'short_bias': getattr(template, 'short_bias', 0.5),
+            'long_bias': getattr(template, 'long_bias', 0.0),
+            'short_bias': getattr(template, 'short_bias', 0.0),
             'stats_win_rate': getattr(template, 'stats_win_rate', 0.0),
+            # Oracle exit calibration — pattern's own price-breathing stats (in ticks)
+            # Used for dynamic trail/TP/SL: trail = mean_mae_ticks * 1.1
+            # 0.0 means _aggregate_oracle_intelligence() didn't have enough members
+            'mean_mfe_ticks': getattr(template, 'mean_mfe_ticks', 0.0),
+            'mean_mae_ticks': getattr(template, 'mean_mae_ticks', 0.0),
+            'p75_mfe_ticks':  getattr(template, 'p75_mfe_ticks',  0.0),
+            'p25_mae_ticks':  getattr(template, 'p25_mae_ticks',  0.0),
+            'risk_variance':  getattr(template, 'risk_variance',  0.0),
         }
 
     def validate_template_group(self, patterns: List[PatternEvent], params: Dict) -> float:
@@ -1972,7 +2023,78 @@ class BayesianTrainingOrchestrator:
         print("="*80)
 
         # ── Recommendation ────────────────────────────────────────────────────
-        if live_hits:
+        best_overall = rows[0] if rows else None
+
+        # ── DIRECTION GATE DOE (requires oracle_trade_log with long_bias/short_bias/dmi_diff) ──
+        has_dir_cols = all(c in df.columns for c in ('long_bias', 'short_bias', 'dmi_diff'))
+        if has_dir_cols:
+            print(f"\n{'='*80}")
+            print("DIRECTION GATE DOE — sweep bias_threshold × dmi_threshold")
+            print(f"  Simulates direction changes offline using stored long_bias/short_bias/dmi_diff.")
+            print(f"  PnL estimation: direction-flipped trades swap to avg-win / avg-loss.")
+            print("="*80)
+
+            avg_win  = df[df['actual_pnl'] > 0]['actual_pnl'].mean() if (df['actual_pnl'] > 0).any() else 10.0
+            avg_loss = df[df['actual_pnl'] < 0]['actual_pnl'].mean() if (df['actual_pnl'] < 0).any() else -10.0
+
+            def _sim_dir(lb, sb, dmi, bias_thresh, soft_thresh=0.10):
+                """Recompute direction as the gate would with a given bias_threshold."""
+                if lb >= bias_thresh:   return 'LONG'
+                if sb >= bias_thresh:   return 'SHORT'
+                if lb + sb >= soft_thresh:
+                    return 'LONG' if lb >= sb else 'SHORT'
+                return 'LONG' if dmi > 0 else 'SHORT'
+
+            def _estimate_pnl(actual, new_dir, old_dir):
+                """Approximate PnL if direction flipped."""
+                if new_dir == old_dir:
+                    return actual
+                # Direction changed: swap WIN↔LOSS using dataset averages
+                return avg_loss if actual > 0 else avg_win
+
+            bias_thresholds = [0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70, 0.75]
+            dmi_thresholds  = [0.0, 2.0, 5.0]   # min |dmi_diff| needed to use DMI vs skip
+
+            dir_results = []
+            for bt, dt in _product(bias_thresholds, dmi_thresholds):
+                est_pnl = 0.0
+                n_flipped = 0
+                for _, row in df.iterrows():
+                    lb  = row['long_bias']
+                    sb  = row['short_bias']
+                    dmi = row['dmi_diff']
+                    # Determine DMI signal with threshold guard
+                    eff_dmi = dmi if abs(dmi) >= dt else 0.0
+                    new_dir = _sim_dir(lb, sb, eff_dmi, bt)
+                    old_dir = row['direction']
+                    est_pnl += _estimate_pnl(row['actual_pnl'], new_dir, old_dir)
+                    if new_dir != old_dir:
+                        n_flipped += 1
+                dir_results.append({
+                    'bias_thresh': bt, 'dmi_thresh': dt,
+                    'est_pnl': round(est_pnl, 1), 'n_flipped': n_flipped,
+                })
+
+            dir_results.sort(key=lambda r: r['est_pnl'], reverse=True)
+            print(f"\n  {'bias_thresh':>11}  {'dmi_thresh':>10}  {'n_flipped':>9}  {'est_pnl':>10}")
+            print(f"  {'-'*11}  {'-'*10}  {'-'*9}  {'-'*10}")
+            for r in dir_results[:12]:
+                flag = '  <- BEST' if r == dir_results[0] else ''
+                print(f"  {r['bias_thresh']:>11.2f}  {r['dmi_thresh']:>10.1f}  "
+                      f"{r['n_flipped']:>9,}  ${r['est_pnl']:>9,.0f}{flag}")
+
+            best_dir = dir_results[0]
+            print(f"\n  NOTE: est_pnl uses avg-win/avg-loss flip approximation.")
+            print(f"  Run --forward-pass with best threshold to get exact PnL.")
+
+            if best_overall:
+                print(f"\nFULL RECOMMENDATION (best tier filter + best direction gate):")
+                print(f"  python training/orchestrator.py --forward-pass "
+                      f"--min-tier {best_overall['min_tier']} "
+                      f"--bias-threshold {best_dir['bias_thresh']:.2f} "
+                      f"--dmi-threshold {best_dir['dmi_thresh']:.1f}")
+            print()
+        elif live_hits:
             best = live_hits[0]
             print(f"\nRECOMMENDED NEXT RUN:")
             print(f"  python training/orchestrator.py --forward-pass "
@@ -2108,6 +2230,10 @@ def main():
                         help="Last day to include in forward pass (inclusive, e.g. 20260209)")
     parser.add_argument('--min-tier', type=int, default=None, choices=[1, 2, 3, 4],
                         help="Only activate templates of this tier or better (1=Tier1 only, 3=drop Tier4 losers)")
+    parser.add_argument('--bias-threshold', type=float, default=None,
+                        help="Oracle bias threshold for direction lock (default 0.55). Lower = more oracle-locked trades.")
+    parser.add_argument('--dmi-threshold', type=float, default=None,
+                        help="Min |dmi_diff| required to use DMI signal (default 0.0 = any non-zero DMI counts).")
     parser.add_argument('--sweep-params', action='store_true',
                         help="Post-hoc DOE: sweep filter combinations on oracle_trade_log.csv and rank by net PnL")
     parser.add_argument('--strategy-report', action='store_true', help="Run Phase 5 strategy selection report")
@@ -2204,7 +2330,9 @@ def main():
             orchestrator.run_forward_pass(args.data,
                                           start_date=args.forward_start,
                                           end_date=args.forward_end,
-                                          min_tier=args.min_tier)
+                                          min_tier=args.min_tier,
+                                          bias_threshold=args.bias_threshold,
+                                          dmi_threshold=args.dmi_threshold)
             if args.strategy_report:
                 orchestrator.run_strategy_selection()
         elif args.strategy_report and not args.forward_pass:
@@ -2252,7 +2380,9 @@ def main():
                 orchestrator.run_forward_pass(args.data,
                                           start_date=args.forward_start,
                                           end_date=args.forward_end,
-                                          min_tier=args.min_tier)
+                                          min_tier=args.min_tier,
+                                          bias_threshold=args.bias_threshold,
+                                          dmi_threshold=args.dmi_threshold)
                 orchestrator.run_strategy_selection()
 
         orchestrator.print_bottom_line()
