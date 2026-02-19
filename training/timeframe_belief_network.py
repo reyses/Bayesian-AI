@@ -46,21 +46,29 @@ logger = logging.getLogger(__name__)
 @dataclass
 class WorkerBelief:
     """Current belief from one TF worker."""
-    tf_seconds:  int
-    dir_prob:    float    # P(LONG) from logistic regression [0..1]
-    pred_mfe:    float    # OLS predicted MFE in price points
-    template_id: int
-    tf_bar_idx:  int      # which TF bar produced this belief
-    conviction:  float    # |dir_prob - 0.5| * 2  -> how sure this worker is [0..1]
+    tf_seconds:    int
+    dir_prob:      float    # P(LONG) from logistic regression [0..1]
+    pred_mfe:      float    # OLS predicted MFE in price points
+    template_id:   int
+    tf_bar_idx:    int      # which TF bar produced this belief
+    conviction:    float    # |dir_prob - 0.5| * 2  -> how sure this worker is [0..1]
+    wave_maturity: float = 0.0  # P(wave near completion) [0..1]
+    # Composite: 0.4*pattern_maturity + 0.3*min(1,|z|/3) + 0.3*tunnel_probability
+    # High value = wave is well-developed/near exhaustion = higher entry risk
 
 
 @dataclass
 class BeliefState:
     """Aggregated belief across all active TF workers."""
-    direction:      str           # 'long' | 'short'
-    conviction:     float         # weighted geometric mean across TF levels [0..1]
-    predicted_mfe:  float         # MFE prediction in ticks (from decision-level worker)
-    active_levels:  int           # how many TF levels contributed
+    direction:              str           # 'long' | 'short'
+    conviction:             float         # weighted geometric mean across TF levels [0..1]
+    predicted_mfe:          float         # MFE prediction in ticks (from decision-level worker)
+    active_levels:          int           # how many TF levels contributed
+    wave_maturity:          float = 0.0   # weighted avg wave_maturity across ALL active workers [0..1]
+    decision_wave_maturity: float = 0.0   # wave_maturity at the DECISION TF only (e.g. 5m)
+    # KEY DISTINCTION: a mature 30s wave may just be a forming 5m wave.
+    # Use decision_wave_maturity (5m) to assess if the TRADEABLE wave is exhausted.
+    # Use wave_maturity (weighted avg) for reference only.
     tf_beliefs:     Dict[int, WorkerBelief] = field(default_factory=dict)
 
     @property
@@ -185,13 +193,28 @@ class TimeframeWorker:
             dir_prob    = _logistic_prob(feat_s, lib)
             pred_mfe    = _ols_mfe(feat_s, lib)
 
+        # Wave maturity: estimate of how "mature" (near completion) the current wave is.
+        # High value = wave is well-developed / near exhaustion = higher entry risk.
+        # Composite of the three strongest exhaustion signals from the quantum state:
+        #   pattern_maturity  : engine's L7 development measure (0-1)
+        #   |z_score| / 3.0   : approach to Roche limit (3 sigma = fully mature)
+        #   tunnel_probability: P(revert to center) = how close to reversal
+        _pm  = getattr(state, 'pattern_maturity',   0.0)
+        _tp  = getattr(state, 'tunnel_probability', 0.0)
+        _z   = abs(getattr(state, 'z_score',        0.0))
+        wave_maturity = float(np.clip(
+            0.4 * _pm + 0.3 * min(1.0, _z / 3.0) + 0.3 * _tp,
+            0.0, 1.0
+        ))
+
         self.current_belief = WorkerBelief(
-            tf_seconds  = self.tf_seconds,
-            dir_prob    = dir_prob,
-            pred_mfe    = pred_mfe,
-            template_id = primary_tid,
-            tf_bar_idx  = tf_bar_idx,
-            conviction  = abs(dir_prob - 0.5) * 2.0,
+            tf_seconds    = self.tf_seconds,
+            dir_prob      = dir_prob,
+            pred_mfe      = pred_mfe,
+            template_id   = primary_tid,
+            tf_bar_idx    = tf_bar_idx,
+            conviction    = abs(dir_prob - 0.5) * 2.0,
+            wave_maturity = wave_maturity,
         )
         return True
 
@@ -319,19 +342,22 @@ class TimeframeBeliefNetwork:
         if len(active) < self.MIN_ACTIVE_LEVELS:
             return None
 
-        probs_long  = []
-        probs_short = []
-        weights     = []
+        probs_long     = []
+        probs_short    = []
+        weights        = []
+        wave_maturities = []
 
         for tf, belief in active.items():
             p  = np.clip(belief.dir_prob, 1e-7, 1.0 - 1e-7)
             probs_long.append(np.log(p))
             probs_short.append(np.log(1.0 - p))
             weights.append(self._weight_map.get(tf, 1.0))
+            wave_maturities.append(belief.wave_maturity)
 
-        w_arr       = np.array(weights) / sum(weights)
-        path_long   = float(np.exp(np.dot(w_arr, probs_long)))
-        path_short  = float(np.exp(np.dot(w_arr, probs_short)))
+        w_arr          = np.array(weights) / sum(weights)
+        path_long      = float(np.exp(np.dot(w_arr, probs_long)))
+        path_short     = float(np.exp(np.dot(w_arr, probs_short)))
+        wave_maturity  = float(np.dot(w_arr, wave_maturities))
 
         if path_long >= path_short:
             direction  = 'long'
@@ -348,12 +374,19 @@ class TimeframeBeliefNetwork:
                              key=lambda b: abs(b.tf_seconds - self.decision_tf))
         pred_mfe_ticks = max(0.0, dec_belief.pred_mfe / 0.25) if dec_belief else 0.0
 
+        # decision_wave_maturity: maturity at the DECISION TF only.
+        # A mature 30s sub-wave is often just a forming 5m wave -- don't conflate them.
+        # Only the decision-TF worker's maturity tells us if the TRADEABLE move is exhausted.
+        decision_wave_maturity = dec_belief.wave_maturity if dec_belief else wave_maturity
+
         return BeliefState(
-            direction     = direction,
-            conviction    = conviction,
-            predicted_mfe = pred_mfe_ticks,
-            active_levels = len(active),
-            tf_beliefs    = active,
+            direction              = direction,
+            conviction             = conviction,
+            predicted_mfe          = pred_mfe_ticks,
+            active_levels          = len(active),
+            wave_maturity          = wave_maturity,
+            decision_wave_maturity = decision_wave_maturity,
+            tf_beliefs             = active,
         )
 
     # ------------------------------------------------------------------
