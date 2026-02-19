@@ -367,6 +367,9 @@ class TimeframeBeliefNetwork:
         Same order as FractalClusteringEngine.extract_features().
         Ancestry features (parent_z, parent_dmi_diff, root_is_roche, tf_alignment)
         are 0.0 because live TF-aggregated bars have no parent chain context.
+
+        velocity and momentum use log1p(|x|) compression -- must match
+        FractalClusteringEngine.extract_features() exactly.
         """
         z = getattr(state, 'z_score',           0.0)
         v = getattr(state, 'particle_velocity',  0.0)
@@ -379,8 +382,12 @@ class TimeframeBeliefNetwork:
         self_dmi   = (getattr(state, 'dmi_plus',  0.0)
                     - getattr(state, 'dmi_minus', 0.0)) / 100.0
 
+        # log1p compression -- must match extract_features()
+        v_feat = np.log1p(abs(v))
+        m_feat = np.log1p(abs(m))
+
         # Ancestry = 0.0 (no parent chain for live aggregated TF bars)
-        return [abs(z), abs(v), abs(m), c,
+        return [abs(z), v_feat, m_feat, c,
                 tf_scale, float(depth), 0.0,
                 self_adx, self_hurst, self_dmi,
                 0.0, 0.0, 0.0, 0.0]

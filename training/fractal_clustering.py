@@ -91,11 +91,19 @@ class FractalClusteringEngine:
         """
         Extracts 14D feature vector from a PatternEvent.
         [7 base] + [3 self regime] + [4 ancestry]
+
+        velocity and momentum use log1p(|x|) compression so that
+        high-timeframe bars (where volume * velocity blows up) remain
+        comparable to 15s bars.  The scaler then standardizes the
+        log-compressed values across the full training set.
         """
         z = getattr(p, 'z_score', 0.0)
         v = getattr(p, 'velocity', 0.0)
         m = getattr(p, 'momentum', 0.0)
         c = getattr(p, 'coherence', 0.0)
+        # log1p compression keeps extreme TF values finite
+        v_feat = np.log1p(abs(v))
+        m_feat = np.log1p(abs(m))
 
         # Fractal hierarchy features
         tf = getattr(p, 'timeframe', '15s')
@@ -139,7 +147,7 @@ class FractalClusteringEngine:
             root_is_roche = 0.0
             tf_alignment = 0.0
 
-        return [abs(z), abs(v), abs(m), c, tf_scale, depth, parent_ctx,
+        return [abs(z), v_feat, m_feat, c, tf_scale, depth, parent_ctx,
                 self_adx, self_hurst, self_dmi_diff,
                 parent_z, parent_dmi_diff, root_is_roche, tf_alignment]
 
