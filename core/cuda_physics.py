@@ -262,10 +262,11 @@ def compute_hurst_kernel(prices, out_hurst, window_size):
             start = i - sz + 1
 
             # Compute returns within sub-window
-            mean_ret = 0.0
-            for k in range(start + 1, i + 1):
-                mean_ret += (prices[k] - prices[k-1])
-            mean_ret /= (sz - 1)
+            # Optimized: O(1) mean calculation using endpoints instead of loop
+            p_start = prices[start]
+            p_end = prices[i]
+            assert sz > 1
+            mean_ret = (p_end - p_start) / (sz - 1)
 
             # Cumulative deviation from mean
             cum_dev = 0.0
@@ -273,14 +274,21 @@ def compute_hurst_kernel(prices, out_hurst, window_size):
             min_dev = 1e30
             std_sum = 0.0
 
+            # Optimization: Use register to cache previous price to reduce global memory reads
+            prev_price = p_start
+
             for k in range(start + 1, i + 1):
-                ret = (prices[k] - prices[k-1]) - mean_ret
+                curr_price = prices[k]
+                ret = (curr_price - prev_price) - mean_ret
+
                 cum_dev += ret
                 if cum_dev > max_dev:
                     max_dev = cum_dev
                 if cum_dev < min_dev:
                     min_dev = cum_dev
                 std_sum += ret * ret
+
+                prev_price = curr_price
 
             R = max_dev - min_dev
             S = math.sqrt(std_sum / (sz - 1)) if sz > 1 else 1e-10
