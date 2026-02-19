@@ -225,6 +225,8 @@ class FractalDashboard:
             self.tree_ranks.delete(i)
 
         # Sort dynamically
+        # Sort dynamically
+        # key_map could be a class attribute to avoid re-creation
         key_map = {"ID": "id", "Count": "count", "PnL": "pnl"}
         sort_key = key_map.get(self._sort_col, "pnl")
 
