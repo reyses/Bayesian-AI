@@ -18,6 +18,8 @@ import threading
 import tempfile
 import multiprocessing
 import glob
+import warnings
+warnings.filterwarnings("ignore", message=".*Grid size.*will likely result in GPU under-utilization.*")
 import numpy as np
 import pandas as pd
 from collections import defaultdict
@@ -588,7 +590,7 @@ class BayesianTrainingOrchestrator:
                         dist = dists[nearest_idx]
                         tid = valid_template_ids[nearest_idx]
 
-                        if dist < 3.0: # Threshold
+                        if dist < 4.5: # Threshold (raised from 3.0 so extreme-z profitable patterns reach their nearest cluster)
                             # Brain gate -- use low threshold for exploration
                             if self.brain.should_fire(tid, min_prob=0.05, min_conf=0.0):
                                 # Score: lower is better
