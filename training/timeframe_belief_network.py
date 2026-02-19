@@ -262,7 +262,7 @@ class TimeframeBeliefNetwork:
 
     TIMEFRAMES_SECONDS = [3600, 1800, 900, 300, 180, 60, 30, 15]
     TF_WEIGHTS         = [4.0,  3.5,  3.0, 2.5, 2.0, 1.5, 1.0, 0.5]
-    MIN_CONVICTION     = 0.52   # skip trade if path conviction below this
+    MIN_CONVICTION     = 0.48   # skip trade if path conviction below this (physics at z=0 gives 0.50)
     MIN_ACTIVE_LEVELS  = 3      # need >=3 active TF levels for a signal
     DEFAULT_DECISION_TF = 300   # 5m: default scale at which to read predicted_mfe
     _TF_LABELS = {3600:'1h', 1800:'30m', 900:'15m', 300:'5m',
