@@ -37,7 +37,12 @@ class FractalDashboard:
         self.ARROW_LENGTH_FACTOR = 0.9
         self.ARROW_HEAD_WIDTH = 0.1
 
-        self._sort_col = "PnL"
+        self.COL_ID = "ID"
+        self.COL_COUNT = "Count"
+        self.COL_PNL = "PnL"
+        self.COL_STATUS = "Status"
+
+        self._sort_col = self.COL_PNL
         self._sort_reverse = True
 
         self._setup_layout()
@@ -85,7 +90,7 @@ class FractalDashboard:
 
         # Leaderboard
         ttk.Label(right_pane, text="TOP PERFORMING TEMPLATES", style="Header.TLabel").pack(anchor=tk.W)
-        cols = ("ID", "Count", "PnL", "Status")
+        cols = (self.COL_ID, self.COL_COUNT, self.COL_PNL, self.COL_STATUS)
         self.tree_ranks = ttk.Treeview(right_pane, columns=cols, show='headings', height=15)
         for col in cols:
             self.tree_ranks.heading(col, text=col, command=lambda c=col: self._on_header_click(c))
@@ -218,7 +223,7 @@ class FractalDashboard:
             self.tree_ranks.delete(i)
 
         # Sort dynamically
-        key_map = {"ID": "id", "Count": "count", "PnL": "pnl"}
+        key_map = {self.COL_ID: "id", self.COL_COUNT: "count", self.COL_PNL: "pnl"}
         sort_key = key_map.get(self._sort_col, "pnl")
 
         sorted_templates = sorted(
