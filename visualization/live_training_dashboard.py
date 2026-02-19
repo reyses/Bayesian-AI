@@ -50,6 +50,10 @@ class FractalDashboard:
         self.fission_events   = []
         self._transition_arrows = []
 
+        # Sorting state for leaderboard
+        self._sort_col = "PnL"
+        self._sort_reverse = True
+
         # Oracle attribution
         self.attribution = {
             'ideal': 0.0, 'actual': 0.0,
@@ -154,7 +158,8 @@ class FractalDashboard:
         cols = ("ID", "Trades", "Win%", "PnL")
         self.tree_ranks = ttk.Treeview(right_pane, columns=cols, show='headings', height=14)
         for col in cols:
-            self.tree_ranks.heading(col, text=col)
+            self.tree_ranks.heading(col, text=col,
+                command=lambda c=col: self._on_header_click(c))
             self.tree_ranks.column(col, width=65)
         self.tree_ranks.pack(fill=tk.X)
 
@@ -339,10 +344,37 @@ class FractalDashboard:
         self.canvas_phys.draw()
 
     # ── Leaderboard ───────────────────────────────────────────────────────────
+    def _on_header_click(self, col):
+        """Sort leaderboard by clicked column."""
+        if self._sort_col == col:
+            self._sort_reverse = not self._sort_reverse
+        else:
+            self._sort_col = col
+            self._sort_reverse = True  # Default to descending for new col
+
+        # Update headers with arrows
+        for c in ("ID", "Trades", "Win%", "PnL"):
+            text = c
+            if c == self._sort_col:
+                text += " ↓" if self._sort_reverse else " ↑"
+            self.tree_ranks.heading(c, text=text)
+
+        self._update_leaderboard()
+
     def _update_leaderboard(self):
         for i in self.tree_ranks.get_children():
             self.tree_ranks.delete(i)
-        top = sorted(self.templates.values(), key=lambda x: x.get('pnl', 0), reverse=True)[:10]
+
+        # Map column names to data keys
+        key_map = {"ID": "id", "Trades": "count", "Win%": "win_rate", "PnL": "pnl"}
+        sort_key = key_map.get(self._sort_col, "pnl")
+
+        top = sorted(
+            self.templates.values(),
+            key=lambda x: x.get(sort_key, 0),
+            reverse=self._sort_reverse
+        )[:10]
+
         for t in top:
             win_pct = t.get('win_rate', 0) * 100
             self.tree_ranks.insert("", tk.END, values=(
