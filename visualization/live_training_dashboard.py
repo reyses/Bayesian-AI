@@ -37,14 +37,7 @@ class FractalDashboard:
         self.ARROW_LENGTH_FACTOR = 0.9
         self.ARROW_HEAD_WIDTH = 0.1
 
-        self.ARROW_HEAD_WIDTH = 0.1
-
-        self.COL_ID = "ID"
-        self.COL_COUNT = "Count"
-        self.COL_PNL = "PnL"
-        self.COL_STATUS = "Status"
-
-        self._sort_col = self.COL_PNL
+        self._sort_col = "PnL"
         self._sort_reverse = True
 
         self._setup_layout()
@@ -225,8 +218,6 @@ class FractalDashboard:
             self.tree_ranks.delete(i)
 
         # Sort dynamically
-        # Sort dynamically
-        # key_map could be a class attribute to avoid re-creation
         key_map = {"ID": "id", "Count": "count", "PnL": "pnl"}
         sort_key = key_map.get(self._sort_col, "pnl")
 
