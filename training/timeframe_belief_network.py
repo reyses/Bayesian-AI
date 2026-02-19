@@ -237,6 +237,8 @@ class TimeframeBeliefNetwork:
     MIN_CONVICTION     = 0.52   # skip trade if path conviction below this
     MIN_ACTIVE_LEVELS  = 3      # need >=3 active TF levels for a signal
     DEFAULT_DECISION_TF = 300   # 5m: default scale at which to read predicted_mfe
+    _TF_LABELS = {3600:'1h', 1800:'30m', 900:'15m', 300:'5m',
+                  180:'3m',  60:'1m',   30:'30s',   15:'15s'}
 
     def __init__(self, pattern_library: dict, scaler, engine,
                  valid_tids: list, centroids_scaled: np.ndarray,
@@ -424,6 +426,37 @@ class TimeframeBeliefNetwork:
                 tf_scale, float(depth), 0.0,
                 self_adx, self_hurst, self_dmi,
                 0.0, 0.0, 0.0, 0.0]
+
+    # ------------------------------------------------------------------
+    # WORKER SNAPSHOT
+    # ------------------------------------------------------------------
+
+    def get_worker_snapshot(self) -> dict:
+        """
+        Freeze every active worker's current belief as a compact dict.
+
+        Called at trade ENTRY and EXIT so we can compare each worker's
+        assumption against what actually happened:
+          entry snapshot -> what did each TF worker predict?
+          exit snapshot  -> who flipped direction during the trade?
+
+        Returns:
+            {tf_label: {'d': dir_prob, 'c': conviction,
+                        'm': wave_maturity, 'mfe': pred_mfe}}
+            e.g. {'1h': {'d': 0.71, 'c': 0.42, 'm': 0.12, 'mfe': 8.2}, ...}
+        d > 0.5 = worker leans LONG, d < 0.5 = worker leans SHORT.
+        """
+        snap = {}
+        for tf, worker in self.workers.items():
+            b = worker.current_belief
+            if b is not None:
+                snap[self._TF_LABELS.get(tf, str(tf))] = {
+                    'd':   round(b.dir_prob,      3),
+                    'c':   round(b.conviction,    3),
+                    'm':   round(b.wave_maturity, 3),
+                    'mfe': round(b.pred_mfe,      1),
+                }
+        return snap
 
     # ------------------------------------------------------------------
     # DIAGNOSTICS
