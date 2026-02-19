@@ -72,7 +72,6 @@ RESOLUTIONS = {
     '4h': 14400,
     '1D': 86400,
     '1W': 604800,
-    '1M': 2592000,
 }
 
 # --- CUDA KERNELS ---
@@ -194,7 +193,9 @@ class ParquetWriterManager:
             schema = pa.Table.from_pandas(sample_df).schema
             schema = schema.remove_metadata()
             self.schemas[key] = schema
-            self.writers[key] = pq.ParquetWriter(file_path, schema, compression='snappy')
+            self.writers[key] = pq.ParquetWriter(
+                file_path, schema, compression='snappy', use_dictionary=False
+            )
         except Exception as e:
             print(f"Error opening writer for {key}: {e}")
 
