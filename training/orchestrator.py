@@ -861,9 +861,10 @@ class BayesianTrainingOrchestrator:
 
         report_lines.append("")
         report_lines.append(f"  OF {n_traded:,} TRADES TAKEN:")
-        report_lines.append(f"    Correct direction:  {len(tp_recs):>6,}  ({len(tp_recs)/n_traded*100:.1f}%)  ->  actual: ${tp_pnl:>10,.2f}")
-        report_lines.append(f"    Wrong direction:    {len(fp_wrong_recs):>6,}  ({len(fp_wrong_recs)/n_traded*100:.1f}%)  ->  losses: ${fp_wrong_pnl:>10,.2f}")
-        report_lines.append(f"    Traded noise:       {len(fp_noise_recs):>6,}  ({len(fp_noise_recs)/n_traded*100:.1f}%)  ->  losses: ${fp_noise_pnl:>10,.2f}")
+        _pct = lambda n: f"{n/n_traded*100:.1f}%" if n_traded else "N/A"
+        report_lines.append(f"    Correct direction:  {len(tp_recs):>6,}  ({_pct(len(tp_recs))})  ->  actual: ${tp_pnl:>10,.2f}")
+        report_lines.append(f"    Wrong direction:    {len(fp_wrong_recs):>6,}  ({_pct(len(fp_wrong_recs))})  ->  losses: ${fp_wrong_pnl:>10,.2f}")
+        report_lines.append(f"    Traded noise:       {len(fp_noise_recs):>6,}  ({_pct(len(fp_noise_recs))})  ->  losses: ${fp_noise_pnl:>10,.2f}")
 
         # ── 4. Exit quality on correct-direction trades ──────────────────────────
         if tp_recs:
