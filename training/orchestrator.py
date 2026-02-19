@@ -190,7 +190,7 @@ class BayesianTrainingOrchestrator:
         # Pattern Library (Bayesian Priors)
         self.pattern_library = {}
 
-        # Bottom-line accumulators — populated by run_forward_pass / run_strategy_selection
+        # Bottom-line accumulators -- populated by run_forward_pass / run_strategy_selection
         self._fp_summary   = {}   # Phase 4 key metrics
         self._tier_summary = {}   # Phase 5 tier counts + top templates
 
@@ -210,22 +210,22 @@ class BayesianTrainingOrchestrator:
                          bias_threshold: float = None,
                          dmi_threshold: float = None):
         """
-        Phase 4: Forward pass — replay full year using playbook.
+        Phase 4: Forward pass -- replay full year using playbook.
         Scans fractal cascade per day, matches templates, trades via WaveRider.
         Brain learns from outcomes.
 
         Args:
             start_date: Inclusive lower bound YYYYMMDD (e.g. '20260101').
-                        If None, no lower bound — all days included.
+                        If None, no lower bound -- all days included.
             end_date:   Inclusive upper bound YYYYMMDD (e.g. '20260209').
-                        If None, no upper bound — all days included.
+                        If None, no upper bound -- all days included.
         """
         print("\n" + "="*80)
         print("PHASE 4: FORWARD PASS (EXECUTION MODE)")
         if start_date or end_date:
             _lo = start_date or "start"
             _hi = end_date   or "end"
-            print(f"  Date slice: {_lo} → {_hi}")
+            print(f"  Date slice: {_lo} -> {_hi}")
         print("="*80)
         if self.dashboard_queue:
             self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
@@ -274,15 +274,15 @@ class BayesianTrainingOrchestrator:
             t1 = sum(1 for v in template_tier_map.values() if v == 1)
             print(f"  Loaded tier map: {len(template_tier_map)} templates ({t1} Tier 1)")
         else:
-            print("  No tier map found — all templates weighted equally (run strategy report first)")
+            print("  No tier map found -- all templates weighted equally (run strategy report first)")
 
-        # Apply min_tier filter — removes losing tiers from the centroid index entirely
-        # (oracle_trade_log shows Tier 4 = -$52K drag; min_tier=3 → +$96K vs $44K baseline)
+        # Apply min_tier filter -- removes losing tiers from the centroid index entirely
+        # (oracle_trade_log shows Tier 4 = -$52K drag; min_tier=3 -> +$96K vs $44K baseline)
         if min_tier is not None and template_tier_map:
             _before = len(valid_template_ids)
             valid_template_ids = [tid for tid in valid_template_ids
                                   if template_tier_map.get(tid, 4) <= min_tier]
-            print(f"  Min-tier filter (tier <= {min_tier}): {_before} → {len(valid_template_ids)} active templates")
+            print(f"  Min-tier filter (tier <= {min_tier}): {_before} -> {len(valid_template_ids)} active templates")
 
         centroids = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
         centroids_scaled = self.scaler.transform(centroids)
@@ -305,8 +305,8 @@ class BayesianTrainingOrchestrator:
                 if (not start_date or os.path.basename(f).replace('.parquet', '') >= start_date)
                 and (not end_date   or os.path.basename(f).replace('.parquet', '') <= end_date)
             ]
-            print(f"  Date filter applied: {_before} → {len(daily_files_15s)} days "
-                  f"({start_date or 'start'} → {end_date or 'end'})")
+            print(f"  Date filter applied: {_before} -> {len(daily_files_15s)} days "
+                  f"({start_date or 'start'} -> {end_date or 'end'})")
 
         print(f"  Found {len(daily_files_15s)} days to simulate.")
 
@@ -506,10 +506,10 @@ class BayesianTrainingOrchestrator:
                         tid = valid_template_ids[nearest_idx]
 
                         if dist < 3.0: # Threshold
-                            # Brain gate — use low threshold for exploration
+                            # Brain gate -- use low threshold for exploration
                             if self.brain.should_fire(tid, min_prob=0.05, min_conf=0.0):
                                 # Score: lower is better
-                                # depth: 1=4h (best) → 6=15s (worst)
+                                # depth: 1=4h (best) -> 6=15s (worst)
                                 # Tier bonus: Tier 1 = -1.5, Tier 2 = -0.5, Tier 3 = 0, Tier 4 = +0.5
                                 p_depth = getattr(p, 'depth', 6)
                                 tier_adj = _TIER_SCORE_ADJ.get(template_tier_map.get(tid, 3), 0.0)
@@ -524,64 +524,96 @@ class BayesianTrainingOrchestrator:
                         params = self.pattern_library[best_tid]['params']
                         lib_entry = self.pattern_library[best_tid]
 
-                        # ── Direction gate ───────────────────────────────────────────
-                        # Priority 0: Nearest-neighbour oracle marker (INDIVIDUAL pattern)
-                        #   The matched training pattern's oracle_marker is the highest-
-                        #   resolution directional signal.  Template aggregate bias blends
-                        #   all members together and loses this — analysis showed 45.9% of
-                        #   non-noise trades were firing AGAINST their own matched pattern's
-                        #   oracle direction (same template fires both MEGA_LONG and MEGA_SHORT
-                        #   bars because features use abs() — no direction in cluster shape).
-                        #   oracle_marker > 0 → LONG move followed this exact pattern
-                        #   oracle_marker < 0 → SHORT move followed this exact pattern
-                        #   oracle_marker = 0 → NOISE → fall through to bias/DMI tiers
+                        # ── Live feature vector (shared by direction + MFE models) ──
+                        # Same 14D features used during clustering -- scaler already fitted
+                        _live_feat = np.array(FractalClusteringEngine.extract_features(best_candidate))
+                        _live_scaled = self.scaler.transform([_live_feat])[0]
+
+                        # ── Direction gate ──────────────────────────────────────────
+                        # Priority 0: individual oracle_marker (highest resolution signal)
+                        #   oracle_marker > 0  -> LONG move followed this exact training pattern
+                        #   oracle_marker < 0  -> SHORT move
+                        #   oracle_marker == 0 -> NOISE -> fall through to regression tiers
                         _BIAS_THRESH = bias_threshold if bias_threshold is not None else 0.55
                         _DMI_THRESH  = dmi_threshold  if dmi_threshold  is not None else 0.0
                         long_bias  = lib_entry.get('long_bias',  0.0)
                         short_bias = lib_entry.get('short_bias', 0.0)
                         _nn_marker = getattr(best_candidate, 'oracle_marker', 0)
-                        if _nn_marker > 0:
-                            side = 'long'        # matched pattern had a LONG move in training
-                        elif _nn_marker < 0:
-                            side = 'short'       # matched pattern had a SHORT move in training
-                        # Fallback tiers for NOISE patterns (oracle_marker == 0)
-                        elif long_bias >= _BIAS_THRESH:
-                            side = 'long'
-                        elif short_bias >= _BIAS_THRESH:
-                            side = 'short'
-                        elif long_bias + short_bias >= 0.10:
-                            side = 'long' if long_bias >= short_bias else 'short'
-                        else:
-                            # No oracle data → live DMI direction (trend-following)
-                            _live = best_candidate.state
-                            _dmi_diff = (getattr(_live, 'dmi_plus',  0.0)
-                                       - getattr(_live, 'dmi_minus', 0.0))
-                            if abs(_dmi_diff) >= _DMI_THRESH and _dmi_diff > 0:
-                                side = 'long'
-                            elif abs(_dmi_diff) >= _DMI_THRESH and _dmi_diff < 0:
-                                side = 'short'
-                            else:
-                                _vel = getattr(_live, 'particle_velocity', 0.0)
-                                side = 'long' if _vel >= 0 else 'short'
-                        # ── Oracle-calibrated exit sizing ──────────────────────────
-                        # trail = mean adverse excursion + 10% breathing room
-                        # TP    = 75th-pct favorable excursion (captures most moves)
-                        # SL    = 25th-pct adverse excursion   (tight but not noisy)
-                        # Falls back to DOE params when template has too few members
-                        # for oracle stats (mean_mae_ticks / mean_mfe_ticks == 0).
-                        _mean_mae = lib_entry.get('mean_mae_ticks', 0.0)
-                        _mean_mfe = lib_entry.get('mean_mfe_ticks', 0.0)
-                        _p75_mfe  = lib_entry.get('p75_mfe_ticks',  0.0)
-                        _p25_mae  = lib_entry.get('p25_mae_ticks',  0.0)
 
-                        if _mean_mae > 2.0:   # at least 0.5 pts of oracle data
+                        if _nn_marker > 0:
+                            side = 'long'
+                        elif _nn_marker < 0:
+                            side = 'short'
+                        else:
+                            # NOISE pattern -- use regression model hierarchy
+                            side = None
+
+                            # Priority 1: per-cluster logistic regression P(LONG)
+                            _dir_coeff = lib_entry.get('dir_coeff')
+                            if _dir_coeff is not None:
+                                _dir_logit = (np.dot(_live_scaled, np.array(_dir_coeff))
+                                              + lib_entry.get('dir_intercept', 0.0))
+                                _dir_prob  = 1.0 / (1.0 + np.exp(-_dir_logit))
+                                if _dir_prob > _BIAS_THRESH:
+                                    side = 'long'
+                                elif _dir_prob < (1.0 - _BIAS_THRESH):
+                                    side = 'short'
+
+                            # Priority 2: template aggregate bias
+                            if side is None:
+                                if long_bias >= _BIAS_THRESH:
+                                    side = 'long'
+                                elif short_bias >= _BIAS_THRESH:
+                                    side = 'short'
+                                elif long_bias + short_bias >= 0.10:
+                                    side = 'long' if long_bias >= short_bias else 'short'
+
+                            # Priority 3: live DMI (trend-following)
+                            if side is None:
+                                _live_s   = best_candidate.state
+                                _dmi_diff = (getattr(_live_s, 'dmi_plus',  0.0)
+                                           - getattr(_live_s, 'dmi_minus', 0.0))
+                                if abs(_dmi_diff) >= _DMI_THRESH and _dmi_diff > 0:
+                                    side = 'long'
+                                elif abs(_dmi_diff) >= _DMI_THRESH and _dmi_diff < 0:
+                                    side = 'short'
+                                else:
+                                    _vel = getattr(_live_s, 'particle_velocity', 0.0)
+                                    side = 'long' if _vel >= 0 else 'short'
+
+                        # ── Exit sizing from per-cluster regression models ────────
+                        # Trail = regression_sigma_ticks * 1.1  (OLS residual std -> breathing room)
+                        # TP    = OLS predicted MFE for THIS bar's features (per-bar estimate)
+                        #         fallback: p75_mfe_ticks (template average)
+                        # SL    = p25_mae_ticks * 1.1 (tight floor from cluster history)
+                        _reg_sigma = lib_entry.get('regression_sigma_ticks', 0.0)
+                        _mean_mae  = lib_entry.get('mean_mae_ticks', 0.0)
+                        _p75_mfe   = lib_entry.get('p75_mfe_ticks',  0.0)
+                        _p25_mae   = lib_entry.get('p25_mae_ticks',  0.0)
+
+                        # Trail
+                        if _reg_sigma > 2.0:
+                            _trail_ticks = max(2, int(round(_reg_sigma * 1.1)))
+                        elif _mean_mae > 2.0:
                             _trail_ticks = max(2, int(round(_mean_mae * 1.1)))
-                            _sl_ticks    = max(2, int(round(_p25_mae  * 1.1)))
                         else:
                             _trail_ticks = params.get('trailing_stop_ticks', 10)
-                            _sl_ticks    = params.get('stop_loss_ticks',     15)
 
-                        if _p75_mfe > 2.0:
+                        # SL
+                        _sl_ticks = (max(2, int(round(_p25_mae * 1.1)))
+                                     if _p25_mae > 2.0
+                                     else params.get('stop_loss_ticks', 15))
+
+                        # TP: per-bar OLS prediction (primary) or template p75 (fallback)
+                        _mfe_coeff = lib_entry.get('mfe_coeff')
+                        if _mfe_coeff is not None:
+                            _pred_mfe_pts   = (np.dot(_live_scaled, np.array(_mfe_coeff))
+                                               + lib_entry.get('mfe_intercept', 0.0))
+                            _pred_mfe_ticks = max(0.0, _pred_mfe_pts / 0.25)
+                            _tp_ticks = max(4, int(round(_pred_mfe_ticks))) if _pred_mfe_ticks > 2.0 else (
+                                max(4, int(round(_p75_mfe))) if _p75_mfe > 2.0
+                                else params.get('take_profit_ticks', 50))
+                        elif _p75_mfe > 2.0:
                             _tp_ticks = max(4, int(round(_p75_mfe)))
                         else:
                             _tp_ticks = params.get('take_profit_ticks', 50)
@@ -662,7 +694,7 @@ class BayesianTrainingOrchestrator:
                                 _meta = getattr(p, 'oracle_meta', {})
                                 fn_potential_pnl += (_meta.get('mfe', 0.0) if _om > 0 else _meta.get('mae', 0.0)) * self.asset.point_value
 
-            # End of day cleanup — force close any open position
+            # End of day cleanup -- force close any open position
             if self.wave_rider.position is not None:
                 pos = self.wave_rider.position
                 if pos.side == 'short':
@@ -750,7 +782,7 @@ class BayesianTrainingOrchestrator:
 
         report_lines.append("")
         report_lines.append(f"  TOTAL SIGNALS SEEN BY ORACLE: {total_real_opps + total_noise_opps:,}")
-        report_lines.append(f"    Real moves (MEGA/SCALP):  {total_real_opps:>6,}   — worth ${ideal_profit:>10,.2f} if perfectly traded")
+        report_lines.append(f"    Real moves (MEGA/SCALP):  {total_real_opps:>6,}   -- worth ${ideal_profit:>10,.2f} if perfectly traded")
         report_lines.append(f"    Noise (no real move):     {total_noise_opps:>6,}")
 
         # ── 2. What we did ───────────────────────────────────────────────────────
@@ -774,9 +806,9 @@ class BayesianTrainingOrchestrator:
 
         report_lines.append("")
         report_lines.append(f"  OF {n_traded:,} TRADES TAKEN:")
-        report_lines.append(f"    Correct direction:  {len(tp_recs):>6,}  ({len(tp_recs)/n_traded*100:.1f}%)  →  actual: ${tp_pnl:>10,.2f}")
-        report_lines.append(f"    Wrong direction:    {len(fp_wrong_recs):>6,}  ({len(fp_wrong_recs)/n_traded*100:.1f}%)  →  losses: ${fp_wrong_pnl:>10,.2f}")
-        report_lines.append(f"    Traded noise:       {len(fp_noise_recs):>6,}  ({len(fp_noise_recs)/n_traded*100:.1f}%)  →  losses: ${fp_noise_pnl:>10,.2f}")
+        report_lines.append(f"    Correct direction:  {len(tp_recs):>6,}  ({len(tp_recs)/n_traded*100:.1f}%)  ->  actual: ${tp_pnl:>10,.2f}")
+        report_lines.append(f"    Wrong direction:    {len(fp_wrong_recs):>6,}  ({len(fp_wrong_recs)/n_traded*100:.1f}%)  ->  losses: ${fp_wrong_pnl:>10,.2f}")
+        report_lines.append(f"    Traded noise:       {len(fp_noise_recs):>6,}  ({len(fp_noise_recs)/n_traded*100:.1f}%)  ->  losses: ${fp_noise_pnl:>10,.2f}")
 
         # ── 4. Exit quality on correct-direction trades ──────────────────────────
         if tp_recs:
@@ -789,10 +821,10 @@ class BayesianTrainingOrchestrator:
 
             report_lines.append("")
             report_lines.append(f"  EXIT QUALITY (correct-direction trades):")
-            report_lines.append(f"    Optimal  (>=80% of move captured): {len(optimal):>6,}  →  ${sum(r['actual_pnl'] for r in optimal):>10,.2f}")
-            report_lines.append(f"    Partial  (20-80% captured):        {len(partial):>6,}  →  ${sum(r['actual_pnl'] for r in partial):>10,.2f}")
-            report_lines.append(f"    Too early (<20% captured):         {len(too_early):>6,}  →  ${sum(r['actual_pnl'] for r in too_early):>10,.2f}")
-            report_lines.append(f"    Reversed (went wrong after entry): {len(reversed_):>6,}  →  ${sum(r['actual_pnl'] for r in reversed_):>10,.2f}")
+            report_lines.append(f"    Optimal  (>=80% of move captured): {len(optimal):>6,}  ->  ${sum(r['actual_pnl'] for r in optimal):>10,.2f}")
+            report_lines.append(f"    Partial  (20-80% captured):        {len(partial):>6,}  ->  ${sum(r['actual_pnl'] for r in partial):>10,.2f}")
+            report_lines.append(f"    Too early (<20% captured):         {len(too_early):>6,}  ->  ${sum(r['actual_pnl'] for r in too_early):>10,.2f}")
+            report_lines.append(f"    Reversed (went wrong after entry): {len(reversed_):>6,}  ->  ${sum(r['actual_pnl'] for r in reversed_):>10,.2f}")
             report_lines.append(f"    Left on table (TP underperform):                      ${left_on_table:>10,.2f}")
 
         # ── 5. Profit gap summary ────────────────────────────────────────────────
@@ -802,10 +834,10 @@ class BayesianTrainingOrchestrator:
         report_lines.append(f"  PROFIT GAP ANALYSIS:")
         report_lines.append(f"    Ideal (all real moves, perfect exits):  ${ideal_profit:>12,.2f}")
         report_lines.append(f"    -----------------------------------------------------")
-        report_lines.append(f"    Lost — missed opportunities (skipped):  ${fn_potential_pnl:>12,.2f}  ({fn_potential_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    Lost — wrong direction trades:          ${abs(fp_wrong_pnl):>12,.2f}  ({abs(fp_wrong_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    Lost — noise trades:                    ${abs(fp_noise_pnl):>12,.2f}  ({abs(fp_noise_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    Lost — exited too early/late:           ${left_on_table_val:>12,.2f}  ({left_on_table_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    Lost -- missed opportunities (skipped):  ${fn_potential_pnl:>12,.2f}  ({fn_potential_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    Lost -- wrong direction trades:          ${abs(fp_wrong_pnl):>12,.2f}  ({abs(fp_wrong_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    Lost -- noise trades:                    ${abs(fp_noise_pnl):>12,.2f}  ({abs(fp_noise_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    Lost -- exited too early/late:           ${left_on_table_val:>12,.2f}  ({left_on_table_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
         report_lines.append(f"    -----------------------------------------------------")
         report_lines.append(f"    Actual profit:                          ${total_pnl:>12,.2f}  ({total_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else f"    Actual profit: ${total_pnl:.2f}")
 
@@ -1173,7 +1205,7 @@ class BayesianTrainingOrchestrator:
 
         rpt.append(f"\nSaved {len(playbook)} Tier 1 strategies to {pb_path}")
 
-        # Save full tier map — used by forward pass for candidate weighting
+        # Save full tier map -- used by forward pass for candidate weighting
         tier_map = {r['id']: r['tier'] for r in report_data}
         tiers_path = os.path.join(self.checkpoint_dir, 'template_tiers.pkl')
         with open(tiers_path, 'wb') as f:
@@ -1280,7 +1312,7 @@ class BayesianTrainingOrchestrator:
                               lambda r: r.get('oracle_label_name', '?'), top_n=6)
 
                 # By hour-of-day (entry_price timestamp not available; use row order proxy)
-                # oracle_trade_log has no timestamp col — skip if not present
+                # oracle_trade_log has no timestamp col -- skip if not present
                 if rows and 'entry_price' in rows[0]:
                     pass  # no timestamp in log, skip hour breakdown
 
@@ -1288,7 +1320,7 @@ class BayesianTrainingOrchestrator:
                 rpt.append(f"\n  (Pareto analysis skipped: {e})")
         else:
             rpt.append("")
-            rpt.append("  (Pareto analysis: oracle_trade_log.csv not found — run forward pass first)")
+            rpt.append("  (Pareto analysis: oracle_trade_log.csv not found -- run forward pass first)")
 
         # Print to console
         for line in rpt:
@@ -1689,14 +1721,23 @@ class BayesianTrainingOrchestrator:
             'long_bias': getattr(template, 'long_bias', 0.0),
             'short_bias': getattr(template, 'short_bias', 0.0),
             'stats_win_rate': getattr(template, 'stats_win_rate', 0.0),
-            # Oracle exit calibration — pattern's own price-breathing stats (in ticks)
-            # Used for dynamic trail/TP/SL: trail = mean_mae_ticks * 1.1
+            # Oracle exit calibration -- pattern's own price-breathing stats (in ticks)
+            # regression_sigma_ticks: residual std of per-cluster OLS (MFE ~ |z|) -> trail = × 1.1
             # 0.0 means _aggregate_oracle_intelligence() didn't have enough members
-            'mean_mfe_ticks': getattr(template, 'mean_mfe_ticks', 0.0),
-            'mean_mae_ticks': getattr(template, 'mean_mae_ticks', 0.0),
-            'p75_mfe_ticks':  getattr(template, 'p75_mfe_ticks',  0.0),
-            'p25_mae_ticks':  getattr(template, 'p25_mae_ticks',  0.0),
-            'risk_variance':  getattr(template, 'risk_variance',  0.0),
+            'mean_mfe_ticks':          getattr(template, 'mean_mfe_ticks',          0.0),
+            'mean_mae_ticks':          getattr(template, 'mean_mae_ticks',          0.0),
+            'p75_mfe_ticks':           getattr(template, 'p75_mfe_ticks',           0.0),
+            'p25_mae_ticks':           getattr(template, 'p25_mae_ticks',           0.0),
+            'risk_variance':           getattr(template, 'risk_variance',           0.0),
+            'regression_sigma_ticks':  getattr(template, 'regression_sigma_ticks',  0.0),
+            # Per-cluster regression model coefficients (14D scaled feature space)
+            # mfe_coeff @ live_scaled_features + mfe_intercept  -> predicted MFE in price pts
+            # sigmoid(dir_coeff @ live_scaled_features + dir_intercept) -> P(LONG)
+            # None when cluster had < 15 members for stable fitting
+            'mfe_coeff':     getattr(template, 'mfe_coeff',     None),
+            'mfe_intercept': getattr(template, 'mfe_intercept', 0.0),
+            'dir_coeff':     getattr(template, 'dir_coeff',     None),
+            'dir_intercept': getattr(template, 'dir_intercept', 0.0),
         }
 
     def validate_template_group(self, patterns: List[PatternEvent], params: Dict) -> float:
@@ -1900,7 +1941,7 @@ class BayesianTrainingOrchestrator:
         Post-hoc DOE: sweep filter combinations on oracle_trade_log.csv.
         Reads the log from the last forward pass and ranks every combination of:
           min_tier × direction × noise_filter
-        by net PnL.  Runs in seconds — no re-simulation needed.
+        by net PnL.  Runs in seconds -- no re-simulation needed.
 
         Usage:
             python training/orchestrator.py --sweep-params
@@ -1911,7 +1952,7 @@ class BayesianTrainingOrchestrator:
         tiers_path = os.path.join(self.checkpoint_dir, 'template_tiers.pkl')
 
         if not os.path.exists(log_path):
-            print("ERROR: oracle_trade_log.csv not found — run a forward pass first.")
+            print("ERROR: oracle_trade_log.csv not found -- run a forward pass first.")
             return
 
         df = pd.read_csv(log_path)
@@ -1925,7 +1966,7 @@ class BayesianTrainingOrchestrator:
         total_pnl    = df['actual_pnl'].sum()
 
         print("\n" + "="*80)
-        print("PARAMETER SWEEP — Post-Hoc DOE on oracle_trade_log.csv")
+        print("PARAMETER SWEEP -- Post-Hoc DOE on oracle_trade_log.csv")
         print(f"  Baseline  : {total_trades:,} trades  |  Net PnL: ${total_pnl:,.0f}")
         print(f"  Sweep dims: min_tier × direction × noise_filter")
         print("="*80)
@@ -1968,11 +2009,11 @@ class BayesianTrainingOrchestrator:
         print(f"  {'-'*8}  {'-'*9}  {'-'*7}  {'-'*10}  {'-'*9}  {'-'*10}")
         if live_hits:
             for r in live_hits:
-                flag = "  ← RECOMMENDED" if r == live_hits[0] else ""
+                flag = "  <- RECOMMENDED" if r == live_hits[0] else ""
                 print(f"  {r['min_tier']:>8}  {r['direction']:>9}  {r['trades']:>7,}  "
                       f"${r['net_pnl']:>9,.0f}  {r['win_rate']:>8.1f}%  ${r['avg_pnl']:>9.2f}{flag}")
         else:
-            print("  (none — tune thresholds or collect more data)")
+            print("  (none -- tune thresholds or collect more data)")
 
         # ── Print section 2: all combos top 15 ───────────────────────────────
         print(f"\n{'':2}TOP 15 COMBINATIONS  (including analysis-only noise filters)")
@@ -2000,7 +2041,7 @@ class BayesianTrainingOrchestrator:
             wr  = (sub['actual_pnl'] > 0).mean() * 100
             avg = pnl / n
             tmpl_count = tier_counts.get(t, 0)
-            flag = '  ← DRAG' if pnl < 0 else ('  ← STAR' if t == 1 else '')
+            flag = '  <- DRAG' if pnl < 0 else ('  <- STAR' if t == 1 else '')
             print(f"  {t:>4}  {tmpl_count:>9}  {n:>7,}  ${pnl:>9,.0f}  ${avg:>9.2f}  {wr:>8.1f}%{flag}")
 
         # ── Print section 4: expectation grounding ───────────────────────────
@@ -2014,11 +2055,11 @@ class BayesianTrainingOrchestrator:
                              ("Realistic  (normal out-of-sample)",    0.50),
                              ("Optimistic (similar market regime)",    0.70)]:
             proj = best_live_pnl * disc
-            flag = '  ← meets $50K target' if proj >= 50_000 else ''
+            flag = '  <- meets $50K target' if proj >= 50_000 else ''
             print(f"  {label:30s}  {disc*100:>7.0f}%  ${proj:>12,.0f}{flag}")
         print()
         print(f"  NOTE: The oracle gap ($69M ideal) is NEVER achievable in live trading.")
-        print(f"  It assumes perfect entries + perfect exits on every move — physically")
+        print(f"  It assumes perfect entries + perfect exits on every move -- physically")
         print(f"  impossible. Ground truth baseline is in-sample net PnL × discount.")
         print("="*80)
 
@@ -2029,7 +2070,7 @@ class BayesianTrainingOrchestrator:
         has_dir_cols = all(c in df.columns for c in ('long_bias', 'short_bias', 'dmi_diff'))
         if has_dir_cols:
             print(f"\n{'='*80}")
-            print("DIRECTION GATE DOE — sweep bias_threshold × dmi_threshold")
+            print("DIRECTION GATE DOE -- sweep bias_threshold × dmi_threshold")
             print(f"  Simulates direction changes offline using stored long_bias/short_bias/dmi_diff.")
             print(f"  PnL estimation: direction-flipped trades swap to avg-win / avg-loss.")
             print("="*80)
@@ -2199,7 +2240,7 @@ def check_and_install_requirements():
                 if torch.cuda.is_available():
                     print(f"Dependencies OK | CUDA ready: {torch.cuda.get_device_name(0)}")
                 else:
-                    print("Dependencies OK | WARNING: CUDA not available — GPU acceleration disabled")
+                    print("Dependencies OK | WARNING: CUDA not available -- GPU acceleration disabled")
                     print("      (To enable CUDA, run: python scripts/fix_cuda.py)")
             except ImportError:
                 print("Dependencies OK | WARNING: PyTorch not installed.")
@@ -2247,7 +2288,7 @@ def main():
 
     args = parser.parse_args()
 
-    # ── Tee stdout → checkpoints/training_log.txt (append, one file per project) ──
+    # ── Tee stdout -> checkpoints/training_log.txt (append, one file per project) ──
     import io
     class _Tee(io.TextIOWrapper):
         def __init__(self, log_path):
@@ -2354,7 +2395,7 @@ def main():
                 orchestrator.train(args.data)
 
             if args.mc or args.mc_only:
-                # Optional: Monte Carlo Sweep → ANOVA → Thompson → Validation
+                # Optional: Monte Carlo Sweep -> ANOVA -> Thompson -> Validation
                 mc = MonteCarloEngine(
                     checkpoint_dir=orchestrator.checkpoint_dir,
                     asset=orchestrator.asset,
@@ -2376,7 +2417,7 @@ def main():
                 refined_strategies = refiner.refine()
                 orchestrator.run_final_validation(refined_strategies)
             else:
-                # Default: Bayesian path → Forward Pass → Strategy Report
+                # Default: Bayesian path -> Forward Pass -> Strategy Report
                 orchestrator.run_forward_pass(args.data,
                                           start_date=args.forward_start,
                                           end_date=args.forward_end,
