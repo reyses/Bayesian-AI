@@ -431,8 +431,25 @@ class FractalClusteringEngine:
         t1 = _time.perf_counter()
         print(f"  Coarse KMeans: fitting {len(valid_patterns)} patterns into {target_k} clusters...", end="", flush=True)
 
-        model = self._get_kmeans_model(n_clusters=target_k, n_samples=len(valid_patterns))
-        labels = model.fit_predict(X_scaled)
+        # Flush any GPU tensors left from Phase 2 discovery before allocating
+        # the (n_samples x n_clusters) distance matrix inside CUDAKMeans.
+        try:
+            import torch as _torch
+            if _torch.cuda.is_available():
+                _torch.cuda.synchronize()
+                _torch.cuda.empty_cache()
+        except Exception:
+            pass
+
+        try:
+            model = self._get_kmeans_model(n_clusters=target_k, n_samples=len(valid_patterns))
+            labels = model.fit_predict(X_scaled)
+        except Exception as _cuda_err:
+            # GPU crash (OOM / driver error) -- fall back to sklearn CPU silently
+            print(f"\n  [KMeans CUDA fallback: {type(_cuda_err).__name__}]", end="", flush=True)
+            from sklearn.cluster import KMeans as _SKMeans
+            _fallback = _SKMeans(n_clusters=target_k, random_state=42, n_init=3, max_iter=300)
+            labels = _fallback.fit_predict(X_scaled)
         print(f" done ({_time.perf_counter() - t1:.2f}s)")
 
         # Group indices by label
