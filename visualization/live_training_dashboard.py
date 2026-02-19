@@ -373,7 +373,7 @@ class FractalDashboard:
             self.templates.values(),
             key=lambda x: x.get(sort_key, 0),
             reverse=self._sort_reverse
-        )[:10]
+        )[:TOP_TEMPLATES_LIMIT]
 
         for t in top:
             win_pct = t.get('win_rate', 0) * 100
