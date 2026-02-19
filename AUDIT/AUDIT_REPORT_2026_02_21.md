@@ -23,7 +23,7 @@
 | Bayesian Brain Test | PASS | Learning logic verified. |
 | State Vector Test | PASS | Hashing and equality verified. |
 | Legacy Layer Engine Test | PASS | Functional in CPU fallback mode. |
-| GPU Health Check | PASS | **Note:** CUDA not available. System running on CPU. |
+| GPU Health Check | WARN | **Note:** CUDA not available. System running on CPU. |
 | Fractal Dashboard Test | PASS | UI components verified. |
 | Training Validation | SKIPPED | Test skipped, needs investigation. |
 
