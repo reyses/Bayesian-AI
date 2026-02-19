@@ -341,6 +341,14 @@ class BayesianTrainingOrchestrator:
         pending_oracle = None      # oracle facts for currently open trade
         fn_potential_pnl = 0.0    # dollar potential of real moves we skipped
 
+        # Skip reason counters (per-candidate across all days)
+        skip_headroom    = 0   # Gate 0: no pattern or noise zone / structural rules
+        skip_dist        = 0   # No cluster match within distance 3.0
+        skip_brain       = 0   # Brain gate: template probability too low
+        skip_conviction  = 0   # Belief network: path conviction below MIN_CONVICTION
+        n_signals_seen   = 0   # Total candidate signals evaluated (all gates combined)
+        depth_traded     = defaultdict(int)  # depth -> trade count (1=high TF, 6=15s)
+
         n_days = len(daily_files_15s)
         for day_idx, day_file in enumerate(daily_files_15s):
             day_date = os.path.basename(day_file).replace('.parquet', '')
@@ -460,11 +468,15 @@ class BayesianTrainingOrchestrator:
                             oracle_favorable = o_mfe if pending_oracle['direction'] == 'LONG' else o_mae
                             oracle_potential = oracle_favorable * self.asset.point_value
                             capture = outcome.pnl / oracle_potential if oracle_potential > 0 else 0.0
+                            _exit_t = outcome.exit_time
+                            _entry_t = pending_oracle['entry_time']
                             oracle_trade_records.append({
                                 **pending_oracle,
-                                'exit_price': outcome.exit_price,
+                                'exit_price':  outcome.exit_price,
+                                'exit_time':   _exit_t,
+                                'hold_bars':   max(1, int((_exit_t - _entry_t) / 15)),  # 15s bars held
                                 'exit_reason': outcome.exit_reason,
-                                'actual_pnl': outcome.pnl,
+                                'actual_pnl':  outcome.pnl,
                                 'oracle_potential_pnl': oracle_potential,
                                 'capture_rate': round(min(capture, 9.99), 4),
                                 'result': outcome.result,
@@ -479,6 +491,7 @@ class BayesianTrainingOrchestrator:
                     best_tid = None
 
                     for p in candidates:
+                        n_signals_seen += 1
                         # --- Gate 0: Headroom Gate (Nightmare Field Equation) ---
                         micro_z = abs(p.z_score)
                         micro_pattern = p.pattern_type
@@ -522,6 +535,7 @@ class BayesianTrainingOrchestrator:
                                     should_skip = True
 
                         if should_skip:
+                            skip_headroom += 1
                             continue
 
                         # Extract 14D features using shared logic
@@ -549,6 +563,10 @@ class BayesianTrainingOrchestrator:
                                     best_dist = score
                                     best_candidate = p
                                     best_tid = tid
+                            else:
+                                skip_brain += 1
+                        else:
+                            skip_dist += 1
 
                     if best_candidate:
                         # FIRE
@@ -621,6 +639,7 @@ class BayesianTrainingOrchestrator:
                         if _belief is not None:
                             if not _belief.is_confident:
                                 # Tree uncertain across scales -- skip this bar
+                                skip_conviction += 1
                                 continue
                             # Path direction override for NOISE oracle_marker patterns
                             if _nn_marker == 0 and _belief.direction != side:
@@ -646,9 +665,15 @@ class BayesianTrainingOrchestrator:
                         _p25_mae   = lib_entry.get('p25_mae_ticks',  0.0)
 
                         # Phase 1: initial hard stop (wide)
-                        _sl_ticks = (max(4, int(round(_mean_mae * 2.0)))
-                                     if _mean_mae > 2.0
-                                     else params.get('stop_loss_ticks', 20))
+                        # Anchor to p25_mae (25th-pct adverse excursion) * 3.0 so that
+                        # outlier clusters with huge mean_mae don't produce runaway stops.
+                        # Falls back to mean_mae * 2.0 when p25 is unavailable.
+                        if _p25_mae > 2.0:
+                            _sl_ticks = max(4, int(round(_p25_mae * 3.0)))
+                        elif _mean_mae > 2.0:
+                            _sl_ticks = max(4, int(round(_mean_mae * 2.0)))
+                        else:
+                            _sl_ticks = params.get('stop_loss_ticks', 20)
 
                         # Phase 2: trailing stop distance (tight, from HWM)
                         if _reg_sigma > 2.0:
@@ -658,8 +683,10 @@ class BayesianTrainingOrchestrator:
                         else:
                             _trail_ticks = params.get('trailing_stop_ticks', 10)
 
-                        # Trail activation: needs p25_mae * 0.5 profit ticks to engage
-                        _trail_act_ticks = (max(2, int(round(_p25_mae * 0.5)))
+                        # Trail activation: needs p25_mae * 0.3 profit ticks to engage
+                        # (30% of the tight adverse excursion -- locks in gain quickly
+                        #  once the trade is moving our way)
+                        _trail_act_ticks = (max(2, int(round(_p25_mae * 0.3)))
                                             if _p25_mae > 2.0
                                             else None)  # None = immediate (legacy)
 
@@ -698,6 +725,7 @@ class BayesianTrainingOrchestrator:
                         active_entry_time = ts
                         active_side = side
                         active_template_id = best_tid
+                        depth_traded[getattr(best_candidate, 'depth', 6)] += 1
 
                         # Store oracle facts for this trade (linked at exit)
                         # Direction-gate diagnostic columns enable offline DOE sweep of
@@ -706,10 +734,13 @@ class BayesianTrainingOrchestrator:
                         _dmi_at_entry = round(
                             getattr(_live_state, 'dmi_plus',  0.0)
                           - getattr(_live_state, 'dmi_minus', 0.0), 2)
+                        _entry_depth = getattr(best_candidate, 'depth', 6)
                         pending_oracle = {
                             'template_id':      best_tid,
                             'direction':        'LONG' if side == 'long' else 'SHORT',
                             'entry_price':      price,
+                            'entry_time':       ts,        # Unix timestamp (15s resolution)
+                            'entry_depth':      _entry_depth,  # Fractal depth (1=daily,6=15s)
                             'oracle_label':     best_candidate.oracle_marker,
                             'oracle_label_name':_ORACLE_LABEL_NAMES.get(best_candidate.oracle_marker, 'UNKNOWN'),
                             'oracle_mfe':       best_candidate.oracle_meta.get('mfe', 0.0),
@@ -718,6 +749,11 @@ class BayesianTrainingOrchestrator:
                             'long_bias':        round(long_bias,  4),
                             'short_bias':       round(short_bias, 4),
                             'dmi_diff':         _dmi_at_entry,
+                            # Belief network diagnostics
+                            'belief_active_levels': _belief.active_levels if _belief is not None else 0,
+                            'belief_conviction':    round(_belief.conviction, 4) if _belief is not None else 0.0,
+                            'wave_maturity':        round(_belief.wave_maturity, 4) if _belief is not None else 0.0,
+                            'decision_wave_maturity': round(_belief.decision_wave_maturity, 4) if _belief is not None else 0.0,
                         }
 
                         # AUDIT: True Positive or False Positive
@@ -793,11 +829,15 @@ class BayesianTrainingOrchestrator:
                     oracle_favorable = o_mfe if pending_oracle['direction'] == 'LONG' else o_mae
                     oracle_potential = oracle_favorable * self.asset.point_value
                     capture = outcome.pnl / oracle_potential if oracle_potential > 0 else 0.0
+                    _eod_exit_t = ts
+                    _eod_entry_t = pending_oracle['entry_time']
                     oracle_trade_records.append({
                         **pending_oracle,
-                        'exit_price': outcome.exit_price,
+                        'exit_price':  outcome.exit_price,
+                        'exit_time':   _eod_exit_t,
+                        'hold_bars':   max(1, int((_eod_exit_t - _eod_entry_t) / 15)),
                         'exit_reason': 'TIME_EXIT',
-                        'actual_pnl': outcome.pnl,
+                        'actual_pnl':  outcome.pnl,
                         'oracle_potential_pnl': oracle_potential,
                         'capture_rate': round(min(capture, 9.99), 4),
                         'result': outcome.result,
@@ -858,6 +898,48 @@ class BayesianTrainingOrchestrator:
         report_lines.append(f"  WHAT WE DID:")
         report_lines.append(f"    Traded:  {n_traded:>6,}  ({n_traded/(total_real_opps+total_noise_opps)*100:.1f}% of all signals)")
         report_lines.append(f"    Skipped: {n_skipped:>6,}  ({n_skipped/(total_real_opps+total_noise_opps)*100:.1f}% of all signals)")
+
+        # ── 2b. Skip reason breakdown ─────────────────────────────────────────────
+        # n_signals_seen counts individual candidates (not unique timestamps).
+        # skip_xxx are per-candidate gate rejections.
+        _n_pass = n_signals_seen - skip_headroom - skip_dist - skip_brain - skip_conviction
+        report_lines.append("")
+        report_lines.append(f"  WHY SIGNALS WERE SKIPPED  (total candidates evaluated: {n_signals_seen:,})")
+        if n_signals_seen > 0:
+            _pct_s = lambda n: f"{n/n_signals_seen*100:.1f}%"
+            report_lines.append(f"    Gate 0 (headroom/pattern rule): {skip_headroom:>6,}  ({_pct_s(skip_headroom)})")
+            report_lines.append(f"    Gate 1 (dist > 3.0, no match):  {skip_dist:>6,}  ({_pct_s(skip_dist)})")
+            report_lines.append(f"    Gate 2 (brain rejected):        {skip_brain:>6,}  ({_pct_s(skip_brain)})")
+            report_lines.append(f"    Gate 3 (conviction < thresh):   {skip_conviction:>6,}  ({_pct_s(skip_conviction)})")
+            report_lines.append(f"    Passed all gates -> traded:     {n_traded:>6,}  ({_pct_s(n_traded)})")
+
+        # ── 2c. Traded signal depth distribution ─────────────────────────────────
+        # depth: 1=highest TF (daily/4h), 6=lowest TF (15s)
+        # Answers: "Is it only trading 15s patterns and missing 1h+?"
+        _DEPTH_LABELS = {1: '1=4h+  (high TF)', 2: '2=1h   ', 3: '3=15m  ',
+                         4: '4=5m   ', 5: '5=1m   ', 6: '6=15s  (leaf)'}
+        if depth_traded:
+            report_lines.append("")
+            report_lines.append(f"  TRADED SIGNAL DEPTH (which TF level triggered the trade):")
+            for d in sorted(depth_traded.keys()):
+                cnt = depth_traded[d]
+                bar = '#' * min(40, cnt // max(1, n_traded // 40))
+                report_lines.append(f"    depth {_DEPTH_LABELS.get(d, str(d))}: {cnt:>5,} trades  {bar}")
+
+        # ── 2d. Wave maturity at entry ────────────────────────────────────────────
+        # High decision_wave_maturity at entry = we entered a wave near exhaustion.
+        if oracle_trade_records and 'decision_wave_maturity' in oracle_trade_records[0]:
+            _wins  = [r for r in oracle_trade_records if r['result'] == 'WIN']
+            _losses= [r for r in oracle_trade_records if r['result'] != 'WIN']
+            _wm_w  = np.mean([r['decision_wave_maturity'] for r in _wins])  if _wins   else 0.0
+            _wm_l  = np.mean([r['decision_wave_maturity'] for r in _losses]) if _losses else 0.0
+            _wm_all= np.mean([r['decision_wave_maturity'] for r in oracle_trade_records])
+            report_lines.append("")
+            report_lines.append(f"  DECISION-TF WAVE MATURITY AT ENTRY  (0=fresh wave, 1=exhausted)")
+            report_lines.append(f"    All trades:  avg={_wm_all:.3f}")
+            report_lines.append(f"    Winners:     avg={_wm_w:.3f}")
+            report_lines.append(f"    Losers:      avg={_wm_l:.3f}")
+            report_lines.append(f"    Insight: maturity gap={_wm_l-_wm_w:.3f} (positive = entering losers at wave exhaustion)")
 
         # ── 3. Of trades taken ───────────────────────────────────────────────────
         tp_recs       = [r for r in oracle_trade_records if r['oracle_label'] != 0 and
