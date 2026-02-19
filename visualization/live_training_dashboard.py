@@ -37,7 +37,14 @@ class FractalDashboard:
         self.ARROW_LENGTH_FACTOR = 0.9
         self.ARROW_HEAD_WIDTH = 0.1
 
-        self._sort_col = "PnL"
+        self.ARROW_HEAD_WIDTH = 0.1
+
+        self.COL_ID = "ID"
+        self.COL_COUNT = "Count"
+        self.COL_PNL = "PnL"
+        self.COL_STATUS = "Status"
+
+        self._sort_col = self.COL_PNL
         self._sort_reverse = True
 
         self._setup_layout()
