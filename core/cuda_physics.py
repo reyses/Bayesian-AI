@@ -265,6 +265,7 @@ def compute_hurst_kernel(prices, out_hurst, window_size):
             # Optimized: O(1) mean calculation using endpoints instead of loop
             p_start = prices[start]
             p_end = prices[i]
+            assert sz > 1
             mean_ret = (p_end - p_start) / (sz - 1)
 
             # Cumulative deviation from mean
