@@ -369,6 +369,11 @@ class BayesianTrainingOrchestrator:
         n_signals_seen   = 0   # Total candidate signals evaluated (all gates combined)
         depth_traded     = defaultdict(int)  # depth -> trade count (1=high TF, 6=15s)
 
+        # FN oracle records: per-signal log of missed real moves with worker snapshots.
+        # Answers: "when we missed a profitable move, what did the workers think?"
+        # If workers agreed with oracle direction on FN signals, a gate is too strict.
+        fn_oracle_records = []
+
         n_days = len(daily_files_15s)
         for day_idx, day_file in enumerate(daily_files_15s):
             day_date = os.path.basename(day_file).replace('.parquet', '')
@@ -821,7 +826,18 @@ class BayesianTrainingOrchestrator:
                                 audit_fn += 1
                                 _om = getattr(p, 'oracle_marker', 0)
                                 _meta = getattr(p, 'oracle_meta', {})
-                                fn_potential_pnl += (_meta.get('mfe', 0.0) if _om > 0 else _meta.get('mae', 0.0)) * self.asset.point_value
+                                _fn_pot = (_meta.get('mfe', 0.0) if _om > 0 else _meta.get('mae', 0.0)) * self.asset.point_value
+                                fn_potential_pnl += _fn_pot
+                                fn_oracle_records.append({
+                                    'timestamp':       ts,
+                                    'depth':           getattr(p, 'depth', 6),
+                                    'oracle_label':    _om,
+                                    'oracle_label_name': _ORACLE_LABEL_NAMES.get(_om, '?'),
+                                    'oracle_dir':      'LONG' if _om > 0 else 'SHORT',
+                                    'fn_potential_pnl': round(_fn_pot, 2),
+                                    'reason':          'competed',  # had a trade this bar, but not this candidate
+                                    'workers':         __import__('json').dumps(belief_network.get_worker_snapshot()),
+                                })
                     else:
                         # Audit all candidates as SKIPPED
                         for p in candidates:
@@ -832,7 +848,18 @@ class BayesianTrainingOrchestrator:
                                 audit_fn += 1
                                 _om = getattr(p, 'oracle_marker', 0)
                                 _meta = getattr(p, 'oracle_meta', {})
-                                fn_potential_pnl += (_meta.get('mfe', 0.0) if _om > 0 else _meta.get('mae', 0.0)) * self.asset.point_value
+                                _fn_pot = (_meta.get('mfe', 0.0) if _om > 0 else _meta.get('mae', 0.0)) * self.asset.point_value
+                                fn_potential_pnl += _fn_pot
+                                fn_oracle_records.append({
+                                    'timestamp':       ts,
+                                    'depth':           getattr(p, 'depth', 6),
+                                    'oracle_label':    _om,
+                                    'oracle_label_name': _ORACLE_LABEL_NAMES.get(_om, '?'),
+                                    'oracle_dir':      'LONG' if _om > 0 else 'SHORT',
+                                    'fn_potential_pnl': round(_fn_pot, 2),
+                                    'reason':          'no_match',  # nothing passed gates at this bar
+                                    'workers':         __import__('json').dumps(belief_network.get_worker_snapshot()),
+                                })
 
             # End of day cleanup -- force close any open position
             if self.wave_rider.position is not None:
@@ -1123,33 +1150,54 @@ class BayesianTrainingOrchestrator:
         report_lines.append(f"    Traded noise:       {len(fp_noise_recs):>6,}  ({_pct(len(fp_noise_recs))})  ->  losses: ${fp_noise_pnl:>10,.2f}")
 
         # ── 4. Exit quality on correct-direction trades ──────────────────────────
+        # NOTE: "Reversed" trades had the correct oracle direction but the market
+        # still moved against us after entry (capture_rate <= 0).  Their actual
+        # losses are a distinct leakage bucket — NOT "wrong direction at entry"
+        # (which means oracle label was opposite) — but also NOT mere underperformance.
+        # They are shown separately in the profit gap as "reversed after entry".
         if tp_recs:
             optimal   = [r for r in tp_recs if r['capture_rate'] >= 0.80]
             partial   = [r for r in tp_recs if 0.20 <= r['capture_rate'] < 0.80]
             too_early = [r for r in tp_recs if 0 < r['capture_rate'] < 0.20]
             reversed_ = [r for r in tp_recs if r['capture_rate'] <= 0]
 
-            left_on_table = sum(max(0, r['oracle_potential_pnl'] - r['actual_pnl']) for r in tp_recs)
+            # left_on_table: only non-reversed underperformance (how much potential
+            # was uncaptured on trades that at least moved in our direction)
+            non_reversed = [r for r in tp_recs if r['capture_rate'] > 0]
+            left_on_table = sum(max(0, r['oracle_potential_pnl'] - r['actual_pnl'])
+                                for r in non_reversed)
 
             report_lines.append("")
             report_lines.append(f"  EXIT QUALITY (correct-direction trades):")
             report_lines.append(f"    Optimal  (>=80% of move captured): {len(optimal):>6,}  ->  ${sum(r['actual_pnl'] for r in optimal):>10,.2f}")
             report_lines.append(f"    Partial  (20-80% captured):        {len(partial):>6,}  ->  ${sum(r['actual_pnl'] for r in partial):>10,.2f}")
             report_lines.append(f"    Too early (<20% captured):         {len(too_early):>6,}  ->  ${sum(r['actual_pnl'] for r in too_early):>10,.2f}")
-            report_lines.append(f"    Reversed (went wrong after entry): {len(reversed_):>6,}  ->  ${sum(r['actual_pnl'] for r in reversed_):>10,.2f}")
-            report_lines.append(f"    Left on table (TP underperform):                      ${left_on_table:>10,.2f}")
+            report_lines.append(f"    Reversed (correct dir, mkt flipped):{len(reversed_):>6,}  ->  ${sum(r['actual_pnl'] for r in reversed_):>10,.2f}  <- own leakage bucket")
+            report_lines.append(f"    Left on table (non-reversed TP gap):             ${left_on_table:>10,.2f}")
+        else:
+            reversed_ = []
+            left_on_table = 0.0
 
         # ── 5. Profit gap summary ────────────────────────────────────────────────
-        left_on_table_val = sum(max(0, r['oracle_potential_pnl'] - r['actual_pnl']) for r in tp_recs) if tp_recs else 0.0
+        # "Reversed" losses = actual dollars lost on correct-direction trades that
+        # still went against us.  Distinct from:
+        #   wrong_dir  = oracle label was opposite to our direction (fp_wrong_recs)
+        #   noise      = oracle said no real move at all (fp_noise_recs)
+        #   left_on_table = potential uncaptured on non-reversed winners
+        reversed_loss_val  = abs(sum(r['actual_pnl'] for r in reversed_))
+        non_reversed_val   = [r for r in tp_recs if r['capture_rate'] > 0] if tp_recs else []
+        left_on_table_val  = sum(max(0, r['oracle_potential_pnl'] - r['actual_pnl'])
+                                 for r in non_reversed_val)
 
         report_lines.append("")
         report_lines.append(f"  PROFIT GAP ANALYSIS:")
         report_lines.append(f"    Ideal (all real moves, perfect exits):  ${ideal_profit:>12,.2f}")
         report_lines.append(f"    -----------------------------------------------------")
         report_lines.append(f"    Lost -- missed opportunities (skipped):  ${fn_potential_pnl:>12,.2f}  ({fn_potential_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    Lost -- wrong direction trades:          ${abs(fp_wrong_pnl):>12,.2f}  ({abs(fp_wrong_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    Lost -- wrong direction at entry:        ${abs(fp_wrong_pnl):>12,.2f}  ({abs(fp_wrong_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
         report_lines.append(f"    Lost -- noise trades:                    ${abs(fp_noise_pnl):>12,.2f}  ({abs(fp_noise_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    Lost -- exited too early/late:           ${left_on_table_val:>12,.2f}  ({left_on_table_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    Lost -- reversed after correct entry:    ${reversed_loss_val:>12,.2f}  ({reversed_loss_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    Lost -- TP underperform (non-reversed):  ${left_on_table_val:>12,.2f}  ({left_on_table_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
         report_lines.append(f"    -----------------------------------------------------")
         report_lines.append(f"    Actual profit:                          ${total_pnl:>12,.2f}  ({total_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else f"    Actual profit: ${total_pnl:.2f}")
 
@@ -1194,6 +1242,61 @@ class BayesianTrainingOrchestrator:
                 writer.writerows(oracle_trade_records)
             report_lines.append("")
             report_lines.append(f"  Per-trade oracle log saved: {csv_path}")
+
+        # ── Save FN oracle log + report section ──────────────────────────────────
+        # fn_oracle_records: every missed real move with worker snapshot.
+        # "competed" = another candidate was traded at the same bar.
+        # "no_match" = nothing passed gates at this bar.
+        # Key question: when workers agreed with oracle direction on FN signals,
+        # a gate was too strict (the workers were right but we still skipped).
+        if fn_oracle_records:
+            import json as _fnjs
+            fn_csv_path = os.path.join(self.checkpoint_dir, 'fn_oracle_log.csv')
+            with open(fn_csv_path, 'w', newline='', encoding='utf-8') as _fnf:
+                _fn_writer = _csv.DictWriter(_fnf, fieldnames=list(fn_oracle_records[0].keys()))
+                _fn_writer.writeheader()
+                _fn_writer.writerows(fn_oracle_records)
+            report_lines.append(f"  FN oracle log saved: {fn_csv_path}  ({len(fn_oracle_records):,} missed real moves)")
+
+            # FN worker agreement analysis:
+            # For each TF worker, what fraction of FN signals had the worker
+            # agreeing with the oracle direction?  High agreement = gate is blocking
+            # moves the workers correctly identified.
+            _TF_ORDER_FN = ['1h','30m','15m','5m','3m','1m','30s','15s']
+            def _fn_tf_agree(records, tf_label):
+                vals = []
+                for r in records:
+                    try:
+                        snap = _fnjs.loads(r.get('workers', '{}') or '{}')
+                    except Exception:
+                        continue
+                    if tf_label not in snap:
+                        continue
+                    d   = snap[tf_label].get('d', 0.5)
+                    odir = r.get('oracle_dir', 'LONG')
+                    vals.append(1.0 if (odir == 'LONG' and d > 0.5) or
+                                       (odir == 'SHORT' and d < 0.5) else 0.0)
+                return sum(vals) / len(vals) if vals else None
+
+            fn_competed = [r for r in fn_oracle_records if r['reason'] == 'competed']
+            fn_no_match = [r for r in fn_oracle_records if r['reason'] == 'no_match']
+
+            report_lines.append("")
+            report_lines.append(f"  FN WORKER AGREEMENT (did workers agree with oracle on missed moves?)")
+            report_lines.append(f"    High agree% = workers called it right but a gate still blocked the trade")
+            report_lines.append(f"    FN total={len(fn_oracle_records):,}  competed={len(fn_competed):,}  no_match={len(fn_no_match):,}")
+            report_lines.append(f"    {'TF':<6} {'All FN':>8} {'Competed':>9} {'No-match':>9}  <- agree% with oracle dir")
+            for tf in _TF_ORDER_FN:
+                a_all  = _fn_tf_agree(fn_oracle_records, tf)
+                a_comp = _fn_tf_agree(fn_competed, tf)
+                a_nomatch = _fn_tf_agree(fn_no_match, tf)
+                if a_all is None:
+                    continue
+                s_all   = f"{a_all:.2f}"
+                s_comp  = f"{a_comp:.2f}"  if a_comp     is not None else "  n/a"
+                s_nomatch = f"{a_nomatch:.2f}" if a_nomatch is not None else "  n/a"
+                flag = "  <-- workers right, gate wrong" if (a_all or 0) > 0.60 else ""
+                report_lines.append(f"    {tf:<6} {s_all:>8} {s_comp:>9} {s_nomatch:>9}{flag}")
 
         # ── Compute and save per-depth weights for the NEXT run ──────────────────
         # score_adj is normalised relative to the best-performing depth so it
