@@ -277,6 +277,26 @@ class BayesianTrainingOrchestrator:
         else:
             print("  No tier map found -- all templates weighted equally (run strategy report first)")
 
+        # Load per-depth PnL weights computed from the previous forward pass.
+        # depth_weights.json is written at the end of each run so the NEXT run
+        # can use data-driven depth scoring and filtering.
+        _DEPTH_SCORE_ADJ  = {}   # depth (int) -> score adjustment (float, lower=better)
+        _DEPTH_FILTER_OUT = set()  # depths whose avg_pnl/trade was negative last run
+        _depth_weights_path = os.path.join(self.checkpoint_dir, 'depth_weights.json')
+        if os.path.exists(_depth_weights_path):
+            import json as _json
+            with open(_depth_weights_path) as _dw_f:
+                _dw_data = _json.load(_dw_f)
+            _DEPTH_SCORE_ADJ  = {int(k): float(v.get('score_adj', 0.0)) for k, v in _dw_data.items()}
+            _DEPTH_FILTER_OUT = {int(k) for k, v in _dw_data.items() if v.get('filter_out', False)}
+            print(f"  Loaded depth weights ({len(_DEPTH_SCORE_ADJ)} depths, {len(_DEPTH_FILTER_OUT)} filtered out):")
+            for _dk in sorted(_dw_data.keys(), key=int):
+                _dv = _dw_data[_dk]
+                print(f"    depth {_dk}: avg_pnl=${_dv.get('avg_pnl',0):.1f}/trade  "
+                      f"score_adj={_dv.get('score_adj',0):+.2f}  filter={_dv.get('filter_out',False)}")
+        else:
+            print("  No depth weights found -- uniform depth scoring (run forward pass first to build weights)")
+
         # Apply min_tier filter -- removes losing tiers from the centroid index entirely
         # (oracle_trade_log shows Tier 4 = -$52K drag; min_tier=3 -> +$96K vs $44K baseline)
         if min_tier is not None and template_tier_map:
@@ -480,6 +500,8 @@ class BayesianTrainingOrchestrator:
                                 'oracle_potential_pnl': oracle_potential,
                                 'capture_rate': round(min(capture, 9.99), 4),
                                 'result': outcome.result,
+                                # Worker snapshot at exit: compare vs entry_workers to find direction flips
+                                'exit_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
                             })
                             pending_oracle = None
 
@@ -538,6 +560,14 @@ class BayesianTrainingOrchestrator:
                             skip_headroom += 1
                             continue
 
+                        # Gate 0.5: depth filter -- exclude depths that had negative avg
+                        # PnL/trade in the previous run (written to depth_weights.json).
+                        # First run has no weights so nothing is filtered.
+                        _cand_depth = getattr(p, 'depth', 6)
+                        if _cand_depth in _DEPTH_FILTER_OUT:
+                            skip_headroom += 1
+                            continue
+
                         # Extract 14D features using shared logic
                         features = np.array([FractalClusteringEngine.extract_features(p)])
 
@@ -556,9 +586,13 @@ class BayesianTrainingOrchestrator:
                                 # Score: lower is better
                                 # depth: 1=4h (best) -> 6=15s (worst)
                                 # Tier bonus: Tier 1 = -1.5, Tier 2 = -0.5, Tier 3 = 0, Tier 4 = +0.5
-                                p_depth = getattr(p, 'depth', 6)
-                                tier_adj = _TIER_SCORE_ADJ.get(template_tier_map.get(tid, 3), 0.0)
-                                score = p_depth + dist + tier_adj
+                                # Depth adj: data-driven from previous run avg PnL/trade
+                                #   positive avg_pnl -> negative score_adj (favored)
+                                #   negative avg_pnl -> positive score_adj (penalized)
+                                p_depth   = getattr(p, 'depth', 6)
+                                tier_adj  = _TIER_SCORE_ADJ.get(template_tier_map.get(tid, 3), 0.0)
+                                depth_adj = _DEPTH_SCORE_ADJ.get(p_depth, 0.0)
+                                score     = p_depth + dist + tier_adj + depth_adj
                                 if score < best_dist:
                                     best_dist = score
                                     best_candidate = p
@@ -754,6 +788,10 @@ class BayesianTrainingOrchestrator:
                             'belief_conviction':    round(_belief.conviction, 4) if _belief is not None else 0.0,
                             'wave_maturity':        round(_belief.wave_maturity, 4) if _belief is not None else 0.0,
                             'decision_wave_maturity': round(_belief.decision_wave_maturity, 4) if _belief is not None else 0.0,
+                            # Per-worker snapshots at entry: each worker's dir_prob/conviction/wave_maturity/pred_mfe
+                            # Stored as JSON string; parse with json.loads() for analysis.
+                            # Compare entry_workers vs exit_workers to find who flipped direction.
+                            'entry_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
                         }
 
                         # AUDIT: True Positive or False Positive
@@ -841,6 +879,7 @@ class BayesianTrainingOrchestrator:
                         'oracle_potential_pnl': oracle_potential,
                         'capture_rate': round(min(capture, 9.99), 4),
                         'result': outcome.result,
+                        'exit_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
                     })
                     pending_oracle = None
 
@@ -941,6 +980,130 @@ class BayesianTrainingOrchestrator:
             report_lines.append(f"    Losers:      avg={_wm_l:.3f}")
             report_lines.append(f"    Insight: maturity gap={_wm_l-_wm_w:.3f} (positive = entering losers at wave exhaustion)")
 
+        # ── 2e. Per-depth PnL breakdown ──────────────────────────────────────────
+        # Shows which fractal depth levels are actually profitable.
+        # These stats feed into depth_weights.json for the next run.
+        if oracle_trade_records and 'entry_depth' in oracle_trade_records[0]:
+            from collections import defaultdict as _ddd
+            _dp_pnl  = _ddd(float)
+            _dp_cnt  = _ddd(int)
+            _dp_wins = _ddd(int)
+            for _r in oracle_trade_records:
+                _d = _r.get('entry_depth', 6)
+                _dp_pnl[_d]  += _r['actual_pnl']
+                _dp_cnt[_d]  += 1
+                _dp_wins[_d] += 1 if _r['result'] == 'WIN' else 0
+            report_lines.append("")
+            report_lines.append(f"  PER-DEPTH PnL BREAKDOWN (-> depth_weights.json for next run):")
+            report_lines.append(f"    {'Depth':<8} {'Trades':>7} {'Win%':>7} {'Total PnL':>12} {'Avg/trade':>10}")
+            report_lines.append(f"    {'-----':<8} {'------':>7} {'----':>7} {'---------':>12} {'---------':>10}")
+            for _d in sorted(_dp_cnt.keys()):
+                _cnt = _dp_cnt[_d]
+                _tot = _dp_pnl[_d]
+                _avg = _tot / _cnt
+                _wr  = _dp_wins[_d] / _cnt * 100
+                _flag = "  <- FILTER NEXT RUN" if _avg < 0 and _cnt >= 5 else ("  <- TOP" if _avg > 100 else "")
+                report_lines.append(
+                    f"    depth {_d:<3} {_cnt:>7,} {_wr:>6.0f}% ${_tot:>10,.2f} ${_avg:>9.2f}{_flag}")
+
+        # ── 2f. Worker agreement analysis ────────────────────────────────────────
+        # For each TF worker: what fraction of the time did it agree with the
+        # trade direction at entry? Compare wins vs losses to find who is predictive.
+        # Also: which workers FLIPPED direction by exit? That likely caused the loss.
+        if oracle_trade_records and 'entry_workers' in oracle_trade_records[0]:
+            import json as _js
+            _TF_ORDER = ['1h','30m','15m','5m','3m','1m','30s','15s']
+            _wins_r  = [r for r in oracle_trade_records if r['result'] == 'WIN']
+            _loss_r  = [r for r in oracle_trade_records if r['result'] != 'WIN']
+
+            def _agree(snap_str, direction):
+                """1 if the worker snapshot agrees with the trade direction, else 0."""
+                try:
+                    snap = _js.loads(snap_str) if snap_str else {}
+                except Exception:
+                    snap = {}
+                count = 0
+                for v in snap.values():
+                    d = v.get('d', 0.5)
+                    if (direction == 'LONG' and d > 0.5) or (direction == 'SHORT' and d < 0.5):
+                        count += 1
+                return count, len(snap)
+
+            def _flipped(entry_str, exit_str, direction):
+                """Number of workers that flipped direction between entry and exit."""
+                try:
+                    e = _js.loads(entry_str) if entry_str else {}
+                    x = _js.loads(exit_str)  if exit_str  else {}
+                except Exception:
+                    return 0
+                flips = 0
+                for tf in set(e) & set(x):
+                    e_long = e[tf].get('d', 0.5) > 0.5
+                    x_long = x[tf].get('d', 0.5) > 0.5
+                    if e_long != x_long:
+                        flips += 1
+                return flips
+
+            report_lines.append("")
+            report_lines.append(f"  WORKER AGREEMENT AT ENTRY  (agree = worker dir matches trade direction)")
+            report_lines.append(f"    {'TF':<6} {'WIN agree':>10} {'LOSS agree':>11} {'Edge':>7}  <-- positive = worker is predictive")
+            for tf in _TF_ORDER:
+                w_agree = [_agree(r.get('entry_workers','{}'), r['direction'])[0]
+                           for r in _wins_r if tf in (r.get('entry_workers') or '')]
+                l_agree = [_agree(r.get('entry_workers','{}'), r['direction'])[0]
+                           for r in _loss_r if tf in (r.get('entry_workers') or '')]
+                # Per-TF dir_prob agree fraction
+                def _tf_agree_frac(records, tf_label):
+                    vals = []
+                    for r in records:
+                        try:
+                            snap = _js.loads(r.get('entry_workers','{}') or '{}')
+                        except Exception:
+                            continue
+                        if tf_label in snap:
+                            d = snap[tf_label].get('d', 0.5)
+                            direction = r['direction']
+                            vals.append(1.0 if (direction=='LONG' and d>0.5) or (direction=='SHORT' and d<0.5) else 0.0)
+                    return sum(vals)/len(vals) if vals else None
+                wa = _tf_agree_frac(_wins_r, tf)
+                la = _tf_agree_frac(_loss_r, tf)
+                if wa is None and la is None:
+                    continue
+                wa_s = f"{wa:.2f}" if wa is not None else "  n/a"
+                la_s = f"{la:.2f}" if la is not None else "  n/a"
+                edge = (wa - la) if (wa is not None and la is not None) else 0.0
+                flag = "  <-- key" if edge >= 0.10 else ""
+                report_lines.append(f"    {tf:<6} {wa_s:>10} {la_s:>11} {edge:>+7.2f}{flag}")
+
+            # Flip analysis: which workers changing direction predicts a loss?
+            if 'exit_workers' in oracle_trade_records[0]:
+                report_lines.append(f"")
+                report_lines.append(f"  DIRECTION FLIPS BETWEEN ENTRY AND EXIT:")
+                report_lines.append(f"    (worker flipped = changed LONG/SHORT conviction side during the trade)")
+                for tf in _TF_ORDER:
+                    def _flip_rate(records, tf_label):
+                        rates = []
+                        for r in records:
+                            try:
+                                e = _js.loads(r.get('entry_workers','{}') or '{}')
+                                x = _js.loads(r.get('exit_workers', '{}') or '{}')
+                            except Exception:
+                                continue
+                            if tf_label in e and tf_label in x:
+                                e_long = e[tf_label].get('d', 0.5) > 0.5
+                                x_long = x[tf_label].get('d', 0.5) > 0.5
+                                rates.append(1.0 if e_long != x_long else 0.0)
+                        return sum(rates)/len(rates) if rates else None
+                    wfr = _flip_rate(_wins_r, tf)
+                    lfr = _flip_rate(_loss_r, tf)
+                    if wfr is None and lfr is None:
+                        continue
+                    wfr_s = f"{wfr:.2f}" if wfr is not None else "  n/a"
+                    lfr_s = f"{lfr:.2f}" if lfr is not None else "  n/a"
+                    diff  = (lfr - wfr) if (lfr is not None and wfr is not None) else 0.0
+                    flag  = "  <-- flip predicts loss" if diff >= 0.15 else ""
+                    report_lines.append(f"    {tf:<6} WIN flip={wfr_s}  LOSS flip={lfr_s}  diff={diff:>+.2f}{flag}")
+
         # ── 3. Of trades taken ───────────────────────────────────────────────────
         tp_recs       = [r for r in oracle_trade_records if r['oracle_label'] != 0 and
                          ((r['direction']=='LONG' and r['oracle_label']>0) or
@@ -1031,6 +1194,41 @@ class BayesianTrainingOrchestrator:
                 writer.writerows(oracle_trade_records)
             report_lines.append("")
             report_lines.append(f"  Per-trade oracle log saved: {csv_path}")
+
+        # ── Compute and save per-depth weights for the NEXT run ──────────────────
+        # score_adj is normalised relative to the best-performing depth so it
+        # stays in a [-1, +1] range that is compatible with the existing dist/tier
+        # scoring.  filter_out=True means the depth had negative avg PnL with at
+        # least 5 trades — it will be excluded by Gate 0.5 next run.
+        if oracle_trade_records and 'entry_depth' in oracle_trade_records[0]:
+            from collections import defaultdict as _ddw
+            import json as _json2
+            _dw_pnl = _ddw(float)
+            _dw_cnt = _ddw(int)
+            for _r in oracle_trade_records:
+                _d = _r.get('entry_depth', 6)
+                _dw_pnl[_d] += _r['actual_pnl']
+                _dw_cnt[_d] += 1
+            # Best depth avg_pnl used for normalisation
+            _best_avg = max((_dw_pnl[d] / _dw_cnt[d] for d in _dw_cnt), default=1.0)
+            _best_avg = max(_best_avg, 1.0)   # guard against all-negative
+            depth_weights_out = {}
+            for _d in sorted(_dw_cnt.keys()):
+                _cnt = _dw_cnt[_d]
+                _avg = _dw_pnl[_d] / _cnt
+                # Favour profitable depths: score_adj = -avg/best_avg (range ~[-1, 0])
+                # Penalise losing depths:  score_adj = positive
+                _sadj = round(-_avg / _best_avg, 4)
+                depth_weights_out[str(_d)] = {
+                    'avg_pnl':    round(_avg, 2),
+                    'n_trades':   _cnt,
+                    'score_adj':  _sadj,
+                    'filter_out': bool(_avg < 0 and _cnt >= 5),
+                }
+            _dw_out_path = os.path.join(self.checkpoint_dir, 'depth_weights.json')
+            with open(_dw_out_path, 'w') as _dw_f2:
+                _json2.dump(depth_weights_out, _dw_f2, indent=2)
+            report_lines.append(f"  Depth weights saved: {_dw_out_path}")
 
         for line in report_lines:
             print(line)
