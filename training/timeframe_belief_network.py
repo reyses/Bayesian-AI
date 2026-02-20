@@ -551,6 +551,57 @@ class TimeframeBeliefNetwork:
     # DIAGNOSTICS
     # ------------------------------------------------------------------
 
+    def get_exit_signal(self, side: str) -> dict:
+        """
+        Called every bar while a position is open.
+        Returns a dict with exit adjustment recommendations.
+
+        side: 'long' or 'short' — the current position direction.
+
+        Returns:
+            {
+              'tighten_trail': bool,   # shrink trail stop distance
+              'widen_trail':   bool,   # grow trail stop (conviction is high)
+              'urgent_exit':   bool,   # exit NOW (direction flipped, high conviction)
+              'conviction':    float,  # current path conviction
+              'wave_maturity': float,  # decision TF wave maturity
+              'reason':        str,    # human-readable reason
+            }
+        """
+        belief = self.get_belief()
+        if belief is None:
+            return {'tighten_trail': False, 'widen_trail': False,
+                    'urgent_exit': False, 'conviction': 0.0,
+                    'wave_maturity': 0.0, 'reason': 'no_belief'}
+
+        trade_long = (side == 'long')
+        belief_long = (belief.direction == 'long')
+        direction_aligned = (trade_long == belief_long)
+        wave_mature = belief.decision_wave_maturity  # decision TF worker only
+
+        # Urgent exit: high conviction in the OPPOSITE direction
+        urgent = belief.is_confident and not direction_aligned and belief.conviction > 0.70
+
+        # Tighten: conviction is low OR wave is mature (approaching reversal zone)
+        tighten = (not belief.is_confident) or (wave_mature > 0.65)
+
+        # Widen: strong conviction aligned with trade direction, wave is fresh
+        widen = belief.is_confident and direction_aligned and wave_mature < 0.30
+
+        reason = ('urgent_flip' if urgent else
+                  'low_conviction' if not belief.is_confident else
+                  'wave_mature' if wave_mature > 0.65 else
+                  'aligned_fresh' if widen else 'neutral')
+
+        return {
+            'tighten_trail': tighten and not urgent,
+            'widen_trail':   widen,
+            'urgent_exit':   urgent,
+            'conviction':    belief.conviction,
+            'wave_maturity': wave_mature,
+            'reason':        reason,
+        }
+
     def summary(self) -> str:
         """One-line status of all workers."""
         parts = []

@@ -241,6 +241,7 @@ class Position:
     profit_target: Optional[float] = None
     trailing_stop_ticks: Optional[int] = None
     trail_activation_ticks: Optional[int] = None  # profit ticks needed before trail engages
+    original_trail_ticks: Optional[int] = None    # Store initial trail setting for reference
 
 
 class WaveRider:
@@ -329,6 +330,7 @@ class WaveRider:
             profit_target=profit_target,
             trailing_stop_ticks=trailing_stop_ticks,
             trail_activation_ticks=trail_activation_ticks,
+            original_trail_ticks=trailing_stop_ticks,
         )
         
         # Note: Do not clear price_history here as we need it for delayed analysis
@@ -385,7 +387,8 @@ class WaveRider:
 
     def update_trail(self, current_price: float, 
                     current_state: Union[StateVector, ThreeBodyQuantumState],
-                    timestamp: Optional[float] = None) -> Dict:
+                    timestamp: Optional[float] = None,
+                    exit_signal: Optional[Dict] = None) -> Dict:
         """
         Update trailing stop and check exit conditions
         
@@ -395,6 +398,7 @@ class WaveRider:
             current_price: Current market price
             current_state: Current StateVector or ThreeBodyQuantumState
             timestamp: Optional timestamp (uses time.time() if None)
+            exit_signal: Optional dict with exit recommendations
             
         Returns:
             Dict with 'should_exit', 'pnl', 'exit_reason', 'regret_markers' (if exit)
@@ -408,6 +412,23 @@ class WaveRider:
         
         # Update history via process_pending_reviews
         self.process_pending_reviews(current_time, current_price)
+
+        # --- Dynamic Exit Logic ---
+        urgent_exit = False
+        if exit_signal:
+            if exit_signal.get('urgent_exit'):
+                urgent_exit = True
+
+            if exit_signal.get('tighten_trail') and self.position.trailing_stop_ticks is not None:
+                # Reduce trail by 30% (min: 2 ticks)
+                _new_trail = max(2, int(self.position.trailing_stop_ticks * 0.70))
+                self.position.trailing_stop_ticks = _new_trail
+
+            if exit_signal.get('widen_trail') and self.position.trailing_stop_ticks is not None:
+                # Increase trail by 20% (max: original_trail * 2.0)
+                _base = self.position.original_trail_ticks or self.position.trailing_stop_ticks
+                _max_trail = _base * 2
+                self.position.trailing_stop_ticks = min(_max_trail, int(self.position.trailing_stop_ticks * 1.20))
 
         # Update High Water Mark
         if self.position.side == 'short':
@@ -459,8 +480,10 @@ class WaveRider:
 
         structure_broken = self._check_layer_breaks(current_state)
 
-        if stop_hit or structure_broken or pt_hit:
-            if pt_hit:
+        if stop_hit or structure_broken or pt_hit or urgent_exit:
+            if urgent_exit:
+                exit_reason = 'belief_flip'
+            elif pt_hit:
                 exit_reason = 'profit_target'
             elif structure_broken:
                 exit_reason = 'structure_break'
