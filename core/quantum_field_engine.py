@@ -21,6 +21,8 @@ from core.pattern_utils import (
 
 from core.physics_utils import compute_adx_dmi_cpu, ADX_PERIOD, HURST_WINDOW
 
+MIN_STABILITY_VALUE = 1e-10
+
 # Core CUDA Physics
 try:
     from core.cuda_physics import (
@@ -98,6 +100,10 @@ def _compute_rs_numba(returns, w):
 
     log_rs = np.empty(out_len, dtype=np.float64)
 
+    # Use a local constant for Numba nopython compatibility if module constant isn't picked up
+    # (Though Numba usually handles module constants fine)
+    min_stability = 1e-10
+
     for i in range(out_len):
         # 1. Mean
         sum_r = 0.0
@@ -124,17 +130,15 @@ def _compute_rs_numba(returns, w):
 
         R = max_dev - min_dev
 
-        if w > 1:
-            S = math.sqrt(sum_sq_diff / (w - 1))
-        else:
-            S = 0.0
+        # w is guaranteed >= 3 by caller (valid_sizes >= 4, w = sz - 1)
+        S = math.sqrt(sum_sq_diff / (w - 1))
 
-        if S < 1e-10:
-            S = 1e-10
+        if S < min_stability:
+            S = min_stability
 
         RS = R / S
-        if RS < 1e-10:
-            RS = 1e-10
+        if RS < min_stability:
+            RS = min_stability
 
         log_rs[i] = math.log(RS)
 

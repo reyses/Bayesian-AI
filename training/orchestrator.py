@@ -531,10 +531,10 @@ class BayesianTrainingOrchestrator:
             # 1h worker: ~7 states; 15s worker: ~5300 states (pre-computed, fast lookup)
             try:
                 _states_15s = self.engine.batch_compute_states(df_15s, use_cuda=True)
-                belief_network.prepare_day(df_15s, states_micro=_states_15s)
+                belief_network.prepare_day(df_15s, states_15s=_states_15s)
             except Exception as _bn_err:
                 _states_15s = []
-                belief_network.prepare_day(df_15s, states_micro=[])
+                belief_network.prepare_day(df_15s, states_15s=[])
 
             # Reset PID analyzer for the day
             _day_sigmas = [s['state'].sigma_fractal for s in _states_15s if s['state'].sigma_fractal > 0]

@@ -130,11 +130,11 @@ class TimeframeWorker:
     threads logically -- averages their outputs for robustness.
     """
 
-    LEAF_TOP_K = 3  # analysis threads at the leaf (15s or 1s)
+    LEAF_TOP_K = 3  # analysis threads at the 15s leaf
 
-    def __init__(self, tf_seconds: int, is_leaf: bool = False, base_resolution_seconds: int = 15):
+    def __init__(self, tf_seconds: int, is_leaf: bool = False):
         self.tf_seconds      = tf_seconds
-        self.bars_per_update = max(1, tf_seconds // base_resolution_seconds)
+        self.bars_per_update = max(1, tf_seconds // 15)
         self.is_leaf         = is_leaf
 
         # Filled by prepare()
@@ -263,76 +263,65 @@ class TimeframeBeliefNetwork:
     (they summarise days/hours of market structure).
     """
 
-    TIMEFRAMES_SECONDS = [3600, 1800, 900, 300, 180, 60, 30, 15, 5, 1]
-    TF_WEIGHTS         = [4.0,  3.5,  3.0, 2.5, 2.0, 1.5, 1.0, 0.5, 0.25, 0.1]
+    TIMEFRAMES_SECONDS = [3600, 1800, 900, 300, 180, 60, 30, 15]
+    TF_WEIGHTS         = [4.0,  3.5,  3.0, 2.5, 2.0, 1.5, 1.0, 0.5]
     MIN_CONVICTION     = 0.48   # skip trade if path conviction below this (physics at z=0 gives 0.50)
     MIN_ACTIVE_LEVELS  = 3      # need >=3 active TF levels for a signal
     DEFAULT_DECISION_TF = 300   # 5m: default scale at which to read predicted_mfe
     _TF_LABELS = {3600:'1h', 1800:'30m', 900:'15m', 300:'5m',
-                  180:'3m',  60:'1m',   30:'30s',   15:'15s',
-                  5:'5s',    1:'1s'}
+                  180:'3m',  60:'1m',   30:'30s',   15:'15s'}
 
     def __init__(self, pattern_library: dict, scaler, engine,
                  valid_tids: list, centroids_scaled: np.ndarray,
-                 decision_tf: int = DEFAULT_DECISION_TF,
-                 base_resolution_seconds: int = 15):
+                 decision_tf: int = DEFAULT_DECISION_TF):
         self.pattern_library   = pattern_library
         self.scaler            = scaler
         self.engine            = engine
         self.valid_tids        = valid_tids
         self.centroids_scaled  = centroids_scaled
         self.decision_tf       = decision_tf
-        self.base_resolution_seconds = base_resolution_seconds
 
-        # Filter timeframes to only include those >= base_resolution_seconds
-        self.active_timeframes = [tf for tf in self.TIMEFRAMES_SECONDS if tf >= base_resolution_seconds]
-
-        # Adjust weights map to only include active timeframes
-        all_weights = dict(zip(self.TIMEFRAMES_SECONDS, self.TF_WEIGHTS))
-        self._weight_map = {tf: all_weights[tf] for tf in self.active_timeframes}
-
-        leaf_tf = self.active_timeframes[-1] if self.active_timeframes else 15
+        self._weight_map = dict(zip(self.TIMEFRAMES_SECONDS, self.TF_WEIGHTS))
 
         self.workers: Dict[int, TimeframeWorker] = {
-            tf: TimeframeWorker(tf, is_leaf=(tf == leaf_tf), base_resolution_seconds=base_resolution_seconds)
-            for tf in self.active_timeframes
+            tf: TimeframeWorker(tf, is_leaf=(tf == 15))
+            for tf in self.TIMEFRAMES_SECONDS
         }
 
     # ------------------------------------------------------------------
     # DAY SETUP
     # ------------------------------------------------------------------
 
-    def prepare_day(self, df_micro: pd.DataFrame, states_micro: list = None):
+    def prepare_day(self, df_15s: pd.DataFrame, states_15s: list = None):
         """
-        Task 1 for all workers: pre-aggregate the day's micro bars (15s or 1s)
-        to each TF level and compute quantum states (once per day, fast).
+        Task 1 for all workers: pre-aggregate the day's 15s bars to each
+        TF level and compute quantum states (once per day, fast).
 
-        Micro states can be supplied directly (states_micro) if already computed
+        15s states can be supplied directly (states_15s) if already computed
         by the main forward pass, avoiding redundant work.
         """
         # Ensure DatetimeIndex for pandas resample
-        df = df_micro.copy()
+        df = df_15s.copy()
         if not isinstance(df.index, pd.DatetimeIndex):
             if 'timestamp' in df.columns:
                 df.index = pd.to_datetime(df['timestamp'], unit='s')
             else:
                 df.index = pd.to_datetime(df.index, unit='s')
 
-        # Supply base resolution states directly if available
-        base_tf = self.base_resolution_seconds
-        if states_micro is not None and base_tf in self.workers:
-            self.workers[base_tf].prepare(states_micro)
+        # Supply 15s states directly if available
+        if states_15s is not None:
+            self.workers[15].prepare(states_15s)
 
-        for tf_secs in self.active_timeframes:
-            if tf_secs == base_tf:
-                if states_micro is None:
-                    # Compute fresh from micro bars
+        for tf_secs in self.TIMEFRAMES_SECONDS:
+            if tf_secs == 15:
+                if states_15s is None:
+                    # Compute fresh from 15s bars
                     try:
-                        s = self.engine.batch_compute_states(df_micro, use_cuda=True)
-                        self.workers[base_tf].prepare(s)
+                        s = self.engine.batch_compute_states(df_15s, use_cuda=True)
+                        self.workers[15].prepare(s)
                     except Exception as e:
-                        logger.warning(f"TBN: {base_tf}s state compute failed: {e}")
-                        self.workers[base_tf].prepare([])
+                        logger.warning(f"TBN: 15s state compute failed: {e}")
+                        self.workers[15].prepare([])
                 continue
 
             try:
@@ -359,7 +348,7 @@ class TimeframeBeliefNetwork:
 
     def tick_all(self, bar_i: int) -> int:
         """
-        Update all workers for current micro bar index (15s or 1s).
+        Update all workers for current 15s bar index.
         Each worker self-decides (event-driven by TF bar change).
         Returns: number of workers that updated their belief.
         """
