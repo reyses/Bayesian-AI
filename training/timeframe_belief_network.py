@@ -133,9 +133,10 @@ class TimeframeWorker:
     LEAF_TOP_K = 3  # analysis threads at the leaf (15s or 1s)
 
     def __init__(self, tf_seconds: int, is_leaf: bool = False, base_resolution_seconds: int = 15):
-        self.tf_seconds      = tf_seconds
-        self.bars_per_update = max(1, tf_seconds // base_resolution_seconds)
-        self.is_leaf         = is_leaf
+        self.tf_seconds              = tf_seconds
+        self.base_resolution_seconds = base_resolution_seconds
+        self.bars_per_update         = max(1, tf_seconds // base_resolution_seconds)
+        self.is_leaf                 = is_leaf
 
         # Filled by prepare()
         self._states: list = []
@@ -158,7 +159,16 @@ class TimeframeWorker:
         Task 1 check: has my TF bar changed?
         Task 2: if yes, re-run cluster match + regression.
         """
-        tf_bar_idx = bar_i // self.bars_per_update
+        if self.tf_seconds < self.base_resolution_seconds:
+            # Sub-resolution worker (e.g. 5s worker in a 15s loop):
+            # bar_i counts base-resolution bars; pick the LAST sub-bar within
+            # each base period so we always use the most current fine-grained state.
+            #   5s in 15s loop: bar_i=0 -> idx=2, bar_i=1 -> idx=5, ...
+            #   1s in 15s loop: bar_i=0 -> idx=14, bar_i=1 -> idx=29, ...
+            _ratio     = self.base_resolution_seconds // self.tf_seconds
+            tf_bar_idx = bar_i * _ratio + (_ratio - 1)
+        else:
+            tf_bar_idx = bar_i // self.bars_per_update
 
         if tf_bar_idx == self._last_tf_bar_idx:
             return False   # TF bar unchanged -- belief still valid
@@ -284,25 +294,27 @@ class TimeframeBeliefNetwork:
         self.decision_tf       = decision_tf
         self.base_resolution_seconds = base_resolution_seconds
 
-        # Filter timeframes to only include those >= base_resolution_seconds
+        # active_timeframes: TFs that can be computed by resampling from df_micro.
+        # Sub-resolution TFs (< base_resolution_seconds) need external data (df_5s/df_1s)
+        # but workers are always created for all TFs -- they just stay silent when no data.
         self.active_timeframes = [tf for tf in self.TIMEFRAMES_SECONDS if tf >= base_resolution_seconds]
 
-        # Adjust weights map to only include active timeframes
         all_weights = dict(zip(self.TIMEFRAMES_SECONDS, self.TF_WEIGHTS))
-        self._weight_map = {tf: all_weights[tf] for tf in self.active_timeframes}
+        self._weight_map = dict(all_weights)   # weights for ALL TFs, not just active
 
-        leaf_tf = self.active_timeframes[-1] if self.active_timeframes else 15
+        leaf_tf = base_resolution_seconds      # the base TF is the leaf
 
         self.workers: Dict[int, TimeframeWorker] = {
             tf: TimeframeWorker(tf, is_leaf=(tf == leaf_tf), base_resolution_seconds=base_resolution_seconds)
-            for tf in self.active_timeframes
+            for tf in self.TIMEFRAMES_SECONDS  # ALL TFs, including sub-resolution
         }
 
     # ------------------------------------------------------------------
     # DAY SETUP
     # ------------------------------------------------------------------
 
-    def prepare_day(self, df_micro: pd.DataFrame, states_micro: list = None):
+    def prepare_day(self, df_micro: pd.DataFrame, states_micro: list = None,
+                    df_5s: pd.DataFrame = None, df_1s: pd.DataFrame = None):
         """
         Task 1 for all workers: pre-aggregate the day's micro bars (15s or 1s)
         to each TF level and compute quantum states (once per day, fast).
@@ -351,6 +363,23 @@ class TimeframeBeliefNetwork:
                 self.workers[tf_secs].prepare(states)
             except Exception as e:
                 logger.warning(f"TBN: TF={tf_secs}s state compute failed: {e}")
+                self.workers[tf_secs].prepare([])
+
+        # Sub-resolution workers (5s, 1s): cannot resample from df_micro, use external data.
+        # Workers silently stay inactive (empty states) when fine-grained data isn't available.
+        _sub_res_data = {5: df_5s, 1: df_1s}
+        for tf_secs in self.TIMEFRAMES_SECONDS:
+            if tf_secs >= self.base_resolution_seconds:
+                continue   # already handled above
+            df_sub = _sub_res_data.get(tf_secs)
+            if df_sub is None or (hasattr(df_sub, 'empty') and df_sub.empty):
+                self.workers[tf_secs].prepare([])
+                continue
+            try:
+                states = self.engine.batch_compute_states(df_sub, use_cuda=True)
+                self.workers[tf_secs].prepare(states)
+            except Exception as e:
+                logger.warning(f"TBN: TF={tf_secs}s sub-res state compute failed: {e}")
                 self.workers[tf_secs].prepare([])
 
     # ------------------------------------------------------------------

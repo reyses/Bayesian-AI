@@ -526,15 +526,35 @@ class BayesianTrainingOrchestrator:
                 print(f"FAILED to load {day_file}: {e}")
                 continue
 
-            # Belief network: Task 1 for all 8 TF workers
-            # Aggregates 15s -> 30s/1m/3m/5m/15m/30m/1h bars + computes quantum states
-            # 1h worker: ~7 states; 15s worker: ~5300 states (pre-computed, fast lookup)
+            # Load 5s and 1s ATLAS files for sub-resolution workers.
+            # Same directory structure: {atlas_root}/5s/YYYYMMDD.parquet
+            _atlas_root = os.path.dirname(os.path.dirname(day_file))
+
+            def _load_fine(tf_label):
+                p = os.path.join(_atlas_root, tf_label, f"{day_date}.parquet")
+                if not os.path.exists(p):
+                    return None
+                try:
+                    _df = pd.read_parquet(p)
+                    if 'timestamp' in _df.columns and not np.issubdtype(_df['timestamp'].dtype, np.number):
+                        _df['timestamp'] = _df['timestamp'].apply(lambda x: x.timestamp())
+                    return _df
+                except Exception:
+                    return None
+
+            _df_5s = _load_fine('5s')
+            _df_1s  = _load_fine('1s')
+
+            # Belief network: Task 1 for all 10 TF workers (1h -> 1s)
+            # Active workers: 1h->15s resampled from df_15s; 5s/1s from fine-grained ATLAS files.
             try:
                 _states_15s = self.engine.batch_compute_states(df_15s, use_cuda=True)
-                belief_network.prepare_day(df_15s, states_micro=_states_15s)
+                belief_network.prepare_day(df_15s, states_micro=_states_15s,
+                                           df_5s=_df_5s, df_1s=_df_1s)
             except Exception as _bn_err:
                 _states_15s = []
-                belief_network.prepare_day(df_15s, states_micro=[])
+                belief_network.prepare_day(df_15s, states_micro=[],
+                                           df_5s=_df_5s, df_1s=_df_1s)
 
             # Reset PID analyzer for the day
             _day_sigmas = [s['state'].sigma_fractal for s in _states_15s if s['state'].sigma_fractal > 0]
@@ -698,7 +718,9 @@ class BayesianTrainingOrchestrator:
                     best_candidate = None
                     best_dist = 999.0
                     best_tid = None
-                    _candidate_gate = {}  # id(p) -> gate that blocked it (for FN audit)
+                    _candidate_gate = {}    # id(p) -> gate that blocked it (for FN audit)
+                    _bypass_candidate = None  # best Gate-1 reject for worker-conviction bypass
+                    _bypass_dist      = 999.0
 
                     for p in candidates:
                         n_signals_seen += 1
@@ -807,8 +829,23 @@ class BayesianTrainingOrchestrator:
                                 skip_brain += 1
                                 _candidate_gate[id(p)] = 'gate2'
                         else:
+                            # Gate 1 rejected -- track nearest miss for worker-bypass path
+                            if dist < _bypass_dist:
+                                _bypass_dist      = dist
+                                _bypass_candidate = p
                             skip_dist += 1
                             _candidate_gate[id(p)] = 'gate1'
+
+                    # ── Worker-conviction bypass (Gate 1 override) ───────────────
+                    # FN analysis: when no cluster matches, 30m/15m/5m workers still
+                    # called the right direction 85-100% of the time. Allow the trade
+                    # if conviction is high enough to act without a template.
+                    _WORKER_BYPASS_CONV = 0.65   # minimum conviction to bypass Gate 1
+                    _bypass_belief = None
+                    if best_candidate is None and _bypass_candidate is not None:
+                        _bypass_belief = belief_network.get_belief()
+                        if _bypass_belief is None or _bypass_belief.conviction < _WORKER_BYPASS_CONV:
+                            _bypass_belief = None   # not confident enough -- skip
 
                     if best_candidate:
                         # FIRE
@@ -1066,6 +1103,60 @@ class BayesianTrainingOrchestrator:
                                     'gate_blocked':    _candidate_gate.get(id(p), 'passed'),  # 'passed' = scored but lost to better candidate
                                     'workers':         __import__('json').dumps(belief_network.get_worker_snapshot()),
                                 })
+                    elif _bypass_belief is not None:
+                        # ── Worker-bypass trade ────────────────────────────────
+                        # No cluster template matched (Gate 1) but belief conviction
+                        # >= 0.65. Workers called the direction 85-100% correctly for
+                        # these no-match signals -- fire using worker-derived params.
+                        side         = _bypass_belief.direction   # 'long' or 'short'
+                        _bp_sigma    = getattr(_bypass_candidate.state, 'sigma_fractal', 0.0)
+                        _bp_sl_ticks = max(4, int(round(_bp_sigma / self.asset.tick_size * 1.5))) if _bp_sigma > 0 else 8
+                        _bp_tp_ticks = (max(8, int(round(_bypass_belief.predicted_mfe)))
+                                        if _bypass_belief.predicted_mfe > 2.0 else 20)
+
+                        _bypass_risk_ok = True
+                        if _equity_enabled:
+                            _max_loss_usd = _bp_sl_ticks * self.asset.tick_size * self.asset.point_value
+                            if _max_loss_usd > running_equity * 0.50:
+                                skipped_ruin += 1
+                                _bypass_risk_ok = False
+
+                        if _bypass_risk_ok:
+                            self.wave_rider.open_position(
+                                entry_price=price,
+                                side=side,
+                                state=_bypass_candidate.state,
+                                stop_distance_ticks=_bp_sl_ticks,
+                                profit_target_ticks=_bp_tp_ticks,
+                                template_id=-1,
+                            )
+                            current_position_open = True
+                            active_entry_price    = price
+                            active_entry_time     = ts_raw
+                            active_side           = side
+                            active_template_id    = -1
+                            depth_traded[getattr(_bypass_candidate, 'depth', 6)] += 1
+                            pending_oracle = {
+                                'template_id':      -1,
+                                'direction':        'LONG' if side == 'long' else 'SHORT',
+                                'entry_price':      price,
+                                'entry_time':       ts,
+                                'entry_depth':      getattr(_bypass_candidate, 'depth', 6),
+                                'oracle_label':     _effective_oracle(_bypass_candidate),
+                                'oracle_label_name': 'WORKER_BYPASS',
+                                'oracle_mfe':       getattr(_bypass_candidate, 'oracle_meta', {}).get('mfe', 0.0),
+                                'oracle_mae':       getattr(_bypass_candidate, 'oracle_meta', {}).get('mae', 0.0),
+                                'long_bias':        0.0,
+                                'short_bias':       0.0,
+                                'dmi_diff':         round(
+                                    getattr(_bypass_candidate.state, 'dmi_plus',  0.0)
+                                  - getattr(_bypass_candidate.state, 'dmi_minus', 0.0), 2),
+                                'belief_active_levels': _bypass_belief.active_levels,
+                                'belief_conviction':    round(_bypass_belief.conviction, 4),
+                                'wave_maturity':        round(_bypass_belief.wave_maturity, 4),
+                                'decision_wave_maturity': round(_bypass_belief.decision_wave_maturity, 4),
+                                'entry_workers':    __import__('json').dumps(belief_network.get_worker_snapshot()),
+                            }
                     else:
                         # Audit all candidates as SKIPPED
                         for p in candidates:
