@@ -242,6 +242,7 @@ class Position:
     trailing_stop_ticks: Optional[int] = None
     trail_activation_ticks: Optional[int] = None  # profit ticks needed before trail engages
     original_trail_ticks: Optional[int] = None    # Store initial trail setting for reference
+    last_adjustment_reason: Optional[str] = None  # belief reason that last tightened/widened trail
 
 
 class WaveRider:
@@ -429,12 +430,14 @@ class WaveRider:
                 # Reduce trail by 30% (min: 2 ticks)
                 _new_trail = max(self.MIN_TRAIL_TICKS, int(self.position.trailing_stop_ticks * self.TIGHTEN_TRAIL_FACTOR))
                 self.position.trailing_stop_ticks = _new_trail
+                self.position.last_adjustment_reason = exit_signal.get('reason', 'tighten')
 
             if exit_signal.get('widen_trail') and self.position.trailing_stop_ticks is not None:
                 # Increase trail by 20% (max: original_trail * 2.0)
                 _base = self.position.original_trail_ticks or self.position.trailing_stop_ticks
                 _max_trail = _base * self.MAX_ORIGINAL_TRAIL_MULTIPLIER
                 self.position.trailing_stop_ticks = min(_max_trail, int(self.position.trailing_stop_ticks * self.WIDEN_TRAIL_FACTOR))
+                self.position.last_adjustment_reason = exit_signal.get('reason', 'widen')
 
         # Update High Water Mark
         if self.position.side == 'short':
@@ -508,11 +511,12 @@ class WaveRider:
             )
             self.pending_reviews.append(review)
             
-            # Capture data for return
+            # Capture data for return (before clearing position)
             entry_price = self.position.entry_price
             entry_time = self.position.entry_time
             side = self.position.side
-            
+            _adj_reason = self.position.last_adjustment_reason or ''
+
             # Clear position (but NOT price history/pending reviews)
             self.position = None
 
@@ -542,6 +546,7 @@ class WaveRider:
                 'should_exit': True,
                 'exit_price': current_price,
                 'exit_reason': exit_reason,
+                'adjustment_reason': _adj_reason,  # belief reason that last adjusted the trail
                 'pnl': profit_usd,
                 'regret_markers': partial_markers
             }

@@ -487,27 +487,36 @@ class BayesianTrainingOrchestrator:
 
         def _dm_rec(p, gate, day, ts_val, micro_z_val, macro_z_val, pattern_val,
                     dist=0.0, conviction=0.0, template_id='', tier=''):
-            """Build one decision-matrix record for a skipped candidate."""
+            """Build one signal-log record. Trade outcome fields default to empty."""
             om   = _effective_oracle(p)
             meta = getattr(p, 'oracle_meta', None) or {}
             mfe  = float(meta.get('mfe', 0.0)) if isinstance(meta, dict) else 0.0
             olbl = {2:'MEGA', 1:'SCALP', 0:'NOISE', -1:'SCALP', -2:'MEGA'}.get(om, 'NOISE')
             opnl = round(abs(mfe) * self.asset.point_value, 2)
             return {
+                # Detection context
                 'ts': ts_val, 'day': day, 'depth': getattr(p, 'depth', 6),
                 'pattern': pattern_val or '', 'micro_z': round(micro_z_val, 2),
-                'macro_z': round(macro_z_val, 2), 'gate': gate,
+                'macro_z': round(macro_z_val, 2),
+                # Gate decision
+                'gate': gate,
                 'gate1_dist': round(dist, 3), 'gate3_conv': round(conviction, 3),
+                # Oracle ground truth
                 'oracle_label': olbl,
                 'oracle_dir': 'LONG' if om > 0 else ('SHORT' if om < 0 else 'NONE'),
                 'oracle_pnl': opnl,
                 'template_id': str(template_id), 'tier': str(tier),
+                # Trade outcome (filled in later if gate='traded')
+                'trade_direction': '', 'trade_result': '', 'trade_pnl': 0.0,
+                'exit_reason': '', 'exit_signal_reason': '',
+                'exit_conviction': 0.0, 'exit_wave_maturity': 0.0,
             }
 
         # Per-trade oracle tracking
         _ORACLE_LABEL_NAMES = {2: 'MEGA_LONG', 1: 'SCALP_LONG', 0: 'NOISE', -1: 'SCALP_SHORT', -2: 'MEGA_SHORT'}
         oracle_trade_records = []  # completed per-trade oracle dicts
         pending_oracle = None      # oracle facts for currently open trade
+        _pending_dm_idx = None     # index into decision_matrix_records for open trade
         fn_potential_pnl = 0.0    # dollar potential of real moves we skipped
 
         # PID Shadow Log
@@ -749,11 +758,27 @@ class BayesianTrainingOrchestrator:
                                 # Worker snapshot at exit: compare vs entry_workers to find direction flips
                                 'exit_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
                                 # Dynamic Exit Fields
+                                # adjustment_reason = the belief signal that LAST tightened/widened
+                                # the trail (root cause). Falls back to current-bar signal if no
+                                # adjustment happened (standard trail, PT, urgent flip).
                                 'exit_conviction':    _exit_sig.get('conviction', 0.0),
                                 'exit_wave_maturity': _exit_sig.get('wave_maturity', 0.0),
-                                'exit_signal_reason': _exit_sig.get('reason', ''),
+                                'exit_signal_reason': (res.get('adjustment_reason') or
+                                                       _exit_sig.get('reason', '')),
                             })
+                            # Update signal-log record with trade outcome
+                            if _pending_dm_idx is not None:
+                                decision_matrix_records[_pending_dm_idx].update({
+                                    'trade_result':       outcome.result,
+                                    'trade_pnl':          round(outcome.pnl, 2),
+                                    'exit_reason':        outcome.exit_reason,
+                                    'exit_signal_reason': (res.get('adjustment_reason') or
+                                                           _exit_sig.get('reason', '')),
+                                    'exit_conviction':    _exit_sig.get('conviction', 0.0),
+                                    'exit_wave_maturity': _exit_sig.get('wave_maturity', 0.0),
+                                })
                             pending_oracle = None
+                            _pending_dm_idx = None
 
                 # 2. Check for entries (if no position)
                 # Equity ruin check: simulation ends when equity hits 0 (no money to trade).
@@ -1131,6 +1156,21 @@ class BayesianTrainingOrchestrator:
                             'entry_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
                         }
 
+                        # Signal log: add 'traded' record, save index for outcome update
+                        _bc_mz  = round(abs(best_candidate.z_score), 2)
+                        _bc_mac = round(abs((getattr(best_candidate, 'parent_chain', None) or [{}])[-1].get('z', 0.0)), 2)
+                        _dm_entry = _dm_rec(
+                            best_candidate, 'traded', day_date, ts,
+                            _bc_mz, _bc_mac,
+                            getattr(best_candidate, 'pattern_type', ''),
+                            dist=best_dist,
+                            conviction=round(_belief.conviction, 3) if _belief else 0.0,
+                            template_id=best_tid,
+                            tier=template_tier_map.get(best_tid, 3))
+                        _dm_entry['trade_direction'] = 'LONG' if side == 'long' else 'SHORT'
+                        decision_matrix_records.append(_dm_entry)
+                        _pending_dm_idx = len(decision_matrix_records) - 1
+
                         # AUDIT: True Positive or False Positive
                         audit_outcome = TradeOutcome(
                             state=best_candidate.state,
@@ -1235,6 +1275,19 @@ class BayesianTrainingOrchestrator:
                                 'decision_wave_maturity': round(_bypass_belief.decision_wave_maturity, 4),
                                 'entry_workers':    __import__('json').dumps(belief_network.get_worker_snapshot()),
                             }
+                            # Signal log: bypass trade record
+                            _bp_mz  = round(abs(_bypass_candidate.z_score), 2)
+                            _bp_mac = round(abs((getattr(_bypass_candidate, 'parent_chain', None) or [{}])[-1].get('z', 0.0)), 2)
+                            _dm_bypass = _dm_rec(
+                                _bypass_candidate, 'traded', day_date, ts,
+                                _bp_mz, _bp_mac,
+                                getattr(_bypass_candidate, 'pattern_type', ''),
+                                dist=_bypass_dist,
+                                conviction=round(_bypass_belief.conviction, 3),
+                                template_id=-1, tier='bypass')
+                            _dm_bypass['trade_direction'] = 'LONG' if side == 'long' else 'SHORT'
+                            decision_matrix_records.append(_dm_bypass)
+                            _pending_dm_idx = len(decision_matrix_records) - 1
                     else:
                         # Audit all candidates as SKIPPED
                         for p in candidates:
@@ -1264,6 +1317,7 @@ class BayesianTrainingOrchestrator:
                 pos = self.wave_rider.position
                 # Get final exit signal for logging
                 _eod_sig = belief_network.get_exit_signal(pos.side)
+                _eod_adj_reason = pos.last_adjustment_reason or ''  # capture before clearing
 
                 if pos.side == 'short':
                     eod_pnl = (pos.entry_price - price) * self.asset.point_value
@@ -1319,9 +1373,20 @@ class BayesianTrainingOrchestrator:
                         'exit_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
                         'exit_conviction':    _eod_sig.get('conviction', 0.0),
                         'exit_wave_maturity': _eod_sig.get('wave_maturity', 0.0),
-                        'exit_signal_reason': _eod_sig.get('reason', ''),
+                        'exit_signal_reason': (_eod_adj_reason or _eod_sig.get('reason', '')),
                     })
+                    # Update signal-log record with trade outcome
+                    if _pending_dm_idx is not None:
+                        decision_matrix_records[_pending_dm_idx].update({
+                            'trade_result':       outcome.result,
+                            'trade_pnl':          round(outcome.pnl, 2),
+                            'exit_reason':        'TIME_EXIT',
+                            'exit_signal_reason': (_eod_adj_reason or _eod_sig.get('reason', '')),
+                            'exit_conviction':    _eod_sig.get('conviction', 0.0),
+                            'exit_wave_maturity': _eod_sig.get('wave_maturity', 0.0),
+                        })
                     pending_oracle = None
+                    _pending_dm_idx = None
 
             # Analyze day
             if _equity_enabled and account_ruined:
@@ -1746,13 +1811,15 @@ class BayesianTrainingOrchestrator:
         # Per-candidate log: every skipped signal with gate decision + oracle context.
         # Answers: which gate blocks the most money? which patterns are mis-directed?
         if decision_matrix_records:
-            _dm_name = 'oos_decision_matrix.csv' if oos_mode else 'decision_matrix.csv'
+            _dm_name = 'oos_signal_log.csv' if oos_mode else 'signal_log.csv'
             _dm_path = os.path.join(self.checkpoint_dir, _dm_name)
             with open(_dm_path, 'w', newline='', encoding='utf-8') as _dmf:
                 _dm_writer = _csv.DictWriter(_dmf, fieldnames=list(decision_matrix_records[0].keys()))
                 _dm_writer.writeheader()
                 _dm_writer.writerows(decision_matrix_records)
-            report_lines.append(f"  Decision matrix saved: {_dm_path}  ({len(decision_matrix_records):,} skipped candidates)")
+            _n_traded = sum(1 for r in decision_matrix_records if r['gate'] == 'traded')
+            _n_skipped = len(decision_matrix_records) - _n_traded
+            report_lines.append(f"  Signal log saved: {_dm_path}  ({_n_traded} traded  +  {_n_skipped:,} skipped)")
 
             # ── Decision matrix summary ───────────────────────────────────────────
             from collections import defaultdict as _dd
