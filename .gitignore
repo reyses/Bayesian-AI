@@ -11,6 +11,7 @@ venv/
 env/
 .DS_Store
 training/training_progress.json
+*.zst
 *.pkl
 *.parquet
 nul
