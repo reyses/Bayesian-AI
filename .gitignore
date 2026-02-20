@@ -15,3 +15,4 @@ training/training_progress.json
 *.pkl
 *.parquet
 nul
+debug_outputs\training_pattern_report.txt
