@@ -695,6 +695,36 @@ class QuantumFieldEngine:
         elif isinstance(day_data.index, pd.DatetimeIndex):
             timestamps = day_data.index.astype('int64').values / 1e9
 
+        # ─── PID Control Force ──────────────────────────────────────────────────────
+        # Models the algorithmic market-maker control force acting on price at each bar.
+        # P = proportional to current deviation from equilibrium (z_score)
+        # I = integral of accumulated deviation (cumulative bias)
+        # D = derivative = rate of change of z_score (dampening)
+        pid_kp = params.get('pid_kp', DEFAULT_PID_KP)   # 0.5
+        pid_ki = params.get('pid_ki', DEFAULT_PID_KI)   # 0.1
+        pid_kd = params.get('pid_kd', DEFAULT_PID_KD)   # 0.2
+
+        pid_p       = pid_kp * z_scores
+        pid_i       = pid_ki * np.clip(np.cumsum(z_scores), -10.0, 10.0)
+        pid_d       = np.zeros_like(z_scores)
+        pid_d[1:]   = pid_kd * np.diff(z_scores)
+        term_pid_arr = pid_p + pid_i + pid_d   # shape: (n,)
+
+        # ─── Oscillation Coherence ──────────────────────────────────────────────────
+        # Rolling std of z_score over a short window.  Low std = tight periodic
+        # oscillation (PID regime).  High std = chaotic / trending.
+        # Inverted and normalised to (0, 1] so 1 = perfectly tight oscillation.
+        _ow = min(5, rp)
+        osc_std = np.full(n, np.nan)
+        if n >= _ow:
+             z_windows = sliding_window_view(z_scores, window_shape=_ow)
+             osc_std[_ow-1:] = z_windows.std(axis=1, ddof=1)
+             if n > _ow - 1:
+                  osc_std[:_ow - 1] = osc_std[_ow - 1]
+
+        oscillation_coherence_arr = 1.0 / (1.0 + osc_std)   # (0, 1]
+        np.nan_to_num(oscillation_coherence_arr, copy=False, nan=0.0)
+
         # Reconstruct result list
         results = []
 
@@ -765,7 +795,8 @@ class QuantumFieldEngine:
                 hurst_exponent=hurst_arr[i],
                 adx_strength=adx_arr[i], dmi_plus=dmi_plus_arr[i], dmi_minus=dmi_minus_arr[i],
                 sigma_fractal=sigma[i],
-                term_pid=0.0,
+                term_pid=float(term_pid_arr[i]),
+                oscillation_coherence=float(oscillation_coherence_arr[i]),
                 lyapunov_exponent=0.0,
                 market_regime='STABLE',
                 timestamp=timestamps[i]
