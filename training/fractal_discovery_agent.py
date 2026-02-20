@@ -688,7 +688,8 @@ class FractalDiscoveryAgent:
             'z': p.z_score,
             'mom': p.momentum,
             'coh': p.coherence,
-            'timestamp': p.timestamp
+            'timestamp': p.timestamp,
+            'oracle_marker': getattr(p, 'oracle_marker', 0),
         }
         return [chain_entry] + (p.parent_chain or [])
 
