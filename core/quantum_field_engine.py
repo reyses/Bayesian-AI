@@ -84,6 +84,62 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+@numba.jit(nopython=True, cache=True)
+def _compute_rs_numba(returns, w):
+    """
+    Numba-optimized rolling R/S calculation (single pass).
+    Computes log(R/S) for every possible window of size w.
+    """
+    n = len(returns)
+    out_len = n - w + 1
+    # Check if output length is valid
+    if out_len <= 0:
+        return np.array([0.0], dtype=np.float64) # Should not happen given caller checks
+
+    log_rs = np.empty(out_len, dtype=np.float64)
+
+    for i in range(out_len):
+        # 1. Mean
+        sum_r = 0.0
+        for j in range(w):
+            sum_r += returns[i+j]
+        mean_r = sum_r / w
+
+        # 2. Range and Std
+        min_dev = 0.0
+        max_dev = 0.0
+        curr_dev = 0.0
+        sum_sq_diff = 0.0
+
+        for j in range(w):
+            diff = returns[i+j] - mean_r
+            curr_dev += diff
+
+            if curr_dev > max_dev:
+                max_dev = curr_dev
+            if curr_dev < min_dev:
+                min_dev = curr_dev
+
+            sum_sq_diff += diff * diff
+
+        R = max_dev - min_dev
+
+        if w > 1:
+            S = math.sqrt(sum_sq_diff / (w - 1))
+        else:
+            S = 0.0
+
+        if S < 1e-10:
+            S = 1e-10
+
+        RS = R / S
+        if RS < 1e-10:
+            RS = 1e-10
+
+        log_rs[i] = math.log(RS)
+
+    return log_rs
+
 class QuantumFieldEngine:
     """
     Unified field calculator — GPU-accelerated when CUDA available
@@ -256,18 +312,10 @@ class QuantumFieldEngine:
 
         for sz in unique_sizes:
             w_ret = sz - 1
-            # Vectorized R/S over all possible windows of size w_ret
-            windows = sliding_window_view(all_returns, window_shape=w_ret)
-
-            mean_r = windows.mean(axis=1, keepdims=True)
-            devs = np.cumsum(windows - mean_r, axis=1)
-            R = devs.max(axis=1) - devs.min(axis=1)
-            S = windows.std(axis=1, ddof=1)
-            S = np.maximum(S, 1e-10)
-
-            RS = R / S
-            log_RS = np.log(np.maximum(RS, 1e-10))
-
+            # Numba optimized R/S calculation
+            # This is significantly faster (O(N) effective vs O(N*W) allocation overhead)
+            # and avoids large memory allocations for `windows` and `devs`
+            log_RS = _compute_rs_numba(all_returns, w_ret)
             size_results[sz] = log_RS
 
         Y_rows = []
