@@ -278,6 +278,12 @@ class TimeframeBeliefNetwork:
     MIN_CONVICTION     = 0.48   # skip trade if path conviction below this (physics at z=0 gives 0.50)
     MIN_ACTIVE_LEVELS  = 3      # need >=3 active TF levels for a signal
     DEFAULT_DECISION_TF = 300   # 5m: default scale at which to read predicted_mfe
+
+    # Dynamic Exit Thresholds
+    URGENT_EXIT_CONVICTION_THRESHOLD = 0.70
+    TIGHTEN_TRAIL_WAVE_MATURITY_THRESHOLD = 0.65
+    WIDEN_TRAIL_WAVE_MATURITY_THRESHOLD = 0.30
+
     _TF_LABELS = {3600:'1h', 1800:'30m', 900:'15m', 300:'5m',
                   180:'3m',  60:'1m',   30:'30s',   15:'15s',
                   5:'5s',    1:'1s'}
@@ -550,6 +556,57 @@ class TimeframeBeliefNetwork:
     # ------------------------------------------------------------------
     # DIAGNOSTICS
     # ------------------------------------------------------------------
+
+    def get_exit_signal(self, side: str) -> dict:
+        """
+        Called every bar while a position is open.
+        Returns a dict with exit adjustment recommendations.
+
+        side: 'long' or 'short' — the current position direction.
+
+        Returns:
+            {
+              'tighten_trail': bool,   # shrink trail stop distance
+              'widen_trail':   bool,   # grow trail stop (conviction is high)
+              'urgent_exit':   bool,   # exit NOW (direction flipped, high conviction)
+              'conviction':    float,  # current path conviction
+              'wave_maturity': float,  # decision TF wave maturity
+              'reason':        str,    # human-readable reason
+            }
+        """
+        belief = self.get_belief()
+        if belief is None:
+            return {'tighten_trail': False, 'widen_trail': False,
+                    'urgent_exit': False, 'conviction': 0.0,
+                    'wave_maturity': 0.0, 'reason': 'no_belief'}
+
+        trade_long = (side == 'long')
+        belief_long = (belief.direction == 'long')
+        direction_aligned = (trade_long == belief_long)
+        wave_mature = belief.decision_wave_maturity  # decision TF worker only
+
+        # Urgent exit: high conviction in the OPPOSITE direction
+        urgent = belief.is_confident and not direction_aligned and belief.conviction > self.URGENT_EXIT_CONVICTION_THRESHOLD
+
+        # Tighten: conviction is low OR wave is mature (approaching reversal zone)
+        tighten = (not belief.is_confident) or (wave_mature > self.TIGHTEN_TRAIL_WAVE_MATURITY_THRESHOLD)
+
+        # Widen: strong conviction aligned with trade direction, wave is fresh
+        widen = belief.is_confident and direction_aligned and wave_mature < self.WIDEN_TRAIL_WAVE_MATURITY_THRESHOLD
+
+        reason = ('urgent_flip' if urgent else
+                  'low_conviction' if not belief.is_confident else
+                  'wave_mature' if wave_mature > self.TIGHTEN_TRAIL_WAVE_MATURITY_THRESHOLD else
+                  'aligned_fresh' if widen else 'neutral')
+
+        return {
+            'tighten_trail': tighten and not urgent,
+            'widen_trail':   widen,
+            'urgent_exit':   urgent,
+            'conviction':    belief.conviction,
+            'wave_maturity': wave_mature,
+            'reason':        reason,
+        }
 
     def summary(self) -> str:
         """One-line status of all workers."""
