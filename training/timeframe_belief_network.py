@@ -540,6 +540,13 @@ class TimeframeBeliefNetwork:
                 }
         return snap
 
+    def get_worker_state_counts(self) -> dict:
+        """Return {tf_label: n_states} for every worker. 0 = worker has no data."""
+        return {
+            self._TF_LABELS.get(tf, str(tf)): len(w._states)
+            for tf, w in self.workers.items()
+        }
+
     # ------------------------------------------------------------------
     # DIAGNOSTICS
     # ------------------------------------------------------------------
