@@ -695,7 +695,10 @@ class BayesianTrainingOrchestrator:
 
                 # 1. Manage existing position
                 if self.wave_rider.position is not None:
-                    res = self.wave_rider.update_trail(price, None, ts_raw)
+                    # Get exit signal from belief network every bar
+                    _exit_sig = belief_network.get_exit_signal(self.wave_rider.position.side)
+                    res = self.wave_rider.update_trail(price, None, ts_raw, exit_signal=_exit_sig)
+
                     if res['should_exit']:
                         outcome = TradeOutcome(
                             state=active_template_id,
@@ -745,6 +748,10 @@ class BayesianTrainingOrchestrator:
                                 'result': outcome.result,
                                 # Worker snapshot at exit: compare vs entry_workers to find direction flips
                                 'exit_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
+                                # Dynamic Exit Fields
+                                'exit_conviction':    _exit_sig.get('conviction', 0.0),
+                                'exit_wave_maturity': _exit_sig.get('wave_maturity', 0.0),
+                                'exit_signal_reason': _exit_sig.get('reason', ''),
                             })
                             pending_oracle = None
 
@@ -1255,6 +1262,9 @@ class BayesianTrainingOrchestrator:
             # End of day cleanup -- force close any open position
             if self.wave_rider.position is not None:
                 pos = self.wave_rider.position
+                # Get final exit signal for logging
+                _eod_sig = belief_network.get_exit_signal(pos.side)
+
                 if pos.side == 'short':
                     eod_pnl = (pos.entry_price - price) * self.asset.point_value
                 else:
@@ -1307,6 +1317,9 @@ class BayesianTrainingOrchestrator:
                         'capture_rate': round(min(capture, 9.99), 4),
                         'result': outcome.result,
                         'exit_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
+                        'exit_conviction':    _eod_sig.get('conviction', 0.0),
+                        'exit_wave_maturity': _eod_sig.get('wave_maturity', 0.0),
+                        'exit_signal_reason': _eod_sig.get('reason', ''),
                     })
                     pending_oracle = None
 
@@ -1473,7 +1486,38 @@ class BayesianTrainingOrchestrator:
                 report_lines.append(
                     f"    depth {_d:<3} {_cnt:>7,} {_wr:>6.0f}% ${_tot:>10,.2f} ${_avg:>9.2f}{_flag}")
 
-        # ── 2f. Worker agreement analysis ────────────────────────────────────────
+        # ── 2f. Dynamic Exit Quality ─────────────────────────────────────────────
+        if oracle_trade_records and 'exit_signal_reason' in oracle_trade_records[0]:
+            report_lines.append("")
+            report_lines.append(f"  DYNAMIC EXIT QUALITY:")
+
+            # Buckets
+            # Belief-flip exits: urgent_flip
+            # Trail-tightened: low_conviction, wave_mature
+            # Trail-widened: aligned_fresh
+            # Standard trail: neutral, no_belief
+
+            # Note: exit_signal_reason is the STATE at exit.
+            # If exit_reason was 'belief_flip', it maps to 'Belief-flip exits'.
+            # Otherwise we group by signal reason.
+
+            b_flip     = [r for r in oracle_trade_records if r.get('exit_signal_reason') == 'urgent_flip']
+            b_tight    = [r for r in oracle_trade_records if r.get('exit_signal_reason') in ('low_conviction', 'wave_mature')]
+            b_widen    = [r for r in oracle_trade_records if r.get('exit_signal_reason') == 'aligned_fresh']
+            b_standard = [r for r in oracle_trade_records if r.get('exit_signal_reason') in ('neutral', 'no_belief', '')]
+
+            def _stats(subset):
+                if not subset: return "0 trades"
+                n = len(subset)
+                avg = sum(r['actual_pnl'] for r in subset) / n
+                return f"{n:>5} trades  ->  avg PnL ${avg:>7.2f}"
+
+            report_lines.append(f"    Belief-flip exits:  {_stats(b_flip)}")
+            report_lines.append(f"    Trail-tightened:    {_stats(b_tight)}")
+            report_lines.append(f"    Trail-widened:      {_stats(b_widen)}")
+            report_lines.append(f"    Standard trail:     {_stats(b_standard)}")
+
+        # ── 2g. Worker agreement analysis ────────────────────────────────────────
         # For each TF worker: what fraction of the time did it agree with the
         # trade direction at entry? Compare wins vs losses to find who is predictive.
         # Also: which workers FLIPPED direction by exit? That likely caused the loss.
