@@ -226,9 +226,8 @@ class BayesianTrainingOrchestrator:
         for i in range(bar_idx + 1, bar_idx + 1 + lookahead):
             # Access by position for speed
             row = day_bars.iloc[i]
-            # Use getattr for flexibility if row is tuple or series
-            hi = getattr(row, 'high', row['high']) if hasattr(row, 'high') else row['high']
-            lo = getattr(row, 'low', row['low']) if hasattr(row, 'low') else row['low']
+            hi = row['high']
+            lo = row['low']
 
             if sig.direction == 'LONG':
                 if lo <= sig.stop_price:
@@ -252,7 +251,7 @@ class BayesianTrainingOrchestrator:
         else:
             # Neither hit within 10 min — use last bar's close vs entry
             last_row = day_bars.iloc[min(bar_idx + lookahead, len(day_bars)-1)]
-            last_close = getattr(last_row, 'close', last_row['close']) if hasattr(last_row, 'close') else last_row['close']
+            last_close = last_row['close']
 
             diff = (last_close - sig.entry_price) if sig.direction == 'LONG' \
                    else (sig.entry_price - last_close)
@@ -512,7 +511,7 @@ class BayesianTrainingOrchestrator:
 
             # Reset PID analyzer for the day
             _day_sigmas = [s['state'].sigma_fractal for s in _states_15s if s['state'].sigma_fractal > 0]
-            day_sigma = np.mean(_day_sigmas) if _day_sigmas else 1.0
+            day_sigma = np.nanmean(_day_sigmas) if _day_sigmas else 1.0
             self.pid_analyzer.reset(sigma=day_sigma)
 
             # Map states for fast access by bar_idx
@@ -992,9 +991,9 @@ class BayesianTrainingOrchestrator:
                                 # Skip if PID regime covers this bar (handled by PID analyzer)
                                 # Thresholds: |term_pid| >= 0.3, osc_coh >= 0.5, adx <= 30.0
                                 _s = p.state
-                                _is_pid = (abs(getattr(_s, 'term_pid', 0.0)) >= 0.3
-                                           and getattr(_s, 'oscillation_coherence', 0.0) >= 0.5
-                                           and getattr(_s, 'adx_strength', 100.0) <= 30.0)
+                                _is_pid = (abs(_s.term_pid) >= 0.3
+                                           and _s.oscillation_coherence >= 0.5
+                                           and _s.adx_strength <= 30.0)
                                 if _is_pid:
                                      # Not counted as fractal FN failure because PID analyzer handles it
                                      continue
