@@ -426,10 +426,12 @@ class TimeframeBeliefNetwork:
     @staticmethod
     def state_to_features(state, tf_secs: int, depth: int = 0) -> list:
         """
-        Convert ThreeBodyQuantumState -> 14D feature vector.
+        Convert ThreeBodyQuantumState -> 16D feature vector.
         Same order as FractalClusteringEngine.extract_features().
         Ancestry features (parent_z, parent_dmi_diff, root_is_roche, tf_alignment)
         are 0.0 because live TF-aggregated bars have no parent chain context.
+        PID features (term_pid, oscillation_coherence) default to 0.0 if the
+        engine hasn't computed them yet (safe fallback).
 
         velocity and momentum use log1p(|x|) compression -- must match
         FractalClusteringEngine.extract_features() exactly.
@@ -449,11 +451,16 @@ class TimeframeBeliefNetwork:
         v_feat = np.log1p(abs(v))
         m_feat = np.log1p(abs(m))
 
+        # PID / oscillation features (positions 14-15 in the 16D vector)
+        self_pid     = getattr(state, 'term_pid',              0.0)
+        self_osc_coh = getattr(state, 'oscillation_coherence', 0.0)
+
         # Ancestry = 0.0 (no parent chain for live aggregated TF bars)
         return [abs(z), v_feat, m_feat, c,
                 tf_scale, float(depth), 0.0,
                 self_adx, self_hurst, self_dmi,
-                0.0, 0.0, 0.0, 0.0]
+                0.0, 0.0, 0.0, 0.0,
+                self_pid, self_osc_coh]
 
     # ------------------------------------------------------------------
     # WORKER SNAPSHOT

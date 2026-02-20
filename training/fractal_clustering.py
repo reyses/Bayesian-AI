@@ -96,8 +96,8 @@ class FractalClusteringEngine:
     @staticmethod
     def extract_features(p: Any) -> List[float]:
         """
-        Extracts 14D feature vector from a PatternEvent.
-        [7 base] + [3 self regime] + [4 ancestry]
+        Extracts 16D feature vector from a PatternEvent.
+        [7 base] + [3 self regime] + [2 PID] + [4 ancestry]
 
         velocity and momentum use log1p(|x|) compression so that
         high-timeframe bars (where volume * velocity blows up) remain
