@@ -311,6 +311,26 @@ class BayesianTrainingOrchestrator:
         centroids_scaled = self.scaler.transform(centroids)
         print(f"  Prepared {len(valid_template_ids)} centroids for matching.")
 
+        # Pre-compute templates that earned a Gate 0 Rule 3 exception via data quality.
+        # A template earns an exception if: enough members + positive win rate + low residuals.
+        _EXCEPTION_MIN_MEMBERS  = 10
+        _EXCEPTION_MIN_WIN_RATE = 0.55
+        _EXCEPTION_MAX_SIGMA    = 10.0   # ticks; low = consistent behaviour
+        _exception_tids = set()
+        for _etid in valid_template_ids:
+            _elib = self.pattern_library.get(_etid, {})
+            _en   = _elib.get('n_members', 0)
+            _ewr  = _elib.get('stats_win_rate', 0.0)
+            _esig = _elib.get('regression_sigma_ticks', None)
+            if (_en >= _EXCEPTION_MIN_MEMBERS
+                    and _ewr >= _EXCEPTION_MIN_WIN_RATE
+                    and _esig is not None
+                    and _esig <= _EXCEPTION_MAX_SIGMA):
+                _exception_tids.add(_etid)
+        print(f"  Gate 0 exception templates: {len(_exception_tids)} / {len(valid_template_ids)} "
+              f"(>={_EXCEPTION_MIN_MEMBERS} members, WR>={_EXCEPTION_MIN_WIN_RATE:.0%}, "
+              f"sigma<={_EXCEPTION_MAX_SIGMA} ticks)")
+
         # Fractal belief network: 8 TF workers (1h -> 15s), path conviction
         # Each worker: Task1 = aggregate TF bars (once/day), Task2 = cluster match + regression
         # 1h worker fires ~7x/day (light); 15s fires every bar (heavy: top-3 matching)
@@ -356,6 +376,20 @@ class BayesianTrainingOrchestrator:
         audit_fp_wrong = 0
         audit_tn = 0
         audit_fn = 0
+
+        def _effective_oracle(p) -> int:
+            """Return the strongest oracle marker across the full macro-to-leaf chain.
+            If the leaf pattern is NOISE but a macro ancestor says MEGA_LONG, use that.
+            Chain is ordered leaf-first (index 0) → root (last), so we scan all entries
+            and keep the one with the highest |oracle_marker|.
+            """
+            leaf_om = getattr(p, 'oracle_marker', 0)
+            best = leaf_om
+            for ce in (getattr(p, 'parent_chain', None) or []):
+                macro_om = ce.get('oracle_marker', 0)
+                if abs(macro_om) > abs(best):
+                    best = macro_om
+            return best
 
         # Per-trade oracle tracking
         _ORACLE_LABEL_NAMES = {2: 'MEGA_LONG', 1: 'SCALP_LONG', 0: 'NOISE', -1: 'SCALP_SHORT', -2: 'MEGA_SHORT'}
@@ -532,41 +566,57 @@ class BayesianTrainingOrchestrator:
                         macro_z = abs(root_entry['z']) if root_entry else 0.0
 
                         should_skip = False
+                        _skip_label = 'gate0'
 
-                        # RULE 1: No pattern = no trade
-                        if not micro_pattern:
-                            should_skip = True
+                        # DATA-QUALITY OVERRIDE: if this pattern maps to a high-quality
+                        # template (>=10 members, WR>=55%, sigma<=10 ticks) it is admitted
+                        # regardless of which structural rule would have blocked it.
+                        # "Predictable structure + low residuals" beats any physics heuristic.
+                        _data_override = False
+                        if _exception_tids and micro_pattern:
+                            _e_feat    = np.array([FractalClusteringEngine.extract_features(p)])
+                            _e_scaled  = self.scaler.transform(_e_feat)
+                            _e_dists   = np.linalg.norm(centroids_scaled - _e_scaled, axis=1)
+                            _e_nearest = int(np.argmin(_e_dists))
+                            if (_e_dists[_e_nearest] < 4.5
+                                    and valid_template_ids[_e_nearest] in _exception_tids):
+                                _data_override = True
 
-                        # RULE 2: Noise zone (<0.5 sigma)
-                        elif micro_z < 0.5:
-                            should_skip = True
-
-                        # RULE 3: Approach zone (0.5 - 2.0 sigma)
-                        elif 0.5 <= micro_z < 2.0:
-                            if micro_pattern == 'STRUCTURAL_DRIVE':
-                                # Only trade if strong trend confirmed
-                                if p.state.adx_strength < _ADX_TREND_CONFIRMATION or p.state.hurst_exponent < _HURST_TREND_CONFIRMATION:
-                                    should_skip = True
-                            elif micro_pattern == 'ROCHE_SNAP':
-                                # Snap hasn't reached tradeable zone
+                        if not _data_override:
+                            # RULE 1: No pattern = no trade
+                            if not micro_pattern:
                                 should_skip = True
 
-                        # RULE 4: Mean Reversion / Extreme zone (>= 2.0 sigma)
-                        elif micro_z >= 2.0:
-                            headroom = macro_z < 2.0
+                            # RULE 2: Noise zone (<0.5 sigma)
+                            elif micro_z < 0.5:
+                                should_skip = True
+                                _skip_label = 'gate0_noise'
 
-                            if micro_pattern == 'ROCHE_SNAP':
-                                # Extreme + Wall = Nightmare Field (Skip)
-                                if not headroom and micro_z > 3.0:
+                            # RULE 3: Approach zone (0.5 - 2.0 sigma)
+                            elif 0.5 <= micro_z < 2.0:
+                                if micro_pattern == 'STRUCTURAL_DRIVE':
+                                    if p.state.adx_strength < _ADX_TREND_CONFIRMATION or p.state.hurst_exponent < _HURST_TREND_CONFIRMATION:
+                                        should_skip = True
+                                        _skip_label = 'gate0_r3_struct'
+                                elif micro_pattern == 'ROCHE_SNAP':
                                     should_skip = True
-                            elif micro_pattern == 'STRUCTURAL_DRIVE':
-                                # Momentum into a wall = don't chase
-                                if not headroom:
-                                    should_skip = True
+                                    _skip_label = 'gate0_r3_snap'
+
+                            # RULE 4: Mean Reversion / Extreme zone (>= 2.0 sigma)
+                            elif micro_z >= 2.0:
+                                headroom = macro_z < 2.0
+                                if micro_pattern == 'ROCHE_SNAP':
+                                    if not headroom and micro_z > 3.0:
+                                        should_skip = True
+                                        _skip_label = 'gate0_r4_nightmare'
+                                elif micro_pattern == 'STRUCTURAL_DRIVE':
+                                    if not headroom:
+                                        should_skip = True
+                                        _skip_label = 'gate0_r4_struct'
 
                         if should_skip:
                             skip_headroom += 1
-                            _candidate_gate[id(p)] = 'gate0'
+                            _candidate_gate[id(p)] = _skip_label
                             continue
 
                         # Gate 0.5: depth filter -- exclude depths that had negative avg
@@ -633,7 +683,7 @@ class BayesianTrainingOrchestrator:
                         _DMI_THRESH  = dmi_threshold  if dmi_threshold  is not None else 0.0
                         long_bias  = lib_entry.get('long_bias',  0.0)
                         short_bias = lib_entry.get('short_bias', 0.0)
-                        _nn_marker = getattr(best_candidate, 'oracle_marker', 0)
+                        _nn_marker = _effective_oracle(best_candidate)  # macro-to-leaf aggregated
 
                         if _nn_marker > 0:
                             side = 'long'
@@ -832,7 +882,7 @@ class BayesianTrainingOrchestrator:
                                 audit_tn += 1
                             elif audit_res['classification'] == 'FN':
                                 audit_fn += 1
-                                _om = getattr(p, 'oracle_marker', 0)
+                                _om = _effective_oracle(p)  # macro-to-leaf aggregated
                                 _meta = getattr(p, 'oracle_meta', {})
                                 _fn_pot = (_meta.get('mfe', 0.0) if _om > 0 else _meta.get('mae', 0.0)) * self.asset.point_value
                                 fn_potential_pnl += _fn_pot
@@ -855,7 +905,7 @@ class BayesianTrainingOrchestrator:
                                 audit_tn += 1
                             elif audit_res['classification'] == 'FN':
                                 audit_fn += 1
-                                _om = getattr(p, 'oracle_marker', 0)
+                                _om = _effective_oracle(p)  # macro-to-leaf aggregated
                                 _meta = getattr(p, 'oracle_meta', {})
                                 _fn_pot = (_meta.get('mfe', 0.0) if _om > 0 else _meta.get('mae', 0.0)) * self.asset.point_value
                                 fn_potential_pnl += _fn_pot
@@ -1313,13 +1363,18 @@ class BayesianTrainingOrchestrator:
             # gate0/gate0_5 = structural rules; gate1 = no cluster match; gate2/gate3 = brain/conviction
             # 'passed' = scored fine but another candidate at same bar was chosen instead
             _GATE_LABELS = {
-                'gate0':   'Gate 0  headroom/pattern rule',
-                'gate0_5': 'Gate 0.5 depth filter',
-                'gate1':   'Gate 1  no cluster match (dist>3.0)',
-                'gate2':   'Gate 2  brain rejected',
-                'gate3':   'Gate 3  conviction below threshold',
-                'passed':  'Passed gates, lost to better score',
-                'unknown': 'Unknown (pre-gate tracking)',
+                'gate0':             'Gate 0  no pattern (Rule 1)',
+                'gate0_noise':       'Gate 0  noise zone <0.5sigma (Rule 2)',
+                'gate0_r3_snap':     'Gate 0  approach zone ROCHE_SNAP (Rule 3) -- no qualified tmpl',
+                'gate0_r3_struct':   'Gate 0  approach zone STRUCTURAL_DRIVE weak trend (Rule 3)',
+                'gate0_r4_nightmare':'Gate 0  extreme zone nightmare field (Rule 4)',
+                'gate0_r4_struct':   'Gate 0  extreme zone STRUCTURAL_DRIVE no headroom (Rule 4)',
+                'gate0_5':           'Gate 0.5 depth filter',
+                'gate1':             'Gate 1  no cluster match (dist>4.5)',
+                'gate2':             'Gate 2  brain rejected',
+                'gate3':             'Gate 3  conviction below threshold',
+                'passed':            'Passed gates, lost to better score',
+                'unknown':           'Unknown (pre-gate tracking)',
             }
             _gate_counts = {}
             for _fr in fn_oracle_records:
@@ -1328,7 +1383,9 @@ class BayesianTrainingOrchestrator:
             _fn_total = len(fn_oracle_records)
             report_lines.append("")
             report_lines.append(f"  FN GATE BREAKDOWN (which gate blocked profitable signals):")
-            for _gk in ['gate0', 'gate0_5', 'gate1', 'gate2', 'gate3', 'passed', 'unknown']:
+            for _gk in ['gate0', 'gate0_noise', 'gate0_r3_snap', 'gate0_r3_struct',
+                        'gate0_r4_nightmare', 'gate0_r4_struct',
+                        'gate0_5', 'gate1', 'gate2', 'gate3', 'passed', 'unknown']:
                 _gc = _gate_counts.get(_gk, 0)
                 if _gc == 0 and _gk == 'unknown':
                     continue
