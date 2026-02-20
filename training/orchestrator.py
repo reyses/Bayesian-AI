@@ -211,7 +211,9 @@ class BayesianTrainingOrchestrator:
                          start_date: str = None, end_date: str = None,
                          min_tier: int = None,
                          bias_threshold: float = None,
-                         dmi_threshold: float = None):
+                         dmi_threshold: float = None,
+                         oos_mode: bool = False,
+                         account_size: float = 0.0):
         """
         Phase 4: Forward pass -- replay full year using playbook.
         Scans fractal cascade per day, matches templates, trades via WaveRider.
@@ -222,9 +224,19 @@ class BayesianTrainingOrchestrator:
                         If None, no lower bound -- all days included.
             end_date:   Inclusive upper bound YYYYMMDD (e.g. '20260209').
                         If None, no upper bound -- all days included.
+            oos_mode:     When True, writes separate oos_trade_log.csv / oos_report.txt
+                          and preserves training depth_weights.json unchanged.
+                          Use with --forward-start to run blind out-of-sample simulation.
+            account_size: Starting account equity in USD (0 = disabled, no equity gate).
+                          When > 0, simulates a funded account: gates new entries if
+                          running equity drops below NinjaTrader MNQ intraday margin
+                          ($50/contract). Report shows equity curve + max drawdown.
         """
         print("\n" + "="*80)
-        print("PHASE 4: FORWARD PASS (EXECUTION MODE)")
+        if oos_mode:
+            print("OOS BLIND SIMULATION (templates/scaler frozen from training)")
+        else:
+            print("PHASE 4: FORWARD PASS (EXECUTION MODE)")
         if start_date or end_date:
             _lo = start_date or "start"
             _hi = end_date   or "end"
@@ -369,6 +381,21 @@ class BayesianTrainingOrchestrator:
         total_pnl = 0.0
         total_trades = 0
         total_wins = 0
+
+        # ── Account equity tracking (active when account_size > 0) ───────────
+        # Simulates a NinjaTrader MNQ funded account with $50 intraday margin
+        # per contract. Gates new entries when equity < margin. Tracks ruin.
+        _NINJATRADER_MNQ_MARGIN = 50.0    # USD per contract, NinjaTrader intraday margin
+        _equity_enabled  = account_size > 0.0
+        running_equity   = account_size if _equity_enabled else 0.0
+        peak_equity      = running_equity
+        trough_equity    = running_equity
+        account_ruined   = False    # True if equity drops below margin (cannot trade)
+        ruin_day         = None     # Date string when ruin occurred
+        skipped_ruin     = 0        # Trade entries skipped due to insufficient equity
+
+        if _equity_enabled:
+            print(f"  Account constraint: start=${account_size:.2f}  margin/contract=${_NINJATRADER_MNQ_MARGIN:.2f}")
 
         # Audit counters
         audit_tp = 0
@@ -522,6 +549,15 @@ class BayesianTrainingOrchestrator:
                         day_trades.append(outcome)
                         current_position_open = False
 
+                        # Update running equity after trade close
+                        if _equity_enabled:
+                            running_equity += outcome.pnl
+                            peak_equity   = max(peak_equity, running_equity)
+                            trough_equity = min(trough_equity, running_equity)
+                            if running_equity < _NINJATRADER_MNQ_MARGIN:
+                                account_ruined = True
+                                ruin_day = ruin_day or day_date
+
                         # Complete oracle record for this trade
                         if pending_oracle is not None:
                             o_mfe = pending_oracle['oracle_mfe']
@@ -547,6 +583,9 @@ class BayesianTrainingOrchestrator:
                             pending_oracle = None
 
                 # 2. Check for entries (if no position)
+                # Equity ruin check: simulation ends when equity hits 0 (no money to trade).
+                if _equity_enabled and account_ruined:
+                    break   # stop processing this day's bars entirely
                 if not current_position_open and ts in pattern_map:
                     candidates = pattern_map[ts]
                     best_candidate = None
@@ -807,6 +846,19 @@ class BayesianTrainingOrchestrator:
                             else:
                                 _tp_ticks = params.get('take_profit_ticks', 50)
 
+                        # ── Equity risk gate ─────────────────────────────────
+                        # When account_size is set, skip trades whose max loss
+                        # (SL in $) would consume more than half the remaining
+                        # equity. This prevents a single stop-out from wiping
+                        # the account below the NinjaTrader margin floor.
+                        _MAX_RISK_FRACTION = 0.50   # fraction of equity risked per trade
+                        if _equity_enabled:
+                            _max_loss_usd = _sl_ticks * self.asset.tick_size * self.asset.point_value
+                            _max_risk_usd = running_equity * _MAX_RISK_FRACTION
+                            if _max_loss_usd > _max_risk_usd:
+                                skipped_ruin += 1
+                                continue   # skip this trade — risk too large for current equity
+
                         self.wave_rider.open_position(
                             entry_price=price,
                             side=side,
@@ -947,6 +999,15 @@ class BayesianTrainingOrchestrator:
                 self.brain.update(outcome)
                 day_trades.append(outcome)
 
+                # Update running equity after EOD close
+                if _equity_enabled:
+                    running_equity += outcome.pnl
+                    peak_equity   = max(peak_equity, running_equity)
+                    trough_equity = min(trough_equity, running_equity)
+                    if running_equity < _NINJATRADER_MNQ_MARGIN:
+                        account_ruined = True
+                        ruin_day = ruin_day or day_date
+
                 # Complete oracle record for EOD-forced close
                 if pending_oracle is not None:
                     o_mfe = pending_oracle['oracle_mfe']
@@ -971,6 +1032,11 @@ class BayesianTrainingOrchestrator:
                     pending_oracle = None
 
             # Analyze day
+            if _equity_enabled and account_ruined:
+                print(f"\n  !! ACCOUNT RUINED on {day_date}: equity=${running_equity:.2f} < margin=${_NINJATRADER_MNQ_MARGIN:.2f}")
+                print("  !! Stopping simulation -- no remaining capital to trade.")
+                break  # stop the day loop entirely
+
             if day_trades:
                 # Regret analysis (optional, or just stats)
                 d_pnl = sum(t.pnl for t in day_trades)
@@ -996,6 +1062,25 @@ class BayesianTrainingOrchestrator:
         report_lines.append(f"Total Trades: {total_trades}")
         report_lines.append(f"Win Rate: {total_wins/total_trades*100:.1f}%" if total_trades > 0 else "Win Rate: N/A")
         report_lines.append(f"Total PnL: ${total_pnl:.2f}")
+
+        # ── Account equity summary (when --account-size is set) ──────────────
+        if _equity_enabled:
+            _max_dd_usd  = peak_equity - trough_equity
+            _max_dd_pct  = (_max_dd_usd / account_size * 100.0) if account_size > 0 else 0.0
+            _final_equity = running_equity
+            report_lines.append("")
+            report_lines.append("── ACCOUNT EQUITY SUMMARY ──")
+            report_lines.append(f"  Start equity:      ${account_size:.2f}")
+            report_lines.append(f"  Final equity:      ${_final_equity:.2f}")
+            report_lines.append(f"  Peak equity:       ${peak_equity:.2f}")
+            report_lines.append(f"  Trough equity:     ${trough_equity:.2f}")
+            report_lines.append(f"  Max drawdown:      ${_max_dd_usd:.2f}  ({_max_dd_pct:.1f}% of start)")
+            report_lines.append(f"  Trades skipped (risk too large for equity): {skipped_ruin}")
+            if account_ruined:
+                report_lines.append(f"  !! ACCOUNT RUINED on {ruin_day} -- equity fell below margin (${_NINJATRADER_MNQ_MARGIN:.0f})")
+            else:
+                report_lines.append(f"  Account status:    SURVIVED ({_final_equity:.2f} remaining)")
+
         report_lines.append("=" * 80)
 
         # ── ORACLE PROFIT ATTRIBUTION ────────────────────────────────────────────
@@ -1295,7 +1380,8 @@ class BayesianTrainingOrchestrator:
 
         # ── 6. Save CSV ──────────────────────────────────────────────────────────
         if oracle_trade_records:
-            csv_path = os.path.join(self.checkpoint_dir, 'oracle_trade_log.csv')
+            _log_name = 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv'
+            csv_path = os.path.join(self.checkpoint_dir, _log_name)
             with open(csv_path, 'w', newline='', encoding='utf-8') as f:
                 writer = _csv.DictWriter(f, fieldnames=list(oracle_trade_records[0].keys()))
                 writer.writeheader()
@@ -1311,7 +1397,8 @@ class BayesianTrainingOrchestrator:
         # a gate was too strict (the workers were right but we still skipped).
         if fn_oracle_records:
             import json as _fnjs
-            fn_csv_path = os.path.join(self.checkpoint_dir, 'fn_oracle_log.csv')
+            _fn_name = 'oos_fn_log.csv' if oos_mode else 'fn_oracle_log.csv'
+            fn_csv_path = os.path.join(self.checkpoint_dir, _fn_name)
             with open(fn_csv_path, 'w', newline='', encoding='utf-8') as _fnf:
                 _fn_writer = _csv.DictWriter(_fnf, fieldnames=list(fn_oracle_records[0].keys()))
                 _fn_writer.writeheader()
@@ -1424,16 +1511,22 @@ class BayesianTrainingOrchestrator:
                     'score_adj':  _sadj,
                     'filter_out': bool(_avg < 0 and _cnt >= 5),
                 }
-            _dw_out_path = os.path.join(self.checkpoint_dir, 'depth_weights.json')
-            with open(_dw_out_path, 'w') as _dw_f2:
-                _json2.dump(depth_weights_out, _dw_f2, indent=2)
-            report_lines.append(f"  Depth weights saved: {_dw_out_path}")
+            if oos_mode:
+                # Preserve training depth weights -- OOS results should not overwrite
+                # the model's learned depth preferences from the training period.
+                report_lines.append("  Depth weights: NOT updated (oos_mode preserves training weights)")
+            else:
+                _dw_out_path = os.path.join(self.checkpoint_dir, 'depth_weights.json')
+                with open(_dw_out_path, 'w') as _dw_f2:
+                    _json2.dump(depth_weights_out, _dw_f2, indent=2)
+                report_lines.append(f"  Depth weights saved: {_dw_out_path}")
 
         for line in report_lines:
             print(line)
 
         # Save report
-        report_path = os.path.join(self.checkpoint_dir, 'phase4_report.txt')
+        _report_name = 'oos_report.txt' if oos_mode else 'phase4_report.txt'
+        report_path = os.path.join(self.checkpoint_dir, _report_name)
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write('\n'.join(report_lines) + '\n')
         print(f"  Report saved to {report_path}")
@@ -2820,6 +2913,15 @@ def main():
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
     parser.add_argument('--fresh', action='store_true', help="Clear all pipeline checkpoints and start fresh")
     parser.add_argument('--forward-pass', action='store_true', help="Run Phase 4 forward pass using existing playbook")
+    parser.add_argument('--oos', action='store_true',
+                        help="Blind out-of-sample simulation: frozen templates, separate oos_trade_log.csv/oos_report.txt, "
+                             "training depth_weights.json preserved. Implies --forward-pass. "
+                             "Pair with --forward-start YYYYMMDD to slice the OOS window.")
+    parser.add_argument('--account-size', type=float, default=0.0, metavar='USD',
+                        help="Starting account equity in USD. When set, gates trades that risk >50%% of "
+                             "remaining equity (SL in dollars vs equity). Simulation ends if equity "
+                             "drops below NinjaTrader MNQ intraday margin ($50). "
+                             "Use 100.0 for a $100 funded account test.")
     parser.add_argument('--train-end', type=str, default=None, metavar='YYYYMMDD',
                         help="Out-of-sample guard: cap training data at this date (e.g. 20251231). "
                              "Use with --forward-start for a clean train/test split.")
@@ -2924,14 +3026,16 @@ def main():
             orchestrator.run_param_sweep()
             return 0
 
-        if args.forward_pass and not args.fresh:
-            # Phase 4 only (using existing playbook)
+        if (args.forward_pass or args.oos) and not args.fresh:
+            # Phase 4 only (using existing playbook) or OOS blind simulation
             orchestrator.run_forward_pass(args.data,
                                           start_date=args.forward_start,
                                           end_date=args.forward_end,
                                           min_tier=args.min_tier,
                                           bias_threshold=args.bias_threshold,
-                                          dmi_threshold=args.dmi_threshold)
+                                          dmi_threshold=args.dmi_threshold,
+                                          oos_mode=args.oos,
+                                          account_size=args.account_size)
             if args.strategy_report:
                 orchestrator.run_strategy_selection()
         elif args.strategy_report and not args.forward_pass:
@@ -2981,7 +3085,9 @@ def main():
                                           end_date=args.forward_end,
                                           min_tier=args.min_tier,
                                           bias_threshold=args.bias_threshold,
-                                          dmi_threshold=args.dmi_threshold)
+                                          dmi_threshold=args.dmi_threshold,
+                                          oos_mode=getattr(args, 'oos', False),
+                                          account_size=getattr(args, 'account_size', 0.0))
                 orchestrator.run_strategy_selection()
 
         orchestrator.print_bottom_line()
