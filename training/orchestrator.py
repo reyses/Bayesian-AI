@@ -1277,7 +1277,7 @@ class BayesianTrainingOrchestrator:
         _date_range = (
             f"  Period: {start_date or daily_files_15s[0] if daily_files_15s else 'N/A'} "
             f"to {end_date or (os.path.basename(daily_files_15s[-1]).replace('.parquet','') if daily_files_15s else 'N/A')} "
-            f"({len(daily_files_15s)} days)"
+            f"({len(daily_files_15s)} files)"
         ) if daily_files_15s else ""
         if _date_range:
             report_lines.append(_date_range)
