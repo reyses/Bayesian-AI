@@ -289,6 +289,12 @@ class WaveRider:
         self.trades_since_calibration = 0
         self.calibration_interval = 10
 
+    # Dynamic Trail Constants
+    MIN_TRAIL_TICKS = 2
+    TIGHTEN_TRAIL_FACTOR = 0.70
+    MAX_ORIGINAL_TRAIL_MULTIPLIER = 2
+    WIDEN_TRAIL_FACTOR = 1.20
+
     def open_position(self, entry_price: float, side: str,
                      state: Union[StateVector, ThreeBodyQuantumState],
                      stop_distance_ticks: int = 20,
@@ -421,14 +427,14 @@ class WaveRider:
 
             if exit_signal.get('tighten_trail') and self.position.trailing_stop_ticks is not None:
                 # Reduce trail by 30% (min: 2 ticks)
-                _new_trail = max(2, int(self.position.trailing_stop_ticks * 0.70))
+                _new_trail = max(self.MIN_TRAIL_TICKS, int(self.position.trailing_stop_ticks * self.TIGHTEN_TRAIL_FACTOR))
                 self.position.trailing_stop_ticks = _new_trail
 
             if exit_signal.get('widen_trail') and self.position.trailing_stop_ticks is not None:
                 # Increase trail by 20% (max: original_trail * 2.0)
                 _base = self.position.original_trail_ticks or self.position.trailing_stop_ticks
-                _max_trail = _base * 2
-                self.position.trailing_stop_ticks = min(_max_trail, int(self.position.trailing_stop_ticks * 1.20))
+                _max_trail = _base * self.MAX_ORIGINAL_TRAIL_MULTIPLIER
+                self.position.trailing_stop_ticks = min(_max_trail, int(self.position.trailing_stop_ticks * self.WIDEN_TRAIL_FACTOR))
 
         # Update High Water Mark
         if self.position.side == 'short':
