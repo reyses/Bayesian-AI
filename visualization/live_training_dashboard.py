@@ -26,6 +26,8 @@ PARETO_COLORS = {
     'Noise':     '#888888',
 }
 
+TOP_TEMPLATES_LIMIT = 50
+
 
 class FractalDashboard:
     def __init__(self, root, queue):
@@ -157,6 +159,8 @@ class FractalDashboard:
         ttk.Label(right_pane, text="TOP TEMPLATES", style="Header.TLabel").pack(anchor=tk.W)
         cols = ("ID", "Trades", "Win%", "PnL")
         self.tree_ranks = ttk.Treeview(right_pane, columns=cols, show='headings', height=14)
+        self.tree_ranks.tag_configure('positive', foreground=FG_GREEN)
+        self.tree_ranks.tag_configure('negative', foreground=FG_RED)
         for col in cols:
             self.tree_ranks.heading(col, text=col,
                 command=lambda c=col: self._on_header_click(c))
@@ -166,6 +170,7 @@ class FractalDashboard:
         ttk.Label(right_pane, text="EVENTS & ALERTS", style="Header.TLabel").pack(anchor=tk.W, pady=(10, 0))
         self.log_text = tk.Text(right_pane, bg="#000000", fg=FG_GREEN,
                                 font=("Consolas", 9), wrap=tk.WORD)
+        self.log_text.tag_config('error', foreground=FG_RED)
         self.log_text.pack(fill=tk.BOTH, expand=True)
 
     # ── Queue processing ──────────────────────────────────────────────────────
@@ -376,18 +381,21 @@ class FractalDashboard:
         )[:TOP_TEMPLATES_LIMIT]
 
         for t in top:
+            pnl = t.get('pnl', 0)
+            tag = 'positive' if pnl > 0 else 'negative' if pnl < 0 else ''
             win_pct = t.get('win_rate', 0) * 100
             self.tree_ranks.insert("", tk.END, values=(
                 t['id'], t.get('count', 0),
-                f"{win_pct:.0f}%", f"${t.get('pnl', 0):.0f}"
-            ))
+                f"{win_pct:.0f}%", f"${pnl:.0f}"
+            ), tags=(tag,))
         self.lbl_stats.config(text=self._stats_str())
 
     # ── Helpers ───────────────────────────────────────────────────────────────
     def _log(self, text, error=False):
         ts = datetime.datetime.now().strftime("%H:%M:%S")
         tag = "ERR " if error else "    "
-        self.log_text.insert(tk.END, f"[{ts}] {tag}{text}\n")
+        line_tags = ('error',) if error else ()
+        self.log_text.insert(tk.END, f"[{ts}] {tag}{text}\n", line_tags)
         self.log_text.see(tk.END)
 
     def _stats_str(self):
