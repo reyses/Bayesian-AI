@@ -3,10 +3,12 @@ Fractal Clustering Engine
 Reduces massive pattern datasets into manageable 'Templates' using Recursive K-Means.
 Maps raw physics events into "Archetypal Centroids" that are both Physically Tight and Behaviorally Consistent.
 
-Feature vector per pattern (7D):
-  [|z_score|, |velocity|, |momentum|, coherence, log2(tf_seconds), depth, parent_is_roche]
-The timeframe scale + depth + parent context let the clustering naturally separate
-patterns that look similar in physics but live at different fractal scales.
+Feature vector per pattern (16D):
+  [|z_score|, |velocity|, |momentum|, coherence, log2(tf_seconds), depth, parent_is_roche,
+   self_adx, self_hurst, self_dmi_diff, parent_z, parent_dmi_diff, root_is_roche, tf_alignment,
+   self_pid, self_osc_coh]
+The timeframe scale + depth + parent context + PID regime let the clustering naturally separate
+patterns that look similar in physics but live at different fractal scales or regimes.
 """
 import numpy as np
 import pandas as pd
@@ -125,10 +127,14 @@ class FractalClusteringEngine:
              self_adx = getattr(state, 'adx_strength', 0.0) / 100.0
              self_hurst = getattr(state, 'hurst_exponent', 0.5)
              self_dmi_diff = (getattr(state, 'dmi_plus', 0.0) - getattr(state, 'dmi_minus', 0.0)) / 100.0
+             self_pid       = getattr(state, 'term_pid', 0.0)
+             self_osc_coh   = getattr(state, 'oscillation_coherence', 0.0)
         else:
              self_adx = 0.0
              self_hurst = 0.5
              self_dmi_diff = 0.0
+             self_pid = 0.0
+             self_osc_coh = 0.0
 
         # Ancestry features
         chain = getattr(p, 'parent_chain', None) or []
@@ -154,7 +160,8 @@ class FractalClusteringEngine:
 
         return [abs(z), v_feat, m_feat, c, tf_scale, depth, parent_ctx,
                 self_adx, self_hurst, self_dmi_diff,
-                parent_z, parent_dmi_diff, root_is_roche, tf_alignment]
+                parent_z, parent_dmi_diff, root_is_roche, tf_alignment,
+                self_pid, self_osc_coh]
 
     def _recursive_split(self, X: np.ndarray, patterns: list, start_id: int, depth: int = 0) -> list:
         """Recursively split a cluster until z-variance <= max_variance or too small."""

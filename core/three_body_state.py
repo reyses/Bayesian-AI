@@ -101,6 +101,7 @@ class ThreeBodyQuantumState:
     # ═══ NIGHTMARE FIELD EQUATION COMPONENTS ═══
     sigma_fractal: float = 0.0      # Fractal diffusion volatility
     term_pid: float = 0.0           # Algorithmic control force
+    oscillation_coherence: float = 0.0 # 1=tight periodic PID oscillation, 0=noisy/trending
     lyapunov_exponent: float = 0.0  # Stability coefficient (lambda)
     market_regime: str = 'UNKNOWN'  # STABLE | CHAOTIC
 
@@ -321,5 +322,5 @@ class ThreeBodyQuantumState:
             tunnel_probability=0.0, escape_probability=0.0, barrier_height=0.0,
             hurst_exponent=0.5, adx_strength=0.0, dmi_plus=0.0, dmi_minus=0.0,
             candlestick_pattern='NONE',
-            sigma_fractal=0.0, term_pid=0.0, lyapunov_exponent=0.0, market_regime='STABLE'
+            sigma_fractal=0.0, term_pid=0.0, oscillation_coherence=0.0, lyapunov_exponent=0.0, market_regime='STABLE'
         )
