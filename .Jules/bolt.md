@@ -1,0 +1,3 @@
+## 2025-05-23 - [Numpy Vectorization vs Object Creation]
+**Learning:** Optimizing logic inside a Python loop (using vectorized numpy arrays for `if/else` logic) provided only marginal gains (~20ms on 1s task) because the dominant cost was the `dataclass` instantiation itself, which happens in Python.
+**Action:** When optimizing object creation loops, focus on reducing the number of objects or using bulk constructors if possible. If not, look for other bottlenecks (like heavy computations called within the process). In this case, optimizing the Hurst calculation (heavy math) using Numba provided 6x speedup for that component, yielding a larger overall gain.
