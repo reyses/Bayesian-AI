@@ -26,6 +26,8 @@ PARETO_COLORS = {
     'Noise':     '#888888',
 }
 
+TOP_TEMPLATES_LIMIT = 50
+
 
 class FractalDashboard:
     def __init__(self, root, queue):
