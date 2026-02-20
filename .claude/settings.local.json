@@ -16,7 +16,8 @@
       "Bash(findstr:*)",
       "Bash(Get-Content \"C:/Users/reyse/OneDrive/Desktop/Bayesian-AI/checkpoints/training_log.txt\")",
       "Bash(Select-Object -Last 80)",
-      "Bash(Out-String)"
+      "Bash(Out-String)",
+      "WebFetch(domain:jules.google)"
     ]
   }
 }
