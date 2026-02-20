@@ -20,6 +20,8 @@ import multiprocessing
 import glob
 import warnings
 warnings.filterwarnings("ignore", message=".*Grid size.*will likely result in GPU under-utilization.*")
+warnings.filterwarnings("ignore", message=".*Mean of empty slice.*",               category=RuntimeWarning)
+warnings.filterwarnings("ignore", message=".*invalid value encountered in scalar divide.*", category=RuntimeWarning)
 import numpy as np
 import pandas as pd
 from collections import defaultdict
@@ -412,27 +414,33 @@ class BayesianTrainingOrchestrator:
         print(f"  Belief network: {len(TimeframeBeliefNetwork.TIMEFRAMES_SECONDS)} TF workers "
               f"(conviction threshold: {TimeframeBeliefNetwork.MIN_CONVICTION:.2f})")
 
-        # 2. Iterate Days
-        # Use 15s daily files for position management (daily granularity).
-        # Pattern entry timestamps are snapped to 1m for signal quality.
+        # 2. Iterate files (monthly YYYY_MM.parquet or daily YYYYMMDD.parquet)
         daily_files_15s = sorted(glob.glob(os.path.join(data_source, '15s', '*.parquet')))
         if not daily_files_15s:
             print(f"  No 15s data found in {data_source}/15s/")
             return
 
+        def _file_sort_key(fpath):
+            """Normalise filename to YYYYMMDD for date filtering/sorting.
+            Monthly YYYY_MM -> YYYYMM01; daily YYYYMMDD stays as-is."""
+            name = os.path.basename(fpath).replace('.parquet', '')
+            if '_' in name:
+                y, m = name.split('_', 1)
+                return f"{y}{m.zfill(2)}01"
+            return name
+
         # ── Time-slice filter ────────────────────────────────────────────────
-        # Filenames are YYYYMMDD.parquet; lexicographic comparison works fine.
         if start_date or end_date:
             _before = len(daily_files_15s)
             daily_files_15s = [
                 f for f in daily_files_15s
-                if (not start_date or os.path.basename(f).replace('.parquet', '') >= start_date)
-                and (not end_date   or os.path.basename(f).replace('.parquet', '') <= end_date)
+                if (not start_date or _file_sort_key(f) >= start_date)
+                and (not end_date   or _file_sort_key(f) <= end_date)
             ]
-            print(f"  Date filter applied: {_before} -> {len(daily_files_15s)} days "
+            print(f"  Date filter applied: {_before} -> {len(daily_files_15s)} files "
                   f"({start_date or 'start'} -> {end_date or 'end'})")
 
-        print(f"  Found {len(daily_files_15s)} days to simulate.")
+        print(f"  Found {len(daily_files_15s)} files to simulate.")
 
         total_pnl = 0.0
         total_trades = 0
@@ -499,6 +507,8 @@ class BayesianTrainingOrchestrator:
         n_days = len(daily_files_15s)
         for day_idx, day_file in enumerate(daily_files_15s):
             day_date = os.path.basename(day_file).replace('.parquet', '')
+            # Normalise: monthly YYYY_MM -> YYYY_MM kept as-is for scan_day_cascade
+            # (discovery agent matches by substring so both formats work)
             print(f"\n  Day {day_idx+1}/{n_days}: {day_date} ... ", end='', flush=True)
             if self.dashboard_queue and day_idx % 5 == 0:
                 pct = (day_idx / n_days) * 100
@@ -527,10 +537,12 @@ class BayesianTrainingOrchestrator:
                 continue
 
             # Load 5s and 1s ATLAS files for sub-resolution workers.
-            # Same directory structure: {atlas_root}/5s/YYYYMMDD.parquet
-            _atlas_root = os.path.dirname(os.path.dirname(day_file))
+            # Monthly files: {data_source}/5s/YYYY_MM.parquet (same key as day_date)
+            _atlas_root = data_source
 
             def _load_fine(tf_label):
+                # Both training and OOS use monthly format: YYYY_MM.parquet
+                # day_date is the file stem (e.g. '2025_11'); load the whole file.
                 p = os.path.join(_atlas_root, tf_label, f"{day_date}.parquet")
                 if not os.path.exists(p):
                     return None
@@ -538,7 +550,7 @@ class BayesianTrainingOrchestrator:
                     _df = pd.read_parquet(p)
                     if 'timestamp' in _df.columns and not np.issubdtype(_df['timestamp'].dtype, np.number):
                         _df['timestamp'] = _df['timestamp'].apply(lambda x: x.timestamp())
-                    return _df
+                    return _df if not _df.empty else None
                 except Exception:
                     return None
 
@@ -546,7 +558,7 @@ class BayesianTrainingOrchestrator:
             _df_1s  = _load_fine('1s')
 
             # Belief network: Task 1 for all 10 TF workers (1h -> 1s)
-            # Active workers: 1h->15s resampled from df_15s; 5s/1s from fine-grained ATLAS files.
+            # 1h->15s resampled from df_15s; 5s/1s from monthly ATLAS files.
             try:
                 _states_15s = self.engine.batch_compute_states(df_15s, use_cuda=True)
                 belief_network.prepare_day(df_15s, states_micro=_states_15s,
@@ -1257,9 +1269,11 @@ class BayesianTrainingOrchestrator:
                 print("No trades.")
 
         # Final Report
+        import datetime as _datetime
+        _run_ts = _datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         report_lines = []
         report_lines.append("=" * 80)
-        report_lines.append("FORWARD PASS COMPLETE")
+        report_lines.append(f"FORWARD PASS COMPLETE  (run: {_run_ts})")
         _date_range = (
             f"  Period: {start_date or daily_files_15s[0] if daily_files_15s else 'N/A'} "
             f"to {end_date or (os.path.basename(daily_files_15s[-1]).replace('.parquet','') if daily_files_15s else 'N/A')} "

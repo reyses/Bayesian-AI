@@ -366,19 +366,23 @@ class TimeframeBeliefNetwork:
                 self.workers[tf_secs].prepare([])
 
         # Sub-resolution workers (5s, 1s): cannot resample from df_micro, use external data.
-        # Workers silently stay inactive (empty states) when fine-grained data isn't available.
         _sub_res_data = {5: df_5s, 1: df_1s}
         for tf_secs in self.TIMEFRAMES_SECONDS:
             if tf_secs >= self.base_resolution_seconds:
-                continue   # already handled above
+                continue
+            lbl = self._TF_LABELS.get(tf_secs, str(tf_secs))
             df_sub = _sub_res_data.get(tf_secs)
             if df_sub is None or (hasattr(df_sub, 'empty') and df_sub.empty):
+                print(f"  TBN [{lbl}]: no data supplied — worker inactive")
                 self.workers[tf_secs].prepare([])
                 continue
             try:
+                print(f"  TBN [{lbl}]: computing states for {len(df_sub):,} bars ...", end='', flush=True)
                 states = self.engine.batch_compute_states(df_sub, use_cuda=True)
                 self.workers[tf_secs].prepare(states)
+                print(f" {len(states):,} states ready")
             except Exception as e:
+                print(f" FAILED: {e}")
                 logger.warning(f"TBN: TF={tf_secs}s sub-res state compute failed: {e}")
                 self.workers[tf_secs].prepare([])
 
