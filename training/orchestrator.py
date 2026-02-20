@@ -66,6 +66,7 @@ from training.orchestrator_worker import FISSION_SUBSET_SIZE, INDIVIDUAL_OPTIMIZ
 from training.monte_carlo_engine import MonteCarloEngine, simulate_template_tf_combo
 from training.anova_analyzer import ANOVAAnalyzer
 from training.thompson_refiner import ThompsonRefiner
+from training.pid_oscillation_analyzer import PIDOscillationAnalyzer, PIDSignal
 
 INITIAL_CLUSTER_DIVISOR = 100
 _ADX_TREND_CONFIRMATION = 25.0
@@ -197,6 +198,9 @@ class BayesianTrainingOrchestrator:
         self._fp_summary   = {}   # Phase 4 key metrics
         self._tier_summary = {}   # Phase 5 tier counts + top templates
 
+        # PID Analyzer (Shadow Mode)
+        self.pid_analyzer = PIDOscillationAnalyzer()
+
         # Slippage parameters
         self.BASE_SLIPPAGE = DEFAULT_BASE_SLIPPAGE
         self.VELOCITY_SLIPPAGE_FACTOR = DEFAULT_VELOCITY_SLIPPAGE_FACTOR
@@ -206,6 +210,58 @@ class BayesianTrainingOrchestrator:
             return max(1, multiprocessing.cpu_count() - 2)
         except NotImplementedError:
             return 1
+
+    def _audit_pid_signal(self, sig: PIDSignal, day_bars: pd.DataFrame,
+                          bar_idx: int, point_value: float) -> dict:
+        """
+        Scan forward from bar_idx to see if price hit target or stop first.
+        Uses high/low of each subsequent bar to check touch.
+        Lookahead cap: 40 bars (10 minutes at 15s) — PID oscillations are fast.
+        """
+        lookahead  = min(40, len(day_bars) - bar_idx - 1)
+        hit_target = False
+        hit_stop   = False
+
+        # Use iterrows for sequential access if dataframe, or iloc loop
+        for i in range(bar_idx + 1, bar_idx + 1 + lookahead):
+            # Access by position for speed
+            row = day_bars.iloc[i]
+            hi = row['high']
+            lo = row['low']
+
+            if sig.direction == 'LONG':
+                if lo <= sig.stop_price:
+                    hit_stop = True
+                    break
+                if hi >= sig.target_price:
+                    hit_target = True
+                    break
+            else:  # SHORT
+                if hi >= sig.stop_price:
+                    hit_stop = True
+                    break
+                if lo <= sig.target_price:
+                    hit_target = True
+                    break
+
+        if hit_target:
+            theo_pnl = abs(sig.target_price - sig.entry_price) * point_value
+        elif hit_stop:
+            theo_pnl = -abs(sig.stop_price - sig.entry_price) * point_value
+        else:
+            # Neither hit within 10 min — use last bar's close vs entry
+            last_row = day_bars.iloc[min(bar_idx + lookahead, len(day_bars)-1)]
+            last_close = last_row['close']
+
+            diff = (last_close - sig.entry_price) if sig.direction == 'LONG' \
+                   else (sig.entry_price - last_close)
+            theo_pnl = diff * point_value
+
+        return {
+            'would_have_hit_target': hit_target,
+            'would_have_hit_stop':   hit_stop,
+            'theoretical_pnl':       round(theo_pnl, 2),
+        }
 
     def run_forward_pass(self, data_source: str,
                          start_date: str = None, end_date: str = None,
@@ -424,6 +480,9 @@ class BayesianTrainingOrchestrator:
         pending_oracle = None      # oracle facts for currently open trade
         fn_potential_pnl = 0.0    # dollar potential of real moves we skipped
 
+        # PID Shadow Log
+        pid_oracle_records = []
+
         # Skip reason counters (per-candidate across all days)
         skip_headroom    = 0   # Gate 0: no pattern or noise zone / structural rules
         skip_dist        = 0   # No cluster match within distance 3.0
@@ -477,6 +536,14 @@ class BayesianTrainingOrchestrator:
                 _states_15s = []
                 belief_network.prepare_day(df_15s, states_15s=[])
 
+            # Reset PID analyzer for the day
+            _day_sigmas = [s['state'].sigma_fractal for s in _states_15s if s['state'].sigma_fractal > 0]
+            day_sigma = np.nanmean(_day_sigmas) if _day_sigmas else 1.0
+            self.pid_analyzer.reset(sigma=day_sigma)
+
+            # Map states for fast access by bar_idx
+            _states_map = {s['bar_idx']: s['state'] for s in _states_15s}
+
             # Map patterns to bar indices for efficient processing
             # Or just iterate bars and check if a pattern triggered?
             # Better: Iterate patterns, attempt entry.
@@ -525,6 +592,46 @@ class BayesianTrainingOrchestrator:
                 # Belief network: tick all workers (event-driven by TF bar change)
                 # 1h worker updates once per 240 bars; 15s worker updates every bar
                 belief_network.tick_all(_bar_i)
+
+                # PID ANALYZER TICK
+                _pid_state = _states_map.get(_bar_i)
+                if _pid_state:
+                     pid_signal = self.pid_analyzer.tick(_pid_state)
+                     if pid_signal:
+                          # Audit
+                          audit_res = self._audit_pid_signal(pid_signal, df_15s, _bar_i, self.asset.point_value)
+
+                          # Find oracle label if any pattern exists at this timestamp
+                          _candidates_here = pattern_map.get(ts, [])
+                          _best_om = 0
+                          _best_meta = {}
+                          if _candidates_here:
+                               for _c in _candidates_here:
+                                    _om = _effective_oracle(_c)
+                                    if abs(_om) > abs(_best_om):
+                                         _best_om = _om
+                                         _best_meta = getattr(_c, 'oracle_meta', {})
+
+                          pid_oracle_records.append({
+                                'timestamp': pid_signal.timestamp,
+                                'direction': pid_signal.direction,
+                                'entry_price': pid_signal.entry_price,
+                                'target_price': pid_signal.target_price,
+                                'stop_price': pid_signal.stop_price,
+                                'z_score': pid_signal.z_score,
+                                'band_touched': pid_signal.band_touched,
+                                'regime_bars': pid_signal.regime_bars,
+                                'osc_coherence': pid_signal.osc_coherence,
+                                'term_pid': pid_signal.term_pid,
+                                'pid_class': pid_signal.pid_class,
+                                'tension_reason': pid_signal.tension_reason,
+                                'oracle_label': _best_om,
+                                'oracle_label_name': _ORACLE_LABEL_NAMES.get(_best_om, 'NOISE'),
+                                'oracle_mfe': _best_meta.get('mfe', 0.0),
+                                'oracle_mae': _best_meta.get('mae', 0.0),
+                                **audit_res
+                          })
+
                 _bar_i += 1
 
                 # 1. Manage existing position
@@ -933,6 +1040,16 @@ class BayesianTrainingOrchestrator:
                             if audit_res['classification'] == 'TN':
                                 audit_tn += 1
                             elif audit_res['classification'] == 'FN':
+                                # Skip if PID regime covers this bar (handled by PID analyzer)
+                                # Thresholds: |term_pid| >= 0.3, osc_coh >= 0.5, adx <= 30.0
+                                _s = p.state
+                                _is_pid = (abs(_s.term_pid) >= 0.3
+                                           and _s.oscillation_coherence >= 0.5
+                                           and _s.adx_strength <= 30.0)
+                                if _is_pid:
+                                     # Not counted as fractal FN failure because PID analyzer handles it
+                                     continue
+
                                 audit_fn += 1
                                 _om = _effective_oracle(p)  # macro-to-leaf aggregated
                                 _meta = getattr(p, 'oracle_meta', {})
@@ -1388,6 +1505,14 @@ class BayesianTrainingOrchestrator:
                 writer.writerows(oracle_trade_records)
             report_lines.append("")
             report_lines.append(f"  Per-trade oracle log saved: {csv_path}")
+
+        if pid_oracle_records:
+            pid_csv_path = os.path.join(self.checkpoint_dir, 'pid_oracle_log.csv')
+            with open(pid_csv_path, 'w', newline='', encoding='utf-8') as f:
+                writer = _csv.DictWriter(f, fieldnames=list(pid_oracle_records[0].keys()))
+                writer.writeheader()
+                writer.writerows(pid_oracle_records)
+            report_lines.append(f"  PID oracle log saved: {pid_csv_path} ({len(pid_oracle_records)} signals)")
 
         # ── Save FN oracle log + report section ──────────────────────────────────
         # fn_oracle_records: every missed real move with worker snapshot.
