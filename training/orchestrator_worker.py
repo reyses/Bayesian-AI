@@ -350,6 +350,57 @@ def _process_template_job(args):
 
     t0 = time.perf_counter()
 
+    # Scale DOE iterations proportionally to member count.
+    # Tiny templates (1-5 members) never benefit from 1000 iterations — cap at n*10.
+    n_members = len(template.patterns)
+    effective_iterations = max(50, min(iterations, n_members * 10))
+
+    # Fast-path: trivial templates with <= 2 members cannot be meaningfully optimized.
+    # Skip individual + fission, go straight to a minimal consensus pass.
+    if n_members <= 2:
+        subset = template.patterns[:FISSION_SUBSET_SIZE]
+        t_individual = 0.0
+        t_fission    = 0.0
+        consensus_args = {
+            'template': template,
+            'subset': subset,
+            'iterations': effective_iterations,
+            'generator': generator,
+            'point_value': point_value,
+            'pattern_library': pattern_library
+        }
+        t3 = time.perf_counter()
+        best_params, _ = _optimize_template_task(consensus_args)
+        t_consensus = time.perf_counter() - t3
+        # Jump straight to validation block below
+        validation_subset = template.patterns[FISSION_SUBSET_SIZE:]
+        val_pnl = val_count = val_wins = 0
+        pnls = []
+        for p in validation_subset:
+            outcome = simulate_trade_standalone(
+                entry_price=p.price, data=p.window_data, state=p.state,
+                params=best_params, point_value=point_value,
+                template=template, template_library=pattern_library)
+            if outcome:
+                val_pnl += outcome.pnl; val_count += 1; pnls.append(outcome.pnl)
+                if outcome.pnl > 0: val_wins += 1
+        outcome_variance = float(np.std(pnls)) if pnls else 0.0
+        avg_drawdown     = float(abs(np.mean([p for p in pnls if p < 0]))) if any(p < 0 for p in pnls) else 0.0
+        win_rate  = val_wins / val_count if val_count > 0 else 0.0
+        var_risk  = 1.0 - (1.0 / (1.0 + outcome_variance / 100.0))
+        risk_score = (1.0 - win_rate) * 0.5 + var_risk * 0.5
+        t_validation = time.perf_counter() - t3 - t_consensus
+        elapsed = time.perf_counter() - t0
+        return {
+            'status': 'DONE', 'template_id': template.template_id, 'template': template,
+            'best_params': best_params, 'val_pnl': val_pnl, 'val_count': val_count,
+            'val_wins': val_wins, 'outcome_variance': outcome_variance,
+            'avg_drawdown': avg_drawdown, 'risk_score': risk_score,
+            'member_count': template.member_count,
+            'timing': (f'individual={t_individual:.1f}s consensus={t_consensus:.1f}s '
+                       f'validation={t_validation:.1f}s ({val_count} trades) total={elapsed:.1f}s')
+        }
+
     # 1. Select Training Subset
     subset = template.patterns[:FISSION_SUBSET_SIZE]
 
@@ -357,16 +408,6 @@ def _process_template_job(args):
     t1 = time.perf_counter()
     member_optimals = []
     for pattern in subset:
-        # Pass template and library if needed, but per-pattern optimization focuses on parameters
-        # Opportunity cost is usually relevant for decision making (validation/execution), not optimization of parameters?
-        # Actually, if we optimize params, we might want to know if we should skip trades?
-        # But 'simulate_trade_standalone' skips if we wait. If we skip, PnL is 0.
-        # This penalizes parameters that trigger entry when we should wait?
-        # No, waiting is a decision made AT entry time.
-        # If we pass template/library, simulate_trade_standalone will return None (Skip).
-        # This affects optimization: params that generate entry signal will be ignored if opp cost says wait.
-        # This seems correct: we optimize for trades we actually TAKE.
-
         best_p, _ = _optimize_pattern_task((pattern, INDIVIDUAL_OPTIMIZATION_ITERATIONS, generator, point_value, template, pattern_library))
         member_optimals.append(best_p)
     t_individual = time.perf_counter() - t1
@@ -386,12 +427,12 @@ def _process_template_job(args):
             'timing': f'individual={t_individual:.1f}s fission={t_fission:.1f}s total={elapsed:.1f}s'
         }
 
-    # 4. Consensus Optimization (No Fission)
+    # 4. Consensus Optimization (No Fission) — use scaled iteration count
     t3 = time.perf_counter()
     consensus_args = {
         'template': template,
         'subset': subset,
-        'iterations': iterations,
+        'iterations': effective_iterations,
         'generator': generator,
         'point_value': point_value,
         'pattern_library': pattern_library
