@@ -15,4 +15,5 @@ training/training_progress.json
 *.pkl
 *.parquet
 nul
-debug_outputs\
+debug_outputs/
+checkpoints/
