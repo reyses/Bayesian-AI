@@ -151,24 +151,20 @@ class ParquetWriterManager:
             return
 
         # Ensure timestamp is datetime for period extraction
-        # Use a temporary series to avoid modifying df in place if it affects downstream?
-        # df is copied in main loop before passing here? No.
-        # But here we just use it for grouping.
         if 'timestamp' in df.columns:
-            ts = pd.to_datetime(df['timestamp'], unit='s')
+            ts = pd.to_datetime(df['timestamp'], unit='s', utc=True)
         else:
             return
 
-        # Group by Month
-        periods = ts.dt.to_period('M').unique()
+        # Group by Day (YYYYMMDD) so discovery agent and forward pass can
+        # filter by date using simple lexicographic string comparison.
+        periods = ts.dt.to_period('D').unique()
 
         for period in periods:
-            mask = (ts.dt.to_period('M') == period)
+            mask = (ts.dt.to_period('D') == period)
             chunk = df[mask].copy()
 
-            # Drop any temp cols if they exist (none added to df)
-
-            key = (resolution, period.year, period.month)
+            key = (resolution, period.year, period.month, period.day)
 
             if key not in self.writers:
                 self._open_writer(key, chunk)
@@ -182,11 +178,12 @@ class ParquetWriterManager:
                     print(f"Error writing table for {key}: {e}")
 
     def _open_writer(self, key, sample_df):
-        resolution, year, month = key
+        resolution, year, month, day = key
         res_dir = self.base_path / resolution
         res_dir.mkdir(parents=True, exist_ok=True)
 
-        filename = f"{year}_{month:02d}.parquet"
+        # YYYYMMDD.parquet — matches discovery agent and forward pass expectations
+        filename = f"{year}{month:02d}{day:02d}.parquet"
         file_path = res_dir / filename
 
         try:
