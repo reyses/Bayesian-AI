@@ -445,6 +445,9 @@ class BayesianTrainingOrchestrator:
         total_pnl = 0.0
         total_trades = 0
         total_wins = 0
+        _worker_total_states   = {}   # {tf_label: total states across all days}
+        _worker_days_with_data = {}   # {tf_label: days that had > 0 states}
+        decision_matrix_records = []  # per-candidate gate decision log (for root cause)
 
         # ── Account equity tracking (active when account_size > 0) ───────────
         # Simulates a NinjaTrader MNQ funded account with $50 intraday margin
@@ -481,6 +484,25 @@ class BayesianTrainingOrchestrator:
                 if abs(macro_om) > abs(best):
                     best = macro_om
             return best
+
+        def _dm_rec(p, gate, day, ts_val, micro_z_val, macro_z_val, pattern_val,
+                    dist=0.0, conviction=0.0, template_id='', tier=''):
+            """Build one decision-matrix record for a skipped candidate."""
+            om   = _effective_oracle(p)
+            meta = getattr(p, 'oracle_meta', None) or {}
+            mfe  = float(meta.get('mfe', 0.0)) if isinstance(meta, dict) else 0.0
+            olbl = {2:'MEGA', 1:'SCALP', 0:'NOISE', -1:'SCALP', -2:'MEGA'}.get(om, 'NOISE')
+            opnl = round(abs(mfe) * self.asset.point_value, 2)
+            return {
+                'ts': ts_val, 'day': day, 'depth': getattr(p, 'depth', 6),
+                'pattern': pattern_val or '', 'micro_z': round(micro_z_val, 2),
+                'macro_z': round(macro_z_val, 2), 'gate': gate,
+                'gate1_dist': round(dist, 3), 'gate3_conv': round(conviction, 3),
+                'oracle_label': olbl,
+                'oracle_dir': 'LONG' if om > 0 else ('SHORT' if om < 0 else 'NONE'),
+                'oracle_pnl': opnl,
+                'template_id': str(template_id), 'tier': str(tier),
+            }
 
         # Per-trade oracle tracking
         _ORACLE_LABEL_NAMES = {2: 'MEGA_LONG', 1: 'SCALP_LONG', 0: 'NOISE', -1: 'SCALP_SHORT', -2: 'MEGA_SHORT'}
@@ -567,6 +589,11 @@ class BayesianTrainingOrchestrator:
                 _states_15s = []
                 belief_network.prepare_day(df_15s, states_micro=[],
                                            df_5s=_df_5s, df_1s=_df_1s)
+
+            # Accumulate worker state counts for report diagnostics
+            for _wlbl, _wcnt in belief_network.get_worker_state_counts().items():
+                _worker_total_states[_wlbl]   = _worker_total_states.get(_wlbl, 0) + _wcnt
+                _worker_days_with_data[_wlbl] = _worker_days_with_data.get(_wlbl, 0) + (1 if _wcnt > 0 else 0)
 
             # Reset PID analyzer for the day
             _day_sigmas = [s['state'].sigma_fractal for s in _states_15s if s['state'].sigma_fractal > 0]
@@ -733,6 +760,7 @@ class BayesianTrainingOrchestrator:
                     _candidate_gate = {}    # id(p) -> gate that blocked it (for FN audit)
                     _bypass_candidate = None  # best Gate-1 reject for worker-conviction bypass
                     _bypass_dist      = 999.0
+                    _gate_passers = {}      # id(p) -> record dict (for score_loser tracking)
 
                     for p in candidates:
                         n_signals_seen += 1
@@ -797,6 +825,8 @@ class BayesianTrainingOrchestrator:
                         if should_skip:
                             skip_headroom += 1
                             _candidate_gate[id(p)] = _skip_label
+                            decision_matrix_records.append(_dm_rec(
+                                p, _skip_label, day_date, ts, micro_z, macro_z, micro_pattern))
                             continue
 
                         # Gate 0.5: depth filter -- exclude depths that had negative avg
@@ -806,6 +836,8 @@ class BayesianTrainingOrchestrator:
                         if _cand_depth in _DEPTH_FILTER_OUT:
                             skip_headroom += 1
                             _candidate_gate[id(p)] = 'gate0_5'
+                            decision_matrix_records.append(_dm_rec(
+                                p, 'gate0_5', day_date, ts, micro_z, macro_z, micro_pattern))
                             continue
 
                         # Extract 14D features using shared logic
@@ -837,9 +869,18 @@ class BayesianTrainingOrchestrator:
                                     best_dist = score
                                     best_candidate = p
                                     best_tid = tid
+                                # Track for score_loser detection (all gate-passers)
+                                _gate_passers[id(p)] = _dm_rec(
+                                    p, 'score_loser', day_date, ts, micro_z, macro_z,
+                                    micro_pattern, dist=dist,
+                                    template_id=tid, tier=template_tier_map.get(tid, 3))
                             else:
                                 skip_brain += 1
                                 _candidate_gate[id(p)] = 'gate2'
+                                decision_matrix_records.append(_dm_rec(
+                                    p, 'gate2', day_date, ts, micro_z, macro_z,
+                                    micro_pattern, dist=dist,
+                                    template_id=tid, tier=template_tier_map.get(tid, 3)))
                         else:
                             # Gate 1 rejected -- track nearest miss for worker-bypass path
                             if dist < _bypass_dist:
@@ -847,6 +888,14 @@ class BayesianTrainingOrchestrator:
                                 _bypass_candidate = p
                             skip_dist += 1
                             _candidate_gate[id(p)] = 'gate1'
+                            decision_matrix_records.append(_dm_rec(
+                                p, 'gate1', day_date, ts, micro_z, macro_z,
+                                micro_pattern, dist=dist))
+
+                    # ── Emit score_loser records (gate-passers that lost on score) ──
+                    for _pid, _prec in _gate_passers.items():
+                        if best_candidate is None or _pid != id(best_candidate):
+                            decision_matrix_records.append(_prec)
 
                     # ── Worker-conviction bypass (Gate 1 override) ───────────────
                     # FN analysis: when no cluster matches, 30m/15m/5m workers still
@@ -932,6 +981,16 @@ class BayesianTrainingOrchestrator:
                                 # Tree uncertain across scales -- skip this bar
                                 skip_conviction += 1
                                 _candidate_gate[id(p)] = 'gate3'
+                                _bc_mz = abs(best_candidate.z_score)
+                                _bc_mac = abs((getattr(best_candidate, 'parent_chain', None) or [{}])[-1].get('z', 0.0))
+                                decision_matrix_records.append(_dm_rec(
+                                    best_candidate, 'gate3', day_date, ts,
+                                    _bc_mz, _bc_mac,
+                                    getattr(best_candidate, 'pattern_type', ''),
+                                    dist=best_dist,
+                                    conviction=_belief.conviction if _belief else 0.0,
+                                    template_id=best_tid,
+                                    tier=template_tier_map.get(best_tid, 3)))
                                 continue
                             # Path direction override for NOISE oracle_marker patterns
                             if _nn_marker == 0 and _belief.direction != side:
@@ -1285,6 +1344,20 @@ class BayesianTrainingOrchestrator:
         report_lines.append(f"Win Rate: {total_wins/total_trades*100:.1f}%" if total_trades > 0 else "Win Rate: N/A")
         report_lines.append(f"Total PnL: ${total_pnl:.2f}")
 
+        # ── Worker state counts diagnostic ─────────────────────────────────────
+        _n_files = len(daily_files_15s) if daily_files_15s else 1
+        _ws_parts = []
+        for _lbl in ['1h','30m','15m','5m','3m','1m','30s','15s','5s','1s']:
+            _tot = _worker_total_states.get(_lbl, 0)
+            _days = _worker_days_with_data.get(_lbl, 0)
+            _avg  = _tot // _n_files if _n_files else 0
+            _ws_parts.append(f"{_lbl}={_avg}/file({_days}/{_n_files} files ok)")
+        report_lines.append("")
+        report_lines.append("── WORKER STATES LOADED ──")
+        # Split into two lines so it's readable
+        report_lines.append("  " + "  ".join(_ws_parts[:5]))
+        report_lines.append("  " + "  ".join(_ws_parts[5:]))
+
         # ── Account equity summary (when --account-size is set) ──────────────
         if _equity_enabled:
             _max_dd_usd  = peak_equity - trough_equity
@@ -1406,7 +1479,7 @@ class BayesianTrainingOrchestrator:
         # Also: which workers FLIPPED direction by exit? That likely caused the loss.
         if oracle_trade_records and 'entry_workers' in oracle_trade_records[0]:
             import json as _js
-            _TF_ORDER = ['1h','30m','15m','5m','3m','1m','30s','15s']
+            _TF_ORDER = ['1h','30m','15m','5m','3m','1m','30s','15s','5s','1s']
             _wins_r  = [r for r in oracle_trade_records if r['result'] == 'WIN']
             _loss_r  = [r for r in oracle_trade_records if r['result'] != 'WIN']
 
@@ -1625,6 +1698,36 @@ class BayesianTrainingOrchestrator:
         # "no_match" = nothing passed gates at this bar.
         # Key question: when workers agreed with oracle direction on FN signals,
         # a gate was too strict (the workers were right but we still skipped).
+        # ── Decision Matrix CSV ─────────────────────────────────────────────────
+        # Per-candidate log: every skipped signal with gate decision + oracle context.
+        # Answers: which gate blocks the most money? which patterns are mis-directed?
+        if decision_matrix_records:
+            _dm_name = 'oos_decision_matrix.csv' if oos_mode else 'decision_matrix.csv'
+            _dm_path = os.path.join(self.checkpoint_dir, _dm_name)
+            with open(_dm_path, 'w', newline='', encoding='utf-8') as _dmf:
+                _dm_writer = _csv.DictWriter(_dmf, fieldnames=list(decision_matrix_records[0].keys()))
+                _dm_writer.writeheader()
+                _dm_writer.writerows(decision_matrix_records)
+            report_lines.append(f"  Decision matrix saved: {_dm_path}  ({len(decision_matrix_records):,} skipped candidates)")
+
+            # ── Decision matrix summary ───────────────────────────────────────────
+            from collections import defaultdict as _dd
+            _dm_gate_stats = _dd(lambda: {'count':0, 'real_move':0, 'total_opnl':0.0})
+            for _r in decision_matrix_records:
+                _g = _r['gate']
+                _dm_gate_stats[_g]['count'] += 1
+                if _r['oracle_label'] != 'NOISE':
+                    _dm_gate_stats[_g]['real_move'] += 1
+                    _dm_gate_stats[_g]['total_opnl'] += _r['oracle_pnl']
+            report_lines.append("")
+            report_lines.append("  DECISION MATRIX SUMMARY  (skipped candidates -- oracle $ = profit left on table)")
+            report_lines.append(f"    {'Gate':<22} {'Count':>6} {'RealMove%':>10} {'Avg Oracle$':>12} {'Total Missed$':>14}")
+            for _g, _st in sorted(_dm_gate_stats.items(), key=lambda x: -x[1]['total_opnl']):
+                _rm_pct = _st['real_move'] / _st['count'] * 100 if _st['count'] else 0
+                _avg_o  = _st['total_opnl'] / _st['real_move'] if _st['real_move'] else 0
+                report_lines.append(
+                    f"    {_g:<22} {_st['count']:>6} {_rm_pct:>9.1f}% {_avg_o:>11.0f} {_st['total_opnl']:>13.0f}")
+
         if fn_oracle_records:
             import json as _fnjs
             _fn_name = 'oos_fn_log.csv' if oos_mode else 'fn_oracle_log.csv'
@@ -1639,7 +1742,7 @@ class BayesianTrainingOrchestrator:
             # For each TF worker, what fraction of FN signals had the worker
             # agreeing with the oracle direction?  High agreement = gate is blocking
             # moves the workers correctly identified.
-            _TF_ORDER_FN = ['1h','30m','15m','5m','3m','1m','30s','15s']
+            _TF_ORDER_FN = ['1h','30m','15m','5m','3m','1m','30s','15s','5s','1s']
             def _fn_tf_agree(records, tf_label):
                 vals = []
                 for r in records:
