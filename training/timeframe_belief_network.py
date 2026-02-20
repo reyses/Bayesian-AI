@@ -165,7 +165,10 @@ class TimeframeWorker:
         if not self._states or tf_bar_idx >= len(self._states):
             return False   # No state yet (warmup period)
 
-        state = self._states[tf_bar_idx]
+        state_raw = self._states[tf_bar_idx]
+        # batch_compute_states() wraps each result as {'bar_idx': i, 'state': ThreeBodyQuantumState, ...}
+        # Unwrap so state_to_features() receives the actual physics object, not the dict wrapper.
+        state = state_raw['state'] if isinstance(state_raw, dict) and 'state' in state_raw else state_raw
         self._last_tf_bar_idx = tf_bar_idx
 
         # --- Task 2: Analysis ---
