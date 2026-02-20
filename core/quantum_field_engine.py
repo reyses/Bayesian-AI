@@ -84,6 +84,48 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+@numba.jit(nopython=True, cache=True)
+def _compute_rs_numba(returns, window):
+    """
+    JIT-compiled Rolling R/S calculation.
+    Optimized to O(N * window) without intermediate large array allocations.
+    """
+    n = len(returns)
+    output_rs = np.empty(n - window + 1, dtype=np.float64)
+
+    for i in range(n - window + 1):
+        # Calculate mean
+        mean = 0.0
+        for j in range(window):
+            mean += returns[i+j]
+        mean /= window
+
+        # Calculate deviations and std
+        current_cum = 0.0
+        max_cum = -1e30
+        min_cum = 1e30
+        sum_sq = 0.0
+
+        for j in range(window):
+            val = returns[i+j] - mean
+            current_cum += val
+
+            if current_cum > max_cum:
+                max_cum = current_cum
+            if current_cum < min_cum:
+                min_cum = current_cum
+
+            sum_sq += val * val
+
+        std_dev = math.sqrt(sum_sq / (window - 1))
+        if std_dev < 1e-10:
+            std_dev = 1e-10
+
+        r = max_cum - min_cum
+        output_rs[i] = r / std_dev
+
+    return output_rs
+
 class QuantumFieldEngine:
     """
     Unified field calculator — GPU-accelerated when CUDA available
@@ -256,17 +298,13 @@ class QuantumFieldEngine:
 
         for sz in unique_sizes:
             w_ret = sz - 1
-            # Vectorized R/S over all possible windows of size w_ret
-            windows = sliding_window_view(all_returns, window_shape=w_ret)
+            # Use Numba JIT-compiled R/S calculation
+            # This is significantly faster and uses less memory than sliding_window_view
+            RS = _compute_rs_numba(all_returns, w_ret)
 
-            mean_r = windows.mean(axis=1, keepdims=True)
-            devs = np.cumsum(windows - mean_r, axis=1)
-            R = devs.max(axis=1) - devs.min(axis=1)
-            S = windows.std(axis=1, ddof=1)
-            S = np.maximum(S, 1e-10)
-
-            RS = R / S
-            log_RS = np.log(np.maximum(RS, 1e-10))
+            # Clamp and Log
+            RS = np.maximum(RS, 1e-10)
+            log_RS = np.log(RS)
 
             size_results[sz] = log_RS
 
@@ -726,87 +764,93 @@ class QuantumFieldEngine:
         np.nan_to_num(oscillation_coherence_arr, copy=False, nan=0.0)
 
         # Reconstruct result list
-        results = []
+        # Optimization: Vectorize logic to reduce Python loop overhead
 
-        # Loop from rp to n
-        for i in range(rp, n):
-            # Map simple Lagrange zones
-            z = z_scores[i]
-            abs_z = abs(z)
-            if abs_z < 1.0:
-                lz = 'L1_STABLE'
-            elif abs_z < 2.0:
-                lz = 'CHAOS'
-            elif z >= 2.0:
-                lz = 'L2_ROCHE'
-            else:
-                lz = 'L3_ROCHE'
+        # 1. Lagrange Zones
+        abs_z = np.abs(z_scores)
+        # Use numpy.select or nested where for categorization
+        # Conditions
+        cond_stable = abs_z < 1.0
+        cond_chaos = abs_z < 2.0
+        cond_roche_upper = z_scores >= 2.0
 
-            # Map Archetypes to Flags
-            structure_confirmed = bool(structural_drive[i])
-            cascade_detected = bool(roche_snap[i])
+        # Default is L3_ROCHE (z <= -2.0)
+        lz_arr = np.where(cond_stable, 'L1_STABLE',
+                 np.where(cond_chaos, 'CHAOS',
+                 np.where(cond_roche_upper, 'L2_ROCHE', 'L3_ROCHE')))
 
-            # Amplitudes (Real approximation)
-            a0 = math.sqrt(prob0[i])
-            a1 = math.sqrt(prob1[i])
-            a2 = math.sqrt(prob2[i])
+        # 2. Amplitudes (Vectorized sqrt)
+        a0_arr = np.sqrt(prob0)
+        a1_arr = np.sqrt(prob1)
+        a2_arr = np.sqrt(prob2)
 
-            # Trend Direction Logic (Restored)
-            slope_strength = (abs(slope[i]) * rp) / (sigma[i] + 1e-6)
-            if slope_strength > 1.0:
-                trend_direction = 'UP' if slope[i] > 0 else 'DOWN'
-            else:
-                trend_direction = 'RANGE'
+        # 3. Trend Direction
+        # slope_strength = (abs(slope[i]) * rp) / (sigma[i] + 1e-6)
+        slope_strength = (np.abs(slope) * rp) / (sigma + 1e-6)
 
-            state = ThreeBodyQuantumState(
-                center_position=center[i],
-                upper_singularity=center[i] + 2.0 * sigma[i],
-                lower_singularity=center[i] - 2.0 * sigma[i],
-                event_horizon_upper=center[i] + 3.0 * sigma[i],
-                event_horizon_lower=center[i] - 3.0 * sigma[i],
-                particle_position=prices[i],
-                particle_velocity=velocity[i],
-                z_score=z,
-                F_reversion=-0.5 * z * sigma[i],
-                F_upper_repulsion=0.0,
-                F_lower_repulsion=0.0,
-                F_momentum=momentum[i],
-                F_net=force[i],
-                amplitude_center=a0,
-                amplitude_upper=a1,
-                amplitude_lower=a2,
-                P_at_center=prob0[i],
-                P_near_upper=prob1[i],
-                P_near_lower=prob2[i],
-                entropy=entropy[i],
-                coherence=coherence[i],
-                pattern_maturity=0.0,
-                momentum_strength=momentum[i],
-                structure_confirmed=structure_confirmed,
-                cascade_detected=cascade_detected,
-                spin_inverted=False,
-                lagrange_zone=lz,
-                stability_index=1.0,
-                tunnel_probability=0.0, escape_probability=0.0,
-                barrier_height=0.0,
-                pattern_type=str(pattern_types[i]),
-                candlestick_pattern=str(candlestick_types[i]),
-                trend_direction_15m=trend_direction, # Restored logic
-                hurst_exponent=hurst_arr[i],
-                adx_strength=adx_arr[i], dmi_plus=dmi_plus_arr[i], dmi_minus=dmi_minus_arr[i],
-                sigma_fractal=sigma[i],
-                term_pid=float(term_pid_arr[i]),
-                oscillation_coherence=float(oscillation_coherence_arr[i]),
-                lyapunov_exponent=0.0,
-                market_regime='STABLE',
-                timestamp=timestamps[i]
-            )
+        # 'UP' if slope > 0 else 'DOWN'
+        trend_dir_temp = np.where(slope > 0, 'UP', 'DOWN')
+        trend_direction_arr = np.where(slope_strength > 1.0, trend_dir_temp, 'RANGE')
 
-            results.append({
+        # 4. Structure Confirmation (Already boolean arrays)
+        # roche_snap and structural_drive are boolean arrays from kernels/vectorized logic
+
+        # Loop from rp to n using pre-calculated arrays
+        # This reduces the loop body to simple instantiation
+
+        # Pre-slice arrays to avoid indexing in loop if possible?
+        # No, indexing is fast. But we can use list comprehension which is faster than append loop.
+
+        results = [
+            {
                 'bar_idx': i,
-                'state': state,
+                'state': ThreeBodyQuantumState(
+                    center_position=center[i],
+                    upper_singularity=center[i] + 2.0 * sigma[i],
+                    lower_singularity=center[i] - 2.0 * sigma[i],
+                    event_horizon_upper=center[i] + 3.0 * sigma[i],
+                    event_horizon_lower=center[i] - 3.0 * sigma[i],
+                    particle_position=prices[i],
+                    particle_velocity=velocity[i],
+                    z_score=z_scores[i],
+                    F_reversion=-0.5 * z_scores[i] * sigma[i],
+                    F_upper_repulsion=0.0,
+                    F_lower_repulsion=0.0,
+                    F_momentum=momentum[i],
+                    F_net=force[i],
+                    amplitude_center=a0_arr[i],
+                    amplitude_upper=a1_arr[i],
+                    amplitude_lower=a2_arr[i],
+                    P_at_center=prob0[i],
+                    P_near_upper=prob1[i],
+                    P_near_lower=prob2[i],
+                    entropy=entropy[i],
+                    coherence=coherence[i],
+                    pattern_maturity=0.0,
+                    momentum_strength=momentum[i],
+                    structure_confirmed=bool(structural_drive[i]),
+                    cascade_detected=bool(roche_snap[i]),
+                    spin_inverted=False,
+                    lagrange_zone=lz_arr[i],
+                    stability_index=1.0,
+                    tunnel_probability=0.0, escape_probability=0.0,
+                    barrier_height=0.0,
+                    pattern_type=str(pattern_types[i]),
+                    candlestick_pattern=str(candlestick_types[i]),
+                    trend_direction_15m=trend_direction_arr[i],
+                    hurst_exponent=hurst_arr[i],
+                    adx_strength=adx_arr[i], dmi_plus=dmi_plus_arr[i], dmi_minus=dmi_minus_arr[i],
+                    sigma_fractal=sigma[i],
+                    term_pid=float(term_pid_arr[i]),
+                    oscillation_coherence=float(oscillation_coherence_arr[i]),
+                    lyapunov_exponent=0.0,
+                    market_regime='STABLE',
+                    timestamp=timestamps[i]
+                ),
                 'price': prices[i],
-                'structure_ok': lz in ('L2_ROCHE', 'L3_ROCHE')
-            })
+                'structure_ok': lz_arr[i] in ('L2_ROCHE', 'L3_ROCHE')
+            }
+            for i in range(rp, n)
+        ]
 
         return results
