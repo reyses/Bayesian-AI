@@ -517,7 +517,8 @@ class BayesianTrainingOrchestrator:
         oracle_trade_records = []  # completed per-trade oracle dicts
         pending_oracle = None      # oracle facts for currently open trade
         _pending_dm_idx = None     # index into decision_matrix_records for open trade
-        fn_potential_pnl = 0.0    # dollar potential of real moves we skipped
+        fn_potential_pnl    = 0.0  # dollar potential of real moves we missed (gate-blocked)
+        score_loser_pnl     = 0.0  # dollar potential of real moves we correctly passed over (took better trade same bar)
 
         # PID Shadow Log
         pid_oracle_records = []
@@ -1196,19 +1197,25 @@ class BayesianTrainingOrchestrator:
                                 audit_tn += 1
                             elif audit_res['classification'] == 'FN':
                                 # Skip if PID regime covers this bar (handled by PID analyzer)
-                                # Thresholds: |term_pid| >= 0.3, osc_coh >= 0.5, adx <= 30.0
                                 _s = p.state
                                 _is_pid = (abs(_s.term_pid) >= 0.3
                                            and _s.oscillation_coherence >= 0.5
                                            and _s.adx_strength <= 30.0)
                                 if _is_pid:
-                                     # Not counted as fractal FN failure because PID analyzer handles it
-                                     continue
+                                    continue
 
-                                audit_fn += 1
-                                _om = _effective_oracle(p)  # macro-to-leaf aggregated
+                                _om = _effective_oracle(p)
                                 _meta = getattr(p, 'oracle_meta', {})
                                 _fn_pot = (_meta.get('mfe', 0.0) if _om > 0 else _meta.get('mae', 0.0)) * self.asset.point_value
+
+                                # Golden-path rule: if this candidate passed all gates but lost
+                                # the score competition, it is NOT a missed opportunity -- we
+                                # deliberately chose a better trade at this bar.
+                                if id(p) in _gate_passers:
+                                    score_loser_pnl += _fn_pot
+                                    continue  # do NOT add to fn_oracle_records or fn_potential_pnl
+
+                                audit_fn += 1
                                 fn_potential_pnl += _fn_pot
                                 fn_oracle_records.append({
                                     'timestamp':       ts,
@@ -1217,8 +1224,8 @@ class BayesianTrainingOrchestrator:
                                     'oracle_label_name': _ORACLE_LABEL_NAMES.get(_om, '?'),
                                     'oracle_dir':      'LONG' if _om > 0 else 'SHORT',
                                     'fn_potential_pnl': round(_fn_pot, 2),
-                                    'reason':          'competed',  # had a trade this bar, but not this candidate
-                                    'gate_blocked':    _candidate_gate.get(id(p), 'passed'),  # 'passed' = scored but lost to better candidate
+                                    'reason':          'competed',
+                                    'gate_blocked':    _candidate_gate.get(id(p), 'unknown'),
                                     'workers':         __import__('json').dumps(belief_network.get_worker_snapshot()),
                                 })
                     elif _bypass_belief is not None:
@@ -1740,15 +1747,16 @@ class BayesianTrainingOrchestrator:
 
         report_lines.append("")
         report_lines.append(f"  PROFIT GAP ANALYSIS:")
-        report_lines.append(f"    Ideal (all real moves, perfect exits):  ${ideal_profit:>12,.2f}")
+        report_lines.append(f"    Ideal (golden-path: gate-blocked + traded, perfect exits):  ${ideal_profit:>12,.2f}")
         report_lines.append(f"    -----------------------------------------------------")
-        report_lines.append(f"    Lost -- missed opportunities (skipped):  ${fn_potential_pnl:>12,.2f}  ({fn_potential_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    Lost -- wrong direction at entry:        ${abs(fp_wrong_pnl):>12,.2f}  ({abs(fp_wrong_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    Lost -- noise trades:                    ${abs(fp_noise_pnl):>12,.2f}  ({abs(fp_noise_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    Lost -- reversed after correct entry:    ${reversed_loss_val:>12,.2f}  ({reversed_loss_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    Lost -- TP underperform (non-reversed):  ${left_on_table_val:>12,.2f}  ({left_on_table_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    Lost -- missed opportunities (gate-blocked):  ${fn_potential_pnl:>12,.2f}  ({fn_potential_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    Lost -- wrong direction at entry:             ${abs(fp_wrong_pnl):>12,.2f}  ({abs(fp_wrong_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    Lost -- noise trades:                         ${abs(fp_noise_pnl):>12,.2f}  ({abs(fp_noise_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    Lost -- reversed after correct entry:         ${reversed_loss_val:>12,.2f}  ({reversed_loss_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    Lost -- TP underperform (non-reversed):       ${left_on_table_val:>12,.2f}  ({left_on_table_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
         report_lines.append(f"    -----------------------------------------------------")
-        report_lines.append(f"    Actual profit:                          ${total_pnl:>12,.2f}  ({total_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else f"    Actual profit: ${total_pnl:.2f}")
+        report_lines.append(f"    Actual profit:                               ${total_pnl:>12,.2f}  ({total_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else f"    Actual profit: ${total_pnl:.2f}")
+        report_lines.append(f"    [info] Score-competition pool (took better same bar): ${score_loser_pnl:>12,.2f}  (not missed -- golden path chose better candidate)")
 
         # Store for bottom-line summary at program exit
         self._fp_summary = {
