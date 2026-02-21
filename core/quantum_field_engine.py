@@ -19,7 +19,7 @@ from core.pattern_utils import (
     detect_geometric_patterns_vectorized, detect_candlestick_patterns_vectorized
 )
 
-from core.physics_utils import compute_adx_dmi_cpu, ADX_PERIOD, HURST_WINDOW
+from core.physics_utils import compute_adx_dmi_cpu, ADX_PERIOD, HURST_WINDOW, REL_VOLUME_WINDOW
 
 # Core CUDA Physics
 try:
@@ -527,9 +527,16 @@ class QuantumFieldEngine:
         # 2. Hurst
         hurst = self._compute_hurst_numpy(prices, HURST_WINDOW)
 
+        # 3. Relative Volume (20-bar rolling mean)
+        # vol_mean = np.convolve(volumes, np.ones(20)/20, mode='same')
+        vol_mean = np.convolve(volumes, np.ones(REL_VOLUME_WINDOW)/REL_VOLUME_WINDOW, mode='same')
+        vol_mean = np.maximum(vol_mean, 1e-9)  # avoid div/0
+        rel_volume_arr = volumes / vol_mean    # shape (N,)
+
         return {
             'center': center, 'sigma': sigma, 'slope': slope, 'z': z_scores,
             'velocity': velocity, 'force': force, 'momentum': momentum,
+            'rel_volume': rel_volume_arr,
             'coherence': coherence, 'entropy': entropy,
             'prob0': prob0, 'prob1': prob1, 'prob2': prob2,
             'roche': roche_snap, 'drive': structural_drive,
@@ -599,6 +606,7 @@ class QuantumFieldEngine:
         adx_arr = None
         dmi_plus_arr = None
         dmi_minus_arr = None
+        rel_volume_arr = None
 
         if use_cuda and self.use_gpu and CUDA_PHYSICS_AVAILABLE:
             # Output arrays (allocated on GPU directly or mapped)
@@ -696,6 +704,11 @@ class QuantumFieldEngine:
             minus_dm_raw = d_minus_dm.copy_to_host()
             adx_arr, dmi_plus_arr, dmi_minus_arr = compute_adx_dmi_cpu(tr_raw, plus_dm_raw, minus_dm_raw, ADX_PERIOD)
 
+            # Pass 3: Rel Volume on CPU
+            vol_mean = np.convolve(volumes, np.ones(REL_VOLUME_WINDOW)/REL_VOLUME_WINDOW, mode='same')
+            vol_mean = np.maximum(vol_mean, 1e-9)
+            rel_volume_arr = volumes / vol_mean
+
         else:
             # CPU Fallback
             cpu_results = self._batch_compute_cpu(prices, highs, lows, closes, volumes, rp)
@@ -718,6 +731,7 @@ class QuantumFieldEngine:
             adx_arr = cpu_results['adx']
             dmi_plus_arr = cpu_results['dmi_plus']
             dmi_minus_arr = cpu_results['dmi_minus']
+            rel_volume_arr = cpu_results['rel_volume']
 
 
         # Extract timestamps
@@ -847,6 +861,7 @@ class QuantumFieldEngine:
                     oscillation_coherence=float(oscillation_coherence_arr[i]),
                     lyapunov_exponent=0.0,
                     market_regime='STABLE',
+                    rel_volume=float(rel_volume_arr[i]),
                     timestamp=timestamps[i]
                 ),
                 'price': prices[i],

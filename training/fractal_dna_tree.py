@@ -9,8 +9,7 @@ class TreeNode:
     One node in the fractal tree.
     At each TF level, this is a cluster of patterns sharing similar context at that TF.
     """
-    node_id: str              # Unique ID: "L|1h:3" or "15m:7" (root nodes include direction)
-    direction: str            # 'LONG', 'SHORT', or '' (intermediate nodes inherit from root)
+    node_id: str              # Unique ID: "1h:3" or "15m:7"
     timeframe: str            # '1h', '30m', '15m', '5m', '3m', '1m', '30s', '15s'
     centroid: np.ndarray      # Cluster centroid in scaled feature space at this TF level
     member_count: int         # Number of leaf patterns under this subtree
@@ -30,17 +29,20 @@ class TreeNode:
     mfe_coeff: Optional[List[float]] = None
     mfe_intercept: float = 0.0
 
+    # Structure/Energy stats for decay traversal
+    mean_adx: float = 0.0         # avg structural energy at this node
+    mean_rel_volume: float = 1.0  # avg relative volume at this node
+
 
 @dataclass
 class PatternDNA:
     """The path from root to leaf through the fractal tree."""
-    direction: str           # 'LONG' or 'SHORT'
     path: List[str]          # ['1h:3', '15m:7', '5m:2', '15s:9']
 
     @property
     def key(self) -> str:
         """Deterministic string key for this DNA path."""
-        return self.direction[0] + '|' + '|'.join(self.path)
+        return '|'.join(self.path)
 
     @property
     def depth(self) -> int:
@@ -50,7 +52,7 @@ class PatternDNA:
         """Return the DNA of the parent node (one level up)."""
         if len(self.path) <= 1:
             return None
-        return PatternDNA(direction=self.direction, path=self.path[:-1])
+        return PatternDNA(path=self.path[:-1])
 
     def __str__(self):
         return self.key
@@ -58,7 +60,7 @@ class PatternDNA:
 
 class FractalDNATree:
     """
-    Hierarchical fractal cluster tree with LONG/SHORT split at root level.
+    Hierarchical fractal cluster tree. Unified (no Direction Split).
 
     Builds by level: for each TF level from macro (1h) to leaf (15s),
     cluster the ancestry context features, then assign each leaf pattern
@@ -74,40 +76,34 @@ class FractalDNATree:
         Actual count may be less if a node has too few members.
         """
         self.n_clusters_per_level = n_clusters_per_level
-        self.long_root:  Optional[TreeNode] = None
-        self.short_root: Optional[TreeNode] = None
+        self.root: Optional[TreeNode] = None
         self._dna_index: Dict[str, TreeNode] = {}  # dna.key -> leaf TreeNode
 
     def fit(self, patterns: list) -> None:
         """
-        Build the full LONG and SHORT fractal trees from a list of PatternEvents.
+        Build the unified fractal tree from a list of PatternEvents.
         Each PatternEvent must have: timeframe, parent_chain, oracle_marker, oracle_meta.
         """
-        # Filter for patterns that have oracle markers (non-noise preferred for tree building?
-        # The instruction says: "long_patterns = [p for p in patterns if p.oracle_marker > 0]"
-        # This implies we only build tree on VALID moves.
-        long_patterns  = [p for p in patterns if getattr(p, 'oracle_marker', 0) > 0]
-        short_patterns = [p for p in patterns if getattr(p, 'oracle_marker', 0) < 0]
+        # Filter for patterns that have oracle markers (non-noise preferred for tree building?)
+        valid = [p for p in patterns if getattr(p, 'oracle_marker', 0) != 0]
 
-        self.long_root  = self._build_branch(long_patterns,  'LONG')
-        self.short_root = self._build_branch(short_patterns, 'SHORT')
+        self.root = self._build_branch(valid)
         self._build_dna_index()
 
-    def _build_branch(self, patterns: list, direction: str) -> TreeNode:
-        """Recursively build the cluster tree for one direction."""
+    def _build_branch(self, patterns: list) -> TreeNode:
+        """Recursively build the cluster tree."""
         root = TreeNode(
-            node_id=direction[0] + '|root',
-            direction=direction,
+            node_id='root',
             timeframe='root',
             centroid=np.zeros(1),
             member_count=len(patterns),
         )
-        self._split_by_tf_level(root, patterns, tf_level_idx=0, direction=direction)
+        self._split_by_tf_level(root, patterns, tf_level_idx=0)
         self._aggregate_oracle_stats(root, patterns)
         return root
 
     def _split_by_tf_level(self, parent_node: TreeNode, patterns: list,
-                           tf_level_idx: int, direction: str) -> None:
+                           tf_level_idx: int) -> None:
         """
         For each pattern, extract features at the current TF level from parent_chain,
         then cluster. Recurse into each cluster at the next lower TF level.
@@ -155,7 +151,6 @@ class FractalDNATree:
             node_id = f"{current_tf}:{lbl}"
             child = TreeNode(
                 node_id=node_id,
-                direction=direction,
                 timeframe=current_tf,
                 centroid=scaler.inverse_transform([centroids[lbl]])[0],
                 member_count=len(subset),
@@ -164,7 +159,7 @@ class FractalDNATree:
 
             # Recurse into next TF level
             if current_tf != leaf_tf:
-                self._split_by_tf_level(child, subset, tf_level_idx + 1, direction)
+                self._split_by_tf_level(child, subset, tf_level_idx + 1)
             else:
                 child.leaf_pattern_ids = [id(p) for p in subset]
 
@@ -172,9 +167,10 @@ class FractalDNATree:
         """
         Extract a compact feature vector for pattern p at timeframe tf.
 
-        For leaf: uses the pattern's own features (z, velocity, momentum, coherence,
-                  adx, hurst, dmi_diff, pid, osc_coh).
+        For leaf: uses the pattern's own features.
         For ancestor: extracts from the matching entry in parent_chain.
+
+        Features: [z, log(vel), log(mom), adx, dmi_plus, dmi_minus, hurst, pid, osc_coh, log(rel_vol)]
         """
         if is_leaf:
             s = getattr(p, 'state', None)
@@ -183,29 +179,33 @@ class FractalDNATree:
                     abs(getattr(p, 'z_score', 0.0)),
                     np.log1p(abs(getattr(p, 'velocity', 0.0))),
                     np.log1p(abs(getattr(p, 'momentum', 0.0))),
-                    getattr(s, 'adx_strength', 0.0) / 100.0,
+                    getattr(s, 'adx_strength', 0.0)          / 100.0,
+                    getattr(s, 'dmi_plus', 0.0)               / 100.0,
+                    getattr(s, 'dmi_minus', 0.0)              / 100.0,
                     getattr(s, 'hurst_exponent', 0.5),
-                    (getattr(s, 'dmi_plus', 0.0) - getattr(s, 'dmi_minus', 0.0)) / 100.0,
                     getattr(s, 'term_pid', 0.0),
                     getattr(s, 'oscillation_coherence', 0.0),
+                    np.log1p(max(getattr(s, 'rel_volume', 1.0), 0.0)),
                 ]
             else:
-                return [0.0] * 8
+                return [0.0] * 10
         else:
             chain = getattr(p, 'parent_chain', []) or []
             # Find the ancestor matching this TF
             ancestor = next((c for c in chain if c.get('tf') == tf), None)
             if ancestor is None:
-                return [0.0] * 8  # no ancestor at this TF
+                return [0.0] * 10  # no ancestor at this TF
             return [
                 abs(ancestor.get('z', 0.0)),
                 np.log1p(abs(ancestor.get('velocity', 0.0))),
-                np.log1p(abs(ancestor.get('momentum', 0.0))),
-                ancestor.get('adx', 0.0) / 100.0,
+                np.log1p(abs(ancestor.get('mom', 0.0))),
+                ancestor.get('adx', 0.0)       / 100.0,
+                ancestor.get('dmi_plus', 0.0)  / 100.0,
+                ancestor.get('dmi_minus', 0.0) / 100.0,
                 ancestor.get('hurst', 0.5),
-                (ancestor.get('dmi_plus', 0.0) - ancestor.get('dmi_minus', 0.0)) / 100.0,
                 ancestor.get('pid', 0.0),
                 ancestor.get('osc_coh', 0.0),
+                np.log1p(max(ancestor.get('rel_volume', 1.0), 0.0)),
             ]
 
     def _aggregate_oracle_stats(self, node: TreeNode, patterns: list) -> None:
@@ -224,6 +224,8 @@ class FractalDNATree:
         all_mfe = []
         all_mae = []
         all_wins = 0
+        adx_vals = []
+        vol_vals = []
         total = 0
         for child in node.children.values():
             total += child.member_count
@@ -232,8 +234,15 @@ class FractalDNATree:
                 all_mfe.extend([child.mean_mfe_ticks] * child.member_count)
                 all_mae.extend([child.mean_mae_ticks] * child.member_count)
 
+            # Weighted average for node stats
+            adx_vals.append(child.mean_adx * child.member_count)
+            vol_vals.append(child.mean_rel_volume * child.member_count)
+
         if total > 0:
             node.win_rate = all_wins / total
+            node.mean_adx = sum(adx_vals) / total
+            node.mean_rel_volume = sum(vol_vals) / total
+
         if all_mfe:
             node.mean_mfe_ticks = float(np.mean(all_mfe))
             node.mean_mae_ticks = float(np.mean(all_mae))
@@ -251,6 +260,14 @@ class FractalDNATree:
         maes = [p.oracle_meta.get('mae', 0.0) / 0.25 for p in patterns
                 if hasattr(p, 'oracle_meta') and p.oracle_meta.get('mae')]
 
+        # New stats
+        adx_vals = [getattr(getattr(p,'state',None),'adx_strength',0.0) for p in patterns]
+        vol_vals = [getattr(getattr(p,'state',None),'rel_volume', 1.0) for p in patterns]
+        if adx_vals:
+            node.mean_adx = float(np.mean(adx_vals))
+        if vol_vals:
+            node.mean_rel_volume = float(np.mean(vol_vals))
+
         if markers:
             node.win_rate = sum(1 for m in markers if abs(m) >= 1) / len(markers)
         if mfes:
@@ -264,18 +281,16 @@ class FractalDNATree:
 
     def _build_dna_index(self) -> None:
         """Build flat lookup: dna.key -> leaf TreeNode for O(1) access."""
-        def _traverse(node, path_so_far, direction):
+        def _traverse(node, path_so_far):
             if not node.children:
-                dna_key = direction[0] + '|' + '|'.join(path_so_far)
+                dna_key = '|'.join(path_so_far)
                 self._dna_index[dna_key] = node
                 return
             for child_id, child in node.children.items():
-                _traverse(child, path_so_far + [child_id], direction)
+                _traverse(child, path_so_far + [child_id])
 
-        if self.long_root:
-            _traverse(self.long_root, [], 'LONG')
-        if self.short_root:
-            _traverse(self.short_root, [], 'SHORT')
+        if self.root:
+            _traverse(self.root, [])
 
     def match(self, p) -> tuple:
         """
@@ -288,13 +303,11 @@ class FractalDNATree:
         At each level, finds nearest child centroid.
         Falls back to parent node stats if a level has no match.
         """
-        direction = 'LONG' if getattr(p, 'z_score', 0) <= 0 else 'SHORT'
-        root = self.long_root if direction == 'LONG' else self.short_root
-        if root is None:
+        if self.root is None:
             return None, None, 0.0
 
         path = []
-        current = root
+        current = self.root
         total_dist = 0.0
 
         for tf in self.TF_ORDER:
@@ -330,7 +343,7 @@ class FractalDNATree:
         if not path:
             return None, None, 0.0
 
-        dna = PatternDNA(direction=direction, path=path)
+        dna = PatternDNA(path=path)
         avg_dist = total_dist / len(path)
         confidence = 1.0 / (1.0 + avg_dist)
         return dna, current, confidence

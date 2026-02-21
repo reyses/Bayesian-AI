@@ -89,6 +89,9 @@ from config.symbols import MNQ
 PRECOMPUTE_DEBUG_LOG_FILENAME = 'precompute_debug.log'
 
 MAX_CLUSTER_DISTANCE = 4.5
+DNA_CONFIDENCE_THRESHOLD = 0.85
+MIN_MFE_TICKS = 4
+MIN_MFE_PREDICTION = 2.0
 
 TIMEFRAME_MAP = {
     0: '5s',
@@ -385,11 +388,6 @@ class BayesianTrainingOrchestrator:
         lib_path = os.path.join(self.checkpoint_dir, 'pattern_library.pkl')
         scaler_path = os.path.join(self.checkpoint_dir, 'clustering_scaler.pkl')
 
-        # Snowflake Split Files
-        lib_long_path = os.path.join(self.checkpoint_dir, 'pattern_library_long.pkl')
-        lib_short_path = os.path.join(self.checkpoint_dir, 'pattern_library_short.pkl')
-        sc_long_path = os.path.join(self.checkpoint_dir, 'clustering_scaler_long.pkl')
-        sc_short_path = os.path.join(self.checkpoint_dir, 'clustering_scaler_short.pkl')
         dna_path = os.path.join(self.checkpoint_dir, 'fractal_dna_tree.pkl')
 
         if not os.path.exists(lib_path):
@@ -407,42 +405,11 @@ class BayesianTrainingOrchestrator:
                 self.dna_tree = pickle.load(f)
             print(f"  Loaded DNA tree: {len(self.dna_tree._dna_index)} leaf DNA paths")
 
-        # Load Scalers & Split Libraries (Snowflake Mode)
-        self.pattern_library_long = {}
-        self.pattern_library_short = {}
-        self.scaler_long = None
-        self.scaler_short = None
-
         # Always load global scaler (for TBN/legacy)
         with open(scaler_path, 'rb') as f:
             self.scaler = pickle.load(f)
 
-        if os.path.exists(lib_long_path) and os.path.exists(sc_long_path):
-            with open(lib_long_path, 'rb') as f: self.pattern_library_long = pickle.load(f)
-            with open(lib_short_path, 'rb') as f: self.pattern_library_short = pickle.load(f)
-            with open(sc_long_path, 'rb') as f: self.scaler_long = pickle.load(f)
-            with open(sc_short_path, 'rb') as f: self.scaler_short = pickle.load(f)
-            print(f"  Snowflake: Loaded split libraries (L:{len(self.pattern_library_long)}, S:{len(self.pattern_library_short)})")
-        else:
-            print("  Legacy Mode: using unified scaler for all branches")
-            self.pattern_library_long = self.pattern_library
-            self.pattern_library_short = self.pattern_library
-            self.scaler_long = self.scaler
-            self.scaler_short = self.scaler
-
         print(f"  Loaded library: {len(self.pattern_library)} templates")
-
-        # Build Centroid Indices for both branches (using their respective scalers)
-        def _build_index(lib, sc):
-            tids = [t for t in lib.keys() if 'centroid' in lib[t]]
-            if not tids: return [], None
-            cens = np.array([lib[t]['centroid'] for t in tids])
-            if cens.size > 0:
-                cens = sc.transform(cens)
-            return tids, cens
-
-        self.valid_tids_long,  self.centroids_long  = _build_index(self.pattern_library_long, self.scaler_long)
-        self.valid_tids_short, self.centroids_short = _build_index(self.pattern_library_short, self.scaler_short)
 
         # Legacy valid_template_ids for other components
         valid_template_ids = list(self.pattern_library.keys())
@@ -495,17 +462,6 @@ class BayesianTrainingOrchestrator:
             _before = len(valid_template_ids)
             valid_template_ids = [tid for tid in valid_template_ids
                                   if template_tier_map.get(tid, 4) <= min_tier]
-
-            # Filter Snowflake indices too
-            def _filter_sf(tids, cens):
-                if not tids: return [], None
-                mask = [template_tier_map.get(t, 4) <= min_tier for t in tids]
-                new_tids = [t for i, t in enumerate(tids) if mask[i]]
-                new_cens = cens[mask] if cens is not None else None
-                return new_tids, new_cens
-
-            self.valid_tids_long, self.centroids_long = _filter_sf(self.valid_tids_long, self.centroids_long)
-            self.valid_tids_short, self.centroids_short = _filter_sf(self.valid_tids_short, self.centroids_short)
             print(f"  Min-tier filter (tier <= {min_tier}): {_before} -> {len(valid_template_ids)} active templates")
 
         centroids = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
@@ -1020,7 +976,7 @@ class BayesianTrainingOrchestrator:
                                 p, 'gate0_5', day_date, ts, micro_z, macro_z, micro_pattern))
                             continue
 
-                        # Unified cluster match (single scaler, direction derived from long_bias)
+                        # Unified cluster match (single scaler)
                         _idx = valid_template_ids
                         _cen = centroids_scaled
                         _sc  = self.scaler
@@ -1031,19 +987,29 @@ class BayesianTrainingOrchestrator:
                         # Scale (single unified scaler)
                         feat_scaled = _sc.transform(features)
 
-                        # Match
+                        # DNA Tree Match (Hierarchical Bayesian)
+                        pattern_dna = None
+                        dna_node = None
+                        dna_conf = 0.0
+                        if self.dna_tree:
+                            pattern_dna, dna_node, dna_conf = self.dna_tree.match(p)
+
+                        # Match Template (for params) - still need flat match to find nearest playbook entry
                         dists = np.linalg.norm(_cen - feat_scaled, axis=1)
                         nearest_idx = np.argmin(dists)
                         dist = dists[nearest_idx]
                         tid = _idx[nearest_idx]
 
-                        # DNA Tree Match (for logging/override)
-                        pattern_dna = None
-                        dna_node = None
-                        if self.dna_tree:
-                            pattern_dna, dna_node, dna_conf = self.dna_tree.match(p)
+                        # Gate 1: Distance + DNA Confidence
+                        # We accept if flat distance is good OR if DNA tree is very confident
+                        _gate_passed = False
+                        if dist < MAX_CLUSTER_DISTANCE:
+                            _gate_passed = True
+                        elif self.dna_tree and dna_conf > DNA_CONFIDENCE_THRESHOLD:
+                             # High confidence in hierarchical structure can override flat distance
+                             _gate_passed = True
 
-                        if dist < MAX_CLUSTER_DISTANCE: # Threshold (raised from 3.0 so extreme-z profitable patterns reach their nearest cluster)
+                        if _gate_passed:
                             # Brain gate -- use low threshold for exploration
                             if self.brain.should_fire(tid, min_prob=0.05, min_conf=0.0):
                                 # Score: lower is better
@@ -1109,61 +1075,38 @@ class BayesianTrainingOrchestrator:
                         _live_feat = np.array(FractalClusteringEngine.extract_features(best_candidate))
 
                         _cand_z = getattr(best_candidate, 'z_score', 0)
-                        # Direction: use per-cluster logistic regression on live shape features
-                        # P(LONG) = sigmoid(live_scaled @ dir_coeff + dir_intercept)
-                        # Falls back to long_bias (fraction of LONG members in cluster) if not fitted
-                        _live_scaled = self.scaler.transform([_live_feat])[0]
-                        _dir_coeff = lib_entry.get('dir_coeff')
-                        if _dir_coeff is not None:
-                            _logit = np.dot(_live_scaled, np.array(_dir_coeff)) + lib_entry.get('dir_intercept', 0.0)
-                            _p_long = 1.0 / (1.0 + np.exp(-_logit))
-                            side = 'long' if _p_long >= 0.5 else 'short'
-                        else:
-                            # Fallback: cluster-level long_bias prior
-                            _long_bias = lib_entry.get('long_bias', 0.5)
-                            side = 'long' if _long_bias >= 0.5 else 'short'
+                        # Direction: from Belief Network (Momentum Context)
+                        # The DNA tree encodes structure, workers encode momentum/direction.
+                        _belief = belief_network.get_belief()
 
-                        # ── Direction gate ──────────────────────────────────────────
-                        # Snowflake: direction comes from the matched template's training branch.
-                        # We retain DMI calc only for logging/diagnostics
+                        if _belief is None or not _belief.is_confident:
+                            # No belief consensus -> skip
+                            skip_conviction += 1
+                            _candidate_gate[id(p)] = 'gate3'
+                            _bc_mz = abs(best_candidate.z_score)
+                            _bc_mac = abs((getattr(best_candidate, 'parent_chain', None) or [{}])[-1].get('z', 0.0))
+                            decision_matrix_records.append(_dm_rec(
+                                best_candidate, 'gate3', day_date, ts,
+                                _bc_mz, _bc_mac,
+                                getattr(best_candidate, 'pattern_type', ''),
+                                dist=best_dist,
+                                conviction=_belief.conviction if _belief else 0.0,
+                                template_id=best_tid,
+                                tier=template_tier_map.get(best_tid, 3),
+                                pattern_dna=str(pattern_dna) if pattern_dna else ''))
+                            continue
+
+                        side = _belief.direction
+                        _network_tp = max(MIN_MFE_TICKS, int(round(_belief.predicted_mfe))) if _belief.predicted_mfe > MIN_MFE_PREDICTION else None
+
+                        # Logging/Diagnostics
                         _live_s   = best_candidate.state
                         _dmi_diff = (getattr(_live_s, 'dmi_plus',  0.0)
                                    - getattr(_live_s, 'dmi_minus', 0.0))
 
                         long_bias  = lib_entry.get('long_bias',  0.0)
                         short_bias = lib_entry.get('short_bias', 0.0)
-                        _nn_marker = _effective_oracle(best_candidate)
-
-                        # ── Path conviction gate (fractal belief network) ─────────
-                        # Collect all 8 TF workers' current beliefs.
-                        # If the fractal tree is uncertain (conviction < threshold) -> skip.
-                        # If tree agrees but disagrees with our leaf direction -> flip.
-                        # If tree agrees and TP from decision-level worker is better -> use it.
-                        _belief = belief_network.get_belief()
-                        if _belief is not None:
-                            if not _belief.is_confident:
-                                # Tree uncertain across scales -- skip this bar
-                                skip_conviction += 1
-                                _candidate_gate[id(p)] = 'gate3'
-                                _bc_mz = abs(best_candidate.z_score)
-                                _bc_mac = abs((getattr(best_candidate, 'parent_chain', None) or [{}])[-1].get('z', 0.0))
-                                decision_matrix_records.append(_dm_rec(
-                                    best_candidate, 'gate3', day_date, ts,
-                                    _bc_mz, _bc_mac,
-                                    getattr(best_candidate, 'pattern_type', ''),
-                                    dist=best_dist,
-                                    conviction=_belief.conviction if _belief else 0.0,
-                                    template_id=best_tid,
-                                    tier=template_tier_map.get(best_tid, 3),
-                                    pattern_dna=str(pattern_dna) if pattern_dna else ''))
-                                continue
-                            # Path direction override for NOISE oracle_marker patterns
-                            if _nn_marker == 0 and _belief.direction != side:
-                                side = _belief.direction  # fractal tree overrides leaf heuristics
-                            # Use network's predicted MFE if better than leaf-level estimate
-                            _network_tp = max(4, int(round(_belief.predicted_mfe))) if _belief.predicted_mfe > 2.0 else None
-                        else:
-                            _network_tp = None
+                        _live_scaled = self.scaler.transform([_live_feat])[0]
 
                         # ── Exit sizing from per-cluster regression models ────────
                         # TWO-PHASE EXIT DESIGN
