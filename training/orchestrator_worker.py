@@ -7,16 +7,22 @@ from core.bayesian_brain import TradeOutcome
 from training.doe_parameter_generator import DOEParameterGenerator
 from config.settings import DEFAULT_BASE_SLIPPAGE, DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 from config.oracle_config import MARKER_NOISE
+from core.physics_utils import extract_dominant_cycle, calculate_kinetic_damping
 
 # Constants moved from orchestrator.py
 REPRESENTATIVE_SUBSET_SIZE = 20
 FISSION_SUBSET_SIZE = 50
 INDIVIDUAL_OPTIMIZATION_ITERATIONS = 20
 
+# Spectral Exit Constants
+Z_SCORE_CYCLE_WINDOW = 60
+VELOCITY_DAMPING_WINDOW = 20
+KINETIC_DAMPING_EXIT_THRESHOLD = 0.8
+
 # --- Standalone Helpers for Multiprocessing ---
 
 @jit(nopython=True)
-def _fast_sim_loop(entry_price, prices, timestamps, dir_sign,
+def _fast_sim_loop(entry_price, prices, timestamps, periods, dampings, dir_sign,
                    take_profit, stop_loss, max_hold, trading_cost, total_slippage,
                    entry_time):
     """
@@ -24,7 +30,7 @@ def _fast_sim_loop(entry_price, prices, timestamps, dir_sign,
     Iterates through prices/timestamps arrays to find exit condition.
     Returns tuple: (exit_price, raw_pnl, result_code, exit_time, exit_reason_code, duration)
     result_code: 0=None, 1=WIN, -1=LOSS
-    exit_reason_code: 1=TP, 2=SL, 3=TIME
+    exit_reason_code: 1=TP, 2=SL, 3=TIME, 4=KINETIC_EXHAUSTION
     """
     n = len(prices)
     # Start from index 1 (next bar) as index 0 is entry bar
@@ -38,20 +44,33 @@ def _fast_sim_loop(entry_price, prices, timestamps, dir_sign,
 
         duration = curr_time - entry_time
 
+        # Stop loss is absolute overriding physics
+        if pnl <= -stop_loss:
+            # LOSS (SL) - assumes fill at stop
+            return price, -stop_loss, -1, curr_time, 2, duration
+
+        # Spectral Evaluation
+        min_hold_seconds = periods[i] / 2.0
+
+        # FOURIER GATE: Prohibit TP/Exit before half-cycle completes (unless SL hits)
+        if duration < min_hold_seconds and pnl > -(stop_loss / 2.0):
+            continue
+
+        # LAPLACE GATE: Exit if kinetic energy is critically damped
+        if pnl > 0 and dampings[i] > KINETIC_DAMPING_EXIT_THRESHOLD:
+            return price, pnl, 1, curr_time, 4, duration # 4 = KINETIC_EXHAUSTION
+
         if pnl >= take_profit:
             # WIN (TP)
             return price, take_profit, 1, curr_time, 1, duration
-        elif pnl <= -stop_loss:
-            # LOSS (SL) - assumes fill at stop
-            return price, -stop_loss, -1, curr_time, 2, duration
         elif duration >= max_hold:
             # TIME EXIT
             return price, pnl, (1 if pnl > 0 else -1), curr_time, 3, duration
 
     return 0.0, 0.0, 0, 0.0, 0, 0.0
 
-def _extract_arrays_from_df(df: Any) -> Optional[Tuple[np.ndarray, np.ndarray]]:
-    """Helper to extract prices and timestamps from DataFrame."""
+def _extract_arrays_from_df(df: Any) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
+    """Helper to extract prices, timestamps, periods, and dampings from DataFrame."""
     prices = None
     timestamps = None
 
@@ -72,7 +91,20 @@ def _extract_arrays_from_df(df: Any) -> Optional[Tuple[np.ndarray, np.ndarray]]:
     else:
         return None
 
-    return prices, timestamps
+    n = len(prices)
+    periods = np.zeros(n)
+    dampings = np.zeros(n)
+
+    if 'z_score' in df.columns and 'velocity' in df.columns:
+        z_scores = df['z_score'].values
+        velocities = df['velocity'].values
+        for i in range(10, n):
+            w_z = z_scores[max(0, i - Z_SCORE_CYCLE_WINDOW):i]
+            w_v = velocities[max(0, i - VELOCITY_DAMPING_WINDOW):i]
+            periods[i] = extract_dominant_cycle(w_z)
+            dampings[i] = calculate_kinetic_damping(w_v)
+
+    return prices, timestamps, periods, dampings
 
 def simulate_trade_standalone(entry_price: float, data: Any, state: Any,
                               params: Dict[str, Any], point_value: float,
@@ -135,22 +167,24 @@ def simulate_trade_standalone(entry_price: float, data: Any, state: Any,
     # Prepare data arrays
     prices = None
     timestamps = None
+    periods = None
+    dampings = None
 
-    if isinstance(data, tuple) and len(data) == 2:
-        # Optimized path: Pass tuple (prices, timestamps) directly
-        prices, timestamps = data
+    if isinstance(data, tuple) and len(data) == 4:
+        # Optimized path: Pass tuple (prices, timestamps, periods, dampings) directly
+        prices, timestamps, periods, dampings = data
     elif hasattr(data, 'values'): # DataFrame or Series
         # Slow path: Extract numpy arrays using helper
         arrays = _extract_arrays_from_df(data)
         if arrays is None:
             return None
-        prices, timestamps = arrays
+        prices, timestamps, periods, dampings = arrays
     else:
         return None
 
     # Call Numba function
     exit_price, final_pnl, res_code, exit_time, exit_reason_code, duration = _fast_sim_loop(
-        float(entry_price), prices, timestamps, float(dir_sign),
+        float(entry_price), prices, timestamps, periods, dampings, float(dir_sign),
         float(take_profit), float(stop_loss), float(max_hold), float(trading_cost), float(total_slippage),
         float(entry_time)
     )
@@ -159,7 +193,7 @@ def simulate_trade_standalone(entry_price: float, data: Any, state: Any,
         return None
 
     result_str = 'WIN' if res_code == 1 else 'LOSS'
-    reason_map = {1: 'TP', 2: 'SL', 3: 'TIME'}
+    reason_map = {1: 'TP', 2: 'SL', 3: 'TIME', 4: 'KINETIC_EXHAUSTION'}
     exit_reason = reason_map.get(exit_reason_code, 'UNKNOWN')
 
     return TradeOutcome(
