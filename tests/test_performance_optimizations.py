@@ -5,6 +5,7 @@ import time
 import math
 from numpy.lib.stride_tricks import sliding_window_view
 from core.quantum_field_engine import QuantumFieldEngine
+from core.physics_utils import OSCILLATION_COHERENCE_WINDOW
 
 # ------------------------------------------------------------------------------
 # Helpers for Regression
@@ -250,7 +251,7 @@ def test_hurst_performance():
 def test_oscillation_coherence_kernel_logic():
     """Verify that the kernel logic for oscillation coherence matches sliding_window_view."""
     N = 100
-    window_size = 5
+    window_size = OSCILLATION_COHERENCE_WINDOW
     np.random.seed(42)
     z_scores = np.random.randn(N).astype(np.float64)
 

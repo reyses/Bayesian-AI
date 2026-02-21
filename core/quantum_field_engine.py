@@ -19,7 +19,13 @@ from core.pattern_utils import (
     detect_geometric_patterns_vectorized, detect_candlestick_patterns_vectorized
 )
 
-from core.physics_utils import compute_adx_dmi_cpu, ADX_PERIOD, HURST_WINDOW, REL_VOLUME_WINDOW
+from core.physics_utils import (
+    compute_adx_dmi_cpu,
+    ADX_PERIOD,
+    HURST_WINDOW,
+    REL_VOLUME_WINDOW,
+    OSCILLATION_COHERENCE_WINDOW
+)
 
 # Core CUDA Physics
 try:
@@ -661,7 +667,7 @@ class QuantumFieldEngine:
             )
 
             # 2. Archetype Kernel
-            _ow = min(5, rp)
+            _ow = min(OSCILLATION_COHERENCE_WINDOW, rp)
             detect_archetype_kernel[blocks_per_grid, threads_per_block](
                 d_z, d_velocity, d_momentum, d_coherence,
                 d_roche, d_drive,
@@ -780,7 +786,7 @@ class QuantumFieldEngine:
         # Inverted and normalised to (0, 1] so 1 = perfectly tight oscillation.
         # Optimization: Use GPU result if available, otherwise CPU.
         if oscillation_coherence_arr is None:
-            _ow = min(5, rp)
+            _ow = min(OSCILLATION_COHERENCE_WINDOW, rp)
             osc_std = np.full(n, np.nan)
             if n >= _ow:
                  z_windows = sliding_window_view(z_scores, window_shape=_ow)
