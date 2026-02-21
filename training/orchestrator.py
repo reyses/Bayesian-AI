@@ -20,6 +20,8 @@ import multiprocessing
 import glob
 import warnings
 warnings.filterwarnings("ignore", message=".*Grid size.*will likely result in GPU under-utilization.*")
+warnings.filterwarnings("ignore", message=".*Mean of empty slice.*",               category=RuntimeWarning)
+warnings.filterwarnings("ignore", message=".*invalid value encountered in scalar divide.*", category=RuntimeWarning)
 import numpy as np
 import pandas as pd
 from collections import defaultdict
@@ -412,31 +414,40 @@ class BayesianTrainingOrchestrator:
         print(f"  Belief network: {len(TimeframeBeliefNetwork.TIMEFRAMES_SECONDS)} TF workers "
               f"(conviction threshold: {TimeframeBeliefNetwork.MIN_CONVICTION:.2f})")
 
-        # 2. Iterate Days
-        # Use 15s daily files for position management (daily granularity).
-        # Pattern entry timestamps are snapped to 1m for signal quality.
+        # 2. Iterate files (monthly YYYY_MM.parquet or daily YYYYMMDD.parquet)
         daily_files_15s = sorted(glob.glob(os.path.join(data_source, '15s', '*.parquet')))
         if not daily_files_15s:
             print(f"  No 15s data found in {data_source}/15s/")
             return
 
+        def _file_sort_key(fpath):
+            """Normalise filename to YYYYMMDD for date filtering/sorting.
+            Monthly YYYY_MM -> YYYYMM01; daily YYYYMMDD stays as-is."""
+            name = os.path.basename(fpath).replace('.parquet', '')
+            if '_' in name:
+                y, m = name.split('_', 1)
+                return f"{y}{m.zfill(2)}01"
+            return name
+
         # ── Time-slice filter ────────────────────────────────────────────────
-        # Filenames are YYYYMMDD.parquet; lexicographic comparison works fine.
         if start_date or end_date:
             _before = len(daily_files_15s)
             daily_files_15s = [
                 f for f in daily_files_15s
-                if (not start_date or os.path.basename(f).replace('.parquet', '') >= start_date)
-                and (not end_date   or os.path.basename(f).replace('.parquet', '') <= end_date)
+                if (not start_date or _file_sort_key(f) >= start_date)
+                and (not end_date   or _file_sort_key(f) <= end_date)
             ]
-            print(f"  Date filter applied: {_before} -> {len(daily_files_15s)} days "
+            print(f"  Date filter applied: {_before} -> {len(daily_files_15s)} files "
                   f"({start_date or 'start'} -> {end_date or 'end'})")
 
-        print(f"  Found {len(daily_files_15s)} days to simulate.")
+        print(f"  Found {len(daily_files_15s)} files to simulate.")
 
         total_pnl = 0.0
         total_trades = 0
         total_wins = 0
+        _worker_total_states   = {}   # {tf_label: total states across all days}
+        _worker_days_with_data = {}   # {tf_label: days that had > 0 states}
+        decision_matrix_records = []  # per-candidate gate decision log (for root cause)
 
         # ── Account equity tracking (active when account_size > 0) ───────────
         # Simulates a NinjaTrader MNQ funded account with $50 intraday margin
@@ -474,11 +485,40 @@ class BayesianTrainingOrchestrator:
                     best = macro_om
             return best
 
+        def _dm_rec(p, gate, day, ts_val, micro_z_val, macro_z_val, pattern_val,
+                    dist=0.0, conviction=0.0, template_id='', tier=''):
+            """Build one signal-log record. Trade outcome fields default to empty."""
+            om   = _effective_oracle(p)
+            meta = getattr(p, 'oracle_meta', None) or {}
+            mfe  = float(meta.get('mfe', 0.0)) if isinstance(meta, dict) else 0.0
+            olbl = {2:'MEGA', 1:'SCALP', 0:'NOISE', -1:'SCALP', -2:'MEGA'}.get(om, 'NOISE')
+            opnl = round(abs(mfe) * self.asset.point_value, 2)
+            return {
+                # Detection context
+                'ts': ts_val, 'day': day, 'depth': getattr(p, 'depth', 6),
+                'pattern': pattern_val or '', 'micro_z': round(micro_z_val, 2),
+                'macro_z': round(macro_z_val, 2),
+                # Gate decision
+                'gate': gate,
+                'gate1_dist': round(dist, 3), 'gate3_conv': round(conviction, 3),
+                # Oracle ground truth
+                'oracle_label': olbl,
+                'oracle_dir': 'LONG' if om > 0 else ('SHORT' if om < 0 else 'NONE'),
+                'oracle_pnl': opnl,
+                'template_id': str(template_id), 'tier': str(tier),
+                # Trade outcome (filled in later if gate='traded')
+                'trade_direction': '', 'trade_result': '', 'trade_pnl': 0.0,
+                'exit_reason': '', 'exit_signal_reason': '',
+                'exit_conviction': 0.0, 'exit_wave_maturity': 0.0,
+            }
+
         # Per-trade oracle tracking
         _ORACLE_LABEL_NAMES = {2: 'MEGA_LONG', 1: 'SCALP_LONG', 0: 'NOISE', -1: 'SCALP_SHORT', -2: 'MEGA_SHORT'}
         oracle_trade_records = []  # completed per-trade oracle dicts
         pending_oracle = None      # oracle facts for currently open trade
-        fn_potential_pnl = 0.0    # dollar potential of real moves we skipped
+        _pending_dm_idx = None     # index into decision_matrix_records for open trade
+        fn_potential_pnl    = 0.0  # dollar potential of real moves we missed (gate-blocked)
+        score_loser_pnl     = 0.0  # dollar potential of real moves we correctly passed over (took better trade same bar)
 
         # PID Shadow Log
         pid_oracle_records = []
@@ -499,6 +539,8 @@ class BayesianTrainingOrchestrator:
         n_days = len(daily_files_15s)
         for day_idx, day_file in enumerate(daily_files_15s):
             day_date = os.path.basename(day_file).replace('.parquet', '')
+            # Normalise: monthly YYYY_MM -> YYYY_MM kept as-is for scan_day_cascade
+            # (discovery agent matches by substring so both formats work)
             print(f"\n  Day {day_idx+1}/{n_days}: {day_date} ... ", end='', flush=True)
             if self.dashboard_queue and day_idx % 5 == 0:
                 pct = (day_idx / n_days) * 100
@@ -527,10 +569,12 @@ class BayesianTrainingOrchestrator:
                 continue
 
             # Load 5s and 1s ATLAS files for sub-resolution workers.
-            # Same directory structure: {atlas_root}/5s/YYYYMMDD.parquet
-            _atlas_root = os.path.dirname(os.path.dirname(day_file))
+            # Monthly files: {data_source}/5s/YYYY_MM.parquet (same key as day_date)
+            _atlas_root = data_source
 
             def _load_fine(tf_label):
+                # Both training and OOS use monthly format: YYYY_MM.parquet
+                # day_date is the file stem (e.g. '2025_11'); load the whole file.
                 p = os.path.join(_atlas_root, tf_label, f"{day_date}.parquet")
                 if not os.path.exists(p):
                     return None
@@ -538,7 +582,7 @@ class BayesianTrainingOrchestrator:
                     _df = pd.read_parquet(p)
                     if 'timestamp' in _df.columns and not np.issubdtype(_df['timestamp'].dtype, np.number):
                         _df['timestamp'] = _df['timestamp'].apply(lambda x: x.timestamp())
-                    return _df
+                    return _df if not _df.empty else None
                 except Exception:
                     return None
 
@@ -546,7 +590,7 @@ class BayesianTrainingOrchestrator:
             _df_1s  = _load_fine('1s')
 
             # Belief network: Task 1 for all 10 TF workers (1h -> 1s)
-            # Active workers: 1h->15s resampled from df_15s; 5s/1s from fine-grained ATLAS files.
+            # 1h->15s resampled from df_15s; 5s/1s from monthly ATLAS files.
             try:
                 _states_15s = self.engine.batch_compute_states(df_15s, use_cuda=True)
                 belief_network.prepare_day(df_15s, states_micro=_states_15s,
@@ -555,6 +599,11 @@ class BayesianTrainingOrchestrator:
                 _states_15s = []
                 belief_network.prepare_day(df_15s, states_micro=[],
                                            df_5s=_df_5s, df_1s=_df_1s)
+
+            # Accumulate worker state counts for report diagnostics
+            for _wlbl, _wcnt in belief_network.get_worker_state_counts().items():
+                _worker_total_states[_wlbl]   = _worker_total_states.get(_wlbl, 0) + _wcnt
+                _worker_days_with_data[_wlbl] = _worker_days_with_data.get(_wlbl, 0) + (1 if _wcnt > 0 else 0)
 
             # Reset PID analyzer for the day
             _day_sigmas = [s['state'].sigma_fractal for s in _states_15s if s['state'].sigma_fractal > 0]
@@ -656,7 +705,10 @@ class BayesianTrainingOrchestrator:
 
                 # 1. Manage existing position
                 if self.wave_rider.position is not None:
-                    res = self.wave_rider.update_trail(price, None, ts_raw)
+                    # Get exit signal from belief network every bar
+                    _exit_sig = belief_network.get_exit_signal(self.wave_rider.position.side)
+                    res = self.wave_rider.update_trail(price, None, ts_raw, exit_signal=_exit_sig)
+
                     if res['should_exit']:
                         outcome = TradeOutcome(
                             state=active_template_id,
@@ -706,8 +758,28 @@ class BayesianTrainingOrchestrator:
                                 'result': outcome.result,
                                 # Worker snapshot at exit: compare vs entry_workers to find direction flips
                                 'exit_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
+                                # Dynamic Exit Fields
+                                # adjustment_reason = the belief signal that LAST tightened/widened
+                                # the trail (root cause). Falls back to current-bar signal if no
+                                # adjustment happened (standard trail, PT, urgent flip).
+                                'exit_conviction':    _exit_sig.get('conviction', 0.0),
+                                'exit_wave_maturity': _exit_sig.get('wave_maturity', 0.0),
+                                'exit_signal_reason': (res.get('adjustment_reason') or
+                                                       _exit_sig.get('reason', '')),
                             })
+                            # Update signal-log record with trade outcome
+                            if _pending_dm_idx is not None:
+                                decision_matrix_records[_pending_dm_idx].update({
+                                    'trade_result':       outcome.result,
+                                    'trade_pnl':          round(outcome.pnl, 2),
+                                    'exit_reason':        outcome.exit_reason,
+                                    'exit_signal_reason': (res.get('adjustment_reason') or
+                                                           _exit_sig.get('reason', '')),
+                                    'exit_conviction':    _exit_sig.get('conviction', 0.0),
+                                    'exit_wave_maturity': _exit_sig.get('wave_maturity', 0.0),
+                                })
                             pending_oracle = None
+                            _pending_dm_idx = None
 
                 # 2. Check for entries (if no position)
                 # Equity ruin check: simulation ends when equity hits 0 (no money to trade).
@@ -721,6 +793,7 @@ class BayesianTrainingOrchestrator:
                     _candidate_gate = {}    # id(p) -> gate that blocked it (for FN audit)
                     _bypass_candidate = None  # best Gate-1 reject for worker-conviction bypass
                     _bypass_dist      = 999.0
+                    _gate_passers = {}      # id(p) -> record dict (for score_loser tracking)
 
                     for p in candidates:
                         n_signals_seen += 1
@@ -785,6 +858,8 @@ class BayesianTrainingOrchestrator:
                         if should_skip:
                             skip_headroom += 1
                             _candidate_gate[id(p)] = _skip_label
+                            decision_matrix_records.append(_dm_rec(
+                                p, _skip_label, day_date, ts, micro_z, macro_z, micro_pattern))
                             continue
 
                         # Gate 0.5: depth filter -- exclude depths that had negative avg
@@ -794,6 +869,8 @@ class BayesianTrainingOrchestrator:
                         if _cand_depth in _DEPTH_FILTER_OUT:
                             skip_headroom += 1
                             _candidate_gate[id(p)] = 'gate0_5'
+                            decision_matrix_records.append(_dm_rec(
+                                p, 'gate0_5', day_date, ts, micro_z, macro_z, micro_pattern))
                             continue
 
                         # Extract 14D features using shared logic
@@ -825,9 +902,18 @@ class BayesianTrainingOrchestrator:
                                     best_dist = score
                                     best_candidate = p
                                     best_tid = tid
+                                # Track for score_loser detection (all gate-passers)
+                                _gate_passers[id(p)] = _dm_rec(
+                                    p, 'score_loser', day_date, ts, micro_z, macro_z,
+                                    micro_pattern, dist=dist,
+                                    template_id=tid, tier=template_tier_map.get(tid, 3))
                             else:
                                 skip_brain += 1
                                 _candidate_gate[id(p)] = 'gate2'
+                                decision_matrix_records.append(_dm_rec(
+                                    p, 'gate2', day_date, ts, micro_z, macro_z,
+                                    micro_pattern, dist=dist,
+                                    template_id=tid, tier=template_tier_map.get(tid, 3)))
                         else:
                             # Gate 1 rejected -- track nearest miss for worker-bypass path
                             if dist < _bypass_dist:
@@ -835,6 +921,14 @@ class BayesianTrainingOrchestrator:
                                 _bypass_candidate = p
                             skip_dist += 1
                             _candidate_gate[id(p)] = 'gate1'
+                            decision_matrix_records.append(_dm_rec(
+                                p, 'gate1', day_date, ts, micro_z, macro_z,
+                                micro_pattern, dist=dist))
+
+                    # ── Emit score_loser records (gate-passers that lost on score) ──
+                    for _pid, _prec in _gate_passers.items():
+                        if best_candidate is None or _pid != id(best_candidate):
+                            decision_matrix_records.append(_prec)
 
                     # ── Worker-conviction bypass (Gate 1 override) ───────────────
                     # FN analysis: when no cluster matches, 30m/15m/5m workers still
@@ -920,6 +1014,16 @@ class BayesianTrainingOrchestrator:
                                 # Tree uncertain across scales -- skip this bar
                                 skip_conviction += 1
                                 _candidate_gate[id(p)] = 'gate3'
+                                _bc_mz = abs(best_candidate.z_score)
+                                _bc_mac = abs((getattr(best_candidate, 'parent_chain', None) or [{}])[-1].get('z', 0.0))
+                                decision_matrix_records.append(_dm_rec(
+                                    best_candidate, 'gate3', day_date, ts,
+                                    _bc_mz, _bc_mac,
+                                    getattr(best_candidate, 'pattern_type', ''),
+                                    dist=best_dist,
+                                    conviction=_belief.conviction if _belief else 0.0,
+                                    template_id=best_tid,
+                                    tier=template_tier_map.get(best_tid, 3)))
                                 continue
                             # Path direction override for NOISE oracle_marker patterns
                             if _nn_marker == 0 and _belief.direction != side:
@@ -1053,6 +1157,21 @@ class BayesianTrainingOrchestrator:
                             'entry_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
                         }
 
+                        # Signal log: add 'traded' record, save index for outcome update
+                        _bc_mz  = round(abs(best_candidate.z_score), 2)
+                        _bc_mac = round(abs((getattr(best_candidate, 'parent_chain', None) or [{}])[-1].get('z', 0.0)), 2)
+                        _dm_entry = _dm_rec(
+                            best_candidate, 'traded', day_date, ts,
+                            _bc_mz, _bc_mac,
+                            getattr(best_candidate, 'pattern_type', ''),
+                            dist=best_dist,
+                            conviction=round(_belief.conviction, 3) if _belief else 0.0,
+                            template_id=best_tid,
+                            tier=template_tier_map.get(best_tid, 3))
+                        _dm_entry['trade_direction'] = 'LONG' if side == 'long' else 'SHORT'
+                        decision_matrix_records.append(_dm_entry)
+                        _pending_dm_idx = len(decision_matrix_records) - 1
+
                         # AUDIT: True Positive or False Positive
                         audit_outcome = TradeOutcome(
                             state=best_candidate.state,
@@ -1078,19 +1197,25 @@ class BayesianTrainingOrchestrator:
                                 audit_tn += 1
                             elif audit_res['classification'] == 'FN':
                                 # Skip if PID regime covers this bar (handled by PID analyzer)
-                                # Thresholds: |term_pid| >= 0.3, osc_coh >= 0.5, adx <= 30.0
                                 _s = p.state
                                 _is_pid = (abs(_s.term_pid) >= 0.3
                                            and _s.oscillation_coherence >= 0.5
                                            and _s.adx_strength <= 30.0)
                                 if _is_pid:
-                                     # Not counted as fractal FN failure because PID analyzer handles it
-                                     continue
+                                    continue
 
-                                audit_fn += 1
-                                _om = _effective_oracle(p)  # macro-to-leaf aggregated
+                                _om = _effective_oracle(p)
                                 _meta = getattr(p, 'oracle_meta', {})
                                 _fn_pot = (_meta.get('mfe', 0.0) if _om > 0 else _meta.get('mae', 0.0)) * self.asset.point_value
+
+                                # Golden-path rule: if this candidate passed all gates but lost
+                                # the score competition, it is NOT a missed opportunity -- we
+                                # deliberately chose a better trade at this bar.
+                                if id(p) in _gate_passers:
+                                    score_loser_pnl += _fn_pot
+                                    continue  # do NOT add to fn_oracle_records or fn_potential_pnl
+
+                                audit_fn += 1
                                 fn_potential_pnl += _fn_pot
                                 fn_oracle_records.append({
                                     'timestamp':       ts,
@@ -1099,8 +1224,8 @@ class BayesianTrainingOrchestrator:
                                     'oracle_label_name': _ORACLE_LABEL_NAMES.get(_om, '?'),
                                     'oracle_dir':      'LONG' if _om > 0 else 'SHORT',
                                     'fn_potential_pnl': round(_fn_pot, 2),
-                                    'reason':          'competed',  # had a trade this bar, but not this candidate
-                                    'gate_blocked':    _candidate_gate.get(id(p), 'passed'),  # 'passed' = scored but lost to better candidate
+                                    'reason':          'competed',
+                                    'gate_blocked':    _candidate_gate.get(id(p), 'unknown'),
                                     'workers':         __import__('json').dumps(belief_network.get_worker_snapshot()),
                                 })
                     elif _bypass_belief is not None:
@@ -1157,6 +1282,19 @@ class BayesianTrainingOrchestrator:
                                 'decision_wave_maturity': round(_bypass_belief.decision_wave_maturity, 4),
                                 'entry_workers':    __import__('json').dumps(belief_network.get_worker_snapshot()),
                             }
+                            # Signal log: bypass trade record
+                            _bp_mz  = round(abs(_bypass_candidate.z_score), 2)
+                            _bp_mac = round(abs((getattr(_bypass_candidate, 'parent_chain', None) or [{}])[-1].get('z', 0.0)), 2)
+                            _dm_bypass = _dm_rec(
+                                _bypass_candidate, 'traded', day_date, ts,
+                                _bp_mz, _bp_mac,
+                                getattr(_bypass_candidate, 'pattern_type', ''),
+                                dist=_bypass_dist,
+                                conviction=round(_bypass_belief.conviction, 3),
+                                template_id=-1, tier='bypass')
+                            _dm_bypass['trade_direction'] = 'LONG' if side == 'long' else 'SHORT'
+                            decision_matrix_records.append(_dm_bypass)
+                            _pending_dm_idx = len(decision_matrix_records) - 1
                     else:
                         # Audit all candidates as SKIPPED
                         for p in candidates:
@@ -1184,6 +1322,10 @@ class BayesianTrainingOrchestrator:
             # End of day cleanup -- force close any open position
             if self.wave_rider.position is not None:
                 pos = self.wave_rider.position
+                # Get final exit signal for logging
+                _eod_sig = belief_network.get_exit_signal(pos.side)
+                _eod_adj_reason = pos.last_adjustment_reason or ''  # capture before clearing
+
                 if pos.side == 'short':
                     eod_pnl = (pos.entry_price - price) * self.asset.point_value
                 else:
@@ -1236,8 +1378,22 @@ class BayesianTrainingOrchestrator:
                         'capture_rate': round(min(capture, 9.99), 4),
                         'result': outcome.result,
                         'exit_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
+                        'exit_conviction':    _eod_sig.get('conviction', 0.0),
+                        'exit_wave_maturity': _eod_sig.get('wave_maturity', 0.0),
+                        'exit_signal_reason': (_eod_adj_reason or _eod_sig.get('reason', '')),
                     })
+                    # Update signal-log record with trade outcome
+                    if _pending_dm_idx is not None:
+                        decision_matrix_records[_pending_dm_idx].update({
+                            'trade_result':       outcome.result,
+                            'trade_pnl':          round(outcome.pnl, 2),
+                            'exit_reason':        'TIME_EXIT',
+                            'exit_signal_reason': (_eod_adj_reason or _eod_sig.get('reason', '')),
+                            'exit_conviction':    _eod_sig.get('conviction', 0.0),
+                            'exit_wave_maturity': _eod_sig.get('wave_maturity', 0.0),
+                        })
                     pending_oracle = None
+                    _pending_dm_idx = None
 
             # Analyze day
             if _equity_enabled and account_ruined:
@@ -1257,19 +1413,35 @@ class BayesianTrainingOrchestrator:
                 print("No trades.")
 
         # Final Report
+        import datetime as _datetime
+        _run_ts = _datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         report_lines = []
         report_lines.append("=" * 80)
-        report_lines.append("FORWARD PASS COMPLETE")
+        report_lines.append(f"FORWARD PASS COMPLETE  (run: {_run_ts})")
         _date_range = (
             f"  Period: {start_date or daily_files_15s[0] if daily_files_15s else 'N/A'} "
             f"to {end_date or (os.path.basename(daily_files_15s[-1]).replace('.parquet','') if daily_files_15s else 'N/A')} "
-            f"({len(daily_files_15s)} days)"
+            f"({len(daily_files_15s)} files)"
         ) if daily_files_15s else ""
         if _date_range:
             report_lines.append(_date_range)
         report_lines.append(f"Total Trades: {total_trades}")
         report_lines.append(f"Win Rate: {total_wins/total_trades*100:.1f}%" if total_trades > 0 else "Win Rate: N/A")
         report_lines.append(f"Total PnL: ${total_pnl:.2f}")
+
+        # ── Worker state counts diagnostic ─────────────────────────────────────
+        _n_files = len(daily_files_15s) if daily_files_15s else 1
+        _ws_parts = []
+        for _lbl in ['1h','30m','15m','5m','3m','1m','30s','15s','5s','1s']:
+            _tot = _worker_total_states.get(_lbl, 0)
+            _days = _worker_days_with_data.get(_lbl, 0)
+            _avg  = _tot // _n_files if _n_files else 0
+            _ws_parts.append(f"{_lbl}={_avg}/file({_days}/{_n_files} files ok)")
+        report_lines.append("")
+        report_lines.append("── WORKER STATES LOADED ──")
+        # Split into two lines so it's readable
+        report_lines.append("  " + "  ".join(_ws_parts[:5]))
+        report_lines.append("  " + "  ".join(_ws_parts[5:]))
 
         # ── Account equity summary (when --account-size is set) ──────────────
         if _equity_enabled:
@@ -1386,13 +1558,44 @@ class BayesianTrainingOrchestrator:
                 report_lines.append(
                     f"    depth {_d:<3} {_cnt:>7,} {_wr:>6.0f}% ${_tot:>10,.2f} ${_avg:>9.2f}{_flag}")
 
-        # ── 2f. Worker agreement analysis ────────────────────────────────────────
+        # ── 2f. Dynamic Exit Quality ─────────────────────────────────────────────
+        if oracle_trade_records and 'exit_signal_reason' in oracle_trade_records[0]:
+            report_lines.append("")
+            report_lines.append(f"  DYNAMIC EXIT QUALITY:")
+
+            # Buckets
+            # Belief-flip exits: urgent_flip
+            # Trail-tightened: low_conviction, wave_mature
+            # Trail-widened: aligned_fresh
+            # Standard trail: neutral, no_belief
+
+            # Note: exit_signal_reason is the STATE at exit.
+            # If exit_reason was 'belief_flip', it maps to 'Belief-flip exits'.
+            # Otherwise we group by signal reason.
+
+            b_flip     = [r for r in oracle_trade_records if r.get('exit_signal_reason') == 'urgent_flip']
+            b_tight    = [r for r in oracle_trade_records if r.get('exit_signal_reason') in ('low_conviction', 'wave_mature')]
+            b_widen    = [r for r in oracle_trade_records if r.get('exit_signal_reason') == 'aligned_fresh']
+            b_standard = [r for r in oracle_trade_records if r.get('exit_signal_reason') in ('neutral', 'no_belief', '')]
+
+            def _stats(subset):
+                if not subset: return "0 trades"
+                n = len(subset)
+                avg = sum(r['actual_pnl'] for r in subset) / n
+                return f"{n:>5} trades  ->  avg PnL ${avg:>7.2f}"
+
+            report_lines.append(f"    Belief-flip exits:  {_stats(b_flip)}")
+            report_lines.append(f"    Trail-tightened:    {_stats(b_tight)}")
+            report_lines.append(f"    Trail-widened:      {_stats(b_widen)}")
+            report_lines.append(f"    Standard trail:     {_stats(b_standard)}")
+
+        # ── 2g. Worker agreement analysis ────────────────────────────────────────
         # For each TF worker: what fraction of the time did it agree with the
         # trade direction at entry? Compare wins vs losses to find who is predictive.
         # Also: which workers FLIPPED direction by exit? That likely caused the loss.
         if oracle_trade_records and 'entry_workers' in oracle_trade_records[0]:
             import json as _js
-            _TF_ORDER = ['1h','30m','15m','5m','3m','1m','30s','15s']
+            _TF_ORDER = ['1h','30m','15m','5m','3m','1m','30s','15s','5s','1s']
             _wins_r  = [r for r in oracle_trade_records if r['result'] == 'WIN']
             _loss_r  = [r for r in oracle_trade_records if r['result'] != 'WIN']
 
@@ -1544,15 +1747,16 @@ class BayesianTrainingOrchestrator:
 
         report_lines.append("")
         report_lines.append(f"  PROFIT GAP ANALYSIS:")
-        report_lines.append(f"    Ideal (all real moves, perfect exits):  ${ideal_profit:>12,.2f}")
+        report_lines.append(f"    Ideal (golden-path: gate-blocked + traded, perfect exits):  ${ideal_profit:>12,.2f}")
         report_lines.append(f"    -----------------------------------------------------")
-        report_lines.append(f"    Lost -- missed opportunities (skipped):  ${fn_potential_pnl:>12,.2f}  ({fn_potential_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    Lost -- wrong direction at entry:        ${abs(fp_wrong_pnl):>12,.2f}  ({abs(fp_wrong_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    Lost -- noise trades:                    ${abs(fp_noise_pnl):>12,.2f}  ({abs(fp_noise_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    Lost -- reversed after correct entry:    ${reversed_loss_val:>12,.2f}  ({reversed_loss_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    Lost -- TP underperform (non-reversed):  ${left_on_table_val:>12,.2f}  ({left_on_table_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    Lost -- missed opportunities (gate-blocked):  ${fn_potential_pnl:>12,.2f}  ({fn_potential_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    Lost -- wrong direction at entry:             ${abs(fp_wrong_pnl):>12,.2f}  ({abs(fp_wrong_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    Lost -- noise trades:                         ${abs(fp_noise_pnl):>12,.2f}  ({abs(fp_noise_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    Lost -- reversed after correct entry:         ${reversed_loss_val:>12,.2f}  ({reversed_loss_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    Lost -- TP underperform (non-reversed):       ${left_on_table_val:>12,.2f}  ({left_on_table_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
         report_lines.append(f"    -----------------------------------------------------")
-        report_lines.append(f"    Actual profit:                          ${total_pnl:>12,.2f}  ({total_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else f"    Actual profit: ${total_pnl:.2f}")
+        report_lines.append(f"    Actual profit:                               ${total_pnl:>12,.2f}  ({total_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else f"    Actual profit: ${total_pnl:.2f}")
+        report_lines.append(f"    [info] Score-competition pool (took better same bar): ${score_loser_pnl:>12,.2f}  (not missed -- golden path chose better candidate)")
 
         # Store for bottom-line summary at program exit
         self._fp_summary = {
@@ -1611,6 +1815,38 @@ class BayesianTrainingOrchestrator:
         # "no_match" = nothing passed gates at this bar.
         # Key question: when workers agreed with oracle direction on FN signals,
         # a gate was too strict (the workers were right but we still skipped).
+        # ── Decision Matrix CSV ─────────────────────────────────────────────────
+        # Per-candidate log: every skipped signal with gate decision + oracle context.
+        # Answers: which gate blocks the most money? which patterns are mis-directed?
+        if decision_matrix_records:
+            _dm_name = 'oos_signal_log.csv' if oos_mode else 'signal_log.csv'
+            _dm_path = os.path.join(self.checkpoint_dir, _dm_name)
+            with open(_dm_path, 'w', newline='', encoding='utf-8') as _dmf:
+                _dm_writer = _csv.DictWriter(_dmf, fieldnames=list(decision_matrix_records[0].keys()))
+                _dm_writer.writeheader()
+                _dm_writer.writerows(decision_matrix_records)
+            _n_traded = sum(1 for r in decision_matrix_records if r['gate'] == 'traded')
+            _n_skipped = len(decision_matrix_records) - _n_traded
+            report_lines.append(f"  Signal log saved: {_dm_path}  ({_n_traded} traded  +  {_n_skipped:,} skipped)")
+
+            # ── Decision matrix summary ───────────────────────────────────────────
+            from collections import defaultdict as _dd
+            _dm_gate_stats = _dd(lambda: {'count':0, 'real_move':0, 'total_opnl':0.0})
+            for _r in decision_matrix_records:
+                _g = _r['gate']
+                _dm_gate_stats[_g]['count'] += 1
+                if _r['oracle_label'] != 'NOISE':
+                    _dm_gate_stats[_g]['real_move'] += 1
+                    _dm_gate_stats[_g]['total_opnl'] += _r['oracle_pnl']
+            report_lines.append("")
+            report_lines.append("  DECISION MATRIX SUMMARY  (skipped candidates -- oracle $ = profit left on table)")
+            report_lines.append(f"    {'Gate':<22} {'Count':>6} {'RealMove%':>10} {'Avg Oracle$':>12} {'Total Missed$':>14}")
+            for _g, _st in sorted(_dm_gate_stats.items(), key=lambda x: -x[1]['total_opnl']):
+                _rm_pct = _st['real_move'] / _st['count'] * 100 if _st['count'] else 0
+                _avg_o  = _st['total_opnl'] / _st['real_move'] if _st['real_move'] else 0
+                report_lines.append(
+                    f"    {_g:<22} {_st['count']:>6} {_rm_pct:>9.1f}% {_avg_o:>11.0f} {_st['total_opnl']:>13.0f}")
+
         if fn_oracle_records:
             import json as _fnjs
             _fn_name = 'oos_fn_log.csv' if oos_mode else 'fn_oracle_log.csv'
@@ -1625,7 +1861,7 @@ class BayesianTrainingOrchestrator:
             # For each TF worker, what fraction of FN signals had the worker
             # agreeing with the oracle direction?  High agreement = gate is blocking
             # moves the workers correctly identified.
-            _TF_ORDER_FN = ['1h','30m','15m','5m','3m','1m','30s','15s']
+            _TF_ORDER_FN = ['1h','30m','15m','5m','3m','1m','30s','15s','5s','1s']
             def _fn_tf_agree(records, tf_label):
                 vals = []
                 for r in records:
