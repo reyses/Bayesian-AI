@@ -13,19 +13,6 @@ REPRESENTATIVE_SUBSET_SIZE = 20
 FISSION_SUBSET_SIZE = 50
 INDIVIDUAL_OPTIMIZATION_ITERATIONS = 20
 
-# ── Worker process globals (set once via pool initializer, never pickled per-task) ──
-_WORKER_CLUSTERING_ENGINE = None
-_WORKER_PATTERN_LIBRARY   = {}
-
-def _worker_pool_init(clustering_engine, pattern_library):
-    """Pool initializer — called once per worker process on startup.
-    Stores large shared objects as globals so they don't get pickled into every task,
-    avoiding the Windows WinError 1450 pipe buffer overflow.
-    """
-    global _WORKER_CLUSTERING_ENGINE, _WORKER_PATTERN_LIBRARY
-    _WORKER_CLUSTERING_ENGINE = clustering_engine
-    _WORKER_PATTERN_LIBRARY   = pattern_library
-
 # --- Standalone Helpers for Multiprocessing ---
 
 @jit(nopython=True)
@@ -265,10 +252,7 @@ def _optimize_pattern_task(args):
     # But we only do 20 iterations?
     # Generator.optimize_pid handles Optuna.
 
-    # Single-pattern objective: capture ratio (pnl / oracle_target), capped at 1.0
-    # R² is undefined for n=1, so use fraction-of-oracle-captured instead
-    _oracle_target = float((getattr(pattern, 'oracle_meta', None) or {}).get('mfe', 0.0)) * point_value
-    def _capture_objective(pid_kp, pid_ki, pid_kd):
+    def _sharpe_objective(pid_kp, pid_ki, pid_kd):
         params = {**fixed_exits, 'pid_kp': pid_kp, 'pid_ki': pid_ki, 'pid_kd': pid_kd}
         outcome = simulate_trade_standalone(
             entry_price=pattern.price,
@@ -279,13 +263,10 @@ def _optimize_pattern_task(args):
             template=template,
             template_library=pattern_library
         )
-        pnl = float(outcome.pnl) if outcome else 0.0
-        if _oracle_target > 0:
-            return min(pnl / _oracle_target, 1.0)  # capture ratio [<=1.0]
-        return pnl  # fallback for noise patterns
+        return float(outcome.pnl) if outcome else 0.0 # Maximize PnL for single pattern
 
     # Use fewer trials for single pattern
-    best_pid = generator.optimize_pid(_capture_objective, n_trials=max(10, iterations), seed=pattern.idx)
+    best_pid = generator.optimize_pid(_sharpe_objective, n_trials=max(10, iterations), seed=pattern.idx)
     best_params = {**fixed_exits, **best_pid}
 
     # Re-run to get result dict
@@ -341,19 +322,11 @@ def _optimize_template_task(args):
     if not processed_subset:
         return {}, -float('inf')
 
-    # 3. Optuna objective: adjusted R² of captured PnL vs oracle MFE
-    # y_true[i] = oracle_mfe * point_value  (what was available)
-    # y_hat[i]  = outcome.pnl              (what these params captured)
-    # Adj R² = 1 - (1 - R²) * (n-1)/(n-k-1)  where k=3 (kp, ki, kd)
-    def _adj_r2_objective(pid_kp, pid_ki, pid_kd):
+    # 3. Optuna objective: vary only PID, exits are fixed
+    def _sharpe_objective(pid_kp, pid_ki, pid_kd):
         params = {**fixed_exits, 'pid_kp': pid_kp, 'pid_ki': pid_ki, 'pid_kd': pid_kd}
-        y_true = []
-        y_hat  = []
+        pnls = []
         for pattern, sim_data in processed_subset:
-            oracle_mfe = float((getattr(pattern, 'oracle_meta', None) or {}).get('mfe', 0.0))
-            target = oracle_mfe * point_value
-            if target <= 0.0:
-                continue  # skip noise patterns — no oracle signal to capture
             outcome = simulate_trade_standalone(
                 entry_price=pattern.price,
                 data=sim_data,
@@ -363,35 +336,25 @@ def _optimize_template_task(args):
                 template=template,
                 template_library=pattern_library,
             )
-            y_true.append(target)
-            y_hat.append(outcome.pnl if outcome else 0.0)
+            pnls.append(outcome.pnl if outcome else 0.0)
 
-        n = len(y_true)
-        k = 3  # PID params: kp, ki, kd
-        if n < k + 2:
-            return -1.0  # not enough observations to compute adj R²
-        y_true = np.array(y_true)
-        y_hat  = np.array(y_hat)
-        ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
-        if ss_tot < 1e-9:
-            return -1.0  # all targets identical — degenerate cluster
-        ss_res = np.sum((y_true - y_hat) ** 2)
-        r2 = 1.0 - ss_res / ss_tot
-        adj_r2 = 1.0 - (1.0 - r2) * (n - 1) / (n - k - 1)
-        return float(adj_r2)
+        pnl_array = np.array(pnls)
+        if len(pnl_array) > 1 and np.std(pnl_array) > 1e-9:
+            return float(np.mean(pnl_array) / np.std(pnl_array))
+        return 0.0
 
     # 4. Run Optuna TPE
     MIN_OPTUNA_TRIALS = 50
     MAX_OPTUNA_TRIALS = 200
     n_trials = max(MIN_OPTUNA_TRIALS, min(iterations, MAX_OPTUNA_TRIALS))  # TPE converges fast
     seed = getattr(template, 'template_id', 42) if template else 42
-    best_pid = generator.optimize_pid(_adj_r2_objective, n_trials=n_trials, seed=seed)
+    best_pid = generator.optimize_pid(_sharpe_objective, n_trials=n_trials, seed=seed)
 
     # 5. Final best params = analytical exits + best PID
     best_params = {**fixed_exits, **best_pid}
-    best_adj_r2 = _adj_r2_objective(**best_pid)
+    best_sharpe = _sharpe_objective(**best_pid)
 
-    return best_params, best_adj_r2
+    return best_params, best_sharpe
 
 def _process_template_job(args):
     """
@@ -402,17 +365,16 @@ def _process_template_job(args):
     # Unpack — support both dict and tuple formats
     if isinstance(args, dict):
         template = args['template']
-        # Fall back to worker-process globals to avoid pickling large objects per-task
-        clustering_engine = args.get('clustering_engine') or _WORKER_CLUSTERING_ENGINE
+        clustering_engine = args['clustering_engine']
         iterations = args['iterations']
         generator = args['generator']
         point_value = args['point_value']
-        pattern_library = args.get('pattern_library') or _WORKER_PATTERN_LIBRARY
+        pattern_library = args.get('pattern_library', {})
     elif len(args) == 6:
         template, clustering_engine, iterations, generator, point_value, pattern_library = args
     else:
         template, clustering_engine, iterations, generator, point_value = args
-        pattern_library = _WORKER_PATTERN_LIBRARY or {}
+        pattern_library = {}
 
     t0 = time.perf_counter()
 
@@ -453,14 +415,14 @@ def _process_template_job(args):
         outcome_variance = float(np.std(pnls)) if pnls else 0.0
         avg_drawdown     = float(abs(np.mean([p for p in pnls if p < 0]))) if any(p < 0 for p in pnls) else 0.0
         win_rate  = val_wins / val_count if val_count > 0 else 0.0
-        risk_score = (1.0 - win_rate) * 0.5  # tiny template: no adj R² possible
+        var_risk  = 1.0 - (1.0 / (1.0 + outcome_variance / 100.0))
+        risk_score = (1.0 - win_rate) * 0.5 + var_risk * 0.5
         t_validation = time.perf_counter() - t3 - t_consensus
         elapsed = time.perf_counter() - t0
         return {
             'status': 'DONE', 'template_id': template.template_id, 'template': template,
-            'best_params': best_params, 'val_pnl': val_pnl, 'val_adj_r2': 0.0,
-            'val_count': val_count, 'val_wins': val_wins,
-            'outcome_variance': outcome_variance,
+            'best_params': best_params, 'val_pnl': val_pnl, 'val_count': val_count,
+            'val_wins': val_wins, 'outcome_variance': outcome_variance,
             'avg_drawdown': avg_drawdown, 'risk_score': risk_score,
             'member_count': template.member_count,
             'timing': (f'individual={t_individual:.1f}s consensus={t_consensus:.1f}s '
@@ -512,8 +474,6 @@ def _process_template_job(args):
     val_count = 0
     val_wins = 0
     pnls = []
-    val_y_true = []  # oracle MFE targets for adj R² computation
-    val_y_hat  = []  # captured PnL per pattern
 
     validation_subset = template.patterns[FISSION_SUBSET_SIZE:]
     if validation_subset:
@@ -533,28 +493,6 @@ def _process_template_job(args):
                  pnls.append(outcome.pnl)
                  if outcome.pnl > 0:
                      val_wins += 1
-             # Collect oracle target for adj R²
-             oracle_mfe = float((getattr(p, 'oracle_meta', None) or {}).get('mfe', 0.0))
-             target = oracle_mfe * point_value
-             if target > 0:
-                 val_y_true.append(target)
-                 val_y_hat.append(outcome.pnl if outcome else 0.0)
-
-    # Adjusted R²: how well do best_params capture oracle MFE on validation set?
-    _k = 3  # PID params
-    _n = len(val_y_true)
-    if _n >= _k + 2:
-        _yt = np.array(val_y_true)
-        _yh = np.array(val_y_hat)
-        _ss_tot = np.sum((_yt - np.mean(_yt)) ** 2)
-        if _ss_tot > 1e-9:
-            _ss_res = np.sum((_yt - _yh) ** 2)
-            _r2 = 1.0 - _ss_res / _ss_tot
-            val_adj_r2 = float(1.0 - (1.0 - _r2) * (_n - 1) / (_n - _k - 1))
-        else:
-            val_adj_r2 = 0.0
-    else:
-        val_adj_r2 = 0.0
 
     # Calculate Risk Metrics
     if pnls:
@@ -565,9 +503,11 @@ def _process_template_job(args):
         outcome_variance = 0.0
         avg_drawdown = 0.0
 
-    # Risk Score: complement of adj R² (higher R² = lower risk), blended with WR
+    # Risk Score (0..1)
+    # Simple heuristic: 1 - WinRate is base risk. Add penalty for variance.
     win_rate = val_wins / val_count if val_count > 0 else 0.0
-    risk_score = (1.0 - max(val_adj_r2, 0.0)) * 0.5 + (1.0 - win_rate) * 0.5
+    var_risk = 1.0 - (1.0 / (1.0 + outcome_variance / 100.0))
+    risk_score = (1.0 - win_rate) * 0.5 + var_risk * 0.5
 
     t_validation = time.perf_counter() - t4
 
@@ -579,7 +519,6 @@ def _process_template_job(args):
         'template': template,
         'best_params': best_params,
         'val_pnl': val_pnl,
-        'val_adj_r2': val_adj_r2,
         'val_count': val_count,
         'val_wins': val_wins,
         'outcome_variance': outcome_variance,

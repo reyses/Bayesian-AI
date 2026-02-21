@@ -104,7 +104,6 @@ class ThreeBodyQuantumState:
     oscillation_coherence: float = 0.0 # 1=tight periodic PID oscillation, 0=noisy/trending
     lyapunov_exponent: float = 0.0  # Stability coefficient (lambda)
     market_regime: str = 'UNKNOWN'  # STABLE | CHAOTIC
-    rel_volume: float = 1.0         # Relative volume (current / rolling mean)
 
     # ═══ RESONANCE (PHASE 3 EXTENSION) ═══
     resonance_coherence: float = 0.0      # Phase alignment
@@ -323,6 +322,5 @@ class ThreeBodyQuantumState:
             tunnel_probability=0.0, escape_probability=0.0, barrier_height=0.0,
             hurst_exponent=0.5, adx_strength=0.0, dmi_plus=0.0, dmi_minus=0.0,
             candlestick_pattern='NONE',
-            sigma_fractal=0.0, term_pid=0.0, oscillation_coherence=0.0, lyapunov_exponent=0.0, market_regime='STABLE',
-            rel_volume=1.0
+            sigma_fractal=0.0, term_pid=0.0, oscillation_coherence=0.0, lyapunov_exponent=0.0, market_regime='STABLE'
         )

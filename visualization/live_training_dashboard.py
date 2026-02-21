@@ -51,7 +51,6 @@ class FractalDashboard:
         self.templates        = {}   # id -> {z, mom, pnl, count, ...}
         self.fission_events   = []
         self._transition_arrows = []
-        self._scatter_ids     = []   # Parallel list to scatter points for tooltips
 
         # Sorting state for leaderboard
         self._sort_col = "PnL"
@@ -63,9 +62,6 @@ class FractalDashboard:
             'missed': 0.0, 'wrong_dir': 0.0,
             'too_early': 0.0, 'noise': 0.0,
         }
-
-        # Forward pass live stats
-        self.fp_stats = {'day': 0, 'n_days': 0, 'pnl': 0.0, 'trades': 0, 'wr': 0.0, 'pct': 0.0}
 
         self._running = True   # set False on SHUTDOWN to stop rescheduling
         self._setup_layout()
@@ -115,20 +111,9 @@ class FractalDashboard:
         self.ax_phys.grid(True, linestyle='--', alpha=0.2, color=FG_GREY)
         self.scatter = self.ax_phys.scatter([], [], c=[], cmap='viridis', s=50, alpha=0.8)
 
-        # Tooltip annotation (initially invisible)
-        self.annot = self.ax_phys.annotate("", xy=(0,0), xytext=(10,10),
-                                          textcoords="offset points",
-                                          bbox=dict(boxstyle="round", fc="black", ec="white", alpha=0.9),
-                                          color='white', fontsize=8,
-                                          arrowprops=dict(arrowstyle="->", color='white'))
-        self.annot.set_visible(False)
-
         canvas_phys = FigureCanvasTkAgg(self.fig_phys, master=phys_frame)
         canvas_phys.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         self.canvas_phys = canvas_phys
-
-        # Bind hover event for tooltips
-        canvas_phys.mpl_connect("motion_notify_event", self._on_hover)
 
         # ── Col 1: Pareto Chart ───────────────────────────────────────────────
         pareto_frame = ttk.Frame(body)
@@ -152,15 +137,6 @@ class FractalDashboard:
         ttk.Label(nums, text="Captured:", style="Dim.TLabel").grid(row=2, column=0, sticky='w')
         self.lbl_captured = ttk.Label(nums, text="0.0%", style="Bad.TLabel")
         self.lbl_captured.grid(row=2, column=1, sticky='w', padx=6)
-
-        # Forward pass progress row
-        ttk.Label(nums, text="Forward pass:", style="Dim.TLabel").grid(row=3, column=0, sticky='w', pady=(6,0))
-        self.lbl_fp_day = ttk.Label(nums, text="—", style="TLabel")
-        self.lbl_fp_day.grid(row=3, column=1, sticky='w', padx=6, pady=(6,0))
-        self.fp_progress = ttk.Progressbar(nums, orient='horizontal', length=220, mode='determinate')
-        self.fp_progress.grid(row=4, column=0, columnspan=2, sticky='ew', pady=(2,0))
-        self.lbl_fp_stats = ttk.Label(nums, text="", style="Dim.TLabel")
-        self.lbl_fp_stats.grid(row=5, column=0, columnspan=2, sticky='w')
 
         # Pareto bar chart
         self.fig_pareto, self.ax_pareto = plt.subplots(figsize=(5, 5), facecolor=BG)
@@ -228,22 +204,6 @@ class FractalDashboard:
         elif t == 'STATUS':
             self.lbl_status.config(text=f"SYSTEM STATUS: {msg['text']}")
 
-        elif t == 'FORWARD_PASS_STATS':
-            fp = msg
-            self.fp_stats = fp
-            day, n_days = fp['day'], fp['n_days']
-            pnl, trades, wr, pct = fp['pnl'], fp['trades'], fp['wr'], fp['pct']
-            self.fp_progress['value'] = pct
-            self.lbl_fp_day.config(text=f"day {day}/{n_days}  ({pct:.0f}%)")
-            self.lbl_fp_stats.config(
-                text=f"PnL: ${pnl:,.0f}  |  Trades: {trades}  |  WR: {wr*100:.1f}%"
-            )
-            # Live-update actual PnL in pareto section
-            self.lbl_actual.config(text=f"${pnl:,.0f}",
-                                   style="Good.TLabel" if pnl >= 0 else "Bad.TLabel")
-            if day % 10 == 0 or day == n_days:
-                self._log(f"FWD day {day}/{n_days} | PnL: ${pnl:,.0f} | Trades: {trades} | WR: {wr*100:.1f}%")
-
         elif t == 'PHASE_PROGRESS':
             step = msg.get('step', '')
             pct  = msg.get('pct', 0)
@@ -260,7 +220,13 @@ class FractalDashboard:
 
         elif t == 'SHUTDOWN':
             self._running = False
-            self.root.quit()  # returns control to launch_dashboard finally block
+            # Close all matplotlib figures while still in the main loop so tkinter
+            # Image objects are deleted here, not from the GC in a daemon thread.
+            try:
+                plt.close('all')
+            except Exception:
+                pass
+            self.root.quit()
 
     # ── Pareto chart ──────────────────────────────────────────────────────────
     def _capture_pct(self):
@@ -339,11 +305,8 @@ class FractalDashboard:
             except ValueError: pass
         self._transition_arrows.clear()
 
-        # Capture IDs to map scatter index back to template
-        template_values = list(self.templates.values())
-        self._scatter_ids = [d['id'] for d in template_values]
-        z_vals = np.array([d.get('z', 0) for d in template_values])
-        m_vals = np.array([d.get('mom', 0) for d in template_values])
+        z_vals = np.array([d.get('z', 0) for d in self.templates.values()])
+        m_vals = np.array([d.get('mom', 0) for d in self.templates.values()])
 
         if len(m_vals) > 4:
             q1, q3 = np.percentile(m_vals, [25, 75])
@@ -384,30 +347,6 @@ class FractalDashboard:
         self.ax_phys.relim()
         self.ax_phys.autoscale_view()
         self.canvas_phys.draw()
-
-    def _on_hover(self, event):
-        """Update tooltip on hover."""
-        vis = self.annot.get_visible()
-        if event.inaxes == self.ax_phys:
-            cont, ind = self.scatter.contains(event)
-            if cont:
-                idx = ind["ind"][0]
-                if idx < len(self._scatter_ids):
-                    tid = self._scatter_ids[idx]
-                    data = self.templates.get(tid)
-                    if data:
-                        self.annot.xy = self.scatter.get_offsets()[idx]
-                        text = (f"ID: {tid}\n"
-                                f"Z: {data.get('z',0):.2f}\n"
-                                f"Mom: {data.get('mom',0):.2f}\n"
-                                f"PnL: ${data.get('pnl',0):.0f}")
-                        self.annot.set_text(text)
-                        self.annot.set_visible(True)
-                        self.canvas_phys.draw_idle()
-                        return
-        if vis:
-            self.annot.set_visible(False)
-            self.canvas_phys.draw_idle()
 
     # ── Leaderboard ───────────────────────────────────────────────────────────
     def _on_header_click(self, col):
@@ -465,200 +404,12 @@ class FractalDashboard:
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
-def launch_progress_popup(queue):
-    """Lightweight progress popup covering all training phases."""
-    root = tk.Tk()
-    root.title("Training Progress")
-    root.geometry("460x175")
-    root.resizable(False, False)
-    root.attributes('-topmost', True)
-
-    style = ttk.Style(root)
-    style.theme_use('clam')
-    BG = '#1a1a2e'
-    style.configure('TLabel',    background=BG, foreground='#e0e0e0', font=('Consolas', 10))
-    style.configure('Big.TLabel', background=BG, foreground='#00ff88', font=('Consolas', 12, 'bold'))
-    style.configure('Dim.TLabel', background=BG, foreground='#888888', font=('Consolas', 9))
-    style.configure('TFrame',    background=BG)
-    style.configure('green.Horizontal.TProgressbar', troughcolor='#2a2a3e', background='#00ff88')
-    style.configure('blue.Horizontal.TProgressbar',  troughcolor='#2a2a3e', background='#4488ff')
-    root.configure(bg=BG)
-
-    frame = ttk.Frame(root, padding=12)
-    frame.pack(fill='both', expand=True)
-
-    # Row 0: phase title + step
-    lbl_phase = ttk.Label(frame, text="Initializing...", style='Big.TLabel')
-    lbl_phase.grid(row=0, column=0, sticky='w')
-    lbl_step  = ttk.Label(frame, text="", style='Dim.TLabel')
-    lbl_step.grid(row=0, column=1, sticky='e')
-
-    # Row 1: progress label left, secondary stat right
-    lbl_prog  = ttk.Label(frame, text="", style='TLabel')
-    lbl_prog.grid(row=1, column=0, sticky='w', pady=(6, 2))
-    lbl_right = ttk.Label(frame, text="", style='TLabel')
-    lbl_right.grid(row=1, column=1, sticky='e', pady=(6, 2))
-
-    # Row 2: progress bar
-    pbar = ttk.Progressbar(frame, orient='horizontal', length=436, mode='indeterminate',
-                           style='blue.Horizontal.TProgressbar')
-    pbar.grid(row=2, column=0, columnspan=2, sticky='ew', pady=(0, 4))
-    pbar.start(40)  # spin until Phase 4 gives us a real pct
-
-    # Row 3: stat line 1
-    lbl_stat1 = ttk.Label(frame, text="Waiting for first message...", style='TLabel')
-    lbl_stat1.grid(row=3, column=0, columnspan=2, sticky='w')
-
-    # Row 4: stat line 2
-    lbl_stat2 = ttk.Label(frame, text="", style='Dim.TLabel')
-    lbl_stat2.grid(row=4, column=0, columnspan=2, sticky='w')
-
-    frame.columnconfigure(1, weight=1)
-
-    # Mutable state
-    state = {
-        'phase': '', 'tmpls': 0, 'fissions': 0,
-        'tmpl_r2_sum': 0.0, 'tmpl_wr_sum': 0.0,
-        'p3_total': 0,
-    }
-    _running = [True]
-
-    def _set_color(pnl):
-        c = '#00ff88' if pnl >= 0 else '#ff4444'
-        style.configure('Big.TLabel', foreground=c)
-
-    def _to_determinate(pct, color='green'):
-        pbar.stop()
-        pbar['mode']  = 'determinate'
-        pbar['style'] = f'{color}.Horizontal.TProgressbar'
-        pbar['value'] = pct
-
-    def poll():
-        if not _running[0]:
-            return
-        try:
-            while True:
-                msg = queue.get_nowait()
-                t = msg.get('type', '')
-
-                # ── Phase start announcement ──────────────────────────────────
-                if t == 'PHASE_START':
-                    ph    = msg.get('phase', 0)
-                    label = msg.get('label', f'Phase {ph}')
-                    total = msg.get('total', 0)
-                    done  = msg.get('done', 0)
-                    state['phase'] = str(ph)
-                    if ph == 3:
-                        state['p3_total'] = total
-                        state['tmpls']    = done
-                    lbl_phase.config(text=label)
-                    lbl_step.config(text='')
-                    lbl_stat2.config(text='')
-                    if total > 0:
-                        pct = done / total * 100
-                        _to_determinate(pct, color='blue')
-                        lbl_prog.config(text=f"{done} / {total}  ({pct:.0f}%)")
-                    else:
-                        pbar.stop()
-                        pbar['mode']  = 'indeterminate'
-                        pbar['style'] = 'blue.Horizontal.TProgressbar'
-                        pbar.start(40)
-                        lbl_prog.config(text="Starting...")
-                    lbl_right.config(text='')
-                    lbl_stat1.config(text='')
-
-                # ── Phase 2: per-TF level completed ──────────────────────────
-                elif t == 'PHASE_UPDATE' and msg.get('phase') == 2:
-                    done  = msg.get('done', 0)
-                    total = msg.get('total', 1)
-                    tf    = msg.get('tf', '')
-                    pats  = msg.get('patterns', 0)
-                    pct   = done / total * 100
-                    _to_determinate(pct, color='blue')
-                    lbl_prog.config(text=f"TF {done} / {total}  ({pct:.0f}%)")
-                    lbl_right.config(text=f"{pats:,} patterns")
-                    lbl_stat1.config(text=f"Last completed: {tf}")
-
-                # ── Phase 3: per-template optimization ───────────────────────
-                elif t == 'TEMPLATE_UPDATE':
-                    if state['phase'] != '3':
-                        state['phase']       = '3'
-                        state['fissions']    = 0
-                        state['tmpl_r2_sum'] = 0.0
-                        state['tmpl_wr_sum'] = 0.0
-                        lbl_phase.config(text='Phase 3 — Template Optimization')
-                        lbl_step.config(text='Optuna TPE')
-                    done  = msg.get('done',  state['tmpls'] + 1)
-                    total = msg.get('total', state['p3_total']) or done
-                    state['tmpls'] = done
-                    state['tmpl_r2_sum'] += msg.get('adj_r2', 0.0)
-                    state['tmpl_wr_sum'] += msg.get('win_rate', 0.0)
-                    avg_wr = state['tmpl_wr_sum'] / done * 100
-                    avg_r2 = state['tmpl_r2_sum'] / done
-                    pct = min(done / total * 100, 100) if total else 0
-                    _to_determinate(pct, color='blue')
-                    lbl_prog.config(text=f"{done} / {total}  ({pct:.0f}%)")
-                    lbl_right.config(text=f"Fissions: {state['fissions']}")
-                    lbl_stat1.config(text=f"Avg WR: {avg_wr:.1f}%")
-                    lbl_stat2.config(text=f"Avg Adj R²: {avg_r2:.4f}")
-
-                elif t == 'FISSION_EVENT':
-                    state['fissions'] += 1
-                    lbl_right.config(text=f"Fissions: {state['fissions']}")
-
-                # ── Phase 4: forward pass ─────────────────────────────────────
-                elif t == 'FORWARD_PASS_STATS':
-                    if state['phase'] != 'ForwardPass':
-                        state['phase'] = 'ForwardPass'
-                        lbl_phase.config(text='Phase 4 — Forward Pass')
-                        lbl_step.config(text='')
-                    day, n_days = msg['day'], msg['n_days']
-                    pnl, trades, wr, pct = msg['pnl'], msg['trades'], msg['wr'], msg['pct']
-                    _to_determinate(pct)
-                    lbl_prog.config(text=f"Day {day} / {n_days}  ({pct:.0f}%)")
-                    lbl_right.config(text=f"WR {wr*100:.1f}%  |  {trades} trades")
-                    sign = '+' if pnl >= 0 else ''
-                    lbl_stat1.config(text=f"PnL: {sign}${pnl:,.0f}")
-                    _set_color(pnl)
-                    lbl_stat2.config(text="")
-
-                elif t == 'ORACLE_ATTRIBUTION':
-                    ideal  = msg.get('ideal', 0)
-                    actual = msg.get('actual', 0)
-                    cap    = actual / ideal * 100 if ideal else 0
-                    _set_color(actual)
-                    lbl_stat2.config(text=f"Ideal: ${ideal:,.0f}  |  Capture: {cap:.1f}%")
-
-                elif t == 'SHUTDOWN':
-                    _running[0] = False
-                    root.quit()
-                    return
-        except Exception:
-            pass
-        root.after(300, poll)
-
-    root.after(300, poll)
-    try:
-        root.mainloop()
-    finally:
-        try:
-            root.destroy()
-        except Exception:
-            pass
-
-
 def launch_dashboard(queue):
     root = tk.Tk()
     app = FractalDashboard(root, queue)
     try:
         root.mainloop()
     finally:
-        # Close matplotlib figures on main thread BEFORE destroy() to prevent
-        # PhotoImage.__del__ being called from a GC thread ("main thread not in main loop")
-        try:
-            plt.close('all')
-        except Exception:
-            pass
         try:
             root.destroy()
         except Exception:

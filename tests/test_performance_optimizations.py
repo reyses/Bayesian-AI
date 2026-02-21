@@ -2,10 +2,8 @@
 import pytest
 import numpy as np
 import time
-import math
 from numpy.lib.stride_tricks import sliding_window_view
 from core.quantum_field_engine import QuantumFieldEngine
-from core.physics_utils import OSCILLATION_COHERENCE_WINDOW
 
 # ------------------------------------------------------------------------------
 # Helpers for Regression
@@ -247,71 +245,6 @@ def test_hurst_performance():
     # Should be at least 10x faster
     assert dur_opt < dur_orig / 10
     print(f"Speedup: {dur_orig/dur_opt:.2f}x")
-
-def test_oscillation_coherence_kernel_logic():
-    """Verify that the kernel logic for oscillation coherence matches sliding_window_view."""
-    N = 100
-    window_size = OSCILLATION_COHERENCE_WINDOW
-    np.random.seed(42)
-    z_scores = np.random.randn(N).astype(np.float64)
-
-    # 1. Original Method (sliding_window_view)
-    osc_std_orig = np.full(N, np.nan)
-    if N >= window_size:
-         z_windows = sliding_window_view(z_scores, window_shape=window_size)
-         osc_std_orig[window_size-1:] = z_windows.std(axis=1, ddof=1)
-
-    # Invert and normalize
-    coherence_orig = 1.0 / (1.0 + osc_std_orig)
-    np.nan_to_num(coherence_orig, copy=False, nan=0.0)
-
-    # 2. Kernel Logic Simulation (Python equivalent of detect_archetype_kernel logic)
-    coherence_kernel = np.zeros(N, dtype=np.float64)
-
-    for i in range(N):
-        if i >= window_size - 1:
-            sum_z = 0.0
-            sum_zz = 0.0
-
-            # Loop over window
-            for k in range(window_size):
-                idx = i - (window_size - 1) + k
-                val = z_scores[idx]
-                sum_z += val
-                sum_zz += val * val
-
-            mean_z = sum_z / window_size
-            var_num = sum_zz - window_size * mean_z * mean_z
-            if var_num < 0.0:
-                var_num = 0.0
-
-            std_dev = 0.0
-            if window_size > 1:
-                std_dev = math.sqrt(var_num / (window_size - 1))
-                coherence_kernel[i] = 1.0 / (1.0 + std_dev)
-            else:
-                coherence_kernel[i] = 0.0
-        else:
-            coherence_kernel[i] = 0.0
-
-    # The original method creates NaNs/0.0 at the start depending on nan_to_num behavior.
-    # We normalized NaNs to 0.0.
-
-    # Check match (start checking from window_size-1 where both should be valid)
-    assert np.allclose(coherence_orig[window_size-1:], coherence_kernel[window_size-1:], atol=1e-10)
-
-    # Test edge case window_size = 1
-    window_size = 1
-    coherence_kernel_1 = np.zeros(N, dtype=np.float64)
-    for i in range(N):
-        if i >= 0:
-            std_dev = 0.0
-            if window_size > 1:
-                pass
-            else:
-                coherence_kernel_1[i] = 0.0
-
-    assert np.all(coherence_kernel_1 == 0.0)
 
 if __name__ == "__main__":
     pytest.main([__file__])

@@ -105,14 +105,6 @@ class TestQuantumFieldEngineGPU(unittest.TestCase):
 
         self.assertTrue(mock_detect_archetype.__getitem__.return_value.called, "detect_archetype_kernel should be called via []")
 
-        # Verify detect_archetype_kernel arguments (updated with oscillation coherence)
-        da_call_args = mock_detect_archetype.__getitem__.return_value.call_args
-        self.assertIsNotNone(da_call_args)
-        # Expected args: z, vel, mom, coh, roche, drive, osc_coh, window_size
-        self.assertEqual(len(da_call_args[0]), 8, "detect_archetype_kernel should be called with 8 arguments")
-        # Verify window_size is passed (min(5, rp=21) -> 5)
-        self.assertEqual(da_call_args[0][7], 5)
-
         # Verify results structure
         self.assertIsInstance(results, list)
         if results:
