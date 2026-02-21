@@ -51,6 +51,7 @@ class FractalDashboard:
         self.templates        = {}   # id -> {z, mom, pnl, count, ...}
         self.fission_events   = []
         self._transition_arrows = []
+        self._scatter_ids     = []   # Parallel list to scatter points for tooltips
 
         # Sorting state for leaderboard
         self._sort_col = "PnL"
@@ -114,9 +115,20 @@ class FractalDashboard:
         self.ax_phys.grid(True, linestyle='--', alpha=0.2, color=FG_GREY)
         self.scatter = self.ax_phys.scatter([], [], c=[], cmap='viridis', s=50, alpha=0.8)
 
+        # Tooltip annotation (initially invisible)
+        self.annot = self.ax_phys.annotate("", xy=(0,0), xytext=(10,10),
+                                          textcoords="offset points",
+                                          bbox=dict(boxstyle="round", fc="black", ec="white", alpha=0.9),
+                                          color='white', fontsize=8,
+                                          arrowprops=dict(arrowstyle="->", color='white'))
+        self.annot.set_visible(False)
+
         canvas_phys = FigureCanvasTkAgg(self.fig_phys, master=phys_frame)
         canvas_phys.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         self.canvas_phys = canvas_phys
+
+        # Bind hover event for tooltips
+        canvas_phys.mpl_connect("motion_notify_event", self._on_hover)
 
         # ── Col 1: Pareto Chart ───────────────────────────────────────────────
         pareto_frame = ttk.Frame(body)
@@ -327,8 +339,11 @@ class FractalDashboard:
             except ValueError: pass
         self._transition_arrows.clear()
 
-        z_vals = np.array([d.get('z', 0) for d in self.templates.values()])
-        m_vals = np.array([d.get('mom', 0) for d in self.templates.values()])
+        # Capture IDs to map scatter index back to template
+        template_values = list(self.templates.values())
+        self._scatter_ids = [d['id'] for d in template_values]
+        z_vals = np.array([d.get('z', 0) for d in template_values])
+        m_vals = np.array([d.get('mom', 0) for d in template_values])
 
         if len(m_vals) > 4:
             q1, q3 = np.percentile(m_vals, [25, 75])
@@ -369,6 +384,30 @@ class FractalDashboard:
         self.ax_phys.relim()
         self.ax_phys.autoscale_view()
         self.canvas_phys.draw()
+
+    def _on_hover(self, event):
+        """Update tooltip on hover."""
+        vis = self.annot.get_visible()
+        if event.inaxes == self.ax_phys:
+            cont, ind = self.scatter.contains(event)
+            if cont:
+                idx = ind["ind"][0]
+                if idx < len(self._scatter_ids):
+                    tid = self._scatter_ids[idx]
+                    data = self.templates.get(tid)
+                    if data:
+                        self.annot.xy = self.scatter.get_offsets()[idx]
+                        text = (f"ID: {tid}\n"
+                                f"Z: {data.get('z',0):.2f}\n"
+                                f"Mom: {data.get('mom',0):.2f}\n"
+                                f"PnL: ${data.get('pnl',0):.0f}")
+                        self.annot.set_text(text)
+                        self.annot.set_visible(True)
+                        self.canvas_phys.draw_idle()
+                        return
+        if vis:
+            self.annot.set_visible(False)
+            self.canvas_phys.draw_idle()
 
     # ── Leaderboard ───────────────────────────────────────────────────────────
     def _on_header_click(self, col):
