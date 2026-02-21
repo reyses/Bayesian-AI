@@ -775,9 +775,11 @@ class QuantumFieldEngine:
         cond_roche_upper = z_scores >= 2.0
 
         # Default is L3_ROCHE (z <= -2.0)
-        lz_arr = np.where(cond_stable, 'L1_STABLE',
-                 np.where(cond_chaos, 'CHAOS',
-                 np.where(cond_roche_upper, 'L2_ROCHE', 'L3_ROCHE')))
+        lz_arr = np.select(
+            [cond_stable, cond_chaos, cond_roche_upper],
+            ['L1_STABLE', 'CHAOS', 'L2_ROCHE'],
+            default='L3_ROCHE'
+        )
 
         # 2. Amplitudes (Vectorized sqrt)
         a0_arr = np.sqrt(prob0)
