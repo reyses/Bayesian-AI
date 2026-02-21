@@ -1885,33 +1885,43 @@ class BayesianTrainingOrchestrator:
         # They are shown separately in the profit gap as "reversed after entry".
         if tp_recs:
             optimal   = [r for r in tp_recs if r['capture_rate'] >= 0.80]
-            partial   = [r for r in tp_recs if 0.20 <= r['capture_rate'] < 0.80]
             too_early = [r for r in tp_recs if 0 < r['capture_rate'] < 0.20]
             reversed_ = [r for r in tp_recs if r['capture_rate'] <= 0]
 
-            # left_on_table: only non-reversed underperformance (how much potential
-            # was uncaptured on trades that at least moved in our direction)
+            # Partial broken into 10% bands: 20-30, 30-40, ..., 70-80
+            _partial_bands = []
+            for _lo in range(20, 80, 10):
+                _hi = _lo + 10
+                _band = [r for r in tp_recs if _lo / 100 <= r['capture_rate'] < _hi / 100]
+                _partial_bands.append((_lo, _hi, _band))
+            partial = [r for r in tp_recs if 0.20 <= r['capture_rate'] < 0.80]  # kept for cross-tab
+
+            # left_on_table: only non-reversed underperformance
             non_reversed = [r for r in tp_recs if r['capture_rate'] > 0]
             left_on_table = sum(max(0, r['oracle_potential_pnl'] - r['actual_pnl'])
                                 for r in non_reversed)
 
-            def _eq_row(label, recs, flag=''):
+            def _eq_row(label, recs, indent='    ', flag=''):
                 n     = len(recs)
                 total = sum(r['actual_pnl'] for r in recs)
                 avg   = total / n if n else 0.0
                 avg_h = sum(r.get('hold_bars', 0) for r in recs) / n if n else 0.0
                 avg_c = sum(r.get('capture_rate', 0) for r in recs) / n if n else 0.0
-                return (f"    {label:<36} {n:>5,}  ${total:>10,.0f}  "
+                return (f"{indent}{label:<36} {n:>5,}  ${total:>10,.0f}  "
                         f"avg${avg:>7,.0f}  {avg_h:>5.0f}bars  cap{avg_c:>+6.0%}  {flag}")
 
             report_lines.append("")
             report_lines.append(f"  EXIT QUALITY (correct-direction trades):")
             report_lines.append(f"    {'Bucket':<36} {'n':>5}  {'Total PnL':>11}  {'Avg PnL':>8}  {'Hold':>9}  {'Cap%':>7}")
             report_lines.append(f"    {'─'*36} {'─'*5}  {'─'*11}  {'─'*8}  {'─'*9}  {'─'*7}")
-            report_lines.append(_eq_row("Optimal  (>=80% captured)",  optimal))
-            report_lines.append(_eq_row("Partial  (20-80% captured)", partial))
-            report_lines.append(_eq_row("Too early (<20% captured)",  too_early))
-            report_lines.append(_eq_row("Reversed (mkt flipped after entry)", reversed_, "<- leakage"))
+            report_lines.append(_eq_row("Optimal  (>=80% captured)",         optimal))
+            # Partial bands
+            for _lo, _hi, _band in _partial_bands:
+                if not _band:
+                    continue
+                report_lines.append(_eq_row(f"  Partial  ({_lo}-{_hi}% captured)", _band, indent='    '))
+            report_lines.append(_eq_row("Too early (<20% captured)",         too_early))
+            report_lines.append(_eq_row("Reversed (mkt flipped after entry)",reversed_, flag="<- leakage"))
             report_lines.append(f"    Left on table (non-reversed gap):                        ${left_on_table:>10,.0f}")
 
             # ── Exit reason cross-breakdown ───────────────────────────────────
@@ -1939,19 +1949,21 @@ class BayesianTrainingOrchestrator:
                 row += f"  {len(reason_recs):>6,}  ${avg_r:>7,.0f}"
                 report_lines.append(row)
 
-            # ── Per-bucket avg oracle MFE vs actual ──────────────────────────
+            # ── Per-bucket capture detail ─────────────────────────────────────
             report_lines.append("")
             report_lines.append(f"  CAPTURE DETAIL (correct-direction trades):")
-            report_lines.append(f"    {'Bucket':<20}  {'Avg oracle MFE':>14}  {'Avg actual PnL':>14}  {'Avg hold bars':>14}")
-            for label, recs in [('Optimal', optimal), ('Partial', partial),
-                                 ('Too early', too_early), ('Reversed', reversed_)]:
+            report_lines.append(f"    {'Bucket':<22}  {'Avg oracle MFE':>14}  {'Avg actual PnL':>14}  {'Avg hold bars':>13}")
+            _detail_buckets = (
+                [('Optimal', optimal), ('Too early', too_early), ('Reversed', reversed_)]
+                + [(f'Partial {lo}-{hi}%', band) for lo, hi, band in _partial_bands if band]
+            )
+            for label, recs in _detail_buckets:
                 if not recs:
                     continue
-                avg_mfe_pts = sum(r.get('oracle_mfe', 0) for r in recs) / len(recs)
-                avg_mfe_usd = avg_mfe_pts * self.asset.point_value
+                avg_mfe_usd = sum(r.get('oracle_mfe', 0) for r in recs) / len(recs) * self.asset.point_value
                 avg_act     = sum(r['actual_pnl'] for r in recs) / len(recs)
                 avg_hb      = sum(r.get('hold_bars', 0) for r in recs) / len(recs)
-                report_lines.append(f"    {label:<20}  ${avg_mfe_usd:>13,.0f}  ${avg_act:>13,.0f}  {avg_hb:>14.1f}")
+                report_lines.append(f"    {label:<22}  ${avg_mfe_usd:>13,.0f}  ${avg_act:>13,.0f}  {avg_hb:>13.1f}")
         else:
             reversed_ = []
             left_on_table = 0.0
