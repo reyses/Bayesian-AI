@@ -14,6 +14,11 @@ REPRESENTATIVE_SUBSET_SIZE = 20
 FISSION_SUBSET_SIZE = 50
 INDIVIDUAL_OPTIMIZATION_ITERATIONS = 20
 
+# Spectral Exit Constants
+Z_SCORE_CYCLE_WINDOW = 60
+VELOCITY_DAMPING_WINDOW = 20
+KINETIC_DAMPING_EXIT_THRESHOLD = 0.8
+
 # --- Standalone Helpers for Multiprocessing ---
 
 @jit(nopython=True)
@@ -52,7 +57,7 @@ def _fast_sim_loop(entry_price, prices, timestamps, periods, dampings, dir_sign,
             continue
 
         # LAPLACE GATE: Exit if kinetic energy is critically damped
-        if pnl > 0 and dampings[i] > 0.8:
+        if pnl > 0 and dampings[i] > KINETIC_DAMPING_EXIT_THRESHOLD:
             return price, pnl, 1, curr_time, 4, duration # 4 = KINETIC_EXHAUSTION
 
         if pnl >= take_profit:
@@ -94,8 +99,8 @@ def _extract_arrays_from_df(df: Any) -> Optional[Tuple[np.ndarray, np.ndarray, n
         z_scores = df['z_score'].values
         velocities = df['velocity'].values
         for i in range(10, n):
-            w_z = z_scores[max(0, i-60):i]
-            w_v = velocities[max(0, i-20):i]
+            w_z = z_scores[max(0, i - Z_SCORE_CYCLE_WINDOW):i]
+            w_v = velocities[max(0, i - VELOCITY_DAMPING_WINDOW):i]
             periods[i] = extract_dominant_cycle(w_z)
             dampings[i] = calculate_kinetic_damping(w_v)
 

@@ -1959,19 +1959,16 @@ class BayesianTrainingOrchestrator:
                     elif '_' in day_str: month_key = day_str[:7]
                 elif ts:
                     try: month_key = datetime.fromtimestamp(ts).strftime('%Y_%m')
-                    except Exception: pass
+                    except (ValueError, OSError, OverflowError): pass
 
                 partitions[month_key].append(r)
 
             for month, month_records in partitions.items():
                 name_parts = base_filename.rsplit('.', 1)
-                part_name = f"{name_parts[0]}_{month}.{name_parts[1]}"
+                part_name = f"{name_parts[0]}_{os.path.basename(month)}.{name_parts[1]}"
                 part_path = os.path.join(self.checkpoint_dir, part_name)
 
-                all_keys = []
-                for mr in month_records:
-                    for k in mr.keys():
-                        if k not in all_keys: all_keys.append(k)
+                all_keys = list(dict.fromkeys(k for mr in month_records for k in mr.keys()))
 
                 with open(part_path, 'w', newline='', encoding='utf-8') as f:
                     writer = csv.DictWriter(f, fieldnames=all_keys)
