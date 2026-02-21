@@ -117,7 +117,7 @@ def _compute_rs_numba(returns, window):
 
             sum_sq += val * val
 
-        std_dev = math.sqrt(sum_sq / (window - 1))
+        std_dev = math.sqrt(sum_sq / (window - 1)) if window > 1 else 1e-10
         if std_dev < 1e-10:
             std_dev = 1e-10
 
