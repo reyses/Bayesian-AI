@@ -351,7 +351,8 @@ class BayesianTrainingOrchestrator:
                          bias_threshold: float = None,
                          dmi_threshold: float = None,
                          oos_mode: bool = False,
-                         account_size: float = 0.0):
+                         account_size: float = 0.0,
+                         run_tag: str = ''):
         """
         Phase 4: Forward pass -- replay full year using playbook.
         Scans fractal cascade per day, matches templates, trades via WaveRider.
@@ -529,6 +530,26 @@ class BayesianTrainingOrchestrator:
 
         print(f"  Found {len(daily_files_15s)} files to simulate.")
 
+        # Pre-scan: count actual trading days per file so the dashboard can show
+        # "Day 63 / 210" instead of "File 3 / 10".  Only the timestamp column is
+        # read so this is fast even for large monthly parquets.
+        _days_per_file = []
+        for _f in daily_files_15s:
+            try:
+                _ts = pd.read_parquet(_f, columns=['timestamp'])
+                _days_per_file.append(int(_ts['timestamp'].dt.normalize().nunique()))
+            except Exception:
+                try:
+                    _ts = pd.read_parquet(_f)
+                    _col = next((c for c in _ts.columns if 'time' in c.lower()), None)
+                    _days_per_file.append(
+                        int(pd.to_datetime(_ts[_col]).dt.normalize().nunique()) if _col else 21)
+                except Exception:
+                    _days_per_file.append(21)  # fallback estimate
+        _total_actual_days  = sum(_days_per_file)
+        _cumulative_day_idx = 0   # incremented after each file completes
+        print(f"  Total actual trading days: {_total_actual_days}")
+
         total_pnl = 0.0
         total_trades = 0
         total_wins = 0
@@ -642,10 +663,10 @@ class BayesianTrainingOrchestrator:
             pbar.set_description(f"Phase 4 [{day_date}]")
             if self.dashboard_queue:
                 _fp_wr  = total_wins / total_trades if total_trades else 0.0
-                _fp_pct = round((day_idx + 1) / n_days * 100, 1)
+                _fp_pct = round(_cumulative_day_idx / _total_actual_days * 100, 1) if _total_actual_days else 0.0
                 self.dashboard_queue.put({
                     'type': 'FORWARD_PASS_STATS',
-                    'day': day_idx + 1, 'n_days': n_days,
+                    'day': _cumulative_day_idx, 'n_days': _total_actual_days,
                     'pnl': total_pnl, 'trades': total_trades,
                     'wr': _fp_wr, 'pct': _fp_pct,
                 })
@@ -1099,20 +1120,38 @@ class BayesianTrainingOrchestrator:
                         # Scale live features once — used for direction, TP, and logging
                         _live_scaled = self.scaler.transform([_live_feat])[0]
 
-                        # ── Direction from signed-MFE regression ─────────────────
-                        # Per-cluster OLS was trained on signed_mfe (positive=LONG,
-                        # negative=SHORT), so sign(prediction) encodes direction and
-                        # abs(prediction) encodes TP in points.  Workers are the fallback
-                        # when the cluster has too few members for a stable regression.
+                        # ── Direction: workers primary, OLS agreement required ────
+                        # Workers have live Bayesian context (+0.12 edge at 1h).
+                        # OLS encodes the cluster's learned directional archetype.
+                        # We require BOTH to agree: if OLS is available and points
+                        # the opposite direction (any magnitude), skip — the live
+                        # context contradicts what this geometric shape historically does.
+                        # When OLS is None (<15 cluster members): workers decide alone.
                         _mfe_coeff   = lib_entry.get('mfe_coeff')
                         _mfe_int     = lib_entry.get('mfe_intercept', 0.0)
                         _signed_pred = None
                         if _mfe_coeff is not None:
                             _signed_pred = float(
                                 np.dot(_live_scaled, np.array(_mfe_coeff)) + _mfe_int)
-                            side = 'long' if _signed_pred >= 0 else 'short'
-                        else:
-                            side = _belief.direction  # fallback: worker belief network
+
+                        side = _belief.direction  # workers decide direction
+
+                        # Agreement gate: OLS must agree with workers (any disagreement → skip)
+                        if _signed_pred is not None:
+                            _cluster_side = 'long' if _signed_pred >= 0 else 'short'
+                            if _cluster_side != side:
+                                _candidate_gate[id(best_candidate)] = 'gate1_dir'
+                                decision_matrix_records.append(_dm_rec(
+                                    best_candidate, 'gate1_dir', day_date, ts,
+                                    abs(best_candidate.z_score),
+                                    abs((getattr(best_candidate, 'parent_chain', None) or [{}])[-1].get('z', 0.0)),
+                                    getattr(best_candidate, 'pattern_type', ''),
+                                    dist=best_dist,
+                                    conviction=_belief.conviction if _belief else 0.0,
+                                    template_id=best_tid,
+                                    tier=template_tier_map.get(best_tid, 3),
+                                    pattern_dna=str(pattern_dna) if pattern_dna else ''))
+                                continue
 
                         # Network TP from belief (scale-aware, sees all TFs)
                         _network_tp = max(MIN_MFE_TICKS, int(round(_belief.predicted_mfe))) if _belief.predicted_mfe > MIN_MFE_PREDICTION else None
@@ -1507,6 +1546,7 @@ class BayesianTrainingOrchestrator:
             _wr_str = f"{total_wins/total_trades*100:.1f}%" if total_trades else "N/A"
             pbar.set_postfix(pnl=f"${total_pnl:,.0f}", trades=total_trades, wr=_wr_str)
             pbar.update(1)
+            _cumulative_day_idx += _days_per_file[day_idx]
 
             # ── Partial write every N days ────────────────────────────────────
             if (day_idx + 1) % _PARTIAL_INTERVAL == 0 and oracle_trade_records:
@@ -1526,10 +1566,31 @@ class BayesianTrainingOrchestrator:
 
         # Final Report
         import datetime as _datetime
+        import subprocess as _subprocess
         _run_ts = _datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Git commit hash for version tracking
+        try:
+            _git_hash = _subprocess.check_output(
+                ['git', 'rev-parse', '--short', 'HEAD'],
+                stderr=_subprocess.DEVNULL, cwd=os.path.dirname(__file__)
+            ).decode().strip()
+        except Exception:
+            _git_hash = 'unknown'
+
+        # Key runtime config snapshot — tells you exactly what was active this run
+        from training.timeframe_belief_network import TimeframeBeliefNetwork as _TBN
+        _min_conv    = _TBN.MIN_CONVICTION
+        _ols_mode    = 'agreement'    # OLS sign must match workers (any disagreement → skip)
+        _depth_filt  = sorted(_DEPTH_FILTER_OUT) if _DEPTH_FILTER_OUT else []
+
         report_lines = []
         report_lines.append("=" * 80)
         report_lines.append(f"FORWARD PASS COMPLETE  (run: {_run_ts})")
+        report_lines.append(f"  git: {_git_hash}  tag: {run_tag if run_tag else '(none)'}")
+        report_lines.append(f"  min_conviction={_min_conv:.2f}  "
+                            f"ols_gate={_ols_mode}  "
+                            f"depth_filter={_depth_filt if _depth_filt else 'none'}")
         _date_range = (
             f"  Period: {start_date or daily_files_15s[0] if daily_files_15s else 'N/A'} "
             f"to {end_date or (os.path.basename(daily_files_15s[-1]).replace('.parquet','') if daily_files_15s else 'N/A')} "
@@ -3648,6 +3709,7 @@ def main():
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
     parser.add_argument('--fresh', action='store_true', help="Clear all pipeline checkpoints and start fresh")
+    parser.add_argument('--tag', type=str, default='', metavar='LABEL', help="Short label embedded in the report header for run tracking (e.g. 'ols-agree-conv55')")
     parser.add_argument('--forward-pass', action='store_true', help="Run Phase 4 forward pass using existing playbook")
     parser.add_argument('--oos', action='store_true',
                         help="Blind out-of-sample simulation: frozen templates, separate oos_trade_log.csv/oos_report.txt, "
@@ -3771,7 +3833,8 @@ def main():
                                           bias_threshold=args.bias_threshold,
                                           dmi_threshold=args.dmi_threshold,
                                           oos_mode=args.oos,
-                                          account_size=args.account_size)
+                                          account_size=args.account_size,
+                                          run_tag=getattr(args, 'tag', ''))
             if args.strategy_report:
                 orchestrator.run_strategy_selection()
         elif args.strategy_report and not args.forward_pass:
@@ -3823,7 +3886,8 @@ def main():
                                           bias_threshold=args.bias_threshold,
                                           dmi_threshold=args.dmi_threshold,
                                           oos_mode=getattr(args, 'oos', False),
-                                          account_size=getattr(args, 'account_size', 0.0))
+                                          account_size=getattr(args, 'account_size', 0.0),
+                                          run_tag=getattr(args, 'tag', ''))
                 orchestrator.run_strategy_selection()
 
         orchestrator.print_bottom_line()
