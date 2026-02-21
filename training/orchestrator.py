@@ -70,6 +70,7 @@ from training.monte_carlo_engine import MonteCarloEngine, simulate_template_tf_c
 from training.anova_analyzer import ANOVAAnalyzer
 from training.thompson_refiner import ThompsonRefiner
 from training.pid_oscillation_analyzer import PIDOscillationAnalyzer, PIDSignal
+from training.trade_analytics import run_trade_analytics
 
 INITIAL_CLUSTER_DIVISOR = 100
 _ADX_TREND_CONFIRMATION = 25.0
@@ -2356,6 +2357,22 @@ class BayesianTrainingOrchestrator:
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write('\n'.join(report_lines) + '\n')
         print(f"  Report saved to {report_path}")
+
+        # --- JULES TRADE ANALYTICS ---
+        _log_name = 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv'
+        _log_path = os.path.join(self.checkpoint_dir, _log_name)
+
+        analytics_txt = run_trade_analytics(_log_path)
+
+        # Append to report
+        with open(report_path, 'a', encoding='utf-8') as f:
+            f.write("\n\n" + analytics_txt + "\n")
+
+        # Save standalone
+        analytics_path = os.path.join(self.checkpoint_dir, 'trade_analytics.txt')
+        with open(analytics_path, 'w', encoding='utf-8') as f:
+            f.write(analytics_txt)
+        print(f"  Trade analytics saved to {analytics_path}")
 
     def run_final_validation(self, top_strategies):
         """
