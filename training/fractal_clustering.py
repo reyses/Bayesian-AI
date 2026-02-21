@@ -15,7 +15,7 @@ import pandas as pd
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.linear_model import LinearRegression
 from training.cuda_kmeans import CUDAKMeans, cuda_silhouette_score
 
 # Local import of timeframe mapping
@@ -119,9 +119,10 @@ class FractalClusteringEngine:
         v = getattr(p, 'velocity', 0.0)
         m = getattr(p, 'momentum', 0.0)
         c = getattr(p, 'coherence', 0.0)
-        # log1p compression keeps extreme TF values finite
-        v_feat = np.log1p(abs(v))
-        m_feat = np.log1p(abs(m))
+        # Sign-preserving log compression: sign(x)*log1p(|x|) keeps direction
+        # encoded in the feature so KMeans naturally separates LONG vs SHORT arcs
+        v_feat = np.sign(v) * np.log1p(abs(v))
+        m_feat = np.sign(m) * np.log1p(abs(m))
 
         # Fractal hierarchy features
         tf = getattr(p, 'timeframe', '15s')
@@ -150,8 +151,8 @@ class FractalClusteringEngine:
         # Ancestry features
         chain = getattr(p, 'parent_chain', None) or []
         if chain:
-            # Immediate parent
-            parent_z = abs(chain[0].get('z', 0.0))
+            # Immediate parent (signed: preserves which side of the field parent lived on)
+            parent_z = chain[0].get('z', 0.0)
             parent_dmi_diff = (chain[0].get('dmi_plus', 0.0) - chain[0].get('dmi_minus', 0.0)) / 100.0
 
             # Root ancestor
@@ -169,7 +170,7 @@ class FractalClusteringEngine:
             root_is_roche = 0.0
             tf_alignment = 0.0
 
-        return [abs(z), v_feat, m_feat, c, tf_scale, depth, parent_ctx,
+        return [z, v_feat, m_feat, c, tf_scale, depth, parent_ctx,
                 self_adx, self_hurst, self_dmi_diff,
                 parent_z, parent_dmi_diff, root_is_roche, tf_alignment,
                 self_pid, self_osc_coh]
@@ -261,11 +262,20 @@ class FractalClusteringEngine:
             # ---------------------------------------------------------------
             # PER-CLUSTER REGRESSION MODELS (14D feature space)
             # ---------------------------------------------------------------
-            # Build aligned (features, mfe) pairs for members that have oracle data
+            # Build aligned (features, signed_mfe) pairs for members that have oracle data.
+            # signed_mfe = oracle_mfe * sign(oracle_marker):
+            #   positive → LONG move, negative → SHORT move.
+            # A single OLS on signed_mfe encodes both direction AND magnitude so that:
+            #   prediction > 0  →  LONG  (cluster historically resolved bullish)
+            #   prediction < 0  →  SHORT (cluster historically resolved bearish)
+            #   abs(prediction) →  TP target in points
+            # Noise members (oracle_marker == 0) are excluded — they have no direction.
             feat_mfe_pairs = [
-                (self.extract_features(p), p.oracle_meta['mfe'])
+                (self.extract_features(p),
+                 p.oracle_meta['mfe'] * (1.0 if getattr(p, 'oracle_marker', 0) > 0 else -1.0))
                 for p in patterns
                 if getattr(p, 'oracle_meta', {}).get('mfe') is not None
+                and getattr(p, 'oracle_marker', 0) != 0
             ]
             _MIN_REG = 15  # need at least 15 members for stable regression
 
@@ -276,36 +286,13 @@ class FractalClusteringEngine:
                 # Scale features using the engine's fitted scaler
                 X_scaled = scaler.transform(raw_X)
 
-                # --- OLS: predicted_mfe = X @ mfe_coeff + mfe_intercept ---
+                # --- OLS: signed_mfe = X @ mfe_coeff + mfe_intercept ---
+                # sign(prediction) = direction, abs(prediction) = TP target in points
                 ols = LinearRegression().fit(X_scaled, mfe_y)
                 template.mfe_coeff     = ols.coef_.tolist()
                 template.mfe_intercept = float(ols.intercept_)
                 residuals = mfe_y - ols.predict(X_scaled)
                 template.regression_sigma_ticks = float(np.std(residuals) / _tick)
-
-                # --- Logistic: P(LONG) = sigmoid(X @ dir_coeff + dir_intercept) ---
-                # Use only non-noise members; label +1=LONG, 0=SHORT
-                dir_pairs = [
-                    (self.extract_features(p), 1 if p.oracle_marker > 0 else 0)
-                    for p in patterns
-                    if getattr(p, 'oracle_marker', 0) != 0
-                    and getattr(p, 'oracle_meta', {}).get('mfe') is not None
-                ]
-                if len(dir_pairs) >= _MIN_REG:
-                    dir_raw = np.array([self.extract_features(p)
-                                        for p in patterns
-                                        if getattr(p, 'oracle_marker', 0) != 0
-                                        and getattr(p, 'oracle_meta', {}).get('mfe') is not None])
-                    dir_labels = np.array([1 if p.oracle_marker > 0 else 0
-                                           for p in patterns
-                                           if getattr(p, 'oracle_marker', 0) != 0
-                                           and getattr(p, 'oracle_meta', {}).get('mfe') is not None])
-                    # Only fit if both classes present
-                    if len(np.unique(dir_labels)) == 2:
-                        dir_X = scaler.transform(dir_raw)
-                        lr = LogisticRegression(max_iter=300, C=1.0, solver='lbfgs').fit(dir_X, dir_labels)
-                        template.dir_coeff     = lr.coef_[0].tolist()
-                        template.dir_intercept = float(lr.intercept_[0])
             else:
                 template.regression_sigma_ticks = template.mean_mae_ticks  # fallback
 
@@ -382,51 +369,26 @@ class FractalClusteringEngine:
 
     def create_templates(self, manifest: List[Any]) -> List[PatternTemplate]:
         """
-        Snowflake fit: split patterns into LONG and SHORT branches,
-        cluster each independently, return combined library.
+        Unified fit: cluster all patterns together with a single scaler.
+        Direction bias (long_bias / short_bias) is computed per-template by
+        _aggregate_oracle_intelligence() from oracle_marker labels — no need
+        to split before clustering, which would halve training data per cluster.
         """
-        print(f"Snowflake Clustering: Splitting {len(manifest)} patterns by oracle direction...")
+        # Exclude noise-only patterns (oracle_marker == 0) to keep clusters meaningful
+        valid_patterns = [p for p in manifest if getattr(p, 'oracle_marker', 0) != 0]
+        noise_count    = len(manifest) - len(valid_patterns)
+        print(f"Unified Clustering: {len(manifest)} patterns ({noise_count} noise excluded → {len(valid_patterns)} clustered)")
 
-        # Split by oracle direction
-        long_patterns  = [p for p in manifest if getattr(p, 'oracle_marker', 0) > 0]
-        short_patterns = [p for p in manifest if getattr(p, 'oracle_marker', 0) < 0]
-        # Note: noise (oracle_marker==0) patterns are excluded from both branches
+        long_count  = sum(1 for p in valid_patterns if getattr(p, 'oracle_marker', 0) > 0)
+        short_count = sum(1 for p in valid_patterns if getattr(p, 'oracle_marker', 0) < 0)
+        print(f"  LONG members: {long_count}  |  SHORT members: {short_count}  (both in same clusters)")
 
-        print(f"  LONG patterns: {len(long_patterns)}")
-        print(f"  SHORT patterns: {len(short_patterns)}")
+        self.scaler, templates = self._fit_branch(valid_patterns, 'UNIFIED')
 
-        # Fit separate scaler + cluster tree per branch
-        self._long_scaler,  long_templates  = self._fit_branch(long_patterns,  'LONG')
-        self._short_scaler, short_templates = self._fit_branch(short_patterns, 'SHORT')
-
-        # Merge into unified library with branch tag
-        templates = []
-        for t in long_templates:
-            t.direction = 'LONG'
-            templates.append(t)
-        for t in short_templates:
-            t.direction = 'SHORT'
-            templates.append(t)
-
-        # Populate self.scaler with a fallback fitted on ALL data to prevent crashes in other modules
-        # that might still rely on it (though we should migrate them).
-        if manifest:
-             all_feats = []
-             valid_patterns = []
-             for p in manifest:
-                 try:
-                     all_feats.append(self.extract_features(p))
-                     valid_patterns.append(p)
-                 except AttributeError:
-                     continue
-             if all_feats:
-                 self.scaler.fit(all_feats)
-
-             # --- Build Transition Matrix on Merged Templates ---
-             if valid_patterns:
-                 print(f"  Building Transition Matrix...", end="", flush=True)
-                 self._build_transition_matrix(templates, valid_patterns)
-                 print(" done.")
+        # Build Transition Matrix
+        print(f"  Building Transition Matrix...", end="", flush=True)
+        self._build_transition_matrix(templates, valid_patterns)
+        print(" done.")
 
         self.templates = templates
         return templates

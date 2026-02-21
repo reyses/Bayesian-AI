@@ -62,7 +62,7 @@ from training.timeframe_belief_network import TimeframeBeliefNetwork, BeliefStat
 from training.integrated_statistical_system import IntegratedStatisticalEngine
 from training.batch_regret_analyzer import BatchRegretAnalyzer
 from training.wave_rider import WaveRider
-from training.orchestrator_worker import simulate_trade_standalone, _optimize_pattern_task, _optimize_template_task, _process_template_job, _audit_trade
+from training.orchestrator_worker import simulate_trade_standalone, _optimize_pattern_task, _optimize_template_task, _process_template_job, _audit_trade, _worker_pool_init
 from training.orchestrator_worker import FISSION_SUBSET_SIZE, INDIVIDUAL_OPTIMIZATION_ITERATIONS, DEFAULT_BASE_SLIPPAGE, DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 
 # Monte Carlo Pipeline
@@ -77,7 +77,7 @@ _HURST_TREND_CONFIRMATION = 0.6
 
 # Visualization
 try:
-    from visualization.live_training_dashboard import launch_dashboard
+    from visualization.live_training_dashboard import launch_dashboard, launch_progress_popup
     DASHBOARD_AVAILABLE = True
 except ImportError:
     DASHBOARD_AVAILABLE = False
@@ -89,6 +89,9 @@ from config.symbols import MNQ
 PRECOMPUTE_DEBUG_LOG_FILENAME = 'precompute_debug.log'
 
 MAX_CLUSTER_DISTANCE = 4.5
+DNA_CONFIDENCE_THRESHOLD = 0.85
+MIN_MFE_TICKS = 4
+MIN_MFE_PREDICTION = 2.0
 
 TIMEFRAME_MAP = {
     0: '5s',
@@ -385,11 +388,6 @@ class BayesianTrainingOrchestrator:
         lib_path = os.path.join(self.checkpoint_dir, 'pattern_library.pkl')
         scaler_path = os.path.join(self.checkpoint_dir, 'clustering_scaler.pkl')
 
-        # Snowflake Split Files
-        lib_long_path = os.path.join(self.checkpoint_dir, 'pattern_library_long.pkl')
-        lib_short_path = os.path.join(self.checkpoint_dir, 'pattern_library_short.pkl')
-        sc_long_path = os.path.join(self.checkpoint_dir, 'clustering_scaler_long.pkl')
-        sc_short_path = os.path.join(self.checkpoint_dir, 'clustering_scaler_short.pkl')
         dna_path = os.path.join(self.checkpoint_dir, 'fractal_dna_tree.pkl')
 
         if not os.path.exists(lib_path):
@@ -407,42 +405,11 @@ class BayesianTrainingOrchestrator:
                 self.dna_tree = pickle.load(f)
             print(f"  Loaded DNA tree: {len(self.dna_tree._dna_index)} leaf DNA paths")
 
-        # Load Scalers & Split Libraries (Snowflake Mode)
-        self.pattern_library_long = {}
-        self.pattern_library_short = {}
-        self.scaler_long = None
-        self.scaler_short = None
-
         # Always load global scaler (for TBN/legacy)
         with open(scaler_path, 'rb') as f:
             self.scaler = pickle.load(f)
 
-        if os.path.exists(lib_long_path) and os.path.exists(sc_long_path):
-            with open(lib_long_path, 'rb') as f: self.pattern_library_long = pickle.load(f)
-            with open(lib_short_path, 'rb') as f: self.pattern_library_short = pickle.load(f)
-            with open(sc_long_path, 'rb') as f: self.scaler_long = pickle.load(f)
-            with open(sc_short_path, 'rb') as f: self.scaler_short = pickle.load(f)
-            print(f"  Snowflake: Loaded split libraries (L:{len(self.pattern_library_long)}, S:{len(self.pattern_library_short)})")
-        else:
-            print("  Legacy Mode: using unified scaler for all branches")
-            self.pattern_library_long = self.pattern_library
-            self.pattern_library_short = self.pattern_library
-            self.scaler_long = self.scaler
-            self.scaler_short = self.scaler
-
         print(f"  Loaded library: {len(self.pattern_library)} templates")
-
-        # Build Centroid Indices for both branches (using their respective scalers)
-        def _build_index(lib, sc):
-            tids = [t for t in lib.keys() if 'centroid' in lib[t]]
-            if not tids: return [], None
-            cens = np.array([lib[t]['centroid'] for t in tids])
-            if cens.size > 0:
-                cens = sc.transform(cens)
-            return tids, cens
-
-        self.valid_tids_long,  self.centroids_long  = _build_index(self.pattern_library_long, self.scaler_long)
-        self.valid_tids_short, self.centroids_short = _build_index(self.pattern_library_short, self.scaler_short)
 
         # Legacy valid_template_ids for other components
         valid_template_ids = list(self.pattern_library.keys())
@@ -495,17 +462,6 @@ class BayesianTrainingOrchestrator:
             _before = len(valid_template_ids)
             valid_template_ids = [tid for tid in valid_template_ids
                                   if template_tier_map.get(tid, 4) <= min_tier]
-
-            # Filter Snowflake indices too
-            def _filter_sf(tids, cens):
-                if not tids: return [], None
-                mask = [template_tier_map.get(t, 4) <= min_tier for t in tids]
-                new_tids = [t for i, t in enumerate(tids) if mask[i]]
-                new_cens = cens[mask] if cens is not None else None
-                return new_tids, new_cens
-
-            self.valid_tids_long, self.centroids_long = _filter_sf(self.valid_tids_long, self.centroids_long)
-            self.valid_tids_short, self.centroids_short = _filter_sf(self.valid_tids_short, self.centroids_short)
             print(f"  Min-tier filter (tier <= {min_tier}): {_before} -> {len(valid_template_ids)} active templates")
 
         centroids = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
@@ -653,6 +609,8 @@ class BayesianTrainingOrchestrator:
         # Per-trade oracle tracking
         _ORACLE_LABEL_NAMES = {2: 'MEGA_LONG', 1: 'SCALP_LONG', 0: 'NOISE', -1: 'SCALP_SHORT', -2: 'MEGA_SHORT'}
         oracle_trade_records = []  # completed per-trade oracle dicts
+        _partial_written     = False  # True after first partial CSV flush
+        _PARTIAL_INTERVAL    = 30     # flush every N days
         pending_oracle = None      # oracle facts for currently open trade
         _pending_dm_idx = None     # index into decision_matrix_records for open trade
         fn_potential_pnl    = 0.0  # dollar potential of real moves we missed (gate-blocked)
@@ -667,6 +625,7 @@ class BayesianTrainingOrchestrator:
         skip_brain       = 0   # Brain gate: template probability too low
         skip_conviction  = 0   # Belief network: path conviction below MIN_CONVICTION
         n_signals_seen   = 0   # Total candidate signals evaluated (all gates combined)
+        n_patterns_detected = 0  # Raw patterns from fractal cascade (before multi-TF expansion)
         depth_traded     = defaultdict(int)  # depth -> trade count (1=high TF, 6=15s)
 
         # FN oracle records: per-signal log of missed real moves with worker snapshots.
@@ -675,20 +634,26 @@ class BayesianTrainingOrchestrator:
         fn_oracle_records = []
 
         n_days = len(daily_files_15s)
+        pbar = tqdm(total=n_days, desc="Phase 4", unit="day", leave=True, dynamic_ncols=True)
         for day_idx, day_file in enumerate(daily_files_15s):
             day_date = os.path.basename(day_file).replace('.parquet', '')
             # Normalise: monthly YYYY_MM -> YYYY_MM kept as-is for scan_day_cascade
             # (discovery agent matches by substring so both formats work)
-            print(f"\n  Day {day_idx+1}/{n_days}: {day_date} ... ", end='', flush=True)
-            if self.dashboard_queue and day_idx % 5 == 0:
-                pct = (day_idx / n_days) * 100
-                self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
-                                          'step': f'FORWARD_PASS  day {day_idx+1}/{n_days}',
-                                          'pct': round(pct, 1)})
+            pbar.set_description(f"Phase 4 [{day_date}]")
+            if self.dashboard_queue:
+                _fp_wr  = total_wins / total_trades if total_trades else 0.0
+                _fp_pct = round((day_idx + 1) / n_days * 100, 1)
+                self.dashboard_queue.put({
+                    'type': 'FORWARD_PASS_STATS',
+                    'day': day_idx + 1, 'n_days': n_days,
+                    'pnl': total_pnl, 'trades': total_trades,
+                    'wr': _fp_wr, 'pct': _fp_pct,
+                })
 
             # A. Fractal Cascade Scan (get actionable patterns with chains)
             # This uses the discovery agent logic but focused on this day
             actionable_patterns = self.discovery_agent.scan_day_cascade(data_source, day_date)
+            n_patterns_detected += len(actionable_patterns)
 
             # Sort by timestamp to simulate real-time feed
             actionable_patterns.sort(key=lambda x: x.timestamp)
@@ -1011,47 +976,40 @@ class BayesianTrainingOrchestrator:
                                 p, 'gate0_5', day_date, ts, micro_z, macro_z, micro_pattern))
                             continue
 
-                        # Snowflake Match
-                        _cand_z = getattr(p, 'z_score', 0)
-                        if _cand_z <= 0:
-                            # LONG branch
-                            _idx = self.valid_tids_long
-                            _cen = self.centroids_long
-                            _sc  = self.scaler_long
-                            _branch = 'long'
-                        else:
-                            # SHORT branch
-                            _idx = self.valid_tids_short
-                            _cen = self.centroids_short
-                            _sc  = self.scaler_short
-                            _branch = 'short'
-
-                        if not _idx or _cen is None:
-                            # Fallback (empty branch or legacy)
-                            _idx = valid_template_ids
-                            _cen = centroids_scaled
-                            _sc  = self.scaler
-                            _branch = 'legacy'
+                        # Unified cluster match (single scaler)
+                        _idx = valid_template_ids
+                        _cen = centroids_scaled
+                        _sc  = self.scaler
 
                         # Extract 14D features using shared logic
                         features = np.array([FractalClusteringEngine.extract_features(p)])
 
-                        # Scale (using branch-specific scaler)
+                        # Scale (single unified scaler)
                         feat_scaled = _sc.transform(features)
 
-                        # Match
+                        # DNA Tree Match (Hierarchical Bayesian)
+                        pattern_dna = None
+                        dna_node = None
+                        dna_conf = 0.0
+                        if self.dna_tree:
+                            pattern_dna, dna_node, dna_conf = self.dna_tree.match(p)
+
+                        # Match Template (for params) - still need flat match to find nearest playbook entry
                         dists = np.linalg.norm(_cen - feat_scaled, axis=1)
                         nearest_idx = np.argmin(dists)
                         dist = dists[nearest_idx]
                         tid = _idx[nearest_idx]
 
-                        # DNA Tree Match (for logging/override)
-                        pattern_dna = None
-                        dna_node = None
-                        if self.dna_tree:
-                            pattern_dna, dna_node, dna_conf = self.dna_tree.match(p)
+                        # Gate 1: Distance + DNA Confidence
+                        # We accept if flat distance is good OR if DNA tree is very confident
+                        _gate_passed = False
+                        if dist < MAX_CLUSTER_DISTANCE:
+                            _gate_passed = True
+                        elif self.dna_tree and dna_conf > DNA_CONFIDENCE_THRESHOLD:
+                             # High confidence in hierarchical structure can override flat distance
+                             _gate_passed = True
 
-                        if dist < MAX_CLUSTER_DISTANCE: # Threshold (raised from 3.0 so extreme-z profitable patterns reach their nearest cluster)
+                        if _gate_passed:
                             # Brain gate -- use low threshold for exploration
                             if self.brain.should_fire(tid, min_prob=0.05, min_conf=0.0):
                                 # Score: lower is better
@@ -1117,54 +1075,55 @@ class BayesianTrainingOrchestrator:
                         _live_feat = np.array(FractalClusteringEngine.extract_features(best_candidate))
 
                         _cand_z = getattr(best_candidate, 'z_score', 0)
-                        if _cand_z <= 0:
-                            _live_scaled = self.scaler_long.transform([_live_feat])[0]
-                            side = 'long'
-                        else:
-                            _live_scaled = self.scaler_short.transform([_live_feat])[0]
-                            side = 'short'
+                        # Direction: from Belief Network (Momentum Context)
+                        # The DNA tree encodes structure, workers encode momentum/direction.
+                        _belief = belief_network.get_belief()
 
-                        # ── Direction gate ──────────────────────────────────────────
-                        # Snowflake: Branch determines direction (Z<=0 -> Long, Z>0 -> Short)
-                        # We retain DMI calc only for logging/diagnostics
+                        if _belief is None or not _belief.is_confident:
+                            # No belief consensus -> skip
+                            skip_conviction += 1
+                            _candidate_gate[id(p)] = 'gate3'
+                            _bc_mz = abs(best_candidate.z_score)
+                            _bc_mac = abs((getattr(best_candidate, 'parent_chain', None) or [{}])[-1].get('z', 0.0))
+                            decision_matrix_records.append(_dm_rec(
+                                best_candidate, 'gate3', day_date, ts,
+                                _bc_mz, _bc_mac,
+                                getattr(best_candidate, 'pattern_type', ''),
+                                dist=best_dist,
+                                conviction=_belief.conviction if _belief else 0.0,
+                                template_id=best_tid,
+                                tier=template_tier_map.get(best_tid, 3),
+                                pattern_dna=str(pattern_dna) if pattern_dna else ''))
+                            continue
+
+                        # Scale live features once — used for direction, TP, and logging
+                        _live_scaled = self.scaler.transform([_live_feat])[0]
+
+                        # ── Direction from signed-MFE regression ─────────────────
+                        # Per-cluster OLS was trained on signed_mfe (positive=LONG,
+                        # negative=SHORT), so sign(prediction) encodes direction and
+                        # abs(prediction) encodes TP in points.  Workers are the fallback
+                        # when the cluster has too few members for a stable regression.
+                        _mfe_coeff   = lib_entry.get('mfe_coeff')
+                        _mfe_int     = lib_entry.get('mfe_intercept', 0.0)
+                        _signed_pred = None
+                        if _mfe_coeff is not None:
+                            _signed_pred = float(
+                                np.dot(_live_scaled, np.array(_mfe_coeff)) + _mfe_int)
+                            side = 'long' if _signed_pred >= 0 else 'short'
+                        else:
+                            side = _belief.direction  # fallback: worker belief network
+
+                        # Network TP from belief (scale-aware, sees all TFs)
+                        _network_tp = max(MIN_MFE_TICKS, int(round(_belief.predicted_mfe))) if _belief.predicted_mfe > MIN_MFE_PREDICTION else None
+
+                        # Logging/Diagnostics
                         _live_s   = best_candidate.state
                         _dmi_diff = (getattr(_live_s, 'dmi_plus',  0.0)
                                    - getattr(_live_s, 'dmi_minus', 0.0))
 
                         long_bias  = lib_entry.get('long_bias',  0.0)
                         short_bias = lib_entry.get('short_bias', 0.0)
-                        _nn_marker = _effective_oracle(best_candidate)
-
-                        # ── Path conviction gate (fractal belief network) ─────────
-                        # Collect all 8 TF workers' current beliefs.
-                        # If the fractal tree is uncertain (conviction < threshold) -> skip.
-                        # If tree agrees but disagrees with our leaf direction -> flip.
-                        # If tree agrees and TP from decision-level worker is better -> use it.
-                        _belief = belief_network.get_belief()
-                        if _belief is not None:
-                            if not _belief.is_confident:
-                                # Tree uncertain across scales -- skip this bar
-                                skip_conviction += 1
-                                _candidate_gate[id(p)] = 'gate3'
-                                _bc_mz = abs(best_candidate.z_score)
-                                _bc_mac = abs((getattr(best_candidate, 'parent_chain', None) or [{}])[-1].get('z', 0.0))
-                                decision_matrix_records.append(_dm_rec(
-                                    best_candidate, 'gate3', day_date, ts,
-                                    _bc_mz, _bc_mac,
-                                    getattr(best_candidate, 'pattern_type', ''),
-                                    dist=best_dist,
-                                    conviction=_belief.conviction if _belief else 0.0,
-                                    template_id=best_tid,
-                                    tier=template_tier_map.get(best_tid, 3),
-                                    pattern_dna=str(pattern_dna) if pattern_dna else ''))
-                                continue
-                            # Path direction override for NOISE oracle_marker patterns
-                            if _nn_marker == 0 and _belief.direction != side:
-                                side = _belief.direction  # fractal tree overrides leaf heuristics
-                            # Use network's predicted MFE if better than leaf-level estimate
-                            _network_tp = max(4, int(round(_belief.predicted_mfe))) if _belief.predicted_mfe > 2.0 else None
-                        else:
-                            _network_tp = None
 
                         # ── Exit sizing from per-cluster regression models ────────
                         # TWO-PHASE EXIT DESIGN
@@ -1214,11 +1173,9 @@ class BayesianTrainingOrchestrator:
                         if _network_tp is not None:
                             _tp_ticks = _network_tp
                         else:
-                            _mfe_coeff = lib_entry.get('mfe_coeff')
-                            if _mfe_coeff is not None:
-                                _pred_mfe_pts   = (np.dot(_live_scaled, np.array(_mfe_coeff))
-                                                   + lib_entry.get('mfe_intercept', 0.0))
-                                _pred_mfe_ticks = max(0.0, _pred_mfe_pts / 0.25)
+                            if _signed_pred is not None:
+                                # abs(signed_pred) = magnitude in points; convert to ticks
+                                _pred_mfe_ticks = abs(_signed_pred) / 0.25
                                 _tp_ticks = max(4, int(round(_pred_mfe_ticks))) if _pred_mfe_ticks > 2.0 else (
                                     max(4, int(round(_p75_mfe))) if _p75_mfe > 2.0
                                     else params.get('take_profit_ticks', 50))
@@ -1546,9 +1503,26 @@ class BayesianTrainingOrchestrator:
                 total_pnl += d_pnl
                 total_trades += len(day_trades)
                 total_wins += d_wins
-                print(f"Trades: {len(day_trades)}, Wins: {d_wins}, PnL: ${d_pnl:.2f} ({time.perf_counter() - t_sim_start:.1f}s)")
-            else:
-                print("No trades.")
+
+            _wr_str = f"{total_wins/total_trades*100:.1f}%" if total_trades else "N/A"
+            pbar.set_postfix(pnl=f"${total_pnl:,.0f}", trades=total_trades, wr=_wr_str)
+            pbar.update(1)
+
+            # ── Partial write every N days ────────────────────────────────────
+            if (day_idx + 1) % _PARTIAL_INTERVAL == 0 and oracle_trade_records:
+                _log_name = 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv'
+                _partial_path = os.path.join(self.checkpoint_dir, _log_name)
+                _mode = 'a' if _partial_written else 'w'
+                with open(_partial_path, _mode, newline='', encoding='utf-8') as _pf:
+                    _pw = _csv.DictWriter(_pf, fieldnames=list(oracle_trade_records[0].keys()))
+                    if not _partial_written:
+                        _pw.writeheader()
+                    _pw.writerows(oracle_trade_records)
+                oracle_trade_records.clear()
+                _partial_written = True
+                tqdm.write(f"  [checkpoint] day {day_idx+1}/{n_days} — trade log flushed")
+
+        pbar.close()
 
         # Final Report
         import datetime as _datetime
@@ -1625,13 +1599,48 @@ class BayesianTrainingOrchestrator:
         # Parallel upper bound (unachievable sum of all signals)
         _parallel_bound = tp_potential + fn_potential_pnl + score_loser_pnl
 
+        n_traded   = len(oracle_trade_records)
+        _fn_count  = len(fn_oracle_records)
+        _real_traded = sum(1 for r in oracle_trade_records if r.get('oracle_label_name','') != 'NOISE')
+        _real_never_triggered = total_real_opps - _real_traded
+        _mtf_ratio = n_signals_seen / n_patterns_detected if n_patterns_detected else 0.0
+
+        # ── 1b. Three-category oracle breakdown ─────────────────────────────────
+        # Every cascade detection gets an oracle label, so this is exhaustive.
+        # Category 3 (not detected) requires a future independent price-oracle scan.
+        _n_saw_took     = n_traded                                        # cat 1
+        _n_saw_blocked  = (total_real_opps + total_noise_opps) - n_traded # cat 2
+        _real_saw_took  = _real_traded
+        _real_saw_block = total_real_opps - _real_traded                  # gate-blocked real moves
+        _score_real     = sum(1 for r in decision_matrix_records
+                              if r.get('gate') == 'score_loser'
+                              and r.get('oracle_label','') != 'NOISE')
+
+        report_lines.append("")
+        report_lines.append(f"  OPPORTUNITY COVERAGE (oracle labels every cascade detection):")
+        report_lines.append(f"    ── Category 1: SAW + TOOK ──────────────────────────────")
+        report_lines.append(f"    Traded:                          {_n_saw_took:>7,}  ({_n_saw_took/(total_real_opps+total_noise_opps)*100:.1f}% of all detected)")
+        report_lines.append(f"      of which real moves:           {_real_saw_took:>7,}  ({_real_saw_took/total_real_opps*100:.1f}% of detected real moves)")
+        report_lines.append(f"    ── Category 2: SAW + DID NOT TAKE ─────────────────────")
+        report_lines.append(f"    Detected but not traded:         {_n_saw_blocked:>7,}  ({_n_saw_blocked/(total_real_opps+total_noise_opps)*100:.1f}% of all detected)")
+        report_lines.append(f"      Gate 0 blocked (no trigger):   {skip_headroom:>7,}  (headroom/pattern rule — never reached cluster match)")
+        report_lines.append(f"      Gate 1-3 blocked:              {skip_dist+skip_brain+skip_conviction:>7,}  (matched cluster but rejected by gate)")
+        report_lines.append(f"      Score competition loss:        {_n_saw_blocked - skip_headroom - skip_dist - skip_brain - skip_conviction:>7,}  (passed all gates — outscored by better same-bar signal)")
+        report_lines.append(f"      Of blocked: real moves lost:   {_real_saw_block:>7,}  ({_real_saw_block/total_real_opps*100:.1f}% of detected real moves)")
+        report_lines.append(f"        incl. score-competition real:{_score_real:>7,}  (real moves deliberately passed for better trade)")
+        report_lines.append(f"    ── Category 3: NOT DETECTED ────────────────────────────")
+        report_lines.append(f"    Below cascade threshold:             ?      (z<0.5σ or no pattern type — oracle blind here)")
+        report_lines.append(f"    Multi-TF candidates per detection: {_mtf_ratio:.1f}x  ({n_signals_seen:,} candidates from {n_patterns_detected:,} raw patterns)")
+        report_lines.append(f"    ── Category 4: WE SAW IT, ORACLE DID NOT ───────────────")
+        _noise_pct = total_noise_opps / (total_real_opps + total_noise_opps) * 100 if (total_real_opps + total_noise_opps) else 0.0
+        report_lines.append(f"    Cascade detected, oracle says no move:{total_noise_opps:>6,}  ({_noise_pct:.1f}% of all detected — pattern detector false positives)")
+
         report_lines.append("")
         report_lines.append(f"  TOTAL SIGNALS SEEN BY ORACLE: {total_real_opps + total_noise_opps:,}")
         report_lines.append(f"    Real moves (MEGA/SCALP):  {total_real_opps:>6,}   -- worth ${_parallel_bound:>10,.2f} (parallel bound)")
         report_lines.append(f"    Noise (no real move):     {total_noise_opps:>6,}")
 
         # ── 2. What we did ───────────────────────────────────────────────────────
-        n_traded   = len(oracle_trade_records)
         n_skipped  = audit_fn + audit_tn
         report_lines.append("")
         report_lines.append(f"  WHAT WE DID:")
@@ -1860,24 +1869,38 @@ class BayesianTrainingOrchestrator:
         # (which means oracle label was opposite) — but also NOT mere underperformance.
         # They are shown separately in the profit gap as "reversed after entry".
         if tp_recs:
-            optimal   = [r for r in tp_recs if r['capture_rate'] >= 0.80]
-            partial   = [r for r in tp_recs if 0.20 <= r['capture_rate'] < 0.80]
-            too_early = [r for r in tp_recs if 0 < r['capture_rate'] < 0.20]
+            def _bucket(lo, hi):
+                return [r for r in tp_recs if lo < r['capture_rate'] <= hi]
+            def _pnl(lst):
+                return sum(r['actual_pnl'] for r in lst)
+            def _left(lst):
+                return sum(max(0, r['oracle_potential_pnl'] - r['actual_pnl']) for r in lst)
+
+            b_opt    = [r for r in tp_recs if r['capture_rate'] >  0.80]  # >80%
+            b_60_80  = _bucket(0.60, 0.80)
+            b_40_60  = _bucket(0.40, 0.60)
+            b_20_40  = _bucket(0.20, 0.40)
+            b_05_20  = _bucket(0.05, 0.20)
+            b_00_05  = _bucket(0.00, 0.05)
             reversed_ = [r for r in tp_recs if r['capture_rate'] <= 0]
 
-            # left_on_table: only non-reversed underperformance (how much potential
-            # was uncaptured on trades that at least moved in our direction)
+            # left_on_table: only non-reversed underperformance
             non_reversed = [r for r in tp_recs if r['capture_rate'] > 0]
             left_on_table = sum(max(0, r['oracle_potential_pnl'] - r['actual_pnl'])
                                 for r in non_reversed)
 
             report_lines.append("")
             report_lines.append(f"  EXIT QUALITY (correct-direction trades):")
-            report_lines.append(f"    Optimal  (>=80% of move captured): {len(optimal):>6,}  ->  ${sum(r['actual_pnl'] for r in optimal):>10,.2f}")
-            report_lines.append(f"    Partial  (20-80% captured):        {len(partial):>6,}  ->  ${sum(r['actual_pnl'] for r in partial):>10,.2f}")
-            report_lines.append(f"    Too early (<20% captured):         {len(too_early):>6,}  ->  ${sum(r['actual_pnl'] for r in too_early):>10,.2f}")
-            report_lines.append(f"    Reversed (correct dir, mkt flipped):{len(reversed_):>6,}  ->  ${sum(r['actual_pnl'] for r in reversed_):>10,.2f}  <- own leakage bucket")
-            report_lines.append(f"    Left on table (non-reversed TP gap):             ${left_on_table:>10,.2f}")
+            report_lines.append(f"    {'Bucket':<28} {'Trades':>6}  {'PnL':>12}  {'Left on table':>14}")
+            report_lines.append(f"    {'-'*28} {'-'*6}  {'-'*12}  {'-'*14}")
+            report_lines.append(f"    {'Optimal   (>80% captured)':<28} {len(b_opt):>6,}  ${_pnl(b_opt):>11,.2f}  ${_left(b_opt):>13,.2f}")
+            report_lines.append(f"    {'Good      (60-80% captured)':<28} {len(b_60_80):>6,}  ${_pnl(b_60_80):>11,.2f}  ${_left(b_60_80):>13,.2f}")
+            report_lines.append(f"    {'Partial   (40-60% captured)':<28} {len(b_40_60):>6,}  ${_pnl(b_40_60):>11,.2f}  ${_left(b_40_60):>13,.2f}")
+            report_lines.append(f"    {'Partial   (20-40% captured)':<28} {len(b_20_40):>6,}  ${_pnl(b_20_40):>11,.2f}  ${_left(b_20_40):>13,.2f}")
+            report_lines.append(f"    {'Too early (5-20% captured)':<28} {len(b_05_20):>6,}  ${_pnl(b_05_20):>11,.2f}  ${_left(b_05_20):>13,.2f}")
+            report_lines.append(f"    {'Stopped   (<5% captured)':<28} {len(b_00_05):>6,}  ${_pnl(b_00_05):>11,.2f}  ${_left(b_00_05):>13,.2f}")
+            report_lines.append(f"    {'Reversed  (correct dir, flipped)':<28} {len(reversed_):>6,}  ${_pnl(reversed_):>11,.2f}  {'<-- leakage':>14}")
+            report_lines.append(f"    {'Left on table (non-reversed):':<28} {'':>6}  {'':>12}  ${left_on_table:>13,.2f}")
         else:
             reversed_ = []
             left_on_table = 0.0
@@ -1895,19 +1918,32 @@ class BayesianTrainingOrchestrator:
 
         report_lines.append("")
         report_lines.append(f"  PROFIT GAP ANALYSIS:")
-        report_lines.append(f"    Ideal (golden-path sequential, perfect exits):  ${ideal_profit:>12,.2f}")
-        report_lines.append(f"    [info] Parallel-all-signals upper bound:        ${_parallel_bound:>12,.2f}  (not achievable)")
-        report_lines.append(f"    -----------------------------------------------------")
-        report_lines.append(f"    Lost -- missed opportunities (gate-blocked):  ${fn_potential_pnl:>12,.2f}  ({fn_potential_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    Lost -- wrong direction at entry:             ${abs(fp_wrong_pnl):>12,.2f}  ({abs(fp_wrong_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    Lost -- noise trades:                         ${abs(fp_noise_pnl):>12,.2f}  ({abs(fp_noise_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    Lost -- reversed after correct entry:         ${reversed_loss_val:>12,.2f}  ({reversed_loss_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    Lost -- TP underperform (non-reversed):       ${left_on_table_val:>12,.2f}  ({left_on_table_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    -----------------------------------------------------")
-        report_lines.append(f"    Actual profit:                               ${total_pnl:>12,.2f}  ({total_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else f"    Actual profit: ${total_pnl:.2f}")
-        _delta_cap = total_pnl / ideal_profit * 100 if ideal_profit else 0.0
-        report_lines.append(f"    Delta capture rate:                          {_delta_cap:>10.1f}%")
-        report_lines.append(f"    [info] Score-competition pool (took better same bar): ${score_loser_pnl:>12,.2f}  (not missed -- golden path chose better candidate)")
+        report_lines.append(f"    Sequential ideal (golden-path):              ${ideal_profit:>12,.2f}")
+        report_lines.append(f"    Actual profit:                               ${total_pnl:>12,.2f}")
+        if ideal_profit:
+            _gap          = ideal_profit - total_pnl
+            _wrong        = abs(fp_wrong_pnl)
+            _noise        = abs(fp_noise_pnl)
+            _reversed     = reversed_loss_val
+            _tp_gap       = left_on_table_val
+            _gate_resid   = max(0.0, _gap - _wrong - _noise - _reversed - _tp_gap)
+            _pct = lambda v: f"{v/_gap*100:.1f}%" if _gap > 0 else "N/A"
+            report_lines.append(f"    Gap to close:                                ${_gap:>12,.2f}  (100%)")
+            report_lines.append(f"    -------------------------------------------------------")
+            report_lines.append(f"    Of the gap — attributable losses:")
+            report_lines.append(f"      Wrong direction at entry:                ${_wrong:>12,.2f}  ({_pct(_wrong)} of gap)  <- fix: direction routing")
+            report_lines.append(f"      TP underperform (non-reversed):          ${_tp_gap:>12,.2f}  ({_pct(_tp_gap)} of gap)  <- fix: exit sizing")
+            report_lines.append(f"      Reversed after correct entry:            ${_reversed:>12,.2f}  ({_pct(_reversed)} of gap)")
+            report_lines.append(f"      Noise trades:                            ${_noise:>12,.2f}  ({_pct(_noise)} of gap)")
+            report_lines.append(f"      Gate-selection residual:                 ${_gate_resid:>12,.2f}  ({_pct(_gate_resid)} of gap)  <- improve gates")
+            report_lines.append(f"    -------------------------------------------------------")
+            _delta_cap = total_pnl / ideal_profit * 100
+            report_lines.append(f"    Delta capture rate:                        {_delta_cap:>10.1f}%")
+            report_lines.append(f"    [info] Gate-blocked signal pool:           ${fn_potential_pnl:>12,.2f}  (parallel raw sum — signals overlap, not additive)")
+            report_lines.append(f"    [info] Score-competition pool:             ${score_loser_pnl:>12,.2f}  (golden path chose better candidate same bar)")
+            report_lines.append(f"    [info] Parallel upper bound:               ${_parallel_bound:>12,.2f}  (not achievable)")
+        else:
+            report_lines.append(f"    Actual profit: ${total_pnl:.2f}")
 
         # Store for bottom-line summary at program exit
         self._fp_summary = {
@@ -1942,13 +1978,19 @@ class BayesianTrainingOrchestrator:
                                       'step': 'FORWARD_PASS COMPLETE', 'pct': 100})
 
         # ── 6. Save CSV ──────────────────────────────────────────────────────────
+        _log_name = 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv'
+        csv_path = os.path.join(self.checkpoint_dir, _log_name)
         if oracle_trade_records:
-            _log_name = 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv'
-            csv_path = os.path.join(self.checkpoint_dir, _log_name)
-            with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+            # Append remaining records (or write fresh if no partial flush happened)
+            _mode = 'a' if _partial_written else 'w'
+            with open(csv_path, _mode, newline='', encoding='utf-8') as f:
                 writer = _csv.DictWriter(f, fieldnames=list(oracle_trade_records[0].keys()))
-                writer.writeheader()
+                if not _partial_written:
+                    writer.writeheader()
                 writer.writerows(oracle_trade_records)
+            report_lines.append("")
+            report_lines.append(f"  Per-trade oracle log saved: {csv_path}")
+        elif _partial_written:
             report_lines.append("")
             report_lines.append(f"  Per-trade oracle log saved: {csv_path}")
 
@@ -2648,8 +2690,14 @@ class BayesianTrainingOrchestrator:
         else:
             print(f"  WARNING: Path does not exist!")
 
-        # Launch Dashboard
-        if not self.config.no_dashboard and DASHBOARD_AVAILABLE:
+        # Launch Dashboard / Progress Popup
+        if DASHBOARD_AVAILABLE and getattr(self.config, 'progress_popup', False):
+            self.dashboard_thread = threading.Thread(
+                target=launch_progress_popup, args=(self.dashboard_queue,), daemon=True)
+            self.dashboard_thread.start()
+            print("Progress popup launching...")
+            time.sleep(1)
+        elif not self.config.no_dashboard and DASHBOARD_AVAILABLE:
             self.launch_dashboard()
 
         # ===================================================================
@@ -2672,13 +2720,31 @@ class BayesianTrainingOrchestrator:
             # Check for partial resume (some levels done)
             partial_manifest, partial_levels = ckpt.load_discovery()
 
+            _n_tfs = len(TIMEFRAME_SECONDS)
+            _p2_done = [len(partial_levels) if partial_levels else 0]
+            if self.dashboard_queue:
+                self.dashboard_queue.put({
+                    'type': 'PHASE_START', 'phase': 2,
+                    'label': 'Phase 2 — Pattern Discovery',
+                    'total': _n_tfs, 'done': _p2_done[0],
+                })
+
+            def _p2_callback(lvl, tf, patterns, levels):
+                ckpt.save_discovery_level(patterns, levels)
+                _p2_done[0] += 1
+                if self.dashboard_queue:
+                    self.dashboard_queue.put({
+                        'type': 'PHASE_UPDATE', 'phase': 2,
+                        'done': _p2_done[0], 'total': _n_tfs,
+                        'tf': tf, 'patterns': len(patterns),
+                    })
+
             _train_end = getattr(self.config, 'train_end', None)
             if _train_end:
                 print(f"  Out-of-sample guard: training data capped at {_train_end}")
             manifest = self._run_discovery(
                 data_source,
-                checkpoint_callback=lambda lvl, tf, patterns, levels:
-                    ckpt.save_discovery_level(patterns, levels),
+                checkpoint_callback=_p2_callback,
                 resume_manifest=partial_manifest,
                 resume_levels=partial_levels,
                 train_end=_train_end
@@ -2737,12 +2803,6 @@ class BayesianTrainingOrchestrator:
                 _pickle.dump(clustering_engine.scaler, f)
             print(f"  Saved clustering scaler to {scaler_path}")
 
-            # Save split scalers (Snowflake)
-            sl_path = os.path.join(self.checkpoint_dir, 'clustering_scaler_long.pkl')
-            ss_path = os.path.join(self.checkpoint_dir, 'clustering_scaler_short.pkl')
-            with open(sl_path, 'wb') as f: _pickle.dump(clustering_engine._long_scaler, f)
-            with open(ss_path, 'wb') as f: _pickle.dump(clustering_engine._short_scaler, f)
-            print(f"  Saved split scalers (LONG/SHORT)")
 
             ckpt.save_templates(templates)
 
@@ -2779,6 +2839,13 @@ class BayesianTrainingOrchestrator:
         print(f"\nPhase 3: Template Optimization & Fission Loop...")
         print(f"  Templates to process: {len(template_queue)}")
         print(f"  Already completed: {len(completed_results)}")
+        _p3_initial = len(template_queue) + len(completed_results)
+        if self.dashboard_queue:
+            self.dashboard_queue.put({
+                'type': 'PHASE_START', 'phase': 3,
+                'label': 'Phase 3 — Template Optimization',
+                'total': _p3_initial, 'done': len(completed_results),
+            })
         print(f"  Workers: {num_workers}")
         print(f"  Iterations per template: {self.config.iterations}")
 
@@ -2800,7 +2867,13 @@ class BayesianTrainingOrchestrator:
         batch_number = 0
         t_phase3_start = time.perf_counter()
 
-        with multiprocessing.Pool(processes=num_workers) as pool:
+        # Pass large shared objects once via pool initializer instead of per-task
+        # to avoid Windows WinError 1450 (pipe buffer overflow from pickling huge objects).
+        with multiprocessing.Pool(
+            processes=num_workers,
+            initializer=_worker_pool_init,
+            initargs=(clustering_engine, self.pattern_library)
+        ) as pool:
             while template_queue:
                 # Prepare Batch
                 current_batch = []
@@ -2819,14 +2892,12 @@ class BayesianTrainingOrchestrator:
 
                 tasks = []
                 for tmpl in current_batch:
-                    # Pass arguments as a dictionary to _process_template_job
+                    # clustering_engine and pattern_library are in worker globals — omit from task
                     tasks.append({
                         'template': tmpl,
-                        'clustering_engine': clustering_engine,
                         'iterations': self.config.iterations,
                         'generator': self.param_generator,
                         'point_value': self.asset.point_value,
-                        'pattern_library': self.pattern_library
                     })
 
                 results = pool.map(_process_template_job, tasks)
@@ -2862,6 +2933,7 @@ class BayesianTrainingOrchestrator:
                         tmpl = result['template']
                         best_params = result['best_params']
                         val_pnl = result['val_pnl']
+                        val_adj_r2 = result.get('val_adj_r2', 0.0)
                         member_count = result['member_count']
 
                         batch_done += 1
@@ -2871,38 +2943,38 @@ class BayesianTrainingOrchestrator:
 
                         completed_results[tmpl_id] = result
 
-                        # Set Risk & Reward Metrics
-                        val_count = result.get('val_count', 0)
-                        if val_count > 0:
-                            tmpl.expected_value = val_pnl / val_count
-                        else:
-                            tmpl.expected_value = 0.0
-
+                        # Set Risk & Reward Metrics — adj R² is the primary quality score
+                        tmpl.expected_value = val_adj_r2  # coherence score replacing per-trade PnL avg
                         tmpl.outcome_variance = result.get('outcome_variance', 0.0)
                         tmpl.avg_drawdown = result.get('avg_drawdown', 0.0)
                         tmpl.risk_score = result.get('risk_score', 0.0)
 
                         self.register_template_logic(tmpl, best_params)
                         timing = result.get('timing', '')
-                        print(f"    [{processed_count}] Template {tmpl_id}: DONE ({member_count} members) -> PnL: ${val_pnl:.2f} | {timing}")
+                        print(f"    [{processed_count}] Template {tmpl_id}: DONE ({member_count} members) -> AdjR²: {val_adj_r2:.3f} | {timing}")
 
                         if self.dashboard_queue:
                             centroid = original_tmpl.centroid
+                            _wr = self.pattern_library.get(tmpl_id, {}).get('stats_win_rate', 0.0)
                             self.dashboard_queue.put({
                                 'type': 'TEMPLATE_UPDATE',
                                 'id': tmpl_id,
                                 'z': centroid[0],
                                 'mom': centroid[2],
+                                'adj_r2': val_adj_r2,
                                 'pnl': val_pnl,
                                 'count': member_count,
-                                'transitions': tmpl.transition_probs
+                                'win_rate': _wr,
+                                'transitions': tmpl.transition_probs,
+                                'done': processed_count,
+                                'total': _p3_initial,
                             })
 
                 batch_elapsed = time.perf_counter() - t_batch
                 print(
                     f"  Batch {batch_number} complete: "
                     f"{batch_done} optimized, {batch_split} fissioned, "
-                    f"batch PnL: ${batch_pnl:.2f} | {batch_elapsed:.1f}s"
+                    f"batch adj_r2 sum: {sum(r.get('val_adj_r2',0) for r in completed_results.values() if r.get('status')=='DONE'):.2f} | {batch_elapsed:.1f}s"
                 )
 
                 # CHECKPOINT after each batch
@@ -2924,12 +2996,16 @@ class BayesianTrainingOrchestrator:
             'total_val_pnl': total_val_pnl
         })
 
+        _done_results = [r for r in completed_results.values() if r.get('status') == 'DONE']
+        _adj_r2_vals  = [r.get('val_adj_r2', 0.0) for r in _done_results]
+        _avg_adj_r2   = float(np.mean(_adj_r2_vals)) if _adj_r2_vals else 0.0
+        _pos_r2       = sum(1 for v in _adj_r2_vals if v > 0)
         print(f"\n  Phase 3 Summary:")
         print(f"    Batches: {batch_number}")
         print(f"    Templates processed: {processed_count}")
         print(f"    Optimized: {optimized_count} | Fissioned: {fission_count}")
         print(f"    Library size: {len(self.pattern_library)} entries")
-        print(f"    Total validated PnL: ${total_val_pnl:.2f}")
+        print(f"    Avg adj R²: {_avg_adj_r2:.4f}  ({_pos_r2}/{len(_adj_r2_vals)} templates R²>0)")
         print(f"    Time: {phase3_elapsed:.1f}s")
 
         # Save pattern library for Phase 4
@@ -2937,17 +3013,7 @@ class BayesianTrainingOrchestrator:
         with open(lib_path, 'wb') as f:
             pickle.dump(self.pattern_library, f)
 
-        # Split library (Snowflake)
-        lib_long = {k: v for k, v in self.pattern_library.items() if v.get('direction') == 'LONG'}
-        lib_short = {k: v for k, v in self.pattern_library.items() if v.get('direction') == 'SHORT'}
-
-        with open(os.path.join(self.checkpoint_dir, 'pattern_library_long.pkl'), 'wb') as f:
-            pickle.dump(lib_long, f)
-        with open(os.path.join(self.checkpoint_dir, 'pattern_library_short.pkl'), 'wb') as f:
-            pickle.dump(lib_short, f)
-
         print(f"  Saved pattern_library.pkl ({len(self.pattern_library)} entries)")
-        print(f"  Saved split libraries: LONG={len(lib_long)}, SHORT={len(lib_short)}")
 
         # Build DNA Tree
         if manifest:
@@ -3503,14 +3569,22 @@ class BayesianTrainingOrchestrator:
 
         # ── Opportunity gap ───────────────────────────────────────────────────
         if fp and fp.get('ideal_profit', 0):
-            ideal = fp['ideal_profit']
-            captured_pct = fp['total_pnl'] / ideal * 100 if ideal else 0
-            lines.append(f"\n  OPPORTUNITY GAP   (ideal if every signal traded perfectly)")
-            lines.append(f"    Ideal:          ${ideal:>12,.2f}")
-            lines.append(f"    Actual:         ${fp['total_pnl']:>12,.2f}   ({captured_pct:.2f}% captured)")
-            lines.append(f"    #1 leak  skipped signals:   ${fp['missed']:>12,.2f}   ({fp['missed']/ideal*100:.1f}%)")
-            lines.append(f"    #2 leak  exits too early:   ${fp['left_on_table']:>12,.2f}   ({fp['left_on_table']/ideal*100:.1f}%)")
-            lines.append(f"    #3 leak  wrong direction:   ${fp['wrong_dir_loss']:>12,.2f}   ({fp['wrong_dir_loss']/ideal*100:.1f}%)")
+            ideal   = fp['ideal_profit']
+            actual  = fp['total_pnl']
+            _gap    = ideal - actual
+            _wrong  = fp['wrong_dir_loss']
+            _tp_gap = fp['left_on_table']
+            _missed = fp.get('missed', 0.0)
+            _pct    = lambda v: f"{v/_gap*100:.1f}%" if _gap > 0 else "N/A"
+            _gate_r = max(0.0, _gap - _wrong - _tp_gap)
+            lines.append(f"\n  OPPORTUNITY GAP")
+            lines.append(f"    Sequential ideal:   ${ideal:>12,.2f}")
+            lines.append(f"    Actual profit:      ${actual:>12,.2f}   ({actual/ideal*100:.1f}% of ideal)")
+            lines.append(f"    Gap to close:       ${_gap:>12,.2f}  (100%)")
+            lines.append(f"    #1 leak  exits too early:    ${_tp_gap:>12,.2f}   ({_pct(_tp_gap)} of gap)")
+            lines.append(f"    #2 leak  wrong direction:    ${_wrong:>12,.2f}   ({_pct(_wrong)} of gap)")
+            lines.append(f"    #3 leak  gate-selection:     ${_gate_r:>12,.2f}   ({_pct(_gate_r)} of gap)")
+            lines.append(f"    [info] gate-blocked pool:    ${_missed:>12,.2f}   (parallel sum — non-additive)")
 
         # ── Top Tier 1 ────────────────────────────────────────────────────────
         if ts and ts.get('top_t1'):
@@ -3570,6 +3644,7 @@ def main():
     parser.add_argument('--iterations', type=int, default=1000, help="Iterations per pattern (default: 1000)")
     parser.add_argument('--checkpoint-dir', type=str, default="checkpoints", help="Checkpoint directory")
     parser.add_argument('--no-dashboard', action='store_true', help="Disable live dashboard")
+    parser.add_argument('--progress-popup', action='store_true', help="Show lightweight progress popup instead of full dashboard")
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
     parser.add_argument('--fresh', action='store_true', help="Clear all pipeline checkpoints and start fresh")

@@ -55,6 +55,7 @@ class WorkerBelief:
     wave_maturity: float = 0.0  # P(wave near completion) [0..1]
     # Composite: 0.4*pattern_maturity + 0.3*min(1,|z|/3) + 0.3*tunnel_probability
     # High value = wave is well-developed/near exhaustion = higher entry risk
+    z_score:       float = 0.0  # raw z_score at this TF's rolling window (signed)
 
 
 @dataclass
@@ -256,6 +257,7 @@ class TimeframeWorker:
             tf_bar_idx    = tf_bar_idx,
             conviction    = abs(dir_prob - 0.5) * 2.0,
             wave_maturity = wave_maturity,
+            z_score       = _z_raw,
         )
         return True
 
@@ -580,32 +582,106 @@ class TimeframeBeliefNetwork:
                     'urgent_exit': False, 'conviction': 0.0,
                     'wave_maturity': 0.0, 'reason': 'no_belief'}
 
+        import math
         trade_long = (side == 'long')
-        belief_long = (belief.direction == 'long')
-        direction_aligned = (trade_long == belief_long)
-        wave_mature = belief.decision_wave_maturity  # decision TF worker only
+        direction_aligned = (trade_long == (belief.direction == 'long'))
+        wave_mature = belief.decision_wave_maturity  # 5m worker only
 
-        # Urgent exit: high conviction in the OPPOSITE direction
-        urgent = belief.is_confident and not direction_aligned and belief.conviction > self.URGENT_EXIT_CONVICTION_THRESHOLD
+        _tfs_sorted = sorted(self.TIMEFRAMES_SECONDS, reverse=True)
+        MACRO_TF_THRESHOLD = 300  # 5m and above
 
-        # Tighten: conviction is low OR wave is mature (approaching reversal zone)
-        tighten = (not belief.is_confident) or (wave_mature > self.TIGHTEN_TRAIL_WAVE_MATURITY_THRESHOLD)
+        # ── Macro conviction (1h→5m) — governs WIDEN ─────────────────────────
+        # Only expand trail when macro structure is aligned and confident.
+        # Micro noise must not prevent widening on a valid macro move.
+        macro_beliefs = {tf: b for tf, b in belief.tf_beliefs.items()
+                         if tf >= MACRO_TF_THRESHOLD}
+        if macro_beliefs:
+            _log_sum, _w_sum = 0.0, 0.0
+            for tf, b in macro_beliefs.items():
+                _w_idx = _tfs_sorted.index(tf) if tf in _tfs_sorted else len(_tfs_sorted) - 1
+                _w = self.TF_WEIGHTS[min(_w_idx, len(self.TF_WEIGHTS) - 1)]
+                _p = b.dir_prob if trade_long == (b.dir_prob >= 0.5) else 1.0 - b.dir_prob
+                _log_sum += _w * math.log(max(_p, 1e-9))
+                _w_sum   += _w
+            macro_conviction = math.exp(_log_sum / _w_sum) if _w_sum > 0 else 0.0
+        else:
+            macro_conviction = belief.conviction
 
-        # Widen: strong conviction aligned with trade direction, wave is fresh
-        widen = belief.is_confident and direction_aligned and wave_mature < self.WIDEN_TRAIL_WAVE_MATURITY_THRESHOLD
+        macro_confident = macro_conviction >= self.MIN_CONVICTION
 
-        reason = ('urgent_flip' if urgent else
-                  'low_conviction' if not belief.is_confident else
-                  'wave_mature' if wave_mature > self.TIGHTEN_TRAIL_WAVE_MATURITY_THRESHOLD else
-                  'aligned_fresh' if widen else 'neutral')
+        # ── Micro reversal score (TF < 300s) — governs early TIGHTEN ─────────
+        # When micro workers flip against the trade with enough weight, tighten
+        # the trail early to limit stop-loss on wrong-direction trades.
+        # Threshold: ≥60% of total micro weight signalling against trade direction.
+        micro_beliefs = {tf: b for tf, b in belief.tf_beliefs.items()
+                         if tf < MACRO_TF_THRESHOLD}
+        if micro_beliefs:
+            _against_w, _total_w = 0.0, 0.0
+            for tf, b in micro_beliefs.items():
+                _w_idx = _tfs_sorted.index(tf) if tf in _tfs_sorted else len(_tfs_sorted) - 1
+                _w = self.TF_WEIGHTS[min(_w_idx, len(self.TF_WEIGHTS) - 1)]
+                _total_w += _w
+                if (trade_long and b.dir_prob < 0.45) or (not trade_long and b.dir_prob > 0.55):
+                    _against_w += _w
+            micro_reversal = _total_w > 0 and (_against_w / _total_w) >= 0.6
+        else:
+            micro_reversal = False
+
+        # ── Standard error band position — probability decay across the cascade ──
+        # Each worker's z_score tells how extended price is at that TF's band.
+        # As price approaches the Roche limit (|z| → 3σ) the probability of
+        # continuation decays — the move is geometrically exhausted at that level.
+        # We compute a weighted band pressure score across ALL workers:
+        #   band_pressure = Σ w_i * min(1, |z_i| / Z_ROCHE) / Σ w_i
+        # High pressure = price extended across multiple TF bands simultaneously
+        # = energy decay signal corroborating the worker direction signals.
+        Z_ROCHE = 3.0          # sigma at Roche limit (full band exhaustion)
+        Z_TIGHTEN_BAND = 0.55  # band pressure above this → tighten (approaching outer bands)
+        Z_WIDEN_BAND   = 0.25  # band pressure below this → move still has room (widen ok)
+        _band_w_sum, _band_wz_sum = 0.0, 0.0
+        for tf, b in belief.tf_beliefs.items():
+            _w_idx = _tfs_sorted.index(tf) if tf in _tfs_sorted else len(_tfs_sorted) - 1
+            _w = self.TF_WEIGHTS[min(_w_idx, len(self.TF_WEIGHTS) - 1)]
+            _band_wz_sum += _w * min(1.0, abs(b.z_score) / Z_ROCHE)
+            _band_w_sum  += _w
+        band_pressure = _band_wz_sum / _band_w_sum if _band_w_sum > 0 else 0.0
+        band_exhausted = band_pressure > Z_TIGHTEN_BAND
+        band_fresh     = band_pressure < Z_WIDEN_BAND
+
+        # ── Exit decisions ────────────────────────────────────────────────────
+        # Urgent: full conviction — all workers including micro agree: wrong direction
+        urgent = (belief.is_confident and not direction_aligned and
+                  belief.conviction > self.URGENT_EXIT_CONVICTION_THRESHOLD)
+
+        # Tighten: macro lost confidence  OR  wave mature  OR  micro reversal
+        #       OR  price approaching outer bands across the fractal cascade
+        tighten = ((not macro_confident) or
+                   (wave_mature > self.TIGHTEN_TRAIL_WAVE_MATURITY_THRESHOLD) or
+                   micro_reversal or
+                   band_exhausted)
+
+        # Widen: macro confident + aligned + wave fresh + price still inside bands
+        widen = (macro_confident and direction_aligned and
+                 wave_mature < self.WIDEN_TRAIL_WAVE_MATURITY_THRESHOLD and
+                 band_fresh)
+
+        reason = ('urgent_flip'    if urgent else
+                  'micro_reversal' if micro_reversal else
+                  'band_exhausted' if band_exhausted else
+                  'low_conviction' if not macro_confident else
+                  'wave_mature'    if wave_mature > self.TIGHTEN_TRAIL_WAVE_MATURITY_THRESHOLD else
+                  'aligned_fresh'  if widen else 'neutral')
 
         return {
-            'tighten_trail': tighten and not urgent,
-            'widen_trail':   widen,
-            'urgent_exit':   urgent,
-            'conviction':    belief.conviction,
-            'wave_maturity': wave_mature,
-            'reason':        reason,
+            'tighten_trail':    tighten and not urgent,
+            'widen_trail':      widen,
+            'urgent_exit':      urgent,
+            'conviction':       belief.conviction,
+            'macro_conviction': macro_conviction,
+            'micro_reversal':   micro_reversal,
+            'band_pressure':    band_pressure,
+            'wave_maturity':    wave_mature,
+            'reason':           reason,
         }
 
     def summary(self) -> str:

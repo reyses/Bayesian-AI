@@ -8,6 +8,8 @@ import numpy as np
 ADX_PERIOD = 14
 HURST_WINDOW = 100
 HURST_MIN_WINDOW = 30
+REL_VOLUME_WINDOW = 20
+OSCILLATION_COHERENCE_WINDOW = 5
 
 def compute_adx_dmi_cpu(tr_raw, plus_dm_raw, minus_dm_raw, period=14):
     """
