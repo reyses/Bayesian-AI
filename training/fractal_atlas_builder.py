@@ -7,6 +7,7 @@ Uses CUDA for high-performance resampling and VRAM-aware batching.
 
 import os
 import sys
+import warnings
 import argparse
 import math
 import gc
@@ -17,6 +18,9 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 from tqdm import tqdm
+
+# Suppress stale nvJitLink DLL warning (harmless — driver fallback works fine)
+warnings.filterwarnings('ignore', message='.*nvJitLink.*', category=RuntimeWarning)
 
 # --- GPU SETUP ---
 GPU_AVAILABLE = False
@@ -138,56 +142,63 @@ def _resample_kernel(in_times, in_opens, in_highs, in_lows, in_closes, in_vols,
             out_vols[idx] = agg_vol
 
 class ParquetWriterManager:
-    """Manages open ParquetWriters to avoid repeated file open/close."""
-    def __init__(self, base_path):
+    """Manages open ParquetWriters to avoid repeated file open/close.
+
+    format='monthly' -> YYYY_MM.parquet   (training ATLAS)
+    format='daily'   -> YYYYMMDD.parquet  (OOS ATLAS)
+    """
+    def __init__(self, base_path, fmt='monthly'):
         self.base_path = Path(base_path)
-        # Key: (resolution, year, month), Value: ParquetWriter
+        self.fmt = fmt          # 'monthly' or 'daily'
         self.writers = {}
-        # Keep track of schema for each resolution
         self.schemas = {}
 
     def write(self, resolution, df):
         if df.empty:
             return
 
-        # Ensure timestamp is datetime for period extraction
-        if 'timestamp' in df.columns:
-            ts = pd.to_datetime(df['timestamp'], unit='s', utc=True)
-        else:
+        if 'timestamp' not in df.columns:
             return
 
-        # Group by Day (YYYYMMDD) so discovery agent and forward pass can
-        # filter by date using simple lexicographic string comparison.
-        periods = ts.dt.to_period('D').unique()
+        ts = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_localize(None)
+
+        period_type = 'M' if self.fmt == 'monthly' else 'D'
+        periods = ts.dt.to_period(period_type).unique()
 
         for period in periods:
-            mask = (ts.dt.to_period('D') == period)
+            mask = (ts.dt.to_period(period_type) == period)
             chunk = df[mask].copy()
 
-            key = (resolution, period.year, period.month, period.day)
+            if self.fmt == 'monthly':
+                key = (resolution, period.year, period.month)
+            else:
+                key = (resolution, period.year, period.month, period.day)
 
             if key not in self.writers:
                 self._open_writer(key, chunk)
 
-            # Write
             if key in self.writers:
                 try:
-                    table = pa.Table.from_pandas(chunk, schema=self.schemas.get(key))
+                    table = pa.Table.from_pandas(chunk, schema=self.schemas.get(key),
+                                                 preserve_index=False)
                     self.writers[key].write_table(table)
                 except Exception as e:
                     print(f"Error writing table for {key}: {e}")
 
     def _open_writer(self, key, sample_df):
-        resolution, year, month, day = key
+        if self.fmt == 'monthly':
+            resolution, year, month = key
+            filename = f"{year}_{month:02d}.parquet"
+        else:
+            resolution, year, month, day = key
+            filename = f"{year}{month:02d}{day:02d}.parquet"
+
         res_dir = self.base_path / resolution
         res_dir.mkdir(parents=True, exist_ok=True)
-
-        # YYYYMMDD.parquet — matches discovery agent and forward pass expectations
-        filename = f"{year}{month:02d}{day:02d}.parquet"
         file_path = res_dir / filename
 
         try:
-            schema = pa.Table.from_pandas(sample_df).schema
+            schema = pa.Table.from_pandas(sample_df, preserve_index=False).schema
             schema = schema.remove_metadata()
             self.schemas[key] = schema
             self.writers[key] = pq.ParquetWriter(
@@ -205,10 +216,15 @@ class ParquetWriterManager:
         self.writers.clear()
 
 class AtlasBuilder:
-    def __init__(self, input_path, output_path):
+    def __init__(self, input_path, output_path,
+                 oos_output_path=None, oos_start_ts=None):
         self.input_path = Path(input_path)
         self.output_path = Path(output_path)
-        self.writer_manager = ParquetWriterManager(output_path)
+        self.writer_manager = ParquetWriterManager(output_path, fmt='monthly')
+        # OOS writer uses monthly format; writes all resolutions.
+        self.oos_writer = (ParquetWriterManager(oos_output_path, fmt='monthly')
+                           if oos_output_path else None)
+        self.oos_start_ts = oos_start_ts   # Unix seconds; rows >= this go to oos_writer
 
     def calculate_batch_size(self):
         if not GPU_AVAILABLE:
@@ -348,23 +364,48 @@ class AtlasBuilder:
                             raise ValueError("Critical column 'timestamp' contains missing values.")
                         df['timestamp'] = df['timestamp'].astype('int64')
 
-                df = df.sort_values('timestamp')
+                # Keep only OHLCV + timestamp — drops symbol, instrument_id, etc.
+                # This ensures a consistent schema across all batches/row-groups.
+                _keep = [c for c in ('timestamp', 'open', 'high', 'low', 'close', 'volume')
+                         if c in df.columns]
+                df = df[_keep].sort_values('timestamp')
+
+                # Split into training rows and OOS rows (if oos_start_ts set)
+                if self.oos_writer and self.oos_start_ts is not None:
+                    df_train = df[df['timestamp'] < self.oos_start_ts]
+                    df_oos   = df[df['timestamp'] >= self.oos_start_ts]
+                else:
+                    df_train = df
+                    df_oos   = pd.DataFrame()
 
                 # Write 1s
-                self.writer_manager.write('1s', df)
+                self.writer_manager.write('1s', df_train)
+                if self.oos_writer and not df_oos.empty:
+                    self.oos_writer.write('1s', df_oos)
 
-                # Resample
+                # Resample training rows (all resolutions)
                 for res_name, interval in RESOLUTIONS.items():
-                    if GPU_AVAILABLE:
-                        try:
-                            out_df = self.process_gpu(df, interval)
-                        except Exception as e:
-                            print(f"GPU Error ({res_name}): {e}")
-                            out_df = self.process_cpu(df, interval)
-                    else:
-                        out_df = self.process_cpu(df, interval)
+                    if not df_train.empty:
+                        if GPU_AVAILABLE:
+                            try:
+                                out_train = self.process_gpu(df_train, interval)
+                            except Exception as e:
+                                print(f"GPU Error ({res_name}): {e}")
+                                out_train = self.process_cpu(df_train, interval)
+                        else:
+                            out_train = self.process_cpu(df_train, interval)
+                        self.writer_manager.write(res_name, out_train)
 
-                    self.writer_manager.write(res_name, out_df)
+                    # OOS: all resolutions in daily format
+                    if self.oos_writer and not df_oos.empty:
+                        if GPU_AVAILABLE:
+                            try:
+                                out_oos = self.process_gpu(df_oos, interval)
+                            except Exception:
+                                out_oos = self.process_cpu(df_oos, interval)
+                        else:
+                            out_oos = self.process_cpu(df_oos, interval)
+                        self.oos_writer.write(res_name, out_oos)
 
                 pbar.update(len(df))
 
@@ -373,6 +414,8 @@ class AtlasBuilder:
 
         finally:
             self.writer_manager.close_all()
+            if self.oos_writer:
+                self.oos_writer.close_all()
             pbar.close()
             self.print_summary()
 
@@ -398,15 +441,27 @@ class AtlasBuilder:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", default="DATA/glbx-mdp3-2025.parquet")
-    parser.add_argument("--output", default="DATA/ATLAS")
+    parser.add_argument("--input",      default="DATA/glbx-mdp3-2025.parquet")
+    parser.add_argument("--output",     default="DATA/ATLAS")
+    parser.add_argument("--oos-output", default=None,
+                        help="Output directory for OOS sub-15s files (e.g. DATA/ATLAS_OOS)")
+    parser.add_argument("--oos-start",  default=None,
+                        help="First OOS date YYYYMMDD; rows on/after this go to --oos-output")
     args = parser.parse_args()
 
     if not os.path.exists(args.input):
         print(f"Error: Input file {args.input} does not exist.")
         sys.exit(1)
 
-    builder = AtlasBuilder(args.input, args.output)
+    oos_start_ts = None
+    if args.oos_start:
+        from datetime import datetime, timezone
+        oos_start_ts = datetime.strptime(args.oos_start, "%Y%m%d").replace(
+            tzinfo=timezone.utc).timestamp()
+
+    builder = AtlasBuilder(args.input, args.output,
+                           oos_output_path=args.oos_output,
+                           oos_start_ts=oos_start_ts)
     builder.run()
 
 if __name__ == "__main__":
