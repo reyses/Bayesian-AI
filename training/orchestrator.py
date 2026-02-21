@@ -1096,7 +1096,25 @@ class BayesianTrainingOrchestrator:
                                 pattern_dna=str(pattern_dna) if pattern_dna else ''))
                             continue
 
-                        side = _belief.direction
+                        # Scale live features once — used for direction, TP, and logging
+                        _live_scaled = self.scaler.transform([_live_feat])[0]
+
+                        # ── Direction from signed-MFE regression ─────────────────
+                        # Per-cluster OLS was trained on signed_mfe (positive=LONG,
+                        # negative=SHORT), so sign(prediction) encodes direction and
+                        # abs(prediction) encodes TP in points.  Workers are the fallback
+                        # when the cluster has too few members for a stable regression.
+                        _mfe_coeff   = lib_entry.get('mfe_coeff')
+                        _mfe_int     = lib_entry.get('mfe_intercept', 0.0)
+                        _signed_pred = None
+                        if _mfe_coeff is not None:
+                            _signed_pred = float(
+                                np.dot(_live_scaled, np.array(_mfe_coeff)) + _mfe_int)
+                            side = 'long' if _signed_pred >= 0 else 'short'
+                        else:
+                            side = _belief.direction  # fallback: worker belief network
+
+                        # Network TP from belief (scale-aware, sees all TFs)
                         _network_tp = max(MIN_MFE_TICKS, int(round(_belief.predicted_mfe))) if _belief.predicted_mfe > MIN_MFE_PREDICTION else None
 
                         # Logging/Diagnostics
@@ -1106,7 +1124,6 @@ class BayesianTrainingOrchestrator:
 
                         long_bias  = lib_entry.get('long_bias',  0.0)
                         short_bias = lib_entry.get('short_bias', 0.0)
-                        _live_scaled = self.scaler.transform([_live_feat])[0]
 
                         # ── Exit sizing from per-cluster regression models ────────
                         # TWO-PHASE EXIT DESIGN
@@ -1156,11 +1173,9 @@ class BayesianTrainingOrchestrator:
                         if _network_tp is not None:
                             _tp_ticks = _network_tp
                         else:
-                            _mfe_coeff = lib_entry.get('mfe_coeff')
-                            if _mfe_coeff is not None:
-                                _pred_mfe_pts   = (np.dot(_live_scaled, np.array(_mfe_coeff))
-                                                   + lib_entry.get('mfe_intercept', 0.0))
-                                _pred_mfe_ticks = max(0.0, _pred_mfe_pts / 0.25)
+                            if _signed_pred is not None:
+                                # abs(signed_pred) = magnitude in points; convert to ticks
+                                _pred_mfe_ticks = abs(_signed_pred) / 0.25
                                 _tp_ticks = max(4, int(round(_pred_mfe_ticks))) if _pred_mfe_ticks > 2.0 else (
                                     max(4, int(round(_p75_mfe))) if _p75_mfe > 2.0
                                     else params.get('take_profit_ticks', 50))
@@ -1854,24 +1869,38 @@ class BayesianTrainingOrchestrator:
         # (which means oracle label was opposite) — but also NOT mere underperformance.
         # They are shown separately in the profit gap as "reversed after entry".
         if tp_recs:
-            optimal   = [r for r in tp_recs if r['capture_rate'] >= 0.80]
-            partial   = [r for r in tp_recs if 0.20 <= r['capture_rate'] < 0.80]
-            too_early = [r for r in tp_recs if 0 < r['capture_rate'] < 0.20]
+            def _bucket(lo, hi):
+                return [r for r in tp_recs if lo < r['capture_rate'] <= hi]
+            def _pnl(lst):
+                return sum(r['actual_pnl'] for r in lst)
+            def _left(lst):
+                return sum(max(0, r['oracle_potential_pnl'] - r['actual_pnl']) for r in lst)
+
+            b_opt    = [r for r in tp_recs if r['capture_rate'] >  0.80]  # >80%
+            b_60_80  = _bucket(0.60, 0.80)
+            b_40_60  = _bucket(0.40, 0.60)
+            b_20_40  = _bucket(0.20, 0.40)
+            b_05_20  = _bucket(0.05, 0.20)
+            b_00_05  = _bucket(0.00, 0.05)
             reversed_ = [r for r in tp_recs if r['capture_rate'] <= 0]
 
-            # left_on_table: only non-reversed underperformance (how much potential
-            # was uncaptured on trades that at least moved in our direction)
+            # left_on_table: only non-reversed underperformance
             non_reversed = [r for r in tp_recs if r['capture_rate'] > 0]
             left_on_table = sum(max(0, r['oracle_potential_pnl'] - r['actual_pnl'])
                                 for r in non_reversed)
 
             report_lines.append("")
             report_lines.append(f"  EXIT QUALITY (correct-direction trades):")
-            report_lines.append(f"    Optimal  (>=80% of move captured): {len(optimal):>6,}  ->  ${sum(r['actual_pnl'] for r in optimal):>10,.2f}")
-            report_lines.append(f"    Partial  (20-80% captured):        {len(partial):>6,}  ->  ${sum(r['actual_pnl'] for r in partial):>10,.2f}")
-            report_lines.append(f"    Too early (<20% captured):         {len(too_early):>6,}  ->  ${sum(r['actual_pnl'] for r in too_early):>10,.2f}")
-            report_lines.append(f"    Reversed (correct dir, mkt flipped):{len(reversed_):>6,}  ->  ${sum(r['actual_pnl'] for r in reversed_):>10,.2f}  <- own leakage bucket")
-            report_lines.append(f"    Left on table (non-reversed TP gap):             ${left_on_table:>10,.2f}")
+            report_lines.append(f"    {'Bucket':<28} {'Trades':>6}  {'PnL':>12}  {'Left on table':>14}")
+            report_lines.append(f"    {'-'*28} {'-'*6}  {'-'*12}  {'-'*14}")
+            report_lines.append(f"    {'Optimal   (>80% captured)':<28} {len(b_opt):>6,}  ${_pnl(b_opt):>11,.2f}  ${_left(b_opt):>13,.2f}")
+            report_lines.append(f"    {'Good      (60-80% captured)':<28} {len(b_60_80):>6,}  ${_pnl(b_60_80):>11,.2f}  ${_left(b_60_80):>13,.2f}")
+            report_lines.append(f"    {'Partial   (40-60% captured)':<28} {len(b_40_60):>6,}  ${_pnl(b_40_60):>11,.2f}  ${_left(b_40_60):>13,.2f}")
+            report_lines.append(f"    {'Partial   (20-40% captured)':<28} {len(b_20_40):>6,}  ${_pnl(b_20_40):>11,.2f}  ${_left(b_20_40):>13,.2f}")
+            report_lines.append(f"    {'Too early (5-20% captured)':<28} {len(b_05_20):>6,}  ${_pnl(b_05_20):>11,.2f}  ${_left(b_05_20):>13,.2f}")
+            report_lines.append(f"    {'Stopped   (<5% captured)':<28} {len(b_00_05):>6,}  ${_pnl(b_00_05):>11,.2f}  ${_left(b_00_05):>13,.2f}")
+            report_lines.append(f"    {'Reversed  (correct dir, flipped)':<28} {len(reversed_):>6,}  ${_pnl(reversed_):>11,.2f}  {'<-- leakage':>14}")
+            report_lines.append(f"    {'Left on table (non-reversed):':<28} {'':>6}  {'':>12}  ${left_on_table:>13,.2f}")
         else:
             reversed_ = []
             left_on_table = 0.0
@@ -2984,17 +3013,7 @@ class BayesianTrainingOrchestrator:
         with open(lib_path, 'wb') as f:
             pickle.dump(self.pattern_library, f)
 
-        # Split library (Snowflake)
-        lib_long = {k: v for k, v in self.pattern_library.items() if v.get('direction') == 'LONG'}
-        lib_short = {k: v for k, v in self.pattern_library.items() if v.get('direction') == 'SHORT'}
-
-        with open(os.path.join(self.checkpoint_dir, 'pattern_library_long.pkl'), 'wb') as f:
-            pickle.dump(lib_long, f)
-        with open(os.path.join(self.checkpoint_dir, 'pattern_library_short.pkl'), 'wb') as f:
-            pickle.dump(lib_short, f)
-
         print(f"  Saved pattern_library.pkl ({len(self.pattern_library)} entries)")
-        print(f"  Saved split libraries: LONG={len(lib_long)}, SHORT={len(lib_short)}")
 
         # Build DNA Tree
         if manifest:
