@@ -147,6 +147,66 @@ class TestFractalDashboard(unittest.TestCase):
         self.assertEqual(dashboard._sort_col, "Trades")
         self.assertTrue(dashboard._sort_reverse)
 
+    @patch('visualization.live_training_dashboard.plt.subplots')
+    def test_scatter_ids_populated(self, mock_subplots):
+        mock_fig = MagicMock()
+        mock_ax = MagicMock()
+        mock_subplots.return_value = (mock_fig, mock_ax)
+
+        dashboard = FractalDashboard(self.root, self.queue)
+        # Mock scatter return value to ensure we can control contains/set_offsets
+        dashboard.scatter = mock_ax.scatter.return_value
+
+        dashboard.templates = {
+            101: {'id': 101, 'z': 1.5, 'mom': 2.5, 'pnl': 500},
+            202: {'id': 202, 'z': -1.0, 'mom': -0.5, 'pnl': -200}
+        }
+
+        dashboard._update_manifold()
+
+        self.assertEqual(len(dashboard._scatter_ids), 2)
+        self.assertIn(101, dashboard._scatter_ids)
+        self.assertIn(202, dashboard._scatter_ids)
+
+    @patch('visualization.live_training_dashboard.plt.subplots')
+    def test_hover_tooltip(self, mock_subplots):
+        mock_fig = MagicMock()
+        mock_ax = MagicMock()
+        mock_subplots.return_value = (mock_fig, mock_ax)
+
+        dashboard = FractalDashboard(self.root, self.queue)
+        # Ensure scatter and annot are mocked
+        dashboard.scatter = mock_ax.scatter.return_value
+        dashboard.annot = mock_ax.annotate.return_value
+        dashboard.annot.get_visible.return_value = False
+
+        # Setup state
+        dashboard.templates = {
+            101: {'id': 101, 'z': 1.5, 'mom': 2.5, 'pnl': 500}
+        }
+        dashboard._scatter_ids = [101]
+
+        # Mock event
+        event = MagicMock()
+        event.inaxes = dashboard.ax_phys
+        event.xdata = 1.5
+        event.ydata = 2.5
+
+        # Case 1: Hover over point
+        dashboard.scatter.contains.return_value = (True, {'ind': [0]})
+        dashboard._on_hover(event)
+
+        dashboard.annot.set_text.assert_called()
+        args, _ = dashboard.annot.set_text.call_args
+        self.assertIn("101", args[0])
+        dashboard.annot.set_visible.assert_called_with(True)
+
+        # Case 2: Hover away
+        dashboard.scatter.contains.return_value = (False, {})
+        dashboard.annot.get_visible.return_value = True
+        dashboard._on_hover(event)
+        dashboard.annot.set_visible.assert_called_with(False)
+
 if __name__ == '__main__':
     # Patching infinite loop in _process_queue for testing
     # We'll just call _handle_message directly or catch the recursion
