@@ -189,6 +189,19 @@ class FractalClusteringEngine:
             )]
 
         k = min(3, max(2, len(patterns) // MIN_PATTERNS_FOR_SPLIT))
+        # Clamp k to the number of distinct points to avoid sklearn ConvergenceWarning
+        n_unique = len(np.unique(X, axis=0))
+        k = min(k, n_unique)
+        if k <= 1:
+            centroid = np.mean(X, axis=0)
+            raw_centroid = scaler.inverse_transform([centroid])[0]
+            return [PatternTemplate(
+                template_id=start_id,
+                centroid=raw_centroid,
+                member_count=len(patterns),
+                patterns=patterns,
+                physics_variance=z_var
+            )]
         km = self._get_kmeans_model(n_clusters=k, n_samples=len(X))
         labels = km.fit_predict(X)
 
