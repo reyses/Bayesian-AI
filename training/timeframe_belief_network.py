@@ -281,7 +281,11 @@ class TimeframeBeliefNetwork:
 
     # Dynamic Exit Thresholds
     URGENT_EXIT_CONVICTION_THRESHOLD = 0.70
-    TIGHTEN_TRAIL_WAVE_MATURITY_THRESHOLD = 0.65
+    # Pre-fix: tighten fired on (not is_confident) OR wave_mature > 0.65 → every bar
+    # during a normal move triggered tightening, collapsing the trail to 2 ticks.
+    # Now: only tighten on extreme maturity (0.85) — wave is clearly exhausting.
+    # Low conviction during a trade is normal and does NOT predict reversal.
+    TIGHTEN_TRAIL_WAVE_MATURITY_THRESHOLD = 0.85
     WIDEN_TRAIL_WAVE_MATURITY_THRESHOLD = 0.30
 
     _TF_LABELS = {3600:'1h', 1800:'30m', 900:'15m', 300:'5m',
@@ -588,16 +592,19 @@ class TimeframeBeliefNetwork:
         # Urgent exit: high conviction in the OPPOSITE direction
         urgent = belief.is_confident and not direction_aligned and belief.conviction > self.URGENT_EXIT_CONVICTION_THRESHOLD
 
-        # Tighten: conviction is low OR wave is mature (approaching reversal zone)
-        tighten = (not belief.is_confident) or (wave_mature > self.TIGHTEN_TRAIL_WAVE_MATURITY_THRESHOLD)
+        # Tighten: ONLY when wave is deeply mature (approaching exhaustion zone, > 0.85).
+        # Pre-fix: also tightened when conviction was low — this fired on ~32% of all
+        # bars, collapsing the trail to 2 ticks mid-move and causing premature exits.
+        # Low conviction during an active trade is normal noise, not a reversal signal.
+        tighten = wave_mature > self.TIGHTEN_TRAIL_WAVE_MATURITY_THRESHOLD
 
         # Widen: strong conviction aligned with trade direction, wave is fresh
         widen = belief.is_confident and direction_aligned and wave_mature < self.WIDEN_TRAIL_WAVE_MATURITY_THRESHOLD
 
         reason = ('urgent_flip' if urgent else
-                  'low_conviction' if not belief.is_confident else
                   'wave_mature' if wave_mature > self.TIGHTEN_TRAIL_WAVE_MATURITY_THRESHOLD else
-                  'aligned_fresh' if widen else 'neutral')
+                  'aligned_fresh' if widen else
+                  'low_conviction' if not belief.is_confident else 'neutral')
 
         return {
             'tighten_trail': tighten and not urgent,

@@ -1192,18 +1192,22 @@ class BayesianTrainingOrchestrator:
                         else:
                             _sl_ticks = params.get('stop_loss_ticks', 20)
 
-                        # Phase 2: trailing stop distance (tight, from HWM)
+                        # Phase 2: trailing stop distance (from HWM).
+                        # Pre-fix used sigma*1.1 → 3-tick trip-wire that collapsed to 2t via tightening.
+                        # Now: sigma*2.5 (captures normal price noise within a trending move);
+                        # floor at 8 ticks ($10/tick on MNQ = $80 minimum breathing room).
                         if _reg_sigma > 2.0:
-                            _trail_ticks = max(2, int(round(_reg_sigma * 1.1)))
+                            _trail_ticks = max(8, int(round(_reg_sigma * 2.5)))
                         elif _mean_mae > 2.0:
-                            _trail_ticks = max(2, int(round(_mean_mae * 1.1)))
+                            _trail_ticks = max(8, int(round(_mean_mae * 1.5)))
                         else:
-                            _trail_ticks = params.get('trailing_stop_ticks', 10)
+                            _trail_ticks = max(8, params.get('trailing_stop_ticks', 12))
 
-                        # Trail activation: needs p25_mae * 0.3 profit ticks to engage
-                        # (30% of the tight adverse excursion -- locks in gain quickly
-                        #  once the trade is moving our way)
-                        _trail_act_ticks = (max(2, int(round(_p25_mae * 0.3)))
+                        # Trail activation: needs p25_mae * 0.6 profit ticks to engage.
+                        # Pre-fix: 0.3 → trail activated with only 3 ticks profit → tight trail
+                        # immediately fired on any oscillation. Now: 0.6 ensures trade is
+                        # meaningfully in profit before trail takes over from hard SL.
+                        _trail_act_ticks = (max(4, int(round(_p25_mae * 0.6)))
                                             if _p25_mae > 2.0
                                             else None)  # None = immediate (legacy)
 
@@ -1290,6 +1294,11 @@ class BayesianTrainingOrchestrator:
                             # Stored as JSON string; parse with json.loads() for analysis.
                             # Compare entry_workers vs exit_workers to find who flipped direction.
                             'entry_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
+                            # Exit parameter diagnostics: actual TP/SL/trail ticks used
+                            'entry_tp_ticks':    _tp_ticks,
+                            'entry_sl_ticks':    _sl_ticks,
+                            'entry_trail_ticks': _trail_ticks,
+                            'entry_trail_act':   _trail_act_ticks if _trail_act_ticks is not None else 0,
                         }
 
                         # Signal log: add 'traded' record, save index for outcome update
@@ -1943,10 +1952,20 @@ class BayesianTrainingOrchestrator:
 
         # ── Data Partitioning Helper ──────────────────────────────────────────
         def _write_partitioned_csv(records: list, base_filename: str):
+            """
+            Write monthly-sharded CSVs to run_logs/ at the project root.
+            These files are tracked by git (each < 50 MB) so they can be
+            committed and fed to Gemini alongside the code for AI review.
+            Combined full-run files stay in checkpoints/ (gitignored).
+            """
             if not records: return
             import csv, os
             from collections import defaultdict
             from datetime import datetime
+
+            # run_logs/ lives at project root — tracked by git, <50 MB per shard
+            _run_logs_dir = os.path.join(PROJECT_ROOT, 'run_logs')
+            os.makedirs(_run_logs_dir, exist_ok=True)
 
             partitions = defaultdict(list)
             for r in records:
@@ -1965,8 +1984,8 @@ class BayesianTrainingOrchestrator:
 
             for month, month_records in partitions.items():
                 name_parts = base_filename.rsplit('.', 1)
-                part_name = f"{name_parts[0]}_{os.path.basename(month)}.{name_parts[1]}"
-                part_path = os.path.join(self.checkpoint_dir, part_name)
+                part_name = f"{name_parts[0]}_{month}.{name_parts[1]}"
+                part_path = os.path.join(_run_logs_dir, part_name)
 
                 all_keys = list(dict.fromkeys(k for mr in month_records for k in mr.keys()))
 
@@ -1974,13 +1993,29 @@ class BayesianTrainingOrchestrator:
                     writer = csv.DictWriter(f, fieldnames=all_keys)
                     writer.writeheader()
                     writer.writerows(month_records)
-            print(f"  [EXPORT] Partitioned {base_filename} into {len(partitions)} monthly files.")
+            print(f"  [EXPORT] run_logs/{base_filename} → {len(partitions)} monthly shards (commit to GitHub for Gemini review)")
 
         # ── 6. Save CSV ──────────────────────────────────────────────────────────
         if oracle_trade_records:
-            _write_partitioned_csv(oracle_trade_records, 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv')
+            _log_name = 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv'
+            # Write combined file (required by run_strategy_selection, run_param_sweep, analytics)
+            _csv_path = os.path.join(self.checkpoint_dir, _log_name)
+            with open(_csv_path, 'w', newline='', encoding='utf-8') as _f:
+                _w = _csv.DictWriter(_f, fieldnames=list(oracle_trade_records[0].keys()))
+                _w.writeheader(); _w.writerows(oracle_trade_records)
+            report_lines.append(f"  Per-trade oracle log saved: {_csv_path}")
+            # Also write sharded monthly files for deep-dive analysis
+            _write_partitioned_csv(oracle_trade_records, _log_name)
 
         if pid_oracle_records:
+            # Combined: original name for backward compat with tools
+            _pid_name = 'oos_pid_log.csv' if oos_mode else 'pid_oracle_log.csv'
+            _pid_path = os.path.join(self.checkpoint_dir, _pid_name)
+            with open(_pid_path, 'w', newline='', encoding='utf-8') as _f:
+                _w = _csv.DictWriter(_f, fieldnames=list(pid_oracle_records[0].keys()))
+                _w.writeheader(); _w.writerows(pid_oracle_records)
+            report_lines.append(f"  PID oracle log saved: {_pid_path} ({len(pid_oracle_records):,} signals)")
+            # Shards: use Jules' naming to match .gitignore pattern pid_signal_log_*.csv
             _write_partitioned_csv(pid_oracle_records, 'oos_pid_log.csv' if oos_mode else 'pid_signal_log.csv')
 
         # ── Save FN oracle log + report section ──────────────────────────────────
@@ -1993,7 +2028,15 @@ class BayesianTrainingOrchestrator:
         # Per-candidate log: every skipped signal with gate decision + oracle context.
         # Answers: which gate blocks the most money? which patterns are mis-directed?
         if decision_matrix_records:
-            _write_partitioned_csv(decision_matrix_records, 'oos_signal_log.csv' if oos_mode else 'signal_log.csv')
+            _dm_name = 'oos_signal_log.csv' if oos_mode else 'signal_log.csv'
+            _dm_path = os.path.join(self.checkpoint_dir, _dm_name)
+            with open(_dm_path, 'w', newline='', encoding='utf-8') as _f:
+                _w = _csv.DictWriter(_f, fieldnames=list(decision_matrix_records[0].keys()))
+                _w.writeheader(); _w.writerows(decision_matrix_records)
+            _n_traded_dm  = sum(1 for r in decision_matrix_records if r['gate'] == 'traded')
+            _n_skipped_dm = len(decision_matrix_records) - _n_traded_dm
+            report_lines.append(f"  Signal log saved: {_dm_path}  ({_n_traded_dm} traded  +  {_n_skipped_dm:,} skipped)")
+            _write_partitioned_csv(decision_matrix_records, _dm_name)
 
             # ── Decision matrix summary ───────────────────────────────────────────
             from collections import defaultdict as _dd
@@ -2042,6 +2085,14 @@ class BayesianTrainingOrchestrator:
                 report_lines.append(f"    {dna:<40} {cnt:>6} {wr*100:>5.0f}% ${avg:>9.2f}")
 
         if fn_oracle_records:
+            # Combined: original name for backward compat with tools
+            _fn_name = 'oos_fn_log.csv' if oos_mode else 'fn_oracle_log.csv'
+            _fn_path = os.path.join(self.checkpoint_dir, _fn_name)
+            with open(_fn_path, 'w', newline='', encoding='utf-8') as _f:
+                _w = _csv.DictWriter(_f, fieldnames=list(fn_oracle_records[0].keys()))
+                _w.writeheader(); _w.writerows(fn_oracle_records)
+            report_lines.append(f"  FN oracle log saved: {_fn_path}  ({len(fn_oracle_records):,} missed real moves)")
+            # Shards: use Jules' naming to match .gitignore pattern fn_signal_log_*.csv
             _write_partitioned_csv(fn_oracle_records, 'oos_fn_log.csv' if oos_mode else 'fn_signal_log.csv')
 
             # FN worker agreement analysis:
@@ -2170,6 +2221,31 @@ class BayesianTrainingOrchestrator:
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write('\n'.join(report_lines) + '\n')
         print(f"  Report saved to {report_path}")
+
+        # ── Trade Analytics Suite ──────────────────────────────────────────────
+        if not oos_mode:
+            try:
+                from training.trade_analytics import run_trade_analytics
+                _oracle_csv = os.path.join(self.checkpoint_dir, 'oracle_trade_log.csv')
+                if os.path.exists(_oracle_csv):
+                    print("\n  [analytics] Running trade analytics suite...")
+                    _analytics_txt = run_trade_analytics(
+                        log_path=_oracle_csv,
+                        report_path=report_path,
+                    )
+                    # Save standalone analytics file
+                    _analytics_path = os.path.join(self.checkpoint_dir, 'trade_analytics.txt')
+                    with open(_analytics_path, 'w', encoding='utf-8') as _af:
+                        _af.write(_analytics_txt)
+                    print(f"  [analytics] Saved to {_analytics_path}")
+                    # Also copy to run_logs/ so it gets committed to GitHub for Gemini review
+                    _run_logs_dir = os.path.join(PROJECT_ROOT, 'run_logs')
+                    os.makedirs(_run_logs_dir, exist_ok=True)
+                    import shutil as _shutil
+                    _shutil.copy2(_analytics_path, os.path.join(_run_logs_dir, 'trade_analytics.txt'))
+                    print(f"  [analytics] Copied to run_logs/trade_analytics.txt (commit for Gemini review)")
+            except Exception as _ae:
+                print(f"  [analytics] Skipped (error: {_ae})")
 
     def run_final_validation(self, top_strategies):
         """

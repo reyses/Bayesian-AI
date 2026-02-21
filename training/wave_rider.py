@@ -243,6 +243,8 @@ class Position:
     trail_activation_ticks: Optional[int] = None  # profit ticks needed before trail engages
     original_trail_ticks: Optional[int] = None    # Store initial trail setting for reference
     last_adjustment_reason: Optional[str] = None  # belief reason that last tightened/widened trail
+    breakeven_locked: bool = False                 # True once stop moved to entry (risk-free)
+    breakeven_level: Optional[float] = None        # price level of the breakeven stop
 
 
 class WaveRider:
@@ -291,10 +293,13 @@ class WaveRider:
         self.calibration_interval = 10
 
     # Dynamic Trail Constants
-    MIN_TRAIL_TICKS = 2
-    TIGHTEN_TRAIL_FACTOR = 0.70
-    MAX_ORIGINAL_TRAIL_MULTIPLIER = 2
-    WIDEN_TRAIL_FACTOR = 1.20
+    # Gentle tightening (8% per bar instead of 30%) with a hard floor at 60% of original.
+    # Pre-fix: 30% tighten per bar → trail collapses to 2 ticks in 4 bars → premature exit.
+    MIN_TRAIL_TICKS = 4
+    TIGHTEN_TRAIL_FACTOR = 0.92           # was 0.70 — gentle 8% per bar
+    TRAIL_FLOOR_FACTOR   = 0.60           # trail never drops below 60% of original
+    MAX_ORIGINAL_TRAIL_MULTIPLIER = 3     # allow wider extension when aligned
+    WIDEN_TRAIL_FACTOR = 1.30             # was 1.20
 
     def open_position(self, entry_price: float, side: str,
                      state: Union[StateVector, ThreeBodyQuantumState],
@@ -427,13 +432,16 @@ class WaveRider:
                 urgent_exit = True
 
             if exit_signal.get('tighten_trail') and self.position.trailing_stop_ticks is not None:
-                # Reduce trail by 30% (min: 2 ticks)
-                _new_trail = max(self.MIN_TRAIL_TICKS, int(self.position.trailing_stop_ticks * self.TIGHTEN_TRAIL_FACTOR))
+                # Reduce trail by TIGHTEN_TRAIL_FACTOR (gentle 8% per bar, was 30%).
+                # Enforce floor: never below TRAIL_FLOOR_FACTOR × original.
+                _orig = self.position.original_trail_ticks or self.position.trailing_stop_ticks
+                _floor = max(self.MIN_TRAIL_TICKS, int(_orig * self.TRAIL_FLOOR_FACTOR))
+                _new_trail = max(_floor, int(self.position.trailing_stop_ticks * self.TIGHTEN_TRAIL_FACTOR))
                 self.position.trailing_stop_ticks = _new_trail
                 self.position.last_adjustment_reason = exit_signal.get('reason', 'tighten')
 
             if exit_signal.get('widen_trail') and self.position.trailing_stop_ticks is not None:
-                # Increase trail by 20% (max: original_trail * 2.0)
+                # Increase trail by WIDEN_TRAIL_FACTOR (max: original_trail × MAX_ORIGINAL_TRAIL_MULTIPLIER)
                 _base = self.position.original_trail_ticks or self.position.trailing_stop_ticks
                 _max_trail = _base * self.MAX_ORIGINAL_TRAIL_MULTIPLIER
                 self.position.trailing_stop_ticks = min(_max_trail, int(self.position.trailing_stop_ticks * self.WIDEN_TRAIL_FACTOR))
@@ -448,6 +456,19 @@ class WaveRider:
             self.position.high_water_mark = max(self.position.high_water_mark, current_price)
 
         profit_usd = profit * self.asset.point_value
+        profit_ticks = profit / self.asset.tick_size
+
+        # Breakeven lock: once profit ≥ original trail distance, move hard floor to entry+1 tick.
+        # This ensures a confirmed winner can never turn into a loser.
+        if (not self.position.breakeven_locked
+                and self.position.original_trail_ticks is not None
+                and profit_ticks >= self.position.original_trail_ticks):
+            self.position.breakeven_locked = True
+            _be_offset = self.asset.tick_size  # 1 tick above/below entry
+            if self.position.side == 'long':
+                self.position.breakeven_level = self.position.entry_price + _be_offset
+            else:
+                self.position.breakeven_level = self.position.entry_price - _be_offset
 
         # Check Profit Target
         pt_hit = False
@@ -482,6 +503,13 @@ class WaveRider:
         else:
             # Phase 1: use the initial wide hard stop (absolute level set at entry)
             new_stop = self.position.stop_loss
+
+        # Apply breakeven floor: stop can never be worse than entry+1 tick once locked
+        if self.position.breakeven_locked and self.position.breakeven_level is not None:
+            if self.position.side == 'long':
+                new_stop = max(new_stop, self.position.breakeven_level)
+            else:
+                new_stop = min(new_stop, self.position.breakeven_level)
 
         # Check Stop Hit, Profit Target, or Structure Break
         stop_hit = (self.position.side == 'short' and current_price >= new_stop) or \
