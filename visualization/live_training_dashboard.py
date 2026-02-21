@@ -396,7 +396,7 @@ class FractalDashboard:
                     tid = self._scatter_ids[idx]
                     data = self.templates.get(tid)
                     if data:
-                        self.annot.xy = (event.xdata, event.ydata)
+                        self.annot.xy = self.scatter.get_offsets()[idx]
                         text = (f"ID: {tid}\n"
                                 f"Z: {data.get('z',0):.2f}\n"
                                 f"Mom: {data.get('mom',0):.2f}\n"
