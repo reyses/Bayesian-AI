@@ -403,23 +403,33 @@ class FractalDashboard:
         return f"TEMPLATES: {len(self.templates)} | FISSIONS: {len(self.fission_events)} | PnL: ${total_pnl:.0f}"
 
 
-# ── Lightweight progress popup (default UI) ───────────────────────────────────
+# ── Lightweight progress popup with PnL control chart (default UI) ────────────
 class ProgressPopup:
-    """Compact 440x300 progress window — shown by default during training runs."""
+    """
+    460x490 progress window with live PnL control chart.
+    Stays open after training completes — close manually when done.
+    """
+
+    _CHART_W = 420
+    _CHART_H = 130
 
     def __init__(self, root, q):
         self.root = root
         self.q    = q
+        self._pnl_history = []
+        self._done = False
+
         self.root.title("Bayesian-AI Training")
-        self.root.geometry("440x300+60+60")
+        self.root.geometry("460x490+60+60")
         self.root.configure(bg=BG)
-        self.root.resizable(False, False)
+        self.root.resizable(True, False)
         self.root.attributes('-topmost', True)
 
         style = ttk.Style()
         style.configure("Popup.Horizontal.TProgressbar",
                          troughcolor='#333333', background='#00cc44', thickness=18)
 
+        # ── Header ────────────────────────────────────────────────────────────
         tk.Label(root, text="BAYESIAN-AI TRAINING", bg=BG, fg=FG_WHITE,
                  font=('Consolas', 12, 'bold')).pack(pady=(14, 2))
 
@@ -431,41 +441,94 @@ class ProgressPopup:
         tk.Label(root, textvariable=self._step_var, bg=BG, fg=FG_WHITE,
                  font=('Consolas', 9)).pack(pady=(2, 4))
 
+        # ── Progress bar ──────────────────────────────────────────────────────
         self._pbar = ttk.Progressbar(root, style="Popup.Horizontal.TProgressbar",
-                                     orient='horizontal', length=400, mode='determinate')
+                                     orient='horizontal', length=420, mode='determinate')
         self._pbar.pack()
 
         self._pct_var = tk.StringVar(value="0.0%")
         tk.Label(root, textvariable=self._pct_var, bg=BG, fg=FG_GREY,
                  font=('Consolas', 8)).pack(pady=(3, 10))
 
-        # ── PnL / stats row ───────────────────────────────────────────────────
+        # ── Stats row ─────────────────────────────────────────────────────────
         stats_frame = tk.Frame(root, bg=BG)
         stats_frame.pack(fill='x', padx=20)
-
-        tk.Label(stats_frame, text="Net PnL", bg=BG, fg=FG_GREY,
-                 font=('Consolas', 8)).grid(row=0, column=0, padx=12)
-        tk.Label(stats_frame, text="Win Rate", bg=BG, fg=FG_GREY,
-                 font=('Consolas', 8)).grid(row=0, column=1, padx=12)
-        tk.Label(stats_frame, text="Trades", bg=BG, fg=FG_GREY,
-                 font=('Consolas', 8)).grid(row=0, column=2, padx=12)
+        for col, lbl in enumerate(("Net PnL", "Win Rate", "Trades")):
+            tk.Label(stats_frame, text=lbl, bg=BG, fg=FG_GREY,
+                     font=('Consolas', 8)).grid(row=0, column=col, padx=20)
 
         self._pnl_var    = tk.StringVar(value="$0")
         self._wr_var     = tk.StringVar(value="—")
         self._trades_var = tk.StringVar(value="0")
 
         self._pnl_lbl = tk.Label(stats_frame, textvariable=self._pnl_var, bg=BG,
-                                  fg=FG_GREEN, font=('Consolas', 13, 'bold'))
-        self._pnl_lbl.grid(row=1, column=0, padx=12)
-
+                                  fg=FG_GREEN, font=('Consolas', 14, 'bold'))
+        self._pnl_lbl.grid(row=1, column=0, padx=20)
         tk.Label(stats_frame, textvariable=self._wr_var, bg=BG,
-                 fg=FG_WHITE, font=('Consolas', 13, 'bold')).grid(row=1, column=1, padx=12)
-
+                 fg=FG_WHITE, font=('Consolas', 14, 'bold')).grid(row=1, column=1, padx=20)
         tk.Label(stats_frame, textvariable=self._trades_var, bg=BG,
-                 fg=FG_WHITE, font=('Consolas', 13, 'bold')).grid(row=1, column=2, padx=12)
+                 fg=FG_WHITE, font=('Consolas', 14, 'bold')).grid(row=1, column=2, padx=20)
+
+        # ── PnL control chart ─────────────────────────────────────────────────
+        tk.Label(root, text="PnL Curve", bg=BG, fg=FG_GREY,
+                 font=('Consolas', 8)).pack(pady=(14, 2))
+        self._canvas = tk.Canvas(root, width=self._CHART_W, height=self._CHART_H,
+                                 bg='#141414', highlightthickness=1,
+                                 highlightbackground='#333333')
+        self._canvas.pack(padx=20)
+
+        # ── Status footer ─────────────────────────────────────────────────────
+        self._status_var = tk.StringVar(value="Running...")
+        tk.Label(root, textvariable=self._status_var, bg=BG, fg=FG_GREY,
+                 font=('Consolas', 8)).pack(pady=(8, 10))
 
         self.root.after(250, self._poll)
 
+    # ── Chart ─────────────────────────────────────────────────────────────────
+    def _redraw_chart(self):
+        c = self._canvas
+        c.delete('all')
+        pts = self._pnl_history
+        if len(pts) < 2:
+            c.create_text(self._CHART_W // 2, self._CHART_H // 2,
+                          text="Waiting for data...", fill=FG_GREY,
+                          font=('Consolas', 9))
+            return
+
+        W, H, pad = self._CHART_W, self._CHART_H, 6
+        mn, mx = min(pts), max(pts)
+        span = mx - mn if mx != mn else 1.0
+
+        # Zero baseline
+        zero_y = H - pad - max(0.0, (0 - mn) / span) * (H - 2 * pad)
+        zero_y = max(pad, min(H - pad, zero_y))
+        c.create_line(pad, zero_y, W - pad, zero_y, fill='#444444', dash=(3, 3))
+
+        # Polyline coords
+        coords = []
+        for i, v in enumerate(pts):
+            x = pad + i / (len(pts) - 1) * (W - 2 * pad)
+            y = H - pad - ((v - mn) / span) * (H - 2 * pad)
+            coords.extend([x, y])
+
+        # Shaded fill under curve
+        fill_pts = [pad, zero_y] + coords + [W - pad, zero_y]
+        shade = '#002200' if pts[-1] >= 0 else '#220000'
+        c.create_polygon(fill_pts, fill=shade, outline='')
+
+        # Curve line
+        color = FG_GREEN if pts[-1] >= 0 else FG_RED
+        c.create_line(coords, fill=color, width=2, smooth=True)
+
+        # Current value label at right end
+        last_x = coords[-2]
+        last_y = coords[-1]
+        sign = '+' if pts[-1] >= 0 else ''
+        c.create_text(last_x - 2, last_y - 9,
+                      text=f"{sign}${pts[-1]:,.0f}",
+                      fill=color, font=('Consolas', 7, 'bold'), anchor='e')
+
+    # ── Queue polling ─────────────────────────────────────────────────────────
     def _poll(self):
         try:
             while True:
@@ -488,14 +551,23 @@ class ProgressPopup:
                         sign = '+' if pnl >= 0 else ''
                         self._pnl_var.set(f"{sign}${pnl:,.0f}")
                         self._pnl_lbl.config(fg=FG_GREEN if pnl >= 0 else FG_RED)
+                        self._pnl_history.append(pnl)
+                        self._redraw_chart()
                     if wr is not None:
                         self._wr_var.set(f"{wr:.1f}%")
                     if trades is not None:
                         self._trades_var.set(f"{trades:,}")
 
+                    if step == 'FORWARD_PASS COMPLETE':
+                        self._done = True
+                        self._status_var.set("COMPLETE — close window when ready")
+                        self._phase_var.set("Done")
+                        self.root.attributes('-topmost', False)
+
                 elif mtype == 'SHUTDOWN':
-                    self.root.destroy()
-                    return
+                    if not self._done:
+                        self._status_var.set("Stopped — close window when ready")
+                    return  # stop polling; window stays open
         except Exception:
             pass
         self.root.after(250, self._poll)
