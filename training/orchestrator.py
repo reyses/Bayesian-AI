@@ -568,6 +568,8 @@ class BayesianTrainingOrchestrator:
         account_ruined   = False    # True if equity drops below margin (cannot trade)
         ruin_day         = None     # Date string when ruin occurred
         skipped_ruin     = 0        # Trade entries skipped due to insufficient equity
+        skipped_rr       = 0        # Trade entries skipped due to poor R:R (TP < SL)
+        _rr_records      = []       # (tp_ticks, sl_ticks) for every trade opened
 
         if _equity_enabled:
             print(f"  Account constraint: start=${account_size:.2f}  margin/contract=${_NINJATRADER_MNQ_MARGIN:.2f}")
@@ -1223,6 +1225,21 @@ class BayesianTrainingOrchestrator:
                             else:
                                 _tp_ticks = params.get('take_profit_ticks', 50)
 
+                        # ── R:R gate ─────────────────────────────────────────
+                        # Skip trades where TP < SL (risking more than we can gain).
+                        # Threshold 0.75: TP must be at least 75% of SL.
+                        # This eliminates the zero-edge low-R:R trades that drag avg PnL to ~$0.
+                        if _tp_ticks < _sl_ticks * 0.75:
+                            skipped_rr += 1
+                            _candidate_gate[id(best_candidate)] = 'gate_rr'
+                            decision_matrix_records.append(_dm_rec(
+                                best_candidate, 'gate_rr', day_date, ts,
+                                oracle_records=None, pattern_dna=pattern_dna))
+                            continue
+
+                        # Record R:R for this trade
+                        _rr_records.append((_tp_ticks, _sl_ticks))
+
                         # ── Equity risk gate ─────────────────────────────────
                         # When account_size is set, skip trades whose max loss
                         # (SL in $) would consume more than half the remaining
@@ -1372,6 +1389,11 @@ class BayesianTrainingOrchestrator:
                         _bp_tp_ticks = (max(8, int(round(_bypass_belief.predicted_mfe)))
                                         if _bypass_belief.predicted_mfe > 2.0 else 20)
 
+                        # Bypass R:R gate
+                        if _bp_tp_ticks < _bp_sl_ticks * 0.75:
+                            skipped_rr += 1
+                            continue
+
                         _bypass_risk_ok = True
                         if _equity_enabled:
                             _max_loss_usd = _bp_sl_ticks * self.asset.tick_size * self.asset.point_value
@@ -1380,6 +1402,7 @@ class BayesianTrainingOrchestrator:
                                 _bypass_risk_ok = False
 
                         if _bypass_risk_ok:
+                            _rr_records.append((_bp_tp_ticks, _bp_sl_ticks))
                             self.wave_rider.open_position(
                                 entry_price=price,
                                 side=side,
@@ -1720,6 +1743,7 @@ class BayesianTrainingOrchestrator:
             report_lines.append(f"    Gate 1 (dist > 3.0, no match):  {skip_dist:>6,}  ({_pct_s(skip_dist)})")
             report_lines.append(f"    Gate 2 (brain rejected):        {skip_brain:>6,}  ({_pct_s(skip_brain)})")
             report_lines.append(f"    Gate 3 (conviction < thresh):   {skip_conviction:>6,}  ({_pct_s(skip_conviction)})")
+            report_lines.append(f"    Gate 3.5 (R:R < 0.75):         {skipped_rr:>6,}  ({_pct_s(skipped_rr)})")
             report_lines.append(f"    Passed all gates -> traded:     {n_traded:>6,}  ({_pct_s(n_traded)})")
 
         # ── 2c. Traded signal depth distribution ─────────────────────────────────
@@ -1806,6 +1830,28 @@ class BayesianTrainingOrchestrator:
             report_lines.append(f"    Trail-tightened:    {_stats(b_tight)}")
             report_lines.append(f"    Trail-widened:      {_stats(b_widen)}")
             report_lines.append(f"    Standard trail:     {_stats(b_standard)}")
+
+        # ── 2f-ii. Risk/Reward magnitude analysis ────────────────────────────────
+        if _rr_records:
+            import numpy as _np_rr
+            _tp_arr = _np_rr.array([r[0] for r in _rr_records], dtype=float)
+            _sl_arr = _np_rr.array([r[1] for r in _rr_records], dtype=float)
+            _rr_arr = _tp_arr / _np_rr.maximum(_sl_arr, 1.0)
+            _tick_val = self.asset.tick_size * self.asset.point_value   # $ per tick
+            report_lines.append("")
+            report_lines.append(f"  TRADE RISK/REWARD SIZING  (skipped by R:R gate: {skipped_rr})")
+            report_lines.append(f"    {'Metric':<20} {'TP (ticks)':>12} {'SL (ticks)':>12} {'TP/SL ratio':>12}")
+            report_lines.append(f"    {'------':<20} {'----------':>12} {'----------':>12} {'-----------':>12}")
+            report_lines.append(f"    {'Mean':<20} {_tp_arr.mean():>12.1f} {_sl_arr.mean():>12.1f} {_rr_arr.mean():>12.2f}")
+            report_lines.append(f"    {'Median':<20} {_np_rr.median(_tp_arr):>12.1f} {_np_rr.median(_sl_arr):>12.1f} {_np_rr.median(_rr_arr):>12.2f}")
+            report_lines.append(f"    {'P25':<20} {_np_rr.percentile(_tp_arr,25):>12.1f} {_np_rr.percentile(_sl_arr,25):>12.1f} {_np_rr.percentile(_rr_arr,25):>12.2f}")
+            report_lines.append(f"    {'P75':<20} {_np_rr.percentile(_tp_arr,75):>12.1f} {_np_rr.percentile(_sl_arr,75):>12.1f} {_np_rr.percentile(_rr_arr,75):>12.2f}")
+            report_lines.append(f"    In $: avg TP=${_tp_arr.mean()*_tick_val:,.1f}  avg SL=${_sl_arr.mean()*_tick_val:,.1f}")
+            # Bucket distribution
+            _b1 = (_rr_arr < 0.75).sum(); _b2 = ((_rr_arr>=0.75)&(_rr_arr<1.0)).sum()
+            _b3 = ((_rr_arr>=1.0)&(_rr_arr<2.0)).sum(); _b4 = (_rr_arr>=2.0).sum()
+            _n = len(_rr_arr)
+            report_lines.append(f"    R:R distribution: <0.75={_b1}({100*_b1/_n:.0f}%)  0.75-1={_b2}({100*_b2/_n:.0f}%)  1-2={_b3}({100*_b3/_n:.0f}%)  ≥2={_b4}({100*_b4/_n:.0f}%)")
 
         # ── 2g. Worker agreement analysis ────────────────────────────────────────
         # For each TF worker: what fraction of the time did it agree with the
@@ -1904,6 +1950,51 @@ class BayesianTrainingOrchestrator:
                     diff  = (lfr - wfr) if (lfr is not None and wfr is not None) else 0.0
                     flag  = "  <-- flip predicts loss" if diff >= 0.15 else ""
                     report_lines.append(f"    {tf:<6} WIN flip={wfr_s}  LOSS flip={lfr_s}  diff={diff:>+.2f}{flag}")
+
+        # ── 2b. Time-of-day session breakdown ────────────────────────────────────
+        if oracle_trade_records:
+            import math as _math
+            _ET_OFFSET = -5   # EST (UTC-5); DST months will be 1h off — acceptable for session analysis
+            _SESSIONS = [
+                ('Asia/Overnight', {17,18,19,20,21,22,23,0}),
+                ('Europe/PreMkt',  {1,2,3,4,5,6,7,8}),
+                ('US Open',        {9,10}),
+                ('US Mid-session', {11,12,13}),
+                ('US Close',       {14,15,16}),
+            ]
+            _hour_buckets = {}   # hour(ET) -> [pnl, ...]
+            for _r in oracle_trade_records:
+                _et_hour = int((_r['entry_time'] // 3600 + _ET_OFFSET) % 24)
+                _hour_buckets.setdefault(_et_hour, []).append(_r['actual_pnl'])
+
+            report_lines.append("")
+            report_lines.append(f"  TIME-OF-DAY BREAKDOWN (ET):")
+            report_lines.append(f"    {'Hour':<6} {'Trades':>6}  {'WR':>5}  {'Total PnL':>12}  {'Avg/trade':>10}")
+            report_lines.append(f"    {'----':<6} {'------':>6}  {'--':>5}  {'----------':>12}  {'---------':>10}")
+            for _h in sorted(_hour_buckets.keys()):
+                _pnls = _hour_buckets[_h]
+                _n    = len(_pnls)
+                _wr   = sum(1 for p in _pnls if p > 0) / _n
+                _tot  = sum(_pnls)
+                _avg  = _tot / _n
+                _flag = '  <- AVOID' if _tot < 0 else ('  <- BEST' if _avg > 25 else '')
+                report_lines.append(
+                    f"    {_h:02d}:00  {_n:>6,}  {_wr*100:>4.0f}%  ${_tot:>11,.0f}  ${_avg:>9.2f}{_flag}")
+
+            report_lines.append("")
+            report_lines.append(f"  SESSION SUMMARY:")
+            report_lines.append(f"    {'Session':<18} {'Trades':>6}  {'WR':>5}  {'Total PnL':>12}  {'Avg/trade':>10}")
+            for _sname, _hours in _SESSIONS:
+                _spnls = [p for _h, _ps in _hour_buckets.items() if _h in _hours for p in _ps]
+                if not _spnls:
+                    continue
+                _sn   = len(_spnls)
+                _swr  = sum(1 for p in _spnls if p > 0) / _sn
+                _stot = sum(_spnls)
+                _savg = _stot / _sn
+                _flag = '  <- AVOID' if _stot < 0 else ('  <- BEST' if _savg > 20 else '')
+                report_lines.append(
+                    f"    {_sname:<18} {_sn:>6,}  {_swr*100:>4.0f}%  ${_stot:>11,.0f}  ${_savg:>9.2f}{_flag}")
 
         # ── 3. Of trades taken ───────────────────────────────────────────────────
         tp_recs       = [r for r in oracle_trade_records if r['oracle_label'] != 0 and
@@ -2194,6 +2285,7 @@ class BayesianTrainingOrchestrator:
                 'gate1':             'Gate 1  no cluster match (dist>4.5)',
                 'gate2':             'Gate 2  brain rejected',
                 'gate3':             'Gate 3  conviction below threshold',
+                'gate_rr':           'Gate 3.5 R:R < 0.75 (TP < 0.75×SL)',
                 'passed':            'Passed gates, lost to better score',
                 'unknown':           'Unknown (pre-gate tracking)',
             }
@@ -2206,7 +2298,7 @@ class BayesianTrainingOrchestrator:
             report_lines.append(f"  FN GATE BREAKDOWN (which gate blocked profitable signals):")
             for _gk in ['gate0', 'gate0_noise', 'gate0_r3_snap', 'gate0_r3_struct',
                         'gate0_r4_nightmare', 'gate0_r4_struct',
-                        'gate0_5', 'gate1', 'gate2', 'gate3', 'passed', 'unknown']:
+                        'gate0_5', 'gate1', 'gate2', 'gate3', 'gate_rr', 'passed', 'unknown']:
                 _gc = _gate_counts.get(_gk, 0)
                 if _gc == 0 and _gk == 'unknown':
                     continue
@@ -2752,14 +2844,16 @@ class BayesianTrainingOrchestrator:
             print(f"  WARNING: Path does not exist!")
 
         # Launch Dashboard / Progress Popup
-        if DASHBOARD_AVAILABLE and getattr(self.config, 'progress_popup', False):
-            self.dashboard_thread = threading.Thread(
-                target=launch_progress_popup, args=(self.dashboard_queue,), daemon=True)
-            self.dashboard_thread.start()
-            print("Progress popup launching...")
-            time.sleep(1)
-        elif not self.config.no_dashboard and DASHBOARD_AVAILABLE:
-            self.launch_dashboard()
+        # Default: lightweight popup. --dashboard: full dashboard. --no-dashboard: no UI.
+        if not self.config.no_dashboard and DASHBOARD_AVAILABLE:
+            if getattr(self.config, 'dashboard', False):
+                self.launch_dashboard()
+            else:
+                self.dashboard_thread = threading.Thread(
+                    target=launch_progress_popup, args=(self.dashboard_queue,), daemon=True)
+                self.dashboard_thread.start()
+                print("Progress popup launching...")
+                time.sleep(1)
 
         # ===================================================================
         # PHASE 2: Pattern Discovery (with checkpoint/resume)
@@ -3704,8 +3798,8 @@ def main():
     parser.add_argument('--data', default=os.path.join("DATA", "ATLAS"), help="Path to ATLAS root, single TF directory, or parquet file")
     parser.add_argument('--iterations', type=int, default=1000, help="Iterations per pattern (default: 1000)")
     parser.add_argument('--checkpoint-dir', type=str, default="checkpoints", help="Checkpoint directory")
-    parser.add_argument('--no-dashboard', action='store_true', help="Disable live dashboard")
-    parser.add_argument('--progress-popup', action='store_true', help="Show lightweight progress popup instead of full dashboard")
+    parser.add_argument('--no-dashboard', action='store_true', help="Disable all UI (popup and dashboard)")
+    parser.add_argument('--dashboard', action='store_true', help="Show full live dashboard instead of default lightweight popup")
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
     parser.add_argument('--fresh', action='store_true', help="Clear all pipeline checkpoints and start fresh")
