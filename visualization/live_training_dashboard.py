@@ -433,22 +433,25 @@ class ProgressPopup:
         tk.Label(root, text="BAYESIAN-AI TRAINING", bg=BG, fg=FG_WHITE,
                  font=('Consolas', 12, 'bold')).pack(pady=(14, 2))
 
+        # Phase name (bold, amber) — e.g. "FORWARD PASS"
         self._phase_var = tk.StringVar(value="Initializing...")
         tk.Label(root, textvariable=self._phase_var, bg=BG, fg=FG_AMBER,
-                 font=('Consolas', 10, 'bold')).pack()
+                 font=('Consolas', 11, 'bold')).pack()
 
+        # Progress detail line — e.g. "Day 126 / 250" or sub-step name
         self._step_var = tk.StringVar(value="")
-        tk.Label(root, textvariable=self._step_var, bg=BG, fg=FG_WHITE,
-                 font=('Consolas', 9)).pack(pady=(2, 4))
+        tk.Label(root, textvariable=self._step_var, bg=BG, fg=FG_GREY,
+                 font=('Consolas', 9)).pack(pady=(1, 3))
 
         # ── Progress bar ──────────────────────────────────────────────────────
         self._pbar = ttk.Progressbar(root, style="Popup.Horizontal.TProgressbar",
                                      orient='horizontal', length=420, mode='determinate')
         self._pbar.pack()
 
-        self._pct_var = tk.StringVar(value="0.0%")
-        tk.Label(root, textvariable=self._pct_var, bg=BG, fg=FG_GREY,
-                 font=('Consolas', 8)).pack(pady=(3, 10))
+        # Percentage label — prominent, right-aligned feel
+        self._pct_var = tk.StringVar(value="0%")
+        tk.Label(root, textvariable=self._pct_var, bg=BG, fg=FG_WHITE,
+                 font=('Consolas', 10, 'bold')).pack(pady=(3, 10))
 
         # ── Stats row ─────────────────────────────────────────────────────────
         stats_frame = tk.Frame(root, bg=BG)
@@ -542,8 +545,29 @@ class ProgressPopup:
                     trades = msg.get('trades')
                     wr     = msg.get('wr')
 
-                    self._phase_var.set(f"Phase: {phase}")
-                    self._step_var.set(step)
+                    # Derive a clean phase label and a day/detail sub-line
+                    # step format: "FORWARD_PASS  day 126/250" or "FORWARD_PASS COMPLETE" etc.
+                    import re as _re
+                    _day_m = _re.search(r'day\s+(\d+)/(\d+)', step, _re.I)
+                    if _day_m:
+                        _cur, _tot = int(_day_m.group(1)), int(_day_m.group(2))
+                        phase_label = "FORWARD PASS"
+                        detail      = f"Day {_cur} / {_tot}"
+                    elif step == 'FORWARD_PASS COMPLETE':
+                        phase_label = "FORWARD PASS"
+                        detail      = "Complete"
+                    elif step == 'STRATEGY_SELECTION':
+                        phase_label = "STRATEGY SELECTION"
+                        detail      = ""
+                    elif step == 'FORWARD_PASS':
+                        phase_label = "FORWARD PASS"
+                        detail      = "Starting..."
+                    else:
+                        phase_label = phase or step
+                        detail      = step if phase else ""
+
+                    self._phase_var.set(phase_label)
+                    self._step_var.set(detail)
                     self._pbar['value'] = pct
                     self._pct_var.set(f"{pct:.1f}%")
 
@@ -561,7 +585,7 @@ class ProgressPopup:
                     if step == 'FORWARD_PASS COMPLETE':
                         self._done = True
                         self._status_var.set("COMPLETE — close window when ready")
-                        self._phase_var.set("Done")
+                        self._pct_var.set("100%")
                         self.root.attributes('-topmost', False)
 
                 elif mtype == 'SHUTDOWN':
