@@ -367,6 +367,15 @@ class BayesianTrainingOrchestrator:
                           running equity drops below NinjaTrader MNQ intraday margin
                           ($50/contract). Report shows equity curve + max drawdown.
         """
+        # Launch UI — popup by default, full dashboard with --dashboard, nothing with --no-dashboard
+        # (run_forward_pass is called directly for --forward-pass so we launch here too)
+        if not getattr(self.config, 'no_dashboard', False) and DASHBOARD_AVAILABLE:
+            if not self.dashboard_thread or not self.dashboard_thread.is_alive():
+                if getattr(self.config, 'dashboard', False):
+                    self.launch_dashboard()
+                else:
+                    self.launch_popup()
+
         print("\n" + "="*80)
         if oos_mode:
             print("OOS BLIND SIMULATION (templates/scaler frozen from training)")
