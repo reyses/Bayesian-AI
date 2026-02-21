@@ -682,13 +682,22 @@ class FractalDiscoveryAgent:
 
     def _build_parent_chain(self, p: PatternEvent) -> List[Dict]:
         """Builds the full parent chain for a given pattern."""
+        s = getattr(p, 'state', None)
         chain_entry = {
-            'tf': p.timeframe,
-            'type': p.pattern_type,
-            'z': p.z_score,
-            'mom': p.momentum,
-            'coh': p.coherence,
-            'timestamp': p.timestamp,
+            'tf':           p.timeframe,
+            'type':         p.pattern_type,
+            'z':            p.z_score,
+            'velocity':     getattr(p, 'velocity', 0.0),
+            'mom':          p.momentum,
+            'coh':          p.coherence,
+            'adx':          getattr(s, 'adx_strength', 0.0)          if s else 0.0,
+            'hurst':        getattr(s, 'hurst_exponent', 0.5)        if s else 0.5,
+            'dmi_plus':     getattr(s, 'dmi_plus', 0.0)              if s else 0.0,
+            'dmi_minus':    getattr(s, 'dmi_minus', 0.0)             if s else 0.0,
+            'pid':          getattr(s, 'term_pid', 0.0)              if s else 0.0,
+            'osc_coh':      getattr(s, 'oscillation_coherence', 0.0) if s else 0.0,
+            'rel_volume':   getattr(s, 'rel_volume', 1.0)            if s else 1.0,
+            'timestamp':    p.timestamp,
             'oracle_marker': getattr(p, 'oracle_marker', 0),
         }
         return [chain_entry] + (p.parent_chain or [])
