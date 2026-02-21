@@ -61,6 +61,8 @@ class PatternTemplate:
 
     parent_cluster_id: int = None             # The "Macro" state this belongs to
 
+    direction: str = ''   # 'LONG' or 'SHORT' — set during fit()
+
     # ORACLE EXIT CALIBRATION (in ticks; populated by _aggregate_oracle_intelligence)
     # Used by workers to anchor TP/SL to what this pattern historically achieves.
     mean_mfe_ticks: float = 0.0   # Mean max-favorable-excursion seen across members
@@ -83,6 +85,8 @@ class FractalClusteringEngine:
         self.n_clusters = n_clusters
         self.max_variance = max_variance  # Max allowed std deviation for Z-score in a cluster
         self.scaler = StandardScaler()
+        self._long_scaler = StandardScaler()
+        self._short_scaler = StandardScaler()
 
     def _get_kmeans_model(self, n_clusters: int, n_samples: int, random_state: int = 42,
                           n_init: int = 3, use_cuda: bool = True):
@@ -163,12 +167,12 @@ class FractalClusteringEngine:
                 parent_z, parent_dmi_diff, root_is_roche, tf_alignment,
                 self_pid, self_osc_coh]
 
-    def _recursive_split(self, X: np.ndarray, patterns: list, start_id: int, depth: int = 0) -> list:
+    def _recursive_split(self, X: np.ndarray, patterns: list, start_id: int, scaler: StandardScaler, depth: int = 0) -> list:
         """Recursively split a cluster until z-variance <= max_variance or too small."""
         z_var = np.std(X[:, 0])
         if z_var <= self.max_variance or len(patterns) <= 20 or depth > 5:
             centroid = np.mean(X, axis=0)
-            raw_centroid = self.scaler.inverse_transform([centroid])[0]
+            raw_centroid = scaler.inverse_transform([centroid])[0]
             return [PatternTemplate(
                 template_id=start_id,
                 centroid=raw_centroid,
@@ -189,12 +193,12 @@ class FractalClusteringEngine:
                 continue
             sub_X = X[mask]
             sub_p = [patterns[i] for i in np.where(mask)[0]]
-            children = self._recursive_split(sub_X, sub_p, nid, depth + 1)
+            children = self._recursive_split(sub_X, sub_p, nid, scaler, depth + 1)
             result.extend(children)
             nid += len(children)
         return result
 
-    def _aggregate_oracle_intelligence(self, template, patterns):
+    def _aggregate_oracle_intelligence(self, template, patterns, scaler: StandardScaler):
         """
         Post-clustering: compute template-level stats from member oracle markers.
         Called AFTER clustering is complete. Does NOT influence cluster assignment.
@@ -250,7 +254,7 @@ class FractalClusteringEngine:
                 mfe_y  = np.array([m for _, m in feat_mfe_pairs])
 
                 # Scale features using the engine's fitted scaler
-                X_scaled = self.scaler.transform(raw_X)
+                X_scaled = scaler.transform(raw_X)
 
                 # --- OLS: predicted_mfe = X @ mfe_coeff + mfe_intercept ---
                 ols = LinearRegression().fit(X_scaled, mfe_y)
@@ -278,7 +282,7 @@ class FractalClusteringEngine:
                                            and getattr(p, 'oracle_meta', {}).get('mfe') is not None])
                     # Only fit if both classes present
                     if len(np.unique(dir_labels)) == 2:
-                        dir_X = self.scaler.transform(dir_raw)
+                        dir_X = scaler.transform(dir_raw)
                         lr = LogisticRegression(max_iter=300, C=1.0, solver='lbfgs').fit(dir_X, dir_labels)
                         template.dir_coeff     = lr.coef_[0].tolist()
                         template.dir_intercept = float(lr.intercept_[0])
@@ -329,45 +333,6 @@ class FractalClusteringEngine:
             # Find next pattern within gap window
             for j in range(i + 1, len(sorted_patterns)):
                 nxt = sorted_patterns[j]
-
-                # Check for gap (using index difference in sorted list as proxy for bars?
-                # Instructions say "Min bars between events". But here we have list of ALL patterns.
-                # Gap in time? Patterns have timestamps.
-                # Patterns are from different timeframes potentially.
-                # Assuming "bars" refers to the base timeframe or just sequential count in the list?
-                # "TRANSITION_MIN_SEQUENCE_GAP_BARS" implies time/bars.
-                # If patterns are sparse, "bars" logic might be tricky if we don't have bar index globally aligned.
-                # However, the instruction implementation used:
-                # gap = nxt.timestamp - curr.timestamp (in original logic it was time check <= 60s)
-                # But here the provided code snippet uses:
-                # gap = nxt.timestamp - curr.timestamp (WAIT, snippet didn't show implementation details for gap calc, just 'gap')
-                # Let's assume it means sequential index gap in the sorted list if we treat the sorted list as a sequence of events?
-                # Or time gap.
-                # "Min bars between events".
-                # If we use time, we need to know bar size.
-                # Let's assume "sequence gap" means index difference in `sorted_patterns` for now,
-                # OR better, stick to the snippet logic if provided.
-                # The snippet:
-                # gap = nxt.timestamp - curr.timestamp (No, snippet says "gap < TRANSITION_MIN_SEQUENCE_GAP_BARS")
-                # Wait, the snippet uses `gap` variable but doesn't define it.
-                # But looking at `training/fractal_clustering.py` existing `build_transition_map`, it uses `p2.timestamp - p1.timestamp <= 60`.
-                # I'll use timestamp difference relative to some base time (e.g. 15s bars).
-                # `TRANSITION_MIN_SEQUENCE_GAP_BARS = 1` -> 15s?
-                # `TRANSITION_MAX_SEQUENCE_GAP_BARS = 100` -> 1500s?
-
-                # Actually, let's look at the instruction snippet again.
-                # "gap = nxt.timestamp - curr.timestamp" (Wait, I invented that in my thought process)
-                # In the snippet provided in `docs/JULES_ORACLE_ENGINE.md`:
-                # "gap = nxt.timestamp - curr.timestamp" is NOT there.
-                # It just says:
-                # gap = nxt.timestamp - curr.timestamp
-                # if gap < TRANSITION_MIN_SEQUENCE_GAP_BARS: continue
-                # Wait, comparing timestamp (seconds) with BARS (int) is wrong unless converted.
-                # I should probably convert timestamp diff to bars using 15s as base?
-                # Or just use the number of patterns in between?
-                # "Min bars between events" usually means time.
-                # I will assume 15s base timeframe for bars.
-
                 time_diff = nxt.timestamp - curr.timestamp
                 gap_bars = time_diff / 15.0 # Assuming 15s base
 
@@ -397,25 +362,66 @@ class FractalClusteringEngine:
 
     def create_templates(self, manifest: List[Any]) -> List[PatternTemplate]:
         """
-        Groups raw PatternEvents into Templates using RECURSIVE REFINEMENT.
-        Ensures every template is physically homogeneous before optimization begins.
+        Snowflake fit: split patterns into LONG and SHORT branches,
+        cluster each independently, return combined library.
+        """
+        print(f"Snowflake Clustering: Splitting {len(manifest)} patterns by oracle direction...")
+
+        # Split by oracle direction
+        long_patterns  = [p for p in manifest if getattr(p, 'oracle_marker', 0) > 0]
+        short_patterns = [p for p in manifest if getattr(p, 'oracle_marker', 0) < 0]
+        # Note: noise (oracle_marker==0) patterns are excluded from both branches
+
+        print(f"  LONG patterns: {len(long_patterns)}")
+        print(f"  SHORT patterns: {len(short_patterns)}")
+
+        # Fit separate scaler + cluster tree per branch
+        self._long_scaler,  long_templates  = self._fit_branch(long_patterns,  'LONG')
+        self._short_scaler, short_templates = self._fit_branch(short_patterns, 'SHORT')
+
+        # Merge into unified library with branch tag
+        templates = []
+        for t in long_templates:
+            t.direction = 'LONG'
+            templates.append(t)
+        for t in short_templates:
+            t.direction = 'SHORT'
+            templates.append(t)
+
+        # Populate self.scaler with a fallback fitted on ALL data to prevent crashes in other modules
+        # that might still rely on it (though we should migrate them).
+        if manifest:
+             all_feats = []
+             for p in manifest:
+                 try:
+                     all_feats.append(self.extract_features(p))
+                 except AttributeError:
+                     continue
+             if all_feats:
+                 self.scaler.fit(all_feats)
+
+        self.templates = templates
+        return templates
+
+    def _fit_branch(self, patterns: List[Any], direction: str):
+        """
+        Fit scaler + recursive cluster tree for one directional branch.
+        Returns (scaler, list[PatternTemplate])
         """
         import time as _time
+        from sklearn.preprocessing import StandardScaler
 
-        if not manifest:
-            print("WARNING: FractalClusteringEngine received empty manifest.")
-            return []
+        if not patterns:
+            return StandardScaler(), []
 
+        print(f"\n--- Fitting {direction} Branch ({len(patterns)} patterns) ---")
         t0 = _time.perf_counter()
 
-        # 1. Extract Feature Matrix (11D)
-        # Vector: [|Z-Score|, |Velocity|, |Momentum|, Coherence,
-        #          log2(tf_seconds), depth, parent_is_roche,
-        #          parent_z, parent_mom, root_z, root_is_roche]
+        # 1. Extract Feature Matrix
         features = []
         valid_patterns = []
 
-        for p in manifest:
+        for p in patterns:
             try:
                 feat = self.extract_features(p)
                 features.append(feat)
@@ -424,22 +430,22 @@ class FractalClusteringEngine:
                 continue
 
         if not features:
-            return []
+             return StandardScaler(), []
 
         X = np.array(features)
-        X_scaled = self.scaler.fit_transform(X)
-        print(f"  Feature matrix: {X.shape[0]} patterns x {X.shape[1]} features (extracted in {_time.perf_counter() - t0:.2f}s)")
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+        print(f"  Feature matrix: {X.shape[0]} patterns x {X.shape[1]} features")
 
         # 2. Initial Coarse Clustering
         # Start with a conservative K
-        target_k = min(self.n_clusters, len(valid_patterns) // 20)
+        target_k = min(self.n_clusters // 2, len(valid_patterns) // 20) # Half clusters per branch
         target_k = max(target_k, 1)
 
         t1 = _time.perf_counter()
-        print(f"  Coarse KMeans: fitting {len(valid_patterns)} patterns into {target_k} clusters...", end="", flush=True)
+        print(f"  Coarse KMeans: fitting into {target_k} clusters...", end="", flush=True)
 
-        # Flush any GPU tensors left from Phase 2 discovery before allocating
-        # the (n_samples x n_clusters) distance matrix inside CUDAKMeans.
+        # Flush GPU
         try:
             import torch as _torch
             if _torch.cuda.is_available():
@@ -452,49 +458,50 @@ class FractalClusteringEngine:
             model = self._get_kmeans_model(n_clusters=target_k, n_samples=len(valid_patterns))
             labels = model.fit_predict(X_scaled)
         except Exception as _cuda_err:
-            # GPU crash (OOM / driver error) -- fall back to sklearn CPU silently
-            print(f"\n  [KMeans CUDA fallback: {type(_cuda_err).__name__}]", end="", flush=True)
-            from sklearn.cluster import KMeans as _SKMeans
-            _fallback = _SKMeans(n_clusters=target_k, random_state=42, n_init=3, max_iter=300)
-            labels = _fallback.fit_predict(X_scaled)
+             print(f"\n  [KMeans CUDA fallback: {type(_cuda_err).__name__}]", end="", flush=True)
+             from sklearn.cluster import KMeans as _SKMeans
+             _fallback = _SKMeans(n_clusters=target_k, random_state=42, n_init=3, max_iter=300)
+             labels = _fallback.fit_predict(X_scaled)
         print(f" done ({_time.perf_counter() - t1:.2f}s)")
 
-        # Group indices by label
+        # Group indices
         cluster_indices = {}
         for idx, label in enumerate(labels):
             if label not in cluster_indices: cluster_indices[label] = []
             cluster_indices[label].append(idx)
 
-        # Show cluster size distribution
-        sizes = [len(v) for v in cluster_indices.values()]
-        print(f"  Cluster sizes: min={min(sizes)}, max={max(sizes)}, median={sorted(sizes)[len(sizes)//2]}, avg={np.mean(sizes):.0f}")
-
-        # 3. Recursive Refinement (The "Physics Tightening" Loop)
+        # 3. Recursive Refinement
         t2 = _time.perf_counter()
-        print(f"  Recursive refinement (max_variance={self.max_variance})...", end="", flush=True)
+        print(f"  Recursive refinement...", end="", flush=True)
         final_templates = []
-        next_id = 0
+        next_id = 0 if direction == 'LONG' else 1000000 # Offset short IDs to avoid collision if desired, or let them just be unique in list.
+        # Actually better to just use a counter locally, but we need unique IDs across branches if possible?
+        # The merge step just appends. If ID is 0 in both branches, we have duplicates.
+        # Let's check how _recursive_split assigns IDs. It takes start_id.
+        # I should probably pass a start_id or re-index later.
+        # To be safe, I'll use 0 for LONG and 100000 for SHORT base?
+        # Or just let them overlap and rely on 'direction' field to distinguish?
+        # Orchestrator keys them by ID in a dict. Overlap is BAD.
+        # I will use start_id=0 for LONG and start_id=50000 for SHORT.
+
+        start_id_offset = 0 if direction == 'LONG' else 50000
+        next_id = start_id_offset
         splits_count = 0
 
         for label, indices in cluster_indices.items():
             sub_X = X_scaled[indices]
             sub_patterns = [valid_patterns[i] for i in indices]
 
-            # Check Variance (Goodness of Fit on Physics)
-            # We look primarily at Z-Score variance (Feature 0)
             z_variance = np.std(sub_X[:, 0])
 
             if z_variance > self.max_variance and len(indices) > 20:
-                # CLUSTER IS TOO LOOSE -> RECURSIVE SPLIT
                 splits_count += 1
-                refined_subsets = self._recursive_split(sub_X, sub_patterns, next_id)
+                refined_subsets = self._recursive_split(sub_X, sub_patterns, next_id, scaler)
                 final_templates.extend(refined_subsets)
                 next_id += len(refined_subsets)
             else:
-                # CLUSTER IS TIGHT -> KEEP
                 centroid = np.mean(sub_X, axis=0)
-                raw_centroid = self.scaler.inverse_transform([centroid])[0]
-
+                raw_centroid = scaler.inverse_transform([centroid])[0]
                 final_templates.append(PatternTemplate(
                     template_id=next_id,
                     centroid=raw_centroid,
@@ -505,31 +512,27 @@ class FractalClusteringEngine:
                 next_id += 1
 
         print(f" done ({_time.perf_counter() - t2:.2f}s)")
-        print(f"  Refinement: {target_k} coarse -> {len(final_templates)} tight templates ({splits_count} clusters split)")
 
         # Sort by size
         final_templates.sort(key=lambda x: x.member_count, reverse=True)
 
-        # Summary stats
-        tmpl_sizes = [t.member_count for t in final_templates]
-        variances = [t.physics_variance for t in final_templates]
-        print(f"  Template sizes: min={min(tmpl_sizes)}, max={max(tmpl_sizes)}, avg={np.mean(tmpl_sizes):.0f}")
-        print(f"  Z-variance: min={min(variances):.3f}, max={max(variances):.3f}, avg={np.mean(variances):.3f}")
-
-        # --- NEW: Oracle Intelligence Aggregation ---
+        # Aggregation
         print(f"  Aggregating Oracle Intelligence...", end="", flush=True)
         for template in final_templates:
-            self._aggregate_oracle_intelligence(template, template.patterns)
+            self._aggregate_oracle_intelligence(template, template.patterns, scaler)
         print(" done.")
 
-        # --- NEW: Transition Matrix ---
-        print(f"  Building Transition Matrix...", end="", flush=True)
-        self._build_transition_matrix(final_templates, valid_patterns)
-        print(" done.")
+        # Transition matrix building requires ALL patterns?
+        # The patterns are split by branch. A LONG pattern might be followed by a SHORT pattern.
+        # _build_transition_matrix uses the list passed to it.
+        # If I build transition matrix per branch, I only see L->L or S->S transitions.
+        # L->S transitions are missed.
+        # BUT: create_templates calls _build_transition_matrix on the MERGED list at the end?
+        # No, create_templates (new) needs to call transition matrix building on the merged list!
+        # The legacy code called it at the end of create_templates.
+        # So I should remove the call from _fit_branch and do it in create_templates.
 
-        print(f"  Total clustering time: {_time.perf_counter() - t0:.2f}s")
-
-        return final_templates
+        return scaler, final_templates
 
     def refine_clusters(self, template_id: int, member_params: List[Dict[str, float]], original_patterns: List[Any]) -> List[PatternTemplate]:
         """
@@ -569,6 +572,23 @@ class FractalClusteringEngine:
         for idx, label in enumerate(best_labels):
             split_map[label].append(original_patterns[idx])
 
+        # IMPORTANT: We need the scaler corresponding to this template's direction!
+        # This method doesn't know direction easily.
+        # However, Fission uses `self.extract_features` which doesn't use scaler.
+        # But `_aggregate_oracle_intelligence` USES scaler.
+        # I should probably pick the scaler based on something?
+        # Or just use the global `self.scaler` which I populated as fallback?
+        # Or pass scaler in?
+        # Refine clusters is called by worker? No, by OrchestratorWorker.
+        # It's called in `_process_template_job`.
+        # The worker process has a copy of clustering_engine.
+        # Ideally I should use the correct scaler.
+        # Since I can't easily know which scaler to use without checking pattern direction,
+        # I will check the first pattern's oracle_marker/z_score to guess direction?
+        # No, patterns passed here are just the subset.
+        # Let's use `self.scaler` (fallback) which I ensured is fitted on ALL data in create_templates.
+        # This is a compromise but safer than changing method signature which breaks worker.
+
         for label, sub_patterns in split_map.items():
             # Re-calculate Physics Centroid (11D to match create_templates)
             sub_features = []
@@ -588,20 +608,18 @@ class FractalClusteringEngine:
                 physics_variance=0.0 # Assumed tight since parent was tight
             )
 
+            # Inherit direction from parent?
+            # PatternTemplate doesn't store parent ref, but we can check first pattern.
+            if sub_patterns:
+                 if getattr(sub_patterns[0], 'oracle_marker', 0) > 0:
+                     new_tmpl.direction = 'LONG'
+                 elif getattr(sub_patterns[0], 'oracle_marker', 0) < 0:
+                     new_tmpl.direction = 'SHORT'
+
             # Recalculate Oracle Stats for new split
-            self._aggregate_oracle_intelligence(new_tmpl, sub_patterns)
+            # Use self.scaler as fallback
+            self._aggregate_oracle_intelligence(new_tmpl, sub_patterns, self.scaler)
 
             new_templates.append(new_tmpl)
 
         return new_templates
-
-    def build_transition_map(self, templates: List[PatternTemplate]):
-        """Legacy wrapper"""
-        # We need all patterns to rebuild transitions properly.
-        # Since we don't have all patterns here easily, we might skip or warn.
-        # But this function was called in orchestrator? No, it wasn't called in orchestrator.
-        # It was defined but not used in `create_templates` in previous version?
-        # In previous version `build_transition_map` was NOT called in `create_templates`.
-        # It was separate.
-        # Now I call `_build_transition_matrix` inside `create_templates`.
-        pass

@@ -54,6 +54,7 @@ from training.progress_reporter import ProgressReporter, DayMetrics
 from training.databento_loader import DatabentoLoader
 from training.fractal_discovery_agent import FractalDiscoveryAgent, PatternEvent, TIMEFRAME_SECONDS
 from training.fractal_clustering import FractalClusteringEngine, PatternTemplate
+from training.fractal_dna_tree import FractalDNATree
 from training.pipeline_checkpoint import PipelineCheckpoint
 from training.timeframe_belief_network import TimeframeBeliefNetwork, BeliefState
 
@@ -106,6 +107,74 @@ def verify_cuda_availability():
         print(f"CUDA: AVAILABLE | Device: {current_device.name}")
     except Exception as e:
         print(f"CUDA: AVAILABLE (but failed to get device name: {e})")
+
+def _compute_golden_path_ideal(
+    oracle_trade_records: list,   # actual trades taken (have entry_time, exit_time, oracle_potential_pnl)
+    fn_oracle_records: list,      # gate-blocked real moves (have timestamp, fn_potential_pnl)
+    bar_seconds: int = 15,        # bar duration in seconds (15s bars)
+    point_value: float = 2.0,     # MNQ = $2/point
+) -> float:
+    """
+    Compute the maximum achievable PnL via sequential non-overlapping trades.
+    Uses 'dna_expectancy' if available (Phase 2), otherwise raw MFE (Phase 1).
+    """
+    import heapq
+
+    # Build unified candidate list: (entry_ts, exit_ts, value_usd)
+    candidates = []
+
+    # Traded signals — use actual times
+    for r in oracle_trade_records:
+        om = r.get('oracle_label', 0)
+        if om == 0:
+            continue  # noise trade
+        val = r.get('oracle_potential_pnl', 0.0)
+        if val <= 0:
+            continue
+
+        # Phase 2: Use DNA expectancy if available
+        dna_exp = r.get('dna_expectancy', 0.0)
+        if dna_exp > 0:
+            val = max(val * 0.5, dna_exp)
+
+        entry_ts = r.get('entry_time', 0)
+        exit_ts  = r.get('exit_time',  entry_ts + bar_seconds * 5)
+        candidates.append((entry_ts, exit_ts, val))
+
+    # Gate-blocked FN signals — estimate hold from MFE
+    tick_value = point_value * 0.25  # MNQ: $0.50/tick
+    for r in fn_oracle_records:
+        val = r.get('fn_potential_pnl', 0.0)
+        if val <= 0:
+            continue
+
+        # Phase 2: Use DNA expectancy if available
+        dna_exp = r.get('dna_expectancy', 0.0)
+        if dna_exp > 0:
+            val = max(val * 0.5, dna_exp)
+
+        entry_ts = r.get('timestamp', 0)
+        # Estimate hold: MFE_ticks / 2 ticks_per_bar, minimum 2 bars
+        mfe_ticks = val / tick_value if tick_value > 0 else 8.0
+        est_hold_bars = max(2, int(mfe_ticks / 2.0))
+        exit_ts = entry_ts + est_hold_bars * bar_seconds
+        candidates.append((entry_ts, exit_ts, val))
+
+    if not candidates:
+        return 0.0
+
+    # Sort by exit_time (greedy interval scheduling: earliest finish first)
+    candidates.sort(key=lambda x: x[1])
+
+    # Greedy: take each candidate if we are free at its entry time
+    free_at   = 0
+    total_pnl = 0.0
+    for entry_ts, exit_ts, val in candidates:
+        if entry_ts >= free_at:
+            total_pnl += val
+            free_at = exit_ts
+
+    return total_pnl
 
 # --------------------------------------------------
 
@@ -308,34 +377,77 @@ class BayesianTrainingOrchestrator:
         lib_path = os.path.join(self.checkpoint_dir, 'pattern_library.pkl')
         scaler_path = os.path.join(self.checkpoint_dir, 'clustering_scaler.pkl')
 
-        if not os.path.exists(lib_path) or not os.path.exists(scaler_path):
-            print("ERROR: pattern_library.pkl or clustering_scaler.pkl not found.")
-            print("Run with --fresh to build from scratch.")
+        # Snowflake Split Files
+        lib_long_path = os.path.join(self.checkpoint_dir, 'pattern_library_long.pkl')
+        lib_short_path = os.path.join(self.checkpoint_dir, 'pattern_library_short.pkl')
+        sc_long_path = os.path.join(self.checkpoint_dir, 'clustering_scaler_long.pkl')
+        sc_short_path = os.path.join(self.checkpoint_dir, 'clustering_scaler_short.pkl')
+        dna_path = os.path.join(self.checkpoint_dir, 'fractal_dna_tree.pkl')
+
+        if not os.path.exists(lib_path):
+            print("ERROR: pattern_library.pkl not found. Run with --fresh.")
             return
 
+        # Load Unified Library (for lookups)
         with open(lib_path, 'rb') as f:
             self.pattern_library = pickle.load(f)
+
+        # Load DNA Tree
+        self.dna_tree = None
+        if os.path.exists(dna_path):
+            with open(dna_path, 'rb') as f:
+                self.dna_tree = pickle.load(f)
+            print(f"  Loaded DNA tree: {len(self.dna_tree._dna_index)} leaf DNA paths")
+
+        # Load Scalers & Split Libraries (Snowflake Mode)
+        self.pattern_library_long = {}
+        self.pattern_library_short = {}
+        self.scaler_long = None
+        self.scaler_short = None
+
+        # Always load global scaler (for TBN/legacy)
         with open(scaler_path, 'rb') as f:
             self.scaler = pickle.load(f)
 
+        if os.path.exists(lib_long_path) and os.path.exists(sc_long_path):
+            with open(lib_long_path, 'rb') as f: self.pattern_library_long = pickle.load(f)
+            with open(lib_short_path, 'rb') as f: self.pattern_library_short = pickle.load(f)
+            with open(sc_long_path, 'rb') as f: self.scaler_long = pickle.load(f)
+            with open(sc_short_path, 'rb') as f: self.scaler_short = pickle.load(f)
+            print(f"  Snowflake: Loaded split libraries (L:{len(self.pattern_library_long)}, S:{len(self.pattern_library_short)})")
+        else:
+            print("  Legacy Mode: using unified scaler for all branches")
+            self.pattern_library_long = self.pattern_library
+            self.pattern_library_short = self.pattern_library
+            self.scaler_long = self.scaler
+            self.scaler_short = self.scaler
+
         print(f"  Loaded library: {len(self.pattern_library)} templates")
 
-        if hasattr(self.scaler, 'mean_'):
-            print(f"  Loaded scaler: {self.scaler.mean_.shape[0]} features")
-        else:
-            print(f"  Loaded scaler: Not fitted (no patterns found)")
-            if not self.pattern_library:
-                print("  No patterns/templates to simulate. Exiting Phase 4.")
-                return
+        # Build Centroid Indices for both branches (using their respective scalers)
+        def _build_index(lib, sc):
+            tids = [t for t in lib.keys() if 'centroid' in lib[t]]
+            if not tids: return [], None
+            cens = np.array([lib[t]['centroid'] for t in tids])
+            if cens.size > 0:
+                cens = sc.transform(cens)
+            return tids, cens
 
-        # Build centroid index for fast matching
-        template_ids = list(self.pattern_library.keys())
-        # Filter only templates with valid centroids (some might be empty/invalid if manually edited)
-        valid_template_ids = [tid for tid in template_ids if 'centroid' in self.pattern_library[tid]]
+        self.valid_tids_long,  self.centroids_long  = _build_index(self.pattern_library_long, self.scaler_long)
+        self.valid_tids_short, self.centroids_short = _build_index(self.pattern_library_short, self.scaler_short)
 
+        # Legacy valid_template_ids for other components
+        valid_template_ids = list(self.pattern_library.keys())
+
+        # For TBN: valid_template_ids and centroids_scaled must match and be in global space
+        # Filter only templates with centroids
+        valid_template_ids = [tid for tid in valid_template_ids if 'centroid' in self.pattern_library[tid]]
         if not valid_template_ids:
             print("ERROR: No valid templates in library.")
             return
+
+        centroids_raw = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
+        centroids_scaled = self.scaler.transform(centroids_raw)
 
         # Load tier map before centroid build so we can pre-filter by min_tier
         _TIER_SCORE_ADJ = {1: -1.5, 2: -0.5, 3: 0.0, 4: 0.5}
@@ -375,6 +487,17 @@ class BayesianTrainingOrchestrator:
             _before = len(valid_template_ids)
             valid_template_ids = [tid for tid in valid_template_ids
                                   if template_tier_map.get(tid, 4) <= min_tier]
+
+            # Filter Snowflake indices too
+            def _filter_sf(tids, cens):
+                if not tids: return [], None
+                mask = [template_tier_map.get(t, 4) <= min_tier for t in tids]
+                new_tids = [t for i, t in enumerate(tids) if mask[i]]
+                new_cens = cens[mask] if cens is not None else None
+                return new_tids, new_cens
+
+            self.valid_tids_long, self.centroids_long = _filter_sf(self.valid_tids_long, self.centroids_long)
+            self.valid_tids_short, self.centroids_short = _filter_sf(self.valid_tids_short, self.centroids_short)
             print(f"  Min-tier filter (tier <= {min_tier}): {_before} -> {len(valid_template_ids)} active templates")
 
         centroids = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
@@ -485,8 +608,15 @@ class BayesianTrainingOrchestrator:
                     best = macro_om
             return best
 
+        def _get_dna_expectancy(p):
+            if self.dna_tree:
+                dna, node, conf = self.dna_tree.match(p)
+                if node and node.member_count >= 10:
+                    return node.expectancy * 0.25 * self.asset.point_value # ticks -> USD
+            return 0.0
+
         def _dm_rec(p, gate, day, ts_val, micro_z_val, macro_z_val, pattern_val,
-                    dist=0.0, conviction=0.0, template_id='', tier=''):
+                    dist=0.0, conviction=0.0, template_id='', tier='', pattern_dna=''):
             """Build one signal-log record. Trade outcome fields default to empty."""
             om   = _effective_oracle(p)
             meta = getattr(p, 'oracle_meta', None) or {}
@@ -505,7 +635,7 @@ class BayesianTrainingOrchestrator:
                 'oracle_label': olbl,
                 'oracle_dir': 'LONG' if om > 0 else ('SHORT' if om < 0 else 'NONE'),
                 'oracle_pnl': opnl,
-                'template_id': str(template_id), 'tier': str(tier),
+                'template_id': str(template_id), 'tier': str(tier), 'pattern_dna': pattern_dna,
                 # Trade outcome (filled in later if gate='traded')
                 'trade_direction': '', 'trade_result': '', 'trade_pnl': 0.0,
                 'exit_reason': '', 'exit_signal_reason': '',
@@ -873,17 +1003,45 @@ class BayesianTrainingOrchestrator:
                                 p, 'gate0_5', day_date, ts, micro_z, macro_z, micro_pattern))
                             continue
 
+                        # Snowflake Match
+                        _cand_z = getattr(p, 'z_score', 0)
+                        if _cand_z <= 0:
+                            # LONG branch
+                            _idx = self.valid_tids_long
+                            _cen = self.centroids_long
+                            _sc  = self.scaler_long
+                            _branch = 'long'
+                        else:
+                            # SHORT branch
+                            _idx = self.valid_tids_short
+                            _cen = self.centroids_short
+                            _sc  = self.scaler_short
+                            _branch = 'short'
+
+                        if not _idx or _cen is None:
+                            # Fallback (empty branch or legacy)
+                            _idx = valid_template_ids
+                            _cen = centroids_scaled
+                            _sc  = self.scaler
+                            _branch = 'legacy'
+
                         # Extract 14D features using shared logic
                         features = np.array([FractalClusteringEngine.extract_features(p)])
 
-                        # Scale
-                        feat_scaled = self.scaler.transform(features)
+                        # Scale (using branch-specific scaler)
+                        feat_scaled = _sc.transform(features)
 
                         # Match
-                        dists = np.linalg.norm(centroids_scaled - feat_scaled, axis=1)
+                        dists = np.linalg.norm(_cen - feat_scaled, axis=1)
                         nearest_idx = np.argmin(dists)
                         dist = dists[nearest_idx]
-                        tid = valid_template_ids[nearest_idx]
+                        tid = _idx[nearest_idx]
+
+                        # DNA Tree Match (for logging/override)
+                        pattern_dna = None
+                        dna_node = None
+                        if self.dna_tree:
+                            pattern_dna, dna_node, dna_conf = self.dna_tree.match(p)
 
                         if dist < 4.5: # Threshold (raised from 3.0 so extreme-z profitable patterns reach their nearest cluster)
                             # Brain gate -- use low threshold for exploration
@@ -947,61 +1105,27 @@ class BayesianTrainingOrchestrator:
                         lib_entry = self.pattern_library[best_tid]
 
                         # ── Live feature vector (shared by direction + MFE models) ──
-                        # Same 14D features used during clustering -- scaler already fitted
+                        # Use the correct scaler for this candidate's branch
                         _live_feat = np.array(FractalClusteringEngine.extract_features(best_candidate))
-                        _live_scaled = self.scaler.transform([_live_feat])[0]
+
+                        _cand_z = getattr(best_candidate, 'z_score', 0)
+                        if _cand_z <= 0:
+                            _live_scaled = self.scaler_long.transform([_live_feat])[0]
+                            side = 'long'
+                        else:
+                            _live_scaled = self.scaler_short.transform([_live_feat])[0]
+                            side = 'short'
 
                         # ── Direction gate ──────────────────────────────────────────
-                        # Priority 0: individual oracle_marker (highest resolution signal)
-                        #   oracle_marker > 0  -> LONG move followed this exact training pattern
-                        #   oracle_marker < 0  -> SHORT move
-                        #   oracle_marker == 0 -> NOISE -> fall through to regression tiers
-                        _BIAS_THRESH = bias_threshold if bias_threshold is not None else 0.55
-                        _DMI_THRESH  = dmi_threshold  if dmi_threshold  is not None else 0.0
+                        # Snowflake: Branch determines direction (Z<=0 -> Long, Z>0 -> Short)
+                        # We retain DMI calc only for logging/diagnostics
+                        _live_s   = best_candidate.state
+                        _dmi_diff = (getattr(_live_s, 'dmi_plus',  0.0)
+                                   - getattr(_live_s, 'dmi_minus', 0.0))
+
                         long_bias  = lib_entry.get('long_bias',  0.0)
                         short_bias = lib_entry.get('short_bias', 0.0)
-                        _nn_marker = _effective_oracle(best_candidate)  # macro-to-leaf aggregated
-
-                        if _nn_marker > 0:
-                            side = 'long'
-                        elif _nn_marker < 0:
-                            side = 'short'
-                        else:
-                            # NOISE pattern -- use regression model hierarchy
-                            side = None
-
-                            # Priority 1: per-cluster logistic regression P(LONG)
-                            _dir_coeff = lib_entry.get('dir_coeff')
-                            if _dir_coeff is not None:
-                                _dir_logit = (np.dot(_live_scaled, np.array(_dir_coeff))
-                                              + lib_entry.get('dir_intercept', 0.0))
-                                _dir_prob  = 1.0 / (1.0 + np.exp(-_dir_logit))
-                                if _dir_prob > _BIAS_THRESH:
-                                    side = 'long'
-                                elif _dir_prob < (1.0 - _BIAS_THRESH):
-                                    side = 'short'
-
-                            # Priority 2: template aggregate bias
-                            if side is None:
-                                if long_bias >= _BIAS_THRESH:
-                                    side = 'long'
-                                elif short_bias >= _BIAS_THRESH:
-                                    side = 'short'
-                                elif long_bias + short_bias >= 0.10:
-                                    side = 'long' if long_bias >= short_bias else 'short'
-
-                            # Priority 3: live DMI (trend-following)
-                            if side is None:
-                                _live_s   = best_candidate.state
-                                _dmi_diff = (getattr(_live_s, 'dmi_plus',  0.0)
-                                           - getattr(_live_s, 'dmi_minus', 0.0))
-                                if abs(_dmi_diff) >= _DMI_THRESH and _dmi_diff > 0:
-                                    side = 'long'
-                                elif abs(_dmi_diff) >= _DMI_THRESH and _dmi_diff < 0:
-                                    side = 'short'
-                                else:
-                                    _vel = getattr(_live_s, 'particle_velocity', 0.0)
-                                    side = 'long' if _vel >= 0 else 'short'
+                        _nn_marker = _effective_oracle(best_candidate)
 
                         # ── Path conviction gate (fractal belief network) ─────────
                         # Collect all 8 TF workers' current beliefs.
@@ -1023,7 +1147,8 @@ class BayesianTrainingOrchestrator:
                                     dist=best_dist,
                                     conviction=_belief.conviction if _belief else 0.0,
                                     template_id=best_tid,
-                                    tier=template_tier_map.get(best_tid, 3)))
+                                    tier=template_tier_map.get(best_tid, 3),
+                                    pattern_dna=str(pattern_dna) if pattern_dna else ''))
                                 continue
                             # Path direction override for NOISE oracle_marker patterns
                             if _nn_marker == 0 and _belief.direction != side:
@@ -1140,6 +1265,8 @@ class BayesianTrainingOrchestrator:
                             'entry_depth':      _entry_depth,  # Fractal depth (1=daily,6=15s)
                             'oracle_label':     best_candidate.oracle_marker,
                             'oracle_label_name':_ORACLE_LABEL_NAMES.get(best_candidate.oracle_marker, 'UNKNOWN'),
+                            'pattern_dna':      str(pattern_dna) if pattern_dna else '',
+                            'dna_expectancy':   _get_dna_expectancy(best_candidate),
                             'oracle_mfe':       best_candidate.oracle_meta.get('mfe', 0.0),
                             'oracle_mae':       best_candidate.oracle_meta.get('mae', 0.0),
                             # Direction DOE diagnostics
@@ -1167,7 +1294,8 @@ class BayesianTrainingOrchestrator:
                             dist=best_dist,
                             conviction=round(_belief.conviction, 3) if _belief else 0.0,
                             template_id=best_tid,
-                            tier=template_tier_map.get(best_tid, 3))
+                            tier=template_tier_map.get(best_tid, 3),
+                            pattern_dna=str(pattern_dna) if pattern_dna else '')
                         _dm_entry['trade_direction'] = 'LONG' if side == 'long' else 'SHORT'
                         decision_matrix_records.append(_dm_entry)
                         _pending_dm_idx = len(decision_matrix_records) - 1
@@ -1224,6 +1352,7 @@ class BayesianTrainingOrchestrator:
                                     'oracle_label_name': _ORACLE_LABEL_NAMES.get(_om, '?'),
                                     'oracle_dir':      'LONG' if _om > 0 else 'SHORT',
                                     'fn_potential_pnl': round(_fn_pot, 2),
+                                    'dna_expectancy':  _get_dna_expectancy(p),
                                     'reason':          'competed',
                                     'gate_blocked':    _candidate_gate.get(id(p), 'unknown'),
                                     'workers':         __import__('json').dumps(belief_network.get_worker_snapshot()),
@@ -1314,6 +1443,7 @@ class BayesianTrainingOrchestrator:
                                     'oracle_label_name': _ORACLE_LABEL_NAMES.get(_om, '?'),
                                     'oracle_dir':      'LONG' if _om > 0 else 'SHORT',
                                     'fn_potential_pnl': round(_fn_pot, 2),
+                                    'dna_expectancy':  _get_dna_expectancy(p),
                                     'reason':          'no_match',  # nothing passed gates at this bar
                                     'gate_blocked':    _candidate_gate.get(id(p), 'unknown'),
                                     'workers':         __import__('json').dumps(belief_network.get_worker_snapshot()),
@@ -1475,11 +1605,21 @@ class BayesianTrainingOrchestrator:
         total_real_opps = audit_tp + audit_fp_wrong + audit_fn  # oracle said real move
         total_noise_opps = audit_fp_noise + audit_tn              # oracle said noise
         tp_potential  = sum(r['oracle_potential_pnl'] for r in oracle_trade_records if r['oracle_label'] != 0 and r['oracle_label_name'] not in ('NOISE',))
-        ideal_profit  = tp_potential + fn_potential_pnl           # perfect execution on everything
+
+        # Golden Path Ideal (sequential)
+        ideal_profit = _compute_golden_path_ideal(
+            oracle_trade_records=oracle_trade_records,
+            fn_oracle_records=fn_oracle_records,
+            bar_seconds=15,
+            point_value=self.asset.point_value,
+        )
+
+        # Parallel upper bound (unachievable sum of all signals)
+        _parallel_bound = tp_potential + fn_potential_pnl + score_loser_pnl
 
         report_lines.append("")
         report_lines.append(f"  TOTAL SIGNALS SEEN BY ORACLE: {total_real_opps + total_noise_opps:,}")
-        report_lines.append(f"    Real moves (MEGA/SCALP):  {total_real_opps:>6,}   -- worth ${ideal_profit:>10,.2f} if perfectly traded")
+        report_lines.append(f"    Real moves (MEGA/SCALP):  {total_real_opps:>6,}   -- worth ${_parallel_bound:>10,.2f} (parallel bound)")
         report_lines.append(f"    Noise (no real move):     {total_noise_opps:>6,}")
 
         # ── 2. What we did ───────────────────────────────────────────────────────
@@ -1747,7 +1887,8 @@ class BayesianTrainingOrchestrator:
 
         report_lines.append("")
         report_lines.append(f"  PROFIT GAP ANALYSIS:")
-        report_lines.append(f"    Ideal (golden-path: gate-blocked + traded, perfect exits):  ${ideal_profit:>12,.2f}")
+        report_lines.append(f"    Ideal (golden-path sequential, perfect exits):  ${ideal_profit:>12,.2f}")
+        report_lines.append(f"    [info] Parallel-all-signals upper bound:        ${_parallel_bound:>12,.2f}  (not achievable)")
         report_lines.append(f"    -----------------------------------------------------")
         report_lines.append(f"    Lost -- missed opportunities (gate-blocked):  ${fn_potential_pnl:>12,.2f}  ({fn_potential_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
         report_lines.append(f"    Lost -- wrong direction at entry:             ${abs(fp_wrong_pnl):>12,.2f}  ({abs(fp_wrong_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
@@ -1756,6 +1897,8 @@ class BayesianTrainingOrchestrator:
         report_lines.append(f"    Lost -- TP underperform (non-reversed):       ${left_on_table_val:>12,.2f}  ({left_on_table_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
         report_lines.append(f"    -----------------------------------------------------")
         report_lines.append(f"    Actual profit:                               ${total_pnl:>12,.2f}  ({total_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else f"    Actual profit: ${total_pnl:.2f}")
+        _delta_cap = total_pnl / ideal_profit * 100 if ideal_profit else 0.0
+        report_lines.append(f"    Delta capture rate:                          {_delta_cap:>10.1f}%")
         report_lines.append(f"    [info] Score-competition pool (took better same bar): ${score_loser_pnl:>12,.2f}  (not missed -- golden path chose better candidate)")
 
         # Store for bottom-line summary at program exit
@@ -1846,6 +1989,34 @@ class BayesianTrainingOrchestrator:
                 _avg_o  = _st['total_opnl'] / _st['real_move'] if _st['real_move'] else 0
                 report_lines.append(
                     f"    {_g:<22} {_st['count']:>6} {_rm_pct:>9.1f}% {_avg_o:>11.0f} {_st['total_opnl']:>13.0f}")
+
+        # ── DNA Path Summary ─────────────────────────────────────────────────────
+        if oracle_trade_records and 'pattern_dna' in oracle_trade_records[0]:
+            from collections import defaultdict as _dd_dna
+            _dna_stats = _dd_dna(lambda: {'count':0, 'wins':0, 'pnl':0.0})
+            for r in oracle_trade_records:
+                dna = r.get('pattern_dna', '')
+                if not dna: continue
+                _dna_stats[dna]['count'] += 1
+                _dna_stats[dna]['pnl']   += r['actual_pnl']
+                if r['result'] == 'WIN':
+                    _dna_stats[dna]['wins'] += 1
+
+            report_lines.append("")
+            report_lines.append(f"  TOP 10 DNA PATHS BY WIN RATE (min 10 trades):")
+            report_lines.append(f"    {'DNA':<40} {'Trades':>6} {'Win%':>6} {'Avg PnL':>10}")
+
+            _dna_list = []
+            for dna, st in _dna_stats.items():
+                if st['count'] >= 10:
+                    wr = st['wins'] / st['count']
+                    avg = st['pnl'] / st['count']
+                    _dna_list.append((dna, st['count'], wr, avg))
+
+            _dna_list.sort(key=lambda x: -x[2]) # Sort by Win% desc
+
+            for dna, cnt, wr, avg in _dna_list[:10]:
+                report_lines.append(f"    {dna:<40} {cnt:>6} {wr*100:>5.0f}% ${avg:>9.2f}")
 
         if fn_oracle_records:
             import json as _fnjs
@@ -2558,6 +2729,13 @@ class BayesianTrainingOrchestrator:
                 _pickle.dump(clustering_engine.scaler, f)
             print(f"  Saved clustering scaler to {scaler_path}")
 
+            # Save split scalers (Snowflake)
+            sl_path = os.path.join(self.checkpoint_dir, 'clustering_scaler_long.pkl')
+            ss_path = os.path.join(self.checkpoint_dir, 'clustering_scaler_short.pkl')
+            with open(sl_path, 'wb') as f: _pickle.dump(clustering_engine._long_scaler, f)
+            with open(ss_path, 'wb') as f: _pickle.dump(clustering_engine._short_scaler, f)
+            print(f"  Saved split scalers (LONG/SHORT)")
+
             ckpt.save_templates(templates)
 
         # ===================================================================
@@ -2750,7 +2928,29 @@ class BayesianTrainingOrchestrator:
         lib_path = os.path.join(self.checkpoint_dir, 'pattern_library.pkl')
         with open(lib_path, 'wb') as f:
             pickle.dump(self.pattern_library, f)
+
+        # Split library (Snowflake)
+        lib_long = {k: v for k, v in self.pattern_library.items() if v.get('direction') == 'LONG'}
+        lib_short = {k: v for k, v in self.pattern_library.items() if v.get('direction') == 'SHORT'}
+
+        with open(os.path.join(self.checkpoint_dir, 'pattern_library_long.pkl'), 'wb') as f:
+            pickle.dump(lib_long, f)
+        with open(os.path.join(self.checkpoint_dir, 'pattern_library_short.pkl'), 'wb') as f:
+            pickle.dump(lib_short, f)
+
         print(f"  Saved pattern_library.pkl ({len(self.pattern_library)} entries)")
+        print(f"  Saved split libraries: LONG={len(lib_long)}, SHORT={len(lib_short)}")
+
+        # Build DNA Tree
+        if manifest:
+            print(f"\n  Building Fractal DNA Tree...")
+            dna_tree = FractalDNATree(n_clusters_per_level=5)
+            dna_tree.fit(manifest)
+
+            with open(os.path.join(self.checkpoint_dir, 'fractal_dna_tree.pkl'), 'wb') as f:
+                pickle.dump(dna_tree, f)
+
+            print(f"  DNA tree built: {len(dna_tree._dna_index)} unique DNA paths")
 
         print("\n=== Training Complete ===")
         self.print_final_summary()
@@ -2817,6 +3017,7 @@ class BayesianTrainingOrchestrator:
             'outcome_variance': template.outcome_variance,
             'avg_drawdown': template.avg_drawdown,
             'risk_score': template.risk_score,
+            'direction': getattr(template, 'direction', ''),
             # Direction bias from oracle labels (used in forward pass direction gate)
             'long_bias': getattr(template, 'long_bias', 0.0),
             'short_bias': getattr(template, 'short_bias', 0.0),
