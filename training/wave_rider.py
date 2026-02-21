@@ -241,6 +241,8 @@ class Position:
     profit_target: Optional[float] = None
     trailing_stop_ticks: Optional[int] = None
     trail_activation_ticks: Optional[int] = None  # profit ticks needed before trail engages
+    original_trail_ticks: Optional[int] = None    # Store initial trail setting for reference
+    last_adjustment_reason: Optional[str] = None  # belief reason that last tightened/widened trail
 
 
 class WaveRider:
@@ -288,6 +290,12 @@ class WaveRider:
         self.trades_since_calibration = 0
         self.calibration_interval = 10
 
+    # Dynamic Trail Constants
+    MIN_TRAIL_TICKS = 2
+    TIGHTEN_TRAIL_FACTOR = 0.70
+    MAX_ORIGINAL_TRAIL_MULTIPLIER = 2
+    WIDEN_TRAIL_FACTOR = 1.20
+
     def open_position(self, entry_price: float, side: str,
                      state: Union[StateVector, ThreeBodyQuantumState],
                      stop_distance_ticks: int = 20,
@@ -329,6 +337,7 @@ class WaveRider:
             profit_target=profit_target,
             trailing_stop_ticks=trailing_stop_ticks,
             trail_activation_ticks=trail_activation_ticks,
+            original_trail_ticks=trailing_stop_ticks,
         )
         
         # Note: Do not clear price_history here as we need it for delayed analysis
@@ -385,7 +394,8 @@ class WaveRider:
 
     def update_trail(self, current_price: float, 
                     current_state: Union[StateVector, ThreeBodyQuantumState],
-                    timestamp: Optional[float] = None) -> Dict:
+                    timestamp: Optional[float] = None,
+                    exit_signal: Optional[Dict] = None) -> Dict:
         """
         Update trailing stop and check exit conditions
         
@@ -395,6 +405,7 @@ class WaveRider:
             current_price: Current market price
             current_state: Current StateVector or ThreeBodyQuantumState
             timestamp: Optional timestamp (uses time.time() if None)
+            exit_signal: Optional dict with exit recommendations
             
         Returns:
             Dict with 'should_exit', 'pnl', 'exit_reason', 'regret_markers' (if exit)
@@ -408,6 +419,25 @@ class WaveRider:
         
         # Update history via process_pending_reviews
         self.process_pending_reviews(current_time, current_price)
+
+        # --- Dynamic Exit Logic ---
+        urgent_exit = False
+        if exit_signal:
+            if exit_signal.get('urgent_exit'):
+                urgent_exit = True
+
+            if exit_signal.get('tighten_trail') and self.position.trailing_stop_ticks is not None:
+                # Reduce trail by 30% (min: 2 ticks)
+                _new_trail = max(self.MIN_TRAIL_TICKS, int(self.position.trailing_stop_ticks * self.TIGHTEN_TRAIL_FACTOR))
+                self.position.trailing_stop_ticks = _new_trail
+                self.position.last_adjustment_reason = exit_signal.get('reason', 'tighten')
+
+            if exit_signal.get('widen_trail') and self.position.trailing_stop_ticks is not None:
+                # Increase trail by 20% (max: original_trail * 2.0)
+                _base = self.position.original_trail_ticks or self.position.trailing_stop_ticks
+                _max_trail = _base * self.MAX_ORIGINAL_TRAIL_MULTIPLIER
+                self.position.trailing_stop_ticks = min(_max_trail, int(self.position.trailing_stop_ticks * self.WIDEN_TRAIL_FACTOR))
+                self.position.last_adjustment_reason = exit_signal.get('reason', 'widen')
 
         # Update High Water Mark
         if self.position.side == 'short':
@@ -459,8 +489,10 @@ class WaveRider:
 
         structure_broken = self._check_layer_breaks(current_state)
 
-        if stop_hit or structure_broken or pt_hit:
-            if pt_hit:
+        if stop_hit or structure_broken or pt_hit or urgent_exit:
+            if urgent_exit:
+                exit_reason = 'belief_flip'
+            elif pt_hit:
                 exit_reason = 'profit_target'
             elif structure_broken:
                 exit_reason = 'structure_break'
@@ -479,11 +511,12 @@ class WaveRider:
             )
             self.pending_reviews.append(review)
             
-            # Capture data for return
+            # Capture data for return (before clearing position)
             entry_price = self.position.entry_price
             entry_time = self.position.entry_time
             side = self.position.side
-            
+            _adj_reason = self.position.last_adjustment_reason or ''
+
             # Clear position (but NOT price history/pending reviews)
             self.position = None
 
@@ -513,6 +546,7 @@ class WaveRider:
                 'should_exit': True,
                 'exit_price': current_price,
                 'exit_reason': exit_reason,
+                'adjustment_reason': _adj_reason,  # belief reason that last adjusted the trail
                 'pnl': profit_usd,
                 'regret_markers': partial_markers
             }

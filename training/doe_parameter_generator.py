@@ -33,10 +33,10 @@ BIAS_STRENGTH_HIGH = 0.5
 BIAS_STRENGTH_MEDIUM = 0.2
 
 PARAMS_AFFECTED_BY_EARLY_TREND = {
-    'take_profit_ticks', 'trail_distance_wide', 'max_hold_seconds', 'trail_activation_profit'
+    'take_profit_ticks', 'trailing_stop_ticks'
 }
 PARAMS_AFFECTED_BY_LATE_EXIT = {
-    'max_hold_seconds', 'trail_distance_wide', 'trail_activation_profit', 'take_profit_ticks'
+    'take_profit_ticks', 'trailing_stop_ticks'
 }
 
 # Mutation Constants
@@ -91,15 +91,7 @@ class DOEParameterGenerator:
 
         # Define module mappings based on parameter prefixes or explicit lists
         module_map = {
-            'Unified Market Physics': ['pid_', 'gravity_', 'sigma_decay'],
-            'Kill Zone': ['killzone_', 'wick_', 'zone_strength'],
-            'Velocity': ['cascade_', 'min_entry_velocity'],
-            'Volatility': ['layer_', 'min_sigma_differential'],
-            'Resonance': ['resonance_'],
-            'Transition': ['transition_', 'hysteresis_', 'min_bars_in_state'],
-            'Session': ['opening_range', 'min_hold', 'max_hold', 'timeframe_idx'],
-            'Confirmation': ['volume_spike', 'aggressive_', 'bid_ask_'],
-            'Trading Cost': ['trading_cost_points'],
+            'Quantum Field (PID)': ['pid_'],
             'Core': [] # Catch-all
         }
 
@@ -176,63 +168,15 @@ class DOEParameterGenerator:
         step_type: 'int', 'float', 'choice'
         """
         return {
-            # Core parameters
-            'stop_loss_ticks': (10, 25, 'int'),
-            'take_profit_ticks': (30, 60, 'int'),
-            'min_samples_required': (20, 50, 'int'),
-            'confidence_threshold': (0.30, 0.70, 'float'),
-            'max_hold_seconds': (300, 900, 'int'),
-            'trail_activation_profit': (30, 100, 'int'),
-            'trail_distance_tight': (5, 15, 'int'),
-            'trail_distance_wide': (20, 40, 'int'),
-            'max_consecutive_losses': (3, 10, 'int'),
-            'min_sharpe_ratio': (0.3, 1.0, 'float'),
+            # Trade sizing fallbacks (used when regression data unavailable)
+            'stop_loss_ticks':    (10, 25, 'int'),   # fallback SL distance in ticks
+            'take_profit_ticks':  (30, 60, 'int'),   # fallback TP distance in ticks
+            'trailing_stop_ticks': (5, 20, 'int'),   # fallback trail distance in ticks
 
-            # Kill zone parameters
-            'killzone_tolerance_ticks': (3, 10, 'int'),
-            'min_rejection_wick_ticks': (3, 10, 'int'),
-            'wick_to_body_ratio': (1.5, 3.0, 'float'),
-            'zone_strength_multiplier': (1.0, 2.0, 'float'),
-
-            # Confirmation parameters
-            'volume_spike_threshold': (1.5, 3.0, 'float'),
-            'aggressive_buyer_pct': (0.6, 0.8, 'float'),
-            'bid_ask_imbalance_threshold': (0.6, 0.8, 'float'),
-
-            # Velocity parameters
-            'cascade_min_points': (5, 20, 'int'),
-            'cascade_time_window': (0.3, 1.0, 'float'),
-            'min_entry_velocity': (2, 10, 'int'),
-
-            # Volatility parameters
-            'layer_high_volatility_sigma': (2.5, 4.0, 'float'),
-            'layer_low_volatility_sigma': (1.5, 2.5, 'float'),
-            'min_sigma_differential': (0.5, 2.0, 'float'),
-
-            # Resonance parameters
-            'min_resonance_score': (6.0, 9.0, 'float'),
-            'resonance_decay_rate': (0.90, 0.99, 'float'),
-
-            # Transition parameters
-            'transition_speed_threshold': (1, 5, 'int'),
-            'hysteresis_factor': (0.1, 0.5, 'float'),
-            'min_bars_in_state': (3, 10, 'int'),
-
-            # Session parameters
-            'opening_range_minutes': (10, 30, 'int'),
-            'min_hold_seconds': (30, 120, 'int'),
-            'max_hold_seconds': (600, 1800, 'int'),
-            'timeframe_idx': (0, 5, 'int'),  # 0: 5s, 1: 15s, 2: 60s, 3: 5m, 4: 15m, 5: 1h
-
-            # Trading cost (round-trip: commission + slippage in points)
-            'trading_cost_points': (0.25, 1.0, 'float'),
-
-            # Unified Market Physics (Nightmare Equation)
-            'pid_kp': (0.1, 1.0, 'float'),       # Proportional (Reaction)
-            'pid_ki': (0.01, 0.2, 'float'),      # Integral (Accumulation)
-            'pid_kd': (0.1, 0.5, 'float'),       # Derivative (Dampening)
-            'gravity_theta': (0.1, 0.8, 'float'), # OU Mean Reversion Speed
-            'sigma_decay': (0.8, 0.99, 'float')   # Volatility memory decay
+            # Quantum Field PID (consumed by quantum_field_engine.batch_compute_states)
+            'pid_kp': (0.1, 1.0, 'float'),   # Proportional — reaction strength
+            'pid_ki': (0.01, 0.2, 'float'),  # Integral — accumulated bias
+            'pid_kd': (0.1, 0.5, 'float'),   # Derivative — dampening
         }
 
     def generate_baseline_set(self, iteration: int, day: int, context: str) -> ParameterSet:
@@ -243,75 +187,35 @@ class DOEParameterGenerator:
         """
         baselines = [
             # Conservative (iteration 0)
-            {
-                'stop_loss_ticks': 15, 'take_profit_ticks': 40, 'confidence_threshold': 0.50,
-                'trail_distance_tight': 10, 'trail_distance_wide': 30,
-                'pid_kp': 0.5, 'pid_ki': 0.1, 'pid_kd': 0.2, 'gravity_theta': 0.5, 'sigma_decay': 0.95,
-                'timeframe_idx': 1
-            },
+            {'stop_loss_ticks': 15, 'take_profit_ticks': 40, 'trailing_stop_ticks': 10,
+             'pid_kp': 0.5, 'pid_ki': 0.10, 'pid_kd': 0.20},
             # Aggressive (iteration 1)
-            {
-                'stop_loss_ticks': 10, 'take_profit_ticks': 50, 'confidence_threshold': 0.45,
-                'trail_distance_tight': 7, 'trail_distance_wide': 25,
-                'pid_kp': 0.8, 'pid_ki': 0.05, 'pid_kd': 0.1, 'gravity_theta': 0.3, 'sigma_decay': 0.90,
-                'timeframe_idx': 1
-            },
+            {'stop_loss_ticks': 10, 'take_profit_ticks': 50, 'trailing_stop_ticks': 7,
+             'pid_kp': 0.8, 'pid_ki': 0.05, 'pid_kd': 0.10},
             # Balanced (iteration 2)
-            {
-                'stop_loss_ticks': 12, 'take_profit_ticks': 45, 'confidence_threshold': 0.48,
-                'trail_distance_tight': 8, 'trail_distance_wide': 28,
-                'pid_kp': 0.5, 'pid_ki': 0.1, 'pid_kd': 0.2, 'gravity_theta': 0.5, 'sigma_decay': 0.95,
-                'timeframe_idx': 1
-            },
-            # High confidence (iteration 3)
-            {
-                'stop_loss_ticks': 20, 'take_profit_ticks': 35, 'confidence_threshold': 0.65,
-                'trail_distance_tight': 12, 'trail_distance_wide': 35,
-                'pid_kp': 0.4, 'pid_ki': 0.15, 'pid_kd': 0.3, 'gravity_theta': 0.6, 'sigma_decay': 0.98,
-                'timeframe_idx': 1
-            },
+            {'stop_loss_ticks': 12, 'take_profit_ticks': 45, 'trailing_stop_ticks': 8,
+             'pid_kp': 0.5, 'pid_ki': 0.10, 'pid_kd': 0.20},
+            # Wide SL (iteration 3)
+            {'stop_loss_ticks': 20, 'take_profit_ticks': 35, 'trailing_stop_ticks': 12,
+             'pid_kp': 0.4, 'pid_ki': 0.15, 'pid_kd': 0.30},
             # Quick exit (iteration 4)
-            {
-                'stop_loss_ticks': 8, 'take_profit_ticks': 30, 'confidence_threshold': 0.40,
-                'trail_distance_tight': 5, 'trail_distance_wide': 20,
-                'pid_kp': 0.6, 'pid_ki': 0.05, 'pid_kd': 0.1, 'gravity_theta': 0.4, 'sigma_decay': 0.92,
-                'timeframe_idx': 1
-            },
+            {'stop_loss_ticks': 10, 'take_profit_ticks': 30, 'trailing_stop_ticks': 5,
+             'pid_kp': 0.6, 'pid_ki': 0.05, 'pid_kd': 0.10},
             # Wide targets (iteration 5)
-            {
-                'stop_loss_ticks': 20, 'take_profit_ticks': 60, 'confidence_threshold': 0.55,
-                'trail_distance_tight': 15, 'trail_distance_wide': 40,
-                'pid_kp': 0.3, 'pid_ki': 0.1, 'pid_kd': 0.4, 'gravity_theta': 0.7, 'sigma_decay': 0.99,
-                'timeframe_idx': 1
-            },
+            {'stop_loss_ticks': 20, 'take_profit_ticks': 60, 'trailing_stop_ticks': 15,
+             'pid_kp': 0.3, 'pid_ki': 0.10, 'pid_kd': 0.40},
             # Tight stops (iteration 6)
-            {
-                'stop_loss_ticks': 10, 'take_profit_ticks': 40, 'confidence_threshold': 0.50,
-                'trail_distance_tight': 7, 'trail_distance_wide': 25,
-                'pid_kp': 0.7, 'pid_ki': 0.05, 'pid_kd': 0.15, 'gravity_theta': 0.4, 'sigma_decay': 0.94,
-                'timeframe_idx': 1
-            },
+            {'stop_loss_ticks': 10, 'take_profit_ticks': 40, 'trailing_stop_ticks': 7,
+             'pid_kp': 0.7, 'pid_ki': 0.05, 'pid_kd': 0.15},
             # Standard (iteration 7)
-            {
-                'stop_loss_ticks': 15, 'take_profit_ticks': 45, 'confidence_threshold': 0.50,
-                'trail_distance_tight': 10, 'trail_distance_wide': 30,
-                'pid_kp': 0.5, 'pid_ki': 0.1, 'pid_kd': 0.2, 'gravity_theta': 0.5, 'sigma_decay': 0.95,
-                'timeframe_idx': 1
-            },
+            {'stop_loss_ticks': 15, 'take_profit_ticks': 45, 'trailing_stop_ticks': 10,
+             'pid_kp': 0.5, 'pid_ki': 0.10, 'pid_kd': 0.20},
             # Scalper (iteration 8)
-            {
-                'stop_loss_ticks': 8, 'take_profit_ticks': 25, 'confidence_threshold': 0.35,
-                'trail_distance_tight': 5, 'trail_distance_wide': 15,
-                'pid_kp': 0.9, 'pid_ki': 0.01, 'pid_kd': 0.05, 'gravity_theta': 0.2, 'sigma_decay': 0.85,
-                'timeframe_idx': 1
-            },
+            {'stop_loss_ticks': 10, 'take_profit_ticks': 25, 'trailing_stop_ticks': 5,
+             'pid_kp': 0.9, 'pid_ki': 0.01, 'pid_kd': 0.05},
             # Swing (iteration 9)
-            {
-                'stop_loss_ticks': 25, 'take_profit_ticks': 60, 'confidence_threshold': 0.60,
-                'trail_distance_tight': 15, 'trail_distance_wide': 40,
-                'pid_kp': 0.2, 'pid_ki': 0.2, 'pid_kd': 0.5, 'gravity_theta': 0.8, 'sigma_decay': 0.99,
-                'timeframe_idx': 1
-            }
+            {'stop_loss_ticks': 25, 'take_profit_ticks': 60, 'trailing_stop_ticks': 15,
+             'pid_kp': 0.2, 'pid_ki': 0.20, 'pid_kd': 0.50},
         ]
 
         params = baselines[iteration % len(baselines)]
