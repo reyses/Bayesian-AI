@@ -479,7 +479,7 @@ def launch_progress_popup(queue):
     # Mutable state
     state = {
         'phase': '', 'tmpls': 0, 'fissions': 0,
-        'tmpl_pnl': 0.0, 'tmpl_wr_sum': 0.0,
+        'tmpl_r2_sum': 0.0, 'tmpl_wr_sum': 0.0,
         'p3_total': 0,
     }
     _running = [True]
@@ -543,24 +543,25 @@ def launch_progress_popup(queue):
                 # ── Phase 3: per-template optimization ───────────────────────
                 elif t == 'TEMPLATE_UPDATE':
                     if state['phase'] != '3':
-                        state['phase']     = '3'
-                        state['fissions']  = 0
-                        state['tmpl_pnl']  = 0.0
+                        state['phase']       = '3'
+                        state['fissions']    = 0
+                        state['tmpl_r2_sum'] = 0.0
                         state['tmpl_wr_sum'] = 0.0
                         lbl_phase.config(text='Phase 3 — Template Optimization')
                         lbl_step.config(text='Optuna TPE')
                     done  = msg.get('done',  state['tmpls'] + 1)
                     total = msg.get('total', state['p3_total']) or done
                     state['tmpls'] = done
-                    state['tmpl_pnl']    += msg.get('pnl', 0.0)
+                    state['tmpl_r2_sum'] += msg.get('adj_r2', 0.0)
                     state['tmpl_wr_sum'] += msg.get('win_rate', 0.0)
                     avg_wr = state['tmpl_wr_sum'] / done * 100
+                    avg_r2 = state['tmpl_r2_sum'] / done
                     pct = min(done / total * 100, 100) if total else 0
                     _to_determinate(pct, color='blue')
                     lbl_prog.config(text=f"{done} / {total}  ({pct:.0f}%)")
                     lbl_right.config(text=f"Fissions: {state['fissions']}")
                     lbl_stat1.config(text=f"Avg WR: {avg_wr:.1f}%")
-                    lbl_stat2.config(text=f"Val PnL: ${state['tmpl_pnl']:,.0f}")
+                    lbl_stat2.config(text=f"Avg Adj R²: {avg_r2:.4f}")
 
                 elif t == 'FISSION_EVENT':
                     state['fissions'] += 1

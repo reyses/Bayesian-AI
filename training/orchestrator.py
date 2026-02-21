@@ -2961,6 +2961,7 @@ class BayesianTrainingOrchestrator:
                         tmpl = result['template']
                         best_params = result['best_params']
                         val_pnl = result['val_pnl']
+                        val_adj_r2 = result.get('val_adj_r2', 0.0)
                         member_count = result['member_count']
 
                         batch_done += 1
@@ -2970,20 +2971,15 @@ class BayesianTrainingOrchestrator:
 
                         completed_results[tmpl_id] = result
 
-                        # Set Risk & Reward Metrics
-                        val_count = result.get('val_count', 0)
-                        if val_count > 0:
-                            tmpl.expected_value = val_pnl / val_count
-                        else:
-                            tmpl.expected_value = 0.0
-
+                        # Set Risk & Reward Metrics — adj R² is the primary quality score
+                        tmpl.expected_value = val_adj_r2  # coherence score replacing per-trade PnL avg
                         tmpl.outcome_variance = result.get('outcome_variance', 0.0)
                         tmpl.avg_drawdown = result.get('avg_drawdown', 0.0)
                         tmpl.risk_score = result.get('risk_score', 0.0)
 
                         self.register_template_logic(tmpl, best_params)
                         timing = result.get('timing', '')
-                        print(f"    [{processed_count}] Template {tmpl_id}: DONE ({member_count} members) -> PnL: ${val_pnl:.2f} | {timing}")
+                        print(f"    [{processed_count}] Template {tmpl_id}: DONE ({member_count} members) -> AdjR²: {val_adj_r2:.3f} | {timing}")
 
                         if self.dashboard_queue:
                             centroid = original_tmpl.centroid
@@ -2993,6 +2989,7 @@ class BayesianTrainingOrchestrator:
                                 'id': tmpl_id,
                                 'z': centroid[0],
                                 'mom': centroid[2],
+                                'adj_r2': val_adj_r2,
                                 'pnl': val_pnl,
                                 'count': member_count,
                                 'win_rate': _wr,
@@ -3005,7 +3002,7 @@ class BayesianTrainingOrchestrator:
                 print(
                     f"  Batch {batch_number} complete: "
                     f"{batch_done} optimized, {batch_split} fissioned, "
-                    f"batch PnL: ${batch_pnl:.2f} | {batch_elapsed:.1f}s"
+                    f"batch adj_r2 sum: {sum(r.get('val_adj_r2',0) for r in completed_results.values() if r.get('status')=='DONE'):.2f} | {batch_elapsed:.1f}s"
                 )
 
                 # CHECKPOINT after each batch
@@ -3027,12 +3024,16 @@ class BayesianTrainingOrchestrator:
             'total_val_pnl': total_val_pnl
         })
 
+        _done_results = [r for r in completed_results.values() if r.get('status') == 'DONE']
+        _adj_r2_vals  = [r.get('val_adj_r2', 0.0) for r in _done_results]
+        _avg_adj_r2   = float(np.mean(_adj_r2_vals)) if _adj_r2_vals else 0.0
+        _pos_r2       = sum(1 for v in _adj_r2_vals if v > 0)
         print(f"\n  Phase 3 Summary:")
         print(f"    Batches: {batch_number}")
         print(f"    Templates processed: {processed_count}")
         print(f"    Optimized: {optimized_count} | Fissioned: {fission_count}")
         print(f"    Library size: {len(self.pattern_library)} entries")
-        print(f"    Total validated PnL: ${total_val_pnl:.2f}")
+        print(f"    Avg adj R²: {_avg_adj_r2:.4f}  ({_pos_r2}/{len(_adj_r2_vals)} templates R²>0)")
         print(f"    Time: {phase3_elapsed:.1f}s")
 
         # Save pattern library for Phase 4
