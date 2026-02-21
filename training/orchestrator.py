@@ -1928,19 +1928,32 @@ class BayesianTrainingOrchestrator:
 
         report_lines.append("")
         report_lines.append(f"  PROFIT GAP ANALYSIS:")
-        report_lines.append(f"    Ideal (golden-path sequential, perfect exits):  ${ideal_profit:>12,.2f}")
-        report_lines.append(f"    [info] Parallel-all-signals upper bound:        ${_parallel_bound:>12,.2f}  (not achievable)")
-        report_lines.append(f"    -----------------------------------------------------")
-        report_lines.append(f"    Lost -- missed opportunities (gate-blocked):  ${fn_potential_pnl:>12,.2f}  ({fn_potential_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    Lost -- wrong direction at entry:             ${abs(fp_wrong_pnl):>12,.2f}  ({abs(fp_wrong_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    Lost -- noise trades:                         ${abs(fp_noise_pnl):>12,.2f}  ({abs(fp_noise_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    Lost -- reversed after correct entry:         ${reversed_loss_val:>12,.2f}  ({reversed_loss_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    Lost -- TP underperform (non-reversed):       ${left_on_table_val:>12,.2f}  ({left_on_table_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    -----------------------------------------------------")
-        report_lines.append(f"    Actual profit:                               ${total_pnl:>12,.2f}  ({total_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else f"    Actual profit: ${total_pnl:.2f}")
-        _delta_cap = total_pnl / ideal_profit * 100 if ideal_profit else 0.0
-        report_lines.append(f"    Delta capture rate:                          {_delta_cap:>10.1f}%")
-        report_lines.append(f"    [info] Score-competition pool (took better same bar): ${score_loser_pnl:>12,.2f}  (not missed -- golden path chose better candidate)")
+        report_lines.append(f"    Sequential ideal (golden-path):              ${ideal_profit:>12,.2f}")
+        report_lines.append(f"    Actual profit:                               ${total_pnl:>12,.2f}")
+        if ideal_profit:
+            _gap          = ideal_profit - total_pnl
+            _wrong        = abs(fp_wrong_pnl)
+            _noise        = abs(fp_noise_pnl)
+            _reversed     = reversed_loss_val
+            _tp_gap       = left_on_table_val
+            _gate_resid   = max(0.0, _gap - _wrong - _noise - _reversed - _tp_gap)
+            _pct = lambda v: f"{v/_gap*100:.1f}%" if _gap > 0 else "N/A"
+            report_lines.append(f"    Gap to close:                                ${_gap:>12,.2f}  (100%)")
+            report_lines.append(f"    -------------------------------------------------------")
+            report_lines.append(f"    Of the gap — attributable losses:")
+            report_lines.append(f"      Wrong direction at entry:                ${_wrong:>12,.2f}  ({_pct(_wrong)} of gap)  <- fix: direction routing")
+            report_lines.append(f"      TP underperform (non-reversed):          ${_tp_gap:>12,.2f}  ({_pct(_tp_gap)} of gap)  <- fix: exit sizing")
+            report_lines.append(f"      Reversed after correct entry:            ${_reversed:>12,.2f}  ({_pct(_reversed)} of gap)")
+            report_lines.append(f"      Noise trades:                            ${_noise:>12,.2f}  ({_pct(_noise)} of gap)")
+            report_lines.append(f"      Gate-selection residual:                 ${_gate_resid:>12,.2f}  ({_pct(_gate_resid)} of gap)  <- improve gates")
+            report_lines.append(f"    -------------------------------------------------------")
+            _delta_cap = total_pnl / ideal_profit * 100
+            report_lines.append(f"    Delta capture rate:                        {_delta_cap:>10.1f}%")
+            report_lines.append(f"    [info] Gate-blocked signal pool:           ${fn_potential_pnl:>12,.2f}  (parallel raw sum — signals overlap, not additive)")
+            report_lines.append(f"    [info] Score-competition pool:             ${score_loser_pnl:>12,.2f}  (golden path chose better candidate same bar)")
+            report_lines.append(f"    [info] Parallel upper bound:               ${_parallel_bound:>12,.2f}  (not achievable)")
+        else:
+            report_lines.append(f"    Actual profit: ${total_pnl:.2f}")
 
         # Store for bottom-line summary at program exit
         self._fp_summary = {
