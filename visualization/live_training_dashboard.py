@@ -405,13 +405,13 @@ class FractalDashboard:
 
 # ── Lightweight progress popup (default UI) ───────────────────────────────────
 class ProgressPopup:
-    """Compact 440x220 progress window — shown by default during training runs."""
+    """Compact 440x300 progress window — shown by default during training runs."""
 
     def __init__(self, root, q):
         self.root = root
         self.q    = q
         self.root.title("Bayesian-AI Training")
-        self.root.geometry("440x220+60+60")
+        self.root.geometry("440x300+60+60")
         self.root.configure(bg=BG)
         self.root.resizable(False, False)
         self.root.attributes('-topmost', True)
@@ -429,15 +429,40 @@ class ProgressPopup:
 
         self._step_var = tk.StringVar(value="")
         tk.Label(root, textvariable=self._step_var, bg=BG, fg=FG_WHITE,
-                 font=('Consolas', 9)).pack(pady=(2, 6))
+                 font=('Consolas', 9)).pack(pady=(2, 4))
 
         self._pbar = ttk.Progressbar(root, style="Popup.Horizontal.TProgressbar",
                                      orient='horizontal', length=400, mode='determinate')
         self._pbar.pack()
 
-        self._pct_var = tk.StringVar(value="0%")
+        self._pct_var = tk.StringVar(value="0.0%")
         tk.Label(root, textvariable=self._pct_var, bg=BG, fg=FG_GREY,
-                 font=('Consolas', 8)).pack(pady=(4, 0))
+                 font=('Consolas', 8)).pack(pady=(3, 10))
+
+        # ── PnL / stats row ───────────────────────────────────────────────────
+        stats_frame = tk.Frame(root, bg=BG)
+        stats_frame.pack(fill='x', padx=20)
+
+        tk.Label(stats_frame, text="Net PnL", bg=BG, fg=FG_GREY,
+                 font=('Consolas', 8)).grid(row=0, column=0, padx=12)
+        tk.Label(stats_frame, text="Win Rate", bg=BG, fg=FG_GREY,
+                 font=('Consolas', 8)).grid(row=0, column=1, padx=12)
+        tk.Label(stats_frame, text="Trades", bg=BG, fg=FG_GREY,
+                 font=('Consolas', 8)).grid(row=0, column=2, padx=12)
+
+        self._pnl_var    = tk.StringVar(value="$0")
+        self._wr_var     = tk.StringVar(value="—")
+        self._trades_var = tk.StringVar(value="0")
+
+        self._pnl_lbl = tk.Label(stats_frame, textvariable=self._pnl_var, bg=BG,
+                                  fg=FG_GREEN, font=('Consolas', 13, 'bold'))
+        self._pnl_lbl.grid(row=1, column=0, padx=12)
+
+        tk.Label(stats_frame, textvariable=self._wr_var, bg=BG,
+                 fg=FG_WHITE, font=('Consolas', 13, 'bold')).grid(row=1, column=1, padx=12)
+
+        tk.Label(stats_frame, textvariable=self._trades_var, bg=BG,
+                 fg=FG_WHITE, font=('Consolas', 13, 'bold')).grid(row=1, column=2, padx=12)
 
         self.root.after(250, self._poll)
 
@@ -447,13 +472,27 @@ class ProgressPopup:
                 msg   = self.q.get_nowait()
                 mtype = msg.get('type', '')
                 if mtype == 'PHASE_PROGRESS':
-                    phase = msg.get('phase', '')
-                    step  = msg.get('step', '')
-                    pct   = float(msg.get('pct', 0))
+                    phase  = msg.get('phase', '')
+                    step   = msg.get('step', '')
+                    pct    = float(msg.get('pct', 0))
+                    pnl    = msg.get('pnl')
+                    trades = msg.get('trades')
+                    wr     = msg.get('wr')
+
                     self._phase_var.set(f"Phase: {phase}")
                     self._step_var.set(step)
                     self._pbar['value'] = pct
                     self._pct_var.set(f"{pct:.1f}%")
+
+                    if pnl is not None:
+                        sign = '+' if pnl >= 0 else ''
+                        self._pnl_var.set(f"{sign}${pnl:,.0f}")
+                        self._pnl_lbl.config(fg=FG_GREEN if pnl >= 0 else FG_RED)
+                    if wr is not None:
+                        self._wr_var.set(f"{wr:.1f}%")
+                    if trades is not None:
+                        self._trades_var.set(f"{trades:,}")
+
                 elif mtype == 'SHUTDOWN':
                     self.root.destroy()
                     return

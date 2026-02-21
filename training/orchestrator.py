@@ -682,9 +682,13 @@ class BayesianTrainingOrchestrator:
             print(f"\n  Day {day_idx+1}/{n_days}: {day_date} ... ", end='', flush=True)
             if self.dashboard_queue and day_idx % 5 == 0:
                 pct = (day_idx / n_days) * 100
+                _wr = (total_wins / total_trades * 100) if total_trades > 0 else 0.0
                 self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
                                           'step': f'FORWARD_PASS  day {day_idx+1}/{n_days}',
-                                          'pct': round(pct, 1)})
+                                          'pct': round(pct, 1),
+                                          'pnl': total_pnl,
+                                          'trades': total_trades,
+                                          'wr': round(_wr, 1)})
 
             # A. Fractal Cascade Scan (get actionable patterns with chains)
             # This uses the discovery agent logic but focused on this day
@@ -1947,8 +1951,11 @@ class BayesianTrainingOrchestrator:
                 'too_early': left_on_table_val,
                 'noise':     abs(fp_noise_pnl),
             })
+            _final_wr = (total_wins / total_trades * 100) if total_trades > 0 else 0.0
             self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
-                                      'step': 'FORWARD_PASS COMPLETE', 'pct': 100})
+                                      'step': 'FORWARD_PASS COMPLETE', 'pct': 100,
+                                      'pnl': total_pnl, 'trades': total_trades,
+                                      'wr': round(_final_wr, 1)})
 
         # ── Data Partitioning Helper ──────────────────────────────────────────
         def _write_partitioned_csv(records: list, base_filename: str):
