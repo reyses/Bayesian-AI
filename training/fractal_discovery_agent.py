@@ -168,8 +168,15 @@ class FractalDiscoveryAgent:
         if future_slice.empty:
             return MARKER_NOISE, {}
 
-        max_up = float(future_slice[high_col].max() - entry_price)
-        max_down = float(entry_price - future_slice[low_col].min())
+        highs = future_slice[high_col].values
+        lows  = future_slice[low_col].values
+
+        max_up   = float(highs.max() - entry_price)
+        max_down = float(entry_price - lows.min())
+
+        # Bar index (0-based within lookahead) where MFE was first reached
+        mfe_bar_up   = int(np.argmax(highs))
+        mfe_bar_down = int(np.argmin(lows))
 
         min_move = ORACLE_MIN_MOVE_TICKS * tick_size
         marker = MARKER_NOISE
@@ -192,10 +199,20 @@ class FractalDiscoveryAgent:
             elif max_up == 0:
                 marker = MARKER_MEGA_SHORT
 
+        # mfe_bar: which bar within the lookahead the favourable peak was hit.
+        # LONG → high peak bar; SHORT → low trough bar; NOISE → whichever came first.
+        if marker in (MARKER_MEGA_LONG, MARKER_SCALP_LONG):
+            mfe_bar = mfe_bar_up
+        elif marker in (MARKER_MEGA_SHORT, MARKER_SCALP_SHORT):
+            mfe_bar = mfe_bar_down
+        else:
+            mfe_bar = min(mfe_bar_up, mfe_bar_down)
+
         meta = {
-            'mfe': max_up,
-            'mae': max_down,
-            'lookahead_bars': lookahead
+            'mfe':            max_up,
+            'mae':            max_down,
+            'lookahead_bars': lookahead,
+            'mfe_bar':        mfe_bar,   # 0-based bar index where MFE peaked
         }
 
         return marker, meta

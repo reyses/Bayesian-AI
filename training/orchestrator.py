@@ -1294,6 +1294,8 @@ class BayesianTrainingOrchestrator:
                             'dna_expectancy':   _get_dna_expectancy(best_candidate),
                             'oracle_mfe':       best_candidate.oracle_meta.get('mfe', 0.0),
                             'oracle_mae':       best_candidate.oracle_meta.get('mae', 0.0),
+                            'oracle_mfe_bar':   best_candidate.oracle_meta.get('mfe_bar', -1),   # bar index where MFE peaked
+                            'oracle_lookahead': best_candidate.oracle_meta.get('lookahead_bars', 0),
                             # Direction DOE diagnostics
                             'long_bias':        round(long_bias,  4),
                             'short_bias':       round(short_bias, 4),
