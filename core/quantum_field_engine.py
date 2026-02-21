@@ -633,6 +633,7 @@ class QuantumFieldEngine:
 
             d_roche = cuda.device_array(n, dtype=np.bool_)
             d_drive = cuda.device_array(n, dtype=np.bool_)
+            d_oscillation_coherence = cuda.device_array(n, dtype=np.float64)
 
             # Arrays for ADX
             d_tr = cuda.device_array(n, dtype=np.float64)
@@ -660,9 +661,11 @@ class QuantumFieldEngine:
             )
 
             # 2. Archetype Kernel
+            _ow = min(5, rp)
             detect_archetype_kernel[blocks_per_grid, threads_per_block](
                 d_z, d_velocity, d_momentum, d_coherence,
-                d_roche, d_drive
+                d_roche, d_drive,
+                d_oscillation_coherence, _ow
             )
 
             # 3. ADX/DMI Kernel (Pass 1)
@@ -695,6 +698,12 @@ class QuantumFieldEngine:
 
             roche_snap = d_roche.copy_to_host()
             structural_drive = d_drive.copy_to_host()
+            oscillation_coherence_arr = d_oscillation_coherence.copy_to_host()
+
+            # Backfill oscillation_coherence_arr (kernel leaves first _ow-1 as 0.0)
+            if n >= _ow and _ow > 1:
+                 # Replicate the first valid value backwards to match CPU behavior
+                 oscillation_coherence_arr[:_ow-1] = oscillation_coherence_arr[_ow-1]
 
             hurst_arr = d_hurst.copy_to_host()
 
@@ -711,6 +720,9 @@ class QuantumFieldEngine:
 
         else:
             # CPU Fallback
+            # Initialize oscillation_coherence_arr to None so it's calculated later on CPU
+            oscillation_coherence_arr = None
+
             cpu_results = self._batch_compute_cpu(prices, highs, lows, closes, volumes, rp)
             center = cpu_results['center']
             sigma = cpu_results['sigma']
@@ -766,16 +778,18 @@ class QuantumFieldEngine:
         # Rolling std of z_score over a short window.  Low std = tight periodic
         # oscillation (PID regime).  High std = chaotic / trending.
         # Inverted and normalised to (0, 1] so 1 = perfectly tight oscillation.
-        _ow = min(5, rp)
-        osc_std = np.full(n, np.nan)
-        if n >= _ow:
-             z_windows = sliding_window_view(z_scores, window_shape=_ow)
-             osc_std[_ow-1:] = z_windows.std(axis=1, ddof=1)
-             if n > _ow - 1:
-                  osc_std[:_ow - 1] = osc_std[_ow - 1]
+        # Optimization: Use GPU result if available, otherwise CPU.
+        if oscillation_coherence_arr is None:
+            _ow = min(5, rp)
+            osc_std = np.full(n, np.nan)
+            if n >= _ow:
+                 z_windows = sliding_window_view(z_scores, window_shape=_ow)
+                 osc_std[_ow-1:] = z_windows.std(axis=1, ddof=1)
+                 if n > _ow - 1:
+                      osc_std[:_ow - 1] = osc_std[_ow - 1]
 
-        oscillation_coherence_arr = 1.0 / (1.0 + osc_std)   # (0, 1]
-        np.nan_to_num(oscillation_coherence_arr, copy=False, nan=0.0)
+            oscillation_coherence_arr = 1.0 / (1.0 + osc_std)   # (0, 1]
+            np.nan_to_num(oscillation_coherence_arr, copy=False, nan=0.0)
 
         # Reconstruct result list
         # Optimization: Vectorize logic to reduce Python loop overhead
