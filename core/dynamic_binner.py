@@ -20,24 +20,26 @@ Usage:
 """
 import numpy as np
 import pickle
-from typing import Dict, Optional
+import bisect
+from typing import Dict, Optional, List
 
 
 class VariableBins:
     """Bin specification for a single continuous variable."""
 
-    __slots__ = ('edges', 'centers', 'n_bins')
+    __slots__ = ('edges', 'centers', 'n_bins', 'edge_list')
 
     def __init__(self, edges: np.ndarray):
         self.edges = edges                               # (n_bins + 1,)
         self.centers = (edges[:-1] + edges[1:]) / 2.0   # (n_bins,)
         self.n_bins = len(self.centers)
+        self.edge_list: List[float] = edges.tolist()     # Python list for faster bisect
 
     def transform(self, value: float) -> float:
         """Map a single value to its bin center."""
-        # np.searchsorted: find the bin index
-        # clip to [0, n_bins-1] so values outside range map to edge bins
-        idx = np.searchsorted(self.edges, value, side='right') - 1
+        # bisect: faster than np.searchsorted for scalar lookups
+        # using python list avoids numpy array access overhead
+        idx = bisect.bisect_right(self.edge_list, value) - 1
         idx = max(0, min(idx, self.n_bins - 1))
         return float(self.centers[idx])
 
