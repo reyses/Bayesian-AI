@@ -1692,6 +1692,9 @@ class BayesianTrainingOrchestrator:
         report_lines.append(f"    ── Category 3: NOT DETECTED ────────────────────────────")
         report_lines.append(f"    Below cascade threshold:             ?      (z<0.5σ or no pattern type — oracle blind here)")
         report_lines.append(f"    Multi-TF candidates per detection: {_mtf_ratio:.1f}x  ({n_signals_seen:,} candidates from {n_patterns_detected:,} raw patterns)")
+        report_lines.append(f"    ── Category 4: WE SAW IT, ORACLE DID NOT ───────────────")
+        _noise_pct = total_noise_opps / (total_real_opps + total_noise_opps) * 100 if (total_real_opps + total_noise_opps) else 0.0
+        report_lines.append(f"    Cascade detected, oracle says no move:{total_noise_opps:>6,}  ({_noise_pct:.1f}% of all detected — pattern detector false positives)")
 
         report_lines.append("")
         report_lines.append(f"  TOTAL SIGNALS SEEN BY ORACLE: {total_real_opps + total_noise_opps:,}")
