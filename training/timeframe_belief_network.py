@@ -280,7 +280,12 @@ class TimeframeBeliefNetwork:
     DEFAULT_DECISION_TF = 300   # 5m: default scale at which to read predicted_mfe
 
     # Dynamic Exit Thresholds
-    URGENT_EXIT_CONVICTION_THRESHOLD = 0.70
+    # belief_flip disabled (threshold > 1.0 = unreachable):
+    # Forward pass showed 149 belief_flip exits at avg -$72.96 = -$10,872 total.
+    # OOS data confirmed winners flip workers MORE than losers across all TFs,
+    # meaning urgent_exit was cutting winners not protecting against losers.
+    # Trail stop handles exits naturally; re-enable only with directional evidence.
+    URGENT_EXIT_CONVICTION_THRESHOLD = 1.01   # effectively disabled
     # Pre-fix: tighten fired on (not is_confident) OR wave_mature > 0.65 → every bar
     # during a normal move triggered tightening, collapsing the trail to 2 ticks.
     # Now: only tighten on extreme maturity (0.85) — wave is clearly exhausting.
