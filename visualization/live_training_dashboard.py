@@ -403,7 +403,79 @@ class FractalDashboard:
         return f"TEMPLATES: {len(self.templates)} | FISSIONS: {len(self.fission_events)} | PnL: ${total_pnl:.0f}"
 
 
-# ── Entry point ───────────────────────────────────────────────────────────────
+# ── Lightweight progress popup (default UI) ───────────────────────────────────
+class ProgressPopup:
+    """Compact 440x220 progress window — shown by default during training runs."""
+
+    def __init__(self, root, q):
+        self.root = root
+        self.q    = q
+        self.root.title("Bayesian-AI Training")
+        self.root.geometry("440x220+60+60")
+        self.root.configure(bg=BG)
+        self.root.resizable(False, False)
+        self.root.attributes('-topmost', True)
+
+        style = ttk.Style()
+        style.configure("Popup.Horizontal.TProgressbar",
+                         troughcolor='#333333', background='#00cc44', thickness=18)
+
+        tk.Label(root, text="BAYESIAN-AI TRAINING", bg=BG, fg=FG_WHITE,
+                 font=('Consolas', 12, 'bold')).pack(pady=(14, 2))
+
+        self._phase_var = tk.StringVar(value="Initializing...")
+        tk.Label(root, textvariable=self._phase_var, bg=BG, fg=FG_AMBER,
+                 font=('Consolas', 10, 'bold')).pack()
+
+        self._step_var = tk.StringVar(value="")
+        tk.Label(root, textvariable=self._step_var, bg=BG, fg=FG_WHITE,
+                 font=('Consolas', 9)).pack(pady=(2, 6))
+
+        self._pbar = ttk.Progressbar(root, style="Popup.Horizontal.TProgressbar",
+                                     orient='horizontal', length=400, mode='determinate')
+        self._pbar.pack()
+
+        self._pct_var = tk.StringVar(value="0%")
+        tk.Label(root, textvariable=self._pct_var, bg=BG, fg=FG_GREY,
+                 font=('Consolas', 8)).pack(pady=(4, 0))
+
+        self.root.after(250, self._poll)
+
+    def _poll(self):
+        try:
+            while True:
+                msg   = self.q.get_nowait()
+                mtype = msg.get('type', '')
+                if mtype == 'PHASE_PROGRESS':
+                    phase = msg.get('phase', '')
+                    step  = msg.get('step', '')
+                    pct   = float(msg.get('pct', 0))
+                    self._phase_var.set(f"Phase: {phase}")
+                    self._step_var.set(step)
+                    self._pbar['value'] = pct
+                    self._pct_var.set(f"{pct:.1f}%")
+                elif mtype == 'SHUTDOWN':
+                    self.root.destroy()
+                    return
+        except Exception:
+            pass
+        self.root.after(250, self._poll)
+
+
+def launch_popup(queue):
+    """Launch the lightweight progress popup in its own Tk mainloop."""
+    root = tk.Tk()
+    ProgressPopup(root, queue)
+    try:
+        root.mainloop()
+    finally:
+        try:
+            root.destroy()
+        except Exception:
+            pass
+
+
+# ── Full dashboard entry point ─────────────────────────────────────────────────
 def launch_dashboard(queue):
     root = tk.Tk()
     app = FractalDashboard(root, queue)

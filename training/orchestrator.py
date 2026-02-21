@@ -77,7 +77,7 @@ _HURST_TREND_CONFIRMATION = 0.6
 
 # Visualization
 try:
-    from visualization.live_training_dashboard import launch_dashboard
+    from visualization.live_training_dashboard import launch_dashboard, launch_popup
     DASHBOARD_AVAILABLE = True
 except ImportError:
     DASHBOARD_AVAILABLE = False
@@ -2733,9 +2733,12 @@ class BayesianTrainingOrchestrator:
         else:
             print(f"  WARNING: Path does not exist!")
 
-        # Launch Dashboard
+        # Launch UI — popup by default, full dashboard with --dashboard, nothing with --no-dashboard
         if not self.config.no_dashboard and DASHBOARD_AVAILABLE:
-            self.launch_dashboard()
+            if getattr(self.config, 'dashboard', False):
+                self.launch_dashboard()
+            else:
+                self.launch_popup()
 
         # ===================================================================
         # PHASE 2: Pattern Discovery (with checkpoint/resume)
@@ -3195,8 +3198,15 @@ class BayesianTrainingOrchestrator:
         return outcome
 
     # Helpers
+    def launch_popup(self):
+        """Launch lightweight progress popup in background thread (default UI)."""
+        self.dashboard_thread = threading.Thread(target=launch_popup, args=(self.dashboard_queue,), daemon=True)
+        self.dashboard_thread.start()
+        print("Progress popup launching in background...")
+        time.sleep(1)
+
     def launch_dashboard(self):
-        """Launch dashboard in background thread"""
+        """Launch full dashboard in background thread (opt-in via --dashboard)."""
         self.dashboard_thread = threading.Thread(target=launch_dashboard, args=(self.dashboard_queue,), daemon=True)
         self.dashboard_thread.start()
         print("Dashboard launching in background...")
@@ -3654,7 +3664,8 @@ def main():
     parser.add_argument('--data', default=os.path.join("DATA", "ATLAS"), help="Path to ATLAS root, single TF directory, or parquet file")
     parser.add_argument('--iterations', type=int, default=1000, help="Iterations per pattern (default: 1000)")
     parser.add_argument('--checkpoint-dir', type=str, default="checkpoints", help="Checkpoint directory")
-    parser.add_argument('--no-dashboard', action='store_true', help="Disable live dashboard")
+    parser.add_argument('--no-dashboard', action='store_true', help="Disable all UI (popup and dashboard)")
+    parser.add_argument('--dashboard', action='store_true', help="Show full live dashboard instead of default lightweight popup")
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
     parser.add_argument('--fresh', action='store_true', help="Clear all pipeline checkpoints and start fresh")
