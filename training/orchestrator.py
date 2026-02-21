@@ -1895,13 +1895,63 @@ class BayesianTrainingOrchestrator:
             left_on_table = sum(max(0, r['oracle_potential_pnl'] - r['actual_pnl'])
                                 for r in non_reversed)
 
+            def _eq_row(label, recs, flag=''):
+                n     = len(recs)
+                total = sum(r['actual_pnl'] for r in recs)
+                avg   = total / n if n else 0.0
+                avg_h = sum(r.get('hold_bars', 0) for r in recs) / n if n else 0.0
+                avg_c = sum(r.get('capture_rate', 0) for r in recs) / n if n else 0.0
+                return (f"    {label:<36} {n:>5,}  ${total:>10,.0f}  "
+                        f"avg${avg:>7,.0f}  {avg_h:>5.0f}bars  cap{avg_c:>+6.0%}  {flag}")
+
             report_lines.append("")
             report_lines.append(f"  EXIT QUALITY (correct-direction trades):")
-            report_lines.append(f"    Optimal  (>=80% of move captured): {len(optimal):>6,}  ->  ${sum(r['actual_pnl'] for r in optimal):>10,.2f}")
-            report_lines.append(f"    Partial  (20-80% captured):        {len(partial):>6,}  ->  ${sum(r['actual_pnl'] for r in partial):>10,.2f}")
-            report_lines.append(f"    Too early (<20% captured):         {len(too_early):>6,}  ->  ${sum(r['actual_pnl'] for r in too_early):>10,.2f}")
-            report_lines.append(f"    Reversed (correct dir, mkt flipped):{len(reversed_):>6,}  ->  ${sum(r['actual_pnl'] for r in reversed_):>10,.2f}  <- own leakage bucket")
-            report_lines.append(f"    Left on table (non-reversed TP gap):             ${left_on_table:>10,.2f}")
+            report_lines.append(f"    {'Bucket':<36} {'n':>5}  {'Total PnL':>11}  {'Avg PnL':>8}  {'Hold':>9}  {'Cap%':>7}")
+            report_lines.append(f"    {'─'*36} {'─'*5}  {'─'*11}  {'─'*8}  {'─'*9}  {'─'*7}")
+            report_lines.append(_eq_row("Optimal  (>=80% captured)",  optimal))
+            report_lines.append(_eq_row("Partial  (20-80% captured)", partial))
+            report_lines.append(_eq_row("Too early (<20% captured)",  too_early))
+            report_lines.append(_eq_row("Reversed (mkt flipped after entry)", reversed_, "<- leakage"))
+            report_lines.append(f"    Left on table (non-reversed gap):                        ${left_on_table:>10,.0f}")
+
+            # ── Exit reason cross-breakdown ───────────────────────────────────
+            report_lines.append("")
+            report_lines.append(f"  EXIT REASON → QUALITY CROSS-BREAKDOWN (correct-direction trades):")
+            all_reasons = sorted({r.get('exit_reason', 'unknown') for r in tp_recs})
+            buckets_def = [
+                ('Optimal',   optimal),
+                ('Partial',   partial),
+                ('Too early', too_early),
+                ('Reversed',  reversed_),
+            ]
+            _hdr = f"    {'Exit reason':<18}" + "".join(f"  {b[0]:>9}" for b in buckets_def) + f"  {'Total':>6}  {'Avg PnL':>8}"
+            report_lines.append(_hdr)
+            report_lines.append(f"    {'─'*18}" + "  ─────────" * len(buckets_def) + "  ──────  ────────")
+            for reason in all_reasons:
+                reason_recs = [r for r in tp_recs if r.get('exit_reason') == reason]
+                if not reason_recs:
+                    continue
+                avg_r = sum(r['actual_pnl'] for r in reason_recs) / len(reason_recs)
+                row = f"    {str(reason):<18}"
+                for _, brecs in buckets_def:
+                    cnt = sum(1 for r in brecs if r.get('exit_reason') == reason)
+                    row += f"  {cnt:>9,}"
+                row += f"  {len(reason_recs):>6,}  ${avg_r:>7,.0f}"
+                report_lines.append(row)
+
+            # ── Per-bucket avg oracle MFE vs actual ──────────────────────────
+            report_lines.append("")
+            report_lines.append(f"  CAPTURE DETAIL (correct-direction trades):")
+            report_lines.append(f"    {'Bucket':<20}  {'Avg oracle MFE':>14}  {'Avg actual PnL':>14}  {'Avg hold bars':>14}")
+            for label, recs in [('Optimal', optimal), ('Partial', partial),
+                                 ('Too early', too_early), ('Reversed', reversed_)]:
+                if not recs:
+                    continue
+                avg_mfe_pts = sum(r.get('oracle_mfe', 0) for r in recs) / len(recs)
+                avg_mfe_usd = avg_mfe_pts * self.asset.point_value
+                avg_act     = sum(r['actual_pnl'] for r in recs) / len(recs)
+                avg_hb      = sum(r.get('hold_bars', 0) for r in recs) / len(recs)
+                report_lines.append(f"    {label:<20}  ${avg_mfe_usd:>13,.0f}  ${avg_act:>13,.0f}  {avg_hb:>14.1f}")
         else:
             reversed_ = []
             left_on_table = 0.0
