@@ -653,6 +653,8 @@ class BayesianTrainingOrchestrator:
         # Per-trade oracle tracking
         _ORACLE_LABEL_NAMES = {2: 'MEGA_LONG', 1: 'SCALP_LONG', 0: 'NOISE', -1: 'SCALP_SHORT', -2: 'MEGA_SHORT'}
         oracle_trade_records = []  # completed per-trade oracle dicts
+        _partial_written     = False  # True after first partial CSV flush
+        _PARTIAL_INTERVAL    = 30     # flush every N days
         pending_oracle = None      # oracle facts for currently open trade
         _pending_dm_idx = None     # index into decision_matrix_records for open trade
         fn_potential_pnl    = 0.0  # dollar potential of real moves we missed (gate-blocked)
@@ -675,16 +677,21 @@ class BayesianTrainingOrchestrator:
         fn_oracle_records = []
 
         n_days = len(daily_files_15s)
+        pbar = tqdm(total=n_days, desc="Phase 4", unit="day", leave=True, dynamic_ncols=True)
         for day_idx, day_file in enumerate(daily_files_15s):
             day_date = os.path.basename(day_file).replace('.parquet', '')
             # Normalise: monthly YYYY_MM -> YYYY_MM kept as-is for scan_day_cascade
             # (discovery agent matches by substring so both formats work)
-            print(f"\n  Day {day_idx+1}/{n_days}: {day_date} ... ", end='', flush=True)
-            if self.dashboard_queue and day_idx % 5 == 0:
-                pct = (day_idx / n_days) * 100
-                self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
-                                          'step': f'FORWARD_PASS  day {day_idx+1}/{n_days}',
-                                          'pct': round(pct, 1)})
+            pbar.set_description(f"Phase 4 [{day_date}]")
+            if self.dashboard_queue:
+                _fp_wr  = total_wins / total_trades if total_trades else 0.0
+                _fp_pct = round((day_idx + 1) / n_days * 100, 1)
+                self.dashboard_queue.put({
+                    'type': 'FORWARD_PASS_STATS',
+                    'day': day_idx + 1, 'n_days': n_days,
+                    'pnl': total_pnl, 'trades': total_trades,
+                    'wr': _fp_wr, 'pct': _fp_pct,
+                })
 
             # A. Fractal Cascade Scan (get actionable patterns with chains)
             # This uses the discovery agent logic but focused on this day
@@ -1546,9 +1553,26 @@ class BayesianTrainingOrchestrator:
                 total_pnl += d_pnl
                 total_trades += len(day_trades)
                 total_wins += d_wins
-                print(f"Trades: {len(day_trades)}, Wins: {d_wins}, PnL: ${d_pnl:.2f} ({time.perf_counter() - t_sim_start:.1f}s)")
-            else:
-                print("No trades.")
+
+            _wr_str = f"{total_wins/total_trades*100:.1f}%" if total_trades else "N/A"
+            pbar.set_postfix(pnl=f"${total_pnl:,.0f}", trades=total_trades, wr=_wr_str)
+            pbar.update(1)
+
+            # ── Partial write every N days ────────────────────────────────────
+            if (day_idx + 1) % _PARTIAL_INTERVAL == 0 and oracle_trade_records:
+                _log_name = 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv'
+                _partial_path = os.path.join(self.checkpoint_dir, _log_name)
+                _mode = 'a' if _partial_written else 'w'
+                with open(_partial_path, _mode, newline='', encoding='utf-8') as _pf:
+                    _pw = _csv.DictWriter(_pf, fieldnames=list(oracle_trade_records[0].keys()))
+                    if not _partial_written:
+                        _pw.writeheader()
+                    _pw.writerows(oracle_trade_records)
+                oracle_trade_records.clear()
+                _partial_written = True
+                tqdm.write(f"  [checkpoint] day {day_idx+1}/{n_days} — trade log flushed")
+
+        pbar.close()
 
         # Final Report
         import datetime as _datetime
@@ -1942,13 +1966,19 @@ class BayesianTrainingOrchestrator:
                                       'step': 'FORWARD_PASS COMPLETE', 'pct': 100})
 
         # ── 6. Save CSV ──────────────────────────────────────────────────────────
+        _log_name = 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv'
+        csv_path = os.path.join(self.checkpoint_dir, _log_name)
         if oracle_trade_records:
-            _log_name = 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv'
-            csv_path = os.path.join(self.checkpoint_dir, _log_name)
-            with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+            # Append remaining records (or write fresh if no partial flush happened)
+            _mode = 'a' if _partial_written else 'w'
+            with open(csv_path, _mode, newline='', encoding='utf-8') as f:
                 writer = _csv.DictWriter(f, fieldnames=list(oracle_trade_records[0].keys()))
-                writer.writeheader()
+                if not _partial_written:
+                    writer.writeheader()
                 writer.writerows(oracle_trade_records)
+            report_lines.append("")
+            report_lines.append(f"  Per-trade oracle log saved: {csv_path}")
+        elif _partial_written:
             report_lines.append("")
             report_lines.append(f"  Per-trade oracle log saved: {csv_path}")
 
@@ -2888,6 +2918,7 @@ class BayesianTrainingOrchestrator:
 
                         if self.dashboard_queue:
                             centroid = original_tmpl.centroid
+                            _wr = self.pattern_library.get(tmpl_id, {}).get('stats_win_rate', 0.0)
                             self.dashboard_queue.put({
                                 'type': 'TEMPLATE_UPDATE',
                                 'id': tmpl_id,
@@ -2895,6 +2926,7 @@ class BayesianTrainingOrchestrator:
                                 'mom': centroid[2],
                                 'pnl': val_pnl,
                                 'count': member_count,
+                                'win_rate': _wr,
                                 'transitions': tmpl.transition_probs
                             })
 

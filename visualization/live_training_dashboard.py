@@ -63,6 +63,9 @@ class FractalDashboard:
             'too_early': 0.0, 'noise': 0.0,
         }
 
+        # Forward pass live stats
+        self.fp_stats = {'day': 0, 'n_days': 0, 'pnl': 0.0, 'trades': 0, 'wr': 0.0, 'pct': 0.0}
+
         self._running = True   # set False on SHUTDOWN to stop rescheduling
         self._setup_layout()
         self.root.after(100, self._process_queue)
@@ -138,6 +141,15 @@ class FractalDashboard:
         self.lbl_captured = ttk.Label(nums, text="0.0%", style="Bad.TLabel")
         self.lbl_captured.grid(row=2, column=1, sticky='w', padx=6)
 
+        # Forward pass progress row
+        ttk.Label(nums, text="Forward pass:", style="Dim.TLabel").grid(row=3, column=0, sticky='w', pady=(6,0))
+        self.lbl_fp_day = ttk.Label(nums, text="—", style="TLabel")
+        self.lbl_fp_day.grid(row=3, column=1, sticky='w', padx=6, pady=(6,0))
+        self.fp_progress = ttk.Progressbar(nums, orient='horizontal', length=220, mode='determinate')
+        self.fp_progress.grid(row=4, column=0, columnspan=2, sticky='ew', pady=(2,0))
+        self.lbl_fp_stats = ttk.Label(nums, text="", style="Dim.TLabel")
+        self.lbl_fp_stats.grid(row=5, column=0, columnspan=2, sticky='w')
+
         # Pareto bar chart
         self.fig_pareto, self.ax_pareto = plt.subplots(figsize=(5, 5), facecolor=BG)
         self.ax_pareto.set_facecolor(BG)
@@ -204,6 +216,22 @@ class FractalDashboard:
         elif t == 'STATUS':
             self.lbl_status.config(text=f"SYSTEM STATUS: {msg['text']}")
 
+        elif t == 'FORWARD_PASS_STATS':
+            fp = msg
+            self.fp_stats = fp
+            day, n_days = fp['day'], fp['n_days']
+            pnl, trades, wr, pct = fp['pnl'], fp['trades'], fp['wr'], fp['pct']
+            self.fp_progress['value'] = pct
+            self.lbl_fp_day.config(text=f"day {day}/{n_days}  ({pct:.0f}%)")
+            self.lbl_fp_stats.config(
+                text=f"PnL: ${pnl:,.0f}  |  Trades: {trades}  |  WR: {wr*100:.1f}%"
+            )
+            # Live-update actual PnL in pareto section
+            self.lbl_actual.config(text=f"${pnl:,.0f}",
+                                   style="Good.TLabel" if pnl >= 0 else "Bad.TLabel")
+            if day % 10 == 0 or day == n_days:
+                self._log(f"FWD day {day}/{n_days} | PnL: ${pnl:,.0f} | Trades: {trades} | WR: {wr*100:.1f}%")
+
         elif t == 'PHASE_PROGRESS':
             step = msg.get('step', '')
             pct  = msg.get('pct', 0)
@@ -220,13 +248,7 @@ class FractalDashboard:
 
         elif t == 'SHUTDOWN':
             self._running = False
-            # Close all matplotlib figures while still in the main loop so tkinter
-            # Image objects are deleted here, not from the GC in a daemon thread.
-            try:
-                plt.close('all')
-            except Exception:
-                pass
-            self.root.quit()
+            self.root.quit()  # returns control to launch_dashboard finally block
 
     # ── Pareto chart ──────────────────────────────────────────────────────────
     def _capture_pct(self):
@@ -410,6 +432,12 @@ def launch_dashboard(queue):
     try:
         root.mainloop()
     finally:
+        # Close matplotlib figures on main thread BEFORE destroy() to prevent
+        # PhotoImage.__del__ being called from a GC thread ("main thread not in main loop")
+        try:
+            plt.close('all')
+        except Exception:
+            pass
         try:
             root.destroy()
         except Exception:
