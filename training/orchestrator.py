@@ -1171,9 +1171,12 @@ class BayesianTrainingOrchestrator:
                                     tier=template_tier_map.get(best_tid, 3),
                                     pattern_dna=str(pattern_dna) if pattern_dna else ''))
                                 continue
-                            # Path direction override for NOISE oracle_marker patterns
-                            if _nn_marker == 0 and _belief.direction != side:
-                                side = _belief.direction  # fractal tree overrides leaf heuristics
+                            # Path direction override: belief network wins over z_score branch
+                            # OOS: workers have +0.20 edge at 15m, +0.09 at 15s.
+                            # IS forward pass: z_score sign was ~56% accurate (near random).
+                            # Belief direction is a stronger signal than z_score sign alone.
+                            if _belief.direction != side:
+                                side = _belief.direction
                             # Use network's predicted MFE if better than leaf-level estimate
                             _network_tp = max(4, int(round(_belief.predicted_mfe))) if _belief.predicted_mfe > 2.0 else None
                         else:
