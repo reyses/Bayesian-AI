@@ -529,7 +529,7 @@ class QuantumFieldEngine:
 
         # 3. Relative Volume (20-bar rolling mean)
         # vol_mean = np.convolve(volumes, np.ones(20)/20, mode='same')
-        vol_mean = np.convolve(volumes, np.ones(REL_VOLUME_WINDOW)/REL_VOLUME_WINDOW, mode='same')
+        vol_mean = pd.Series(volumes).rolling(window=REL_VOLUME_WINDOW, min_periods=1).mean().values
         vol_mean = np.maximum(vol_mean, 1e-9)  # avoid div/0
         rel_volume_arr = volumes / vol_mean    # shape (N,)
 
