@@ -261,8 +261,8 @@ class FractalDNATree:
                 if hasattr(p, 'oracle_meta') and p.oracle_meta.get('mae')]
 
         # New stats
-        adx_vals = [p.state.adx_strength if p.state else 0.0 for p in patterns]
-        vol_vals = [p.state.rel_volume if p.state else 1.0 for p in patterns]
+        adx_vals = [getattr(getattr(p,'state',None),'adx_strength',0.0) for p in patterns]
+        vol_vals = [getattr(getattr(p,'state',None),'rel_volume', 1.0) for p in patterns]
         if adx_vals:
             node.mean_adx = float(np.mean(adx_vals))
         if vol_vals:

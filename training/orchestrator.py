@@ -89,6 +89,9 @@ from config.symbols import MNQ
 PRECOMPUTE_DEBUG_LOG_FILENAME = 'precompute_debug.log'
 
 MAX_CLUSTER_DISTANCE = 4.5
+DNA_CONFIDENCE_THRESHOLD = 0.85
+MIN_MFE_TICKS = 4
+MIN_MFE_PREDICTION = 2.0
 
 TIMEFRAME_MAP = {
     0: '5s',
@@ -1002,7 +1005,7 @@ class BayesianTrainingOrchestrator:
                         _gate_passed = False
                         if dist < MAX_CLUSTER_DISTANCE:
                             _gate_passed = True
-                        elif self.dna_tree and dna_conf > 0.85:
+                        elif self.dna_tree and dna_conf > DNA_CONFIDENCE_THRESHOLD:
                              # High confidence in hierarchical structure can override flat distance
                              _gate_passed = True
 
@@ -1094,7 +1097,7 @@ class BayesianTrainingOrchestrator:
                             continue
 
                         side = _belief.direction
-                        _network_tp = max(4, int(round(_belief.predicted_mfe))) if _belief.predicted_mfe > 2.0 else None
+                        _network_tp = max(MIN_MFE_TICKS, int(round(_belief.predicted_mfe))) if _belief.predicted_mfe > MIN_MFE_PREDICTION else None
 
                         # Logging/Diagnostics
                         _live_s   = best_candidate.state
