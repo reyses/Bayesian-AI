@@ -88,6 +88,8 @@ from config.symbols import MNQ
 
 PRECOMPUTE_DEBUG_LOG_FILENAME = 'precompute_debug.log'
 
+MAX_CLUSTER_DISTANCE = 4.5
+
 TIMEFRAME_MAP = {
     0: '5s',
     1: '15s',
@@ -108,10 +110,16 @@ def verify_cuda_availability():
     except Exception as e:
         print(f"CUDA: AVAILABLE (but failed to get device name: {e})")
 
+# Golden Path Constants
+BASE_RESOLUTION_SECONDS = 15
+FALLBACK_HOLD_BARS = 5
+MIN_ESTIMATED_HOLD_BARS = 2
+ESTIMATED_TICKS_PER_BAR = 2.0  # Speed estimate for hold time calc
+
 def _compute_golden_path_ideal(
     oracle_trade_records: list,   # actual trades taken (have entry_time, exit_time, oracle_potential_pnl)
     fn_oracle_records: list,      # gate-blocked real moves (have timestamp, fn_potential_pnl)
-    bar_seconds: int = 15,        # bar duration in seconds (15s bars)
+    bar_seconds: int = BASE_RESOLUTION_SECONDS,
     point_value: float = 2.0,     # MNQ = $2/point
 ) -> float:
     """
@@ -138,7 +146,7 @@ def _compute_golden_path_ideal(
             val = max(val * 0.5, dna_exp)
 
         entry_ts = r.get('entry_time', 0)
-        exit_ts  = r.get('exit_time',  entry_ts + bar_seconds * 5)
+        exit_ts  = r.get('exit_time',  entry_ts + bar_seconds * FALLBACK_HOLD_BARS)
         candidates.append((entry_ts, exit_ts, val))
 
     # Gate-blocked FN signals — estimate hold from MFE
@@ -154,9 +162,9 @@ def _compute_golden_path_ideal(
             val = max(val * 0.5, dna_exp)
 
         entry_ts = r.get('timestamp', 0)
-        # Estimate hold: MFE_ticks / 2 ticks_per_bar, minimum 2 bars
+        # Estimate hold: MFE_ticks / estimated speed, minimum bars
         mfe_ticks = val / tick_value if tick_value > 0 else 8.0
-        est_hold_bars = max(2, int(mfe_ticks / 2.0))
+        est_hold_bars = max(MIN_ESTIMATED_HOLD_BARS, int(mfe_ticks / ESTIMATED_TICKS_PER_BAR))
         exit_ts = entry_ts + est_hold_bars * bar_seconds
         candidates.append((entry_ts, exit_ts, val))
 
@@ -1043,7 +1051,7 @@ class BayesianTrainingOrchestrator:
                         if self.dna_tree:
                             pattern_dna, dna_node, dna_conf = self.dna_tree.match(p)
 
-                        if dist < 4.5: # Threshold (raised from 3.0 so extreme-z profitable patterns reach their nearest cluster)
+                        if dist < MAX_CLUSTER_DISTANCE: # Threshold (raised from 3.0 so extreme-z profitable patterns reach their nearest cluster)
                             # Brain gate -- use low threshold for exploration
                             if self.brain.should_fire(tid, min_prob=0.05, min_conf=0.0):
                                 # Score: lower is better

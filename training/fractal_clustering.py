@@ -28,6 +28,13 @@ from config.oracle_config import (
     TRANSITION_MAX_SEQUENCE_GAP_BARS
 )
 
+# Clustering Constants
+MIN_PATTERNS_FOR_SPLIT = 20
+MAX_RECURSION_DEPTH = 5
+MIN_SAMPLES_PER_CLUSTER = 20
+MAX_FISSION_CLUSTERS = 6
+MIN_FISSION_SAMPLES = 5
+
 @dataclass
 class PatternTemplate:
     template_id: int
@@ -170,7 +177,7 @@ class FractalClusteringEngine:
     def _recursive_split(self, X: np.ndarray, patterns: list, start_id: int, scaler: StandardScaler, depth: int = 0) -> list:
         """Recursively split a cluster until z-variance <= max_variance or too small."""
         z_var = np.std(X[:, 0])
-        if z_var <= self.max_variance or len(patterns) <= 20 or depth > 5:
+        if z_var <= self.max_variance or len(patterns) <= MIN_PATTERNS_FOR_SPLIT or depth > MAX_RECURSION_DEPTH:
             centroid = np.mean(X, axis=0)
             raw_centroid = scaler.inverse_transform([centroid])[0]
             return [PatternTemplate(
@@ -181,7 +188,7 @@ class FractalClusteringEngine:
                 physics_variance=z_var
             )]
 
-        k = min(3, max(2, len(patterns) // 20))
+        k = min(3, max(2, len(patterns) // MIN_PATTERNS_FOR_SPLIT))
         km = self._get_kmeans_model(n_clusters=k, n_samples=len(X))
         labels = km.fit_predict(X)
 
@@ -392,13 +399,21 @@ class FractalClusteringEngine:
         # that might still rely on it (though we should migrate them).
         if manifest:
              all_feats = []
+             valid_patterns = []
              for p in manifest:
                  try:
                      all_feats.append(self.extract_features(p))
+                     valid_patterns.append(p)
                  except AttributeError:
                      continue
              if all_feats:
                  self.scaler.fit(all_feats)
+
+             # --- Build Transition Matrix on Merged Templates ---
+             if valid_patterns:
+                 print(f"  Building Transition Matrix...", end="", flush=True)
+                 self._build_transition_matrix(templates, valid_patterns)
+                 print(" done.")
 
         self.templates = templates
         return templates
@@ -439,7 +454,7 @@ class FractalClusteringEngine:
 
         # 2. Initial Coarse Clustering
         # Start with a conservative K
-        target_k = min(self.n_clusters // 2, len(valid_patterns) // 20) # Half clusters per branch
+        target_k = min(self.n_clusters // 2, len(valid_patterns) // MIN_SAMPLES_PER_CLUSTER) # Half clusters per branch
         target_k = max(target_k, 1)
 
         t1 = _time.perf_counter()
@@ -494,7 +509,7 @@ class FractalClusteringEngine:
 
             z_variance = np.std(sub_X[:, 0])
 
-            if z_variance > self.max_variance and len(indices) > 20:
+            if z_variance > self.max_variance and len(indices) > MIN_SAMPLES_PER_CLUSTER:
                 splits_count += 1
                 refined_subsets = self._recursive_split(sub_X, sub_patterns, next_id, scaler)
                 final_templates.extend(refined_subsets)
@@ -549,8 +564,8 @@ class FractalClusteringEngine:
         from sklearn.metrics import silhouette_score as cpu_silhouette_score
         best_n, best_score, best_labels = 1, -1.0, None
 
-        for n in range(2, 6):
-            if len(X_params) < n * 5: break
+        for n in range(2, MAX_FISSION_CLUSTERS):
+            if len(X_params) < n * MIN_FISSION_SAMPLES: break
             kmeans = self._get_kmeans_model(n_clusters=n, n_samples=len(X_params),
                                             use_cuda=False).fit(X_params)
             try:

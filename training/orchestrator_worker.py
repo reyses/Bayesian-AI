@@ -169,26 +169,31 @@ def simulate_trade_standalone(entry_price: float, data: Any, state: Any,
         duration=duration, direction=direction
     )
 
+# Analytical Exit Constants
+TP_P75_MFE_FACTOR = 0.85
+SL_MEAN_MAE_FACTOR = 2.00
+TRAIL_MEAN_MAE_FACTOR = 1.10
+MIN_MFE_FOR_ANALYTICAL_EXIT = 2.0
+FALLBACK_TP_TICKS = 40
+FALLBACK_SL_TICKS = 15
+FALLBACK_TRAIL_TICKS = 8
+
 def _analytical_exits(template) -> dict:
     """
     Derive TP, SL, trail from the template's oracle MFE/MAE distribution.
     Falls back to hardcoded defaults when oracle data is insufficient.
     """
-    FALLBACK_TP    = 40   # ticks
-    FALLBACK_SL    = 15   # ticks
-    FALLBACK_TRAIL = 8    # ticks
-
     mean_mfe = getattr(template, 'mean_mfe_ticks', 0.0) if template else 0.0
     p75_mfe  = getattr(template, 'p75_mfe_ticks',  0.0) if template else 0.0
     mean_mae = getattr(template, 'mean_mae_ticks',  0.0) if template else 0.0
     p25_mae  = getattr(template, 'p25_mae_ticks',   0.0) if template else 0.0
 
-    if mean_mfe > 2.0:
-        tp    = max(5,  int(round(p75_mfe  * 0.85))) if p75_mfe  > 2.0 else max(5, int(round(mean_mfe)))
-        sl    = max(3,  int(round(mean_mae * 2.00))) if mean_mae  > 1.0 else FALLBACK_SL
-        trail = max(2,  int(round(mean_mae * 1.10))) if mean_mae  > 1.0 else FALLBACK_TRAIL
+    if mean_mfe > MIN_MFE_FOR_ANALYTICAL_EXIT:
+        tp    = max(5,  int(round(p75_mfe  * TP_P75_MFE_FACTOR))) if p75_mfe  > 2.0 else max(5, int(round(mean_mfe)))
+        sl    = max(3,  int(round(mean_mae * SL_MEAN_MAE_FACTOR))) if mean_mae  > 1.0 else FALLBACK_SL_TICKS
+        trail = max(2,  int(round(mean_mae * TRAIL_MEAN_MAE_FACTOR))) if mean_mae  > 1.0 else FALLBACK_TRAIL_TICKS
     else:
-        tp, sl, trail = FALLBACK_TP, FALLBACK_SL, FALLBACK_TRAIL
+        tp, sl, trail = FALLBACK_TP_TICKS, FALLBACK_SL_TICKS, FALLBACK_TRAIL_TICKS
 
     return {
         'take_profit_ticks':  tp,
@@ -339,7 +344,9 @@ def _optimize_template_task(args):
         return 0.0
 
     # 4. Run Optuna TPE
-    n_trials = max(50, min(iterations, 200))  # 50 min, 200 max — TPE converges fast
+    MIN_OPTUNA_TRIALS = 50
+    MAX_OPTUNA_TRIALS = 200
+    n_trials = max(MIN_OPTUNA_TRIALS, min(iterations, MAX_OPTUNA_TRIALS))  # TPE converges fast
     seed = getattr(template, 'template_id', 42) if template else 42
     best_pid = generator.optimize_pid(_sharpe_objective, n_trials=n_trials, seed=seed)
 
