@@ -502,17 +502,18 @@ def _part8_best_worst(df: pd.DataFrame, n: int = 20) -> list[str]:
     lines.append(f'PART 8 — BEST/WORST DEEP DIVE  (top {n} vs bottom {n} by PnL)')
     lines.append('─' * 80)
 
-    if 'pnl' not in df.columns or len(df) < n * 2:
-        lines.append(f'  (not enough trades: need {n*2}, got {len(df)})')
+    pnl_col = 'actual_pnl' if 'actual_pnl' in df.columns else 'pnl' if 'pnl' in df.columns else None
+    if pnl_col is None or len(df) < n * 2:
+        lines.append(f'  (not enough trades or no pnl column: need {n*2}, got {len(df)})')
         return lines
 
-    best  = df.nlargest(n,  'pnl').copy()
-    worst = df.nsmallest(n, 'pnl').copy()
+    best  = df.nlargest(n,  pnl_col).copy()
+    worst = df.nsmallest(n, pnl_col).copy()
 
-    lines.append(f'  BEST  {n}: PnL range  ${best["pnl"].min():>8,.0f} → ${best["pnl"].max():>8,.0f}   '
-                 f'mean=${best["pnl"].mean():>8,.0f}')
-    lines.append(f'  WORST {n}: PnL range  ${worst["pnl"].min():>8,.0f} → ${worst["pnl"].max():>8,.0f}   '
-                 f'mean=${worst["pnl"].mean():>8,.0f}')
+    lines.append(f'  BEST  {n}: PnL range  ${best[pnl_col].min():>8,.0f} → ${best[pnl_col].max():>8,.0f}   '
+                 f'mean=${best[pnl_col].mean():>8,.0f}')
+    lines.append(f'  WORST {n}: PnL range  ${worst[pnl_col].min():>8,.0f} → ${worst[pnl_col].max():>8,.0f}   '
+                 f'mean=${worst[pnl_col].mean():>8,.0f}')
     lines.append('')
 
     # ── Numeric feature comparison ────────────────────────────────────────────
