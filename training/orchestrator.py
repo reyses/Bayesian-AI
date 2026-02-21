@@ -1020,32 +1020,15 @@ class BayesianTrainingOrchestrator:
                                 p, 'gate0_5', day_date, ts, micro_z, macro_z, micro_pattern))
                             continue
 
-                        # Snowflake Match
-                        _cand_z = getattr(p, 'z_score', 0)
-                        if _cand_z <= 0:
-                            # LONG branch
-                            _idx = self.valid_tids_long
-                            _cen = self.centroids_long
-                            _sc  = self.scaler_long
-                            _branch = 'long'
-                        else:
-                            # SHORT branch
-                            _idx = self.valid_tids_short
-                            _cen = self.centroids_short
-                            _sc  = self.scaler_short
-                            _branch = 'short'
-
-                        if not _idx or _cen is None:
-                            # Fallback (empty branch or legacy)
-                            _idx = valid_template_ids
-                            _cen = centroids_scaled
-                            _sc  = self.scaler
-                            _branch = 'legacy'
+                        # Unified cluster match (single scaler, direction derived from long_bias)
+                        _idx = valid_template_ids
+                        _cen = centroids_scaled
+                        _sc  = self.scaler
 
                         # Extract 14D features using shared logic
                         features = np.array([FractalClusteringEngine.extract_features(p)])
 
-                        # Scale (using branch-specific scaler)
+                        # Scale (single unified scaler)
                         feat_scaled = _sc.transform(features)
 
                         # Match
@@ -1126,21 +1109,19 @@ class BayesianTrainingOrchestrator:
                         _live_feat = np.array(FractalClusteringEngine.extract_features(best_candidate))
 
                         _cand_z = getattr(best_candidate, 'z_score', 0)
-                        _tmpl_dir = lib_entry.get('direction', '')  # 'LONG', 'SHORT', or '' (legacy)
-                        if _tmpl_dir == 'LONG':
-                            _live_scaled = self.scaler_long.transform([_live_feat])[0]
-                            side = 'long'
-                        elif _tmpl_dir == 'SHORT':
-                            _live_scaled = self.scaler_short.transform([_live_feat])[0]
-                            side = 'short'
+                        # Direction: use per-cluster logistic regression on live shape features
+                        # P(LONG) = sigmoid(live_scaled @ dir_coeff + dir_intercept)
+                        # Falls back to long_bias (fraction of LONG members in cluster) if not fitted
+                        _live_scaled = self.scaler.transform([_live_feat])[0]
+                        _dir_coeff = lib_entry.get('dir_coeff')
+                        if _dir_coeff is not None:
+                            _logit = np.dot(_live_scaled, np.array(_dir_coeff)) + lib_entry.get('dir_intercept', 0.0)
+                            _p_long = 1.0 / (1.0 + np.exp(-_logit))
+                            side = 'long' if _p_long >= 0.5 else 'short'
                         else:
-                            # Legacy fallback: no direction field → use z_score sign
-                            if _cand_z <= 0:
-                                _live_scaled = self.scaler_long.transform([_live_feat])[0]
-                                side = 'long'
-                            else:
-                                _live_scaled = self.scaler_short.transform([_live_feat])[0]
-                                side = 'short'
+                            # Fallback: cluster-level long_bias prior
+                            _long_bias = lib_entry.get('long_bias', 0.5)
+                            side = 'long' if _long_bias >= 0.5 else 'short'
 
                         # ── Direction gate ──────────────────────────────────────────
                         # Snowflake: direction comes from the matched template's training branch.
@@ -2850,12 +2831,6 @@ class BayesianTrainingOrchestrator:
                 _pickle.dump(clustering_engine.scaler, f)
             print(f"  Saved clustering scaler to {scaler_path}")
 
-            # Save split scalers (Snowflake)
-            sl_path = os.path.join(self.checkpoint_dir, 'clustering_scaler_long.pkl')
-            ss_path = os.path.join(self.checkpoint_dir, 'clustering_scaler_short.pkl')
-            with open(sl_path, 'wb') as f: _pickle.dump(clustering_engine._long_scaler, f)
-            with open(ss_path, 'wb') as f: _pickle.dump(clustering_engine._short_scaler, f)
-            print(f"  Saved split scalers (LONG/SHORT)")
 
             ckpt.save_templates(templates)
 

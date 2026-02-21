@@ -382,51 +382,26 @@ class FractalClusteringEngine:
 
     def create_templates(self, manifest: List[Any]) -> List[PatternTemplate]:
         """
-        Snowflake fit: split patterns into LONG and SHORT branches,
-        cluster each independently, return combined library.
+        Unified fit: cluster all patterns together with a single scaler.
+        Direction bias (long_bias / short_bias) is computed per-template by
+        _aggregate_oracle_intelligence() from oracle_marker labels — no need
+        to split before clustering, which would halve training data per cluster.
         """
-        print(f"Snowflake Clustering: Splitting {len(manifest)} patterns by oracle direction...")
+        # Exclude noise-only patterns (oracle_marker == 0) to keep clusters meaningful
+        valid_patterns = [p for p in manifest if getattr(p, 'oracle_marker', 0) != 0]
+        noise_count    = len(manifest) - len(valid_patterns)
+        print(f"Unified Clustering: {len(manifest)} patterns ({noise_count} noise excluded → {len(valid_patterns)} clustered)")
 
-        # Split by oracle direction
-        long_patterns  = [p for p in manifest if getattr(p, 'oracle_marker', 0) > 0]
-        short_patterns = [p for p in manifest if getattr(p, 'oracle_marker', 0) < 0]
-        # Note: noise (oracle_marker==0) patterns are excluded from both branches
+        long_count  = sum(1 for p in valid_patterns if getattr(p, 'oracle_marker', 0) > 0)
+        short_count = sum(1 for p in valid_patterns if getattr(p, 'oracle_marker', 0) < 0)
+        print(f"  LONG members: {long_count}  |  SHORT members: {short_count}  (both in same clusters)")
 
-        print(f"  LONG patterns: {len(long_patterns)}")
-        print(f"  SHORT patterns: {len(short_patterns)}")
+        self.scaler, templates = self._fit_branch(valid_patterns, 'UNIFIED')
 
-        # Fit separate scaler + cluster tree per branch
-        self._long_scaler,  long_templates  = self._fit_branch(long_patterns,  'LONG')
-        self._short_scaler, short_templates = self._fit_branch(short_patterns, 'SHORT')
-
-        # Merge into unified library with branch tag
-        templates = []
-        for t in long_templates:
-            t.direction = 'LONG'
-            templates.append(t)
-        for t in short_templates:
-            t.direction = 'SHORT'
-            templates.append(t)
-
-        # Populate self.scaler with a fallback fitted on ALL data to prevent crashes in other modules
-        # that might still rely on it (though we should migrate them).
-        if manifest:
-             all_feats = []
-             valid_patterns = []
-             for p in manifest:
-                 try:
-                     all_feats.append(self.extract_features(p))
-                     valid_patterns.append(p)
-                 except AttributeError:
-                     continue
-             if all_feats:
-                 self.scaler.fit(all_feats)
-
-             # --- Build Transition Matrix on Merged Templates ---
-             if valid_patterns:
-                 print(f"  Building Transition Matrix...", end="", flush=True)
-                 self._build_transition_matrix(templates, valid_patterns)
-                 print(" done.")
+        # Build Transition Matrix
+        print(f"  Building Transition Matrix...", end="", flush=True)
+        self._build_transition_matrix(templates, valid_patterns)
+        print(" done.")
 
         self.templates = templates
         return templates
