@@ -3557,14 +3557,22 @@ class BayesianTrainingOrchestrator:
 
         # ── Opportunity gap ───────────────────────────────────────────────────
         if fp and fp.get('ideal_profit', 0):
-            ideal = fp['ideal_profit']
-            captured_pct = fp['total_pnl'] / ideal * 100 if ideal else 0
-            lines.append(f"\n  OPPORTUNITY GAP   (ideal if every signal traded perfectly)")
-            lines.append(f"    Ideal:          ${ideal:>12,.2f}")
-            lines.append(f"    Actual:         ${fp['total_pnl']:>12,.2f}   ({captured_pct:.2f}% captured)")
-            lines.append(f"    #1 leak  skipped signals:   ${fp['missed']:>12,.2f}   ({fp['missed']/ideal*100:.1f}%)")
-            lines.append(f"    #2 leak  exits too early:   ${fp['left_on_table']:>12,.2f}   ({fp['left_on_table']/ideal*100:.1f}%)")
-            lines.append(f"    #3 leak  wrong direction:   ${fp['wrong_dir_loss']:>12,.2f}   ({fp['wrong_dir_loss']/ideal*100:.1f}%)")
+            ideal   = fp['ideal_profit']
+            actual  = fp['total_pnl']
+            _gap    = ideal - actual
+            _wrong  = fp['wrong_dir_loss']
+            _tp_gap = fp['left_on_table']
+            _missed = fp.get('missed', 0.0)
+            _pct    = lambda v: f"{v/_gap*100:.1f}%" if _gap > 0 else "N/A"
+            _gate_r = max(0.0, _gap - _wrong - _tp_gap)
+            lines.append(f"\n  OPPORTUNITY GAP")
+            lines.append(f"    Sequential ideal:   ${ideal:>12,.2f}")
+            lines.append(f"    Actual profit:      ${actual:>12,.2f}   ({actual/ideal*100:.1f}% of ideal)")
+            lines.append(f"    Gap to close:       ${_gap:>12,.2f}  (100%)")
+            lines.append(f"    #1 leak  exits too early:    ${_tp_gap:>12,.2f}   ({_pct(_tp_gap)} of gap)")
+            lines.append(f"    #2 leak  wrong direction:    ${_wrong:>12,.2f}   ({_pct(_wrong)} of gap)")
+            lines.append(f"    #3 leak  gate-selection:     ${_gate_r:>12,.2f}   ({_pct(_gate_r)} of gap)")
+            lines.append(f"    [info] gate-blocked pool:    ${_missed:>12,.2f}   (parallel sum — non-additive)")
 
         # ── Top Tier 1 ────────────────────────────────────────────────────────
         if ts and ts.get('top_t1'):
