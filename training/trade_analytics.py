@@ -488,6 +488,128 @@ def _hour_breakdown(df: pd.DataFrame) -> list[str]:
     return lines
 
 
+# ── PART 8: BEST / WORST DEEP DIVE ───────────────────────────────────────────
+
+def _part8_best_worst(df: pd.DataFrame, n: int = 20) -> list[str]:
+    """
+    Red-X analysis: compare top-N winners vs bottom-N losers across every
+    available feature dimension. Goal: find the features that clearly
+    separate the extremes so we can add gates or adjust weights.
+    """
+    lines = []
+    lines.append('')
+    lines.append('─' * 80)
+    lines.append(f'PART 8 — BEST/WORST DEEP DIVE  (top {n} vs bottom {n} by PnL)')
+    lines.append('─' * 80)
+
+    if 'pnl' not in df.columns or len(df) < n * 2:
+        lines.append(f'  (not enough trades: need {n*2}, got {len(df)})')
+        return lines
+
+    best  = df.nlargest(n,  'pnl').copy()
+    worst = df.nsmallest(n, 'pnl').copy()
+
+    lines.append(f'  BEST  {n}: PnL range  ${best["pnl"].min():>8,.0f} → ${best["pnl"].max():>8,.0f}   '
+                 f'mean=${best["pnl"].mean():>8,.0f}')
+    lines.append(f'  WORST {n}: PnL range  ${worst["pnl"].min():>8,.0f} → ${worst["pnl"].max():>8,.0f}   '
+                 f'mean=${worst["pnl"].mean():>8,.0f}')
+    lines.append('')
+
+    # ── Numeric feature comparison ────────────────────────────────────────────
+    numeric_features = []
+    for col in ['entry_trail_ticks', 'entry_tp_ticks', 'entry_sl_ticks', 'entry_trail_act',
+                'belief_conviction', 'belief_active_levels', 'oracle_mfe', 'oracle_mae',
+                'w1h_d', 'w5m_d', 'w1h_agree', 'w5m_agree']:
+        if col in df.columns:
+            numeric_features.append(col)
+
+    if numeric_features:
+        lines.append(f'  {"Feature":<26}  {"Best mean":>10}  {"Worst mean":>10}  {"Diff":>10}  Note')
+        lines.append(f'  {"─"*26}  {"─"*10}  {"─"*10}  {"─"*10}  {"─"*20}')
+        for col in numeric_features:
+            b_mean = best[col].mean()
+            w_mean = worst[col].mean()
+            diff   = b_mean - w_mean
+            # Flag big differences
+            b_std = df[col].std()
+            note = ''
+            if b_std > 0 and abs(diff) > b_std:
+                note = '<< BIG DIFF'
+            elif b_std > 0 and abs(diff) > b_std * 0.5:
+                note = '< notable'
+            lines.append(f'  {col:<26}  {b_mean:>10.3f}  {w_mean:>10.3f}  {diff:>+10.3f}  {note}')
+        lines.append('')
+
+    # ── Categorical breakdown ─────────────────────────────────────────────────
+    cat_features = []
+    for col in ['exit_reason', 'session', 'direction', 'entry_depth', 'dow']:
+        if col in df.columns:
+            cat_features.append(col)
+
+    for col in cat_features:
+        b_counts = best[col].value_counts(normalize=True).round(2)
+        w_counts = worst[col].value_counts(normalize=True).round(2)
+        all_vals = sorted(set(b_counts.index) | set(w_counts.index))
+        lines.append(f'  {col.upper()}')
+        lines.append(f'    {"Value":<20}  {"Best %":>8}  {"Worst %":>8}  {"Diff":>8}')
+        for v in all_vals:
+            bp = b_counts.get(v, 0.0)
+            wp = w_counts.get(v, 0.0)
+            flag = ' <<' if abs(bp - wp) >= 0.20 else ''
+            lines.append(f'    {str(v):<20}  {bp:>8.0%}  {wp:>8.0%}  {bp-wp:>+8.0%}{flag}')
+        lines.append('')
+
+    # ── Worker agreement at entry ─────────────────────────────────────────────
+    if 'entry_workers' in df.columns:
+        lines.append('  WORKER AGREEMENT AT ENTRY (best vs worst)')
+        lines.append(f'    {"TF":<6}  {"Best agree":>11}  {"Worst agree":>11}  {"Diff":>8}')
+        tf_labels = ['1h', '30m', '15m', '5m', '3m', '1m', '30s', '15s']
+        for tf in tf_labels:
+            def _agree(row, tf=tf):
+                try:
+                    snap = json.loads(row)
+                    w = snap.get(tf, {})
+                    d = w.get('d', 0.5)
+                    # agree = worker dir matches trade direction (d>0.5 → LONG)
+                    return d
+                except Exception:
+                    return np.nan
+
+            best_agree  = best['entry_workers'].apply(_agree).mean()
+            worst_agree = worst['entry_workers'].apply(_agree).mean()
+            if np.isnan(best_agree):
+                continue
+            flag = ' <<' if abs(best_agree - worst_agree) >= 0.10 else ''
+            lines.append(f'    {tf:<6}  {best_agree:>11.3f}  {worst_agree:>11.3f}  '
+                         f'{best_agree - worst_agree:>+8.3f}{flag}')
+        lines.append('')
+
+    # ── Individual trade cards for the top 5 best and worst ───────────────────
+    for label, subset in [('BEST 5', best.head(5)), ('WORST 5', worst.head(5))]:
+        lines.append(f'  {label} TRADES')
+        for _, row in subset.iterrows():
+            pnl    = row.get('pnl', 0)
+            depth  = row.get('entry_depth', '?')
+            dirn   = row.get('direction', '?')
+            sess   = row.get('session', '?')
+            reason = row.get('exit_reason', '?')
+            conv   = row.get('belief_conviction', float('nan'))
+            mfe    = row.get('oracle_mfe', float('nan'))
+            mae    = row.get('oracle_mae', float('nan'))
+            tp     = row.get('entry_tp_ticks', float('nan'))
+            sl     = row.get('entry_sl_ticks', float('nan'))
+            trail  = row.get('entry_trail_ticks', float('nan'))
+            lines.append(
+                f'    PnL=${pnl:>8,.0f}  depth={depth}  {dirn:<5}  sess={sess:<8}  '
+                f'exit={str(reason):<12}  conv={conv:.2f}  '
+                f'MFE={mfe:.1f}pts  MAE={mae:.1f}pts  '
+                f'TP={tp:.0f}t  SL={sl:.0f}t  trail={trail:.0f}t'
+            )
+        lines.append('')
+
+    return lines
+
+
 # ── MAIN ENTRY POINT ─────────────────────────────────────────────────────────
 
 def run_trade_analytics(log_path: str, report_path: str) -> str:
@@ -533,6 +655,7 @@ def run_trade_analytics(log_path: str, report_path: str) -> str:
         ('Part 6 capture rate',       _part6_capture),
         ('Part 7 session×direction',  _part7_session_direction),
         ('Hour breakdown',            _hour_breakdown),
+        ('Part 8 best/worst dive',    _part8_best_worst),
     ]
 
     for name, fn in sections:
