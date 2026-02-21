@@ -669,6 +669,7 @@ class BayesianTrainingOrchestrator:
         skip_brain       = 0   # Brain gate: template probability too low
         skip_conviction  = 0   # Belief network: path conviction below MIN_CONVICTION
         n_signals_seen   = 0   # Total candidate signals evaluated (all gates combined)
+        n_patterns_detected = 0  # Raw patterns from fractal cascade (before multi-TF expansion)
         depth_traded     = defaultdict(int)  # depth -> trade count (1=high TF, 6=15s)
 
         # FN oracle records: per-signal log of missed real moves with worker snapshots.
@@ -696,6 +697,7 @@ class BayesianTrainingOrchestrator:
             # A. Fractal Cascade Scan (get actionable patterns with chains)
             # This uses the discovery agent logic but focused on this day
             actionable_patterns = self.discovery_agent.scan_day_cascade(data_source, day_date)
+            n_patterns_detected += len(actionable_patterns)
 
             # Sort by timestamp to simulate real-time feed
             actionable_patterns.sort(key=lambda x: x.timestamp)
@@ -1658,13 +1660,45 @@ class BayesianTrainingOrchestrator:
         # Parallel upper bound (unachievable sum of all signals)
         _parallel_bound = tp_potential + fn_potential_pnl + score_loser_pnl
 
+        n_traded   = len(oracle_trade_records)
+        _fn_count  = len(fn_oracle_records)
+        _real_traded = sum(1 for r in oracle_trade_records if r.get('oracle_label_name','') != 'NOISE')
+        _real_never_triggered = total_real_opps - _real_traded
+        _mtf_ratio = n_signals_seen / n_patterns_detected if n_patterns_detected else 0.0
+
+        # ── 1b. Three-category oracle breakdown ─────────────────────────────────
+        # Every cascade detection gets an oracle label, so this is exhaustive.
+        # Category 3 (not detected) requires a future independent price-oracle scan.
+        _n_saw_took     = n_traded                                        # cat 1
+        _n_saw_blocked  = (total_real_opps + total_noise_opps) - n_traded # cat 2
+        _real_saw_took  = _real_traded
+        _real_saw_block = total_real_opps - _real_traded                  # gate-blocked real moves
+        _score_real     = sum(1 for r in decision_matrix_records
+                              if r.get('gate') == 'score_loser'
+                              and r.get('oracle_label','') != 'NOISE')
+
+        report_lines.append("")
+        report_lines.append(f"  OPPORTUNITY COVERAGE (oracle labels every cascade detection):")
+        report_lines.append(f"    ── Category 1: SAW + TOOK ──────────────────────────────")
+        report_lines.append(f"    Traded:                          {_n_saw_took:>7,}  ({_n_saw_took/(total_real_opps+total_noise_opps)*100:.1f}% of all detected)")
+        report_lines.append(f"      of which real moves:           {_real_saw_took:>7,}  ({_real_saw_took/total_real_opps*100:.1f}% of detected real moves)")
+        report_lines.append(f"    ── Category 2: SAW + DID NOT TAKE ─────────────────────")
+        report_lines.append(f"    Detected but not traded:         {_n_saw_blocked:>7,}  ({_n_saw_blocked/(total_real_opps+total_noise_opps)*100:.1f}% of all detected)")
+        report_lines.append(f"      Gate 0 blocked (no trigger):   {skip_headroom:>7,}  (headroom/pattern rule — never reached cluster match)")
+        report_lines.append(f"      Gate 1-3 blocked:              {skip_dist+skip_brain+skip_conviction:>7,}  (matched cluster but rejected by gate)")
+        report_lines.append(f"      Score competition loss:        {_n_saw_blocked - skip_headroom - skip_dist - skip_brain - skip_conviction:>7,}  (passed all gates — outscored by better same-bar signal)")
+        report_lines.append(f"      Of blocked: real moves lost:   {_real_saw_block:>7,}  ({_real_saw_block/total_real_opps*100:.1f}% of detected real moves)")
+        report_lines.append(f"        incl. score-competition real:{_score_real:>7,}  (real moves deliberately passed for better trade)")
+        report_lines.append(f"    ── Category 3: NOT DETECTED ────────────────────────────")
+        report_lines.append(f"    Below cascade threshold:             ?      (z<0.5σ or no pattern type — oracle blind here)")
+        report_lines.append(f"    Multi-TF candidates per detection: {_mtf_ratio:.1f}x  ({n_signals_seen:,} candidates from {n_patterns_detected:,} raw patterns)")
+
         report_lines.append("")
         report_lines.append(f"  TOTAL SIGNALS SEEN BY ORACLE: {total_real_opps + total_noise_opps:,}")
         report_lines.append(f"    Real moves (MEGA/SCALP):  {total_real_opps:>6,}   -- worth ${_parallel_bound:>10,.2f} (parallel bound)")
         report_lines.append(f"    Noise (no real move):     {total_noise_opps:>6,}")
 
         # ── 2. What we did ───────────────────────────────────────────────────────
-        n_traded   = len(oracle_trade_records)
         n_skipped  = audit_fn + audit_tn
         report_lines.append("")
         report_lines.append(f"  WHAT WE DID:")
