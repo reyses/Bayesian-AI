@@ -705,7 +705,7 @@ class QuantumFieldEngine:
             adx_arr, dmi_plus_arr, dmi_minus_arr = compute_adx_dmi_cpu(tr_raw, plus_dm_raw, minus_dm_raw, ADX_PERIOD)
 
             # Pass 3: Rel Volume on CPU
-            vol_mean = np.convolve(volumes, np.ones(REL_VOLUME_WINDOW)/REL_VOLUME_WINDOW, mode='same')
+            vol_mean = pd.Series(volumes).rolling(window=REL_VOLUME_WINDOW, min_periods=1).mean().values
             vol_mean = np.maximum(vol_mean, 1e-9)
             rel_volume_arr = volumes / vol_mean
 
