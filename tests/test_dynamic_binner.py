@@ -35,6 +35,7 @@ class TestDynamicBinner(unittest.TestCase):
 
         # Test equality with np.searchsorted implementation for random values
         # This ensures strict compatibility
+        np.random.seed(42) # Ensure determinism
         for _ in range(100):
             val = np.random.uniform(-10, 40)
 
@@ -60,6 +61,7 @@ class TestDynamicBinner(unittest.TestCase):
     def test_dynamic_binner_fit_transform(self):
         """Test full DynamicBinner workflow."""
         binner = DynamicBinner(min_bins=2, max_bins=5)
+        np.random.seed(42) # Ensure determinism
         data = {
             'var1': np.random.normal(0, 1, 1000),
             'var2': np.random.uniform(0, 100, 1000)

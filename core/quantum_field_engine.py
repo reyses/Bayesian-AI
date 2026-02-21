@@ -19,13 +19,7 @@ from core.pattern_utils import (
     detect_geometric_patterns_vectorized, detect_candlestick_patterns_vectorized
 )
 
-from core.physics_utils import (
-    compute_adx_dmi_cpu,
-    ADX_PERIOD,
-    HURST_WINDOW,
-    REL_VOLUME_WINDOW,
-    OSCILLATION_COHERENCE_WINDOW
-)
+from core.physics_utils import compute_adx_dmi_cpu, ADX_PERIOD, HURST_WINDOW
 
 # Core CUDA Physics
 try:
@@ -533,16 +527,9 @@ class QuantumFieldEngine:
         # 2. Hurst
         hurst = self._compute_hurst_numpy(prices, HURST_WINDOW)
 
-        # 3. Relative Volume (20-bar rolling mean)
-        # vol_mean = np.convolve(volumes, np.ones(20)/20, mode='same')
-        vol_mean = np.convolve(volumes, np.ones(REL_VOLUME_WINDOW)/REL_VOLUME_WINDOW, mode='same')
-        vol_mean = np.maximum(vol_mean, 1e-9)  # avoid div/0
-        rel_volume_arr = volumes / vol_mean    # shape (N,)
-
         return {
             'center': center, 'sigma': sigma, 'slope': slope, 'z': z_scores,
             'velocity': velocity, 'force': force, 'momentum': momentum,
-            'rel_volume': rel_volume_arr,
             'coherence': coherence, 'entropy': entropy,
             'prob0': prob0, 'prob1': prob1, 'prob2': prob2,
             'roche': roche_snap, 'drive': structural_drive,
@@ -612,7 +599,6 @@ class QuantumFieldEngine:
         adx_arr = None
         dmi_plus_arr = None
         dmi_minus_arr = None
-        rel_volume_arr = None
 
         if use_cuda and self.use_gpu and CUDA_PHYSICS_AVAILABLE:
             # Output arrays (allocated on GPU directly or mapped)
@@ -639,7 +625,6 @@ class QuantumFieldEngine:
 
             d_roche = cuda.device_array(n, dtype=np.bool_)
             d_drive = cuda.device_array(n, dtype=np.bool_)
-            d_oscillation_coherence = cuda.device_array(n, dtype=np.float64)
 
             # Arrays for ADX
             d_tr = cuda.device_array(n, dtype=np.float64)
@@ -667,11 +652,9 @@ class QuantumFieldEngine:
             )
 
             # 2. Archetype Kernel
-            _ow = min(OSCILLATION_COHERENCE_WINDOW, rp)
             detect_archetype_kernel[blocks_per_grid, threads_per_block](
                 d_z, d_velocity, d_momentum, d_coherence,
-                d_roche, d_drive,
-                d_oscillation_coherence, _ow
+                d_roche, d_drive
             )
 
             # 3. ADX/DMI Kernel (Pass 1)
@@ -704,12 +687,6 @@ class QuantumFieldEngine:
 
             roche_snap = d_roche.copy_to_host()
             structural_drive = d_drive.copy_to_host()
-            oscillation_coherence_arr = d_oscillation_coherence.copy_to_host()
-
-            # Backfill oscillation_coherence_arr (kernel leaves first _ow-1 as 0.0)
-            if n >= _ow and _ow > 1:
-                 # Replicate the first valid value backwards to match CPU behavior
-                 oscillation_coherence_arr[:_ow-1] = oscillation_coherence_arr[_ow-1]
 
             hurst_arr = d_hurst.copy_to_host()
 
@@ -719,16 +696,8 @@ class QuantumFieldEngine:
             minus_dm_raw = d_minus_dm.copy_to_host()
             adx_arr, dmi_plus_arr, dmi_minus_arr = compute_adx_dmi_cpu(tr_raw, plus_dm_raw, minus_dm_raw, ADX_PERIOD)
 
-            # Pass 3: Rel Volume on CPU
-            vol_mean = np.convolve(volumes, np.ones(REL_VOLUME_WINDOW)/REL_VOLUME_WINDOW, mode='same')
-            vol_mean = np.maximum(vol_mean, 1e-9)
-            rel_volume_arr = volumes / vol_mean
-
         else:
             # CPU Fallback
-            # Initialize oscillation_coherence_arr to None so it's calculated later on CPU
-            oscillation_coherence_arr = None
-
             cpu_results = self._batch_compute_cpu(prices, highs, lows, closes, volumes, rp)
             center = cpu_results['center']
             sigma = cpu_results['sigma']
@@ -749,7 +718,6 @@ class QuantumFieldEngine:
             adx_arr = cpu_results['adx']
             dmi_plus_arr = cpu_results['dmi_plus']
             dmi_minus_arr = cpu_results['dmi_minus']
-            rel_volume_arr = cpu_results['rel_volume']
 
 
         # Extract timestamps
@@ -784,18 +752,16 @@ class QuantumFieldEngine:
         # Rolling std of z_score over a short window.  Low std = tight periodic
         # oscillation (PID regime).  High std = chaotic / trending.
         # Inverted and normalised to (0, 1] so 1 = perfectly tight oscillation.
-        # Optimization: Use GPU result if available, otherwise CPU.
-        if oscillation_coherence_arr is None:
-            _ow = min(OSCILLATION_COHERENCE_WINDOW, rp)
-            osc_std = np.full(n, np.nan)
-            if n >= _ow:
-                 z_windows = sliding_window_view(z_scores, window_shape=_ow)
-                 osc_std[_ow-1:] = z_windows.std(axis=1, ddof=1)
-                 if n > _ow - 1:
-                      osc_std[:_ow - 1] = osc_std[_ow - 1]
+        _ow = min(5, rp)
+        osc_std = np.full(n, np.nan)
+        if n >= _ow:
+             z_windows = sliding_window_view(z_scores, window_shape=_ow)
+             osc_std[_ow-1:] = z_windows.std(axis=1, ddof=1)
+             if n > _ow - 1:
+                  osc_std[:_ow - 1] = osc_std[_ow - 1]
 
-            oscillation_coherence_arr = 1.0 / (1.0 + osc_std)   # (0, 1]
-            np.nan_to_num(oscillation_coherence_arr, copy=False, nan=0.0)
+        oscillation_coherence_arr = 1.0 / (1.0 + osc_std)   # (0, 1]
+        np.nan_to_num(oscillation_coherence_arr, copy=False, nan=0.0)
 
         # Reconstruct result list
         # Optimization: Vectorize logic to reduce Python loop overhead
@@ -881,7 +847,6 @@ class QuantumFieldEngine:
                     oscillation_coherence=float(oscillation_coherence_arr[i]),
                     lyapunov_exponent=0.0,
                     market_regime='STABLE',
-                    rel_volume=float(rel_volume_arr[i]),
                     timestamp=timestamps[i]
                 ),
                 'price': prices[i],

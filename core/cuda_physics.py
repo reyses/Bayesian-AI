@@ -178,11 +178,9 @@ def compute_physics_kernel(prices, volumes,
 
 @cuda.jit
 def detect_archetype_kernel(z_scores, velocities, momentums, coherences,
-                            out_roche_snap, out_structural_drive,
-                            out_oscillation_coherence, window_size):
+                            out_roche_snap, out_structural_drive):
     """
     Detects Physics Archetypes based on computed fields.
-    Also computes oscillation coherence (rolling stability).
     """
     i = cuda.grid(1)
     n = z_scores.shape[0]
@@ -195,38 +193,6 @@ def detect_archetype_kernel(z_scores, velocities, momentums, coherences,
         # Structural Drive
         is_drive = abs(momentums[i]) > MOMENTUM_THRESHOLD and coherences[i] < COHERENCE_THRESHOLD
         out_structural_drive[i] = is_drive
-
-        # Oscillation Coherence (Rolling Standard Deviation)
-        # osc_coh = 1.0 / (1.0 + std(z, window))
-        if i >= window_size - 1:
-            sum_z = 0.0
-            sum_zz = 0.0
-
-            # Compute stats over window [i - window_size + 1 : i + 1]
-            for k in range(window_size):
-                idx = i - (window_size - 1) + k
-                val = z_scores[idx]
-                sum_z += val
-                sum_zz += val * val
-
-            mean_z = sum_z / window_size
-
-            # Variance = E[X^2] - (E[X])^2
-            # Sample Variance = (sum_sq - n*mean^2) / (n-1)
-            var_num = sum_zz - window_size * mean_z * mean_z
-            if var_num < 0.0:
-                var_num = 0.0
-
-            std_dev = 0.0
-            if window_size > 1:
-                std_dev = math.sqrt(var_num / (window_size - 1))
-                out_oscillation_coherence[i] = 1.0 / (1.0 + std_dev)
-            else:
-                # Undefined std dev (window <= 1) -> 0.0 coherence value (matches CPU nan_to_num)
-                out_oscillation_coherence[i] = 0.0
-        else:
-            # Backfill handled on CPU or ignored
-            out_oscillation_coherence[i] = 0.0
 
 @cuda.jit
 def compute_dm_tr_kernel(highs, lows, closes,

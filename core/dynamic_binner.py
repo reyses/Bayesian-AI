@@ -27,13 +27,14 @@ from typing import Dict, Optional, List
 class VariableBins:
     """Bin specification for a single continuous variable."""
 
-    __slots__ = ('edges', 'centers', 'n_bins', 'edge_list')
+    __slots__ = ('edges', 'centers', 'n_bins', 'edge_list', 'center_list')
 
     def __init__(self, edges: np.ndarray):
         self.edges = edges                               # (n_bins + 1,)
         self.centers = (edges[:-1] + edges[1:]) / 2.0   # (n_bins,)
         self.n_bins = len(self.centers)
         self.edge_list: List[float] = edges.tolist()     # Python list for faster bisect
+        self.center_list: List[float] = self.centers.tolist() # Python list for faster access
 
     def transform(self, value: float) -> float:
         """Map a single value to its bin center."""
@@ -41,7 +42,7 @@ class VariableBins:
         # using python list avoids numpy array access overhead
         idx = bisect.bisect_right(self.edge_list, value) - 1
         idx = max(0, min(idx, self.n_bins - 1))
-        return float(self.centers[idx])
+        return self.center_list[idx]
 
     def transform_array(self, values: np.ndarray) -> np.ndarray:
         """Vectorized: map array of values to bin centers."""
