@@ -102,8 +102,8 @@ def _compute_rs_numba(returns, window):
 
         # Calculate deviations and std
         current_cum = 0.0
-        max_cum = -1e30
-        min_cum = 1e30
+        max_cum = -np.inf
+        min_cum = np.inf
         sum_sq = 0.0
 
         for j in range(window):
