@@ -426,6 +426,187 @@ class FractalDashboard:
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
+def launch_progress_popup(queue):
+    """Lightweight progress popup covering all training phases."""
+    root = tk.Tk()
+    root.title("Training Progress")
+    root.geometry("460x175")
+    root.resizable(False, False)
+    root.attributes('-topmost', True)
+
+    style = ttk.Style(root)
+    style.theme_use('clam')
+    BG = '#1a1a2e'
+    style.configure('TLabel',    background=BG, foreground='#e0e0e0', font=('Consolas', 10))
+    style.configure('Big.TLabel', background=BG, foreground='#00ff88', font=('Consolas', 12, 'bold'))
+    style.configure('Dim.TLabel', background=BG, foreground='#888888', font=('Consolas', 9))
+    style.configure('TFrame',    background=BG)
+    style.configure('green.Horizontal.TProgressbar', troughcolor='#2a2a3e', background='#00ff88')
+    style.configure('blue.Horizontal.TProgressbar',  troughcolor='#2a2a3e', background='#4488ff')
+    root.configure(bg=BG)
+
+    frame = ttk.Frame(root, padding=12)
+    frame.pack(fill='both', expand=True)
+
+    # Row 0: phase title + step
+    lbl_phase = ttk.Label(frame, text="Initializing...", style='Big.TLabel')
+    lbl_phase.grid(row=0, column=0, sticky='w')
+    lbl_step  = ttk.Label(frame, text="", style='Dim.TLabel')
+    lbl_step.grid(row=0, column=1, sticky='e')
+
+    # Row 1: progress label left, secondary stat right
+    lbl_prog  = ttk.Label(frame, text="", style='TLabel')
+    lbl_prog.grid(row=1, column=0, sticky='w', pady=(6, 2))
+    lbl_right = ttk.Label(frame, text="", style='TLabel')
+    lbl_right.grid(row=1, column=1, sticky='e', pady=(6, 2))
+
+    # Row 2: progress bar
+    pbar = ttk.Progressbar(frame, orient='horizontal', length=436, mode='indeterminate',
+                           style='blue.Horizontal.TProgressbar')
+    pbar.grid(row=2, column=0, columnspan=2, sticky='ew', pady=(0, 4))
+    pbar.start(40)  # spin until Phase 4 gives us a real pct
+
+    # Row 3: stat line 1
+    lbl_stat1 = ttk.Label(frame, text="Waiting for first message...", style='TLabel')
+    lbl_stat1.grid(row=3, column=0, columnspan=2, sticky='w')
+
+    # Row 4: stat line 2
+    lbl_stat2 = ttk.Label(frame, text="", style='Dim.TLabel')
+    lbl_stat2.grid(row=4, column=0, columnspan=2, sticky='w')
+
+    frame.columnconfigure(1, weight=1)
+
+    # Mutable state
+    state = {
+        'phase': '', 'tmpls': 0, 'fissions': 0,
+        'tmpl_pnl': 0.0, 'tmpl_wr_sum': 0.0,
+        'p3_total': 0,
+    }
+    _running = [True]
+
+    def _set_color(pnl):
+        c = '#00ff88' if pnl >= 0 else '#ff4444'
+        style.configure('Big.TLabel', foreground=c)
+
+    def _to_determinate(pct, color='green'):
+        pbar.stop()
+        pbar['mode']  = 'determinate'
+        pbar['style'] = f'{color}.Horizontal.TProgressbar'
+        pbar['value'] = pct
+
+    def poll():
+        if not _running[0]:
+            return
+        try:
+            while True:
+                msg = queue.get_nowait()
+                t = msg.get('type', '')
+
+                # ── Phase start announcement ──────────────────────────────────
+                if t == 'PHASE_START':
+                    ph    = msg.get('phase', 0)
+                    label = msg.get('label', f'Phase {ph}')
+                    total = msg.get('total', 0)
+                    done  = msg.get('done', 0)
+                    state['phase'] = str(ph)
+                    if ph == 3:
+                        state['p3_total'] = total
+                        state['tmpls']    = done
+                    lbl_phase.config(text=label)
+                    lbl_step.config(text='')
+                    lbl_stat2.config(text='')
+                    if total > 0:
+                        pct = done / total * 100
+                        _to_determinate(pct, color='blue')
+                        lbl_prog.config(text=f"{done} / {total}  ({pct:.0f}%)")
+                    else:
+                        pbar.stop()
+                        pbar['mode']  = 'indeterminate'
+                        pbar['style'] = 'blue.Horizontal.TProgressbar'
+                        pbar.start(40)
+                        lbl_prog.config(text="Starting...")
+                    lbl_right.config(text='')
+                    lbl_stat1.config(text='')
+
+                # ── Phase 2: per-TF level completed ──────────────────────────
+                elif t == 'PHASE_UPDATE' and msg.get('phase') == 2:
+                    done  = msg.get('done', 0)
+                    total = msg.get('total', 1)
+                    tf    = msg.get('tf', '')
+                    pats  = msg.get('patterns', 0)
+                    pct   = done / total * 100
+                    _to_determinate(pct, color='blue')
+                    lbl_prog.config(text=f"TF {done} / {total}  ({pct:.0f}%)")
+                    lbl_right.config(text=f"{pats:,} patterns")
+                    lbl_stat1.config(text=f"Last completed: {tf}")
+
+                # ── Phase 3: per-template optimization ───────────────────────
+                elif t == 'TEMPLATE_UPDATE':
+                    if state['phase'] != '3':
+                        state['phase']     = '3'
+                        state['fissions']  = 0
+                        state['tmpl_pnl']  = 0.0
+                        state['tmpl_wr_sum'] = 0.0
+                        lbl_phase.config(text='Phase 3 — Template Optimization')
+                        lbl_step.config(text='Optuna TPE')
+                    done  = msg.get('done',  state['tmpls'] + 1)
+                    total = msg.get('total', state['p3_total']) or done
+                    state['tmpls'] = done
+                    state['tmpl_pnl']    += msg.get('pnl', 0.0)
+                    state['tmpl_wr_sum'] += msg.get('win_rate', 0.0)
+                    avg_wr = state['tmpl_wr_sum'] / done * 100
+                    pct = min(done / total * 100, 100) if total else 0
+                    _to_determinate(pct, color='blue')
+                    lbl_prog.config(text=f"{done} / {total}  ({pct:.0f}%)")
+                    lbl_right.config(text=f"Fissions: {state['fissions']}")
+                    lbl_stat1.config(text=f"Avg WR: {avg_wr:.1f}%")
+                    lbl_stat2.config(text=f"Val PnL: ${state['tmpl_pnl']:,.0f}")
+
+                elif t == 'FISSION_EVENT':
+                    state['fissions'] += 1
+                    lbl_right.config(text=f"Fissions: {state['fissions']}")
+
+                # ── Phase 4: forward pass ─────────────────────────────────────
+                elif t == 'FORWARD_PASS_STATS':
+                    if state['phase'] != 'ForwardPass':
+                        state['phase'] = 'ForwardPass'
+                        lbl_phase.config(text='Phase 4 — Forward Pass')
+                        lbl_step.config(text='')
+                    day, n_days = msg['day'], msg['n_days']
+                    pnl, trades, wr, pct = msg['pnl'], msg['trades'], msg['wr'], msg['pct']
+                    _to_determinate(pct)
+                    lbl_prog.config(text=f"Day {day} / {n_days}  ({pct:.0f}%)")
+                    lbl_right.config(text=f"WR {wr*100:.1f}%  |  {trades} trades")
+                    sign = '+' if pnl >= 0 else ''
+                    lbl_stat1.config(text=f"PnL: {sign}${pnl:,.0f}")
+                    _set_color(pnl)
+                    lbl_stat2.config(text="")
+
+                elif t == 'ORACLE_ATTRIBUTION':
+                    ideal  = msg.get('ideal', 0)
+                    actual = msg.get('actual', 0)
+                    cap    = actual / ideal * 100 if ideal else 0
+                    _set_color(actual)
+                    lbl_stat2.config(text=f"Ideal: ${ideal:,.0f}  |  Capture: {cap:.1f}%")
+
+                elif t == 'SHUTDOWN':
+                    _running[0] = False
+                    root.quit()
+                    return
+        except Exception:
+            pass
+        root.after(300, poll)
+
+    root.after(300, poll)
+    try:
+        root.mainloop()
+    finally:
+        try:
+            root.destroy()
+        except Exception:
+            pass
+
+
 def launch_dashboard(queue):
     root = tk.Tk()
     app = FractalDashboard(root, queue)

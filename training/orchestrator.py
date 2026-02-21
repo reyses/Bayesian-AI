@@ -62,7 +62,7 @@ from training.timeframe_belief_network import TimeframeBeliefNetwork, BeliefStat
 from training.integrated_statistical_system import IntegratedStatisticalEngine
 from training.batch_regret_analyzer import BatchRegretAnalyzer
 from training.wave_rider import WaveRider
-from training.orchestrator_worker import simulate_trade_standalone, _optimize_pattern_task, _optimize_template_task, _process_template_job, _audit_trade
+from training.orchestrator_worker import simulate_trade_standalone, _optimize_pattern_task, _optimize_template_task, _process_template_job, _audit_trade, _worker_pool_init
 from training.orchestrator_worker import FISSION_SUBSET_SIZE, INDIVIDUAL_OPTIMIZATION_ITERATIONS, DEFAULT_BASE_SLIPPAGE, DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 
 # Monte Carlo Pipeline
@@ -77,7 +77,7 @@ _HURST_TREND_CONFIRMATION = 0.6
 
 # Visualization
 try:
-    from visualization.live_training_dashboard import launch_dashboard
+    from visualization.live_training_dashboard import launch_dashboard, launch_progress_popup
     DASHBOARD_AVAILABLE = True
 except ImportError:
     DASHBOARD_AVAILABLE = False
@@ -2737,8 +2737,14 @@ class BayesianTrainingOrchestrator:
         else:
             print(f"  WARNING: Path does not exist!")
 
-        # Launch Dashboard
-        if not self.config.no_dashboard and DASHBOARD_AVAILABLE:
+        # Launch Dashboard / Progress Popup
+        if DASHBOARD_AVAILABLE and getattr(self.config, 'progress_popup', False):
+            self.dashboard_thread = threading.Thread(
+                target=launch_progress_popup, args=(self.dashboard_queue,), daemon=True)
+            self.dashboard_thread.start()
+            print("Progress popup launching...")
+            time.sleep(1)
+        elif not self.config.no_dashboard and DASHBOARD_AVAILABLE:
             self.launch_dashboard()
 
         # ===================================================================
@@ -2761,13 +2767,31 @@ class BayesianTrainingOrchestrator:
             # Check for partial resume (some levels done)
             partial_manifest, partial_levels = ckpt.load_discovery()
 
+            _n_tfs = len(TIMEFRAME_SECONDS)
+            _p2_done = [len(partial_levels) if partial_levels else 0]
+            if self.dashboard_queue:
+                self.dashboard_queue.put({
+                    'type': 'PHASE_START', 'phase': 2,
+                    'label': 'Phase 2 — Pattern Discovery',
+                    'total': _n_tfs, 'done': _p2_done[0],
+                })
+
+            def _p2_callback(lvl, tf, patterns, levels):
+                ckpt.save_discovery_level(patterns, levels)
+                _p2_done[0] += 1
+                if self.dashboard_queue:
+                    self.dashboard_queue.put({
+                        'type': 'PHASE_UPDATE', 'phase': 2,
+                        'done': _p2_done[0], 'total': _n_tfs,
+                        'tf': tf, 'patterns': len(patterns),
+                    })
+
             _train_end = getattr(self.config, 'train_end', None)
             if _train_end:
                 print(f"  Out-of-sample guard: training data capped at {_train_end}")
             manifest = self._run_discovery(
                 data_source,
-                checkpoint_callback=lambda lvl, tf, patterns, levels:
-                    ckpt.save_discovery_level(patterns, levels),
+                checkpoint_callback=_p2_callback,
                 resume_manifest=partial_manifest,
                 resume_levels=partial_levels,
                 train_end=_train_end
@@ -2868,6 +2892,13 @@ class BayesianTrainingOrchestrator:
         print(f"\nPhase 3: Template Optimization & Fission Loop...")
         print(f"  Templates to process: {len(template_queue)}")
         print(f"  Already completed: {len(completed_results)}")
+        _p3_initial = len(template_queue) + len(completed_results)
+        if self.dashboard_queue:
+            self.dashboard_queue.put({
+                'type': 'PHASE_START', 'phase': 3,
+                'label': 'Phase 3 — Template Optimization',
+                'total': _p3_initial, 'done': len(completed_results),
+            })
         print(f"  Workers: {num_workers}")
         print(f"  Iterations per template: {self.config.iterations}")
 
@@ -2889,7 +2920,13 @@ class BayesianTrainingOrchestrator:
         batch_number = 0
         t_phase3_start = time.perf_counter()
 
-        with multiprocessing.Pool(processes=num_workers) as pool:
+        # Pass large shared objects once via pool initializer instead of per-task
+        # to avoid Windows WinError 1450 (pipe buffer overflow from pickling huge objects).
+        with multiprocessing.Pool(
+            processes=num_workers,
+            initializer=_worker_pool_init,
+            initargs=(clustering_engine, self.pattern_library)
+        ) as pool:
             while template_queue:
                 # Prepare Batch
                 current_batch = []
@@ -2908,14 +2945,12 @@ class BayesianTrainingOrchestrator:
 
                 tasks = []
                 for tmpl in current_batch:
-                    # Pass arguments as a dictionary to _process_template_job
+                    # clustering_engine and pattern_library are in worker globals — omit from task
                     tasks.append({
                         'template': tmpl,
-                        'clustering_engine': clustering_engine,
                         'iterations': self.config.iterations,
                         'generator': self.param_generator,
                         'point_value': self.asset.point_value,
-                        'pattern_library': self.pattern_library
                     })
 
                 results = pool.map(_process_template_job, tasks)
@@ -2986,7 +3021,9 @@ class BayesianTrainingOrchestrator:
                                 'pnl': val_pnl,
                                 'count': member_count,
                                 'win_rate': _wr,
-                                'transitions': tmpl.transition_probs
+                                'transitions': tmpl.transition_probs,
+                                'done': processed_count,
+                                'total': _p3_initial,
                             })
 
                 batch_elapsed = time.perf_counter() - t_batch
@@ -3669,6 +3706,7 @@ def main():
     parser.add_argument('--iterations', type=int, default=1000, help="Iterations per pattern (default: 1000)")
     parser.add_argument('--checkpoint-dir', type=str, default="checkpoints", help="Checkpoint directory")
     parser.add_argument('--no-dashboard', action='store_true', help="Disable live dashboard")
+    parser.add_argument('--progress-popup', action='store_true', help="Show lightweight progress popup instead of full dashboard")
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
     parser.add_argument('--fresh', action='store_true', help="Clear all pipeline checkpoints and start fresh")

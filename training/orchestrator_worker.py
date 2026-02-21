@@ -13,6 +13,19 @@ REPRESENTATIVE_SUBSET_SIZE = 20
 FISSION_SUBSET_SIZE = 50
 INDIVIDUAL_OPTIMIZATION_ITERATIONS = 20
 
+# ── Worker process globals (set once via pool initializer, never pickled per-task) ──
+_WORKER_CLUSTERING_ENGINE = None
+_WORKER_PATTERN_LIBRARY   = {}
+
+def _worker_pool_init(clustering_engine, pattern_library):
+    """Pool initializer — called once per worker process on startup.
+    Stores large shared objects as globals so they don't get pickled into every task,
+    avoiding the Windows WinError 1450 pipe buffer overflow.
+    """
+    global _WORKER_CLUSTERING_ENGINE, _WORKER_PATTERN_LIBRARY
+    _WORKER_CLUSTERING_ENGINE = clustering_engine
+    _WORKER_PATTERN_LIBRARY   = pattern_library
+
 # --- Standalone Helpers for Multiprocessing ---
 
 @jit(nopython=True)
@@ -365,16 +378,17 @@ def _process_template_job(args):
     # Unpack — support both dict and tuple formats
     if isinstance(args, dict):
         template = args['template']
-        clustering_engine = args['clustering_engine']
+        # Fall back to worker-process globals to avoid pickling large objects per-task
+        clustering_engine = args.get('clustering_engine') or _WORKER_CLUSTERING_ENGINE
         iterations = args['iterations']
         generator = args['generator']
         point_value = args['point_value']
-        pattern_library = args.get('pattern_library', {})
+        pattern_library = args.get('pattern_library') or _WORKER_PATTERN_LIBRARY
     elif len(args) == 6:
         template, clustering_engine, iterations, generator, point_value, pattern_library = args
     else:
         template, clustering_engine, iterations, generator, point_value = args
-        pattern_library = {}
+        pattern_library = _WORKER_PATTERN_LIBRARY or {}
 
     t0 = time.perf_counter()
 
