@@ -200,6 +200,7 @@ class TestFractalDashboard(unittest.TestCase):
         args, _ = dashboard.annot.set_text.call_args
         self.assertIn("101", args[0])
         dashboard.annot.set_visible.assert_called_with(True)
+        self.assertEqual(dashboard.annot.xy, (event.xdata, event.ydata))
 
         # Case 2: Hover away
         dashboard.scatter.contains.return_value = (False, {})
