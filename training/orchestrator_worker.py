@@ -169,11 +169,64 @@ def simulate_trade_standalone(entry_price: float, data: Any, state: Any,
         duration=duration, direction=direction
     )
 
+# Analytical Exit Constants
+TP_P75_MFE_FACTOR = 0.85
+SL_MEAN_MAE_FACTOR = 2.00
+TRAIL_MEAN_MAE_FACTOR = 1.10
+MIN_MFE_FOR_ANALYTICAL_EXIT = 2.0
+FALLBACK_TP_TICKS = 40
+FALLBACK_SL_TICKS = 15
+FALLBACK_TRAIL_TICKS = 8
+
+def _analytical_exits(template) -> dict:
+    """
+    Derive TP, SL, trail from the template's oracle MFE/MAE distribution.
+    Falls back to hardcoded defaults when oracle data is insufficient.
+    """
+    mean_mfe = getattr(template, 'mean_mfe_ticks', 0.0) if template else 0.0
+    p75_mfe  = getattr(template, 'p75_mfe_ticks',  0.0) if template else 0.0
+    mean_mae = getattr(template, 'mean_mae_ticks',  0.0) if template else 0.0
+    p25_mae  = getattr(template, 'p25_mae_ticks',   0.0) if template else 0.0
+
+    if mean_mfe > MIN_MFE_FOR_ANALYTICAL_EXIT:
+        tp    = max(5,  int(round(p75_mfe  * TP_P75_MFE_FACTOR))) if p75_mfe  > 2.0 else max(5, int(round(mean_mfe)))
+        sl    = max(3,  int(round(mean_mae * SL_MEAN_MAE_FACTOR))) if mean_mae  > 1.0 else FALLBACK_SL_TICKS
+        trail = max(2,  int(round(mean_mae * TRAIL_MEAN_MAE_FACTOR))) if mean_mae  > 1.0 else FALLBACK_TRAIL_TICKS
+    else:
+        tp, sl, trail = FALLBACK_TP_TICKS, FALLBACK_SL_TICKS, FALLBACK_TRAIL_TICKS
+
+    return {
+        'take_profit_ticks':  tp,
+        'stop_loss_ticks':    sl,
+        'trailing_stop_ticks': trail,
+        # keep max_hold_seconds and trading_cost_points fixed
+        'max_hold_seconds':   600,
+        'trading_cost_points': 0.50,
+    }
+
 def _optimize_pattern_task(args):
     """
     Task function for multiprocessing.
-    args: (pattern, iterations, param_generator, point_value, template, pattern_library)
-    Returns: (best_params, best_result_dict)
+    NOTE: This is the legacy "per-pattern" optimization which used to feed the
+    fission logic. In the new Optuna-based system, fission is done by passing
+    the subset to _optimize_template_task (which now uses Optuna).
+
+    However, if _optimize_pattern_task is still called by Fission logic (step 2),
+    we need to support it. The new DOE generator does NOT support generate_parameter_set.
+
+    Since Fission is also being replaced/updated implicitly by the instruction to
+    "Remove legacy optimization logic", we should probably update _process_template_job
+    to NOT call this anymore, OR update this to use Optuna for a single pattern.
+
+    BUT the instruction only provided replacement for _optimize_template_task.
+    I will assume _process_template_job might need updates if it calls this.
+    Checking _process_template_job: it calls _optimize_pattern_task.
+
+    I will implement a simple random search or Optuna for this single pattern if needed,
+    or just use the analytical exits + default PID for individual patterns?
+    Fission uses individual optimal params to cluster.
+    If I change this to return analytical exits + optimized PID for ONE pattern,
+    it works.
     """
     if len(args) == 6:
         pattern, iterations, generator, point_value, template, pattern_library = args
@@ -182,57 +235,63 @@ def _optimize_pattern_task(args):
         template = None
         pattern_library = None
 
+    # 1. Analytical exits
+    fixed_exits = _analytical_exits(template)
+
     window = pattern.window_data
     if window is None or window.empty:
         return {}, {'trades': [], 'sharpe': 0.0, 'win_rate': 0.0, 'pnl': 0.0}
 
-    # Pre-extract arrays for speed optimization
     arrays = _extract_arrays_from_df(window)
     if arrays is None:
          return {}, {'trades': [], 'sharpe': 0.0, 'win_rate': 0.0, 'pnl': 0.0}
-
     sim_data = arrays
 
-    # Generate parameters
-    all_param_sets = []
-    for i in range(iterations):
-        ps = generator.generate_parameter_set(iteration=i, day=pattern.idx, context='PATTERN')
-        all_param_sets.append(ps.parameters)
+    # 2. Optuna for one pattern?
+    # Optuna overhead might be high for thousands of patterns in fission.
+    # But we only do 20 iterations?
+    # Generator.optimize_pid handles Optuna.
 
-    best_pnl = -float('inf')
-    best_params = {}
-    best_result_dict = {'trades': [], 'sharpe': 0.0, 'win_rate': 0.0, 'pnl': 0.0}
-
-    entry_price = pattern.price
-    state = pattern.state
-
-    for params in all_param_sets:
+    def _sharpe_objective(pid_kp, pid_ki, pid_kd):
+        params = {**fixed_exits, 'pid_kp': pid_kp, 'pid_ki': pid_ki, 'pid_kd': pid_kd}
         outcome = simulate_trade_standalone(
-            entry_price=entry_price,
+            entry_price=pattern.price,
             data=sim_data,
-            state=state,
+            state=pattern.state,
             params=params,
             point_value=point_value,
             template=template,
             template_library=pattern_library
         )
+        return float(outcome.pnl) if outcome else 0.0 # Maximize PnL for single pattern
 
-        if outcome:
-            if outcome.pnl > best_pnl:
-                best_pnl = outcome.pnl
-                best_params = params
-                best_result_dict = {
-                    'trades': [outcome],
-                    'sharpe': 1.0 if outcome.pnl > 0 else -1.0,
-                    'win_rate': 1.0 if outcome.result == 'WIN' else 0.0,
-                    'pnl': outcome.pnl
-                }
+    # Use fewer trials for single pattern
+    best_pid = generator.optimize_pid(_sharpe_objective, n_trials=max(10, iterations), seed=pattern.idx)
+    best_params = {**fixed_exits, **best_pid}
+
+    # Re-run to get result dict
+    outcome = simulate_trade_standalone(
+        entry_price=pattern.price,
+        data=sim_data,
+        state=pattern.state,
+        params=best_params,
+        point_value=point_value,
+        template=template,
+        template_library=pattern_library
+    )
+
+    best_result_dict = {
+        'trades': [outcome] if outcome else [],
+        'sharpe': 1.0 if (outcome and outcome.pnl > 0) else -1.0,
+        'win_rate': 1.0 if (outcome and outcome.result == 'WIN') else 0.0,
+        'pnl': outcome.pnl if outcome else 0.0
+    }
 
     return best_params, best_result_dict
 
 def _optimize_template_task(args):
     """
-    Optimizes a Template Group.
+    Optimizes a Template Group using Optuna TPE.
     args: (template, subset, iterations, generator, point_value, pattern_library)
     Returns: (best_params, best_sharpe)
     """
@@ -249,52 +308,24 @@ def _optimize_template_task(args):
         template, subset, iterations, generator, point_value = args
         pattern_library = None
 
-    # 1. Generate Parameter Sets (DOE)
-    # We use the first pattern in subset to drive the generator context,
-    # but params are applicable to all.
-    ref_pattern = subset[0]
-    param_sets = []
-    for i in range(iterations):
-        ps = generator.generate_parameter_set(iteration=i, day=ref_pattern.idx, context='TEMPLATE')
-        param_sets.append(ps.parameters)
+    # 1. Analytical exits — fixed for all trials
+    fixed_exits = _analytical_exits(template)
 
-    # Oracle exit anchoring: re-calibrate TP/SL across all param sets
-    # if this template has enough oracle data to know its typical MFE/MAE.
-    # Workers were "getting the frights" because a SCALP template (mean_mfe ~8 ticks)
-    # would never hit a DOE-generated 30-tick TP, always exiting at max_hold or reversing.
-    mean_mfe = getattr(template, 'mean_mfe_ticks', 0.0)
-    if mean_mfe > 5.0:
-        p75_mfe  = getattr(template, 'p75_mfe_ticks',  mean_mfe)
-        mean_mae = getattr(template, 'mean_mae_ticks',  mean_mfe * 0.5)
-        p25_mae  = getattr(template, 'p25_mae_ticks',   mean_mae * 0.5)
-        tp_lo = max(5,  int(mean_mfe * 0.30))          # floor: 30% of avg move
-        tp_hi = max(tp_lo + 3, int(p75_mfe * 0.85))   # ceiling: 85% of p75 move
-        sl_lo = max(3,  int(p25_mae * 0.80))           # floor: just inside tight MAE
-        sl_hi = max(sl_lo + 2, int(mean_mae * 2.00))  # ceiling: 2x avg adverse
-        rng = np.random.default_rng(template.template_id)  # deterministic per template
-        for ps in param_sets:
-            ps['take_profit_ticks'] = int(rng.integers(tp_lo, tp_hi + 1))
-            ps['stop_loss_ticks']   = int(rng.integers(sl_lo, sl_hi + 1))
+    # 2. Pre-process subset
+    processed_subset = [
+        (p, _extract_arrays_from_df(p.window_data))
+        for p in subset
+        if p.window_data is not None and not p.window_data.empty
+    ]
+    processed_subset = [(p, d) for p, d in processed_subset if d is not None]
 
-    best_sharpe = -float('inf')
-    best_params = {}
+    if not processed_subset:
+        return {}, -float('inf')
 
-    # Pre-process subset for speed
-    processed_subset = []
-    for pattern in subset:
-        window = pattern.window_data
-        if window is None or window.empty:
-            continue
-
-        arrays = _extract_arrays_from_df(window)
-        if arrays is not None:
-            processed_subset.append((pattern, arrays))
-
-    # 2. Iterate through Parameter Sets
-    for params in param_sets:
+    # 3. Optuna objective: vary only PID, exits are fixed
+    def _sharpe_objective(pid_kp, pid_ki, pid_kd):
+        params = {**fixed_exits, 'pid_kp': pid_kp, 'pid_ki': pid_ki, 'pid_kd': pid_kd}
         pnls = []
-
-        # 3. Test Params on ALL members of the subset
         for pattern, sim_data in processed_subset:
             outcome = simulate_trade_standalone(
                 entry_price=pattern.price,
@@ -303,28 +334,25 @@ def _optimize_template_task(args):
                 params=params,
                 point_value=point_value,
                 template=template,
-                template_library=pattern_library
+                template_library=pattern_library,
             )
+            pnls.append(outcome.pnl if outcome else 0.0)
 
-            if outcome:
-                pnls.append(outcome.pnl)
-            else:
-                pnls.append(0.0) # No trade = 0 PnL
-
-        if not pnls:
-            continue
-
-        # 4. Calculate Combined Metric (Sharpe)
-        # combined_pnl = sum(pnls)
         pnl_array = np.array(pnls)
         if len(pnl_array) > 1 and np.std(pnl_array) > 1e-9:
-            sharpe = np.mean(pnl_array) / np.std(pnl_array)
-        else:
-            sharpe = 0.0
+            return float(np.mean(pnl_array) / np.std(pnl_array))
+        return 0.0
 
-        if sharpe > best_sharpe:
-            best_sharpe = sharpe
-            best_params = params
+    # 4. Run Optuna TPE
+    MIN_OPTUNA_TRIALS = 50
+    MAX_OPTUNA_TRIALS = 200
+    n_trials = max(MIN_OPTUNA_TRIALS, min(iterations, MAX_OPTUNA_TRIALS))  # TPE converges fast
+    seed = getattr(template, 'template_id', 42) if template else 42
+    best_pid = generator.optimize_pid(_sharpe_objective, n_trials=n_trials, seed=seed)
+
+    # 5. Final best params = analytical exits + best PID
+    best_params = {**fixed_exits, **best_pid}
+    best_sharpe = _sharpe_objective(**best_pid)
 
     return best_params, best_sharpe
 
