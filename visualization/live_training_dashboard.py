@@ -340,10 +340,10 @@ class FractalDashboard:
         self._transition_arrows.clear()
 
         # Capture IDs to map scatter index back to template
-        self._scatter_ids = [d['id'] for d in self.templates.values()]
-
-        z_vals = np.array([d.get('z', 0) for d in self.templates.values()])
-        m_vals = np.array([d.get('mom', 0) for d in self.templates.values()])
+        template_values = list(self.templates.values())
+        self._scatter_ids = [d['id'] for d in template_values]
+        z_vals = np.array([d.get('z', 0) for d in template_values])
+        m_vals = np.array([d.get('mom', 0) for d in template_values])
 
         if len(m_vals) > 4:
             q1, q3 = np.percentile(m_vals, [25, 75])
