@@ -62,7 +62,7 @@ def _parse_workers(s):
         if isinstance(s, str):
             return json.loads(s)
         return {}
-    except:
+    except (json.JSONDecodeError, TypeError):
         return {}
 
 def _get_session(h):
@@ -124,7 +124,7 @@ def run_trade_analytics(log_path: str) -> str:
         df['capture_pct'] = 0.0
 
     if 'oracle_mfe' in df.columns and 'oracle_label' in df.columns:
-        df['signed_oracle'] = df['oracle_mfe'] * df['oracle_label'].apply(lambda x: 1 if x > 0 else -1)
+        df['signed_oracle'] = df['oracle_mfe'] * np.sign(df['oracle_label'])
     else:
         df['signed_oracle'] = 0.0
 
@@ -165,7 +165,10 @@ def run_trade_analytics(log_path: str) -> str:
     for col in COMPARE_FEATURES + REGRESSION_FEATURES:
         if col not in df.columns:
             df[col] = 0.0
-    df.fillna(0, inplace=True)
+
+    # Fill NaN only in feature columns
+    cols_to_fill = sorted(list(set([c for c in COMPARE_FEATURES + REGRESSION_FEATURES if c in df.columns])))
+    df[cols_to_fill] = df[cols_to_fill].fillna(0)
 
     # --- Part 2: Good vs Bad Trade Comparison ---
     winners = df[df['is_win'] == 1]
@@ -226,7 +229,7 @@ def run_trade_analytics(log_path: str) -> str:
     report_lines.append("")
     report_lines.append("LINEAR REGRESSION: actual_pnl ~ features (Standardized)")
 
-    if len(df) > 10:
+    if len(df) > len(REGRESSION_FEATURES) + 1:
         X = df[REGRESSION_FEATURES].copy()
         y = df['actual_pnl']
         scaler = StandardScaler()
@@ -267,7 +270,7 @@ def run_trade_analytics(log_path: str) -> str:
         acc = model.score(X_scaled, y)
         try:
             auc = roc_auc_score(y, model.predict_proba(X_scaled)[:, 1])
-        except:
+        except Exception:
             auc = 0.5
 
         report_lines.append(f"  Accuracy = {acc:.1%}  AUC-ROC = {auc:.2f}")
