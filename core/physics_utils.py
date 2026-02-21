@@ -71,3 +71,23 @@ def compute_adx_dmi_cpu(tr_raw, plus_dm_raw, minus_dm_raw, period=14):
             adx[i] = (adx[i-1] * (period - 1) + dx) / period
 
     return adx, dmi_plus, dmi_minus
+
+from scipy.fft import fft, fftfreq
+
+def extract_dominant_cycle(z_scores: np.ndarray, dt: float = 1.0) -> float:
+    if len(z_scores) < 10: return 0.0
+    n = len(z_scores)
+    yf = fft(z_scores)
+    xf = fftfreq(n, dt)[:n//2]
+    amplitudes = np.abs(yf[1:n//2])
+    if len(amplitudes) == 0 or np.max(amplitudes) == 0: return 0.0
+    peak_freq = xf[np.argmax(amplitudes) + 1]
+    return 1.0 / peak_freq if peak_freq != 0 else 0.0
+
+def calculate_kinetic_damping(velocity_vector: np.ndarray) -> float:
+    if len(velocity_vector) < 5: return 1.0
+    peaks = np.abs(velocity_vector)
+    y = np.log(peaks + 1e-5)
+    x = np.arange(len(peaks))
+    slope, _ = np.polyfit(x, y, 1)
+    return abs(slope)

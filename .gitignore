@@ -17,3 +17,7 @@ training/training_progress.json
 nul
 debug_outputs/
 checkpoints/
+signal_log_*.csv
+oracle_trade_log_*.csv
+fn_signal_log_*.csv
+pid_signal_log_*.csv

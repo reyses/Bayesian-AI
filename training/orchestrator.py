@@ -1941,24 +1941,50 @@ class BayesianTrainingOrchestrator:
             self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
                                       'step': 'FORWARD_PASS COMPLETE', 'pct': 100})
 
+        # ── Data Partitioning Helper ──────────────────────────────────────────
+        def _write_partitioned_csv(records: list, base_filename: str):
+            if not records: return
+            import csv, os
+            from collections import defaultdict
+            from datetime import datetime
+
+            partitions = defaultdict(list)
+            for r in records:
+                ts = r.get('timestamp') or r.get('entry_time') or r.get('ts')
+                day_str = r.get('day', '')
+
+                month_key = 'unknown'
+                if day_str:
+                    if len(day_str) >= 6 and '_' not in day_str: month_key = f"{day_str[:4]}_{day_str[4:6]}"
+                    elif '_' in day_str: month_key = day_str[:7]
+                elif ts:
+                    try: month_key = datetime.fromtimestamp(ts).strftime('%Y_%m')
+                    except Exception: pass
+
+                partitions[month_key].append(r)
+
+            for month, month_records in partitions.items():
+                name_parts = base_filename.rsplit('.', 1)
+                part_name = f"{name_parts[0]}_{month}.{name_parts[1]}"
+                part_path = os.path.join(self.checkpoint_dir, part_name)
+
+                all_keys = []
+                for mr in month_records:
+                    for k in mr.keys():
+                        if k not in all_keys: all_keys.append(k)
+
+                with open(part_path, 'w', newline='', encoding='utf-8') as f:
+                    writer = csv.DictWriter(f, fieldnames=all_keys)
+                    writer.writeheader()
+                    writer.writerows(month_records)
+            print(f"  [EXPORT] Partitioned {base_filename} into {len(partitions)} monthly files.")
+
         # ── 6. Save CSV ──────────────────────────────────────────────────────────
         if oracle_trade_records:
-            _log_name = 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv'
-            csv_path = os.path.join(self.checkpoint_dir, _log_name)
-            with open(csv_path, 'w', newline='', encoding='utf-8') as f:
-                writer = _csv.DictWriter(f, fieldnames=list(oracle_trade_records[0].keys()))
-                writer.writeheader()
-                writer.writerows(oracle_trade_records)
-            report_lines.append("")
-            report_lines.append(f"  Per-trade oracle log saved: {csv_path}")
+            _write_partitioned_csv(oracle_trade_records, 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv')
 
         if pid_oracle_records:
-            pid_csv_path = os.path.join(self.checkpoint_dir, 'pid_oracle_log.csv')
-            with open(pid_csv_path, 'w', newline='', encoding='utf-8') as f:
-                writer = _csv.DictWriter(f, fieldnames=list(pid_oracle_records[0].keys()))
-                writer.writeheader()
-                writer.writerows(pid_oracle_records)
-            report_lines.append(f"  PID oracle log saved: {pid_csv_path} ({len(pid_oracle_records)} signals)")
+            _write_partitioned_csv(pid_oracle_records, 'oos_pid_log.csv' if oos_mode else 'pid_signal_log.csv')
 
         # ── Save FN oracle log + report section ──────────────────────────────────
         # fn_oracle_records: every missed real move with worker snapshot.
@@ -1970,15 +1996,7 @@ class BayesianTrainingOrchestrator:
         # Per-candidate log: every skipped signal with gate decision + oracle context.
         # Answers: which gate blocks the most money? which patterns are mis-directed?
         if decision_matrix_records:
-            _dm_name = 'oos_signal_log.csv' if oos_mode else 'signal_log.csv'
-            _dm_path = os.path.join(self.checkpoint_dir, _dm_name)
-            with open(_dm_path, 'w', newline='', encoding='utf-8') as _dmf:
-                _dm_writer = _csv.DictWriter(_dmf, fieldnames=list(decision_matrix_records[0].keys()))
-                _dm_writer.writeheader()
-                _dm_writer.writerows(decision_matrix_records)
-            _n_traded = sum(1 for r in decision_matrix_records if r['gate'] == 'traded')
-            _n_skipped = len(decision_matrix_records) - _n_traded
-            report_lines.append(f"  Signal log saved: {_dm_path}  ({_n_traded} traded  +  {_n_skipped:,} skipped)")
+            _write_partitioned_csv(decision_matrix_records, 'oos_signal_log.csv' if oos_mode else 'signal_log.csv')
 
             # ── Decision matrix summary ───────────────────────────────────────────
             from collections import defaultdict as _dd
@@ -2027,19 +2045,13 @@ class BayesianTrainingOrchestrator:
                 report_lines.append(f"    {dna:<40} {cnt:>6} {wr*100:>5.0f}% ${avg:>9.2f}")
 
         if fn_oracle_records:
-            import json as _fnjs
-            _fn_name = 'oos_fn_log.csv' if oos_mode else 'fn_oracle_log.csv'
-            fn_csv_path = os.path.join(self.checkpoint_dir, _fn_name)
-            with open(fn_csv_path, 'w', newline='', encoding='utf-8') as _fnf:
-                _fn_writer = _csv.DictWriter(_fnf, fieldnames=list(fn_oracle_records[0].keys()))
-                _fn_writer.writeheader()
-                _fn_writer.writerows(fn_oracle_records)
-            report_lines.append(f"  FN oracle log saved: {fn_csv_path}  ({len(fn_oracle_records):,} missed real moves)")
+            _write_partitioned_csv(fn_oracle_records, 'oos_fn_log.csv' if oos_mode else 'fn_signal_log.csv')
 
             # FN worker agreement analysis:
             # For each TF worker, what fraction of FN signals had the worker
             # agreeing with the oracle direction?  High agreement = gate is blocking
             # moves the workers correctly identified.
+            import json as _fnjs
             _TF_ORDER_FN = ['1h','30m','15m','5m','3m','1m','30s','15s','5s','1s']
             def _fn_tf_agree(records, tf_label):
                 vals = []
