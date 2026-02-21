@@ -1124,15 +1124,24 @@ class BayesianTrainingOrchestrator:
                         _live_feat = np.array(FractalClusteringEngine.extract_features(best_candidate))
 
                         _cand_z = getattr(best_candidate, 'z_score', 0)
-                        if _cand_z <= 0:
+                        _tmpl_dir = lib_entry.get('direction', '')  # 'LONG', 'SHORT', or '' (legacy)
+                        if _tmpl_dir == 'LONG':
                             _live_scaled = self.scaler_long.transform([_live_feat])[0]
                             side = 'long'
-                        else:
+                        elif _tmpl_dir == 'SHORT':
                             _live_scaled = self.scaler_short.transform([_live_feat])[0]
                             side = 'short'
+                        else:
+                            # Legacy fallback: no direction field → use z_score sign
+                            if _cand_z <= 0:
+                                _live_scaled = self.scaler_long.transform([_live_feat])[0]
+                                side = 'long'
+                            else:
+                                _live_scaled = self.scaler_short.transform([_live_feat])[0]
+                                side = 'short'
 
                         # ── Direction gate ──────────────────────────────────────────
-                        # Snowflake: Branch determines direction (Z<=0 -> Long, Z>0 -> Short)
+                        # Snowflake: direction comes from the matched template's training branch.
                         # We retain DMI calc only for logging/diagnostics
                         _live_s   = best_candidate.state
                         _dmi_diff = (getattr(_live_s, 'dmi_plus',  0.0)
