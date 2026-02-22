@@ -1,0 +1,80 @@
+{
+  "0": {
+    "avg_pnl": 103.75,
+    "n_trades": 4,
+    "score_adj": -0.7556,
+    "filter_out": false
+  },
+  "1": {
+    "avg_pnl": 137.31,
+    "n_trades": 75,
+    "score_adj": -1.0,
+    "filter_out": false
+  },
+  "2": {
+    "avg_pnl": 72.6,
+    "n_trades": 329,
+    "score_adj": -0.5288,
+    "filter_out": false
+  },
+  "3": {
+    "avg_pnl": 40.38,
+    "n_trades": 473,
+    "score_adj": -0.2941,
+    "filter_out": false
+  },
+  "4": {
+    "avg_pnl": 20.81,
+    "n_trades": 464,
+    "score_adj": -0.1516,
+    "filter_out": false
+  },
+  "5": {
+    "avg_pnl": 5.89,
+    "n_trades": 1150,
+    "score_adj": -0.0429,
+    "filter_out": false
+  },
+  "6": {
+    "avg_pnl": 0.39,
+    "n_trades": 1014,
+    "score_adj": -0.0028,
+    "filter_out": false
+  },
+  "7": {
+    "avg_pnl": -0.74,
+    "n_trades": 1060,
+    "score_adj": 0.0054,
+    "filter_out": true
+  },
+  "8": {
+    "avg_pnl": -0.17,
+    "n_trades": 1329,
+    "score_adj": 0.0012,
+    "filter_out": true
+  },
+  "9": {
+    "avg_pnl": -0.1,
+    "n_trades": 1365,
+    "score_adj": 0.0007,
+    "filter_out": true
+  },
+  "10": {
+    "avg_pnl": 0.63,
+    "n_trades": 1455,
+    "score_adj": -0.0046,
+    "filter_out": false
+  },
+  "11": {
+    "avg_pnl": 1.92,
+    "n_trades": 811,
+    "score_adj": -0.014,
+    "filter_out": false
+  },
+  "12": {
+    "avg_pnl": 1.77,
+    "n_trades": 191,
+    "score_adj": -0.0129,
+    "filter_out": false
+  }
+}
