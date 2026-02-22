@@ -376,9 +376,49 @@ def refine_clusters(self, template_id: int, member_params: List[Dict[str, float]
 | Fission: silhouette on {TP, SL, trail} params | Fission: adj-R² gain on oracle_mfe ~ features |
 | Fission threshold: silhouette >= 0.45 | Fission threshold: gain >= 0.05 |
 
+## Remove the Snowflake LONG/SHORT Split
+
+The snowflake split (`create_templates` → `_fit_branch(long_patterns, 'LONG')` +
+`_fit_branch(short_patterns, 'SHORT')`) should be **removed**.
+
+Reason: the shape taxonomy already implicitly separates directions.
+`lagrange_zone` and `pattern_type` encode the physics of a setup; the
+resulting templates will be overwhelmingly one direction which
+`_aggregate_oracle_intelligence` captures via `long_bias`/`short_bias`.
+Splitting LONG/SHORT upfront halves each branch's sample size, doubling
+overfitting risk, and is redundant when the shape groups are already
+geometrically coherent.
+
+New `create_templates` outer shell:
+```python
+def create_templates(self, manifest: List[Any]) -> List[PatternTemplate]:
+    """Shape-first clustering — no LONG/SHORT pre-split."""
+    print(f"Shape Clustering: {len(manifest)} patterns")
+    scaler, templates = self._fit_branch(manifest, 'ALL')
+    self.scaler = scaler  # keep fallback scaler
+
+    # Build Transition Matrix
+    valid = [p for p in manifest if p is not None]
+    if valid:
+        print("  Building Transition Matrix...", end="", flush=True)
+        self._build_transition_matrix(templates, valid)
+        print(" done.")
+
+    self.templates = templates
+    return templates
+```
+
+In `_fit_branch`, remove the `start_id_offset` branching — just use `next_id = 0`
+since there's no LONG/SHORT ID namespace collision anymore.
+
+In `register_template_logic` (orchestrator.py), the `direction` field on each
+template will now be '' (empty) — the forward pass should use `long_bias`/`short_bias`
+to gate direction rather than checking `template['direction'] == 'LONG'`.
+Check how `direction` is used in orchestrator.py Gate 1 and update accordingly.
+
 ## What Stays Unchanged
 
-- LONG/SHORT snowflake split (stays — direction calibration is still needed)
+- Direction gating via `long_bias`/`short_bias` in orchestrator Gate 1 (already there)
 - `extract_features` 16D vector (unchanged)
 - `_aggregate_oracle_intelligence` (unchanged)
 - `_build_transition_matrix` (unchanged)
