@@ -313,6 +313,19 @@ class BayesianTrainingOrchestrator:
             self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
                                       'step': 'FORWARD_PASS', 'pct': 0})
 
+        # ── 0. Rotate previous run files: rename current → _old ────────────────
+        for _old_name in ('phase4_report.txt', 'oracle_trade_log.csv',
+                          'signal_log.csv', 'depth_weights.json',
+                          'run_snapshot.json'):
+            _old_path = os.path.join(self.checkpoint_dir, _old_name)
+            if os.path.exists(_old_path):
+                _old_dest = os.path.join(self.checkpoint_dir,
+                    _old_name.replace('.', '_old.', 1))
+                try:
+                    os.replace(_old_path, _old_dest)
+                except OSError:
+                    pass
+
         # 1. Load Prerequisites
         lib_path = os.path.join(self.checkpoint_dir, 'pattern_library.pkl')
         scaler_path = os.path.join(self.checkpoint_dir, 'clustering_scaler.pkl')
@@ -766,6 +779,7 @@ class BayesianTrainingOrchestrator:
                                 'exit_conviction':    _mh_sig.get('conviction', 0.0),
                                 'exit_wave_maturity': _mh_sig.get('wave_maturity', 0.0),
                                 'exit_signal_reason': (_mh_adj or _mh_sig.get('reason', '')),
+                                'exit_decay_score':   _mh_sig.get('decay_score', 0.0),
                             })
                             if _pending_dm_idx is not None:
                                 decision_matrix_records[_pending_dm_idx].update({
@@ -774,6 +788,7 @@ class BayesianTrainingOrchestrator:
                                     'exit_conviction': _mh_sig.get('conviction', 0.0),
                                     'exit_wave_maturity': _mh_sig.get('wave_maturity', 0.0),
                                 })
+                            belief_network.stop_trade_tracking()
                             pending_oracle = None
                             _pending_dm_idx = None
                     else:
@@ -834,6 +849,7 @@ class BayesianTrainingOrchestrator:
                                     'exit_wave_maturity': _exit_sig.get('wave_maturity', 0.0),
                                     'exit_signal_reason': (res.get('adjustment_reason') or
                                                            _exit_sig.get('reason', '')),
+                                    'exit_decay_score':   _exit_sig.get('decay_score', 0.0),
                                 })
                                 # Update signal-log record with trade outcome
                                 if _pending_dm_idx is not None:
@@ -846,6 +862,7 @@ class BayesianTrainingOrchestrator:
                                         'exit_conviction':    _exit_sig.get('conviction', 0.0),
                                         'exit_wave_maturity': _exit_sig.get('wave_maturity', 0.0),
                                     })
+                                belief_network.stop_trade_tracking()
                                 pending_oracle = None
                                 _pending_dm_idx = None
 
@@ -1188,6 +1205,13 @@ class BayesianTrainingOrchestrator:
                             trail_activation_ticks=_trail_act_ticks,
                             template_id=best_tid
                         )
+                        # Loss watchdog: flag if DMI is inverse to trade direction at entry
+                        _entry_dmi = (getattr(best_candidate.state, 'dmi_plus', 0.0)
+                                      - getattr(best_candidate.state, 'dmi_minus', 0.0))
+                        _dmi_inv = (_entry_dmi < 0) if side == 'long' else (_entry_dmi > 0)
+                        if self.wave_rider.position:
+                            self.wave_rider.position.entry_dmi_inverse = _dmi_inv
+
                         current_position_open = True
                         active_entry_price = price
                         active_entry_time = ts
@@ -1197,6 +1221,12 @@ class BayesianTrainingOrchestrator:
                         _tf_s = str(getattr(best_candidate, 'timeframe', '4h'))
                         _tf_sec = TIMEFRAME_SECONDS.get(_tf_s, 14400)
                         active_max_hold_bars = max(20, _tf_sec // 15)
+                        # Start physics decay tracking (bottom-up exit cascade)
+                        belief_network.start_trade_tracking(
+                            side=side,
+                            entry_bar=_bar_i,
+                            pattern_horizon_bars=active_max_hold_bars,
+                        )
                         depth_traded[getattr(best_candidate, 'depth', 6)] += 1
 
                         # Store oracle facts for this trade (linked at exit)
@@ -1330,6 +1360,13 @@ class BayesianTrainingOrchestrator:
                                 profit_target_ticks=_bp_tp_ticks,
                                 template_id=-1,
                             )
+                            # Loss watchdog: flag if DMI is inverse to trade direction at entry
+                            _bp_entry_dmi = (getattr(_bypass_candidate.state, 'dmi_plus', 0.0)
+                                             - getattr(_bypass_candidate.state, 'dmi_minus', 0.0))
+                            _bp_dmi_inv = (_bp_entry_dmi < 0) if side == 'long' else (_bp_entry_dmi > 0)
+                            if self.wave_rider.position:
+                                self.wave_rider.position.entry_dmi_inverse = _bp_dmi_inv
+
                             current_position_open = True
                             active_entry_price    = price
                             active_entry_time     = ts_raw
@@ -1338,6 +1375,11 @@ class BayesianTrainingOrchestrator:
                             _btf_s = str(getattr(_bypass_candidate, 'timeframe', '4h'))
                             _btf_sec = TIMEFRAME_SECONDS.get(_btf_s, 14400)
                             active_max_hold_bars  = max(20, _btf_sec // 15)
+                            belief_network.start_trade_tracking(
+                                side=side,
+                                entry_bar=_bar_i,
+                                pattern_horizon_bars=active_max_hold_bars,
+                            )
                             depth_traded[getattr(_bypass_candidate, 'depth', 6)] += 1
                             pending_oracle = {
                                 'template_id':      -1,
@@ -1459,6 +1501,7 @@ class BayesianTrainingOrchestrator:
                         'exit_conviction':    _eod_sig.get('conviction', 0.0),
                         'exit_wave_maturity': _eod_sig.get('wave_maturity', 0.0),
                         'exit_signal_reason': (_eod_adj_reason or _eod_sig.get('reason', '')),
+                        'exit_decay_score':   _eod_sig.get('decay_score', 0.0),
                     })
                     # Update signal-log record with trade outcome
                     if _pending_dm_idx is not None:
@@ -1470,6 +1513,7 @@ class BayesianTrainingOrchestrator:
                             'exit_conviction':    _eod_sig.get('conviction', 0.0),
                             'exit_wave_maturity': _eod_sig.get('wave_maturity', 0.0),
                         })
+                    belief_network.stop_trade_tracking()
                     pending_oracle = None
                     _pending_dm_idx = None
 
@@ -1488,7 +1532,20 @@ class BayesianTrainingOrchestrator:
                 total_wins += d_wins
                 print(f"Trades: {len(day_trades)}, Wins: {d_wins}, PnL: ${d_pnl:.2f} ({time.perf_counter() - t_sim_start:.1f}s)")
             else:
+                d_pnl = 0.0
                 print("No trades.")
+
+            # Send end-of-month update with per-month breakdown
+            if self.dashboard_queue:
+                _wr_end = (total_wins / total_trades * 100) if total_trades > 0 else 0.0
+                self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
+                                          'step': f'FORWARD_PASS  day {day_idx+1}/{n_days}',
+                                          'pct': round((day_idx + 1) / n_days * 100, 1),
+                                          'pnl': total_pnl,
+                                          'trades': total_trades,
+                                          'wr': round(_wr_end, 1),
+                                          'month_pnl': d_pnl,
+                                          'month_label': day_date})
 
         # Final Report
         import datetime as _datetime
@@ -1652,9 +1709,11 @@ class BayesianTrainingOrchestrator:
             # Otherwise we group by signal reason.
 
             b_flip     = [r for r in oracle_trade_records if r.get('exit_signal_reason') == 'urgent_flip']
+            b_decay    = [r for r in oracle_trade_records if r.get('exit_signal_reason') == 'physics_decay']
             b_tight    = [r for r in oracle_trade_records if r.get('exit_signal_reason') in ('low_conviction', 'wave_mature')]
             b_widen    = [r for r in oracle_trade_records if r.get('exit_signal_reason') == 'aligned_fresh']
             b_standard = [r for r in oracle_trade_records if r.get('exit_signal_reason') in ('neutral', 'no_belief', '')]
+            b_watchdog = [r for r in oracle_trade_records if r.get('exit_signal_reason') == 'loss_watchdog']
 
             def _stats(subset):
                 if not subset: return "0 trades"
@@ -1663,9 +1722,17 @@ class BayesianTrainingOrchestrator:
                 return f"{n:>5} trades  ->  avg PnL ${avg:>7.2f}"
 
             report_lines.append(f"    Belief-flip exits:  {_stats(b_flip)}")
+            report_lines.append(f"    Physics-decay exits:{_stats(b_decay)}")
             report_lines.append(f"    Trail-tightened:    {_stats(b_tight)}")
             report_lines.append(f"    Trail-widened:      {_stats(b_widen)}")
+            report_lines.append(f"    Loss watchdog:      {_stats(b_watchdog)}")
             report_lines.append(f"    Standard trail:     {_stats(b_standard)}")
+
+            # Decay score breakdown: WIN vs LOSS average decay at exit
+            _win_decay  = [r.get('exit_decay_score', 0.0) for r in oracle_trade_records if r.get('result') == 'WIN']
+            _loss_decay = [r.get('exit_decay_score', 0.0) for r in oracle_trade_records if r.get('result') == 'LOSS']
+            if _win_decay and _loss_decay:
+                report_lines.append(f"    Decay score at exit:  WIN avg={sum(_win_decay)/len(_win_decay):.3f}  LOSS avg={sum(_loss_decay)/len(_loss_decay):.3f}")
 
         # ── 2g. Worker agreement analysis ────────────────────────────────────────
         # For each TF worker: what fraction of the time did it agree with the
@@ -2156,6 +2223,58 @@ class BayesianTrainingOrchestrator:
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write('\n'.join(report_lines) + '\n')
         print(f"  Report saved to {report_path}")
+
+        # ── 6b. Run trade analytics suite (t-tests, ANOVA, OLS, logistic, capture) ──
+        _trade_log_path = os.path.join(self.checkpoint_dir,
+            'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv')
+        if os.path.exists(_trade_log_path):
+            try:
+                from training.trade_analytics import run_trade_analytics
+                _analytics_text = run_trade_analytics(_trade_log_path, report_path)
+                # Also save standalone
+                _analytics_path = os.path.join(self.checkpoint_dir,
+                    'oos_analytics.txt' if oos_mode else 'trade_analytics.txt')
+                with open(_analytics_path, 'w', encoding='utf-8') as _af:
+                    _af.write(_analytics_text)
+                print(f"  Trade analytics saved: {_analytics_path}")
+            except Exception as _ae:
+                print(f"  Trade analytics failed: {_ae}")
+
+        # ── 7. Save compact run snapshot (current vs _old for LLM comparison) ───
+        if not oos_mode:
+            import json as _snap_json
+            import datetime as _snap_dt
+            _win_decay  = [r.get('exit_decay_score', 0.0) for r in oracle_trade_records if r.get('result') == 'WIN']
+            _loss_decay = [r.get('exit_decay_score', 0.0) for r in oracle_trade_records if r.get('result') == 'LOSS']
+            _snap = {
+                'timestamp':      _snap_dt.datetime.now().isoformat(timespec='seconds'),
+                'trades':         total_trades,
+                'win_rate':       round(total_wins / total_trades * 100, 1) if total_trades else 0,
+                'total_pnl':      round(total_pnl, 2),
+                'avg_pnl_trade':  round(total_pnl / total_trades, 2) if total_trades else 0,
+                'ideal_pnl':      round(ideal_profit, 2),
+                'capture_pct':    round(total_pnl / ideal_profit * 100, 2) if ideal_profit else 0,
+                'fn_missed_pnl':  round(fn_potential_pnl, 2),
+                'wrong_dir_pnl':  round(abs(fp_wrong_pnl), 2),
+                'reversed_pnl':   round(reversed_loss_val, 2),
+                'left_on_table':  round(left_on_table_val, 2),
+                'n_reversed':     len(reversed_) if tp_recs else 0,
+                'n_correct_dir':  len(tp_recs) if tp_recs else 0,
+                'gate0_skip':     skip_headroom,
+                'gate1_skip':     skip_dist,
+                'gate2_skip':     skip_brain,
+                'gate3_skip':     skip_conviction,
+                'decay_win_avg':  round(sum(_win_decay) / len(_win_decay), 3) if _win_decay else 0,
+                'decay_loss_avg': round(sum(_loss_decay) / len(_loss_decay), 3) if _loss_decay else 0,
+                'depth_breakdown': {
+                    str(d): {'n': _dw_cnt[d], 'avg': round(_dw_pnl[d] / _dw_cnt[d], 2)}
+                    for d in sorted(_dw_cnt.keys())
+                } if oracle_trade_records and 'entry_depth' in oracle_trade_records[0] else {},
+            }
+            _snap_path = os.path.join(self.checkpoint_dir, 'run_snapshot.json')
+            with open(_snap_path, 'w') as _sf:
+                _snap_json.dump(_snap, _sf, indent=2)
+            print(f"  Run snapshot saved: {_snap_path}")
 
     def run_final_validation(self, top_strategies):
         """
