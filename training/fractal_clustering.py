@@ -77,6 +77,54 @@ class PatternTemplate:
     mfe_intercept: float = 0.0
     dir_coeff:     Optional[List[float]] = field(default=None)  # 14 logistic weights
     dir_intercept: float = 0.0
+    semantic_name: str = "Unknown"
+
+
+def generate_semantic_name(centroid: np.ndarray) -> str:
+    """Decode a 16D raw centroid into a human-readable playbook string.
+
+    Centroid layout (after inverse_transform, original scale):
+      [0] abs(z)  [1] log1p(v)  [2] log1p(m)  [3] coherence
+      [4] log2(tf_secs)  [5] depth  [6] parent_is_roche
+      [7] adx/100  [8] hurst  [9] dmi_diff/100
+      [10-15] ancestry features
+    """
+    if centroid is None or len(centroid) < 10:
+        return "Unknown"
+
+    z   = centroid[0]           # abs(z_score)
+    vel = centroid[1]           # log1p(|velocity|)
+    mom = centroid[2]           # log1p(|momentum|)
+    adx = centroid[7]           # adx / 100  (0-1 range)
+    hurst = centroid[8]         # hurst exponent (0-1)
+    tf_log2 = centroid[4]       # log2(tf_seconds)
+
+    # 1. Trigger (z-score magnitude)
+    if z > 3.0:     trigger = "Singularity"
+    elif z > 2.0:   trigger = "Roche"
+    elif z > 1.0:   trigger = "MeanRev"
+    else:           trigger = "Chop"
+
+    # 2. Kinetic state (log1p-compressed velocity / momentum)
+    if vel > 0.7:       kinetic = "Shock"      # log1p(|v|)>0.7 → |v|>1.0
+    elif mom > 1.1:     kinetic = "Drive"       # log1p(|m|)>1.1 → |m|>2.0
+    elif vel > 0.3:     kinetic = "Flow"        # moderate velocity
+    else:               kinetic = "Grind"
+
+    # 3. Regime (ADX + Hurst)
+    if adx > 0.30:              regime = "Trend"
+    elif adx < 0.18 and hurst < 0.45: regime = "MR"      # mean-reverting
+    elif hurst > 0.60:          regime = "Persist"
+    else:                       regime = "Range"
+
+    # 4. Timeframe from log2
+    tf_secs = int(2 ** tf_log2) if tf_log2 > 0 else 15
+    if tf_secs >= 3600:   tf_str = f"{tf_secs // 3600}h"
+    elif tf_secs >= 60:   tf_str = f"{tf_secs // 60}m"
+    else:                 tf_str = f"{tf_secs}s"
+
+    return f"[{tf_str}] {trigger}+{kinetic} {regime}"
+
 
 class FractalClusteringEngine:
     def __init__(self, n_clusters=1000, max_variance=0.5):
@@ -174,7 +222,8 @@ class FractalClusteringEngine:
                 centroid=raw_centroid,
                 member_count=len(patterns),
                 patterns=patterns,
-                physics_variance=z_var
+                physics_variance=z_var,
+                semantic_name=generate_semantic_name(raw_centroid)
             )]
 
         k = min(3, max(2, len(patterns) // 20))

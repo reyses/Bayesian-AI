@@ -246,6 +246,7 @@ class Position:
     breakeven_locked: bool = False                 # True once stop moved to entry (risk-free)
     breakeven_level: Optional[float] = None        # price level of the breakeven stop
     entry_dmi_inverse: bool = False                # True if DMI was against trade direction at entry
+    bars_in_trade: int = 0                           # incremented each update_trail call
 
 
 class WaveRider:
@@ -426,6 +427,9 @@ class WaveRider:
         # Update history via process_pending_reviews
         self.process_pending_reviews(current_time, current_price)
 
+        # Track how many bars this trade has been open
+        self.position.bars_in_trade += 1
+
         # --- Dynamic Exit Logic ---
         urgent_exit = False
         decay_exit = False
@@ -517,10 +521,13 @@ class WaveRider:
 
         # Loss watchdog: DMI inverse + underwater + workers agree on reversal
         # Triple confirmation prevents cutting on noise dips.
-        WATCHDOG_TICKS = 2       # must be at least this far underwater
+        # 8 ticks = $2.00 move = $4.00 PnL on MNQ — filters out normal noise.
+        WATCHDOG_TICKS = 8       # must be at least this far underwater
         WATCHDOG_WORKERS = 5     # at least N workers must disagree with trade side
+        WATCHDOG_MIN_BARS = 5    # must hold at least N bars before watchdog can fire
         watchdog_exit = False
-        if (self.position.entry_dmi_inverse
+        if (self.position.bars_in_trade >= WATCHDOG_MIN_BARS
+                and self.position.entry_dmi_inverse
                 and profit_ticks <= -WATCHDOG_TICKS
                 and exit_signal
                 and exit_signal.get('workers_against', 0) >= WATCHDOG_WORKERS):
