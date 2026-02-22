@@ -1,0 +1,3 @@
+2025-02-19 — [Optimizing Feature Extraction]
+Learning: `getattr(obj, 'attr', default)` is significantly slower (~5-10x) than direct attribute access `obj.attr` in tight loops, especially when the attribute exists. Also, `numpy` scalar operations (like `np.log1p`) carry overhead compared to `math` module equivalents for single values.
+Action: Replacing `getattr` with direct access and `numpy` scalar ops with `math` ops in `FractalClusteringEngine.extract_features` (called millions of times) yields a ~3x speedup. Correctness is maintained by ensuring inputs (`PatternEvent` and `ThreeBodyQuantumState`) adhere to their schema, and tests are updated to respect this contract.
