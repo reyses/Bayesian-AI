@@ -718,21 +718,21 @@ class BayesianTrainingOrchestrator:
 
                 # 1. Manage existing position
                 if self.wave_rider.position is not None:
-                    # Get exit signal from belief network every bar
-                    _exit_sig = belief_network.get_exit_signal(self.wave_rider.position.side)
-                    res = self.wave_rider.update_trail(price, None, ts_raw, exit_signal=_exit_sig)
-
-                    if res['should_exit']:
+                    # MAX HOLD: 4 hours = 960 bars (15s). Trades open longer skip golden moves.
+                    _bars_held = max(0, int((ts_raw - active_entry_time) / 15))
+                    if _bars_held >= 960:
+                        _mh_pos = self.wave_rider.position
+                        _mh_sig = belief_network.get_exit_signal(_mh_pos.side)
+                        _mh_adj = _mh_pos.last_adjustment_reason or ''
+                        _mh_pnl = ((price - _mh_pos.entry_price) if _mh_pos.side == 'long'
+                                   else (_mh_pos.entry_price - price)) * self.asset.point_value
+                        self.wave_rider.position = None
                         outcome = TradeOutcome(
-                            state=active_template_id,
-                            entry_price=active_entry_price,
-                            exit_price=res['exit_price'],
-                            pnl=res['pnl'],
-                            result='WIN' if res['pnl'] > 0 else 'LOSS',
-                            timestamp=ts_raw,
-                            exit_reason=res['exit_reason'],
-                            entry_time=active_entry_time,
-                            exit_time=ts_raw,
+                            state=active_template_id, entry_price=active_entry_price,
+                            exit_price=price, pnl=_mh_pnl,
+                            result='WIN' if _mh_pnl > 0 else 'LOSS',
+                            timestamp=ts_raw, exit_reason='MAX_HOLD',
+                            entry_time=active_entry_time, exit_time=ts_raw,
                             duration=ts_raw - active_entry_time,
                             direction='LONG' if active_side == 'long' else 'SHORT',
                             template_id=active_template_id
@@ -740,8 +740,6 @@ class BayesianTrainingOrchestrator:
                         self.brain.update(outcome)
                         day_trades.append(outcome)
                         current_position_open = False
-
-                        # Update running equity after trade close
                         if _equity_enabled:
                             running_equity += outcome.pnl
                             peak_equity   = max(peak_equity, running_equity)
@@ -749,50 +747,104 @@ class BayesianTrainingOrchestrator:
                             if running_equity < _NINJATRADER_MNQ_MARGIN:
                                 account_ruined = True
                                 ruin_day = ruin_day or day_date
-
-                        # Complete oracle record for this trade
                         if pending_oracle is not None:
-                            o_mfe = pending_oracle['oracle_mfe']
-                            o_mae = pending_oracle['oracle_mae']
-                            oracle_favorable = o_mfe if pending_oracle['direction'] == 'LONG' else o_mae
-                            oracle_potential = oracle_favorable * self.asset.point_value
-                            capture = outcome.pnl / oracle_potential if oracle_potential > 0 else 0.0
-                            _exit_t = outcome.exit_time
-                            _entry_t = pending_oracle['entry_time']
+                            _mh_o_fav = (pending_oracle['oracle_mfe'] if pending_oracle['direction'] == 'LONG'
+                                         else pending_oracle['oracle_mae'])
+                            _mh_pot   = _mh_o_fav * self.asset.point_value
+                            _mh_cap   = outcome.pnl / _mh_pot if _mh_pot > 0 else 0.0
                             oracle_trade_records.append({
                                 **pending_oracle,
-                                'exit_price':  outcome.exit_price,
-                                'exit_time':   _exit_t,
-                                'hold_bars':   max(1, int((_exit_t - _entry_t) / 15)),  # 15s bars held
-                                'exit_reason': outcome.exit_reason,
-                                'actual_pnl':  outcome.pnl,
-                                'oracle_potential_pnl': oracle_potential,
-                                'capture_rate': round(min(capture, 9.99), 4),
+                                'exit_price':  price, 'exit_time': ts_raw,
+                                'hold_bars':   _bars_held, 'exit_reason': 'MAX_HOLD',
+                                'actual_pnl':  outcome.pnl, 'oracle_potential_pnl': _mh_pot,
+                                'capture_rate': round(min(_mh_cap, 9.99), 4),
                                 'result': outcome.result,
-                                # Worker snapshot at exit: compare vs entry_workers to find direction flips
                                 'exit_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
-                                # Dynamic Exit Fields
-                                # adjustment_reason = the belief signal that LAST tightened/widened
-                                # the trail (root cause). Falls back to current-bar signal if no
-                                # adjustment happened (standard trail, PT, urgent flip).
-                                'exit_conviction':    _exit_sig.get('conviction', 0.0),
-                                'exit_wave_maturity': _exit_sig.get('wave_maturity', 0.0),
-                                'exit_signal_reason': (res.get('adjustment_reason') or
-                                                       _exit_sig.get('reason', '')),
+                                'exit_conviction':    _mh_sig.get('conviction', 0.0),
+                                'exit_wave_maturity': _mh_sig.get('wave_maturity', 0.0),
+                                'exit_signal_reason': (_mh_adj or _mh_sig.get('reason', '')),
                             })
-                            # Update signal-log record with trade outcome
                             if _pending_dm_idx is not None:
                                 decision_matrix_records[_pending_dm_idx].update({
-                                    'trade_result':       outcome.result,
-                                    'trade_pnl':          round(outcome.pnl, 2),
-                                    'exit_reason':        outcome.exit_reason,
-                                    'exit_signal_reason': (res.get('adjustment_reason') or
-                                                           _exit_sig.get('reason', '')),
-                                    'exit_conviction':    _exit_sig.get('conviction', 0.0),
-                                    'exit_wave_maturity': _exit_sig.get('wave_maturity', 0.0),
+                                    'trade_result': outcome.result, 'trade_pnl': round(outcome.pnl, 2),
+                                    'exit_reason': 'MAX_HOLD', 'exit_signal_reason': (_mh_adj or _mh_sig.get('reason', '')),
+                                    'exit_conviction': _mh_sig.get('conviction', 0.0),
+                                    'exit_wave_maturity': _mh_sig.get('wave_maturity', 0.0),
                                 })
                             pending_oracle = None
                             _pending_dm_idx = None
+                    else:
+                        # Get exit signal from belief network every bar
+                        _exit_sig = belief_network.get_exit_signal(self.wave_rider.position.side)
+                        res = self.wave_rider.update_trail(price, None, ts_raw, exit_signal=_exit_sig)
+
+                        if res['should_exit']:
+                            outcome = TradeOutcome(
+                                state=active_template_id,
+                                entry_price=active_entry_price,
+                                exit_price=res['exit_price'],
+                                pnl=res['pnl'],
+                                result='WIN' if res['pnl'] > 0 else 'LOSS',
+                                timestamp=ts_raw,
+                                exit_reason=res['exit_reason'],
+                                entry_time=active_entry_time,
+                                exit_time=ts_raw,
+                                duration=ts_raw - active_entry_time,
+                                direction='LONG' if active_side == 'long' else 'SHORT',
+                                template_id=active_template_id
+                            )
+                            self.brain.update(outcome)
+                            day_trades.append(outcome)
+                            current_position_open = False
+
+                            # Update running equity after trade close
+                            if _equity_enabled:
+                                running_equity += outcome.pnl
+                                peak_equity   = max(peak_equity, running_equity)
+                                trough_equity = min(trough_equity, running_equity)
+                                if running_equity < _NINJATRADER_MNQ_MARGIN:
+                                    account_ruined = True
+                                    ruin_day = ruin_day or day_date
+
+                            # Complete oracle record for this trade
+                            if pending_oracle is not None:
+                                o_mfe = pending_oracle['oracle_mfe']
+                                o_mae = pending_oracle['oracle_mae']
+                                oracle_favorable = o_mfe if pending_oracle['direction'] == 'LONG' else o_mae
+                                oracle_potential = oracle_favorable * self.asset.point_value
+                                capture = outcome.pnl / oracle_potential if oracle_potential > 0 else 0.0
+                                _exit_t = outcome.exit_time
+                                _entry_t = pending_oracle['entry_time']
+                                oracle_trade_records.append({
+                                    **pending_oracle,
+                                    'exit_price':  outcome.exit_price,
+                                    'exit_time':   _exit_t,
+                                    'hold_bars':   max(1, int((_exit_t - _entry_t) / 15)),  # 15s bars held
+                                    'exit_reason': outcome.exit_reason,
+                                    'actual_pnl':  outcome.pnl,
+                                    'oracle_potential_pnl': oracle_potential,
+                                    'capture_rate': round(min(capture, 9.99), 4),
+                                    'result': outcome.result,
+                                    # Worker snapshot at exit: compare vs entry_workers to find direction flips
+                                    'exit_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
+                                    'exit_conviction':    _exit_sig.get('conviction', 0.0),
+                                    'exit_wave_maturity': _exit_sig.get('wave_maturity', 0.0),
+                                    'exit_signal_reason': (res.get('adjustment_reason') or
+                                                           _exit_sig.get('reason', '')),
+                                })
+                                # Update signal-log record with trade outcome
+                                if _pending_dm_idx is not None:
+                                    decision_matrix_records[_pending_dm_idx].update({
+                                        'trade_result':       outcome.result,
+                                        'trade_pnl':          round(outcome.pnl, 2),
+                                        'exit_reason':        outcome.exit_reason,
+                                        'exit_signal_reason': (res.get('adjustment_reason') or
+                                                               _exit_sig.get('reason', '')),
+                                        'exit_conviction':    _exit_sig.get('conviction', 0.0),
+                                        'exit_wave_maturity': _exit_sig.get('wave_maturity', 0.0),
+                                    })
+                                pending_oracle = None
+                                _pending_dm_idx = None
 
                 # 2. Check for entries (if no position)
                 # Equity ruin check: simulation ends when equity hits 0 (no money to trade).
