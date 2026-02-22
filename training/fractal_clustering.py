@@ -78,6 +78,10 @@ class PatternTemplate:
     p25_mae_ticks:  float = 0.0   # 25th-pct MAE — tight SL floor
     regression_sigma_ticks: float = 0.0  # Residual std from per-cluster OLS; trail = this * 1.1
 
+    # TIME-SCALE CALIBRATION (populated by _aggregate_oracle_intelligence, requires --fresh)
+    avg_mfe_bar: float = 0.0   # mean bar index (15s bars, 0-based) where MFE peaked
+    p75_mfe_bar: float = 0.0   # 75th-pct mfe_bar — conservative "still moving" window
+
     # PER-CLUSTER REGRESSION MODELS (fitted on 14D scaled feature vectors of members)
     # MFE model: predicted_mfe = live_features @ mfe_coeff + mfe_intercept
     # Dir model: P(LONG) = sigmoid(live_features @ dir_coeff + dir_intercept)
@@ -326,6 +330,17 @@ class FractalClusteringEngine:
             total_nn = len(non_noise)
             template.long_bias = longs / total_nn
             template.short_bias = shorts / total_nn
+
+        # 6. Time-scale: bar index where MFE peaked (requires mfe_bar in oracle_meta)
+        mfe_bars = [
+            p.oracle_meta.get('mfe_bar')
+            for p in patterns
+            if getattr(p, 'oracle_meta', None) is not None
+            and p.oracle_meta.get('mfe_bar', -1) >= 0
+        ]
+        if len(mfe_bars) >= TEMPLATE_MIN_MEMBERS_FOR_STATS:
+            template.avg_mfe_bar = float(np.mean(mfe_bars))
+            template.p75_mfe_bar = float(np.percentile(mfe_bars, 75))
 
     def _build_transition_matrix(self, templates: List[PatternTemplate], all_patterns: List[Any]):
         """

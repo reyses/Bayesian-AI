@@ -867,6 +867,7 @@ class BayesianTrainingOrchestrator:
                 _DEPTH_HOLD_LOSING = {1:480, 2:480, 3:240,4:240,5:120,6:120,7:60, 8:60, 9:60, 10:60, 11:60, 12:60}
                 if self.wave_rider.position is not None:
                     res = {'should_exit': False}   # default; overwritten by update_trail if called
+                    belief_network.tick_trade_bar()
                     _bars_held   = max(1, int((ts_raw - active_entry_time) / 15))
                     _unrealized  = ((price - active_entry_price) if active_side == 'long'
                                     else (active_entry_price - price)) * self.asset.point_value
@@ -928,6 +929,7 @@ class BayesianTrainingOrchestrator:
                                 })
                             pending_oracle = None
                             _pending_dm_idx = None
+                            belief_network.clear_active_trade_timescale()
                     else:
                         # Get exit signal from belief network every bar
                         _exit_sig = belief_network.get_exit_signal(self.wave_rider.position.side)
@@ -1004,6 +1006,7 @@ class BayesianTrainingOrchestrator:
                                 })
                             pending_oracle = None
                             _pending_dm_idx = None
+                            belief_network.clear_active_trade_timescale()
 
                 # 2. Check for entries (if no position)
                 # Equity ruin check: simulation ends when equity hits 0 (no money to trade).
@@ -1350,6 +1353,10 @@ class BayesianTrainingOrchestrator:
                         active_template_id = best_tid
                         active_entry_depth = getattr(best_candidate, 'depth', 5)
                         depth_traded[active_entry_depth] += 1
+                        # Pass template time-scale to belief network
+                        _tmpl_avg_mfebar = self.pattern_library.get(best_tid, {}).get('avg_mfe_bar', 0.0)
+                        _tmpl_p75_mfebar = self.pattern_library.get(best_tid, {}).get('p75_mfe_bar', 0.0)
+                        belief_network.set_active_trade_timescale(_tmpl_avg_mfebar, _tmpl_p75_mfebar)
 
                         # Store oracle facts for this trade (linked at exit)
                         # Direction-gate diagnostic columns enable offline DOE sweep of
@@ -1500,6 +1507,7 @@ class BayesianTrainingOrchestrator:
                             active_template_id    = -1
                             active_entry_depth    = getattr(_bypass_candidate, 'depth', 5)
                             depth_traded[active_entry_depth] += 1
+                            belief_network.set_active_trade_timescale(0.0, 0.0)
                             pending_oracle = {
                                 'template_id':      -1,
                                 'direction':        'LONG' if side == 'long' else 'SHORT',
@@ -1634,6 +1642,7 @@ class BayesianTrainingOrchestrator:
                         })
                     pending_oracle = None
                     _pending_dm_idx = None
+                    belief_network.clear_active_trade_timescale()
 
             # Analyze day
             if _equity_enabled and account_ruined:
@@ -1838,6 +1847,15 @@ class BayesianTrainingOrchestrator:
             report_lines.append(f"    Trail-tightened:    {_stats(b_tight)}")
             report_lines.append(f"    Trail-widened:      {_stats(b_widen)}")
             report_lines.append(f"    Standard trail:     {_stats(b_standard)}")
+
+            # Time-scale exits (requires --fresh; will be empty until templates have avg_mfe_bar)
+            b_time_ex  = [r for r in oracle_trade_records if r.get('exit_signal_reason') == 'time_exhausted']
+            b_time_ti  = [r for r in oracle_trade_records if r.get('exit_signal_reason') == 'time_tighten']
+            if b_time_ex or b_time_ti:
+                report_lines.append(f"  TIME-SCALE EXIT SUMMARY:")
+                report_lines.append(f"    time_exhausted exits: {_stats(b_time_ex)}")
+                report_lines.append(f"    time_tighten exits:   {_stats(b_time_ti)}")
+                report_lines.append(f"    (template-time-aware exits vs wave_mature/conviction exits)")
 
         # ── 2g. Worker agreement analysis ────────────────────────────────────────
         # For each TF worker: what fraction of the time did it agree with the
@@ -3293,6 +3311,9 @@ class BayesianTrainingOrchestrator:
             'mfe_intercept': getattr(template, 'mfe_intercept', 0.0),
             'dir_coeff':     getattr(template, 'dir_coeff',     None),
             'dir_intercept': getattr(template, 'dir_intercept', 0.0),
+            # Time-scale: bar index where MFE historically peaks (0.0 until --fresh with mfe_bar)
+            'avg_mfe_bar':   getattr(template, 'avg_mfe_bar',   0.0),
+            'p75_mfe_bar':   getattr(template, 'p75_mfe_bar',   0.0),
         }
 
     def validate_template_group(self, patterns: List[PatternEvent], params: Dict) -> float:

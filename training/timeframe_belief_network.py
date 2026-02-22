@@ -324,6 +324,35 @@ class TimeframeBeliefNetwork:
             for tf in self.TIMEFRAMES_SECONDS  # ALL TFs, including sub-resolution
         }
 
+        # Active-trade time-scale state (set at entry, cleared at exit)
+        self._trade_avg_mfe_bar = 0.0
+        self._trade_p75_mfe_bar = 0.0
+        self._trade_bars_held   = 0
+
+    # ------------------------------------------------------------------
+    # TRADE TIME-SCALE MANAGEMENT
+    # ------------------------------------------------------------------
+
+    def set_active_trade_timescale(self, avg_mfe_bar: float, p75_mfe_bar: float):
+        """
+        Call at trade entry with the matched template's time-scale stats.
+        avg_mfe_bar / p75_mfe_bar are in 15s bars (0-based bar index where
+        MFE historically peaked).  0.0 means unknown → time signals silent.
+        """
+        self._trade_avg_mfe_bar = avg_mfe_bar
+        self._trade_p75_mfe_bar = p75_mfe_bar
+        self._trade_bars_held   = 0
+
+    def tick_trade_bar(self):
+        """Increment hold counter — call once per 15s bar while position is open."""
+        self._trade_bars_held += 1
+
+    def clear_active_trade_timescale(self):
+        """Call at trade exit to reset time-scale state."""
+        self._trade_avg_mfe_bar = 0.0
+        self._trade_p75_mfe_bar = 0.0
+        self._trade_bars_held   = 0
+
     # ------------------------------------------------------------------
     # DAY SETUP
     # ------------------------------------------------------------------
@@ -606,14 +635,32 @@ class TimeframeBeliefNetwork:
         # Widen: strong conviction aligned with trade direction, wave is fresh
         widen = belief.is_confident and direction_aligned and wave_mature < self.WIDEN_TRAIL_WAVE_MATURITY_THRESHOLD
 
-        reason = ('urgent_flip' if urgent else
-                  'wave_mature' if wave_mature > self.TIGHTEN_TRAIL_WAVE_MATURITY_THRESHOLD else
-                  'aligned_fresh' if widen else
+        # Time-exhaustion: template's historical MFE peak window has passed.
+        # avg_mfe_bar = 0.0 means unknown (no --fresh run yet) → silent.
+        # At 1.5× avg_mfe_bar: tighten trail (move is likely past its peak).
+        # At 2.5× p75_mfe_bar: urgent exit (conservative window fully elapsed).
+        _time_tighten = False
+        _time_urgent  = False
+        if self._trade_avg_mfe_bar > 0:
+            _p75 = self._trade_p75_mfe_bar if self._trade_p75_mfe_bar > 0 else self._trade_avg_mfe_bar * 1.5
+            if self._trade_bars_held > _p75 * 2.5:
+                _time_urgent  = True
+            elif self._trade_bars_held > self._trade_avg_mfe_bar * 1.5:
+                _time_tighten = True
+
+        tighten = tighten or _time_tighten
+        urgent  = urgent  or _time_urgent
+
+        reason = ('time_exhausted' if _time_urgent  else
+                  'urgent_flip'    if urgent         else
+                  'time_tighten'   if _time_tighten  else
+                  'wave_mature'    if wave_mature > self.TIGHTEN_TRAIL_WAVE_MATURITY_THRESHOLD else
+                  'aligned_fresh'  if widen           else
                   'low_conviction' if not belief.is_confident else 'neutral')
 
         return {
             'tighten_trail': tighten and not urgent,
-            'widen_trail':   widen,
+            'widen_trail':   widen and not _time_tighten,
             'urgent_exit':   urgent,
             'conviction':    belief.conviction,
             'wave_maturity': wave_mature,
