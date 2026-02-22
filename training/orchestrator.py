@@ -689,7 +689,7 @@ class BayesianTrainingOrchestrator:
             # Normalise: monthly YYYY_MM -> YYYY_MM kept as-is for scan_day_cascade
             # (discovery agent matches by substring so both formats work)
             print(f"\n  Day {day_idx+1}/{n_days}: {day_date} ... ", end='', flush=True)
-            if self.dashboard_queue and day_idx % 5 == 0:
+            if self.dashboard_queue:
                 pct = (day_idx / n_days) * 100
                 _wr = (total_wins / total_trades * 100) if total_trades > 0 else 0.0
                 self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
