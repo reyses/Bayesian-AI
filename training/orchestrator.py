@@ -1195,10 +1195,7 @@ class BayesianTrainingOrchestrator:
                         active_template_id = best_tid
                         # Max hold = pattern's own timeframe length (floor 20 bars = 5 min)
                         _tf_s = str(getattr(best_candidate, 'timeframe', '4h'))
-                        _tf_sec = (int(_tf_s[:-1])*3600 if _tf_s.endswith('h') else
-                                   int(_tf_s[:-1])*60   if _tf_s.endswith('m') else
-                                   int(_tf_s[:-1])       if _tf_s.endswith('s') else
-                                   int(_tf_s))
+                        _tf_sec = TIMEFRAME_SECONDS.get(_tf_s, 14400)
                         active_max_hold_bars = max(20, _tf_sec // 15)
                         depth_traded[getattr(best_candidate, 'depth', 6)] += 1
 
@@ -1339,10 +1336,7 @@ class BayesianTrainingOrchestrator:
                             active_side           = side
                             active_template_id    = -1
                             _btf_s = str(getattr(_bypass_candidate, 'timeframe', '4h'))
-                            _btf_sec = (int(_btf_s[:-1])*3600 if _btf_s.endswith('h') else
-                                        int(_btf_s[:-1])*60   if _btf_s.endswith('m') else
-                                        int(_btf_s[:-1])       if _btf_s.endswith('s') else
-                                        int(_btf_s))
+                            _btf_sec = TIMEFRAME_SECONDS.get(_btf_s, 14400)
                             active_max_hold_bars  = max(20, _btf_sec // 15)
                             depth_traded[getattr(_bypass_candidate, 'depth', 6)] += 1
                             pending_oracle = {
