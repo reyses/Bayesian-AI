@@ -76,7 +76,7 @@ _HURST_TREND_CONFIRMATION = 0.6
 
 # Visualization
 try:
-    from visualization.live_training_dashboard import launch_dashboard
+    from visualization.live_training_dashboard import launch_dashboard, launch_popup
     DASHBOARD_AVAILABLE = True
 except ImportError:
     DASHBOARD_AVAILABLE = False
@@ -290,6 +290,15 @@ class BayesianTrainingOrchestrator:
                           running equity drops below NinjaTrader MNQ intraday margin
                           ($50/contract). Report shows equity curve + max drawdown.
         """
+        # Launch UI — popup by default, full dashboard with --dashboard, nothing with --no-dashboard
+        # (run_forward_pass is called directly for --forward-pass so we launch here too)
+        if not getattr(self.config, 'no_dashboard', False) and DASHBOARD_AVAILABLE:
+            if not self.dashboard_thread or not self.dashboard_thread.is_alive():
+                if getattr(self.config, 'dashboard', False):
+                    self.launch_dashboard()
+                else:
+                    self.launch_popup()
+
         print("\n" + "="*80)
         if oos_mode:
             print("OOS BLIND SIMULATION (templates/scaler frozen from training)")
@@ -542,11 +551,15 @@ class BayesianTrainingOrchestrator:
             # Normalise: monthly YYYY_MM -> YYYY_MM kept as-is for scan_day_cascade
             # (discovery agent matches by substring so both formats work)
             print(f"\n  Day {day_idx+1}/{n_days}: {day_date} ... ", end='', flush=True)
-            if self.dashboard_queue and day_idx % 5 == 0:
+            if self.dashboard_queue:
                 pct = (day_idx / n_days) * 100
+                _wr = (total_wins / total_trades * 100) if total_trades > 0 else 0.0
                 self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
                                           'step': f'FORWARD_PASS  day {day_idx+1}/{n_days}',
-                                          'pct': round(pct, 1)})
+                                          'pct': round(pct, 1),
+                                          'pnl': total_pnl,
+                                          'trades': total_trades,
+                                          'wr': round(_wr, 1)})
 
             # A. Fractal Cascade Scan (get actionable patterns with chains)
             # This uses the discovery agent logic but focused on this day
@@ -1025,9 +1038,12 @@ class BayesianTrainingOrchestrator:
                                     template_id=best_tid,
                                     tier=template_tier_map.get(best_tid, 3)))
                                 continue
-                            # Path direction override for NOISE oracle_marker patterns
-                            if _nn_marker == 0 and _belief.direction != side:
-                                side = _belief.direction  # fractal tree overrides leaf heuristics
+                            # Path direction override: belief network wins over z_score branch
+                            # OOS: workers have +0.20 edge at 15m, +0.09 at 15s.
+                            # IS forward pass: z_score sign was ~56% accurate (near random).
+                            # Belief direction is a stronger signal than z_score sign alone.
+                            if _belief.direction != side:
+                                side = _belief.direction
                             # Use network's predicted MFE if better than leaf-level estimate
                             _network_tp = max(4, int(round(_belief.predicted_mfe))) if _belief.predicted_mfe > 2.0 else None
                         else:
@@ -1713,23 +1729,85 @@ class BayesianTrainingOrchestrator:
         # They are shown separately in the profit gap as "reversed after entry".
         if tp_recs:
             optimal   = [r for r in tp_recs if r['capture_rate'] >= 0.80]
-            partial   = [r for r in tp_recs if 0.20 <= r['capture_rate'] < 0.80]
             too_early = [r for r in tp_recs if 0 < r['capture_rate'] < 0.20]
             reversed_ = [r for r in tp_recs if r['capture_rate'] <= 0]
 
-            # left_on_table: only non-reversed underperformance (how much potential
-            # was uncaptured on trades that at least moved in our direction)
+            # Partial broken into 10% bands: 20-30, 30-40, ..., 70-80
+            _partial_bands = []
+            for _lo in range(20, 80, 10):
+                _hi = _lo + 10
+                _band = [r for r in tp_recs if _lo / 100 <= r['capture_rate'] < _hi / 100]
+                _partial_bands.append((_lo, _hi, _band))
+            partial = [r for r in tp_recs if 0.20 <= r['capture_rate'] < 0.80]  # kept for cross-tab
+
+            # left_on_table: only non-reversed underperformance
             non_reversed = [r for r in tp_recs if r['capture_rate'] > 0]
             left_on_table = sum(max(0, r['oracle_potential_pnl'] - r['actual_pnl'])
                                 for r in non_reversed)
 
+            def _eq_row(label, recs, indent='    ', flag=''):
+                n     = len(recs)
+                total = sum(r['actual_pnl'] for r in recs)
+                avg   = total / n if n else 0.0
+                avg_h = sum(r.get('hold_bars', 0) for r in recs) / n if n else 0.0
+                avg_c = sum(r.get('capture_rate', 0) for r in recs) / n if n else 0.0
+                return (f"{indent}{label:<36} {n:>5,}  ${total:>10,.0f}  "
+                        f"avg${avg:>7,.0f}  {avg_h:>5.0f}bars  cap{avg_c:>+6.0%}  {flag}")
+
             report_lines.append("")
             report_lines.append(f"  EXIT QUALITY (correct-direction trades):")
-            report_lines.append(f"    Optimal  (>=80% of move captured): {len(optimal):>6,}  ->  ${sum(r['actual_pnl'] for r in optimal):>10,.2f}")
-            report_lines.append(f"    Partial  (20-80% captured):        {len(partial):>6,}  ->  ${sum(r['actual_pnl'] for r in partial):>10,.2f}")
-            report_lines.append(f"    Too early (<20% captured):         {len(too_early):>6,}  ->  ${sum(r['actual_pnl'] for r in too_early):>10,.2f}")
-            report_lines.append(f"    Reversed (correct dir, mkt flipped):{len(reversed_):>6,}  ->  ${sum(r['actual_pnl'] for r in reversed_):>10,.2f}  <- own leakage bucket")
-            report_lines.append(f"    Left on table (non-reversed TP gap):             ${left_on_table:>10,.2f}")
+            report_lines.append(f"    {'Bucket':<36} {'n':>5}  {'Total PnL':>11}  {'Avg PnL':>8}  {'Hold':>9}  {'Cap%':>7}")
+            report_lines.append(f"    {'─'*36} {'─'*5}  {'─'*11}  {'─'*8}  {'─'*9}  {'─'*7}")
+            report_lines.append(_eq_row("Optimal  (>=80% captured)",         optimal))
+            # Partial bands
+            for _lo, _hi, _band in _partial_bands:
+                if not _band:
+                    continue
+                report_lines.append(_eq_row(f"  Partial  ({_lo}-{_hi}% captured)", _band, indent='    '))
+            report_lines.append(_eq_row("Too early (<20% captured)",         too_early))
+            report_lines.append(_eq_row("Reversed (mkt flipped after entry)",reversed_, flag="<- leakage"))
+            report_lines.append(f"    Left on table (non-reversed gap):                        ${left_on_table:>10,.0f}")
+
+            # ── Exit reason cross-breakdown ───────────────────────────────────
+            report_lines.append("")
+            report_lines.append(f"  EXIT REASON → QUALITY CROSS-BREAKDOWN (correct-direction trades):")
+            all_reasons = sorted({r.get('exit_reason', 'unknown') for r in tp_recs})
+            buckets_def = [
+                ('Optimal',   optimal),
+                ('Partial',   partial),
+                ('Too early', too_early),
+                ('Reversed',  reversed_),
+            ]
+            _hdr = f"    {'Exit reason':<18}" + "".join(f"  {b[0]:>9}" for b in buckets_def) + f"  {'Total':>6}  {'Avg PnL':>8}"
+            report_lines.append(_hdr)
+            report_lines.append(f"    {'─'*18}" + "  ─────────" * len(buckets_def) + "  ──────  ────────")
+            for reason in all_reasons:
+                reason_recs = [r for r in tp_recs if r.get('exit_reason') == reason]
+                if not reason_recs:
+                    continue
+                avg_r = sum(r['actual_pnl'] for r in reason_recs) / len(reason_recs)
+                row = f"    {str(reason):<18}"
+                for _, brecs in buckets_def:
+                    cnt = sum(1 for r in brecs if r.get('exit_reason') == reason)
+                    row += f"  {cnt:>9,}"
+                row += f"  {len(reason_recs):>6,}  ${avg_r:>7,.0f}"
+                report_lines.append(row)
+
+            # ── Per-bucket capture detail ─────────────────────────────────────
+            report_lines.append("")
+            report_lines.append(f"  CAPTURE DETAIL (correct-direction trades):")
+            report_lines.append(f"    {'Bucket':<22}  {'Avg oracle MFE':>14}  {'Avg actual PnL':>14}  {'Avg hold bars':>13}")
+            _detail_buckets = (
+                [('Optimal', optimal), ('Too early', too_early), ('Reversed', reversed_)]
+                + [(f'Partial {lo}-{hi}%', band) for lo, hi, band in _partial_bands if band]
+            )
+            for label, recs in _detail_buckets:
+                if not recs:
+                    continue
+                avg_mfe_usd = sum(r.get('oracle_mfe', 0) for r in recs) / len(recs) * self.asset.point_value
+                avg_act     = sum(r['actual_pnl'] for r in recs) / len(recs)
+                avg_hb      = sum(r.get('hold_bars', 0) for r in recs) / len(recs)
+                report_lines.append(f"    {label:<22}  ${avg_mfe_usd:>13,.0f}  ${avg_act:>13,.0f}  {avg_hb:>13.1f}")
         else:
             reversed_ = []
             left_on_table = 0.0
@@ -1787,8 +1865,11 @@ class BayesianTrainingOrchestrator:
                 'too_early': left_on_table_val,
                 'noise':     abs(fp_noise_pnl),
             })
+            _final_wr = (total_wins / total_trades * 100) if total_trades > 0 else 0.0
             self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
-                                      'step': 'FORWARD_PASS COMPLETE', 'pct': 100})
+                                      'step': 'FORWARD_PASS COMPLETE', 'pct': 100,
+                                      'pnl': total_pnl, 'trades': total_trades,
+                                      'wr': round(_final_wr, 1)})
 
         # ── 6. Save CSV ──────────────────────────────────────────────────────────
         if oracle_trade_records:
@@ -2469,9 +2550,12 @@ class BayesianTrainingOrchestrator:
         else:
             print(f"  WARNING: Path does not exist!")
 
-        # Launch Dashboard
+        # Launch UI — popup by default, full dashboard with --dashboard, nothing with --no-dashboard
         if not self.config.no_dashboard and DASHBOARD_AVAILABLE:
-            self.launch_dashboard()
+            if getattr(self.config, 'dashboard', False):
+                self.launch_dashboard()
+            else:
+                self.launch_popup()
 
         # ===================================================================
         # PHASE 2: Pattern Discovery (with checkpoint/resume)
@@ -2901,8 +2985,15 @@ class BayesianTrainingOrchestrator:
         return outcome
 
     # Helpers
+    def launch_popup(self):
+        """Launch lightweight progress popup in background thread (default UI)."""
+        self.dashboard_thread = threading.Thread(target=launch_popup, args=(self.dashboard_queue,), daemon=True)
+        self.dashboard_thread.start()
+        print("Progress popup launching in background...")
+        time.sleep(1)
+
     def launch_dashboard(self):
-        """Launch dashboard in background thread"""
+        """Launch full dashboard in background thread (opt-in via --dashboard)."""
         self.dashboard_thread = threading.Thread(target=launch_dashboard, args=(self.dashboard_queue,), daemon=True)
         self.dashboard_thread.start()
         print("Dashboard launching in background...")
@@ -3360,7 +3451,8 @@ def main():
     parser.add_argument('--data', default=os.path.join("DATA", "ATLAS"), help="Path to ATLAS root, single TF directory, or parquet file")
     parser.add_argument('--iterations', type=int, default=1000, help="Iterations per pattern (default: 1000)")
     parser.add_argument('--checkpoint-dir', type=str, default="checkpoints", help="Checkpoint directory")
-    parser.add_argument('--no-dashboard', action='store_true', help="Disable live dashboard")
+    parser.add_argument('--no-dashboard', action='store_true', help="Disable all UI (popup and dashboard)")
+    parser.add_argument('--dashboard', action='store_true', help="Show full live dashboard instead of default lightweight popup")
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
     parser.add_argument('--fresh', action='store_true', help="Clear all pipeline checkpoints and start fresh")
