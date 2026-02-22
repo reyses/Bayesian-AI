@@ -3,10 +3,13 @@ Adaptive Confidence Bootstrap System
 Learns optimal thresholds through progressive tightening
 Starts at 0% → Converges to 80% over 600 trades
 """
+import logging
 from dataclasses import dataclass
 from typing import Dict
 import numpy as np
 from core.three_body_state import ThreeBodyQuantumState
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class ConfidenceEvolution:
@@ -133,8 +136,8 @@ class AdaptiveConfidenceManager:
         old_phase = self.phase
         self.phase = min(self.phase + 1, 4)
         self.trades_in_phase = 0
-        print(f"\n🎯 PHASE ADVANCEMENT: {self.PHASES[old_phase]['name']} → {self.PHASES[self.phase]['name']}")
-        print(f"New threshold: {self.PHASES[self.phase]['prob_threshold']:.0%}")
+        logger.info(f"🎯 PHASE ADVANCEMENT: {self.PHASES[old_phase]['name']} → {self.PHASES[self.phase]['name']}")
+        logger.info(f"New threshold: {self.PHASES[self.phase]['prob_threshold']:.0%}")
         
     def generate_progress_report(self) -> str:
         """Generate a string report of the current learning status."""

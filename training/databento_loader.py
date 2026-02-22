@@ -25,9 +25,12 @@ class DatabentoLoader:
             raise FileNotFoundError(f"File not found: {filepath}")
 
         try:
-            # Load data using databento
-            data = db.DBNStore.from_file(filepath)
-            df = data.to_df()
+            if filepath.endswith('.parquet'):
+                df = pd.read_parquet(filepath)
+            else:
+                # Load data using databento
+                data = db.DBNStore.from_file(filepath)
+                df = data.to_df()
         except Exception as e:
             raise ValueError(f"Failed to load databento file: {e}") from e
 

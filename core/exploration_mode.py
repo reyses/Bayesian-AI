@@ -2,10 +2,13 @@
 Phase 0: Unconstrained Exploration
 No rules. No gates. Pure pattern discovery.
 """
+import logging
 from dataclasses import dataclass, field
 from typing import Dict, Set, Optional
 import random
 from core.three_body_state import ThreeBodyQuantumState
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class ExplorationConfig:
@@ -93,11 +96,9 @@ class UnconstrainedExplorer:
 
         # Progress report every 50 trades
         if self.trades_executed % 50 == 0:
-            print(f"\n{'='*60}")
-            print(f"EXPLORATION PROGRESS: {self.trades_executed}/{self.config.max_trades} trades")
-            print(f"Unique states discovered: {len(self.unique_states_seen)}")
-            print(f"Last outcome: {outcome.result} | P&L: ${outcome.pnl:.2f}")
-            print(f"{'='*60}\n")
+            logger.info(f"EXPLORATION PROGRESS: {self.trades_executed}/{self.config.max_trades} trades")
+            logger.info(f"Unique states discovered: {len(self.unique_states_seen)}")
+            logger.info(f"Last outcome: {outcome.result} | P&L: ${outcome.pnl:.2f}")
 
     def is_complete(self) -> bool:
         """Check if exploration phase is done"""
