@@ -660,6 +660,7 @@ class BayesianTrainingOrchestrator:
             current_position_open = False
             active_entry_price = 0.0
             active_entry_time = 0.0
+            active_max_hold_bars = 960  # default 4h; overwritten at entry from pattern timeframe
             active_side = 'long'
             active_template_id = None
 
@@ -718,9 +719,11 @@ class BayesianTrainingOrchestrator:
 
                 # 1. Manage existing position
                 if self.wave_rider.position is not None:
-                    # MAX HOLD: 4 hours = 960 bars (15s). Trades open longer skip golden moves.
+                    # MAX HOLD: pattern's own timeframe length (floor 5 min = 20 bars).
+                    # Holding beyond the pattern's natural window means the market has moved
+                    # into a different regime — exit and free capital for the next signal.
                     _bars_held = max(0, int((ts_raw - active_entry_time) / 15))
-                    if _bars_held >= 960:
+                    if _bars_held >= active_max_hold_bars:
                         _mh_pos = self.wave_rider.position
                         _mh_sig = belief_network.get_exit_signal(_mh_pos.side)
                         _mh_adj = _mh_pos.last_adjustment_reason or ''
@@ -1190,6 +1193,8 @@ class BayesianTrainingOrchestrator:
                         active_entry_time = ts
                         active_side = side
                         active_template_id = best_tid
+                        # Max hold = pattern's own timeframe length (floor 20 bars = 5 min)
+                        active_max_hold_bars = max(20, int(getattr(best_candidate, 'timeframe', 14400) / 15))
                         depth_traded[getattr(best_candidate, 'depth', 6)] += 1
 
                         # Store oracle facts for this trade (linked at exit)
@@ -1328,6 +1333,7 @@ class BayesianTrainingOrchestrator:
                             active_entry_time     = ts_raw
                             active_side           = side
                             active_template_id    = -1
+                            active_max_hold_bars  = max(20, int(getattr(_bypass_candidate, 'timeframe', 14400) / 15))
                             depth_traded[getattr(_bypass_candidate, 'depth', 6)] += 1
                             pending_oracle = {
                                 'template_id':      -1,
