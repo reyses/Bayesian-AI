@@ -2,6 +2,13 @@
 
 ---
 
+## [V5.1.0] - 2026-02-20 — EXIT QUALITY BY DEPTH — real-time hold per depth
+
+### New
+- `feat: EXIT QUALITY BY DEPTH — real-time hold per depth`
+
+---
+
 ## [V5.0.0] - 2026-02-19 — PID Oscillation Shadow System
 
 ### New
