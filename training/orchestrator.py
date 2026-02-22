@@ -329,6 +329,14 @@ class BayesianTrainingOrchestrator:
                         os.replace(_old_path, _old_dest)
                     except OSError:
                         pass
+            # Clean up previous quarterly shards
+            for _shard_prefix in ('signal_log_', 'fn_oracle_log_',
+                                  'oos_signal_log_', 'oos_fn_log_'):
+                for _sf in glob.glob(os.path.join(self.checkpoint_dir, f'{_shard_prefix}*.csv')):
+                    try:
+                        os.remove(_sf)
+                    except OSError:
+                        pass
 
         # 1. Load Prerequisites
         lib_path = os.path.join(self.checkpoint_dir, 'pattern_library.pkl')
@@ -2084,6 +2092,53 @@ class BayesianTrainingOrchestrator:
                                       'wr': round(_final_wr, 1)})
 
         # ── 6. Save CSV ──────────────────────────────────────────────────────────
+        def _write_sharded_csv(records, base_name, date_key='day'):
+            """Write records to quarterly-sharded CSVs (YYYY_Q1..Q4).
+            Only shards when total records > 50k; otherwise writes single file.
+            date_key: record field containing YYYYMMDD string or unix timestamp.
+            """
+            if not records:
+                return []
+            # Group by quarter
+            from collections import defaultdict as _sd
+            quarters = _sd(list)
+            for r in records:
+                dval = r.get(date_key, '')
+                if isinstance(dval, (int, float)) and dval > 1e9:
+                    import datetime as _sdt
+                    dt = _sdt.datetime.fromtimestamp(dval)
+                    month = dt.month
+                    year_str = str(dt.year)
+                else:
+                    dstr = str(dval)[:8]
+                    year_str = dstr[:4] if len(dstr) >= 4 else '0000'
+                    month = int(dstr[4:6]) if len(dstr) >= 6 else 1
+                q = (month - 1) // 3 + 1
+                quarters[f"{year_str}_Q{q}"].append(r)
+
+            if len(records) <= 50_000:
+                # Small enough — single file
+                path = os.path.join(self.checkpoint_dir, base_name)
+                with open(path, 'w', newline='', encoding='utf-8') as f:
+                    w = _csv.DictWriter(f, fieldnames=list(records[0].keys()))
+                    w.writeheader()
+                    w.writerows(records)
+                return [path]
+
+            # Shard by quarter
+            paths = []
+            stem, ext = os.path.splitext(base_name)
+            for qkey in sorted(quarters.keys()):
+                chunk = quarters[qkey]
+                fname = f"{stem}_{qkey}{ext}"
+                path = os.path.join(self.checkpoint_dir, fname)
+                with open(path, 'w', newline='', encoding='utf-8') as f:
+                    w = _csv.DictWriter(f, fieldnames=list(chunk[0].keys()))
+                    w.writeheader()
+                    w.writerows(chunk)
+                paths.append(path)
+            return paths
+
         if not _analysis_mode:
             if oracle_trade_records:
                 _log_name = 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv'
@@ -2107,14 +2162,15 @@ class BayesianTrainingOrchestrator:
         # Skip all CSV saves, FN analysis, and depth weights in analysis mode.
         if not _analysis_mode and decision_matrix_records:
             _dm_name = 'oos_signal_log.csv' if oos_mode else 'signal_log.csv'
-            _dm_path = os.path.join(self.checkpoint_dir, _dm_name)
-            with open(_dm_path, 'w', newline='', encoding='utf-8') as _dmf:
-                _dm_writer = _csv.DictWriter(_dmf, fieldnames=list(decision_matrix_records[0].keys()))
-                _dm_writer.writeheader()
-                _dm_writer.writerows(decision_matrix_records)
+            _dm_paths = _write_sharded_csv(decision_matrix_records, _dm_name, date_key='day')
             _n_traded = sum(1 for r in decision_matrix_records if r['gate'] == 'traded')
             _n_skipped = len(decision_matrix_records) - _n_traded
-            report_lines.append(f"  Signal log saved: {_dm_path}  ({_n_traded} traded  +  {_n_skipped:,} skipped)")
+            if len(_dm_paths) == 1:
+                report_lines.append(f"  Signal log saved: {_dm_paths[0]}  ({_n_traded} traded  +  {_n_skipped:,} skipped)")
+            else:
+                report_lines.append(f"  Signal log saved: {len(_dm_paths)} quarterly shards  ({_n_traded} traded  +  {_n_skipped:,} skipped)")
+                for _sp in _dm_paths:
+                    report_lines.append(f"    -> {os.path.basename(_sp)}")
 
             # ── Decision matrix summary ───────────────────────────────────────────
             from collections import defaultdict as _dd
@@ -2137,12 +2193,13 @@ class BayesianTrainingOrchestrator:
         if not _analysis_mode and fn_oracle_records:
             import json as _fnjs
             _fn_name = 'oos_fn_log.csv' if oos_mode else 'fn_oracle_log.csv'
-            fn_csv_path = os.path.join(self.checkpoint_dir, _fn_name)
-            with open(fn_csv_path, 'w', newline='', encoding='utf-8') as _fnf:
-                _fn_writer = _csv.DictWriter(_fnf, fieldnames=list(fn_oracle_records[0].keys()))
-                _fn_writer.writeheader()
-                _fn_writer.writerows(fn_oracle_records)
-            report_lines.append(f"  FN oracle log saved: {fn_csv_path}  ({len(fn_oracle_records):,} missed real moves)")
+            _fn_paths = _write_sharded_csv(fn_oracle_records, _fn_name, date_key='day')
+            if len(_fn_paths) == 1:
+                report_lines.append(f"  FN oracle log saved: {_fn_paths[0]}  ({len(fn_oracle_records):,} missed real moves)")
+            else:
+                report_lines.append(f"  FN oracle log saved: {len(_fn_paths)} quarterly shards  ({len(fn_oracle_records):,} missed real moves)")
+                for _sp in _fn_paths:
+                    report_lines.append(f"    -> {os.path.basename(_sp)}")
 
             # FN worker agreement analysis:
             # For each TF worker, what fraction of FN signals had the worker
@@ -2265,12 +2322,19 @@ class BayesianTrainingOrchestrator:
             for line in report_lines:
                 print(line)
 
-            # Save report
+            # Save report to checkpoints (for analytics suite) + reports/ (for sharing)
             _report_name = 'oos_report.txt' if oos_mode else 'phase4_report.txt'
             report_path = os.path.join(self.checkpoint_dir, _report_name)
             with open(report_path, 'w', encoding='utf-8') as f:
                 f.write('\n'.join(report_lines) + '\n')
+            # Copy to reports/ directory for git-tracked sharing
+            _reports_dir = os.path.join(os.path.dirname(self.checkpoint_dir), 'reports')
+            os.makedirs(_reports_dir, exist_ok=True)
+            _share_path = os.path.join(_reports_dir, _report_name)
+            with open(_share_path, 'w', encoding='utf-8') as f:
+                f.write('\n'.join(report_lines) + '\n')
             print(f"  Report saved to {report_path}")
+            print(f"  Shareable copy: {_share_path}")
 
             # ── 6b. Run trade analytics suite (t-tests, ANOVA, OLS, logistic, capture) ──
             _trade_log_path = os.path.join(self.checkpoint_dir,
