@@ -245,6 +245,7 @@ class Position:
     last_adjustment_reason: Optional[str] = None  # belief reason that last tightened/widened trail
     breakeven_locked: bool = False                 # True once stop moved to entry (risk-free)
     breakeven_level: Optional[float] = None        # price level of the breakeven stop
+    entry_dmi_inverse: bool = False                # True if DMI was against trade direction at entry
 
 
 class WaveRider:
@@ -427,9 +428,12 @@ class WaveRider:
 
         # --- Dynamic Exit Logic ---
         urgent_exit = False
+        decay_exit = False
         if exit_signal:
             if exit_signal.get('urgent_exit'):
                 urgent_exit = True
+            if exit_signal.get('decay_exit'):
+                decay_exit = True
 
             if exit_signal.get('tighten_trail') and self.position.trailing_stop_ticks is not None:
                 # Reduce trail by TIGHTEN_TRAIL_FACTOR (gentle 8% per bar, was 30%).
@@ -511,15 +515,30 @@ class WaveRider:
             else:
                 new_stop = min(new_stop, self.position.breakeven_level)
 
+        # Loss watchdog: DMI inverse + underwater + workers agree on reversal
+        # Triple confirmation prevents cutting on noise dips.
+        WATCHDOG_TICKS = 2       # must be at least this far underwater
+        WATCHDOG_WORKERS = 5     # at least N workers must disagree with trade side
+        watchdog_exit = False
+        if (self.position.entry_dmi_inverse
+                and profit_ticks <= -WATCHDOG_TICKS
+                and exit_signal
+                and exit_signal.get('workers_against', 0) >= WATCHDOG_WORKERS):
+            watchdog_exit = True
+
         # Check Stop Hit, Profit Target, or Structure Break
         stop_hit = (self.position.side == 'short' and current_price >= new_stop) or \
                    (self.position.side == 'long' and current_price <= new_stop)
 
         structure_broken = self._check_layer_breaks(current_state)
 
-        if stop_hit or structure_broken or pt_hit or urgent_exit:
+        if stop_hit or structure_broken or pt_hit or urgent_exit or decay_exit or watchdog_exit:
             if urgent_exit:
                 exit_reason = 'belief_flip'
+            elif watchdog_exit:
+                exit_reason = 'loss_watchdog'
+            elif decay_exit:
+                exit_reason = 'physics_decay'
             elif pt_hit:
                 exit_reason = 'profit_target'
             elif structure_broken:

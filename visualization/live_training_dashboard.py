@@ -412,15 +412,17 @@ class ProgressPopup:
 
     _CHART_W = 420
     _CHART_H = 130
+    _BAR_H   = 140  # monthly bar chart height
 
     def __init__(self, root, q):
         self.root = root
         self.q    = q
         self._pnl_history = []
+        self._month_bars  = []   # [(label, pnl), ...]
         self._done = False
 
         self.root.title("Bayesian-AI Training")
-        self.root.geometry("460x490+60+60")
+        self.root.geometry("460x650+60+60")
         self.root.configure(bg=BG)
         self.root.resizable(True, False)
         self.root.attributes('-topmost', True)
@@ -480,6 +482,14 @@ class ProgressPopup:
                                  highlightbackground='#333333')
         self._canvas.pack(padx=20)
 
+        # ── Monthly PnL bar chart ────────────────────────────────────────────
+        tk.Label(root, text="Monthly PnL", bg=BG, fg=FG_GREY,
+                 font=('Consolas', 8)).pack(pady=(10, 2))
+        self._bar_canvas = tk.Canvas(root, width=self._CHART_W, height=self._BAR_H,
+                                     bg='#141414', highlightthickness=1,
+                                     highlightbackground='#333333')
+        self._bar_canvas.pack(padx=20)
+
         # ── Status footer ─────────────────────────────────────────────────────
         self._status_var = tk.StringVar(value="Running...")
         tk.Label(root, textvariable=self._status_var, bg=BG, fg=FG_GREY,
@@ -530,6 +540,83 @@ class ProgressPopup:
         c.create_text(last_x - 2, last_y - 9,
                       text=f"{sign}${pts[-1]:,.0f}",
                       fill=color, font=('Consolas', 7, 'bold'), anchor='e')
+
+    # ── Monthly bar chart ─────────────────────────────────────────────────────
+    def _redraw_month_chart(self):
+        c = self._bar_canvas
+        c.delete('all')
+        bars = self._month_bars
+        if not bars:
+            c.create_text(self._CHART_W // 2, self._BAR_H // 2,
+                          text="Waiting for month data...", fill=FG_GREY,
+                          font=('Consolas', 9))
+            return
+
+        W, H = self._CHART_W, self._BAR_H
+        pad_l, pad_r, pad_t, pad_b = 10, 10, 14, 20
+        n = len(bars)
+        vals = [v for _, v in bars]
+        cum = []
+        s = 0
+        for v in vals:
+            s += v
+            cum.append(s)
+
+        mx_abs = max(abs(v) for v in vals) or 1.0
+        cum_mn = min(min(cum), 0)
+        cum_mx = max(max(cum), 0)
+        cum_span = cum_mx - cum_mn or 1.0
+
+        chart_w = W - pad_l - pad_r
+        chart_h = H - pad_t - pad_b
+        bar_w = max(8, chart_w // max(n, 1) - 4)
+        gap = (chart_w - bar_w * n) / max(n, 1)
+
+        # Zero line for bars (middle of chart area)
+        zero_y = pad_t + chart_h * 0.5
+
+        # Draw zero line
+        c.create_line(pad_l, zero_y, W - pad_r, zero_y,
+                       fill='#444444', dash=(3, 3))
+
+        # Draw bars
+        for i, (lbl, v) in enumerate(bars):
+            x_center = pad_l + gap * 0.5 + i * (bar_w + gap) + bar_w * 0.5
+            x1 = x_center - bar_w * 0.5
+            x2 = x_center + bar_w * 0.5
+            bar_h = (abs(v) / mx_abs) * (chart_h * 0.45)
+            color = '#00cc66' if v >= 0 else '#ff4444'
+            if v >= 0:
+                c.create_rectangle(x1, zero_y - bar_h, x2, zero_y,
+                                   fill=color, outline='')
+            else:
+                c.create_rectangle(x1, zero_y, x2, zero_y + bar_h,
+                                   fill=color, outline='')
+            # Label below
+            short_lbl = lbl[-2:] if len(lbl) > 2 else lbl  # e.g. "01" from "2025_01"
+            c.create_text(x_center, H - 6, text=short_lbl,
+                          fill=FG_GREY, font=('Consolas', 7), anchor='s')
+            # Value on bar
+            sign = '+' if v >= 0 else ''
+            val_y = (zero_y - bar_h - 3) if v >= 0 else (zero_y + bar_h + 3)
+            anchor = 's' if v >= 0 else 'n'
+            c.create_text(x_center, val_y, text=f"{sign}${v/1000:.1f}k",
+                          fill=color, font=('Consolas', 6, 'bold'), anchor=anchor)
+
+        # Cumulative line overlay
+        if len(cum) >= 2:
+            coords = []
+            for i, cv in enumerate(cum):
+                x_center = pad_l + gap * 0.5 + i * (bar_w + gap) + bar_w * 0.5
+                y = pad_t + (1.0 - (cv - cum_mn) / cum_span) * chart_h
+                coords.extend([x_center, y])
+            c.create_line(coords, fill=FG_AMBER, width=2, smooth=True)
+            # End label
+            end_x, end_y = coords[-2], coords[-1]
+            sign = '+' if cum[-1] >= 0 else ''
+            c.create_text(end_x, end_y - 8,
+                          text=f"{sign}${cum[-1]/1000:.1f}k",
+                          fill=FG_AMBER, font=('Consolas', 7, 'bold'), anchor='e')
 
     # ── Queue polling ─────────────────────────────────────────────────────────
     def _poll(self):
@@ -591,6 +678,13 @@ class ProgressPopup:
                         self._wr_var.set(f"{wr:.1f}%")
                     if trades is not None:
                         self._trades_var.set(f"{trades:,}")
+
+                    # Monthly bar update
+                    _mpnl = msg.get('month_pnl')
+                    _mlbl = msg.get('month_label')
+                    if _mpnl is not None and _mlbl is not None:
+                        self._month_bars.append((_mlbl, _mpnl))
+                        self._redraw_month_chart()
 
                     if step == 'FORWARD_PASS COMPLETE':
                         self._done = True
