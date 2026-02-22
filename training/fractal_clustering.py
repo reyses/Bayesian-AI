@@ -29,11 +29,14 @@ from config.oracle_config import (
 )
 
 # Clustering Constants
-MIN_PATTERNS_FOR_SPLIT = 20
-MAX_RECURSION_DEPTH = 5
-MIN_SAMPLES_PER_CLUSTER = 20
-MAX_FISSION_CLUSTERS = 6
-MIN_FISSION_SAMPLES = 5
+MIN_PATTERNS_FOR_SPLIT  = 30   # hard floor — never split below this
+MIN_SAMPLES_PER_CLUSTER = 30   # same floor used in _fit_branch coarse pass
+MAX_FISSION_CLUSTERS    = 6
+MIN_FISSION_SAMPLES     = 5
+
+# Adj-R² thresholds
+R2_STOP_THRESHOLD   = 0.15   # stop recursive splitting when adj-R²(mfe~features) >= this
+R2_FISSION_MIN_GAIN = 0.05   # minimum weighted adj-R² gain required to allow fission
 
 @dataclass
 class PatternTemplate:
@@ -178,34 +181,92 @@ class FractalClusteringEngine:
                 parent_z, parent_dmi_diff, root_is_roche, tf_alignment,
                 self_pid, self_osc_coh]
 
-    def _recursive_split(self, X: np.ndarray, patterns: list, start_id: int, scaler: StandardScaler, depth: int = 0) -> list:
-        """Recursively split a cluster until z-variance <= max_variance or too small."""
-        z_var = np.std(X[:, 0])
-        if z_var <= self.max_variance or len(patterns) <= MIN_PATTERNS_FOR_SPLIT or depth > MAX_RECURSION_DEPTH:
-            centroid = np.mean(X, axis=0)
-            raw_centroid = scaler.inverse_transform([centroid])[0]
-            return [PatternTemplate(
-                template_id=start_id,
-                centroid=raw_centroid,
-                member_count=len(patterns),
-                patterns=patterns,
-                physics_variance=z_var
-            )]
+    @staticmethod
+    def _shape_label(p) -> str:
+        """
+        Discrete shape taxonomy for initial grouping before any K-means split.
 
-        k = min(3, max(2, len(patterns) // MIN_PATTERNS_FOR_SPLIT))
-        # Clamp k to the number of distinct points to avoid sklearn ConvergenceWarning
+        Encodes fractal hierarchy position + physical regime so that patterns
+        sharing the same physics context are grouped before quantitative splitting.
+        A depth-5 ROCHE_SNAP at L3_ROCHE trending will never share a cluster
+        with a depth-2 STRUCTURAL_DRIVE at L1_STABLE mean-reverting.
+
+        Returns a key like: "d5|ROCHE_SNAP|L3_ROCHE|trend"
+        """
+        depth = int(getattr(p, 'depth', 0))
+        ptype = getattr(p, 'pattern_type', 'UNKNOWN')
+        state = getattr(p, 'state', None)
+        lzone = getattr(state, 'lagrange_zone', 'UNKNOWN') if state else 'UNKNOWN'
+        hurst = getattr(state, 'hurst_exponent', 0.5) if state else 0.5
+        hcat  = 'trend' if hurst > 0.6 else ('revert' if hurst < 0.4 else 'random')
+        return f"d{depth}|{ptype}|{lzone}|{hcat}"
+
+    def _compute_adj_r2(self, patterns: list, scaler) -> float:
+        """
+        Adjusted R² of oracle_mfe ~ 16D feature vector for a group of patterns.
+
+        Returns -1.0 when too few patterns to fit reliably (n <= k+2 = 18).
+        The adjustment penalty (n-1)/(n-k-1) dominates when n is small relative
+        to k=16 features, so small clusters naturally score low and never
+        qualify for further splitting — the primary anti-overfitting mechanism.
+        Returns 1.0 when MFE variance is near-zero (cluster is perfectly coherent).
+        """
+        pairs = [
+            (self.extract_features(p), p.oracle_meta.get('mfe'))
+            for p in patterns
+            if getattr(p, 'oracle_meta', None) is not None
+        ]
+        pairs = [(f, y) for f, y in pairs if y is not None]
+        n, k = len(pairs), 16
+        if n <= k + 2:
+            return -1.0
+        X = scaler.transform(np.array([f for f, _ in pairs]))
+        y = np.array([m for _, m in pairs])
+        if np.std(y) < 1e-9:
+            return 1.0
+        ols = LinearRegression().fit(X, y)
+        ss_res = float(np.sum((y - ols.predict(X)) ** 2))
+        ss_tot = float(np.sum((y - y.mean()) ** 2))
+        r2 = 1.0 - ss_res / ss_tot
+        adj_r2 = 1.0 - (1.0 - r2) * (n - 1) / (n - k - 1)
+        return float(adj_r2)
+
+    def _recursive_split(self, X: np.ndarray, patterns: list, start_id: int, scaler, depth: int = 0) -> list:
+        """
+        Recursively split a cluster guided by adj-R²(oracle_mfe ~ features).
+
+        Stops when:
+          1. Hard floor: fewer than MIN_PATTERNS_FOR_SPLIT patterns
+          2. Coherence met: adj-R² >= R2_STOP_THRESHOLD (features explain MFE)
+          3. Cannot split: only one unique point in feature space
+
+        The adj-R² penalty is large when n is small relative to k=16 features,
+        so small clusters naturally score low and stop splitting without a
+        depth limit — no arbitrary MAX_RECURSION_DEPTH needed.
+        """
+        def _make(tid, X_sub, pats):
+            c = np.mean(X_sub, axis=0)
+            return PatternTemplate(
+                template_id=tid, centroid=scaler.inverse_transform([c])[0],
+                member_count=len(pats), patterns=pats,
+                physics_variance=float(np.std(X_sub[:, 0]))
+            )
+
+        # 1. Hard floor
+        if len(patterns) <= MIN_PATTERNS_FOR_SPLIT:
+            return [_make(start_id, X, patterns)]
+
+        # 2. Coherence check — stop if adj-R² already good enough
+        if self._compute_adj_r2(patterns, scaler) >= R2_STOP_THRESHOLD:
+            return [_make(start_id, X, patterns)]
+
+        # 3. Unique-point guard
         n_unique = len(np.unique(X, axis=0))
+        k = min(3, max(2, len(patterns) // MIN_PATTERNS_FOR_SPLIT))
         k = min(k, n_unique)
         if k <= 1:
-            centroid = np.mean(X, axis=0)
-            raw_centroid = scaler.inverse_transform([centroid])[0]
-            return [PatternTemplate(
-                template_id=start_id,
-                centroid=raw_centroid,
-                member_count=len(patterns),
-                patterns=patterns,
-                physics_variance=z_var
-            )]
+            return [_make(start_id, X, patterns)]
+
         km = self._get_kmeans_model(n_clusters=k, n_samples=len(X))
         labels = km.fit_predict(X)
 
@@ -397,272 +458,196 @@ class FractalClusteringEngine:
 
     def create_templates(self, manifest: List[Any]) -> List[PatternTemplate]:
         """
-        Snowflake fit: split patterns into LONG and SHORT branches,
-        cluster each independently, return combined library.
+        Shape-first clustering — no LONG/SHORT pre-split.
+
+        The snowflake split is removed: direction separation emerges naturally
+        from the shape taxonomy (depth × pattern_type × lagrange_zone × hurst_cat).
+        Templates store long_bias/short_bias from _aggregate_oracle_intelligence
+        so the forward pass can still gate direction without needing separate libraries.
         """
-        print(f"Snowflake Clustering: Splitting {len(manifest)} patterns by oracle direction...")
+        # Exclude pure noise patterns (oracle_marker == 0 have no MFE signal for adj-R²)
+        active = [p for p in manifest if getattr(p, 'oracle_marker', 0) != 0]
+        print(f"Shape Clustering: {len(active)} active patterns ({len(manifest)-len(active)} noise excluded)")
 
-        # Split by oracle direction
-        long_patterns  = [p for p in manifest if getattr(p, 'oracle_marker', 0) > 0]
-        short_patterns = [p for p in manifest if getattr(p, 'oracle_marker', 0) < 0]
-        # Note: noise (oracle_marker==0) patterns are excluded from both branches
+        self.scaler, templates = self._fit_branch(active, 'ALL')
 
-        print(f"  LONG patterns: {len(long_patterns)}")
-        print(f"  SHORT patterns: {len(short_patterns)}")
-
-        # Fit separate scaler + cluster tree per branch
-        self._long_scaler,  long_templates  = self._fit_branch(long_patterns,  'LONG')
-        self._short_scaler, short_templates = self._fit_branch(short_patterns, 'SHORT')
-
-        # Merge into unified library with branch tag
-        templates = []
-        for t in long_templates:
-            t.direction = 'LONG'
-            templates.append(t)
-        for t in short_templates:
-            t.direction = 'SHORT'
-            templates.append(t)
-
-        # Populate self.scaler with a fallback fitted on ALL data to prevent crashes in other modules
-        # that might still rely on it (though we should migrate them).
-        if manifest:
-             all_feats = []
-             valid_patterns = []
-             for p in manifest:
-                 try:
-                     all_feats.append(self.extract_features(p))
-                     valid_patterns.append(p)
-                 except AttributeError:
-                     continue
-             if all_feats:
-                 self.scaler.fit(all_feats)
-
-             # --- Build Transition Matrix on Merged Templates ---
-             if valid_patterns:
-                 print(f"  Building Transition Matrix...", end="", flush=True)
-                 self._build_transition_matrix(templates, valid_patterns)
-                 print(" done.")
+        # Build Transition Matrix on full merged template set
+        valid = [p for p in active if p is not None]
+        if valid and templates:
+            print(f"  Building Transition Matrix...", end="", flush=True)
+            self._build_transition_matrix(templates, valid)
+            print(" done.")
 
         self.templates = templates
         return templates
 
     def _fit_branch(self, patterns: List[Any], direction: str):
         """
-        Fit scaler + recursive cluster tree for one directional branch.
-        Returns (scaler, list[PatternTemplate])
+        Shape-first clustering for a set of patterns.
+
+        Stage 1: Group by shape taxonomy (depth × pattern_type × lagrange_zone × hurst_cat).
+                 Each group represents a geometrically distinct market situation.
+        Stage 2: Within each group, recursively split using adj-R²(mfe ~ features).
+                 Only split when features do not yet explain MFE variance well enough.
+
+        Returns (scaler, list[PatternTemplate]).
         """
         import time as _time
+        from collections import defaultdict
         from sklearn.preprocessing import StandardScaler
 
         if not patterns:
             return StandardScaler(), []
 
-        print(f"\n--- Fitting {direction} Branch ({len(patterns)} patterns) ---")
+        print(f"\n--- Shape Clustering: {len(patterns)} patterns ---")
         t0 = _time.perf_counter()
 
-        # 1. Extract Feature Matrix
-        features = []
-        valid_patterns = []
-
+        # 1. Extract features and fit a single scaler on all patterns
+        features, valid_patterns = [], []
         for p in patterns:
             try:
-                feat = self.extract_features(p)
-                features.append(feat)
+                features.append(self.extract_features(p))
                 valid_patterns.append(p)
             except AttributeError:
                 continue
 
         if not features:
-             return StandardScaler(), []
+            return StandardScaler(), []
 
-        X = np.array(features)
+        X_all = np.array(features)
         scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X)
-        print(f"  Feature matrix: {X.shape[0]} patterns x {X.shape[1]} features")
+        scaler.fit(X_all)
+        print(f"  Feature matrix: {X_all.shape[0]} × {X_all.shape[1]}")
 
-        # 2. Initial Coarse Clustering
-        # Start with a conservative K
-        target_k = min(self.n_clusters // 2, len(valid_patterns) // MIN_SAMPLES_PER_CLUSTER) # Half clusters per branch
-        target_k = max(target_k, 1)
+        # 2. Group by shape taxonomy
+        shape_groups = defaultdict(list)
+        for p in valid_patterns:
+            shape_groups[self._shape_label(p)].append(p)
 
-        t1 = _time.perf_counter()
-        print(f"  Coarse KMeans: fitting into {target_k} clusters...", end="", flush=True)
+        print(f"  Shape groups: {len(shape_groups)}")
+        for key in sorted(shape_groups):
+            print(f"    {key}: {len(shape_groups[key])} patterns")
 
-        # Flush GPU
-        try:
-            import torch as _torch
-            if _torch.cuda.is_available():
-                _torch.cuda.synchronize()
-                _torch.cuda.empty_cache()
-        except Exception:
-            pass
-
-        try:
-            model = self._get_kmeans_model(n_clusters=target_k, n_samples=len(valid_patterns))
-            labels = model.fit_predict(X_scaled)
-        except Exception as _cuda_err:
-             print(f"\n  [KMeans CUDA fallback: {type(_cuda_err).__name__}]", end="", flush=True)
-             from sklearn.cluster import KMeans as _SKMeans
-             _fallback = _SKMeans(n_clusters=target_k, random_state=42, n_init=3, max_iter=300)
-             labels = _fallback.fit_predict(X_scaled)
-        print(f" done ({_time.perf_counter() - t1:.2f}s)")
-
-        # Group indices
-        cluster_indices = {}
-        for idx, label in enumerate(labels):
-            if label not in cluster_indices: cluster_indices[label] = []
-            cluster_indices[label].append(idx)
-
-        # 3. Recursive Refinement
+        # 3. Per-group adj-R² recursive split
         t2 = _time.perf_counter()
-        print(f"  Recursive refinement...", end="", flush=True)
-        final_templates = []
-        next_id = 0 if direction == 'LONG' else 1000000 # Offset short IDs to avoid collision if desired, or let them just be unique in list.
-        # Actually better to just use a counter locally, but we need unique IDs across branches if possible?
-        # The merge step just appends. If ID is 0 in both branches, we have duplicates.
-        # Let's check how _recursive_split assigns IDs. It takes start_id.
-        # I should probably pass a start_id or re-index later.
-        # To be safe, I'll use 0 for LONG and 100000 for SHORT base?
-        # Or just let them overlap and rely on 'direction' field to distinguish?
-        # Orchestrator keys them by ID in a dict. Overlap is BAD.
-        # I will use start_id=0 for LONG and start_id=50000 for SHORT.
+        next_id, final_templates = 0, []
 
-        start_id_offset = 0 if direction == 'LONG' else 50000
-        next_id = start_id_offset
-        splits_count = 0
+        for shape_key in sorted(shape_groups.keys()):
+            group = shape_groups[shape_key]
+            sub_feats, ok_pats = [], []
+            for p in group:
+                try:
+                    sub_feats.append(self.extract_features(p))
+                    ok_pats.append(p)
+                except AttributeError:
+                    continue
+            if not sub_feats:
+                continue
 
-        for label, indices in cluster_indices.items():
-            sub_X = X_scaled[indices]
-            sub_patterns = [valid_patterns[i] for i in indices]
+            sub_X = scaler.transform(np.array(sub_feats))
 
-            z_variance = np.std(sub_X[:, 0])
-
-            if z_variance > self.max_variance and len(indices) > MIN_SAMPLES_PER_CLUSTER:
-                splits_count += 1
-                refined_subsets = self._recursive_split(sub_X, sub_patterns, next_id, scaler)
-                final_templates.extend(refined_subsets)
-                next_id += len(refined_subsets)
-            else:
+            if len(ok_pats) < MIN_PATTERNS_FOR_SPLIT:
+                # Too small → single template, no split
                 centroid = np.mean(sub_X, axis=0)
-                raw_centroid = scaler.inverse_transform([centroid])[0]
                 final_templates.append(PatternTemplate(
                     template_id=next_id,
-                    centroid=raw_centroid,
-                    member_count=len(sub_patterns),
-                    patterns=sub_patterns,
-                    physics_variance=z_variance
+                    centroid=scaler.inverse_transform([centroid])[0],
+                    member_count=len(ok_pats),
+                    patterns=ok_pats,
+                    physics_variance=float(np.std(sub_X[:, 0]))
                 ))
                 next_id += 1
+            else:
+                refined = self._recursive_split(sub_X, ok_pats, next_id, scaler)
+                final_templates.extend(refined)
+                next_id += len(refined)
 
-        print(f" done ({_time.perf_counter() - t2:.2f}s)")
+        print(f"  Splitting done ({_time.perf_counter() - t2:.2f}s) → {len(final_templates)} templates")
 
-        # Sort by size
+        # 4. Sort by size, aggregate oracle intelligence
         final_templates.sort(key=lambda x: x.member_count, reverse=True)
-
-        # Aggregation
         print(f"  Aggregating Oracle Intelligence...", end="", flush=True)
         for template in final_templates:
             self._aggregate_oracle_intelligence(template, template.patterns, scaler)
-        print(" done.")
-
-        # Transition matrix building requires ALL patterns?
-        # The patterns are split by branch. A LONG pattern might be followed by a SHORT pattern.
-        # _build_transition_matrix uses the list passed to it.
-        # If I build transition matrix per branch, I only see L->L or S->S transitions.
-        # L->S transitions are missed.
-        # BUT: create_templates calls _build_transition_matrix on the MERGED list at the end?
-        # No, create_templates (new) needs to call transition matrix building on the merged list!
-        # The legacy code called it at the end of create_templates.
-        # So I should remove the call from _fit_branch and do it in create_templates.
+        print(f" done. ({_time.perf_counter() - t0:.1f}s total)")
 
         return scaler, final_templates
 
-    def refine_clusters(self, template_id: int, member_params: List[Dict[str, float]], original_patterns: List[Any]) -> List[PatternTemplate]:
+    def refine_clusters(self, template_id: int, member_params: List[Dict[str, float]],
+                        original_patterns: List[Any]) -> List[PatternTemplate]:
         """
-        CLUSTER FISSION (Regret-Based):
-        Analyzes 'Optimal Parameters' (Outcome) to split clusters that are physically tight but behaviorally different.
+        CLUSTER FISSION (Adj-R² Gain):
+
+        Splits a template only when doing so genuinely improves the explanatory
+        power of oracle_mfe ~ feature_vector across children vs parent.
+
+        Replaces the previous silhouette-on-exit-params approach, which split based
+        on divergent {TP, SL, trail} — a within-sample signal that doesn't measure
+        whether the split actually improves out-of-sample predictive coherence.
         """
-        if len(member_params) < 10: return []
+        if len(original_patterns) < 2 * MIN_PATTERNS_FOR_SPLIT:
+            return []
 
-        # Vectorize Parameters [Stop, TP, Trail]
-        param_vectors = [[p.get('stop_loss_ticks', 0), p.get('take_profit_ticks', 0), p.get('trailing_stop_ticks', 0)] for p in member_params]
-        X_params = np.array(param_vectors)
+        # Parent adj-R² (global scaler fitted on all patterns in create_templates)
+        parent_r2 = self._compute_adj_r2(original_patterns, self.scaler)
 
-        # Silhouette Check (CPU-only -- called from multiprocessing workers, no CUDA context)
-        from sklearn.metrics import silhouette_score as cpu_silhouette_score
-        best_n, best_score, best_labels = 1, -1.0, None
+        # Extract features once
+        feats, ok_pats = [], []
+        for p in original_patterns:
+            try:
+                feats.append(self.extract_features(p))
+                ok_pats.append(p)
+            except AttributeError:
+                continue
+
+        if len(ok_pats) < 2 * MIN_PATTERNS_FOR_SPLIT:
+            return []
+
+        X_scaled = self.scaler.transform(np.array(feats))
+
+        best_gain, best_n, best_labels = -np.inf, 1, None
 
         for n in range(2, MAX_FISSION_CLUSTERS):
-            if len(X_params) < n * MIN_FISSION_SAMPLES: break
-            kmeans = self._get_kmeans_model(n_clusters=n, n_samples=len(X_params),
-                                            use_cuda=False).fit(X_params)
-            try:
-                score = cpu_silhouette_score(X_params, kmeans.labels_)
-            except Exception:
-                score = -1.0
-            if score > best_score:
-                best_score = score
-                best_n = n
-                best_labels = kmeans.labels_
+            if len(ok_pats) < n * MIN_PATTERNS_FOR_SPLIT:
+                break
+            km = self._get_kmeans_model(n_clusters=n, n_samples=len(X_scaled), use_cuda=False)
+            labels = km.fit(X_scaled).labels_
 
-        # Decision Gate (High Silhouette = Distinct Behaviors)
-        if best_score < 0.45: return []
+            # Weighted adj-R² across children
+            weighted_r2, total, valid = 0.0, len(ok_pats), True
+            for lbl in range(n):
+                sub = [ok_pats[i] for i in np.where(labels == lbl)[0]]
+                if len(sub) < MIN_PATTERNS_FOR_SPLIT:
+                    valid = False
+                    break
+                weighted_r2 += self._compute_adj_r2(sub, self.scaler) * len(sub) / total
 
-        print(f"Template {template_id}: FISSION! (Score: {best_score:.2f}) -> Splitting into {best_n}.")
+            if not valid:
+                continue
+            gain = weighted_r2 - parent_r2
+            if gain > best_gain:
+                best_gain, best_n, best_labels = gain, n, labels
+
+        if best_gain < R2_FISSION_MIN_GAIN or best_labels is None:
+            return []
+
+        print(f"Template {template_id}: FISSION! adj-R² gain={best_gain:+.3f} → {best_n} sub-templates")
 
         new_templates = []
-        split_map = {i: [] for i in range(best_n)}
-        for idx, label in enumerate(best_labels):
-            split_map[label].append(original_patterns[idx])
-
-        # IMPORTANT: We need the scaler corresponding to this template's direction!
-        # This method doesn't know direction easily.
-        # However, Fission uses `self.extract_features` which doesn't use scaler.
-        # But `_aggregate_oracle_intelligence` USES scaler.
-        # I should probably pick the scaler based on something?
-        # Or just use the global `self.scaler` which I populated as fallback?
-        # Or pass scaler in?
-        # Refine clusters is called by worker? No, by OrchestratorWorker.
-        # It's called in `_process_template_job`.
-        # The worker process has a copy of clustering_engine.
-        # Ideally I should use the correct scaler.
-        # Since I can't easily know which scaler to use without checking pattern direction,
-        # I will check the first pattern's oracle_marker/z_score to guess direction?
-        # No, patterns passed here are just the subset.
-        # Let's use `self.scaler` (fallback) which I ensured is fitted on ALL data in create_templates.
-        # This is a compromise but safer than changing method signature which breaks worker.
-
-        for label, sub_patterns in split_map.items():
-            # Re-calculate Physics Centroid (11D to match create_templates)
-            sub_features = []
-            for p in sub_patterns:
-                feat = self.extract_features(p)
-                sub_features.append(feat)
-
-            if not sub_features: continue
-            new_phys_centroid = np.mean(sub_features, axis=0)
-
-            # Create new template
+        for lbl in range(best_n):
+            sub_pats = [ok_pats[i] for i in np.where(best_labels == lbl)[0]]
+            if not sub_pats:
+                continue
+            sub_feats = [self.extract_features(p) for p in sub_pats]
+            raw_centroid = np.mean(sub_feats, axis=0)
             new_tmpl = PatternTemplate(
-                template_id=int(f"{template_id}{label}"),
-                centroid=new_phys_centroid,
-                member_count=len(sub_patterns),
-                patterns=sub_patterns,
-                physics_variance=0.0 # Assumed tight since parent was tight
+                template_id=int(f"{template_id}{lbl}"),
+                centroid=raw_centroid,
+                member_count=len(sub_pats),
+                patterns=sub_pats,
+                physics_variance=float(np.std([f[0] for f in sub_feats]))
             )
-
-            # Inherit direction from parent?
-            # PatternTemplate doesn't store parent ref, but we can check first pattern.
-            if sub_patterns:
-                 if getattr(sub_patterns[0], 'oracle_marker', 0) > 0:
-                     new_tmpl.direction = 'LONG'
-                 elif getattr(sub_patterns[0], 'oracle_marker', 0) < 0:
-                     new_tmpl.direction = 'SHORT'
-
-            # Recalculate Oracle Stats for new split
-            # Use self.scaler as fallback
-            self._aggregate_oracle_intelligence(new_tmpl, sub_patterns, self.scaler)
-
+            self._aggregate_oracle_intelligence(new_tmpl, sub_pats, self.scaler)
             new_templates.append(new_tmpl)
 
         return new_templates
