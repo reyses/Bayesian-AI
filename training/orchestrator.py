@@ -1398,6 +1398,16 @@ class BayesianTrainingOrchestrator:
                             'entry_sl_ticks':    _sl_ticks,
                             'entry_trail_ticks': _trail_ticks,
                             'entry_trail_act':   _trail_act_ticks if _trail_act_ticks is not None else 0,
+                            # Entry geometry — for post-run bad-trade analysis
+                            'entry_z_score':             round(getattr(best_candidate.state, 'z_score',                 0.0), 4),
+                            'entry_lagrange_zone':        getattr(best_candidate.state, 'lagrange_zone',         'UNKNOWN'),
+                            'entry_hurst':                round(getattr(best_candidate.state, 'hurst_exponent',        0.5), 4),
+                            'entry_coherence':            round(getattr(best_candidate.state, 'coherence',              0.0), 4),
+                            'entry_adx':                  round(getattr(best_candidate.state, 'adx_strength',           0.0), 2),
+                            'entry_escape_prob':          round(getattr(best_candidate.state, 'escape_probability',     0.0), 4),
+                            'entry_oscillation_coherence':round(getattr(best_candidate.state, 'oscillation_coherence',  0.0), 4),
+                            'entry_momentum_strength':    round(getattr(best_candidate.state, 'momentum_strength',      0.0), 4),
+                            'tmpl_avg_mfe_bar':           self.pattern_library.get(best_tid, {}).get('avg_mfe_bar', 0.0),
                         }
 
                         # Signal log: add 'traded' record, save index for outcome update
@@ -1528,6 +1538,16 @@ class BayesianTrainingOrchestrator:
                                 'wave_maturity':        round(_bypass_belief.wave_maturity, 4),
                                 'decision_wave_maturity': round(_bypass_belief.decision_wave_maturity, 4),
                                 'entry_workers':    __import__('json').dumps(belief_network.get_worker_snapshot()),
+                                # Entry geometry — for post-run bad-trade analysis
+                                'entry_z_score':             round(getattr(_bypass_candidate.state, 'z_score',                 0.0), 4),
+                                'entry_lagrange_zone':        getattr(_bypass_candidate.state, 'lagrange_zone',         'UNKNOWN'),
+                                'entry_hurst':                round(getattr(_bypass_candidate.state, 'hurst_exponent',        0.5), 4),
+                                'entry_coherence':            round(getattr(_bypass_candidate.state, 'coherence',              0.0), 4),
+                                'entry_adx':                  round(getattr(_bypass_candidate.state, 'adx_strength',           0.0), 2),
+                                'entry_escape_prob':          round(getattr(_bypass_candidate.state, 'escape_probability',     0.0), 4),
+                                'entry_oscillation_coherence':round(getattr(_bypass_candidate.state, 'oscillation_coherence',  0.0), 4),
+                                'entry_momentum_strength':    round(getattr(_bypass_candidate.state, 'momentum_strength',      0.0), 4),
+                                'tmpl_avg_mfe_bar':           0.0,  # no template for bypass
                             }
                             # Signal log: bypass trade record
                             _bp_mz  = round(abs(_bypass_candidate.z_score), 2)
