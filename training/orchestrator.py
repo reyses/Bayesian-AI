@@ -800,6 +800,7 @@ class BayesianTrainingOrchestrator:
             active_entry_time = 0.0
             active_side = 'long'
             active_template_id = None
+            active_entry_depth = 5  # depth of triggering pattern (used for hold-time scaling)
 
             _bar_i = 0  # 15s bar index for belief network worker ticks
 
@@ -855,18 +856,22 @@ class BayesianTrainingOrchestrator:
                 _bar_i += 1
 
                 # 1. Manage existing position
-                # Two-tier max hold:
-                #   - Losing (underwater): 240 bars = 1 hour  (emergency close)
-                #   - Winning / flat:      960 bars = 4 hours (normal max)
-                # Reversed trades were averaging 35,225 bars = 147 hours of bleed.
-                _MAX_HOLD_LOSING = 240   # 1 hour
-                _MAX_HOLD_NORMAL = 960   # 4 hours
+                # Depth-scaled max hold — each TF has a natural resolution window.
+                # Deeper = shorter TF trigger = must resolve faster.
+                # Two-tier per depth: losing (underwater) gets half the normal limit.
+                #   depth 1-2 (4h/1h patterns): 1440 bars normal / 480 losing
+                #   depth 3-4 (15m/5m):          960 bars normal / 240 losing
+                #   depth 5-6 (1m/15s):           400 bars normal / 120 losing
+                #   depth 7+  (sub-leaf):          200 bars normal /  60 losing
+                _DEPTH_HOLD_NORMAL = {1:1440,2:1440,3:960,4:960,5:400,6:400,7:200,8:200,9:200,10:200,11:200,12:200}
+                _DEPTH_HOLD_LOSING = {1:480, 2:480, 3:240,4:240,5:120,6:120,7:60, 8:60, 9:60, 10:60, 11:60, 12:60}
                 if self.wave_rider.position is not None:
                     res = {'should_exit': False}   # default; overwritten by update_trail if called
                     _bars_held   = max(1, int((ts_raw - active_entry_time) / 15))
                     _unrealized  = ((price - active_entry_price) if active_side == 'long'
                                     else (active_entry_price - price)) * self.asset.point_value
-                    _max_hold    = _MAX_HOLD_LOSING if _unrealized < 0 else _MAX_HOLD_NORMAL
+                    _max_hold    = (_DEPTH_HOLD_LOSING.get(active_entry_depth, 120) if _unrealized < 0
+                                    else _DEPTH_HOLD_NORMAL.get(active_entry_depth, 400))
                     _hold_reason = 'emergency_close' if _unrealized < 0 else 'max_hold'
                     if _bars_held >= _max_hold:
                         _mh_pnl = ((price - active_entry_price) if active_side == 'long'
@@ -1343,7 +1348,8 @@ class BayesianTrainingOrchestrator:
                         active_entry_time = ts
                         active_side = side
                         active_template_id = best_tid
-                        depth_traded[getattr(best_candidate, 'depth', 6)] += 1
+                        active_entry_depth = getattr(best_candidate, 'depth', 5)
+                        depth_traded[active_entry_depth] += 1
 
                         # Store oracle facts for this trade (linked at exit)
                         # Direction-gate diagnostic columns enable offline DOE sweep of
@@ -1492,7 +1498,8 @@ class BayesianTrainingOrchestrator:
                             active_entry_time     = ts_raw
                             active_side           = side
                             active_template_id    = -1
-                            depth_traded[getattr(_bypass_candidate, 'depth', 6)] += 1
+                            active_entry_depth    = getattr(_bypass_candidate, 'depth', 5)
+                            depth_traded[active_entry_depth] += 1
                             pending_oracle = {
                                 'template_id':      -1,
                                 'direction':        'LONG' if side == 'long' else 'SHORT',
