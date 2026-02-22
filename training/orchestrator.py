@@ -572,11 +572,15 @@ class BayesianTrainingOrchestrator:
         fn_oracle_records = []
 
         n_days = len(daily_files_15s)
+        _pbar = tqdm(total=n_days, desc='Forward Pass', unit='day',
+                     bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {postfix}',
+                     ncols=120)
         for day_idx, day_file in enumerate(daily_files_15s):
             day_date = os.path.basename(day_file).replace('.parquet', '')
-            # Normalise: monthly YYYY_MM -> YYYY_MM kept as-is for scan_day_cascade
-            # (discovery agent matches by substring so both formats work)
-            print(f"\n  Day {day_idx+1}/{n_days}: {day_date} ... ", end='', flush=True)
+            _pbar.set_postfix_str(
+                f'{day_date} | ${total_pnl:,.0f} PnL | {total_trades} trades | '
+                f'{(total_wins/total_trades*100) if total_trades else 0:.0f}% WR',
+                refresh=True)
             if self.dashboard_queue:
                 pct = (day_idx / n_days) * 100
                 _wr = (total_wins / total_trades * 100) if total_trades > 0 else 0.0
@@ -1239,10 +1243,17 @@ class BayesianTrainingOrchestrator:
                         active_entry_time = ts
                         active_side = side
                         active_template_id = best_tid
-                        # Max hold = pattern's own timeframe length (floor 20 bars = 5 min)
-                        _tf_s = str(getattr(best_candidate, 'timeframe', '4h'))
-                        _tf_sec = TIMEFRAME_SECONDS.get(_tf_s, 14400)
-                        active_max_hold_bars = max(20, _tf_sec // 15)
+                        # Max hold = 5 bars of the parent timeframe.
+                        # Parent structure takes ~5 bars to resolve; child trade
+                        # lives within that window. Leaf precision, parent duration.
+                        _chain = getattr(best_candidate, 'parent_chain', None) or []
+                        _HOLD_PARENT_BARS = 5
+                        if _chain:
+                            _parent_tf = _chain[0].get('tf', '4h')  # chain[0] = immediate parent
+                        else:
+                            _parent_tf = str(getattr(best_candidate, 'timeframe', '4h'))
+                        _parent_tf_sec = TIMEFRAME_SECONDS.get(_parent_tf, 14400)
+                        active_max_hold_bars = max(20, (_parent_tf_sec * _HOLD_PARENT_BARS) // 15)
                         # Start physics decay tracking (bottom-up exit cascade)
                         belief_network.start_trade_tracking(
                             side=side,
@@ -1270,6 +1281,8 @@ class BayesianTrainingOrchestrator:
                             'entry_price':      price,
                             'entry_time':       ts,        # Unix timestamp (15s resolution)
                             'entry_depth':      _entry_depth,  # Fractal depth (1=daily,6=15s)
+                            'root_tf':          _parent_tf,  # Immediate parent TF (max hold source)
+                            'max_hold_bars':    active_max_hold_bars,
                             'oracle_label':     best_candidate.oracle_marker,
                             'oracle_label_name':_ORACLE_LABEL_NAMES.get(best_candidate.oracle_marker, 'UNKNOWN'),
                             'oracle_mfe':       best_candidate.oracle_meta.get('mfe', 0.0),
@@ -1400,9 +1413,10 @@ class BayesianTrainingOrchestrator:
                             active_entry_time     = ts_raw
                             active_side           = side
                             active_template_id    = -1
-                            _btf_s = str(getattr(_bypass_candidate, 'timeframe', '4h'))
-                            _btf_sec = TIMEFRAME_SECONDS.get(_btf_s, 14400)
-                            active_max_hold_bars  = max(20, _btf_sec // 15)
+                            _bp_chain = getattr(_bypass_candidate, 'parent_chain', None) or []
+                            _bp_parent_tf = _bp_chain[0].get('tf', '4h') if _bp_chain else str(getattr(_bypass_candidate, 'timeframe', '4h'))
+                            _btf_sec = TIMEFRAME_SECONDS.get(_bp_parent_tf, 14400)
+                            active_max_hold_bars  = max(20, (_btf_sec * 5) // 15)
                             belief_network.start_trade_tracking(
                                 side=side,
                                 entry_bar=_bar_i,
@@ -1558,10 +1572,8 @@ class BayesianTrainingOrchestrator:
                 total_pnl += d_pnl
                 total_trades += len(day_trades)
                 total_wins += d_wins
-                print(f"Trades: {len(day_trades)}, Wins: {d_wins}, PnL: ${d_pnl:.2f} ({time.perf_counter() - t_sim_start:.1f}s)")
             else:
                 d_pnl = 0.0
-                print("No trades.")
 
             # Send end-of-month update with per-month breakdown
             if self.dashboard_queue:
@@ -1574,6 +1586,10 @@ class BayesianTrainingOrchestrator:
                                           'wr': round(_wr_end, 1),
                                           'month_pnl': d_pnl,
                                           'month_label': day_date})
+
+            _pbar.update(1)
+
+        _pbar.close()
 
         # Final Report
         import datetime as _datetime
@@ -1915,17 +1931,17 @@ class BayesianTrainingOrchestrator:
                         f"avg${avg:>7,.0f}  {avg_h:>5.0f}bars  cap{avg_c:>+6.0%}  {flag}")
 
             report_lines.append("")
-            report_lines.append(f"  EXIT QUALITY (correct-direction trades):")
+            report_lines.append(f"  EXIT QUALITY (correct-direction trades, worst → best):")
             report_lines.append(f"    {'Bucket':<36} {'n':>5}  {'Total PnL':>11}  {'Avg PnL':>8}  {'Hold':>9}  {'Cap%':>7}")
             report_lines.append(f"    {'─'*36} {'─'*5}  {'─'*11}  {'─'*8}  {'─'*9}  {'─'*7}")
-            report_lines.append(_eq_row("Optimal  (>=80% captured)",         optimal))
-            # Partial bands
+            report_lines.append(_eq_row("Reversed (mkt flipped after entry)",reversed_, flag="<- leakage"))
+            report_lines.append(_eq_row("Too early (<20% captured)",         too_early))
+            # Partial bands (ascending capture)
             for _lo, _hi, _band in _partial_bands:
                 if not _band:
                     continue
                 report_lines.append(_eq_row(f"  Partial  ({_lo}-{_hi}% captured)", _band, indent='    '))
-            report_lines.append(_eq_row("Too early (<20% captured)",         too_early))
-            report_lines.append(_eq_row("Reversed (mkt flipped after entry)",reversed_, flag="<- leakage"))
+            report_lines.append(_eq_row("Optimal  (>=80% captured)",         optimal))
             report_lines.append(f"    Left on table (non-reversed gap):                        ${left_on_table:>10,.0f}")
 
             # ── Exit reason cross-breakdown ───────────────────────────────────
@@ -2337,6 +2353,7 @@ class BayesianTrainingOrchestrator:
             print(f"  Shareable copy: {_share_path}")
 
             # ── 6b. Run trade analytics suite (t-tests, ANOVA, OLS, logistic, capture) ──
+            print("  Running trade analytics suite...", flush=True)
             _trade_log_path = os.path.join(self.checkpoint_dir,
                 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv')
             if os.path.exists(_trade_log_path):
@@ -2387,6 +2404,8 @@ class BayesianTrainingOrchestrator:
             with open(_snap_path, 'w') as _sf:
                 _snap_json.dump(_snap, _sf, indent=2)
             print(f"  Run snapshot saved: {_snap_path}")
+
+        print("\n  ✓ Forward pass complete — all files saved.", flush=True)
 
     def run_final_validation(self, top_strategies):
         """

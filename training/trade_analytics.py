@@ -518,6 +518,7 @@ def run_trade_analytics(log_path: str, report_path: str) -> str:
     out_lines.append(f'  Loaded {len(df):,} trades from {log_path}')
 
     # Part 1: feature engineering
+    print('  [analytics] Feature engineering...', flush=True)
     try:
         df = _engineer_features(df)
     except Exception as e:
@@ -535,7 +536,9 @@ def run_trade_analytics(log_path: str, report_path: str) -> str:
         ('Hour breakdown',            _hour_breakdown),
     ]
 
-    for name, fn in sections:
+    _total = len(sections)
+    for _i, (name, fn) in enumerate(sections, 1):
+        print(f'  [analytics] [{_i}/{_total}] {name}...', flush=True)
         try:
             out_lines.extend(fn(df))
         except Exception as e:
