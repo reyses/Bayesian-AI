@@ -4087,6 +4087,11 @@ def main():
                                           oos_mode=getattr(args, 'oos', False),
                                           account_size=getattr(args, 'account_size', 0.0))
                 orchestrator.run_strategy_selection()
+                if args.depth_iso:
+                    orchestrator.run_depth_analysis(args.data,
+                                                    start_date=args.forward_start,
+                                                    end_date=args.forward_end,
+                                                    oos_mode=getattr(args, 'oos', False))
 
         orchestrator.print_bottom_line()
         return 0
