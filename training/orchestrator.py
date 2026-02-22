@@ -855,10 +855,78 @@ class BayesianTrainingOrchestrator:
                 _bar_i += 1
 
                 # 1. Manage existing position
+                # Two-tier max hold:
+                #   - Losing (underwater): 240 bars = 1 hour  (emergency close)
+                #   - Winning / flat:      960 bars = 4 hours (normal max)
+                # Reversed trades were averaging 35,225 bars = 147 hours of bleed.
+                _MAX_HOLD_LOSING = 240   # 1 hour
+                _MAX_HOLD_NORMAL = 960   # 4 hours
                 if self.wave_rider.position is not None:
-                    # Get exit signal from belief network every bar
-                    _exit_sig = belief_network.get_exit_signal(self.wave_rider.position.side)
-                    res = self.wave_rider.update_trail(price, None, ts_raw, exit_signal=_exit_sig)
+                    res = {'should_exit': False}   # default; overwritten by update_trail if called
+                    _bars_held   = max(1, int((ts_raw - active_entry_time) / 15))
+                    _unrealized  = ((price - active_entry_price) if active_side == 'long'
+                                    else (active_entry_price - price)) * self.asset.point_value
+                    _max_hold    = _MAX_HOLD_LOSING if _unrealized < 0 else _MAX_HOLD_NORMAL
+                    _hold_reason = 'emergency_close' if _unrealized < 0 else 'max_hold'
+                    if _bars_held >= _max_hold:
+                        _mh_pnl = ((price - active_entry_price) if active_side == 'long'
+                                   else (active_entry_price - price)) * self.asset.point_value
+                        outcome = TradeOutcome(
+                            state=active_template_id,
+                            entry_price=active_entry_price,
+                            exit_price=price,
+                            pnl=_mh_pnl,
+                            result='WIN' if _mh_pnl > 0 else 'LOSS',
+                            timestamp=ts_raw,
+                            exit_reason=_hold_reason,
+                            entry_time=active_entry_time,
+                            exit_time=ts_raw,
+                            duration=ts_raw - active_entry_time,
+                            direction='LONG' if active_side == 'long' else 'SHORT',
+                            template_id=active_template_id
+                        )
+                        self.wave_rider.position = None
+                        self.brain.update(outcome)
+                        day_trades.append(outcome)
+                        current_position_open = False
+                        if _equity_enabled:
+                            running_equity += outcome.pnl
+                            peak_equity   = max(peak_equity, running_equity)
+                            trough_equity = min(trough_equity, running_equity)
+                            if running_equity < _NINJATRADER_MNQ_MARGIN:
+                                account_ruined = True
+                                ruin_day = ruin_day or day_date
+                        if pending_oracle is not None:
+                            _mh_pot = pending_oracle['oracle_mfe'] * self.asset.point_value
+                            _mh_cap = outcome.pnl / _mh_pot if _mh_pot > 0 else 0.0
+                            _mh_sig = belief_network.get_exit_signal(active_side)
+                            oracle_trade_records.append({
+                                **pending_oracle,
+                                'exit_price':  price,
+                                'exit_time':   ts_raw,
+                                'hold_bars':   _bars_held,
+                                'exit_reason': _hold_reason,
+                                'actual_pnl':  outcome.pnl,
+                                'oracle_potential_pnl': _mh_pot,
+                                'capture_rate': round(min(_mh_cap, 9.99), 4),
+                                'result': outcome.result,
+                                'exit_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
+                                'exit_conviction':    _mh_sig.get('conviction', 0.0),
+                                'exit_wave_maturity': _mh_sig.get('wave_maturity', 0.0),
+                                'exit_signal_reason': _hold_reason,
+                            })
+                            if _pending_dm_idx is not None:
+                                decision_matrix_records[_pending_dm_idx].update({
+                                    'trade_result': outcome.result,
+                                    'trade_pnl':    round(outcome.pnl, 2),
+                                    'exit_reason':  _hold_reason,
+                                })
+                            pending_oracle = None
+                            _pending_dm_idx = None
+                    else:
+                        # Get exit signal from belief network every bar
+                        _exit_sig = belief_network.get_exit_signal(self.wave_rider.position.side)
+                        res = self.wave_rider.update_trail(price, None, ts_raw, exit_signal=_exit_sig)
 
                     if res['should_exit']:
                         outcome = TradeOutcome(
