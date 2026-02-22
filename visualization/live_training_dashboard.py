@@ -553,7 +553,7 @@ class ProgressPopup:
                     if _day_m:
                         _cur, _tot = int(_day_m.group(1)), int(_day_m.group(2))
                         phase_label = "FORWARD PASS"
-                        detail      = f"Day {_cur} / {_tot}"
+                        detail      = f"Month {_cur} / {_tot}"
                     elif step == 'FORWARD_PASS COMPLETE':
                         phase_label = "FORWARD PASS"
                         detail      = "Complete"
