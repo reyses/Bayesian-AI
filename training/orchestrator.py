@@ -1194,7 +1194,7 @@ class BayesianTrainingOrchestrator:
                         active_side = side
                         active_template_id = best_tid
                         # Max hold = pattern's own timeframe length (floor 20 bars = 5 min)
-                        active_max_hold_bars = max(20, int(getattr(best_candidate, 'timeframe', 14400) / 15))
+                        active_max_hold_bars = max(20, int(int(getattr(best_candidate, 'timeframe', 14400)) / 15))
                         depth_traded[getattr(best_candidate, 'depth', 6)] += 1
 
                         # Store oracle facts for this trade (linked at exit)
@@ -1333,7 +1333,7 @@ class BayesianTrainingOrchestrator:
                             active_entry_time     = ts_raw
                             active_side           = side
                             active_template_id    = -1
-                            active_max_hold_bars  = max(20, int(getattr(_bypass_candidate, 'timeframe', 14400) / 15))
+                            active_max_hold_bars  = max(20, int(int(getattr(_bypass_candidate, 'timeframe', 14400)) / 15))
                             depth_traded[getattr(_bypass_candidate, 'depth', 6)] += 1
                             pending_oracle = {
                                 'template_id':      -1,
