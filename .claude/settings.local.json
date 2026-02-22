@@ -17,7 +17,12 @@
       "Bash(Get-Content \"C:/Users/reyse/OneDrive/Desktop/Bayesian-AI/checkpoints/training_log.txt\")",
       "Bash(Select-Object -Last 80)",
       "Bash(Out-String)",
-      "WebFetch(domain:jules.google)"
+      "WebFetch(domain:jules.google)",
+      "Bash(ROCHE_SNAP)",
+      "Bash(L3_ROCHE)",
+      "Bash(trend\":*)",
+      "Bash(git push:*)",
+      "Bash(git diff:*)"
     ]
   }
 }
