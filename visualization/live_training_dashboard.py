@@ -546,9 +546,10 @@ class ProgressPopup:
                     wr     = msg.get('wr')
 
                     # Derive a clean phase label and a day/detail sub-line
-                    # step format: "FORWARD_PASS  day 126/250" or "FORWARD_PASS COMPLETE" etc.
                     import re as _re
-                    _day_m = _re.search(r'day\s+(\d+)/(\d+)', step, _re.I)
+                    _day_m  = _re.search(r'day\s+(\d+)/(\d+)', step, _re.I)
+                    _lvl_m  = _re.search(r'lvl\s+(\d+)/(\d+)', step, _re.I)
+                    _tmpl_m = _re.search(r'tmpl\s+(\d+)/(\d+)', step, _re.I)
                     if _day_m:
                         _cur, _tot = int(_day_m.group(1)), int(_day_m.group(2))
                         phase_label = "FORWARD PASS"
@@ -556,12 +557,21 @@ class ProgressPopup:
                     elif step == 'FORWARD_PASS COMPLETE':
                         phase_label = "FORWARD PASS"
                         detail      = "Complete"
-                    elif step == 'STRATEGY_SELECTION':
-                        phase_label = "STRATEGY SELECTION"
-                        detail      = ""
                     elif step == 'FORWARD_PASS':
                         phase_label = "FORWARD PASS"
                         detail      = "Starting..."
+                    elif _lvl_m:
+                        phase_label = "PATTERN DISCOVERY"
+                        detail      = f"TF {_lvl_m.group(1)} / {_lvl_m.group(2)}"
+                    elif step == 'CLUSTERING':
+                        phase_label = "CLUSTERING"
+                        detail      = "Building templates..."
+                    elif _tmpl_m:
+                        phase_label = "OPTIMIZATION"
+                        detail      = f"Tmpl {_tmpl_m.group(1)} / {_tmpl_m.group(2)}"
+                    elif step == 'STRATEGY_SELECTION':
+                        phase_label = "STRATEGY SELECTION"
+                        detail      = ""
                     else:
                         phase_label = phase or step
                         detail      = step if phase else ""

@@ -2959,10 +2959,24 @@ class BayesianTrainingOrchestrator:
             _train_end = getattr(self.config, 'train_end', None)
             if _train_end:
                 print(f"  Out-of-sample guard: training data capped at {_train_end}")
+
+            # Count TF dirs upfront so discovery callback can emit % progress
+            _disc_n_tfs = max(1, sum(
+                1 for tf in TIMEFRAME_HIERARCHY
+                if isinstance(data_source, str) and os.path.isdir(os.path.join(data_source, tf))
+            ))
+
+            def _discovery_cb(lvl, tf, patterns, levels):
+                ckpt.save_discovery_level(patterns, levels)
+                if self.dashboard_queue:
+                    _pct = min(99.0, len(levels) / _disc_n_tfs * 100)
+                    self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
+                                              'step': f'DISCOVERY  lvl {len(levels)}/{_disc_n_tfs}',
+                                              'pct': round(_pct, 1)})
+
             manifest = self._run_discovery(
                 data_source,
-                checkpoint_callback=lambda lvl, tf, patterns, levels:
-                    ckpt.save_discovery_level(patterns, levels),
+                checkpoint_callback=_discovery_cb,
                 resume_manifest=partial_manifest,
                 resume_levels=partial_levels,
                 train_end=_train_end
@@ -3011,6 +3025,9 @@ class BayesianTrainingOrchestrator:
             print(f"  Initial clusters: {n_initial} (from {len(manifest)} patterns / {INITIAL_CLUSTER_DIVISOR})")
 
             clustering_engine = FractalClusteringEngine(n_clusters=n_initial, max_variance=0.5)
+            if self.dashboard_queue:
+                self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
+                                          'step': 'CLUSTERING', 'pct': 0})
             templates = clustering_engine.create_templates(manifest)
             print(f"  Condensed {len(manifest)} raw patterns into {len(templates)} Tight Templates.")
 
@@ -3080,6 +3097,7 @@ class BayesianTrainingOrchestrator:
         optimized_count = sum(1 for r in completed_results.values() if r.get('status') == 'DONE')
         fission_count = len(fissioned_ids)
         total_val_pnl = sum(r.get('val_pnl', 0.0) for r in completed_results.values() if r.get('status') == 'DONE')
+        _p3_total = max(1, len(template_queue) + len(completed_results))  # for popup % progress
         batch_size = num_workers * 2
         batch_number = 0
         t_phase3_start = time.perf_counter()
@@ -3188,6 +3206,13 @@ class BayesianTrainingOrchestrator:
                     f"{batch_done} optimized, {batch_split} fissioned, "
                     f"batch PnL: ${batch_pnl:.2f} | {batch_elapsed:.1f}s"
                 )
+
+                # Progress popup
+                if self.dashboard_queue:
+                    _p3_pct = min(99.0, processed_count / _p3_total * 100)
+                    self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
+                                              'step': f'OPTIMIZATION  tmpl {processed_count}/{_p3_total}',
+                                              'pct': round(_p3_pct, 1)})
 
                 # CHECKPOINT after each batch
                 ckpt.save_scheduler_state(
