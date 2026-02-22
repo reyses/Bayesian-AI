@@ -2080,6 +2080,36 @@ class BayesianTrainingOrchestrator:
                 avg_act     = sum(r['actual_pnl'] for r in recs) / len(recs)
                 avg_hb      = sum(r.get('hold_bars', 0) for r in recs) / len(recs)
                 report_lines.append(f"    {label:<22}  ${avg_mfe_usd:>13,.0f}  ${avg_act:>13,.0f}  {avg_hb:>13.1f}")
+
+            # ── Per-depth exit quality (hold shown as real time, not 15s bars) ──
+            _depths_seen = sorted({r.get('entry_depth', 6) for r in tp_recs})
+            if len(_depths_seen) > 1:
+                _DL = {1:'1h+', 2:'1h', 3:'15m', 4:'5m', 5:'1m',
+                       6:'30s', 7:'15s', 8:'15s', 9:'5s', 10:'5s', 11:'1s', 12:'1s'}
+                report_lines.append("")
+                report_lines.append(f"  EXIT QUALITY BY DEPTH  (hold = real time from 15s bars × 15):")
+                report_lines.append(f"    {'Depth':<13} {'n':>4}  {'Optimal%':>8}  {'Reversed%':>9}  "
+                                    f"{'Avg PnL':>8}  {'Avg Hold':>10}  {'Left$':>10}")
+                report_lines.append(f"    {'─'*13} {'─'*4}  {'─'*8}  {'─'*9}  {'─'*8}  {'─'*10}  {'─'*10}")
+                for _d in _depths_seen:
+                    _dr = [r for r in tp_recs if r.get('entry_depth', 6) == _d]
+                    _n  = len(_dr)
+                    if not _n:
+                        continue
+                    _opt = sum(1 for r in _dr if r['capture_rate'] >= 0.80)
+                    _rev = sum(1 for r in _dr if r['capture_rate'] <= 0)
+                    _avg_pnl = sum(r['actual_pnl'] for r in _dr) / _n
+                    _avg_hs  = int(sum(r.get('hold_bars', 0) for r in _dr) / _n * 15)
+                    _h, _m   = _avg_hs // 3600, (_avg_hs % 3600) // 60
+                    _hold_str = f"{_h}h{_m:02d}m"
+                    _lot = sum(max(0, r.get('oracle_potential_pnl', 0) - r['actual_pnl'])
+                               for r in _dr if r['capture_rate'] > 0)
+                    _tf  = _DL.get(_d, f'd{_d}')
+                    report_lines.append(
+                        f"    depth {_d:>2} ({_tf:<3})  {_n:>4}  "
+                        f"{_opt/_n:>7.0%}  {_rev/_n:>8.0%}  "
+                        f"${_avg_pnl:>7,.0f}  {_hold_str:>10}  ${_lot:>9,.0f}"
+                    )
         else:
             reversed_ = []
             left_on_table = 0.0
