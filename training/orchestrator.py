@@ -1072,7 +1072,7 @@ class BayesianTrainingOrchestrator:
 
                             # RULE 4: Mean Reversion / Extreme zone (>= 2.0 sigma)
                             elif micro_z >= 2.0:
-                                headroom = macro_z < 2.0
+                                headroom = macro_z < 3.0
                                 if micro_pattern == 'ROCHE_SNAP':
                                     if not headroom and micro_z > 3.0:
                                         should_skip = True
