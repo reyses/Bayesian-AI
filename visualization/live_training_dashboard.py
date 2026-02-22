@@ -640,7 +640,7 @@ class ProgressPopup:
                     if _day_m:
                         _cur, _tot = int(_day_m.group(1)), int(_day_m.group(2))
                         phase_label = "FORWARD PASS"
-                        detail      = f"Month {_cur} / {_tot}"
+                        detail      = f"Day {_cur} / {_tot}"
                     elif step == 'FORWARD_PASS COMPLETE':
                         phase_label = "FORWARD PASS"
                         detail      = "Complete"
@@ -648,14 +648,16 @@ class ProgressPopup:
                         phase_label = "FORWARD PASS"
                         detail      = "Starting..."
                     elif _lvl_m:
+                        _lc, _lt = int(_lvl_m.group(1)), int(_lvl_m.group(2))
                         phase_label = "PATTERN DISCOVERY"
-                        detail      = f"TF {_lvl_m.group(1)} / {_lvl_m.group(2)}"
+                        detail      = f"Level {_lc} / {_lt}  ({_lt - _lc} remaining)"
                     elif step == 'CLUSTERING':
                         phase_label = "CLUSTERING"
                         detail      = "Building templates..."
                     elif _tmpl_m:
+                        _tc, _tt = int(_tmpl_m.group(1)), int(_tmpl_m.group(2))
                         phase_label = "OPTIMIZATION"
-                        detail      = f"Tmpl {_tmpl_m.group(1)} / {_tmpl_m.group(2)}"
+                        detail      = f"Template {_tc} / {_tt}  ({_tt - _tc} remaining)"
                     elif step == 'STRATEGY_SELECTION':
                         phase_label = "STRATEGY SELECTION"
                         detail      = ""

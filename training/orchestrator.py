@@ -292,39 +292,43 @@ class BayesianTrainingOrchestrator:
         """
         # Launch UI — popup by default, full dashboard with --dashboard, nothing with --no-dashboard
         # (run_forward_pass is called directly for --forward-pass so we launch here too)
-        if not getattr(self.config, 'no_dashboard', False) and DASHBOARD_AVAILABLE:
-            if not self.dashboard_thread or not self.dashboard_thread.is_alive():
-                if getattr(self.config, 'dashboard', False):
-                    self.launch_dashboard()
-                else:
-                    self.launch_popup()
+        _analysis_mode_early = getattr(self, '_analysis_mode', False)
+        if not _analysis_mode_early:
+            if not getattr(self.config, 'no_dashboard', False) and DASHBOARD_AVAILABLE:
+                if not self.dashboard_thread or not self.dashboard_thread.is_alive():
+                    if getattr(self.config, 'dashboard', False):
+                        self.launch_dashboard()
+                    else:
+                        self.launch_popup()
 
-        print("\n" + "="*80)
-        if oos_mode:
-            print("OOS BLIND SIMULATION (templates/scaler frozen from training)")
-        else:
-            print("PHASE 4: FORWARD PASS (EXECUTION MODE)")
-        if start_date or end_date:
-            _lo = start_date or "start"
-            _hi = end_date   or "end"
-            print(f"  Date slice: {_lo} -> {_hi}")
-        print("="*80)
-        if self.dashboard_queue:
+            print("\n" + "="*80)
+            if oos_mode:
+                print("OOS BLIND SIMULATION (templates/scaler frozen from training)")
+            else:
+                print("PHASE 4: FORWARD PASS (EXECUTION MODE)")
+            if start_date or end_date:
+                _lo = start_date or "start"
+                _hi = end_date   or "end"
+                print(f"  Date slice: {_lo} -> {_hi}")
+            print("="*80)
+        if self.dashboard_queue and not _analysis_mode_early:
             self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
                                       'step': 'FORWARD_PASS', 'pct': 0})
 
         # ── 0. Rotate previous run files: rename current → _old ────────────────
-        for _old_name in ('phase4_report.txt', 'oracle_trade_log.csv',
-                          'signal_log.csv', 'depth_weights.json',
-                          'run_snapshot.json'):
-            _old_path = os.path.join(self.checkpoint_dir, _old_name)
-            if os.path.exists(_old_path):
-                _old_dest = os.path.join(self.checkpoint_dir,
-                    _old_name.replace('.', '_old.', 1))
-                try:
-                    os.replace(_old_path, _old_dest)
-                except OSError:
-                    pass
+        _analysis_mode = getattr(self, '_analysis_mode', False)
+        if not _analysis_mode:
+            for _old_name in ('phase4_report.txt', 'oracle_trade_log.csv',
+                              'signal_log.csv', 'depth_weights.json',
+                              'run_snapshot.json'):
+                _old_path = os.path.join(self.checkpoint_dir, _old_name)
+                if os.path.exists(_old_path):
+                    _old_dest = os.path.join(self.checkpoint_dir,
+                        _old_name.replace('.', '_old.', 1))
+                    try:
+                        os.replace(_old_path, _old_dest)
+                    except OSError:
+                        pass
 
         # 1. Load Prerequisites
         lib_path = os.path.join(self.checkpoint_dir, 'pattern_library.pkl')
@@ -508,7 +512,7 @@ class BayesianTrainingOrchestrator:
             return best
 
         def _dm_rec(p, gate, day, ts_val, micro_z_val, macro_z_val, pattern_val,
-                    dist=0.0, conviction=0.0, template_id='', tier=''):
+                    dist=0.0, conviction=0.0, template_id='', tier='', playbook=''):
             """Build one signal-log record. Trade outcome fields default to empty."""
             om   = _effective_oracle(p)
             meta = getattr(p, 'oracle_meta', None) or {}
@@ -528,6 +532,7 @@ class BayesianTrainingOrchestrator:
                 'oracle_dir': 'LONG' if om > 0 else ('SHORT' if om < 0 else 'NONE'),
                 'oracle_pnl': opnl,
                 'template_id': str(template_id), 'tier': str(tier),
+                'playbook': playbook,
                 # Trade outcome (filled in later if gate='traded')
                 'trade_direction': '', 'trade_result': '', 'trade_pnl': 0.0,
                 'exit_reason': '', 'exit_signal_reason': '',
@@ -947,10 +952,19 @@ class BayesianTrainingOrchestrator:
                                 p, _skip_label, day_date, ts, micro_z, macro_z, micro_pattern))
                             continue
 
-                        # Gate 0.5: depth filter -- exclude depths that had negative avg
-                        # PnL/trade in the previous run (written to depth_weights.json).
-                        # First run has no weights so nothing is filtered.
+                        # Gate 0.5: depth filter
                         _cand_depth = getattr(p, 'depth', 6)
+
+                        # Depth isolation mode: only allow one specific depth
+                        _iso_depth = getattr(self, '_depth_only', None)
+                        if _iso_depth is not None and _cand_depth != _iso_depth:
+                            skip_headroom += 1
+                            _candidate_gate[id(p)] = 'gate0_5'
+                            decision_matrix_records.append(_dm_rec(
+                                p, 'gate0_5', day_date, ts, micro_z, macro_z, micro_pattern))
+                            continue
+
+                        # Exclude depths with negative avg PnL from previous run
                         if _cand_depth in _DEPTH_FILTER_OUT:
                             skip_headroom += 1
                             _candidate_gate[id(p)] = 'gate0_5'
@@ -1237,8 +1251,13 @@ class BayesianTrainingOrchestrator:
                             getattr(_live_state, 'dmi_plus',  0.0)
                           - getattr(_live_state, 'dmi_minus', 0.0), 2)
                         _entry_depth = getattr(best_candidate, 'depth', 6)
+                        _playbook = lib_entry.get('semantic_name', '')
+                        if not _playbook and lib_entry.get('centroid') is not None:
+                            from training.fractal_clustering import generate_semantic_name
+                            _playbook = generate_semantic_name(lib_entry['centroid'])
                         pending_oracle = {
                             'template_id':      best_tid,
+                            'playbook':         _playbook,
                             'direction':        'LONG' if side == 'long' else 'SHORT',
                             'entry_price':      price,
                             'entry_time':       ts,        # Unix timestamp (15s resolution)
@@ -1272,7 +1291,8 @@ class BayesianTrainingOrchestrator:
                             dist=best_dist,
                             conviction=round(_belief.conviction, 3) if _belief else 0.0,
                             template_id=best_tid,
-                            tier=template_tier_map.get(best_tid, 3))
+                            tier=template_tier_map.get(best_tid, 3),
+                            playbook=_playbook)
                         _dm_entry['trade_direction'] = 'LONG' if side == 'long' else 'SHORT'
                         decision_matrix_records.append(_dm_entry)
                         _pending_dm_idx = len(decision_matrix_records) - 1
@@ -1551,6 +1571,8 @@ class BayesianTrainingOrchestrator:
         import datetime as _datetime
         _run_ts = _datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         report_lines = []
+        _sec = {}  # section_name -> start index in report_lines (for reorder)
+        _sec['header'] = len(report_lines)
         report_lines.append("=" * 80)
         report_lines.append(f"FORWARD PASS COMPLETE  (run: {_run_ts})")
         _date_range = (
@@ -1601,6 +1623,7 @@ class BayesianTrainingOrchestrator:
         # ── ORACLE PROFIT ATTRIBUTION ────────────────────────────────────────────
         import csv as _csv
 
+        _sec['oracle_banner'] = len(report_lines)
         report_lines.append("")
         report_lines.append("=" * 80)
         report_lines.append("ORACLE PROFIT ATTRIBUTION")
@@ -1612,6 +1635,7 @@ class BayesianTrainingOrchestrator:
         tp_potential  = sum(r['oracle_potential_pnl'] for r in oracle_trade_records if r['oracle_label'] != 0 and r['oracle_label_name'] not in ('NOISE',))
         ideal_profit  = tp_potential + fn_potential_pnl           # perfect execution on everything
 
+        _sec['opportunity'] = len(report_lines)
         report_lines.append("")
         report_lines.append(f"  TOTAL SIGNALS SEEN BY ORACLE: {total_real_opps + total_noise_opps:,}")
         report_lines.append(f"    Real moves (MEGA/SCALP):  {total_real_opps:>6,}   -- worth ${ideal_profit:>10,.2f} if perfectly traded")
@@ -1620,15 +1644,15 @@ class BayesianTrainingOrchestrator:
         # ── 2. What we did ───────────────────────────────────────────────────────
         n_traded   = len(oracle_trade_records)
         n_skipped  = audit_fn + audit_tn
+        _sec['what_we_did'] = len(report_lines)
         report_lines.append("")
         report_lines.append(f"  WHAT WE DID:")
         report_lines.append(f"    Traded:  {n_traded:>6,}  ({n_traded/(total_real_opps+total_noise_opps)*100:.1f}% of all signals)")
         report_lines.append(f"    Skipped: {n_skipped:>6,}  ({n_skipped/(total_real_opps+total_noise_opps)*100:.1f}% of all signals)")
 
         # ── 2b. Skip reason breakdown ─────────────────────────────────────────────
-        # n_signals_seen counts individual candidates (not unique timestamps).
-        # skip_xxx are per-candidate gate rejections.
         _n_pass = n_signals_seen - skip_headroom - skip_dist - skip_brain - skip_conviction
+        _sec['skip_reasons'] = len(report_lines)
         report_lines.append("")
         report_lines.append(f"  WHY SIGNALS WERE SKIPPED  (total candidates evaluated: {n_signals_seen:,})")
         if n_signals_seen > 0:
@@ -1640,8 +1664,7 @@ class BayesianTrainingOrchestrator:
             report_lines.append(f"    Passed all gates -> traded:     {n_traded:>6,}  ({_pct_s(n_traded)})")
 
         # ── 2c. Traded signal depth distribution ─────────────────────────────────
-        # depth: 1=highest TF (daily/4h), 6=lowest TF (15s)
-        # Answers: "Is it only trading 15s patterns and missing 1h+?"
+        _sec['depth_dist'] = len(report_lines)
         _DEPTH_LABELS = {1: '1=4h+  (high TF)', 2: '2=1h   ', 3: '3=15m  ',
                          4: '4=5m   ', 5: '5=1m   ', 6: '6=15s  (leaf)'}
         if depth_traded:
@@ -1653,7 +1676,7 @@ class BayesianTrainingOrchestrator:
                 report_lines.append(f"    depth {_DEPTH_LABELS.get(d, str(d))}: {cnt:>5,} trades  {bar}")
 
         # ── 2d. Wave maturity at entry ────────────────────────────────────────────
-        # High decision_wave_maturity at entry = we entered a wave near exhaustion.
+        _sec['wave_maturity'] = len(report_lines)
         if oracle_trade_records and 'decision_wave_maturity' in oracle_trade_records[0]:
             _wins  = [r for r in oracle_trade_records if r['result'] == 'WIN']
             _losses= [r for r in oracle_trade_records if r['result'] != 'WIN']
@@ -1668,8 +1691,7 @@ class BayesianTrainingOrchestrator:
             report_lines.append(f"    Insight: maturity gap={_wm_l-_wm_w:.3f} (positive = entering losers at wave exhaustion)")
 
         # ── 2e. Per-depth PnL breakdown ──────────────────────────────────────────
-        # Shows which fractal depth levels are actually profitable.
-        # These stats feed into depth_weights.json for the next run.
+        _sec['depth_pnl'] = len(report_lines)
         if oracle_trade_records and 'entry_depth' in oracle_trade_records[0]:
             from collections import defaultdict as _ddd
             _dp_pnl  = _ddd(float)
@@ -1694,6 +1716,7 @@ class BayesianTrainingOrchestrator:
                     f"    depth {_d:<3} {_cnt:>7,} {_wr:>6.0f}% ${_tot:>10,.2f} ${_avg:>9.2f}{_flag}")
 
         # ── 2f. Dynamic Exit Quality ─────────────────────────────────────────────
+        _sec['exit_quality'] = len(report_lines)
         if oracle_trade_records and 'exit_signal_reason' in oracle_trade_records[0]:
             report_lines.append("")
             report_lines.append(f"  DYNAMIC EXIT QUALITY:")
@@ -1704,16 +1727,19 @@ class BayesianTrainingOrchestrator:
             # Trail-widened: aligned_fresh
             # Standard trail: neutral, no_belief
 
-            # Note: exit_signal_reason is the STATE at exit.
-            # If exit_reason was 'belief_flip', it maps to 'Belief-flip exits'.
-            # Otherwise we group by signal reason.
+            # exit_reason = WaveRider's structural exit type (trail_stop, belief_flip, etc.)
+            # exit_signal_reason = belief network state at exit (tighten, widen, neutral)
+            # Special exits (flip, decay, watchdog) are keyed on exit_reason.
+            # Trail quality (tighten/widen/standard) is keyed on exit_signal_reason.
 
-            b_flip     = [r for r in oracle_trade_records if r.get('exit_signal_reason') == 'urgent_flip']
-            b_decay    = [r for r in oracle_trade_records if r.get('exit_signal_reason') == 'physics_decay']
-            b_tight    = [r for r in oracle_trade_records if r.get('exit_signal_reason') in ('low_conviction', 'wave_mature')]
-            b_widen    = [r for r in oracle_trade_records if r.get('exit_signal_reason') == 'aligned_fresh']
-            b_standard = [r for r in oracle_trade_records if r.get('exit_signal_reason') in ('neutral', 'no_belief', '')]
-            b_watchdog = [r for r in oracle_trade_records if r.get('exit_signal_reason') == 'loss_watchdog']
+            b_flip     = [r for r in oracle_trade_records if r.get('exit_reason') == 'belief_flip']
+            b_decay    = [r for r in oracle_trade_records if r.get('exit_reason') == 'physics_decay']
+            b_watchdog = [r for r in oracle_trade_records if r.get('exit_reason') == 'loss_watchdog']
+            # Trail-quality buckets: only among trail_stop exits
+            _trail_exits = [r for r in oracle_trade_records if r.get('exit_reason') == 'trail_stop']
+            b_tight    = [r for r in _trail_exits if r.get('exit_signal_reason') in ('low_conviction', 'wave_mature')]
+            b_widen    = [r for r in _trail_exits if r.get('exit_signal_reason') == 'aligned_fresh']
+            b_standard = [r for r in _trail_exits if r.get('exit_signal_reason') in ('neutral', 'no_belief', '')]
 
             def _stats(subset):
                 if not subset: return "0 trades"
@@ -1735,9 +1761,7 @@ class BayesianTrainingOrchestrator:
                 report_lines.append(f"    Decay score at exit:  WIN avg={sum(_win_decay)/len(_win_decay):.3f}  LOSS avg={sum(_loss_decay)/len(_loss_decay):.3f}")
 
         # ── 2g. Worker agreement analysis ────────────────────────────────────────
-        # For each TF worker: what fraction of the time did it agree with the
-        # trade direction at entry? Compare wins vs losses to find who is predictive.
-        # Also: which workers FLIPPED direction by exit? That likely caused the loss.
+        _sec['workers'] = len(report_lines)
         if oracle_trade_records and 'entry_workers' in oracle_trade_records[0]:
             import json as _js
             _TF_ORDER = ['1h','30m','15m','5m','3m','1m','30s','15s','5s','1s']
@@ -1833,6 +1857,7 @@ class BayesianTrainingOrchestrator:
                     report_lines.append(f"    {tf:<6} WIN flip={wfr_s}  LOSS flip={lfr_s}  diff={diff:>+.2f}{flag}")
 
         # ── 3. Of trades taken ───────────────────────────────────────────────────
+        _sec['trades_taken'] = len(report_lines)
         tp_recs       = [r for r in oracle_trade_records if r['oracle_label'] != 0 and
                          ((r['direction']=='LONG' and r['oracle_label']>0) or
                           (r['direction']=='SHORT' and r['oracle_label']<0))]
@@ -1853,9 +1878,7 @@ class BayesianTrainingOrchestrator:
         # ── 4. Exit quality on correct-direction trades ──────────────────────────
         # NOTE: "Reversed" trades had the correct oracle direction but the market
         # still moved against us after entry (capture_rate <= 0).  Their actual
-        # losses are a distinct leakage bucket — NOT "wrong direction at entry"
-        # (which means oracle label was opposite) — but also NOT mere underperformance.
-        # They are shown separately in the profit gap as "reversed after entry".
+        _sec['exit_detail'] = len(report_lines)
         if tp_recs:
             optimal   = [r for r in tp_recs if r['capture_rate'] >= 0.80]
             too_early = [r for r in tp_recs if 0 < r['capture_rate'] < 0.20]
@@ -1974,10 +1997,7 @@ class BayesianTrainingOrchestrator:
 
         # ── 5. Profit gap summary ────────────────────────────────────────────────
         # "Reversed" losses = actual dollars lost on correct-direction trades that
-        # still went against us.  Distinct from:
-        #   wrong_dir  = oracle label was opposite to our direction (fp_wrong_recs)
-        #   noise      = oracle said no real move at all (fp_noise_recs)
-        #   left_on_table = potential uncaptured on non-reversed winners
+        _sec['profit_gap'] = len(report_lines)
         reversed_loss_val  = abs(sum(r['actual_pnl'] for r in reversed_))
         non_reversed_val   = [r for r in tp_recs if r['capture_rate'] > 0] if tp_recs else []
         left_on_table_val  = sum(max(0, r['oracle_potential_pnl'] - r['actual_pnl'])
@@ -2014,6 +2034,38 @@ class BayesianTrainingOrchestrator:
             'wrong_dir_loss':  abs(fp_wrong_pnl),
         }
 
+        # ── Reorder report: DETAIL sections first, SUMMARIES at end ────────────
+        # User preference: see actionable per-trade data first, then high-level picture.
+        _sec['end'] = len(report_lines)
+        _detail_order = [
+            'header',          # basic stats (always first)
+            'oracle_banner',   # "ORACLE PROFIT ATTRIBUTION" banner
+            'depth_pnl',       # per-depth PnL breakdown
+            'exit_quality',    # dynamic exit quality (flip/decay/watchdog/trail)
+            'exit_detail',     # exit quality bands + cross-breakdown + by-depth
+            'workers',         # worker agreement + direction flips
+            'wave_maturity',   # decision-TF wave maturity at entry
+            'trades_taken',    # of N trades: correct/wrong/noise
+            'opportunity',     # total signals seen by oracle
+            'what_we_did',     # traded vs skipped
+            'skip_reasons',    # gate breakdown
+            'depth_dist',      # traded signal depth distribution
+            'profit_gap',      # profit gap analysis (final summary)
+        ]
+        # Build ordered section names (only those that exist)
+        _ordered_secs = [s for s in _detail_order if s in _sec]
+        # Add any sections not in the explicit order (safety)
+        _ordered_secs += [s for s in _sec if s not in _ordered_secs and s != 'end']
+        # Rebuild report_lines in new order
+        _reordered = []
+        for _sname in _ordered_secs:
+            _start = _sec[_sname]
+            # Find next section start (smallest index > _start among all sections)
+            _next_starts = [v for v in _sec.values() if v > _start]
+            _end_idx = min(_next_starts) if _next_starts else len(report_lines)
+            _reordered.extend(report_lines[_start:_end_idx])
+        report_lines = _reordered
+
         # Send to dashboard
         if self.dashboard_queue:
             self.dashboard_queue.put({
@@ -2032,34 +2084,28 @@ class BayesianTrainingOrchestrator:
                                       'wr': round(_final_wr, 1)})
 
         # ── 6. Save CSV ──────────────────────────────────────────────────────────
-        if oracle_trade_records:
-            _log_name = 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv'
-            csv_path = os.path.join(self.checkpoint_dir, _log_name)
-            with open(csv_path, 'w', newline='', encoding='utf-8') as f:
-                writer = _csv.DictWriter(f, fieldnames=list(oracle_trade_records[0].keys()))
-                writer.writeheader()
-                writer.writerows(oracle_trade_records)
-            report_lines.append("")
-            report_lines.append(f"  Per-trade oracle log saved: {csv_path}")
+        if not _analysis_mode:
+            if oracle_trade_records:
+                _log_name = 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv'
+                csv_path = os.path.join(self.checkpoint_dir, _log_name)
+                with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+                    writer = _csv.DictWriter(f, fieldnames=list(oracle_trade_records[0].keys()))
+                    writer.writeheader()
+                    writer.writerows(oracle_trade_records)
+                report_lines.append("")
+                report_lines.append(f"  Per-trade oracle log saved: {csv_path}")
 
-        if pid_oracle_records:
-            pid_csv_path = os.path.join(self.checkpoint_dir, 'pid_oracle_log.csv')
-            with open(pid_csv_path, 'w', newline='', encoding='utf-8') as f:
-                writer = _csv.DictWriter(f, fieldnames=list(pid_oracle_records[0].keys()))
-                writer.writeheader()
-                writer.writerows(pid_oracle_records)
-            report_lines.append(f"  PID oracle log saved: {pid_csv_path} ({len(pid_oracle_records)} signals)")
+            if pid_oracle_records:
+                pid_csv_path = os.path.join(self.checkpoint_dir, 'pid_oracle_log.csv')
+                with open(pid_csv_path, 'w', newline='', encoding='utf-8') as f:
+                    writer = _csv.DictWriter(f, fieldnames=list(pid_oracle_records[0].keys()))
+                    writer.writeheader()
+                    writer.writerows(pid_oracle_records)
+                report_lines.append(f"  PID oracle log saved: {pid_csv_path} ({len(pid_oracle_records)} signals)")
 
         # ── Save FN oracle log + report section ──────────────────────────────────
-        # fn_oracle_records: every missed real move with worker snapshot.
-        # "competed" = another candidate was traded at the same bar.
-        # "no_match" = nothing passed gates at this bar.
-        # Key question: when workers agreed with oracle direction on FN signals,
-        # a gate was too strict (the workers were right but we still skipped).
-        # ── Decision Matrix CSV ─────────────────────────────────────────────────
-        # Per-candidate log: every skipped signal with gate decision + oracle context.
-        # Answers: which gate blocks the most money? which patterns are mis-directed?
-        if decision_matrix_records:
+        # Skip all CSV saves, FN analysis, and depth weights in analysis mode.
+        if not _analysis_mode and decision_matrix_records:
             _dm_name = 'oos_signal_log.csv' if oos_mode else 'signal_log.csv'
             _dm_path = os.path.join(self.checkpoint_dir, _dm_name)
             with open(_dm_path, 'w', newline='', encoding='utf-8') as _dmf:
@@ -2088,7 +2134,7 @@ class BayesianTrainingOrchestrator:
                 report_lines.append(
                     f"    {_g:<22} {_st['count']:>6} {_rm_pct:>9.1f}% {_avg_o:>11.0f} {_st['total_opnl']:>13.0f}")
 
-        if fn_oracle_records:
+        if not _analysis_mode and fn_oracle_records:
             import json as _fnjs
             _fn_name = 'oos_fn_log.csv' if oos_mode else 'fn_oracle_log.csv'
             fn_csv_path = os.path.join(self.checkpoint_dir, _fn_name)
@@ -2175,11 +2221,7 @@ class BayesianTrainingOrchestrator:
                 report_lines.append(f"    {_lbl:<42} {_gc:>6,}  ({_pct:5.1f}%){flag2}")
 
         # ── Compute and save per-depth weights for the NEXT run ──────────────────
-        # score_adj is normalised relative to the best-performing depth so it
-        # stays in a [-1, +1] range that is compatible with the existing dist/tier
-        # scoring.  filter_out=True means the depth had negative avg PnL with at
-        # least 5 trades — it will be excluded by Gate 0.5 next run.
-        if oracle_trade_records and 'entry_depth' in oracle_trade_records[0]:
+        if not _analysis_mode and oracle_trade_records and 'entry_depth' in oracle_trade_records[0]:
             from collections import defaultdict as _ddw
             import json as _json2
             _dw_pnl = _ddw(float)
@@ -2214,34 +2256,40 @@ class BayesianTrainingOrchestrator:
                     _json2.dump(depth_weights_out, _dw_f2, indent=2)
                 report_lines.append(f"  Depth weights saved: {_dw_out_path}")
 
-        for line in report_lines:
-            print(line)
+        if _analysis_mode:
+            # Depth isolation: print one-line summary, skip full report/CSV/analytics
+            _iso_d = getattr(self, '_depth_only', '?')
+            _wr_pct = (total_wins / total_trades * 100) if total_trades > 0 else 0.0
+            print(f"  depth {_iso_d}:  {total_trades:>5,} trades  {_wr_pct:>5.1f}% WR  ${total_pnl:>10,.2f} PnL")
+        else:
+            for line in report_lines:
+                print(line)
 
-        # Save report
-        _report_name = 'oos_report.txt' if oos_mode else 'phase4_report.txt'
-        report_path = os.path.join(self.checkpoint_dir, _report_name)
-        with open(report_path, 'w', encoding='utf-8') as f:
-            f.write('\n'.join(report_lines) + '\n')
-        print(f"  Report saved to {report_path}")
+            # Save report
+            _report_name = 'oos_report.txt' if oos_mode else 'phase4_report.txt'
+            report_path = os.path.join(self.checkpoint_dir, _report_name)
+            with open(report_path, 'w', encoding='utf-8') as f:
+                f.write('\n'.join(report_lines) + '\n')
+            print(f"  Report saved to {report_path}")
 
-        # ── 6b. Run trade analytics suite (t-tests, ANOVA, OLS, logistic, capture) ──
-        _trade_log_path = os.path.join(self.checkpoint_dir,
-            'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv')
-        if os.path.exists(_trade_log_path):
-            try:
-                from training.trade_analytics import run_trade_analytics
-                _analytics_text = run_trade_analytics(_trade_log_path, report_path)
-                # Also save standalone
-                _analytics_path = os.path.join(self.checkpoint_dir,
-                    'oos_analytics.txt' if oos_mode else 'trade_analytics.txt')
-                with open(_analytics_path, 'w', encoding='utf-8') as _af:
-                    _af.write(_analytics_text)
-                print(f"  Trade analytics saved: {_analytics_path}")
-            except Exception as _ae:
-                print(f"  Trade analytics failed: {_ae}")
+            # ── 6b. Run trade analytics suite (t-tests, ANOVA, OLS, logistic, capture) ──
+            _trade_log_path = os.path.join(self.checkpoint_dir,
+                'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv')
+            if os.path.exists(_trade_log_path):
+                try:
+                    from training.trade_analytics import run_trade_analytics
+                    _analytics_text = run_trade_analytics(_trade_log_path, report_path)
+                    # Also save standalone
+                    _analytics_path = os.path.join(self.checkpoint_dir,
+                        'oos_analytics.txt' if oos_mode else 'trade_analytics.txt')
+                    with open(_analytics_path, 'w', encoding='utf-8') as _af:
+                        _af.write(_analytics_text)
+                    print(f"  Trade analytics saved: {_analytics_path}")
+                except Exception as _ae:
+                    print(f"  Trade analytics failed: {_ae}")
 
         # ── 7. Save compact run snapshot (current vs _old for LLM comparison) ───
-        if not oos_mode:
+        if not oos_mode and not _analysis_mode:
             import json as _snap_json
             import datetime as _snap_dt
             _win_decay  = [r.get('exit_decay_score', 0.0) for r in oracle_trade_records if r.get('result') == 'WIN']
@@ -2431,6 +2479,76 @@ class BayesianTrainingOrchestrator:
 
         return validated
 
+    # ------------------------------------------------------------------
+    #  DEPTH ISOLATION ANALYSIS
+    # ------------------------------------------------------------------
+    def run_depth_analysis(self, data_source: str,
+                           start_date: str = None, end_date: str = None,
+                           oos_mode: bool = False):
+        """
+        Run forward pass once per depth for isolated performance analysis.
+        Each depth trades independently — no capital blocking between depths.
+        Brain state carries across depth passes (shared learning).
+        """
+        _DEPTH_LABELS = {
+            1: '4h+', 2: '1h', 3: '15m', 4: '5m', 5: '1m', 6: '30s',
+            7: '15s', 8: '15s', 9: '5s', 10: '5s', 11: '1s', 12: '1s',
+        }
+        print("\n" + "=" * 80)
+        print("DEPTH ISOLATION ANALYSIS")
+        print("Each depth trades independently — no capital blocking from other depths.")
+        print("=" * 80)
+
+        self._analysis_mode = True
+        _results = {}
+
+        for d in range(1, 13):
+            self._depth_only = d
+            self.wave_rider = WaveRider(self.asset)  # fresh rider per depth
+            self.run_forward_pass(
+                data_source, start_date=start_date, end_date=end_date,
+                oos_mode=oos_mode)
+            summary = getattr(self, '_fp_summary', {})
+            if summary and summary.get('total_trades', 0) > 0:
+                _results[d] = {**summary}
+
+        self._depth_only = None
+        self._analysis_mode = False
+
+        # ── Comparison table ────────────────────────────────────────────
+        if not _results:
+            print("\n  No depth produced any trades.")
+            return
+
+        print("\n" + "=" * 80)
+        print("DEPTH ISOLATION RESULTS")
+        print("=" * 80)
+        print(f"  {'Depth':<12} {'TF':<5} {'Trades':>7} {'WR%':>6} "
+              f"{'Total PnL':>12} {'Avg/trade':>10} {'Days':>5}")
+        print(f"  {'─'*12} {'─'*5} {'─'*7} {'─'*6} {'─'*12} {'─'*10} {'─'*5}")
+        for d in sorted(_results.keys()):
+            r = _results[d]
+            n = r['total_trades']
+            pnl = r['total_pnl']
+            wr = r['win_rate'] * 100
+            avg = pnl / n if n > 0 else 0
+            tf = _DEPTH_LABELS.get(d, '?')
+            days = r.get('n_days', 0)
+            flag = "  <- TOP" if avg > 50 else ("  <- BLEED" if avg < -10 else "")
+            print(f"  depth {d:<4} {tf:<5} {n:>7,} {wr:>5.1f}% "
+                  f"${pnl:>10,.2f} ${avg:>9.2f} {days:>5}{flag}")
+
+        _total_trades = sum(r['total_trades'] for r in _results.values())
+        _total_pnl = sum(r['total_pnl'] for r in _results.values())
+        _total_wins = sum(r['total_trades'] * r['win_rate'] for r in _results.values())
+        _comb_wr = (_total_wins / _total_trades * 100) if _total_trades > 0 else 0
+        _comb_avg = _total_pnl / _total_trades if _total_trades > 0 else 0
+        print(f"  {'─'*12} {'─'*5} {'─'*7} {'─'*6} {'─'*12} {'─'*10} {'─'*5}")
+        print(f"  {'COMBINED':<12} {'':5} {_total_trades:>7,} {_comb_wr:>5.1f}% "
+              f"${_total_pnl:>10,.2f} ${_comb_avg:>9.2f}")
+        print(f"\n  NOTE: Combined total exceeds normal run because depths trade simultaneously.")
+        print(f"  Use this to identify which depths to KEEP vs FILTER in production.\n")
+
     def run_strategy_selection(self):
         """
         Phase 5: Analyze brain data + regret history to rank strategies.
@@ -2545,8 +2663,15 @@ class BayesianTrainingOrchestrator:
             elif total >= 10 and (win_rate < 0.35 or avg_pnl < 0):
                 tier = 4  # TOXIC
 
+            _lib = self.pattern_library.get(tid, {})
+            _sname = _lib.get('semantic_name', '')
+            if not _sname and _lib.get('centroid') is not None:
+                from training.fractal_clustering import generate_semantic_name
+                _sname = generate_semantic_name(_lib['centroid'])
+            _sname = _sname or 'Unknown'
             report_data.append({
                 'id': tid,
+                'semantic': _sname,
                 'tier': tier,
                 'trades': total,
                 'win_rate': win_rate,
@@ -2568,18 +2693,18 @@ class BayesianTrainingOrchestrator:
                 }
                 tier1_templates.append((tid, entry))
 
-        # Sort report
-        report_data.sort(key=lambda x: (x['tier'], -x['sharpe']))
+        # Sort report: PnL descending first, then Sharpe descending as tiebreaker
+        report_data.sort(key=lambda x: (-x['pnl'], -x['sharpe']))
 
         # Build report
         rpt = []
         rpt.append("")
         rpt.append("STRATEGY PERFORMANCE REPORT")
-        header = f"{'ID':<10} | {'Tier':<4} | {'Trades':<6} | {'Win%':<5} | {'Sharpe':<6} | {'PnL':<10} | {'MaxDD':<10} | {'Risk':<5}"
+        header = f"{'ID':<10} | {'Playbook':<28} | {'Tier':<4} | {'Trades':<6} | {'Win%':<5} | {'Sharpe':<6} | {'PnL':<10} | {'MaxDD':<10} | {'Risk':<5}"
         rpt.append(header)
-        rpt.append("-" * 85)
+        rpt.append("-" * 115)
         for r in report_data:
-            rpt.append(f"{r['id']:<10} | {r['tier']:<4} | {r['trades']:<6} | {r['win_rate']*100:5.1f} | {r['sharpe']:6.2f} | ${r['pnl']:<9.2f} | ${r['max_dd']:<9.2f} | {r['risk']:.2f}")
+            rpt.append(f"{r['id']:<10} | {r['semantic']:<28} | {r['tier']:<4} | {r['trades']:<6} | {r['win_rate']*100:5.1f} | {r['sharpe']:6.2f} | ${r['pnl']:<9.2f} | ${r['max_dd']:<9.2f} | {r['risk']:.2f}")
 
         # Save Playbook
         playbook = {tid: data for tid, data in tier1_templates}
@@ -2785,6 +2910,9 @@ class BayesianTrainingOrchestrator:
         if manifest is None:
             print("\nPhase 2: Fractal Top-Down Discovery...")
             ckpt.update_phase('discovery', 'in_progress')
+            if self.dashboard_queue:
+                self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Discover',
+                                          'step': 'DISCOVERY  lvl 0/13', 'pct': 0})
 
             # Check for partial resume (some levels done)
             partial_manifest, partial_levels = ckpt.load_discovery()
@@ -2792,10 +2920,21 @@ class BayesianTrainingOrchestrator:
             _train_end = getattr(self.config, 'train_end', None)
             if _train_end:
                 print(f"  Out-of-sample guard: training data capped at {_train_end}")
+
+            # Progress callback wrapping both checkpoint save and dashboard update
+            _n_tf_levels = 13  # total TF hierarchy depth
+            def _discovery_cb(lvl, tf, patterns, levels):
+                ckpt.save_discovery_level(patterns, levels)
+                if self.dashboard_queue:
+                    _done = len(levels) if levels else lvl + 1
+                    self.dashboard_queue.put({
+                        'type': 'PHASE_PROGRESS', 'phase': 'Discover',
+                        'step': f'DISCOVERY  lvl {_done}/{_n_tf_levels}',
+                        'pct': round(_done / _n_tf_levels * 100, 1)})
+
             manifest = self._run_discovery(
                 data_source,
-                checkpoint_callback=lambda lvl, tf, patterns, levels:
-                    ckpt.save_discovery_level(patterns, levels),
+                checkpoint_callback=_discovery_cb,
                 resume_manifest=partial_manifest,
                 resume_levels=partial_levels,
                 train_end=_train_end
@@ -2839,6 +2978,9 @@ class BayesianTrainingOrchestrator:
         if templates is None:
             print("\nPhase 2.5: Generating Physically Tight Templates...")
             ckpt.update_phase('clustering', 'in_progress')
+            if self.dashboard_queue:
+                self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Cluster',
+                                          'step': 'CLUSTERING', 'pct': 0})
 
             n_initial = max(10, len(manifest) // INITIAL_CLUSTER_DIVISOR)
             print(f"  Initial clusters: {n_initial} (from {len(manifest)} patterns / {INITIAL_CLUSTER_DIVISOR})")
@@ -2925,7 +3067,13 @@ class BayesianTrainingOrchestrator:
                 batch_number += 1
                 t_batch = time.perf_counter()
                 total_in_queue = len(template_queue)
+                _total_known = processed_count + len(current_batch) + total_in_queue
                 print(f"\n  Batch {batch_number}: processing {len(current_batch)} templates ({total_in_queue} remaining in queue)...")
+                if self.dashboard_queue:
+                    self.dashboard_queue.put({
+                        'type': 'PHASE_PROGRESS', 'phase': 'Optimize',
+                        'step': f'OPTIMIZE  tmpl {processed_count}/{_total_known}',
+                        'pct': round(processed_count / _total_known * 100, 1) if _total_known else 0})
 
                 tasks = []
                 for tmpl in current_batch:
@@ -2994,7 +3142,8 @@ class BayesianTrainingOrchestrator:
 
                         self.register_template_logic(tmpl, best_params)
                         timing = result.get('timing', '')
-                        print(f"    [{processed_count}] Template {tmpl_id}: DONE ({member_count} members) -> PnL: ${val_pnl:.2f} | {timing}")
+                        _sem = getattr(tmpl, 'semantic_name', 'Unknown')
+                        print(f"    [{processed_count}] Template {tmpl_id} ({_sem}): DONE ({member_count} members) -> PnL: ${val_pnl:.2f} | {timing}")
 
                         if self.dashboard_queue:
                             centroid = original_tmpl.centroid
@@ -3117,6 +3266,7 @@ class BayesianTrainingOrchestrator:
             'long_bias': getattr(template, 'long_bias', 0.0),
             'short_bias': getattr(template, 'short_bias', 0.0),
             'stats_win_rate': getattr(template, 'stats_win_rate', 0.0),
+            'semantic_name': getattr(template, 'semantic_name', 'Unknown'),
             # Oracle exit calibration -- pattern's own price-breathing stats (in ticks)
             # regression_sigma_ticks: residual std of per-cluster OLS (MFE ~ |z|) -> trail = × 1.1
             # 0.0 means _aggregate_oracle_intelligence() didn't have enough members
@@ -3669,6 +3819,9 @@ def main():
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
     parser.add_argument('--fresh', action='store_true', help="Clear all pipeline checkpoints and start fresh")
     parser.add_argument('--forward-pass', action='store_true', help="Run Phase 4 forward pass using existing playbook")
+    parser.add_argument('--depth-iso', action='store_true',
+                        help="Run per-depth isolation analysis: forward pass once per depth (1-12), "
+                             "no capital blocking between depths. Prints comparison table at end.")
     parser.add_argument('--oos', action='store_true',
                         help="Blind out-of-sample simulation: frozen templates, separate oos_trade_log.csv/oos_report.txt, "
                              "training depth_weights.json preserved. Implies --forward-pass. "
@@ -3782,7 +3935,13 @@ def main():
             orchestrator.run_param_sweep()
             return 0
 
-        if (args.forward_pass or args.oos) and not args.fresh:
+        if args.depth_iso and not args.fresh:
+            # Per-depth isolation analysis (uses existing playbook)
+            orchestrator.run_depth_analysis(args.data,
+                                            start_date=args.forward_start,
+                                            end_date=args.forward_end,
+                                            oos_mode=args.oos)
+        elif (args.forward_pass or args.oos) and not args.fresh:
             # Phase 4 only (using existing playbook) or OOS blind simulation
             orchestrator.run_forward_pass(args.data,
                                           start_date=args.forward_start,

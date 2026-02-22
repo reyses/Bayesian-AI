@@ -763,9 +763,9 @@ class TimeframeBeliefNetwork:
         # Workers-against count: how many TF workers disagree with trade direction
         n_workers_against = 0
         for _tf_s, _wkr in self.workers.items():
-            if _wkr.belief is None:
+            if _wkr.current_belief is None:
                 continue
-            _wd = _wkr.belief.dir_prob  # P(LONG)
+            _wd = _wkr.current_belief.dir_prob  # P(LONG)
             if trade_long and _wd < 0.45:
                 n_workers_against += 1
             elif not trade_long and _wd > 0.55:
