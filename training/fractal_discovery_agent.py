@@ -134,23 +134,25 @@ class FractalDiscoveryAgent:
         self.engine = QuantumFieldEngine()
         self.tick_size = MNQ.tick_size # Default to MNQ
 
-    def _consult_oracle(self, df, bar_index, timeframe, tick_size):
+    def _consult_oracle(self, df, bar_index, timeframe, tick_size, states_map=None):
         """
         Judge a pattern using future price data.
 
         Looks ahead N bars (timeframe-dependent) and classifies the outcome
         based on the ratio of max favorable vs max adverse excursion.
+        Also tracks structural integrity (distance from entry state) if states_map provided.
 
         Args:
             df: DataFrame with 'high', 'low', 'close' columns
             bar_index: Index of the pattern bar
             timeframe: String timeframe key (e.g., '15m', '1h')
             tick_size: Asset tick size for min-move calculation
+            states_map: Optional dict {bar_idx: ThreeBodyQuantumState}
 
         Returns:
             (marker: int, meta: dict)
             marker: One of MARKER_* constants
-            meta: {'mfe': float, 'mae': float, 'lookahead_bars': int}
+            meta: {'mfe': float, 'mae': float, 'lookahead_bars': int, 'structural_integrity': List[float]}
         """
         lookahead = ORACLE_LOOKAHEAD_BARS.get(timeframe, 60)
 
@@ -208,11 +210,35 @@ class FractalDiscoveryAgent:
         else:
             mfe_bar = min(mfe_bar_up, mfe_bar_down)
 
+        # Structural Integrity (CST)
+        integrity = []
+        if states_map and bar_index in states_map:
+            entry_state = states_map[bar_index]
+            # Use dummy ancestry since it's constant and cancels out in distance diff
+            dummy_ctx = {'timeframe': timeframe, 'depth': 0, 'parent_type': '', 'parent_chain': []}
+
+            try:
+                v_entry = np.array(QuantumFieldEngine.build_16d_vector(entry_state, dummy_ctx))
+
+                # Scan lookahead window
+                for i in range(1, lookahead + 1):
+                    curr_idx = bar_index + i
+                    if curr_idx in states_map:
+                        curr_state = states_map[curr_idx]
+                        v_curr = np.array(QuantumFieldEngine.build_16d_vector(curr_state, dummy_ctx))
+                        dist = np.linalg.norm(v_curr - v_entry)
+                        integrity.append(float(dist))
+                    else:
+                        integrity.append(999.0) # Unknown state
+            except Exception:
+                pass # Fallback if build_16d_vector fails or numpy issue
+
         meta = {
             'mfe':            max_up,
             'mae':            max_down,
             'lookahead_bars': lookahead,
             'mfe_bar':        mfe_bar,   # 0-based bar index where MFE peaked
+            'structural_integrity': integrity
         }
 
         return marker, meta
@@ -515,6 +541,9 @@ class FractalDiscoveryAgent:
         # 3.5. Enrich Data (Spectral Gate Requirements)
         self._enrich_with_spectral_data(combined, results)
 
+        # Map states for CST
+        states_map = {r['bar_idx']: r['state'] for r in results}
+
         # 4. Extract patterns
         tf_seconds = TIMEFRAME_SECONDS.get(timeframe, 15)
         lookahead_bars = max(50, int(4 * 3600 / tf_seconds))
@@ -535,7 +564,7 @@ class FractalDiscoveryAgent:
             window_slice = combined.iloc[bar_idx:window_end].copy()
 
             # --- Consult Oracle ---
-            marker, meta = self._consult_oracle(combined, bar_idx, timeframe, self.tick_size)
+            marker, meta = self._consult_oracle(combined, bar_idx, timeframe, self.tick_size, states_map)
 
             if state.cascade_detected:
                 detected.append(PatternEvent(
@@ -652,6 +681,9 @@ class FractalDiscoveryAgent:
         # 3.5. Enrich Data (Spectral Gate Requirements)
         self._enrich_with_spectral_data(combined, results)
 
+        # Map states for CST
+        states_map = {r['bar_idx']: r['state'] for r in results}
+
         # 4. Extract patterns
         tf_seconds_val = TIMEFRAME_SECONDS.get(timeframe, 15)
         lookahead_bars = max(50, int(4 * 3600 / tf_seconds_val))
@@ -671,7 +703,7 @@ class FractalDiscoveryAgent:
             window_slice = combined.iloc[bar_idx:window_end].copy()
 
             # --- Consult Oracle ---
-            marker, meta = self._consult_oracle(combined, bar_idx, timeframe, self.tick_size)
+            marker, meta = self._consult_oracle(combined, bar_idx, timeframe, self.tick_size, states_map)
 
             if state.cascade_detected:
                 detected.append(PatternEvent(
@@ -826,6 +858,8 @@ class FractalDiscoveryAgent:
         # Enrich Data (Spectral Gate Requirements)
         self._enrich_with_spectral_data(df, results)
 
+        states_map = {r['bar_idx']: r['state'] for r in results}
+
         detected = []
         n_bars = len(df)
 
@@ -836,7 +870,7 @@ class FractalDiscoveryAgent:
             window_slice = df.iloc[bar_idx:window_end].copy()
 
             # --- Consult Oracle ---
-            marker, meta = self._consult_oracle(df, bar_idx, timeframe, self.tick_size)
+            marker, meta = self._consult_oracle(df, bar_idx, timeframe, self.tick_size, states_map)
 
             if state.cascade_detected:
                 detected.append(PatternEvent(

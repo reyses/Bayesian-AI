@@ -198,6 +198,74 @@ class QuantumFieldEngine:
             horizon_seconds=RISK_HORIZON_SECONDS
         )
     
+    @staticmethod
+    def build_16d_vector(state, ancestry_context: dict) -> list:
+        """
+        Reconstructs the 16D feature vector for a given state and ancestry context.
+        Used for CST (Coherent Structure Tether) checks.
+        """
+        import math
+        # 1. Base Physics from State
+        z = getattr(state, 'z_score', 0.0)
+        v = getattr(state, 'particle_velocity', 0.0)
+        m = getattr(state, 'momentum_strength', 0.0)
+        c = getattr(state, 'coherence', 0.0)
+
+        # log1p compression
+        v_feat = math.log1p(abs(v))
+        m_feat = math.log1p(abs(m))
+
+        # 2. Ancestry Context (Constant for the trade)
+        tf = ancestry_context.get('timeframe', '15s')
+        depth = float(ancestry_context.get('depth', 0))
+        parent_type = ancestry_context.get('parent_type', '')
+        chain = ancestry_context.get('parent_chain', [])
+
+        # TF Scale
+        # Hardcoded map to avoid circular import (matches TIMEFRAME_SECONDS)
+        tf_map = {
+            '1s': 1, '5s': 5, '15s': 15, '30s': 30,
+            '1m': 60, '2m': 120, '3m': 180, '5m': 300,
+            '15m': 900, '30m': 1800, '1h': 3600, '4h': 14400,
+            '1D': 86400, '1W': 604800,
+        }
+        tf_secs = tf_map.get(tf, 15)
+        tf_scale = math.log2(max(1, tf_secs))
+
+        parent_ctx = 1.0 if parent_type == 'ROCHE_SNAP' else 0.0
+
+        # 3. Self Regime from State
+        self_adx = getattr(state, 'adx_strength', 0.0) * 0.01
+        self_hurst = getattr(state, 'hurst_exponent', 0.5)
+        self_dmi_diff = (getattr(state, 'dmi_plus', 0.0) - getattr(state, 'dmi_minus', 0.0)) * 0.01
+        self_pid = getattr(state, 'term_pid', 0.0)
+        self_osc_coh = getattr(state, 'oscillation_coherence', 0.0)
+
+        # 4. Ancestry Logic
+        chain = chain or []
+        if chain:
+            c0 = chain[0]
+            parent_z = abs(c0.get('z', 0.0))
+            parent_dmi_diff = (c0.get('dmi_plus', 0.0) - c0.get('dmi_minus', 0.0)) / 100.0
+
+            root = chain[-1]
+            root_is_roche = 1.0 if root.get('type') == 'ROCHE_SNAP' else 0.0
+            root_dmi_diff = (root.get('dmi_plus', 0.0) - root.get('dmi_minus', 0.0)) / 100.0
+
+            self_dir = 1.0 if self_dmi_diff > 0 else -1.0
+            root_dir = 1.0 if root_dmi_diff > 0 else -1.0
+            tf_alignment = self_dir * root_dir
+        else:
+            parent_z = 0.0
+            parent_dmi_diff = 0.0
+            root_is_roche = 0.0
+            tf_alignment = 0.0
+
+        return [abs(z), v_feat, m_feat, c, tf_scale, depth, parent_ctx,
+                self_adx, self_hurst, self_dmi_diff,
+                parent_z, parent_dmi_diff, root_is_roche, tf_alignment,
+                self_pid, self_osc_coh]
+
     def calculate_three_body_state(
         self, 
         df_macro: pd.DataFrame,   # 15min bars

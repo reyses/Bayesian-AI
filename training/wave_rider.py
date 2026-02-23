@@ -7,6 +7,7 @@ ENHANCED: Now includes post-trade regret analysis for adaptive trail optimizatio
 import time
 from dataclasses import dataclass
 from typing import Optional, Dict, Union, List, Tuple, Literal
+import numpy as np
 from core.state_vector import StateVector
 from core.three_body_state import ThreeBodyQuantumState
 
@@ -246,6 +247,12 @@ class Position:
     breakeven_locked: bool = False                 # True once stop moved to entry (risk-free)
     breakeven_level: Optional[float] = None        # price level of the breakeven stop
 
+    # CST
+    cst_centroid: Optional[np.ndarray] = None
+    cst_basin_mean: float = 0.0
+    cst_basin_std: float = 0.0
+    cst_ancestry: Optional[Dict] = None
+
 
 class WaveRider:
     """
@@ -307,7 +314,11 @@ class WaveRider:
                      profit_target_ticks: Optional[int] = None,
                      trailing_stop_ticks: Optional[int] = None,
                      trail_activation_ticks: Optional[int] = None,
-                     template_id: Optional[int] = None):
+                     template_id: Optional[int] = None,
+                     cst_centroid: Optional[np.ndarray] = None,
+                     cst_basin_mean: float = 0.0,
+                     cst_basin_std: float = 0.0,
+                     cst_ancestry: Optional[Dict] = None):
         """
         Open new position
 
@@ -322,6 +333,10 @@ class WaveRider:
                                     Until then the initial hard stop is used.
                                     None = trail active from bar 1 (legacy behaviour).
             template_id: ID of the template triggering this trade
+            cst_centroid: Template centroid (scaled) for structural integrity checks
+            cst_basin_mean: Mean distance of members to centroid
+            cst_basin_std: StdDev of member distances
+            cst_ancestry: Dictionary of static ancestry features for vector reconstruction
         """
         stop_dist = stop_distance_ticks * self.asset.tick_size
         stop_loss = entry_price + stop_dist if side == 'short' else entry_price - stop_dist
@@ -343,6 +358,10 @@ class WaveRider:
             trailing_stop_ticks=trailing_stop_ticks,
             trail_activation_ticks=trail_activation_ticks,
             original_trail_ticks=trailing_stop_ticks,
+            cst_centroid=cst_centroid,
+            cst_basin_mean=cst_basin_mean,
+            cst_basin_std=cst_basin_std,
+            cst_ancestry=cst_ancestry
         )
         
         # Note: Do not clear price_history here as we need it for delayed analysis
@@ -661,6 +680,32 @@ class WaveRider:
         
         print(f"{'='*60}\n")
     
+    def check_structural_integrity(self, current_state: ThreeBodyQuantumState) -> bool:
+        """
+        Returns True if structural integrity is maintained (distance <= basin radius),
+        False if structure is broken (tether snapped).
+        """
+        if not self.position or self.position.cst_centroid is None:
+            return True
+
+        # Build 16D vector
+        from core.quantum_field_engine import QuantumFieldEngine
+
+        try:
+            current_vec = np.array(QuantumFieldEngine.build_16d_vector(current_state, self.position.cst_ancestry))
+            dist = np.linalg.norm(current_vec - self.position.cst_centroid)
+
+            # Tether Break: Distance > Basin_Radius (e.g. mean + 3*std)
+            threshold = self.position.cst_basin_mean + 3.0 * self.position.cst_basin_std
+
+            # Fallback for single-point basins
+            if threshold < 1e-6:
+                threshold = 4.5
+
+            return dist <= threshold
+        except Exception:
+            return True # Fail safe
+
     def get_statistics(self) -> Dict:
         """Get position management statistics."""
         if self.total_trades == 0:

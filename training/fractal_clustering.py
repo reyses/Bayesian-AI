@@ -66,6 +66,10 @@ class PatternTemplate:
     stats_expectancy: float = 0.0           # Mean (mfe - mae) across members
     stats_mega_rate: float = 0.0            # Fraction of members with |oracle_marker| == 2
 
+    # 2. Basin Geometry (CST)
+    basin_mean: float = 0.0                 # Mean distance of members to centroid (scaled space)
+    basin_std:  float = 0.0                 # StdDev of member distances (scaled space)
+
     # 3. Direction Bias
     long_bias: float = 0.0                  # Fraction of positive markers (1,2) vs total non-noise
     short_bias: float = 0.0                 # Fraction of negative markers (-1,-2) vs total non-noise
@@ -271,10 +275,13 @@ class FractalClusteringEngine:
         """
         def _make(tid, X_sub, pats):
             c = np.mean(X_sub, axis=0)
+            dists = np.linalg.norm(X_sub - c, axis=1)
             return PatternTemplate(
                 template_id=tid, centroid=scaler.inverse_transform([c])[0],
                 member_count=len(pats), patterns=pats,
-                physics_variance=float(np.std(X_sub[:, 0]))
+                physics_variance=float(np.std(X_sub[:, 0])),
+                basin_mean=float(np.mean(dists)),
+                basin_std=float(np.std(dists))
             )
 
         # 1. Hard floor
@@ -574,12 +581,15 @@ class FractalClusteringEngine:
             if len(ok_pats) < MIN_PATTERNS_FOR_SPLIT:
                 # Too small → single template, no split
                 centroid = np.mean(sub_X, axis=0)
+                dists = np.linalg.norm(sub_X - centroid, axis=1)
                 final_templates.append(PatternTemplate(
                     template_id=next_id,
                     centroid=scaler.inverse_transform([centroid])[0],
                     member_count=len(ok_pats),
                     patterns=ok_pats,
-                    physics_variance=float(np.std(sub_X[:, 0]))
+                    physics_variance=float(np.std(sub_X[:, 0])),
+                    basin_mean=float(np.mean(dists)),
+                    basin_std=float(np.std(dists))
                 ))
                 next_id += 1
             else:
@@ -660,17 +670,26 @@ class FractalClusteringEngine:
 
         new_templates = []
         for lbl in range(best_n):
-            sub_pats = [ok_pats[i] for i in np.where(best_labels == lbl)[0]]
+            indices = np.where(best_labels == lbl)[0]
+            sub_pats = [ok_pats[i] for i in indices]
             if not sub_pats:
                 continue
             sub_feats = [self.extract_features(p) for p in sub_pats]
             raw_centroid = np.mean(sub_feats, axis=0)
+
+            # CST: Calculate basin geometry using scaled features
+            sub_X_scaled = X_scaled[indices]
+            scaled_centroid = np.mean(sub_X_scaled, axis=0)
+            dists = np.linalg.norm(sub_X_scaled - scaled_centroid, axis=1)
+
             new_tmpl = PatternTemplate(
                 template_id=int(f"{template_id}{lbl}"),
                 centroid=raw_centroid,
                 member_count=len(sub_pats),
                 patterns=sub_pats,
-                physics_variance=float(np.std([f[0] for f in sub_feats]))
+                physics_variance=float(np.std([f[0] for f in sub_feats])),
+                basin_mean=float(np.mean(dists)),
+                basin_std=float(np.std(dists))
             )
             self._aggregate_oracle_intelligence(new_tmpl, sub_pats, self.scaler)
             new_templates.append(new_tmpl)
