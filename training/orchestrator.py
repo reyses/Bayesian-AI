@@ -622,6 +622,15 @@ class BayesianTrainingOrchestrator:
             _df_5s = _load_fine('5s')
             _df_1s  = _load_fine('1s')
 
+            # Pre-extract 1s numpy arrays for wick-aware inner loop
+            if _df_1s is not None and not _df_1s.empty:
+                _1s_ts    = _df_1s['timestamp'].values.astype(np.float64)
+                _1s_highs = _df_1s['high'].values.astype(np.float64)
+                _1s_lows  = _df_1s['low'].values.astype(np.float64)
+                _has_1s   = True
+            else:
+                _has_1s = False
+
             # Belief network: Task 1 for all 10 TF workers (1h -> 1s)
             # 1h->15s resampled from df_15s; 5s/1s from monthly ATLAS files.
             try:
@@ -828,7 +837,24 @@ class BayesianTrainingOrchestrator:
                         _exit_sig = belief_network.get_exit_signal(self.wave_rider.position.side)
                         res = self.wave_rider.update_trail(price, None, ts_raw, exit_signal=_exit_sig)
 
+                        # ── 1s inner loop: check wicks within this 15s bar ──
+                        if not res['should_exit'] and _has_1s:
+                            _s0 = np.searchsorted(_1s_ts, ts_raw, side='left')
+                            _s1 = np.searchsorted(_1s_ts, ts_raw + 15, side='left')
+                            for _1s_i in range(_s0, _s1):
+                                belief_network.tick_sub_resolution(
+                                    tf_bar_idx_1s=_1s_i,
+                                    tf_bar_idx_5s=_1s_i // 5
+                                )
+                                res_1s = self.wave_rider.check_stops_hilo(
+                                    _1s_highs[_1s_i], _1s_lows[_1s_i], _1s_ts[_1s_i]
+                                )
+                                if res_1s['should_exit']:
+                                    res = res_1s
+                                    break
+
                         if res['should_exit']:
+                            _exit_ts = res.get('exit_time', ts_raw)
                             outcome = TradeOutcome(
                                 state=active_template_id,
                                 entry_price=active_entry_price,
@@ -838,8 +864,8 @@ class BayesianTrainingOrchestrator:
                                 timestamp=ts_raw,
                                 exit_reason=res['exit_reason'],
                                 entry_time=active_entry_time,
-                                exit_time=ts_raw,
-                                duration=ts_raw - active_entry_time,
+                                exit_time=_exit_ts,
+                                duration=_exit_ts - active_entry_time,
                                 direction='LONG' if active_side == 'long' else 'SHORT',
                                 template_id=active_template_id
                             )
