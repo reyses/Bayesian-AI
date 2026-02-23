@@ -1,0 +1,59 @@
+{
+  "timestamp": "2026-02-22T23:26:43",
+  "trades": 517,
+  "win_rate": 25.7,
+  "total_pnl": -1929.5,
+  "avg_pnl_trade": -3.73,
+  "ideal_pnl": 20728730.0,
+  "capture_pct": -0.01,
+  "fn_missed_pnl": 20663168.5,
+  "wrong_dir_pnl": 2192.5,
+  "reversed_pnl": 2291.5,
+  "left_on_table": 11949.5,
+  "n_reversed": 195,
+  "n_correct_dir": 273,
+  "total_bars": 225179,
+  "bars_detected": 16395,
+  "bars_blind": 208784,
+  "bars_slot_blocked": 1989,
+  "gate0_skip": 101279,
+  "gate1_skip": 0,
+  "gate2_skip": 520,
+  "gate3_skip": 391,
+  "decay_win_avg": 0.356,
+  "decay_loss_avg": 0.169,
+  "depth_breakdown": {
+    "5": {
+      "n": 3,
+      "avg": -1.5
+    },
+    "6": {
+      "n": 6,
+      "avg": -1.0
+    },
+    "7": {
+      "n": 7,
+      "avg": -4.29
+    },
+    "8": {
+      "n": 12,
+      "avg": -2.25
+    },
+    "9": {
+      "n": 38,
+      "avg": 0.8
+    },
+    "10": {
+      "n": 57,
+      "avg": 0.59
+    },
+    "11": {
+      "n": 136,
+      "avg": -7.07
+    },
+    "12": {
+      "n": 258,
+      "avg": -3.74
+    }
+  }
+}
