@@ -319,7 +319,7 @@ class BayesianBrain:
         )
         self.trade_history = save_data.get('trade_history', [])
         
-        logging.getLogger(__name__).info(f"[BAYESIAN] Loaded {len(self.table)} state patterns from {filepath}")
+        logger.info(f"[BAYESIAN] Loaded {len(self.table)} state patterns from {filepath}")
     
     def get_summary(self) -> Dict:
         """Overall learning statistics"""
