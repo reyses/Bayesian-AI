@@ -98,10 +98,18 @@ def _extract_arrays_from_df(df: Any) -> Optional[Tuple[np.ndarray, np.ndarray, n
     if 'z_score' in df.columns and 'velocity' in df.columns:
         z_scores = df['z_score'].values
         velocities = df['velocity'].values
+
+        # Calculate average dt from timestamps (for correct cycle period in seconds)
+        dt = 1.0
+        if timestamps is not None and len(timestamps) > 1:
+            diffs = np.diff(timestamps)
+            dt = float(np.median(diffs))
+            if dt <= 0: dt = 1.0
+
         for i in range(10, n):
             w_z = z_scores[max(0, i - Z_SCORE_CYCLE_WINDOW):i]
             w_v = velocities[max(0, i - VELOCITY_DAMPING_WINDOW):i]
-            periods[i] = extract_dominant_cycle(w_z)
+            periods[i] = extract_dominant_cycle(w_z, dt=dt)
             dampings[i] = calculate_kinetic_damping(w_v)
 
     return prices, timestamps, periods, dampings
