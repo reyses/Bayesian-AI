@@ -34,8 +34,7 @@ def main():
         logger.info("Success!")
         logger.info(f"Head:\n{df.head()}")
     except Exception as e:
-        logger.error(f"Caught exception: {e}")
-        logger.error(traceback.format_exc())
+        logger.exception(f"Caught exception while loading data from {filepath}: {e}")
 
 if __name__ == "__main__":
     main()
