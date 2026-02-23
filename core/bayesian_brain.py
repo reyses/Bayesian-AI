@@ -4,6 +4,8 @@ HashMap-based learning system: StateVector -> WinRate
 """
 import pickle
 import logging
+
+logger = logging.getLogger(__name__)
 import numpy as np
 from collections import defaultdict
 from dataclasses import dataclass
