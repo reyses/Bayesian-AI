@@ -624,5 +624,5 @@ if __name__ == "__main__":
         print(f"  Day {day:>3}: {ratio:.1%} exploitation")
 
     print("\n" + "="*80)
-    print("✅ DOE PARAMETER GENERATOR READY")
+    print("[DONE] DOE PARAMETER GENERATOR READY")
     print("="*80)

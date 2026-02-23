@@ -154,9 +154,9 @@ def convert_dbn_to_parquet(dbn_directory: str, output_directory: str):
         
         elapsed = time.time() - start
         parquet_size = os.path.getsize(output_file) / (1024 * 1024)
-        print(f"→ {parquet_size:.1f} MB ({elapsed:.1f}s)")
+        print(f"-> {parquet_size:.1f} MB ({elapsed:.1f}s)")
     
-    print(f"\n✓ Conversion complete. Parquet files in: {output_directory}")
+    print(f"\n[OK] Conversion complete. Parquet files in: {output_directory}")
 
 
 def load_parquet_from_directory(directory: str) -> pd.DataFrame:

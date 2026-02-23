@@ -39,7 +39,7 @@ class ProgressReporter:
     def print_day_summary(self, metrics: DayMetrics):
         """Print comprehensive day summary"""
         print(f"\n{'='*80}")
-        print(f"✅ DAY {metrics.day_number} COMPLETE: {metrics.date}")
+        print(f"[DONE] DAY {metrics.day_number} COMPLETE: {metrics.date}")
         print(f"{'='*80}")
         print(f"\nTRADING METRICS:")
         print(f"  Total Trades: {metrics.total_trades:>6}        Win Rate: {metrics.win_rate:>6.1%}        P&L: ${metrics.pnl:>8,.2f}")
@@ -86,7 +86,7 @@ class ProgressReporter:
                 avg_pnl = pattern['avg_pnl']
                 zone = pattern.get('lagrange_zone', 'unknown')
 
-                print(f"  {idx}. [{zone}] → {wins}/{total} wins ({wr:.1%}) | Avg: ${avg_pnl:.2f}/trade")
+                print(f"  {idx}. [{zone}] -> {wins}/{total} wins ({wr:.1%}) | Avg: ${avg_pnl:.2f}/trade")
 
     def print_trade_detail(self, trade_num: int, trade, state_str: str):
         """Print individual trade result (for debugging)"""
@@ -213,7 +213,7 @@ class ProgressReporter:
         if recommendations:
             print(f"\nRECOMMENDATIONS:")
             for rec in recommendations[:3]:
-                print(f"  • {rec}")
+                print(f"  - {rec}")
 
     def save_progress_log(self, filepath: str):
         """Save progress to file for later analysis"""
@@ -242,7 +242,7 @@ class ProgressReporter:
         with open(filepath, 'w') as f:
             json.dump(data, f, indent=2)
 
-        print(f"\n💾 Progress saved to: {filepath}")
+        print(f"\n[SAVED] Progress saved to: {filepath}")
 
 
 # Example usage

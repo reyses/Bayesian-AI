@@ -559,5 +559,5 @@ if __name__ == "__main__":
     print(f"Exits too late: {summary['exits_too_late']}")
     
     print("\n" + "="*80)
-    print("✅ SYSTEM READY FOR INTEGRATION")
+    print("[DONE] SYSTEM READY FOR INTEGRATION")
     print("="*80)

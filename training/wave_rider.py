@@ -634,8 +634,8 @@ class WaveRider:
         print(f"-" * 60)
         print(f"Actual PnL:    ${markers.actual_pnl:>8.2f}")
         print(f"Potential Max: ${markers.potential_max_pnl:>8.2f}")
-        print(f"Left on Table: ${markers.pnl_left_on_table:>8.2f}  {'⚠️  CLOSED TOO EARLY' if markers.pnl_left_on_table > 20 else ''}")
-        print(f"Gave Back:     ${markers.gave_back_pnl:>8.2f}  {'⚠️  HELD TOO LONG' if markers.gave_back_pnl > 20 else ''}")
+        print(f"Left on Table: ${markers.pnl_left_on_table:>8.2f}  {'!! CLOSED TOO EARLY' if markers.pnl_left_on_table > 20 else ''}")
+        print(f"Gave Back:     ${markers.gave_back_pnl:>8.2f}  {'!! HELD TOO LONG' if markers.gave_back_pnl > 20 else ''}")
         print(f"-" * 60)
         print(f"Exit Efficiency: {markers.exit_efficiency:.1%}")
         print(f"Regret Type: {markers.regret_type.upper()}")
@@ -664,7 +664,7 @@ class WaveRider:
             self.trail_config['medium'] = min(30, self.trail_config['medium'] + 5)
             self.trail_config['wide'] = min(50, self.trail_config['wide'] + 5)
             
-            print(f"\n⚠️ WIDENING TRAIL STOPS")
+            print(f"\n[WARN] WIDENING TRAIL STOPS")
             print(f"Old: Tight={old_config['tight']}, Medium={old_config['medium']}, Wide={old_config['wide']}")
             print(f"New: Tight={self.trail_config['tight']}, Medium={self.trail_config['medium']}, Wide={self.trail_config['wide']}")
             print(f"Reason: {recs.get('reason', 'Closing too early')}")
@@ -675,7 +675,7 @@ class WaveRider:
             self.trail_config['medium'] = max(10, self.trail_config['medium'] - 5)
             self.trail_config['wide'] = max(15, self.trail_config['wide'] - 5)
             
-            print(f"\n⚠️ TIGHTENING TRAIL STOPS")
+            print(f"\n[WARN] TIGHTENING TRAIL STOPS")
             print(f"Old: Tight={old_config['tight']}, Medium={old_config['medium']}, Wide={old_config['wide']}")
             print(f"New: Tight={self.trail_config['tight']}, Medium={self.trail_config['medium']}, Wide={self.trail_config['wide']}")
             print(f"Reason: {recs.get('reason', 'Holding too long')}")
