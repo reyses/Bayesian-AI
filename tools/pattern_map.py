@@ -30,6 +30,9 @@ GATE_STYLE = {
     'gate2':              ('#cc44cc', 'Gate 2 (brain)',      6, 0.65),
     'gate0_r4_struct':    ('#ff2222', 'Gate 0 (headroom)',   7, 0.70),
     'gate0_r4_nightmare': ('#ff0000', 'Gate 0 (nightmare)',  7, 0.70),
+    'gate0_hurst':        ('#ff6600', 'Gate 0 (Hurst)',      7, 0.65),
+    'gate0_momentum':     ('#ff4488', 'Gate 0 (momentum)',   7, 0.65),
+    'gate0_tunnel':       ('#ff2288', 'Gate 0 (tunnel)',     7, 0.65),
     'gate0_5':            ('#aa4444', 'Gate 0.5 (depth)',    6, 0.60),
 }
 
@@ -129,7 +132,8 @@ def main():
 
     # ── Plot signals by gate (score_losers first/background, traded last/foreground)
     gate_order = ['score_loser', 'gate3', 'gate0_5', 'gate1', 'gate2',
-                  'gate0_r4_struct', 'gate0_r4_nightmare', 'traded']
+                  'gate0_r4_struct', 'gate0_r4_nightmare',
+                  'gate0_hurst', 'gate0_momentum', 'gate0_tunnel', 'traded']
 
     for gate_name in gate_order:
         subset = sig[sig['gate'] == gate_name]
