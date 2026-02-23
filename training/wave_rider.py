@@ -608,6 +608,77 @@ class WaveRider:
         self.position.stop_loss = new_stop
         return {'should_exit': False, 'current_stop': new_stop}
 
+    def check_stops_hilo(self, high: float, low: float, timestamp: float) -> dict:
+        """
+        Lightweight intra-bar stop check using 1s high/low.
+        Does NOT modify trail distances, does NOT increment bars_in_trade.
+        Called from the 1s inner loop when a position is open.
+        """
+        if not self.position:
+            return {'should_exit': False}
+
+        pos = self.position
+
+        # Update high water mark from 1s extremes
+        if pos.side == 'long':
+            pos.high_water_mark = max(pos.high_water_mark, high)
+        else:
+            pos.high_water_mark = min(pos.high_water_mark, low)
+
+        fill_price = 0.0
+        exit_reason = ''
+
+        # Profit target check FIRST (if both PT and stop hit in same bar, PT wins)
+        if pos.profit_target:
+            if pos.side == 'long' and high >= pos.profit_target:
+                fill_price = pos.profit_target
+                exit_reason = 'profit_target'
+            elif pos.side == 'short' and low <= pos.profit_target:
+                fill_price = pos.profit_target
+                exit_reason = 'profit_target'
+
+        # Stop check (worst-case fill: gap-through uses actual extreme)
+        if not exit_reason:
+            if pos.side == 'long' and low <= pos.stop_loss:
+                fill_price = min(pos.stop_loss, low)
+                exit_reason = 'trail_stop'
+            elif pos.side == 'short' and high >= pos.stop_loss:
+                fill_price = max(pos.stop_loss, high)
+                exit_reason = 'trail_stop'
+
+        # Breakeven floor check
+        if not exit_reason and pos.breakeven_locked and pos.breakeven_level is not None:
+            if pos.side == 'long' and low <= pos.breakeven_level:
+                fill_price = pos.breakeven_level
+                exit_reason = 'trail_stop'
+            elif pos.side == 'short' and high >= pos.breakeven_level:
+                fill_price = pos.breakeven_level
+                exit_reason = 'trail_stop'
+
+        if exit_reason:
+            if pos.side == 'long':
+                pnl = (fill_price - pos.entry_price) * self.asset.point_value
+            else:
+                pnl = (pos.entry_price - fill_price) * self.asset.point_value
+
+            review = PendingReview(
+                entry_price=pos.entry_price, exit_price=fill_price,
+                entry_time=pos.entry_time, exit_time=timestamp,
+                review_end_time=timestamp + self.review_wait_time,
+                side=pos.side, exit_reason=exit_reason
+            )
+            self.pending_reviews.append(review)
+            _adj_reason = pos.last_adjustment_reason or ''
+            self.position = None
+
+            return {
+                'should_exit': True, 'exit_price': fill_price,
+                'exit_reason': exit_reason, 'exit_time': timestamp,
+                'adjustment_reason': _adj_reason, 'pnl': pnl
+            }
+
+        return {'should_exit': False}
+
     def _check_layer_breaks(self, current: Union[StateVector, ThreeBodyQuantumState]) -> bool:
         """Check if market structure broke"""
         if isinstance(current, ThreeBodyQuantumState):
