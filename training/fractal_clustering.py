@@ -549,7 +549,8 @@ class FractalClusteringEngine:
                     centroid=raw_centroid,
                     member_count=len(sub_patterns),
                     patterns=sub_patterns,
-                    physics_variance=z_variance
+                    physics_variance=z_variance,
+                    semantic_name=generate_semantic_name(raw_centroid)
                 ))
                 next_id += 1
 
@@ -634,7 +635,8 @@ class FractalClusteringEngine:
                 centroid=new_phys_centroid,
                 member_count=len(sub_patterns),
                 patterns=sub_patterns,
-                physics_variance=0.0 # Assumed tight since parent was tight
+                physics_variance=0.0, # Assumed tight since parent was tight
+                semantic_name=generate_semantic_name(new_phys_centroid)
             )
 
             # Recalculate Oracle Stats for new split
