@@ -3,6 +3,7 @@ Bayesian-AI - Bayesian Probability Engine
 HashMap-based learning system: StateVector -> WinRate
 """
 import pickle
+import logging
 import numpy as np
 from collections import defaultdict
 from dataclasses import dataclass
@@ -302,7 +303,7 @@ class BayesianBrain:
         }
         with open(filepath, 'wb') as f:
             pickle.dump(save_data, f)
-        print(f"[BAYESIAN] Saved {len(self.table)} state patterns to {filepath}")
+        logging.getLogger(__name__).info(f"[BAYESIAN] Saved {len(self.table)} state patterns to {filepath}")
     
     def load(self, filepath: str):
         """Load probability table from disk"""
@@ -316,7 +317,7 @@ class BayesianBrain:
         )
         self.trade_history = save_data.get('trade_history', [])
         
-        print(f"[BAYESIAN] Loaded {len(self.table)} state patterns from {filepath}")
+        logging.getLogger(__name__).info(f"[BAYESIAN] Loaded {len(self.table)} state patterns from {filepath}")
     
     def get_summary(self) -> Dict:
         """Overall learning statistics"""

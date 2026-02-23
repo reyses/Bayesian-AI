@@ -1,25 +1,43 @@
+import argparse
+import logging
 import databento as db
 import pandas as pd
 import sys
+import traceback
 
-filepath = "tests/Testing DATA/glbx-mdp3-20250730.trades.0000.dbn.zst"
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
-try:
-    print(f"Inspecting file: {filepath}")
-    # Try loading directly
-    store = db.DBNStore.from_file(filepath)
-    print("DBNStore loaded.")
+def main():
+    parser = argparse.ArgumentParser(description="Debug Databento DBN file loading.")
+    parser.add_argument(
+        "--file",
+        type=str,
+        required=True,
+        help="Path to the .dbn.zst file to inspect."
+    )
+    args = parser.parse_args()
 
-    # Try iterator first to see one record
-    # record = next(store)
-    # print(f"First record: {record}")
+    filepath = args.file
 
-    # Try to_df
-    df = store.to_df()
-    print("DataFrame columns:", df.columns)
-    print("DataFrame head:\n", df.head())
+    try:
+        logger.info(f"Inspecting file: {filepath}")
+        # Try loading directly
+        store = db.DBNStore.from_file(filepath)
+        logger.info("DBNStore loaded.")
 
-except Exception as e:
-    print(f"Error: {e}")
-    import traceback
-    traceback.print_exc()
+        # Try to_df
+        df = store.to_df()
+        logger.info(f"DataFrame columns: {df.columns}")
+        logger.info(f"DataFrame head:\n{df.head()}")
+
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        logger.error(traceback.format_exc())
+
+if __name__ == "__main__":
+    main()
