@@ -10,6 +10,7 @@ Feature vector per pattern (16D):
 The timeframe scale + depth + parent context + PID regime let the clustering naturally separate
 patterns that look similar in physics but live at different fractal scales or regimes.
 """
+import math
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass, field
@@ -122,31 +123,54 @@ class FractalClusteringEngine:
         comparable to 15s bars.  The scaler then standardizes the
         log-compressed values across the full training set.
         """
-        z = getattr(p, 'z_score', 0.0)
-        v = getattr(p, 'velocity', 0.0)
-        m = getattr(p, 'momentum', 0.0)
-        c = getattr(p, 'coherence', 0.0)
-        # log1p compression keeps extreme TF values finite
-        v_feat = np.log1p(abs(v))
-        m_feat = np.log1p(abs(m))
+        # 1. Base Physics (Fast Path: Direct Attribute Access)
+        try:
+            z = p.z_score
+            v = p.velocity
+            m = p.momentum
+            c = p.coherence
+            tf = p.timeframe
+            depth = float(p.depth)
+            parent_type = p.parent_type
+            state = p.state
+            chain = p.parent_chain
+        except AttributeError:
+            # Slow Path: Fallback for Mock objects or Dicts
+            z = getattr(p, 'z_score', 0.0)
+            v = getattr(p, 'velocity', 0.0)
+            m = getattr(p, 'momentum', 0.0)
+            c = getattr(p, 'coherence', 0.0)
+            tf = getattr(p, 'timeframe', '15s')
+            depth = float(getattr(p, 'depth', 0))
+            parent_type = getattr(p, 'parent_type', '')
+            state = getattr(p, 'state', None)
+            chain = getattr(p, 'parent_chain', None)
+
+        # log1p compression (Math > Numpy for scalars)
+        v_feat = math.log1p(abs(v))
+        m_feat = math.log1p(abs(m))
 
         # Fractal hierarchy features
-        tf = getattr(p, 'timeframe', '15s')
         tf_secs = TIMEFRAME_SECONDS.get(tf, 15)
-        tf_scale = np.log2(max(1, tf_secs))  # log2 for even spacing
+        # log2(max(1, x)) -> math.log2
+        tf_scale = math.log2(max(1, tf_secs))
 
-        depth = float(getattr(p, 'depth', 0))
-        parent_type = getattr(p, 'parent_type', '')
         parent_ctx = 1.0 if parent_type == 'ROCHE_SNAP' else 0.0
 
         # Self Regime features
-        state = getattr(p, 'state', None)
         if state:
-             self_adx = getattr(state, 'adx_strength', 0.0) / 100.0
-             self_hurst = getattr(state, 'hurst_exponent', 0.5)
-             self_dmi_diff = (getattr(state, 'dmi_plus', 0.0) - getattr(state, 'dmi_minus', 0.0)) / 100.0
-             self_pid       = getattr(state, 'term_pid', 0.0)
-             self_osc_coh   = getattr(state, 'oscillation_coherence', 0.0)
+             try:
+                 self_adx = state.adx_strength * 0.01
+                 self_hurst = state.hurst_exponent
+                 self_dmi_diff = (state.dmi_plus - state.dmi_minus) * 0.01
+                 self_pid = state.term_pid
+                 self_osc_coh = state.oscillation_coherence
+             except AttributeError:
+                 self_adx = getattr(state, 'adx_strength', 0.0) / 100.0
+                 self_hurst = getattr(state, 'hurst_exponent', 0.5)
+                 self_dmi_diff = (getattr(state, 'dmi_plus', 0.0) - getattr(state, 'dmi_minus', 0.0)) / 100.0
+                 self_pid       = getattr(state, 'term_pid', 0.0)
+                 self_osc_coh   = getattr(state, 'oscillation_coherence', 0.0)
         else:
              self_adx = 0.0
              self_hurst = 0.5
@@ -155,11 +179,12 @@ class FractalClusteringEngine:
              self_osc_coh = 0.0
 
         # Ancestry features
-        chain = getattr(p, 'parent_chain', None) or []
+        chain = chain or []
         if chain:
             # Immediate parent
-            parent_z = abs(chain[0].get('z', 0.0))
-            parent_dmi_diff = (chain[0].get('dmi_plus', 0.0) - chain[0].get('dmi_minus', 0.0)) / 100.0
+            c0 = chain[0]
+            parent_z = abs(c0.get('z', 0.0))
+            parent_dmi_diff = (c0.get('dmi_plus', 0.0) - c0.get('dmi_minus', 0.0)) / 100.0
 
             # Root ancestor
             root = chain[-1]
