@@ -33,16 +33,21 @@ from config.oracle_config import (
 from config.symbols import MNQ
 
 # Timeframe hierarchy: largest to smallest (top-down scan order)
-# 1D/4h/1h/30m/15m = context-only (enrich parent_chain, not pattern gates)
-# 5m = primary day-trading signal level (macro scan starts here)
-# 3m/2m/1m/30s/15s/5s/1s = drill-down for precise entry timing
-TIMEFRAME_HIERARCHY = ['1D', '4h', '1h', '30m', '15m', '5m', '3m', '2m', '1m', '30s', '15s', '5s', '1s']
+# 1W/1D/4h/1h = context-only (enrich parent_chain, not pattern gates)
+# 30m = primary signal level (macro scan starts here)
+# 15m/5m/1m/30s = drill-down for precise entry timing
+# 15s/5s/1s = sub-resolution (belief network workers only, no trade candidates)
+TIMEFRAME_HIERARCHY = ['1W', '1D', '4h', '1h', '30m', '15m', '5m', '1m', '30s', '15s', '5s', '1s']
 
-# These TFs are scanned for context only — no patterns required, never block drill-down
-CONTEXT_ONLY_TIMEFRAMES = {'1D', '4h', '1h', '30m'}
+# These TFs are scanned for context only -- no patterns required, never block drill-down
+CONTEXT_ONLY_TIMEFRAMES = {'1W', '1D', '4h', '1h'}
 
-# Primary signal level — macro scan starts here (15m: stable intraday signal)
-PRIMARY_SIGNAL_TIMEFRAME = '15m'
+# Primary signal level -- macro scan starts here (30m: stable intraday signal)
+PRIMARY_SIGNAL_TIMEFRAME = '30m'
+
+# Sub-resolution TFs: belief network workers only, not trade candidates.
+# States are computed via prepare_day() but scan_day_cascade skips these levels.
+SUB_RESOLUTION_TIMEFRAMES = {'15s', '5s', '1s'}
 
 # Maps timeframe labels to seconds
 TIMEFRAME_SECONDS = {
@@ -404,11 +409,10 @@ class FractalDiscoveryAgent:
         current_windows = None
         all_patterns = []
 
-        hierarchy = [
-            ('1D', 0), ('4h', 1), ('1h', 2), ('30m', 3), ('15m', 4),
-            ('5m', 5), ('3m', 6), ('2m', 7), ('1m', 8),
-            ('30s', 9), ('15s', 10), ('5s', 11), ('1s', 12)
-        ]
+        # Derive from TIMEFRAME_HIERARCHY, excluding sub-resolution TFs
+        # (belief network workers get states via prepare_day, not the cascade)
+        hierarchy = [(tf, i) for i, tf in enumerate(TIMEFRAME_HIERARCHY)
+                     if tf not in SUB_RESOLUTION_TIMEFRAMES]
 
         for tf, depth in hierarchy:
             tf_path = os.path.join(atlas_root, tf)
