@@ -245,6 +245,8 @@ class Position:
     last_adjustment_reason: Optional[str] = None  # belief reason that last tightened/widened trail
     breakeven_locked: bool = False                 # True once stop moved to entry (risk-free)
     breakeven_level: Optional[float] = None        # price level of the breakeven stop
+    entry_dmi_inverse: bool = False                # True if DMI was against trade direction at entry
+    bars_in_trade: int = 0                           # incremented each update_trail call
 
 
 class WaveRider:
@@ -425,11 +427,17 @@ class WaveRider:
         # Update history via process_pending_reviews
         self.process_pending_reviews(current_time, current_price)
 
+        # Track how many bars this trade has been open
+        self.position.bars_in_trade += 1
+
         # --- Dynamic Exit Logic ---
         urgent_exit = False
+        decay_exit = False
         if exit_signal:
             if exit_signal.get('urgent_exit'):
                 urgent_exit = True
+            if exit_signal.get('decay_exit'):
+                decay_exit = True
 
             if exit_signal.get('tighten_trail') and self.position.trailing_stop_ticks is not None:
                 # Reduce trail by TIGHTEN_TRAIL_FACTOR (gentle 8% per bar, was 30%).
@@ -511,15 +519,33 @@ class WaveRider:
             else:
                 new_stop = min(new_stop, self.position.breakeven_level)
 
+        # Loss watchdog: DMI inverse + underwater + workers agree on reversal
+        # Triple confirmation prevents cutting on noise dips.
+        # 8 ticks = $2.00 move = $4.00 PnL on MNQ — filters out normal noise.
+        WATCHDOG_TICKS = 8       # must be at least this far underwater
+        WATCHDOG_WORKERS = 5     # at least N workers must disagree with trade side
+        WATCHDOG_MIN_BARS = 5    # must hold at least N bars before watchdog can fire
+        watchdog_exit = False
+        if (self.position.bars_in_trade >= WATCHDOG_MIN_BARS
+                and self.position.entry_dmi_inverse
+                and profit_ticks <= -WATCHDOG_TICKS
+                and exit_signal
+                and exit_signal.get('workers_against', 0) >= WATCHDOG_WORKERS):
+            watchdog_exit = True
+
         # Check Stop Hit, Profit Target, or Structure Break
         stop_hit = (self.position.side == 'short' and current_price >= new_stop) or \
                    (self.position.side == 'long' and current_price <= new_stop)
 
         structure_broken = self._check_layer_breaks(current_state)
 
-        if stop_hit or structure_broken or pt_hit or urgent_exit:
+        if stop_hit or structure_broken or pt_hit or urgent_exit or decay_exit or watchdog_exit:
             if urgent_exit:
                 exit_reason = 'belief_flip'
+            elif watchdog_exit:
+                exit_reason = 'loss_watchdog'
+            elif decay_exit:
+                exit_reason = 'physics_decay'
             elif pt_hit:
                 exit_reason = 'profit_target'
             elif structure_broken:
@@ -679,8 +705,8 @@ class WaveRider:
         print(f"-" * 60)
         print(f"Actual PnL:    ${markers.actual_pnl:>8.2f}")
         print(f"Potential Max: ${markers.potential_max_pnl:>8.2f}")
-        print(f"Left on Table: ${markers.pnl_left_on_table:>8.2f}  {'⚠️  CLOSED TOO EARLY' if markers.pnl_left_on_table > 20 else ''}")
-        print(f"Gave Back:     ${markers.gave_back_pnl:>8.2f}  {'⚠️  HELD TOO LONG' if markers.gave_back_pnl > 20 else ''}")
+        print(f"Left on Table: ${markers.pnl_left_on_table:>8.2f}  {'!! CLOSED TOO EARLY' if markers.pnl_left_on_table > 20 else ''}")
+        print(f"Gave Back:     ${markers.gave_back_pnl:>8.2f}  {'!! HELD TOO LONG' if markers.gave_back_pnl > 20 else ''}")
         print(f"-" * 60)
         print(f"Exit Efficiency: {markers.exit_efficiency:.1%}")
         print(f"Regret Type: {markers.regret_type.upper()}")
@@ -709,7 +735,7 @@ class WaveRider:
             self.trail_config['medium'] = min(30, self.trail_config['medium'] + 5)
             self.trail_config['wide'] = min(50, self.trail_config['wide'] + 5)
             
-            print(f"\n⚠️ WIDENING TRAIL STOPS")
+            print(f"\n[WARN] WIDENING TRAIL STOPS")
             print(f"Old: Tight={old_config['tight']}, Medium={old_config['medium']}, Wide={old_config['wide']}")
             print(f"New: Tight={self.trail_config['tight']}, Medium={self.trail_config['medium']}, Wide={self.trail_config['wide']}")
             print(f"Reason: {recs.get('reason', 'Closing too early')}")
@@ -720,7 +746,7 @@ class WaveRider:
             self.trail_config['medium'] = max(10, self.trail_config['medium'] - 5)
             self.trail_config['wide'] = max(15, self.trail_config['wide'] - 5)
             
-            print(f"\n⚠️ TIGHTENING TRAIL STOPS")
+            print(f"\n[WARN] TIGHTENING TRAIL STOPS")
             print(f"Old: Tight={old_config['tight']}, Medium={old_config['medium']}, Wide={old_config['wide']}")
             print(f"New: Tight={self.trail_config['tight']}, Medium={self.trail_config['medium']}, Wide={self.trail_config['wide']}")
             print(f"Reason: {recs.get('reason', 'Holding too long')}")
