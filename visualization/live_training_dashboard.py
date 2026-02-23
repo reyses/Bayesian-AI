@@ -29,6 +29,45 @@ PARETO_COLORS = {
 TOP_TEMPLATES_LIMIT = 50
 
 
+class Tooltip:
+    """
+    Creates a tooltip for a given widget as the mouse hovers over it.
+    """
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tip_window = None
+        widget.bind("<Enter>", self.show_tip)
+        widget.bind("<Leave>", self.hide_tip)
+
+    def show_tip(self, event=None):
+        if self.tip_window or not self.text:
+            return
+
+        try:
+            x, y, cx, cy = self.widget.bbox("insert")
+            x += self.widget.winfo_rootx() + 25
+            y += cy + self.widget.winfo_rooty() + 25
+        except (TypeError, ValueError, AttributeError):
+            x = self.widget.winfo_rootx() + 20
+            y = self.widget.winfo_rooty() + self.widget.winfo_height() + 5
+
+        self.tip_window = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+
+        label = tk.Label(tw, text=self.text, justify=tk.LEFT,
+                         background="#333333", foreground="#ffffff",
+                         relief=tk.SOLID, borderwidth=1,
+                         font=("Consolas", 8))
+        label.pack(ipadx=1)
+
+    def hide_tip(self, event=None):
+        if self.tip_window:
+            self.tip_window.destroy()
+            self.tip_window = None
+
+
 class FractalDashboard:
     def __init__(self, root, queue):
         self.root  = root
@@ -77,9 +116,11 @@ class FractalDashboard:
 
         self.lbl_status = ttk.Label(top, text="SYSTEM STATUS: INITIALIZING", style="Header.TLabel")
         self.lbl_status.pack(side=tk.LEFT)
+        Tooltip(self.lbl_status, "Current system operational state and active process.")
 
         self.lbl_stats = ttk.Label(top, text="TEMPLATES: 0 | FISSIONS: 0 | PnL: $0", style="TLabel")
         self.lbl_stats.pack(side=tk.RIGHT)
+        Tooltip(self.lbl_stats, "Key Metrics:\n• Templates: Active strategy patterns\n• Fissions: Adaptation events count\n• PnL: Total Realized Profit/Loss")
 
         # ── Three-column body ─────────────────────────────────────────────────
         body = ttk.Frame(self.main_frame)
@@ -96,8 +137,10 @@ class FractalDashboard:
         phys_frame = ttk.Frame(body)
         phys_frame.grid(row=0, column=0, rowspan=2, sticky='nsew', padx=(0,4))
 
-        ttk.Label(phys_frame, text="PHYSICS MANIFOLD  (Z-Score vs Momentum)",
-                  style="Header.TLabel").pack(anchor=tk.W)
+        self.lbl_phys_header = ttk.Label(phys_frame, text="PHYSICS MANIFOLD  (Z-Score vs Momentum)",
+                  style="Header.TLabel")
+        self.lbl_phys_header.pack(anchor=tk.W)
+        Tooltip(self.lbl_phys_header, "Visualizes strategy templates based on statistical properties.\n\n• X-Axis: Z-Score (Significance)\n• Y-Axis: Momentum (Trend Strength)\n• Color: Profit/Loss or Risk Score")
 
         self.fig_phys, self.ax_phys = plt.subplots(figsize=(6, 6), facecolor=BG)
         self.ax_phys.set_facecolor(BG)
@@ -119,8 +162,10 @@ class FractalDashboard:
         pareto_frame = ttk.Frame(body)
         pareto_frame.grid(row=0, column=1, rowspan=2, sticky='nsew', padx=4)
 
-        ttk.Label(pareto_frame, text="PARETO: PROFIT GAP (DMAIC ANALYZE)",
-                  style="Header.TLabel").pack(anchor=tk.W)
+        self.lbl_pareto_header = ttk.Label(pareto_frame, text="PARETO: PROFIT GAP (DMAIC ANALYZE)",
+                  style="Header.TLabel")
+        self.lbl_pareto_header.pack(anchor=tk.W)
+        Tooltip(self.lbl_pareto_header, "DMAIC Analyze Phase: Breakdown of lost potential profit.\nIdentifies where the strategy is leaking value (e.g., missed trades, wrong direction).")
 
         # Profit gap summary numbers
         nums = ttk.Frame(pareto_frame)
@@ -156,7 +201,10 @@ class FractalDashboard:
         right_pane = ttk.Frame(body)
         right_pane.grid(row=0, column=2, rowspan=2, sticky='nsew')
 
-        ttk.Label(right_pane, text="TOP TEMPLATES", style="Header.TLabel").pack(anchor=tk.W)
+        self.lbl_templates_header = ttk.Label(right_pane, text="TOP TEMPLATES", style="Header.TLabel")
+        self.lbl_templates_header.pack(anchor=tk.W)
+        Tooltip(self.lbl_templates_header, "Leaderboard of top performing strategy templates.\nClick column headers to sort by ID, Trade Count, Win Rate, or PnL.")
+
         cols = ("ID", "Trades", "Win%", "PnL")
         self.tree_ranks = ttk.Treeview(right_pane, columns=cols, show='headings', height=14)
         self.tree_ranks.tag_configure('positive', foreground=FG_GREEN)
