@@ -512,6 +512,9 @@ class FractalDiscoveryAgent:
         t_gpu_done = time.perf_counter()
         print(f"    GPU compute: {len(results)} states in {t_gpu_done - t_gpu:.1f}s")
 
+        # 3.5. Enrich Data (Spectral Gate Requirements)
+        self._enrich_with_spectral_data(combined, results)
+
         # 4. Extract patterns
         tf_seconds = TIMEFRAME_SECONDS.get(timeframe, 15)
         lookahead_bars = max(50, int(4 * 3600 / tf_seconds))
@@ -646,6 +649,9 @@ class FractalDiscoveryAgent:
         t_gpu_done = time.perf_counter()
         print(f"    GPU compute: {len(results)} states in {t_gpu_done - t_gpu:.1f}s")
 
+        # 3.5. Enrich Data (Spectral Gate Requirements)
+        self._enrich_with_spectral_data(combined, results)
+
         # 4. Extract patterns
         tf_seconds_val = TIMEFRAME_SECONDS.get(timeframe, 15)
         lookahead_bars = max(50, int(4 * 3600 / tf_seconds_val))
@@ -713,6 +719,22 @@ class FractalDiscoveryAgent:
     # ------------------------------------------------------------------
     # I/O helpers
     # ------------------------------------------------------------------
+
+    def _enrich_with_spectral_data(self, df: pd.DataFrame, results: List[Dict]) -> None:
+        """
+        Populate z_score and velocity columns in the DataFrame from engine results.
+        """
+        z_scores = np.zeros(len(df), dtype=np.float32)
+        velocities = np.zeros(len(df), dtype=np.float32)
+
+        for res in results:
+            idx = res['bar_idx']
+            st = res['state']
+            z_scores[idx] = st.z_score
+            velocities[idx] = st.particle_velocity
+
+        df['z_score'] = z_scores
+        df['velocity'] = velocities
 
     def _load_files_threaded(self, files: List[str], max_workers: int) -> List[Tuple[str, pd.DataFrame]]:
         """Load multiple parquet files in parallel using threads (I/O bound)."""
@@ -800,6 +822,10 @@ class FractalDiscoveryAgent:
                         timeframe: str = '15s') -> List[PatternEvent]:
         """Single-threaded pattern detection (for direct use)."""
         results = self.engine.batch_compute_states(df, use_cuda=True)
+
+        # Enrich Data (Spectral Gate Requirements)
+        self._enrich_with_spectral_data(df, results)
+
         detected = []
         n_bars = len(df)
 

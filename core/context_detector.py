@@ -13,6 +13,9 @@ from core.state_vector import StateVector
 from core.three_body_state import ThreeBodyQuantumState
 import pandas as pd
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -529,9 +532,10 @@ class ContextDetector:
 
 # Example usage
 if __name__ == "__main__":
-    print("="*80)
-    print("CONTEXT DETECTOR - DEMO")
-    print("="*80)
+    logging.basicConfig(level=logging.INFO)
+    logger.info("="*80)
+    logger.info("CONTEXT DETECTOR - DEMO")
+    logger.info("="*80)
 
     detector = ContextDetector()
 
@@ -556,14 +560,14 @@ if __name__ == "__main__":
     contexts = detector.detect(test_state, {}, 'open')
 
     # Print summary
-    print(detector.get_context_summary(contexts))
+    logger.info(detector.get_context_summary(contexts))
 
     # Print active parameters
     active_params = detector.get_active_parameters(contexts)
-    print(f"\nSample Active Parameters:")
+    logger.info(f"\nSample Active Parameters:")
     for key, value in list(active_params.items())[:10]:
-        print(f"  {key}: {value}")
+        logger.info(f"  {key}: {value}")
 
-    print("\n" + "="*80)
-    print("✅ CONTEXT DETECTOR READY")
-    print("="*80)
+    logger.info("\n" + "="*80)
+    logger.info("✅ CONTEXT DETECTOR READY")
+    logger.info("="*80)
