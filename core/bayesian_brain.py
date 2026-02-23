@@ -305,7 +305,7 @@ class BayesianBrain:
         }
         with open(filepath, 'wb') as f:
             pickle.dump(save_data, f)
-        logging.getLogger(__name__).info(f"[BAYESIAN] Saved {len(self.table)} state patterns to {filepath}")
+        logger.info(f"[BAYESIAN] Saved {len(self.table)} state patterns to {filepath}")
     
     def load(self, filepath: str):
         """Load probability table from disk"""
