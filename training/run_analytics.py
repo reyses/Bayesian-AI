@@ -123,11 +123,11 @@ def run_per_depth(records, out):
         for t in trades:
             tf_counts[t.get('root_tf', '?')] += 1
 
-        # ── Print ──
+        # -- Print --
         label = f"depth {d} ({_depth_label(d)})"
-        out.append(f'\n{"─" * 100}')
+        out.append(f'\n{"-" * 100}')
         out.append(f'  {label}  |  {n} trades  |  {wr:.1f}% WR  |  ${total_pnl:,.2f} PnL  |  ${avg_pnl:.2f}/trade')
-        out.append(f'{"─" * 100}')
+        out.append(f'{"-" * 100}')
 
         out.append(f'  Hold: avg {avg_hold:.0f} bars / max {avg_max_hold:.0f} bars ({hold_util:.0f}% utilization)')
         out.append(f'  Direction: {long_pct:.0f}% LONG  |  Correct {n_correct} ({n_correct/n*100:.0f}%)  Wrong {n_wrong} ({n_wrong/n*100:.0f}%)  Noise {n_noise} ({n_noise/n*100:.0f}%)')
@@ -167,7 +167,7 @@ def run_per_depth(records, out):
             tf_str = '  |  '.join(f'{tf}:{cnt}' for tf, cnt in sorted(tf_counts.items(), key=lambda x: -x[1]))
             out.append(f'  Parent TF: {tf_str}')
 
-    # ── Comparison table ──
+    # -- Comparison table --
     out.append(f'\n{"=" * 100}')
     out.append('DEPTH COMPARISON (side-by-side)')
     out.append(f'{"=" * 100}')
@@ -175,7 +175,7 @@ def run_per_depth(records, out):
               f'{"AvgHold":>8} {"Rev%":>6} {"Opt%":>6} {"CapEff":>7} {"MH_Hit%":>8} '
               f'{"Left$":>12}')
     out.append(header)
-    out.append(f'  {"─"*16} {"─"*7} {"─"*6} {"─"*9} {"─"*12} {"─"*8} {"─"*6} {"─"*6} {"─"*7} {"─"*8} {"─"*12}')
+    out.append(f'  {"-"*16} {"-"*7} {"-"*6} {"-"*9} {"-"*12} {"-"*8} {"-"*6} {"-"*6} {"-"*7} {"-"*8} {"-"*12}')
 
     all_trades = 0
     all_pnl = 0.0
@@ -214,7 +214,7 @@ def run_per_depth(records, out):
         all_wins += wins
         all_left += left
 
-    out.append(f'  {"─"*16} {"─"*7} {"─"*6} {"─"*9} {"─"*12} {"─"*8} {"─"*6} {"─"*6} {"─"*7} {"─"*8} {"─"*12}')
+    out.append(f'  {"-"*16} {"-"*7} {"-"*6} {"-"*9} {"-"*12} {"-"*8} {"-"*6} {"-"*6} {"-"*7} {"-"*8} {"-"*12}')
     all_wr = all_wins / all_trades * 100 if all_trades else 0
     all_avg = all_pnl / all_trades if all_trades else 0
     out.append(f'  {"ALL":<16} {all_trades:>7,} {all_wr:>5.1f}% ${all_avg:>8.2f} ${all_pnl:>11,.2f} '
@@ -250,7 +250,7 @@ def main():
 
     output_lines = []
 
-    # ── Suite ──
+    # -- Suite --
     if args.suite:
         report_path = os.path.join(args.checkpoint_dir, f'{prefix}phase4_report.txt')
         from training.trade_analytics import run_trade_analytics
@@ -262,7 +262,7 @@ def main():
             f.write(text)
         print(f'\nSaved: {out_path}')
 
-    # ── Per-depth ──
+    # -- Per-depth --
     if args.per_depth:
         with open(log_path, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
@@ -279,7 +279,7 @@ def main():
             f.write(depth_text)
         print(f'\nSaved: {out_path}')
 
-    print('\n  ✓ Analytics complete.')
+    print('\n  OK: Analytics complete.')
 
 
 if __name__ == '__main__':

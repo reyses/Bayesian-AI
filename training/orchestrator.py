@@ -976,6 +976,16 @@ class BayesianTrainingOrchestrator:
                                 p, 'gate0_5', day_date, ts, micro_z, macro_z, micro_pattern))
                             continue
 
+                        # Hard gate: depths 0-2 (1D/4H/1H) are context-only, never trade.
+                        # Their workers feed conviction but the patterns don't fire entries.
+                        _MIN_TRADE_DEPTH = 3  # 15m and below only
+                        if _cand_depth < _MIN_TRADE_DEPTH:
+                            skip_headroom += 1
+                            _candidate_gate[id(p)] = 'gate0_5'
+                            decision_matrix_records.append(_dm_rec(
+                                p, 'gate0_5', day_date, ts, micro_z, macro_z, micro_pattern))
+                            continue
+
                         # Exclude depths with negative avg PnL from previous run
                         if _cand_depth in _DEPTH_FILTER_OUT:
                             skip_headroom += 1
