@@ -57,7 +57,7 @@ Once a raw pattern is discovered, it must pass a series of **Gates** in the **Or
 ### Gate 3: Fractal Conviction (Belief Network)
 *   **Purpose**: Ensure multi-timeframe alignment.
 *   **Logic**:
-    -   Queries the **Timeframe Belief Network** (8 workers from 1h down to 15s).
+    -   Queries the **Timeframe Belief Network** (10 workers from 1h down to 1s).
     -   **Threshold**: Global conviction must meet `MIN_CONVICTION` (typically 0.65).
 *   **Audit Log**: Rejected candidates are logged with reason `gate3`.
 
