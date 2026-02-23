@@ -19,6 +19,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from training.cuda_kmeans import CUDAKMeans, cuda_silhouette_score
 
+# Core import for vector reconstruction
+from core.quantum_field_engine import QuantumFieldEngine
+
 # Local import of timeframe mapping
 from training.fractal_discovery_agent import TIMEFRAME_SECONDS
 from config.oracle_config import (
@@ -120,95 +123,42 @@ class FractalClusteringEngine:
     def extract_features(p: Any) -> List[float]:
         """
         Extracts 16D feature vector from a PatternEvent.
-        [7 base] + [3 self regime] + [2 PID] + [4 ancestry]
-
-        velocity and momentum use log1p(|x|) compression so that
-        high-timeframe bars (where volume * velocity blows up) remain
-        comparable to 15s bars.  The scaler then standardizes the
-        log-compressed values across the full training set.
+        Delegates to QuantumFieldEngine.build_16d_vector to ensure consistency with CST checks.
         """
-        # 1. Base Physics (Fast Path: Direct Attribute Access)
+        # Construct ancestry context from PatternEvent
         try:
-            z = p.z_score
-            v = p.velocity
-            m = p.momentum
-            c = p.coherence
-            tf = p.timeframe
-            depth = float(p.depth)
-            parent_type = p.parent_type
             state = p.state
-            chain = p.parent_chain
+            ancestry = {
+                'timeframe': p.timeframe,
+                'depth': float(p.depth),
+                'parent_type': p.parent_type,
+                'parent_chain': p.parent_chain
+            }
         except AttributeError:
-            # Slow Path: Fallback for Mock objects or Dicts
-            z = getattr(p, 'z_score', 0.0)
-            v = getattr(p, 'velocity', 0.0)
-            m = getattr(p, 'momentum', 0.0)
-            c = getattr(p, 'coherence', 0.0)
-            tf = getattr(p, 'timeframe', '15s')
-            depth = float(getattr(p, 'depth', 0))
-            parent_type = getattr(p, 'parent_type', '')
+            # Fallback for Mock/Dict objects
             state = getattr(p, 'state', None)
-            chain = getattr(p, 'parent_chain', None)
+            ancestry = {
+                'timeframe': getattr(p, 'timeframe', '15s'),
+                'depth': float(getattr(p, 'depth', 0)),
+                'parent_type': getattr(p, 'parent_type', ''),
+                'parent_chain': getattr(p, 'parent_chain', None)
+            }
 
-        # log1p compression (Math > Numpy for scalars)
-        v_feat = math.log1p(abs(v))
-        m_feat = math.log1p(abs(m))
+        return QuantumFieldEngine.build_16d_vector(state, ancestry)
 
-        # Fractal hierarchy features
-        tf_secs = TIMEFRAME_SECONDS.get(tf, 15)
-        # log2(max(1, x)) -> math.log2
-        tf_scale = math.log2(max(1, tf_secs))
-
-        parent_ctx = 1.0 if parent_type == 'ROCHE_SNAP' else 0.0
-
-        # Self Regime features
-        if state:
-             try:
-                 self_adx = state.adx_strength * 0.01
-                 self_hurst = state.hurst_exponent
-                 self_dmi_diff = (state.dmi_plus - state.dmi_minus) * 0.01
-                 self_pid = state.term_pid
-                 self_osc_coh = state.oscillation_coherence
-             except AttributeError:
-                 self_adx = getattr(state, 'adx_strength', 0.0) / 100.0
-                 self_hurst = getattr(state, 'hurst_exponent', 0.5)
-                 self_dmi_diff = (getattr(state, 'dmi_plus', 0.0) - getattr(state, 'dmi_minus', 0.0)) / 100.0
-                 self_pid       = getattr(state, 'term_pid', 0.0)
-                 self_osc_coh   = getattr(state, 'oscillation_coherence', 0.0)
-        else:
-             self_adx = 0.0
-             self_hurst = 0.5
-             self_dmi_diff = 0.0
-             self_pid = 0.0
-             self_osc_coh = 0.0
-
-        # Ancestry features
-        chain = chain or []
-        if chain:
-            # Immediate parent
-            c0 = chain[0]
-            parent_z = abs(c0.get('z', 0.0))
-            parent_dmi_diff = (c0.get('dmi_plus', 0.0) - c0.get('dmi_minus', 0.0)) / 100.0
-
-            # Root ancestor
-            root = chain[-1]
-            root_is_roche = 1.0 if root.get('type') == 'ROCHE_SNAP' else 0.0
-            root_dmi_diff = (root.get('dmi_plus', 0.0) - root.get('dmi_minus', 0.0)) / 100.0
-
-            # TF Alignment
-            self_dir = 1.0 if self_dmi_diff > 0 else -1.0
-            root_dir = 1.0 if root_dmi_diff > 0 else -1.0
-            tf_alignment = self_dir * root_dir
-        else:
-            parent_z = 0.0
-            parent_dmi_diff = 0.0
-            root_is_roche = 0.0
-            tf_alignment = 0.0
-
-        return [abs(z), v_feat, m_feat, c, tf_scale, depth, parent_ctx,
-                self_adx, self_hurst, self_dmi_diff,
-                parent_z, parent_dmi_diff, root_is_roche, tf_alignment,
-                self_pid, self_osc_coh]
+    def _create_pattern_template(self, template_id: int, X_sub: np.ndarray, patterns: list, scaler) -> PatternTemplate:
+        """Helper to create a PatternTemplate with basin geometry."""
+        c = np.mean(X_sub, axis=0)
+        dists = np.linalg.norm(X_sub - c, axis=1)
+        return PatternTemplate(
+            template_id=template_id,
+            centroid=scaler.inverse_transform([c])[0],
+            member_count=len(patterns),
+            patterns=patterns,
+            physics_variance=float(np.std(X_sub[:, 0])),
+            basin_mean=float(np.mean(dists)),
+            basin_std=float(np.std(dists))
+        )
 
     @staticmethod
     def _shape_label(p) -> str:
@@ -273,31 +223,20 @@ class FractalClusteringEngine:
         so small clusters naturally score low and stop splitting without a
         depth limit — no arbitrary MAX_RECURSION_DEPTH needed.
         """
-        def _make(tid, X_sub, pats):
-            c = np.mean(X_sub, axis=0)
-            dists = np.linalg.norm(X_sub - c, axis=1)
-            return PatternTemplate(
-                template_id=tid, centroid=scaler.inverse_transform([c])[0],
-                member_count=len(pats), patterns=pats,
-                physics_variance=float(np.std(X_sub[:, 0])),
-                basin_mean=float(np.mean(dists)),
-                basin_std=float(np.std(dists))
-            )
-
         # 1. Hard floor
         if len(patterns) <= MIN_PATTERNS_FOR_SPLIT:
-            return [_make(start_id, X, patterns)]
+            return [self._create_pattern_template(start_id, X, patterns, scaler)]
 
         # 2. Coherence check — stop if adj-R² already good enough
         if self._compute_adj_r2(patterns, scaler) >= R2_STOP_THRESHOLD:
-            return [_make(start_id, X, patterns)]
+            return [self._create_pattern_template(start_id, X, patterns, scaler)]
 
         # 3. Unique-point guard
         n_unique = len(np.unique(X, axis=0))
         k = min(3, max(2, len(patterns) // MIN_PATTERNS_FOR_SPLIT))
         k = min(k, n_unique)
         if k <= 1:
-            return [_make(start_id, X, patterns)]
+            return [self._create_pattern_template(start_id, X, patterns, scaler)]
 
         km = self._get_kmeans_model(n_clusters=k, n_samples=len(X))
         labels = km.fit_predict(X)
@@ -580,17 +519,9 @@ class FractalClusteringEngine:
 
             if len(ok_pats) < MIN_PATTERNS_FOR_SPLIT:
                 # Too small → single template, no split
-                centroid = np.mean(sub_X, axis=0)
-                dists = np.linalg.norm(sub_X - centroid, axis=1)
-                final_templates.append(PatternTemplate(
-                    template_id=next_id,
-                    centroid=scaler.inverse_transform([centroid])[0],
-                    member_count=len(ok_pats),
-                    patterns=ok_pats,
-                    physics_variance=float(np.std(sub_X[:, 0])),
-                    basin_mean=float(np.mean(dists)),
-                    basin_std=float(np.std(dists))
-                ))
+                final_templates.append(
+                    self._create_pattern_template(next_id, sub_X, ok_pats, scaler)
+                )
                 next_id += 1
             else:
                 refined = self._recursive_split(sub_X, ok_pats, next_id, scaler)
@@ -674,22 +605,11 @@ class FractalClusteringEngine:
             sub_pats = [ok_pats[i] for i in indices]
             if not sub_pats:
                 continue
-            sub_feats = [self.extract_features(p) for p in sub_pats]
-            raw_centroid = np.mean(sub_feats, axis=0)
 
-            # CST: Calculate basin geometry using scaled features
             sub_X_scaled = X_scaled[indices]
-            scaled_centroid = np.mean(sub_X_scaled, axis=0)
-            dists = np.linalg.norm(sub_X_scaled - scaled_centroid, axis=1)
 
-            new_tmpl = PatternTemplate(
-                template_id=int(f"{template_id}{lbl}"),
-                centroid=raw_centroid,
-                member_count=len(sub_pats),
-                patterns=sub_pats,
-                physics_variance=float(np.std([f[0] for f in sub_feats])),
-                basin_mean=float(np.mean(dists)),
-                basin_std=float(np.std(dists))
+            new_tmpl = self._create_pattern_template(
+                int(f"{template_id}{lbl}"), sub_X_scaled, sub_pats, self.scaler
             )
             self._aggregate_oracle_intelligence(new_tmpl, sub_pats, self.scaler)
             new_templates.append(new_tmpl)

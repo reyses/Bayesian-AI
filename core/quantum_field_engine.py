@@ -204,7 +204,6 @@ class QuantumFieldEngine:
         Reconstructs the 16D feature vector for a given state and ancestry context.
         Used for CST (Coherent Structure Tether) checks.
         """
-        import math
         # 1. Base Physics from State
         z = getattr(state, 'z_score', 0.0)
         v = getattr(state, 'particle_velocity', 0.0)
