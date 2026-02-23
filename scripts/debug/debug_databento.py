@@ -36,8 +36,7 @@ def main():
         logger.info(f"DataFrame head:\n{df.head()}")
 
     except Exception as e:
-        logger.error(f"Error: {e}")
-        logger.error(traceback.format_exc())
+        logger.exception(f"Error inspecting file {filepath}: {e}")
 
 if __name__ == "__main__":
     main()
