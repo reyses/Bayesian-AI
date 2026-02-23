@@ -58,7 +58,7 @@ Once a raw pattern is discovered, it must pass a series of **Gates** in the **Or
 *   **Purpose**: Ensure multi-timeframe alignment.
 *   **Logic**:
     -   Queries the **Timeframe Belief Network** (10 workers from 1h down to 1s).
-    -   **Threshold**: Global conviction must meet `MIN_CONVICTION` (typically 0.65).
+    -   **Threshold**: Global conviction must meet MIN_CONVICTION (currently 0.48).
 *   **Audit Log**: Rejected candidates are logged with reason `gate3`.
 
 ---
