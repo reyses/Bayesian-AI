@@ -2,6 +2,18 @@
 
 ---
 
+## [V5.2.0] - 2026-02-23 — Dashboard Tooltips & Visualization Module
+
+### New
+- `visualization/live_training_dashboard.py`: `ProgressPopup` class for lightweight progress tracking without full dashboard
+- `visualization/visualization_module.py`: Standalone plotting module for equity curves and Bayesian state probabilities
+- Dashboard: Hover tooltips for physics manifold scatter plot points
+
+### Changed
+- Dashboard: Improved queue polling loop for `PHASE_PROGRESS` and `ORACLE_ATTRIBUTION` events
+
+---
+
 ## [V5.1.0] - 2026-02-20 — EXIT QUALITY BY DEPTH — real-time hold per depth
 
 ### New
