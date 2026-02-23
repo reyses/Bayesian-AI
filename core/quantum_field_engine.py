@@ -10,6 +10,7 @@ import numba
 from numba import cuda
 from numpy.lib.stride_tricks import sliding_window_view
 import logging
+from scipy.special import erfi
 
 from core.three_body_state import ThreeBodyQuantumState
 from core.risk_engine import QuantumRiskEngine
@@ -763,6 +764,22 @@ class QuantumFieldEngine:
         oscillation_coherence_arr = 1.0 / (1.0 + osc_std)   # (0, 1]
         np.nan_to_num(oscillation_coherence_arr, copy=False, nan=0.0)
 
+        # ─── Analytical OU First-Passage Probabilities ────────────────────────
+        # Replaces Monte Carlo (500 paths × 600 steps) with exact solution.
+        # For OU process dz = -θz dt + σ_z dW, the probability of hitting
+        # boundary 0 (center) before boundary B (event horizon) starting at z:
+        #   P(tunnel) = 1 - erfi(|z|/√2) / erfi(B/√2)
+        # This is universal for any θ,σ (the ratio θ/σ² cancels in z-space).
+        _B = 3.0  # event horizon in z-score units
+        _inv_sqrt2 = 1.0 / np.sqrt(2.0)
+        _erfi_B = erfi(_B * _inv_sqrt2)  # scalar constant ≈ 28.3
+        _abs_z_arr = np.abs(z_scores)
+        _erfi_z = erfi(_abs_z_arr * _inv_sqrt2)
+        tunnel_prob = np.clip(1.0 - _erfi_z / _erfi_B, 0.0, 1.0)
+        escape_prob = np.clip(_erfi_z / _erfi_B, 0.0, 1.0)
+        # Barrier height: OU potential V(z) = θz²/2, barrier = V(B) - V(z)
+        barrier_height_arr = np.clip(0.025 * (9.0 - z_scores**2), 0.0, np.inf)
+
         # Reconstruct result list
         # Optimization: Vectorize logic to reduce Python loop overhead
 
@@ -835,8 +852,9 @@ class QuantumFieldEngine:
                     spin_inverted=False,
                     lagrange_zone=lz_arr[i],
                     stability_index=1.0,
-                    tunnel_probability=0.0, escape_probability=0.0,
-                    barrier_height=0.0,
+                    tunnel_probability=tunnel_prob[i],
+                    escape_probability=escape_prob[i],
+                    barrier_height=barrier_height_arr[i],
                     pattern_type=str(pattern_types[i]),
                     candlestick_pattern=str(candlestick_types[i]),
                     trend_direction_15m=trend_direction_arr[i],
