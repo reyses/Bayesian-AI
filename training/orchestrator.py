@@ -558,25 +558,28 @@ class BayesianTrainingOrchestrator:
         # If workers agreed with oracle direction on FN signals, a gate is too strict.
         fn_oracle_records = []
 
-        n_days = len(daily_files_15s)
-        _pbar = tqdm(total=n_days, desc='Forward Pass', unit='day',
+        # Pre-count actual trading days for accurate progress tracking
+        _total_trading_days = 0
+        for _f in daily_files_15s:
+            try:
+                _ts_col = pd.read_parquet(_f, columns=['timestamp'])
+                if not _ts_col.empty:
+                    _ts = _ts_col['timestamp']
+                    if np.issubdtype(_ts.dtype, np.number):
+                        _total_trading_days += pd.to_datetime(_ts, unit='s').dt.date.nunique()
+                    else:
+                        _total_trading_days += pd.to_datetime(_ts).dt.date.nunique()
+            except Exception:
+                pass
+        _total_trading_days = max(_total_trading_days, 1)
+        _cumulative_days = 0
+        print(f"  Total trading days: {_total_trading_days}")
+
+        _pbar = tqdm(total=_total_trading_days, desc='Forward Pass', unit='day',
                      bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {postfix}',
                      ncols=120)
         for day_idx, day_file in enumerate(daily_files_15s):
             day_date = os.path.basename(day_file).replace('.parquet', '')
-            _pbar.set_postfix_str(
-                f'{day_date} | ${total_pnl:,.0f} PnL | {total_trades} trades | '
-                f'{(total_wins/total_trades*100) if total_trades else 0:.0f}% WR',
-                refresh=True)
-            if self.dashboard_queue:
-                pct = (day_idx / n_days) * 100
-                _wr = (total_wins / total_trades * 100) if total_trades > 0 else 0.0
-                self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
-                                          'step': f'FORWARD_PASS  day {day_idx+1}/{n_days}',
-                                          'pct': round(pct, 1),
-                                          'pnl': total_pnl,
-                                          'trades': total_trades,
-                                          'wr': round(_wr, 1)})
 
             # A. Fractal Cascade Scan (get actionable patterns with chains)
             # This uses the discovery agent logic but focused on this day
@@ -682,10 +685,34 @@ class BayesianTrainingOrchestrator:
             active_template_id = None
 
             _bar_i = 0  # 15s bar index for belief network worker ticks
+            _current_day = None  # for per-day progress tracking
 
             for row in df_15s.itertuples():
                 total_bars_processed += 1
                 ts_raw = row.timestamp
+
+                # ── Per-day progress update ──────────────────────────────
+                _row_day = int(ts_raw) // 86400
+                if _row_day != _current_day:
+                    _current_day = _row_day
+                    _cumulative_days += 1
+                    _running_pnl = total_pnl + sum(t.pnl for t in day_trades)
+                    _running_trades = total_trades + len(day_trades)
+                    _running_wins = total_wins + sum(1 for t in day_trades if t.result == 'WIN')
+                    _pbar.update(1)
+                    _pbar.set_postfix_str(
+                        f'{day_date} | ${_running_pnl:,.0f} PnL | {_running_trades} trades | '
+                        f'{(_running_wins/_running_trades*100) if _running_trades else 0:.0f}% WR',
+                        refresh=True)
+                    if self.dashboard_queue:
+                        _wr = (_running_wins / _running_trades * 100) if _running_trades > 0 else 0.0
+                        self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
+                                                  'step': f'FORWARD_PASS  day {_cumulative_days}/{_total_trading_days}',
+                                                  'pct': round(_cumulative_days / _total_trading_days * 100, 1),
+                                                  'pnl': _running_pnl,
+                                                  'trades': _running_trades,
+                                                  'wr': round(_wr, 1)})
+
                 # Snap to 60s boundary to match pattern_map keys
                 ts = int(ts_raw) // 60 * 60
                 price = getattr(row, 'close', getattr(row, 'price', 0.0))
@@ -1594,19 +1621,17 @@ class BayesianTrainingOrchestrator:
             else:
                 d_pnl = 0.0
 
-            # Send end-of-month update with per-month breakdown
+            # Send end-of-month update with per-month breakdown (for monthly bar chart)
             if self.dashboard_queue:
                 _wr_end = (total_wins / total_trades * 100) if total_trades > 0 else 0.0
                 self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
-                                          'step': f'FORWARD_PASS  day {day_idx+1}/{n_days}',
-                                          'pct': round((day_idx + 1) / n_days * 100, 1),
+                                          'step': f'FORWARD_PASS  day {_cumulative_days}/{_total_trading_days}',
+                                          'pct': round(_cumulative_days / _total_trading_days * 100, 1),
                                           'pnl': total_pnl,
                                           'trades': total_trades,
                                           'wr': round(_wr_end, 1),
                                           'month_pnl': d_pnl,
                                           'month_label': day_date})
-
-            _pbar.update(1)
 
         _pbar.close()
 
