@@ -33,21 +33,16 @@ from config.oracle_config import (
 from config.symbols import MNQ
 
 # Timeframe hierarchy: largest to smallest (top-down scan order)
-# 1W/1D/4h/1h = context-only (enrich parent_chain, not pattern gates)
-# 30m = primary signal level (macro scan starts here)
-# 15m/5m/1m/30s = drill-down for precise entry timing
-# 15s/5s/1s = sub-resolution (belief network workers only, no trade candidates)
-TIMEFRAME_HIERARCHY = ['1W', '1D', '4h', '1h', '30m', '15m', '5m', '1m', '30s', '15s', '5s', '1s']
+# 1D/4h/1h/30m/15m = context-only (enrich parent_chain, not pattern gates)
+# 5m = primary day-trading signal level (macro scan starts here)
+# 3m/2m/1m/30s/15s/5s/1s = drill-down for precise entry timing
+TIMEFRAME_HIERARCHY = ['1D', '4h', '1h', '30m', '15m', '5m', '3m', '2m', '1m', '30s', '15s', '5s', '1s']
 
-# These TFs are scanned for context only -- no patterns required, never block drill-down
-CONTEXT_ONLY_TIMEFRAMES = {'1W', '1D', '4h', '1h'}
+# These TFs are scanned for context only — no patterns required, never block drill-down
+CONTEXT_ONLY_TIMEFRAMES = {'1D', '4h', '1h', '30m'}
 
-# Primary signal level -- macro scan starts here (30m: stable intraday signal)
-PRIMARY_SIGNAL_TIMEFRAME = '30m'
-
-# Sub-resolution TFs: belief network workers only, not trade candidates.
-# States are computed via prepare_day() but scan_day_cascade skips these levels.
-SUB_RESOLUTION_TIMEFRAMES = {'15s', '5s', '1s'}
+# Primary signal level — macro scan starts here (15m: stable intraday signal)
+PRIMARY_SIGNAL_TIMEFRAME = '15m'
 
 # Maps timeframe labels to seconds
 TIMEFRAME_SECONDS = {
@@ -139,23 +134,26 @@ class FractalDiscoveryAgent:
         self.engine = QuantumFieldEngine()
         self.tick_size = MNQ.tick_size # Default to MNQ
 
-    def _consult_oracle(self, df, bar_index, timeframe, tick_size):
+    def _consult_oracle(self, df, bar_index, timeframe, tick_size, states_map=None, ancestry_context=None):
         """
         Judge a pattern using future price data.
 
         Looks ahead N bars (timeframe-dependent) and classifies the outcome
         based on the ratio of max favorable vs max adverse excursion.
+        Also tracks structural integrity (distance from entry state) if states_map provided.
 
         Args:
             df: DataFrame with 'high', 'low', 'close' columns
             bar_index: Index of the pattern bar
             timeframe: String timeframe key (e.g., '15m', '1h')
             tick_size: Asset tick size for min-move calculation
+            states_map: Optional dict {bar_idx: ThreeBodyQuantumState}
+            ancestry_context: Optional dict with keys 'depth', 'parent_type', 'parent_chain'
 
         Returns:
             (marker: int, meta: dict)
             marker: One of MARKER_* constants
-            meta: {'mfe': float, 'mae': float, 'lookahead_bars': int}
+            meta: {'mfe': float, 'mae': float, 'lookahead_bars': int, 'structural_integrity': List[float]}
         """
         lookahead = ORACLE_LOOKAHEAD_BARS.get(timeframe, 60)
 
@@ -213,11 +211,40 @@ class FractalDiscoveryAgent:
         else:
             mfe_bar = min(mfe_bar_up, mfe_bar_down)
 
+        # Structural Integrity (CST)
+        integrity = []
+        if states_map and bar_index in states_map:
+            entry_state = states_map[bar_index]
+            # Use real ancestry context if provided, else defaults
+            if ancestry_context is None:
+                ancestry_context = {'timeframe': timeframe, 'depth': 0, 'parent_type': '', 'parent_chain': []}
+            else:
+                # Ensure timeframe matches
+                ancestry_context['timeframe'] = timeframe
+
+            try:
+                v_entry = np.array(QuantumFieldEngine.build_16d_vector(entry_state, ancestry_context))
+
+                # Scan lookahead window
+                for i in range(1, lookahead + 1):
+                    curr_idx = bar_index + i
+                    if curr_idx in states_map:
+                        curr_state = states_map[curr_idx]
+                        v_curr = np.array(QuantumFieldEngine.build_16d_vector(curr_state, ancestry_context))
+                        dist = np.linalg.norm(v_curr - v_entry)
+                        integrity.append(float(dist))
+                    else:
+                        integrity.append(999.0) # Unknown state
+            except Exception as e:
+                print(f"CST calculation failed for bar {bar_index}: {e}")
+                pass # Fallback if build_16d_vector fails or numpy issue
+
         meta = {
             'mfe':            max_up,
             'mae':            max_down,
             'lookahead_bars': lookahead,
             'mfe_bar':        mfe_bar,   # 0-based bar index where MFE peaked
+            'structural_integrity': integrity
         }
 
         return marker, meta
@@ -409,10 +436,11 @@ class FractalDiscoveryAgent:
         current_windows = None
         all_patterns = []
 
-        # Derive from TIMEFRAME_HIERARCHY, excluding sub-resolution TFs
-        # (belief network workers get states via prepare_day, not the cascade)
-        hierarchy = [(tf, i) for i, tf in enumerate(TIMEFRAME_HIERARCHY)
-                     if tf not in SUB_RESOLUTION_TIMEFRAMES]
+        hierarchy = [
+            ('1D', 0), ('4h', 1), ('1h', 2), ('30m', 3), ('15m', 4),
+            ('5m', 5), ('3m', 6), ('2m', 7), ('1m', 8),
+            ('30s', 9), ('15s', 10), ('5s', 11), ('1s', 12)
+        ]
 
         for tf, depth in hierarchy:
             tf_path = os.path.join(atlas_root, tf)
@@ -519,6 +547,9 @@ class FractalDiscoveryAgent:
         # 3.5. Enrich Data (Spectral Gate Requirements)
         self._enrich_with_spectral_data(combined, results)
 
+        # Map states for CST
+        states_map = {r['bar_idx']: r['state'] for r in results}
+
         # 4. Extract patterns
         tf_seconds = TIMEFRAME_SECONDS.get(timeframe, 15)
         lookahead_bars = max(50, int(4 * 3600 / tf_seconds))
@@ -539,7 +570,8 @@ class FractalDiscoveryAgent:
             window_slice = combined.iloc[bar_idx:window_end].copy()
 
             # --- Consult Oracle ---
-            marker, meta = self._consult_oracle(combined, bar_idx, timeframe, self.tick_size)
+            # Level 0 scan has no parents, so use default ancestry
+            marker, meta = self._consult_oracle(combined, bar_idx, timeframe, self.tick_size, states_map, ancestry_context=None)
 
             if state.cascade_detected:
                 detected.append(PatternEvent(
@@ -656,6 +688,9 @@ class FractalDiscoveryAgent:
         # 3.5. Enrich Data (Spectral Gate Requirements)
         self._enrich_with_spectral_data(combined, results)
 
+        # Map states for CST
+        states_map = {r['bar_idx']: r['state'] for r in results}
+
         # 4. Extract patterns
         tf_seconds_val = TIMEFRAME_SECONDS.get(timeframe, 15)
         lookahead_bars = max(50, int(4 * 3600 / tf_seconds_val))
@@ -668,14 +703,14 @@ class FractalDiscoveryAgent:
 
             p_type = filtered_parent_types[bar_idx] if bar_idx < len(filtered_parent_types) else ''
             p_tf = filtered_parent_tfs[bar_idx] if bar_idx < len(filtered_parent_tfs) else ''
-            p_chain = filtered_parent_chains[bar_idx] if bar_idx < len(filtered_parent_chains) else []
-            file_path = filtered_file_sources[bar_idx] if bar_idx < len(filtered_file_sources) else ''
-
-            window_end = min(n_bars, bar_idx + lookahead_bars)
-            window_slice = combined.iloc[bar_idx:window_end].copy()
-
             # --- Consult Oracle ---
-            marker, meta = self._consult_oracle(combined, bar_idx, timeframe, self.tick_size)
+            # Construct ancestry context from filtered parent info
+            curr_ancestry = {
+                "depth": depth, # From scan recursion
+                "parent_type": filtered_parent_types[bar_idx] if bar_idx < len(filtered_parent_types) else "",
+                "parent_chain": filtered_parent_chains[bar_idx] if bar_idx < len(filtered_parent_chains) else []
+            }
+            marker, meta = self._consult_oracle(combined, bar_idx, timeframe, self.tick_size, states_map, ancestry_context=curr_ancestry)
 
             if state.cascade_detected:
                 detected.append(PatternEvent(
@@ -830,6 +865,8 @@ class FractalDiscoveryAgent:
         # Enrich Data (Spectral Gate Requirements)
         self._enrich_with_spectral_data(df, results)
 
+        states_map = {r['bar_idx']: r['state'] for r in results}
+
         detected = []
         n_bars = len(df)
 
@@ -840,7 +877,7 @@ class FractalDiscoveryAgent:
             window_slice = df.iloc[bar_idx:window_end].copy()
 
             # --- Consult Oracle ---
-            marker, meta = self._consult_oracle(df, bar_idx, timeframe, self.tick_size)
+            marker, meta = self._consult_oracle(df, bar_idx, timeframe, self.tick_size, states_map, ancestry_context=None)
 
             if state.cascade_detected:
                 detected.append(PatternEvent(

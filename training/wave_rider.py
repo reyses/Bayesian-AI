@@ -7,8 +7,13 @@ ENHANCED: Now includes post-trade regret analysis for adaptive trail optimizatio
 import time
 from dataclasses import dataclass
 from typing import Optional, Dict, Union, List, Tuple, Literal
+import numpy as np
 from core.state_vector import StateVector
 from core.three_body_state import ThreeBodyQuantumState
+from core.quantum_field_engine import QuantumFieldEngine
+
+# Fallback threshold if basin stats are zero
+CST_FALLBACK_SIGMA_THRESHOLD = 4.5
 
 
 @dataclass
@@ -245,8 +250,12 @@ class Position:
     last_adjustment_reason: Optional[str] = None  # belief reason that last tightened/widened trail
     breakeven_locked: bool = False                 # True once stop moved to entry (risk-free)
     breakeven_level: Optional[float] = None        # price level of the breakeven stop
-    entry_dmi_inverse: bool = False                # True if DMI was against trade direction at entry
-    bars_in_trade: int = 0                           # incremented each update_trail call
+
+    # CST
+    cst_centroid: Optional[np.ndarray] = None
+    cst_basin_mean: float = 0.0
+    cst_basin_std: float = 0.0
+    cst_ancestry: Optional[Dict] = None
 
 
 class WaveRider:
@@ -309,7 +318,11 @@ class WaveRider:
                      profit_target_ticks: Optional[int] = None,
                      trailing_stop_ticks: Optional[int] = None,
                      trail_activation_ticks: Optional[int] = None,
-                     template_id: Optional[int] = None):
+                     template_id: Optional[int] = None,
+                     cst_centroid: Optional[np.ndarray] = None,
+                     cst_basin_mean: float = 0.0,
+                     cst_basin_std: float = 0.0,
+                     cst_ancestry: Optional[Dict] = None):
         """
         Open new position
 
@@ -324,6 +337,10 @@ class WaveRider:
                                     Until then the initial hard stop is used.
                                     None = trail active from bar 1 (legacy behaviour).
             template_id: ID of the template triggering this trade
+            cst_centroid: Template centroid (scaled) for structural integrity checks
+            cst_basin_mean: Mean distance of members to centroid
+            cst_basin_std: StdDev of member distances
+            cst_ancestry: Dictionary of static ancestry features for vector reconstruction
         """
         stop_dist = stop_distance_ticks * self.asset.tick_size
         stop_loss = entry_price + stop_dist if side == 'short' else entry_price - stop_dist
@@ -345,6 +362,10 @@ class WaveRider:
             trailing_stop_ticks=trailing_stop_ticks,
             trail_activation_ticks=trail_activation_ticks,
             original_trail_ticks=trailing_stop_ticks,
+            cst_centroid=cst_centroid,
+            cst_basin_mean=cst_basin_mean,
+            cst_basin_std=cst_basin_std,
+            cst_ancestry=cst_ancestry
         )
         
         # Note: Do not clear price_history here as we need it for delayed analysis
@@ -427,17 +448,11 @@ class WaveRider:
         # Update history via process_pending_reviews
         self.process_pending_reviews(current_time, current_price)
 
-        # Track how many bars this trade has been open
-        self.position.bars_in_trade += 1
-
         # --- Dynamic Exit Logic ---
         urgent_exit = False
-        decay_exit = False
         if exit_signal:
             if exit_signal.get('urgent_exit'):
                 urgent_exit = True
-            if exit_signal.get('decay_exit'):
-                decay_exit = True
 
             if exit_signal.get('tighten_trail') and self.position.trailing_stop_ticks is not None:
                 # Reduce trail by TIGHTEN_TRAIL_FACTOR (gentle 8% per bar, was 30%).
@@ -519,33 +534,15 @@ class WaveRider:
             else:
                 new_stop = min(new_stop, self.position.breakeven_level)
 
-        # Loss watchdog: DMI inverse + underwater + workers agree on reversal
-        # Triple confirmation prevents cutting on noise dips.
-        # 8 ticks = $2.00 move = $4.00 PnL on MNQ — filters out normal noise.
-        WATCHDOG_TICKS = 8       # must be at least this far underwater
-        WATCHDOG_WORKERS = 5     # at least N workers must disagree with trade side
-        WATCHDOG_MIN_BARS = 5    # must hold at least N bars before watchdog can fire
-        watchdog_exit = False
-        if (self.position.bars_in_trade >= WATCHDOG_MIN_BARS
-                and self.position.entry_dmi_inverse
-                and profit_ticks <= -WATCHDOG_TICKS
-                and exit_signal
-                and exit_signal.get('workers_against', 0) >= WATCHDOG_WORKERS):
-            watchdog_exit = True
-
         # Check Stop Hit, Profit Target, or Structure Break
         stop_hit = (self.position.side == 'short' and current_price >= new_stop) or \
                    (self.position.side == 'long' and current_price <= new_stop)
 
         structure_broken = self._check_layer_breaks(current_state)
 
-        if stop_hit or structure_broken or pt_hit or urgent_exit or decay_exit or watchdog_exit:
+        if stop_hit or structure_broken or pt_hit or urgent_exit:
             if urgent_exit:
                 exit_reason = 'belief_flip'
-            elif watchdog_exit:
-                exit_reason = 'loss_watchdog'
-            elif decay_exit:
-                exit_reason = 'physics_decay'
             elif pt_hit:
                 exit_reason = 'profit_target'
             elif structure_broken:
@@ -608,77 +605,6 @@ class WaveRider:
         self.position.stop_loss = new_stop
         return {'should_exit': False, 'current_stop': new_stop}
 
-    def check_stops_hilo(self, high: float, low: float, timestamp: float) -> dict:
-        """
-        Lightweight intra-bar stop check using 1s high/low.
-        Does NOT modify trail distances, does NOT increment bars_in_trade.
-        Called from the 1s inner loop when a position is open.
-        """
-        if not self.position:
-            return {'should_exit': False}
-
-        pos = self.position
-
-        # Update high water mark from 1s extremes
-        if pos.side == 'long':
-            pos.high_water_mark = max(pos.high_water_mark, high)
-        else:
-            pos.high_water_mark = min(pos.high_water_mark, low)
-
-        fill_price = 0.0
-        exit_reason = ''
-
-        # Profit target check FIRST (if both PT and stop hit in same bar, PT wins)
-        if pos.profit_target:
-            if pos.side == 'long' and high >= pos.profit_target:
-                fill_price = pos.profit_target
-                exit_reason = 'profit_target'
-            elif pos.side == 'short' and low <= pos.profit_target:
-                fill_price = pos.profit_target
-                exit_reason = 'profit_target'
-
-        # Stop check (worst-case fill: gap-through uses actual extreme)
-        if not exit_reason:
-            if pos.side == 'long' and low <= pos.stop_loss:
-                fill_price = min(pos.stop_loss, low)
-                exit_reason = 'trail_stop'
-            elif pos.side == 'short' and high >= pos.stop_loss:
-                fill_price = max(pos.stop_loss, high)
-                exit_reason = 'trail_stop'
-
-        # Breakeven floor check
-        if not exit_reason and pos.breakeven_locked and pos.breakeven_level is not None:
-            if pos.side == 'long' and low <= pos.breakeven_level:
-                fill_price = pos.breakeven_level
-                exit_reason = 'trail_stop'
-            elif pos.side == 'short' and high >= pos.breakeven_level:
-                fill_price = pos.breakeven_level
-                exit_reason = 'trail_stop'
-
-        if exit_reason:
-            if pos.side == 'long':
-                pnl = (fill_price - pos.entry_price) * self.asset.point_value
-            else:
-                pnl = (pos.entry_price - fill_price) * self.asset.point_value
-
-            review = PendingReview(
-                entry_price=pos.entry_price, exit_price=fill_price,
-                entry_time=pos.entry_time, exit_time=timestamp,
-                review_end_time=timestamp + self.review_wait_time,
-                side=pos.side, exit_reason=exit_reason
-            )
-            self.pending_reviews.append(review)
-            _adj_reason = pos.last_adjustment_reason or ''
-            self.position = None
-
-            return {
-                'should_exit': True, 'exit_price': fill_price,
-                'exit_reason': exit_reason, 'exit_time': timestamp,
-                'adjustment_reason': _adj_reason, 'pnl': pnl
-            }
-
-        return {'should_exit': False}
-
     def _check_layer_breaks(self, current: Union[StateVector, ThreeBodyQuantumState]) -> bool:
         """Check if market structure broke"""
         if isinstance(current, ThreeBodyQuantumState):
@@ -705,8 +631,8 @@ class WaveRider:
         print(f"-" * 60)
         print(f"Actual PnL:    ${markers.actual_pnl:>8.2f}")
         print(f"Potential Max: ${markers.potential_max_pnl:>8.2f}")
-        print(f"Left on Table: ${markers.pnl_left_on_table:>8.2f}  {'!! CLOSED TOO EARLY' if markers.pnl_left_on_table > 20 else ''}")
-        print(f"Gave Back:     ${markers.gave_back_pnl:>8.2f}  {'!! HELD TOO LONG' if markers.gave_back_pnl > 20 else ''}")
+        print(f"Left on Table: ${markers.pnl_left_on_table:>8.2f}  {'⚠️  CLOSED TOO EARLY' if markers.pnl_left_on_table > 20 else ''}")
+        print(f"Gave Back:     ${markers.gave_back_pnl:>8.2f}  {'⚠️  HELD TOO LONG' if markers.gave_back_pnl > 20 else ''}")
         print(f"-" * 60)
         print(f"Exit Efficiency: {markers.exit_efficiency:.1%}")
         print(f"Regret Type: {markers.regret_type.upper()}")
@@ -735,7 +661,7 @@ class WaveRider:
             self.trail_config['medium'] = min(30, self.trail_config['medium'] + 5)
             self.trail_config['wide'] = min(50, self.trail_config['wide'] + 5)
             
-            print(f"\n[WARN] WIDENING TRAIL STOPS")
+            print(f"\n⚠️ WIDENING TRAIL STOPS")
             print(f"Old: Tight={old_config['tight']}, Medium={old_config['medium']}, Wide={old_config['wide']}")
             print(f"New: Tight={self.trail_config['tight']}, Medium={self.trail_config['medium']}, Wide={self.trail_config['wide']}")
             print(f"Reason: {recs.get('reason', 'Closing too early')}")
@@ -746,7 +672,7 @@ class WaveRider:
             self.trail_config['medium'] = max(10, self.trail_config['medium'] - 5)
             self.trail_config['wide'] = max(15, self.trail_config['wide'] - 5)
             
-            print(f"\n[WARN] TIGHTENING TRAIL STOPS")
+            print(f"\n⚠️ TIGHTENING TRAIL STOPS")
             print(f"Old: Tight={old_config['tight']}, Medium={old_config['medium']}, Wide={old_config['wide']}")
             print(f"New: Tight={self.trail_config['tight']}, Medium={self.trail_config['medium']}, Wide={self.trail_config['wide']}")
             print(f"Reason: {recs.get('reason', 'Holding too long')}")
@@ -758,6 +684,30 @@ class WaveRider:
         
         print(f"{'='*60}\n")
     
+    def check_structural_integrity(self, current_state: ThreeBodyQuantumState) -> bool:
+        """
+        Returns True if structural integrity is maintained (distance <= basin radius),
+        False if structure is broken (tether snapped).
+        """
+        if not self.position or self.position.cst_centroid is None:
+            return True
+
+        try:
+            current_vec = np.array(QuantumFieldEngine.build_16d_vector(current_state, self.position.cst_ancestry))
+            dist = np.linalg.norm(current_vec - self.position.cst_centroid)
+
+            # Tether Break: Distance > Basin_Radius (e.g. mean + 3*std)
+            threshold = self.position.cst_basin_mean + 3.0 * self.position.cst_basin_std
+
+            # Fallback for single-point basins
+            if threshold < 1e-6:
+                threshold = CST_FALLBACK_SIGMA_THRESHOLD
+
+            return dist <= threshold
+        except Exception as e:
+            print(f"CST check failed: {e}")
+            return True # Fail safe
+
     def get_statistics(self) -> Dict:
         """Get position management statistics."""
         if self.total_trades == 0:

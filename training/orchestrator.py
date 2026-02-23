@@ -40,21 +40,26 @@ if PROJECT_ROOT not in sys.path:
 # Core components
 from core.bayesian_brain import QuantumBayesianBrain, TradeOutcome
 from core.quantum_field_engine import QuantumFieldEngine
+from core.context_detector import ContextDetector
+from core.adaptive_confidence import AdaptiveConfidenceManager
+from core.multi_timeframe_context import MultiTimeframeContext
 from core.dynamic_binner import DynamicBinner
 from core.three_body_state import ThreeBodyQuantumState
+from core.exploration_mode import UnconstrainedExplorer, ExplorationConfig
 
 # Training components
 from training.doe_parameter_generator import DOEParameterGenerator
 from training.pattern_analyzer import PatternAnalyzer
 from training.progress_reporter import ProgressReporter, DayMetrics
 from training.databento_loader import DatabentoLoader
-from training.fractal_discovery_agent import FractalDiscoveryAgent, PatternEvent, TIMEFRAME_SECONDS, TIMEFRAME_HIERARCHY
+from training.fractal_discovery_agent import FractalDiscoveryAgent, PatternEvent, TIMEFRAME_SECONDS
 from training.fractal_clustering import FractalClusteringEngine, PatternTemplate
 from training.fractal_dna_tree import FractalDNATree
 from training.pipeline_checkpoint import PipelineCheckpoint
 from training.timeframe_belief_network import TimeframeBeliefNetwork, BeliefState
 
 # Execution components
+from training.integrated_statistical_system import IntegratedStatisticalEngine
 from training.batch_regret_analyzer import BatchRegretAnalyzer
 from training.wave_rider import WaveRider
 from training.orchestrator_worker import simulate_trade_standalone, _optimize_pattern_task, _optimize_template_task, _process_template_job, _audit_trade
@@ -231,9 +236,15 @@ class BayesianTrainingOrchestrator:
         # Initialize core components
         self.brain = QuantumBayesianBrain()
         self.engine = QuantumFieldEngine()
-        self.param_generator = DOEParameterGenerator(None)
+        self.context_detector = ContextDetector()
+        self.param_generator = DOEParameterGenerator(self.context_detector)
+        self.confidence_manager = AdaptiveConfidenceManager(self.brain)
+        self.stat_validator = IntegratedStatisticalEngine(self.asset)
         self.wave_rider = WaveRider(self.asset)
         self.discovery_agent = FractalDiscoveryAgent()
+
+        # Multi-timeframe context engine
+        self.mtf_context = MultiTimeframeContext()
         self.all_tf_data = None  # Populated in train()
 
         # Dynamic histogram binner (fitted from first day's data)
@@ -243,6 +254,12 @@ class BayesianTrainingOrchestrator:
         self.pattern_analyzer = PatternAnalyzer()
         self.progress_reporter = ProgressReporter()
         self.regret_analyzer = BatchRegretAnalyzer()
+
+        # Exploration Mode (optional)
+        self.exploration_mode = getattr(config, 'exploration_mode', False)
+        self.explorer = UnconstrainedExplorer(ExplorationConfig(max_trades=5000, fire_probability=1.0)) if self.exploration_mode else None
+        if self.exploration_mode:
+            print("WARNING: UNCONSTRAINED EXPLORATION MODE ENABLED (Entry filters bypassed)")
 
         # Training state
         self.day_results: List[DayResults] = []
@@ -272,6 +289,48 @@ class BayesianTrainingOrchestrator:
             return max(1, multiprocessing.cpu_count() - 2)
         except NotImplementedError:
             return 1
+
+    def _calculate_cst_analytics(self, pending_oracle: dict, exit_idx: int) -> dict:
+        """
+        Helper to compute CST analytics (bar of death, bleed, exit integrity).
+        Refactored to avoid duplication.
+        """
+        _struc_list = pending_oracle.get('structural_integrity', [])
+        _thresh = pending_oracle.get('basin_threshold', 999.0)
+        # Fallback constant should match WaveRider but here we use the logged threshold
+        if _thresh < 1e-6: _thresh = 4.5
+
+        _bar_death = -1
+        for i, d in enumerate(_struc_list):
+            if d > _thresh:
+                _bar_death = i
+                break
+
+        _bleed_bars = 0
+        _bleed_cost = 0.0 # Placeholder
+
+        if _bar_death >= 0 and exit_idx > _bar_death:
+            _bleed_bars = exit_idx - _bar_death
+
+        _si_exit = _struc_list[exit_idx] if 0 <= exit_idx < len(_struc_list) else -1.0
+
+        return {
+            'structural_integrity_at_exit': _si_exit,
+            'bar_of_structural_death': _bar_death,
+            'bleed_bars': _bleed_bars,
+            'bleed_cost': _bleed_cost
+        }
+
+    def _create_cst_exit_result(self, exit_price, entry_price, side, point_value):
+        """Helper to construct the exit result dictionary for a structural break."""
+        pnl = ((exit_price - entry_price) if side == 'long' else (entry_price - exit_price)) * point_value
+        return {
+            'should_exit': True,
+            'exit_price': exit_price,
+            'exit_reason': 'structural_break',
+            'pnl': pnl,
+            'adjustment_reason': 'structure_break'
+        }
 
     def _audit_pid_signal(self, sig: PIDSignal, day_bars: pd.DataFrame,
                           bar_idx: int, point_value: float) -> dict:
@@ -723,15 +782,6 @@ class BayesianTrainingOrchestrator:
             _df_5s = _load_fine('5s')
             _df_1s  = _load_fine('1s')
 
-            # Pre-extract 1s numpy arrays for wick-aware inner loop
-            if _df_1s is not None and not _df_1s.empty:
-                _1s_ts    = _df_1s['timestamp'].values.astype(np.float64)
-                _1s_highs = _df_1s['high'].values.astype(np.float64)
-                _1s_lows  = _df_1s['low'].values.astype(np.float64)
-                _has_1s   = True
-            else:
-                _has_1s = False
-
             # Belief network: Task 1 for all 10 TF workers (1h -> 1s)
             # 1h->15s resampled from df_15s; 5s/1s from monthly ATLAS files.
             try:
@@ -898,6 +948,23 @@ class BayesianTrainingOrchestrator:
                             _mh_pot = pending_oracle['oracle_mfe'] * self.asset.point_value
                             _mh_cap = outcome.pnl / _mh_pot if _mh_pot > 0 else 0.0
                             _mh_sig = belief_network.get_exit_signal(active_side)
+
+                            # CST Analytics
+                            _struc_list = pending_oracle.get('structural_integrity', [])
+                            _thresh = pending_oracle.get('basin_threshold', 999.0)
+                            if _thresh < 1e-6: _thresh = 4.5
+                            _bar_death = -1
+                            for i, d in enumerate(_struc_list):
+                                if d > _thresh:
+                                    _bar_death = i
+                                    break
+                            _bleed_bars = 0
+                            _bleed_cost = 0.0
+                            if _bar_death >= 0 and _bars_held > _bar_death:
+                                _bleed_bars = _bars_held - _bar_death
+                            _exit_idx = _bars_held - 1
+                            _si_exit = _struc_list[_exit_idx] if 0 <= _exit_idx < len(_struc_list) else -1.0
+
                             oracle_trade_records.append({
                                 **pending_oracle,
                                 'exit_price':  price,
@@ -912,6 +979,11 @@ class BayesianTrainingOrchestrator:
                                 'exit_conviction':    _mh_sig.get('conviction', 0.0),
                                 'exit_wave_maturity': _mh_sig.get('wave_maturity', 0.0),
                                 'exit_signal_reason': _hold_reason,
+                                # CST
+                                'structural_integrity_at_exit': _si_exit,
+                                'bar_of_structural_death': _bar_death,
+                                'bleed_bars': _bleed_bars,
+                                'bleed_cost': _bleed_cost,
                             })
                             if _pending_dm_idx is not None:
                                 decision_matrix_records[_pending_dm_idx].update({
@@ -925,26 +997,21 @@ class BayesianTrainingOrchestrator:
                     else:
                         # Get exit signal from belief network every bar
                         _exit_sig = belief_network.get_exit_signal(self.wave_rider.position.side)
-                        res = self.wave_rider.update_trail(price, None, ts_raw, exit_signal=_exit_sig)
 
-                        # ── 1s inner loop: check wicks within this 15s bar ──
-                        if not res['should_exit'] and _has_1s:
-                            _s0 = np.searchsorted(_1s_ts, ts_raw, side='left')
-                            _s1 = np.searchsorted(_1s_ts, ts_raw + 15, side='left')
-                            for _1s_i in range(_s0, _s1):
-                                belief_network.tick_sub_resolution(
-                                    tf_bar_idx_1s=_1s_i,
-                                    tf_bar_idx_5s=_1s_i // 5
-                                )
-                                res_1s = self.wave_rider.check_stops_hilo(
-                                    _1s_highs[_1s_i], _1s_lows[_1s_i], _1s_ts[_1s_i]
-                                )
-                                if res_1s['should_exit']:
-                                    res = res_1s
-                                    break
+                        # CST Check
+                        current_state = _states_map.get(_bar_i)
+                        cst_broken = False
+                        if current_state:
+                            cst_broken = not self.wave_rider.check_structural_integrity(current_state)
+
+                        if cst_broken:
+                            # Structural Abort (CST)
+                            res = self._create_cst_exit_result(price, active_entry_price, active_side, self.asset.point_value)
+                        else:
+                            # Normal Trail/Gate logic
+                            res = self.wave_rider.update_trail(price, current_state, ts_raw, exit_signal=_exit_sig)
 
                     if res['should_exit']:
-                        _exit_ts = res.get('exit_time', ts_raw)
                         outcome = TradeOutcome(
                             state=active_template_id,
                             entry_price=active_entry_price,
@@ -954,8 +1021,8 @@ class BayesianTrainingOrchestrator:
                             timestamp=ts_raw,
                             exit_reason=res['exit_reason'],
                             entry_time=active_entry_time,
-                            exit_time=_exit_ts,
-                            duration=_exit_ts - active_entry_time,
+                            exit_time=ts_raw,
+                            duration=ts_raw - active_entry_time,
                             direction='LONG' if active_side == 'long' else 'SHORT',
                             template_id=active_template_id
                         )
@@ -981,6 +1048,10 @@ class BayesianTrainingOrchestrator:
                             capture = outcome.pnl / oracle_potential if oracle_potential > 0 else 0.0
                             _exit_t = outcome.exit_time
                             _entry_t = pending_oracle['entry_time']
+
+                            _exit_idx = max(0, int((_exit_t - _entry_t) / 15))
+                            cst_stats = self._calculate_cst_analytics(pending_oracle, _exit_idx)
+
                             oracle_trade_records.append({
                                 **pending_oracle,
                                 'exit_price':  outcome.exit_price,
@@ -1001,6 +1072,8 @@ class BayesianTrainingOrchestrator:
                                 'exit_wave_maturity': _exit_sig.get('wave_maturity', 0.0),
                                 'exit_signal_reason': (res.get('adjustment_reason') or
                                                        _exit_sig.get('reason', '')),
+                                # CST
+                                **cst_stats
                             })
                             # Update signal-log record with trade outcome
                             if _pending_dm_idx is not None:
@@ -1090,22 +1163,6 @@ class BayesianTrainingOrchestrator:
                                     if not headroom:
                                         should_skip = True
                                         _skip_label = 'gate0_r4_struct'
-
-                        # RULE 5: Physics safety (from reconnected get_trade_directive)
-                        if not should_skip and not _data_override:
-                            _st = p.state
-                            # 5a. Hurst < 0.5 = anti-persistent / choppy — unsafe for all patterns
-                            if _st.hurst_exponent < 0.5:
-                                should_skip = True
-                                _skip_label = 'gate0_hurst'
-                            # 5b. Momentum override: momentum dominates reversion → breakout likely
-                            elif abs(_st.F_momentum) > abs(_st.F_reversion) * 1.5 and abs(_st.F_reversion) > 0:
-                                should_skip = True
-                                _skip_label = 'gate0_momentum'
-                            # 5c. Tunnel probability too low (now analytically computed)
-                            elif _st.tunnel_probability < 0.40:
-                                should_skip = True
-                                _skip_label = 'gate0_tunnel'
 
                         if should_skip:
                             skip_headroom += 1
@@ -1361,6 +1418,14 @@ class BayesianTrainingOrchestrator:
                                 skipped_ruin += 1
                                 continue   # skip this trade — risk too large for current equity
 
+                        # CST Props
+                        _cst_ancestry = {
+                            'timeframe': getattr(best_candidate, 'timeframe', '15s'),
+                            'depth': getattr(best_candidate, 'depth', 0),
+                            'parent_type': getattr(best_candidate, 'parent_type', ''),
+                            'parent_chain': getattr(best_candidate, 'parent_chain', [])
+                        }
+
                         self.wave_rider.open_position(
                             entry_price=price,
                             side=side,
@@ -1369,7 +1434,11 @@ class BayesianTrainingOrchestrator:
                             profit_target_ticks=_tp_ticks,
                             trailing_stop_ticks=_trail_ticks,
                             trail_activation_ticks=_trail_act_ticks,
-                            template_id=best_tid
+                            template_id=best_tid,
+                            cst_centroid=lib_entry.get('centroid'),
+                            cst_basin_mean=lib_entry.get('basin_mean', 0.0),
+                            cst_basin_std=lib_entry.get('basin_std', 0.0),
+                            cst_ancestry=_cst_ancestry
                         )
                         current_position_open = True
                         active_entry_price = price
@@ -1433,6 +1502,8 @@ class BayesianTrainingOrchestrator:
                             'entry_oscillation_coherence':round(getattr(best_candidate.state, 'oscillation_coherence',  0.0), 4),
                             'entry_momentum_strength':    round(getattr(best_candidate.state, 'momentum_strength',      0.0), 4),
                             'tmpl_avg_mfe_bar':           self.pattern_library.get(best_tid, {}).get('avg_mfe_bar', 0.0),
+                            'structural_integrity':       best_candidate.oracle_meta.get('structural_integrity', []),
+                            'basin_threshold':            lib_entry.get('basin_mean', 0.0) + 3.0 * lib_entry.get('basin_std', 0.0)
                         }
 
                         # Signal log: add 'traded' record, save index for outcome update
@@ -1660,11 +1731,29 @@ class BayesianTrainingOrchestrator:
                     capture = outcome.pnl / oracle_potential if oracle_potential > 0 else 0.0
                     _eod_exit_t = ts
                     _eod_entry_t = pending_oracle['entry_time']
+
+                    # CST Analytics
+                    _struc_list = pending_oracle.get('structural_integrity', [])
+                    _thresh = pending_oracle.get('basin_threshold', 999.0)
+                    if _thresh < 1e-6: _thresh = 4.5
+                    _bar_death = -1
+                    for i, d in enumerate(_struc_list):
+                        if d > _thresh:
+                            _bar_death = i
+                            break
+                    _bleed_bars = 0
+                    _bleed_cost = 0.0
+                    _hb = max(1, int((_eod_exit_t - _eod_entry_t) / 15))
+                    if _bar_death >= 0 and _hb > _bar_death:
+                        _bleed_bars = _hb - _bar_death
+                    _exit_idx = _hb - 1
+                    _si_exit = _struc_list[_exit_idx] if 0 <= _exit_idx < len(_struc_list) else -1.0
+
                     oracle_trade_records.append({
                         **pending_oracle,
                         'exit_price':  outcome.exit_price,
                         'exit_time':   _eod_exit_t,
-                        'hold_bars':   max(1, int((_eod_exit_t - _eod_entry_t) / 15)),
+                        'hold_bars':   _hb,
                         'exit_reason': 'TIME_EXIT',
                         'actual_pnl':  outcome.pnl,
                         'oracle_potential_pnl': oracle_potential,
@@ -1674,6 +1763,11 @@ class BayesianTrainingOrchestrator:
                         'exit_conviction':    _eod_sig.get('conviction', 0.0),
                         'exit_wave_maturity': _eod_sig.get('wave_maturity', 0.0),
                         'exit_signal_reason': (_eod_adj_reason or _eod_sig.get('reason', '')),
+                        # CST
+                        'structural_integrity_at_exit': _si_exit,
+                        'bar_of_structural_death': _bar_death,
+                        'bleed_bars': _bleed_bars,
+                        'bleed_cost': _bleed_cost,
                     })
                     # Update signal-log record with trade outcome
                     if _pending_dm_idx is not None:
@@ -1791,9 +1885,8 @@ class BayesianTrainingOrchestrator:
         n_skipped  = audit_fn + audit_tn
         report_lines.append("")
         report_lines.append(f"  WHAT WE DID:")
-        _total_sigs = total_real_opps + total_noise_opps
-        report_lines.append(f"    Traded:  {n_traded:>6,}  ({n_traded/_total_sigs*100:.1f}% of all signals)" if _total_sigs > 0 else f"    Traded:  {n_traded:>6,}")
-        report_lines.append(f"    Skipped: {n_skipped:>6,}  ({n_skipped/_total_sigs*100:.1f}% of all signals)" if _total_sigs > 0 else f"    Skipped: {n_skipped:>6,}")
+        report_lines.append(f"    Traded:  {n_traded:>6,}  ({n_traded/(total_real_opps+total_noise_opps)*100:.1f}% of all signals)")
+        report_lines.append(f"    Skipped: {n_skipped:>6,}  ({n_skipped/(total_real_opps+total_noise_opps)*100:.1f}% of all signals)")
 
         # ── 2b. Skip reason breakdown ─────────────────────────────────────────────
         # n_signals_seen counts individual candidates (not unique timestamps).
@@ -2068,7 +2161,7 @@ class BayesianTrainingOrchestrator:
 
             # ── Exit reason cross-breakdown ───────────────────────────────────
             report_lines.append("")
-            report_lines.append(f"  EXIT REASON -> QUALITY CROSS-BREAKDOWN (correct-direction trades):")
+            report_lines.append(f"  EXIT REASON → QUALITY CROSS-BREAKDOWN (correct-direction trades):")
             all_reasons = sorted({r.get('exit_reason', 'unknown') for r in tp_recs})
             buckets_def = [
                 ('Optimal',   optimal),
@@ -2245,7 +2338,7 @@ class BayesianTrainingOrchestrator:
                     writer = csv.DictWriter(f, fieldnames=all_keys)
                     writer.writeheader()
                     writer.writerows(month_records)
-            print(f"  [EXPORT] run_logs/{base_filename} -> {len(partitions)} monthly shards (commit to GitHub for Gemini review)")
+            print(f"  [EXPORT] run_logs/{base_filename} → {len(partitions)} monthly shards (commit to GitHub for Gemini review)")
 
         # ── 6. Save CSV ──────────────────────────────────────────────────────────
         if oracle_trade_records:
@@ -3415,6 +3508,9 @@ class BayesianTrainingOrchestrator:
             # Time-scale: bar index where MFE historically peaks (0.0 until --fresh with mfe_bar)
             'avg_mfe_bar':   getattr(template, 'avg_mfe_bar',   0.0),
             'p75_mfe_bar':   getattr(template, 'p75_mfe_bar',   0.0),
+            # CST Basin
+            'basin_mean':    getattr(template, 'basin_mean',    0.0),
+            'basin_std':     getattr(template, 'basin_std',     0.0),
         }
 
     def validate_template_group(self, patterns: List[PatternEvent], params: Dict) -> float:
@@ -3966,9 +4062,6 @@ def main():
                         help="First day to include in forward pass (inclusive, e.g. 20260101)")
     parser.add_argument('--forward-end', type=str, default=None, metavar='YYYYMMDD',
                         help="Last day to include in forward pass (inclusive, e.g. 20260209)")
-    parser.add_argument('--target-day', type=str, default=None, metavar='YYYYMMDD',
-                        help="Run forward pass on a single target day for focused diagnostics. "
-                             "Implies --forward-pass. Equivalent to --forward-start X --forward-end X.")
     parser.add_argument('--min-tier', type=int, default=None, choices=[1, 2, 3, 4],
                         help="Only activate templates of this tier or better (1=Tier1 only, 3=drop Tier4 losers)")
     parser.add_argument('--bias-threshold', type=float, default=None,
@@ -3988,13 +4081,6 @@ def main():
 
     args = parser.parse_args()
 
-    # --target-day shorthand: implies --forward-pass, sets start=end=day
-    if args.target_day:
-        args.forward_pass = True
-        args.forward_start = args.target_day
-        args.forward_end = args.target_day
-        print(f"TARGET DAY MODE: {args.target_day}")
-
     # ── Tee stdout -> checkpoints/training_log.txt (append, one file per project) ──
     import io
     class _Tee(io.TextIOWrapper):
@@ -4002,10 +4088,7 @@ def main():
             self._file = open(log_path, 'a', encoding='utf-8', buffering=1)
             self._stdout = sys.stdout
         def write(self, data):
-            try:
-                self._stdout.write(data)
-            except UnicodeEncodeError:
-                self._stdout.write(data.encode('ascii', 'replace').decode('ascii'))
+            self._stdout.write(data)
             self._file.write(data)
             return len(data)
         def flush(self):
