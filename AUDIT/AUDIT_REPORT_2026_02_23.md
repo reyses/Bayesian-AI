@@ -58,13 +58,12 @@ The following actions are required to complete the system optimization and addre
 
 1.  **Update `CURRENT_STATUS.md`**: Regenerate the status report with accurate metadata, git info, and file structure to reflect the current state (2026-02-23).
 2.  **Refactor Debug Scripts**:
-    -   Update `scripts/debug/debug_databento.py` and `reproduce_loader_error.py` (renamed) to use `argparse` for file paths instead of hardcoding.
+    -   Rename `scripts/debug/reproduce_loader_error.py` to `scripts/debug/verify_databento_loader.py` for clarity.
+    -   Update `scripts/debug/debug_databento.py` and `scripts/debug/verify_databento_loader.py` to use `argparse` for file paths instead of hardcoding.
     -   Replace `print()` with `logging` in these scripts.
     -   Ensure they can run from the project root using `python -m scripts.debug...` or `python scripts/debug/...`.
 3.  **Core Logging Migration**:
     -   Replace `print()` statements in `core/context_detector.py`, `core/exploration_mode.py`, and `core/bayesian_brain.py` with `core.logger` or standard logging.
-4.  **Rename Scripts**:
-    -   Rename `reproduce_loader_error.py` to `verify_databento_loader.py` for clarity.
 
 ---
 
