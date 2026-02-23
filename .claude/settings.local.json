@@ -22,7 +22,11 @@
       "Bash(L3_ROCHE)",
       "Bash(trend\":*)",
       "Bash(git push:*)",
-      "Bash(git diff:*)"
+      "Bash(git diff:*)",
+      "Bash(\"c:/Users/reyse/OneDrive/Desktop/Bayesian-AI/scripts/depth_analysis.py\":*)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\reyse\\OneDrive\\Desktop\\Bayesian-AI"
     ]
   }
 }

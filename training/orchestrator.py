@@ -558,6 +558,11 @@ class BayesianTrainingOrchestrator:
         # PID Shadow Log
         pid_oracle_records = []
 
+        # Detection funnel counters (bar-level, across all days)
+        total_bars_processed  = 0   # Every 15s bar we step through
+        bars_with_detection   = 0   # Bars where pattern_map had at least one candidate
+        bars_slot_blocked     = 0   # Bars with detection but position was open (slot occupied)
+
         # Skip reason counters (per-candidate across all days)
         skip_headroom    = 0   # Gate 0: no pattern or noise zone / structural rules
         skip_dist        = 0   # No cluster match within distance 3.0
@@ -697,6 +702,7 @@ class BayesianTrainingOrchestrator:
             _bar_i = 0  # 15s bar index for belief network worker ticks
 
             for row in df_15s.itertuples():
+                total_bars_processed += 1
                 ts_raw = row.timestamp
                 # Snap to 60s boundary to match pattern_map keys
                 ts = int(ts_raw) // 60 * 60
@@ -887,6 +893,11 @@ class BayesianTrainingOrchestrator:
                 # Equity ruin check: simulation ends when equity hits 0 (no money to trade).
                 if _equity_enabled and account_ruined:
                     break   # stop processing this day's bars entirely
+                # Detection funnel: count bars where pattern_map had signals
+                if ts in pattern_map:
+                    bars_with_detection += 1
+                    if current_position_open:
+                        bars_slot_blocked += 1
                 if not current_position_open and ts in pattern_map:
                     candidates = pattern_map[ts]
                     best_candidate = None
@@ -1684,7 +1695,22 @@ class BayesianTrainingOrchestrator:
         report_lines.append(f"    Traded:  {n_traded:>6,}  ({n_traded/(total_real_opps+total_noise_opps)*100:.1f}% of all signals)")
         report_lines.append(f"    Skipped: {n_skipped:>6,}  ({n_skipped/(total_real_opps+total_noise_opps)*100:.1f}% of all signals)")
 
-        # ── 2b. Skip reason breakdown ─────────────────────────────────────────────
+        # ── 2b. Detection funnel (bar-level) ──────────────────────────────────────
+        _bars_blind = total_bars_processed - bars_with_detection
+        _bars_evaluated = bars_with_detection - bars_slot_blocked
+        _sec['detection_funnel'] = len(report_lines)
+        report_lines.append("")
+        report_lines.append(f"  DETECTION FUNNEL (bar-level)")
+        if total_bars_processed > 0:
+            _pct_b = lambda n: f"{n/total_bars_processed*100:.1f}%"
+            report_lines.append(f"    Total 15s bars processed:  {total_bars_processed:>9,}  (100%)")
+            report_lines.append(f"    Bars with detection:       {bars_with_detection:>9,}  ({_pct_b(bars_with_detection)})")
+            report_lines.append(f"    Bars with NO detection:    {_bars_blind:>9,}  ({_pct_b(_bars_blind)})  <- model blind")
+            report_lines.append(f"    Bars slot-blocked:         {bars_slot_blocked:>9,}  ({_pct_b(bars_slot_blocked)})  <- position open, can't trade")
+            report_lines.append(f"    Bars evaluated (free slot):{_bars_evaluated:>9,}  ({_pct_b(_bars_evaluated)})")
+            report_lines.append(f"    Candidates on those bars:  {n_signals_seen:>9,}  (avg {n_signals_seen/max(1,_bars_evaluated):.1f}/bar)")
+
+        # ── 2c. Skip reason breakdown ─────────────────────────────────────────────
         _n_pass = n_signals_seen - skip_headroom - skip_dist - skip_brain - skip_conviction
         _sec['skip_reasons'] = len(report_lines)
         report_lines.append("")
@@ -2399,6 +2425,10 @@ class BayesianTrainingOrchestrator:
                 'left_on_table':  round(left_on_table_val, 2),
                 'n_reversed':     len(reversed_) if tp_recs else 0,
                 'n_correct_dir':  len(tp_recs) if tp_recs else 0,
+                'total_bars':     total_bars_processed,
+                'bars_detected':  bars_with_detection,
+                'bars_blind':     total_bars_processed - bars_with_detection,
+                'bars_slot_blocked': bars_slot_blocked,
                 'gate0_skip':     skip_headroom,
                 'gate1_skip':     skip_dist,
                 'gate2_skip':     skip_brain,
@@ -2415,7 +2445,7 @@ class BayesianTrainingOrchestrator:
                 _snap_json.dump(_snap, _sf, indent=2)
             print(f"  Run snapshot saved: {_snap_path}")
 
-        print("\n  ✓ Forward pass complete — all files saved.", flush=True)
+        print("\n  [OK] Forward pass complete -- all files saved.", flush=True)
 
     def run_final_validation(self, top_strategies):
         """
@@ -2618,7 +2648,7 @@ class BayesianTrainingOrchestrator:
         print("=" * 80)
         print(f"  {'Depth':<12} {'TF':<5} {'Trades':>7} {'WR%':>6} "
               f"{'Total PnL':>12} {'Avg/trade':>10} {'Days':>5}")
-        print(f"  {'─'*12} {'─'*5} {'─'*7} {'─'*6} {'─'*12} {'─'*10} {'─'*5}")
+        print(f"  {'-'*12} {'-'*5} {'-'*7} {'-'*6} {'-'*12} {'-'*10} {'-'*5}")
         for d in sorted(_results.keys()):
             r = _results[d]
             n = r['total_trades']
@@ -2636,7 +2666,7 @@ class BayesianTrainingOrchestrator:
         _total_wins = sum(r['total_trades'] * r['win_rate'] for r in _results.values())
         _comb_wr = (_total_wins / _total_trades * 100) if _total_trades > 0 else 0
         _comb_avg = _total_pnl / _total_trades if _total_trades > 0 else 0
-        print(f"  {'─'*12} {'─'*5} {'─'*7} {'─'*6} {'─'*12} {'─'*10} {'─'*5}")
+        print(f"  {'-'*12} {'-'*5} {'-'*7} {'-'*6} {'-'*12} {'-'*10} {'-'*5}")
         print(f"  {'COMBINED':<12} {'':5} {_total_trades:>7,} {_comb_wr:>5.1f}% "
               f"${_total_pnl:>10,.2f} ${_comb_avg:>9.2f}")
         print(f"\n  NOTE: Combined total exceeds normal run because depths trade simultaneously.")
