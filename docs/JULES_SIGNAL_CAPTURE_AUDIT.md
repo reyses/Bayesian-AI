@@ -43,7 +43,7 @@ Once a raw pattern is discovered, it must pass a series of **Gates** in the **Or
 ### Gate 1: Clustering Match (Pattern Recognition)
 *   **Purpose**: Ensure the pattern matches a known, profitable template in the **Pattern Library**.
 *   **Logic**:
-    -   Calculates the Euclidean distance between the pattern's 14D feature vector and the nearest cluster centroid.
+    -   Calculates the Euclidean distance between the pattern's 16D feature vector and the nearest cluster centroid.
     -   **Threshold**: `dist < 4.5` (previously 3.0).
 *   **Audit Log**: Rejected candidates are logged with reason `gate1` (No Match).
 
