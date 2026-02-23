@@ -1270,8 +1270,8 @@ class BayesianTrainingOrchestrator:
                             getattr(_live_state, 'dmi_plus',  0.0)
                           - getattr(_live_state, 'dmi_minus', 0.0), 2)
                         _entry_depth = getattr(best_candidate, 'depth', 6)
-                        _playbook = lib_entry.get('semantic_name', '')
-                        if not _playbook and lib_entry.get('centroid') is not None:
+                        _playbook = lib_entry.get('semantic_name', '') or ''
+                        if (not _playbook or _playbook == 'Unknown') and lib_entry.get('centroid') is not None:
                             from training.fractal_clustering import generate_semantic_name
                             _playbook = generate_semantic_name(lib_entry['centroid'])
                         pending_oracle = {
@@ -2126,7 +2126,7 @@ class BayesianTrainingOrchestrator:
                     month = dt.month
                     year_str = str(dt.year)
                 else:
-                    dstr = str(dval)[:8]
+                    dstr = ''.join(c for c in str(dval) if c.isdigit())[:8]
                     year_str = dstr[:4] if len(dstr) >= 4 else '0000'
                     month = int(dstr[4:6]) if len(dstr) >= 6 else 1
                 q = (month - 1) // 3 + 1
@@ -2747,8 +2747,8 @@ class BayesianTrainingOrchestrator:
                 tier = 4  # TOXIC
 
             _lib = self.pattern_library.get(tid, {})
-            _sname = _lib.get('semantic_name', '')
-            if not _sname and _lib.get('centroid') is not None:
+            _sname = _lib.get('semantic_name', '') or ''
+            if (not _sname or _sname == 'Unknown') and _lib.get('centroid') is not None:
                 from training.fractal_clustering import generate_semantic_name
                 _sname = generate_semantic_name(_lib['centroid'])
             _sname = _sname or 'Unknown'
