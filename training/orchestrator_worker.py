@@ -14,6 +14,20 @@ REPRESENTATIVE_SUBSET_SIZE = 20
 FISSION_SUBSET_SIZE = 50
 INDIVIDUAL_OPTIMIZATION_ITERATIONS = 20
 
+# ── Pool-initializer globals (loaded once per worker process) ──────────
+_W_CLUSTERING_ENGINE = None
+_W_GENERATOR = None
+_W_POINT_VALUE = None
+_W_PATTERN_LIBRARY = None
+
+def _init_pool_worker(clustering_engine, generator, point_value, pattern_library):
+    """Called once per worker process — stores heavy objects in process globals."""
+    global _W_CLUSTERING_ENGINE, _W_GENERATOR, _W_POINT_VALUE, _W_PATTERN_LIBRARY
+    _W_CLUSTERING_ENGINE = clustering_engine
+    _W_GENERATOR = generator
+    _W_POINT_VALUE = point_value
+    _W_PATTERN_LIBRARY = pattern_library
+
 # Spectral Exit Constants
 Z_SCORE_CYCLE_WINDOW = 60
 VELOCITY_DAMPING_WINDOW = 20
@@ -403,15 +417,21 @@ def _process_template_job(args):
     Multiprocessing Worker Function
     Executes the Fission/Optimization logic for a single template.
     Returns a result dict with timing breakdown.
+
+    Supports two modes:
+      1. Pool-initializer (preferred): args is a dict with only 'template'
+         and 'iterations'; heavy objects come from process globals.
+      2. Legacy (full payload): args is a dict with all fields.
     """
     # Unpack — support both dict and tuple formats
     if isinstance(args, dict):
         template = args['template']
-        clustering_engine = args['clustering_engine']
-        iterations = args['iterations']
-        generator = args['generator']
-        point_value = args['point_value']
-        pattern_library = args.get('pattern_library', {})
+        iterations = args.get('iterations', 50)
+        # Use process globals if available (pool-initializer mode)
+        clustering_engine = args.get('clustering_engine', _W_CLUSTERING_ENGINE)
+        generator = args.get('generator', _W_GENERATOR)
+        point_value = args.get('point_value', _W_POINT_VALUE)
+        pattern_library = args.get('pattern_library', _W_PATTERN_LIBRARY or {})
     elif len(args) == 6:
         template, clustering_engine, iterations, generator, point_value, pattern_library = args
     else:
