@@ -703,6 +703,12 @@ class FractalDiscoveryAgent:
 
             p_type = filtered_parent_types[bar_idx] if bar_idx < len(filtered_parent_types) else ''
             p_tf = filtered_parent_tfs[bar_idx] if bar_idx < len(filtered_parent_tfs) else ''
+            p_chain = filtered_parent_chains[bar_idx] if bar_idx < len(filtered_parent_chains) else []
+            file_path = filtered_file_sources[bar_idx] if bar_idx < len(filtered_file_sources) else ''
+
+            window_end = min(n_bars, bar_idx + lookahead_bars)
+            window_slice = combined.iloc[bar_idx:window_end].copy()
+
             # --- Consult Oracle ---
             # Construct ancestry context from filtered parent info
             curr_ancestry = {

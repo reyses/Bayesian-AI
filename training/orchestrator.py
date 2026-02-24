@@ -639,7 +639,7 @@ class BayesianTrainingOrchestrator:
         def _effective_oracle(p) -> int:
             """Return the strongest oracle marker across the full macro-to-leaf chain.
             If the leaf pattern is NOISE but a macro ancestor says MEGA_LONG, use that.
-            Chain is ordered leaf-first (index 0) → root (last), so we scan all entries
+            Chain is ordered leaf-first (index 0) -> root (last), so we scan all entries
             and keep the one with the highest |oracle_marker|.
             """
             leaf_om = getattr(p, 'oracle_marker', 0)
@@ -1392,7 +1392,7 @@ class BayesianTrainingOrchestrator:
                             _sl_ticks = params.get('stop_loss_ticks', 20)
 
                         # Phase 2: trailing stop distance (from HWM).
-                        # Pre-fix used sigma*1.1 → 3-tick trip-wire that collapsed to 2t via tightening.
+                        # Pre-fix used sigma*1.1 -> 3-tick trip-wire that collapsed to 2t via tightening.
                         # Now: sigma*2.5 (captures normal price noise within a trending move);
                         # floor at 8 ticks ($10/tick on MNQ = $80 minimum breathing room).
                         if _reg_sigma > 2.0:
@@ -1403,7 +1403,7 @@ class BayesianTrainingOrchestrator:
                             _trail_ticks = max(8, params.get('trailing_stop_ticks', 12))
 
                         # Trail activation: needs p25_mae * 0.6 profit ticks to engage.
-                        # Pre-fix: 0.3 → trail activated with only 3 ticks profit → tight trail
+                        # Pre-fix: 0.3 -> trail activated with only 3 ticks profit -> tight trail
                         # immediately fired on any oscillation. Now: 0.6 ensures trade is
                         # meaningfully in profit before trail takes over from hard SL.
                         _trail_act_ticks = (max(4, int(round(_p25_mae * 0.6)))
@@ -1910,8 +1910,9 @@ class BayesianTrainingOrchestrator:
         n_skipped  = audit_fn + audit_tn
         report_lines.append("")
         report_lines.append(f"  WHAT WE DID:")
-        report_lines.append(f"    Traded:  {n_traded:>6,}  ({n_traded/(total_real_opps+total_noise_opps)*100:.1f}% of all signals)")
-        report_lines.append(f"    Skipped: {n_skipped:>6,}  ({n_skipped/(total_real_opps+total_noise_opps)*100:.1f}% of all signals)")
+        _total_sigs = total_real_opps + total_noise_opps
+        report_lines.append(f"    Traded:  {n_traded:>6,}  ({n_traded/_total_sigs*100:.1f}% of all signals)" if _total_sigs else f"    Traded:  {n_traded:>6,}")
+        report_lines.append(f"    Skipped: {n_skipped:>6,}  ({n_skipped/_total_sigs*100:.1f}% of all signals)" if _total_sigs else f"    Skipped: {n_skipped:>6,}")
 
         # ── 2b. Skip reason breakdown ─────────────────────────────────────────────
         # n_signals_seen counts individual candidates (not unique timestamps).
@@ -2186,7 +2187,7 @@ class BayesianTrainingOrchestrator:
 
             # ── Exit reason cross-breakdown ───────────────────────────────────
             report_lines.append("")
-            report_lines.append(f"  EXIT REASON → QUALITY CROSS-BREAKDOWN (correct-direction trades):")
+            report_lines.append(f"  EXIT REASON -> QUALITY CROSS-BREAKDOWN (correct-direction trades):")
             all_reasons = sorted({r.get('exit_reason', 'unknown') for r in tp_recs})
             buckets_def = [
                 ('Optimal',   optimal),
@@ -2363,7 +2364,7 @@ class BayesianTrainingOrchestrator:
                     writer = csv.DictWriter(f, fieldnames=all_keys)
                     writer.writeheader()
                     writer.writerows(month_records)
-            print(f"  [EXPORT] run_logs/{base_filename} → {len(partitions)} monthly shards (commit to GitHub for Gemini review)")
+            print(f"  [EXPORT] run_logs/{base_filename} -> {len(partitions)} monthly shards (commit to GitHub for Gemini review)")
 
         # ── 6. Save CSV ──────────────────────────────────────────────────────────
         if oracle_trade_records:
@@ -4113,7 +4114,10 @@ def main():
             self._file = open(log_path, 'a', encoding='utf-8', buffering=1)
             self._stdout = sys.stdout
         def write(self, data):
-            self._stdout.write(data)
+            try:
+                self._stdout.write(data)
+            except UnicodeEncodeError:
+                self._stdout.write(data.encode('ascii', errors='replace').decode('ascii'))
             self._file.write(data)
             return len(data)
         def flush(self):
