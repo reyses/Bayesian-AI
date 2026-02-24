@@ -7,8 +7,13 @@ ENHANCED: Now includes post-trade regret analysis for adaptive trail optimizatio
 import time
 from dataclasses import dataclass
 from typing import Optional, Dict, Union, List, Tuple, Literal
+import numpy as np
 from core.state_vector import StateVector
 from core.three_body_state import ThreeBodyQuantumState
+from core.quantum_field_engine import QuantumFieldEngine
+
+# Fallback threshold if basin stats are zero
+CST_FALLBACK_SIGMA_THRESHOLD = 4.5
 
 
 @dataclass
@@ -248,6 +253,12 @@ class Position:
     entry_dmi_inverse: bool = False                # True if DMI was against trade direction at entry
     bars_in_trade: int = 0                           # incremented each update_trail call
 
+    # CST
+    cst_centroid: Optional[np.ndarray] = None
+    cst_basin_mean: float = 0.0
+    cst_basin_std: float = 0.0
+    cst_ancestry: Optional[Dict] = None
+
 
 class WaveRider:
     """
@@ -309,7 +320,11 @@ class WaveRider:
                      profit_target_ticks: Optional[int] = None,
                      trailing_stop_ticks: Optional[int] = None,
                      trail_activation_ticks: Optional[int] = None,
-                     template_id: Optional[int] = None):
+                     template_id: Optional[int] = None,
+                     cst_centroid: Optional[np.ndarray] = None,
+                     cst_basin_mean: float = 0.0,
+                     cst_basin_std: float = 0.0,
+                     cst_ancestry: Optional[Dict] = None):
         """
         Open new position
 
@@ -324,6 +339,10 @@ class WaveRider:
                                     Until then the initial hard stop is used.
                                     None = trail active from bar 1 (legacy behaviour).
             template_id: ID of the template triggering this trade
+            cst_centroid: Template centroid (scaled) for structural integrity checks
+            cst_basin_mean: Mean distance of members to centroid
+            cst_basin_std: StdDev of member distances
+            cst_ancestry: Dictionary of static ancestry features for vector reconstruction
         """
         stop_dist = stop_distance_ticks * self.asset.tick_size
         stop_loss = entry_price + stop_dist if side == 'short' else entry_price - stop_dist
@@ -345,6 +364,10 @@ class WaveRider:
             trailing_stop_ticks=trailing_stop_ticks,
             trail_activation_ticks=trail_activation_ticks,
             original_trail_ticks=trailing_stop_ticks,
+            cst_centroid=cst_centroid,
+            cst_basin_mean=cst_basin_mean,
+            cst_basin_std=cst_basin_std,
+            cst_ancestry=cst_ancestry
         )
         
         # Note: Do not clear price_history here as we need it for delayed analysis
@@ -521,7 +544,7 @@ class WaveRider:
 
         # Loss watchdog: DMI inverse + underwater + workers agree on reversal
         # Triple confirmation prevents cutting on noise dips.
-        # 8 ticks = $2.00 move = $4.00 PnL on MNQ — filters out normal noise.
+        # 8 ticks = $2.00 move = $4.00 PnL on MNQ -- filters out normal noise.
         WATCHDOG_TICKS = 8       # must be at least this far underwater
         WATCHDOG_WORKERS = 5     # at least N workers must disagree with trade side
         WATCHDOG_MIN_BARS = 5    # must hold at least N bars before watchdog can fire
@@ -758,6 +781,30 @@ class WaveRider:
         
         print(f"{'='*60}\n")
     
+    def check_structural_integrity(self, current_state: ThreeBodyQuantumState) -> bool:
+        """
+        Returns True if structural integrity is maintained (distance <= basin radius),
+        False if structure is broken (tether snapped).
+        """
+        if not self.position or self.position.cst_centroid is None:
+            return True
+
+        try:
+            current_vec = np.array(QuantumFieldEngine.build_16d_vector(current_state, self.position.cst_ancestry))
+            dist = np.linalg.norm(current_vec - self.position.cst_centroid)
+
+            # Tether Break: Distance > Basin_Radius (e.g. mean + 3*std)
+            threshold = self.position.cst_basin_mean + 3.0 * self.position.cst_basin_std
+
+            # Fallback for single-point basins
+            if threshold < 1e-6:
+                threshold = CST_FALLBACK_SIGMA_THRESHOLD
+
+            return dist <= threshold
+        except Exception as e:
+            print(f"CST check failed: {e}")
+            return True # Fail safe
+
     def get_statistics(self) -> Dict:
         """Get position management statistics."""
         if self.total_trades == 0:
