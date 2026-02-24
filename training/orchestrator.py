@@ -40,26 +40,21 @@ if PROJECT_ROOT not in sys.path:
 # Core components
 from core.bayesian_brain import QuantumBayesianBrain, TradeOutcome
 from core.quantum_field_engine import QuantumFieldEngine
-from core.context_detector import ContextDetector
-from core.adaptive_confidence import AdaptiveConfidenceManager
-from core.multi_timeframe_context import MultiTimeframeContext
 from core.dynamic_binner import DynamicBinner
 from core.three_body_state import ThreeBodyQuantumState
-from core.exploration_mode import UnconstrainedExplorer, ExplorationConfig
 
 # Training components
 from training.doe_parameter_generator import DOEParameterGenerator
 from training.pattern_analyzer import PatternAnalyzer
 from training.progress_reporter import ProgressReporter, DayMetrics
 from training.databento_loader import DatabentoLoader
-from training.fractal_discovery_agent import FractalDiscoveryAgent, PatternEvent, TIMEFRAME_SECONDS
+from training.fractal_discovery_agent import FractalDiscoveryAgent, PatternEvent, TIMEFRAME_SECONDS, TIMEFRAME_HIERARCHY
 from training.fractal_clustering import FractalClusteringEngine, PatternTemplate
 from training.fractal_dna_tree import FractalDNATree
 from training.pipeline_checkpoint import PipelineCheckpoint
 from training.timeframe_belief_network import TimeframeBeliefNetwork, BeliefState
 
 # Execution components
-from training.integrated_statistical_system import IntegratedStatisticalEngine
 from training.batch_regret_analyzer import BatchRegretAnalyzer
 from training.wave_rider import WaveRider
 from training.orchestrator_worker import simulate_trade_standalone, _optimize_pattern_task, _optimize_template_task, _process_template_job, _audit_trade
@@ -236,15 +231,9 @@ class BayesianTrainingOrchestrator:
         # Initialize core components
         self.brain = QuantumBayesianBrain()
         self.engine = QuantumFieldEngine()
-        self.context_detector = ContextDetector()
-        self.param_generator = DOEParameterGenerator(self.context_detector)
-        self.confidence_manager = AdaptiveConfidenceManager(self.brain)
-        self.stat_validator = IntegratedStatisticalEngine(self.asset)
+        self.param_generator = DOEParameterGenerator(None)
         self.wave_rider = WaveRider(self.asset)
         self.discovery_agent = FractalDiscoveryAgent()
-
-        # Multi-timeframe context engine
-        self.mtf_context = MultiTimeframeContext()
         self.all_tf_data = None  # Populated in train()
 
         # Dynamic histogram binner (fitted from first day's data)
@@ -254,12 +243,6 @@ class BayesianTrainingOrchestrator:
         self.pattern_analyzer = PatternAnalyzer()
         self.progress_reporter = ProgressReporter()
         self.regret_analyzer = BatchRegretAnalyzer()
-
-        # Exploration Mode (optional)
-        self.exploration_mode = getattr(config, 'exploration_mode', False)
-        self.explorer = UnconstrainedExplorer(ExplorationConfig(max_trades=5000, fire_probability=1.0)) if self.exploration_mode else None
-        if self.exploration_mode:
-            print("WARNING: UNCONSTRAINED EXPLORATION MODE ENABLED (Entry filters bypassed)")
 
         # Training state
         self.day_results: List[DayResults] = []
@@ -782,6 +765,15 @@ class BayesianTrainingOrchestrator:
             _df_5s = _load_fine('5s')
             _df_1s  = _load_fine('1s')
 
+            # Pre-extract 1s numpy arrays for wick-aware inner loop
+            if _df_1s is not None and not _df_1s.empty:
+                _1s_ts    = _df_1s['timestamp'].values.astype(np.float64)
+                _1s_highs = _df_1s['high'].values.astype(np.float64)
+                _1s_lows  = _df_1s['low'].values.astype(np.float64)
+                _has_1s   = True
+            else:
+                _has_1s = False
+
             # Belief network: Task 1 for all 10 TF workers (1h -> 1s)
             # 1h->15s resampled from df_15s; 5s/1s from monthly ATLAS files.
             try:
@@ -1011,7 +1003,24 @@ class BayesianTrainingOrchestrator:
                             # Normal Trail/Gate logic
                             res = self.wave_rider.update_trail(price, current_state, ts_raw, exit_signal=_exit_sig)
 
+                        # -- 1s inner loop: check wicks within this 15s bar --
+                        if not res['should_exit'] and _has_1s:
+                            _s0 = np.searchsorted(_1s_ts, ts_raw, side='left')
+                            _s1 = np.searchsorted(_1s_ts, ts_raw + 15, side='left')
+                            for _1s_i in range(_s0, _s1):
+                                belief_network.tick_sub_resolution(
+                                    tf_bar_idx_1s=_1s_i,
+                                    tf_bar_idx_5s=_1s_i // 5
+                                )
+                                res_1s = self.wave_rider.check_stops_hilo(
+                                    _1s_highs[_1s_i], _1s_lows[_1s_i], _1s_ts[_1s_i]
+                                )
+                                if res_1s['should_exit']:
+                                    res = res_1s
+                                    break
+
                     if res['should_exit']:
+                        _exit_ts = res.get('exit_time', ts_raw)
                         outcome = TradeOutcome(
                             state=active_template_id,
                             entry_price=active_entry_price,
@@ -1021,8 +1030,8 @@ class BayesianTrainingOrchestrator:
                             timestamp=ts_raw,
                             exit_reason=res['exit_reason'],
                             entry_time=active_entry_time,
-                            exit_time=ts_raw,
-                            duration=ts_raw - active_entry_time,
+                            exit_time=_exit_ts,
+                            duration=_exit_ts - active_entry_time,
                             direction='LONG' if active_side == 'long' else 'SHORT',
                             template_id=active_template_id
                         )
@@ -1163,6 +1172,22 @@ class BayesianTrainingOrchestrator:
                                     if not headroom:
                                         should_skip = True
                                         _skip_label = 'gate0_r4_struct'
+
+                        # RULE 5: Physics safety (from reconnected get_trade_directive)
+                        if not should_skip and not _data_override:
+                            _st = p.state
+                            # 5a. Hurst < 0.5 = anti-persistent / choppy -- unsafe for all patterns
+                            if _st.hurst_exponent < 0.5:
+                                should_skip = True
+                                _skip_label = 'gate0_hurst'
+                            # 5b. Momentum override: momentum dominates reversion -> breakout likely
+                            elif abs(_st.F_momentum) > abs(_st.F_reversion) * 1.5 and abs(_st.F_reversion) > 0:
+                                should_skip = True
+                                _skip_label = 'gate0_momentum'
+                            # 5c. Tunnel probability too low (now analytically computed)
+                            elif _st.tunnel_probability < 0.40:
+                                should_skip = True
+                                _skip_label = 'gate0_tunnel'
 
                         if should_skip:
                             skip_headroom += 1
