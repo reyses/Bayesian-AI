@@ -13,7 +13,6 @@ env/
 training/training_progress.json
 *.zst
 *.pkl
-!docs/checkpoint_reference/*.pkl
 *.parquet
 nul
 debug_outputs/
