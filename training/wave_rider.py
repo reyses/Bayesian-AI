@@ -258,6 +258,8 @@ class Position:
     cst_basin_mean: float = 0.0
     cst_basin_std: float = 0.0
     cst_ancestry: Optional[Dict] = None
+    cst_scaler_mean: Optional[np.ndarray] = None   # StandardScaler.mean_
+    cst_scaler_scale: Optional[np.ndarray] = None   # StandardScaler.scale_
 
 
 class WaveRider:
@@ -324,7 +326,9 @@ class WaveRider:
                      cst_centroid: Optional[np.ndarray] = None,
                      cst_basin_mean: float = 0.0,
                      cst_basin_std: float = 0.0,
-                     cst_ancestry: Optional[Dict] = None):
+                     cst_ancestry: Optional[Dict] = None,
+                     cst_scaler_mean: Optional[np.ndarray] = None,
+                     cst_scaler_scale: Optional[np.ndarray] = None):
         """
         Open new position
 
@@ -339,10 +343,12 @@ class WaveRider:
                                     Until then the initial hard stop is used.
                                     None = trail active from bar 1 (legacy behaviour).
             template_id: ID of the template triggering this trade
-            cst_centroid: Template centroid (scaled) for structural integrity checks
-            cst_basin_mean: Mean distance of members to centroid
-            cst_basin_std: StdDev of member distances
+            cst_centroid: Template centroid (SCALED space) for structural integrity checks
+            cst_basin_mean: Mean distance of members to centroid (SCALED space)
+            cst_basin_std: StdDev of member distances (SCALED space)
             cst_ancestry: Dictionary of static ancestry features for vector reconstruction
+            cst_scaler_mean: StandardScaler.mean_ for scaling live vectors
+            cst_scaler_scale: StandardScaler.scale_ for scaling live vectors
         """
         stop_dist = stop_distance_ticks * self.asset.tick_size
         stop_loss = entry_price + stop_dist if side == 'short' else entry_price - stop_dist
@@ -367,7 +373,9 @@ class WaveRider:
             cst_centroid=cst_centroid,
             cst_basin_mean=cst_basin_mean,
             cst_basin_std=cst_basin_std,
-            cst_ancestry=cst_ancestry
+            cst_ancestry=cst_ancestry,
+            cst_scaler_mean=cst_scaler_mean,
+            cst_scaler_scale=cst_scaler_scale
         )
         
         # Note: Do not clear price_history here as we need it for delayed analysis
@@ -785,12 +793,20 @@ class WaveRider:
         """
         Returns True if structural integrity is maintained (distance <= basin radius),
         False if structure is broken (tether snapped).
+
+        All comparisons are done in SCALED space to match how basin_mean/basin_std
+        were computed during clustering.
         """
         if not self.position or self.position.cst_centroid is None:
             return True
 
         try:
             current_vec = np.array(QuantumFieldEngine.build_16d_vector(current_state, self.position.cst_ancestry))
+
+            # Scale live vector to match centroid space
+            if self.position.cst_scaler_mean is not None and self.position.cst_scaler_scale is not None:
+                current_vec = (current_vec - self.position.cst_scaler_mean) / self.position.cst_scaler_scale
+
             dist = np.linalg.norm(current_vec - self.position.cst_centroid)
 
             # Tether Break: Distance > Basin_Radius (e.g. mean + 3*std)

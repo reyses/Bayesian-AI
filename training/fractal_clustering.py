@@ -147,12 +147,16 @@ class FractalClusteringEngine:
         return QuantumFieldEngine.build_16d_vector(state, ancestry)
 
     def _create_pattern_template(self, template_id: int, X_sub: np.ndarray, patterns: list, scaler) -> PatternTemplate:
-        """Helper to create a PatternTemplate with basin geometry."""
+        """Helper to create a PatternTemplate with basin geometry.
+
+        Centroid and basin stats are all in SCALED space for consistent
+        distance comparisons in WaveRider.check_structural_integrity().
+        """
         c = np.mean(X_sub, axis=0)
         dists = np.linalg.norm(X_sub - c, axis=1)
         return PatternTemplate(
             template_id=template_id,
-            centroid=scaler.inverse_transform([c])[0],
+            centroid=c,  # SCALED space (was inverse_transform — caused mismatch)
             member_count=len(patterns),
             patterns=patterns,
             physics_variance=float(np.std(X_sub[:, 0])),

@@ -57,7 +57,7 @@ from training.timeframe_belief_network import TimeframeBeliefNetwork, BeliefStat
 # Execution components
 from training.batch_regret_analyzer import BatchRegretAnalyzer
 from training.wave_rider import WaveRider
-from training.orchestrator_worker import simulate_trade_standalone, _optimize_pattern_task, _optimize_template_task, _process_template_job, _audit_trade
+from training.orchestrator_worker import simulate_trade_standalone, _optimize_pattern_task, _optimize_template_task, _process_template_job, _audit_trade, _init_pool_worker
 from training.orchestrator_worker import FISSION_SUBSET_SIZE, INDIVIDUAL_OPTIMIZATION_ITERATIONS, DEFAULT_BASE_SLIPPAGE, DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 
 # Monte Carlo Pipeline
@@ -269,9 +269,15 @@ class BayesianTrainingOrchestrator:
 
     def calculate_optimal_workers(self):
         try:
-            return max(1, multiprocessing.cpu_count() - 2)
-        except NotImplementedError:
-            return 1
+            import psutil
+            mem_gb = psutil.virtual_memory().total / (1024 ** 3)
+        except Exception:
+            mem_gb = 16.0
+        # Pool-initializer mode: heavy objects loaded once per worker (~2GB each).
+        # Per-task pickle payload is <1KB (just template + iterations).
+        max_by_mem = max(1, int(mem_gb // 3))
+        max_by_cpu = max(1, multiprocessing.cpu_count() - 2)
+        return min(max_by_cpu, max_by_mem)
 
     def _calculate_cst_analytics(self, pending_oracle: dict, exit_idx: int) -> dict:
         """
@@ -451,14 +457,21 @@ class BayesianTrainingOrchestrator:
         with open(scaler_path, 'rb') as f:
             self.scaler = pickle.load(f)
 
+        _snowflake_loaded = False
         if os.path.exists(lib_long_path) and os.path.exists(sc_long_path):
             with open(lib_long_path, 'rb') as f: self.pattern_library_long = pickle.load(f)
             with open(lib_short_path, 'rb') as f: self.pattern_library_short = pickle.load(f)
             with open(sc_long_path, 'rb') as f: self.scaler_long = pickle.load(f)
             with open(sc_short_path, 'rb') as f: self.scaler_short = pickle.load(f)
-            print(f"  Snowflake: Loaded split libraries (L:{len(self.pattern_library_long)}, S:{len(self.pattern_library_short)})")
-        else:
-            print("  Legacy Mode: using unified scaler for all branches")
+            # Validate: if split libraries are empty, fall back to unified
+            if self.pattern_library_long and self.pattern_library_short:
+                _snowflake_loaded = True
+                print(f"  Snowflake: Loaded split libraries (L:{len(self.pattern_library_long)}, S:{len(self.pattern_library_short)})")
+            else:
+                print("  Snowflake files empty -- falling back to unified mode")
+
+        if not _snowflake_loaded:
+            print("  Unified Mode: using single scaler for all branches")
             self.pattern_library_long = self.pattern_library
             self.pattern_library_short = self.pattern_library
             self.scaler_long = self.scaler
@@ -466,13 +479,12 @@ class BayesianTrainingOrchestrator:
 
         print(f"  Loaded library: {len(self.pattern_library)} templates")
 
-        # Build Centroid Indices for both branches (using their respective scalers)
+        # Build Centroid Indices for both branches.
+        # Centroids are already in SCALED space (since clustering fix) — no transform needed.
         def _build_index(lib, sc):
             tids = [t for t in lib.keys() if 'centroid' in lib[t]]
             if not tids: return [], None
             cens = np.array([lib[t]['centroid'] for t in tids])
-            if cens.size > 0:
-                cens = sc.transform(cens)
             return tids, cens
 
         self.valid_tids_long,  self.centroids_long  = _build_index(self.pattern_library_long, self.scaler_long)
@@ -488,8 +500,9 @@ class BayesianTrainingOrchestrator:
             print("ERROR: No valid templates in library.")
             return
 
-        centroids_raw = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
-        centroids_scaled = self.scaler.transform(centroids_raw)
+        # Centroids are already stored in SCALED space (since clustering fix).
+        # Do NOT re-scale them — that would double-scale and break Gate 1 distances.
+        centroids_scaled = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
 
         # Load tier map before centroid build so we can pre-filter by min_tier
         _TIER_SCORE_ADJ = {1: -1.5, 2: -0.5, 3: 0.0, 4: 0.5}
@@ -542,8 +555,8 @@ class BayesianTrainingOrchestrator:
             self.valid_tids_short, self.centroids_short = _filter_sf(self.valid_tids_short, self.centroids_short)
             print(f"  Min-tier filter (tier <= {min_tier}): {_before} -> {len(valid_template_ids)} active templates")
 
-        centroids = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
-        centroids_scaled = self.scaler.transform(centroids)
+        # Rebuild centroids_scaled after tier filtering (already in scaled space)
+        centroids_scaled = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
         print(f"  Prepared {len(valid_template_ids)} centroids for matching.")
 
         # Pre-compute templates that earned a Gate 0 Rule 3 exception via data quality.
@@ -990,10 +1003,10 @@ class BayesianTrainingOrchestrator:
                         # Get exit signal from belief network every bar
                         _exit_sig = belief_network.get_exit_signal(self.wave_rider.position.side)
 
-                        # CST Check
+                        # CST Check (grace period: skip first 2 bars to let trade develop)
                         current_state = _states_map.get(_bar_i)
                         cst_broken = False
-                        if current_state:
+                        if current_state and self.wave_rider.position and self.wave_rider.position.bars_in_trade >= 2:
                             cst_broken = not self.wave_rider.check_structural_integrity(current_state)
 
                         if cst_broken:
@@ -1038,6 +1051,7 @@ class BayesianTrainingOrchestrator:
                         self.brain.update(outcome)
                         day_trades.append(outcome)
                         current_position_open = False
+                        self.wave_rider.position = None  # Bug fix: prevent ghost trades
 
                         # Update running equity after trade close
                         if _equity_enabled:
@@ -1173,21 +1187,22 @@ class BayesianTrainingOrchestrator:
                                         should_skip = True
                                         _skip_label = 'gate0_r4_struct'
 
-                        # RULE 5: Physics safety (from reconnected get_trade_directive)
-                        if not should_skip and not _data_override:
-                            _st = p.state
-                            # 5a. Hurst < 0.5 = anti-persistent / choppy -- unsafe for all patterns
-                            if _st.hurst_exponent < 0.5:
-                                should_skip = True
-                                _skip_label = 'gate0_hurst'
-                            # 5b. Momentum override: momentum dominates reversion -> breakout likely
-                            elif abs(_st.F_momentum) > abs(_st.F_reversion) * 1.5 and abs(_st.F_reversion) > 0:
-                                should_skip = True
-                                _skip_label = 'gate0_momentum'
-                            # 5c. Tunnel probability too low (now analytically computed)
-                            elif _st.tunnel_probability < 0.40:
-                                should_skip = True
-                                _skip_label = 'gate0_tunnel'
+                        # RULE 5: Physics safety — DISABLED
+                        # Three-body forces (F_momentum, F_reversion) are calibrated for
+                        # longer TFs where mean reversion dominates. At 15s resolution
+                        # momentum structurally exceeds reversion (82% of signals blocked
+                        # even at 3.0x ratio). Needs fundamental rethink — not threshold
+                        # tuning — before re-enabling. The cluster distance gate (Gate 1)
+                        # and brain gate (Gate 2) already filter low-quality signals.
+                        # if not should_skip and not _data_override:
+                        #     _st = p.state
+                        #     if _st.hurst_exponent < 0.35:
+                        #         should_skip = True; _skip_label = 'gate0_hurst'
+                        #     elif (abs(_st.F_momentum) > abs(_st.F_reversion) * 3.0
+                        #           and abs(_st.F_reversion) > 0):
+                        #         should_skip = True; _skip_label = 'gate0_momentum'
+                        #     elif _st.tunnel_probability < 0.15:
+                        #         should_skip = True; _skip_label = 'gate0_tunnel'
 
                         if should_skip:
                             skip_headroom += 1
@@ -1463,7 +1478,9 @@ class BayesianTrainingOrchestrator:
                             cst_centroid=lib_entry.get('centroid'),
                             cst_basin_mean=lib_entry.get('basin_mean', 0.0),
                             cst_basin_std=lib_entry.get('basin_std', 0.0),
-                            cst_ancestry=_cst_ancestry
+                            cst_ancestry=_cst_ancestry,
+                            cst_scaler_mean=getattr(_sc, 'mean_', None),
+                            cst_scaler_scale=getattr(_sc, 'scale_', None)
                         )
                         current_position_open = True
                         active_entry_price = price
@@ -2810,10 +2827,31 @@ class BayesianTrainingOrchestrator:
         print(f"\nAnalyzing {len(self.pattern_library)} strategies...")
 
         # Pre-group history by template_id for O(1) lookup
+        # Use oracle_trade_log.csv (Phase 4 ground truth) instead of brain.trade_history
+        # which can contain ghost trades from mixed phases.
         history_by_template = defaultdict(list)
-        for trade in self.brain.trade_history:
-            if trade.template_id is not None:
-                history_by_template[trade.template_id].append(trade)
+        _oracle_log_path = os.path.join(self.checkpoint_dir, 'oracle_trade_log.csv')
+        if os.path.exists(_oracle_log_path):
+            import csv as _csv5
+            with open(_oracle_log_path, 'r') as f:
+                reader = _csv5.DictReader(f)
+                for row in reader:
+                    _tid = row.get('template_id')
+                    if _tid:
+                        try:
+                            _tid_int = int(_tid)
+                            # Create a lightweight object with .pnl for downstream stats
+                            _pnl = float(row.get('actual_pnl', 0))
+                            _trade = type('OracleTrade', (), {'pnl': _pnl, 'template_id': _tid_int})()
+                            history_by_template[_tid_int].append(_trade)
+                        except (ValueError, TypeError):
+                            pass
+            print(f"  Loaded {sum(len(v) for v in history_by_template.values())} trades from oracle_trade_log.csv")
+        else:
+            print("  WARNING: oracle_trade_log.csv not found, falling back to brain.trade_history")
+            for trade in self.brain.trade_history:
+                if trade.template_id is not None:
+                    history_by_template[trade.template_id].append(trade)
 
         for tid in self.pattern_library:
             stats = self.brain.get_stats(tid)
@@ -3277,7 +3315,14 @@ class BayesianTrainingOrchestrator:
         batch_number = 0
         t_phase3_start = time.perf_counter()
 
-        with multiprocessing.Pool(processes=num_workers) as pool:
+        # Pool initializer: heavy objects loaded once per worker (not per task).
+        # Reduces pickle payload from ~1GB/task to ~1KB/task.
+        with multiprocessing.Pool(
+            processes=num_workers,
+            initializer=_init_pool_worker,
+            initargs=(clustering_engine, self.param_generator,
+                      self.asset.point_value, self.pattern_library)
+        ) as pool:
             while template_queue:
                 # Prepare Batch
                 current_batch = []
@@ -3294,16 +3339,12 @@ class BayesianTrainingOrchestrator:
                 total_in_queue = len(template_queue)
                 print(f"\n  Batch {batch_number}: processing {len(current_batch)} templates ({total_in_queue} remaining in queue)...")
 
+                # Slim task dicts: only template + iterations (heavy objects in worker globals)
                 tasks = []
                 for tmpl in current_batch:
-                    # Pass arguments as a dictionary to _process_template_job
                     tasks.append({
                         'template': tmpl,
-                        'clustering_engine': clustering_engine,
                         'iterations': self.config.iterations,
-                        'generator': self.param_generator,
-                        'point_value': self.asset.point_value,
-                        'pattern_library': self.pattern_library
                     })
 
                 results = pool.map(_process_template_job, tasks)
@@ -4072,6 +4113,9 @@ def main():
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
     parser.add_argument('--fresh', action='store_true', help="Clear all pipeline checkpoints and start fresh")
     parser.add_argument('--forward-pass', action='store_true', help="Run Phase 4 forward pass using existing playbook")
+    parser.add_argument('--train-only', action='store_true',
+                        help="Run Phases 2-3 only (discovery + template optimization). "
+                             "Saves library to checkpoints, skips forward pass and strategy report.")
     parser.add_argument('--oos', action='store_true',
                         help="Blind out-of-sample simulation: frozen templates, separate oos_trade_log.csv/oos_report.txt, "
                              "training depth_weights.json preserved. Implies --forward-pass. "
@@ -4084,6 +4128,9 @@ def main():
     parser.add_argument('--train-end', type=str, default=None, metavar='YYYYMMDD',
                         help="Out-of-sample guard: cap training data at this date (e.g. 20251231). "
                              "Use with --forward-start for a clean train/test split.")
+    parser.add_argument('--forward-data', type=str, default=None, metavar='PATH',
+                        help="Separate ATLAS root for Phase 4 forward pass (e.g. DATA/ATLAS_1DAY). "
+                             "Training (Phases 2-3) still uses --data; only Phase 4 switches to this path.")
     parser.add_argument('--forward-start', type=str, default=None, metavar='YYYYMMDD',
                         help="First day to include in forward pass (inclusive, e.g. 20260101)")
     parser.add_argument('--forward-end', type=str, default=None, metavar='YYYYMMDD',
@@ -4218,7 +4265,15 @@ def main():
                 # Phase 2 (Discovery) + 2.5 (Clustering) + 3 (Bayesian DOE Optimization)
                 orchestrator.train(args.data)
 
-            if args.mc or args.mc_only:
+            if args.train_only:
+                # --train-only: stop after Phases 2-3
+                n_lib = len(orchestrator.pattern_library) if orchestrator.pattern_library else 0
+                print(f"\n{'='*80}")
+                print(f"TRAIN-ONLY COMPLETE: {n_lib} templates in library")
+                print(f"  Run forward pass:  python training/orchestrator.py --forward-pass")
+                print(f"  Quick 1-day test:  python training/orchestrator.py --forward-pass --data DATA/ATLAS_1DAY")
+                print(f"{'='*80}")
+            elif args.mc or args.mc_only:
                 # Optional: Monte Carlo Sweep -> ANOVA -> Thompson -> Validation
                 mc = MonteCarloEngine(
                     checkpoint_dir=orchestrator.checkpoint_dir,
@@ -4242,7 +4297,8 @@ def main():
                 orchestrator.run_final_validation(refined_strategies)
             else:
                 # Default: Bayesian path -> Forward Pass -> Strategy Report
-                orchestrator.run_forward_pass(args.data,
+                _fwd_data = args.forward_data or args.data
+                orchestrator.run_forward_pass(_fwd_data,
                                           start_date=args.forward_start,
                                           end_date=args.forward_end,
                                           min_tier=args.min_tier,
