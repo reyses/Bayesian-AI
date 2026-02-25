@@ -4023,6 +4023,10 @@ def main():
     parser.add_argument('--sweep-params', action='store_true',
                         help="Post-hoc DOE: sweep filter combinations on oracle_trade_log.csv and rank by net PnL")
     parser.add_argument('--strategy-report', action='store_true', help="Run Phase 5 strategy selection report")
+    parser.add_argument('--forward-data', type=str, default=None, metavar='PATH',
+                        help="Custom data path for forward pass (skips auto-OOS chain)")
+    parser.add_argument('--skip-oos', action='store_true',
+                        help="Skip auto-chained OOS forward pass after IS + Strategy")
 
     # Monte Carlo Flags (opt-in with --mc)
     parser.add_argument('--mc', action='store_true', help='Enable Monte Carlo sweep after Bayesian Phase 3')
@@ -4117,9 +4121,21 @@ def main():
                                             start_date=args.forward_start,
                                             end_date=args.forward_end,
                                             oos_mode=args.oos)
+        elif args.oos and not args.forward_pass and not args.fresh:
+            # Standalone OOS rerun (Phase 6 only)
+            _oos_data = getattr(args, 'forward_data', None) or os.path.join('DATA', 'ATLAS_OOS')
+            orchestrator.run_forward_pass(_oos_data,
+                                          start_date=args.forward_start,
+                                          end_date=args.forward_end,
+                                          min_tier=args.min_tier,
+                                          bias_threshold=args.bias_threshold,
+                                          dmi_threshold=args.dmi_threshold,
+                                          oos_mode=True,
+                                          account_size=args.account_size)
         elif (args.forward_pass or args.oos) and not args.fresh:
-            # Phase 4 only (using existing playbook) or OOS blind simulation
-            orchestrator.run_forward_pass(args.data,
+            # Phase 4 IS → Phase 5 Strategy → Phase 6 OOS (auto-chain)
+            _fwd_data = getattr(args, 'forward_data', None) or args.data
+            orchestrator.run_forward_pass(_fwd_data,
                                           start_date=args.forward_start,
                                           end_date=args.forward_end,
                                           min_tier=args.min_tier,
@@ -4127,8 +4143,25 @@ def main():
                                           dmi_threshold=args.dmi_threshold,
                                           oos_mode=args.oos,
                                           account_size=args.account_size)
-            if args.strategy_report:
-                orchestrator.run_strategy_selection()
+            orchestrator.run_strategy_selection()  # always run Phase 5
+
+            # Auto-chain OOS if ATLAS_OOS exists and not suppressed
+            _oos_path = os.path.join('DATA', 'ATLAS_OOS')
+            if (not args.skip_oos
+                    and not getattr(args, 'forward_data', None)
+                    and not args.oos
+                    and os.path.isdir(_oos_path)):
+                print("\n" + "=" * 80)
+                print("  AUTO-CHAINING: OOS Blind Validation (Phase 6)")
+                print("=" * 80)
+                orchestrator.run_forward_pass(_oos_path,
+                                              start_date=args.forward_start,
+                                              end_date=args.forward_end,
+                                              min_tier=args.min_tier,
+                                              bias_threshold=args.bias_threshold,
+                                              dmi_threshold=args.dmi_threshold,
+                                              oos_mode=True,
+                                              account_size=args.account_size)
         elif args.strategy_report and not args.forward_pass:
             orchestrator.run_strategy_selection()
         else:
@@ -4170,8 +4203,9 @@ def main():
                 refined_strategies = refiner.refine()
                 orchestrator.run_final_validation(refined_strategies)
             else:
-                # Default: Bayesian path -> Forward Pass -> Strategy Report
-                orchestrator.run_forward_pass(args.data,
+                # Default: Bayesian path -> IS Forward Pass -> Strategy -> OOS
+                _fwd_data = getattr(args, 'forward_data', None) or args.data
+                orchestrator.run_forward_pass(_fwd_data,
                                           start_date=args.forward_start,
                                           end_date=args.forward_end,
                                           min_tier=args.min_tier,
@@ -4185,6 +4219,23 @@ def main():
                                                     start_date=args.forward_start,
                                                     end_date=args.forward_end,
                                                     oos_mode=getattr(args, 'oos', False))
+
+                # Auto-chain OOS if ATLAS_OOS exists and not suppressed
+                _oos_path = os.path.join('DATA', 'ATLAS_OOS')
+                if (not getattr(args, 'skip_oos', False)
+                        and not getattr(args, 'forward_data', None)
+                        and os.path.isdir(_oos_path)):
+                    print("\n" + "=" * 80)
+                    print("  AUTO-CHAINING: OOS Blind Validation (Phase 6)")
+                    print("=" * 80)
+                    orchestrator.run_forward_pass(_oos_path,
+                                              start_date=args.forward_start,
+                                              end_date=args.forward_end,
+                                              min_tier=args.min_tier,
+                                              bias_threshold=args.bias_threshold,
+                                              dmi_threshold=args.dmi_threshold,
+                                              oos_mode=True,
+                                              account_size=getattr(args, 'account_size', 0.0))
 
         orchestrator.print_bottom_line()
         return 0
