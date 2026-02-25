@@ -322,7 +322,31 @@ class FractalDashboard:
             "<Button-3>", lambda e: self.menu_log.tk_popup(e.x_root, e.y_root)
         )
 
+        # Context menu for Leaderboard
+        self.menu_tree = tk.Menu(self.root, tearoff=0)
+        self.menu_tree.add_command(label="Copy Template ID", command=self._tree_copy_id)
+        self.menu_tree.add_command(label="Copy Row Data", command=self._tree_copy_row)
+        self.tree_ranks.bind(
+            "<Button-3>", lambda e: self.menu_tree.tk_popup(e.x_root, e.y_root)
+        )
+
     # ── Log interactions ──────────────────────────────────────────────────────
+    def _tree_copy_id(self):
+        sel = self.tree_ranks.selection()
+        if sel:
+            # The iid is the template ID, which is what we want to copy.
+            # sel is a tuple of selected iids, we'll take the first one.
+            self.root.clipboard_clear()
+            self.root.clipboard_append(sel[0])
+
+    def _tree_copy_row(self):
+        sel = self.tree_ranks.selection()
+        if sel:
+            vals = self.tree_ranks.item(sel[0])["values"]
+            text = " | ".join(str(v) for v in vals)
+            self.root.clipboard_clear()
+            self.root.clipboard_append(text)
+
     def _log_copy_sel(self):
         try:
             txt = self.log_text.get(tk.SEL_FIRST, tk.SEL_LAST)
@@ -589,6 +613,9 @@ class FractalDashboard:
         self._update_leaderboard()
 
     def _update_leaderboard(self):
+        # Preserve selection
+        selected_iids = self.tree_ranks.selection()
+
         for i in self.tree_ranks.get_children():
             self.tree_ranks.delete(i)
 
@@ -609,9 +636,16 @@ class FractalDashboard:
             self.tree_ranks.insert(
                 "",
                 tk.END,
+                iid=str(t["id"]),
                 values=(t["id"], t.get("count", 0), f"{win_pct:.0f}%", f"${pnl:.0f}"),
                 tags=(tag,),
             )
+
+        # Restore selection
+        to_select = [iid for iid in selected_iids if self.tree_ranks.exists(iid)]
+        if to_select:
+            self.tree_ranks.selection_set(to_select)
+
         self.lbl_stats.config(text=self._stats_str())
 
     # ── Helpers ───────────────────────────────────────────────────────────────
