@@ -347,13 +347,9 @@ def simulate_template_tf_combo(template_id: int, timeframe: str, n_iterations: i
         # 2. Transform features
         all_features_scaled = [local_scaler.transform(f) for f in all_features]
 
-        # 3. Transform centroid using ORIGINAL scaler (if provided) to get its sigma representation
-        # If original_scaler is None (should not happen if passed correctly), fallback to raw comparison (bad)
-        if original_scaler:
-            centroid_scaled = original_scaler.transform([centroid])[0]
-        else:
-            # Fallback: assume centroid is already scaled or we compare raw (likely to fail)
-            centroid_scaled = centroid
+        # 3. Centroid is already in SCALED space (since clustering fix).
+        # No transform needed — just use it directly.
+        centroid_scaled = centroid
 
         # Match indices
         match_indices_per_month = []

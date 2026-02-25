@@ -156,11 +156,25 @@ class PipelineCheckpoint:
 
     def clear(self):
         """Wipe all checkpoint files for a fresh start."""
+        # Core pipeline checkpoints
         for path in [self.state_path, self.manifest_path, self.levels_path,
                      self.templates_path, self.scheduler_path]:
             if os.path.exists(path):
                 os.remove(path)
                 print(f"  [CHECKPOINT] Removed: {os.path.basename(path)}")
+        # Phase 4 artifacts that become stale on retrain
+        _phase4_files = [
+            'depth_weights.json', 'pattern_library.pkl',
+            'pattern_library_long.pkl', 'pattern_library_short.pkl',
+            'clustering_scaler.pkl', 'clustering_scaler_long.pkl',
+            'clustering_scaler_short.pkl', 'fractal_dna_tree.pkl',
+            'dynamic_binner.pkl', 'tier_map.json',
+        ]
+        for fname in _phase4_files:
+            fpath = os.path.join(self.checkpoint_dir, fname)
+            if os.path.exists(fpath):
+                os.remove(fpath)
+                print(f"  [CHECKPOINT] Removed: {fname}")
         print("  [CHECKPOINT] All pipeline checkpoints cleared.")
 
     def summary(self) -> str:

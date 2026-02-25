@@ -2,12 +2,20 @@
 
 ---
 
+## [V5.1.1] - 2026-02-24 — Dashboard Log Context Menu
+
+### Changed
+- Dashboard: Added right-click context menu (Copy Selection, Copy All, Clear Log) to log viewer.
+
+---
+
 ## [V5.1.0] - 2026-02-20 — EXIT QUALITY BY DEPTH — real-time hold per depth
 
 ### New
 - `feat: EXIT QUALITY BY DEPTH — real-time hold per depth`
 
 ---
+
 
 ## [V5.0.0] - 2026-02-19 — PID Oscillation Shadow System
 

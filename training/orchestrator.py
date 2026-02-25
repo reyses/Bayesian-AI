@@ -40,29 +40,24 @@ if PROJECT_ROOT not in sys.path:
 # Core components
 from core.bayesian_brain import QuantumBayesianBrain, TradeOutcome
 from core.quantum_field_engine import QuantumFieldEngine
-from core.context_detector import ContextDetector
-from core.adaptive_confidence import AdaptiveConfidenceManager
-from core.multi_timeframe_context import MultiTimeframeContext
 from core.dynamic_binner import DynamicBinner
 from core.three_body_state import ThreeBodyQuantumState
-from core.exploration_mode import UnconstrainedExplorer, ExplorationConfig
 
 # Training components
 from training.doe_parameter_generator import DOEParameterGenerator
 from training.pattern_analyzer import PatternAnalyzer
 from training.progress_reporter import ProgressReporter, DayMetrics
 from training.databento_loader import DatabentoLoader
-from training.fractal_discovery_agent import FractalDiscoveryAgent, PatternEvent, TIMEFRAME_SECONDS
+from training.fractal_discovery_agent import FractalDiscoveryAgent, PatternEvent, TIMEFRAME_SECONDS, TIMEFRAME_HIERARCHY
 from training.fractal_clustering import FractalClusteringEngine, PatternTemplate
 from training.fractal_dna_tree import FractalDNATree
 from training.pipeline_checkpoint import PipelineCheckpoint
 from training.timeframe_belief_network import TimeframeBeliefNetwork, BeliefState
 
 # Execution components
-from training.integrated_statistical_system import IntegratedStatisticalEngine
 from training.batch_regret_analyzer import BatchRegretAnalyzer
 from training.wave_rider import WaveRider
-from training.orchestrator_worker import simulate_trade_standalone, _optimize_pattern_task, _optimize_template_task, _process_template_job, _audit_trade
+from training.orchestrator_worker import simulate_trade_standalone, _optimize_pattern_task, _optimize_template_task, _process_template_job, _audit_trade, _init_pool_worker
 from training.orchestrator_worker import FISSION_SUBSET_SIZE, INDIVIDUAL_OPTIMIZATION_ITERATIONS, DEFAULT_BASE_SLIPPAGE, DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 
 # Monte Carlo Pipeline
@@ -236,15 +231,9 @@ class BayesianTrainingOrchestrator:
         # Initialize core components
         self.brain = QuantumBayesianBrain()
         self.engine = QuantumFieldEngine()
-        self.context_detector = ContextDetector()
-        self.param_generator = DOEParameterGenerator(self.context_detector)
-        self.confidence_manager = AdaptiveConfidenceManager(self.brain)
-        self.stat_validator = IntegratedStatisticalEngine(self.asset)
+        self.param_generator = DOEParameterGenerator(None)
         self.wave_rider = WaveRider(self.asset)
         self.discovery_agent = FractalDiscoveryAgent()
-
-        # Multi-timeframe context engine
-        self.mtf_context = MultiTimeframeContext()
         self.all_tf_data = None  # Populated in train()
 
         # Dynamic histogram binner (fitted from first day's data)
@@ -254,12 +243,6 @@ class BayesianTrainingOrchestrator:
         self.pattern_analyzer = PatternAnalyzer()
         self.progress_reporter = ProgressReporter()
         self.regret_analyzer = BatchRegretAnalyzer()
-
-        # Exploration Mode (optional)
-        self.exploration_mode = getattr(config, 'exploration_mode', False)
-        self.explorer = UnconstrainedExplorer(ExplorationConfig(max_trades=5000, fire_probability=1.0)) if self.exploration_mode else None
-        if self.exploration_mode:
-            print("WARNING: UNCONSTRAINED EXPLORATION MODE ENABLED (Entry filters bypassed)")
 
         # Training state
         self.day_results: List[DayResults] = []
@@ -286,9 +269,15 @@ class BayesianTrainingOrchestrator:
 
     def calculate_optimal_workers(self):
         try:
-            return max(1, multiprocessing.cpu_count() - 2)
-        except NotImplementedError:
-            return 1
+            import psutil
+            mem_gb = psutil.virtual_memory().total / (1024 ** 3)
+        except Exception:
+            mem_gb = 16.0
+        # Pool-initializer mode: heavy objects loaded once per worker (~2GB each).
+        # Per-task pickle payload is <1KB (just template + iterations).
+        max_by_mem = max(1, int(mem_gb // 3))
+        max_by_cpu = max(1, multiprocessing.cpu_count() - 2)
+        return min(max_by_cpu, max_by_mem)
 
     def _calculate_cst_analytics(self, pending_oracle: dict, exit_idx: int) -> dict:
         """
@@ -468,14 +457,21 @@ class BayesianTrainingOrchestrator:
         with open(scaler_path, 'rb') as f:
             self.scaler = pickle.load(f)
 
+        _snowflake_loaded = False
         if os.path.exists(lib_long_path) and os.path.exists(sc_long_path):
             with open(lib_long_path, 'rb') as f: self.pattern_library_long = pickle.load(f)
             with open(lib_short_path, 'rb') as f: self.pattern_library_short = pickle.load(f)
             with open(sc_long_path, 'rb') as f: self.scaler_long = pickle.load(f)
             with open(sc_short_path, 'rb') as f: self.scaler_short = pickle.load(f)
-            print(f"  Snowflake: Loaded split libraries (L:{len(self.pattern_library_long)}, S:{len(self.pattern_library_short)})")
-        else:
-            print("  Legacy Mode: using unified scaler for all branches")
+            # Validate: if split libraries are empty, fall back to unified
+            if self.pattern_library_long and self.pattern_library_short:
+                _snowflake_loaded = True
+                print(f"  Snowflake: Loaded split libraries (L:{len(self.pattern_library_long)}, S:{len(self.pattern_library_short)})")
+            else:
+                print("  Snowflake files empty -- falling back to unified mode")
+
+        if not _snowflake_loaded:
+            print("  Unified Mode: using single scaler for all branches")
             self.pattern_library_long = self.pattern_library
             self.pattern_library_short = self.pattern_library
             self.scaler_long = self.scaler
@@ -483,13 +479,12 @@ class BayesianTrainingOrchestrator:
 
         print(f"  Loaded library: {len(self.pattern_library)} templates")
 
-        # Build Centroid Indices for both branches (using their respective scalers)
+        # Build Centroid Indices for both branches.
+        # Centroids are already in SCALED space (since clustering fix) — no transform needed.
         def _build_index(lib, sc):
             tids = [t for t in lib.keys() if 'centroid' in lib[t]]
             if not tids: return [], None
             cens = np.array([lib[t]['centroid'] for t in tids])
-            if cens.size > 0:
-                cens = sc.transform(cens)
             return tids, cens
 
         self.valid_tids_long,  self.centroids_long  = _build_index(self.pattern_library_long, self.scaler_long)
@@ -505,8 +500,9 @@ class BayesianTrainingOrchestrator:
             print("ERROR: No valid templates in library.")
             return
 
-        centroids_raw = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
-        centroids_scaled = self.scaler.transform(centroids_raw)
+        # Centroids are already stored in SCALED space (since clustering fix).
+        # Do NOT re-scale them — that would double-scale and break Gate 1 distances.
+        centroids_scaled = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
 
         # Load tier map before centroid build so we can pre-filter by min_tier
         _TIER_SCORE_ADJ = {1: -1.5, 2: -0.5, 3: 0.0, 4: 0.5}
@@ -559,8 +555,8 @@ class BayesianTrainingOrchestrator:
             self.valid_tids_short, self.centroids_short = _filter_sf(self.valid_tids_short, self.centroids_short)
             print(f"  Min-tier filter (tier <= {min_tier}): {_before} -> {len(valid_template_ids)} active templates")
 
-        centroids = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
-        centroids_scaled = self.scaler.transform(centroids)
+        # Rebuild centroids_scaled after tier filtering (already in scaled space)
+        centroids_scaled = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
         print(f"  Prepared {len(valid_template_ids)} centroids for matching.")
 
         # Pre-compute templates that earned a Gate 0 Rule 3 exception via data quality.
@@ -656,7 +652,7 @@ class BayesianTrainingOrchestrator:
         def _effective_oracle(p) -> int:
             """Return the strongest oracle marker across the full macro-to-leaf chain.
             If the leaf pattern is NOISE but a macro ancestor says MEGA_LONG, use that.
-            Chain is ordered leaf-first (index 0) → root (last), so we scan all entries
+            Chain is ordered leaf-first (index 0) -> root (last), so we scan all entries
             and keep the one with the highest |oracle_marker|.
             """
             leaf_om = getattr(p, 'oracle_marker', 0)
@@ -781,6 +777,15 @@ class BayesianTrainingOrchestrator:
 
             _df_5s = _load_fine('5s')
             _df_1s  = _load_fine('1s')
+
+            # Pre-extract 1s numpy arrays for wick-aware inner loop
+            if _df_1s is not None and not _df_1s.empty:
+                _1s_ts    = _df_1s['timestamp'].values.astype(np.float64)
+                _1s_highs = _df_1s['high'].values.astype(np.float64)
+                _1s_lows  = _df_1s['low'].values.astype(np.float64)
+                _has_1s   = True
+            else:
+                _has_1s = False
 
             # Belief network: Task 1 for all 10 TF workers (1h -> 1s)
             # 1h->15s resampled from df_15s; 5s/1s from monthly ATLAS files.
@@ -998,10 +1003,10 @@ class BayesianTrainingOrchestrator:
                         # Get exit signal from belief network every bar
                         _exit_sig = belief_network.get_exit_signal(self.wave_rider.position.side)
 
-                        # CST Check
+                        # CST Check (grace period: skip first 2 bars to let trade develop)
                         current_state = _states_map.get(_bar_i)
                         cst_broken = False
-                        if current_state:
+                        if current_state and self.wave_rider.position and self.wave_rider.position.bars_in_trade >= 2:
                             cst_broken = not self.wave_rider.check_structural_integrity(current_state)
 
                         if cst_broken:
@@ -1011,7 +1016,24 @@ class BayesianTrainingOrchestrator:
                             # Normal Trail/Gate logic
                             res = self.wave_rider.update_trail(price, current_state, ts_raw, exit_signal=_exit_sig)
 
+                        # -- 1s inner loop: check wicks within this 15s bar --
+                        if not res['should_exit'] and _has_1s:
+                            _s0 = np.searchsorted(_1s_ts, ts_raw, side='left')
+                            _s1 = np.searchsorted(_1s_ts, ts_raw + 15, side='left')
+                            for _1s_i in range(_s0, _s1):
+                                belief_network.tick_sub_resolution(
+                                    tf_bar_idx_1s=_1s_i,
+                                    tf_bar_idx_5s=_1s_i // 5
+                                )
+                                res_1s = self.wave_rider.check_stops_hilo(
+                                    _1s_highs[_1s_i], _1s_lows[_1s_i], _1s_ts[_1s_i]
+                                )
+                                if res_1s['should_exit']:
+                                    res = res_1s
+                                    break
+
                     if res['should_exit']:
+                        _exit_ts = res.get('exit_time', ts_raw)
                         outcome = TradeOutcome(
                             state=active_template_id,
                             entry_price=active_entry_price,
@@ -1021,14 +1043,15 @@ class BayesianTrainingOrchestrator:
                             timestamp=ts_raw,
                             exit_reason=res['exit_reason'],
                             entry_time=active_entry_time,
-                            exit_time=ts_raw,
-                            duration=ts_raw - active_entry_time,
+                            exit_time=_exit_ts,
+                            duration=_exit_ts - active_entry_time,
                             direction='LONG' if active_side == 'long' else 'SHORT',
                             template_id=active_template_id
                         )
                         self.brain.update(outcome)
                         day_trades.append(outcome)
                         current_position_open = False
+                        self.wave_rider.position = None  # Bug fix: prevent ghost trades
 
                         # Update running equity after trade close
                         if _equity_enabled:
@@ -1163,6 +1186,23 @@ class BayesianTrainingOrchestrator:
                                     if not headroom:
                                         should_skip = True
                                         _skip_label = 'gate0_r4_struct'
+
+                        # RULE 5: Physics safety — DISABLED
+                        # Three-body forces (F_momentum, F_reversion) are calibrated for
+                        # longer TFs where mean reversion dominates. At 15s resolution
+                        # momentum structurally exceeds reversion (82% of signals blocked
+                        # even at 3.0x ratio). Needs fundamental rethink — not threshold
+                        # tuning — before re-enabling. The cluster distance gate (Gate 1)
+                        # and brain gate (Gate 2) already filter low-quality signals.
+                        # if not should_skip and not _data_override:
+                        #     _st = p.state
+                        #     if _st.hurst_exponent < 0.35:
+                        #         should_skip = True; _skip_label = 'gate0_hurst'
+                        #     elif (abs(_st.F_momentum) > abs(_st.F_reversion) * 3.0
+                        #           and abs(_st.F_reversion) > 0):
+                        #         should_skip = True; _skip_label = 'gate0_momentum'
+                        #     elif _st.tunnel_probability < 0.15:
+                        #         should_skip = True; _skip_label = 'gate0_tunnel'
 
                         if should_skip:
                             skip_headroom += 1
@@ -1367,7 +1407,7 @@ class BayesianTrainingOrchestrator:
                             _sl_ticks = params.get('stop_loss_ticks', 20)
 
                         # Phase 2: trailing stop distance (from HWM).
-                        # Pre-fix used sigma*1.1 → 3-tick trip-wire that collapsed to 2t via tightening.
+                        # Pre-fix used sigma*1.1 -> 3-tick trip-wire that collapsed to 2t via tightening.
                         # Now: sigma*2.5 (captures normal price noise within a trending move);
                         # floor at 8 ticks ($10/tick on MNQ = $80 minimum breathing room).
                         if _reg_sigma > 2.0:
@@ -1378,7 +1418,7 @@ class BayesianTrainingOrchestrator:
                             _trail_ticks = max(8, params.get('trailing_stop_ticks', 12))
 
                         # Trail activation: needs p25_mae * 0.6 profit ticks to engage.
-                        # Pre-fix: 0.3 → trail activated with only 3 ticks profit → tight trail
+                        # Pre-fix: 0.3 -> trail activated with only 3 ticks profit -> tight trail
                         # immediately fired on any oscillation. Now: 0.6 ensures trade is
                         # meaningfully in profit before trail takes over from hard SL.
                         _trail_act_ticks = (max(4, int(round(_p25_mae * 0.6)))
@@ -1438,7 +1478,9 @@ class BayesianTrainingOrchestrator:
                             cst_centroid=lib_entry.get('centroid'),
                             cst_basin_mean=lib_entry.get('basin_mean', 0.0),
                             cst_basin_std=lib_entry.get('basin_std', 0.0),
-                            cst_ancestry=_cst_ancestry
+                            cst_ancestry=_cst_ancestry,
+                            cst_scaler_mean=getattr(_sc, 'mean_', None),
+                            cst_scaler_scale=getattr(_sc, 'scale_', None)
                         )
                         current_position_open = True
                         active_entry_price = price
@@ -1885,8 +1927,9 @@ class BayesianTrainingOrchestrator:
         n_skipped  = audit_fn + audit_tn
         report_lines.append("")
         report_lines.append(f"  WHAT WE DID:")
-        report_lines.append(f"    Traded:  {n_traded:>6,}  ({n_traded/(total_real_opps+total_noise_opps)*100:.1f}% of all signals)")
-        report_lines.append(f"    Skipped: {n_skipped:>6,}  ({n_skipped/(total_real_opps+total_noise_opps)*100:.1f}% of all signals)")
+        _total_sigs = total_real_opps + total_noise_opps
+        report_lines.append(f"    Traded:  {n_traded:>6,}  ({n_traded/_total_sigs*100:.1f}% of all signals)" if _total_sigs else f"    Traded:  {n_traded:>6,}")
+        report_lines.append(f"    Skipped: {n_skipped:>6,}  ({n_skipped/_total_sigs*100:.1f}% of all signals)" if _total_sigs else f"    Skipped: {n_skipped:>6,}")
 
         # ── 2b. Skip reason breakdown ─────────────────────────────────────────────
         # n_signals_seen counts individual candidates (not unique timestamps).
@@ -2161,7 +2204,7 @@ class BayesianTrainingOrchestrator:
 
             # ── Exit reason cross-breakdown ───────────────────────────────────
             report_lines.append("")
-            report_lines.append(f"  EXIT REASON → QUALITY CROSS-BREAKDOWN (correct-direction trades):")
+            report_lines.append(f"  EXIT REASON -> QUALITY CROSS-BREAKDOWN (correct-direction trades):")
             all_reasons = sorted({r.get('exit_reason', 'unknown') for r in tp_recs})
             buckets_def = [
                 ('Optimal',   optimal),
@@ -2338,7 +2381,7 @@ class BayesianTrainingOrchestrator:
                     writer = csv.DictWriter(f, fieldnames=all_keys)
                     writer.writeheader()
                     writer.writerows(month_records)
-            print(f"  [EXPORT] run_logs/{base_filename} → {len(partitions)} monthly shards (commit to GitHub for Gemini review)")
+            print(f"  [EXPORT] run_logs/{base_filename} -> {len(partitions)} monthly shards (commit to GitHub for Gemini review)")
 
         # ── 6. Save CSV ──────────────────────────────────────────────────────────
         if oracle_trade_records:
@@ -2784,10 +2827,31 @@ class BayesianTrainingOrchestrator:
         print(f"\nAnalyzing {len(self.pattern_library)} strategies...")
 
         # Pre-group history by template_id for O(1) lookup
+        # Use oracle_trade_log.csv (Phase 4 ground truth) instead of brain.trade_history
+        # which can contain ghost trades from mixed phases.
         history_by_template = defaultdict(list)
-        for trade in self.brain.trade_history:
-            if trade.template_id is not None:
-                history_by_template[trade.template_id].append(trade)
+        _oracle_log_path = os.path.join(self.checkpoint_dir, 'oracle_trade_log.csv')
+        if os.path.exists(_oracle_log_path):
+            import csv as _csv5
+            with open(_oracle_log_path, 'r') as f:
+                reader = _csv5.DictReader(f)
+                for row in reader:
+                    _tid = row.get('template_id')
+                    if _tid:
+                        try:
+                            _tid_int = int(_tid)
+                            # Create a lightweight object with .pnl for downstream stats
+                            _pnl = float(row.get('actual_pnl', 0))
+                            _trade = type('OracleTrade', (), {'pnl': _pnl, 'template_id': _tid_int})()
+                            history_by_template[_tid_int].append(_trade)
+                        except (ValueError, TypeError):
+                            pass
+            print(f"  Loaded {sum(len(v) for v in history_by_template.values())} trades from oracle_trade_log.csv")
+        else:
+            print("  WARNING: oracle_trade_log.csv not found, falling back to brain.trade_history")
+            for trade in self.brain.trade_history:
+                if trade.template_id is not None:
+                    history_by_template[trade.template_id].append(trade)
 
         for tid in self.pattern_library:
             stats = self.brain.get_stats(tid)
@@ -3251,7 +3315,14 @@ class BayesianTrainingOrchestrator:
         batch_number = 0
         t_phase3_start = time.perf_counter()
 
-        with multiprocessing.Pool(processes=num_workers) as pool:
+        # Pool initializer: heavy objects loaded once per worker (not per task).
+        # Reduces pickle payload from ~1GB/task to ~1KB/task.
+        with multiprocessing.Pool(
+            processes=num_workers,
+            initializer=_init_pool_worker,
+            initargs=(clustering_engine, self.param_generator,
+                      self.asset.point_value, self.pattern_library)
+        ) as pool:
             while template_queue:
                 # Prepare Batch
                 current_batch = []
@@ -3268,16 +3339,12 @@ class BayesianTrainingOrchestrator:
                 total_in_queue = len(template_queue)
                 print(f"\n  Batch {batch_number}: processing {len(current_batch)} templates ({total_in_queue} remaining in queue)...")
 
+                # Slim task dicts: only template + iterations (heavy objects in worker globals)
                 tasks = []
                 for tmpl in current_batch:
-                    # Pass arguments as a dictionary to _process_template_job
                     tasks.append({
                         'template': tmpl,
-                        'clustering_engine': clustering_engine,
                         'iterations': self.config.iterations,
-                        'generator': self.param_generator,
-                        'point_value': self.asset.point_value,
-                        'pattern_library': self.pattern_library
                     })
 
                 results = pool.map(_process_template_job, tasks)
@@ -4046,6 +4113,9 @@ def main():
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
     parser.add_argument('--fresh', action='store_true', help="Clear all pipeline checkpoints and start fresh")
     parser.add_argument('--forward-pass', action='store_true', help="Run Phase 4 forward pass using existing playbook")
+    parser.add_argument('--train-only', action='store_true',
+                        help="Run Phases 2-3 only (discovery + template optimization). "
+                             "Saves library to checkpoints, skips forward pass and strategy report.")
     parser.add_argument('--oos', action='store_true',
                         help="Blind out-of-sample simulation: frozen templates, separate oos_trade_log.csv/oos_report.txt, "
                              "training depth_weights.json preserved. Implies --forward-pass. "
@@ -4058,6 +4128,9 @@ def main():
     parser.add_argument('--train-end', type=str, default=None, metavar='YYYYMMDD',
                         help="Out-of-sample guard: cap training data at this date (e.g. 20251231). "
                              "Use with --forward-start for a clean train/test split.")
+    parser.add_argument('--forward-data', type=str, default=None, metavar='PATH',
+                        help="Separate ATLAS root for Phase 4 forward pass (e.g. DATA/ATLAS_1DAY). "
+                             "Training (Phases 2-3) still uses --data; only Phase 4 switches to this path.")
     parser.add_argument('--forward-start', type=str, default=None, metavar='YYYYMMDD',
                         help="First day to include in forward pass (inclusive, e.g. 20260101)")
     parser.add_argument('--forward-end', type=str, default=None, metavar='YYYYMMDD',
@@ -4088,7 +4161,10 @@ def main():
             self._file = open(log_path, 'a', encoding='utf-8', buffering=1)
             self._stdout = sys.stdout
         def write(self, data):
-            self._stdout.write(data)
+            try:
+                self._stdout.write(data)
+            except UnicodeEncodeError:
+                self._stdout.write(data.encode('ascii', errors='replace').decode('ascii'))
             self._file.write(data)
             return len(data)
         def flush(self):
@@ -4189,7 +4265,15 @@ def main():
                 # Phase 2 (Discovery) + 2.5 (Clustering) + 3 (Bayesian DOE Optimization)
                 orchestrator.train(args.data)
 
-            if args.mc or args.mc_only:
+            if args.train_only:
+                # --train-only: stop after Phases 2-3
+                n_lib = len(orchestrator.pattern_library) if orchestrator.pattern_library else 0
+                print(f"\n{'='*80}")
+                print(f"TRAIN-ONLY COMPLETE: {n_lib} templates in library")
+                print(f"  Run forward pass:  python training/orchestrator.py --forward-pass")
+                print(f"  Quick 1-day test:  python training/orchestrator.py --forward-pass --data DATA/ATLAS_1DAY")
+                print(f"{'='*80}")
+            elif args.mc or args.mc_only:
                 # Optional: Monte Carlo Sweep -> ANOVA -> Thompson -> Validation
                 mc = MonteCarloEngine(
                     checkpoint_dir=orchestrator.checkpoint_dir,
@@ -4213,7 +4297,8 @@ def main():
                 orchestrator.run_final_validation(refined_strategies)
             else:
                 # Default: Bayesian path -> Forward Pass -> Strategy Report
-                orchestrator.run_forward_pass(args.data,
+                _fwd_data = args.forward_data or args.data
+                orchestrator.run_forward_pass(_fwd_data,
                                           start_date=args.forward_start,
                                           end_date=args.forward_end,
                                           min_tier=args.min_tier,
