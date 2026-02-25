@@ -90,7 +90,7 @@ def _logistic_prob(feat_s: np.ndarray, lib: dict) -> float:
     """
     coeff = lib.get('dir_coeff')
     if coeff is not None:
-        logit = float(np.dot(feat_s, np.array(coeff)) + lib.get('dir_intercept', 0.0))
+        logit = float(np.dot(feat_s, coeff) + lib.get('dir_intercept', 0.0))
         return _sigmoid(logit)
     # Fallback: convert bias fractions to a probability
     long_b  = lib.get('long_bias',  0.0)
@@ -108,7 +108,7 @@ def _ols_mfe(feat_s: np.ndarray, lib: dict) -> float:
     """
     coeff = lib.get('mfe_coeff')
     if coeff is not None:
-        return float(np.dot(feat_s, np.array(coeff)) + lib.get('mfe_intercept', 0.0))
+        return float(np.dot(feat_s, coeff) + lib.get('mfe_intercept', 0.0))
     return lib.get('mean_mfe_ticks', 0.0) * 0.25  # ticks -> price points
 
 
@@ -526,6 +526,13 @@ class TimeframeBeliefNetwork:
                  decision_tf: int = DEFAULT_DECISION_TF,
                  base_resolution_seconds: int = 15):
         self.pattern_library   = pattern_library
+        # Pre-convert regression coefficients from lists to numpy arrays
+        # Eliminates per-tick np.array() allocation in _logistic_prob/_ols_mfe
+        for _tid, _lib in self.pattern_library.items():
+            if isinstance(_lib.get('dir_coeff'), list):
+                _lib['dir_coeff'] = np.array(_lib['dir_coeff'])
+            if isinstance(_lib.get('mfe_coeff'), list):
+                _lib['mfe_coeff'] = np.array(_lib['mfe_coeff'])
         self.scaler            = scaler
         self.engine            = engine
         self.valid_tids        = valid_tids
