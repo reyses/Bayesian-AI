@@ -36587,3 +36587,702 @@ PHASE 6: OOS BLIND VALIDATION (templates/scaler frozen from training)
     Extracted 2732 patterns (R:1521 S:1211)
     Filtered 52,228/2,045,340 bars in window from 1 files (0.1s I/O)
     GPU compute: 52207 states in 0.7s
+    Extracted 6847 patterns (R:4031 S:2816)
+  TBN [5s]: computing states for 297,082 bars ... 297,061 states ready
+  TBN [1s]: computing states for 2,045,340 bars ... 2,045,319 states ready
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -12.00 | Potential: $    7.00 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -10.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -1.50 | Potential: $    8.50 | Bars: 3
+  Regret: CLOSED_TOO_EARLY | Eff:  22% | PnL: $   10.00 | Potential: $   46.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -7.00 | Potential: $   83.50 | Bars: 5
+  Regret: CLOSED_TOO_EARLY | Eff:  14% | PnL: $   10.00 | Potential: $   73.50 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  30% | PnL: $   19.50 | Potential: $   64.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  38% | PnL: $   17.00 | Potential: $   45.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   28.00 | Potential: $   28.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -1.50 | Potential: $   73.00 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  19% | PnL: $   13.00 | Potential: $   67.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $   69.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.00 | Potential: $   87.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:   1% | PnL: $    0.50 | Potential: $   47.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  41% | PnL: $   15.50 | Potential: $   38.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   22.50 | Potential: $   22.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  50% | PnL: $   10.00 | Potential: $   20.00 | Bars: 3
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   13.00 | Potential: $   13.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $    3.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    2.50 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $    2.00 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -10.50 | Potential: $    3.00 | Bars: 5
+  Regret: CLOSED_TOO_EARLY | Eff:  72% | PnL: $  146.00 | Potential: $  202.50 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -1.50 | Potential: $   15.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -21.50 | Potential: $    8.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $   29.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   32.00 | Potential: $   32.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   17.50 | Potential: $   17.50 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $   13.50 | Bars: 1
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   13.50 | Potential: $   13.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -0.50 | Potential: $    8.00 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.50 | Potential: $   45.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  17% | PnL: $   10.00 | Potential: $   58.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -8.00 | Potential: $   56.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  48% | PnL: $   12.00 | Potential: $   25.00 | Bars: 1
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   13.00 | Potential: $   13.00 | Bars: 4
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.50 | Potential: $   14.00 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  74% | PnL: $   17.50 | Potential: $   23.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    6.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.50 | Potential: $    5.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -52.00 | Potential: $    0.00 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -20.00 | Potential: $    0.00 | Bars: 5
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   26.00 | Potential: $   26.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -13.50 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -8.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -8.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -10.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -11.00 | Potential: $    0.00 | Bars: 2
+  Regret:          OPTIMAL | Eff:  81% | PnL: $   15.00 | Potential: $   18.50 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -14.00 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -18.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -8.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    3.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    7.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    4.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.50 | Potential: $  103.50 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  10% | PnL: $   10.00 | Potential: $  104.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  11% | PnL: $   12.00 | Potential: $  107.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  10% | PnL: $   10.00 | Potential: $   97.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  68% | PnL: $   26.00 | Potential: $   38.50 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  80% | PnL: $   10.00 | Potential: $   12.50 | Bars: 3
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    2.50 | Bars: 2
+  Regret:  CLOSED_TOO_LATE | Eff:  50% | PnL: $    0.50 | Potential: $    1.00 | Bars: 5
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   16.50 | Potential: $   16.50 | Bars: 6
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    4.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -7.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $    3.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   22.00 | Potential: $   22.00 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -1.00 | Potential: $   84.50 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  26% | PnL: $   20.50 | Potential: $   80.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  15% | PnL: $   10.00 | Potential: $   66.00 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $   17.50 | Bars: 1
+  Regret:          OPTIMAL | Eff:  95% | PnL: $   10.00 | Potential: $   10.50 | Bars: 3
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    3.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   22.00 | Potential: $   22.00 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    4.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -1.00 | Potential: $   12.00 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -0.50 | Potential: $    8.50 | Bars: 4
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.50 | Potential: $    0.00 | Bars: 4
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -12.50 | Potential: $    0.00 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.00 | Potential: $    2.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    8.00 | Bars: 5
+  Regret:          OPTIMAL | Eff:  92% | PnL: $    5.50 | Potential: $    6.00 | Bars: 5
+  Regret: CLOSED_TOO_EARLY | Eff:  57% | PnL: $   84.00 | Potential: $  147.50 | Bars: 5
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    6.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -37.00 | Potential: $    0.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  68% | PnL: $   19.50 | Potential: $   28.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -1.00 | Potential: $    9.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -52.50 | Potential: $    0.00 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -1.00 | Potential: $    7.00 | Bars: 5
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $   10.00 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    1.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.50 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $    4.00 | Bars: 4
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -7.50 | Potential: $   18.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -0.50 | Potential: $   21.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   13.00 | Potential: $   13.00 | Bars: 4
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   17.00 | Potential: $   17.00 | Bars: 4
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.50 | Potential: $   11.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  33% | PnL: $   10.00 | Potential: $   30.50 | Bars: 5
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   12.00 | Potential: $   12.00 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $   22.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  38% | PnL: $   10.00 | Potential: $   26.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   16.50 | Potential: $   16.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   19.00 | Potential: $   19.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -17.50 | Potential: $    0.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   11.50 | Potential: $   11.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -10.50 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    4.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -21.00 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $    0.50 | Bars: 3
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    5.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -16.50 | Potential: $    0.00 | Bars: 1
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    7.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  75% | PnL: $   57.00 | Potential: $   75.50 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.50 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -8.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $ -120.50 | Potential: $   15.00 | Bars: 5
+  Regret: CLOSED_TOO_EARLY | Eff:  62% | PnL: $   10.00 | Potential: $   16.00 | Bars: 1
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   17.00 | Potential: $   17.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    3.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    3.50 | Bars: 1
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    6.00 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -13.50 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    6.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $   10.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   14.50 | Potential: $   14.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   38.50 | Potential: $   38.50 | Bars: 5
+  Regret: CLOSED_TOO_EARLY | Eff:  42% | PnL: $   15.50 | Potential: $   36.50 | Bars: 1
+  Regret:          OPTIMAL | Eff:  90% | PnL: $   19.00 | Potential: $   21.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    2.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $    4.50 | Bars: 3
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   25.50 | Potential: $   25.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -11.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -27.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -24.00 | Potential: $    0.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    5.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -27.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -11.00 | Potential: $    0.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   25.00 | Potential: $   25.00 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.00 | Bars: 5
+  Regret: CLOSED_TOO_EARLY | Eff:   5% | PnL: $   10.00 | Potential: $  209.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $  215.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:   5% | PnL: $   10.00 | Potential: $  217.00 | Bars: 3
+  Regret: CLOSED_TOO_EARLY | Eff:  21% | PnL: $   15.00 | Potential: $   72.50 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  89% | PnL: $   51.00 | Potential: $   57.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.50 | Potential: $    6.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -14.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -7.00 | Potential: $   15.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -2.50 | Potential: $    5.50 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    3.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  47% | PnL: $   10.00 | Potential: $   21.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -0.50 | Potential: $   11.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    2.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -7.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -7.00 | Potential: $   14.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $   16.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   18.50 | Potential: $   18.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.50 | Potential: $   31.50 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  32% | PnL: $   11.00 | Potential: $   34.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   23.00 | Potential: $   23.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -7.00 | Potential: $    0.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $  105.50 | Potential: $  105.50 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.50 | Potential: $  120.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -16.00 | Potential: $  130.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -0.50 | Potential: $  146.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -13.50 | Potential: $  137.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  22% | PnL: $   10.00 | Potential: $   45.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -10.50 | Potential: $   37.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  21% | PnL: $   10.00 | Potential: $   47.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -7.00 | Potential: $   68.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.50 | Potential: $   20.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -24.00 | Potential: $   22.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  48% | PnL: $   22.50 | Potential: $   46.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   24.00 | Potential: $   24.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.00 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.50 | Potential: $    2.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -26.00 | Potential: $    0.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   13.00 | Potential: $   13.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -8.00 | Potential: $    0.00 | Bars: 1
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    6.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -12.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.00 | Potential: $    9.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -15.50 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -17.00 | Potential: $    3.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   20.50 | Potential: $   20.50 | Bars: 3
+  Regret: CLOSED_TOO_EARLY | Eff:   6% | PnL: $   10.00 | Potential: $  173.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -8.50 | Potential: $  178.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  10% | PnL: $   19.00 | Potential: $  185.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -7.50 | Potential: $  176.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  41% | PnL: $   17.50 | Potential: $   43.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -3.00 | Potential: $   25.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -1.00 | Potential: $   18.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $   10.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -15.50 | Potential: $    2.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -3.00 | Potential: $   18.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   13.50 | Potential: $   13.50 | Bars: 1
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    0.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -10.50 | Potential: $    1.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -17.50 | Potential: $   12.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   29.50 | Potential: $   29.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -23.00 | Potential: $  160.00 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  41% | PnL: $   75.50 | Potential: $  183.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  53% | PnL: $   57.00 | Potential: $  107.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   50.50 | Potential: $   50.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    3.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -44.00 | Potential: $    0.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    7.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -11.00 | Potential: $    0.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:   0% | PnL: $    0.00 | Potential: $   12.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    3.50 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    1.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   42.00 | Potential: $   42.00 | Bars: 5
+  Regret:  CLOSED_TOO_LATE | Eff:  48% | PnL: $   30.50 | Potential: $   64.00 | Bars: 5
+  Regret: CLOSED_TOO_EARLY | Eff:  15% | PnL: $   21.00 | Potential: $  144.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.50 | Potential: $  123.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -7.00 | Potential: $  142.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  11% | PnL: $   22.50 | Potential: $  206.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -8.50 | Potential: $   64.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -12.00 | Potential: $   73.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  33% | PnL: $   28.00 | Potential: $   85.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   57.00 | Potential: $   57.00 | Bars: 2
+  Regret:  CLOSED_TOO_LATE | Eff:  63% | PnL: $    8.50 | Potential: $   13.50 | Bars: 5
+  Regret:  CLOSED_TOO_LATE | Eff:  37% | PnL: $   19.00 | Potential: $   51.00 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.00 | Potential: $   36.50 | Bars: 1
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   45.50 | Potential: $   45.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -38.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -42.50 | Potential: $    0.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  43% | PnL: $   45.50 | Potential: $  106.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $   61.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  33% | PnL: $   21.50 | Potential: $   65.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   44.00 | Potential: $   44.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -49.50 | Potential: $    5.50 | Bars: 5
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   33.00 | Potential: $   33.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -27.50 | Potential: $    0.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    7.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -24.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $   34.50 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  60% | PnL: $   23.00 | Potential: $   38.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -3.50 | Potential: $    6.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -10.50 | Potential: $  175.00 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  12% | PnL: $   21.50 | Potential: $  185.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $  184.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:   9% | PnL: $   16.00 | Potential: $  186.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  52% | PnL: $   22.50 | Potential: $   43.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $   20.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   21.50 | Potential: $   21.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -18.00 | Potential: $    0.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   11.00 | Potential: $   11.00 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  41% | PnL: $   43.00 | Potential: $  104.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.00 | Potential: $   72.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  43% | PnL: $   33.50 | Potential: $   78.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -8.00 | Potential: $   44.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.00 | Potential: $   49.00 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  15% | PnL: $   11.00 | Potential: $   71.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -8.50 | Potential: $   76.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -30.00 | Potential: $   99.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  26% | PnL: $   15.50 | Potential: $   59.50 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  30% | PnL: $   13.00 | Potential: $   44.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  53% | PnL: $   16.50 | Potential: $   31.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   14.50 | Potential: $   14.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $    0.00 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.50 | Potential: $  122.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -14.50 | Potential: $  121.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  24% | PnL: $   33.00 | Potential: $  135.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  43% | PnL: $   44.00 | Potential: $  102.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   41.50 | Potential: $   41.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -28.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -13.00 | Potential: $   11.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   24.00 | Potential: $   24.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -15.00 | Potential: $    0.00 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -16.50 | Potential: $    0.00 | Bars: 4
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -22.00 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -8.00 | Potential: $    7.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   15.50 | Potential: $   15.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   12.50 | Potential: $   12.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -30.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.00 | Potential: $    4.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -13.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    3.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $    0.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    4.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -18.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -26.00 | Potential: $    1.50 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -8.50 | Potential: $    0.00 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    0.00 | Bars: 2
+Trades: 314, Wins: 131, PnL: $870.50 (43.2s)
+
+  Day 2/4: 2025_12 ...     Loaded 27 bars from 1 files in 0.1s
+    GPU compute: 6 states in 0.0s
+    Loaded 136 bars from 1 files in 0.0s
+    GPU compute: 115 states in 0.0s
+    [4h] 2025_12.parquet: R:10 S:9
+    Loaded 502 bars from 1 files in 0.0s
+    GPU compute: 481 states in 0.0s
+    [1h] 2025_12.parquet: R:43 S:40
+    Loaded 1,003 bars from 1 files in 0.0s
+    GPU compute: 982 states in 0.0s
+    [30m] 2025_12.parquet: R:79 S:65
+    Loaded 2,005 bars from 1 files in 0.0s
+    GPU compute: 1984 states in 0.0s
+    [15m] 2025_12.parquet: R:150 S:128
+    Filtered 2,586/6,009 bars in window from 1 files (0.0s I/O)
+    GPU compute: 2565 states in 0.0s
+    Extracted 413 patterns (R:220 S:193)
+    Filtered 3,389/9,986 bars in window from 1 files (0.0s I/O)
+    GPU compute: 3368 states in 0.1s
+    Extracted 539 patterns (R:296 S:243)
+    Filtered 4,502/14,916 bars in window from 1 files (0.0s I/O)
+    GPU compute: 4481 states in 0.1s
+    Extracted 720 patterns (R:390 S:330)
+    Filtered 6,056/29,540 bars in window from 1 files (0.0s I/O)
+    GPU compute: 6035 states in 0.1s
+    Extracted 931 patterns (R:512 S:419)
+    Filtered 8,161/58,074 bars in window from 1 files (0.0s I/O)
+    GPU compute: 8140 states in 0.1s
+    Extracted 1242 patterns (R:681 S:561)
+    Filtered 11,401/112,038 bars in window from 1 files (0.0s I/O)
+    GPU compute: 11380 states in 1.4s
+    Extracted 1680 patterns (R:929 S:751)
+    Filtered 16,292/286,183 bars in window from 1 files (0.0s I/O)
+    GPU compute: 16271 states in 0.2s
+    Extracted 2310 patterns (R:1304 S:1006)
+    Filtered 41,696/1,702,938 bars in window from 1 files (0.1s I/O)
+    GPU compute: 41675 states in 0.6s
+    Extracted 5665 patterns (R:3238 S:2427)
+  TBN [5s]: computing states for 286,183 bars ... 286,162 states ready
+  TBN [1s]: computing states for 1,702,938 bars ... 1,702,917 states ready
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $   14.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  51% | PnL: $   10.00 | Potential: $   19.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -0.50 | Potential: $    9.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  44% | PnL: $   13.50 | Potential: $   30.50 | Bars: 1
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   17.00 | Potential: $   17.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $    0.00 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -8.50 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    8.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $   12.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   12.00 | Potential: $   12.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $   86.00 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  14% | PnL: $   13.00 | Potential: $   91.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  21% | PnL: $   20.50 | Potential: $   99.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -25.00 | Potential: $   91.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  26% | PnL: $   10.00 | Potential: $   38.50 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  49% | PnL: $   12.00 | Potential: $   24.50 | Bars: 1
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   12.50 | Potential: $   12.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  49% | PnL: $   19.50 | Potential: $   40.00 | Bars: 4
+  Regret: CLOSED_TOO_EARLY | Eff:  65% | PnL: $   13.00 | Potential: $   20.00 | Bars: 3
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    7.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.50 | Potential: $   17.50 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  48% | PnL: $   11.00 | Potential: $   23.00 | Bars: 3
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   12.00 | Potential: $   12.00 | Bars: 6
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -8.00 | Potential: $   18.00 | Bars: 1
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   16.00 | Potential: $   16.00 | Bars: 8
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -8.00 | Potential: $    3.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $    5.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $   10.00 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.50 | Potential: $  140.50 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:   8% | PnL: $   11.00 | Potential: $  138.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.00 | Potential: $  127.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  17% | PnL: $   22.00 | Potential: $  130.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -7.50 | Potential: $    3.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -29.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $    8.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $    0.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $   10.00 | Bars: 8
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   66.50 | Potential: $   66.50 | Bars: 5
+  Regret: CLOSED_TOO_EARLY | Eff:  77% | PnL: $   17.00 | Potential: $   22.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    5.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.00 | Potential: $    6.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   12.50 | Potential: $   12.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -29.00 | Potential: $    0.00 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  81% | PnL: $   17.00 | Potential: $   21.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.00 | Potential: $    4.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -8.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -13.50 | Potential: $    0.00 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    3.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $    1.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.00 | Bars: 2
+  Regret:          OPTIMAL | Eff:  86% | PnL: $   12.00 | Potential: $   14.00 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -0.50 | Potential: $    7.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -8.00 | Potential: $    0.00 | Bars: 3
+  Regret: CLOSED_TOO_EARLY | Eff:  71% | PnL: $   29.00 | Potential: $   41.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $   12.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.50 | Potential: $   10.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  83% | PnL: $   12.00 | Potential: $   14.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $    2.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    5.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.50 | Potential: $    2.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.00 | Bars: 8
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $   10.00 | Bars: 6
+  Regret:          OPTIMAL | Eff:  96% | PnL: $   12.50 | Potential: $   13.00 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.50 | Bars: 4
+  Regret:          OPTIMAL | Eff: 100% | PnL: $    4.50 | Potential: $    4.50 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.50 | Potential: $    1.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    5.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.50 | Potential: $    5.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $    1.00 | Potential: $    1.00 | Bars: 5
+  Regret: CLOSED_TOO_EARLY | Eff:  28% | PnL: $    9.00 | Potential: $   32.00 | Bars: 5
+  Regret: CLOSED_TOO_EARLY | Eff:   2% | PnL: $    0.50 | Potential: $   24.50 | Bars: 1
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   15.00 | Potential: $   15.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -10.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -10.00 | Potential: $    6.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $   10.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -0.50 | Potential: $    9.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -15.00 | Potential: $   21.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -12.00 | Potential: $   15.50 | Bars: 13
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -22.50 | Potential: $    5.50 | Bars: 4
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    6.50 | Bars: 1
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    2.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $    0.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:   0% | PnL: $    0.00 | Potential: $   12.00 | Bars: 5
+  Regret: CLOSED_TOO_EARLY | Eff:  69% | PnL: $   10.00 | Potential: $   14.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    5.00 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -17.00 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -17.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.50 | Potential: $    0.00 | Bars: 4
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -1.00 | Potential: $   11.50 | Bars: 5
+  Regret: CLOSED_TOO_EARLY | Eff:  55% | PnL: $   12.00 | Potential: $   22.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $   10.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.00 | Potential: $    0.00 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -33.50 | Potential: $   19.00 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.00 | Potential: $    0.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -23.50 | Potential: $   57.50 | Bars: 1
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   81.00 | Potential: $   81.00 | Bars: 5
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   12.50 | Potential: $   12.50 | Bars: 3
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   19.00 | Potential: $   19.00 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  13% | PnL: $   29.00 | Potential: $  228.00 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  22% | PnL: $   48.00 | Potential: $  219.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -16.00 | Potential: $  181.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:   5% | PnL: $   10.00 | Potential: $  197.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  20% | PnL: $   10.00 | Potential: $   50.00 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  50% | PnL: $   20.00 | Potential: $   40.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  26% | PnL: $   10.00 | Potential: $   38.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -26.50 | Potential: $   41.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -30.50 | Potential: $    1.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.50 | Potential: $   31.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  68% | PnL: $   28.00 | Potential: $   41.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   13.00 | Potential: $   13.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -7.50 | Potential: $    3.50 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -7.00 | Potential: $    3.50 | Bars: 7
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.50 | Potential: $    0.00 | Bars: 3
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    6.00 | Bars: 6
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   18.50 | Potential: $   18.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -10.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -23.00 | Potential: $    0.00 | Bars: 3
+  Regret: CLOSED_TOO_EARLY | Eff:  35% | PnL: $   45.00 | Potential: $  129.50 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -15.00 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $   14.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -8.50 | Potential: $    8.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -18.00 | Potential: $    0.00 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -24.00 | Potential: $    0.00 | Bars: 5
+  Regret: CLOSED_TOO_EARLY | Eff:  61% | PnL: $   10.00 | Potential: $   16.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -0.50 | Potential: $    8.00 | Bars: 11
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -20.00 | Potential: $   73.50 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -28.00 | Potential: $   57.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.50 | Potential: $   77.00 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  15% | PnL: $   10.00 | Potential: $   68.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -34.00 | Potential: $   37.50 | Bars: 9
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -2.00 | Potential: $   35.00 | Bars: 5
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   21.50 | Potential: $   21.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -11.50 | Potential: $    0.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   11.50 | Potential: $   11.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -36.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.50 | Potential: $   12.00 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  84% | PnL: $   18.00 | Potential: $   21.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.50 | Potential: $    3.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -29.50 | Potential: $    0.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:   6% | PnL: $   10.00 | Potential: $  173.00 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  30% | PnL: $   50.50 | Potential: $  170.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.00 | Potential: $  119.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -8.50 | Potential: $  123.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -10.50 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -24.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    5.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.00 | Potential: $    8.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.50 | Potential: $   14.00 | Bars: 3
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   11.00 | Potential: $   11.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -17.50 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.50 | Potential: $    1.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -8.00 | Potential: $   17.50 | Bars: 5
+  Regret: CLOSED_TOO_EARLY | Eff:  54% | PnL: $   10.00 | Potential: $   18.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -2.00 | Potential: $    8.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -26.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -7.00 | Potential: $    7.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $    4.00 | Bars: 8
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.00 | Potential: $    0.00 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -1.00 | Potential: $    5.00 | Bars: 10
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.50 | Potential: $   21.50 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  77% | PnL: $   10.00 | Potential: $   13.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    9.50 | Bars: 3
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   27.50 | Potential: $   27.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -46.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -34.50 | Potential: $    0.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  51% | PnL: $   26.50 | Potential: $   52.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.50 | Potential: $   25.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   31.00 | Potential: $   31.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -48.00 | Potential: $    0.00 | Bars: 5
+  Regret:          OPTIMAL | Eff:  98% | PnL: $   25.50 | Potential: $   26.00 | Bars: 5
+  Regret: CLOSED_TOO_EARLY | Eff:   0% | PnL: $    0.00 | Potential: $   13.00 | Bars: 1
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    4.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -11.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $    2.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  33% | PnL: $   28.00 | Potential: $   86.00 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  22% | PnL: $   12.50 | Potential: $   58.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  22% | PnL: $   10.00 | Potential: $   45.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   37.50 | Potential: $   37.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  51% | PnL: $   10.00 | Potential: $   19.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   11.00 | Potential: $   11.00 | Bars: 4
+  Regret: CLOSED_TOO_EARLY | Eff:  68% | PnL: $   22.50 | Potential: $   33.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $   10.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   12.00 | Potential: $   12.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -21.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -22.00 | Potential: $    0.00 | Bars: 1
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   16.00 | Potential: $   16.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -18.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -7.50 | Potential: $    0.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   14.50 | Potential: $   14.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -21.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -14.00 | Potential: $    0.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   13.00 | Potential: $   13.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -16.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -19.00 | Potential: $    0.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  16% | PnL: $   17.50 | Potential: $  108.50 | Bars: 5
+  Regret: CLOSED_TOO_EARLY | Eff:   5% | PnL: $   10.00 | Potential: $  185.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $  177.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:   9% | PnL: $   17.00 | Potential: $  196.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  28% | PnL: $   10.00 | Potential: $   36.00 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  53% | PnL: $   16.00 | Potential: $   30.00 | Bars: 3
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   14.00 | Potential: $   14.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  62% | PnL: $   10.00 | Potential: $   16.00 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    6.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    1.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -14.00 | Potential: $    5.00 | Bars: 8
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.50 | Potential: $    1.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    0.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    4.00 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.00 | Potential: $    0.00 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.50 | Potential: $    0.00 | Bars: 2
+  Regret:  CLOSED_TOO_LATE | Eff:   6% | PnL: $    0.50 | Potential: $    8.50 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -12.00 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.00 | Potential: $    6.50 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.00 | Bars: 3
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   27.50 | Potential: $   27.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -14.00 | Potential: $    3.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   17.50 | Potential: $   17.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   16.50 | Potential: $   16.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -40.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -16.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -15.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -8.50 | Potential: $    0.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.50 | Potential: $    6.00 | Bars: 7
+  Regret: CLOSED_TOO_EARLY | Eff:  42% | PnL: $   10.00 | Potential: $   24.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  52% | PnL: $   11.00 | Potential: $   21.00 | Bars: 6
+  Regret: CLOSED_TOO_EARLY | Eff:  71% | PnL: $   10.00 | Potential: $   14.00 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -3.00 | Potential: $    5.00 | Bars: 7
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   14.50 | Potential: $   14.50 | Bars: 5
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    9.00 | Bars: 10
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   17.50 | Potential: $   17.50 | Bars: 15
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.50 | Potential: $    0.00 | Bars: 9
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.50 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -8.50 | Potential: $    0.00 | Bars: 3
+  Regret:          OPTIMAL | Eff: 100% | PnL: $    1.00 | Potential: $    1.00 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.00 | Potential: $    2.50 | Bars: 1
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    8.50 | Bars: 8
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.00 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    2.00 | Bars: 7
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -2.50 | Potential: $    5.50 | Bars: 11
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -10.50 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -15.50 | Potential: $    0.00 | Bars: 1
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.50 | Potential: $   10.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.00 | Potential: $    0.00 | Bars: 1
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   13.50 | Potential: $   13.50 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    1.00 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -41.50 | Potential: $    0.00 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -3.50 | Potential: $    5.00 | Bars: 5
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    7.00 | Bars: 8
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -10.50 | Potential: $    0.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $   10.00 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -7.00 | Potential: $    3.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.50 | Potential: $   10.50 | Bars: 7
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   11.50 | Potential: $   11.50 | Bars: 11
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $   10.00 | Bars: 4
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $   16.00 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  50% | PnL: $   10.00 | Potential: $   20.00 | Bars: 10
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    2.50 | Bars: 6
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.50 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    2.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    0.00 | Bars: 4
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $    0.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.50 | Potential: $    2.50 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $   49.50 | Bars: 1
+  Regret: CLOSED_TOO_EARLY | Eff:  33% | PnL: $   15.50 | Potential: $   47.50 | Bars: 2
+  Regret: CLOSED_TOO_EARLY | Eff:  31% | PnL: $   10.00 | Potential: $   32.00 | Bars: 3
+  Regret: CLOSED_TOO_EARLY | Eff:  33% | PnL: $   10.50 | Potential: $   32.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $   21.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.50 | Potential: $   24.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $   39.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    9.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    9.00 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    9.50 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -12.00 | Potential: $    1.50 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -12.50 | Potential: $    1.00 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -2.00 | Potential: $    0.00 | Bars: 5
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $    9.00 | Bars: 4
+  Regret:  CLOSED_TOO_LATE | Eff:  16% | PnL: $    1.50 | Potential: $    9.50 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -7.00 | Potential: $    0.00 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.00 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.50 | Potential: $    0.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    8.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.00 | Potential: $   10.00 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -6.00 | Potential: $    0.00 | Bars: 5
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $  -17.00 | Potential: $    1.50 | Bars: 1
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -9.00 | Potential: $   18.50 | Bars: 2
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   21.00 | Potential: $   21.00 | Bars: 2
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -5.00 | Potential: $    0.00 | Bars: 1
+  Regret:          OPTIMAL | Eff: 100% | PnL: $   10.50 | Potential: $   10.50 | Bars: 3
+  Regret:  WRONG_DIRECTION | Eff:   0% | PnL: $   -4.00 | Potential: $    0.00 | Bars: 2
+Trades: 315, Wins: 125, PnL: $28.00 (40.0s)
+
+  Day 3/4: 2026_01 ...     Loaded 26 bars from 1 files in 0.2s
+    GPU compute: 5 states in 0.0s
+    Loaded 131 bars from 1 files in 0.0s
+    GPU compute: 110 states in 0.0s
+    [4h] 2026_01.parquet: R:6 S:4
+    Loaded 479 bars from 1 files in 0.0s
+    GPU compute: 458 states in 0.0s
+    [1h] 2026_01.parquet: R:41 S:33
+    Loaded 958 bars from 1 files in 0.0s
+    GPU compute: 937 states in 0.0s
+    [30m] 2026_01.parquet: R:93 S:79
+    Loaded 1,916 bars from 1 files in 0.0s
+    GPU compute: 1895 states in 0.0s
+    [15m] 2026_01.parquet: R:176 S:147
+    Filtered 2,941/5,748 bars in window from 1 files (0.0s I/O)
+    GPU compute: 2920 states in 0.1s
+    Extracted 448 patterns (R:247 S:201)
+    Filtered 3,761/9,580 bars in window from 1 files (0.0s I/O)
+    GPU compute: 3740 states in 0.1s
+    Extracted 602 patterns (R:330 S:272)
+    Filtered 5,087/14,370 bars in window from 1 files (0.0s I/O)
+    GPU compute: 5066 states in 0.1s
+    Extracted 779 patterns (R:426 S:353)
+    Filtered 7,095/28,739 bars in window from 1 files (0.0s I/O)
+    GPU compute: 7074 states in 0.1s
+    Extracted 1088 patterns (R:588 S:500)
+    Filtered 10,007/57,437 bars in window from 1 files (0.0s I/O)
+    GPU compute: 9986 states in 1.1s
+    Extracted 1529 patterns (R:838 S:691)
+    Filtered 14,513/113,845 bars in window from 1 files (0.0s I/O)
+    GPU compute: 14492 states in 0.2s
+    Extracted 2223 patterns (R:1202 S:1021)
+    Filtered 21,997/309,802 bars in window from 1 files (0.0s I/O)
+    GPU compute: 21976 states in 0.3s
+    Extracted 3207 patterns (R:1793 S:1414)
+    Filtered 58,716/1,985,954 bars in window from 1 files (0.1s I/O)
+    GPU compute: 58695 states in 0.9s

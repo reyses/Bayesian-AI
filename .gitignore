@@ -17,6 +17,7 @@ training/training_progress.json
 nul
 debug_outputs/
 checkpoints/
+reports/training/training_log.txt
 # run_logs/ is intentionally tracked — monthly sharded CSVs for GitHub/Gemini review.
 # Each shard is <50 MB so it fits within GitHub's per-file limit.
 # Do NOT add run_logs/ here.
