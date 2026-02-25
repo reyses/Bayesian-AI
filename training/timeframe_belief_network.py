@@ -313,6 +313,9 @@ class TimeframeBeliefNetwork:
     # Low conviction during a trade is normal and does NOT predict reversal.
     TIGHTEN_TRAIL_WAVE_MATURITY_THRESHOLD = 0.85
     WIDEN_TRAIL_WAVE_MATURITY_THRESHOLD = 0.30
+    DECAY_ALPHA_MAX  = 3.0    # initial tolerance band (wide at trade start)
+    DECAY_ALPHA_MIN  = 1.0    # final tolerance band (narrow at pattern horizon)
+    DECAY_THETA_EXIT = 1.5    # cascade score threshold -> trigger exit
 
     _TF_LABELS = {3600:'1h', 1800:'30m', 900:'15m', 300:'5m',
                   180:'3m',  60:'1m',   30:'30s',   15:'15s',
@@ -349,6 +352,13 @@ class TimeframeBeliefNetwork:
         self._trade_avg_mfe_bar = 0.0
         self._trade_p75_mfe_bar = 0.0
         self._trade_bars_held   = 0
+
+        # Decay cascade state (trade tracking)
+        self._decay_trade_side: Optional[str] = None
+        self._decay_entry_bar: int = 0
+        self._decay_pattern_horizon: int = 1
+        self._decay_entry_physics: Dict[int, dict] = {}  # {tf_secs: {'z','m','d'}}
+        self._current_bar: int = 0
 
     # ------------------------------------------------------------------
     # TRADE TIME-SCALE MANAGEMENT
@@ -461,6 +471,7 @@ class TimeframeBeliefNetwork:
         Each worker self-decides (event-driven by TF bar change).
         Returns: number of workers that updated their belief.
         """
+        self._current_bar = bar_i
         updated = 0
         for worker in self.workers.values():
             if worker.tick(bar_i, self.pattern_library, self.scaler,
@@ -588,6 +599,90 @@ class TimeframeBeliefNetwork:
                 self_adx, self_hurst, self_dmi,
                 0.0, 0.0, 0.0, 0.0,
                 self_pid, self_osc_coh]
+
+    # ------------------------------------------------------------------
+    # DECAY CASCADE (trade tracking)
+    # ------------------------------------------------------------------
+
+    def start_trade_tracking(self, side: str, entry_bar: int,
+                             pattern_horizon_bars: int):
+        """
+        Called when a trade opens. Records each worker's current z_score
+        so we can track physics decay (drift away from expected trajectory).
+        """
+        self._decay_trade_side = side
+        self._decay_entry_bar = entry_bar
+        self._decay_pattern_horizon = max(1, pattern_horizon_bars)
+        self._decay_entry_physics = {}
+        for tf, worker in self.workers.items():
+            b = worker.current_belief
+            if b is not None:
+                self._decay_entry_physics[tf] = {
+                    'z': getattr(b, 'z_score', 0.0),
+                    'm': getattr(b, 'momentum', 0.0),
+                    'd': b.dir_prob,
+                }
+
+    def stop_trade_tracking(self):
+        """Called when a trade closes -- clears decay state."""
+        self._decay_trade_side = None
+        self._decay_entry_bar = 0
+        self._decay_entry_physics = {}
+
+    def get_decay_cascade(self) -> dict:
+        """
+        Compute physics decay cascade across all workers since trade entry.
+        Returns cascade_score, per_worker, should_exit, progress, tau.
+        """
+        if self._decay_trade_side is None:
+            return {'cascade_score': 0.0, 'per_worker': {},
+                    'should_exit': False, 'progress': 0.0,
+                    'tau': self.DECAY_ALPHA_MAX}
+
+        dt = max(1, self._current_bar - self._decay_entry_bar)
+        T_k = self._decay_pattern_horizon
+        progress = min(2.0, dt / T_k)
+
+        tau = self.DECAY_ALPHA_MAX - (self.DECAY_ALPHA_MAX - self.DECAY_ALPHA_MIN) * min(1.0, progress)
+
+        sign_dir = -1.0 if self._decay_trade_side == 'long' else 1.0
+
+        per_worker = {}
+        cascade_num = 0.0
+        cascade_den = 0.0
+        _max_w = max(self.TF_WEIGHTS)
+
+        for tf, worker in self.workers.items():
+            b = worker.current_belief
+            entry = self._decay_entry_physics.get(tf)
+            if b is None or entry is None:
+                continue
+
+            entry_z = entry['z']
+            current_z = getattr(b, 'z_score', 0.0)
+
+            expected_z = entry_z * max(0.0, 1.0 - progress)
+            residual = current_z - expected_z
+
+            bad_residual = residual * sign_dir
+            decay_w = max(0.0, bad_residual / (tau + 1e-9))
+
+            tf_label = self._TF_LABELS.get(tf, str(tf))
+            per_worker[tf_label] = round(decay_w, 3)
+
+            inv_w = _max_w - self._weight_map.get(tf, 1.0) + 0.1
+            cascade_num += inv_w * decay_w
+            cascade_den += inv_w
+
+        cascade = cascade_num / cascade_den if cascade_den > 0 else 0.0
+
+        return {
+            'cascade_score': round(cascade, 4),
+            'per_worker': per_worker,
+            'should_exit': cascade > self.DECAY_THETA_EXIT,
+            'progress': round(progress, 3),
+            'tau': round(tau, 3),
+        }
 
     # ------------------------------------------------------------------
     # WORKER SNAPSHOT
