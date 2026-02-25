@@ -334,10 +334,10 @@ class FractalDashboard:
     def _tree_copy_id(self):
         sel = self.tree_ranks.selection()
         if sel:
-            # First value in 'values' is the ID
-            val = self.tree_ranks.item(sel[0])["values"][0]
+            # The iid is the template ID, which is what we want to copy.
+            # sel is a tuple of selected iids, we'll take the first one.
             self.root.clipboard_clear()
-            self.root.clipboard_append(str(val))
+            self.root.clipboard_append(sel[0])
 
     def _tree_copy_row(self):
         sel = self.tree_ranks.selection()
