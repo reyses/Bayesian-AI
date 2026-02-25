@@ -1515,7 +1515,7 @@ class BayesianTrainingOrchestrator:
                         _dir_conf = abs(_p_long - 0.5)
 
                         # Filter uncertain trades (unless bypass/exception? No, apply to all template trades)
-                        if _dir_conf < 0.15:
+                        if _dir_conf < DIRECTION_CONFIDENCE_THRESHOLD:
                             _candidate_gate[id(best_candidate)] = 'gate4_confidence'
                             _bc_mz = abs(best_candidate.z_score)
                             _bc_mac = abs((getattr(best_candidate, 'parent_chain', None) or [{}])[-1].get('z', 0.0))
