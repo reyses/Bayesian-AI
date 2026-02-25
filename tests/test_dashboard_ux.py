@@ -52,7 +52,10 @@ class MockQueue:
         return self.messages.pop(0)
 
 # Import Dashboard
-from visualization.live_training_dashboard import FractalDashboard
+try:
+    from visualization.live_training_dashboard import FractalDashboard
+except ImportError:
+    pass
 
 class TestDashboardUX(unittest.TestCase):
     def setUp(self):
@@ -116,15 +119,110 @@ class TestDashboardUX(unittest.TestCase):
             self.fail(f"_log_copy_sel raised exception: {e}")
 
         # Verify clipboard actions were NOT called (since it failed)
-        # Note: In _log_copy_sel, clear/append happen AFTER get()
-        # So if get() raises, they shouldn't run.
-        # But wait, MagicMock calls are cumulative. We should reset mocks or check carefully.
         self.root.clipboard_clear.reset_mock()
         self.root.clipboard_append.reset_mock()
 
         # Call again to be sure
         dashboard._log_copy_sel()
         self.root.clipboard_clear.assert_not_called()
+
+    @patch('visualization.live_training_dashboard.plt.subplots')
+    def test_tree_copy_id(self, mock_subplots):
+        mock_fig = MagicMock()
+        mock_ax = MagicMock()
+        mock_subplots.return_value = (mock_fig, mock_ax)
+
+        dashboard = FractalDashboard(self.root, self.queue)
+
+        # Setup mock selection
+        dashboard.tree_ranks.selection.return_value = ('101',)
+        dashboard.tree_ranks.item.return_value = {
+            "values": [101, 50, "60%", "$500"]
+        }
+
+        # Execute
+        dashboard._tree_copy_id()
+
+        # Verify
+        self.root.clipboard_clear.assert_called()
+        self.root.clipboard_append.assert_called_with("101")
+
+    @patch('visualization.live_training_dashboard.plt.subplots')
+    def test_tree_copy_row(self, mock_subplots):
+        mock_fig = MagicMock()
+        mock_ax = MagicMock()
+        mock_subplots.return_value = (mock_fig, mock_ax)
+
+        dashboard = FractalDashboard(self.root, self.queue)
+
+        # Setup mock selection
+        dashboard.tree_ranks.selection.return_value = ('101',)
+        dashboard.tree_ranks.item.return_value = {
+            "values": [101, 50, "60%", "$500"]
+        }
+
+        # Execute
+        dashboard._tree_copy_row()
+
+        # Verify
+        self.root.clipboard_clear.assert_called()
+        # Expect pipe separated string
+        self.root.clipboard_append.assert_called_with("101 | 50 | 60% | $500")
+
+    @patch('visualization.live_training_dashboard.plt.subplots')
+    def test_update_leaderboard_preserves_selection(self, mock_subplots):
+        mock_fig = MagicMock()
+        mock_ax = MagicMock()
+        mock_subplots.return_value = (mock_fig, mock_ax)
+
+        dashboard = FractalDashboard(self.root, self.queue)
+
+        # Setup initial templates
+        dashboard.templates = {
+            101: {'id': 101, 'pnl': 100},
+            102: {'id': 102, 'pnl': 200}
+        }
+
+        # Mock treeview methods
+        # Simulate that '101' is currently selected
+        dashboard.tree_ranks.selection.return_value = ('101',)
+
+        # Simulate exists check - assume 101 still exists
+        dashboard.tree_ranks.exists.side_effect = lambda iid: iid == '101' or iid == '102'
+
+        # Run update
+        dashboard._update_leaderboard()
+
+        # Verify selection was restored
+        call_args = dashboard.tree_ranks.selection_set.call_args
+        self.assertIsNotNone(call_args, "selection_set was not called")
+
+        args, _ = call_args
+        self.assertIn('101', args[0])
+
+    @patch('visualization.live_training_dashboard.plt.subplots')
+    def test_update_leaderboard_clears_selection_if_removed(self, mock_subplots):
+        mock_fig = MagicMock()
+        mock_ax = MagicMock()
+        mock_subplots.return_value = (mock_fig, mock_ax)
+
+        dashboard = FractalDashboard(self.root, self.queue)
+
+        # Setup initial templates
+        dashboard.templates = {
+            102: {'id': 102, 'pnl': 200}
+        }
+        # Simulate that '101' was selected but is no longer in templates
+        dashboard.tree_ranks.selection.return_value = ('101',)
+
+        # Simulate exists check - 101 does NOT exist anymore
+        dashboard.tree_ranks.exists.side_effect = lambda iid: iid == '102'
+
+        # Run update
+        dashboard._update_leaderboard()
+
+        # Verify selection_set was NOT called (or called with empty/other)
+        dashboard.tree_ranks.selection_set.assert_not_called()
 
 if __name__ == '__main__':
     unittest.main()
