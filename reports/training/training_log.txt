@@ -30203,3 +30203,4 @@ PHASE 4: FORWARD PASS (EXECUTION MODE)
     GPU compute: 18377 states in 0.4s
     Extracted 2732 patterns (R:1521 S:1211)
     Filtered 52,228/2,045,340 bars in window from 1 files (0.1s I/O)
+    GPU compute: 52207 states in 0.8s
