@@ -22,7 +22,7 @@
 
 ### 2.1 Functionality
 
-**Test Results (`python3 -m unittest discover tests`):**
+**Test Results (`python3 run_test_workflow.py`):**
 - **Overall:** **FAIL** (failures=2, errors=21)
 - **Critical Failures:**
     - **DOE Parameter Generator:** `AttributeError: 'DOEParameterGenerator' object has no attribute 'generate_latin_hypercube_set'` and `'generate_mutation_set'`. This suggests the `DOEParameterGenerator` class implementation does not match the tests.
