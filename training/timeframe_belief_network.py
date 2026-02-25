@@ -85,9 +85,13 @@ def _logistic_prob(feat_s: np.ndarray, lib: dict) -> float:
     P(LONG) from the cluster's logistic regression model.
     Fallback: use long_bias / short_bias aggregate if model not fitted.
     """
-    coeff = lib.get('dir_coeff')
+    # Try optimized array first, fallback to list (and let numpy convert)
+    coeff = lib.get('_dir_coeff_arr')
+    if coeff is None:
+        coeff = lib.get('dir_coeff')
+
     if coeff is not None:
-        logit = float(np.dot(feat_s, np.array(coeff)) + lib.get('dir_intercept', 0.0))
+        logit = float(np.dot(feat_s, coeff) + lib.get('dir_intercept', 0.0))
         return _sigmoid(logit)
     # Fallback: convert bias fractions to a probability
     long_b  = lib.get('long_bias',  0.0)
@@ -103,9 +107,13 @@ def _ols_mfe(feat_s: np.ndarray, lib: dict) -> float:
     Predicted MFE in price points from the cluster's OLS model.
     Fallback: mean_mfe_ticks * tick_size.
     """
-    coeff = lib.get('mfe_coeff')
+    # Try optimized array first, fallback to list
+    coeff = lib.get('_mfe_coeff_arr')
+    if coeff is None:
+        coeff = lib.get('mfe_coeff')
+
     if coeff is not None:
-        return float(np.dot(feat_s, np.array(coeff)) + lib.get('mfe_intercept', 0.0))
+        return float(np.dot(feat_s, coeff) + lib.get('mfe_intercept', 0.0))
     return lib.get('mean_mfe_ticks', 0.0) * 0.25  # ticks -> price points
 
 
@@ -210,9 +218,9 @@ class TimeframeWorker:
 
         # Optimization: Use direct NumPy vectorized scaling if available (40x faster than scaler.transform)
         if scaler_mean is not None:
-             feat_s = (np.array(feat) - scaler_mean) / scaler_scale
+            feat_s = (np.array(feat) - scaler_mean) / scaler_scale
         else:
-             feat_s = scaler.transform([feat])[0]
+            feat_s = scaler.transform([feat])[0]
         dists  = np.linalg.norm(centroids_scaled - feat_s, axis=1)
 
         if self.is_leaf:
@@ -346,6 +354,14 @@ class TimeframeBeliefNetwork:
         else:
             self.scaler_mean = None
             self.scaler_scale = None
+
+        # Optimization: Pre-convert coefficients to numpy arrays (stored in _keys to avoid overwriting source)
+        # This speeds up _logistic_prob and _ols_mfe by avoiding list->array conversion every tick
+        for template in self.pattern_library.values():
+            if 'dir_coeff' in template:
+                template['_dir_coeff_arr'] = np.array(template['dir_coeff'], dtype=np.float64)
+            if 'mfe_coeff' in template:
+                template['_mfe_coeff_arr'] = np.array(template['mfe_coeff'], dtype=np.float64)
 
         # active_timeframes: TFs that can be computed by resampling from df_micro.
         # Sub-resolution TFs (< base_resolution_seconds) need external data (df_5s/df_1s)

@@ -1432,9 +1432,13 @@ class BayesianTrainingOrchestrator:
                         if _network_tp is not None:
                             _tp_ticks = _network_tp
                         else:
-                            _mfe_coeff = lib_entry.get('mfe_coeff')
+                            # Try optimized array first
+                            _mfe_coeff = lib_entry.get('_mfe_coeff_arr')
+                            if _mfe_coeff is None:
+                                _mfe_coeff = lib_entry.get('mfe_coeff')
+
                             if _mfe_coeff is not None:
-                                _pred_mfe_pts   = (np.dot(_live_scaled, np.array(_mfe_coeff))
+                                _pred_mfe_pts   = (np.dot(_live_scaled, _mfe_coeff)
                                                    + lib_entry.get('mfe_intercept', 0.0))
                                 _pred_mfe_ticks = max(0.0, _pred_mfe_pts / 0.25)
                                 _tp_ticks = max(4, int(round(_pred_mfe_ticks))) if _pred_mfe_ticks > 2.0 else (

@@ -15,6 +15,9 @@ def mock_engine():
 @pytest.fixture
 def mock_scaler():
     scaler = MagicMock()
+    # Mock mean_ and scale_ to be valid numpy arrays
+    scaler.mean_ = np.zeros(16)
+    scaler.scale_ = np.ones(16)
     scaler.transform.return_value = np.zeros((1, 16)) # 16D feature vector
     return scaler
 
@@ -32,11 +35,15 @@ def test_initialization_15s_default(mock_library, mock_scaler, mock_engine):
 
     tbn = TimeframeBeliefNetwork(mock_library, mock_scaler, mock_engine, valid_tids, centroids)
 
-    # Check workers
+    # Check workers - Now all workers are created, but active_timeframes filters who gets prepared
     assert 15 in tbn.workers
     assert 3600 in tbn.workers
-    assert 5 not in tbn.workers # 5s not active by default (15s base)
-    assert 1 not in tbn.workers # 1s not active by default
+    assert 5 in tbn.workers # 5s IS in workers now
+
+    # Check active_timeframes
+    assert 15 in tbn.active_timeframes
+    assert 3600 in tbn.active_timeframes
+    assert 5 not in tbn.active_timeframes # But 5s is NOT in active_timeframes for 15s base
 
     # Check leaf
     assert tbn.workers[15].is_leaf
@@ -81,7 +88,7 @@ def test_initialization_5s(mock_library, mock_scaler, mock_engine):
     # Check workers
     assert 15 in tbn.workers
     assert 5 in tbn.workers
-    assert 1 not in tbn.workers # 1s is below base
+    assert 1 in tbn.workers
 
     # Check leaf
     assert tbn.workers[5].is_leaf
@@ -147,13 +154,31 @@ def test_tick_all(mock_library, mock_scaler, mock_engine):
     assert updated == len(tbn.workers)
 
     # Tick at bar 1 (1s elapsed)
-    # 1s worker updates (bars_per_update=1)
-    # 5s worker (bars_per_update=5) does NOT update (1 // 5 = 0, same as prev)
     updated = tbn.tick_all(1)
     assert updated == 1 # Only 1s worker
 
     # Tick at bar 5 (5s elapsed)
-    # 1s worker updates
-    # 5s worker updates (5 // 5 = 1, changed from 0)
     updated = tbn.tick_all(5)
     assert updated >= 2 # 1s and 5s at least
+
+def test_optimization_coeffs(mock_library, mock_scaler, mock_engine):
+    """Verify coefficients are pre-converted to numpy arrays in side-keys."""
+    valid_tids = [1, 2]
+    centroids = np.zeros((2, 16))
+
+    # Ensure they start as lists
+    assert isinstance(mock_library[1]['dir_coeff'], list)
+    assert isinstance(mock_library[1]['mfe_coeff'], list)
+
+    tbn = TimeframeBeliefNetwork(mock_library, mock_scaler, mock_engine, valid_tids, centroids)
+
+    # Verify original lists are untouched
+    assert isinstance(mock_library[1]['dir_coeff'], list)
+    assert isinstance(mock_library[1]['mfe_coeff'], list)
+
+    # Verify optimized arrays exist
+    assert '_dir_coeff_arr' in mock_library[1]
+    assert '_mfe_coeff_arr' in mock_library[1]
+    assert isinstance(mock_library[1]['_dir_coeff_arr'], np.ndarray)
+    assert isinstance(mock_library[1]['_mfe_coeff_arr'], np.ndarray)
+    assert mock_library[1]['_dir_coeff_arr'].dtype == np.float64
