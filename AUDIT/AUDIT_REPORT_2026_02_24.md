@@ -93,7 +93,7 @@ The following actions are required to address the critical test failures and com
 1.  **Fix Test Failures (High Priority)**:
     -   Investigate `DOEParameterGenerator` in `training/doe_parameter_generator.py`: verify if `generate_latin_hypercube_set` and `generate_mutation_set` exist or if tests need updating.
     -   Investigate `QuantumFieldEngine` in `core/quantum_field_engine.py`: verify `_detect_geometric_patterns` existence.
-    -   Fix `training/orchestrator.py` attribute error regarding `ContextDetector`.
+    -   Fix the `AttributeError` for `ContextDetector`, which is likely caused by an incorrect import in a test file referencing `training.orchestrator`.
     -   Fix `KeyError: 'open'` in `batch_compute_states` by ensuring dataframes have correct columns (check `training/databento_loader.py` output vs `QuantumFieldEngine` expectations).
 2.  **Refactor Debug Scripts**:
     -   Refactor `scripts/debug/debug_utils.py` to use `logging` and `argparse`.
