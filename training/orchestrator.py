@@ -1771,7 +1771,7 @@ class BayesianTrainingOrchestrator:
 
                         # Start Physics Decay Tracking
                         # Pattern horizon T_k approx avg_mfe_bar (or 40 bars if unknown)
-                        _horizon = int(_tmpl_avg_mfebar) if _tmpl_avg_mfebar > 0 else 40
+                        _horizon = int(_tmpl_avg_mfebar) if _tmpl_avg_mfebar > 0 else DEFAULT_DECAY_HORIZON
                         belief_network.start_trade_tracking(side, _bar_i, _horizon)
 
                         # Store oracle facts for this trade (linked at exit)
