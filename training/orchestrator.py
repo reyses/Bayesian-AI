@@ -483,8 +483,22 @@ class BayesianTrainingOrchestrator:
         if os.path.isdir(_shards_dir):
             import shutil as _shutil_rotate
             if os.path.isdir(_shards_prev):
-                _shutil_rotate.rmtree(_shards_prev)
-            os.rename(_shards_dir, _shards_prev)
+                try:
+                    _shutil_rotate.rmtree(_shards_prev)
+                except PermissionError:
+                    # OneDrive/antivirus may hold locks — retry after brief pause
+                    import time as _t_rotate
+                    _t_rotate.sleep(1)
+                    try:
+                        _shutil_rotate.rmtree(_shards_prev)
+                    except PermissionError:
+                        print(f"  WARNING: Could not remove {_shards_prev} (locked), skipping rotation")
+                        _shards_dir = None  # skip the rename below
+            if _shards_dir:
+                try:
+                    os.rename(_shards_dir, _shards_prev)
+                except OSError:
+                    pass
 
         # 1. Load Prerequisites
         lib_path = os.path.join(self.checkpoint_dir, 'pattern_library.pkl')

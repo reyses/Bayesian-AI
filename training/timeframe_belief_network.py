@@ -56,6 +56,8 @@ class WorkerBelief:
     wave_maturity: float = 0.0  # P(wave near completion) [0..1]
     # Composite: 0.4*pattern_maturity + 0.3*min(1,|z|/3) + 0.3*tunnel_probability
     # High value = wave is well-developed/near exhaustion = higher entry risk
+    z_score:       float = 0.0  # raw z_score from quantum state (for decay tracking)
+    momentum:      float = 0.0  # raw momentum_strength from quantum state
 
 
 @dataclass
@@ -467,6 +469,8 @@ class TimeframeWorker:
             tf_bar_idx    = tf_bar_idx,
             conviction    = conviction,
             wave_maturity = wave_maturity,
+            z_score       = getattr(state, 'z_score', 0.0),
+            momentum      = getattr(state, 'momentum_strength', 0.0),
         )
         return True
 
@@ -496,6 +500,15 @@ class TimeframeBeliefNetwork:
     # OOS data confirmed winners flip workers MORE than losers across all TFs,
     # meaning urgent_exit was cutting winners not protecting against losers.
     # Trail stop handles exits naturally; re-enable only with directional evidence.
+    # Physics Decay Exit — bottom-up cascade parameters
+    # Workers track z_score drift from entry; if reality diverges from
+    # expected mean-reversion trajectory, the cascade score rises.
+    # tau narrows from alpha_max -> alpha_min over the pattern horizon T_k bars.
+    # Fast TFs (1s, 5s) detect reversals first -> weighted more for exit.
+    DECAY_ALPHA_MAX  = 3.0    # initial tolerance band (wide at trade start)
+    DECAY_ALPHA_MIN  = 1.0    # final tolerance band (narrow at pattern horizon)
+    DECAY_THETA_EXIT = 1.5    # cascade score threshold -> trigger exit
+
     URGENT_EXIT_CONVICTION_THRESHOLD = 1.01   # effectively disabled
     # Pre-fix: tighten fired on (not is_confident) OR wave_mature > 0.65 → every bar
     # during a normal move triggered tightening, collapsing the trail to 2 ticks.
@@ -549,6 +562,13 @@ class TimeframeBeliefNetwork:
         self._trade_p75_mfe_bar = 0.0
         self._trade_bars_held   = 0
         self._trade_expected_mfe_ticks = 0.0
+
+        # Physics decay tracking state (populated while a trade is open)
+        self._decay_trade_side: Optional[str] = None
+        self._decay_entry_bar: int = 0
+        self._decay_pattern_horizon: int = 1
+        self._decay_entry_physics: Dict[int, dict] = {}  # {tf_secs: {'z','m','d'}}
+        self._current_bar: int = 0
 
     # ------------------------------------------------------------------
     # TRADE TIME-SCALE MANAGEMENT
@@ -749,6 +769,7 @@ class TimeframeBeliefNetwork:
         Each worker self-decides (event-driven by TF bar change).
         Returns: number of workers that updated their belief.
         """
+        self._current_bar = bar_i
         updated = 0
         for worker in self.workers.values():
             if worker.tick(bar_i, self.pattern_library, self.scaler,
@@ -971,6 +992,115 @@ class TimeframeBeliefNetwork:
                 self_adx, self_hurst, self_dmi,
                 0.0, 0.0, 0.0, 0.0,
                 self_pid, self_osc_coh]
+
+    # ------------------------------------------------------------------
+    # PHYSICS DECAY TRACKING
+    # ------------------------------------------------------------------
+
+    def start_trade_tracking(self, side: str, entry_bar: int,
+                             pattern_horizon_bars: int):
+        """
+        Called when a trade opens. Records each worker's current z_score
+        so we can track physics decay (drift away from expected trajectory).
+
+        The expected trajectory is LINEAR MEAN REVERSION: z -> 0 over T_k bars.
+        If reality diverges (z moves AGAINST trade direction), the decay score
+        rises. Fast-TF workers weight more for exit (inverse of entry weighting).
+        """
+        self._decay_trade_side = side
+        self._decay_entry_bar = entry_bar
+        self._decay_pattern_horizon = max(1, pattern_horizon_bars)
+        self._decay_entry_physics = {}
+        for tf, worker in self.workers.items():
+            b = worker.current_belief
+            if b is not None:
+                self._decay_entry_physics[tf] = {
+                    'z': b.z_score,
+                    'm': b.momentum,
+                    'd': b.dir_prob,
+                }
+
+    def stop_trade_tracking(self):
+        """Called when a trade closes -- clears decay state."""
+        self._decay_trade_side = None
+        self._decay_entry_bar = 0
+        self._decay_entry_physics = {}
+
+    def get_decay_cascade(self) -> dict:
+        """
+        Compute physics decay cascade across all workers since trade entry.
+
+        Each worker's z_score trajectory is compared to the EXPECTED trajectory
+        (linear mean reversion from entry_z -> 0 over the pattern horizon T_k).
+        Deviations AGAINST the trade direction are penalized.
+
+        Tolerance band tau narrows from alpha_max -> alpha_min over T_k.
+        Fast-TF workers get MORE weight (inverse of entry weighting) because
+        they detect reversals first (bottom-up cascade).
+
+        Returns:
+            cascade_score: 0=healthy, >theta=exit signal
+            per_worker:    {tf_label: decay_w} for diagnostics
+            should_exit:   cascade > theta_exit
+            progress:      dt / T_k [0..2]
+            tau:           current tolerance band width
+        """
+        if self._decay_trade_side is None:
+            return {'cascade_score': 0.0, 'per_worker': {},
+                    'should_exit': False, 'progress': 0.0,
+                    'tau': self.DECAY_ALPHA_MAX}
+
+        dt = max(1, self._current_bar - self._decay_entry_bar)
+        T_k = self._decay_pattern_horizon
+        progress = min(2.0, dt / T_k)
+
+        # Adaptive tolerance: wide at start, narrows to alpha_min at horizon
+        tau = self.DECAY_ALPHA_MAX - (self.DECAY_ALPHA_MAX - self.DECAY_ALPHA_MIN) * min(1.0, progress)
+
+        # Sign convention:
+        #   LONG: entered z < 0, expect z to rise toward 0. Adverse = z falls further.
+        #   SHORT: entered z > 0, expect z to fall toward 0. Adverse = z rises further.
+        sign_dir = -1.0 if self._decay_trade_side == 'long' else 1.0
+
+        per_worker = {}
+        cascade_num = 0.0
+        cascade_den = 0.0
+        _max_w = max(self.TF_WEIGHTS)
+
+        for tf, worker in self.workers.items():
+            b = worker.current_belief
+            entry = self._decay_entry_physics.get(tf)
+            if b is None or entry is None:
+                continue
+
+            entry_z = entry['z']
+            current_z = b.z_score
+
+            # Expected: linear mean reversion toward 0
+            expected_z = entry_z * max(0.0, 1.0 - progress)
+            residual = current_z - expected_z
+
+            # Bad residual: positive when physics move AGAINST trade direction
+            bad_residual = residual * sign_dir
+            decay_w = max(0.0, bad_residual / (tau + 1e-9))
+
+            tf_label = self._TF_LABELS.get(tf, str(tf))
+            per_worker[tf_label] = round(decay_w, 3)
+
+            # Inverse weight: fast TFs -> high exit influence
+            inv_w = _max_w - self._weight_map.get(tf, 1.0) + 0.1
+            cascade_num += inv_w * decay_w
+            cascade_den += inv_w
+
+        cascade = cascade_num / cascade_den if cascade_den > 0 else 0.0
+
+        return {
+            'cascade_score': round(cascade, 4),
+            'per_worker': per_worker,
+            'should_exit': cascade > self.DECAY_THETA_EXIT,
+            'progress': round(progress, 3),
+            'tau': round(tau, 3),
+        }
 
     # ------------------------------------------------------------------
     # WORKER SNAPSHOT
