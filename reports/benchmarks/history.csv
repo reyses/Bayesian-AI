@@ -1,3 +1,0 @@
-timestamp,tag,phase,trades,win_rate,total_pnl,avg_pnl,correct_dir_pct,wrong_dir_pct,trail_stop_n,trail_stop_wr,structural_break_n,structural_break_wr,avg_hold_bars
-2026-02-24_201400,pre_3body_template_stats,IS,2241,0.552,14022.50,6.26,0.451,0.449,143,0.000,1869,0.586,23.3
-2026-02-25_014328,3body_trail_act,IS,1191,0.404,1131.50,0.95,0.444,0.471,685,0.051,43,0.581,3.8

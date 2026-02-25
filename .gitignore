@@ -18,8 +18,6 @@ nul
 debug_outputs/
 checkpoints/
 reports/training/training_log.txt
-reports/is/fn_oracle_log.csv
-reports/is/fn_oracle_log_prev.csv
-# run_logs/ is intentionally tracked — monthly sharded CSVs for GitHub/Gemini review.
-# Each shard is <50 MB so it fits within GitHub's per-file limit.
-# Do NOT add run_logs/ here.
+# reports/ CSVs are runtime output — too large for GitHub (some >100MB)
+# .txt reports and docs/checkpoint_reference/ are still tracked
+reports/**/*.csv
