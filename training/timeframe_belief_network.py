@@ -34,6 +34,7 @@ The default decision resolution is 5m: we decide "what is the NEXT 5m bar going 
 The 15s execution workers provide the precise entry trigger.
 """
 
+import math
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass, field
@@ -138,18 +139,118 @@ class TimeframeWorker:
         self.bars_per_update         = max(1, tf_seconds // base_resolution_seconds)
         self.is_leaf                 = is_leaf
 
+        # Trade context -- set by network when position is open
+        self._trade_side: str = None            # 'long' or 'short'
+        self._trade_profit_ticks: float = 0.0   # current P&L in ticks
+
         # Filled by prepare()
         self._states: list = []
 
         # Current belief -- sticky until TF bar changes
         self.current_belief: Optional[WorkerBelief] = None
         self._last_tf_bar_idx: int = -1
+        self._last_state = None                 # last analyzed quantum state
+
+        # EOD adaptive learning — persists across days (EMA)
+        self._direction_accuracy: float = 0.5   # how often this worker's dir was right
+        self._dmi_reliability: float = 0.5      # how often DMI agreement predicted wins
+        self._conviction_scale: float = 1.0     # conviction multiplier from learned accuracy
+
+        # Worker augmented playbook — local pattern journal from observed outcomes
+        # Key: (lagrange_zone, z_bin, dmi_sign)  Value: {lw, ll, sw, sl}
+        self._playbook: dict = {}
 
     def prepare(self, states: list):
         """Supply Task-1 result: pre-computed states for the day."""
         self._states          = states
         self.current_belief   = None
         self._last_tf_bar_idx = -1
+
+    def review_day(self, day_trades: list, alpha: float = 0.3):
+        """
+        End-of-day learning: review trades, update accuracy stats.
+
+        Each trade dict must have:
+          - 'side': 'long' or 'short'
+          - 'pnl': float (positive = win)
+          - 'worker_snapshots': dict of {tf_label: {'d': dir_prob, 'dmi_agrees': bool}}
+
+        Updates are EMA: (1-alpha) * old + alpha * today.
+        """
+        tf_label = self._tf_label()
+        dir_correct = 0
+        dir_total = 0
+        dmi_correct = 0
+        dmi_total = 0
+
+        for t in day_trades:
+            snap = t.get('worker_snapshots', {}).get(tf_label)
+            if snap is None:
+                continue
+
+            side = t['side']
+            won = t['pnl'] > 0
+            d = snap.get('d', 0.5)
+
+            # Direction accuracy: did this worker's dir_prob agree with the winning side?
+            worker_said_long = d > 0.5
+            trade_was_long = side == 'long'
+            worker_agreed = (worker_said_long == trade_was_long)
+
+            if (worker_agreed and won) or (not worker_agreed and not won):
+                dir_correct += 1
+            dir_total += 1
+
+            # DMI reliability: when DMI agreed with trade, did it win?
+            _dmi = snap.get('dmi', 0.0)
+            if _dmi != 0.0:
+                dmi_agrees = ((side == 'long' and _dmi > 0) or
+                              (side == 'short' and _dmi < 0))
+                if (dmi_agrees and won) or (not dmi_agrees and not won):
+                    dmi_correct += 1
+                dmi_total += 1
+
+        if dir_total >= 3:  # need minimum sample
+            today_dir = dir_correct / dir_total
+            self._direction_accuracy = (1 - alpha) * self._direction_accuracy + alpha * today_dir
+            # Map accuracy to conviction scale: 0.5 accuracy → 1.0x, 0.7 → 1.24x, 0.3 → 0.76x
+            self._conviction_scale = 0.7 + 0.6 * self._direction_accuracy
+
+        if dmi_total >= 3:
+            today_dmi = dmi_correct / dmi_total
+            self._dmi_reliability = (1 - alpha) * self._dmi_reliability + alpha * today_dmi
+
+        # ── Playbook update: record outcome for this worker's state at entry ──
+        for t in day_trades:
+            snap = t.get('worker_snapshots', {}).get(tf_label)
+            if snap is None:
+                continue
+            _lz = snap.get('lz', 'UNKNOWN')
+            _z = snap.get('z', 0.0)
+            _dmi_raw = snap.get('dmi', 0.0)
+            key = self._playbook_key(_z, _lz, _dmi_raw)
+            if key not in self._playbook:
+                self._playbook[key] = {'lw': 0, 'll': 0, 'sw': 0, 'sl': 0}
+            bucket = self._playbook[key]
+            _side = t['side']
+            _won = t['pnl'] > 0
+            if _side == 'long':
+                bucket['lw' if _won else 'll'] += 1
+            else:
+                bucket['sw' if _won else 'sl'] += 1
+
+    def _tf_label(self) -> str:
+        """Map tf_seconds to the label used in worker snapshots."""
+        _MAP = {3600: '1h', 1800: '30m', 900: '15m', 300: '5m', 180: '3m',
+                60: '1m', 30: '30s', 15: '15s', 5: '5s', 1: '1s'}
+        return _MAP.get(self.tf_seconds, f'{self.tf_seconds}s')
+
+    @staticmethod
+    def _playbook_key(z_score: float, lagrange_zone: str, dmi_diff: float) -> tuple:
+        """Discretized state signature for playbook lookup."""
+        z_bin = round(z_score)
+        dmi_sign = 'pos' if dmi_diff > 5.0 else ('neg' if dmi_diff < -5.0 else 'flat')
+        return (lagrange_zone, z_bin, dmi_sign)
 
     def tick(self, bar_i: int, pattern_library: dict, scaler,
              valid_tids: list, centroids_scaled: np.ndarray,
@@ -206,6 +307,7 @@ class TimeframeWorker:
                  valid_tids: list, centroids_scaled: np.ndarray,
                  scaler_mean: np.ndarray = None, scaler_scale: np.ndarray = None) -> bool:
         """Task 2: feature extraction, cluster matching, physics blend, belief update."""
+        self._last_state = state
         feat = TimeframeBeliefNetwork.state_to_features(state, self.tf_seconds)
 
         # Optimization: Use direct NumPy vectorized scaling if available (40x faster than scaler.transform)
@@ -263,6 +365,28 @@ class TimeframeWorker:
         else:
             dir_prob = _phys_dir
 
+        # ── Playbook blend: local WR from observed outcomes ──────────────
+        if self._playbook:
+            _pb_z = float(getattr(state, 'z_score', 0.0))
+            _pb_lz = getattr(state, 'lagrange_zone', 'UNKNOWN')
+            _pb_dmi = getattr(state, 'dmi_plus', 0.0) - getattr(state, 'dmi_minus', 0.0)
+            _pb_key = self._playbook_key(_pb_z, _pb_lz, _pb_dmi)
+            _pb = self._playbook.get(_pb_key)
+            if _pb is not None:
+                _pb_total = _pb['lw'] + _pb['ll'] + _pb['sw'] + _pb['sl']
+                if _pb_total >= 5:
+                    _long_n = _pb['lw'] + _pb['ll']
+                    _short_n = _pb['sw'] + _pb['sl']
+                    if _long_n > 0 and _short_n > 0:
+                        _local_long_wr = _pb['lw'] / _long_n
+                        _local_short_wr = _pb['sw'] / _short_n
+                        _local_dir = _local_long_wr / (_local_long_wr + _local_short_wr + 1e-9)
+                    elif _long_n > 0:
+                        _local_dir = _pb['lw'] / _long_n
+                    else:
+                        _local_dir = 1.0 - (_pb['sw'] / _short_n)
+                    dir_prob = 0.7 * dir_prob + 0.3 * _local_dir
+
         # Wave maturity: estimate of how "mature" (near completion) the current wave is.
         # High value = wave is well-developed / near exhaustion = higher entry risk.
         # Composite of the three strongest exhaustion signals from the quantum state:
@@ -277,13 +401,44 @@ class TimeframeWorker:
             0.0, 1.0
         ))
 
+        conviction = abs(dir_prob - 0.5) * 2.0
+
+        # ── Price-aware conviction modulation (2 layers) ──
+        if self._trade_side is not None:
+            _agrees = ((self._trade_side == 'long' and dir_prob > 0.5) or
+                       (self._trade_side == 'short' and dir_prob < 0.5))
+            _winning = self._trade_profit_ticks > 0
+
+            # Layer 1: Direction + P&L agreement
+            if _agrees and _winning:
+                conviction = min(1.0, conviction * 1.3)
+            elif not _agrees and not _winning:
+                conviction = min(1.0, conviction * 1.2)
+            elif not _agrees and _winning:
+                conviction *= 0.7
+
+            # Layer 2: DMI/ADX trend signal, scaled by TF sample size
+            _dmi_diff = getattr(state, 'dmi_plus', 0.0) - getattr(state, 'dmi_minus', 0.0)
+            _dmi_agrees = ((self._trade_side == 'long' and _dmi_diff > 0) or
+                           (self._trade_side == 'short' and _dmi_diff < 0))
+            _adx = getattr(state, 'adx_strength', 0.0)
+            _tf_reliability = min(1.0, math.log(max(2, self.bars_per_update)) / math.log(240))
+
+            if not _dmi_agrees and _adx > 25:
+                conviction *= (1.0 - 0.3 * _tf_reliability)
+            elif _dmi_agrees and _adx > 25:
+                conviction = min(1.0, conviction * (1.0 + 0.15 * _tf_reliability))
+
+        # Layer 3: EOD-learned conviction scale (adapts across days)
+        conviction = min(1.0, conviction * self._conviction_scale)
+
         self.current_belief = WorkerBelief(
             tf_seconds    = self.tf_seconds,
             dir_prob      = dir_prob,
             pred_mfe      = pred_mfe,
             template_id   = primary_tid,
             tf_bar_idx    = tf_bar_idx,
-            conviction    = abs(dir_prob - 0.5) * 2.0,
+            conviction    = conviction,
             wave_maturity = wave_maturity,
         )
         return True
@@ -366,20 +521,24 @@ class TimeframeBeliefNetwork:
         self._trade_avg_mfe_bar = 0.0
         self._trade_p75_mfe_bar = 0.0
         self._trade_bars_held   = 0
+        self._trade_expected_mfe_ticks = 0.0
 
     # ------------------------------------------------------------------
     # TRADE TIME-SCALE MANAGEMENT
     # ------------------------------------------------------------------
 
-    def set_active_trade_timescale(self, avg_mfe_bar: float, p75_mfe_bar: float):
+    def set_active_trade_timescale(self, avg_mfe_bar: float, p75_mfe_bar: float,
+                                    expected_mfe_ticks: float = 0.0):
         """
         Call at trade entry with the matched template's time-scale stats.
         avg_mfe_bar / p75_mfe_bar are in 15s bars (0-based bar index where
         MFE historically peaked).  0.0 means unknown → time signals silent.
+        expected_mfe_ticks: template's mean MFE in ticks (for capture % calc).
         """
         self._trade_avg_mfe_bar = avg_mfe_bar
         self._trade_p75_mfe_bar = p75_mfe_bar
         self._trade_bars_held   = 0
+        self._trade_expected_mfe_ticks = expected_mfe_ticks
 
     def tick_trade_bar(self):
         """Increment hold counter — call once per 15s bar while position is open."""
@@ -390,6 +549,91 @@ class TimeframeBeliefNetwork:
         self._trade_avg_mfe_bar = 0.0
         self._trade_p75_mfe_bar = 0.0
         self._trade_bars_held   = 0
+        self._trade_expected_mfe_ticks = 0.0
+
+    def set_trade_context(self, side: str, profit_ticks: float):
+        """Propagate trade side + P&L to all workers for price-aware conviction."""
+        for w in self.workers.values():
+            w._trade_side = side
+            w._trade_profit_ticks = profit_ticks
+
+    def clear_trade_context(self):
+        """Clear trade context from all workers at trade exit."""
+        for w in self.workers.values():
+            w._trade_side = None
+            w._trade_profit_ticks = 0.0
+
+    def end_of_day_review(self, day_trades: list):
+        """
+        After each trading day, let every worker review the day's trades
+        and update their learned accuracy (direction, DMI reliability).
+
+        day_trades: list of dicts with keys:
+          - 'side': 'long' or 'short'
+          - 'pnl': float
+          - 'worker_snapshots': {tf_label: {'d': dir_prob, 'dmi_agrees': bool}}
+        """
+        if not day_trades:
+            return
+        for w in self.workers.values():
+            w.review_day(day_trades)
+
+    def compute_p_profitable(self, side: str, template_win_rate: float = 0.5) -> float:
+        """
+        P(profitable) from template win rate (prior) + live DMI/momentum (likelihood).
+
+        Aggregates across all workers, weighted by TF reliability:
+          - DMI agreement × ADX strength (60%) — is the trend with you?
+          - Momentum agreement × magnitude (40%) — does volume confirm?
+          - TF reliability: 15s ≈ 0%, 1h+ ≈ 100%
+
+        Returns float in [0.0, 1.0].
+        """
+        weighted_sum = 0.0
+        weight_total = 0.0
+
+        for w in self.workers.values():
+            state = w._last_state
+            if state is None:
+                continue
+
+            # TF reliability: 0.0 (15s) → 1.0 (1h+)
+            tf_rel = min(1.0, math.log(max(2, w.bars_per_update)) / math.log(240))
+            if tf_rel < 0.01:
+                continue  # skip noise-level workers
+
+            dmi_diff = getattr(state, 'dmi_plus', 0.0) - getattr(state, 'dmi_minus', 0.0)
+            adx = getattr(state, 'adx_strength', 0.0)
+            mom = getattr(state, 'momentum_strength', 0.0)
+
+            signal = 0.0
+
+            # DMI component (60%): direction agreement scaled by trend strength
+            # Learned DMI reliability adjusts weight: 0.5 (default) → 1.0x, 0.7 → 1.4x, 0.3 → 0.6x
+            dmi_agrees = ((side == 'long' and dmi_diff > 0) or
+                          (side == 'short' and dmi_diff < 0))
+            _dmi_weight = min(1.0, adx / 50.0)
+            _dmi_learned = w._dmi_reliability * 2.0  # 0.5 default → 1.0x
+            signal += (1.0 if dmi_agrees else -1.0) * _dmi_weight * 0.6 * _dmi_learned
+
+            # Momentum component (40%): volume-weighted velocity agreement
+            mom_agrees = ((side == 'long' and mom > 0) or
+                          (side == 'short' and mom < 0))
+            _mom_weight = min(1.0, math.log1p(abs(mom)) / 3.0)
+            signal += (1.0 if mom_agrees else -1.0) * _mom_weight * 0.4
+
+            # Worker's overall learned accuracy scales its vote weight
+            weighted_sum += signal * tf_rel * w._conviction_scale
+            weight_total += tf_rel
+
+        if weight_total < 0.01:
+            return template_win_rate  # no worker data → fall back to prior
+
+        live_score = weighted_sum / weight_total  # [-1, +1]
+
+        # Combine: prior (template WR) shifts baseline, live signals update
+        raw = (template_win_rate - 0.5) * 2.0 + live_score
+        return 1.0 / (1.0 + math.exp(-3.0 * raw))
 
     # ------------------------------------------------------------------
     # DAY SETUP
@@ -566,6 +810,99 @@ class TimeframeBeliefNetwork:
         )
 
     # ------------------------------------------------------------------
+    # DIRECTION CONSENSUS (multi-signal aggregation)
+    # ------------------------------------------------------------------
+
+    def get_direction_consensus(self, proposed_side: str) -> dict:
+        """
+        Multi-signal direction consensus across all active TF workers.
+
+        Aggregates 4 independent signals:
+          1. DMI consensus (30%): weighted by ADX strength
+          2. Momentum consensus (20%): velocity agreement across scales
+          3. Worker vote (30%): weighted majority of dir_prob values
+          4. Trend alignment (20%): higher-TF workers (>= 5m) agreement
+
+        Returns {'direction', 'confidence' [0-1], 'signals': {...}}
+        """
+        dmi_score = 0.0
+        mom_score = 0.0
+        vote_score = 0.0
+        trend_score = 0.0
+        dmi_weight = 0.0
+        mom_weight = 0.0
+        vote_weight = 0.0
+        trend_weight = 0.0
+
+        for tf, worker in self.workers.items():
+            state = worker._last_state
+            belief = worker.current_belief
+            if state is None or belief is None:
+                continue
+
+            w = self._weight_map.get(tf, 1.0)
+
+            # Signal 1: DMI consensus (weighted by ADX)
+            dmi_diff = getattr(state, 'dmi_plus', 0.0) - getattr(state, 'dmi_minus', 0.0)
+            adx = getattr(state, 'adx_strength', 0.0)
+            if adx > 15:
+                dmi_agrees = ((proposed_side == 'long' and dmi_diff > 0) or
+                              (proposed_side == 'short' and dmi_diff < 0))
+                _adx_w = min(1.0, adx / 50.0)
+                dmi_score += (1.0 if dmi_agrees else -1.0) * _adx_w * w * worker._dmi_reliability * 2.0
+                dmi_weight += _adx_w * w
+
+            # Signal 2: Momentum consensus
+            mom = getattr(state, 'momentum_strength', 0.0)
+            if abs(mom) > 0.01:
+                mom_agrees = ((proposed_side == 'long' and mom > 0) or
+                              (proposed_side == 'short' and mom < 0))
+                _mom_mag = min(1.0, math.log1p(abs(mom)) / 3.0)
+                mom_score += (1.0 if mom_agrees else -1.0) * _mom_mag * w
+                mom_weight += _mom_mag * w
+
+            # Signal 3: Worker dir_prob vote
+            _dir_agrees = ((proposed_side == 'long' and belief.dir_prob > 0.5) or
+                           (proposed_side == 'short' and belief.dir_prob < 0.5))
+            _strength = abs(belief.dir_prob - 0.5) * 2.0
+            vote_score += (1.0 if _dir_agrees else -1.0) * _strength * w * worker._conviction_scale
+            vote_weight += w
+
+            # Signal 4: Trend alignment (only higher TFs >= 5m)
+            if tf >= 300:
+                _agrees = ((proposed_side == 'long' and belief.dir_prob > 0.55) or
+                           (proposed_side == 'short' and belief.dir_prob < 0.45))
+                trend_score += (1.0 if _agrees else -0.5) * w
+                trend_weight += w
+
+        # Normalize each to [-1, +1]
+        dmi_n   = dmi_score / dmi_weight   if dmi_weight   > 0.01 else 0.0
+        mom_n   = mom_score / mom_weight   if mom_weight   > 0.01 else 0.0
+        vote_n  = vote_score / vote_weight if vote_weight  > 0.01 else 0.0
+        trend_n = trend_score / trend_weight if trend_weight > 0.01 else 0.0
+
+        # Weighted composite: DMI 30%, Momentum 20%, Vote 30%, Trend 20%
+        composite = 0.30 * dmi_n + 0.20 * mom_n + 0.30 * vote_n + 0.20 * trend_n
+
+        # composite > 0 = agrees with proposed_side
+        if composite >= 0:
+            direction = proposed_side
+            confidence = 0.5 + 0.5 * min(1.0, composite)
+        else:
+            direction = 'short' if proposed_side == 'long' else 'long'
+            confidence = 0.5 + 0.5 * min(1.0, abs(composite))
+
+        return {
+            'direction':  direction,
+            'confidence': round(confidence, 4),
+            'signals': {
+                'dmi': round(dmi_n, 3), 'momentum': round(mom_n, 3),
+                'vote': round(vote_n, 3), 'trend': round(trend_n, 3),
+                'composite': round(composite, 3),
+            }
+        }
+
+    # ------------------------------------------------------------------
     # FEATURE EXTRACTION (shared by all workers)
     # ------------------------------------------------------------------
 
@@ -631,11 +968,16 @@ class TimeframeBeliefNetwork:
         for tf, worker in self.workers.items():
             b = worker.current_belief
             if b is not None:
+                _s = worker._last_state
+                _dmi = (getattr(_s, 'dmi_plus', 0.0) - getattr(_s, 'dmi_minus', 0.0)) if _s else 0.0
                 snap[self._TF_LABELS.get(tf, str(tf))] = {
                     'd':   round(b.dir_prob,      3),
                     'c':   round(b.conviction,    3),
                     'm':   round(b.wave_maturity, 3),
                     'mfe': round(b.pred_mfe,      1),
+                    'dmi': round(_dmi,             2),
+                    'lz':  getattr(_s, 'lagrange_zone', 'UNKNOWN') if _s else 'UNKNOWN',
+                    'z':   round(getattr(_s, 'z_score', 0.0), 2) if _s else 0.0,
                 }
         return snap
 
@@ -650,12 +992,15 @@ class TimeframeBeliefNetwork:
     # DIAGNOSTICS
     # ------------------------------------------------------------------
 
-    def get_exit_signal(self, side: str) -> dict:
+    def get_exit_signal(self, side: str, trade_context: dict = None) -> dict:
         """
         Called every bar while a position is open.
         Returns a dict with exit adjustment recommendations.
 
         side: 'long' or 'short' — the current position direction.
+        trade_context: optional dict with real-time trade metrics:
+            profit_ticks, running_mfe_ticks, running_mae_ticks,
+            pct_mfe_captured, pct_hold_elapsed
 
         Returns:
             {
@@ -706,7 +1051,51 @@ class TimeframeBeliefNetwork:
         tighten = tighten or _time_tighten
         urgent  = urgent  or _time_urgent
 
-        reason = ('time_exhausted' if _time_urgent  else
+        # ── Continuous hold/exit pressure ──────────────────────────────────
+        # Single scalar that drives all exit decisions.
+        # Positive = hold (profitable + early + aligned)
+        # Negative = exit (losing + late + diverging)
+        net_pressure = 0.0
+        _pressure_reason = ''
+
+        if trade_context and self._trade_expected_mfe_ticks > 0:
+            _profit   = trade_context.get('profit_ticks', 0.0)
+            _pct_cap  = trade_context.get('pct_mfe_captured', 0.0)
+            _pct_hold = trade_context.get('pct_hold_elapsed', 0.0)
+            _aligned  = 1.0 if direction_aligned else 0.0
+
+            # Live P(profitable): prior (template WR) + live DMI/momentum
+            _p_prof = self.compute_p_profitable(
+                side, trade_context.get('template_win_rate', 0.5))
+
+            # Hold pressure: profitable + early + workers agree, scaled by P(profitable)
+            _profit_factor = min(1.0, max(0.0, _profit) / (self._trade_expected_mfe_ticks + 1))
+            _time_factor   = max(0.0, 1.0 - _pct_hold)
+            _hold = _profit_factor * _time_factor * (0.5 + 0.5 * _aligned) * _p_prof
+
+            # Exit pressure: losing + late + workers disagree, scaled by P(unprofitable)
+            _loss_factor = min(1.0, max(0.0, -_profit) / 20.0)
+            _late_factor = max(0.0, _pct_hold - 1.0)
+            _exit = (_loss_factor + _late_factor * (1.0 - _aligned)) * (1.0 - _p_prof)
+
+            net_pressure = _hold - _exit
+
+            # Map continuous pressure to discrete trail signals
+            if net_pressure > 0.3:
+                widen = True; tighten = False
+                _pressure_reason = 'pressure_hold'
+            elif net_pressure < -0.3:
+                tighten = True; widen = False
+                _pressure_reason = 'pressure_exit'
+            elif _pct_cap >= 0.60:
+                tighten = True; widen = False
+                _pressure_reason = 'mfe_captured_60pct'
+            elif _pct_hold > 1.5 and _pct_cap < 0.10:
+                urgent = True
+                _pressure_reason = 'time_expired_no_capture'
+
+        reason = (_pressure_reason if _pressure_reason else
+                  'time_exhausted' if _time_urgent  else
                   'urgent_flip'    if urgent         else
                   'time_tighten'   if _time_tighten  else
                   'wave_mature'    if wave_mature > self.TIGHTEN_TRAIL_WAVE_MATURITY_THRESHOLD else
@@ -720,6 +1109,7 @@ class TimeframeBeliefNetwork:
             'conviction':    belief.conviction,
             'wave_maturity': wave_mature,
             'reason':        reason,
+            'net_pressure':  net_pressure,
         }
 
     def summary(self) -> str:

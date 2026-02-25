@@ -253,6 +253,13 @@ class Position:
     entry_dmi_inverse: bool = False                # True if DMI was against trade direction at entry
     bars_in_trade: int = 0                           # incremented each update_trail call
 
+    # Trade-awareness (set at entry, updated each bar in update_trail)
+    running_mfe_ticks: float = 0.0         # best favorable excursion so far
+    running_mae_ticks: float = 0.0         # worst adverse excursion (positive = deeper drawdown)
+    tmpl_expected_mfe_ticks: float = 0.0   # template mean_mfe_ticks (set at entry)
+    tmpl_expected_hold_bars: float = 0.0   # template avg_mfe_bar (set at entry)
+    tmpl_win_rate: float = 0.5             # template stats_win_rate (prior for P(profitable))
+
     # CST
     cst_centroid: Optional[np.ndarray] = None
     cst_basin_mean: float = 0.0
@@ -328,7 +335,10 @@ class WaveRider:
                      cst_basin_std: float = 0.0,
                      cst_ancestry: Optional[Dict] = None,
                      cst_scaler_mean: Optional[np.ndarray] = None,
-                     cst_scaler_scale: Optional[np.ndarray] = None):
+                     cst_scaler_scale: Optional[np.ndarray] = None,
+                     tmpl_expected_mfe_ticks: float = 0.0,
+                     tmpl_expected_hold_bars: float = 0.0,
+                     tmpl_win_rate: float = 0.5):
         """
         Open new position
 
@@ -375,7 +385,10 @@ class WaveRider:
             cst_basin_std=cst_basin_std,
             cst_ancestry=cst_ancestry,
             cst_scaler_mean=cst_scaler_mean,
-            cst_scaler_scale=cst_scaler_scale
+            cst_scaler_scale=cst_scaler_scale,
+            tmpl_expected_mfe_ticks=tmpl_expected_mfe_ticks,
+            tmpl_expected_hold_bars=tmpl_expected_hold_bars,
+            tmpl_win_rate=tmpl_win_rate,
         )
         
         # Note: Do not clear price_history here as we need it for delayed analysis
@@ -496,6 +509,12 @@ class WaveRider:
 
         profit_usd = profit * self.asset.point_value
         profit_ticks = profit / self.asset.tick_size
+
+        # Running MFE / MAE tracking (ticks)
+        if profit_ticks > self.position.running_mfe_ticks:
+            self.position.running_mfe_ticks = profit_ticks
+        if profit_ticks < 0 and abs(profit_ticks) > self.position.running_mae_ticks:
+            self.position.running_mae_ticks = abs(profit_ticks)
 
         # Breakeven lock: once profit ≥ original trail distance, move hard floor to entry+1 tick.
         # This ensures a confirmed winner can never turn into a loser.
@@ -789,15 +808,33 @@ class WaveRider:
         
         print(f"{'='*60}\n")
     
-    def check_structural_integrity(self, current_state: ThreeBodyQuantumState) -> bool:
+    def check_structural_integrity(self, current_state: ThreeBodyQuantumState,
+                                    profit_ticks: float = 0.0,
+                                    net_pressure: float = 0.0) -> bool:
         """
         Returns True if structural integrity is maintained (distance <= basin radius),
         False if structure is broken (tether snapped).
 
         All comparisons are done in SCALED space to match how basin_mean/basin_std
         were computed during clustering.
+
+        profit_ticks: current unrealized P&L in ticks.
+        net_pressure: continuous hold/exit pressure from belief network.
+            > 0.3 = CST disabled (profitable + early + aligned)
+            0 to 0.3 = wider sigma (4.0)
+            -0.3 to 0 = standard sigma (3.0)
+            < -0.3 = tight sigma (2.0, actively squeezing)
         """
         if not self.position or self.position.cst_centroid is None:
+            return True
+
+        # Pressure-controlled CST: strong hold pressure = CST disabled
+        if net_pressure > 0.3:
+            return True
+
+        # Grace period: template-based minimum hold before CST can fire
+        _grace = max(10, int(self.position.tmpl_expected_hold_bars / 3))
+        if self.position.bars_in_trade < _grace:
             return True
 
         try:
@@ -809,8 +846,15 @@ class WaveRider:
 
             dist = np.linalg.norm(current_vec - self.position.cst_centroid)
 
-            # Tether Break: Distance > Basin_Radius (e.g. mean + 3*std)
-            threshold = self.position.cst_basin_mean + 3.0 * self.position.cst_basin_std
+            # Pressure-modulated sigma
+            if net_pressure > 0:
+                _sigma = 4.0   # some hold pressure — wider
+            elif net_pressure > -0.3:
+                _sigma = 3.0   # neutral — standard
+            else:
+                _sigma = 2.0   # exit pressure — tighter
+
+            threshold = self.position.cst_basin_mean + _sigma * self.position.cst_basin_std
 
             # Fallback for single-point basins
             if threshold < 1e-6:

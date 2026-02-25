@@ -641,10 +641,11 @@ class ProgressPopup:
         self.root = root
         self.q = q
         self._pnl_history = []
+        self._month_data = []  # [{month, pnl, trades, wins}, ...]
         self._done = False
 
         self.root.title("Bayesian-AI Training")
-        self.root.geometry("460x490+60+60")
+        self.root.geometry("460x650+60+60")
         self.root.configure(bg=BG)
         self.root.resizable(True, False)
         self.root.attributes("-topmost", True)
@@ -751,6 +752,20 @@ class ProgressPopup:
         )
         self._canvas.pack(padx=20)
 
+        # ── Monthly PnL bar chart ────────────────────────────────────────────
+        tk.Label(root, text="PnL by Month", bg=BG, fg=FG_GREY, font=("Consolas", 8)).pack(
+            pady=(10, 2)
+        )
+        self._month_canvas = tk.Canvas(
+            root,
+            width=self._CHART_W,
+            height=self._CHART_H,
+            bg="#141414",
+            highlightthickness=1,
+            highlightbackground="#333333",
+        )
+        self._month_canvas.pack(padx=20)
+
         # ── Status footer ─────────────────────────────────────────────────────
         self._status_var = tk.StringVar(value="Running...")
         tk.Label(
@@ -811,6 +826,73 @@ class ProgressPopup:
             font=("Consolas", 7, "bold"),
             anchor="e",
         )
+
+    # ── Monthly bar chart ────────────────────────────────────────────────────
+    def _redraw_month_chart(self):
+        c = self._month_canvas
+        c.delete("all")
+        data = self._month_data
+        if not data:
+            c.create_text(
+                self._CHART_W // 2, self._CHART_H // 2,
+                text="Waiting for monthly data...", fill=FG_GREY, font=("Consolas", 9),
+            )
+            return
+
+        W, H, pad = self._CHART_W, self._CHART_H, 6
+        n = len(data)
+        pnls = [d["pnl"] for d in data]
+        mx = max(abs(v) for v in pnls) if pnls else 1.0
+        if mx == 0:
+            mx = 1.0
+
+        bar_w = max(4, (W - 2 * pad) / n - 2)
+        gap = (W - 2 * pad - bar_w * n) / max(1, n)
+
+        # Zero baseline
+        zero_y = H / 2
+        c.create_line(pad, zero_y, W - pad, zero_y, fill="#444444", dash=(3, 3))
+
+        for i, d in enumerate(data):
+            x = pad + i * (bar_w + gap)
+            pnl = d["pnl"]
+            bar_h = abs(pnl) / mx * (H / 2 - pad - 8)
+            color = FG_GREEN if pnl >= 0 else FG_RED
+
+            if pnl >= 0:
+                y_top = zero_y - bar_h
+                y_bot = zero_y
+            else:
+                y_top = zero_y
+                y_bot = zero_y + bar_h
+
+            c.create_rectangle(x, y_top, x + bar_w, y_bot, fill=color, outline="")
+
+            # Month label (short: "Jan", "Feb", etc.)
+            _lbl = d["month"]
+            if "_" in _lbl:
+                _parts = _lbl.split("_")
+                _month_names = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+                try:
+                    _mi = int(_parts[-1])
+                    _lbl = _month_names[_mi] if 1 <= _mi <= 12 else _parts[-1]
+                except (ValueError, IndexError):
+                    _lbl = _parts[-1]
+
+            c.create_text(
+                x + bar_w / 2, H - 2, text=_lbl, fill=FG_GREY,
+                font=("Consolas", 6), anchor="s",
+            )
+
+            # PnL value above/below bar
+            sign = "+" if pnl >= 0 else ""
+            _val_y = (y_top - 6) if pnl >= 0 else (y_bot + 6)
+            _anchor = "s" if pnl >= 0 else "n"
+            c.create_text(
+                x + bar_w / 2, _val_y, text=f"{sign}${pnl:,.0f}",
+                fill=color, font=("Consolas", 6, "bold"), anchor=_anchor,
+            )
 
     # ── Queue polling ─────────────────────────────────────────────────────────
     def _poll(self):
@@ -879,6 +961,15 @@ class ProgressPopup:
                         self._status_var.set("COMPLETE — close window when ready")
                         self._pct_var.set("100%")
                         self.root.attributes("-topmost", False)
+
+                elif mtype == "MONTH_PNL":
+                    self._month_data.append({
+                        "month":  msg.get("month", "?"),
+                        "pnl":    float(msg.get("pnl", 0)),
+                        "trades": int(msg.get("trades", 0)),
+                        "wins":   int(msg.get("wins", 0)),
+                    })
+                    self._redraw_month_chart()
 
                 elif mtype == "SHUTDOWN":
                     if not self._done:

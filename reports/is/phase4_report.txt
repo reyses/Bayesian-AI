@@ -1,0 +1,252 @@
+================================================================================
+FORWARD PASS COMPLETE  (run: 2026-02-24 19:53:10)
+  Period: DATA/ATLAS_1DAY\15s\2025_01.parquet to 2025_01 (1 files)
+Total Trades: 13
+Win Rate: 46.2%
+Total PnL: $-243.50
+
+── WORKER STATES LOADED ──
+  1h=2/file(1/1 files ok)  30m=25/file(1/1 files ok)  15m=71/file(1/1 files ok)  5m=255/file(1/1 files ok)  3m=439/file(1/1 files ok)
+  1m=1358/file(1/1 files ok)  30s=2733/file(1/1 files ok)  15s=5409/file(1/1 files ok)  5s=14592/file(1/1 files ok)  1s=91775/file(1/1 files ok)
+================================================================================
+
+================================================================================
+ORACLE PROFIT ATTRIBUTION
+================================================================================
+
+  TOTAL SIGNALS SEEN BY ORACLE: 70
+    Real moves (MEGA/SCALP):       8   -- worth $  3,911.50 (parallel bound)
+    Noise (no real move):         62
+
+  WHAT WE DID:
+    Traded:      13  (18.6% of all signals)
+    Skipped:     57  (81.4% of all signals)
+
+  WHY SIGNALS WERE SKIPPED  (total candidates evaluated: 190)
+    Gate 0 (headroom/pattern rule):      0  (0.0%)
+    Gate 1 (dist > 3.0, no match):       0  (0.0%)
+    Gate 2 (brain rejected):             0  (0.0%)
+    Gate 3 (conviction < thresh):        6  (3.2%)
+    Gate 5 (direction unclear):          0  (0.0%)
+    Passed all gates -> traded:         13  (6.8%)
+
+  TRADED SIGNAL DEPTH (which TF level triggered the trade):
+    depth 5=1m   :     3 trades  ###
+    depth 8:     6 trades  ######
+    depth 10:     4 trades  ####
+
+  DECISION-TF WAVE MATURITY AT ENTRY  (0=fresh wave, 1=exhausted)
+    All trades:  avg=0.074
+    Winners:     avg=0.050
+    Losers:      avg=0.094
+    Insight: maturity gap=0.044 (positive = entering losers at wave exhaustion)
+
+  PER-DEPTH PnL BREAKDOWN (-> depth_weights.json for next run):
+    Depth     Trades    Win%    Total PnL  Avg/trade
+    -----     ------    ----    ---------  ---------
+    depth 5         3     67% $    -18.50 $    -6.17
+    depth 8         6     33% $   -236.00 $   -39.33  <- FILTER NEXT RUN
+    depth 10        4     50% $     11.00 $     2.75
+
+  DYNAMIC EXIT QUALITY:
+    Belief-flip exits:  0 trades
+    Trail-tightened:    0 trades
+    Trail-widened:          3 trades  ->  avg PnL $ -67.50
+    Standard trail:     0 trades
+
+  WORKER AGREEMENT AT ENTRY  (agree = worker dir matches trade direction)
+    TF      WIN agree  LOSS agree    Edge  <-- positive = worker is predictive
+    1h           1.00        1.00   +0.00
+    30m          1.00        1.00   +0.00
+    15m          0.67        0.71   -0.05
+    5m           0.33        0.29   +0.05
+    3m           0.67        0.43   +0.24  <-- key
+    1m           0.33        0.86   -0.52
+    30s          0.33        0.57   -0.24
+    15s          0.33        0.00   +0.33  <-- key
+    5s           0.50        0.57   -0.07
+    1s           0.67        0.43   +0.24  <-- key
+
+  DIRECTION FLIPS BETWEEN ENTRY AND EXIT:
+    (worker flipped = changed LONG/SHORT conviction side during the trade)
+    1h     WIN flip=0.00  LOSS flip=0.00  diff=+0.00
+    30m    WIN flip=0.00  LOSS flip=0.00  diff=+0.00
+    15m    WIN flip=0.17  LOSS flip=0.00  diff=-0.17
+    5m     WIN flip=0.33  LOSS flip=0.14  diff=-0.19
+    3m     WIN flip=0.67  LOSS flip=0.00  diff=-0.67
+    1m     WIN flip=0.33  LOSS flip=0.14  diff=-0.19
+    30s    WIN flip=0.67  LOSS flip=0.57  diff=-0.10
+    15s    WIN flip=1.00  LOSS flip=0.43  diff=-0.57
+    5s     WIN flip=0.67  LOSS flip=0.57  diff=-0.10
+    1s     WIN flip=0.50  LOSS flip=0.43  diff=-0.07
+
+  OF 13 TRADES TAKEN:
+    Correct direction:       4  (30.8%)  ->  actual: $    -39.50
+    Wrong direction:         4  (30.8%)  ->  losses: $   -201.50
+    Traded noise:            5  (38.5%)  ->  losses: $     -2.50
+
+  EXIT QUALITY (correct-direction trades):
+    Bucket                                   n    Total PnL   Avg PnL       Hold     Cap%
+    ──────────────────────────────────── ─────  ───────────  ────────  ─────────  ───────
+    Optimal  (>=80% captured)                0  $         0  avg$      0      0bars  cap   +0%  
+      Partial  (20-30% captured)             1  $        71  avg$     71     20bars  cap  +29%  
+    Too early (<20% captured)                1  $         3  avg$      3     16bars  cap   +1%  
+    Reversed (mkt flipped after entry)       2  $      -114  avg$    -57     12bars  cap  -45%  <- leakage
+    Left on table (non-reversed gap):                        $       467
+
+  EXIT REASON -> QUALITY CROSS-BREAKDOWN (correct-direction trades):
+    Exit reason           Optimal    Partial  Too early   Reversed   Total   Avg PnL
+    ──────────────────  ─────────  ─────────  ─────────  ─────────  ──────  ────────
+    structural_break            0          1          1          1       3  $     -1
+    trail_stop                  0          0          0          1       1  $    -36
+
+  CAPTURE DETAIL (correct-direction trades):
+    Bucket                  Avg oracle MFE  Avg actual PnL  Avg hold bars
+    Too early               $          295  $            3           16.0
+    Reversed                $          126  $          -57           11.5
+    Partial 20-30%          $          246  $           71           20.0
+
+  EXIT QUALITY BY DEPTH  (hold = real time from 15s bars × 15):
+    Depth            n  Optimal%  Reversed%   Avg PnL    Avg Hold       Left$
+    ───────────── ────  ────────  ─────────  ────────  ──────────  ──────────
+    depth  5 (1m )     1       0%        0%  $      3       0h04m  $      292
+    depth  8 (15s)     1       0%        0%  $     71       0h05m  $      175
+    depth 10 (5s )     2       0%      100%  $    -57       0h02m  $        0
+
+  PROFIT GAP ANALYSIS:
+    Ideal (golden-path sequential, perfect exits):  $    3,192.88
+    Actual profit:                                  $     -243.50
+    Gap:                                            $    3,436.38
+    Capture rate:                                         -7.6%
+    -----------------------------------------------------
+    WHERE THE GAP GOES  (3 terms, guaranteed to sum):
+      Missed signals (gate-blocked):              $        0.00  (  0.0% of gap)  [0 signals]
+      Trade underperformance (gp trades):         $    3,362.38  ( 97.8% of gap)  [6 gp trades, actual=$-170]
+      Non-golden-path trade drag:                 $       74.00  (  2.2% of gap)  [6 trades, net=$-74]
+      -------
+      [check] Sum = $    3,436.38  (gap = $    3,436.38  diff = $+0.00)
+    -----------------------------------------------------
+    [info] Parallel upper bound:   $    3,911.50  (not achievable)
+    [info] Raw FN MFE sum:         $        0.00  (not sequential)
+    [info] Score-competition pool: $    2,610.50  (took better same bar)
+
+    TRADE QUALITY DIAGNOSTIC  (all trades, does NOT sum to gap):
+      Wrong direction at entry:          $    201.50  [4 trades -- oracle said opposite dir]
+      Reversed after correct entry:      $    113.50  [2 trades -- correct dir but mkt flipped]
+      Noise trades (no real move):       $      2.50  [5 trades]
+      Left on table (too early exits):   $    467.00  [non-reversed correct-dir underperformance]
+  Per-trade oracle log saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\reports\is\oracle_trade_log.csv
+  PID oracle log saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\reports\is\pid_oracle_log.csv (342 signals)
+  Signal log saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\reports\is\signal_log.csv  (13 traded  +  177 skipped)
+
+  DECISION MATRIX SUMMARY  (skipped candidates -- oracle $ = profit left on table)
+    Gate                    Count  RealMove%  Avg Oracle$  Total Missed$
+    score_loser               139      88.5%          85         10466
+    gate4_probability          32      25.0%         228          1828
+    traded                     13     100.0%         100          1301
+    gate3                       6     100.0%          59           352
+
+  TOP 10 DNA PATHS BY WIN RATE (min 10 trades):
+    DNA                                      Trades   Win%    Avg PnL
+  Depth weights saved: checkpoints\depth_weights.json
+
+
+================================================================================
+TRADE ANALYTICS SUITE
+================================================================================
+  Loaded 13 trades from C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\reports\is\oracle_trade_log.csv
+
+================================================================================
+PART 2 — GOOD vs BAD TRADE COMPARISON  (Welch t-test, two-tailed)
+================================================================================
+  Feature                                 Winners             Losers   t-stat   p-value  sig
+  ----------------------------  ------------------  ------------------  --------  ---------  ---
+  belief_conviction               0.558 ±  0.037     0.556 ±  0.023      0.07      0.950  
+  wave_maturity                   0.083 ±  0.019     0.089 ±  0.022     -0.57      0.579  
+  decision_wave_maturity          0.050 ±  0.041     0.094 ±  0.069     -1.42      0.185  
+  oracle_mfe                     54.083 ± 66.710    46.571 ± 32.511      0.25      0.809  
+  oracle_mae                     41.875 ± 63.721    59.607 ± 60.927     -0.51      0.620  
+  capture_pct                    10.535 ± 15.993   -38.306 ± 30.128      3.72      0.004  **
+  hold_mins                       5.208 ±  1.721     2.964 ±  1.673      2.37      0.038  *
+  dmi_diff                       -0.368 ± 21.286     3.736 ± 20.486     -0.35      0.731  
+  long_bias                       0.564 ±  0.183     0.619 ±  0.151     -0.58      0.572  
+  short_bias                      0.436 ±  0.183     0.381 ±  0.151      0.58      0.572  
+  w1h_d                           0.501 ±  0.000     0.501 ±  0.000       nan        nan  
+  w1h_c                           0.001 ±  0.000     0.001 ±  0.000       nan        nan  
+  w5m_d                           0.426 ±  0.097     0.434 ±  0.203     -0.10      0.924  
+  w5m_c                           0.173 ±  0.132     0.326 ±  0.241     -1.44      0.182  
+  w1h_agree                       1.000 ±  0.000     1.000 ±  0.000       nan        nan  
+  w5m_agree                       0.333 ±  0.516     0.286 ±  0.488      0.17      0.868  
+  entry_depth                     7.667 ±  2.251     8.143 ±  1.676     -0.43      0.679  
+
+  Winners n=6  Losers n=7  Stars: *** p<0.001  ** p<0.01  * p<0.05
+
+================================================================================
+PART 3 — ANOVA: actual_pnl ~ categorical variables
+================================================================================
+
+  ANOVA: actual_pnl ~ Depth
+    F=0.57  p=0.585 
+    Group                       n    Mean PnL     Std PnL
+    10.0                        4  $     2.75  $    71.55  <- best
+    5.0                         3  $    -6.17  $    47.42
+    8.0                         6  $   -39.33  $    68.05
+
+  ANOVA: actual_pnl ~ Exit reason
+    F=2.64  p=0.132 
+    Group                       n    Mean PnL     Std PnL
+    structural_break           10  $    -4.10  $    63.12  <- best
+    trail_stop                  3  $   -67.50  $    37.03
+
+  ANOVA: actual_pnl ~ Dir correct
+    F=0.11  p=0.752 
+    Group                       n    Mean PnL     Std PnL
+    1.0                         4  $    -9.88  $    63.04  <- best
+    0.0                         9  $   -22.67  $    66.62
+
+================================================================================
+PART 4 — LINEAR REGRESSION: actual_pnl ~ features  (OLS, standardized β)
+================================================================================
+  (insufficient data)
+
+================================================================================
+PART 5 — LOGISTIC REGRESSION: is_win ~ features
+================================================================================
+  (insufficient data)
+
+================================================================================
+PART 6 — CAPTURE RATE REGRESSION (correct-direction trades)
+================================================================================
+  (insufficient correct-direction trades)
+
+================================================================================
+PART 7 — SESSION × DIRECTION  (mean PnL per trade)
+================================================================================
+  Session             LONG mean   SHORT mean     Delta   n LONG   n SHORT
+  ---------------------------------------------------------------------------
+  US_Open            $  -15.83      N/A         N/A          12         0
+  US_Mid             $  -53.50      N/A         N/A           1         0
+
+  WIN RATE BY SESSION:
+  Session              WR LONG    WR SHORT    WR All
+  -------------------------------------------------------
+  US_Open                50.0%        N/A      50.0%
+  US_Mid                  0.0%        N/A       0.0%
+
+================================================================================
+HOUR-BY-HOUR BREAKDOWN  (ET, 24h)
+================================================================================
+  Hour ET     Trades      WR     AvgPnL     TotalPnL  flag
+  -----------------------------------------------------------------
+  09:00             6   50.0% $   -21.25 $    -127.50  <- AVOID
+  10:00             6   50.0% $   -10.42 $     -62.50  <- AVOID
+  11:00             1    0.0% $   -53.50 $     -53.50  <- AVOID
+
+────────────────────────────────────────────────────────────────────────────────
+PART 8 — BEST/WORST DEEP DIVE  (top 20 vs bottom 20 by PnL)
+────────────────────────────────────────────────────────────────────────────────
+  (not enough trades or no pnl column: need 40, got 13)
+
+================================================================================
+END OF TRADE ANALYTICS SUITE
+================================================================================
