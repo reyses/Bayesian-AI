@@ -35844,3 +35844,44 @@ Trades: 485, Wins: 180, PnL: $826.50 (55.9s)
   [EXPORT] oracle_trade_log.csv -> 10 monthly shards in C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\reports\is\shards
   [EXPORT] pid_oracle_log.csv -> 10 monthly shards in C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\reports\is\shards
   [EXPORT] signal_log.csv -> 10 monthly shards in C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\reports\is\shards
+  [EXPORT] fn_oracle_log.csv -> 10 monthly shards in C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\reports\is\shards
+================================================================================
+FORWARD PASS COMPLETE  (run: 2026-02-25 02:27:56)
+  Period: DATA\ATLAS\15s\2025_01.parquet to 2025_10 (10 files)
+Total Trades: 3754
+Win Rate: 37.5%
+Total PnL: $5833.50
+
+── WORKER STATES LOADED ──
+  1h=472/file(10/10 files ok)  30m=965/file(10/10 files ok)  15m=1951/file(10/10 files ok)  5m=5892/file(10/10 files ok)  3m=9825/file(10/10 files ok)
+  1m=29405/file(10/10 files ok)  30s=58538/file(10/10 files ok)  15s=115222/file(10/10 files ok)  5s=310446/file(10/10 files ok)  1s=2008250/file(10/10 files ok)
+================================================================================
+
+================================================================================
+ORACLE PROFIT ATTRIBUTION
+================================================================================
+
+  TOTAL SIGNALS SEEN BY ORACLE: 563,878
+    Real moves (MEGA/SCALP):  512,347   -- worth $123,632,360.00 (parallel bound)
+    Noise (no real move):     51,531
+
+  WHAT WE DID:
+    Traded:   3,754  (0.7% of all signals)
+    Skipped: 560,124  (99.3% of all signals)
+
+  WHY SIGNALS WERE SKIPPED  (total candidates evaluated: 623,493)
+    Gate 0 (headroom/pattern rule): 590,266  (94.7%)
+    Gate 1 (dist > 3.0, no match):   2,976  (0.5%)
+    Gate 2 (brain rejected):           156  (0.0%)
+    Gate 3 (conviction < thresh):    1,757  (0.3%)
+    Gate 5 (direction unclear):      1,895  (0.3%)
+    Passed all gates -> traded:      3,754  (0.6%)
+
+  TRADED SIGNAL DEPTH (which TF level triggered the trade):
+    depth 0:     3 trades  
+    depth 1=4h+  (high TF):    29 trades  
+    depth 2=1h   :    66 trades  
+    depth 3=15m  :   109 trades  #
+    depth 4=5m   :    80 trades  
+    depth 5=1m   : 3,467 trades  #####################################
+
