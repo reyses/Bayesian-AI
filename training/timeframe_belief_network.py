@@ -230,7 +230,8 @@ class TimeframeWorker:
             _dmi_raw = snap.get('dmi', 0.0)
             key = self._playbook_key(_z, _lz, _dmi_raw)
             if key not in self._playbook:
-                self._playbook[key] = {'lw': 0, 'll': 0, 'sw': 0, 'sl': 0}
+                self._playbook[key] = {'lw': 0, 'll': 0, 'sw': 0, 'sl': 0,
+                                       'early': 0, 'late': 0, 'eff_sum': 0.0, 'eff_n': 0}
             bucket = self._playbook[key]
             _side = t['side']
             _won = t['pnl'] > 0
@@ -238,6 +239,16 @@ class TimeframeWorker:
                 bucket['lw' if _won else 'll'] += 1
             else:
                 bucket['sw' if _won else 'sl'] += 1
+            # Regret data (bridged from wave_rider completed_reviews)
+            _rt = t.get('regret_type', '')
+            if _rt == 'closed_too_early':
+                bucket['early'] += 1
+            elif _rt == 'closed_too_late':
+                bucket['late'] += 1
+            _eff = t.get('exit_efficiency')
+            if _eff is not None:
+                bucket['eff_sum'] += _eff
+                bucket['eff_n'] += 1
 
     def _tf_label(self) -> str:
         """Map tf_seconds to the label used in worker snapshots."""
@@ -307,6 +318,7 @@ class TimeframeWorker:
                  valid_tids: list, centroids_scaled: np.ndarray,
                  scaler_mean: np.ndarray = None, scaler_scale: np.ndarray = None) -> bool:
         """Task 2: feature extraction, cluster matching, physics blend, belief update."""
+        self._regret_conv_discount = 1.0  # reset each bar; playbook may lower it
         self._last_state = state
         feat = TimeframeBeliefNetwork.state_to_features(state, self.tf_seconds)
 
@@ -387,6 +399,18 @@ class TimeframeWorker:
                         _local_dir = 1.0 - (_pb['sw'] / _short_n)
                     dir_prob = 0.7 * dir_prob + 0.3 * _local_dir
 
+                # ── Regret-informed adjustments ──
+                _pb_eff_n = _pb.get('eff_n', 0)
+                if _pb_eff_n >= 5:
+                    _avg_eff = _pb['eff_sum'] / _pb_eff_n
+                    _early_pct = _pb.get('early', 0) / _pb_eff_n
+                    # Poor exit efficiency → discount conviction downstream
+                    if _avg_eff < 0.40:
+                        self._regret_conv_discount = 0.7
+                    # High early-exit rate → boost predicted MFE (hold longer)
+                    if _early_pct > 0.50:
+                        pred_mfe *= 1.3
+
         # Wave maturity: estimate of how "mature" (near completion) the current wave is.
         # High value = wave is well-developed / near exhaustion = higher entry risk.
         # Composite of the three strongest exhaustion signals from the quantum state:
@@ -431,6 +455,9 @@ class TimeframeWorker:
 
         # Layer 3: EOD-learned conviction scale (adapts across days)
         conviction = min(1.0, conviction * self._conviction_scale)
+
+        # Layer 4: Regret-informed discount (poor exit efficiency zones)
+        conviction *= self._regret_conv_discount
 
         self.current_belief = WorkerBelief(
             tf_seconds    = self.tf_seconds,

@@ -464,6 +464,27 @@ class BayesianTrainingOrchestrator:
         _rpt_dir = _get_reports_dir('oos' if oos_mode else 'is')
         print(f"  Reports dir: {_rpt_dir}")
 
+        # ── Rotate previous run: rename current reports → _prev ──────────────
+        for _prev_name in ('oracle_trade_log.csv', 'signal_log.csv',
+                           'fn_oracle_log.csv', 'pid_oracle_log.csv',
+                           'phase4_report.txt'):
+            _prev_path = os.path.join(_rpt_dir, _prev_name)
+            if os.path.exists(_prev_path):
+                _prev_dest = os.path.join(_rpt_dir,
+                    _prev_name.replace('.', '_prev.', 1))
+                try:
+                    os.replace(_prev_path, _prev_dest)
+                except OSError:
+                    pass
+        # Also rotate shards/
+        _shards_dir = os.path.join(_rpt_dir, 'shards')
+        _shards_prev = os.path.join(_rpt_dir, 'shards_prev')
+        if os.path.isdir(_shards_dir):
+            import shutil as _shutil_rotate
+            if os.path.isdir(_shards_prev):
+                _shutil_rotate.rmtree(_shards_prev)
+            os.rename(_shards_dir, _shards_prev)
+
         # 1. Load Prerequisites
         lib_path = os.path.join(self.checkpoint_dir, 'pattern_library.pkl')
         scaler_path = os.path.join(self.checkpoint_dir, 'clustering_scaler.pkl')
@@ -953,10 +974,10 @@ class BayesianTrainingOrchestrator:
                 # Two-tier per depth: losing (underwater) gets half the normal limit.
                 #   depth 1-2 (4h/1h patterns): 1440 bars normal / 480 losing
                 #   depth 3-4 (15m/5m):          960 bars normal / 240 losing
-                #   depth 5-6 (1m/15s):           400 bars normal / 120 losing
-                #   depth 7+  (sub-leaf):          200 bars normal /  60 losing
-                _DEPTH_HOLD_NORMAL = {1:1440,2:1440,3:960,4:960,5:400,6:400,7:200,8:200,9:200,10:200,11:200,12:200}
-                _DEPTH_HOLD_LOSING = {1:480, 2:480, 3:240,4:240,5:120,6:120,7:60, 8:60, 9:60, 10:60, 11:60, 12:60}
+                #   depth 5   (1m):              400 bars normal / 120 losing
+                #   depth 6+  (sub-minute):      blocked from trading (Gate 0.5)
+                _DEPTH_HOLD_NORMAL = {1:1440,2:1440,3:960,4:960,5:400,6:20,7:12,8:12,9:8,10:8,11:8,12:8}
+                _DEPTH_HOLD_LOSING = {1:480, 2:480, 3:240,4:240,5:120,6:12,7:8, 8:8, 9:6, 10:6, 11:6, 12:6}
                 if self.wave_rider.position is not None:
                     res = {'should_exit': False}   # default; overwritten by update_trail if called
                     belief_network.tick_trade_bar()
@@ -1296,8 +1317,9 @@ class BayesianTrainingOrchestrator:
                         # Gate 0.5: depth filter -- exclude depths that had negative avg
                         # PnL/trade in the previous run (written to depth_weights.json).
                         # First run has no weights so nothing is filtered.
+                        # Sub-minute (depth >= 6) NEVER triggers trades — confirmation only.
                         _cand_depth = getattr(p, 'depth', 6)
-                        if _cand_depth in _DEPTH_FILTER_OUT:
+                        if _cand_depth >= 6 or _cand_depth in _DEPTH_FILTER_OUT:
                             skip_headroom += 1
                             _candidate_gate[id(p)] = 'gate0_5'
                             decision_matrix_records.append(_dm_rec(
@@ -1566,6 +1588,37 @@ class BayesianTrainingOrchestrator:
                             else:
                                 _tp_ticks = params.get('take_profit_ticks', 50)
 
+                        # ── Sub-minute three-body exit override (depth >= 6) ──
+                        # Template stats produce 1000s-tick exits at sub-minute
+                        # resolution (useless). When the quantum state is PURE
+                        # (clean bands, z at a sigma level), compute exits
+                        # directly from the physics: TP=center, SL=0.5σ out.
+                        _cand_depth = getattr(best_candidate, 'depth', 5)
+                        if _cand_depth >= 5:
+                            _tb_sigma = getattr(best_candidate.state, 'sigma_fractal', 0.0)
+                            _tb_z     = getattr(best_candidate.state, 'z_score', 0.0)
+                            _tb_coh   = getattr(best_candidate.state, 'coherence', 0.0)
+                            _tb_lz    = getattr(best_candidate.state, 'lagrange_zone', 'CHAOS')
+                            _tb_hurst = getattr(best_candidate.state, 'hurst_exponent', 0.5)
+
+                            _is_pure = (abs(_tb_z) >= 1.0
+                                        and _tb_sigma > 0.0
+                                        and _tb_coh >= 0.3
+                                        and _tb_lz != 'CHAOS'
+                                        and abs(_tb_hurst - 0.5) >= 0.08)
+
+                            if _is_pure:
+                                _sigma_t = _tb_sigma / self.asset.tick_size
+                                _tp_ticks    = max(4, int(round(abs(_tb_z) * _sigma_t)))
+                                _sl_ticks    = max(4, int(round(0.5 * _sigma_t)))
+                                _trail_ticks = max(4, int(round(1.0 * _sigma_t)))
+                                _trail_act_ticks = None  # immediate
+                            else:
+                                _tp_ticks    = 20
+                                _sl_ticks    = 8
+                                _trail_ticks = 12
+                                _trail_act_ticks = None
+
                         # ── Equity risk gate ─────────────────────────────────
                         # When account_size is set, skip trades whose max loss
                         # (SL in $) would consume more than half the remaining
@@ -1611,10 +1664,11 @@ class BayesianTrainingOrchestrator:
                             tmpl_expected_mfe_ticks=_tmpl_mean_mfe,
                             tmpl_expected_hold_bars=_tmpl_avg_mfebar,
                             tmpl_win_rate=_tmpl_win_rate,
+                            entry_time=ts_raw,
                         )
                         current_position_open = True
                         active_entry_price = price
-                        active_entry_time = ts
+                        active_entry_time = ts_raw
                         active_side = side
                         active_template_id = best_tid
                         active_entry_depth = getattr(best_candidate, 'depth', 5)
@@ -1761,6 +1815,32 @@ class BayesianTrainingOrchestrator:
                         _bp_sl_ticks = max(4, int(round(_bp_sigma / self.asset.tick_size * 1.5))) if _bp_sigma > 0 else 8
                         _bp_tp_ticks = (max(8, int(round(_bypass_belief.predicted_mfe)))
                                         if _bypass_belief.predicted_mfe > 2.0 else 20)
+                        _bp_trail_ticks = None
+                        _bp_trail_act   = None
+
+                        # Three-body exit override for bypass depth >= 5
+                        _bp_depth = getattr(_bypass_candidate, 'depth', 5)
+                        if _bp_depth >= 5:
+                            _bp_z     = getattr(_bypass_candidate.state, 'z_score', 0.0)
+                            _bp_coh   = getattr(_bypass_candidate.state, 'coherence', 0.0)
+                            _bp_lz    = getattr(_bypass_candidate.state, 'lagrange_zone', 'CHAOS')
+                            _bp_hurst = getattr(_bypass_candidate.state, 'hurst_exponent', 0.5)
+                            _bp_pure  = (abs(_bp_z) >= 1.0
+                                         and _bp_sigma > 0.0
+                                         and _bp_coh >= 0.3
+                                         and _bp_lz != 'CHAOS'
+                                         and abs(_bp_hurst - 0.5) >= 0.08)
+                            if _bp_pure:
+                                _bp_sigma_t    = _bp_sigma / self.asset.tick_size
+                                _bp_tp_ticks   = max(4, int(round(abs(_bp_z) * _bp_sigma_t)))
+                                _bp_sl_ticks   = max(4, int(round(0.5 * _bp_sigma_t)))
+                                _bp_trail_ticks = max(4, int(round(1.0 * _bp_sigma_t)))
+                                _bp_trail_act   = None
+                            else:
+                                _bp_tp_ticks    = 20
+                                _bp_sl_ticks    = 8
+                                _bp_trail_ticks = 12
+                                _bp_trail_act   = None
 
                         _bypass_risk_ok = True
                         if _equity_enabled:
@@ -1776,7 +1856,10 @@ class BayesianTrainingOrchestrator:
                                 state=_bypass_candidate.state,
                                 stop_distance_ticks=_bp_sl_ticks,
                                 profit_target_ticks=_bp_tp_ticks,
+                                trailing_stop_ticks=_bp_trail_ticks,
+                                trail_activation_ticks=_bp_trail_act,
                                 template_id=-1,
+                                entry_time=ts_raw,
                             )
                             current_position_open = True
                             active_entry_price    = price
@@ -2000,7 +2083,21 @@ class BayesianTrainingOrchestrator:
                     'wins': d_wins,
                 })
 
-            # Worker EOD self-review: update direction accuracy + DMI reliability
+            # Bridge regret markers to eod_review_trades for playbook learning
+            if self.wave_rider.completed_reviews:
+                _regret_map = {}
+                for _rm in self.wave_rider.completed_reviews:
+                    _rk = (_rm.side, round(_rm.actual_pnl, 2))
+                    _regret_map[_rk] = _rm
+                for _t in eod_review_trades:
+                    _rk = (_t['side'], round(_t['pnl'], 2))
+                    _rm = _regret_map.get(_rk)
+                    if _rm:
+                        _t['regret_type'] = _rm.regret_type
+                        _t['exit_efficiency'] = _rm.exit_efficiency
+                self.wave_rider.completed_reviews.clear()
+
+            # Worker EOD self-review: update direction accuracy + DMI reliability + playbook
             if eod_review_trades:
                 belief_network.end_of_day_review(eod_review_trades)
 

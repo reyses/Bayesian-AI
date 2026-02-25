@@ -307,12 +307,11 @@ class WaveRider:
         self.regret_analyzer = RegretAnalyzer()
         self.price_history: List[Tuple[float, float]] = []
         self.pending_reviews: List[PendingReview] = []
+        self.completed_reviews: List[RegretMarkers] = []  # EOD bridge to playbooks
         self.review_wait_time = 300.0  # Default 5 minutes (can be overridden)
-        
+
         # Statistics
         self.total_trades = 0
-        self.trades_since_calibration = 0
-        self.calibration_interval = 10
 
     # Dynamic Trail Constants
     # Gentle tightening (8% per bar instead of 30%) with a hard floor at 60% of original.
@@ -338,7 +337,8 @@ class WaveRider:
                      cst_scaler_scale: Optional[np.ndarray] = None,
                      tmpl_expected_mfe_ticks: float = 0.0,
                      tmpl_expected_hold_bars: float = 0.0,
-                     tmpl_win_rate: float = 0.5):
+                     tmpl_win_rate: float = 0.5,
+                     entry_time: Optional[float] = None):
         """
         Open new position
 
@@ -370,7 +370,7 @@ class WaveRider:
 
         self.position = Position(
             entry_price=entry_price,
-            entry_time=time.time(),
+            entry_time=entry_time if entry_time is not None else time.time(),
             side=side,
             stop_loss=stop_loss,
             high_water_mark=entry_price,
@@ -429,15 +429,10 @@ class WaveRider:
 
                 # Visualize regret
                 self._visualize_regret(markers)
+                self.completed_reviews.append(markers)
 
                 # Update statistics
                 self.total_trades += 1
-                self.trades_since_calibration += 1
-
-                # Calibrate trail stops periodically
-                if self.trades_since_calibration >= self.calibration_interval:
-                    self._calibrate_trail_stops()
-                    self.trades_since_calibration = 0
             else:
                 remaining_reviews.append(review)
 
@@ -744,24 +739,12 @@ class WaveRider:
         return False
     
     def _visualize_regret(self, markers: RegretMarkers):
-        """Print regret analysis"""
-        print(f"\n{'='*60}")
-        print(f"POST-TRADE REGRET ANALYSIS")
-        print(f"{'='*60}")
-        print(f"Side: {markers.side.upper()}")
-        print(f"Entry: {markers.entry_price:.2f}")
-        print(f"Exit:  {markers.exit_price:.2f} ({markers.exit_reason})")
-        print(f"Peak:  {markers.peak_favorable:.2f}")
-        print(f"-" * 60)
-        print(f"Actual PnL:    ${markers.actual_pnl:>8.2f}")
-        print(f"Potential Max: ${markers.potential_max_pnl:>8.2f}")
-        print(f"Left on Table: ${markers.pnl_left_on_table:>8.2f}  {'!! CLOSED TOO EARLY' if markers.pnl_left_on_table > 20 else ''}")
-        print(f"Gave Back:     ${markers.gave_back_pnl:>8.2f}  {'!! HELD TOO LONG' if markers.gave_back_pnl > 20 else ''}")
-        print(f"-" * 60)
-        print(f"Exit Efficiency: {markers.exit_efficiency:.1%}")
-        print(f"Regret Type: {markers.regret_type.upper()}")
-        print(f"Bars Held: {markers.bars_held} | Bars to Peak: {markers.bars_to_peak}")
-        print(f"{'='*60}\n")
+        """Print 1-line regret summary"""
+        print(f"  Regret: {markers.regret_type.upper():>16s} | "
+              f"Eff: {markers.exit_efficiency:>4.0%} | "
+              f"PnL: ${markers.actual_pnl:>8.2f} | "
+              f"Potential: ${markers.potential_max_pnl:>8.2f} | "
+              f"Bars: {markers.bars_held}")
     
     def _calibrate_trail_stops(self):
         """Calibrate trail stops based on regret analysis"""
