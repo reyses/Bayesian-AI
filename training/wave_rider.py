@@ -373,9 +373,9 @@ class WaveRider:
         # Proposed: Activation = max(3 ticks, TP * 0.15)
         # We override whatever was passed in trail_activation_ticks with this new logic
         if profit_target_ticks:
-            calculated_activation = max(3, int(profit_target_ticks * 0.15))
+            calculated_activation = max(self.MIN_TRAIL_ACTIVATION_TICKS, int(profit_target_ticks * self.PROFIT_TARGET_ACTIVATION_FACTOR))
         else:
-            calculated_activation = 3 # Default if no TP provided
+            calculated_activation = self.MIN_TRAIL_ACTIVATION_TICKS
 
         self.position = Position(
             entry_price=entry_price,
