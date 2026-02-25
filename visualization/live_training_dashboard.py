@@ -641,7 +641,7 @@ class ProgressPopup:
         self.root = root
         self.q = q
         self._pnl_history = []
-        self._month_data = []  # [{month, pnl, trades, wins}, ...]
+        self._day_data = []  # [{day, pnl, trades, wins}, ...]
         self._done = False
 
         self.root.title("Bayesian-AI Training")
@@ -752,11 +752,11 @@ class ProgressPopup:
         )
         self._canvas.pack(padx=20)
 
-        # ── Monthly PnL bar chart ────────────────────────────────────────────
-        tk.Label(root, text="PnL by Month", bg=BG, fg=FG_GREY, font=("Consolas", 8)).pack(
+        # ── Daily PnL bar chart ──────────────────────────────────────────────
+        tk.Label(root, text="PnL by Day", bg=BG, fg=FG_GREY, font=("Consolas", 8)).pack(
             pady=(10, 2)
         )
-        self._month_canvas = tk.Canvas(
+        self._day_canvas = tk.Canvas(
             root,
             width=self._CHART_W,
             height=self._CHART_H,
@@ -764,7 +764,7 @@ class ProgressPopup:
             highlightthickness=1,
             highlightbackground="#333333",
         )
-        self._month_canvas.pack(padx=20)
+        self._day_canvas.pack(padx=20)
 
         # ── Status footer ─────────────────────────────────────────────────────
         self._status_var = tk.StringVar(value="Running...")
@@ -827,17 +827,23 @@ class ProgressPopup:
             anchor="e",
         )
 
-    # ── Monthly bar chart ────────────────────────────────────────────────────
-    def _redraw_month_chart(self):
-        c = self._month_canvas
+    # ── Daily bar chart ──────────────────────────────────────────────────────
+    _MAX_DAY_BARS = 60  # show last N days to keep bars readable
+
+    def _redraw_day_chart(self):
+        c = self._day_canvas
         c.delete("all")
-        data = self._month_data
+        data = self._day_data
         if not data:
             c.create_text(
                 self._CHART_W // 2, self._CHART_H // 2,
-                text="Waiting for monthly data...", fill=FG_GREY, font=("Consolas", 9),
+                text="Waiting for daily data...", fill=FG_GREY, font=("Consolas", 9),
             )
             return
+
+        # Limit to last N days so bars stay readable
+        if len(data) > self._MAX_DAY_BARS:
+            data = data[-self._MAX_DAY_BARS:]
 
         W, H, pad = self._CHART_W, self._CHART_H, 6
         n = len(data)
@@ -846,12 +852,15 @@ class ProgressPopup:
         if mx == 0:
             mx = 1.0
 
-        bar_w = max(4, (W - 2 * pad) / n - 2)
-        gap = (W - 2 * pad - bar_w * n) / max(1, n)
+        bar_w = max(1, (W - 2 * pad) / n - 1)
+        gap = max(0, (W - 2 * pad - bar_w * n) / max(1, n))
 
         # Zero baseline
         zero_y = H / 2
         c.create_line(pad, zero_y, W - pad, zero_y, fill="#444444", dash=(3, 3))
+
+        # Only show labels every Nth bar to avoid overlap
+        _label_every = max(1, n // 15)
 
         for i, d in enumerate(data):
             x = pad + i * (bar_w + gap)
@@ -868,31 +877,23 @@ class ProgressPopup:
 
             c.create_rectangle(x, y_top, x + bar_w, y_bot, fill=color, outline="")
 
-            # Month label (short: "Jan", "Feb", etc.)
-            _lbl = d["month"]
-            if "_" in _lbl:
-                _parts = _lbl.split("_")
-                _month_names = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-                try:
-                    _mi = int(_parts[-1])
-                    _lbl = _month_names[_mi] if 1 <= _mi <= 12 else _parts[-1]
-                except (ValueError, IndexError):
-                    _lbl = _parts[-1]
+            # Day label (MM/DD) — show every Nth to avoid overlap
+            if i % _label_every == 0:
+                _lbl = d["day"]
+                c.create_text(
+                    x + bar_w / 2, H - 2, text=_lbl, fill=FG_GREY,
+                    font=("Consolas", 5), anchor="s",
+                )
 
-            c.create_text(
-                x + bar_w / 2, H - 2, text=_lbl, fill=FG_GREY,
-                font=("Consolas", 6), anchor="s",
-            )
-
-            # PnL value above/below bar
-            sign = "+" if pnl >= 0 else ""
-            _val_y = (y_top - 6) if pnl >= 0 else (y_bot + 6)
-            _anchor = "s" if pnl >= 0 else "n"
-            c.create_text(
-                x + bar_w / 2, _val_y, text=f"{sign}${pnl:,.0f}",
-                fill=color, font=("Consolas", 6, "bold"), anchor=_anchor,
-            )
+            # PnL value above/below bar — only show if bars are wide enough
+            if bar_w >= 8:
+                sign = "+" if pnl >= 0 else ""
+                _val_y = (y_top - 6) if pnl >= 0 else (y_bot + 6)
+                _anchor = "s" if pnl >= 0 else "n"
+                c.create_text(
+                    x + bar_w / 2, _val_y, text=f"{sign}${pnl:,.0f}",
+                    fill=color, font=("Consolas", 5, "bold"), anchor=_anchor,
+                )
 
     # ── Queue polling ─────────────────────────────────────────────────────────
     def _poll(self):
@@ -962,14 +963,14 @@ class ProgressPopup:
                         self._pct_var.set("100%")
                         self.root.attributes("-topmost", False)
 
-                elif mtype == "MONTH_PNL":
-                    self._month_data.append({
-                        "month":  msg.get("month", "?"),
+                elif mtype == "DAY_PNL":
+                    self._day_data.append({
+                        "day":    msg.get("day", "?"),
                         "pnl":    float(msg.get("pnl", 0)),
                         "trades": int(msg.get("trades", 0)),
                         "wins":   int(msg.get("wins", 0)),
                     })
-                    self._redraw_month_chart()
+                    self._redraw_day_chart()
 
                 elif mtype == "SHUTDOWN":
                     if not self._done:

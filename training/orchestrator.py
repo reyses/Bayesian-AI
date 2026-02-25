@@ -296,7 +296,8 @@ class BayesianTrainingOrchestrator:
         self.pattern_library = {}
 
         # Bottom-line accumulators -- populated by run_forward_pass / run_strategy_selection
-        self._fp_summary   = {}   # Phase 4 key metrics
+        self._fp_summary   = {}   # Phase 4 key metrics (IS)
+        self._oos_summary  = {}   # Phase 6 key metrics (OOS)
         self._tier_summary = {}   # Phase 5 tier counts + top templates
 
         # PID Analyzer (Shadow Mode)
@@ -448,9 +449,9 @@ class BayesianTrainingOrchestrator:
 
         print("\n" + "="*80)
         if oos_mode:
-            print("OOS BLIND SIMULATION (templates/scaler frozen from training)")
+            print("PHASE 6: OOS BLIND VALIDATION (templates/scaler frozen from training)")
         else:
-            print("PHASE 4: FORWARD PASS (EXECUTION MODE)")
+            print("PHASE 4: FORWARD PASS (IN-SAMPLE EXECUTION)")
         if start_date or end_date:
             _lo = start_date or "start"
             _hi = end_date   or "end"
@@ -917,11 +918,34 @@ class BayesianTrainingOrchestrator:
 
             _bar_i = 0  # 15s bar index for belief network worker ticks
 
+            # Per-calendar-day PnL tracking for dashboard
+            import datetime as _dt_chart
+            _chart_cur_day = None   # current calendar date string "MM/DD"
+            _chart_day_pnl = 0.0
+            _chart_day_trades = 0
+            _chart_day_wins = 0
+
             for row in df_15s.itertuples():
                 ts_raw = row.timestamp
                 # Snap to 60s boundary to match pattern_map keys
                 ts = int(ts_raw) // 60 * 60
                 price = getattr(row, 'close', getattr(row, 'price', 0.0))
+
+                # Detect calendar day change → emit daily PnL to dashboard
+                _bar_day = _dt_chart.datetime.utcfromtimestamp(ts_raw).strftime('%m/%d')
+                if _chart_cur_day is not None and _bar_day != _chart_cur_day:
+                    if self.dashboard_queue:
+                        self.dashboard_queue.put({
+                            'type': 'DAY_PNL',
+                            'day': _chart_cur_day,
+                            'pnl': _chart_day_pnl,
+                            'trades': _chart_day_trades,
+                            'wins': _chart_day_wins,
+                        })
+                    _chart_day_pnl = 0.0
+                    _chart_day_trades = 0
+                    _chart_day_wins = 0
+                _chart_cur_day = _bar_day
 
                 # Belief network: tick all workers (event-driven by TF bar change)
                 # 1h worker updates once per 240 bars; 15s worker updates every bar
@@ -1007,6 +1031,9 @@ class BayesianTrainingOrchestrator:
                         self.wave_rider.position = None
                         self.brain.update(outcome)
                         day_trades.append(outcome)
+                        _chart_day_pnl += outcome.pnl
+                        _chart_day_trades += 1
+                        _chart_day_wins += 1 if outcome.result == 'WIN' else 0
                         if pending_oracle and 'entry_workers' in pending_oracle:
                             eod_review_trades.append({
                                 'side': active_side,
@@ -1146,6 +1173,9 @@ class BayesianTrainingOrchestrator:
                         )
                         self.brain.update(outcome)
                         day_trades.append(outcome)
+                        _chart_day_pnl += outcome.pnl
+                        _chart_day_trades += 1
+                        _chart_day_wins += 1 if outcome.result == 'WIN' else 0
                         if pending_oracle and 'entry_workers' in pending_oracle:
                             eod_review_trades.append({
                                 'side': active_side,
@@ -1611,13 +1641,14 @@ class BayesianTrainingOrchestrator:
                                 _sigma_t = _tb_sigma / self.asset.tick_size
                                 _tp_ticks    = max(4, int(round(abs(_tb_z) * _sigma_t)))
                                 _sl_ticks    = max(4, int(round(0.5 * _sigma_t)))
-                                _trail_ticks = max(4, int(round(1.0 * _sigma_t)))
-                                _trail_act_ticks = None  # immediate
+                                _trail_ticks = max(4, int(round(1.5 * _sigma_t)))
+                                # Trail arms at 50% of TP — lets trade develop before protecting
+                                _trail_act_ticks = max(4, int(round(0.5 * _tp_ticks)))
                             else:
                                 _tp_ticks    = 20
                                 _sl_ticks    = 8
-                                _trail_ticks = 12
-                                _trail_act_ticks = None
+                                _trail_ticks = 16
+                                _trail_act_ticks = 10
 
                         # ── Equity risk gate ─────────────────────────────────
                         # When account_size is set, skip trades whose max loss
@@ -1834,13 +1865,13 @@ class BayesianTrainingOrchestrator:
                                 _bp_sigma_t    = _bp_sigma / self.asset.tick_size
                                 _bp_tp_ticks   = max(4, int(round(abs(_bp_z) * _bp_sigma_t)))
                                 _bp_sl_ticks   = max(4, int(round(0.5 * _bp_sigma_t)))
-                                _bp_trail_ticks = max(4, int(round(1.0 * _bp_sigma_t)))
-                                _bp_trail_act   = None
+                                _bp_trail_ticks = max(4, int(round(1.5 * _bp_sigma_t)))
+                                _bp_trail_act   = max(4, int(round(0.5 * _bp_tp_ticks)))
                             else:
                                 _bp_tp_ticks    = 20
                                 _bp_sl_ticks    = 8
-                                _bp_trail_ticks = 12
-                                _bp_trail_act   = None
+                                _bp_trail_ticks = 16
+                                _bp_trail_act   = 10
 
                         _bypass_risk_ok = True
                         if _equity_enabled:
@@ -1976,6 +2007,9 @@ class BayesianTrainingOrchestrator:
                 )
                 self.brain.update(outcome)
                 day_trades.append(outcome)
+                _chart_day_pnl += outcome.pnl
+                _chart_day_trades += 1
+                _chart_day_wins += 1 if outcome.result == 'WIN' else 0
                 if pending_oracle and 'entry_workers' in pending_oracle:
                     eod_review_trades.append({
                         'side': active_side,
@@ -2073,14 +2107,14 @@ class BayesianTrainingOrchestrator:
                 d_wins = 0
                 print("No trades.")
 
-            # Send per-month PnL to dashboard
-            if self.dashboard_queue:
+            # Flush last calendar day of this file to dashboard
+            if self.dashboard_queue and _chart_cur_day is not None:
                 self.dashboard_queue.put({
-                    'type': 'MONTH_PNL',
-                    'month': day_date,
-                    'pnl': d_pnl,
-                    'trades': len(day_trades),
-                    'wins': d_wins,
+                    'type': 'DAY_PNL',
+                    'day': _chart_cur_day,
+                    'pnl': _chart_day_pnl,
+                    'trades': _chart_day_trades,
+                    'wins': _chart_day_wins,
                 })
 
             # Bridge regret markers to eod_review_trades for playbook learning
@@ -2599,7 +2633,7 @@ class BayesianTrainingOrchestrator:
         report_lines.append(f"      Left on table (too early exits):   ${left_on_table_val:>10,.2f}  [non-reversed correct-dir underperformance]")
 
         # Store for bottom-line summary at program exit
-        self._fp_summary = {
+        _summary = {
             'total_trades':    total_trades,
             'total_pnl':       total_pnl,
             'win_rate':        total_wins / total_trades if total_trades else 0.0,
@@ -2618,6 +2652,10 @@ class BayesianTrainingOrchestrator:
             'wrong_dir_loss':  abs(fp_wrong_pnl),
             'reversed_loss':   reversed_loss_val,
         }
+        if oos_mode:
+            self._oos_summary = _summary
+        else:
+            self._fp_summary = _summary
 
         # Send to dashboard
         if self.dashboard_queue:
@@ -4339,6 +4377,27 @@ class BayesianTrainingOrchestrator:
             lines.append(f"    #2  trade underperformance:  ${fp['gp_shortfall']:>12,.2f}   {_gpct(fp['gp_shortfall'])}")
             lines.append(f"    #3  non-gp trade drag:       ${fp['non_gp_drag']:>12,.2f}   {_gpct(fp['non_gp_drag'])}")
 
+        # ── OOS Validation ──────────────────────────────────────────────────────
+        oos = self._oos_summary
+        if oos and oos.get('total_trades', 0) > 0:
+            lines.append(
+                f"\n  OOS VALIDATION   {oos.get('date_start','?')} to {oos.get('date_end','?')}"
+                f"  ({oos.get('n_days',0)} files)"
+            )
+            lines.append(
+                f"    Trades: {oos['total_trades']:>6,}  |  "
+                f"Win rate: {oos['win_rate']*100:5.1f}%  |  "
+                f"Total PnL: ${oos['total_pnl']:>10,.2f}"
+            )
+            if fp and fp.get('total_trades', 0) > 0:
+                wr_d = oos['win_rate'] - fp['win_rate']
+                pnl_per_is = fp['total_pnl'] / fp['total_trades'] if fp['total_trades'] else 0
+                pnl_per_oos = oos['total_pnl'] / oos['total_trades'] if oos['total_trades'] else 0
+                lines.append(
+                    f"    IS->OOS delta:  WR {wr_d*100:+.1f}pp  |  "
+                    f"Avg PnL/trade: ${pnl_per_is:.1f} -> ${pnl_per_oos:.1f}"
+                )
+
         # ── Top Tier 1 ────────────────────────────────────────────────────────
         if ts and ts.get('top_t1'):
             lines.append(f"\n  TOP TIER 1   (combined PnL: ${ts['tier1_pnl']:,.2f})")
@@ -4406,9 +4465,10 @@ def main():
                         help="Run Phases 2-3 only (discovery + template optimization). "
                              "Saves library to checkpoints, skips forward pass and strategy report.")
     parser.add_argument('--oos', action='store_true',
-                        help="Blind out-of-sample simulation: frozen templates, reports go to reports/oos/, "
-                             "training depth_weights.json preserved. Implies --forward-pass. "
-                             "Pair with --forward-start YYYYMMDD to slice the OOS window.")
+                        help="Standalone OOS rerun (Phase 6 only): frozen templates, reports go to reports/oos/, "
+                             "training depth_weights.json preserved. Uses DATA/ATLAS_OOS by default.")
+    parser.add_argument('--skip-oos', action='store_true',
+                        help="Skip the auto-chained OOS forward pass (Phase 6) in full pipeline or --forward-pass")
     parser.add_argument('--account-size', type=float, default=0.0, metavar='USD',
                         help="Starting account equity in USD. When set, gates trades that risk >50%% of "
                              "remaining equity (SL in dollars vs equity). Simulation ends if equity "
@@ -4525,18 +4585,46 @@ def main():
             orchestrator.run_param_sweep()
             return 0
 
-        if (args.forward_pass or args.oos) and not args.fresh:
-            # Phase 4 only (using existing playbook) or OOS blind simulation
-            orchestrator.run_forward_pass(args.data,
+        if args.oos and not args.fresh:
+            # Standalone OOS rerun (Phase 6 only)
+            _oos_data = args.forward_data or os.path.join('DATA', 'ATLAS_OOS')
+            orchestrator.run_forward_pass(_oos_data,
                                           start_date=args.forward_start,
                                           end_date=args.forward_end,
                                           min_tier=args.min_tier,
                                           bias_threshold=args.bias_threshold,
                                           dmi_threshold=args.dmi_threshold,
-                                          oos_mode=args.oos,
+                                          oos_mode=True,
                                           account_size=args.account_size)
-            if args.strategy_report:
-                orchestrator.run_strategy_selection()
+        elif args.forward_pass and not args.fresh:
+            # Phase 4 IS → Phase 5 Strategy → Phase 6 OOS
+            _fwd_data = args.forward_data or args.data
+            orchestrator.run_forward_pass(_fwd_data,
+                                          start_date=args.forward_start,
+                                          end_date=args.forward_end,
+                                          min_tier=args.min_tier,
+                                          bias_threshold=args.bias_threshold,
+                                          dmi_threshold=args.dmi_threshold,
+                                          oos_mode=False,
+                                          account_size=args.account_size)
+            orchestrator.run_strategy_selection()
+
+            # Auto-chain OOS if data exists and not testing custom data
+            _oos_path = os.path.join('DATA', 'ATLAS_OOS')
+            if (not args.skip_oos
+                    and not args.forward_data
+                    and os.path.isdir(_oos_path)):
+                print(f"\n{'='*80}")
+                print(f"  AUTO-CHAINING: Phase 6 — OOS Blind Validation")
+                print(f"{'='*80}")
+                orchestrator.run_forward_pass(_oos_path,
+                                              start_date=args.forward_start,
+                                              end_date=args.forward_end,
+                                              min_tier=args.min_tier,
+                                              bias_threshold=args.bias_threshold,
+                                              dmi_threshold=args.dmi_threshold,
+                                              oos_mode=True,
+                                              account_size=args.account_size)
         elif args.strategy_report and not args.forward_pass:
             orchestrator.run_strategy_selection()
         else:
@@ -4586,7 +4674,7 @@ def main():
                 refined_strategies = refiner.refine()
                 orchestrator.run_final_validation(refined_strategies)
             else:
-                # Default: Bayesian path -> Forward Pass -> Strategy Report
+                # Default: Bayesian path → Phase 4 IS → Phase 5 Strategy → Phase 6 OOS
                 _fwd_data = args.forward_data or args.data
                 orchestrator.run_forward_pass(_fwd_data,
                                           start_date=args.forward_start,
@@ -4594,9 +4682,26 @@ def main():
                                           min_tier=args.min_tier,
                                           bias_threshold=args.bias_threshold,
                                           dmi_threshold=args.dmi_threshold,
-                                          oos_mode=getattr(args, 'oos', False),
+                                          oos_mode=False,
                                           account_size=getattr(args, 'account_size', 0.0))
                 orchestrator.run_strategy_selection()
+
+                # Phase 6: OOS blind validation (auto-chain if data exists)
+                _oos_path = os.path.join('DATA', 'ATLAS_OOS')
+                if (not getattr(args, 'skip_oos', False)
+                        and not args.forward_data
+                        and os.path.isdir(_oos_path)):
+                    print(f"\n{'='*80}")
+                    print(f"  AUTO-CHAINING: Phase 6 — OOS Blind Validation")
+                    print(f"{'='*80}")
+                    orchestrator.run_forward_pass(_oos_path,
+                                              start_date=args.forward_start,
+                                              end_date=args.forward_end,
+                                              min_tier=args.min_tier,
+                                              bias_threshold=args.bias_threshold,
+                                              dmi_threshold=args.dmi_threshold,
+                                              oos_mode=True,
+                                              account_size=getattr(args, 'account_size', 0.0))
 
         orchestrator.print_bottom_line()
         return 0

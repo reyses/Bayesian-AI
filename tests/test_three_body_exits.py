@@ -36,14 +36,14 @@ def compute_three_body_exits(state, tick_size=0.25):
         sigma_t = sigma / tick_size
         tp    = max(4, int(round(abs(z) * sigma_t)))
         sl    = max(4, int(round(0.5 * sigma_t)))
-        trail = max(4, int(round(1.0 * sigma_t)))
-        trail_act = None
+        trail = max(4, int(round(1.5 * sigma_t)))
+        trail_act = max(4, int(round(0.5 * tp)))
         source = 'pure'
     else:
         tp    = 20
         sl    = 8
-        trail = 12
-        trail_act = None
+        trail = 16
+        trail_act = 10
         source = 'conservative'
     return {'tp': tp, 'sl': sl, 'trail': trail, 'trail_act': trail_act, 'source': source}
 
@@ -88,13 +88,12 @@ def test_pure_long_at_lower_band():
     assert is_pure(state), "Should be PURE (z=-2.5, mean-reverting, L2_ROCHE)"
     exits = compute_three_body_exits(state)
     assert exits['source'] == 'pure'
-    # TP = 2.5 * (3.0/0.25) = 2.5 * 12 = 30 ticks
+    # TP = 2.5 * 12 = 30, SL = 0.5 * 12 = 6, Trail = 1.5 * 12 = 18, Act = 50% of 30 = 15
     assert exits['tp'] == 30, f"TP should be 30, got {exits['tp']}"
-    # SL = 0.5 * 12 = 6 ticks
     assert exits['sl'] == 6, f"SL should be 6, got {exits['sl']}"
-    # Trail = 1.0 * 12 = 12 ticks
-    assert exits['trail'] == 12, f"Trail should be 12, got {exits['trail']}"
-    print(f"  PASS: Pure LONG z=-2.5 -> TP={exits['tp']}, SL={exits['sl']}, Trail={exits['trail']}  R:R={exits['tp']/exits['sl']:.1f}:1")
+    assert exits['trail'] == 18, f"Trail should be 18, got {exits['trail']}"
+    assert exits['trail_act'] == 15, f"Trail act should be 15, got {exits['trail_act']}"
+    print(f"  PASS: Pure LONG z=-2.5 -> TP={exits['tp']}, SL={exits['sl']}, Trail={exits['trail']}, Act={exits['trail_act']}  R:R={exits['tp']/exits['sl']:.1f}:1")
 
 
 def test_pure_short_at_upper_band():
@@ -104,13 +103,12 @@ def test_pure_short_at_upper_band():
     assert is_pure(state), "Should be PURE (z=+1.8, trending, L3_ESCAPE)"
     exits = compute_three_body_exits(state)
     assert exits['source'] == 'pure'
-    # TP = 1.8 * (2.5/0.25) = 1.8 * 10 = 18 ticks
+    # TP = 1.8 * 10 = 18, SL = 0.5 * 10 = 5, Trail = 1.5 * 10 = 15, Act = 50% of 18 = 9
     assert exits['tp'] == 18, f"TP should be 18, got {exits['tp']}"
-    # SL = 0.5 * 10 = 5 ticks
     assert exits['sl'] == 5, f"SL should be 5, got {exits['sl']}"
-    # Trail = 1.0 * 10 = 10 ticks
-    assert exits['trail'] == 10, f"Trail should be 10, got {exits['trail']}"
-    print(f"  PASS: Pure SHORT z=+1.8 -> TP={exits['tp']}, SL={exits['sl']}, Trail={exits['trail']}  R:R={exits['tp']/exits['sl']:.1f}:1")
+    assert exits['trail'] == 15, f"Trail should be 15, got {exits['trail']}"
+    assert exits['trail_act'] == 9, f"Trail act should be 9, got {exits['trail_act']}"
+    print(f"  PASS: Pure SHORT z=+1.8 -> TP={exits['tp']}, SL={exits['sl']}, Trail={exits['trail']}, Act={exits['trail_act']}  R:R={exits['tp']/exits['sl']:.1f}:1")
 
 
 def test_brownian_rejected():
@@ -120,8 +118,8 @@ def test_brownian_rejected():
     assert not is_pure(state), "Should NOT be pure (Brownian: hurst=0.50)"
     exits = compute_three_body_exits(state)
     assert exits['source'] == 'conservative'
-    assert exits['tp'] == 20 and exits['sl'] == 8 and exits['trail'] == 12
-    print(f"  PASS: Brownian (hurst=0.50) -> conservative defaults (20/8/12)")
+    assert exits['tp'] == 20 and exits['sl'] == 8 and exits['trail'] == 16 and exits['trail_act'] == 10
+    print(f"  PASS: Brownian (hurst=0.50) -> conservative defaults (20/8/16/act=10)")
 
 
 def test_near_brownian_rejected():
@@ -298,9 +296,9 @@ def test_typical_es_scenarios():
                     lagrange_zone='L3_ESCAPE', hurst_exponent=0.70)
     assert is_pure(s1)
     e1 = compute_three_body_exits(s1)
-    # sigma_t = 3.5/0.25 = 14, TP = 2.8*14 = 39.2 -> 39, SL = 7, Trail = 14
-    assert e1['tp'] == 39 and e1['sl'] == 7 and e1['trail'] == 14
-    print(f"  PASS: Morning breakout -> TP=39, SL=7, Trail=14  (${e1['tp']*0.25*50:.0f} target)")
+    # sigma_t = 14, TP = 39, SL = 7, Trail = 1.5*14 = 21, Act = 50% of 39 = 20
+    assert e1['tp'] == 39 and e1['sl'] == 7 and e1['trail'] == 21 and e1['trail_act'] == 20
+    print(f"  PASS: Morning breakout -> TP=39, SL=7, Trail=21, Act=20  (${e1['tp']*0.25*50:.0f} target)")
 
     # Scenario 2: Lunch chop -- low ADX, Brownian noise
     s2 = make_state(z_score=-1.5, sigma_fractal=1.5, coherence=0.35,
@@ -315,9 +313,9 @@ def test_typical_es_scenarios():
                     lagrange_zone='L2_ROCHE', hurst_exponent=0.28)
     assert is_pure(s3)
     e3 = compute_three_body_exits(s3)
-    # sigma_t = 16, TP = 3.2*16 = 51.2 -> 51, SL = 8, Trail = 16
-    assert e3['tp'] == 51 and e3['sl'] == 8 and e3['trail'] == 16
-    print(f"  PASS: EOD squeeze -> TP=51, SL=8, Trail=16  (${e3['tp']*0.25*50:.0f} target)")
+    # sigma_t = 16, TP = 51, SL = 8, Trail = 1.5*16 = 24, Act = 50% of 51 = 26
+    assert e3['tp'] == 51 and e3['sl'] == 8 and e3['trail'] == 24 and e3['trail_act'] == 26
+    print(f"  PASS: EOD squeeze -> TP=51, SL=8, Trail=24, Act=26  (${e3['tp']*0.25*50:.0f} target)")
 
 
 # ==============================================================================
