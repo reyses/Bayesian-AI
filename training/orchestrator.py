@@ -3509,11 +3509,21 @@ class BayesianTrainingOrchestrator:
         if getattr(self.config, 'fresh', False):
             print("--fresh flag: clearing all pipeline checkpoints...")
             ckpt.clear()
-            # Also clear reports
+            # Clear report subdirs (preserve benchmarks — historical)
             import shutil as _shutil_fresh
             if os.path.isdir(REPORTS_ROOT):
-                _shutil_fresh.rmtree(REPORTS_ROOT)
-                print(f"  [CHECKPOINT] Removed: reports/")
+                for _sub in os.listdir(REPORTS_ROOT):
+                    _sub_path = os.path.join(REPORTS_ROOT, _sub)
+                    if _sub == 'benchmarks':
+                        continue  # never wipe benchmark history
+                    try:
+                        if os.path.isdir(_sub_path):
+                            _shutil_fresh.rmtree(_sub_path)
+                        else:
+                            os.remove(_sub_path)
+                    except PermissionError:
+                        print(f"  [WARN] Could not remove {_sub_path} (locked by OneDrive?)")
+                print(f"  [CHECKPOINT] Cleared: reports/ (benchmarks preserved)")
 
         print(ckpt.summary())
 
