@@ -79,6 +79,12 @@ INITIAL_CLUSTER_DIVISOR = 100
 _ADX_TREND_CONFIRMATION = 25.0
 _HURST_TREND_CONFIRMATION = 0.6
 
+DIRECTION_CONFIDENCE_THRESHOLD = 0.15
+CONVICTION_SL_MULTIPLIER = 0.5
+CONVICTION_SL_THRESHOLD = 0.5
+DEFAULT_DECAY_HORIZON = 40
+CONSENSUS_CONFIDENCE_THRESHOLD = 0.60
+
 # Visualization
 try:
     from visualization.live_training_dashboard import launch_dashboard, launch_popup
@@ -1586,7 +1592,7 @@ class BayesianTrainingOrchestrator:
                         # ── Gate 5: Direction consensus ──────────────────────────
                         _consensus = belief_network.get_direction_consensus(side)
                         # Raised threshold from 0.55 to 0.60 for higher quality
-                        if _consensus['confidence'] < 0.60:
+                        if _consensus['confidence'] < CONSENSUS_CONFIDENCE_THRESHOLD:
                             skip_direction += 1
                             _candidate_gate[id(best_candidate)] = 'gate5_direction'
                             _bc_mz = abs(best_candidate.z_score)

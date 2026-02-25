@@ -318,10 +318,24 @@ class WaveRider:
     # Gentle tightening (8% per bar instead of 30%) with a hard floor at 60% of original.
     # Pre-fix: 30% tighten per bar → trail collapses to 2 ticks in 4 bars → premature exit.
     MIN_TRAIL_TICKS = 4
+    MIN_TRAIL_ACTIVATION_TICKS = 3
+    PROFIT_TARGET_ACTIVATION_FACTOR = 0.15
     TIGHTEN_TRAIL_FACTOR = 0.92           # was 0.70 — gentle 8% per bar
     TRAIL_FLOOR_FACTOR   = 0.60           # trail never drops below 60% of original
     MAX_ORIGINAL_TRAIL_MULTIPLIER = 3     # allow wider extension when aligned
     WIDEN_TRAIL_FACTOR = 1.30             # was 1.20
+
+    # Wave Maturity Thresholds and Trail Multipliers
+    WAVE_MATURITY_EARLY = 0.3
+    WAVE_MATURITY_LATE = 0.7
+    TRAIL_DIST_MULTIPLIER_EARLY = 1.5
+    TRAIL_DIST_MULTIPLIER_NORMAL = 1.0
+    TRAIL_DIST_MULTIPLIER_LATE = 0.5
+
+    # Runner Mode Constants
+    RUNNER_MODE_CONVICTION_THRESHOLD = 0.6
+    RUNNER_MODE_TARGET_EXTENSION = 1.5
+    RUNNER_MODE_TRAIL_TIGHTEN = 0.6
 
     def open_position(self, entry_price: float, side: str,
                      state: Union[StateVector, ThreeBodyQuantumState],
@@ -496,19 +510,19 @@ class WaveRider:
             # Use physics to set distance based on wave maturity
             if self.position.original_trail_ticks is not None:
                 base_trail = self.position.original_trail_ticks
-                if wave_maturity < 0.3:
+                if wave_maturity < self.WAVE_MATURITY_EARLY:
                     # Wide early — let trade develop
-                    new_dist = int(base_trail * 1.5)
+                    new_dist = int(base_trail * self.TRAIL_DIST_MULTIPLIER_EARLY)
                     self.position.trailing_stop_ticks = new_dist
                     self.position.last_adjustment_reason = 'early_wave_widen'
-                elif wave_maturity < 0.7:
+                elif wave_maturity < self.WAVE_MATURITY_LATE:
                     # Standard
-                    new_dist = int(base_trail * 1.0)
+                    new_dist = int(base_trail * self.TRAIL_DIST_MULTIPLIER_NORMAL)
                     self.position.trailing_stop_ticks = new_dist
                     self.position.last_adjustment_reason = 'mid_wave_std'
                 else:
                     # Tight late — protect gains
-                    new_dist = int(base_trail * 0.5)
+                    new_dist = int(base_trail * self.TRAIL_DIST_MULTIPLIER_LATE)
                     self.position.trailing_stop_ticks = max(self.MIN_TRAIL_TICKS, new_dist)
                     self.position.last_adjustment_reason = 'late_wave_tighten'
 
@@ -563,22 +577,22 @@ class WaveRider:
         # We check this BEFORE marking pt_hit, effectively intercepting the exit.
         if self.position.profit_target and exit_signal:
             _conv = exit_signal.get('conviction', 0.0)
-            if _conv >= 0.6:
+            if _conv >= self.RUNNER_MODE_CONVICTION_THRESHOLD:
                 if self.position.side == 'long':
                     if current_price >= self.position.profit_target:
                         # Extend
                         _curr_dist = abs(self.position.profit_target - self.position.entry_price)
-                        self.position.profit_target = self.position.entry_price + (_curr_dist * 1.5)
+                        self.position.profit_target = self.position.entry_price + (_curr_dist * self.RUNNER_MODE_TARGET_EXTENSION)
                         if self.position.trailing_stop_ticks:
-                            self.position.trailing_stop_ticks = max(self.MIN_TRAIL_TICKS, int(self.position.trailing_stop_ticks * 0.6))
+                            self.position.trailing_stop_ticks = max(self.MIN_TRAIL_TICKS, int(self.position.trailing_stop_ticks * self.RUNNER_MODE_TRAIL_TIGHTEN))
                         self.position.last_adjustment_reason = 'runner_mode'
                 else: # Short
                     if current_price <= self.position.profit_target:
                         # Extend
                         _curr_dist = abs(self.position.entry_price - self.position.profit_target)
-                        self.position.profit_target = self.position.entry_price - (_curr_dist * 1.5)
+                        self.position.profit_target = self.position.entry_price - (_curr_dist * self.RUNNER_MODE_TARGET_EXTENSION)
                         if self.position.trailing_stop_ticks:
-                            self.position.trailing_stop_ticks = max(self.MIN_TRAIL_TICKS, int(self.position.trailing_stop_ticks * 0.6))
+                            self.position.trailing_stop_ticks = max(self.MIN_TRAIL_TICKS, int(self.position.trailing_stop_ticks * self.RUNNER_MODE_TRAIL_TIGHTEN))
                         self.position.last_adjustment_reason = 'runner_mode'
 
         # Check Profit Target
