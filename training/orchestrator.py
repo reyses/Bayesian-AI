@@ -1113,6 +1113,7 @@ class BayesianTrainingOrchestrator:
                             _pending_dm_idx = None
                             belief_network.clear_active_trade_timescale()
                             belief_network.clear_trade_context()
+                            belief_network.stop_trade_tracking()
                     else:
                         # Build trade context for belief network + CST
                         _pos = self.wave_rider.position
@@ -1137,6 +1138,12 @@ class BayesianTrainingOrchestrator:
                         # Get exit signal with trade context (includes net_pressure)
                         _exit_sig = belief_network.get_exit_signal(
                             _pos.side, trade_context=_trade_ctx)
+
+                        # C2. Decay Cascade Exit
+                        _cascade = belief_network.get_decay_cascade()
+                        if _cascade['should_exit']:
+                            _exit_sig['decay_exit'] = True
+                            _exit_sig['reason'] = f"decay_cascade_{_cascade['cascade_score']:.2f}"
 
                         # CST Check — pressure-controlled (grace + sigma modulation)
                         current_state = _states_map.get(_bar_i)
@@ -1259,6 +1266,7 @@ class BayesianTrainingOrchestrator:
                             _pending_dm_idx = None
                             belief_network.clear_active_trade_timescale()
                             belief_network.clear_trade_context()
+                            belief_network.stop_trade_tracking()
 
                 # 2. Check for entries (if no position)
                 # Equity ruin check: simulation ends when equity hits 0 (no money to trade).
@@ -1494,6 +1502,34 @@ class BayesianTrainingOrchestrator:
                         short_bias = lib_entry.get('short_bias', 0.0)
                         _nn_marker = _effective_oracle(best_candidate)
 
+                        _dir_source = 'snowflake_z'
+
+                        # ── Gate 4: Direction Confidence ──────────────────────────
+                        # Calculate P(LONG) from logistic model
+                        _dir_coeff = lib_entry.get('dir_coeff')
+                        _p_long = 0.5
+                        if _dir_coeff is not None:
+                            _logit = np.dot(_live_scaled, np.array(_dir_coeff)) + lib_entry.get('dir_intercept', 0.0)
+                            _p_long = 1.0 / (1.0 + np.exp(-np.clip(_logit, -20, 20)))
+
+                        _dir_conf = abs(_p_long - 0.5)
+
+                        # Filter uncertain trades (unless bypass/exception? No, apply to all template trades)
+                        if _dir_conf < 0.15:
+                            _candidate_gate[id(best_candidate)] = 'gate4_confidence'
+                            _bc_mz = abs(best_candidate.z_score)
+                            _bc_mac = abs((getattr(best_candidate, 'parent_chain', None) or [{}])[-1].get('z', 0.0))
+                            decision_matrix_records.append(_dm_rec(
+                                best_candidate, 'gate4_confidence', day_date, ts,
+                                _bc_mz, _bc_mac,
+                                getattr(best_candidate, 'pattern_type', ''),
+                                dist=best_dist,
+                                conviction=_belief.conviction if _belief else 0.0,
+                                template_id=best_tid,
+                                tier=template_tier_map.get(best_tid, 3),
+                                pattern_dna=str(pattern_dna) if pattern_dna else ''))
+                            continue
+
                         # ── Path conviction gate (fractal belief network) ─────────
                         # Collect all 8 TF workers' current beliefs.
                         # If the fractal tree is uncertain (conviction < threshold) -> skip.
@@ -1523,6 +1559,7 @@ class BayesianTrainingOrchestrator:
                             # Belief direction is a stronger signal than z_score sign alone.
                             if _belief.direction != side:
                                 side = _belief.direction
+                                _dir_source = 'belief_path'
                             # Use network's predicted MFE if better than leaf-level estimate
                             _network_tp = max(4, int(round(_belief.predicted_mfe))) if _belief.predicted_mfe > 2.0 else None
                         else:
@@ -1548,7 +1585,8 @@ class BayesianTrainingOrchestrator:
 
                         # ── Gate 5: Direction consensus ──────────────────────────
                         _consensus = belief_network.get_direction_consensus(side)
-                        if _consensus['confidence'] < 0.55:
+                        # Raised threshold from 0.55 to 0.60 for higher quality
+                        if _consensus['confidence'] < 0.60:
                             skip_direction += 1
                             _candidate_gate[id(best_candidate)] = 'gate5_direction'
                             _bc_mz = abs(best_candidate.z_score)
@@ -1566,6 +1604,7 @@ class BayesianTrainingOrchestrator:
                         # Consensus may flip direction
                         if _consensus['direction'] != side:
                             side = _consensus['direction']
+                            _dir_source = 'consensus_flip'
 
                         # ── Exit sizing from per-cluster regression models ────────
                         # TWO-PHASE EXIT DESIGN
@@ -1592,6 +1631,13 @@ class BayesianTrainingOrchestrator:
                             _sl_ticks = max(4, int(round(_mean_mae * 2.0)))
                         else:
                             _sl_ticks = params.get('stop_loss_ticks', 20)
+
+                        # A2. Widen Initial Stop-Loss for High-Conviction Entries
+                        # Scale SL by entry conviction — high conviction = wider leash
+                        if _belief is not None:
+                            _conv = _belief.conviction
+                            _sl_multiplier = 1.0 + 0.5 * max(0, _conv - 0.5)
+                            _sl_ticks = int(_sl_ticks * _sl_multiplier)
 
                         # Phase 2: trailing stop distance (from HWM).
                         # Pre-fix used sigma*1.1 -> 3-tick trip-wire that collapsed to 2t via tightening.
@@ -1723,6 +1769,11 @@ class BayesianTrainingOrchestrator:
                             _tmpl_avg_mfebar, _tmpl_p75_mfebar,
                             expected_mfe_ticks=_tmpl_mean_mfe)
 
+                        # Start Physics Decay Tracking
+                        # Pattern horizon T_k approx avg_mfe_bar (or 40 bars if unknown)
+                        _horizon = int(_tmpl_avg_mfebar) if _tmpl_avg_mfebar > 0 else 40
+                        belief_network.start_trade_tracking(side, _bar_i, _horizon)
+
                         # Store oracle facts for this trade (linked at exit)
                         # Direction-gate diagnostic columns enable offline DOE sweep of
                         # bias_threshold without re-running the forward pass.
@@ -1746,6 +1797,7 @@ class BayesianTrainingOrchestrator:
                             'oracle_mfe_bar':   best_candidate.oracle_meta.get('mfe_bar', -1),   # bar index where MFE peaked
                             'oracle_lookahead': best_candidate.oracle_meta.get('lookahead_bars', 0),
                             # Direction DOE diagnostics
+                            'direction_source': _dir_source,
                             'long_bias':        round(long_bias,  4),
                             'short_bias':       round(short_bias, 4),
                             'dmi_diff':         _dmi_at_entry,
@@ -1914,6 +1966,7 @@ class BayesianTrainingOrchestrator:
                             active_entry_depth    = getattr(_bypass_candidate, 'depth', 5)
                             depth_traded[active_entry_depth] += 1
                             belief_network.set_active_trade_timescale(0.0, 0.0)
+                            belief_network.start_trade_tracking(side, _bar_i, 40) # Default horizon for bypass
                             pending_oracle = {
                                 'template_id':      -1,
                                 'direction':        'LONG' if side == 'long' else 'SHORT',
@@ -2101,6 +2154,7 @@ class BayesianTrainingOrchestrator:
                     _pending_dm_idx = None
                     belief_network.clear_active_trade_timescale()
                     belief_network.clear_trade_context()
+                    belief_network.stop_trade_tracking()
 
             # Analyze day
             if _equity_enabled and account_ruined:

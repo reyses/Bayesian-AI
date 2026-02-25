@@ -247,6 +247,7 @@ class Position:
     trailing_stop_ticks: Optional[int] = None
     trail_activation_ticks: Optional[int] = None  # profit ticks needed before trail engages
     original_trail_ticks: Optional[int] = None    # Store initial trail setting for reference
+    is_trail_active: bool = False                 # True once profit > activation ticks
     last_adjustment_reason: Optional[str] = None  # belief reason that last tightened/widened trail
     breakeven_locked: bool = False                 # True once stop moved to entry (risk-free)
     breakeven_level: Optional[float] = None        # price level of the breakeven stop
@@ -368,6 +369,14 @@ class WaveRider:
             pt_dist = profit_target_ticks * self.asset.tick_size
             profit_target = entry_price - pt_dist if side == 'short' else entry_price + pt_dist
 
+        # A3. Lower Trail Activation Threshold
+        # Proposed: Activation = max(3 ticks, TP * 0.15)
+        # We override whatever was passed in trail_activation_ticks with this new logic
+        if profit_target_ticks:
+            calculated_activation = max(3, int(profit_target_ticks * 0.15))
+        else:
+            calculated_activation = 3 # Default if no TP provided
+
         self.position = Position(
             entry_price=entry_price,
             entry_time=entry_time if entry_time is not None else time.time(),
@@ -378,8 +387,9 @@ class WaveRider:
             template_id=template_id,
             profit_target=profit_target,
             trailing_stop_ticks=trailing_stop_ticks,
-            trail_activation_ticks=trail_activation_ticks,
+            trail_activation_ticks=calculated_activation,
             original_trail_ticks=trailing_stop_ticks,
+            is_trail_active=False,
             cst_centroid=cst_centroid,
             cst_basin_mean=cst_basin_mean,
             cst_basin_std=cst_basin_std,
@@ -472,12 +482,37 @@ class WaveRider:
         # --- Dynamic Exit Logic ---
         urgent_exit = False
         decay_exit = False
+        wave_maturity = 0.0
+
         if exit_signal:
             if exit_signal.get('urgent_exit'):
                 urgent_exit = True
             if exit_signal.get('decay_exit'):
                 decay_exit = True
 
+            wave_maturity = exit_signal.get('wave_maturity', 0.0)
+
+            # A4. Adaptive Trail Distance
+            # Use physics to set distance based on wave maturity
+            if self.position.original_trail_ticks is not None:
+                base_trail = self.position.original_trail_ticks
+                if wave_maturity < 0.3:
+                    # Wide early — let trade develop
+                    new_dist = int(base_trail * 1.5)
+                    self.position.trailing_stop_ticks = new_dist
+                    self.position.last_adjustment_reason = 'early_wave_widen'
+                elif wave_maturity < 0.7:
+                    # Standard
+                    new_dist = int(base_trail * 1.0)
+                    self.position.trailing_stop_ticks = new_dist
+                    self.position.last_adjustment_reason = 'mid_wave_std'
+                else:
+                    # Tight late — protect gains
+                    new_dist = int(base_trail * 0.5)
+                    self.position.trailing_stop_ticks = max(self.MIN_TRAIL_TICKS, new_dist)
+                    self.position.last_adjustment_reason = 'late_wave_tighten'
+
+            # Legacy logic (tighten/widen overrides if explicitly set, though adaptive covers most)
             if exit_signal.get('tighten_trail') and self.position.trailing_stop_ticks is not None:
                 # Reduce trail by TIGHTEN_TRAIL_FACTOR (gentle 8% per bar, was 30%).
                 # Enforce floor: never below TRAIL_FLOOR_FACTOR × original.
@@ -523,6 +558,29 @@ class WaveRider:
             else:
                 self.position.breakeven_level = self.position.entry_price - _be_offset
 
+        # C1. Dynamic Profit Target (Runner Mode)
+        # If trade reaches TP and conviction is still high: extend TP and tighten trail.
+        # We check this BEFORE marking pt_hit, effectively intercepting the exit.
+        if self.position.profit_target and exit_signal:
+            _conv = exit_signal.get('conviction', 0.0)
+            if _conv >= 0.6:
+                if self.position.side == 'long':
+                    if current_price >= self.position.profit_target:
+                        # Extend
+                        _curr_dist = abs(self.position.profit_target - self.position.entry_price)
+                        self.position.profit_target = self.position.entry_price + (_curr_dist * 1.5)
+                        if self.position.trailing_stop_ticks:
+                            self.position.trailing_stop_ticks = max(self.MIN_TRAIL_TICKS, int(self.position.trailing_stop_ticks * 0.6))
+                        self.position.last_adjustment_reason = 'runner_mode'
+                else: # Short
+                    if current_price <= self.position.profit_target:
+                        # Extend
+                        _curr_dist = abs(self.position.entry_price - self.position.profit_target)
+                        self.position.profit_target = self.position.entry_price - (_curr_dist * 1.5)
+                        if self.position.trailing_stop_ticks:
+                            self.position.trailing_stop_ticks = max(self.MIN_TRAIL_TICKS, int(self.position.trailing_stop_ticks * 0.6))
+                        self.position.last_adjustment_reason = 'runner_mode'
+
         # Check Profit Target
         pt_hit = False
         if self.position.profit_target:
@@ -535,9 +593,11 @@ class WaveRider:
         activation = self.position.trail_activation_ticks
         profit_ticks = profit / self.asset.tick_size  # points -> ticks
 
-        trail_active = (activation is None) or (profit_ticks >= activation)
+        if not self.position.is_trail_active:
+            if activation is None or profit_ticks >= activation:
+                self.position.is_trail_active = True
 
-        if trail_active:
+        if self.position.is_trail_active:
             # Trail logic: Fixed (from template) or Adaptive (from config)
             if self.position.trailing_stop_ticks:
                 trail_ticks = self.position.trailing_stop_ticks
@@ -595,6 +655,12 @@ class WaveRider:
                 exit_reason = 'profit_target'
             elif structure_broken:
                 exit_reason = 'structure_break'
+            elif stop_hit:
+                # A1. Separate SL from Trail Stop
+                if self.position.is_trail_active:
+                    exit_reason = 'trail_stop'
+                else:
+                    exit_reason = 'stop_loss'
             else:
                 exit_reason = 'trail_stop'
             
@@ -686,10 +752,16 @@ class WaveRider:
         if not exit_reason:
             if pos.side == 'long' and low <= pos.stop_loss:
                 fill_price = min(pos.stop_loss, low)
-                exit_reason = 'trail_stop'
+                if pos.is_trail_active:
+                    exit_reason = 'trail_stop'
+                else:
+                    exit_reason = 'stop_loss'
             elif pos.side == 'short' and high >= pos.stop_loss:
                 fill_price = max(pos.stop_loss, high)
-                exit_reason = 'trail_stop'
+                if pos.is_trail_active:
+                    exit_reason = 'trail_stop'
+                else:
+                    exit_reason = 'stop_loss'
 
         # Breakeven floor check
         if not exit_reason and pos.breakeven_locked and pos.breakeven_level is not None:
