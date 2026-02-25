@@ -1,0 +1,38 @@
+
+================================================================================
+RUN STARTED: 2026-02-25 07:56:48
+================================================================================
+Checking dependencies...
+Dependencies OK | CUDA ready: NVIDIA GeForce RTX 3060
+
+============================================================
+DOE PARAMETER CONFIGURATION (OPTUNA PID)
+============================================================
+
+[Quantum Field (PID)]
+  - pid_kp                         Range: 0.1 to 1.0 (float)
+  - pid_ki                         Range: 0.01 to 0.2 (float)
+  - pid_kd                         Range: 0.1 to 0.5 (float)
+============================================================
+
+
+================================================================================
+BAYESIAN-AI TRAINING ORCHESTRATOR (PATTERN-ADAPTIVE)
+================================================================================
+--fresh flag: clearing all pipeline checkpoints...
+  [CHECKPOINT] Removed: pipeline_state.json
+  [CHECKPOINT] Removed: discovery_manifest.pkl
+  [CHECKPOINT] Removed: discovery_levels.json
+  [CHECKPOINT] Removed: templates.pkl
+  [CHECKPOINT] Removed: scheduler_state.pkl
+  [CHECKPOINT] Removed: depth_weights.json
+  [CHECKPOINT] Removed: pattern_library.pkl
+  [CHECKPOINT] Removed: pattern_library_long.pkl
+  [CHECKPOINT] Removed: pattern_library_short.pkl
+  [CHECKPOINT] Removed: clustering_scaler.pkl
+  [CHECKPOINT] Removed: clustering_scaler_long.pkl
+  [CHECKPOINT] Removed: clustering_scaler_short.pkl
+  [CHECKPOINT] Removed: fractal_dna_tree.pkl
+  [CHECKPOINT] All pipeline checkpoints cleared.
+
+ERROR: Training failed: [WinError 5] Access is denied: 'C:\\Users\\reyse\\OneDrive\\Desktop\\Bayesian-AI\\reports\\benchmarks\\2026-02-24_201400_IS_pre_3body_template_stats'

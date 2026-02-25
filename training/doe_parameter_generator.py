@@ -83,6 +83,38 @@ class DOEParameterGenerator:
             self._log_parameter_configuration()
             DOEParameterGenerator._config_printed = True
 
+    def optimize_pid(
+        self,
+        objective_fn,          # callable(pid_kp, pid_ki, pid_kd) -> float (Sharpe)
+        n_trials: int = 200,   # number of Optuna trials
+        seed: int = 42,
+    ) -> dict:
+        """
+        Run Optuna TPE to find pid_kp, pid_ki, pid_kd that maximize Sharpe
+        across all cluster members.
+
+        Returns: {'pid_kp': float, 'pid_ki': float, 'pid_kd': float}
+        """
+        import optuna
+        optuna.logging.set_verbosity(optuna.logging.WARNING)
+
+        def _optuna_objective(trial):
+            pid_kp = trial.suggest_float('pid_kp', 0.1, 1.0)
+            pid_ki = trial.suggest_float('pid_ki', 0.01, 0.2)
+            pid_kd = trial.suggest_float('pid_kd', 0.1, 0.5)
+            return objective_fn(pid_kp, pid_ki, pid_kd)
+
+        sampler = optuna.samplers.TPESampler(seed=seed)
+        study = optuna.create_study(direction='maximize', sampler=sampler)
+        study.optimize(_optuna_objective, n_trials=n_trials, show_progress_bar=False)
+
+        best = study.best_params
+        return {
+            'pid_kp': best['pid_kp'],
+            'pid_ki': best['pid_ki'],
+            'pid_kd': best['pid_kd'],
+        }
+
     def _log_parameter_configuration(self):
         """Log the parameters being optimized and their associated modules"""
         print("\n" + "="*60)
