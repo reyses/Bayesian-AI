@@ -1,10 +1,3 @@
-# Bolt's Journal
-
-2024-05-23 — [Initial Setup]
-Learning: Starting fresh. Focus on measurable improvements in the Python scientific stack.
-Action: Profile hot paths in core/ and training/.
-
-2024-05-23 — [Vectorized Scaler Transform]
-Learning: `sklearn.preprocessing.StandardScaler.transform` has significant overhead (~125µs per call) when transforming single samples in a tight loop. This dominates the runtime of high-frequency components like `TimeframeBeliefNetwork.tick`.
-Action: Pre-extracted `mean_` and `scale_` arrays and replaced `transform()` with direct NumPy vectorization `(x - mean) / scale` (single-sample inference).
-Impact: ~46x speedup (260µs vs 12ms for 100k iters) in the feature scaling step.
+## 2025-05-23 - [Numpy Vectorization vs Object Creation]
+**Learning:** Optimizing logic inside a Python loop (using vectorized numpy arrays for `if/else` logic) provided only marginal gains (~20ms on 1s task) because the dominant cost was the `dataclass` instantiation itself, which happens in Python.
+**Action:** When optimizing object creation loops, focus on reducing the number of objects or using bulk constructors if possible. If not, look for other bottlenecks (like heavy computations called within the process). In this case, optimizing the Hurst calculation (heavy math) using Numba provided 6x speedup for that component, yielding a larger overall gain.
