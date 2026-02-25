@@ -1636,7 +1636,7 @@ class BayesianTrainingOrchestrator:
                         # Scale SL by entry conviction — high conviction = wider leash
                         if _belief is not None:
                             _conv = _belief.conviction
-                            _sl_multiplier = 1.0 + 0.5 * max(0, _conv - 0.5)
+                            _sl_multiplier = 1.0 + CONVICTION_SL_MULTIPLIER * max(0, _conv - CONVICTION_SL_THRESHOLD)
                             _sl_ticks = int(_sl_ticks * _sl_multiplier)
 
                         # Phase 2: trailing stop distance (from HWM).
