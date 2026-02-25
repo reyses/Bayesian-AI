@@ -358,10 +358,9 @@ class TimeframeBeliefNetwork:
         # Optimization: Pre-convert coefficients to numpy arrays (stored in _keys to avoid overwriting source)
         # This speeds up _logistic_prob and _ols_mfe by avoiding list->array conversion every tick
         for template in self.pattern_library.values():
-            if 'dir_coeff' in template:
-                template['_dir_coeff_arr'] = np.array(template['dir_coeff'], dtype=np.float64)
-            if 'mfe_coeff' in template:
-                template['_mfe_coeff_arr'] = np.array(template['mfe_coeff'], dtype=np.float64)
+            for coeff_name in ('dir_coeff', 'mfe_coeff'):
+                if coeff_name in template:
+                    template[f'_{coeff_name}_arr'] = np.array(template[coeff_name], dtype=np.float64)
 
         # active_timeframes: TFs that can be computed by resampling from df_micro.
         # Sub-resolution TFs (< base_resolution_seconds) need external data (df_5s/df_1s)
