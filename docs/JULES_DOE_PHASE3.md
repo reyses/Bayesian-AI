@@ -494,3 +494,117 @@ parser.add_argument('--r2-target', type=float, default=0.90,
 This task depends on `JULES_HYPERVOLUME_CLUSTERING.md` being fully implemented (PR #226 — done).
 The DOE iteration loop builds on top of the existing `_split_at_depth()` and `HypervolumeNode`
 infrastructure. No conflicts expected — this extends Phase 2.5 and replaces Phase 3.
+
+---
+
+## Implementation Exit Report
+
+**Implemented by**: Claude Code (Opus 4.6)
+**Date**: 2026-02-26
+**Branch**: `claude/implement-jules-phase3-cyuwm`
+
+### Changes Summary
+
+| File | Lines Removed | Lines Added | Action |
+|------|--------------|-------------|--------|
+| `training/fractal_clustering.py` | ~5 | ~120 | DOE fission loop, occurrence DataFrame, HypervolumeNode.member_indices |
+| `training/orchestrator_worker.py` | ~330 | ~45 | Deleted `_optimize_pattern_task`, `_optimize_template_task`, `_process_template_job`; added `_validate_template_consistency` |
+| `training/orchestrator.py` | ~200 | ~65 | Replaced Phase 3 Optuna block with validation loop; added `--r2-target` CLI flag |
+| `tests/test_clustering_integration.py` | ~60 | ~65 | Replaced Optuna tests with validation tests |
+
+**Net**: ~595 lines removed, ~295 lines added.
+
+### Part 1: DOE Fission Loop (`fractal_clustering.py`)
+
+**What changed**:
+- `R2_STOP_THRESHOLD` raised from `0.15` to `0.90` (configurable via `--r2-target`)
+- Added `DOE_MAX_ITERATIONS = 20` constant (safety valve)
+- Added `DEFAULT_PID = {'pid_kp': 0.5, 'pid_ki': 0.1, 'pid_kd': 0.2}` (no Optuna needed)
+- `fit_hypervolume_tree()` now accepts `r2_target` parameter and runs an iterative DOE loop:
+  - Pass 1: Initial recursive `_split_at_depth()` (unchanged algorithm)
+  - Pass 2+: Collects leaf nodes, re-splits any leaf with `adj_r2_mfe < r2_target`
+  - Validates R2 gain before accepting a split (`>= R2_FISSION_MIN_GAIN`)
+  - Converges when all leaves meet target, no further splits possible, or max iterations reached
+  - Prints DOE iteration progress: leaf count, below-target count, terminal count
+- After DOE converges, derives analytical params for all leaves via `_analytical_exits()` + `DEFAULT_PID`
+- Added `_collect_leaf_nodes()` helper for DOE iteration
+
+**`HypervolumeNode` changes**:
+- Added `member_indices: List[int]` field (pattern indices for DOE re-fission)
+- `_split_at_depth()` now passes `member_indices=member_indices` to each node
+
+**`PatternTemplate` changes**:
+- Added `consistency_score: float = 0.0`
+- Added `consistency_diagnostics: Optional[Dict] = None`
+- Added `best_params: Optional[Dict] = None`
+
+### Part 2: Matrix Markers / Occurrence DataFrame (`fractal_clustering.py`)
+
+**What changed**:
+- Added `build_occurrence_dataframe()` method to `FractalClusteringEngine`
+- Produces a flat DataFrame with one row per training pattern assigned to a leaf:
+  - `template_id`, `node_id`, `timestamp`, `price`, `timeframe`, `depth`,
+    `bar_index`, `file_source`, `oracle_mfe`, `oracle_mae`, `adj_r2`
+- Called from `orchestrator.py` after tree build, saved to `checkpoints/template_occurrences.parquet`
+- Prints temporal spread summary and warns about templates clustered in <7 days
+
+### Part 3: Optuna Replaced with Validation (`orchestrator_worker.py`)
+
+**Deleted functions** (~330 lines):
+- `_optimize_pattern_task()` — per-pattern Optuna PID optimization
+- `_optimize_template_task()` — per-template Optuna TPE consensus optimization
+- `_process_template_job()` — multiprocessing dispatcher with fission/consensus/validation pipeline
+
+**Added function** (~45 lines):
+- `_validate_template_consistency(template, patterns, point_value)`:
+  - Runs analytical exits on all member patterns
+  - Checks win-rate stability across temporal halves (delta < 0.20)
+  - Checks PnL coefficient of variation (CV < 3.0)
+  - Returns `(is_valid, consistency_score, diagnostics_dict)`
+  - Groups that fail are flagged, not discarded
+
+**Removed import**: `DOEParameterGenerator` (Optuna no longer needed in worker)
+
+### Part 4: orchestrator.py Phase 3 Replacement
+
+**Deleted** (~200 lines):
+- Entire Phase 3 multiprocessing pool with `_process_template_job`
+- Batch processing loop, scheduler state save/resume for Phase 3
+- Template queue, fission tracking, completed_results dict
+- Legacy wrapper methods `_optimize_pattern_task()`, `_optimize_template_batch()`
+
+**Added** (~65 lines):
+- Phase 3 validation loop: iterates over templates, calls `_validate_template_consistency()`
+- Prints validated vs flagged count
+- Stores `consistency_score` in pattern library via `register_template_logic()`
+- `--r2-target` CLI flag (default 0.90) passed to `fit_hypervolume_tree()`
+- Occurrence DataFrame build + parquet save in Phase 2.5
+- Temporal clustering warnings for suspicious templates
+- Fixed template loading in forward pass: `t.best_params` used instead of `{}`
+
+### Verification Checklist
+
+- [x] `python -m py_compile training/fractal_clustering.py` -- OK
+- [x] `python -m py_compile training/orchestrator.py` -- OK
+- [x] `python -m py_compile training/orchestrator_worker.py` -- OK
+- [x] `python -m py_compile tests/test_clustering_integration.py` -- OK
+- [x] No stale references to deleted functions in `training/` directory
+- [x] `_analytical_exits()` kept and used (correct approach per spec)
+- [x] `simulate_trade_standalone()` kept (used by validation)
+- [x] `_audit_trade()` kept (used by forward pass)
+- [x] `_init_pool_worker()` kept (useful for future parallel validation)
+- [x] Gate chain unchanged (0/2/3/3.5/4/5)
+- [x] Wave rider / belief network unchanged
+- [x] CST cell bounds unchanged
+
+### Design Decisions
+
+1. **R2 target as CLI flag**: Allows experimentation with `--r2-target 0.70` vs `0.90` without code changes.
+
+2. **Validation runs serially**: The old Phase 3 used a multiprocessing pool for Optuna (200 trials * N patterns = heavy compute). Validation is lightweight (one simulation per pattern, no Optuna trials), so serial execution is sufficient and simpler.
+
+3. **Flagging, not discarding**: Inconsistent templates are flagged with `consistency_diagnostics` but still registered. Phase 5 strategy selection can weight them lower. This avoids losing potentially useful templates that happen to have noisy member distributions.
+
+4. **Occurrence DataFrame as parquet**: Flat file format for easy downstream analysis (pandas, SQL, etc.). Joined by `template_id` or `node_id` — tree nodes stay lean.
+
+5. **`_analytical_exits` imported in `fractal_clustering.py`**: Lazy import inside `fit_hypervolume_tree()` to avoid circular dependency (clustering -> worker -> clustering). Only imported once during tree build.

@@ -22,8 +22,10 @@ from config.oracle_config import TEMPLATE_MIN_MEMBERS_FOR_STATS
 # Constants
 MIN_GROUP_SIZE = 30
 MAX_FISSION_CLUSTERS = 6
-R2_STOP_THRESHOLD = 0.15
+R2_STOP_THRESHOLD = 0.90       # DOE Phase 3: target R2 for "real case usage" (was 0.15)
 R2_FISSION_MIN_GAIN = 0.05
+DOE_MAX_ITERATIONS = 20         # DOE Phase 3: max passes over the tree (safety valve)
+DEFAULT_PID = {'pid_kp': 0.5, 'pid_ki': 0.1, 'pid_kd': 0.2}
 
 @dataclass
 class PatternTemplate:
@@ -75,6 +77,11 @@ class PatternTemplate:
     basin_mean: float = 0.0
     basin_std: float = 0.0
 
+    # DOE Phase 3 validation
+    consistency_score: float = 0.0
+    consistency_diagnostics: Optional[Dict[str, Any]] = None
+    best_params: Optional[Dict[str, Any]] = None
+
 @dataclass
 class HypervolumeNode:
     """One node in the hypervolume tree. Represents a group at a specific depth."""
@@ -83,6 +90,7 @@ class HypervolumeNode:
     cell_min_16d: np.ndarray               # per-axis minimum bounds
     cell_max_16d: np.ndarray               # per-axis maximum bounds
     member_count: int                      # patterns that pass through this node
+    member_indices: List[int]              # pattern indices for DOE re-fission
     children: Dict[int, 'HypervolumeNode'] # child_id -> child node (next depth)
     template: Optional[PatternTemplate]    # leaf nodes get a template
     node_id: str                           # path string e.g. "0.2.1"
@@ -209,28 +217,33 @@ class FractalClusteringEngine:
         from sklearn.cluster import KMeans
         return KMeans(n_clusters=n_clusters, random_state=random_state, n_init=3)
 
-    def fit_hypervolume_tree(self, patterns: List[Any], min_group_size: int = MIN_GROUP_SIZE) -> HypervolumeTree:
+    def fit_hypervolume_tree(self, patterns: List[Any],
+                             min_group_size: int = MIN_GROUP_SIZE,
+                             r2_target: float = R2_STOP_THRESHOLD) -> HypervolumeTree:
         """
-        Build hierarchical hypervolume tree by recursive 16D grouping.
+        Build hypervolume tree by iterative DOE fission.
+
+        Pass 1: Initial recursive grouping (same as _split_at_depth)
+        Pass 2+: Re-examine each leaf -- if R2 < target, attempt further fission
+        Iterate until convergence or max iterations.
         """
-        print(f"Hypervolume: Building tree from {len(patterns)} patterns...")
+        print(f"Hypervolume: Building tree from {len(patterns)} patterns (R2 target={r2_target:.2f})...")
 
         # 1. Build matrices
         matrices = {}
-        valid_patterns = []
-
-        # Indices in matrices must match indices in pattern_indices list passed to _split_at_depth
-        # We use the index 'i' from enumerate(patterns) as the stable ID
 
         for i, p in enumerate(patterns):
             mat = self.build_hypervolume_matrix(p)
             if mat is not None and mat.shape[0] >= 1:
                 matrices[i] = mat
-                valid_patterns.append(p)
 
         print(f"  Constructed {len(matrices)} hypervolume matrices.")
 
-        # 2. Recursive grouping
+        # Store matrices for DOE iterations
+        self._doe_matrices = matrices
+        self._doe_patterns = patterns
+
+        # 2. Initial recursive grouping (Pass 1)
         root_nodes = self._split_at_depth(
             pattern_indices=list(matrices.keys()),
             matrices=matrices,
@@ -239,6 +252,57 @@ class FractalClusteringEngine:
             parent_id="",
             min_group_size=min_group_size
         )
+
+        # 3. DOE Iteration Loop (Pass 2+)
+        for doe_iter in range(DOE_MAX_ITERATIONS):
+            leaves = self._collect_leaf_nodes(root_nodes)
+
+            n_below_target = sum(1 for leaf in leaves
+                                 if leaf.adj_r2_mfe < r2_target
+                                 and leaf.member_count > min_group_size)
+            n_terminal = sum(1 for leaf in leaves
+                             if leaf.member_count <= min_group_size)
+
+            print(f"  DOE iteration {doe_iter + 1}: {len(leaves)} leaves, "
+                  f"{n_below_target} below R2={r2_target:.2f}, "
+                  f"{n_terminal} terminal (min size)")
+
+            if n_below_target == 0:
+                print(f"  All leaves meet R2 target -- DOE converged.")
+                break
+
+            splits_made = 0
+            for leaf in leaves:
+                if leaf.adj_r2_mfe >= r2_target:
+                    continue
+                if leaf.member_count <= min_group_size:
+                    continue
+
+                # Attempt fission on this leaf at next depth
+                children = self._split_at_depth(
+                    pattern_indices=leaf.member_indices,
+                    matrices=matrices,
+                    patterns=patterns,
+                    depth=leaf.depth + 1,
+                    parent_id=leaf.node_id,
+                    min_group_size=min_group_size
+                )
+
+                if children:
+                    # Verify R2 gain
+                    child_count = sum(c.member_count for c in children.values())
+                    if child_count > 0:
+                        child_r2_weighted = sum(
+                            c.adj_r2_mfe * c.member_count for c in children.values()
+                        ) / child_count
+                        if child_r2_weighted >= leaf.adj_r2_mfe + R2_FISSION_MIN_GAIN:
+                            leaf.children = children
+                            leaf.template = None  # no longer a leaf
+                            splits_made += 1
+
+            if splits_made == 0:
+                print(f"  No further splits possible -- DOE complete.")
+                break
 
         max_depth = 0
         if matrices:
@@ -251,6 +315,16 @@ class FractalClusteringEngine:
 
         # Flatten templates list for orchestrator usage
         self.templates = self._collect_templates(root_nodes)
+
+        # 4. Derive analytical params for all final leaves
+        from training.orchestrator_worker import _analytical_exits
+        for tmpl in self.templates:
+            tmpl.best_params = _analytical_exits(tmpl)
+            tmpl.best_params.update(DEFAULT_PID)
+
+        # Clean up DOE state
+        self._doe_matrices = None
+        self._doe_patterns = None
 
         return tree
 
@@ -397,6 +471,7 @@ class FractalClusteringEngine:
                 cell_min_16d=cell_min,
                 cell_max_16d=cell_max,
                 member_count=len(member_indices),
+                member_indices=member_indices,
                 children=children,
                 template=template,
                 node_id=node_id,
@@ -468,6 +543,16 @@ class FractalClusteringEngine:
                 templates.extend(self._collect_templates(node.children))
         return templates
 
+    def _collect_leaf_nodes(self, nodes: Dict[int, HypervolumeNode]) -> List[HypervolumeNode]:
+        """Collect all leaf nodes (nodes with templates) for DOE iteration."""
+        leaves = []
+        for node in nodes.values():
+            if node.template is not None:
+                leaves.append(node)
+            elif node.children:
+                leaves.extend(self._collect_leaf_nodes(node.children))
+        return leaves
+
     def _aggregate_oracle_intelligence(self, template: PatternTemplate):
         """Populate template stats from member patterns."""
         patterns = template.patterns
@@ -534,6 +619,43 @@ class FractalClusteringEngine:
                      template.dir_intercept = float(lr.intercept_[0])
                  except:
                      pass
+
+    def build_occurrence_dataframe(self, root_nodes: Dict[int, HypervolumeNode],
+                                    patterns: List[Any]) -> pd.DataFrame:
+        """Build the occurrence DataFrame — ground-truth audit trail for all patterns.
+
+        One row per pattern assigned to a leaf template, with temporal/spatial markers.
+        Saved as checkpoints/template_occurrences.parquet.
+        """
+        occurrence_records = []
+        leaf_nodes = self._collect_leaf_nodes(root_nodes)
+
+        for node in leaf_nodes:
+            if node.template is None:
+                continue
+            for idx in node.member_indices:
+                if idx >= len(patterns):
+                    continue
+                p = patterns[idx]
+                oracle_meta = getattr(p, 'oracle_meta', {}) or {}
+                occurrence_records.append({
+                    'template_id': node.template.template_id,
+                    'node_id': node.node_id,
+                    'timestamp': getattr(p, 'timestamp', 0.0),
+                    'price': getattr(p, 'price', 0.0),
+                    'timeframe': getattr(p, 'timeframe', ''),
+                    'depth': getattr(p, 'depth', 0),
+                    'bar_index': getattr(p, 'idx', 0),
+                    'file_source': getattr(p, 'file_source', ''),
+                    'oracle_mfe': oracle_meta.get('mfe', 0.0),
+                    'oracle_mae': oracle_meta.get('mae', 0.0),
+                    'adj_r2': node.adj_r2_mfe,
+                })
+
+        if occurrence_records:
+            df = pd.DataFrame(occurrence_records)
+            return df
+        return pd.DataFrame()
 
     def refine_clusters(self, template_id: int, member_params: List[Dict[str, float]],
                         original_patterns: List[Any]) -> List[PatternTemplate]:

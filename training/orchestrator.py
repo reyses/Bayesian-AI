@@ -66,7 +66,7 @@ from training.timeframe_belief_network import TimeframeBeliefNetwork, BeliefStat
 # Execution components
 from training.batch_regret_analyzer import BatchRegretAnalyzer
 from training.wave_rider import WaveRider
-from training.orchestrator_worker import simulate_trade_standalone, _optimize_pattern_task, _optimize_template_task, _process_template_job, _audit_trade, _init_pool_worker
+from training.orchestrator_worker import simulate_trade_standalone, _validate_template_consistency, _audit_trade, _init_pool_worker, _analytical_exits
 from training.orchestrator_worker import FISSION_SUBSET_SIZE, INDIVIDUAL_OPTIMIZATION_ITERATIONS, DEFAULT_BASE_SLIPPAGE, DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 
 # Monte Carlo Pipeline
@@ -584,20 +584,9 @@ class BayesianTrainingOrchestrator:
 
         _templates = _collect_templates(self.hypervolume_tree.roots)
         for t in _templates:
-            # We must wrap template logic in dict structure as expected by downstream code
-            # register_template_logic logic duplicated or reused?
-            # We can just call register_template_logic if we have the params.
-            # But params are inside the template object? No, template object has params?
-            # Wait, PatternTemplate definition has `patterns`.
-            # But in Phase 3 we saved optimized params separately?
-            # Actually Phase 3 saves back to pattern_library.pkl.
-            # But we replaced pattern_library.pkl with hypervolume_tree.pkl in my train() update.
-            # So the tree nodes contain the optimized templates?
-            # Yes, if we ran Phase 3 on the tree.
-
-            # Reconstruct library entry
-            self.register_template_logic(t, {}) # Params?
-            # Ideally Phase 3 should have updated the template objects in the tree.
+            # Templates carry best_params from DOE Phase 3 validation
+            params = getattr(t, 'best_params', None) or {}
+            self.register_template_logic(t, params)
 
         print(f"  Loaded Hypervolume Tree: {len(_templates)} templates")
 
@@ -3607,11 +3596,32 @@ class BayesianTrainingOrchestrator:
                 self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
                                           'step': 'CLUSTERING', 'pct': 0})
 
-            # Build Tree
-            hypervolume_tree = clustering_engine.fit_hypervolume_tree(manifest)
+            # Build Tree (with DOE iterative fission)
+            r2_target = getattr(self.config, 'r2_target', 0.90)
+            hypervolume_tree = clustering_engine.fit_hypervolume_tree(
+                manifest, r2_target=r2_target)
             templates = clustering_engine.templates
 
             print(f"  Condensed {len(manifest)} raw patterns into {len(templates)} Tight Templates (Hypervolume Leaves).")
+
+            # Save occurrence DataFrame (matrix markers audit trail)
+            df_occurrences = clustering_engine.build_occurrence_dataframe(
+                hypervolume_tree.roots, manifest)
+            if len(df_occurrences) > 0:
+                occ_path = os.path.join(self.checkpoint_dir, 'template_occurrences.parquet')
+                df_occurrences.to_parquet(occ_path, index=False)
+                # Print marker distribution summary
+                ts_col = df_occurrences['timestamp']
+                ts_range_days = (ts_col.max() - ts_col.min()) / 86400.0 if len(ts_col) > 1 else 0.0
+                n_unique_templates = df_occurrences['template_id'].nunique()
+                print(f"  Occurrence markers: {len(df_occurrences)} patterns, "
+                      f"{n_unique_templates} templates, {ts_range_days:.0f} day spread")
+                # Warn about temporally clustered templates
+                for tid, grp in df_occurrences.groupby('template_id'):
+                    ts_spread = (grp['timestamp'].max() - grp['timestamp'].min()) / 86400.0
+                    if ts_spread < 7 and len(grp) > 5:
+                        print(f"    WARNING: Template {tid} ({len(grp)} patterns) clustered in {ts_spread:.1f} days")
+                print(f"  Saved template_occurrences.parquet")
 
             # Save Tree
             import pickle as _pickle
@@ -3620,204 +3630,62 @@ class BayesianTrainingOrchestrator:
                 _pickle.dump(hypervolume_tree, f)
             print(f"  Saved Hypervolume Tree to {tree_path}")
 
-            # Save templates list for Phase 3 scheduler
+            # Save templates list for Phase 3
             ckpt.save_templates(templates)
 
         # ===================================================================
-        # PHASE 3: Template Optimization & Fission (with persistent scheduler)
+        # PHASE 3: Validate DOE Groups + Register Templates
         # ===================================================================
-        num_workers = self.calculate_optimal_workers()
+        from training.fractal_clustering import DEFAULT_PID
 
-        # Check for Phase 3 resume
-        completed_results = {}
-        fissioned_ids = set()
-        template_queue = []
-        resumed_phase3 = False
-
-        if ckpt.has_scheduler_state():
-            prev_completed, prev_fissioned, prev_pending, prev_metrics = ckpt.load_scheduler_state()
-            if prev_completed is not None:
-                completed_results = prev_completed
-                fissioned_ids = prev_fissioned or set()
-                template_queue = prev_pending or []
-                resumed_phase3 = True
-
-                print(f"\n[RESUME] Phase 3: {len(completed_results)} done, "
-                      f"{len(fissioned_ids)} fissioned, {len(template_queue)} pending")
-
-                # Restore pattern library from completed results
-                for tmpl_id, result in completed_results.items():
-                    if result.get('status') == 'DONE' and 'template' in result:
-                        self.register_template_logic(result['template'], result['best_params'])
-
-        if not resumed_phase3:
-            template_queue = templates.copy()
-
-        print(f"\nPhase 3: Template Optimization & Fission Loop...")
-        print(f"  Templates to process: {len(template_queue)}")
-        print(f"  Already completed: {len(completed_results)}")
-        print(f"  Workers: {num_workers}")
-        print(f"  Iterations per template: {self.config.iterations}")
+        t_phase3_start = time.perf_counter()
+        print(f"\nPhase 3: Validating {len(templates)} templates...")
 
         ckpt.update_phase('optimization', 'in_progress')
-
-        # We need a clustering engine for fission checks (may not exist if we resumed past Phase 2.5)
-        try:
-            clustering_engine
-        except NameError:
-            n_initial = max(10, len(manifest) // INITIAL_CLUSTER_DIVISOR)
-            clustering_engine = FractalClusteringEngine(n_clusters=n_initial, max_variance=0.5)
-
         self.pattern_library = self.pattern_library or {}
-        processed_count = len(completed_results)
-        optimized_count = sum(1 for r in completed_results.values() if r.get('status') == 'DONE')
-        fission_count = len(fissioned_ids)
-        total_val_pnl = sum(r.get('val_pnl', 0.0) for r in completed_results.values() if r.get('status') == 'DONE')
-        _p3_total = max(1, len(template_queue) + len(completed_results))  # for popup % progress
-        batch_size = num_workers * 2
-        batch_number = 0
-        t_phase3_start = time.perf_counter()
 
-        # Pool initializer: heavy objects loaded once per worker (not per task).
-        # Reduces pickle payload from ~1GB/task to ~1KB/task.
-        with multiprocessing.Pool(
-            processes=num_workers,
-            initializer=_init_pool_worker,
-            initargs=(clustering_engine, self.param_generator,
-                      self.asset.point_value, self.pattern_library)
-        ) as pool:
-            while template_queue:
-                # Prepare Batch
-                current_batch = []
-                for _ in range(batch_size):
-                    if not template_queue:
-                        break
-                    current_batch.append(template_queue.pop(0))
+        validated = 0
+        flagged = 0
+        for i, tmpl in enumerate(templates):
+            # Analytical params from oracle stats (already set by fit_hypervolume_tree)
+            if tmpl.best_params is None:
+                tmpl.best_params = _analytical_exits(tmpl)
+                tmpl.best_params.update(DEFAULT_PID)
 
-                if not current_batch:
-                    break
+            # Optuna validation: is this group behaviorally consistent?
+            is_valid, score, diag = _validate_template_consistency(
+                tmpl, tmpl.patterns, self.asset.point_value
+            )
+            tmpl.consistency_score = score
+            tmpl.consistency_diagnostics = diag
 
-                batch_number += 1
-                t_batch = time.perf_counter()
-                total_in_queue = len(template_queue)
-                print(f"\n  Batch {batch_number}: processing {len(current_batch)} templates ({total_in_queue} remaining in queue)...")
+            if is_valid:
+                validated += 1
+            else:
+                flagged += 1
+                wr_delta = diag.get('wr_delta', 0.0)
+                pnl_cv = diag.get('pnl_cv', 0.0)
+                print(f"  Template {tmpl.template_id}: INCONSISTENT -- "
+                      f"WR delta {wr_delta:.0%}, CV {pnl_cv:.1f}")
 
-                # Slim task dicts: only template + iterations (heavy objects in worker globals)
-                tasks = []
-                for tmpl in current_batch:
-                    tasks.append({
-                        'template': tmpl,
-                        'iterations': self.config.iterations,
-                    })
+            self.register_template_logic(tmpl, tmpl.best_params)
 
-                results = pool.map(_process_template_job, tasks)
-
-                batch_done = 0
-                batch_split = 0
-                batch_pnl = 0.0
-
-                for j, result in enumerate(results):
-                    processed_count += 1
-                    status = result['status']
-                    tmpl_id = result['template_id']
-                    original_tmpl = current_batch[j]
-
-                    if status == 'SPLIT':
-                        new_sub_templates = result['new_templates']
-                        batch_split += 1
-                        fission_count += 1
-                        fissioned_ids.add(tmpl_id)
-                        timing = result.get('timing', '')
-                        print(f"    [{processed_count}] Template {tmpl_id}: FISSION -> {len(new_sub_templates)} subsets | {timing}")
-                        template_queue.extend(new_sub_templates)
-
-                        if self.dashboard_queue:
-                            self.dashboard_queue.put({
-                                'type': 'FISSION_EVENT',
-                                'parent_id': tmpl_id,
-                                'children_count': len(new_sub_templates),
-                                'reason': 'Regret Divergence'
-                            })
-
-                    elif status == 'DONE':
-                        tmpl = result['template']
-                        best_params = result['best_params']
-                        val_pnl = result['val_pnl']
-                        member_count = result['member_count']
-
-                        batch_done += 1
-                        optimized_count += 1
-                        batch_pnl += val_pnl
-                        total_val_pnl += val_pnl
-
-                        completed_results[tmpl_id] = result
-
-                        # Set Risk & Reward Metrics
-                        val_count = result.get('val_count', 0)
-                        if val_count > 0:
-                            tmpl.expected_value = val_pnl / val_count
-                        else:
-                            tmpl.expected_value = 0.0
-
-                        tmpl.outcome_variance = result.get('outcome_variance', 0.0)
-                        tmpl.avg_drawdown = result.get('avg_drawdown', 0.0)
-                        tmpl.risk_score = result.get('risk_score', 0.0)
-
-                        self.register_template_logic(tmpl, best_params)
-                        timing = result.get('timing', '')
-                        print(f"    [{processed_count}] Template {tmpl_id}: DONE ({member_count} members) -> PnL: ${val_pnl:.2f} | {timing}")
-
-                        if self.dashboard_queue:
-                            centroid = original_tmpl.centroid
-                            self.dashboard_queue.put({
-                                'type': 'TEMPLATE_UPDATE',
-                                'id': tmpl_id,
-                                'z': centroid[0],
-                                'mom': centroid[2],
-                                'pnl': val_pnl,
-                                'count': member_count,
-                                'transitions': tmpl.transition_probs
-                            })
-
-                batch_elapsed = time.perf_counter() - t_batch
-                print(
-                    f"  Batch {batch_number} complete: "
-                    f"{batch_done} optimized, {batch_split} fissioned, "
-                    f"batch PnL: ${batch_pnl:.2f} | {batch_elapsed:.1f}s"
-                )
-
-                # Progress popup
-                if self.dashboard_queue:
-                    _p3_pct = min(99.0, processed_count / _p3_total * 100)
-                    self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
-                                              'step': f'OPTIMIZATION  tmpl {processed_count}/{_p3_total}',
-                                              'pct': round(_p3_pct, 1)})
-
-                # CHECKPOINT after each batch
-                ckpt.save_scheduler_state(
-                    completed_results, fissioned_ids, template_queue,
-                    metrics={
-                        'processed': processed_count,
-                        'optimized': optimized_count,
-                        'fission_count': fission_count,
-                        'total_val_pnl': total_val_pnl,
-                        'batch_number': batch_number
-                    }
-                )
+            # Progress popup
+            if self.dashboard_queue:
+                _p3_pct = min(99.0, (i + 1) / max(1, len(templates)) * 100)
+                self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
+                                          'step': f'VALIDATION  tmpl {i+1}/{len(templates)}',
+                                          'pct': round(_p3_pct, 1)})
 
         phase3_elapsed = time.perf_counter() - t_phase3_start
         ckpt.update_phase('optimization', 'complete', {
-            'optimized': optimized_count,
-            'fissioned': fission_count,
-            'total_val_pnl': total_val_pnl
+            'validated': validated,
+            'flagged': flagged,
         })
 
         print(f"\n  Phase 3 Summary:")
-        print(f"    Batches: {batch_number}")
-        print(f"    Templates processed: {processed_count}")
-        print(f"    Optimized: {optimized_count} | Fissioned: {fission_count}")
+        print(f"    {validated} validated, {flagged} flagged for review")
         print(f"    Library size: {len(self.pattern_library)} entries")
-        print(f"    Total validated PnL: ${total_val_pnl:.2f}")
         print(f"    Time: {phase3_elapsed:.1f}s")
 
         # Save pattern library for Phase 4
@@ -3851,16 +3719,6 @@ class BayesianTrainingOrchestrator:
         print("\n=== Training Complete ===")
         self.print_final_summary()
         return self.day_results
-
-    def _optimize_pattern_task(self, args):
-        """Wrapper for standalone _optimize_pattern_task"""
-        return _optimize_pattern_task(args)
-
-    def _optimize_template_batch(self, subset):
-        """Wrapper for standalone _optimize_template_task (Consensus Optimization)"""
-        # We pass None for template as it is not used in the optimization logic
-        best_params, best_sharpe = _optimize_template_task((None, subset, self.config.iterations, self.param_generator, self.asset.point_value))
-        return best_params
 
     def _run_discovery(self, data_source: Any,
                        checkpoint_callback=None,
@@ -3941,6 +3799,8 @@ class BayesianTrainingOrchestrator:
             # CST Basin
             'basin_mean':    getattr(template, 'basin_mean',    0.0),
             'basin_std':     getattr(template, 'basin_std',     0.0),
+            # DOE Phase 3 consistency validation
+            'consistency_score': getattr(template, 'consistency_score', 0.0),
         }
 
     def validate_template_group(self, patterns: List[PatternEvent], params: Dict) -> float:
@@ -4529,6 +4389,8 @@ def main():
                         help="Oracle bias threshold for direction lock (default 0.55). Lower = more oracle-locked trades.")
     parser.add_argument('--dmi-threshold', type=float, default=None,
                         help="Min |dmi_diff| required to use DMI signal (default 0.0 = any non-zero DMI counts).")
+    parser.add_argument('--r2-target', type=float, default=0.90,
+                        help="Adj-R2 target for DOE convergence (default: 0.90)")
     parser.add_argument('--sweep-params', action='store_true',
                         help="Post-hoc DOE: sweep filter combinations on oracle_trade_log.csv and rank by net PnL")
     parser.add_argument('--strategy-report', action='store_true', help="Run Phase 5 strategy selection report")
