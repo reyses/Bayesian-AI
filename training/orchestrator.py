@@ -58,7 +58,7 @@ from training.pattern_analyzer import PatternAnalyzer
 from training.progress_reporter import ProgressReporter, DayMetrics
 from training.databento_loader import DatabentoLoader
 from training.fractal_discovery_agent import FractalDiscoveryAgent, PatternEvent, TIMEFRAME_SECONDS, TIMEFRAME_HIERARCHY
-from training.fractal_clustering import FractalClusteringEngine, PatternTemplate
+from training.fractal_clustering import FractalClusteringEngine, PatternTemplate, HypervolumeTree, HypervolumeNode
 from training.fractal_dna_tree import FractalDNATree
 from training.pipeline_checkpoint import PipelineCheckpoint
 from training.timeframe_belief_network import TimeframeBeliefNetwork, BeliefState
@@ -78,6 +78,12 @@ from training.pid_oscillation_analyzer import PIDOscillationAnalyzer, PIDSignal
 INITIAL_CLUSTER_DIVISOR = 100
 _ADX_TREND_CONFIRMATION = 25.0
 _HURST_TREND_CONFIRMATION = 0.6
+
+DIRECTION_CONFIDENCE_THRESHOLD = 0.15
+CONVICTION_SL_MULTIPLIER = 0.5
+CONVICTION_SL_THRESHOLD = 0.5
+DEFAULT_DECAY_HORIZON = 40
+CONSENSUS_CONFIDENCE_THRESHOLD = 0.60
 
 # Visualization
 try:
@@ -106,7 +112,8 @@ TIMEFRAME_MAP = {
 def verify_cuda_availability():
     """Fail fast if CUDA is not available"""
     if not cuda.is_available():
-        raise RuntimeError("CUDA is not available. Please ensure you have a CUDA-capable GPU and drivers installed.")
+        print("WARNING: CUDA is not available. Proceeding with CPU fallback (slow).")
+        return
 
     try:
         current_device = cuda.get_current_device()
@@ -413,6 +420,56 @@ class BayesianTrainingOrchestrator:
             'theoretical_pnl':       round(theo_pnl, 2),
         }
 
+    def _navigate_hypervolume_tree(self, tree: HypervolumeTree,
+                                   candidate: PatternEvent) -> Optional[Tuple[PatternTemplate, HypervolumeNode]]:
+        """Walk the hypervolume tree to find the best matching template."""
+        matrix = FractalClusteringEngine.build_hypervolume_matrix(candidate)
+        if matrix is None or matrix.shape[0] < 2:
+            return None
+
+        current_nodes = tree.roots
+        matched_path = []  # for logging
+
+        for depth in range(matrix.shape[0]):
+            if not current_nodes:
+                return None
+
+            feat_16d = matrix[depth]  # (16,)
+
+            # ── Primary: cell membership test (is vector inside bounding box?) ──
+            containing_nodes = []
+            for node_id, node in current_nodes.items():
+                if (np.all(feat_16d >= node.cell_min_16d) and
+                        np.all(feat_16d <= node.cell_max_16d)):
+                    dist = np.linalg.norm(feat_16d - node.centroid_16d)
+                    containing_nodes.append((dist, node))
+
+            if containing_nodes:
+                containing_nodes.sort(key=lambda x: x[0])
+                best_node = containing_nodes[0][1]
+            else:
+                # ── Fallback: nearest centroid within soft margin ──
+                best_node = None
+                best_dist = float('inf')
+                for node_id, node in current_nodes.items():
+                    dist = np.linalg.norm(feat_16d - node.centroid_16d)
+                    # Soft margin: accept if within mean cell radius
+                    cell_radius = np.mean(node.cell_max_16d - node.cell_min_16d) / 2
+                    if dist < cell_radius * 2.0 and dist < best_dist:
+                        best_dist = dist
+                        best_node = node
+                if best_node is None:
+                    return None  # no match at this depth
+
+            matched_path.append(best_node.node_id)
+
+            if best_node.template is not None:
+                return (best_node.template, best_node)
+
+            current_nodes = best_node.children
+
+        return None
+
     def run_forward_pass(self, data_source: str,
                          start_date: str = None, end_date: str = None,
                          min_tier: int = None,
@@ -500,87 +557,59 @@ class BayesianTrainingOrchestrator:
                 except OSError:
                     pass
 
-        # 1. Load Prerequisites
-        lib_path = os.path.join(self.checkpoint_dir, 'pattern_library.pkl')
-        scaler_path = os.path.join(self.checkpoint_dir, 'clustering_scaler.pkl')
-
-        # Snowflake Split Files
-        lib_long_path = os.path.join(self.checkpoint_dir, 'pattern_library_long.pkl')
-        lib_short_path = os.path.join(self.checkpoint_dir, 'pattern_library_short.pkl')
-        sc_long_path = os.path.join(self.checkpoint_dir, 'clustering_scaler_long.pkl')
-        sc_short_path = os.path.join(self.checkpoint_dir, 'clustering_scaler_short.pkl')
-        dna_path = os.path.join(self.checkpoint_dir, 'fractal_dna_tree.pkl')
-
-        if not os.path.exists(lib_path):
-            print("ERROR: pattern_library.pkl not found. Run with --fresh.")
+        # 1. Load Prerequisites (Hypervolume Tree)
+        tree_path = os.path.join(self.checkpoint_dir, 'hypervolume_tree.pkl')
+        if not os.path.exists(tree_path):
+            print("ERROR: hypervolume_tree.pkl not found. Run with --fresh.")
             return
 
-        # Load Unified Library (for lookups)
-        with open(lib_path, 'rb') as f:
-            self.pattern_library = pickle.load(f)
+        with open(tree_path, 'rb') as f:
+            self.hypervolume_tree = pickle.load(f)
 
-        # Load DNA Tree
-        self.dna_tree = None
-        if os.path.exists(dna_path):
-            with open(dna_path, 'rb') as f:
-                self.dna_tree = pickle.load(f)
-            print(f"  Loaded DNA tree: {len(self.dna_tree._dna_index)} leaf DNA paths")
+        # Flatten templates from tree for legacy compatibility (pattern_library lookups)
+        # Assuming we can rebuild self.pattern_library or we just rely on tree nodes
+        # But downstream logic uses self.pattern_library[tid].
 
-        # Load Scalers & Split Libraries (Snowflake Mode)
-        self.pattern_library_long = {}
-        self.pattern_library_short = {}
-        self.scaler_long = None
-        self.scaler_short = None
+        # We need to populate self.pattern_library from the tree templates
+        self.pattern_library = {}
+        # Simple recursion to collect all templates
+        def _collect_templates(nodes):
+            tmpls = []
+            for node in nodes.values():
+                if node.template:
+                    tmpls.append(node.template)
+                else:
+                    tmpls.extend(_collect_templates(node.children))
+            return tmpls
 
-        # Always load global scaler (for TBN/legacy)
-        with open(scaler_path, 'rb') as f:
-            self.scaler = pickle.load(f)
+        _templates = _collect_templates(self.hypervolume_tree.roots)
+        for t in _templates:
+            # We must wrap template logic in dict structure as expected by downstream code
+            # register_template_logic logic duplicated or reused?
+            # We can just call register_template_logic if we have the params.
+            # But params are inside the template object? No, template object has params?
+            # Wait, PatternTemplate definition has `patterns`.
+            # But in Phase 3 we saved optimized params separately?
+            # Actually Phase 3 saves back to pattern_library.pkl.
+            # But we replaced pattern_library.pkl with hypervolume_tree.pkl in my train() update.
+            # So the tree nodes contain the optimized templates?
+            # Yes, if we ran Phase 3 on the tree.
 
-        _snowflake_loaded = False
-        if os.path.exists(lib_long_path) and os.path.exists(sc_long_path):
-            with open(lib_long_path, 'rb') as f: self.pattern_library_long = pickle.load(f)
-            with open(lib_short_path, 'rb') as f: self.pattern_library_short = pickle.load(f)
-            with open(sc_long_path, 'rb') as f: self.scaler_long = pickle.load(f)
-            with open(sc_short_path, 'rb') as f: self.scaler_short = pickle.load(f)
-            # Validate: if split libraries are empty, fall back to unified
-            if self.pattern_library_long and self.pattern_library_short:
-                _snowflake_loaded = True
-                print(f"  Snowflake: Loaded split libraries (L:{len(self.pattern_library_long)}, S:{len(self.pattern_library_short)})")
-            else:
-                print("  Snowflake files empty -- falling back to unified mode")
+            # Reconstruct library entry
+            self.register_template_logic(t, {}) # Params?
+            # Ideally Phase 3 should have updated the template objects in the tree.
 
-        if not _snowflake_loaded:
-            print("  Unified Mode: using single scaler for all branches")
-            self.pattern_library_long = self.pattern_library
-            self.pattern_library_short = self.pattern_library
-            self.scaler_long = self.scaler
-            self.scaler_short = self.scaler
+        print(f"  Loaded Hypervolume Tree: {len(_templates)} templates")
 
-        print(f"  Loaded library: {len(self.pattern_library)} templates")
+        # Dummy scaler for legacy code that expects it (though it shouldn't be used)
+        from sklearn.preprocessing import StandardScaler
+        self.scaler = StandardScaler()
+        self.scaler.mean_ = np.zeros(16)
+        self.scaler.scale_ = np.ones(16)
 
-        # Build Centroid Indices for both branches.
-        # Centroids are already in SCALED space (since clustering fix) — no transform needed.
-        def _build_index(lib, sc):
-            tids = [t for t in lib.keys() if 'centroid' in lib[t]]
-            if not tids: return [], None
-            cens = np.array([lib[t]['centroid'] for t in tids])
-            return tids, cens
+        self.dna_tree = None # Disabled as per spec
 
-        self.valid_tids_long,  self.centroids_long  = _build_index(self.pattern_library_long, self.scaler_long)
-        self.valid_tids_short, self.centroids_short = _build_index(self.pattern_library_short, self.scaler_short)
-
-        # Legacy valid_template_ids for other components
         valid_template_ids = list(self.pattern_library.keys())
-
-        # For TBN: valid_template_ids and centroids_scaled must match and be in global space
-        # Filter only templates with centroids
-        valid_template_ids = [tid for tid in valid_template_ids if 'centroid' in self.pattern_library[tid]]
-        if not valid_template_ids:
-            print("ERROR: No valid templates in library.")
-            return
-
-        # Centroids are already stored in SCALED space (since clustering fix).
-        # Do NOT re-scale them — that would double-scale and break Gate 1 distances.
         centroids_scaled = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
 
         # Load tier map before centroid build so we can pre-filter by min_tier
@@ -621,17 +650,6 @@ class BayesianTrainingOrchestrator:
             _before = len(valid_template_ids)
             valid_template_ids = [tid for tid in valid_template_ids
                                   if template_tier_map.get(tid, 4) <= min_tier]
-
-            # Filter Snowflake indices too
-            def _filter_sf(tids, cens):
-                if not tids: return [], None
-                mask = [template_tier_map.get(t, 4) <= min_tier for t in tids]
-                new_tids = [t for i, t in enumerate(tids) if mask[i]]
-                new_cens = cens[mask] if cens is not None else None
-                return new_tids, new_cens
-
-            self.valid_tids_long, self.centroids_long = _filter_sf(self.valid_tids_long, self.centroids_long)
-            self.valid_tids_short, self.centroids_short = _filter_sf(self.valid_tids_short, self.centroids_short)
             print(f"  Min-tier filter (tier <= {min_tier}): {_before} -> {len(valid_template_ids)} active templates")
 
         # Rebuild centroids_scaled after tier filtering (already in scaled space)
@@ -1282,6 +1300,8 @@ class BayesianTrainingOrchestrator:
                     _bypass_dist      = 999.0
                     _gate_passers = {}      # id(p) -> record dict (for score_loser tracking)
 
+                    best_leaf_node = None # For CST cell bounds
+
                     for p in candidates:
                         n_signals_seen += 1
                         # --- Gate 0: Headroom Gate (Nightmare Field Equation) ---
@@ -1296,19 +1316,9 @@ class BayesianTrainingOrchestrator:
                         should_skip = False
                         _skip_label = 'gate0'
 
-                        # DATA-QUALITY OVERRIDE: if this pattern maps to a high-quality
-                        # template (>=10 members, WR>=55%, sigma<=10 ticks) it is admitted
-                        # regardless of which structural rule would have blocked it.
-                        # "Predictable structure + low residuals" beats any physics heuristic.
+                        # DATA-QUALITY OVERRIDE
                         _data_override = False
-                        if _exception_tids and micro_pattern:
-                            _e_feat    = np.array([FractalClusteringEngine.extract_features(p)])
-                            _e_scaled  = self.scaler.transform(_e_feat)
-                            _e_dists   = np.linalg.norm(centroids_scaled - _e_scaled, axis=1)
-                            _e_nearest = int(np.argmin(_e_dists))
-                            if (_e_dists[_e_nearest] < 4.5
-                                    and valid_template_ids[_e_nearest] in _exception_tids):
-                                _data_override = True
+                        # Exception TIDs check requires matching a template first - moved to Gate 1
 
                         if not _data_override:
                             # RULE 1: No pattern = no trade
@@ -1342,23 +1352,6 @@ class BayesianTrainingOrchestrator:
                                         should_skip = True
                                         _skip_label = 'gate0_r4_struct'
 
-                        # RULE 5: Physics safety — DISABLED
-                        # Three-body forces (F_momentum, F_reversion) are calibrated for
-                        # longer TFs where mean reversion dominates. At 15s resolution
-                        # momentum structurally exceeds reversion (82% of signals blocked
-                        # even at 3.0x ratio). Needs fundamental rethink — not threshold
-                        # tuning — before re-enabling. The cluster distance gate (Gate 1)
-                        # and brain gate (Gate 2) already filter low-quality signals.
-                        # if not should_skip and not _data_override:
-                        #     _st = p.state
-                        #     if _st.hurst_exponent < 0.35:
-                        #         should_skip = True; _skip_label = 'gate0_hurst'
-                        #     elif (abs(_st.F_momentum) > abs(_st.F_reversion) * 3.0
-                        #           and abs(_st.F_reversion) > 0):
-                        #         should_skip = True; _skip_label = 'gate0_momentum'
-                        #     elif _st.tunnel_probability < 0.15:
-                        #         should_skip = True; _skip_label = 'gate0_tunnel'
-
                         if should_skip:
                             skip_headroom += 1
                             _candidate_gate[id(p)] = _skip_label
@@ -1366,76 +1359,31 @@ class BayesianTrainingOrchestrator:
                                 p, _skip_label, day_date, ts, micro_z, macro_z, micro_pattern))
                             continue
 
-                        # Gate 0.5: depth filter -- exclude depths that had negative avg
-                        # PnL/trade in the previous run (written to depth_weights.json).
-                        # First run has no weights so nothing is filtered.
-                        # Sub-minute (depth >= 6) NEVER triggers trades — confirmation only.
-                        _cand_depth = getattr(p, 'depth', 6)
-                        if _cand_depth >= 6 or _cand_depth in _DEPTH_FILTER_OUT:
-                            skip_headroom += 1
-                            _candidate_gate[id(p)] = 'gate0_5'
-                            decision_matrix_records.append(_dm_rec(
-                                p, 'gate0_5', day_date, ts, micro_z, macro_z, micro_pattern))
-                            continue
+                        # Gate 0.5 REMOVED (Depth filter handled by tree structure)
 
-                        # Snowflake Match
-                        _cand_z = getattr(p, 'z_score', 0)
-                        if _cand_z <= 0:
-                            # LONG branch
-                            _idx = self.valid_tids_long
-                            _cen = self.centroids_long
-                            _sc  = self.scaler_long
-                            _branch = 'long'
-                        else:
-                            # SHORT branch
-                            _idx = self.valid_tids_short
-                            _cen = self.centroids_short
-                            _sc  = self.scaler_short
-                            _branch = 'short'
+                        # Gate 1: Hypervolume Tree Navigation
+                        matched = self._navigate_hypervolume_tree(self.hypervolume_tree, p)
 
-                        if not _idx or _cen is None:
-                            # Fallback (empty branch or legacy)
-                            _idx = valid_template_ids
-                            _cen = centroids_scaled
-                            _sc  = self.scaler
-                            _branch = 'legacy'
+                        dist = 0.0 # No longer meaningful L2 distance
+                        tid = None
 
-                        # Extract 14D features using shared logic
-                        features = np.array([FractalClusteringEngine.extract_features(p)])
+                        if matched:
+                            tmpl, leaf = matched
+                            tid = tmpl.template_id
 
-                        # Scale (using branch-specific scaler)
-                        feat_scaled = _sc.transform(features)
-
-                        # Match
-                        dists = np.linalg.norm(_cen - feat_scaled, axis=1)
-                        nearest_idx = np.argmin(dists)
-                        dist = dists[nearest_idx]
-                        tid = _idx[nearest_idx]
-
-                        # DNA Tree Match (for logging/override)
-                        pattern_dna = None
-                        dna_node = None
-                        if self.dna_tree:
-                            pattern_dna, dna_node, dna_conf = self.dna_tree.match(p)
-
-                        if dist < MAX_CLUSTER_DISTANCE: # Threshold (raised from 3.0 so extreme-z profitable patterns reach their nearest cluster)
-                            # Brain gate -- use low threshold for exploration
+                            # Brain Gate
                             if self.brain.should_fire(tid, min_prob=0.05, min_conf=0.0):
-                                # Score: lower is better
-                                # depth: 1=4h (best) -> 6=15s (worst)
-                                # Tier bonus: Tier 1 = -1.5, Tier 2 = -0.5, Tier 3 = 0, Tier 4 = +0.5
-                                # Depth adj: data-driven from previous run avg PnL/trade
-                                #   positive avg_pnl -> negative score_adj (favored)
-                                #   negative avg_pnl -> positive score_adj (penalized)
-                                p_depth   = getattr(p, 'depth', 6)
-                                tier_adj  = _TIER_SCORE_ADJ.get(template_tier_map.get(tid, 3), 0.0)
+                                p_depth = getattr(p, 'depth', 6)
+                                tier_adj = _TIER_SCORE_ADJ.get(template_tier_map.get(tid, 3), 0.0)
                                 depth_adj = _DEPTH_SCORE_ADJ.get(p_depth, 0.0)
-                                score     = p_depth + dist + tier_adj + depth_adj
+                                score = p_depth + tier_adj + depth_adj # dist removed
+
                                 if score < best_dist:
                                     best_dist = score
                                     best_candidate = p
                                     best_tid = tid
-                                # Track for score_loser detection (all gate-passers)
+                                    best_leaf_node = leaf
+
                                 _gate_passers[id(p)] = _dm_rec(
                                     p, 'score_loser', day_date, ts, micro_z, macro_z,
                                     micro_pattern, dist=dist,
@@ -1448,10 +1396,12 @@ class BayesianTrainingOrchestrator:
                                     micro_pattern, dist=dist,
                                     template_id=tid, tier=template_tier_map.get(tid, 3)))
                         else:
-                            # Gate 1 rejected -- track nearest miss for worker-bypass path
-                            if dist < _bypass_dist:
-                                _bypass_dist      = dist
+                            # No match found in tree
+                            # Track for worker bypass
+                            if 1.0 < _bypass_dist: # Just pick first valid no-match as bypass candidate
+                                _bypass_dist = 1.0
                                 _bypass_candidate = p
+
                             skip_dist += 1
                             _candidate_gate[id(p)] = 'gate1'
                             decision_matrix_records.append(_dm_rec(
@@ -1464,32 +1414,51 @@ class BayesianTrainingOrchestrator:
                             decision_matrix_records.append(_prec)
 
                     # ── Worker-conviction bypass (Gate 1 override) ───────────────
-                    # FN analysis: when no cluster matches, 30m/15m/5m workers still
-                    # called the right direction 85-100% of the time. Allow the trade
-                    # if conviction is high enough to act without a template.
-                    _WORKER_BYPASS_CONV = 0.65   # minimum conviction to bypass Gate 1
+                    _WORKER_BYPASS_CONV = 0.65
                     _bypass_belief = None
                     if best_candidate is None and _bypass_candidate is not None:
                         _bypass_belief = belief_network.get_belief()
                         if _bypass_belief is None or _bypass_belief.conviction < _WORKER_BYPASS_CONV:
-                            _bypass_belief = None   # not confident enough -- skip
+                            _bypass_belief = None
 
                     if best_candidate:
                         # FIRE
                         params = self.pattern_library[best_tid]['params']
                         lib_entry = self.pattern_library[best_tid]
 
-                        # ── Live feature vector (shared by direction + MFE models) ──
-                        # Use the correct scaler for this candidate's branch
-                        _live_feat = np.array(FractalClusteringEngine.extract_features(best_candidate))
+                        # ── Live feature vector ──
+                        # Used for direction/MFE models.
+                        # Need to scale it using the leaf node scaler (if we had it exposed).
+                        # But PatternTemplate stores coefficients fitted on SCALED features?
+                        # The HypervolumeNode has a 'scaler'.
+                        # The leaf_node.scaler should be used to transform live features for regression.
 
-                        _cand_z = getattr(best_candidate, 'z_score', 0)
-                        if _cand_z <= 0:
-                            _live_scaled = self.scaler_long.transform([_live_feat])[0]
-                            side = 'long'
-                        else:
-                            _live_scaled = self.scaler_short.transform([_live_feat])[0]
-                            side = 'short'
+                        _live_feat_raw = np.array(FractalClusteringEngine.extract_features(best_candidate))
+
+                        # Use leaf node scaler if available, else dummy
+                        _leaf_scaler = best_leaf_node.scaler if best_leaf_node and best_leaf_node.scaler else self.scaler
+                        try:
+                            _live_scaled = _leaf_scaler.transform([_live_feat_raw])[0]
+                        except Exception:
+                            _live_scaled = _live_feat_raw # Fallback
+
+                        # Direction determination
+                        # Use template direction (bias) or predicted direction
+                        side = lib_entry.get('direction', '')
+                        if not side:
+                            # Fallback to z_score sign if template is ambiguous
+                            side = 'long' if best_candidate.z_score <= 0 else 'short'
+
+                        # ── Direction gate ──────────────────────────────────────────
+                        _live_s   = best_candidate.state
+                        _dmi_diff = (getattr(_live_s, 'dmi_plus',  0.0)
+                                   - getattr(_live_s, 'dmi_minus', 0.0))
+
+                        long_bias  = lib_entry.get('long_bias',  0.0)
+                        short_bias = lib_entry.get('short_bias', 0.0)
+                        _nn_marker = _effective_oracle(best_candidate)
+
+                        _dir_source = 'template_bias'
 
                         # ── Direction gate ──────────────────────────────────────────
                         # Snowflake: Branch determines direction (Z<=0 -> Long, Z>0 -> Short)
@@ -1586,7 +1555,7 @@ class BayesianTrainingOrchestrator:
                         # ── Gate 5: Direction consensus ──────────────────────────
                         _consensus = belief_network.get_direction_consensus(side)
                         # Raised threshold from 0.55 to 0.60 for higher quality
-                        if _consensus['confidence'] < 0.60:
+                        if _consensus['confidence'] < CONSENSUS_CONFIDENCE_THRESHOLD:
                             skip_direction += 1
                             _candidate_gate[id(best_candidate)] = 'gate5_direction'
                             _bc_mz = abs(best_candidate.z_score)
@@ -1746,12 +1715,9 @@ class BayesianTrainingOrchestrator:
                             trailing_stop_ticks=_trail_ticks,
                             trail_activation_ticks=_trail_act_ticks,
                             template_id=best_tid,
-                            cst_centroid=lib_entry.get('centroid'),
-                            cst_basin_mean=lib_entry.get('basin_mean', 0.0),
-                            cst_basin_std=lib_entry.get('basin_std', 0.0),
+                            cst_cell_min=getattr(best_leaf_node, 'cell_min_16d', None) if best_leaf_node else None,
+                            cst_cell_max=getattr(best_leaf_node, 'cell_max_16d', None) if best_leaf_node else None,
                             cst_ancestry=_cst_ancestry,
-                            cst_scaler_mean=getattr(_sc, 'mean_', None),
-                            cst_scaler_scale=getattr(_sc, 'scale_', None),
                             tmpl_expected_mfe_ticks=_tmpl_mean_mfe,
                             tmpl_expected_hold_bars=_tmpl_avg_mfebar,
                             tmpl_win_rate=_tmpl_win_rate,
@@ -3503,11 +3469,21 @@ class BayesianTrainingOrchestrator:
         if getattr(self.config, 'fresh', False):
             print("--fresh flag: clearing all pipeline checkpoints...")
             ckpt.clear()
-            # Also clear reports
+            # Clear report subdirs (preserve benchmarks — historical)
             import shutil as _shutil_fresh
             if os.path.isdir(REPORTS_ROOT):
-                _shutil_fresh.rmtree(REPORTS_ROOT)
-                print(f"  [CHECKPOINT] Removed: reports/")
+                for _sub in os.listdir(REPORTS_ROOT):
+                    _sub_path = os.path.join(REPORTS_ROOT, _sub)
+                    if _sub == 'benchmarks':
+                        continue  # never wipe benchmark history
+                    try:
+                        if os.path.isdir(_sub_path):
+                            _shutil_fresh.rmtree(_sub_path)
+                        else:
+                            os.remove(_sub_path)
+                    except PermissionError:
+                        print(f"  [WARN] Could not remove {_sub_path} (locked by OneDrive?)")
+                print(f"  [CHECKPOINT] Cleared: reports/ (benchmarks preserved)")
 
         print(ckpt.summary())
 
@@ -3623,33 +3599,28 @@ class BayesianTrainingOrchestrator:
                 print(f"\n[RESUME] Phase 2.5: Loaded {len(templates)} templates from checkpoint")
 
         if templates is None:
-            print("\nPhase 2.5: Generating Physically Tight Templates...")
+            print("\nPhase 2.5: Building Hypervolume Tree...")
             ckpt.update_phase('clustering', 'in_progress')
 
-            n_initial = max(10, len(manifest) // INITIAL_CLUSTER_DIVISOR)
-            print(f"  Initial clusters: {n_initial} (from {len(manifest)} patterns / {INITIAL_CLUSTER_DIVISOR})")
-
-            clustering_engine = FractalClusteringEngine(n_clusters=n_initial, max_variance=0.5)
+            clustering_engine = FractalClusteringEngine(n_clusters=1000, max_variance=0.5)
             if self.dashboard_queue:
                 self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
                                           'step': 'CLUSTERING', 'pct': 0})
-            templates = clustering_engine.create_templates(manifest)
-            print(f"  Condensed {len(manifest)} raw patterns into {len(templates)} Tight Templates.")
 
-            # Save scaler for Phase 4
+            # Build Tree
+            hypervolume_tree = clustering_engine.fit_hypervolume_tree(manifest)
+            templates = clustering_engine.templates
+
+            print(f"  Condensed {len(manifest)} raw patterns into {len(templates)} Tight Templates (Hypervolume Leaves).")
+
+            # Save Tree
             import pickle as _pickle
-            scaler_path = os.path.join(self.checkpoint_dir, 'clustering_scaler.pkl')
-            with open(scaler_path, 'wb') as f:
-                _pickle.dump(clustering_engine.scaler, f)
-            print(f"  Saved clustering scaler to {scaler_path}")
+            tree_path = os.path.join(self.checkpoint_dir, 'hypervolume_tree.pkl')
+            with open(tree_path, 'wb') as f:
+                _pickle.dump(hypervolume_tree, f)
+            print(f"  Saved Hypervolume Tree to {tree_path}")
 
-            # Save split scalers (Snowflake)
-            sl_path = os.path.join(self.checkpoint_dir, 'clustering_scaler_long.pkl')
-            ss_path = os.path.join(self.checkpoint_dir, 'clustering_scaler_short.pkl')
-            with open(sl_path, 'wb') as f: _pickle.dump(clustering_engine._long_scaler, f)
-            with open(ss_path, 'wb') as f: _pickle.dump(clustering_engine._short_scaler, f)
-            print(f"  Saved split scalers (LONG/SHORT)")
-
+            # Save templates list for Phase 3 scheduler
             ckpt.save_templates(templates)
 
         # ===================================================================

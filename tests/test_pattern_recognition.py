@@ -1,7 +1,11 @@
 import unittest
 import numpy as np
 import pandas as pd
-from core.quantum_field_engine import QuantumFieldEngine, PATTERN_NONE, PATTERN_COMPRESSION, PATTERN_WEDGE, PATTERN_BREAKDOWN
+from core.quantum_field_engine import QuantumFieldEngine
+from core.pattern_utils import (
+    PATTERN_NONE, PATTERN_COMPRESSION, PATTERN_WEDGE, PATTERN_BREAKDOWN,
+    detect_geometric_patterns_vectorized
+)
 
 class TestPatternRecognition(unittest.TestCase):
     def setUp(self):
@@ -17,16 +21,10 @@ class TestPatternRecognition(unittest.TestCase):
         highs = np.array([120, 120, 120, 120, 120, 112, 112, 112, 112, 112, 112, 112], dtype=float)
         lows =  np.array([100, 100, 100, 100, 100, 108, 108, 108, 108, 108, 108, 108], dtype=float)
 
-        patterns = self.engine._detect_geometric_patterns(highs, lows)
+        patterns = detect_geometric_patterns_vectorized(highs, lows)
 
         self.assertEqual(patterns[9], PATTERN_COMPRESSION)
-        self.assertEqual(patterns[8], PATTERN_NONE) # Not yet complete window (needs 9 prior bars + current = 10 bars total? No.)
-        # Logic:
-        # Index 9:
-        # Rec: 5-9. Prev: 0-4.
-        # Index 8:
-        # Rec: 4-8. Prev: -1 to 3 (wrapped).
-        # patterns[:9] are set to NONE. So index 8 is NONE.
+        self.assertEqual(patterns[8], PATTERN_NONE)
         pass
 
     def test_wedge_pattern(self):
@@ -42,7 +40,7 @@ class TestPatternRecognition(unittest.TestCase):
         highs[10] = 115.0 # Lower High
         lows[10] = 105.0  # Higher Low
 
-        patterns = self.engine._detect_geometric_patterns(highs, lows)
+        patterns = detect_geometric_patterns_vectorized(highs, lows)
         self.assertEqual(patterns[10], PATTERN_WEDGE)
 
     def test_breakdown_pattern(self):
@@ -54,7 +52,7 @@ class TestPatternRecognition(unittest.TestCase):
         # Prev 4 lows (6,7,8,9) are 100.
         lows[10] = 95.0
 
-        patterns = self.engine._detect_geometric_patterns(highs, lows)
+        patterns = detect_geometric_patterns_vectorized(highs, lows)
         self.assertEqual(patterns[10], PATTERN_BREAKDOWN)
 
     def test_batch_compute_integration(self):
@@ -66,6 +64,7 @@ class TestPatternRecognition(unittest.TestCase):
             'close': np.linspace(100, 110, n),
             'high': np.linspace(101, 111, n),
             'low': np.linspace(99, 109, n),
+            'open': np.linspace(100, 110, n), # Added open to be safe, though fixed engine handles it
             'volume': np.full(n, 1000)
         })
 

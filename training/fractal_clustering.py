@@ -1,201 +1,134 @@
 """
-Fractal Clustering Engine
-Reduces massive pattern datasets into manageable 'Templates' using Recursive K-Means.
-Maps raw physics events into "Archetypal Centroids" that are both Physically Tight and Behaviorally Consistent.
-
-Feature vector per pattern (16D):
-  [|z_score|, |velocity|, |momentum|, coherence, log2(tf_seconds), depth, parent_is_roche,
-   self_adx, self_hurst, self_dmi_diff, parent_z, parent_dmi_diff, root_is_roche, tf_alignment,
-   self_pid, self_osc_coh]
-The timeframe scale + depth + parent context + PID regime let the clustering naturally separate
-patterns that look similar in physics but live at different fractal scales or regimes.
+Fractal Clustering Engine (Hypervolume Tree)
+Replaces KMeans with a hierarchical 16D hypervolume tree.
+Groups patterns by their regression residuals at each depth level.
 """
 import math
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression, LogisticRegression
-from training.cuda_kmeans import CUDAKMeans, cuda_silhouette_score
+from training.cuda_kmeans import CUDAKMeans
 
 # Core import for vector reconstruction
 from core.quantum_field_engine import QuantumFieldEngine
 
 # Local import of timeframe mapping
 from training.fractal_discovery_agent import TIMEFRAME_SECONDS
-from config.oracle_config import (
-    TEMPLATE_MIN_MEMBERS_FOR_STATS,
-    MARKER_MEGA_LONG, MARKER_SCALP_LONG,
-    MARKER_SCALP_SHORT, MARKER_MEGA_SHORT, MARKER_NOISE,
-    TRANSITION_MIN_SEQUENCE_GAP_BARS,
-    TRANSITION_MAX_SEQUENCE_GAP_BARS
-)
+from config.oracle_config import TEMPLATE_MIN_MEMBERS_FOR_STATS
 
-# Clustering Constants
-MIN_PATTERNS_FOR_SPLIT  = 30   # hard floor — never split below this
-MIN_SAMPLES_PER_CLUSTER = 30   # same floor used in _fit_branch coarse pass
-MAX_FISSION_CLUSTERS    = 6
-MIN_FISSION_SAMPLES     = 5
-
-# Adj-R² thresholds
-R2_STOP_THRESHOLD   = 0.15   # stop recursive splitting when adj-R²(mfe~features) >= this
-R2_FISSION_MIN_GAIN = 0.05   # minimum weighted adj-R² gain required to allow fission
+# Constants
+MIN_GROUP_SIZE = 30
+MAX_FISSION_CLUSTERS = 6
+R2_STOP_THRESHOLD = 0.15
+R2_FISSION_MIN_GAIN = 0.05
 
 @dataclass
 class PatternTemplate:
     template_id: int
-    centroid: np.ndarray  # [z, vel, mom, coh, tf_scale, depth, parent_ctx, p_z, p_mom, root_z, root_is_roche]
+    centroid: np.ndarray  # 16D centroid (scaled space)
     member_count: int
-    patterns: List[Any]   # References to the original PatternEvents
-    physics_variance: float # Measure of how "tight" the cluster is
+    patterns: List[Any]   # References to original PatternEvents
+    physics_variance: float
 
     # NAVIGATION & RISK DATA
-    transition_map: Dict[int, float] = field(default_factory=dict)   # {Next_Cluster_ID: Probability}
-    transition_probs: Dict[int, float] = field(default_factory=dict) # Alias for backward compatibility
+    transition_map: Dict[int, float] = field(default_factory=dict)
+    transition_probs: Dict[int, float] = field(default_factory=dict) # Alias
 
     # REWARD
-    expected_value: float = 0.0               # (WinRate * AvgWin) - (LossRate * AvgLoss)
+    expected_value: float = 0.0
+    outcome_variance: float = 0.0
+    avg_drawdown: float = 0.0
 
-    # RISK
-    outcome_variance: float = 0.0             # StdDev of PnL outcomes
-    avg_drawdown: float = 0.0                 # Average Maximum Adverse Excursion (MAE)
-    risk_score: float = 0.0                   # 0.0 (Safe) to 1.0 (Toxic)
-    risk_variance: float = 0.0              # StdDev of member MFE values
+    # Stats populated by _aggregate_oracle_intelligence
+    stats_win_rate: float = 0.0
+    stats_expectancy: float = 0.0
+    stats_mega_rate: float = 0.0
+    risk_score: float = 0.0
+    risk_variance: float = 0.0
 
-    # THE STAR SCHEMA DIMENSION (Aggregated from member oracle markers)
-    # 1. Performance Stats
-    stats_win_rate: float = 0.0             # Fraction of members with |oracle_marker| >= 1
-    stats_expectancy: float = 0.0           # Mean (mfe - mae) across members
-    stats_mega_rate: float = 0.0            # Fraction of members with |oracle_marker| == 2
+    # Direction Bias
+    long_bias: float = 0.0
+    short_bias: float = 0.0
+    direction: str = '' # 'LONG' or 'SHORT' derived from bias
 
-    # 2. Basin Geometry (CST)
-    basin_mean: float = 0.0                 # Mean distance of members to centroid (scaled space)
-    basin_std:  float = 0.0                 # StdDev of member distances (scaled space)
+    # Oracle calibration (ticks)
+    mean_mfe_ticks: float = 0.0
+    mean_mae_ticks: float = 0.0
+    p75_mfe_ticks: float = 0.0
+    p25_mae_ticks: float = 0.0
+    regression_sigma_ticks: float = 0.0
 
-    # 3. Direction Bias
-    long_bias: float = 0.0                  # Fraction of positive markers (1,2) vs total non-noise
-    short_bias: float = 0.0                 # Fraction of negative markers (-1,-2) vs total non-noise
+    # Time-scale calibration (bars)
+    avg_mfe_bar: float = 0.0
+    p75_mfe_bar: float = 0.0
 
-    parent_cluster_id: int = None             # The "Macro" state this belongs to
-
-    direction: str = ''   # 'LONG' or 'SHORT' — set during fit()
-
-    # ORACLE EXIT CALIBRATION (in ticks; populated by _aggregate_oracle_intelligence)
-    # Used by workers to anchor TP/SL to what this pattern historically achieves.
-    mean_mfe_ticks: float = 0.0   # Mean max-favorable-excursion seen across members
-    mean_mae_ticks: float = 0.0   # Mean max-adverse-excursion seen across members
-    p75_mfe_ticks:  float = 0.0   # 75th-pct MFE — conservative TP ceiling
-    p25_mae_ticks:  float = 0.0   # 25th-pct MAE — tight SL floor
-    regression_sigma_ticks: float = 0.0  # Residual std from per-cluster OLS; trail = this * 1.1
-
-    # TIME-SCALE CALIBRATION (populated by _aggregate_oracle_intelligence, requires --fresh)
-    avg_mfe_bar: float = 0.0   # mean bar index (15s bars, 0-based) where MFE peaked
-    p75_mfe_bar: float = 0.0   # 75th-pct mfe_bar — conservative "still moving" window
-
-    # PER-CLUSTER REGRESSION MODELS (fitted on 14D scaled feature vectors of members)
-    # MFE model: predicted_mfe = live_features @ mfe_coeff + mfe_intercept
-    # Dir model: P(LONG) = sigmoid(live_features @ dir_coeff + dir_intercept)
-    # Both None when cluster has too few members for reliable fitting.
-    mfe_coeff:     Optional[List[float]] = field(default=None)  # 14 OLS weights
+    # Regression models
+    mfe_coeff: Optional[List[float]] = None
     mfe_intercept: float = 0.0
-    dir_coeff:     Optional[List[float]] = field(default=None)  # 14 logistic weights
+    dir_coeff: Optional[List[float]] = None
     dir_intercept: float = 0.0
 
-def generate_semantic_name(centroid: np.ndarray) -> str:
-    """Decode a 16D raw centroid into a human-readable playbook string.
+    # CST Basin (legacy field support - now handled by node cell bounds)
+    basin_mean: float = 0.0
+    basin_std: float = 0.0
 
-    Centroid layout (after inverse_transform, original scale):
-      [0] abs(z)  [1] log1p(v)  [2] log1p(m)  [3] coherence
-      [4] log2(tf_secs)  [5] depth  [6] parent_is_roche
-      [7] adx/100  [8] hurst  [9] dmi_diff/100
-      [10-15] ancestry features
-    """
-    if centroid is None or len(centroid) < 10:
-        return "Unknown"
+@dataclass
+class HypervolumeNode:
+    """One node in the hypervolume tree. Represents a group at a specific depth."""
+    depth: int                             # which depth level this node covers
+    centroid_16d: np.ndarray               # 16D centroid of this group at this depth
+    cell_min_16d: np.ndarray               # per-axis minimum bounds
+    cell_max_16d: np.ndarray               # per-axis maximum bounds
+    member_count: int                      # patterns that pass through this node
+    children: Dict[int, 'HypervolumeNode'] # child_id -> child node (next depth)
+    template: Optional[PatternTemplate]    # leaf nodes get a template
+    node_id: str                           # path string e.g. "0.2.1"
 
-    z     = centroid[0]     # abs(z_score)
-    vel   = centroid[1]     # log1p(|velocity|)
-    mom   = centroid[2]     # log1p(|momentum|)
-    adx   = centroid[7]     # adx / 100 (0-1 range)
-    hurst = centroid[8]     # hurst exponent (0-1)
-    tf_log2 = centroid[4]   # log2(tf_seconds)
+    # Per-depth scaler (fitted on residuals at this depth within this group)
+    scaler: Optional[StandardScaler] = None
+    regression_r2: float = 0.0             # how well parent predicts this level
+    branch_tightness: float = 0.0          # residual variance
+    adj_r2_mfe: float = 0.0                # adj-R²(oracle_mfe ~ 16D)
 
-    # 1. Trigger (z-score magnitude)
-    if z > 3.0:     trigger = "Singularity"
-    elif z > 2.0:   trigger = "Roche"
-    elif z > 1.0:   trigger = "MeanRev"
-    else:           trigger = "Chop"
-
-    # 2. Kinetic state (log1p-compressed velocity / momentum)
-    if vel > 0.7:       kinetic = "Shock"      # log1p(|v|)>0.7 -> |v|>1.0
-    elif mom > 1.1:     kinetic = "Drive"       # log1p(|m|)>1.1 -> |m|>2.0
-    elif vel > 0.3:     kinetic = "Flow"        # moderate velocity
-    else:               kinetic = "Grind"
-
-    # 3. Regime (ADX + Hurst)
-    if adx > 0.30:                regime = "Trend"
-    elif adx < 0.18 and hurst < 0.45: regime = "MR"      # mean-reverting
-    elif hurst > 0.60:            regime = "Persist"
-    else:                         regime = "Range"
-
-    # 4. Timeframe from log2
-    tf_secs = int(2 ** tf_log2) if tf_log2 > 0 else 15
-    if tf_secs >= 3600:   tf_str = f"{tf_secs // 3600}h"
-    elif tf_secs >= 60:   tf_str = f"{tf_secs // 60}m"
-    else:                 tf_str = f"{tf_secs}s"
-
-    return f"[{tf_str}] {trigger}+{kinetic} {regime}"
-
+@dataclass
+class HypervolumeTree:
+    """The full hypervolume tree."""
+    roots: Dict[int, HypervolumeNode]      # root_id -> depth-0 node
+    max_depth: int
+    n_templates: int
 
 class FractalClusteringEngine:
     def __init__(self, n_clusters=1000, max_variance=0.5):
         self.n_clusters = n_clusters
-        self.max_variance = max_variance  # Max allowed std deviation for Z-score in a cluster
+        self.max_variance = max_variance
+        # Scaler is now per-node, but we keep a dummy one for legacy compat if needed
         self.scaler = StandardScaler()
-        self._long_scaler = StandardScaler()
-        self._short_scaler = StandardScaler()
-
-    def _get_kmeans_model(self, n_clusters: int, n_samples: int, random_state: int = 42,
-                          n_init: int = 3, use_cuda: bool = True):
-        """Returns a KMeans model -- CUDA for main process, sklearn CPU for workers."""
-        if use_cuda:
-            return CUDAKMeans(n_clusters=n_clusters, random_state=random_state, n_init=n_init)
-        from sklearn.cluster import KMeans
-        return KMeans(n_clusters=n_clusters, random_state=random_state,
-                      n_init=n_init, max_iter=300)
+        self.templates = []
 
     @staticmethod
     def extract_features(p: Any) -> List[float]:
         """
         Extracts 16D feature vector from a PatternEvent.
-        Delegates to QuantumFieldEngine.build_16d_vector to ensure consistency with CST checks.
+        Optimized for speed.
         """
-        # Optimized: Direct attribute access + math.log for speed (called millions of times)
-        # ~3x speedup vs getattr/numpy scalars
-        # Assumes p is PatternEvent-like
         z = p.z_score
-
-        # log1p compression keeps extreme TF values finite
-        # math.log1p is faster for scalars than np.log1p
         v_feat = math.log1p(abs(p.velocity))
         m_feat = math.log1p(abs(p.momentum))
         c = p.coherence
 
-        # Fractal hierarchy features
         tf = p.timeframe
         tf_secs = TIMEFRAME_SECONDS.get(tf, 15)
-        # math.log2 is faster for scalars
         tf_scale = math.log2(max(1, tf_secs))
 
         depth = float(p.depth)
         parent_ctx = 1.0 if p.parent_type == 'ROCHE_SNAP' else 0.0
 
-        # Self Regime features
         state = p.state
         if state:
-             # Direct access to ThreeBodyQuantumState fields
-             self_adx = state.adx_strength * 0.01  # / 100.0 -> * 0.01
+             self_adx = state.adx_strength * 0.01
              self_hurst = state.hurst_exponent
              self_dmi_diff = (state.dmi_plus - state.dmi_minus) * 0.01
              self_pid       = state.term_pid
@@ -207,20 +140,16 @@ class FractalClusteringEngine:
              self_pid = 0.0
              self_osc_coh = 0.0
 
-        # Ancestry features
         chain = p.parent_chain
         if chain:
-            # Immediate parent (dict)
             parent = chain[0]
             parent_z = abs(parent.get('z', 0.0))
             parent_dmi_diff = (parent.get('dmi_plus', 0.0) - parent.get('dmi_minus', 0.0)) * 0.01
 
-            # Root ancestor (dict)
             root = chain[-1]
             root_is_roche = 1.0 if root.get('type') == 'ROCHE_SNAP' else 0.0
             root_dmi_diff = (root.get('dmi_plus', 0.0) - root.get('dmi_minus', 0.0)) * 0.01
 
-            # TF Alignment
             self_dir = 1.0 if self_dmi_diff > 0 else -1.0
             root_dir = 1.0 if root_dmi_diff > 0 else -1.0
             tf_alignment = self_dir * root_dir
@@ -235,476 +164,382 @@ class FractalClusteringEngine:
                 parent_z, parent_dmi_diff, root_is_roche, tf_alignment,
                 self_pid, self_osc_coh]
 
-    def _create_pattern_template(self, template_id: int, X_sub: np.ndarray, patterns: list, scaler) -> PatternTemplate:
-        """Helper to create a PatternTemplate with basin geometry.
-
-        Centroid and basin stats are all in SCALED space for consistent
-        distance comparisons in WaveRider.check_structural_integrity().
+    @staticmethod
+    def build_hypervolume_matrix(p: Any) -> Optional[np.ndarray]:
         """
-        c = np.mean(X_sub, axis=0)
-        dists = np.linalg.norm(X_sub - c, axis=1)
-        return PatternTemplate(
-            template_id=template_id,
-            centroid=c,  # SCALED space (was inverse_transform — caused mismatch)
-            member_count=len(patterns),
+        Builds the (Depth+1) x 16 matrix for a pattern.
+        Row 0 = depth 0 (macro), Row D = depth D (leaf).
+        Uses features_16d from parent_chain enriched in Phase 1.
+        """
+        if not hasattr(p, 'parent_chain') or not p.parent_chain:
+            # Fallback for patterns without chain (e.g. macro level 0)
+            # Level 0 pattern is its own root
+            feat = FractalClusteringEngine.extract_features(p)
+            return np.array([feat])
+
+        # Chain is ordered: [immediate_parent, ..., root]
+        # We want: [root, ..., immediate_parent, self]
+
+        # Self features
+        self_feat = FractalClusteringEngine.extract_features(p)
+
+        # Ancestor features
+        # Note: Phase 1 enriched parent_chain with 'features_16d'
+        ancestors = []
+        # parent_chain is [immediate_parent, ..., root]
+        # we want [root, ..., immediate_parent]
+        for ancestor in reversed(p.parent_chain):
+            if 'features_16d' in ancestor:
+                ancestors.append(ancestor['features_16d'])
+            else:
+                # Fallback extraction if missing (should be enriched)
+                # But dict doesn't have all attributes of PatternEvent easily accessible
+                # If features_16d is missing, we might have partial data
+                pass
+
+        matrix = ancestors + [self_feat]
+        return np.array(matrix)
+
+    def _get_kmeans_model(self, n_clusters: int, n_samples: int, random_state: int = 42):
+        """Returns a KMeans model -- CUDA if available/large enough."""
+        import torch
+        # Use CUDA if n_samples large enough AND CUDA is available, else CPU sklearn
+        if n_samples > 1000 and torch.cuda.is_available():
+             return CUDAKMeans(n_clusters=n_clusters, random_state=random_state)
+        from sklearn.cluster import KMeans
+        return KMeans(n_clusters=n_clusters, random_state=random_state, n_init=3)
+
+    def fit_hypervolume_tree(self, patterns: List[Any], min_group_size: int = MIN_GROUP_SIZE) -> HypervolumeTree:
+        """
+        Build hierarchical hypervolume tree by recursive 16D grouping.
+        """
+        print(f"Hypervolume: Building tree from {len(patterns)} patterns...")
+
+        # 1. Build matrices
+        matrices = {}
+        valid_patterns = []
+
+        # Indices in matrices must match indices in pattern_indices list passed to _split_at_depth
+        # We use the index 'i' from enumerate(patterns) as the stable ID
+
+        for i, p in enumerate(patterns):
+            mat = self.build_hypervolume_matrix(p)
+            if mat is not None and mat.shape[0] >= 1:
+                matrices[i] = mat
+                valid_patterns.append(p)
+
+        print(f"  Constructed {len(matrices)} hypervolume matrices.")
+
+        # 2. Recursive grouping
+        root_nodes = self._split_at_depth(
+            pattern_indices=list(matrices.keys()),
+            matrices=matrices,
             patterns=patterns,
-            physics_variance=float(np.std(X_sub[:, 0])),
-            basin_mean=float(np.mean(dists)),
-            basin_std=float(np.std(dists))
+            depth=0,
+            parent_id="",
+            min_group_size=min_group_size
         )
 
-    @staticmethod
-    def _shape_label(p) -> str:
-        """
-        Discrete shape taxonomy for initial grouping before any K-means split.
+        max_depth = 0
+        if matrices:
+            max_depth = max(m.shape[0] for m in matrices.values()) - 1
 
-        Encodes fractal hierarchy position + physical regime so that patterns
-        sharing the same physics context are grouped before quantitative splitting.
-        A depth-5 ROCHE_SNAP at L3_ROCHE trending will never share a cluster
-        with a depth-2 STRUCTURAL_DRIVE at L1_STABLE mean-reverting.
+        n_templates = self._count_leaves(root_nodes)
+        print(f"  Tree built: {len(root_nodes)} roots, max depth {max_depth}, {n_templates} leaf templates.")
 
-        Returns a key like: "d5|ROCHE_SNAP|L3_ROCHE|trend"
-        """
-        depth = int(getattr(p, 'depth', 0))
-        ptype = getattr(p, 'pattern_type', 'UNKNOWN')
-        state = getattr(p, 'state', None)
-        lzone = getattr(state, 'lagrange_zone', 'UNKNOWN') if state else 'UNKNOWN'
-        hurst = getattr(state, 'hurst_exponent', 0.5) if state else 0.5
-        hcat  = 'trend' if hurst > 0.6 else ('revert' if hurst < 0.4 else 'random')
-        return f"d{depth}|{ptype}|{lzone}|{hcat}"
+        tree = HypervolumeTree(roots=root_nodes, max_depth=max_depth, n_templates=n_templates)
 
-    def _compute_adj_r2(self, patterns: list, scaler) -> float:
-        """
-        Adjusted R² of oracle_mfe ~ 16D feature vector for a group of patterns.
+        # Flatten templates list for orchestrator usage
+        self.templates = self._collect_templates(root_nodes)
 
-        Returns -1.0 when too few patterns to fit reliably (n <= k+2 = 18).
-        The adjustment penalty (n-1)/(n-k-1) dominates when n is small relative
-        to k=16 features, so small clusters naturally score low and never
-        qualify for further splitting — the primary anti-overfitting mechanism.
-        Returns 1.0 when MFE variance is near-zero (cluster is perfectly coherent).
-        """
-        pairs = [
-            (self.extract_features(p), p.oracle_meta.get('mfe'))
-            for p in patterns
-            if getattr(p, 'oracle_meta', None) is not None
-        ]
-        pairs = [(f, y) for f, y in pairs if y is not None]
-        n, k = len(pairs), 16
-        if n <= k + 2:
-            return -1.0
-        X = scaler.transform(np.array([f for f, _ in pairs]))
-        y = np.array([m for _, m in pairs])
-        if np.std(y) < 1e-9:
-            return 1.0
-        ols = LinearRegression().fit(X, y)
-        ss_res = float(np.sum((y - ols.predict(X)) ** 2))
-        ss_tot = float(np.sum((y - y.mean()) ** 2))
-        r2 = 1.0 - ss_res / ss_tot
-        adj_r2 = 1.0 - (1.0 - r2) * (n - 1) / (n - k - 1)
-        return float(adj_r2)
+        return tree
 
-    def _recursive_split(self, X: np.ndarray, patterns: list, start_id: int, scaler, depth: int = 0) -> list:
-        """
-        Recursively split a cluster guided by adj-R²(oracle_mfe ~ features).
+    def _split_at_depth(self, pattern_indices: List[int], matrices: Dict[int, np.ndarray],
+                        patterns: List[Any], depth: int, parent_id: str,
+                        min_group_size: int) -> Dict[int, HypervolumeNode]:
 
-        Stops when:
-          1. Hard floor: fewer than MIN_PATTERNS_FOR_SPLIT patterns
-          2. Coherence met: adj-R² >= R2_STOP_THRESHOLD (features explain MFE)
-          3. Cannot split: only one unique point in feature space
+        # Extract 16D vectors at this depth
+        feat_at_depth = []
+        valid_indices = []
+        for idx in pattern_indices:
+            mat = matrices[idx]
+            if depth < mat.shape[0]:
+                feat_at_depth.append(mat[depth])
+                valid_indices.append(idx)
 
-        The adj-R² penalty is large when n is small relative to k=16 features,
-        so small clusters naturally score low and stop splitting without a
-        depth limit — no arbitrary MAX_RECURSION_DEPTH needed.
-        """
-        # 1. Hard floor
-        if len(patterns) <= MIN_PATTERNS_FOR_SPLIT:
-            return [self._create_pattern_template(start_id, X, patterns, scaler)]
+        if len(valid_indices) < min_group_size:
+            return {} # Too small
 
-        # 2. Coherence check — stop if adj-R² already good enough
-        if self._compute_adj_r2(patterns, scaler) >= R2_STOP_THRESHOLD:
-            return [self._create_pattern_template(start_id, X, patterns, scaler)]
+        feat_array = np.array(feat_at_depth)
 
-        # 3. Unique-point guard
-        n_unique = len(np.unique(X, axis=0))
-        k = min(3, max(2, len(patterns) // MIN_PATTERNS_FOR_SPLIT))
-        k = min(k, n_unique)
-        if k <= 1:
-            return [self._create_pattern_template(start_id, X, patterns, scaler)]
+        # Step 0: Check adj-R2 stopping criterion
+        oracle_mfe = np.array([getattr(patterns[i], 'oracle_meta', {}).get('mfe', 0.0)
+                               for i in valid_indices])
 
-        km = self._get_kmeans_model(n_clusters=k, n_samples=len(X))
-        labels = km.fit_predict(X)
-
-        result = []
-        nid = start_id
-        for lbl in range(k):
-            mask = labels == lbl
-            if mask.sum() == 0:
-                continue
-            sub_X = X[mask]
-            sub_p = [patterns[i] for i in np.where(mask)[0]]
-            children = self._recursive_split(sub_X, sub_p, nid, scaler, depth + 1)
-            result.extend(children)
-            nid += len(children)
-        return result
-
-    def _aggregate_oracle_intelligence(self, template, patterns, scaler: StandardScaler):
-        """
-        Post-clustering: compute template-level stats from member oracle markers.
-        Called AFTER clustering is complete. Does NOT influence cluster assignment.
-        """
-        markers = [p.oracle_marker for p in patterns if hasattr(p, 'oracle_marker')]
-
-        if len(markers) < TEMPLATE_MIN_MEMBERS_FOR_STATS:
-            return  # Not enough data
-
-        # 1. Win Rate (any non-noise outcome)
-        wins = sum(1 for m in markers if abs(m) >= 1)
-        template.stats_win_rate = wins / len(markers)
-
-        # 2. Mega Rate (home runs)
-        megas = sum(1 for m in markers if abs(m) == 2)
-        template.stats_mega_rate = megas / len(markers)
-
-        # 3. Expectancy (mean MFE - MAE from oracle_meta)
-        mfe_values = []
-        mae_values = []
-        for p in patterns:
-            meta = getattr(p, 'oracle_meta', {})
-            if 'mfe' in meta and 'mae' in meta:
-                mfe_values.append(meta['mfe'])
-                mae_values.append(meta['mae'])
-
-        if mfe_values:
-            template.stats_expectancy = np.mean(mfe_values) - np.mean(mae_values)
-            template.risk_variance = float(np.std(mfe_values))
-
-            # Oracle exit calibration: convert price-points -> ticks (MNQ: 1 tick = 0.25 pts)
-            _tick = 0.25
-            mfe_ticks = np.array(mfe_values) / _tick
-            mae_ticks = np.array(mae_values) / _tick
-            template.mean_mfe_ticks = float(np.mean(mfe_ticks))
-            template.mean_mae_ticks = float(np.mean(mae_ticks))
-            template.p75_mfe_ticks  = float(np.percentile(mfe_ticks, 75))
-            template.p25_mae_ticks  = float(np.percentile(mae_ticks, 25))
-
-            # ---------------------------------------------------------------
-            # PER-CLUSTER REGRESSION MODELS (14D feature space)
-            # ---------------------------------------------------------------
-            # Build aligned (features, mfe) pairs for members that have oracle data
-            feat_mfe_pairs = [
-                (self.extract_features(p), p.oracle_meta['mfe'])
-                for p in patterns
-                if getattr(p, 'oracle_meta', {}).get('mfe') is not None
-            ]
-            _MIN_REG = 15  # need at least 15 members for stable regression
-
-            if len(feat_mfe_pairs) >= _MIN_REG:
-                raw_X  = np.array([f for f, _ in feat_mfe_pairs])
-                mfe_y  = np.array([m for _, m in feat_mfe_pairs])
-
-                # Scale features using the engine's fitted scaler
-                X_scaled = scaler.transform(raw_X)
-
-                # --- OLS: predicted_mfe = X @ mfe_coeff + mfe_intercept ---
-                ols = LinearRegression().fit(X_scaled, mfe_y)
-                template.mfe_coeff     = ols.coef_.tolist()
-                template.mfe_intercept = float(ols.intercept_)
-                residuals = mfe_y - ols.predict(X_scaled)
-                template.regression_sigma_ticks = float(np.std(residuals) / _tick)
-
-                # --- Logistic: P(LONG) = sigmoid(X @ dir_coeff + dir_intercept) ---
-                # Use only non-noise members; label +1=LONG, 0=SHORT
-                dir_pairs = [
-                    (self.extract_features(p), 1 if p.oracle_marker > 0 else 0)
-                    for p in patterns
-                    if getattr(p, 'oracle_marker', 0) != 0
-                    and getattr(p, 'oracle_meta', {}).get('mfe') is not None
-                ]
-                if len(dir_pairs) >= _MIN_REG:
-                    dir_raw = np.array([self.extract_features(p)
-                                        for p in patterns
-                                        if getattr(p, 'oracle_marker', 0) != 0
-                                        and getattr(p, 'oracle_meta', {}).get('mfe') is not None])
-                    dir_labels = np.array([1 if p.oracle_marker > 0 else 0
-                                           for p in patterns
-                                           if getattr(p, 'oracle_marker', 0) != 0
-                                           and getattr(p, 'oracle_meta', {}).get('mfe') is not None])
-                    # Only fit if both classes present
-                    if len(np.unique(dir_labels)) == 2:
-                        dir_X = scaler.transform(dir_raw)
-                        lr = LogisticRegression(max_iter=300, C=1.0, solver='lbfgs').fit(dir_X, dir_labels)
-                        template.dir_coeff     = lr.coef_[0].tolist()
-                        template.dir_intercept = float(lr.intercept_[0])
-            else:
-                template.regression_sigma_ticks = template.mean_mae_ticks  # fallback
-
-        # 4. Risk Score (0 = safe, 1 = toxic)
-        # High variance + low win rate = toxic
-        if template.stats_win_rate > 0:
-            # Coefficient of variation normalized to [0,1]
-            cv = template.risk_variance / (np.mean(mfe_values) + 1e-9) if mfe_values else 1.0
-            template.risk_score = min(1.0, cv * (1.0 - template.stats_win_rate))
+        # Ensure we have enough variance to check R2
+        if len(oracle_mfe) > 20 and np.std(oracle_mfe) > 1e-9:
+            adj_r2 = self._compute_adj_r2(feat_array, oracle_mfe)
         else:
-            template.risk_score = 1.0
+            adj_r2 = 0.0
 
-        # 5. Direction Bias
-        non_noise = [m for m in markers if m != MARKER_NOISE]
-        if non_noise:
-            longs = sum(1 for m in non_noise if m > 0)
-            shorts = sum(1 for m in non_noise if m < 0)
-            total_nn = len(non_noise)
-            template.long_bias = longs / total_nn
-            template.short_bias = shorts / total_nn
+        if adj_r2 >= R2_STOP_THRESHOLD and len(valid_indices) < 200:
+            # Good prediction + smallish group = leaf
+            return {}
 
-        # 6. Time-scale: bar index where MFE peaked (requires mfe_bar in oracle_meta)
-        mfe_bars = [
-            p.oracle_meta.get('mfe_bar')
-            for p in patterns
-            if getattr(p, 'oracle_meta', None) is not None
-            and p.oracle_meta.get('mfe_bar', -1) >= 0
-        ]
-        if len(mfe_bars) >= TEMPLATE_MIN_MEMBERS_FOR_STATS:
-            template.avg_mfe_bar = float(np.mean(mfe_bars))
-            template.p75_mfe_bar = float(np.percentile(mfe_bars, 75))
+        # Step 1: Fit Regression (if depth > 0)
+        regression_r2 = 0.0
+        if depth > 0:
+            parent_feat = []
+            for idx in valid_indices:
+                mat = matrices[idx]
+                parent_feat.append(mat[depth-1])
+            parent_array = np.array(parent_feat)
 
-    def _build_transition_matrix(self, templates: List[PatternTemplate], all_patterns: List[Any]):
-        """
-        For each template, count how often its members are followed by
-        members of other templates (sorted by time).
+            # Simple fallback for singular matrix
+            try:
+                reg = LinearRegression().fit(parent_array, feat_array)
+                predicted = reg.predict(parent_array)
+                residuals = feat_array - predicted
+                regression_r2 = reg.score(parent_array, feat_array)
+            except Exception:
+                residuals = feat_array - feat_array.mean(axis=0)
+                regression_r2 = 0.0
+        else:
+            regression_centroid = feat_array.mean(axis=0)
+            residuals = feat_array - regression_centroid
 
-        This creates a Markov transition map: P(next_template | current_template).
-        """
-        # Sort all patterns globally by timestamp
-        sorted_patterns = sorted(all_patterns, key=lambda p: p.timestamp)
+        # Step 2: Cluster Residuals
+        scaler = StandardScaler()
+        residuals_scaled = scaler.fit_transform(residuals)
 
-        # Build pattern -> template_id lookup
-        pattern_to_template = {}
-        for template in templates:
-            for p in template.patterns:
-                pattern_to_template[id(p)] = template.template_id
+        residual_var = np.mean(np.var(residuals_scaled, axis=0))
 
-        # Count transitions
-        for i in range(len(sorted_patterns) - 1):
-            curr = sorted_patterns[i]
-            curr_tid = pattern_to_template.get(id(curr))
-            if curr_tid is None:
+        if residual_var < 0.3:
+            n_clusters = 1
+        else:
+            n_clusters = self._choose_k(residuals_scaled, valid_indices, patterns, scaler)
+
+        if n_clusters <= 1:
+            labels = np.zeros(len(valid_indices), dtype=int)
+        else:
+            kmeans = self._get_kmeans_model(n_clusters, len(valid_indices))
+            labels = kmeans.fit_predict(residuals_scaled)
+
+        # Step 3: Build Nodes
+        nodes = {}
+        for cluster_id in range(max(1, n_clusters)):
+            member_mask = labels == cluster_id
+            member_indices = [valid_indices[i] for i, m in enumerate(member_mask) if m]
+
+            if len(member_indices) < min_group_size:
                 continue
 
-            # Find next pattern within gap window
-            for j in range(i + 1, len(sorted_patterns)):
-                nxt = sorted_patterns[j]
-                time_diff = nxt.timestamp - curr.timestamp
-                gap_bars = time_diff / 15.0 # Assuming 15s base
+            node_id = f"{parent_id}{cluster_id}" if parent_id else str(cluster_id)
+            if parent_id: node_id = f"{parent_id}.{cluster_id}"
 
-                if gap_bars < TRANSITION_MIN_SEQUENCE_GAP_BARS:
-                    continue
-                if gap_bars > TRANSITION_MAX_SEQUENCE_GAP_BARS:
-                    break
+            cluster_feat = feat_array[member_mask]
+            centroid = cluster_feat.mean(axis=0)
+            cell_min = cluster_feat.min(axis=0)
+            cell_max = cluster_feat.max(axis=0)
 
-                nxt_tid = pattern_to_template.get(id(nxt))
-                if nxt_tid is not None and nxt_tid != curr_tid:
-                    # Record transition
-                    template_map = next(t for t in templates if t.template_id == curr_tid)
-                    if nxt_tid not in template_map.transition_map:
-                        template_map.transition_map[nxt_tid] = 0
-                    template_map.transition_map[nxt_tid] += 1
-                    break  # Only count first transition
+            # Widen cell slightly to avoid edge cases
+            margin = (cell_max - cell_min) * 0.05
+            cell_min -= margin
+            cell_max += margin
 
-        # Normalize to probabilities
-        for template in templates:
-            total = sum(template.transition_map.values())
-            if total > 0:
-                template.transition_map = {
-                    k: v / total for k, v in template.transition_map.items()
-                }
-                # Sync alias
-                template.transition_probs = template.transition_map
+            cluster_residuals = residuals_scaled[member_mask]
+            branch_tightness = np.mean(np.var(cluster_residuals, axis=0))
 
-    def create_templates(self, manifest: List[Any]) -> List[PatternTemplate]:
-        """
-        Shape-first clustering — no LONG/SHORT pre-split.
+            cluster_mfe = oracle_mfe[member_mask]
+            if len(cluster_feat) > 20 and np.std(cluster_mfe) > 1e-9:
+                cluster_adj_r2 = self._compute_adj_r2(cluster_feat, cluster_mfe)
+            else:
+                cluster_adj_r2 = 0.0
 
-        The snowflake split is removed: direction separation emerges naturally
-        from the shape taxonomy (depth × pattern_type × lagrange_zone × hurst_cat).
-        Templates store long_bias/short_bias from _aggregate_oracle_intelligence
-        so the forward pass can still gate direction without needing separate libraries.
-        """
-        # Exclude pure noise patterns (oracle_marker == 0 have no MFE signal for adj-R²)
-        active = [p for p in manifest if getattr(p, 'oracle_marker', 0) != 0]
-        print(f"Shape Clustering: {len(active)} active patterns ({len(manifest)-len(active)} noise excluded)")
+            # Recursive Split
+            children = self._split_at_depth(
+                member_indices, matrices, patterns,
+                depth + 1, node_id, min_group_size
+            )
 
-        self.scaler, templates = self._fit_branch(active, 'ALL')
+            # Gain check
+            if children:
+                child_count = sum(c.member_count for c in children.values())
+                if child_count > 0:
+                    child_r2_weighted = sum(
+                        c.adj_r2_mfe * c.member_count for c in children.values()
+                    ) / child_count
 
-        # Build Transition Matrix on full merged template set
-        valid = [p for p in active if p is not None]
-        if valid and templates:
-            print(f"  Building Transition Matrix...", end="", flush=True)
-            self._build_transition_matrix(templates, valid)
-            print(" done.")
+                    if child_r2_weighted < cluster_adj_r2 + R2_FISSION_MIN_GAIN:
+                        children = {} # Collapse to leaf
 
-        self.templates = templates
+            template = None
+            if not children:
+                member_patterns = [patterns[i] for i in member_indices]
+                import hashlib
+                # Deterministic ID based on path
+                tid = int(hashlib.sha256(node_id.encode('utf-8')).hexdigest(), 16) % 1000000
+
+                template = PatternTemplate(
+                    template_id=tid,
+                    centroid=centroid,
+                    member_count=len(member_patterns),
+                    patterns=member_patterns,
+                    physics_variance=branch_tightness,
+                    basin_mean=0.0,
+                    basin_std=0.0
+                )
+                self._aggregate_oracle_intelligence(template)
+
+            nodes[cluster_id] = HypervolumeNode(
+                depth=depth,
+                centroid_16d=centroid,
+                cell_min_16d=cell_min,
+                cell_max_16d=cell_max,
+                member_count=len(member_indices),
+                children=children,
+                template=template,
+                node_id=node_id,
+                scaler=scaler,
+                regression_r2=regression_r2,
+                branch_tightness=branch_tightness,
+                adj_r2_mfe=cluster_adj_r2
+            )
+
+        return nodes
+
+    def _choose_k(self, X_scaled: np.ndarray, indices: List[int], patterns: List[Any],
+                  scaler: StandardScaler) -> int:
+        """Choose best k (2..MAX_FISSION_CLUSTERS) using Silhouette Score."""
+        best_k = 1
+        best_score = -1.0
+
+        if len(X_scaled) < MIN_GROUP_SIZE * 2:
+            return 1
+
+        from sklearn.metrics import silhouette_score
+
+        # Only check up to a reasonable k
+        max_k = min(MAX_FISSION_CLUSTERS, len(X_scaled) // MIN_GROUP_SIZE)
+        if max_k < 2:
+             return 1
+
+        for k in range(2, max_k + 1):
+            km = self._get_kmeans_model(k, len(X_scaled))
+            labels = km.fit_predict(X_scaled)
+
+            try:
+                score = silhouette_score(X_scaled, labels)
+            except:
+                score = -1.0
+
+            if score > best_score:
+                best_score = score
+                best_k = k
+
+        return best_k if best_score > 0.1 else 1
+
+    def _compute_adj_r2(self, X: np.ndarray, y: np.ndarray) -> float:
+        n, k = X.shape
+        if n <= k + 2:
+            return 0.0
+        try:
+            reg = LinearRegression().fit(X, y)
+            r2 = reg.score(X, y)
+            return 1.0 - (1.0 - r2) * (n - 1) / (n - k - 1)
+        except:
+            return 0.0
+
+    def _count_leaves(self, nodes: Dict[int, HypervolumeNode]) -> int:
+        count = 0
+        for node in nodes.values():
+            if node.template:
+                count += 1
+            else:
+                count += self._count_leaves(node.children)
+        return count
+
+    def _collect_templates(self, nodes: Dict[int, HypervolumeNode]) -> List[PatternTemplate]:
+        templates = []
+        for node in nodes.values():
+            if node.template:
+                templates.append(node.template)
+            else:
+                templates.extend(self._collect_templates(node.children))
         return templates
 
-    def _fit_branch(self, patterns: List[Any], direction: str):
-        """
-        Shape-first clustering for a set of patterns.
+    def _aggregate_oracle_intelligence(self, template: PatternTemplate):
+        """Populate template stats from member patterns."""
+        patterns = template.patterns
+        markers = [p.oracle_marker for p in patterns if hasattr(p, 'oracle_marker')]
 
-        Stage 1: Group by shape taxonomy (depth × pattern_type × lagrange_zone × hurst_cat).
-                 Each group represents a geometrically distinct market situation.
-        Stage 2: Within each group, recursively split using adj-R²(mfe ~ features).
-                 Only split when features do not yet explain MFE variance well enough.
+        if not markers: return
 
-        Returns (scaler, list[PatternTemplate]).
-        """
-        import time as _time
-        from collections import defaultdict
-        from sklearn.preprocessing import StandardScaler
+        # Win Rates
+        non_noise = [m for m in markers if m != 0] # MARKER_NOISE=0
+        if non_noise:
+            template.long_bias = sum(1 for m in non_noise if m > 0) / len(non_noise)
+            template.short_bias = sum(1 for m in non_noise if m < 0) / len(non_noise)
+            template.direction = 'LONG' if template.long_bias > template.short_bias else 'SHORT'
 
-        if not patterns:
-            return StandardScaler(), []
+        template.stats_win_rate = sum(1 for m in markers if abs(m) >= 1) / len(markers)
+        template.stats_mega_rate = sum(1 for m in markers if abs(m) == 2) / len(markers)
 
-        print(f"\n--- Shape Clustering: {len(patterns)} patterns ---")
-        t0 = _time.perf_counter()
+        # MFE/MAE
+        mfes = [getattr(p, 'oracle_meta', {}).get('mfe', 0.0) for p in patterns]
+        maes = [getattr(p, 'oracle_meta', {}).get('mae', 0.0) for p in patterns]
 
-        # 1. Extract features and fit a single scaler on all patterns
-        features, valid_patterns = [], []
-        for p in patterns:
-            try:
-                features.append(self.extract_features(p))
-                valid_patterns.append(p)
-            except AttributeError:
-                continue
+        template.stats_expectancy = np.mean(mfes) - np.mean(maes)
+        template.risk_variance = float(np.std(mfes))
 
-        if not features:
-            return StandardScaler(), []
+        # Ticks (MNQ: 0.25)
+        _tick = 0.25
+        template.mean_mfe_ticks = np.mean(mfes) / _tick
+        template.mean_mae_ticks = np.mean(maes) / _tick
+        template.p75_mfe_ticks = np.percentile(mfes, 75) / _tick
+        template.p25_mae_ticks = np.percentile(maes, 25) / _tick
 
-        X_all = np.array(features)
-        scaler = StandardScaler()
-        scaler.fit(X_all)
-        print(f"  Feature matrix: {X_all.shape[0]} × {X_all.shape[1]}")
+        # Bars
+        bars = [getattr(p, 'oracle_meta', {}).get('mfe_bar', 0) for p in patterns]
+        if bars:
+            template.avg_mfe_bar = np.mean(bars)
+            template.p75_mfe_bar = np.percentile(bars, 75)
 
-        # 2. Group by shape taxonomy
-        shape_groups = defaultdict(list)
-        for p in valid_patterns:
-            shape_groups[self._shape_label(p)].append(p)
+        # Regressions
+        if len(patterns) >= 20:
+             feats = np.array([self.extract_features(p) for p in patterns])
+             mfe_y = np.array(mfes)
 
-        print(f"  Shape groups: {len(shape_groups)}")
-        for key in sorted(shape_groups):
-            print(f"    {key}: {len(shape_groups[key])} patterns")
+             sc = StandardScaler()
+             X_sc = sc.fit_transform(feats)
 
-        # 3. Per-group adj-R² recursive split
-        t2 = _time.perf_counter()
-        next_id, final_templates = 0, []
+             try:
+                 ols = LinearRegression().fit(X_sc, mfe_y)
+                 template.mfe_coeff = ols.coef_.tolist()
+                 template.mfe_intercept = float(ols.intercept_)
 
-        for shape_key in sorted(shape_groups.keys()):
-            group = shape_groups[shape_key]
-            sub_feats, ok_pats = [], []
-            for p in group:
-                try:
-                    sub_feats.append(self.extract_features(p))
-                    ok_pats.append(p)
-                except AttributeError:
-                    continue
-            if not sub_feats:
-                continue
+                 resids = mfe_y - ols.predict(X_sc)
+                 template.regression_sigma_ticks = np.std(resids) / _tick
+             except:
+                 template.regression_sigma_ticks = 0.0
 
-            sub_X = scaler.transform(np.array(sub_feats))
-
-            if len(ok_pats) < MIN_PATTERNS_FOR_SPLIT:
-                # Too small → single template, no split
-                final_templates.append(
-                    self._create_pattern_template(next_id, sub_X, ok_pats, scaler)
-                )
-                next_id += 1
-            else:
-                refined = self._recursive_split(sub_X, ok_pats, next_id, scaler)
-                final_templates.extend(refined)
-                next_id += len(refined)
-
-        print(f"  Splitting done ({_time.perf_counter() - t2:.2f}s) → {len(final_templates)} templates")
-
-        # 4. Sort by size, aggregate oracle intelligence
-        final_templates.sort(key=lambda x: x.member_count, reverse=True)
-        print(f"  Aggregating Oracle Intelligence...", end="", flush=True)
-        for template in final_templates:
-            self._aggregate_oracle_intelligence(template, template.patterns, scaler)
-        print(f" done. ({_time.perf_counter() - t0:.1f}s total)")
-
-        return scaler, final_templates
+             # Direction
+             labels = np.array([1 if m > 0 else 0 for m in markers if m != 0])
+             if len(labels) >= 20 and len(np.unique(labels)) == 2:
+                 X_dir = np.array([self.extract_features(p) for p in patterns if p.oracle_marker != 0])
+                 X_dir_sc = sc.transform(X_dir)
+                 try:
+                     lr = LogisticRegression(max_iter=300).fit(X_dir_sc, labels)
+                     template.dir_coeff = lr.coef_[0].tolist()
+                     template.dir_intercept = float(lr.intercept_[0])
+                 except:
+                     pass
 
     def refine_clusters(self, template_id: int, member_params: List[Dict[str, float]],
                         original_patterns: List[Any]) -> List[PatternTemplate]:
         """
-        CLUSTER FISSION (Adj-R² Gain):
-
-        Splits a template only when doing so genuinely improves the explanatory
-        power of oracle_mfe ~ feature_vector across children vs parent.
-
-        Replaces the previous silhouette-on-exit-params approach, which split based
-        on divergent {TP, SL, trail} — a within-sample signal that doesn't measure
-        whether the split actually improves out-of-sample predictive coherence.
+        Legacy fission support for Phase 3.
+        Hypervolume Tree handles splitting during construction, so we disable
+        post-hoc fission here by returning empty list (no split).
         """
-        if len(original_patterns) < 2 * MIN_PATTERNS_FOR_SPLIT:
-            return []
-
-        # Parent adj-R² (global scaler fitted on all patterns in create_templates)
-        parent_r2 = self._compute_adj_r2(original_patterns, self.scaler)
-
-        # Extract features once
-        feats, ok_pats = [], []
-        for p in original_patterns:
-            try:
-                feats.append(self.extract_features(p))
-                ok_pats.append(p)
-            except AttributeError:
-                continue
-
-        if len(ok_pats) < 2 * MIN_PATTERNS_FOR_SPLIT:
-            return []
-
-        X_scaled = self.scaler.transform(np.array(feats))
-
-        best_gain, best_n, best_labels = -np.inf, 1, None
-
-        for n in range(2, MAX_FISSION_CLUSTERS):
-            if len(ok_pats) < n * MIN_PATTERNS_FOR_SPLIT:
-                break
-            km = self._get_kmeans_model(n_clusters=n, n_samples=len(X_scaled), use_cuda=False)
-            labels = km.fit(X_scaled).labels_
-
-            # Weighted adj-R² across children
-            weighted_r2, total, valid = 0.0, len(ok_pats), True
-            for lbl in range(n):
-                sub = [ok_pats[i] for i in np.where(labels == lbl)[0]]
-                if len(sub) < MIN_PATTERNS_FOR_SPLIT:
-                    valid = False
-                    break
-                weighted_r2 += self._compute_adj_r2(sub, self.scaler) * len(sub) / total
-
-            if not valid:
-                continue
-            gain = weighted_r2 - parent_r2
-            if gain > best_gain:
-                best_gain, best_n, best_labels = gain, n, labels
-
-        if best_gain < R2_FISSION_MIN_GAIN or best_labels is None:
-            return []
-
-        print(f"Template {template_id}: FISSION! adj-R² gain={best_gain:+.3f} → {best_n} sub-templates")
-
-        new_templates = []
-        for lbl in range(best_n):
-            indices = np.where(best_labels == lbl)[0]
-            sub_pats = [ok_pats[i] for i in indices]
-            if not sub_pats:
-                continue
-
-            sub_X_scaled = X_scaled[indices]
-
-            new_tmpl = self._create_pattern_template(
-                int(f"{template_id}{lbl}"), sub_X_scaled, sub_pats, self.scaler
-            )
-            self._aggregate_oracle_intelligence(new_tmpl, sub_pats, self.scaler)
-            new_templates.append(new_tmpl)
-
-        return new_templates
+        return []

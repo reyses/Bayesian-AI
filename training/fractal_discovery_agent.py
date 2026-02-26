@@ -750,12 +750,14 @@ class FractalDiscoveryAgent:
 
     def _build_parent_chain(self, p: PatternEvent) -> List[Dict]:
         """Builds the full parent chain for a given pattern."""
+        # Local import to avoid circular dependency
+        from training.fractal_clustering import FractalClusteringEngine
+
         chain_entry = {
             'tf': p.timeframe,
+            'depth': p.depth,
             'type': p.pattern_type,
-            'z': p.z_score,
-            'mom': p.momentum,
-            'coh': p.coherence,
+            'features_16d': FractalClusteringEngine.extract_features(p),
             'timestamp': p.timestamp,
             'oracle_marker': getattr(p, 'oracle_marker', 0),
         }

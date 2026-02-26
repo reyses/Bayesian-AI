@@ -1,9 +1,9 @@
 # CURRENT STATUS REPORT
 
 ### 1. METADATA
-- **Timestamp:** 2026-02-24 08:26:50
-- **Git Branch:** jules-4696302846440702408-7a10b972
-- **Last Commit:** 907e4323a682b6c6bf3aa004bd97726d6237ccfb
+- **Timestamp:** 2026-02-26 08:27:42
+- **Git Branch:** jules-11119327299602221427-67b2476b
+- **Last Commit:** fd81a128570fcb688273b04e2c871eab846668ac
 - **Build Status:** (See GitHub Actions Badge)
 
 ### 1A. ARCHITECTURE STATUS
@@ -15,7 +15,7 @@
 ### 2. CHANGELOG
 #### Last 10 Commits
 ```
-907e432 - Merge pull request #214 from reyses/jules-shape-clustering-cst-4999145118411150632 (reyses)
+fd81a12 - feat: ATLAS_1MONTH test dataset + hypervolume spec v2 for Jules (reyses)
 ```
 
 ### 3. FILE STRUCTURE
@@ -28,7 +28,7 @@ Bayesian-AI/
 │   ├── requirements.txt
 │   ├── run_test_workflow.py [TESTED]
 │   ├── AUDIT/
-│   │   ├── AUDIT_REPORT_2026_02_23.md
+│   │   ├── AUDIT_REPORT_2026_02_24.md
 │   │   ├── OLD/
 │   │   │   ├── ADD_PROGRESS_UPDATES regret.md
 │   │   │   ├── ADD_PROGRESS_UPDATES.md
@@ -41,6 +41,7 @@ Bayesian-AI/
 │   │   │   ├── AUDIT_REPORT_2026_02_20.md
 │   │   │   ├── AUDIT_REPORT_2026_02_21.md
 │   │   │   ├── AUDIT_REPORT_2026_02_22.md
+│   │   │   ├── AUDIT_REPORT_2026_02_23.md
 │   │   │   ├── CONSOLIDATION_AUDIT_REPORT.md
 │   │   │   ├── CONSOLIDATION_COMPLETE.md
 │   │   │   ├── CONSOLIDATION_INSTRUCTIONS.md
@@ -56,11 +57,7 @@ Bayesian-AI/
 │   │   │   ├── SYSTEM_ANALYSIS_REPORT.md
 │   │   │   ├── SYSTEM_OVERHAUL_SUMMARY.md
 │   ├── DATA/
-│   │   ├── RAW/
-│   │   │   ├── ohlcv-1s.dbn.zst
-│   │   │   ├── ohlcv-1s.parquet
-│   │   │   ├── trades.dbn.zst
-│   │   │   ├── trades.parquet
+│   │   ├── ATLAS_1MONTH/
 │   ├── archive/
 │   │   ├── README.md
 │   │   ├── __init__.py [COMPLETE]
@@ -121,11 +118,11 @@ Bayesian-AI/
 │   │   ├── ARCHITECTURE.md
 │   │   ├── CHANGELOG.md
 │   │   ├── JULES_AUTO_DOCS.md
+│   │   ├── JULES_EXECUTION_REPORT.md
+│   │   ├── JULES_HYPERVOLUME_CLUSTERING.md
+│   │   ├── JULES_PERFORMANCE_TARGETS.md
 │   │   ├── JULES_SIGNAL_CAPTURE_AUDIT.md
-│   │   ├── JULES_SNOWFLAKE_BASELINE.md
-│   │   ├── JULES_SPECTRAL_GATES.md
-│   │   ├── JULES_TASK_1_2_IMPLEMENTATION.md
-│   │   ├── JULES_TEMPLATE_TIMESCALE.md
+│   │   ├── NT8_BayesianBridge.cs
 │   │   ├── SYSTEM_STATUS.md
 │   │   ├── OLD/
 │   │   │   ├── COMPLETE_IMPLEMENTATION_SPEC.md
@@ -151,12 +148,36 @@ Bayesian-AI/
 │   │   │   ├── Training Orchestrator.txt
 │   │   │   ├── Unconstrained_Exploration.txt
 │   │   │   ├── evaluation_legacy_pattern_detector.md
+│   │   ├── checkpoint_reference/
+│   │   │   ├── run_snapshot.json
+│   │   ├── old_jules/
+│   │   │   ├── JULES_SNOWFLAKE_BASELINE.md
+│   │   │   ├── JULES_SPECTRAL_GATES.md
+│   │   │   ├── JULES_TASK_1_2_IMPLEMENTATION.md
+│   │   │   ├── JULES_TEMPLATE_TIMESCALE.md
+│   │   │   ├── PLAN_PRICE_AWARE_WORKERS.md
+│   ├── live/
+│   │   ├── __init__.py [COMPLETE]
+│   │   ├── __main__.py [COMPLETE]
+│   │   ├── bar_aggregator.py [COMPLETE]
+│   │   ├── config.py [COMPLETE]
+│   │   ├── launcher.py [COMPLETE]
+│   │   ├── live_engine.py [COMPLETE]
+│   │   ├── nt8_client.py [COMPLETE]
+│   │   ├── order_manager.py [COMPLETE]
+│   │   ├── protocol.py [COMPLETE]
 │   ├── models/
 │   │   ├── quantum_probability_table.pkl
 │   ├── notebooks/
 │   │   ├── dashboard.ipynb
 │   │   ├── debug_outputs/
 │   │   ├── models/
+│   ├── reports/
+│   │   ├── oos/
+│   │   │   ├── phase4_report.txt
+│   │   │   ├── trade_analytics.txt
+│   │   ├── phase5/
+│   │   │   ├── phase5_report.txt
 │   ├── run_logs/
 │   │   ├── fn_signal_log_2025_01.csv
 │   │   ├── fn_signal_log_2025_02.csv
@@ -168,6 +189,10 @@ Bayesian-AI/
 │   │   ├── fn_signal_log_2025_08.csv
 │   │   ├── fn_signal_log_2025_09.csv
 │   │   ├── fn_signal_log_2025_10.csv
+│   │   ├── fn_signal_log_2025_11.csv
+│   │   ├── fn_signal_log_2025_12.csv
+│   │   ├── fn_signal_log_2026_01.csv
+│   │   ├── fn_signal_log_2026_02.csv
 │   │   ├── oracle_trade_log_2025_01.csv
 │   │   ├── oracle_trade_log_2025_02.csv
 │   │   ├── oracle_trade_log_2025_03.csv
@@ -178,6 +203,10 @@ Bayesian-AI/
 │   │   ├── oracle_trade_log_2025_08.csv
 │   │   ├── oracle_trade_log_2025_09.csv
 │   │   ├── oracle_trade_log_2025_10.csv
+│   │   ├── oracle_trade_log_2025_11.csv
+│   │   ├── oracle_trade_log_2025_12.csv
+│   │   ├── oracle_trade_log_2026_01.csv
+│   │   ├── oracle_trade_log_2026_02.csv
 │   │   ├── pid_signal_log_2025_01.csv
 │   │   ├── pid_signal_log_2025_02.csv
 │   │   ├── pid_signal_log_2025_03.csv
@@ -188,6 +217,10 @@ Bayesian-AI/
 │   │   ├── pid_signal_log_2025_08.csv
 │   │   ├── pid_signal_log_2025_09.csv
 │   │   ├── pid_signal_log_2025_10.csv
+│   │   ├── pid_signal_log_2025_11.csv
+│   │   ├── pid_signal_log_2025_12.csv
+│   │   ├── pid_signal_log_2026_01.csv
+│   │   ├── pid_signal_log_2026_02.csv
 │   │   ├── signal_log_2025_01.csv
 │   │   ├── signal_log_2025_02.csv
 │   │   ├── signal_log_2025_03.csv
@@ -198,6 +231,10 @@ Bayesian-AI/
 │   │   ├── signal_log_2025_08.csv
 │   │   ├── signal_log_2025_09.csv
 │   │   ├── signal_log_2025_10.csv
+│   │   ├── signal_log_2025_11.csv
+│   │   ├── signal_log_2025_12.csv
+│   │   ├── signal_log_2026_01.csv
+│   │   ├── signal_log_2026_02.csv
 │   │   ├── trade_analytics.txt
 │   ├── scripts/
 │   │   ├── benchmark_regression.py [COMPLETE]
@@ -206,6 +243,7 @@ Bayesian-AI/
 │   │   ├── generate_status_report.py [WIP]
 │   │   ├── gpu_health_check.py [COMPLETE]
 │   │   ├── manifest_integrity_check.py [COMPLETE]
+│   │   ├── monthly_pnl_chart.py [COMPLETE]
 │   │   ├── sentinel_bridge.py [COMPLETE]
 │   │   ├── setup_oos_atlas.py [COMPLETE]
 │   │   ├── setup_test_data.py [TESTED]
@@ -216,6 +254,7 @@ Bayesian-AI/
 │   │   │   ├── benchmark_extract_features.py [COMPLETE]
 │   │   │   ├── debug_databento.py [COMPLETE]
 │   │   │   ├── debug_utils.py [COMPLETE]
+│   │   │   ├── reproduce_keyerror.py [COMPLETE]
 │   │   │   ├── verify_databento_loader.py [COMPLETE]
 │   ├── tests/
 │   │   ├── conftest.py [TESTED]
@@ -227,6 +266,7 @@ Bayesian-AI/
 │   │   ├── test_cuda_imports_and_init.py [TESTED]
 │   │   ├── test_cuda_pattern.py [TESTED]
 │   │   ├── test_cuda_physics.py [TESTED]
+│   │   ├── test_dashboard_ux.py [TESTED]
 │   │   ├── test_databento_loading.py [TESTED]
 │   │   ├── test_doe_features.py [TESTED]
 │   │   ├── test_doe_regret.py [TESTED]
@@ -236,7 +276,6 @@ Bayesian-AI/
 │   │   ├── test_fractal_dashboard.py [TESTED]
 │   │   ├── test_integration_quantum.py [TESTED]
 │   │   ├── test_legacy_layer_engine.py [TESTED]
-│   │   ├── test_multi_timeframe_doe.py [TESTED]
 │   │   ├── test_pattern_recognition.py [TESTED]
 │   │   ├── test_performance_optimizations.py [TESTED]
 │   │   ├── test_phase0.py [TESTED]
@@ -245,10 +284,13 @@ Bayesian-AI/
 │   │   ├── test_real_data_velocity.py [TESTED]
 │   │   ├── test_risk_engine_optimization.py [TESTED]
 │   │   ├── test_state_vector.py [TESTED]
+│   │   ├── test_tbn_optimization.py [TESTED]
+│   │   ├── test_three_body_exits.py [TESTED]
 │   │   ├── test_timeframe_belief_network.py [TESTED]
 │   │   ├── test_torch_pattern.py [TESTED]
 │   │   ├── test_training_validation.py [TESTED]
 │   │   ├── test_wave_rider.py [TESTED]
+│   │   ├── test_wave_rider_features.py [TESTED]
 │   │   ├── test_wave_rider_playbook.py [TESTED]
 │   │   ├── topic_build.py [COMPLETE]
 │   │   ├── topic_diagnostics.py [COMPLETE]
@@ -261,6 +303,13 @@ Bayesian-AI/
 │   │   │   ├── glbx-mdp3-20250801.trades.0000.dbn.zst
 │   │   │   ├── glbx-mdp3-20250803.trades.0000.dbn.zst
 │   │   │   ├── glbx-mdp3-20251230-20260129.ohlcv-1s.dbn.zst
+│   ├── tools/
+│   │   ├── analyze_exits.py [COMPLETE]
+│   │   ├── compare_oos_runs.py [COMPLETE]
+│   │   ├── make_atlas_1day.py [COMPLETE]
+│   │   ├── pattern_map.py [COMPLETE]
+│   │   ├── run_benchmark.py [COMPLETE]
+│   │   ├── trade_visualizer.py [COMPLETE]
 │   ├── training/
 │   │   ├── STOP
 │   │   ├── __init__.py [COMPLETE]
@@ -283,6 +332,7 @@ Bayesian-AI/
 │   │   ├── pid_oscillation_analyzer.py [COMPLETE]
 │   │   ├── pipeline_checkpoint.py [COMPLETE]
 │   │   ├── progress_reporter.py [COMPLETE]
+│   │   ├── run_analytics.py [COMPLETE]
 │   │   ├── thompson_refiner.py [COMPLETE]
 │   │   ├── timeframe_belief_network.py [TESTED]
 │   │   ├── trade_analytics.py [COMPLETE]
@@ -295,8 +345,8 @@ Bayesian-AI/
 ```
 
 ### 4. CODE STATISTICS
-- **Python Files:** 127
-- **Total Lines of Code:** 30311
+- **Python Files:** 148
+- **Total Lines of Code:** 35739
 
 ### 5. CRITICAL INTEGRATION POINTS
 - **Databento API:**
@@ -374,7 +424,7 @@ File core/layer_engine.py not found
 
 ### 9. TESTING STATUS
 - **Tests Directory:** YES
-- **Test Files Count:** 33
+- **Test Files Count:** 36
 
 ### 10. FILES MODIFIED (Last Commit)
 ```
@@ -390,7 +440,7 @@ A	.jules/bolt.md
 A	.vscode/settings.json
 A	=3.5.0
 A	AGENTS.md
-A	AUDIT/AUDIT_REPORT_2026_02_23.md
+A	AUDIT/AUDIT_REPORT_2026_02_24.md
 A	AUDIT/OLD/ADD_PROGRESS_UPDATES regret.md
 A	AUDIT/OLD/ADD_PROGRESS_UPDATES.md
 A	AUDIT/OLD/AUDIT_FINDINGS_PHASE1.md
@@ -402,6 +452,7 @@ A	AUDIT/OLD/AUDIT_REPORT_2026_02_19.md
 A	AUDIT/OLD/AUDIT_REPORT_2026_02_20.md
 A	AUDIT/OLD/AUDIT_REPORT_2026_02_21.md
 A	AUDIT/OLD/AUDIT_REPORT_2026_02_22.md
+A	AUDIT/OLD/AUDIT_REPORT_2026_02_23.md
 A	AUDIT/OLD/CONSOLIDATION_AUDIT_REPORT.md
 A	AUDIT/OLD/CONSOLIDATION_COMPLETE.md
 A	AUDIT/OLD/CONSOLIDATION_INSTRUCTIONS.md
@@ -417,6 +468,20 @@ A	AUDIT/OLD/MASTER_CONTEXT_VS_CODE.md
 A	AUDIT/OLD/SYSTEM_ANALYSIS_REPORT.md
 A	AUDIT/OLD/SYSTEM_OVERHAUL_SUMMARY.md
 A	CURRENT_STATUS.md
+A	DATA/ATLAS_1MONTH/15m/2025_01.parquet
+A	DATA/ATLAS_1MONTH/15s/2025_01.parquet
+A	DATA/ATLAS_1MONTH/1D/2025_01.parquet
+A	DATA/ATLAS_1MONTH/1W/2025_01.parquet
+A	DATA/ATLAS_1MONTH/1h/2025_01.parquet
+A	DATA/ATLAS_1MONTH/1m/2025_01.parquet
+A	DATA/ATLAS_1MONTH/1s/2025_01.parquet
+A	DATA/ATLAS_1MONTH/2m/2025_01.parquet
+A	DATA/ATLAS_1MONTH/30m/2025_01.parquet
+A	DATA/ATLAS_1MONTH/30s/2025_01.parquet
+A	DATA/ATLAS_1MONTH/3m/2025_01.parquet
+A	DATA/ATLAS_1MONTH/4h/2025_01.parquet
+A	DATA/ATLAS_1MONTH/5m/2025_01.parquet
+A	DATA/ATLAS_1MONTH/5s/2025_01.parquet
 A	README.md
 A	archive/README.md
 A	archive/__init__.py
@@ -470,11 +535,11 @@ A	core/three_body_state.py
 A	docs/ARCHITECTURE.md
 A	docs/CHANGELOG.md
 A	docs/JULES_AUTO_DOCS.md
+A	docs/JULES_EXECUTION_REPORT.md
+A	docs/JULES_HYPERVOLUME_CLUSTERING.md
+A	docs/JULES_PERFORMANCE_TARGETS.md
 A	docs/JULES_SIGNAL_CAPTURE_AUDIT.md
-A	docs/JULES_SNOWFLAKE_BASELINE.md
-A	docs/JULES_SPECTRAL_GATES.md
-A	docs/JULES_TASK_1_2_IMPLEMENTATION.md
-A	docs/JULES_TEMPLATE_TIMESCALE.md
+A	docs/NT8_BayesianBridge.cs
 A	docs/OLD/COMPLETE_IMPLEMENTATION_SPEC.md
 A	docs/OLD/FRACTAL_PATTERN_RECOGNITION_SPEC.md
 A	docs/OLD/JULES_5S_1S_WORKERS.md
@@ -499,10 +564,28 @@ A	docs/OLD/Training Orchestrator.txt
 A	docs/OLD/Unconstrained_Exploration.txt
 A	docs/OLD/evaluation_legacy_pattern_detector.md
 A	docs/SYSTEM_STATUS.md
+A	docs/checkpoint_reference/run_snapshot.json
+A	docs/old_jules/JULES_SNOWFLAKE_BASELINE.md
+A	docs/old_jules/JULES_SPECTRAL_GATES.md
+A	docs/old_jules/JULES_TASK_1_2_IMPLEMENTATION.md
+A	docs/old_jules/JULES_TEMPLATE_TIMESCALE.md
+A	docs/old_jules/PLAN_PRICE_AWARE_WORKERS.md
+A	live/__init__.py
+A	live/__main__.py
+A	live/bar_aggregator.py
+A	live/config.py
+A	live/launcher.py
+A	live/live_engine.py
+A	live/nt8_client.py
+A	live/order_manager.py
+A	live/protocol.py
 A	models/quantum_probability_table.pkl
 A	notebooks/dashboard.ipynb
 A	notebooks/debug_outputs/mini_run/probability_table.pkl
 A	notebooks/models/production_learning/quantum_probability_table.pkl
+A	reports/oos/phase4_report.txt
+A	reports/oos/trade_analytics.txt
+A	reports/phase5/phase5_report.txt
 A	requirements.txt
 A	run_logs/.gitkeep
 A	run_logs/fn_signal_log_2025_01.csv
@@ -515,6 +598,10 @@ A	run_logs/fn_signal_log_2025_07.csv
 A	run_logs/fn_signal_log_2025_08.csv
 A	run_logs/fn_signal_log_2025_09.csv
 A	run_logs/fn_signal_log_2025_10.csv
+A	run_logs/fn_signal_log_2025_11.csv
+A	run_logs/fn_signal_log_2025_12.csv
+A	run_logs/fn_signal_log_2026_01.csv
+A	run_logs/fn_signal_log_2026_02.csv
 A	run_logs/oracle_trade_log_2025_01.csv
 A	run_logs/oracle_trade_log_2025_02.csv
 A	run_logs/oracle_trade_log_2025_03.csv
@@ -525,6 +612,10 @@ A	run_logs/oracle_trade_log_2025_07.csv
 A	run_logs/oracle_trade_log_2025_08.csv
 A	run_logs/oracle_trade_log_2025_09.csv
 A	run_logs/oracle_trade_log_2025_10.csv
+A	run_logs/oracle_trade_log_2025_11.csv
+A	run_logs/oracle_trade_log_2025_12.csv
+A	run_logs/oracle_trade_log_2026_01.csv
+A	run_logs/oracle_trade_log_2026_02.csv
 A	run_logs/pid_signal_log_2025_01.csv
 A	run_logs/pid_signal_log_2025_02.csv
 A	run_logs/pid_signal_log_2025_03.csv
@@ -535,6 +626,10 @@ A	run_logs/pid_signal_log_2025_07.csv
 A	run_logs/pid_signal_log_2025_08.csv
 A	run_logs/pid_signal_log_2025_09.csv
 A	run_logs/pid_signal_log_2025_10.csv
+A	run_logs/pid_signal_log_2025_11.csv
+A	run_logs/pid_signal_log_2025_12.csv
+A	run_logs/pid_signal_log_2026_01.csv
+A	run_logs/pid_signal_log_2026_02.csv
 A	run_logs/signal_log_2025_01.csv
 A	run_logs/signal_log_2025_02.csv
 A	run_logs/signal_log_2025_03.csv
@@ -545,6 +640,10 @@ A	run_logs/signal_log_2025_07.csv
 A	run_logs/signal_log_2025_08.csv
 A	run_logs/signal_log_2025_09.csv
 A	run_logs/signal_log_2025_10.csv
+A	run_logs/signal_log_2025_11.csv
+A	run_logs/signal_log_2025_12.csv
+A	run_logs/signal_log_2026_01.csv
+A	run_logs/signal_log_2026_02.csv
 A	run_logs/trade_analytics.txt
 A	run_test_workflow.py
 A	scripts/benchmark_regression.py
@@ -557,6 +656,7 @@ A	scripts/fix_cuda.py
 A	scripts/generate_status_report.py
 A	scripts/gpu_health_check.py
 A	scripts/manifest_integrity_check.py
+A	scripts/monthly_pnl_chart.py
 A	scripts/sentinel_bridge.py
 A	scripts/setup_oos_atlas.py
 A	scripts/setup_test_data.py
@@ -577,6 +677,7 @@ A	tests/test_cpu_physics.py
 A	tests/test_cuda_imports_and_init.py
 A	tests/test_cuda_pattern.py
 A	tests/test_cuda_physics.py
+A	tests/test_dashboard_ux.py
 A	tests/test_databento_loading.py
 A	tests/test_doe_features.py
 A	tests/test_doe_regret.py
@@ -595,16 +696,25 @@ A	tests/test_quantum_field_engine.py
 A	tests/test_real_data_velocity.py
 A	tests/test_risk_engine_optimization.py
 A	tests/test_state_vector.py
+A	tests/test_tbn_optimization.py
+A	tests/test_three_body_exits.py
 A	tests/test_timeframe_belief_network.py
 A	tests/test_torch_pattern.py
 A	tests/test_training_validation.py
 A	tests/test_wave_rider.py
+A	tests/test_wave_rider_features.py
 A	tests/test_wave_rider_playbook.py
 A	tests/topic_build.py
 A	tests/topic_diagnostics.py
 A	tests/topic_math.py
 A	tests/utils.py
 A	tests/verify_regret_fallback.py
+A	tools/analyze_exits.py
+A	tools/compare_oos_runs.py
+A	tools/make_atlas_1day.py
+A	tools/pattern_map.py
+A	tools/run_benchmark.py
+A	tools/trade_visualizer.py
 A	training/STOP
 A	training/__init__.py
 A	training/anova_analyzer.py
@@ -626,6 +736,7 @@ A	training/pattern_analyzer.py
 A	training/pid_oscillation_analyzer.py
 A	training/pipeline_checkpoint.py
 A	training/progress_reporter.py
+A	training/run_analytics.py
 A	training/thompson_refiner.py
 A	training/timeframe_belief_network.py
 A	training/trade_analytics.py
@@ -645,7 +756,7 @@ A	visualization/visualization_module.py
 
 - **Status:** PASS
 - **Command:** `pytest tests/topic_math.py`
-- **Summary:** 4 passed in 1.03s
+- **Summary:** 4 passed in 1.09s
 
 
 ### 13. TRAINING VALIDATION METRICS
@@ -690,7 +801,18 @@ Topic 2: Math and Logic
 PASS: Logic Core verified
 
 Topic 3: Diagnostics
-PASS: Required files found in DATA/RAW
+FAIL: Diagnostics Check Failed
+```
+Bayesian-AI - Diagnostics Test
+================================
+CUDA Available: False
+WARNING: CUDA not available. System running in CPU fallback mode.
+Operational Mode: LEARNING
+Checking Data Path: DATA/RAW
+FAIL: DATA/RAW does not exist.
+DIAGNOSTICS COMPLETE
+
+```
 
 Manifest Integrity
 PASS: Manifest Integrity Check Passed
