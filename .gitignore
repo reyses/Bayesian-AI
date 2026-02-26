@@ -15,6 +15,7 @@ training/training_progress.json
 *.pkl
 !docs/checkpoint_reference/*.pkl
 *.parquet
+!DATA/ATLAS_1MONTH/**/*.parquet
 nul
 debug_outputs/
 checkpoints/
