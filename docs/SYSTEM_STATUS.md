@@ -3,16 +3,16 @@
 
 ## Latest Forward Pass Results
 - **Date run:** 2026-02-25
-- **Period simulated:** 2025-01-01 → 2025-10-30
-- **Net PnL:** -$277.76
-- **Win Rate:** 39.7%
-- **Total Trades:** 58
-- **Delta Capture Rate:** N/A (negative PnL)
+- **Period simulated:** 2025-01-03 → 2026-02-09
+- **Net PnL:** $18,940.50
+- **Win Rate:** 46.6%
+- **Total Trades:** 25,323
+- **Delta Capture Rate:** N/A
 
 ## Exit Quality
-- Trades with profit_target: 4 (avg $30.50)
-- Trades with trail_stop: 27 (avg -$5.67)
-- Trades with structural_break: 27 (avg -$9.15)
+- Trades with dynamic trail (tightened): N/A
+- Trades with dynamic trail (widened): N/A
+- Trades with standard trail: N/A
 
 ## Gate Summary
 | Gate | Skipped | % of candidates |
@@ -24,30 +24,38 @@
 | Gate 3.5 (R:R) | N/A | N/A |
 | Gate 4 (score) | N/A | N/A |
 
-## Worker Agreement (from trade_analytics.txt if present)
+## Worker Agreement
+```
 WORKER AGREEMENT AT ENTRY (best vs worst)
-TF       Best agree  Worst agree      Diff
-1h            0.501        0.501    +0.000
-30m           0.845        0.758    +0.087
-15m           0.719        0.623    +0.096
-5m            0.484        0.459    +0.025
-3m            0.547        0.559    -0.012
-1m            0.447        0.458    -0.011
-30s           0.461        0.503    -0.042
-15s           0.475        0.468    +0.008
+    TF       Best agree  Worst agree      Diff
+    1h            0.520        0.602    -0.082
+    30m           0.531        0.517    +0.013
+    15m           0.486        0.569    -0.083
+    5m            0.523        0.518    +0.005
+    3m            0.417        0.417    +0.000
+    1m            0.449        0.568    -0.119 <<
+    30s           0.572        0.513    +0.059
+    15s           0.480        0.443    +0.037
+```
 
 ## Top Depth Breakdown
+```
 ANOVA: actual_pnl ~ Depth
-F=0.73  p=0.602
-Group                       n    Mean PnL     Std PnL
-9.0                         4  $    10.62  $    29.25  <- best
-10.0                        5  $     9.30  $    26.94
-3.0                        20  $    -2.27  $    10.93
-4.0                        10  $    -4.90  $     7.19
-5.0                         5  $   -10.70  $    13.61
-8.0                        12  $   -14.62  $    58.17
-11.0                        2  $   -21.75  $    32.88
+    F=1.51  p=0.129
+    Group                       n    Mean PnL     Std PnL
+    11.0                      196  $    12.88  $    71.82  <- best
+    3.0                        23  $     7.15  $    47.47
+    5.0                       392  $     7.07  $    55.35
+    1.0                         6  $     5.58  $    20.71
+    6.0                       403  $     3.47  $    53.28
+    9.0                       628  $     2.93  $    41.87
+    4.0                        30  $     2.68  $    28.49
+    12.0                       53  $     1.96  $    93.42
+    10.0                      468  $     0.66  $    40.65
+    7.0                       397  $     0.22  $    48.95
+    2.0                        26  $   -14.04  $    41.52
+```
 
 ## Known Issues / Next Actions
-- AVOID hours: 03:00, 09:00, 11:00, 15:00, 16:00
-- Filter out depth 8.0, 11.0, 5.0 (negative PnL)
+- Review AVOID hours in trade analytics (00:00, 01:00, 03:00-06:00, etc.)
+- Investigate PnL=$0 trades in BEST/WORST list (data issue?)

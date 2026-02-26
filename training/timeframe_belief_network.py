@@ -1033,13 +1033,15 @@ class TimeframeBeliefNetwork:
         self._decay_entry_bar = 0
         self._decay_entry_physics = {}
 
-    def get_decay_cascade(self) -> dict:
+    def get_decay_cascade(self, cell_bounds=None, live_16d=None) -> dict:
         """
         Compute physics decay cascade across all workers since trade entry.
 
         Each worker's z_score trajectory is compared to the EXPECTED trajectory
         (linear mean reversion from entry_z -> 0 over the pattern horizon T_k).
         Deviations AGAINST the trade direction are penalized.
+
+        Also checks if the live 16D feature vector has exited the Hypervolume Cell.
 
         Tolerance band tau narrows from alpha_max -> alpha_min over T_k.
         Fast-TF workers get MORE weight (inverse of entry weighting) because
@@ -1101,12 +1103,29 @@ class TimeframeBeliefNetwork:
 
         cascade = cascade_num / cascade_den if cascade_den > 0 else 0.0
 
+        # Hypervolume Cell Exit Signal
+        cell_exit = False
+        cell_breach = 0.0
+        if cell_bounds and live_16d is not None:
+            cell_min, cell_max = cell_bounds
+            # Binary check
+            inside = np.all(live_16d >= cell_min) and np.all(live_16d <= cell_max)
+            if not inside:
+                cell_exit = True
+                # Compute breach magnitude (Euclidean distance outside the box)
+                breach_vec = np.maximum(cell_min - live_16d, 0) + np.maximum(live_16d - cell_max, 0)
+                cell_breach = np.linalg.norm(breach_vec)
+                # Boost cascade score
+                cascade += cell_breach * 0.5
+
         return {
             'cascade_score': round(cascade, 4),
             'per_worker': per_worker,
             'should_exit': cascade > self.DECAY_THETA_EXIT,
             'progress': round(progress, 3),
             'tau': round(tau, 3),
+            'cell_exit': cell_exit,
+            'cell_breach': round(cell_breach, 3)
         }
 
     # ------------------------------------------------------------------

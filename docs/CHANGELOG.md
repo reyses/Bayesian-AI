@@ -2,6 +2,26 @@
 
 ---
 
+## [V5.2.0] - 2026-02-26 — Phase A/B/C Performance Improvements
+
+### New
+- `core/quantum_field_engine.py`: Vectorized CPU physics engine (`_batch_compute_cpu`) using `numpy.convolve` and `sliding_window_view`.
+- `core/quantum_field_engine.py`: JIT-compiled R/S calculation (`_compute_rs_numba`) for significant speedup.
+- `core/quantum_field_engine.py`: Vectorized Hurst exponent calculation (`_compute_hurst_numpy`) replacing iterative polyfit.
+- `training/cuda_kmeans.py`: GPU-accelerated K-Means clustering support.
+- `training/data_loading_optimizer.py`: Optimized data loading pipeline.
+- `tests/test_performance_optimizations.py`: Verification tests for regression and Hurst optimizations.
+
+### Changed
+- `QuantumFieldEngine`: Unified `batch_compute_states` method handling both CUDA and CPU paths seamlessly.
+- `QuantumFieldEngine`: Refined PID control force and Oscillation Coherence calculations in vectorized path.
+- `QuantumFieldEngine`: Optimized pattern detection using unified `_detect_patterns_unified` method.
+
+### Fixed
+- Performance bottlenecks in rolling regression and Hurst calculations addressed by vectorization (Phase A/B/C).
+
+---
+
 ## [V5.1.1] - 2026-02-24 — Dashboard Log Context Menu
 
 ### Changed
