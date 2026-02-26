@@ -301,7 +301,7 @@ class FractalClusteringEngine:
                 predicted = reg.predict(parent_array)
                 residuals = feat_array - predicted
                 regression_r2 = reg.score(parent_array, feat_array)
-            except:
+            except Exception:
                 residuals = feat_array - feat_array.mean(axis=0)
                 regression_r2 = 0.0
         else:
