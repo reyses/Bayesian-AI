@@ -1439,7 +1439,7 @@ class BayesianTrainingOrchestrator:
                         _leaf_scaler = best_leaf_node.scaler if best_leaf_node and best_leaf_node.scaler else self.scaler
                         try:
                             _live_scaled = _leaf_scaler.transform([_live_feat_raw])[0]
-                        except:
+                        except Exception:
                             _live_scaled = _live_feat_raw # Fallback
 
                         # Direction determination
