@@ -9,3 +9,7 @@
 ## 2026-02-12 - [Tkinter Tooltip Fallback]
 **Learning:** `bbox("insert")` on `ttk.Label` raises `AttributeError` or returns `None`. A robust tooltip implementation must catch these exceptions and fallback to `winfo_rootx/y` relative positioning.
 **Action:** Always wrap `bbox("insert")` in a try-except block when implementing tooltips that might be attached to non-text widgets.
+
+## 2026-02-24 - [Mocking Matplotlib Subplots]
+**Learning:** When adding features that instantiate `plt.subplots`, existing tests mocking `tkinter` will fail if `plt.subplots` is not also mocked and configured to return a tuple `(fig, ax)`.
+**Action:** Always patch `plt.subplots` in tests for classes that create plots in `__init__`, ensuring it returns valid mock objects.
