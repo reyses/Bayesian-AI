@@ -147,6 +147,35 @@ class TestFractalDashboard(unittest.TestCase):
         self.assertEqual(dashboard._sort_col, "Trades")
         self.assertTrue(dashboard._sort_reverse)
 
+    @patch('visualization.live_training_dashboard.plt.subplots')
+    @patch('visualization.live_training_dashboard.filedialog.asksaveasfilename')
+    def test_save_chart(self, mock_asksaveasfilename, mock_subplots):
+        mock_fig_plot = MagicMock()
+        mock_ax = MagicMock()
+        mock_subplots.return_value = (mock_fig_plot, mock_ax)
+
+        # Mock datetime to control filename
+        with patch('visualization.live_training_dashboard.datetime.datetime') as mock_datetime:
+            mock_datetime.now.return_value.strftime.return_value = "20231027_120000"
+
+            mock_asksaveasfilename.return_value = "/tmp/chart.png"
+            mock_fig = MagicMock()
+
+            dashboard = FractalDashboard(self.root, self.queue)
+
+            # Call the new method
+            dashboard._save_chart(mock_fig, "test_chart")
+
+            # Verify asksaveasfilename called
+            mock_asksaveasfilename.assert_called_once()
+            args, kwargs = mock_asksaveasfilename.call_args
+            self.assertEqual(kwargs['initialfile'], "test_chart_20231027_120000.png")
+
+            # Verify savefig called
+            mock_fig.savefig.assert_called_once()
+            args, kwargs = mock_fig.savefig.call_args
+            self.assertEqual(args[0], "/tmp/chart.png")
+
 if __name__ == '__main__':
     # Patching infinite loop in _process_queue for testing
     # We'll just call _handle_message directly or catch the recursion
