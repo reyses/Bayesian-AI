@@ -104,6 +104,84 @@ structure to a single vector. This tree approach:
 5. **No scaler mismatch possible** — each level has its own local grouping
 6. **Maps to existing belief network** — workers already sit at each TF level
 
+## Existing Infrastructure on Main (Already Built — Wire In)
+
+These features already exist on main. The hypervolume tree must integrate them, not replace them.
+
+### Feature Extraction & Coordinate System
+
+| Item | File | How Hypervolume Uses It |
+|------|------|------------------------|
+| `build_16d_vector()` static method | `quantum_field_engine.py` | **Canonical 16D coordinate definition** — every cell boundary, membership test, and live match uses this vector. This IS the hypervolume coordinate system. |
+| `extract_features()` (speed-optimized) | `fractal_clustering.py` | `math.log1p` + direct attr access. Used at every depth level during tree build + navigation. |
+| `states_map` passed to oracle at all depths | `fractal_discovery_agent.py` | CST structural integrity computed at every depth — hypervolume needs this for all 12 levels. |
+| Spectral data enrichment (`z_score`, `velocity`) | `fractal_discovery_agent.py` | Populated before extraction. Available as features in the 16D vector. |
+
+### Oracle & Template Stats
+
+| Item | File | How Hypervolume Uses It |
+|------|------|------------------------|
+| `mfe_bar` tracking in oracle | `fractal_discovery_agent.py` | Feeds `avg_mfe_bar` / `p75_mfe_bar` on leaf templates. |
+| `avg_mfe_bar`, `p75_mfe_bar` on PatternTemplate | `fractal_clustering.py` | Time-exhaustion exits. Computed per hypervolume leaf cell from oracle_meta. |
+| CST structural integrity lists in oracle | `fractal_discovery_agent.py` | Per-bar L2 drift from entry. Stored in oracle_meta, used by WaveRider CST. |
+
+### Adj-R² Split Criterion (ADAPT into Tree)
+
+Main's `fractal_clustering.py` uses adj-R²(oracle_mfe ~ 16D features) as the stopping criterion
+for recursive splits. **The hypervolume tree absorbs this directly:**
+
+- **Stop splitting** a node when adj-R²(mfe ~ 16D) ≥ 0.15 — features already predict outcomes well
+- **Only keep a split** if weighted child R² > parent R² + 0.05 — prevents overfitting
+- The adjusted penalty `1 - (1-R²)(n-1)/(n-k-1)` naturally stops when n is small relative to k=16
+
+```python
+def _compute_adj_r2(features_16d: np.ndarray, oracle_mfe: np.ndarray) -> float:
+    """Already on main. Measures how well 16D features predict MFE for a group."""
+    from sklearn.linear_model import LinearRegression
+    reg = LinearRegression().fit(features_16d, oracle_mfe)
+    r2 = reg.score(features_16d, oracle_mfe)
+    n, k = features_16d.shape
+    if n <= k + 1:
+        return 0.0
+    return 1 - (1 - r2) * (n - 1) / (n - k - 1)
+```
+
+### Direction & Exit Infrastructure (Post-Matching — Keep As-Is)
+
+| Item | File | Notes |
+|------|------|-------|
+| Gate 4: direction confidence (`abs(p_long - 0.5) < 0.15`) | `orchestrator.py` | Fires AFTER tree match. No change needed. |
+| Gate 5: multi-TF direction consensus (≥0.60) | `orchestrator.py` | Fires AFTER tree match. No change needed. |
+| `compute_p_profitable()` | `belief_network.py` | Aggregates DMI/momentum across workers. |
+| `get_direction_consensus()` | `belief_network.py` | 4-signal composite for Gate 5. |
+| Continuous net pressure model | `belief_network.py` | hold/exit pressure → trail widen/tighten/urgent. |
+| Decay cascade (z-score drift) | `belief_network.py` | **EXTEND**: add "live vector left cell" as new decay signal (see Phase 7). |
+| Pre-converted coefficients (list→np.array) | `belief_network.py` | ~40x per-tick speedup. Already done. |
+| Scaler mean/scale pre-extraction | `belief_network.py` | Avoids sklearn overhead. Already done. |
+| Price-aware conviction modulation | `belief_network.py` | Workers modulate by trade_side + profit_ticks. |
+| DNA tree integration | `orchestrator.py` | Complementary to hypervolume (identity vs geometry). Keep. |
+
+### Basin Geometry → Cell Bounding Box (ADAPT)
+
+Main stores `basin_mean` and `basin_std` on PatternTemplate for CST integrity checks
+(L2 distance < basin_mean + 3*basin_std). **Hypervolume replaces this with explicit bounds:**
+
+```python
+# On HypervolumeNode (replaces basin_mean/basin_std):
+cell_min_16d: np.ndarray   # per-axis minimum of member features
+cell_max_16d: np.ndarray   # per-axis maximum of member features
+
+# CST integrity check becomes:
+def is_inside_cell(live_16d: np.ndarray, node: HypervolumeNode) -> bool:
+    """Binary membership test — is the live vector inside the hyperrectangle?"""
+    return np.all(live_16d >= node.cell_min_16d) and np.all(live_16d <= node.cell_max_16d)
+```
+
+This is strictly better than L2 + basin: axis-aligned bounds catch drift on ANY axis,
+not just overall distance from centroid.
+
+---
+
 ## Implementation
 
 ### Phase 1: Enrich Parent Chain with Full 16D Features
@@ -145,16 +223,18 @@ class HypervolumeNode:
     """One node in the hypervolume tree. Represents a group at a specific depth."""
     depth: int                             # which depth level this node covers
     centroid_16d: np.ndarray               # 16D centroid of this group at this depth
+    cell_min_16d: np.ndarray               # per-axis minimum bounds (for CST membership test)
+    cell_max_16d: np.ndarray               # per-axis maximum bounds (for CST membership test)
     member_count: int                      # patterns that pass through this node
     children: Dict[int, 'HypervolumeNode'] # child_id -> child node (next depth)
     template: Optional[PatternTemplate]    # leaf nodes get a template with oracle stats
     node_id: str                           # path string e.g. "A3.7.2"
-    radius: float                          # max distance of members from centroid (for matching)
 
     # Per-depth scaler (fitted on residuals at this depth within this group)
     scaler: Optional[StandardScaler] = None
     regression_r2: float = 0.0             # how well parent predicts this level
     branch_tightness: float = 0.0          # residual variance (lower = tighter group)
+    adj_r2_mfe: float = 0.0               # adj-R²(oracle_mfe ~ 16D) — split stopping criterion
 
 
 @dataclass
@@ -238,41 +318,49 @@ def _split_at_depth(self, pattern_indices, matrices, patterns,
 
     feat_array = np.array(feat_at_depth)  # (N, 16)
 
+    # ── Step 0: Check adj-R² stopping criterion ──────────────────────────
+    # If 16D features already predict MFE well enough, don't split further.
+    # This is adapted from main's _compute_adj_r2 — prevents overfitting.
+    oracle_mfe = np.array([getattr(patterns[i], 'oracle_mfe', 0.0)
+                           for i in valid_indices])
+    if np.std(oracle_mfe) > 0:
+        adj_r2 = _compute_adj_r2(feat_array, oracle_mfe)
+    else:
+        adj_r2 = 0.0
+
+    if adj_r2 >= 0.15 and len(valid_indices) < 200:
+        # Features explain MFE well and group is small — stop splitting,
+        # this becomes a leaf. Return empty dict so parent creates template.
+        return {}
+
     # ── Step 1: Fit 16D regression to find expected centroid ──────────────
-    # If this is a sub-group, regress current depth features against
-    # parent depth features to capture the expected evolution.
-    # For root level (depth 0), the regression centroid is simply the mean.
     if depth > 0:
-        # Use parent-depth features as predictors for current-depth features
         parent_feat = []
         for idx in valid_indices:
             mat = matrices[idx]
-            parent_feat.append(mat[depth - 1])  # parent level features
+            parent_feat.append(mat[depth - 1])
         parent_array = np.array(parent_feat)  # (N, 16)
 
         # Multivariate OLS: feat_current = parent_feat @ B + intercept
+        # Use torch.linalg.lstsq on CUDA for large groups (>5000 patterns)
         from sklearn.linear_model import LinearRegression
         reg = LinearRegression()
         reg.fit(parent_array, feat_array)
-        predicted = reg.predict(parent_array)  # expected 16D at this depth
-        residuals = feat_array - predicted      # (N, 16) deviation from expected
+        predicted = reg.predict(parent_array)
+        residuals = feat_array - predicted      # (N, 16)
         regression_centroid = feat_array.mean(axis=0)
         regression_r2 = reg.score(parent_array, feat_array)
     else:
-        # Root level: centroid is mean, residuals are deviations from mean
         regression_centroid = feat_array.mean(axis=0)
-        residuals = feat_array - regression_centroid  # (N, 16)
+        residuals = feat_array - regression_centroid
         regression_r2 = 0.0
 
     # ── Step 2: Cluster the residuals ────────────────────────────────────
-    # Patterns with similar residuals deviate from the regression in the
-    # same way — they share the same hypervolume sub-structure.
     scaler = StandardScaler()
     residuals_scaled = scaler.fit_transform(residuals)
 
-    # Check if group is already tight (low residual variance → single branch)
     residual_var = np.mean(np.var(residuals_scaled, axis=0))
-    if residual_var < 0.3:  # tight group, no need to split
+    if residual_var < 0.3:
         n_clusters = 1
     else:
         n_clusters = self._choose_k(residuals_scaled, valid_indices,
@@ -295,24 +383,37 @@ def _split_at_depth(self, pattern_indices, matrices, patterns,
 
         node_id = f"{parent_id}{cluster_id}" if parent_id else str(cluster_id)
 
-        # Centroid in feature space (not residual space) for matching
+        # Centroid + cell bounding box in feature space (for matching + CST)
         cluster_feat = feat_array[member_mask]
         centroid = cluster_feat.mean(axis=0)
+        cell_min = cluster_feat.min(axis=0)    # per-axis lower bound
+        cell_max = cluster_feat.max(axis=0)    # per-axis upper bound
 
         # Residual tightness = branch quality score
         cluster_residuals = residuals_scaled[member_mask]
         branch_tightness = np.mean(np.var(cluster_residuals, axis=0))
 
-        # Radius for matching threshold
-        radius = np.percentile(
-            np.linalg.norm(cluster_residuals -
-                           cluster_residuals.mean(axis=0), axis=1), 95)
+        # Adj-R² for this cluster (how well features predict MFE here)
+        cluster_mfe = oracle_mfe[member_mask]
+        if len(cluster_feat) > 20 and np.std(cluster_mfe) > 0:
+            cluster_adj_r2 = _compute_adj_r2(cluster_feat, cluster_mfe)
+        else:
+            cluster_adj_r2 = 0.0
 
-        # Recurse to next depth
+        # ── Adj-R² gain check: only split if children improve on parent ──
+        # Attempt recursive split into children at next depth
         children = self._split_at_depth(
             member_indices, matrices, patterns,
             depth + 1, node_id + ".", min_group_size
         )
+
+        # If children exist, verify R² gain ≥ 0.05 (from main's fission logic)
+        if children:
+            child_r2_weighted = sum(
+                c.adj_r2_mfe * c.member_count for c in children.values()
+            ) / max(1, sum(c.member_count for c in children.values()))
+            if child_r2_weighted < cluster_adj_r2 + 0.05:
+                children = {}  # split doesn't help — collapse to leaf
 
         # If no children (leaf), create template with oracle stats
         template = None
@@ -326,18 +427,26 @@ def _split_at_depth(self, pattern_indices, matrices, patterns,
                 physics_variance=branch_tightness,
             )
             self._aggregate_oracle_intelligence(template)
+            # Time-scale calibration (from main): avg/p75 MFE bar
+            mfe_bars = [getattr(p, 'oracle_meta', {}).get('mfe_bar', 0)
+                        for p in member_patterns]
+            if mfe_bars:
+                template.avg_mfe_bar = np.mean(mfe_bars)
+                template.p75_mfe_bar = np.percentile(mfe_bars, 75)
 
         nodes[cluster_id] = HypervolumeNode(
             depth=depth,
             centroid_16d=centroid,
+            cell_min_16d=cell_min,
+            cell_max_16d=cell_max,
             member_count=len(member_indices),
             children=children,
             template=template,
             node_id=node_id,
-            radius=radius,
-            scaler=scaler,          # residual scaler for this node
+            scaler=scaler,
             regression_r2=regression_r2,
             branch_tightness=branch_tightness,
+            adj_r2_mfe=cluster_adj_r2,
         )
 
     return nodes
@@ -345,62 +454,99 @@ def _split_at_depth(self, pattern_indices, matrices, patterns,
 
 ### Phase 4: Navigate the Tree (Forward Pass)
 
-**File**: `training/orchestrator.py` — replace Gate 1 matching
+**File**: `training/orchestrator.py` — replaces Gate 1 L2 matching + Gate 0.5 depth filter
+
+Navigation uses cell membership (bounding box) as primary test, L2 to centroid as tiebreaker.
+No global distance threshold needed — the cell bounds define what "matches" at each level.
 
 ```python
 def _navigate_hypervolume_tree(self, tree: HypervolumeTree,
-                                candidate: PatternEvent,
-                                max_dist: float = 4.5) -> Optional[PatternTemplate]:
+                                candidate: PatternEvent) -> Optional[Tuple[PatternTemplate, HypervolumeNode]]:
     """Walk the hypervolume tree to find the best matching template.
 
     At each depth level:
-    1. Extract candidate's 16D features at this depth (from parent chain)
-    2. Compare to child centroids within current node
-    3. Follow the nearest child (if within max_dist)
-    4. Repeat until leaf (template) or no match
+    1. Extract candidate's 16D features at this depth (from enriched parent chain)
+       Uses build_16d_vector() — the canonical coordinate definition from QFE.
+    2. Check which child cells CONTAIN the live vector (bounding box test)
+    3. If multiple cells contain it, pick nearest centroid (tiebreaker)
+    4. If NO cell contains it, try nearest centroid within 2x radius (soft match)
+    5. Repeat until leaf (template) or no match
 
-    Returns the matched PatternTemplate or None if no path found.
+    Returns (matched_template, leaf_node) or None.
+    The leaf_node carries cell_min_16d/cell_max_16d for CST integrity checks.
     """
     matrix = FractalClusteringEngine.build_hypervolume_matrix(candidate)
     if matrix is None or matrix.shape[0] < 2:
         return None
 
-    # Start at root level
     current_nodes = tree.roots
+    matched_path = []  # for logging: "0.2.1.4"
 
     for depth in range(matrix.shape[0]):
         if not current_nodes:
-            return None  # no branches at this depth
+            return None
 
-        # Candidate's 16D features at this depth
-        feat_16d = matrix[depth].reshape(1, -1)
+        feat_16d = matrix[depth]  # (16,)
 
-        # Find nearest node at this depth
-        best_node = None
-        best_dist = float('inf')
+        # ── Primary: cell membership test (is vector inside bounding box?) ──
+        containing_nodes = []
         for node_id, node in current_nodes.items():
-            if node.scaler is not None:
-                feat_scaled = node.scaler.transform(feat_16d)
-                centroid_scaled = node.scaler.transform(
-                    node.centroid_16d.reshape(1, -1))
-                dist = np.linalg.norm(feat_scaled - centroid_scaled)
-            else:
-                dist = np.linalg.norm(feat_16d - node.centroid_16d.reshape(1, -1))
-            if dist < best_dist:
-                best_dist = dist
-                best_node = node
+            if (np.all(feat_16d >= node.cell_min_16d) and
+                    np.all(feat_16d <= node.cell_max_16d)):
+                dist = np.linalg.norm(feat_16d - node.centroid_16d)
+                containing_nodes.append((dist, node))
 
-        if best_dist > max_dist or best_node is None:
-            return None  # no match at this depth
+        if containing_nodes:
+            containing_nodes.sort(key=lambda x: x[0])
+            best_node = containing_nodes[0][1]
+        else:
+            # ── Fallback: nearest centroid within soft margin ──
+            best_node = None
+            best_dist = float('inf')
+            for node_id, node in current_nodes.items():
+                dist = np.linalg.norm(feat_16d - node.centroid_16d)
+                # Soft margin: accept if within mean cell radius
+                cell_radius = np.mean(node.cell_max_16d - node.cell_min_16d) / 2
+                if dist < cell_radius * 2.0 and dist < best_dist:
+                    best_dist = dist
+                    best_node = node
+            if best_node is None:
+                return None  # no match at this depth
 
-        # If leaf, return its template
+        matched_path.append(best_node.node_id)
+
         if best_node.template is not None:
-            return best_node.template
+            return (best_node.template, best_node)
 
-        # Otherwise, descend into children
         current_nodes = best_node.children
 
     return None
+```
+
+**CST at entry — pass cell bounds to WaveRider** (replaces centroid + basin_mean/std from main):
+
+```python
+# In orchestrator forward pass, after tree match:
+matched = self._navigate_hypervolume_tree(self.hypervolume_tree, best_candidate)
+if matched:
+    template, leaf_node = matched
+    # Pass cell bounds for live structural integrity checks
+    pos = wave_rider.open_position(
+        ...,
+        cst_cell_min=leaf_node.cell_min_16d,    # replaces cst_centroid
+        cst_cell_max=leaf_node.cell_max_16d,    # replaces cst_basin_mean/std
+        cst_ancestry=ancestry_context,
+    )
+```
+
+In `wave_rider.py`, `check_structural_integrity()` becomes:
+```python
+# OLD (main): L2 distance from centroid, compare to basin_mean + 3*basin_std
+# NEW: binary membership test — is live 16D vector inside the cell?
+live_16d = QuantumFieldEngine.build_16d_vector(current_state, ancestry)
+inside = np.all(live_16d >= self.cst_cell_min) and np.all(live_16d <= self.cst_cell_max)
+if not inside:
+    return 'structural_break'  # live vector exited the hypervolume cell
 ```
 
 ### Phase 5: Remove Gate 0.5 Depth Filter
@@ -443,57 +589,185 @@ else:
     ...
 ```
 
+### Phase 7: Extend Decay Cascade with Cell Exit Signal
+
+**File**: `training/timeframe_belief_network.py` — extend `get_decay_cascade()`
+
+The decay cascade already tracks z-score drift from expected trajectory. Hypervolume adds
+a new, stronger signal: **the live 16D vector left its training cell**.
+
+```python
+# In get_decay_cascade(), add cell exit as a decay factor:
+def get_decay_cascade(self, cell_bounds=None, live_16d=None):
+    """Extended: original z-score drift + hypervolume cell exit."""
+    cascade = self._original_decay_cascade()
+
+    # NEW: cell membership decay signal
+    if cell_bounds and live_16d is not None:
+        cell_min, cell_max = cell_bounds
+        inside = np.all(live_16d >= cell_min) and np.all(live_16d <= cell_max)
+        if not inside:
+            # How far outside? Compute per-axis breach magnitude
+            breach = np.maximum(cell_min - live_16d, 0) + np.maximum(live_16d - cell_max, 0)
+            breach_magnitude = np.linalg.norm(breach)
+            cascade['cell_exit'] = True
+            cascade['cell_breach'] = breach_magnitude
+            cascade['cascade_score'] += breach_magnitude * 0.5  # weight cell exit signal
+
+    return cascade
+```
+
+This gives physics-informed exits that respond to BOTH z-score drift (existing) AND
+geometric cell departure (new). The two signals are complementary:
+- Z-score drift catches gradual mean-reversion failure
+- Cell exit catches sudden regime change (feature vector jumps to different region)
+
+---
+
+## Migration: What Gets Removed vs Connected
+
+### REMOVED (hypervolume replaces entirely)
+
+| Component | File | What Happens |
+|-----------|------|--------------|
+| KMeans clustering on 16D | `fractal_clustering.py` | Replaced by `fit_hypervolume_tree()` |
+| Shape taxonomy pre-grouping (`_shape_label`) | `fractal_clustering.py` | Tree structure replaces categorical pre-partitioning |
+| Snowflake LONG/SHORT pre-split | `fractal_clustering.py` | Direction emerges from tree splits naturally |
+| `clustering_scaler.pkl` checkpoint | `fractal_clustering.py` | Per-node scalers inside tree — no separate file |
+| `templates.pkl` / `pattern_library.pkl` | `fractal_clustering.py` | Replaced by `hypervolume_tree.pkl` |
+| Gate 0.5 depth filter (`depth >= 6`) | `orchestrator.py` ~line 1375 | **DELETE** — tree's adj-R² decides which depths are viable |
+| Gate 1 L2 nearest-centroid matching | `orchestrator.py` | Replaced by `_navigate_hypervolume_tree()` cell membership |
+| `MAX_CLUSTER_DISTANCE = 4.5` constant | `orchestrator.py` | No global distance threshold — cell bounds define match |
+| `basin_mean` / `basin_std` on templates | `fractal_clustering.py` | Replaced by `cell_min_16d` / `cell_max_16d` per node |
+| Snowflake z-score → LONG/SHORT routing | `orchestrator.py` | No branch routing — single tree, direction from leaf stats |
+| `_long_scaler` / `_short_scaler` | `fractal_clustering.py` | Per-node scalers in tree |
+| `pattern_library_long.pkl` / `_short.pkl` | checkpoints | Single `hypervolume_tree.pkl` |
+| DNA tree (`FractalDNATree`) | `fractal_dna_tree.py` + `orchestrator.py` | Redundant — the hypervolume matrix path IS the identity signature |
+
+### CONNECTED (wire existing features into hypervolume)
+
+| Component | File | Connection Point |
+|-----------|------|-----------------|
+| `build_16d_vector()` | `quantum_field_engine.py` | Canonical coordinate definition for all cell operations |
+| `extract_features()` | `fractal_clustering.py` | Called at every depth during tree build (keep, speed-optimized) |
+| Adj-R²(mfe ~ 16D) | `fractal_clustering.py` | Node split stopping criterion + fission gain check |
+| `avg_mfe_bar` / `p75_mfe_bar` | `fractal_clustering.py` | Computed on leaf template from oracle_meta `mfe_bar` |
+| CST structural integrity | `fractal_discovery_agent.py` | `states_map` at all depths feeds CST; WaveRider uses cell bounds |
+| `mfe_bar` oracle tracking | `fractal_discovery_agent.py` | Feeds time-scale calibration on leaf templates |
+| Spectral enrichment | `fractal_discovery_agent.py` | z_score/velocity available in 16D vector |
+| Gate 4 (direction confidence) | `orchestrator.py` | Fires AFTER tree match — no change, just reordered in gate chain |
+| Gate 5 (direction consensus) | `orchestrator.py` | Fires AFTER tree match — no change |
+| `compute_p_profitable()` | `belief_network.py` | Post-match direction quality — unchanged |
+| `get_direction_consensus()` | `belief_network.py` | Post-match consensus — unchanged |
+| Net pressure model | `belief_network.py` | Trail widen/tighten/urgent — unchanged |
+| Decay cascade | `belief_network.py` | **Extended**: original z-score drift + new cell exit signal |
+| Price-aware conviction | `belief_network.py` | Workers modulate by trade_side + profit_ticks — unchanged |
+| ~~DNA tree~~ | ~~`orchestrator.py`~~ | **SKIP** — hypervolume matrix path replaces DNA identity |
+| Pre-converted coefficients | `belief_network.py` | Performance optimization — unchanged |
+| Scaler mean/scale extraction | `belief_network.py` | Performance optimization — unchanged |
+
+### Gate Chain After Hypervolume
+
+```
+Gate 0:  Structural rules (headroom, momentum, etc.)        — UNCHANGED
+Gate 0.5: Depth filter                                       — REMOVED
+Gate 1:  Template matching (L2 → hypervolume tree walk)      — REPLACED
+Gate 2:  Belief conviction                                   — UNCHANGED
+Gate 3:  Entry conviction threshold                          — UNCHANGED
+Gate 3.5: Risk:Reward                                        — UNCHANGED
+Gate 4:  Direction confidence (logistic prob)                 — UNCHANGED (post-match)
+Gate 5:  Direction consensus (multi-TF)                      — UNCHANGED (post-match)
+```
+
+---
+
 ## Data Flow Summary
 
 ```
 TRAINING:
-  patterns (16F x depth matrices)
-    → fit_hypervolume_tree()
-      → depth 0: KMeans on 16D → root groups
-        → depth 1: KMeans on 16D within each root → sub-groups
-          → depth 2: ...
-            → ... → leaf templates with oracle stats
+  fractal_discovery_agent scans all TFs
+    → _build_parent_chain() stores features_16d at each ancestor    [Phase 1]
+    → _consult_oracle() computes mfe_bar + structural integrity     [existing on main]
+    → patterns (16F × depth matrices)
+      → fit_hypervolume_tree()                                      [Phase 3]
+        → depth 0: regression → residuals → cluster → root groups
+          → depth 1: regression within each root → sub-groups
+            → ... adj-R² stops when features predict MFE well
+              → leaf templates with oracle stats + avg_mfe_bar/p75
+
+  Checkpoint: hypervolume_tree.pkl (contains all nodes, scalers, cell bounds)
 
 FORWARD PASS:
-  candidate pattern
-    → build_hypervolume_matrix() → 16F x depth matrix
+  candidate pattern arrives at Gate 0 (structural rules)            [unchanged]
+    ↓ passes Gate 0
+  build_hypervolume_matrix() → 16F × depth matrix                   [Phase 4]
     → _navigate_hypervolume_tree()
-      → depth 0: match 16D → "Group A"
-        → depth 1: match 16D within A → "A3"
-          → depth 2: match 16D within A3 → "A3.7"
-            → ... → leaf template → load stats → trade
+      → depth 0: cell membership test → "Group A"
+        → depth 1: within A, membership → "A3"
+          → depth 2: within A3, membership → "A3.7"
+            → ... → leaf node → template + cell_min/cell_max
+    ↓ template matched (or WORKER_BYPASS if no path)
+  Gate 2: belief conviction                                         [unchanged]
+  Gate 3: entry conviction                                          [unchanged]
+  Gate 3.5: R:R check                                               [unchanged]
+  Gate 4: direction confidence (logistic prob)                       [existing on main]
+  Gate 5: direction consensus (multi-TF)                             [existing on main]
+    ↓ all gates pass
+  WaveRider.open_position(cell_min, cell_max, ...)                  [Phase 4]
+
+LIVE POSITION:
+  Each bar:
+    → build_16d_vector(current_state, ancestry)                      [existing on main]
+    → CST: is live vector inside cell bounds?                        [Phase 4]
+    → Decay cascade: z-score drift + cell exit signal                [Phase 7]
+    → Net pressure: widen/tighten/urgent                             [existing on main]
+    → Price-aware conviction modulation                              [existing on main]
+    → Time-exhaustion: bar_count vs avg_mfe_bar/p75_mfe_bar          [existing on main]
 ```
 
 ## What Changes
 
-| Component | Current (KMeans) | New (Hypervolume Tree) |
-|-----------|-----------------|------------------------|
+| Component | Current (KMeans on main) | New (Hypervolume Tree) |
+|-----------|--------------------------|------------------------|
 | Feature input | 16D point per pattern | 16D × depth matrix per pattern |
-| Template definition | 16D centroid | Path through tree of 16D centroids |
-| Matching | L2 in flat 16D | Tree walk: L2 in 16D per depth level |
-| Depth handling | Gate 0.5 blocks depth≥6 | Depth = tree level (no blocking) |
-| Scaler | Global, must match exactly | Per-node local (no mismatch possible) |
-| Shape info | Lost (compressed to point) | Preserved (tree path = volumetric structure) |
+| Template definition | 16D centroid + basin_mean/std | Path through tree + cell bounding box per node |
+| Matching (Gate 1) | L2 distance < 4.5 in flat 16D | Tree walk: cell membership (bounding box) per depth |
+| Depth handling | Gate 0.5 blocks depth≥6 | Depth = tree level (adj-R² decides viability) |
+| Split criterion | KMeans + shape taxonomy | Regression residuals + adj-R²(mfe) stopping |
+| Scaler | Global (mismatch bug) | Per-node local (impossible to mismatch) |
+| CST integrity | L2 from centroid vs basin | Binary: is live 16D inside cell bounds? |
+| Decay cascade | z-score drift only | z-score drift + cell exit signal |
+| Shape info | Lost (compressed to point) | Preserved (tree path = 16F×12D hypergeometry) |
+| Identity | DNA tree (separate structure) | Matrix path IS the identity (DNA tree removed) |
+| Checkpoints | templates.pkl + scaler.pkl + library_long/short.pkl | Single hypervolume_tree.pkl |
 | Worker integration | None | Each worker navigates one tree level |
-| Interpretability | Centroid ID number | Path label: "A3.7.2" = meaningful |
+| Interpretability | Centroid ID number | Path label: "0.2.1.4" = regime chain |
 
 ## Files to Modify
 
-1. `training/fractal_discovery_agent.py` — Enrich `_build_parent_chain()` with `features_16d`
-2. `training/fractal_clustering.py` — New classes `HypervolumeNode`, `HypervolumeTree`;
-   new methods `build_hypervolume_matrix()`, `fit_hypervolume_tree()`, `_split_at_depth()`;
-   keep `extract_features()` unchanged
-3. `training/orchestrator.py` — New method `_navigate_hypervolume_tree()`;
-   replace Gate 1 matching; remove Gate 0.5 depth filter
+| File | Action | Details |
+|------|--------|---------|
+| `training/fractal_discovery_agent.py` | MODIFY | Enrich `_build_parent_chain()` with `features_16d` at each ancestor |
+| `training/fractal_clustering.py` | MAJOR REWRITE | New classes `HypervolumeNode`, `HypervolumeTree`; new methods `build_hypervolume_matrix()`, `fit_hypervolume_tree()`, `_split_at_depth()`; absorb adj-R² from main; keep `extract_features()` unchanged; REMOVE: KMeans clustering, shape taxonomy, snowflake split, `_long_scaler`/`_short_scaler` |
+| `training/orchestrator.py` | MODIFY | New `_navigate_hypervolume_tree()` with cell membership; REMOVE: Gate 0.5, Gate 1 L2 matching, `MAX_CLUSTER_DISTANCE`, snowflake branch routing, DNA tree wiring; KEEP: Gates 0/2/3/3.5/4/5 unchanged |
+| `training/wave_rider.py` | MODIFY | CST check: replace `basin_mean/std` with `cell_min/cell_max` bounding box test |
+| `training/timeframe_belief_network.py` | MODIFY | Extend `get_decay_cascade()` with cell exit signal |
+| `training/fractal_dna_tree.py` | REMOVE USAGE | Stop loading/saving DNA tree in orchestrator (hypervolume matrix path replaces it) |
 
 ## What NOT to Change
 
-- The 16D feature extraction function (`extract_features`) — still the basis, now used
-  at every depth level instead of just the detection level
-- Oracle attribution logic (unchanged — just receives template from tree instead of KMeans)
-- Belief network / wave rider / exit mechanics
+- The 16D feature vector definition (`extract_features`, `build_16d_vector`) — this IS the
+  hypervolume coordinate system. Used at every depth level.
+- Oracle attribution logic (unchanged — receives template from tree instead of KMeans)
+- Gate 0 structural rules (headroom, momentum, etc.)
+- Gate 2/3/3.5 (belief, conviction, R:R)
+- Gate 4/5 (direction confidence/consensus) — post-match gates, algorithm-independent
+- Belief network worker architecture (10 TF workers, conviction, etc.)
+- Net pressure model (trail widen/tighten/urgent)
+- Price-aware conviction modulation
 - Report generation (adapt to show tree path instead of centroid ID)
-- Gate 0 structural rules (still valid — headroom, momentum, etc.)
+- The data pipeline, ATLAS structure, or 1s inner loop
+- `tools/run_benchmark.py` and analysis tooling
 
 ## CUDA Acceleration
 
@@ -541,14 +815,27 @@ that can go stale.
 
 ## Verification
 
+### Test Dataset
+
+`DATA/ATLAS_1MONTH/` — January 2025, all 14 TFs, 39MB (1/10th of full ATLAS).
+Use this for all development testing. It has enough patterns to build a meaningful tree
+but runs ~10x faster than full ATLAS.
+
+### Validation Steps
+
 1. Syntax check: `python -c "import training.orchestrator"`
-2. Quick validation: `python -m training.orchestrator --fresh --data DATA/ATLAS_1DAY`
-   - Should build hypervolume tree and navigate it during forward pass
+2. **Smoke test** (1 day, ~3 seconds): `python -m training.orchestrator --fresh --data DATA/ATLAS_1DAY`
+   - Should build hypervolume tree (even if small) and navigate it
    - Gate 0.5 should NOT exist — all depths should produce candidates
-3. Full IS: `python -m training.orchestrator --fresh`
+3. **Dev test** (1 month, ~2-3 min): `python -m training.orchestrator --fresh --data DATA/ATLAS_1MONTH`
+   - Tree should have meaningful depth structure (multiple root groups, branches)
+   - Template matching should work (some trades matched via tree, not all WORKER_BYPASS)
+   - Check `reports/is/oracle_trade_log.csv` for tree path labels
+   - Verify adj-R² stopping produced leaf cells with varying depth
+4. Full IS (10 months): `python -m training.orchestrator --fresh`
    - Compare against pre-snowflake baseline: 50.8% WR, 1,903 trades, $9,334
    - Expect more trades than current main (141) since depth filter is gone
-   - Expect template matching to work (no more 100% WORKER_BYPASS)
+   - Expect template match rate > 50% (current: 0% — all WORKER_BYPASS)
    - Tree path labels should appear in oracle_trade_log.csv
 
 ## Success Criteria
