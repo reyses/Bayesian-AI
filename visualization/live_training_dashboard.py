@@ -5,6 +5,7 @@ DMAIC Analyze Layer — real-time Pareto of profit gap across all phases.
 
 import tkinter as tk
 from tkinter import ttk
+from tkinter import filedialog
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import queue
@@ -225,6 +226,7 @@ class FractalDashboard:
 
         # Bind hover event for tooltips
         self.canvas_phys.mpl_connect("motion_notify_event", self._on_hover)
+        self._add_chart_context_menu(self.canvas_phys, self.fig_phys, "physics_manifold")
 
         # ── Col 1: Pareto Chart ───────────────────────────────────────────────
         pareto_frame = ttk.Frame(body)
@@ -276,6 +278,7 @@ class FractalDashboard:
         canvas_pareto = FigureCanvasTkAgg(self.fig_pareto, master=pareto_frame)
         canvas_pareto.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         self.canvas_pareto = canvas_pareto
+        self._add_chart_context_menu(self.canvas_pareto, self.fig_pareto, "pareto_analysis")
 
         # ── Col 2: Leaderboard + Log (full height) ────────────────────────────
         right_pane = ttk.Frame(body)
@@ -329,6 +332,31 @@ class FractalDashboard:
         self.tree_ranks.bind(
             "<Button-3>", lambda e: self.menu_tree.tk_popup(e.x_root, e.y_root)
         )
+
+    # ── Chart interactions ────────────────────────────────────────────────────
+    def _add_chart_context_menu(self, canvas, fig, default_name):
+        menu = tk.Menu(self.root, tearoff=0)
+        menu.add_command(
+            label="💾 Save Chart as Image...",
+            command=lambda: self._save_chart(fig, default_name),
+        )
+        canvas.get_tk_widget().bind(
+            "<Button-3>", lambda e: menu.tk_popup(e.x_root, e.y_root)
+        )
+
+    def _save_chart(self, fig, default_name):
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        fn = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            initialfile=f"{default_name}_{timestamp}.png",
+            filetypes=[("PNG", "*.png"), ("All Files", "*.*")],
+        )
+        if fn:
+            try:
+                fig.savefig(fn, dpi=150, bbox_inches="tight", facecolor=BG)
+                self._log(f"Chart saved: {fn}")
+            except Exception as e:
+                self._log(f"Error saving chart: {e}", error=True)
 
     # ── Log interactions ──────────────────────────────────────────────────────
     def _tree_copy_id(self):
