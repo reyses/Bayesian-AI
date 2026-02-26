@@ -630,19 +630,22 @@ class QuantumFieldEngine:
             volumes = np.ascontiguousarray(volumes)
 
         # Unified pattern detection (Geometric/Candlestick)
-        if 'high' in day_data.columns:
+        required_cols = ['open', 'high', 'low', 'close']
+        has_ohlc = all(col in day_data.columns for col in required_cols)
+
+        if has_ohlc:
             highs = day_data['high'].values.astype(np.float64)
             lows = day_data['low'].values.astype(np.float64)
             opens = day_data['open'].values.astype(np.float64)
+            closes = day_data['close'].values.astype(np.float64)
         else:
             highs = prices
             lows = prices
             opens = prices
-
-        if 'close' in day_data.columns:
-            closes = day_data['close'].values.astype(np.float64)
-        else:
-            closes = prices
+            if 'close' in day_data.columns:
+                closes = day_data['close'].values.astype(np.float64)
+            else:
+                closes = prices
 
         pattern_types, candlestick_types = self._detect_patterns_unified(opens, highs, lows, closes)
 
