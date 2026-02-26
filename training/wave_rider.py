@@ -262,12 +262,19 @@ class Position:
     tmpl_win_rate: float = 0.5             # template stats_win_rate (prior for P(profitable))
 
     # CST
-    cst_centroid: Optional[np.ndarray] = None
-    cst_basin_mean: float = 0.0
-    cst_basin_std: float = 0.0
+    cst_cell_min: Optional[np.ndarray] = None
+    cst_cell_max: Optional[np.ndarray] = None
     cst_ancestry: Optional[Dict] = None
-    cst_scaler_mean: Optional[np.ndarray] = None   # StandardScaler.mean_
-    cst_scaler_scale: Optional[np.ndarray] = None   # StandardScaler.scale_
+    # Scalers handled by cell bounds (they are in scaled space if built that way,
+    # but hypervolume logic uses canonical 16D space directly if not scaled)
+    # The cell_min/max from HypervolumeNode are in the space used for clustering.
+    # The clustering engine uses extract_features directly.
+    # Wait, fit_hypervolume_tree does SCALING inside _split_at_depth?
+    # Yes: "scaler = StandardScaler(); residuals_scaled = scaler.fit_transform(residuals)"
+    # But centroid/cell_min/max are computed on `feat_array` (16D) BEFORE residual scaling?
+    # Let's check my implementation of fit_hypervolume_tree.
+    # "cluster_feat = feat_array[member_mask]; centroid = cluster_feat.mean(axis=0)"
+    # Yes! The node stores RAW feature space bounds. So we don't need external scalers.
 
 
 class WaveRider:
@@ -344,12 +351,9 @@ class WaveRider:
                      trailing_stop_ticks: Optional[int] = None,
                      trail_activation_ticks: Optional[int] = None,
                      template_id: Optional[int] = None,
-                     cst_centroid: Optional[np.ndarray] = None,
-                     cst_basin_mean: float = 0.0,
-                     cst_basin_std: float = 0.0,
+                     cst_cell_min: Optional[np.ndarray] = None,
+                     cst_cell_max: Optional[np.ndarray] = None,
                      cst_ancestry: Optional[Dict] = None,
-                     cst_scaler_mean: Optional[np.ndarray] = None,
-                     cst_scaler_scale: Optional[np.ndarray] = None,
                      tmpl_expected_mfe_ticks: float = 0.0,
                      tmpl_expected_hold_bars: float = 0.0,
                      tmpl_win_rate: float = 0.5,
@@ -368,12 +372,9 @@ class WaveRider:
                                     Until then the initial hard stop is used.
                                     None = trail active from bar 1 (legacy behaviour).
             template_id: ID of the template triggering this trade
-            cst_centroid: Template centroid (SCALED space) for structural integrity checks
-            cst_basin_mean: Mean distance of members to centroid (SCALED space)
-            cst_basin_std: StdDev of member distances (SCALED space)
+            cst_cell_min: Hypervolume cell minimum bounds (16D)
+            cst_cell_max: Hypervolume cell maximum bounds (16D)
             cst_ancestry: Dictionary of static ancestry features for vector reconstruction
-            cst_scaler_mean: StandardScaler.mean_ for scaling live vectors
-            cst_scaler_scale: StandardScaler.scale_ for scaling live vectors
         """
         stop_dist = stop_distance_ticks * self.asset.tick_size
         stop_loss = entry_price + stop_dist if side == 'short' else entry_price - stop_dist
@@ -404,12 +405,9 @@ class WaveRider:
             trail_activation_ticks=calculated_activation,
             original_trail_ticks=trailing_stop_ticks,
             is_trail_active=False,
-            cst_centroid=cst_centroid,
-            cst_basin_mean=cst_basin_mean,
-            cst_basin_std=cst_basin_std,
+            cst_cell_min=cst_cell_min,
+            cst_cell_max=cst_cell_max,
             cst_ancestry=cst_ancestry,
-            cst_scaler_mean=cst_scaler_mean,
-            cst_scaler_scale=cst_scaler_scale,
             tmpl_expected_mfe_ticks=tmpl_expected_mfe_ticks,
             tmpl_expected_hold_bars=tmpl_expected_hold_bars,
             tmpl_win_rate=tmpl_win_rate,
@@ -881,20 +879,14 @@ class WaveRider:
                                     profit_ticks: float = 0.0,
                                     net_pressure: float = 0.0) -> bool:
         """
-        Returns True if structural integrity is maintained (distance <= basin radius),
-        False if structure is broken (tether snapped).
+        Returns True if structural integrity is maintained (vector inside cell bounds),
+        False if structure is broken (vector left the hypervolume cell).
 
-        All comparisons are done in SCALED space to match how basin_mean/basin_std
-        were computed during clustering.
+        Comparisons use canonical 16D feature space (cell_min/max from tree node).
 
-        profit_ticks: current unrealized P&L in ticks.
-        net_pressure: continuous hold/exit pressure from belief network.
-            > 0.3 = CST disabled (profitable + early + aligned)
-            0 to 0.3 = wider sigma (4.0)
-            -0.3 to 0 = standard sigma (3.0)
-            < -0.3 = tight sigma (2.0, actively squeezing)
+        net_pressure > 0.3 disables CST (profitable + early + aligned).
         """
-        if not self.position or self.position.cst_centroid is None:
+        if not self.position or self.position.cst_cell_min is None:
             return True
 
         # Pressure-controlled CST: strong hold pressure = CST disabled
@@ -909,27 +901,11 @@ class WaveRider:
         try:
             current_vec = np.array(QuantumFieldEngine.build_16d_vector(current_state, self.position.cst_ancestry))
 
-            # Scale live vector to match centroid space
-            if self.position.cst_scaler_mean is not None and self.position.cst_scaler_scale is not None:
-                current_vec = (current_vec - self.position.cst_scaler_mean) / self.position.cst_scaler_scale
+            # Check binary membership
+            inside = np.all(current_vec >= self.position.cst_cell_min) and \
+                     np.all(current_vec <= self.position.cst_cell_max)
 
-            dist = np.linalg.norm(current_vec - self.position.cst_centroid)
-
-            # Pressure-modulated sigma
-            if net_pressure > 0:
-                _sigma = 4.0   # some hold pressure — wider
-            elif net_pressure > -0.3:
-                _sigma = 3.0   # neutral — standard
-            else:
-                _sigma = 2.0   # exit pressure — tighter
-
-            threshold = self.position.cst_basin_mean + _sigma * self.position.cst_basin_std
-
-            # Fallback for single-point basins
-            if threshold < 1e-6:
-                threshold = CST_FALLBACK_SIGMA_THRESHOLD
-
-            return dist <= threshold
+            return inside
         except Exception as e:
             print(f"CST check failed: {e}")
             return True # Fail safe
