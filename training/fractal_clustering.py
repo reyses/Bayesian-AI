@@ -1,7 +1,9 @@
 """
 Fractal Clustering Engine (Hypervolume Tree)
-Replaces KMeans with a hierarchical 16D hypervolume tree.
-Groups patterns by their regression residuals at each depth level.
+Geometric shape-based partitioning via IMR (Individual-Moving Range) charts.
+Patterns are ordered along the principal geometric axis, then split where the
+composite signal (position deviation + moving range gap) exceeds the IMR
+control threshold: x + y > z.
 """
 import math
 import numpy as np
@@ -10,8 +12,6 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Tuple
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression, LogisticRegression
-from training.cuda_kmeans import CUDAKMeans
-
 # Core import for vector reconstruction
 from core.quantum_field_engine import QuantumFieldEngine
 
@@ -21,11 +21,15 @@ from config.oracle_config import TEMPLATE_MIN_MEMBERS_FOR_STATS
 
 # Constants
 MIN_GROUP_SIZE = 30
-MAX_FISSION_CLUSTERS = 6
 R2_STOP_THRESHOLD = 0.90       # DOE Phase 3: target R2 for "real case usage" (was 0.15)
 R2_FISSION_MIN_GAIN = 0.05
 DOE_MAX_ITERATIONS = 20         # DOE Phase 3: max passes over the tree (safety valve)
 DEFAULT_PID = {'pid_kp': 0.5, 'pid_ki': 0.1, 'pid_kd': 0.2}
+
+# IMR (Individual-Moving Range) geometric splitting constants
+IMR_D4 = 3.267          # D4 constant for n=2 subgroups (Moving Range UCL factor)
+IMR_D2 = 1.128          # d2 constant for n=2 subgroups (sigma estimation)
+IMR_Z_THRESHOLD = 1.0   # x + y = z split threshold (normalized)
 
 @dataclass
 class PatternTemplate:
@@ -208,14 +212,110 @@ class FractalClusteringEngine:
         matrix = ancestors + [self_feat]
         return np.array(matrix)
 
-    def _get_kmeans_model(self, n_clusters: int, n_samples: int, random_state: int = 42):
-        """Returns a KMeans model -- CUDA if available/large enough."""
-        import torch
-        # Use CUDA if n_samples large enough AND CUDA is available, else CPU sklearn
-        if n_samples > 1000 and torch.cuda.is_available():
-             return CUDAKMeans(n_clusters=n_clusters, random_state=random_state)
-        from sklearn.cluster import KMeans
-        return KMeans(n_clusters=n_clusters, random_state=random_state, n_init=3)
+    def _imr_geometric_split(self, residuals_scaled: np.ndarray,
+                              min_group_size: int) -> np.ndarray:
+        """
+        IMR (Individual-Moving Range) geometric splitting.
+
+        Anchors geometric shapes using an IMR control chart, then splits
+        where the composite signal x + y exceeds threshold z:
+          x = normalized deviation from center (I-chart)
+          y = normalized moving range (MR-chart, full 16D L2 distance)
+          z = IMR_Z_THRESHOLD
+
+        Returns: label array (group assignment per pattern, original order).
+        """
+        n = len(residuals_scaled)
+
+        if n < min_group_size * 2:
+            return np.zeros(n, dtype=int)
+
+        # Step 1: Geometric ordering along principal axis
+        variances = np.var(residuals_scaled, axis=0)
+        principal_axis = int(np.argmax(variances))
+        projections = residuals_scaled[:, principal_axis]
+
+        sort_order = np.argsort(projections)
+        sorted_projections = projections[sort_order]
+        sorted_residuals = residuals_scaled[sort_order]
+
+        # Step 2: IMR Chart
+        # I-values: position along principal axis (ordered)
+        I_values = sorted_projections
+        I_bar = np.mean(I_values)
+
+        # Moving Range: L2 distance between consecutive patterns in full 16D space
+        MR_values = np.zeros(n)
+        for i in range(1, n):
+            MR_values[i] = np.linalg.norm(sorted_residuals[i] - sorted_residuals[i - 1])
+
+        MR_bar = np.mean(MR_values[1:])  # Exclude padded first element
+
+        if MR_bar < 1e-9:
+            return np.zeros(n, dtype=int)  # All patterns nearly identical
+
+        # Step 3: Control limits
+        UCL_MR = IMR_D4 * MR_bar
+        sigma_est = MR_bar / IMR_D2
+        UCL_I_half = 3.0 * sigma_est  # Half-width of I-chart control band
+
+        if UCL_I_half < 1e-9:
+            UCL_I_half = 1.0
+
+        # Step 4: x + y = z split logic
+        x_norm = np.abs(I_values - I_bar) / UCL_I_half
+        y_norm = MR_values / UCL_MR
+
+        signal = x_norm + y_norm
+
+        # Split points: where signal exceeds threshold
+        split_indices = set(np.where(signal > IMR_Z_THRESHOLD)[0])
+
+        # Step 5: Form groups between split points
+        group_labels = np.zeros(n, dtype=int)
+        current_group = 0
+
+        for i in range(1, n):
+            if i in split_indices:
+                current_group += 1
+            group_labels[i] = current_group
+
+        # Step 6: Enforce minimum group size — iteratively merge smallest groups
+        while True:
+            unique_groups = np.unique(group_labels)
+            if len(unique_groups) <= 1:
+                break
+            sizes = {g: int(np.sum(group_labels == g)) for g in unique_groups}
+            small = [g for g in unique_groups if sizes[g] < min_group_size]
+            if not small:
+                break
+
+            g = small[0]
+            g_pos = np.where(unique_groups == g)[0][0]
+
+            # Merge with adjacent group (prefer larger neighbor)
+            if g_pos > 0 and g_pos < len(unique_groups) - 1:
+                left = unique_groups[g_pos - 1]
+                right = unique_groups[g_pos + 1]
+                target = left if sizes[left] >= sizes[right] else right
+            elif g_pos > 0:
+                target = unique_groups[g_pos - 1]
+            else:
+                target = unique_groups[g_pos + 1]
+
+            group_labels[group_labels == g] = target
+
+        # Re-number groups sequentially from 0
+        unique_final = np.unique(group_labels)
+        remap = {old: new for new, old in enumerate(unique_final)}
+        final_sorted = np.array([remap[g] for g in group_labels])
+
+        # Step 7: Map back to original (unsorted) order
+        labels = np.zeros(n, dtype=int)
+        for sorted_idx, orig_idx in enumerate(sort_order):
+            labels[orig_idx] = final_sorted[sorted_idx]
+
+        return labels
 
     def fit_hypervolume_tree(self, patterns: List[Any],
                              min_group_size: int = MIN_GROUP_SIZE,
@@ -382,26 +482,21 @@ class FractalClusteringEngine:
             regression_centroid = feat_array.mean(axis=0)
             residuals = feat_array - regression_centroid
 
-        # Step 2: Cluster Residuals
+        # Step 2: IMR Geometric Split (replaces KMeans)
         scaler = StandardScaler()
         residuals_scaled = scaler.fit_transform(residuals)
 
         residual_var = np.mean(np.var(residuals_scaled, axis=0))
 
         if residual_var < 0.3:
-            n_clusters = 1
-        else:
-            n_clusters = self._choose_k(residuals_scaled, valid_indices, patterns, scaler)
-
-        if n_clusters <= 1:
             labels = np.zeros(len(valid_indices), dtype=int)
         else:
-            kmeans = self._get_kmeans_model(n_clusters, len(valid_indices))
-            labels = kmeans.fit_predict(residuals_scaled)
+            labels = self._imr_geometric_split(residuals_scaled, min_group_size)
 
         # Step 3: Build Nodes
+        unique_labels = np.unique(labels)
         nodes = {}
-        for cluster_id in range(max(1, n_clusters)):
+        for cluster_id in unique_labels:
             member_mask = labels == cluster_id
             member_indices = [valid_indices[i] for i, m in enumerate(member_mask) if m]
 
@@ -482,37 +577,6 @@ class FractalClusteringEngine:
             )
 
         return nodes
-
-    def _choose_k(self, X_scaled: np.ndarray, indices: List[int], patterns: List[Any],
-                  scaler: StandardScaler) -> int:
-        """Choose best k (2..MAX_FISSION_CLUSTERS) using Silhouette Score."""
-        best_k = 1
-        best_score = -1.0
-
-        if len(X_scaled) < MIN_GROUP_SIZE * 2:
-            return 1
-
-        from sklearn.metrics import silhouette_score
-
-        # Only check up to a reasonable k
-        max_k = min(MAX_FISSION_CLUSTERS, len(X_scaled) // MIN_GROUP_SIZE)
-        if max_k < 2:
-             return 1
-
-        for k in range(2, max_k + 1):
-            km = self._get_kmeans_model(k, len(X_scaled))
-            labels = km.fit_predict(X_scaled)
-
-            try:
-                score = silhouette_score(X_scaled, labels)
-            except:
-                score = -1.0
-
-            if score > best_score:
-                best_score = score
-                best_k = k
-
-        return best_k if best_score > 0.1 else 1
 
     def _compute_adj_r2(self, X: np.ndarray, y: np.ndarray) -> float:
         n, k = X.shape

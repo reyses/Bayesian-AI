@@ -5,7 +5,6 @@ import pandas as pd
 import numpy as np
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
-from sklearn.cluster import KMeans
 from training.fractal_clustering import FractalClusteringEngine, PatternTemplate
 
 @dataclass
@@ -47,7 +46,6 @@ class TestClusteringIntegration(unittest.TestCase):
             )
             self.patterns.append(p)
 
-    @patch('training.fractal_clustering.CUDAKMeans', KMeans)
     def test_clustering_engine(self):
         engine = FractalClusteringEngine(n_clusters=10, max_variance=0.5)
 
