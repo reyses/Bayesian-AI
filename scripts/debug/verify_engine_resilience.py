@@ -1,7 +1,13 @@
 
+import logging
+import argparse
 import pandas as pd
 import numpy as np
 from core.quantum_field_engine import QuantumFieldEngine
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 def test_key_error():
     engine = QuantumFieldEngine()
@@ -17,11 +23,14 @@ def test_key_error():
 
     try:
         engine.batch_compute_states(df, use_cuda=False)
-        print("Success!")
+        logger.info("Success! Engine handled missing columns gracefully.")
     except KeyError as e:
-        print(f"Caught expected KeyError: {e}")
+        logger.info(f"Caught expected KeyError: {e}")
     except Exception as e:
-        print(f"Caught unexpected exception: {e}")
+        logger.error(f"Caught unexpected exception: {e}", exc_info=True)
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Verify QuantumFieldEngine resilience to missing columns.")
+    args = parser.parse_args()
+
     test_key_error()

@@ -95,6 +95,11 @@ except ImportError:
 
 # Configuration
 from config.symbols import MNQ
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 PRECOMPUTE_DEBUG_LOG_FILENAME = 'precompute_debug.log'
 
@@ -112,14 +117,14 @@ TIMEFRAME_MAP = {
 def verify_cuda_availability():
     """Fail fast if CUDA is not available"""
     if not cuda.is_available():
-        print("WARNING: CUDA is not available. Proceeding with CPU fallback (slow).")
+        logger.warning("CUDA is not available. Proceeding with CPU fallback (slow).")
         return
 
     try:
         current_device = cuda.get_current_device()
-        print(f"CUDA: AVAILABLE | Device: {current_device.name}")
+        logger.info(f"CUDA: AVAILABLE | Device: {current_device.name}")
     except Exception as e:
-        print(f"CUDA: AVAILABLE (but failed to get device name: {e})")
+        logger.info(f"CUDA: AVAILABLE (but failed to get device name: {e})")
 
 # Golden Path Constants
 BASE_RESOLUTION_SECONDS = 15
@@ -504,23 +509,23 @@ class BayesianTrainingOrchestrator:
                 else:
                     self.launch_popup()
 
-        print("\n" + "="*80)
+        logger.info("\n" + "="*80)
         if oos_mode:
-            print("PHASE 6: OOS BLIND VALIDATION (templates/scaler frozen from training)")
+            logger.info("PHASE 6: OOS BLIND VALIDATION (templates/scaler frozen from training)")
         else:
-            print("PHASE 4: FORWARD PASS (IN-SAMPLE EXECUTION)")
+            logger.info("PHASE 4: FORWARD PASS (IN-SAMPLE EXECUTION)")
         if start_date or end_date:
             _lo = start_date or "start"
             _hi = end_date   or "end"
-            print(f"  Date slice: {_lo} -> {_hi}")
-        print("="*80)
+            logger.info(f"  Date slice: {_lo} -> {_hi}")
+        logger.info("="*80)
         if self.dashboard_queue:
             self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
                                       'step': 'FORWARD_PASS', 'pct': 0})
 
         # Reports directory: reports/oos/ or reports/is/
         _rpt_dir = _get_reports_dir('oos' if oos_mode else 'is')
-        print(f"  Reports dir: {_rpt_dir}")
+        logger.info(f"  Reports dir: {_rpt_dir}")
 
         # ── Rotate previous run: rename current reports → _prev ──────────────
         for _prev_name in ('oracle_trade_log.csv', 'signal_log.csv',
@@ -549,7 +554,7 @@ class BayesianTrainingOrchestrator:
                     try:
                         _shutil_rotate.rmtree(_shards_prev)
                     except PermissionError:
-                        print(f"  WARNING: Could not remove {_shards_prev} (locked), skipping rotation")
+                        logger.warning(f"  Could not remove {_shards_prev} (locked), skipping rotation")
                         _shards_dir = None  # skip the rename below
             if _shards_dir:
                 try:
@@ -560,7 +565,7 @@ class BayesianTrainingOrchestrator:
         # 1. Load Prerequisites (Hypervolume Tree)
         tree_path = os.path.join(self.checkpoint_dir, 'hypervolume_tree.pkl')
         if not os.path.exists(tree_path):
-            print("ERROR: hypervolume_tree.pkl not found. Run with --fresh.")
+            logger.error("hypervolume_tree.pkl not found. Run with --fresh.")
             return
 
         with open(tree_path, 'rb') as f:
@@ -588,7 +593,7 @@ class BayesianTrainingOrchestrator:
             params = getattr(t, 'best_params', None) or {}
             self.register_template_logic(t, params)
 
-        print(f"  Loaded Hypervolume Tree: {len(_templates)} templates")
+        logger.info(f"  Loaded Hypervolume Tree: {len(_templates)} templates")
 
         # Dummy scaler for legacy code that expects it (though it shouldn't be used)
         from sklearn.preprocessing import StandardScaler
@@ -600,8 +605,8 @@ class BayesianTrainingOrchestrator:
 
         valid_template_ids = list(self.pattern_library.keys())
         if not valid_template_ids:
-            print("ERROR: No templates in pattern library. Tree may have produced no leaves.")
-            print("  Check Phase 2.5 output for '0 leaf templates'.")
+            logger.error("No templates in pattern library. Tree may have produced no leaves.")
+            logger.error("  Check Phase 2.5 output for '0 leaf templates'.")
             return
         centroids_scaled = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
 
@@ -613,9 +618,9 @@ class BayesianTrainingOrchestrator:
             with open(tiers_path, 'rb') as f:
                 template_tier_map = pickle.load(f)
             t1 = sum(1 for v in template_tier_map.values() if v == 1)
-            print(f"  Loaded tier map: {len(template_tier_map)} templates ({t1} Tier 1)")
+            logger.info(f"  Loaded tier map: {len(template_tier_map)} templates ({t1} Tier 1)")
         else:
-            print("  No tier map found -- all templates weighted equally (run strategy report first)")
+            logger.info("  No tier map found -- all templates weighted equally (run strategy report first)")
 
         # Load per-depth PnL weights computed from the previous forward pass.
         # depth_weights.json is written at the end of each run so the NEXT run
@@ -629,13 +634,13 @@ class BayesianTrainingOrchestrator:
                 _dw_data = _json.load(_dw_f)
             _DEPTH_SCORE_ADJ  = {int(k): float(v.get('score_adj', 0.0)) for k, v in _dw_data.items()}
             _DEPTH_FILTER_OUT = {int(k) for k, v in _dw_data.items() if v.get('filter_out', False)}
-            print(f"  Loaded depth weights ({len(_DEPTH_SCORE_ADJ)} depths, {len(_DEPTH_FILTER_OUT)} filtered out):")
+            logger.info(f"  Loaded depth weights ({len(_DEPTH_SCORE_ADJ)} depths, {len(_DEPTH_FILTER_OUT)} filtered out):")
             for _dk in sorted(_dw_data.keys(), key=int):
                 _dv = _dw_data[_dk]
-                print(f"    depth {_dk}: avg_pnl=${_dv.get('avg_pnl',0):.1f}/trade  "
+                logger.info(f"    depth {_dk}: avg_pnl=${_dv.get('avg_pnl',0):.1f}/trade  "
                       f"score_adj={_dv.get('score_adj',0):+.2f}  filter={_dv.get('filter_out',False)}")
         else:
-            print("  No depth weights found -- uniform depth scoring (run forward pass first to build weights)")
+            logger.info("  No depth weights found -- uniform depth scoring (run forward pass first to build weights)")
 
         # Apply min_tier filter -- removes losing tiers from the centroid index entirely
         # (oracle_trade_log shows Tier 4 = -$52K drag; min_tier=3 -> +$96K vs $44K baseline)
@@ -643,14 +648,14 @@ class BayesianTrainingOrchestrator:
             _before = len(valid_template_ids)
             valid_template_ids = [tid for tid in valid_template_ids
                                   if template_tier_map.get(tid, 4) <= min_tier]
-            print(f"  Min-tier filter (tier <= {min_tier}): {_before} -> {len(valid_template_ids)} active templates")
+            logger.info(f"  Min-tier filter (tier <= {min_tier}): {_before} -> {len(valid_template_ids)} active templates")
 
         # Rebuild centroids_scaled after tier filtering (already in scaled space)
         if not valid_template_ids:
-            print("ERROR: All templates filtered out by min_tier. Try --min-tier 4 or omit it.")
+            logger.error("All templates filtered out by min_tier. Try --min-tier 4 or omit it.")
             return
         centroids_scaled = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
-        print(f"  Prepared {len(valid_template_ids)} centroids for matching.")
+        logger.info(f"  Prepared {len(valid_template_ids)} centroids for matching.")
 
         # Pre-compute templates that earned a Gate 0 Rule 3 exception via data quality.
         # A template earns an exception if: enough members + positive win rate + low residuals.
@@ -668,7 +673,7 @@ class BayesianTrainingOrchestrator:
                     and _esig is not None
                     and _esig <= _EXCEPTION_MAX_SIGMA):
                 _exception_tids.add(_etid)
-        print(f"  Gate 0 exception templates: {len(_exception_tids)} / {len(valid_template_ids)} "
+        logger.info(f"  Gate 0 exception templates: {len(_exception_tids)} / {len(valid_template_ids)} "
               f"(>={_EXCEPTION_MIN_MEMBERS} members, WR>={_EXCEPTION_MIN_WIN_RATE:.0%}, "
               f"sigma<={_EXCEPTION_MAX_SIGMA} ticks)")
 
@@ -689,7 +694,7 @@ class BayesianTrainingOrchestrator:
                         np.array(dna_bmax[tf_label])
                     ))
         n_15m = len(dna_index.get(900, []))
-        print(f"  DNA index: {n_15m} templates with 15m anchor, "
+        logger.info(f"  DNA index: {n_15m} templates with 15m anchor, "
               f"{sum(len(v) for v in dna_index.values())} total TF entries")
 
         # Fractal belief network: 10 TF workers (1h -> 1s), path conviction
@@ -704,13 +709,13 @@ class BayesianTrainingOrchestrator:
             centroids_scaled = centroids_scaled,
             dna_index        = dna_index,
         )
-        print(f"  Belief network: {len(TimeframeBeliefNetwork.TIMEFRAMES_SECONDS)} TF workers "
+        logger.info(f"  Belief network: {len(TimeframeBeliefNetwork.TIMEFRAMES_SECONDS)} TF workers "
               f"(conviction threshold: {TimeframeBeliefNetwork.MIN_CONVICTION:.2f})")
 
         # 2. Iterate files (monthly YYYY_MM.parquet or daily YYYYMMDD.parquet)
         daily_files_15s = sorted(glob.glob(os.path.join(data_source, '15s', '*.parquet')))
         if not daily_files_15s:
-            print(f"  No 15s data found in {data_source}/15s/")
+            logger.warning(f"  No 15s data found in {data_source}/15s/")
             return
 
         def _file_sort_key(fpath):
@@ -730,10 +735,10 @@ class BayesianTrainingOrchestrator:
                 if (not start_date or _file_sort_key(f) >= start_date)
                 and (not end_date   or _file_sort_key(f) <= end_date)
             ]
-            print(f"  Date filter applied: {_before} -> {len(daily_files_15s)} files "
+            logger.info(f"  Date filter applied: {_before} -> {len(daily_files_15s)} files "
                   f"({start_date or 'start'} -> {end_date or 'end'})")
 
-        print(f"  Found {len(daily_files_15s)} files to simulate.")
+        logger.info(f"  Found {len(daily_files_15s)} files to simulate.")
 
         total_pnl = 0.0
         total_trades = 0
@@ -755,7 +760,7 @@ class BayesianTrainingOrchestrator:
         skipped_ruin     = 0        # Trade entries skipped due to insufficient equity
 
         if _equity_enabled:
-            print(f"  Account constraint: start=${account_size:.2f}  margin/contract=${_NINJATRADER_MNQ_MARGIN:.2f}")
+            logger.info(f"  Account constraint: start=${account_size:.2f}  margin/contract=${_NINJATRADER_MNQ_MARGIN:.2f}")
 
         # Audit counters
         audit_tp = 0
@@ -842,7 +847,7 @@ class BayesianTrainingOrchestrator:
             day_date = os.path.basename(day_file).replace('.parquet', '')
             # Normalise: monthly YYYY_MM -> YYYY_MM kept as-is for scan_day_cascade
             # (discovery agent matches by substring so both formats work)
-            print(f"\n  Day {day_idx+1}/{n_days}: {day_date} ... ", end='', flush=True)
+            logger.info(f"  Day {day_idx+1}/{n_days}: {day_date} ... ")
             if self.dashboard_queue:
                 pct = (day_idx / n_days) * 100
                 _wr = (total_wins / total_trades * 100) if total_trades > 0 else 0.0
@@ -871,7 +876,7 @@ class BayesianTrainingOrchestrator:
                 if 'timestamp' in df_15s.columns and not np.issubdtype(df_15s['timestamp'].dtype, np.number):
                      df_15s['timestamp'] = df_15s['timestamp'].apply(lambda x: x.timestamp())
             except Exception as e:
-                print(f"FAILED to load {day_file}: {e}")
+                logger.error(f"FAILED to load {day_file}: {e}")
                 continue
 
             # Load 5s and 1s ATLAS files for sub-resolution workers.
@@ -2142,8 +2147,8 @@ class BayesianTrainingOrchestrator:
 
             # Analyze day
             if _equity_enabled and account_ruined:
-                print(f"\n  !! ACCOUNT RUINED on {day_date}: equity=${running_equity:.2f} < margin=${_NINJATRADER_MNQ_MARGIN:.2f}")
-                print("  !! Stopping simulation -- no remaining capital to trade.")
+                logger.warning(f"  !! ACCOUNT RUINED on {day_date}: equity=${running_equity:.2f} < margin=${_NINJATRADER_MNQ_MARGIN:.2f}")
+                logger.warning("  !! Stopping simulation -- no remaining capital to trade.")
                 break  # stop the day loop entirely
 
             if day_trades:
@@ -2153,11 +2158,11 @@ class BayesianTrainingOrchestrator:
                 total_pnl += d_pnl
                 total_trades += len(day_trades)
                 total_wins += d_wins
-                print(f"Trades: {len(day_trades)}, Wins: {d_wins}, PnL: ${d_pnl:.2f} ({time.perf_counter() - t_sim_start:.1f}s)")
+                logger.info(f"Trades: {len(day_trades)}, Wins: {d_wins}, PnL: ${d_pnl:.2f} ({time.perf_counter() - t_sim_start:.1f}s)")
             else:
                 d_pnl = 0.0
                 d_wins = 0
-                print("No trades.")
+                logger.info("No trades.")
 
             # Flush last calendar day of this file to dashboard
             if self.dashboard_queue and _chart_cur_day is not None:
@@ -2765,7 +2770,7 @@ class BayesianTrainingOrchestrator:
                     writer = csv.DictWriter(f, fieldnames=all_keys)
                     writer.writeheader()
                     writer.writerows(month_records)
-            print(f"  [EXPORT] {base_filename} -> {len(partitions)} monthly shards in {_shards_dir}")
+            logger.info(f"  [EXPORT] {base_filename} -> {len(partitions)} monthly shards in {_shards_dir}")
 
         # ── 6. Save CSV ──────────────────────────────────────────────────────────
         if oracle_trade_records:
@@ -2986,14 +2991,14 @@ class BayesianTrainingOrchestrator:
         report_path = os.path.join(_rpt_dir, 'phase4_report.txt')
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write('\n'.join(report_lines) + '\n')
-        print(f"  Report saved to {report_path}")
+        logger.info(f"  Report saved to {report_path}")
 
         # ── Trade Analytics Suite ──────────────────────────────────────────────
         try:
             from training.trade_analytics import run_trade_analytics
             _oracle_csv = os.path.join(_rpt_dir, 'oracle_trade_log.csv')
             if os.path.exists(_oracle_csv):
-                print("\n  [analytics] Running trade analytics suite...")
+                logger.info("  [analytics] Running trade analytics suite...")
                 _analytics_txt = run_trade_analytics(
                     log_path=_oracle_csv,
                     report_path=report_path,
@@ -3001,9 +3006,9 @@ class BayesianTrainingOrchestrator:
                 _analytics_path = os.path.join(_rpt_dir, 'trade_analytics.txt')
                 with open(_analytics_path, 'w', encoding='utf-8') as _af:
                     _af.write(_analytics_txt)
-                print(f"  [analytics] Saved to {_analytics_path}")
+                logger.info(f"  [analytics] Saved to {_analytics_path}")
         except Exception as _ae:
-            print(f"  [analytics] Skipped (error: {_ae})")
+            logger.info(f"  [analytics] Skipped (error: {_ae})")
 
     def run_final_validation(self, top_strategies):
         """
@@ -3901,14 +3906,14 @@ class BayesianTrainingOrchestrator:
         """Launch lightweight progress popup in background thread (default UI)."""
         self.dashboard_thread = threading.Thread(target=launch_popup, args=(self.dashboard_queue,), daemon=True)
         self.dashboard_thread.start()
-        print("Progress popup launching in background...")
+        logger.info("Progress popup launching in background...")
         time.sleep(1)
 
     def launch_dashboard(self):
         """Launch full dashboard in background thread (opt-in via --dashboard)."""
         self.dashboard_thread = threading.Thread(target=launch_dashboard, args=(self.dashboard_queue,), daemon=True)
         self.dashboard_thread.start()
-        print("Dashboard launching in background...")
+        logger.info("Dashboard launching in background...")
         time.sleep(2)
 
     def shutdown_dashboard(self):
