@@ -244,11 +244,12 @@ class FractalClusteringEngine:
 
     def _imr_geometric_split(self, feat_scaled: np.ndarray,
                               min_group_size: int) -> np.ndarray:
-        """I-MR segmentation + DBSCAN fission on market dynamics (volume + ADX).
+        """Directional I-MR segmentation + DBSCAN fission.
 
         Two phases:
-          1. I-MR on ADX: Order by ADX, detect geometry shifts via Moving Range > UCL.
-             Creates coarse segments based on ADX regime transitions.
+          1. I-MR on DMI differential: Patterns sorted by ADX (trend strength),
+             MR computed as signed diff of DMI_diff — captures directional acceleration.
+             Boundaries fire on |MR| > UCL (big jump) or MR sign flip (reversal).
           2. DBSCAN on volume + ADX: Within each segment, find density clusters.
              The full 16D is kept as identity fingerprint, not used for clustering.
 
@@ -261,24 +262,49 @@ class FractalClusteringEngine:
         if n < min_group_size * 2:
             return np.zeros(n, dtype=int), {0: (0, 0)}
 
-        # === PHASE 1: I-MR on ADX (index 7) — market dynamics segmentation ===
-        adx_col = 7  # self_adx in 16D feature vector
-        adx_values = feat_scaled[:, adx_col]
+        # === PHASE 1: I-MR on directional DMI — shape-aware segmentation ===
+        #
+        # I chart:  DMI_diff (signed) — captures directional movement shape
+        #           "big long, small short, big long, bigger long"
+        # Sort by: ADX (trend strength) — orders patterns from calm → trending
+        # MR:      Signed diff of DMI_diff — captures acceleration/deceleration
+        # Boundary: |MR| > UCL  OR  MR sign flips (trend reversal)
+        #
+        adx_col = 7   # self_adx (trend strength, unsigned)
+        dmi_col = 9   # self_dmi_diff (directional bias, signed)
 
+        adx_values = feat_scaled[:, adx_col]
+        dmi_values = feat_scaled[:, dmi_col]
+
+        # Sort by ADX (trend strength) — the process ordering
         sort_order = np.argsort(adx_values)
         feat_ordered = feat_scaled[sort_order]
 
-        # Moving Range: absolute difference between consecutive ADX-ordered patterns
-        adx_sorted = adx_values[sort_order]
-        mr_l2 = np.abs(np.diff(adx_sorted))
+        # I chart: DMI_diff values in ADX-sorted order
+        dmi_sorted = dmi_values[sort_order]
 
-        if len(mr_l2) == 0 or np.max(mr_l2) < 1e-12:
+        # MR: signed differential — captures directional acceleration
+        mr_signed = np.diff(dmi_sorted)
+        mr_abs = np.abs(mr_signed)
+
+        if len(mr_abs) == 0 or np.max(mr_abs) < 1e-12:
             return np.zeros(n, dtype=int), {0: (0, 0)}
 
-        mr_bar = np.mean(mr_l2)
+        mr_bar = np.mean(mr_abs)
         ucl_mr = IMR_D4 * mr_bar
 
-        boundary_flags = (mr_l2 > ucl_mr).astype(int)
+        # Boundary conditions:
+        # 1. |MR| > UCL — large directional jump (standard SPC)
+        # 2. Sign flip in MR — trend was accelerating, now decelerating (or vice versa)
+        magnitude_break = mr_abs > ucl_mr
+        sign_flip = np.zeros(len(mr_signed), dtype=bool)
+        if len(mr_signed) > 1:
+            sign_flip[1:] = (mr_signed[1:] * mr_signed[:-1]) < 0  # sign changed
+
+        # Combine: magnitude break OR sign flip with significant MR
+        significant_flip = sign_flip & (mr_abs > mr_bar * 0.5)
+        boundary_flags = (magnitude_break | significant_flip).astype(int)
+
         sorted_segment_ids = np.zeros(n, dtype=int)
         sorted_segment_ids[1:] = np.cumsum(boundary_flags)
         n_segments = sorted_segment_ids[-1] + 1
@@ -326,7 +352,7 @@ class FractalClusteringEngine:
         # Report I-MR segments (compact summary)
         seg_sizes = sorted([int((sorted_segment_ids == s).sum()) for s in range(n_segments)], reverse=True)
         n_merged = merge_pass
-        print(f"    I-MR (ADX): {n_segments} segments │ UCL={ucl_mr:.3f}  MR_bar={mr_bar:.3f}"
+        print(f"    I-MR (DMI→ADX): {n_segments} segments │ UCL={ucl_mr:.3f}  MR_bar={mr_bar:.3f}"
               f"{'  [median fallback]' if fallback_used else ''}"
               f"{f'  [{n_merged} micro-segs merged]' if n_merged else ''}")
         # Show top 5 largest + tail summary
