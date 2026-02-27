@@ -42,7 +42,7 @@ DOE_MAX_ITERATIONS = 20         # DOE Phase 3: max passes over the tree (safety 
 DEFAULT_PID = {'pid_kp': 0.5, 'pid_ki': 0.1, 'pid_kd': 0.2}
 
 # I-MR SPC constants (n=2 subgroups)
-IMR_D4 = 2.0            # UCL factor for Moving Range (relaxed from 3.267 for more splits)
+IMR_D4 = 3.267          # UCL factor for Moving Range (standard SPC for n=2 subgroups)
 IMR_D2 = 1.128          # Sigma estimation factor
 IMR_Z_THRESHOLD = 1.0   # Composite signal threshold for segment boundary
 IMR_MIN_SEGMENTS = 2    # Force at least this many segments via PC1 median fallback
@@ -238,15 +238,19 @@ class FractalClusteringEngine:
         matrix = ancestors + [self_feat]
         return np.array(matrix)
 
+    # Indices into the 16D feature vector used for clustering
+    # [1]=log1p(volume), [7]=self_adx — market dynamics, not abstract features
+    CLUSTER_DIMS = [1, 7]  # volume + ADX
+
     def _imr_geometric_split(self, feat_scaled: np.ndarray,
                               min_group_size: int) -> np.ndarray:
-        """I-MR segmentation + 16D DBSCAN fission.
+        """I-MR segmentation + DBSCAN fission on market dynamics (volume + ADX).
 
         Two phases:
-          1. I-MR: Project onto PC1, detect geometry shifts via Moving Range > UCL.
-             Creates coarse segments (blind to most of the 16D — only sees PC1).
-          2. DBSCAN: Within each I-MR segment, cluster on the FULL 16D features.
-             Finds sub-patterns that I-MR couldn't see (volume, ADX, hurst, etc.).
+          1. I-MR on ADX: Order by ADX, detect geometry shifts via Moving Range > UCL.
+             Creates coarse segments based on ADX regime transitions.
+          2. DBSCAN on volume + ADX: Within each segment, find density clusters.
+             The full 16D is kept as identity fingerprint, not used for clustering.
 
         Returns: (labels, lineage) where:
           labels: int array (0-based contiguous, original order)
@@ -257,21 +261,16 @@ class FractalClusteringEngine:
         if n < min_group_size * 2:
             return np.zeros(n, dtype=int), {0: (0, 0)}
 
-        # === PHASE 1: I-MR Control Charts (geometry-only, PC1) ===
+        # === PHASE 1: I-MR on ADX (index 7) — market dynamics segmentation ===
+        adx_col = 7  # self_adx in 16D feature vector
+        adx_values = feat_scaled[:, adx_col]
 
-        mean_vec = feat_scaled.mean(axis=0)
-        centered = feat_scaled - mean_vec
-        cov = centered.T @ centered
-        eigenvalues, eigenvectors = np.linalg.eigh(cov)
-        pc1 = eigenvectors[:, -1]
-        projections = centered @ pc1
-
-        sort_order = np.argsort(projections)
+        sort_order = np.argsort(adx_values)
         feat_ordered = feat_scaled[sort_order]
 
-        # Moving Range: L2 distance between consecutive PC1-ordered patterns
-        diffs = feat_ordered[1:] - feat_ordered[:-1]
-        mr_l2 = np.linalg.norm(diffs, axis=1)
+        # Moving Range: absolute difference between consecutive ADX-ordered patterns
+        adx_sorted = adx_values[sort_order]
+        mr_l2 = np.abs(np.diff(adx_sorted))
 
         if len(mr_l2) == 0 or np.max(mr_l2) < 1e-12:
             return np.zeros(n, dtype=int), {0: (0, 0)}
@@ -292,36 +291,79 @@ class FractalClusteringEngine:
             n_segments = 2
             fallback_used = True
 
-        # Report I-MR segments
-        seg_sizes = [int((sorted_segment_ids == s).sum()) for s in range(n_segments)]
-        print(f"    I-MR: {n_segments} segments (UCL={ucl_mr:.2f}, MR_bar={mr_bar:.2f})"
-              f"{' [PC1-median fallback]' if fallback_used else ''}")
-        for s, sz in enumerate(seg_sizes):
-            print(f"      Segment {s}: {sz:,} patterns")
+        # Merge tiny adjacent segments (< min_group_size) with their neighbor
+        # This prevents I-MR from shredding the data into thousands of micro-segments
+        merge_pass = 0
+        while True:
+            seg_ids_unique = np.unique(sorted_segment_ids)
+            seg_sizes_map = {s: int((sorted_segment_ids == s).sum()) for s in seg_ids_unique}
+            tiny = [s for s in seg_ids_unique if seg_sizes_map[s] < min_group_size]
+            if not tiny:
+                break
+            # Merge the smallest segment into its nearest neighbor (by segment ID)
+            s = tiny[0]
+            s_pos = np.where(seg_ids_unique == s)[0][0]
+            if s_pos > 0 and s_pos < len(seg_ids_unique) - 1:
+                left, right = seg_ids_unique[s_pos - 1], seg_ids_unique[s_pos + 1]
+                target = left if seg_sizes_map[left] >= seg_sizes_map[right] else right
+            elif s_pos > 0:
+                target = seg_ids_unique[s_pos - 1]
+            else:
+                target = seg_ids_unique[s_pos + 1] if len(seg_ids_unique) > 1 else s
+            if target == s:
+                break
+            sorted_segment_ids[sorted_segment_ids == s] = target
+            merge_pass += 1
+            if merge_pass > n:  # safety
+                break
 
-        # === PHASE 2: DBSCAN fission on FULL 16D within each I-MR segment ===
+        # Re-compact segment IDs to 0-based contiguous
+        seg_ids_unique = np.unique(sorted_segment_ids)
+        seg_remap = {old: new for new, old in enumerate(seg_ids_unique)}
+        sorted_segment_ids = np.array([seg_remap[s] for s in sorted_segment_ids])
+        n_segments = len(seg_ids_unique)
 
+        # Report I-MR segments (compact summary)
+        seg_sizes = sorted([int((sorted_segment_ids == s).sum()) for s in range(n_segments)], reverse=True)
+        n_merged = merge_pass
+        print(f"    I-MR (ADX): {n_segments} segments │ UCL={ucl_mr:.3f}  MR_bar={mr_bar:.3f}"
+              f"{'  [median fallback]' if fallback_used else ''}"
+              f"{f'  [{n_merged} micro-segs merged]' if n_merged else ''}")
+        # Show top 5 largest + tail summary
+        top = seg_sizes[:5]
+        rest = seg_sizes[5:]
+        sizes_str = ", ".join(f"{s:,}" for s in top)
+        if rest:
+            sizes_str += f"  ... +{len(rest)} more (min={min(rest):,})"
+        print(f"      Sizes: [{sizes_str}]")
+
+        # === PHASE 2: DBSCAN on volume + ADX (2D) within each I-MR segment ===
+
+        cluster_dims = self.CLUSTER_DIMS  # [1, 7] = volume + ADX
         sorted_labels = np.zeros(n, dtype=int)
         global_label = 0
         lineage = {}  # global_label → (segment_id, sub_cluster_id)
         dbscan_min = max(3, min_group_size // 10)
+        _db_stats = {'segs_scanned': 0, 'segs_too_small': 0, 'segs_all_noise': 0,
+                     'total_clusters': 0, 'total_noise': 0, 'eps_values': []}
 
         for seg_id in range(n_segments):
             seg_mask = sorted_segment_ids == seg_id
             seg_indices = np.where(seg_mask)[0]
             seg_size = len(seg_indices)
+            _db_stats['segs_scanned'] += 1
 
             if seg_size < max(4, dbscan_min + 2):
                 sorted_labels[seg_indices] = global_label
                 lineage[global_label] = (seg_id, 0)
                 global_label += 1
-                print(f"      Seg {seg_id}: {seg_size} patterns → 1 group (too small for DBSCAN)")
+                _db_stats['segs_too_small'] += 1
                 continue
 
-            # Pull the full 16D features for this segment
-            seg_feat = feat_ordered[seg_indices]
+            # Pull volume + ADX features only (2D) for this segment
+            seg_feat_2d = feat_ordered[seg_indices][:, cluster_dims]
 
-            # GPU: precompute distance matrix, calibrate eps, run DBSCAN
+            # Calibrate eps from sampled k-NN distances (O(n log n), not O(n²))
             k_nn = min(5, seg_size - 1)
             if k_nn < 1:
                 sorted_labels[seg_indices] = global_label
@@ -329,18 +371,30 @@ class FractalClusteringEngine:
                 global_label += 1
                 continue
 
-            t_feat = torch.from_numpy(np.ascontiguousarray(seg_feat, dtype=np.float32)).to(_DEVICE)
-            dist_matrix = torch.cdist(t_feat, t_feat).cpu().numpy()
-            knn_dists = np.sort(dist_matrix, axis=1)[:, 1:k_nn + 1]
+            EPS_SAMPLE_CAP = 1000
+            if seg_size > EPS_SAMPLE_CAP:
+                rng = np.random.default_rng(42)
+                sample_idx = rng.choice(seg_size, EPS_SAMPLE_CAP, replace=False)
+                sample_feat = seg_feat_2d[sample_idx]
+            else:
+                sample_feat = seg_feat_2d
+
+            nn = NearestNeighbors(n_neighbors=k_nn + 1, algorithm='ball_tree')
+            nn.fit(sample_feat)
+            knn_dists, _ = nn.kneighbors(sample_feat)
             eps = float(np.median(knn_dists[:, -1]))
             if eps < 1e-12:
                 eps = 0.5
+            _db_stats['eps_values'].append(eps)
 
             db_labels = DBSCAN(eps=eps, min_samples=dbscan_min,
-                               metric='precomputed').fit_predict(dist_matrix)
+                               metric='euclidean', algorithm='ball_tree'
+                               ).fit_predict(seg_feat_2d)
 
             n_noise = int((db_labels == -1).sum())
             n_clusters = len(set(db_labels[db_labels >= 0]))
+            _db_stats['total_noise'] += n_noise
+            _db_stats['total_clusters'] += n_clusters
 
             # Map DBSCAN labels to global labels with lineage tracking
             unique_sub = np.unique(db_labels[db_labels >= 0])
@@ -348,7 +402,7 @@ class FractalClusteringEngine:
                 sorted_labels[seg_indices] = global_label
                 lineage[global_label] = (seg_id, 0)
                 global_label += 1
-                print(f"      Seg {seg_id}: {seg_size} patterns → 1 group (all noise)")
+                _db_stats['segs_all_noise'] += 1
             else:
                 sub_map = {int(s): global_label + i for i, s in enumerate(unique_sub)}
                 for sub_idx, s in enumerate(unique_sub):
@@ -357,15 +411,21 @@ class FractalClusteringEngine:
                     sl = db_labels[j]
                     sorted_labels[idx] = sub_map.get(sl, -1)
                 global_label += len(unique_sub)
-                sub_sizes = [int((db_labels == s).sum()) for s in unique_sub]
-                print(f"      Seg {seg_id}: {seg_size} patterns → {n_clusters} clusters "
-                      f"(eps={eps:.3f}, noise={n_noise}) sizes={sub_sizes}")
+
+        # DBSCAN summary
+        eps_arr = _db_stats['eps_values']
+        eps_summary = f"eps: median={np.median(eps_arr):.3f}  range=[{min(eps_arr):.3f}, {max(eps_arr):.3f}]" if eps_arr else "eps: n/a"
+        print(f"    DBSCAN (vol+ADX): {_db_stats['total_clusters']} clusters from "
+              f"{_db_stats['segs_scanned']} segments │ {eps_summary}")
+        print(f"      noise={_db_stats['total_noise']:,} absorbed │ "
+              f"{_db_stats['segs_too_small']} segs too small │ "
+              f"{_db_stats['segs_all_noise']} segs all-noise")
 
         # === Map back to original order ===
         raw_labels = np.empty(n, dtype=int)
         raw_labels[sort_order] = sorted_labels
 
-        # Absorb noise into nearest cluster
+        # Absorb noise into nearest cluster (using cluster dims only)
         noise_mask = raw_labels == -1
         if noise_mask.all():
             return np.zeros(n, dtype=int), {0: (0, 0)}
@@ -373,7 +433,8 @@ class FractalClusteringEngine:
         if noise_mask.any():
             non_noise_idx = np.where(~noise_mask)[0]
             noise_idx = np.where(noise_mask)[0]
-            dists = _gpu_cdist(feat_scaled[noise_idx], feat_scaled[non_noise_idx])
+            feat_2d = feat_scaled[:, cluster_dims]
+            dists = _gpu_cdist(feat_2d[noise_idx], feat_2d[non_noise_idx])
             nearest = np.argmin(dists, axis=1)
             raw_labels[noise_idx] = raw_labels[non_noise_idx[nearest]]
 
@@ -390,7 +451,8 @@ class FractalClusteringEngine:
             else:
                 new_lineage[new_lbl] = (0, new_lbl)
 
-        # Merge small clusters into nearest large
+        # Merge small clusters into nearest large (using cluster dims)
+        feat_2d = feat_scaled[:, cluster_dims]
         while True:
             labels_unique, counts = np.unique(final, return_counts=True)
             small_mask = counts < min_group_size
@@ -400,7 +462,7 @@ class FractalClusteringEngine:
             if not large_mask.any():
                 return np.zeros(n, dtype=int), {0: (0, 0)}
 
-            centroids = np.array([feat_scaled[final == l].mean(axis=0)
+            centroids = np.array([feat_2d[final == l].mean(axis=0)
                                   for l in labels_unique])
             large_labels = labels_unique[large_mask]
             large_centroids = centroids[large_mask]
@@ -439,7 +501,9 @@ class FractalClusteringEngine:
         import time
 
         t0 = time.perf_counter()
-        print(f"Hypervolume: Building tree from {len(patterns)} patterns...")
+        print(f"\n{'='*70}")
+        print(f"  HYPERVOLUME TREE  │  {len(patterns):,} patterns")
+        print(f"{'='*70}")
 
         # 1. Build matrices
         matrices = {}
@@ -449,7 +513,7 @@ class FractalClusteringEngine:
                 matrices[i] = mat
 
         t1 = time.perf_counter()
-        print(f"  Constructed {len(matrices)} hypervolume matrices. [{t1-t0:.1f}s]")
+        print(f"  [1] Matrices: {len(matrices):,} built ({len(patterns)-len(matrices):,} skipped) [{t1-t0:.1f}s]")
 
         # 2. Extract full 16D features
         all_indices = list(matrices.keys())
@@ -459,25 +523,27 @@ class FractalClusteringEngine:
         feat_scaled = scaler.fit_transform(feat_all)
 
         t2 = time.perf_counter()
-        print(f"  Extracted 16D features + scaled. [{t2-t1:.1f}s]")
+        print(f"  [2] Features: 16D extracted + scaled [{t2-t1:.1f}s]")
 
-        # 3. I-MR on PC1 → DBSCAN on 16D within each segment
-        print(f"  I-MR segmentation + 16D DBSCAN fission...")
+        # 3. I-MR on ADX → DBSCAN on volume+ADX within each segment
+        print(f"  [3] Clustering: I-MR(ADX) → DBSCAN(vol+ADX)...")
         labels, lineage = self._imr_geometric_split(feat_scaled, min_group_size)
         n_groups = len(set(labels))
 
         t3 = time.perf_counter()
-        print(f"    Total groups: {n_groups} [{t3-t2:.1f}s]")
+        print(f"    → {n_groups} final groups [{t3-t2:.1f}s]")
 
         # === Build templates ===
+        print(f"  [4] Templates:")
         root_nodes = {}
         unique_labels = sorted(set(labels))
-        print(f"  Building {len(unique_labels)} templates...")
+        _skipped = 0
 
         for cluster_id in unique_labels:
             mask = labels == cluster_id
             member_indices = [all_indices[i] for i, m in enumerate(mask) if m]
             if len(member_indices) < min_group_size:
+                _skipped += 1
                 continue
 
             cluster_feat = feat_all[mask]
@@ -495,6 +561,10 @@ class FractalClusteringEngine:
 
             member_patterns = [patterns[i] for i in member_indices]
 
+            # Compute mean ADX and volume for this cluster (for logging)
+            _adx_mean = float(feat_all[mask, 7].mean())
+            _vol_mean = float(feat_all[mask, 1].mean())
+
             template = PatternTemplate(
                 template_id=tid,
                 centroid=centroid,
@@ -507,7 +577,8 @@ class FractalClusteringEngine:
             self._aggregate_oracle_intelligence(template)
             self._build_dna_maps(template)
 
-            print(f"    Template {node_id} (tid={tid}): {len(member_patterns)} patterns")
+            print(f"      {node_id:>6s} │ {len(member_patterns):>5,} patterns │ "
+                  f"ADX={_adx_mean:.2f}  vol={_vol_mean:.2f} │ tid={tid}")
 
             root_nodes[cluster_id] = HypervolumeNode(
                 depth=0,
