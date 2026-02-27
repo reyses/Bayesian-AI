@@ -2772,9 +2772,11 @@ class BayesianTrainingOrchestrator:
         # ── 6. Save CSV ──────────────────────────────────────────────────────────
         if oracle_trade_records:
             # Write combined trade log to reports/{mode}/
+            # Union all keys across records (bypass vs template trades have different fields)
+            _all_keys = dict.fromkeys(k for rec in oracle_trade_records for k in rec)
             _csv_path = os.path.join(_rpt_dir, 'oracle_trade_log.csv')
             with open(_csv_path, 'w', newline='', encoding='utf-8') as _f:
-                _w = _csv.DictWriter(_f, fieldnames=list(oracle_trade_records[0].keys()))
+                _w = _csv.DictWriter(_f, fieldnames=list(_all_keys), restval='')
                 _w.writeheader(); _w.writerows(oracle_trade_records)
             report_lines.append(f"  Per-trade oracle log saved: {_csv_path}")
             _write_partitioned_csv(oracle_trade_records, 'oracle_trade_log.csv')
