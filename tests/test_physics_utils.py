@@ -84,6 +84,7 @@ def test_adx_correctness():
     np.testing.assert_allclose(minus_opt, minus_ref, rtol=1e-8, atol=1e-8)
 
 
+
 def reference_extract_dominant_cycle(z_scores: np.ndarray, dt: float = 1.0) -> float:
     if len(z_scores) < 10: return 0.0
     n = len(z_scores)
