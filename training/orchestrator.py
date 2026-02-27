@@ -3621,6 +3621,7 @@ class BayesianTrainingOrchestrator:
             ckpt.update_phase('clustering', 'in_progress')
 
             clustering_engine = FractalClusteringEngine(n_clusters=1000, max_variance=0.5)
+            self.clustering_engine = clustering_engine  # Phase 3 needs it for re-aggregation
             if self.dashboard_queue:
                 self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
                                           'step': 'CLUSTERING', 'pct': 0})
