@@ -259,13 +259,13 @@ def _analytical_exits(template) -> dict:
         'trading_cost_points': 0.50,
     }
 
+CONSISTENCY_SAMPLE_CAP = 200  # Max patterns to simulate per template (convergence at ~150)
+
 def _validate_template_consistency(template, patterns, point_value):
     """Use simulation to VERIFY a template group behaves consistently.
 
-    If the group is real (patterns share genuine market behavior),
-    then analytical exits should work across ALL members consistently.
-    If behavior differs dramatically across temporal halves, the group
-    is flagged for review.
+    Samples up to CONSISTENCY_SAMPLE_CAP patterns (stratified from temporal
+    halves) to avoid O(n) simulation cost on large templates.
 
     Returns: (is_valid: bool, consistency_score: float, diagnostics: dict)
     """
@@ -274,12 +274,24 @@ def _validate_template_consistency(template, patterns, point_value):
     analytical_params = _analytical_exits(template)
     analytical_params.update(DEFAULT_PID)
 
+    # Filter to usable patterns first
+    usable = [p for p in patterns
+              if hasattr(p, 'window_data') and p.window_data is not None
+              and not (hasattr(p.window_data, 'empty') and p.window_data.empty)]
+
+    # Stratified sample: equal draw from each temporal half to preserve the
+    # halves-comparison logic downstream
+    if len(usable) > CONSISTENCY_SAMPLE_CAP:
+        mid = len(usable) // 2
+        half_cap = CONSISTENCY_SAMPLE_CAP // 2
+        rng = np.random.default_rng(42)
+        first_idx = rng.choice(mid, min(half_cap, mid), replace=False)
+        second_idx = rng.choice(len(usable) - mid, min(half_cap, len(usable) - mid), replace=False) + mid
+        sample_idx = np.concatenate([first_idx, second_idx])
+        usable = [usable[i] for i in sample_idx]
+
     results = []
-    for p in patterns:
-        if not hasattr(p, 'window_data') or p.window_data is None:
-            continue
-        if hasattr(p.window_data, 'empty') and p.window_data.empty:
-            continue
+    for p in usable:
         outcome = simulate_trade_standalone(
             entry_price=p.price, data=p.window_data, state=p.state,
             params=analytical_params, point_value=point_value,
