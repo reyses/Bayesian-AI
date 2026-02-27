@@ -7,7 +7,7 @@ Bayesian-AI is a high-performance algorithmic trading system that combines quant
 The system operates in a rigorous walk-forward manner:
 1. **Discovery:** Scans historical data top-down (1h→1s) to identify recurrent geometric and structural patterns.
 2. **Clustering:** Groups these patterns into templates using a Hypervolume Tree (16D feature space).
-3. **Belief Network:** 8 independent workers (1h, 30m... 1s) monitor live data, voting on direction and conviction.
+3. **Belief Network:** 10 independent workers (1h, 30m... 1s) monitor live data, voting on direction and conviction.
 4. **Execution:** The Orchestrator manages trades via the WaveRider execution engine, which handles dynamic trailing stops, profit targets, and structural exits (CST).
 
 ## Phase Pipeline
