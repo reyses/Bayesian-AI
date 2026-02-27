@@ -22,3 +22,4 @@ reports/training/training_log.txt
 # reports/ CSVs are runtime output — too large for GitHub (some >100MB)
 # .txt reports and docs/checkpoint_reference/ are still tracked
 reports/**/*.csv
+.Jules/bolt.md
