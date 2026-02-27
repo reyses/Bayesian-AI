@@ -259,52 +259,85 @@ def _analytical_exits(template) -> dict:
         'trading_cost_points': 0.50,
     }
 
-def _validate_template_consistency(template, patterns, point_value):
-    """Validate template consistency using oracle MFE/MAE — no simulation.
+REFINE_MAX_PASSES = 10      # Max trim iterations per template
+REFINE_TRIM_PCT = 0.10      # Remove worst 10% per pass
+REFINE_MIN_PATTERNS = 30    # Stop trimming if template gets too small
+REFINE_MFE_DELTA = 0.30     # Temporal-half MFE stability threshold
+REFINE_MFE_CV = 3.0         # MFE spread threshold
 
-    Each pattern already carries oracle_meta.mfe and .mae from Phase 2.
-    We check whether the MFE distribution is stable across temporal halves
-    and whether the spread (CV) is reasonable.
-
-    Returns: (is_valid: bool, consistency_score: float, diagnostics: dict)
-    """
-    # Extract oracle MFE from each pattern (already computed in Phase 2)
-    mfes = np.array([getattr(p, 'oracle_meta', {}).get('mfe', 0.0)
-                      for p in patterns])
-    maes = np.array([getattr(p, 'oracle_meta', {}).get('mae', 0.0)
-                      for p in patterns])
-
-    # Filter out zeros (patterns with no oracle data)
-    valid = mfes != 0.0
-    mfes = mfes[valid]
-    maes = maes[valid]
-
-    if len(mfes) < 5:
-        return True, 0.0, {'reason': 'too_few_patterns', 'n_patterns': len(mfes)}
-
-    # 1. MFE stability across temporal halves
+def _mfe_consistency(mfes):
+    """Compute MFE consistency metrics. Returns (mfe_delta, mfe_cv, avg_mfe)."""
     mid = len(mfes) // 2
     mean_first = float(np.mean(mfes[:mid]))
     mean_second = float(np.mean(mfes[mid:]))
     avg_mfe = float(np.mean(mfes))
     mfe_delta = abs(mean_first - mean_second) / max(abs(avg_mfe), 0.01)
+    mfe_cv = float(np.std(mfes)) / max(abs(avg_mfe), 0.01)
+    return mfe_delta, mfe_cv, avg_mfe
 
-    # 2. MFE coefficient of variation (spread)
-    mfe_std = float(np.std(mfes))
-    mfe_cv = mfe_std / max(abs(avg_mfe), 0.01)
+def _validate_template_consistency(template, patterns, point_value):
+    """Stepwise refinement: trim MFE outliers until template is consistent.
 
-    # 3. Consistency verdict
-    is_valid = mfe_delta < 0.30 and mfe_cv < 3.0
+    Each pass removes the worst REFINE_TRIM_PCT of patterns (by distance
+    from median MFE), then re-checks consistency. Stops when:
+      - Template passes (mfe_delta < 0.30, mfe_cv < 3.0), OR
+      - Template too small (< REFINE_MIN_PATTERNS), OR
+      - Max passes reached
+
+    Returns: (is_valid, consistency_score, diagnostics)
+    Side effect: template.patterns is trimmed in-place to the refined set.
+    """
+    original_n = len(patterns)
+
+    # Build working list with oracle MFE attached
+    work = [(p, getattr(p, 'oracle_meta', {}).get('mfe', 0.0)) for p in patterns]
+    work = [(p, mfe) for p, mfe in work if mfe != 0.0]
+
+    if len(work) < 5:
+        return True, 0.0, {'reason': 'too_few_patterns', 'n_patterns': len(work),
+                            'trimmed': 0}
+
+    trimmed_total = original_n - len(work)  # already lost from zero-MFE
+
+    for pass_i in range(REFINE_MAX_PASSES):
+        mfes = np.array([mfe for _, mfe in work])
+        mfe_delta, mfe_cv, avg_mfe = _mfe_consistency(mfes)
+
+        # Check if we pass
+        if mfe_delta < REFINE_MFE_DELTA and mfe_cv < REFINE_MFE_CV:
+            break
+
+        # Stop if too small to trim further
+        if len(work) <= REFINE_MIN_PATTERNS:
+            break
+
+        # Remove worst REFINE_TRIM_PCT by distance from median MFE
+        median_mfe = float(np.median(mfes))
+        dists = np.abs(mfes - median_mfe)
+        n_trim = max(1, int(len(work) * REFINE_TRIM_PCT))
+        # Keep indices sorted by distance (ascending) — drop the tail
+        keep_idx = np.argsort(dists)[:len(work) - n_trim]
+        work = [work[i] for i in keep_idx]
+        trimmed_total += n_trim
+
+    # Final metrics
+    mfes = np.array([mfe for _, mfe in work])
+    maes = np.array([getattr(p, 'oracle_meta', {}).get('mae', 0.0) for p, _ in work])
+    mfe_delta, mfe_cv, avg_mfe = _mfe_consistency(mfes)
+    is_valid = mfe_delta < REFINE_MFE_DELTA and mfe_cv < REFINE_MFE_CV
     consistency_score = 1.0 - (mfe_delta * 0.4 + min(mfe_cv / 6.0, 0.6))
 
+    # Update template.patterns in-place to the refined set
+    template.patterns = [p for p, _ in work]
+
     return is_valid, consistency_score, {
-        'mfe_first_half': mean_first,
-        'mfe_second_half': mean_second,
         'mfe_delta': mfe_delta,
         'mfe_cv': mfe_cv,
         'mfe_mean': avg_mfe,
-        'mae_mean': float(np.mean(maes)),
-        'n_patterns': len(mfes),
+        'mae_mean': float(np.mean(maes)) if len(maes) else 0.0,
+        'n_patterns': len(work),
+        'trimmed': trimmed_total,
+        'passes': pass_i + 1 if 'pass_i' in dir() else 0,
     }
 
 def _audit_trade(outcome, pattern):

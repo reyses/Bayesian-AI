@@ -3673,28 +3673,43 @@ class BayesianTrainingOrchestrator:
 
         validated = 0
         flagged = 0
+        dropped = 0
+        total_trimmed = 0
         for i, tmpl in enumerate(templates):
-            # Analytical params from oracle stats (already set by fit_hypervolume_tree)
-            if tmpl.best_params is None:
-                tmpl.best_params = _analytical_exits(tmpl)
-                tmpl.best_params.update(DEFAULT_PID)
+            n_before = len(tmpl.patterns)
 
-            # Optuna validation: is this group behaviorally consistent?
+            # Stepwise refinement: trims MFE outliers until consistent
             is_valid, score, diag = _validate_template_consistency(
                 tmpl, tmpl.patterns, self.asset.point_value
             )
             tmpl.consistency_score = score
             tmpl.consistency_diagnostics = diag
+            n_trimmed = diag.get('trimmed', 0)
+            total_trimmed += n_trimmed
+
+            # Re-aggregate oracle stats on the refined pattern set
+            if n_trimmed > 0:
+                self.clustering_engine._aggregate_oracle_intelligence(tmpl)
+
+            # Recompute analytical exits on refined stats
+            tmpl.best_params = _analytical_exits(tmpl)
+            tmpl.best_params.update(DEFAULT_PID)
+
+            if not is_valid and len(tmpl.patterns) < 30:
+                # Template couldn't be refined — drop it
+                dropped += 1
+                print(f"    {tmpl.template_id}: DROPPED ({len(tmpl.patterns)} patterns, "
+                      f"CV={diag.get('mfe_cv', 0):.1f})")
+                continue
 
             if is_valid:
                 validated += 1
+                tag = f"trimmed {n_trimmed}" if n_trimmed else "clean"
             else:
                 flagged += 1
-                mfe_delta = diag.get('mfe_delta', 0.0)
-                mfe_cv = diag.get('mfe_cv', 0.0)
-                print(f"  Template {tmpl.template_id}: INCONSISTENT -- "
-                      f"MFE delta {mfe_delta:.0%}, CV {mfe_cv:.1f}")
+                tag = f"kept (CV={diag.get('mfe_cv', 0):.1f})"
 
+            print(f"    {tmpl.template_id}: {n_before}→{len(tmpl.patterns)} patterns [{tag}]")
             self.register_template_logic(tmpl, tmpl.best_params)
 
             # Progress popup
@@ -3708,10 +3723,13 @@ class BayesianTrainingOrchestrator:
         ckpt.update_phase('optimization', 'complete', {
             'validated': validated,
             'flagged': flagged,
+            'dropped': dropped,
+            'trimmed_patterns': total_trimmed,
         })
 
         print(f"\n  Phase 3 Summary:")
-        print(f"    {validated} validated, {flagged} flagged for review")
+        print(f"    {validated} validated, {flagged} flagged, {dropped} dropped")
+        print(f"    {total_trimmed:,} noisy patterns trimmed across all templates")
         print(f"    Library size: {len(self.pattern_library)} entries")
         print(f"    Time: {phase3_elapsed:.1f}s")
 
