@@ -436,7 +436,9 @@ class FractalClusteringEngine:
           Forward pass handles matching + regression
         """
         import hashlib
+        import time
 
+        t0 = time.perf_counter()
         print(f"Hypervolume: Building tree from {len(patterns)} patterns...")
 
         # 1. Build matrices
@@ -446,7 +448,8 @@ class FractalClusteringEngine:
             if mat is not None and mat.shape[0] >= 1:
                 matrices[i] = mat
 
-        print(f"  Constructed {len(matrices)} hypervolume matrices.")
+        t1 = time.perf_counter()
+        print(f"  Constructed {len(matrices)} hypervolume matrices. [{t1-t0:.1f}s]")
 
         # 2. Extract full 16D features
         all_indices = list(matrices.keys())
@@ -455,11 +458,16 @@ class FractalClusteringEngine:
         scaler = StandardScaler()
         feat_scaled = scaler.fit_transform(feat_all)
 
+        t2 = time.perf_counter()
+        print(f"  Extracted 16D features + scaled. [{t2-t1:.1f}s]")
+
         # 3. I-MR on PC1 → DBSCAN on 16D within each segment
         print(f"  I-MR segmentation + 16D DBSCAN fission...")
         labels, lineage = self._imr_geometric_split(feat_scaled, min_group_size)
         n_groups = len(set(labels))
-        print(f"    Total groups: {n_groups}")
+
+        t3 = time.perf_counter()
+        print(f"    Total groups: {n_groups} [{t3-t2:.1f}s]")
 
         # === Build templates ===
         root_nodes = {}
@@ -517,9 +525,10 @@ class FractalClusteringEngine:
                 adj_r2_mfe=0.0
             )
 
+        t4 = time.perf_counter()
         max_depth = max((m.shape[0] for m in matrices.values()), default=1) - 1
         n_templates = len(root_nodes)
-        print(f"  Tree built: {n_templates} templates.")
+        print(f"  Tree built: {n_templates} templates. [templates {t4-t3:.1f}s, total {t4-t0:.1f}s]")
 
         tree = HypervolumeTree(roots=root_nodes, max_depth=max_depth, n_templates=n_templates)
         self.templates = list(t.template for t in root_nodes.values() if t.template)
