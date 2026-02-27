@@ -5,7 +5,6 @@ import pandas as pd
 import numpy as np
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
-from sklearn.cluster import KMeans
 from training.fractal_clustering import FractalClusteringEngine, PatternTemplate
 
 @dataclass
@@ -47,7 +46,6 @@ class TestClusteringIntegration(unittest.TestCase):
             )
             self.patterns.append(p)
 
-    @patch('training.fractal_clustering.CUDAKMeans', KMeans)
     def test_clustering_engine(self):
         engine = FractalClusteringEngine(n_clusters=10, max_variance=0.5)
 
@@ -113,6 +111,51 @@ class TestClusteringIntegration(unittest.TestCase):
         # 100% WR first half, 0% WR second half -> delta = 1.0 -> inconsistent
         self.assertFalse(is_valid)
         self.assertGreater(diag['wr_delta'], 0.2)
+
+    def test_imr_geometric_split_basic(self):
+        """Two well-separated clusters should produce 2 labels."""
+        engine = FractalClusteringEngine()
+        rng = np.random.RandomState(42)
+        group_a = rng.normal(loc=-3.0, scale=0.5, size=(50, 16))
+        group_b = rng.normal(loc=3.0, scale=0.5, size=(50, 16))
+        residuals = np.vstack([group_a, group_b])
+
+        labels = engine._imr_geometric_split(residuals, min_group_size=10)
+
+        self.assertEqual(len(labels), 100)
+        self.assertGreaterEqual(len(np.unique(labels)), 2)
+        self.assertEqual(set(np.unique(labels)), set(range(len(np.unique(labels)))))
+
+    def test_imr_geometric_split_single_cluster(self):
+        """Tight cluster should return single group."""
+        engine = FractalClusteringEngine()
+        rng = np.random.RandomState(42)
+        residuals = rng.normal(loc=0.0, scale=0.1, size=(60, 16))
+
+        labels = engine._imr_geometric_split(residuals, min_group_size=10)
+
+        self.assertEqual(len(np.unique(labels)), 1)
+        self.assertTrue(np.all(labels == 0))
+
+    def test_imr_geometric_split_too_few(self):
+        """Fewer than 2 * min_group_size -> single cluster."""
+        engine = FractalClusteringEngine()
+        rng = np.random.RandomState(42)
+        residuals = rng.normal(size=(15, 16))
+
+        labels = engine._imr_geometric_split(residuals, min_group_size=10)
+
+        self.assertEqual(len(np.unique(labels)), 1)
+        self.assertEqual(len(labels), 15)
+
+    def test_imr_geometric_split_identical(self):
+        """All identical patterns -> single cluster."""
+        engine = FractalClusteringEngine()
+        residuals = np.ones((40, 16))
+
+        labels = engine._imr_geometric_split(residuals, min_group_size=10)
+
+        self.assertTrue(np.all(labels == 0))
 
 if __name__ == '__main__':
     unittest.main()
