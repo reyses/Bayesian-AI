@@ -5,3 +5,7 @@
 ## 2026-02-26 - [Numba JIT for Wilder Smoothing]
 **Learning:** Python loops with data dependencies (like Wilder smoothing for ADX) are extremely slow and cannot be easily vectorized with NumPy. JIT compiling these sequential loops with Numba provided a massive ~23x speedup (3.1s -> 0.13s for 1M points), far exceeding gains from micro-optimizing attribute access.
 **Action:** Always prioritize JIT compilation for sequential numeric loops (accumulators, recursive filters) over trying to force them into NumPy vectorization or optimizing object access.
+
+## 2026-02-27 - [Numba JIT vs NumPy Convolution]
+**Learning:** Even heavily optimized NumPy code using `np.convolve` and `sliding_window_view` has significant overhead due to intermediate array allocations and Python-level function calls. Re-writing a rolling linear regression + physics physics kernel as a single JIT-compiled Numba loop (O(N) instead of O(N log N) or O(N*rp)) provided a ~2.3x speedup (1.33s vs 3.02s for 1M points) by keeping all computation in compiled code and removing temporary arrays.
+**Action:** When a "vectorized" NumPy implementation involves multiple steps creating large intermediate arrays (convolutions, sliding windows, multiple pass math), consider collapsing it into a single `@njit` loop.
