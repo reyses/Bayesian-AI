@@ -1441,6 +1441,8 @@ class BayesianTrainingOrchestrator:
 
                     if best_candidate:
                         # FIRE
+                        pattern_dna = ''   # DNA tree disabled (self.dna_tree=None)
+                        _belief = None     # assigned at belief_network.get_belief() below
                         params = self.pattern_library[best_tid]['params']
                         lib_entry = self.pattern_library[best_tid]
 
@@ -1527,7 +1529,7 @@ class BayesianTrainingOrchestrator:
                             if not _belief.is_confident:
                                 # Tree uncertain across scales -- skip this bar
                                 skip_conviction += 1
-                                _candidate_gate[id(p)] = 'gate3'
+                                _candidate_gate[id(best_candidate)] = 'gate3'
                                 _bc_mz = abs(best_candidate.z_score)
                                 _bc_mac = abs((getattr(best_candidate, 'parent_chain', None) or [{}])[-1].get('z', 0.0))
                                 decision_matrix_records.append(_dm_rec(
