@@ -4,10 +4,9 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import numpy as np
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Dict, Optional
 from sklearn.cluster import KMeans
 from training.fractal_clustering import FractalClusteringEngine, PatternTemplate
-from training.orchestrator import _optimize_template_task
 
 @dataclass
 class MockPatternEvent:
@@ -25,6 +24,8 @@ class MockPatternEvent:
     parent_type: str = ''
     parent_chain: Any = None
     oracle_marker: int = 1
+    oracle_meta: Optional[Dict] = None
+    file_source: str = ''
 
 class TestClusteringIntegration(unittest.TestCase):
 
@@ -41,7 +42,8 @@ class TestClusteringIntegration(unittest.TestCase):
                 momentum=np.random.normal(0, 1),
                 coherence=np.random.uniform(0, 1),
                 window_data=pd.DataFrame({'close': [100, 101, 102], 'price': [100, 101, 102], 'timestamp': [1000, 1001, 1002]}),
-                oracle_marker=1
+                oracle_marker=1,
+                oracle_meta={'mfe': float(np.random.uniform(1, 10)), 'mae': float(np.random.uniform(0, 5))},
             )
             self.patterns.append(p)
 
@@ -55,10 +57,6 @@ class TestClusteringIntegration(unittest.TestCase):
 
         self.assertTrue(len(templates) > 0)
 
-        # Check total members - might be less if groups < min_group_size are dropped?
-        # But root split handles it.
-        # Hypervolume logic drops small groups. With min_group_size=5 and 100 patterns,
-        # it should keep most.
         total_members = sum(t.member_count for t in templates)
         self.assertGreater(total_members, 0)
 
@@ -68,65 +66,53 @@ class TestClusteringIntegration(unittest.TestCase):
             self.assertGreaterEqual(t.physics_variance, 0.0)
 
     @patch('training.orchestrator_worker.simulate_trade_standalone')
-    def test_optimize_template_task(self, mock_simulate):
-        # Mock simulation result
+    def test_validate_template_consistency(self, mock_simulate):
+        from training.orchestrator_worker import _validate_template_consistency
+
+        # Consistent wins across all members
         mock_outcome = MagicMock()
         mock_outcome.pnl = 10.0
         mock_simulate.return_value = mock_outcome
 
-        # Mock generator
-        mock_generator = MagicMock()
-        mock_generator.generate_parameter_set.return_value.parameters = {'stop_loss': 10}
-        mock_generator.optimize_pid.return_value = {'pid_kp': 0.1, 'pid_ki': 0.01, 'pid_kd': 0.05}
-
         template = MagicMock()
         template.mean_mfe_ticks = 0.0
         template.p75_mfe_ticks = 0.0
         template.mean_mae_ticks = 0.0
         template.p25_mae_ticks = 0.0
-        subset = self.patterns[:5]
-        iterations = 2
-        point_value = 2.0
 
-        args = (template, subset, iterations, mock_generator, point_value)
-
-        best_params, best_sharpe = _optimize_template_task(args)
-
-        self.assertIn('pid_kp', best_params)
-        self.assertEqual(best_params['pid_kp'], 0.1)
-        # All returns are 10.0. Standard deviation is 0. Sharpe should be 0.
-        self.assertEqual(best_sharpe, 0.0)
+        is_valid, score, diag = _validate_template_consistency(
+            template, self.patterns[:20], 2.0
+        )
+        # All positive PnL, no variance -> consistent
+        self.assertTrue(is_valid)
+        self.assertGreater(score, 0.0)
+        self.assertEqual(diag['n_trades'], 20)
 
     @patch('training.orchestrator_worker.simulate_trade_standalone')
-    def test_optimize_template_task_variance(self, mock_simulate):
-        # Mock generator to return 1 param set
-        mock_generator = MagicMock()
-        mock_generator.generate_parameter_set.return_value.parameters = {'stop_loss': 10}
-        mock_generator.optimize_pid.return_value = {'pid_kp': 0.1, 'pid_ki': 0.01, 'pid_kd': 0.05}
+    def test_validate_template_inconsistent(self, mock_simulate):
+        from training.orchestrator_worker import _validate_template_consistency
 
-        subset = self.patterns[:2]
-        # PnL: [10, 20] -> mean=15, std=5 -> Sharpe=3.0
+        # First half wins, second half loses -> inconsistent
+        outcomes = []
+        for i in range(20):
+            m = MagicMock()
+            m.pnl = 10.0 if i < 10 else -10.0
+            outcomes.append(m)
 
-        out1 = MagicMock()
-        out1.pnl = 10.0
-        out2 = MagicMock()
-        out2.pnl = 20.0
-
-        mock_simulate.side_effect = [out1, out2]
+        mock_simulate.side_effect = outcomes
 
         template = MagicMock()
         template.mean_mfe_ticks = 0.0
         template.p75_mfe_ticks = 0.0
         template.mean_mae_ticks = 0.0
         template.p25_mae_ticks = 0.0
-        iterations = 1
-        point_value = 2.0
 
-        args = (template, subset, iterations, mock_generator, point_value)
-
-        best_params, best_sharpe = _optimize_template_task(args)
-
-        self.assertAlmostEqual(best_sharpe, 3.0)
+        is_valid, score, diag = _validate_template_consistency(
+            template, self.patterns[:20], 2.0
+        )
+        # 100% WR first half, 0% WR second half -> delta = 1.0 -> inconsistent
+        self.assertFalse(is_valid)
+        self.assertGreater(diag['wr_delta'], 0.2)
 
 if __name__ == '__main__':
     unittest.main()
