@@ -1329,7 +1329,7 @@ class BayesianTrainingOrchestrator:
                         # Macro context
                         chain = getattr(p, 'parent_chain', [])
                         root_entry = chain[-1] if chain else None
-                        macro_z = abs(root_entry['z']) if root_entry else 0.0
+                        macro_z = abs(root_entry.get('z', 0.0)) if root_entry else 0.0
 
                         should_skip = False
                         _skip_label = 'gate0'
