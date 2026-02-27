@@ -3,14 +3,14 @@ Waveform Screening Tool
 =======================
 Standalone analysis module — does NOT modify production code.
 
-Purpose: Determine which of the 16F × 12TF dimensions actually explain
+Purpose: Determine which of the 16F x 12TF dimensions actually explain
 outcome (MFE/MAE) variation. Cause-and-effect screening before building
 the regression model.
 
 Usage:
     python tools/waveform_screening.py [--data DATA/ATLAS_1WEEK]
 
-Reads patterns from a trained checkpoint, extracts the full 16×12
+Reads patterns from a trained checkpoint, extracts the full 16x12
 hypervolume matrix for each, and runs factor screening against oracle MFE.
 
 Output: tools/screening_report.txt + console summary
@@ -25,7 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
-# ── Feature names (16D) ─────────────────────────────────────────────────────
+# -- Feature names (16D) -----------------------------------------------------
 FEATURE_NAMES = [
     'abs_z', 'log1p_vol', 'log1p_mom', 'coherence', 'tf_scale', 'depth',
     'parent_ctx', 'self_adx', 'self_hurst', 'self_dmi_diff',
@@ -33,7 +33,7 @@ FEATURE_NAMES = [
     'self_pid', 'osc_coh'
 ]
 
-# ── TF labels (12 rows in hypervolume matrix, depth 0=macro → 11=micro) ────
+# -- TF labels (12 rows in hypervolume matrix, depth 0=macro -> 11=micro) ----
 TF_LABELS = [
     'd0_macro', 'd1', 'd2', 'd3', 'd4', 'd5',
     'd6', 'd7', 'd8', 'd9', 'd10', 'd11_micro'
@@ -56,7 +56,7 @@ def load_templates(checkpoint_dir='checkpoints'):
 
 
 def extract_matrices(templates):
-    """Extract 16×12 hypervolume matrices and oracle MFE for all patterns."""
+    """Extract 16x12 hypervolume matrices and oracle MFE for all patterns."""
     from training.fractal_clustering import FractalClusteringEngine
 
     matrices = []  # Each is (depth, 16) — variable depth
@@ -104,7 +104,7 @@ def pad_to_fixed_depth(matrices, max_depth=12):
 
 
 def flatten_matrices(padded):
-    """Flatten (n, 12, 16) → (n, 192) with named columns."""
+    """Flatten (n, 12, 16) -> (n, 192) with named columns."""
     n = padded.shape[0]
     flat = padded.reshape(n, -1)
 
@@ -146,8 +146,8 @@ def screen_factors(flat, col_names, mfes):
 
 def regression_r2(flat, col_names, mfes, top_k=20):
     """
-    Fit OLS on top-K factors and report adj-R².
-    Stepwise: add one factor at a time, track R² improvement.
+    Fit OLS on top-K factors and report adj-R2.
+    Stepwise: add one factor at a time, track R2 improvement.
     """
     from sklearn.linear_model import LinearRegression
     from sklearn.preprocessing import StandardScaler
@@ -158,10 +158,10 @@ def regression_r2(flat, col_names, mfes, top_k=20):
     top_indices = [col_names.index(n) for n in top_names]
 
     print(f"\n{'='*70}")
-    print(f"  STEPWISE REGRESSION (top {top_k} factors → MFE)")
+    print(f"  STEPWISE REGRESSION (top {top_k} factors -> MFE)")
     print(f"{'='*70}")
-    print(f"  {'Step':>4}  {'Factor':<35} {'R²':>8}  {'ΔR²':>8}  {'adj-R²':>8}")
-    print(f"  {'─'*4}  {'─'*35} {'─'*8}  {'─'*8}  {'─'*8}")
+    print(f"  {'Step':>4}  {'Factor':<35} {'R2':>8}  {'dR2':>8}  {'adj-R2':>8}")
+    print(f"  {'-'*4}  {'-'*35} {'-'*8}  {'-'*8}  {'-'*8}")
 
     scaler = StandardScaler()
     prev_r2 = 0.0
@@ -201,10 +201,10 @@ def print_screening_report(results, mfes, maes, meta, top_n=30):
     # Top correlations
     print(f"\n  TOP {top_n} FACTORS (correlation with MFE):")
     print(f"  {'Rank':>4}  {'Factor':<35} {'Corr':>8}  {'|Corr|':>8}")
-    print(f"  {'─'*4}  {'─'*35} {'─'*8}  {'─'*8}")
+    print(f"  {'-'*4}  {'-'*35} {'-'*8}  {'-'*8}")
 
     for i, (name, corr, abs_corr) in enumerate(results[:top_n], 1):
-        bar = '█' * int(abs_corr * 40)
+        bar = '#' * int(abs_corr * 40)
         print(f"  {i:>4}  {name:<35} {corr:>+8.4f}  {abs_corr:>8.4f}  {bar}")
 
     # Dead factors (zero correlation)
@@ -214,7 +214,7 @@ def print_screening_report(results, mfes, maes, meta, top_n=30):
     # Group by timeframe: which depth matters most?
     print(f"\n  FACTOR IMPORTANCE BY TIMEFRAME DEPTH:")
     print(f"  {'Depth':<12} {'Mean |corr|':>12}  {'Max |corr|':>12}  {'# active':>10}")
-    print(f"  {'─'*12} {'─'*12}  {'─'*12}  {'─'*10}")
+    print(f"  {'-'*12} {'-'*12}  {'-'*12}  {'-'*10}")
 
     for d in range(12):
         prefix = TF_LABELS[d] if d < len(TF_LABELS) else f'd{d}'
@@ -227,7 +227,7 @@ def print_screening_report(results, mfes, maes, meta, top_n=30):
     # Group by feature: which feature matters most?
     print(f"\n  FACTOR IMPORTANCE BY FEATURE:")
     print(f"  {'Feature':<20} {'Mean |corr|':>12}  {'Max |corr|':>12}  {'Best depth':<12}")
-    print(f"  {'─'*20} {'─'*12}  {'─'*12}  {'─'*12}")
+    print(f"  {'-'*20} {'-'*12}  {'-'*12}  {'-'*12}")
 
     for f_name in FEATURE_NAMES:
         feat_factors = [(n, c, a) for n, c, a in results if n.endswith(f'__{f_name}')]
@@ -274,7 +274,7 @@ def main():
     with open(report_path, 'w') as f:
         f.write("WAVEFORM SCREENING RESULTS\n")
         f.write(f"Patterns: {len(mfes)}\n\n")
-        f.write(f"{'Rank':>4}  {'Factor':<35} {'Corr':>+8}  {'|Corr|':>8}\n")
+        f.write(f"{'Rank':>4}  {'Factor':<35} {'Corr':>8}  {'|Corr|':>8}\n")
         for i, (name, corr, abs_corr) in enumerate(results, 1):
             f.write(f"{i:>4}  {name:<35} {corr:>+8.4f}  {abs_corr:>8.4f}\n")
     print(f"\n  Full report saved: {report_path}")
