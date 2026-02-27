@@ -3692,6 +3692,8 @@ class BayesianTrainingOrchestrator:
 
             # Re-aggregate oracle stats on the refined pattern set
             if n_trimmed > 0:
+                if not hasattr(self, 'clustering_engine') or self.clustering_engine is None:
+                    self.clustering_engine = FractalClusteringEngine(n_clusters=1000, max_variance=0.5)
                 self.clustering_engine._aggregate_oracle_intelligence(tmpl)
 
             # Recompute analytical exits on refined stats
