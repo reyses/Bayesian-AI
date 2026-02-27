@@ -259,74 +259,52 @@ def _analytical_exits(template) -> dict:
         'trading_cost_points': 0.50,
     }
 
-CONSISTENCY_SAMPLE_CAP = 200  # Max patterns to simulate per template (convergence at ~150)
-
 def _validate_template_consistency(template, patterns, point_value):
-    """Use simulation to VERIFY a template group behaves consistently.
+    """Validate template consistency using oracle MFE/MAE — no simulation.
 
-    Samples up to CONSISTENCY_SAMPLE_CAP patterns (stratified from temporal
-    halves) to avoid O(n) simulation cost on large templates.
+    Each pattern already carries oracle_meta.mfe and .mae from Phase 2.
+    We check whether the MFE distribution is stable across temporal halves
+    and whether the spread (CV) is reasonable.
 
     Returns: (is_valid: bool, consistency_score: float, diagnostics: dict)
     """
-    from training.fractal_clustering import DEFAULT_PID
+    # Extract oracle MFE from each pattern (already computed in Phase 2)
+    mfes = np.array([getattr(p, 'oracle_meta', {}).get('mfe', 0.0)
+                      for p in patterns])
+    maes = np.array([getattr(p, 'oracle_meta', {}).get('mae', 0.0)
+                      for p in patterns])
 
-    analytical_params = _analytical_exits(template)
-    analytical_params.update(DEFAULT_PID)
+    # Filter out zeros (patterns with no oracle data)
+    valid = mfes != 0.0
+    mfes = mfes[valid]
+    maes = maes[valid]
 
-    # Filter to usable patterns first
-    usable = [p for p in patterns
-              if hasattr(p, 'window_data') and p.window_data is not None
-              and not (hasattr(p.window_data, 'empty') and p.window_data.empty)]
+    if len(mfes) < 5:
+        return True, 0.0, {'reason': 'too_few_patterns', 'n_patterns': len(mfes)}
 
-    # Stratified sample: equal draw from each temporal half to preserve the
-    # halves-comparison logic downstream
-    if len(usable) > CONSISTENCY_SAMPLE_CAP:
-        mid = len(usable) // 2
-        half_cap = CONSISTENCY_SAMPLE_CAP // 2
-        rng = np.random.default_rng(42)
-        first_idx = rng.choice(mid, min(half_cap, mid), replace=False)
-        second_idx = rng.choice(len(usable) - mid, min(half_cap, len(usable) - mid), replace=False) + mid
-        sample_idx = np.concatenate([first_idx, second_idx])
-        usable = [usable[i] for i in sample_idx]
+    # 1. MFE stability across temporal halves
+    mid = len(mfes) // 2
+    mean_first = float(np.mean(mfes[:mid]))
+    mean_second = float(np.mean(mfes[mid:]))
+    avg_mfe = float(np.mean(mfes))
+    mfe_delta = abs(mean_first - mean_second) / max(abs(avg_mfe), 0.01)
 
-    results = []
-    for p in usable:
-        outcome = simulate_trade_standalone(
-            entry_price=p.price, data=p.window_data, state=p.state,
-            params=analytical_params, point_value=point_value,
-            template=template
-        )
-        if outcome:
-            results.append(outcome.pnl)
+    # 2. MFE coefficient of variation (spread)
+    mfe_std = float(np.std(mfes))
+    mfe_cv = mfe_std / max(abs(avg_mfe), 0.01)
 
-    if len(results) < 5:
-        return True, 0.0, {'reason': 'too_few_trades', 'n_trades': len(results)}
-
-    # Consistency checks:
-    # 1. Win rate should be stable across temporal halves
-    mid = len(results) // 2
-    wr_first = sum(1 for r in results[:mid] if r > 0) / mid
-    wr_second = sum(1 for r in results[mid:] if r > 0) / (len(results) - mid)
-    wr_delta = abs(wr_first - wr_second)
-
-    # 2. PnL distribution should not be bimodal
-    pnl_std = float(np.std(results))
-    pnl_mean = float(np.mean(results))
-    cv = pnl_std / abs(pnl_mean) if abs(pnl_mean) > 0.01 else float('inf')
-
-    # 3. Flag if behavior is inconsistent
-    is_valid = wr_delta < 0.20 and cv < 3.0
-    consistency_score = 1.0 - (wr_delta * 0.5 + min(cv / 6.0, 0.5))
+    # 3. Consistency verdict
+    is_valid = mfe_delta < 0.30 and mfe_cv < 3.0
+    consistency_score = 1.0 - (mfe_delta * 0.4 + min(mfe_cv / 6.0, 0.6))
 
     return is_valid, consistency_score, {
-        'wr_first_half': wr_first,
-        'wr_second_half': wr_second,
-        'wr_delta': wr_delta,
-        'pnl_cv': cv,
-        'pnl_mean': pnl_mean,
-        'pnl_std': pnl_std,
-        'n_trades': len(results),
+        'mfe_first_half': mean_first,
+        'mfe_second_half': mean_second,
+        'mfe_delta': mfe_delta,
+        'mfe_cv': mfe_cv,
+        'mfe_mean': avg_mfe,
+        'mae_mean': float(np.mean(maes)),
+        'n_patterns': len(mfes),
     }
 
 def _audit_trade(outcome, pattern):

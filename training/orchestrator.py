@@ -3690,10 +3690,10 @@ class BayesianTrainingOrchestrator:
                 validated += 1
             else:
                 flagged += 1
-                wr_delta = diag.get('wr_delta', 0.0)
-                pnl_cv = diag.get('pnl_cv', 0.0)
+                mfe_delta = diag.get('mfe_delta', 0.0)
+                mfe_cv = diag.get('mfe_cv', 0.0)
                 print(f"  Template {tmpl.template_id}: INCONSISTENT -- "
-                      f"WR delta {wr_delta:.0%}, CV {pnl_cv:.1f}")
+                      f"MFE delta {mfe_delta:.0%}, CV {mfe_cv:.1f}")
 
             self.register_template_logic(tmpl, tmpl.best_params)
 
