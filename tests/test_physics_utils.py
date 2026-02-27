@@ -110,9 +110,8 @@ def test_adx_speed():
     # Assert at least 5x speedup (will fail until optimization is applied)
     # We can use try-except or just let it fail/pass
     if t_ref > 0.05: # Only check if ref takes measurable time
-        # This assertion expects the optimization to be applied.
-        # It will fail now if we run it before optimization.
-        pass
+        speedup = t_ref / t_opt if t_opt > 0 else float('inf')
+        assert speedup > 5, f"Expected at least 5x speedup, but got {speedup:.2f}x"
 
 if __name__ == "__main__":
     test_adx_correctness()
