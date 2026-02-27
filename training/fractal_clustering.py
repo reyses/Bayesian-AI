@@ -1101,8 +1101,14 @@ class FractalClusteringEngine:
 
                  resids = mfe_y - ols.predict(X_sc)
                  template.regression_sigma_ticks = np.std(resids) / _tick
+
+                 # adj-R²: how well 16D features predict MFE
+                 n, k = X_sc.shape
+                 r2 = ols.score(X_sc, mfe_y)
+                 template.adj_r2_mfe = 1.0 - (1.0 - r2) * (n - 1) / max(1, n - k - 1)
              except:
                  template.regression_sigma_ticks = 0.0
+                 template.adj_r2_mfe = 0.0
 
              # Direction
              labels = np.array([1 if m > 0 else 0 for m in markers if m != 0])

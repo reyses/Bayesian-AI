@@ -3716,7 +3716,11 @@ class BayesianTrainingOrchestrator:
                 flagged += 1
                 tag = f"kept (CV={diag.get('mfe_cv', 0):.1f})"
 
-            print(f"    {tmpl.template_id}: {n_before}→{len(tmpl.patterns)} patterns [{tag}]")
+            r2 = getattr(tmpl, 'adj_r2_mfe', 0.0)
+            wr = getattr(tmpl, 'stats_win_rate', 0.0)
+            mfe = getattr(tmpl, 'mean_mfe_ticks', 0.0)
+            print(f"    {tmpl.template_id}: {n_before:>5}→{len(tmpl.patterns):>5} │ "
+                  f"R²={r2:.2f}  WR={wr:.0%}  MFE={mfe:.0f}t │ {tag}")
             self.register_template_logic(tmpl, tmpl.best_params)
 
             # Progress popup
