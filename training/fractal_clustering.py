@@ -525,18 +525,53 @@ class FractalClusteringEngine:
         t2 = time.perf_counter()
         print(f"  [2] Features: 16D extracted + scaled [{t2-t1:.1f}s]")
 
-        # 3. I-MR on ADX → DBSCAN on volume+ADX within each segment
-        print(f"  [3] Clustering: I-MR(ADX) → DBSCAN(vol+ADX)...")
-        labels, lineage = self._imr_geometric_split(feat_scaled, min_group_size)
-        n_groups = len(set(labels))
+        # 3. Pre-split by DMI direction, then I-MR + DBSCAN within each side
+        #    DMI_DIFF (index 9): >0 = bullish, <0 = bearish
+        #    This guarantees every template has a pure directional signal.
+        dmi_col = 9  # self_dmi_diff
+        dmi_vals = feat_scaled[:, dmi_col]
+        long_mask = dmi_vals >= 0
+        short_mask = ~long_mask
 
+        n_long = int(long_mask.sum())
+        n_short = int(short_mask.sum())
+        print(f"  [3] Direction split: {n_long:,} LONG │ {n_short:,} SHORT (DMI)")
+
+        labels = np.full(len(feat_scaled), -1, dtype=int)
+        lineage = {}
+        offset = 0
+
+        for side_name, side_mask in [('LONG', long_mask), ('SHORT', short_mask)]:
+            side_n = int(side_mask.sum())
+            if side_n < min_group_size:
+                # Too few — assign all to one group
+                labels[side_mask] = offset
+                lineage[offset] = (offset, 0)
+                offset += 1
+                print(f"      {side_name}: {side_n:,} patterns → 1 group (too small)")
+                continue
+
+            print(f"      {side_name}: I-MR(ADX) → DBSCAN(vol+ADX) on {side_n:,} patterns...")
+            side_labels, side_lineage = self._imr_geometric_split(
+                feat_scaled[side_mask], min_group_size)
+
+            # Remap to global label space
+            for local_lbl in np.unique(side_labels):
+                global_lbl = offset + local_lbl
+                labels[np.where(side_mask)[0][side_labels == local_lbl]] = global_lbl
+                seg_id, sub_id = side_lineage.get(local_lbl, (local_lbl, 0))
+                lineage[global_lbl] = (seg_id + offset, sub_id)
+
+            offset += len(set(side_labels))
+
+        n_groups = len(set(labels) - {-1})
         t3 = time.perf_counter()
         print(f"    → {n_groups} final groups [{t3-t2:.1f}s]")
 
         # === Build templates ===
         print(f"  [4] Templates:")
         root_nodes = {}
-        unique_labels = sorted(set(labels))
+        unique_labels = sorted(set(labels) - {-1})
         _skipped = 0
 
         for cluster_id in unique_labels:
@@ -556,7 +591,11 @@ class FractalClusteringEngine:
 
             seg_id, sub_id = lineage.get(cluster_id, (cluster_id, 0))
             seg_letter = chr(ord('A') + seg_id % 26)
-            node_id = f"{seg_letter}:{sub_id}"
+
+            # Direction from mean DMI of cluster members
+            _dmi_mean = float(feat_all[mask, 9].mean())  # self_dmi_diff
+            _dir_tag = 'L' if _dmi_mean >= 0 else 'S'
+            node_id = f"{_dir_tag}{seg_letter}:{sub_id}"
             tid = int(hashlib.sha256(node_id.encode('utf-8')).hexdigest(), 16) % 1000000
 
             member_patterns = [patterns[i] for i in member_indices]
@@ -577,8 +616,8 @@ class FractalClusteringEngine:
             self._aggregate_oracle_intelligence(template)
             self._build_dna_maps(template)
 
-            print(f"      {node_id:>6s} │ {len(member_patterns):>5,} patterns │ "
-                  f"ADX={_adx_mean:.2f}  vol={_vol_mean:.2f} │ tid={tid}")
+            print(f"      {node_id:>7s} │ {len(member_patterns):>5,} patterns │ "
+                  f"ADX={_adx_mean:.2f}  vol={_vol_mean:.2f}  DMI={_dmi_mean:+.3f} │ tid={tid}")
 
             root_nodes[cluster_id] = HypervolumeNode(
                 depth=0,
