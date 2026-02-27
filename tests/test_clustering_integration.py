@@ -120,11 +120,12 @@ class TestClusteringIntegration(unittest.TestCase):
         group_b = rng.normal(loc=3.0, scale=0.5, size=(50, 16))
         residuals = np.vstack([group_a, group_b])
 
-        labels = engine._imr_geometric_split(residuals, min_group_size=10)
+        labels, lineage = engine._imr_geometric_split(residuals, min_group_size=10)
 
         self.assertEqual(len(labels), 100)
         self.assertGreaterEqual(len(np.unique(labels)), 2)
         self.assertEqual(set(np.unique(labels)), set(range(len(np.unique(labels)))))
+        self.assertIsInstance(lineage, dict)
 
     def test_imr_geometric_split_single_cluster(self):
         """Tight cluster should return single group."""
@@ -132,7 +133,7 @@ class TestClusteringIntegration(unittest.TestCase):
         rng = np.random.RandomState(42)
         residuals = rng.normal(loc=0.0, scale=0.1, size=(60, 16))
 
-        labels = engine._imr_geometric_split(residuals, min_group_size=10)
+        labels, lineage = engine._imr_geometric_split(residuals, min_group_size=10)
 
         self.assertEqual(len(np.unique(labels)), 1)
         self.assertTrue(np.all(labels == 0))
@@ -143,7 +144,7 @@ class TestClusteringIntegration(unittest.TestCase):
         rng = np.random.RandomState(42)
         residuals = rng.normal(size=(15, 16))
 
-        labels = engine._imr_geometric_split(residuals, min_group_size=10)
+        labels, lineage = engine._imr_geometric_split(residuals, min_group_size=10)
 
         self.assertEqual(len(np.unique(labels)), 1)
         self.assertEqual(len(labels), 15)
@@ -153,7 +154,7 @@ class TestClusteringIntegration(unittest.TestCase):
         engine = FractalClusteringEngine()
         residuals = np.ones((40, 16))
 
-        labels = engine._imr_geometric_split(residuals, min_group_size=10)
+        labels, lineage = engine._imr_geometric_split(residuals, min_group_size=10)
 
         self.assertTrue(np.all(labels == 0))
 

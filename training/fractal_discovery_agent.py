@@ -550,7 +550,7 @@ class FractalDiscoveryAgent:
         # Map states for CST
         states_map = {r['bar_idx']: r['state'] for r in results}
 
-        # 4. Extract patterns
+        # 4. Extract patterns (only process bars with detected archetypes)
         tf_seconds = TIMEFRAME_SECONDS.get(timeframe, 15)
         lookahead_bars = max(50, int(4 * 3600 / tf_seconds))
         detected = []
@@ -558,6 +558,10 @@ class FractalDiscoveryAgent:
         for res in results:
             state = res['state']
             bar_idx = res['bar_idx']
+
+            # Skip non-pattern bars (vast majority) — no oracle needed
+            if not (state.cascade_detected or state.structure_confirmed):
+                continue
 
             # Find which file this bar belongs to
             file_path = ''
@@ -691,7 +695,7 @@ class FractalDiscoveryAgent:
         # Map states for CST
         states_map = {r['bar_idx']: r['state'] for r in results}
 
-        # 4. Extract patterns
+        # 4. Extract patterns (only process bars with detected archetypes)
         tf_seconds_val = TIMEFRAME_SECONDS.get(timeframe, 15)
         lookahead_bars = max(50, int(4 * 3600 / tf_seconds_val))
         detected = []
@@ -700,6 +704,10 @@ class FractalDiscoveryAgent:
         for res in results:
             state = res['state']
             bar_idx = res['bar_idx']
+
+            # Skip non-pattern bars (vast majority) — no oracle needed
+            if not (state.cascade_detected or state.structure_confirmed):
+                continue
 
             p_type = filtered_parent_types[bar_idx] if bar_idx < len(filtered_parent_types) else ''
             p_tf = filtered_parent_tfs[bar_idx] if bar_idx < len(filtered_parent_tfs) else ''

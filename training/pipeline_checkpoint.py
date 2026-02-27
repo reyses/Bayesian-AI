@@ -169,6 +169,7 @@ class PipelineCheckpoint:
             'clustering_scaler.pkl', 'clustering_scaler_long.pkl',
             'clustering_scaler_short.pkl', 'fractal_dna_tree.pkl',
             'dynamic_binner.pkl', 'tier_map.json',
+            'hypervolume_tree.pkl', 'template_tiers.pkl',
         ]
         for fname in _phase4_files:
             fpath = os.path.join(self.checkpoint_dir, fname)

@@ -41,7 +41,12 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 import logging
 
+from training.fractal_clustering import DNA_LIVE_DIMS
+
 logger = logging.getLogger(__name__)
+
+# Parent DNA Matching: 15m = anchor worker (parent signature matching)
+ANCHOR_TF = 900
 
 
 @dataclass
@@ -58,6 +63,7 @@ class WorkerBelief:
     # High value = wave is well-developed/near exhaustion = higher entry risk
     z_score:       float = 0.0  # raw z_score from quantum state (for decay tracking)
     momentum:      float = 0.0  # raw momentum_strength from quantum state
+    dna_agreement: float = 0.5  # DNA match quality [0=outside cell, 1=at centroid, 0.5=neutral]
 
 
 @dataclass
@@ -329,32 +335,115 @@ class TimeframeWorker:
              feat_s = (np.array(feat) - scaler_mean) / scaler_scale
         else:
              feat_s = scaler.transform([feat])[0]
-        dists  = np.linalg.norm(centroids_scaled - feat_s, axis=1)
+        _dna_agreement = 0.5  # Default: neutral (no DNA data)
+        _network = getattr(self, '_network', None)
 
-        if self.is_leaf:
-            # Multiple parallel analysis threads: top-K nearest clusters
-            top_k     = min(self.LEAF_TOP_K, len(dists))
-            top_k_idx = np.argpartition(dists, top_k - 1)[:top_k]
-            dir_probs  = []
-            pred_mfes  = []
-            for idx in top_k_idx:
-                lib = pattern_library[valid_tids[idx]]
-                dir_probs.append(_logistic_prob(feat_s, lib))
-                pred_mfes.append(_ols_mfe(feat_s, lib))
-            dir_prob = float(np.mean(dir_probs))
-            pred_mfe = float(np.mean(pred_mfes))
-            primary_tid = valid_tids[np.argmin(dists)]
-            _any_fitted = any(
-                pattern_library[valid_tids[i]].get('dir_coeff') is not None
-                for i in top_k_idx
-            )
-        else:
-            best_idx    = int(np.argmin(dists))
-            primary_tid = valid_tids[best_idx]
-            lib         = pattern_library[primary_tid]
-            dir_prob    = _logistic_prob(feat_s, lib)
-            pred_mfe    = _ols_mfe(feat_s, lib)
+        # --- PATH 1: DNA ANCHOR MATCHING (15m worker) ---
+        if (self.tf_seconds == ANCHOR_TF and _network is not None
+                and _network.dna_index.get(ANCHOR_TF)):
+            dna_entries = _network.dna_index[ANCHOR_TF]
+            _mask = DNA_LIVE_DIMS
+            feat_live = feat_s[_mask]
+
+            matched_tid = None
+            best_dist = float('inf')
+            for _tid, _cen16, _bmin, _bmax in dna_entries:
+                if np.all(feat_live >= _bmin) and np.all(feat_live <= _bmax):
+                    _d = np.linalg.norm(feat_live - _cen16[_mask])
+                    if _d < best_dist:
+                        best_dist = _d
+                        matched_tid = _tid
+
+            _network._active_template_id = matched_tid
+
+            if matched_tid is None:
+                self.current_belief = None
+                return True  # Updated to None (no parent match)
+
+            primary_tid = matched_tid
+            lib = pattern_library[primary_tid]
+            dir_prob = _logistic_prob(feat_s, lib)
+            pred_mfe = _ols_mfe(feat_s, lib)
             _any_fitted = lib.get('dir_coeff') is not None
+            _dna_agreement = 1.0  # Anchor matched = full agreement
+
+        # --- PATH 2: DNA VERIFICATION (non-anchor workers) ---
+        elif (_network is not None and _network._active_template_id is not None
+              and _network.dna_index):
+            active_tid = _network._active_template_id
+            dna_entries = _network.dna_index.get(self.tf_seconds, [])
+            dna_entry = None
+            for _e in dna_entries:
+                if _e[0] == active_tid:
+                    dna_entry = _e
+                    break
+
+            if dna_entry is not None:
+                _, _cen16, _bmin, _bmax = dna_entry
+                _mask = DNA_LIVE_DIMS
+                feat_live = feat_s[_mask]
+                if np.all(feat_live >= _bmin) and np.all(feat_live <= _bmax):
+                    cell_range = np.where((_bmax - _bmin) < 1e-9, 1.0, _bmax - _bmin)
+                    normalized = (feat_live - _bmin) / cell_range
+                    center_dist = np.linalg.norm(normalized - 0.5)
+                    max_dist = np.sqrt(len(_mask)) * 0.5
+                    _dna_agreement = float(np.clip(1.0 - center_dist / max_dist, 0.0, 1.0))
+                else:
+                    _dna_agreement = 0.0
+            else:
+                _dna_agreement = 0.5  # No DNA for this TF → neutral
+
+            primary_tid = active_tid
+            lib = pattern_library.get(primary_tid, {})
+            if lib.get('dir_coeff') is not None:
+                dir_prob = _logistic_prob(feat_s, lib)
+                pred_mfe = _ols_mfe(feat_s, lib)
+                _any_fitted = True
+            elif len(centroids_scaled) > 0:
+                dists = np.linalg.norm(centroids_scaled - feat_s, axis=1)
+                best_idx = int(np.argmin(dists))
+                primary_tid = valid_tids[best_idx]
+                lib = pattern_library[primary_tid]
+                dir_prob = _logistic_prob(feat_s, lib)
+                pred_mfe = _ols_mfe(feat_s, lib)
+                _any_fitted = lib.get('dir_coeff') is not None
+            else:
+                dir_prob = 0.5
+                pred_mfe = 0.0
+                _any_fitted = False
+
+        # --- PATH 3: Legacy fallback (no DNA data or no active template) ---
+        elif len(centroids_scaled) > 0:
+            dists = np.linalg.norm(centroids_scaled - feat_s, axis=1)
+            if self.is_leaf:
+                top_k     = min(self.LEAF_TOP_K, len(dists))
+                top_k_idx = np.argpartition(dists, top_k - 1)[:top_k]
+                dir_probs  = []
+                pred_mfes  = []
+                for idx in top_k_idx:
+                    lib = pattern_library[valid_tids[idx]]
+                    dir_probs.append(_logistic_prob(feat_s, lib))
+                    pred_mfes.append(_ols_mfe(feat_s, lib))
+                dir_prob = float(np.mean(dir_probs))
+                pred_mfe = float(np.mean(pred_mfes))
+                primary_tid = valid_tids[np.argmin(dists)]
+                _any_fitted = any(
+                    pattern_library[valid_tids[i]].get('dir_coeff') is not None
+                    for i in top_k_idx
+                )
+            else:
+                best_idx    = int(np.argmin(dists))
+                primary_tid = valid_tids[best_idx]
+                lib         = pattern_library[primary_tid]
+                dir_prob    = _logistic_prob(feat_s, lib)
+                pred_mfe    = _ols_mfe(feat_s, lib)
+                _any_fitted = lib.get('dir_coeff') is not None
+        else:
+            # No centroids and no DNA → physics only
+            primary_tid = valid_tids[0] if valid_tids else 0
+            dir_prob = 0.5
+            pred_mfe = 0.0
+            _any_fitted = False
 
         # ── Physics blend: Roche limit oscillation gives direction from z_score ──
         # The market oscillates between standard error bands at every timeframe.
@@ -429,6 +518,10 @@ class TimeframeWorker:
 
         conviction = abs(dir_prob - 0.5) * 2.0
 
+        # ── DNA agreement modulation ──
+        # DNA score scales conviction: 0.0 (outside cell) → 0.5x, 1.0 (at centroid) → 1.0x
+        conviction *= (0.5 + 0.5 * _dna_agreement)
+
         # ── Price-aware conviction modulation (2 layers) ──
         if self._trade_side is not None:
             _agrees = ((self._trade_side == 'long' and dir_prob > 0.5) or
@@ -471,6 +564,7 @@ class TimeframeWorker:
             wave_maturity = wave_maturity,
             z_score       = getattr(state, 'z_score', 0.0),
             momentum      = getattr(state, 'momentum_strength', 0.0),
+            dna_agreement = _dna_agreement,
         )
         return True
 
@@ -524,7 +618,8 @@ class TimeframeBeliefNetwork:
     def __init__(self, pattern_library: dict, scaler, engine,
                  valid_tids: list, centroids_scaled: np.ndarray,
                  decision_tf: int = DEFAULT_DECISION_TF,
-                 base_resolution_seconds: int = 15):
+                 base_resolution_seconds: int = 15,
+                 dna_index: Dict[int, list] = None):
         self.pattern_library   = pattern_library
         # Pre-convert regression coefficients from lists to numpy arrays
         # Eliminates per-tick np.array() allocation in _logistic_prob/_ols_mfe
@@ -563,6 +658,13 @@ class TimeframeBeliefNetwork:
             tf: TimeframeWorker(tf, is_leaf=(tf == leaf_tf), base_resolution_seconds=base_resolution_seconds)
             for tf in self.TIMEFRAMES_SECONDS  # ALL TFs, including sub-resolution
         }
+
+        # Parent DNA Matching: cross-worker coordination
+        self.dna_index = dna_index or {}
+        self._active_template_id = None  # Set by 15m anchor worker
+        # Give each worker a reference to the network for DNA coordination
+        for worker in self.workers.values():
+            worker._network = self
 
         # Active-trade time-scale state (set at entry, cleared at exit)
         self._trade_avg_mfe_bar = 0.0
@@ -826,7 +928,9 @@ class TimeframeBeliefNetwork:
             p  = np.clip(belief.dir_prob, 1e-7, 1.0 - 1e-7)
             probs_long.append(np.log(p))
             probs_short.append(np.log(1.0 - p))
-            weights.append(self._weight_map.get(tf, 1.0))
+            # DNA-weighted: workers with higher DNA agreement contribute more
+            dna_w = getattr(belief, 'dna_agreement', 0.5)
+            weights.append(self._weight_map.get(tf, 1.0) * (0.5 + 0.5 * dna_w))
             wave_maturities.append(belief.wave_maturity)
 
         w_arr          = np.array(weights) / sum(weights)

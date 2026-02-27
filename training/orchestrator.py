@@ -599,6 +599,10 @@ class BayesianTrainingOrchestrator:
         self.dna_tree = None # Disabled as per spec
 
         valid_template_ids = list(self.pattern_library.keys())
+        if not valid_template_ids:
+            print("ERROR: No templates in pattern library. Tree may have produced no leaves.")
+            print("  Check Phase 2.5 output for '0 leaf templates'.")
+            return
         centroids_scaled = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
 
         # Load tier map before centroid build so we can pre-filter by min_tier
@@ -642,6 +646,9 @@ class BayesianTrainingOrchestrator:
             print(f"  Min-tier filter (tier <= {min_tier}): {_before} -> {len(valid_template_ids)} active templates")
 
         # Rebuild centroids_scaled after tier filtering (already in scaled space)
+        if not valid_template_ids:
+            print("ERROR: All templates filtered out by min_tier. Try --min-tier 4 or omit it.")
+            return
         centroids_scaled = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
         print(f"  Prepared {len(valid_template_ids)} centroids for matching.")
 
@@ -665,15 +672,37 @@ class BayesianTrainingOrchestrator:
               f"(>={_EXCEPTION_MIN_MEMBERS} members, WR>={_EXCEPTION_MIN_WIN_RATE:.0%}, "
               f"sigma<={_EXCEPTION_MAX_SIGMA} ticks)")
 
-        # Fractal belief network: 8 TF workers (1h -> 15s), path conviction
-        # Each worker: Task1 = aggregate TF bars (once/day), Task2 = cluster match + regression
-        # 1h worker fires ~7x/day (light); 15s fires every bar (heavy: top-3 matching)
+        # Build per-TF DNA index for parent-anchor matching + multi-TF verification
+        dna_index = {}  # tf_seconds → list of (tid, centroid_16d, bounds_min_10d, bounds_max_10d)
+        for tid in valid_template_ids:
+            lib = self.pattern_library[tid]
+            dna_c = lib.get('dna_centroids', {})
+            dna_bmin = lib.get('dna_bounds_min', {})
+            dna_bmax = lib.get('dna_bounds_max', {})
+            for tf_label, centroid in dna_c.items():
+                tf_secs = TIMEFRAME_SECONDS.get(tf_label)
+                if tf_secs and tf_label in dna_bmin and tf_label in dna_bmax:
+                    dna_index.setdefault(tf_secs, []).append((
+                        tid,
+                        np.array(centroid),
+                        np.array(dna_bmin[tf_label]),
+                        np.array(dna_bmax[tf_label])
+                    ))
+        n_15m = len(dna_index.get(900, []))
+        print(f"  DNA index: {n_15m} templates with 15m anchor, "
+              f"{sum(len(v) for v in dna_index.values())} total TF entries")
+
+        # Fractal belief network: 10 TF workers (1h -> 1s), path conviction
+        # 15m worker = anchor (parent signature matching via cell containment)
+        # Upper workers (30m, 1h) = macro DNA verification
+        # Lower workers (5m -> 15s) = micro DNA verification
         belief_network = TimeframeBeliefNetwork(
             pattern_library  = self.pattern_library,
             scaler           = self.scaler,
             engine           = self.engine,
             valid_tids       = valid_template_ids,
             centroids_scaled = centroids_scaled,
+            dna_index        = dna_index,
         )
         print(f"  Belief network: {len(TimeframeBeliefNetwork.TIMEFRAMES_SECONDS)} TF workers "
               f"(conviction threshold: {TimeframeBeliefNetwork.MIN_CONVICTION:.2f})")
@@ -3596,10 +3625,8 @@ class BayesianTrainingOrchestrator:
                 self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
                                           'step': 'CLUSTERING', 'pct': 0})
 
-            # Build Tree (with DOE iterative fission)
-            r2_target = getattr(self.config, 'r2_target', 0.90)
-            hypervolume_tree = clustering_engine.fit_hypervolume_tree(
-                manifest, r2_target=r2_target)
+            # Build Tree: I-MR on PC1 → DBSCAN on full 16D → regression per template
+            hypervolume_tree = clustering_engine.fit_hypervolume_tree(manifest)
             templates = clustering_engine.templates
 
             print(f"  Condensed {len(manifest)} raw patterns into {len(templates)} Tight Templates (Hypervolume Leaves).")
@@ -3785,10 +3812,8 @@ class BayesianTrainingOrchestrator:
             'p25_mae_ticks':           getattr(template, 'p25_mae_ticks',           0.0),
             'risk_variance':           getattr(template, 'risk_variance',           0.0),
             'regression_sigma_ticks':  getattr(template, 'regression_sigma_ticks',  0.0),
-            # Per-cluster regression model coefficients (14D scaled feature space)
             # mfe_coeff @ live_scaled_features + mfe_intercept  -> predicted MFE in price pts
             # sigmoid(dir_coeff @ live_scaled_features + dir_intercept) -> P(LONG)
-            # None when cluster had < 15 members for stable fitting
             'mfe_coeff':     getattr(template, 'mfe_coeff',     None),
             'mfe_intercept': getattr(template, 'mfe_intercept', 0.0),
             'dir_coeff':     getattr(template, 'dir_coeff',     None),
@@ -3801,6 +3826,14 @@ class BayesianTrainingOrchestrator:
             'basin_std':     getattr(template, 'basin_std',     0.0),
             # DOE Phase 3 consistency validation
             'consistency_score': getattr(template, 'consistency_score', 0.0),
+            # Parent DNA Matching: per-TF DNA data for 15m anchor + multi-TF verification
+            'tf_depth_map':   getattr(template, 'tf_depth_map', {}),
+            'dna_centroids':  {tf: c.tolist() if hasattr(c, 'tolist') else c
+                               for tf, c in getattr(template, 'dna_centroids', {}).items()},
+            'dna_bounds_min': {tf: b.tolist() if hasattr(b, 'tolist') else b
+                               for tf, b in getattr(template, 'dna_bounds_min', {}).items()},
+            'dna_bounds_max': {tf: b.tolist() if hasattr(b, 'tolist') else b
+                               for tf, b in getattr(template, 'dna_bounds_max', {}).items()},
         }
 
     def validate_template_group(self, patterns: List[PatternEvent], params: Dict) -> float:

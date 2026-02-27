@@ -8,12 +8,24 @@ control threshold. DBSCAN discovers sub-clusters on the differential surface.
 import math
 import numpy as np
 import pandas as pd
+import torch
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Tuple
+from scipy.stats import f_oneway
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import NearestNeighbors
+
+# GPU-accelerated distance computation (replaces scipy.spatial.distance.cdist)
+_DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+def _gpu_cdist(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Pairwise squared-Euclidean distance on GPU."""
+    ta = torch.from_numpy(np.ascontiguousarray(a, dtype=np.float32)).to(_DEVICE)
+    tb = torch.from_numpy(np.ascontiguousarray(b, dtype=np.float32)).to(_DEVICE)
+    d = torch.cdist(ta, tb)
+    return (d ** 2).cpu().numpy()
 
 # Core import for vector reconstruction
 from core.quantum_field_engine import QuantumFieldEngine
@@ -25,14 +37,19 @@ from config.oracle_config import TEMPLATE_MIN_MEMBERS_FOR_STATS
 # Constants
 MIN_GROUP_SIZE = 30
 R2_STOP_THRESHOLD = 0.90       # DOE Phase 3: target R2 for "real case usage" (was 0.15)
-R2_FISSION_MIN_GAIN = 0.05
+R2_FISSION_MIN_GAIN = 0.01
 DOE_MAX_ITERATIONS = 20         # DOE Phase 3: max passes over the tree (safety valve)
 DEFAULT_PID = {'pid_kp': 0.5, 'pid_ki': 0.1, 'pid_kd': 0.2}
 
 # I-MR SPC constants (n=2 subgroups)
-IMR_D4 = 3.267          # UCL factor for Moving Range
+IMR_D4 = 2.0            # UCL factor for Moving Range (relaxed from 3.267 for more splits)
 IMR_D2 = 1.128          # Sigma estimation factor
 IMR_Z_THRESHOLD = 1.0   # Composite signal threshold for segment boundary
+IMR_MIN_SEGMENTS = 2    # Force at least this many segments via PC1 median fallback
+
+# Parent DNA Matching: dimensions comparable between live state_to_features() and clustering extract_features()
+# Excludes: [5]=depth, [6]=parent_ctx, [10]=parent_z, [11]=parent_dmi_diff, [12]=root_is_roche, [13]=tf_alignment
+DNA_LIVE_DIMS = [0, 1, 2, 3, 4, 7, 8, 9, 14, 15]
 
 @dataclass
 class PatternTemplate:
@@ -88,6 +105,12 @@ class PatternTemplate:
     consistency_score: float = 0.0
     consistency_diagnostics: Optional[Dict[str, Any]] = None
     best_params: Optional[Dict[str, Any]] = None
+
+    # Parent DNA Matching: per-TF DNA centroids and bounds from member parent chains
+    tf_depth_map: Dict[str, int] = field(default_factory=dict)
+    dna_centroids: Dict[str, np.ndarray] = field(default_factory=dict)
+    dna_bounds_min: Dict[str, np.ndarray] = field(default_factory=dict)
+    dna_bounds_max: Dict[str, np.ndarray] = field(default_factory=dict)
 
 @dataclass
 class HypervolumeNode:
@@ -215,224 +238,209 @@ class FractalClusteringEngine:
         matrix = ancestors + [self_feat]
         return np.array(matrix)
 
-    def _imr_geometric_split(self, residuals_scaled: np.ndarray,
+    def _imr_geometric_split(self, feat_scaled: np.ndarray,
                               min_group_size: int) -> np.ndarray:
-        """I-MR + differential DBSCAN splitting (replaces KMeans).
+        """I-MR segmentation + 16D DBSCAN fission.
 
-        Three layers:
+        Two phases:
           1. I-MR: Project onto PC1, detect geometry shifts via Moving Range > UCL.
-             Segments data into coherent geometric regions at boundary points.
-          2. Differential: velocity (1st diff) + acceleration (2nd diff) on sorted 16D
-             residuals within each I-MR segment.
-          3. DBSCAN: density-based sub-clustering on normalized differential states
-             within each segment (discovers sub-patterns).
+             Creates coarse segments (blind to most of the 16D — only sees PC1).
+          2. DBSCAN: Within each I-MR segment, cluster on the FULL 16D features.
+             Finds sub-patterns that I-MR couldn't see (volume, ADX, hurst, etc.).
 
-        Returns: label array (0-based contiguous int per pattern, original order).
+        Returns: (labels, lineage) where:
+          labels: int array (0-based contiguous, original order)
+          lineage: dict {global_label: (segment_id, sub_cluster_id)}
         """
-        n = len(residuals_scaled)
+        n = len(feat_scaled)
 
         if n < min_group_size * 2:
-            return np.zeros(n, dtype=int)
+            return np.zeros(n, dtype=int), {0: (0, 0)}
 
-        # === LAYER 1: I-MR Control Charts ===
+        # === PHASE 1: I-MR Control Charts (geometry-only, PC1) ===
 
-        # Project onto principal variance axis via truncated SVD
-        mean_vec = residuals_scaled.mean(axis=0)
-        centered = residuals_scaled - mean_vec
-        _, S, Vt = np.linalg.svd(centered, full_matrices=False)
-        pc1 = Vt[0]
+        mean_vec = feat_scaled.mean(axis=0)
+        centered = feat_scaled - mean_vec
+        cov = centered.T @ centered
+        eigenvalues, eigenvectors = np.linalg.eigh(cov)
+        pc1 = eigenvectors[:, -1]
         projections = centered @ pc1
 
         sort_order = np.argsort(projections)
-        projections_sorted = projections[sort_order]
-        residuals_ordered = residuals_scaled[sort_order]
+        feat_ordered = feat_scaled[sort_order]
 
-        # Moving Range: L2 distance between consecutive ordered patterns in full 16D
-        mr_l2 = np.array([np.linalg.norm(residuals_ordered[i] - residuals_ordered[i - 1])
-                          for i in range(1, n)])
+        # Moving Range: L2 distance between consecutive PC1-ordered patterns
+        diffs = feat_ordered[1:] - feat_ordered[:-1]
+        mr_l2 = np.linalg.norm(diffs, axis=1)
 
         if len(mr_l2) == 0 or np.max(mr_l2) < 1e-12:
-            return np.zeros(n, dtype=int)
+            return np.zeros(n, dtype=int), {0: (0, 0)}
 
         mr_bar = np.mean(mr_l2)
         ucl_mr = IMR_D4 * mr_bar
-        sigma_est = mr_bar / IMR_D2
 
-        # I-chart: deviation from mean along PC1
-        x_bar = np.mean(projections_sorted)
-        ucl_i_half = 3.0 * sigma_est if sigma_est > 1e-12 else 1.0
-
-        # Composite signal: x (normalized I-deviation) + y (normalized MR)
-        x_norm = np.abs(projections_sorted[1:] - x_bar) / ucl_i_half
-        y_norm = mr_l2 / ucl_mr if ucl_mr > 1e-12 else np.zeros_like(mr_l2)
-        signal = x_norm + y_norm
-
-        # Segment boundaries: where composite signal > threshold
-        boundary_indices = set(np.where(signal > IMR_Z_THRESHOLD)[0])
-
-        # Build I-MR segments (runs of consecutive sorted points)
+        boundary_flags = (mr_l2 > ucl_mr).astype(int)
         sorted_segment_ids = np.zeros(n, dtype=int)
-        current_seg = 0
-        for i in range(1, n):
-            if (i - 1) in boundary_indices:
-                current_seg += 1
-            sorted_segment_ids[i] = current_seg
+        sorted_segment_ids[1:] = np.cumsum(boundary_flags)
+        n_segments = sorted_segment_ids[-1] + 1
 
-        # === LAYER 2 + 3: Differential DBSCAN within each segment ===
+        # Fallback: force binary split if I-MR found nothing
+        fallback_used = False
+        if n_segments < IMR_MIN_SEGMENTS and n >= min_group_size * 3:
+            median_idx = n // 2
+            sorted_segment_ids[median_idx:] = 1
+            n_segments = 2
+            fallback_used = True
+
+        # Report I-MR segments
+        seg_sizes = [int((sorted_segment_ids == s).sum()) for s in range(n_segments)]
+        print(f"    I-MR: {n_segments} segments (UCL={ucl_mr:.2f}, MR_bar={mr_bar:.2f})"
+              f"{' [PC1-median fallback]' if fallback_used else ''}")
+        for s, sz in enumerate(seg_sizes):
+            print(f"      Segment {s}: {sz:,} patterns")
+
+        # === PHASE 2: DBSCAN fission on FULL 16D within each I-MR segment ===
 
         sorted_labels = np.zeros(n, dtype=int)
         global_label = 0
+        lineage = {}  # global_label → (segment_id, sub_cluster_id)
+        dbscan_min = max(3, min_group_size // 10)
 
-        for seg_id in range(current_seg + 1):
+        for seg_id in range(n_segments):
             seg_mask = sorted_segment_ids == seg_id
             seg_indices = np.where(seg_mask)[0]
             seg_size = len(seg_indices)
 
-            if seg_size < 2:
-                # Single point — assign to this segment's label
+            if seg_size < max(4, dbscan_min + 2):
                 sorted_labels[seg_indices] = global_label
+                lineage[global_label] = (seg_id, 0)
                 global_label += 1
+                print(f"      Seg {seg_id}: {seg_size} patterns → 1 group (too small for DBSCAN)")
                 continue
 
-            # Differential surface within this segment
-            seg_residuals = residuals_ordered[seg_indices]
+            # Pull the full 16D features for this segment
+            seg_feat = feat_ordered[seg_indices]
 
-            # Velocity: first difference in 16D
-            velocity = np.diff(seg_residuals, axis=0)  # (seg_size-1, 16)
-
-            if velocity.shape[0] < 2:
-                # Too small for acceleration — keep as one group
-                sorted_labels[seg_indices] = global_label
-                global_label += 1
-                continue
-
-            # Acceleration: second difference
-            acceleration = np.diff(velocity, axis=0)  # (seg_size-2, 16)
-            n_diff = acceleration.shape[0]
-
-            if n_diff < max(3, min_group_size // 10):
-                sorted_labels[seg_indices] = global_label
-                global_label += 1
-                continue
-
-            # Build differential state: [velocity_16d, acceleration_16d] = 32D
-            diff_states = np.hstack([velocity[1:], acceleration])
-
-            # Standardize
-            diff_std = diff_states.std(axis=0)
-            diff_std[diff_std < 1e-12] = 1.0
-            diff_norm = diff_states / diff_std
-
-            # DBSCAN: calibrate eps via k-NN
-            k_nn = min(5, n_diff - 1)
+            # GPU: precompute distance matrix, calibrate eps, run DBSCAN
+            k_nn = min(5, seg_size - 1)
             if k_nn < 1:
                 sorted_labels[seg_indices] = global_label
+                lineage[global_label] = (seg_id, 0)
                 global_label += 1
                 continue
 
-            nn = NearestNeighbors(n_neighbors=k_nn).fit(diff_norm)
-            distances, _ = nn.kneighbors(diff_norm)
-            eps = float(np.median(distances[:, -1]))
+            t_feat = torch.from_numpy(np.ascontiguousarray(seg_feat, dtype=np.float32)).to(_DEVICE)
+            dist_matrix = torch.cdist(t_feat, t_feat).cpu().numpy()
+            knn_dists = np.sort(dist_matrix, axis=1)[:, 1:k_nn + 1]
+            eps = float(np.median(knn_dists[:, -1]))
             if eps < 1e-12:
                 eps = 0.5
 
-            dbscan_min = max(3, min_group_size // 10)
-            db_labels = DBSCAN(eps=eps, min_samples=dbscan_min).fit_predict(diff_norm)
+            db_labels = DBSCAN(eps=eps, min_samples=dbscan_min,
+                               metric='precomputed').fit_predict(dist_matrix)
 
-            # Extend diff_labels (N-2) back to full segment (N)
-            full_seg_labels = np.full(seg_size, -1, dtype=int)
-            full_seg_labels[1:n_diff + 1] = db_labels
-            full_seg_labels[0] = db_labels[0]
-            if n_diff + 1 < seg_size:
-                full_seg_labels[n_diff + 1:] = db_labels[-1]
+            n_noise = int((db_labels == -1).sum())
+            n_clusters = len(set(db_labels[db_labels >= 0]))
 
-            # Map DBSCAN sub-labels to global labels
-            unique_sub = np.unique(full_seg_labels[full_seg_labels >= 0])
+            # Map DBSCAN labels to global labels with lineage tracking
+            unique_sub = np.unique(db_labels[db_labels >= 0])
             if len(unique_sub) == 0:
-                # All noise within segment — single group
                 sorted_labels[seg_indices] = global_label
+                lineage[global_label] = (seg_id, 0)
                 global_label += 1
+                print(f"      Seg {seg_id}: {seg_size} patterns → 1 group (all noise)")
             else:
-                sub_map = {sub: global_label + i for i, sub in enumerate(unique_sub)}
+                sub_map = {int(s): global_label + i for i, s in enumerate(unique_sub)}
+                for sub_idx, s in enumerate(unique_sub):
+                    lineage[global_label + sub_idx] = (seg_id, sub_idx)
                 for j, idx in enumerate(seg_indices):
-                    if full_seg_labels[j] >= 0:
-                        sorted_labels[idx] = sub_map[full_seg_labels[j]]
-                    else:
-                        sorted_labels[idx] = -1  # noise, absorb later
+                    sl = db_labels[j]
+                    sorted_labels[idx] = sub_map.get(sl, -1)
                 global_label += len(unique_sub)
+                sub_sizes = [int((db_labels == s).sum()) for s in unique_sub]
+                print(f"      Seg {seg_id}: {seg_size} patterns → {n_clusters} clusters "
+                      f"(eps={eps:.3f}, noise={n_noise}) sizes={sub_sizes}")
 
         # === Map back to original order ===
         raw_labels = np.empty(n, dtype=int)
         raw_labels[sort_order] = sorted_labels
 
-        # === Post-processing ===
-
-        # Absorb noise into nearest non-noise cluster
+        # Absorb noise into nearest cluster
         noise_mask = raw_labels == -1
         if noise_mask.all():
-            return np.zeros(n, dtype=int)
+            return np.zeros(n, dtype=int), {0: (0, 0)}
 
         if noise_mask.any():
-            from scipy.spatial.distance import cdist
             non_noise_idx = np.where(~noise_mask)[0]
             noise_idx = np.where(noise_mask)[0]
-            dists = cdist(residuals_scaled[noise_idx],
-                          residuals_scaled[non_noise_idx], metric='euclidean')
+            dists = _gpu_cdist(feat_scaled[noise_idx], feat_scaled[non_noise_idx])
             nearest = np.argmin(dists, axis=1)
             raw_labels[noise_idx] = raw_labels[non_noise_idx[nearest]]
 
         # Remap to 0-based contiguous
         unique_labels = np.unique(raw_labels)
-        label_map = {old: new for new, old in enumerate(unique_labels)}
-        final = np.array([label_map[l] for l in raw_labels], dtype=int)
+        remap = {old: new for new, old in enumerate(unique_labels)}
+        final = np.array([remap[l] for l in raw_labels])
 
-        # Merge small clusters into nearest large cluster
-        changed = True
-        while changed:
-            changed = False
-            for lbl in np.unique(final):
-                if np.sum(final == lbl) >= min_group_size:
-                    continue
-                small_idx = np.where(final == lbl)[0]
-                small_centroid = residuals_scaled[small_idx].mean(axis=0)
-                best_dist, best_target = float('inf'), -1
-                for other in np.unique(final):
-                    if other == lbl or np.sum(final == other) < min_group_size:
-                        continue
-                    other_idx = np.where(final == other)[0]
-                    d = np.linalg.norm(small_centroid - residuals_scaled[other_idx].mean(axis=0))
-                    if d < best_dist:
-                        best_dist, best_target = d, other
-                if best_target >= 0:
-                    final[small_idx] = best_target
-                    changed = True
-                    break  # restart after merge
+        # Remap lineage to match new contiguous labels
+        new_lineage = {}
+        for old_lbl, new_lbl in remap.items():
+            if old_lbl in lineage:
+                new_lineage[new_lbl] = lineage[old_lbl]
+            else:
+                new_lineage[new_lbl] = (0, new_lbl)
 
-        # Re-compact
+        # Merge small clusters into nearest large
+        while True:
+            labels_unique, counts = np.unique(final, return_counts=True)
+            small_mask = counts < min_group_size
+            if not small_mask.any():
+                break
+            large_mask = ~small_mask
+            if not large_mask.any():
+                return np.zeros(n, dtype=int), {0: (0, 0)}
+
+            centroids = np.array([feat_scaled[final == l].mean(axis=0)
+                                  for l in labels_unique])
+            large_labels = labels_unique[large_mask]
+            large_centroids = centroids[large_mask]
+
+            small_idx_pos = np.where(small_mask)[0][0]
+            small_lbl = labels_unique[small_idx_pos]
+            small_centroid = centroids[small_idx_pos]
+
+            dists_to_large = np.linalg.norm(large_centroids - small_centroid, axis=1)
+            best_target = large_labels[np.argmin(dists_to_large)]
+            final[final == small_lbl] = best_target
+            # Merged label inherits target's lineage
+            if best_target in new_lineage:
+                new_lineage[small_lbl] = new_lineage[best_target]
+
+        # Final re-compact
         unique_final = np.unique(final)
-        remap = {old: new for new, old in enumerate(unique_final)}
-        final = np.array([remap[l] for l in final], dtype=int)
+        remap2 = {old: new for new, old in enumerate(unique_final)}
+        final = np.array([remap2[l] for l in final])
+        final_lineage = {remap2[old]: new_lineage.get(old, (0, 0)) for old in unique_final}
 
-        if len(np.unique(final)) <= 1:
-            return np.zeros(n, dtype=int)
+        if len(unique_final) <= 1:
+            return np.zeros(n, dtype=int), {0: final_lineage.get(0, (0, 0))}
 
-        return final
+        return final, final_lineage
 
     def fit_hypervolume_tree(self, patterns: List[Any],
-                             min_group_size: int = MIN_GROUP_SIZE,
-                             r2_target: float = R2_STOP_THRESHOLD) -> HypervolumeTree:
+                             min_group_size: int = MIN_GROUP_SIZE) -> HypervolumeTree:
         """
-        Build hypervolume tree by iterative DOE fission.
+        Build hypervolume tree:
+          I-MR on PC1 → coarse geometry segments
+          DBSCAN on full 16D within each segment → final templates
+          Forward pass handles matching + regression
+        """
+        import hashlib
 
-        Pass 1: Initial recursive grouping (same as _split_at_depth)
-        Pass 2+: Re-examine each leaf -- if R2 < target, attempt further fission
-        Iterate until convergence or max iterations.
-        """
-        print(f"Hypervolume: Building tree from {len(patterns)} patterns (R2 target={r2_target:.2f})...")
+        print(f"Hypervolume: Building tree from {len(patterns)} patterns...")
 
         # 1. Build matrices
         matrices = {}
-
         for i, p in enumerate(patterns):
             mat = self.build_hypervolume_matrix(p)
             if mat is not None and mat.shape[0] >= 1:
@@ -440,92 +448,87 @@ class FractalClusteringEngine:
 
         print(f"  Constructed {len(matrices)} hypervolume matrices.")
 
-        # Store matrices for DOE iterations
-        self._doe_matrices = matrices
-        self._doe_patterns = patterns
+        # 2. Extract full 16D features
+        all_indices = list(matrices.keys())
+        feat_all = np.array([self.extract_features(patterns[i]) for i in all_indices])
 
-        # 2. Initial recursive grouping (Pass 1)
-        root_nodes = self._split_at_depth(
-            pattern_indices=list(matrices.keys()),
-            matrices=matrices,
-            patterns=patterns,
-            depth=0,
-            parent_id="",
-            min_group_size=min_group_size
-        )
+        scaler = StandardScaler()
+        feat_scaled = scaler.fit_transform(feat_all)
 
-        # 3. DOE Iteration Loop (Pass 2+)
-        for doe_iter in range(DOE_MAX_ITERATIONS):
-            leaves = self._collect_leaf_nodes(root_nodes)
+        # 3. I-MR on PC1 → DBSCAN on 16D within each segment
+        print(f"  I-MR segmentation + 16D DBSCAN fission...")
+        labels, lineage = self._imr_geometric_split(feat_scaled, min_group_size)
+        n_groups = len(set(labels))
+        print(f"    Total groups: {n_groups}")
 
-            n_below_target = sum(1 for leaf in leaves
-                                 if leaf.adj_r2_mfe < r2_target
-                                 and leaf.member_count > min_group_size)
-            n_terminal = sum(1 for leaf in leaves
-                             if leaf.member_count <= min_group_size)
+        # === Build templates ===
+        root_nodes = {}
+        unique_labels = sorted(set(labels))
+        print(f"  Building {len(unique_labels)} templates...")
 
-            print(f"  DOE iteration {doe_iter + 1}: {len(leaves)} leaves, "
-                  f"{n_below_target} below R2={r2_target:.2f}, "
-                  f"{n_terminal} terminal (min size)")
+        for cluster_id in unique_labels:
+            mask = labels == cluster_id
+            member_indices = [all_indices[i] for i, m in enumerate(mask) if m]
+            if len(member_indices) < min_group_size:
+                continue
 
-            if n_below_target == 0:
-                print(f"  All leaves meet R2 target -- DOE converged.")
-                break
+            cluster_feat = feat_all[mask]
+            centroid = cluster_feat.mean(axis=0)
+            cell_min = cluster_feat.min(axis=0)
+            cell_max = cluster_feat.max(axis=0)
+            margin = (cell_max - cell_min) * 0.05
+            cell_min -= margin
+            cell_max += margin
 
-            splits_made = 0
-            for leaf in leaves:
-                if leaf.adj_r2_mfe >= r2_target:
-                    continue
-                if leaf.member_count <= min_group_size:
-                    continue
+            seg_id, sub_id = lineage.get(cluster_id, (cluster_id, 0))
+            seg_letter = chr(ord('A') + seg_id % 26)
+            node_id = f"{seg_letter}:{sub_id}"
+            tid = int(hashlib.sha256(node_id.encode('utf-8')).hexdigest(), 16) % 1000000
 
-                # Attempt fission on this leaf at next depth
-                children = self._split_at_depth(
-                    pattern_indices=leaf.member_indices,
-                    matrices=matrices,
-                    patterns=patterns,
-                    depth=leaf.depth + 1,
-                    parent_id=leaf.node_id,
-                    min_group_size=min_group_size
-                )
+            member_patterns = [patterns[i] for i in member_indices]
 
-                if children:
-                    # Verify R2 gain
-                    child_count = sum(c.member_count for c in children.values())
-                    if child_count > 0:
-                        child_r2_weighted = sum(
-                            c.adj_r2_mfe * c.member_count for c in children.values()
-                        ) / child_count
-                        if child_r2_weighted >= leaf.adj_r2_mfe + R2_FISSION_MIN_GAIN:
-                            leaf.children = children
-                            leaf.template = None  # no longer a leaf
-                            splits_made += 1
+            template = PatternTemplate(
+                template_id=tid,
+                centroid=centroid,
+                member_count=len(member_patterns),
+                patterns=member_patterns,
+                physics_variance=float(np.mean(np.var(feat_scaled[mask], axis=0))),
+                basin_mean=0.0,
+                basin_std=0.0
+            )
+            self._aggregate_oracle_intelligence(template)
+            self._build_dna_maps(template)
 
-            if splits_made == 0:
-                print(f"  No further splits possible -- DOE complete.")
-                break
+            print(f"    Template {node_id} (tid={tid}): {len(member_patterns)} patterns")
 
-        max_depth = 0
-        if matrices:
-            max_depth = max(m.shape[0] for m in matrices.values()) - 1
+            root_nodes[cluster_id] = HypervolumeNode(
+                depth=0,
+                centroid_16d=centroid,
+                cell_min_16d=cell_min,
+                cell_max_16d=cell_max,
+                member_count=len(member_indices),
+                member_indices=member_indices,
+                children={},
+                template=template,
+                node_id=node_id,
+                scaler=scaler,
+                regression_r2=0.0,
+                branch_tightness=float(np.mean(np.var(feat_scaled[mask], axis=0))),
+                adj_r2_mfe=0.0
+            )
 
-        n_templates = self._count_leaves(root_nodes)
-        print(f"  Tree built: {len(root_nodes)} roots, max depth {max_depth}, {n_templates} leaf templates.")
+        max_depth = max((m.shape[0] for m in matrices.values()), default=1) - 1
+        n_templates = len(root_nodes)
+        print(f"  Tree built: {n_templates} templates.")
 
         tree = HypervolumeTree(roots=root_nodes, max_depth=max_depth, n_templates=n_templates)
+        self.templates = list(t.template for t in root_nodes.values() if t.template)
 
-        # Flatten templates list for orchestrator usage
-        self.templates = self._collect_templates(root_nodes)
-
-        # 4. Derive analytical params for all final leaves
+        # Derive analytical params
         from training.orchestrator_worker import _analytical_exits
         for tmpl in self.templates:
             tmpl.best_params = _analytical_exits(tmpl)
             tmpl.best_params.update(DEFAULT_PID)
-
-        # Clean up DOE state
-        self._doe_matrices = None
-        self._doe_patterns = None
 
         return tree
 
@@ -589,10 +592,13 @@ class FractalClusteringEngine:
 
         residual_var = np.mean(np.var(residuals_scaled, axis=0))
 
-        if residual_var < 0.3:
-            labels = np.zeros(len(valid_indices), dtype=int)
+        if residual_var < 0.10:
+            # Regression absorbed all variance — split on raw centered features instead
+            raw_centered = feat_array - feat_array.mean(axis=0)
+            raw_scaled = StandardScaler().fit_transform(raw_centered)
+            labels, _ = self._imr_geometric_split(raw_scaled, min_group_size)
         else:
-            labels = self._imr_geometric_split(residuals_scaled, min_group_size)
+            labels, _ = self._imr_geometric_split(residuals_scaled, min_group_size)
 
         # Step 3: Build Nodes
         unique_labels = sorted(set(labels))
@@ -660,6 +666,7 @@ class FractalClusteringEngine:
                     basin_std=0.0
                 )
                 self._aggregate_oracle_intelligence(template)
+                self._build_dna_maps(template)
 
             nodes[cluster_id] = HypervolumeNode(
                 depth=depth,
@@ -678,6 +685,175 @@ class FractalClusteringEngine:
             )
 
         return nodes
+
+    def _similarity_sort_and_refine(self, feat_scaled: np.ndarray, labels: np.ndarray,
+                                     min_group_size: int) -> np.ndarray:
+        """Phase B: Sort groups by centroid proximity, refine boundary patterns.
+
+        1. Compute group centroids
+        2. Sort groups by nearest-neighbor chain (similar groups adjacent)
+        3. Shift boundary patterns to their nearest centroid
+        """
+        labels = labels.copy()
+        unique_labels = sorted(set(labels))
+        if len(unique_labels) <= 1:
+            return labels
+
+        # Compute centroids
+        centroids = {}
+        for lbl in unique_labels:
+            centroids[lbl] = feat_scaled[labels == lbl].mean(axis=0)
+
+        # Sort groups by nearest-neighbor chain starting from largest group
+        sorted_order = []
+        remaining = set(unique_labels)
+        # Start from the largest group
+        current = max(remaining, key=lambda l: int((labels == l).sum()))
+        sorted_order.append(current)
+        remaining.remove(current)
+
+        while remaining:
+            c = centroids[current]
+            best_lbl = min(remaining, key=lambda l: float(np.linalg.norm(centroids[l] - c)))
+            sorted_order.append(best_lbl)
+            remaining.remove(best_lbl)
+            current = best_lbl
+
+        # Remap labels to sorted order (0, 1, 2, ...)
+        remap = {old: new for new, old in enumerate(sorted_order)}
+        labels = np.array([remap[l] for l in labels])
+
+        # Recompute centroids in new label space
+        n_groups = len(sorted_order)
+        new_centroids = np.array([feat_scaled[labels == i].mean(axis=0) for i in range(n_groups)])
+
+        # Boundary refinement: for each pattern, check if nearest centroid differs from label
+        dists_to_centroids = _gpu_cdist(feat_scaled, new_centroids)  # (N, n_groups), sqeuclidean
+        nearest = np.argmin(dists_to_centroids, axis=1)
+
+        # Only shift if the nearest centroid is different AND the target group stays large enough
+        shifts = 0
+        for i in range(len(labels)):
+            if nearest[i] != labels[i]:
+                old_label = labels[i]
+                old_count = int((labels == old_label).sum())
+                if old_count > min_group_size:  # Don't shrink groups below min
+                    labels[i] = nearest[i]
+                    shifts += 1
+
+        # Remove any groups that fell below min_group_size after shifting
+        for lbl in range(n_groups):
+            count = int((labels == lbl).sum())
+            if 0 < count < min_group_size:
+                # Merge into nearest large group
+                lbl_centroid = feat_scaled[labels == lbl].mean(axis=0)
+                large_labels = [l for l in range(n_groups) if int((labels == l).sum()) >= min_group_size]
+                if large_labels:
+                    best = min(large_labels,
+                               key=lambda l: float(np.linalg.norm(new_centroids[l] - lbl_centroid)))
+                    labels[labels == lbl] = best
+
+        # Re-compact
+        unique_map = {old: new for new, old in enumerate(sorted(set(labels)))}
+        labels = np.array([unique_map[l] for l in labels])
+
+        if shifts > 0:
+            print(f"    Shifted {shifts} boundary patterns to nearest centroid")
+
+        return labels
+
+    def _statistical_merge_split(self, feat_scaled: np.ndarray, labels: np.ndarray,
+                                  oracle_mfe: np.ndarray, min_group_size: int) -> np.ndarray:
+        """Phase C: Statistically validate groups (single-pass, no restarts).
+
+        1. Merge pass: test all adjacent pairs at once, batch-merge non-significant
+        2. Split pass: test all large groups at once, batch-split heterogeneous ones
+        """
+        labels = labels.copy()
+        STAT_ALPHA = 0.05
+
+        # === MERGE PASS (single sweep) ===
+        unique_labels = sorted(set(labels))
+        if len(unique_labels) > 1:
+            # Build merge graph: which adjacent pairs should merge?
+            merge_into = {}  # lbl_b → lbl_a
+            for i in range(len(unique_labels) - 1):
+                lbl_a, lbl_b = unique_labels[i], unique_labels[i + 1]
+                mfe_a = oracle_mfe[labels == lbl_a]
+                mfe_b = oracle_mfe[labels == lbl_b]
+
+                if len(mfe_a) < 10 or len(mfe_b) < 10:
+                    continue
+
+                if np.std(mfe_a) < 1e-9 and np.std(mfe_b) < 1e-9:
+                    merge_into[lbl_b] = lbl_a
+                    continue
+
+                try:
+                    _, p_val = f_oneway(mfe_a, mfe_b)
+                    if p_val > STAT_ALPHA:
+                        merge_into[lbl_b] = lbl_a
+                except Exception:
+                    pass
+
+            # Apply merges (chase chains: if C→B→A, C should go to A)
+            if merge_into:
+                for lbl_b in merge_into:
+                    target = merge_into[lbl_b]
+                    while target in merge_into:
+                        target = merge_into[target]
+                    labels[labels == lbl_b] = target
+
+        # Re-compact
+        umap = {old: new for new, old in enumerate(sorted(set(labels)))}
+        labels = np.array([umap[l] for l in labels])
+        n_after_merge = len(set(labels))
+
+        # === SPLIT PASS (single sweep) ===
+        unique_labels = sorted(set(labels))
+        next_label = labels.max() + 1
+
+        for lbl in unique_labels:
+            mask = labels == lbl
+            count = int(mask.sum())
+            if count < min_group_size * 2:
+                continue
+
+            group_mfe = oracle_mfe[mask]
+            group_feat = feat_scaled[mask]
+
+            # PC1 median split + F-test
+            centered = group_feat - group_feat.mean(axis=0)
+            cov = centered.T @ centered
+            try:
+                _, eigvecs = np.linalg.eigh(cov)
+            except np.linalg.LinAlgError:
+                continue
+
+            proj = centered @ eigvecs[:, -1]
+            half_a = proj <= np.median(proj)
+            half_b = ~half_a
+
+            if half_a.sum() < 10 or half_b.sum() < 10:
+                continue
+
+            try:
+                _, p_val = f_oneway(group_mfe[half_a], group_mfe[half_b])
+            except Exception:
+                continue
+
+            if p_val < STAT_ALPHA:
+                group_indices = np.where(mask)[0]
+                labels[group_indices[half_b]] = next_label
+                next_label += 1
+
+        # Re-compact
+        umap = {old: new for new, old in enumerate(sorted(set(labels)))}
+        labels = np.array([umap[l] for l in labels])
+        n_after_split = len(set(labels))
+
+        print(f"    Merge: {n_after_merge} groups, Split: {n_after_split} groups")
+        return labels
 
     def _compute_adj_r2(self, X: np.ndarray, y: np.ndarray) -> float:
         n, k = X.shape
@@ -717,6 +893,81 @@ class FractalClusteringEngine:
             elif node.children:
                 leaves.extend(self._collect_leaf_nodes(node.children))
         return leaves
+
+    @staticmethod
+    def _stepwise_ols(X: np.ndarray, y: np.ndarray, p_enter: float = 0.05) -> List[int]:
+        """Forward stepwise OLS — add features whose F-test p < p_enter."""
+        n, p = X.shape
+        remaining = list(range(p))
+        selected = []
+        current_rss = np.sum((y - np.mean(y)) ** 2)
+
+        for _ in range(p):
+            best_dim, best_pval = None, 1.0
+            for dim in remaining:
+                trial = selected + [dim]
+                ols = LinearRegression().fit(X[:, trial], y)
+                rss_new = np.sum((y - ols.predict(X[:, trial])) ** 2)
+                # Partial F-test: does adding this dim significantly reduce RSS?
+                df1, df2 = 1, n - len(trial) - 1
+                if df2 <= 0 or rss_new <= 0:
+                    continue
+                f_stat = ((current_rss - rss_new) / df1) / (rss_new / df2)
+                if f_stat > 0:
+                    from scipy.stats import f as f_dist
+                    pval = 1.0 - f_dist.cdf(f_stat, df1, df2)
+                    if pval < best_pval:
+                        best_pval = pval
+                        best_dim = dim
+            if best_dim is None or best_pval >= p_enter:
+                break
+            selected.append(best_dim)
+            remaining.remove(best_dim)
+            ols = LinearRegression().fit(X[:, selected], y)
+            current_rss = np.sum((y - ols.predict(X[:, selected])) ** 2)
+        return selected
+
+    @staticmethod
+    def _stepwise_logistic(X: np.ndarray, y: np.ndarray, p_enter: float = 0.05) -> List[int]:
+        """Forward stepwise logistic — add features that improve log-likelihood (LRT p < p_enter)."""
+        from scipy.stats import chi2
+        n, p = X.shape
+        remaining = list(range(p))
+        selected = []
+
+        # Null model log-likelihood
+        p_bar = np.mean(y)
+        if p_bar <= 0 or p_bar >= 1:
+            return []
+        ll_current = n * (p_bar * np.log(p_bar) + (1 - p_bar) * np.log(1 - p_bar))
+
+        for _ in range(p):
+            best_dim, best_pval = None, 1.0
+            for dim in remaining:
+                trial = selected + [dim]
+                try:
+                    lr = LogisticRegression(max_iter=300).fit(X[:, trial], y)
+                    probs = lr.predict_proba(X[:, trial])[:, 1]
+                    probs = np.clip(probs, 1e-10, 1 - 1e-10)
+                    ll_new = np.sum(y * np.log(probs) + (1 - y) * np.log(1 - probs))
+                    # Likelihood ratio test
+                    lr_stat = 2 * (ll_new - ll_current)
+                    if lr_stat > 0:
+                        pval = 1.0 - chi2.cdf(lr_stat, df=1)
+                        if pval < best_pval:
+                            best_pval = pval
+                            best_dim = dim
+                except:
+                    continue
+            if best_dim is None or best_pval >= p_enter:
+                break
+            selected.append(best_dim)
+            remaining.remove(best_dim)
+            lr = LogisticRegression(max_iter=300).fit(X[:, selected], y)
+            probs = lr.predict_proba(X[:, selected])[:, 1]
+            probs = np.clip(probs, 1e-10, 1 - 1e-10)
+            ll_current = np.sum(y * np.log(probs) + (1 - y) * np.log(1 - probs))
+        return selected
 
     def _aggregate_oracle_intelligence(self, template: PatternTemplate):
         """Populate template stats from member patterns."""
@@ -784,6 +1035,52 @@ class FractalClusteringEngine:
                      template.dir_intercept = float(lr.intercept_[0])
                  except:
                      pass
+
+    def _build_dna_maps(self, template: PatternTemplate):
+        """Build per-TF DNA centroids and bounds from member parent chains.
+
+        For each TF in the members' ancestry, computes the mean 16D centroid
+        and min/max bounds on the 10 live-comparable dimensions. Used by the
+        belief network for parent-anchor matching (15m) and DNA verification.
+        """
+        tf_features = {}  # TF label → list of 16D arrays
+
+        for p in template.patterns:
+            chain = getattr(p, 'parent_chain', None) or []
+            for entry in chain:
+                tf = entry.get('tf')
+                feat = entry.get('features_16d')
+                if tf and feat is not None:
+                    tf_features.setdefault(tf, []).append(np.array(feat))
+            # Also add self
+            self_feat = self.extract_features(p)
+            tf_features.setdefault(p.timeframe, []).append(np.array(self_feat))
+
+        mask = DNA_LIVE_DIMS
+        for tf, feats in tf_features.items():
+            if len(feats) < 3:
+                continue
+            arr = np.array(feats)
+            template.dna_centroids[tf] = arr.mean(axis=0)
+
+            arr_live = arr[:, mask]
+            mins = arr_live.min(axis=0)
+            maxs = arr_live.max(axis=0)
+            margin = (maxs - mins) * 0.05
+            margin = np.maximum(margin, 0.01)
+            template.dna_bounds_min[tf] = mins - margin
+            template.dna_bounds_max[tf] = maxs + margin
+
+        # Build depth map from first member's chain
+        if template.patterns:
+            p0 = template.patterns[0]
+            chain = getattr(p0, 'parent_chain', None) or []
+            rev_chain = list(reversed(chain))
+            for depth_idx, entry in enumerate(rev_chain):
+                tf = entry.get('tf')
+                if tf:
+                    template.tf_depth_map[tf] = depth_idx
+            template.tf_depth_map[p0.timeframe] = len(rev_chain)
 
     def build_occurrence_dataframe(self, root_nodes: Dict[int, HypervolumeNode],
                                     patterns: List[Any]) -> pd.DataFrame:
