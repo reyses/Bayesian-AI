@@ -497,6 +497,206 @@ infrastructure. No conflicts expected — this extends Phase 2.5 and replaces Ph
 
 ---
 
+## Part 4: I-MR Parent Pattern + Differential DBSCAN (Future — Post DOE)
+
+> **Status**: Conceptual framework — NOT implemented yet.
+> This extends the DOE fission loop with a geometrically-principled splitting algorithm.
+
+### Motivation: Why Replace KMeans in the Tree?
+
+The current `_split_at_depth()` uses KMeans on the 16D feature vectors. KMeans assumes
+spherical clusters with a pre-specified K — both are wrong for our data:
+
+- Pattern shapes in the 16D space are **not spherical** (markets have asymmetric dynamics)
+- We don't know the right K ahead of time (currently guessed from silhouette score)
+- KMeans can't label noise — every bar gets forced into some cluster
+
+### The Framework: Three Layers
+
+```
+Layer 1: I-MR Control Charts at 15m (Parent Pattern)
+   ↓ defines WHERE geometric shapes start/end
+Layer 2: dp/dt Differential Surface (What We Track)
+   ↓ price differentials in 2D time × price space
+Layer 3: DBSCAN on Differential Surface (Cluster Discovery)
+   ↓ density-based clustering finds actual pattern shapes
+Identity: 16D × 12D Hypervolume Matrix (Fingerprint per Cluster)
+```
+
+### Layer 1: I-MR Parent Pattern at 15m
+
+**SPC (Statistical Process Control)** applied to market structure:
+
+- **I-chart (Individual)**: Tracks the pattern's position along the principal variance axis
+  at the 15-minute timeframe. Each 15m bar produces a scalar projection of the 16D state.
+- **MR-chart (Moving Range)**: Measures the L2 distance between consecutive 16D states.
+  When this distance spikes beyond the upper control limit, geometry has shifted —
+  this is where one parent pattern ends and another begins.
+
+**Why 15m?** This is the trading timeframe. Trades hold 5-10 minutes (1-3 bars at 15m).
+The parent pattern needs to be at the resolution where we act. Higher (1h) loses
+intra-pattern dynamics; lower (5m) adds noise.
+
+```
+Control limits (standard SPC):
+  UCL_MR = D4 × MR_bar      (D4 = 3.267 for n=2)
+  CL_MR  = MR_bar
+  LCL_MR = 0
+
+  UCL_I  = X_bar + 3 × (MR_bar / d2)   (d2 = 1.128)
+  CL_I   = X_bar
+  LCL_I  = X_bar - 3 × (MR_bar / d2)
+```
+
+Where geometry shifts (MR exceeds UCL), the parent pattern boundary is set.
+Within those boundaries, we have a coherent geometric shape to analyze.
+
+### Layer 2: Differential Tracking in 2D Time × Price Space
+
+What we actually track is **dp/dt** — the price differential in the 2D space of
+time and price. Not the raw price, not abstract features — the rate of change
+of price with respect to time.
+
+```
+For each bar at 15m:
+  dp = price[t] - price[t-1]          # first difference
+  dt = 1                               # uniform time steps at 15m
+  d²p/dt² = dp[t] - dp[t-1]          # acceleration (curvature)
+
+The differential state at bar t:
+  diff_state = (dp/dt, d²p/dt²)       # velocity + acceleration
+```
+
+The I-chart then plots the trajectory of `dp/dt` over time. The MR-chart
+detects when the **character** of the differential changes — smooth trending
+vs choppy mean-reverting vs volatile breakout.
+
+**Why differentials?** Raw price is non-stationary (it trends up or down forever).
+Differentials are (closer to) stationary — the *dynamics* of price movement are
+what repeat, not absolute levels. A "V-bottom" at $100 and at $200 are the
+same geometric shape in differential space.
+
+### Layer 3: DBSCAN on the Differential Surface
+
+Within each I-MR parent segment, apply DBSCAN to the differential states:
+
+```python
+from sklearn.cluster import DBSCAN
+
+# Collect differential states within one I-MR parent segment
+# Each row: [dp/dt, d²p/dt², ... additional differential features]
+diff_matrix = build_differential_matrix(segment_bars)
+
+# DBSCAN: density-based clustering
+#   eps: neighborhood radius in differential space
+#   min_samples: minimum points to form a dense region
+clustering = DBSCAN(eps=epsilon, min_samples=min_pts).fit(diff_matrix)
+
+labels = clustering.labels_
+# -1 = noise (bar doesn't belong to any pattern)
+# 0, 1, 2, ... = cluster IDs (actual geometric patterns)
+```
+
+**Why DBSCAN?**
+
+| Property | KMeans | DBSCAN |
+|----------|--------|--------|
+| Cluster count | Must specify K | Discovered from data |
+| Cluster shape | Spherical only | Arbitrary geometry |
+| Noise handling | None — forces everything | Built-in outlier label (-1) |
+| Density aware | No | Yes — clusters where data is dense |
+| Parameters | K (unknown) | eps + min_samples (interpretable) |
+
+**Parameter intuition**:
+- `eps` = how close two differential states must be to be "same shape" —
+  calibrate from training data's MR distribution (e.g., median MR / 2)
+- `min_samples` = minimum density to call it a real pattern —
+  relates to `MIN_GROUP_SIZE` from DOE (default 30)
+
+### Putting It Together
+
+```
+Input: 15m OHLCV bars for the entire training period
+
+Step 1: Compute differential features per bar
+  → dp/dt, d²p/dt², optionally higher-order or multi-TF differentials
+
+Step 2: Run I-MR on the differential sequence
+  → Identify parent pattern boundaries (where MR > UCL)
+  → Segment the data into coherent geometric regions
+
+Step 3: Within each parent segment, run DBSCAN on differential states
+  → Discover cluster shapes (the actual patterns)
+  → Label noise bars (-1) as non-pattern
+
+Step 4: For each DBSCAN cluster, compute the 16D × 12D hypervolume matrix
+  → This is the IDENTITY of the pattern (what it looks like in feature space)
+  → Feed into the existing DOE fission loop for R² validation
+
+Step 5: DOE loop validates clusters
+  → Fit regression (16D features → oracle MFE) within each cluster
+  → If R² < 0.90, DBSCAN cluster may need sub-splitting or eps adjustment
+  → Converge to clean, geometrically-principled templates
+```
+
+### Advantages Over Current KMeans
+
+1. **No K to guess** — DBSCAN finds the natural number of patterns
+2. **Geometric shapes preserved** — dp/dt patterns have complex shapes (V, W, ramp, spike)
+3. **Noise rejected** — not every bar is a tradeable pattern
+4. **I-MR provides context** — patterns are bounded by where geometry actually shifts
+5. **Differential space is stationary** — same shape repeats at any price level
+6. **Hypergeometric recognition** — the differential surface enables proper geometric
+   matching: does a new bar's (dp/dt, d²p/dt²) fall within an existing cluster's
+   density region?
+
+### Epsilon Calibration Strategy
+
+The key DBSCAN parameter `eps` should be calibrated from the data, not guessed:
+
+```python
+# Use the MR distribution to set eps
+mr_values = compute_moving_ranges(differential_sequence)
+eps = np.median(mr_values) * 0.5  # half the typical inter-bar variation
+
+# min_samples relates to the DOE minimum group size
+min_samples = max(5, MIN_GROUP_SIZE // 10)
+```
+
+Alternatively, use the **k-distance graph** method:
+1. Compute k-nearest-neighbor distances for all differential states
+2. Sort ascending and plot
+3. The "elbow" in the curve gives the natural eps
+
+### Forward Pass: Pattern Matching in Differential Space
+
+During forward pass (Phase 4), pattern detection becomes:
+
+1. Compute the live bar's differential state: `(dp/dt, d²p/dt²)`
+2. Check if it falls within any DBSCAN cluster's epsilon neighborhood
+3. If yes → identify the template via the 16D×12D fingerprint
+4. Verify against the occurrence DataFrame (alpha/beta error tracking)
+
+This is **hypergeometric pattern recognition** — matching geometric shapes
+on the differential manifold, not nearest-centroid distance in abstract feature space.
+
+### Implementation Notes
+
+- This is a **replacement for `_split_at_depth()`** in `fractal_clustering.py`
+- The DOE fission loop (Part 1) remains — it validates cluster quality with R²
+- I-MR + DBSCAN produce the initial clusters; DOE refines them
+- Occurrence DataFrame (Part 2) records WHERE each cluster appears — critical
+  for verifying that DBSCAN clusters correspond to real market events
+- Optuna validation (Part 3) still validates cluster consistency
+
+### Dependencies
+
+- `scikit-learn` (already in environment — provides DBSCAN)
+- I-MR implementation already exists in commit `89112a7` (cherry-pick when ready)
+- No new external dependencies required
+
+---
+
 ## Implementation Exit Report
 
 **Implemented by**: Claude Code (Opus 4.6)
