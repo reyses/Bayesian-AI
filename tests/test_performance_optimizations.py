@@ -248,3 +248,34 @@ def test_hurst_performance():
 
 if __name__ == "__main__":
     pytest.main([__file__])
+
+def test_rolling_std_numba():
+    from core.quantum_field_engine import _compute_rolling_std_numba
+    from numpy.lib.stride_tricks import sliding_window_view
+
+    n = 1000
+    _ow = 5
+    np.random.seed(42)
+    z_scores = np.random.randn(n)
+
+    # Method 1: Original sliding_window_view
+    osc_std_orig = np.full(n, np.nan)
+    z_windows = sliding_window_view(z_scores, window_shape=_ow)
+    osc_std_orig[_ow-1:] = z_windows.std(axis=1, ddof=1)
+    if n > _ow - 1:
+        osc_std_orig[:_ow - 1] = osc_std_orig[_ow - 1]
+
+    oscillation_coherence_arr1 = 1.0 / (1.0 + osc_std_orig)
+    np.nan_to_num(oscillation_coherence_arr1, copy=False, nan=0.0)
+
+    # Method 2: Numba
+    osc_std_numba = _compute_rolling_std_numba(z_scores, _ow)
+    oscillation_coherence_arr2 = 1.0 / (1.0 + osc_std_numba)
+
+    # Check identical output
+    assert np.allclose(oscillation_coherence_arr1, oscillation_coherence_arr2, atol=1e-10)
+
+    # Test edge case: small n
+    z_small = np.random.randn(3)
+    res = _compute_rolling_std_numba(z_small, _ow)
+    assert np.isnan(res).all()
