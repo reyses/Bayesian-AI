@@ -2791,10 +2791,10 @@ def main():
     print(f"{'='*70}")
 
     from sklearn.cluster import KMeans
-    from sklearn.metrics import silhouette_score
     from collections import Counter
 
     TOP_K = 10
+    MIN_CLUSTER_SIZE = 5  # minimum members for a useful cluster
 
     analysis_idx_h = np.where(price_imr['analysis_mask'])[0]
 
@@ -2815,69 +2815,112 @@ def main():
             return np.array([]), np.array([]), np.array([])
         return np.array(raws), np.array(feats), np.array(idxs)
 
-    # Grid search over segment length and cluster count
+    def _cluster_coherence(feats, labels, top_k=10):
+        """Mean within-cluster std (lower = tighter overlays).
+        Only considers top-k clusters by size with >= MIN_CLUSTER_SIZE."""
+        counts = Counter(labels)
+        top = [cid for cid, cnt in counts.most_common(top_k)
+               if cnt >= MIN_CLUSTER_SIZE]
+        if not top:
+            return 999.0, 0
+        stds = []
+        for cid in top:
+            mask = (labels == cid)
+            stds.append(feats[mask].std(axis=0).mean())
+        return np.mean(stds), len(top)
+
+    # --- Phase 1: Find best segment length ---
     seg_lens = [8, 12, 16, 24]
-    best_score = -1
-    best_config = None
+    best_len_score = 999.0
+    best_seg_len = 16
 
-    print(f"\n  Grid search: {len(seg_lens)} lengths x k values (delta mode)")
-    print(f"  {'Len':>4} {'K':>3} {'N_seg':>6} {'Silhouette':>11} {'Best?':>5}")
-    print(f"  {'-'*4} {'-'*3} {'-'*6} {'-'*11} {'-'*5}")
-
+    print(f"\n  Phase 1: Find best segment length (k=20, delta mode)")
     for seg_len in seg_lens:
         raws, feats, idxs = _extract_segments(seg_len)
         n_seg = len(feats)
-        if n_seg < 20:
+        if n_seg < 40:
             continue
+        k_test = min(20, n_seg // 3)
+        km = KMeans(n_clusters=k_test, random_state=42, n_init=5)
+        labels = km.fit_predict(feats)
+        coh, n_valid = _cluster_coherence(feats, labels)
+        is_best = coh < best_len_score
+        if is_best:
+            best_len_score = coh
+            best_seg_len = seg_len
+        marker = ' <--' if is_best else ''
+        print(f"    len={seg_len:>2}: {n_seg} segs, k={k_test}, "
+              f"coherence={coh:.2f} ({n_valid} valid clusters){marker}")
 
-        # Adaptive k range
-        max_k = min(n_seg // 5, 40)
-        k_values = [k for k in [10, 15, 20, 30] if k <= max_k and k < n_seg]
-        if not k_values:
-            k_values = [max(2, max_k)]
+    print(f"  Best length: {best_seg_len}")
 
-        for k in k_values:
-            km = KMeans(n_clusters=k, random_state=42, n_init=10)
-            labels = km.fit_predict(feats)
+    # --- Phase 2: Iterate k upward until clusters are tight ---
+    raws, feats, idxs = _extract_segments(best_seg_len)
+    n_seg = len(feats)
 
-            # Silhouette score
-            n_sample = min(len(feats), 2000)
-            if n_sample < len(feats):
-                rng = np.random.RandomState(42)
-                idx_s = rng.choice(len(feats), n_sample, replace=False)
-                sil = silhouette_score(feats[idx_s], labels[idx_s])
-            else:
-                sil = silhouette_score(feats, labels)
+    max_k = min(n_seg // MIN_CLUSTER_SIZE, 100)
+    k_candidates = [k for k in [10, 15, 20, 30, 40, 50, 75, 100]
+                    if k <= max_k and k < n_seg]
+    if not k_candidates:
+        k_candidates = [max(2, n_seg // MIN_CLUSTER_SIZE)]
 
-            is_best = sil > best_score
-            if is_best:
-                best_score = sil
-                best_config = {
-                    'seg_len': seg_len, 'k': k,
-                    'labels': labels, 'raws': raws, 'feats': feats,
-                    'idxs': idxs, 'sil': sil,
-                }
+    print(f"\n  Phase 2: Iterate k (len={best_seg_len}, {n_seg} segments)")
+    print(f"  {'K':>4} {'Coherence':>10} {'ValidClusters':>14} "
+          f"{'MinSize':>8} {'Best?':>5}")
+    print(f"  {'-'*4} {'-'*10} {'-'*14} {'-'*8} {'-'*5}")
 
-            marker = ' <--' if is_best else ''
-            print(f"  {seg_len:>4} {k:>3} {n_seg:>6} {sil:>+11.4f}{marker}")
+    best_coh = 999.0
+    best_config = None
+    prev_coh = None
+
+    for k in k_candidates:
+        km = KMeans(n_clusters=k, random_state=42, n_init=10)
+        labels = km.fit_predict(feats)
+        coh, n_valid = _cluster_coherence(feats, labels)
+
+        counts = Counter(labels)
+        top_sizes = [cnt for _, cnt in counts.most_common(TOP_K)]
+        min_top = min(top_sizes) if top_sizes else 0
+
+        is_best = coh < best_coh and n_valid >= min(TOP_K, k)
+        if is_best:
+            best_coh = coh
+            best_config = {
+                'seg_len': best_seg_len, 'k': k,
+                'labels': labels, 'raws': raws, 'feats': feats,
+                'idxs': idxs, 'coherence': coh,
+            }
+
+        marker = ' <--' if is_best else ''
+        print(f"  {k:>4} {coh:>10.2f} {n_valid:>14} "
+              f"{min_top:>8}{marker}")
+
+        # Stop if coherence stopped improving (< 5% gain)
+        if prev_coh is not None and coh > prev_coh * 0.95 and not is_best:
+            if k > 30:  # only stop early after trying enough
+                print(f"  (converged at k={k})")
+                break
+        prev_coh = coh
 
     if best_config is None:
         print("  No valid configuration found. Skipping.")
     else:
         bc = best_config
-        print(f"\n  BEST CONFIG: len={bc['seg_len']}, norm={bc['norm']}, "
-              f"k={bc['k']}, silhouette={bc['sil']:.4f}")
+        print(f"\n  BEST: len={bc['seg_len']}, k={bc['k']}, "
+              f"coherence={bc['coherence']:.2f}")
 
-        # Build cluster stats for best config
+        # Build cluster stats
         labels = bc['labels']
         raws = bc['raws']
         feats = bc['feats']
-        cluster_counts = Counter(labels)
-        top_clusters = cluster_counts.most_common(TOP_K)
+        counts = Counter(labels)
+        # Sort by size, filter to >= MIN_CLUSTER_SIZE
+        top_clusters = [(cid, cnt) for cid, cnt in counts.most_common()
+                        if cnt >= MIN_CLUSTER_SIZE][:TOP_K]
 
         print(f"\n  {'Clust':>5} {'N':>5} {'MeanChg':>8} {'StdChg':>7} "
-              f"{'WR':>5} {'Coherence':>9}")
-        print(f"  {'-'*5} {'-'*5} {'-'*8} {'-'*7} {'-'*5} {'-'*9}")
+              f"{'WR':>5} {'Coh':>6}")
+        print(f"  {'-'*5} {'-'*5} {'-'*8} {'-'*7} {'-'*5} {'-'*6}")
 
         cluster_stats = []
         for cid, count in top_clusters:
@@ -2889,8 +2932,6 @@ def main():
             mean_chg = changes.mean()
             std_chg = changes.std()
             wr = (changes > 0).sum() / len(changes) * 100
-
-            # Coherence: mean per-bar std across the feature vector
             coherence = feat_c.std(axis=0).mean()
 
             cluster_stats.append({
@@ -2900,22 +2941,14 @@ def main():
             })
 
             print(f"  C{cid:<4} {count:>5} {mean_chg:>+8.1f} {std_chg:>7.1f} "
-                  f"{wr:>4.0f}% {coherence:>9.2f}")
+                  f"{wr:>4.0f}% {coherence:>6.1f}")
 
         # Plot top 10 clusters
         n_plot = min(TOP_K, len(cluster_stats))
         n_cols = 5
         n_rows = (n_plot + n_cols - 1) // n_cols
         seg_len = bc['seg_len']
-        norm_mode = bc['norm']
-
-        # Feature x-axis depends on norm mode
-        if norm_mode == 'raw_dpdt':
-            x_seg = np.arange(seg_len - 1)
-            y_label = 'dp/dt (raw)'
-        else:
-            x_seg = np.arange(seg_len)
-            y_label = f'Shape ({norm_mode})'
+        x_seg = np.arange(seg_len)
 
         fig_h, axes_h = plt.subplots(n_rows, n_cols,
                                       figsize=(4 * n_cols, 3.5 * n_rows),
@@ -2947,14 +2980,14 @@ def main():
             # Auto-fit y-axis
             all_v = feat_c.flatten()
             y_c = np.mean(all_v)
-            y_s = max(np.std(all_v) * 3, 0.5)
+            y_s = max(np.std(all_v) * 3, 5)
             ax.set_ylim(y_c - y_s, y_c + y_s)
 
             ax.set_title(f"C{cs['cid']}: n={n_in}, WR={cs['wr']:.0f}%\n"
-                         f"coh={cs['coherence']:.2f}, chg={cs['mean_chg']:+.0f}",
+                         f"coh={cs['coherence']:.1f}, chg={cs['mean_chg']:+.0f}",
                          fontsize=9)
             if col == 0:
-                ax.set_ylabel(y_label)
+                ax.set_ylabel('Delta (ticks)')
             if row == n_rows - 1:
                 ax.set_xlabel('Bar')
             ax.grid(True, alpha=0.2)
@@ -2963,9 +2996,8 @@ def main():
             row, col = divmod(k, n_cols)
             axes_h[row, col].set_visible(False)
 
-        fig_h.suptitle(f'Top {n_plot} Shape Clusters (BEST: len={seg_len}, '
-                        f'norm={norm_mode}, k={bc["k"]})\n'
-                        f'Silhouette={bc["sil"]:.4f}, '
+        fig_h.suptitle(f'Top {n_plot} Shape Clusters (len={seg_len}, k={bc["k"]})\n'
+                        f'Delta from entry, coherence={bc["coherence"]:.1f}, '
                         f'{len(feats)} segments',
                         fontsize=13)
         plt.tight_layout()

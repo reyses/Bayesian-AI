@@ -862,6 +862,49 @@ When a new bar arrives, match its curvature signature to the library
 -> enrich with the price model for entry precision
 
 
+ANALYSIS H: ITERATIVE SHAPE CLUSTERING (delta from entry)
+==========================================================
+
+Date: 2026-02-28
+Method: Cut fixed-length segments across the analysis window. Each
+segment = cumulative delta from entry: [0, +40, +20, +30, ...].
+Removes price level, keeps movement pattern in ticks. Grid search
+over segment length (8/12/16/24) and cluster count (10/15/20/30).
+Score by silhouette, auto-select best config. KMeans on delta vectors.
+
+1-DAY RESULTS (85 segments):
+  Best: len=8, k=10, silhouette=0.2794
+  C5: 23 segs, WR=65%, chg=+10 (sideways)
+  C6: 19 segs, WR=5%,  chg=-29 (clear downtrend)
+  C4: 11 segs, WR=100%, chg=+40 (strong up)
+  C2:  9 segs, WR=100%, chg=+74 (ramp up, std=9.7 TIGHT)
+
+1-WEEK RESULTS (407 segments):
+  Best: len=24, k=10, silhouette=0.2381
+  C2: 120 segs, WR=42%, chg=-9  (flat/sideways catch-all)
+  C0:  84 segs, WR=90%, chg=+39 (steady uptrend)
+  C4:  50 segs, WR=98%, chg=+134 (strong ramp)
+  C9:  46 segs, WR=0%,  chg=-60  (clear downtrend)
+  C1:  26 segs, WR=0%,  chg=-108 (steep decline)
+  C6:  12 segs, WR=0%,  chg=-303 (crash pattern)
+
+KEY FINDINGS:
+1. Delta-from-entry clustering produces TIGHT shape overlays
+2. WR is POLARIZED: clusters are near 0% or near 100%
+3. Longer segments (24 bars) win at larger scale -- more shape info
+4. The flat/sideways cluster is the catch-all (WR~42%); directional
+   clusters have extreme WR (0% or 98-100%)
+5. This IS the segment library concept proven: identify cluster ->
+   predict direction from the template -> enrich with price model
+
+COMPARISON WITH PREVIOUS ANALYSES:
+- Analysis C (linear regression): direction R2 = 1% (useless)
+- Analysis F (I-MR regimes): shapes mixed within large regimes
+- Analysis G (Laplacian): +68% tighter, but still temporal segments
+- Analysis H (shape clustering): PATTERN-BASED grouping, extreme WR
+  polarization, actual overlay coherence
+
+
 SPC CONSTANTS REFERENCE
 -----------------------
 
