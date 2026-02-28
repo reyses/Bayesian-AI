@@ -731,17 +731,97 @@ to I-MR alone. Sub-segments based on curvature sign (convex vs concave)
 capture distinct price SHAPES, not just time periods. This is the
 bridge from "group by when" to "group by shape."
 
-REFERENCE: Shi 2018 "Signal Pattern Recognition Based on Fractal
-Features and Machine Learning" — 5 fractal dimensions (Box, Katz,
-Higuchi, Petrosian, Sevcik) + Random Forest -> 96% signal
-classification. Our curvature is analogous to their fractal dimension:
-a shape descriptor that distinguishes waveform types.
+REFERENCE LITERATURE
+--------------------
 
-SHAPE DETECTION METHODS (from DSP literature):
-- Dynamic Time Warping (DTW): aligns similar shapes at different speeds
-- Fourier Descriptors: shape fingerprint, scale/rotation invariant
-- Template matching via cross-correlation: match against known library
-- Ref: dsp.stackexchange.com/questions/64722/typical-shape-detection-algorithms
+[1] Shi, Chang-Ting (2018). "Signal Pattern Recognition Based on
+    Fractal Features and Machine Learning." Applied Sciences 8(8):1327.
+    College of Computer Science & Technology, Harbin Engineering Univ.
+    URL: https://www.mdpi.com/2076-3417/8/8/1327
+
+    METHOD: Extract 5 fractal dimensions from 8 modulation signal types
+    (2ASK, 4ASK, 2FSK, 4FSK, 8FSK, BPSK, 16QAM, 32QAM), then classify.
+
+    5 FRACTAL DIMENSIONS:
+    a) Box dimension — covers signal with boxes of decreasing size,
+       measures how the count scales. Best OVERALL discriminator of
+       all 8 signals across the full SNR range.
+    b) Katz dimension — ratio of curve length to planar extent.
+       Best at separating 4ASK, 16QAM, and 32QAM from each other.
+    c) Higuchi dimension — measures complexity from k-subsampled
+       subsequences. WORST discriminator in this study.
+    d) Petrosian dimension — fast approximation from zero-crossings
+       of the first derivative. Best at separating 2FSK vs 16QAM.
+    e) Sevcik dimension — normalizes waveform to unit square, then
+       measures curve length. Similar to Katz in discrimination power.
+
+    KEY BEHAVIOR: At low SNR (noisy), all signals cluster together —
+    fractal dimensions overlap. As SNR increases, dimensions SEPARATE
+    into distinct bands per signal type. This separation IS the signal.
+    (This is exactly our reference image — the ideal we're targeting.)
+
+    CLASSIFIERS TESTED:
+    - Back-Propagation neural network: stabilized at ~85%
+    - Grey Relation Analysis: stabilized at ~85%
+    - K-Nearest Neighbor: stabilized at ~85%
+    - Random Forest: stabilized at 96% <-- BEST by far
+    Random Forest wins because it captures non-linear interactions
+    between the 5 fractal features that linear methods miss.
+
+    OUR ANALOGY:
+    Their 8 modulation types = our price shape segments
+    Their SNR axis = our bars-from-entry axis
+    Their 5 fractal dims = our curvature + future fractal features
+    Their key finding (RF >> linear) = why our linear R2 is 1% but
+    the actual pattern structure exists (as proven by coherence tests)
+
+[2] DSP Shape Detection Algorithms
+    Ref: dsp.stackexchange.com/questions/64722/typical-shape-detection-algorithms
+
+    KEY METHODS FOR WAVEFORM SHAPE MATCHING:
+
+    a) Dynamic Time Warping (DTW):
+       - Aligns two time series that are similar but time-stretched
+       - Handles shapes that move at different speeds
+       - O(n*m) but constrained variants are O(n)
+       - shapeDTW variant: pairs locally similar structures, avoids
+         matching points with distinct neighborhood structures
+       - BEST FIT for our problem: two price shapes may have same
+         pattern but at different speeds (fast vs slow trend)
+
+    b) Fourier Descriptors:
+       - Decompose shape contour into frequency components
+       - Low-frequency coefficients = gross shape, high-freq = detail
+       - Scale/rotation/translation INVARIANT (just drop coeff 0)
+       - Phase information provides more accurate shape description
+         than amplitude alone (WARP system, IEEE TPAMI)
+       - POTENTIAL USE: describe each segment's shape as a compact
+         frequency fingerprint for fast library lookup
+
+    c) Template Matching via Cross-Correlation:
+       - Slide template over signal, measure correlation at each offset
+       - High correlation = shape match
+       - Fast via FFT (O(n log n))
+       - POTENTIAL USE: once segment library is built, scan incoming
+         price data for matching templates in real-time
+
+    d) Moment Descriptors:
+       - Statistical moments (mean, variance, skewness, kurtosis) of
+         the shape signal
+       - Simple, fast, rotation-invariant
+       - Can combine with Fourier for richer description
+
+    e) Fractal Dimension Features (ties back to Shi 2018):
+       - Box/Katz/Higuchi/Petrosian/Sevcik as shape descriptors
+       - Each captures different aspect of signal complexity
+       - Combined into feature vector -> classifier
+
+    RECOMMENDED PIPELINE FOR SEGMENT LIBRARY:
+    1. Segment by I-MR + Laplacian (what we have now)
+    2. Compute fractal dimensions per segment (Shi's 5 features)
+    3. Cluster segments by fractal profile (not by time)
+    4. Within each cluster: Random Forest for direction prediction
+    5. For real-time matching: DTW or cross-correlation against library
 
 ALL-SCALE RESULTS:
 
