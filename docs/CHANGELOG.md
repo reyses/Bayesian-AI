@@ -2,6 +2,13 @@
 
 ---
 
+## [V5.3.1] - 2026-02-27 — Seed-Function Shape Matching Proposal
+
+### Docs
+- `docs/JULES_AUTO_DOCS.md`: added seed-function shape matching proposal to journal, proposing 8 candidate seed functions and mapping existing KMeans clusters to named functions.
+
+---
+
 ## [V5.3.0] - 2026-02-26 — Phase A/B/C Performance Improvements & Dashboard Enhancements
 
 ### New
