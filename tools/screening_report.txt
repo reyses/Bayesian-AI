@@ -1,0 +1,697 @@
+WAVEFORM SCREENING: MODEL FISSION REPORT
+Warmup: 30d, Window: 0d
+Patterns: 8464
+
+======================================================================
+  SCREENING X: Raw I values (192 features)
+======================================================================
+
+======================================================================
+  WAVEFORM SCREENING REPORT
+======================================================================
+  Patterns: 8,464
+  MFE: mean=212.48, std=582.07
+  MAE: mean=155.44, std=245.49
+  Depths: min=0, max=12, median=11
+
+  TOP 15 FACTORS (correlation with MFE):
+  Rank  Factor                                  Corr    |Corr|
+  ----  ----------------------------------- --------  --------
+     1  d2__osc_coh                          +0.2631    0.2631  ##########
+     2  d2__coherence                        +0.2485    0.2485  #########
+     3  d1__log1p_vol                        +0.2283    0.2283  #########
+     4  d3__log1p_mom                        +0.2020    0.2020  ########
+     5  d4__coherence                        -0.1875    0.1875  #######
+     6  d3__self_pid                         -0.1868    0.1868  #######
+     7  d3__tf_alignment                     +0.1816    0.1816  #######
+     8  d2__tf_alignment                     +0.1802    0.1802  #######
+     9  d2__abs_z                            -0.1797    0.1797  #######
+    10  d4__tf_alignment                     +0.1783    0.1783  #######
+    11  d3__self_hurst                       +0.1631    0.1631  ######
+    12  d1__log1p_mom                        +0.1601    0.1601  ######
+    13  d1__tf_alignment                     -0.1539    0.1539  ######
+    14  d5__osc_coh                          -0.1427    0.1427  #####
+    15  d3__self_dmi_diff                    -0.1401    0.1401  #####
+
+  Dead factors (|corr| < 0.01): 41 / 192
+
+  FACTOR IMPORTANCE BY TIMEFRAME DEPTH:
+  Depth         Mean |corr|    Max |corr|    # active
+  ------------ ------------  ------------  ----------
+  d0_macro           0.0399        0.1290           8
+  d1                 0.0717        0.2283          13
+  d2                 0.0886        0.2631          12
+  d3                 0.0753        0.2020          14
+  d4                 0.0960        0.1875          14
+  d5                 0.0564        0.1427          14
+  d6                 0.0535        0.1307          13
+  d7                 0.0623        0.1296          12
+  d8                 0.0519        0.0978          13
+  d9                 0.0495        0.0980          13
+  d10                0.0397        0.0803          13
+  d11_micro          0.0201        0.0821          12
+
+  FACTOR IMPORTANCE BY FEATURE:
+  Feature               Mean |corr|    Max |corr|  Best depth  
+  -------------------- ------------  ------------  ------------
+  abs_z                      0.0732        0.1797  d2          
+  log1p_vol                  0.0741        0.2283  d1          
+  log1p_mom                  0.0561        0.2020  d3          
+  coherence                  0.0659        0.2485  d2          
+  tf_scale                   0.0541        0.1050  d4          
+  depth                      0.0541        0.1050  d4          
+  parent_ctx                 0.0541        0.1050  d4          
+  self_adx                   0.0561        0.1192  d0_macro    
+  self_hurst                 0.0573        0.1631  d3          
+  self_dmi_diff              0.0689        0.1401  d3          
+  parent_z                   0.0000        0.0000  d0_macro    
+  parent_dmi_diff            0.0000        0.0000  d0_macro    
+  root_is_roche              0.0541        0.1050  d4          
+  tf_alignment               0.0979        0.1816  d3          
+  self_pid                   0.0799        0.1868  d3          
+  osc_coh                    0.0940        0.2631  d2          
+
+======================================================================
+  STEPWISE REGRESSION (top 20 factors -> MFE)
+======================================================================
+  Step  Factor                                    R2       dR2    adj-R2
+  ----  ----------------------------------- --------  --------  --------
+     1  d2__osc_coh                           0.0692   +0.0692    0.0691
+     2  d2__coherence                         0.0751   +0.0059    0.0749
+     3  d1__log1p_vol                         0.1240   +0.0489    0.1236
+     4  d3__log1p_mom                         0.1273   +0.0033    0.1269
+     5  d4__coherence                         0.1373   +0.0100    0.1368
+     6  d3__self_pid                          0.1530   +0.0157    0.1524
+     7  d3__tf_alignment                      0.1543   +0.0013    0.1536
+     8  d2__tf_alignment                      0.1543   +0.0000    0.1535
+     9  d2__abs_z                             0.1690   +0.0147    0.1681
+    10  d4__tf_alignment                      0.1691   +0.0001    0.1681
+    11  d3__self_hurst                        0.1709   +0.0018    0.1698
+    12  d1__log1p_mom                         0.1721   +0.0012    0.1709
+    13  d1__tf_alignment                      0.1929   +0.0208    0.1917
+    14  d5__osc_coh                           0.1967   +0.0038    0.1954
+    15  d3__self_dmi_diff                     0.1978   +0.0011    0.1964
+    16  d4__osc_coh                           0.2041   +0.0063    0.2026
+    17  d4__self_dmi_diff                     0.2086   +0.0045    0.2070
+    18  d6__tf_alignment                      0.2132   +0.0046    0.2115
+    19  d7__tf_alignment                      0.2136   +0.0004    0.2118
+    20  d0_macro__osc_coh                     0.2360   +0.0224    0.2342
+
+======================================================================
+  SCREENING Y: MR Segmentation (400 features)
+======================================================================
+
+  TOP 15 MR FACTORS:
+  Rank  Factor                                       Corr    |Corr|
+  ----  ---------------------------------------- --------  --------
+     1  UCL_d0_macro>d1__self_dmi_diff            +0.4284    0.4284  #################
+     2  MR_d2>d3__osc_coh                         -0.3033    0.3033  ############
+     3  MR_d1>d2__tf_alignment                    +0.2737    0.2737  ##########
+     4  n_breaks__self_dmi_diff                   +0.2585    0.2585  ##########
+     5  MR_d1>d2__log1p_vol                       -0.2408    0.2408  #########
+     6  MR_d1>d2__osc_coh                         +0.2382    0.2382  #########
+     7  MR_d1>d2__coherence                       +0.2361    0.2361  #########
+     8  MR_d1>d2__self_dmi_diff                   -0.2236    0.2236  ########
+     9  MR_d7>d8__self_dmi_diff                   +0.1952    0.1952  #######
+    10  MR_d1>d2__self_pid                        -0.1930    0.1930  #######
+    11  MR_d5>d6__osc_coh                         +0.1881    0.1881  #######
+    12  MR_d0_macro>d1__log1p_mom                 +0.1780    0.1780  #######
+    13  MR_d6>d7__osc_coh                         -0.1748    0.1748  ######
+    14  MR_d2>d3__coherence                       -0.1727    0.1727  ######
+    15  MR_d2>d3__self_hurst                      +0.1708    0.1708  ######
+
+======================================================================
+  STEPWISE REGRESSION (top 20 factors -> MFE)
+======================================================================
+  Step  Factor                                    R2       dR2    adj-R2
+  ----  ----------------------------------- --------  --------  --------
+     1  UCL_d0_macro>d1__self_dmi_diff        0.1835   +0.1835    0.1835
+     2  MR_d2>d3__osc_coh                     0.1916   +0.0081    0.1914
+     3  MR_d1>d2__tf_alignment                0.1980   +0.0064    0.1978
+     4  n_breaks__self_dmi_diff               0.1989   +0.0008    0.1985
+     5  MR_d1>d2__log1p_vol                   0.2019   +0.0030    0.2014
+     6  MR_d1>d2__osc_coh                     0.2041   +0.0022    0.2035
+     7  MR_d1>d2__coherence                   0.2041   +0.0000    0.2034
+     8  MR_d1>d2__self_dmi_diff               0.2076   +0.0035    0.2069
+     9  MR_d7>d8__self_dmi_diff               0.2232   +0.0156    0.2223
+    10  MR_d1>d2__self_pid                    0.2237   +0.0006    0.2228
+    11  MR_d5>d6__osc_coh                     0.2241   +0.0003    0.2231
+    12  MR_d0_macro>d1__log1p_mom             0.2241   +0.0000    0.2230
+    13  MR_d6>d7__osc_coh                     0.2270   +0.0029    0.2258
+    14  MR_d2>d3__coherence                   0.2279   +0.0009    0.2266
+    15  MR_d2>d3__self_hurst                  0.2301   +0.0022    0.2287
+    16  MR_d1>d2__abs_z                       0.2312   +0.0010    0.2297
+    17  MR_d7>d8__tf_alignment                0.2313   +0.0002    0.2298
+    18  MR_d7>d8__self_pid                    0.2321   +0.0007    0.2304
+    19  MR_d0_macro>d1__tf_alignment          0.2407   +0.0086    0.2390
+    20  UCL_d4>d5__self_dmi_diff              0.2410   +0.0003    0.2392
+
+======================================================================
+  SCREENING Z: X + Y Combined (592 features)
+======================================================================
+
+  TOP 15 COMBINED FACTORS:
+  Rank  Factor                                       Corr    |Corr|
+  ----  ---------------------------------------- --------  --------
+     1  [MR] UCL_d0_macro>d1__self_dmi_diff         +0.4284    0.4284  #################
+     2  [MR] MR_d2>d3__osc_coh                      -0.3033    0.3033  ############
+     3  [MR] MR_d1>d2__tf_alignment                 +0.2737    0.2737  ##########
+     4  [I] d2__osc_coh                            +0.2631    0.2631  ##########
+     5  [MR] n_breaks__self_dmi_diff                +0.2585    0.2585  ##########
+     6  [I] d2__coherence                          +0.2485    0.2485  #########
+     7  [MR] MR_d1>d2__log1p_vol                    -0.2408    0.2408  #########
+     8  [MR] MR_d1>d2__osc_coh                      +0.2382    0.2382  #########
+     9  [MR] MR_d1>d2__coherence                    +0.2361    0.2361  #########
+    10  [I] d1__log1p_vol                          +0.2283    0.2283  #########
+    11  [MR] MR_d1>d2__self_dmi_diff                -0.2236    0.2236  ########
+    12  [I] d3__log1p_mom                          +0.2020    0.2020  ########
+    13  [MR] MR_d7>d8__self_dmi_diff                +0.1952    0.1952  #######
+    14  [MR] MR_d1>d2__self_pid                     -0.1930    0.1930  #######
+    15  [MR] MR_d5>d6__osc_coh                      +0.1881    0.1881  #######
+
+======================================================================
+  STEPWISE REGRESSION (top 20 factors -> MFE)
+======================================================================
+  Step  Factor                                    R2       dR2    adj-R2
+  ----  ----------------------------------- --------  --------  --------
+     1  UCL_d0_macro>d1__self_dmi_diff        0.1835   +0.1835    0.1835
+     2  MR_d2>d3__osc_coh                     0.1916   +0.0081    0.1914
+     3  MR_d1>d2__tf_alignment                0.1980   +0.0064    0.1978
+     4  d2__osc_coh                           0.2012   +0.0032    0.2008
+     5  n_breaks__self_dmi_diff               0.2019   +0.0006    0.2014
+     6  d2__coherence                         0.2025   +0.0006    0.2019
+     7  MR_d1>d2__log1p_vol                   0.2036   +0.0011    0.2030
+     8  MR_d1>d2__osc_coh                     0.2062   +0.0025    0.2054
+     9  MR_d1>d2__coherence                   0.2105   +0.0043    0.2097
+    10  d1__log1p_vol                         0.2150   +0.0044    0.2140
+    11  MR_d1>d2__self_dmi_diff               0.2150   +0.0000    0.2139
+    12  d3__log1p_mom                         0.2157   +0.0008    0.2146
+    13  MR_d7>d8__self_dmi_diff               0.2315   +0.0157    0.2303
+    14  MR_d1>d2__self_pid                    0.2336   +0.0022    0.2324
+    15  MR_d5>d6__osc_coh                     0.2342   +0.0006    0.2329
+    16  d4__coherence                         0.2343   +0.0001    0.2328
+    17  d3__self_pid                          0.2408   +0.0065    0.2393
+    18  d3__tf_alignment                      0.2413   +0.0005    0.2397
+    19  d2__tf_alignment                      0.2417   +0.0004    0.2400
+    20  d2__abs_z                             0.2435   +0.0018    0.2417
+
+======================================================================
+  COMPARISON: adj-R2 @ 20 factors
+======================================================================
+  X (I values only):     0.2342
+  Y (MR segments only):  0.2392
+  Z (X + Y combined):    0.2417
+  Lift from MR:          +0.0075
+
+======================================================================
+  DIRECTIONAL SPLIT
+======================================================================
+  LONG  (DMI >= 0):  3750 patterns, WR=49.7%, MFE=+192
+  SHORT (DMI <  0):  4714 patterns, WR=40.1%, MFE=+228
+  Mixed WR:         44.4%
+
+======================================================================
+  SEGMENTED SCREENING: 15 templates x 2 directions
+======================================================================
+
+======================================================================
+  MODEL FISSION: Segment x Direction (sorted by P(success))
+  P(win) = MFE > MAE.  SNR = mean/std.  Action = KEEP/SPLIT/DROP
+======================================================================
+  Seg ID     Ctx             N  P(win)  P(>0)   SNR    R2    MFE   MAE Action 
+  ---------- ------------ ---- ------- ------ ----- ----- ------ ----- -------
+  L_746456   self_adx       77   66.2%    95%  0.69  0.46   +483   174 KEEP    #############
+  L_773089   coherence     136   66.2%    97%  0.69  0.57   +220   129 KEEP    #############
+  L_857665   coherence     189   66.1%    98%  0.64  0.36   +199   135 KEEP    #############
+  L_924823   osc_coh       504   60.1%    98%  0.44  0.21   +268   139 SPLIT   ############
+  L_87496    tf_alignment  214   58.4%    99%  0.49  0.79    +87    73 SPLIT   ###########
+  L_27252    osc_coh        67   56.7%   100%  0.71  0.49   +383   108 SPLIT   ###########
+  L_519908   self_dmi_diff   87   56.3%    98%  0.46  0.48   +359   306 SPLIT   ###########
+  L_944879   self_dmi_diff   82   54.9%   100%  0.64  0.60   +278    91 SPLIT   ##########
+  S_746456   self_adx      139   54.0%    99%  0.72  0.42   +311   252 SPLIT   ##########
+  S_773089   parent_ctx     55   52.7%   100%  0.72  0.29   +717   319 SPLIT   ##########
+  S_552460   self_adx      206   52.4%    97%  0.41  0.51   +413   181 SPLIT   ##########
+  L_552460   osc_coh       119   50.4%    95%  0.43  0.46   +388   227 SPLIT   ##########
+  L_623769   self_dmi_diff  201   48.3%    95%  0.42  0.29   +325   266 DROP    #########
+  L_715208   log1p_vol      76   44.7%   100%  0.42  0.48   +120   209 DROP    ########
+  L_495041   self_hurst    188   44.7%    98%  0.39  0.49   +101   112 DROP    ########
+  S_715208   tf_alignment   99   44.4%    98%  0.42  0.42   +296   158 DROP    ########
+  L_242572   self_hurst    509   44.4%    95%  0.39  0.20   +160   116 DROP    ########
+  S_519908   log1p_vol     102   44.1%   100%  0.65  0.52   +190   141 DROP    ########
+  S_623769   self_dmi_diff  272   42.6%    99%  0.45  0.51   +534   278 DROP    ########
+  S_857665   self_dmi_diff  251   41.8%    97%  0.36  0.35   +273   187 DROP    ########
+  L_124560   self_hurst   1090   41.7%    97%  0.41  0.21   +116   135 DROP    ########
+  S_124560   self_dmi_diff 1454   41.3%    96%  0.36  0.24   +124   133 DROP    ########
+  S_242572   self_hurst    619   40.5%    96%  0.35  0.24   +156   150 DROP    ########
+  S_27252    self_pid       95   40.0%    98%  0.61  0.82   +356   194 DROP    ########
+  L_635141   coherence     211   39.3%    94%  0.26  0.38   +170    84 DROP    #######
+  S_495041   self_dmi_diff  234   39.3%   100%  0.46  0.39   +140   157 DROP    #######
+  S_635141   log1p_mom     246   35.4%    98%  0.29  0.74   +128   105 DROP    #######
+  S_924823   osc_coh       780   32.4%    96%  0.35  0.32   +310   194 DROP    ######
+  S_944879   self_dmi_diff   91   31.9%   100%  0.37  0.48   +157   187 DROP    ######
+  S_87496    log1p_mom      71   28.2%   100%  0.50  0.51   +229   185 DROP    #####
+
+  KEEP (3 segments, 402 patterns, WR=66.2%, avg MFE=+261):
+    L_746456 [self_adx] n=77 WR=66% MFE=+483
+      Entry: tf_alignment@d3>d4, self_hurst@d6>d7
+      Exit:  self_adx@d3>d4, osc_coh@d3>d4
+      Good vs Bad: d9__tf_alignment higher in winners (d=+1.17)
+    L_773089 [coherence] n=136 WR=66% MFE=+220
+      Entry: tf_alignment@d3>d4, coherence@d2>d3
+      Exit:  coherence@d3>d4, self_adx@d3>d4
+      Good vs Bad: d4__self_dmi_diff lower in winners (d=-0.98)
+    L_857665 [coherence] n=189 WR=66% MFE=+199
+      Entry: abs_z@d3>d4, self_pid@d4>d5
+      Exit:  coherence@d3>d4, self_pid@d9>d10
+      Good vs Bad: d1__abs_z lower in winners (d=-0.80)
+
+  SPLIT (9 segments, 1473 patterns, WR=56.5%) -- signal exists but noisy, need finer cuts:
+    L_924823 [osc_coh] n=504 WR=60% -- split on: d1__abs_z
+    L_87496 [tf_alignment] n=214 WR=58% -- split on: d7__tf_alignment
+    L_27252 [osc_coh] n=67 WR=57% -- split on: MR_d3>d4__osc_coh
+    L_519908 [self_dmi_diff] n=87 WR=56% -- split on: d4__log1p_vol
+    L_944879 [self_dmi_diff] n=82 WR=55% -- split on: MR_d2>d3__coherence
+    S_746456 [self_adx] n=139 WR=54% -- split on: d3__tf_alignment
+    S_773089 [parent_ctx] n=55 WR=53% -- split on: d4__self_dmi_diff
+    S_552460 [self_adx] n=206 WR=52% -- split on: UCL_d2>d3__log1p_vol
+    L_552460 [osc_coh] n=119 WR=50% -- split on: d1__abs_z
+
+  DROP (18 segments, 6589 patterns, avg MFE=+189) -- net noise, remove from model:
+    L_623769 [self_dmi_diff] n=201 WR=48% MFE=+325 MAE=266
+    L_715208 [log1p_vol] n=76 WR=45% MFE=+120 MAE=209
+    L_495041 [self_hurst] n=188 WR=45% MFE=+101 MAE=112
+    S_715208 [tf_alignment] n=99 WR=44% MFE=+296 MAE=158
+    L_242572 [self_hurst] n=509 WR=44% MFE=+160 MAE=116
+    S_519908 [log1p_vol] n=102 WR=44% MFE=+190 MAE=141
+    S_623769 [self_dmi_diff] n=272 WR=43% MFE=+534 MAE=278
+    S_857665 [self_dmi_diff] n=251 WR=42% MFE=+273 MAE=187
+    L_124560 [self_hurst] n=1090 WR=42% MFE=+116 MAE=135
+    S_124560 [self_dmi_diff] n=1454 WR=41% MFE=+124 MAE=133
+    S_242572 [self_hurst] n=619 WR=41% MFE=+156 MAE=150
+    S_27252 [self_pid] n=95 WR=40% MFE=+356 MAE=194
+    L_635141 [coherence] n=211 WR=39% MFE=+170 MAE=84
+    S_495041 [self_dmi_diff] n=234 WR=39% MFE=+140 MAE=157
+    S_635141 [log1p_mom] n=246 WR=35% MFE=+128 MAE=105
+    S_924823 [osc_coh] n=780 WR=32% MFE=+310 MAE=194
+    S_944879 [self_dmi_diff] n=91 WR=32% MFE=+157 MAE=187
+    S_87496 [log1p_mom] n=71 WR=28% MFE=+229 MAE=185
+
+  >> Exported screening gates to C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\checkpoints\screening_gates.json
+     KEEP: 3, SPLIT: 9, hours: None
+
+======================================================================
+  WHAT-IF: Fission Impact
+======================================================================
+  CURRENT (all segments):
+    Segments: 30, Patterns: 8464, WR: 44.4%, MFE: +212
+  KEEP ONLY:
+    Segments: 3, Patterns: 402, WR: 66.2%, MFE: +261
+    Dropped: 8062 patterns (95% of volume)
+    WR lift: +21.8%
+  KEEP + SPLIT (before refining splits):
+    Segments: 12, Patterns: 1875, WR: 58.6%, MFE: +294
+
+======================================================================
+  PID DRILL-DOWN: I-MR x Direction
+======================================================================
+
+  PID I-CHART (mean value at each depth):
+  Depth            LONG    SHORT    Delta   r(MFE)L   r(MFE)S
+  ------------ -------- -------- -------- --------- ---------
+  d0_macro        -2.16    -2.42    +0.26   +0.0441   +0.0081
+  d1              +0.61    +0.27    +0.34   +0.0469   +0.1031
+  d2              +1.55    +1.04    +0.51   -0.1119   -0.1016
+  d3              +0.61    -0.18    +0.79   -0.2071   -0.1739
+  d4              +0.12    -0.48    +0.60   -0.1316   -0.1231
+  d5              -1.05    -1.74    +0.69   -0.1258   -0.0185
+  d6              -1.00    -1.87    +0.87   -0.1221   -0.0177
+  d7              -0.80    -1.85    +1.05   -0.1611   +0.0050
+  d8              -0.64    -1.65    +1.02   +0.0027   +0.1514
+  d9              -0.07    -1.27    +1.20   -0.0280   +0.1353
+  d10             +0.03    -1.11    +1.14   -0.1291   -0.0152
+  d11_micro       +0.51    -0.80    +1.31   -0.0292   -0.0230
+
+  PID MR (depth-to-depth gradient):
+  Transition           LONG    SHORT    Delta   r(MFE)L   r(MFE)S
+  ---------------- -------- -------- -------- --------- ---------
+  d0_macro>d1          +2.771   +2.688   +0.083   +0.0251   +0.0991
+  d1>d2          +0.940   +0.773   +0.167   -0.1640   -0.2080 ***
+  d2>d3          -0.941   -1.223   +0.282   -0.0759   -0.0383
+  d3>d4          -0.490   -0.301   -0.189   +0.0817   +0.0537
+  d4>d5          -1.170   -1.256   +0.087   +0.0126   +0.0930
+  d5>d6          +0.056   -0.127   +0.182   +0.0081   +0.0020
+  d6>d7          +0.201   +0.014   +0.187   -0.0243   +0.0235
+  d7>d8          +0.162   +0.201   -0.039   +0.1630   +0.1525 ***
+  d8>d9          +0.565   +0.380   +0.184   -0.0303   -0.0097
+  d9>d10         +0.099   +0.163   -0.064   -0.0869   -0.1373
+  d10>d11_micro   +0.485   +0.306   +0.179   +0.0836   -0.0047
+
+  PID UCL BREAKS (% with control limit violation, UCL=5.130):
+  Transition           LONG    SHORT    Delta  WR|brk L  WR|brk S
+  ---------------- -------- -------- -------- --------- ---------
+  d0_macro>d1           24.1%    27.0%    -2.9%    40.5%    37.2%
+  d1>d2            0.0%     0.0%    +0.0%     n/a      n/a 
+  d2>d3            7.0%    11.8%    -4.7%    37.6%    39.2%
+  d3>d4            0.1%     0.0%    +0.1%     n/a      n/a 
+  d4>d5           10.5%     7.8%    +2.6%    62.5%    63.4%
+  d5>d6            0.0%     0.0%    +0.0%     n/a      n/a 
+  d6>d7            0.0%     0.0%    +0.0%     n/a      n/a 
+  d7>d8            0.0%     0.0%    +0.0%     n/a      n/a 
+  d8>d9            1.5%     0.5%    +0.9%    40.0%    12.0%
+  d9>d10           0.3%     0.6%    -0.2%    46.2%     7.4%
+  d10>d11_micro     2.6%     2.4%    +0.3%    50.5%    58.9%
+
+  PID PROFILE BY FISSION CLASS:
+
+  KEEP (402 patterns, WR=66.2%):
+    Depth          Mean PID      Std   r(MFE)
+    ------------ ---------- -------- --------
+    d0_macro         -1.905    1.274  +0.0293
+    d1               +0.876    1.978  +0.0623
+    d2               +1.651    1.983  +0.0633
+    d3               +0.943    1.850  -0.0944
+    d4               +0.677    2.145  -0.0474
+    d5               -0.849    2.046  -0.0981
+    d6               -0.734    2.023  -0.1814
+    d7               -0.501    1.845  -0.1879
+    d8               -0.320    1.634  -0.1812
+    d9               -0.060    1.601  -0.1506
+    d10              +0.113    1.421  -0.1084
+    d11_micro        +0.577    1.243  -0.1191
+    MR transitions:
+    Transition          Mean MR   r(MFE)
+    ---------------- ---------- --------
+    d0_macro>d1            +2.780  +0.0442
+    d1>d2            +0.775  +0.0012
+    d2>d3            -0.707  -0.1343
+    d3>d4            -0.266  +0.0476
+    d4>d5            -1.526  -0.0402
+    d5>d6            +0.115  -0.1599 ***
+    d6>d7            +0.233  +0.0142
+    d7>d8            +0.180  +0.0300
+    d8>d9            +0.260  +0.0358
+    d9>d10           +0.173  +0.0543
+    d10>d11_micro     +0.464  +0.0038
+
+  SPLIT (1473 patterns, WR=56.5%):
+    Depth          Mean PID      Std   r(MFE)
+    ------------ ---------- -------- --------
+    d0_macro         -2.230    0.970  +0.0099
+    d1               +0.377    2.177  +0.0750
+    d2               +1.135    2.242  -0.1600
+    d3               +0.426    2.102  -0.2405
+    d4               +0.142    2.302  -0.1523
+    d5               -1.214    2.046  -0.1783
+    d6               -1.235    1.933  -0.1075
+    d7               -1.020    1.834  -0.1194
+    d8               -0.569    1.774  -0.0309
+    d9               -0.249    1.807  -0.0556
+    d10              -0.134    1.682  -0.1169
+    d11_micro        +0.069    1.573  -0.0314
+    MR transitions:
+    Transition          Mean MR   r(MFE)
+    ---------------- ---------- --------
+    d0_macro>d1            +2.607  +0.0720
+    d1>d2            +0.757  -0.2359 ***
+    d2>d3            -0.708  -0.0631
+    d3>d4            -0.285  +0.0915
+    d4>d5            -1.355  -0.0054
+    d5>d6            -0.021  +0.1078
+    d6>d7            +0.215  -0.0084
+    d7>d8            +0.451  +0.1032
+    d8>d9            +0.320  -0.0285
+    d9>d10           +0.115  -0.0562
+    d10>d11_micro     +0.203  +0.0949
+
+  DROP (6589 patterns, WR=40.4%):
+    Depth          Mean PID      Std   r(MFE)
+    ------------ ---------- -------- --------
+    d0_macro         -2.348    0.902  +0.0139
+    d1               +0.399    2.280  +0.0821
+    d2               +1.271    2.270  -0.1003
+    d3               +0.061    2.058  -0.1874
+    d4               -0.353    2.140  -0.1375
+    d5               -1.522    1.956  -0.0391
+    d6               -1.583    1.915  -0.0572
+    d7               -1.520    1.709  -0.0618
+    d8               -1.396    1.760  +0.1068
+    d9               -0.890    1.854  +0.0867
+    d10              -0.753    1.712  -0.0655
+    d11_micro        -0.332    1.607  -0.0463
+    MR transitions:
+    Transition          Mean MR   r(MFE)
+    ---------------- ---------- --------
+    d0_macro>d1            +2.748  +0.0759
+    d1>d2            +0.871  -0.1882 ***
+    d2>d3            -1.209  -0.0559
+    d3>d4            -0.415  +0.0559
+    d4>d5            -1.168  +0.0883
+    d5>d6            -0.061  -0.0212
+    d6>d7            +0.063  +0.0022
+    d7>d8            +0.124  +0.1682 ***
+    d8>d9            +0.506  -0.0143
+    d9>d10           +0.137  -0.1405
+    d10>d11_micro     +0.421  +0.0185
+
+  PID x DIRECTION CONFIRMATION:
+  (Does PID sign at each depth agree with DMI direction?)
+  Depth          Agree%   WR|agree  WR|disagr     Lift
+  ------------ -------- ---------- ---------- --------
+  d0_macro        58.3%      41.7%      48.1%   -6.4%
+  d1              52.5%      43.6%      45.3%   -1.7%
+  d2              52.1%      46.4%      42.2%   +4.1%
+  d3              57.1%      42.0%      47.5%   -5.5%
+  d4              55.7%      42.5%      46.7%   -4.2%
+  d5              57.1%      42.2%      47.3%   -5.2%
+  d6              58.2%      41.0%      49.1%   -8.0%
+  d7              59.5%      42.4%      47.4%   -5.0%
+  d8              56.2%      40.9%      48.9%   -8.0%
+  d9              54.3%      42.0%      47.3%   -5.3%
+  d10             50.0%      42.1%      46.7%   -4.6%
+  d11_micro       45.8%      42.8%      45.7%   -2.9%
+
+======================================================================
+  TEMPORAL SPECIAL CAUSE ANALYSIS
+  (Patterns with valid timestamps: 8464 / 8464)
+======================================================================
+
+  1. MARKET SESSION:
+  Session          N      WR     MFE     MAE    WR_L    WR_S   PID_d7
+  ------------ ----- ------- ------- ------- ------- ------- --------
+  ASIA          1925   53.2%     +63      87   54.6%   51.1%    -0.44
+  EUROPE        2173   30.3%    +111     189   34.1%   28.2%    -1.15
+  US_RTH        4366   47.5%    +329     169   53.3%   43.4%    -1.91
+
+  2. HOURLY BREAKDOWN (UTC):
+  Hour Session        N      WR     MFE    WR_L    WR_S
+  ---- ---------- ----- ------- ------- ------- -------
+     0 ASIA         500   62.8%    +131   68.2%   47.3%  ############
+     1 ASIA         157   28.0%     +23   31.7%   21.4%  #####
+     2 ASIA          80   57.5%     +46   55.6%   75.0%  ###########
+     3 ASIA         208   54.8%     +33   59.3%   50.0%  ##########
+     4 ASIA          66   37.9%     +29   40.6%   35.3%  #######
+     5 ASIA         178   64.6%     +52   51.5%   81.0%  ############
+     6 ASIA         230   55.2%     +34   59.3%   51.6%  ###########
+     7 ASIA         506   47.2%     +44   42.9%   51.8%  #########
+     8 EUROPE       273   20.1%     +21   21.7%   17.8%  ####
+     9 EUROPE       271   25.1%     +18   45.5%   21.1%  #####
+    10 EUROPE       285   25.6%    +120    0.0%   27.4%  #####
+    11 EUROPE       105   61.9%    +139   30.0%   69.4%  ############
+    12 EUROPE       343   18.4%    +169   23.8%   12.3%  ###
+    13 EUROPE       896   37.4%    +139   46.3%   31.9%  #######
+    14 US_RTH       516   20.5%    +126   44.0%    7.5%  ####
+    15 US_RTH       902   38.7%     +86   43.2%   35.9%  #######
+    16 US_RTH       787   46.6%    +254   59.0%   39.0%  #########
+    17 US_RTH      1318   57.6%    +597   57.9%   57.3%  ###########
+    18 US_RTH       625   68.5%    +421   69.6%   67.5%  #############
+    19 US_RTH       207   27.1%    +172   27.1%   26.9%  #####
+    20 US_RTH        11   81.8%    +736     n/a   81.8%  ################
+
+  3. DAY OF WEEK:
+  Day       N      WR     MFE     MAE    WR_L    WR_S  KEEP_WR
+  ----- ----- ------- ------- ------- ------- ------- --------
+  MON      20   10.0%    +113     448     n/a   10.0%      n/a
+  TUE    1292   54.8%    +128      85   60.7%   50.4%    65.2%
+  WED    1566   48.1%    +186     147   49.7%   45.7%    51.2%
+  THU    3885   45.4%    +299     139   53.1%   39.6%    79.3%
+  FRI    1697   31.1%    +100     251   30.5%   31.3%    59.0%
+
+  4. MONTH POSITION:
+  Period         N      WR     MFE     MAE    WR_L    WR_S  KEEP_WR
+  ---------- ----- ------- ------- ------- ------- ------- --------
+  FIRST_WK     726   25.2%    +154     362   28.8%   23.7%    91.7%
+  MID         4661   47.2%    +248     174   52.0%   43.6%    67.1%
+  LAST_WK     3077   44.6%    +172      78   49.7%   39.7%    62.9%
+
+  5. SESSION OPEN/CLOSE (first & last 30min):
+  Marker                   N      WR     MFE  vs Sess
+  -------------------- ----- ------- ------- --------
+  ASIA close             248   50.8%     +59   -2.4%
+  EUROPE open            238   18.9%     +20  -11.4%
+  EUROPE close           361   28.0%    +162   -2.3%
+  US RTH open            155    3.2%     +41  -44.3%
+  US RTH close             7  100.0%    +926  +52.5%
+
+  6. WEEK POSITION:
+  Period           N      WR     MFE    WR_L  KEEP_WR
+  ------------ ----- ------- ------- ------- --------
+  START(M-T)    1312   54.1%    +128   60.7%    65.2%
+  MID(W)        1566   48.1%    +186   49.7%    51.2%
+  END(T-F)      5582   41.0%    +239   47.1%    75.5%
+
+  7. MR UCL BREAKS x TEMPORAL:
+  (Where do control limit violations cluster in time?)
+  Patterns with any UCL break: 8464 / 8464 (100.0%)
+
+  UCL breaks by SESSION:
+  Session       N_brk   %brk   WR|brk    WR|no    Lift
+  ------------ ------ ------ -------- -------- -------
+  ASIA           1925 100.0%    53.2%      n/a  +0.0%
+  EUROPE         2173 100.0%    30.3%      n/a  +0.0%
+  US_RTH         4366 100.0%    47.5%      n/a  +0.0%
+
+  UCL breaks by HOUR (top hours with most breaks):
+  Hour Session     N_brk   %brk   WR|brk    Lift
+  ---- ---------- ------ ------ -------- -------
+    17 US_RTH       1318 100.0%    57.6%  +0.0%
+    15 US_RTH        902 100.0%    38.7%  +0.0%
+    13 EUROPE        896 100.0%    37.4%  +0.0%
+    16 US_RTH        787 100.0%    46.6%  +0.0%
+    18 US_RTH        625 100.0%    68.5%  +0.0%
+    14 US_RTH        516 100.0%    20.5%  +0.0%
+     7 ASIA          506 100.0%    47.2%  +0.0%
+     0 ASIA          500 100.0%    62.8%  +0.0%
+    12 EUROPE        343 100.0%    18.4%  +0.0%
+    10 EUROPE        285 100.0%    25.6%  +0.0%
+
+  UCL breaks by DAY OF WEEK:
+  Day    N_brk   %brk   WR|brk    WR|no    Lift
+  ----- ------ ------ -------- -------- -------
+  MON       20 100.0%    10.0%      n/a  +0.0%
+  TUE     1292 100.0%    54.8%      n/a  +0.0%
+  WED     1566 100.0%    48.1%      n/a  +0.0%
+  THU     3885 100.0%    45.4%      n/a  +0.0%
+  FRI     1697 100.0%    31.1%      n/a  +0.0%
+
+  TOP MR BREAKS per SESSION (which features spike when):
+
+  ASIA:
+    d0_macro>d1__parent_ctx        breaks=1899, WR|brk=52.9%
+    d0_macro>d1__root_is_roche     breaks=1899, WR|brk=52.9%
+    d3>d4__log1p_vol               breaks= 813, WR|brk=43.2%
+    d0_macro>d1__self_pid          breaks= 654, WR|brk=50.6%
+    d0_macro>d1__log1p_mom         breaks= 459, WR|brk=39.0%
+
+  EUROPE:
+    d0_macro>d1__parent_ctx        breaks=2173, WR|brk=30.3%
+    d0_macro>d1__root_is_roche     breaks=2173, WR|brk=30.3%
+    d6>d7__tf_alignment            breaks= 863, WR|brk=37.7%
+    d7>d8__tf_alignment            breaks= 839, WR|brk=36.2%
+    d4>d5__tf_alignment            breaks= 768, WR|brk=41.5%
+
+  US_RTH:
+    d0_macro>d1__parent_ctx        breaks=4366, WR|brk=47.5%
+    d0_macro>d1__root_is_roche     breaks=4366, WR|brk=47.5%
+    d4>d5__tf_alignment            breaks=2263, WR|brk=43.0%
+    d1>d2__tf_alignment            breaks=2222, WR|brk=48.3%
+    d2>d3__log1p_vol               breaks=1468, WR|brk=36.7%
+
+======================================================================
+  STACKED GATE ANALYSIS: Compound Filters
+  Each gate stacks on previous — progressive noise removal
+======================================================================
+
+  Gate                                 N   %vol      WR     MFE    MAE  $/trade    Lift
+  -------------------------------- ----- ------ ------- ------- ------ -------- -------
+  ALL patterns                      8464 100.0%   44.4%    +212    155      +57  +0.0%
+  + KEEP templates                   402  4.7%   66.2%    +261    140     +120 +21.8%
+  + LONG direction                   402  4.7%   66.2%    +261    140     +120 +21.8%
+  + Skip session opens               380  4.5%   66.3%    +260    146     +114 +21.9%
+  + Skip Europe session              324  3.8%   71.3%    +287    148     +139 +26.9%
+  + Best hours (17-20,0,5)           242  2.9%   70.7%    +352    166     +186 +26.3%
+  + PID contrarian                    80  0.9%   68.8%    +473    301     +171 +24.4%
+  + Best DOW (TUE,THU)               121  1.4%   90.1%    +361     88     +273 +45.7%
+  FULL STACK (all gates)              25  0.3%   76.0%    +510    257     +253 +31.6%
+
+  DAILY THROUGHPUT (over 215 calendar days):
+  ALL patterns                       39.4/day  WR=44.4%
+  + KEEP templates                    1.9/day  WR=66.2%
+  + LONG direction                    1.9/day  WR=66.2%
+  + Skip session opens                1.8/day  WR=66.3%
+  + Skip Europe session               1.5/day  WR=71.3%
+  + Best hours (17-20,0,5)            1.1/day  WR=70.7%
+  + PID contrarian                    0.4/day  WR=68.8%
+  + Best DOW (TUE,THU)                0.6/day  WR=90.1%
+  FULL STACK (all gates)              0.1/day  WR=76.0%
+
+  ============================================================
+  RIDE THE WAVE — Practical Gate Summary
+  ============================================================
+  Filter: KEEP+LONG+GoodHours
+  Patterns:   242 (2.9% of volume)
+  Win Rate:   70.7%
+  Avg MFE:    +352 ticks
+  Avg MAE:    166 ticks
+  $/trade:    +186 ticks net
+  Throughput: 1.1 trades/day
+  WR lift:    +26.3% vs baseline
+
+  MES CONTRACT SCALING:
+    1 contract:  $+232.51/trade, $+262/day
+    2 contracts: $+465.01/trade, $+524/day
+    5 contracts: $+1162.53/trade, $+1309/day
+    10 contracts: $+2325.06/trade, $+2619/day
+
+  WAVE RIDER UPSIDE (not captured in static screening):
+    - Ebb-and-flow at 5min inside 15min patterns
+    - PID throttle: accelerate on momentum, pause on exhaustion
+    - Contrarian PID: disagree signal = mean-reversion edge
+    - EXIT gates from MR drill-down (not just entry)
+
+  ============================================================
+  SPLIT SEGMENTS — Temporal Gate Cleanup
+  ============================================================
+
+  Gate                                 N      WR     MFE    MAE    net    $/day
+  -------------------------------- ----- ------- ------- ------ ------ --------
+  SPLIT raw                         1473   56.5%    +304    166   +138 $  +1184
+  + Skip session opens              1411   56.8%    +307    165   +141 $  +1160
+  + Skip Europe                     1146   58.4%    +323    147   +176 $  +1173
+  + Best hours                       599   64.4%    +446    159   +287 $  +1001
+  + Best DOW (TUE,THU)               630   63.2%    +393    127   +266 $   +974
+  + Best hours + DOW                 293   67.9%    +527    110   +417 $   +711
+
+  ============================================================
+  REVENUE MODEL — 1 Contract (KEEP + SPLIT unified)
+  ============================================================
+
+  POOL BREAKDOWN (1 MES = $1.25/tick):
+  Pool                     N      WR  net/t  trades/d    $/day
+  -------------------- ----- ------- ------ --------- --------
+  KEEP (best hrs)        242   70.7%   +186       1.1 $    262
+  SPLIT (best hrs)       599   64.4%   +287       2.8 $  1,001
+  -------------------- ----- ------- ------ --------- --------
+  UNIFIED                841   66.2%   +258       3.9 $  1,263
+
+  OOS DEGRADATION SCENARIOS (1 MES contract):
+  IS baseline: 3.9 trades/day, +258 ticks/trade, $1,263/day
+
+  Scenario                   net/t  $/trade    $/day   $/month  $800?
+  ------------------------- ------ -------- -------- --------- ------
+  IS (no decay)               +258 $    323 $  1,263 $  25,255    YES
+  10% haircut                 +232 $    290 $  1,136 $  22,729    YES
+  20% haircut                 +206 $    258 $  1,010 $  20,204    YES
+  30% haircut                 +181 $    226 $    884 $  17,678    YES
+  40% haircut                 +155 $    194 $    758 $  15,153     no
+  50% haircut                 +129 $    161 $    631 $  12,627     no
+
+  BREAKEVEN:
+    $800/day needs +164 ticks/trade @ 3.9 trades/day
+    Max tolerable decay: 37% before dropping below $800
+    IS net: +258t -> buffer of 95 ticks (37% margin of safety)
+
+  CONTRACT SCALING (at IS rates, $1,263/day/MES):
+    1 MES: $   1,263/day, $   25,255/month  (margin: $ 1,320)
+    2 MES: $   2,525/day, $   50,509/month  (margin: $ 2,640)
+    3 MES: $   3,788/day, $   75,764/month  (margin: $ 3,960)
+    5 MES: $   6,314/day, $  126,273/month  (margin: $ 6,600)

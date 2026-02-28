@@ -304,11 +304,26 @@ def plot_main_effects(flat, col_names, mfes, results, save_path, top_n=6):
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description='Screening plots')
+    parser.add_argument('--warmup', type=int, default=30,
+                        help='Warmup days (skip cold-start)')
+    parser.add_argument('--window', type=int, default=7,
+                        help='Collection window days (after warmup)')
+    parser.add_argument('--all', action='store_true',
+                        help='Use ALL patterns (no filtering)')
+    args = parser.parse_args()
+
+    warmup = 0 if args.all else args.warmup
+    window = 0 if args.all else args.window
+
     os.makedirs(PLOTS_DIR, exist_ok=True)
 
     print("Loading data...")
     templates = load_templates()
-    matrices, mfes, maes, meta = extract_matrices(templates)
+    matrices, mfes, maes, meta = extract_matrices(
+        templates, warmup_days=warmup, window_days=window
+    )
     padded = pad_to_fixed_depth(matrices, max_depth=12)
     flat, col_names = flatten_matrices(padded)
     results = screen_factors(flat, col_names, mfes)

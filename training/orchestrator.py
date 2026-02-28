@@ -476,7 +476,8 @@ class BayesianTrainingOrchestrator:
                          bias_threshold: float = None,
                          dmi_threshold: float = None,
                          oos_mode: bool = False,
-                         account_size: float = 0.0):
+                         account_size: float = 0.0,
+                         telemetry: bool = False):
         """
         Phase 4: Forward pass -- replay full year using playbook.
         Scans fractal cascade per day, matches templates, trades via WaveRider.
@@ -637,6 +638,26 @@ class BayesianTrainingOrchestrator:
         else:
             print("  No depth weights found -- uniform depth scoring (run forward pass first to build weights)")
 
+        # Load screening gates (model fission + temporal filters from waveform_screening)
+        import json as _json
+        _screening_gates_path = os.path.join(self.checkpoint_dir, 'screening_gates.json')
+        _screening_fission = {}       # key: "{tid}_{direction}" -> "KEEP"/"SPLIT"/"DROP"
+        _screening_good_hours = None  # set of UTC hours, or None = no filter
+        _screening_default = None     # default class for unmatched (tid, dir) pairs
+        if os.path.exists(_screening_gates_path):
+            with open(_screening_gates_path) as _sgf:
+                _sg = _json.load(_sgf)
+            _screening_fission = _sg.get('fission_map', {})
+            _hrs = _sg.get('good_hours_utc')
+            _screening_good_hours = set(_hrs) if _hrs else None
+            _screening_default = _sg.get('default_class', 'DROP')
+            _n_keep = sum(1 for v in _screening_fission.values() if v == 'KEEP')
+            _n_split = sum(1 for v in _screening_fission.values() if v == 'SPLIT')
+            print(f"  Loaded screening gates: {_n_keep} KEEP, {_n_split} SPLIT, "
+                  f"hours={sorted(_screening_good_hours) if _screening_good_hours else 'all'}")
+        else:
+            print("  No screening gates found -- all templates pass (run waveform_screening first)")
+
         # Apply min_tier filter -- removes losing tiers from the centroid index entirely
         # (oracle_trade_log shows Tier 4 = -$52K drag; min_tier=3 -> +$96K vs $44K baseline)
         if min_tier is not None and template_tier_map:
@@ -723,14 +744,22 @@ class BayesianTrainingOrchestrator:
             return name
 
         # ── Time-slice filter ────────────────────────────────────────────────
+        # start_date: files BEFORE this date are kept as warmup (workers tick,
+        # no trades). This gives belief network workers full context before
+        # trading begins.  end_date: files AFTER this date are removed.
+        _warmup_cutoff = None   # file sort key; files < this are warmup-only
         if start_date or end_date:
             _before = len(daily_files_15s)
-            daily_files_15s = [
-                f for f in daily_files_15s
-                if (not start_date or _file_sort_key(f) >= start_date)
-                and (not end_date   or _file_sort_key(f) <= end_date)
-            ]
-            print(f"  Date filter applied: {_before} -> {len(daily_files_15s)} files "
+            if end_date:
+                daily_files_15s = [f for f in daily_files_15s
+                                   if _file_sort_key(f) <= end_date]
+            if start_date:
+                _warmup_cutoff = start_date
+                _n_warmup = sum(1 for f in daily_files_15s
+                                if _file_sort_key(f) < start_date)
+                print(f"  Warmup: {_n_warmup} files (context only, no trades) "
+                      f"before {start_date}")
+            print(f"  Date filter: {_before} -> {len(daily_files_15s)} files "
                   f"({start_date or 'start'} -> {end_date or 'end'})")
 
         print(f"  Found {len(daily_files_15s)} files to simulate.")
@@ -828,6 +857,7 @@ class BayesianTrainingOrchestrator:
         skip_dist        = 0   # No cluster match within distance 3.0
         skip_brain       = 0   # Brain gate: template probability too low
         skip_conviction  = 0   # Belief network: path conviction below MIN_CONVICTION
+        skip_screening   = 0   # Gate 3.5: screening gates (fission DROP or bad temporal window)
         skip_direction   = 0   # Gate 5: direction consensus unclear
         n_signals_seen   = 0   # Total candidate signals evaluated (all gates combined)
         depth_traded     = defaultdict(int)  # depth -> trade count (1=high TF, 6=15s)
@@ -842,7 +872,10 @@ class BayesianTrainingOrchestrator:
             day_date = os.path.basename(day_file).replace('.parquet', '')
             # Normalise: monthly YYYY_MM -> YYYY_MM kept as-is for scan_day_cascade
             # (discovery agent matches by substring so both formats work)
-            print(f"\n  Day {day_idx+1}/{n_days}: {day_date} ... ", end='', flush=True)
+            _is_warmup = (_warmup_cutoff is not None
+                          and _file_sort_key(day_file) < _warmup_cutoff)
+            _warmup_tag = ' [WARMUP]' if _is_warmup else ''
+            print(f"\n  Day {day_idx+1}/{n_days}: {day_date}{_warmup_tag} ... ", end='', flush=True)
             if self.dashboard_queue:
                 pct = (day_idx / n_days) * 100
                 _wr = (total_wins / total_trades * 100) if total_trades > 0 else 0.0
@@ -1081,6 +1114,13 @@ class BayesianTrainingOrchestrator:
                         self.wave_rider.position = None
                         self.brain.update(outcome)
                         day_trades.append(outcome)
+                        if telemetry:
+                            _hold_bars_t = _bar_i - getattr(self, '_telem_entry_bar', _bar_i)
+                            _oracle_mfe_t = pending_oracle.get('oracle_mfe', 0) if pending_oracle else 0
+                            _oracle_lbl_t = pending_oracle.get('oracle_label_name', '?') if pending_oracle else '?'
+                            print(f"      <<< EXIT: {outcome.result} ${outcome.pnl:+.2f} "
+                                  f"reason={outcome.exit_reason} hold={_hold_bars_t}bars "
+                                  f"oracle_mfe={_oracle_mfe_t:.0f}t oracle={_oracle_lbl_t}")
                         _chart_day_pnl += outcome.pnl
                         _chart_day_trades += 1
                         _chart_day_wins += 1 if outcome.result == 'WIN' else 0
@@ -1308,8 +1348,35 @@ class BayesianTrainingOrchestrator:
                 # Equity ruin check: simulation ends when equity hits 0 (no money to trade).
                 if _equity_enabled and account_ruined:
                     break   # stop processing this day's bars entirely
-                if not current_position_open and ts in pattern_map:
+                if _is_warmup:
+                    pass  # Warmup: workers tick but no trades
+                elif not current_position_open and ts in pattern_map:
                     candidates = pattern_map[ts]
+                    if telemetry:
+                        _t_dt = _dt_chart.datetime.utcfromtimestamp(ts_raw)
+                        _t_bel = belief_network.get_belief()
+                        _t_snap = belief_network.get_worker_snapshot()
+                        print(f"\n    [{_t_dt.strftime('%Y-%m-%d %H:%M')} UTC] "
+                              f"{len(candidates)} candidate(s) @ ${price:.2f}")
+                        if _t_bel:
+                            print(f"      BELIEF: dir={_t_bel.direction} conv={_t_bel.conviction:.3f} "
+                                  f"confident={_t_bel.is_confident} mfe={_t_bel.predicted_mfe:.1f} "
+                                  f"wave_mat={_t_bel.wave_maturity:.2f}")
+                        else:
+                            print(f"      BELIEF: None (network cold)")
+                        if _t_snap and isinstance(_t_snap, dict):
+                            _tf_order = ['1h','30m','15m','5m','3m','1m','30s','15s','5s','1s']
+                            for _tl in _tf_order:
+                                _tw = _t_snap.get(_tl)
+                                if not _tw or not isinstance(_tw, dict):
+                                    continue
+                                _td = 'LONG' if _tw.get('d', 0.5) > 0.5 else 'SHORT'
+                                _tp = _tw.get('d', 0.5)
+                                _tc = _tw.get('c', 0)
+                                _tm = _tw.get('mfe', 0)
+                                _twm = _tw.get('m', 0)
+                                print(f"        {_tl:>4s}: {_td:<5s} p={_tp:.2f} "
+                                      f"conv={_tc:.3f} mfe={_tm:.1f} mat={_twm:.2f}")
                     best_candidate = None
                     best_dist = 999.0
                     best_tid = None
@@ -1373,6 +1440,8 @@ class BayesianTrainingOrchestrator:
                         if should_skip:
                             skip_headroom += 1
                             _candidate_gate[id(p)] = _skip_label
+                            if telemetry:
+                                print(f"      GATE0 BLOCK: {_skip_label} z={micro_z:.2f} pat={micro_pattern}")
                             decision_matrix_records.append(_dm_rec(
                                 p, _skip_label, day_date, ts, micro_z, macro_z, micro_pattern))
                             continue
@@ -1409,6 +1478,8 @@ class BayesianTrainingOrchestrator:
                             else:
                                 skip_brain += 1
                                 _candidate_gate[id(p)] = 'gate2'
+                                if telemetry:
+                                    print(f"      GATE2 BLOCK: brain reject tid={tid} tier={template_tier_map.get(tid,3)}")
                                 decision_matrix_records.append(_dm_rec(
                                     p, 'gate2', day_date, ts, micro_z, macro_z,
                                     micro_pattern, dist=dist,
@@ -1553,6 +1624,89 @@ class BayesianTrainingOrchestrator:
                             _network_tp = max(4, int(round(_belief.predicted_mfe))) if _belief.predicted_mfe > 2.0 else None
                         else:
                             _network_tp = None
+
+                        # ── TELEMETRY: Direction + conviction reasoning ──
+                        if telemetry:
+                            _oracle_dir = 'LONG' if _nn_marker > 0 else ('SHORT' if _nn_marker < 0 else 'NOISE')
+                            _our_dir = side.upper()
+                            _dir_match = 'MATCH' if ((_nn_marker > 0 and side == 'long') or (_nn_marker < 0 and side == 'short')) else ('NOISE' if _nn_marker == 0 else 'WRONG')
+                            _fk = f"{best_tid}_{side}"
+                            _fc = _screening_fission.get(_fk, _screening_default) if _screening_fission else 'N/A'
+                            print(f"      >>> CANDIDATE PASSED CONVICTION tid={best_tid} fission={_fc}")
+                            print(f"          Oracle: {_ORACLE_LABEL_NAMES.get(_nn_marker,'?')} ({_oracle_dir}) | "
+                                  f"We say: {_our_dir} (src={_dir_source}) | {_dir_match}")
+                            print(f"          z={best_candidate.z_score:.2f} depth={getattr(best_candidate,'depth',0)} "
+                                  f"p_long={_p_long:.3f} dir_conf={_dir_conf:.3f} "
+                                  f"conv={_belief.conviction if _belief else 0:.3f} "
+                                  f"dmi={_dmi_diff:+.2f}")
+                            if _belief:
+                                print(f"          belief_dir={_belief.direction} wave_mat={_belief.wave_maturity:.2f} "
+                                      f"pred_mfe={_belief.predicted_mfe:.1f} levels={_belief.active_levels}")
+
+                        # ── Gate 3.5: Screening gates (model fission + temporal) ──
+                        if _screening_fission:
+                            # Direction enforcement: check BOTH directions, pick the best
+                            _FISSION_RANK = {'KEEP': 2, 'SPLIT': 1, 'DROP': 0}
+                            _class_long  = _screening_fission.get(f"{best_tid}_long",  _screening_default)
+                            _class_short = _screening_fission.get(f"{best_tid}_short", _screening_default)
+                            _rank_long  = _FISSION_RANK.get(_class_long, 0)
+                            _rank_short = _FISSION_RANK.get(_class_short, 0)
+
+                            if _rank_long > _rank_short:
+                                _fission_side = 'long'
+                            elif _rank_short > _rank_long:
+                                _fission_side = 'short'
+                            else:
+                                _fission_side = side  # tied — keep current direction
+
+                            _fission_key = f"{best_tid}_{_fission_side}"
+                            _fission_class = _screening_fission.get(_fission_key, _screening_default)
+
+                            # Override direction if fission map disagrees with belief
+                            if _fission_side != side:
+                                if telemetry:
+                                    print(f"          FISSION DIR OVERRIDE: {side}→{_fission_side} "
+                                          f"(long={_class_long} short={_class_short})")
+                                side = _fission_side
+                                _dir_source = 'fission_map'
+
+                            # Template gate: DROP = noise, gate out
+                            if _fission_class == 'DROP':
+                                skip_screening += 1
+                                if telemetry:
+                                    print(f"          GATE3.5 DROP: {_fission_key} not in KEEP/SPLIT")
+                                _candidate_gate[id(best_candidate)] = 'gate3.5_drop'
+                                _bc_mz = abs(best_candidate.z_score)
+                                _bc_mac = abs((getattr(best_candidate, 'parent_chain', None) or [{}])[-1].get('z', 0.0))
+                                decision_matrix_records.append(_dm_rec(
+                                    best_candidate, 'gate3.5_drop', day_date, ts,
+                                    _bc_mz, _bc_mac,
+                                    getattr(best_candidate, 'pattern_type', ''),
+                                    dist=best_dist,
+                                    conviction=_belief.conviction if _belief else 0.0,
+                                    template_id=best_tid,
+                                    tier=template_tier_map.get(best_tid, 3),
+                                    pattern_dna=str(pattern_dna) if pattern_dna else ''))
+                                continue
+
+                            # Temporal gate: only trade during good hours
+                            if _screening_good_hours is not None:
+                                _utc_hour = _dt_chart.datetime.utcfromtimestamp(ts_raw).hour
+                                if _utc_hour not in _screening_good_hours:
+                                    skip_screening += 1
+                                    _candidate_gate[id(best_candidate)] = 'gate3.5_temporal'
+                                    _bc_mz = abs(best_candidate.z_score)
+                                    _bc_mac = abs((getattr(best_candidate, 'parent_chain', None) or [{}])[-1].get('z', 0.0))
+                                    decision_matrix_records.append(_dm_rec(
+                                        best_candidate, 'gate3.5_temporal', day_date, ts,
+                                        _bc_mz, _bc_mac,
+                                        getattr(best_candidate, 'pattern_type', ''),
+                                        dist=best_dist,
+                                        conviction=_belief.conviction if _belief else 0.0,
+                                        template_id=best_tid,
+                                        tier=template_tier_map.get(best_tid, 3),
+                                        pattern_dna=str(pattern_dna) if pattern_dna else ''))
+                                    continue
 
                         # ── Gate 4: P(profitable) from live DMI/momentum + template WR ──
                         _tmpl_wr = lib_entry.get('stats_win_rate', 0.5)
@@ -1749,6 +1903,21 @@ class BayesianTrainingOrchestrator:
                         active_side = side
                         active_template_id = best_tid
                         active_entry_depth = getattr(best_candidate, 'depth', 5)
+                        self._telem_entry_bar = _bar_i
+                        if telemetry:
+                            _oracle_dir_t = 'LONG' if _nn_marker > 0 else ('SHORT' if _nn_marker < 0 else 'NOISE')
+                            _match_t = 'CORRECT' if ((_nn_marker > 0 and side == 'long') or (_nn_marker < 0 and side == 'short')) else ('NOISE' if _nn_marker == 0 else 'WRONG DIR')
+                            _fk_t = f"{best_tid}_{side}"
+                            _fc_t = _screening_fission.get(_fk_t, _screening_default) if _screening_fission else 'N/A'
+                            print(f"\n      *** TRADE FIRED *** tid={best_tid} [{_fc_t}]")
+                            print(f"          {side.upper()} @ ${price:.2f} | oracle={_ORACLE_LABEL_NAMES.get(_nn_marker,'?')} "
+                                  f"({_oracle_dir_t}) → {_match_t}")
+                            print(f"          MFE={best_candidate.oracle_meta.get('mfe',0):.0f}t "
+                                  f"MAE={best_candidate.oracle_meta.get('mae',0):.0f}t "
+                                  f"TP={_tp_ticks:.0f}t SL={_sl_ticks:.0f}t trail={_trail_ticks:.0f}t")
+                            print(f"          dir_src={_dir_source} p_long={_p_long:.3f} "
+                                  f"conv={_belief.conviction if _belief else 0:.3f} "
+                                  f"depth={active_entry_depth}")
                         depth_traded[active_entry_depth] += 1
                         # Pass template time-scale + MFE magnitude to belief network
                         belief_network.set_active_trade_timescale(
@@ -2295,7 +2464,7 @@ class BayesianTrainingOrchestrator:
         # ── 2b. Skip reason breakdown ─────────────────────────────────────────────
         # n_signals_seen counts individual candidates (not unique timestamps).
         # skip_xxx are per-candidate gate rejections.
-        _n_pass = n_signals_seen - skip_headroom - skip_dist - skip_brain - skip_conviction - skip_direction
+        _n_pass = n_signals_seen - skip_headroom - skip_dist - skip_brain - skip_conviction - skip_screening - skip_direction
         report_lines.append("")
         report_lines.append(f"  WHY SIGNALS WERE SKIPPED  (total candidates evaluated: {n_signals_seen:,})")
         if n_signals_seen > 0:
@@ -2304,6 +2473,7 @@ class BayesianTrainingOrchestrator:
             report_lines.append(f"    Gate 1 (dist > 3.0, no match):  {skip_dist:>6,}  ({_pct_s(skip_dist)})")
             report_lines.append(f"    Gate 2 (brain rejected):        {skip_brain:>6,}  ({_pct_s(skip_brain)})")
             report_lines.append(f"    Gate 3 (conviction < thresh):   {skip_conviction:>6,}  ({_pct_s(skip_conviction)})")
+            report_lines.append(f"    Gate 3.5 (screening fission/temporal): {skip_screening:>6,}  ({_pct_s(skip_screening)})")
             report_lines.append(f"    Gate 5 (direction unclear):     {skip_direction:>6,}  ({_pct_s(skip_direction)})")
             report_lines.append(f"    Passed all gates -> traded:     {n_traded:>6,}  ({_pct_s(n_traded)})")
 
@@ -4445,6 +4615,8 @@ def main():
                         help="First day to include in forward pass (inclusive, e.g. 20260101)")
     parser.add_argument('--forward-end', type=str, default=None, metavar='YYYYMMDD',
                         help="Last day to include in forward pass (inclusive, e.g. 20260209)")
+    parser.add_argument('--telemetry', action='store_true',
+                        help="Print per-trade decision telemetry (direction reasoning, oracle truth, gates)")
     parser.add_argument('--min-tier', type=int, default=None, choices=[1, 2, 3, 4],
                         help="Only activate templates of this tier or better (1=Tier1 only, 3=drop Tier4 losers)")
     parser.add_argument('--bias-threshold', type=float, default=None,
@@ -4558,7 +4730,8 @@ def main():
                                           bias_threshold=args.bias_threshold,
                                           dmi_threshold=args.dmi_threshold,
                                           oos_mode=True,
-                                          account_size=args.account_size)
+                                          account_size=args.account_size,
+                                          telemetry=args.telemetry)
         elif args.forward_pass and not args.fresh:
             # Phase 4 IS → Phase 5 Strategy → Phase 6 OOS
             _fwd_data = args.forward_data or args.data
@@ -4569,7 +4742,8 @@ def main():
                                           bias_threshold=args.bias_threshold,
                                           dmi_threshold=args.dmi_threshold,
                                           oos_mode=False,
-                                          account_size=args.account_size)
+                                          account_size=args.account_size,
+                                          telemetry=args.telemetry)
             orchestrator.run_strategy_selection()
 
             # Auto-chain OOS if data exists and not testing custom data
@@ -4587,7 +4761,8 @@ def main():
                                               bias_threshold=args.bias_threshold,
                                               dmi_threshold=args.dmi_threshold,
                                               oos_mode=True,
-                                              account_size=args.account_size)
+                                              account_size=args.account_size,
+                                              telemetry=args.telemetry)
         elif args.strategy_report and not args.forward_pass:
             orchestrator.run_strategy_selection()
         else:
@@ -4646,7 +4821,8 @@ def main():
                                           bias_threshold=args.bias_threshold,
                                           dmi_threshold=args.dmi_threshold,
                                           oos_mode=False,
-                                          account_size=getattr(args, 'account_size', 0.0))
+                                          account_size=getattr(args, 'account_size', 0.0),
+                                          telemetry=getattr(args, 'telemetry', False))
                 orchestrator.run_strategy_selection()
 
                 # Phase 6: OOS blind validation (auto-chain if data exists)
@@ -4664,7 +4840,8 @@ def main():
                                               bias_threshold=args.bias_threshold,
                                               dmi_threshold=args.dmi_threshold,
                                               oos_mode=True,
-                                              account_size=getattr(args, 'account_size', 0.0))
+                                              account_size=getattr(args, 'account_size', 0.0),
+                                              telemetry=getattr(args, 'telemetry', False))
 
         orchestrator.print_bottom_line()
         return 0
