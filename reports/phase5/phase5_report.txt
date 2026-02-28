@@ -15,8 +15,8 @@ ID         | Tier | Trades | Win%  | Sharpe | PnL        | MaxDD      | Risk
 27252      | 3    | 0      |   0.0 |   0.00 | $0.00      | $0.00      | 1.00
 944879     | 3    | 0      |   0.0 |   0.00 | $0.00      | $0.00      | 1.00
 87496      | 3    | 0      |   0.0 |   0.00 | $0.00      | $0.00      | 1.00
-746456     | 4    | 14     |  21.4 |  -0.29 | $-40.00    | $59.50     | 0.70
-773089     | 4    | 41     |  19.5 |  -0.34 | $-191.50   | $206.50    | 0.80
+746456     | 4    | 14     |  28.6 |  -0.02 | $-2.00     | $40.50     | 0.64
+773089     | 4    | 43     |  14.0 |  -0.59 | $-303.50   | $321.50    | 0.88
 
 Saved 0 Tier 1 strategies to checkpoints\production_playbook.pkl
 
@@ -31,25 +31,25 @@ ANCESTRY ANALYSIS (Tier 1):
 ================================================================================
 PARETO ANALYSIS  (top contributors to gross profit)
 ================================================================================
-  Gross profit from winning trades: $8,575.50  (773 wins of 2,848 total)
+  Gross profit from winning trades: $3,445.00  (158 wins of 589 total)
 
   -- BY TEMPLATE --
   Key                       PnL  Trades    Cum%
-  -1                 $ 8,382.50     762    97.7% <-- 80%
-  773089             $   153.50       8    99.5%
-  746456             $    39.50       3   100.0%
+  -1                 $ 3,307.00     148    96.0% <-- 80%
+  773089             $    87.00       6    98.5%
+  746456             $    51.00       4   100.0%
   => 1 of 3 keys (33%) drive 80% of profit
 
   -- BY DIRECTION --
   Key                       PnL  Trades    Cum%
-  SHORT              $ 8,575.50     773   100.0% <-- 80%
+  SHORT              $ 3,445.00     158   100.0% <-- 80%
   => 1 of 1 keys (100%) drive 80% of profit
 
   -- BY ORACLE LABEL --
   Key                       PnL  Trades    Cum%
-  WORKER_BYPASS      $ 8,382.50     762    97.7% <-- 80%
-  MEGA_LONG          $    87.00       5    98.8%
-  NOISE              $    66.50       3    99.5%
-  MEGA_SHORT         $    20.00       2    99.8%
+  WORKER_BYPASS      $ 3,307.00     148    96.0% <-- 80%
+  MEGA_LONG          $    57.00       5    97.6%
+  NOISE              $    40.00       2    98.8%
+  MEGA_SHORT         $    21.50       2    99.4%
   SCALP_LONG         $    19.50       1   100.0%
   => 1 of 5 keys (20%) drive 80% of profit

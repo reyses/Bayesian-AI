@@ -79,7 +79,7 @@ INITIAL_CLUSTER_DIVISOR = 100
 _ADX_TREND_CONFIRMATION = 25.0
 _HURST_TREND_CONFIRMATION = 0.6
 
-DIRECTION_CONFIDENCE_THRESHOLD = 0.15
+DIRECTION_CONFIDENCE_THRESHOLD = 0.05  # lowered: prior correction recenters p_long around 0.5
 CONVICTION_SL_MULTIPLIER = 0.5
 CONVICTION_SL_THRESHOLD = 0.5
 DEFAULT_DECAY_HORIZON = 40
@@ -591,11 +591,26 @@ class BayesianTrainingOrchestrator:
 
         print(f"  Loaded Hypervolume Tree: {len(_templates)} templates")
 
-        # Dummy scaler for legacy code that expects it (though it shouldn't be used)
-        from sklearn.preprocessing import StandardScaler
-        self.scaler = StandardScaler()
-        self.scaler.mean_ = np.zeros(16)
-        self.scaler.scale_ = np.ones(16)
+        # Extract the REAL scaler from the tree (fitted during clustering on all features)
+        def _find_scaler(nodes):
+            for node in nodes.values():
+                if node.scaler is not None:
+                    return node.scaler
+                if node.children:
+                    s = _find_scaler(node.children)
+                    if s is not None:
+                        return s
+            return None
+
+        self.scaler = _find_scaler(self.hypervolume_tree.roots)
+        if self.scaler is not None and hasattr(self.scaler, 'mean_'):
+            print(f"  Scaler: extracted from tree (mean range [{self.scaler.mean_.min():.2f}, {self.scaler.mean_.max():.2f}])")
+        else:
+            from sklearn.preprocessing import StandardScaler
+            self.scaler = StandardScaler()
+            self.scaler.mean_ = np.zeros(16)
+            self.scaler.scale_ = np.ones(16)
+            print("  WARNING: No scaler found in tree — using identity (predictions may be wrong)")
 
         self.dna_tree = None # Disabled as per spec
 
@@ -1565,12 +1580,27 @@ class BayesianTrainingOrchestrator:
                         _dir_source = 'snowflake_z'
 
                         # ── Gate 4: Direction Confidence ──────────────────────────
-                        # Calculate P(LONG) from logistic model
+                        # Calculate P(LONG) from logistic model (with prior correction)
                         _dir_coeff = lib_entry.get('dir_coeff')
                         _p_long = 0.5
                         if _dir_coeff is not None:
                             _logit = np.dot(_live_scaled, np.array(_dir_coeff)) + lib_entry.get('dir_intercept', 0.0)
-                            _p_long = 1.0 / (1.0 + np.exp(-np.clip(_logit, -20, 20)))
+                            # Prior correction: remove training class imbalance
+                            _lb = lib_entry.get('long_bias', 0.5)
+                            _sb = lib_entry.get('short_bias', 0.5)
+                            if _lb > 0.01 and _sb > 0.01:
+                                import math as _math
+                                _logit -= _math.log(_lb / _sb)
+                            _p_long_ml = 1.0 / (1.0 + np.exp(-np.clip(_logit, -20, 20)))
+                            # Physics blend: z_score sign (feature 0 = abs(z) loses sign)
+                            _cand_z = best_candidate.z_score
+                            _phys_p_long = 1.0 / (1.0 + np.exp(_cand_z))  # z<0→LONG, z>0→SHORT
+                            _p_long = 0.5 * _p_long_ml + 0.5 * _phys_p_long
+
+                        # Use blended logistic+physics prediction to SET direction
+                        if _dir_coeff is not None:
+                            side = 'long' if _p_long > 0.5 else 'short'
+                            _dir_source = 'logistic_physics'
 
                         _dir_conf = abs(_p_long - 0.5)
 
@@ -1613,11 +1643,10 @@ class BayesianTrainingOrchestrator:
                                     tier=template_tier_map.get(best_tid, 3),
                                     pattern_dna=str(pattern_dna) if pattern_dna else ''))
                                 continue
-                            # Path direction override: belief network wins over z_score branch
-                            # OOS: workers have +0.20 edge at 15m, +0.09 at 15s.
-                            # IS forward pass: z_score sign was ~56% accurate (near random).
-                            # Belief direction is a stronger signal than z_score sign alone.
-                            if _belief.direction != side:
+                            # Path direction override: belief defers to debiased logistic
+                            # when the logistic model is confident about direction.
+                            # Only override if logistic was uncertain (dir_conf < 0.10).
+                            if _belief.direction != side and _dir_conf < 0.10:
                                 side = _belief.direction
                                 _dir_source = 'belief_path'
                             # Use network's predicted MFE if better than leaf-level estimate
@@ -1645,30 +1674,11 @@ class BayesianTrainingOrchestrator:
 
                         # ── Gate 3.5: Screening gates (model fission + temporal) ──
                         if _screening_fission:
-                            # Direction enforcement: check BOTH directions, pick the best
-                            _FISSION_RANK = {'KEEP': 2, 'SPLIT': 1, 'DROP': 0}
-                            _class_long  = _screening_fission.get(f"{best_tid}_long",  _screening_default)
-                            _class_short = _screening_fission.get(f"{best_tid}_short", _screening_default)
-                            _rank_long  = _FISSION_RANK.get(_class_long, 0)
-                            _rank_short = _FISSION_RANK.get(_class_short, 0)
-
-                            if _rank_long > _rank_short:
-                                _fission_side = 'long'
-                            elif _rank_short > _rank_long:
-                                _fission_side = 'short'
-                            else:
-                                _fission_side = side  # tied — keep current direction
-
-                            _fission_key = f"{best_tid}_{_fission_side}"
+                            # Direction now comes from debiased logistic (upstream).
+                            # Fission map acts as a FILTER: check if this template+direction
+                            # is KEEP/SPLIT (pass) or DROP (block).
+                            _fission_key = f"{best_tid}_{side}"
                             _fission_class = _screening_fission.get(_fission_key, _screening_default)
-
-                            # Override direction if fission map disagrees with belief
-                            if _fission_side != side:
-                                if telemetry:
-                                    print(f"          FISSION DIR OVERRIDE: {side}→{_fission_side} "
-                                          f"(long={_class_long} short={_class_short})")
-                                side = _fission_side
-                                _dir_source = 'fission_map'
 
                             # Template gate: DROP = noise, gate out
                             if _fission_class == 'DROP':

@@ -93,10 +93,21 @@ def _logistic_prob(feat_s: np.ndarray, lib: dict) -> float:
     """
     P(LONG) from the cluster's logistic regression model.
     Fallback: use long_bias / short_bias aggregate if model not fitted.
+
+    Prior correction: the logistic regression was trained on class-imbalanced data
+    (e.g. 75% SHORT oracle markers). The intercept absorbed that base rate, so the
+    model predicts "what fraction of TRAINING examples were LONG" rather than
+    "what direction should THIS pattern trade." We subtract the training log-odds
+    to recenter: P(LONG)=0.5 at the feature mean, letting features alone decide.
     """
     coeff = lib.get('dir_coeff')
     if coeff is not None:
         logit = float(np.dot(feat_s, coeff) + lib.get('dir_intercept', 0.0))
+        # Prior correction: remove training class imbalance from intercept
+        _lb = lib.get('long_bias', 0.5)
+        _sb = lib.get('short_bias', 0.5)
+        if _lb > 0.01 and _sb > 0.01:
+            logit -= math.log(_lb / _sb)
         return _sigmoid(logit)
     # Fallback: convert bias fractions to a probability
     long_b  = lib.get('long_bias',  0.0)
@@ -463,8 +474,13 @@ class TimeframeWorker:
         # Blend with ML signal only if a fitted logistic regression exists.
         # Unfitted templates fall back to long_bias ≈ 0.59 (NQ bullish noise).
         # In that case, use pure physics to avoid degenerate uniform dir_prob values.
+        # Feature 0 = abs(z) — loses z_score sign. Physics adds it via sigmoid(-z*sens).
+        # Logistic coefficients are biased by 75% SHORT training data (prior correction
+        # fixes intercept but not coefficients). At 50/50 the physics z-sign can flip
+        # direction to LONG when pattern is below the mean (z < -1), while the logistic
+        # still has veto power when features strongly favor SHORT.
         if _any_fitted:
-            dir_prob = 0.5 * _phys_dir + 0.5 * dir_prob
+            dir_prob = 0.5 * dir_prob + 0.5 * _phys_dir
         else:
             dir_prob = _phys_dir
 
@@ -1098,7 +1114,7 @@ class TimeframeBeliefNetwork:
         self_osc_coh = getattr(state, 'oscillation_coherence', 0.0)
 
         # Ancestry = 0.0 (no parent chain for live aggregated TF bars)
-        return [abs(z), v_feat, m_feat, c,
+        return [z, v_feat, m_feat, c,
                 tf_scale, float(depth), 0.0,
                 self_adx, self_hurst, self_dmi,
                 0.0, 0.0, 0.0, 0.0,

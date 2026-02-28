@@ -197,7 +197,7 @@ class FractalClusteringEngine:
             root_is_roche = 0.0
             tf_alignment = 0.0
 
-        return [abs(z), v_feat, m_feat, c, tf_scale, depth, parent_ctx,
+        return [z, v_feat, m_feat, c, tf_scale, depth, parent_ctx,
                 self_adx, self_hurst, self_dmi_diff,
                 parent_z, parent_dmi_diff, root_is_roche, tf_alignment,
                 self_pid, self_osc_coh]

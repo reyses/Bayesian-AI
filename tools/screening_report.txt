@@ -25,36 +25,36 @@ Patterns: 8464
      6  d3__self_pid                         -0.1868    0.1868  #######
      7  d3__tf_alignment                     +0.1816    0.1816  #######
      8  d2__tf_alignment                     +0.1802    0.1802  #######
-     9  d2__abs_z                            -0.1797    0.1797  #######
-    10  d4__tf_alignment                     +0.1783    0.1783  #######
+     9  d4__tf_alignment                     +0.1783    0.1783  #######
+    10  d2__abs_z                            -0.1705    0.1705  ######
     11  d3__self_hurst                       +0.1631    0.1631  ######
     12  d1__log1p_mom                        +0.1601    0.1601  ######
     13  d1__tf_alignment                     -0.1539    0.1539  ######
     14  d5__osc_coh                          -0.1427    0.1427  #####
     15  d3__self_dmi_diff                    -0.1401    0.1401  #####
 
-  Dead factors (|corr| < 0.01): 41 / 192
+  Dead factors (|corr| < 0.01): 42 / 192
 
   FACTOR IMPORTANCE BY TIMEFRAME DEPTH:
   Depth         Mean |corr|    Max |corr|    # active
   ------------ ------------  ------------  ----------
-  d0_macro           0.0399        0.1290           8
-  d1                 0.0717        0.2283          13
-  d2                 0.0886        0.2631          12
-  d3                 0.0753        0.2020          14
-  d4                 0.0960        0.1875          14
-  d5                 0.0564        0.1427          14
-  d6                 0.0535        0.1307          13
-  d7                 0.0623        0.1296          12
-  d8                 0.0519        0.0978          13
-  d9                 0.0495        0.0980          13
-  d10                0.0397        0.0803          13
-  d11_micro          0.0201        0.0821          12
+  d0_macro           0.0386        0.1290           7
+  d1                 0.0713        0.2283          13
+  d2                 0.0881        0.2631          12
+  d3                 0.0786        0.2020          14
+  d4                 0.0957        0.1875          14
+  d5                 0.0557        0.1427          13
+  d6                 0.0542        0.1307          13
+  d7                 0.0618        0.1296          12
+  d8                 0.0512        0.0910          13
+  d9                 0.0466        0.0980          13
+  d10                0.0378        0.0803          13
+  d11_micro          0.0205        0.0821          13
 
   FACTOR IMPORTANCE BY FEATURE:
   Feature               Mean |corr|    Max |corr|  Best depth  
   -------------------- ------------  ------------  ------------
-  abs_z                      0.0732        0.1797  d2          
+  abs_z                      0.0670        0.1705  d2          
   log1p_vol                  0.0741        0.2283  d1          
   log1p_mom                  0.0561        0.2020  d3          
   coherence                  0.0659        0.2485  d2          
@@ -84,18 +84,18 @@ Patterns: 8464
      6  d3__self_pid                          0.1530   +0.0157    0.1524
      7  d3__tf_alignment                      0.1543   +0.0013    0.1536
      8  d2__tf_alignment                      0.1543   +0.0000    0.1535
-     9  d2__abs_z                             0.1690   +0.0147    0.1681
-    10  d4__tf_alignment                      0.1691   +0.0001    0.1681
-    11  d3__self_hurst                        0.1709   +0.0018    0.1698
-    12  d1__log1p_mom                         0.1721   +0.0012    0.1709
-    13  d1__tf_alignment                      0.1929   +0.0208    0.1917
-    14  d5__osc_coh                           0.1967   +0.0038    0.1954
-    15  d3__self_dmi_diff                     0.1978   +0.0011    0.1964
-    16  d4__osc_coh                           0.2041   +0.0063    0.2026
-    17  d4__self_dmi_diff                     0.2086   +0.0045    0.2070
-    18  d6__tf_alignment                      0.2132   +0.0046    0.2115
-    19  d7__tf_alignment                      0.2136   +0.0004    0.2118
-    20  d0_macro__osc_coh                     0.2360   +0.0224    0.2342
+     9  d4__tf_alignment                      0.1544   +0.0001    0.1535
+    10  d2__abs_z                             0.1683   +0.0138    0.1673
+    11  d3__self_hurst                        0.1690   +0.0007    0.1679
+    12  d1__log1p_mom                         0.1704   +0.0014    0.1693
+    13  d1__tf_alignment                      0.1892   +0.0187    0.1879
+    14  d5__osc_coh                           0.1919   +0.0027    0.1906
+    15  d3__self_dmi_diff                     0.1935   +0.0016    0.1921
+    16  d4__osc_coh                           0.2008   +0.0072    0.1992
+    17  d4__self_dmi_diff                     0.2052   +0.0044    0.2036
+    18  d6__tf_alignment                      0.2097   +0.0045    0.2080
+    19  d7__tf_alignment                      0.2101   +0.0004    0.2083
+    20  d0_macro__osc_coh                     0.2345   +0.0244    0.2327
 
 ======================================================================
   SCREENING Y: MR Segmentation (400 features)
@@ -115,10 +115,10 @@ Patterns: 8464
      9  MR_d7>d8__self_dmi_diff                   +0.1952    0.1952  #######
     10  MR_d1>d2__self_pid                        -0.1930    0.1930  #######
     11  MR_d5>d6__osc_coh                         +0.1881    0.1881  #######
-    12  MR_d0_macro>d1__log1p_mom                 +0.1780    0.1780  #######
-    13  MR_d6>d7__osc_coh                         -0.1748    0.1748  ######
-    14  MR_d2>d3__coherence                       -0.1727    0.1727  ######
-    15  MR_d2>d3__self_hurst                      +0.1708    0.1708  ######
+    12  MR_d3>d4__abs_z                           +0.1861    0.1861  #######
+    13  MR_d0_macro>d1__log1p_mom                 +0.1780    0.1780  #######
+    14  MR_d6>d7__osc_coh                         -0.1748    0.1748  ######
+    15  MR_d2>d3__coherence                       -0.1727    0.1727  ######
 
 ======================================================================
   STEPWISE REGRESSION (top 20 factors -> MFE)
@@ -136,15 +136,15 @@ Patterns: 8464
      9  MR_d7>d8__self_dmi_diff               0.2232   +0.0156    0.2223
     10  MR_d1>d2__self_pid                    0.2237   +0.0006    0.2228
     11  MR_d5>d6__osc_coh                     0.2241   +0.0003    0.2231
-    12  MR_d0_macro>d1__log1p_mom             0.2241   +0.0000    0.2230
-    13  MR_d6>d7__osc_coh                     0.2270   +0.0029    0.2258
-    14  MR_d2>d3__coherence                   0.2279   +0.0009    0.2266
-    15  MR_d2>d3__self_hurst                  0.2301   +0.0022    0.2287
-    16  MR_d1>d2__abs_z                       0.2312   +0.0010    0.2297
-    17  MR_d7>d8__tf_alignment                0.2313   +0.0002    0.2298
-    18  MR_d7>d8__self_pid                    0.2321   +0.0007    0.2304
-    19  MR_d0_macro>d1__tf_alignment          0.2407   +0.0086    0.2390
-    20  UCL_d4>d5__self_dmi_diff              0.2410   +0.0003    0.2392
+    12  MR_d3>d4__abs_z                       0.2272   +0.0031    0.2261
+    13  MR_d0_macro>d1__log1p_mom             0.2273   +0.0001    0.2261
+    14  MR_d6>d7__osc_coh                     0.2297   +0.0024    0.2284
+    15  MR_d2>d3__coherence                   0.2297   +0.0000    0.2283
+    16  MR_d2>d3__self_hurst                  0.2313   +0.0016    0.2299
+    17  MR_d7>d8__tf_alignment                0.2316   +0.0003    0.2300
+    18  MR_d7>d8__self_pid                    0.2322   +0.0007    0.2306
+    19  MR_d0_macro>d1__tf_alignment          0.2407   +0.0084    0.2390
+    20  UCL_d4>d5__self_dmi_diff              0.2411   +0.0005    0.2393
 
 ======================================================================
   SCREENING Z: X + Y Combined (592 features)
@@ -191,17 +191,17 @@ Patterns: 8464
     15  MR_d5>d6__osc_coh                     0.2342   +0.0006    0.2329
     16  d4__coherence                         0.2343   +0.0001    0.2328
     17  d3__self_pid                          0.2408   +0.0065    0.2393
-    18  d3__tf_alignment                      0.2413   +0.0005    0.2397
-    19  d2__tf_alignment                      0.2417   +0.0004    0.2400
-    20  d2__abs_z                             0.2435   +0.0018    0.2417
+    18  MR_d3>d4__abs_z                       0.2417   +0.0009    0.2400
+    19  d3__tf_alignment                      0.2418   +0.0002    0.2401
+    20  d2__tf_alignment                      0.2421   +0.0003    0.2403
 
 ======================================================================
   COMPARISON: adj-R2 @ 20 factors
 ======================================================================
-  X (I values only):     0.2342
-  Y (MR segments only):  0.2392
-  Z (X + Y combined):    0.2417
-  Lift from MR:          +0.0075
+  X (I values only):     0.2327
+  Y (MR segments only):  0.2393
+  Z (X + Y combined):    0.2403
+  Lift from MR:          +0.0076
 
 ======================================================================
   DIRECTIONAL SPLIT
@@ -222,14 +222,14 @@ Patterns: 8464
   ---------- ------------ ---- ------- ------ ----- ----- ------ ----- -------
   L_746456   self_adx       77   66.2%    95%  0.69  0.46   +483   174 KEEP    #############
   L_773089   coherence     136   66.2%    97%  0.69  0.57   +220   129 KEEP    #############
-  L_857665   coherence     189   66.1%    98%  0.64  0.36   +199   135 KEEP    #############
+  L_857665   coherence     189   66.1%    98%  0.64  0.40   +199   135 KEEP    #############
   L_924823   osc_coh       504   60.1%    98%  0.44  0.21   +268   139 SPLIT   ############
   L_87496    tf_alignment  214   58.4%    99%  0.49  0.79    +87    73 SPLIT   ###########
-  L_27252    osc_coh        67   56.7%   100%  0.71  0.49   +383   108 SPLIT   ###########
+  L_27252    osc_coh        67   56.7%   100%  0.71  0.45   +383   108 SPLIT   ###########
   L_519908   self_dmi_diff   87   56.3%    98%  0.46  0.48   +359   306 SPLIT   ###########
   L_944879   self_dmi_diff   82   54.9%   100%  0.64  0.60   +278    91 SPLIT   ##########
-  S_746456   self_adx      139   54.0%    99%  0.72  0.42   +311   252 SPLIT   ##########
-  S_773089   parent_ctx     55   52.7%   100%  0.72  0.29   +717   319 SPLIT   ##########
+  S_746456   self_adx      139   54.0%    99%  0.72  0.46   +311   252 SPLIT   ##########
+  S_773089   abs_z          55   52.7%   100%  0.72  0.31   +717   319 SPLIT   ##########
   S_552460   self_adx      206   52.4%    97%  0.41  0.51   +413   181 SPLIT   ##########
   L_552460   osc_coh       119   50.4%    95%  0.43  0.46   +388   227 SPLIT   ##########
   L_623769   self_dmi_diff  201   48.3%    95%  0.42  0.29   +325   266 DROP    #########
@@ -272,9 +272,9 @@ Patterns: 8464
     L_519908 [self_dmi_diff] n=87 WR=56% -- split on: d4__log1p_vol
     L_944879 [self_dmi_diff] n=82 WR=55% -- split on: MR_d2>d3__coherence
     S_746456 [self_adx] n=139 WR=54% -- split on: d3__tf_alignment
-    S_773089 [parent_ctx] n=55 WR=53% -- split on: d4__self_dmi_diff
+    S_773089 [abs_z] n=55 WR=53% -- split on: d4__self_dmi_diff
     S_552460 [self_adx] n=206 WR=52% -- split on: UCL_d2>d3__log1p_vol
-    L_552460 [osc_coh] n=119 WR=50% -- split on: d1__abs_z
+    L_552460 [osc_coh] n=119 WR=50% -- split on: d0_macro__osc_coh
 
   DROP (18 segments, 6589 patterns, avg MFE=+189) -- net noise, remove from model:
     L_623769 [self_dmi_diff] n=201 WR=48% MFE=+325 MAE=266
@@ -297,7 +297,7 @@ Patterns: 8464
     S_87496 [log1p_mom] n=71 WR=28% MFE=+229 MAE=185
 
   >> Exported screening gates to C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\checkpoints\screening_gates.json
-     KEEP: 3, SPLIT: 9, hours: None
+     KEEP: 3, SPLIT: 9, hours: [0, 5, 17, 18, 19, 20]
 
 ======================================================================
   WHAT-IF: Fission Impact
