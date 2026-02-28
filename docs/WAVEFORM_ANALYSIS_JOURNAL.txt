@@ -947,13 +947,112 @@ still a black box. Next steps to consider:
    Shi 2018 showed RF hit 96% classification. Our clusters have
    extreme WR polarization, so correct classification = direction.
 
-RECOMMENDED PIPELINE:
+RECOMMENDED PIPELINE (superseded by seed-function approach below):
   Segment (delta) -> Cluster (KMeans) -> Sign (trajectory type)
   -> Regress (16D features per cluster) -> Classify (RF)
   -> Enrich with price model (92% R2) for entry precision
 
 
-SPC CONSTANTS REFERENCE
+PROPOSED: SEED-FUNCTION SHAPE MATCHING (next direction)
+========================================================
+
+Date: 2026-02-28
+Status: PROPOSED — not yet implemented
+
+CORE IDEA:
+Instead of blind KMeans clustering (75 mystery clusters), start with
+KNOWN mathematical function shapes as seeds. Fit each price segment
+to the best-matching function. The function type tells you the SHAPE,
+the fitted parameters tell you the MAGNITUDE and TIMING.
+
+This separates FORM from SCALE:
+  Form  = WHICH function (V-shape, ramp, exponential, etc.)
+  Scale = HOW BIG (depth, slope, amplitude)
+  Timing = WHERE the inflection/peak/trough occurs
+
+SEED FUNCTION LIBRARY (candidate shapes):
+
+  1. LINEAR RAMP: y = a*t
+     - Monotonic trend (up if a>0, down if a<0)
+     - Parameter a = slope = rate of price change
+     - Simplest shape, the baseline
+
+  2. V-SHAPE: y = a * |t - t0| + b
+     - Reversal pattern: drops to min at t0, then recovers
+     - Parameters: a=steepness, t0=inflection bar, b=depth
+     - This is what C25 actually is (WR=98%)
+
+  3. INVERTED V (TENT): y = -a * |t - t0| + b
+     - Peak at t0, then drops
+     - Parameters: same as V but inverted
+     - Bull trap / failed breakout pattern
+
+  4. EXPONENTIAL: y = a * (exp(b*t) - 1)
+     - Accelerating move (momentum building)
+     - a=direction, b=acceleration rate
+     - Breakout / trend acceleration pattern
+
+  5. LOGARITHMIC: y = a * log(1 + t)
+     - Decelerating move (momentum fading)
+     - Early fast move that flattens out
+     - Exhaustion / trend maturation pattern
+
+  6. SIGMOID (STEP): y = a / (1 + exp(-b*(t - t0)))
+     - Sudden level shift at t0
+     - a=magnitude of jump, b=sharpness, t0=when
+     - News event / gap pattern
+
+  7. SINUSOID: y = a * sin(w*t + phi)
+     - Oscillation / mean reversion
+     - a=amplitude, w=frequency, phi=phase
+     - Choppy / range-bound pattern
+
+  8. FLAT: y ≈ 0 (constant within noise)
+     - No directional movement
+     - Consolidation / compression
+
+FITTING METHOD:
+For each N-bar segment (delta from entry):
+  1. Fit all 8 seed functions via least-squares (scipy.optimize.curve_fit)
+  2. Pick the best fit by lowest residual (SSE or adj-R2)
+  3. Record: function_type, parameters, residual, goodness-of-fit
+  4. If no function fits well (residual > threshold), mark as "unknown"
+
+OUTPUT PER SEGMENT:
+  - shape_type: "V_SHAPE" / "RAMP_UP" / "SIGMOID" / etc.
+  - params: {slope, depth, inflection_bar, amplitude, ...}
+  - fit_r2: how well the seed explains the segment
+  - residual_pattern: what the seed DOESN'T explain
+
+WHY THIS IS BETTER THAN KMEANS:
+  - Interpretable: "V-reversal at bar 3 with -15 tick depth" vs "cluster 25"
+  - Signed: the function type IS the trajectory signature
+  - Parameterized: magnitude comes from fitted params, not cluster stats
+  - Composable: a segment could be "ramp + oscillation" (two seeds)
+  - Generalizable: same seed library works at any timeframe/instrument
+  - Predictive: if you recognize the shape type at bar 4 of 8, you
+    know what bars 5-8 should look like (extrapolation)
+
+WORKFLOW: SHAPE FIRST, THEN MAGNITUDE
+  1. Fit segment to seed functions -> identify shape type
+  2. Within each shape type, analyze parameter distributions
+     (e.g., V-shapes: what distribution of depths? inflection bars?)
+  3. Regress 16D physics features -> shape parameters
+     (which physics features PREDICT the depth of a V-reversal?)
+  4. This gives a causal chain:
+     Physics state -> predicts shape type -> shape has known trajectory
+     -> trajectory predicts direction + timing + magnitude
+
+CONNECTION TO EXISTING WORK:
+  - Analysis H proved delta segments cluster into recognizable shapes
+  - The seed functions are the NAMED versions of what KMeans found
+  - C25 (V-reversal) maps to seed #2
+  - C51 (steady ramp) maps to seed #1
+  - C34 (down drift) maps to seed #1 with negative slope
+  - C54 (flat) maps to seed #8
+  - The Laplacian (Analysis G) IS the second derivative of these
+    functions — it tells you if you're in a ramp (d2=0), V (d2 changes
+    sign at t0), exponential (d2 same sign as d1), etc.
 
 
 SPC CONSTANTS REFERENCE
