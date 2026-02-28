@@ -1,0 +1,757 @@
+WAVEFORM ANALYSIS JOURNAL
+=========================
+Started: 2026-02-28
+Tool: tools/waveform_standalone.py
+
+PURPOSE
+-------
+Build a standalone screening tool that identifies tradeable patterns
+directly from raw price data — no training checkpoints, no templates.pkl,
+no dependency on the training pipeline.
+
+The goal: find WHERE in price/time the tradeable setups live, THEN layer
+physics features on top for context. Not the other way around.
+
+
+CHRONOLOGY OF INSIGHTS
+----------------------
+
+1. FIRST ATTEMPT: 16D-first approach (failed)
+   - Built waveform_standalone.py as a copy of waveform_screening.py
+   - Replaced templates.pkl with raw ATLAS parquet data
+   - Computed 16D physics per TF, stacked into (12 TF x 16D) matrices
+   - Used ADX quartile bins (adx_q0 to adx_q3) as fake segment IDs
+   - Result: terrible. Chart showed most big moves in DROP/SPLIT zones.
+   - Root cause: ADX quartile bins are arbitrary uniform cuts that don't
+     capture natural market structure. The original waveform_screening.py
+     works because it uses real DBSCAN clusters from training.
+
+2. THREE KILLERS identified (standalone vs original):
+   a) 6 of 16 features zeroed out (no ancestry chain in standalone)
+   b) No real clustering (fake ADX quartiles vs DBSCAN density clusters)
+   c) Noisy direction from z-score sign (vs trained model direction)
+
+3. KEY INSIGHT from user:
+   "the clustering needs to start in the price/time segments and then
+    we add the full 16D for context"
+
+   Translation: segmentation comes FROM price action, not from derived
+   physics features. The 16D is the explanation, not the foundation.
+
+4. BACK TO BASICS: Price I-MR (current approach)
+   User: "first grab the data build the I MR chart, based solely on
+   price and time, the I is each price data point and the MR will be
+   the price movement range"
+
+
+THE PRICE I-MR METHOD
+---------------------
+
+What is I-MR?
+  Statistical Process Control (SPC) chart. Used in manufacturing to
+  detect when a process goes out of control. We apply it to price.
+
+I Chart (Individual):
+  - Each data point = one 15m close price
+  - Center line = mean(close) from warmup period
+  - UCL_I = center + 2.66 * MR_bar  (E2 constant for n=2)
+  - LCL_I = center - 2.66 * MR_bar
+  - Points outside limits = price is in "special cause" territory
+
+MR Chart (Moving Range) — SIGNED:
+  - MR = close[t] - close[t-1]  (signed, not absolute)
+  - Positive = price went up, Negative = price went down
+  - Every sign change and magnitude change is visible
+  - MR_bar = mean(|MR|) from warmup period
+  - UCL_MR = 3.267 * MR_bar  (D4 constant for n=2 subgroup)
+  - |MR| > UCL = regime transition (price behavior changed character)
+
+Why signed MR matters:
+  - Every change in the MR is a potential pattern
+  - Sign flips show direction reversals
+  - Magnitude shows intensity
+  - Runs above/below zero show trend persistence
+  - UCL breaks in either direction mark regime boundaries
+
+
+REGIME DETECTION
+----------------
+
+How regimes are found:
+  1. Calibrate control limits from warmup period (first N days)
+  2. Walk through analysis window
+  3. New regime starts when |MR| > UCL_MR
+  4. Merge tiny regimes (< 8 bars) into neighbors
+  5. Each regime gets: direction (price trend), mean price, volatility
+
+What a regime represents:
+  - A period where price behavior has a consistent character
+  - Bounded by special cause events (big bar-to-bar jumps)
+  - The natural segmentation of price action
+  - Replaces the fake ADX quartile bins
+
+Regime metadata:
+  - regime_id: sequential integer
+  - start_idx, end_idx: bar range
+  - n_bars: duration
+  - mean_price: average close in regime
+  - volatility: mean |MR| within regime
+  - direction: LONG if price trended up, SHORT if down
+  - price_change: close[-1] - close[0] within regime
+
+
+ORACLE MFE/MAE
+--------------
+
+For each analysis bar:
+  - Look ahead 16 bars (4 hours at 15m)
+  - max_up = max(future highs) - entry price
+  - max_down = entry price - min(future lows)
+  - Direction from REGIME (not z-score):
+    LONG regime -> MFE = max_up, MAE = max_down
+    SHORT regime -> MFE = max_down, MAE = max_up
+  - Win = MFE > MAE
+
+
+THE 4-PANEL CHART (0_price_imr.png)
+------------------------------------
+
+Panel 1 — Price (15m Close) colored by regime:
+  - Gray = warmup period
+  - Each regime = distinct color
+  - Dashed horizontal line = regime mean price (reference)
+  - Vertical lines at regime boundaries (all panels)
+
+Panel 2 — I Chart (Individual close prices):
+  - Every bar has a data point (dot)
+  - Gray dots = inside control limits
+  - Red dots = outside control limits
+  - Horizontal lines: center (gray), UCL/LCL (dark red dashed)
+
+Panel 3 — MR Chart (Signed Moving Range):
+  - Green bars = price went up (+MR)
+  - Red bars = price went down (-MR)
+  - +UCL / -UCL = symmetric control limits
+  - Black X = UCL break (regime transition)
+  - Zero line = no change reference
+
+Panel 4 — Regime Map:
+  - Horizontal bars showing regime ID, direction, bar count
+  - Color-coded to match Panel 1
+
+
+FULL 16D PIPELINE (--full flag)
+-------------------------------
+
+When --full is passed, the tool continues after price I-MR:
+  - Loads all 12 TFs, computes quantum physics per TF
+  - Builds (12 TF x 16D) hypervolume matrices
+  - Uses regime_id (from price I-MR) instead of ADX quartile bins
+  - Runs full screening: factor correlation, stepwise regression,
+    segmented screening, model fission, PID drill-down, temporal
+    analysis, stacked gate analysis, revenue model
+
+The 12 TF hierarchy (depth):
+  d0=1W  d1=1D  d2=4h  d3=1h  d4=30m  d5=15m
+  d6=5m  d7=3m  d8=2m  d9=1m  d10=30s d11=15s
+
+The 16D feature vector per bar:
+  [0]  z_score (signed)
+  [1]  log1p(velocity)
+  [2]  log1p(momentum)
+  [3]  coherence
+  [4]  tf_scale = log2(seconds)
+  [5]  depth (0 in standalone)
+  [6]  parent_ctx (0 in standalone)
+  [7]  self_adx / 100
+  [8]  self_hurst
+  [9]  self_dmi_diff / 100
+  [10] parent_z (0 in standalone)
+  [11] parent_dmi_diff (0 in standalone)
+  [12] root_is_roche (0 in standalone)
+  [13] tf_alignment (0 in standalone)
+  [14] self_pid
+  [15] osc_coh
+
+
+CLI USAGE
+---------
+
+# Default: price I-MR only (fast)
+python tools/waveform_standalone.py --data DATA/ATLAS_1DAY --base-tf 15m
+python tools/waveform_standalone.py --data DATA/ATLAS_1WEEK --base-tf 15m
+
+# Full 16D pipeline
+python tools/waveform_standalone.py --data DATA/ATLAS_1WEEK --base-tf 15m --full
+
+# Custom warmup/analysis windows
+python tools/waveform_standalone.py --data DATA/ATLAS --context-days 30 --analysis-days 7
+
+# Auto-adjust: if data < context window, scales to 30% warmup
+
+
+DATA DIRECTORIES
+----------------
+
+DATA/ATLAS/          Full dataset, 14 TFs, 12 months (Jan-Dec 2025)
+DATA/ATLAS_1DAY/     Single day (Jan 2, 2025) — fast validation
+DATA/ATLAS_1WEEK/    7 trading days (Jan 2-10, 2025) — screening analysis
+DATA/ATLAS_OOS/      4 months OOS (Nov 2025 - Feb 2026)
+
+
+OUTPUT FILES
+------------
+
+tools/plots/standalone/0_price_imr.png       4-panel price I-MR chart
+tools/plots/standalone/0b_regime_summary.png  2x2 regime dashboard
+tools/plots/standalone/1-6_*.png              16D fractal charts (--full)
+tools/standalone_report.txt                   Full text report
+tools/screening_gates.json                    Gate config (--full)
+
+
+THE THREE QUESTIONS METHOD
+--------------------------
+
+The screening follows a structured sequence of three independent analyses.
+Each question builds on the answer to the previous one.
+
+ANALYSIS A: Can we explain the PRICE?
+  Y = close[t], X = 193 fractal context features
+  Method: correlation screening + stepwise OLS regression
+  Answer (1-day): adj-R2 = 0.9519 (YES, 95.2%)
+  Key factors: 30m ADX (r=0.90), 30m DMI_diff (r=0.88), 15m ADX (r=0.87)
+  Conclusion: The fractal context describes WHERE price is at any moment.
+
+ANALYSIS B: Can we explain the DIRECTION standalone?
+  Y = sign(close[t+1] - close[t]), X = 193 features (+ price anchor)
+  Method: same correlation screening + stepwise OLS
+  Answer (1-day): adj-R2 = 0.0870 (NO, only 8.7%)
+  Key finding: all top factors have NEGATIVE correlation (mean reversion)
+  Conclusion: Direction cannot be explained independently. The model has no
+  anchor — it doesn't know WHERE price is, so it can't determine which way
+  it goes. Adding raw price as a feature didn't help because the relationship
+  between price level and direction is non-linear.
+
+ANALYSIS C: Can we derive direction FROM the price model?
+  Insight: if we can predict price[t] and price[t+1] with 95% accuracy,
+  then direction = sign(predicted[t+1] - predicted[t]).
+  Method: use the fitted price model from A, predict consecutive bars,
+  derive direction from the difference.
+  Risk: residual noise (~25 pts) may overwhelm typical moves (~9 pts).
+  This tests whether 95% price R2 is "good enough" for directional use.
+
+WHY THIS SEQUENCE MATTERS:
+  - A establishes what the context CAN explain (price level)
+  - B proves direction needs an anchor (can't be explained in isolation)
+  - C tests whether the price model IS the anchor (derived direction)
+  - Each analysis stands alone — no cross-referencing, no unified signals
+  - The order is important: you must answer A before B makes sense,
+    and B must fail before C is motivated
+
+ANALYSIS C RESULTS (1-day, 2026-02-28)
+  Overall accuracy: 55.7% (49/88) — barely above chance
+  SNR: 0.668 (poor — residual std=21.8 > typical move=14.6)
+
+  BUT — confidence-gated accuracy:
+    |predicted delta| > 0:   55.7% (88 samples)
+    |predicted delta| > 5:   68.8% (64 samples)
+    |predicted delta| > 10:  73.9% (46 samples)
+    |predicted delta| > 20:  73.9% (23 samples)
+
+  KEY FINDING: The price model DOES carry directional information, but only
+  when it predicts a move larger than the noise floor. When predicted delta
+  exceeds ~10 points, accuracy jumps to 74%. Below that, noise dominates.
+
+  This is a NATURAL CONFIDENCE GATE — the model itself tells you when to
+  trust its direction (large predicted delta) and when to sit out (small
+  predicted delta). You don't need a separate direction model; you need
+  a confidence threshold on the price model's consecutive predictions.
+
+  Asymmetry: DOWN prediction (60.5%) more accurate than UP (52.0%).
+  Consistent with Analysis B's mean-reversion pattern — the model is
+  better at calling reversals from extended states than continuations.
+
+ANALYSIS C RESULTS (1-week, 2026-02-28) — VALIDATION RUN
+  429 samples (5x more than 1-day's 89)
+  Price R²: 0.8983 (vs 0.9519 on 1-day — slightly lower, still strong)
+  Direction standalone: 0.0321 (even worse — confirms dead)
+  Top price factors shifted from 30m to 4h (wider data span, larger TFs matter more)
+
+  Overall derived accuracy: 67.2% (287/427) — UP from 55.7%
+  SNR: 0.268 (worse on paper, but accuracy is higher — non-linear signal)
+
+  Confidence-gated accuracy:
+    |predicted delta| > 0:   67.2% (427 samples)
+    |predicted delta| > 5:   71.8% (337 samples)
+    |predicted delta| > 10:  73.6% (261 samples)
+    |predicted delta| > 20:  79.6% (157 samples)  *** KEY ***
+
+  COMPARISON TABLE:
+    Metric                    1-Day (89)     1-Week (429)
+    Price R²                  0.9519         0.8983
+    Direction standalone      0.0870         0.0321
+    Derived direction (all)   55.7%          67.2%
+    Derived direction (>20)   73.9% (23)     79.6% (157)
+
+  VALIDATION: The confidence gate HOLDS and IMPROVES with more data.
+  - 79.6% at >20 pts with 157 samples is statistically meaningful
+  - UP/DOWN now balanced (65.8% vs 68.8%), 1-day was skewed (52%/60.5%)
+  - Direction standalone got worse (3.2%), confirming it has no signal
+  - The price model IS the directional model when confidence-gated
+
+  SIGN PATTERN FLIP: 1-day had 19/20 negative (mean reversion).
+  1-week has 17/20 POSITIVE (trend continuation). This is dataset-dependent,
+  not a stable feature. The derived direction from price model is more robust
+  than the standalone direction correlations.
+
+ANALYSIS C RESULTS (1-month / 30d window, 2026-02-28)
+  Data: DATA/ATLAS, context=30d, analysis=30d
+  1,824 samples, 31 regimes, price range 20540-22314 (~1,774 pts)
+
+  Price R²: 0.9721 (BEST yet — more data = better price model)
+  Direction standalone: 0.0883 (still dead)
+  Top price factor: 1D ADX (r=-0.93) — TF shifted up again (30m -> 4h -> 1D)
+
+  Derived direction: 60.3% (1090/1807)
+  UP: 63.7%, DOWN: 56.8%
+  SNR: 0.221 (poor — residual 71 pts vs moves 16 pts)
+
+  Confidence-gated:
+    |predicted delta| > 0:   60.3% (1807 samples)
+    |predicted delta| > 5:   63.9% (1106 samples)
+    |predicted delta| > 10:  66.8% (594 samples)
+    |predicted delta| > 20:  67.9% (224 samples)
+
+  FULL COMPARISON TABLE:
+    Metric                    1-Day (89)     1-Week (429)   1-Month (1824)
+    Price R²                  0.9519         0.8983         0.9721
+    Direction standalone      0.0870         0.0321         0.0883
+    Derived direction (all)   55.7%          67.2%          60.3%
+    Derived direction (>20)   73.9% (23)     79.6% (157)    67.9% (224)
+    Top price TF              30m            4h             1D
+    SNR                       0.668          0.268          0.221
+    Sign pattern              19/20 neg      17/20 pos      7/20 neg (mixed)
+
+  OBSERVATIONS:
+  1. Price model IMPROVES with more data (95% -> 90% -> 97%)
+  2. Direction standalone is DEAD at all scales (3-9%)
+  3. Derived direction PEAKED at 1-week, dropped at 1-month
+  4. Confidence gate works at all scales but accuracy drops with diversity
+  5. Top TF shifts upward with data span: 30m -> 4h -> 1D
+  6. Sign pattern unstable: mean-reversion (1d) -> continuation (1w) -> mixed (1m)
+
+  WHY 1-WEEK WAS BEST FOR DIRECTION:
+  - 1-week had fewer regimes (7 vs 31), more uniform market character
+  - The linear price model fits one "mode" well; multiple modes dilute accuracy
+  - 1-month spans different market environments (trending, ranging, selloff)
+  - A single linear model tries to fit all 31 regimes simultaneously
+  - Possible improvement: regime-conditional price models (fit per regime)
+
+
+ANALYSIS C RESULTS (1-year / 12 months, 2026-02-28) — FULL SCALE TEST
+  Data: DATA/ATLAS (full 12 months, Jan-Dec 2025)
+  17,399 samples, 259 regimes, price range ~10,000 pts
+  context=90d warmup, analysis=270d
+
+  Price R²: 0.8875 (89%) — still strong, but lowest of all runs
+  Direction standalone: 0.0673 (6.7%) — dead as always
+  Top price factor: 1W log1p_mom (r=0.84) — TF shifted to WEEKLY
+
+  Derived direction: 50.2% — COIN FLIP. COMPLETE FAILURE.
+  UP: ~50%, DOWN: ~50%
+  SNR: 0.024 (catastrophic — residual 737 pts vs moves 18 pts)
+
+  Confidence-gated:
+    |predicted delta| > 0:   50.2% (all)
+    |predicted delta| > 5:   ~50%
+    |predicted delta| > 10:  ~50%
+    |predicted delta| > 20:  50.5% (7,710 samples)
+
+  CONFIDENCE GATE COMPLETELY FAILED — all thresholds stayed at ~50%.
+
+  FULL COMPARISON TABLE (ALL SCALES):
+    Metric                    1-Day (89)   1-Week (429)  1-Month (1824)  1-Year (17399)
+    Price R²                  0.9519       0.8983        0.9721          0.8875
+    Direction standalone      0.0870       0.0321        0.0883          0.0673
+    Derived direction (all)   55.7%        67.2%         60.3%           50.2%
+    Derived direction (>20)   73.9% (23)   79.6% (157)   67.9% (224)    50.5% (7710)
+    Top price TF              30m          4h            1D              1W
+    SNR                       0.668        0.268         0.221           0.024
+    Regimes                   3            7             31              259
+
+  WHY THE FULL YEAR COMPLETELY FAILED:
+  1. 259 regimes = 259 different market characters. A single linear model
+     cannot fit all of them with one set of coefficients.
+  2. Price range ~10,000 pts — the model maps 192 features to a 10K range,
+     but bar-to-bar moves are only ~18 pts. Residual std is 737 pts.
+     That means the noise is 41x larger than the signal (SNR=0.024).
+  3. The confidence gate relies on predicted delta being meaningful.
+     When residual is 737 pts, a predicted delta of 20 pts is noise.
+  4. At yearly scale, the weekly TF dominates (1W log1p_mom r=0.84).
+     Weekly features change slowly — they explain price LEVEL across
+     months, not bar-to-bar DIRECTION within a regime.
+
+  THE SWEET SPOT IS 1-WEEK:
+  - Best derived accuracy: 79.6% at >20 pts (157 samples)
+  - Few regimes (7) = coherent market character
+  - SNR still low (0.268) but price predictions carry directional signal
+  - The model fits one mode well when that's all it needs to fit
+
+  THE FUNDAMENTAL INSIGHT:
+  A linear model that explains 89% of price variance across a year
+  is USELESS for direction prediction. The 11% residual (737 pts)
+  completely drowns the 18-pt bar-to-bar signals. Price R² and
+  directional usefulness are DECOUPLED at large scales.
+
+  This is the "explaining variance vs predicting change" problem:
+  knowing that price is approximately 21,000 +/- 737 pts tells you
+  nothing about whether the next bar goes up or down by 18 pts.
+
+
+CONCLUSIONS SO FAR
+------------------
+
+1. Price explanation WORKS at all scales (89-97% R²) but the useful
+   information shifts to higher TFs as the window grows.
+
+2. Direction standalone is DEAD at all scales (3-9% R²). This is not a
+   data problem or a feature problem — direction is not linearly
+   predictable from spatial context.
+
+3. Derived direction from price model has a SWEET SPOT at ~1 week:
+   - Too short (1 day): not enough samples, noisy (56% overall)
+   - Sweet spot (1 week): 67% overall, 80% at >20 pt confidence gate
+   - Degrading (1 month): 60% overall, 68% at >20 pt gate
+   - Dead (1 year): 50% — pure coin flip, confidence gate fails
+
+4. The confidence gate is real but ONLY works within the sweet spot.
+   It does not rescue the model at scales where SNR < ~0.2.
+
+5. A single global linear model cannot handle multi-regime data.
+   The path forward must involve either:
+   a) Rolling windows (fit model per ~1-week window, slide forward)
+   b) Regime-conditional models (fit per regime, derive direction locally)
+   c) Non-linear methods (trees, neural nets that partition input space)
+   d) Relative features (not absolute price, but price-relative-to-regime)
+
+
+CRITICAL BUG: LOOK-AHEAD BIAS IN HIGHER TF ALIGNMENT (2026-02-28)
+------------------------------------------------------------------
+
+DISCOVERY: All previous results had look-ahead bias.
+
+The problem:
+  When sitting at a 15m bar with open timestamp t=10:00, the code looked up
+  the higher TF bar with searchsorted(timestamps, t, side='right') - 1.
+  This finds the bar whose OPEN time <= t. But OHLCV timestamps are bar OPEN
+  times, so the bar at t=10:00 on a 1h chart covers 10:00-11:00 and its
+  close/high/low/volume aren't known until 11:00.
+
+  Look-ahead per TF (for base 15m bar):
+    30m bar at 10:00 → completes at 10:30 → 15 min look-ahead
+    1h  bar at 10:00 → completes at 11:00 → 45 min look-ahead
+    4h  bar at 8:00  → completes at 12:00 → up to 3h45m look-ahead
+    1D  bar at open  → completes at close → up to ~23h look-ahead
+    1W  bar at open  → completes Friday   → up to ~5 days look-ahead
+
+  TFs SMALLER than base (5m, 3m, 2m, 1m, 30s, 15s) are fine — their bars
+  complete within the 15m base bar window.
+
+THE FIX:
+  For TFs with bar duration > base TF duration: use N-1 (previous completed bar).
+    searchsorted(timestamps, t, side='right') - 2  (instead of - 1)
+  For TFs with bar duration <= base TF: keep - 1 (bar completes within base bar).
+
+  This means for 15m base at 10:00:
+    30m → uses bar at 9:30 (covers 9:30-10:00, COMPLETED)
+    1h  → uses bar at 9:00 (covers 9:00-10:00, COMPLETED)
+    4h  → uses bar at 4:00 (covers 4:00-8:00, COMPLETED)
+    1D  → uses previous day's bar (COMPLETED)
+    1W  → uses previous week's bar (COMPLETED)
+
+  Applied to both alignment locations:
+    - build_stacked_matrices() line ~286 (full pipeline)
+    - Step 8 fractal context line ~1791 (Three Questions analysis)
+
+IMPLICATION:
+  All prior R² results are INVALID — they were inflated by future information.
+  The 95% price R² was partly fake: higher TF features contained future price data.
+  Must re-run all analyses to get honest numbers.
+
+RE-RUN RESULTS WITH N-1 FIX (2026-02-28):
+
+  HONEST COMPARISON TABLE (N-1 fix, no look-ahead):
+    Metric                    1-Week (427)  1-Month (1807)  1-Year (17268)
+    Price R²                  0.9238        0.9689          0.8958
+    Direction standalone      0.0115        0.0048          0.0016
+    Derived direction (all)   71.0%         65.5%           49.5%
+    Derived direction (>20)   79.7% (222)   78.5% (534)     48.8% (8558)
+    SNR                       0.309         0.209           0.025
+
+  VS OLD (WITH LOOK-AHEAD BIAS):
+    Metric                    1-Week         1-Month         1-Year
+    Price R² old              0.8983         0.9721          0.8875
+    Price R² honest           0.9238         0.9689          0.8958
+    Derived dir old           67.2%          60.3%           50.2%
+    Derived dir honest        71.0%          65.5%           49.5%
+
+  SURPRISING: The N-1 fix IMPROVED results at 1-week and 1-month.
+  Completed bars are cleaner signals than partial bars with noise.
+  - 1-week: 67.2% -> 71.0% overall, confidence gate unchanged at ~80%
+  - 1-month: 60.3% -> 65.5%, confidence gate 67.9% -> 78.5% (big jump!)
+  - 1-year: still coin flip (~49.5%), confirming the failure is fundamental
+
+  THE 1-WEEK/1-MONTH SWEET SPOT IS REAL AND HONEST.
+  With no look-ahead, the fractal context from completed higher TF bars
+  genuinely explains price and carries directional signal.
+
+
+ANALYSIS D: RATE-OF-CHANGE / PATTERN RECOGNITION (2026-02-28)
+--------------------------------------------------------------
+
+QUESTION: Does adding temporal information (feature deltas between
+consecutive bars) improve price or direction explanation?
+
+METHOD:
+  For each bar at time t, compute delta = features[t] - features[t-1].
+  This gives 192 rate-of-change features capturing HOW features are
+  changing, not just their current level. Test three things:
+    D1: Does level+delta improve price R2?
+    D2: Does level+delta improve direction R2?
+    D3: Does the combined price model give better derived direction?
+
+RESULTS (1-day, 88 samples, N-1 fix active):
+
+  D1 - PRICE:
+    Level only:    adj-R2 = 0.9401
+    Level + delta: adj-R2 = 0.9401  (no improvement)
+    Delta features in price model: 0/20
+    -> Delta features carry NO additional price information.
+       The spatial snapshot already fully captures price level.
+
+  D2 - DIRECTION:
+    Level only:    adj-R2 = 0.0735 (7.4%)
+    Level + delta: adj-R2 = 0.2049 (20.5%)  *** +13.1% ***
+    Delta features in direction model: 9/20 (almost half!)
+    -> RATE-OF-CHANGE DRAMATICALLY HELPS DIRECTION.
+       Direction R2 nearly tripled from 7.4% to 20.5%.
+
+  D3 - DERIVED DIRECTION:
+    Level only:    67.0%
+    Level + delta: 67.0%  (no improvement)
+    -> The delta features don't help the PRICE model, so derived
+       direction from price (Analysis C) is unchanged. But they
+       help DIRECT direction modeling (Analysis B -> D2).
+
+  TOP DELTA FACTORS FOR DIRECTION:
+    dt_d4_30m__self_dmi_diff     r=-0.268  (DMI diff CHANGING at 30m)
+    dt_d5_15m__z_score           r=+0.244  (z-score CHANGING at 15m)
+    dt_d6_5m__self_adx           r=-0.241  (ADX CHANGING at 5m)
+    dt_d5_15m__self_pid          r=+0.228  (PID CHANGING at 15m)
+    dt_d4_30m__z_score           r=-0.219  (z-score CHANGING at 30m)
+
+  INTERPRETATION:
+    The direction signal lives in the TRAJECTORY of features, not their
+    level. When DMI diff is FALLING at 30m (r=-0.27) or z-score is
+    RISING at 15m (r=+0.24), these predict the next bar's direction.
+    This is exactly what a spatial snapshot misses: the "momentum of
+    the indicators" rather than the indicators themselves.
+
+  CAVEAT: This is 1-day only (88 samples). Must validate at 1-week
+  and 1-month to see if the 20.5% direction R2 holds up.
+
+ANALYSIS D VALIDATION (all scales, 2026-02-28):
+
+  DIRECTION R2 (level+delta) ACROSS SCALES:
+    Scale           Level only   Level+Delta    Gain
+    1-Day (88)      0.0735       0.2049         +13.1%  ***
+    1-Week (427)    0.0115       0.0570         +4.5%
+    1-Month (1807)  0.0048       0.0083         +0.3%
+    1-Year (17268)  0.0016       0.0020         +0.0%
+
+  PRICE R2: unchanged at all scales (delta adds nothing to price).
+  DERIVED DIRECTION: unchanged at all scales (delta doesn't help price model).
+
+  THE PATTERN: Delta features help direction but the effect DECAYS
+  with more data, same as everything else:
+    - 1-day: dramatic (+13.1%), but 88 samples = likely overfit
+    - 1-week: modest (+4.5%), direction R2 still only 5.7% = useless
+    - 1-month: negligible (+0.3%)
+    - 1-year: zero
+
+  CONCLUSION: Rate-of-change features DO carry some directional signal
+  (the 1-day finding was real, not random), but the signal is too weak
+  to survive scaling. At 1-week with 427 samples, direction R2 is 5.7%
+  -- better than 1.2% without deltas, but still far below usable.
+
+  The 1-day "tripling" (7% -> 20%) was real signal amplified by small
+  sample size. The underlying effect is ~4-5% incremental at best.
+
+  BOTTOM LINE: Pattern recognition (rate-of-change) is NOT the answer
+  to the direction problem. The direction signal is fundamentally weak
+  in linear models regardless of features used.
+
+
+ANALYSIS E: dP/dT-GROUPED SIGNAL AMPLIFICATION (2026-02-28)
+------------------------------------------------------------
+
+INSIGHT: "small samples that are similar are easier to explain the direction"
+  The signal isn't weak -- it's DILUTED. Within a single regime, features
+  carry real directional information. Mix 259 regimes and signals cancel.
+  GROUP by signed dP/dT to keep similar bars together.
+
+METHOD:
+  Split analysis bars into 3 groups by signed MR (DOWN / FLAT / UP terciles).
+  Run full Three Questions (price R2, direction R2, derived direction)
+  independently per group. Compare per-group vs global results.
+
+RESULTS (all scales):
+
+  DIRECTION R2 per group vs global:
+    Scale           Global    DOWN     FLAT     UP       Avg group    Amplification
+    1-Week (429)    0.0115    0.0530   0.0196   0.0311   0.0346       3.0x
+    1-Month (1824)  0.0048    0.0246   0.0056   0.0258   0.0186       3.9x
+    1-Year (17399)  0.0016    0.0031   0.0028   0.0037   0.0032       2.0x
+
+  PRICE R2 per group (stable, not diluted):
+    Scale           Global    DOWN     FLAT     UP
+    1-Week          0.9238    0.9182   0.9824   0.9512
+    1-Month         0.9689    0.9740   0.9741   0.9659
+    1-Year          0.8958    0.9091   0.8694   0.9090
+
+  DERIVED DIRECTION per group:
+    Scale           Global    DOWN     FLAT     UP
+    1-Week          71.0%     65.2%    62.4%    66.4%
+    1-Month         65.5%     64.4%    67.9%    66.4%
+    1-Year          49.5%     51.2%    48.1%    49.4%
+
+  KEY FINDING: Grouping by dP/dT consistently amplifies direction R2
+  by 2-4x across all scales. BUT:
+  - The absolute values are still tiny (best = 5.3% at 1-week DOWN)
+  - Derived direction actually DROPS per group vs global (overfitting
+    to smaller samples hurts the price model's generalization)
+  - The 1-year per-group results are still coin flips (~49-51%)
+
+  INTERPRETATION:
+  dP/dT grouping CONFIRMS the hypothesis -- similar bars have stronger
+  directional signal. The 3x amplification is real. But even 3x of a
+  tiny signal (1% -> 3%) is still tiny. The problem is:
+  1. Three groups is too coarse -- need more granular clustering
+  2. dP/dT alone is one dimension -- DBSCAN on dP/dT + ADX + vol would
+     create more homogeneous clusters
+  3. A linear model still can't extract enough signal even from
+     homogeneous groups -- may need non-linear methods
+
+  This validates the DBSCAN clustering approach in the main pipeline:
+  clustering keeps bars similar, which prevents signal dilution. But
+  it also shows that clustering alone isn't sufficient -- the model
+  type matters too.
+
+
+ANALYSIS F: STACKED SHAPE PLOTS (per I-MR regime)
+===================================================
+
+Date: 2026-02-28
+Method: For each analysis bar, extract raw price shape (8 bars before,
+16 bars after entry), group by I-MR regime_id, overlay as spaghetti
+plots with mean + 1-std envelope. One subplot per regime, stacked
+vertically. NO normalization (raw price is the signal).
+
+1-WEEK RESULTS (6 regimes):
+
+  Regime  N_shapes  Direction  Entry_spread  End_spread  WR%
+  R0        163      SHORT       108.7        123.6       52%
+  R1         71      SHORT        31.4         45.7       31%
+  R2         23      SHORT        42.5         50.3       35%
+  R3          8      LONG         62.6         17.6       75%
+  R4        138      SHORT        59.2        104.8       32%
+  R5         11      LONG         49.6         34.1       91%
+
+VISUAL OBSERVATIONS:
+- R1 (71 shapes): TIGHTEST entry spread (31.4). Shapes cluster in
+  narrow band ~21,400-21,500 with clear downward mean trend.
+  BEST coherence among large regimes.
+- R3 (8 shapes, LONG, WR=75%): Shapes CONVERGE -- spread narrows
+  from 62.6 to 17.6. Small sample but visually coherent.
+- R5 (11 shapes, LONG, WR=91%): Strongest convergence, clear
+  upward trend. Tiny sample but ALL shapes agree.
+- R0 (163 shapes): WIDEST entry spread (108.7). Catch-all regime,
+  no clear convergent shape. This is the "everything else" bucket.
+- R4 (138 shapes): Spread WIDENS from 59.2 to 104.8 after entry.
+  Shapes diverge -- this regime mixes different behaviors.
+
+KEY FINDING:
+I-MR regimes DO create coherent groups at small sizes (R1, R3, R5).
+The smaller and more specific the regime, the tighter the shapes.
+But the large regimes (R0, R4, which contain 70% of all bars) are
+still catch-all buckets with wide spread.
+
+This tells us:
+1. The REGIME BOUNDARY detection (MR > UCL) works -- it identifies
+   genuine changes in price behavior
+2. The problem is WITHIN-REGIME heterogeneity in large regimes
+3. Need sub-segmentation: split large regimes by additional features
+   (e.g., ADX, volume, volatility level) to get more coherent groups
+4. Alternatively: tighter regime detection (lower UCL threshold or
+   additional break conditions)
+
+
+ANALYSIS G: LAPLACIAN SUB-SEGMENTATION (d2p/dt2)
+==================================================
+
+Date: 2026-02-28
+Method: Compute discrete Laplacian (curvature) of price:
+  d2p/dt2[t] = close[t+1] - 2*close[t] + close[t-1]
+Within each I-MR regime, create sub-segments where curvature sign
+flips (convex<->concave) or curvature MR exceeds UCL. This adds the
+ACCELERATION layer that I-MR (velocity) misses.
+
+PHYSICS ANALOGY:
+  I-chart    = position (where price is)
+  MR-chart   = velocity (how fast it moves)
+  Laplacian  = acceleration (is it speeding up, slowing down, reversing?)
+
+1-DAY RESULTS:
+  I-MR regimes: 2 -> Laplacian sub-segments: 20 (10x more granular)
+  Avg sub-segment size: 4.6 bars
+
+  COHERENCE COMPARISON:
+  I-MR regimes   -> avg endpoint std: 53.1 ticks (2 regimes)
+  Laplacian subs -> avg endpoint std: 25.6 ticks (6 qualifying sub-segs)
+  Improvement: +51.7% TIGHTER
+
+  Best sub-segments:
+  S12 (R1, CONCAVE): 6 shapes, std=21.3, WR=100%
+  S14 (R1, CONCAVE): 5 shapes, std=26.1, WR=100%
+  S2  (R0, CONVEX):  5 shapes, std=5.2,  WR=80%
+
+INTERPRETATION:
+The Laplacian sub-segmentation cuts endpoint noise IN HALF compared
+to I-MR alone. Sub-segments based on curvature sign (convex vs concave)
+capture distinct price SHAPES, not just time periods. This is the
+bridge from "group by when" to "group by shape."
+
+REFERENCE: Shi 2018 "Signal Pattern Recognition Based on Fractal
+Features and Machine Learning" — 5 fractal dimensions (Box, Katz,
+Higuchi, Petrosian, Sevcik) + Random Forest -> 96% signal
+classification. Our curvature is analogous to their fractal dimension:
+a shape descriptor that distinguishes waveform types.
+
+SHAPE DETECTION METHODS (from DSP literature):
+- Dynamic Time Warping (DTW): aligns similar shapes at different speeds
+- Fourier Descriptors: shape fingerprint, scale/rotation invariant
+- Template matching via cross-correlation: match against known library
+- Ref: dsp.stackexchange.com/questions/64722/typical-shape-detection-algorithms
+
+NEXT STEP: Run 1w, 1m, 1y to see if sub-segmentation improvement
+scales. The goal: at 1-year scale, build a segment LIBRARY where
+similar curvature profiles predict direction, then enrich with the
+price model (92% R2) for entry precision.
+
+
+SPC CONSTANTS REFERENCE
+-----------------------
+
+D4 = 3.267   (UCL for MR chart, n=2 subgroup)
+E2 = 2.660   (I chart limits from MR, n=2 subgroup)
+IMR_D4 = 3.267 (same, used in fractal_clustering.py)

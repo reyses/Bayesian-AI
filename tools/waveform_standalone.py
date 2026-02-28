@@ -1,21 +1,26 @@
 """
 Standalone Waveform Screening Tool
 ====================================
-Runs the I-MR factor screening DIRECTLY from raw ATLAS parquet data.
+Price-first I-MR analysis from raw ATLAS parquet data.
 No templates.pkl, no checkpoints, no training dependency.
 
-Genesis methodology:
-  1. I-MR chart on 15m close → z_score per bar
-  2. Make it fractal — one I-MR chart per timeframe
-  3. Stack into (12 TF × 16D) hypervolume matrix per analysis point
-  4. Screen factors against oracle MFE → rank by |correlation|
-  5. Stepwise regression → adj-R² curve
+Default mode (price I-MR):
+  1. Load base TF (15m) close prices
+  2. I-MR chart: I = close price, MR = |bar-to-bar change|
+  3. Detect regimes from MR UCL breaks (natural price segments)
+  4. Oracle MFE/MAE with regime-based direction
+  5. Charts: price I-MR + regime summary
+
+Full mode (--full):
+  6-20. Load all 12 TFs, compute 16D physics, build hypervolumes,
+        fractal screening with regime-based segmentation
 
 Usage:
-    python tools/waveform_standalone.py --data DATA/ATLAS_1DAY --base-tf 15m
-    python tools/waveform_standalone.py --months 2025_01 --base-tf 15m
+    python tools/waveform_standalone.py --data DATA/ATLAS_1WEEK --base-tf 15m
+    python tools/waveform_standalone.py --data DATA/ATLAS_1WEEK --base-tf 15m --full
+    python tools/waveform_standalone.py --data DATA/ATLAS --context-days 30 --analysis-days 7
 
-Output: tools/standalone_report.txt + console summary
+Output: tools/standalone_report.txt + tools/plots/standalone/
 """
 
 import sys, os, io, glob, math
@@ -218,7 +223,7 @@ def build_stacked_matrices(all_tf_states, base_tf, base_df,
         # Use first half for warmup, rest for analysis
         old_ctx = context_days
         context_days = max(0, int(data_span_days * 0.3))
-        print(f"  Auto-adjusted context: {old_ctx}d → {context_days}d "
+        print(f"  Auto-adjusted context: {old_ctx}d -> {context_days}d "
               f"(data span is only {data_span_days:.1f}d)")
 
     t_warmup_end = t_min + context_days * 86400
@@ -230,7 +235,7 @@ def build_stacked_matrices(all_tf_states, base_tf, base_df,
     print(f"  Data range:     {datetime.fromtimestamp(t_min, tz=timezone.utc):%Y-%m-%d %H:%M} to "
           f"{datetime.fromtimestamp(t_max, tz=timezone.utc):%Y-%m-%d %H:%M}")
     print(f"  Data span:      {data_span_days:.1f} days")
-    print(f"  Warmup:         {context_days}d → analysis starts "
+    print(f"  Warmup:         {context_days}d -> analysis starts "
           f"{datetime.fromtimestamp(t_warmup_end, tz=timezone.utc):%Y-%m-%d %H:%M}")
     print(f"  Analysis end:   {datetime.fromtimestamp(min(t_analysis_end, t_max), tz=timezone.utc):%Y-%m-%d %H:%M}")
 
@@ -271,16 +276,24 @@ def build_stacked_matrices(all_tf_states, base_tf, base_df,
         mat = np.zeros((12, 16))
         has_data = 0
 
+        base_secs = TF_SECONDS.get(base_tf, 900)
+
         for depth_idx, tf in enumerate(TF_HIERARCHY):
             if tf not in tf_sorted_ts:
                 continue  # TF not available, leave as zeros
 
-            # Find most recent state at or before timestamp t
             tf_ts_list = tf_sorted_ts[tf]
-            # Binary search for the largest timestamp <= t
-            idx = np.searchsorted(tf_ts_list, t, side='right') - 1
+            tf_secs = TF_SECONDS.get(tf, 60)
+
+            # For TFs longer than base: bar containing t is incomplete,
+            # so use N-1 (last FULLY COMPLETED bar) to avoid look-ahead.
+            # For TFs <= base: bar completes within base bar window, no leak.
+            if tf_secs > base_secs:
+                idx = np.searchsorted(tf_ts_list, t, side='right') - 2
+            else:
+                idx = np.searchsorted(tf_ts_list, t, side='right') - 1
             if idx < 0:
-                continue  # No data before this timestamp
+                continue  # No completed data before this timestamp
 
             nearest_ts = tf_ts_list[idx]
             state = all_tf_states[tf][nearest_ts]
@@ -348,6 +361,250 @@ def build_stacked_matrices(all_tf_states, base_tf, base_df,
 
 
 # =============================================================================
+#  PRICE-FIRST I-MR: Pure price/time analysis (no physics)
+# =============================================================================
+
+D4 = 3.267   # SPC constant for n=2 subgroup
+E2 = 2.660   # SPC constant for I-chart limits from MR
+
+def compute_price_imr(base_df, context_days=21, analysis_days=7):
+    """Pure price-based I-MR chart from 15m close prices.
+
+    I chart = raw close price per bar.
+    MR = |close[t] - close[t-1]| (bar-to-bar price movement).
+    Control limits calibrated from the warmup (context) period.
+
+    Returns dict with all arrays and control limit values.
+    """
+    close = base_df['close'].values.astype(float)
+    timestamps = base_df['timestamp'].values.astype(float)
+    n = len(close)
+
+    # MR: bar-to-bar signed price change (tracks direction)
+    mr_signed = np.diff(close)
+    mr_signed = np.concatenate([[0.0], mr_signed])  # pad first bar with 0
+    mr_abs = np.abs(mr_signed)
+
+    # Determine warmup boundary (in bar count)
+    t_min, t_max = timestamps[0], timestamps[-1]
+    data_span_days = (t_max - t_min) / 86400
+
+    # Auto-adjust if data is shorter than context window
+    if context_days > 0 and data_span_days < context_days + 1:
+        old_ctx = context_days
+        context_days = max(0, int(data_span_days * 0.3))
+        print(f"  Auto-adjusted context: {old_ctx}d -> {context_days}d "
+              f"(data span is only {data_span_days:.1f}d)")
+
+    t_warmup_end = t_min + context_days * 86400
+
+    warmup_mask = timestamps < t_warmup_end
+    warmup_end_idx = int(warmup_mask.sum())
+
+    if warmup_end_idx < 20:
+        # Not enough warmup — use first 30% of data
+        warmup_end_idx = max(20, int(n * 0.3))
+
+    # Control limits from warmup period (use absolute MR for limits)
+    warmup_close = close[:warmup_end_idx]
+    warmup_mr_abs = mr_abs[1:warmup_end_idx]  # skip first MR (=0)
+
+    center = float(np.mean(warmup_close))
+    mr_bar = float(np.mean(warmup_mr_abs)) if len(warmup_mr_abs) > 0 else 1.0
+
+    ucl_mr = D4 * mr_bar
+    ucl_i = center + E2 * mr_bar
+    lcl_i = center - E2 * mr_bar
+
+    # Analysis window
+    if analysis_days > 0:
+        t_analysis_end = t_warmup_end + analysis_days * 86400
+        analysis_mask = (timestamps >= t_warmup_end) & (timestamps < t_analysis_end)
+    else:
+        analysis_mask = timestamps >= t_warmup_end
+
+    print(f"  Price I-MR: {n} bars, warmup={warmup_end_idx}, "
+          f"analysis={int(analysis_mask.sum())}")
+    print(f"  Center={center:.2f}, MR_bar={mr_bar:.2f}, "
+          f"UCL_MR={ucl_mr:.2f}, UCL_I={ucl_i:.2f}, LCL_I={lcl_i:.2f}")
+
+    return {
+        'close': close,
+        'mr': mr_signed,
+        'mr_abs': mr_abs,
+        'timestamps': timestamps,
+        'center': center,
+        'mr_bar': mr_bar,
+        'ucl_mr': ucl_mr,
+        'ucl_i': ucl_i,
+        'lcl_i': lcl_i,
+        'warmup_end_idx': warmup_end_idx,
+        'analysis_mask': analysis_mask,
+    }
+
+
+def detect_regimes(price_imr, min_regime_bars=8):
+    """Detect natural price regimes from MR UCL breaks.
+
+    A new regime starts when MR > UCL_MR (price behavior changed character).
+    Tiny regimes (< min_regime_bars) get merged into their larger neighbor.
+
+    Returns:
+        regime_ids: array of regime IDs per bar (full length, -1 for warmup)
+        regime_meta: list of dicts with regime stats
+    """
+    close = price_imr['close']
+    mr_abs = price_imr['mr_abs']
+    ucl_mr = price_imr['ucl_mr']
+    warmup_end = price_imr['warmup_end_idx']
+    analysis_mask = price_imr['analysis_mask']
+    n = len(close)
+
+    # Initialize all bars to -1 (warmup/excluded)
+    regime_ids = np.full(n, -1, dtype=int)
+
+    # Find analysis bar indices
+    analysis_indices = np.where(analysis_mask)[0]
+    if len(analysis_indices) == 0:
+        return regime_ids, []
+
+    # Assign regime IDs: new regime at each |MR| > UCL break
+    current_regime = 0
+    for i, idx in enumerate(analysis_indices):
+        if i > 0 and mr_abs[idx] > ucl_mr:
+            current_regime += 1
+        regime_ids[idx] = current_regime
+
+    n_raw = current_regime + 1
+
+    # Merge tiny regimes into neighbors
+    merge_pass = 0
+    while True:
+        unique_ids = [r for r in np.unique(regime_ids) if r >= 0]
+        sizes = {r: int((regime_ids == r).sum()) for r in unique_ids}
+        tiny = [r for r in unique_ids if sizes[r] < min_regime_bars]
+        if not tiny:
+            break
+
+        r = tiny[0]
+        r_pos = unique_ids.index(r)
+        if r_pos > 0 and r_pos < len(unique_ids) - 1:
+            left, right = unique_ids[r_pos - 1], unique_ids[r_pos + 1]
+            target = left if sizes.get(left, 0) >= sizes.get(right, 0) else right
+        elif r_pos > 0:
+            target = unique_ids[r_pos - 1]
+        elif len(unique_ids) > 1:
+            target = unique_ids[r_pos + 1]
+        else:
+            break
+        regime_ids[regime_ids == r] = target
+        merge_pass += 1
+        if merge_pass > n:
+            break
+
+    # Re-compact to 0-based contiguous
+    unique_ids = sorted([r for r in np.unique(regime_ids) if r >= 0])
+    remap = {old: new for new, old in enumerate(unique_ids)}
+    for i in range(n):
+        if regime_ids[i] >= 0:
+            regime_ids[i] = remap[regime_ids[i]]
+
+    n_regimes = len(unique_ids)
+
+    # Build regime metadata
+    regime_meta = []
+    for rid in range(n_regimes):
+        mask = regime_ids == rid
+        indices = np.where(mask)[0]
+        r_close = close[mask]
+        r_mr = mr_abs[mask]
+
+        regime_meta.append({
+            'regime_id': rid,
+            'start_idx': int(indices[0]),
+            'end_idx': int(indices[-1]),
+            'n_bars': int(mask.sum()),
+            'mean_price': float(np.mean(r_close)),
+            'volatility': float(np.mean(r_mr)),
+            'price_change': float(r_close[-1] - r_close[0]) if len(r_close) > 1 else 0.0,
+            'direction': 'LONG' if (r_close[-1] > r_close[0]) else 'SHORT',
+        })
+
+    print(f"  Regimes: {n_raw} raw -> {n_regimes} after merge "
+          f"(min_bars={min_regime_bars})")
+    for rm in regime_meta:
+        print(f"    R{rm['regime_id']}: {rm['n_bars']:>4} bars, "
+              f"price={rm['mean_price']:.1f}, vol={rm['volatility']:.2f}, "
+              f"dir={rm['direction']}, chg={rm['price_change']:+.1f}")
+
+    return regime_ids, regime_meta
+
+
+def compute_regime_oracle(base_df, regime_ids, regime_meta, lookahead=16):
+    """Compute oracle MFE/MAE per analysis bar using regime-based direction.
+
+    Direction comes from the regime's price trend (not z-score).
+
+    Returns:
+        bar_indices: array of bar indices in base_df
+        mfes: array of MFE values
+        maes: array of MAE values
+        directions: array of 'LONG'/'SHORT' strings
+    """
+    close = base_df['close'].values.astype(float)
+    high = base_df['high'].values.astype(float)
+    low = base_df['low'].values.astype(float)
+    n = len(base_df)
+
+    # Build regime direction lookup
+    regime_dir = {}
+    for rm in regime_meta:
+        regime_dir[rm['regime_id']] = rm['direction']
+
+    analysis_indices = np.where(regime_ids >= 0)[0]
+
+    bar_indices = []
+    mfes = []
+    maes = []
+    directions = []
+
+    for idx in analysis_indices:
+        if idx + lookahead >= n:
+            continue
+
+        entry = close[idx]
+        future_high = high[idx + 1: idx + 1 + lookahead]
+        future_low = low[idx + 1: idx + 1 + lookahead]
+
+        if len(future_high) == 0:
+            continue
+
+        max_up = float(future_high.max() - entry)
+        max_down = float(entry - future_low.min())
+
+        rid = regime_ids[idx]
+        direction = regime_dir.get(rid, 'LONG')
+
+        if direction == 'LONG':
+            mfe_val = max_up
+            mae_val = max_down
+        else:
+            mfe_val = max_down
+            mae_val = max_up
+
+        bar_indices.append(idx)
+        mfes.append(mfe_val)
+        maes.append(mae_val)
+        directions.append(direction)
+
+    print(f"  Oracle: {len(mfes)} bars with MFE/MAE "
+          f"(lookahead={lookahead})")
+
+    return (np.array(bar_indices), np.array(mfes),
+            np.array(maes), np.array(directions))
+
+
+# =============================================================================
 #  I-MR CHART PLOTS (matplotlib)
 # =============================================================================
 
@@ -355,8 +612,283 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from matplotlib.collections import LineCollection
 
 PLOTS_DIR = os.path.join(os.path.dirname(__file__), 'plots', 'standalone')
+
+# Regime color palette (up to 20 distinct regimes)
+_REGIME_COLORS = [
+    '#2196F3', '#F44336', '#4CAF50', '#FF9800', '#9C27B0',
+    '#00BCD4', '#E91E63', '#8BC34A', '#FF5722', '#3F51B5',
+    '#CDDC39', '#795548', '#607D8B', '#009688', '#FFC107',
+    '#673AB7', '#03A9F4', '#FFEB3B', '#FF6F00', '#1B5E20',
+]
+
+
+def plot_price_imr(price_imr, regime_ids, regime_meta, base_df):
+    """Plot the foundational price I-MR chart with regime coloring.
+
+    4 panels: Price, I chart, MR chart, Regime map.
+    Saves to tools/plots/standalone/0_price_imr.png
+    """
+    os.makedirs(PLOTS_DIR, exist_ok=True)
+
+    close = price_imr['close']
+    mr = price_imr['mr']
+    timestamps = price_imr['timestamps']
+    center = price_imr['center']
+    ucl_i = price_imr['ucl_i']
+    lcl_i = price_imr['lcl_i']
+    mr_bar = price_imr['mr_bar']
+    ucl_mr = price_imr['ucl_mr']
+    warmup_end = price_imr['warmup_end_idx']
+
+    n = len(close)
+    x = np.arange(n)
+
+    # Convert timestamps to readable dates for x-axis
+    from datetime import datetime, timezone
+    date_labels = []
+    date_positions = []
+    prev_day = None
+    for i, ts in enumerate(timestamps):
+        dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+        day = dt.strftime('%m/%d')
+        if day != prev_day:
+            date_labels.append(day)
+            date_positions.append(i)
+            prev_day = day
+
+    fig, axes = plt.subplots(4, 1, figsize=(20, 16), sharex=True,
+                              gridspec_kw={'height_ratios': [3, 2, 2, 1]})
+    fig.set_facecolor('white')
+    for ax in axes:
+        ax.set_facecolor('white')
+
+    n_regimes = len(regime_meta)
+
+    # --- Panel 1: Price colored by regime ---
+    ax = axes[0]
+    # Draw warmup in gray
+    if warmup_end > 1:
+        ax.plot(x[:warmup_end], close[:warmup_end], color='#BBBBBB',
+                linewidth=0.8, alpha=0.6)
+
+    # Draw each regime segment with reference line at mean price
+    for rm in regime_meta:
+        s, e = rm['start_idx'], rm['end_idx']
+        color = _REGIME_COLORS[rm['regime_id'] % len(_REGIME_COLORS)]
+        ax.plot(x[s:e+1], close[s:e+1], color=color, linewidth=1.2,
+                label=f"R{rm['regime_id']} ({rm['direction']})")
+        # Regime mean price reference line
+        ax.hlines(y=rm['mean_price'], xmin=s, xmax=e, color=color,
+                  linestyle='--', linewidth=0.8, alpha=0.5)
+
+    # Regime boundary vertical lines (on all panels)
+    for rm in regime_meta[1:]:
+        for a in axes:
+            a.axvline(x=rm['start_idx'], color='#888888', linestyle=':',
+                      linewidth=0.7, alpha=0.5)
+
+    # Warmup boundary (on all panels)
+    for a in axes:
+        a.axvline(x=warmup_end, color='#333333', linestyle='--',
+                  linewidth=1, alpha=0.6)
+    ax.plot([], [], color='#333333', linestyle='--', label='Warmup end')
+
+    ax.set_title('Price (15m Close) — Colored by Regime (dashed = mean price)',
+                 fontsize=12, fontweight='bold')
+    ax.set_ylabel('Price', fontsize=10)
+    ax.legend(fontsize=7, loc='upper left', ncol=min(n_regimes + 1, 6))
+    ax.grid(True, alpha=0.15)
+
+    # --- Panel 2: I chart (close with control limits + data points) ---
+    ax = axes[1]
+    ax.plot(x, close, color='#333333', linewidth=0.6, alpha=0.5)
+    # Individual data point for every bar
+    inside = (close <= ucl_i) & (close >= lcl_i)
+    ax.scatter(x[inside], close[inside], color='#333333', s=6,
+               zorder=4, alpha=0.6, label='Data point')
+    # Highlight points outside control limits in red
+    outside = ~inside
+    if outside.any():
+        ax.scatter(x[outside], close[outside], color='#F44336', s=12,
+                   zorder=5, label='Outside limits')
+
+    ax.axhline(y=center, color='#888888', linestyle='-', linewidth=1.5,
+               label=f'Center={center:.1f}')
+    ax.axhline(y=ucl_i, color='#AA0000', linestyle='--', linewidth=1,
+               alpha=0.7, label=f'UCL={ucl_i:.1f}')
+    ax.axhline(y=lcl_i, color='#AA0000', linestyle='--', linewidth=1,
+               alpha=0.7, label=f'LCL={lcl_i:.1f}')
+
+    ax.set_title('I Chart — Individual Close Prices (each dot = 1 bar)',
+                 fontsize=12, fontweight='bold')
+    ax.set_ylabel('Close', fontsize=10)
+    ax.legend(fontsize=7, loc='best')
+    ax.grid(True, alpha=0.15)
+
+    # --- Panel 3: MR chart (signed) ---
+    ax = axes[2]
+    mr_abs = price_imr['mr_abs']
+
+    # Color bars by sign: green=up, red=down
+    colors_mr = np.where(mr >= 0, '#4CAF50', '#F44336')
+    ax.bar(x, mr, color=colors_mr, width=1.0, alpha=0.7, edgecolor='none')
+
+    # UCL / LCL (symmetric for signed MR)
+    ax.axhline(y=0, color='#333333', linestyle='-', linewidth=0.8)
+    ax.axhline(y=ucl_mr, color='#AA0000', linestyle='--', linewidth=1,
+               alpha=0.7, label=f'+UCL={ucl_mr:.2f}')
+    ax.axhline(y=-ucl_mr, color='#AA0000', linestyle='--', linewidth=1,
+               alpha=0.7, label=f'-UCL={-ucl_mr:.2f}')
+    ax.axhline(y=mr_bar, color='#888888', linestyle=':', linewidth=1,
+               alpha=0.5, label=f'MR_bar={mr_bar:.2f}')
+    ax.axhline(y=-mr_bar, color='#888888', linestyle=':', linewidth=1,
+               alpha=0.5)
+
+    # Mark UCL breaks
+    mr_break = mr_abs > ucl_mr
+    if mr_break.any():
+        ax.scatter(x[mr_break], mr[mr_break], color='black', s=15,
+                   zorder=5, marker='x', linewidths=1, label='UCL break')
+
+    ax.set_title('MR Chart — Signed Moving Range (green=up, red=down)',
+                 fontsize=12, fontweight='bold')
+    ax.set_ylabel('Price Change', fontsize=10)
+    ax.legend(fontsize=7, loc='best')
+    ax.grid(True, alpha=0.15)
+
+    # --- Panel 4: Regime map ---
+    ax = axes[3]
+    for rm in regime_meta:
+        s, e = rm['start_idx'], rm['end_idx']
+        color = _REGIME_COLORS[rm['regime_id'] % len(_REGIME_COLORS)]
+        ax.barh(0, e - s + 1, left=s, height=0.8, color=color, alpha=0.8,
+                edgecolor='white', linewidth=0.5)
+        # Label in center
+        mid = (s + e) / 2
+        ax.text(mid, 0, f"R{rm['regime_id']}\n{rm['direction']}\n{rm['n_bars']}b",
+                ha='center', va='center', fontsize=7, fontweight='bold',
+                color='white')
+
+    ax.set_yticks([])
+    ax.set_title('Regime Map — Natural price segments from MR UCL breaks',
+                 fontsize=12, fontweight='bold')
+    ax.set_xlabel('Bar index', fontsize=10)
+
+    # Date tick labels
+    if date_positions:
+        step = max(1, len(date_positions) // 15)
+        ax.set_xticks([date_positions[i] for i in range(0, len(date_positions), step)])
+        ax.set_xticklabels([date_labels[i] for i in range(0, len(date_labels), step)],
+                           rotation=45, ha='right', fontsize=8)
+
+    fig.suptitle(f'PRICE I-MR CHART — {n} bars, {n_regimes} regimes\n'
+                 f'Warmup: {warmup_end} bars | UCL_MR={ucl_mr:.2f} '
+                 f'(breaks trigger new regime)',
+                 fontsize=14, fontweight='bold', y=1.02)
+    plt.tight_layout()
+    path = os.path.join(PLOTS_DIR, '0_price_imr.png')
+    plt.savefig(path, dpi=150, bbox_inches='tight')
+    plt.close()
+    print(f"  Saved: {path}")
+
+
+def plot_regime_summary(regime_meta, mfes, maes, bar_indices, regime_ids):
+    """2x2 regime dashboard.
+
+    Saves to tools/plots/standalone/0b_regime_summary.png
+    """
+    os.makedirs(PLOTS_DIR, exist_ok=True)
+
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    fig.set_facecolor('white')
+    for row in axes:
+        for ax in row:
+            ax.set_facecolor('white')
+
+    n_regimes = len(regime_meta)
+    regime_labels = [f"R{rm['regime_id']}" for rm in regime_meta]
+    colors = [_REGIME_COLORS[rm['regime_id'] % len(_REGIME_COLORS)]
+              for rm in regime_meta]
+
+    # Map bar_indices to their regime IDs
+    bar_regime = regime_ids[bar_indices]
+
+    # --- Top-left: MFE distribution by regime (box plot) ---
+    ax = axes[0, 0]
+    mfe_by_regime = []
+    labels_used = []
+    for rm in regime_meta:
+        mask = bar_regime == rm['regime_id']
+        if mask.any():
+            mfe_by_regime.append(mfes[mask])
+            labels_used.append(f"R{rm['regime_id']}")
+    if mfe_by_regime:
+        bp = ax.boxplot(mfe_by_regime, labels=labels_used, patch_artist=True)
+        for patch, rm in zip(bp['boxes'], regime_meta):
+            patch.set_facecolor(_REGIME_COLORS[rm['regime_id'] % len(_REGIME_COLORS)])
+            patch.set_alpha(0.6)
+    ax.set_title('MFE Distribution by Regime', fontsize=11, fontweight='bold')
+    ax.set_ylabel('MFE (points)', fontsize=9)
+    ax.grid(True, alpha=0.15)
+
+    # --- Top-right: Regime volatility vs mean MFE (scatter) ---
+    ax = axes[0, 1]
+    for rm in regime_meta:
+        mask = bar_regime == rm['regime_id']
+        mean_mfe = float(mfes[mask].mean()) if mask.any() else 0
+        c = _REGIME_COLORS[rm['regime_id'] % len(_REGIME_COLORS)]
+        ax.scatter(rm['volatility'], mean_mfe, color=c, s=rm['n_bars'] * 2,
+                   edgecolors='black', linewidth=0.5, zorder=5)
+        ax.annotate(f"R{rm['regime_id']}", (rm['volatility'], mean_mfe),
+                    fontsize=8, ha='left', va='bottom')
+    ax.set_title('Regime Volatility vs Mean MFE', fontsize=11, fontweight='bold')
+    ax.set_xlabel('Volatility (mean MR)', fontsize=9)
+    ax.set_ylabel('Mean MFE', fontsize=9)
+    ax.grid(True, alpha=0.15)
+
+    # --- Bottom-left: Regime duration histogram ---
+    ax = axes[1, 0]
+    durations = [rm['n_bars'] for rm in regime_meta]
+    ax.bar(range(n_regimes), durations, color=colors, edgecolor='white',
+           linewidth=0.5)
+    ax.set_xticks(range(n_regimes))
+    ax.set_xticklabels(regime_labels, fontsize=8)
+    ax.set_title('Regime Duration (bars)', fontsize=11, fontweight='bold')
+    ax.set_ylabel('Number of bars', fontsize=9)
+    ax.grid(True, alpha=0.15)
+
+    # --- Bottom-right: Win rate by regime ---
+    ax = axes[1, 1]
+    win_rates = []
+    for rm in regime_meta:
+        mask = bar_regime == rm['regime_id']
+        if mask.any():
+            wins = (mfes[mask] > maes[mask]).sum()
+            wr = float(wins) / float(mask.sum()) * 100
+        else:
+            wr = 0.0
+        win_rates.append(wr)
+    ax.bar(range(n_regimes), win_rates, color=colors, edgecolor='white',
+           linewidth=0.5)
+    ax.axhline(y=50, color='#888888', linestyle='--', linewidth=1, alpha=0.5)
+    ax.set_xticks(range(n_regimes))
+    ax.set_xticklabels(regime_labels, fontsize=8)
+    ax.set_title('Win Rate by Regime (MFE > MAE)', fontsize=11, fontweight='bold')
+    ax.set_ylabel('Win Rate %', fontsize=9)
+    ax.set_ylim(0, 100)
+    ax.grid(True, alpha=0.15)
+
+    fig.suptitle(f'REGIME SUMMARY — {n_regimes} regimes, '
+                 f'{len(mfes)} analysis bars',
+                 fontsize=13, fontweight='bold')
+    plt.tight_layout()
+    path = os.path.join(PLOTS_DIR, '0b_regime_summary.png')
+    plt.savefig(path, dpi=150, bbox_inches='tight')
+    plt.close()
+    print(f"  Saved: {path}")
 
 
 def plot_imr_charts(padded, mfes):
@@ -663,9 +1195,9 @@ def plot_segmented_imr(padded, mfes, maes, meta, tids, long_mask,
     ucl = D4 * mr_bar
 
     # ── PLOT 5: Segmented I-MR on 15m anchor ──
+    # White background. Line color = fission class only.
+    # Green (#2E7D32) = KEEP/trade, Yellow (#F9A825) = SPLIT/mixed, Red (#C62828) = DROP/no trade
     from matplotlib.collections import LineCollection
-    from matplotlib.colors import Normalize
-    import matplotlib.cm as cm
 
     # Extract actual close prices aligned to each analysis point
     prices = np.zeros(n)
@@ -681,157 +1213,124 @@ def plot_segmented_imr(padded, mfes, maes, meta, tids, long_mask,
     has_price = prices.sum() > 0
 
     n_panels = 5 if has_price else 4
-    ratios = [3, 2, 2, 2, 1] if has_price else [3, 2, 2, 1]
-    fig, axes = plt.subplots(n_panels, 1, figsize=(20, 20 if has_price else 16),
+    ratios = [3, 3, 2, 2, 1] if has_price else [3, 2, 2, 1]
+    fig, axes = plt.subplots(n_panels, 1, figsize=(20, 22 if has_price else 16),
                               sharex=True, gridspec_kw={'height_ratios': ratios})
+    fig.patch.set_facecolor('white')
 
     x = np.arange(n)
+    seg_colors = [fission_colors[c] for c in fission_class[:-1]]
+
+    def _add_legend(ax):
+        for cls in [0, 1, 2]:
+            n_cls = (fission_class == cls).sum()
+            wr_cls = float((mfes[fission_class == cls] > maes[fission_class == cls]).mean()) \
+                if n_cls > 0 else 0
+            ax.plot([], [], color=fission_colors[cls], linewidth=3,
+                    label=f'{fission_labels[cls]} (n={n_cls}, WR={wr_cls:.0%})')
+
     panel_idx = 0
 
-    # Panel 0: PRICE through time (the thing we're trading)
+    # Panel 0: PRICE through time
     if has_price:
         ax0 = axes[panel_idx]
+        ax0.set_facecolor('white')
         panel_idx += 1
 
-        # Background bands
-        for i in range(n):
-            ax0.axvspan(i - 0.5, i + 0.5, color=fission_colors[fission_class[i]], alpha=0.12)
-
-        # Price line colored by jump magnitude
-        price_mr = np.abs(np.diff(prices))
-        price_mr_norm = Normalize(vmin=0, vmax=max(float(np.percentile(price_mr, 95)), 0.01))
         points_p = np.column_stack([x, prices]).reshape(-1, 1, 2)
         segments_p = np.concatenate([points_p[:-1], points_p[1:]], axis=1)
-        seg_widths_p = 0.8 + 3.0 * price_mr_norm(price_mr)
-        lc_p = LineCollection(segments_p, cmap='hot_r', norm=price_mr_norm,
-                              linewidths=seg_widths_p, alpha=0.9)
-        lc_p.set_array(price_mr)
+        lc_p = LineCollection(segments_p, colors=seg_colors, linewidths=1.5)
         ax0.add_collection(lc_p)
         ax0.set_xlim(0, n - 1)
         p_range = prices.max() - prices.min()
         ax0.set_ylim(prices.min() - p_range * 0.05, prices.max() + p_range * 0.05)
 
-        cbar0 = plt.colorbar(lc_p, ax=ax0, shrink=0.6, pad=0.01)
-        cbar0.set_label('|Price jump|', fontsize=8)
-
-        for cls in [0, 1, 2]:
-            n_cls = (fission_class == cls).sum()
-            wr_cls = float((mfes[fission_class == cls] > maes[fission_class == cls]).mean()) \
-                if n_cls > 0 else 0
-            ax0.axvspan(0, 0, color=fission_colors[cls], alpha=0.3,
-                        label=f'{fission_labels[cls]} (n={n_cls}, WR={wr_cls:.0%})')
+        _add_legend(ax0)
         ax0.legend(fontsize=8, loc='upper right', ncol=3)
         ax0.set_ylabel('Price (15m close)', fontsize=10)
-        ax0.set_title('PRICE: 15m close — thick/dark = big move | Background = Fission class',
+        ax0.set_title('PRICE — Green=trade, Yellow=mixed, Red=no trade',
                       fontsize=12, fontweight='bold')
-        ax0.grid(True, alpha=0.15)
+        ax0.grid(True, alpha=0.2)
 
-    # Panel 1: I-chart — z_score with jump-colored line, fission background
+    # Panel 1: I-chart (z_score)
     ax1 = axes[panel_idx]
+    ax1.set_facecolor('white')
     panel_idx += 1
 
-    # Background bands colored by fission class
-    for i in range(n):
-        ax1.axvspan(i - 0.5, i + 0.5, color=fission_colors[fission_class[i]], alpha=0.12)
-
-    # Line colored by jump magnitude — thick where big moves happen
     points = np.column_stack([x, z_vals]).reshape(-1, 1, 2)
     segments = np.concatenate([points[:-1], points[1:]], axis=1)
-    # Color by |MR| — hot = big jump (the ones you want to capture)
-    mr_norm = Normalize(vmin=0, vmax=max(float(np.percentile(z_mr, 95)), 0.1))
-    seg_widths = 0.8 + 3.0 * mr_norm(z_mr)  # thin=quiet, thick=big jump
-    lc = LineCollection(segments, cmap='hot_r', norm=mr_norm,
-                        linewidths=seg_widths, alpha=0.9)
-    lc.set_array(z_mr)
+    lc = LineCollection(segments, colors=seg_colors, linewidths=1.5)
     ax1.add_collection(lc)
     ax1.set_xlim(0, n - 1)
     ax1.set_ylim(z_vals.min() - 0.5, z_vals.max() + 0.5)
 
     center = float(np.mean(z_vals))
     std_z = float(np.std(z_vals))
-    ax1.axhline(y=center, color='#888888', linewidth=1.2, linestyle='-', alpha=0.6, label=f'Center={center:.3f}')
-    ax1.axhline(y=center + 3 * std_z, color='#AA0000', linewidth=1, linestyle='--', alpha=0.5, label='UCL/LCL')
-    ax1.axhline(y=center - 3 * std_z, color='#AA0000', linewidth=1, linestyle='--', alpha=0.5)
-    ax1.axhline(y=0, color='black', linewidth=0.5, linestyle=':', alpha=0.5)
+    ax1.axhline(y=center, color='#888888', linewidth=1, linestyle='-', alpha=0.5, label=f'Center={center:.3f}')
+    ax1.axhline(y=center + 3 * std_z, color='#888888', linewidth=0.8, linestyle='--', alpha=0.4, label='UCL/LCL')
+    ax1.axhline(y=center - 3 * std_z, color='#888888', linewidth=0.8, linestyle='--', alpha=0.4)
+    ax1.axhline(y=0, color='black', linewidth=0.5, linestyle=':', alpha=0.3)
 
-    # Colorbar for jump magnitude
-    cbar1 = plt.colorbar(lc, ax=ax1, shrink=0.6, pad=0.01)
-    cbar1.set_label('|Jump| (MR)', fontsize=8)
-
-    # Legend for fission background
-    for cls in [0, 1, 2]:
-        n_cls = (fission_class == cls).sum()
-        wr_cls = float((mfes[fission_class == cls] > maes[fission_class == cls]).mean()) \
-            if n_cls > 0 else 0
-        ax1.axvspan(0, 0, color=fission_colors[cls], alpha=0.3,
-                    label=f'{fission_labels[cls]} (n={n_cls}, WR={wr_cls:.0%})')
-    ax1.legend(fontsize=8, loc='upper right', ncol=2)
+    _add_legend(ax1)
+    ax1.legend(fontsize=7, loc='upper right', ncol=3)
     ax1.set_ylabel('z_score (15m)', fontsize=10)
-    ax1.set_title('I-CHART: 15m z_score — Line thickness/color = jump size | Background = Fission class',
-                  fontsize=11, fontweight='bold')
-    ax1.grid(True, alpha=0.15)
+    ax1.set_title('I-CHART: 15m z_score', fontsize=11, fontweight='bold')
+    ax1.grid(True, alpha=0.2)
 
-    # Panel 2: MR chart — jump magnitude with fission background
+    # Panel 2: MR chart
     ax2 = axes[panel_idx]
+    ax2.set_facecolor('white')
     panel_idx += 1
-    for i in range(len(z_mr)):
-        ax2.axvspan(i - 0.5, i + 0.5, color=fission_colors[fission_class[i + 1]], alpha=0.12)
 
+    seg_colors_mr = [fission_colors[c] for c in fission_class[1:-1]]
     x_mr = np.arange(len(z_mr))
     points_mr = np.column_stack([x_mr, z_mr]).reshape(-1, 1, 2)
     segments_mr = np.concatenate([points_mr[:-1], points_mr[1:]], axis=1)
-    lc_mr = LineCollection(segments_mr, cmap='hot_r', norm=mr_norm,
-                           linewidths=1.2, alpha=0.9)
-    lc_mr.set_array(z_mr[:-1])
+    lc_mr = LineCollection(segments_mr, colors=seg_colors_mr, linewidths=1.2)
     ax2.add_collection(lc_mr)
     ax2.set_xlim(0, len(z_mr) - 1)
     ax2.set_ylim(0, min(z_mr.max() * 1.2, ucl * 2))
-    ax2.axhline(y=mr_bar, color='#888888', linewidth=1.2, alpha=0.6, label=f'MR_bar={mr_bar:.4f}')
-    ax2.axhline(y=ucl, color='#AA0000', linewidth=1.2, linestyle='--', alpha=0.5, label=f'UCL={ucl:.4f}')
+    ax2.axhline(y=mr_bar, color='#888888', linewidth=1, alpha=0.5, label=f'MR_bar={mr_bar:.4f}')
+    ax2.axhline(y=ucl, color='#888888', linewidth=0.8, linestyle='--', alpha=0.4, label=f'UCL={ucl:.4f}')
     ax2.legend(fontsize=8, loc='upper right')
     ax2.set_ylabel('|MR| z_score', fontsize=10)
-    ax2.set_title('MR CHART: Jump magnitude — big spikes = regime transitions worth capturing',
-                  fontsize=10, fontweight='bold')
-    ax2.grid(True, alpha=0.15)
+    ax2.set_title('MR CHART: Bar-to-bar jump magnitude', fontsize=10, fontweight='bold')
+    ax2.grid(True, alpha=0.2)
 
-    # Panel 3: MFE/MAE with fission background — do big jumps = big MFE?
+    # Panel 3: MFE/MAE
     ax3 = axes[panel_idx]
+    ax3.set_facecolor('white')
     panel_idx += 1
-    for i in range(n):
-        ax3.axvspan(i - 0.5, i + 0.5, color=fission_colors[fission_class[i]], alpha=0.12)
 
-    # MFE line colored by fission
     points_mfe = np.column_stack([x, mfes]).reshape(-1, 1, 2)
     seg_mfe = np.concatenate([points_mfe[:-1], points_mfe[1:]], axis=1)
-    seg_colors_mfe = [fission_colors[c] for c in fission_class[:-1]]
-    lc_mfe = LineCollection(seg_mfe, colors=seg_colors_mfe, linewidths=1.2, alpha=0.8)
+    lc_mfe = LineCollection(seg_mfe, colors=seg_colors, linewidths=1.2)
     ax3.add_collection(lc_mfe)
-    # -MAE line
+
     points_mae = np.column_stack([x, -maes]).reshape(-1, 1, 2)
     seg_mae = np.concatenate([points_mae[:-1], points_mae[1:]], axis=1)
-    lc_mae = LineCollection(seg_mae, colors=seg_colors_mfe, linewidths=0.8, alpha=0.4)
+    lc_mae = LineCollection(seg_mae, colors=seg_colors, linewidths=0.8, alpha=0.5)
     ax3.add_collection(lc_mae)
     ax3.set_xlim(0, n - 1)
     ax3.set_ylim(-maes.max() * 1.1, mfes.max() * 1.1)
-    ax3.axhline(y=0, color='black', linewidth=0.5, linestyle='-')
-    ax3.axhline(y=float(np.mean(mfes)), color='blue', linewidth=1, linestyle='--',
+    ax3.axhline(y=0, color='black', linewidth=0.5, linestyle='-', alpha=0.3)
+    ax3.axhline(y=float(np.mean(mfes)), color='#2196F3', linewidth=0.8, linestyle='--',
                 alpha=0.5, label=f'Mean MFE={np.mean(mfes):.0f}')
-    ax3.plot([], [], color='gray', linewidth=1.2, label='MFE (top)')
-    ax3.plot([], [], color='gray', linewidth=0.8, alpha=0.4, label='-MAE (bottom)')
     ax3.legend(fontsize=8, loc='upper right')
     ax3.set_ylabel('MFE / -MAE (ticks)', fontsize=10)
-    ax3.set_title('ORACLE OUTCOME: Do the big jumps produce big MFE?', fontsize=10, fontweight='bold')
-    ax3.grid(True, alpha=0.15)
+    ax3.set_title('ORACLE OUTCOME: MFE (solid) and -MAE (faded)', fontsize=10, fontweight='bold')
+    ax3.grid(True, alpha=0.2)
 
-    # Panel 4: Fission class strip (categorical heatmap)
+    # Panel 4: Fission class strip
     ax4 = axes[panel_idx]
+    ax4.set_facecolor('white')
     for i in range(n):
         ax4.axvspan(i - 0.5, i + 0.5, color=fission_colors[fission_class[i]], alpha=0.8)
     ax4.set_yticks([])
     ax4.set_ylabel('Class', fontsize=10)
     ax4.set_xlabel('Analysis bar index (15m)', fontsize=10)
 
-    # X-axis: show timestamps at intervals
+    # X-axis timestamps
     n_ticks = min(20, n)
     tick_positions = np.linspace(0, n - 1, n_ticks, dtype=int)
     ax4.set_xticks(tick_positions)
@@ -839,8 +1338,7 @@ def plot_segmented_imr(padded, mfes, maes, meta, tids, long_mask,
                         rotation=45, ha='right', fontsize=7)
 
     fig.suptitle(f'SEGMENTED I-MR CHART — 15m Anchor ({n} data points)\n'
-                 f'Green=KEEP (trade), Yellow=SPLIT (refine), Red=DROP (noise)\n'
-                 f'Segmentation from ADX quartile x Direction across full fractal state',
+                 f'Green=KEEP (trade), Yellow=SPLIT (mixed), Red=DROP (no trade)',
                  fontsize=13, fontweight='bold', y=1.01)
     plt.tight_layout()
     plt.savefig(os.path.join(PLOTS_DIR, '5_segmented_imr_15m.png'),
@@ -1021,8 +1519,9 @@ def screen_factors(flat, col_names, mfes):
     return results
 
 
-def regression_r2(flat, col_names, mfes, top_k=20):
-    """Stepwise OLS on top-K factors, report adj-R²."""
+def regression_r2(flat, col_names, mfes, top_k=20, return_model=False):
+    """Stepwise OLS on top-K factors, report adj-R².
+    If return_model=True, also returns (model, scaler, top_indices) for the final step."""
     from sklearn.linear_model import LinearRegression
     from sklearn.preprocessing import StandardScaler
 
@@ -1051,6 +1550,13 @@ def regression_r2(flat, col_names, mfes, top_k=20):
         print(f"  {step:>4}  {col_names[idx]:<35} {r2:>8.4f}  {delta:>+8.4f}  {adj_r2:>8.4f}")
         steps.append((col_names[idx], r2, delta, adj_r2))
         prev_r2 = r2
+
+    if return_model:
+        # Refit final model cleanly for reuse
+        final_scaler = StandardScaler()
+        X_final = final_scaler.fit_transform(flat[:, top_indices])
+        final_model = LinearRegression().fit(X_final, mfes)
+        return steps, (final_model, final_scaler, top_indices)
 
     return steps
 
@@ -1123,19 +1629,115 @@ def main():
                         help='Analysis window in days (0 = all remaining, default: 7)')
     parser.add_argument('--top', type=int, default=30,
                         help='Number of top factors to display')
+    parser.add_argument('--full', action='store_true',
+                        help='Run full 16D fractal pipeline (physics + hypervolumes)')
     args = parser.parse_args()
+
+    # Capture all output to report file
+    _report_buf = io.StringIO()
+    _orig_stdout = sys.stdout
+    sys.stdout = _Tee(_orig_stdout, _report_buf)
 
     print(f"{'='*70}")
     print(f"  STANDALONE WAVEFORM SCREENING")
     print(f"  Data: {args.data}")
     print(f"  Base TF: {args.base_tf}")
     print(f"  Context: {args.context_days}d warmup, {args.analysis_days}d analysis")
+    print(f"  Mode: {'FULL (16D fractal)' if args.full else 'PRICE I-MR (default)'}")
     print(f"{'='*70}")
 
-    # --- 1. Load ATLAS data for all 12 TFs ---
-    print(f"\n--- STEP 1: Loading ATLAS data ---")
-    all_dfs = {}
+    # =====================================================================
+    #  STEP 1: Load base TF data
+    # =====================================================================
+    print(f"\n--- STEP 1: Loading base TF data ({args.base_tf}) ---")
+    base_df = load_atlas_tf(args.data, args.base_tf, months=args.months)
+    if base_df.empty:
+        print(f"ERROR: Base TF '{args.base_tf}' has no data in {args.data}")
+        sys.exit(1)
+    print(f"  {args.base_tf}: {len(base_df):,} bars loaded")
+
+    # =====================================================================
+    #  STEP 2: Price I-MR chart (pure price/time, no physics)
+    # =====================================================================
+    print(f"\n--- STEP 2: Price I-MR Chart ---")
+    price_imr = compute_price_imr(base_df, args.context_days, args.analysis_days)
+
+    # =====================================================================
+    #  STEP 3: Detect regimes from MR UCL breaks
+    # =====================================================================
+    print(f"\n--- STEP 3: Regime Detection ---")
+    regime_ids, regime_meta = detect_regimes(price_imr)
+
+    # =====================================================================
+    #  STEP 4: Oracle MFE/MAE with regime-based direction
+    # =====================================================================
+    print(f"\n--- STEP 4: Oracle MFE/MAE ---")
+    lookahead = ORACLE_LOOKAHEAD_BARS.get(args.base_tf, 16)
+    bar_indices, mfes, maes, directions = compute_regime_oracle(
+        base_df, regime_ids, regime_meta, lookahead=lookahead)
+
+    if len(mfes) < 10:
+        print(f"ERROR: Only {len(mfes)} oracle bars (need >= 10)")
+        sys.exit(1)
+
+    # =====================================================================
+    #  STEP 5: Price I-MR plot + Regime summary
+    # =====================================================================
+    print(f"\n--- STEP 5: Generating charts ---")
+    plot_price_imr(price_imr, regime_ids, regime_meta, base_df)
+    plot_regime_summary(regime_meta, mfes, maes, bar_indices, regime_ids)
+
+    # =====================================================================
+    #  STEP 6: Print regime summary table
+    # =====================================================================
+
+    print(f"\n{'='*70}")
+    print(f"  REGIME SUMMARY")
+    print(f"{'='*70}")
+    print(f"  Analysis bars: {len(mfes)}")
+    print(f"  Regimes: {len(regime_meta)}")
+    print(f"  MFE: mean={np.mean(mfes):.2f}, std={np.std(mfes):.2f}")
+    print(f"  MAE: mean={np.mean(maes):.2f}, std={np.std(maes):.2f}")
+    print(f"  Win rate (MFE > MAE): {(mfes > maes).mean():.1%}")
+
+    print(f"\n  {'Regime':<10} {'Dir':<6} {'N':>5} {'WR':>7} {'MFE':>8} "
+          f"{'MAE':>8} {'Vol':>6} {'Price':>10}")
+    print(f"  {'-'*10} {'-'*6} {'-'*5} {'-'*7} {'-'*8} "
+          f"{'-'*8} {'-'*6} {'-'*10}")
+
+    bar_regime = regime_ids[bar_indices]
+    for rm in regime_meta:
+        rid = rm['regime_id']
+        mask = bar_regime == rid
+        if mask.sum() == 0:
+            continue
+        wr = float((mfes[mask] > maes[mask]).mean())
+        mean_mfe = float(np.mean(mfes[mask]))
+        mean_mae = float(np.mean(maes[mask]))
+        print(f"  R{rid:<9} {rm['direction']:<6} {mask.sum():>5} {wr:>7.1%} "
+              f"{mean_mfe:>+8.1f} {mean_mae:>8.1f} {rm['volatility']:>6.2f} "
+              f"{rm['mean_price']:>10.1f}")
+
+    # Directional split
+    long_mask = np.array([d == 'LONG' for d in directions])
+    short_mask = ~long_mask
+    n_long = long_mask.sum()
+    n_short = short_mask.sum()
+    wr_long = float((mfes[long_mask] > maes[long_mask]).mean()) if n_long > 0 else 0
+    wr_short = float((mfes[short_mask] > maes[short_mask]).mean()) if n_short > 0 else 0
+
+    print(f"\n  DIRECTIONAL SPLIT:")
+    print(f"  LONG:  {n_long:>5} bars, WR={wr_long:.1%}")
+    print(f"  SHORT: {n_short:>5} bars, WR={wr_short:.1%}")
+
+    # =====================================================================
+    #  STEP 7: Load all 12 TFs + compute fractal context
+    # =====================================================================
+    print(f"\n--- STEP 7: Loading all TF data + fractal context ---")
+    all_dfs = {args.base_tf: base_df}
     for tf in TF_HIERARCHY:
+        if tf == args.base_tf:
+            continue
         df = load_atlas_tf(args.data, tf, months=args.months)
         if not df.empty:
             all_dfs[tf] = df
@@ -1143,12 +1745,7 @@ def main():
         else:
             print(f"  {tf:>4}:   (not found)")
 
-    if args.base_tf not in all_dfs:
-        print(f"ERROR: Base TF '{args.base_tf}' has no data in {args.data}")
-        sys.exit(1)
-
-    # --- 2. Compute physics per TF ---
-    print(f"\n--- STEP 2: Computing I-MR physics per timeframe ---")
+    print(f"\n  Computing physics per TF...")
     all_tf_states = {}
     for tf in tqdm(TF_HIERARCHY, desc="Physics", unit="tf"):
         if tf not in all_dfs:
@@ -1158,27 +1755,1114 @@ def main():
             all_tf_states[tf] = states
             print(f"  {tf:>4}: {len(states):>8,} states computed")
 
-    print(f"  Total: {len(all_tf_states)} TFs with physics data")
+    # =====================================================================
+    #  STEP 8: Build X (fractal context + current MR) for each bar
+    #
+    #  X = 192 fractal features at time t + signed MR[t] = 193 context features
+    #  Two Y targets:
+    #    Y_price     = close[t]              (can we explain the price?)
+    #    Y_direction = sign(close[t+1]-close[t])  (can we explain the direction?)
+    # =====================================================================
+    print(f"\n--- STEP 8: Building context matrix (193 features per bar) ---")
 
-    # --- 3. Build stacked hypervolume matrices ---
-    print(f"\n--- STEP 3: Building fractal I-MR hypervolume matrices ---")
-    matrices, mfes, maes, meta = build_stacked_matrices(
+    analysis_idx = np.where(regime_ids >= 0)[0]
+    timestamps = base_df['timestamp'].values.astype(float)
+    close = base_df['close'].values.astype(float)
+    mr_signed = price_imr['mr']
+
+    # Pre-sort timestamps for each TF (for binary search alignment)
+    tf_sorted_ts = {}
+    for tf in TF_HIERARCHY:
+        if tf in all_tf_states and all_tf_states[tf]:
+            tf_sorted_ts[tf] = np.array(sorted(all_tf_states[tf].keys()))
+
+    X_rows = []
+    X_delta_rows = []  # rate-of-change features
+    Y_price = []
+    Y_direction = []
+    sample_ts = []
+    base_secs = TF_SECONDS.get(args.base_tf, 900)
+
+    def _build_mat(t):
+        """Build (12,16) fractal fingerprint at timestamp t."""
+        mat = np.zeros((12, 16))
+        n = 0
+        for depth_idx, tf in enumerate(TF_HIERARCHY):
+            if tf not in tf_sorted_ts:
+                continue
+            tf_ts_list = tf_sorted_ts[tf]
+            tf_secs = TF_SECONDS.get(tf, 60)
+            if tf_secs > base_secs:
+                pos = np.searchsorted(tf_ts_list, t, side='right') - 2
+            else:
+                pos = np.searchsorted(tf_ts_list, t, side='right') - 1
+            if pos < 0:
+                continue
+            nearest_ts = tf_ts_list[pos]
+            state = all_tf_states[tf][nearest_ts]
+            mat[depth_idx, :] = extract_16d(state, tf)
+            n += 1
+        return mat, n
+
+    n_bars = len(close)
+    for idx in tqdm(analysis_idx, desc="Fractal context", unit="bar"):
+        if idx + 1 >= n_bars or idx < 1:
+            continue
+
+        t = int(timestamps[idx])
+        t_prev = int(timestamps[idx - 1])
+        current_mr = mr_signed[idx]
+
+        mat, has_data = _build_mat(t)
+        if has_data < 3:
+            continue
+
+        # Build previous bar's matrix for rate-of-change
+        mat_prev, has_prev = _build_mat(t_prev)
+        if has_prev < 3:
+            delta = np.zeros_like(mat)
+        else:
+            delta = mat - mat_prev
+
+        x_row = np.concatenate([mat.flatten(), [current_mr]])  # 193 features
+        x_delta = delta.flatten()  # 192 delta features
+        X_rows.append(x_row)
+        X_delta_rows.append(x_delta)
+        Y_price.append(close[idx])
+        next_change = close[idx + 1] - close[idx]
+        Y_direction.append(1.0 if next_change > 0 else (-1.0 if next_change < 0 else 0.0))
+        sample_ts.append(t)
+
+    X = np.array(X_rows)
+    X_delta = np.array(X_delta_rows)
+    Y_p = np.array(Y_price)
+    Y_d = np.array(Y_direction)
+    print(f"  Samples: {len(Y_p)}, Level features: {X.shape[1] if len(X) > 0 else 0}, "
+          f"Delta features: {X_delta.shape[1] if len(X_delta) > 0 else 0}")
+    print(f"  X: 192 fractal + 1 current MR = 193 level features")
+    print(f"  X_delta: 192 rate-of-change (feature[t] - feature[t-1])")
+
+    # Build column names: 192 fractal + 1 current MR
+    col_names = []
+    for d in range(12):
+        tf_lbl = TF_LABELS[d] if d < len(TF_LABELS) else f'd{d}'
+        for f in range(16):
+            f_lbl = FEATURE_NAMES[f] if f < len(FEATURE_NAMES) else f'f{f}'
+            col_names.append(f"{tf_lbl}__{f_lbl}")
+    col_names.append("current_MR")
+
+    # Delta column names
+    delta_col_names = []
+    for d in range(12):
+        tf_lbl = TF_LABELS[d] if d < len(TF_LABELS) else f'd{d}'
+        for f in range(16):
+            f_lbl = FEATURE_NAMES[f] if f < len(FEATURE_NAMES) else f'f{f}'
+            delta_col_names.append(f"dt_{tf_lbl}__{f_lbl}")
+
+    # =====================================================================
+    #  ANALYSIS A: PRICE EXPLANATION (independent)
+    #
+    #  Y = close[t] -- the actual price level
+    #  Question: does the fractal fingerprint describe WHERE price is?
+    # =====================================================================
+    print(f"\n{'='*70}")
+    print(f"  ANALYSIS A: PRICE EXPLANATION")
+    print(f"  Y = close[t] at each bar")
+    print(f"  Y range: {Y_p.min():.1f} to {Y_p.max():.1f}, "
+          f"mean={Y_p.mean():.1f}, std={Y_p.std():.1f}")
+    print(f"  Samples: {len(Y_p)}")
+    print(f"{'='*70}")
+
+    results_price = screen_factors(X, col_names, Y_p)
+
+    print(f"\n  TOP 20 FACTORS (correlation with price):")
+    print(f"  {'Rank':>4}  {'Factor':<35} {'r':>8}  {'|r|':>8}")
+    print(f"  {'-'*4}  {'-'*35} {'-'*8}  {'-'*8}")
+    for i, (name, corr, abs_corr) in enumerate(results_price[:20], 1):
+        bar = '#' * int(abs_corr * 50)
+        print(f"  {i:>4}  {name:<35} {corr:>+8.4f}  {abs_corr:>8.4f}  {bar}")
+
+    print(f"\n  Stepwise regression: context -> price")
+    result_a = regression_r2(X, col_names, Y_p, top_k=20, return_model=True)
+    steps_price, (price_model, price_scaler, price_feat_idx) = result_a
+    r2_p = steps_price[-1][3] if steps_price else 0
+    print(f"\n  >> PRICE adj-R2 = {r2_p:.4f}")
+    print(f"  >> Context explains {r2_p*100:.1f}% of price variance")
+
+    # Price: BY TIMEFRAME
+    print(f"\n  PRICE BY TIMEFRAME:")
+    print(f"  {'Depth':<12} {'TF':>6} {'Mean |r|':>10} {'Max |r|':>10} {'Top Factor':<35}")
+    print(f"  {'-'*12} {'-'*6} {'-'*10} {'-'*10} {'-'*35}")
+    for d in range(12):
+        prefix = TF_LABELS[d]
+        pf = [(n, c, a) for n, c, a in results_price if n.startswith(prefix + '__')]
+        if pf:
+            abs_vals = [a for _, _, a in pf]
+            mp = np.mean(abs_vals)
+            mx = max(abs_vals)
+            best = max(pf, key=lambda x: x[2])
+            print(f"  {prefix:<12} {TF_HIERARCHY[d]:>6} {mp:>10.4f} {mx:>10.4f} {best[0]:<35}")
+
+    # Price: BY FEATURE
+    print(f"\n  PRICE BY FEATURE:")
+    print(f"  {'Feature':<20} {'Mean |r|':>10} {'Max |r|':>10} {'Best TF':<15}")
+    print(f"  {'-'*20} {'-'*10} {'-'*10} {'-'*15}")
+    for f_name in FEATURE_NAMES:
+        pf = [(n, c, a) for n, c, a in results_price if n.endswith(f'__{f_name}')]
+        if pf:
+            abs_vals = [a for _, _, a in pf]
+            mp = np.mean(abs_vals)
+            mx = max(abs_vals)
+            best = max(pf, key=lambda x: x[2])
+            best_tf = best[0].split('__')[0]
+            print(f"  {f_name:<20} {mp:>10.4f} {mx:>10.4f} {best_tf:<15}")
+    mr_r_p = next((a for n, c, a in results_price if n == 'current_MR'), 0)
+    print(f"  {'current_MR':<20} {mr_r_p:>10.4f} {mr_r_p:>10.4f} {'(base TF)':<15}")
+
+    # Price: CONCLUSION
+    print(f"\n  PRICE CONCLUSION:")
+    if r2_p > 0.80:
+        print(f"  Strong: adj-R2 = {r2_p:.4f}. The fractal context reliably describes")
+        print(f"  WHERE price is. The 193 features map to price level with high fidelity.")
+    elif r2_p > 0.30:
+        print(f"  Moderate: adj-R2 = {r2_p:.4f}. Context captures price structure")
+        print(f"  but with meaningful residual noise.")
+    else:
+        print(f"  Weak: adj-R2 = {r2_p:.4f}. Context does not reliably explain price level.")
+
+    # =====================================================================
+    #  ANALYSIS B: DIRECTION EXPLANATION (independent)
+    #
+    #  Y = sign(close[t+1] - close[t]) -- will price go up or down?
+    #  Question: does the fractal fingerprint tell us which way price moves?
+    # =====================================================================
+    # Build direction matrix: X + price anchor = 194 features
+    X_dir = np.column_stack([X, Y_p])  # add close[t] as anchor
+    col_names_dir = col_names + ['price_anchor']
+
+    n_up = (Y_d > 0).sum()
+    n_down = (Y_d < 0).sum()
+    n_flat = (Y_d == 0).sum()
+
+    print(f"\n{'='*70}")
+    print(f"  ANALYSIS B: DIRECTION EXPLANATION (with price anchor)")
+    print(f"  Y = sign(next change): +1=up, -1=down")
+    print(f"  X = 192 fractal + current_MR + price[t] = {X_dir.shape[1]} features")
+    print(f"  Distribution: {n_up} up ({n_up/len(Y_d):.0%}), "
+          f"{n_down} down ({n_down/len(Y_d):.0%}), {n_flat} flat")
+    print(f"  Samples: {len(Y_d)}")
+    print(f"{'='*70}")
+
+    results_dir = screen_factors(X_dir, col_names_dir, Y_d)
+
+    print(f"\n  TOP 20 FACTORS (correlation with direction):")
+    print(f"  {'Rank':>4}  {'Factor':<35} {'r':>8}  {'|r|':>8}")
+    print(f"  {'-'*4}  {'-'*35} {'-'*8}  {'-'*8}")
+    for i, (name, corr, abs_corr) in enumerate(results_dir[:20], 1):
+        bar = '#' * int(abs_corr * 50)
+        print(f"  {i:>4}  {name:<35} {corr:>+8.4f}  {abs_corr:>8.4f}  {bar}")
+
+    print(f"\n  Stepwise regression: context + anchor -> direction")
+    steps_dir = regression_r2(X_dir, col_names_dir, Y_d, top_k=20)
+    r2_d = steps_dir[-1][3] if steps_dir else 0
+    print(f"\n  >> DIRECTION adj-R2 = {r2_d:.4f}")
+    print(f"  >> Context explains {r2_d*100:.1f}% of direction variance")
+
+    # Direction: BY TIMEFRAME
+    print(f"\n  DIRECTION BY TIMEFRAME:")
+    print(f"  {'Depth':<12} {'TF':>6} {'Mean |r|':>10} {'Max |r|':>10} {'Top Factor':<35}")
+    print(f"  {'-'*12} {'-'*6} {'-'*10} {'-'*10} {'-'*35}")
+    for d in range(12):
+        prefix = TF_LABELS[d]
+        df = [(n, c, a) for n, c, a in results_dir if n.startswith(prefix + '__')]
+        if df:
+            abs_vals = [a for _, _, a in df]
+            md = np.mean(abs_vals)
+            mx = max(abs_vals)
+            best = max(df, key=lambda x: x[2])
+            print(f"  {prefix:<12} {TF_HIERARCHY[d]:>6} {md:>10.4f} {mx:>10.4f} {best[0]:<35}")
+
+    # Direction: BY FEATURE
+    print(f"\n  DIRECTION BY FEATURE:")
+    print(f"  {'Feature':<20} {'Mean |r|':>10} {'Max |r|':>10} {'Best TF':<15}")
+    print(f"  {'-'*20} {'-'*10} {'-'*10} {'-'*15}")
+    for f_name in FEATURE_NAMES:
+        df = [(n, c, a) for n, c, a in results_dir if n.endswith(f'__{f_name}')]
+        if df:
+            abs_vals = [a for _, _, a in df]
+            md = np.mean(abs_vals)
+            mx = max(abs_vals)
+            best = max(df, key=lambda x: x[2])
+            best_tf = best[0].split('__')[0]
+            print(f"  {f_name:<20} {md:>10.4f} {mx:>10.4f} {best_tf:<15}")
+    mr_r_d = next((a for n, c, a in results_dir if n == 'current_MR'), 0)
+    print(f"  {'current_MR':<20} {mr_r_d:>10.4f} {mr_r_d:>10.4f} {'(base TF)':<15}")
+
+    # Direction: sign analysis — are correlations mostly negative?
+    top20_signs = [c for _, c, _ in results_dir[:20]]
+    n_neg = sum(1 for s in top20_signs if s < 0)
+    n_pos = sum(1 for s in top20_signs if s > 0)
+    print(f"\n  SIGN PATTERN: {n_neg}/20 top factors have NEGATIVE correlation")
+    if n_neg > 14:
+        print(f"  Most direction factors point to MEAN REVERSION -- higher feature")
+        print(f"  values predict DOWN moves, suggesting overbought/overextended states.")
+    elif n_pos > 14:
+        print(f"  Most direction factors point to TREND CONTINUATION -- higher")
+        print(f"  feature values predict UP moves, suggesting momentum persistence.")
+    else:
+        print(f"  Mixed signs -- no dominant directional bias in the features.")
+
+    # Direction: CONCLUSION
+    print(f"\n  DIRECTION CONCLUSION:")
+    if r2_d > 0.15:
+        print(f"  Useful: adj-R2 = {r2_d:.4f}. The fractal context carries meaningful")
+        print(f"  directional signal. Worth building a directional model from these features.")
+    elif r2_d > 0.05:
+        print(f"  Weak but present: adj-R2 = {r2_d:.4f}. Some directional signal exists")
+        print(f"  but it is fragile. May need more data, different features, or")
+        print(f"  non-linear methods to extract it reliably.")
+    else:
+        print(f"  Insufficient: adj-R2 = {r2_d:.4f}. The fractal context does not")
+        print(f"  reliably explain direction. The next bar is essentially unpredictable")
+        print(f"  from these features alone.")
+
+    # =====================================================================
+    #  ANALYSIS C: DIRECTION FROM PRICE MODEL (derived)
+    #
+    #  Since we can explain price (A=95%) but not direction standalone (B=8.7%),
+    #  can we derive direction from consecutive price predictions?
+    #  predicted_dir = sign( predict(features[t+1]) - predict(features[t]) )
+    # =====================================================================
+    print(f"\n{'='*70}")
+    print(f"  ANALYSIS C: DIRECTION DERIVED FROM PRICE MODEL")
+    print(f"  If price model predicts price[t] and price[t+1],")
+    print(f"  direction = sign(predicted[t+1] - predicted[t])")
+    print(f"{'='*70}")
+
+    # Predict price for every sample using the price model from Analysis A
+    X_price_feat = price_scaler.transform(X[:, price_feat_idx])
+    predicted_prices = price_model.predict(X_price_feat)
+
+    # Build consecutive pairs: predicted[t] vs predicted[t+1]
+    n_pairs = len(predicted_prices) - 1
+    pred_dir = np.sign(predicted_prices[1:] - predicted_prices[:-1])
+    actual_dir = Y_d[:-1]  # actual direction at each t (already sign of close[t+1]-close[t])
+
+    # Filter out flat actuals
+    mask = actual_dir != 0
+    pred_dir_f = pred_dir[mask]
+    actual_dir_f = actual_dir[mask]
+    n_valid = mask.sum()
+
+    correct = (pred_dir_f == actual_dir_f).sum()
+    accuracy = correct / n_valid if n_valid > 0 else 0
+
+    print(f"\n  Pairs: {n_pairs}, Valid (non-flat): {n_valid}")
+    print(f"  Predicted direction accuracy: {correct}/{n_valid} = {accuracy:.1%}")
+
+    # Breakdown by actual direction
+    up_mask = actual_dir_f > 0
+    down_mask = actual_dir_f < 0
+    up_correct = (pred_dir_f[up_mask] > 0).sum() if up_mask.sum() > 0 else 0
+    down_correct = (pred_dir_f[down_mask] < 0).sum() if down_mask.sum() > 0 else 0
+    print(f"\n  When actual UP:   {up_correct}/{up_mask.sum()} = "
+          f"{up_correct/up_mask.sum():.1%}" if up_mask.sum() > 0 else "")
+    print(f"  When actual DOWN: {down_correct}/{down_mask.sum()} = "
+          f"{down_correct/down_mask.sum():.1%}" if down_mask.sum() > 0 else "")
+
+    # Residual analysis: how big are the prediction errors vs actual moves?
+    residuals = predicted_prices - Y_p
+    actual_moves = np.diff(Y_p)
+    print(f"\n  Price model residuals: mean={residuals.mean():.2f}, std={residuals.std():.2f}")
+    print(f"  Actual bar-to-bar moves: mean={np.mean(np.abs(actual_moves)):.2f}, "
+          f"std={np.std(actual_moves):.2f}")
+    snr = np.mean(np.abs(actual_moves)) / residuals.std() if residuals.std() > 0 else 0
+    print(f"  Signal-to-noise ratio: {snr:.3f} "
+          f"({'good' if snr > 1.5 else 'marginal' if snr > 0.8 else 'poor'}: "
+          f"{'moves > noise' if snr > 1 else 'noise > moves'})")
+
+    # Confidence: only count predictions where delta is large enough
+    pred_deltas = predicted_prices[1:] - predicted_prices[:-1]
+    for threshold in [0.0, 5.0, 10.0, 20.0]:
+        conf_mask = (np.abs(pred_deltas) > threshold) & mask
+        if conf_mask.sum() > 0:
+            conf_correct = (pred_dir[conf_mask] == actual_dir[conf_mask]).sum()
+            conf_acc = conf_correct / conf_mask.sum()
+            print(f"  |predicted delta| > {threshold:>5.1f}: "
+                  f"{conf_correct}/{conf_mask.sum()} = {conf_acc:.1%}")
+
+    # CONCLUSION
+    print(f"\n  DERIVED DIRECTION CONCLUSION:")
+    if accuracy > 0.60:
+        print(f"  Promising: {accuracy:.1%} accuracy. Deriving direction from consecutive")
+        print(f"  price predictions works better than standalone direction modeling.")
+        if snr > 1.0:
+            print(f"  Signal-to-noise is favorable ({snr:.2f}) -- moves are larger than")
+            print(f"  prediction residuals.")
+        else:
+            print(f"  However, signal-to-noise is low ({snr:.2f}) -- may improve with")
+            print(f"  more data or better price features.")
+    elif accuracy > 0.52:
+        print(f"  Marginal: {accuracy:.1%} accuracy. Slightly better than chance but")
+        print(f"  not reliable enough. The price model's residual noise ({residuals.std():.1f})")
+        print(f"  is {'larger' if snr < 1 else 'comparable to'} the typical move ({np.mean(np.abs(actual_moves)):.1f}).")
+    else:
+        print(f"  No improvement: {accuracy:.1%}. The price model's residuals overwhelm")
+        print(f"  the bar-to-bar signal. 95% R2 on level does not translate to")
+        print(f"  directional accuracy at this resolution.")
+
+    # =====================================================================
+    #  ANALYSIS D: DOES RATE-OF-CHANGE IMPROVE PRICE & DIRECTION?
+    #
+    #  Add delta features (feature[t] - feature[t-1]) to test if
+    #  temporal pattern recognition helps beyond the spatial snapshot.
+    # =====================================================================
+    print(f"\n{'='*70}")
+    print(f"  ANALYSIS D: RATE-OF-CHANGE (PATTERN RECOGNITION)")
+    print(f"  Level = 193 features (snapshot at t)")
+    print(f"  Delta = 192 features (change from t-1 to t)")
+    print(f"  Combined = {193 + 192} features (level + delta)")
+    print(f"{'='*70}")
+
+    # Combine level + delta features
+    X_combined = np.column_stack([X, X_delta])
+    combined_col_names = col_names + delta_col_names
+
+    # D1: Does delta help PRICE explanation?
+    print(f"\n  D1: PRICE with level+delta features")
+    print(f"  Stepwise regression: {X_combined.shape[1]} features -> price")
+    steps_price_d = regression_r2(X_combined, combined_col_names, Y_p, top_k=20)
+    r2_pd = steps_price_d[-1][3] if steps_price_d else 0
+    print(f"\n  >> PRICE adj-R2 (level only):  {r2_p:.4f}")
+    print(f"  >> PRICE adj-R2 (level+delta): {r2_pd:.4f}")
+    print(f"  >> Delta contribution: {r2_pd - r2_p:+.4f} ({(r2_pd - r2_p)*100:+.1f}%)")
+
+    # How many delta features made it into the model?
+    n_delta_in_price = sum(1 for step in steps_price_d if step[0].startswith('dt_'))
+    print(f"  >> Delta features in price model: {n_delta_in_price}/{len(steps_price_d)}")
+
+    # Top delta features for price
+    price_d_results = screen_factors(X_delta, delta_col_names, Y_p)
+    print(f"\n  TOP 10 DELTA FACTORS for price:")
+    print(f"  {'Rank':>4}  {'Factor':<35} {'r':>8}  {'|r|':>8}")
+    print(f"  {'-'*4}  {'-'*35} {'-'*8}  {'-'*8}")
+    for i, (name, corr, abs_corr) in enumerate(price_d_results[:10], 1):
+        print(f"  {i:>4}  {name:<35} {corr:>+8.4f}  {abs_corr:>8.4f}")
+
+    # D2: Does delta help DIRECTION explanation?
+    print(f"\n  D2: DIRECTION with level+delta features")
+    X_dir_combined = np.column_stack([X, X_delta, Y_p])  # add price anchor too
+    dir_combined_names = col_names + delta_col_names + ['price_anchor']
+    print(f"  Stepwise regression: {X_dir_combined.shape[1]} features -> direction")
+    steps_dir_d = regression_r2(X_dir_combined, dir_combined_names, Y_d, top_k=20)
+    r2_dd = steps_dir_d[-1][3] if steps_dir_d else 0
+    print(f"\n  >> DIRECTION adj-R2 (level only):  {r2_d:.4f}")
+    print(f"  >> DIRECTION adj-R2 (level+delta): {r2_dd:.4f}")
+    print(f"  >> Delta contribution: {r2_dd - r2_d:+.4f} ({(r2_dd - r2_d)*100:+.1f}%)")
+
+    n_delta_in_dir = sum(1 for step in steps_dir_d if step[0].startswith('dt_'))
+    print(f"  >> Delta features in direction model: {n_delta_in_dir}/{len(steps_dir_d)}")
+
+    # Top delta features for direction
+    dir_d_results = screen_factors(X_delta, delta_col_names, Y_d)
+    print(f"\n  TOP 10 DELTA FACTORS for direction:")
+    print(f"  {'Rank':>4}  {'Factor':<35} {'r':>8}  {'|r|':>8}")
+    print(f"  {'-'*4}  {'-'*35} {'-'*8}  {'-'*8}")
+    for i, (name, corr, abs_corr) in enumerate(dir_d_results[:10], 1):
+        print(f"  {i:>4}  {name:<35} {corr:>+8.4f}  {abs_corr:>8.4f}")
+
+    # D3: Derived direction from combined price model
+    print(f"\n  D3: DERIVED DIRECTION from level+delta price model")
+    result_pd = regression_r2(X_combined, combined_col_names, Y_p, top_k=20, return_model=True)
+    steps_pd, (pd_model, pd_scaler, pd_feat_idx) = result_pd
+    X_pd_feat = pd_scaler.transform(X_combined[:, pd_feat_idx])
+    pred_prices_d = pd_model.predict(X_pd_feat)
+
+    pred_dir_d = np.sign(pred_prices_d[1:] - pred_prices_d[:-1])
+    actual_dir_d = Y_d[:-1]
+    mask_d = actual_dir_d != 0
+    correct_d = (pred_dir_d[mask_d] == actual_dir_d[mask_d]).sum()
+    n_valid_d = mask_d.sum()
+    accuracy_d = correct_d / n_valid_d if n_valid_d > 0 else 0
+
+    print(f"  Derived direction (level only):  {accuracy:.1%}")
+    print(f"  Derived direction (level+delta): {accuracy_d:.1%}")
+    print(f"  Delta contribution: {accuracy_d - accuracy:+.1%}")
+
+    # Confidence gates for combined model
+    pred_deltas_d = pred_prices_d[1:] - pred_prices_d[:-1]
+    for threshold in [0.0, 5.0, 10.0, 20.0]:
+        conf_mask = (np.abs(pred_deltas_d) > threshold) & mask_d
+        if conf_mask.sum() > 0:
+            conf_correct = (pred_dir_d[conf_mask] == actual_dir_d[conf_mask]).sum()
+            conf_acc = conf_correct / conf_mask.sum()
+            print(f"  |predicted delta| > {threshold:>5.1f}: "
+                  f"{conf_correct}/{conf_mask.sum()} = {conf_acc:.1%}")
+
+    # ANALYSIS D CONCLUSION
+    print(f"\n  ANALYSIS D CONCLUSION:")
+    price_gain = r2_pd - r2_p
+    dir_gain = r2_dd - r2_d
+    derived_gain = accuracy_d - accuracy
+    if price_gain > 0.01 or dir_gain > 0.01 or derived_gain > 0.03:
+        print(f"  Pattern recognition HELPS:")
+        if price_gain > 0.01:
+            print(f"    Price R2: {r2_p:.4f} -> {r2_pd:.4f} (+{price_gain:.4f})")
+        if dir_gain > 0.01:
+            print(f"    Direction R2: {r2_d:.4f} -> {r2_dd:.4f} (+{dir_gain:.4f})")
+        if derived_gain > 0.03:
+            print(f"    Derived accuracy: {accuracy:.1%} -> {accuracy_d:.1%} (+{derived_gain:.1%})")
+    else:
+        print(f"  Rate-of-change features do NOT meaningfully improve results.")
+        print(f"    Price R2:  {r2_p:.4f} -> {r2_pd:.4f} ({price_gain:+.4f})")
+        print(f"    Dir R2:    {r2_d:.4f} -> {r2_dd:.4f} ({dir_gain:+.4f})")
+        print(f"    Derived:   {accuracy:.1%} -> {accuracy_d:.1%} ({derived_gain:+.1%})")
+        print(f"  The spatial snapshot already captures what matters. Adding temporal")
+        print(f"  deltas does not reveal hidden directional signal.")
+
+    # =====================================================================
+    #  ANALYSIS E: dP/dT-GROUPED DIRECTION (signal amplification)
+    #
+    #  Group bars by signed dP/dT (= signed MR = close[t] - close[t-1]).
+    #  Within each group, bars have similar price behavior, preventing
+    #  signal dilution from mixing different market characters.
+    # =====================================================================
+    print(f"\n{'='*70}")
+    print(f"  ANALYSIS E: dP/dT-GROUPED ANALYSIS (SIGNAL AMPLIFICATION)")
+    print(f"  Group bars by signed price change rate, run Three Questions per group.")
+    print(f"  Hypothesis: homogeneous groups prevent signal dilution.")
+    print(f"{'='*70}")
+
+    # current_MR is the last column of X (index -1), which is signed dP/dT
+    sample_mr = X[:, -1]  # signed MR for each sample
+
+    # Bin into groups by signed MR: DOWN / FLAT / UP (terciles)
+    # Use 3 bins to keep groups large enough for regression
+    bin_edges = np.percentile(sample_mr, [33, 67])
+    bin_labels = ['DOWN', 'FLAT', 'UP']
+    bin_ids = np.digitize(sample_mr, bin_edges)  # 0-2
+
+    print(f"\n  dP/dT bins (quintiles of signed MR):")
+    print(f"  {'Bin':<15} {'Range':>20} {'N':>6} {'Mean MR':>10}")
+    print(f"  {'-'*15} {'-'*20} {'-'*6} {'-'*10}")
+    n_bins = len(bin_labels)
+    for b in range(n_bins):
+        mask_b = bin_ids == b
+        n_b = mask_b.sum()
+        if n_b > 0:
+            mr_b = sample_mr[mask_b]
+            print(f"  {bin_labels[b]:<15} [{mr_b.min():>+8.1f}, {mr_b.max():>+8.1f}] {n_b:>6} {mr_b.mean():>+10.2f}")
+
+    # Run Three Questions per bin
+    print(f"\n  PER-GROUP RESULTS:")
+    print(f"  {'Bin':<15} {'N':>5} {'Price R2':>10} {'Dir R2':>10} {'Derived':>10} {'Dir>20':>10}")
+    print(f"  {'-'*15} {'-'*5} {'-'*10} {'-'*10} {'-'*10} {'-'*10}")
+
+    group_results = []
+    for b in range(n_bins):
+        mask_b = bin_ids == b
+        n_b = mask_b.sum()
+        if n_b < 20:  # need minimum samples for regression
+            print(f"  {bin_labels[b]:<15} {n_b:>5}   (too few samples)")
+            group_results.append((bin_labels[b], n_b, 0, 0, 0, 0))
+            continue
+
+        X_b = X[mask_b]
+        Y_p_b = Y_p[mask_b]
+        Y_d_b = Y_d[mask_b]
+
+        # A: Price R2 per group
+        steps_p_b = regression_r2(X_b, col_names, Y_p_b, top_k=20)
+        r2_p_b = steps_p_b[-1][3] if steps_p_b else 0
+
+        # B: Direction R2 per group
+        X_dir_b = np.column_stack([X_b, Y_p_b])
+        steps_d_b = regression_r2(X_dir_b, col_names + ['price_anchor'], Y_d_b, top_k=20)
+        r2_d_b = steps_d_b[-1][3] if steps_d_b else 0
+
+        # C: Derived direction per group
+        result_b = regression_r2(X_b, col_names, Y_p_b, top_k=20, return_model=True)
+        steps_b, (model_b, scaler_b, feat_idx_b) = result_b
+        X_feat_b = scaler_b.transform(X_b[:, feat_idx_b])
+        pred_p_b = model_b.predict(X_feat_b)
+
+        pred_dir_b = np.sign(pred_p_b[1:] - pred_p_b[:-1])
+        actual_dir_b = Y_d_b[:-1]
+        mask_nf = actual_dir_b != 0
+        n_valid_b = mask_nf.sum()
+        if n_valid_b > 0:
+            correct_b = (pred_dir_b[mask_nf] == actual_dir_b[mask_nf]).sum()
+            acc_b = correct_b / n_valid_b
+        else:
+            acc_b = 0
+
+        # Confidence gate >20
+        pred_deltas_b = pred_p_b[1:] - pred_p_b[:-1]
+        conf20_mask = (np.abs(pred_deltas_b) > 20) & mask_nf
+        if conf20_mask.sum() > 5:
+            conf20_acc = (pred_dir_b[conf20_mask] == actual_dir_b[conf20_mask]).sum() / conf20_mask.sum()
+            conf20_str = f"{conf20_acc:.1%}({conf20_mask.sum()})"
+        else:
+            conf20_acc = 0
+            conf20_str = "n/a"
+
+        print(f"  {bin_labels[b]:<15} {n_b:>5} {r2_p_b:>10.4f} {r2_d_b:>10.4f} {acc_b:>9.1%} {conf20_str:>10}")
+        group_results.append((bin_labels[b], n_b, r2_p_b, r2_d_b, acc_b, conf20_acc))
+
+    # Compare vs global
+    print(f"\n  {'GLOBAL':<15} {len(Y_p):>5} {r2_p:>10.4f} {r2_d:>10.4f} {accuracy:>9.1%}")
+
+    # Summary statistics
+    valid_groups = [(lbl, n, rp, rd, da, c20) for lbl, n, rp, rd, da, c20 in group_results if n >= 20]
+    if valid_groups:
+        avg_dir_r2 = np.mean([rd for _, _, _, rd, _, _ in valid_groups])
+        avg_derived = np.mean([da for _, _, _, _, da, _ in valid_groups])
+        best_group = max(valid_groups, key=lambda x: x[3])
+        worst_group = min(valid_groups, key=lambda x: x[3])
+
+        print(f"\n  ANALYSIS E CONCLUSION:")
+        print(f"  Average per-group direction R2: {avg_dir_r2:.4f} (vs global {r2_d:.4f})")
+        print(f"  Average per-group derived dir:  {avg_derived:.1%} (vs global {accuracy:.1%})")
+        print(f"  Best group:  {best_group[0]} (dir R2={best_group[3]:.4f}, derived={best_group[4]:.1%})")
+        print(f"  Worst group: {worst_group[0]} (dir R2={worst_group[3]:.4f}, derived={worst_group[4]:.1%})")
+
+        if avg_dir_r2 > r2_d * 1.5:
+            print(f"\n  SIGNAL AMPLIFICATION CONFIRMED: grouping by dP/dT improves")
+            print(f"  direction R2 by {avg_dir_r2/max(r2_d,0.001):.1f}x on average.")
+            print(f"  Homogeneous groups preserve directional signal that drowns")
+            print(f"  in the global model. This validates the clustering approach.")
+        else:
+            print(f"\n  Grouping by dP/dT does not significantly amplify the signal.")
+            print(f"  The direction problem may be fundamental, not a grouping issue.")
+
+    # =====================================================================
+    #  ANALYSIS F: REGIME SIGNATURE PLOT
+    #
+    #  Like fractal dimension vs SNR plots: each regime gets ONE mean
+    #  trajectory line on a shared chart. Shapes normalized to entry=0
+    #  so we compare MOVEMENT, not price level. Separation between
+    #  regime lines = clustering captures distinct behavior.
+    # =====================================================================
+    print(f"\n{'='*70}")
+    print(f"  ANALYSIS F: REGIME SIGNATURE PLOT")
+    print(f"{'='*70}")
+
+    lookback_bars = 8    # 8 bars before entry (2 hours at 15m)
+    lookahead_bars = 16  # 16 bars after entry (4 hours at 15m)
+    shape_len = lookback_bars + 1 + lookahead_bars  # 25 total points
+
+    # Map sample timestamps back to base_df indices
+    _ts_col = timestamps.astype(int)
+    _ts_to_idx = {int(t): i for i, t in enumerate(_ts_col)}
+    sample_indices = []
+    for ts in sample_ts:
+        if ts in _ts_to_idx:
+            sample_indices.append(_ts_to_idx[ts])
+        else:
+            sample_indices.append(-1)
+
+    # Collect shapes per regime (normalized to entry=0)
+    shapes_by_regime = {rm['regime_id']: [] for rm in regime_meta}
+    raw_shapes_by_regime = {rm['regime_id']: [] for rm in regime_meta}
+    outcomes_by_regime = {rm['regime_id']: [] for rm in regime_meta}
+
+    for i, bar_idx in enumerate(sample_indices):
+        if bar_idx < 0 or bar_idx < lookback_bars:
+            continue
+        if bar_idx + lookahead_bars >= len(close):
+            continue
+
+        rid = regime_ids[bar_idx]
+        if rid < 0:
+            continue  # warmup bar
+
+        # Extract price shape: lookback + entry + lookahead
+        shape_raw = close[bar_idx - lookback_bars : bar_idx + lookahead_bars + 1]
+        if len(shape_raw) != shape_len:
+            continue
+
+        entry_price = close[bar_idx]
+        shape_norm = shape_raw - entry_price  # normalize: entry = 0
+
+        shapes_by_regime[rid].append(shape_norm)
+        raw_shapes_by_regime[rid].append(shape_raw)
+
+        # Win/loss: MFE > MAE from oracle
+        future = close[bar_idx + 1 : bar_idx + 1 + lookahead_bars]
+        if len(future) > 0:
+            max_up = future.max() - entry_price
+            max_down = entry_price - future.min()
+            outcomes_by_regime[rid].append(1 if max_up > max_down else 0)
+
+    import matplotlib.pyplot as plt
+    import matplotlib.lines as mlines
+
+    # Filter to regimes with enough shapes (min 5)
+    active_rids = [rm['regime_id'] for rm in regime_meta
+                   if len(shapes_by_regime.get(rm['regime_id'], [])) >= 5]
+    n_active = len(active_rids)
+
+    if n_active == 0:
+        print("  No regimes with enough shapes.")
+    else:
+        # Convert raw shapes to delta-from-entry for each regime
+        delta_by_regime = {}
+        for rid in active_rids:
+            raw = np.array(shapes_by_regime[rid])
+            entry_prices = raw[:, lookback_bars]  # price at bar 0
+            delta_by_regime[rid] = raw - entry_prices[:, np.newaxis]
+
+        # Distinct colors + line styles + markers (like fractal dim reference)
+        cmap = plt.cm.tab10
+        line_styles = ['-', '--', '-.', ':', '-', '--', '-.', ':']
+        markers     = ['o', 's', '^', 'D', 'v', 'P', 'X', '*']
+        regime_colors = {rid: cmap(k % 10) for k, rid in enumerate(active_rids)}
+        x_axis = np.arange(-lookback_bars, lookahead_bars + 1)
+
+        # ==== CHART 1: Signature overlay (all regime means, one plot) ====
+        fig, ax = plt.subplots(1, 1, figsize=(14, 8))
+
+        legend_handles = []
+        for k, rid in enumerate(active_rids):
+            delta = delta_by_regime[rid]
+            n_shapes = len(delta)
+            color = regime_colors[rid]
+            ls = line_styles[k % len(line_styles)]
+            mk = markers[k % len(markers)]
+            rm = next(m for m in regime_meta if m['regime_id'] == rid)
+            wr = np.mean(outcomes_by_regime[rid]) * 100 if outcomes_by_regime[rid] else 0
+
+            mean_d = delta.mean(axis=0)
+            std_d = delta.std(axis=0)
+
+            # Mean line with markers every 2 bars
+            ax.plot(x_axis, mean_d, color=color, linewidth=2.5,
+                    linestyle=ls, marker=mk, markevery=2, markersize=6)
+            # +/- 1 std band
+            ax.fill_between(x_axis, mean_d - std_d, mean_d + std_d,
+                            color=color, alpha=0.08)
+
+            label = f"R{rid} ({rm['direction']}, n={n_shapes}, WR={wr:.0f}%)"
+            legend_handles.append(mlines.Line2D(
+                [], [], color=color, linestyle=ls, marker=mk,
+                markersize=6, linewidth=2.5, label=label))
+
+        ax.axvline(x=0, color='black', linestyle='--', linewidth=1, alpha=0.5)
+        ax.axhline(y=0, color='gray', linestyle='-', linewidth=0.5, alpha=0.5)
+        ax.set_xlabel('Bars from entry (15m)', fontsize=12)
+        ax.set_ylabel('Price change from entry (ticks)', fontsize=12)
+        ax.set_title('Regime Signatures: Mean Price Trajectory per I-MR Regime\n'
+                      '(delta from entry, +/-1 std bands)', fontsize=14)
+        ax.legend(handles=legend_handles, fontsize=10, loc='best',
+                  framealpha=0.9, edgecolor='gray')
+        ax.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        sig_path = os.path.join(PLOTS_DIR, '0c_stacked_shapes.png')
+        fig.savefig(sig_path, dpi=150, bbox_inches='tight', facecolor='white')
+        plt.close(fig)
+        print(f"  Saved signature overlay: {sig_path}")
+
+        # ==== CHART 2: Per-regime spaghetti audit (delta, vertical stack) ====
+        fig2, axes2 = plt.subplots(n_active, 1,
+                                   figsize=(12, 3.0 * n_active),
+                                   squeeze=False)
+
+        for row, rid in enumerate(active_rids):
+            ax2 = axes2[row, 0]
+            delta = delta_by_regime[rid]
+            n_shapes = len(delta)
+            color = regime_colors[rid]
+            rm = next(m for m in regime_meta if m['regime_id'] == rid)
+            wr = np.mean(outcomes_by_regime[rid]) * 100 if outcomes_by_regime[rid] else 0
+
+            # Individual traces
+            max_to_plot = min(n_shapes, 300)
+            alpha = max(0.05, min(0.25, 20.0 / max_to_plot))
+            for j in range(max_to_plot):
+                ax2.plot(x_axis, delta[j], color=color, alpha=alpha, linewidth=0.5)
+
+            # Mean + std envelope
+            mean_d = delta.mean(axis=0)
+            std_d = delta.std(axis=0)
+            ax2.plot(x_axis, mean_d, color=color, linewidth=3, label='Mean')
+            ax2.fill_between(x_axis, mean_d - std_d, mean_d + std_d,
+                             color=color, alpha=0.15)
+
+            ax2.axvline(x=0, color='black', linestyle='--', linewidth=1, alpha=0.5)
+            ax2.axhline(y=0, color='gray', linestyle='-', linewidth=0.5, alpha=0.5)
+
+            ax2.set_title(f"R{rid}: {n_shapes} shapes | dir={rm['direction']}, "
+                          f"vol={rm['volatility']:.2f} | WR={wr:.0f}%",
+                          fontsize=11, loc='left')
+            ax2.set_ylabel('dPrice (ticks)')
+            if row == n_active - 1:
+                ax2.set_xlabel('Bars from entry (15m)')
+            ax2.legend(fontsize=8, loc='upper right')
+            ax2.grid(True, alpha=0.2)
+
+        fig2.suptitle('Per-Regime Shape Audit (delta from entry, individual traces)',
+                      fontsize=14, y=1.01)
+        plt.tight_layout()
+        audit_path = os.path.join(PLOTS_DIR, '0d_regime_audit.png')
+        fig2.savefig(audit_path, dpi=150, bbox_inches='tight', facecolor='white')
+        plt.close(fig2)
+        print(f"  Saved per-regime audit: {audit_path}")
+
+        # Summary table
+        for rid in active_rids:
+            n_s = len(shapes_by_regime[rid])
+            rm = next(m for m in regime_meta if m['regime_id'] == rid)
+            delta = delta_by_regime[rid]
+            mean_end = delta[:, -1].mean()   # mean endpoint delta
+            std_end = delta[:, -1].std()
+            wr = np.mean(outcomes_by_regime[rid]) * 100 if outcomes_by_regime[rid] else 0
+            print(f"  R{rid}: {n_s:>4} shapes, dir={rm['direction']:>5}, "
+                  f"mean_end={mean_end:>+7.1f}, std_end={std_end:>6.1f}, "
+                  f"WR={wr:.0f}%")
+
+    # =====================================================================
+    #  ANALYSIS G: LAPLACIAN SUB-SEGMENTATION
+    #
+    #  d2p/dt2 (curvature) = the missing acceleration layer.
+    #  I-MR segments by velocity breaks. Laplacian segments by SHAPE
+    #  changes: inflection points, momentum shifts, deceleration.
+    #  Sub-segment each I-MR regime by curvature sign runs, then check
+    #  if sub-segments produce tighter shape overlay (the Shi ideal).
+    # =====================================================================
+    print(f"\n{'='*70}")
+    print(f"  ANALYSIS G: LAPLACIAN SUB-SEGMENTATION (d2p/dt2)")
+    print(f"{'='*70}")
+
+    # --- G1: Compute curvature (discrete Laplacian) ---
+    # d2p/dt2[t] = close[t+1] - 2*close[t] + close[t-1]
+    curvature = np.zeros(len(close))
+    curvature[1:-1] = close[2:] - 2 * close[1:-1] + close[:-2]
+    curvature[0] = curvature[1]   # pad edges
+    curvature[-1] = curvature[-2]
+
+    # Curvature I-MR: same SPC approach on d2p/dt2
+    curv_abs = np.abs(curvature)
+    analysis_curv = curvature[price_imr['analysis_mask']]
+    analysis_curv_abs = np.abs(analysis_curv)
+
+    # MR of curvature (moving range of curvature)
+    curv_mr = np.zeros(len(curvature))
+    curv_mr[1:] = np.abs(curvature[1:] - curvature[:-1])
+
+    analysis_curv_mr = curv_mr[price_imr['analysis_mask']]
+    mr_bar_curv = np.mean(analysis_curv_mr[1:]) if len(analysis_curv_mr) > 1 else 1.0
+    ucl_curv = 3.267 * mr_bar_curv  # D4 for n=2
+
+    print(f"  Curvature stats: mean={np.mean(analysis_curv):.4f}, "
+          f"std={np.std(analysis_curv):.4f}")
+    print(f"  Curvature MR: mean={mr_bar_curv:.4f}, UCL={ucl_curv:.4f}")
+
+    # --- G2: Sub-segment by curvature sign + UCL breaks ---
+    # Within each I-MR regime, create sub-segments where:
+    #   - curvature sign flips (convex <-> concave)
+    #   - OR curvature MR exceeds UCL (acceleration shock)
+    # Minimum sub-segment size: 4 bars
+    MIN_SUB = 4
+
+    sub_ids = np.full(len(close), -1, dtype=int)
+    sub_meta = []
+    current_sub = 0
+    analysis_indices_g = np.where(price_imr['analysis_mask'])[0]
+
+    for rm in regime_meta:
+        # Bars in this regime
+        r_mask = (regime_ids == rm['regime_id'])
+        r_indices = np.where(r_mask)[0]
+        if len(r_indices) < MIN_SUB:
+            for idx in r_indices:
+                sub_ids[idx] = current_sub
+            current_sub += 1
+            continue
+
+        # Walk through regime bars, break on sign flip or UCL
+        seg_start = 0
+        prev_sign = 1 if curvature[r_indices[0]] >= 0 else -1
+
+        for j in range(1, len(r_indices)):
+            idx = r_indices[j]
+            cur_sign = 1 if curvature[idx] >= 0 else -1
+            mr_break = curv_mr[idx] > ucl_curv
+
+            if (cur_sign != prev_sign or mr_break) and (j - seg_start >= MIN_SUB):
+                # Close current sub-segment
+                for k in range(seg_start, j):
+                    sub_ids[r_indices[k]] = current_sub
+                current_sub += 1
+                seg_start = j
+
+            prev_sign = cur_sign
+
+        # Close final sub-segment
+        for k in range(seg_start, len(r_indices)):
+            sub_ids[r_indices[k]] = current_sub
+        current_sub += 1
+
+    # Merge tiny sub-segments
+    n_subs_raw = current_sub
+    for s in range(n_subs_raw):
+        mask_s = (sub_ids == s)
+        if 0 < mask_s.sum() < MIN_SUB:
+            # Merge into previous or next
+            idxs = np.where(mask_s)[0]
+            if idxs[0] > 0 and sub_ids[idxs[0] - 1] >= 0:
+                sub_ids[mask_s] = sub_ids[idxs[0] - 1]
+            elif idxs[-1] < len(sub_ids) - 1 and sub_ids[idxs[-1] + 1] >= 0:
+                sub_ids[mask_s] = sub_ids[idxs[-1] + 1]
+
+    # Re-compact
+    unique_subs = sorted([s for s in np.unique(sub_ids) if s >= 0])
+    remap_s = {old: new for new, old in enumerate(unique_subs)}
+    for i in range(len(sub_ids)):
+        if sub_ids[i] >= 0:
+            sub_ids[i] = remap_s[sub_ids[i]]
+    n_subs = len(unique_subs)
+
+    # Build sub-segment metadata
+    for sid in range(n_subs):
+        mask_s = (sub_ids == sid)
+        indices_s = np.where(mask_s)[0]
+        s_close = close[mask_s]
+        s_curv = curvature[mask_s]
+        parent_rid = regime_ids[indices_s[0]]
+
+        sub_meta.append({
+            'sub_id': sid,
+            'parent_regime': int(parent_rid),
+            'n_bars': int(mask_s.sum()),
+            'mean_price': float(np.mean(s_close)),
+            'mean_curvature': float(np.mean(s_curv)),
+            'curv_sign': 'CONVEX' if np.mean(s_curv) >= 0 else 'CONCAVE',
+            'price_change': float(s_close[-1] - s_close[0]) if len(s_close) > 1 else 0.0,
+            'direction': 'LONG' if (s_close[-1] > s_close[0]) else 'SHORT',
+            'start_idx': int(indices_s[0]),
+            'end_idx': int(indices_s[-1]),
+        })
+
+    print(f"\n  I-MR regimes: {len(regime_meta)} -> Laplacian sub-segments: {n_subs}")
+    print(f"  Avg sub-segment size: {np.mean([sm['n_bars'] for sm in sub_meta]):.1f} bars")
+    print(f"\n  {'Sub':>4} {'Parent':>6} {'Bars':>5} {'Curv':>8} {'Shape':>8} "
+          f"{'Dir':>6} {'Chg':>8}")
+    print(f"  {'-'*4} {'-'*6} {'-'*5} {'-'*8} {'-'*8} {'-'*6} {'-'*8}")
+    for sm in sub_meta:
+        print(f"  S{sm['sub_id']:<3} R{sm['parent_regime']:<5} {sm['n_bars']:>5} "
+              f"{sm['mean_curvature']:>+8.3f} {sm['curv_sign']:>8} "
+              f"{sm['direction']:>6} {sm['price_change']:>+8.1f}")
+
+    # --- G3: Collect shapes per sub-segment ---
+    shapes_by_sub = {sm['sub_id']: [] for sm in sub_meta}
+    outcomes_by_sub = {sm['sub_id']: [] for sm in sub_meta}
+
+    for i, bar_idx in enumerate(sample_indices):
+        if bar_idx < 0 or bar_idx < lookback_bars:
+            continue
+        if bar_idx + lookahead_bars >= len(close):
+            continue
+
+        sid = sub_ids[bar_idx]
+        if sid < 0:
+            continue
+
+        shape_raw = close[bar_idx - lookback_bars : bar_idx + lookahead_bars + 1]
+        if len(shape_raw) != shape_len:
+            continue
+
+        shapes_by_sub[sid].append(shape_raw)
+
+        entry_price = close[bar_idx]
+        future = close[bar_idx + 1 : bar_idx + 1 + lookahead_bars]
+        if len(future) > 0:
+            max_up = future.max() - entry_price
+            max_down = entry_price - future.min()
+            outcomes_by_sub[sid].append(1 if max_up > max_down else 0)
+
+    # --- G4: Signature plot — sub-segments overlaid ---
+    active_subs = [sm['sub_id'] for sm in sub_meta
+                   if len(shapes_by_sub.get(sm['sub_id'], [])) >= 5]
+    n_active_g = len(active_subs)
+
+    print(f"\n  Sub-segments with >=5 shapes: {n_active_g}/{n_subs}")
+
+    if n_active_g > 0:
+        # Compute delta from entry
+        delta_by_sub = {}
+        for sid in active_subs:
+            raw = np.array(shapes_by_sub[sid])
+            entry_prices = raw[:, lookback_bars]
+            delta_by_sub[sid] = raw - entry_prices[:, np.newaxis]
+
+        # Color by parent regime, line style by curvature sign
+        cmap_g = plt.cm.tab10
+        x_axis_g = np.arange(-lookback_bars, lookahead_bars + 1)
+
+        fig_g, ax_g = plt.subplots(1, 1, figsize=(14, 8))
+        legend_handles_g = []
+
+        for k, sid in enumerate(active_subs):
+            sm = next(s for s in sub_meta if s['sub_id'] == sid)
+            delta = delta_by_sub[sid]
+            n_shapes = len(delta)
+            color = cmap_g(sm['parent_regime'] % 10)
+            ls = '-' if sm['curv_sign'] == 'CONVEX' else '--'
+            mk = markers[k % len(markers)] if k < len(markers) else 'o'
+            wr = np.mean(outcomes_by_sub[sid]) * 100 if outcomes_by_sub[sid] else 0
+
+            mean_d = delta.mean(axis=0)
+            std_d = delta.std(axis=0)
+
+            ax_g.plot(x_axis_g, mean_d, color=color, linewidth=2.5,
+                      linestyle=ls, marker=mk, markevery=2, markersize=5)
+            ax_g.fill_between(x_axis_g, mean_d - std_d, mean_d + std_d,
+                              color=color, alpha=0.06)
+
+            label = (f"S{sid} (R{sm['parent_regime']},{sm['curv_sign'][:3]}, "
+                     f"n={n_shapes}, WR={wr:.0f}%)")
+            legend_handles_g.append(mlines.Line2D(
+                [], [], color=color, linestyle=ls, marker=mk,
+                markersize=5, linewidth=2.5, label=label))
+
+        ax_g.axvline(x=0, color='black', linestyle='--', linewidth=1, alpha=0.5)
+        ax_g.axhline(y=0, color='gray', linestyle='-', linewidth=0.5, alpha=0.5)
+        ax_g.set_xlabel('Bars from entry (15m)', fontsize=12)
+        ax_g.set_ylabel('Price change from entry (ticks)', fontsize=12)
+        ax_g.set_title('Laplacian Sub-Segment Signatures\n'
+                        '(solid=CONVEX, dashed=CONCAVE, color=parent regime)',
+                        fontsize=14)
+        ax_g.legend(handles=legend_handles_g, fontsize=9, loc='best',
+                    framealpha=0.9, edgecolor='gray')
+        ax_g.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        g_sig_path = os.path.join(PLOTS_DIR, '0e_laplacian_signatures.png')
+        fig_g.savefig(g_sig_path, dpi=150, bbox_inches='tight', facecolor='white')
+        plt.close(fig_g)
+        print(f"  Saved: {g_sig_path}")
+
+        # --- G5: Coherence comparison: I-MR vs Laplacian ---
+        # Compute avg std at endpoint for I-MR regimes vs Laplacian sub-segments
+        imr_stds = []
+        for rid in active_rids:
+            if rid in delta_by_regime:
+                imr_stds.append(delta_by_regime[rid][:, -1].std())
+
+        lap_stds = []
+        for sid in active_subs:
+            lap_stds.append(delta_by_sub[sid][:, -1].std())
+
+        avg_imr_std = np.mean(imr_stds) if imr_stds else 0
+        avg_lap_std = np.mean(lap_stds) if lap_stds else 0
+
+        print(f"\n  COHERENCE COMPARISON:")
+        print(f"  I-MR regimes   -> avg endpoint std: {avg_imr_std:.1f} ticks "
+              f"({len(active_rids)} regimes)")
+        print(f"  Laplacian subs -> avg endpoint std: {avg_lap_std:.1f} ticks "
+              f"({n_active_g} sub-segments)")
+        if avg_imr_std > 0:
+            improvement = (1 - avg_lap_std / avg_imr_std) * 100
+            print(f"  Improvement: {improvement:+.1f}% "
+                  f"({'TIGHTER' if improvement > 0 else 'WIDER'})")
+
+        # Per sub-segment summary
+        print(f"\n  {'Sub':>4} {'Parent':>6} {'Shape':>7} {'N':>4} "
+              f"{'MeanEnd':>8} {'StdEnd':>7} {'WR':>5}")
+        for sid in active_subs:
+            sm = next(s for s in sub_meta if s['sub_id'] == sid)
+            delta = delta_by_sub[sid]
+            wr = np.mean(outcomes_by_sub[sid]) * 100 if outcomes_by_sub[sid] else 0
+            print(f"  S{sid:<3} R{sm['parent_regime']:<5} {sm['curv_sign'][:3]:>7} "
+                  f"{len(delta):>4} {delta[:,-1].mean():>+8.1f} "
+                  f"{delta[:,-1].std():>7.1f} {wr:>4.0f}%")
+
+    # Save report and exit (default mode)
+    if not args.full:
+        sys.stdout = _orig_stdout
+        report_dir = os.path.dirname(__file__)
+
+        # Save combined report
+        report_path = os.path.join(report_dir, 'standalone_report.txt')
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write(f"STANDALONE WAVEFORM SCREENING REPORT\n")
+            f.write(f"Data: {args.data}, Base TF: {args.base_tf}\n")
+            f.write(f"Context: {args.context_days}d, Analysis: {args.analysis_days}d\n")
+            f.write(f"Samples: {len(Y_p)}\n")
+            f.write(f"Price adj-R2: {r2_p:.4f}, Direction adj-R2: {r2_d:.4f}\n")
+            f.write(f"Derived direction accuracy: {accuracy:.1%}\n\n")
+            f.write(_report_buf.getvalue())
+        print(f"\n  Report saved: {report_path}")
+        print(f"  Charts: {PLOTS_DIR}/")
+        return
+
+    # =====================================================================
+    #  FULL MODE: 16D fractal pipeline (Steps 7-14)
+    # =====================================================================
+    print(f"\n{'='*70}")
+    print(f"  FULL 16D FRACTAL PIPELINE")
+    print(f"{'='*70}")
+
+    # --- 7. Load all TFs + compute physics ---
+    print(f"\n--- STEP 7: Loading all TF data + physics ---")
+    all_dfs = {args.base_tf: base_df}
+    for tf in TF_HIERARCHY:
+        if tf == args.base_tf:
+            continue
+        df = load_atlas_tf(args.data, tf, months=args.months)
+        if not df.empty:
+            all_dfs[tf] = df
+            print(f"  {tf:>4}: {len(df):>8,} bars")
+        else:
+            print(f"  {tf:>4}:   (not found)")
+
+    print(f"\n  Computing physics per TF...")
+    all_tf_states = {}
+    for tf in tqdm(TF_HIERARCHY, desc="Physics", unit="tf"):
+        if tf not in all_dfs:
+            continue
+        states = compute_tf_physics(tf, all_dfs[tf])
+        if states:
+            all_tf_states[tf] = states
+            print(f"  {tf:>4}: {len(states):>8,} states computed")
+
+    # --- 8. Build stacked hypervolume matrices (regime-based segmentation) ---
+    print(f"\n--- STEP 8: Building fractal hypervolume matrices ---")
+    matrices, mfes_16d, maes_16d, meta = build_stacked_matrices(
         all_tf_states, args.base_tf, all_dfs[args.base_tf],
         context_days=args.context_days,
         analysis_days=args.analysis_days
     )
 
     if len(matrices) < 20:
-        print(f"ERROR: Only {len(matrices)} matrices built (need ≥20)")
+        print(f"ERROR: Only {len(matrices)} matrices built (need >= 20)")
         sys.exit(1)
 
-    # --- 4. Pad + I-MR chart plots ---
-    print(f"\n--- STEP 4: I-MR Charts ---")
-    padded = pad_to_fixed_depth(matrices, max_depth=12)
-    plot_imr_charts(padded, mfes)
+    # Replace ADX quartile bins with regime IDs in meta
+    ts_to_regime = {}
+    timestamps = base_df['timestamp'].values.astype(float)
+    for i, ts in enumerate(timestamps):
+        if regime_ids[i] >= 0:
+            ts_to_regime[int(ts)] = regime_ids[i]
 
-    # --- 5. Flatten + MR segmentation ---
-    print(f"\n--- STEP 5: MR segmentation ---")
+    for m in meta:
+        rid = ts_to_regime.get(int(m['ts']), -1)
+        if rid >= 0:
+            m['tid'] = f'regime_{rid}'
+        # keep existing tid if no regime match
+
+    # --- 9. Pad + I-MR chart plots ---
+    print(f"\n--- STEP 9: Fractal I-MR Charts ---")
+    padded = pad_to_fixed_depth(matrices, max_depth=12)
+    plot_imr_charts(padded, mfes_16d)
+
+    # Use 16D mfes/maes for the full pipeline from here on
+    mfes = mfes_16d
+    maes = maes_16d
+
+    # --- 10. Flatten + MR segmentation ---
+    print(f"\n--- STEP 10: MR segmentation ---")
     flat_i, col_names_i = flatten_matrices(padded)
     flat_mr, col_names_mr = compute_moving_range(padded)
 
@@ -1187,11 +2871,7 @@ def main():
     print(f"  Combined: {len(col_names_i)} I + {len(col_names_mr)} MR "
           f"= {len(col_names_z)} total features")
 
-    # --- 6. Screen all three: I-only, MR-only, combined ---
-    _report_buf = io.StringIO()
-    _orig_stdout = sys.stdout
-    sys.stdout = _Tee(_orig_stdout, _report_buf)
-
+    # --- 11. Screen all three: I-only, MR-only, combined ---
     print(f"\n{'='*70}")
     print(f"  SCREENING X: Raw I values ({len(col_names_i)} features)")
     print(f"{'='*70}")
@@ -1224,7 +2904,7 @@ def main():
         print(f"  {i:>4}  [{src}] {name:<37} {corr:>+8.4f}  {abs_corr:>8.4f}  {bar}")
     steps_z = regression_r2(flat_z, col_names_z, mfes, top_k=20)
 
-    # --- 6. Summary comparison ---
+    # --- 12. Summary comparison ---
     r2_i = steps_i[-1][3] if steps_i else 0
     r2_mr = steps_mr[-1][3] if steps_mr else 0
     r2_z = steps_z[-1][3] if steps_z else 0
@@ -1236,7 +2916,7 @@ def main():
     print(f"  Z (X + Y combined):    {r2_z:.4f}")
     print(f"  Lift from MR:          {r2_z - r2_i:+.4f}")
 
-    # --- 7. Directional split ---
+    # --- 13. Directional split (16D pipeline uses DMI from meta) ---
     dmi_float = np.array([float(m.get('dmi_diff', 0)) for m in meta])
     long_mask = dmi_float >= 0
     short_mask = ~long_mask
@@ -1247,13 +2927,13 @@ def main():
     wr_short = float((mfes[short_mask] > maes[short_mask]).mean()) if n_short > 0 else 0
 
     print(f"\n{'='*70}")
-    print(f"  DIRECTIONAL SPLIT")
+    print(f"  DIRECTIONAL SPLIT (16D)")
     print(f"{'='*70}")
     print(f"  LONG  (DMI >= 0): {n_long:>5} points, WR={wr_long:.1%}")
     print(f"  SHORT (DMI <  0): {n_short:>5} points, WR={wr_short:.1%}")
     print(f"  Mixed WR:         {float((mfes > maes).mean()):.1%}")
 
-    # --- 8. Segmented screening ---
+    # --- 14. Segmented screening ---
     from sklearn.linear_model import LinearRegression
     from sklearn.preprocessing import StandardScaler
     from collections import Counter, defaultdict
@@ -1368,7 +3048,7 @@ def main():
         s['top1_src'] = 'I' if s['top1'] in col_names_i else 'MR'
         s['feature_profile'] = list(dict.fromkeys(top5_features))
 
-    # --- 9. Model fission ---
+    # --- 15. Model fission ---
     all_sorted = sorted(seg_results, key=lambda x: x['win_rate'], reverse=True)
 
     for s in all_sorted:
@@ -1456,13 +3136,13 @@ def main():
                   f"WR={s['win_rate']:.0%} MFE={s['mfe_mean']:+.0f} "
                   f"MAE={s['mae_mean']:.0f}")
 
-    # --- 9b. Segmented I-MR plots ---
+    # --- 15b. Segmented I-MR plots ---
     print(f"\n--- Generating segmented I-MR plots ---")
     plot_segmented_imr(padded, mfes, maes, meta, tids, long_mask,
                        keep_segs, split_segs, drop_segs,
                        base_df=all_dfs.get(args.base_tf))
 
-    # --- 10. Export gate config ---
+    # --- 16. Export gate config ---
     import json as _json
 
     _fission_map = {}
@@ -1488,7 +3168,7 @@ def main():
           f"SPLIT: {sum(1 for v in _fission_map.values() if v == 'SPLIT')}, "
           f"hours: {_gate_config['good_hours_utc']}")
 
-    # --- 11. What-if impact ---
+    # --- 17. What-if impact ---
     total_n = sum(s['n'] for s in seg_results)
     total_wr = np.average([s['win_rate'] for s in seg_results],
                           weights=[s['n'] for s in seg_results]) if seg_results else 0
@@ -1524,7 +3204,7 @@ def main():
         print(f"    Segments: {len(ks)}, Patterns: {ks_n}, "
               f"WR: {ks_wr:.1%}, MFE: {ks_mfe:+.0f}")
 
-    # --- 12. PID drill-down ---
+    # --- 18. PID drill-down ---
     pid_idx = FEATURE_NAMES.index('self_pid')  # 14
 
     print(f"\n{'='*70}")
@@ -1670,7 +3350,7 @@ def main():
         wr_d_str = f"{wr_disagree:.1%}" if not np.isnan(wr_disagree) else "n/a"
         print(f"  {lbl:<12} {agree_pct:>7.1f}% {wr_a_str:>10} {wr_d_str:>10} {lift:>+7.1%}")
 
-    # --- 13. Temporal special cause analysis ---
+    # --- 19. Temporal special cause analysis ---
     from datetime import datetime, timezone
 
     ts_arr = np.array([m['ts'] for m in meta])
@@ -1995,7 +3675,7 @@ def main():
     else:
         print(f"  (Skipped — insufficient valid timestamps)")
 
-    # --- 14. Stacked gate analysis ---
+    # --- 20. Stacked gate analysis ---
     print(f"\n{'='*70}")
     print(f"  STACKED GATE ANALYSIS: Compound Filters")
     print(f"  Each gate stacks on previous — progressive noise removal")
@@ -2285,17 +3965,18 @@ def main():
     sys.stdout = _orig_stdout
 
     report_path = os.path.join(os.path.dirname(__file__), 'standalone_report.txt')
-    header = f"STANDALONE WAVEFORM SCREENING REPORT\n"
+    header = f"STANDALONE WAVEFORM SCREENING REPORT (FULL 16D)\n"
     header += f"Data: {args.data}, Base TF: {args.base_tf}\n"
     header += f"Context: {args.context_days}d, Analysis: {args.analysis_days}d\n"
-    header += f"Data points: {len(mfes)}\n"
+    header += f"Regimes: {len(regime_meta)}, Data points: {len(mfes)}\n"
 
-    with open(report_path, 'w') as f:
+    with open(report_path, 'w', encoding='utf-8') as f:
         f.write(header)
         f.write(_report_buf.getvalue())
 
     print(f"\n  Full report saved: {report_path}")
     print(f"  Gates saved: {_gate_path}")
+    print(f"  Charts: {PLOTS_DIR}/")
     print(f"  Done.")
 
 

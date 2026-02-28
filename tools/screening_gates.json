@@ -1,9 +1,5 @@
 {
-  "fission_map": {
-    "adx_q2_short": "KEEP",
-    "adx_q2_long": "KEEP",
-    "adx_q0_long": "SPLIT"
-  },
+  "fission_map": {},
   "good_hours_utc": [
     0,
     5,
