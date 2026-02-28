@@ -29,6 +29,7 @@ PARETO_COLORS = {
 }
 
 TOP_TEMPLATES_LIMIT = 50
+DEFAULT_CHART_DPI = 300
 
 
 class Tooltip:
