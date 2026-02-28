@@ -2778,6 +2778,202 @@ def main():
                   f"{len(delta):>4} {delta[:,-1].mean():>+8.1f} "
                   f"{delta[:,-1].std():>7.1f} {wr:>4.0f}%")
 
+    # =====================================================================
+    #  ANALYSIS H: ITERATIVE SHAPE CLUSTERING (delta from entry)
+    #
+    #  Every segment starts at 0, values = cumulative price change.
+    #  e.g. [0, +40, +20, +30, +20, +40] = the movement pattern.
+    #  Grid-search over segment length and cluster count.
+    #  Score by silhouette, auto-select best, show top 10 clusters.
+    # =====================================================================
+    print(f"\n{'='*70}")
+    print(f"  ANALYSIS H: ITERATIVE SHAPE CLUSTERING (delta from entry)")
+    print(f"{'='*70}")
+
+    from sklearn.cluster import KMeans
+    from sklearn.metrics import silhouette_score
+    from collections import Counter
+
+    TOP_K = 10
+
+    analysis_idx_h = np.where(price_imr['analysis_mask'])[0]
+
+    def _extract_segments(seg_len):
+        """Cut segments, delta from entry (start=0, values=cumulative change)."""
+        raws, feats, idxs = [], [], []
+        for idx in analysis_idx_h:
+            if idx + seg_len > len(close):
+                continue
+            seg = close[idx : idx + seg_len]
+            if len(seg) != seg_len:
+                continue
+            feat = seg - seg[0]  # delta from entry: [0, +40, +20, ...]
+            raws.append(seg)
+            feats.append(feat)
+            idxs.append(idx)
+        if len(feats) == 0:
+            return np.array([]), np.array([]), np.array([])
+        return np.array(raws), np.array(feats), np.array(idxs)
+
+    # Grid search over segment length and cluster count
+    seg_lens = [8, 12, 16, 24]
+    best_score = -1
+    best_config = None
+
+    print(f"\n  Grid search: {len(seg_lens)} lengths x k values (delta mode)")
+    print(f"  {'Len':>4} {'K':>3} {'N_seg':>6} {'Silhouette':>11} {'Best?':>5}")
+    print(f"  {'-'*4} {'-'*3} {'-'*6} {'-'*11} {'-'*5}")
+
+    for seg_len in seg_lens:
+        raws, feats, idxs = _extract_segments(seg_len)
+        n_seg = len(feats)
+        if n_seg < 20:
+            continue
+
+        # Adaptive k range
+        max_k = min(n_seg // 5, 40)
+        k_values = [k for k in [10, 15, 20, 30] if k <= max_k and k < n_seg]
+        if not k_values:
+            k_values = [max(2, max_k)]
+
+        for k in k_values:
+            km = KMeans(n_clusters=k, random_state=42, n_init=10)
+            labels = km.fit_predict(feats)
+
+            # Silhouette score
+            n_sample = min(len(feats), 2000)
+            if n_sample < len(feats):
+                rng = np.random.RandomState(42)
+                idx_s = rng.choice(len(feats), n_sample, replace=False)
+                sil = silhouette_score(feats[idx_s], labels[idx_s])
+            else:
+                sil = silhouette_score(feats, labels)
+
+            is_best = sil > best_score
+            if is_best:
+                best_score = sil
+                best_config = {
+                    'seg_len': seg_len, 'k': k,
+                    'labels': labels, 'raws': raws, 'feats': feats,
+                    'idxs': idxs, 'sil': sil,
+                }
+
+            marker = ' <--' if is_best else ''
+            print(f"  {seg_len:>4} {k:>3} {n_seg:>6} {sil:>+11.4f}{marker}")
+
+    if best_config is None:
+        print("  No valid configuration found. Skipping.")
+    else:
+        bc = best_config
+        print(f"\n  BEST CONFIG: len={bc['seg_len']}, norm={bc['norm']}, "
+              f"k={bc['k']}, silhouette={bc['sil']:.4f}")
+
+        # Build cluster stats for best config
+        labels = bc['labels']
+        raws = bc['raws']
+        feats = bc['feats']
+        cluster_counts = Counter(labels)
+        top_clusters = cluster_counts.most_common(TOP_K)
+
+        print(f"\n  {'Clust':>5} {'N':>5} {'MeanChg':>8} {'StdChg':>7} "
+              f"{'WR':>5} {'Coherence':>9}")
+        print(f"  {'-'*5} {'-'*5} {'-'*8} {'-'*7} {'-'*5} {'-'*9}")
+
+        cluster_stats = []
+        for cid, count in top_clusters:
+            mask_c = (labels == cid)
+            raw_c = raws[mask_c]
+            feat_c = feats[mask_c]
+
+            changes = raw_c[:, -1] - raw_c[:, 0]
+            mean_chg = changes.mean()
+            std_chg = changes.std()
+            wr = (changes > 0).sum() / len(changes) * 100
+
+            # Coherence: mean per-bar std across the feature vector
+            coherence = feat_c.std(axis=0).mean()
+
+            cluster_stats.append({
+                'cid': cid, 'count': count, 'mean_chg': mean_chg,
+                'std_chg': std_chg, 'wr': wr, 'coherence': coherence,
+                'feat': feat_c, 'raw': raw_c,
+            })
+
+            print(f"  C{cid:<4} {count:>5} {mean_chg:>+8.1f} {std_chg:>7.1f} "
+                  f"{wr:>4.0f}% {coherence:>9.2f}")
+
+        # Plot top 10 clusters
+        n_plot = min(TOP_K, len(cluster_stats))
+        n_cols = 5
+        n_rows = (n_plot + n_cols - 1) // n_cols
+        seg_len = bc['seg_len']
+        norm_mode = bc['norm']
+
+        # Feature x-axis depends on norm mode
+        if norm_mode == 'raw_dpdt':
+            x_seg = np.arange(seg_len - 1)
+            y_label = 'dp/dt (raw)'
+        else:
+            x_seg = np.arange(seg_len)
+            y_label = f'Shape ({norm_mode})'
+
+        fig_h, axes_h = plt.subplots(n_rows, n_cols,
+                                      figsize=(4 * n_cols, 3.5 * n_rows),
+                                      squeeze=False)
+
+        for k in range(n_plot):
+            row, col = divmod(k, n_cols)
+            ax = axes_h[row, col]
+            cs = cluster_stats[k]
+            feat_c = cs['feat']
+            n_in = len(feat_c)
+            color = cmap(k % 10)
+
+            # Individual traces
+            max_plot = min(n_in, 200)
+            alpha = max(0.05, min(0.3, 20.0 / max_plot))
+            for j in range(max_plot):
+                ax.plot(x_seg, feat_c[j], color=color, alpha=alpha, linewidth=0.5)
+
+            # Mean + std envelope
+            mean_f = feat_c.mean(axis=0)
+            std_f = feat_c.std(axis=0)
+            ax.plot(x_seg, mean_f, color=color, linewidth=3)
+            ax.fill_between(x_seg, mean_f - std_f, mean_f + std_f,
+                            color=color, alpha=0.15)
+
+            ax.axhline(y=0, color='gray', linestyle='-', linewidth=0.5, alpha=0.5)
+
+            # Auto-fit y-axis
+            all_v = feat_c.flatten()
+            y_c = np.mean(all_v)
+            y_s = max(np.std(all_v) * 3, 0.5)
+            ax.set_ylim(y_c - y_s, y_c + y_s)
+
+            ax.set_title(f"C{cs['cid']}: n={n_in}, WR={cs['wr']:.0f}%\n"
+                         f"coh={cs['coherence']:.2f}, chg={cs['mean_chg']:+.0f}",
+                         fontsize=9)
+            if col == 0:
+                ax.set_ylabel(y_label)
+            if row == n_rows - 1:
+                ax.set_xlabel('Bar')
+            ax.grid(True, alpha=0.2)
+
+        for k in range(n_plot, n_rows * n_cols):
+            row, col = divmod(k, n_cols)
+            axes_h[row, col].set_visible(False)
+
+        fig_h.suptitle(f'Top {n_plot} Shape Clusters (BEST: len={seg_len}, '
+                        f'norm={norm_mode}, k={bc["k"]})\n'
+                        f'Silhouette={bc["sil"]:.4f}, '
+                        f'{len(feats)} segments',
+                        fontsize=13)
+        plt.tight_layout()
+        h_path = os.path.join(PLOTS_DIR, '0f_shape_clusters.png')
+        fig_h.savefig(h_path, dpi=150, bbox_inches='tight', facecolor='white')
+        plt.close(fig_h)
+        print(f"\n  Saved: {h_path}")
+
     # Save report and exit (default mode)
     if not args.full:
         sys.stdout = _orig_stdout

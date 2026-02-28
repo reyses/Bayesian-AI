@@ -1,41 +1,38 @@
 STANDALONE WAVEFORM SCREENING REPORT
-Data: DATA/ATLAS, Base TF: 15m
+Data: DATA/ATLAS_1WEEK, Base TF: 15m
 Context: 21d, Analysis: 7d
-Samples: 460
-Price adj-R2: 0.9624, Direction adj-R2: 0.0257
-Derived direction accuracy: 53.0%
+Samples: 429
+Price adj-R2: 0.9238, Direction adj-R2: 0.0115
+Derived direction accuracy: 71.0%
 
 ======================================================================
   STANDALONE WAVEFORM SCREENING
-  Data: DATA/ATLAS
+  Data: DATA/ATLAS_1WEEK
   Base TF: 15m
   Context: 21d warmup, 7d analysis
   Mode: PRICE I-MR (default)
 ======================================================================
 
 --- STEP 1: Loading base TF data (15m) ---
-  15m: 23,505 bars loaded
+  15m: 614 bars loaded
 
 --- STEP 2: Price I-MR Chart ---
-  Price I-MR: 23505 bars, warmup=1334, analysis=460
-  Center=21384.36, MR_bar=17.77, UCL_MR=58.05, UCL_I=21431.62, LCL_I=21337.10
+  Auto-adjusted context: 21d -> 2d (data span is only 8.9d)
+  Price I-MR: 614 bars, warmup=184, analysis=430
+  Center=21304.67, MR_bar=20.91, UCL_MR=68.30, UCL_I=21360.28, LCL_I=21249.06
 
 --- STEP 3: Regime Detection ---
-  Regimes: 29 raw -> 11 after merge (min_bars=8)
-    R0:   87 bars, price=21930.8, vol=7.87, dir=SHORT, chg=-3.2
-    R1:   97 bars, price=21988.7, vol=11.79, dir=SHORT, chg=-134.0
-    R2:   35 bars, price=21517.4, vol=23.45, dir=SHORT, chg=-334.2
-    R3:   17 bars, price=21117.1, vol=46.24, dir=SHORT, chg=-284.0
-    R4:   15 bars, price=21187.7, vol=40.30, dir=LONG, chg=+330.5
-    R5:   14 bars, price=21204.9, vol=34.29, dir=SHORT, chg=-139.5
-    R6:   22 bars, price=21270.9, vol=26.94, dir=LONG, chg=+67.0
-    R7:   61 bars, price=21332.4, vol=25.50, dir=LONG, chg=+234.5
-    R8:   48 bars, price=21570.9, vol=11.35, dir=LONG, chg=+45.8
-    R9:   34 bars, price=21651.2, vol=13.12, dir=SHORT, chg=-57.2
-    R10:   30 bars, price=21508.2, vol=32.16, dir=LONG, chg=+64.2
+  Regimes: 17 raw -> 7 after merge (min_bars=8)
+    R0:  163 bars, price=21685.4, vol=14.41, dir=SHORT, chg=-29.2
+    R1:   71 bars, price=21411.3, vol=13.96, dir=SHORT, chg=-49.2
+    R2:   23 bars, price=21325.9, vol=42.07, dir=SHORT, chg=-25.2
+    R3:    8 bars, price=21306.9, vol=44.31, dir=LONG, chg=+138.2
+    R4:  138 bars, price=21288.8, vol=16.58, dir=SHORT, chg=-513.0
+    R5:   15 bars, price=21012.5, vol=42.82, dir=LONG, chg=+137.5
+    R6:   12 bars, price=21034.9, vol=22.62, dir=SHORT, chg=-75.2
 
 --- STEP 4: Oracle MFE/MAE ---
-  Oracle: 460 bars with MFE/MAE (lookahead=16)
+  Oracle: 414 bars with MFE/MAE (lookahead=16)
 
 --- STEP 5: Generating charts ---
   Saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\0_price_imr.png
@@ -44,92 +41,85 @@ Derived direction accuracy: 53.0%
 ======================================================================
   REGIME SUMMARY
 ======================================================================
-  Analysis bars: 460
-  Regimes: 11
-  MFE: mean=111.38, std=113.81
-  MAE: mean=56.00, std=64.42
-  Win rate (MFE > MAE): 62.6%
+  Analysis bars: 414
+  Regimes: 7
+  MFE: mean=100.40, std=101.07
+  MAE: mean=53.98, std=46.21
+  Win rate (MFE > MAE): 62.1%
 
   Regime     Dir        N      WR      MFE      MAE    Vol      Price
   ---------- ------ ----- ------- -------- -------- ------ ----------
-  R0         SHORT     87   46.0%    +37.4     42.9   7.87    21930.8
-  R1         SHORT     97   59.8%    +97.9     33.8  11.79    21988.7
-  R2         SHORT     35  100.0%   +256.7     15.7  23.45    21517.4
-  R3         SHORT     17   64.7%   +304.5    167.7  46.24    21117.1
-  R4         LONG      15   73.3%   +229.7     91.3  40.30    21187.7
-  R5         SHORT     14   57.1%   +109.9    120.6  34.29    21204.9
-  R6         LONG      22   31.8%    +75.4     73.7  26.94    21270.9
-  R7         LONG      61   68.9%   +123.5     83.2  25.50    21332.4
-  R8         LONG      48   75.0%    +65.1     26.0  11.35    21570.9
-  R9         SHORT     34   85.3%   +115.6     25.8  13.12    21651.2
-  R10        LONG      30   36.7%   +103.1    115.7  32.16    21508.2
+  R0         SHORT    163   49.7%    +87.8     64.9  14.41    21685.4
+  R1         SHORT     71   70.4%    +93.2     36.3  13.96    21411.3
+  R2         SHORT     23   65.2%   +141.1     95.3  42.07    21325.9
+  R3         LONG       8   75.0%   +124.8     47.8  44.31    21306.9
+  R4         SHORT    138   68.8%   +102.8     42.7  16.58    21288.8
+  R5         LONG      11   90.9%   +201.4     64.9  42.82    21012.5
 
   DIRECTIONAL SPLIT:
-  LONG:    176 bars, WR=60.8%
-  SHORT:   284 bars, WR=63.7%
+  LONG:     19 bars, WR=84.2%
+  SHORT:   395 bars, WR=61.0%
 
 --- STEP 7: Loading all TF data + fractal context ---
-    1W:       54 bars
-    1D:      313 bars
-    4h:    1,597 bars
-    1h:    5,881 bars
-   30m:   11,756 bars
-    5m:   70,458 bars
-    3m:  117,299 bars
-    2m:  175,722 bars
-    1m:  350,355 bars
-   30s:  696,721 bars
-   15s: 1,369,925 bars
+    1W:        2 bars
+    1D:        8 bars
+    4h:       42 bars
+    1h:      154 bars
+   30m:      307 bars
+    5m:    1,842 bars
+    3m:    3,070 bars
+    2m:    4,605 bars
+    1m:    9,209 bars
+   30s:   18,399 bars
+   15s:   36,441 bars
 
   Computing physics per TF...
-    1W:       32 states computed
-    1D:      291 states computed
-    4h:    1,575 states computed
-    1h:    5,859 states computed
-   30m:   11,734 states computed
-   15m:   23,483 states computed
-    5m:   70,436 states computed
-    3m:  117,277 states computed
-    2m:  175,700 states computed
-    1m:  350,333 states computed
-   30s:  696,699 states computed
-   15s: 1,369,903 states computed
+    4h:       21 states computed
+    1h:      133 states computed
+   30m:      286 states computed
+   15m:      593 states computed
+    5m:    1,821 states computed
+    3m:    3,049 states computed
+    2m:    4,584 states computed
+    1m:    9,188 states computed
+   30s:   18,378 states computed
+   15s:   36,420 states computed
 
 --- STEP 8: Building context matrix (193 features per bar) ---
-  Samples: 460, Level features: 193, Delta features: 192
+  Samples: 429, Level features: 193, Delta features: 192
   X: 192 fractal + 1 current MR = 193 level features
   X_delta: 192 rate-of-change (feature[t] - feature[t-1])
 
 ======================================================================
   ANALYSIS A: PRICE EXPLANATION
   Y = close[t] at each bar
-  Y range: 20886.8 to 22058.2, mean=21638.5, std=298.8
-  Samples: 460
+  Y range: 20901.0 to 21889.0, mean=21446.0, std=219.3
+  Samples: 429
 ======================================================================
 
   TOP 20 FACTORS (correlation with price):
   Rank  Factor                                     r       |r|
   ----  ----------------------------------- --------  --------
-     1  d2_4h__self_dmi_diff                 +0.9560    0.9560  ###############################################
-     2  d1_1D__osc_coh                       -0.9082    0.9082  #############################################
-     3  d1_1D__log1p_vol                     -0.8855    0.8855  ############################################
-     4  d1_1D__tf_scale                      -0.8805    0.8805  ############################################
-     5  d1_1D__self_hurst                    -0.8805    0.8805  ############################################
-     6  d1_1D__coherence                     -0.8686    0.8686  ###########################################
-     7  d1_1D__log1p_mom                     -0.8181    0.8181  ########################################
-     8  d3_1h__self_hurst                    -0.7469    0.7469  #####################################
-     9  d1_1D__self_pid                      +0.7040    0.7040  ###################################
-    10  d3_1h__self_dmi_diff                 +0.6963    0.6963  ##################################
-    11  d1_1D__z_score                       +0.6469    0.6469  ################################
-    12  d3_1h__self_adx                      -0.6352    0.6352  ###############################
-    13  d2_4h__self_adx                      -0.5871    0.5871  #############################
-    14  d2_4h__log1p_vol                     -0.4942    0.4942  ########################
-    15  d3_1h__self_pid                      +0.4768    0.4768  #######################
-    16  d1_1D__self_dmi_diff                 +0.4703    0.4703  #######################
-    17  d4_30m__self_dmi_diff                +0.4630    0.4630  #######################
-    18  d5_15m__log1p_vol                    -0.4230    0.4230  #####################
-    19  d4_30m__self_adx                     -0.4155    0.4155  ####################
-    20  d2_4h__self_pid                      +0.4050    0.4050  ####################
+     1  d2_4h__self_dmi_diff                 +0.8514    0.8514  ##########################################
+     2  d2_4h__log1p_mom                     -0.8032    0.8032  ########################################
+     3  d2_4h__self_adx                      -0.8027    0.8027  ########################################
+     4  d2_4h__log1p_vol                     -0.7929    0.7929  #######################################
+     5  d3_1h__self_dmi_diff                 +0.7852    0.7852  #######################################
+     6  d2_4h__tf_scale                      -0.7814    0.7814  #######################################
+     7  d2_4h__self_hurst                    -0.7814    0.7814  #######################################
+     8  d2_4h__coherence                     -0.7447    0.7447  #####################################
+     9  d2_4h__osc_coh                       -0.6972    0.6972  ##################################
+    10  d2_4h__self_pid                      +0.5798    0.5798  ############################
+    11  d4_30m__self_hurst                   +0.5139    0.5139  #########################
+    12  d4_30m__self_dmi_diff                +0.4999    0.4999  ########################
+    13  d5_15m__self_pid                     +0.4762    0.4762  #######################
+    14  d5_15m__self_hurst                   +0.4584    0.4584  ######################
+    15  d3_1h__self_pid                      +0.4088    0.4088  ####################
+    16  d3_1h__self_hurst                    -0.4067    0.4067  ####################
+    17  d3_1h__osc_coh                       +0.3534    0.3534  #################
+    18  d5_15m__self_dmi_diff                +0.3428    0.3428  #################
+    19  d5_15m__self_adx                     +0.2917    0.2917  ##############
+    20  d6_5m__self_pid                      +0.2857    0.2857  ##############
 
   Stepwise regression: context -> price
 
@@ -138,102 +128,102 @@ Derived direction accuracy: 53.0%
 ======================================================================
   Step  Factor                                    R2       dR2    adj-R2
   ----  ----------------------------------- --------  --------  --------
-     1  d2_4h__self_dmi_diff                  0.9140   +0.9140    0.9138
-     2  d1_1D__osc_coh                        0.9175   +0.0035    0.9171
-     3  d1_1D__log1p_vol                      0.9176   +0.0001    0.9171
-     4  d1_1D__tf_scale                       0.9227   +0.0050    0.9220
-     5  d1_1D__self_hurst                     0.9227   +0.0000    0.9218
-     6  d1_1D__coherence                      0.9227   -0.0000    0.9216
-     7  d1_1D__log1p_mom                      0.9227   +0.0000    0.9215
-     8  d3_1h__self_hurst                     0.9227   +0.0000    0.9213
-     9  d1_1D__self_pid                       0.9227   +0.0000    0.9211
-    10  d3_1h__self_dmi_diff                  0.9407   +0.0181    0.9394
-    11  d1_1D__z_score                        0.9407   +0.0000    0.9393
-    12  d3_1h__self_adx                       0.9547   +0.0140    0.9534
-    13  d2_4h__self_adx                       0.9596   +0.0049    0.9584
-    14  d2_4h__log1p_vol                      0.9612   +0.0017    0.9600
-    15  d3_1h__self_pid                       0.9616   +0.0003    0.9603
-    16  d1_1D__self_dmi_diff                  0.9616   -0.0000    0.9602
-    17  d4_30m__self_dmi_diff                 0.9624   +0.0008    0.9610
-    18  d5_15m__log1p_vol                     0.9629   +0.0005    0.9614
-    19  d4_30m__self_adx                      0.9631   +0.0002    0.9615
-    20  d2_4h__self_pid                       0.9640   +0.0009    0.9624
+     1  d2_4h__self_dmi_diff                  0.7249   +0.7249    0.7243
+     2  d2_4h__log1p_mom                      0.8424   +0.1175    0.8417
+     3  d2_4h__self_adx                       0.8463   +0.0039    0.8452
+     4  d2_4h__log1p_vol                      0.8464   +0.0001    0.8449
+     5  d3_1h__self_dmi_diff                  0.8576   +0.0112    0.8559
+     6  d2_4h__tf_scale                       0.8581   +0.0005    0.8561
+     7  d2_4h__self_hurst                     0.8581   +0.0000    0.8557
+     8  d2_4h__coherence                      0.8610   +0.0029    0.8583
+     9  d2_4h__osc_coh                        0.8638   +0.0028    0.8609
+    10  d2_4h__self_pid                       0.8638   +0.0001    0.8606
+    11  d4_30m__self_hurst                    0.8641   +0.0002    0.8605
+    12  d4_30m__self_dmi_diff                 0.8660   +0.0019    0.8622
+    13  d5_15m__self_pid                      0.9059   +0.0399    0.9030
+    14  d5_15m__self_hurst                    0.9065   +0.0005    0.9033
+    15  d3_1h__self_pid                       0.9146   +0.0081    0.9115
+    16  d3_1h__self_hurst                     0.9219   +0.0073    0.9188
+    17  d3_1h__osc_coh                        0.9223   +0.0005    0.9191
+    18  d5_15m__self_dmi_diff                 0.9223   +0.0000    0.9189
+    19  d5_15m__self_adx                      0.9224   +0.0001    0.9188
+    20  d6_5m__self_pid                       0.9274   +0.0050    0.9238
 
-  >> PRICE adj-R2 = 0.9624
-  >> Context explains 96.2% of price variance
+  >> PRICE adj-R2 = 0.9238
+  >> Context explains 92.4% of price variance
 
   PRICE BY TIMEFRAME:
   Depth            TF   Mean |r|    Max |r| Top Factor                         
   ------------ ------ ---------- ---------- -----------------------------------
   d0_1W            1W     0.0000     0.0000 d0_1W__z_score                     
-  d1_1D            1D     0.4414     0.9082 d1_1D__osc_coh                     
-  d2_4h            4h     0.2337     0.9560 d2_4h__self_dmi_diff               
-  d3_1h            1h     0.2012     0.7469 d3_1h__self_hurst                  
-  d4_30m          30m     0.1242     0.4630 d4_30m__self_dmi_diff              
-  d5_15m          15m     0.1159     0.4230 d5_15m__log1p_vol                  
-  d6_5m            5m     0.0760     0.3910 d6_5m__log1p_vol                   
-  d7_3m            3m     0.0640     0.3473 d7_3m__log1p_vol                   
-  d8_2m            2m     0.0543     0.3439 d8_2m__log1p_vol                   
-  d9_1m            1m     0.0443     0.2924 d9_1m__log1p_vol                   
-  d10_30s         30s     0.0503     0.2982 d10_30s__log1p_vol                 
-  d11_15s         15s     0.0396     0.2792 d11_15s__log1p_vol                 
+  d1_1D            1D     0.0000     0.0000 d1_1D__z_score                     
+  d2_4h            4h     0.4297     0.8514 d2_4h__self_dmi_diff               
+  d3_1h            1h     0.1639     0.7852 d3_1h__self_dmi_diff               
+  d4_30m          30m     0.1331     0.5139 d4_30m__self_hurst                 
+  d5_15m          15m     0.1352     0.4762 d5_15m__self_pid                   
+  d6_5m            5m     0.0483     0.2857 d6_5m__self_pid                    
+  d7_3m            3m     0.0256     0.1156 d7_3m__self_dmi_diff               
+  d8_2m            2m     0.0382     0.1966 d8_2m__self_hurst                  
+  d9_1m            1m     0.0285     0.1182 d9_1m__log1p_vol                   
+  d10_30s         30s     0.0317     0.1571 d10_30s__log1p_vol                 
+  d11_15s         15s     0.0384     0.1717 d11_15s__log1p_vol                 
 
   PRICE BY FEATURE:
   Feature                Mean |r|    Max |r| Best TF        
   -------------------- ---------- ---------- ---------------
-  z_score                  0.0912     0.6469 d1_1D          
-  log1p_vol                0.3750     0.8855 d1_1D          
-  log1p_mom                0.2191     0.8181 d1_1D          
-  coherence                0.1291     0.8686 d1_1D          
-  tf_scale                 0.0734     0.8805 d1_1D          
+  z_score                  0.0463     0.1449 d4_30m         
+  log1p_vol                0.1787     0.7929 d2_4h          
+  log1p_mom                0.1310     0.8032 d2_4h          
+  coherence                0.0938     0.7447 d2_4h          
+  tf_scale                 0.0651     0.7814 d2_4h          
   depth                    0.0000     0.0000 d0_1W          
   parent_ctx               0.0000     0.0000 d0_1W          
-  self_adx                 0.2163     0.6352 d3_1h          
-  self_hurst               0.2527     0.8805 d1_1D          
-  self_dmi_diff            0.2617     0.9560 d2_4h          
+  self_adx                 0.1485     0.8027 d2_4h          
+  self_hurst               0.2160     0.7814 d2_4h          
+  self_dmi_diff            0.2549     0.8514 d2_4h          
   parent_z                 0.0000     0.0000 d0_1W          
   parent_dmi_diff          0.0000     0.0000 d0_1W          
   root_is_roche            0.0000     0.0000 d0_1W          
   tf_alignment             0.0000     0.0000 d0_1W          
-  self_pid                 0.1878     0.7040 d1_1D          
-  osc_coh                  0.1202     0.9082 d1_1D          
-  current_MR               0.0363     0.0363 (base TF)      
+  self_pid                 0.1740     0.5798 d2_4h          
+  osc_coh                  0.1217     0.6972 d2_4h          
+  current_MR               0.1033     0.1033 (base TF)      
 
   PRICE CONCLUSION:
-  Strong: adj-R2 = 0.9624. The fractal context reliably describes
+  Strong: adj-R2 = 0.9238. The fractal context reliably describes
   WHERE price is. The 193 features map to price level with high fidelity.
 
 ======================================================================
   ANALYSIS B: DIRECTION EXPLANATION (with price anchor)
   Y = sign(next change): +1=up, -1=down
   X = 192 fractal + current_MR + price[t] = 194 features
-  Distribution: 225 up (49%), 233 down (51%), 2 flat
-  Samples: 460
+  Distribution: 229 up (53%), 199 down (46%), 1 flat
+  Samples: 429
 ======================================================================
 
   TOP 20 FACTORS (correlation with direction):
   Rank  Factor                                     r       |r|
   ----  ----------------------------------- --------  --------
-     1  d11_15s__osc_coh                     +0.1296    0.1296  ######
-     2  d2_4h__coherence                     +0.1090    0.1090  #####
-     3  d3_1h__self_pid                      +0.0984    0.0984  ####
-     4  d5_15m__self_adx                     -0.0936    0.0936  ####
-     5  d3_1h__z_score                       +0.0899    0.0899  ####
-     6  d2_4h__self_pid                      +0.0848    0.0848  ####
-     7  d6_5m__self_adx                      -0.0823    0.0823  ####
-     8  d9_1m__coherence                     -0.0720    0.0720  ###
-     9  d10_30s__self_hurst                  -0.0712    0.0712  ###
-    10  d5_15m__z_score                      -0.0683    0.0683  ###
-    11  d6_5m__log1p_mom                     +0.0669    0.0669  ###
-    12  d7_3m__self_adx                      -0.0663    0.0663  ###
-    13  d4_30m__self_dmi_diff                +0.0648    0.0648  ###
-    14  d8_2m__coherence                     -0.0625    0.0625  ###
-    15  d8_2m__self_adx                      -0.0621    0.0621  ###
-    16  d8_2m__self_dmi_diff                 -0.0619    0.0619  ###
-    17  d3_1h__self_dmi_diff                 +0.0616    0.0616  ###
-    18  d8_2m__log1p_vol                     +0.0607    0.0607  ###
-    19  d2_4h__z_score                       +0.0590    0.0590  ##
-    20  d7_3m__self_pid                      -0.0562    0.0562  ##
+     1  d10_30s__coherence                   +0.1243    0.1243  ######
+     2  d8_2m__z_score                       +0.1125    0.1125  #####
+     3  d8_2m__self_pid                      +0.1056    0.1056  #####
+     4  d4_30m__self_pid                     -0.1008    0.1008  #####
+     5  d9_1m__osc_coh                       +0.0990    0.0990  ####
+     6  d10_30s__log1p_vol                   -0.0878    0.0878  ####
+     7  d6_5m__self_pid                      +0.0799    0.0799  ###
+     8  d9_1m__self_pid                      +0.0776    0.0776  ###
+     9  d10_30s__log1p_mom                   -0.0748    0.0748  ###
+    10  d9_1m__z_score                       +0.0735    0.0735  ###
+    11  d9_1m__coherence                     +0.0710    0.0710  ###
+    12  d11_15s__log1p_vol                   -0.0703    0.0703  ###
+    13  d2_4h__osc_coh                       -0.0675    0.0675  ###
+    14  d11_15s__self_adx                    +0.0672    0.0672  ###
+    15  d11_15s__coherence                   +0.0670    0.0670  ###
+    16  d10_30s__self_adx                    +0.0668    0.0668  ###
+    17  d9_1m__self_adx                      +0.0666    0.0666  ###
+    18  d7_3m__self_adx                      +0.0656    0.0656  ###
+    19  d10_30s__osc_coh                     +0.0655    0.0655  ###
+    20  d7_3m__z_score                       +0.0650    0.0650  ###
 
   Stepwise regression: context + anchor -> direction
 
@@ -242,72 +232,73 @@ Derived direction accuracy: 53.0%
 ======================================================================
   Step  Factor                                    R2       dR2    adj-R2
   ----  ----------------------------------- --------  --------  --------
-     1  d11_15s__osc_coh                      0.0168   +0.0168    0.0147
-     2  d2_4h__coherence                      0.0276   +0.0108    0.0234
-     3  d3_1h__self_pid                       0.0314   +0.0037    0.0250
-     4  d5_15m__self_adx                      0.0315   +0.0001    0.0229
-     5  d3_1h__z_score                        0.0335   +0.0021    0.0229
-     6  d2_4h__self_pid                       0.0336   +0.0000    0.0208
-     7  d6_5m__self_adx                       0.0341   +0.0005    0.0191
-     8  d9_1m__coherence                      0.0422   +0.0082    0.0252
-     9  d10_30s__self_hurst                   0.0463   +0.0040    0.0272
-    10  d5_15m__z_score                       0.0497   +0.0034    0.0285
-    11  d6_5m__log1p_mom                      0.0528   +0.0031    0.0295
-    12  d7_3m__self_adx                       0.0535   +0.0007    0.0280
-    13  d4_30m__self_dmi_diff                 0.0600   +0.0065    0.0326
-    14  d8_2m__coherence                      0.0602   +0.0002    0.0306
-    15  d8_2m__self_adx                       0.0617   +0.0016    0.0300
-    16  d8_2m__self_dmi_diff                  0.0652   +0.0035    0.0314
-    17  d3_1h__self_dmi_diff                  0.0658   +0.0006    0.0299
-    18  d8_2m__log1p_vol                      0.0662   +0.0004    0.0281
-    19  d2_4h__z_score                        0.0662   +0.0000    0.0259
-    20  d7_3m__self_pid                       0.0681   +0.0019    0.0257
+     1  d10_30s__coherence                    0.0155   +0.0155    0.0131
+     2  d8_2m__z_score                        0.0268   +0.0114    0.0222
+     3  d8_2m__self_pid                       0.0275   +0.0007    0.0206
+     4  d4_30m__self_pid                      0.0350   +0.0075    0.0259
+     5  d9_1m__osc_coh                        0.0364   +0.0014    0.0250
+     6  d10_30s__log1p_vol                    0.0378   +0.0014    0.0241
+     7  d6_5m__self_pid                       0.0401   +0.0023    0.0242
+     8  d9_1m__self_pid                       0.0403   +0.0001    0.0220
+     9  d10_30s__log1p_mom                    0.0404   +0.0002    0.0198
+    10  d9_1m__z_score                        0.0410   +0.0006    0.0181
+    11  d9_1m__coherence                      0.0411   +0.0000    0.0158
+    12  d11_15s__log1p_vol                    0.0415   +0.0005    0.0139
+    13  d2_4h__osc_coh                        0.0427   +0.0011    0.0127
+    14  d11_15s__self_adx                     0.0493   +0.0066    0.0171
+    15  d11_15s__coherence                    0.0496   +0.0003    0.0151
+    16  d10_30s__self_adx                     0.0508   +0.0012    0.0139
+    17  d9_1m__self_adx                       0.0516   +0.0009    0.0124
+    18  d7_3m__self_adx                       0.0521   +0.0005    0.0105
+    19  d10_30s__osc_coh                      0.0523   +0.0001    0.0082
+    20  d7_3m__z_score                        0.0577   +0.0054    0.0115
 
-  >> DIRECTION adj-R2 = 0.0257
-  >> Context explains 2.6% of direction variance
+  >> DIRECTION adj-R2 = 0.0115
+  >> Context explains 1.2% of direction variance
 
   DIRECTION BY TIMEFRAME:
   Depth            TF   Mean |r|    Max |r| Top Factor                         
   ------------ ------ ---------- ---------- -----------------------------------
   d0_1W            1W     0.0000     0.0000 d0_1W__z_score                     
-  d1_1D            1D     0.0142     0.0440 d1_1D__osc_coh                     
-  d2_4h            4h     0.0261     0.1090 d2_4h__coherence                   
-  d3_1h            1h     0.0247     0.0984 d3_1h__self_pid                    
-  d4_30m          30m     0.0166     0.0648 d4_30m__self_dmi_diff              
-  d5_15m          15m     0.0259     0.0936 d5_15m__self_adx                   
-  d6_5m            5m     0.0192     0.0823 d6_5m__self_adx                    
-  d7_3m            3m     0.0207     0.0663 d7_3m__self_adx                    
-  d8_2m            2m     0.0267     0.0625 d8_2m__coherence                   
-  d9_1m            1m     0.0158     0.0720 d9_1m__coherence                   
-  d10_30s         30s     0.0135     0.0712 d10_30s__self_hurst                
-  d11_15s         15s     0.0149     0.1296 d11_15s__osc_coh                   
+  d1_1D            1D     0.0000     0.0000 d1_1D__z_score                     
+  d2_4h            4h     0.0198     0.0675 d2_4h__osc_coh                     
+  d3_1h            1h     0.0146     0.0524 d3_1h__z_score                     
+  d4_30m          30m     0.0216     0.1008 d4_30m__self_pid                   
+  d5_15m          15m     0.0219     0.0649 d5_15m__log1p_vol                  
+  d6_5m            5m     0.0178     0.0799 d6_5m__self_pid                    
+  d7_3m            3m     0.0187     0.0656 d7_3m__self_adx                    
+  d8_2m            2m     0.0330     0.1125 d8_2m__z_score                     
+  d9_1m            1m     0.0316     0.0990 d9_1m__osc_coh                     
+  d10_30s         30s     0.0331     0.1243 d10_30s__coherence                 
+  d11_15s         15s     0.0195     0.0703 d11_15s__log1p_vol                 
 
   DIRECTION BY FEATURE:
   Feature                Mean |r|    Max |r| Best TF        
   -------------------- ---------- ---------- ---------------
-  z_score                  0.0339     0.0899 d3_1h          
-  log1p_vol                0.0268     0.0607 d8_2m          
-  log1p_mom                0.0250     0.0669 d6_5m          
-  coherence                0.0416     0.1090 d2_4h          
-  tf_scale                 0.0031     0.0367 d1_1D          
+  z_score                  0.0348     0.1125 d8_2m          
+  log1p_vol                0.0348     0.0878 d10_30s        
+  log1p_mom                0.0331     0.0748 d10_30s        
+  coherence                0.0364     0.1243 d10_30s        
+  tf_scale                 0.0045     0.0541 d2_4h          
   depth                    0.0000     0.0000 d0_1W          
   parent_ctx               0.0000     0.0000 d0_1W          
-  self_adx                 0.0357     0.0936 d5_15m         
-  self_hurst               0.0327     0.0712 d10_30s        
-  self_dmi_diff            0.0315     0.0648 d4_30m         
+  self_adx                 0.0416     0.0672 d11_15s        
+  self_hurst               0.0248     0.0607 d6_5m          
+  self_dmi_diff            0.0227     0.0574 d10_30s        
   parent_z                 0.0000     0.0000 d0_1W          
   parent_dmi_diff          0.0000     0.0000 d0_1W          
   root_is_roche            0.0000     0.0000 d0_1W          
   tf_alignment             0.0000     0.0000 d0_1W          
-  self_pid                 0.0349     0.0984 d3_1h          
-  osc_coh                  0.0261     0.1296 d11_15s        
-  current_MR               0.0422     0.0422 (base TF)      
+  self_pid                 0.0413     0.1056 d8_2m          
+  osc_coh                  0.0348     0.0990 d9_1m          
+  current_MR               0.0116     0.0116 (base TF)      
 
-  SIGN PATTERN: 10/20 top factors have NEGATIVE correlation
-  Mixed signs -- no dominant directional bias in the features.
+  SIGN PATTERN: 5/20 top factors have NEGATIVE correlation
+  Most direction factors point to TREND CONTINUATION -- higher
+  feature values predict UP moves, suggesting momentum persistence.
 
   DIRECTION CONCLUSION:
-  Insufficient: adj-R2 = 0.0257. The fractal context does not
+  Insufficient: adj-R2 = 0.0115. The fractal context does not
   reliably explain direction. The next bar is essentially unpredictable
   from these features alone.
 
@@ -317,24 +308,25 @@ Derived direction accuracy: 53.0%
   direction = sign(predicted[t+1] - predicted[t])
 ======================================================================
 
-  Pairs: 459, Valid (non-flat): 457
-  Predicted direction accuracy: 242/457 = 53.0%
+  Pairs: 428, Valid (non-flat): 427
+  Predicted direction accuracy: 303/427 = 71.0%
 
-  When actual UP:   123/225 = 54.7%
-  When actual DOWN: 119/232 = 51.3%
+  When actual UP:   154/228 = 67.5%
+  When actual DOWN: 149/199 = 74.9%
 
-  Price model residuals: mean=-0.00, std=56.70
-  Actual bar-to-bar moves: mean=18.74, std=30.04
-  Signal-to-noise ratio: 0.331 (poor: noise > moves)
-  |predicted delta| >   0.0: 242/456 = 53.1%
-  |predicted delta| >   5.0: 175/317 = 55.2%
-  |predicted delta| >  10.0: 99/190 = 52.1%
-  |predicted delta| >  20.0: 35/71 = 49.3%
+  Price model residuals: mean=0.00, std=59.10
+  Actual bar-to-bar moves: mean=18.27, std=29.04
+  Signal-to-noise ratio: 0.309 (poor: noise > moves)
+  |predicted delta| >   0.0: 303/427 = 71.0%
+  |predicted delta| >   5.0: 270/371 = 72.8%
+  |predicted delta| >  10.0: 237/314 = 75.5%
+  |predicted delta| >  20.0: 177/222 = 79.7%
 
   DERIVED DIRECTION CONCLUSION:
-  Marginal: 53.0% accuracy. Slightly better than chance but
-  not reliable enough. The price model's residual noise (56.7)
-  is larger the typical move (18.7).
+  Promising: 71.0% accuracy. Deriving direction from consecutive
+  price predictions works better than standalone direction modeling.
+  However, signal-to-noise is low (0.31) -- may improve with
+  more data or better price features.
 
 ======================================================================
   ANALYSIS D: RATE-OF-CHANGE (PATTERN RECOGNITION)
@@ -351,45 +343,45 @@ Derived direction accuracy: 53.0%
 ======================================================================
   Step  Factor                                    R2       dR2    adj-R2
   ----  ----------------------------------- --------  --------  --------
-     1  d2_4h__self_dmi_diff                  0.9140   +0.9140    0.9138
-     2  d1_1D__osc_coh                        0.9175   +0.0035    0.9171
-     3  d1_1D__log1p_vol                      0.9176   +0.0001    0.9171
-     4  d1_1D__tf_scale                       0.9227   +0.0050    0.9220
-     5  d1_1D__self_hurst                     0.9227   +0.0000    0.9218
-     6  d1_1D__coherence                      0.9227   -0.0000    0.9216
-     7  d1_1D__log1p_mom                      0.9227   +0.0000    0.9215
-     8  d3_1h__self_hurst                     0.9227   +0.0000    0.9213
-     9  d1_1D__self_pid                       0.9227   +0.0000    0.9211
-    10  d3_1h__self_dmi_diff                  0.9407   +0.0181    0.9394
-    11  d1_1D__z_score                        0.9407   +0.0000    0.9393
-    12  d3_1h__self_adx                       0.9547   +0.0140    0.9534
-    13  d2_4h__self_adx                       0.9596   +0.0049    0.9584
-    14  d2_4h__log1p_vol                      0.9612   +0.0017    0.9600
-    15  d3_1h__self_pid                       0.9616   +0.0003    0.9603
-    16  d1_1D__self_dmi_diff                  0.9616   -0.0000    0.9602
-    17  d4_30m__self_dmi_diff                 0.9624   +0.0008    0.9610
-    18  d5_15m__log1p_vol                     0.9629   +0.0005    0.9614
-    19  d4_30m__self_adx                      0.9631   +0.0002    0.9615
-    20  d2_4h__self_pid                       0.9640   +0.0009    0.9624
+     1  d2_4h__self_dmi_diff                  0.7249   +0.7249    0.7243
+     2  d2_4h__log1p_mom                      0.8424   +0.1175    0.8417
+     3  d2_4h__self_adx                       0.8463   +0.0039    0.8452
+     4  d2_4h__log1p_vol                      0.8464   +0.0001    0.8449
+     5  d3_1h__self_dmi_diff                  0.8576   +0.0112    0.8559
+     6  d2_4h__tf_scale                       0.8581   +0.0005    0.8561
+     7  d2_4h__self_hurst                     0.8581   +0.0000    0.8557
+     8  d2_4h__coherence                      0.8610   +0.0029    0.8583
+     9  d2_4h__osc_coh                        0.8638   +0.0028    0.8609
+    10  d2_4h__self_pid                       0.8638   +0.0001    0.8606
+    11  d4_30m__self_hurst                    0.8641   +0.0002    0.8605
+    12  d4_30m__self_dmi_diff                 0.8660   +0.0019    0.8622
+    13  d5_15m__self_pid                      0.9059   +0.0399    0.9030
+    14  d5_15m__self_hurst                    0.9065   +0.0005    0.9033
+    15  d3_1h__self_pid                       0.9146   +0.0081    0.9115
+    16  d3_1h__self_hurst                     0.9219   +0.0073    0.9188
+    17  d3_1h__osc_coh                        0.9223   +0.0005    0.9191
+    18  d5_15m__self_dmi_diff                 0.9223   +0.0000    0.9189
+    19  d5_15m__self_adx                      0.9224   +0.0001    0.9188
+    20  d6_5m__self_pid                       0.9274   +0.0050    0.9238
 
-  >> PRICE adj-R2 (level only):  0.9624
-  >> PRICE adj-R2 (level+delta): 0.9624
+  >> PRICE adj-R2 (level only):  0.9238
+  >> PRICE adj-R2 (level+delta): 0.9238
   >> Delta contribution: +0.0000 (+0.0%)
   >> Delta features in price model: 0/20
 
   TOP 10 DELTA FACTORS for price:
   Rank  Factor                                     r       |r|
   ----  ----------------------------------- --------  --------
-     1  dt_d2_4h__self_adx                   -0.1415    0.1415
-     2  dt_d5_15m__self_adx                  +0.1331    0.1331
-     3  dt_d2_4h__z_score                    -0.0944    0.0944
-     4  dt_d2_4h__self_pid                   -0.0832    0.0832
-     5  dt_d1_1D__self_dmi_diff              +0.0495    0.0495
-     6  dt_d6_5m__self_adx                   +0.0411    0.0411
-     7  dt_d3_1h__self_dmi_diff              -0.0343    0.0343
-     8  dt_d1_1D__z_score                    +0.0319    0.0319
-     9  dt_d2_4h__coherence                  -0.0306    0.0306
-    10  dt_d3_1h__osc_coh                    +0.0251    0.0251
+     1  dt_d4_30m__self_adx                  -0.1336    0.1336
+     2  dt_d5_15m__self_adx                  -0.1047    0.1047
+     3  dt_d2_4h__osc_coh                    +0.0861    0.0861
+     4  dt_d2_4h__self_dmi_diff              +0.0826    0.0826
+     5  dt_d2_4h__self_hurst                 +0.0644    0.0644
+     6  dt_d2_4h__tf_scale                   +0.0644    0.0644
+     7  dt_d3_1h__self_adx                   -0.0641    0.0641
+     8  dt_d2_4h__self_adx                   -0.0531    0.0531
+     9  dt_d2_4h__coherence                  +0.0379    0.0379
+    10  dt_d4_30m__self_pid                  +0.0325    0.0325
 
   D2: DIRECTION with level+delta features
   Stepwise regression: 386 features -> direction
@@ -399,45 +391,45 @@ Derived direction accuracy: 53.0%
 ======================================================================
   Step  Factor                                    R2       dR2    adj-R2
   ----  ----------------------------------- --------  --------  --------
-     1  d11_15s__osc_coh                      0.0168   +0.0168    0.0147
-     2  dt_d11_15s__osc_coh                   0.0174   +0.0006    0.0131
-     3  d2_4h__coherence                      0.0284   +0.0110    0.0220
-     4  d3_1h__self_pid                       0.0320   +0.0036    0.0235
-     5  dt_d6_5m__log1p_mom                   0.0455   +0.0135    0.0350
-     6  d5_15m__self_adx                      0.0457   +0.0001    0.0330
-     7  d3_1h__z_score                        0.0477   +0.0021    0.0330
-     8  dt_d8_2m__self_hurst                  0.0525   +0.0048    0.0357
-     9  d2_4h__self_pid                       0.0525   +0.0000    0.0336
-    10  d6_5m__self_adx                       0.0532   +0.0007    0.0321
-    11  dt_d3_1h__self_adx                    0.0547   +0.0015    0.0315
-    12  dt_d1_1D__self_pid                    0.0595   +0.0048    0.0343
-    13  dt_d1_1D__z_score                     0.0596   +0.0000    0.0321
-    14  dt_d6_5m__log1p_vol                   0.0625   +0.0029    0.0330
-    15  d9_1m__coherence                      0.0647   +0.0022    0.0331
-    16  d10_30s__self_hurst                   0.0658   +0.0012    0.0321
-    17  dt_d3_1h__coherence                   0.0683   +0.0025    0.0325
-    18  d5_15m__z_score                       0.0703   +0.0020    0.0324
-    19  d6_5m__log1p_mom                      0.0707   +0.0004    0.0306
-    20  d7_3m__self_adx                       0.0710   +0.0003    0.0287
+     1  dt_d9_1m__self_dmi_diff               0.0164   +0.0164    0.0141
+     2  d10_30s__coherence                    0.0306   +0.0141    0.0260
+     3  dt_d5_15m__osc_coh                    0.0450   +0.0144    0.0383
+     4  d8_2m__z_score                        0.0460   +0.0010    0.0370
+     5  dt_d4_30m__self_hurst                 0.0518   +0.0057    0.0406
+     6  d8_2m__self_pid                       0.0521   +0.0003    0.0386
+     7  dt_d3_1h__self_hurst                  0.0645   +0.0125    0.0490
+     8  d4_30m__self_pid                      0.0700   +0.0055    0.0523
+     9  dt_d2_4h__log1p_vol                   0.0747   +0.0047    0.0548
+    10  d9_1m__osc_coh                        0.0758   +0.0011    0.0537
+    11  dt_d2_4h__z_score                     0.0794   +0.0037    0.0551
+    12  dt_d8_2m__self_dmi_diff               0.0830   +0.0036    0.0566
+    13  dt_d5_15m__log1p_mom                  0.0856   +0.0026    0.0570
+    14  dt_d5_15m__log1p_vol                  0.0889   +0.0033    0.0581
+    15  dt_d9_1m__osc_coh                     0.0897   +0.0008    0.0566
+    16  dt_d6_5m__z_score                     0.0897   +0.0000    0.0544
+    17  dt_d6_5m__self_hurst                  0.0953   +0.0056    0.0578
+    18  dt_d2_4h__self_pid                    0.0955   +0.0002    0.0558
+    19  d10_30s__log1p_vol                    0.0963   +0.0008    0.0543
+    20  dt_d10_30s__self_dmi_diff             0.1010   +0.0048    0.0570
 
-  >> DIRECTION adj-R2 (level only):  0.0257
-  >> DIRECTION adj-R2 (level+delta): 0.0287
-  >> Delta contribution: +0.0030 (+0.3%)
-  >> Delta features in direction model: 8/20
+  >> DIRECTION adj-R2 (level only):  0.0115
+  >> DIRECTION adj-R2 (level+delta): 0.0570
+  >> Delta contribution: +0.0454 (+4.5%)
+  >> Delta features in direction model: 14/20
 
   TOP 10 DELTA FACTORS for direction:
   Rank  Factor                                     r       |r|
   ----  ----------------------------------- --------  --------
-     1  dt_d11_15s__osc_coh                  +0.1104    0.1104
-     2  dt_d6_5m__log1p_mom                  +0.0957    0.0957
-     3  dt_d8_2m__self_hurst                 +0.0858    0.0858
-     4  dt_d3_1h__self_adx                   -0.0802    0.0802
-     5  dt_d1_1D__self_pid                   +0.0780    0.0780
-     6  dt_d1_1D__z_score                    +0.0749    0.0749
-     7  dt_d6_5m__log1p_vol                  +0.0746    0.0746
-     8  dt_d3_1h__coherence                  +0.0687    0.0687
-     9  dt_d8_2m__self_dmi_diff              -0.0650    0.0650
-    10  dt_d5_15m__log1p_mom                 +0.0650    0.0650
+     1  dt_d9_1m__self_dmi_diff              +0.1282    0.1282
+     2  dt_d5_15m__osc_coh                   +0.1207    0.1207
+     3  dt_d4_30m__self_hurst                -0.1072    0.1072
+     4  dt_d3_1h__self_hurst                 -0.1047    0.1047
+     5  dt_d2_4h__log1p_vol                  +0.1005    0.1005
+     6  dt_d2_4h__z_score                    -0.0981    0.0981
+     7  dt_d8_2m__self_dmi_diff              +0.0977    0.0977
+     8  dt_d5_15m__log1p_mom                 -0.0977    0.0977
+     9  dt_d5_15m__log1p_vol                 -0.0956    0.0956
+    10  dt_d9_1m__osc_coh                    +0.0909    0.0909
 
   D3: DERIVED DIRECTION from level+delta price model
 
@@ -446,41 +438,37 @@ Derived direction accuracy: 53.0%
 ======================================================================
   Step  Factor                                    R2       dR2    adj-R2
   ----  ----------------------------------- --------  --------  --------
-     1  d2_4h__self_dmi_diff                  0.9140   +0.9140    0.9138
-     2  d1_1D__osc_coh                        0.9175   +0.0035    0.9171
-     3  d1_1D__log1p_vol                      0.9176   +0.0001    0.9171
-     4  d1_1D__tf_scale                       0.9227   +0.0050    0.9220
-     5  d1_1D__self_hurst                     0.9227   +0.0000    0.9218
-     6  d1_1D__coherence                      0.9227   -0.0000    0.9216
-     7  d1_1D__log1p_mom                      0.9227   +0.0000    0.9215
-     8  d3_1h__self_hurst                     0.9227   +0.0000    0.9213
-     9  d1_1D__self_pid                       0.9227   +0.0000    0.9211
-    10  d3_1h__self_dmi_diff                  0.9407   +0.0181    0.9394
-    11  d1_1D__z_score                        0.9407   +0.0000    0.9393
-    12  d3_1h__self_adx                       0.9547   +0.0140    0.9534
-    13  d2_4h__self_adx                       0.9596   +0.0049    0.9584
-    14  d2_4h__log1p_vol                      0.9612   +0.0017    0.9600
-    15  d3_1h__self_pid                       0.9616   +0.0003    0.9603
-    16  d1_1D__self_dmi_diff                  0.9616   -0.0000    0.9602
-    17  d4_30m__self_dmi_diff                 0.9624   +0.0008    0.9610
-    18  d5_15m__log1p_vol                     0.9629   +0.0005    0.9614
-    19  d4_30m__self_adx                      0.9631   +0.0002    0.9615
-    20  d2_4h__self_pid                       0.9640   +0.0009    0.9624
-  Derived direction (level only):  53.0%
-  Derived direction (level+delta): 53.0%
+     1  d2_4h__self_dmi_diff                  0.7249   +0.7249    0.7243
+     2  d2_4h__log1p_mom                      0.8424   +0.1175    0.8417
+     3  d2_4h__self_adx                       0.8463   +0.0039    0.8452
+     4  d2_4h__log1p_vol                      0.8464   +0.0001    0.8449
+     5  d3_1h__self_dmi_diff                  0.8576   +0.0112    0.8559
+     6  d2_4h__tf_scale                       0.8581   +0.0005    0.8561
+     7  d2_4h__self_hurst                     0.8581   +0.0000    0.8557
+     8  d2_4h__coherence                      0.8610   +0.0029    0.8583
+     9  d2_4h__osc_coh                        0.8638   +0.0028    0.8609
+    10  d2_4h__self_pid                       0.8638   +0.0001    0.8606
+    11  d4_30m__self_hurst                    0.8641   +0.0002    0.8605
+    12  d4_30m__self_dmi_diff                 0.8660   +0.0019    0.8622
+    13  d5_15m__self_pid                      0.9059   +0.0399    0.9030
+    14  d5_15m__self_hurst                    0.9065   +0.0005    0.9033
+    15  d3_1h__self_pid                       0.9146   +0.0081    0.9115
+    16  d3_1h__self_hurst                     0.9219   +0.0073    0.9188
+    17  d3_1h__osc_coh                        0.9223   +0.0005    0.9191
+    18  d5_15m__self_dmi_diff                 0.9223   +0.0000    0.9189
+    19  d5_15m__self_adx                      0.9224   +0.0001    0.9188
+    20  d6_5m__self_pid                       0.9274   +0.0050    0.9238
+  Derived direction (level only):  71.0%
+  Derived direction (level+delta): 71.0%
   Delta contribution: +0.0%
-  |predicted delta| >   0.0: 242/456 = 53.1%
-  |predicted delta| >   5.0: 175/317 = 55.2%
-  |predicted delta| >  10.0: 99/190 = 52.1%
-  |predicted delta| >  20.0: 35/71 = 49.3%
+  |predicted delta| >   0.0: 303/427 = 71.0%
+  |predicted delta| >   5.0: 270/371 = 72.8%
+  |predicted delta| >  10.0: 237/314 = 75.5%
+  |predicted delta| >  20.0: 177/222 = 79.7%
 
   ANALYSIS D CONCLUSION:
-  Rate-of-change features do NOT meaningfully improve results.
-    Price R2:  0.9624 -> 0.9624 (+0.0000)
-    Dir R2:    0.0257 -> 0.0287 (+0.0030)
-    Derived:   53.0% -> 53.0% (+0.0%)
-  The spatial snapshot already captures what matters. Adding temporal
-  deltas does not reveal hidden directional signal.
+  Pattern recognition HELPS:
+    Direction R2: 0.0115 -> 0.0570 (+0.0454)
 
 ======================================================================
   ANALYSIS E: dP/dT-GROUPED ANALYSIS (SIGNAL AMPLIFICATION)
@@ -491,9 +479,9 @@ Derived direction accuracy: 53.0%
   dP/dT bins (quintiles of signed MR):
   Bin                            Range      N    Mean MR
   --------------- -------------------- ------ ----------
-  DOWN            [  -226.0,     -9.0]    149     -27.93
-  FLAT            [    -8.8,     +6.2]    159      -0.94
-  UP              [    +6.5,   +151.0]    152     +25.65
+  DOWN            [  -161.5,     -5.8]    142     -28.21
+  FLAT            [    -5.5,     +6.8]    143      +0.60
+  UP              [    +7.0,   +124.8]    144     +23.76
 
   PER-GROUP RESULTS:
   Bin                 N   Price R2     Dir R2    Derived     Dir>20
@@ -504,248 +492,248 @@ Derived direction accuracy: 53.0%
 ======================================================================
   Step  Factor                                    R2       dR2    adj-R2
   ----  ----------------------------------- --------  --------  --------
-     1  d2_4h__self_dmi_diff                  0.8878   +0.8878    0.8870
-     2  d1_1D__osc_coh                        0.8913   +0.0035    0.8898
-     3  d1_1D__log1p_vol                      0.8919   +0.0006    0.8896
-     4  d1_1D__self_hurst                     0.8931   +0.0012    0.8901
-     5  d1_1D__tf_scale                       0.8931   -0.0000    0.8893
-     6  d1_1D__coherence                      0.8931   +0.0000    0.8885
-     7  d1_1D__log1p_mom                      0.8931   +0.0000    0.8878
-     8  d3_1h__self_hurst                     0.8963   +0.0033    0.8904
-     9  d3_1h__self_dmi_diff                  0.9296   +0.0333    0.9250
-    10  d3_1h__self_adx                       0.9431   +0.0135    0.9390
-    11  d1_1D__self_pid                       0.9431   +0.0000    0.9386
-    12  d1_1D__z_score                        0.9431   +0.0000    0.9381
-    13  d4_30m__self_adx                      0.9433   +0.0002    0.9379
-    14  d4_30m__self_dmi_diff                 0.9452   +0.0019    0.9395
-    15  d2_4h__log1p_vol                      0.9487   +0.0035    0.9429
-    16  d3_1h__self_pid                       0.9507   +0.0020    0.9447
-    17  d2_4h__self_adx                       0.9557   +0.0050    0.9500
-    18  d5_15m__self_adx                      0.9559   +0.0001    0.9497
-    19  d2_4h__coherence                      0.9661   +0.0103    0.9611
-    20  d2_4h__self_pid                       0.9670   +0.0009    0.9618
+     1  d2_4h__self_dmi_diff                  0.6725   +0.6725    0.6702
+     2  d2_4h__self_adx                       0.7024   +0.0299    0.6982
+     3  d2_4h__tf_scale                       0.8350   +0.1325    0.8314
+     4  d2_4h__self_hurst                     0.8350   +0.0000    0.8301
+     5  d2_4h__log1p_mom                      0.8430   +0.0080    0.8372
+     6  d3_1h__self_dmi_diff                  0.8570   +0.0140    0.8506
+     7  d2_4h__log1p_vol                      0.8581   +0.0011    0.8507
+     8  d2_4h__coherence                      0.8615   +0.0034    0.8531
+     9  d2_4h__osc_coh                        0.8646   +0.0031    0.8553
+    10  d4_30m__self_hurst                    0.8655   +0.0009    0.8552
+    11  d5_15m__self_pid                      0.9091   +0.0437    0.9015
+    12  d4_30m__self_dmi_diff                 0.9092   +0.0000    0.9007
+    13  d2_4h__self_pid                       0.9096   +0.0004    0.9004
+    14  d3_1h__self_hurst                     0.9244   +0.0148    0.9160
+    15  d5_15m__self_hurst                    0.9251   +0.0007    0.9161
+    16  d3_1h__osc_coh                        0.9252   +0.0002    0.9157
+    17  d3_1h__self_pid                       0.9274   +0.0022    0.9175
+    18  d4_30m__self_adx                      0.9295   +0.0021    0.9192
+    19  d5_15m__self_adx                      0.9298   +0.0003    0.9188
+    20  d5_15m__self_dmi_diff                 0.9298   +0.0000    0.9182
 
 ======================================================================
   STEPWISE REGRESSION (top 20 factors -> MFE)
 ======================================================================
   Step  Factor                                    R2       dR2    adj-R2
   ----  ----------------------------------- --------  --------  --------
-     1  d2_4h__coherence                      0.0307   +0.0307    0.0241
-     2  d6_5m__self_adx                       0.0331   +0.0023    0.0198
-     3  d8_2m__coherence                      0.0509   +0.0179    0.0313
-     4  d8_2m__z_score                        0.0579   +0.0069    0.0317
-     5  d8_2m__self_pid                       0.0658   +0.0080    0.0332
-     6  d4_30m__log1p_mom                     0.0861   +0.0203    0.0475
-     7  d9_1m__self_hurst                     0.0913   +0.0052    0.0462
-     8  d3_1h__osc_coh                        0.1069   +0.0156    0.0559
-     9  d7_3m__self_adx                       0.1087   +0.0018    0.0510
-    10  d6_5m__coherence                      0.1411   +0.0324    0.0789
-    11  d5_15m__self_adx                      0.1612   +0.0201    0.0938
-    12  d2_4h__self_adx                       0.1648   +0.0036    0.0911
-    13  d7_3m__self_hurst                     0.1911   +0.0263    0.1132
-    14  d6_5m__log1p_mom                      0.1944   +0.0033    0.1102
-    15  d8_2m__log1p_vol                      0.1944   +0.0000    0.1036
-    16  d7_3m__z_score                        0.1951   +0.0006    0.0975
-    17  d2_4h__log1p_vol                      0.1972   +0.0021    0.0930
-    18  d11_15s__self_dmi_diff                0.2125   +0.0153    0.1034
-    19  d4_30m__log1p_vol                     0.2166   +0.0042    0.1012
-    20  d8_2m__log1p_mom                      0.2523   +0.0357    0.1355
+     1  d4_30m__self_pid                      0.0468   +0.0468    0.0400
+     2  d4_30m__coherence                     0.0558   +0.0090    0.0422
+     3  d6_5m__self_adx                       0.0588   +0.0030    0.0384
+     4  d10_30s__coherence                    0.0797   +0.0209    0.0529
+     5  d4_30m__z_score                       0.0880   +0.0083    0.0545
+     6  d3_1h__z_score                        0.0894   +0.0014    0.0489
+     7  d7_3m__log1p_vol                      0.1050   +0.0156    0.0582
+     8  d2_4h__osc_coh                        0.1201   +0.0151    0.0672
+     9  d9_1m__osc_coh                        0.1219   +0.0018    0.0620
+    10  d2_4h__tf_scale                       0.1257   +0.0038    0.0590
+    11  d2_4h__self_hurst                     0.1257   +0.0000    0.0517
+    12  d11_15s__self_adx                     0.1472   +0.0215    0.0679
+    13  d7_3m__self_adx                       0.1473   +0.0001    0.0607
+    14  d4_30m__osc_coh                       0.1475   +0.0002    0.0536
+    15  d9_1m__coherence                      0.1500   +0.0025    0.0488
+    16  d5_15m__self_dmi_diff                 0.1511   +0.0011    0.0425
+    17  d8_2m__osc_coh                        0.1621   +0.0110    0.0472
+    18  d3_1h__log1p_vol                      0.1624   +0.0003    0.0398
+    19  d3_1h__self_pid                       0.1633   +0.0009    0.0330
+    20  d2_4h__coherence                      0.1873   +0.0240    0.0530
 
 ======================================================================
   STEPWISE REGRESSION (top 20 factors -> MFE)
 ======================================================================
   Step  Factor                                    R2       dR2    adj-R2
   ----  ----------------------------------- --------  --------  --------
-     1  d2_4h__self_dmi_diff                  0.8878   +0.8878    0.8870
-     2  d1_1D__osc_coh                        0.8913   +0.0035    0.8898
-     3  d1_1D__log1p_vol                      0.8919   +0.0006    0.8896
-     4  d1_1D__self_hurst                     0.8931   +0.0012    0.8901
-     5  d1_1D__tf_scale                       0.8931   -0.0000    0.8893
-     6  d1_1D__coherence                      0.8931   +0.0000    0.8885
-     7  d1_1D__log1p_mom                      0.8931   +0.0000    0.8878
-     8  d3_1h__self_hurst                     0.8963   +0.0033    0.8904
-     9  d3_1h__self_dmi_diff                  0.9296   +0.0333    0.9250
-    10  d3_1h__self_adx                       0.9431   +0.0135    0.9390
-    11  d1_1D__self_pid                       0.9431   +0.0000    0.9386
-    12  d1_1D__z_score                        0.9431   +0.0000    0.9381
-    13  d4_30m__self_adx                      0.9433   +0.0002    0.9379
-    14  d4_30m__self_dmi_diff                 0.9452   +0.0019    0.9395
-    15  d2_4h__log1p_vol                      0.9487   +0.0035    0.9429
-    16  d3_1h__self_pid                       0.9507   +0.0020    0.9447
-    17  d2_4h__self_adx                       0.9557   +0.0050    0.9500
-    18  d5_15m__self_adx                      0.9559   +0.0001    0.9497
-    19  d2_4h__coherence                      0.9661   +0.0103    0.9611
-    20  d2_4h__self_pid                       0.9670   +0.0009    0.9618
-  DOWN              149     0.9618     0.1355     59.9%  62.1%(58)
+     1  d2_4h__self_dmi_diff                  0.6725   +0.6725    0.6702
+     2  d2_4h__self_adx                       0.7024   +0.0299    0.6982
+     3  d2_4h__tf_scale                       0.8350   +0.1325    0.8314
+     4  d2_4h__self_hurst                     0.8350   +0.0000    0.8301
+     5  d2_4h__log1p_mom                      0.8430   +0.0080    0.8372
+     6  d3_1h__self_dmi_diff                  0.8570   +0.0140    0.8506
+     7  d2_4h__log1p_vol                      0.8581   +0.0011    0.8507
+     8  d2_4h__coherence                      0.8615   +0.0034    0.8531
+     9  d2_4h__osc_coh                        0.8646   +0.0031    0.8553
+    10  d4_30m__self_hurst                    0.8655   +0.0009    0.8552
+    11  d5_15m__self_pid                      0.9091   +0.0437    0.9015
+    12  d4_30m__self_dmi_diff                 0.9092   +0.0000    0.9007
+    13  d2_4h__self_pid                       0.9096   +0.0004    0.9004
+    14  d3_1h__self_hurst                     0.9244   +0.0148    0.9160
+    15  d5_15m__self_hurst                    0.9251   +0.0007    0.9161
+    16  d3_1h__osc_coh                        0.9252   +0.0002    0.9157
+    17  d3_1h__self_pid                       0.9274   +0.0022    0.9175
+    18  d4_30m__self_adx                      0.9295   +0.0021    0.9192
+    19  d5_15m__self_adx                      0.9298   +0.0003    0.9188
+    20  d5_15m__self_dmi_diff                 0.9298   +0.0000    0.9182
+  DOWN              142     0.9182     0.0530     65.2%  68.1%(91)
 
 ======================================================================
   STEPWISE REGRESSION (top 20 factors -> MFE)
 ======================================================================
   Step  Factor                                    R2       dR2    adj-R2
   ----  ----------------------------------- --------  --------  --------
-     1  d2_4h__self_dmi_diff                  0.9601   +0.9601    0.9598
-     2  d1_1D__log1p_vol                      0.9601   +0.0000    0.9596
-     3  d1_1D__osc_coh                        0.9602   +0.0000    0.9594
-     4  d1_1D__tf_scale                       0.9659   +0.0057    0.9650
-     5  d1_1D__self_hurst                     0.9659   -0.0000    0.9647
-     6  d1_1D__coherence                      0.9659   +0.0000    0.9645
-     7  d1_1D__log1p_mom                      0.9659   +0.0000    0.9643
-     8  d1_1D__self_pid                       0.9659   -0.0000    0.9640
-     9  d1_1D__z_score                        0.9659   +0.0000    0.9638
-    10  d2_4h__self_adx                       0.9659   +0.0000    0.9636
-    11  d1_1D__self_dmi_diff                  0.9659   +0.0000    0.9633
-    12  d3_1h__self_hurst                     0.9692   +0.0034    0.9667
-    13  d2_4h__log1p_vol                      0.9692   +0.0000    0.9665
-    14  d3_1h__self_dmi_diff                  0.9775   +0.0082    0.9753
-    15  d2_4h__self_hurst                     0.9799   +0.0024    0.9777
-    16  d2_4h__coherence                      0.9838   +0.0040    0.9820
-    17  d3_1h__self_pid                       0.9880   +0.0042    0.9865
-    18  d3_1h__self_adx                       0.9930   +0.0051    0.9922
-    19  d5_15m__self_pid                      0.9941   +0.0010    0.9932
-    20  d4_30m__self_hurst                    0.9943   +0.0002    0.9934
+     1  d2_4h__self_dmi_diff                  0.7469   +0.7469    0.7451
+     2  d2_4h__log1p_mom                      0.8571   +0.1102    0.8551
+     3  d2_4h__self_hurst                     0.8600   +0.0029    0.8570
+     4  d2_4h__tf_scale                       0.8600   +0.0000    0.8559
+     5  d2_4h__self_adx                       0.8600   +0.0000    0.8549
+     6  d2_4h__log1p_vol                      0.8601   +0.0001    0.8539
+     7  d3_1h__self_dmi_diff                  0.8602   +0.0001    0.8529
+     8  d2_4h__coherence                      0.8607   +0.0005    0.8523
+     9  d2_4h__osc_coh                        0.8651   +0.0044    0.8559
+    10  d5_15m__self_hurst                    0.8745   +0.0094    0.8650
+    11  d2_4h__self_pid                       0.8753   +0.0008    0.8648
+    12  d4_30m__self_hurst                    0.8786   +0.0033    0.8674
+    13  d3_1h__self_hurst                     0.8792   +0.0006    0.8670
+    14  d4_30m__self_dmi_diff                 0.8895   +0.0103    0.8774
+    15  d5_15m__self_pid                      0.9523   +0.0628    0.9466
+    16  d5_15m__self_adx                      0.9612   +0.0090    0.9563
+    17  d5_15m__osc_coh                       0.9613   +0.0000    0.9560
+    18  d3_1h__self_pid                       0.9693   +0.0080    0.9649
+    19  d3_1h__self_adx                       0.9849   +0.0156    0.9826
+    20  d4_30m__coherence                     0.9849   +0.0000    0.9824
 
 ======================================================================
   STEPWISE REGRESSION (top 20 factors -> MFE)
 ======================================================================
   Step  Factor                                    R2       dR2    adj-R2
   ----  ----------------------------------- --------  --------  --------
-     1  d11_15s__osc_coh                      0.0328   +0.0328    0.0267
-     2  d2_4h__self_pid                       0.0639   +0.0311    0.0519
-     3  d8_2m__log1p_mom                      0.0765   +0.0126    0.0586
-     4  d4_30m__log1p_mom                     0.0838   +0.0073    0.0601
-     5  d1_1D__self_pid                       0.0967   +0.0128    0.0672
-     6  d5_15m__self_hurst                    0.1036   +0.0070    0.0683
-     7  d3_1h__self_hurst                     0.1036   +0.0000    0.0621
-     8  d8_2m__self_adx                       0.1080   +0.0043    0.0604
-     9  d1_1D__z_score                        0.1135   +0.0055    0.0599
-    10  d10_30s__log1p_mom                    0.1137   +0.0002    0.0538
-    11  d11_15s__log1p_mom                    0.1141   +0.0005    0.0479
-    12  d8_2m__log1p_vol                      0.1219   +0.0078    0.0497
-    13  d8_2m__osc_coh                        0.1300   +0.0081    0.0519
-    14  d1_1D__osc_coh                        0.1338   +0.0038    0.0496
-    15  d1_1D__log1p_vol                      0.1338   -0.0000    0.0429
-    16  d3_1h__self_pid                       0.1423   +0.0085    0.0457
-    17  d1_1D__tf_scale                       0.1423   +0.0000    0.0389
-    18  d1_1D__self_hurst                     0.1423   -0.0000    0.0320
-    19  d1_1D__log1p_mom                      0.1423   +0.0000    0.0251
-    20  d1_1D__coherence                      0.1423   -0.0000    0.0180
+     1  d8_2m__self_pid                       0.0366   +0.0366    0.0298
+     2  d8_2m__z_score                        0.0426   +0.0060    0.0289
+     3  d4_30m__coherence                     0.0578   +0.0152    0.0374
+     4  d9_1m__self_pid                       0.0581   +0.0003    0.0308
+     5  d11_15s__self_pid                     0.0629   +0.0048    0.0287
+     6  d10_30s__self_hurst                   0.0749   +0.0121    0.0341
+     7  d9_1m__z_score                        0.0814   +0.0064    0.0338
+     8  d2_4h__self_dmi_diff                  0.0923   +0.0109    0.0381
+     9  d5_15m__self_pid                      0.0941   +0.0019    0.0328
+    10  d9_1m__self_hurst                     0.1010   +0.0069    0.0329
+    11  d10_30s__self_adx                     0.1178   +0.0168    0.0437
+    12  d8_2m__osc_coh                        0.1242   +0.0064    0.0434
+    13  d11_15s__osc_coh                      0.1323   +0.0081    0.0449
+    14  d9_1m__self_dmi_diff                  0.1353   +0.0030    0.0407
+    15  d11_15s__z_score                      0.1435   +0.0082    0.0424
+    16  price_anchor                          0.1460   +0.0025    0.0375
+    17  d7_3m__osc_coh                        0.1467   +0.0007    0.0307
+    18  d7_3m__coherence                      0.1540   +0.0073    0.0312
+    19  d11_15s__self_dmi_diff                0.1544   +0.0004    0.0238
+    20  current_MR                            0.1577   +0.0033    0.0196
 
 ======================================================================
   STEPWISE REGRESSION (top 20 factors -> MFE)
 ======================================================================
   Step  Factor                                    R2       dR2    adj-R2
   ----  ----------------------------------- --------  --------  --------
-     1  d2_4h__self_dmi_diff                  0.9601   +0.9601    0.9598
-     2  d1_1D__log1p_vol                      0.9601   +0.0000    0.9596
-     3  d1_1D__osc_coh                        0.9602   +0.0000    0.9594
-     4  d1_1D__tf_scale                       0.9659   +0.0057    0.9650
-     5  d1_1D__self_hurst                     0.9659   -0.0000    0.9647
-     6  d1_1D__coherence                      0.9659   +0.0000    0.9645
-     7  d1_1D__log1p_mom                      0.9659   +0.0000    0.9643
-     8  d1_1D__self_pid                       0.9659   -0.0000    0.9640
-     9  d1_1D__z_score                        0.9659   +0.0000    0.9638
-    10  d2_4h__self_adx                       0.9659   +0.0000    0.9636
-    11  d1_1D__self_dmi_diff                  0.9659   +0.0000    0.9633
-    12  d3_1h__self_hurst                     0.9692   +0.0034    0.9667
-    13  d2_4h__log1p_vol                      0.9692   +0.0000    0.9665
-    14  d3_1h__self_dmi_diff                  0.9775   +0.0082    0.9753
-    15  d2_4h__self_hurst                     0.9799   +0.0024    0.9777
-    16  d2_4h__coherence                      0.9838   +0.0040    0.9820
-    17  d3_1h__self_pid                       0.9880   +0.0042    0.9865
-    18  d3_1h__self_adx                       0.9930   +0.0051    0.9922
-    19  d5_15m__self_pid                      0.9941   +0.0010    0.9932
-    20  d4_30m__self_hurst                    0.9943   +0.0002    0.9934
-  FLAT              159     0.9934     0.0180     68.2%  66.7%(33)
+     1  d2_4h__self_dmi_diff                  0.7469   +0.7469    0.7451
+     2  d2_4h__log1p_mom                      0.8571   +0.1102    0.8551
+     3  d2_4h__self_hurst                     0.8600   +0.0029    0.8570
+     4  d2_4h__tf_scale                       0.8600   +0.0000    0.8559
+     5  d2_4h__self_adx                       0.8600   +0.0000    0.8549
+     6  d2_4h__log1p_vol                      0.8601   +0.0001    0.8539
+     7  d3_1h__self_dmi_diff                  0.8602   +0.0001    0.8529
+     8  d2_4h__coherence                      0.8607   +0.0005    0.8523
+     9  d2_4h__osc_coh                        0.8651   +0.0044    0.8559
+    10  d5_15m__self_hurst                    0.8745   +0.0094    0.8650
+    11  d2_4h__self_pid                       0.8753   +0.0008    0.8648
+    12  d4_30m__self_hurst                    0.8786   +0.0033    0.8674
+    13  d3_1h__self_hurst                     0.8792   +0.0006    0.8670
+    14  d4_30m__self_dmi_diff                 0.8895   +0.0103    0.8774
+    15  d5_15m__self_pid                      0.9523   +0.0628    0.9466
+    16  d5_15m__self_adx                      0.9612   +0.0090    0.9563
+    17  d5_15m__osc_coh                       0.9613   +0.0000    0.9560
+    18  d3_1h__self_pid                       0.9693   +0.0080    0.9649
+    19  d3_1h__self_adx                       0.9849   +0.0156    0.9826
+    20  d4_30m__coherence                     0.9849   +0.0000    0.9824
+  FLAT              143     0.9824     0.0196     62.4%  63.3%(60)
 
 ======================================================================
   STEPWISE REGRESSION (top 20 factors -> MFE)
 ======================================================================
   Step  Factor                                    R2       dR2    adj-R2
   ----  ----------------------------------- --------  --------  --------
-     1  d2_4h__self_dmi_diff                  0.8962   +0.8962    0.8955
-     2  d1_1D__osc_coh                        0.9067   +0.0105    0.9054
-     3  d1_1D__log1p_vol                      0.9068   +0.0001    0.9049
-     4  d1_1D__self_hurst                     0.9151   +0.0084    0.9128
-     5  d1_1D__tf_scale                       0.9151   +0.0000    0.9122
-     6  d1_1D__coherence                      0.9151   +0.0000    0.9116
-     7  d1_1D__log1p_mom                      0.9151   +0.0000    0.9110
-     8  d3_1h__self_hurst                     0.9153   +0.0001    0.9105
-     9  d3_1h__self_dmi_diff                  0.9323   +0.0171    0.9280
-    10  d3_1h__self_adx                       0.9445   +0.0122    0.9406
-    11  d1_1D__self_pid                       0.9445   +0.0000    0.9402
-    12  d2_4h__self_adx                       0.9516   +0.0071    0.9474
-    13  d1_1D__z_score                        0.9516   +0.0000    0.9470
-    14  d2_4h__osc_coh                        0.9551   +0.0035    0.9505
-    15  d4_30m__self_dmi_diff                 0.9627   +0.0076    0.9585
-    16  d3_1h__self_pid                       0.9628   +0.0001    0.9584
-    17  d3_1h__log1p_vol                      0.9628   +0.0000    0.9581
-    18  d4_30m__self_adx                      0.9629   +0.0001    0.9579
-    19  d2_4h__log1p_vol                      0.9641   +0.0012    0.9589
-    20  d5_15m__self_pid                      0.9670   +0.0029    0.9619
+     1  d2_4h__self_dmi_diff                  0.7549   +0.7549    0.7532
+     2  d2_4h__log1p_vol                      0.8422   +0.0872    0.8399
+     3  d2_4h__log1p_mom                      0.8506   +0.0084    0.8474
+     4  d2_4h__self_adx                       0.8535   +0.0029    0.8493
+     5  d3_1h__self_dmi_diff                  0.8713   +0.0178    0.8666
+     6  d2_4h__self_hurst                     0.8713   +0.0000    0.8657
+     7  d2_4h__tf_scale                       0.8713   +0.0000    0.8647
+     8  d2_4h__coherence                      0.8740   +0.0027    0.8665
+     9  d2_4h__osc_coh                        0.8747   +0.0007    0.8663
+    10  d2_4h__self_pid                       0.8748   +0.0001    0.8654
+    11  d5_15m__self_pid                      0.9064   +0.0316    0.8986
+    12  d4_30m__self_dmi_diff                 0.9121   +0.0057    0.9040
+    13  d3_1h__self_pid                       0.9158   +0.0037    0.9074
+    14  d5_15m__self_dmi_diff                 0.9170   +0.0012    0.9079
+    15  d4_30m__self_hurst                    0.9260   +0.0091    0.9173
+    16  d3_1h__osc_coh                        0.9261   +0.0000    0.9167
+    17  d6_5m__self_pid                       0.9269   +0.0008    0.9170
+    18  d5_15m__self_hurst                    0.9284   +0.0015    0.9181
+    19  d4_30m__self_pid                      0.9566   +0.0282    0.9499
+    20  d4_30m__self_adx                      0.9580   +0.0015    0.9512
 
 ======================================================================
   STEPWISE REGRESSION (top 20 factors -> MFE)
 ======================================================================
   Step  Factor                                    R2       dR2    adj-R2
   ----  ----------------------------------- --------  --------  --------
-     1  d3_1h__self_pid                       0.0508   +0.0508    0.0445
-     2  d5_15m__self_adx                      0.0587   +0.0079    0.0461
-     3  d11_15s__osc_coh                      0.0929   +0.0342    0.0745
-     4  d2_4h__coherence                      0.0941   +0.0012    0.0694
-     5  d6_5m__self_adx                       0.0955   +0.0014    0.0645
-     6  d3_1h__z_score                        0.0962   +0.0007    0.0588
-     7  d4_30m__self_dmi_diff                 0.1124   +0.0162    0.0693
-     8  d4_30m__self_hurst                    0.1138   +0.0014    0.0642
-     9  d4_30m__self_adx                      0.1138   +0.0000    0.0576
-    10  d5_15m__z_score                       0.1264   +0.0126    0.0644
-    11  d3_1h__self_dmi_diff                  0.1280   +0.0016    0.0594
-    12  d9_1m__self_adx                       0.1486   +0.0207    0.0752
-    13  d11_15s__self_hurst                   0.1577   +0.0091    0.0784
-    14  d9_1m__osc_coh                        0.1672   +0.0094    0.0820
-    15  d11_15s__self_dmi_diff                0.1735   +0.0063    0.0823
-    16  d7_3m__osc_coh                        0.1736   +0.0001    0.0757
-    17  d2_4h__self_pid                       0.1740   +0.0004    0.0692
-    18  d8_2m__self_dmi_diff                  0.1781   +0.0041    0.0669
-    19  d8_2m__log1p_vol                      0.2323   +0.0542    0.1218
-    20  d8_2m__log1p_mom                      0.2327   +0.0004    0.1156
+     1  d11_15s__coherence                    0.0260   +0.0260    0.0192
+     2  d7_3m__osc_coh                        0.0493   +0.0233    0.0358
+     3  d11_15s__osc_coh                      0.0541   +0.0048    0.0338
+     4  d11_15s__log1p_vol                    0.0609   +0.0068    0.0338
+     5  d10_30s__coherence                    0.0645   +0.0036    0.0306
+     6  d6_5m__self_hurst                     0.0817   +0.0172    0.0415
+     7  d11_15s__z_score                      0.0872   +0.0056    0.0403
+     8  d9_1m__self_adx                       0.0914   +0.0041    0.0375
+     9  d6_5m__log1p_vol                      0.1076   +0.0163    0.0477
+    10  d10_30s__log1p_vol                    0.1077   +0.0000    0.0406
+    11  d11_15s__self_pid                     0.1289   +0.0213    0.0563
+    12  d10_30s__osc_coh                      0.1301   +0.0012    0.0504
+    13  d11_15s__log1p_mom                    0.1305   +0.0004    0.0436
+    14  price_anchor                          0.1349   +0.0043    0.0410
+    15  d7_3m__coherence                      0.1382   +0.0034    0.0372
+    16  d6_5m__osc_coh                        0.1382   +0.0000    0.0297
+    17  d9_1m__osc_coh                        0.1414   +0.0031    0.0255
+    18  d3_1h__self_hurst                     0.1653   +0.0240    0.0451
+    19  d10_30s__z_score                      0.1654   +0.0000    0.0375
+    20  d10_30s__log1p_mom                    0.1666   +0.0012    0.0311
 
 ======================================================================
   STEPWISE REGRESSION (top 20 factors -> MFE)
 ======================================================================
   Step  Factor                                    R2       dR2    adj-R2
   ----  ----------------------------------- --------  --------  --------
-     1  d2_4h__self_dmi_diff                  0.8962   +0.8962    0.8955
-     2  d1_1D__osc_coh                        0.9067   +0.0105    0.9054
-     3  d1_1D__log1p_vol                      0.9068   +0.0001    0.9049
-     4  d1_1D__self_hurst                     0.9151   +0.0084    0.9128
-     5  d1_1D__tf_scale                       0.9151   +0.0000    0.9122
-     6  d1_1D__coherence                      0.9151   +0.0000    0.9116
-     7  d1_1D__log1p_mom                      0.9151   +0.0000    0.9110
-     8  d3_1h__self_hurst                     0.9153   +0.0001    0.9105
-     9  d3_1h__self_dmi_diff                  0.9323   +0.0171    0.9280
-    10  d3_1h__self_adx                       0.9445   +0.0122    0.9406
-    11  d1_1D__self_pid                       0.9445   +0.0000    0.9402
-    12  d2_4h__self_adx                       0.9516   +0.0071    0.9474
-    13  d1_1D__z_score                        0.9516   +0.0000    0.9470
-    14  d2_4h__osc_coh                        0.9551   +0.0035    0.9505
-    15  d4_30m__self_dmi_diff                 0.9627   +0.0076    0.9585
-    16  d3_1h__self_pid                       0.9628   +0.0001    0.9584
-    17  d3_1h__log1p_vol                      0.9628   +0.0000    0.9581
-    18  d4_30m__self_adx                      0.9629   +0.0001    0.9579
-    19  d2_4h__log1p_vol                      0.9641   +0.0012    0.9589
-    20  d5_15m__self_pid                      0.9670   +0.0029    0.9619
-  UP                152     0.9619     0.1156     56.3%  68.3%(60)
+     1  d2_4h__self_dmi_diff                  0.7549   +0.7549    0.7532
+     2  d2_4h__log1p_vol                      0.8422   +0.0872    0.8399
+     3  d2_4h__log1p_mom                      0.8506   +0.0084    0.8474
+     4  d2_4h__self_adx                       0.8535   +0.0029    0.8493
+     5  d3_1h__self_dmi_diff                  0.8713   +0.0178    0.8666
+     6  d2_4h__self_hurst                     0.8713   +0.0000    0.8657
+     7  d2_4h__tf_scale                       0.8713   +0.0000    0.8647
+     8  d2_4h__coherence                      0.8740   +0.0027    0.8665
+     9  d2_4h__osc_coh                        0.8747   +0.0007    0.8663
+    10  d2_4h__self_pid                       0.8748   +0.0001    0.8654
+    11  d5_15m__self_pid                      0.9064   +0.0316    0.8986
+    12  d4_30m__self_dmi_diff                 0.9121   +0.0057    0.9040
+    13  d3_1h__self_pid                       0.9158   +0.0037    0.9074
+    14  d5_15m__self_dmi_diff                 0.9170   +0.0012    0.9079
+    15  d4_30m__self_hurst                    0.9260   +0.0091    0.9173
+    16  d3_1h__osc_coh                        0.9261   +0.0000    0.9167
+    17  d6_5m__self_pid                       0.9269   +0.0008    0.9170
+    18  d5_15m__self_hurst                    0.9284   +0.0015    0.9181
+    19  d4_30m__self_pid                      0.9566   +0.0282    0.9499
+    20  d4_30m__self_adx                      0.9580   +0.0015    0.9512
+  UP                144     0.9512     0.0311     66.4%  66.3%(86)
 
-  GLOBAL            460     0.9624     0.0257     53.0%
+  GLOBAL            429     0.9238     0.0115     71.0%
 
   ANALYSIS E CONCLUSION:
-  Average per-group direction R2: 0.0897 (vs global 0.0257)
-  Average per-group derived dir:  61.4% (vs global 53.0%)
-  Best group:  DOWN (dir R2=0.1355, derived=59.9%)
-  Worst group: FLAT (dir R2=0.0180, derived=68.2%)
+  Average per-group direction R2: 0.0346 (vs global 0.0115)
+  Average per-group derived dir:  64.7% (vs global 71.0%)
+  Best group:  DOWN (dir R2=0.0530, derived=65.2%)
+  Worst group: FLAT (dir R2=0.0196, derived=62.4%)
 
   SIGNAL AMPLIFICATION CONFIRMED: grouping by dP/dT improves
-  direction R2 by 3.5x on average.
+  direction R2 by 3.0x on average.
   Homogeneous groups preserve directional signal that drowns
   in the global model. This validates the clustering approach.
 
@@ -754,171 +742,230 @@ Derived direction accuracy: 53.0%
 ======================================================================
   Saved signature overlay: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\0c_stacked_shapes.png
   Saved per-regime audit: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\0d_regime_audit.png
-  R0:   87 shapes, dir=SHORT, mean_end=  +10.4, std_end=  45.1, WR=59%
-  R1:   97 shapes, dir=SHORT, mean_end=  -69.2, std_end= 115.0, WR=41%
-  R2:   35 shapes, dir=SHORT, mean_end= -214.7, std_end= 107.2, WR=0%
-  R3:   17 shapes, dir=SHORT, mean_end=  +66.9, std_end= 239.5, WR=35%
-  R4:   15 shapes, dir= LONG, mean_end=  +10.7, std_end= 124.1, WR=67%
-  R5:   14 shapes, dir=SHORT, mean_end=  +60.7, std_end= 100.7, WR=57%
-  R6:   22 shapes, dir= LONG, mean_end=  +22.5, std_end=  64.0, WR=32%
-  R7:   61 shapes, dir= LONG, mean_end=  +72.7, std_end= 112.9, WR=72%
-  R8:   48 shapes, dir= LONG, mean_end=  +32.3, std_end=  40.5, WR=81%
-  R9:   34 shapes, dir=SHORT, mean_end=  -76.4, std_end=  67.6, WR=15%
-  R10:   30 shapes, dir= LONG, mean_end=  +53.7, std_end=  67.2, WR=60%
+  R0:  163 shapes, dir=SHORT, mean_end=   -7.5, std_end= 118.3, WR=52%
+  R1:   71 shapes, dir=SHORT, mean_end=  -25.3, std_end=  59.5, WR=31%
+  R2:   23 shapes, dir=SHORT, mean_end=   +7.9, std_end=  72.3, WR=35%
+  R3:    8 shapes, dir= LONG, mean_end=  +23.8, std_end=  70.6, WR=75%
+  R4:  138 shapes, dir=SHORT, mean_end=  -37.6, std_end= 107.2, WR=32%
+  R5:   11 shapes, dir= LONG, mean_end=  +56.4, std_end=  48.3, WR=91%
 
 ======================================================================
   ANALYSIS G: LAPLACIAN SUB-SEGMENTATION (d2p/dt2)
 ======================================================================
-  Curvature stats: mean=0.0071, std=42.8906
-  Curvature MR: mean=47.8981, UCL=156.4832
+  Curvature stats: mean=-0.0442, std=41.4078
+  Curvature MR: mean=44.8345, UCL=146.4743
 
-  I-MR regimes: 11 -> Laplacian sub-segments: 98
-  Avg sub-segment size: 4.7 bars
+  I-MR regimes: 7 -> Laplacian sub-segments: 94
+  Avg sub-segment size: 4.6 bars
 
    Sub Parent  Bars     Curv    Shape    Dir      Chg
   ---- ------ ----- -------- -------- ------ --------
-  S0   R0         4   +5.750   CONVEX   LONG     +1.8
-  S1   R0         4   +2.688   CONVEX  SHORT    -16.2
-  S2   R0         6   -1.250  CONCAVE  SHORT    -17.5
-  S3   R0         5   -2.000  CONCAVE   LONG     +6.0
-  S4   R0         5   +1.700   CONVEX   LONG    +11.8
-  S5   R0         4   +1.125   CONVEX  SHORT    -14.8
-  S6   R0         4   -2.562  CONCAVE  SHORT    -18.2
-  S7   R0         4   -2.938  CONCAVE  SHORT    -19.5
-  S8   R0         4   +0.562   CONVEX  SHORT    -25.8
-  S9   R0         7   +0.143   CONVEX   LONG    +22.8
-  S10  R0         5   -0.850  CONCAVE   LONG    +17.0
-  S11  R0         4   -0.250  CONCAVE   LONG    +17.2
-  S12  R0         4   +1.375   CONVEX   LONG    +12.0
-  S13  R0         4   +3.875   CONVEX   LONG    +11.8
-  S14  R0         4   +0.625   CONVEX   LONG    +29.0
-  S15  R0         5   -3.950  CONCAVE  SHORT     -0.5
-  S16  R0         7   -2.000  CONCAVE   LONG    +28.5
-  S17  R0         7  +15.357   CONVEX   LONG    +32.0
-  S18  R1         4  -18.125  CONCAVE  SHORT    -28.8
-  S19  R1         5   -2.550  CONCAVE  SHORT    -11.5
-  S20  R1         4   +5.938   CONVEX   LONG     +1.8
-  S21  R1         4   +0.062   CONVEX  SHORT    -17.8
-  S22  R1         5   -9.800  CONCAVE   LONG     +7.0
-  S23  R1         4   +1.750   CONVEX  SHORT     -1.5
-  S24  R1         4   +6.062   CONVEX   LONG    +17.5
-  S25  R1         5   -1.750  CONCAVE   LONG     +6.5
-  S26  R1         5   +0.600   CONVEX  SHORT    -15.2
-  S27  R1         4   -2.000  CONCAVE   LONG     +9.0
-  S28  R1         4   +1.312   CONVEX   LONG    +28.0
-  S29  R1         4   +6.500   CONVEX  SHORT    -17.0
-  S30  R1         6   -0.167  CONCAVE   LONG    +13.2
-  S31  R1         4   -4.938  CONCAVE  SHORT    -21.0
-  S32  R1         5   -3.100  CONCAVE   LONG    +26.5
-  S33  R1         4   +4.750   CONVEX  SHORT    -34.0
-  S34  R1         5   -9.550  CONCAVE   LONG    +32.0
-  S35  R1         4   +2.625   CONVEX  SHORT     -6.5
-  S36  R1         4   -1.125  CONCAVE  SHORT    -34.5
-  S37  R1         4   +9.688   CONVEX   LONG     +0.8
-  S38  R1         4   +9.062   CONVEX   LONG     +4.8
-  S39  R1         5  -52.350  CONCAVE  SHORT     -0.8
-  S40  R2         5  +41.750   CONVEX  SHORT    -21.0
-  S41  R2         5   -5.950  CONCAVE  SHORT    -67.5
-  S42  R2         5   +7.750   CONVEX   LONG     +2.0
-  S43  R2         4   -1.938  CONCAVE   LONG    +17.8
-  S44  R2         4   +6.938   CONVEX  SHORT    -39.0
-  S45  R2         4   -2.812  CONCAVE  SHORT    -65.5
-  S46  R2         4   +2.938   CONVEX  SHORT    -56.0
-  S47  R2         4  -18.938  CONCAVE  SHORT    -41.0
-  S48  R3         4  +23.625   CONVEX  SHORT    -72.5
-  S49  R3         7  -18.643  CONCAVE  SHORT   -197.5
-  S50  R3         6  +27.000   CONVEX   LONG    +54.5
-  S51  R4         4   -1.375  CONCAVE   LONG    +22.0
-  S52  R4         4  -20.938  CONCAVE   LONG    +18.5
-  S53  R4         7   -7.821  CONCAVE   LONG   +259.8
-  S54  R5         4  +17.125   CONVEX  SHORT    -89.2
-  S55  R5         4  -15.812  CONCAVE   LONG     +9.2
-  S56  R5         6  +26.083   CONVEX   LONG    +29.8
-  S57  R6         4  -15.312  CONCAVE  SHORT    -93.8
-  S58  R6         5   -6.550  CONCAVE   LONG   +140.2
-  S59  R6         4  +12.750   CONVEX  SHORT    -35.5
-  S60  R6         9  -13.167  CONCAVE   LONG    +13.5
-  S61  R7         5  +19.150   CONVEX   LONG    +53.2
-  S62  R7         4   -1.250  CONCAVE  SHORT    -16.0
-  S63  R7         4   -6.125  CONCAVE   LONG     +2.8
-  S64  R7         6   -0.375  CONCAVE   LONG     +9.0
-  S65  R7         6   -3.167  CONCAVE   LONG    +61.5
-  S66  R7         4   +4.188   CONVEX   LONG    +90.5
-  S67  R7         7   +1.214   CONVEX   LONG    +28.0
-  S68  R7         5   -6.950  CONCAVE  SHORT    -50.5
-  S69  R7         4  +14.188   CONVEX   LONG    +10.5
-  S70  R7         4   -8.375  CONCAVE  SHORT    -16.5
-  S71  R7         4  +28.500   CONVEX   LONG     +4.8
-  S72  R7         8   -3.688  CONCAVE   LONG    +98.0
-  S73  R8         4   -9.125  CONCAVE   LONG    +10.2
-  S74  R8         4   -9.875  CONCAVE  SHORT    -30.0
-  S75  R8         4   +0.750   CONVEX   LONG    +89.2
-  S76  R8         4   +1.438   CONVEX  SHORT    -29.0
-  S77  R8         4   +0.250   CONVEX  SHORT    -11.8
-  S78  R8         4   +3.062   CONVEX  SHORT     -8.8
-  S79  R8         4   -3.250  CONCAVE   LONG    +12.8
-  S80  R8         4   +1.875   CONVEX   LONG     +5.5
-  S81  R8         4   -2.812  CONCAVE   LONG     +9.8
-  S82  R8         4   +6.938   CONVEX   LONG    +12.8
-  S83  R8         8   +7.250   CONVEX  SHORT    -21.8
-  S84  R9         5  -15.200  CONCAVE  SHORT     -4.5
-  S85  R9         4   -0.188  CONCAVE   LONG    +21.2
-  S86  R9         4   -5.125  CONCAVE  SHORT     -1.5
-  S87  R9         4   +0.062   CONVEX   LONG    +12.5
-  S88  R9         6   +5.750   CONVEX   LONG    +20.5
-  S89  R9         4   -5.750  CONCAVE  SHORT    -25.2
-  S90  R9         7  -11.929  CONCAVE  SHORT    -47.2
-  S91  R10        5  +24.750   CONVEX  SHORT    -33.8
-  S92  R10        4  -11.812  CONCAVE  SHORT     -6.5
-  S93  R10        4   -6.062  CONCAVE   LONG    +40.5
-  S94  R10        4  +10.375   CONVEX  SHORT    -19.2
-  S95  R10        5   -5.700  CONCAVE   LONG    +71.5
-  S96  R10        4   -0.250  CONCAVE   LONG    +18.2
-  S97  R10        4   +2.438   CONVEX   LONG    +69.8
+  S0   R0         4  -13.562  CONCAVE  SHORT     -8.8
+  S1   R0         5   +1.650   CONVEX  SHORT    -11.8
+  S2   R0         4   +0.125   CONVEX   LONG    +16.5
+  S3   R0         4   -0.125  CONCAVE   LONG     +8.5
+  S4   R0         4   +3.375   CONVEX   LONG     +4.0
+  S5   R0         4   +1.438   CONVEX   LONG     +9.2
+  S6   R0         5   -0.950  CONCAVE  SHORT     -1.2
+  S7   R0         4   -0.312  CONCAVE   LONG    +19.2
+  S8   R0         4   +3.688   CONVEX   LONG     +2.2
+  S9   R0         5   +0.350   CONVEX   LONG    +48.0
+  S10  R0         6   +1.750   CONVEX   LONG    +20.5
+  S11  R0         4   -7.688  CONCAVE   LONG     +1.0
+  S12  R0         4   +3.188   CONVEX  SHORT     -3.5
+  S13  R0         5   +8.600   CONVEX  SHORT     -9.0
+  S14  R0         4  -16.688  CONCAVE   LONG    +85.8
+  S15  R0         4   -4.438  CONCAVE   LONG    +19.0
+  S16  R0         4   -3.375  CONCAVE  SHORT    -36.5
+  S17  R0         5   -0.950  CONCAVE  SHORT    -37.8
+  S18  R0         4   -1.250  CONCAVE   LONG     +0.5
+  S19  R0         5  +16.100   CONVEX   LONG    +91.2
+  S20  R0         4   -6.125  CONCAVE  SHORT     -2.0
+  S21  R0         4   -2.688  CONCAVE  SHORT    -16.2
+  S22  R0         4   +0.188   CONVEX  SHORT     -7.0
+  S23  R0         4   +1.312   CONVEX   LONG     +9.8
+  S24  R0         7   +0.750   CONVEX  SHORT    -32.2
+  S25  R0         5   -1.450  CONCAVE  SHORT    -26.8
+  S26  R0         4   -0.375  CONCAVE  SHORT    -15.0
+  S27  R0         4   +8.750   CONVEX  SHORT    -14.8
+  S28  R0         4  -12.188  CONCAVE   LONG     +3.8
+  S29  R0         4   +4.938   CONVEX   LONG    +43.5
+  S30  R0         4   +6.000   CONVEX  SHORT    -35.5
+  S31  R0         4  -11.500  CONCAVE   LONG    +11.5
+  S32  R0         4   +4.625   CONVEX  SHORT    -15.2
+  S33  R0         4   -0.125  CONCAVE   LONG     +7.5
+  S34  R0         8  -16.375  CONCAVE  SHORT    -37.0
+  S35  R0         7   +8.714   CONVEX  SHORT    -76.2
+  S36  R1         5  +23.250   CONVEX   LONG    +10.0
+  S37  R1         4   -6.938  CONCAVE  SHORT    -52.5
+  S38  R1         4  -17.438  CONCAVE  SHORT    -42.2
+  S39  R1         5   +8.600   CONVEX   LONG    +22.5
+  S40  R1         4   +4.750   CONVEX  SHORT    -25.0
+  S41  R1         4   -3.625  CONCAVE   LONG    +34.0
+  S42  R1         6   +2.458   CONVEX   LONG    +16.2
+  S43  R1         4   -1.375  CONCAVE  SHORT    -17.2
+  S44  R1         5   +0.750   CONVEX  SHORT    -13.5
+  S45  R1         4   +0.188   CONVEX  SHORT    -22.8
+  S46  R1         4   -3.812  CONCAVE   LONG    +25.2
+  S47  R1         4   -2.875  CONCAVE  SHORT    -26.2
+  S48  R1         5   +2.250   CONVEX   LONG    +14.2
+  S49  R1         4   -0.438  CONCAVE   LONG    +33.0
+  S50  R1         4   +2.812   CONVEX   LONG    +10.0
+  S51  R1         5  -15.100  CONCAVE  SHORT    -51.0
+  S52  R2         4  +26.125   CONVEX  SHORT    -65.0
+  S53  R2         4  -15.312  CONCAVE   LONG    +68.5
+  S54  R2         6  -12.167  CONCAVE   LONG    +18.0
+  S55  R2         4  +19.500   CONVEX   LONG   +113.8
+  S56  R2         5  -15.550  CONCAVE  SHORT    -45.8
+  S57  R3         8  +23.625   CONVEX   LONG   +138.2
+  S58  R4         4  -11.062  CONCAVE  SHORT   -114.8
+  S59  R4         4   -8.000  CONCAVE   LONG     +3.2
+  S60  R4         6   -5.625  CONCAVE  SHORT    -28.8
+  S61  R4         4   +9.688   CONVEX  SHORT    -26.2
+  S62  R4         4   -7.250  CONCAVE   LONG    +18.5
+  S63  R4         5   +0.800   CONVEX   LONG    +30.8
+  S64  R4         8   +2.375   CONVEX  SHORT    -27.2
+  S65  R4         4   -3.500  CONCAVE   LONG     +0.2
+  S66  R4         5   -6.200  CONCAVE  SHORT    -12.0
+  S67  R4         4  +16.250   CONVEX  SHORT    -28.5
+  S68  R4         5   -2.200  CONCAVE   LONG     +9.0
+  S69  R4         5   -2.600  CONCAVE   LONG    +10.0
+  S70  R4         4   +2.312   CONVEX  SHORT    -43.0
+  S71  R4         4   +0.562   CONVEX  SHORT     -9.5
+  S72  R4         4  -10.688  CONCAVE   LONG    +16.5
+  S73  R4         4   +0.875   CONVEX  SHORT    -27.2
+  S74  R4         4   +6.938   CONVEX  SHORT    -58.0
+  S75  R4         4   -0.125  CONCAVE   LONG    +20.8
+  S76  R4         5   +0.200   CONVEX   LONG    +21.2
+  S77  R4         4   -0.625  CONCAVE   LONG    +24.8
+  S78  R4         4   +0.812   CONVEX  SHORT    -10.8
+  S79  R4         4   -4.750  CONCAVE   LONG    +21.5
+  S80  R4         4   +0.438   CONVEX  SHORT    -37.8
+  S81  R4         4   +4.375   CONVEX   LONG    +11.0
+  S82  R4         5   -3.250  CONCAVE   LONG     +8.2
+  S83  R4         5   +3.100   CONVEX  SHORT     -6.0
+  S84  R4         4   +9.438   CONVEX   LONG    +29.8
+  S85  R4         4  -23.500  CONCAVE  SHORT    -46.2
+  S86  R4         6  -19.000  CONCAVE   LONG    +16.5
+  S87  R4         7  +40.893   CONVEX  SHORT   -218.5
+  S88  R5         5  -19.050  CONCAVE  SHORT    -90.2
+  S89  R5         4   +6.688   CONVEX  SHORT    -14.5
+  S90  R5         6  -25.083  CONCAVE   LONG   +156.5
+  S91  R6         4  +10.625   CONVEX   LONG    +13.5
+  S92  R6         4  +13.750   CONVEX  SHORT    -19.2
+  S93  R6         4   +4.438   CONVEX  SHORT    -21.0
 
-  Sub-segments with >=5 shapes: 37/98
+  Sub-segments with >=5 shapes: 32/94
   Saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\0e_laplacian_signatures.png
 
   COHERENCE COMPARISON:
-  I-MR regimes   -> avg endpoint std: 98.5 ticks (11 regimes)
-  Laplacian subs -> avg endpoint std: 30.8 ticks (37 sub-segments)
-  Improvement: +68.7% (TIGHTER)
+  I-MR regimes   -> avg endpoint std: 79.4 ticks (6 regimes)
+  Laplacian subs -> avg endpoint std: 31.6 ticks (32 sub-segments)
+  Improvement: +60.1% (TIGHTER)
 
    Sub Parent   Shape    N  MeanEnd  StdEnd    WR
-  S2   R0         CON    6     +5.9     5.3   50%
-  S3   R0         CON    5    -15.2     5.9   40%
-  S4   R0         CON    5    -59.6    18.7    0%
-  S9   R0         CON    7     +6.0    13.7   57%
-  S10  R0         CON    5    +24.1     5.6  100%
-  S15  R0         CON    5    +47.2    36.1   60%
-  S16  R0         CON    7    +64.9    21.7  100%
-  S17  R0         CON    7    +57.2    10.0  100%
-  S19  R1         CON    5    +11.9    17.6  100%
-  S22  R1         CON    5    -37.1    12.4    0%
-  S25  R1         CON    5     -1.6    10.2   20%
-  S26  R1         CON    5     +4.8    11.3   60%
-  S30  R1         CON    6     +0.5    26.1  100%
-  S32  R1         CON    5    -69.2    33.4   40%
-  S34  R1         CON    5   -131.6    17.9    0%
-  S39  R1         CON    5   -379.7     6.6    0%
-  S40  R2         CON    5   -127.5    18.3    0%
-  S41  R2         CON    5   -126.4    20.4    0%
-  S42  R2         CON    5   -108.5    24.4    0%
-  S49  R3         CON    7    -40.8    74.4    0%
-  S50  R3         CON    6   +368.4    55.5  100%
-  S53  R4         CON    7    -93.2    91.0   29%
-  S56  R5         CON    6   +141.1    24.4  100%
-  S58  R6         CON    5    +32.5    66.4   60%
-  S60  R6         CON    9    -16.2    19.8    0%
-  S61  R7         CON    5    +13.7    21.3   80%
-  S64  R7         CON    6    +98.1    12.6  100%
-  S65  R7         CON    6    +65.0    50.2  100%
-  S67  R7         CON    7   -100.8    58.9    0%
-  S68  R7         CON    5    +29.6    86.7    0%
-  S72  R7         CON    8   +153.9    37.4  100%
-  S83  R8         CON    8    +72.4     8.8  100%
-  S84  R9         CON    5     -0.5     8.4   60%
-  S88  R9         CON    6   -136.8    45.4    0%
-  S90  R9         CON    7   -105.2    40.7    0%
-  S91  R10        CON    5    -46.5    67.3   20%
-  S95  R10        CON    5    +91.2    55.9   80%
+  S1   R0         CON    5    +21.3    13.1   60%
+  S6   R0         CON    5   +123.9    17.4  100%
+  S9   R0         CON    5   +102.0    20.0  100%
+  S10  R0         CON    6   +104.2    41.7  100%
+  S13  R0         CON    5    +57.1    17.0  100%
+  S17  R0         CON    5     +0.2    15.5    0%
+  S19  R0         CON    5    +48.9    31.7  100%
+  S24  R0         CON    7    -42.2    21.1    0%
+  S25  R0         CON    5     -0.8    29.2   20%
+  S34  R0         CON    8   -304.1    23.0    0%
+  S35  R0         CON    7   -135.5    60.4   14%
+  S36  R1         CON    5    -61.4    15.7    0%
+  S39  R1         CON    5    +65.9    22.5   80%
+  S42  R1         CON    6     +0.3     7.2   83%
+  S44  R1         CON    5    -21.7     5.0   20%
+  S48  R1         CON    5    -23.5    50.4   40%
+  S51  R1         CON    5   -109.3    40.4    0%
+  S54  R2         CON    6    -27.0    50.9    0%
+  S56  R2         CON    5     -9.9    43.5   20%
+  S57  R3         CON    8    +23.8    70.6   75%
+  S60  R4         CON    6     +1.0    15.7    0%
+  S63  R4         CON    5    -14.5    14.9   20%
+  S64  R4         CON    8    -40.3    24.0    0%
+  S66  R4         CON    5     +1.1    10.4    0%
+  S68  R4         CON    5    +18.0    16.9  100%
+  S69  R4         CON    5    -18.3    22.9    0%
+  S76  R4         CON    5    +47.3    22.8  100%
+  S82  R4         CON    5    +16.6    30.2  100%
+  S83  R4         CON    5    -46.5    87.9   60%
+  S86  R4         CON    6   -359.7    34.1    0%
+  S87  R4         CON    7    -15.1   105.4   14%
+  S88  R5         CON    5    +70.7    31.0   80%
+
+======================================================================
+  ANALYSIS H: ITERATIVE SHAPE CLUSTERING
+======================================================================
+
+  Grid search: 4 lengths x 4 norms
+   Len       Norm   K  N_seg  Silhouette Best?
+  ---- ---------- --- ------ ----------- -----
+     8   raw_dpdt  10    423     +0.0878 <--
+     8   raw_dpdt  20    423     +0.0456
+     8   raw_dpdt  30    423     +0.0657
+     8      delta  10    423     +0.2197 <--
+     8      delta  20    423     +0.1811
+     8      delta  30    423     +0.1626
+     8  unit_form  10    423     +0.1950
+     8  unit_form  20    423     +0.1444
+     8  unit_form  30    423     +0.1398
+     8     zscore  10    423     +0.1528
+     8     zscore  20    423     +0.1387
+     8     zscore  30    423     +0.1266
+    12   raw_dpdt  10    419     +0.3245 <--
+    12   raw_dpdt  20    419     +0.0824
+    12   raw_dpdt  30    419     -0.0072
+    12      delta  10    419     +0.2175
+    12      delta  20    419     +0.1748
+    12      delta  30    419     +0.1467
+    12  unit_form  10    419     +0.1706
+    12  unit_form  20    419     +0.1265
+    12  unit_form  30    419     +0.1105
+    12     zscore  10    419     +0.1255
+    12     zscore  20    419     +0.1018
+    12     zscore  30    419     +0.0949
+    16   raw_dpdt  10    415     +0.2533
+    16   raw_dpdt  20    415     +0.1128
+    16   raw_dpdt  30    415     +0.0337
+    16      delta  10    415     +0.2023
+    16      delta  20    415     +0.1652
+    16      delta  30    415     +0.1530
+    16  unit_form  10    415     +0.1838
+    16  unit_form  20    415     +0.1312
+    16  unit_form  30    415     +0.1174
+    16     zscore  10    415     +0.1239
+    16     zscore  20    415     +0.1067
+    16     zscore  30    415     +0.0858
+    24   raw_dpdt  10    407     -0.0063
+    24   raw_dpdt  20    407     +0.2558
+    24   raw_dpdt  30    407     -0.0237
+    24      delta  10    407     +0.2308
+    24      delta  20    407     +0.1691
+    24      delta  30    407     +0.1677
+    24  unit_form  10    407     +0.1583
+    24  unit_form  20    407     +0.1460
+    24  unit_form  30    407     +0.1426
+    24     zscore  10    407     +0.1747
+    24     zscore  20    407     +0.1099
+    24     zscore  30    407     +0.1307
+
+  BEST CONFIG: len=12, norm=raw_dpdt, k=10, silhouette=0.3245
+
+  Clust     N  MeanChg  StdChg    WR Coherence
+  ----- ----- -------- ------- ----- ---------
+  C5      322    +11.5    55.1   56%     17.58
+  C3       28    -60.9    98.6   29%     35.18
+  C0       17    -64.9   125.7   41%     44.24
+  C6       14   -134.1   117.2   21%     41.66
+  C1       13    -50.4   121.1   23%     40.27
+  C9       13   -126.3   140.8    8%     43.18
+  C7        7   -131.7   133.0   43%     38.56
+  C2        2   -285.5     5.5    0%     21.75
+  C8        2    -63.4    21.4    0%     17.28
+  C4        1   -315.0     0.0    0%      0.00
+
+  Saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\0f_shape_clusters.png
