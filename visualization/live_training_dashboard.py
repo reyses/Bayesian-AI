@@ -29,6 +29,7 @@ PARETO_COLORS = {
 }
 
 TOP_TEMPLATES_LIMIT = 50
+DEFAULT_CHART_DPI = 100
 
 
 class Tooltip:
@@ -40,8 +41,14 @@ class Tooltip:
         self.widget = widget
         self.text = text
         self.tip_window = None
-        widget.bind("<Enter>", self.show_tip)
-        widget.bind("<Leave>", self.hide_tip)
+        self.id = None
+        widget.bind("<Enter>", self.schedule_tip, add="+")
+        widget.bind("<Leave>", self.hide_tip, add="+")
+        widget.bind("<ButtonPress>", self.hide_tip, add="+")
+
+    def schedule_tip(self, event=None):
+        self.hide_tip()
+        self.id = self.widget.after(500, self.show_tip)
 
     def show_tip(self, event=None):
         if self.tip_window or not self.text:
@@ -72,6 +79,9 @@ class Tooltip:
         label.pack(ipadx=1)
 
     def hide_tip(self, event=None):
+        if self.id:
+            self.widget.after_cancel(self.id)
+            self.id = None
         if self.tip_window:
             self.tip_window.destroy()
             self.tip_window = None

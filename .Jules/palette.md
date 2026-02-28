@@ -13,3 +13,7 @@
 ## 2026-02-24 - [Mocking Matplotlib Subplots]
 **Learning:** When adding features that instantiate `plt.subplots`, existing tests mocking `tkinter` will fail if `plt.subplots` is not also mocked and configured to return a tuple `(fig, ax)`.
 **Action:** Always patch `plt.subplots` in tests for classes that create plots in `__init__`, ensuring it returns valid mock objects.
+
+## 2024-05-19 - Desktop App Tooltip Interaction Pattern
+**Learning:** Tooltips in dense desktop UIs (like Tkinter dashboards) that trigger instantly on hover create an aggressive, flashing experience. Furthermore, users need a way to dismiss them if they obscure underlying elements or interact with the screen.
+**Action:** Always add a ~500ms debounce/delay to tooltip visibility in high-density dashboards, and ensure click events cancel the active hover state.
