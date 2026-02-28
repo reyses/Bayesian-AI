@@ -743,10 +743,43 @@ SHAPE DETECTION METHODS (from DSP literature):
 - Template matching via cross-correlation: match against known library
 - Ref: dsp.stackexchange.com/questions/64722/typical-shape-detection-algorithms
 
-NEXT STEP: Run 1w, 1m, 1y to see if sub-segmentation improvement
-scales. The goal: at 1-year scale, build a segment LIBRARY where
-similar curvature profiles predict direction, then enrich with the
-price model (92% R2) for entry precision.
+ALL-SCALE RESULTS:
+
+  Scale    I-MR regimes  Lap subs  IMR std  Lap std  Improvement
+  1-Day          2           20      53.1     25.6     +51.7%
+  1-Week         7           94      79.4     31.6     +60.1%
+  1-Month       33          ~400     86.0     30.3     +64.7%
+  1-Year        11           98      98.5     30.8     +68.7%
+
+CRITICAL FINDING: Improvement SCALES with data size!
+- 1-day:  +51.7% tighter
+- 1-week: +60.1% tighter
+- 1-month: +64.7% tighter
+- 1-year: +68.7% tighter  <-- BEST
+
+The Laplacian sub-segment std STABILIZES around 30 ticks regardless
+of scale, while I-MR std grows from 53 to 98. This means:
+1. Curvature-based sub-segments find CONSISTENT shape units
+2. More data = more sub-segments = better coverage of shape space
+3. The 30-tick floor is the natural within-shape variability
+
+1-YEAR SIGNATURE CHART OBSERVATIONS:
+- 37 qualifying sub-segments (>=5 shapes each) out of 98 total
+- Clear separation between sub-segment trajectories
+- Many sub-segments show 0% or 100% WR with tight std (5-25 ticks)
+  -> These are ACTIONABLE segments with known direction
+- Sub-segments with extreme WR (0% or 100%) and low std are the
+  building blocks for a segment LIBRARY
+
+SEGMENT LIBRARY CONCEPT:
+At 1-year scale we have ~37 shape templates. Each template is:
+  - A curvature profile (convex/concave + magnitude)
+  - A parent regime (price velocity context)
+  - A mean trajectory with known endpoint distribution
+  - A WR (direction reliability)
+When a new bar arrives, match its curvature signature to the library
+-> predict direction from the matching template
+-> enrich with the price model for entry precision
 
 
 SPC CONSTANTS REFERENCE
