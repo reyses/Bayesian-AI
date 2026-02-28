@@ -879,30 +879,81 @@ Score by silhouette, auto-select best config. KMeans on delta vectors.
   C4: 11 segs, WR=100%, chg=+40 (strong up)
   C2:  9 segs, WR=100%, chg=+74 (ramp up, std=9.7 TIGHT)
 
-1-WEEK RESULTS (407 segments):
+1-WEEK RESULTS — FIRST PASS (silhouette-scored, k=10):
   Best: len=24, k=10, silhouette=0.2381
-  C2: 120 segs, WR=42%, chg=-9  (flat/sideways catch-all)
-  C0:  84 segs, WR=90%, chg=+39 (steady uptrend)
-  C4:  50 segs, WR=98%, chg=+134 (strong ramp)
-  C9:  46 segs, WR=0%,  chg=-60  (clear downtrend)
-  C1:  26 segs, WR=0%,  chg=-108 (steep decline)
-  C6:  12 segs, WR=0%,  chg=-303 (crash pattern)
+  C0:  84 segs, WR=90%, chg=+39 — BUT high noise-to-signal
+  C4:  50 segs, WR=98%, chg=+134
+  C9:  46 segs, WR=0%,  chg=-60
+  Problem: k=10 too coarse, large clusters mix different shapes.
 
-KEY FINDINGS:
-1. Delta-from-entry clustering produces TIGHT shape overlays
-2. WR is POLARIZED: clusters are near 0% or near 100%
-3. Longer segments (24 bars) win at larger scale -- more shape info
-4. The flat/sideways cluster is the catch-all (WR~42%); directional
-   clusters have extreme WR (0% or 98-100%)
-5. This IS the segment library concept proven: identify cluster ->
-   predict direction from the template -> enrich with price model
+1-WEEK RESULTS — ITERATIVE (coherence-scored):
+  Switched scoring from silhouette to within-cluster coherence
+  (lower std = tighter overlays). Iterated k upward.
+  Best: len=8, k=75, coherence=9.16 (was 26.9 at k=10)
 
-COMPARISON WITH PREVIOUS ANALYSES:
-- Analysis C (linear regression): direction R2 = 1% (useless)
-- Analysis F (I-MR regimes): shapes mixed within large regimes
-- Analysis G (Laplacian): +68% tighter, but still temporal segments
-- Analysis H (shape clustering): PATTERN-BASED grouping, extreme WR
-  polarization, actual overlay coherence
+  Clust     N    WR   Chg   Coh  Character
+  C25      58   98%   +18   7.7  V-REVERSAL (dip then recover)
+  C51      25  100%   +30   7.6  Steady ramp up
+  C9       25  100%   +47   7.7  Strong up
+  C34      23   13%   -12   7.1  Down drift (TIGHTEST)
+  C54      25   36%    -6   8.8  Flat/sideways
+  C19      15    0%   -35  11.6  Clear down
+  C7       16    6%   -26   9.9  Down with late recovery attempt
+
+  Coherence improved from ~27 (k=10) to ~9 (k=75) = 66% reduction
+  in within-cluster noise. Shapes now visually overlay.
+
+CRITICAL OBSERVATION — UNSIGNED SHAPES:
+C25 (58 segs, WR=98%) is NOT "gentle up". Visual inspection shows
+the traces DIP BELOW ZERO in bars 1-3, then ramp up to +18 by bar 8.
+This is a V-REVERSAL pattern: down first, then up. Our current
+metrics (WR, mean_chg) only describe the ENDPOINT, not the PATH.
+
+If you enter at bar 0 expecting "up", you're underwater for 3 bars.
+The shape has TIMING information that endpoint stats miss:
+  - WHERE is the min/max within the segment?
+  - Is it monotonic or does it reverse?
+  - How many bars until the inflection point?
+
+This means clusters need TRAJECTORY SIGNING, not just endpoint WR:
+  - V-shape (down then up): min in first half, max in second
+  - Inverted-V (up then down): max in first half, min in second
+  - Monotonic up/down: one direction throughout
+  - Flat chop: oscillates around zero
+
+OPEN QUESTION — WHERE TO GO NEXT:
+The shapes cluster and overlay with coherence. But each cluster is
+still a black box. Next steps to consider:
+
+1. SHAPE SIGNING: Classify each cluster by trajectory type (V,
+   inverted-V, monotonic, flat). Label with inflection bar index.
+
+2. WITHIN-CLUSTER REGRESSION: For each cluster, regress the 16D
+   physics features against the shape parameters (inflection point,
+   magnitude, direction). This tells us WHICH physics features
+   explain the shape variation WITHIN a cluster — the features that
+   split C25's V-reversals from C51's monotonic ramps.
+
+3. FRACTAL DIMENSIONS (Shi 2018): Compute Box/Katz/Higuchi/
+   Petrosian/Sevcik per segment. Use as clustering features
+   alongside or instead of raw delta. May separate shapes that
+   KMeans on raw delta merges.
+
+4. DTW MATCHING: For real-time use, match incoming price segment
+   against the cluster centroids using Dynamic Time Warping to
+   handle speed variations in the pattern.
+
+5. RANDOM FOREST CLASSIFIER: Train on delta segments -> cluster_id.
+   Shi 2018 showed RF hit 96% classification. Our clusters have
+   extreme WR polarization, so correct classification = direction.
+
+RECOMMENDED PIPELINE:
+  Segment (delta) -> Cluster (KMeans) -> Sign (trajectory type)
+  -> Regress (16D features per cluster) -> Classify (RF)
+  -> Enrich with price model (92% R2) for entry precision
+
+
+SPC CONSTANTS REFERENCE
 
 
 SPC CONSTANTS REFERENCE
