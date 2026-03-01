@@ -1,5 +1,6 @@
 # Bayesian-AI Project Memory
 > Future topics backlog: see `memory/ROADMAP.md`
+> Daily interaction journals: `docs/daily/YYYY-MM-DD.md`
 
 ## Workflow Preference
 - **Always discuss before changing**: propose a plan, get approval, then execute
