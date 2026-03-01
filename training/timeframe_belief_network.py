@@ -480,7 +480,13 @@ class TimeframeWorker:
         # direction to LONG when pattern is below the mean (z < -1), while the logistic
         # still has veto power when features strongly favor SHORT.
         if _any_fitted:
-            dir_prob = 0.5 * dir_prob + 0.5 * _phys_dir
+            # osc_coherence blend modulation (Analysis K — 4h_osc_coh is #2 feature)
+            # High osc_coh = regular cycles = physics (mean-reversion) more reliable
+            # Low osc_coh = irregular = ML (learned patterns) more reliable
+            osc_coh = feat[15]  # oscillation_coherence, [0, 1]
+            ml_weight = 0.5 - 0.15 * osc_coh    # 0.50 → 0.35 at high coherence
+            phys_weight = 0.5 + 0.15 * osc_coh  # 0.50 → 0.65 at high coherence
+            dir_prob = ml_weight * dir_prob + phys_weight * _phys_dir
         else:
             dir_prob = _phys_dir
 
@@ -570,6 +576,15 @@ class TimeframeWorker:
         # Layer 4: Regret-informed discount (poor exit efficiency zones)
         conviction *= self._regret_conv_discount
 
+        # Layer 5: Hurst-based conviction scaling (Analysis K — hurst is #1 feature)
+        # High Hurst (>0.5) = trending = direction more reliable → boost conviction
+        # Low Hurst (<0.5) = mean-reverting = direction less reliable → discount conviction
+        # Scale: 0.7x at Hurst=0.3 to 1.3x at Hurst=0.7
+        hurst = feat[8]  # self_hurst, already in [0, 1]
+        hurst_scale = 0.7 + (hurst - 0.3) * (0.6 / 0.4)  # linear interpolation
+        hurst_scale = max(0.7, min(1.3, hurst_scale))       # clamp [0.7, 1.3]
+        conviction *= hurst_scale
+
         self.current_belief = WorkerBelief(
             tf_seconds    = self.tf_seconds,
             dir_prob      = dir_prob,
@@ -598,8 +613,8 @@ class TimeframeBeliefNetwork:
     (they summarise days/hours of market structure).
     """
 
-    TIMEFRAMES_SECONDS = [3600, 1800, 900, 300, 180, 60, 30, 15, 5, 1]
-    TF_WEIGHTS         = [4.0,  3.5,  3.0, 2.5, 2.0, 1.5, 1.0, 0.5, 0.25, 0.1]
+    TIMEFRAMES_SECONDS = [14400, 3600, 1800, 900, 300, 180, 60, 30, 15, 5, 1]
+    TF_WEIGHTS         = [5.0,   4.5,  3.0, 3.0, 2.0, 1.5, 1.0, 0.5, 0.25, 0.1, 0.05]
     MIN_CONVICTION     = 0.48   # skip trade if path conviction below this (physics at z=0 gives 0.50)
     MIN_ACTIVE_LEVELS  = 3      # need >=3 active TF levels for a signal
     DEFAULT_DECISION_TF = 300   # 5m: default scale at which to read predicted_mfe
