@@ -1,7 +1,8 @@
 import numpy as np
 import time
 import pytest
-from core.physics_utils import compute_adx_dmi_cpu
+from core.physics_utils import compute_adx_dmi_cpu, extract_dominant_cycle, calculate_kinetic_damping
+from scipy.fft import fft, fftfreq
 
 def reference_adx_dmi_cpu(tr_raw, plus_dm_raw, minus_dm_raw, period=14):
     """
@@ -75,14 +76,51 @@ def test_adx_correctness():
     adx_ref, plus_ref, minus_ref = reference_adx_dmi_cpu(tr, plus, minus)
 
     # Run optimized (Numba) - assuming core.physics_utils is updated
-    # Currently it's the same, so this test passes trivially.
-    # After update, it ensures regression matching.
     adx_opt, plus_opt, minus_opt = compute_adx_dmi_cpu(tr, plus, minus)
 
     # Verify
     np.testing.assert_allclose(adx_opt, adx_ref, rtol=1e-8, atol=1e-8)
     np.testing.assert_allclose(plus_opt, plus_ref, rtol=1e-8, atol=1e-8)
     np.testing.assert_allclose(minus_opt, minus_ref, rtol=1e-8, atol=1e-8)
+
+
+def reference_extract_dominant_cycle(z_scores: np.ndarray, dt: float = 1.0) -> float:
+    if len(z_scores) < 10: return 0.0
+    n = len(z_scores)
+    yf = fft(z_scores)
+    xf = fftfreq(n, dt)[:n//2]
+    amplitudes = np.abs(yf[1:n//2])
+    if len(amplitudes) == 0 or np.max(amplitudes) == 0: return 0.0
+    peak_freq = xf[np.argmax(amplitudes) + 1]
+    return 1.0 / peak_freq if peak_freq != 0 else 0.0
+
+def reference_calculate_kinetic_damping(velocity_vector: np.ndarray) -> float:
+    if len(velocity_vector) < 5: return 1.0
+    peaks = np.abs(velocity_vector)
+    y = np.log(peaks + 1e-5)
+    x = np.arange(len(peaks))
+    slope, _ = np.polyfit(x, y, 1)
+    return abs(slope)
+
+
+def test_spectral_physics_correctness():
+    np.random.seed(42)
+    for _ in range(20):
+        size = np.random.randint(10, 100)
+        z = np.random.randn(size)
+        dt = np.random.rand() * 2
+
+        # Test Dominant Cycle
+        v1 = reference_extract_dominant_cycle(z, dt)
+        v2 = extract_dominant_cycle(z, dt)
+        assert np.isclose(v1, v2), f"Failed cycle for size {size}: {v1} vs {v2}"
+
+        # Test Damping
+        v = np.random.randn(size)
+        v1 = reference_calculate_kinetic_damping(v)
+        v2 = calculate_kinetic_damping(v)
+        assert np.isclose(v1, v2), f"Failed damping for size {size}: {v1} vs {v2}"
+
 
 def test_adx_speed():
     # Large data for benchmark
@@ -107,12 +145,11 @@ def test_adx_speed():
 
     print(f"Reference: {t_ref:.4f}s | Optimized: {t_opt:.4f}s | Speedup: {t_ref/t_opt:.2f}x")
 
-    # Assert at least 5x speedup (will fail until optimization is applied)
-    # We can use try-except or just let it fail/pass
     if t_ref > 0.05: # Only check if ref takes measurable time
         speedup = t_ref / t_opt if t_opt > 0 else float('inf')
         assert speedup > 5, f"Expected at least 5x speedup, but got {speedup:.2f}x"
 
 if __name__ == "__main__":
     test_adx_correctness()
+    test_spectral_physics_correctness()
     test_adx_speed()

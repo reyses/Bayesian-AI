@@ -159,21 +159,24 @@ class TestFractalDashboard(unittest.TestCase):
             mock_datetime.now.return_value.strftime.return_value = "20231027_120000"
 
             mock_asksaveasfilename.return_value = "/tmp/chart.png"
-            mock_fig = MagicMock()
+
+            # Create an independent mock specifically for the savefig assertion
+            # to verify it gets passed correctly through the UI action
+            my_test_fig = MagicMock()
 
             dashboard = FractalDashboard(self.root, self.queue)
 
-            # Call the new method
-            dashboard._save_chart(mock_fig, "test_chart")
+            # Call the new method with our specific figure
+            dashboard._save_chart(my_test_fig, "test_chart")
 
             # Verify asksaveasfilename called
             mock_asksaveasfilename.assert_called_once()
             args, kwargs = mock_asksaveasfilename.call_args
             self.assertEqual(kwargs['initialfile'], "test_chart_20231027_120000.png")
 
-            # Verify savefig called
-            mock_fig.savefig.assert_called_once()
-            args, kwargs = mock_fig.savefig.call_args
+            # Verify savefig called on the specific figure object we passed in
+            my_test_fig.savefig.assert_called_once()
+            args, kwargs = my_test_fig.savefig.call_args
             self.assertEqual(args[0], "/tmp/chart.png")
 
 if __name__ == '__main__':

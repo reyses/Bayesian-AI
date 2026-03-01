@@ -12,6 +12,8 @@ import queue
 import datetime
 import numpy as np
 
+DEFAULT_CHART_DPI = 100
+
 # ── Colour palette ────────────────────────────────────────────────────────────
 BG = "#1e1e1e"
 FG_GREEN = "#00ff00"
