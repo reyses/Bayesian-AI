@@ -24,7 +24,7 @@ warnings.filterwarnings("ignore", message=".*Mean of empty slice.*",            
 warnings.filterwarnings("ignore", message=".*invalid value encountered in scalar divide.*", category=RuntimeWarning)
 import numpy as np
 import pandas as pd
-from collections import defaultdict
+from collections import defaultdict, deque
 from typing import Dict, List, Any, Tuple, Optional
 from dataclasses import dataclass
 from datetime import datetime
@@ -140,6 +140,12 @@ AMBIGUOUS_SHAPES = {
     'TRIANGLE_UP', 'TRIANGLE_DOWN', 'SIGMOID_UP', 'SIGMOID_DOWN'
 }
 
+# Shape conviction modulation constants (Analysis K)
+SHAPE_AGREEMENT_BOOST = 1.1        # directional shape agrees with fractal direction
+SHAPE_DISAGREEMENT_PENALTY = 0.5   # directional shape disagrees with fractal direction
+AMBIGUOUS_SHAPE_DISCOUNT = 0.9     # ambiguous shape can't confirm direction
+NOISE_SHAPE_DISCOUNT = 0.8         # unclassified shape = less confident
+
 def _build_seed_library(n_bars=16):
     """Generate 20 seed primitives for segment shape classification.
     Same parametric functions as waveform_standalone.py — deterministic."""
@@ -200,13 +206,13 @@ def apply_shape_conviction(shape: str, fractal_dir: int, conviction: float) -> f
     if shape in DIRECTIONAL_SHAPES:
         shape_dir = 1 if 'UP' in shape else 0
         if shape_dir != fractal_dir:
-            conviction *= 0.5   # strong penalty for disagreement
+            conviction *= SHAPE_DISAGREEMENT_PENALTY
         else:
-            conviction *= 1.1   # mild boost for agreement
+            conviction *= SHAPE_AGREEMENT_BOOST
     elif shape in AMBIGUOUS_SHAPES:
-        conviction *= 0.9       # slight discount (shape can't confirm)
+        conviction *= AMBIGUOUS_SHAPE_DISCOUNT
     else:  # NOISE
-        conviction *= 0.8       # unclassified shape = less confident
+        conviction *= NOISE_SHAPE_DISCOUNT
     return conviction
 
 
@@ -1098,7 +1104,7 @@ class BayesianTrainingOrchestrator:
             active_entry_depth = 5  # depth of triggering pattern (used for hold-time scaling)
 
             # Shape classification buffer: collect 15m close prices (every 60 15s-bars)
-            _shape_15m_closes = []   # rolling 15m close prices
+            _shape_15m_closes = deque(maxlen=16)  # rolling 15m close prices
             _shape_current = 'NOISE' # current segment shape classification
             _shape_bar_acc = 0       # 15s bar counter within current 15m segment
             _shape_15m_close_buf = 0.0  # last close in current 15m segment
@@ -1144,12 +1150,9 @@ class BayesianTrainingOrchestrator:
                 if _shape_bar_acc >= 60:
                     _shape_15m_closes.append(_shape_15m_close_buf)
                     _shape_bar_acc = 0
-                    if len(_shape_15m_closes) >= 16:
+                    if len(_shape_15m_closes) == 16:
                         _shape_current = classify_segment_shape(
-                            np.array(_shape_15m_closes[-16:]))
-                        # Keep buffer bounded
-                        if len(_shape_15m_closes) > 32:
-                            _shape_15m_closes = _shape_15m_closes[-16:]
+                            np.array(_shape_15m_closes))
 
                 # PID ANALYZER TICK
                 _pid_state = _states_map.get(_bar_i)

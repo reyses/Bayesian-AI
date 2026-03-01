@@ -1193,15 +1193,13 @@ class FractalClusteringEngine:
              if len(labels) >= 20 and len(np.unique(labels)) == 2:
                  X_dir = np.array([self.extract_features(p) for p in patterns if p.oracle_marker != 0])
                  X_dir_sc = sc.transform(X_dir)
-                 # Scale important features UP so they have more influence
-                 X_dir_weighted = X_dir_sc.copy()
+                 # Scale important features UP so they have more influence (vectorized)
+                 num_features = X_dir_sc.shape[1]
+                 weights = np.full(num_features, 0.50)
                  for _dim, _w in _FEAT_IMP_WEIGHTS.items():
-                     if _dim < X_dir_weighted.shape[1]:
-                         X_dir_weighted[:, _dim] *= _w
-                 # Default weight 0.50 for remaining dimensions
-                 for _dim in range(X_dir_weighted.shape[1]):
-                     if _dim not in _FEAT_IMP_WEIGHTS:
-                         X_dir_weighted[:, _dim] *= 0.50
+                     if _dim < num_features:
+                         weights[_dim] = _w
+                 X_dir_weighted = X_dir_sc * weights
                  try:
                      lr = LogisticRegression(max_iter=300).fit(X_dir_weighted, labels)
                      template.dir_coeff = lr.coef_[0].tolist()

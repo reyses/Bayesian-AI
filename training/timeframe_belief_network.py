@@ -581,8 +581,9 @@ class TimeframeWorker:
         # Low Hurst (<0.5) = mean-reverting = direction less reliable → discount conviction
         # Scale: 0.7x at Hurst=0.3 to 1.3x at Hurst=0.7
         hurst = feat[8]  # self_hurst, already in [0, 1]
-        hurst_scale = 0.7 + (hurst - 0.3) * (0.6 / 0.4)  # linear interpolation
-        hurst_scale = max(0.7, min(1.3, hurst_scale))       # clamp [0.7, 1.3]
+        _HURST_XP = [0.3, 0.7]
+        _HURST_FP = [0.7, 1.3]
+        hurst_scale = float(np.clip(np.interp(hurst, _HURST_XP, _HURST_FP), _HURST_FP[0], _HURST_FP[1]))
         conviction *= hurst_scale
 
         self.current_belief = WorkerBelief(
