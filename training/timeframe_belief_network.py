@@ -480,7 +480,10 @@ class TimeframeWorker:
         # direction to LONG when pattern is below the mean (z < -1), while the logistic
         # still has veto power when features strongly favor SHORT.
         if _any_fitted:
-            dir_prob = 0.5 * dir_prob + 0.5 * _phys_dir
+            osc_coh = feat[15]
+            ml_weight = 0.5 - 0.15 * osc_coh
+            phys_weight = 0.5 + 0.15 * osc_coh
+            dir_prob = ml_weight * dir_prob + phys_weight * _phys_dir
         else:
             dir_prob = _phys_dir
 
@@ -537,6 +540,12 @@ class TimeframeWorker:
         # ── DNA agreement modulation ──
         # DNA score scales conviction: 0.0 (outside cell) → 0.5x, 1.0 (at centroid) → 1.0x
         conviction *= (0.5 + 0.5 * _dna_agreement)
+
+        # ── Hurst-based conviction scaling ──
+        hurst = feat[8]
+        hurst_scale = 0.7 + (hurst - 0.3) * (0.6 / 0.4)
+        hurst_scale = max(0.7, min(1.3, hurst_scale))
+        conviction *= hurst_scale
 
         # ── Price-aware conviction modulation (2 layers) ──
         if self._trade_side is not None:

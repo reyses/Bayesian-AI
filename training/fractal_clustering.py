@@ -1180,9 +1180,29 @@ class FractalClusteringEngine:
              if len(labels) >= 20 and len(np.unique(labels)) == 2:
                  X_dir = np.array([self.extract_features(p) for p in patterns if p.oracle_marker != 0])
                  X_dir_sc = sc.transform(X_dir)
+
+                 FEATURE_IMPORTANCE_WEIGHTS = {
+                     8:  1.0,   # hurst (top)
+                     15: 0.95,  # osc_coherence
+                     7:  0.90,  # adx
+                     9:  0.85,  # dmi_diff
+                     0:  0.80,  # z_score
+                     2:  0.75,  # momentum
+                     3:  0.70,  # coherence
+                     1:  0.65,  # velocity
+                     14: 0.60,  # term_pid
+                     13: 0.55,  # tf_alignment
+                 }
+
+                 for dim in range(X_dir_sc.shape[1]):
+                     weight = FEATURE_IMPORTANCE_WEIGHTS.get(dim, 0.50)
+                     X_dir_sc[:, dim] *= weight
+
                  try:
                      lr = LogisticRegression(max_iter=300).fit(X_dir_sc, labels)
-                     template.dir_coeff = lr.coef_[0].tolist()
+                     # Bake the weights into the coefficients so inference works transparently
+                     weights_array = np.array([FEATURE_IMPORTANCE_WEIGHTS.get(i, 0.50) for i in range(X_dir_sc.shape[1])])
+                     template.dir_coeff = (lr.coef_[0] * weights_array).tolist()
                      template.dir_intercept = float(lr.intercept_[0])
                  except:
                      pass

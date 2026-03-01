@@ -75,6 +75,9 @@ from training.anova_analyzer import ANOVAAnalyzer
 from training.thompson_refiner import ThompsonRefiner
 from training.pid_oscillation_analyzer import PIDOscillationAnalyzer, PIDSignal
 
+from tools.waveform_standalone import SeedPrimitiveLibrary
+import collections
+
 INITIAL_CLUSTER_DIVISOR = 100
 _ADX_TREND_CONFIRMATION = 25.0
 _HURST_TREND_CONFIRMATION = 0.6
@@ -1023,11 +1026,31 @@ class BayesianTrainingOrchestrator:
             _chart_day_trades = 0
             _chart_day_wins = 0
 
+            seed_library = SeedPrimitiveLibrary(N=16)
+            rolling_1m_closes = []
+            last_1m_ts = None
+
+            DIRECTIONAL_SHAPES = {
+                'LINEAR_UP', 'LINEAR_DOWN', 'RAMP_UP', 'RAMP_DOWN',
+                'EXPONENTIAL_UP', 'EXPONENTIAL_DOWN', 'LOGARITHMIC_UP', 'LOGARITHMIC_DOWN',
+                'STEP_UP', 'STEP_DOWN'
+            }
+            AMBIGUOUS_SHAPES = {
+                'V_SHAPE', 'INVERTED_V', 'FLAT', 'DOUBLE_DIP', 'DOUBLE_PEAK',
+                'TRIANGLE_UP', 'TRIANGLE_DOWN', 'SIGMOID_UP', 'SIGMOID_DOWN'
+            }
+
             for row in df_15s.itertuples():
                 ts_raw = row.timestamp
                 # Snap to 60s boundary to match pattern_map keys
                 ts = int(ts_raw) // 60 * 60
                 price = getattr(row, 'close', getattr(row, 'price', 0.0))
+
+                if last_1m_ts is None or ts_raw // 60 != last_1m_ts:
+                    rolling_1m_closes.append(price)
+                    if len(rolling_1m_closes) > 16:
+                        rolling_1m_closes.pop(0)
+                    last_1m_ts = ts_raw // 60
 
                 # Detect calendar day change → emit daily PnL to dashboard
                 _bar_day = _dt_chart.datetime.utcfromtimestamp(ts_raw).strftime('%m/%d')
@@ -1627,6 +1650,26 @@ class BayesianTrainingOrchestrator:
                         # If tree agrees and TP from decision-level worker is better -> use it.
                         _belief = belief_network.get_belief()
                         if _belief is not None:
+                            # Shape-Aware Direction Confidence
+                            shape_name = 'NOISE'
+                            if len(rolling_1m_closes) == 16:
+                                seg = np.array(rolling_1m_closes)
+                                seg = seg - seg[0]
+                                shape_name, _ = seed_library.classify_trajectory(seg)
+
+                            # Map SeedPrimitiveLibrary outputs to our sets where they differ
+                            if 'SYMMETRIC_V' in shape_name or 'ROUNDED_U' in shape_name or 'SKEWED' in shape_name or 'SINE_WAVE' in shape_name or 'OSCILLATOR' in shape_name or 'FLATLINE' in shape_name:
+                                _belief.conviction *= 0.9 # Treat all these non-directional shapes as ambiguous
+                            elif shape_name in DIRECTIONAL_SHAPES or shape_name.endswith('_UP') or shape_name.endswith('_DOWN'):
+                                shape_dir = 1 if 'UP' in shape_name else 0
+                                fractal_dir = 1 if side == 'long' else 0
+                                if shape_dir != fractal_dir:
+                                    _belief.conviction *= 0.5
+                                else:
+                                    _belief.conviction *= 1.1
+                            else: # NOISE
+                                _belief.conviction *= 0.8
+
                             if not _belief.is_confident:
                                 # Tree uncertain across scales -- skip this bar
                                 skip_conviction += 1
