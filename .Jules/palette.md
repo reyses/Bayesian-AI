@@ -13,3 +13,7 @@
 ## 2026-02-24 - [Mocking Matplotlib Subplots]
 **Learning:** When adding features that instantiate `plt.subplots`, existing tests mocking `tkinter` will fail if `plt.subplots` is not also mocked and configured to return a tuple `(fig, ax)`.
 **Action:** Always patch `plt.subplots` in tests for classes that create plots in `__init__`, ensuring it returns valid mock objects.
+
+## 2026-03-05 - [Tkinter Tooltip UX in High-Density Dashboards]
+**Learning:** Tooltips that appear instantly on `<Enter>` cause aggressive flashing and UI obstruction in dense, data-heavy dashboards when the user moves the mouse across multiple widgets.
+**Action:** Always use a delay (e.g., ~500ms using `widget.after()`) before showing tooltips, and ensure they are immediately dismissed and pending `after` events are cancelled on `<Leave>` and `<ButtonPress>` events.
