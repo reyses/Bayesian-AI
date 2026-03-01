@@ -72,9 +72,11 @@
 - Price I-MR: I=close, MR=signed bar-to-bar change, regimes from UCL breaks
 - Default mode = price I-MR only; `--full` = adds 16D fractal pipeline
 - Signed MR: every change is a potential pattern, sign flips = direction changes
-- **Analyses completed**: A-C (Three Questions), D (rate-of-change), E (dP/dT grouping),
-  F (regime shapes), G (Laplacian +68% tighter), H (delta shape clustering)
-- **Next**: Seed-function shape matching (see journal for 8 candidate functions)
+- **Analyses completed**: A-H (screening), I (seed classification, 20 primitives),
+  J (adaptive R² sub-types, IQR quality gate, R² ceiling 0.88),
+  K (direction prediction: 70.6% accuracy, +16.5% lift, 4h/1h dominant)
+- **Key K findings**: 1h_hurst #1, 4h_osc_coh #2, 15m base TF barely top-10
+- **Integration spec**: `docs/JULES_WAVEFORM_INTEGRATION.md` (5 parts)
 
 ## Seed Library & Live Worker Architecture (KEY DECISION)
 - **The waveform analysis is OFFLINE research** — too slow for live trading
@@ -101,7 +103,9 @@
 ## Jules Specs
 - **Active**: `docs/JULES_PERFORMANCE_TARGETS.md` (Phase A/B/C fixes),
   `docs/JULES_DOE_PHASE3.md` (Part 4: I-MR + dp/dt + DBSCAN framework),
-  `docs/JULES_AUTO_DOCS.md`
+  `docs/JULES_AUTO_DOCS.md`,
+  `docs/JULES_WAVEFORM_INTEGRATION.md` (5 parts: TF weights, Hurst modulation,
+  osc_coh blend, shape gate, feature pruning)
 - **Archived**: `docs/old_jules/` — SPECTRAL_GATES, SNOWFLAKE_BASELINE,
   TASK_1_2, TEMPLATE_TIMESCALE, PLAN_PRICE_AWARE_WORKERS, SIGNAL_CAPTURE_AUDIT
 

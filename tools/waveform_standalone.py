@@ -616,6 +616,27 @@ from matplotlib.collections import LineCollection
 
 PLOTS_DIR = os.path.join(os.path.dirname(__file__), 'plots', 'standalone')
 
+
+def _resolve_plots_dir(data_path):
+    """Set PLOTS_DIR subfolder based on data path.
+    ATLAS_1DAY -> 1d, ATLAS_1WEEK -> 1w, ATLAS_OOS (4mo) -> 1y, ATLAS (10mo) -> 1y."""
+    global PLOTS_DIR
+    base = os.path.join(os.path.dirname(__file__), 'plots', 'standalone')
+    dp = data_path.upper().replace('\\', '/')
+    if '1DAY' in dp or '1_DAY' in dp:
+        sub = '1d'
+    elif '1WEEK' in dp or '1_WEEK' in dp:
+        sub = '1w'
+    elif 'OOS' in dp:
+        sub = '1y'  # 4 months ≈ treat as long-horizon
+    else:
+        # Full ATLAS (10 months)
+        sub = '1y'
+    PLOTS_DIR = os.path.join(base, sub)
+    os.makedirs(PLOTS_DIR, exist_ok=True)
+    return sub
+
+
 # Regime color palette (up to 20 distinct regimes)
 _REGIME_COLORS = [
     '#2196F3', '#F44336', '#4CAF50', '#FF9800', '#9C27B0',
@@ -1611,6 +1632,294 @@ def print_screening_report(results, mfes, maes, meta, top_n=30):
 
 
 # =============================================================================
+#  SEED PRIMITIVE LIBRARY (Analysis I)
+#
+#  12 orthogonal mathematical shapes, normalized 0-1.
+#  Categories 1 & 2 get _UP / _DOWN variants (x2) = 16
+#  Category 3 (symmetrical) = 4
+#  Total: 20 shapes in the dictionary.
+# =============================================================================
+
+class SeedPrimitiveLibrary:
+    """Library of 20 normalized seed shapes for trajectory classification."""
+
+    CORR_THRESHOLD = 0.75  # minimum Pearson r to classify (below = NOISE)
+
+    def __init__(self, N=16):
+        self.N = N
+        self.shapes = {}
+        self._build(N)
+
+    def _norm01(self, arr):
+        """Normalize array to [0, 1]. Returns zeros if flat."""
+        mn, mx = arr.min(), arr.max()
+        if mx - mn < 1e-12:
+            return np.zeros_like(arr)
+        return (arr - mn) / (mx - mn)
+
+    def _build(self, N):
+        x = np.linspace(0, 1, N)  # normalized time axis
+
+        # --- Category 1: Directional ---
+        cat1 = {
+            'LINEAR':      x,
+            'EXPONENTIAL': x ** 2,
+            'LOGARITHMIC': np.log(x + 1),
+            'STEP':        np.where(np.arange(N) < N / 2, 0.0, 1.0),
+        }
+
+        # --- Category 2: Reversals ---
+        cat2 = {
+            'SYMMETRIC_V':  np.abs(np.arange(N) - N / 2),
+            'ROUNDED_U':    (np.arange(N) - N / 2) ** 2,
+            'FRONT_SKEWED': np.exp(-4 * x) - np.exp(-8 * x),
+            'BACK_SKEWED':  np.exp(4 * (x - 1)) - np.exp(8 * (x - 1)),
+        }
+
+        # Normalize all Cat1 & Cat2 to 0-1, then create UP/DOWN variants
+        for name, arr in {**cat1, **cat2}.items():
+            normed = self._norm01(arr.astype(float))
+            self.shapes[f'{name}_UP'] = normed
+            self.shapes[f'{name}_DOWN'] = 1.0 - normed
+
+        # --- Category 3: Volatility (symmetrical, no inversion) ---
+        t_cyc = np.linspace(0, 2 * np.pi, N)
+        cat3 = {
+            'SINE_WAVE':          np.sin(t_cyc),
+            'DAMPED_OSCILLATOR':  np.exp(-2 * x) * np.sin(t_cyc),
+            'EXPAND_OSCILLATOR':  np.exp(2 * x) * np.sin(t_cyc),
+            'FLATLINE':           np.ones(N),
+        }
+        for name, arr in cat3.items():
+            self.shapes[name] = self._norm01(arr.astype(float))
+
+    def classify_trajectory(self, price_segment):
+        """Classify a price segment against the 20 seed primitives.
+
+        Args:
+            price_segment: raw prices (not pre-normalized)
+
+        Returns:
+            (best_shape_name, correlation) or ('NOISE', best_corr)
+        """
+        seg = np.asarray(price_segment, dtype=float)
+        if len(seg) != self.N:
+            return 'NOISE', 0.0
+
+        # Normalize input to 0-1
+        mn, mx = seg.min(), seg.max()
+        if mx - mn < 1e-12:
+            return 'FLATLINE', 1.0  # truly flat -> direct match
+
+        normed = (seg - mn) / (mx - mn)
+
+        # Pearson correlation against all 20 shapes
+        best_name = 'NOISE'
+        best_corr = -999.0
+
+        for name, template in self.shapes.items():
+            # Skip zero-variance templates (FLATLINE → all zeros after norm)
+            if template.std() < 1e-12:
+                continue
+            r = np.corrcoef(normed, template)[0, 1]
+            if np.isnan(r):
+                continue
+            if r > best_corr:
+                best_corr = r
+                best_name = name
+
+        if best_corr < self.CORR_THRESHOLD:
+            return 'NOISE', best_corr
+
+        return best_name, best_corr
+
+
+def _detect_inflections(centroid):
+    """Detect inflection points on a centroid (raw ticks or normalized).
+
+    An inflection = where the bar-to-bar direction flips sign.
+    Returns list of (bar_idx, level) for each inflection point,
+    plus segment descriptors between them.
+    """
+    d = np.diff(centroid)  # bar-to-bar changes
+    inflections = [(0, centroid[0])]  # start point always included
+
+    for i in range(1, len(d)):
+        # Sign flip: direction changed
+        if d[i] * d[i - 1] < 0:
+            inflections.append((i, centroid[i]))
+
+    inflections.append((len(centroid) - 1, centroid[-1]))  # end point
+
+    # Build segment descriptors between inflection points
+    segments = []
+    for k in range(len(inflections) - 1):
+        b0, v0 = inflections[k]
+        b1, v1 = inflections[k + 1]
+        delta = v1 - v0
+        if abs(delta) < 1e-6:
+            label = 'HOLD'
+        elif delta > 0:
+            label = 'RISE'
+        else:
+            label = 'DROP'
+        segments.append({'start': b0, 'end': b1, 'v0': v0, 'v1': v1, 'label': label})
+
+    return inflections, segments
+
+
+def _adaptive_split(deltas, r2_target=0.80, min_n=2, max_k=48):
+    """Find optimal k where all sub-types hit shape R² >= target.
+
+    Clustering uses raw deltas (ticks) so magnitude matters for grouping.
+    R² is computed on shape-normalized segments (0-1) so it measures shape
+    consistency, not magnitude consistency.
+
+    Tries k=1,2,3,...,max_k. Keeps the k with highest minimum R² across
+    all clusters. Stops early if all clusters hit the target.
+
+    Returns (labels, centroids, shape_r2s) — labels[i] = cluster id,
+    centroids[k] = raw mean trace, shape_r2s[k] = shape-normalized R².
+    """
+    from sklearn.cluster import KMeans
+
+    def _shape_r2(sub):
+        """Mean Pearson r² between each segment (0-1 normed) and centroid.
+
+        More robust than global R² for small clusters — each segment's
+        shape agreement is measured independently then averaged.
+        """
+        n = len(sub)
+        if n < 2:
+            return 1.0
+        normed_sub = np.zeros_like(sub)
+        for i in range(n):
+            mn, mx = sub[i].min(), sub[i].max()
+            rng = mx - mn
+            normed_sub[i] = (sub[i] - mn) / rng if rng > 1e-12 else 0.0
+        centroid = normed_sub.mean(axis=0)
+        if centroid.std() < 1e-12:
+            return 0.0
+        r2_vals = []
+        for i in range(n):
+            if normed_sub[i].std() < 1e-12:
+                continue
+            r = np.corrcoef(normed_sub[i], centroid)[0, 1]
+            if not np.isnan(r):
+                r2_vals.append(r ** 2)
+        return np.mean(r2_vals) if r2_vals else 0.0
+
+    n_total = len(deltas)
+
+    # Build shape-normalized version for clustering (0-1 per segment)
+    normed = np.zeros_like(deltas)
+    for i in range(n_total):
+        mn, mx = deltas[i].min(), deltas[i].max()
+        rng = mx - mn
+        normed[i] = (deltas[i] - mn) / rng if rng > 1e-12 else 0.0
+
+    # k=1 baseline (no splitting)
+    base_r2 = _shape_r2(deltas)
+    best_labels = np.zeros(n_total, dtype=int)
+    best_centroids = np.array([deltas.mean(axis=0)])
+    best_r2s = np.array([base_r2])
+    best_min_r2 = base_r2
+
+    if base_r2 >= r2_target:
+        return best_labels, best_centroids, best_r2s
+
+    # Try increasing k — cluster on SHAPE (normalized), report in raw ticks
+    k_limit = min(max_k, n_total // min_n)
+    for k in range(2, k_limit + 1):
+        km = KMeans(n_clusters=k, random_state=42, n_init=20)
+        labels = km.fit_predict(normed)  # cluster by shape, not magnitude
+
+        # Check all clusters have min_n segments
+        valid = True
+        r2s = []
+        raw_centroids = []
+        for ci in range(k):
+            mask = (labels == ci)
+            n_ci = mask.sum()
+            if n_ci < min_n:
+                valid = False
+                break
+            r2s.append(_shape_r2(deltas[mask]))
+            raw_centroids.append(deltas[mask].mean(axis=0))
+
+        if not valid:
+            continue
+
+        min_r2 = min(r2s)
+        if min_r2 > best_min_r2:
+            best_labels = labels.copy()
+            best_centroids = np.array(raw_centroids)
+            best_r2s = np.array(r2s)
+            best_min_r2 = min_r2
+
+        if min_r2 >= r2_target:
+            break  # all clusters meet target
+
+    # --- Phase 2: targeted bisection of worst clusters ---
+    # KMeans finds the best global k, but some clusters may still be below
+    # target. Bisect those specifically until they meet R² or hit min_n.
+    improved = True
+    while improved:
+        improved = False
+        new_labels = best_labels.copy()
+        new_centroids = list(best_centroids)
+        new_r2s = list(best_r2s)
+
+        # Find worst cluster that can be split
+        worst_ci = -1
+        worst_r2 = r2_target
+        for ci in range(len(new_centroids)):
+            if new_r2s[ci] < worst_r2:
+                ci_mask = (new_labels == ci)
+                if ci_mask.sum() >= 2 * min_n:
+                    worst_ci = ci
+                    worst_r2 = new_r2s[ci]
+
+        if worst_ci < 0:
+            break  # nothing to split
+
+        ci_mask = (new_labels == worst_ci)
+        ci_indices = np.where(ci_mask)[0]
+        ci_normed = normed[ci_indices]
+
+        km2 = KMeans(n_clusters=2, random_state=42, n_init=20)
+        sub_labels = km2.fit_predict(ci_normed)
+
+        idx_a = ci_indices[sub_labels == 0]
+        idx_b = ci_indices[sub_labels == 1]
+
+        if len(idx_a) < min_n or len(idx_b) < min_n:
+            # Can't split — mark as final and stop trying this cluster
+            break
+
+        r2_a = _shape_r2(deltas[idx_a])
+        r2_b = _shape_r2(deltas[idx_b])
+
+        # Only accept if BOTH halves improve over the original
+        if min(r2_a, r2_b) > worst_r2:
+            new_id = len(new_centroids)
+            new_labels[idx_a] = worst_ci
+            new_labels[idx_b] = new_id
+            new_centroids[worst_ci] = deltas[idx_a].mean(axis=0)
+            new_centroids.append(deltas[idx_b].mean(axis=0))
+            new_r2s[worst_ci] = r2_a
+            new_r2s.append(r2_b)
+
+            best_labels = new_labels
+            best_centroids = np.array(new_centroids)
+            best_r2s = np.array(new_r2s)
+            best_min_r2 = min(best_r2s)
+            improved = True
+
+    return best_labels, best_centroids, best_r2s
+
+
+# =============================================================================
 #  MAIN
 # =============================================================================
 
@@ -1632,6 +1941,9 @@ def main():
     parser.add_argument('--full', action='store_true',
                         help='Run full 16D fractal pipeline (physics + hypervolumes)')
     args = parser.parse_args()
+
+    # Resolve plots dir based on data path
+    sample_label = _resolve_plots_dir(args.data)
 
     # Capture all output to report file
     _report_buf = io.StringIO()
@@ -3005,6 +3317,1012 @@ def main():
         fig_h.savefig(h_path, dpi=150, bbox_inches='tight', facecolor='white')
         plt.close(fig_h)
         print(f"\n  Saved: {h_path}")
+
+    # =====================================================================
+    #  ANALYSIS I: SEED PRIMITIVE SHAPE CLASSIFICATION
+    #
+    #  Classify every segment against 20 mathematical seed shapes
+    #  using Pearson correlation. Threshold 0.85 → shape or NOISE.
+    # =====================================================================
+    print(f"\n{'='*70}")
+    print(f"  ANALYSIS I: SEED PRIMITIVE CLASSIFICATION (20 shapes)")
+    print(f"{'='*70}")
+
+    from collections import Counter as Counter_I
+
+    # Use same segment length as Analysis H (best_seg_len), fallback 16
+    seed_len = best_seg_len if 'best_seg_len' in dir() else 16
+    library = SeedPrimitiveLibrary(N=seed_len)
+
+    print(f"\n  Seed library: {len(library.shapes)} shapes, segment length={seed_len}")
+    print(f"  Shapes: {', '.join(sorted(library.shapes.keys()))}")
+
+    # Extract segments (same as Analysis H: every analysis bar)
+    analysis_mask_i = price_imr['analysis_mask']
+    analysis_idx_i = np.where(analysis_mask_i)[0]
+
+    classifications = []  # (idx, shape_name, correlation, raw_segment)
+    for idx in tqdm(analysis_idx_i, desc='  Classifying', ncols=80):
+        if idx + seed_len > len(close):
+            continue
+        seg = close[idx : idx + seed_len]
+        if len(seg) != seed_len:
+            continue
+        shape_name, corr = library.classify_trajectory(seg)
+        classifications.append((idx, shape_name, corr, seg))
+
+    n_total = len(classifications)
+    if n_total == 0:
+        print("  No segments to classify. Skipping Analysis I.")
+    else:
+        # Tally
+        shape_counts = Counter_I(c[1] for c in classifications)
+        n_noise = shape_counts.get('NOISE', 0)
+        n_matched = n_total - n_noise
+        noise_pct = n_noise / n_total * 100
+
+        print(f"\n  Total segments: {n_total}")
+        print(f"  Matched (corr >= {library.CORR_THRESHOLD}): {n_matched} ({100 - noise_pct:.1f}%)")
+        print(f"  NOISE (corr < {library.CORR_THRESHOLD}):    {n_noise} ({noise_pct:.1f}%)")
+
+        # Shape breakdown table
+        print(f"\n  {'Shape':<25} {'Count':>6} {'%':>6} {'MeanCorr':>9} "
+              f"{'MeanChg':>8} {'WR':>5}")
+        print(f"  {'-'*25} {'-'*6} {'-'*6} {'-'*9} {'-'*8} {'-'*5}")
+
+        shape_stats = []
+        for shape_name in sorted(shape_counts.keys()):
+            if shape_name == 'NOISE':
+                continue
+            entries = [(idx, corr, seg) for idx, sn, corr, seg in classifications
+                       if sn == shape_name]
+            count = len(entries)
+            pct = count / n_total * 100
+            mean_corr = np.mean([e[1] for e in entries])
+            changes = np.array([e[2][-1] - e[2][0] for e in entries])
+            mean_chg = changes.mean()
+            wr = (changes > 0).sum() / len(changes) * 100 if len(changes) > 0 else 0
+
+            shape_stats.append({
+                'name': shape_name, 'count': count, 'pct': pct,
+                'mean_corr': mean_corr, 'mean_chg': mean_chg, 'wr': wr,
+                'entries': entries,
+            })
+
+            print(f"  {shape_name:<25} {count:>6} {pct:>5.1f}% {mean_corr:>9.3f} "
+                  f"{mean_chg:>+8.1f} {wr:>4.0f}%")
+
+        # NOISE deep-dive: what shapes were they closest to?
+        if n_noise > 0:
+            noise_entries = [(idx, corr, seg) for idx, sn, corr, seg in classifications
+                             if sn == 'NOISE']
+            noise_corrs = np.array([e[1] for e in noise_entries])
+            noise_chgs = np.array([e[2][-1] - e[2][0] for e in noise_entries])
+            noise_wr = (noise_chgs > 0).sum() / len(noise_chgs) * 100
+            print(f"  {'NOISE':<25} {n_noise:>6} {noise_pct:>5.1f}% "
+                  f"{np.mean(noise_corrs):>9.3f} {noise_chgs.mean():>+8.1f} "
+                  f"{noise_wr:>4.0f}%")
+
+            # --- NOISE BREAKDOWN: what is the best-match shape for each noise segment? ---
+            print(f"\n  NOISE BREAKDOWN (best-match shape for segments below 0.85):")
+
+            # Re-classify noise to get their best-match shape name
+            noise_best_shapes = []
+            for idx, corr, seg in noise_entries:
+                mn, mx = seg.min(), seg.max()
+                if mx - mn < 1e-12:
+                    noise_best_shapes.append('FLATLINE')
+                    continue
+                normed = (seg - mn) / (mx - mn)
+                best_n, best_r = 'UNKNOWN', -999.0
+                for nm, tmpl in library.shapes.items():
+                    if tmpl.std() < 1e-12:
+                        continue
+                    r = np.corrcoef(normed, tmpl)[0, 1]
+                    if not np.isnan(r) and r > best_r:
+                        best_r = r
+                        best_n = nm
+                noise_best_shapes.append(best_n)
+
+            noise_shape_counts = Counter_I(noise_best_shapes)
+            print(f"\n  {'Nearest Shape':<25} {'Count':>6} {'%ofNoise':>9} "
+                  f"{'MeanCorr':>9} {'MeanChg':>8} {'WR':>5}")
+            print(f"  {'-'*25} {'-'*6} {'-'*9} {'-'*9} {'-'*8} {'-'*5}")
+
+            for ns_name, ns_cnt in noise_shape_counts.most_common():
+                ns_mask = [i for i, s in enumerate(noise_best_shapes) if s == ns_name]
+                ns_corrs = noise_corrs[ns_mask]
+                ns_chgs = noise_chgs[ns_mask]
+                ns_wr = (ns_chgs > 0).sum() / len(ns_chgs) * 100 if len(ns_chgs) > 0 else 0
+                ns_pct = ns_cnt / n_noise * 100
+                print(f"  {ns_name:<25} {ns_cnt:>6} {ns_pct:>8.1f}% "
+                      f"{ns_corrs.mean():>9.3f} {ns_chgs.mean():>+8.1f} {ns_wr:>4.0f}%")
+
+            # Correlation band breakdown
+            print(f"\n  NOISE BY CORRELATION BAND:")
+            print(f"  {'Band':<15} {'Count':>6} {'%':>6} {'MeanChg':>8} {'WR':>5} "
+                  f"{'StdChg':>7}")
+            print(f"  {'-'*15} {'-'*6} {'-'*6} {'-'*8} {'-'*5} {'-'*7}")
+            thr = library.CORR_THRESHOLD
+            bands = [(thr - 0.05, thr, f'{thr-0.05:.2f}-{thr:.2f}'),
+                     (thr - 0.15, thr - 0.05, f'{thr-0.15:.2f}-{thr-0.05:.2f}'),
+                     (thr - 0.35, thr - 0.15, f'{thr-0.35:.2f}-{thr-0.15:.2f}'),
+                     (-1.0, thr - 0.35, f'<{thr-0.35:.2f}')]
+            for lo, hi, label in bands:
+                band_mask = (noise_corrs >= lo) & (noise_corrs < hi)
+                bc = band_mask.sum()
+                if bc == 0:
+                    continue
+                b_chgs = noise_chgs[band_mask]
+                b_wr = (b_chgs > 0).sum() / bc * 100
+                print(f"  {label:<15} {bc:>6} {bc/n_noise*100:>5.1f}% "
+                      f"{b_chgs.mean():>+8.1f} {b_wr:>4.0f}% {b_chgs.std():>7.1f}")
+
+        # =================================================================
+        #  SUB-CLASSIFICATION: within each shape, cluster timing variants
+        # =================================================================
+        from sklearn.cluster import KMeans as KMeans_sub
+
+        MIN_FOR_SUB = 10   # need at least this many to sub-cluster
+        SUB_K = 3           # number of timing sub-types per shape
+        x_plot = np.arange(seed_len)
+
+        sub_shapes = [s for s in shape_stats if s['count'] >= MIN_FOR_SUB]
+
+        if sub_shapes:
+            print(f"\n  {'='*60}")
+            print(f"  SUB-CLASSIFICATION (shapes with n >= {MIN_FOR_SUB})")
+            print(f"  {'='*60}")
+
+            all_sub_stats = []  # collect for plotting
+
+            for ss in sub_shapes:
+                entries = ss['entries']
+                # Normalize each segment to 0-1 for shape clustering
+                normed_segs = []
+                raw_segs = []
+                for idx, corr, seg in entries:
+                    mn, mx = seg.min(), seg.max()
+                    if mx - mn < 1e-12:
+                        normed_segs.append(np.zeros(seed_len))
+                    else:
+                        normed_segs.append((seg - mn) / (mx - mn))
+                    raw_segs.append(seg)
+                normed_arr = np.array(normed_segs)
+                raw_arr = np.array(raw_segs)
+
+                k_use = min(SUB_K, len(entries) // 3)
+                if k_use < 2:
+                    k_use = 2
+
+                km = KMeans_sub(n_clusters=k_use, random_state=42, n_init=10)
+                sub_labels = km.fit_predict(normed_arr)
+
+                print(f"\n  {ss['name']} (n={ss['count']}) -> {k_use} sub-types:")
+                print(f"    {'Sub':<8} {'N':>4} {'MeanCorr':>9} {'MeanChg':>8} "
+                      f"{'WR':>5} {'R2':>6} {'Timing':>20}")
+                print(f"    {'-'*8} {'-'*4} {'-'*9} {'-'*8} {'-'*5} {'-'*6} {'-'*20}")
+
+                shape_sub_stats = []
+                for si in range(k_use):
+                    mask = (sub_labels == si)
+                    n_sub = mask.sum()
+                    if n_sub == 0:
+                        continue
+                    sub_normed = normed_arr[mask]
+                    sub_raw = raw_arr[mask]
+                    sub_corrs = [entries[j][1] for j in range(len(entries)) if mask[j]]
+
+                    # Timing: where does main movement happen?
+                    # Measure cumulative change at 33% and 66% of segment
+                    centroid = km.cluster_centers_[si]
+                    third = seed_len // 3
+                    two_third = 2 * seed_len // 3
+
+                    # Movement in first/mid/last third
+                    move_early = abs(centroid[third] - centroid[0])
+                    move_mid = abs(centroid[two_third] - centroid[third])
+                    move_late = abs(centroid[-1] - centroid[two_third])
+                    total_move = move_early + move_mid + move_late
+
+                    if total_move < 1e-12:
+                        timing = "FLAT"
+                    else:
+                        pct_early = move_early / total_move
+                        pct_late = move_late / total_move
+                        if pct_early > 0.45:
+                            timing = "EARLY (front-loaded)"
+                        elif pct_late > 0.45:
+                            timing = "LATE (back-loaded)"
+                        else:
+                            timing = "STEADY (even)"
+
+                    sub_chgs = sub_raw[:, -1] - sub_raw[:, 0]
+                    sub_wr = (sub_chgs > 0).sum() / n_sub * 100
+                    sub_mean_chg = sub_chgs.mean()
+                    sub_mean_corr = np.mean(sub_corrs)
+
+                    # Goodness of fit: R² = 1 - SS_res / SS_tot
+                    ss_res = np.sum((sub_normed - centroid[np.newaxis, :]) ** 2)
+                    ss_tot = np.sum((sub_normed - sub_normed.mean()) ** 2)
+                    r2 = 1.0 - ss_res / ss_tot if ss_tot > 1e-12 else 0.0
+
+                    label = f"{ss['name']}_{si}"
+                    shape_sub_stats.append({
+                        'label': label, 'n': n_sub, 'timing': timing,
+                        'mean_corr': sub_mean_corr, 'mean_chg': sub_mean_chg,
+                        'wr': sub_wr, 'r2': r2, 'centroid': centroid,
+                        'normed': sub_normed, 'raw': sub_raw,
+                    })
+
+                    print(f"    {label:<8} {n_sub:>4} {sub_mean_corr:>9.3f} "
+                          f"{sub_mean_chg:>+8.1f} {sub_wr:>4.0f}% {r2:>5.2f} "
+                          f"{timing:>20}")
+
+                all_sub_stats.append({
+                    'parent': ss['name'], 'subs': shape_sub_stats,
+                    'template': library.shapes[ss['name']],
+                })
+
+            # --- Sub-classification plot: one row per parent shape ---
+            if all_sub_stats:
+                n_parents = len(all_sub_stats)
+                max_subs = max(len(a['subs']) for a in all_sub_stats)
+                fig_sub, axes_sub = plt.subplots(
+                    n_parents, max_subs,
+                    figsize=(5 * max_subs, 4 * n_parents),
+                    squeeze=False)
+
+                sub_colors = ['#F44336', '#2196F3', '#4CAF50', '#FF9800']
+
+                for row_i, parent_info in enumerate(all_sub_stats):
+                    for col_i, sub in enumerate(parent_info['subs']):
+                        ax = axes_sub[row_i, col_i]
+                        normed = sub['normed']
+                        n_s = len(normed)
+                        max_show = min(n_s, 150)
+                        alpha = max(0.08, min(0.4, 20.0 / max_show))
+                        color = sub_colors[col_i % len(sub_colors)]
+
+                        for j in range(max_show):
+                            ax.plot(x_plot, normed[j], color=color,
+                                    alpha=alpha, linewidth=0.5)
+
+                        # Centroid
+                        ax.plot(x_plot, sub['centroid'], color=color,
+                                linewidth=3, label='Centroid')
+                        # Template
+                        ax.plot(x_plot, parent_info['template'], color='gray',
+                                linewidth=2, linestyle='--', alpha=0.6,
+                                label='Template')
+
+                        ax.set_title(
+                            f"{sub['label']}\n"
+                            f"n={sub['n']}, WR={sub['wr']:.0f}%, "
+                            f"chg={sub['mean_chg']:+.0f}\n"
+                            f"{sub['timing']}",
+                            fontsize=9)
+                        ax.set_ylim(-0.05, 1.05)
+                        ax.grid(True, alpha=0.15)
+                        ax.axhline(y=0, color='gray', linewidth=0.3)
+                        if col_i == 0:
+                            ax.set_ylabel(parent_info['parent'], fontsize=9,
+                                          fontweight='bold')
+                        if row_i == 0 and col_i == 0:
+                            ax.legend(fontsize=7, loc='best')
+
+                    # Hide unused columns
+                    for col_i in range(len(parent_info['subs']), max_subs):
+                        axes_sub[row_i, col_i].set_visible(False)
+
+                fig_sub.suptitle(
+                    f'Sub-Classification: Timing Variants Within Shapes\n'
+                    f'{len(sub_shapes)} shapes sub-clustered (k={SUB_K})',
+                    fontsize=13)
+                plt.tight_layout()
+                sub_path = os.path.join(PLOTS_DIR, '0k_sub_classification.png')
+                fig_sub.savefig(sub_path, dpi=150, bbox_inches='tight',
+                                facecolor='white')
+                plt.close(fig_sub)
+                print(f"\n  Saved: {sub_path}")
+
+        # --- Plot 1: Seed template gallery (4x5 grid of all 20 shapes) ---
+        fig_seeds, axes_seeds = plt.subplots(4, 5, figsize=(20, 12), squeeze=False)
+        sorted_shapes = sorted(library.shapes.keys())
+        x_plot = np.arange(seed_len)
+
+        for i, name in enumerate(sorted_shapes):
+            row, col = divmod(i, 5)
+            ax = axes_seeds[row, col]
+            template = library.shapes[name]
+            cnt = shape_counts.get(name, 0)
+            ax.plot(x_plot, template, color='#2196F3', linewidth=2.5)
+            ax.fill_between(x_plot, 0, template, alpha=0.15, color='#2196F3')
+            ax.set_title(f'{name}\nn={cnt}', fontsize=9, fontweight='bold')
+            ax.set_ylim(-0.05, 1.05)
+            ax.set_xlim(0, seed_len - 1)
+            ax.axhline(y=0, color='gray', linewidth=0.5, alpha=0.5)
+            ax.axhline(y=1, color='gray', linewidth=0.5, alpha=0.5)
+            ax.grid(True, alpha=0.15)
+            if col == 0:
+                ax.set_ylabel('Normalized')
+            if row == 3:
+                ax.set_xlabel('Bar')
+
+        fig_seeds.suptitle(
+            f'Seed Primitive Library ({len(library.shapes)} shapes, N={seed_len})\n'
+            f'Matched: {n_matched}/{n_total} ({100 - noise_pct:.1f}%), '
+            f'NOISE: {n_noise} ({noise_pct:.1f}%)',
+            fontsize=13)
+        plt.tight_layout()
+        seeds_path = os.path.join(PLOTS_DIR, '0g_seed_templates.png')
+        fig_seeds.savefig(seeds_path, dpi=150, bbox_inches='tight', facecolor='white')
+        plt.close(fig_seeds)
+        print(f"\n  Saved: {seeds_path}")
+
+        # --- Plot 2: Top matched shapes with actual price overlays ---
+        # Show up to 10 most-populated shapes (excluding NOISE)
+        top_shapes = sorted(shape_stats, key=lambda s: s['count'], reverse=True)[:10]
+        n_top = len(top_shapes)
+
+        if n_top > 0:
+            n_cols_t = 5
+            n_rows_t = (n_top + n_cols_t - 1) // n_cols_t
+            fig_match, axes_match = plt.subplots(
+                n_rows_t, n_cols_t, figsize=(4 * n_cols_t, 3.5 * n_rows_t),
+                squeeze=False)
+
+            for k, ss in enumerate(top_shapes):
+                row, col = divmod(k, n_cols_t)
+                ax = axes_match[row, col]
+
+                entries = ss['entries']
+                # Normalize each segment to 0-1 and overlay
+                max_show = min(len(entries), 200)
+                alpha = max(0.05, min(0.3, 20.0 / max_show))
+
+                all_normed = []
+                for j in range(max_show):
+                    seg = entries[j][2]
+                    mn, mx = seg.min(), seg.max()
+                    if mx - mn < 1e-12:
+                        normed = np.zeros(seed_len)
+                    else:
+                        normed = (seg - mn) / (mx - mn)
+                    all_normed.append(normed)
+                    ax.plot(x_plot, normed, color='#1976D2', alpha=alpha,
+                            linewidth=0.5)
+
+                # Template
+                template = library.shapes[ss['name']]
+                ax.plot(x_plot, template, color='#F44336', linewidth=2.5,
+                        label='Template')
+
+                # Mean of actual segments
+                if all_normed:
+                    mean_n = np.mean(all_normed, axis=0)
+                    ax.plot(x_plot, mean_n, color='#FF9800', linewidth=2,
+                            linestyle='--', label='Mean actual')
+
+                ax.set_title(f"{ss['name']}\nn={ss['count']}, "
+                             f"r={ss['mean_corr']:.2f}, WR={ss['wr']:.0f}%",
+                             fontsize=8)
+                ax.set_ylim(-0.05, 1.05)
+                ax.grid(True, alpha=0.15)
+                if col == 0:
+                    ax.set_ylabel('Normalized')
+                if row == n_rows_t - 1:
+                    ax.set_xlabel('Bar')
+                if k == 0:
+                    ax.legend(fontsize=7, loc='best')
+
+            # Hide unused
+            for k in range(n_top, n_rows_t * n_cols_t):
+                row, col = divmod(k, n_cols_t)
+                axes_match[row, col].set_visible(False)
+
+            fig_match.suptitle(
+                f'Top {n_top} Matched Shapes — Actual Segments vs Templates\n'
+                f'{n_total} total segments, {n_matched} matched, '
+                f'{n_noise} NOISE ({noise_pct:.1f}%)',
+                fontsize=13)
+            plt.tight_layout()
+            match_path = os.path.join(PLOTS_DIR, '0h_seed_matches.png')
+            fig_match.savefig(match_path, dpi=150, bbox_inches='tight',
+                              facecolor='white')
+            plt.close(fig_match)
+            print(f"  Saved: {match_path}")
+
+        # --- Plot 3: Correlation distribution histogram ---
+        all_corrs = [c[2] for c in classifications]
+        fig_hist, ax_hist = plt.subplots(figsize=(10, 5))
+        ax_hist.hist(all_corrs, bins=50, color='#2196F3', alpha=0.7,
+                     edgecolor='white')
+        ax_hist.axvline(x=library.CORR_THRESHOLD, color='#F44336', linewidth=2,
+                        linestyle='--', label=f'Threshold ({library.CORR_THRESHOLD})')
+        ax_hist.set_xlabel('Best Pearson Correlation')
+        ax_hist.set_ylabel('Segment Count')
+        ax_hist.set_title(f'Correlation Distribution (n={n_total})\n'
+                          f'Above 0.85: {n_matched} ({100 - noise_pct:.1f}%), '
+                          f'Below: {n_noise} ({noise_pct:.1f}%)')
+        ax_hist.legend()
+        ax_hist.grid(True, alpha=0.15)
+        plt.tight_layout()
+        hist_path = os.path.join(PLOTS_DIR, '0i_corr_distribution.png')
+        fig_hist.savefig(hist_path, dpi=150, bbox_inches='tight', facecolor='white')
+        plt.close(fig_hist)
+        print(f"  Saved: {hist_path}")
+
+        # --- Plot 4: NOISE audit — spaghetti by nearest shape ---
+        if n_noise > 0 and 'noise_entries' in dir() and 'noise_best_shapes' in dir():
+            # Group noise by nearest shape, show top 6
+            noise_by_shape = {}
+            for i, (idx, corr, seg) in enumerate(noise_entries):
+                ns = noise_best_shapes[i]
+                if ns not in noise_by_shape:
+                    noise_by_shape[ns] = []
+                noise_by_shape[ns].append((corr, seg))
+
+            top_noise_shapes = sorted(noise_by_shape.keys(),
+                                      key=lambda s: len(noise_by_shape[s]),
+                                      reverse=True)[:6]
+            n_ns = len(top_noise_shapes)
+
+            if n_ns > 0:
+                n_cols_ns = min(3, n_ns)
+                n_rows_ns = (n_ns + n_cols_ns - 1) // n_cols_ns
+                fig_noise, axes_noise = plt.subplots(
+                    n_rows_ns, n_cols_ns,
+                    figsize=(5 * n_cols_ns, 4 * n_rows_ns),
+                    squeeze=False)
+
+                for k, ns_name in enumerate(top_noise_shapes):
+                    row, col = divmod(k, n_cols_ns)
+                    ax = axes_noise[row, col]
+                    ns_segs = noise_by_shape[ns_name]
+                    ns_cnt = len(ns_segs)
+                    ns_corrs_plot = [s[0] for s in ns_segs]
+                    ns_raw = [s[1] for s in ns_segs]
+
+                    # Delta from entry (not normalized — show raw movement)
+                    max_show = min(ns_cnt, 150)
+                    alpha_ns = max(0.08, min(0.4, 20.0 / max_show))
+
+                    deltas = []
+                    for j in range(max_show):
+                        d = ns_raw[j] - ns_raw[j][0]
+                        deltas.append(d)
+                        ax.plot(x_plot, d, color='#9E9E9E', alpha=alpha_ns,
+                                linewidth=0.5)
+
+                    # Mean delta
+                    if deltas:
+                        mean_d = np.mean(deltas, axis=0)
+                        std_d = np.std(deltas, axis=0)
+                        ax.plot(x_plot, mean_d, color='#F44336', linewidth=2.5,
+                                label='Mean')
+                        ax.fill_between(x_plot, mean_d - std_d, mean_d + std_d,
+                                        color='#F44336', alpha=0.12)
+
+                    # Template overlay (normalized to match delta scale)
+                    tmpl = library.shapes.get(ns_name)
+                    if tmpl is not None and tmpl.std() > 1e-12 and deltas:
+                        # Scale template to delta range for visual comparison
+                        d_range = np.abs(mean_d).max()
+                        if d_range > 0:
+                            tmpl_scaled = (tmpl - tmpl.mean()) / tmpl.std() * np.std(deltas)
+                            tmpl_scaled = tmpl_scaled - tmpl_scaled[0]
+                            ax.plot(x_plot, tmpl_scaled, color='#2196F3',
+                                    linewidth=2, linestyle='--', label='Template')
+
+                    ax.axhline(y=0, color='gray', linewidth=0.5, alpha=0.5)
+                    ns_chgs = np.array([s[1][-1] - s[1][0] for s in ns_segs])
+                    ns_wr = (ns_chgs > 0).sum() / len(ns_chgs) * 100
+                    ax.set_title(
+                        f'NOISE nearest: {ns_name}\n'
+                        f'n={ns_cnt}, r={np.mean(ns_corrs_plot):.2f}, '
+                        f'WR={ns_wr:.0f}%',
+                        fontsize=9)
+                    ax.grid(True, alpha=0.15)
+                    if col == 0:
+                        ax.set_ylabel('Delta (ticks)')
+                    if row == n_rows_ns - 1:
+                        ax.set_xlabel('Bar')
+                    if k == 0:
+                        ax.legend(fontsize=7, loc='best')
+
+                for k in range(n_ns, n_rows_ns * n_cols_ns):
+                    row, col = divmod(k, n_cols_ns)
+                    axes_noise[row, col].set_visible(False)
+
+                fig_noise.suptitle(
+                    f'NOISE Segments by Nearest Shape (n={n_noise}, '
+                    f'corr < {library.CORR_THRESHOLD})\nDelta from entry (raw ticks)',
+                    fontsize=13)
+                plt.tight_layout()
+                noise_path = os.path.join(PLOTS_DIR, '0j_noise_audit.png')
+                fig_noise.savefig(noise_path, dpi=150, bbox_inches='tight',
+                                  facecolor='white')
+                plt.close(fig_noise)
+                print(f"  Saved: {noise_path}")
+
+    # =====================================================================
+    #  ANALYSIS J: RAW DELTA SUB-CLASSIFICATION (ADAPTIVE R² >= 0.80)
+    #
+    #  Recursive bisecting KMeans: keep splitting any sub-type with
+    #  R² < 0.80 until it meets the target or runs out of segments.
+    #  Raw delta from entry (ticks, not normalized).
+    # =====================================================================
+    print(f"\n{'='*70}")
+    print(f"  ANALYSIS J: ADAPTIVE RAW DELTA SUB-CLASSIFICATION (R\u00b2 >= 0.90)")
+    print(f"{'='*70}")
+
+    J_R2_TARGET = 0.90
+    J_MIN_N = 3   # minimum segments per sub-type
+    J_MIN_TOTAL = 10  # need at least this many segments to attempt
+    x_j = np.arange(seed_len)
+    shade_colors = {'RISE': '#4CAF50', 'DROP': '#F44336', 'HOLD': '#9E9E9E'}
+
+    # Get all shapes with enough segments (sorted by count descending)
+    j_shape_names = sorted(
+        [sn for sn in set(c[1] for c in classifications) if sn != 'NOISE'],
+        key=lambda sn: sum(1 for c in classifications if c[1] == sn),
+        reverse=True)
+
+    j_summary = []  # collect stats for console table
+    subtype_map = {}  # idx → (shape_name, subtype_id) for Analysis K
+
+    MISFIT_IQR_K = 1.0  # IQR multiplier for outlier detection (aggressive)
+
+    def _norm01(arr):
+        mn, mx = arr.min(), arr.max()
+        return (arr - mn) / (mx - mn) if (mx - mn) > 1e-12 else np.zeros_like(arr)
+
+    def _plot_subtype(ax, sub_deltas, centroid, r2_val, title_str, x_arr,
+                      shade_map, r2_target):
+        """Plot a single sub-type panel: spaghetti + centroid + inflections."""
+        n_sub = len(sub_deltas)
+        if n_sub == 0:
+            ax.set_visible(False)
+            return
+
+        max_show = min(n_sub, 150)
+        alpha = max(0.1, min(0.5, 15.0 / max_show))
+        for j in range(max_show):
+            ax.plot(x_arr, sub_deltas[j], color='#90CAF9', alpha=alpha,
+                    linewidth=0.7)
+
+        ax.plot(x_arr, centroid, color='black', linewidth=3, zorder=5)
+
+        inflections, segs_desc = _detect_inflections(centroid)
+        for sd in segs_desc:
+            clr = shade_map.get(sd['label'], '#9E9E9E')
+            ax.axvspan(sd['start'], sd['end'], alpha=0.08, color=clr)
+        for bi, lvl in inflections:
+            ax.plot(bi, lvl, 'o', color='#F44336', markersize=10, zorder=6)
+            ax.annotate(f'({bi},{lvl:+.0f})',
+                        xy=(bi, lvl), xytext=(5, 10),
+                        textcoords='offset points', fontsize=8,
+                        fontweight='bold', color='#D32F2F',
+                        bbox=dict(boxstyle='round,pad=0.2',
+                                  facecolor='white', alpha=0.8))
+
+        ax.axhline(y=0, color='gray', linewidth=0.5, alpha=0.5)
+        ax.grid(True, alpha=0.15)
+
+        sub_chgs = sub_deltas[:, -1]
+        sub_wr = (sub_chgs > 0).sum() / n_sub * 100 if n_sub > 0 else 0
+        r2_color = '#2E7D32' if r2_val >= r2_target else '#C62828'
+        ax.set_title(f'{title_str}\n'
+                     f'n={n_sub}, WR={sub_wr:.0f}%, '
+                     f'chg={sub_chgs.mean():+.0f}t, '
+                     f'R\u00b2={r2_val:.2f}',
+                     fontsize=10, fontweight='bold', color=r2_color)
+        ax.set_xlabel('Bar')
+
+    for target_shape in j_shape_names:
+        entries_j = [(idx, corr, seg) for idx, sn, corr, seg in classifications
+                     if sn == target_shape]
+        n_seg_j = len(entries_j)
+
+        if n_seg_j < J_MIN_TOTAL:
+            continue
+
+        deltas_j = np.array([e[2] - e[2][0] for e in entries_j])  # raw ticks
+
+        # --- Pass 1: Adaptive split ---
+        j_labels, j_centroids, j_r2s = _adaptive_split(
+            deltas_j, r2_target=J_R2_TARGET, min_n=J_MIN_N)
+
+        n_clusters = len(j_centroids)
+
+        # --- Quality gate: IQR outlier detection in raw tick space ---
+        # Segments with RMSE > Q3 + 1.5*IQR from centroid are misfits
+        misfit_mask = np.zeros(len(deltas_j), dtype=bool)
+        for si in range(n_clusters):
+            cl_mask = (j_labels == si)
+            cl_indices = np.where(cl_mask)[0]
+            if len(cl_indices) < 4:
+                continue  # need enough for IQR
+            centroid = j_centroids[si]
+            rmses = np.array([np.sqrt(np.mean((deltas_j[gi] - centroid) ** 2))
+                              for gi in cl_indices])
+            q1, q3 = np.percentile(rmses, [25, 75])
+            iqr = q3 - q1
+            fence = q3 + MISFIT_IQR_K * iqr
+            for i, gi in enumerate(cl_indices):
+                if rmses[i] > fence:
+                    misfit_mask[gi] = True
+
+        n_misfits = misfit_mask.sum()
+
+        # Remove misfits from original clusters, recompute centroids/R²
+        clean_labels = j_labels.copy()
+        clean_labels[misfit_mask] = -1  # mark misfits
+
+        # Rebuild clean centroids and R²s (shape-normalized)
+        clean_centroids = []
+        clean_r2s = []
+        active_ids = []
+        for si in range(n_clusters):
+            cl_mask = (clean_labels == si)
+            n_cl = cl_mask.sum()
+            if n_cl < J_MIN_N:
+                clean_labels[cl_mask] = -1  # too small after filtering
+                continue
+            sub = deltas_j[cl_mask]
+            # Shape R²
+            normed = np.array([_norm01(s) for s in sub])
+            c_norm = normed.mean(axis=0)
+            ss_res = np.sum((normed - c_norm[np.newaxis, :]) ** 2)
+            ss_tot = np.sum((normed - normed.mean()) ** 2)
+            sr2 = 1.0 - ss_res / ss_tot if ss_tot > 1e-12 else 1.0
+            clean_centroids.append(sub.mean(axis=0))
+            clean_r2s.append(sr2)
+            active_ids.append(si)
+
+        # --- Pass 2: Reclassify misfits ---
+        all_misfit_idx = np.where(clean_labels == -1)[0]
+        n_total_misfits = len(all_misfit_idx)
+        reclass_centroids = []
+        reclass_r2s = []
+        reclass_labels = None
+        unclass_deltas = None
+        n_unclass = 0
+
+        if n_total_misfits >= 2 * J_MIN_N:
+            misfit_deltas = deltas_j[all_misfit_idx]
+            r_labels, r_centroids, r_r2s = _adaptive_split(
+                misfit_deltas, r2_target=J_R2_TARGET, min_n=J_MIN_N)
+            reclass_labels = r_labels
+            reclass_centroids = list(r_centroids)
+            reclass_r2s = list(r_r2s)
+        elif n_total_misfits > 0:
+            # Too few to reclassify — all go to UNCLASSIFIED
+            unclass_deltas = deltas_j[all_misfit_idx]
+            n_unclass = len(unclass_deltas)
+
+        # --- Save subtype mapping for Analysis K ---
+        for ci_idx, si in enumerate(active_ids):
+            cl_mask = (clean_labels == si)
+            for li in np.where(cl_mask)[0]:
+                orig_idx = entries_j[li][0]  # bar index in base_df
+                subtype_map[orig_idx] = (target_shape, ci_idx)
+        if reclass_labels is not None:
+            n_clean_k = len(clean_centroids)
+            for ri in range(len(reclass_centroids)):
+                ri_mask = (reclass_labels == ri)
+                for li in np.where(ri_mask)[0]:
+                    orig_idx = entries_j[all_misfit_idx[li]][0]
+                    subtype_map[orig_idx] = (target_shape, n_clean_k + ri)
+
+        # --- Build combined plot ---
+        n_clean = len(clean_centroids)
+        n_reclass = len(reclass_centroids)
+        has_unclass = n_unclass > 0 or (n_total_misfits > 0 and n_total_misfits < 2 * J_MIN_N)
+        n_total_panels = n_clean + n_reclass + (1 if has_unclass else 0)
+
+        if n_total_panels <= 4:
+            n_cols = max(n_total_panels, 1)
+            n_rows = 1
+        else:
+            n_cols = 4
+            n_rows = (n_total_panels + 3) // 4
+
+        fig_j, axes_j = plt.subplots(n_rows, n_cols,
+                                      figsize=(6 * n_cols, 5 * n_rows),
+                                      squeeze=False)
+
+        panel_idx = 0
+
+        # Plot clean sub-types
+        for ci_idx, si in enumerate(active_ids):
+            row, col = divmod(panel_idx, n_cols)
+            ax = axes_j[row, col]
+            cl_mask = (clean_labels == si)
+            sub_d = deltas_j[cl_mask]
+            _plot_subtype(ax, sub_d, clean_centroids[ci_idx],
+                          clean_r2s[ci_idx],
+                          f'{target_shape} sub-{ci_idx}',
+                          x_j, shade_colors, J_R2_TARGET)
+            if col == 0:
+                ax.set_ylabel('Delta from entry (ticks)')
+            panel_idx += 1
+
+        # Plot reclassified sub-types
+        if n_reclass > 0:
+            misfit_deltas = deltas_j[all_misfit_idx]
+            for ri in range(n_reclass):
+                row, col = divmod(panel_idx, n_cols)
+                ax = axes_j[row, col]
+                ri_mask = (reclass_labels == ri)
+                sub_d = misfit_deltas[ri_mask]
+                _plot_subtype(ax, sub_d, reclass_centroids[ri],
+                              reclass_r2s[ri],
+                              f'{target_shape} reclass-{ri}',
+                              x_j, shade_colors, J_R2_TARGET)
+                # Orange border for reclassified panels
+                for spine in ax.spines.values():
+                    spine.set_edgecolor('#FF6F00')
+                    spine.set_linewidth(3)
+                if col == 0:
+                    ax.set_ylabel('Delta from entry (ticks)')
+                panel_idx += 1
+
+        # Plot UNCLASSIFIED remainder
+        if has_unclass:
+            row, col = divmod(panel_idx, n_cols)
+            ax = axes_j[row, col]
+            if n_total_misfits > 0 and n_total_misfits < 2 * J_MIN_N:
+                unc_d = deltas_j[all_misfit_idx]
+            else:
+                unc_d = unclass_deltas if unclass_deltas is not None else np.empty((0, seed_len))
+            if len(unc_d) > 0:
+                for j in range(min(len(unc_d), 50)):
+                    ax.plot(x_j, unc_d[j], color='#FFAB91', alpha=0.5,
+                            linewidth=0.8)
+                ax.axhline(y=0, color='gray', linewidth=0.5, alpha=0.5)
+                ax.grid(True, alpha=0.15)
+                ax.set_title(f'UNCLASSIFIED\nn={len(unc_d)}',
+                             fontsize=10, fontweight='bold', color='#BF360C')
+                for spine in ax.spines.values():
+                    spine.set_edgecolor('#BF360C')
+                    spine.set_linewidth(3)
+                ax.set_xlabel('Bar')
+                if col == 0:
+                    ax.set_ylabel('Delta from entry (ticks)')
+            panel_idx += 1
+
+        # Hide unused axes
+        for idx in range(panel_idx, n_rows * n_cols):
+            row, col = divmod(idx, n_cols)
+            axes_j[row, col].set_visible(False)
+
+        all_r2 = clean_r2s + reclass_r2s
+        min_r2 = min(all_r2) if all_r2 else 0.0
+        met_target = all(r2 >= J_R2_TARGET for r2 in all_r2)
+        status = f'ALL >= {J_R2_TARGET}' if met_target else f'min R\u00b2={min_r2:.2f}'
+
+        fig_j.suptitle(
+            f'Analysis J: {target_shape} (k={n_clean}+{n_reclass}r'
+            f'{f"+{n_unclass}u" if has_unclass else ""})\n'
+            f'{n_seg_j} segments, {n_total_misfits} filtered | {status}',
+            fontsize=13,
+            color='#2E7D32' if met_target else '#C62828')
+        plt.tight_layout()
+        fname = target_shape.lower().replace(' ', '_')
+        j_path = os.path.join(PLOTS_DIR, f'0l_{fname}_raw.png')
+        fig_j.savefig(j_path, dpi=150, bbox_inches='tight', facecolor='white')
+        plt.close(fig_j)
+
+        j_summary.append((target_shape, n_seg_j, n_clean, n_reclass,
+                          n_total_misfits, min_r2, met_target))
+        print(f"  {target_shape:<25} n={n_seg_j:>3}  k={n_clean}+{n_reclass}r  "
+              f"filt={n_total_misfits:>2}  min_R\u00b2={min_r2:.2f}  "
+              f"{'OK' if met_target else 'BELOW'}")
+
+    # Summary table
+    print(f"\n  {'Shape':<25} {'N':>4} {'k':>3} {'rcl':>4} {'filt':>5} "
+          f"{'minR2':>6} {'Status':>8}")
+    print(f"  {'-'*25} {'-'*4} {'-'*3} {'-'*4} {'-'*5} {'-'*6} {'-'*8}")
+    for sn, n, k, rc, fl, mr2, ok in j_summary:
+        print(f"  {sn:<25} {n:>4} {k:>3} {rc:>4} {fl:>5} "
+              f"{mr2:>6.2f} {'OK' if ok else 'BELOW':>8}")
+
+    # =====================================================================
+    #  ANALYSIS K: DIRECTION PREDICTION WITH FRACTAL CONTEXT
+    #
+    #  Blend 193D fractal properties at entry with shape classification
+    #  to predict segment direction (UP/DOWN).
+    # =====================================================================
+    print(f"\n{'='*70}")
+    print(f"  ANALYSIS K: DIRECTION PREDICTION WITH FRACTAL CONTEXT")
+    print(f"{'='*70}")
+
+    from sklearn.ensemble import GradientBoostingClassifier
+    from sklearn.model_selection import train_test_split
+    from sklearn.metrics import accuracy_score, confusion_matrix
+
+    # --- Step 1: Build direction dataset ---
+    # Bridge segment bar indices to X rows via timestamp
+    ts_to_xrow = {int(ts): i for i, ts in enumerate(sample_ts)}
+
+    X_k_rows = []
+    y_k = []
+    shapes_k = []
+
+    for idx, sn, corr, seg in classifications:
+        if sn == 'NOISE':
+            continue
+        t = int(timestamps[idx])
+        xrow_idx = ts_to_xrow.get(t, -1)
+        if xrow_idx < 0 or xrow_idx >= len(X):
+            continue
+        direction = 1 if seg[-1] > seg[0] else 0
+        X_k_rows.append(X[xrow_idx])
+        y_k.append(direction)
+        shapes_k.append(sn)
+
+    X_k = np.array(X_k_rows)
+    y_k = np.array(y_k)
+    shapes_k = np.array(shapes_k)
+
+    n_k = len(y_k)
+    n_up = (y_k == 1).sum()
+    n_down = (y_k == 0).sum()
+    baseline = max(n_up, n_down) / n_k * 100 if n_k > 0 else 50.0
+
+    print(f"\n  Dataset: {n_k} segments, {X_k.shape[1]} features")
+    print(f"  UP: {n_up} ({n_up/n_k*100:.1f}%)  DOWN: {n_down} ({n_down/n_k*100:.1f}%)")
+    print(f"  Baseline (majority class): {baseline:.1f}%")
+
+    if n_k < 50:
+        print(f"  SKIP: too few segments ({n_k}) for meaningful model")
+    else:
+        # --- Step 2: Train classifier ---
+        X_train, X_test, y_train, y_test, sh_train, sh_test = train_test_split(
+            X_k, y_k, shapes_k, test_size=0.30, random_state=42, stratify=y_k)
+
+        clf = GradientBoostingClassifier(
+            n_estimators=200, max_depth=4, learning_rate=0.05,
+            subsample=0.8, random_state=42)
+        clf.fit(X_train, y_train)
+
+        acc_train = accuracy_score(y_train, clf.predict(X_train)) * 100
+        acc_test = accuracy_score(y_test, clf.predict(X_test)) * 100
+        lift = acc_test - baseline
+
+        print(f"\n  Model: GradientBoosting (200 trees, depth=4)")
+        print(f"  Train accuracy: {acc_train:.1f}%")
+        print(f"  Test accuracy:  {acc_test:.1f}%")
+        print(f"  Lift vs baseline: {lift:+.1f}%")
+
+        # --- Step 3: Per-shape breakdown ---
+        y_pred_test = clf.predict(X_test)
+        unique_shapes = sorted(set(shapes_k))
+
+        print(f"\n  {'Shape':<25} {'N':>5} {'Base%':>7} {'Model%':>7} {'Lift':>7}")
+        print(f"  {'-'*25} {'-'*5} {'-'*7} {'-'*7} {'-'*7}")
+
+        shape_stats_k = []
+        for sn in unique_shapes:
+            # Baseline from full dataset
+            sn_mask_all = (shapes_k == sn)
+            sn_n = sn_mask_all.sum()
+            sn_base = (y_k[sn_mask_all] == 1).sum() / sn_n * 100
+            sn_base = max(sn_base, 100 - sn_base)  # majority class
+
+            # Model accuracy on test set
+            sn_mask_test = (sh_test == sn)
+            sn_n_test = sn_mask_test.sum()
+            if sn_n_test >= 3:
+                sn_acc = accuracy_score(y_test[sn_mask_test],
+                                        y_pred_test[sn_mask_test]) * 100
+            else:
+                sn_acc = float('nan')
+
+            sn_lift = sn_acc - sn_base if not np.isnan(sn_acc) else float('nan')
+            shape_stats_k.append((sn, sn_n, sn_base, sn_acc, sn_lift))
+
+            if not np.isnan(sn_acc):
+                print(f"  {sn:<25} {sn_n:>5} {sn_base:>6.1f}% {sn_acc:>6.1f}% "
+                      f"{sn_lift:>+6.1f}%")
+            else:
+                print(f"  {sn:<25} {sn_n:>5} {sn_base:>6.1f}%     n/a     n/a")
+
+        # --- Step 4: Feature importance ---
+        importances = clf.feature_importances_
+        top_idx = np.argsort(importances)[::-1][:20]
+
+        print(f"\n  Top 20 fractal features for direction:")
+        for rank, fi in enumerate(top_idx):
+            fname = col_names[fi] if fi < len(col_names) else f'f{fi}'
+            print(f"  {rank+1:>3}. {fname:<30} importance={importances[fi]:.4f}")
+
+        # --- Step 5: Plot ---
+        fig_k, axes_k = plt.subplots(2, 2, figsize=(16, 12))
+
+        # Panel 1: Confusion matrix
+        ax = axes_k[0, 0]
+        cm = confusion_matrix(y_test, y_pred_test)
+        im = ax.imshow(cm, cmap='Blues', interpolation='nearest')
+        ax.set_xticks([0, 1])
+        ax.set_yticks([0, 1])
+        ax.set_xticklabels(['DOWN', 'UP'])
+        ax.set_yticklabels(['DOWN', 'UP'])
+        ax.set_xlabel('Predicted')
+        ax.set_ylabel('Actual')
+        for i in range(2):
+            for j in range(2):
+                ax.text(j, i, str(cm[i, j]), ha='center', va='center',
+                        fontsize=16, fontweight='bold',
+                        color='white' if cm[i, j] > cm.max() / 2 else 'black')
+        ax.set_title(f'Confusion Matrix\nAccuracy={acc_test:.1f}%, '
+                     f'Baseline={baseline:.1f}%, Lift={lift:+.1f}%',
+                     fontsize=11, fontweight='bold')
+
+        # Panel 2: Per-shape accuracy (baseline vs model)
+        ax = axes_k[0, 1]
+        valid_stats = [(sn, n, b, a, l) for sn, n, b, a, l in shape_stats_k
+                       if not np.isnan(a)]
+        valid_stats.sort(key=lambda x: x[4], reverse=True)  # sort by lift
+        if valid_stats:
+            y_pos = np.arange(len(valid_stats))
+            names = [s[0] for s in valid_stats]
+            bases = [s[2] for s in valid_stats]
+            accs = [s[3] for s in valid_stats]
+            ax.barh(y_pos - 0.15, bases, 0.3, color='#90CAF9', label='Baseline')
+            ax.barh(y_pos + 0.15, accs, 0.3, color='#2E7D32', label='Model')
+            ax.set_yticks(y_pos)
+            ax.set_yticklabels(names, fontsize=8)
+            ax.set_xlabel('Accuracy %')
+            ax.axvline(x=50, color='gray', linewidth=0.5, linestyle='--')
+            ax.legend(fontsize=9)
+        ax.set_title('Per-Shape Direction Accuracy', fontsize=11, fontweight='bold')
+
+        # Panel 3: Top 20 feature importance
+        ax = axes_k[1, 0]
+        top20_names = [col_names[i] if i < len(col_names) else f'f{i}'
+                       for i in top_idx]
+        top20_imp = importances[top_idx]
+        y_pos = np.arange(20)
+        ax.barh(y_pos, top20_imp[::-1], color='#FF6F00')
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels(top20_names[::-1], fontsize=8)
+        ax.set_xlabel('Importance')
+        ax.set_title('Top 20 Fractal Features', fontsize=11, fontweight='bold')
+
+        # Panel 4: Per-TF contribution
+        ax = axes_k[1, 1]
+        tf_contrib = np.zeros(12)
+        for fi in range(192):
+            tf_idx = fi // 16
+            tf_contrib[tf_idx] += importances[fi]
+        # Add current_MR separately
+        mr_contrib = importances[192] if len(importances) > 192 else 0
+
+        tf_labels_plot = TF_LABELS[:12] if len(TF_LABELS) >= 12 else \
+            [f'TF{i}' for i in range(12)]
+        x_pos = np.arange(13)
+        bars = list(tf_contrib) + [mr_contrib]
+        labels = list(tf_labels_plot) + ['MR']
+        ax.bar(x_pos, bars, color='#1565C0')
+        ax.set_xticks(x_pos)
+        ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=9)
+        ax.set_ylabel('Sum of Importances')
+        ax.set_title('Per-Timeframe Contribution to Direction',
+                     fontsize=11, fontweight='bold')
+
+        fig_k.suptitle(
+            f'Analysis K: Direction Prediction with Fractal Context\n'
+            f'{n_k} segments, {X_k.shape[1]} features | '
+            f'Accuracy={acc_test:.1f}%, Lift={lift:+.1f}%',
+            fontsize=14, fontweight='bold')
+        plt.tight_layout()
+        k_path = os.path.join(PLOTS_DIR, '0m_direction_prediction.png')
+        fig_k.savefig(k_path, dpi=150, bbox_inches='tight', facecolor='white')
+        plt.close(fig_k)
+        print(f"\n  Saved: {k_path}")
 
     # Save report and exit (default mode)
     if not args.full:

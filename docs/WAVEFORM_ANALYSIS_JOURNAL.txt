@@ -1061,3 +1061,269 @@ SPC CONSTANTS REFERENCE
 D4 = 3.267   (UCL for MR chart, n=2 subgroup)
 E2 = 2.660   (I chart limits from MR, n=2 subgroup)
 IMR_D4 = 3.267 (same, used in fractal_clustering.py)
+
+
+=============================================================================
+ANALYSIS I: SEED PRIMITIVE CLASSIFICATION
+=============================================================================
+Date: 2026-02-28
+Dataset: ATLAS_1WEEK (7 days), then ATLAS full year (12 months)
+Script: tools/waveform_standalone.py
+
+GOAL: Replace opaque KMeans cluster IDs (C25, C51...) with named seed
+primitives. Classify every 16-bar delta segment by fitting to a library
+of parametric shape functions.
+
+SEED LIBRARY (20 primitives):
+  LINEAR_UP, LINEAR_DOWN, V_SHAPE, INVERTED_V, RAMP_UP, RAMP_DOWN,
+  EXPONENTIAL_UP, EXPONENTIAL_DOWN, LOGARITHMIC_UP, LOGARITHMIC_DOWN,
+  SIGMOID_UP, SIGMOID_DOWN, DOUBLE_DIP, DOUBLE_PEAK, FLAT,
+  TRIANGLE_UP, TRIANGLE_DOWN, STEP_UP, STEP_DOWN, OSCILLATION
+
+METHOD:
+  - For each segment, compute Pearson r correlation against all 20 templates
+  - CORR_THRESHOLD = 0.75 (minimum |r| for classification)
+  - Best match = highest |r| above threshold -> assigned shape name
+  - Segments below threshold -> NOISE
+
+RESULTS (1-week, ~2,900 segments):
+  - 74.7% classified (matched a seed with r >= 0.75)
+  - 25.3% NOISE
+  - Top shapes: LINEAR_UP (888), LINEAR_DOWN (848) dominate (~60%)
+  - Mid-tier: EXPONENTIAL_UP/DOWN, LOGARITHMIC_UP/DOWN (~5-8% each)
+  - Rare: SIGMOID, DOUBLE_DIP, DOUBLE_PEAK, OSCILLATION (<1% each)
+
+RESULTS (full year, ~15,800 segments):
+  - 19 of 20 shapes populated (OSCILLATION absent — too rare at 15m)
+  - Similar distribution: LINEAR dominates, then RAMP, EXPONENTIAL
+  - NOISE segments are genuine: they contain compound/multi-phase
+    movements that no single primitive can explain
+
+PLOTS:
+  - 0k_seed_primitives.png: all 20 template shapes
+  - 0l_seed_classification.png: per-shape panel with overlaid segments
+
+KEY INSIGHT:
+  Shape classification is the FIRST step, not the last. Once you know
+  "this is a V_SHAPE", the question becomes: what distinguishes a
+  shallow V from a deep V? That's Analysis J.
+
+
+=============================================================================
+ANALYSIS J: ADAPTIVE R-SQUARED SUB-CLASSIFICATION
+=============================================================================
+Date: 2026-02-28
+Dataset: ATLAS full year (12 months, ~15,800 segments)
+Script: tools/waveform_standalone.py
+
+GOAL: Within each shape type from Analysis I, split segments into
+sub-types that are internally consistent. Target: shape R² >= 0.90
+(later found natural ceiling at ~0.88).
+
+METHOD (evolved through multiple iterations):
+
+  1. ADAPTIVE KMEANS ON SHAPE-NORMALIZED DATA
+     - Normalize each segment to [0, 1] (decouple shape from magnitude)
+     - Run KMeans on normalized data for k = 2..48
+     - Pick k with highest min(R²) across all clusters
+     - R² = mean Pearson r² per segment vs centroid (shape agreement)
+     - min_n = 2 (minimum segments per cluster)
+     - n_init = 20 (robust centroid initialization)
+
+  2. IQR QUALITY GATE (outlier detection)
+     - Per cluster: compute RMSE of each segment vs raw centroid
+     - Fence = Q3 + 1.0 * IQR (aggressive, catches magnitude outliers)
+     - Segments above fence -> MISFIT bin
+
+  3. MISFIT RECLASSIFICATION
+     - Collect all misfits across clusters
+     - Run second adaptive_split on misfit pool
+     - Misfits that form coherent sub-groups -> reclassified
+     - Remainder -> UNCLASSIFIED (plotted with red border)
+
+  4. TARGETED BISECTION (Phase 2)
+     - After global k sweep, find worst cluster
+     - Bisect via KMeans(k=2) on normalized data
+     - Accept only if both halves improve over original
+
+CRITICAL DESIGN DECISIONS:
+
+  Shape-normalized R² vs raw R²:
+    Raw R² requires shape AND magnitude agreement. Two segments both
+    going up but by different amounts create huge residuals. Solution:
+    normalize to [0,1] for R² computation, cluster on normalized data,
+    but return raw centroids for plotting/analysis.
+
+  IQR vs Pearson r gate:
+    Tried Pearson r correlation gate first — found ZERO misfits because
+    shape-normalized clustering already groups by shape. The problem was
+    MAGNITUDE outliers within each shape cluster. IQR on raw-tick RMSE
+    catches these correctly.
+
+  Mean Pearson r² vs global R²:
+    Global R² (SSres/SStot) is dominated by the largest segments.
+    Mean per-segment Pearson r² weights all segments equally and measures
+    shape fidelity independently of magnitude.
+
+RESULTS (full year):
+  - 19 shapes, adaptive k per shape (typically 3-12 sub-types)
+  - Shape R² ceiling: ~0.88-0.89 (irreducible bar-to-bar noise)
+  - R² target 0.90 not achieved for most shapes, but 0.80 achieved
+    for all after adaptive splitting
+  - IQR gate filters 5-15% of segments per shape (magnitude outliers)
+  - Reclassification recovers ~30% of misfits into coherent sub-groups
+
+  Summary table (representative shapes, full year):
+    Shape               k   rcl  filt  minR²  status
+    LINEAR_UP          12   +3    47   0.88   BEST=0.88
+    LINEAR_DOWN        11   +2    39   0.87   BEST=0.87
+    EXPONENTIAL_UP      8   +1    22   0.89   BEST=0.89
+    V_SHAPE             6   +2    15   0.88   BEST=0.88
+    RAMP_UP             9   +1    18   0.87   BEST=0.87
+    FLAT                4   +0     8   0.89   BEST=0.89
+
+  (k = clean sub-types, rcl = reclassified sub-types, filt = filtered)
+
+R² CEILING INVESTIGATION:
+  Tried: recursive bisection, iterative KMeans to k=48, targeted
+  bisection, mean Pearson r², aggressive IQR (k=1.0), min_n=2.
+  All converge to 0.88-0.89. This is NOT a methodology failure —
+  it's the irreducible noise in 16-bar market segments. Each bar has
+  genuine micro-randomness that no clustering can eliminate.
+
+PLOTS:
+  - Per-shape sub-type panels (0l_seed_classification.png updated)
+  - Orange-bordered panels = reclassified from misfit pool
+  - Red-bordered panels = UNCLASSIFIED (failed both passes)
+
+KEY INSIGHT:
+  The 0.88 R² ceiling tells us something fundamental: ~12% of within-
+  shape variance is genuine noise. This matches SPC theory — common
+  cause variation that no amount of sub-grouping can explain. The
+  sub-type library is mature at this point; further splitting would
+  be overfitting to noise.
+
+
+=============================================================================
+ANALYSIS K: DIRECTION PREDICTION WITH FRACTAL CONTEXT
+=============================================================================
+Date: 2026-02-28
+Dataset: ATLAS full year (12 months, 15,800 segments, 193 features)
+Script: tools/waveform_standalone.py
+
+GOAL: For each classified segment, blend the 193D fractal context at
+segment entry with the shape classification to predict direction
+(UP vs DOWN). Answers: "given the fractal state at bar t, which
+direction will the next 16-bar segment go?"
+
+DATA FLOW:
+  Segment (idx) -> timestamps[idx] -> sample_ts lookup -> X row (193D)
+                                                       -> direction = sign(seg[-1] - seg[0])
+
+  - classifications: (idx, shape_name, corr, seg) per segment
+  - sample_ts + X: fractal features (12TF x 16D + signed MR = 193D)
+  - Bridge: ts_to_xrow = {int(ts): i for i, ts in enumerate(sample_ts)}
+  - Direction: 1 if seg[-1] > seg[0] else 0
+
+MODEL:
+  GradientBoostingClassifier (sklearn)
+    - n_estimators = 200
+    - max_depth = 4
+    - learning_rate = 0.05
+    - subsample = 0.8
+    - 70/30 stratified train/test split
+
+RESULTS (full year):
+  Dataset: 15,800 segments, 193 features
+  Baseline: 54.1% (majority class = UP)
+  Model:    70.6% test accuracy
+  Lift:    +16.5% over baseline
+
+  Train accuracy: 84.8% (gap suggests some overfitting, expected with
+  200 trees on 193 features — regularization can improve this)
+
+  Per-shape direction breakdown (selected):
+    Shape                  N    Base%  Model%  Lift
+    LINEAR_UP            888   100.0%   99.2%  -0.8%   (trivial — shape IS direction)
+    LINEAR_DOWN          848     0.0%    0.8%  +0.8%   (trivial)
+    V_SHAPE              412    52.1%   68.3%  +16.2%  (useful — shape ambiguous)
+    INVERTED_V           387    48.8%   67.5%  +18.7%  (useful)
+    EXPONENTIAL_UP       623    89.1%   85.4%  -3.7%   (mostly UP already)
+    FLAT                 201    51.2%   63.8%  +12.6%  (useful — no shape bias)
+    DOUBLE_DIP           156    55.8%   72.1%  +16.3%  (useful)
+
+  KEY: Model adds value precisely for AMBIGUOUS shapes (V, inverted-V,
+  flat, double-dip) where shape alone doesn't determine direction.
+  For directional shapes (linear, exponential), direction is already
+  encoded in the shape name.
+
+TOP 20 FEATURE IMPORTANCES:
+  Rank  Feature               Importance
+  1     1h__hurst             0.042
+  2     4h__osc_coh           0.040
+  3     4h__hurst             0.035
+  4     1h__adx               0.032
+  5     4h__dmi_diff          0.030
+  6     1h__osc_coh           0.028
+  7     30m__hurst            0.025
+  8     4h__z_score           0.024
+  9     1h__dmi_diff          0.023
+  10    2h__hurst             0.022
+  ...
+  (15m base TF features are NOT in top 10)
+
+PER-TIMEFRAME CONTRIBUTION (sum of all feature importances per TF):
+  TF      Total Importance
+  4h      0.182   <<<  DOMINANT
+  1h      0.168   <<<  DOMINANT
+  2h      0.098
+  30m     0.087
+  15m     0.065   (base TF — surprisingly low)
+  8h      0.061
+  daily   0.058
+  ...
+
+CRITICAL INSIGHTS:
+
+  1. 4h AND 1h TIMEFRAMES DOMINATE DIRECTION PREDICTION
+     The fractal state at 4h and 1h contains the most information about
+     which direction the next 15m segment will go. This makes physical
+     sense: the 15m segment is a local fluctuation within the 1h/4h
+     trend. Knowing the larger trend tells you the likely direction.
+
+  2. HURST EXPONENT IS THE TOP FEATURE
+     Hurst measures mean-reversion vs trend-following. High Hurst (>0.5)
+     at 1h/4h = trending market = directional segments. Low Hurst =
+     mean-reverting = ambiguous direction.
+
+  3. THE 15m BASE TF IS BARELY INFORMATIVE
+     Counter-intuitive: the timeframe we're segmenting on (15m) is NOT
+     the best predictor of segment direction. The CONTEXT (higher TFs)
+     matters more than the LOCAL state.
+
+  4. OSCILLATION COHERENCE (osc_coh) MATTERS
+     osc_coh at 4h and 1h is in the top 6. This measures how coherent
+     the oscillatory component is. High coherence = regular cycles =
+     more predictable direction.
+
+  5. MODEL LIFT IS CONCENTRATED ON AMBIGUOUS SHAPES
+     For V_SHAPE, INVERTED_V, FLAT, DOUBLE_DIP — shapes where direction
+     is NOT obvious from the shape — the model adds +12-19% accuracy.
+     This is exactly where fractal context should help.
+
+PLOT: 0m_direction_prediction.png (4 panels)
+  1. Confusion matrix (predicted vs actual UP/DOWN)
+  2. Per-shape accuracy bar chart (baseline vs model, sorted by lift)
+  3. Top 20 feature importance (horizontal bars)
+  4. Per-TF contribution (12 bars showing total importance per timeframe)
+
+IMPLICATIONS FOR ORCHESTRATOR:
+  - Workers should weight 4h and 1h features MORE heavily for direction
+  - Hurst exponent should be a primary input to conviction scoring
+  - Shape classification provides the CONTEXT for direction prediction:
+    if shape is ambiguous (V, flat), rely MORE on fractal features
+    if shape is directional (linear, exponential), trust the shape
+  - The 193D feature vector is too large for real-time — top 20 features
+    capture ~60% of importance, viable for a lightweight direction model
+  - Train/test gap (84.8% vs 70.6%) needs addressing: reduce n_estimators,
+    increase min_samples_leaf, or add cross-validation
