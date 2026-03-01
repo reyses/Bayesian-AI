@@ -24,7 +24,7 @@ warnings.filterwarnings("ignore", message=".*Mean of empty slice.*",            
 warnings.filterwarnings("ignore", message=".*invalid value encountered in scalar divide.*", category=RuntimeWarning)
 import numpy as np
 import pandas as pd
-from collections import defaultdict
+from collections import defaultdict, deque
 from typing import Dict, List, Any, Tuple, Optional
 from dataclasses import dataclass
 from datetime import datetime
@@ -153,6 +153,95 @@ BASE_RESOLUTION_SECONDS = 15
 FALLBACK_HOLD_BARS = 5
 MIN_ESTIMATED_HOLD_BARS = 2
 ESTIMATED_TICKS_PER_BAR = 2.0  # Speed estimate for hold time calc
+
+# ── Shape-Aware Direction Confidence (Analysis K waveform integration) ──────
+# Directional shapes: the shape itself determines direction.
+# Ambiguous shapes: fractal features are the only direction signal (+16-19% lift).
+DIRECTIONAL_SHAPES = {
+    'LINEAR_UP', 'LINEAR_DOWN', 'RAMP_UP', 'RAMP_DOWN',
+    'EXPONENTIAL_UP', 'EXPONENTIAL_DOWN', 'LOGARITHMIC_UP', 'LOGARITHMIC_DOWN',
+    'STEP_UP', 'STEP_DOWN'
+}
+AMBIGUOUS_SHAPES = {
+    'V_SHAPE', 'INVERTED_V', 'FLAT', 'DOUBLE_DIP', 'DOUBLE_PEAK',
+    'TRIANGLE_UP', 'TRIANGLE_DOWN', 'SIGMOID_UP', 'SIGMOID_DOWN'
+}
+
+# Shape conviction modulation constants (Analysis K)
+SHAPE_AGREEMENT_BOOST = 1.1        # directional shape agrees with fractal direction
+SHAPE_DISAGREEMENT_PENALTY = 0.5   # directional shape disagrees with fractal direction
+AMBIGUOUS_SHAPE_DISCOUNT = 0.9     # ambiguous shape can't confirm direction
+NOISE_SHAPE_DISCOUNT = 0.8         # unclassified shape = less confident
+
+def _build_seed_library(n_bars=16):
+    """Generate 20 seed primitives for segment shape classification.
+    Same parametric functions as waveform_standalone.py — deterministic."""
+    t = np.linspace(0, 1, n_bars)
+    seeds = {}
+    seeds['LINEAR_UP'] = t
+    seeds['LINEAR_DOWN'] = -t
+    seeds['V_SHAPE'] = np.abs(t - 0.5) * 2 - 1
+    seeds['INVERTED_V'] = -(np.abs(t - 0.5) * 2 - 1)
+    seeds['FLAT'] = np.zeros(n_bars)
+    seeds['RAMP_UP'] = np.clip(2 * t - 0.5, 0, 1)
+    seeds['RAMP_DOWN'] = np.clip(0.5 - 2 * t, -1, 0)
+    seeds['EXPONENTIAL_UP'] = np.exp(3 * t) / np.exp(3) - 1 / np.exp(3)
+    seeds['EXPONENTIAL_DOWN'] = -(np.exp(3 * t) / np.exp(3) - 1 / np.exp(3))
+    seeds['LOGARITHMIC_UP'] = np.log1p(t * (np.e - 1)) / 1.0
+    seeds['LOGARITHMIC_DOWN'] = -np.log1p(t * (np.e - 1)) / 1.0
+    seeds['STEP_UP'] = np.where(t >= 0.5, 1.0, 0.0)
+    seeds['STEP_DOWN'] = np.where(t >= 0.5, -1.0, 0.0)
+    seeds['DOUBLE_DIP'] = np.sin(2 * np.pi * t)
+    seeds['DOUBLE_PEAK'] = -np.sin(2 * np.pi * t)
+    seeds['TRIANGLE_UP'] = np.where(t < 0.5, 2 * t, 2 * (1 - t))
+    seeds['TRIANGLE_DOWN'] = np.where(t < 0.5, -2 * t, -2 * (1 - t))
+    seeds['SIGMOID_UP'] = 1.0 / (1.0 + np.exp(-10 * (t - 0.5)))
+    seeds['SIGMOID_DOWN'] = 1.0 / (1.0 + np.exp(10 * (t - 0.5)))
+    # Normalize all seeds to [-1, 1] range
+    for k in seeds:
+        _r = np.ptp(seeds[k])
+        if _r > 1e-9:
+            seeds[k] = (seeds[k] - seeds[k].min()) / _r * 2 - 1
+    return seeds
+
+_SEED_LIBRARY = _build_seed_library(16)
+
+def classify_segment_shape(closes_16: np.ndarray, threshold: float = 0.75) -> str:
+    """Classify a 16-bar segment against seed library using Pearson correlation.
+    Returns shape name if |r| >= threshold, else 'NOISE'."""
+    if len(closes_16) < 2:
+        return 'NOISE'
+    seg = closes_16 - closes_16[0]  # delta segment
+    seg_std = np.std(seg)
+    if seg_std < 1e-9:
+        return 'FLAT'
+    best_shape = 'NOISE'
+    best_r = 0.0
+    for name, seed in _SEED_LIBRARY.items():
+        seed_std = np.std(seed)
+        if seed_std < 1e-9:
+            continue
+        r = float(np.corrcoef(seg, seed)[0, 1])
+        if abs(r) > best_r:
+            best_r = abs(r)
+            best_shape = name
+    return best_shape if best_r >= threshold else 'NOISE'
+
+def apply_shape_conviction(shape: str, fractal_dir: int, conviction: float) -> float:
+    """Apply shape-aware conviction modulation based on Analysis K findings.
+    fractal_dir: 1 = LONG, 0 = SHORT."""
+    if shape in DIRECTIONAL_SHAPES:
+        shape_dir = 1 if 'UP' in shape else 0
+        if shape_dir != fractal_dir:
+            conviction *= SHAPE_DISAGREEMENT_PENALTY
+        else:
+            conviction *= SHAPE_AGREEMENT_BOOST
+    elif shape in AMBIGUOUS_SHAPES:
+        conviction *= AMBIGUOUS_SHAPE_DISCOUNT
+    else:  # NOISE
+        conviction *= NOISE_SHAPE_DISCOUNT
+    return conviction
+
 
 def _compute_golden_path_ideal(
     oracle_trade_records: list,   # actual trades taken (have entry_time, exit_time, oracle_potential_pnl)
@@ -1050,6 +1139,12 @@ class BayesianTrainingOrchestrator:
             active_template_id = None
             active_entry_depth = 5  # depth of triggering pattern (used for hold-time scaling)
 
+            # Shape classification buffer: collect 15m close prices (every 60 15s-bars)
+            _shape_15m_closes = deque(maxlen=16)  # rolling 15m close prices
+            _shape_current = 'NOISE' # current segment shape classification
+            _shape_bar_acc = 0       # 15s bar counter within current 15m segment
+            _shape_15m_close_buf = 0.0  # last close in current 15m segment
+
             _bar_i = 0  # 15s bar index for belief network worker ticks
 
             # Per-calendar-day PnL tracking for dashboard
@@ -1084,6 +1179,16 @@ class BayesianTrainingOrchestrator:
                 # Belief network: tick all workers (event-driven by TF bar change)
                 # 1h worker updates once per 240 bars; 15s worker updates every bar
                 belief_network.tick_all(_bar_i)
+
+                # Shape classification: update every 60 15s-bars (= 15m segment boundary)
+                _shape_15m_close_buf = price
+                _shape_bar_acc += 1
+                if _shape_bar_acc >= 60:
+                    _shape_15m_closes.append(_shape_15m_close_buf)
+                    _shape_bar_acc = 0
+                    if len(_shape_15m_closes) == 16:
+                        _shape_current = classify_segment_shape(
+                            np.array(_shape_15m_closes))
 
                 # PID ANALYZER TICK
                 _pid_state = _states_map.get(_bar_i)
@@ -1786,6 +1891,18 @@ class BayesianTrainingOrchestrator:
                                         tier=template_tier_map.get(best_tid, 3),
                                         pattern_dna=str(pattern_dna) if pattern_dna else ''))
                                     continue
+
+                        # ── Gate 3.7: Shape-aware conviction modulation (Analysis K) ──
+                        # Classify current 15m segment shape and modulate conviction:
+                        # Directional shapes → require agreement with fractal direction
+                        # Ambiguous shapes → slight discount (but this is where model adds most value)
+                        # NOISE → larger discount (unclassified)
+                        _fractal_dir = 1 if side == 'long' else 0
+                        if _belief is not None:
+                            _shape_conv = apply_shape_conviction(
+                                _shape_current, _fractal_dir, _belief.conviction)
+                            # Update belief conviction for downstream gates
+                            _belief.conviction = _shape_conv
 
                         # ── Gate 4: P(profitable) from live DMI/momentum + template WR ──
                         _tmpl_wr = lib_entry.get('stats_win_rate', 0.5)

@@ -1,3 +1,7 @@
 ## 2025-05-23 - [Numpy Vectorization vs Object Creation]
 **Learning:** Optimizing logic inside a Python loop (using vectorized numpy arrays for `if/else` logic) provided only marginal gains (~20ms on 1s task) because the dominant cost was the `dataclass` instantiation itself, which happens in Python.
 **Action:** When optimizing object creation loops, focus on reducing the number of objects or using bulk constructors if possible. If not, look for other bottlenecks (like heavy computations called within the process). In this case, optimizing the Hurst calculation (heavy math) using Numba provided 6x speedup for that component, yielding a larger overall gain.
+
+## 2025-05-23 - [Manual Loop Unrolling inside Numba]
+**Learning:** Relying on standard numerical library functions like `scipy.fft.fft` or `np.polyfit` inside a per-bar loop can introduce massive overhead (around 16s for 100k iterations). By manually unrolling the mathematical logic (such as a discrete fourier transform for a few frequencies or the linear regression sum equations) and decorating with `@numba.njit(cache=True, fastmath=True)`, we bypass Python function call overhead and intermediate array allocations.
+**Action:** For simple but frequent math operations within hot paths, manual unrolling combined with Numba's `fastmath` optimization yields extreme performance boosts (>10x). Combine this with `prange` parallelism where appropriate to maximize throughput.

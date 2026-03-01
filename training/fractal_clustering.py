@@ -1175,21 +1175,33 @@ class FractalClusteringEngine:
                  template.regression_sigma_ticks = 0.0
                  template.adj_r2_mfe = 0.0
 
-             # Direction
+             # Direction (with Analysis K feature importance weighting)
+             # Top features by Analysis K importance (mapped to 16D positions):
+             _FEAT_IMP_WEIGHTS = {
+                 8:  1.0,   # hurst (top)
+                 15: 0.95,  # osc_coherence
+                 7:  0.90,  # adx
+                 9:  0.85,  # dmi_diff
+                 0:  0.80,  # z_score
+                 2:  0.75,  # momentum
+                 3:  0.70,  # coherence
+                 1:  0.65,  # velocity
+                 14: 0.60,  # term_pid
+                 13: 0.55,  # tf_alignment
+             }
              labels = np.array([1 if m > 0 else 0 for m in markers if m != 0])
              if len(labels) >= 20 and len(np.unique(labels)) == 2:
                  X_dir = np.array([self.extract_features(p) for p in patterns if p.oracle_marker != 0])
                  X_dir_sc = sc.transform(X_dir)
-                 # Analysis K importance weighting: amplify top direction features
-                 _imp_w = np.ones(X_dir_sc.shape[1])
-                 _imp_w[8]  = 1.50  # hurst (#1)
-                 _imp_w[15] = 1.45  # osc_coh (#2)
-                 _imp_w[7]  = 1.35  # adx (#4)
-                 _imp_w[9]  = 1.30  # dmi_diff (#5)
-                 _imp_w[0]  = 1.25  # z_score (#6)
-                 X_dir_wt = X_dir_sc * _imp_w
+                 # Scale important features UP so they have more influence (vectorized)
+                 num_features = X_dir_sc.shape[1]
+                 weights = np.full(num_features, 0.50)
+                 for _dim, _w in _FEAT_IMP_WEIGHTS.items():
+                     if _dim < num_features:
+                         weights[_dim] = _w
+                 X_dir_weighted = X_dir_sc * weights
                  try:
-                     lr = LogisticRegression(max_iter=300).fit(X_dir_wt, labels)
+                     lr = LogisticRegression(max_iter=300).fit(X_dir_weighted, labels)
                      template.dir_coeff = lr.coef_[0].tolist()
                      template.dir_intercept = float(lr.intercept_[0])
                  except:

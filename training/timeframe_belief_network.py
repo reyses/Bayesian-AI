@@ -593,6 +593,16 @@ class TimeframeWorker:
         # Layer 4: Regret-informed discount (poor exit efficiency zones)
         conviction *= self._regret_conv_discount
 
+        # Layer 5: Hurst-based conviction scaling (Analysis K — hurst is #1 feature)
+        # High Hurst (>0.5) = trending = direction more reliable → boost conviction
+        # Low Hurst (<0.5) = mean-reverting = direction less reliable → discount conviction
+        # Scale: 0.7x at Hurst=0.3 to 1.3x at Hurst=0.7
+        hurst = feat[8]  # self_hurst, already in [0, 1]
+        _HURST_XP = [0.3, 0.7]
+        _HURST_FP = [0.7, 1.3]
+        hurst_scale = float(np.clip(np.interp(hurst, _HURST_XP, _HURST_FP), _HURST_FP[0], _HURST_FP[1]))
+        conviction *= hurst_scale
+
         self.current_belief = WorkerBelief(
             tf_seconds    = self.tf_seconds,
             dir_prob      = dir_prob,
@@ -621,8 +631,8 @@ class TimeframeBeliefNetwork:
     (they summarise days/hours of market structure).
     """
 
-    TIMEFRAMES_SECONDS = [3600, 1800, 900, 300, 180, 60, 30, 15, 5, 1]
-    TF_WEIGHTS         = [4.5,  3.0,  3.0, 2.0, 1.5, 1.0, 0.5, 0.25, 0.1, 0.05]
+    TIMEFRAMES_SECONDS = [14400, 3600, 1800, 900, 300, 180, 60, 30, 15, 5, 1]
+    TF_WEIGHTS         = [5.0,   4.5,  3.0, 3.0, 2.0, 1.5, 1.0, 0.5, 0.25, 0.1, 0.05]
     MIN_CONVICTION     = 0.48   # skip trade if path conviction below this (physics at z=0 gives 0.50)
     MIN_ACTIVE_LEVELS  = 3      # need >=3 active TF levels for a signal
     DEFAULT_DECISION_TF = 300   # 5m: default scale at which to read predicted_mfe
