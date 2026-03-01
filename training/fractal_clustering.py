@@ -1180,8 +1180,16 @@ class FractalClusteringEngine:
              if len(labels) >= 20 and len(np.unique(labels)) == 2:
                  X_dir = np.array([self.extract_features(p) for p in patterns if p.oracle_marker != 0])
                  X_dir_sc = sc.transform(X_dir)
+                 # Analysis K importance weighting: amplify top direction features
+                 _imp_w = np.ones(X_dir_sc.shape[1])
+                 _imp_w[8]  = 1.50  # hurst (#1)
+                 _imp_w[15] = 1.45  # osc_coh (#2)
+                 _imp_w[7]  = 1.35  # adx (#4)
+                 _imp_w[9]  = 1.30  # dmi_diff (#5)
+                 _imp_w[0]  = 1.25  # z_score (#6)
+                 X_dir_wt = X_dir_sc * _imp_w
                  try:
-                     lr = LogisticRegression(max_iter=300).fit(X_dir_sc, labels)
+                     lr = LogisticRegression(max_iter=300).fit(X_dir_wt, labels)
                      template.dir_coeff = lr.coef_[0].tolist()
                      template.dir_intercept = float(lr.intercept_[0])
                  except:

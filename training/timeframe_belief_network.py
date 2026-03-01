@@ -89,6 +89,15 @@ def _sigmoid(x: float) -> float:
     return 1.0 / (1.0 + np.exp(-np.clip(x, -20, 20)))
 
 
+# Analysis K importance weights — must match training (fractal_clustering.py)
+_DIR_IMP_W = np.ones(16)
+_DIR_IMP_W[8]  = 1.50  # hurst (#1)
+_DIR_IMP_W[15] = 1.45  # osc_coh (#2)
+_DIR_IMP_W[7]  = 1.35  # adx (#4)
+_DIR_IMP_W[9]  = 1.30  # dmi_diff (#5)
+_DIR_IMP_W[0]  = 1.25  # z_score (#6)
+
+
 def _logistic_prob(feat_s: np.ndarray, lib: dict) -> float:
     """
     P(LONG) from the cluster's logistic regression model.
@@ -102,7 +111,9 @@ def _logistic_prob(feat_s: np.ndarray, lib: dict) -> float:
     """
     coeff = lib.get('dir_coeff')
     if coeff is not None:
-        logit = float(np.dot(feat_s, coeff) + lib.get('dir_intercept', 0.0))
+        # Apply same importance weighting used during training
+        feat_wt = feat_s * _DIR_IMP_W[:len(feat_s)]
+        logit = float(np.dot(feat_wt, coeff) + lib.get('dir_intercept', 0.0))
         # Prior correction: remove training class imbalance from intercept
         _lb = lib.get('long_bias', 0.5)
         _sb = lib.get('short_bias', 0.5)
@@ -479,8 +490,13 @@ class TimeframeWorker:
         # fixes intercept but not coefficients). At 50/50 the physics z-sign can flip
         # direction to LONG when pattern is below the mean (z < -1), while the logistic
         # still has veto power when features strongly favor SHORT.
+        # osc_coh-adaptive blend (Analysis K: 4h_osc_coh = #2 direction feature)
+        # High osc_coh → trust physics more (regular cycles = mean-reversion works)
+        # Low osc_coh → trust ML more (irregular market = learned patterns better)
+        _osc_coh = feat[15]  # oscillation_coherence, [0, 1]
         if _any_fitted:
-            dir_prob = 0.5 * dir_prob + 0.5 * _phys_dir
+            _phys_w = 0.5 + 0.15 * _osc_coh  # [0.50, 0.65]
+            dir_prob = (1.0 - _phys_w) * dir_prob + _phys_w * _phys_dir
         else:
             dir_prob = _phys_dir
 
@@ -537,6 +553,13 @@ class TimeframeWorker:
         # ── DNA agreement modulation ──
         # DNA score scales conviction: 0.0 (outside cell) → 0.5x, 1.0 (at centroid) → 1.0x
         conviction *= (0.5 + 0.5 * _dna_agreement)
+
+        # ── Hurst-weighted conviction (Analysis K: hurst = #1 direction feature) ──
+        # High Hurst (>0.5) = trending = direction more reliable → boost
+        # Low Hurst (<0.5) = mean-reverting = direction ambiguous → discount
+        _hurst = feat[8]  # self_hurst, [0, 1]
+        _hurst_scale = max(0.7, min(1.3, 0.7 + (_hurst - 0.3) * 1.5))
+        conviction *= _hurst_scale
 
         # ── Price-aware conviction modulation (2 layers) ──
         if self._trade_side is not None:
@@ -599,7 +622,7 @@ class TimeframeBeliefNetwork:
     """
 
     TIMEFRAMES_SECONDS = [3600, 1800, 900, 300, 180, 60, 30, 15, 5, 1]
-    TF_WEIGHTS         = [4.0,  3.5,  3.0, 2.5, 2.0, 1.5, 1.0, 0.5, 0.25, 0.1]
+    TF_WEIGHTS         = [4.5,  3.0,  3.0, 2.0, 1.5, 1.0, 0.5, 0.25, 0.1, 0.05]
     MIN_CONVICTION     = 0.48   # skip trade if path conviction below this (physics at z=0 gives 0.50)
     MIN_ACTIVE_LEVELS  = 3      # need >=3 active TF levels for a signal
     DEFAULT_DECISION_TF = 300   # 5m: default scale at which to read predicted_mfe

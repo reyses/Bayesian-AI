@@ -109,6 +109,33 @@ TIMEFRAME_MAP = {
     5: '1h'
 }
 
+# ── Waveform seed templates for shape classification (Analysis I/K) ──
+_SEED_CORR_THRESHOLD = 0.75
+def _build_seed_library(n=16):
+    t = np.linspace(0, 1, n)
+    seeds = {}
+    seeds['LINEAR_UP']        = t
+    seeds['LINEAR_DOWN']      = -t
+    seeds['V_SHAPE']          = np.where(t < 0.5, -2*t, 2*t - 2)
+    seeds['INVERTED_V']       = np.where(t < 0.5, 2*t, -2*t + 2)
+    seeds['EXPONENTIAL_UP']   = np.exp(3*t) / np.exp(3) - 1/np.exp(3)
+    seeds['EXPONENTIAL_DOWN'] = -(np.exp(3*t) / np.exp(3) - 1/np.exp(3))
+    seeds['FLAT']             = np.zeros(n)
+    seeds['STEP_UP']          = np.where(t < 0.5, 0.0, 1.0)
+    seeds['STEP_DOWN']        = np.where(t < 0.5, 0.0, -1.0)
+    seeds['DOUBLE_DIP']       = -np.abs(np.sin(2 * np.pi * t))
+    seeds['DOUBLE_PEAK']      = np.abs(np.sin(2 * np.pi * t))
+    for k in seeds:
+        rng = seeds[k].max() - seeds[k].min()
+        if rng > 1e-12:
+            seeds[k] = (seeds[k] - seeds[k].min()) / rng
+    return seeds
+_SEED_LIBRARY = _build_seed_library()
+_DIRECTIONAL_SHAPES = {
+    'LINEAR_UP', 'LINEAR_DOWN', 'EXPONENTIAL_UP', 'EXPONENTIAL_DOWN',
+    'STEP_UP', 'STEP_DOWN',
+}
+
 def verify_cuda_availability():
     """Fail fast if CUDA is not available"""
     if not cuda.is_available():
@@ -942,6 +969,7 @@ class BayesianTrainingOrchestrator:
 
             _df_5s = _load_fine('5s')
             _df_1s  = _load_fine('1s')
+            _df_15m = _load_fine('15m')
 
             # Pre-extract 1s numpy arrays for wick-aware inner loop
             if _df_1s is not None and not _df_1s.empty:
@@ -951,6 +979,14 @@ class BayesianTrainingOrchestrator:
                 _has_1s   = True
             else:
                 _has_1s = False
+
+            # Pre-extract 15m numpy arrays for shape classification gate
+            if _df_15m is not None and not _df_15m.empty:
+                _15m_ts     = _df_15m['timestamp'].values.astype(np.float64)
+                _15m_closes = _df_15m['close'].values.astype(np.float64)
+                _has_15m    = True
+            else:
+                _has_15m = False
 
             # Belief network: Task 1 for all 10 TF workers (1h -> 1s)
             # 1h->15s resampled from df_15s; 5s/1s from monthly ATLAS files.
@@ -1584,7 +1620,14 @@ class BayesianTrainingOrchestrator:
                         _dir_coeff = lib_entry.get('dir_coeff')
                         _p_long = 0.5
                         if _dir_coeff is not None:
-                            _logit = np.dot(_live_scaled, np.array(_dir_coeff)) + lib_entry.get('dir_intercept', 0.0)
+                            # Apply same importance weighting used during training
+                            _imp_w = np.ones(len(_live_scaled))
+                            _imp_w[8]  = 1.50  # hurst
+                            _imp_w[15] = 1.45  # osc_coh
+                            _imp_w[7]  = 1.35  # adx
+                            _imp_w[9]  = 1.30  # dmi_diff
+                            _imp_w[0]  = 1.25  # z_score
+                            _logit = np.dot(_live_scaled * _imp_w, np.array(_dir_coeff)) + lib_entry.get('dir_intercept', 0.0)
                             # Prior correction: remove training class imbalance
                             _lb = lib_entry.get('long_bias', 0.5)
                             _sb = lib_entry.get('short_bias', 0.5)
@@ -1671,6 +1714,32 @@ class BayesianTrainingOrchestrator:
                             if _belief:
                                 print(f"          belief_dir={_belief.direction} wave_mat={_belief.wave_maturity:.2f} "
                                       f"pred_mfe={_belief.predicted_mfe:.1f} levels={_belief.active_levels}")
+
+                        # ── Shape classification gate (Analysis K waveform integration) ──
+                        # Classify last 16 bars of 15m into seed shape; penalize
+                        # conviction when directional shape disagrees with trade side.
+                        if _has_15m:
+                            _seg_end = int(np.searchsorted(_15m_ts, ts_raw, side='right')) - 1
+                            if _seg_end >= 15:
+                                _seg_closes = _15m_closes[_seg_end - 15: _seg_end + 1]
+                                _seg_delta = _seg_closes - _seg_closes[0]
+                                _seg_rng = _seg_delta.max() - _seg_delta.min()
+                                if _seg_rng > 1e-12:
+                                    _seg_norm = (_seg_delta - _seg_delta.min()) / _seg_rng
+                                    _best_shape, _best_r = 'NOISE', 0.0
+                                    for _sname, _stempl in _SEED_LIBRARY.items():
+                                        _r = float(np.corrcoef(_seg_norm, _stempl)[0, 1])
+                                        if not np.isnan(_r) and abs(_r) > abs(_best_r):
+                                            _best_r, _best_shape = _r, _sname
+                                    if abs(_best_r) >= _SEED_CORR_THRESHOLD and _best_shape in _DIRECTIONAL_SHAPES:
+                                        _shape_up = 'UP' in _best_shape
+                                        _fractal_up = (side == 'long')
+                                        if _shape_up != _fractal_up:
+                                            if _belief is not None:
+                                                _belief.conviction *= 0.5
+                                        else:
+                                            if _belief is not None:
+                                                _belief.conviction = min(1.0, _belief.conviction * 1.1)
 
                         # ── Gate 3.5: Screening gates (model fission + temporal) ──
                         if _screening_fission:
