@@ -1,208 +1,183 @@
 ================================================================================
-FORWARD PASS COMPLETE  (run: 2026-02-27 20:55:56)
-  Period: 20250201 to 20250201 (2 files)
-Total Trades: 589
-Win Rate: 26.8%
-Total PnL: $-1033.00
+FORWARD PASS COMPLETE  (run: 2026-03-01 14:02:16)
+  Period: DATA\ATLAS\15s\2025_01.parquet to 2025_12 (12 files)
+Total Trades: 234
+Win Rate: 55.1%
+Total PnL: $30543.00
 
 ── WORKER STATES LOADED ──
-  1h=454/file(2/2 files ok)  30m=929/file(2/2 files ok)  15m=1880/file(2/2 files ok)  5m=5682/file(2/2 files ok)  3m=9484/file(2/2 files ok)
-  1m=28492/file(2/2 files ok)  30s=56931/file(2/2 files ok)  15s=112568/file(2/2 files ok)  5s=305052/file(2/2 files ok)  1s=1997718/file(2/2 files ok)
+  1h=469/file(12/12 files ok)  30m=958/file(12/12 files ok)  15m=1937/file(12/12 files ok)  5m=5850/file(12/12 files ok)  3m=9753/file(12/12 files ok)
+  1m=29175/file(12/12 files ok)  30s=58039/file(12/12 files ok)  15s=114139/file(12/12 files ok)  5s=307307/file(12/12 files ok)  1s=1985894/file(12/12 files ok)
 ================================================================================
 
 ================================================================================
 ORACLE PROFIT ATTRIBUTION
 ================================================================================
 
-  TOTAL SIGNALS SEEN BY ORACLE: 24,960
-    Real moves (MEGA/SCALP):  22,687   -- worth $4,090,875.00 (parallel bound)
-    Noise (no real move):      2,273
+  TOTAL SIGNALS SEEN BY ORACLE: 40,813
+    Real moves (MEGA/SCALP):  36,752   -- worth $9,107,898.50 (parallel bound)
+    Noise (no real move):      4,061
 
   WHAT WE DID:
-    Traded:     589  (2.4% of all signals)
-    Skipped: 24,371  (97.6% of all signals)
+    Traded:     234  (0.6% of all signals)
+    Skipped: 40,579  (99.4% of all signals)
 
-  WHY SIGNALS WERE SKIPPED  (total candidates evaluated: 49,270)
+  WHY SIGNALS WERE SKIPPED  (total candidates evaluated: 659,088)
     Gate 0 (headroom/pattern rule):      0  (0.0%)
-    Gate 1 (dist > 3.0, no match):  29,254  (59.4%)
+    Gate 1 (dist > 3.0, no match):  50,601  (7.7%)
     Gate 2 (brain rejected):             0  (0.0%)
-    Gate 3 (conviction < thresh):      317  (0.6%)
-    Gate 3.5 (screening fission/temporal):  1,924  (3.9%)
-    Gate 5 (direction unclear):         18  (0.0%)
-    Passed all gates -> traded:        589  (1.2%)
+    Gate 3 (conviction < thresh):    1,558  (0.2%)
+    Gate 3.5 (screening fission/temporal): 76,502  (11.6%)
+    Gate 5 (direction unclear):          0  (0.0%)
+    Physics QG (depth>3 or z>=0):   3,542  (0.5%)
+    Passed all gates -> traded:        234  (0.0%)
 
   TRADED SIGNAL DEPTH (which TF level triggered the trade):
     depth 0:     1 trades  
-    depth 1=4h+  (high TF):     5 trades  
-    depth 2=1h   :     9 trades  
-    depth 3=15m  :     9 trades  
-    depth 4=5m   :    28 trades  ##
-    depth 5=1m   :    35 trades  ##
-    depth 6=15s  (leaf):    64 trades  ####
-    depth 7:    62 trades  ####
-    depth 8:    94 trades  ######
-    depth 9:    77 trades  #####
-    depth 10:   113 trades  ########
-    depth 11:    65 trades  ####
-    depth 12:    27 trades  #
+    depth 1=4h+  (high TF):    26 trades  #####
+    depth 2=1h   :    78 trades  ###############
+    depth 3=15m  :   129 trades  #########################
 
   DECISION-TF WAVE MATURITY AT ENTRY  (0=fresh wave, 1=exhausted)
-    All trades:  avg=0.374
-    Winners:     avg=0.375
-    Losers:      avg=0.374
-    Insight: maturity gap=-0.000 (positive = entering losers at wave exhaustion)
+    All trades:  avg=0.382
+    Winners:     avg=0.382
+    Losers:      avg=0.383
+    Insight: maturity gap=0.001 (positive = entering losers at wave exhaustion)
 
   PER-DEPTH PnL BREAKDOWN (-> depth_weights.json for next run):
     Depth     Trades    Win%    Total PnL  Avg/trade
     -----     ------    ----    ---------  ---------
-    depth 0         1    100% $    136.00 $   136.00  <- TOP
-    depth 1         5     60% $    326.00 $    65.20
-    depth 2         9     44% $    103.50 $    11.50
-    depth 3         9     44% $    128.00 $    14.22
-    depth 4        28     21% $   -451.50 $   -16.12  <- FILTER NEXT RUN
-    depth 5        35     23% $   -171.00 $    -4.89  <- FILTER NEXT RUN
-    depth 6        64     31% $    -61.00 $    -0.95  <- FILTER NEXT RUN
-    depth 7        62     34% $    -27.00 $    -0.44  <- FILTER NEXT RUN
-    depth 8        94     23% $   -245.50 $    -2.61  <- FILTER NEXT RUN
-    depth 9        77     21% $   -284.50 $    -3.69  <- FILTER NEXT RUN
-    depth 10      113     26% $   -269.50 $    -2.38  <- FILTER NEXT RUN
-    depth 11       65     31% $   -118.00 $    -1.82  <- FILTER NEXT RUN
-    depth 12       27     15% $    -98.50 $    -3.65  <- FILTER NEXT RUN
+    depth 0         1      0% $    -27.50 $   -27.50
+    depth 1        26     69% $  5,610.00 $   215.77  <- TOP
+    depth 2        78     67% $ 13,005.00 $   166.73  <- TOP
+    depth 3       129     46% $ 11,955.50 $    92.68
 
   DYNAMIC EXIT QUALITY:
     Belief-flip exits:  0 trades
-    Trail-tightened:        4 trades  ->  avg PnL $ -25.50
+    Trail-tightened:    0 trades
     Trail-widened:      0 trades
-    Standard trail:        30 trades  ->  avg PnL $   5.67
+    Standard trail:        95 trades  ->  avg PnL $ 254.11
 
   WORKER AGREEMENT AT ENTRY  (agree = worker dir matches trade direction)
     TF      WIN agree  LOSS agree    Edge  <-- positive = worker is predictive
-    1h           0.94        0.88   +0.06
-    30m          0.75        0.81   -0.06
-    5m           0.94        0.95   -0.02
-    3m           0.97        0.95   +0.02
-    1m           1.00        1.00   +0.00
-    30s          0.99        1.00   -0.00
-    15s          0.44        0.39   +0.05
-    5s           1.00        1.00   +0.00
-    1s           1.00        1.00   +0.00
+    1h           1.00        0.99   +0.01
+    30m          0.98        0.94   +0.03
+    5m           0.95        0.98   -0.04
+    3m           0.92        0.95   -0.03
+    1m           0.94        0.92   +0.01
+    30s          0.96        0.92   +0.04
+    15s          0.72        0.75   -0.03
+    5s           0.78        0.70   +0.07
+    1s           0.51        0.58   -0.07
 
   DIRECTION FLIPS BETWEEN ENTRY AND EXIT:
     (worker flipped = changed LONG/SHORT conviction side during the trade)
-    1h     WIN flip=0.02  LOSS flip=0.01  diff=-0.01
-    30m    WIN flip=0.03  LOSS flip=0.02  diff=-0.01
-    5m     WIN flip=0.02  LOSS flip=0.01  diff=-0.01
-    3m     WIN flip=0.04  LOSS flip=0.02  diff=-0.02
-    1m     WIN flip=0.01  LOSS flip=0.00  diff=-0.00
-    30s    WIN flip=0.01  LOSS flip=0.01  diff=+0.00
-    15s    WIN flip=0.46  LOSS flip=0.34  diff=-0.12
-    5s     WIN flip=0.00  LOSS flip=0.00  diff=+0.00
-    1s     WIN flip=0.00  LOSS flip=0.00  diff=+0.00
+    1h     WIN flip=0.08  LOSS flip=0.09  diff=+0.01
+    30m    WIN flip=0.05  LOSS flip=0.06  diff=+0.01
+    5m     WIN flip=0.09  LOSS flip=0.10  diff=+0.02
+    3m     WIN flip=0.12  LOSS flip=0.08  diff=-0.05
+    1m     WIN flip=0.13  LOSS flip=0.18  diff=+0.05
+    30s    WIN flip=0.10  LOSS flip=0.12  diff=+0.02
+    15s    WIN flip=0.38  LOSS flip=0.45  diff=+0.07
+    5s     WIN flip=0.38  LOSS flip=0.40  diff=+0.02
+    1s     WIN flip=0.53  LOSS flip=0.45  diff=-0.09
 
-  OF 589 TRADES TAKEN:
-    Correct direction:     354  (60.1%)  ->  actual: $   -511.00
-    Wrong direction:       218  (37.0%)  ->  losses: $   -520.00
-    Traded noise:           17  (2.9%)  ->  losses: $     -2.00
+  OF 234 TRADES TAKEN:
+    Correct direction:     106  (45.3%)  ->  actual: $ 17,874.00
+    Wrong direction:       104  (44.4%)  ->  losses: $ 10,435.50
+    Traded noise:           24  (10.3%)  ->  losses: $  2,233.50
 
   EXIT QUALITY (correct-direction trades):
     Bucket                                   n    Total PnL   Avg PnL       Hold     Cap%
     ──────────────────────────────────── ─────  ───────────  ────────  ─────────  ───────
-    Optimal  (>=80% captured)               12  $       582  avg$     48    181bars  cap +439%  
-      Partial  (20-30% captured)             8  $       204  avg$     26     43bars  cap  +25%  
-      Partial  (30-40% captured)             2  $        17  avg$      8      8bars  cap  +36%  
-      Partial  (50-60% captured)             3  $        68  avg$     22      9bars  cap  +55%  
-      Partial  (60-70% captured)             1  $         2  avg$      2      8bars  cap  +67%  
-    Too early (<20% captured)               77  $     1,364  avg$     18     10bars  cap   +6%  
-    Reversed (mkt flipped after entry)     251  $    -2,748  avg$    -11     15bars  cap   -7%  <- leakage
-    Left on table (non-reversed gap):                        $    22,307
+    Optimal  (>=80% captured)               31  $     7,796  avg$    251   1302bars  cap +255%  
+      Partial  (20-30% captured)             6  $     1,541  avg$    257    624bars  cap  +24%  
+      Partial  (30-40% captured)             5  $     1,606  avg$    321    264bars  cap  +34%  
+      Partial  (40-50% captured)             8  $     2,793  avg$    349    371bars  cap  +45%  
+      Partial  (50-60% captured)             4  $     1,482  avg$    370    263bars  cap  +56%  
+      Partial  (60-70% captured)             4  $     1,136  avg$    284    562bars  cap  +65%  
+      Partial  (70-80% captured)             2  $       752  avg$    376    666bars  cap  +79%  
+    Too early (<20% captured)                7  $     2,022  avg$    289    247bars  cap  +13%  
+    Reversed (mkt flipped after entry)      39  $    -1,254  avg$    -32    375bars  cap  -10%  <- leakage
+    Left on table (non-reversed gap):                        $    27,467
 
   EXIT REASON -> QUALITY CROSS-BREAKDOWN (correct-direction trades):
     Exit reason           Optimal    Partial  Too early   Reversed   Total   Avg PnL
     ──────────────────  ─────────  ─────────  ─────────  ─────────  ──────  ────────
-    emergency_close             0          0          0         12      12  $    -10
-    max_hold                    9          7          4          2      22  $     11
-    physics_decay               1          0          1          1       3  $     54
-    profit_target               0          5         44          0      49  $     15
-    stop_loss                   0          0          0        173     173  $    -14
-    trail_stop                  2          2         28         63      95  $     10
+    emergency_close             0          0          0         30      30  $    -14
+    max_hold                   19          2          0          0      21  $    174
+    physics_decay               2          2          2          2       8  $     97
+    stop_loss                   0          0          0          6       6  $   -129
+    trail_stop                 10         25          5          1      41  $    357
 
   CAPTURE DETAIL (correct-direction trades):
     Bucket                  Avg oracle MFE  Avg actual PnL  Avg hold bars
-    Optimal                 $           14  $           48          180.8
-    Too early               $           55  $           18           10.4
-    Reversed                $           40  $          -11           15.2
-    Partial 20-30%          $           66  $           26           42.6
-    Partial 30-40%          $           26  $            8            7.5
-    Partial 50-60%          $           45  $           22            8.7
-    Partial 60-70%          $            3  $            2            8.0
+    Optimal                 $          102  $          251         1301.8
+    Too early               $          489  $          289          246.6
+    Reversed                $          236  $          -32          375.3
+    Partial 20-30%          $          204  $          257          624.3
+    Partial 30-40%          $          201  $          321          263.8
+    Partial 40-50%          $          111  $          349          371.0
+    Partial 50-60%          $           41  $          370          263.0
+    Partial 60-70%          $          112  $          284          561.8
+    Partial 70-80%          $           37  $          376          666.5
 
   EXIT QUALITY BY DEPTH  (hold = real time from 15s bars × 15):
     Depth            n  Optimal%  Reversed%   Avg PnL    Avg Hold       Left$
     ───────────── ────  ────────  ─────────  ────────  ──────────  ──────────
-    depth  1 (1h+)     2       0%       50%  $     63       1h38m  $      357
-    depth  2 (1h )     7      14%       57%  $     31       0h50m  $    1,332
-    depth  3 (15m)     6       0%       50%  $     26       0h24m  $    3,078
-    depth  4 (5m )    16      19%       81%  $    -28       0h49m  $       20
-    depth  5 (1m )    28       0%       79%  $     -6       0h00m  $    1,097
-    depth  6 (30s)    40       0%       68%  $     -0       0h00m  $    4,703
-    depth  7 (15s)    31       0%       58%  $      2       0h00m  $    4,007
-    depth  8 (15s)    60       2%       70%  $     -0       0h01m  $    2,694
-    depth  9 (5s )    43       7%       81%  $     -4       0h00m  $      646
-    depth 10 (5s )    72       0%       74%  $     -2       0h00m  $    2,602
-    depth 11 (1s )    43       9%       63%  $     -0       0h00m  $    1,770
-    depth 12 (1s )     6       0%      100%  $     -6       0h00m  $        0
+    depth  1 (1h+)     8      12%       38%  $    246       9h08m  $    3,522
+    depth  2 (1h )    45      40%       20%  $    228       2h14m  $    8,333
+    depth  3 (15m)    53      23%       51%  $    107       2h10m  $   15,612
 
   PROFIT GAP ANALYSIS:
-    Ideal (golden-path sequential, perfect exits):  $   64,828.50
-    Actual profit:                                  $   -1,033.00
-    Gap:                                            $   65,861.50
-    Capture rate:                                         -1.6%
+    Ideal (golden-path sequential, perfect exits):  $  310,926.50
+    Actual profit:                                  $   30,543.00
+    Gap:                                            $  280,383.50
+    Capture rate:                                          9.8%
     -----------------------------------------------------
     WHERE THE GAP GOES  (3 terms, guaranteed to sum):
-      Missed signals (gate-blocked):              $   17,927.50  ( 27.2% of gap)  [179 signals]
-      Trade underperformance (gp trades):         $   47,991.00  ( 72.9% of gap)  [270 gp trades, actual=$-1,090]
-      Non-golden-path trade drag:                 $      -57.00  ( -0.1% of gap)  [48 trades, net=$+57]
+      Missed signals (gate-blocked):              $  224,939.00  ( 80.2% of gap)  [959 signals]
+      Trade underperformance (gp trades):         $   64,644.00  ( 23.1% of gap)  [165 gp trades, actual=$21,344]
+      Non-golden-path trade drag:                 $   -9,199.50  ( -3.3% of gap)  [69 trades, net=$+9,200]
       -------
-      [check] Sum = $   65,861.50  (gap = $   65,861.50  diff = $+0.00)
+      [check] Sum = $  280,383.50  (gap = $  280,383.50  diff = $+0.00)
     -----------------------------------------------------
-    [info] Parallel upper bound:   $4,090,875.00  (not achievable)
-    [info] Raw FN MFE sum:         $3,850,126.00  (not sequential)
-    [info] Score-competition pool: $  145,850.50  (took better same bar)
+    [info] Parallel upper bound:   $9,107,898.50  (not achievable)
+    [info] Raw FN MFE sum:         $9,005,835.00  (not sequential)
+    [info] Score-competition pool: $        0.00  (took better same bar)
 
     TRADE QUALITY DIAGNOSTIC  (all trades, does NOT sum to gap):
-      Wrong direction at entry:          $    520.00  [218 trades -- oracle said opposite dir]
-      Reversed after correct entry:      $  2,747.50  [251 trades -- correct dir but mkt flipped]
-      Noise trades (no real move):       $      2.00  [17 trades]
-      Left on table (too early exits):   $ 22,307.00  [non-reversed correct-dir underperformance]
+      Wrong direction at entry:          $ 10,435.50  [104 trades -- oracle said opposite dir]
+      Reversed after correct entry:      $  1,254.00  [39 trades -- correct dir but mkt flipped]
+      Noise trades (no real move):       $  2,233.50  [24 trades]
+      Left on table (too early exits):   $ 27,467.00  [non-reversed correct-dir underperformance]
   Per-trade oracle log saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\reports\is\oracle_trade_log.csv
-  PID oracle log saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\reports\is\pid_oracle_log.csv (16,202 signals)
-  Signal log saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\reports\is\signal_log.csv  (589 traded  +  49,213 skipped)
+  PID oracle log saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\reports\is\pid_oracle_log.csv (100,599 signals)
+  Signal log saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\reports\is\signal_log.csv  (234 traded  +  659,088 skipped)
 
   DECISION MATRIX SUMMARY  (skipped candidates -- oracle $ = profit left on table)
     Gate                    Count  RealMove%  Avg Oracle$  Total Missed$
-    gate1                   29254      99.4%         103       2996960
-    score_loser             17578      99.0%         158       2757054
-    gate3.5_drop             1924      98.1%         155        292698
-    traded                    589      98.8%         109         63220
-    gate3                     317     100.0%         173         54712
-    gate4_confidence          100     100.0%         167         16748
-    gate5_direction            18     100.0%         520          9357
-    gate4_probability          22     100.0%          99          2172
-  FN oracle log saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\reports\is\fn_oracle_log.csv  (22,115 missed real moves)
+    score_loser            529572      99.9%         145      76912582
+    gate3.5_drop            76502      99.7%         157      11976434
+    gate1                   50601      94.9%         184       8825260
+    gate3                    1558      99.7%         148        229282
+    gate4_confidence          855      98.6%         141        118585
+    traded                    234      89.7%         430         90287
+  FN oracle log saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\reports\is\fn_oracle_log.csv  (36,542 missed real moves)
 
   FN WORKER AGREEMENT (did workers agree with oracle on missed moves?)
     High agree% = workers called it right but a gate still blocked the trade
-    FN total=22,115  competed=0  no_match=22,115
+    FN total=36,542  competed=0  no_match=36,542
     TF       All FN  Competed  No-match  <- agree% with oracle dir
-    1h         0.52       n/a      0.52
-    30m        0.48       n/a      0.48
-    5m         0.52       n/a      0.52
-    3m         0.46       n/a      0.46
-    1m         0.47       n/a      0.47
-    30s        0.45       n/a      0.45
-    15s        0.52       n/a      0.52
-    5s         0.45       n/a      0.45
-    1s         0.45       n/a      0.45
+    1h         0.43       n/a      0.43
+    30m        0.43       n/a      0.43
+    5m         0.42       n/a      0.42
+    3m         0.41       n/a      0.41
+    1m         0.42       n/a      0.42
+    30s        0.42       n/a      0.42
+    15s        0.50       n/a      0.50
+    5s         0.46       n/a      0.46
+    1s         0.49       n/a      0.49
 
   FN GATE BREAKDOWN (which gate blocked profitable signals):
     Gate 0  no pattern (Rule 1)                     0  (  0.0%)
@@ -212,7 +187,7 @@ ORACLE PROFIT ATTRIBUTION
     Gate 0  extreme zone nightmare field (Rule 4)      0  (  0.0%)
     Gate 0  extreme zone STRUCTURAL_DRIVE no headroom (Rule 4)      0  (  0.0%)
     Gate 0.5 depth filter                           0  (  0.0%)
-    Gate 1  no cluster match (dist>4.5)        22,115  (100.0%)  <-- main bottleneck
+    Gate 1  no cluster match (dist>4.5)        36,542  (100.0%)  <-- main bottleneck
     Gate 2  brain rejected                          0  (  0.0%)
     Gate 3  conviction below threshold              0  (  0.0%)
     Gate 4  P(profitable) < 0.70                    0  (  0.0%)
@@ -224,226 +199,209 @@ ORACLE PROFIT ATTRIBUTION
 ================================================================================
 TRADE ANALYTICS SUITE
 ================================================================================
-  Loaded 589 trades from C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\reports\is\oracle_trade_log.csv
+  Loaded 234 trades from C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\reports\is\oracle_trade_log.csv
 
 ================================================================================
 PART 2 — GOOD vs BAD TRADE COMPARISON  (Welch t-test, two-tailed)
 ================================================================================
   Feature                                 Winners             Losers   t-stat   p-value  sig
   ----------------------------  ------------------  ------------------  --------  ---------  ---
-  belief_conviction               0.691 ±  0.052     0.690 ±  0.058      0.21      0.837  
-  wave_maturity                   0.383 ±  0.019     0.384 ±  0.019     -0.52      0.602  
-  decision_wave_maturity          0.375 ±  0.051     0.374 ±  0.043      0.11      0.914  
-  oracle_mfe                     49.516 ± 65.532    54.991 ± 69.416     -0.88      0.377  
-  oracle_mae                     94.286 ± 114.301    80.614 ± 95.109      1.34      0.181  
-  capture_pct                    34.489 ± 55.592   -19.989 ± 29.478     11.73     <0.001  ***
-  hold_mins                       6.725 ± 25.434     4.363 ± 15.377      1.10      0.274  
-  dmi_diff                       -5.967 ± 18.505    -1.192 ± 18.217     -2.79      0.006  **
-  long_bias                       0.039 ±  0.149     0.067 ±  0.193     -1.92      0.056  
-  short_bias                      0.025 ±  0.096     0.042 ±  0.119     -1.77      0.078  
-  w1h_d                           0.252 ±  0.118     0.288 ±  0.149     -3.00      0.003  **
-  w1h_c                           0.410 ±  0.158     0.384 ±  0.179      1.71      0.088  
-  w5m_d                           0.263 ±  0.128     0.254 ±  0.125      0.81      0.421  
-  w5m_c                           0.384 ±  0.154     0.404 ±  0.144     -1.40      0.162  
-  w1h_agree                       0.937 ±  0.244     0.882 ±  0.323      2.21      0.028  *
-  w5m_agree                       0.937 ±  0.244     0.954 ±  0.211     -0.77      0.442  
-  entry_depth                     7.797 ±  2.639     8.206 ±  2.346     -1.72      0.087  
+  belief_conviction               0.702 ±  0.039     0.697 ±  0.035      0.92      0.357  
+  wave_maturity                   0.383 ±  0.020     0.381 ±  0.021      0.91      0.365  
+  decision_wave_maturity          0.382 ±  0.052     0.383 ±  0.050     -0.13      0.894  
+  oracle_mfe                    199.138 ± 299.644   212.081 ± 157.858     -0.42      0.672  
+  oracle_mae                    276.831 ± 334.852   199.817 ± 250.617      2.01      0.046  *
+  capture_pct                    84.635 ± 64.144   -12.617 ± 25.013     15.81     <0.001  ***
+  hold_mins                     233.430 ± 527.003   158.979 ± 414.367      1.21      0.228  
+  dmi_diff                      -11.967 ± 14.648    -8.030 ± 14.418     -2.06      0.040  *
+  long_bias                       0.000 ±  0.000     0.000 ±  0.000       nan        nan  
+  short_bias                      0.000 ±  0.000     0.000 ±  0.000       nan        nan  
+  w1h_d                           0.258 ±  0.111     0.257 ±  0.107      0.08      0.938  
+  w1h_c                           0.432 ±  0.214     0.417 ±  0.194      0.54      0.590  
+  w5m_d                           0.312 ±  0.119     0.295 ±  0.117      1.09      0.279  
+  w5m_c                           0.326 ±  0.203     0.351 ±  0.203     -0.93      0.354  
+  w1h_agree                       1.000 ±  0.000     0.990 ±  0.098      1.00      0.320  
+  w5m_agree                       0.946 ±  0.227     0.981 ±  0.137     -1.46      0.145  
+  entry_depth                     2.318 ±  0.707     2.571 ±  0.677     -2.79      0.006  **
 
-  Winners n=158  Losers n=431  Stars: *** p<0.001  ** p<0.01  * p<0.05
+  Winners n=129  Losers n=105  Stars: *** p<0.001  ** p<0.01  * p<0.05
 
 ================================================================================
 PART 3 — ANOVA: actual_pnl ~ categorical variables
 ================================================================================
 
   ANOVA: actual_pnl ~ Session
-    F=2.34  p=0.054 
+    F=6.33  p=<0.001 ***
     Group                       n    Mean PnL     Std PnL
-    Overnight                  31  $     0.97  $    32.72
-    Europe/PreMkt             319  $    -2.39  $    17.80
-    US_Open                    95  $    -7.11  $    36.47
-    US_Mid                     67  $     6.78  $    47.48  <- best
-    US_Close                   77  $    -1.01  $    34.80
+    Overnight                  33  $   122.29  $   141.80
+    Europe/PreMkt              81  $    65.46  $   158.08
+    US_Open                    52  $   194.63  $   193.82
+    US_Mid                     43  $   197.38  $   193.34  <- best
+    US_Close                   25  $   103.88  $   186.00
 
   ANOVA: actual_pnl ~ Day-of-week
-    F=0.70  p=0.589 
+    F=1.55  p=0.174 
     Group                       n    Mean PnL     Std PnL
-    Fri                       224  $     0.19  $    33.79  <- best
-    Wed                       124  $    -1.27  $    28.71
-    Mon                        58  $    -1.59  $    14.99
-    Thu                        69  $    -2.74  $    33.57
-    Tue                       112  $    -5.42  $    22.87
-    6.0                         2  $   -14.50  $    21.21
+    Fri                        47  $   179.62  $   199.42  <- best
+    Thu                        51  $   147.86  $   183.29
+    6.0                         6  $   142.58  $   141.94
+    Tue                        40  $   131.30  $   179.11
+    Mon                        44  $   101.20  $   164.27
+    Wed                        46  $    86.95  $   179.61
 
   ANOVA: actual_pnl ~ Depth
-    F=3.80  p=<0.001 ***
+    F=7.57  p=<0.001 ***
     Group                       n    Mean PnL     Std PnL
-    0.0                         1  $   136.00  $      nan  <- best
-    1.0                         5  $    65.20  $    81.33
-    3.0                         9  $    14.22  $    98.17
-    2.0                         9  $    11.50  $   150.18
-    7.0                        62  $    -0.44  $     9.79
-    6.0                        64  $    -0.95  $    10.22
-    11.0                       65  $    -1.82  $     8.69
-    10.0                      113  $    -2.38  $     7.78
-    8.0                        94  $    -2.61  $    11.79
-    12.0                       27  $    -3.65  $     6.20
-    9.0                        77  $    -3.69  $    10.05
-    5.0                        35  $    -4.89  $    10.71
-    4.0                        28  $   -16.12  $    66.99
+    1.0                        26  $   215.77  $   201.20  <- best
+    2.0                        78  $   166.73  $   194.46
+    3.0                       129  $    92.68  $   160.63
+    0.0                         1  $   -27.50  $      nan
 
   ANOVA: actual_pnl ~ Exit reason
-    F=26.05  p=<0.001 ***
+    F=389.95  p=<0.001 ***
     Group                       n    Mean PnL     Std PnL
-    physics_decay               4  $    49.62  $    55.84  <- best
-    profit_target              74  $    14.51  $     8.99
-    max_hold                   26  $    10.10  $    22.10
-    trail_stop                172  $     8.66  $    36.11
-    emergency_close            24  $    -7.48  $    11.40
-    stop_loss                 289  $   -13.42  $    23.63
+    trail_stop                 75  $   354.39  $    60.19  <- best
+    max_hold                   37  $   151.88  $   101.44
+    physics_decay              24  $    76.54  $    88.90
+    emergency_close            78  $   -13.51  $    23.62
+    stop_loss                  20  $  -121.95  $    81.42
 
   ANOVA: actual_pnl ~ Dir correct
-    F=0.10  p=0.753 
+    F=8.76  p=0.003 **
     Group                       n    Mean PnL     Std PnL
-    1.0                       354  $    -1.44  $    30.61  <- best
-    0.0                       235  $    -2.22  $    27.42
+    1.0                       106  $   168.62  $   185.08  <- best
+    0.0                       128  $    98.98  $   174.10
 
 ================================================================================
 PART 4 — LINEAR REGRESSION: actual_pnl ~ features  (OLS, standardized β)
 ================================================================================
-  R² = 0.060  Adj R² = 0.041  (n=589)
+  R² = 0.208  Adj R² = 0.165  (n=234)
   Feature                          Coef   Std Err   t-stat   p-value  sig
   ---------------------------------------------------------------------------
-  dmi_diff                        -4.92      1.25    -3.94    <0.001  ***
-  hold_mins                       +4.79      1.36     3.53    <0.001  ***
-  oracle_mae                      +1.90      1.40     1.36     0.173  
-  w1h_agree                       +1.76      1.48     1.18     0.237  
-  belief_conviction               -1.52      1.52    -1.00     0.317  
-  oracle_mfe                      +1.19      1.48     0.81     0.419  
-  wave_maturity                   -0.95      1.41    -0.67     0.502  
-  entry_depth                     +0.88      1.53     0.57     0.567  
-  w5m_agree                       +0.24      1.33     0.18     0.858  
-  w5m_c                           +0.23      1.33     0.17     0.862  
-  w1h_c                           +0.23      1.57     0.15     0.881  
-  hour_et                         +0.10      1.25     0.08     0.935  
+  oracle_mae                     +48.60     11.55     4.21    <0.001  ***
+  dmi_diff                       -41.51     11.81    -3.51    <0.001  ***
+  entry_depth                    -40.19     11.52    -3.49    <0.001  ***
+  w5m_c                          -17.33     12.29    -1.41     0.160  
+  hour_et                        +14.36     11.35     1.27     0.207  
+  hold_mins                      +15.40     12.17     1.26     0.207  
+  belief_conviction              +12.13     13.77     0.88     0.379  
+  w5m_agree                       -9.96     11.75    -0.85     0.397  
+  w1h_agree                       +9.84     12.08     0.81     0.416  
+  wave_maturity                  +10.13     12.54     0.81     0.420  
+  oracle_mfe                      +8.31     11.11     0.75     0.455  
+  w1h_c                           +0.29     14.30     0.02     0.984  
 
 ================================================================================
 PART 5 — LOGISTIC REGRESSION: is_win ~ features
 ================================================================================
-  Accuracy = 73.7%  AUC-ROC = 0.608  (n=589)
+  Accuracy = 65.8%  AUC-ROC = 0.699  (n=234)
   Feature                          Coef  Odds Ratio  note
   -----------------------------------------------------------------
-  dmi_diff                       -0.254       0.776  (hurts)
-  w1h_agree                      +0.222       1.249  (helps)
-  belief_conviction              -0.187       0.829  (hurts)
-  wave_maturity                  -0.157       0.855  (hurts)
-  entry_depth                    -0.155       0.856  (hurts)
-  w1h_c                          +0.131       1.140  (helps)
-  oracle_mfe                     -0.099       0.906  (hurts)
-  hold_mins                      +0.056       1.058  (helps)
-  hour_et                        -0.050       0.951  (hurts)
-  w5m_c                          -0.038       0.963  (hurts)
-  oracle_mae                     -0.024       0.976  (hurts)
-  w5m_agree                      -0.008       0.992  (hurts)
+  oracle_mae                     +0.416       1.516  (helps)
+  hold_mins                      +0.365       1.440  (helps)
+  entry_depth                    -0.352       0.703  (hurts)
+  w1h_agree                      +0.351       1.421  (helps)
+  dmi_diff                       -0.306       0.737  (hurts)
+  hour_et                        +0.289       1.335  (helps)
+  w5m_c                          -0.212       0.809  (hurts)
+  belief_conviction              +0.193       1.212  (helps)
+  w5m_agree                      -0.184       0.832  (hurts)
+  w1h_c                          -0.139       0.870  (hurts)
+  wave_maturity                  +0.121       1.128  (helps)
+  oracle_mfe                     -0.020       0.980  (hurts)
   Note: coefficients are standardized (1 SD change in feature)
 
 ================================================================================
 PART 6 — CAPTURE RATE REGRESSION (correct-direction trades)
 ================================================================================
-  n=354 correct-direction trades  R² = 0.073
+  n=106 correct-direction trades  R² = 0.236
   Feature                          Coef   t-stat   p-value  sig  interpretation
   --------------------------------------------------------------------------------
-  oracle_mfe                      -3.92    -2.18     0.030  *    bigger move = harder to capture fully
-  w5m_flipped                     -1.74    -0.93     0.352       5m flip during trade hurts capture
-  exit_wave_maturity              -0.53    -0.30     0.767       mature wave at exit = late departure
-  exit_conviction                 +0.83     0.42     0.672       higher conviction at exit = better capture
-  hold_mins                       +8.97     4.75    <0.001  ***  longer hold = less captured
+  oracle_mfe                     -18.69    -3.06     0.003  **   bigger move = harder to capture fully
+  exit_conviction                 -7.24    -1.14     0.257       higher conviction at exit = better capture
+  w5m_flipped                     -1.16    -0.18     0.861       5m flip during trade hurts capture
+  exit_wave_maturity              +1.19     0.19     0.852       mature wave at exit = late departure
+  hold_mins                      +23.22     3.82    <0.001  ***  longer hold = less captured
 
 ================================================================================
 PART 7 — SESSION × DIRECTION  (mean PnL per trade)
 ================================================================================
   Session             LONG mean   SHORT mean     Delta   n LONG   n SHORT
   ---------------------------------------------------------------------------
-  Overnight              N/A     $   +0.97      N/A           0        31
-  Europe/PreMkt          N/A     $   -2.39      N/A           0       319
-  US_Open                N/A     $   -7.11      N/A           0        95
-  US_Mid                 N/A     $   +6.78      N/A           0        67
-  US_Close               N/A     $   -1.01      N/A           0        77
+  Overnight              N/A     $ +122.29      N/A           0        33
+  Europe/PreMkt          N/A     $  +65.46      N/A           0        81
+  US_Open                N/A     $ +194.63      N/A           0        52
+  US_Mid                 N/A     $ +197.38      N/A           0        43
+  US_Close               N/A     $ +103.88      N/A           0        25
 
   WIN RATE BY SESSION:
   Session              WR LONG    WR SHORT    WR All
   -------------------------------------------------------
-  Overnight               N/A        35.5%     35.5%
-  Europe/PreMkt           N/A        28.8%     28.8%
-  US_Open                 N/A        16.8%     16.8%
-  US_Mid                  N/A        25.4%     25.4%
-  US_Close                N/A        28.6%     28.6%
+  Overnight               N/A        66.7%     66.7%
+  Europe/PreMkt           N/A        37.0%     37.0%
+  US_Open                 N/A        61.5%     61.5%
+  US_Mid                  N/A        69.8%     69.8%
+  US_Close                N/A        60.0%     60.0%
 
 ================================================================================
 HOUR-BY-HOUR BREAKDOWN  (ET, 24h)
 ================================================================================
   Hour ET     Trades      WR     AvgPnL     TotalPnL  flag
   -----------------------------------------------------------------
-  00:00             3    0.0% $   -20.83 $     -62.50  <- AVOID
-  01:00            14   28.6% $     3.04 $      42.50  <- AVOID
-  02:00            53   32.1% $     0.29 $      15.50  <- AVOID
-  03:00           118   28.8% $    -2.51 $    -296.50  <- AVOID
-  04:00            38   21.1% $    -3.51 $    -133.50  <- AVOID
-  05:00            24   37.5% $    -0.38 $      -9.00  <- AVOID
-  06:00            25   24.0% $    -6.68 $    -167.00  <- AVOID
-  07:00            25   24.0% $    -3.62 $     -90.50  <- AVOID
-  08:00            22   36.4% $    -5.70 $    -125.50  <- AVOID
-  09:00            48   18.8% $    -0.60 $     -29.00  <- AVOID
-  10:00            47   14.9% $   -13.74 $    -646.00  <- AVOID
-  11:00            30   30.0% $     3.40 $     102.00  <- AVOID
-  12:00            30   20.0% $     2.58 $      77.50  <- AVOID
-  13:00             7   28.6% $    39.21 $     274.50  <- AVOID
-  14:00            31   29.0% $    -0.11 $      -3.50  <- AVOID
-  15:00            38   31.6% $    -1.11 $     -42.00  <- AVOID
-  16:00             8   12.5% $    -4.06 $     -32.50  <- AVOID
-  18:00             1    0.0% $    -3.00 $      -3.00  <- AVOID
-  19:00             1  100.0% $   136.00 $     136.00  <- BEST
-  20:00            13   38.5% $     0.88 $      11.50  <- AVOID
-  21:00             2   50.0% $    -0.50 $      -1.00  <- AVOID
-  22:00             7   57.1% $    10.71 $      75.00  
-  23:00             4    0.0% $   -31.50 $    -126.00  <- AVOID
+  00:00             5   60.0% $   154.20 $     771.00  
+  01:00             3   66.7% $    80.67 $     242.00  
+  02:00            11   54.5% $    79.09 $     870.00  <- AVOID
+  03:00            10   70.0% $    81.75 $     817.50  
+  04:00             7   28.6% $    51.79 $     362.50  <- AVOID
+  05:00             5   20.0% $    82.10 $     410.50  <- AVOID
+  06:00             9   33.3% $   132.06 $   1,188.50  <- AVOID
+  07:00            16   31.2% $    51.66 $     826.50  <- AVOID
+  08:00            20   20.0% $    29.23 $     584.50  <- AVOID
+  09:00            19   63.2% $   202.39 $   3,845.50  
+  10:00            33   60.6% $   190.17 $   6,275.50  
+  11:00            13   76.9% $   246.69 $   3,207.00  
+  12:00            19   73.7% $   190.08 $   3,611.50  
+  13:00            11   54.5% $   151.73 $   1,669.00  <- AVOID
+  14:00             5   60.0% $    73.30 $     366.50  
+  15:00            15   80.0% $   156.27 $   2,344.00  
+  16:00             5    0.0% $   -22.70 $    -113.50  <- AVOID
+  18:00            10   70.0% $   102.15 $   1,021.50  
+  19:00             7   71.4% $   187.93 $   1,315.50  
+  20:00             6   66.7% $    74.33 $     446.00  
+  21:00             2   50.0% $   181.25 $     362.50  <- AVOID
+  23:00             3   66.7% $    39.67 $     119.00  
 
 ────────────────────────────────────────────────────────────────────────────────
 PART 8 — BEST/WORST DEEP DIVE  (top 20 vs bottom 20 by PnL)
 ────────────────────────────────────────────────────────────────────────────────
-  BEST  20: PnL range  $      39 → $     218   mean=$     108
-  WORST 20: PnL range  $    -233 → $     -30   mean=$     -84
+  BEST  20: PnL range  $     384 → $     527   mean=$     413
+  WORST 20: PnL range  $    -312 → $     -61   mean=$    -133
 
   Feature                      Best mean  Worst mean        Diff  Note
   ──────────────────────────  ──────────  ──────────  ──────────  ────────────────────
-  entry_trail_ticks                  nan      16.000        +nan  
-  entry_tp_ticks                     nan      20.000        +nan  
-  entry_sl_ticks                     nan       8.000        +nan  
-  entry_trail_act                    nan      10.000        +nan  
-  belief_conviction                0.693       0.691      +0.002  
+  belief_conviction                0.704       0.701      +0.004  
   belief_active_levels             9.000       9.000      +0.000  
-  oracle_mfe                      97.338      85.037     +12.300  
-  oracle_mae                     210.312     170.850     +39.463  
-  w1h_d                            0.263       0.281      -0.018  
-  w5m_d                            0.250       0.257      -0.007  
-  w1h_agree                        0.900       0.800      +0.100  
-  w5m_agree                        1.000       1.000      +0.000  
+  oracle_mfe                     278.913     213.863     +65.050  
+  oracle_mae                     422.512     167.512    +255.000  < notable
+  w1h_d                            0.245       0.269      -0.024  
+  w5m_d                            0.312       0.289      +0.024  
+  w1h_agree                        1.000       0.950      +0.050  < notable
+  w5m_agree                        1.000       0.950      +0.050  
 
   EXIT_REASON
     Value                   Best %   Worst %      Diff
-    emergency_close             0%        5%       -5%
+    emergency_close             0%       30%      -30% <<
     max_hold                    5%        0%       +5%
-    physics_decay              10%        0%      +10%
-    profit_target              15%        0%      +15%
-    stop_loss                   0%       95%      -95% <<
-    trail_stop                 70%        0%      +70% <<
+    stop_loss                   0%       70%      -70% <<
+    trail_stop                 95%        0%      +95% <<
 
   SESSION
     Value                   Best %   Worst %      Diff
-    Europe/PreMkt              15%       25%      -10%
-    Overnight                  10%       15%       -5%
-    US_Close                   20%        5%      +15%
-    US_Mid                     35%       15%      +20%
-    US_Open                    20%       40%      -20% <<
+    Europe/PreMkt              30%       30%       +0%
+    Overnight                   5%        5%       +0%
+    US_Close                    5%       20%      -15%
+    US_Mid                     25%       20%       +5%
+    US_Open                    35%       25%      +10%
 
   DIRECTION
     Value                   Best %   Worst %      Diff
@@ -451,47 +409,42 @@ PART 8 — BEST/WORST DEEP DIVE  (top 20 vs bottom 20 by PnL)
 
   ENTRY_DEPTH
     Value                   Best %   Worst %      Diff
-    0                           5%        0%       +5%
-    1                          15%        0%      +15%
-    2                          20%       20%       +0%
-    3                          20%       20%       +0%
-    4                          25%       50%      -25% <<
-    6                           5%        0%       +5%
-    8                          10%       10%       +0%
+    1                          25%       15%      +10%
+    2                          40%       40%       +0%
+    3                          35%       45%      -10%
 
   DOW
     Value                   Best %   Worst %      Diff
-    0                           0%       10%      -10%
-    1                          10%       20%      -10%
-    2                          25%       25%       +0%
-    3                          15%       20%       -5%
-    4                          50%       20%      +30% <<
-    6                           0%        5%       -5%
+    0                          15%       30%      -15%
+    1                          25%       15%      +10%
+    2                           5%       25%      -20% <<
+    3                          20%       15%       +5%
+    4                          35%       15%      +20%
 
   WORKER AGREEMENT AT ENTRY (best vs worst)
     TF       Best agree  Worst agree      Diff
-    1h            0.263        0.281    -0.018
-    30m           0.362        0.325    +0.037
+    1h            0.245        0.269    -0.024
+    30m           0.266        0.273    -0.007
     15m           0.500        0.500    +0.000
-    5m            0.250        0.257    -0.007
-    3m            0.252        0.280    -0.028
-    1m            0.247        0.258    -0.011
-    30s           0.290        0.250    +0.040
-    15s           0.517        0.518    -0.001
+    5m            0.312        0.289    +0.024
+    3m            0.339        0.296    +0.043
+    1m            0.309        0.323    -0.014
+    30s           0.360        0.370    -0.010
+    15s           0.427        0.430    -0.003
 
   BEST 5 TRADES
-    PnL=$       0  depth=2  SHORT  sess=US_Mid    exit=trail_stop    conv=0.65  MFE=21.0pts  MAE=119.0pts  TP=nant  SL=nant  trail=nant
-    PnL=$       0  depth=2  SHORT  sess=US_Open   exit=trail_stop    conv=0.67  MFE=18.2pts  MAE=439.8pts  TP=nant  SL=nant  trail=nant
-    PnL=$       0  depth=3  SHORT  sess=US_Mid    exit=trail_stop    conv=0.65  MFE=137.8pts  MAE=710.2pts  TP=nant  SL=nant  trail=nant
-    PnL=$       0  depth=1  SHORT  sess=US_Mid    exit=trail_stop    conv=0.80  MFE=125.5pts  MAE=251.2pts  TP=nant  SL=nant  trail=nant
-    PnL=$       0  depth=1  SHORT  sess=US_Close  exit=trail_stop    conv=0.79  MFE=270.5pts  MAE=213.2pts  TP=nant  SL=nant  trail=nant
+    PnL=$       0  depth=1  SHORT  sess=US_Mid    exit=max_hold      conv=0.66  MFE=51.2pts  MAE=1104.2pts  TP=nant  SL=nant  trail=nant
+    PnL=$       0  depth=3  SHORT  sess=Europe/PreMkt  exit=trail_stop    conv=0.68  MFE=275.8pts  MAE=1625.8pts  TP=nant  SL=nant  trail=nant
+    PnL=$       0  depth=3  SHORT  sess=Europe/PreMkt  exit=trail_stop    conv=0.71  MFE=676.8pts  MAE=8.8pts  TP=nant  SL=nant  trail=nant
+    PnL=$       0  depth=3  SHORT  sess=Europe/PreMkt  exit=trail_stop    conv=0.67  MFE=21.5pts  MAE=532.2pts  TP=nant  SL=nant  trail=nant
+    PnL=$       0  depth=1  SHORT  sess=Europe/PreMkt  exit=trail_stop    conv=0.67  MFE=87.0pts  MAE=59.8pts  TP=nant  SL=nant  trail=nant
 
   WORST 5 TRADES
-    PnL=$       0  depth=2  SHORT  sess=US_Close  exit=stop_loss     conv=0.72  MFE=0.0pts  MAE=0.0pts  TP=nant  SL=nant  trail=nant
-    PnL=$       0  depth=4  SHORT  sess=US_Open   exit=stop_loss     conv=0.73  MFE=59.0pts  MAE=171.8pts  TP=nant  SL=nant  trail=nant
-    PnL=$       0  depth=4  SHORT  sess=US_Open   exit=stop_loss     conv=0.72  MFE=21.2pts  MAE=272.5pts  TP=nant  SL=nant  trail=nant
-    PnL=$       0  depth=2  SHORT  sess=US_Open   exit=stop_loss     conv=0.75  MFE=9.0pts  MAE=125.5pts  TP=nant  SL=nant  trail=nant
-    PnL=$       0  depth=4  SHORT  sess=Europe/PreMkt  exit=stop_loss     conv=0.67  MFE=71.2pts  MAE=352.2pts  TP=nant  SL=nant  trail=nant
+    PnL=$       0  depth=3  SHORT  sess=US_Close  exit=stop_loss     conv=0.67  MFE=518.0pts  MAE=-1.0pts  TP=nant  SL=nant  trail=nant
+    PnL=$       0  depth=2  SHORT  sess=Europe/PreMkt  exit=stop_loss     conv=0.70  MFE=282.5pts  MAE=43.8pts  TP=nant  SL=nant  trail=nant
+    PnL=$       0  depth=2  SHORT  sess=US_Close  exit=stop_loss     conv=0.74  MFE=233.2pts  MAE=38.8pts  TP=nant  SL=nant  trail=nant
+    PnL=$       0  depth=2  SHORT  sess=Europe/PreMkt  exit=stop_loss     conv=0.75  MFE=175.8pts  MAE=346.5pts  TP=nant  SL=nant  trail=nant
+    PnL=$       0  depth=2  SHORT  sess=US_Mid    exit=stop_loss     conv=0.69  MFE=25.5pts  MAE=298.8pts  TP=nant  SL=nant  trail=nant
 
 
 ================================================================================

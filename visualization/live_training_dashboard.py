@@ -703,13 +703,14 @@ class ProgressPopup:
         self.root = root
         self.q = q
         self._pnl_history = []
+        self._pnl_dates = []   # date labels aligned with _pnl_history
         self._day_data = []  # [{day, pnl, trades, wins}, ...]
         self._done = False
 
         self.root.title("Bayesian-AI Training")
         self.root.geometry("460x650+60+60")
         self.root.configure(bg=BG)
-        self.root.resizable(True, False)
+        self.root.resizable(True, True)
         self.root.attributes("-topmost", True)
 
         style = ttk.Style()
@@ -753,7 +754,7 @@ class ProgressPopup:
             length=420,
             mode="determinate",
         )
-        self._pbar.pack()
+        self._pbar.pack(fill=tk.X, padx=20)
 
         # Percentage label — prominent, right-aligned feel
         self._pct_var = tk.StringVar(value="0%")
@@ -800,6 +801,58 @@ class ProgressPopup:
             font=("Consolas", 14, "bold"),
         ).grid(row=1, column=2, padx=20)
 
+        # ── PnL ratio row ───────────────────────────────────────────────────
+        pf_frame = tk.Frame(root, bg=BG)
+        pf_frame.pack(fill="x", padx=20, pady=(6, 0))
+        for col, lbl in enumerate(("Profit Factor", "Gross Win", "Gross Loss")):
+            tk.Label(
+                pf_frame, text=lbl, bg=BG, fg=FG_GREY, font=("Consolas", 8)
+            ).grid(row=0, column=col, padx=20)
+
+        self._pf_var = tk.StringVar(value="—")
+        self._gw_var = tk.StringVar(value="$0")
+        self._gl_var = tk.StringVar(value="$0")
+
+        self._pf_lbl = tk.Label(
+            pf_frame, textvariable=self._pf_var, bg=BG, fg=FG_WHITE,
+            font=("Consolas", 14, "bold"),
+        )
+        self._pf_lbl.grid(row=1, column=0, padx=20)
+        self._gw_lbl = tk.Label(
+            pf_frame, textvariable=self._gw_var, bg=BG, fg=FG_GREEN,
+            font=("Consolas", 14, "bold"),
+        )
+        self._gw_lbl.grid(row=1, column=1, padx=20)
+        self._gl_lbl = tk.Label(
+            pf_frame, textvariable=self._gl_var, bg=BG, fg=FG_RED,
+            font=("Consolas", 14, "bold"),
+        )
+        self._gl_lbl.grid(row=1, column=2, padx=20)
+
+        # ── Exit timing row ─────────────────────────────────────────────────
+        exit_frame = tk.Frame(root, bg=BG)
+        exit_frame.pack(fill="x", padx=20, pady=(6, 0))
+        _exit_labels = ("Optimal >=80%", "Partial 20-80%", "Early <20%", "Reversed <=0%")
+        _exit_colors = (FG_GREEN, FG_AMBER, FG_RED, "#ff2222")
+        for col, lbl in enumerate(_exit_labels):
+            tk.Label(
+                exit_frame, text=lbl, bg=BG, fg=FG_GREY, font=("Consolas", 8)
+            ).grid(row=0, column=col, padx=12)
+
+        self._exit_opt_var = tk.StringVar(value="—")
+        self._exit_par_var = tk.StringVar(value="—")
+        self._exit_ear_var = tk.StringVar(value="—")
+        self._exit_rev_var = tk.StringVar(value="—")
+
+        for col, (var, clr) in enumerate(zip(
+            (self._exit_opt_var, self._exit_par_var, self._exit_ear_var, self._exit_rev_var),
+            _exit_colors,
+        )):
+            tk.Label(
+                exit_frame, textvariable=var, bg=BG, fg=clr,
+                font=("Consolas", 12, "bold"),
+            ).grid(row=1, column=col, padx=12)
+
         # ── PnL control chart ─────────────────────────────────────────────────
         tk.Label(root, text="PnL Curve", bg=BG, fg=FG_GREY, font=("Consolas", 8)).pack(
             pady=(14, 2)
@@ -812,7 +865,8 @@ class ProgressPopup:
             highlightthickness=1,
             highlightbackground="#333333",
         )
-        self._canvas.pack(padx=20)
+        self._canvas.pack(padx=20, fill=tk.X, expand=False)
+        self._canvas.bind("<Configure>", lambda e: self._redraw_chart())
 
         # ── Daily PnL bar chart ──────────────────────────────────────────────
         tk.Label(root, text="PnL by Day", bg=BG, fg=FG_GREY, font=("Consolas", 8)).pack(
@@ -826,7 +880,8 @@ class ProgressPopup:
             highlightthickness=1,
             highlightbackground="#333333",
         )
-        self._day_canvas.pack(padx=20)
+        self._day_canvas.pack(padx=20, fill=tk.X, expand=False)
+        self._day_canvas.bind("<Configure>", lambda e: self._redraw_day_chart())
 
         # ── Status footer ─────────────────────────────────────────────────────
         self._status_var = tk.StringVar(value="Running...")
@@ -841,17 +896,19 @@ class ProgressPopup:
         c = self._canvas
         c.delete("all")
         pts = self._pnl_history
+        W = max(100, c.winfo_width())
+        H = max(40, c.winfo_height())
         if len(pts) < 2:
             c.create_text(
-                self._CHART_W // 2,
-                self._CHART_H // 2,
+                W // 2,
+                H // 2,
                 text="Waiting for data...",
                 fill=FG_GREY,
                 font=("Consolas", 9),
             )
             return
 
-        W, H, pad = self._CHART_W, self._CHART_H, 6
+        pad = 6
         mn, mx = min(pts), max(pts)
         span = mx - mn if mx != mn else 1.0
 
@@ -889,6 +946,17 @@ class ProgressPopup:
             anchor="e",
         )
 
+        # Date labels along bottom (from _day_data, ~8 evenly spaced)
+        dates = [d["day"] for d in self._day_data]
+        if len(dates) >= 2:
+            n_labels = min(8, len(dates))
+            step = max(1, len(dates) // n_labels)
+            for j in range(0, len(dates), step):
+                frac = j / (len(pts) - 1) if len(pts) > 1 else 0
+                x = pad + frac * (W - 2 * pad)
+                c.create_text(x, H - 1, text=dates[j], fill="#555555",
+                              font=("Consolas", 6), anchor="s")
+
     # ── Daily bar chart ──────────────────────────────────────────────────────
     _MAX_DAY_BARS = 60  # show last N days to keep bars readable
 
@@ -896,9 +964,11 @@ class ProgressPopup:
         c = self._day_canvas
         c.delete("all")
         data = self._day_data
+        W = max(100, c.winfo_width())
+        H = max(40, c.winfo_height())
         if not data:
             c.create_text(
-                self._CHART_W // 2, self._CHART_H // 2,
+                W // 2, H // 2,
                 text="Waiting for daily data...", fill=FG_GREY, font=("Consolas", 9),
             )
             return
@@ -907,7 +977,7 @@ class ProgressPopup:
         if len(data) > self._MAX_DAY_BARS:
             data = data[-self._MAX_DAY_BARS:]
 
-        W, H, pad = self._CHART_W, self._CHART_H, 6
+        pad = 6
         n = len(data)
         pnls = [d["pnl"] for d in data]
         mx = max(abs(v) for v in pnls) if pnls else 1.0
@@ -1018,6 +1088,30 @@ class ProgressPopup:
                         self._wr_var.set(f"{wr:.1f}%")
                     if trades is not None:
                         self._trades_var.set(f"{trades:,}")
+
+                    # Profit factor & gross W/L
+                    _pf = msg.get('pf')
+                    _gw = msg.get('gross_w')
+                    _gl = msg.get('gross_l')
+                    if _pf is not None:
+                        self._pf_var.set(f"{_pf:.2f}")
+                        self._pf_lbl.config(fg=FG_GREEN if _pf >= 1.0 else FG_RED)
+                    if _gw is not None:
+                        self._gw_var.set(f"+${_gw:,.0f}")
+                    if _gl is not None:
+                        self._gl_var.set(f"-${_gl:,.0f}")
+
+                    # Exit timing buckets
+                    _e_opt = msg.get('exit_optimal')
+                    _e_par = msg.get('exit_partial')
+                    _e_ear = msg.get('exit_early')
+                    _e_rev = msg.get('exit_reversed')
+                    _e_tot = (_e_opt or 0) + (_e_par or 0) + (_e_ear or 0) + (_e_rev or 0)
+                    if _e_tot > 0:
+                        self._exit_opt_var.set(f"{_e_opt}  ({_e_opt/_e_tot*100:.0f}%)")
+                        self._exit_par_var.set(f"{_e_par}  ({_e_par/_e_tot*100:.0f}%)")
+                        self._exit_ear_var.set(f"{_e_ear}  ({_e_ear/_e_tot*100:.0f}%)")
+                        self._exit_rev_var.set(f"{_e_rev}  ({_e_rev/_e_tot*100:.0f}%)")
 
                     if step == "FORWARD_PASS COMPLETE":
                         self._done = True

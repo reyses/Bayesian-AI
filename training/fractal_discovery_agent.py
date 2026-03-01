@@ -244,6 +244,8 @@ class FractalDiscoveryAgent:
             'mae':            max_down,
             'lookahead_bars': lookahead,
             'mfe_bar':        mfe_bar,   # 0-based bar index where MFE peaked
+            'max_up_bar':     mfe_bar_up,    # bar where price peaked UP
+            'max_down_bar':   mfe_bar_down,  # bar where price troughed DOWN
             'structural_integrity': integrity
         }
 

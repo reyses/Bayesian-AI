@@ -809,6 +809,14 @@ class BayesianTrainingOrchestrator:
         total_pnl = 0.0
         total_trades = 0
         total_wins = 0
+        gross_wins = 0.0    # sum of all positive trade PnLs
+        gross_losses = 0.0  # sum of all negative trade PnLs (stored as positive)
+        total_oracle_potential = 0.0  # sum of oracle_potential_pnl across all trades
+        total_capture_sum = 0.0      # sum of capture_rate (for avg calculation)
+        _exit_optimal  = 0   # capture >= 80%
+        _exit_partial  = 0   # 20% <= capture < 80%
+        _exit_early    = 0   # 0 < capture < 20%
+        _exit_reversed = 0   # capture <= 0 (market flipped)
         _worker_total_states   = {}   # {tf_label: total states across all days}
         _worker_days_with_data = {}   # {tf_label: days that had > 0 states}
         decision_matrix_records = []  # per-candidate gate decision log (for root cause)
@@ -890,6 +898,7 @@ class BayesianTrainingOrchestrator:
         _pending_dm_idx = None     # index into decision_matrix_records for open trade
         fn_potential_pnl    = 0.0  # dollar potential of real moves we missed (gate-blocked)
         score_loser_pnl     = 0.0  # dollar potential of real moves we correctly passed over (took better trade same bar)
+        tick_differential_pnl = 0.0  # true upper bound: sum(abs(close[t]-close[t-1])) * point_value across all 1s bars
 
         # PID Shadow Log
         pid_oracle_records = []
@@ -922,12 +931,24 @@ class BayesianTrainingOrchestrator:
             if self.dashboard_queue:
                 pct = (day_idx / n_days) * 100
                 _wr = (total_wins / total_trades * 100) if total_trades > 0 else 0.0
+                _pf = round(gross_wins / gross_losses, 2) if gross_losses > 0 else 0.0
+                _eff = round(total_pnl / total_oracle_potential * 100, 1) if total_oracle_potential > 0 else 0.0
+                _avg_cap = round(total_capture_sum / total_trades * 100, 1) if total_trades > 0 else 0.0
                 self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
                                           'step': f'FORWARD_PASS  day {day_idx+1}/{n_days}',
                                           'pct': round(pct, 1),
                                           'pnl': total_pnl,
                                           'trades': total_trades,
-                                          'wr': round(_wr, 1)})
+                                          'wr': round(_wr, 1),
+                                          'pf': _pf,
+                                          'gross_w': round(gross_wins, 2),
+                                          'gross_l': round(gross_losses, 2),
+                                          'efficiency': _eff,
+                                          'avg_capture': _avg_cap,
+                                          'exit_optimal': _exit_optimal,
+                                          'exit_partial': _exit_partial,
+                                          'exit_early': _exit_early,
+                                          'exit_reversed': _exit_reversed})
 
             # A. Fractal Cascade Scan (get actionable patterns with chains)
             # This uses the discovery agent logic but focused on this day
@@ -978,6 +999,10 @@ class BayesianTrainingOrchestrator:
                 _1s_highs = _df_1s['high'].values.astype(np.float64)
                 _1s_lows  = _df_1s['low'].values.astype(np.float64)
                 _has_1s   = True
+                # True upper bound: sum of every 1s tick differential
+                _1s_closes = _df_1s['close'].values.astype(np.float64)
+                if len(_1s_closes) > 1:
+                    tick_differential_pnl += float(np.sum(np.abs(np.diff(_1s_closes)))) * self.asset.point_value
             else:
                 _has_1s = False
 
@@ -1350,8 +1375,32 @@ class BayesianTrainingOrchestrator:
                             oracle_favorable = o_mfe if pending_oracle['direction'] == 'LONG' else o_mae
                             oracle_potential = oracle_favorable * self.asset.point_value
                             capture = outcome.pnl / oracle_potential if oracle_potential > 0 else 0.0
+                            total_oracle_potential += oracle_potential
+                            total_capture_sum += capture
+                            if capture >= 0.80:   _exit_optimal  += 1
+                            elif capture >= 0.20:  _exit_partial  += 1
+                            elif capture > 0:      _exit_early    += 1
+                            else:                  _exit_reversed += 1
                             _exit_t = outcome.exit_time
                             _entry_t = pending_oracle['entry_time']
+
+                            # ── Risk avoided & eventual recovery (wrong-direction analysis) ──
+                            # For SHORT: adverse = max_up (o_mfe), favorable = max_down (o_mae)
+                            # For LONG:  adverse = max_down (o_mae), favorable = max_up (o_mfe)
+                            _is_long = (pending_oracle['direction'] == 'LONG')
+                            _max_adverse_usd = (o_mae if _is_long else o_mfe) * self.asset.point_value
+                            _risk_avoided = max(0.0, _max_adverse_usd - abs(outcome.pnl)) if outcome.pnl < 0 else 0.0
+
+                            # Eventual recovery: did the favorable peak occur AFTER the adverse peak?
+                            # If yes → timing issue (we exited too early), not truly wrong direction.
+                            _up_bar   = pending_oracle.get('max_up_bar', -1)
+                            _down_bar = pending_oracle.get('max_down_bar', -1)
+                            if _up_bar >= 0 and _down_bar >= 0:
+                                # For SHORT: favorable=down, adverse=up → recovery if down_bar > up_bar
+                                # For LONG:  favorable=up, adverse=down → recovery if up_bar > down_bar
+                                _eventual_recovery = (_down_bar > _up_bar) if not _is_long else (_up_bar > _down_bar)
+                            else:
+                                _eventual_recovery = False
 
                             _exit_idx = max(0, int((_exit_t - _entry_t) / 15))
                             cst_stats = self._calculate_cst_analytics(pending_oracle, _exit_idx)
@@ -1365,6 +1414,8 @@ class BayesianTrainingOrchestrator:
                                 'actual_pnl':  outcome.pnl,
                                 'oracle_potential_pnl': oracle_potential,
                                 'capture_rate': round(min(capture, 9.99), 4),
+                                'risk_avoided': round(_risk_avoided, 2),
+                                'eventual_recovery': _eventual_recovery,
                                 'result': outcome.result,
                                 # Worker snapshot at exit: compare vs entry_workers to find direction flips
                                 'exit_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
@@ -2349,8 +2400,25 @@ class BayesianTrainingOrchestrator:
                     oracle_favorable = o_mfe if pending_oracle['direction'] == 'LONG' else o_mae
                     oracle_potential = oracle_favorable * self.asset.point_value
                     capture = outcome.pnl / oracle_potential if oracle_potential > 0 else 0.0
+                    total_oracle_potential += oracle_potential
+                    total_capture_sum += capture
+                    if capture >= 0.80:   _exit_optimal  += 1
+                    elif capture >= 0.20:  _exit_partial  += 1
+                    elif capture > 0:      _exit_early    += 1
+                    else:                  _exit_reversed += 1
                     _eod_exit_t = ts
                     _eod_entry_t = pending_oracle['entry_time']
+
+                    # Risk avoided & eventual recovery
+                    _is_long_eod = (pending_oracle['direction'] == 'LONG')
+                    _max_adv_eod = (o_mae if _is_long_eod else o_mfe) * self.asset.point_value
+                    _risk_avoided_eod = max(0.0, _max_adv_eod - abs(outcome.pnl)) if outcome.pnl < 0 else 0.0
+                    _up_bar_eod   = pending_oracle.get('max_up_bar', -1)
+                    _down_bar_eod = pending_oracle.get('max_down_bar', -1)
+                    if _up_bar_eod >= 0 and _down_bar_eod >= 0:
+                        _eventual_recovery_eod = (_down_bar_eod > _up_bar_eod) if not _is_long_eod else (_up_bar_eod > _down_bar_eod)
+                    else:
+                        _eventual_recovery_eod = False
 
                     # CST Analytics
                     _struc_list = pending_oracle.get('structural_integrity', [])
@@ -2378,6 +2446,8 @@ class BayesianTrainingOrchestrator:
                         'actual_pnl':  outcome.pnl,
                         'oracle_potential_pnl': oracle_potential,
                         'capture_rate': round(min(capture, 9.99), 4),
+                        'risk_avoided': round(_risk_avoided_eod, 2),
+                        'eventual_recovery': _eventual_recovery_eod,
                         'result': outcome.result,
                         'exit_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
                         'exit_conviction':    _eod_sig.get('conviction', 0.0),
@@ -2418,6 +2488,11 @@ class BayesianTrainingOrchestrator:
                 total_pnl += d_pnl
                 total_trades += len(day_trades)
                 total_wins += d_wins
+                for _t in day_trades:
+                    if _t.pnl >= 0:
+                        gross_wins += _t.pnl
+                    else:
+                        gross_losses += abs(_t.pnl)
                 print(f"Trades: {len(day_trades)}, Wins: {d_wins}, PnL: ${d_pnl:.2f} ({time.perf_counter() - t_sim_start:.1f}s)")
             else:
                 d_pnl = 0.0
@@ -2538,12 +2613,9 @@ class BayesianTrainingOrchestrator:
         gp_shortfall      = gp_traded_val - _gp_traded_actual   # underperformance on gp trades
         non_gp_drag       = -_non_gp_actual                      # waste from non-gp trades (positive = drag)
 
-        # Parallel upper bound (unachievable sum of all signals)
-        _parallel_bound = tp_potential + fn_potential_pnl + score_loser_pnl
-
         report_lines.append("")
         report_lines.append(f"  TOTAL SIGNALS SEEN BY ORACLE: {total_real_opps + total_noise_opps:,}")
-        report_lines.append(f"    Real moves (MEGA/SCALP):  {total_real_opps:>6,}   -- worth ${_parallel_bound:>10,.2f} (parallel bound)")
+        report_lines.append(f"    Real moves (MEGA/SCALP):  {total_real_opps:>6,}")
         report_lines.append(f"    Noise (no real move):     {total_noise_opps:>6,}")
 
         # ── 2. What we did ───────────────────────────────────────────────────────
@@ -2829,6 +2901,26 @@ class BayesianTrainingOrchestrator:
             report_lines.append(_eq_row("Reversed (mkt flipped after entry)",reversed_, flag="<- leakage"))
             report_lines.append(f"    Left on table (non-reversed gap):                        ${left_on_table:>10,.0f}")
 
+        # ── Wrong-direction risk analysis ───────────────────────────────
+        _wd_trades = [r for r in oracle_trade_records if r.get('risk_avoided', 0) > 0]
+        if _wd_trades:
+            _total_risk_avoided = sum(r['risk_avoided'] for r in _wd_trades)
+            _total_wd_loss = abs(sum(r['actual_pnl'] for r in _wd_trades))
+            _n_recovered = sum(1 for r in _wd_trades if r.get('eventual_recovery', False))
+            _recovered_pnl = sum(r['actual_pnl'] for r in _wd_trades if r.get('eventual_recovery', False))
+            report_lines.append("")
+            report_lines.append(f"  WRONG-DIRECTION RISK ANALYSIS:")
+            report_lines.append(f"    Trades that lost money:          {len(_wd_trades):>5,}")
+            report_lines.append(f"    Actual losses:                   ${_total_wd_loss:>10,.2f}")
+            report_lines.append(f"    Risk avoided (stop saved us):    ${_total_risk_avoided:>10,.2f}")
+            report_lines.append(f"    Ratio (avoided / lost):          {_total_risk_avoided / _total_wd_loss:.1f}x" if _total_wd_loss > 0 else "")
+            report_lines.append(f"    Eventually recovered (timing):   {_n_recovered:>5,} / {len(_wd_trades)} "
+                                f"({100*_n_recovered/len(_wd_trades):.0f}%)  "
+                                f"PnL: ${_recovered_pnl:>10,.2f}")
+            if _n_recovered > 0:
+                report_lines.append(f"      -> {_n_recovered} trades were RIGHT but exited too early")
+
+        if tp_recs:
             # ── Exit reason cross-breakdown ───────────────────────────────────
             report_lines.append("")
             report_lines.append(f"  EXIT REASON -> QUALITY CROSS-BREAKDOWN (correct-direction trades):")
@@ -2933,9 +3025,9 @@ class BayesianTrainingOrchestrator:
             report_lines.append(f"      -------")
             report_lines.append(f"      [check] Sum = ${_check_sum:>12,.2f}  (gap = ${_gap:>12,.2f}  diff = ${_gap - _check_sum:>+.2f})")
         report_lines.append(f"    -----------------------------------------------------")
-        report_lines.append(f"    [info] Parallel upper bound:   ${_parallel_bound:>12,.2f}  (not achievable)")
-        report_lines.append(f"    [info] Raw FN MFE sum:         ${fn_potential_pnl:>12,.2f}  (not sequential)")
-        report_lines.append(f"    [info] Score-competition pool: ${score_loser_pnl:>12,.2f}  (took better same bar)")
+        report_lines.append(f"    [info] Tick-differential ceiling: ${tick_differential_pnl:>12,.2f}  (perfect 1s HFT, every tick captured)")
+        _gp_of_tick = (ideal_profit / tick_differential_pnl * 100) if tick_differential_pnl > 0 else 0.0
+        report_lines.append(f"    [info] Golden-path / tick-diff:   {_gp_of_tick:>11.3f}%  (sequential constraint cost)")
 
         # ── 5b. Per-trade quality diagnostic (separate from gap accounting) ─────
         # These categories overlap and do NOT sum to the gap above.
