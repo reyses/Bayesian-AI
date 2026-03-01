@@ -52,7 +52,7 @@
 - ATLAS: `DATA/ATLAS/{tf}/YYYY_MM.parquet` — 14 TFs, 10 months (Jan-Oct 2025)
 - ATLAS_1DAY: `DATA/ATLAS_1DAY/` — single day (Jan 2) for fast validation
 - ATLAS_1WEEK: `DATA/ATLAS_1WEEK/` — 7 trading days (Jan 2-10) for screening
-- ATLAS_OOS: `DATA/ATLAS_OOS/` — 4 months (Nov 2025 - Feb 2026)
+- ATLAS_OOS: `DATA/ATLAS_OOS/` — 2 months (Jan-Feb 2026)
 - Raw 1s: `DATA/glbx-mdp3-20250101-20260209.ohlcv-1s.parquet` (13.2M bars)
 
 ## Analysis & Benchmark Tools
@@ -125,12 +125,15 @@
 - Semantic cluster names: generate_semantic_name() (fractal_clustering)
 - Live trading module: live/ (7 files) + docs/NT8_BayesianBridge.cs
 
-## Current Baseline (IS, 2026-02-25, 3,754 trades — pre-clustering-rework)
-- WR: 37.5%, PnL: $5,834, Avg: $1.55/trade
-- Direction: 45.2% correct, 46.1% wrong
-- Trail stops: 2,221 trades, 0.9% WR — 99.9% never reach activation
-- Key issue: trail stop = glorified SL, kills in 2-3 bars
-- Post-rework (2026-02-27): 2,752 trades, 27.8% WR, -$5,064 — WRONG_DIRECTION dominant
+## Current Baseline (IS+OOS, 2026-03-01, main branch, pre-integration PRs)
+- IS: 392 trades, 33.7% WR, $8,117 total, $20.71/trade
+- OOS: 162 trades, 33.3% WR, $3,353 total, $20.69/trade (2 months Jan-Feb 2026)
+- Direction: 43.1% correct, all SHORT, zero LONG trades
+- Template matching: BROKEN (0 matches, all WORKER_BYPASS, playbook empty)
+- Conviction: NON-PREDICTIVE (flat 0.68, p=0.41)
+- Best filter: depth<=3 + z<0 → 69.2% WR, $188.83/trade OOS (26 trades)
+- Key insight: physics + exit system carry all profit; trail stop = mean reversion catcher
+- Prior baseline (2026-02-25): 3,754 trades, 37.5% WR, $1.55/trade
 
 ## Clustering Rework (2026-02-27, in progress)
 - **Pipeline**: DMI pre-split (LONG/SHORT) → I-MR on signed DMI diff → DBSCAN(vol+ADX)

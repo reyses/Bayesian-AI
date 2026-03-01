@@ -901,6 +901,7 @@ class BayesianTrainingOrchestrator:
         skip_conviction  = 0   # Belief network: path conviction below MIN_CONVICTION
         skip_screening   = 0   # Gate 3.5: screening gates (fission DROP or bad temporal window)
         skip_direction   = 0   # Gate 5: direction consensus unclear
+        skip_physics_qg  = 0   # Physics quality gate: depth>3 or z>=0 on bypass
         n_signals_seen   = 0   # Total candidate signals evaluated (all gates combined)
         depth_traded     = defaultdict(int)  # depth -> trade count (1=high TF, 6=15s)
 
@@ -1728,6 +1729,8 @@ class BayesianTrainingOrchestrator:
                                     _seg_norm = (_seg_delta - _seg_delta.min()) / _seg_rng
                                     _best_shape, _best_r = 'NOISE', 0.0
                                     for _sname, _stempl in _SEED_LIBRARY.items():
+                                        if np.std(_stempl) < 1e-9:
+                                            continue  # skip zero-variance seeds (FLAT)
                                         _r = float(np.corrcoef(_seg_norm, _stempl)[0, 1])
                                         if not np.isnan(_r) and abs(_r) > abs(_best_r):
                                             _best_r, _best_shape = _r, _sname
@@ -2141,6 +2144,18 @@ class BayesianTrainingOrchestrator:
                         # No cluster template matched (Gate 1) but belief conviction
                         # >= 0.65. Workers called the direction 85-100% correctly for
                         # these no-match signals -- fire using worker-derived params.
+
+                        # ── Physics quality gate (Analysis B: depth<=3 + z<0) ─
+                        # Filters to high-TF triggers with extended price only.
+                        # OOS: 69.2% WR, $188.83/trade vs baseline 33.3%, $20.69.
+                        _bp_depth_raw = getattr(_bypass_candidate, 'depth', 5)
+                        _bp_z_raw     = getattr(_bypass_candidate, 'z_score',
+                                                getattr(_bypass_candidate.state, 'z_score', 0.0))
+                        if _bp_depth_raw > 3 or _bp_z_raw >= 0:
+                            skip_physics_qg += 1
+                            _bypass_belief = None  # reject — low-quality entry
+
+                    if _bypass_belief is not None and best_candidate is None:
                         side         = _bypass_belief.direction   # 'long' or 'short'
                         _bp_sigma    = getattr(_bypass_candidate.state, 'sigma_fractal', 0.0)
                         _bp_sl_ticks = max(4, int(round(_bp_sigma / self.asset.tick_size * 1.5))) if _bp_sigma > 0 else 8
@@ -2554,6 +2569,7 @@ class BayesianTrainingOrchestrator:
             report_lines.append(f"    Gate 3 (conviction < thresh):   {skip_conviction:>6,}  ({_pct_s(skip_conviction)})")
             report_lines.append(f"    Gate 3.5 (screening fission/temporal): {skip_screening:>6,}  ({_pct_s(skip_screening)})")
             report_lines.append(f"    Gate 5 (direction unclear):     {skip_direction:>6,}  ({_pct_s(skip_direction)})")
+            report_lines.append(f"    Physics QG (depth>3 or z>=0):  {skip_physics_qg:>6,}  ({_pct_s(skip_physics_qg)})")
             report_lines.append(f"    Passed all gates -> traded:     {n_traded:>6,}  ({_pct_s(n_traded)})")
 
         # ── 2c. Traded signal depth distribution ─────────────────────────────────
@@ -4842,6 +4858,18 @@ def main():
                                               oos_mode=True,
                                               account_size=args.account_size,
                                               telemetry=args.telemetry)
+
+            # ── Auto-chain pipeline analysis ──────────────────────────
+            try:
+                from tools.pipeline_analysis import run_analysis
+                print(f"\n{'='*80}")
+                print(f"  AUTO-CHAINING: Pipeline Analysis (IS + OOS)")
+                print(f"{'='*80}")
+                run_analysis('reports/is', 'reports/oos',
+                             analyses=['A', 'B', 'C', 'D', 'E'])
+            except Exception as _pa_err:
+                print(f"  Pipeline analysis skipped: {_pa_err}")
+
         elif args.strategy_report and not args.forward_pass:
             orchestrator.run_strategy_selection()
         else:
