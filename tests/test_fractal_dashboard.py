@@ -159,12 +159,11 @@ class TestFractalDashboard(unittest.TestCase):
             mock_datetime.now.return_value.strftime.return_value = "20231027_120000"
 
             mock_asksaveasfilename.return_value = "/tmp/chart.png"
-            mock_fig = MagicMock()
 
             dashboard = FractalDashboard(self.root, self.queue)
 
             # Call the new method
-            dashboard._save_chart(mock_fig, "test_chart")
+            dashboard._save_chart(mock_fig_plot, "test_chart")
 
             # Verify asksaveasfilename called
             mock_asksaveasfilename.assert_called_once()
@@ -172,8 +171,8 @@ class TestFractalDashboard(unittest.TestCase):
             self.assertEqual(kwargs['initialfile'], "test_chart_20231027_120000.png")
 
             # Verify savefig called
-            mock_fig.savefig.assert_called_once()
-            args, kwargs = mock_fig.savefig.call_args
+            mock_fig_plot.savefig.assert_called_once()
+            args, kwargs = mock_fig_plot.savefig.call_args
             self.assertEqual(args[0], "/tmp/chart.png")
 
 if __name__ == '__main__':
