@@ -94,8 +94,10 @@ class PatternTemplate:
     # Regression models
     mfe_coeff: Optional[List[float]] = None
     mfe_intercept: float = 0.0
-    dir_coeff: Optional[List[float]] = None
+    dir_coeff: Optional[List[float]] = None       # balanced LONG-vs-SHORT (fallback)
     dir_intercept: float = 0.0
+    quality_coeff: Optional[List[float]] = None    # within-side good-vs-bad entry
+    quality_intercept: float = 0.0
 
     # CST Basin (legacy field support - now handled by node cell bounds)
     basin_mean: float = 0.0
@@ -1175,12 +1177,12 @@ class FractalClusteringEngine:
                  template.regression_sigma_ticks = 0.0
                  template.adj_r2_mfe = 0.0
 
-             # Direction
-             labels = np.array([1 if m > 0 else 0 for m in markers if m != 0])
-             if len(labels) >= 20 and len(np.unique(labels)) == 2:
+             # ── Direction regression (balanced fallback for bypass path) ──
+             # LONG=1, SHORT=0 — class_weight='balanced' eliminates training imbalance
+             dir_labels = np.array([1 if m > 0 else 0 for m in markers if m != 0])
+             if len(dir_labels) >= 20 and len(np.unique(dir_labels)) == 2:
                  X_dir = np.array([self.extract_features(p) for p in patterns if p.oracle_marker != 0])
                  X_dir_sc = sc.transform(X_dir)
-                 # Analysis K importance weighting: amplify top direction features
                  _imp_w = np.ones(X_dir_sc.shape[1])
                  _imp_w[8]  = 1.50  # hurst (#1)
                  _imp_w[15] = 1.45  # osc_coh (#2)
@@ -1189,11 +1191,34 @@ class FractalClusteringEngine:
                  _imp_w[0]  = 1.25  # z_score (#6)
                  X_dir_wt = X_dir_sc * _imp_w
                  try:
-                     lr = LogisticRegression(max_iter=300).fit(X_dir_wt, labels)
+                     lr = LogisticRegression(max_iter=300, class_weight='balanced').fit(X_dir_wt, dir_labels)
                      template.dir_coeff = lr.coef_[0].tolist()
                      template.dir_intercept = float(lr.intercept_[0])
                  except:
                      pass
+
+             # ── Quality regression (within-side: good entry vs bad entry) ──
+             # Direction is known from DMI pre-split. This model predicts
+             # P(profitable) for entries in the template's direction.
+             # Label 1 = MFE above median (good entry), 0 = below (bad entry)
+             _side_sign = 1 if template.direction == 'LONG' else -1
+             _same_side = [(p, m) for p, m in zip(patterns, markers)
+                           if m != 0 and ((m > 0) == (_side_sign > 0))]
+             if len(_same_side) >= 20:
+                 _qs_patterns, _qs_markers = zip(*_same_side)
+                 _qs_mfes = np.array([getattr(p, 'oracle_mfe', 0.0) for p in _qs_patterns])
+                 _qs_median = float(np.median(_qs_mfes))
+                 _qs_labels = np.array([1 if mfe > _qs_median else 0 for mfe in _qs_mfes])
+                 if len(np.unique(_qs_labels)) == 2:
+                     X_qs = np.array([self.extract_features(p) for p in _qs_patterns])
+                     X_qs_sc = sc.transform(X_qs)
+                     X_qs_wt = X_qs_sc * _imp_w
+                     try:
+                         lr_q = LogisticRegression(max_iter=300).fit(X_qs_wt, _qs_labels)
+                         template.quality_coeff = lr_q.coef_[0].tolist()
+                         template.quality_intercept = float(lr_q.intercept_[0])
+                     except:
+                         pass
 
     def _build_dna_maps(self, template: PatternTemplate):
         """Build per-TF DNA centroids and bounds from member parent chains.

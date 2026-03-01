@@ -100,25 +100,14 @@ _DIR_IMP_W[0]  = 1.25  # z_score (#6)
 
 def _logistic_prob(feat_s: np.ndarray, lib: dict) -> float:
     """
-    P(LONG) from the cluster's logistic regression model.
+    P(LONG) from the cluster's balanced direction regression.
+    Trained with class_weight='balanced' — no prior correction needed.
     Fallback: use long_bias / short_bias aggregate if model not fitted.
-
-    Prior correction: the logistic regression was trained on class-imbalanced data
-    (e.g. 75% SHORT oracle markers). The intercept absorbed that base rate, so the
-    model predicts "what fraction of TRAINING examples were LONG" rather than
-    "what direction should THIS pattern trade." We subtract the training log-odds
-    to recenter: P(LONG)=0.5 at the feature mean, letting features alone decide.
     """
     coeff = lib.get('dir_coeff')
     if coeff is not None:
-        # Apply same importance weighting used during training
         feat_wt = feat_s * _DIR_IMP_W[:len(feat_s)]
         logit = float(np.dot(feat_wt, coeff) + lib.get('dir_intercept', 0.0))
-        # Prior correction: remove training class imbalance from intercept
-        _lb = lib.get('long_bias', 0.5)
-        _sb = lib.get('short_bias', 0.5)
-        if _lb > 0.01 and _sb > 0.01:
-            logit -= math.log(_lb / _sb)
         return _sigmoid(logit)
     # Fallback: convert bias fractions to a probability
     long_b  = lib.get('long_bias',  0.0)
@@ -127,6 +116,19 @@ def _logistic_prob(feat_s: np.ndarray, lib: dict) -> float:
     if total > 0.05:
         return long_b / total
     return 0.5  # truly no information
+
+
+def _quality_prob(feat_s: np.ndarray, lib: dict) -> float:
+    """
+    P(good entry) from the within-side quality regression.
+    Returns 0.5 if no quality model fitted for this template.
+    """
+    coeff = lib.get('quality_coeff')
+    if coeff is not None:
+        feat_wt = feat_s * _DIR_IMP_W[:len(feat_s)]
+        logit = float(np.dot(feat_wt, coeff) + lib.get('quality_intercept', 0.0))
+        return _sigmoid(logit)
+    return 0.5  # no model → neutral
 
 
 def _ols_mfe(feat_s: np.ndarray, lib: dict) -> float:

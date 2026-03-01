@@ -1636,70 +1636,48 @@ class BayesianTrainingOrchestrator:
                         except Exception:
                             _live_scaled = _live_feat_raw # Fallback
 
-                        # Direction determination
-                        # Use template direction (bias) or predicted direction
-                        side = lib_entry.get('direction', '')
+                        # ── Direction from template's DMI pre-split ──────────────
+                        # Template already knows its side from the LONG/SHORT pool.
+                        # No ML override — direction comes from the clustering lineage.
+                        side = lib_entry.get('direction', '').lower()
                         if not side:
-                            # Fallback to z_score sign if template is ambiguous
                             side = 'long' if best_candidate.z_score <= 0 else 'short'
+                        _dir_source = 'template_dmi'
 
-                        # ── Direction gate ──────────────────────────────────────────
-                        _live_s   = best_candidate.state
-                        _dmi_diff = (getattr(_live_s, 'dmi_plus',  0.0)
-                                   - getattr(_live_s, 'dmi_minus', 0.0))
-
+                        _live_s    = best_candidate.state
+                        _dmi_diff  = (getattr(_live_s, 'dmi_plus', 0.0)
+                                    - getattr(_live_s, 'dmi_minus', 0.0))
                         long_bias  = lib_entry.get('long_bias',  0.0)
                         short_bias = lib_entry.get('short_bias', 0.0)
                         _nn_marker = _effective_oracle(best_candidate)
 
-                        _dir_source = 'template_bias'
+                        # ── Gate 4: Entry Quality Confidence ─────────────────────
+                        # Quality regression: P(good entry) within this template's side.
+                        # Falls back to balanced direction confidence if no quality model.
+                        _q_coeff = lib_entry.get('quality_coeff')
+                        _p_long = 0.5  # default for logging (direction from template, not ML)
+                        _imp_w = np.ones(len(_live_scaled))
+                        _imp_w[8]  = 1.50  # hurst
+                        _imp_w[15] = 1.45  # osc_coh
+                        _imp_w[7]  = 1.35  # adx
+                        _imp_w[9]  = 1.30  # dmi_diff
+                        _imp_w[0]  = 1.25  # z_score
+                        if _q_coeff is not None:
+                            _q_logit = np.dot(_live_scaled * _imp_w, np.array(_q_coeff)) + lib_entry.get('quality_intercept', 0.0)
+                            _p_quality = 1.0 / (1.0 + np.exp(-np.clip(_q_logit, -20, 20)))
+                        else:
+                            # Fallback: use balanced direction model confidence
+                            _dir_coeff = lib_entry.get('dir_coeff')
+                            if _dir_coeff is not None:
+                                _d_logit = np.dot(_live_scaled * _imp_w, np.array(_dir_coeff)) + lib_entry.get('dir_intercept', 0.0)
+                                _p_long = 1.0 / (1.0 + np.exp(-np.clip(_d_logit, -20, 20)))
+                                # Confidence = how aligned the model is with the template side
+                                _p_quality = _p_long if side == 'long' else (1.0 - _p_long)
+                            else:
+                                _p_quality = 0.5
 
-                        # ── Direction gate ──────────────────────────────────────────
-                        # Snowflake: Branch determines direction (Z<=0 -> Long, Z>0 -> Short)
-                        # We retain DMI calc only for logging/diagnostics
-                        _live_s   = best_candidate.state
-                        _dmi_diff = (getattr(_live_s, 'dmi_plus',  0.0)
-                                   - getattr(_live_s, 'dmi_minus', 0.0))
+                        _dir_conf = abs(_p_quality - 0.5)
 
-                        long_bias  = lib_entry.get('long_bias',  0.0)
-                        short_bias = lib_entry.get('short_bias', 0.0)
-                        _nn_marker = _effective_oracle(best_candidate)
-
-                        _dir_source = 'snowflake_z'
-
-                        # ── Gate 4: Direction Confidence ──────────────────────────
-                        # Calculate P(LONG) from logistic model (with prior correction)
-                        _dir_coeff = lib_entry.get('dir_coeff')
-                        _p_long = 0.5
-                        if _dir_coeff is not None:
-                            # Apply same importance weighting used during training
-                            _imp_w = np.ones(len(_live_scaled))
-                            _imp_w[8]  = 1.50  # hurst
-                            _imp_w[15] = 1.45  # osc_coh
-                            _imp_w[7]  = 1.35  # adx
-                            _imp_w[9]  = 1.30  # dmi_diff
-                            _imp_w[0]  = 1.25  # z_score
-                            _logit = np.dot(_live_scaled * _imp_w, np.array(_dir_coeff)) + lib_entry.get('dir_intercept', 0.0)
-                            # Prior correction: remove training class imbalance
-                            _lb = lib_entry.get('long_bias', 0.5)
-                            _sb = lib_entry.get('short_bias', 0.5)
-                            if _lb > 0.01 and _sb > 0.01:
-                                import math as _math
-                                _logit -= _math.log(_lb / _sb)
-                            _p_long_ml = 1.0 / (1.0 + np.exp(-np.clip(_logit, -20, 20)))
-                            # Physics blend: z_score sign (feature 0 = abs(z) loses sign)
-                            _cand_z = best_candidate.z_score
-                            _phys_p_long = 1.0 / (1.0 + np.exp(_cand_z))  # z<0→LONG, z>0→SHORT
-                            _p_long = 0.5 * _p_long_ml + 0.5 * _phys_p_long
-
-                        # Use blended logistic+physics prediction to SET direction
-                        if _dir_coeff is not None:
-                            side = 'long' if _p_long > 0.5 else 'short'
-                            _dir_source = 'logistic_physics'
-
-                        _dir_conf = abs(_p_long - 0.5)
-
-                        # Filter uncertain trades (unless bypass/exception? No, apply to all template trades)
                         if _dir_conf < DIRECTION_CONFIDENCE_THRESHOLD:
                             _candidate_gate[id(best_candidate)] = 'gate4_confidence'
                             _bc_mz = abs(best_candidate.z_score)
@@ -4199,11 +4177,14 @@ class BayesianTrainingOrchestrator:
             'risk_variance':           getattr(template, 'risk_variance',           0.0),
             'regression_sigma_ticks':  getattr(template, 'regression_sigma_ticks',  0.0),
             # mfe_coeff @ live_scaled_features + mfe_intercept  -> predicted MFE in price pts
-            # sigmoid(dir_coeff @ live_scaled_features + dir_intercept) -> P(LONG)
-            'mfe_coeff':     getattr(template, 'mfe_coeff',     None),
-            'mfe_intercept': getattr(template, 'mfe_intercept', 0.0),
-            'dir_coeff':     getattr(template, 'dir_coeff',     None),
-            'dir_intercept': getattr(template, 'dir_intercept', 0.0),
+            # sigmoid(dir_coeff @ live_scaled_features + dir_intercept) -> P(LONG) balanced
+            # sigmoid(quality_coeff @ feat + quality_intercept) -> P(good entry) within-side
+            'mfe_coeff':         getattr(template, 'mfe_coeff',         None),
+            'mfe_intercept':     getattr(template, 'mfe_intercept',     0.0),
+            'dir_coeff':         getattr(template, 'dir_coeff',         None),
+            'dir_intercept':     getattr(template, 'dir_intercept',     0.0),
+            'quality_coeff':     getattr(template, 'quality_coeff',     None),
+            'quality_intercept': getattr(template, 'quality_intercept', 0.0),
             # Time-scale: bar index where MFE historically peaks (0.0 until --fresh with mfe_bar)
             'avg_mfe_bar':   getattr(template, 'avg_mfe_bar',   0.0),
             'p75_mfe_bar':   getattr(template, 'p75_mfe_bar',   0.0),
