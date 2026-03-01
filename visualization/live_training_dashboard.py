@@ -373,8 +373,7 @@ class FractalDashboard:
         )
         if fn:
             try:
-                # DEFAULT_CHART_DPI is not defined, using 300
-                fig.savefig(fn, dpi=300, bbox_inches="tight", facecolor=BG)
+                fig.savefig(fn, dpi=DEFAULT_CHART_DPI, bbox_inches="tight", facecolor=BG)
                 self._log(f"Chart saved: {fn}")
             except Exception as e:
                 self._log(f"Error saving chart: {e}", error=True)
