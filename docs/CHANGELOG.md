@@ -2,6 +2,18 @@
 
 ---
 
+## [V5.4.0] - 2026-03-05 — Analysis I/J/K Seed Classification & Direction Prediction
+
+### New
+- `feat`: Analysis I - 20 seed primitives classify 74.7% of segments (Pearson r >= 0.75).
+- `feat`: Analysis J - Adaptive KMeans on shape-normalized data, IQR quality gate, R² ceiling 0.88.
+- `feat`: Analysis K - GradientBoosting direction prediction — 70.6% accuracy (+16.5% lift), 4h/1h timeframes dominate (Hurst, osc_coherence top features).
+
+### Docs
+- `JULES_WAVEFORM_INTEGRATION.md` — 5-part plan for worker integration added to spec.
+
+---
+
 ## [V5.3.0] - 2026-02-26 — Phase A/B/C Performance Improvements & Dashboard Enhancements
 
 ### New

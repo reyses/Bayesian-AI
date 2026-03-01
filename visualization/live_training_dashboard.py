@@ -353,7 +353,7 @@ class FractalDashboard:
         )
         if fn:
             try:
-                fig.savefig(fn, dpi=DEFAULT_CHART_DPI, bbox_inches="tight", facecolor=BG)
+                fig.savefig(fn, dpi=100, bbox_inches="tight", facecolor=BG)
                 self._log(f"Chart saved: {fn}")
             except Exception as e:
                 self._log(f"Error saving chart: {e}", error=True)
