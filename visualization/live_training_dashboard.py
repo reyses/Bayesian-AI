@@ -937,32 +937,25 @@ class ProgressPopup:
         self._canvas.pack(padx=20, fill=tk.X, expand=False)
         self._canvas.bind("<Configure>", lambda e: self._redraw_chart())
 
-        # ── Live Price Ticker (replaces PnL by Day) ────────────────────────
-        tk.Label(root, text="Live Ticker", bg=BG, fg=FG_GREY,
-                 font=("Consolas", 8)).pack(pady=(10, 2))
-        tick_frame = tk.Frame(root, bg="#141414", highlightthickness=1,
-                              highlightbackground="#333333")
-        tick_frame.pack(padx=20, fill=tk.X)
+        # ── Live Price Chart ─────────────────────────────────────────────
+        self._price_history = []  # last N prices for line chart
+        self._MAX_PRICE_PTS = 200  # rolling window
 
+        price_header = tk.Frame(root, bg=BG)
+        price_header.pack(fill="x", padx=20, pady=(10, 2))
+        tk.Label(price_header, text="Price", bg=BG, fg=FG_GREY,
+                 font=("Consolas", 8)).pack(side="left")
         self._price_var = tk.StringVar(value="--")
-        self._bid_var = tk.StringVar(value="--")
-        self._ask_var = tk.StringVar(value="--")
-        self._bars_var = tk.StringVar(value="0")
+        self._price_lbl = tk.Label(
+            price_header, textvariable=self._price_var, bg=BG, fg=FG_WHITE,
+            font=("Consolas", 10, "bold"))
+        self._price_lbl.pack(side="right")
 
-        for col, (lbl, var, fg, sz) in enumerate([
-            ("Last",  self._price_var, FG_WHITE, 16),
-            ("Bid",   self._bid_var,   FG_GREEN, 12),
-            ("Ask",   self._ask_var,   FG_RED,   12),
-            ("Bars",  self._bars_var,  FG_GREY,  12),
-        ]):
-            cell = tk.Frame(tick_frame, bg="#141414")
-            cell.pack(side="left", expand=True, padx=8, pady=4)
-            tk.Label(cell, text=lbl, bg="#141414", fg=FG_GREY,
-                     font=("Consolas", 7)).pack()
-            tk.Label(cell, textvariable=var, bg="#141414", fg=fg,
-                     font=("Consolas", sz, "bold")).pack()
-
-        self._price_lbl = tick_frame.winfo_children()[0].winfo_children()[1]
+        self._price_canvas = tk.Canvas(
+            root, width=self._CHART_W, height=self._CHART_H,
+            bg="#141414", highlightthickness=1, highlightbackground="#333333")
+        self._price_canvas.pack(padx=20, fill=tk.X, expand=False)
+        self._price_canvas.bind("<Configure>", lambda e: self._redraw_price_chart())
 
         # ── Status footer ─────────────────────────────────────────────────────
         self._status_var = tk.StringVar(value="Running...")
@@ -1037,6 +1030,46 @@ class ProgressPopup:
                 x = pad + frac * (W - 2 * pad)
                 c.create_text(x, H - 1, text=f"T{j}", fill="#555555",
                               font=("Consolas", 6), anchor="s")
+
+    # ── Price line chart ──────────────────────────────────────────────────
+    def _redraw_price_chart(self):
+        c = self._price_canvas
+        c.delete("all")
+        pts = self._price_history
+        W = max(100, c.winfo_width())
+        H = max(40, c.winfo_height())
+        if len(pts) < 2:
+            c.create_text(W // 2, H // 2, text="Waiting for bars...",
+                          fill=FG_GREY, font=("Consolas", 9))
+            return
+
+        pad = 6
+        mn, mx = min(pts), max(pts)
+        span = mx - mn if mx != mn else 1.0
+
+        # Price grid lines (3 levels)
+        for frac in (0.25, 0.5, 0.75):
+            gy = pad + frac * (H - 2 * pad)
+            price_at = mx - frac * span
+            c.create_line(pad, gy, W - pad, gy, fill="#282828", dash=(2, 4))
+            c.create_text(W - pad + 2, gy, text=f"{price_at:,.0f}",
+                          fill="#444444", font=("Consolas", 5), anchor="w")
+
+        # Polyline
+        coords = []
+        for i, v in enumerate(pts):
+            x = pad + i / (len(pts) - 1) * (W - 2 * pad)
+            y = H - pad - ((v - mn) / span) * (H - 2 * pad)
+            coords.extend([x, y])
+
+        # Direction color: last vs first
+        color = FG_GREEN if pts[-1] >= pts[0] else FG_RED
+        c.create_line(coords, fill=color, width=2, smooth=True)
+
+        # Current price dot at right end
+        c.create_oval(coords[-2] - 3, coords[-1] - 3,
+                      coords[-2] + 3, coords[-1] + 3,
+                      fill=color, outline="")
 
     def _on_aggression_change(self, val):
         """Slider callback — update shared state so engine reads it."""
@@ -1163,25 +1196,20 @@ class ProgressPopup:
 
                 elif mtype == "TICK_UPDATE":
                     price = msg.get("price")
-                    bars = msg.get("bars")
                     if price is not None:
-                        self._price_var.set(f"{float(price):,.2f}")
-                        # Flash green/red based on direction
+                        p = float(price)
+                        self._price_var.set(f"{p:,.2f}")
+                        # Flash green/red
                         prev = getattr(self, '_prev_price', None)
                         if prev is not None:
-                            color = FG_GREEN if float(price) >= prev else FG_RED
-                            self._price_lbl.config(fg=color)
-                        self._prev_price = float(price)
-                    if bars is not None:
-                        self._bars_var.set(str(bars))
-
-                elif mtype == "DOM_UPDATE":
-                    bid = msg.get("bid")
-                    ask = msg.get("ask")
-                    if bid is not None:
-                        self._bid_var.set(f"{float(bid):,.2f}")
-                    if ask is not None:
-                        self._ask_var.set(f"{float(ask):,.2f}")
+                            self._price_lbl.config(
+                                fg=FG_GREEN if p >= prev else FG_RED)
+                        self._prev_price = p
+                        # Feed price chart
+                        self._price_history.append(p)
+                        if len(self._price_history) > self._MAX_PRICE_PTS:
+                            self._price_history = self._price_history[-self._MAX_PRICE_PTS:]
+                        self._redraw_price_chart()
 
                 elif mtype == "SHUTDOWN":
                     if not self._done:
