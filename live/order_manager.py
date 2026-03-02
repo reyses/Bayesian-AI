@@ -111,14 +111,14 @@ class OrderManager:
         msg = place_order(oid, self._cfg.instrument,
                           self._cfg.account, side,
                           self._cfg.max_position_size)
-        logger.info(f"ORDER → {side} {self._cfg.max_position_size} {self._cfg.instrument}  id={oid}")
+        logger.info(f"ORDER -> {side} {self._cfg.max_position_size} {self._cfg.instrument}  id={oid}")
         return msg
 
     def build_exit_order(self, reason: str = 'signal') -> Optional[dict]:
         """Build a CLOSE_POSITION message.  Returns None if already flat."""
         if self.is_flat:
             return None
-        logger.info(f"EXIT → close {self.position.side} ({reason})")
+        logger.info(f"EXIT -> close {self.position.side} ({reason})")
         return close_position(self._cfg.instrument, self._cfg.account)
 
     def on_fill(self, msg: dict) -> Optional[float]:

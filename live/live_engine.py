@@ -409,8 +409,13 @@ class LiveEngine:
         result = 'WIN' if pnl > 0 else 'LOSS'
         outcome = TradeOutcome(
             state=self._active_tid or 'UNKNOWN',
-            result=result,
+            entry_price=self._entry_price,
+            exit_price=self._entry_price + pnl / 5.0,  # approximate
             pnl=pnl,
+            result=result,
+            timestamp=time.time(),
+            exit_reason='live_trade',
+            direction='LONG' if self._active_side == 'long' else 'SHORT',
             template_id=self._active_tid,
         )
         self._brain.update(outcome)
