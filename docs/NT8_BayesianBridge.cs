@@ -50,6 +50,10 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "Account Name", Description = "Trading account (e.g. DEMO6872628)", Order = 2, GroupName = "Bridge")]
         public string AccountName { get; set; }
 
+        [NinjaScriptProperty]
+        [Display(Name = "DOM Levels", Description = "Depth of Market levels to track (0 = disabled)", Order = 3, GroupName = "Bridge")]
+        public int DomLevels { get; set; }
+
         // ── Internal State ────────────────────────────────────────────
         private TcpListener  _listener;
         private TcpClient    _client;
@@ -62,6 +66,24 @@ namespace NinjaTrader.NinjaScript.Indicators
         private readonly Queue<Dictionary<string, string>> _inboundQueue
             = new Queue<Dictionary<string, string>>();
 
+        // Map BarsInProgress index -> period label for the BAR message
+        // Index 0 = primary chart (1s), indices 1-11 = added data series
+        private string[] _barLabels;
+        private int[]    _barPeriodSecs;
+
+        // History buffer — every completed bar is stored here; dumped to
+        // client on connect so the Python engine can bypass warmup.
+        private readonly List<string> _allBars = new List<string>();
+        private readonly object _barLock = new object();
+
+        // DOM throttle — send at most every N ms to avoid flooding
+        private DateTime _lastDomSend = DateTime.MinValue;
+        private const int DOM_THROTTLE_MS = 250;
+
+        // Latest best bid/ask (updated on every depth event, sent throttled)
+        private double _bestBid, _bestAsk;
+        private long   _bestBidSize, _bestAskSize;
+
         // ── NinjaScript Lifecycle ─────────────────────────────────────
 
         protected override void OnStateChange()
@@ -73,6 +95,35 @@ namespace NinjaTrader.NinjaScript.Indicators
                 IsOverlay   = true;
                 Port        = 5199;
                 AccountName = "Sim101";
+                DomLevels   = 5;
+                MaximumBarsLookBack = MaximumBarsLookBack.Infinite;
+                Calculate           = Calculate.OnBarClose;
+            }
+            else if (State == State.Configure)
+            {
+                // Add all timeframes the engine needs (12 TFs total).
+                // Index 0 = primary chart (1s). Indices 1-11 below.
+                // Order matches TF_HIERARCHY: 15s,30s,1m,2m,3m,5m,15m,30m,1h,4h,1D
+                AddDataSeries(BarsPeriodType.Second, 15);   // idx 1: 15s
+                AddDataSeries(BarsPeriodType.Second, 30);   // idx 2: 30s
+                AddDataSeries(BarsPeriodType.Minute, 1);    // idx 3: 1m
+                AddDataSeries(BarsPeriodType.Minute, 2);    // idx 4: 2m
+                AddDataSeries(BarsPeriodType.Minute, 3);    // idx 5: 3m
+                AddDataSeries(BarsPeriodType.Minute, 5);    // idx 6: 5m
+                AddDataSeries(BarsPeriodType.Minute, 15);   // idx 7: 15m
+                AddDataSeries(BarsPeriodType.Minute, 30);   // idx 8: 30m
+                AddDataSeries(BarsPeriodType.Minute, 60);   // idx 9: 1h
+                AddDataSeries(BarsPeriodType.Minute, 240);  // idx 10: 4h
+                AddDataSeries(BarsPeriodType.Day, 1);       // idx 11: 1D
+
+                _barLabels = new string[] {
+                    "1s", "15s", "30s", "1m", "2m", "3m",
+                    "5m", "15m", "30m", "1h", "4h", "1D"
+                };
+                _barPeriodSecs = new int[] {
+                    1, 15, 30, 60, 120, 180,
+                    300, 900, 1800, 3600, 14400, 86400
+                };
             }
             else if (State == State.DataLoaded)
             {
@@ -129,20 +180,74 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         protected override void OnBarUpdate()
         {
-            if (CurrentBars[0] < 1 || IsFirstTickOfBar == false)
+            int idx = BarsInProgress;
+            if (_barLabels == null || idx >= _barLabels.Length)
+                return;
+            if (CurrentBars[idx] < 1 || IsFirstTickOfBar == false)
                 return;
 
-            // Send the just-completed bar
+            // Build bar JSON for whichever TF just completed
             string json = "{"
                 + Q("type") + ":" + Q("BAR") + ","
                 + Q("instrument") + ":" + Q(Instrument.FullName) + ","
-                + Q("timestamp") + ":" + D2S(ToUnixSeconds(Time[1])) + ","
-                + Q("open") + ":" + D2S(Open[1]) + ","
-                + Q("high") + ":" + D2S(High[1]) + ","
-                + Q("low") + ":" + D2S(Low[1]) + ","
-                + Q("close") + ":" + D2S(Close[1]) + ","
-                + Q("volume") + ":" + D2S(Volume[1]) + ","
-                + Q("bar_period_s") + ":" + BarsPeriod.Value
+                + Q("tf") + ":" + Q(_barLabels[idx]) + ","
+                + Q("bar_period_s") + ":" + _barPeriodSecs[idx] + ","
+                + Q("timestamp") + ":" + D2S(ToUnixSeconds(Times[idx][1])) + ","
+                + Q("open") + ":" + D2S(Opens[idx][1]) + ","
+                + Q("high") + ":" + D2S(Highs[idx][1]) + ","
+                + Q("low") + ":" + D2S(Lows[idx][1]) + ","
+                + Q("close") + ":" + D2S(Closes[idx][1]) + ","
+                + Q("volume") + ":" + D2S(Volumes[idx][1])
+                + "}";
+
+            // Always buffer (for history dump on reconnect); also send
+            // live if a client is connected.
+            lock (_barLock) { _allBars.Add(json); }
+            SendRawJson(json);
+        }
+
+        // ── DOM (Depth of Market) ────────────────────────────────────
+
+        protected override void OnMarketDepth(MarketDepthEventArgs e)
+        {
+            if (DomLevels <= 0) return;   // DOM disabled
+
+            // Track best bid/ask from top-of-book updates
+            if (e.Position == 0)
+            {
+                if (e.MarketDataType == MarketDataType.Bid)
+                {
+                    _bestBid     = e.Price;
+                    _bestBidSize = e.Volume;
+                }
+                else if (e.MarketDataType == MarketDataType.Ask)
+                {
+                    _bestAsk     = e.Price;
+                    _bestAskSize = e.Volume;
+                }
+            }
+
+            // Throttle: send snapshot at most every DOM_THROTTLE_MS
+            if ((DateTime.Now - _lastDomSend).TotalMilliseconds < DOM_THROTTLE_MS)
+                return;
+            _lastDomSend = DateTime.Now;
+
+            if (_bestBid <= 0 || _bestAsk <= 0) return;
+
+            double imbalance = (_bestBidSize + _bestAskSize) > 0
+                ? (double)(_bestBidSize - _bestAskSize) / (_bestBidSize + _bestAskSize)
+                : 0.0;
+
+            string json = "{"
+                + Q("type") + ":" + Q("DOM") + ","
+                + Q("instrument") + ":" + Q(Instrument.FullName) + ","
+                + Q("bid") + ":" + D2S(_bestBid) + ","
+                + Q("bid_size") + ":" + _bestBidSize + ","
+                + Q("ask") + ":" + D2S(_bestAsk) + ","
+                + Q("ask_size") + ":" + _bestAskSize + ","
+                + Q("spread") + ":" + D2S(_bestAsk - _bestBid) + ","
+                + Q("imbalance") + ":" + D2S(imbalance) + ","
+                + Q("timestamp") + ":" + D2S(ToUnixSeconds(DateTime.UtcNow))
                 + "}";
             SendRawJson(json);
         }
@@ -227,6 +332,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                     SendRawJson(connJson);
 
                     SendPositionSnapshot();
+                    SendHistoryBuffer();
 
                     _readThread = new Thread(ReadLoop) { IsBackground = true };
                     _readThread.Start();
@@ -497,6 +603,27 @@ namespace NinjaTrader.NinjaScript.Indicators
             {
                 Print("BayesianBridge: Position snapshot failed: " + ex.Message);
             }
+        }
+
+        private void SendHistoryBuffer()
+        {
+            List<string> snapshot;
+            lock (_barLock)
+            {
+                snapshot = new List<string>(_allBars);
+            }
+
+            foreach (string json in snapshot)
+                SendRawJson(json);
+
+            // Tell Python that the historical dump is complete
+            string done = "{"
+                + Q("type") + ":" + Q("HISTORY_DONE") + ","
+                + Q("bar_count") + ":" + snapshot.Count
+                + "}";
+            SendRawJson(done);
+
+            Print("BayesianBridge: Sent " + snapshot.Count + " historical bars to client");
         }
 
         // ── Position Lookup ───────────────────────────────────────────

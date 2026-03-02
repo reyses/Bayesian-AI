@@ -1,9 +1,11 @@
 """
-LiveBarAggregator — accumulates inbound 15s bars into a growing DataFrame
-and recomputes quantum states via the QuantumFieldEngine.
+LiveBarAggregator — aggregates inbound 1s bars into 15s bars, accumulates
+them into a growing DataFrame, and recomputes quantum states via the
+QuantumFieldEngine.
 
-In live mode there is one day of bars that grows bar-by-bar.  At session
-reset (detected via timestamp gap) the buffer is flushed.
+NT8 sends 1-second bars.  The aggregator buffers 15 of them, builds one
+OHLCV 15s bar, and appends it to the state buffer.  At session reset
+(detected via timestamp gap) the buffer is flushed.
 """
 
 import logging
@@ -16,16 +18,19 @@ from live.config import LiveConfig
 
 logger = logging.getLogger(__name__)
 
+TARGET_PERIOD = 15   # aggregate 1s bars into 15s bars
+
 
 class LiveBarAggregator:
-    """Accumulate bars and recompute quantum states incrementally."""
+    """Aggregate 1s bars into 15s, accumulate, recompute quantum states."""
 
     def __init__(self, engine: QuantumFieldEngine, config: LiveConfig):
         self._engine = engine
         self._cfg = config
-        self._rows: list = []
+        self._rows: list = []       # completed 15s bars
         self._states: list = []
         self._warmed_up = False
+        self._sub_bars: list = []   # buffered 1s bars for current 15s window
 
     # ── Public API ────────────────────────────────────────────────────
 
@@ -50,11 +55,14 @@ class LiveBarAggregator:
 
     def add_bar(self, msg: dict) -> Optional[list]:
         """
-        Append an inbound BAR message and recompute states.
+        Append an inbound 1s BAR message.  Every 15 bars, emit one 15s
+        OHLCV bar and recompute states.
 
         Returns the states list once warmed up, else None.
         """
-        row = {
+        bar_period = int(msg.get('bar_period_s', 1))
+
+        row_1s = {
             'timestamp': float(msg['timestamp']),
             'open':      float(msg['open']),
             'high':      float(msg['high']),
@@ -64,30 +72,68 @@ class LiveBarAggregator:
         }
 
         # Session reset detection: >2h gap between bars
+        if self._sub_bars:
+            gap = row_1s['timestamp'] - self._sub_bars[-1]['timestamp']
+            if gap > 7200:
+                logger.info(f"Session gap ({gap:.0f}s) — resetting aggregator")
+                self.reset()
+
+        # If source is already 15s (or larger), pass through directly
+        if bar_period >= TARGET_PERIOD:
+            return self._append_15s(row_1s)
+
+        # Buffer the 1s bar
+        self._sub_bars.append(row_1s)
+
+        # Check if we've completed a 15s window
+        if len(self._sub_bars) >= TARGET_PERIOD:
+            agg = self._aggregate_sub_bars()
+            self._sub_bars.clear()
+            return self._append_15s(agg)
+
+        return None
+
+    def reset(self):
+        """Flush all bars and states (session boundary)."""
+        self._rows.clear()
+        self._states.clear()
+        self._sub_bars.clear()
+        self._warmed_up = False
+        logger.info("Aggregator reset")
+
+    # ── Internal ──────────────────────────────────────────────────────
+
+    def _aggregate_sub_bars(self) -> dict:
+        """Combine buffered 1s bars into a single 15s OHLCV bar."""
+        bars = self._sub_bars
+        return {
+            'timestamp': bars[0]['timestamp'],
+            'open':      bars[0]['open'],
+            'high':      max(b['high'] for b in bars),
+            'low':       min(b['low'] for b in bars),
+            'close':     bars[-1]['close'],
+            'volume':    sum(b['volume'] for b in bars),
+        }
+
+    def _append_15s(self, row: dict) -> Optional[list]:
+        """Append a completed 15s bar and recompute if warmed up."""
+        # Session gap check against last 15s bar
         if self._rows:
             gap = row['timestamp'] - self._rows[-1]['timestamp']
             if gap > 7200:
-                logger.info(f"Session gap detected ({gap:.0f}s) — resetting aggregator")
+                logger.info(f"Session gap ({gap:.0f}s) — resetting aggregator")
                 self.reset()
 
         self._rows.append(row)
 
         if self.bar_count < self._cfg.warmup_bars:
             if self.bar_count % 60 == 0:
-                logger.info(f"Warmup: {self.bar_count}/{self._cfg.warmup_bars} bars")
+                logger.info(f"Warmup: {self.bar_count}/{self._cfg.warmup_bars} "
+                            f"15s bars ({self.bar_count * 15 // 60}m)")
             return None
 
         self._warmed_up = True
         return self._recompute()
-
-    def reset(self):
-        """Flush all bars and states (session boundary)."""
-        self._rows.clear()
-        self._states.clear()
-        self._warmed_up = False
-        logger.info("Aggregator reset")
-
-    # ── Internal ──────────────────────────────────────────────────────
 
     def _recompute(self) -> list:
         """Recompute quantum states on the full bar buffer."""
