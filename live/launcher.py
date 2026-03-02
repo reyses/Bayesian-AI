@@ -5,16 +5,33 @@ Usage:
     python -m live.launcher                     # paper trade (Sim101)
     python -m live.launcher --dry-run           # log signals, no orders
     python -m live.launcher --account MyAccount  # real account
+    python -m live.launcher --no-gui            # headless (no popup)
     python -m live.launcher --checkpoint-dir checkpoints_v2
 """
 
 import argparse
 import asyncio
 import logging
+import queue as stdlib_queue
 import sys
+import threading
 
 from live.config import LiveConfig
 from live.live_engine import LiveEngine
+
+
+def _run_popup(gui_queue):
+    """Launch ProgressPopup in its own Tk mainloop (daemon thread)."""
+    import tkinter as tk
+    from visualization.live_training_dashboard import ProgressPopup
+
+    root = tk.Tk()
+    ProgressPopup(root, gui_queue)
+    root.title("Bayesian-AI  LIVE")
+    try:
+        root.mainloop()
+    except Exception:
+        pass
 
 
 def main():
@@ -32,6 +49,8 @@ def main():
                         help='Training checkpoint directory')
     parser.add_argument('--dry-run', action='store_true',
                         help='Run full pipeline but send no orders')
+    parser.add_argument('--no-gui', action='store_true',
+                        help='Run headless without progress popup')
     parser.add_argument('--max-daily-loss', type=float, default=200.0,
                         help='Max daily loss in USD before stopping (default: 200)')
     parser.add_argument('--warmup-bars', type=int, default=240,
@@ -62,7 +81,16 @@ def main():
         max_daily_loss_usd=args.max_daily_loss,
     )
 
-    engine = LiveEngine(config, dry_run=args.dry_run)
+    # Launch GUI popup (unless --no-gui)
+    gui_queue = None
+    if not args.no_gui:
+        gui_queue = stdlib_queue.Queue(maxsize=5000)
+        gui_thread = threading.Thread(
+            target=_run_popup, args=(gui_queue,),
+            daemon=True, name='LivePopup')
+        gui_thread.start()
+
+    engine = LiveEngine(config, dry_run=args.dry_run, gui_queue=gui_queue)
     asyncio.run(engine.run())
 
 

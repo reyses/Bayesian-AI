@@ -82,10 +82,12 @@ class _LiveCandidate:
 class LiveEngine:
     """Main live trading loop — replaces Phase 4 forward pass for real-time."""
 
-    def __init__(self, config: LiveConfig, dry_run: bool = False, client=None):
+    def __init__(self, config: LiveConfig, dry_run: bool = False,
+                 client=None, gui_queue=None):
         self._cfg = config
         self._dry_run = dry_run
         self._client_override = client  # None = use NT8Client
+        self._gui_queue = gui_queue     # None = headless
 
         # Core components (loaded from checkpoints)
         self._asset = SYMBOL_MAP.get(config.asset_ticker)
@@ -129,6 +131,13 @@ class LiveEngine:
         self._bar_i = 0   # running bar index
         self._live_trade_count = 0  # for periodic brain save
         self._brain_save_interval = 5  # save brain every N trades
+
+        # GUI stats (for popup)
+        self._session_pnl = 0.0
+        self._session_wins = 0
+        self._session_trades = 0
+        self._gross_win = 0.0
+        self._gross_loss = 0.0
 
     # ── Public API ────────────────────────────────────────────────────
 
@@ -197,11 +206,33 @@ class LiveEngine:
                 self._sync_position_state()
             elif mtype == 'CONNECTED':
                 logger.info(f"NT8 CONNECTED: account={msg.get('account')}")
+                self._gui_push({
+                    'type': 'PHASE_PROGRESS',
+                    'phase': 'LIVE',
+                    'step': 'CONNECTED — warming up',
+                    'pct': 0,
+                })
+            elif mtype == 'HISTORY_DONE':
+                count = int(msg.get('bar_count', 0))
+                logger.info(f"History dump complete: {count} bars")
+            elif mtype == 'DOM':
+                pass  # DOM handled by future dashboard
 
     async def _on_bar(self, msg: dict):
         """Process a single inbound BAR message."""
         states = self._aggregator.add_bar(msg)
         if states is None:
+            # Push warmup progress to GUI
+            if self._bar_i % 10 == 0:
+                pct = self._aggregator.bar_count / max(1, self._cfg.warmup_bars) * 100
+                self._gui_push({
+                    'type': 'PHASE_PROGRESS',
+                    'phase': 'LIVE',
+                    'step': (f'warmup {self._aggregator.bar_count}'
+                             f'/{self._cfg.warmup_bars}'),
+                    'pct': min(99, pct),
+                })
+            self._bar_i += 1
             return  # still warming up
 
         price = float(msg['close'])
@@ -263,8 +294,36 @@ class LiveEngine:
         if msg:
             await self._client.send(msg)
 
+    def _gui_push(self, msg: dict):
+        """Non-blocking push to GUI queue. Drop if full."""
+        if self._gui_queue is None:
+            return
+        try:
+            self._gui_queue.put_nowait(msg)
+        except Exception:
+            pass
+
+    def _gui_push_stats(self):
+        """Push current session stats to the popup."""
+        wr = (self._session_wins / self._session_trades * 100
+              if self._session_trades > 0 else 0.0)
+        pf = (self._gross_win / abs(self._gross_loss)
+              if self._gross_loss != 0 else 0.0)
+        self._gui_push({
+            'type': 'PHASE_PROGRESS',
+            'phase': 'LIVE',
+            'step': f'trade {self._session_trades}',
+            'pct': min(100, self._bar_i / max(1, self._cfg.warmup_bars) * 100),
+            'pnl': self._session_pnl,
+            'wr': wr,
+            'trades': self._session_trades,
+            'pf': pf,
+            'gross_w': self._gross_win,
+            'gross_l': abs(self._gross_loss),
+        })
+
     def _brain_learn(self, pnl: float):
-        """Feed trade outcome to brain and periodically save."""
+        """Feed trade outcome to brain, update GUI stats, save periodically."""
         from core.bayesian_brain import TradeOutcome
 
         result = 'WIN' if pnl > 0 else 'LOSS'
@@ -277,8 +336,27 @@ class LiveEngine:
         self._brain.update(outcome)
         self._live_trade_count += 1
 
+        # Update session stats for GUI
+        self._session_pnl += pnl
+        self._session_trades += 1
+        if pnl > 0:
+            self._session_wins += 1
+            self._gross_win += pnl
+        else:
+            self._gross_loss += pnl
+
         logger.info(f"Brain learned: tid={self._active_tid} {result} "
                     f"${pnl:+.2f}  (table size: {len(self._brain.table)})")
+
+        # Push stats to GUI popup
+        self._gui_push_stats()
+        self._gui_push({
+            'type': 'DAY_PNL',
+            'day': time.strftime('%H:%M'),
+            'pnl': pnl,
+            'trades': 1,
+            'wins': 1 if pnl > 0 else 0,
+        })
 
         # Save every N trades
         if self._live_trade_count % self._brain_save_interval == 0:
