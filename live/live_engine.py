@@ -62,6 +62,7 @@ class _LiveCandidate:
     state: object         # ThreeBodyQuantumState
     depth: int = 10       # default: 15s depth level
     timeframe: str = '15s'
+    parent_type: str = 'STRUCTURAL_DRIVE'  # needed by extract_features
     parent_chain: list = None
     timestamp: float = 0.0
     price: float = 0.0
@@ -450,6 +451,7 @@ class LiveEngine:
             state=state,
             depth=10,           # 15s resolution in live
             timeframe='15s',
+            parent_type=pattern_type,  # same as self in live (no tree yet)
             timestamp=ts,
             price=price,
             idx=self._bar_i,
