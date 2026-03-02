@@ -1062,8 +1062,8 @@ class ProgressPopup:
             y = H - pad - ((v - mn) / span) * (H - 2 * pad)
             coords.extend([x, y])
 
-        # Direction color: last vs first
-        color = FG_GREEN if pts[-1] >= pts[0] else FG_RED
+        # Neutral blue — no buy/sell connotation
+        color = "#4A9EFF"
         c.create_line(coords, fill=color, width=2, smooth=True)
 
         # Current price dot at right end

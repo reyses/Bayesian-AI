@@ -11,7 +11,11 @@
       "Bash(powershell.exe -Command \"Get-NetTCPConnection -LocalPort 5199 -ErrorAction SilentlyContinue | Select-Object LocalAddress, LocalPort, RemoteAddress, RemotePort, State, OwningProcess\")",
       "Bash(powershell.exe -Command \"Get-NetTCPConnection -LocalPort 5199 -ErrorAction SilentlyContinue | Format-Table LocalAddress, LocalPort, RemoteAddress, RemotePort, State, OwningProcess -AutoSize\")",
       "Bash(powershell.exe -Command \"\\(Get-Item ''C:\\\\Users\\\\reyse\\\\OneDrive\\\\Documents\\\\NinjaTrader 8\\\\bin\\\\Custom\\\\Indicators\\\\NT8_BayesianBridge.cs''\\).LastWriteTime\")",
-      "Bash(powershell.exe -Command \"\\(Get-Item ''C:\\\\Users\\\\reyse\\\\OneDrive\\\\Desktop\\\\Bayesian-AI\\\\docs\\\\NT8_BayesianBridge.cs''\\).LastWriteTime\")"
+      "Bash(powershell.exe -Command \"\\(Get-Item ''C:\\\\Users\\\\reyse\\\\OneDrive\\\\Desktop\\\\Bayesian-AI\\\\docs\\\\NT8_BayesianBridge.cs''\\).LastWriteTime\")",
+      "Bash(netstat -ano)",
+      "Bash(powershell -Command \"Get-Process -Id 100860 | Select-Object ProcessName,Id; Get-Process -Id 79392 | Select-Object ProcessName,Id\")",
+      "Bash(powershell -Command \"Get-Process python* | Where-Object { $_.Id -ne $PID } | Stop-Process -Force -ErrorAction SilentlyContinue; ''Done''\")",
+      "Bash(powershell -Command \"Stop-Process -Name python3.11 -Force -ErrorAction SilentlyContinue; Stop-Process -Name python -Force -ErrorAction SilentlyContinue; ''Killed''\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\reyse\\OneDrive\\Documents\\NinjaTrader 8\\bin\\Custom\\Indicators"
