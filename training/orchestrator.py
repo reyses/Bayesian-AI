@@ -550,6 +550,7 @@ class BayesianTrainingOrchestrator:
         skip_dist        = 0   # No cluster match within distance 3.0
         skip_brain       = 0   # Brain gate: template probability too low
         skip_conviction  = 0   # Belief network: path conviction below MIN_CONVICTION
+        skip_physics_qg  = 0   # Physics quality gate: depth>3 or z>=0 on bypass
         n_signals_seen   = 0   # Total candidate signals evaluated (all gates combined)
         depth_traded     = defaultdict(int)  # depth -> trade count (1=high TF, 6=15s)
 
@@ -1451,6 +1452,18 @@ class BayesianTrainingOrchestrator:
                         # No cluster template matched (Gate 1) but belief conviction
                         # >= 0.65. Workers called the direction 85-100% correctly for
                         # these no-match signals -- fire using worker-derived params.
+
+                        # ── Physics quality gate (Analysis B: depth<=3 + z<0) ─
+                        # Filters to high-TF triggers with extended price only.
+                        # OOS: 69.2% WR, $188.83/trade vs baseline 33.3%, $20.69.
+                        _bp_depth_raw = getattr(_bypass_candidate, 'depth', 5)
+                        _bp_z_raw     = getattr(_bypass_candidate, 'z_score',
+                                                getattr(_bypass_candidate.state, 'z_score', 0.0))
+                        if _bp_depth_raw > 3 or _bp_z_raw >= 0:
+                            skip_physics_qg += 1
+                            _bypass_belief = None  # reject — low-quality entry
+
+                    if _bypass_belief is not None and best_candidate is None:
                         side         = _bypass_belief.direction   # 'long' or 'short'
                         _bp_sigma    = getattr(_bypass_candidate.state, 'sigma_fractal', 0.0)
                         _bp_sl_ticks = max(4, int(round(_bp_sigma / self.asset.tick_size * 1.5))) if _bp_sigma > 0 else 8
@@ -1770,6 +1783,7 @@ class BayesianTrainingOrchestrator:
             report_lines.append(f"    Gate 1 (dist > 3.0, no match):  {skip_dist:>6,}  ({_pct_s(skip_dist)})")
             report_lines.append(f"    Gate 2 (brain rejected):        {skip_brain:>6,}  ({_pct_s(skip_brain)})")
             report_lines.append(f"    Gate 3 (conviction < thresh):   {skip_conviction:>6,}  ({_pct_s(skip_conviction)})")
+            report_lines.append(f"    Physics QG (depth>3 or z>=0):  {skip_physics_qg:>6,}  ({_pct_s(skip_physics_qg)})")
             report_lines.append(f"    Passed all gates -> traded:     {n_traded:>6,}  ({_pct_s(n_traded)})")
 
         # ── 2c. Traded signal depth distribution ─────────────────────────────────
