@@ -770,7 +770,13 @@ class ProgressPopup:
                 btn_frame, text="FLATTEN", bg="#555555", fg=FG_WHITE,
                 activebackground="#888888", font=("Consolas", 10, "bold"),
                 width=8, command=lambda: self._manual_order('FLATTEN'),
-            ).pack(side=tk.LEFT)
+            ).pack(side=tk.LEFT, padx=(0, 6))
+
+            tk.Button(
+                btn_frame, text="SAVE", bg="#004488", fg=FG_WHITE,
+                activebackground="#0066cc", font=("Consolas", 10, "bold"),
+                width=8, command=self._request_save,
+            ).pack(side=tk.RIGHT)
 
             # ── NT8 Account Equity row ───────────────────────────────────
             eq_frame = tk.Frame(root, bg=BG)
@@ -1086,6 +1092,12 @@ class ProgressPopup:
         if self._shared_state is not None:
             self._shared_state['manual_order'] = action
 
+    def _request_save(self):
+        """SAVE button — ask engine to prepare for shutdown."""
+        if self._shared_state is not None:
+            self._shared_state['prepare_shutdown'] = True
+            self._status_var.set("Preparing for shutdown...")
+
     # ── Queue polling ─────────────────────────────────────────────────────────
     def _poll(self):
         try:
@@ -1210,6 +1222,11 @@ class ProgressPopup:
                         if len(self._price_history) > self._MAX_PRICE_PTS:
                             self._price_history = self._price_history[-self._MAX_PRICE_PTS:]
                         self._redraw_price_chart()
+
+                elif mtype == "SHUTDOWN_READY":
+                    # Engine reports whether it's safe to close
+                    status = msg.get("status", "unknown")
+                    self._status_var.set(status)
 
                 elif mtype == "SHUTDOWN":
                     if not self._done:
