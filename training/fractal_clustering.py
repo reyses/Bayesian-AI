@@ -98,6 +98,8 @@ class PatternTemplate:
     dir_intercept: float = 0.0
     quality_coeff: Optional[List[float]] = None    # within-side good-vs-bad entry
     quality_intercept: float = 0.0
+    signed_mfe_coeff: Optional[List[float]] = None  # signed MFE: sign=direction, |val|=magnitude
+    signed_mfe_intercept: float = 0.0
 
     # CST Basin (legacy field support - now handled by node cell bounds)
     basin_mean: float = 0.0
@@ -1219,6 +1221,27 @@ class FractalClusteringEngine:
                          template.quality_intercept = float(lr_q.intercept_[0])
                      except:
                          pass
+
+             # ── Signed MFE regression (primary: sign=direction, |val|=magnitude) ──
+             # Target: MFE * sign(oracle_marker) — positive=up, negative=down
+             # One model replaces direction + quality: sign → side, magnitude → confidence + TP
+             _non_noise_idx = [i for i, m in enumerate(markers) if m != 0]
+             if len(_non_noise_idx) >= 20:
+                 _smfe_patterns = [patterns[i] for i in _non_noise_idx]
+                 _smfe_markers  = [markers[i]  for i in _non_noise_idx]
+                 _smfe_y = np.array([
+                     getattr(p, 'oracle_mfe', 0.0) * (1.0 if m > 0 else -1.0)
+                     for p, m in zip(_smfe_patterns, _smfe_markers)
+                 ])
+                 X_smfe = np.array([self.extract_features(p) for p in _smfe_patterns])
+                 X_smfe_sc = sc.transform(X_smfe)
+                 X_smfe_wt = X_smfe_sc * _imp_w
+                 try:
+                     ols_s = LinearRegression().fit(X_smfe_wt, _smfe_y)
+                     template.signed_mfe_coeff = ols_s.coef_.tolist()
+                     template.signed_mfe_intercept = float(ols_s.intercept_)
+                 except:
+                     pass
 
     def _build_dna_maps(self, template: PatternTemplate):
         """Build per-TF DNA centroids and bounds from member parent chains.

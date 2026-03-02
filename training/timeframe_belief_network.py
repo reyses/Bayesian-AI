@@ -131,6 +131,25 @@ def _quality_prob(feat_s: np.ndarray, lib: dict) -> float:
     return 0.5  # no model → neutral
 
 
+def _signed_mfe_dir_prob(feat_s: np.ndarray, lib: dict) -> float:
+    """
+    P(LONG) derived from signed MFE prediction.
+    Predicted signed MFE > 0 → price going up → P(LONG) > 0.5
+    Predicted signed MFE < 0 → price going down → P(LONG) < 0.5
+    Magnitude maps to conviction via sigmoid scaling.
+    Falls back to balanced direction regression if no signed model.
+    """
+    coeff = lib.get('signed_mfe_coeff')
+    if coeff is not None:
+        feat_wt = feat_s * _DIR_IMP_W[:len(feat_s)]
+        pred = float(np.dot(feat_wt, coeff) + lib.get('signed_mfe_intercept', 0.0))
+        # Scale: 1 price point predicted move → ~0.73 probability
+        # This keeps the sigmoid in a useful range for typical MFE values
+        return _sigmoid(pred * 1.0)
+    # Fallback to balanced direction logistic
+    return _logistic_prob(feat_s, lib)
+
+
 def _ols_mfe(feat_s: np.ndarray, lib: dict) -> float:
     """
     Predicted MFE in price points from the cluster's OLS model.
@@ -386,7 +405,7 @@ class TimeframeWorker:
 
             primary_tid = matched_tid
             lib = pattern_library[primary_tid]
-            dir_prob = _logistic_prob(feat_s, lib)
+            dir_prob = _signed_mfe_dir_prob(feat_s, lib)
             pred_mfe = _ols_mfe(feat_s, lib)
             _any_fitted = lib.get('dir_coeff') is not None
             _dna_agreement = 1.0  # Anchor matched = full agreement
@@ -420,7 +439,7 @@ class TimeframeWorker:
             primary_tid = active_tid
             lib = pattern_library.get(primary_tid, {})
             if lib.get('dir_coeff') is not None:
-                dir_prob = _logistic_prob(feat_s, lib)
+                dir_prob = _signed_mfe_dir_prob(feat_s, lib)
                 pred_mfe = _ols_mfe(feat_s, lib)
                 _any_fitted = True
             elif len(centroids_scaled) > 0:
@@ -428,7 +447,7 @@ class TimeframeWorker:
                 best_idx = int(np.argmin(dists))
                 primary_tid = valid_tids[best_idx]
                 lib = pattern_library[primary_tid]
-                dir_prob = _logistic_prob(feat_s, lib)
+                dir_prob = _signed_mfe_dir_prob(feat_s, lib)
                 pred_mfe = _ols_mfe(feat_s, lib)
                 _any_fitted = lib.get('dir_coeff') is not None
             else:
@@ -446,22 +465,23 @@ class TimeframeWorker:
                 pred_mfes  = []
                 for idx in top_k_idx:
                     lib = pattern_library[valid_tids[idx]]
-                    dir_probs.append(_logistic_prob(feat_s, lib))
+                    dir_probs.append(_signed_mfe_dir_prob(feat_s, lib))
                     pred_mfes.append(_ols_mfe(feat_s, lib))
                 dir_prob = float(np.mean(dir_probs))
                 pred_mfe = float(np.mean(pred_mfes))
                 primary_tid = valid_tids[np.argmin(dists)]
                 _any_fitted = any(
-                    pattern_library[valid_tids[i]].get('dir_coeff') is not None
+                    pattern_library[valid_tids[i]].get('signed_mfe_coeff') is not None
+                    or pattern_library[valid_tids[i]].get('dir_coeff') is not None
                     for i in top_k_idx
                 )
             else:
                 best_idx    = int(np.argmin(dists))
                 primary_tid = valid_tids[best_idx]
                 lib         = pattern_library[primary_tid]
-                dir_prob    = _logistic_prob(feat_s, lib)
+                dir_prob    = _signed_mfe_dir_prob(feat_s, lib)
                 pred_mfe    = _ols_mfe(feat_s, lib)
-                _any_fitted = lib.get('dir_coeff') is not None
+                _any_fitted = lib.get('signed_mfe_coeff') is not None or lib.get('dir_coeff') is not None
         else:
             # No centroids and no DNA → physics only
             primary_tid = valid_tids[0] if valid_tids else 0

@@ -1636,14 +1636,9 @@ class BayesianTrainingOrchestrator:
                         except Exception:
                             _live_scaled = _live_feat_raw # Fallback
 
-                        # ── Direction from template's DMI pre-split ──────────────
-                        # Template already knows its side from the LONG/SHORT pool.
-                        # No ML override — direction comes from the clustering lineage.
-                        side = lib_entry.get('direction', '').lower()
-                        if not side:
-                            side = 'long' if best_candidate.z_score <= 0 else 'short'
-                        _dir_source = 'template_dmi'
-
+                        # ── Direction + confidence from signed MFE prediction ────
+                        # Primary: signed MFE regression (sign=direction, |val|=confidence)
+                        # Fallback chain: balanced dir LR → template DMI side → z_score
                         _live_s    = best_candidate.state
                         _dmi_diff  = (getattr(_live_s, 'dmi_plus', 0.0)
                                     - getattr(_live_s, 'dmi_minus', 0.0))
@@ -1651,32 +1646,39 @@ class BayesianTrainingOrchestrator:
                         short_bias = lib_entry.get('short_bias', 0.0)
                         _nn_marker = _effective_oracle(best_candidate)
 
-                        # ── Gate 4: Entry Quality Confidence ─────────────────────
-                        # Quality regression: P(good entry) within this template's side.
-                        # Falls back to balanced direction confidence if no quality model.
-                        _q_coeff = lib_entry.get('quality_coeff')
-                        _p_long = 0.5  # default for logging (direction from template, not ML)
                         _imp_w = np.ones(len(_live_scaled))
                         _imp_w[8]  = 1.50  # hurst
                         _imp_w[15] = 1.45  # osc_coh
                         _imp_w[7]  = 1.35  # adx
                         _imp_w[9]  = 1.30  # dmi_diff
                         _imp_w[0]  = 1.25  # z_score
-                        if _q_coeff is not None:
-                            _q_logit = np.dot(_live_scaled * _imp_w, np.array(_q_coeff)) + lib_entry.get('quality_intercept', 0.0)
-                            _p_quality = 1.0 / (1.0 + np.exp(-np.clip(_q_logit, -20, 20)))
+
+                        _smfe_coeff = lib_entry.get('signed_mfe_coeff')
+                        if _smfe_coeff is not None:
+                            # Primary: signed MFE → sign=direction, |val|=confidence
+                            _pred_smfe = float(np.dot(_live_scaled * _imp_w, np.array(_smfe_coeff))
+                                              + lib_entry.get('signed_mfe_intercept', 0.0))
+                            side = 'long' if _pred_smfe > 0 else 'short'
+                            _p_long = 1.0 / (1.0 + np.exp(-np.clip(_pred_smfe, -20, 20)))
+                            _dir_source = 'signed_mfe'
                         else:
-                            # Fallback: use balanced direction model confidence
+                            # Fallback: balanced direction LR
                             _dir_coeff = lib_entry.get('dir_coeff')
                             if _dir_coeff is not None:
-                                _d_logit = np.dot(_live_scaled * _imp_w, np.array(_dir_coeff)) + lib_entry.get('dir_intercept', 0.0)
+                                _d_logit = float(np.dot(_live_scaled * _imp_w, np.array(_dir_coeff))
+                                               + lib_entry.get('dir_intercept', 0.0))
                                 _p_long = 1.0 / (1.0 + np.exp(-np.clip(_d_logit, -20, 20)))
-                                # Confidence = how aligned the model is with the template side
-                                _p_quality = _p_long if side == 'long' else (1.0 - _p_long)
+                                side = 'long' if _p_long > 0.5 else 'short'
+                                _dir_source = 'balanced_dir'
                             else:
-                                _p_quality = 0.5
+                                # Last resort: template DMI side
+                                side = lib_entry.get('direction', '').lower()
+                                if not side:
+                                    side = 'long' if best_candidate.z_score <= 0 else 'short'
+                                _p_long = 0.6 if side == 'long' else 0.4
+                                _dir_source = 'template_dmi'
 
-                        _dir_conf = abs(_p_quality - 0.5)
+                        _dir_conf = abs(_p_long - 0.5)
 
                         if _dir_conf < DIRECTION_CONFIDENCE_THRESHOLD:
                             _candidate_gate[id(best_candidate)] = 'gate4_confidence'
@@ -4185,6 +4187,8 @@ class BayesianTrainingOrchestrator:
             'dir_intercept':     getattr(template, 'dir_intercept',     0.0),
             'quality_coeff':     getattr(template, 'quality_coeff',     None),
             'quality_intercept': getattr(template, 'quality_intercept', 0.0),
+            'signed_mfe_coeff':     getattr(template, 'signed_mfe_coeff',     None),
+            'signed_mfe_intercept': getattr(template, 'signed_mfe_intercept', 0.0),
             # Time-scale: bar index where MFE historically peaks (0.0 until --fresh with mfe_bar)
             'avg_mfe_bar':   getattr(template, 'avg_mfe_bar',   0.0),
             'p75_mfe_bar':   getattr(template, 'p75_mfe_bar',   0.0),
