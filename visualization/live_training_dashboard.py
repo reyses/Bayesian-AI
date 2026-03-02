@@ -699,9 +699,10 @@ class ProgressPopup:
     _CHART_W = 420
     _CHART_H = 130
 
-    def __init__(self, root, q):
+    def __init__(self, root, q, shared_state=None):
         self.root = root
         self.q = q
+        self._shared_state = shared_state  # None = training mode
         self._pnl_history = []
         self._pnl_dates = []   # date labels aligned with _pnl_history
         self._day_data = []  # [{day, pnl, trades, wins}, ...]
@@ -729,6 +730,27 @@ class ProgressPopup:
             fg=FG_WHITE,
             font=("Consolas", 12, "bold"),
         ).pack(pady=(14, 2))
+
+        # ── Aggression slider (live mode only) ────────────────────────────────
+        if self._shared_state is not None:
+            agg_frame = tk.Frame(root, bg=BG)
+            agg_frame.pack(fill="x", padx=20, pady=(4, 0))
+
+            self._agg_label_var = tk.StringVar(value="Aggression: 50%")
+            tk.Label(
+                agg_frame, textvariable=self._agg_label_var,
+                bg=BG, fg=FG_AMBER, font=("Consolas", 9, "bold"),
+            ).pack(side=tk.LEFT, padx=(0, 8))
+
+            self._agg_scale = tk.Scale(
+                agg_frame, from_=0, to=100, orient=tk.HORIZONTAL,
+                bg=BG, fg=FG_WHITE, troughcolor="#333333",
+                highlightbackground=BG, font=("Consolas", 8),
+                showvalue=False, length=250,
+                command=self._on_aggression_change,
+            )
+            self._agg_scale.set(int(self._shared_state.get('aggression', 0.5) * 100))
+            self._agg_scale.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         # Phase name (bold, amber) — e.g. "FORWARD PASS"
         self._phase_var = tk.StringVar(value="Initializing...")
@@ -1026,6 +1048,16 @@ class ProgressPopup:
                     x + bar_w / 2, _val_y, text=f"{sign}${pnl:,.0f}",
                     fill=color, font=("Consolas", 5, "bold"), anchor=_anchor,
                 )
+
+    def _on_aggression_change(self, val):
+        """Slider callback — update shared state so engine reads it."""
+        v = int(val) / 100.0
+        if self._shared_state is not None:
+            self._shared_state['aggression'] = v
+        labels = {0: "SNIPER", 25: "CAUTIOUS", 50: "BALANCED",
+                  75: "AGGRESSIVE", 100: "YOLO"}
+        nearest = min(labels.keys(), key=lambda k: abs(k - int(val)))
+        self._agg_label_var.set(f"Aggression: {int(val)}% ({labels[nearest]})")
 
     # ── Queue polling ─────────────────────────────────────────────────────────
     def _poll(self):

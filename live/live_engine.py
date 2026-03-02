@@ -83,11 +83,12 @@ class LiveEngine:
     """Main live trading loop — replaces Phase 4 forward pass for real-time."""
 
     def __init__(self, config: LiveConfig, dry_run: bool = False,
-                 client=None, gui_queue=None):
+                 client=None, gui_queue=None, shared_state=None):
         self._cfg = config
         self._dry_run = dry_run
         self._client_override = client  # None = use NT8Client
         self._gui_queue = gui_queue     # None = headless
+        self._shared_state = shared_state or {}  # mutable dict from launcher
 
         # Core components (loaded from checkpoints)
         self._asset = SYMBOL_MAP.get(config.asset_ticker)
@@ -372,6 +373,13 @@ class LiveEngine:
         if not states:
             return
 
+        # Aggression scaling (0.0=SNIPER … 1.0=YOLO)
+        agg = self._shared_state.get('aggression', 0.5)
+        _g1_dist = _GATE1_DIST_THRESHOLD + agg * 10.0   # 4.5 → 14.5
+        _g2_prob = 0.05 * (1.0 - agg)                    # 0.05 → 0.0
+        _g4_dir  = 0.05 * (1.0 - agg)                    # 0.05 → 0.0
+        _skip_screening = agg > 0.75                      # AGGRESSIVE+ skips 3.5
+
         # Get the latest state
         latest = states[-1]
         state = latest['state']
@@ -448,11 +456,11 @@ class LiveEngine:
             dist = float(dists[nearest_idx])
             tid = self._valid_tids[nearest_idx]
 
-            if dist >= _GATE1_DIST_THRESHOLD:
+            if dist >= _g1_dist:
                 continue
 
             # ── Gate 2: Brain ─────────────────────────────────────────
-            if not self._brain.should_fire(tid, min_prob=0.05, min_conf=0.0):
+            if not self._brain.should_fire(tid, min_prob=_g2_prob, min_conf=0.0):
                 continue
 
             # Score competition
@@ -475,8 +483,8 @@ class LiveEngine:
         side, _p_long, _dir_src = self._determine_direction(best_candidate, best_tid)
 
         if belief is not None:
-            if not belief.is_confident:
-                return  # conviction too low
+            if not belief.is_confident and agg < 0.75:
+                return  # conviction too low (skipped at AGGRESSIVE+)
             if belief.direction != side:
                 side = belief.direction
             _network_tp = (max(4, int(round(belief.predicted_mfe)))
@@ -486,23 +494,24 @@ class LiveEngine:
 
         # ── Gate 4: Direction confidence ─────────────────────────────
         _dir_conf = abs(_p_long - 0.5)
-        if _dir_conf < 0.05:
-            logger.debug(f"Gate 4 reject: dir_conf={_dir_conf:.3f} < 0.05 "
+        if _dir_conf < _g4_dir:
+            logger.debug(f"Gate 4 reject: dir_conf={_dir_conf:.3f} < {_g4_dir:.3f} "
                          f"(src={_dir_src}, tid={best_tid})")
             return
 
         # ── Gate 3.5: Screening fission + hour filter ────────────────
-        if self._fission_map:
-            _fission_rule = self._fission_map.get(best_tid)
-            if _fission_rule and _fission_rule.get('action') == 'reject':
-                logger.debug(f"Gate 3.5 reject: fission rule for tid={best_tid}")
-                return
-        if self._good_hours_utc:
-            import datetime as _dt
-            _hour_utc = _dt.datetime.utcnow().hour
-            if _hour_utc not in self._good_hours_utc:
-                logger.debug(f"Gate 3.5 reject: hour {_hour_utc} not in good_hours_utc")
-                return
+        if not _skip_screening:
+            if self._fission_map:
+                _fission_rule = self._fission_map.get(best_tid)
+                if _fission_rule and _fission_rule.get('action') == 'reject':
+                    logger.debug(f"Gate 3.5 reject: fission rule for tid={best_tid}")
+                    return
+            if self._good_hours_utc:
+                import datetime as _dt
+                _hour_utc = _dt.datetime.utcnow().hour
+                if _hour_utc not in self._good_hours_utc:
+                    logger.debug(f"Gate 3.5 reject: hour {_hour_utc} not in good_hours_utc")
+                    return
 
         # ── Exit sizing ───────────────────────────────────────────────
         lib_entry = self._pattern_library.get(best_tid, {})
@@ -514,7 +523,8 @@ class LiveEngine:
         logger.info(f"ENTRY: {side.upper()} @ {price:.2f}  "
                     f"tid={best_tid}  dist={best_dist:.2f}  "
                     f"dir_src={_dir_src}  conf={_dir_conf:.3f}  "
-                    f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}")
+                    f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}  "
+                    f"agg={agg:.0%}")
 
         self._wave_rider.open_position(
             entry_price=price, side=side,

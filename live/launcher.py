@@ -20,13 +20,13 @@ from live.config import LiveConfig
 from live.live_engine import LiveEngine
 
 
-def _run_popup(gui_queue):
+def _run_popup(gui_queue, shared_state):
     """Launch ProgressPopup in its own Tk mainloop (daemon thread)."""
     import tkinter as tk
     from visualization.live_training_dashboard import ProgressPopup
 
     root = tk.Tk()
-    ProgressPopup(root, gui_queue)
+    ProgressPopup(root, gui_queue, shared_state=shared_state)
     root.title("Bayesian-AI  LIVE")
     try:
         root.mainloop()
@@ -81,16 +81,20 @@ def main():
         max_daily_loss_usd=args.max_daily_loss,
     )
 
+    # Shared mutable state between GUI and engine (thread-safe via GIL)
+    shared_state = {'aggression': 0.5}  # 0.0=SNIPER … 1.0=YOLO
+
     # Launch GUI popup (unless --no-gui)
     gui_queue = None
     if not args.no_gui:
         gui_queue = stdlib_queue.Queue(maxsize=5000)
         gui_thread = threading.Thread(
-            target=_run_popup, args=(gui_queue,),
+            target=_run_popup, args=(gui_queue, shared_state),
             daemon=True, name='LivePopup')
         gui_thread.start()
 
-    engine = LiveEngine(config, dry_run=args.dry_run, gui_queue=gui_queue)
+    engine = LiveEngine(config, dry_run=args.dry_run, gui_queue=gui_queue,
+                        shared_state=shared_state)
     asyncio.run(engine.run())
 
 
