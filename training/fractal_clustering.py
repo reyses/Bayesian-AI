@@ -1182,6 +1182,7 @@ class FractalClusteringEngine:
 
              # ── Direction regression (balanced fallback for bypass path) ──
              # LONG=1, SHORT=0 — class_weight='balanced' eliminates training imbalance
+             _imp_w = np.ones(sc.n_features_in_)  # default uniform weights
              dir_labels = np.array([1 if m > 0 else 0 for m in markers if m != 0])
              if len(dir_labels) >= 20 and len(np.unique(dir_labels)) == 2:
                  X_dir = np.array([self.extract_features(p) for p in patterns if p.oracle_marker != 0])
