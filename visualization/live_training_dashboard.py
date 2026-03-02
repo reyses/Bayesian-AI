@@ -703,11 +703,7 @@ class ProgressPopup:
         self.root = root
         self.q = q
         self._shared_state = shared_state  # None = training mode
-        self._equity_history = []  # net liquidation over time (from NT8)
-        self._baseline_equity = None  # first equity value (to compute delta)
-        self._pnl_history = [0]  # start at $0 so chart draws after 1st trade
-        self._pnl_dates = []   # date labels aligned with _pnl_history
-        self._day_data = []  # [{day, pnl, trades, wins}, ...]
+        self._pnl_history = [0]  # cumulative PnL per trade (chart tracks by trade)
         self._done = False
 
         self.root.title("Bayesian-AI LIVE" if shared_state else "Bayesian-AI Training")
@@ -802,39 +798,6 @@ class ProgressPopup:
                 font=("Consolas", 12, "bold"),
             )
             self._netliq_lbl.grid(row=1, column=2, padx=14)
-
-            # ── Live Price Ticker ────────────────────────────────────────────
-            tick_frame = tk.Frame(root, bg=BG)
-            tick_frame.pack(fill="x", padx=20, pady=(8, 0))
-
-            self._price_var = tk.StringVar(value="--")
-            self._bid_var = tk.StringVar(value="--")
-            self._ask_var = tk.StringVar(value="--")
-            self._bars_var = tk.StringVar(value="0")
-
-            for col, lbl in enumerate(("Last", "Bid", "Ask", "Bars")):
-                tk.Label(
-                    tick_frame, text=lbl, bg=BG, fg=FG_GREY, font=("Consolas", 8),
-                ).grid(row=0, column=col, padx=10)
-
-            self._price_lbl = tk.Label(
-                tick_frame, textvariable=self._price_var, bg=BG, fg=FG_WHITE,
-                font=("Consolas", 14, "bold"),
-            )
-            self._price_lbl.grid(row=1, column=0, padx=10)
-            tk.Label(
-                tick_frame, textvariable=self._bid_var, bg=BG, fg=FG_GREEN,
-                font=("Consolas", 10),
-            ).grid(row=1, column=1, padx=10)
-            tk.Label(
-                tick_frame, textvariable=self._ask_var, bg=BG, fg=FG_RED,
-                font=("Consolas", 10),
-            ).grid(row=1, column=2, padx=10)
-            tk.Label(
-                tick_frame, textvariable=self._bars_var, bg=BG, fg=FG_GREY,
-                font=("Consolas", 10),
-            ).grid(row=1, column=3, padx=10)
-            self._last_bar_time = 0  # for flash effect
 
         # Phase name (bold, amber) — e.g. "FORWARD PASS"
         self._phase_var = tk.StringVar(value="Initializing...")
@@ -960,7 +923,7 @@ class ProgressPopup:
             ).grid(row=1, column=col, padx=12)
 
         # ── PnL control chart ─────────────────────────────────────────────────
-        tk.Label(root, text="PnL Curve", bg=BG, fg=FG_GREY, font=("Consolas", 8)).pack(
+        tk.Label(root, text="PnL by Trade", bg=BG, fg=FG_GREY, font=("Consolas", 8)).pack(
             pady=(14, 2)
         )
         self._canvas = tk.Canvas(
@@ -974,20 +937,32 @@ class ProgressPopup:
         self._canvas.pack(padx=20, fill=tk.X, expand=False)
         self._canvas.bind("<Configure>", lambda e: self._redraw_chart())
 
-        # ── Daily PnL bar chart ──────────────────────────────────────────────
-        tk.Label(root, text="PnL by Day", bg=BG, fg=FG_GREY, font=("Consolas", 8)).pack(
-            pady=(10, 2)
-        )
-        self._day_canvas = tk.Canvas(
-            root,
-            width=self._CHART_W,
-            height=self._CHART_H,
-            bg="#141414",
-            highlightthickness=1,
-            highlightbackground="#333333",
-        )
-        self._day_canvas.pack(padx=20, fill=tk.X, expand=False)
-        self._day_canvas.bind("<Configure>", lambda e: self._redraw_day_chart())
+        # ── Live Price Ticker (replaces PnL by Day) ────────────────────────
+        tk.Label(root, text="Live Ticker", bg=BG, fg=FG_GREY,
+                 font=("Consolas", 8)).pack(pady=(10, 2))
+        tick_frame = tk.Frame(root, bg="#141414", highlightthickness=1,
+                              highlightbackground="#333333")
+        tick_frame.pack(padx=20, fill=tk.X)
+
+        self._price_var = tk.StringVar(value="--")
+        self._bid_var = tk.StringVar(value="--")
+        self._ask_var = tk.StringVar(value="--")
+        self._bars_var = tk.StringVar(value="0")
+
+        for col, (lbl, var, fg, sz) in enumerate([
+            ("Last",  self._price_var, FG_WHITE, 16),
+            ("Bid",   self._bid_var,   FG_GREEN, 12),
+            ("Ask",   self._ask_var,   FG_RED,   12),
+            ("Bars",  self._bars_var,  FG_GREY,  12),
+        ]):
+            cell = tk.Frame(tick_frame, bg="#141414")
+            cell.pack(side="left", expand=True, padx=8, pady=4)
+            tk.Label(cell, text=lbl, bg="#141414", fg=FG_GREY,
+                     font=("Consolas", 7)).pack()
+            tk.Label(cell, textvariable=var, bg="#141414", fg=fg,
+                     font=("Consolas", sz, "bold")).pack()
+
+        self._price_lbl = tick_frame.winfo_children()[0].winfo_children()[1]
 
         # ── Status footer ─────────────────────────────────────────────────────
         self._status_var = tk.StringVar(value="Running...")
@@ -1052,86 +1027,16 @@ class ProgressPopup:
             anchor="e",
         )
 
-        # Date labels along bottom (from _day_data, ~8 evenly spaced)
-        dates = [d["day"] for d in self._day_data]
-        if len(dates) >= 2:
-            n_labels = min(8, len(dates))
-            step = max(1, len(dates) // n_labels)
-            for j in range(0, len(dates), step):
-                frac = j / (len(pts) - 1) if len(pts) > 1 else 0
+        # Trade numbers along bottom (~8 evenly spaced)
+        n_trades = len(pts) - 1  # first entry is $0 baseline
+        if n_trades >= 2:
+            n_labels = min(8, n_trades)
+            step = max(1, n_trades // n_labels)
+            for j in range(1, len(pts), step):
+                frac = j / (len(pts) - 1)
                 x = pad + frac * (W - 2 * pad)
-                c.create_text(x, H - 1, text=dates[j], fill="#555555",
+                c.create_text(x, H - 1, text=f"T{j}", fill="#555555",
                               font=("Consolas", 6), anchor="s")
-
-    # ── Daily bar chart ──────────────────────────────────────────────────────
-    _MAX_DAY_BARS = 60  # show last N days to keep bars readable
-
-    def _redraw_day_chart(self):
-        c = self._day_canvas
-        c.delete("all")
-        data = self._day_data
-        W = max(100, c.winfo_width())
-        H = max(40, c.winfo_height())
-        if not data:
-            c.create_text(
-                W // 2, H // 2,
-                text="Waiting for daily data...", fill=FG_GREY, font=("Consolas", 9),
-            )
-            return
-
-        # Limit to last N days so bars stay readable
-        if len(data) > self._MAX_DAY_BARS:
-            data = data[-self._MAX_DAY_BARS:]
-
-        pad = 6
-        n = len(data)
-        pnls = [d["pnl"] for d in data]
-        mx = max(abs(v) for v in pnls) if pnls else 1.0
-        if mx == 0:
-            mx = 1.0
-
-        bar_w = max(1, (W - 2 * pad) / n - 1)
-        gap = max(0, (W - 2 * pad - bar_w * n) / max(1, n))
-
-        # Zero baseline
-        zero_y = H / 2
-        c.create_line(pad, zero_y, W - pad, zero_y, fill="#444444", dash=(3, 3))
-
-        # Only show labels every Nth bar to avoid overlap
-        _label_every = max(1, n // 15)
-
-        for i, d in enumerate(data):
-            x = pad + i * (bar_w + gap)
-            pnl = d["pnl"]
-            bar_h = abs(pnl) / mx * (H / 2 - pad - 8)
-            color = FG_GREEN if pnl >= 0 else FG_RED
-
-            if pnl >= 0:
-                y_top = zero_y - bar_h
-                y_bot = zero_y
-            else:
-                y_top = zero_y
-                y_bot = zero_y + bar_h
-
-            c.create_rectangle(x, y_top, x + bar_w, y_bot, fill=color, outline="")
-
-            # Day label (MM/DD) — show every Nth to avoid overlap
-            if i % _label_every == 0:
-                _lbl = d["day"]
-                c.create_text(
-                    x + bar_w / 2, H - 2, text=_lbl, fill=FG_GREY,
-                    font=("Consolas", 5), anchor="s",
-                )
-
-            # PnL value above/below bar — only show if bars are wide enough
-            if bar_w >= 8:
-                sign = "+" if pnl >= 0 else ""
-                _val_y = (y_top - 6) if pnl >= 0 else (y_bot + 6)
-                _anchor = "s" if pnl >= 0 else "n"
-                c.create_text(
-                    x + bar_w / 2, _val_y, text=f"{sign}${pnl:,.0f}",
-                    fill=color, font=("Consolas", 5, "bold"), anchor=_anchor,
-                )
 
     def _on_aggression_change(self, val):
         """Slider callback — update shared state so engine reads it."""
@@ -1240,15 +1145,6 @@ class ProgressPopup:
                         self._pct_var.set("100%")
                         self.root.attributes("-topmost", False)
 
-                elif mtype == "DAY_PNL":
-                    self._day_data.append({
-                        "day":    msg.get("day", "?"),
-                        "pnl":    float(msg.get("pnl", 0)),
-                        "trades": int(msg.get("trades", 0)),
-                        "wins":   int(msg.get("wins", 0)),
-                    })
-                    self._redraw_day_chart()
-
                 elif mtype == "ACCOUNT_UPDATE":
                     cash = float(msg.get("cash_value", 0))
                     unreal = float(msg.get("unrealized_pnl", 0))
@@ -1265,19 +1161,10 @@ class ProgressPopup:
                         self._netliq_lbl.config(
                             fg=FG_GREEN if unreal >= 0 else FG_BLUE)
 
-                    # Track equity for chart (delta from first reading)
-                    if self._baseline_equity is None:
-                        self._baseline_equity = netliq
-                    self._equity_history.append(netliq - self._baseline_equity)
-
-                    # Update PnL chart with equity curve (real-time)
-                    self._pnl_history = [0] + self._equity_history
-                    self._redraw_chart()
-
                 elif mtype == "TICK_UPDATE":
                     price = msg.get("price")
                     bars = msg.get("bars")
-                    if price is not None and hasattr(self, '_price_var'):
+                    if price is not None:
                         self._price_var.set(f"{float(price):,.2f}")
                         # Flash green/red based on direction
                         prev = getattr(self, '_prev_price', None)
@@ -1285,17 +1172,16 @@ class ProgressPopup:
                             color = FG_GREEN if float(price) >= prev else FG_RED
                             self._price_lbl.config(fg=color)
                         self._prev_price = float(price)
-                    if bars is not None and hasattr(self, '_bars_var'):
+                    if bars is not None:
                         self._bars_var.set(str(bars))
 
                 elif mtype == "DOM_UPDATE":
-                    if hasattr(self, '_bid_var'):
-                        bid = msg.get("bid")
-                        ask = msg.get("ask")
-                        if bid is not None:
-                            self._bid_var.set(f"{float(bid):,.2f}")
-                        if ask is not None:
-                            self._ask_var.set(f"{float(ask):,.2f}")
+                    bid = msg.get("bid")
+                    ask = msg.get("ask")
+                    if bid is not None:
+                        self._bid_var.set(f"{float(bid):,.2f}")
+                    if ask is not None:
+                        self._ask_var.set(f"{float(ask):,.2f}")
 
                 elif mtype == "SHUTDOWN":
                     if not self._done:
