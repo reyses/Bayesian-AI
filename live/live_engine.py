@@ -127,6 +127,8 @@ class LiveEngine:
         self._max_hold_bars = 960
 
         self._bar_i = 0   # running bar index
+        self._live_trade_count = 0  # for periodic brain save
+        self._brain_save_interval = 5  # save brain every N trades
 
     # ── Public API ────────────────────────────────────────────────────
 
@@ -159,6 +161,12 @@ class LiveEngine:
                 msg = self._orders.build_exit_order(reason='shutdown')
                 if msg:
                     await self._client.send(msg)
+            # Save brain on exit (preserve learning)
+            if self._live_trade_count > 0:
+                brain_path = os.path.join(
+                    self._cfg.checkpoint_dir, 'live_brain.pkl')
+                self._brain.save(brain_path)
+                logger.info(f"Live brain saved on exit ({self._live_trade_count} trades)")
             await self._client.disconnect()
             logger.info("LiveEngine stopped")
 
@@ -178,7 +186,9 @@ class LiveEngine:
             if mtype == 'BAR':
                 await self._on_bar(msg)
             elif mtype == 'FILL':
-                self._orders.on_fill(msg)
+                pnl = self._orders.on_fill(msg)
+                if pnl is not None:
+                    self._brain_learn(pnl)
                 self._sync_position_state()
             elif mtype == 'ORDER_STATUS':
                 self._orders.on_order_status(msg)
@@ -252,6 +262,30 @@ class LiveEngine:
         msg = self._orders.build_exit_order(reason=reason)
         if msg:
             await self._client.send(msg)
+
+    def _brain_learn(self, pnl: float):
+        """Feed trade outcome to brain and periodically save."""
+        from core.bayesian_brain import TradeOutcome
+
+        result = 'WIN' if pnl > 0 else 'LOSS'
+        outcome = TradeOutcome(
+            state=self._active_tid or 'UNKNOWN',
+            result=result,
+            pnl=pnl,
+            template_id=self._active_tid,
+        )
+        self._brain.update(outcome)
+        self._live_trade_count += 1
+
+        logger.info(f"Brain learned: tid={self._active_tid} {result} "
+                    f"${pnl:+.2f}  (table size: {len(self._brain.table)})")
+
+        # Save every N trades
+        if self._live_trade_count % self._brain_save_interval == 0:
+            brain_path = os.path.join(
+                self._cfg.checkpoint_dir, 'live_brain.pkl')
+            self._brain.save(brain_path)
+            logger.info(f"Live brain saved ({self._live_trade_count} trades)")
 
     # ── Entry Logic (Gate 0 → 3) ─────────────────────────────────────
 
@@ -660,13 +694,19 @@ class LiveEngine:
                 self._exception_tids.add(tid)
         logger.info(f"  Exception templates: {len(self._exception_tids)}")
 
-        # Brain
-        brain_files = sorted(glob.glob(os.path.join(cpdir, '*_brain.pkl')))
-        if brain_files:
-            self._brain.load(brain_files[-1])
-            logger.info(f"  Brain: {os.path.basename(brain_files[-1])}")
+        # Brain — prefer live_brain.pkl (has live learning), then training brain
+        live_brain_path = os.path.join(cpdir, 'live_brain.pkl')
+        training_brains = sorted(glob.glob(os.path.join(cpdir, 'pattern_*_brain.pkl')))
+
+        if os.path.exists(live_brain_path):
+            self._brain.load(live_brain_path)
+            logger.info(f"  Brain: live_brain.pkl ({len(self._brain.table)} states)")
+        elif training_brains:
+            self._brain.load(training_brains[-1])
+            logger.info(f"  Brain: {os.path.basename(training_brains[-1])} (training base)")
         else:
-            logger.warning("  No brain checkpoint found — using empty brain")
+            logger.warning("  No brain checkpoint found — starting fresh "
+                          "(will learn from live trades)")
 
         # Screening gates (Gate 3.5 fission + temporal filter)
         sg_path = os.path.join(cpdir, 'screening_gates.json')
