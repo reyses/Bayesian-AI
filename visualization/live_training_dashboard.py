@@ -752,6 +752,28 @@ class ProgressPopup:
             self._agg_scale.set(int(self._shared_state.get('aggression', 0.5) * 100))
             self._agg_scale.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
+            # ── Manual BUY / SELL / FLATTEN buttons ──────────────────────────
+            btn_frame = tk.Frame(root, bg=BG)
+            btn_frame.pack(fill="x", padx=20, pady=(6, 0))
+
+            tk.Button(
+                btn_frame, text="BUY", bg="#006600", fg=FG_WHITE,
+                activebackground="#00aa00", font=("Consolas", 10, "bold"),
+                width=8, command=lambda: self._manual_order('BUY'),
+            ).pack(side=tk.LEFT, padx=(0, 6))
+
+            tk.Button(
+                btn_frame, text="SELL", bg="#880000", fg=FG_WHITE,
+                activebackground="#cc0000", font=("Consolas", 10, "bold"),
+                width=8, command=lambda: self._manual_order('SELL'),
+            ).pack(side=tk.LEFT, padx=(0, 6))
+
+            tk.Button(
+                btn_frame, text="FLATTEN", bg="#555555", fg=FG_WHITE,
+                activebackground="#888888", font=("Consolas", 10, "bold"),
+                width=8, command=lambda: self._manual_order('FLATTEN'),
+            ).pack(side=tk.LEFT)
+
         # Phase name (bold, amber) — e.g. "FORWARD PASS"
         self._phase_var = tk.StringVar(value="Initializing...")
         tk.Label(
@@ -1058,6 +1080,11 @@ class ProgressPopup:
                   75: "AGGRESSIVE", 100: "YOLO"}
         nearest = min(labels.keys(), key=lambda k: abs(k - int(val)))
         self._agg_label_var.set(f"Aggression: {int(val)}% ({labels[nearest]})")
+
+    def _manual_order(self, action: str):
+        """BUY/SELL/FLATTEN button callback — engine picks it up next tick."""
+        if self._shared_state is not None:
+            self._shared_state['manual_order'] = action
 
     # ── Queue polling ─────────────────────────────────────────────────────────
     def _poll(self):

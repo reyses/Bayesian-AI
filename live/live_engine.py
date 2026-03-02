@@ -256,6 +256,12 @@ class LiveEngine:
 
         self._belief_network.tick_all(self._bar_i)
 
+        # ── Manual order check (from popup buttons) ────────────────────
+        manual = self._shared_state.pop('manual_order', None)
+        if manual:
+            await self._handle_manual_order(manual, price, ts, states)
+            return  # skip gate cascade this tick
+
         # ── Exit check (if position open) ─────────────────────────────
         if self._position_open:
             await self._check_exit(price, ts)
@@ -302,6 +308,71 @@ class LiveEngine:
         msg = self._orders.build_exit_order(reason=reason)
         if msg:
             await self._client.send(msg)
+
+    async def _handle_manual_order(self, action: str, price: float,
+                                   ts: float, states: list):
+        """Process a manual BUY/SELL/FLATTEN from the popup buttons."""
+        if action == 'FLATTEN':
+            if self._position_open:
+                logger.info(f"MANUAL FLATTEN @ {price:.2f}")
+                self._belief_network.stop_trade_tracking()
+                await self._close_position('MANUAL_FLATTEN')
+            else:
+                logger.info("MANUAL FLATTEN — already flat")
+            return
+
+        if action not in ('BUY', 'SELL'):
+            return
+
+        # If already in a position, flatten first
+        if self._position_open:
+            logger.info(f"MANUAL {action}: flattening existing position first")
+            self._belief_network.stop_trade_tracking()
+            await self._close_position('MANUAL_REVERSE')
+
+        side = 'long' if action == 'BUY' else 'short'
+
+        # Use default exit params (generous for manual trades)
+        sl_ticks = 20
+        tp_ticks = 50
+        trail_ticks = 12
+        trail_act = 8
+
+        logger.info(f"MANUAL ENTRY: {side.upper()} @ {price:.2f}  "
+                    f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}")
+
+        # Get latest state for wave rider
+        state = states[-1]['state'] if states else None
+
+        self._wave_rider.open_position(
+            entry_price=price, side=side,
+            state=state,
+            stop_distance_ticks=sl_ticks,
+            profit_target_ticks=tp_ticks,
+            trailing_stop_ticks=trail_ticks,
+            trail_activation_ticks=trail_act,
+            template_id='MANUAL',
+        )
+        self._position_open = True
+        self._entry_price = price
+        self._entry_time = ts
+        self._entry_bar = self._bar_i
+        self._active_side = side
+        self._active_tid = 'MANUAL'
+        self._max_hold_bars = 960  # 4 hours max for manual trades
+
+        self._belief_network.start_trade_tracking(
+            side=side, entry_bar=self._bar_i,
+            pattern_horizon_bars=self._max_hold_bars)
+
+        if self._dry_run:
+            logger.info("[DRY RUN] Manual entry logged but no order sent")
+            return
+
+        order_msg = self._orders.build_entry_order(
+            'BUY' if side == 'long' else 'SELL')
+        if order_msg:
+            await self._client.send(order_msg)
 
     def _gui_push(self, msg: dict):
         """Non-blocking push to GUI queue. Drop if full."""
