@@ -140,6 +140,22 @@ class LiveEngine:
         self._session_trades = 0
         self._gross_win = 0.0
         self._gross_loss = 0.0
+        self._trade_log = []  # per-trade records for session report
+        self._session_start = time.time()
+
+        # Gate rejection counters (for session report)
+        self._gate_stats = {
+            'bars_seen': 0,
+            'candidates': 0,
+            'gate0_skip': 0,
+            'gate0_5_skip': 0,
+            'gate1_skip': 0,
+            'gate2_skip': 0,
+            'gate3_skip': 0,
+            'gate3_5_skip': 0,
+            'gate4_skip': 0,
+            'traded': 0,
+        }
 
         # NT8 account equity (from ACCOUNT_UPDATE messages)
         self._nt8_cash_value = 0.0
@@ -357,6 +373,7 @@ class LiveEngine:
     async def _close_position(self, reason: str):
         """Send close order and reset position state."""
         self._position_open = False
+        self._last_exit_reason = reason  # for trade log
         self._wave_rider.position = None
         self._last_exit_time = time.time()
 
@@ -434,7 +451,7 @@ class LiveEngine:
             await self._client.send(order_msg)
 
     def _prepare_shutdown(self):
-        """Save brain + advise GUI whether it's safe to close."""
+        """Save brain + write session report + advise GUI."""
         # Save brain
         if self._live_trade_count > 0:
             brain_path = os.path.join(
@@ -442,19 +459,173 @@ class LiveEngine:
             self._brain.save(brain_path)
             logger.info(f"Brain saved ({self._live_trade_count} trades)")
 
+        # Write session report
+        self._write_session_report()
+
         # Check position status
         if self._position_open:
             unreal = self._nt8_unrealized_pnl
             side = self._active_side or '?'
             sign = '+' if unreal >= 0 else ''
-            status = (f"OPEN {side.upper()} position ({sign}${unreal:,.0f} unrealized) "
+            status = (f"OPEN {side.upper()} ({sign}${unreal:,.0f}) "
                       f"— FLATTEN first or close to lock in")
             logger.info(f"Prepare shutdown: {status}")
         else:
-            status = "FLAT — brain saved — safe to close"
+            status = "FLAT — saved — safe to close"
             logger.info("Prepare shutdown: no open position, safe to close")
 
         self._gui_push({'type': 'SHUTDOWN_READY', 'status': status})
+
+    def _write_session_report(self):
+        """Write session summary to reports/live/ (OOS-level detail)."""
+        from collections import defaultdict
+
+        report_dir = os.path.join('reports', 'live')
+        os.makedirs(report_dir, exist_ok=True)
+        ts = time.strftime('%Y%m%d_%H%M%S')
+        path = os.path.join(report_dir, f'session_{ts}.txt')
+
+        dur = time.time() - self._session_start
+        dur_h = int(dur // 3600)
+        dur_m = int((dur % 3600) // 60)
+        wr = (self._session_wins / self._session_trades * 100
+              if self._session_trades > 0 else 0.0)
+        pf = (self._gross_win / abs(self._gross_loss)
+              if self._gross_loss != 0 else 0.0)
+        avg = (self._session_pnl / self._session_trades
+               if self._session_trades > 0 else 0.0)
+
+        L = []
+        L.append("=" * 72)
+        L.append(f"LIVE SESSION REPORT  (run: {time.strftime('%Y-%m-%d %H:%M:%S')})")
+        L.append(f"  Account:    {self._cfg.account}")
+        L.append(f"  Instrument: {self._cfg.instrument}")
+        L.append(f"  Duration:   {dur_h}h {dur_m}m  ({self._bar_i} bars)")
+        L.append(f"Total Trades: {self._session_trades}")
+        L.append(f"Win Rate: {wr:.1f}%")
+        L.append(f"Total PnL: ${self._session_pnl:+,.2f}")
+        L.append("=" * 72)
+
+        # ── Per-depth PnL breakdown ──
+        L.append("")
+        L.append("=" * 72)
+        L.append("PER-DEPTH PnL BREAKDOWN")
+        L.append("=" * 72)
+        if self._trade_log:
+            depth_stats = defaultdict(lambda: {'n': 0, 'wins': 0, 'pnl': 0.0})
+            for t in self._trade_log:
+                tid = t.get('tid', -1)
+                # Approximate depth from template library
+                lib = self._pattern_library.get(tid, {})
+                d = lib.get('depth', '?')
+                depth_stats[d]['n'] += 1
+                depth_stats[d]['pnl'] += t['pnl']
+                if t['pnl'] > 0:
+                    depth_stats[d]['wins'] += 1
+            L.append(f"  {'Depth':<10} {'Trades':>7} {'Win%':>6} {'Total PnL':>12} {'Avg/trade':>10}")
+            L.append(f"  {'-'*10} {'-'*7} {'-'*6} {'-'*12} {'-'*10}")
+            for d in sorted(depth_stats.keys()):
+                s = depth_stats[d]
+                _wr = s['wins'] / s['n'] * 100 if s['n'] > 0 else 0
+                _avg = s['pnl'] / s['n'] if s['n'] > 0 else 0
+                L.append(f"  depth {str(d):<5} {s['n']:>7} {_wr:>5.0f}% ${s['pnl']:>10,.2f} ${_avg:>9,.2f}")
+
+        # ── Exit reason breakdown ──
+        L.append("")
+        L.append("=" * 72)
+        L.append("EXIT REASON BREAKDOWN")
+        L.append("=" * 72)
+        if self._trade_log:
+            reason_stats = defaultdict(lambda: {'n': 0, 'wins': 0, 'pnl': 0.0})
+            for t in self._trade_log:
+                r = t.get('reason', '?')
+                reason_stats[r]['n'] += 1
+                reason_stats[r]['pnl'] += t['pnl']
+                if t['pnl'] > 0:
+                    reason_stats[r]['wins'] += 1
+            L.append(f"  {'Reason':<18} {'Trades':>7} {'Win%':>6} {'Total PnL':>12} {'Avg/trade':>10}")
+            L.append(f"  {'-'*18} {'-'*7} {'-'*6} {'-'*12} {'-'*10}")
+            for r in sorted(reason_stats.keys()):
+                s = reason_stats[r]
+                _wr = s['wins'] / s['n'] * 100 if s['n'] > 0 else 0
+                _avg = s['pnl'] / s['n'] if s['n'] > 0 else 0
+                L.append(f"  {r:<18} {s['n']:>7} {_wr:>5.0f}% ${s['pnl']:>10,.2f} ${_avg:>9,.2f}")
+
+        # ── Direction breakdown ──
+        L.append("")
+        L.append("=" * 72)
+        L.append("DIRECTION BREAKDOWN")
+        L.append("=" * 72)
+        if self._trade_log:
+            for d in ('LONG', 'SHORT'):
+                dt = [t for t in self._trade_log if t['side'] == d]
+                if dt:
+                    _dw = sum(1 for t in dt if t['pnl'] > 0)
+                    _dp = sum(t['pnl'] for t in dt)
+                    _dwr = _dw / len(dt) * 100
+                    L.append(f"  {d:<8} {len(dt):>4} trades  WR={_dwr:.0f}%  "
+                             f"PnL=${_dp:+,.2f}  Avg=${_dp/len(dt):+,.2f}")
+
+        # ── Gate rejection funnel ──
+        L.append("")
+        L.append("=" * 72)
+        L.append("GATE REJECTION FUNNEL")
+        L.append("=" * 72)
+        gs = self._gate_stats
+        _total = gs['candidates'] or 1
+        L.append(f"  Bars with candidates:           {gs['bars_seen']:>8,}")
+        L.append(f"  Total candidates evaluated:     {gs['candidates']:>8,}")
+        _pct = lambda n: f"{n/_total*100:.1f}%"
+        L.append(f"    Gate 0 (headroom/physics):     {gs['gate0_skip']:>8,}  ({_pct(gs['gate0_skip'])})")
+        L.append(f"    Gate 0.5 (depth filter):       {gs['gate0_5_skip']:>8,}  ({_pct(gs['gate0_5_skip'])})")
+        L.append(f"    Gate 1 (cluster dist):         {gs['gate1_skip']:>8,}  ({_pct(gs['gate1_skip'])})")
+        L.append(f"    Gate 2 (brain rejected):       {gs['gate2_skip']:>8,}  ({_pct(gs['gate2_skip'])})")
+        L.append(f"    Gate 3 (conviction):           {gs['gate3_skip']:>8,}  ({_pct(gs['gate3_skip'])})")
+        L.append(f"    Gate 3.5 (screening/hours):    {gs['gate3_5_skip']:>8,}  ({_pct(gs['gate3_5_skip'])})")
+        L.append(f"    Gate 4 (direction conf):       {gs['gate4_skip']:>8,}  ({_pct(gs['gate4_skip'])})")
+        L.append(f"    Passed all gates -> traded:    {gs['traded']:>8,}  ({_pct(gs['traded'])})")
+
+        # ── Session equity ──
+        L.append("")
+        L.append("=" * 72)
+        L.append("ACCOUNT SNAPSHOT")
+        L.append("=" * 72)
+        L.append(f"  Cash Value:      ${self._nt8_cash_value:>12,.2f}")
+        L.append(f"  Unrealized PnL:  ${self._nt8_unrealized_pnl:>+12,.2f}")
+        L.append(f"  Net Liquidation: ${self._nt8_net_liquidation:>12,.2f}")
+        L.append(f"  Profit Factor:   {pf:.2f}")
+        L.append(f"  Avg PnL/trade:   ${avg:+,.2f}")
+        L.append(f"  Gross Win:       ${self._gross_win:+,.2f}")
+        L.append(f"  Gross Loss:      ${abs(self._gross_loss):,.2f}")
+
+        # ── Trade log ──
+        L.append("")
+        L.append("=" * 72)
+        L.append("TRADE LOG")
+        L.append("=" * 72)
+        if self._trade_log:
+            L.append(f"  {'#':>3}  {'Time':<10} {'Side':<6} {'Entry':>10} "
+                     f"{'Exit':>10} {'PnL':>10} {'Reason':<14} {'Bars':>5}")
+            L.append("  " + "-" * 68)
+            cum = 0.0
+            for i, t in enumerate(self._trade_log, 1):
+                cum += t['pnl']
+                L.append(
+                    f"  {i:>3}  {t['time']:<10} {t['side']:<6} "
+                    f"{t['entry']:>10,.2f} {t['exit']:>10,.2f} "
+                    f"${t['pnl']:>+9,.2f} {t['reason']:<14} {t['bars']:>5}")
+            L.append("  " + "-" * 68)
+            L.append(f"  {'':>3}  {'':10} {'':6} {'':10} {'TOTAL':>10} "
+                     f"${self._session_pnl:>+9,.2f}")
+        else:
+            L.append("  No trades this session.")
+
+        L.append("")
+        L.append("=" * 72)
+
+        with open(path, 'w') as f:
+            f.write('\n'.join(L) + '\n')
+        logger.info(f"Session report saved: {path}")
 
     def _gui_push(self, msg: dict):
         """Non-blocking push to GUI queue. Drop if full."""
@@ -527,6 +698,19 @@ class LiveEngine:
         else:
             self._gross_loss += pnl
 
+        # Record for session report
+        self._trade_log.append({
+            'time': time.strftime('%H:%M:%S'),
+            'side': 'LONG' if self._active_side == 'long' else 'SHORT',
+            'entry': self._entry_price,
+            'exit': self._entry_price + pnl / (self._cfg_tick_value if hasattr(self, '_cfg_tick_value') else 5.0),
+            'pnl': pnl,
+            'result': result,
+            'reason': getattr(self, '_last_exit_reason', '?'),
+            'bars': self._bar_i - self._entry_bar,
+            'tid': self._active_tid,
+        })
+
         logger.info(f"Brain learned: tid={self._active_tid} {result} "
                     f"${pnl:+.2f}  (table size: {len(self._brain.table)})")
 
@@ -585,6 +769,8 @@ class LiveEngine:
         if not candidates:
             return
 
+        self._gate_stats['bars_seen'] += 1
+        self._gate_stats['candidates'] += len(candidates)
         logger.debug(f"Gate cascade: {len(candidates)} candidate(s), agg={agg:.2f}")
 
         # Run gates on each candidate
@@ -633,10 +819,12 @@ class LiveEngine:
                             should_skip = True
 
             if should_skip:
+                self._gate_stats['gate0_skip'] += 1
                 continue
 
             # ── Gate 0.5: Depth filter ────────────────────────────────
             if not _yolo and p.depth in self._depth_filter_out:
+                self._gate_stats['gate0_5_skip'] += 1
                 continue
 
             # ── Gate 1: Cluster matching ──────────────────────────────
@@ -648,6 +836,7 @@ class LiveEngine:
             tid = self._valid_tids[nearest_idx]
 
             if dist >= _g1_dist:
+                self._gate_stats['gate1_skip'] += 1
                 logger.debug(f"Gate 1 reject: dist={dist:.2f} >= {_g1_dist:.2f}")
                 continue
 
@@ -655,6 +844,7 @@ class LiveEngine:
 
             # ── Gate 2: Brain ─────────────────────────────────────────
             if not self._brain.should_fire(tid, min_prob=_g2_prob, min_conf=0.0):
+                self._gate_stats['gate2_skip'] += 1
                 logger.debug(f"Gate 2 reject: tid={tid} "
                              f"prob={self._brain.get_probability(tid):.3f} "
                              f"conf={self._brain.get_confidence(tid):.3f}")
@@ -681,6 +871,7 @@ class LiveEngine:
 
         if belief is not None:
             if not belief.is_confident and agg < 0.75:
+                self._gate_stats['gate3_skip'] += 1
                 return  # conviction too low (skipped at AGGRESSIVE+)
             if belief.direction != side:
                 side = belief.direction
@@ -692,6 +883,7 @@ class LiveEngine:
         # ── Gate 4: Direction confidence ─────────────────────────────
         _dir_conf = abs(_p_long - 0.5)
         if _dir_conf < _g4_dir:
+            self._gate_stats['gate4_skip'] += 1
             logger.debug(f"Gate 4 reject: dir_conf={_dir_conf:.3f} < {_g4_dir:.3f} "
                          f"(src={_dir_src}, tid={best_tid})")
             return
@@ -701,12 +893,14 @@ class LiveEngine:
             if self._fission_map:
                 _fission_rule = self._fission_map.get(best_tid)
                 if _fission_rule and _fission_rule.get('action') == 'reject':
+                    self._gate_stats['gate3_5_skip'] += 1
                     logger.debug(f"Gate 3.5 reject: fission rule for tid={best_tid}")
                     return
             if self._good_hours_utc:
                 import datetime as _dt
                 _hour_utc = _dt.datetime.utcnow().hour
                 if _hour_utc not in self._good_hours_utc:
+                    self._gate_stats['gate3_5_skip'] += 1
                     logger.debug(f"Gate 3.5 reject: hour {_hour_utc} not in good_hours_utc")
                     return
 
@@ -717,6 +911,7 @@ class LiveEngine:
             lib_entry, params, _network_tp, best_candidate)
 
         # ── Execute entry ─────────────────────────────────────────────
+        self._gate_stats['traded'] += 1
         logger.info(f"ENTRY: {side.upper()} @ {price:.2f}  "
                     f"tid={best_tid}  dist={best_dist:.2f}  "
                     f"dir_src={_dir_src}  conf={_dir_conf:.3f}  "
