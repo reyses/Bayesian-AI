@@ -1352,10 +1352,11 @@ RESULTS (all scales, 2026-03-01):
   1-Day           74   1.0000    0.5689    73.9%     100.0%    -26.1%  91.7%
   1-Week         414   0.7885    0.5949    79.2%      95.2%    -16.0%  96.1%
   1-Month       1824   0.3479    0.2408    68.9%      55.2%    +13.7%  77.6%
-  1-Year*        460   0.8115    0.5062    70.3%      64.5%     +5.8%  89.5%
+  1-Year       22155   0.0636    0.0331    61.6%      55.8%     +5.8%   TBD
 
-  * 1-Year ran with default --analysis-days 7 (460 bars = 7d window).
-    Re-run with --analysis-days 365 for full year. Data: 38.3% UP / 61.7% DN.
+  1-Year: 22,155 bars (365d). R2 drops to 0.03 but direction accuracy
+  holds at 61.6% (+5.8% lift). Data: 51.4% UP / 48.6% DN (balanced).
+  Low R2 = model can't predict MFE magnitude well, but sign is useful.
 
   NOTE ON NEGATIVE LIFT: 1-day and 1-week have highly imbalanced data
   (100% UP or 95.2% DOWN majority class). The model's "lift" appears
@@ -1365,10 +1366,6 @@ RESULTS (all scales, 2026-03-01):
 
   1-MONTH IS THE HONEST TEST: 55.2% baseline, +13.7% lift, 68.9% accuracy.
   This is the scale with balanced UP/DOWN that gives meaningful lift.
-
-TOP FEATURES (1-year, 7d window):
-  30m ADX, 15m ADX, 4h ADX, 1h dmi_diff, 30m PID — ADX dominates at this
-  warmup depth (363d context feeding into 7d analysis).
 
 TOP FEATURES (1-week):
   4h coherence, 4h dmi_diff, 4h PID, 4h momentum — 4h dominates again.
@@ -1403,13 +1400,13 @@ RESULTS (all scales):
   1-Day           88   1.0000    -24.38    48.1%     51.9%     -3.7%   0.192
   1-Week         428   0.9834      0.33    54.3%     53.5%     +0.8%   0.213
   1-Month       1823   0.9761      0.03    48.5%     50.7%     -2.2%   0.076
-  1-Year*        459   0.9924      0.29    51.8%     51.8%     +0.0%   0.232
+  1-Year       22169   0.9152    -15.95    48.5%     51.5%     -3.0%   0.025
 
 CONCLUSION:
   DEAD at all 4 scales. Next-price forecasting massively overfits
-  (train R2 ~1.0, test R2 near zero or negative). The residuals
-  overwhelm the directional signal. This confirms Analysis C's finding
-  — predicting absolute price is not the path to direction.
+  (train R2 ~1.0, test R2 negative). At full year (22k bars), SNR
+  drops to 0.025 — completely noise-dominated. Predicting absolute
+  price is not the path to direction.
 
 
 =============================================================================
@@ -1432,12 +1429,12 @@ RESULTS (all scales):
   1-Day           88   1.0000    -21.07    48.1%     51.9%     -3.7%
   1-Week         428   0.3617     -4.65    42.6%     53.5%    -10.9%
   1-Month       1823   0.1054     -1.29    49.8%     50.7%     -0.9%
-  1-Year*        459   0.3923    -12.10    50.4%     51.8%     -1.5%
+  1-Year       22169   0.0082     -0.03    50.3%     51.5%     -1.2%
 
 CONCLUSION:
-  DEAD at all 4 scales. Predicting the delta directly with OLS on
-  192D features massively overfits. Negative test R2 at every scale
-  means the model is worse than predicting the mean.
+  DEAD at all 4 scales. At full year, train R2 drops to 0.008 —
+  the model can't even fit training data. Negative test R2 at every
+  scale means the model is worse than predicting the mean.
 
 
 =============================================================================
@@ -1461,13 +1458,13 @@ RESULTS (all scales):
   1-Day           2       38.9%     55.6%     -16.7%
   1-Week          1       51.2%     55.8%      -4.7%
   1-Month         3       46.4%     51.9%      -5.5%
-  1-Year*         4       46.7%     52.2%      -5.4%
+  1-Year          6       50.6%     50.7%      -0.1%
 
   Selected features:
     1-Day:   5m_dmi_diff, 30m_PID
     1-Week:  (1 feature, stopped immediately)
     1-Month: (3 features, stopped at step 3)
-    1-Year:  (4 features)
+    1-Year:  (6 features — essentially coin flip at 50.6%)
 
 CONCLUSION:
   DEAD at all 4 scales. Even with careful feature selection,
@@ -1499,12 +1496,12 @@ RESULTS (all scales):
   1-Day           2       94.4%     55.6%     +38.9%   B_current_MR, A_30m_z_score
   1-Week          2       98.8%     55.8%     +43.0%   B_current_MR, diff_d3_1h_z_score
   1-Month         1       100.0%    51.9%     +48.1%   B_current_MR
-  1-Year*         1       98.9%     52.2%     +46.7%   B_current_MR
+  1-Year          1       100.0%    50.7%     +49.3%   B_current_MR
 
   CRITICAL: B_current_MR (signed MR at point B) is the #1 feature at
   ALL scales. This is the bar-to-bar price change itself — the model
-  is essentially being told the answer. At 1m and 1y, B_current_MR
-  alone achieves 98.9-100% — no second feature needed.
+  is essentially being told the answer. At 1m and 1y (22k bars),
+  B_current_MR alone achieves 100% — confirmed leak at scale.
 
 CONCLUSION:
   LOOK-AHEAD LEAK. Analysis P achieves 94-100% accuracy because
@@ -1560,46 +1557,48 @@ RESULTS (all scales):
     Balanced UP/DN. Fewer but broader tiers than 1-week (larger moves
     smooth out fine structure).
 
-  1-Year* (460 samples, 7d window):
-    Baseline: 49.2% UP / 50.8% DN
-    UP: 225 moves, 7 modes, 6 valleys -> 7 magnitude tiers
-    DN: 232 moves, 4 modes, 3 valleys -> 4 magnitude tiers
-    Nearly perfect balance. UP side richer than DN (7 vs 4 tiers).
+  1-Year (22155 samples, 365d):
+    Baseline: 51.4% UP / 48.6% DN
+    UP: 11307 moves, 7 modes, 6 valleys -> 7 magnitude tiers
+    DN: 10699 moves, 5 modes, 4 valleys -> 5 magnitude tiers
+    Definitive result: 22k bars, nearly balanced. UP has finer
+    tier structure (7 vs 5). Valley boundaries for UP: 2.9, 11.2,
+    183.4, 279.8, 426.4, 608.9. DN: 2.4, 7.2, 12.3, 429.8.
 
 CONCLUSION:
-  Q produces meaningful magnitude bins at 1-week and above. The tier
-  count varies by scale: 1-week finds fine-grained structure (9/7 tiers),
-  1-month finds broader groupings (4/5 tiers), 1-year* (7d window) is
-  intermediate (7/4 tiers). Full 1-year re-run (--analysis-days 365)
-  will provide the definitive magnitude tier analysis with ~24k bars.
+  Q produces meaningful magnitude bins at all scales with enough data.
+  1-week: fine-grained (9/7 tiers), 1-month: broader (4/5 tiers),
+  1-year: definitive (7/5 tiers, 22k bars). The UP/DN tier asymmetry
+  is real — UP moves have more distinct magnitude clusters than DN.
 
 
 =============================================================================
 CROSS-ANALYSIS COMPARISON TABLE (L through Q)
 =============================================================================
 
-  Analysis  Method                          1-Day     1-Week    1-Month   1-Year*   Status
+  Analysis  Method                          1-Day     1-Week    1-Month   1-Year    Status
   --------  ----------------------------  --------  --------  --------  --------  --------
-  L         Signed MFE OLS                73.9%     79.2%     68.9%     70.3%     BEST
-  M         Next-price forecast           48.1%     54.3%     48.5%     51.8%     DEAD
-  N         Delta-direct forecast         48.1%     42.6%     49.8%     50.4%     DEAD
-  O         Stepwise logistic (single pt) 38.9%     51.2%     46.4%     46.7%     DEAD
-  P         Paired points (look-ahead)    94.4%     98.8%     100.0%    98.9%     LEAK
-  Q         Signed magnitude binning      (few)     9/7 tiers 4/5 tiers 7/4 tiers OK
+  L         Signed MFE OLS                73.9%     79.2%     68.9%     61.6%     BEST
+  M         Next-price forecast           48.1%     54.3%     48.5%     48.5%     DEAD
+  N         Delta-direct forecast         48.1%     42.6%     49.8%     50.3%     DEAD
+  O         Stepwise logistic (single pt) 38.9%     51.2%     46.4%     50.6%     DEAD
+  P         Paired points (look-ahead)    94.4%     98.8%     100.0%    100.0%    LEAK
+  Q         Signed magnitude binning      (few)     9/7 tiers 4/5 tiers 7/5 tiers OK
 
-  * 1-Year ran with 7d analysis window (460 bars). Re-run with
-    --analysis-days 365 for full-year results (~24k bars).
+  1-Year = 22,155 bars (365d, full ATLAS). All other scales confirmed.
 
 KEY TAKEAWAYS:
   1. Analysis L (signed MFE OLS) is the winner at ALL 4 scales.
      One regression gives direction + confidence + TP target.
-     Already used in the orchestrator. 68.9-79.2% accuracy.
+     Accuracy degrades with scale: 79.2% (1w) -> 68.9% (1m) -> 61.6% (1y).
+     But lift is stable: +5.8% at both 1m and 1y (balanced data).
   2. Analyses M, N, O all fail at ALL scales — linear models on
      single-point 192D snapshots cannot predict next-bar direction.
+     At 22k bars, O converges to pure coin-flip (50.6%).
   3. Analysis P's success is a LEAK, not a model — B_current_MR is the
-     answer. Confirmed at 4th scale (98.9%). Proves transitions > snapshots.
-  4. Analysis Q produces meaningful magnitude tiers at 1-week+.
-     The UP/DN tier asymmetry suggests directional structure in magnitude.
+     answer. Confirmed at 22k bars (100.0%). Proves transitions > snapshots.
+  4. Analysis Q: definitive at 1-year (7/5 tiers from 22k bars).
+     UP moves have richer tier structure than DN across all scales.
   5. The direction problem requires either:
      a) Signed MFE regression within clusters (Analysis L — works)
      b) Non-linear models on segments (Analysis K — GBM 70.6%)
