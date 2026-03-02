@@ -4324,6 +4324,302 @@ def main():
         plt.close(fig_k)
         print(f"\n  Saved: {k_path}")
 
+    # =====================================================================
+    #  ANALYSIS L: SIGNED MFE OLS (direction from price prediction)
+    #
+    #  Fit OLS: Y = signed_MFE = MFE * sign(direction)
+    #  If we can predict signed MFE, sign gives direction and magnitude
+    #  gives confidence. One model replaces direction + quality classifiers.
+    # =====================================================================
+    print(f"\n{'='*70}")
+    print(f"  ANALYSIS L: SIGNED MFE OLS (DIRECTION FROM PRICE PREDICTION)")
+    print(f"  Y = MFE * sign(direction)  |  positive=UP, negative=DOWN")
+    print(f"  sign(prediction) -> direction,  |prediction| -> confidence")
+    print(f"{'='*70}")
+
+    from sklearn.linear_model import LinearRegression as _LR_L
+    from sklearn.preprocessing import StandardScaler as _SS_L
+    from sklearn.model_selection import train_test_split as _split_L
+
+    # Bridge oracle bars to X rows via timestamp
+    base_ts = base_df['timestamp'].values
+    _oracle_ts_set = {}
+    for i, bi in enumerate(bar_indices):
+        _oracle_ts_set[int(base_ts[bi])] = i
+
+    _l_xrows = []
+    _l_smfe = []
+    for xi, ts_val in enumerate(sample_ts):
+        oi = _oracle_ts_set.get(int(ts_val), -1)
+        if oi >= 0:
+            _l_xrows.append(xi)
+            _sign = 1.0 if directions[oi] == 'LONG' else -1.0
+            _l_smfe.append(float(mfes[oi]) * _sign)
+
+    n_l = len(_l_smfe)
+    print(f"\n  Matched samples: {n_l} (oracle bars with fractal context)")
+
+    if n_l >= 50:
+        X_l = X[_l_xrows]
+        Y_l = np.array(_l_smfe)
+
+        n_pos = (Y_l > 0).sum()
+        n_neg = (Y_l < 0).sum()
+        print(f"  UP (positive): {n_pos} ({n_pos/n_l*100:.1f}%)  "
+              f"DOWN (negative): {n_neg} ({n_neg/n_l*100:.1f}%)")
+        print(f"  Y range: [{Y_l.min():.1f}, {Y_l.max():.1f}], "
+              f"mean={Y_l.mean():.2f}, std={Y_l.std():.2f}")
+
+        # Train/test split
+        X_tr, X_te, y_tr, y_te = _split_L(X_l, Y_l, test_size=0.30, random_state=42)
+
+        sc_l = _SS_L()
+        X_tr_sc = sc_l.fit_transform(X_tr)
+        X_te_sc = sc_l.transform(X_te)
+
+        ols_l = _LR_L().fit(X_tr_sc, y_tr)
+        pred_tr = ols_l.predict(X_tr_sc)
+        pred_te = ols_l.predict(X_te_sc)
+
+        # R² on train and test
+        r2_tr = ols_l.score(X_tr_sc, y_tr)
+        r2_te = ols_l.score(X_te_sc, y_te)
+        n_te, k_te = X_te_sc.shape
+        adj_r2_te = 1.0 - (1.0 - r2_te) * (n_te - 1) / max(1, n_te - k_te - 1)
+
+        print(f"\n  OLS Signed MFE:")
+        print(f"    Train R2:     {r2_tr:.4f}")
+        print(f"    Test R2:      {r2_te:.4f}")
+        print(f"    Test adj-R2:  {adj_r2_te:.4f}")
+
+        # Direction accuracy: sign(predicted) vs sign(actual)
+        dir_pred = np.sign(pred_te)
+        dir_actual = np.sign(y_te)
+        _nz = dir_actual != 0
+        if _nz.sum() > 0:
+            dir_correct = (dir_pred[_nz] == dir_actual[_nz]).sum()
+            dir_acc = dir_correct / _nz.sum()
+            _baseline_l = max((dir_actual[_nz] > 0).sum(), (dir_actual[_nz] < 0).sum()) / _nz.sum()
+            _lift_l = dir_acc - _baseline_l
+            print(f"\n  Direction from sign(prediction):")
+            print(f"    Accuracy: {dir_correct}/{_nz.sum()} = {dir_acc:.1%}")
+            print(f"    Baseline (majority): {_baseline_l:.1%}")
+            print(f"    Lift: {_lift_l:+.1%}")
+
+            # Confidence gates: only predict when |predicted| > threshold
+            print(f"\n  Confidence gates (|predicted signed MFE| > threshold):")
+            print(f"  {'Threshold':>10} {'N':>6} {'Accuracy':>10} {'Lift':>8} {'% of data':>10}")
+            print(f"  {'-'*10} {'-'*6} {'-'*10} {'-'*8} {'-'*10}")
+            for thr in [0.0, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0]:
+                _cm = (np.abs(pred_te) > thr) & _nz
+                if _cm.sum() > 0:
+                    _cc = (dir_pred[_cm] == dir_actual[_cm]).sum()
+                    _ca = _cc / _cm.sum()
+                    _pct = _cm.sum() / _nz.sum() * 100
+                    print(f"  {thr:>10.1f} {_cm.sum():>6} {_ca:>10.1%} "
+                          f"{_ca - _baseline_l:>+8.1%} {_pct:>9.1f}%")
+
+            # LONG vs SHORT breakdown
+            _pred_long = dir_pred[_nz] > 0
+            _actual_long = dir_actual[_nz] > 0
+            _long_correct = (_pred_long & _actual_long).sum()
+            _long_total = _actual_long.sum()
+            _short_correct = (~_pred_long & ~_actual_long).sum()
+            _short_total = (~_actual_long).sum()
+            print(f"\n  When actual LONG:  {_long_correct}/{_long_total} = "
+                  f"{_long_correct/_long_total:.1%}" if _long_total > 0 else "")
+            print(f"  When actual SHORT: {_short_correct}/{_short_total} = "
+                  f"{_short_correct/_short_total:.1%}" if _short_total > 0 else "")
+
+        # Top features by coefficient magnitude
+        coeff_abs = np.abs(ols_l.coef_)
+        top_idx = np.argsort(coeff_abs)[::-1][:20]
+        all_names = col_names  # 193 features
+        print(f"\n  TOP 20 FEATURES (by |coefficient| in signed MFE OLS):")
+        print(f"  {'Rank':>4}  {'Feature':<40} {'Coeff':>10} {'|Coeff|':>10}")
+        print(f"  {'-'*4}  {'-'*40} {'-'*10} {'-'*10}")
+        for rank, fi in enumerate(top_idx, 1):
+            fn = all_names[fi] if fi < len(all_names) else f'f{fi}'
+            print(f"  {rank:>4}  {fn:<40} {ols_l.coef_[fi]:>+10.4f} {coeff_abs[fi]:>10.4f}")
+
+        # CONCLUSION
+        print(f"\n  ANALYSIS L CONCLUSION:")
+        if _nz.sum() > 0 and dir_acc > 0.55:
+            print(f"  PROMISING: {dir_acc:.1%} direction accuracy from signed MFE OLS.")
+            print(f"  The 16D fractal context can predict not just WHERE price is,")
+            print(f"  but which WAY it's going and how FAR. One regression gives")
+            print(f"  direction (sign) + confidence (magnitude) + TP target (|pred|).")
+        elif _nz.sum() > 0 and dir_acc > 0.52:
+            print(f"  MARGINAL: {dir_acc:.1%} accuracy, slight lift over baseline.")
+            print(f"  May improve with importance weighting or feature selection.")
+        else:
+            print(f"  INSUFFICIENT: {dir_acc:.1%} accuracy. Signed MFE is not reliably")
+            print(f"  predictable from the 192D snapshot. Fall back to balanced")
+            print(f"  direction classifier or template DMI side.")
+
+        # ── Plot: Signed MFE — Predicted vs Actual ──────────────────────
+        fig_l, axes_l = plt.subplots(2, 2, figsize=(16, 12),
+                                      facecolor='white')
+
+        # (0,0) Scatter: predicted vs actual signed MFE, color = actual direction
+        ax = axes_l[0, 0]
+        _c_long  = '#2196F3'  # blue = LONG (up)
+        _c_short = '#F44336'  # red  = SHORT (down)
+        _colors_te = np.where(y_te > 0, _c_long, _c_short)
+        ax.scatter(y_te, pred_te, c=_colors_te, alpha=0.5, s=20, edgecolors='none')
+        _lim = max(abs(y_te).max(), abs(pred_te).max()) * 1.1
+        ax.plot([-_lim, _lim], [-_lim, _lim], 'k--', alpha=0.3, lw=1)
+        ax.axhline(0, color='gray', lw=0.5, alpha=0.5)
+        ax.axvline(0, color='gray', lw=0.5, alpha=0.5)
+        # Shade quadrants
+        ax.fill_between([-_lim, 0], -_lim, 0, color=_c_short, alpha=0.04)  # correct SHORT
+        ax.fill_between([0, _lim], 0, _lim, color=_c_long, alpha=0.04)     # correct LONG
+        ax.set_xlabel('Actual Signed MFE', fontsize=10)
+        ax.set_ylabel('Predicted Signed MFE', fontsize=10)
+        ax.set_title(f'Predicted vs Actual (R\u00b2={r2_te:.3f})', fontsize=11, fontweight='bold')
+        # Legend
+        from matplotlib.lines import Line2D
+        _leg = [Line2D([0], [0], marker='o', color='w', markerfacecolor=_c_long, markersize=8, label='LONG (actual)'),
+                Line2D([0], [0], marker='o', color='w', markerfacecolor=_c_short, markersize=8, label='SHORT (actual)')]
+        ax.legend(handles=_leg, loc='upper left', fontsize=9)
+
+        # (0,1) Histogram: predicted signed MFE distribution, stacked by actual direction
+        ax = axes_l[0, 1]
+        _pred_long_vals  = pred_te[y_te > 0]
+        _pred_short_vals = pred_te[y_te < 0]
+        _bins = np.linspace(-_lim, _lim, 40)
+        ax.hist(_pred_long_vals, bins=_bins, alpha=0.7, color=_c_long, label='Actual LONG', edgecolor='white', lw=0.5)
+        ax.hist(_pred_short_vals, bins=_bins, alpha=0.7, color=_c_short, label='Actual SHORT', edgecolor='white', lw=0.5)
+        ax.axvline(0, color='black', lw=1.5, ls='--', alpha=0.7)
+        ax.set_xlabel('Predicted Signed MFE', fontsize=10)
+        ax.set_ylabel('Count', fontsize=10)
+        ax.set_title('Prediction Distribution by Actual Direction', fontsize=11, fontweight='bold')
+        ax.legend(fontsize=9)
+        ax.text(0.02, 0.95, f'LEFT of 0 = model says SHORT\nRIGHT of 0 = model says LONG',
+                transform=ax.transAxes, fontsize=8, va='top', color='gray')
+
+        # (1,0) Confusion matrix as heatmap
+        ax = axes_l[1, 0]
+        if _nz.sum() > 0:
+            _cm_labels = ['SHORT', 'LONG']
+            _tp_short = (~_pred_long & ~_actual_long).sum()
+            _fp_long  = (_pred_long & ~_actual_long).sum()
+            _fn_long  = (~_pred_long & _actual_long).sum()
+            _tp_long  = (_pred_long & _actual_long).sum()
+            _cm = np.array([[_tp_short, _fp_long], [_fn_long, _tp_long]])
+            _im = ax.imshow(_cm, cmap='Blues', aspect='auto')
+            ax.set_xticks([0, 1]); ax.set_xticklabels(_cm_labels, fontsize=10)
+            ax.set_yticks([0, 1]); ax.set_yticklabels(_cm_labels, fontsize=10)
+            ax.set_xlabel('Predicted', fontsize=10)
+            ax.set_ylabel('Actual', fontsize=10)
+            for _ri in range(2):
+                for _ci in range(2):
+                    _val = _cm[_ri, _ci]
+                    _clr = 'white' if _val > _cm.max() * 0.5 else 'black'
+                    ax.text(_ci, _ri, str(_val), ha='center', va='center',
+                            fontsize=16, fontweight='bold', color=_clr)
+            ax.set_title(f'Direction Confusion Matrix\nAccuracy={dir_acc:.1%}, Lift={_lift_l:+.1%}',
+                        fontsize=11, fontweight='bold')
+
+        # (1,1) Confidence gate curve
+        ax = axes_l[1, 1]
+        _thrs = np.linspace(0, np.percentile(np.abs(pred_te), 95), 30)
+        _accs = []
+        _ns = []
+        for _t in _thrs:
+            _m = (np.abs(pred_te) > _t) & _nz
+            if _m.sum() >= 5:
+                _accs.append((dir_pred[_m] == dir_actual[_m]).sum() / _m.sum() * 100)
+                _ns.append(_m.sum() / _nz.sum() * 100)
+            else:
+                _accs.append(np.nan)
+                _ns.append(0)
+        ax.plot(_thrs, _accs, color='#2196F3', lw=2, label='Accuracy %')
+        ax.axhline(_baseline_l * 100, color='gray', ls='--', lw=1, alpha=0.7, label=f'Baseline {_baseline_l:.0%}')
+        ax.set_xlabel('|Predicted Signed MFE| Threshold', fontsize=10)
+        ax.set_ylabel('Direction Accuracy %', fontsize=10)
+        ax.set_title('Confidence Gate: Accuracy vs Threshold', fontsize=11, fontweight='bold')
+        ax.legend(fontsize=9)
+        ax2 = ax.twinx()
+        ax2.fill_between(_thrs, 0, _ns, alpha=0.15, color='orange')
+        ax2.set_ylabel('% of Data Remaining', fontsize=9, color='orange')
+        ax2.tick_params(axis='y', labelcolor='orange')
+
+        fig_l.suptitle(
+            f'Analysis L: Signed MFE OLS — Direction from Price Prediction\n'
+            f'{n_l} samples | Accuracy={dir_acc:.1%} | Lift={_lift_l:+.1%} | '
+            f'LONG: {n_pos} ({n_pos/n_l*100:.0f}%)  SHORT: {n_neg} ({n_neg/n_l*100:.0f}%)',
+            fontsize=13, fontweight='bold')
+        plt.tight_layout()
+        l_path = os.path.join(PLOTS_DIR, '0n_signed_mfe_direction.png')
+        fig_l.savefig(l_path, dpi=150, bbox_inches='tight', facecolor='white')
+        plt.close(fig_l)
+        print(f"\n  Saved: {l_path}")
+
+        # ── Plot 2: Price chart with LONG/SHORT segment overlay ─────────
+        # Predict signed MFE for ALL matched samples (not just test split)
+        X_l_all_sc = sc_l.transform(X_l)
+        pred_all = ols_l.predict(X_l_all_sc)
+        pred_dir_all = np.sign(pred_all)
+
+        # Map back to bar indices in base_df
+        _matched_bar_idx = [bar_indices[_oracle_ts_set[int(sample_ts[xi])]]
+                            for xi in _l_xrows]
+        _matched_bar_idx = np.array(_matched_bar_idx)
+
+        from datetime import datetime, timezone as _tz_l
+        close_all = base_df['close'].values.astype(float)
+        ts_all = base_df['timestamp'].values
+
+        fig_p, ax_p = plt.subplots(1, 1, figsize=(20, 7), facecolor='white')
+
+        # Plot full price line in gray
+        _x_dates = [datetime.fromtimestamp(int(t), tz=_tz_l.utc) for t in ts_all]
+        ax_p.plot(_x_dates, close_all, color='#BDBDBD', lw=0.8, alpha=0.6, zorder=1)
+
+        # Overlay colored segments at each prediction point
+        # Draw a short colored line segment around each prediction bar
+        _seg_half = max(1, len(close_all) // 500)  # adaptive segment width
+        for i, bi in enumerate(_matched_bar_idx):
+            _s = max(0, bi - _seg_half)
+            _e = min(len(close_all), bi + _seg_half + 1)
+            _seg_x = _x_dates[_s:_e]
+            _seg_y = close_all[_s:_e]
+            if len(_seg_x) < 2:
+                continue
+            _color = '#2196F3' if pred_dir_all[i] > 0 else '#F44336'
+            _alpha = min(1.0, 0.3 + abs(pred_all[i]) / 100.0)  # stronger prediction = more opaque
+            ax_p.plot(_seg_x, _seg_y, color=_color, lw=2.0, alpha=_alpha, zorder=2)
+
+        # Mark correct/wrong with small dots
+        for i, bi in enumerate(_matched_bar_idx):
+            _actual_sign = 1.0 if directions[_oracle_ts_set[int(sample_ts[_l_xrows[i]])]] == 'LONG' else -1.0
+            _correct = (pred_dir_all[i] == _actual_sign)
+            if not _correct:
+                ax_p.plot(_x_dates[bi], close_all[bi], 'x', color='black',
+                         markersize=4, alpha=0.5, zorder=3)
+
+        ax_p.set_xlabel('Time', fontsize=10)
+        ax_p.set_ylabel('Price', fontsize=10)
+        ax_p.set_title(
+            f'Price with Predicted Direction Overlay\n'
+            f'Blue = LONG prediction | Red = SHORT prediction | X = wrong direction',
+            fontsize=12, fontweight='bold')
+        from matplotlib.lines import Line2D as _Line2D_p
+        _leg_p = [_Line2D_p([0], [0], color='#2196F3', lw=2, label='Predicted LONG'),
+                  _Line2D_p([0], [0], color='#F44336', lw=2, label='Predicted SHORT'),
+                  _Line2D_p([0], [0], marker='x', color='black', lw=0, markersize=6, label='Wrong direction')]
+        ax_p.legend(handles=_leg_p, loc='upper left', fontsize=9)
+        fig_p.autofmt_xdate()
+        plt.tight_layout()
+        p_path = os.path.join(PLOTS_DIR, '0o_price_direction_overlay.png')
+        fig_p.savefig(p_path, dpi=150, bbox_inches='tight', facecolor='white')
+        plt.close(fig_p)
+        print(f"  Saved: {p_path}")
+
+    else:
+        print(f"  SKIP: too few matched samples ({n_l}) for meaningful analysis")
+
     # Save report and exit (default mode)
     if not args.full:
         sys.stdout = _orig_stdout
