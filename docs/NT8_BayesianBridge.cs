@@ -71,10 +71,12 @@ namespace NinjaTrader.NinjaScript.Indicators
         private string[] _barLabels;
         private int[]    _barPeriodSecs;
 
-        // History buffer — every completed bar is stored here; dumped to
-        // client on connect so the Python engine can bypass warmup.
+        // History buffer — completed bars (TFs 1-11 only, skip 1s) stored
+        // here; dumped to client on connect so Python bypasses warmup.
+        // Capped at MAX_HISTORY to avoid memory blowup with 1-year charts.
         private readonly List<string> _allBars = new List<string>();
         private readonly object _barLock = new object();
+        private const int MAX_HISTORY = 100000;  // ~20MB, covers months of TFs 1-11
 
         // DOM throttle — send at most every N ms to avoid flooding
         private DateTime _lastDomSend = DateTime.MinValue;
@@ -200,9 +202,17 @@ namespace NinjaTrader.NinjaScript.Indicators
                 + Q("volume") + ":" + D2S(Volumes[idx][1])
                 + "}";
 
-            // Always buffer (for history dump on reconnect); also send
-            // live if a client is connected.
-            lock (_barLock) { _allBars.Add(json); }
+            // Buffer TFs 1-11 for history dump (skip 1s — too many bars).
+            // 1s bars still stream live but aren't replayed on reconnect.
+            if (idx > 0)
+            {
+                lock (_barLock)
+                {
+                    _allBars.Add(json);
+                    if (_allBars.Count > MAX_HISTORY)
+                        _allBars.RemoveRange(0, _allBars.Count - MAX_HISTORY);
+                }
+            }
             SendRawJson(json);
         }
 
