@@ -482,6 +482,7 @@ class LiveEngine:
 
         # Aggression scaling (0.0=SNIPER … 1.0=YOLO)
         agg = self._shared_state.get('aggression', 0.5)
+        _yolo = agg >= 0.99
         _g1_dist = _GATE1_DIST_THRESHOLD + agg * 10.0   # 4.5 → 14.5
         _g2_prob = 0.05 * (1.0 - agg)                    # 0.05 → 0.0
         _g4_dir  = 0.05 * (1.0 - agg)                    # 0.05 → 0.0
@@ -497,6 +498,10 @@ class LiveEngine:
             candidates.append(self._build_candidate(
                 'ROCHE_SNAP', state, price, ts))
         if state.structure_confirmed:
+            candidates.append(self._build_candidate(
+                'STRUCTURAL_DRIVE', state, price, ts))
+        # YOLO: if no physics triggers found, force a candidate anyway
+        if not candidates and _yolo:
             candidates.append(self._build_candidate(
                 'STRUCTURAL_DRIVE', state, price, ts))
 
@@ -527,7 +532,7 @@ class LiveEngine:
                         and self._valid_tids[_e_nearest] in self._exception_tids):
                     _data_override = True
 
-            if not _data_override:
+            if not _data_override and not _yolo:
                 if not micro_pattern:
                     should_skip = True
                 elif micro_z < 0.5:
@@ -552,7 +557,7 @@ class LiveEngine:
                 continue
 
             # ── Gate 0.5: Depth filter ────────────────────────────────
-            if p.depth in self._depth_filter_out:
+            if not _yolo and p.depth in self._depth_filter_out:
                 continue
 
             # ── Gate 1: Cluster matching ──────────────────────────────

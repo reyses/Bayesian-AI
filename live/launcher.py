@@ -55,10 +55,17 @@ def main():
                         help='Max daily loss in USD before stopping (default: 200)')
     parser.add_argument('--warmup-bars', type=int, default=240,
                         help='Bars to accumulate before first signal (default: 240 = 1h)')
+    parser.add_argument('--yolo', action='store_true',
+                        help='Max aggression, minimal warmup — force trades fast')
     parser.add_argument('--log-level', default='INFO',
                         choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
                         help='Logging level (default: INFO)')
     args = parser.parse_args()
+
+    # YOLO mode: override warmup + aggression
+    if args.yolo:
+        args.warmup_bars = 20   # ~5 minutes of 15s bars
+        args.log_level = 'DEBUG'
 
     # Configure logging
     logging.basicConfig(
@@ -87,7 +94,7 @@ def main():
     )
 
     # Shared mutable state between GUI and engine (thread-safe via GIL)
-    shared_state = {'aggression': 0.5}  # 0.0=SNIPER … 1.0=YOLO
+    shared_state = {'aggression': 1.0 if args.yolo else 0.5}
 
     # Launch GUI popup (unless --no-gui)
     gui_queue = None

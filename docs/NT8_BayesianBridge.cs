@@ -61,6 +61,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         private Thread        _serverThread;
         private Thread        _readThread;
         private volatile bool _running;
+        private volatile bool _clientAlive;   // set false by ReadLoop on disconnect
         private Account       _account;
         private readonly object _sendLock = new object();
         private readonly Queue<Dictionary<string, string>> _inboundQueue
@@ -299,24 +300,35 @@ namespace NinjaTrader.NinjaScript.Indicators
         {
             if (e.Position == null) return;
 
-            int qty = 0;
-            if (e.Position.MarketPosition == MarketPosition.Long)
-                qty = e.Position.Quantity;
-            else if (e.Position.MarketPosition == MarketPosition.Short)
-                qty = -e.Position.Quantity;
+            try
+            {
+                int qty = 0;
+                if (e.Position.MarketPosition == MarketPosition.Long)
+                    qty = e.Position.Quantity;
+                else if (e.Position.MarketPosition == MarketPosition.Short)
+                    qty = -e.Position.Quantity;
 
-            string json = "{"
-                + Q("type") + ":" + Q("POSITION") + ","
-                + Q("instrument") + ":" + Q(e.Position.Instrument.FullName) + ","
-                + Q("qty") + ":" + qty + ","
-                + Q("avg_price") + ":" + D2S(e.Position.AveragePrice) + ","
-                + Q("unrealized_pnl") + ":" + D2S(e.Position.GetUnrealizedProfitLoss(
-                    PerformanceUnit.Currency, Close[0]))
-                + "}";
-            SendRawJson(json);
+                double unrealPnl = 0;
+                try { unrealPnl = e.Position.GetUnrealizedProfitLoss(
+                    PerformanceUnit.Currency, Close[0]); }
+                catch { }  // Close[0] may not be available yet
 
-            // Also send full account equity on position changes
-            SendAccountUpdate();
+                string json = "{"
+                    + Q("type") + ":" + Q("POSITION") + ","
+                    + Q("instrument") + ":" + Q(e.Position.Instrument.FullName) + ","
+                    + Q("qty") + ":" + qty + ","
+                    + Q("avg_price") + ":" + D2S(e.Position.AveragePrice) + ","
+                    + Q("unrealized_pnl") + ":" + D2S(unrealPnl)
+                    + "}";
+                SendRawJson(json);
+
+                // Also send full account equity on position changes
+                SendAccountUpdate();
+            }
+            catch (Exception ex)
+            {
+                Print("BayesianBridge: OnPositionUpdate error: " + ex.Message);
+            }
         }
 
         // ── TCP Server ────────────────────────────────────────────────
@@ -337,33 +349,77 @@ namespace NinjaTrader.NinjaScript.Indicators
                         continue;
                     }
 
+                    // Close any stale previous connection before accepting
+                    if (_client != null)
+                    {
+                        Print("BayesianBridge: Closing previous client connection");
+                        _clientAlive = false;
+                        try { _stream?.Close(); } catch { }
+                        try { _client?.Close(); } catch { }
+                        _stream = null;
+                        _client = null;
+                    }
+
                     _client = _listener.AcceptTcpClient();
                     _stream = _client.GetStream();
+                    _clientAlive = true;
                     Print("BayesianBridge: Python client connected");
 
-                    // Send CONNECTED message
-                    string connJson = "{"
-                        + Q("type") + ":" + Q("CONNECTED") + ","
-                        + Q("account") + ":" + Q(AccountName)
-                        + "}";
-                    SendRawJson(connJson);
+                    try
+                    {
+                        // Send CONNECTED message
+                        Print("BayesianBridge: Sending CONNECTED...");
+                        string connJson = "{"
+                            + Q("type") + ":" + Q("CONNECTED") + ","
+                            + Q("account") + ":" + Q(AccountName)
+                            + "}";
+                        SendRawJson(connJson);
+                        Print("BayesianBridge: CONNECTED sent OK");
 
-                    SendPositionSnapshot();
-                    SendAccountUpdate();
-                    SendHistoryBuffer();
+                        Print("BayesianBridge: Sending position snapshot...");
+                        SendPositionSnapshot();
+                        Print("BayesianBridge: Sending account update...");
+                        SendAccountUpdate();
+                        Print("BayesianBridge: Sending history buffer...");
+                        SendHistoryBuffer();
+                        Print("BayesianBridge: All initial messages sent");
+                    }
+                    catch (Exception ex)
+                    {
+                        Print("BayesianBridge: Init send failed: " + ex.ToString());
+                    }
 
                     _readThread = new Thread(ReadLoop) { IsBackground = true };
                     _readThread.Start();
 
-                    while (_running && _client != null && _client.Connected)
+                    // _clientAlive is set to false by ReadLoop when it
+                    // detects a disconnect (read returns 0 or throws).
+                    // Also check _listener.Pending() so a new Python
+                    // connection immediately breaks us out of this loop.
+                    while (_running && _clientAlive)
                     {
-                        ProcessInboundQueue();
-
-                        // Periodic account equity update
-                        if ((DateTime.Now - _lastAccountSend).TotalMilliseconds >= ACCOUNT_UPDATE_MS)
+                        try
                         {
-                            SendAccountUpdate();
-                            _lastAccountSend = DateTime.Now;
+                            ProcessInboundQueue();
+
+                            // Periodic account equity update
+                            if ((DateTime.Now - _lastAccountSend).TotalMilliseconds >= ACCOUNT_UPDATE_MS)
+                            {
+                                SendAccountUpdate();
+                                _lastAccountSend = DateTime.Now;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Print("BayesianBridge: Loop error: " + ex.Message);
+                        }
+
+                        // If a new Python client is waiting, break out
+                        // to accept it (old connection will be closed above).
+                        if (_listener.Pending())
+                        {
+                            Print("BayesianBridge: New client pending — recycling");
+                            break;
                         }
 
                         Thread.Sleep(50);
@@ -372,10 +428,10 @@ namespace NinjaTrader.NinjaScript.Indicators
                     Print("BayesianBridge: Python client disconnected");
                 }
             }
-            catch (SocketException ex)
+            catch (Exception ex)
             {
                 if (_running)
-                    Print("BayesianBridge: Server error: " + ex.Message);
+                    Print("BayesianBridge: Server FATAL: " + ex.ToString());
             }
         }
 
@@ -383,7 +439,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         {
             try
             {
-                while (_running && _stream != null && _client.Connected)
+                while (_running && _clientAlive && _stream != null)
                 {
                     byte[] header = ReadExactly(4);
                     if (header == null) break;
@@ -410,6 +466,9 @@ namespace NinjaTrader.NinjaScript.Indicators
                 if (_running)
                     Print("BayesianBridge: Read error: " + ex.Message);
             }
+
+            // Signal ServerLoop that this client is dead
+            _clientAlive = false;
         }
 
         private byte[] ReadExactly(int count)

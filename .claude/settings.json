@@ -5,7 +5,16 @@
       "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Users\\\\reyse\\\\OneDrive\\\\Documents\\\\NinjaTrader 8\\\\bin'' -Filter ''*.exe'' -Recurse -Depth 1 | Select-Object FullName\")",
       "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Program Files'' -Filter ''NinjaTrader*'' -Directory -ErrorAction SilentlyContinue | Select-Object FullName; Get-ChildItem ''C:\\\\Program Files \\(x86\\)'' -Filter ''NinjaTrader*'' -Directory -ErrorAction SilentlyContinue | Select-Object FullName\")",
       "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Program Files\\\\NinjaTrader 8'' -Filter ''*.exe'' -Recurse -Depth 2 | Select-Object FullName\")",
-      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Program Files\\\\NinjaTrader 8\\\\bin'' -Filter ''*compil*'' -Recurse | Select-Object FullName; Get-ChildItem ''C:\\\\Program Files\\\\NinjaTrader 8\\\\bin'' -Filter ''*NinjaScript*'' -Recurse | Select-Object FullName\")"
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Program Files\\\\NinjaTrader 8\\\\bin'' -Filter ''*compil*'' -Recurse | Select-Object FullName; Get-ChildItem ''C:\\\\Program Files\\\\NinjaTrader 8\\\\bin'' -Filter ''*NinjaScript*'' -Recurse | Select-Object FullName\")",
+      "Bash(powershell.exe -Command \"Get-NetTCPConnection -LocalPort 5199 -ErrorAction SilentlyContinue | Select-Object LocalPort, State, OwningProcess, @{Name=''ProcessName'';Expression={\\(Get-Process -Id $_.OwningProcess\\).ProcessName}}\")",
+      "Bash(powershell.exe -Command \"\\(Get-Process -Id 44528\\).ProcessName\")",
+      "Bash(powershell.exe -Command \"Get-NetTCPConnection -LocalPort 5199 -ErrorAction SilentlyContinue | Select-Object LocalAddress, LocalPort, RemoteAddress, RemotePort, State, OwningProcess\")",
+      "Bash(powershell.exe -Command \"Get-NetTCPConnection -LocalPort 5199 -ErrorAction SilentlyContinue | Format-Table LocalAddress, LocalPort, RemoteAddress, RemotePort, State, OwningProcess -AutoSize\")",
+      "Bash(powershell.exe -Command \"\\(Get-Item ''C:\\\\Users\\\\reyse\\\\OneDrive\\\\Documents\\\\NinjaTrader 8\\\\bin\\\\Custom\\\\Indicators\\\\NT8_BayesianBridge.cs''\\).LastWriteTime\")",
+      "Bash(powershell.exe -Command \"\\(Get-Item ''C:\\\\Users\\\\reyse\\\\OneDrive\\\\Desktop\\\\Bayesian-AI\\\\docs\\\\NT8_BayesianBridge.cs''\\).LastWriteTime\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\reyse\\OneDrive\\Documents\\NinjaTrader 8\\bin\\Custom\\Indicators"
     ]
   }
 }
