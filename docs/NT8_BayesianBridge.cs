@@ -82,6 +82,10 @@ namespace NinjaTrader.NinjaScript.Indicators
         private DateTime _lastDomSend = DateTime.MinValue;
         private const int DOM_THROTTLE_MS = 250;
 
+        // Account equity update throttle
+        private DateTime _lastAccountSend = DateTime.MinValue;
+        private const int ACCOUNT_UPDATE_MS = 5000;  // every 5 seconds
+
         // Latest best bid/ask (updated on every depth event, sent throttled)
         private double _bestBid, _bestAsk;
         private long   _bestBidSize, _bestAskSize;
@@ -96,7 +100,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 Name        = "BayesianBridge";
                 IsOverlay   = true;
                 Port        = 5199;
-                AccountName = "Sim101";
+                AccountName = "DEMO6872628";
                 DomLevels   = 5;
                 MaximumBarsLookBack = MaximumBarsLookBack.Infinite;
                 Calculate           = Calculate.OnBarClose;
@@ -310,6 +314,9 @@ namespace NinjaTrader.NinjaScript.Indicators
                     PerformanceUnit.Currency, Close[0]))
                 + "}";
             SendRawJson(json);
+
+            // Also send full account equity on position changes
+            SendAccountUpdate();
         }
 
         // ── TCP Server ────────────────────────────────────────────────
@@ -342,6 +349,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                     SendRawJson(connJson);
 
                     SendPositionSnapshot();
+                    SendAccountUpdate();
                     SendHistoryBuffer();
 
                     _readThread = new Thread(ReadLoop) { IsBackground = true };
@@ -350,6 +358,14 @@ namespace NinjaTrader.NinjaScript.Indicators
                     while (_running && _client != null && _client.Connected)
                     {
                         ProcessInboundQueue();
+
+                        // Periodic account equity update
+                        if ((DateTime.Now - _lastAccountSend).TotalMilliseconds >= ACCOUNT_UPDATE_MS)
+                        {
+                            SendAccountUpdate();
+                            _lastAccountSend = DateTime.Now;
+                        }
+
                         Thread.Sleep(50);
                     }
 
@@ -636,6 +652,32 @@ namespace NinjaTrader.NinjaScript.Indicators
             Print("BayesianBridge: Sent " + snapshot.Count + " historical bars to client");
         }
 
+        private void SendAccountUpdate()
+        {
+            if (_account == null) return;
+
+            try
+            {
+                double cashValue      = _account.Get(AccountItem.CashValue, Currency.UsDollar);
+                double realizedPnl    = _account.Get(AccountItem.RealizedProfitLoss, Currency.UsDollar);
+                double unrealizedPnl  = _account.Get(AccountItem.UnrealizedProfitLoss, Currency.UsDollar);
+
+                string json = "{"
+                    + Q("type") + ":" + Q("ACCOUNT_UPDATE") + ","
+                    + Q("cash_value") + ":" + D2S(cashValue) + ","
+                    + Q("realized_pnl") + ":" + D2S(realizedPnl) + ","
+                    + Q("unrealized_pnl") + ":" + D2S(unrealizedPnl) + ","
+                    + Q("net_liquidation") + ":" + D2S(cashValue + unrealizedPnl) + ","
+                    + Q("timestamp") + ":" + D2S(ToUnixSeconds(DateTime.UtcNow))
+                    + "}";
+                SendRawJson(json);
+            }
+            catch (Exception ex)
+            {
+                Print("BayesianBridge: Account update failed: " + ex.Message);
+            }
+        }
+
         // ── Position Lookup ───────────────────────────────────────────
 
         private Position FindPosition()
@@ -762,3 +804,61 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
     }
 }
+
+
+#region NinjaScript generated code. Neither change nor remove.
+
+namespace NinjaTrader.NinjaScript.Indicators
+{
+	public partial class Indicator : NinjaTrader.Gui.NinjaScript.IndicatorRenderBase
+	{
+		private BayesianBridge[] cacheBayesianBridge;
+		public BayesianBridge BayesianBridge(int port, string accountName, int domLevels)
+		{
+			return BayesianBridge(Input, port, accountName, domLevels);
+		}
+
+		public BayesianBridge BayesianBridge(ISeries<double> input, int port, string accountName, int domLevels)
+		{
+			if (cacheBayesianBridge != null)
+				for (int idx = 0; idx < cacheBayesianBridge.Length; idx++)
+					if (cacheBayesianBridge[idx] != null && cacheBayesianBridge[idx].Port == port && cacheBayesianBridge[idx].AccountName == accountName && cacheBayesianBridge[idx].DomLevels == domLevels && cacheBayesianBridge[idx].EqualsInput(input))
+						return cacheBayesianBridge[idx];
+			return CacheIndicator<BayesianBridge>(new BayesianBridge(){ Port = port, AccountName = accountName, DomLevels = domLevels }, input, ref cacheBayesianBridge);
+		}
+	}
+}
+
+namespace NinjaTrader.NinjaScript.MarketAnalyzerColumns
+{
+	public partial class MarketAnalyzerColumn : MarketAnalyzerColumnBase
+	{
+		public Indicators.BayesianBridge BayesianBridge(int port, string accountName, int domLevels)
+		{
+			return indicator.BayesianBridge(Input, port, accountName, domLevels);
+		}
+
+		public Indicators.BayesianBridge BayesianBridge(ISeries<double> input , int port, string accountName, int domLevels)
+		{
+			return indicator.BayesianBridge(input, port, accountName, domLevels);
+		}
+	}
+}
+
+namespace NinjaTrader.NinjaScript.Strategies
+{
+	public partial class Strategy : NinjaTrader.Gui.NinjaScript.StrategyRenderBase
+	{
+		public Indicators.BayesianBridge BayesianBridge(int port, string accountName, int domLevels)
+		{
+			return indicator.BayesianBridge(Input, port, accountName, domLevels);
+		}
+
+		public Indicators.BayesianBridge BayesianBridge(ISeries<double> input , int port, string accountName, int domLevels)
+		{
+			return indicator.BayesianBridge(input, port, accountName, domLevels);
+		}
+	}
+}
+
+#endregion

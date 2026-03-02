@@ -703,13 +703,15 @@ class ProgressPopup:
         self.root = root
         self.q = q
         self._shared_state = shared_state  # None = training mode
+        self._equity_history = []  # net liquidation over time (from NT8)
+        self._baseline_equity = None  # first equity value (to compute delta)
         self._pnl_history = [0]  # start at $0 so chart draws after 1st trade
         self._pnl_dates = []   # date labels aligned with _pnl_history
         self._day_data = []  # [{day, pnl, trades, wins}, ...]
         self._done = False
 
-        self.root.title("Bayesian-AI Training")
-        self.root.geometry("460x650+60+60")
+        self.root.title("Bayesian-AI LIVE" if shared_state else "Bayesian-AI Training")
+        self.root.geometry("460x720+60+60")
         self.root.configure(bg=BG)
         self.root.resizable(True, True)
         self.root.attributes("-topmost", True)
@@ -773,6 +775,33 @@ class ProgressPopup:
                 activebackground="#888888", font=("Consolas", 10, "bold"),
                 width=8, command=lambda: self._manual_order('FLATTEN'),
             ).pack(side=tk.LEFT)
+
+            # ── NT8 Account Equity row ───────────────────────────────────
+            eq_frame = tk.Frame(root, bg=BG)
+            eq_frame.pack(fill="x", padx=20, pady=(8, 0))
+            for col, lbl in enumerate(("Cash Value", "Unrealized", "Net Liq")):
+                tk.Label(
+                    eq_frame, text=lbl, bg=BG, fg=FG_GREY, font=("Consolas", 8),
+                ).grid(row=0, column=col, padx=14)
+
+            self._cash_var = tk.StringVar(value="--")
+            self._unreal_var = tk.StringVar(value="--")
+            self._netliq_var = tk.StringVar(value="--")
+
+            tk.Label(
+                eq_frame, textvariable=self._cash_var, bg=BG, fg=FG_WHITE,
+                font=("Consolas", 12, "bold"),
+            ).grid(row=1, column=0, padx=14)
+            self._unreal_lbl = tk.Label(
+                eq_frame, textvariable=self._unreal_var, bg=BG, fg=FG_WHITE,
+                font=("Consolas", 12, "bold"),
+            )
+            self._unreal_lbl.grid(row=1, column=1, padx=14)
+            self._netliq_lbl = tk.Label(
+                eq_frame, textvariable=self._netliq_var, bg=BG, fg=FG_BLUE,
+                font=("Consolas", 12, "bold"),
+            )
+            self._netliq_lbl.grid(row=1, column=2, padx=14)
 
         # Phase name (bold, amber) — e.g. "FORWARD PASS"
         self._phase_var = tk.StringVar(value="Initializing...")
@@ -1186,6 +1215,31 @@ class ProgressPopup:
                         "wins":   int(msg.get("wins", 0)),
                     })
                     self._redraw_day_chart()
+
+                elif mtype == "ACCOUNT_UPDATE":
+                    cash = float(msg.get("cash_value", 0))
+                    unreal = float(msg.get("unrealized_pnl", 0))
+                    netliq = float(msg.get("net_liquidation", 0))
+
+                    # Update equity labels (live mode only)
+                    if hasattr(self, '_cash_var'):
+                        self._cash_var.set(f"${cash:,.0f}")
+                        sign_u = "+" if unreal >= 0 else ""
+                        self._unreal_var.set(f"{sign_u}${unreal:,.0f}")
+                        self._unreal_lbl.config(
+                            fg=FG_GREEN if unreal >= 0 else FG_RED)
+                        self._netliq_var.set(f"${netliq:,.0f}")
+                        self._netliq_lbl.config(
+                            fg=FG_GREEN if unreal >= 0 else FG_BLUE)
+
+                    # Track equity for chart (delta from first reading)
+                    if self._baseline_equity is None:
+                        self._baseline_equity = netliq
+                    self._equity_history.append(netliq - self._baseline_equity)
+
+                    # Update PnL chart with equity curve (real-time)
+                    self._pnl_history = [0] + self._equity_history
+                    self._redraw_chart()
 
                 elif mtype == "SHUTDOWN":
                     if not self._done:

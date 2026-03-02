@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Users\\\\reyse\\\\OneDrive\\\\Documents\\\\NinjaTrader 8\\\\bin'' -Filter ''*.exe'' -Recurse -Depth 1 | Select-Object FullName\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Program Files'' -Filter ''NinjaTrader*'' -Directory -ErrorAction SilentlyContinue | Select-Object FullName; Get-ChildItem ''C:\\\\Program Files \\(x86\\)'' -Filter ''NinjaTrader*'' -Directory -ErrorAction SilentlyContinue | Select-Object FullName\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Program Files\\\\NinjaTrader 8'' -Filter ''*.exe'' -Recurse -Depth 2 | Select-Object FullName\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Program Files\\\\NinjaTrader 8\\\\bin'' -Filter ''*compil*'' -Recurse | Select-Object FullName; Get-ChildItem ''C:\\\\Program Files\\\\NinjaTrader 8\\\\bin'' -Filter ''*NinjaScript*'' -Recurse | Select-Object FullName\")"
     ]
   }
 }

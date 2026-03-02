@@ -6,6 +6,8 @@
 - **Always discuss before changing**: propose a plan, get approval, then execute
 - **Progress bars are mandatory**: any long-running loop MUST have tqdm with live stats
 - **NEVER run training via Bash** — user runs it themselves
+- **NT8 bridge deploy**: When updating `docs/NT8_BayesianBridge.cs`, also copy it to
+  `C:\Users\reyse\OneDrive\Documents\NinjaTrader 8\bin\Custom\Indicators\NT8_BayesianBridge.cs`
 
 ## Architecture
 - **Core engine**: `core/quantum_field_engine.py` — ThreeBodyQuantumState per bar

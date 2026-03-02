@@ -140,6 +140,12 @@ class LiveEngine:
         self._gross_win = 0.0
         self._gross_loss = 0.0
 
+        # NT8 account equity (from ACCOUNT_UPDATE messages)
+        self._nt8_cash_value = 0.0
+        self._nt8_realized_pnl = 0.0
+        self._nt8_unrealized_pnl = 0.0
+        self._nt8_net_liquidation = 0.0
+
     # ── Public API ────────────────────────────────────────────────────
 
     async def run(self):
@@ -217,6 +223,8 @@ class LiveEngine:
                 count = int(msg.get('bar_count', 0))
                 logger.info(f"History dump complete: {count} bars from NT8")
                 self._aggregator.finish_history()
+            elif mtype == 'ACCOUNT_UPDATE':
+                self._on_account_update(msg)
             elif mtype == 'DOM':
                 pass  # DOM handled by future dashboard
 
@@ -400,6 +408,21 @@ class LiveEngine:
             'pf': pf,
             'gross_w': self._gross_win,
             'gross_l': abs(self._gross_loss),
+        })
+
+    def _on_account_update(self, msg: dict):
+        """Handle ACCOUNT_UPDATE from NT8 — push equity to GUI."""
+        self._nt8_cash_value = float(msg.get('cash_value', 0))
+        self._nt8_realized_pnl = float(msg.get('realized_pnl', 0))
+        self._nt8_unrealized_pnl = float(msg.get('unrealized_pnl', 0))
+        self._nt8_net_liquidation = float(msg.get('net_liquidation', 0))
+
+        self._gui_push({
+            'type': 'ACCOUNT_UPDATE',
+            'cash_value': self._nt8_cash_value,
+            'realized_pnl': self._nt8_realized_pnl,
+            'unrealized_pnl': self._nt8_unrealized_pnl,
+            'net_liquidation': self._nt8_net_liquidation,
         })
 
     def _brain_learn(self, pnl: float):
