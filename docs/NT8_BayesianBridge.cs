@@ -1,5 +1,5 @@
 // =============================================================================
-// BayesianBridge v6 — 2026-03-02
+// BayesianBridge 6.1.1 — 2026-03-02
 // =============================================================================
 // BayesianBridge — NinjaTrader 8 NinjaScript Indicator
 //
@@ -55,6 +55,9 @@ namespace NinjaTrader.NinjaScript.Indicators
         [NinjaScriptProperty]
         [Display(Name = "DOM Levels", Description = "Depth of Market levels to track (0 = disabled)", Order = 3, GroupName = "Bridge")]
         public int DomLevels { get; set; }
+
+        // ── Version ──────────────────────────────────────────────────
+        private const string BRIDGE_VERSION = "6.1.1";
 
         // ── Internal State ────────────────────────────────────────────
         private TcpListener  _listener;
@@ -165,7 +168,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 _serverThread = new Thread(ServerLoop) { IsBackground = true };
                 _serverThread.Start();
 
-                Print("BayesianBridge v6: Started on port " + Port + ", account=" + AccountName);
+                Print("BayesianBridge " + BRIDGE_VERSION + ": Started on port " + Port + ", account=" + AccountName);
             }
             else if (State == State.Terminated)
             {
@@ -373,7 +376,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                         Print("BayesianBridge: Sending CONNECTED...");
                         string connJson = "{"
                             + Q("type") + ":" + Q("CONNECTED") + ","
-                            + Q("account") + ":" + Q(AccountName)
+                            + Q("account") + ":" + Q(AccountName) + ","
+                            + Q("version") + ":" + Q(BRIDGE_VERSION)
                             + "}";
                         SendRawJson(connJson);
                         Print("BayesianBridge: CONNECTED sent OK");

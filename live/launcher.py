@@ -12,12 +12,50 @@ Usage:
 import argparse
 import asyncio
 import logging
+import os
 import queue as stdlib_queue
 import sys
 import threading
 
 from live.config import LiveConfig
 from live.live_engine import LiveEngine
+
+
+def _kill_stale_live_engines():
+    """Kill any leftover Python live engine processes from previous runs.
+
+    Without this, a stale Python process holds the C# bridge connection
+    and new connections go into the OS backlog unserviced.
+    """
+    import subprocess
+    my_pid = os.getpid()
+    try:
+        # Find all python processes with 'live.launcher' in their command line
+        result = subprocess.run(
+            ['powershell', '-Command',
+             'Get-CimInstance Win32_Process -Filter "Name like \'python%\'" '
+             '| Select-Object ProcessId, CommandLine '
+             '| ConvertTo-Json'],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode != 0:
+            return
+        import json
+        procs = json.loads(result.stdout or '[]')
+        if isinstance(procs, dict):
+            procs = [procs]  # single result comes as dict
+        for p in procs:
+            pid = int(p.get('ProcessId', 0))
+            cmd = p.get('CommandLine', '') or ''
+            if pid != my_pid and 'live.launcher' in cmd:
+                logging.getLogger(__name__).warning(
+                    f"Killing stale live engine PID {pid}")
+                subprocess.run(
+                    ['powershell', '-Command', f'Stop-Process -Id {pid} -Force'],
+                    timeout=3,
+                )
+    except Exception:
+        pass  # best-effort; don't crash if cleanup fails
 
 
 def _run_popup(gui_queue, shared_state):
@@ -35,6 +73,8 @@ def _run_popup(gui_queue, shared_state):
 
 
 def main():
+    _kill_stale_live_engines()
+
     parser = argparse.ArgumentParser(
         description='Bayesian-AI NinjaTrader 8 Live Connector')
     parser.add_argument('--host', default='127.0.0.1',

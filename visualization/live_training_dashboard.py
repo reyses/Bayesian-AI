@@ -803,6 +803,39 @@ class ProgressPopup:
             )
             self._netliq_lbl.grid(row=1, column=2, padx=14)
 
+            # ── Live Price Ticker ────────────────────────────────────────────
+            tick_frame = tk.Frame(root, bg=BG)
+            tick_frame.pack(fill="x", padx=20, pady=(8, 0))
+
+            self._price_var = tk.StringVar(value="--")
+            self._bid_var = tk.StringVar(value="--")
+            self._ask_var = tk.StringVar(value="--")
+            self._bars_var = tk.StringVar(value="0")
+
+            for col, lbl in enumerate(("Last", "Bid", "Ask", "Bars")):
+                tk.Label(
+                    tick_frame, text=lbl, bg=BG, fg=FG_GREY, font=("Consolas", 8),
+                ).grid(row=0, column=col, padx=10)
+
+            self._price_lbl = tk.Label(
+                tick_frame, textvariable=self._price_var, bg=BG, fg=FG_WHITE,
+                font=("Consolas", 14, "bold"),
+            )
+            self._price_lbl.grid(row=1, column=0, padx=10)
+            tk.Label(
+                tick_frame, textvariable=self._bid_var, bg=BG, fg=FG_GREEN,
+                font=("Consolas", 10),
+            ).grid(row=1, column=1, padx=10)
+            tk.Label(
+                tick_frame, textvariable=self._ask_var, bg=BG, fg=FG_RED,
+                font=("Consolas", 10),
+            ).grid(row=1, column=2, padx=10)
+            tk.Label(
+                tick_frame, textvariable=self._bars_var, bg=BG, fg=FG_GREY,
+                font=("Consolas", 10),
+            ).grid(row=1, column=3, padx=10)
+            self._last_bar_time = 0  # for flash effect
+
         # Phase name (bold, amber) — e.g. "FORWARD PASS"
         self._phase_var = tk.StringVar(value="Initializing...")
         tk.Label(
@@ -1240,6 +1273,29 @@ class ProgressPopup:
                     # Update PnL chart with equity curve (real-time)
                     self._pnl_history = [0] + self._equity_history
                     self._redraw_chart()
+
+                elif mtype == "TICK_UPDATE":
+                    price = msg.get("price")
+                    bars = msg.get("bars")
+                    if price is not None and hasattr(self, '_price_var'):
+                        self._price_var.set(f"{float(price):,.2f}")
+                        # Flash green/red based on direction
+                        prev = getattr(self, '_prev_price', None)
+                        if prev is not None:
+                            color = FG_GREEN if float(price) >= prev else FG_RED
+                            self._price_lbl.config(fg=color)
+                        self._prev_price = float(price)
+                    if bars is not None and hasattr(self, '_bars_var'):
+                        self._bars_var.set(str(bars))
+
+                elif mtype == "DOM_UPDATE":
+                    if hasattr(self, '_bid_var'):
+                        bid = msg.get("bid")
+                        ask = msg.get("ask")
+                        if bid is not None:
+                            self._bid_var.set(f"{float(bid):,.2f}")
+                        if ask is not None:
+                            self._ask_var.set(f"{float(ask):,.2f}")
 
                 elif mtype == "SHUTDOWN":
                     if not self._done:

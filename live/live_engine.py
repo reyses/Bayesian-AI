@@ -213,7 +213,10 @@ class LiveEngine:
                 self._orders.on_position(msg)
                 self._sync_position_state()
             elif mtype == 'CONNECTED':
-                logger.info(f"NT8 CONNECTED: account={msg.get('account')}")
+                bridge_ver = msg.get('version', '???')
+                logger.info(f"NT8 CONNECTED: account={msg.get('account')}  bridge={bridge_ver}")
+                if bridge_ver != '6.1.1':
+                    logger.warning(f"BRIDGE VERSION MISMATCH: expected 6.1.1, got {bridge_ver}")
                 self._gui_push({
                     'type': 'PHASE_PROGRESS',
                     'phase': 'LIVE',
@@ -244,7 +247,11 @@ class LiveEngine:
             elif mtype == 'ACCOUNT_UPDATE':
                 self._on_account_update(msg)
             elif mtype == 'DOM':
-                pass  # DOM handled by future dashboard
+                self._gui_push({
+                    'type': 'DOM_UPDATE',
+                    'bid': msg.get('bid'),
+                    'ask': msg.get('ask'),
+                })
 
     async def _on_bar(self, msg: dict):
         """Process a single inbound BAR message."""
@@ -276,6 +283,13 @@ class LiveEngine:
         price = float(msg['close'])
         ts = float(msg['timestamp'])
         self._bar_i += 1
+
+        # Push live price to GUI ticker
+        self._gui_push({
+            'type': 'TICK_UPDATE',
+            'price': price,
+            'bars': self._bar_i,
+        })
 
         # Safety: skip trading on stale data (>2 min old)
         age = time.time() - ts

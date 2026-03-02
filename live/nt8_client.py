@@ -133,6 +133,7 @@ class NT8Client:
 
     async def _read_loop(self):
         """Continuously read messages from NT8 and enqueue them."""
+        logger.info("Read loop started")
         reader = MessageReader(self._reader)
         try:
             async for msg in reader:
