@@ -703,7 +703,7 @@ class ProgressPopup:
         self.root = root
         self.q = q
         self._shared_state = shared_state  # None = training mode
-        self._pnl_history = []
+        self._pnl_history = [0]  # start at $0 so chart draws after 1st trade
         self._pnl_dates = []   # date labels aligned with _pnl_history
         self._day_data = []  # [{day, pnl, trades, wins}, ...]
         self._done = False
@@ -1189,10 +1189,13 @@ class ProgressPopup:
 
                 elif mtype == "SHUTDOWN":
                     if not self._done:
-                        self._status_var.set("Stopped — close window when ready")
+                        self._status_var.set("Stopped -- close window when ready")
                     return  # stop polling; window stays open
-        except Exception:
+        except queue.Empty:
             pass
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
         self.root.after(250, self._poll)
 
 
