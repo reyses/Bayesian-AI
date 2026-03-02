@@ -33,19 +33,19 @@ ANCESTRY ANALYSIS (Tier 1):
 ================================================================================
 PARETO ANALYSIS  (top contributors to gross profit)
 ================================================================================
-  Gross profit from winning trades: $34,200.00  (129 wins of 234 total)
+  Gross profit from winning trades: $33,807.50  (128 wins of 233 total)
 
   -- BY TEMPLATE --
   Key                       PnL  Trades    Cum%
-  -1                 $34,200.00     129   100.0% <-- 80%
+  -1                 $33,807.50     128   100.0% <-- 80%
   => 1 of 1 keys (100%) drive 80% of profit
 
   -- BY DIRECTION --
   Key                       PnL  Trades    Cum%
-  SHORT              $34,200.00     129   100.0% <-- 80%
+  SHORT              $33,807.50     128   100.0% <-- 80%
   => 1 of 1 keys (100%) drive 80% of profit
 
   -- BY ORACLE LABEL --
   Key                       PnL  Trades    Cum%
-  WORKER_BYPASS      $34,200.00     129   100.0% <-- 80%
+  WORKER_BYPASS      $33,807.50     128   100.0% <-- 80%
   => 1 of 1 keys (100%) drive 80% of profit

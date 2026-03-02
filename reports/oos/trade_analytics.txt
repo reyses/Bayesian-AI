@@ -9,7 +9,7 @@ PART 2 — GOOD vs BAD TRADE COMPARISON  (Welch t-test, two-tailed)
 ================================================================================
   Feature                                 Winners             Losers   t-stat   p-value  sig
   ----------------------------  ------------------  ------------------  --------  ---------  ---
-  belief_conviction               0.704 ±  0.029     0.709 ±  0.039     -0.35      0.735  
+  belief_conviction               0.705 ±  0.029     0.710 ±  0.039     -0.34      0.737  
   wave_maturity                   0.379 ±  0.026     0.382 ±  0.025     -0.26      0.800  
   decision_wave_maturity          0.394 ±  0.051     0.393 ±  0.031      0.06      0.951  
   oracle_mfe                    133.913 ± 135.550   173.469 ± 124.280     -0.76      0.462  
@@ -19,12 +19,12 @@ PART 2 — GOOD vs BAD TRADE COMPARISON  (Welch t-test, two-tailed)
   dmi_diff                      -12.427 ± 18.064    -5.383 ± 16.492     -1.01      0.328  
   long_bias                       0.000 ±  0.000     0.000 ±  0.000       nan        nan  
   short_bias                      0.000 ±  0.000     0.000 ±  0.000       nan        nan  
-  w1h_d                           0.244 ±  0.104     0.261 ±  0.136     -0.32      0.758  
-  w1h_c                           0.452 ±  0.211     0.479 ±  0.278     -0.25      0.806  
-  w5m_d                           0.289 ±  0.144     0.305 ±  0.129     -0.28      0.780  
-  w5m_c                           0.372 ±  0.231     0.301 ±  0.194      0.84      0.413  
+  w1h_d                           0.245 ±  0.105     0.261 ±  0.136     -0.30      0.767  
+  w1h_c                           0.451 ±  0.211     0.479 ±  0.278     -0.26      0.802  
+  w5m_d                           0.289 ±  0.143     0.304 ±  0.128     -0.29      0.776  
+  w5m_c                           0.373 ±  0.231     0.302 ±  0.194      0.84      0.414  
   w1h_agree                       1.000 ±  0.000     0.875 ±  0.354      1.00      0.351  
-  w5m_agree                       0.870 ±  0.344     1.000 ±  0.000     -1.82      0.083  
+  w5m_agree                       0.913 ±  0.288     1.000 ±  0.000     -1.45      0.162  
   entry_depth                     2.522 ±  0.511     2.750 ±  0.707     -0.84      0.421  
 
   Winners n=23  Losers n=8  Stars: *** p<0.001  ** p<0.01  * p<0.05
@@ -76,40 +76,40 @@ PART 3 — ANOVA: actual_pnl ~ categorical variables
 ================================================================================
 PART 4 — LINEAR REGRESSION: actual_pnl ~ features  (OLS, standardized β)
 ================================================================================
-  R² = 0.413  Adj R² = 0.022  (n=31)
+  R² = 0.388  Adj R² = -0.020  (n=31)
   Feature                          Coef   Std Err   t-stat   p-value  sig
   ---------------------------------------------------------------------------
-  dmi_diff                       -90.18     38.44    -2.35     0.026  *
-  w1h_agree                      +58.97     40.69     1.45     0.158  
-  oracle_mae                     -67.58     48.43    -1.40     0.173  
-  wave_maturity                  -37.66     41.00    -0.92     0.366  
-  w5m_agree                      +41.72     46.71     0.89     0.379  
-  w5m_c                          +32.06     44.26     0.72     0.475  
-  hour_et                        -25.24     41.01    -0.62     0.543  
-  w1h_c                          -16.33     47.08    -0.35     0.731  
-  belief_conviction               +8.40     37.43     0.22     0.825  
-  oracle_mfe                      -7.68     40.90    -0.19     0.852  
-  hold_mins                       -6.31     34.08    -0.19     0.854  
-  entry_depth                     +4.00     38.90     0.10     0.919  
+  dmi_diff                       -76.14     40.06    -1.90     0.067  
+  w1h_agree                      +56.43     42.49     1.33     0.194  
+  oracle_mae                     -55.68     48.36    -1.15     0.259  
+  w5m_c                          +49.45     43.04     1.15     0.260  
+  wave_maturity                  -32.98     41.15    -0.80     0.429  
+  hour_et                        -18.67     41.93    -0.45     0.659  
+  w1h_c                          -18.43     49.09    -0.38     0.710  
+  belief_conviction               +8.43     38.43     0.22     0.829  
+  entry_depth                     +6.22     39.74     0.16     0.877  
+  w5m_agree                       +6.42     45.26     0.14     0.888  
+  oracle_mfe                      +5.14     41.93     0.12     0.903  
+  hold_mins                       -2.28     34.65    -0.07     0.948  
 
 ================================================================================
 PART 5 — LOGISTIC REGRESSION: is_win ~ features
 ================================================================================
-  Accuracy = 90.3%  AUC-ROC = 0.946  (n=31)
+  Accuracy = 90.3%  AUC-ROC = 0.951  (n=31)
   Feature                          Coef  Odds Ratio  note
   -----------------------------------------------------------------
-  w1h_agree                      +1.059       2.883  (helps)
-  oracle_mae                     -0.850       0.428  (hurts)
-  dmi_diff                       -0.796       0.451  (hurts)
-  w5m_c                          +0.680       1.975  (helps)
-  hold_mins                      +0.400       1.492  (helps)
-  w5m_agree                      -0.387       0.679  (hurts)
-  oracle_mfe                     -0.329       0.720  (hurts)
-  w1h_c                          -0.297       0.743  (hurts)
-  belief_conviction              -0.271       0.762  (hurts)
+  w1h_agree                      +1.059       2.885  (helps)
+  oracle_mae                     -0.886       0.412  (hurts)
+  dmi_diff                       -0.841       0.431  (hurts)
+  w5m_c                          +0.646       1.908  (helps)
+  hold_mins                      +0.398       1.489  (helps)
+  oracle_mfe                     -0.353       0.703  (hurts)
+  belief_conviction              -0.274       0.760  (hurts)
+  w1h_c                          -0.268       0.765  (hurts)
+  w5m_agree                      -0.249       0.780  (hurts)
   hour_et                        +0.231       1.260  (helps)
-  wave_maturity                  +0.217       1.242  (helps)
-  entry_depth                    +0.134       1.143  (helps)
+  wave_maturity                  +0.199       1.221  (helps)
+  entry_depth                    +0.121       1.129  (helps)
   Note: coefficients are standardized (1 SD change in feature)
 
 ================================================================================

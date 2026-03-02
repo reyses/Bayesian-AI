@@ -1,0 +1,258 @@
+======================================================================
+  STANDALONE WAVEFORM SCREENING
+  Data: DATA/ATLAS_1WEEK
+  Base TF: 15m
+  Context: 21d warmup, 7d analysis
+  Mode: PRICE I-MR (default)
+======================================================================
+
+--- LOADING CACHED DATA: waveform_cache.npz ---
+  Loaded: 429 samples, 193 features
+  Cache size: 0.5 MB
+  [SKIP] Analysis A (--start Q)
+  [SKIP] Analysis B (--start Q)
+  [SKIP] Analysis C (--start Q)
+  [SKIP] Analysis D (--start Q)
+  [SKIP] Analysis E (--start Q)
+  [SKIP] Analysis F (--start Q)
+  [SKIP] Analysis G (--start Q)
+  [SKIP] Analysis H (--start Q)
+  [SKIP] Analysis I (--start Q)
+  [SKIP] Analysis J (--start Q)
+  [SKIP] Analysis K (--start Q)
+  [SKIP] Analysis L (--start Q)
+  [SKIP] Analysis M (--start Q)
+  [SKIP] Analysis N (--start Q)
+  [SKIP] Analysis O (--start Q)
+  [SKIP] Analysis P (--start Q)
+
+======================================================================
+  ANALYSIS Q: SIGNED MAGNITUDE HISTOGRAM + PAIRED 192D PROFILES
+  Histogram modes -> signed bins -> 192D pair profiles per bin
+======================================================================
+
+  Total moves: 427 (flats removed)
+  |delta| range: 0.2 to 161.5, median=10.2, mean=18.3
+  Baseline: 53.4% UP / 46.6% DN
+
+  ======================================================================
+  UP (delta > 0): 228 moves (53.4%)
+  |delta| range: 0.2 to 124.8, median=9.4, mean=16.0
+  ======================================================================
+  Log-histogram modes: 2 peaks
+  Valleys (real): 3.8
+  Magnitude bins: 2
+
+   Bin          Magnitude      N  %side  Mean|d|   Med|d|
+  ---- ------------------ ------ ------ -------- --------
+     0             UP_0_4     61  26.8%     2.08     2.25
+     1              UP_4+    167  73.2%    21.04    14.00
+
+  192D PROFILES (UP):
+
+              UP_0_4 (n=61, 26.8% of UP):
+    Context (A):     d2_4h__log1p_vol(-0.51z), d2_4h__log1p_mom(-0.48z), d2_4h__self_hurst(-0.44z), d2_4h__tf_scale(-0.44z), d2_4h__osc_coh(-0.41z)
+    Transition A->B: current_MR(+2.750), d5_15m__log1p_mom(-1.452), d5_15m__log1p_vol(-1.090)
+
+               UP_4+ (n=167, 73.2% of UP):
+    Context (A):     d4_30m__self_pid(-0.18z), d2_4h__log1p_vol(+0.17z), d4_30m__z_score(-0.13z), d6_5m__log1p_vol(+0.13z), d8_2m__z_score(+0.13z)
+    Transition A->B: current_MR(+21.873), d5_15m__z_score(+0.657), d5_15m__self_pid(+0.496)
+
+  SPIKE UP (|delta| >= 3.8, n=167):
+         +10.5 (   10.5)  d4_30m__self_pid(-2.0z), d7_3m__self_hurst(-1.8z), d7_3m__log1p_mom(-1.8z)
+          +9.5 (    9.5)  d4_30m__osc_coh(+2.1z), d4_30m__self_pid(-2.0z), d11_15s__self_hurst(+1.9z)
+          +8.2 (    8.2)  d4_30m__osc_coh(+2.1z), d4_30m__self_pid(-2.0z), d5_15m__osc_coh(+1.6z)
+         +10.5 (   10.5)  d7_3m__self_hurst(-2.4z), d9_1m__osc_coh(+2.2z), d10_30s__self_dmi_diff(-1.9z)
+          +7.0 (    7.0)  d10_30s__osc_coh(+1.9z), d9_1m__self_hurst(-1.8z), d8_2m__self_adx(-1.7z)
+          +7.5 (    7.5)  d8_2m__osc_coh(+2.4z), d3_1h__log1p_vol(-2.3z), d7_3m__self_hurst(-2.2z)
+          +5.2 (    5.2)  d10_30s__coherence(-2.4z), d3_1h__log1p_vol(-2.3z), d9_1m__coherence(-2.2z)
+         +13.2 (   13.2)  d6_5m__self_hurst(-1.9z), d11_15s__coherence(-1.9z), d5_15m__osc_coh(+1.8z)
+          +8.5 (    8.5)  d4_30m__log1p_vol(-2.2z), d3_1h__osc_coh(+1.9z), d6_5m__self_hurst(-1.7z)
+         +11.8 (   11.8)  d4_30m__log1p_vol(-2.4z), d4_30m__log1p_mom(-2.0z), d11_15s__osc_coh(-2.0z)
+          +5.2 (    5.2)  d6_5m__osc_coh(+1.9z), d3_1h__osc_coh(+1.7z), d6_5m__self_pid(+1.6z)
+          +7.2 (    7.2)  d8_2m__osc_coh(-2.1z), d6_5m__self_pid(+1.7z), d3_1h__osc_coh(+1.7z)
+         +28.8 (   28.8)  d6_5m__self_pid(+1.8z), d6_5m__self_dmi_diff(+1.8z), d5_15m__self_dmi_diff(+1.7z)
+         +22.0 (   22.0)  d6_5m__osc_coh(-2.2z), d10_30s__self_hurst(+2.2z), d4_30m__log1p_vol(-2.1z)
+         +21.0 (   21.0)  d7_3m__self_hurst(-2.4z), d6_5m__self_pid(+2.1z), d6_5m__osc_coh(-1.9z)
+         +21.5 (   21.5)  d6_5m__self_pid(+3.4z), d5_15m__coherence(-2.9z), d5_15m__self_dmi_diff(+2.4z)
+         +23.8 (   23.8)  d8_2m__log1p_mom(-2.9z), d8_2m__self_adx(+2.6z), d5_15m__self_dmi_diff(+2.6z)
+          +8.0 (    8.0)  d5_15m__self_dmi_diff(+2.9z), d6_5m__self_adx(+2.7z), d5_15m__self_pid(+2.5z)
+         +19.0 (   19.0)  d6_5m__self_adx(+2.9z), d4_30m__self_dmi_diff(+2.5z), d7_3m__coherence(-2.4z)
+         +34.2 (   34.2)  d5_15m__self_adx(+2.4z), d5_15m__self_dmi_diff(+2.4z), d4_30m__self_dmi_diff(+2.4z)
+          +5.5 (    5.5)  d5_15m__self_adx(+2.8z), d4_30m__self_dmi_diff(+2.5z), d3_1h__self_pid(+2.3z)
+         +16.2 (   16.2)  d5_15m__self_adx(+2.9z), d4_30m__self_dmi_diff(+2.5z), d5_15m__self_dmi_diff(+2.3z)
+         +26.0 (   26.0)  d5_15m__self_adx(+2.8z), d4_30m__self_dmi_diff(+2.4z), d11_15s__self_dmi_diff(+2.4z)
+         +59.2 (   59.2)  d8_2m__coherence(-3.7z), d6_5m__coherence(-3.7z), d9_1m__coherence(-3.6z)
+         +27.8 (   27.8)  d6_5m__self_pid(+2.8z), d6_5m__osc_coh(-2.6z), d6_5m__coherence(-2.6z)
+         +33.0 (   33.0)  d6_5m__self_pid(+3.0z), d11_15s__log1p_vol(+2.5z), d5_15m__coherence(-2.5z)
+         +25.0 (   25.0)  d5_15m__coherence(-2.8z), d4_30m__log1p_mom(+2.4z), d5_15m__self_pid(+2.4z)
+         +12.2 (   12.2)  d4_30m__self_pid(+2.5z), d4_30m__coherence(-2.3z), d3_1h__self_dmi_diff(+2.2z)
+          +7.2 (    7.2)  d3_1h__self_dmi_diff(+2.2z), d4_30m__self_adx(+2.1z), d3_1h__self_pid(+1.9z)
+          +6.0 (    6.0)  d5_15m__coherence(-2.4z), d3_1h__self_dmi_diff(+2.2z), d3_1h__self_adx(+2.1z)
+          +7.5 (    7.5)  d4_30m__coherence(-2.4z), d8_2m__self_adx(+2.4z), d8_2m__log1p_mom(+2.2z)
+         +32.8 (   32.8)  d7_3m__self_adx(+3.4z), d6_5m__self_adx(+3.2z), d8_2m__log1p_mom(-2.9z)
+         +35.0 (   35.0)  d7_3m__self_adx(+3.4z), d6_5m__self_adx(+3.2z), d3_1h__coherence(-2.7z)
+         +31.0 (   31.0)  d3_1h__coherence(-2.7z), d6_5m__self_adx(+2.4z), d3_1h__z_score(-2.0z)
+         +32.0 (   32.0)  d5_15m__coherence(-2.8z), d3_1h__coherence(-2.7z), d3_1h__z_score(-2.0z)
+          +7.5 (    7.5)  d7_3m__osc_coh(+1.9z), d11_15s__self_pid(-1.8z), d5_15m__self_pid(+1.7z)
+         +14.5 (   14.5)  d11_15s__self_pid(+2.5z), d11_15s__coherence(-2.3z), d9_1m__osc_coh(+2.1z)
+          +6.0 (    6.0)  d4_30m__osc_coh(+2.5z), d10_30s__log1p_mom(-1.7z), d5_15m__self_hurst(+1.6z)
+         +14.0 (   14.0)  d4_30m__osc_coh(+2.5z), d7_3m__log1p_mom(-1.8z), d7_3m__self_hurst(+1.8z)
+          +7.0 (    7.0)  d10_30s__self_dmi_diff(+2.1z), d11_15s__osc_coh(+2.0z), d9_1m__self_dmi_diff(+1.8z)
+          +8.0 (    8.0)  d4_30m__log1p_vol(-1.9z), d3_1h__osc_coh(+1.8z), d10_30s__self_hurst(+1.5z)
+         +17.5 (   17.5)  d7_3m__self_adx(+2.4z), d8_2m__self_adx(+2.2z), d10_30s__self_hurst(+2.2z)
+         +34.2 (   34.2)  d4_30m__log1p_vol(-2.4z), d4_30m__log1p_mom(-2.2z), d3_1h__osc_coh(+1.9z)
+         +13.8 (   13.8)  d11_15s__log1p_mom(-2.0z), d3_1h__osc_coh(+1.9z), d5_15m__self_hurst(+1.9z)
+         +44.5 (   44.5)  d8_2m__coherence(-2.3z), d5_15m__self_hurst(+2.0z), d8_2m__z_score(-1.8z)
+          +5.2 (    5.2)  d5_15m__self_hurst(+2.3z), d6_5m__coherence(-2.3z), d6_5m__osc_coh(-2.0z)
+         +29.2 (   29.2)  d9_1m__coherence(-2.6z), d4_30m__log1p_vol(-2.6z), d7_3m__coherence(-2.6z)
+          +7.0 (    7.0)  d11_15s__self_adx(+2.5z), d7_3m__self_hurst(-1.9z), d10_30s__self_dmi_diff(+1.8z)
+         +12.2 (   12.2)  d9_1m__osc_coh(+2.1z), d4_30m__self_hurst(+1.9z), d3_1h__self_adx(-1.8z)
+         +23.8 (   23.8)  d2_4h__self_dmi_diff(+2.5z), d3_1h__self_adx(-1.9z), d4_30m__self_hurst(+1.5z)
+          +5.2 (    5.2)  d2_4h__self_dmi_diff(+2.5z), d3_1h__self_adx(-2.1z), d4_30m__self_hurst(+2.0z)
+         +27.5 (   27.5)  d4_30m__log1p_mom(-3.8z), d4_30m__log1p_vol(-2.8z), d10_30s__osc_coh(+2.7z)
+         +12.2 (   12.2)  d4_30m__log1p_mom(-3.8z), d4_30m__log1p_vol(-2.8z), d2_4h__self_dmi_diff(+2.5z)
+         +94.8 (   94.8)  current_MR(-4.2z), d4_30m__coherence(-3.6z), d5_15m__coherence(-3.3z)
+         +40.5 (   40.5)  d11_15s__self_adx(+4.4z), d3_1h__coherence(-3.4z), d4_30m__coherence(-2.8z)
+         +31.2 (   31.2)  d3_1h__coherence(-3.4z), d3_1h__z_score(-2.5z), d3_1h__self_pid(-2.5z)
+         +26.2 (   26.2)  d3_1h__coherence(-3.2z), d3_1h__z_score(-2.4z), d3_1h__self_pid(-2.1z)
+         +47.5 (   47.5)  d3_1h__coherence(-3.2z), d3_1h__z_score(-2.4z), d9_1m__osc_coh(+2.2z)
+         +16.0 (   16.0)  d11_15s__self_adx(+2.4z), d7_3m__osc_coh(-1.9z), d5_15m__self_hurst(+1.8z)
+         +19.8 (   19.8)  d10_30s__self_adx(+2.5z), d11_15s__self_adx(+2.3z), d10_30s__osc_coh(+2.0z)
+         +38.0 (   38.0)  d9_1m__log1p_mom(-2.4z), d8_2m__self_hurst(+2.2z), d2_4h__z_score(-2.2z)
+         +31.0 (   31.0)  d7_3m__osc_coh(-2.5z), d8_2m__log1p_vol(+2.2z), d2_4h__z_score(-2.2z)
+         +12.0 (   12.0)  d11_15s__self_pid(-2.5z), d11_15s__coherence(-2.4z), d2_4h__z_score(-2.2z)
+          +4.5 (    4.5)  d2_4h__z_score(-2.2z), d5_15m__osc_coh(+1.8z), d7_3m__osc_coh(-1.8z)
+         +17.8 (   17.8)  d2_4h__z_score(-2.2z), d8_2m__self_hurst(+2.0z), d5_15m__self_adx(+1.7z)
+         +11.8 (   11.8)  d2_4h__z_score(-2.2z), d5_15m__self_adx(+1.7z), d6_5m__log1p_vol(-1.6z)
+          +7.8 (    7.8)  d9_1m__log1p_mom(-2.4z), d7_3m__self_hurst(+2.0z), d9_1m__log1p_vol(-1.8z)
+          +9.5 (    9.5)  d7_3m__self_hurst(+2.3z), d2_4h__z_score(-1.7z), d6_5m__coherence(-1.7z)
+         +12.2 (   12.2)  d11_15s__osc_coh(+2.0z), d11_15s__log1p_mom(-2.0z), d4_30m__osc_coh(+1.9z)
+          +6.8 (    6.8)  d6_5m__coherence(-3.3z), d6_5m__z_score(-2.2z), d10_30s__log1p_mom(-2.1z)
+         +10.5 (   10.5)  d7_3m__self_hurst(+2.3z), d6_5m__self_hurst(+2.2z), d2_4h__z_score(-1.7z)
+         +11.2 (   11.2)  d10_30s__log1p_mom(-2.1z), d11_15s__log1p_mom(-1.6z), d6_5m__log1p_vol(-1.6z)
+          +6.0 (    6.0)  d10_30s__self_adx(+2.1z), d10_30s__self_hurst(+1.6z), d9_1m__self_adx(+1.6z)
+         +10.0 (   10.0)  d9_1m__self_hurst(+2.1z), d8_2m__coherence(-1.9z), d11_15s__self_dmi_diff(+1.7z)
+          +9.2 (    9.2)  d10_30s__coherence(-2.4z), d11_15s__coherence(-2.3z), d10_30s__osc_coh(-2.2z)
+          +9.2 (    9.2)  d9_1m__self_adx(+3.6z), d7_3m__self_dmi_diff(-2.7z), d7_3m__self_hurst(+2.6z)
+         +10.0 (   10.0)  d8_2m__self_adx(+3.3z), d9_1m__self_adx(+2.8z), d7_3m__self_adx(+2.4z)
+          +8.5 (    8.5)  d8_2m__self_adx(+2.5z), d7_3m__self_adx(+2.3z), d4_30m__coherence(-2.3z)
+         +19.0 (   19.0)  d6_5m__coherence(-2.0z), d11_15s__coherence(-2.0z), d11_15s__self_pid(-1.9z)
+         +15.8 (   15.8)  d7_3m__osc_coh(-1.6z), d10_30s__log1p_mom(-1.6z), d8_2m__log1p_mom(-1.5z)
+         +11.0 (   11.0)  d10_30s__osc_coh(-1.8z), d10_30s__self_pid(+1.5z), d7_3m__log1p_vol(-1.5z)
+          +5.2 (    5.2)  d7_3m__coherence(-3.2z), d8_2m__coherence(-3.2z), d11_15s__self_dmi_diff(+2.6z)
+          +6.8 (    6.8)  d5_15m__log1p_mom(-2.2z), d5_15m__log1p_vol(-2.1z), d5_15m__osc_coh(+1.9z)
+         +48.8 (   48.8)  d8_2m__coherence(-3.8z), d5_15m__coherence(-3.8z), d10_30s__self_adx(+3.7z)
+         +34.2 (   34.2)  d5_15m__coherence(-2.7z), d11_15s__osc_coh(+2.2z), d5_15m__self_dmi_diff(-2.2z)
+         +48.5 (   48.5)  d4_30m__coherence(-3.5z), d4_30m__z_score(-2.7z), d4_30m__self_pid(-2.2z)
+         +47.5 (   47.5)  d9_1m__coherence(-3.6z), d8_2m__coherence(-3.4z), d9_1m__self_pid(+3.1z)
+         +50.8 (   50.8)  d11_15s__log1p_vol(+3.0z), d10_30s__log1p_vol(+2.5z), d3_1h__coherence(-2.4z)
+         +17.8 (   17.8)  d10_30s__osc_coh(+2.7z), d4_30m__osc_coh(-1.7z), d10_30s__self_dmi_diff(+1.6z)
+         +44.5 (   44.5)  current_MR(-3.4z), d7_3m__coherence(-2.7z), d7_3m__self_pid(+2.3z)
+         +19.8 (   19.8)  d11_15s__self_adx(+2.3z), d6_5m__osc_coh(-2.1z), d7_3m__osc_coh(-2.1z)
+         +49.5 (   49.5)  d10_30s__osc_coh(+1.8z), d4_30m__log1p_mom(+1.7z), d8_2m__osc_coh(+1.6z)
+         +74.5 (   74.5)  d7_3m__osc_coh(+2.2z), d8_2m__self_hurst(-2.2z), d5_15m__log1p_vol(-2.0z)
+         +54.5 (   54.5)  current_MR(-3.4z), d10_30s__self_adx(+3.2z), d5_15m__coherence(-3.0z)
+         +23.5 (   23.5)  d9_1m__self_adx(+4.0z), d10_30s__self_adx(+2.8z), d9_1m__self_dmi_diff(-2.6z)
+         +68.0 (   68.0)  d4_30m__log1p_vol(+2.4z), d4_30m__self_pid(-2.0z), d4_30m__log1p_mom(+2.0z)
+         +47.2 (   47.2)  d9_1m__self_hurst(+2.8z), d6_5m__self_hurst(-2.6z), current_MR(+2.4z)
+         +89.2 (   89.2)  d10_30s__self_hurst(+2.3z), d3_1h__self_hurst(+2.0z), d6_5m__self_hurst(-1.9z)
+         +45.0 (   45.0)  d8_2m__self_hurst(+2.7z), d3_1h__self_hurst(+1.9z), d4_30m__log1p_vol(+1.6z)
+         +16.0 (   16.0)  d3_1h__self_hurst(+1.9z), d7_3m__log1p_vol(-1.7z), d7_3m__self_adx(-1.6z)
+         +13.0 (   13.0)  d11_15s__log1p_vol(+2.4z), d11_15s__log1p_mom(+2.3z), d8_2m__coherence(-2.3z)
+         +11.5 (   11.5)  d10_30s__osc_coh(+2.7z), d5_15m__log1p_mom(-2.5z), d5_15m__log1p_vol(-2.1z)
+          +4.2 (    4.2)  d10_30s__coherence(-2.7z), d8_2m__osc_coh(+2.1z), d10_30s__z_score(-2.1z)
+         +18.0 (   18.0)  d3_1h__self_hurst(+2.2z), d7_3m__osc_coh(-2.1z), d7_3m__self_dmi_diff(-2.0z)
+          +5.8 (    5.8)  d3_1h__self_hurst(+2.2z), d11_15s__self_hurst(+1.9z), d8_2m__self_adx(+1.9z)
+         +11.2 (   11.2)  d6_5m__coherence(-2.8z), d9_1m__coherence(-2.4z), d3_1h__self_hurst(+2.3z)
+         +14.0 (   14.0)  d3_1h__self_hurst(+2.3z), d11_15s__coherence(-2.0z), d7_3m__self_pid(-1.9z)
+          +8.5 (    8.5)  d3_1h__self_hurst(+1.8z), d5_15m__self_hurst(-1.8z), d10_30s__log1p_mom(-1.6z)
+          +6.8 (    6.8)  d11_15s__osc_coh(+1.9z), d3_1h__self_hurst(+1.8z), d5_15m__self_hurst(-1.8z)
+          +5.8 (    5.8)  d11_15s__self_hurst(-2.1z), d5_15m__self_hurst(-2.0z), d8_2m__self_adx(+1.9z)
+         +12.0 (   12.0)  d10_30s__coherence(-2.8z), d10_30s__z_score(-2.2z), d5_15m__self_hurst(-2.0z)
+          +4.5 (    4.5)  d3_1h__log1p_mom(-3.8z), d3_1h__log1p_vol(-3.0z), d6_5m__osc_coh(+2.1z)
+          +6.8 (    6.8)  d3_1h__log1p_mom(-3.8z), d3_1h__log1p_vol(-3.0z), d4_30m__log1p_vol(-2.1z)
+         +32.0 (   32.0)  d6_5m__self_dmi_diff(-2.9z), d7_3m__self_adx(+2.7z), d8_2m__self_adx(+2.5z)
+         +22.8 (   22.8)  d7_3m__self_adx(+2.9z), d7_3m__coherence(-2.5z), d8_2m__self_adx(+2.2z)
+         +21.0 (   21.0)  d9_1m__self_hurst(+2.3z), d3_1h__self_hurst(+2.1z), d8_2m__self_hurst(+1.9z)
+         +14.8 (   14.8)  d8_2m__log1p_mom(-2.9z), d8_2m__self_hurst(+2.2z), d3_1h__self_hurst(+2.1z)
+          +8.0 (    8.0)  d6_5m__self_hurst(+1.7z), d10_30s__self_pid(+1.4z), d5_15m__self_hurst(-1.4z)
+         +21.5 (   21.5)  d6_5m__coherence(-3.0z), d6_5m__self_pid(-2.1z), d6_5m__z_score(-2.1z)
+         +17.2 (   17.2)  d9_1m__coherence(-2.5z), d9_1m__self_pid(-2.0z), d9_1m__z_score(-1.8z)
+         +12.2 (   12.2)  d11_15s__coherence(-2.0z), d10_30s__self_pid(+1.9z), d11_15s__z_score(+1.8z)
+         +19.5 (   19.5)  d5_15m__log1p_vol(-1.8z), d5_15m__log1p_mom(-1.7z), d4_30m__self_hurst(-1.6z)
+         +12.8 (   12.8)  d4_30m__self_hurst(-1.6z), d9_1m__self_dmi_diff(-1.3z), d9_1m__z_score(-1.3z)
+          +9.0 (    9.0)  d9_1m__log1p_vol(-1.5z), d10_30s__osc_coh(+1.4z), d3_1h__self_hurst(+1.4z)
+         +17.5 (   17.5)  d9_1m__coherence(-3.4z), d6_5m__coherence(-3.3z), d9_1m__self_pid(-2.8z)
+          +8.0 (    8.0)  d6_5m__log1p_mom(-3.0z), d5_15m__self_pid(-2.2z), d5_15m__coherence(-2.1z)
+         +32.8 (   32.8)  d10_30s__coherence(-2.7z), d11_15s__coherence(-2.4z), d10_30s__z_score(+2.2z)
+          +7.5 (    7.5)  d3_1h__coherence(-2.6z), d3_1h__z_score(-2.0z), d3_1h__self_pid(-1.9z)
+         +15.5 (   15.5)  d3_1h__coherence(-2.6z), d3_1h__z_score(-2.0z), d3_1h__self_pid(-1.9z)
+          +4.5 (    4.5)  d3_1h__coherence(-2.6z), d3_1h__z_score(-2.0z), d3_1h__self_pid(-1.9z)
+          +5.5 (    5.5)  d3_1h__self_hurst(+1.6z), d9_1m__log1p_mom(-1.5z), d9_1m__log1p_vol(-1.5z)
+          +8.5 (    8.5)  d9_1m__log1p_mom(-2.4z), d9_1m__log1p_vol(-1.8z), d5_15m__osc_coh(+1.8z)
+          +7.2 (    7.2)  d5_15m__osc_coh(+2.2z), d7_3m__self_hurst(+1.9z), d3_1h__self_hurst(+1.6z)
+         +13.2 (   13.2)  d10_30s__self_hurst(-2.8z), d5_15m__osc_coh(+2.6z), d9_1m__self_hurst(-2.2z)
+          +4.2 (    4.2)  d6_5m__self_hurst(+2.5z), d5_15m__osc_coh(+2.5z), d9_1m__self_hurst(-2.1z)
+          +6.0 (    6.0)  d6_5m__self_hurst(+2.7z), d5_15m__osc_coh(+2.1z), d7_3m__self_hurst(+2.0z)
+          +4.0 (    4.0)  d6_5m__self_hurst(+2.7z), d4_30m__self_hurst(-2.3z), d5_15m__osc_coh(+1.8z)
+          +9.2 (    9.2)  d4_30m__self_hurst(-2.5z), d10_30s__log1p_mom(-2.1z), d2_4h__z_score(+1.9z)
+          +6.8 (    6.8)  d6_5m__log1p_mom(-3.0z), d4_30m__self_hurst(-3.0z), d11_15s__self_hurst(-2.2z)
+         +13.0 (   13.0)  d3_1h__log1p_vol(-2.2z), d4_30m__self_hurst(-2.0z), d2_4h__z_score(+1.9z)
+         +19.2 (   19.2)  d6_5m__self_hurst(+2.6z), d3_1h__log1p_vol(-2.3z), d5_15m__coherence(-2.3z)
+          +7.2 (    7.2)  d6_5m__self_hurst(+2.7z), d4_30m__self_hurst(-2.3z), d7_3m__self_hurst(+2.3z)
+          +9.5 (    9.5)  d6_5m__coherence(-3.5z), d8_2m__coherence(-3.1z), d11_15s__self_adx(+2.9z)
+         +19.2 (   19.2)  d4_30m__self_hurst(-2.2z), d10_30s__log1p_mom(-2.1z), d11_15s__log1p_mom(-2.0z)
+          +7.8 (    7.8)  d10_30s__log1p_mom(-2.1z), d10_30s__log1p_vol(-1.6z), d4_30m__self_hurst(-1.6z)
+          +8.8 (    8.8)  d11_15s__self_dmi_diff(-2.3z), d9_1m__osc_coh(-2.2z), d8_2m__self_hurst(-1.9z)
+         +29.8 (   29.8)  d11_15s__self_hurst(+2.7z), d11_15s__self_dmi_diff(+2.3z), d10_30s__self_dmi_diff(+2.0z)
+         +46.5 (   46.5)  d7_3m__log1p_mom(-2.8z), d11_15s__self_adx(+2.6z), d9_1m__self_adx(+2.2z)
+         +13.0 (   13.0)  d3_1h__log1p_vol(-2.8z), d8_2m__self_hurst(+2.7z), d5_15m__coherence(-2.6z)
+         +24.5 (   24.5)  d3_1h__log1p_vol(-2.8z), d9_1m__coherence(-2.3z), d9_1m__self_hurst(+2.1z)
+         +16.0 (   16.0)  d3_1h__log1p_vol(-2.8z), d2_4h__z_score(+1.9z), d3_1h__log1p_mom(-1.9z)
+         +57.8 (   57.8)  d5_15m__coherence(-2.5z), d6_5m__self_dmi_diff(-2.3z), d9_1m__log1p_vol(+2.3z)
+         +18.8 (   18.8)  d4_30m__coherence(-3.6z), d3_1h__coherence(-3.2z), d4_30m__z_score(-2.8z)
+        +124.8 (  124.8)  current_MR(-5.0z), d11_15s__log1p_vol(+3.8z), d9_1m__log1p_vol(+3.3z)
+         +24.2 (   24.2)  current_MR(+4.3z), d6_5m__self_adx(+3.1z), d4_30m__coherence(-2.8z)
+          +7.5 (    7.5)  d3_1h__coherence(-2.4z), d2_4h__self_dmi_diff(-2.3z), d2_4h__self_pid(-2.1z)
+         +29.5 (   29.5)  d9_1m__self_hurst(+2.5z), d3_1h__coherence(-2.4z), d2_4h__self_dmi_diff(-2.3z)
+         +11.8 (   11.8)  d3_1h__coherence(-2.4z), current_MR(-2.3z), d2_4h__self_dmi_diff(-2.3z)
+         +41.8 (   41.8)  d2_4h__self_dmi_diff(-2.3z), d9_1m__osc_coh(+2.3z), d3_1h__coherence(-2.2z)
+         +56.2 (   56.2)  d11_15s__self_hurst(+2.4z), d2_4h__self_dmi_diff(-2.3z), d3_1h__coherence(-2.2z)
+         +23.0 (   23.0)  d2_4h__self_dmi_diff(-2.3z), d3_1h__coherence(-2.2z), d2_4h__self_pid(-2.1z)
+         +32.8 (   32.8)  d10_30s__self_adx(+2.4z), d2_4h__self_dmi_diff(-2.3z), d3_1h__coherence(-2.2z)
+         +43.0 (   43.0)  d2_4h__self_dmi_diff(-2.3z), d2_4h__self_pid(-2.1z), d9_1m__coherence(-2.1z)
+          +9.0 (    9.0)  d2_4h__self_dmi_diff(-2.3z), d2_4h__self_pid(-2.1z), d2_4h__log1p_vol(+1.8z)
+         +48.8 (   48.8)  d2_4h__self_dmi_diff(-2.3z), d2_4h__self_pid(-2.1z), d5_15m__osc_coh(+1.8z)
+         +22.8 (   22.8)  current_MR(-3.2z), d6_5m__coherence(-3.1z), d2_4h__self_dmi_diff(-2.3z)
+         +17.0 (   17.0)  d2_4h__self_dmi_diff(-2.3z), d11_15s__coherence(-2.2z), d2_4h__self_pid(-2.1z)
+
+  ======================================================================
+  DN (delta < 0): 199 moves (46.6%)
+  |delta| range: 0.2 to 161.5, median=11.0, mean=21.0
+  ======================================================================
+  Log-histogram modes: 1 peaks
+  Valleys (real): 
+  Magnitude bins: 1
+
+   Bin          Magnitude      N  %side  Mean|d|   Med|d|
+  ---- ------------------ ------ ------ -------- --------
+     0              DN_0+    199 100.0%    21.00    11.00
+
+  192D PROFILES (DN):
+
+               DN_0+ (n=199, 100.0% of DN):
+    Context (A):     d10_30s__coherence(-0.13z), d8_2m__z_score(-0.12z), d8_2m__self_pid(-0.11z), d4_30m__self_pid(+0.11z), d9_1m__osc_coh(-0.11z)
+    Transition A->B: current_MR(-19.477), d5_15m__z_score(-0.557), d6_5m__z_score(-0.428)
+
+  ======================================================================
+  CROSS-SIDE COMPARISON
+  ======================================================================
+  UP: 228 moves, 2 modes, 1 valleys -> 2 magnitude tiers
+    Boundaries: 3.8
+  DN: 199 moves, 1 modes, 0 valleys -> 1 magnitude tiers
+
+  [saved] analysis_q_signed_histogram.png
+  [saved] analysis_q_signed_bins.csv (3 bins)
+
+  (Skipping full 16D pipeline -- use --full to enable)

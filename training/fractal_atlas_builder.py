@@ -337,7 +337,7 @@ class AtlasBuilder:
              return
 
         pq_file = pq.ParquetFile(self.input_path)
-        pbar = tqdm(total=pq_file.metadata.num_rows, unit='rows')
+        pbar = tqdm(total=pq_file.metadata.num_rows, unit='rows', ascii=True, dynamic_ncols=True)
 
         try:
             for batch in pq_file.iter_batches(batch_size=batch_size):

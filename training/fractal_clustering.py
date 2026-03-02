@@ -551,6 +551,7 @@ class FractalClusteringEngine:
 
         scaler = StandardScaler()
         feat_scaled = scaler.fit_transform(feat_all)
+        self.scaler = scaler  # persist for checkpoint saving (live engine needs this)
 
         t2 = time.perf_counter()
         print(f"  [2] Features: 16D extracted + scaled [{t2-t1:.1f}s]")

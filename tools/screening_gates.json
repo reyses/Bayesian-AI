@@ -1,5 +1,10 @@
 {
-  "fission_map": {},
+  "fission_map": {
+    "regime_1_long": "KEEP",
+    "regime_7_short": "SPLIT",
+    "regime_10_short": "SPLIT",
+    "regime_0_long": "SPLIT"
+  },
   "good_hours_utc": [
     0,
     5,

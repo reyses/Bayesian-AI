@@ -4098,6 +4098,13 @@ class BayesianTrainingOrchestrator:
         print(f"  Saved pattern_library.pkl ({len(self.pattern_library)} entries)")
         print(f"  Saved split libraries: LONG={len(lib_long)}, SHORT={len(lib_short)}")
 
+        # Save clustering scaler for live engine
+        if hasattr(self, 'clustering_engine') and self.clustering_engine.scaler is not None:
+            _sc_path = os.path.join(self.checkpoint_dir, 'clustering_scaler.pkl')
+            with open(_sc_path, 'wb') as f:
+                pickle.dump(self.clustering_engine.scaler, f)
+            print(f"  Saved clustering_scaler.pkl")
+
         # Build DNA Tree
         if manifest:
             print(f"\n  Building Fractal DNA Tree...")

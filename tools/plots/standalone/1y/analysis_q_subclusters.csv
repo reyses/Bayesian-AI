@@ -1,0 +1,6 @@
+bin,bin_label,subcluster,n,pct_up,purity,mean_delta,top_features
+6,NOISE,0,2319,51.1,51.1,-0.34,"d8_2m__self_pid(-1.4z), d7_3m__self_pid(-1.3z), d8_2m__z_score(-1.3z)"
+6,NOISE,1,2518,50.7,50.7,0.17,"d8_2m__self_pid(+1.1z), d7_3m__self_pid(+1.0z), d9_1m__self_dmi_diff(+1.0z)"
+6,NOISE,2,5393,51.1,51.1,-0.13,"d0_1W__self_hurst(-1.3z), d0_1W__tf_scale(-1.3z), d0_1W__log1p_mom(-1.3z)"
+6,NOISE,3,9034,51.9,51.9,0.25,"d0_1W__self_hurst(+0.8z), d0_1W__tf_scale(+0.8z), d0_1W__osc_coh(+0.8z)"
+6,NOISE,4,2725,50.9,50.9,0.24,"d5_15m__self_dmi_diff(-1.3z), d4_30m__self_dmi_diff(-1.2z), d3_1h__self_pid(-1.1z)"

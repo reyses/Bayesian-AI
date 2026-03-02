@@ -81,9 +81,10 @@ class _LiveCandidate:
 class LiveEngine:
     """Main live trading loop — replaces Phase 4 forward pass for real-time."""
 
-    def __init__(self, config: LiveConfig, dry_run: bool = False):
+    def __init__(self, config: LiveConfig, dry_run: bool = False, client=None):
         self._cfg = config
         self._dry_run = dry_run
+        self._client_override = client  # None = use NT8Client
 
         # Core components (loaded from checkpoints)
         self._asset = SYMBOL_MAP.get(config.asset_ticker)
@@ -105,8 +106,12 @@ class LiveEngine:
         self._depth_filter_out: set = set()
         self._tier_score_adj = {1: -1.5, 2: -0.5, 3: 0.0, 4: 0.5}
 
+        # Screening gates (loaded in _load_checkpoints)
+        self._fission_map: Dict = {}
+        self._good_hours_utc: set = set()
+
         # Live components
-        self._client = NT8Client(config)
+        self._client = self._client_override if self._client_override is not None else NT8Client(config)
         self._aggregator = LiveBarAggregator(self._engine, config)
         self._orders = OrderManager(config)
         self._belief_network: Optional[TimeframeBeliefNetwork] = None
@@ -354,7 +359,7 @@ class LiveEngine:
 
         # ── Gate 3: Path conviction ───────────────────────────────────
         belief = self._belief_network.get_belief()
-        side = self._determine_direction(best_candidate, best_tid)
+        side, _p_long, _dir_src = self._determine_direction(best_candidate, best_tid)
 
         if belief is not None:
             if not belief.is_confident:
@@ -366,6 +371,26 @@ class LiveEngine:
         else:
             _network_tp = None
 
+        # ── Gate 4: Direction confidence ─────────────────────────────
+        _dir_conf = abs(_p_long - 0.5)
+        if _dir_conf < 0.05:
+            logger.debug(f"Gate 4 reject: dir_conf={_dir_conf:.3f} < 0.05 "
+                         f"(src={_dir_src}, tid={best_tid})")
+            return
+
+        # ── Gate 3.5: Screening fission + hour filter ────────────────
+        if self._fission_map:
+            _fission_rule = self._fission_map.get(best_tid)
+            if _fission_rule and _fission_rule.get('action') == 'reject':
+                logger.debug(f"Gate 3.5 reject: fission rule for tid={best_tid}")
+                return
+        if self._good_hours_utc:
+            import datetime as _dt
+            _hour_utc = _dt.datetime.utcnow().hour
+            if _hour_utc not in self._good_hours_utc:
+                logger.debug(f"Gate 3.5 reject: hour {_hour_utc} not in good_hours_utc")
+                return
+
         # ── Exit sizing ───────────────────────────────────────────────
         lib_entry = self._pattern_library.get(best_tid, {})
         params = lib_entry.get('params', {})
@@ -375,6 +400,7 @@ class LiveEngine:
         # ── Execute entry ─────────────────────────────────────────────
         logger.info(f"ENTRY: {side.upper()} @ {price:.2f}  "
                     f"tid={best_tid}  dist={best_dist:.2f}  "
+                    f"dir_src={_dir_src}  conf={_dir_conf:.3f}  "
                     f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}")
 
         self._wave_rider.open_position(
@@ -430,46 +456,60 @@ class LiveEngine:
         )
 
     def _determine_direction(self, candidate: _LiveCandidate,
-                             tid: str) -> str:
-        """Determine trade direction from template library + live state."""
+                             tid: str):
+        """Determine trade direction from template library + live state.
+
+        Returns (side, p_long, source) where p_long is the probability of
+        long direction (0..1) and source is a debug label.
+        """
         lib_entry = self._pattern_library.get(tid, {})
         long_bias = lib_entry.get('long_bias', 0.0)
         short_bias = lib_entry.get('short_bias', 0.0)
         _BIAS_THRESH = 0.55
 
-        # Priority 1: per-cluster logistic regression
+        # Priority 1: signed MFE regression (sign=direction, |val|=confidence)
         _live_feat = np.array(FractalClusteringEngine.extract_features(candidate))
         _live_scaled = self._scaler.transform([_live_feat])[0]
 
+        _smfe_coeff = lib_entry.get('signed_mfe_coeff')
+        if _smfe_coeff is not None:
+            _pred_smfe = float(np.dot(_live_scaled, np.array(_smfe_coeff))
+                               + lib_entry.get('signed_mfe_intercept', 0.0))
+            side = 'long' if _pred_smfe > 0 else 'short'
+            _p_long = 0.5 + min(abs(_pred_smfe) / 20.0, 0.45) * (1 if _pred_smfe > 0 else -1)
+            return side, _p_long, 'signed_mfe'
+
+        # Priority 2: balanced direction logistic regression
         _dir_coeff = lib_entry.get('dir_coeff')
         if _dir_coeff is not None:
             _dir_logit = (np.dot(_live_scaled, np.array(_dir_coeff))
                           + lib_entry.get('dir_intercept', 0.0))
-            _dir_prob = 1.0 / (1.0 + np.exp(-_dir_logit))
-            if _dir_prob > _BIAS_THRESH:
-                return 'long'
-            elif _dir_prob < (1.0 - _BIAS_THRESH):
-                return 'short'
+            _p_long = 1.0 / (1.0 + np.exp(-np.clip(_dir_logit, -20, 20)))
+            side = 'long' if _p_long > 0.5 else 'short'
+            return side, _p_long, 'balanced_dir'
 
-        # Priority 2: template aggregate bias
+        # Priority 3: template aggregate bias
         if long_bias >= _BIAS_THRESH:
-            return 'long'
+            return 'long', long_bias, 'template_bias'
         elif short_bias >= _BIAS_THRESH:
-            return 'short'
+            return 'short', 1.0 - short_bias, 'template_bias'
         elif long_bias + short_bias >= 0.10:
-            return 'long' if long_bias >= short_bias else 'short'
+            side = 'long' if long_bias >= short_bias else 'short'
+            _p_long = long_bias / (long_bias + short_bias)
+            return side, _p_long, 'template_bias'
 
-        # Priority 3: live DMI (trend-following)
+        # Priority 4: live DMI (trend-following)
         s = candidate.state
         _dmi_diff = (getattr(s, 'dmi_plus', 0.0)
                      - getattr(s, 'dmi_minus', 0.0))
-        if _dmi_diff > 0:
-            return 'long'
-        elif _dmi_diff < 0:
-            return 'short'
+        if _dmi_diff != 0:
+            side = 'long' if _dmi_diff > 0 else 'short'
+            _p_long = 0.6 if side == 'long' else 0.4
+            return side, _p_long, 'dmi_live'
 
         vel = getattr(s, 'particle_velocity', 0.0)
-        return 'long' if vel >= 0 else 'short'
+        side = 'long' if vel >= 0 else 'short'
+        return side, 0.55 if side == 'long' else 0.45, 'velocity'
 
     def _compute_exit_params(self, lib_entry: dict, params: dict,
                              network_tp: Optional[int],
@@ -488,16 +528,18 @@ class LiveEngine:
         else:
             sl = params.get('stop_loss_ticks', 20)
 
-        # Phase 2: trail
+        # Phase 2: trail — sigma*2.5 captures normal noise in trending move;
+        # floor at 8 ticks ($10/tick MNQ = $80 minimum breathing room).
         if _reg_sigma > 2.0:
-            trail = max(2, int(round(_reg_sigma * 1.1)))
+            trail = max(8, int(round(_reg_sigma * 2.5)))
         elif _mean_mae > 2.0:
-            trail = max(2, int(round(_mean_mae * 1.1)))
+            trail = max(8, int(round(_mean_mae * 1.5)))
         else:
-            trail = params.get('trailing_stop_ticks', 10)
+            trail = max(8, params.get('trailing_stop_ticks', 12))
 
-        # Trail activation
-        trail_act = (max(2, int(round(_p25_mae * 0.3)))
+        # Trail activation: 0.6× p25_mae ensures trade is meaningfully
+        # in profit before trail takes over from hard SL.
+        trail_act = (max(4, int(round(_p25_mae * 0.6)))
                      if _p25_mae > 2.0 else None)
 
         # TP priority: network → OLS → p75 → fallback
@@ -541,18 +583,33 @@ class LiveEngine:
         cpdir = self._cfg.checkpoint_dir
         logger.info(f"Loading checkpoints from {cpdir}/")
 
-        # Pattern library + scaler
+        # Pattern library
         lib_path = os.path.join(cpdir, 'pattern_library.pkl')
-        scaler_path = os.path.join(cpdir, 'clustering_scaler.pkl')
-        if not os.path.exists(lib_path) or not os.path.exists(scaler_path):
-            raise FileNotFoundError(
-                f"Missing pattern_library.pkl or clustering_scaler.pkl in {cpdir}")
-
+        if not os.path.exists(lib_path):
+            raise FileNotFoundError(f"Missing pattern_library.pkl in {cpdir}")
         with open(lib_path, 'rb') as f:
             self._pattern_library = pickle.load(f)
-        with open(scaler_path, 'rb') as f:
-            self._scaler = pickle.load(f)
         logger.info(f"  Library: {len(self._pattern_library)} templates")
+
+        # Clustering scaler (for scaling live features before L2 matching)
+        scaler_path = os.path.join(cpdir, 'clustering_scaler.pkl')
+        if os.path.exists(scaler_path):
+            with open(scaler_path, 'rb') as f:
+                self._scaler = pickle.load(f)
+            logger.info(f"  Scaler: loaded from clustering_scaler.pkl")
+        else:
+            # Fallback: fit scaler on library centroids (already scaled space)
+            # This gives identity-like transform; works for matching but
+            # won't perfectly standardize new features. Retrain with --fresh
+            # to generate proper scaler.
+            from sklearn.preprocessing import StandardScaler
+            logger.warning("  clustering_scaler.pkl not found — reconstructing from centroids")
+            _cents = [v['centroid'] for v in self._pattern_library.values()
+                      if 'centroid' in v]
+            if _cents:
+                self._scaler = StandardScaler().fit(np.array(_cents))
+            else:
+                raise FileNotFoundError("No centroids in library and no scaler")
 
         # Valid template IDs (must have centroids)
         self._valid_tids = [
@@ -585,12 +642,11 @@ class LiveEngine:
             logger.info(f"  Depth weights: {len(self._depth_score_adj)} depths, "
                          f"{len(self._depth_filter_out)} filtered out")
 
-        # Build scaled centroid index
-        centroids = np.array([
+        # Build centroid index (centroids already in scaled space from training)
+        self._centroids_scaled = np.array([
             self._pattern_library[tid]['centroid']
             for tid in self._valid_tids
         ])
-        self._centroids_scaled = self._scaler.transform(centroids)
         logger.info(f"  Centroids: {len(self._valid_tids)} ready for matching")
 
         # Exception templates (data-quality override)
@@ -609,6 +665,18 @@ class LiveEngine:
             logger.info(f"  Brain: {os.path.basename(brain_files[-1])}")
         else:
             logger.warning("  No brain checkpoint found — using empty brain")
+
+        # Screening gates (Gate 3.5 fission + temporal filter)
+        sg_path = os.path.join(cpdir, 'screening_gates.json')
+        if os.path.exists(sg_path):
+            with open(sg_path) as f:
+                sg_data = json.load(f)
+            self._fission_map = sg_data.get('fission_map', {})
+            self._good_hours_utc = set(sg_data.get('good_hours_utc', []))
+            logger.info(f"  Screening gates: {len(self._fission_map)} fission rules, "
+                         f"{len(self._good_hours_utc)} good hours")
+        else:
+            logger.warning("  No screening_gates.json — all signals unfiltered")
 
     def _init_belief_network(self):
         """Initialize the fractal belief network from loaded checkpoints."""

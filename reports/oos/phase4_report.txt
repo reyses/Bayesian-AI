@@ -1,5 +1,5 @@
 ================================================================================
-FORWARD PASS COMPLETE  (run: 2026-03-01 14:05:55)
+FORWARD PASS COMPLETE  (run: 2026-03-01 20:05:22)
   Period: DATA\ATLAS_OOS\15s\2026_01.parquet to 2026_02 (2 files)
 Total Trades: 31
 Win Rate: 74.2%
@@ -15,7 +15,7 @@ ORACLE PROFIT ATTRIBUTION
 ================================================================================
 
   TOTAL SIGNALS SEEN BY ORACLE: 4,748
-    Real moves (MEGA/SCALP):   4,211   -- worth $942,501.00 (parallel bound)
+    Real moves (MEGA/SCALP):   4,211
     Noise (no real move):        537
 
   WHAT WE DID:
@@ -26,10 +26,10 @@ ORACLE PROFIT ATTRIBUTION
     Gate 0 (headroom/pattern rule):      0  (0.0%)
     Gate 1 (dist > 3.0, no match):   5,860  (7.5%)
     Gate 2 (brain rejected):             0  (0.0%)
-    Gate 3 (conviction < thresh):      265  (0.3%)
-    Gate 3.5 (screening fission/temporal):  9,246  (11.8%)
+    Gate 3 (conviction < thresh):      201  (0.3%)
+    Gate 3.5 (screening fission/temporal):  6,570  (8.4%)
     Gate 5 (direction unclear):          0  (0.0%)
-    Physics QG (depth>3 or z>=0):     554  (0.7%)
+    Physics QG (depth>3 or z>=0):     559  (0.7%)
     Passed all gates -> traded:         31  (0.0%)
 
   TRADED SIGNAL DEPTH (which TF level triggered the trade):
@@ -60,12 +60,12 @@ ORACLE PROFIT ATTRIBUTION
     TF      WIN agree  LOSS agree    Edge  <-- positive = worker is predictive
     1h           1.00        0.88   +0.12  <-- key
     30m          1.00        1.00   +0.00
-    5m           0.87        1.00   -0.13
+    5m           0.91        1.00   -0.09
     3m           0.91        1.00   -0.09
     1m           0.96        1.00   -0.04
     30s          0.96        1.00   -0.04
-    15s          0.35        0.75   -0.40
-    5s           0.65        0.75   -0.10
+    15s          0.39        0.88   -0.48
+    5s           0.70        0.75   -0.05
     1s           0.39        0.25   +0.14  <-- key
 
   DIRECTION FLIPS BETWEEN ENTRY AND EXIT:
@@ -76,8 +76,8 @@ ORACLE PROFIT ATTRIBUTION
     3m     WIN flip=0.13  LOSS flip=0.00  diff=-0.13
     1m     WIN flip=0.13  LOSS flip=0.00  diff=-0.13
     30s    WIN flip=0.17  LOSS flip=0.00  diff=-0.17
-    15s    WIN flip=0.65  LOSS flip=0.38  diff=-0.28
-    5s     WIN flip=0.30  LOSS flip=0.50  diff=+0.20  <-- flip predicts loss
+    15s    WIN flip=0.57  LOSS flip=0.50  diff=-0.07
+    5s     WIN flip=0.26  LOSS flip=0.50  diff=+0.24  <-- flip predicts loss
     1s     WIN flip=0.74  LOSS flip=0.50  diff=-0.24
 
   OF 31 TRADES TAKEN:
@@ -95,6 +95,13 @@ ORACLE PROFIT ATTRIBUTION
     Too early (<20% captured)                2  $        88  avg$     44    327bars  cap  +12%  
     Reversed (mkt flipped after entry)       5  $       -70  avg$    -14    304bars  cap   -6%  <- leakage
     Left on table (non-reversed gap):                        $     2,744
+
+  WRONG-DIRECTION RISK ANALYSIS:
+    Trades that lost money:              1
+    Actual losses:                   $     36.00
+    Risk avoided (stop saved us):    $    635.00
+    Ratio (avoided / lost):          17.6x
+    Eventually recovered (timing):       0 / 1 (0%)  PnL: $      0.00
 
   EXIT REASON -> QUALITY CROSS-BREAKDOWN (correct-direction trades):
     Exit reason           Optimal    Partial  Too early   Reversed   Total   Avg PnL
@@ -132,9 +139,8 @@ ORACLE PROFIT ATTRIBUTION
       -------
       [check] Sum = $   29,610.00  (gap = $   29,610.00  diff = $+0.00)
     -----------------------------------------------------
-    [info] Parallel upper bound:   $  942,501.00  (not achievable)
-    [info] Raw FN MFE sum:         $  932,740.00  (not sequential)
-    [info] Score-competition pool: $        0.00  (took better same bar)
+    [info] Tick-differential ceiling: $4,884,831.50  (perfect 1s HFT, every tick captured)
+    [info] Golden-path / tick-diff:         0.721%  (sequential constraint cost)
 
     TRADE QUALITY DIAGNOSTIC  (all trades, does NOT sum to gap):
       Wrong direction at entry:          $  1,657.00  [9 trades -- oracle said opposite dir]
@@ -148,10 +154,10 @@ ORACLE PROFIT ATTRIBUTION
   DECISION MATRIX SUMMARY  (skipped candidates -- oracle $ = profit left on table)
     Gate                    Count  RealMove%  Avg Oracle$  Total Missed$
     score_loser             63037     100.0%         145       9140565
-    gate3.5_drop             9246      99.8%         162       1497641
+    gate3.5_drop             6570      99.7%         169       1110105
     gate1                    5860      95.1%         153        854740
-    gate3                     265     100.0%         140         37211
-    gate4_confidence           63     100.0%         212         13335
+    gate4_confidence         2803     100.0%         146        408052
+    gate3                     201     100.0%         149         30030
     traded                     31      83.9%         295          7664
   FN oracle log saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\reports\oos\fn_oracle_log.csv  (4,185 missed real moves)
 
@@ -165,8 +171,8 @@ ORACLE PROFIT ATTRIBUTION
     3m         0.45       n/a      0.45
     1m         0.39       n/a      0.39
     30s        0.46       n/a      0.46
-    15s        0.43       n/a      0.43
-    5s         0.45       n/a      0.45
+    15s        0.44       n/a      0.44
+    5s         0.43       n/a      0.43
     1s         0.52       n/a      0.52
 
   FN GATE BREAKDOWN (which gate blocked profitable signals):
@@ -196,7 +202,7 @@ PART 2 — GOOD vs BAD TRADE COMPARISON  (Welch t-test, two-tailed)
 ================================================================================
   Feature                                 Winners             Losers   t-stat   p-value  sig
   ----------------------------  ------------------  ------------------  --------  ---------  ---
-  belief_conviction               0.704 ±  0.029     0.709 ±  0.039     -0.35      0.735  
+  belief_conviction               0.705 ±  0.029     0.710 ±  0.039     -0.34      0.737  
   wave_maturity                   0.379 ±  0.026     0.382 ±  0.025     -0.26      0.800  
   decision_wave_maturity          0.394 ±  0.051     0.393 ±  0.031      0.06      0.951  
   oracle_mfe                    133.913 ± 135.550   173.469 ± 124.280     -0.76      0.462  
@@ -206,12 +212,12 @@ PART 2 — GOOD vs BAD TRADE COMPARISON  (Welch t-test, two-tailed)
   dmi_diff                      -12.427 ± 18.064    -5.383 ± 16.492     -1.01      0.328  
   long_bias                       0.000 ±  0.000     0.000 ±  0.000       nan        nan  
   short_bias                      0.000 ±  0.000     0.000 ±  0.000       nan        nan  
-  w1h_d                           0.244 ±  0.104     0.261 ±  0.136     -0.32      0.758  
-  w1h_c                           0.452 ±  0.211     0.479 ±  0.278     -0.25      0.806  
-  w5m_d                           0.289 ±  0.144     0.305 ±  0.129     -0.28      0.780  
-  w5m_c                           0.372 ±  0.231     0.301 ±  0.194      0.84      0.413  
+  w1h_d                           0.245 ±  0.105     0.261 ±  0.136     -0.30      0.767  
+  w1h_c                           0.451 ±  0.211     0.479 ±  0.278     -0.26      0.802  
+  w5m_d                           0.289 ±  0.143     0.304 ±  0.128     -0.29      0.776  
+  w5m_c                           0.373 ±  0.231     0.302 ±  0.194      0.84      0.414  
   w1h_agree                       1.000 ±  0.000     0.875 ±  0.354      1.00      0.351  
-  w5m_agree                       0.870 ±  0.344     1.000 ±  0.000     -1.82      0.083  
+  w5m_agree                       0.913 ±  0.288     1.000 ±  0.000     -1.45      0.162  
   entry_depth                     2.522 ±  0.511     2.750 ±  0.707     -0.84      0.421  
 
   Winners n=23  Losers n=8  Stars: *** p<0.001  ** p<0.01  * p<0.05
@@ -263,40 +269,40 @@ PART 3 — ANOVA: actual_pnl ~ categorical variables
 ================================================================================
 PART 4 — LINEAR REGRESSION: actual_pnl ~ features  (OLS, standardized β)
 ================================================================================
-  R² = 0.413  Adj R² = 0.022  (n=31)
+  R² = 0.388  Adj R² = -0.020  (n=31)
   Feature                          Coef   Std Err   t-stat   p-value  sig
   ---------------------------------------------------------------------------
-  dmi_diff                       -90.18     38.44    -2.35     0.026  *
-  w1h_agree                      +58.97     40.69     1.45     0.158  
-  oracle_mae                     -67.58     48.43    -1.40     0.173  
-  wave_maturity                  -37.66     41.00    -0.92     0.366  
-  w5m_agree                      +41.72     46.71     0.89     0.379  
-  w5m_c                          +32.06     44.26     0.72     0.475  
-  hour_et                        -25.24     41.01    -0.62     0.543  
-  w1h_c                          -16.33     47.08    -0.35     0.731  
-  belief_conviction               +8.40     37.43     0.22     0.825  
-  oracle_mfe                      -7.68     40.90    -0.19     0.852  
-  hold_mins                       -6.31     34.08    -0.19     0.854  
-  entry_depth                     +4.00     38.90     0.10     0.919  
+  dmi_diff                       -76.14     40.06    -1.90     0.067  
+  w1h_agree                      +56.43     42.49     1.33     0.194  
+  oracle_mae                     -55.68     48.36    -1.15     0.259  
+  w5m_c                          +49.45     43.04     1.15     0.260  
+  wave_maturity                  -32.98     41.15    -0.80     0.429  
+  hour_et                        -18.67     41.93    -0.45     0.659  
+  w1h_c                          -18.43     49.09    -0.38     0.710  
+  belief_conviction               +8.43     38.43     0.22     0.829  
+  entry_depth                     +6.22     39.74     0.16     0.877  
+  w5m_agree                       +6.42     45.26     0.14     0.888  
+  oracle_mfe                      +5.14     41.93     0.12     0.903  
+  hold_mins                       -2.28     34.65    -0.07     0.948  
 
 ================================================================================
 PART 5 — LOGISTIC REGRESSION: is_win ~ features
 ================================================================================
-  Accuracy = 90.3%  AUC-ROC = 0.946  (n=31)
+  Accuracy = 90.3%  AUC-ROC = 0.951  (n=31)
   Feature                          Coef  Odds Ratio  note
   -----------------------------------------------------------------
-  w1h_agree                      +1.059       2.883  (helps)
-  oracle_mae                     -0.850       0.428  (hurts)
-  dmi_diff                       -0.796       0.451  (hurts)
-  w5m_c                          +0.680       1.975  (helps)
-  hold_mins                      +0.400       1.492  (helps)
-  w5m_agree                      -0.387       0.679  (hurts)
-  oracle_mfe                     -0.329       0.720  (hurts)
-  w1h_c                          -0.297       0.743  (hurts)
-  belief_conviction              -0.271       0.762  (hurts)
+  w1h_agree                      +1.059       2.885  (helps)
+  oracle_mae                     -0.886       0.412  (hurts)
+  dmi_diff                       -0.841       0.431  (hurts)
+  w5m_c                          +0.646       1.908  (helps)
+  hold_mins                      +0.398       1.489  (helps)
+  oracle_mfe                     -0.353       0.703  (hurts)
+  belief_conviction              -0.274       0.760  (hurts)
+  w1h_c                          -0.268       0.765  (hurts)
+  w5m_agree                      -0.249       0.780  (hurts)
   hour_et                        +0.231       1.260  (helps)
-  wave_maturity                  +0.217       1.242  (helps)
-  entry_depth                    +0.134       1.143  (helps)
+  wave_maturity                  +0.199       1.221  (helps)
+  entry_depth                    +0.121       1.129  (helps)
   Note: coefficients are standardized (1 SD change in feature)
 
 ================================================================================

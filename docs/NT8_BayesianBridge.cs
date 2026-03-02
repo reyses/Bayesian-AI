@@ -2,20 +2,20 @@
 // BayesianBridge — NinjaTrader 8 NinjaScript Indicator
 //
 // PURPOSE: TCP server inside NT8 that bridges to the Python live trading engine.
-//   - Streams completed 15s OHLCV bars to Python
+//   - Streams completed bars (any TF, e.g. 1s) to Python
 //   - Receives PLACE_ORDER / CLOSE_POSITION / CANCEL_ORDER from Python
 //   - Sends FILL / ORDER_STATUS / POSITION messages back to Python
 //
 // INSTALLATION:
 //   1. Copy this file to: Documents\NinjaTrader 8\bin\Custom\Indicators\
 //   2. In NT8: Tools > NinjaScript Editor > right-click > Compile
-//   3. Add indicator to a 15-second MNQ chart
+//   3. Add indicator to a 1-second MNQ chart on your sim account
 //   4. Start the Python live engine: python -m live.launcher
 //
 // PROTOCOL: Length-prefixed JSON over TCP (port 5199)
 //   Wire format: [4 bytes: uint32 big-endian payload length][N bytes: UTF-8 JSON]
 //
-// IMPORTANT: This is a REFERENCE implementation. Test thoroughly on Sim101
+// IMPORTANT: This is a REFERENCE implementation. Test thoroughly on sim
 // before any live deployment.
 // =============================================================================
 
@@ -24,19 +24,17 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using NinjaTrader.Cbi;
 using NinjaTrader.Data;
 using NinjaTrader.Gui;
 using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.Indicators;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Indicators
@@ -49,7 +47,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         public int Port { get; set; }
 
         [NinjaScriptProperty]
-        [Display(Name = "Account Name", Description = "Trading account (Sim101 for paper)", Order = 2, GroupName = "Bridge")]
+        [Display(Name = "Account Name", Description = "Trading account (e.g. DEMO6872628)", Order = 2, GroupName = "Bridge")]
         public string AccountName { get; set; }
 
         // ── Internal State ────────────────────────────────────────────
@@ -61,7 +59,8 @@ namespace NinjaTrader.NinjaScript.Indicators
         private volatile bool _running;
         private Account       _account;
         private readonly object _sendLock = new object();
-        private readonly Queue<JObject> _inboundQueue = new Queue<JObject>();
+        private readonly Queue<Dictionary<string, string>> _inboundQueue
+            = new Queue<Dictionary<string, string>>();
 
         // ── NinjaScript Lifecycle ─────────────────────────────────────
 
@@ -74,10 +73,6 @@ namespace NinjaTrader.NinjaScript.Indicators
                 IsOverlay   = true;
                 Port        = 5199;
                 AccountName = "Sim101";
-            }
-            else if (State == State.Configure)
-            {
-                // Nothing extra needed
             }
             else if (State == State.DataLoaded)
             {
@@ -96,12 +91,12 @@ namespace NinjaTrader.NinjaScript.Indicators
 
                 if (_account == null)
                 {
-                    Print($"BayesianBridge: Account '{AccountName}' not found!");
+                    Print("BayesianBridge: Account '" + AccountName + "' not found!");
                     return;
                 }
 
                 // Subscribe to execution events
-                _account.OrderUpdate    += OnOrderUpdate;
+                _account.OrderUpdate     += OnOrderUpdate;
                 _account.ExecutionUpdate += OnExecutionUpdate;
                 _account.PositionUpdate  += OnPositionUpdate;
 
@@ -110,7 +105,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 _serverThread = new Thread(ServerLoop) { IsBackground = true };
                 _serverThread.Start();
 
-                Print($"BayesianBridge: Started on port {Port}, account={AccountName}");
+                Print("BayesianBridge: Started on port " + Port + ", account=" + AccountName);
             }
             else if (State == State.Terminated)
             {
@@ -119,8 +114,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                 if (_account != null)
                 {
                     _account.OrderUpdate     -= OnOrderUpdate;
-                    _account.ExecutionUpdate  -= OnExecutionUpdate;
-                    _account.PositionUpdate   -= OnPositionUpdate;
+                    _account.ExecutionUpdate -= OnExecutionUpdate;
+                    _account.PositionUpdate  -= OnPositionUpdate;
                 }
 
                 try { _client?.Close(); }   catch { }
@@ -134,54 +129,51 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         protected override void OnBarUpdate()
         {
-            // Only send on completed bars (not tick-by-tick)
             if (CurrentBars[0] < 1 || IsFirstTickOfBar == false)
                 return;
 
-            // Use previous bar (just completed)
-            var msg = new JObject
-            {
-                ["type"]       = "BAR",
-                ["instrument"] = Instrument.FullName,
-                ["timestamp"]  = ToUnixSeconds(Time[1]),
-                ["open"]       = Open[1],
-                ["high"]       = High[1],
-                ["low"]        = Low[1],
-                ["close"]      = Close[1],
-                ["volume"]     = Volume[1],
-                ["bar_period_s"] = BarsPeriod.Value,
-            };
-            SendMessage(msg);
+            // Send the just-completed bar
+            string json = "{"
+                + Q("type") + ":" + Q("BAR") + ","
+                + Q("instrument") + ":" + Q(Instrument.FullName) + ","
+                + Q("timestamp") + ":" + D2S(ToUnixSeconds(Time[1])) + ","
+                + Q("open") + ":" + D2S(Open[1]) + ","
+                + Q("high") + ":" + D2S(High[1]) + ","
+                + Q("low") + ":" + D2S(Low[1]) + ","
+                + Q("close") + ":" + D2S(Close[1]) + ","
+                + Q("volume") + ":" + D2S(Volume[1]) + ","
+                + Q("bar_period_s") + ":" + BarsPeriod.Value
+                + "}";
+            SendRawJson(json);
         }
 
         // ── Account Event Handlers ────────────────────────────────────
 
         private void OnOrderUpdate(object sender, OrderEventArgs e)
         {
-            var msg = new JObject
-            {
-                ["type"]     = "ORDER_STATUS",
-                ["order_id"] = e.Order.Name,
-                ["status"]   = e.Order.OrderState.ToString(),
-            };
-            SendMessage(msg);
+            string json = "{"
+                + Q("type") + ":" + Q("ORDER_STATUS") + ","
+                + Q("order_id") + ":" + Q(e.Order.Name) + ","
+                + Q("status") + ":" + Q(e.Order.OrderState.ToString())
+                + "}";
+            SendRawJson(json);
         }
 
         private void OnExecutionUpdate(object sender, ExecutionEventArgs e)
         {
             if (e.Execution == null) return;
 
-            var msg = new JObject
-            {
-                ["type"]       = "FILL",
-                ["order_id"]   = e.Order.Name,
-                ["side"]       = e.Execution.MarketPosition == MarketPosition.Long ? "BUY" : "SELL",
-                ["qty"]        = e.Execution.Quantity,
-                ["fill_price"] = e.Execution.Price,
-                ["fill_time"]  = ToUnixSeconds(e.Execution.Time),
-                ["commission"] = e.Execution.Commission,
-            };
-            SendMessage(msg);
+            string side = e.Execution.MarketPosition == MarketPosition.Long ? "BUY" : "SELL";
+            string json = "{"
+                + Q("type") + ":" + Q("FILL") + ","
+                + Q("order_id") + ":" + Q(e.Execution.Order.Name) + ","
+                + Q("side") + ":" + Q(side) + ","
+                + Q("qty") + ":" + e.Execution.Quantity + ","
+                + Q("fill_price") + ":" + D2S(e.Execution.Price) + ","
+                + Q("fill_time") + ":" + D2S(ToUnixSeconds(e.Execution.Time)) + ","
+                + Q("commission") + ":" + D2S(e.Execution.Commission)
+                + "}";
+            SendRawJson(json);
         }
 
         private void OnPositionUpdate(object sender, PositionEventArgs e)
@@ -194,16 +186,15 @@ namespace NinjaTrader.NinjaScript.Indicators
             else if (e.Position.MarketPosition == MarketPosition.Short)
                 qty = -e.Position.Quantity;
 
-            var msg = new JObject
-            {
-                ["type"]           = "POSITION",
-                ["instrument"]     = e.Position.Instrument.FullName,
-                ["qty"]            = qty,
-                ["avg_price"]      = e.Position.AveragePrice,
-                ["unrealized_pnl"] = e.Position.GetUnrealizedProfitLoss(
-                    PerformanceUnit.Currency, Close[0]),
-            };
-            SendMessage(msg);
+            string json = "{"
+                + Q("type") + ":" + Q("POSITION") + ","
+                + Q("instrument") + ":" + Q(e.Position.Instrument.FullName) + ","
+                + Q("qty") + ":" + qty + ","
+                + Q("avg_price") + ":" + D2S(e.Position.AveragePrice) + ","
+                + Q("unrealized_pnl") + ":" + D2S(e.Position.GetUnrealizedProfitLoss(
+                    PerformanceUnit.Currency, Close[0]))
+                + "}";
+            SendRawJson(json);
         }
 
         // ── TCP Server ────────────────────────────────────────────────
@@ -214,11 +205,10 @@ namespace NinjaTrader.NinjaScript.Indicators
             {
                 _listener = new TcpListener(IPAddress.Loopback, Port);
                 _listener.Start();
-                Print($"BayesianBridge: Listening on 127.0.0.1:{Port}");
+                Print("BayesianBridge: Listening on 127.0.0.1:" + Port);
 
                 while (_running)
                 {
-                    // Accept one client at a time
                     if (!_listener.Pending())
                     {
                         Thread.Sleep(100);
@@ -230,24 +220,19 @@ namespace NinjaTrader.NinjaScript.Indicators
                     Print("BayesianBridge: Python client connected");
 
                     // Send CONNECTED message
-                    var connMsg = new JObject
-                    {
-                        ["type"]    = "CONNECTED",
-                        ["account"] = AccountName,
-                    };
-                    SendMessage(connMsg);
+                    string connJson = "{"
+                        + Q("type") + ":" + Q("CONNECTED") + ","
+                        + Q("account") + ":" + Q(AccountName)
+                        + "}";
+                    SendRawJson(connJson);
 
-                    // Send current position snapshot
                     SendPositionSnapshot();
 
-                    // Start read thread for inbound messages
                     _readThread = new Thread(ReadLoop) { IsBackground = true };
                     _readThread.Start();
 
-                    // Wait until client disconnects
                     while (_running && _client != null && _client.Connected)
                     {
-                        // Process any queued inbound commands
                         ProcessInboundQueue();
                         Thread.Sleep(50);
                     }
@@ -258,7 +243,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             catch (SocketException ex)
             {
                 if (_running)
-                    Print($"BayesianBridge: Server error: {ex.Message}");
+                    Print("BayesianBridge: Server error: " + ex.Message);
             }
         }
 
@@ -268,21 +253,19 @@ namespace NinjaTrader.NinjaScript.Indicators
             {
                 while (_running && _stream != null && _client.Connected)
                 {
-                    // Read 4-byte length header
                     byte[] header = ReadExactly(4);
                     if (header == null) break;
 
                     int length = (header[0] << 24) | (header[1] << 16)
                                | (header[2] << 8)  | header[3];
 
-                    if (length <= 0 || length > 1048576) break;  // safety
+                    if (length <= 0 || length > 1048576) break;
 
-                    // Read payload
                     byte[] payload = ReadExactly(length);
                     if (payload == null) break;
 
                     string json = Encoding.UTF8.GetString(payload);
-                    JObject msg = JObject.Parse(json);
+                    var msg = ParseSimpleJson(json);
 
                     lock (_inboundQueue)
                     {
@@ -293,7 +276,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             catch (Exception ex)
             {
                 if (_running)
-                    Print($"BayesianBridge: Read error: {ex.Message}");
+                    Print("BayesianBridge: Read error: " + ex.Message);
             }
         }
 
@@ -304,7 +287,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             while (offset < count)
             {
                 int read = _stream.Read(buffer, offset, count - offset);
-                if (read == 0) return null;  // disconnected
+                if (read == 0) return null;
                 offset += read;
             }
             return buffer;
@@ -314,17 +297,19 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         private void ProcessInboundQueue()
         {
-            List<JObject> commands;
+            List<Dictionary<string, string>> commands;
             lock (_inboundQueue)
             {
                 if (_inboundQueue.Count == 0) return;
-                commands = new List<JObject>(_inboundQueue);
+                commands = new List<Dictionary<string, string>>(_inboundQueue);
                 _inboundQueue.Clear();
             }
 
             foreach (var cmd in commands)
             {
-                string msgType = cmd["type"]?.ToString() ?? "";
+                string msgType = "";
+                cmd.TryGetValue("type", out msgType);
+                if (msgType == null) msgType = "";
 
                 switch (msgType)
                 {
@@ -338,64 +323,64 @@ namespace NinjaTrader.NinjaScript.Indicators
                         HandleCancelOrder(cmd);
                         break;
                     case "SUBSCRIBE":
-                        Print($"BayesianBridge: SUBSCRIBE from Python — "
-                            + $"instrument={cmd["instrument"]}, "
-                            + $"bar_period_s={cmd["bar_period_s"]}");
+                        string inst = "", bps = "";
+                        cmd.TryGetValue("instrument", out inst);
+                        cmd.TryGetValue("bar_period_s", out bps);
+                        Print("BayesianBridge: SUBSCRIBE — instrument="
+                            + inst + ", bar_period_s=" + bps);
                         break;
                     case "HEARTBEAT":
-                        // Respond with server heartbeat
-                        SendMessage(new JObject
-                        {
-                            ["type"]        = "HEARTBEAT",
-                            ["server_time"] = ToUnixSeconds(DateTime.UtcNow),
-                        });
+                        string hb = "{"
+                            + Q("type") + ":" + Q("HEARTBEAT") + ","
+                            + Q("server_time") + ":" + D2S(ToUnixSeconds(DateTime.UtcNow))
+                            + "}";
+                        SendRawJson(hb);
                         break;
                     default:
-                        Print($"BayesianBridge: Unknown command: {msgType}");
+                        Print("BayesianBridge: Unknown command: " + msgType);
                         break;
                 }
             }
         }
 
-        private void HandlePlaceOrder(JObject cmd)
+        private void HandlePlaceOrder(Dictionary<string, string> cmd)
         {
-            string orderId    = cmd["order_id"]?.ToString() ?? "BAY_UNK";
-            string side       = cmd["side"]?.ToString() ?? "BUY";
-            int    qty        = cmd["qty"]?.ToObject<int>() ?? 1;
-            string instrument = cmd["instrument"]?.ToString() ?? "";
+            string orderId = GetVal(cmd, "order_id", "BAY_UNK");
+            string side    = GetVal(cmd, "side", "BUY");
+            int    qty     = GetIntVal(cmd, "qty", 1);
 
-            Print($"BayesianBridge: PLACE_ORDER {side} {qty} {instrument} id={orderId}");
+            Print("BayesianBridge: PLACE_ORDER " + side + " " + qty + " id=" + orderId);
 
-            // Submit market order via Account API
             try
             {
                 Order order = _account.CreateOrder(
                     Instrument,
                     side == "BUY" ? OrderAction.Buy : OrderAction.SellShort,
                     OrderType.Market,
+                    OrderEntry.Manual,
                     TimeInForce.Gtc,
                     qty,
-                    0, 0,      // price, stopPrice
-                    "", "",    // oco, signal
-                    orderId,   // name
-                    null       // custom
+                    0, 0,
+                    "",
+                    orderId,
+                    DateTime.MaxValue,
+                    null
                 );
                 _account.Submit(new[] { order });
             }
             catch (Exception ex)
             {
-                Print($"BayesianBridge: Order submit failed: {ex.Message}");
+                Print("BayesianBridge: Order submit failed: " + ex.Message);
             }
         }
 
-        private void HandleClosePosition(JObject cmd)
+        private void HandleClosePosition(Dictionary<string, string> cmd)
         {
             Print("BayesianBridge: CLOSE_POSITION");
 
             try
             {
-                // Find current position and flatten it
-                var pos = _account.Positions.FindByInstrument(Instrument);
+                Position pos = FindPosition();
                 if (pos != null && pos.MarketPosition != MarketPosition.Flat)
                 {
                     OrderAction action = pos.MarketPosition == MarketPosition.Long
@@ -405,11 +390,13 @@ namespace NinjaTrader.NinjaScript.Indicators
                         Instrument,
                         action,
                         OrderType.Market,
+                        OrderEntry.Manual,
                         TimeInForce.Gtc,
                         pos.Quantity,
                         0, 0,
-                        "", "",
+                        "",
                         "BAY_CLOSE",
+                        DateTime.MaxValue,
                         null
                     );
                     _account.Submit(new[] { closeOrder });
@@ -421,14 +408,14 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
             catch (Exception ex)
             {
-                Print($"BayesianBridge: Close position failed: {ex.Message}");
+                Print("BayesianBridge: Close position failed: " + ex.Message);
             }
         }
 
-        private void HandleCancelOrder(JObject cmd)
+        private void HandleCancelOrder(Dictionary<string, string> cmd)
         {
-            string orderId = cmd["order_id"]?.ToString() ?? "";
-            Print($"BayesianBridge: CANCEL_ORDER {orderId}");
+            string orderId = GetVal(cmd, "order_id", "");
+            Print("BayesianBridge: CANCEL_ORDER " + orderId);
 
             try
             {
@@ -442,24 +429,23 @@ namespace NinjaTrader.NinjaScript.Indicators
                         return;
                     }
                 }
-                Print($"BayesianBridge: Order {orderId} not found or not cancellable");
+                Print("BayesianBridge: Order " + orderId + " not found or not cancellable");
             }
             catch (Exception ex)
             {
-                Print($"BayesianBridge: Cancel failed: {ex.Message}");
+                Print("BayesianBridge: Cancel failed: " + ex.Message);
             }
         }
 
         // ── Outbound Messaging ────────────────────────────────────────
 
-        private void SendMessage(JObject msg)
+        private void SendRawJson(string json)
         {
             if (_stream == null || _client == null || !_client.Connected)
                 return;
 
             try
             {
-                string json    = msg.ToString(Formatting.None);
                 byte[] payload = Encoding.UTF8.GetBytes(json);
                 byte[] header  = new byte[4];
                 header[0] = (byte)((payload.Length >> 24) & 0xFF);
@@ -476,7 +462,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
             catch (Exception ex)
             {
-                Print($"BayesianBridge: Send failed: {ex.Message}");
+                Print("BayesianBridge: Send failed: " + ex.Message);
             }
         }
 
@@ -486,7 +472,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             try
             {
-                var pos = _account.Positions.FindByInstrument(Instrument);
+                Position pos = FindPosition();
                 int qty = 0;
                 double avgPrice = 0;
 
@@ -499,18 +485,135 @@ namespace NinjaTrader.NinjaScript.Indicators
                     avgPrice = pos.AveragePrice;
                 }
 
-                SendMessage(new JObject
-                {
-                    ["type"]       = "POSITION",
-                    ["instrument"] = Instrument.FullName,
-                    ["qty"]        = qty,
-                    ["avg_price"]  = avgPrice,
-                });
+                string json = "{"
+                    + Q("type") + ":" + Q("POSITION") + ","
+                    + Q("instrument") + ":" + Q(Instrument.FullName) + ","
+                    + Q("qty") + ":" + qty + ","
+                    + Q("avg_price") + ":" + D2S(avgPrice)
+                    + "}";
+                SendRawJson(json);
             }
             catch (Exception ex)
             {
-                Print($"BayesianBridge: Position snapshot failed: {ex.Message}");
+                Print("BayesianBridge: Position snapshot failed: " + ex.Message);
             }
+        }
+
+        // ── Position Lookup ───────────────────────────────────────────
+
+        private Position FindPosition()
+        {
+            if (_account == null) return null;
+            foreach (Position p in _account.Positions)
+            {
+                if (p.Instrument.FullName == Instrument.FullName)
+                    return p;
+            }
+            return null;
+        }
+
+        // ── JSON Helpers (no external dependencies) ──────────────────
+
+        /// <summary>Quote a string for JSON: "value"</summary>
+        private static string Q(string s)
+        {
+            if (s == null) return "null";
+            return "\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+        }
+
+        /// <summary>Double to string with invariant culture (no locale comma issues)</summary>
+        private static string D2S(double v)
+        {
+            return v.ToString(CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>Parse flat JSON object into string dictionary. Handles quoted
+        /// strings, numbers, and booleans. No nesting support needed.</summary>
+        private static Dictionary<string, string> ParseSimpleJson(string json)
+        {
+            var dict = new Dictionary<string, string>();
+            if (string.IsNullOrEmpty(json)) return dict;
+
+            // Strip outer braces
+            json = json.Trim();
+            if (json.StartsWith("{")) json = json.Substring(1);
+            if (json.EndsWith("}"))   json = json.Substring(0, json.Length - 1);
+
+            int i = 0;
+            while (i < json.Length)
+            {
+                // Skip whitespace/commas
+                while (i < json.Length && (json[i] == ' ' || json[i] == ',' || json[i] == '\n'
+                       || json[i] == '\r' || json[i] == '\t'))
+                    i++;
+                if (i >= json.Length) break;
+
+                // Read key
+                string key = ReadJsonValue(json, ref i);
+                if (key == null) break;
+
+                // Skip colon
+                while (i < json.Length && (json[i] == ' ' || json[i] == ':'))
+                    i++;
+
+                // Read value
+                string val = ReadJsonValue(json, ref i);
+                if (val == null) break;
+
+                dict[key] = val;
+            }
+            return dict;
+        }
+
+        private static string ReadJsonValue(string json, ref int i)
+        {
+            while (i < json.Length && json[i] == ' ') i++;
+            if (i >= json.Length) return null;
+
+            if (json[i] == '"')
+            {
+                // Quoted string
+                i++; // skip opening quote
+                var sb = new StringBuilder();
+                while (i < json.Length && json[i] != '"')
+                {
+                    if (json[i] == '\\' && i + 1 < json.Length)
+                    {
+                        i++;
+                        sb.Append(json[i]);
+                    }
+                    else
+                    {
+                        sb.Append(json[i]);
+                    }
+                    i++;
+                }
+                if (i < json.Length) i++; // skip closing quote
+                return sb.ToString();
+            }
+            else
+            {
+                // Unquoted: number, bool, null
+                int start = i;
+                while (i < json.Length && json[i] != ',' && json[i] != '}'
+                       && json[i] != ' ' && json[i] != '\n')
+                    i++;
+                return json.Substring(start, i - start);
+            }
+        }
+
+        private static string GetVal(Dictionary<string, string> d, string key, string fallback)
+        {
+            string v;
+            return d.TryGetValue(key, out v) ? v : fallback;
+        }
+
+        private static int GetIntVal(Dictionary<string, string> d, string key, int fallback)
+        {
+            string v;
+            if (!d.TryGetValue(key, out v)) return fallback;
+            int result;
+            return int.TryParse(v, out result) ? result : fallback;
         }
 
         // ── Utilities ─────────────────────────────────────────────────

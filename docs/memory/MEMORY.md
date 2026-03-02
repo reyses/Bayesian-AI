@@ -75,8 +75,12 @@
 - Signed MR: every change is a potential pattern, sign flips = direction changes
 - **Analyses completed**: A-H (screening), I (seed classification, 20 primitives),
   J (adaptive R² sub-types, IQR quality gate, R² ceiling 0.88),
-  K (direction prediction: 70.6% accuracy, +16.5% lift, 4h/1h dominant)
+  K (direction prediction: 70.6% accuracy, +16.5% lift, 4h/1h dominant),
+  L-P (various), Q (signed magnitude histogram + paired 192D profiles)
 - **Key K findings**: 1h_hurst #1, 4h_osc_coh #2, 15m base TF barely top-10
+- **Q status**: Sign-first split working. Adaptive sigma + IQR fallback added.
+  Need `--analysis-days 120` to get enough samples (default 7d only gives ~460 bars).
+  CLI: `--start X` skips to analysis X, `--cache file.npz` saves/loads feature matrix
 - **Integration spec**: `docs/JULES_WAVEFORM_INTEGRATION.md` (5 parts)
 
 ## Seed Library & Live Worker Architecture (KEY DECISION)

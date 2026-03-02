@@ -270,8 +270,16 @@ def build_stacked_matrices(all_tf_states, base_tf, base_df,
     mfes = []
     maes = []
     meta = []
+    _n_long = 0
+    _n_short = 0
+    _n_skip = 0
 
-    for t in tqdm(analysis_ts, desc="Building hypervolumes", unit="bar"):
+    _pbar = tqdm(analysis_ts, desc="Hypervolumes", unit="bar",
+                 ascii=True, dynamic_ncols=True, mininterval=0.3,
+                 bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} "
+                            "[{elapsed}<{remaining}, {rate_fmt}] "
+                            "{postfix}")
+    for t in _pbar:
         # --- Stack 16D across all 12 TFs ---
         mat = np.zeros((12, 16))
         has_data = 0
@@ -301,26 +309,31 @@ def build_stacked_matrices(all_tf_states, base_tf, base_df,
             has_data += 1
 
         if has_data < 3:
+            _n_skip += 1
             continue  # Need at least 3 TFs with data
 
         # --- Compute oracle MFE/MAE from base TF future bars ---
         if t not in ts_to_idx:
+            _n_skip += 1
             continue
 
         bar_idx = ts_to_idx[t]
         if bar_idx + lookahead >= len(base_df):
+            _n_skip += 1
             continue  # Not enough future data
 
         entry_price = float(base_df.iloc[bar_idx]['close'])
         future = base_df.iloc[bar_idx + 1 : bar_idx + 1 + lookahead]
 
         if future.empty:
+            _n_skip += 1
             continue
 
         max_up = float(future['high'].max() - entry_price)
         max_down = float(entry_price - future['low'].min())
 
         if max_up == 0 and max_down == 0:
+            _n_skip += 1
             continue
 
         # Direction from z-score sign at base TF
@@ -335,9 +348,11 @@ def build_stacked_matrices(all_tf_states, base_tf, base_df,
         if z < 0:  # LONG
             mfe_val = max_up
             mae_val = max_down
+            _n_long += 1
         else:      # SHORT
             mfe_val = max_down
             mae_val = max_up
+            _n_short += 1
 
         matrices.append(mat)
         mfes.append(mfe_val)
@@ -356,6 +371,17 @@ def build_stacked_matrices(all_tf_states, base_tf, base_df,
             'z_score': z,
         })
 
+        # Update live stats every 50 bars to avoid I/O overhead
+        if len(matrices) % 50 == 0 or len(matrices) == 1:
+            _avg_mfe = np.mean(mfes) if mfes else 0
+            _pbar.set_postfix_str(
+                f"ok={len(matrices)} skip={_n_skip} "
+                f"L={_n_long} S={_n_short} "
+                f"avgMFE={_avg_mfe:.1f}",
+                refresh=True
+            )
+
+    _pbar.close()
     print(f"  Built {len(matrices)} hypervolume matrices with oracle labels")
     return matrices, np.array(mfes), np.array(maes), meta
 
@@ -612,14 +638,15 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import matplotlib.lines as mlines
 from matplotlib.collections import LineCollection
 
 PLOTS_DIR = os.path.join(os.path.dirname(__file__), 'plots', 'standalone')
 
 
-def _resolve_plots_dir(data_path):
-    """Set PLOTS_DIR subfolder based on data path.
-    ATLAS_1DAY -> 1d, ATLAS_1WEEK -> 1w, ATLAS_OOS (4mo) -> 1y, ATLAS (10mo) -> 1y."""
+def _resolve_plots_dir(data_path, analysis_days=0):
+    """Set PLOTS_DIR subfolder based on data path + analysis window.
+    ATLAS_1DAY -> 1d, ATLAS_1WEEK -> 1w, ATLAS+30d -> 1m, ATLAS full -> 1y."""
     global PLOTS_DIR
     base = os.path.join(os.path.dirname(__file__), 'plots', 'standalone')
     dp = data_path.upper().replace('\\', '/')
@@ -628,9 +655,10 @@ def _resolve_plots_dir(data_path):
     elif '1WEEK' in dp or '1_WEEK' in dp:
         sub = '1w'
     elif 'OOS' in dp:
-        sub = '1y'  # 4 months ≈ treat as long-horizon
+        sub = '1y'
+    elif 0 < analysis_days <= 60:
+        sub = '1m'
     else:
-        # Full ATLAS (10 months)
         sub = '1y'
     PLOTS_DIR = os.path.join(base, sub)
     os.makedirs(PLOTS_DIR, exist_ok=True)
@@ -1940,10 +1968,16 @@ def main():
                         help='Number of top factors to display')
     parser.add_argument('--full', action='store_true',
                         help='Run full 16D fractal pipeline (physics + hypervolumes)')
+    parser.add_argument('--start', default='A',
+                        help='Start from this analysis letter (e.g. --start Q). Skips earlier analyses.')
+    parser.add_argument('--cache', default=None,
+                        help='Path to .npz cache. If exists, load instead of recomputing Steps 1-8. '
+                             'If not exists, compute and save to this path.')
     args = parser.parse_args()
+    _start_at = args.start.upper()
 
     # Resolve plots dir based on data path
-    sample_label = _resolve_plots_dir(args.data)
+    sample_label = _resolve_plots_dir(args.data, getattr(args, 'analysis_days', 0))
 
     # Capture all output to report file
     _report_buf = io.StringIO()
@@ -1958,2690 +1992,4339 @@ def main():
     print(f"  Mode: {'FULL (16D fractal)' if args.full else 'PRICE I-MR (default)'}")
     print(f"{'='*70}")
 
-    # =====================================================================
-    #  STEP 1: Load base TF data
-    # =====================================================================
-    print(f"\n--- STEP 1: Loading base TF data ({args.base_tf}) ---")
-    base_df = load_atlas_tf(args.data, args.base_tf, months=args.months)
-    if base_df.empty:
-        print(f"ERROR: Base TF '{args.base_tf}' has no data in {args.data}")
-        sys.exit(1)
-    print(f"  {args.base_tf}: {len(base_df):,} bars loaded")
+    # ── Cache load (skip Steps 1-8 if cached data exists) ────────────
+    if args.cache and os.path.exists(args.cache):
+        print(f"\n--- LOADING CACHED DATA: {args.cache} ---")
+        _cached = np.load(args.cache, allow_pickle=False)
+        X = _cached['X']
+        X_delta = _cached['X_delta']
+        Y_p = _cached['Y_p']
+        Y_d = _cached['Y_d']
+        sample_ts = _cached['sample_ts'].tolist()
+        # Rebuild column names (deterministic from constants)
+        col_names = []
+        for d in range(12):
+            tf_lbl = TF_LABELS[d] if d < len(TF_LABELS) else f'd{d}'
+            for f in range(16):
+                f_lbl = FEATURE_NAMES[f] if f < len(FEATURE_NAMES) else f'f{f}'
+                col_names.append(f"{tf_lbl}__{f_lbl}")
+        col_names.append("current_MR")
+        delta_col_names = []
+        for d in range(12):
+            tf_lbl = TF_LABELS[d] if d < len(TF_LABELS) else f'd{d}'
+            for f in range(16):
+                f_lbl = FEATURE_NAMES[f] if f < len(FEATURE_NAMES) else f'f{f}'
+                delta_col_names.append(f"dt_{tf_lbl}__{f_lbl}")
+        print(f"  Loaded: {X.shape[0]} samples, {X.shape[1]} features")
+        print(f"  Cache size: {os.path.getsize(args.cache)/1e6:.1f} MB")
+    else:
 
-    # =====================================================================
-    #  STEP 2: Price I-MR chart (pure price/time, no physics)
-    # =====================================================================
-    print(f"\n--- STEP 2: Price I-MR Chart ---")
-    price_imr = compute_price_imr(base_df, args.context_days, args.analysis_days)
+        # =====================================================================
+        #  STEP 1: Load base TF data
+        # =====================================================================
+        print(f"\n--- STEP 1: Loading base TF data ({args.base_tf}) ---")
+        base_df = load_atlas_tf(args.data, args.base_tf, months=args.months)
+        if base_df.empty:
+            print(f"ERROR: Base TF '{args.base_tf}' has no data in {args.data}")
+            sys.exit(1)
+        print(f"  {args.base_tf}: {len(base_df):,} bars loaded")
 
-    # =====================================================================
-    #  STEP 3: Detect regimes from MR UCL breaks
-    # =====================================================================
-    print(f"\n--- STEP 3: Regime Detection ---")
-    regime_ids, regime_meta = detect_regimes(price_imr)
+        # =====================================================================
+        #  STEP 2: Price I-MR chart (pure price/time, no physics)
+        # =====================================================================
+        print(f"\n--- STEP 2: Price I-MR Chart ---")
+        price_imr = compute_price_imr(base_df, args.context_days, args.analysis_days)
 
-    # =====================================================================
-    #  STEP 4: Oracle MFE/MAE with regime-based direction
-    # =====================================================================
-    print(f"\n--- STEP 4: Oracle MFE/MAE ---")
-    lookahead = ORACLE_LOOKAHEAD_BARS.get(args.base_tf, 16)
-    bar_indices, mfes, maes, directions = compute_regime_oracle(
-        base_df, regime_ids, regime_meta, lookahead=lookahead)
+        # =====================================================================
+        #  STEP 3: Detect regimes from MR UCL breaks
+        # =====================================================================
+        print(f"\n--- STEP 3: Regime Detection ---")
+        regime_ids, regime_meta = detect_regimes(price_imr)
 
-    if len(mfes) < 10:
-        print(f"ERROR: Only {len(mfes)} oracle bars (need >= 10)")
-        sys.exit(1)
+        # =====================================================================
+        #  STEP 4: Oracle MFE/MAE with regime-based direction
+        # =====================================================================
+        print(f"\n--- STEP 4: Oracle MFE/MAE ---")
+        lookahead = ORACLE_LOOKAHEAD_BARS.get(args.base_tf, 16)
+        bar_indices, mfes, maes, directions = compute_regime_oracle(
+            base_df, regime_ids, regime_meta, lookahead=lookahead)
 
-    # =====================================================================
-    #  STEP 5: Price I-MR plot + Regime summary
-    # =====================================================================
-    print(f"\n--- STEP 5: Generating charts ---")
-    plot_price_imr(price_imr, regime_ids, regime_meta, base_df)
-    plot_regime_summary(regime_meta, mfes, maes, bar_indices, regime_ids)
+        if len(mfes) < 10:
+            print(f"ERROR: Only {len(mfes)} oracle bars (need >= 10)")
+            sys.exit(1)
 
-    # =====================================================================
-    #  STEP 6: Print regime summary table
-    # =====================================================================
+        # =====================================================================
+        #  STEP 5: Price I-MR plot + Regime summary
+        # =====================================================================
+        print(f"\n--- STEP 5: Generating charts ---")
+        plot_price_imr(price_imr, regime_ids, regime_meta, base_df)
+        plot_regime_summary(regime_meta, mfes, maes, bar_indices, regime_ids)
 
-    print(f"\n{'='*70}")
-    print(f"  REGIME SUMMARY")
-    print(f"{'='*70}")
-    print(f"  Analysis bars: {len(mfes)}")
-    print(f"  Regimes: {len(regime_meta)}")
-    print(f"  MFE: mean={np.mean(mfes):.2f}, std={np.std(mfes):.2f}")
-    print(f"  MAE: mean={np.mean(maes):.2f}, std={np.std(maes):.2f}")
-    print(f"  Win rate (MFE > MAE): {(mfes > maes).mean():.1%}")
+        # =====================================================================
+        #  STEP 6: Print regime summary table
+        # =====================================================================
 
-    print(f"\n  {'Regime':<10} {'Dir':<6} {'N':>5} {'WR':>7} {'MFE':>8} "
-          f"{'MAE':>8} {'Vol':>6} {'Price':>10}")
-    print(f"  {'-'*10} {'-'*6} {'-'*5} {'-'*7} {'-'*8} "
-          f"{'-'*8} {'-'*6} {'-'*10}")
+        print(f"\n{'='*70}")
+        print(f"  REGIME SUMMARY")
+        print(f"{'='*70}")
+        print(f"  Analysis bars: {len(mfes)}")
+        print(f"  Regimes: {len(regime_meta)}")
+        print(f"  MFE: mean={np.mean(mfes):.2f}, std={np.std(mfes):.2f}")
+        print(f"  MAE: mean={np.mean(maes):.2f}, std={np.std(maes):.2f}")
+        print(f"  Win rate (MFE > MAE): {(mfes > maes).mean():.1%}")
 
-    bar_regime = regime_ids[bar_indices]
-    for rm in regime_meta:
-        rid = rm['regime_id']
-        mask = bar_regime == rid
-        if mask.sum() == 0:
-            continue
-        wr = float((mfes[mask] > maes[mask]).mean())
-        mean_mfe = float(np.mean(mfes[mask]))
-        mean_mae = float(np.mean(maes[mask]))
-        print(f"  R{rid:<9} {rm['direction']:<6} {mask.sum():>5} {wr:>7.1%} "
-              f"{mean_mfe:>+8.1f} {mean_mae:>8.1f} {rm['volatility']:>6.2f} "
-              f"{rm['mean_price']:>10.1f}")
+        print(f"\n  {'Regime':<10} {'Dir':<6} {'N':>5} {'WR':>7} {'MFE':>8} "
+              f"{'MAE':>8} {'Vol':>6} {'Price':>10}")
+        print(f"  {'-'*10} {'-'*6} {'-'*5} {'-'*7} {'-'*8} "
+              f"{'-'*8} {'-'*6} {'-'*10}")
 
-    # Directional split
-    long_mask = np.array([d == 'LONG' for d in directions])
-    short_mask = ~long_mask
-    n_long = long_mask.sum()
-    n_short = short_mask.sum()
-    wr_long = float((mfes[long_mask] > maes[long_mask]).mean()) if n_long > 0 else 0
-    wr_short = float((mfes[short_mask] > maes[short_mask]).mean()) if n_short > 0 else 0
-
-    print(f"\n  DIRECTIONAL SPLIT:")
-    print(f"  LONG:  {n_long:>5} bars, WR={wr_long:.1%}")
-    print(f"  SHORT: {n_short:>5} bars, WR={wr_short:.1%}")
-
-    # =====================================================================
-    #  STEP 7: Load all 12 TFs + compute fractal context
-    # =====================================================================
-    print(f"\n--- STEP 7: Loading all TF data + fractal context ---")
-    all_dfs = {args.base_tf: base_df}
-    for tf in TF_HIERARCHY:
-        if tf == args.base_tf:
-            continue
-        df = load_atlas_tf(args.data, tf, months=args.months)
-        if not df.empty:
-            all_dfs[tf] = df
-            print(f"  {tf:>4}: {len(df):>8,} bars")
-        else:
-            print(f"  {tf:>4}:   (not found)")
-
-    print(f"\n  Computing physics per TF...")
-    all_tf_states = {}
-    for tf in tqdm(TF_HIERARCHY, desc="Physics", unit="tf"):
-        if tf not in all_dfs:
-            continue
-        states = compute_tf_physics(tf, all_dfs[tf])
-        if states:
-            all_tf_states[tf] = states
-            print(f"  {tf:>4}: {len(states):>8,} states computed")
-
-    # =====================================================================
-    #  STEP 8: Build X (fractal context + current MR) for each bar
-    #
-    #  X = 192 fractal features at time t + signed MR[t] = 193 context features
-    #  Two Y targets:
-    #    Y_price     = close[t]              (can we explain the price?)
-    #    Y_direction = sign(close[t+1]-close[t])  (can we explain the direction?)
-    # =====================================================================
-    print(f"\n--- STEP 8: Building context matrix (193 features per bar) ---")
-
-    analysis_idx = np.where(regime_ids >= 0)[0]
-    timestamps = base_df['timestamp'].values.astype(float)
-    close = base_df['close'].values.astype(float)
-    mr_signed = price_imr['mr']
-
-    # Pre-sort timestamps for each TF (for binary search alignment)
-    tf_sorted_ts = {}
-    for tf in TF_HIERARCHY:
-        if tf in all_tf_states and all_tf_states[tf]:
-            tf_sorted_ts[tf] = np.array(sorted(all_tf_states[tf].keys()))
-
-    X_rows = []
-    X_delta_rows = []  # rate-of-change features
-    Y_price = []
-    Y_direction = []
-    sample_ts = []
-    base_secs = TF_SECONDS.get(args.base_tf, 900)
-
-    def _build_mat(t):
-        """Build (12,16) fractal fingerprint at timestamp t."""
-        mat = np.zeros((12, 16))
-        n = 0
-        for depth_idx, tf in enumerate(TF_HIERARCHY):
-            if tf not in tf_sorted_ts:
+        bar_regime = regime_ids[bar_indices]
+        for rm in regime_meta:
+            rid = rm['regime_id']
+            mask = bar_regime == rid
+            if mask.sum() == 0:
                 continue
-            tf_ts_list = tf_sorted_ts[tf]
-            tf_secs = TF_SECONDS.get(tf, 60)
-            if tf_secs > base_secs:
-                pos = np.searchsorted(tf_ts_list, t, side='right') - 2
+            wr = float((mfes[mask] > maes[mask]).mean())
+            mean_mfe = float(np.mean(mfes[mask]))
+            mean_mae = float(np.mean(maes[mask]))
+            print(f"  R{rid:<9} {rm['direction']:<6} {mask.sum():>5} {wr:>7.1%} "
+                  f"{mean_mfe:>+8.1f} {mean_mae:>8.1f} {rm['volatility']:>6.2f} "
+                  f"{rm['mean_price']:>10.1f}")
+
+        # Directional split
+        long_mask = np.array([d == 'LONG' for d in directions])
+        short_mask = ~long_mask
+        n_long = long_mask.sum()
+        n_short = short_mask.sum()
+        wr_long = float((mfes[long_mask] > maes[long_mask]).mean()) if n_long > 0 else 0
+        wr_short = float((mfes[short_mask] > maes[short_mask]).mean()) if n_short > 0 else 0
+
+        print(f"\n  DIRECTIONAL SPLIT:")
+        print(f"  LONG:  {n_long:>5} bars, WR={wr_long:.1%}")
+        print(f"  SHORT: {n_short:>5} bars, WR={wr_short:.1%}")
+
+        # =====================================================================
+        #  STEP 7: Load all 12 TFs + compute fractal context
+        # =====================================================================
+        print(f"\n--- STEP 7: Loading all TF data + fractal context ---")
+        all_dfs = {args.base_tf: base_df}
+        for tf in TF_HIERARCHY:
+            if tf == args.base_tf:
+                continue
+            df = load_atlas_tf(args.data, tf, months=args.months)
+            if not df.empty:
+                all_dfs[tf] = df
+                print(f"  {tf:>4}: {len(df):>8,} bars")
             else:
-                pos = np.searchsorted(tf_ts_list, t, side='right') - 1
-            if pos < 0:
+                print(f"  {tf:>4}:   (not found)")
+
+        print(f"\n  Computing physics per TF...")
+        all_tf_states = {}
+        for tf in tqdm(TF_HIERARCHY, desc="Physics", unit="tf", ascii=True, dynamic_ncols=True):
+            if tf not in all_dfs:
                 continue
-            nearest_ts = tf_ts_list[pos]
-            state = all_tf_states[tf][nearest_ts]
-            mat[depth_idx, :] = extract_16d(state, tf)
-            n += 1
-        return mat, n
-
-    n_bars = len(close)
-    for idx in tqdm(analysis_idx, desc="Fractal context", unit="bar"):
-        if idx + 1 >= n_bars or idx < 1:
-            continue
-
-        t = int(timestamps[idx])
-        t_prev = int(timestamps[idx - 1])
-        current_mr = mr_signed[idx]
-
-        mat, has_data = _build_mat(t)
-        if has_data < 3:
-            continue
-
-        # Build previous bar's matrix for rate-of-change
-        mat_prev, has_prev = _build_mat(t_prev)
-        if has_prev < 3:
-            delta = np.zeros_like(mat)
-        else:
-            delta = mat - mat_prev
-
-        x_row = np.concatenate([mat.flatten(), [current_mr]])  # 193 features
-        x_delta = delta.flatten()  # 192 delta features
-        X_rows.append(x_row)
-        X_delta_rows.append(x_delta)
-        Y_price.append(close[idx])
-        next_change = close[idx + 1] - close[idx]
-        Y_direction.append(1.0 if next_change > 0 else (-1.0 if next_change < 0 else 0.0))
-        sample_ts.append(t)
-
-    X = np.array(X_rows)
-    X_delta = np.array(X_delta_rows)
-    Y_p = np.array(Y_price)
-    Y_d = np.array(Y_direction)
-    print(f"  Samples: {len(Y_p)}, Level features: {X.shape[1] if len(X) > 0 else 0}, "
-          f"Delta features: {X_delta.shape[1] if len(X_delta) > 0 else 0}")
-    print(f"  X: 192 fractal + 1 current MR = 193 level features")
-    print(f"  X_delta: 192 rate-of-change (feature[t] - feature[t-1])")
-
-    # Build column names: 192 fractal + 1 current MR
-    col_names = []
-    for d in range(12):
-        tf_lbl = TF_LABELS[d] if d < len(TF_LABELS) else f'd{d}'
-        for f in range(16):
-            f_lbl = FEATURE_NAMES[f] if f < len(FEATURE_NAMES) else f'f{f}'
-            col_names.append(f"{tf_lbl}__{f_lbl}")
-    col_names.append("current_MR")
-
-    # Delta column names
-    delta_col_names = []
-    for d in range(12):
-        tf_lbl = TF_LABELS[d] if d < len(TF_LABELS) else f'd{d}'
-        for f in range(16):
-            f_lbl = FEATURE_NAMES[f] if f < len(FEATURE_NAMES) else f'f{f}'
-            delta_col_names.append(f"dt_{tf_lbl}__{f_lbl}")
-
-    # =====================================================================
-    #  ANALYSIS A: PRICE EXPLANATION (independent)
-    #
-    #  Y = close[t] -- the actual price level
-    #  Question: does the fractal fingerprint describe WHERE price is?
-    # =====================================================================
-    print(f"\n{'='*70}")
-    print(f"  ANALYSIS A: PRICE EXPLANATION")
-    print(f"  Y = close[t] at each bar")
-    print(f"  Y range: {Y_p.min():.1f} to {Y_p.max():.1f}, "
-          f"mean={Y_p.mean():.1f}, std={Y_p.std():.1f}")
-    print(f"  Samples: {len(Y_p)}")
-    print(f"{'='*70}")
-
-    results_price = screen_factors(X, col_names, Y_p)
-
-    print(f"\n  TOP 20 FACTORS (correlation with price):")
-    print(f"  {'Rank':>4}  {'Factor':<35} {'r':>8}  {'|r|':>8}")
-    print(f"  {'-'*4}  {'-'*35} {'-'*8}  {'-'*8}")
-    for i, (name, corr, abs_corr) in enumerate(results_price[:20], 1):
-        bar = '#' * int(abs_corr * 50)
-        print(f"  {i:>4}  {name:<35} {corr:>+8.4f}  {abs_corr:>8.4f}  {bar}")
-
-    print(f"\n  Stepwise regression: context -> price")
-    result_a = regression_r2(X, col_names, Y_p, top_k=20, return_model=True)
-    steps_price, (price_model, price_scaler, price_feat_idx) = result_a
-    r2_p = steps_price[-1][3] if steps_price else 0
-    print(f"\n  >> PRICE adj-R2 = {r2_p:.4f}")
-    print(f"  >> Context explains {r2_p*100:.1f}% of price variance")
-
-    # Price: BY TIMEFRAME
-    print(f"\n  PRICE BY TIMEFRAME:")
-    print(f"  {'Depth':<12} {'TF':>6} {'Mean |r|':>10} {'Max |r|':>10} {'Top Factor':<35}")
-    print(f"  {'-'*12} {'-'*6} {'-'*10} {'-'*10} {'-'*35}")
-    for d in range(12):
-        prefix = TF_LABELS[d]
-        pf = [(n, c, a) for n, c, a in results_price if n.startswith(prefix + '__')]
-        if pf:
-            abs_vals = [a for _, _, a in pf]
-            mp = np.mean(abs_vals)
-            mx = max(abs_vals)
-            best = max(pf, key=lambda x: x[2])
-            print(f"  {prefix:<12} {TF_HIERARCHY[d]:>6} {mp:>10.4f} {mx:>10.4f} {best[0]:<35}")
-
-    # Price: BY FEATURE
-    print(f"\n  PRICE BY FEATURE:")
-    print(f"  {'Feature':<20} {'Mean |r|':>10} {'Max |r|':>10} {'Best TF':<15}")
-    print(f"  {'-'*20} {'-'*10} {'-'*10} {'-'*15}")
-    for f_name in FEATURE_NAMES:
-        pf = [(n, c, a) for n, c, a in results_price if n.endswith(f'__{f_name}')]
-        if pf:
-            abs_vals = [a for _, _, a in pf]
-            mp = np.mean(abs_vals)
-            mx = max(abs_vals)
-            best = max(pf, key=lambda x: x[2])
-            best_tf = best[0].split('__')[0]
-            print(f"  {f_name:<20} {mp:>10.4f} {mx:>10.4f} {best_tf:<15}")
-    mr_r_p = next((a for n, c, a in results_price if n == 'current_MR'), 0)
-    print(f"  {'current_MR':<20} {mr_r_p:>10.4f} {mr_r_p:>10.4f} {'(base TF)':<15}")
-
-    # Price: CONCLUSION
-    print(f"\n  PRICE CONCLUSION:")
-    if r2_p > 0.80:
-        print(f"  Strong: adj-R2 = {r2_p:.4f}. The fractal context reliably describes")
-        print(f"  WHERE price is. The 193 features map to price level with high fidelity.")
-    elif r2_p > 0.30:
-        print(f"  Moderate: adj-R2 = {r2_p:.4f}. Context captures price structure")
-        print(f"  but with meaningful residual noise.")
-    else:
-        print(f"  Weak: adj-R2 = {r2_p:.4f}. Context does not reliably explain price level.")
-
-    # =====================================================================
-    #  ANALYSIS B: DIRECTION EXPLANATION (independent)
-    #
-    #  Y = sign(close[t+1] - close[t]) -- will price go up or down?
-    #  Question: does the fractal fingerprint tell us which way price moves?
-    # =====================================================================
-    # Build direction matrix: X + price anchor = 194 features
-    X_dir = np.column_stack([X, Y_p])  # add close[t] as anchor
-    col_names_dir = col_names + ['price_anchor']
-
-    n_up = (Y_d > 0).sum()
-    n_down = (Y_d < 0).sum()
-    n_flat = (Y_d == 0).sum()
-
-    print(f"\n{'='*70}")
-    print(f"  ANALYSIS B: DIRECTION EXPLANATION (with price anchor)")
-    print(f"  Y = sign(next change): +1=up, -1=down")
-    print(f"  X = 192 fractal + current_MR + price[t] = {X_dir.shape[1]} features")
-    print(f"  Distribution: {n_up} up ({n_up/len(Y_d):.0%}), "
-          f"{n_down} down ({n_down/len(Y_d):.0%}), {n_flat} flat")
-    print(f"  Samples: {len(Y_d)}")
-    print(f"{'='*70}")
-
-    results_dir = screen_factors(X_dir, col_names_dir, Y_d)
-
-    print(f"\n  TOP 20 FACTORS (correlation with direction):")
-    print(f"  {'Rank':>4}  {'Factor':<35} {'r':>8}  {'|r|':>8}")
-    print(f"  {'-'*4}  {'-'*35} {'-'*8}  {'-'*8}")
-    for i, (name, corr, abs_corr) in enumerate(results_dir[:20], 1):
-        bar = '#' * int(abs_corr * 50)
-        print(f"  {i:>4}  {name:<35} {corr:>+8.4f}  {abs_corr:>8.4f}  {bar}")
-
-    print(f"\n  Stepwise regression: context + anchor -> direction")
-    steps_dir = regression_r2(X_dir, col_names_dir, Y_d, top_k=20)
-    r2_d = steps_dir[-1][3] if steps_dir else 0
-    print(f"\n  >> DIRECTION adj-R2 = {r2_d:.4f}")
-    print(f"  >> Context explains {r2_d*100:.1f}% of direction variance")
-
-    # Direction: BY TIMEFRAME
-    print(f"\n  DIRECTION BY TIMEFRAME:")
-    print(f"  {'Depth':<12} {'TF':>6} {'Mean |r|':>10} {'Max |r|':>10} {'Top Factor':<35}")
-    print(f"  {'-'*12} {'-'*6} {'-'*10} {'-'*10} {'-'*35}")
-    for d in range(12):
-        prefix = TF_LABELS[d]
-        df = [(n, c, a) for n, c, a in results_dir if n.startswith(prefix + '__')]
-        if df:
-            abs_vals = [a for _, _, a in df]
-            md = np.mean(abs_vals)
-            mx = max(abs_vals)
-            best = max(df, key=lambda x: x[2])
-            print(f"  {prefix:<12} {TF_HIERARCHY[d]:>6} {md:>10.4f} {mx:>10.4f} {best[0]:<35}")
-
-    # Direction: BY FEATURE
-    print(f"\n  DIRECTION BY FEATURE:")
-    print(f"  {'Feature':<20} {'Mean |r|':>10} {'Max |r|':>10} {'Best TF':<15}")
-    print(f"  {'-'*20} {'-'*10} {'-'*10} {'-'*15}")
-    for f_name in FEATURE_NAMES:
-        df = [(n, c, a) for n, c, a in results_dir if n.endswith(f'__{f_name}')]
-        if df:
-            abs_vals = [a for _, _, a in df]
-            md = np.mean(abs_vals)
-            mx = max(abs_vals)
-            best = max(df, key=lambda x: x[2])
-            best_tf = best[0].split('__')[0]
-            print(f"  {f_name:<20} {md:>10.4f} {mx:>10.4f} {best_tf:<15}")
-    mr_r_d = next((a for n, c, a in results_dir if n == 'current_MR'), 0)
-    print(f"  {'current_MR':<20} {mr_r_d:>10.4f} {mr_r_d:>10.4f} {'(base TF)':<15}")
-
-    # Direction: sign analysis — are correlations mostly negative?
-    top20_signs = [c for _, c, _ in results_dir[:20]]
-    n_neg = sum(1 for s in top20_signs if s < 0)
-    n_pos = sum(1 for s in top20_signs if s > 0)
-    print(f"\n  SIGN PATTERN: {n_neg}/20 top factors have NEGATIVE correlation")
-    if n_neg > 14:
-        print(f"  Most direction factors point to MEAN REVERSION -- higher feature")
-        print(f"  values predict DOWN moves, suggesting overbought/overextended states.")
-    elif n_pos > 14:
-        print(f"  Most direction factors point to TREND CONTINUATION -- higher")
-        print(f"  feature values predict UP moves, suggesting momentum persistence.")
-    else:
-        print(f"  Mixed signs -- no dominant directional bias in the features.")
-
-    # Direction: CONCLUSION
-    print(f"\n  DIRECTION CONCLUSION:")
-    if r2_d > 0.15:
-        print(f"  Useful: adj-R2 = {r2_d:.4f}. The fractal context carries meaningful")
-        print(f"  directional signal. Worth building a directional model from these features.")
-    elif r2_d > 0.05:
-        print(f"  Weak but present: adj-R2 = {r2_d:.4f}. Some directional signal exists")
-        print(f"  but it is fragile. May need more data, different features, or")
-        print(f"  non-linear methods to extract it reliably.")
-    else:
-        print(f"  Insufficient: adj-R2 = {r2_d:.4f}. The fractal context does not")
-        print(f"  reliably explain direction. The next bar is essentially unpredictable")
-        print(f"  from these features alone.")
-
-    # =====================================================================
-    #  ANALYSIS C: DIRECTION FROM PRICE MODEL (derived)
-    #
-    #  Since we can explain price (A=95%) but not direction standalone (B=8.7%),
-    #  can we derive direction from consecutive price predictions?
-    #  predicted_dir = sign( predict(features[t+1]) - predict(features[t]) )
-    # =====================================================================
-    print(f"\n{'='*70}")
-    print(f"  ANALYSIS C: DIRECTION DERIVED FROM PRICE MODEL")
-    print(f"  If price model predicts price[t] and price[t+1],")
-    print(f"  direction = sign(predicted[t+1] - predicted[t])")
-    print(f"{'='*70}")
-
-    # Predict price for every sample using the price model from Analysis A
-    X_price_feat = price_scaler.transform(X[:, price_feat_idx])
-    predicted_prices = price_model.predict(X_price_feat)
-
-    # Build consecutive pairs: predicted[t] vs predicted[t+1]
-    n_pairs = len(predicted_prices) - 1
-    pred_dir = np.sign(predicted_prices[1:] - predicted_prices[:-1])
-    actual_dir = Y_d[:-1]  # actual direction at each t (already sign of close[t+1]-close[t])
-
-    # Filter out flat actuals
-    mask = actual_dir != 0
-    pred_dir_f = pred_dir[mask]
-    actual_dir_f = actual_dir[mask]
-    n_valid = mask.sum()
-
-    correct = (pred_dir_f == actual_dir_f).sum()
-    accuracy = correct / n_valid if n_valid > 0 else 0
-
-    print(f"\n  Pairs: {n_pairs}, Valid (non-flat): {n_valid}")
-    print(f"  Predicted direction accuracy: {correct}/{n_valid} = {accuracy:.1%}")
-
-    # Breakdown by actual direction
-    up_mask = actual_dir_f > 0
-    down_mask = actual_dir_f < 0
-    up_correct = (pred_dir_f[up_mask] > 0).sum() if up_mask.sum() > 0 else 0
-    down_correct = (pred_dir_f[down_mask] < 0).sum() if down_mask.sum() > 0 else 0
-    print(f"\n  When actual UP:   {up_correct}/{up_mask.sum()} = "
-          f"{up_correct/up_mask.sum():.1%}" if up_mask.sum() > 0 else "")
-    print(f"  When actual DOWN: {down_correct}/{down_mask.sum()} = "
-          f"{down_correct/down_mask.sum():.1%}" if down_mask.sum() > 0 else "")
-
-    # Residual analysis: how big are the prediction errors vs actual moves?
-    residuals = predicted_prices - Y_p
-    actual_moves = np.diff(Y_p)
-    print(f"\n  Price model residuals: mean={residuals.mean():.2f}, std={residuals.std():.2f}")
-    print(f"  Actual bar-to-bar moves: mean={np.mean(np.abs(actual_moves)):.2f}, "
-          f"std={np.std(actual_moves):.2f}")
-    snr = np.mean(np.abs(actual_moves)) / residuals.std() if residuals.std() > 0 else 0
-    print(f"  Signal-to-noise ratio: {snr:.3f} "
-          f"({'good' if snr > 1.5 else 'marginal' if snr > 0.8 else 'poor'}: "
-          f"{'moves > noise' if snr > 1 else 'noise > moves'})")
-
-    # Confidence: only count predictions where delta is large enough
-    pred_deltas = predicted_prices[1:] - predicted_prices[:-1]
-    for threshold in [0.0, 5.0, 10.0, 20.0]:
-        conf_mask = (np.abs(pred_deltas) > threshold) & mask
-        if conf_mask.sum() > 0:
-            conf_correct = (pred_dir[conf_mask] == actual_dir[conf_mask]).sum()
-            conf_acc = conf_correct / conf_mask.sum()
-            print(f"  |predicted delta| > {threshold:>5.1f}: "
-                  f"{conf_correct}/{conf_mask.sum()} = {conf_acc:.1%}")
-
-    # CONCLUSION
-    print(f"\n  DERIVED DIRECTION CONCLUSION:")
-    if accuracy > 0.60:
-        print(f"  Promising: {accuracy:.1%} accuracy. Deriving direction from consecutive")
-        print(f"  price predictions works better than standalone direction modeling.")
-        if snr > 1.0:
-            print(f"  Signal-to-noise is favorable ({snr:.2f}) -- moves are larger than")
-            print(f"  prediction residuals.")
-        else:
-            print(f"  However, signal-to-noise is low ({snr:.2f}) -- may improve with")
-            print(f"  more data or better price features.")
-    elif accuracy > 0.52:
-        print(f"  Marginal: {accuracy:.1%} accuracy. Slightly better than chance but")
-        print(f"  not reliable enough. The price model's residual noise ({residuals.std():.1f})")
-        print(f"  is {'larger' if snr < 1 else 'comparable to'} the typical move ({np.mean(np.abs(actual_moves)):.1f}).")
-    else:
-        print(f"  No improvement: {accuracy:.1%}. The price model's residuals overwhelm")
-        print(f"  the bar-to-bar signal. 95% R2 on level does not translate to")
-        print(f"  directional accuracy at this resolution.")
-
-    # =====================================================================
-    #  ANALYSIS D: DOES RATE-OF-CHANGE IMPROVE PRICE & DIRECTION?
-    #
-    #  Add delta features (feature[t] - feature[t-1]) to test if
-    #  temporal pattern recognition helps beyond the spatial snapshot.
-    # =====================================================================
-    print(f"\n{'='*70}")
-    print(f"  ANALYSIS D: RATE-OF-CHANGE (PATTERN RECOGNITION)")
-    print(f"  Level = 193 features (snapshot at t)")
-    print(f"  Delta = 192 features (change from t-1 to t)")
-    print(f"  Combined = {193 + 192} features (level + delta)")
-    print(f"{'='*70}")
-
-    # Combine level + delta features
-    X_combined = np.column_stack([X, X_delta])
-    combined_col_names = col_names + delta_col_names
-
-    # D1: Does delta help PRICE explanation?
-    print(f"\n  D1: PRICE with level+delta features")
-    print(f"  Stepwise regression: {X_combined.shape[1]} features -> price")
-    steps_price_d = regression_r2(X_combined, combined_col_names, Y_p, top_k=20)
-    r2_pd = steps_price_d[-1][3] if steps_price_d else 0
-    print(f"\n  >> PRICE adj-R2 (level only):  {r2_p:.4f}")
-    print(f"  >> PRICE adj-R2 (level+delta): {r2_pd:.4f}")
-    print(f"  >> Delta contribution: {r2_pd - r2_p:+.4f} ({(r2_pd - r2_p)*100:+.1f}%)")
-
-    # How many delta features made it into the model?
-    n_delta_in_price = sum(1 for step in steps_price_d if step[0].startswith('dt_'))
-    print(f"  >> Delta features in price model: {n_delta_in_price}/{len(steps_price_d)}")
-
-    # Top delta features for price
-    price_d_results = screen_factors(X_delta, delta_col_names, Y_p)
-    print(f"\n  TOP 10 DELTA FACTORS for price:")
-    print(f"  {'Rank':>4}  {'Factor':<35} {'r':>8}  {'|r|':>8}")
-    print(f"  {'-'*4}  {'-'*35} {'-'*8}  {'-'*8}")
-    for i, (name, corr, abs_corr) in enumerate(price_d_results[:10], 1):
-        print(f"  {i:>4}  {name:<35} {corr:>+8.4f}  {abs_corr:>8.4f}")
-
-    # D2: Does delta help DIRECTION explanation?
-    print(f"\n  D2: DIRECTION with level+delta features")
-    X_dir_combined = np.column_stack([X, X_delta, Y_p])  # add price anchor too
-    dir_combined_names = col_names + delta_col_names + ['price_anchor']
-    print(f"  Stepwise regression: {X_dir_combined.shape[1]} features -> direction")
-    steps_dir_d = regression_r2(X_dir_combined, dir_combined_names, Y_d, top_k=20)
-    r2_dd = steps_dir_d[-1][3] if steps_dir_d else 0
-    print(f"\n  >> DIRECTION adj-R2 (level only):  {r2_d:.4f}")
-    print(f"  >> DIRECTION adj-R2 (level+delta): {r2_dd:.4f}")
-    print(f"  >> Delta contribution: {r2_dd - r2_d:+.4f} ({(r2_dd - r2_d)*100:+.1f}%)")
-
-    n_delta_in_dir = sum(1 for step in steps_dir_d if step[0].startswith('dt_'))
-    print(f"  >> Delta features in direction model: {n_delta_in_dir}/{len(steps_dir_d)}")
-
-    # Top delta features for direction
-    dir_d_results = screen_factors(X_delta, delta_col_names, Y_d)
-    print(f"\n  TOP 10 DELTA FACTORS for direction:")
-    print(f"  {'Rank':>4}  {'Factor':<35} {'r':>8}  {'|r|':>8}")
-    print(f"  {'-'*4}  {'-'*35} {'-'*8}  {'-'*8}")
-    for i, (name, corr, abs_corr) in enumerate(dir_d_results[:10], 1):
-        print(f"  {i:>4}  {name:<35} {corr:>+8.4f}  {abs_corr:>8.4f}")
-
-    # D3: Derived direction from combined price model
-    print(f"\n  D3: DERIVED DIRECTION from level+delta price model")
-    result_pd = regression_r2(X_combined, combined_col_names, Y_p, top_k=20, return_model=True)
-    steps_pd, (pd_model, pd_scaler, pd_feat_idx) = result_pd
-    X_pd_feat = pd_scaler.transform(X_combined[:, pd_feat_idx])
-    pred_prices_d = pd_model.predict(X_pd_feat)
-
-    pred_dir_d = np.sign(pred_prices_d[1:] - pred_prices_d[:-1])
-    actual_dir_d = Y_d[:-1]
-    mask_d = actual_dir_d != 0
-    correct_d = (pred_dir_d[mask_d] == actual_dir_d[mask_d]).sum()
-    n_valid_d = mask_d.sum()
-    accuracy_d = correct_d / n_valid_d if n_valid_d > 0 else 0
-
-    print(f"  Derived direction (level only):  {accuracy:.1%}")
-    print(f"  Derived direction (level+delta): {accuracy_d:.1%}")
-    print(f"  Delta contribution: {accuracy_d - accuracy:+.1%}")
-
-    # Confidence gates for combined model
-    pred_deltas_d = pred_prices_d[1:] - pred_prices_d[:-1]
-    for threshold in [0.0, 5.0, 10.0, 20.0]:
-        conf_mask = (np.abs(pred_deltas_d) > threshold) & mask_d
-        if conf_mask.sum() > 0:
-            conf_correct = (pred_dir_d[conf_mask] == actual_dir_d[conf_mask]).sum()
-            conf_acc = conf_correct / conf_mask.sum()
-            print(f"  |predicted delta| > {threshold:>5.1f}: "
-                  f"{conf_correct}/{conf_mask.sum()} = {conf_acc:.1%}")
-
-    # ANALYSIS D CONCLUSION
-    print(f"\n  ANALYSIS D CONCLUSION:")
-    price_gain = r2_pd - r2_p
-    dir_gain = r2_dd - r2_d
-    derived_gain = accuracy_d - accuracy
-    if price_gain > 0.01 or dir_gain > 0.01 or derived_gain > 0.03:
-        print(f"  Pattern recognition HELPS:")
-        if price_gain > 0.01:
-            print(f"    Price R2: {r2_p:.4f} -> {r2_pd:.4f} (+{price_gain:.4f})")
-        if dir_gain > 0.01:
-            print(f"    Direction R2: {r2_d:.4f} -> {r2_dd:.4f} (+{dir_gain:.4f})")
-        if derived_gain > 0.03:
-            print(f"    Derived accuracy: {accuracy:.1%} -> {accuracy_d:.1%} (+{derived_gain:.1%})")
-    else:
-        print(f"  Rate-of-change features do NOT meaningfully improve results.")
-        print(f"    Price R2:  {r2_p:.4f} -> {r2_pd:.4f} ({price_gain:+.4f})")
-        print(f"    Dir R2:    {r2_d:.4f} -> {r2_dd:.4f} ({dir_gain:+.4f})")
-        print(f"    Derived:   {accuracy:.1%} -> {accuracy_d:.1%} ({derived_gain:+.1%})")
-        print(f"  The spatial snapshot already captures what matters. Adding temporal")
-        print(f"  deltas does not reveal hidden directional signal.")
-
-    # =====================================================================
-    #  ANALYSIS E: dP/dT-GROUPED DIRECTION (signal amplification)
-    #
-    #  Group bars by signed dP/dT (= signed MR = close[t] - close[t-1]).
-    #  Within each group, bars have similar price behavior, preventing
-    #  signal dilution from mixing different market characters.
-    # =====================================================================
-    print(f"\n{'='*70}")
-    print(f"  ANALYSIS E: dP/dT-GROUPED ANALYSIS (SIGNAL AMPLIFICATION)")
-    print(f"  Group bars by signed price change rate, run Three Questions per group.")
-    print(f"  Hypothesis: homogeneous groups prevent signal dilution.")
-    print(f"{'='*70}")
-
-    # current_MR is the last column of X (index -1), which is signed dP/dT
-    sample_mr = X[:, -1]  # signed MR for each sample
-
-    # Bin into groups by signed MR: DOWN / FLAT / UP (terciles)
-    # Use 3 bins to keep groups large enough for regression
-    bin_edges = np.percentile(sample_mr, [33, 67])
-    bin_labels = ['DOWN', 'FLAT', 'UP']
-    bin_ids = np.digitize(sample_mr, bin_edges)  # 0-2
-
-    print(f"\n  dP/dT bins (quintiles of signed MR):")
-    print(f"  {'Bin':<15} {'Range':>20} {'N':>6} {'Mean MR':>10}")
-    print(f"  {'-'*15} {'-'*20} {'-'*6} {'-'*10}")
-    n_bins = len(bin_labels)
-    for b in range(n_bins):
-        mask_b = bin_ids == b
-        n_b = mask_b.sum()
-        if n_b > 0:
-            mr_b = sample_mr[mask_b]
-            print(f"  {bin_labels[b]:<15} [{mr_b.min():>+8.1f}, {mr_b.max():>+8.1f}] {n_b:>6} {mr_b.mean():>+10.2f}")
-
-    # Run Three Questions per bin
-    print(f"\n  PER-GROUP RESULTS:")
-    print(f"  {'Bin':<15} {'N':>5} {'Price R2':>10} {'Dir R2':>10} {'Derived':>10} {'Dir>20':>10}")
-    print(f"  {'-'*15} {'-'*5} {'-'*10} {'-'*10} {'-'*10} {'-'*10}")
-
-    group_results = []
-    for b in range(n_bins):
-        mask_b = bin_ids == b
-        n_b = mask_b.sum()
-        if n_b < 20:  # need minimum samples for regression
-            print(f"  {bin_labels[b]:<15} {n_b:>5}   (too few samples)")
-            group_results.append((bin_labels[b], n_b, 0, 0, 0, 0))
-            continue
-
-        X_b = X[mask_b]
-        Y_p_b = Y_p[mask_b]
-        Y_d_b = Y_d[mask_b]
-
-        # A: Price R2 per group
-        steps_p_b = regression_r2(X_b, col_names, Y_p_b, top_k=20)
-        r2_p_b = steps_p_b[-1][3] if steps_p_b else 0
-
-        # B: Direction R2 per group
-        X_dir_b = np.column_stack([X_b, Y_p_b])
-        steps_d_b = regression_r2(X_dir_b, col_names + ['price_anchor'], Y_d_b, top_k=20)
-        r2_d_b = steps_d_b[-1][3] if steps_d_b else 0
-
-        # C: Derived direction per group
-        result_b = regression_r2(X_b, col_names, Y_p_b, top_k=20, return_model=True)
-        steps_b, (model_b, scaler_b, feat_idx_b) = result_b
-        X_feat_b = scaler_b.transform(X_b[:, feat_idx_b])
-        pred_p_b = model_b.predict(X_feat_b)
-
-        pred_dir_b = np.sign(pred_p_b[1:] - pred_p_b[:-1])
-        actual_dir_b = Y_d_b[:-1]
-        mask_nf = actual_dir_b != 0
-        n_valid_b = mask_nf.sum()
-        if n_valid_b > 0:
-            correct_b = (pred_dir_b[mask_nf] == actual_dir_b[mask_nf]).sum()
-            acc_b = correct_b / n_valid_b
-        else:
-            acc_b = 0
-
-        # Confidence gate >20
-        pred_deltas_b = pred_p_b[1:] - pred_p_b[:-1]
-        conf20_mask = (np.abs(pred_deltas_b) > 20) & mask_nf
-        if conf20_mask.sum() > 5:
-            conf20_acc = (pred_dir_b[conf20_mask] == actual_dir_b[conf20_mask]).sum() / conf20_mask.sum()
-            conf20_str = f"{conf20_acc:.1%}({conf20_mask.sum()})"
-        else:
-            conf20_acc = 0
-            conf20_str = "n/a"
-
-        print(f"  {bin_labels[b]:<15} {n_b:>5} {r2_p_b:>10.4f} {r2_d_b:>10.4f} {acc_b:>9.1%} {conf20_str:>10}")
-        group_results.append((bin_labels[b], n_b, r2_p_b, r2_d_b, acc_b, conf20_acc))
-
-    # Compare vs global
-    print(f"\n  {'GLOBAL':<15} {len(Y_p):>5} {r2_p:>10.4f} {r2_d:>10.4f} {accuracy:>9.1%}")
-
-    # Summary statistics
-    valid_groups = [(lbl, n, rp, rd, da, c20) for lbl, n, rp, rd, da, c20 in group_results if n >= 20]
-    if valid_groups:
-        avg_dir_r2 = np.mean([rd for _, _, _, rd, _, _ in valid_groups])
-        avg_derived = np.mean([da for _, _, _, _, da, _ in valid_groups])
-        best_group = max(valid_groups, key=lambda x: x[3])
-        worst_group = min(valid_groups, key=lambda x: x[3])
-
-        print(f"\n  ANALYSIS E CONCLUSION:")
-        print(f"  Average per-group direction R2: {avg_dir_r2:.4f} (vs global {r2_d:.4f})")
-        print(f"  Average per-group derived dir:  {avg_derived:.1%} (vs global {accuracy:.1%})")
-        print(f"  Best group:  {best_group[0]} (dir R2={best_group[3]:.4f}, derived={best_group[4]:.1%})")
-        print(f"  Worst group: {worst_group[0]} (dir R2={worst_group[3]:.4f}, derived={worst_group[4]:.1%})")
-
-        if avg_dir_r2 > r2_d * 1.5:
-            print(f"\n  SIGNAL AMPLIFICATION CONFIRMED: grouping by dP/dT improves")
-            print(f"  direction R2 by {avg_dir_r2/max(r2_d,0.001):.1f}x on average.")
-            print(f"  Homogeneous groups preserve directional signal that drowns")
-            print(f"  in the global model. This validates the clustering approach.")
-        else:
-            print(f"\n  Grouping by dP/dT does not significantly amplify the signal.")
-            print(f"  The direction problem may be fundamental, not a grouping issue.")
-
-    # =====================================================================
-    #  ANALYSIS F: REGIME SIGNATURE PLOT
-    #
-    #  Like fractal dimension vs SNR plots: each regime gets ONE mean
-    #  trajectory line on a shared chart. Shapes normalized to entry=0
-    #  so we compare MOVEMENT, not price level. Separation between
-    #  regime lines = clustering captures distinct behavior.
-    # =====================================================================
-    print(f"\n{'='*70}")
-    print(f"  ANALYSIS F: REGIME SIGNATURE PLOT")
-    print(f"{'='*70}")
-
-    lookback_bars = 8    # 8 bars before entry (2 hours at 15m)
-    lookahead_bars = 16  # 16 bars after entry (4 hours at 15m)
-    shape_len = lookback_bars + 1 + lookahead_bars  # 25 total points
-
-    # Map sample timestamps back to base_df indices
-    _ts_col = timestamps.astype(int)
-    _ts_to_idx = {int(t): i for i, t in enumerate(_ts_col)}
-    sample_indices = []
-    for ts in sample_ts:
-        if ts in _ts_to_idx:
-            sample_indices.append(_ts_to_idx[ts])
-        else:
-            sample_indices.append(-1)
-
-    # Collect shapes per regime (normalized to entry=0)
-    shapes_by_regime = {rm['regime_id']: [] for rm in regime_meta}
-    raw_shapes_by_regime = {rm['regime_id']: [] for rm in regime_meta}
-    outcomes_by_regime = {rm['regime_id']: [] for rm in regime_meta}
-
-    for i, bar_idx in enumerate(sample_indices):
-        if bar_idx < 0 or bar_idx < lookback_bars:
-            continue
-        if bar_idx + lookahead_bars >= len(close):
-            continue
-
-        rid = regime_ids[bar_idx]
-        if rid < 0:
-            continue  # warmup bar
-
-        # Extract price shape: lookback + entry + lookahead
-        shape_raw = close[bar_idx - lookback_bars : bar_idx + lookahead_bars + 1]
-        if len(shape_raw) != shape_len:
-            continue
-
-        entry_price = close[bar_idx]
-        shape_norm = shape_raw - entry_price  # normalize: entry = 0
-
-        shapes_by_regime[rid].append(shape_norm)
-        raw_shapes_by_regime[rid].append(shape_raw)
-
-        # Win/loss: MFE > MAE from oracle
-        future = close[bar_idx + 1 : bar_idx + 1 + lookahead_bars]
-        if len(future) > 0:
-            max_up = future.max() - entry_price
-            max_down = entry_price - future.min()
-            outcomes_by_regime[rid].append(1 if max_up > max_down else 0)
-
-    import matplotlib.pyplot as plt
-    import matplotlib.lines as mlines
-
-    # Filter to regimes with enough shapes (min 5)
-    active_rids = [rm['regime_id'] for rm in regime_meta
-                   if len(shapes_by_regime.get(rm['regime_id'], [])) >= 5]
-    n_active = len(active_rids)
-
-    if n_active == 0:
-        print("  No regimes with enough shapes.")
-    else:
-        # Convert raw shapes to delta-from-entry for each regime
-        delta_by_regime = {}
-        for rid in active_rids:
-            raw = np.array(shapes_by_regime[rid])
-            entry_prices = raw[:, lookback_bars]  # price at bar 0
-            delta_by_regime[rid] = raw - entry_prices[:, np.newaxis]
-
-        # Distinct colors + line styles + markers (like fractal dim reference)
-        cmap = plt.cm.tab10
-        line_styles = ['-', '--', '-.', ':', '-', '--', '-.', ':']
-        markers     = ['o', 's', '^', 'D', 'v', 'P', 'X', '*']
-        regime_colors = {rid: cmap(k % 10) for k, rid in enumerate(active_rids)}
-        x_axis = np.arange(-lookback_bars, lookahead_bars + 1)
-
-        # ==== CHART 1: Signature overlay (all regime means, one plot) ====
-        fig, ax = plt.subplots(1, 1, figsize=(14, 8))
-
-        legend_handles = []
-        for k, rid in enumerate(active_rids):
-            delta = delta_by_regime[rid]
-            n_shapes = len(delta)
-            color = regime_colors[rid]
-            ls = line_styles[k % len(line_styles)]
-            mk = markers[k % len(markers)]
-            rm = next(m for m in regime_meta if m['regime_id'] == rid)
-            wr = np.mean(outcomes_by_regime[rid]) * 100 if outcomes_by_regime[rid] else 0
-
-            mean_d = delta.mean(axis=0)
-            std_d = delta.std(axis=0)
-
-            # Mean line with markers every 2 bars
-            ax.plot(x_axis, mean_d, color=color, linewidth=2.5,
-                    linestyle=ls, marker=mk, markevery=2, markersize=6)
-            # +/- 1 std band
-            ax.fill_between(x_axis, mean_d - std_d, mean_d + std_d,
-                            color=color, alpha=0.08)
-
-            label = f"R{rid} ({rm['direction']}, n={n_shapes}, WR={wr:.0f}%)"
-            legend_handles.append(mlines.Line2D(
-                [], [], color=color, linestyle=ls, marker=mk,
-                markersize=6, linewidth=2.5, label=label))
-
-        ax.axvline(x=0, color='black', linestyle='--', linewidth=1, alpha=0.5)
-        ax.axhline(y=0, color='gray', linestyle='-', linewidth=0.5, alpha=0.5)
-        ax.set_xlabel('Bars from entry (15m)', fontsize=12)
-        ax.set_ylabel('Price change from entry (ticks)', fontsize=12)
-        ax.set_title('Regime Signatures: Mean Price Trajectory per I-MR Regime\n'
-                      '(delta from entry, +/-1 std bands)', fontsize=14)
-        ax.legend(handles=legend_handles, fontsize=10, loc='best',
-                  framealpha=0.9, edgecolor='gray')
-        ax.grid(True, alpha=0.3)
-
-        plt.tight_layout()
-        sig_path = os.path.join(PLOTS_DIR, '0c_stacked_shapes.png')
-        fig.savefig(sig_path, dpi=150, bbox_inches='tight', facecolor='white')
-        plt.close(fig)
-        print(f"  Saved signature overlay: {sig_path}")
-
-        # ==== CHART 2: Per-regime spaghetti audit (delta, vertical stack) ====
-        fig2, axes2 = plt.subplots(n_active, 1,
-                                   figsize=(12, 3.0 * n_active),
-                                   squeeze=False)
-
-        for row, rid in enumerate(active_rids):
-            ax2 = axes2[row, 0]
-            delta = delta_by_regime[rid]
-            n_shapes = len(delta)
-            color = regime_colors[rid]
-            rm = next(m for m in regime_meta if m['regime_id'] == rid)
-            wr = np.mean(outcomes_by_regime[rid]) * 100 if outcomes_by_regime[rid] else 0
-
-            # Individual traces
-            max_to_plot = min(n_shapes, 300)
-            alpha = max(0.05, min(0.25, 20.0 / max_to_plot))
-            for j in range(max_to_plot):
-                ax2.plot(x_axis, delta[j], color=color, alpha=alpha, linewidth=0.5)
-
-            # Mean + std envelope
-            mean_d = delta.mean(axis=0)
-            std_d = delta.std(axis=0)
-            ax2.plot(x_axis, mean_d, color=color, linewidth=3, label='Mean')
-            ax2.fill_between(x_axis, mean_d - std_d, mean_d + std_d,
-                             color=color, alpha=0.15)
-
-            ax2.axvline(x=0, color='black', linestyle='--', linewidth=1, alpha=0.5)
-            ax2.axhline(y=0, color='gray', linestyle='-', linewidth=0.5, alpha=0.5)
-
-            ax2.set_title(f"R{rid}: {n_shapes} shapes | dir={rm['direction']}, "
-                          f"vol={rm['volatility']:.2f} | WR={wr:.0f}%",
-                          fontsize=11, loc='left')
-            ax2.set_ylabel('dPrice (ticks)')
-            if row == n_active - 1:
-                ax2.set_xlabel('Bars from entry (15m)')
-            ax2.legend(fontsize=8, loc='upper right')
-            ax2.grid(True, alpha=0.2)
-
-        fig2.suptitle('Per-Regime Shape Audit (delta from entry, individual traces)',
-                      fontsize=14, y=1.01)
-        plt.tight_layout()
-        audit_path = os.path.join(PLOTS_DIR, '0d_regime_audit.png')
-        fig2.savefig(audit_path, dpi=150, bbox_inches='tight', facecolor='white')
-        plt.close(fig2)
-        print(f"  Saved per-regime audit: {audit_path}")
-
-        # Summary table
-        for rid in active_rids:
-            n_s = len(shapes_by_regime[rid])
-            rm = next(m for m in regime_meta if m['regime_id'] == rid)
-            delta = delta_by_regime[rid]
-            mean_end = delta[:, -1].mean()   # mean endpoint delta
-            std_end = delta[:, -1].std()
-            wr = np.mean(outcomes_by_regime[rid]) * 100 if outcomes_by_regime[rid] else 0
-            print(f"  R{rid}: {n_s:>4} shapes, dir={rm['direction']:>5}, "
-                  f"mean_end={mean_end:>+7.1f}, std_end={std_end:>6.1f}, "
-                  f"WR={wr:.0f}%")
-
-    # =====================================================================
-    #  ANALYSIS G: LAPLACIAN SUB-SEGMENTATION
-    #
-    #  d2p/dt2 (curvature) = the missing acceleration layer.
-    #  I-MR segments by velocity breaks. Laplacian segments by SHAPE
-    #  changes: inflection points, momentum shifts, deceleration.
-    #  Sub-segment each I-MR regime by curvature sign runs, then check
-    #  if sub-segments produce tighter shape overlay (the Shi ideal).
-    # =====================================================================
-    print(f"\n{'='*70}")
-    print(f"  ANALYSIS G: LAPLACIAN SUB-SEGMENTATION (d2p/dt2)")
-    print(f"{'='*70}")
-
-    # --- G1: Compute curvature (discrete Laplacian) ---
-    # d2p/dt2[t] = close[t+1] - 2*close[t] + close[t-1]
-    curvature = np.zeros(len(close))
-    curvature[1:-1] = close[2:] - 2 * close[1:-1] + close[:-2]
-    curvature[0] = curvature[1]   # pad edges
-    curvature[-1] = curvature[-2]
-
-    # Curvature I-MR: same SPC approach on d2p/dt2
-    curv_abs = np.abs(curvature)
-    analysis_curv = curvature[price_imr['analysis_mask']]
-    analysis_curv_abs = np.abs(analysis_curv)
-
-    # MR of curvature (moving range of curvature)
-    curv_mr = np.zeros(len(curvature))
-    curv_mr[1:] = np.abs(curvature[1:] - curvature[:-1])
-
-    analysis_curv_mr = curv_mr[price_imr['analysis_mask']]
-    mr_bar_curv = np.mean(analysis_curv_mr[1:]) if len(analysis_curv_mr) > 1 else 1.0
-    ucl_curv = 3.267 * mr_bar_curv  # D4 for n=2
-
-    print(f"  Curvature stats: mean={np.mean(analysis_curv):.4f}, "
-          f"std={np.std(analysis_curv):.4f}")
-    print(f"  Curvature MR: mean={mr_bar_curv:.4f}, UCL={ucl_curv:.4f}")
-
-    # --- G2: Sub-segment by curvature sign + UCL breaks ---
-    # Within each I-MR regime, create sub-segments where:
-    #   - curvature sign flips (convex <-> concave)
-    #   - OR curvature MR exceeds UCL (acceleration shock)
-    # Minimum sub-segment size: 4 bars
-    MIN_SUB = 4
-
-    sub_ids = np.full(len(close), -1, dtype=int)
-    sub_meta = []
-    current_sub = 0
-    analysis_indices_g = np.where(price_imr['analysis_mask'])[0]
-
-    for rm in regime_meta:
-        # Bars in this regime
-        r_mask = (regime_ids == rm['regime_id'])
-        r_indices = np.where(r_mask)[0]
-        if len(r_indices) < MIN_SUB:
-            for idx in r_indices:
-                sub_ids[idx] = current_sub
-            current_sub += 1
-            continue
-
-        # Walk through regime bars, break on sign flip or UCL
-        seg_start = 0
-        prev_sign = 1 if curvature[r_indices[0]] >= 0 else -1
-
-        for j in range(1, len(r_indices)):
-            idx = r_indices[j]
-            cur_sign = 1 if curvature[idx] >= 0 else -1
-            mr_break = curv_mr[idx] > ucl_curv
-
-            if (cur_sign != prev_sign or mr_break) and (j - seg_start >= MIN_SUB):
-                # Close current sub-segment
-                for k in range(seg_start, j):
-                    sub_ids[r_indices[k]] = current_sub
-                current_sub += 1
-                seg_start = j
-
-            prev_sign = cur_sign
-
-        # Close final sub-segment
-        for k in range(seg_start, len(r_indices)):
-            sub_ids[r_indices[k]] = current_sub
-        current_sub += 1
-
-    # Merge tiny sub-segments
-    n_subs_raw = current_sub
-    for s in range(n_subs_raw):
-        mask_s = (sub_ids == s)
-        if 0 < mask_s.sum() < MIN_SUB:
-            # Merge into previous or next
-            idxs = np.where(mask_s)[0]
-            if idxs[0] > 0 and sub_ids[idxs[0] - 1] >= 0:
-                sub_ids[mask_s] = sub_ids[idxs[0] - 1]
-            elif idxs[-1] < len(sub_ids) - 1 and sub_ids[idxs[-1] + 1] >= 0:
-                sub_ids[mask_s] = sub_ids[idxs[-1] + 1]
-
-    # Re-compact
-    unique_subs = sorted([s for s in np.unique(sub_ids) if s >= 0])
-    remap_s = {old: new for new, old in enumerate(unique_subs)}
-    for i in range(len(sub_ids)):
-        if sub_ids[i] >= 0:
-            sub_ids[i] = remap_s[sub_ids[i]]
-    n_subs = len(unique_subs)
-
-    # Build sub-segment metadata
-    for sid in range(n_subs):
-        mask_s = (sub_ids == sid)
-        indices_s = np.where(mask_s)[0]
-        s_close = close[mask_s]
-        s_curv = curvature[mask_s]
-        parent_rid = regime_ids[indices_s[0]]
-
-        sub_meta.append({
-            'sub_id': sid,
-            'parent_regime': int(parent_rid),
-            'n_bars': int(mask_s.sum()),
-            'mean_price': float(np.mean(s_close)),
-            'mean_curvature': float(np.mean(s_curv)),
-            'curv_sign': 'CONVEX' if np.mean(s_curv) >= 0 else 'CONCAVE',
-            'price_change': float(s_close[-1] - s_close[0]) if len(s_close) > 1 else 0.0,
-            'direction': 'LONG' if (s_close[-1] > s_close[0]) else 'SHORT',
-            'start_idx': int(indices_s[0]),
-            'end_idx': int(indices_s[-1]),
-        })
-
-    print(f"\n  I-MR regimes: {len(regime_meta)} -> Laplacian sub-segments: {n_subs}")
-    print(f"  Avg sub-segment size: {np.mean([sm['n_bars'] for sm in sub_meta]):.1f} bars")
-    print(f"\n  {'Sub':>4} {'Parent':>6} {'Bars':>5} {'Curv':>8} {'Shape':>8} "
-          f"{'Dir':>6} {'Chg':>8}")
-    print(f"  {'-'*4} {'-'*6} {'-'*5} {'-'*8} {'-'*8} {'-'*6} {'-'*8}")
-    for sm in sub_meta:
-        print(f"  S{sm['sub_id']:<3} R{sm['parent_regime']:<5} {sm['n_bars']:>5} "
-              f"{sm['mean_curvature']:>+8.3f} {sm['curv_sign']:>8} "
-              f"{sm['direction']:>6} {sm['price_change']:>+8.1f}")
-
-    # --- G3: Collect shapes per sub-segment ---
-    shapes_by_sub = {sm['sub_id']: [] for sm in sub_meta}
-    outcomes_by_sub = {sm['sub_id']: [] for sm in sub_meta}
-
-    for i, bar_idx in enumerate(sample_indices):
-        if bar_idx < 0 or bar_idx < lookback_bars:
-            continue
-        if bar_idx + lookahead_bars >= len(close):
-            continue
-
-        sid = sub_ids[bar_idx]
-        if sid < 0:
-            continue
-
-        shape_raw = close[bar_idx - lookback_bars : bar_idx + lookahead_bars + 1]
-        if len(shape_raw) != shape_len:
-            continue
-
-        shapes_by_sub[sid].append(shape_raw)
-
-        entry_price = close[bar_idx]
-        future = close[bar_idx + 1 : bar_idx + 1 + lookahead_bars]
-        if len(future) > 0:
-            max_up = future.max() - entry_price
-            max_down = entry_price - future.min()
-            outcomes_by_sub[sid].append(1 if max_up > max_down else 0)
-
-    # --- G4: Signature plot — sub-segments overlaid ---
-    active_subs = [sm['sub_id'] for sm in sub_meta
-                   if len(shapes_by_sub.get(sm['sub_id'], [])) >= 5]
-    n_active_g = len(active_subs)
-
-    print(f"\n  Sub-segments with >=5 shapes: {n_active_g}/{n_subs}")
-
-    if n_active_g > 0:
-        # Compute delta from entry
-        delta_by_sub = {}
-        for sid in active_subs:
-            raw = np.array(shapes_by_sub[sid])
-            entry_prices = raw[:, lookback_bars]
-            delta_by_sub[sid] = raw - entry_prices[:, np.newaxis]
-
-        # Color by parent regime, line style by curvature sign
-        cmap_g = plt.cm.tab10
-        x_axis_g = np.arange(-lookback_bars, lookahead_bars + 1)
-
-        fig_g, ax_g = plt.subplots(1, 1, figsize=(14, 8))
-        legend_handles_g = []
-
-        for k, sid in enumerate(active_subs):
-            sm = next(s for s in sub_meta if s['sub_id'] == sid)
-            delta = delta_by_sub[sid]
-            n_shapes = len(delta)
-            color = cmap_g(sm['parent_regime'] % 10)
-            ls = '-' if sm['curv_sign'] == 'CONVEX' else '--'
-            mk = markers[k % len(markers)] if k < len(markers) else 'o'
-            wr = np.mean(outcomes_by_sub[sid]) * 100 if outcomes_by_sub[sid] else 0
-
-            mean_d = delta.mean(axis=0)
-            std_d = delta.std(axis=0)
-
-            ax_g.plot(x_axis_g, mean_d, color=color, linewidth=2.5,
-                      linestyle=ls, marker=mk, markevery=2, markersize=5)
-            ax_g.fill_between(x_axis_g, mean_d - std_d, mean_d + std_d,
-                              color=color, alpha=0.06)
-
-            label = (f"S{sid} (R{sm['parent_regime']},{sm['curv_sign'][:3]}, "
-                     f"n={n_shapes}, WR={wr:.0f}%)")
-            legend_handles_g.append(mlines.Line2D(
-                [], [], color=color, linestyle=ls, marker=mk,
-                markersize=5, linewidth=2.5, label=label))
-
-        ax_g.axvline(x=0, color='black', linestyle='--', linewidth=1, alpha=0.5)
-        ax_g.axhline(y=0, color='gray', linestyle='-', linewidth=0.5, alpha=0.5)
-        ax_g.set_xlabel('Bars from entry (15m)', fontsize=12)
-        ax_g.set_ylabel('Price change from entry (ticks)', fontsize=12)
-        ax_g.set_title('Laplacian Sub-Segment Signatures\n'
-                        '(solid=CONVEX, dashed=CONCAVE, color=parent regime)',
-                        fontsize=14)
-        ax_g.legend(handles=legend_handles_g, fontsize=9, loc='best',
-                    framealpha=0.9, edgecolor='gray')
-        ax_g.grid(True, alpha=0.3)
-
-        plt.tight_layout()
-        g_sig_path = os.path.join(PLOTS_DIR, '0e_laplacian_signatures.png')
-        fig_g.savefig(g_sig_path, dpi=150, bbox_inches='tight', facecolor='white')
-        plt.close(fig_g)
-        print(f"  Saved: {g_sig_path}")
-
-        # --- G5: Coherence comparison: I-MR vs Laplacian ---
-        # Compute avg std at endpoint for I-MR regimes vs Laplacian sub-segments
-        imr_stds = []
-        for rid in active_rids:
-            if rid in delta_by_regime:
-                imr_stds.append(delta_by_regime[rid][:, -1].std())
-
-        lap_stds = []
-        for sid in active_subs:
-            lap_stds.append(delta_by_sub[sid][:, -1].std())
-
-        avg_imr_std = np.mean(imr_stds) if imr_stds else 0
-        avg_lap_std = np.mean(lap_stds) if lap_stds else 0
-
-        print(f"\n  COHERENCE COMPARISON:")
-        print(f"  I-MR regimes   -> avg endpoint std: {avg_imr_std:.1f} ticks "
-              f"({len(active_rids)} regimes)")
-        print(f"  Laplacian subs -> avg endpoint std: {avg_lap_std:.1f} ticks "
-              f"({n_active_g} sub-segments)")
-        if avg_imr_std > 0:
-            improvement = (1 - avg_lap_std / avg_imr_std) * 100
-            print(f"  Improvement: {improvement:+.1f}% "
-                  f"({'TIGHTER' if improvement > 0 else 'WIDER'})")
-
-        # Per sub-segment summary
-        print(f"\n  {'Sub':>4} {'Parent':>6} {'Shape':>7} {'N':>4} "
-              f"{'MeanEnd':>8} {'StdEnd':>7} {'WR':>5}")
-        for sid in active_subs:
-            sm = next(s for s in sub_meta if s['sub_id'] == sid)
-            delta = delta_by_sub[sid]
-            wr = np.mean(outcomes_by_sub[sid]) * 100 if outcomes_by_sub[sid] else 0
-            print(f"  S{sid:<3} R{sm['parent_regime']:<5} {sm['curv_sign'][:3]:>7} "
-                  f"{len(delta):>4} {delta[:,-1].mean():>+8.1f} "
-                  f"{delta[:,-1].std():>7.1f} {wr:>4.0f}%")
-
-    # =====================================================================
-    #  ANALYSIS H: ITERATIVE SHAPE CLUSTERING (delta from entry)
-    #
-    #  Every segment starts at 0, values = cumulative price change.
-    #  e.g. [0, +40, +20, +30, +20, +40] = the movement pattern.
-    #  Grid-search over segment length and cluster count.
-    #  Score by silhouette, auto-select best, show top 10 clusters.
-    # =====================================================================
-    print(f"\n{'='*70}")
-    print(f"  ANALYSIS H: ITERATIVE SHAPE CLUSTERING (delta from entry)")
-    print(f"{'='*70}")
-
-    from sklearn.cluster import KMeans
-    from collections import Counter
-
-    TOP_K = 10
-    MIN_CLUSTER_SIZE = 5  # minimum members for a useful cluster
-
-    analysis_idx_h = np.where(price_imr['analysis_mask'])[0]
-
-    def _extract_segments(seg_len):
-        """Cut segments, delta from entry (start=0, values=cumulative change)."""
-        raws, feats, idxs = [], [], []
-        for idx in analysis_idx_h:
-            if idx + seg_len > len(close):
+            states = compute_tf_physics(tf, all_dfs[tf])
+            if states:
+                all_tf_states[tf] = states
+                print(f"  {tf:>4}: {len(states):>8,} states computed")
+
+        # =====================================================================
+        #  STEP 8: Build X (fractal context + current MR) for each bar
+        #
+        #  X = 192 fractal features at time t + signed MR[t] = 193 context features
+        #  Two Y targets:
+        #    Y_price     = close[t]              (can we explain the price?)
+        #    Y_direction = sign(close[t+1]-close[t])  (can we explain the direction?)
+        # =====================================================================
+        print(f"\n--- STEP 8: Building context matrix (193 features per bar) ---")
+
+        analysis_idx = np.where(regime_ids >= 0)[0]
+        timestamps = base_df['timestamp'].values.astype(float)
+        close = base_df['close'].values.astype(float)
+        mr_signed = price_imr['mr']
+
+        # Pre-sort timestamps for each TF (for binary search alignment)
+        tf_sorted_ts = {}
+        for tf in TF_HIERARCHY:
+            if tf in all_tf_states and all_tf_states[tf]:
+                tf_sorted_ts[tf] = np.array(sorted(all_tf_states[tf].keys()))
+
+        X_rows = []
+        X_delta_rows = []  # rate-of-change features
+        Y_price = []
+        Y_direction = []
+        sample_ts = []
+        base_secs = TF_SECONDS.get(args.base_tf, 900)
+
+        def _build_mat(t):
+            """Build (12,16) fractal fingerprint at timestamp t."""
+            mat = np.zeros((12, 16))
+            n = 0
+            for depth_idx, tf in enumerate(TF_HIERARCHY):
+                if tf not in tf_sorted_ts:
+                    continue
+                tf_ts_list = tf_sorted_ts[tf]
+                tf_secs = TF_SECONDS.get(tf, 60)
+                if tf_secs > base_secs:
+                    pos = np.searchsorted(tf_ts_list, t, side='right') - 2
+                else:
+                    pos = np.searchsorted(tf_ts_list, t, side='right') - 1
+                if pos < 0:
+                    continue
+                nearest_ts = tf_ts_list[pos]
+                state = all_tf_states[tf][nearest_ts]
+                mat[depth_idx, :] = extract_16d(state, tf)
+                n += 1
+            return mat, n
+
+        n_bars = len(close)
+        for idx in tqdm(analysis_idx, desc="Fractal context", unit="bar", ascii=True, dynamic_ncols=True):
+            if idx + 1 >= n_bars or idx < 1:
                 continue
-            seg = close[idx : idx + seg_len]
-            if len(seg) != seg_len:
+
+            t = int(timestamps[idx])
+            t_prev = int(timestamps[idx - 1])
+            current_mr = mr_signed[idx]
+
+            mat, has_data = _build_mat(t)
+            if has_data < 3:
                 continue
-            feat = seg - seg[0]  # delta from entry: [0, +40, +20, ...]
-            raws.append(seg)
-            feats.append(feat)
-            idxs.append(idx)
-        if len(feats) == 0:
-            return np.array([]), np.array([]), np.array([])
-        return np.array(raws), np.array(feats), np.array(idxs)
 
-    def _cluster_coherence(feats, labels, top_k=10):
-        """Mean within-cluster std (lower = tighter overlays).
-        Only considers top-k clusters by size with >= MIN_CLUSTER_SIZE."""
-        counts = Counter(labels)
-        top = [cid for cid, cnt in counts.most_common(top_k)
-               if cnt >= MIN_CLUSTER_SIZE]
-        if not top:
-            return 999.0, 0
-        stds = []
-        for cid in top:
-            mask = (labels == cid)
-            stds.append(feats[mask].std(axis=0).mean())
-        return np.mean(stds), len(top)
+            # Build previous bar's matrix for rate-of-change
+            mat_prev, has_prev = _build_mat(t_prev)
+            if has_prev < 3:
+                delta = np.zeros_like(mat)
+            else:
+                delta = mat - mat_prev
 
-    # --- Phase 1: Find best segment length ---
-    seg_lens = [8, 12, 16, 24]
-    best_len_score = 999.0
-    best_seg_len = 16
+            x_row = np.concatenate([mat.flatten(), [current_mr]])  # 193 features
+            x_delta = delta.flatten()  # 192 delta features
+            X_rows.append(x_row)
+            X_delta_rows.append(x_delta)
+            Y_price.append(close[idx])
+            next_change = close[idx + 1] - close[idx]
+            Y_direction.append(1.0 if next_change > 0 else (-1.0 if next_change < 0 else 0.0))
+            sample_ts.append(t)
 
-    print(f"\n  Phase 1: Find best segment length (k=20, delta mode)")
-    for seg_len in seg_lens:
-        raws, feats, idxs = _extract_segments(seg_len)
-        n_seg = len(feats)
-        if n_seg < 40:
-            continue
-        k_test = min(20, n_seg // 3)
-        km = KMeans(n_clusters=k_test, random_state=42, n_init=5)
-        labels = km.fit_predict(feats)
-        coh, n_valid = _cluster_coherence(feats, labels)
-        is_best = coh < best_len_score
-        if is_best:
-            best_len_score = coh
-            best_seg_len = seg_len
-        marker = ' <--' if is_best else ''
-        print(f"    len={seg_len:>2}: {n_seg} segs, k={k_test}, "
-              f"coherence={coh:.2f} ({n_valid} valid clusters){marker}")
+        X = np.array(X_rows)
+        X_delta = np.array(X_delta_rows)
+        Y_p = np.array(Y_price)
+        Y_d = np.array(Y_direction)
+        print(f"  Samples: {len(Y_p)}, Level features: {X.shape[1] if len(X) > 0 else 0}, "
+              f"Delta features: {X_delta.shape[1] if len(X_delta) > 0 else 0}")
+        print(f"  X: 192 fractal + 1 current MR = 193 level features")
+        print(f"  X_delta: 192 rate-of-change (feature[t] - feature[t-1])")
 
-    print(f"  Best length: {best_seg_len}")
+        # Build column names: 192 fractal + 1 current MR
+        col_names = []
+        for d in range(12):
+            tf_lbl = TF_LABELS[d] if d < len(TF_LABELS) else f'd{d}'
+            for f in range(16):
+                f_lbl = FEATURE_NAMES[f] if f < len(FEATURE_NAMES) else f'f{f}'
+                col_names.append(f"{tf_lbl}__{f_lbl}")
+        col_names.append("current_MR")
 
-    # --- Phase 2: Iterate k upward until clusters are tight ---
-    raws, feats, idxs = _extract_segments(best_seg_len)
-    n_seg = len(feats)
+        # Delta column names
+        delta_col_names = []
+        for d in range(12):
+            tf_lbl = TF_LABELS[d] if d < len(TF_LABELS) else f'd{d}'
+            for f in range(16):
+                f_lbl = FEATURE_NAMES[f] if f < len(FEATURE_NAMES) else f'f{f}'
+                delta_col_names.append(f"dt_{tf_lbl}__{f_lbl}")
 
-    max_k = min(n_seg // MIN_CLUSTER_SIZE, 100)
-    k_candidates = [k for k in [10, 15, 20, 30, 40, 50, 75, 100]
-                    if k <= max_k and k < n_seg]
-    if not k_candidates:
-        k_candidates = [max(2, n_seg // MIN_CLUSTER_SIZE)]
+        # ── Cache save (if --cache given and file doesn't exist yet) ──
+        if args.cache and not os.path.exists(args.cache):
+            np.savez_compressed(args.cache,
+                                X=X, X_delta=X_delta, Y_p=Y_p, Y_d=Y_d,
+                                sample_ts=np.array(sample_ts, dtype=np.float64))
+            print(f"\n  Cache saved: {args.cache} ({os.path.getsize(args.cache)/1e6:.1f} MB)")
 
-    print(f"\n  Phase 2: Iterate k (len={best_seg_len}, {n_seg} segments)")
-    print(f"  {'K':>4} {'Coherence':>10} {'ValidClusters':>14} "
-          f"{'MinSize':>8} {'Best?':>5}")
-    print(f"  {'-'*4} {'-'*10} {'-'*14} {'-'*8} {'-'*5}")
+    if _start_at <= 'A':
+        # =====================================================================
+        #  ANALYSIS A: PRICE EXPLANATION (independent)
+        #
+        #  Y = close[t] -- the actual price level
+        #  Question: does the fractal fingerprint describe WHERE price is?
+        # =====================================================================
+        print(f"\n{'='*70}")
+        print(f"  ANALYSIS A: PRICE EXPLANATION")
+        print(f"  Y = close[t] at each bar")
+        print(f"  Y range: {Y_p.min():.1f} to {Y_p.max():.1f}, "
+              f"mean={Y_p.mean():.1f}, std={Y_p.std():.1f}")
+        print(f"  Samples: {len(Y_p)}")
+        print(f"{'='*70}")
 
-    best_coh = 999.0
-    best_config = None
-    prev_coh = None
+        results_price = screen_factors(X, col_names, Y_p)
 
-    for k in k_candidates:
-        km = KMeans(n_clusters=k, random_state=42, n_init=10)
-        labels = km.fit_predict(feats)
-        coh, n_valid = _cluster_coherence(feats, labels)
+        print(f"\n  TOP 20 FACTORS (correlation with price):")
+        print(f"  {'Rank':>4}  {'Factor':<35} {'r':>8}  {'|r|':>8}")
+        print(f"  {'-'*4}  {'-'*35} {'-'*8}  {'-'*8}")
+        for i, (name, corr, abs_corr) in enumerate(results_price[:20], 1):
+            bar = '#' * int(abs_corr * 50)
+            print(f"  {i:>4}  {name:<35} {corr:>+8.4f}  {abs_corr:>8.4f}  {bar}")
 
-        counts = Counter(labels)
-        top_sizes = [cnt for _, cnt in counts.most_common(TOP_K)]
-        min_top = min(top_sizes) if top_sizes else 0
+        print(f"\n  Stepwise regression: context -> price")
+        result_a = regression_r2(X, col_names, Y_p, top_k=20, return_model=True)
+        steps_price, (price_model, price_scaler, price_feat_idx) = result_a
+        r2_p = steps_price[-1][3] if steps_price else 0
+        print(f"\n  >> PRICE adj-R2 = {r2_p:.4f}")
+        print(f"  >> Context explains {r2_p*100:.1f}% of price variance")
 
-        is_best = coh < best_coh and n_valid >= min(TOP_K, k)
-        if is_best:
-            best_coh = coh
-            best_config = {
-                'seg_len': best_seg_len, 'k': k,
-                'labels': labels, 'raws': raws, 'feats': feats,
-                'idxs': idxs, 'coherence': coh,
-            }
+        # Price: BY TIMEFRAME
+        print(f"\n  PRICE BY TIMEFRAME:")
+        print(f"  {'Depth':<12} {'TF':>6} {'Mean |r|':>10} {'Max |r|':>10} {'Top Factor':<35}")
+        print(f"  {'-'*12} {'-'*6} {'-'*10} {'-'*10} {'-'*35}")
+        for d in range(12):
+            prefix = TF_LABELS[d]
+            pf = [(n, c, a) for n, c, a in results_price if n.startswith(prefix + '__')]
+            if pf:
+                abs_vals = [a for _, _, a in pf]
+                mp = np.mean(abs_vals)
+                mx = max(abs_vals)
+                best = max(pf, key=lambda x: x[2])
+                print(f"  {prefix:<12} {TF_HIERARCHY[d]:>6} {mp:>10.4f} {mx:>10.4f} {best[0]:<35}")
 
-        marker = ' <--' if is_best else ''
-        print(f"  {k:>4} {coh:>10.2f} {n_valid:>14} "
-              f"{min_top:>8}{marker}")
+        # Price: BY FEATURE
+        print(f"\n  PRICE BY FEATURE:")
+        print(f"  {'Feature':<20} {'Mean |r|':>10} {'Max |r|':>10} {'Best TF':<15}")
+        print(f"  {'-'*20} {'-'*10} {'-'*10} {'-'*15}")
+        for f_name in FEATURE_NAMES:
+            pf = [(n, c, a) for n, c, a in results_price if n.endswith(f'__{f_name}')]
+            if pf:
+                abs_vals = [a for _, _, a in pf]
+                mp = np.mean(abs_vals)
+                mx = max(abs_vals)
+                best = max(pf, key=lambda x: x[2])
+                best_tf = best[0].split('__')[0]
+                print(f"  {f_name:<20} {mp:>10.4f} {mx:>10.4f} {best_tf:<15}")
+        mr_r_p = next((a for n, c, a in results_price if n == 'current_MR'), 0)
+        print(f"  {'current_MR':<20} {mr_r_p:>10.4f} {mr_r_p:>10.4f} {'(base TF)':<15}")
 
-        # Stop if coherence stopped improving (< 5% gain)
-        if prev_coh is not None and coh > prev_coh * 0.95 and not is_best:
-            if k > 30:  # only stop early after trying enough
-                print(f"  (converged at k={k})")
-                break
-        prev_coh = coh
+        # Price: CONCLUSION
+        print(f"\n  PRICE CONCLUSION:")
+        if r2_p > 0.80:
+            print(f"  Strong: adj-R2 = {r2_p:.4f}. The fractal context reliably describes")
+            print(f"  WHERE price is. The 193 features map to price level with high fidelity.")
+        elif r2_p > 0.30:
+            print(f"  Moderate: adj-R2 = {r2_p:.4f}. Context captures price structure")
+            print(f"  but with meaningful residual noise.")
+        else:
+            print(f"  Weak: adj-R2 = {r2_p:.4f}. Context does not reliably explain price level.")
 
-    if best_config is None:
-        print("  No valid configuration found. Skipping.")
     else:
-        bc = best_config
-        print(f"\n  BEST: len={bc['seg_len']}, k={bc['k']}, "
-              f"coherence={bc['coherence']:.2f}")
+        print(f"  [SKIP] Analysis A (--start {_start_at})")
 
-        # Build cluster stats
-        labels = bc['labels']
-        raws = bc['raws']
-        feats = bc['feats']
-        counts = Counter(labels)
-        # Sort by size, filter to >= MIN_CLUSTER_SIZE
-        top_clusters = [(cid, cnt) for cid, cnt in counts.most_common()
-                        if cnt >= MIN_CLUSTER_SIZE][:TOP_K]
+    if _start_at <= 'B':
+        # =====================================================================
+        #  ANALYSIS B: DIRECTION EXPLANATION (independent)
+        #
+        #  Y = sign(close[t+1] - close[t]) -- will price go up or down?
+        #  Question: does the fractal fingerprint tell us which way price moves?
+        # =====================================================================
+        # Build direction matrix: X + price anchor = 194 features
+        X_dir = np.column_stack([X, Y_p])  # add close[t] as anchor
+        col_names_dir = col_names + ['price_anchor']
 
-        print(f"\n  {'Clust':>5} {'N':>5} {'MeanChg':>8} {'StdChg':>7} "
-              f"{'WR':>5} {'Coh':>6}")
-        print(f"  {'-'*5} {'-'*5} {'-'*8} {'-'*7} {'-'*5} {'-'*6}")
+        n_up = (Y_d > 0).sum()
+        n_down = (Y_d < 0).sum()
+        n_flat = (Y_d == 0).sum()
 
-        cluster_stats = []
-        for cid, count in top_clusters:
-            mask_c = (labels == cid)
-            raw_c = raws[mask_c]
-            feat_c = feats[mask_c]
+        print(f"\n{'='*70}")
+        print(f"  ANALYSIS B: DIRECTION EXPLANATION (with price anchor)")
+        print(f"  Y = sign(next change): +1=up, -1=down")
+        print(f"  X = 192 fractal + current_MR + price[t] = {X_dir.shape[1]} features")
+        print(f"  Distribution: {n_up} up ({n_up/len(Y_d):.0%}), "
+              f"{n_down} down ({n_down/len(Y_d):.0%}), {n_flat} flat")
+        print(f"  Samples: {len(Y_d)}")
+        print(f"{'='*70}")
 
-            changes = raw_c[:, -1] - raw_c[:, 0]
-            mean_chg = changes.mean()
-            std_chg = changes.std()
-            wr = (changes > 0).sum() / len(changes) * 100
-            coherence = feat_c.std(axis=0).mean()
+        results_dir = screen_factors(X_dir, col_names_dir, Y_d)
 
-            cluster_stats.append({
-                'cid': cid, 'count': count, 'mean_chg': mean_chg,
-                'std_chg': std_chg, 'wr': wr, 'coherence': coherence,
-                'feat': feat_c, 'raw': raw_c,
-            })
+        print(f"\n  TOP 20 FACTORS (correlation with direction):")
+        print(f"  {'Rank':>4}  {'Factor':<35} {'r':>8}  {'|r|':>8}")
+        print(f"  {'-'*4}  {'-'*35} {'-'*8}  {'-'*8}")
+        for i, (name, corr, abs_corr) in enumerate(results_dir[:20], 1):
+            bar = '#' * int(abs_corr * 50)
+            print(f"  {i:>4}  {name:<35} {corr:>+8.4f}  {abs_corr:>8.4f}  {bar}")
 
-            print(f"  C{cid:<4} {count:>5} {mean_chg:>+8.1f} {std_chg:>7.1f} "
-                  f"{wr:>4.0f}% {coherence:>6.1f}")
+        print(f"\n  Stepwise regression: context + anchor -> direction")
+        steps_dir = regression_r2(X_dir, col_names_dir, Y_d, top_k=20)
+        r2_d = steps_dir[-1][3] if steps_dir else 0
+        print(f"\n  >> DIRECTION adj-R2 = {r2_d:.4f}")
+        print(f"  >> Context explains {r2_d*100:.1f}% of direction variance")
 
-        # Plot top 10 clusters
-        n_plot = min(TOP_K, len(cluster_stats))
-        n_cols = 5
-        n_rows = (n_plot + n_cols - 1) // n_cols
-        seg_len = bc['seg_len']
-        x_seg = np.arange(seg_len)
+        # Direction: BY TIMEFRAME
+        print(f"\n  DIRECTION BY TIMEFRAME:")
+        print(f"  {'Depth':<12} {'TF':>6} {'Mean |r|':>10} {'Max |r|':>10} {'Top Factor':<35}")
+        print(f"  {'-'*12} {'-'*6} {'-'*10} {'-'*10} {'-'*35}")
+        for d in range(12):
+            prefix = TF_LABELS[d]
+            df = [(n, c, a) for n, c, a in results_dir if n.startswith(prefix + '__')]
+            if df:
+                abs_vals = [a for _, _, a in df]
+                md = np.mean(abs_vals)
+                mx = max(abs_vals)
+                best = max(df, key=lambda x: x[2])
+                print(f"  {prefix:<12} {TF_HIERARCHY[d]:>6} {md:>10.4f} {mx:>10.4f} {best[0]:<35}")
 
-        fig_h, axes_h = plt.subplots(n_rows, n_cols,
-                                      figsize=(4 * n_cols, 3.5 * n_rows),
-                                      squeeze=False)
+        # Direction: BY FEATURE
+        print(f"\n  DIRECTION BY FEATURE:")
+        print(f"  {'Feature':<20} {'Mean |r|':>10} {'Max |r|':>10} {'Best TF':<15}")
+        print(f"  {'-'*20} {'-'*10} {'-'*10} {'-'*15}")
+        for f_name in FEATURE_NAMES:
+            df = [(n, c, a) for n, c, a in results_dir if n.endswith(f'__{f_name}')]
+            if df:
+                abs_vals = [a for _, _, a in df]
+                md = np.mean(abs_vals)
+                mx = max(abs_vals)
+                best = max(df, key=lambda x: x[2])
+                best_tf = best[0].split('__')[0]
+                print(f"  {f_name:<20} {md:>10.4f} {mx:>10.4f} {best_tf:<15}")
+        mr_r_d = next((a for n, c, a in results_dir if n == 'current_MR'), 0)
+        print(f"  {'current_MR':<20} {mr_r_d:>10.4f} {mr_r_d:>10.4f} {'(base TF)':<15}")
 
-        for k in range(n_plot):
-            row, col = divmod(k, n_cols)
-            ax = axes_h[row, col]
-            cs = cluster_stats[k]
-            feat_c = cs['feat']
-            n_in = len(feat_c)
-            color = cmap(k % 10)
+        # Direction: sign analysis — are correlations mostly negative?
+        top20_signs = [c for _, c, _ in results_dir[:20]]
+        n_neg = sum(1 for s in top20_signs if s < 0)
+        n_pos = sum(1 for s in top20_signs if s > 0)
+        print(f"\n  SIGN PATTERN: {n_neg}/20 top factors have NEGATIVE correlation")
+        if n_neg > 14:
+            print(f"  Most direction factors point to MEAN REVERSION -- higher feature")
+            print(f"  values predict DOWN moves, suggesting overbought/overextended states.")
+        elif n_pos > 14:
+            print(f"  Most direction factors point to TREND CONTINUATION -- higher")
+            print(f"  feature values predict UP moves, suggesting momentum persistence.")
+        else:
+            print(f"  Mixed signs -- no dominant directional bias in the features.")
 
-            # Individual traces
-            max_plot = min(n_in, 200)
-            alpha = max(0.05, min(0.3, 20.0 / max_plot))
-            for j in range(max_plot):
-                ax.plot(x_seg, feat_c[j], color=color, alpha=alpha, linewidth=0.5)
+        # Direction: CONCLUSION
+        print(f"\n  DIRECTION CONCLUSION:")
+        if r2_d > 0.15:
+            print(f"  Useful: adj-R2 = {r2_d:.4f}. The fractal context carries meaningful")
+            print(f"  directional signal. Worth building a directional model from these features.")
+        elif r2_d > 0.05:
+            print(f"  Weak but present: adj-R2 = {r2_d:.4f}. Some directional signal exists")
+            print(f"  but it is fragile. May need more data, different features, or")
+            print(f"  non-linear methods to extract it reliably.")
+        else:
+            print(f"  Insufficient: adj-R2 = {r2_d:.4f}. The fractal context does not")
+            print(f"  reliably explain direction. The next bar is essentially unpredictable")
+            print(f"  from these features alone.")
 
-            # Mean + std envelope
-            mean_f = feat_c.mean(axis=0)
-            std_f = feat_c.std(axis=0)
-            ax.plot(x_seg, mean_f, color=color, linewidth=3)
-            ax.fill_between(x_seg, mean_f - std_f, mean_f + std_f,
-                            color=color, alpha=0.15)
+    else:
+        print(f"  [SKIP] Analysis B (--start {_start_at})")
 
+    if _start_at <= 'C':
+        # =====================================================================
+        #  ANALYSIS C: DIRECTION FROM PRICE MODEL (derived)
+        #
+        #  Since we can explain price (A=95%) but not direction standalone (B=8.7%),
+        #  can we derive direction from consecutive price predictions?
+        #  predicted_dir = sign( predict(features[t+1]) - predict(features[t]) )
+        # =====================================================================
+        print(f"\n{'='*70}")
+        print(f"  ANALYSIS C: DIRECTION DERIVED FROM PRICE MODEL")
+        print(f"  If price model predicts price[t] and price[t+1],")
+        print(f"  direction = sign(predicted[t+1] - predicted[t])")
+        print(f"{'='*70}")
+
+        # Predict price for every sample using the price model from Analysis A
+        X_price_feat = price_scaler.transform(X[:, price_feat_idx])
+        predicted_prices = price_model.predict(X_price_feat)
+
+        # Build consecutive pairs: predicted[t] vs predicted[t+1]
+        n_pairs = len(predicted_prices) - 1
+        pred_dir = np.sign(predicted_prices[1:] - predicted_prices[:-1])
+        actual_dir = Y_d[:-1]  # actual direction at each t (already sign of close[t+1]-close[t])
+
+        # Filter out flat actuals
+        mask = actual_dir != 0
+        pred_dir_f = pred_dir[mask]
+        actual_dir_f = actual_dir[mask]
+        n_valid = mask.sum()
+
+        correct = (pred_dir_f == actual_dir_f).sum()
+        accuracy = correct / n_valid if n_valid > 0 else 0
+
+        print(f"\n  Pairs: {n_pairs}, Valid (non-flat): {n_valid}")
+        print(f"  Predicted direction accuracy: {correct}/{n_valid} = {accuracy:.1%}")
+
+        # Breakdown by actual direction
+        up_mask = actual_dir_f > 0
+        down_mask = actual_dir_f < 0
+        up_correct = (pred_dir_f[up_mask] > 0).sum() if up_mask.sum() > 0 else 0
+        down_correct = (pred_dir_f[down_mask] < 0).sum() if down_mask.sum() > 0 else 0
+        print(f"\n  When actual UP:   {up_correct}/{up_mask.sum()} = "
+              f"{up_correct/up_mask.sum():.1%}" if up_mask.sum() > 0 else "")
+        print(f"  When actual DOWN: {down_correct}/{down_mask.sum()} = "
+              f"{down_correct/down_mask.sum():.1%}" if down_mask.sum() > 0 else "")
+
+        # Residual analysis: how big are the prediction errors vs actual moves?
+        residuals = predicted_prices - Y_p
+        actual_moves = np.diff(Y_p)
+        print(f"\n  Price model residuals: mean={residuals.mean():.2f}, std={residuals.std():.2f}")
+        print(f"  Actual bar-to-bar moves: mean={np.mean(np.abs(actual_moves)):.2f}, "
+              f"std={np.std(actual_moves):.2f}")
+        snr = np.mean(np.abs(actual_moves)) / residuals.std() if residuals.std() > 0 else 0
+        print(f"  Signal-to-noise ratio: {snr:.3f} "
+              f"({'good' if snr > 1.5 else 'marginal' if snr > 0.8 else 'poor'}: "
+              f"{'moves > noise' if snr > 1 else 'noise > moves'})")
+
+        # Confidence: only count predictions where delta is large enough
+        pred_deltas = predicted_prices[1:] - predicted_prices[:-1]
+        for threshold in [0.0, 5.0, 10.0, 20.0]:
+            conf_mask = (np.abs(pred_deltas) > threshold) & mask
+            if conf_mask.sum() > 0:
+                conf_correct = (pred_dir[conf_mask] == actual_dir[conf_mask]).sum()
+                conf_acc = conf_correct / conf_mask.sum()
+                print(f"  |predicted delta| > {threshold:>5.1f}: "
+                      f"{conf_correct}/{conf_mask.sum()} = {conf_acc:.1%}")
+
+        # CONCLUSION
+        print(f"\n  DERIVED DIRECTION CONCLUSION:")
+        if accuracy > 0.60:
+            print(f"  Promising: {accuracy:.1%} accuracy. Deriving direction from consecutive")
+            print(f"  price predictions works better than standalone direction modeling.")
+            if snr > 1.0:
+                print(f"  Signal-to-noise is favorable ({snr:.2f}) -- moves are larger than")
+                print(f"  prediction residuals.")
+            else:
+                print(f"  However, signal-to-noise is low ({snr:.2f}) -- may improve with")
+                print(f"  more data or better price features.")
+        elif accuracy > 0.52:
+            print(f"  Marginal: {accuracy:.1%} accuracy. Slightly better than chance but")
+            print(f"  not reliable enough. The price model's residual noise ({residuals.std():.1f})")
+            print(f"  is {'larger' if snr < 1 else 'comparable to'} the typical move ({np.mean(np.abs(actual_moves)):.1f}).")
+        else:
+            print(f"  No improvement: {accuracy:.1%}. The price model's residuals overwhelm")
+            print(f"  the bar-to-bar signal. 95% R2 on level does not translate to")
+            print(f"  directional accuracy at this resolution.")
+
+    else:
+        print(f"  [SKIP] Analysis C (--start {_start_at})")
+
+    if _start_at <= 'D':
+        # =====================================================================
+        #  ANALYSIS D: DOES RATE-OF-CHANGE IMPROVE PRICE & DIRECTION?
+        #
+        #  Add delta features (feature[t] - feature[t-1]) to test if
+        #  temporal pattern recognition helps beyond the spatial snapshot.
+        # =====================================================================
+        print(f"\n{'='*70}")
+        print(f"  ANALYSIS D: RATE-OF-CHANGE (PATTERN RECOGNITION)")
+        print(f"  Level = 193 features (snapshot at t)")
+        print(f"  Delta = 192 features (change from t-1 to t)")
+        print(f"  Combined = {193 + 192} features (level + delta)")
+        print(f"{'='*70}")
+
+        # Combine level + delta features
+        X_combined = np.column_stack([X, X_delta])
+        combined_col_names = col_names + delta_col_names
+
+        # D1: Does delta help PRICE explanation?
+        print(f"\n  D1: PRICE with level+delta features")
+        print(f"  Stepwise regression: {X_combined.shape[1]} features -> price")
+        steps_price_d = regression_r2(X_combined, combined_col_names, Y_p, top_k=20)
+        r2_pd = steps_price_d[-1][3] if steps_price_d else 0
+        print(f"\n  >> PRICE adj-R2 (level only):  {r2_p:.4f}")
+        print(f"  >> PRICE adj-R2 (level+delta): {r2_pd:.4f}")
+        print(f"  >> Delta contribution: {r2_pd - r2_p:+.4f} ({(r2_pd - r2_p)*100:+.1f}%)")
+
+        # How many delta features made it into the model?
+        n_delta_in_price = sum(1 for step in steps_price_d if step[0].startswith('dt_'))
+        print(f"  >> Delta features in price model: {n_delta_in_price}/{len(steps_price_d)}")
+
+        # Top delta features for price
+        price_d_results = screen_factors(X_delta, delta_col_names, Y_p)
+        print(f"\n  TOP 10 DELTA FACTORS for price:")
+        print(f"  {'Rank':>4}  {'Factor':<35} {'r':>8}  {'|r|':>8}")
+        print(f"  {'-'*4}  {'-'*35} {'-'*8}  {'-'*8}")
+        for i, (name, corr, abs_corr) in enumerate(price_d_results[:10], 1):
+            print(f"  {i:>4}  {name:<35} {corr:>+8.4f}  {abs_corr:>8.4f}")
+
+        # D2: Does delta help DIRECTION explanation?
+        print(f"\n  D2: DIRECTION with level+delta features")
+        X_dir_combined = np.column_stack([X, X_delta, Y_p])  # add price anchor too
+        dir_combined_names = col_names + delta_col_names + ['price_anchor']
+        print(f"  Stepwise regression: {X_dir_combined.shape[1]} features -> direction")
+        steps_dir_d = regression_r2(X_dir_combined, dir_combined_names, Y_d, top_k=20)
+        r2_dd = steps_dir_d[-1][3] if steps_dir_d else 0
+        print(f"\n  >> DIRECTION adj-R2 (level only):  {r2_d:.4f}")
+        print(f"  >> DIRECTION adj-R2 (level+delta): {r2_dd:.4f}")
+        print(f"  >> Delta contribution: {r2_dd - r2_d:+.4f} ({(r2_dd - r2_d)*100:+.1f}%)")
+
+        n_delta_in_dir = sum(1 for step in steps_dir_d if step[0].startswith('dt_'))
+        print(f"  >> Delta features in direction model: {n_delta_in_dir}/{len(steps_dir_d)}")
+
+        # Top delta features for direction
+        dir_d_results = screen_factors(X_delta, delta_col_names, Y_d)
+        print(f"\n  TOP 10 DELTA FACTORS for direction:")
+        print(f"  {'Rank':>4}  {'Factor':<35} {'r':>8}  {'|r|':>8}")
+        print(f"  {'-'*4}  {'-'*35} {'-'*8}  {'-'*8}")
+        for i, (name, corr, abs_corr) in enumerate(dir_d_results[:10], 1):
+            print(f"  {i:>4}  {name:<35} {corr:>+8.4f}  {abs_corr:>8.4f}")
+
+        # D3: Derived direction from combined price model
+        print(f"\n  D3: DERIVED DIRECTION from level+delta price model")
+        result_pd = regression_r2(X_combined, combined_col_names, Y_p, top_k=20, return_model=True)
+        steps_pd, (pd_model, pd_scaler, pd_feat_idx) = result_pd
+        X_pd_feat = pd_scaler.transform(X_combined[:, pd_feat_idx])
+        pred_prices_d = pd_model.predict(X_pd_feat)
+
+        pred_dir_d = np.sign(pred_prices_d[1:] - pred_prices_d[:-1])
+        actual_dir_d = Y_d[:-1]
+        mask_d = actual_dir_d != 0
+        correct_d = (pred_dir_d[mask_d] == actual_dir_d[mask_d]).sum()
+        n_valid_d = mask_d.sum()
+        accuracy_d = correct_d / n_valid_d if n_valid_d > 0 else 0
+
+        print(f"  Derived direction (level only):  {accuracy:.1%}")
+        print(f"  Derived direction (level+delta): {accuracy_d:.1%}")
+        print(f"  Delta contribution: {accuracy_d - accuracy:+.1%}")
+
+        # Confidence gates for combined model
+        pred_deltas_d = pred_prices_d[1:] - pred_prices_d[:-1]
+        for threshold in [0.0, 5.0, 10.0, 20.0]:
+            conf_mask = (np.abs(pred_deltas_d) > threshold) & mask_d
+            if conf_mask.sum() > 0:
+                conf_correct = (pred_dir_d[conf_mask] == actual_dir_d[conf_mask]).sum()
+                conf_acc = conf_correct / conf_mask.sum()
+                print(f"  |predicted delta| > {threshold:>5.1f}: "
+                      f"{conf_correct}/{conf_mask.sum()} = {conf_acc:.1%}")
+
+        # ANALYSIS D CONCLUSION
+        print(f"\n  ANALYSIS D CONCLUSION:")
+        price_gain = r2_pd - r2_p
+        dir_gain = r2_dd - r2_d
+        derived_gain = accuracy_d - accuracy
+        if price_gain > 0.01 or dir_gain > 0.01 or derived_gain > 0.03:
+            print(f"  Pattern recognition HELPS:")
+            if price_gain > 0.01:
+                print(f"    Price R2: {r2_p:.4f} -> {r2_pd:.4f} (+{price_gain:.4f})")
+            if dir_gain > 0.01:
+                print(f"    Direction R2: {r2_d:.4f} -> {r2_dd:.4f} (+{dir_gain:.4f})")
+            if derived_gain > 0.03:
+                print(f"    Derived accuracy: {accuracy:.1%} -> {accuracy_d:.1%} (+{derived_gain:.1%})")
+        else:
+            print(f"  Rate-of-change features do NOT meaningfully improve results.")
+            print(f"    Price R2:  {r2_p:.4f} -> {r2_pd:.4f} ({price_gain:+.4f})")
+            print(f"    Dir R2:    {r2_d:.4f} -> {r2_dd:.4f} ({dir_gain:+.4f})")
+            print(f"    Derived:   {accuracy:.1%} -> {accuracy_d:.1%} ({derived_gain:+.1%})")
+            print(f"  The spatial snapshot already captures what matters. Adding temporal")
+            print(f"  deltas does not reveal hidden directional signal.")
+
+    else:
+        print(f"  [SKIP] Analysis D (--start {_start_at})")
+
+    if _start_at <= 'E':
+        # =====================================================================
+        #  ANALYSIS E: dP/dT-GROUPED DIRECTION (signal amplification)
+        #
+        #  Group bars by signed dP/dT (= signed MR = close[t] - close[t-1]).
+        #  Within each group, bars have similar price behavior, preventing
+        #  signal dilution from mixing different market characters.
+        # =====================================================================
+        print(f"\n{'='*70}")
+        print(f"  ANALYSIS E: dP/dT-GROUPED ANALYSIS (SIGNAL AMPLIFICATION)")
+        print(f"  Group bars by signed price change rate, run Three Questions per group.")
+        print(f"  Hypothesis: homogeneous groups prevent signal dilution.")
+        print(f"{'='*70}")
+
+        # current_MR is the last column of X (index -1), which is signed dP/dT
+        sample_mr = X[:, -1]  # signed MR for each sample
+
+        # Bin into groups by signed MR: DOWN / FLAT / UP (terciles)
+        # Use 3 bins to keep groups large enough for regression
+        bin_edges = np.percentile(sample_mr, [33, 67])
+        bin_labels = ['DOWN', 'FLAT', 'UP']
+        bin_ids = np.digitize(sample_mr, bin_edges)  # 0-2
+
+        print(f"\n  dP/dT bins (quintiles of signed MR):")
+        print(f"  {'Bin':<15} {'Range':>20} {'N':>6} {'Mean MR':>10}")
+        print(f"  {'-'*15} {'-'*20} {'-'*6} {'-'*10}")
+        n_bins = len(bin_labels)
+        for b in range(n_bins):
+            mask_b = bin_ids == b
+            n_b = mask_b.sum()
+            if n_b > 0:
+                mr_b = sample_mr[mask_b]
+                print(f"  {bin_labels[b]:<15} [{mr_b.min():>+8.1f}, {mr_b.max():>+8.1f}] {n_b:>6} {mr_b.mean():>+10.2f}")
+
+        # Run Three Questions per bin
+        print(f"\n  PER-GROUP RESULTS:")
+        print(f"  {'Bin':<15} {'N':>5} {'Price R2':>10} {'Dir R2':>10} {'Derived':>10} {'Dir>20':>10}")
+        print(f"  {'-'*15} {'-'*5} {'-'*10} {'-'*10} {'-'*10} {'-'*10}")
+
+        group_results = []
+        for b in range(n_bins):
+            mask_b = bin_ids == b
+            n_b = mask_b.sum()
+            if n_b < 20:  # need minimum samples for regression
+                print(f"  {bin_labels[b]:<15} {n_b:>5}   (too few samples)")
+                group_results.append((bin_labels[b], n_b, 0, 0, 0, 0))
+                continue
+
+            X_b = X[mask_b]
+            Y_p_b = Y_p[mask_b]
+            Y_d_b = Y_d[mask_b]
+
+            # A: Price R2 per group
+            steps_p_b = regression_r2(X_b, col_names, Y_p_b, top_k=20)
+            r2_p_b = steps_p_b[-1][3] if steps_p_b else 0
+
+            # B: Direction R2 per group
+            X_dir_b = np.column_stack([X_b, Y_p_b])
+            steps_d_b = regression_r2(X_dir_b, col_names + ['price_anchor'], Y_d_b, top_k=20)
+            r2_d_b = steps_d_b[-1][3] if steps_d_b else 0
+
+            # C: Derived direction per group
+            result_b = regression_r2(X_b, col_names, Y_p_b, top_k=20, return_model=True)
+            steps_b, (model_b, scaler_b, feat_idx_b) = result_b
+            X_feat_b = scaler_b.transform(X_b[:, feat_idx_b])
+            pred_p_b = model_b.predict(X_feat_b)
+
+            pred_dir_b = np.sign(pred_p_b[1:] - pred_p_b[:-1])
+            actual_dir_b = Y_d_b[:-1]
+            mask_nf = actual_dir_b != 0
+            n_valid_b = mask_nf.sum()
+            if n_valid_b > 0:
+                correct_b = (pred_dir_b[mask_nf] == actual_dir_b[mask_nf]).sum()
+                acc_b = correct_b / n_valid_b
+            else:
+                acc_b = 0
+
+            # Confidence gate >20
+            pred_deltas_b = pred_p_b[1:] - pred_p_b[:-1]
+            conf20_mask = (np.abs(pred_deltas_b) > 20) & mask_nf
+            if conf20_mask.sum() > 5:
+                conf20_acc = (pred_dir_b[conf20_mask] == actual_dir_b[conf20_mask]).sum() / conf20_mask.sum()
+                conf20_str = f"{conf20_acc:.1%}({conf20_mask.sum()})"
+            else:
+                conf20_acc = 0
+                conf20_str = "n/a"
+
+            print(f"  {bin_labels[b]:<15} {n_b:>5} {r2_p_b:>10.4f} {r2_d_b:>10.4f} {acc_b:>9.1%} {conf20_str:>10}")
+            group_results.append((bin_labels[b], n_b, r2_p_b, r2_d_b, acc_b, conf20_acc))
+
+        # Compare vs global
+        print(f"\n  {'GLOBAL':<15} {len(Y_p):>5} {r2_p:>10.4f} {r2_d:>10.4f} {accuracy:>9.1%}")
+
+        # Summary statistics
+        valid_groups = [(lbl, n, rp, rd, da, c20) for lbl, n, rp, rd, da, c20 in group_results if n >= 20]
+        if valid_groups:
+            avg_dir_r2 = np.mean([rd for _, _, _, rd, _, _ in valid_groups])
+            avg_derived = np.mean([da for _, _, _, _, da, _ in valid_groups])
+            best_group = max(valid_groups, key=lambda x: x[3])
+            worst_group = min(valid_groups, key=lambda x: x[3])
+
+            print(f"\n  ANALYSIS E CONCLUSION:")
+            print(f"  Average per-group direction R2: {avg_dir_r2:.4f} (vs global {r2_d:.4f})")
+            print(f"  Average per-group derived dir:  {avg_derived:.1%} (vs global {accuracy:.1%})")
+            print(f"  Best group:  {best_group[0]} (dir R2={best_group[3]:.4f}, derived={best_group[4]:.1%})")
+            print(f"  Worst group: {worst_group[0]} (dir R2={worst_group[3]:.4f}, derived={worst_group[4]:.1%})")
+
+            if avg_dir_r2 > r2_d * 1.5:
+                print(f"\n  SIGNAL AMPLIFICATION CONFIRMED: grouping by dP/dT improves")
+                print(f"  direction R2 by {avg_dir_r2/max(r2_d,0.001):.1f}x on average.")
+                print(f"  Homogeneous groups preserve directional signal that drowns")
+                print(f"  in the global model. This validates the clustering approach.")
+            else:
+                print(f"\n  Grouping by dP/dT does not significantly amplify the signal.")
+                print(f"  The direction problem may be fundamental, not a grouping issue.")
+
+    else:
+        print(f"  [SKIP] Analysis E (--start {_start_at})")
+
+    if _start_at <= 'F':
+        # =====================================================================
+        #  ANALYSIS F: REGIME SIGNATURE PLOT
+        #
+        #  Like fractal dimension vs SNR plots: each regime gets ONE mean
+        #  trajectory line on a shared chart. Shapes normalized to entry=0
+        #  so we compare MOVEMENT, not price level. Separation between
+        #  regime lines = clustering captures distinct behavior.
+        # =====================================================================
+        print(f"\n{'='*70}")
+        print(f"  ANALYSIS F: REGIME SIGNATURE PLOT")
+        print(f"{'='*70}")
+
+        lookback_bars = 8    # 8 bars before entry (2 hours at 15m)
+        lookahead_bars = 16  # 16 bars after entry (4 hours at 15m)
+        shape_len = lookback_bars + 1 + lookahead_bars  # 25 total points
+
+        # Map sample timestamps back to base_df indices
+        _ts_col = timestamps.astype(int)
+        _ts_to_idx = {int(t): i for i, t in enumerate(_ts_col)}
+        sample_indices = []
+        for ts in sample_ts:
+            if ts in _ts_to_idx:
+                sample_indices.append(_ts_to_idx[ts])
+            else:
+                sample_indices.append(-1)
+
+        # Collect shapes per regime (normalized to entry=0)
+        shapes_by_regime = {rm['regime_id']: [] for rm in regime_meta}
+        raw_shapes_by_regime = {rm['regime_id']: [] for rm in regime_meta}
+        outcomes_by_regime = {rm['regime_id']: [] for rm in regime_meta}
+
+        for i, bar_idx in enumerate(sample_indices):
+            if bar_idx < 0 or bar_idx < lookback_bars:
+                continue
+            if bar_idx + lookahead_bars >= len(close):
+                continue
+
+            rid = regime_ids[bar_idx]
+            if rid < 0:
+                continue  # warmup bar
+
+            # Extract price shape: lookback + entry + lookahead
+            shape_raw = close[bar_idx - lookback_bars : bar_idx + lookahead_bars + 1]
+            if len(shape_raw) != shape_len:
+                continue
+
+            entry_price = close[bar_idx]
+            shape_norm = shape_raw - entry_price  # normalize: entry = 0
+
+            shapes_by_regime[rid].append(shape_norm)
+            raw_shapes_by_regime[rid].append(shape_raw)
+
+            # Win/loss: MFE > MAE from oracle
+            future = close[bar_idx + 1 : bar_idx + 1 + lookahead_bars]
+            if len(future) > 0:
+                max_up = future.max() - entry_price
+                max_down = entry_price - future.min()
+                outcomes_by_regime[rid].append(1 if max_up > max_down else 0)
+
+        # Filter to regimes with enough shapes (min 5)
+        active_rids = [rm['regime_id'] for rm in regime_meta
+                       if len(shapes_by_regime.get(rm['regime_id'], [])) >= 5]
+        n_active = len(active_rids)
+
+        if n_active == 0:
+            print("  No regimes with enough shapes.")
+        else:
+            # Convert raw shapes to delta-from-entry for each regime
+            delta_by_regime = {}
+            for rid in active_rids:
+                raw = np.array(shapes_by_regime[rid])
+                entry_prices = raw[:, lookback_bars]  # price at bar 0
+                delta_by_regime[rid] = raw - entry_prices[:, np.newaxis]
+
+            # Distinct colors + line styles + markers (like fractal dim reference)
+            cmap = plt.cm.tab10
+            line_styles = ['-', '--', '-.', ':', '-', '--', '-.', ':']
+            markers     = ['o', 's', '^', 'D', 'v', 'P', 'X', '*']
+            regime_colors = {rid: cmap(k % 10) for k, rid in enumerate(active_rids)}
+            x_axis = np.arange(-lookback_bars, lookahead_bars + 1)
+
+            # ==== CHART 1: Signature overlay (all regime means, one plot) ====
+            fig, ax = plt.subplots(1, 1, figsize=(14, 8))
+
+            legend_handles = []
+            for k, rid in enumerate(active_rids):
+                delta = delta_by_regime[rid]
+                n_shapes = len(delta)
+                color = regime_colors[rid]
+                ls = line_styles[k % len(line_styles)]
+                mk = markers[k % len(markers)]
+                rm = next(m for m in regime_meta if m['regime_id'] == rid)
+                wr = np.mean(outcomes_by_regime[rid]) * 100 if outcomes_by_regime[rid] else 0
+
+                mean_d = delta.mean(axis=0)
+                std_d = delta.std(axis=0)
+
+                # Mean line with markers every 2 bars
+                ax.plot(x_axis, mean_d, color=color, linewidth=2.5,
+                        linestyle=ls, marker=mk, markevery=2, markersize=6)
+                # +/- 1 std band
+                ax.fill_between(x_axis, mean_d - std_d, mean_d + std_d,
+                                color=color, alpha=0.08)
+
+                label = f"R{rid} ({rm['direction']}, n={n_shapes}, WR={wr:.0f}%)"
+                legend_handles.append(mlines.Line2D(
+                    [], [], color=color, linestyle=ls, marker=mk,
+                    markersize=6, linewidth=2.5, label=label))
+
+            ax.axvline(x=0, color='black', linestyle='--', linewidth=1, alpha=0.5)
             ax.axhline(y=0, color='gray', linestyle='-', linewidth=0.5, alpha=0.5)
+            ax.set_xlabel('Bars from entry (15m)', fontsize=12)
+            ax.set_ylabel('Price change from entry (ticks)', fontsize=12)
+            ax.set_title('Regime Signatures: Mean Price Trajectory per I-MR Regime\n'
+                          '(delta from entry, +/-1 std bands)', fontsize=14)
+            ax.legend(handles=legend_handles, fontsize=10, loc='best',
+                      framealpha=0.9, edgecolor='gray')
+            ax.grid(True, alpha=0.3)
 
-            # Auto-fit y-axis
-            all_v = feat_c.flatten()
-            y_c = np.mean(all_v)
-            y_s = max(np.std(all_v) * 3, 5)
-            ax.set_ylim(y_c - y_s, y_c + y_s)
+            plt.tight_layout()
+            sig_path = os.path.join(PLOTS_DIR, '0c_stacked_shapes.png')
+            fig.savefig(sig_path, dpi=150, bbox_inches='tight', facecolor='white')
+            plt.close(fig)
+            print(f"  Saved signature overlay: {sig_path}")
 
-            ax.set_title(f"C{cs['cid']}: n={n_in}, WR={cs['wr']:.0f}%\n"
-                         f"coh={cs['coherence']:.1f}, chg={cs['mean_chg']:+.0f}",
-                         fontsize=9)
-            if col == 0:
-                ax.set_ylabel('Delta (ticks)')
-            if row == n_rows - 1:
-                ax.set_xlabel('Bar')
-            ax.grid(True, alpha=0.2)
+            # ==== CHART 2: Per-regime spaghetti audit (delta, vertical stack) ====
+            fig2, axes2 = plt.subplots(n_active, 1,
+                                       figsize=(12, 3.0 * n_active),
+                                       squeeze=False)
 
-        for k in range(n_plot, n_rows * n_cols):
-            row, col = divmod(k, n_cols)
-            axes_h[row, col].set_visible(False)
+            for row, rid in enumerate(active_rids):
+                ax2 = axes2[row, 0]
+                delta = delta_by_regime[rid]
+                n_shapes = len(delta)
+                color = regime_colors[rid]
+                rm = next(m for m in regime_meta if m['regime_id'] == rid)
+                wr = np.mean(outcomes_by_regime[rid]) * 100 if outcomes_by_regime[rid] else 0
 
-        fig_h.suptitle(f'Top {n_plot} Shape Clusters (len={seg_len}, k={bc["k"]})\n'
-                        f'Delta from entry, coherence={bc["coherence"]:.1f}, '
-                        f'{len(feats)} segments',
-                        fontsize=13)
-        plt.tight_layout()
-        h_path = os.path.join(PLOTS_DIR, '0f_shape_clusters.png')
-        fig_h.savefig(h_path, dpi=150, bbox_inches='tight', facecolor='white')
-        plt.close(fig_h)
-        print(f"\n  Saved: {h_path}")
+                # Individual traces
+                max_to_plot = min(n_shapes, 300)
+                alpha = max(0.05, min(0.25, 20.0 / max_to_plot))
+                for j in range(max_to_plot):
+                    ax2.plot(x_axis, delta[j], color=color, alpha=alpha, linewidth=0.5)
 
-    # =====================================================================
-    #  ANALYSIS I: SEED PRIMITIVE SHAPE CLASSIFICATION
-    #
-    #  Classify every segment against 20 mathematical seed shapes
-    #  using Pearson correlation. Threshold 0.85 → shape or NOISE.
-    # =====================================================================
-    print(f"\n{'='*70}")
-    print(f"  ANALYSIS I: SEED PRIMITIVE CLASSIFICATION (20 shapes)")
-    print(f"{'='*70}")
+                # Mean + std envelope
+                mean_d = delta.mean(axis=0)
+                std_d = delta.std(axis=0)
+                ax2.plot(x_axis, mean_d, color=color, linewidth=3, label='Mean')
+                ax2.fill_between(x_axis, mean_d - std_d, mean_d + std_d,
+                                 color=color, alpha=0.15)
 
-    from collections import Counter as Counter_I
+                ax2.axvline(x=0, color='black', linestyle='--', linewidth=1, alpha=0.5)
+                ax2.axhline(y=0, color='gray', linestyle='-', linewidth=0.5, alpha=0.5)
 
-    # Use same segment length as Analysis H (best_seg_len), fallback 16
-    seed_len = best_seg_len if 'best_seg_len' in dir() else 16
-    library = SeedPrimitiveLibrary(N=seed_len)
+                ax2.set_title(f"R{rid}: {n_shapes} shapes | dir={rm['direction']}, "
+                              f"vol={rm['volatility']:.2f} | WR={wr:.0f}%",
+                              fontsize=11, loc='left')
+                ax2.set_ylabel('dPrice (ticks)')
+                if row == n_active - 1:
+                    ax2.set_xlabel('Bars from entry (15m)')
+                ax2.legend(fontsize=8, loc='upper right')
+                ax2.grid(True, alpha=0.2)
 
-    print(f"\n  Seed library: {len(library.shapes)} shapes, segment length={seed_len}")
-    print(f"  Shapes: {', '.join(sorted(library.shapes.keys()))}")
+            fig2.suptitle('Per-Regime Shape Audit (delta from entry, individual traces)',
+                          fontsize=14, y=1.01)
+            plt.tight_layout()
+            audit_path = os.path.join(PLOTS_DIR, '0d_regime_audit.png')
+            fig2.savefig(audit_path, dpi=150, bbox_inches='tight', facecolor='white')
+            plt.close(fig2)
+            print(f"  Saved per-regime audit: {audit_path}")
 
-    # Extract segments (same as Analysis H: every analysis bar)
-    analysis_mask_i = price_imr['analysis_mask']
-    analysis_idx_i = np.where(analysis_mask_i)[0]
+            # Summary table
+            for rid in active_rids:
+                n_s = len(shapes_by_regime[rid])
+                rm = next(m for m in regime_meta if m['regime_id'] == rid)
+                delta = delta_by_regime[rid]
+                mean_end = delta[:, -1].mean()   # mean endpoint delta
+                std_end = delta[:, -1].std()
+                wr = np.mean(outcomes_by_regime[rid]) * 100 if outcomes_by_regime[rid] else 0
+                print(f"  R{rid}: {n_s:>4} shapes, dir={rm['direction']:>5}, "
+                      f"mean_end={mean_end:>+7.1f}, std_end={std_end:>6.1f}, "
+                      f"WR={wr:.0f}%")
 
-    classifications = []  # (idx, shape_name, correlation, raw_segment)
-    for idx in tqdm(analysis_idx_i, desc='  Classifying', ncols=80):
-        if idx + seed_len > len(close):
-            continue
-        seg = close[idx : idx + seed_len]
-        if len(seg) != seed_len:
-            continue
-        shape_name, corr = library.classify_trajectory(seg)
-        classifications.append((idx, shape_name, corr, seg))
-
-    n_total = len(classifications)
-    if n_total == 0:
-        print("  No segments to classify. Skipping Analysis I.")
     else:
-        # Tally
-        shape_counts = Counter_I(c[1] for c in classifications)
-        n_noise = shape_counts.get('NOISE', 0)
-        n_matched = n_total - n_noise
-        noise_pct = n_noise / n_total * 100
+        print(f"  [SKIP] Analysis F (--start {_start_at})")
 
-        print(f"\n  Total segments: {n_total}")
-        print(f"  Matched (corr >= {library.CORR_THRESHOLD}): {n_matched} ({100 - noise_pct:.1f}%)")
-        print(f"  NOISE (corr < {library.CORR_THRESHOLD}):    {n_noise} ({noise_pct:.1f}%)")
+    if _start_at <= 'G':
+        # =====================================================================
+        #  ANALYSIS G: LAPLACIAN SUB-SEGMENTATION
+        #
+        #  d2p/dt2 (curvature) = the missing acceleration layer.
+        #  I-MR segments by velocity breaks. Laplacian segments by SHAPE
+        #  changes: inflection points, momentum shifts, deceleration.
+        #  Sub-segment each I-MR regime by curvature sign runs, then check
+        #  if sub-segments produce tighter shape overlay (the Shi ideal).
+        # =====================================================================
+        print(f"\n{'='*70}")
+        print(f"  ANALYSIS G: LAPLACIAN SUB-SEGMENTATION (d2p/dt2)")
+        print(f"{'='*70}")
 
-        # Shape breakdown table
-        print(f"\n  {'Shape':<25} {'Count':>6} {'%':>6} {'MeanCorr':>9} "
-              f"{'MeanChg':>8} {'WR':>5}")
-        print(f"  {'-'*25} {'-'*6} {'-'*6} {'-'*9} {'-'*8} {'-'*5}")
+        # --- G1: Compute curvature (discrete Laplacian) ---
+        # d2p/dt2[t] = close[t+1] - 2*close[t] + close[t-1]
+        curvature = np.zeros(len(close))
+        curvature[1:-1] = close[2:] - 2 * close[1:-1] + close[:-2]
+        curvature[0] = curvature[1]   # pad edges
+        curvature[-1] = curvature[-2]
 
-        shape_stats = []
-        for shape_name in sorted(shape_counts.keys()):
-            if shape_name == 'NOISE':
+        # Curvature I-MR: same SPC approach on d2p/dt2
+        curv_abs = np.abs(curvature)
+        analysis_curv = curvature[price_imr['analysis_mask']]
+        analysis_curv_abs = np.abs(analysis_curv)
+
+        # MR of curvature (moving range of curvature)
+        curv_mr = np.zeros(len(curvature))
+        curv_mr[1:] = np.abs(curvature[1:] - curvature[:-1])
+
+        analysis_curv_mr = curv_mr[price_imr['analysis_mask']]
+        mr_bar_curv = np.mean(analysis_curv_mr[1:]) if len(analysis_curv_mr) > 1 else 1.0
+        ucl_curv = 3.267 * mr_bar_curv  # D4 for n=2
+
+        print(f"  Curvature stats: mean={np.mean(analysis_curv):.4f}, "
+              f"std={np.std(analysis_curv):.4f}")
+        print(f"  Curvature MR: mean={mr_bar_curv:.4f}, UCL={ucl_curv:.4f}")
+
+        # --- G2: Sub-segment by curvature sign + UCL breaks ---
+        # Within each I-MR regime, create sub-segments where:
+        #   - curvature sign flips (convex <-> concave)
+        #   - OR curvature MR exceeds UCL (acceleration shock)
+        # Minimum sub-segment size: 4 bars
+        MIN_SUB = 4
+
+        sub_ids = np.full(len(close), -1, dtype=int)
+        sub_meta = []
+        current_sub = 0
+        analysis_indices_g = np.where(price_imr['analysis_mask'])[0]
+
+        for rm in regime_meta:
+            # Bars in this regime
+            r_mask = (regime_ids == rm['regime_id'])
+            r_indices = np.where(r_mask)[0]
+            if len(r_indices) < MIN_SUB:
+                for idx in r_indices:
+                    sub_ids[idx] = current_sub
+                current_sub += 1
                 continue
-            entries = [(idx, corr, seg) for idx, sn, corr, seg in classifications
-                       if sn == shape_name]
-            count = len(entries)
-            pct = count / n_total * 100
-            mean_corr = np.mean([e[1] for e in entries])
-            changes = np.array([e[2][-1] - e[2][0] for e in entries])
-            mean_chg = changes.mean()
-            wr = (changes > 0).sum() / len(changes) * 100 if len(changes) > 0 else 0
 
-            shape_stats.append({
-                'name': shape_name, 'count': count, 'pct': pct,
-                'mean_corr': mean_corr, 'mean_chg': mean_chg, 'wr': wr,
-                'entries': entries,
+            # Walk through regime bars, break on sign flip or UCL
+            seg_start = 0
+            prev_sign = 1 if curvature[r_indices[0]] >= 0 else -1
+
+            for j in range(1, len(r_indices)):
+                idx = r_indices[j]
+                cur_sign = 1 if curvature[idx] >= 0 else -1
+                mr_break = curv_mr[idx] > ucl_curv
+
+                if (cur_sign != prev_sign or mr_break) and (j - seg_start >= MIN_SUB):
+                    # Close current sub-segment
+                    for k in range(seg_start, j):
+                        sub_ids[r_indices[k]] = current_sub
+                    current_sub += 1
+                    seg_start = j
+
+                prev_sign = cur_sign
+
+            # Close final sub-segment
+            for k in range(seg_start, len(r_indices)):
+                sub_ids[r_indices[k]] = current_sub
+            current_sub += 1
+
+        # Merge tiny sub-segments
+        n_subs_raw = current_sub
+        for s in range(n_subs_raw):
+            mask_s = (sub_ids == s)
+            if 0 < mask_s.sum() < MIN_SUB:
+                # Merge into previous or next
+                idxs = np.where(mask_s)[0]
+                if idxs[0] > 0 and sub_ids[idxs[0] - 1] >= 0:
+                    sub_ids[mask_s] = sub_ids[idxs[0] - 1]
+                elif idxs[-1] < len(sub_ids) - 1 and sub_ids[idxs[-1] + 1] >= 0:
+                    sub_ids[mask_s] = sub_ids[idxs[-1] + 1]
+
+        # Re-compact
+        unique_subs = sorted([s for s in np.unique(sub_ids) if s >= 0])
+        remap_s = {old: new for new, old in enumerate(unique_subs)}
+        for i in range(len(sub_ids)):
+            if sub_ids[i] >= 0:
+                sub_ids[i] = remap_s[sub_ids[i]]
+        n_subs = len(unique_subs)
+
+        # Build sub-segment metadata
+        for sid in range(n_subs):
+            mask_s = (sub_ids == sid)
+            indices_s = np.where(mask_s)[0]
+            s_close = close[mask_s]
+            s_curv = curvature[mask_s]
+            parent_rid = regime_ids[indices_s[0]]
+
+            sub_meta.append({
+                'sub_id': sid,
+                'parent_regime': int(parent_rid),
+                'n_bars': int(mask_s.sum()),
+                'mean_price': float(np.mean(s_close)),
+                'mean_curvature': float(np.mean(s_curv)),
+                'curv_sign': 'CONVEX' if np.mean(s_curv) >= 0 else 'CONCAVE',
+                'price_change': float(s_close[-1] - s_close[0]) if len(s_close) > 1 else 0.0,
+                'direction': 'LONG' if (s_close[-1] > s_close[0]) else 'SHORT',
+                'start_idx': int(indices_s[0]),
+                'end_idx': int(indices_s[-1]),
             })
 
-            print(f"  {shape_name:<25} {count:>6} {pct:>5.1f}% {mean_corr:>9.3f} "
-                  f"{mean_chg:>+8.1f} {wr:>4.0f}%")
+        print(f"\n  I-MR regimes: {len(regime_meta)} -> Laplacian sub-segments: {n_subs}")
+        print(f"  Avg sub-segment size: {np.mean([sm['n_bars'] for sm in sub_meta]):.1f} bars")
+        print(f"\n  {'Sub':>4} {'Parent':>6} {'Bars':>5} {'Curv':>8} {'Shape':>8} "
+              f"{'Dir':>6} {'Chg':>8}")
+        print(f"  {'-'*4} {'-'*6} {'-'*5} {'-'*8} {'-'*8} {'-'*6} {'-'*8}")
+        for sm in sub_meta:
+            print(f"  S{sm['sub_id']:<3} R{sm['parent_regime']:<5} {sm['n_bars']:>5} "
+                  f"{sm['mean_curvature']:>+8.3f} {sm['curv_sign']:>8} "
+                  f"{sm['direction']:>6} {sm['price_change']:>+8.1f}")
 
-        # NOISE deep-dive: what shapes were they closest to?
-        if n_noise > 0:
-            noise_entries = [(idx, corr, seg) for idx, sn, corr, seg in classifications
-                             if sn == 'NOISE']
-            noise_corrs = np.array([e[1] for e in noise_entries])
-            noise_chgs = np.array([e[2][-1] - e[2][0] for e in noise_entries])
-            noise_wr = (noise_chgs > 0).sum() / len(noise_chgs) * 100
-            print(f"  {'NOISE':<25} {n_noise:>6} {noise_pct:>5.1f}% "
-                  f"{np.mean(noise_corrs):>9.3f} {noise_chgs.mean():>+8.1f} "
-                  f"{noise_wr:>4.0f}%")
+        # --- G3: Collect shapes per sub-segment ---
+        shapes_by_sub = {sm['sub_id']: [] for sm in sub_meta}
+        outcomes_by_sub = {sm['sub_id']: [] for sm in sub_meta}
 
-            # --- NOISE BREAKDOWN: what is the best-match shape for each noise segment? ---
-            print(f"\n  NOISE BREAKDOWN (best-match shape for segments below 0.85):")
+        for i, bar_idx in enumerate(sample_indices):
+            if bar_idx < 0 or bar_idx < lookback_bars:
+                continue
+            if bar_idx + lookahead_bars >= len(close):
+                continue
 
-            # Re-classify noise to get their best-match shape name
-            noise_best_shapes = []
-            for idx, corr, seg in noise_entries:
-                mn, mx = seg.min(), seg.max()
-                if mx - mn < 1e-12:
-                    noise_best_shapes.append('FLATLINE')
+            sid = sub_ids[bar_idx]
+            if sid < 0:
+                continue
+
+            shape_raw = close[bar_idx - lookback_bars : bar_idx + lookahead_bars + 1]
+            if len(shape_raw) != shape_len:
+                continue
+
+            shapes_by_sub[sid].append(shape_raw)
+
+            entry_price = close[bar_idx]
+            future = close[bar_idx + 1 : bar_idx + 1 + lookahead_bars]
+            if len(future) > 0:
+                max_up = future.max() - entry_price
+                max_down = entry_price - future.min()
+                outcomes_by_sub[sid].append(1 if max_up > max_down else 0)
+
+        # --- G4: Signature plot — sub-segments overlaid ---
+        active_subs = [sm['sub_id'] for sm in sub_meta
+                       if len(shapes_by_sub.get(sm['sub_id'], [])) >= 5]
+        n_active_g = len(active_subs)
+
+        print(f"\n  Sub-segments with >=5 shapes: {n_active_g}/{n_subs}")
+
+        if n_active_g > 0:
+            # Compute delta from entry
+            delta_by_sub = {}
+            for sid in active_subs:
+                raw = np.array(shapes_by_sub[sid])
+                entry_prices = raw[:, lookback_bars]
+                delta_by_sub[sid] = raw - entry_prices[:, np.newaxis]
+
+            # Color by parent regime, line style by curvature sign
+            cmap_g = plt.cm.tab10
+            x_axis_g = np.arange(-lookback_bars, lookahead_bars + 1)
+
+            fig_g, ax_g = plt.subplots(1, 1, figsize=(14, 8))
+            legend_handles_g = []
+
+            for k, sid in enumerate(active_subs):
+                sm = next(s for s in sub_meta if s['sub_id'] == sid)
+                delta = delta_by_sub[sid]
+                n_shapes = len(delta)
+                color = cmap_g(sm['parent_regime'] % 10)
+                ls = '-' if sm['curv_sign'] == 'CONVEX' else '--'
+                mk = markers[k % len(markers)] if k < len(markers) else 'o'
+                wr = np.mean(outcomes_by_sub[sid]) * 100 if outcomes_by_sub[sid] else 0
+
+                mean_d = delta.mean(axis=0)
+                std_d = delta.std(axis=0)
+
+                ax_g.plot(x_axis_g, mean_d, color=color, linewidth=2.5,
+                          linestyle=ls, marker=mk, markevery=2, markersize=5)
+                ax_g.fill_between(x_axis_g, mean_d - std_d, mean_d + std_d,
+                                  color=color, alpha=0.06)
+
+                label = (f"S{sid} (R{sm['parent_regime']},{sm['curv_sign'][:3]}, "
+                         f"n={n_shapes}, WR={wr:.0f}%)")
+                legend_handles_g.append(mlines.Line2D(
+                    [], [], color=color, linestyle=ls, marker=mk,
+                    markersize=5, linewidth=2.5, label=label))
+
+            ax_g.axvline(x=0, color='black', linestyle='--', linewidth=1, alpha=0.5)
+            ax_g.axhline(y=0, color='gray', linestyle='-', linewidth=0.5, alpha=0.5)
+            ax_g.set_xlabel('Bars from entry (15m)', fontsize=12)
+            ax_g.set_ylabel('Price change from entry (ticks)', fontsize=12)
+            ax_g.set_title('Laplacian Sub-Segment Signatures\n'
+                            '(solid=CONVEX, dashed=CONCAVE, color=parent regime)',
+                            fontsize=14)
+            ax_g.legend(handles=legend_handles_g, fontsize=9, loc='best',
+                        framealpha=0.9, edgecolor='gray')
+            ax_g.grid(True, alpha=0.3)
+
+            plt.tight_layout()
+            g_sig_path = os.path.join(PLOTS_DIR, '0e_laplacian_signatures.png')
+            fig_g.savefig(g_sig_path, dpi=150, bbox_inches='tight', facecolor='white')
+            plt.close(fig_g)
+            print(f"  Saved: {g_sig_path}")
+
+            # --- G5: Coherence comparison: I-MR vs Laplacian ---
+            # Compute avg std at endpoint for I-MR regimes vs Laplacian sub-segments
+            imr_stds = []
+            for rid in active_rids:
+                if rid in delta_by_regime:
+                    imr_stds.append(delta_by_regime[rid][:, -1].std())
+
+            lap_stds = []
+            for sid in active_subs:
+                lap_stds.append(delta_by_sub[sid][:, -1].std())
+
+            avg_imr_std = np.mean(imr_stds) if imr_stds else 0
+            avg_lap_std = np.mean(lap_stds) if lap_stds else 0
+
+            print(f"\n  COHERENCE COMPARISON:")
+            print(f"  I-MR regimes   -> avg endpoint std: {avg_imr_std:.1f} ticks "
+                  f"({len(active_rids)} regimes)")
+            print(f"  Laplacian subs -> avg endpoint std: {avg_lap_std:.1f} ticks "
+                  f"({n_active_g} sub-segments)")
+            if avg_imr_std > 0:
+                improvement = (1 - avg_lap_std / avg_imr_std) * 100
+                print(f"  Improvement: {improvement:+.1f}% "
+                      f"({'TIGHTER' if improvement > 0 else 'WIDER'})")
+
+            # Per sub-segment summary
+            print(f"\n  {'Sub':>4} {'Parent':>6} {'Shape':>7} {'N':>4} "
+                  f"{'MeanEnd':>8} {'StdEnd':>7} {'WR':>5}")
+            for sid in active_subs:
+                sm = next(s for s in sub_meta if s['sub_id'] == sid)
+                delta = delta_by_sub[sid]
+                wr = np.mean(outcomes_by_sub[sid]) * 100 if outcomes_by_sub[sid] else 0
+                print(f"  S{sid:<3} R{sm['parent_regime']:<5} {sm['curv_sign'][:3]:>7} "
+                      f"{len(delta):>4} {delta[:,-1].mean():>+8.1f} "
+                      f"{delta[:,-1].std():>7.1f} {wr:>4.0f}%")
+
+    else:
+        print(f"  [SKIP] Analysis G (--start {_start_at})")
+
+    if _start_at <= 'H':
+        # =====================================================================
+        #  ANALYSIS H: ITERATIVE SHAPE CLUSTERING (delta from entry)
+        #
+        #  Every segment starts at 0, values = cumulative price change.
+        #  e.g. [0, +40, +20, +30, +20, +40] = the movement pattern.
+        #  Grid-search over segment length and cluster count.
+        #  Score by silhouette, auto-select best, show top 10 clusters.
+        # =====================================================================
+        print(f"\n{'='*70}")
+        print(f"  ANALYSIS H: ITERATIVE SHAPE CLUSTERING (delta from entry)")
+        print(f"{'='*70}")
+
+        from sklearn.cluster import KMeans
+        from collections import Counter
+
+        TOP_K = 10
+        MIN_CLUSTER_SIZE = 5  # minimum members for a useful cluster
+
+        analysis_idx_h = np.where(price_imr['analysis_mask'])[0]
+
+        def _extract_segments(seg_len):
+            """Cut segments, delta from entry (start=0, values=cumulative change)."""
+            raws, feats, idxs = [], [], []
+            for idx in analysis_idx_h:
+                if idx + seg_len > len(close):
                     continue
-                normed = (seg - mn) / (mx - mn)
-                best_n, best_r = 'UNKNOWN', -999.0
-                for nm, tmpl in library.shapes.items():
-                    if tmpl.std() < 1e-12:
-                        continue
-                    r = np.corrcoef(normed, tmpl)[0, 1]
-                    if not np.isnan(r) and r > best_r:
-                        best_r = r
-                        best_n = nm
-                noise_best_shapes.append(best_n)
-
-            noise_shape_counts = Counter_I(noise_best_shapes)
-            print(f"\n  {'Nearest Shape':<25} {'Count':>6} {'%ofNoise':>9} "
-                  f"{'MeanCorr':>9} {'MeanChg':>8} {'WR':>5}")
-            print(f"  {'-'*25} {'-'*6} {'-'*9} {'-'*9} {'-'*8} {'-'*5}")
-
-            for ns_name, ns_cnt in noise_shape_counts.most_common():
-                ns_mask = [i for i, s in enumerate(noise_best_shapes) if s == ns_name]
-                ns_corrs = noise_corrs[ns_mask]
-                ns_chgs = noise_chgs[ns_mask]
-                ns_wr = (ns_chgs > 0).sum() / len(ns_chgs) * 100 if len(ns_chgs) > 0 else 0
-                ns_pct = ns_cnt / n_noise * 100
-                print(f"  {ns_name:<25} {ns_cnt:>6} {ns_pct:>8.1f}% "
-                      f"{ns_corrs.mean():>9.3f} {ns_chgs.mean():>+8.1f} {ns_wr:>4.0f}%")
-
-            # Correlation band breakdown
-            print(f"\n  NOISE BY CORRELATION BAND:")
-            print(f"  {'Band':<15} {'Count':>6} {'%':>6} {'MeanChg':>8} {'WR':>5} "
-                  f"{'StdChg':>7}")
-            print(f"  {'-'*15} {'-'*6} {'-'*6} {'-'*8} {'-'*5} {'-'*7}")
-            thr = library.CORR_THRESHOLD
-            bands = [(thr - 0.05, thr, f'{thr-0.05:.2f}-{thr:.2f}'),
-                     (thr - 0.15, thr - 0.05, f'{thr-0.15:.2f}-{thr-0.05:.2f}'),
-                     (thr - 0.35, thr - 0.15, f'{thr-0.35:.2f}-{thr-0.15:.2f}'),
-                     (-1.0, thr - 0.35, f'<{thr-0.35:.2f}')]
-            for lo, hi, label in bands:
-                band_mask = (noise_corrs >= lo) & (noise_corrs < hi)
-                bc = band_mask.sum()
-                if bc == 0:
+                seg = close[idx : idx + seg_len]
+                if len(seg) != seg_len:
                     continue
-                b_chgs = noise_chgs[band_mask]
-                b_wr = (b_chgs > 0).sum() / bc * 100
-                print(f"  {label:<15} {bc:>6} {bc/n_noise*100:>5.1f}% "
-                      f"{b_chgs.mean():>+8.1f} {b_wr:>4.0f}% {b_chgs.std():>7.1f}")
+                feat = seg - seg[0]  # delta from entry: [0, +40, +20, ...]
+                raws.append(seg)
+                feats.append(feat)
+                idxs.append(idx)
+            if len(feats) == 0:
+                return np.array([]), np.array([]), np.array([])
+            return np.array(raws), np.array(feats), np.array(idxs)
 
-        # =================================================================
-        #  SUB-CLASSIFICATION: within each shape, cluster timing variants
-        # =================================================================
-        from sklearn.cluster import KMeans as KMeans_sub
+        def _cluster_coherence(feats, labels, top_k=10):
+            """Mean within-cluster std (lower = tighter overlays).
+            Only considers top-k clusters by size with >= MIN_CLUSTER_SIZE."""
+            counts = Counter(labels)
+            top = [cid for cid, cnt in counts.most_common(top_k)
+                   if cnt >= MIN_CLUSTER_SIZE]
+            if not top:
+                return 999.0, 0
+            stds = []
+            for cid in top:
+                mask = (labels == cid)
+                stds.append(feats[mask].std(axis=0).mean())
+            return np.mean(stds), len(top)
 
-        MIN_FOR_SUB = 10   # need at least this many to sub-cluster
-        SUB_K = 3           # number of timing sub-types per shape
-        x_plot = np.arange(seed_len)
+        # --- Phase 1: Find best segment length ---
+        seg_lens = [8, 12, 16, 24]
+        best_len_score = 999.0
+        best_seg_len = 16
 
-        sub_shapes = [s for s in shape_stats if s['count'] >= MIN_FOR_SUB]
+        print(f"\n  Phase 1: Find best segment length (k=20, delta mode)")
+        for seg_len in seg_lens:
+            raws, feats, idxs = _extract_segments(seg_len)
+            n_seg = len(feats)
+            if n_seg < 40:
+                continue
+            k_test = min(20, n_seg // 3)
+            km = KMeans(n_clusters=k_test, random_state=42, n_init=5)
+            labels = km.fit_predict(feats)
+            coh, n_valid = _cluster_coherence(feats, labels)
+            is_best = coh < best_len_score
+            if is_best:
+                best_len_score = coh
+                best_seg_len = seg_len
+            marker = ' <--' if is_best else ''
+            print(f"    len={seg_len:>2}: {n_seg} segs, k={k_test}, "
+                  f"coherence={coh:.2f} ({n_valid} valid clusters){marker}")
 
-        if sub_shapes:
-            print(f"\n  {'='*60}")
-            print(f"  SUB-CLASSIFICATION (shapes with n >= {MIN_FOR_SUB})")
-            print(f"  {'='*60}")
+        print(f"  Best length: {best_seg_len}")
 
-            all_sub_stats = []  # collect for plotting
+        # --- Phase 2: Iterate k upward until clusters are tight ---
+        raws, feats, idxs = _extract_segments(best_seg_len)
+        n_seg = len(feats)
 
-            for ss in sub_shapes:
-                entries = ss['entries']
-                # Normalize each segment to 0-1 for shape clustering
-                normed_segs = []
-                raw_segs = []
-                for idx, corr, seg in entries:
-                    mn, mx = seg.min(), seg.max()
-                    if mx - mn < 1e-12:
-                        normed_segs.append(np.zeros(seed_len))
-                    else:
-                        normed_segs.append((seg - mn) / (mx - mn))
-                    raw_segs.append(seg)
-                normed_arr = np.array(normed_segs)
-                raw_arr = np.array(raw_segs)
+        max_k = min(n_seg // MIN_CLUSTER_SIZE, 100)
+        k_candidates = [k for k in [10, 15, 20, 30, 40, 50, 75, 100]
+                        if k <= max_k and k < n_seg]
+        if not k_candidates:
+            k_candidates = [max(2, n_seg // MIN_CLUSTER_SIZE)]
 
-                k_use = min(SUB_K, len(entries) // 3)
-                if k_use < 2:
-                    k_use = 2
+        print(f"\n  Phase 2: Iterate k (len={best_seg_len}, {n_seg} segments)")
+        print(f"  {'K':>4} {'Coherence':>10} {'ValidClusters':>14} "
+              f"{'MinSize':>8} {'Best?':>5}")
+        print(f"  {'-'*4} {'-'*10} {'-'*14} {'-'*8} {'-'*5}")
 
-                km = KMeans_sub(n_clusters=k_use, random_state=42, n_init=10)
-                sub_labels = km.fit_predict(normed_arr)
+        best_coh = 999.0
+        best_config = None
+        prev_coh = None
 
-                print(f"\n  {ss['name']} (n={ss['count']}) -> {k_use} sub-types:")
-                print(f"    {'Sub':<8} {'N':>4} {'MeanCorr':>9} {'MeanChg':>8} "
-                      f"{'WR':>5} {'R2':>6} {'Timing':>20}")
-                print(f"    {'-'*8} {'-'*4} {'-'*9} {'-'*8} {'-'*5} {'-'*6} {'-'*20}")
+        for k in k_candidates:
+            km = KMeans(n_clusters=k, random_state=42, n_init=10)
+            labels = km.fit_predict(feats)
+            coh, n_valid = _cluster_coherence(feats, labels)
 
-                shape_sub_stats = []
-                for si in range(k_use):
-                    mask = (sub_labels == si)
-                    n_sub = mask.sum()
-                    if n_sub == 0:
-                        continue
-                    sub_normed = normed_arr[mask]
-                    sub_raw = raw_arr[mask]
-                    sub_corrs = [entries[j][1] for j in range(len(entries)) if mask[j]]
+            counts = Counter(labels)
+            top_sizes = [cnt for _, cnt in counts.most_common(TOP_K)]
+            min_top = min(top_sizes) if top_sizes else 0
 
-                    # Timing: where does main movement happen?
-                    # Measure cumulative change at 33% and 66% of segment
-                    centroid = km.cluster_centers_[si]
-                    third = seed_len // 3
-                    two_third = 2 * seed_len // 3
+            is_best = coh < best_coh and n_valid >= min(TOP_K, k)
+            if is_best:
+                best_coh = coh
+                best_config = {
+                    'seg_len': best_seg_len, 'k': k,
+                    'labels': labels, 'raws': raws, 'feats': feats,
+                    'idxs': idxs, 'coherence': coh,
+                }
 
-                    # Movement in first/mid/last third
-                    move_early = abs(centroid[third] - centroid[0])
-                    move_mid = abs(centroid[two_third] - centroid[third])
-                    move_late = abs(centroid[-1] - centroid[two_third])
-                    total_move = move_early + move_mid + move_late
+            marker = ' <--' if is_best else ''
+            print(f"  {k:>4} {coh:>10.2f} {n_valid:>14} "
+                  f"{min_top:>8}{marker}")
 
-                    if total_move < 1e-12:
-                        timing = "FLAT"
-                    else:
-                        pct_early = move_early / total_move
-                        pct_late = move_late / total_move
-                        if pct_early > 0.45:
-                            timing = "EARLY (front-loaded)"
-                        elif pct_late > 0.45:
-                            timing = "LATE (back-loaded)"
-                        else:
-                            timing = "STEADY (even)"
+            # Stop if coherence stopped improving (< 5% gain)
+            if prev_coh is not None and coh > prev_coh * 0.95 and not is_best:
+                if k > 30:  # only stop early after trying enough
+                    print(f"  (converged at k={k})")
+                    break
+            prev_coh = coh
 
-                    sub_chgs = sub_raw[:, -1] - sub_raw[:, 0]
-                    sub_wr = (sub_chgs > 0).sum() / n_sub * 100
-                    sub_mean_chg = sub_chgs.mean()
-                    sub_mean_corr = np.mean(sub_corrs)
+        if best_config is None:
+            print("  No valid configuration found. Skipping.")
+        else:
+            bc = best_config
+            print(f"\n  BEST: len={bc['seg_len']}, k={bc['k']}, "
+                  f"coherence={bc['coherence']:.2f}")
 
-                    # Goodness of fit: R² = 1 - SS_res / SS_tot
-                    ss_res = np.sum((sub_normed - centroid[np.newaxis, :]) ** 2)
-                    ss_tot = np.sum((sub_normed - sub_normed.mean()) ** 2)
-                    r2 = 1.0 - ss_res / ss_tot if ss_tot > 1e-12 else 0.0
+            # Build cluster stats
+            labels = bc['labels']
+            raws = bc['raws']
+            feats = bc['feats']
+            counts = Counter(labels)
+            # Sort by size, filter to >= MIN_CLUSTER_SIZE
+            top_clusters = [(cid, cnt) for cid, cnt in counts.most_common()
+                            if cnt >= MIN_CLUSTER_SIZE][:TOP_K]
 
-                    label = f"{ss['name']}_{si}"
-                    shape_sub_stats.append({
-                        'label': label, 'n': n_sub, 'timing': timing,
-                        'mean_corr': sub_mean_corr, 'mean_chg': sub_mean_chg,
-                        'wr': sub_wr, 'r2': r2, 'centroid': centroid,
-                        'normed': sub_normed, 'raw': sub_raw,
-                    })
+            print(f"\n  {'Clust':>5} {'N':>5} {'MeanChg':>8} {'StdChg':>7} "
+                  f"{'WR':>5} {'Coh':>6}")
+            print(f"  {'-'*5} {'-'*5} {'-'*8} {'-'*7} {'-'*5} {'-'*6}")
 
-                    print(f"    {label:<8} {n_sub:>4} {sub_mean_corr:>9.3f} "
-                          f"{sub_mean_chg:>+8.1f} {sub_wr:>4.0f}% {r2:>5.2f} "
-                          f"{timing:>20}")
+            cluster_stats = []
+            for cid, count in top_clusters:
+                mask_c = (labels == cid)
+                raw_c = raws[mask_c]
+                feat_c = feats[mask_c]
 
-                all_sub_stats.append({
-                    'parent': ss['name'], 'subs': shape_sub_stats,
-                    'template': library.shapes[ss['name']],
+                changes = raw_c[:, -1] - raw_c[:, 0]
+                mean_chg = changes.mean()
+                std_chg = changes.std()
+                wr = (changes > 0).sum() / len(changes) * 100
+                coherence = feat_c.std(axis=0).mean()
+
+                cluster_stats.append({
+                    'cid': cid, 'count': count, 'mean_chg': mean_chg,
+                    'std_chg': std_chg, 'wr': wr, 'coherence': coherence,
+                    'feat': feat_c, 'raw': raw_c,
                 })
 
-            # --- Sub-classification plot: one row per parent shape ---
-            if all_sub_stats:
-                n_parents = len(all_sub_stats)
-                max_subs = max(len(a['subs']) for a in all_sub_stats)
-                fig_sub, axes_sub = plt.subplots(
-                    n_parents, max_subs,
-                    figsize=(5 * max_subs, 4 * n_parents),
-                    squeeze=False)
+                print(f"  C{cid:<4} {count:>5} {mean_chg:>+8.1f} {std_chg:>7.1f} "
+                      f"{wr:>4.0f}% {coherence:>6.1f}")
 
-                sub_colors = ['#F44336', '#2196F3', '#4CAF50', '#FF9800']
+            # Plot top 10 clusters
+            n_plot = min(TOP_K, len(cluster_stats))
+            n_cols = 5
+            n_rows = (n_plot + n_cols - 1) // n_cols
+            seg_len = bc['seg_len']
+            x_seg = np.arange(seg_len)
 
-                for row_i, parent_info in enumerate(all_sub_stats):
-                    for col_i, sub in enumerate(parent_info['subs']):
-                        ax = axes_sub[row_i, col_i]
-                        normed = sub['normed']
-                        n_s = len(normed)
-                        max_show = min(n_s, 150)
-                        alpha = max(0.08, min(0.4, 20.0 / max_show))
-                        color = sub_colors[col_i % len(sub_colors)]
+            fig_h, axes_h = plt.subplots(n_rows, n_cols,
+                                          figsize=(4 * n_cols, 3.5 * n_rows),
+                                          squeeze=False)
 
-                        for j in range(max_show):
-                            ax.plot(x_plot, normed[j], color=color,
-                                    alpha=alpha, linewidth=0.5)
+            for k in range(n_plot):
+                row, col = divmod(k, n_cols)
+                ax = axes_h[row, col]
+                cs = cluster_stats[k]
+                feat_c = cs['feat']
+                n_in = len(feat_c)
+                color = cmap(k % 10)
 
-                        # Centroid
-                        ax.plot(x_plot, sub['centroid'], color=color,
-                                linewidth=3, label='Centroid')
-                        # Template
-                        ax.plot(x_plot, parent_info['template'], color='gray',
-                                linewidth=2, linestyle='--', alpha=0.6,
-                                label='Template')
+                # Individual traces
+                max_plot = min(n_in, 200)
+                alpha = max(0.05, min(0.3, 20.0 / max_plot))
+                for j in range(max_plot):
+                    ax.plot(x_seg, feat_c[j], color=color, alpha=alpha, linewidth=0.5)
 
-                        ax.set_title(
-                            f"{sub['label']}\n"
-                            f"n={sub['n']}, WR={sub['wr']:.0f}%, "
-                            f"chg={sub['mean_chg']:+.0f}\n"
-                            f"{sub['timing']}",
-                            fontsize=9)
-                        ax.set_ylim(-0.05, 1.05)
-                        ax.grid(True, alpha=0.15)
-                        ax.axhline(y=0, color='gray', linewidth=0.3)
-                        if col_i == 0:
-                            ax.set_ylabel(parent_info['parent'], fontsize=9,
-                                          fontweight='bold')
-                        if row_i == 0 and col_i == 0:
-                            ax.legend(fontsize=7, loc='best')
+                # Mean + std envelope
+                mean_f = feat_c.mean(axis=0)
+                std_f = feat_c.std(axis=0)
+                ax.plot(x_seg, mean_f, color=color, linewidth=3)
+                ax.fill_between(x_seg, mean_f - std_f, mean_f + std_f,
+                                color=color, alpha=0.15)
 
-                    # Hide unused columns
-                    for col_i in range(len(parent_info['subs']), max_subs):
-                        axes_sub[row_i, col_i].set_visible(False)
+                ax.axhline(y=0, color='gray', linestyle='-', linewidth=0.5, alpha=0.5)
 
-                fig_sub.suptitle(
-                    f'Sub-Classification: Timing Variants Within Shapes\n'
-                    f'{len(sub_shapes)} shapes sub-clustered (k={SUB_K})',
-                    fontsize=13)
-                plt.tight_layout()
-                sub_path = os.path.join(PLOTS_DIR, '0k_sub_classification.png')
-                fig_sub.savefig(sub_path, dpi=150, bbox_inches='tight',
-                                facecolor='white')
-                plt.close(fig_sub)
-                print(f"\n  Saved: {sub_path}")
+                # Auto-fit y-axis
+                all_v = feat_c.flatten()
+                y_c = np.mean(all_v)
+                y_s = max(np.std(all_v) * 3, 5)
+                ax.set_ylim(y_c - y_s, y_c + y_s)
 
-        # --- Plot 1: Seed template gallery (4x5 grid of all 20 shapes) ---
-        fig_seeds, axes_seeds = plt.subplots(4, 5, figsize=(20, 12), squeeze=False)
-        sorted_shapes = sorted(library.shapes.keys())
-        x_plot = np.arange(seed_len)
+                ax.set_title(f"C{cs['cid']}: n={n_in}, WR={cs['wr']:.0f}%\n"
+                             f"coh={cs['coherence']:.1f}, chg={cs['mean_chg']:+.0f}",
+                             fontsize=9)
+                if col == 0:
+                    ax.set_ylabel('Delta (ticks)')
+                if row == n_rows - 1:
+                    ax.set_xlabel('Bar')
+                ax.grid(True, alpha=0.2)
 
-        for i, name in enumerate(sorted_shapes):
-            row, col = divmod(i, 5)
-            ax = axes_seeds[row, col]
-            template = library.shapes[name]
-            cnt = shape_counts.get(name, 0)
-            ax.plot(x_plot, template, color='#2196F3', linewidth=2.5)
-            ax.fill_between(x_plot, 0, template, alpha=0.15, color='#2196F3')
-            ax.set_title(f'{name}\nn={cnt}', fontsize=9, fontweight='bold')
-            ax.set_ylim(-0.05, 1.05)
-            ax.set_xlim(0, seed_len - 1)
-            ax.axhline(y=0, color='gray', linewidth=0.5, alpha=0.5)
-            ax.axhline(y=1, color='gray', linewidth=0.5, alpha=0.5)
-            ax.grid(True, alpha=0.15)
-            if col == 0:
-                ax.set_ylabel('Normalized')
-            if row == 3:
-                ax.set_xlabel('Bar')
+            for k in range(n_plot, n_rows * n_cols):
+                row, col = divmod(k, n_cols)
+                axes_h[row, col].set_visible(False)
 
-        fig_seeds.suptitle(
-            f'Seed Primitive Library ({len(library.shapes)} shapes, N={seed_len})\n'
-            f'Matched: {n_matched}/{n_total} ({100 - noise_pct:.1f}%), '
-            f'NOISE: {n_noise} ({noise_pct:.1f}%)',
-            fontsize=13)
-        plt.tight_layout()
-        seeds_path = os.path.join(PLOTS_DIR, '0g_seed_templates.png')
-        fig_seeds.savefig(seeds_path, dpi=150, bbox_inches='tight', facecolor='white')
-        plt.close(fig_seeds)
-        print(f"\n  Saved: {seeds_path}")
+            fig_h.suptitle(f'Top {n_plot} Shape Clusters (len={seg_len}, k={bc["k"]})\n'
+                            f'Delta from entry, coherence={bc["coherence"]:.1f}, '
+                            f'{len(feats)} segments',
+                            fontsize=13)
+            plt.tight_layout()
+            h_path = os.path.join(PLOTS_DIR, '0f_shape_clusters.png')
+            fig_h.savefig(h_path, dpi=150, bbox_inches='tight', facecolor='white')
+            plt.close(fig_h)
+            print(f"\n  Saved: {h_path}")
 
-        # --- Plot 2: Top matched shapes with actual price overlays ---
-        # Show up to 10 most-populated shapes (excluding NOISE)
-        top_shapes = sorted(shape_stats, key=lambda s: s['count'], reverse=True)[:10]
-        n_top = len(top_shapes)
+    else:
+        print(f"  [SKIP] Analysis H (--start {_start_at})")
 
-        if n_top > 0:
-            n_cols_t = 5
-            n_rows_t = (n_top + n_cols_t - 1) // n_cols_t
-            fig_match, axes_match = plt.subplots(
-                n_rows_t, n_cols_t, figsize=(4 * n_cols_t, 3.5 * n_rows_t),
-                squeeze=False)
+    if _start_at <= 'I':
+        # =====================================================================
+        #  ANALYSIS I: SEED PRIMITIVE SHAPE CLASSIFICATION
+        #
+        #  Classify every segment against 20 mathematical seed shapes
+        #  using Pearson correlation. Threshold 0.85 → shape or NOISE.
+        # =====================================================================
+        print(f"\n{'='*70}")
+        print(f"  ANALYSIS I: SEED PRIMITIVE CLASSIFICATION (20 shapes)")
+        print(f"{'='*70}")
 
-            for k, ss in enumerate(top_shapes):
-                row, col = divmod(k, n_cols_t)
-                ax = axes_match[row, col]
+        from collections import Counter as Counter_I
 
-                entries = ss['entries']
-                # Normalize each segment to 0-1 and overlay
-                max_show = min(len(entries), 200)
-                alpha = max(0.05, min(0.3, 20.0 / max_show))
+        # Use same segment length as Analysis H (best_seg_len), fallback 16
+        seed_len = best_seg_len if 'best_seg_len' in dir() else 16
+        library = SeedPrimitiveLibrary(N=seed_len)
 
-                all_normed = []
-                for j in range(max_show):
-                    seg = entries[j][2]
+        print(f"\n  Seed library: {len(library.shapes)} shapes, segment length={seed_len}")
+        print(f"  Shapes: {', '.join(sorted(library.shapes.keys()))}")
+
+        # Extract segments (same as Analysis H: every analysis bar)
+        analysis_mask_i = price_imr['analysis_mask']
+        analysis_idx_i = np.where(analysis_mask_i)[0]
+
+        classifications = []  # (idx, shape_name, correlation, raw_segment)
+        for idx in tqdm(analysis_idx_i, desc='  Classifying', ascii=True, dynamic_ncols=True):
+            if idx + seed_len > len(close):
+                continue
+            seg = close[idx : idx + seed_len]
+            if len(seg) != seed_len:
+                continue
+            shape_name, corr = library.classify_trajectory(seg)
+            classifications.append((idx, shape_name, corr, seg))
+
+        n_total = len(classifications)
+        if n_total == 0:
+            print("  No segments to classify. Skipping Analysis I.")
+        else:
+            # Tally
+            shape_counts = Counter_I(c[1] for c in classifications)
+            n_noise = shape_counts.get('NOISE', 0)
+            n_matched = n_total - n_noise
+            noise_pct = n_noise / n_total * 100
+
+            print(f"\n  Total segments: {n_total}")
+            print(f"  Matched (corr >= {library.CORR_THRESHOLD}): {n_matched} ({100 - noise_pct:.1f}%)")
+            print(f"  NOISE (corr < {library.CORR_THRESHOLD}):    {n_noise} ({noise_pct:.1f}%)")
+
+            # Shape breakdown table
+            print(f"\n  {'Shape':<25} {'Count':>6} {'%':>6} {'MeanCorr':>9} "
+                  f"{'MeanChg':>8} {'WR':>5}")
+            print(f"  {'-'*25} {'-'*6} {'-'*6} {'-'*9} {'-'*8} {'-'*5}")
+
+            shape_stats = []
+            for shape_name in sorted(shape_counts.keys()):
+                if shape_name == 'NOISE':
+                    continue
+                entries = [(idx, corr, seg) for idx, sn, corr, seg in classifications
+                           if sn == shape_name]
+                count = len(entries)
+                pct = count / n_total * 100
+                mean_corr = np.mean([e[1] for e in entries])
+                changes = np.array([e[2][-1] - e[2][0] for e in entries])
+                mean_chg = changes.mean()
+                wr = (changes > 0).sum() / len(changes) * 100 if len(changes) > 0 else 0
+
+                shape_stats.append({
+                    'name': shape_name, 'count': count, 'pct': pct,
+                    'mean_corr': mean_corr, 'mean_chg': mean_chg, 'wr': wr,
+                    'entries': entries,
+                })
+
+                print(f"  {shape_name:<25} {count:>6} {pct:>5.1f}% {mean_corr:>9.3f} "
+                      f"{mean_chg:>+8.1f} {wr:>4.0f}%")
+
+            # NOISE deep-dive: what shapes were they closest to?
+            if n_noise > 0:
+                noise_entries = [(idx, corr, seg) for idx, sn, corr, seg in classifications
+                                 if sn == 'NOISE']
+                noise_corrs = np.array([e[1] for e in noise_entries])
+                noise_chgs = np.array([e[2][-1] - e[2][0] for e in noise_entries])
+                noise_wr = (noise_chgs > 0).sum() / len(noise_chgs) * 100
+                print(f"  {'NOISE':<25} {n_noise:>6} {noise_pct:>5.1f}% "
+                      f"{np.mean(noise_corrs):>9.3f} {noise_chgs.mean():>+8.1f} "
+                      f"{noise_wr:>4.0f}%")
+
+                # --- NOISE BREAKDOWN: what is the best-match shape for each noise segment? ---
+                print(f"\n  NOISE BREAKDOWN (best-match shape for segments below 0.85):")
+
+                # Re-classify noise to get their best-match shape name
+                noise_best_shapes = []
+                for idx, corr, seg in noise_entries:
                     mn, mx = seg.min(), seg.max()
                     if mx - mn < 1e-12:
-                        normed = np.zeros(seed_len)
-                    else:
-                        normed = (seg - mn) / (mx - mn)
-                    all_normed.append(normed)
-                    ax.plot(x_plot, normed, color='#1976D2', alpha=alpha,
-                            linewidth=0.5)
+                        noise_best_shapes.append('FLATLINE')
+                        continue
+                    normed = (seg - mn) / (mx - mn)
+                    best_n, best_r = 'UNKNOWN', -999.0
+                    for nm, tmpl in library.shapes.items():
+                        if tmpl.std() < 1e-12:
+                            continue
+                        r = np.corrcoef(normed, tmpl)[0, 1]
+                        if not np.isnan(r) and r > best_r:
+                            best_r = r
+                            best_n = nm
+                    noise_best_shapes.append(best_n)
 
-                # Template
-                template = library.shapes[ss['name']]
-                ax.plot(x_plot, template, color='#F44336', linewidth=2.5,
-                        label='Template')
+                noise_shape_counts = Counter_I(noise_best_shapes)
+                print(f"\n  {'Nearest Shape':<25} {'Count':>6} {'%ofNoise':>9} "
+                      f"{'MeanCorr':>9} {'MeanChg':>8} {'WR':>5}")
+                print(f"  {'-'*25} {'-'*6} {'-'*9} {'-'*9} {'-'*8} {'-'*5}")
 
-                # Mean of actual segments
-                if all_normed:
-                    mean_n = np.mean(all_normed, axis=0)
-                    ax.plot(x_plot, mean_n, color='#FF9800', linewidth=2,
-                            linestyle='--', label='Mean actual')
+                for ns_name, ns_cnt in noise_shape_counts.most_common():
+                    ns_mask = [i for i, s in enumerate(noise_best_shapes) if s == ns_name]
+                    ns_corrs = noise_corrs[ns_mask]
+                    ns_chgs = noise_chgs[ns_mask]
+                    ns_wr = (ns_chgs > 0).sum() / len(ns_chgs) * 100 if len(ns_chgs) > 0 else 0
+                    ns_pct = ns_cnt / n_noise * 100
+                    print(f"  {ns_name:<25} {ns_cnt:>6} {ns_pct:>8.1f}% "
+                          f"{ns_corrs.mean():>9.3f} {ns_chgs.mean():>+8.1f} {ns_wr:>4.0f}%")
 
-                ax.set_title(f"{ss['name']}\nn={ss['count']}, "
-                             f"r={ss['mean_corr']:.2f}, WR={ss['wr']:.0f}%",
-                             fontsize=8)
+                # Correlation band breakdown
+                print(f"\n  NOISE BY CORRELATION BAND:")
+                print(f"  {'Band':<15} {'Count':>6} {'%':>6} {'MeanChg':>8} {'WR':>5} "
+                      f"{'StdChg':>7}")
+                print(f"  {'-'*15} {'-'*6} {'-'*6} {'-'*8} {'-'*5} {'-'*7}")
+                thr = library.CORR_THRESHOLD
+                bands = [(thr - 0.05, thr, f'{thr-0.05:.2f}-{thr:.2f}'),
+                         (thr - 0.15, thr - 0.05, f'{thr-0.15:.2f}-{thr-0.05:.2f}'),
+                         (thr - 0.35, thr - 0.15, f'{thr-0.35:.2f}-{thr-0.15:.2f}'),
+                         (-1.0, thr - 0.35, f'<{thr-0.35:.2f}')]
+                for lo, hi, label in bands:
+                    band_mask = (noise_corrs >= lo) & (noise_corrs < hi)
+                    bc = band_mask.sum()
+                    if bc == 0:
+                        continue
+                    b_chgs = noise_chgs[band_mask]
+                    b_wr = (b_chgs > 0).sum() / bc * 100
+                    print(f"  {label:<15} {bc:>6} {bc/n_noise*100:>5.1f}% "
+                          f"{b_chgs.mean():>+8.1f} {b_wr:>4.0f}% {b_chgs.std():>7.1f}")
+
+            # =================================================================
+            #  SUB-CLASSIFICATION: within each shape, cluster timing variants
+            # =================================================================
+            from sklearn.cluster import KMeans as KMeans_sub
+
+            MIN_FOR_SUB = 10   # need at least this many to sub-cluster
+            SUB_K = 3           # number of timing sub-types per shape
+            x_plot = np.arange(seed_len)
+
+            sub_shapes = [s for s in shape_stats if s['count'] >= MIN_FOR_SUB]
+
+            if sub_shapes:
+                print(f"\n  {'='*60}")
+                print(f"  SUB-CLASSIFICATION (shapes with n >= {MIN_FOR_SUB})")
+                print(f"  {'='*60}")
+
+                all_sub_stats = []  # collect for plotting
+
+                for ss in sub_shapes:
+                    entries = ss['entries']
+                    # Normalize each segment to 0-1 for shape clustering
+                    normed_segs = []
+                    raw_segs = []
+                    for idx, corr, seg in entries:
+                        mn, mx = seg.min(), seg.max()
+                        if mx - mn < 1e-12:
+                            normed_segs.append(np.zeros(seed_len))
+                        else:
+                            normed_segs.append((seg - mn) / (mx - mn))
+                        raw_segs.append(seg)
+                    normed_arr = np.array(normed_segs)
+                    raw_arr = np.array(raw_segs)
+
+                    k_use = min(SUB_K, len(entries) // 3)
+                    if k_use < 2:
+                        k_use = 2
+
+                    km = KMeans_sub(n_clusters=k_use, random_state=42, n_init=10)
+                    sub_labels = km.fit_predict(normed_arr)
+
+                    print(f"\n  {ss['name']} (n={ss['count']}) -> {k_use} sub-types:")
+                    print(f"    {'Sub':<8} {'N':>4} {'MeanCorr':>9} {'MeanChg':>8} "
+                          f"{'WR':>5} {'R2':>6} {'Timing':>20}")
+                    print(f"    {'-'*8} {'-'*4} {'-'*9} {'-'*8} {'-'*5} {'-'*6} {'-'*20}")
+
+                    shape_sub_stats = []
+                    for si in range(k_use):
+                        mask = (sub_labels == si)
+                        n_sub = mask.sum()
+                        if n_sub == 0:
+                            continue
+                        sub_normed = normed_arr[mask]
+                        sub_raw = raw_arr[mask]
+                        sub_corrs = [entries[j][1] for j in range(len(entries)) if mask[j]]
+
+                        # Timing: where does main movement happen?
+                        # Measure cumulative change at 33% and 66% of segment
+                        centroid = km.cluster_centers_[si]
+                        third = seed_len // 3
+                        two_third = 2 * seed_len // 3
+
+                        # Movement in first/mid/last third
+                        move_early = abs(centroid[third] - centroid[0])
+                        move_mid = abs(centroid[two_third] - centroid[third])
+                        move_late = abs(centroid[-1] - centroid[two_third])
+                        total_move = move_early + move_mid + move_late
+
+                        if total_move < 1e-12:
+                            timing = "FLAT"
+                        else:
+                            pct_early = move_early / total_move
+                            pct_late = move_late / total_move
+                            if pct_early > 0.45:
+                                timing = "EARLY (front-loaded)"
+                            elif pct_late > 0.45:
+                                timing = "LATE (back-loaded)"
+                            else:
+                                timing = "STEADY (even)"
+
+                        sub_chgs = sub_raw[:, -1] - sub_raw[:, 0]
+                        sub_wr = (sub_chgs > 0).sum() / n_sub * 100
+                        sub_mean_chg = sub_chgs.mean()
+                        sub_mean_corr = np.mean(sub_corrs)
+
+                        # Goodness of fit: R² = 1 - SS_res / SS_tot
+                        ss_res = np.sum((sub_normed - centroid[np.newaxis, :]) ** 2)
+                        ss_tot = np.sum((sub_normed - sub_normed.mean()) ** 2)
+                        r2 = 1.0 - ss_res / ss_tot if ss_tot > 1e-12 else 0.0
+
+                        label = f"{ss['name']}_{si}"
+                        shape_sub_stats.append({
+                            'label': label, 'n': n_sub, 'timing': timing,
+                            'mean_corr': sub_mean_corr, 'mean_chg': sub_mean_chg,
+                            'wr': sub_wr, 'r2': r2, 'centroid': centroid,
+                            'normed': sub_normed, 'raw': sub_raw,
+                        })
+
+                        print(f"    {label:<8} {n_sub:>4} {sub_mean_corr:>9.3f} "
+                              f"{sub_mean_chg:>+8.1f} {sub_wr:>4.0f}% {r2:>5.2f} "
+                              f"{timing:>20}")
+
+                    all_sub_stats.append({
+                        'parent': ss['name'], 'subs': shape_sub_stats,
+                        'template': library.shapes[ss['name']],
+                    })
+
+                # --- Sub-classification plot: one row per parent shape ---
+                if all_sub_stats:
+                    n_parents = len(all_sub_stats)
+                    max_subs = max(len(a['subs']) for a in all_sub_stats)
+                    fig_sub, axes_sub = plt.subplots(
+                        n_parents, max_subs,
+                        figsize=(5 * max_subs, 4 * n_parents),
+                        squeeze=False)
+
+                    sub_colors = ['#F44336', '#2196F3', '#4CAF50', '#FF9800']
+
+                    for row_i, parent_info in enumerate(all_sub_stats):
+                        for col_i, sub in enumerate(parent_info['subs']):
+                            ax = axes_sub[row_i, col_i]
+                            normed = sub['normed']
+                            n_s = len(normed)
+                            max_show = min(n_s, 150)
+                            alpha = max(0.08, min(0.4, 20.0 / max_show))
+                            color = sub_colors[col_i % len(sub_colors)]
+
+                            for j in range(max_show):
+                                ax.plot(x_plot, normed[j], color=color,
+                                        alpha=alpha, linewidth=0.5)
+
+                            # Centroid
+                            ax.plot(x_plot, sub['centroid'], color=color,
+                                    linewidth=3, label='Centroid')
+                            # Template
+                            ax.plot(x_plot, parent_info['template'], color='gray',
+                                    linewidth=2, linestyle='--', alpha=0.6,
+                                    label='Template')
+
+                            ax.set_title(
+                                f"{sub['label']}\n"
+                                f"n={sub['n']}, WR={sub['wr']:.0f}%, "
+                                f"chg={sub['mean_chg']:+.0f}\n"
+                                f"{sub['timing']}",
+                                fontsize=9)
+                            ax.set_ylim(-0.05, 1.05)
+                            ax.grid(True, alpha=0.15)
+                            ax.axhline(y=0, color='gray', linewidth=0.3)
+                            if col_i == 0:
+                                ax.set_ylabel(parent_info['parent'], fontsize=9,
+                                              fontweight='bold')
+                            if row_i == 0 and col_i == 0:
+                                ax.legend(fontsize=7, loc='best')
+
+                        # Hide unused columns
+                        for col_i in range(len(parent_info['subs']), max_subs):
+                            axes_sub[row_i, col_i].set_visible(False)
+
+                    fig_sub.suptitle(
+                        f'Sub-Classification: Timing Variants Within Shapes\n'
+                        f'{len(sub_shapes)} shapes sub-clustered (k={SUB_K})',
+                        fontsize=13)
+                    plt.tight_layout()
+                    sub_path = os.path.join(PLOTS_DIR, '0k_sub_classification.png')
+                    fig_sub.savefig(sub_path, dpi=150, bbox_inches='tight',
+                                    facecolor='white')
+                    plt.close(fig_sub)
+                    print(f"\n  Saved: {sub_path}")
+
+            # --- Plot 1: Seed template gallery (4x5 grid of all 20 shapes) ---
+            fig_seeds, axes_seeds = plt.subplots(4, 5, figsize=(20, 12), squeeze=False)
+            sorted_shapes = sorted(library.shapes.keys())
+            x_plot = np.arange(seed_len)
+
+            for i, name in enumerate(sorted_shapes):
+                row, col = divmod(i, 5)
+                ax = axes_seeds[row, col]
+                template = library.shapes[name]
+                cnt = shape_counts.get(name, 0)
+                ax.plot(x_plot, template, color='#2196F3', linewidth=2.5)
+                ax.fill_between(x_plot, 0, template, alpha=0.15, color='#2196F3')
+                ax.set_title(f'{name}\nn={cnt}', fontsize=9, fontweight='bold')
                 ax.set_ylim(-0.05, 1.05)
+                ax.set_xlim(0, seed_len - 1)
+                ax.axhline(y=0, color='gray', linewidth=0.5, alpha=0.5)
+                ax.axhline(y=1, color='gray', linewidth=0.5, alpha=0.5)
                 ax.grid(True, alpha=0.15)
                 if col == 0:
                     ax.set_ylabel('Normalized')
-                if row == n_rows_t - 1:
+                if row == 3:
                     ax.set_xlabel('Bar')
-                if k == 0:
-                    ax.legend(fontsize=7, loc='best')
 
-            # Hide unused
-            for k in range(n_top, n_rows_t * n_cols_t):
-                row, col = divmod(k, n_cols_t)
-                axes_match[row, col].set_visible(False)
-
-            fig_match.suptitle(
-                f'Top {n_top} Matched Shapes — Actual Segments vs Templates\n'
-                f'{n_total} total segments, {n_matched} matched, '
-                f'{n_noise} NOISE ({noise_pct:.1f}%)',
+            fig_seeds.suptitle(
+                f'Seed Primitive Library ({len(library.shapes)} shapes, N={seed_len})\n'
+                f'Matched: {n_matched}/{n_total} ({100 - noise_pct:.1f}%), '
+                f'NOISE: {n_noise} ({noise_pct:.1f}%)',
                 fontsize=13)
             plt.tight_layout()
-            match_path = os.path.join(PLOTS_DIR, '0h_seed_matches.png')
-            fig_match.savefig(match_path, dpi=150, bbox_inches='tight',
-                              facecolor='white')
-            plt.close(fig_match)
-            print(f"  Saved: {match_path}")
+            seeds_path = os.path.join(PLOTS_DIR, '0g_seed_templates.png')
+            fig_seeds.savefig(seeds_path, dpi=150, bbox_inches='tight', facecolor='white')
+            plt.close(fig_seeds)
+            print(f"\n  Saved: {seeds_path}")
 
-        # --- Plot 3: Correlation distribution histogram ---
-        all_corrs = [c[2] for c in classifications]
-        fig_hist, ax_hist = plt.subplots(figsize=(10, 5))
-        ax_hist.hist(all_corrs, bins=50, color='#2196F3', alpha=0.7,
-                     edgecolor='white')
-        ax_hist.axvline(x=library.CORR_THRESHOLD, color='#F44336', linewidth=2,
-                        linestyle='--', label=f'Threshold ({library.CORR_THRESHOLD})')
-        ax_hist.set_xlabel('Best Pearson Correlation')
-        ax_hist.set_ylabel('Segment Count')
-        ax_hist.set_title(f'Correlation Distribution (n={n_total})\n'
-                          f'Above 0.85: {n_matched} ({100 - noise_pct:.1f}%), '
-                          f'Below: {n_noise} ({noise_pct:.1f}%)')
-        ax_hist.legend()
-        ax_hist.grid(True, alpha=0.15)
-        plt.tight_layout()
-        hist_path = os.path.join(PLOTS_DIR, '0i_corr_distribution.png')
-        fig_hist.savefig(hist_path, dpi=150, bbox_inches='tight', facecolor='white')
-        plt.close(fig_hist)
-        print(f"  Saved: {hist_path}")
+            # --- Plot 2: Top matched shapes with actual price overlays ---
+            # Show up to 10 most-populated shapes (excluding NOISE)
+            top_shapes = sorted(shape_stats, key=lambda s: s['count'], reverse=True)[:10]
+            n_top = len(top_shapes)
 
-        # --- Plot 4: NOISE audit — spaghetti by nearest shape ---
-        if n_noise > 0 and 'noise_entries' in dir() and 'noise_best_shapes' in dir():
-            # Group noise by nearest shape, show top 6
-            noise_by_shape = {}
-            for i, (idx, corr, seg) in enumerate(noise_entries):
-                ns = noise_best_shapes[i]
-                if ns not in noise_by_shape:
-                    noise_by_shape[ns] = []
-                noise_by_shape[ns].append((corr, seg))
-
-            top_noise_shapes = sorted(noise_by_shape.keys(),
-                                      key=lambda s: len(noise_by_shape[s]),
-                                      reverse=True)[:6]
-            n_ns = len(top_noise_shapes)
-
-            if n_ns > 0:
-                n_cols_ns = min(3, n_ns)
-                n_rows_ns = (n_ns + n_cols_ns - 1) // n_cols_ns
-                fig_noise, axes_noise = plt.subplots(
-                    n_rows_ns, n_cols_ns,
-                    figsize=(5 * n_cols_ns, 4 * n_rows_ns),
+            if n_top > 0:
+                n_cols_t = 5
+                n_rows_t = (n_top + n_cols_t - 1) // n_cols_t
+                fig_match, axes_match = plt.subplots(
+                    n_rows_t, n_cols_t, figsize=(4 * n_cols_t, 3.5 * n_rows_t),
                     squeeze=False)
 
-                for k, ns_name in enumerate(top_noise_shapes):
-                    row, col = divmod(k, n_cols_ns)
-                    ax = axes_noise[row, col]
-                    ns_segs = noise_by_shape[ns_name]
-                    ns_cnt = len(ns_segs)
-                    ns_corrs_plot = [s[0] for s in ns_segs]
-                    ns_raw = [s[1] for s in ns_segs]
+                for k, ss in enumerate(top_shapes):
+                    row, col = divmod(k, n_cols_t)
+                    ax = axes_match[row, col]
 
-                    # Delta from entry (not normalized — show raw movement)
-                    max_show = min(ns_cnt, 150)
-                    alpha_ns = max(0.08, min(0.4, 20.0 / max_show))
+                    entries = ss['entries']
+                    # Normalize each segment to 0-1 and overlay
+                    max_show = min(len(entries), 200)
+                    alpha = max(0.05, min(0.3, 20.0 / max_show))
 
-                    deltas = []
+                    all_normed = []
                     for j in range(max_show):
-                        d = ns_raw[j] - ns_raw[j][0]
-                        deltas.append(d)
-                        ax.plot(x_plot, d, color='#9E9E9E', alpha=alpha_ns,
+                        seg = entries[j][2]
+                        mn, mx = seg.min(), seg.max()
+                        if mx - mn < 1e-12:
+                            normed = np.zeros(seed_len)
+                        else:
+                            normed = (seg - mn) / (mx - mn)
+                        all_normed.append(normed)
+                        ax.plot(x_plot, normed, color='#1976D2', alpha=alpha,
                                 linewidth=0.5)
 
-                    # Mean delta
-                    if deltas:
-                        mean_d = np.mean(deltas, axis=0)
-                        std_d = np.std(deltas, axis=0)
-                        ax.plot(x_plot, mean_d, color='#F44336', linewidth=2.5,
-                                label='Mean')
-                        ax.fill_between(x_plot, mean_d - std_d, mean_d + std_d,
-                                        color='#F44336', alpha=0.12)
+                    # Template
+                    template = library.shapes[ss['name']]
+                    ax.plot(x_plot, template, color='#F44336', linewidth=2.5,
+                            label='Template')
 
-                    # Template overlay (normalized to match delta scale)
-                    tmpl = library.shapes.get(ns_name)
-                    if tmpl is not None and tmpl.std() > 1e-12 and deltas:
-                        # Scale template to delta range for visual comparison
-                        d_range = np.abs(mean_d).max()
-                        if d_range > 0:
-                            tmpl_scaled = (tmpl - tmpl.mean()) / tmpl.std() * np.std(deltas)
-                            tmpl_scaled = tmpl_scaled - tmpl_scaled[0]
-                            ax.plot(x_plot, tmpl_scaled, color='#2196F3',
-                                    linewidth=2, linestyle='--', label='Template')
+                    # Mean of actual segments
+                    if all_normed:
+                        mean_n = np.mean(all_normed, axis=0)
+                        ax.plot(x_plot, mean_n, color='#FF9800', linewidth=2,
+                                linestyle='--', label='Mean actual')
 
-                    ax.axhline(y=0, color='gray', linewidth=0.5, alpha=0.5)
-                    ns_chgs = np.array([s[1][-1] - s[1][0] for s in ns_segs])
-                    ns_wr = (ns_chgs > 0).sum() / len(ns_chgs) * 100
-                    ax.set_title(
-                        f'NOISE nearest: {ns_name}\n'
-                        f'n={ns_cnt}, r={np.mean(ns_corrs_plot):.2f}, '
-                        f'WR={ns_wr:.0f}%',
-                        fontsize=9)
+                    ax.set_title(f"{ss['name']}\nn={ss['count']}, "
+                                 f"r={ss['mean_corr']:.2f}, WR={ss['wr']:.0f}%",
+                                 fontsize=8)
+                    ax.set_ylim(-0.05, 1.05)
                     ax.grid(True, alpha=0.15)
                     if col == 0:
-                        ax.set_ylabel('Delta (ticks)')
-                    if row == n_rows_ns - 1:
+                        ax.set_ylabel('Normalized')
+                    if row == n_rows_t - 1:
                         ax.set_xlabel('Bar')
                     if k == 0:
                         ax.legend(fontsize=7, loc='best')
 
-                for k in range(n_ns, n_rows_ns * n_cols_ns):
-                    row, col = divmod(k, n_cols_ns)
-                    axes_noise[row, col].set_visible(False)
+                # Hide unused
+                for k in range(n_top, n_rows_t * n_cols_t):
+                    row, col = divmod(k, n_cols_t)
+                    axes_match[row, col].set_visible(False)
 
-                fig_noise.suptitle(
-                    f'NOISE Segments by Nearest Shape (n={n_noise}, '
-                    f'corr < {library.CORR_THRESHOLD})\nDelta from entry (raw ticks)',
+                fig_match.suptitle(
+                    f'Top {n_top} Matched Shapes — Actual Segments vs Templates\n'
+                    f'{n_total} total segments, {n_matched} matched, '
+                    f'{n_noise} NOISE ({noise_pct:.1f}%)',
                     fontsize=13)
                 plt.tight_layout()
-                noise_path = os.path.join(PLOTS_DIR, '0j_noise_audit.png')
-                fig_noise.savefig(noise_path, dpi=150, bbox_inches='tight',
+                match_path = os.path.join(PLOTS_DIR, '0h_seed_matches.png')
+                fig_match.savefig(match_path, dpi=150, bbox_inches='tight',
                                   facecolor='white')
-                plt.close(fig_noise)
-                print(f"  Saved: {noise_path}")
+                plt.close(fig_match)
+                print(f"  Saved: {match_path}")
 
-    # =====================================================================
-    #  ANALYSIS J: RAW DELTA SUB-CLASSIFICATION (ADAPTIVE R² >= 0.80)
-    #
-    #  Recursive bisecting KMeans: keep splitting any sub-type with
-    #  R² < 0.80 until it meets the target or runs out of segments.
-    #  Raw delta from entry (ticks, not normalized).
-    # =====================================================================
-    print(f"\n{'='*70}")
-    print(f"  ANALYSIS J: ADAPTIVE RAW DELTA SUB-CLASSIFICATION (R\u00b2 >= 0.90)")
-    print(f"{'='*70}")
+            # --- Plot 3: Correlation distribution histogram ---
+            all_corrs = [c[2] for c in classifications]
+            fig_hist, ax_hist = plt.subplots(figsize=(10, 5))
+            ax_hist.hist(all_corrs, bins=50, color='#2196F3', alpha=0.7,
+                         edgecolor='white')
+            ax_hist.axvline(x=library.CORR_THRESHOLD, color='#F44336', linewidth=2,
+                            linestyle='--', label=f'Threshold ({library.CORR_THRESHOLD})')
+            ax_hist.set_xlabel('Best Pearson Correlation')
+            ax_hist.set_ylabel('Segment Count')
+            ax_hist.set_title(f'Correlation Distribution (n={n_total})\n'
+                              f'Above 0.85: {n_matched} ({100 - noise_pct:.1f}%), '
+                              f'Below: {n_noise} ({noise_pct:.1f}%)')
+            ax_hist.legend()
+            ax_hist.grid(True, alpha=0.15)
+            plt.tight_layout()
+            hist_path = os.path.join(PLOTS_DIR, '0i_corr_distribution.png')
+            fig_hist.savefig(hist_path, dpi=150, bbox_inches='tight', facecolor='white')
+            plt.close(fig_hist)
+            print(f"  Saved: {hist_path}")
 
-    J_R2_TARGET = 0.90
-    J_MIN_N = 3   # minimum segments per sub-type
-    J_MIN_TOTAL = 10  # need at least this many segments to attempt
-    x_j = np.arange(seed_len)
-    shade_colors = {'RISE': '#4CAF50', 'DROP': '#F44336', 'HOLD': '#9E9E9E'}
+            # --- Plot 4: NOISE audit — spaghetti by nearest shape ---
+            if n_noise > 0 and 'noise_entries' in dir() and 'noise_best_shapes' in dir():
+                # Group noise by nearest shape, show top 6
+                noise_by_shape = {}
+                for i, (idx, corr, seg) in enumerate(noise_entries):
+                    ns = noise_best_shapes[i]
+                    if ns not in noise_by_shape:
+                        noise_by_shape[ns] = []
+                    noise_by_shape[ns].append((corr, seg))
 
-    # Get all shapes with enough segments (sorted by count descending)
-    j_shape_names = sorted(
-        [sn for sn in set(c[1] for c in classifications) if sn != 'NOISE'],
-        key=lambda sn: sum(1 for c in classifications if c[1] == sn),
-        reverse=True)
+                top_noise_shapes = sorted(noise_by_shape.keys(),
+                                          key=lambda s: len(noise_by_shape[s]),
+                                          reverse=True)[:6]
+                n_ns = len(top_noise_shapes)
 
-    j_summary = []  # collect stats for console table
-    subtype_map = {}  # idx → (shape_name, subtype_id) for Analysis K
+                if n_ns > 0:
+                    n_cols_ns = min(3, n_ns)
+                    n_rows_ns = (n_ns + n_cols_ns - 1) // n_cols_ns
+                    fig_noise, axes_noise = plt.subplots(
+                        n_rows_ns, n_cols_ns,
+                        figsize=(5 * n_cols_ns, 4 * n_rows_ns),
+                        squeeze=False)
 
-    MISFIT_IQR_K = 1.0  # IQR multiplier for outlier detection (aggressive)
+                    for k, ns_name in enumerate(top_noise_shapes):
+                        row, col = divmod(k, n_cols_ns)
+                        ax = axes_noise[row, col]
+                        ns_segs = noise_by_shape[ns_name]
+                        ns_cnt = len(ns_segs)
+                        ns_corrs_plot = [s[0] for s in ns_segs]
+                        ns_raw = [s[1] for s in ns_segs]
 
-    def _norm01(arr):
-        mn, mx = arr.min(), arr.max()
-        return (arr - mn) / (mx - mn) if (mx - mn) > 1e-12 else np.zeros_like(arr)
+                        # Delta from entry (not normalized — show raw movement)
+                        max_show = min(ns_cnt, 150)
+                        alpha_ns = max(0.08, min(0.4, 20.0 / max_show))
 
-    def _plot_subtype(ax, sub_deltas, centroid, r2_val, title_str, x_arr,
-                      shade_map, r2_target):
-        """Plot a single sub-type panel: spaghetti + centroid + inflections."""
-        n_sub = len(sub_deltas)
-        if n_sub == 0:
-            ax.set_visible(False)
-            return
+                        deltas = []
+                        for j in range(max_show):
+                            d = ns_raw[j] - ns_raw[j][0]
+                            deltas.append(d)
+                            ax.plot(x_plot, d, color='#9E9E9E', alpha=alpha_ns,
+                                    linewidth=0.5)
 
-        max_show = min(n_sub, 150)
-        alpha = max(0.1, min(0.5, 15.0 / max_show))
-        for j in range(max_show):
-            ax.plot(x_arr, sub_deltas[j], color='#90CAF9', alpha=alpha,
-                    linewidth=0.7)
+                        # Mean delta
+                        if deltas:
+                            mean_d = np.mean(deltas, axis=0)
+                            std_d = np.std(deltas, axis=0)
+                            ax.plot(x_plot, mean_d, color='#F44336', linewidth=2.5,
+                                    label='Mean')
+                            ax.fill_between(x_plot, mean_d - std_d, mean_d + std_d,
+                                            color='#F44336', alpha=0.12)
 
-        ax.plot(x_arr, centroid, color='black', linewidth=3, zorder=5)
+                        # Template overlay (normalized to match delta scale)
+                        tmpl = library.shapes.get(ns_name)
+                        if tmpl is not None and tmpl.std() > 1e-12 and deltas:
+                            # Scale template to delta range for visual comparison
+                            d_range = np.abs(mean_d).max()
+                            if d_range > 0:
+                                tmpl_scaled = (tmpl - tmpl.mean()) / tmpl.std() * np.std(deltas)
+                                tmpl_scaled = tmpl_scaled - tmpl_scaled[0]
+                                ax.plot(x_plot, tmpl_scaled, color='#2196F3',
+                                        linewidth=2, linestyle='--', label='Template')
 
-        inflections, segs_desc = _detect_inflections(centroid)
-        for sd in segs_desc:
-            clr = shade_map.get(sd['label'], '#9E9E9E')
-            ax.axvspan(sd['start'], sd['end'], alpha=0.08, color=clr)
-        for bi, lvl in inflections:
-            ax.plot(bi, lvl, 'o', color='#F44336', markersize=10, zorder=6)
-            ax.annotate(f'({bi},{lvl:+.0f})',
-                        xy=(bi, lvl), xytext=(5, 10),
-                        textcoords='offset points', fontsize=8,
-                        fontweight='bold', color='#D32F2F',
-                        bbox=dict(boxstyle='round,pad=0.2',
-                                  facecolor='white', alpha=0.8))
+                        ax.axhline(y=0, color='gray', linewidth=0.5, alpha=0.5)
+                        ns_chgs = np.array([s[1][-1] - s[1][0] for s in ns_segs])
+                        ns_wr = (ns_chgs > 0).sum() / len(ns_chgs) * 100
+                        ax.set_title(
+                            f'NOISE nearest: {ns_name}\n'
+                            f'n={ns_cnt}, r={np.mean(ns_corrs_plot):.2f}, '
+                            f'WR={ns_wr:.0f}%',
+                            fontsize=9)
+                        ax.grid(True, alpha=0.15)
+                        if col == 0:
+                            ax.set_ylabel('Delta (ticks)')
+                        if row == n_rows_ns - 1:
+                            ax.set_xlabel('Bar')
+                        if k == 0:
+                            ax.legend(fontsize=7, loc='best')
 
-        ax.axhline(y=0, color='gray', linewidth=0.5, alpha=0.5)
-        ax.grid(True, alpha=0.15)
+                    for k in range(n_ns, n_rows_ns * n_cols_ns):
+                        row, col = divmod(k, n_cols_ns)
+                        axes_noise[row, col].set_visible(False)
 
-        sub_chgs = sub_deltas[:, -1]
-        sub_wr = (sub_chgs > 0).sum() / n_sub * 100 if n_sub > 0 else 0
-        r2_color = '#2E7D32' if r2_val >= r2_target else '#C62828'
-        ax.set_title(f'{title_str}\n'
-                     f'n={n_sub}, WR={sub_wr:.0f}%, '
-                     f'chg={sub_chgs.mean():+.0f}t, '
-                     f'R\u00b2={r2_val:.2f}',
-                     fontsize=10, fontweight='bold', color=r2_color)
-        ax.set_xlabel('Bar')
+                    fig_noise.suptitle(
+                        f'NOISE Segments by Nearest Shape (n={n_noise}, '
+                        f'corr < {library.CORR_THRESHOLD})\nDelta from entry (raw ticks)',
+                        fontsize=13)
+                    plt.tight_layout()
+                    noise_path = os.path.join(PLOTS_DIR, '0j_noise_audit.png')
+                    fig_noise.savefig(noise_path, dpi=150, bbox_inches='tight',
+                                      facecolor='white')
+                    plt.close(fig_noise)
+                    print(f"  Saved: {noise_path}")
 
-    for target_shape in j_shape_names:
-        entries_j = [(idx, corr, seg) for idx, sn, corr, seg in classifications
-                     if sn == target_shape]
-        n_seg_j = len(entries_j)
+    else:
+        print(f"  [SKIP] Analysis I (--start {_start_at})")
 
-        if n_seg_j < J_MIN_TOTAL:
-            continue
+    if _start_at <= 'J':
+        # =====================================================================
+        #  ANALYSIS J: RAW DELTA SUB-CLASSIFICATION (ADAPTIVE R² >= 0.80)
+        #
+        #  Recursive bisecting KMeans: keep splitting any sub-type with
+        #  R² < 0.80 until it meets the target or runs out of segments.
+        #  Raw delta from entry (ticks, not normalized).
+        # =====================================================================
+        print(f"\n{'='*70}")
+        print(f"  ANALYSIS J: ADAPTIVE RAW DELTA SUB-CLASSIFICATION (R\u00b2 >= 0.90)")
+        print(f"{'='*70}")
 
-        deltas_j = np.array([e[2] - e[2][0] for e in entries_j])  # raw ticks
+        J_R2_TARGET = 0.90
+        J_MIN_N = 3   # minimum segments per sub-type
+        J_MIN_TOTAL = 10  # need at least this many segments to attempt
+        x_j = np.arange(seed_len)
+        shade_colors = {'RISE': '#4CAF50', 'DROP': '#F44336', 'HOLD': '#9E9E9E'}
 
-        # --- Pass 1: Adaptive split ---
-        j_labels, j_centroids, j_r2s = _adaptive_split(
-            deltas_j, r2_target=J_R2_TARGET, min_n=J_MIN_N)
+        # Get all shapes with enough segments (sorted by count descending)
+        j_shape_names = sorted(
+            [sn for sn in set(c[1] for c in classifications) if sn != 'NOISE'],
+            key=lambda sn: sum(1 for c in classifications if c[1] == sn),
+            reverse=True)
 
-        n_clusters = len(j_centroids)
+        j_summary = []  # collect stats for console table
+        subtype_map = {}  # idx → (shape_name, subtype_id) for Analysis K
 
-        # --- Quality gate: IQR outlier detection in raw tick space ---
-        # Segments with RMSE > Q3 + 1.5*IQR from centroid are misfits
-        misfit_mask = np.zeros(len(deltas_j), dtype=bool)
-        for si in range(n_clusters):
-            cl_mask = (j_labels == si)
-            cl_indices = np.where(cl_mask)[0]
-            if len(cl_indices) < 4:
-                continue  # need enough for IQR
-            centroid = j_centroids[si]
-            rmses = np.array([np.sqrt(np.mean((deltas_j[gi] - centroid) ** 2))
-                              for gi in cl_indices])
-            q1, q3 = np.percentile(rmses, [25, 75])
-            iqr = q3 - q1
-            fence = q3 + MISFIT_IQR_K * iqr
-            for i, gi in enumerate(cl_indices):
-                if rmses[i] > fence:
-                    misfit_mask[gi] = True
+        MISFIT_IQR_K = 1.0  # IQR multiplier for outlier detection (aggressive)
 
-        n_misfits = misfit_mask.sum()
+        def _norm01(arr):
+            mn, mx = arr.min(), arr.max()
+            return (arr - mn) / (mx - mn) if (mx - mn) > 1e-12 else np.zeros_like(arr)
 
-        # Remove misfits from original clusters, recompute centroids/R²
-        clean_labels = j_labels.copy()
-        clean_labels[misfit_mask] = -1  # mark misfits
+        def _plot_subtype(ax, sub_deltas, centroid, r2_val, title_str, x_arr,
+                          shade_map, r2_target):
+            """Plot a single sub-type panel: spaghetti + centroid + inflections."""
+            n_sub = len(sub_deltas)
+            if n_sub == 0:
+                ax.set_visible(False)
+                return
 
-        # Rebuild clean centroids and R²s (shape-normalized)
-        clean_centroids = []
-        clean_r2s = []
-        active_ids = []
-        for si in range(n_clusters):
-            cl_mask = (clean_labels == si)
-            n_cl = cl_mask.sum()
-            if n_cl < J_MIN_N:
-                clean_labels[cl_mask] = -1  # too small after filtering
+            max_show = min(n_sub, 150)
+            alpha = max(0.1, min(0.5, 15.0 / max_show))
+            for j in range(max_show):
+                ax.plot(x_arr, sub_deltas[j], color='#90CAF9', alpha=alpha,
+                        linewidth=0.7)
+
+            ax.plot(x_arr, centroid, color='black', linewidth=3, zorder=5)
+
+            inflections, segs_desc = _detect_inflections(centroid)
+            for sd in segs_desc:
+                clr = shade_map.get(sd['label'], '#9E9E9E')
+                ax.axvspan(sd['start'], sd['end'], alpha=0.08, color=clr)
+            for bi, lvl in inflections:
+                ax.plot(bi, lvl, 'o', color='#F44336', markersize=10, zorder=6)
+                ax.annotate(f'({bi},{lvl:+.0f})',
+                            xy=(bi, lvl), xytext=(5, 10),
+                            textcoords='offset points', fontsize=8,
+                            fontweight='bold', color='#D32F2F',
+                            bbox=dict(boxstyle='round,pad=0.2',
+                                      facecolor='white', alpha=0.8))
+
+            ax.axhline(y=0, color='gray', linewidth=0.5, alpha=0.5)
+            ax.grid(True, alpha=0.15)
+
+            sub_chgs = sub_deltas[:, -1]
+            sub_wr = (sub_chgs > 0).sum() / n_sub * 100 if n_sub > 0 else 0
+            r2_color = '#2E7D32' if r2_val >= r2_target else '#C62828'
+            ax.set_title(f'{title_str}\n'
+                         f'n={n_sub}, WR={sub_wr:.0f}%, '
+                         f'chg={sub_chgs.mean():+.0f}t, '
+                         f'R\u00b2={r2_val:.2f}',
+                         fontsize=10, fontweight='bold', color=r2_color)
+            ax.set_xlabel('Bar')
+
+        for target_shape in j_shape_names:
+            entries_j = [(idx, corr, seg) for idx, sn, corr, seg in classifications
+                         if sn == target_shape]
+            n_seg_j = len(entries_j)
+
+            if n_seg_j < J_MIN_TOTAL:
                 continue
-            sub = deltas_j[cl_mask]
-            # Shape R²
-            normed = np.array([_norm01(s) for s in sub])
-            c_norm = normed.mean(axis=0)
-            ss_res = np.sum((normed - c_norm[np.newaxis, :]) ** 2)
-            ss_tot = np.sum((normed - normed.mean()) ** 2)
-            sr2 = 1.0 - ss_res / ss_tot if ss_tot > 1e-12 else 1.0
-            clean_centroids.append(sub.mean(axis=0))
-            clean_r2s.append(sr2)
-            active_ids.append(si)
 
-        # --- Pass 2: Reclassify misfits ---
-        all_misfit_idx = np.where(clean_labels == -1)[0]
-        n_total_misfits = len(all_misfit_idx)
-        reclass_centroids = []
-        reclass_r2s = []
-        reclass_labels = None
-        unclass_deltas = None
-        n_unclass = 0
+            deltas_j = np.array([e[2] - e[2][0] for e in entries_j])  # raw ticks
 
-        if n_total_misfits >= 2 * J_MIN_N:
-            misfit_deltas = deltas_j[all_misfit_idx]
-            r_labels, r_centroids, r_r2s = _adaptive_split(
-                misfit_deltas, r2_target=J_R2_TARGET, min_n=J_MIN_N)
-            reclass_labels = r_labels
-            reclass_centroids = list(r_centroids)
-            reclass_r2s = list(r_r2s)
-        elif n_total_misfits > 0:
-            # Too few to reclassify — all go to UNCLASSIFIED
-            unclass_deltas = deltas_j[all_misfit_idx]
-            n_unclass = len(unclass_deltas)
+            # --- Pass 1: Adaptive split ---
+            j_labels, j_centroids, j_r2s = _adaptive_split(
+                deltas_j, r2_target=J_R2_TARGET, min_n=J_MIN_N)
 
-        # --- Save subtype mapping for Analysis K ---
-        for ci_idx, si in enumerate(active_ids):
-            cl_mask = (clean_labels == si)
-            for li in np.where(cl_mask)[0]:
-                orig_idx = entries_j[li][0]  # bar index in base_df
-                subtype_map[orig_idx] = (target_shape, ci_idx)
-        if reclass_labels is not None:
-            n_clean_k = len(clean_centroids)
-            for ri in range(len(reclass_centroids)):
-                ri_mask = (reclass_labels == ri)
-                for li in np.where(ri_mask)[0]:
-                    orig_idx = entries_j[all_misfit_idx[li]][0]
-                    subtype_map[orig_idx] = (target_shape, n_clean_k + ri)
+            n_clusters = len(j_centroids)
 
-        # --- Build combined plot ---
-        n_clean = len(clean_centroids)
-        n_reclass = len(reclass_centroids)
-        has_unclass = n_unclass > 0 or (n_total_misfits > 0 and n_total_misfits < 2 * J_MIN_N)
-        n_total_panels = n_clean + n_reclass + (1 if has_unclass else 0)
+            # --- Quality gate: IQR outlier detection in raw tick space ---
+            # Segments with RMSE > Q3 + 1.5*IQR from centroid are misfits
+            misfit_mask = np.zeros(len(deltas_j), dtype=bool)
+            for si in range(n_clusters):
+                cl_mask = (j_labels == si)
+                cl_indices = np.where(cl_mask)[0]
+                if len(cl_indices) < 4:
+                    continue  # need enough for IQR
+                centroid = j_centroids[si]
+                rmses = np.array([np.sqrt(np.mean((deltas_j[gi] - centroid) ** 2))
+                                  for gi in cl_indices])
+                q1, q3 = np.percentile(rmses, [25, 75])
+                iqr = q3 - q1
+                fence = q3 + MISFIT_IQR_K * iqr
+                for i, gi in enumerate(cl_indices):
+                    if rmses[i] > fence:
+                        misfit_mask[gi] = True
 
-        if n_total_panels <= 4:
-            n_cols = max(n_total_panels, 1)
-            n_rows = 1
-        else:
-            n_cols = 4
-            n_rows = (n_total_panels + 3) // 4
+            n_misfits = misfit_mask.sum()
 
-        fig_j, axes_j = plt.subplots(n_rows, n_cols,
-                                      figsize=(6 * n_cols, 5 * n_rows),
-                                      squeeze=False)
+            # Remove misfits from original clusters, recompute centroids/R²
+            clean_labels = j_labels.copy()
+            clean_labels[misfit_mask] = -1  # mark misfits
 
-        panel_idx = 0
+            # Rebuild clean centroids and R²s (shape-normalized)
+            clean_centroids = []
+            clean_r2s = []
+            active_ids = []
+            for si in range(n_clusters):
+                cl_mask = (clean_labels == si)
+                n_cl = cl_mask.sum()
+                if n_cl < J_MIN_N:
+                    clean_labels[cl_mask] = -1  # too small after filtering
+                    continue
+                sub = deltas_j[cl_mask]
+                # Shape R²
+                normed = np.array([_norm01(s) for s in sub])
+                c_norm = normed.mean(axis=0)
+                ss_res = np.sum((normed - c_norm[np.newaxis, :]) ** 2)
+                ss_tot = np.sum((normed - normed.mean()) ** 2)
+                sr2 = 1.0 - ss_res / ss_tot if ss_tot > 1e-12 else 1.0
+                clean_centroids.append(sub.mean(axis=0))
+                clean_r2s.append(sr2)
+                active_ids.append(si)
 
-        # Plot clean sub-types
-        for ci_idx, si in enumerate(active_ids):
-            row, col = divmod(panel_idx, n_cols)
-            ax = axes_j[row, col]
-            cl_mask = (clean_labels == si)
-            sub_d = deltas_j[cl_mask]
-            _plot_subtype(ax, sub_d, clean_centroids[ci_idx],
-                          clean_r2s[ci_idx],
-                          f'{target_shape} sub-{ci_idx}',
-                          x_j, shade_colors, J_R2_TARGET)
-            if col == 0:
-                ax.set_ylabel('Delta from entry (ticks)')
-            panel_idx += 1
+            # --- Pass 2: Reclassify misfits ---
+            all_misfit_idx = np.where(clean_labels == -1)[0]
+            n_total_misfits = len(all_misfit_idx)
+            reclass_centroids = []
+            reclass_r2s = []
+            reclass_labels = None
+            unclass_deltas = None
+            n_unclass = 0
 
-        # Plot reclassified sub-types
-        if n_reclass > 0:
-            misfit_deltas = deltas_j[all_misfit_idx]
-            for ri in range(n_reclass):
+            if n_total_misfits >= 2 * J_MIN_N:
+                misfit_deltas = deltas_j[all_misfit_idx]
+                r_labels, r_centroids, r_r2s = _adaptive_split(
+                    misfit_deltas, r2_target=J_R2_TARGET, min_n=J_MIN_N)
+                reclass_labels = r_labels
+                reclass_centroids = list(r_centroids)
+                reclass_r2s = list(r_r2s)
+            elif n_total_misfits > 0:
+                # Too few to reclassify — all go to UNCLASSIFIED
+                unclass_deltas = deltas_j[all_misfit_idx]
+                n_unclass = len(unclass_deltas)
+
+            # --- Save subtype mapping for Analysis K ---
+            for ci_idx, si in enumerate(active_ids):
+                cl_mask = (clean_labels == si)
+                for li in np.where(cl_mask)[0]:
+                    orig_idx = entries_j[li][0]  # bar index in base_df
+                    subtype_map[orig_idx] = (target_shape, ci_idx)
+            if reclass_labels is not None:
+                n_clean_k = len(clean_centroids)
+                for ri in range(len(reclass_centroids)):
+                    ri_mask = (reclass_labels == ri)
+                    for li in np.where(ri_mask)[0]:
+                        orig_idx = entries_j[all_misfit_idx[li]][0]
+                        subtype_map[orig_idx] = (target_shape, n_clean_k + ri)
+
+            # --- Build combined plot ---
+            n_clean = len(clean_centroids)
+            n_reclass = len(reclass_centroids)
+            has_unclass = n_unclass > 0 or (n_total_misfits > 0 and n_total_misfits < 2 * J_MIN_N)
+            n_total_panels = n_clean + n_reclass + (1 if has_unclass else 0)
+
+            if n_total_panels <= 4:
+                n_cols = max(n_total_panels, 1)
+                n_rows = 1
+            else:
+                n_cols = 4
+                n_rows = (n_total_panels + 3) // 4
+
+            fig_j, axes_j = plt.subplots(n_rows, n_cols,
+                                          figsize=(6 * n_cols, 5 * n_rows),
+                                          squeeze=False)
+
+            panel_idx = 0
+
+            # Plot clean sub-types
+            for ci_idx, si in enumerate(active_ids):
                 row, col = divmod(panel_idx, n_cols)
                 ax = axes_j[row, col]
-                ri_mask = (reclass_labels == ri)
-                sub_d = misfit_deltas[ri_mask]
-                _plot_subtype(ax, sub_d, reclass_centroids[ri],
-                              reclass_r2s[ri],
-                              f'{target_shape} reclass-{ri}',
+                cl_mask = (clean_labels == si)
+                sub_d = deltas_j[cl_mask]
+                _plot_subtype(ax, sub_d, clean_centroids[ci_idx],
+                              clean_r2s[ci_idx],
+                              f'{target_shape} sub-{ci_idx}',
                               x_j, shade_colors, J_R2_TARGET)
-                # Orange border for reclassified panels
-                for spine in ax.spines.values():
-                    spine.set_edgecolor('#FF6F00')
-                    spine.set_linewidth(3)
                 if col == 0:
                     ax.set_ylabel('Delta from entry (ticks)')
                 panel_idx += 1
 
-        # Plot UNCLASSIFIED remainder
-        if has_unclass:
-            row, col = divmod(panel_idx, n_cols)
-            ax = axes_j[row, col]
-            if n_total_misfits > 0 and n_total_misfits < 2 * J_MIN_N:
-                unc_d = deltas_j[all_misfit_idx]
-            else:
-                unc_d = unclass_deltas if unclass_deltas is not None else np.empty((0, seed_len))
-            if len(unc_d) > 0:
-                for j in range(min(len(unc_d), 50)):
-                    ax.plot(x_j, unc_d[j], color='#FFAB91', alpha=0.5,
-                            linewidth=0.8)
-                ax.axhline(y=0, color='gray', linewidth=0.5, alpha=0.5)
-                ax.grid(True, alpha=0.15)
-                ax.set_title(f'UNCLASSIFIED\nn={len(unc_d)}',
-                             fontsize=10, fontweight='bold', color='#BF360C')
-                for spine in ax.spines.values():
-                    spine.set_edgecolor('#BF360C')
-                    spine.set_linewidth(3)
-                ax.set_xlabel('Bar')
-                if col == 0:
-                    ax.set_ylabel('Delta from entry (ticks)')
-            panel_idx += 1
+            # Plot reclassified sub-types
+            if n_reclass > 0:
+                misfit_deltas = deltas_j[all_misfit_idx]
+                for ri in range(n_reclass):
+                    row, col = divmod(panel_idx, n_cols)
+                    ax = axes_j[row, col]
+                    ri_mask = (reclass_labels == ri)
+                    sub_d = misfit_deltas[ri_mask]
+                    _plot_subtype(ax, sub_d, reclass_centroids[ri],
+                                  reclass_r2s[ri],
+                                  f'{target_shape} reclass-{ri}',
+                                  x_j, shade_colors, J_R2_TARGET)
+                    # Orange border for reclassified panels
+                    for spine in ax.spines.values():
+                        spine.set_edgecolor('#FF6F00')
+                        spine.set_linewidth(3)
+                    if col == 0:
+                        ax.set_ylabel('Delta from entry (ticks)')
+                    panel_idx += 1
 
-        # Hide unused axes
-        for idx in range(panel_idx, n_rows * n_cols):
-            row, col = divmod(idx, n_cols)
-            axes_j[row, col].set_visible(False)
+            # Plot UNCLASSIFIED remainder
+            if has_unclass:
+                row, col = divmod(panel_idx, n_cols)
+                ax = axes_j[row, col]
+                if n_total_misfits > 0 and n_total_misfits < 2 * J_MIN_N:
+                    unc_d = deltas_j[all_misfit_idx]
+                else:
+                    unc_d = unclass_deltas if unclass_deltas is not None else np.empty((0, seed_len))
+                if len(unc_d) > 0:
+                    for j in range(min(len(unc_d), 50)):
+                        ax.plot(x_j, unc_d[j], color='#FFAB91', alpha=0.5,
+                                linewidth=0.8)
+                    ax.axhline(y=0, color='gray', linewidth=0.5, alpha=0.5)
+                    ax.grid(True, alpha=0.15)
+                    ax.set_title(f'UNCLASSIFIED\nn={len(unc_d)}',
+                                 fontsize=10, fontweight='bold', color='#BF360C')
+                    for spine in ax.spines.values():
+                        spine.set_edgecolor('#BF360C')
+                        spine.set_linewidth(3)
+                    ax.set_xlabel('Bar')
+                    if col == 0:
+                        ax.set_ylabel('Delta from entry (ticks)')
+                panel_idx += 1
 
-        all_r2 = clean_r2s + reclass_r2s
-        min_r2 = min(all_r2) if all_r2 else 0.0
-        met_target = all(r2 >= J_R2_TARGET for r2 in all_r2)
-        status = f'ALL >= {J_R2_TARGET}' if met_target else f'min R\u00b2={min_r2:.2f}'
+            # Hide unused axes
+            for idx in range(panel_idx, n_rows * n_cols):
+                row, col = divmod(idx, n_cols)
+                axes_j[row, col].set_visible(False)
 
-        fig_j.suptitle(
-            f'Analysis J: {target_shape} (k={n_clean}+{n_reclass}r'
-            f'{f"+{n_unclass}u" if has_unclass else ""})\n'
-            f'{n_seg_j} segments, {n_total_misfits} filtered | {status}',
-            fontsize=13,
-            color='#2E7D32' if met_target else '#C62828')
-        plt.tight_layout()
-        fname = target_shape.lower().replace(' ', '_')
-        j_path = os.path.join(PLOTS_DIR, f'0l_{fname}_raw.png')
-        fig_j.savefig(j_path, dpi=150, bbox_inches='tight', facecolor='white')
-        plt.close(fig_j)
+            all_r2 = clean_r2s + reclass_r2s
+            min_r2 = min(all_r2) if all_r2 else 0.0
+            met_target = all(r2 >= J_R2_TARGET for r2 in all_r2)
+            status = f'ALL >= {J_R2_TARGET}' if met_target else f'min R\u00b2={min_r2:.2f}'
 
-        j_summary.append((target_shape, n_seg_j, n_clean, n_reclass,
-                          n_total_misfits, min_r2, met_target))
-        print(f"  {target_shape:<25} n={n_seg_j:>3}  k={n_clean}+{n_reclass}r  "
-              f"filt={n_total_misfits:>2}  min_R\u00b2={min_r2:.2f}  "
-              f"{'OK' if met_target else 'BELOW'}")
+            fig_j.suptitle(
+                f'Analysis J: {target_shape} (k={n_clean}+{n_reclass}r'
+                f'{f"+{n_unclass}u" if has_unclass else ""})\n'
+                f'{n_seg_j} segments, {n_total_misfits} filtered | {status}',
+                fontsize=13,
+                color='#2E7D32' if met_target else '#C62828')
+            plt.tight_layout()
+            fname = target_shape.lower().replace(' ', '_')
+            j_path = os.path.join(PLOTS_DIR, f'0l_{fname}_raw.png')
+            fig_j.savefig(j_path, dpi=150, bbox_inches='tight', facecolor='white')
+            plt.close(fig_j)
 
-    # Summary table
-    print(f"\n  {'Shape':<25} {'N':>4} {'k':>3} {'rcl':>4} {'filt':>5} "
-          f"{'minR2':>6} {'Status':>8}")
-    print(f"  {'-'*25} {'-'*4} {'-'*3} {'-'*4} {'-'*5} {'-'*6} {'-'*8}")
-    for sn, n, k, rc, fl, mr2, ok in j_summary:
-        print(f"  {sn:<25} {n:>4} {k:>3} {rc:>4} {fl:>5} "
-              f"{mr2:>6.2f} {'OK' if ok else 'BELOW':>8}")
+            j_summary.append((target_shape, n_seg_j, n_clean, n_reclass,
+                              n_total_misfits, min_r2, met_target))
+            print(f"  {target_shape:<25} n={n_seg_j:>3}  k={n_clean}+{n_reclass}r  "
+                  f"filt={n_total_misfits:>2}  min_R\u00b2={min_r2:.2f}  "
+                  f"{'OK' if met_target else 'BELOW'}")
 
-    # =====================================================================
-    #  ANALYSIS K: DIRECTION PREDICTION WITH FRACTAL CONTEXT
-    #
-    #  Blend 193D fractal properties at entry with shape classification
-    #  to predict segment direction (UP/DOWN).
-    # =====================================================================
-    print(f"\n{'='*70}")
-    print(f"  ANALYSIS K: DIRECTION PREDICTION WITH FRACTAL CONTEXT")
-    print(f"{'='*70}")
+        # Summary table
+        print(f"\n  {'Shape':<25} {'N':>4} {'k':>3} {'rcl':>4} {'filt':>5} "
+              f"{'minR2':>6} {'Status':>8}")
+        print(f"  {'-'*25} {'-'*4} {'-'*3} {'-'*4} {'-'*5} {'-'*6} {'-'*8}")
+        for sn, n, k, rc, fl, mr2, ok in j_summary:
+            print(f"  {sn:<25} {n:>4} {k:>3} {rc:>4} {fl:>5} "
+                  f"{mr2:>6.2f} {'OK' if ok else 'BELOW':>8}")
 
-    from sklearn.ensemble import GradientBoostingClassifier
-    from sklearn.model_selection import train_test_split
-    from sklearn.metrics import accuracy_score, confusion_matrix
-
-    # --- Step 1: Build direction dataset ---
-    # Bridge segment bar indices to X rows via timestamp
-    ts_to_xrow = {int(ts): i for i, ts in enumerate(sample_ts)}
-
-    X_k_rows = []
-    y_k = []
-    shapes_k = []
-
-    for idx, sn, corr, seg in classifications:
-        if sn == 'NOISE':
-            continue
-        t = int(timestamps[idx])
-        xrow_idx = ts_to_xrow.get(t, -1)
-        if xrow_idx < 0 or xrow_idx >= len(X):
-            continue
-        direction = 1 if seg[-1] > seg[0] else 0
-        X_k_rows.append(X[xrow_idx])
-        y_k.append(direction)
-        shapes_k.append(sn)
-
-    X_k = np.array(X_k_rows)
-    y_k = np.array(y_k)
-    shapes_k = np.array(shapes_k)
-
-    n_k = len(y_k)
-    n_up = (y_k == 1).sum()
-    n_down = (y_k == 0).sum()
-    baseline = max(n_up, n_down) / n_k * 100 if n_k > 0 else 50.0
-
-    print(f"\n  Dataset: {n_k} segments, {X_k.shape[1]} features")
-    print(f"  UP: {n_up} ({n_up/n_k*100:.1f}%)  DOWN: {n_down} ({n_down/n_k*100:.1f}%)")
-    print(f"  Baseline (majority class): {baseline:.1f}%")
-
-    if n_k < 50:
-        print(f"  SKIP: too few segments ({n_k}) for meaningful model")
     else:
-        # --- Step 2: Train classifier ---
-        X_train, X_test, y_train, y_test, sh_train, sh_test = train_test_split(
-            X_k, y_k, shapes_k, test_size=0.30, random_state=42, stratify=y_k)
+        print(f"  [SKIP] Analysis J (--start {_start_at})")
 
-        clf = GradientBoostingClassifier(
-            n_estimators=200, max_depth=4, learning_rate=0.05,
-            subsample=0.8, random_state=42)
-        clf.fit(X_train, y_train)
+    if _start_at <= 'K':
+        # =====================================================================
+        #  ANALYSIS K: DIRECTION PREDICTION WITH FRACTAL CONTEXT
+        #
+        #  Blend 193D fractal properties at entry with shape classification
+        #  to predict segment direction (UP/DOWN).
+        # =====================================================================
+        print(f"\n{'='*70}")
+        print(f"  ANALYSIS K: DIRECTION PREDICTION WITH FRACTAL CONTEXT")
+        print(f"{'='*70}")
 
-        acc_train = accuracy_score(y_train, clf.predict(X_train)) * 100
-        acc_test = accuracy_score(y_test, clf.predict(X_test)) * 100
-        lift = acc_test - baseline
+        from sklearn.ensemble import GradientBoostingClassifier
+        from sklearn.model_selection import train_test_split
+        from sklearn.metrics import accuracy_score, confusion_matrix
 
-        print(f"\n  Model: GradientBoosting (200 trees, depth=4)")
-        print(f"  Train accuracy: {acc_train:.1f}%")
-        print(f"  Test accuracy:  {acc_test:.1f}%")
-        print(f"  Lift vs baseline: {lift:+.1f}%")
+        # --- Step 1: Build direction dataset ---
+        # Bridge segment bar indices to X rows via timestamp
+        ts_to_xrow = {int(ts): i for i, ts in enumerate(sample_ts)}
 
-        # --- Step 3: Per-shape breakdown ---
-        y_pred_test = clf.predict(X_test)
-        unique_shapes = sorted(set(shapes_k))
+        X_k_rows = []
+        y_k = []
+        shapes_k = []
 
-        print(f"\n  {'Shape':<25} {'N':>5} {'Base%':>7} {'Model%':>7} {'Lift':>7}")
-        print(f"  {'-'*25} {'-'*5} {'-'*7} {'-'*7} {'-'*7}")
-
-        shape_stats_k = []
-        for sn in unique_shapes:
-            # Baseline from full dataset
-            sn_mask_all = (shapes_k == sn)
-            sn_n = sn_mask_all.sum()
-            sn_base = (y_k[sn_mask_all] == 1).sum() / sn_n * 100
-            sn_base = max(sn_base, 100 - sn_base)  # majority class
-
-            # Model accuracy on test set
-            sn_mask_test = (sh_test == sn)
-            sn_n_test = sn_mask_test.sum()
-            if sn_n_test >= 3:
-                sn_acc = accuracy_score(y_test[sn_mask_test],
-                                        y_pred_test[sn_mask_test]) * 100
-            else:
-                sn_acc = float('nan')
-
-            sn_lift = sn_acc - sn_base if not np.isnan(sn_acc) else float('nan')
-            shape_stats_k.append((sn, sn_n, sn_base, sn_acc, sn_lift))
-
-            if not np.isnan(sn_acc):
-                print(f"  {sn:<25} {sn_n:>5} {sn_base:>6.1f}% {sn_acc:>6.1f}% "
-                      f"{sn_lift:>+6.1f}%")
-            else:
-                print(f"  {sn:<25} {sn_n:>5} {sn_base:>6.1f}%     n/a     n/a")
-
-        # --- Step 4: Feature importance ---
-        importances = clf.feature_importances_
-        top_idx = np.argsort(importances)[::-1][:20]
-
-        print(f"\n  Top 20 fractal features for direction:")
-        for rank, fi in enumerate(top_idx):
-            fname = col_names[fi] if fi < len(col_names) else f'f{fi}'
-            print(f"  {rank+1:>3}. {fname:<30} importance={importances[fi]:.4f}")
-
-        # --- Step 5: Plot ---
-        fig_k, axes_k = plt.subplots(2, 2, figsize=(16, 12))
-
-        # Panel 1: Confusion matrix
-        ax = axes_k[0, 0]
-        cm = confusion_matrix(y_test, y_pred_test)
-        im = ax.imshow(cm, cmap='Blues', interpolation='nearest')
-        ax.set_xticks([0, 1])
-        ax.set_yticks([0, 1])
-        ax.set_xticklabels(['DOWN', 'UP'])
-        ax.set_yticklabels(['DOWN', 'UP'])
-        ax.set_xlabel('Predicted')
-        ax.set_ylabel('Actual')
-        for i in range(2):
-            for j in range(2):
-                ax.text(j, i, str(cm[i, j]), ha='center', va='center',
-                        fontsize=16, fontweight='bold',
-                        color='white' if cm[i, j] > cm.max() / 2 else 'black')
-        ax.set_title(f'Confusion Matrix\nAccuracy={acc_test:.1f}%, '
-                     f'Baseline={baseline:.1f}%, Lift={lift:+.1f}%',
-                     fontsize=11, fontweight='bold')
-
-        # Panel 2: Per-shape accuracy (baseline vs model)
-        ax = axes_k[0, 1]
-        valid_stats = [(sn, n, b, a, l) for sn, n, b, a, l in shape_stats_k
-                       if not np.isnan(a)]
-        valid_stats.sort(key=lambda x: x[4], reverse=True)  # sort by lift
-        if valid_stats:
-            y_pos = np.arange(len(valid_stats))
-            names = [s[0] for s in valid_stats]
-            bases = [s[2] for s in valid_stats]
-            accs = [s[3] for s in valid_stats]
-            ax.barh(y_pos - 0.15, bases, 0.3, color='#90CAF9', label='Baseline')
-            ax.barh(y_pos + 0.15, accs, 0.3, color='#2E7D32', label='Model')
-            ax.set_yticks(y_pos)
-            ax.set_yticklabels(names, fontsize=8)
-            ax.set_xlabel('Accuracy %')
-            ax.axvline(x=50, color='gray', linewidth=0.5, linestyle='--')
-            ax.legend(fontsize=9)
-        ax.set_title('Per-Shape Direction Accuracy', fontsize=11, fontweight='bold')
-
-        # Panel 3: Top 20 feature importance
-        ax = axes_k[1, 0]
-        top20_names = [col_names[i] if i < len(col_names) else f'f{i}'
-                       for i in top_idx]
-        top20_imp = importances[top_idx]
-        y_pos = np.arange(20)
-        ax.barh(y_pos, top20_imp[::-1], color='#FF6F00')
-        ax.set_yticks(y_pos)
-        ax.set_yticklabels(top20_names[::-1], fontsize=8)
-        ax.set_xlabel('Importance')
-        ax.set_title('Top 20 Fractal Features', fontsize=11, fontweight='bold')
-
-        # Panel 4: Per-TF contribution
-        ax = axes_k[1, 1]
-        tf_contrib = np.zeros(12)
-        for fi in range(192):
-            tf_idx = fi // 16
-            tf_contrib[tf_idx] += importances[fi]
-        # Add current_MR separately
-        mr_contrib = importances[192] if len(importances) > 192 else 0
-
-        tf_labels_plot = TF_LABELS[:12] if len(TF_LABELS) >= 12 else \
-            [f'TF{i}' for i in range(12)]
-        x_pos = np.arange(13)
-        bars = list(tf_contrib) + [mr_contrib]
-        labels = list(tf_labels_plot) + ['MR']
-        ax.bar(x_pos, bars, color='#1565C0')
-        ax.set_xticks(x_pos)
-        ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=9)
-        ax.set_ylabel('Sum of Importances')
-        ax.set_title('Per-Timeframe Contribution to Direction',
-                     fontsize=11, fontweight='bold')
-
-        fig_k.suptitle(
-            f'Analysis K: Direction Prediction with Fractal Context\n'
-            f'{n_k} segments, {X_k.shape[1]} features | '
-            f'Accuracy={acc_test:.1f}%, Lift={lift:+.1f}%',
-            fontsize=14, fontweight='bold')
-        plt.tight_layout()
-        k_path = os.path.join(PLOTS_DIR, '0m_direction_prediction.png')
-        fig_k.savefig(k_path, dpi=150, bbox_inches='tight', facecolor='white')
-        plt.close(fig_k)
-        print(f"\n  Saved: {k_path}")
-
-    # =====================================================================
-    #  ANALYSIS L: SIGNED MFE OLS (direction from price prediction)
-    #
-    #  Fit OLS: Y = signed_MFE = MFE * sign(direction)
-    #  If we can predict signed MFE, sign gives direction and magnitude
-    #  gives confidence. One model replaces direction + quality classifiers.
-    # =====================================================================
-    print(f"\n{'='*70}")
-    print(f"  ANALYSIS L: SIGNED MFE OLS (DIRECTION FROM PRICE PREDICTION)")
-    print(f"  Y = MFE * sign(direction)  |  positive=UP, negative=DOWN")
-    print(f"  sign(prediction) -> direction,  |prediction| -> confidence")
-    print(f"{'='*70}")
-
-    from sklearn.linear_model import LinearRegression as _LR_L
-    from sklearn.preprocessing import StandardScaler as _SS_L
-    from sklearn.model_selection import train_test_split as _split_L
-
-    # Bridge oracle bars to X rows via timestamp
-    base_ts = base_df['timestamp'].values
-    _oracle_ts_set = {}
-    for i, bi in enumerate(bar_indices):
-        _oracle_ts_set[int(base_ts[bi])] = i
-
-    _l_xrows = []
-    _l_smfe = []
-    for xi, ts_val in enumerate(sample_ts):
-        oi = _oracle_ts_set.get(int(ts_val), -1)
-        if oi >= 0:
-            _l_xrows.append(xi)
-            _sign = 1.0 if directions[oi] == 'LONG' else -1.0
-            _l_smfe.append(float(mfes[oi]) * _sign)
-
-    n_l = len(_l_smfe)
-    print(f"\n  Matched samples: {n_l} (oracle bars with fractal context)")
-
-    if n_l >= 50:
-        X_l = X[_l_xrows]
-        Y_l = np.array(_l_smfe)
-
-        n_pos = (Y_l > 0).sum()
-        n_neg = (Y_l < 0).sum()
-        print(f"  UP (positive): {n_pos} ({n_pos/n_l*100:.1f}%)  "
-              f"DOWN (negative): {n_neg} ({n_neg/n_l*100:.1f}%)")
-        print(f"  Y range: [{Y_l.min():.1f}, {Y_l.max():.1f}], "
-              f"mean={Y_l.mean():.2f}, std={Y_l.std():.2f}")
-
-        # Train/test split
-        X_tr, X_te, y_tr, y_te = _split_L(X_l, Y_l, test_size=0.30, random_state=42)
-
-        sc_l = _SS_L()
-        X_tr_sc = sc_l.fit_transform(X_tr)
-        X_te_sc = sc_l.transform(X_te)
-
-        ols_l = _LR_L().fit(X_tr_sc, y_tr)
-        pred_tr = ols_l.predict(X_tr_sc)
-        pred_te = ols_l.predict(X_te_sc)
-
-        # R² on train and test
-        r2_tr = ols_l.score(X_tr_sc, y_tr)
-        r2_te = ols_l.score(X_te_sc, y_te)
-        n_te, k_te = X_te_sc.shape
-        adj_r2_te = 1.0 - (1.0 - r2_te) * (n_te - 1) / max(1, n_te - k_te - 1)
-
-        print(f"\n  OLS Signed MFE:")
-        print(f"    Train R2:     {r2_tr:.4f}")
-        print(f"    Test R2:      {r2_te:.4f}")
-        print(f"    Test adj-R2:  {adj_r2_te:.4f}")
-
-        # Direction accuracy: sign(predicted) vs sign(actual)
-        dir_pred = np.sign(pred_te)
-        dir_actual = np.sign(y_te)
-        _nz = dir_actual != 0
-        if _nz.sum() > 0:
-            dir_correct = (dir_pred[_nz] == dir_actual[_nz]).sum()
-            dir_acc = dir_correct / _nz.sum()
-            _baseline_l = max((dir_actual[_nz] > 0).sum(), (dir_actual[_nz] < 0).sum()) / _nz.sum()
-            _lift_l = dir_acc - _baseline_l
-            print(f"\n  Direction from sign(prediction):")
-            print(f"    Accuracy: {dir_correct}/{_nz.sum()} = {dir_acc:.1%}")
-            print(f"    Baseline (majority): {_baseline_l:.1%}")
-            print(f"    Lift: {_lift_l:+.1%}")
-
-            # Confidence gates: only predict when |predicted| > threshold
-            print(f"\n  Confidence gates (|predicted signed MFE| > threshold):")
-            print(f"  {'Threshold':>10} {'N':>6} {'Accuracy':>10} {'Lift':>8} {'% of data':>10}")
-            print(f"  {'-'*10} {'-'*6} {'-'*10} {'-'*8} {'-'*10}")
-            for thr in [0.0, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0]:
-                _cm = (np.abs(pred_te) > thr) & _nz
-                if _cm.sum() > 0:
-                    _cc = (dir_pred[_cm] == dir_actual[_cm]).sum()
-                    _ca = _cc / _cm.sum()
-                    _pct = _cm.sum() / _nz.sum() * 100
-                    print(f"  {thr:>10.1f} {_cm.sum():>6} {_ca:>10.1%} "
-                          f"{_ca - _baseline_l:>+8.1%} {_pct:>9.1f}%")
-
-            # LONG vs SHORT breakdown
-            _pred_long = dir_pred[_nz] > 0
-            _actual_long = dir_actual[_nz] > 0
-            _long_correct = (_pred_long & _actual_long).sum()
-            _long_total = _actual_long.sum()
-            _short_correct = (~_pred_long & ~_actual_long).sum()
-            _short_total = (~_actual_long).sum()
-            print(f"\n  When actual LONG:  {_long_correct}/{_long_total} = "
-                  f"{_long_correct/_long_total:.1%}" if _long_total > 0 else "")
-            print(f"  When actual SHORT: {_short_correct}/{_short_total} = "
-                  f"{_short_correct/_short_total:.1%}" if _short_total > 0 else "")
-
-        # Top features by coefficient magnitude
-        coeff_abs = np.abs(ols_l.coef_)
-        top_idx = np.argsort(coeff_abs)[::-1][:20]
-        all_names = col_names  # 193 features
-        print(f"\n  TOP 20 FEATURES (by |coefficient| in signed MFE OLS):")
-        print(f"  {'Rank':>4}  {'Feature':<40} {'Coeff':>10} {'|Coeff|':>10}")
-        print(f"  {'-'*4}  {'-'*40} {'-'*10} {'-'*10}")
-        for rank, fi in enumerate(top_idx, 1):
-            fn = all_names[fi] if fi < len(all_names) else f'f{fi}'
-            print(f"  {rank:>4}  {fn:<40} {ols_l.coef_[fi]:>+10.4f} {coeff_abs[fi]:>10.4f}")
-
-        # CONCLUSION
-        print(f"\n  ANALYSIS L CONCLUSION:")
-        if _nz.sum() > 0 and dir_acc > 0.55:
-            print(f"  PROMISING: {dir_acc:.1%} direction accuracy from signed MFE OLS.")
-            print(f"  The 16D fractal context can predict not just WHERE price is,")
-            print(f"  but which WAY it's going and how FAR. One regression gives")
-            print(f"  direction (sign) + confidence (magnitude) + TP target (|pred|).")
-        elif _nz.sum() > 0 and dir_acc > 0.52:
-            print(f"  MARGINAL: {dir_acc:.1%} accuracy, slight lift over baseline.")
-            print(f"  May improve with importance weighting or feature selection.")
-        else:
-            print(f"  INSUFFICIENT: {dir_acc:.1%} accuracy. Signed MFE is not reliably")
-            print(f"  predictable from the 192D snapshot. Fall back to balanced")
-            print(f"  direction classifier or template DMI side.")
-
-        # ── Plot: Signed MFE — Predicted vs Actual ──────────────────────
-        fig_l, axes_l = plt.subplots(2, 2, figsize=(16, 12),
-                                      facecolor='white')
-
-        # (0,0) Scatter: predicted vs actual signed MFE, color = actual direction
-        ax = axes_l[0, 0]
-        _c_long  = '#2196F3'  # blue = LONG (up)
-        _c_short = '#F44336'  # red  = SHORT (down)
-        _colors_te = np.where(y_te > 0, _c_long, _c_short)
-        ax.scatter(y_te, pred_te, c=_colors_te, alpha=0.5, s=20, edgecolors='none')
-        _lim = max(abs(y_te).max(), abs(pred_te).max()) * 1.1
-        ax.plot([-_lim, _lim], [-_lim, _lim], 'k--', alpha=0.3, lw=1)
-        ax.axhline(0, color='gray', lw=0.5, alpha=0.5)
-        ax.axvline(0, color='gray', lw=0.5, alpha=0.5)
-        # Shade quadrants
-        ax.fill_between([-_lim, 0], -_lim, 0, color=_c_short, alpha=0.04)  # correct SHORT
-        ax.fill_between([0, _lim], 0, _lim, color=_c_long, alpha=0.04)     # correct LONG
-        ax.set_xlabel('Actual Signed MFE', fontsize=10)
-        ax.set_ylabel('Predicted Signed MFE', fontsize=10)
-        ax.set_title(f'Predicted vs Actual (R\u00b2={r2_te:.3f})', fontsize=11, fontweight='bold')
-        # Legend
-        from matplotlib.lines import Line2D
-        _leg = [Line2D([0], [0], marker='o', color='w', markerfacecolor=_c_long, markersize=8, label='LONG (actual)'),
-                Line2D([0], [0], marker='o', color='w', markerfacecolor=_c_short, markersize=8, label='SHORT (actual)')]
-        ax.legend(handles=_leg, loc='upper left', fontsize=9)
-
-        # (0,1) Histogram: predicted signed MFE distribution, stacked by actual direction
-        ax = axes_l[0, 1]
-        _pred_long_vals  = pred_te[y_te > 0]
-        _pred_short_vals = pred_te[y_te < 0]
-        _bins = np.linspace(-_lim, _lim, 40)
-        ax.hist(_pred_long_vals, bins=_bins, alpha=0.7, color=_c_long, label='Actual LONG', edgecolor='white', lw=0.5)
-        ax.hist(_pred_short_vals, bins=_bins, alpha=0.7, color=_c_short, label='Actual SHORT', edgecolor='white', lw=0.5)
-        ax.axvline(0, color='black', lw=1.5, ls='--', alpha=0.7)
-        ax.set_xlabel('Predicted Signed MFE', fontsize=10)
-        ax.set_ylabel('Count', fontsize=10)
-        ax.set_title('Prediction Distribution by Actual Direction', fontsize=11, fontweight='bold')
-        ax.legend(fontsize=9)
-        ax.text(0.02, 0.95, f'LEFT of 0 = model says SHORT\nRIGHT of 0 = model says LONG',
-                transform=ax.transAxes, fontsize=8, va='top', color='gray')
-
-        # (1,0) Confusion matrix as heatmap
-        ax = axes_l[1, 0]
-        if _nz.sum() > 0:
-            _cm_labels = ['SHORT', 'LONG']
-            _tp_short = (~_pred_long & ~_actual_long).sum()
-            _fp_long  = (_pred_long & ~_actual_long).sum()
-            _fn_long  = (~_pred_long & _actual_long).sum()
-            _tp_long  = (_pred_long & _actual_long).sum()
-            _cm = np.array([[_tp_short, _fp_long], [_fn_long, _tp_long]])
-            _im = ax.imshow(_cm, cmap='Blues', aspect='auto')
-            ax.set_xticks([0, 1]); ax.set_xticklabels(_cm_labels, fontsize=10)
-            ax.set_yticks([0, 1]); ax.set_yticklabels(_cm_labels, fontsize=10)
-            ax.set_xlabel('Predicted', fontsize=10)
-            ax.set_ylabel('Actual', fontsize=10)
-            for _ri in range(2):
-                for _ci in range(2):
-                    _val = _cm[_ri, _ci]
-                    _clr = 'white' if _val > _cm.max() * 0.5 else 'black'
-                    ax.text(_ci, _ri, str(_val), ha='center', va='center',
-                            fontsize=16, fontweight='bold', color=_clr)
-            ax.set_title(f'Direction Confusion Matrix\nAccuracy={dir_acc:.1%}, Lift={_lift_l:+.1%}',
-                        fontsize=11, fontweight='bold')
-
-        # (1,1) Confidence gate curve
-        ax = axes_l[1, 1]
-        _thrs = np.linspace(0, np.percentile(np.abs(pred_te), 95), 30)
-        _accs = []
-        _ns = []
-        for _t in _thrs:
-            _m = (np.abs(pred_te) > _t) & _nz
-            if _m.sum() >= 5:
-                _accs.append((dir_pred[_m] == dir_actual[_m]).sum() / _m.sum() * 100)
-                _ns.append(_m.sum() / _nz.sum() * 100)
-            else:
-                _accs.append(np.nan)
-                _ns.append(0)
-        ax.plot(_thrs, _accs, color='#2196F3', lw=2, label='Accuracy %')
-        ax.axhline(_baseline_l * 100, color='gray', ls='--', lw=1, alpha=0.7, label=f'Baseline {_baseline_l:.0%}')
-        ax.set_xlabel('|Predicted Signed MFE| Threshold', fontsize=10)
-        ax.set_ylabel('Direction Accuracy %', fontsize=10)
-        ax.set_title('Confidence Gate: Accuracy vs Threshold', fontsize=11, fontweight='bold')
-        ax.legend(fontsize=9)
-        ax2 = ax.twinx()
-        ax2.fill_between(_thrs, 0, _ns, alpha=0.15, color='orange')
-        ax2.set_ylabel('% of Data Remaining', fontsize=9, color='orange')
-        ax2.tick_params(axis='y', labelcolor='orange')
-
-        fig_l.suptitle(
-            f'Analysis L: Signed MFE OLS — Direction from Price Prediction\n'
-            f'{n_l} samples | Accuracy={dir_acc:.1%} | Lift={_lift_l:+.1%} | '
-            f'LONG: {n_pos} ({n_pos/n_l*100:.0f}%)  SHORT: {n_neg} ({n_neg/n_l*100:.0f}%)',
-            fontsize=13, fontweight='bold')
-        plt.tight_layout()
-        l_path = os.path.join(PLOTS_DIR, '0n_signed_mfe_direction.png')
-        fig_l.savefig(l_path, dpi=150, bbox_inches='tight', facecolor='white')
-        plt.close(fig_l)
-        print(f"\n  Saved: {l_path}")
-
-        # ── Plot 2: Price chart with LONG/SHORT segment overlay ─────────
-        # Predict signed MFE for ALL matched samples (not just test split)
-        X_l_all_sc = sc_l.transform(X_l)
-        pred_all = ols_l.predict(X_l_all_sc)
-        pred_dir_all = np.sign(pred_all)
-
-        # Map back to bar indices in base_df
-        _matched_bar_idx = [bar_indices[_oracle_ts_set[int(sample_ts[xi])]]
-                            for xi in _l_xrows]
-        _matched_bar_idx = np.array(_matched_bar_idx)
-
-        from datetime import datetime, timezone as _tz_l
-        close_all = base_df['close'].values.astype(float)
-        ts_all = base_df['timestamp'].values
-
-        fig_p, ax_p = plt.subplots(1, 1, figsize=(20, 7), facecolor='white')
-
-        # Plot full price line in gray
-        _x_dates = [datetime.fromtimestamp(int(t), tz=_tz_l.utc) for t in ts_all]
-        ax_p.plot(_x_dates, close_all, color='#BDBDBD', lw=0.8, alpha=0.6, zorder=1)
-
-        # Overlay colored segments at each prediction point
-        # Draw a short colored line segment around each prediction bar
-        _seg_half = max(1, len(close_all) // 500)  # adaptive segment width
-        for i, bi in enumerate(_matched_bar_idx):
-            _s = max(0, bi - _seg_half)
-            _e = min(len(close_all), bi + _seg_half + 1)
-            _seg_x = _x_dates[_s:_e]
-            _seg_y = close_all[_s:_e]
-            if len(_seg_x) < 2:
+        for idx, sn, corr, seg in classifications:
+            if sn == 'NOISE':
                 continue
-            _color = '#2196F3' if pred_dir_all[i] > 0 else '#F44336'
-            _alpha = min(1.0, 0.3 + abs(pred_all[i]) / 100.0)  # stronger prediction = more opaque
-            ax_p.plot(_seg_x, _seg_y, color=_color, lw=2.0, alpha=_alpha, zorder=2)
+            t = int(timestamps[idx])
+            xrow_idx = ts_to_xrow.get(t, -1)
+            if xrow_idx < 0 or xrow_idx >= len(X):
+                continue
+            direction = 1 if seg[-1] > seg[0] else 0
+            X_k_rows.append(X[xrow_idx])
+            y_k.append(direction)
+            shapes_k.append(sn)
 
-        # Mark correct/wrong with small dots
-        for i, bi in enumerate(_matched_bar_idx):
-            _actual_sign = 1.0 if directions[_oracle_ts_set[int(sample_ts[_l_xrows[i]])]] == 'LONG' else -1.0
-            _correct = (pred_dir_all[i] == _actual_sign)
-            if not _correct:
-                ax_p.plot(_x_dates[bi], close_all[bi], 'x', color='black',
-                         markersize=4, alpha=0.5, zorder=3)
+        X_k = np.array(X_k_rows)
+        y_k = np.array(y_k)
+        shapes_k = np.array(shapes_k)
 
-        ax_p.set_xlabel('Time', fontsize=10)
-        ax_p.set_ylabel('Price', fontsize=10)
-        ax_p.set_title(
-            f'Price with Predicted Direction Overlay\n'
-            f'Blue = LONG prediction | Red = SHORT prediction | X = wrong direction',
-            fontsize=12, fontweight='bold')
-        from matplotlib.lines import Line2D as _Line2D_p
-        _leg_p = [_Line2D_p([0], [0], color='#2196F3', lw=2, label='Predicted LONG'),
-                  _Line2D_p([0], [0], color='#F44336', lw=2, label='Predicted SHORT'),
-                  _Line2D_p([0], [0], marker='x', color='black', lw=0, markersize=6, label='Wrong direction')]
-        ax_p.legend(handles=_leg_p, loc='upper left', fontsize=9)
-        fig_p.autofmt_xdate()
-        plt.tight_layout()
-        p_path = os.path.join(PLOTS_DIR, '0o_price_direction_overlay.png')
-        fig_p.savefig(p_path, dpi=150, bbox_inches='tight', facecolor='white')
-        plt.close(fig_p)
-        print(f"  Saved: {p_path}")
+        n_k = len(y_k)
+        n_up = (y_k == 1).sum()
+        n_down = (y_k == 0).sum()
+        baseline = max(n_up, n_down) / n_k * 100 if n_k > 0 else 50.0
+
+        print(f"\n  Dataset: {n_k} segments, {X_k.shape[1]} features")
+        print(f"  UP: {n_up} ({n_up/n_k*100:.1f}%)  DOWN: {n_down} ({n_down/n_k*100:.1f}%)")
+        print(f"  Baseline (majority class): {baseline:.1f}%")
+
+        if n_k < 50:
+            print(f"  SKIP: too few segments ({n_k}) for meaningful model")
+        else:
+            # --- Step 2: Train classifier ---
+            X_train, X_test, y_train, y_test, sh_train, sh_test = train_test_split(
+                X_k, y_k, shapes_k, test_size=0.30, random_state=42, stratify=y_k)
+
+            clf = GradientBoostingClassifier(
+                n_estimators=200, max_depth=4, learning_rate=0.05,
+                subsample=0.8, random_state=42)
+            clf.fit(X_train, y_train)
+
+            acc_train = accuracy_score(y_train, clf.predict(X_train)) * 100
+            acc_test = accuracy_score(y_test, clf.predict(X_test)) * 100
+            lift = acc_test - baseline
+
+            print(f"\n  Model: GradientBoosting (200 trees, depth=4)")
+            print(f"  Train accuracy: {acc_train:.1f}%")
+            print(f"  Test accuracy:  {acc_test:.1f}%")
+            print(f"  Lift vs baseline: {lift:+.1f}%")
+
+            # --- Step 3: Per-shape breakdown ---
+            y_pred_test = clf.predict(X_test)
+            unique_shapes = sorted(set(shapes_k))
+
+            print(f"\n  {'Shape':<25} {'N':>5} {'Base%':>7} {'Model%':>7} {'Lift':>7}")
+            print(f"  {'-'*25} {'-'*5} {'-'*7} {'-'*7} {'-'*7}")
+
+            shape_stats_k = []
+            for sn in unique_shapes:
+                # Baseline from full dataset
+                sn_mask_all = (shapes_k == sn)
+                sn_n = sn_mask_all.sum()
+                sn_base = (y_k[sn_mask_all] == 1).sum() / sn_n * 100
+                sn_base = max(sn_base, 100 - sn_base)  # majority class
+
+                # Model accuracy on test set
+                sn_mask_test = (sh_test == sn)
+                sn_n_test = sn_mask_test.sum()
+                if sn_n_test >= 3:
+                    sn_acc = accuracy_score(y_test[sn_mask_test],
+                                            y_pred_test[sn_mask_test]) * 100
+                else:
+                    sn_acc = float('nan')
+
+                sn_lift = sn_acc - sn_base if not np.isnan(sn_acc) else float('nan')
+                shape_stats_k.append((sn, sn_n, sn_base, sn_acc, sn_lift))
+
+                if not np.isnan(sn_acc):
+                    print(f"  {sn:<25} {sn_n:>5} {sn_base:>6.1f}% {sn_acc:>6.1f}% "
+                          f"{sn_lift:>+6.1f}%")
+                else:
+                    print(f"  {sn:<25} {sn_n:>5} {sn_base:>6.1f}%     n/a     n/a")
+
+            # --- Step 4: Feature importance ---
+            importances = clf.feature_importances_
+            top_idx = np.argsort(importances)[::-1][:20]
+
+            print(f"\n  Top 20 fractal features for direction:")
+            for rank, fi in enumerate(top_idx):
+                fname = col_names[fi] if fi < len(col_names) else f'f{fi}'
+                print(f"  {rank+1:>3}. {fname:<30} importance={importances[fi]:.4f}")
+
+            # --- Step 5: Plot ---
+            fig_k, axes_k = plt.subplots(2, 2, figsize=(16, 12))
+
+            # Panel 1: Confusion matrix
+            ax = axes_k[0, 0]
+            cm = confusion_matrix(y_test, y_pred_test)
+            im = ax.imshow(cm, cmap='Blues', interpolation='nearest')
+            ax.set_xticks([0, 1])
+            ax.set_yticks([0, 1])
+            ax.set_xticklabels(['DOWN', 'UP'])
+            ax.set_yticklabels(['DOWN', 'UP'])
+            ax.set_xlabel('Predicted')
+            ax.set_ylabel('Actual')
+            for i in range(2):
+                for j in range(2):
+                    ax.text(j, i, str(cm[i, j]), ha='center', va='center',
+                            fontsize=16, fontweight='bold',
+                            color='white' if cm[i, j] > cm.max() / 2 else 'black')
+            ax.set_title(f'Confusion Matrix\nAccuracy={acc_test:.1f}%, '
+                         f'Baseline={baseline:.1f}%, Lift={lift:+.1f}%',
+                         fontsize=11, fontweight='bold')
+
+            # Panel 2: Per-shape accuracy (baseline vs model)
+            ax = axes_k[0, 1]
+            valid_stats = [(sn, n, b, a, l) for sn, n, b, a, l in shape_stats_k
+                           if not np.isnan(a)]
+            valid_stats.sort(key=lambda x: x[4], reverse=True)  # sort by lift
+            if valid_stats:
+                y_pos = np.arange(len(valid_stats))
+                names = [s[0] for s in valid_stats]
+                bases = [s[2] for s in valid_stats]
+                accs = [s[3] for s in valid_stats]
+                ax.barh(y_pos - 0.15, bases, 0.3, color='#90CAF9', label='Baseline')
+                ax.barh(y_pos + 0.15, accs, 0.3, color='#2E7D32', label='Model')
+                ax.set_yticks(y_pos)
+                ax.set_yticklabels(names, fontsize=8)
+                ax.set_xlabel('Accuracy %')
+                ax.axvline(x=50, color='gray', linewidth=0.5, linestyle='--')
+                ax.legend(fontsize=9)
+            ax.set_title('Per-Shape Direction Accuracy', fontsize=11, fontweight='bold')
+
+            # Panel 3: Top 20 feature importance
+            ax = axes_k[1, 0]
+            top20_names = [col_names[i] if i < len(col_names) else f'f{i}'
+                           for i in top_idx]
+            top20_imp = importances[top_idx]
+            y_pos = np.arange(20)
+            ax.barh(y_pos, top20_imp[::-1], color='#FF6F00')
+            ax.set_yticks(y_pos)
+            ax.set_yticklabels(top20_names[::-1], fontsize=8)
+            ax.set_xlabel('Importance')
+            ax.set_title('Top 20 Fractal Features', fontsize=11, fontweight='bold')
+
+            # Panel 4: Per-TF contribution
+            ax = axes_k[1, 1]
+            tf_contrib = np.zeros(12)
+            for fi in range(192):
+                tf_idx = fi // 16
+                tf_contrib[tf_idx] += importances[fi]
+            # Add current_MR separately
+            mr_contrib = importances[192] if len(importances) > 192 else 0
+
+            tf_labels_plot = TF_LABELS[:12] if len(TF_LABELS) >= 12 else \
+                [f'TF{i}' for i in range(12)]
+            x_pos = np.arange(13)
+            bars = list(tf_contrib) + [mr_contrib]
+            labels = list(tf_labels_plot) + ['MR']
+            ax.bar(x_pos, bars, color='#1565C0')
+            ax.set_xticks(x_pos)
+            ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=9)
+            ax.set_ylabel('Sum of Importances')
+            ax.set_title('Per-Timeframe Contribution to Direction',
+                         fontsize=11, fontweight='bold')
+
+            fig_k.suptitle(
+                f'Analysis K: Direction Prediction with Fractal Context\n'
+                f'{n_k} segments, {X_k.shape[1]} features | '
+                f'Accuracy={acc_test:.1f}%, Lift={lift:+.1f}%',
+                fontsize=14, fontweight='bold')
+            plt.tight_layout()
+            k_path = os.path.join(PLOTS_DIR, '0m_direction_prediction.png')
+            fig_k.savefig(k_path, dpi=150, bbox_inches='tight', facecolor='white')
+            plt.close(fig_k)
+            print(f"\n  Saved: {k_path}")
 
     else:
-        print(f"  SKIP: too few matched samples ({n_l}) for meaningful analysis")
+        print(f"  [SKIP] Analysis K (--start {_start_at})")
 
-    # Save report and exit (default mode)
+    if _start_at <= 'L':
+        # =====================================================================
+        #  ANALYSIS L: SIGNED MFE OLS (direction from price prediction)
+        #
+        #  Fit OLS: Y = signed_MFE = MFE * sign(direction)
+        #  If we can predict signed MFE, sign gives direction and magnitude
+        #  gives confidence. One model replaces direction + quality classifiers.
+        # =====================================================================
+        print(f"\n{'='*70}")
+        print(f"  ANALYSIS L: SIGNED MFE OLS (DIRECTION FROM PRICE PREDICTION)")
+        print(f"  Y = MFE * sign(direction)  |  positive=UP, negative=DOWN")
+        print(f"  sign(prediction) -> direction,  |prediction| -> confidence")
+        print(f"{'='*70}")
+
+        from sklearn.linear_model import LinearRegression as _LR_L
+        from sklearn.preprocessing import StandardScaler as _SS_L
+        from sklearn.model_selection import train_test_split as _split_L
+
+        # Bridge oracle bars to X rows via timestamp
+        base_ts = base_df['timestamp'].values
+        _oracle_ts_set = {}
+        for i, bi in enumerate(bar_indices):
+            _oracle_ts_set[int(base_ts[bi])] = i
+
+        _l_xrows = []
+        _l_smfe = []
+        for xi, ts_val in enumerate(sample_ts):
+            oi = _oracle_ts_set.get(int(ts_val), -1)
+            if oi >= 0:
+                _l_xrows.append(xi)
+                _sign = 1.0 if directions[oi] == 'LONG' else -1.0
+                _l_smfe.append(float(mfes[oi]) * _sign)
+
+        n_l = len(_l_smfe)
+        print(f"\n  Matched samples: {n_l} (oracle bars with fractal context)")
+
+        if n_l >= 50:
+            X_l = X[_l_xrows]
+            Y_l = np.array(_l_smfe)
+
+            n_pos = (Y_l > 0).sum()
+            n_neg = (Y_l < 0).sum()
+            print(f"  UP (positive): {n_pos} ({n_pos/n_l*100:.1f}%)  "
+                  f"DOWN (negative): {n_neg} ({n_neg/n_l*100:.1f}%)")
+            print(f"  Y range: [{Y_l.min():.1f}, {Y_l.max():.1f}], "
+                  f"mean={Y_l.mean():.2f}, std={Y_l.std():.2f}")
+
+            # Train/test split
+            X_tr, X_te, y_tr, y_te = _split_L(X_l, Y_l, test_size=0.30, random_state=42)
+
+            sc_l = _SS_L()
+            X_tr_sc = sc_l.fit_transform(X_tr)
+            X_te_sc = sc_l.transform(X_te)
+
+            ols_l = _LR_L().fit(X_tr_sc, y_tr)
+            pred_tr = ols_l.predict(X_tr_sc)
+            pred_te = ols_l.predict(X_te_sc)
+
+            # R-squared on train and test
+            r2_tr = ols_l.score(X_tr_sc, y_tr)
+            r2_te = ols_l.score(X_te_sc, y_te)
+            n_te, k_te = X_te_sc.shape
+            adj_r2_te = 1.0 - (1.0 - r2_te) * (n_te - 1) / max(1, n_te - k_te - 1)
+
+            print(f"\n  OLS Signed MFE:")
+            print(f"    Train R2:     {r2_tr:.4f}")
+            print(f"    Test R2:      {r2_te:.4f}")
+            print(f"    Test adj-R2:  {adj_r2_te:.4f}")
+
+            # Direction accuracy: sign(predicted) vs sign(actual)
+            dir_pred = np.sign(pred_te)
+            dir_actual = np.sign(y_te)
+            _nz = dir_actual != 0
+            if _nz.sum() > 0:
+                dir_correct = (dir_pred[_nz] == dir_actual[_nz]).sum()
+                dir_acc = dir_correct / _nz.sum()
+                _baseline_l = max((dir_actual[_nz] > 0).sum(), (dir_actual[_nz] < 0).sum()) / _nz.sum()
+                _lift_l = dir_acc - _baseline_l
+                print(f"\n  Direction from sign(prediction):")
+                print(f"    Accuracy: {dir_correct}/{_nz.sum()} = {dir_acc:.1%}")
+                print(f"    Baseline (majority): {_baseline_l:.1%}")
+                print(f"    Lift: {_lift_l:+.1%}")
+
+                # Confidence gates: only predict when |predicted| > threshold
+                print(f"\n  Confidence gates (|predicted signed MFE| > threshold):")
+                print(f"  {'Threshold':>10} {'N':>6} {'Accuracy':>10} {'Lift':>8} {'% of data':>10}")
+                print(f"  {'-'*10} {'-'*6} {'-'*10} {'-'*8} {'-'*10}")
+                for thr in [0.0, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0]:
+                    _cm = (np.abs(pred_te) > thr) & _nz
+                    if _cm.sum() > 0:
+                        _cc = (dir_pred[_cm] == dir_actual[_cm]).sum()
+                        _ca = _cc / _cm.sum()
+                        _pct = _cm.sum() / _nz.sum() * 100
+                        print(f"  {thr:>10.1f} {_cm.sum():>6} {_ca:>10.1%} "
+                              f"{_ca - _baseline_l:>+8.1%} {_pct:>9.1f}%")
+
+                # LONG vs SHORT breakdown
+                _pred_long = dir_pred[_nz] > 0
+                _actual_long = dir_actual[_nz] > 0
+                _long_correct = (_pred_long & _actual_long).sum()
+                _long_total = _actual_long.sum()
+                _short_correct = (~_pred_long & ~_actual_long).sum()
+                _short_total = (~_actual_long).sum()
+                print(f"\n  When actual LONG:  {_long_correct}/{_long_total} = "
+                      f"{_long_correct/_long_total:.1%}" if _long_total > 0 else "")
+                print(f"  When actual SHORT: {_short_correct}/{_short_total} = "
+                      f"{_short_correct/_short_total:.1%}" if _short_total > 0 else "")
+
+            # Top features by coefficient magnitude
+            coeff_abs = np.abs(ols_l.coef_)
+            top_idx = np.argsort(coeff_abs)[::-1][:20]
+            all_names = col_names  # 193 features
+            print(f"\n  TOP 20 FEATURES (by |coefficient| in signed MFE OLS):")
+            print(f"  {'Rank':>4}  {'Feature':<40} {'Coeff':>10} {'|Coeff|':>10}")
+            print(f"  {'-'*4}  {'-'*40} {'-'*10} {'-'*10}")
+            for rank, fi in enumerate(top_idx, 1):
+                fn = all_names[fi] if fi < len(all_names) else f'f{fi}'
+                print(f"  {rank:>4}  {fn:<40} {ols_l.coef_[fi]:>+10.4f} {coeff_abs[fi]:>10.4f}")
+
+            # CONCLUSION
+            print(f"\n  ANALYSIS L CONCLUSION:")
+            if _nz.sum() > 0 and dir_acc > 0.55:
+                print(f"  PROMISING: {dir_acc:.1%} direction accuracy from signed MFE OLS.")
+                print(f"  The 16D fractal context can predict not just WHERE price is,")
+                print(f"  but which WAY it's going and how FAR. One regression gives")
+                print(f"  direction (sign) + confidence (magnitude) + TP target (|pred|).")
+            elif _nz.sum() > 0 and dir_acc > 0.52:
+                print(f"  MARGINAL: {dir_acc:.1%} accuracy, slight lift over baseline.")
+                print(f"  May improve with importance weighting or feature selection.")
+            else:
+                print(f"  INSUFFICIENT: {dir_acc:.1%} accuracy. Signed MFE is not reliably")
+                print(f"  predictable from the 192D snapshot. Fall back to balanced")
+                print(f"  direction classifier or template DMI side.")
+
+            # ── Plot: Signed MFE — Predicted vs Actual ──────────────────────
+            fig_l, axes_l = plt.subplots(2, 2, figsize=(16, 12),
+                                          facecolor='white')
+
+            # (0,0) Scatter: predicted vs actual signed MFE, color = actual direction
+            ax = axes_l[0, 0]
+            _c_long  = '#2196F3'  # blue = LONG (up)
+            _c_short = '#F44336'  # red  = SHORT (down)
+            _colors_te = np.where(y_te > 0, _c_long, _c_short)
+            ax.scatter(y_te, pred_te, c=_colors_te, alpha=0.5, s=20, edgecolors='none')
+            _lim = max(abs(y_te).max(), abs(pred_te).max()) * 1.1
+            ax.plot([-_lim, _lim], [-_lim, _lim], 'k--', alpha=0.3, lw=1)
+            ax.axhline(0, color='gray', lw=0.5, alpha=0.5)
+            ax.axvline(0, color='gray', lw=0.5, alpha=0.5)
+            # Shade quadrants
+            ax.fill_between([-_lim, 0], -_lim, 0, color=_c_short, alpha=0.04)  # correct SHORT
+            ax.fill_between([0, _lim], 0, _lim, color=_c_long, alpha=0.04)     # correct LONG
+            ax.set_xlabel('Actual Signed MFE', fontsize=10)
+            ax.set_ylabel('Predicted Signed MFE', fontsize=10)
+            ax.set_title(f'Predicted vs Actual (R\u00b2={r2_te:.3f})', fontsize=11, fontweight='bold')
+            # Legend
+            from matplotlib.lines import Line2D
+            _leg = [Line2D([0], [0], marker='o', color='w', markerfacecolor=_c_long, markersize=8, label='LONG (actual)'),
+                    Line2D([0], [0], marker='o', color='w', markerfacecolor=_c_short, markersize=8, label='SHORT (actual)')]
+            ax.legend(handles=_leg, loc='upper left', fontsize=9)
+
+            # (0,1) Histogram: predicted signed MFE distribution, stacked by actual direction
+            ax = axes_l[0, 1]
+            _pred_long_vals  = pred_te[y_te > 0]
+            _pred_short_vals = pred_te[y_te < 0]
+            _bins = np.linspace(-_lim, _lim, 40)
+            ax.hist(_pred_long_vals, bins=_bins, alpha=0.7, color=_c_long, label='Actual LONG', edgecolor='white', lw=0.5)
+            ax.hist(_pred_short_vals, bins=_bins, alpha=0.7, color=_c_short, label='Actual SHORT', edgecolor='white', lw=0.5)
+            ax.axvline(0, color='black', lw=1.5, ls='--', alpha=0.7)
+            ax.set_xlabel('Predicted Signed MFE', fontsize=10)
+            ax.set_ylabel('Count', fontsize=10)
+            ax.set_title('Prediction Distribution by Actual Direction', fontsize=11, fontweight='bold')
+            ax.legend(fontsize=9)
+            ax.text(0.02, 0.95, f'LEFT of 0 = model says SHORT\nRIGHT of 0 = model says LONG',
+                    transform=ax.transAxes, fontsize=8, va='top', color='gray')
+
+            # (1,0) Confusion matrix as heatmap
+            ax = axes_l[1, 0]
+            if _nz.sum() > 0:
+                _cm_labels = ['SHORT', 'LONG']
+                _tp_short = (~_pred_long & ~_actual_long).sum()
+                _fp_long  = (_pred_long & ~_actual_long).sum()
+                _fn_long  = (~_pred_long & _actual_long).sum()
+                _tp_long  = (_pred_long & _actual_long).sum()
+                _cm = np.array([[_tp_short, _fp_long], [_fn_long, _tp_long]])
+                _im = ax.imshow(_cm, cmap='Blues', aspect='auto')
+                ax.set_xticks([0, 1]); ax.set_xticklabels(_cm_labels, fontsize=10)
+                ax.set_yticks([0, 1]); ax.set_yticklabels(_cm_labels, fontsize=10)
+                ax.set_xlabel('Predicted', fontsize=10)
+                ax.set_ylabel('Actual', fontsize=10)
+                for _ri in range(2):
+                    for _ci in range(2):
+                        _val = _cm[_ri, _ci]
+                        _clr = 'white' if _val > _cm.max() * 0.5 else 'black'
+                        ax.text(_ci, _ri, str(_val), ha='center', va='center',
+                                fontsize=16, fontweight='bold', color=_clr)
+                ax.set_title(f'Direction Confusion Matrix\nAccuracy={dir_acc:.1%}, Lift={_lift_l:+.1%}',
+                            fontsize=11, fontweight='bold')
+
+            # (1,1) Confidence gate curve
+            ax = axes_l[1, 1]
+            _thrs = np.linspace(0, np.percentile(np.abs(pred_te), 95), 30)
+            _accs = []
+            _ns = []
+            for _t in _thrs:
+                _m = (np.abs(pred_te) > _t) & _nz
+                if _m.sum() >= 5:
+                    _accs.append((dir_pred[_m] == dir_actual[_m]).sum() / _m.sum() * 100)
+                    _ns.append(_m.sum() / _nz.sum() * 100)
+                else:
+                    _accs.append(np.nan)
+                    _ns.append(0)
+            ax.plot(_thrs, _accs, color='#2196F3', lw=2, label='Accuracy %')
+            ax.axhline(_baseline_l * 100, color='gray', ls='--', lw=1, alpha=0.7, label=f'Baseline {_baseline_l:.0%}')
+            ax.set_xlabel('|Predicted Signed MFE| Threshold', fontsize=10)
+            ax.set_ylabel('Direction Accuracy %', fontsize=10)
+            ax.set_title('Confidence Gate: Accuracy vs Threshold', fontsize=11, fontweight='bold')
+            ax.legend(fontsize=9)
+            ax2 = ax.twinx()
+            ax2.fill_between(_thrs, 0, _ns, alpha=0.15, color='orange')
+            ax2.set_ylabel('% of Data Remaining', fontsize=9, color='orange')
+            ax2.tick_params(axis='y', labelcolor='orange')
+
+            fig_l.suptitle(
+                f'Analysis L: Signed MFE OLS — Direction from Price Prediction\n'
+                f'{n_l} samples | Accuracy={dir_acc:.1%} | Lift={_lift_l:+.1%} | '
+                f'LONG: {n_pos} ({n_pos/n_l*100:.0f}%)  SHORT: {n_neg} ({n_neg/n_l*100:.0f}%)',
+                fontsize=13, fontweight='bold')
+            plt.tight_layout()
+            l_path = os.path.join(PLOTS_DIR, '0n_signed_mfe_direction.png')
+            fig_l.savefig(l_path, dpi=150, bbox_inches='tight', facecolor='white')
+            plt.close(fig_l)
+            print(f"\n  Saved: {l_path}")
+
+            # ── Plot 2: Price chart with LONG/SHORT segment overlay ─────────
+            # Predict signed MFE for ALL matched samples (not just test split)
+            X_l_all_sc = sc_l.transform(X_l)
+            pred_all = ols_l.predict(X_l_all_sc)
+            pred_dir_all = np.sign(pred_all)
+
+            # Map back to bar indices in base_df
+            _matched_bar_idx = [bar_indices[_oracle_ts_set[int(sample_ts[xi])]]
+                                for xi in _l_xrows]
+            _matched_bar_idx = np.array(_matched_bar_idx)
+
+            from datetime import datetime, timezone as _tz_l
+            close_all = base_df['close'].values.astype(float)
+            ts_all = base_df['timestamp'].values
+
+            fig_p, ax_p = plt.subplots(1, 1, figsize=(20, 7), facecolor='white')
+
+            # Plot full price line in gray
+            _x_dates = [datetime.fromtimestamp(int(t), tz=_tz_l.utc) for t in ts_all]
+            ax_p.plot(_x_dates, close_all, color='#BDBDBD', lw=0.8, alpha=0.6, zorder=1)
+
+            # Overlay colored segments at each prediction point
+            _seg_half = max(1, len(close_all) // 500)  # adaptive segment width
+            for i, bi in enumerate(_matched_bar_idx):
+                _s = max(0, bi - _seg_half)
+                _e = min(len(close_all), bi + _seg_half + 1)
+                _seg_x = _x_dates[_s:_e]
+                _seg_y = close_all[_s:_e]
+                if len(_seg_x) < 2:
+                    continue
+                _color = '#2196F3' if pred_dir_all[i] > 0 else '#F44336'
+                _alpha = min(1.0, 0.3 + abs(pred_all[i]) / 100.0)  # stronger prediction = more opaque
+                ax_p.plot(_seg_x, _seg_y, color=_color, lw=2.0, alpha=_alpha, zorder=2)
+
+            # Mark correct/wrong with small dots
+            for i, bi in enumerate(_matched_bar_idx):
+                _actual_sign = 1.0 if directions[_oracle_ts_set[int(sample_ts[_l_xrows[i]])]] == 'LONG' else -1.0
+                _correct = (pred_dir_all[i] == _actual_sign)
+                if not _correct:
+                    ax_p.plot(_x_dates[bi], close_all[bi], 'x', color='black',
+                             markersize=4, alpha=0.5, zorder=3)
+
+            ax_p.set_xlabel('Time', fontsize=10)
+            ax_p.set_ylabel('Price', fontsize=10)
+            ax_p.set_title(
+                f'Price with Predicted Direction Overlay\n'
+                f'Blue = LONG prediction | Red = SHORT prediction | X = wrong direction',
+                fontsize=12, fontweight='bold')
+            from matplotlib.lines import Line2D as _Line2D_p
+            _leg_p = [_Line2D_p([0], [0], color='#2196F3', lw=2, label='Predicted LONG'),
+                      _Line2D_p([0], [0], color='#F44336', lw=2, label='Predicted SHORT'),
+                      _Line2D_p([0], [0], marker='x', color='black', lw=0, markersize=6, label='Wrong direction')]
+            ax_p.legend(handles=_leg_p, loc='upper left', fontsize=9)
+            fig_p.autofmt_xdate()
+            plt.tight_layout()
+            p_path = os.path.join(PLOTS_DIR, '0o_price_direction_overlay.png')
+            fig_p.savefig(p_path, dpi=150, bbox_inches='tight', facecolor='white')
+            plt.close(fig_p)
+            print(f"  Saved: {p_path}")
+
+        else:
+            print(f"  SKIP: too few matched samples ({n_l}) for meaningful analysis")
+
+    else:
+        print(f"  [SKIP] Analysis L (--start {_start_at})")
+
+    if _start_at <= 'M':
+        # =====================================================================
+        #  ANALYSIS M: NEXT-PRICE FORECAST (direction from delta)
+        #
+        #  Y = close[t+1]  given X = fractal context at time t
+        #  direction = sign(predicted_next - actual_current)
+        #  No regime labels, no oracle direction, no MFE lookahead.
+        #  Just: "where will price be next?"
+        # =====================================================================
+        print(f"\n{'='*70}")
+        print(f"  ANALYSIS M: NEXT-PRICE FORECAST")
+        print(f"  Y = close[t+1]  |  X = 192D fractal context at time t")
+        print(f"  direction = sign(predicted_next - current_price)")
+        print(f"{'='*70}")
+
+        from sklearn.linear_model import LinearRegression as _LR_M
+        from sklearn.preprocessing import StandardScaler as _SS_M
+
+        # Build consecutive pairs: X[t] -> Y = close[t+1]
+        n_m = len(X) - 1  # need t+1 for each t
+        print(f"\n  Consecutive pairs: {n_m}")
+
+        if n_m >= 50:
+            X_m = X[:-1]             # features at time t
+            Y_next_m = Y_p[1:]       # close[t+1]
+            Y_curr_m = Y_p[:-1]      # close[t]
+            Y_delta_m = Y_next_m - Y_curr_m  # actual price change
+
+            n_up_m = (Y_delta_m > 0).sum()
+            n_down_m = (Y_delta_m < 0).sum()
+            n_flat_m = (Y_delta_m == 0).sum()
+            print(f"  Actual direction: UP={n_up_m} ({n_up_m/n_m*100:.1f}%)  "
+                  f"DOWN={n_down_m} ({n_down_m/n_m*100:.1f}%)  FLAT={n_flat_m}")
+            print(f"  Delta range: [{Y_delta_m.min():.1f}, {Y_delta_m.max():.1f}], "
+                  f"mean={Y_delta_m.mean():.2f}, std={Y_delta_m.std():.2f}")
+
+            # Train/test split (chronological: first 70% train, last 30% test)
+            _split_m = int(n_m * 0.70)
+            Xm_tr, Xm_te = X_m[:_split_m], X_m[_split_m:]
+            ym_next_tr, ym_next_te = Y_next_m[:_split_m], Y_next_m[_split_m:]
+            ym_curr_tr, ym_curr_te = Y_curr_m[:_split_m], Y_curr_m[_split_m:]
+            ym_delta_te = Y_delta_m[_split_m:]
+
+            sc_m = _SS_M()
+            Xm_tr_sc = sc_m.fit_transform(Xm_tr)
+            Xm_te_sc = sc_m.transform(Xm_te)
+
+            # Model: predict close[t+1] from features[t]
+            ols_m = _LR_M().fit(Xm_tr_sc, ym_next_tr)
+            pred_next_tr_m = ols_m.predict(Xm_tr_sc)
+            pred_next_te_m = ols_m.predict(Xm_te_sc)
+
+            r2_tr_m = ols_m.score(Xm_tr_sc, ym_next_tr)
+            r2_te_m = ols_m.score(Xm_te_sc, ym_next_te)
+            n_te_m, k_te_m = Xm_te_sc.shape
+            adj_r2_te_m = 1.0 - (1.0 - r2_te_m) * (n_te_m - 1) / max(1, n_te_m - k_te_m - 1)
+
+            print(f"\n  OLS Next-Price Forecast:")
+            print(f"    Train R2:     {r2_tr_m:.4f}")
+            print(f"    Test R2:      {r2_te_m:.4f}")
+            print(f"    Test adj-R2:  {adj_r2_te_m:.4f}")
+
+            # Direction = sign(predicted_next - actual_current)
+            pred_delta_m = pred_next_te_m - ym_curr_te
+            actual_delta_m = ym_delta_te
+
+            # Residual analysis
+            residuals_m = pred_next_te_m - ym_next_te
+            print(f"\n  Residuals: mean={residuals_m.mean():.2f}, std={residuals_m.std():.2f}")
+            print(f"  Actual moves: mean={np.mean(np.abs(actual_delta_m)):.2f}, std={np.std(actual_delta_m):.2f}")
+            snr_m = np.mean(np.abs(actual_delta_m)) / residuals_m.std() if residuals_m.std() > 0 else 0
+            print(f"  Signal-to-noise: {snr_m:.3f} "
+                  f"({'good' if snr_m > 1.5 else 'marginal' if snr_m > 0.8 else 'poor'})")
+
+            # Direction accuracy
+            dir_pred_m = np.sign(pred_delta_m)
+            dir_actual_m = np.sign(actual_delta_m)
+            _nz_m = dir_actual_m != 0
+            dir_acc_m = 0.0
+            _baseline_m = 0.5
+            _lift_m = 0.0
+            if _nz_m.sum() > 0:
+                dir_correct_m = (dir_pred_m[_nz_m] == dir_actual_m[_nz_m]).sum()
+                dir_acc_m = dir_correct_m / _nz_m.sum()
+                _baseline_m = max((dir_actual_m[_nz_m] > 0).sum(), (dir_actual_m[_nz_m] < 0).sum()) / _nz_m.sum()
+                _lift_m = dir_acc_m - _baseline_m
+                print(f"\n  Direction = sign(predicted_next - current):")
+                print(f"    Accuracy: {dir_correct_m}/{_nz_m.sum()} = {dir_acc_m:.1%}")
+                print(f"    Baseline (majority): {_baseline_m:.1%}")
+                print(f"    Lift: {_lift_m:+.1%}")
+
+                # Confidence gates
+                print(f"\n  Confidence gates (|predicted delta| > threshold):")
+                print(f"  {'Threshold':>10} {'N':>6} {'Accuracy':>10} {'Lift':>8} {'% of data':>10}")
+                print(f"  {'-'*10} {'-'*6} {'-'*10} {'-'*8} {'-'*10}")
+                for thr in [0.0, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0]:
+                    _cm_m = (np.abs(pred_delta_m) > thr) & _nz_m
+                    if _cm_m.sum() > 0:
+                        _cc_m = (dir_pred_m[_cm_m] == dir_actual_m[_cm_m]).sum()
+                        _ca_m = _cc_m / _cm_m.sum()
+                        _pct_m = _cm_m.sum() / _nz_m.sum() * 100
+                        print(f"  {thr:>10.1f} {_cm_m.sum():>6} {_ca_m:>10.1%} "
+                              f"{_ca_m - _baseline_m:>+8.1%} {_pct_m:>9.1f}%")
+
+                # UP vs DOWN breakdown
+                _pred_up_m = dir_pred_m[_nz_m] > 0
+                _actual_up_m = dir_actual_m[_nz_m] > 0
+                _up_correct_m = (_pred_up_m & _actual_up_m).sum()
+                _up_total_m = _actual_up_m.sum()
+                _down_correct_m = (~_pred_up_m & ~_actual_up_m).sum()
+                _down_total_m = (~_actual_up_m).sum()
+                if _up_total_m > 0:
+                    print(f"\n  When actual UP:   {_up_correct_m}/{_up_total_m} = "
+                          f"{_up_correct_m/_up_total_m:.1%}")
+                if _down_total_m > 0:
+                    print(f"  When actual DOWN: {_down_correct_m}/{_down_total_m} = "
+                          f"{_down_correct_m/_down_total_m:.1%}")
+
+            # CONCLUSION
+            print(f"\n  ANALYSIS M CONCLUSION:")
+            if _nz_m.sum() > 0 and dir_acc_m > 0.55:
+                print(f"  PROMISING: {dir_acc_m:.1%} direction accuracy.")
+                print(f"  Predicting next price from current fractal context works.")
+                print(f"  direction = sign(predicted - current), confidence = |delta|")
+            elif _nz_m.sum() > 0 and dir_acc_m > 0.52:
+                print(f"  MARGINAL: {dir_acc_m:.1%} accuracy, slight lift over baseline.")
+                if snr_m < 1.0:
+                    print(f"  SNR={snr_m:.2f}: residual noise > typical moves.")
+            else:
+                print(f"  INSUFFICIENT: {dir_acc_m:.1%}. Next-bar prediction residuals")
+                print(f"  overwhelm the directional signal at this timeframe.")
+
+            # ── Table: Actual vs Predicted (test set) ───────────────────────
+            import csv as _csv_m
+            from datetime import datetime as _dt_m, timezone as _tz_mt
+
+            # Build rows for test set
+            _te_indices = list(range(_split_m, n_m))
+            _table_rows = []
+            for j, idx in enumerate(_te_indices):
+                _ts_val = int(sample_ts[idx])
+                _t_str = _dt_m.fromtimestamp(_ts_val, tz=_tz_mt.utc).strftime('%Y-%m-%d %H:%M')
+                _curr = float(Y_curr_m[_split_m + j])
+                _actual_next = float(Y_next_m[_split_m + j])
+                _pred_next = float(pred_next_te_m[j])
+                _act_delta = float(actual_delta_m[j])
+                _prd_delta = float(pred_delta_m[j])
+                _pred_dir = 'UP' if _prd_delta > 0 else 'DOWN'
+                _act_dir = 'UP' if _act_delta > 0 else ('DOWN' if _act_delta < 0 else 'FLAT')
+                _correct = 'Y' if _pred_dir == _act_dir else 'N'
+                _table_rows.append((_t_str, _curr, _actual_next, _pred_next,
+                                    _act_delta, _prd_delta, _pred_dir, _act_dir, _correct))
+
+            # Console preview (first 30 + last 10)
+            print(f"\n  {'='*95}")
+            print(f"  PREDICTION TABLE (test set: {len(_table_rows)} rows)")
+            print(f"  {'='*95}")
+            _hdr = f"  {'Timestamp':<17} {'Current':>10} {'Actual':>10} {'Predicted':>10} {'Act.D':>8} {'Pred.D':>8} {'Dir':>5} {'Act':>5} {'OK':>3}"
+            print(_hdr)
+            print(f"  {'-'*95}")
+            _show = _table_rows[:30] + ([('  ...', '', '', '', '', '', '', '', '')] if len(_table_rows) > 40 else []) + _table_rows[-10:] if len(_table_rows) > 40 else _table_rows
+            for r in _show:
+                if r[1] == '':
+                    print(f"  {r[0]}")
+                else:
+                    print(f"  {r[0]:<17} {r[1]:>10.2f} {r[2]:>10.2f} {r[3]:>10.2f} "
+                          f"{r[4]:>+8.2f} {r[5]:>+8.2f} {r[6]:>5} {r[7]:>5} {r[8]:>3}")
+
+            # Save full CSV
+            _csv_path = os.path.join(PLOTS_DIR, 'analysis_m_predictions.csv')
+            with open(_csv_path, 'w', newline='', encoding='utf-8') as _cf:
+                _w = _csv_m.writer(_cf)
+                _w.writerow(['timestamp', 'current_price', 'actual_next', 'predicted_next',
+                             'actual_delta', 'predicted_delta', 'predicted_dir', 'actual_dir', 'correct'])
+                for r in _table_rows:
+                    _w.writerow(r)
+            print(f"\n  Full table saved: {_csv_path} ({len(_table_rows)} rows)")
+
+            # Summary stats
+            _n_correct = sum(1 for r in _table_rows if r[8] == 'Y')
+            _mae = np.mean(np.abs(pred_next_te_m - ym_next_te))
+            _rmse = np.sqrt(np.mean((pred_next_te_m - ym_next_te) ** 2))
+            print(f"  MAE: {_mae:.2f}  |  RMSE: {_rmse:.2f}  |  "
+                  f"Direction: {_n_correct}/{len(_table_rows)} correct")
+
+            # ── Plot 1: 4-panel analysis ────────────────────────────────────
+            fig_m, axes_m = plt.subplots(2, 2, figsize=(16, 12), facecolor='white')
+            _c_up  = '#2196F3'
+            _c_dn = '#F44336'
+
+            # (0,0) Scatter: predicted delta vs actual delta
+            ax = axes_m[0, 0]
+            _colors_m = np.where(actual_delta_m > 0, _c_up, _c_dn)
+            ax.scatter(actual_delta_m, pred_delta_m, c=_colors_m, alpha=0.4, s=15, edgecolors='none')
+            _lim_m = max(np.percentile(np.abs(actual_delta_m), 99),
+                         np.percentile(np.abs(pred_delta_m), 99)) * 1.1
+            ax.plot([-_lim_m, _lim_m], [-_lim_m, _lim_m], 'k--', alpha=0.3, lw=1)
+            ax.axhline(0, color='gray', lw=0.5, alpha=0.5)
+            ax.axvline(0, color='gray', lw=0.5, alpha=0.5)
+            ax.fill_between([-_lim_m, 0], -_lim_m, 0, color=_c_dn, alpha=0.04)
+            ax.fill_between([0, _lim_m], 0, _lim_m, color=_c_up, alpha=0.04)
+            ax.set_xlabel('Actual Delta (close[t+1] - close[t])', fontsize=10)
+            ax.set_ylabel('Predicted Delta (pred_next - current)', fontsize=10)
+            ax.set_title(f'Predicted vs Actual Price Change', fontsize=11, fontweight='bold')
+            from matplotlib.lines import Line2D as _L2M
+            ax.legend(handles=[
+                _L2M([0], [0], marker='o', color='w', markerfacecolor=_c_up, markersize=8, label='UP'),
+                _L2M([0], [0], marker='o', color='w', markerfacecolor=_c_dn, markersize=8, label='DOWN'),
+            ], loc='upper left', fontsize=9)
+
+            # (0,1) Histogram: predicted delta distribution by actual direction
+            ax = axes_m[0, 1]
+            _bins_m = np.linspace(-_lim_m, _lim_m, 50)
+            ax.hist(pred_delta_m[actual_delta_m > 0], bins=_bins_m, alpha=0.7, color=_c_up,
+                    label='Actual UP', edgecolor='white', lw=0.5)
+            ax.hist(pred_delta_m[actual_delta_m < 0], bins=_bins_m, alpha=0.7, color=_c_dn,
+                    label='Actual DOWN', edgecolor='white', lw=0.5)
+            ax.axvline(0, color='black', lw=1.5, ls='--', alpha=0.7)
+            ax.set_xlabel('Predicted Delta', fontsize=10)
+            ax.set_ylabel('Count', fontsize=10)
+            ax.set_title('Prediction Distribution by Actual Direction', fontsize=11, fontweight='bold')
+            ax.legend(fontsize=9)
+
+            # (1,0) Confusion matrix
+            ax = axes_m[1, 0]
+            if _nz_m.sum() > 0:
+                _tp_s_m = (~_pred_up_m & ~_actual_up_m).sum()
+                _fp_u_m = (_pred_up_m & ~_actual_up_m).sum()
+                _fn_u_m = (~_pred_up_m & _actual_up_m).sum()
+                _tp_u_m = (_pred_up_m & _actual_up_m).sum()
+                _cm_mat = np.array([[_tp_s_m, _fp_u_m], [_fn_u_m, _tp_u_m]])
+                ax.imshow(_cm_mat, cmap='Blues', aspect='auto')
+                ax.set_xticks([0, 1]); ax.set_xticklabels(['DOWN', 'UP'], fontsize=10)
+                ax.set_yticks([0, 1]); ax.set_yticklabels(['DOWN', 'UP'], fontsize=10)
+                ax.set_xlabel('Predicted', fontsize=10)
+                ax.set_ylabel('Actual', fontsize=10)
+                for _ri in range(2):
+                    for _ci in range(2):
+                        _v = _cm_mat[_ri, _ci]
+                        ax.text(_ci, _ri, str(_v), ha='center', va='center',
+                                fontsize=16, fontweight='bold',
+                                color='white' if _v > _cm_mat.max() * 0.5 else 'black')
+                ax.set_title(f'Direction Confusion Matrix\nAcc={dir_acc_m:.1%}, Lift={_lift_m:+.1%}',
+                            fontsize=11, fontweight='bold')
+
+            # (1,1) Confidence gate curve
+            ax = axes_m[1, 1]
+            _thrs_m = np.linspace(0, np.percentile(np.abs(pred_delta_m), 95), 30)
+            _accs_m, _ns_m = [], []
+            for _t in _thrs_m:
+                _mm = (np.abs(pred_delta_m) > _t) & _nz_m
+                if _mm.sum() >= 5:
+                    _accs_m.append((dir_pred_m[_mm] == dir_actual_m[_mm]).sum() / _mm.sum() * 100)
+                    _ns_m.append(_mm.sum() / _nz_m.sum() * 100)
+                else:
+                    _accs_m.append(np.nan); _ns_m.append(0)
+            ax.plot(_thrs_m, _accs_m, color='#2196F3', lw=2, label='Accuracy %')
+            ax.axhline(_baseline_m * 100, color='gray', ls='--', lw=1, alpha=0.7,
+                       label=f'Baseline {_baseline_m:.0%}')
+            ax.set_xlabel('|Predicted Delta| Threshold', fontsize=10)
+            ax.set_ylabel('Direction Accuracy %', fontsize=10)
+            ax.set_title('Confidence Gate: Accuracy vs Threshold', fontsize=11, fontweight='bold')
+            ax.legend(fontsize=9)
+            ax2_m = ax.twinx()
+            ax2_m.fill_between(_thrs_m, 0, _ns_m, alpha=0.15, color='orange')
+            ax2_m.set_ylabel('% Data Remaining', fontsize=9, color='orange')
+            ax2_m.tick_params(axis='y', labelcolor='orange')
+
+            fig_m.suptitle(
+                f'Analysis M: Next-Price Forecast — Direction from Delta\n'
+                f'{n_m} pairs | Acc={dir_acc_m:.1%} | Lift={_lift_m:+.1%} | SNR={snr_m:.2f} | '
+                f'UP: {n_up_m} ({n_up_m/n_m*100:.0f}%)  DOWN: {n_down_m} ({n_down_m/n_m*100:.0f}%)',
+                fontsize=13, fontweight='bold')
+            plt.tight_layout()
+            m_path = os.path.join(PLOTS_DIR, '0p_next_price_forecast.png')
+            fig_m.savefig(m_path, dpi=150, bbox_inches='tight', facecolor='white')
+            plt.close(fig_m)
+            print(f"\n  Saved: {m_path}")
+
+            # ── Plot 2: Price with direction overlay ────────────────────────
+            Xm_all_sc = sc_m.transform(X_m)
+            pred_next_all_m = ols_m.predict(Xm_all_sc)
+            pred_delta_all_m = pred_next_all_m - Y_curr_m
+
+            from datetime import datetime, timezone as _tz_m
+            close_all_m = base_df['close'].values.astype(float)
+            ts_all_m = base_df['timestamp'].values
+
+            _ts_to_bi_m = {int(ts_all_m[i]): i for i in range(len(ts_all_m))}
+            _sample_bi_m = [_ts_to_bi_m.get(int(t), -1) for t in sample_ts[:-1]]
+
+            fig_pm, ax_pm = plt.subplots(1, 1, figsize=(20, 7), facecolor='white')
+            _x_dates_m = [datetime.fromtimestamp(int(t), tz=_tz_m.utc) for t in ts_all_m]
+            ax_pm.plot(_x_dates_m, close_all_m, color='#BDBDBD', lw=0.8, alpha=0.6, zorder=1)
+
+            _seg_half_m = max(1, len(close_all_m) // 500)
+            for i, bi in enumerate(_sample_bi_m):
+                if bi < 0:
+                    continue
+                _s = max(0, bi - _seg_half_m)
+                _e = min(len(close_all_m), bi + _seg_half_m + 1)
+                _seg_x = _x_dates_m[_s:_e]
+                _seg_y = close_all_m[_s:_e]
+                if len(_seg_x) < 2:
+                    continue
+                _color = _c_up if pred_delta_all_m[i] > 0 else _c_dn
+                _alpha = min(1.0, 0.3 + abs(pred_delta_all_m[i]) / 50.0)
+                ax_pm.plot(_seg_x, _seg_y, color=_color, lw=2.0, alpha=_alpha, zorder=2)
+
+                # X for wrong direction
+                if Y_delta_m[i] != 0 and np.sign(pred_delta_all_m[i]) != np.sign(Y_delta_m[i]):
+                    ax_pm.plot(_x_dates_m[bi], close_all_m[bi], 'x', color='black',
+                             markersize=4, alpha=0.5, zorder=3)
+
+            ax_pm.set_xlabel('Time', fontsize=10)
+            ax_pm.set_ylabel('Price', fontsize=10)
+            ax_pm.set_title(
+                f'Price with Predicted Direction (Next-Bar Forecast)\n'
+                f'Blue = predicted UP | Red = predicted DOWN | X = wrong',
+                fontsize=12, fontweight='bold')
+            from matplotlib.lines import Line2D as _L2M2
+            ax_pm.legend(handles=[
+                _L2M2([0], [0], color=_c_up, lw=2, label='Predicted UP'),
+                _L2M2([0], [0], color=_c_dn, lw=2, label='Predicted DOWN'),
+                _L2M2([0], [0], marker='x', color='black', lw=0, markersize=6, label='Wrong'),
+            ], loc='upper left', fontsize=9)
+            fig_pm.autofmt_xdate()
+            plt.tight_layout()
+            pm_path = os.path.join(PLOTS_DIR, '0q_next_price_overlay.png')
+            fig_pm.savefig(pm_path, dpi=150, bbox_inches='tight', facecolor='white')
+            plt.close(fig_pm)
+            print(f"  Saved: {pm_path}")
+
+        else:
+            print(f"  SKIP: too few samples ({n_m}) for meaningful analysis")
+
+    else:
+        print(f"  [SKIP] Analysis M (--start {_start_at})")
+
+    if _start_at <= 'N':
+        # =====================================================================
+        #  ANALYSIS N: DELTA-DIRECT FORECAST (MR-centered)
+        #
+        #  Y = close[t+1] - close[t]  (the moving range / bar delta)
+        #  Start from zero — predict the MOVEMENT, not the level.
+        #  This removes the massive level variance that drowns direction signal.
+        # =====================================================================
+        print(f"\n{'='*70}")
+        print(f"  ANALYSIS N: DELTA-DIRECT FORECAST (MR-CENTERED)")
+        print(f"  Y = close[t+1] - close[t]  |  X = 192D fractal context at time t")
+        print(f"  Predict the MOVEMENT directly, not the absolute price")
+        print(f"{'='*70}")
+
+        from sklearn.linear_model import LinearRegression as _LR_N
+        from sklearn.preprocessing import StandardScaler as _SS_N
+
+        n_n = len(X) - 1
+        print(f"\n  Consecutive pairs: {n_n}")
+
+        if n_n >= 50:
+            X_n = X[:-1]                           # features at time t
+            Y_delta_n = Y_p[1:] - Y_p[:-1]         # target = delta = close[t+1] - close[t]
+            Y_curr_n = Y_p[:-1]                     # for reference only
+
+            n_up_n = (Y_delta_n > 0).sum()
+            n_down_n = (Y_delta_n < 0).sum()
+            n_flat_n = (Y_delta_n == 0).sum()
+            print(f"  Actual direction: UP={n_up_n} ({n_up_n/n_n*100:.1f}%)  "
+                  f"DOWN={n_down_n} ({n_down_n/n_n*100:.1f}%)  FLAT={n_flat_n}")
+            print(f"  Delta range: [{Y_delta_n.min():.2f}, {Y_delta_n.max():.2f}], "
+                  f"mean={Y_delta_n.mean():.4f}, std={Y_delta_n.std():.2f}")
+
+            # Chronological 70/30 split
+            _split_n = int(n_n * 0.70)
+            Xn_tr, Xn_te = X_n[:_split_n], X_n[_split_n:]
+            yn_tr, yn_te = Y_delta_n[:_split_n], Y_delta_n[_split_n:]
+            yn_curr_te = Y_curr_n[_split_n:]
+
+            sc_n = _SS_N()
+            Xn_tr_sc = sc_n.fit_transform(Xn_tr)
+            Xn_te_sc = sc_n.transform(Xn_te)
+
+            # OLS: predict delta directly
+            ols_n = _LR_N().fit(Xn_tr_sc, yn_tr)
+            pred_delta_n = ols_n.predict(Xn_te_sc)
+
+            r2_tr_n = ols_n.score(Xn_tr_sc, yn_tr)
+            r2_te_n = ols_n.score(Xn_te_sc, yn_te)
+            n_te_n, k_te_n = Xn_te_sc.shape
+            adj_r2_te_n = 1.0 - (1.0 - r2_te_n) * (n_te_n - 1) / max(1, n_te_n - k_te_n - 1)
+
+            print(f"\n  OLS Delta-Direct:")
+            print(f"    Train R2:     {r2_tr_n:.4f}")
+            print(f"    Test R2:      {r2_te_n:.4f}")
+            print(f"    Test adj-R2:  {adj_r2_te_n:.4f}")
+
+            # Residual analysis
+            residuals_n = pred_delta_n - yn_te
+            print(f"\n  Residuals: mean={residuals_n.mean():.4f}, std={residuals_n.std():.2f}")
+            print(f"  Actual deltas: mean={np.mean(np.abs(yn_te)):.2f}, std={np.std(yn_te):.2f}")
+            snr_n = np.mean(np.abs(yn_te)) / residuals_n.std() if residuals_n.std() > 0 else 0
+            print(f"  Signal-to-noise: {snr_n:.3f} "
+                  f"({'good' if snr_n > 1.5 else 'marginal' if snr_n > 0.8 else 'poor'})")
+
+            # Direction accuracy: sign(predicted_delta) vs sign(actual_delta)
+            dir_pred_n = np.sign(pred_delta_n)
+            dir_actual_n = np.sign(yn_te)
+            _nz_n = dir_actual_n != 0
+            dir_acc_n = 0.0
+            _baseline_n = 0.5
+            _lift_n = 0.0
+            if _nz_n.sum() > 0:
+                dir_correct_n = (dir_pred_n[_nz_n] == dir_actual_n[_nz_n]).sum()
+                dir_acc_n = dir_correct_n / _nz_n.sum()
+                _baseline_n = max((dir_actual_n[_nz_n] > 0).sum(), (dir_actual_n[_nz_n] < 0).sum()) / _nz_n.sum()
+                _lift_n = dir_acc_n - _baseline_n
+                print(f"\n  Direction = sign(predicted_delta):")
+                print(f"    Accuracy: {dir_correct_n}/{_nz_n.sum()} = {dir_acc_n:.1%}")
+                print(f"    Baseline (majority): {_baseline_n:.1%}")
+                print(f"    Lift: {_lift_n:+.1%}")
+
+                # Confidence gates
+                print(f"\n  Confidence gates (|predicted delta| > threshold):")
+                print(f"  {'Threshold':>10} {'N':>6} {'Accuracy':>10} {'Lift':>8} {'% of data':>10}")
+                print(f"  {'-'*10} {'-'*6} {'-'*10} {'-'*8} {'-'*10}")
+                for thr in [0.0, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0]:
+                    _cm_n = (np.abs(pred_delta_n) > thr) & _nz_n
+                    if _cm_n.sum() > 0:
+                        _cc_n = (dir_pred_n[_cm_n] == dir_actual_n[_cm_n]).sum()
+                        _ca_n = _cc_n / _cm_n.sum()
+                        _pct_n = _cm_n.sum() / _nz_n.sum() * 100
+                        print(f"  {thr:>10.1f} {_cm_n.sum():>6} {_ca_n:>10.1%} "
+                              f"{_ca_n - _baseline_n:>+8.1%} {_pct_n:>9.1f}%")
+
+                # UP vs DOWN breakdown
+                _pred_up_n = dir_pred_n[_nz_n] > 0
+                _actual_up_n = dir_actual_n[_nz_n] > 0
+                _up_correct_n = (_pred_up_n & _actual_up_n).sum()
+                _up_total_n = _actual_up_n.sum()
+                _dn_correct_n = (~_pred_up_n & ~_actual_up_n).sum()
+                _dn_total_n = (~_actual_up_n).sum()
+                if _up_total_n > 0:
+                    print(f"\n  When actual UP:   {_up_correct_n}/{_up_total_n} = "
+                          f"{_up_correct_n/_up_total_n:.1%}")
+                if _dn_total_n > 0:
+                    print(f"  When actual DOWN: {_dn_correct_n}/{_dn_total_n} = "
+                          f"{_dn_correct_n/_dn_total_n:.1%}")
+
+            # Top features by |coefficient|
+            coeff_abs_n = np.abs(ols_n.coef_)
+            top_idx_n = np.argsort(coeff_abs_n)[::-1][:20]
+            print(f"\n  TOP 20 FEATURES (by |coefficient| in delta OLS):")
+            print(f"  {'Rank':>4}  {'Feature':<40} {'Coeff':>10} {'|Coeff|':>10}")
+            print(f"  {'-'*4}  {'-'*40} {'-'*10} {'-'*10}")
+            for rank, fi in enumerate(top_idx_n, 1):
+                fn = col_names[fi] if fi < len(col_names) else f'f{fi}'
+                print(f"  {rank:>4}  {fn:<40} {ols_n.coef_[fi]:>+10.4f} {coeff_abs_n[fi]:>10.4f}")
+
+            # CONCLUSION
+            print(f"\n  ANALYSIS N CONCLUSION:")
+            if _nz_n.sum() > 0 and dir_acc_n > 0.55:
+                print(f"  PROMISING: {dir_acc_n:.1%} direction accuracy from delta-direct OLS.")
+                print(f"  Training on the movement itself (not level) captures directional signal.")
+            elif _nz_n.sum() > 0 and dir_acc_n > 0.52:
+                print(f"  MARGINAL: {dir_acc_n:.1%} accuracy, slight lift over baseline.")
+                if snr_n < 1.0:
+                    print(f"  SNR={snr_n:.2f}: prediction noise still > typical delta magnitude.")
+            else:
+                print(f"  INSUFFICIENT: {dir_acc_n:.1%}. Even modeling delta directly,")
+                print(f"  the fractal context cannot reliably predict next-bar direction.")
+
+            # ── Table: Actual vs Predicted delta (test set) ─────────────────
+            import csv as _csv_n
+            from datetime import datetime as _dt_n, timezone as _tz_nt
+
+            _te_idx_n = list(range(_split_n, n_n))
+            _table_n = []
+            for j, idx in enumerate(_te_idx_n):
+                _ts_val = int(sample_ts[idx])
+                _t_str = _dt_n.fromtimestamp(_ts_val, tz=_tz_nt.utc).strftime('%Y-%m-%d %H:%M')
+                _curr = float(Y_curr_n[_split_n + j])
+                _act_d = float(yn_te[j])
+                _prd_d = float(pred_delta_n[j])
+                _pred_dir = 'UP' if _prd_d > 0 else 'DOWN'
+                _act_dir = 'UP' if _act_d > 0 else ('DOWN' if _act_d < 0 else 'FLAT')
+                _correct = 'Y' if _pred_dir == _act_dir else 'N'
+                _table_n.append((_t_str, _curr, _curr + _act_d, _curr + _prd_d,
+                                 _act_d, _prd_d, _pred_dir, _act_dir, _correct))
+
+            # Console preview
+            print(f"\n  {'='*95}")
+            print(f"  PREDICTION TABLE (test set: {len(_table_n)} rows)")
+            print(f"  {'='*95}")
+            _hdr_n = f"  {'Timestamp':<17} {'Current':>10} {'Actual':>10} {'Predicted':>10} {'Act.D':>8} {'Pred.D':>8} {'Dir':>5} {'Act':>5} {'OK':>3}"
+            print(_hdr_n)
+            print(f"  {'-'*95}")
+            _show_n = _table_n[:30] + ([('  ...', '', '', '', '', '', '', '', '')] if len(_table_n) > 40 else []) + _table_n[-10:] if len(_table_n) > 40 else _table_n
+            for r in _show_n:
+                if r[1] == '':
+                    print(f"  {r[0]}")
+                else:
+                    print(f"  {r[0]:<17} {r[1]:>10.2f} {r[2]:>10.2f} {r[3]:>10.2f} "
+                          f"{r[4]:>+8.2f} {r[5]:>+8.2f} {r[6]:>5} {r[7]:>5} {r[8]:>3}")
+
+            # Save CSV
+            _csv_path_n = os.path.join(PLOTS_DIR, 'analysis_n_delta_predictions.csv')
+            with open(_csv_path_n, 'w', newline='', encoding='utf-8') as _cf:
+                _csv_n.writer(_cf).writerow(['timestamp', 'current_price', 'actual_next',
+                    'predicted_next', 'actual_delta', 'predicted_delta',
+                    'predicted_dir', 'actual_dir', 'correct'])
+                _csv_n.writer(_cf).writerows(_table_n)
+            print(f"\n  Full table saved: {_csv_path_n} ({len(_table_n)} rows)")
+
+            _n_corr_n = sum(1 for r in _table_n if r[8] == 'Y')
+            _mae_n = np.mean(np.abs(pred_delta_n - yn_te))
+            _rmse_n = np.sqrt(np.mean((pred_delta_n - yn_te) ** 2))
+            print(f"  MAE: {_mae_n:.2f}  |  RMSE: {_rmse_n:.2f}  |  "
+                  f"Direction: {_n_corr_n}/{len(_table_n)} correct")
+
+            # ── Plot 1: 4-panel analysis ────────────────────────────────────
+            fig_n, axes_n = plt.subplots(2, 2, figsize=(16, 12), facecolor='white')
+            _c_up_n  = '#2196F3'
+            _c_dn_n = '#F44336'
+
+            # (0,0) Scatter: predicted delta vs actual delta
+            ax = axes_n[0, 0]
+            _col_n = np.where(yn_te > 0, _c_up_n, _c_dn_n)
+            ax.scatter(yn_te, pred_delta_n, c=_col_n, alpha=0.4, s=15, edgecolors='none')
+            _lim_n = max(np.percentile(np.abs(yn_te), 99),
+                         np.percentile(np.abs(pred_delta_n), 99)) * 1.1
+            ax.plot([-_lim_n, _lim_n], [-_lim_n, _lim_n], 'k--', alpha=0.3, lw=1)
+            ax.axhline(0, color='gray', lw=0.5, alpha=0.5)
+            ax.axvline(0, color='gray', lw=0.5, alpha=0.5)
+            ax.fill_between([-_lim_n, 0], -_lim_n, 0, color=_c_dn_n, alpha=0.04)
+            ax.fill_between([0, _lim_n], 0, _lim_n, color=_c_up_n, alpha=0.04)
+            ax.set_xlabel('Actual Delta', fontsize=10)
+            ax.set_ylabel('Predicted Delta', fontsize=10)
+            ax.set_title(f'Predicted vs Actual Delta (R\u00b2={r2_te_n:.3f})', fontsize=11, fontweight='bold')
+            from matplotlib.lines import Line2D as _L2N
+            ax.legend(handles=[
+                _L2N([0], [0], marker='o', color='w', markerfacecolor=_c_up_n, markersize=8, label='UP'),
+                _L2N([0], [0], marker='o', color='w', markerfacecolor=_c_dn_n, markersize=8, label='DOWN'),
+            ], loc='upper left', fontsize=9)
+
+            # (0,1) Histogram: predicted delta by actual direction
+            ax = axes_n[0, 1]
+            _bins_n = np.linspace(-_lim_n, _lim_n, 50)
+            ax.hist(pred_delta_n[yn_te > 0], bins=_bins_n, alpha=0.7, color=_c_up_n,
+                    label='Actual UP', edgecolor='white', lw=0.5)
+            ax.hist(pred_delta_n[yn_te < 0], bins=_bins_n, alpha=0.7, color=_c_dn_n,
+                    label='Actual DOWN', edgecolor='white', lw=0.5)
+            ax.axvline(0, color='black', lw=1.5, ls='--', alpha=0.7)
+            ax.set_xlabel('Predicted Delta', fontsize=10)
+            ax.set_ylabel('Count', fontsize=10)
+            ax.set_title('Predicted Delta Distribution by Actual Direction', fontsize=11, fontweight='bold')
+            ax.legend(fontsize=9)
+
+            # (1,0) Confusion matrix
+            ax = axes_n[1, 0]
+            if _nz_n.sum() > 0:
+                _cm_nn = np.array([[_dn_correct_n, _dn_total_n - _dn_correct_n],
+                                   [_up_total_n - _up_correct_n, _up_correct_n]])
+                ax.imshow(_cm_nn, cmap='Blues', aspect='auto')
+                ax.set_xticks([0, 1]); ax.set_xticklabels(['DOWN', 'UP'], fontsize=10)
+                ax.set_yticks([0, 1]); ax.set_yticklabels(['DOWN', 'UP'], fontsize=10)
+                ax.set_xlabel('Predicted', fontsize=10)
+                ax.set_ylabel('Actual', fontsize=10)
+                for _ri in range(2):
+                    for _ci in range(2):
+                        _v = _cm_nn[_ri, _ci]
+                        ax.text(_ci, _ri, str(_v), ha='center', va='center',
+                                fontsize=16, fontweight='bold',
+                                color='white' if _v > _cm_nn.max() * 0.5 else 'black')
+                ax.set_title(f'Direction Confusion Matrix\nAcc={dir_acc_n:.1%}, Lift={_lift_n:+.1%}',
+                            fontsize=11, fontweight='bold')
+
+            # (1,1) Confidence gate curve
+            ax = axes_n[1, 1]
+            _thrs_n = np.linspace(0, np.percentile(np.abs(pred_delta_n), 95), 30)
+            _accs_n, _ns_n = [], []
+            for _t in _thrs_n:
+                _mn = (np.abs(pred_delta_n) > _t) & _nz_n
+                if _mn.sum() >= 5:
+                    _accs_n.append((dir_pred_n[_mn] == dir_actual_n[_mn]).sum() / _mn.sum() * 100)
+                    _ns_n.append(_mn.sum() / _nz_n.sum() * 100)
+                else:
+                    _accs_n.append(np.nan); _ns_n.append(0)
+            ax.plot(_thrs_n, _accs_n, color='#2196F3', lw=2, label='Accuracy %')
+            ax.axhline(_baseline_n * 100, color='gray', ls='--', lw=1, alpha=0.7,
+                       label=f'Baseline {_baseline_n:.0%}')
+            ax.set_xlabel('|Predicted Delta| Threshold', fontsize=10)
+            ax.set_ylabel('Direction Accuracy %', fontsize=10)
+            ax.set_title('Confidence Gate: Accuracy vs Threshold', fontsize=11, fontweight='bold')
+            ax.legend(fontsize=9)
+            ax2_n = ax.twinx()
+            ax2_n.fill_between(_thrs_n, 0, _ns_n, alpha=0.15, color='orange')
+            ax2_n.set_ylabel('% Data Remaining', fontsize=9, color='orange')
+            ax2_n.tick_params(axis='y', labelcolor='orange')
+
+            fig_n.suptitle(
+                f'Analysis N: Delta-Direct Forecast (MR-Centered)\n'
+                f'{n_n} pairs | Acc={dir_acc_n:.1%} | Lift={_lift_n:+.1%} | SNR={snr_n:.2f} | '
+                f'UP: {n_up_n} ({n_up_n/n_n*100:.0f}%)  DOWN: {n_down_n} ({n_down_n/n_n*100:.0f}%)',
+                fontsize=13, fontweight='bold')
+            plt.tight_layout()
+            n_path = os.path.join(PLOTS_DIR, '0r_delta_direct_forecast.png')
+            fig_n.savefig(n_path, dpi=150, bbox_inches='tight', facecolor='white')
+            plt.close(fig_n)
+            print(f"\n  Saved: {n_path}")
+
+            # ── Plot 2: Price with delta-predicted direction overlay ────────
+            Xn_all_sc = sc_n.transform(X_n)
+            pred_delta_all_n = ols_n.predict(Xn_all_sc)
+
+            from datetime import datetime as _dt_n2, timezone as _tz_n2
+            close_all_n = base_df['close'].values.astype(float)
+            ts_all_n = base_df['timestamp'].values
+
+            _ts_to_bi_n = {int(ts_all_n[i]): i for i in range(len(ts_all_n))}
+            _sample_bi_n = [_ts_to_bi_n.get(int(t), -1) for t in sample_ts[:-1]]
+
+            fig_pn, ax_pn = plt.subplots(1, 1, figsize=(20, 7), facecolor='white')
+            _x_dates_n = [_dt_n2.fromtimestamp(int(t), tz=_tz_n2.utc) for t in ts_all_n]
+            ax_pn.plot(_x_dates_n, close_all_n, color='#BDBDBD', lw=0.8, alpha=0.6, zorder=1)
+
+            _seg_half_n = max(1, len(close_all_n) // 500)
+            for i, bi in enumerate(_sample_bi_n):
+                if bi < 0:
+                    continue
+                _s = max(0, bi - _seg_half_n)
+                _e = min(len(close_all_n), bi + _seg_half_n + 1)
+                _sx = _x_dates_n[_s:_e]
+                _sy = close_all_n[_s:_e]
+                if len(_sx) < 2:
+                    continue
+                _color = _c_up_n if pred_delta_all_n[i] > 0 else _c_dn_n
+                _alpha = min(1.0, 0.3 + abs(pred_delta_all_n[i]) / max(1, np.std(yn_te)))
+                ax_pn.plot(_sx, _sy, color=_color, lw=2.0, alpha=_alpha, zorder=2)
+
+                if Y_delta_n[i] != 0 and np.sign(pred_delta_all_n[i]) != np.sign(Y_delta_n[i]):
+                    ax_pn.plot(_x_dates_n[bi], close_all_n[bi], 'x', color='black',
+                             markersize=4, alpha=0.5, zorder=3)
+
+            ax_pn.set_xlabel('Time', fontsize=10)
+            ax_pn.set_ylabel('Price', fontsize=10)
+            ax_pn.set_title(
+                f'Price with Delta-Direct Predicted Direction\n'
+                f'Blue = predicted UP | Red = predicted DOWN | X = wrong',
+                fontsize=12, fontweight='bold')
+            from matplotlib.lines import Line2D as _L2N2
+            ax_pn.legend(handles=[
+                _L2N2([0], [0], color=_c_up_n, lw=2, label='Predicted UP'),
+                _L2N2([0], [0], color=_c_dn_n, lw=2, label='Predicted DOWN'),
+                _L2N2([0], [0], marker='x', color='black', lw=0, markersize=6, label='Wrong'),
+            ], loc='upper left', fontsize=9)
+            fig_pn.autofmt_xdate()
+            plt.tight_layout()
+            pn_path = os.path.join(PLOTS_DIR, '0s_delta_direct_overlay.png')
+            fig_pn.savefig(pn_path, dpi=150, bbox_inches='tight', facecolor='white')
+            plt.close(fig_pn)
+            print(f"  Saved: {pn_path}")
+
+        else:
+            print(f"  SKIP: too few samples ({n_n}) for meaningful analysis")
+
+    else:
+        print(f"  [SKIP] Analysis N (--start {_start_at})")
+
+    if _start_at <= 'O':
+        # =====================================================================
+        #  ANALYSIS O: STEPWISE DELTA DIRECTION
+        #
+        #  Forward stepwise selection: pick features one at a time, greedily
+        #  maximizing DIRECTION ACCURACY (not R²) on a chronological holdout.
+        #  Y = sign(close[t+1] - close[t])  — pure direction classification.
+        #  Stops when no feature improves accuracy.
+        # =====================================================================
+        print(f"\n{'='*70}")
+        print(f"  ANALYSIS O: STEPWISE DELTA DIRECTION")
+        print(f"  Forward selection maximizing direction accuracy")
+        print(f"  Y = sign(close[t+1] - close[t])  |  X selected from 192D")
+        print(f"{'='*70}")
+
+        from sklearn.linear_model import LogisticRegression as _LR_O
+        from sklearn.preprocessing import StandardScaler as _SS_O
+
+        n_o = len(X) - 1
+        if n_o >= 50:
+            X_o = X[:-1]
+            Y_delta_o = Y_p[1:] - Y_p[:-1]
+
+            # Remove flats for direction classification
+            _nf_o = Y_delta_o != 0
+            X_o = X_o[_nf_o]
+            Y_dir_o = (Y_delta_o[_nf_o] > 0).astype(int)  # 1=UP, 0=DOWN
+            n_o = len(Y_dir_o)
+
+            n_up_o = Y_dir_o.sum()
+            n_dn_o = n_o - n_up_o
+            print(f"\n  Samples (excl. flat): {n_o}  |  UP={n_up_o} ({n_up_o/n_o*100:.1f}%)  DOWN={n_dn_o} ({n_dn_o/n_o*100:.1f}%)")
+
+            # Chronological 60/20/20: train / validation (for selection) / test (final)
+            _tr_end = int(n_o * 0.60)
+            _va_end = int(n_o * 0.80)
+            Xo_tr, Xo_va, Xo_te = X_o[:_tr_end], X_o[_tr_end:_va_end], X_o[_va_end:]
+            yo_tr, yo_va, yo_te = Y_dir_o[:_tr_end], Y_dir_o[_tr_end:_va_end], Y_dir_o[_va_end:]
+
+            sc_o = _SS_O()
+            Xo_tr_sc = sc_o.fit_transform(Xo_tr)
+            Xo_va_sc = sc_o.transform(Xo_va)
+            Xo_te_sc = sc_o.transform(Xo_te)
+
+            _baseline_o = max(yo_va.sum(), len(yo_va) - yo_va.sum()) / len(yo_va)
+            print(f"  Validation baseline (majority): {_baseline_o:.1%}")
+            print(f"  Train: {len(yo_tr)}, Validation: {len(yo_va)}, Test: {len(yo_te)}")
+
+            n_feat = X_o.shape[1]
+            _selected = []
+            _remaining = list(range(n_feat))
+            _best_acc_history = []
+            _step_log = []
+
+            print(f"\n  {'Step':>4}  {'Feature Added':<42} {'Val Acc':>8} {'Lift':>8} {'N feat':>6}")
+            print(f"  {'-'*4}  {'-'*42} {'-'*8} {'-'*8} {'-'*6}")
+
+            _prev_best_acc = 0.0
+            _max_steps = min(50, n_feat)  # cap at 50 features
+
+            for step in range(_max_steps):
+                _best_feat = -1
+                _best_acc = _prev_best_acc
+
+                for fi in _remaining:
+                    _try = _selected + [fi]
+                    try:
+                        _lr = _LR_O(max_iter=500, class_weight='balanced', C=1.0)
+                        _lr.fit(Xo_tr_sc[:, _try], yo_tr)
+                        _preds = _lr.predict(Xo_va_sc[:, _try])
+                        _acc = (_preds == yo_va).sum() / len(yo_va)
+                        if _acc > _best_acc:
+                            _best_acc = _acc
+                            _best_feat = fi
+                    except Exception:
+                        continue
+
+                if _best_feat < 0 or _best_acc <= _prev_best_acc:
+                    print(f"\n  STOPPED at step {step}: no feature improves validation accuracy")
+                    break
+
+                _selected.append(_best_feat)
+                _remaining.remove(_best_feat)
+                _prev_best_acc = _best_acc
+                _best_acc_history.append(_best_acc)
+
+                _fname = col_names[_best_feat] if _best_feat < len(col_names) else f'f{_best_feat}'
+                _lift_s = _best_acc - _baseline_o
+                _step_log.append((_fname, _best_acc, _lift_s, len(_selected)))
+                print(f"  {step+1:>4}  {_fname:<42} {_best_acc:>8.1%} {_lift_s:>+8.1%} {len(_selected):>6}")
+
+            # Final evaluation on TEST set with selected features
+            if len(_selected) > 0:
+                print(f"\n  {'='*60}")
+                print(f"  FINAL MODEL: {len(_selected)} features")
+                print(f"  {'='*60}")
+
+                _lr_final = _LR_O(max_iter=500, class_weight='balanced', C=1.0)
+                _lr_final.fit(Xo_tr_sc[:, _selected], yo_tr)
+
+                # Validation performance
+                _va_pred = _lr_final.predict(Xo_va_sc[:, _selected])
+                _va_acc = (_va_pred == yo_va).sum() / len(yo_va)
+
+                # Test performance
+                _te_pred = _lr_final.predict(Xo_te_sc[:, _selected])
+                _te_acc = (_te_pred == yo_te).sum() / len(yo_te)
+                _te_baseline = max(yo_te.sum(), len(yo_te) - yo_te.sum()) / len(yo_te)
+                _te_lift = _te_acc - _te_baseline
+
+                _te_up_mask = yo_te == 1
+                _te_dn_mask = yo_te == 0
+                _te_up_correct = (_te_pred[_te_up_mask] == 1).sum()
+                _te_dn_correct = (_te_pred[_te_dn_mask] == 0).sum()
+
+                print(f"\n  Validation: {_va_acc:.1%} (baseline {_baseline_o:.1%}, lift {_va_acc - _baseline_o:+.1%})")
+                print(f"  TEST:       {_te_acc:.1%} (baseline {_te_baseline:.1%}, lift {_te_lift:+.1%})")
+                if _te_up_mask.sum() > 0:
+                    print(f"  Test UP:    {_te_up_correct}/{_te_up_mask.sum()} = {_te_up_correct/_te_up_mask.sum():.1%}")
+                if _te_dn_mask.sum() > 0:
+                    print(f"  Test DOWN:  {_te_dn_correct}/{_te_dn_mask.sum()} = {_te_dn_correct/_te_dn_mask.sum():.1%}")
+
+                # Confidence gates on test set using predict_proba
+                _te_proba = _lr_final.predict_proba(Xo_te_sc[:, _selected])[:, 1]
+                print(f"\n  Confidence gates (distance from 0.5):")
+                print(f"  {'Threshold':>10} {'N':>6} {'Accuracy':>10} {'Lift':>8} {'% of data':>10}")
+                print(f"  {'-'*10} {'-'*6} {'-'*10} {'-'*8} {'-'*10}")
+                for thr in [0.0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.40]:
+                    _conf_mask = np.abs(_te_proba - 0.5) > thr
+                    if _conf_mask.sum() > 0:
+                        _conf_pred = (_te_proba[_conf_mask] > 0.5).astype(int)
+                        _conf_acc = (_conf_pred == yo_te[_conf_mask]).sum() / _conf_mask.sum()
+                        _conf_pct = _conf_mask.sum() / len(yo_te) * 100
+                        print(f"  {thr:>10.2f} {_conf_mask.sum():>6} {_conf_acc:>10.1%} "
+                              f"{_conf_acc - _te_baseline:>+8.1%} {_conf_pct:>9.1f}%")
+
+                # Selected features summary
+                print(f"\n  SELECTED FEATURES ({len(_selected)}):")
+                for i, fi in enumerate(_selected):
+                    _fn = col_names[fi] if fi < len(col_names) else f'f{fi}'
+                    _coef = _lr_final.coef_[0][i]
+                    print(f"    {i+1:>3}. {_fn:<42} coeff={_coef:>+8.4f}")
+
+                # CONCLUSION
+                print(f"\n  ANALYSIS O CONCLUSION:")
+                if _te_lift > 0.05:
+                    print(f"  PROMISING: {_te_acc:.1%} test accuracy ({_te_lift:+.1%} lift) with only {len(_selected)} features.")
+                    print(f"  Stepwise selection found a sparse, generalizable direction model.")
+                elif _te_lift > 0.02:
+                    print(f"  MARGINAL: {_te_acc:.1%} test accuracy ({_te_lift:+.1%} lift).")
+                    print(f"  Some signal, but may not survive transaction costs.")
+                else:
+                    print(f"  INSUFFICIENT: {_te_acc:.1%} test accuracy ({_te_lift:+.1%} lift).")
+                    print(f"  Even with feature selection, direction is not reliably predictable")
+                    print(f"  from 192D fractal context at this timeframe/horizon.")
+
+                # ── Table: test set predictions ─────────────────────────────
+                import csv as _csv_o
+                from datetime import datetime as _dt_o, timezone as _tz_ot
+
+                _te_start_idx = _va_end  # index into the non-flat array
+                # Map back to original sample indices (before flat removal)
+                _nf_indices = np.where(_nf_o)[0]  # indices of non-flat in original
+                _table_o = []
+                for j in range(len(yo_te)):
+                    _orig_idx = _nf_indices[_va_end + j]
+                    _ts_val = int(sample_ts[_orig_idx])
+                    _t_str = _dt_o.fromtimestamp(_ts_val, tz=_tz_ot.utc).strftime('%Y-%m-%d %H:%M')
+                    _curr = float(Y_p[_orig_idx])
+                    _next = float(Y_p[_orig_idx + 1])
+                    _delta = _next - _curr
+                    _pred_dir = 'UP' if _te_pred[j] == 1 else 'DOWN'
+                    _act_dir = 'UP' if yo_te[j] == 1 else 'DOWN'
+                    _prob = float(_te_proba[j])
+                    _correct = 'Y' if _pred_dir == _act_dir else 'N'
+                    _table_o.append((_t_str, _curr, _next, _delta, _prob, _pred_dir, _act_dir, _correct))
+
+                # Console preview
+                print(f"\n  {'='*100}")
+                print(f"  PREDICTION TABLE (test set: {len(_table_o)} rows)")
+                print(f"  {'='*100}")
+                _hdr_o = f"  {'Timestamp':<17} {'Current':>10} {'Next':>10} {'Delta':>8} {'P(UP)':>7} {'Dir':>5} {'Act':>5} {'OK':>3}"
+                print(_hdr_o)
+                print(f"  {'-'*100}")
+                _show_o = _table_o[:30] + ([('  ...', '', '', '', '', '', '', '')] if len(_table_o) > 40 else []) + _table_o[-10:] if len(_table_o) > 40 else _table_o
+                for r in _show_o:
+                    if r[1] == '':
+                        print(f"  {r[0]}")
+                    else:
+                        print(f"  {r[0]:<17} {r[1]:>10.2f} {r[2]:>10.2f} {r[3]:>+8.2f} "
+                              f"{r[4]:>7.3f} {r[5]:>5} {r[6]:>5} {r[7]:>3}")
+
+                # Save CSV
+                _csv_path_o = os.path.join(PLOTS_DIR, 'analysis_o_stepwise_predictions.csv')
+                with open(_csv_path_o, 'w', newline='', encoding='utf-8') as _cf:
+                    _csv_o.writer(_cf).writerow(['timestamp', 'current_price', 'next_price',
+                        'delta', 'prob_up', 'predicted_dir', 'actual_dir', 'correct'])
+                    _csv_o.writer(_cf).writerows(_table_o)
+                print(f"\n  Full table saved: {_csv_path_o} ({len(_table_o)} rows)")
+
+                # ── Plot: Stepwise accuracy curve + 4-panel ─────────────────
+                fig_o, axes_o = plt.subplots(2, 2, figsize=(16, 12), facecolor='white')
+
+                # (0,0) Stepwise accuracy curve
+                ax = axes_o[0, 0]
+                _steps = list(range(1, len(_best_acc_history) + 1))
+                ax.plot(_steps, [a * 100 for a in _best_acc_history], 'o-', color='#2196F3', lw=2, markersize=5)
+                ax.axhline(_baseline_o * 100, color='gray', ls='--', lw=1, alpha=0.7, label=f'Baseline {_baseline_o:.0%}')
+                ax.set_xlabel('Number of Features', fontsize=10)
+                ax.set_ylabel('Validation Accuracy %', fontsize=10)
+                ax.set_title('Stepwise Feature Selection Progress', fontsize=11, fontweight='bold')
+                ax.legend(fontsize=9)
+                # Annotate top features
+                for si, (fn, acc, _, _) in enumerate(_step_log[:5]):
+                    _short = fn.split('__')[-1] if '__' in fn else fn
+                    ax.annotate(_short, (_steps[si], acc * 100), fontsize=7,
+                               rotation=30, ha='left', va='bottom')
+
+                # (0,1) Probability histogram by actual direction
+                ax = axes_o[0, 1]
+                _c_up_o = '#2196F3'
+                _c_dn_o = '#F44336'
+                _bins_o = np.linspace(0, 1, 30)
+                ax.hist(_te_proba[yo_te == 1], bins=_bins_o, alpha=0.7, color=_c_up_o,
+                        label='Actual UP', edgecolor='white', lw=0.5)
+                ax.hist(_te_proba[yo_te == 0], bins=_bins_o, alpha=0.7, color=_c_dn_o,
+                        label='Actual DOWN', edgecolor='white', lw=0.5)
+                ax.axvline(0.5, color='black', lw=1.5, ls='--', alpha=0.7)
+                ax.set_xlabel('P(UP)', fontsize=10)
+                ax.set_ylabel('Count', fontsize=10)
+                ax.set_title('Probability Distribution by Actual Direction', fontsize=11, fontweight='bold')
+                ax.legend(fontsize=9)
+
+                # (1,0) Confusion matrix
+                ax = axes_o[1, 0]
+                _tp_dn_o = (_te_pred[_te_dn_mask] == 0).sum()
+                _fp_up_o = (_te_pred[_te_dn_mask] == 1).sum()
+                _fn_dn_o = (_te_pred[_te_up_mask] == 0).sum()
+                _tp_up_o = (_te_pred[_te_up_mask] == 1).sum()
+                _cm_o = np.array([[_tp_dn_o, _fp_up_o], [_fn_dn_o, _tp_up_o]])
+                ax.imshow(_cm_o, cmap='Blues', aspect='auto')
+                ax.set_xticks([0, 1]); ax.set_xticklabels(['DOWN', 'UP'], fontsize=10)
+                ax.set_yticks([0, 1]); ax.set_yticklabels(['DOWN', 'UP'], fontsize=10)
+                ax.set_xlabel('Predicted', fontsize=10)
+                ax.set_ylabel('Actual', fontsize=10)
+                for _ri in range(2):
+                    for _ci in range(2):
+                        _v = _cm_o[_ri, _ci]
+                        ax.text(_ci, _ri, str(_v), ha='center', va='center',
+                                fontsize=16, fontweight='bold',
+                                color='white' if _v > _cm_o.max() * 0.5 else 'black')
+                ax.set_title(f'Test Confusion Matrix\nAcc={_te_acc:.1%}, Lift={_te_lift:+.1%}',
+                            fontsize=11, fontweight='bold')
+
+                # (1,1) Confidence gate curve on test
+                ax = axes_o[1, 1]
+                _thrs_o = np.linspace(0, 0.45, 25)
+                _accs_o, _ns_o = [], []
+                for _t in _thrs_o:
+                    _cmask = np.abs(_te_proba - 0.5) > _t
+                    if _cmask.sum() >= 5:
+                        _cpred = (_te_proba[_cmask] > 0.5).astype(int)
+                        _accs_o.append((_cpred == yo_te[_cmask]).sum() / _cmask.sum() * 100)
+                        _ns_o.append(_cmask.sum() / len(yo_te) * 100)
+                    else:
+                        _accs_o.append(np.nan); _ns_o.append(0)
+                ax.plot(_thrs_o, _accs_o, color='#2196F3', lw=2, label='Accuracy %')
+                ax.axhline(_te_baseline * 100, color='gray', ls='--', lw=1, alpha=0.7,
+                           label=f'Baseline {_te_baseline:.0%}')
+                ax.set_xlabel('Confidence Threshold (|P(UP) - 0.5|)', fontsize=10)
+                ax.set_ylabel('Test Accuracy %', fontsize=10)
+                ax.set_title('Confidence Gate: Accuracy vs Threshold', fontsize=11, fontweight='bold')
+                ax.legend(fontsize=9)
+                ax2_o = ax.twinx()
+                ax2_o.fill_between(_thrs_o, 0, _ns_o, alpha=0.15, color='orange')
+                ax2_o.set_ylabel('% Data Remaining', fontsize=9, color='orange')
+                ax2_o.tick_params(axis='y', labelcolor='orange')
+
+                fig_o.suptitle(
+                    f'Analysis O: Stepwise Delta Direction\n'
+                    f'{n_o} samples | {len(_selected)} features selected | '
+                    f'Test Acc={_te_acc:.1%} | Lift={_te_lift:+.1%}',
+                    fontsize=13, fontweight='bold')
+                plt.tight_layout()
+                o_path = os.path.join(PLOTS_DIR, '0t_stepwise_direction.png')
+                fig_o.savefig(o_path, dpi=150, bbox_inches='tight', facecolor='white')
+                plt.close(fig_o)
+                print(f"\n  Saved: {o_path}")
+
+            else:
+                print(f"  No features selected — direction not predictable from this feature set.")
+
+        else:
+            print(f"  SKIP: too few samples ({n_o}) for stepwise analysis")
+
+    else:
+        print(f"  [SKIP] Analysis O (--start {_start_at})")
+
+    if _start_at <= 'P':
+        # =====================================================================
+        #  ANALYSIS P: PAIRED DATA POINT DIRECTION
+        #
+        #  Nuclear option: use BOTH data points in each pair as features.
+        #  X = [features_at_t CONCAT features_at_t+1] → 386D input
+        #  Y = sign(close[t+1] - close[t])
+        #  The model sees the "before and after" state — the TRANSITION.
+        #  Stepwise selection finds which combination of both states matters.
+        # =====================================================================
+        print(f"\n{'='*70}")
+        print(f"  ANALYSIS P: PAIRED DATA POINT DIRECTION")
+        print(f"  X = [features_t || features_t+1]  (both points concatenated)")
+        print(f"  Y = sign(close[t+1] - close[t])  (direction between them)")
+        print(f"  The model sees BOTH states to classify the transition")
+        print(f"{'='*70}")
+
+        from sklearn.linear_model import LogisticRegression as _LR_P
+        from sklearn.preprocessing import StandardScaler as _SS_P
+
+        n_p = len(X) - 1  # consecutive pairs
+        print(f"\n  Consecutive data point pairs: {n_p}")
+
+        if n_p >= 50:
+            # Build paired feature matrix: [X[t] || X[t+1]] for each pair
+            X_A = X[:-1]    # point A: features at time t       (193D)
+            X_B = X[1:]      # point B: features at time t+1     (193D)
+            Y_delta_p = Y_p[1:] - Y_p[:-1]  # price change A→B
+
+            # Also compute the feature DIFFERENCE (B - A) as transition features
+            X_diff = X_B - X_A  # how did the fractal context CHANGE? (193D)
+
+            # Movement magnitude features (psychology + algo footprint)
+            _abs_delta = np.abs(Y_delta_p).reshape(-1, 1)
+            _pct_delta = (Y_delta_p / np.maximum(Y_p[:-1], 1e-6) * 100).reshape(-1, 1)
+            _abs_pct = np.abs(_pct_delta)
+
+            # Combined: [A || B || diff || |delta| || pct || |pct|] = 582D
+            Xp_full = np.concatenate([X_A, X_B, X_diff, _abs_delta, _pct_delta, _abs_pct], axis=1)
+            n_feat_p = Xp_full.shape[1]
+
+            # Remove flats
+            _nf_p = Y_delta_p != 0
+            Xp_full = Xp_full[_nf_p]
+            Yp_dir = (Y_delta_p[_nf_p] > 0).astype(int)  # 1=UP, 0=DOWN
+            _nf_indices_p = np.where(_nf_p)[0]  # for mapping back
+            n_p = len(Yp_dir)
+
+            n_up_p = Yp_dir.sum()
+            n_dn_p = n_p - n_up_p
+            print(f"  Pairs (excl. flat): {n_p}  |  UP={n_up_p} ({n_up_p/n_p*100:.1f}%)  "
+                  f"DOWN={n_dn_p} ({n_dn_p/n_p*100:.1f}%)")
+            print(f"  Feature vector: {n_feat_p}D  (193 A + 193 B + 193 diff + 3 magnitude)")
+
+            # Chronological 60/20/20
+            _tr_p = int(n_p * 0.60)
+            _va_p = int(n_p * 0.80)
+            Xp_tr, Xp_va, Xp_te = Xp_full[:_tr_p], Xp_full[_tr_p:_va_p], Xp_full[_va_p:]
+            yp_tr, yp_va, yp_te = Yp_dir[:_tr_p], Yp_dir[_tr_p:_va_p], Yp_dir[_va_p:]
+
+            sc_p = _SS_P()
+            Xp_tr_sc = sc_p.fit_transform(Xp_tr)
+            Xp_va_sc = sc_p.transform(Xp_va)
+            Xp_te_sc = sc_p.transform(Xp_te)
+
+            _base_va = max(yp_va.sum(), len(yp_va) - yp_va.sum()) / len(yp_va)
+            _base_te = max(yp_te.sum(), len(yp_te) - yp_te.sum()) / len(yp_te)
+            print(f"\n  Train: {len(yp_tr)}, Validation: {len(yp_va)}, Test: {len(yp_te)}")
+            print(f"  Validation baseline: {_base_va:.1%}, Test baseline: {_base_te:.1%}")
+
+            # Build column names for paired features
+            _pA_names = [f'A_{c}' for c in col_names]   # point A features
+            _pB_names = [f'B_{c}' for c in col_names]   # point B features
+            _pd_names = [f'diff_{c}' for c in col_names] # B-A difference
+            _mag_names = ['abs_delta', 'pct_delta', 'abs_pct_delta']  # magnitude
+            _pair_col_names = _pA_names + _pB_names + _pd_names + _mag_names
+
+            # ── Stepwise forward selection ──────────────────────────────
+            _selected_p = []
+            _remaining_p = list(range(n_feat_p))
+            _best_acc_hist_p = []
+            _step_log_p = []
+            _prev_best_p = 0.0
+            _max_steps_p = min(50, n_feat_p)
+
+            print(f"\n  STEPWISE SELECTION (maximizing validation direction accuracy):")
+            print(f"  {'Step':>4}  {'Feature Added':<48} {'Val Acc':>8} {'Lift':>8} {'N feat':>6}")
+            print(f"  {'-'*4}  {'-'*48} {'-'*8} {'-'*8} {'-'*6}")
+
+            for step in range(_max_steps_p):
+                _best_feat_p = -1
+                _best_acc_p = _prev_best_p
+
+                for fi in _remaining_p:
+                    _try = _selected_p + [fi]
+                    try:
+                        _lr = _LR_P(max_iter=500, class_weight='balanced', C=1.0)
+                        _lr.fit(Xp_tr_sc[:, _try], yp_tr)
+                        _preds = _lr.predict(Xp_va_sc[:, _try])
+                        _acc = (_preds == yp_va).sum() / len(yp_va)
+                        if _acc > _best_acc_p:
+                            _best_acc_p = _acc
+                            _best_feat_p = fi
+                    except Exception:
+                        continue
+
+                if _best_feat_p < 0 or _best_acc_p <= _prev_best_p:
+                    print(f"\n  STOPPED at step {step}: no improvement")
+                    break
+
+                _selected_p.append(_best_feat_p)
+                _remaining_p.remove(_best_feat_p)
+                _prev_best_p = _best_acc_p
+                _best_acc_hist_p.append(_best_acc_p)
+
+                _fn_p = _pair_col_names[_best_feat_p] if _best_feat_p < len(_pair_col_names) else f'f{_best_feat_p}'
+                _lift_sp = _best_acc_p - _base_va
+                _step_log_p.append((_fn_p, _best_acc_p, _lift_sp, len(_selected_p)))
+                print(f"  {step+1:>4}  {_fn_p:<48} {_best_acc_p:>8.1%} {_lift_sp:>+8.1%} {len(_selected_p):>6}")
+
+            # Final model on test set
+            if len(_selected_p) > 0:
+                _lr_fp = _LR_P(max_iter=500, class_weight='balanced', C=1.0)
+                _lr_fp.fit(Xp_tr_sc[:, _selected_p], yp_tr)
+
+                _va_pred_p = _lr_fp.predict(Xp_va_sc[:, _selected_p])
+                _va_acc_p = (_va_pred_p == yp_va).sum() / len(yp_va)
+
+                _te_pred_p = _lr_fp.predict(Xp_te_sc[:, _selected_p])
+                _te_acc_p = (_te_pred_p == yp_te).sum() / len(yp_te)
+                _te_lift_p = _te_acc_p - _base_te
+
+                _te_proba_p = _lr_fp.predict_proba(Xp_te_sc[:, _selected_p])[:, 1]
+
+                _te_up_mask_p = yp_te == 1
+                _te_dn_mask_p = yp_te == 0
+                _te_up_corr = (_te_pred_p[_te_up_mask_p] == 1).sum() if _te_up_mask_p.sum() > 0 else 0
+                _te_dn_corr = (_te_pred_p[_te_dn_mask_p] == 0).sum() if _te_dn_mask_p.sum() > 0 else 0
+
+                print(f"\n  {'='*60}")
+                print(f"  FINAL MODEL: {len(_selected_p)} features")
+                print(f"  {'='*60}")
+                print(f"\n  Validation: {_va_acc_p:.1%} (baseline {_base_va:.1%}, lift {_va_acc_p - _base_va:+.1%})")
+                print(f"  TEST:       {_te_acc_p:.1%} (baseline {_base_te:.1%}, lift {_te_lift_p:+.1%})")
+                if _te_up_mask_p.sum() > 0:
+                    print(f"  Test UP:    {_te_up_corr}/{_te_up_mask_p.sum()} = {_te_up_corr/_te_up_mask_p.sum():.1%}")
+                if _te_dn_mask_p.sum() > 0:
+                    print(f"  Test DOWN:  {_te_dn_corr}/{_te_dn_mask_p.sum()} = {_te_dn_corr/_te_dn_mask_p.sum():.1%}")
+
+                # Confidence gates
+                print(f"\n  Confidence gates (|P(UP) - 0.5| > threshold):")
+                print(f"  {'Threshold':>10} {'N':>6} {'Accuracy':>10} {'Lift':>8} {'% of data':>10}")
+                print(f"  {'-'*10} {'-'*6} {'-'*10} {'-'*8} {'-'*10}")
+                for thr in [0.0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.40]:
+                    _cmask = np.abs(_te_proba_p - 0.5) > thr
+                    if _cmask.sum() > 0:
+                        _cpred = (_te_proba_p[_cmask] > 0.5).astype(int)
+                        _cacc = (_cpred == yp_te[_cmask]).sum() / _cmask.sum()
+                        print(f"  {thr:>10.2f} {_cmask.sum():>6} {_cacc:>10.1%} "
+                              f"{_cacc - _base_te:>+8.1%} {_cmask.sum()/len(yp_te)*100:>9.1f}%")
+
+                # Selected features
+                print(f"\n  SELECTED FEATURES ({len(_selected_p)}):")
+                for i, fi in enumerate(_selected_p):
+                    _fn = _pair_col_names[fi] if fi < len(_pair_col_names) else f'f{fi}'
+                    _coef = _lr_fp.coef_[0][i]
+                    _source = 'point_A' if fi < 193 else ('point_B' if fi < 386 else 'diff(B-A)')
+                    print(f"    {i+1:>3}. {_fn:<48} coeff={_coef:>+8.4f}  [{_source}]")
+
+                # CONCLUSION
+                print(f"\n  ANALYSIS P CONCLUSION:")
+                if _te_lift_p > 0.05:
+                    print(f"  PROMISING: {_te_acc_p:.1%} test accuracy ({_te_lift_p:+.1%} lift).")
+                    print(f"  Paired data points carry transition signal that single points do not.")
+                elif _te_lift_p > 0.02:
+                    print(f"  MARGINAL: {_te_acc_p:.1%} test ({_te_lift_p:+.1%} lift).")
+                    print(f"  Some paired signal detected, needs refinement.")
+                else:
+                    print(f"  INSUFFICIENT: {_te_acc_p:.1%} test ({_te_lift_p:+.1%} lift).")
+                    print(f"  Even with both data points visible, the transition direction")
+                    print(f"  is not reliably classifiable from 192D fractal context.")
+
+                # ── Table: test set predictions ──────────────────────────
+                import csv as _csv_p
+                from datetime import datetime as _dt_p, timezone as _tz_pt
+
+                _table_p = []
+                for j in range(len(yp_te)):
+                    _orig_idx = _nf_indices_p[_va_p + j]
+                    _ts_a = int(sample_ts[_orig_idx])
+                    _ts_b = int(sample_ts[_orig_idx + 1])
+                    _t_str_a = _dt_p.fromtimestamp(_ts_a, tz=_tz_pt.utc).strftime('%Y-%m-%d %H:%M')
+                    _t_str_b = _dt_p.fromtimestamp(_ts_b, tz=_tz_pt.utc).strftime('%H:%M')
+                    _price_a = float(Y_p[_orig_idx])
+                    _price_b = float(Y_p[_orig_idx + 1])
+                    _delta = _price_b - _price_a
+                    _pred_dir = 'UP' if _te_pred_p[j] == 1 else 'DOWN'
+                    _act_dir = 'UP' if yp_te[j] == 1 else 'DOWN'
+                    _prob = float(_te_proba_p[j])
+                    _correct = 'Y' if _pred_dir == _act_dir else 'N'
+                    _table_p.append((_t_str_a, _t_str_b, _price_a, _price_b,
+                                     _delta, _prob, _pred_dir, _act_dir, _correct))
+
+                print(f"\n  {'='*105}")
+                print(f"  PAIR PREDICTION TABLE (test: {len(_table_p)} pairs)")
+                print(f"  {'='*105}")
+                _hdr = (f"  {'Time A':<17} {'->B':>5} {'Price A':>10} {'Price B':>10} "
+                        f"{'Delta':>8} {'P(UP)':>7} {'Pred':>5} {'Act':>5} {'OK':>3}")
+                print(_hdr)
+                print(f"  {'-'*105}")
+                _show_p = _table_p[:30] + ([('  ...', '', '', '', '', '', '', '', '')] if len(_table_p) > 40 else []) + _table_p[-10:] if len(_table_p) > 40 else _table_p
+                for r in _show_p:
+                    if r[1] == '':
+                        print(f"  {r[0]}")
+                    else:
+                        print(f"  {r[0]:<17} {r[1]:>5} {r[2]:>10.2f} {r[3]:>10.2f} "
+                              f"{r[4]:>+8.2f} {r[5]:>7.3f} {r[6]:>5} {r[7]:>5} {r[8]:>3}")
+
+                # Save CSV
+                _csv_path_p = os.path.join(PLOTS_DIR, 'analysis_p_paired_points.csv')
+                with open(_csv_path_p, 'w', newline='', encoding='utf-8') as _cf:
+                    _w = _csv_p.writer(_cf)
+                    _w.writerow(['time_a', 'time_b', 'price_a', 'price_b', 'delta',
+                        'prob_up', 'predicted_dir', 'actual_dir', 'correct'])
+                    _w.writerows(_table_p)
+                print(f"\n  Saved: {_csv_path_p} ({len(_table_p)} pairs)")
+
+                # ── Plot: 4-panel ───────────────────────────────────────
+                fig_p2, axes_p2 = plt.subplots(2, 2, figsize=(16, 12), facecolor='white')
+
+                # (0,0) Stepwise accuracy curve
+                ax = axes_p2[0, 0]
+                _steps_p = list(range(1, len(_best_acc_hist_p) + 1))
+                ax.plot(_steps_p, [a * 100 for a in _best_acc_hist_p], 'o-',
+                        color='#2196F3', lw=2, markersize=6)
+                ax.axhline(_base_va * 100, color='gray', ls='--', lw=1, alpha=0.7,
+                           label=f'Baseline {_base_va:.0%}')
+                ax.set_xlabel('Number of Features', fontsize=10)
+                ax.set_ylabel('Validation Accuracy %', fontsize=10)
+                ax.set_title('Stepwise Feature Selection', fontsize=11, fontweight='bold')
+                ax.legend(fontsize=9)
+                for si, (fn, acc, _, _) in enumerate(_step_log_p[:8]):
+                    _short = fn.split('__')[-1] if '__' in fn else fn
+                    if len(_short) > 20:
+                        _short = _short[:18] + '..'
+                    ax.annotate(_short, (_steps_p[si], acc * 100), fontsize=7,
+                               rotation=30, ha='left', va='bottom')
+
+                # (0,1) P(UP) histogram by actual direction
+                ax = axes_p2[0, 1]
+                _c_up_p = '#2196F3'
+                _c_dn_p = '#F44336'
+                _bins_p = np.linspace(0, 1, 30)
+                ax.hist(_te_proba_p[yp_te == 1], bins=_bins_p, alpha=0.7, color=_c_up_p,
+                        label='Actual UP', edgecolor='white', lw=0.5)
+                ax.hist(_te_proba_p[yp_te == 0], bins=_bins_p, alpha=0.7, color=_c_dn_p,
+                        label='Actual DOWN', edgecolor='white', lw=0.5)
+                ax.axvline(0.5, color='black', lw=1.5, ls='--', alpha=0.7)
+                ax.set_xlabel('P(UP)', fontsize=10)
+                ax.set_ylabel('Count', fontsize=10)
+                ax.set_title('Probability Distribution by Actual Direction', fontsize=11, fontweight='bold')
+                ax.legend(fontsize=9)
+
+                # (1,0) Confusion matrix
+                ax = axes_p2[1, 0]
+                _tp_dn = _te_dn_corr
+                _fp_up = _te_dn_mask_p.sum() - _te_dn_corr
+                _fn_dn = _te_up_mask_p.sum() - _te_up_corr
+                _tp_up = _te_up_corr
+                _cm_p = np.array([[_tp_dn, _fp_up], [_fn_dn, _tp_up]])
+                ax.imshow(_cm_p, cmap='Blues', aspect='auto')
+                ax.set_xticks([0, 1]); ax.set_xticklabels(['DOWN', 'UP'], fontsize=10)
+                ax.set_yticks([0, 1]); ax.set_yticklabels(['DOWN', 'UP'], fontsize=10)
+                ax.set_xlabel('Predicted', fontsize=10)
+                ax.set_ylabel('Actual', fontsize=10)
+                for _ri in range(2):
+                    for _ci in range(2):
+                        _v = _cm_p[_ri, _ci]
+                        ax.text(_ci, _ri, str(_v), ha='center', va='center',
+                                fontsize=16, fontweight='bold',
+                                color='white' if _v > _cm_p.max() * 0.5 else 'black')
+                ax.set_title(f'Test Confusion Matrix\nAcc={_te_acc_p:.1%}, Lift={_te_lift_p:+.1%}',
+                            fontsize=11, fontweight='bold')
+
+                # (1,1) Confidence gate curve
+                ax = axes_p2[1, 1]
+                _thrs_p = np.linspace(0, 0.45, 25)
+                _accs_p, _ns_p = [], []
+                for _t in _thrs_p:
+                    _cmask = np.abs(_te_proba_p - 0.5) > _t
+                    if _cmask.sum() >= 5:
+                        _cpred = (_te_proba_p[_cmask] > 0.5).astype(int)
+                        _accs_p.append((_cpred == yp_te[_cmask]).sum() / _cmask.sum() * 100)
+                        _ns_p.append(_cmask.sum() / len(yp_te) * 100)
+                    else:
+                        _accs_p.append(np.nan); _ns_p.append(0)
+                ax.plot(_thrs_p, _accs_p, color='#2196F3', lw=2, label='Accuracy %')
+                ax.axhline(_base_te * 100, color='gray', ls='--', lw=1, alpha=0.7,
+                           label=f'Baseline {_base_te:.0%}')
+                ax.set_xlabel('Confidence (|P(UP) - 0.5|)', fontsize=10)
+                ax.set_ylabel('Test Accuracy %', fontsize=10)
+                ax.set_title('Confidence Gate: Accuracy vs Threshold', fontsize=11, fontweight='bold')
+                ax.legend(fontsize=9)
+                ax2_p = ax.twinx()
+                ax2_p.fill_between(_thrs_p, 0, _ns_p, alpha=0.15, color='orange')
+                ax2_p.set_ylabel('% Data Remaining', fontsize=9, color='orange')
+                ax2_p.tick_params(axis='y', labelcolor='orange')
+
+                fig_p2.suptitle(
+                    f'Analysis P: Paired Data Point Direction\n'
+                    f'{n_p} pairs | {len(_selected_p)} features | '
+                    f'Test Acc={_te_acc_p:.1%} | Lift={_te_lift_p:+.1%}',
+                    fontsize=13, fontweight='bold')
+                plt.tight_layout()
+                p2_path = os.path.join(PLOTS_DIR, '0u_paired_point_direction.png')
+                fig_p2.savefig(p2_path, dpi=150, bbox_inches='tight', facecolor='white')
+                plt.close(fig_p2)
+                print(f"  Saved: {p2_path}")
+
+            else:
+                print(f"  No features selected — paired points not predictable.")
+
+        else:
+            print(f"  SKIP: too few samples ({n_p}) for paired analysis")
+
+    else:
+        print(f"  [SKIP] Analysis P (--start {_start_at})")
+
+    if _start_at <= 'Q':
+        # =====================================================================
+        #  ANALYSIS Q: SIGNED MAGNITUDE HISTOGRAM + PAIRED 192D PROFILES
+        #
+        #  1. Histogram |delta| to find natural magnitude scales (modes)
+        #  2. Mirror into signed bins (+/- magnitude) from histogram valleys
+        #  3. Each pair keeps its 192D features (point A + point B) for profiling
+        #  4. Per bin: direction purity, 192D feature means, distinguishing features
+        # =====================================================================
+        print(f"\n{'='*70}")
+        print(f"  ANALYSIS Q: SIGNED MAGNITUDE HISTOGRAM + PAIRED 192D PROFILES")
+        print(f"  Histogram modes -> signed bins -> 192D pair profiles per bin")
+        print(f"{'='*70}")
+
+        n_q = len(Y_p) - 1
+        if n_q >= 100:
+            Y_delta_q = Y_p[1:] - Y_p[:-1]
+            X_q_A = X[:-1]   # point A features (193D)
+            X_q_B = X[1:]    # point B features (193D)
+
+            # Remove flats
+            _nf_q = Y_delta_q != 0
+            Y_delta_q = Y_delta_q[_nf_q]
+            X_q_A = X_q_A[_nf_q]
+            X_q_B = X_q_B[_nf_q]
+            n_q = len(Y_delta_q)
+            _abs_d = np.abs(Y_delta_q)
+            _dir_q = np.where(Y_delta_q > 0, 1, -1)
+
+            # ── STEP 1: Split by sign FIRST, then histogram each side ───
+            # UP and DN are separate populations with potentially different
+            # magnitude structures. Analyze independently.
+            _global_A_mean = X_q_A.mean(axis=0)
+            _global_A_std = X_q_A.std(axis=0)
+            _global_A_std[_global_A_std < 1e-10] = 1.0
+
+            _base_up = (_dir_q > 0).sum() / n_q * 100
+            print(f"\n  Total moves: {n_q} (flats removed)")
+            print(f"  |delta| range: {_abs_d.min():.1f} to {_abs_d.max():.1f}, "
+                  f"median={np.median(_abs_d):.1f}, mean={np.mean(_abs_d):.1f}")
+            print(f"  Baseline: {_base_up:.1f}% UP / {100-_base_up:.1f}% DN")
+
+            all_side_stats = {}  # for plotting later
+
+            for _side, _side_label in [('UP', 'UP (delta > 0)'), ('DN', 'DN (delta < 0)')]:
+                _s_mask = _dir_q > 0 if _side == 'UP' else _dir_q < 0
+                _s_n = _s_mask.sum()
+                _s_deltas = Y_delta_q[_s_mask]
+                _s_abs = _abs_d[_s_mask]
+                _s_A = X_q_A[_s_mask]
+                _s_B = X_q_B[_s_mask]
+
+                print(f"\n  {'='*70}")
+                print(f"  {_side_label}: {_s_n} moves ({_s_n/n_q*100:.1f}%)")
+                print(f"  |delta| range: {_s_abs.min():.1f} to {_s_abs.max():.1f}, "
+                      f"median={np.median(_s_abs):.1f}, mean={np.mean(_s_abs):.1f}")
+                print(f"  {'='*70}")
+
+                # Log-histogram of this side's magnitudes
+                _s_log = np.log1p(_s_abs)
+                _s_nbins = min(200, max(50, _s_n // 20))
+                _s_hist_c, _s_hist_e = np.histogram(_s_log, bins=_s_nbins)
+                _s_centers = 0.5 * (_s_hist_e[:-1] + _s_hist_e[1:])
+
+                # Gaussian smooth — adaptive sigma (lighter for fewer bins)
+                _sigma = max(1.0, min(3.0, _s_nbins / 40))
+                _kern_x = np.arange(-3 * int(np.ceil(_sigma)), 3 * int(np.ceil(_sigma)) + 1)
+                _kern = np.exp(-0.5 * (_kern_x / _sigma) ** 2)
+                _kern /= _kern.sum()
+                _s_smooth = np.convolve(_s_hist_c.astype(float), _kern, mode='same')
+
+                # Find modes
+                _s_peaks = []
+                for _i in range(1, len(_s_smooth) - 1):
+                    if _s_smooth[_i] > _s_smooth[_i - 1] and _s_smooth[_i] > _s_smooth[_i + 1]:
+                        _s_peaks.append(_i)
+
+                # Find valleys
+                _s_valleys_log = []
+                for _pi in range(len(_s_peaks) - 1):
+                    _seg = _s_smooth[_s_peaks[_pi]:_s_peaks[_pi + 1] + 1]
+                    _vi = _s_peaks[_pi] + np.argmin(_seg)
+                    _s_valleys_log.append(_s_centers[_vi])
+
+                _s_mag_edges = sorted(np.expm1(np.array(_s_valleys_log))) if _s_valleys_log else []
+
+                # Fallback: if no valleys found, use IQR-based splits
+                # (small = below median, medium = median to P75, large = above P75)
+                if not _s_mag_edges and _s_n >= 20:
+                    _p25, _p50, _p75 = np.percentile(_s_abs, [25, 50, 75])
+                    _s_mag_edges = sorted(set([_p25, _p50, _p75]))
+                    # Remove duplicates that are too close (< 1 pt apart)
+                    _deduped = [_s_mag_edges[0]]
+                    for _e in _s_mag_edges[1:]:
+                        if _e - _deduped[-1] >= 1.0:
+                            _deduped.append(_e)
+                    _s_mag_edges = _deduped
+                    print(f"  (Fallback: IQR splits at {', '.join(f'{v:.1f}' for v in _s_mag_edges)})")
+
+                print(f"  Log-histogram: sigma={_sigma:.1f}, {len(_s_peaks)} peaks")
+                print(f"  Valleys (real): {', '.join(f'{v:.1f}' for v in _s_mag_edges)}")
+
+                # Build magnitude bins for this side
+                _s_bin_edges = np.array([0.0] + _s_mag_edges + [_s_abs.max() + 1])
+                _s_n_bins = len(_s_bin_edges) - 1
+                _s_bin_ids = np.digitize(_s_abs, _s_bin_edges) - 1
+                _s_bin_ids = np.clip(_s_bin_ids, 0, _s_n_bins - 1)
+
+                print(f"  Magnitude bins: {_s_n_bins}")
+                print(f"\n  {'Bin':>4} {'Magnitude':>18} {'N':>6} {'%side':>6} "
+                      f"{'Mean|d|':>8} {'Med|d|':>8}")
+                print(f"  {'-'*4} {'-'*18} {'-'*6} {'-'*6} {'-'*8} {'-'*8}")
+
+                _s_bin_stats = []
+                for b in range(_s_n_bins):
+                    _bm = _s_bin_ids == b
+                    _bn = _bm.sum()
+                    if _bn == 0:
+                        continue
+                    _b_abs = _s_abs[_bm]
+                    _lo = _s_bin_edges[b]
+                    _hi = _s_bin_edges[b + 1]
+                    if b == _s_n_bins - 1:
+                        _bname = f'{_side}_{_lo:.0f}+'
+                    else:
+                        _bname = f'{_side}_{_lo:.0f}_{_hi:.0f}'
+
+                    _b_A = _s_A[_bm]
+                    _b_B = _s_B[_bm]
+                    _b_A_mean = _b_A.mean(axis=0)
+                    _b_B_mean = _b_B.mean(axis=0)
+                    _b_diff = _b_B_mean - _b_A_mean
+
+                    _s_bin_stats.append({
+                        'name': _bname, 'n': _bn,
+                        'range': f'[{_lo:.1f}, {_hi:.1f})',
+                        'pct_side': _bn / _s_n * 100,
+                        'mean_abs': float(np.mean(_b_abs)),
+                        'median_abs': float(np.median(_b_abs)),
+                        'feat_A_mean': _b_A_mean,
+                        'feat_B_mean': _b_B_mean,
+                        'feat_diff': _b_diff,
+                        'mask': _bm,
+                    })
+                    print(f"  {b:>4} {_bname:>18} {_bn:>6} {_bn/_s_n*100:>5.1f}% "
+                          f"{np.mean(_b_abs):>8.2f} {np.median(_b_abs):>8.2f}")
+
+                # 192D profiles per magnitude bin
+                print(f"\n  192D PROFILES ({_side}):")
+                for bs in _s_bin_stats:
+                    if bs['n'] < 5:
+                        print(f"\n  {bs['name']:>18} (n={bs['n']}): too few for profile")
+                        continue
+                    _z_A = (bs['feat_A_mean'] - _global_A_mean) / _global_A_std
+                    _top5 = np.argsort(np.abs(_z_A))[::-1][:5]
+                    _feat_str = ', '.join([
+                        f"{col_names[fi] if fi < len(col_names) else f'f{fi}'}({_z_A[fi]:+.2f}z)"
+                        for fi in _top5
+                    ])
+                    _diff_abs = np.abs(bs['feat_diff'])
+                    _top3_diff = np.argsort(_diff_abs)[::-1][:3]
+                    _diff_str = ', '.join([
+                        f"{col_names[fi] if fi < len(col_names) else f'f{fi}'}({bs['feat_diff'][fi]:+.3f})"
+                        for fi in _top3_diff
+                    ])
+                    print(f"\n  {bs['name']:>18} (n={bs['n']}, {bs['pct_side']:.1f}% of {_side}):")
+                    print(f"    Context (A):     {_feat_str}")
+                    print(f"    Transition A->B: {_diff_str}")
+
+                # Spike tier for this side
+                if _s_mag_edges and _s_n_bins >= 2:
+                    _sp_thresh = _s_mag_edges[-1]  # highest internal boundary
+                    _sp_mask = _s_abs >= _sp_thresh
+                    _sp_n = _sp_mask.sum()
+                    if _sp_n >= 2:
+                        print(f"\n  SPIKE {_side} (|delta| >= {_sp_thresh:.1f}, n={_sp_n}):")
+                        _sp_A_local = _s_A[_sp_mask]
+                        _sp_z = (_sp_A_local - _global_A_mean) / _global_A_std
+                        _sp_deltas_local = _s_deltas[_sp_mask]
+                        _sp_abs_local = _s_abs[_sp_mask]
+                        for _si in range(_sp_n):
+                            _z_row = _sp_z[_si]
+                            _top3 = np.argsort(np.abs(_z_row))[::-1][:3]
+                            _feat_str = ', '.join([
+                                f"{col_names[fi] if fi < len(col_names) else f'f{fi}'}({_z_row[fi]:+.1f}z)"
+                                for fi in _top3
+                            ])
+                            print(f"    {_sp_deltas_local[_si]:>+10.1f} "
+                                  f"({_sp_abs_local[_si]:>7.1f})  {_feat_str}")
+
+                # Store for plots
+                all_side_stats[_side] = {
+                    'n': _s_n, 'bin_stats': _s_bin_stats,
+                    'hist_centers': _s_centers, 'hist_counts': _s_hist_c,
+                    'smooth': _s_smooth, 'peaks': _s_peaks,
+                    'valleys_log': _s_valleys_log, 'mag_edges': _s_mag_edges,
+                }
+
+            # ── Combined summary ──────────────────────────────────────────
+            print(f"\n  {'='*70}")
+            print(f"  CROSS-SIDE COMPARISON")
+            print(f"  {'='*70}")
+            for _side in ['UP', 'DN']:
+                _ss = all_side_stats[_side]
+                _n_v = len(_ss['mag_edges'])
+                print(f"  {_side}: {_ss['n']} moves, {len(_ss['peaks'])} modes, "
+                      f"{_n_v} valleys -> {_n_v + 1} magnitude tiers")
+                if _ss['mag_edges']:
+                    print(f"    Boundaries: {', '.join(f'{v:.1f}' for v in _ss['mag_edges'])}")
+
+            # ── Plots: per-side log histograms + magnitude tier bars ────
+            fig_q, axes_q = plt.subplots(2, 2, figsize=(16, 12), facecolor='white')
+            _side_colors = {'UP': '#2196F3', 'DN': '#F44336'}
+
+            for _pi, _side in enumerate(['UP', 'DN']):
+                _ss = all_side_stats[_side]
+                _clr = _side_colors[_side]
+
+                # Top row: log histogram + smoothed + modes/valleys
+                ax = axes_q[0, _pi]
+                ax.bar(_ss['hist_centers'], _ss['hist_counts'],
+                       width=(_ss['hist_centers'][1] - _ss['hist_centers'][0]) * 0.9
+                       if len(_ss['hist_centers']) > 1 else 0.05,
+                       alpha=0.4, color=_clr, label='raw')
+                ax.plot(_ss['hist_centers'], _ss['smooth'], color=_clr,
+                        lw=2, label='smoothed')
+                for _pk in _ss['peaks']:
+                    ax.axvline(_ss['hist_centers'][_pk], color='green',
+                               ls='--', alpha=0.5)
+                for _vl in _ss['valleys_log']:
+                    ax.axvline(_vl, color='red', ls='-', alpha=0.7)
+                    _real_v = np.expm1(_vl)
+                    ax.annotate(f'{_real_v:.1f}', xy=(_vl, ax.get_ylim()[1]*0.9),
+                                fontsize=7, color='red', ha='center')
+                ax.set_title(f'{_side} side: log1p(|delta|) histogram (n={_ss["n"]})',
+                             fontsize=10)
+                ax.set_xlabel('log1p(|delta|)')
+                ax.set_ylabel('count')
+                ax.legend(fontsize=8)
+
+                # Bottom row: magnitude tier bar chart
+                ax2 = axes_q[1, _pi]
+                _bstats = _ss['bin_stats']
+                if _bstats:
+                    _bnames = [bs['name'] for bs in _bstats]
+                    _bns = [bs['n'] for bs in _bstats]
+                    _bars = ax2.bar(range(len(_bnames)), _bns, color=_clr, alpha=0.6)
+                    ax2.set_xticks(range(len(_bnames)))
+                    ax2.set_xticklabels(_bnames, rotation=45, ha='right', fontsize=7)
+                    ax2.set_ylabel('count')
+                    ax2.set_title(f'{_side} magnitude tiers', fontsize=10)
+                    # Annotate pct on bars
+                    for _bi, _bar in enumerate(_bars):
+                        _pct = _bstats[_bi]['pct_side']
+                        ax2.text(_bar.get_x() + _bar.get_width()/2, _bar.get_height(),
+                                 f'{_pct:.1f}%', ha='center', va='bottom', fontsize=7)
+
+            fig_q.suptitle('Analysis Q: Sign-First Magnitude Binning', fontsize=13)
+            fig_q.tight_layout(rect=[0, 0, 1, 0.96])
+            fig_q.savefig(os.path.join(PLOTS_DIR, 'analysis_q_signed_histogram.png'),
+                          dpi=150, bbox_inches='tight')
+            plt.close(fig_q)
+            print(f"\n  [saved] analysis_q_signed_histogram.png")
+
+            # ── CSV export: one row per signed bin ────────────────────────
+            _csv_rows = []
+            for _side in ['UP', 'DN']:
+                for bs in all_side_stats[_side]['bin_stats']:
+                    _csv_rows.append({
+                        'side': _side,
+                        'bin': bs['name'],
+                        'range': bs.get('range', ''),
+                        'n': bs['n'],
+                        'pct_side': round(bs['pct_side'], 2),
+                        'mean_abs': round(bs['mean_abs'], 2),
+                        'median_abs': round(bs['median_abs'], 2),
+                    })
+            import csv
+            _csv_path = os.path.join(PLOTS_DIR, 'analysis_q_signed_bins.csv')
+            with open(_csv_path, 'w', newline='') as _cf:
+                _w = csv.DictWriter(_cf, fieldnames=['side','bin','range','n',
+                                                      'pct_side','mean_abs','median_abs'])
+                _w.writeheader()
+                _w.writerows(_csv_rows)
+            print(f"  [saved] analysis_q_signed_bins.csv ({len(_csv_rows)} bins)")
+
+
+
+    # =====================================================================
     if not args.full:
+        print(f"\n  (Skipping full 16D pipeline -- use --full to enable)")
+        # Save report + exit
         sys.stdout = _orig_stdout
-        report_dir = os.path.dirname(__file__)
-
-        # Save combined report
-        report_path = os.path.join(report_dir, 'standalone_report.txt')
-        with open(report_path, 'w', encoding='utf-8') as f:
-            f.write(f"STANDALONE WAVEFORM SCREENING REPORT\n")
-            f.write(f"Data: {args.data}, Base TF: {args.base_tf}\n")
-            f.write(f"Context: {args.context_days}d, Analysis: {args.analysis_days}d\n")
-            f.write(f"Samples: {len(Y_p)}\n")
-            f.write(f"Price adj-R2: {r2_p:.4f}, Direction adj-R2: {r2_d:.4f}\n")
-            f.write(f"Derived direction accuracy: {accuracy:.1%}\n\n")
-            f.write(_report_buf.getvalue())
-        print(f"\n  Report saved: {report_path}")
-        print(f"  Charts: {PLOTS_DIR}/")
+        _report_path = os.path.join(PLOTS_DIR, 'waveform_report.txt')
+        with open(_report_path, 'w', encoding='utf-8', errors='replace') as _rf:
+            _rf.write(_report_buf.getvalue())
+        print(f"  [saved] {_report_path}")
         return
 
-    # =====================================================================
-    #  FULL MODE: 16D fractal pipeline (Steps 7-14)
-    # =====================================================================
     print(f"\n{'='*70}")
     print(f"  FULL 16D FRACTAL PIPELINE")
     print(f"{'='*70}")
@@ -4661,7 +6344,7 @@ def main():
 
     print(f"\n  Computing physics per TF...")
     all_tf_states = {}
-    for tf in tqdm(TF_HIERARCHY, desc="Physics", unit="tf"):
+    for tf in tqdm(TF_HIERARCHY, desc="Physics", unit="tf", ascii=True, dynamic_ncols=True):
         if tf not in all_dfs:
             continue
         states = compute_tf_physics(tf, all_dfs[tf])
