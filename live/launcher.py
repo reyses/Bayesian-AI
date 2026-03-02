@@ -71,8 +71,10 @@ def main():
         ]
     )
     # Silence numba CUDA debug spam (thousands of cuMemAlloc lines)
-    logging.getLogger('numba').setLevel(logging.WARNING)
-    logging.getLogger('numba.cuda').setLevel(logging.WARNING)
+    logging.getLogger('numba').setLevel(logging.ERROR)
+    logging.getLogger('numba.cuda').setLevel(logging.ERROR)
+    import warnings
+    warnings.filterwarnings('ignore', category=UserWarning, module='numba')
 
     config = LiveConfig(
         nt8_host=args.host,

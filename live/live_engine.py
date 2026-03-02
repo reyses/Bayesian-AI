@@ -215,7 +215,8 @@ class LiveEngine:
                 })
             elif mtype == 'HISTORY_DONE':
                 count = int(msg.get('bar_count', 0))
-                logger.info(f"History dump complete: {count} bars")
+                logger.info(f"History dump complete: {count} bars from NT8")
+                self._aggregator.finish_history()
             elif mtype == 'DOM':
                 pass  # DOM handled by future dashboard
 

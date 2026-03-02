@@ -31,6 +31,7 @@ class LiveBarAggregator:
         self._states: list = []
         self._warmed_up = False
         self._sub_bars: list = []   # buffered 1s bars for current 15s window
+        self._history_mode = True   # True until HISTORY_DONE received
 
     # ── Public API ────────────────────────────────────────────────────
 
@@ -71,8 +72,8 @@ class LiveBarAggregator:
             'volume':    float(msg.get('volume', 0)),
         }
 
-        # Session reset detection: >2h gap between bars
-        if self._sub_bars:
+        # Session reset detection: >2h gap between bars (disabled during history)
+        if self._sub_bars and not self._history_mode:
             gap = row_1s['timestamp'] - self._sub_bars[-1]['timestamp']
             if gap > 7200:
                 logger.info(f"Session gap ({gap:.0f}s) — resetting aggregator")
@@ -92,6 +93,11 @@ class LiveBarAggregator:
             return self._append_15s(agg)
 
         return None
+
+    def finish_history(self):
+        """Called when HISTORY_DONE received — enable session gap detection."""
+        self._history_mode = False
+        logger.info(f"History ingestion complete: {self.bar_count} bars retained")
 
     def reset(self):
         """Flush all bars and states (session boundary)."""
@@ -117,8 +123,8 @@ class LiveBarAggregator:
 
     def _append_15s(self, row: dict) -> Optional[list]:
         """Append a completed 15s bar and recompute if warmed up."""
-        # Session gap check against last 15s bar
-        if self._rows:
+        # Session gap check against last 15s bar (disabled during history)
+        if self._rows and not self._history_mode:
             gap = row['timestamp'] - self._rows[-1]['timestamp']
             if gap > 7200:
                 logger.info(f"Session gap ({gap:.0f}s) — resetting aggregator")
