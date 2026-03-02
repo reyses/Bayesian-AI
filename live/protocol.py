@@ -30,12 +30,16 @@ class MsgType(str, Enum):
     POSITION     = 'POSITION'
     CONNECTED    = 'CONNECTED'
     HEARTBEAT    = 'HEARTBEAT'
+    DOM            = 'DOM'
+    HISTORY_DONE   = 'HISTORY_DONE'
+    ACCOUNT_UPDATE = 'ACCOUNT_UPDATE'
 
     # Python → NT8
-    PLACE_ORDER    = 'PLACE_ORDER'
-    CLOSE_POSITION = 'CLOSE_POSITION'
-    CANCEL_ORDER   = 'CANCEL_ORDER'
-    SUBSCRIBE      = 'SUBSCRIBE'
+    PLACE_ORDER      = 'PLACE_ORDER'
+    CLOSE_POSITION   = 'CLOSE_POSITION'
+    CANCEL_ORDER     = 'CANCEL_ORDER'
+    SUBSCRIBE        = 'SUBSCRIBE'
+    REQUEST_HISTORY  = 'REQUEST_HISTORY'
     # HEARTBEAT is shared
 
 
@@ -47,6 +51,9 @@ _REQUIRED: Dict[str, tuple] = {
     'POSITION':     ('instrument', 'qty'),
     'CONNECTED':    ('account',),
     'HEARTBEAT':    (),
+    'DOM':            ('bid', 'ask'),
+    'HISTORY_DONE':   (),
+    'ACCOUNT_UPDATE': ('cash_value',),
 }
 
 
@@ -89,18 +96,29 @@ class MessageReader:
 
     async def read_one(self) -> Optional[dict]:
         """Read a single message. Returns None on EOF or protocol error."""
+        import logging as _log
+        _logger = _log.getLogger('live.protocol')
         try:
             header = await self._stream.readexactly(HEADER_SIZE)
-        except (asyncio.IncompleteReadError, ConnectionResetError):
+        except asyncio.IncompleteReadError as e:
+            _logger.warning(f"Header read incomplete: {e.partial!r} ({len(e.partial)} bytes)")
+            return None
+        except (ConnectionResetError, OSError) as e:
+            _logger.warning(f"Header read error: {e}")
             return None
 
         length = struct.unpack(HEADER_FMT, header)[0]
         if length > MAX_MSG_SIZE:
-            return None  # reject oversized messages
+            _logger.warning(f"Oversized message: {length} bytes (max {MAX_MSG_SIZE})")
+            return None
 
         try:
             payload = await self._stream.readexactly(length)
-        except (asyncio.IncompleteReadError, ConnectionResetError):
+        except asyncio.IncompleteReadError as e:
+            _logger.warning(f"Payload read incomplete: got {len(e.partial)}/{length} bytes")
+            return None
+        except (ConnectionResetError, OSError) as e:
+            _logger.warning(f"Payload read error: {e}")
             return None
 
         return decode(payload)
@@ -152,6 +170,10 @@ def cancel_order(order_id: str) -> dict:
         'type': MsgType.CANCEL_ORDER,
         'order_id': order_id,
     }
+
+
+def request_history() -> dict:
+    return {'type': MsgType.REQUEST_HISTORY}
 
 
 def heartbeat() -> dict:

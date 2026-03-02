@@ -16,7 +16,8 @@ from typing import Optional
 
 from live.config import LiveConfig
 from live.protocol import (
-    encode, MessageReader, subscribe, heartbeat as hb_msg, validate,
+    encode, MessageReader, subscribe, heartbeat as hb_msg,
+    request_history, validate,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,11 +34,14 @@ class NT8Client:
         self._stop = False
 
         # Inbound messages land here for the LiveEngine to consume
-        self.inbound: asyncio.Queue = asyncio.Queue(maxsize=500)
+        # Large buffer to absorb history dumps (16k+ bars) without backpressure
+        self.inbound: asyncio.Queue = asyncio.Queue(maxsize=50000)
 
         self._read_task: Optional[asyncio.Task] = None
         self._hb_task: Optional[asyncio.Task] = None
         self._last_hb_recv: float = 0.0
+        self._history_received = False  # only request history once
+        self._last_connect_time: float = 0.0  # rate-limit reconnections
 
     # ── Public API ────────────────────────────────────────────────────
 
@@ -50,8 +54,14 @@ class NT8Client:
         attempt = 0
         delay = self._cfg.reconnect_delay_s
 
+        # Rate-limit: minimum 2s between connection attempts
+        since_last = time.time() - self._last_connect_time
+        if since_last < 2.0:
+            await asyncio.sleep(2.0 - since_last)
+
         while not self._stop and attempt < self._cfg.max_reconnect_attempts:
             attempt += 1
+            self._last_connect_time = time.time()
             try:
                 self._reader, self._writer = await asyncio.open_connection(
                     self._cfg.nt8_host, self._cfg.nt8_port)
@@ -65,6 +75,13 @@ class NT8Client:
                                 self._cfg.base_resolution_s,
                                 self._cfg.account)
                 await self.send(sub)
+
+                # Only request history once (set flag immediately to prevent
+                # duplicate requests on rapid reconnects during history dump)
+                if not self._history_received:
+                    self._history_received = True  # lock before sending
+                    await self.send(request_history())
+                    logger.info("Requested history dump from NT8")
 
                 # Start background tasks
                 self._read_task = asyncio.create_task(self._read_loop())
@@ -116,6 +133,7 @@ class NT8Client:
 
     async def _read_loop(self):
         """Continuously read messages from NT8 and enqueue them."""
+        logger.info("Read loop started")
         reader = MessageReader(self._reader)
         try:
             async for msg in reader:
@@ -146,6 +164,11 @@ class NT8Client:
                 elapsed = time.time() - self._last_hb_recv
                 if elapsed > self._cfg.heartbeat_interval_s * 3:
                     logger.warning(f"No heartbeat from NT8 for {elapsed:.0f}s")
+                # Force reconnect after 60s of silence
+                if elapsed > 60:
+                    logger.warning("Heartbeat timeout (60s) — forcing reconnect")
+                    await self._handle_disconnect()
+                    return
         except asyncio.CancelledError:
             pass
 
@@ -155,7 +178,16 @@ class NT8Client:
             return
         self._connected = False
         logger.warning("Connection lost — attempting reconnect...")
+        # Cancel old background tasks — but don't self-cancel if called
+        # from within _read_loop (that would abort the reconnection).
+        current = asyncio.current_task()
+        if self._read_task and self._read_task is not current and not self._read_task.done():
+            self._read_task.cancel()
+        if self._hb_task and self._hb_task is not current and not self._hb_task.done():
+            self._hb_task.cancel()
         if self._writer:
             self._writer.close()
+        # Brief delay to let old tasks finish cancelling
+        await asyncio.sleep(0.5)
         if not self._stop:
             await self.connect()
