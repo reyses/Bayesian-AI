@@ -70,6 +70,9 @@ def main():
             logging.FileHandler('live_trading.log', mode='a'),
         ]
     )
+    # Silence numba CUDA debug spam (thousands of cuMemAlloc lines)
+    logging.getLogger('numba').setLevel(logging.WARNING)
+    logging.getLogger('numba.cuda').setLevel(logging.WARNING)
 
     config = LiveConfig(
         nt8_host=args.host,

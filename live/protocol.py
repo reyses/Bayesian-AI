@@ -30,6 +30,8 @@ class MsgType(str, Enum):
     POSITION     = 'POSITION'
     CONNECTED    = 'CONNECTED'
     HEARTBEAT    = 'HEARTBEAT'
+    DOM          = 'DOM'
+    HISTORY_DONE = 'HISTORY_DONE'
 
     # Python → NT8
     PLACE_ORDER    = 'PLACE_ORDER'
@@ -47,6 +49,8 @@ _REQUIRED: Dict[str, tuple] = {
     'POSITION':     ('instrument', 'qty'),
     'CONNECTED':    ('account',),
     'HEARTBEAT':    (),
+    'DOM':          ('bid', 'ask'),
+    'HISTORY_DONE': (),
 }
 
 

@@ -221,6 +221,13 @@ class LiveEngine:
 
     async def _on_bar(self, msg: dict):
         """Process a single inbound BAR message."""
+        # Only feed 15s and 1s bars to the aggregator.  Higher-TF bars
+        # (30s, 1m, … 1D) from the NT8 history dump have different
+        # timestamps that trigger spurious session-gap resets.
+        bar_period = int(msg.get('bar_period_s', 1))
+        if bar_period not in (1, 15):
+            return  # skip higher-TF bars for now
+
         states = self._aggregator.add_bar(msg)
         if states is None:
             # Push warmup progress to GUI
