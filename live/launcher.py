@@ -70,11 +70,11 @@ def main():
             logging.FileHandler('live_trading.log', mode='a'),
         ]
     )
-    # Silence numba CUDA debug spam (thousands of cuMemAlloc lines)
+    # Silence numba CUDA debug spam
     logging.getLogger('numba').setLevel(logging.ERROR)
     logging.getLogger('numba.cuda').setLevel(logging.ERROR)
     import warnings
-    warnings.filterwarnings('ignore', category=UserWarning, module='numba')
+    warnings.filterwarnings('ignore', module='numba')
 
     config = LiveConfig(
         nt8_host=args.host,
