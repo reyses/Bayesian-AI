@@ -1,4 +1,6 @@
 // =============================================================================
+// BayesianBridge v6 — 2026-03-02
+// =============================================================================
 // BayesianBridge — NinjaTrader 8 NinjaScript Indicator
 //
 // PURPOSE: TCP server inside NT8 that bridges to the Python live trading engine.
@@ -163,7 +165,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 _serverThread = new Thread(ServerLoop) { IsBackground = true };
                 _serverThread.Start();
 
-                Print("BayesianBridge: Started on port " + Port + ", account=" + AccountName);
+                Print("BayesianBridge v6: Started on port " + Port + ", account=" + AccountName);
             }
             else if (State == State.Terminated)
             {
@@ -380,9 +382,9 @@ namespace NinjaTrader.NinjaScript.Indicators
                         SendPositionSnapshot();
                         Print("BayesianBridge: Sending account update...");
                         SendAccountUpdate();
-                        Print("BayesianBridge: Sending history buffer...");
-                        SendHistoryBuffer();
-                        Print("BayesianBridge: All initial messages sent");
+                        // History is no longer sent automatically on connect.
+                        // Python sends REQUEST_HISTORY when it needs the dump.
+                        Print("BayesianBridge: Ready (history on request)");
                     }
                     catch (Exception ex)
                     {
@@ -394,8 +396,8 @@ namespace NinjaTrader.NinjaScript.Indicators
 
                     // _clientAlive is set to false by ReadLoop when it
                     // detects a disconnect (read returns 0 or throws).
-                    // Also check _listener.Pending() so a new Python
-                    // connection immediately breaks us out of this loop.
+                    // Do NOT drain pending connections here — the outer loop
+                    // handles new connections properly after _clientAlive goes false.
                     while (_running && _clientAlive)
                     {
                         try
@@ -414,14 +416,6 @@ namespace NinjaTrader.NinjaScript.Indicators
                             Print("BayesianBridge: Loop error: " + ex.Message);
                         }
 
-                        // If a new Python client is waiting, break out
-                        // to accept it (old connection will be closed above).
-                        if (_listener.Pending())
-                        {
-                            Print("BayesianBridge: New client pending — recycling");
-                            break;
-                        }
-
                         Thread.Sleep(50);
                     }
 
@@ -437,11 +431,15 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         private void ReadLoop()
         {
+            // Capture the stream we were started with — if the ServerLoop
+            // recycles to a new client, we must NOT clobber _clientAlive.
+            NetworkStream myStream = _stream;
+            Print("BayesianBridge: ReadLoop started (stream=" + myStream?.GetHashCode() + ")");
             try
             {
-                while (_running && _clientAlive && _stream != null)
+                while (_running && _clientAlive && myStream != null)
                 {
-                    byte[] header = ReadExactly(4);
+                    byte[] header = ReadExactly(myStream, 4);
                     if (header == null) break;
 
                     int length = (header[0] << 24) | (header[1] << 16)
@@ -449,7 +447,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
                     if (length <= 0 || length > 1048576) break;
 
-                    byte[] payload = ReadExactly(length);
+                    byte[] payload = ReadExactly(myStream, length);
                     if (payload == null) break;
 
                     string json = Encoding.UTF8.GetString(payload);
@@ -467,17 +465,19 @@ namespace NinjaTrader.NinjaScript.Indicators
                     Print("BayesianBridge: Read error: " + ex.Message);
             }
 
-            // Signal ServerLoop that this client is dead
-            _clientAlive = false;
+            // Only signal dead if WE are still the active connection.
+            // If ServerLoop already recycled to a new client, don't clobber.
+            if (_stream == myStream)
+                _clientAlive = false;
         }
 
-        private byte[] ReadExactly(int count)
+        private byte[] ReadExactly(NetworkStream stream, int count)
         {
             byte[] buffer = new byte[count];
             int offset = 0;
             while (offset < count)
             {
-                int read = _stream.Read(buffer, offset, count - offset);
+                int read = stream.Read(buffer, offset, count - offset);
                 if (read == 0) return null;
                 offset += read;
             }
@@ -526,6 +526,10 @@ namespace NinjaTrader.NinjaScript.Indicators
                             + Q("server_time") + ":" + D2S(ToUnixSeconds(DateTime.UtcNow))
                             + "}";
                         SendRawJson(hb);
+                        break;
+                    case "REQUEST_HISTORY":
+                        Print("BayesianBridge: Sending history buffer on request...");
+                        SendHistoryBuffer();
                         break;
                     default:
                         Print("BayesianBridge: Unknown command: " + msgType);

@@ -130,6 +130,7 @@ class LiveEngine:
         self._max_hold_bars = 960
 
         self._bar_i = 0   # running bar index
+        self._last_exit_time = 0.0  # cooldown between trades
         self._live_trade_count = 0  # for periodic brain save
         self._brain_save_interval = 5  # save brain every N trades
 
@@ -222,7 +223,24 @@ class LiveEngine:
             elif mtype == 'HISTORY_DONE':
                 count = int(msg.get('bar_count', 0))
                 logger.info(f"History dump complete: {count} bars from NT8")
-                self._aggregator.finish_history()
+                # Run heavy recompute in thread to avoid blocking event loop
+                loop = asyncio.get_event_loop()
+                await loop.run_in_executor(None, self._aggregator.finish_history)
+                # Drain any remaining stale BAR messages from duplicate
+                # history requests that arrived before HISTORY_DONE
+                drained = 0
+                while not self._client.inbound.empty():
+                    try:
+                        stale = self._client.inbound.get_nowait()
+                        if stale.get('type') != 'BAR':
+                            # Re-queue non-BAR messages (CONNECTED, etc.)
+                            await self._client.inbound.put(stale)
+                            break
+                        drained += 1
+                    except Exception:
+                        break
+                if drained:
+                    logger.info(f"Drained {drained} stale BAR messages from queue")
             elif mtype == 'ACCOUNT_UPDATE':
                 self._on_account_update(msg)
             elif mtype == 'DOM':
@@ -237,7 +255,10 @@ class LiveEngine:
         if bar_period not in (1, 15):
             return  # skip higher-TF bars for now
 
-        states = self._aggregator.add_bar(msg)
+        # Run add_bar (which may trigger recompute) in thread to avoid
+        # blocking the event loop for 1-3s during batch_compute_states
+        loop = asyncio.get_event_loop()
+        states = await loop.run_in_executor(None, self._aggregator.add_bar, msg)
         if states is None:
             # Push warmup progress to GUI
             if self._bar_i % 10 == 0:
@@ -255,6 +276,11 @@ class LiveEngine:
         price = float(msg['close'])
         ts = float(msg['timestamp'])
         self._bar_i += 1
+
+        # Safety: skip trading on stale data (>2 min old)
+        age = time.time() - ts
+        if age > 120:
+            return  # stale bar from history leak, skip
 
         # Feed belief network
         df = self._aggregator.df
@@ -274,8 +300,9 @@ class LiveEngine:
         if self._position_open:
             await self._check_exit(price, ts)
 
-        # ── Entry check (if flat) ─────────────────────────────────────
-        if not self._position_open and not self._orders.loss_limit_hit:
+        # ── Entry check (if flat + cooldown expired) ────────────────────
+        _cooldown_ok = (time.time() - self._last_exit_time) > 15.0  # 15s min
+        if not self._position_open and not self._orders.loss_limit_hit and _cooldown_ok:
             await self._check_entry(price, ts, states)
 
     # ── Exit Logic ────────────────────────────────────────────────────
@@ -308,6 +335,7 @@ class LiveEngine:
         """Send close order and reset position state."""
         self._position_open = False
         self._wave_rider.position = None
+        self._last_exit_time = time.time()
 
         if self._dry_run:
             logger.info(f"[DRY RUN] Would close position: {reason}")
@@ -483,7 +511,8 @@ class LiveEngine:
         # Aggression scaling (0.0=SNIPER … 1.0=YOLO)
         agg = self._shared_state.get('aggression', 0.5)
         _yolo = agg >= 0.99
-        _g1_dist = _GATE1_DIST_THRESHOLD + agg * 10.0   # 4.5 → 14.5
+        _g1_dist = (float('inf') if _yolo
+                    else _GATE1_DIST_THRESHOLD + agg * 10.0)  # YOLO=∞, else 4.5→14.5
         _g2_prob = 0.05 * (1.0 - agg)                    # 0.05 → 0.0
         _g4_dir  = 0.05 * (1.0 - agg)                    # 0.05 → 0.0
         _skip_screening = agg > 0.75                      # AGGRESSIVE+ skips 3.5
@@ -504,9 +533,13 @@ class LiveEngine:
         if not candidates and _yolo:
             candidates.append(self._build_candidate(
                 'STRUCTURAL_DRIVE', state, price, ts))
+            logger.debug(f"YOLO forced candidate @ {price:.2f}  "
+                         f"z={state.z_score:.3f} v={state.particle_velocity:.3f}")
 
         if not candidates:
             return
+
+        logger.debug(f"Gate cascade: {len(candidates)} candidate(s), agg={agg:.2f}")
 
         # Run gates on each candidate
         best_candidate = None
@@ -569,10 +602,16 @@ class LiveEngine:
             tid = self._valid_tids[nearest_idx]
 
             if dist >= _g1_dist:
+                logger.debug(f"Gate 1 reject: dist={dist:.2f} >= {_g1_dist:.2f}")
                 continue
+
+            logger.debug(f"Gate 1 pass: tid={tid} dist={dist:.2f}/{_g1_dist:.2f}")
 
             # ── Gate 2: Brain ─────────────────────────────────────────
             if not self._brain.should_fire(tid, min_prob=_g2_prob, min_conf=0.0):
+                logger.debug(f"Gate 2 reject: tid={tid} "
+                             f"prob={self._brain.get_probability(tid):.3f} "
+                             f"conf={self._brain.get_confidence(tid):.3f}")
                 continue
 
             # Score competition
