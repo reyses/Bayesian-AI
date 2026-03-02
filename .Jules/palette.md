@@ -13,3 +13,11 @@
 ## 2026-02-24 - [Mocking Matplotlib Subplots]
 **Learning:** When adding features that instantiate `plt.subplots`, existing tests mocking `tkinter` will fail if `plt.subplots` is not also mocked and configured to return a tuple `(fig, ax)`.
 **Action:** Always patch `plt.subplots` in tests for classes that create plots in `__init__`, ensuring it returns valid mock objects.
+
+## 2026-02-24 - [Testing Matplotlib Default Globals]
+**Learning:** When adding features that use global constants like `DEFAULT_CHART_DPI`, existing tests might fail with `NameError` if the constant isn't defined or imported.
+**Action:** Always handle missing global constants with fallback mechanisms or proper imports to ensure tests pass without unhandled exceptions.
+
+## 2026-02-24 - [High-Density Dashboard Tooltips]
+**Learning:** Instant tooltips in high-density dashboards cause aggressive flashing and UI obstruction, leading to poor UX.
+**Action:** Use a ~500ms delay before showing tooltips (`after`) and include a `<ButtonPress>` binding to instantly dismiss them. Ensure scheduled events are cancelled (`after_cancel`) if the mouse leaves before the timeout.
