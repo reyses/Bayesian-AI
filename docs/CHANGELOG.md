@@ -2,6 +2,13 @@
 
 ---
 
+## [V5.3.1] - 2026-03-02 — fix: initialize _imp_w before direction regression conditional
+
+### Fixed
+- Prevents UnboundLocalError when direction regression is skipped (too few labels) but quality/signed-MFE regressions still run.
+
+---
+
 ## [V5.3.0] - 2026-02-26 — Phase A/B/C Performance Improvements & Dashboard Enhancements
 
 ### New
