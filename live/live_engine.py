@@ -197,6 +197,10 @@ class LiveEngine:
                 logger.info("Shutdown requested by GUI — stopping engine")
                 break
 
+            # Prepare-for-shutdown: save brain + advise on position
+            if self._shared_state.pop('prepare_shutdown', False):
+                self._prepare_shutdown()
+
             try:
                 msg = await asyncio.wait_for(
                     self._client.inbound.get(), timeout=30.0)
@@ -428,6 +432,29 @@ class LiveEngine:
             'BUY' if side == 'long' else 'SELL')
         if order_msg:
             await self._client.send(order_msg)
+
+    def _prepare_shutdown(self):
+        """Save brain + advise GUI whether it's safe to close."""
+        # Save brain
+        if self._live_trade_count > 0:
+            brain_path = os.path.join(
+                self._cfg.checkpoint_dir, 'live_brain.pkl')
+            self._brain.save(brain_path)
+            logger.info(f"Brain saved ({self._live_trade_count} trades)")
+
+        # Check position status
+        if self._position_open:
+            unreal = self._nt8_unrealized_pnl
+            side = self._active_side or '?'
+            sign = '+' if unreal >= 0 else ''
+            status = (f"OPEN {side.upper()} position ({sign}${unreal:,.0f} unrealized) "
+                      f"— FLATTEN first or close to lock in")
+            logger.info(f"Prepare shutdown: {status}")
+        else:
+            status = "FLAT — brain saved — safe to close"
+            logger.info("Prepare shutdown: no open position, safe to close")
+
+        self._gui_push({'type': 'SHUTDOWN_READY', 'status': status})
 
     def _gui_push(self, msg: dict):
         """Non-blocking push to GUI queue. Drop if full."""
