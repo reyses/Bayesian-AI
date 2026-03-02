@@ -192,6 +192,11 @@ class LiveEngine:
     async def _main_loop(self):
         """Process inbound messages from NT8."""
         while not self._client._stop:
+            # Check if GUI requested shutdown (popup closed)
+            if self._shared_state.get('shutdown'):
+                logger.info("Shutdown requested by GUI — stopping engine")
+                break
+
             try:
                 msg = await asyncio.wait_for(
                     self._client.inbound.get(), timeout=30.0)

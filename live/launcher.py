@@ -66,10 +66,18 @@ def _run_popup(gui_queue, shared_state):
     root = tk.Tk()
     ProgressPopup(root, gui_queue, shared_state=shared_state)
     root.title("Bayesian-AI  LIVE")
+
+    def _on_close():
+        shared_state['shutdown'] = True
+        root.destroy()
+
+    root.protocol("WM_DELETE_WINDOW", _on_close)
     try:
         root.mainloop()
     except Exception:
         pass
+    # If mainloop exits any other way, still signal shutdown
+    shared_state['shutdown'] = True
 
 
 def main():
