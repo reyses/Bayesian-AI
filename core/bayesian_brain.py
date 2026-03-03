@@ -45,6 +45,10 @@ class BayesianBrain:
         self.table: Dict[Any, Dict[str, int]] = defaultdict(
             lambda: {'wins': 0, 'losses': 0, 'total': 0}
         )
+        # Direction-aware table: (tid, 'LONG'|'SHORT') → {wins, losses, total}
+        self.dir_table: Dict[tuple, Dict[str, int]] = defaultdict(
+            lambda: {'wins': 0, 'losses': 0, 'total': 0}
+        )
         self.trade_history = []
         
     def update(self, outcome: TradeOutcome):
@@ -63,7 +67,16 @@ class BayesianBrain:
             self.table[key]['losses'] += 1
         
         self.table[key]['total'] += 1
-        
+
+        # Direction-aware tracking
+        if outcome.direction in ('LONG', 'SHORT'):
+            dir_key = (key, outcome.direction)
+            if outcome.result == 'WIN':
+                self.dir_table[dir_key]['wins'] += 1
+            else:
+                self.dir_table[dir_key]['losses'] += 1
+            self.dir_table[dir_key]['total'] += 1
+
         # Log trade
         self.trade_history.append(outcome)
 
@@ -109,6 +122,20 @@ class BayesianBrain:
         # 30 trades = 30% confidence (minimum for validation)
         return min(total / 100.0, 1.0)
     
+    def get_dir_probability(self, state: Any, direction: str) -> Optional[float]:
+        """Direction-specific win rate for a template.
+
+        Returns None if fewer than 3 samples (not enough data).
+        """
+        dir_key = (state, direction)
+        if dir_key not in self.dir_table:
+            return None
+        data = self.dir_table[dir_key]
+        if data['total'] < 3:
+            return None
+        # Same pessimistic prior Beta(1, 10)
+        return (data['wins'] + 1) / (data['total'] + 11)
+
     def should_fire(self, state: Any, min_prob: float = 0.80, min_conf: float = 0.30) -> bool:
         """
         CORE DECISION FUNCTION
@@ -298,6 +325,7 @@ class BayesianBrain:
         """Persist probability table to disk"""
         save_data = {
             'table': dict(self.table),  # Convert defaultdict to dict
+            'dir_table': dict(self.dir_table),
             'trade_history': self.trade_history
         }
         with open(filepath, 'wb') as f:
@@ -315,7 +343,12 @@ class BayesianBrain:
             save_data['table']
         )
         self.trade_history = save_data.get('trade_history', [])
-        
+        # Restore direction table (backward-compatible)
+        self.dir_table = defaultdict(
+            lambda: {'wins': 0, 'losses': 0, 'total': 0},
+            save_data.get('dir_table', {})
+        )
+
         print(f"[BAYESIAN] Loaded {len(self.table)} state patterns from {filepath}")
     
     def get_summary(self) -> Dict:

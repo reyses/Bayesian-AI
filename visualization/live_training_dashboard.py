@@ -778,6 +778,16 @@ class ProgressPopup:
                 width=8, command=self._request_save,
             ).pack(side=tk.RIGHT)
 
+            _pp_on = self._shared_state.get('ping_pong', False)
+            self._pp_btn = tk.Button(
+                btn_frame, text="PING-PONG",
+                bg="#008800" if _pp_on else "#444444", fg=FG_WHITE,
+                activebackground="#00cc00" if _pp_on else "#666666",
+                font=("Consolas", 10, "bold"),
+                width=10, command=self._toggle_ping_pong,
+            )
+            self._pp_btn.pack(side=tk.RIGHT, padx=(0, 6))
+
             # ── NT8 Account Equity row ───────────────────────────────────
             eq_frame = tk.Frame(root, bg=BG)
             eq_frame.pack(fill="x", padx=20, pady=(8, 0))
@@ -1097,6 +1107,19 @@ class ProgressPopup:
         if self._shared_state is not None:
             self._shared_state['prepare_shutdown'] = True
             self._status_var.set("Preparing for shutdown...")
+
+    def _toggle_ping_pong(self):
+        """Toggle ping-pong mode on/off."""
+        if self._shared_state is None:
+            return
+        current = self._shared_state.get('ping_pong', False)
+        new_val = not current
+        self._shared_state['ping_pong'] = new_val
+        self._pp_btn.config(
+            bg="#008800" if new_val else "#444444",
+            activebackground="#00cc00" if new_val else "#666666",
+        )
+        self._status_var.set(f"Ping-pong: {'ON' if new_val else 'OFF'}")
 
     # ── Queue polling ─────────────────────────────────────────────────────────
     def _poll(self):
