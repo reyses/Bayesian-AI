@@ -118,7 +118,10 @@
 
 ## Branches
 - `main` — unified clustering, three-body exits, pipeline gauntlet, all fixes
-- `pre-snowflake` — archive, do NOT touch
+- `pre-snowflake` — **active live trading branch** (best candidate as of 2026-03-02)
+  - OOS: 357 trades, 52.4% WR, $1,724.50 — better than main
+  - Has live module ported from main + physics quality gate
+  - Session reports: `reports/live/session_*.txt`
 - Killed: `unified-cluster`, `jules/fractal-trend-*` (deleted 2026-02-27)
 
 ## Implemented Features (confirmed in codebase)
