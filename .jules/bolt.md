@@ -1,3 +1,7 @@
 ## 2025-05-23 - [Numpy Vectorization vs Object Creation]
 **Learning:** Optimizing logic inside a Python loop (using vectorized numpy arrays for `if/else` logic) provided only marginal gains (~20ms on 1s task) because the dominant cost was the `dataclass` instantiation itself, which happens in Python.
 **Action:** When optimizing object creation loops, focus on reducing the number of objects or using bulk constructors if possible. If not, look for other bottlenecks (like heavy computations called within the process). In this case, optimizing the Hurst calculation (heavy math) using Numba provided 6x speedup for that component, yielding a larger overall gain.
+
+## 2026-03-03 - [Optimizing Windowed Array Allocations with Numba]
+Learning: Using `numpy.lib.stride_tricks.sliding_window_view` within high-frequency per-bar loops (`_batch_compute_cpu` -> `osc_std`) creates overhead due to memory views and subsequent vectorized standard deviation operations on these views (`z_windows.std(axis=1)`). For very small windows (e.g. `_ow=5`), replacing this with a direct `@numba.njit` loop performing simple running summation avoids unnecessary memory view creation and yields a ~5x speedup (0.10s -> 0.02s on a 1M array benchmark).
+Action: When dealing with small rolling calculations, consider replacing vectorized view creations like `sliding_window_view` with specialized Numba loop functions, especially if they are heavily invoked per-bar or batch-computed across a full day of data.
