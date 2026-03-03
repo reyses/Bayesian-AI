@@ -50,6 +50,18 @@ _HURST_TREND_CONFIRMATION = 0.6
 _GATE1_DIST_THRESHOLD = 4.5
 _WORKER_BYPASS_CONV = 0.65
 
+# Anchor TF → depth mapping (from OOS depth distribution)
+# depth numbers match the fractal DNA tree levels in training
+_ANCHOR_TF_MAP = {
+    '1s':  {'period_s': 1,   'depth': 12},
+    '5s':  {'period_s': 5,   'depth': 10},
+    '15s': {'period_s': 15,  'depth': 8},
+    '30s': {'period_s': 30,  'depth': 7},
+    '1m':  {'period_s': 60,  'depth': 5},
+    '3m':  {'period_s': 180, 'depth': 4},
+    '5m':  {'period_s': 300, 'depth': 4},
+}
+
 
 @dataclass
 class _LiveCandidate:
@@ -114,9 +126,16 @@ class LiveEngine:
         self._fission_map: Dict = {}
         self._good_hours_utc: set = set()
 
+        # Anchor TF resolution
+        _anchor = _ANCHOR_TF_MAP.get(config.anchor_tf, _ANCHOR_TF_MAP['15s'])
+        self._anchor_period = _anchor['period_s']
+        self._anchor_depth = _anchor['depth']
+        self._anchor_tf = config.anchor_tf
+
         # Live components
         self._client = self._client_override if self._client_override is not None else NT8Client(config)
-        self._aggregator = LiveBarAggregator(self._engine, config)
+        self._aggregator = LiveBarAggregator(self._engine, config,
+                                             target_period=self._anchor_period)
         self._orders = OrderManager(config)
         self._belief_network: Optional[TimeframeBeliefNetwork] = None
 
@@ -129,10 +148,28 @@ class LiveEngine:
         self._active_tid = None
         self._max_hold_bars = 960
 
-        self._bar_i = 0   # running bar index
+        self._bar_i = 0   # running 15s bar index (NOT 1s ticks)
+        self._last_states = []  # latest quantum states (refreshed every 15s)
         self._last_exit_time = 0.0  # cooldown between trades
         self._live_trade_count = 0  # for periodic brain save
         self._brain_save_interval = 5  # save brain every N trades
+
+        # Ping-pong mode (continuous wave-riding with direction refinement)
+        self._ping_pong_mode = self._shared_state.get('ping_pong', False)
+        self._live_dir_bias: Dict[str, dict] = {}  # tid → {long_w, long_l, short_w, short_l}
+        self._last_exit_side = ''  # side we just exited (for flip)
+        self._pp_min_conviction = config.pp_min_conviction
+        self._pp_agree_veto = config.pp_agree_veto
+        self._pp_bias_min_trades = config.pp_bias_min_trades
+        self._pp_bias_wr_good = config.pp_bias_wr_good
+        self._pp_bias_wr_bad = config.pp_bias_wr_bad
+        self._pp_sl_override = config.pp_sl_override
+        self._pp_tp_override = config.pp_tp_override
+        self._pp_trail_override = config.pp_trail_override
+        self._pp_max_hold_override = config.pp_max_hold_bars
+        self._pp_flip_count = 0
+        self._pp_pending_flip = None  # deferred flip: {'side', 'price', 'ts'}
+        self._pp_last_exit_params = None  # TF-scaled params from exited trade
 
         # GUI stats (for popup)
         self._session_pnl = 0.0
@@ -171,7 +208,9 @@ class LiveEngine:
         logger.info("LIVE ENGINE STARTING")
         logger.info(f"  Instrument: {self._cfg.instrument}")
         logger.info(f"  Account:    {self._cfg.account}")
+        logger.info(f"  Anchor TF:  {self._anchor_tf}  (depth={self._anchor_depth}, period={self._anchor_period}s)")
         logger.info(f"  Dry run:    {self._dry_run}")
+        logger.info(f"  Ping-pong:  {self._ping_pong_mode}")
         logger.info("=" * 60)
 
         self._load_checkpoints()
@@ -279,21 +318,38 @@ class LiveEngine:
                 })
 
     async def _on_bar(self, msg: dict):
-        """Process a single inbound BAR message."""
+        """Process a single inbound BAR message.
+
+        Two-tier compute:
+          - Every 1s bar: price ticker, exit checks (trail/SL/TP)
+          - Every 15s bar: full state recompute + entry evaluation
+        This ensures exits fire within 1 second of trigger, not up to 15s late.
+        """
         # Only feed 15s and 1s bars to the aggregator.  Higher-TF bars
         # (30s, 1m, … 1D) from the NT8 history dump have different
         # timestamps that trigger spurious session-gap resets.
         bar_period = int(msg.get('bar_period_s', 1))
-        if bar_period not in (1, 15):
-            return  # skip higher-TF bars for now
+        # Accept 1s bars (for aggregation + exit checks) and anchor-TF bars
+        if bar_period != 1 and bar_period != self._anchor_period:
+            return
+
+        price = float(msg['close'])
+        ts = float(msg['timestamp'])
 
         # Run add_bar (which may trigger recompute) in thread to avoid
         # blocking the event loop for 1-3s during batch_compute_states
         loop = asyncio.get_event_loop()
         states = await loop.run_in_executor(None, self._aggregator.add_bar, msg)
-        if states is None:
-            # Push warmup progress to GUI
-            if self._bar_i % 10 == 0:
+
+        # 15s bar completed → save fresh states, advance bar counter
+        new_bar = states is not None
+        if new_bar:
+            self._last_states = states
+            self._bar_i += 1
+
+        # ── Still warming up — show progress, skip evaluation ─────────
+        if not self._aggregator.is_warmed_up:
+            if new_bar and self._bar_i % 10 == 0:
                 pct = self._aggregator.bar_count / max(1, self._cfg.warmup_bars) * 100
                 self._gui_push({
                     'type': 'PHASE_PROGRESS',
@@ -302,12 +358,9 @@ class LiveEngine:
                              f'/{self._cfg.warmup_bars}'),
                     'pct': min(99, pct),
                 })
-            self._bar_i += 1
-            return  # still warming up
+            return
 
-        price = float(msg['close'])
-        ts = float(msg['timestamp'])
-        self._bar_i += 1
+        # ══ 1-SECOND PROCESSING (runs on every inbound bar) ══════════
 
         # Push live price to GUI ticker
         self._gui_push({
@@ -321,7 +374,24 @@ class LiveEngine:
         if age > 120:
             return  # stale bar from history leak, skip
 
-        # Feed belief network
+        # Sync ping-pong toggle from GUI
+        self._ping_pong_mode = self._shared_state.get('ping_pong', False)
+
+        # Manual order check (from popup buttons)
+        manual = self._shared_state.pop('manual_order', None)
+        if manual:
+            await self._handle_manual_order(manual, price, ts, self._last_states or [])
+            return  # skip gate cascade this tick
+
+        # Exit check EVERY SECOND (trail stop, SL, TP are price-dependent)
+        if self._position_open:
+            await self._check_exit(price, ts)
+
+        # ══ 15-SECOND PROCESSING (only on fresh state recompute) ══════
+        if not new_bar:
+            return
+
+        # Feed belief network (time-constants calibrated to 15s bars)
         df = self._aggregator.df
         if self._bar_i % 240 == 1:
             # Re-prepare day periodically (resamples higher TFs)
@@ -329,18 +399,16 @@ class LiveEngine:
 
         self._belief_network.tick_all(self._bar_i)
 
-        # ── Manual order check (from popup buttons) ────────────────────
-        manual = self._shared_state.pop('manual_order', None)
-        if manual:
-            await self._handle_manual_order(manual, price, ts, states)
-            return  # skip gate cascade this tick
+        # Ping-pong deferred flip (scheduled by _check_exit, executes on next 15s bar)
+        if self._pp_pending_flip and not self._position_open:
+            flip = self._pp_pending_flip
+            self._pp_pending_flip = None
+            if not self._orders.loss_limit_hit:
+                await self._enter_ping_pong(flip['side'], price, ts, states)
+                return  # skip normal entry cascade this bar
 
-        # ── Exit check (if position open) ─────────────────────────────
-        if self._position_open:
-            await self._check_exit(price, ts)
-
-        # ── Entry check (if flat + cooldown expired) ────────────────────
-        _cooldown_ok = (time.time() - self._last_exit_time) > 15.0  # 15s min
+        # Entry check (if flat + cooldown expired — one anchor bar minimum)
+        _cooldown_ok = (time.time() - self._last_exit_time) > float(self._anchor_period)
         if not self._position_open and not self._orders.loss_limit_hit and _cooldown_ok:
             await self._check_entry(price, ts, states)
 
@@ -367,11 +435,17 @@ class LiveEngine:
         if result.get('should_exit', False):
             reason = result.get('exit_reason', 'trail_stop')
             logger.info(f"EXIT signal: {reason} (decay={exit_sig.get('decay_score', 0):.2f})")
+            exited_side = pos.side
             self._belief_network.stop_trade_tracking()
             await self._close_position(reason)
 
+            # Ping-pong: schedule flip entry on next anchor-TF bar
+            if self._ping_pong_mode:
+                self._schedule_ping_pong_flip(exited_side, price, ts)
+
     async def _close_position(self, reason: str):
         """Send close order and reset position state."""
+        self._last_exit_side = self._active_side  # for ping-pong flip
         self._position_open = False
         self._last_exit_reason = reason  # for trade log
         self._wave_rider.position = None
@@ -450,6 +524,143 @@ class LiveEngine:
         if order_msg:
             await self._client.send(order_msg)
 
+    # ── Ping-Pong Mode ──────────────────────────────────────────────
+
+    def _schedule_ping_pong_flip(self, exited_side: str, price: float,
+                                  ts: float):
+        """After exit, check belief network and schedule a flip entry."""
+        belief = self._belief_network.get_belief()
+        if belief is None:
+            logger.debug("PING-PONG: no belief available, skip flip")
+            return
+
+        flip_side = 'short' if exited_side == 'long' else 'long'
+
+        # Use belief direction if it agrees with flip; otherwise trust the flip
+        if belief.direction == exited_side and belief.conviction > self._pp_agree_veto:
+            # Belief still agrees with old direction — don't flip
+            logger.info(f"PING-PONG: belief still {belief.direction} "
+                        f"(conv={belief.conviction:.2f}), skip flip")
+            return
+
+        if belief.conviction < self._pp_min_conviction:
+            logger.info(f"PING-PONG: conviction {belief.conviction:.2f} "
+                        f"< {self._pp_min_conviction}, skip flip")
+            return
+
+        # If belief has a strong opinion, use it
+        if belief.conviction > 0.6:
+            flip_side = belief.direction
+
+        logger.info(f"PING-PONG: scheduling flip {exited_side}→{flip_side} "
+                    f"(belief={belief.direction}, conv={belief.conviction:.2f})")
+        self._pp_pending_flip = {'side': flip_side, 'price': price, 'ts': ts}
+
+    async def _enter_ping_pong(self, side: str, price: float, ts: float,
+                                states: list):
+        """Lightweight entry for ping-pong flip — skip full gate cascade."""
+        if not states:
+            logger.debug("PING-PONG: no states for flip entry, skip")
+            self._pp_pending_flip = None
+            return
+
+        # Check live direction bias (refinement cycle)
+        tid = self._active_tid or 'MANUAL'
+        bias = self._live_dir_bias.get(tid)
+        if bias:
+            dir_key = 'long' if side == 'long' else 'short'
+            my_total = bias.get(f'{dir_key}_w', 0) + bias.get(f'{dir_key}_l', 0)
+            if my_total >= self._pp_bias_min_trades:
+                my_wr = bias.get(f'{dir_key}_w', 0) / my_total
+                if my_wr < self._pp_bias_wr_bad:
+                    # This direction loses — don't flip into it
+                    logger.info(f"PING-PONG: live bias rejects {side.upper()} "
+                                f"(WR={my_wr:.0%} on {my_total} trades)")
+                    return
+
+        latest = states[-1]
+        state = latest['state']
+
+        # Inherit TF-scaled exit params, with config overrides
+        ep = self._pp_last_exit_params
+        if ep:
+            sl_ticks = self._pp_sl_override or ep['sl']
+            tp_ticks = self._pp_tp_override or ep['tp']
+            trail_ticks = self._pp_trail_override or ep['trail']
+            trail_act = ep['trail_act']
+            max_hold = self._pp_max_hold_override or ep['max_hold']
+            tf_label = ep.get('tf', '?')
+        else:
+            sl_ticks = self._pp_sl_override or 15
+            tp_ticks = self._pp_tp_override or 30
+            trail_ticks = self._pp_trail_override or 10
+            trail_act = 6
+            max_hold = self._pp_max_hold_override or max(20, 3600 // self._anchor_period)
+            tf_label = '?'
+
+        self._pp_flip_count += 1
+        logger.info(f"PING-PONG FLIP #{self._pp_flip_count}: {side.upper()} "
+                    f"@ {price:.2f}  TF={tf_label}  "
+                    f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}")
+
+        self._wave_rider.open_position(
+            entry_price=price, side=side,
+            state=state,
+            stop_distance_ticks=sl_ticks,
+            profit_target_ticks=tp_ticks,
+            trailing_stop_ticks=trail_ticks,
+            trail_activation_ticks=trail_act,
+            template_id=f'PP_{tid}',
+        )
+        self._position_open = True
+        self._entry_price = price
+        self._entry_time = ts
+        self._entry_bar = self._bar_i
+        self._active_side = side
+        self._active_tid = f'PP_{tid}'
+        self._max_hold_bars = max_hold
+
+        self._belief_network.start_trade_tracking(
+            side=side, entry_bar=self._bar_i,
+            pattern_horizon_bars=self._max_hold_bars)
+
+        if self._dry_run:
+            logger.info("[DRY RUN] Ping-pong flip logged but no order sent")
+            return
+
+        order_msg = self._orders.build_entry_order(
+            'BUY' if side == 'long' else 'SELL')
+        if order_msg:
+            await self._client.send(order_msg)
+
+    def _direction_learn(self, tid, side: str, pnl: float):
+        """Record direction-specific outcome for live refinement."""
+        if tid is None:
+            return
+        # Strip PP_ prefix to aggregate with parent template
+        base_tid = tid[3:] if isinstance(tid, str) and tid.startswith('PP_') else tid
+
+        if base_tid not in self._live_dir_bias:
+            self._live_dir_bias[base_tid] = {
+                'long_w': 0, 'long_l': 0, 'short_w': 0, 'short_l': 0}
+
+        bias = self._live_dir_bias[base_tid]
+        key = side.lower()
+        if pnl > 0:
+            bias[f'{key}_w'] += 1
+        else:
+            bias[f'{key}_l'] += 1
+
+        # Log the running tally
+        lw, ll = bias['long_w'], bias['long_l']
+        sw, sl = bias['short_w'], bias['short_l']
+        lt = lw + ll
+        st = sw + sl
+        l_wr = f"{lw/lt:.0%}" if lt > 0 else "n/a"
+        s_wr = f"{sw/st:.0%}" if st > 0 else "n/a"
+        logger.info(f"DIR LEARN: tid={base_tid}  "
+                    f"LONG {lw}W/{ll}L ({l_wr}) | SHORT {sw}W/{sl}L ({s_wr})")
+
     def _prepare_shutdown(self):
         """Save brain + write session report + advise GUI."""
         # Save brain
@@ -500,6 +711,7 @@ class LiveEngine:
         L.append(f"LIVE SESSION REPORT  (run: {time.strftime('%Y-%m-%d %H:%M:%S')})")
         L.append(f"  Account:    {self._cfg.account}")
         L.append(f"  Instrument: {self._cfg.instrument}")
+        L.append(f"  Anchor TF:  {self._anchor_tf}  (depth={self._anchor_depth})")
         L.append(f"  Duration:   {dur_h}h {dur_m}m  ({self._bar_i} bars)")
         L.append(f"Total Trades: {self._session_trades}")
         L.append(f"Win Rate: {wr:.1f}%")
@@ -565,6 +777,28 @@ class LiveEngine:
                     _dwr = _dw / len(dt) * 100
                     L.append(f"  {d:<8} {len(dt):>4} trades  WR={_dwr:.0f}%  "
                              f"PnL=${_dp:+,.2f}  Avg=${_dp/len(dt):+,.2f}")
+
+        # ── Ping-pong direction refinement ──
+        if self._pp_flip_count > 0 or self._live_dir_bias:
+            L.append("")
+            L.append("=" * 72)
+            L.append("PING-PONG DIRECTION REFINEMENT")
+            L.append("=" * 72)
+            L.append(f"  Flip count: {self._pp_flip_count}")
+            if self._live_dir_bias:
+                L.append(f"  {'Template':<20} {'LONG WR':>10} {'LONG N':>8} "
+                         f"{'SHORT WR':>10} {'SHORT N':>8}")
+                L.append("  " + "-" * 58)
+                for tid, b in sorted(self._live_dir_bias.items(),
+                                     key=lambda x: sum(x[1].values()),
+                                     reverse=True):
+                    lw, ll = b['long_w'], b['long_l']
+                    sw, sl = b['short_w'], b['short_l']
+                    lt, st = lw + ll, sw + sl
+                    l_wr = f"{lw/lt:.0%}" if lt > 0 else "n/a"
+                    s_wr = f"{sw/st:.0%}" if st > 0 else "n/a"
+                    L.append(f"  {str(tid):<20} {l_wr:>10} {lt:>8} "
+                             f"{s_wr:>10} {st:>8}")
 
         # ── Gate rejection funnel ──
         L.append("")
@@ -687,6 +921,7 @@ class LiveEngine:
             template_id=self._active_tid,
         )
         self._brain.update(outcome)
+        self._direction_learn(self._active_tid, self._active_side, pnl)
         self._live_trade_count += 1
 
         # Update session stats for GUI
@@ -936,7 +1171,14 @@ class LiveEngine:
 
         _tf_s = str(best_candidate.timeframe)
         _tf_sec = TIMEFRAME_SECONDS.get(_tf_s, 14400)
-        self._max_hold_bars = max(20, _tf_sec // 15)
+        self._max_hold_bars = max(20, _tf_sec // self._anchor_period)
+
+        # Store TF-scaled exit params for ping-pong reuse
+        self._pp_last_exit_params = {
+            'sl': sl_ticks, 'tp': tp_ticks,
+            'trail': trail_ticks, 'trail_act': trail_act,
+            'max_hold': self._max_hold_bars, 'tf': _tf_s,
+        }
 
         self._belief_network.start_trade_tracking(
             side=side, entry_bar=self._bar_i,
@@ -963,8 +1205,8 @@ class LiveEngine:
             momentum=state.momentum_strength,
             coherence=state.coherence,
             state=state,
-            depth=10,           # 15s resolution in live
-            timeframe='15s',
+            depth=self._anchor_depth,
+            timeframe=self._anchor_tf,
             parent_type=pattern_type,  # same as self in live (no tree yet)
             timestamp=ts,
             price=price,
@@ -982,6 +1224,24 @@ class LiveEngine:
         long_bias = lib_entry.get('long_bias', 0.0)
         short_bias = lib_entry.get('short_bias', 0.0)
         _BIAS_THRESH = 0.55
+
+        # Priority 0: live direction bias (refinement cycle)
+        base_tid = tid[3:] if isinstance(tid, str) and tid.startswith('PP_') else tid
+        bias = self._live_dir_bias.get(base_tid)
+        if bias:
+            lw, ll = bias.get('long_w', 0), bias.get('long_l', 0)
+            sw, sl = bias.get('short_w', 0), bias.get('short_l', 0)
+            lt, st = lw + ll, sw + sl
+            _min_t = self._pp_bias_min_trades
+            _wr_good = self._pp_bias_wr_good
+            _wr_bad = self._pp_bias_wr_bad
+            if lt >= _min_t or st >= _min_t:
+                l_wr = lw / lt if lt > 0 else 0.5
+                s_wr = sw / st if st > 0 else 0.5
+                if l_wr > _wr_good and (st < 3 or s_wr < _wr_bad):
+                    return 'long', 0.5 + l_wr * 0.4, 'live_bias'
+                if s_wr > _wr_good and (lt < 3 or l_wr < _wr_bad):
+                    return 'short', 0.5 - s_wr * 0.4, 'live_bias'
 
         # Priority 1: signed MFE regression (sign=direction, |val|=confidence)
         _live_feat = np.array(FractalClusteringEngine.extract_features(candidate))

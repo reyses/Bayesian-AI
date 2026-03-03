@@ -694,8 +694,65 @@ class BayesianTrainingOrchestrator:
             active_side = 'long'
             active_template_id = None
 
+            # Ping-pong state (direction refinement)
+            _pp_enabled = getattr(self, '_ping_pong', False)
+            _pp_flip_count = 0
+            _pp_live_dir_bias = {}  # tid -> {long_w, long_l, short_w, short_l}
+            _pp_last_exit_params = None  # TF-scaled params from exited trade
+            _pp_all_trades = []  # cross-day PP trade accumulator
+
+            # Output directory: route PP runs to snowflake/ subfolder
+            if _pp_enabled:
+                _out_dir = os.path.join(self.checkpoint_dir, 'snowflake')
+                os.makedirs(_out_dir, exist_ok=True)
+                _reports_out = os.path.join('reports', 'snowflake')
+                os.makedirs(_reports_out, exist_ok=True)
+            else:
+                _out_dir = self.checkpoint_dir
+                _reports_out = os.path.join(os.path.dirname(self.checkpoint_dir), 'reports')
+
             _bar_i = 0  # 15s bar index for belief network worker ticks
             _current_day = None  # for per-day progress tracking
+
+            def _pp_direction_learn(tid, side, result, outcome=None):
+                """Record direction outcome for ping-pong refinement."""
+                base_tid = tid.replace('PP_', '') if isinstance(tid, str) and tid.startswith('PP_') else tid
+                if base_tid not in _pp_live_dir_bias:
+                    _pp_live_dir_bias[base_tid] = {'long_w': 0, 'long_l': 0, 'short_w': 0, 'short_l': 0}
+                key = f"{'long' if side == 'long' else 'short'}_{'w' if result == 'WIN' else 'l'}"
+                _pp_live_dir_bias[base_tid][key] += 1
+                # Track PP-originated trades across all days
+                if outcome is not None and isinstance(tid, str) and tid.startswith('PP_'):
+                    _pp_all_trades.append(outcome)
+
+            _pp_conv_thresh = getattr(self, '_pp_conviction', 0.55)
+            _pp_sl_ov = getattr(self, '_pp_sl_override', 0)
+            _pp_tp_ov = getattr(self, '_pp_tp_override', 0)
+            _pp_trail_ov = getattr(self, '_pp_trail_override', 0)
+
+            def _pp_try_flip(exited_side, exited_tid, price, ts_raw, ep):
+                """Check belief conviction and attempt ping-pong flip after exit.
+                Returns (should_flip, flip_side) or (False, None)."""
+                if not _pp_enabled or ep is None:
+                    return False, None
+                _belief = belief_network.get_belief()
+                if _belief is None or not _belief.is_confident:
+                    return False, None
+                flip_side = 'short' if exited_side == 'long' else 'long'
+                # Belief still agrees with old direction at high conviction -> skip
+                if _belief.direction == exited_side and _belief.conviction > 0.60:
+                    return False, None
+                if _belief.conviction < _pp_conv_thresh:
+                    return False, None
+                # Check live direction bias (reject if known loser)
+                base_tid = exited_tid.replace('PP_', '') if isinstance(exited_tid, str) and exited_tid.startswith('PP_') else exited_tid
+                bias = _pp_live_dir_bias.get(base_tid)
+                if bias:
+                    d = 'long' if flip_side == 'long' else 'short'
+                    total = bias.get(f'{d}_w', 0) + bias.get(f'{d}_l', 0)
+                    if total >= 5 and bias.get(f'{d}_w', 0) / total < 0.30:
+                        return False, None
+                return True, flip_side
 
             for row in df_15s.itertuples():
                 total_bars_processed += 1
@@ -833,6 +890,34 @@ class BayesianTrainingOrchestrator:
                             belief_network.stop_trade_tracking()
                             pending_oracle = None
                             _pending_dm_idx = None
+                        # ── Ping-pong: direction learn + flip after MAX_HOLD ──
+                        if _pp_enabled:
+                            _pp_direction_learn(active_template_id, active_side, outcome.result, outcome)
+                            _should_flip, _flip_side = _pp_try_flip(
+                                active_side, active_template_id, price, ts_raw,
+                                _pp_last_exit_params)
+                            if _should_flip and _pp_last_exit_params:
+                                ep = _pp_last_exit_params
+                                _pp_tid = f'PP_{active_template_id}'
+                                self.wave_rider.open_position(
+                                    entry_price=price, side=_flip_side,
+                                    state=None,
+                                    stop_distance_ticks=_pp_sl_ov or ep['sl'],
+                                    profit_target_ticks=_pp_tp_ov or ep['tp'],
+                                    trailing_stop_ticks=_pp_trail_ov or ep['trail'],
+                                    trail_activation_ticks=ep['trail_act'],
+                                    template_id=_pp_tid)
+                                current_position_open = True
+                                active_entry_price = price
+                                active_entry_time = ts_raw
+                                active_side = _flip_side
+                                active_template_id = _pp_tid
+                                active_max_hold_bars = ep['max_hold']
+                                _pp_flip_count += 1
+                                belief_network.start_trade_tracking(
+                                    side=_flip_side, entry_bar=_bar_i,
+                                    pattern_horizon_bars=active_max_hold_bars)
+                                pending_oracle = None  # no oracle for PP trades
                     else:
                         # Get exit signal from belief network every bar
                         _exit_sig = belief_network.get_exit_signal(self.wave_rider.position.side)
@@ -924,6 +1009,35 @@ class BayesianTrainingOrchestrator:
                                 belief_network.stop_trade_tracking()
                                 pending_oracle = None
                                 _pending_dm_idx = None
+
+                            # ── Ping-pong: direction learn + flip after normal exit ──
+                            if _pp_enabled:
+                                _pp_direction_learn(active_template_id, active_side, outcome.result, outcome)
+                                _should_flip, _flip_side = _pp_try_flip(
+                                    active_side, active_template_id, price, ts_raw,
+                                    _pp_last_exit_params)
+                                if _should_flip and _pp_last_exit_params:
+                                    ep = _pp_last_exit_params
+                                    _pp_tid = f'PP_{active_template_id}'
+                                    self.wave_rider.open_position(
+                                        entry_price=price, side=_flip_side,
+                                        state=None,
+                                        stop_distance_ticks=_pp_sl_ov or ep['sl'],
+                                        profit_target_ticks=_pp_tp_ov or ep['tp'],
+                                        trailing_stop_ticks=_pp_trail_ov or ep['trail'],
+                                        trail_activation_ticks=ep['trail_act'],
+                                        template_id=_pp_tid)
+                                    current_position_open = True
+                                    active_entry_price = price
+                                    active_entry_time = ts_raw
+                                    active_side = _flip_side
+                                    active_template_id = _pp_tid
+                                    active_max_hold_bars = ep['max_hold']
+                                    _pp_flip_count += 1
+                                    belief_network.start_trade_tracking(
+                                        side=_flip_side, entry_bar=_bar_i,
+                                        pattern_horizon_bars=active_max_hold_bars)
+                                    pending_oracle = None
 
                 # 2. Check for entries (if no position)
                 # Equity ruin check: simulation ends when equity hits 0 (no money to trade).
@@ -1136,6 +1250,24 @@ class BayesianTrainingOrchestrator:
                         _live_scaled = self.scaler.transform([_live_feat])[0]
 
                         # ── Direction gate ──────────────────────────────────────────
+                        # Priority -1 (ping-pong live bias): if 5+ directional trades
+                        # show clear WR split, override all other direction methods.
+                        _pp_dir_override = None
+                        if _pp_enabled:
+                            _pp_base = best_tid
+                            _pp_b = _pp_live_dir_bias.get(_pp_base)
+                            if _pp_b:
+                                _lw, _ll = _pp_b.get('long_w', 0), _pp_b.get('long_l', 0)
+                                _sw, _sl = _pp_b.get('short_w', 0), _pp_b.get('short_l', 0)
+                                _lt, _st = _lw + _ll, _sw + _sl
+                                if _lt >= 5 and _st >= 5:
+                                    _lwr = _lw / _lt
+                                    _swr = _sw / _st
+                                    if _lwr > 0.60 and _swr < 0.40:
+                                        _pp_dir_override = 'long'
+                                    elif _swr > 0.60 and _lwr < 0.40:
+                                        _pp_dir_override = 'short'
+
                         # Priority 0: individual oracle_marker (highest resolution signal)
                         #   oracle_marker > 0  -> LONG move followed this exact training pattern
                         #   oracle_marker < 0  -> SHORT move
@@ -1146,7 +1278,9 @@ class BayesianTrainingOrchestrator:
                         short_bias = lib_entry.get('short_bias', 0.0)
                         _nn_marker = _effective_oracle(best_candidate)  # macro-to-leaf aggregated
 
-                        if _nn_marker > 0:
+                        if _pp_dir_override is not None:
+                            side = _pp_dir_override
+                        elif _nn_marker > 0:
                             side = 'long'
                         elif _nn_marker < 0:
                             side = 'short'
@@ -1327,6 +1461,13 @@ class BayesianTrainingOrchestrator:
                             _parent_tf = str(getattr(best_candidate, 'timeframe', '4h'))
                         _parent_tf_sec = TIMEFRAME_SECONDS.get(_parent_tf, 14400)
                         active_max_hold_bars = max(20, (_parent_tf_sec * _HOLD_PARENT_BARS) // 15)
+                        # Store TF-scaled exit params for ping-pong reuse
+                        _pp_last_exit_params = {
+                            'sl': _sl_ticks, 'tp': _tp_ticks,
+                            'trail': _trail_ticks, 'trail_act': _trail_act_ticks,
+                            'max_hold': active_max_hold_bars,
+                            'tf': _parent_tf, 'depth': _cand_depth,
+                        }
                         # Start physics decay tracking (bottom-up exit cascade)
                         belief_network.start_trade_tracking(
                             side=side,
@@ -1502,6 +1643,13 @@ class BayesianTrainingOrchestrator:
                             _bp_parent_tf = _bp_chain[0].get('tf', '4h') if _bp_chain else str(getattr(_bypass_candidate, 'timeframe', '4h'))
                             _btf_sec = TIMEFRAME_SECONDS.get(_bp_parent_tf, 14400)
                             active_max_hold_bars  = max(20, (_btf_sec * 5) // 15)
+                            _pp_last_exit_params = {
+                                'sl': _bp_sl_ticks, 'tp': _bp_tp_ticks,
+                                'trail': 6, 'trail_act': None,
+                                'max_hold': active_max_hold_bars,
+                                'tf': _bp_parent_tf,
+                                'depth': getattr(_bypass_candidate, 'depth', 6),
+                            }
                             belief_network.start_trade_tracking(
                                 side=side,
                                 entry_bar=_bar_i,
@@ -2233,7 +2381,7 @@ class BayesianTrainingOrchestrator:
 
             if len(records) <= 50_000:
                 # Small enough — single file
-                path = os.path.join(self.checkpoint_dir, base_name)
+                path = os.path.join(_out_dir, base_name)
                 with open(path, 'w', newline='', encoding='utf-8') as f:
                     w = _csv.DictWriter(f, fieldnames=list(records[0].keys()))
                     w.writeheader()
@@ -2246,7 +2394,7 @@ class BayesianTrainingOrchestrator:
             for qkey in sorted(quarters.keys()):
                 chunk = quarters[qkey]
                 fname = f"{stem}_{qkey}{ext}"
-                path = os.path.join(self.checkpoint_dir, fname)
+                path = os.path.join(_out_dir, fname)
                 with open(path, 'w', newline='', encoding='utf-8') as f:
                     w = _csv.DictWriter(f, fieldnames=list(chunk[0].keys()))
                     w.writeheader()
@@ -2257,7 +2405,7 @@ class BayesianTrainingOrchestrator:
         if not _analysis_mode:
             if oracle_trade_records:
                 _log_name = 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv'
-                csv_path = os.path.join(self.checkpoint_dir, _log_name)
+                csv_path = os.path.join(_out_dir, _log_name)
                 with open(csv_path, 'w', newline='', encoding='utf-8') as f:
                     writer = _csv.DictWriter(f, fieldnames=list(oracle_trade_records[0].keys()))
                     writer.writeheader()
@@ -2266,7 +2414,7 @@ class BayesianTrainingOrchestrator:
                 report_lines.append(f"  Per-trade oracle log saved: {csv_path}")
 
             if pid_oracle_records:
-                pid_csv_path = os.path.join(self.checkpoint_dir, 'pid_oracle_log.csv')
+                pid_csv_path = os.path.join(_out_dir, 'pid_oracle_log.csv')
                 with open(pid_csv_path, 'w', newline='', encoding='utf-8') as f:
                     writer = _csv.DictWriter(f, fieldnames=list(pid_oracle_records[0].keys()))
                     writer.writeheader()
@@ -2427,10 +2575,33 @@ class BayesianTrainingOrchestrator:
                 # the model's learned depth preferences from the training period.
                 report_lines.append("  Depth weights: NOT updated (oos_mode preserves training weights)")
             else:
-                _dw_out_path = os.path.join(self.checkpoint_dir, 'depth_weights.json')
+                _dw_out_path = os.path.join(_out_dir, 'depth_weights.json')
                 with open(_dw_out_path, 'w') as _dw_f2:
                     _json2.dump(depth_weights_out, _dw_f2, indent=2)
                 report_lines.append(f"  Depth weights saved: {_dw_out_path}")
+
+        # ── Ping-pong direction refinement summary ──────────────────────
+        if _pp_enabled and _pp_flip_count > 0:
+            report_lines.append("")
+            report_lines.append("── PING-PONG DIRECTION REFINEMENT ──")
+            report_lines.append(f"  Flips: {_pp_flip_count}")
+            # PP trade outcomes (cross-day accumulator)
+            _pp_trades = _pp_all_trades
+            if _pp_trades:
+                _pp_wins = sum(1 for t in _pp_trades if t.result == 'WIN')
+                _pp_pnl  = sum(t.pnl for t in _pp_trades)
+                report_lines.append(f"  PP Trades: {len(_pp_trades)}  WR: {_pp_wins/len(_pp_trades)*100:.1f}%  PnL: ${_pp_pnl:.2f}")
+            if _pp_live_dir_bias:
+                report_lines.append("  Direction Bias Table:")
+                report_lines.append(f"    {'TID':>6s}  {'L_W':>4s} {'L_L':>4s} {'L_WR':>5s}  {'S_W':>4s} {'S_L':>4s} {'S_WR':>5s}")
+                for _tid, _b in sorted(_pp_live_dir_bias.items(), key=lambda x: sum(x[1].values()), reverse=True)[:15]:
+                    _lw, _ll = _b.get('long_w', 0), _b.get('long_l', 0)
+                    _sw, _sl2 = _b.get('short_w', 0), _b.get('short_l', 0)
+                    _lt = _lw + _ll
+                    _st = _sw + _sl2
+                    _lwr = f"{_lw/_lt*100:.0f}%" if _lt else "  -"
+                    _swr = f"{_sw/_st*100:.0f}%" if _st else "  -"
+                    report_lines.append(f"    {str(_tid):>6s}  {_lw:>4d} {_ll:>4d} {_lwr:>5s}  {_sw:>4d} {_sl2:>4d} {_swr:>5s}")
 
         if _analysis_mode:
             # Depth isolation: print one-line summary, skip full report/CSV/analytics
@@ -2443,13 +2614,12 @@ class BayesianTrainingOrchestrator:
 
             # Save report to checkpoints (for analytics suite) + reports/ (for sharing)
             _report_name = 'oos_report.txt' if oos_mode else 'phase4_report.txt'
-            report_path = os.path.join(self.checkpoint_dir, _report_name)
+            report_path = os.path.join(_out_dir, _report_name)
             with open(report_path, 'w', encoding='utf-8') as f:
                 f.write('\n'.join(report_lines) + '\n')
             # Copy to reports/ directory for git-tracked sharing
-            _reports_dir = os.path.join(os.path.dirname(self.checkpoint_dir), 'reports')
-            os.makedirs(_reports_dir, exist_ok=True)
-            _share_path = os.path.join(_reports_dir, _report_name)
+            os.makedirs(_reports_out, exist_ok=True)
+            _share_path = os.path.join(_reports_out, _report_name)
             with open(_share_path, 'w', encoding='utf-8') as f:
                 f.write('\n'.join(report_lines) + '\n')
             print(f"  Report saved to {report_path}")
@@ -2457,14 +2627,14 @@ class BayesianTrainingOrchestrator:
 
             # ── 6b. Run trade analytics suite (t-tests, ANOVA, OLS, logistic, capture) ──
             print("  Running trade analytics suite...", flush=True)
-            _trade_log_path = os.path.join(self.checkpoint_dir,
+            _trade_log_path = os.path.join(_out_dir,
                 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv')
             if os.path.exists(_trade_log_path):
                 try:
                     from training.trade_analytics import run_trade_analytics
                     _analytics_text = run_trade_analytics(_trade_log_path, report_path)
                     # Also save standalone
-                    _analytics_path = os.path.join(self.checkpoint_dir,
+                    _analytics_path = os.path.join(_out_dir,
                         'oos_analytics.txt' if oos_mode else 'trade_analytics.txt')
                     with open(_analytics_path, 'w', encoding='utf-8') as _af:
                         _af.write(_analytics_text)
@@ -2507,7 +2677,7 @@ class BayesianTrainingOrchestrator:
                     for d in sorted(_dw_cnt.keys())
                 } if oracle_trade_records and 'entry_depth' in oracle_trade_records[0] else {},
             }
-            _snap_path = os.path.join(self.checkpoint_dir, 'run_snapshot.json')
+            _snap_path = os.path.join(_out_dir, 'run_snapshot.json')
             with open(_snap_path, 'w') as _sf:
                 _snap_json.dump(_snap, _sf, indent=2)
             print(f"  Run snapshot saved: {_snap_path}")
@@ -4041,6 +4211,17 @@ def main():
                         help="Custom data path for forward pass (skips auto-OOS chain)")
     parser.add_argument('--skip-oos', action='store_true',
                         help="Skip auto-chained OOS forward pass after IS + Strategy")
+    parser.add_argument('--ping-pong', action='store_true',
+                        help="Continuous wave-riding: flip direction after each exit "
+                             "(uses belief conviction + TF-scaled params from exited trade)")
+    parser.add_argument('--pp-conviction', type=float, default=0.55,
+                        help="Ping-pong: min belief conviction to flip (default 0.55)")
+    parser.add_argument('--pp-sl', type=int, default=0,
+                        help="Ping-pong: override SL ticks (0=inherit from exited trade)")
+    parser.add_argument('--pp-tp', type=int, default=0,
+                        help="Ping-pong: override TP ticks (0=inherit)")
+    parser.add_argument('--pp-trail', type=int, default=0,
+                        help="Ping-pong: override trail ticks (0=inherit)")
 
     # Monte Carlo Flags (opt-in with --mc)
     parser.add_argument('--mc', action='store_true', help='Enable Monte Carlo sweep after Bayesian Phase 3')
@@ -4084,6 +4265,11 @@ def main():
         check_and_install_requirements()
 
     orchestrator = BayesianTrainingOrchestrator(args)
+    orchestrator._ping_pong = getattr(args, 'ping_pong', False)
+    orchestrator._pp_conviction = getattr(args, 'pp_conviction', 0.55)
+    orchestrator._pp_sl_override = getattr(args, 'pp_sl', 0)
+    orchestrator._pp_tp_override = getattr(args, 'pp_tp', 0)
+    orchestrator._pp_trail_override = getattr(args, 'pp_trail', 0)
 
     try:
         if args.anova_only:
