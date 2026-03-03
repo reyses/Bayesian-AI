@@ -21,8 +21,21 @@ class LiveConfig:
     checkpoint_dir: str = "checkpoints"
 
     # ── Engine ──────────────────────────────────────────────────────────
-    warmup_bars: int = 240            # 1h of 15s bars before first signal
+    warmup_bars: int = 240            # Bars before first signal (auto-scaled to anchor TF)
     base_resolution_s: int = 15      # Bar size from NT8
+    anchor_tf: str = '15s'           # Primary signal TF: 1s,5s,15s,30s,1m,3m,5m
+
+    # ── Ping-Pong ─────────────────────────────────────────────────────
+    ping_pong: bool = False           # Continuous wave-riding with direction refinement
+    pp_min_conviction: float = 0.55   # Min belief conviction to flip
+    pp_agree_veto: float = 0.60       # If belief still agrees with old dir above this, skip flip
+    pp_bias_min_trades: int = 5       # Trades needed before bias override kicks in
+    pp_bias_wr_good: float = 0.60     # WR above this = "good" direction
+    pp_bias_wr_bad: float = 0.40      # WR below this = "bad" direction (reject flips into it)
+    pp_sl_override: int = 0           # Override SL ticks (0 = inherit from exited trade)
+    pp_tp_override: int = 0           # Override TP ticks (0 = inherit)
+    pp_trail_override: int = 0        # Override trail ticks (0 = inherit)
+    pp_max_hold_bars: int = 0         # Override max hold (0 = inherit)
 
     # ── Risk ────────────────────────────────────────────────────────────
     max_position_size: int = 1        # Single contract for paper
