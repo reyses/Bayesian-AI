@@ -103,6 +103,11 @@ def main():
                         help='Max daily loss in USD before stopping (default: 200)')
     parser.add_argument('--warmup-bars', type=int, default=240,
                         help='Bars to accumulate before first signal (default: 240 = 1h)')
+    parser.add_argument('--anchor-tf', default='15s',
+                        choices=['1s', '5s', '15s', '30s', '1m', '3m', '5m'],
+                        help='Primary signal timeframe (default: 15s)')
+    parser.add_argument('--ping-pong', action='store_true',
+                        help='Continuous wave-riding with direction refinement')
     parser.add_argument('--yolo', action='store_true',
                         help='Max aggression, minimal warmup — force trades fast')
     parser.add_argument('--log-level', default='INFO',
@@ -139,10 +144,15 @@ def main():
         checkpoint_dir=args.checkpoint_dir,
         warmup_bars=args.warmup_bars,
         max_daily_loss_usd=args.max_daily_loss,
+        anchor_tf=args.anchor_tf,
+        ping_pong=args.ping_pong,
     )
 
     # Shared mutable state between GUI and engine (thread-safe via GIL)
-    shared_state = {'aggression': 1.0 if args.yolo else 0.5}
+    shared_state = {
+        'aggression': 1.0 if args.yolo else 0.5,
+        'ping_pong': args.ping_pong,
+    }
 
     # Launch GUI popup (unless --no-gui)
     gui_queue = None

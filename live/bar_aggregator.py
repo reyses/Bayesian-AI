@@ -18,19 +18,21 @@ from live.config import LiveConfig
 
 logger = logging.getLogger(__name__)
 
-TARGET_PERIOD = 15   # aggregate 1s bars into 15s bars
+TARGET_PERIOD = 15   # default; overridden by constructor
 
 
 class LiveBarAggregator:
-    """Aggregate 1s bars into 15s, accumulate, recompute quantum states."""
+    """Aggregate 1s bars into anchor-TF bars, accumulate, recompute quantum states."""
 
-    def __init__(self, engine: QuantumFieldEngine, config: LiveConfig):
+    def __init__(self, engine: QuantumFieldEngine, config: LiveConfig,
+                 target_period: int = TARGET_PERIOD):
         self._engine = engine
         self._cfg = config
-        self._rows: list = []       # completed 15s bars
+        self._target_period = target_period
+        self._rows: list = []       # completed anchor-TF bars
         self._states: list = []
         self._warmed_up = False
-        self._sub_bars: list = []   # buffered 1s bars for current 15s window
+        self._sub_bars: list = []   # buffered 1s bars for current window
         self._history_mode = True   # True until HISTORY_DONE received
 
     # ── Public API ────────────────────────────────────────────────────
@@ -79,18 +81,18 @@ class LiveBarAggregator:
                 logger.info(f"Session gap ({gap:.0f}s) — resetting aggregator")
                 self.reset()
 
-        # If source is already 15s (or larger), pass through directly
-        if bar_period >= TARGET_PERIOD:
-            return self._append_15s(row_1s)
+        # If source is already at anchor period (or larger), pass through
+        if bar_period >= self._target_period:
+            return self._append_bar(row_1s)
 
         # Buffer the 1s bar
         self._sub_bars.append(row_1s)
 
-        # Check if we've completed a 15s window
-        if len(self._sub_bars) >= TARGET_PERIOD:
+        # Check if we've completed an anchor-TF window
+        if len(self._sub_bars) >= self._target_period:
             agg = self._aggregate_sub_bars()
             self._sub_bars.clear()
-            return self._append_15s(agg)
+            return self._append_bar(agg)
 
         return None
 
@@ -132,7 +134,7 @@ class LiveBarAggregator:
             'volume':    sum(b['volume'] for b in bars),
         }
 
-    def _append_15s(self, row: dict) -> Optional[list]:
+    def _append_bar(self, row: dict) -> Optional[list]:
         """Append a completed 15s bar and recompute if warmed up."""
         # Session gap check against last 15s bar (disabled during history)
         if self._rows and not self._history_mode:
@@ -151,8 +153,9 @@ class LiveBarAggregator:
 
         if self.bar_count < self._cfg.warmup_bars:
             if self.bar_count % 60 == 0:
+                _elapsed_m = self.bar_count * self._target_period // 60
                 logger.info(f"Warmup: {self.bar_count}/{self._cfg.warmup_bars} "
-                            f"15s bars ({self.bar_count * 15 // 60}m)")
+                            f"{self._target_period}s bars ({_elapsed_m}m)")
             return None
 
         self._warmed_up = True
