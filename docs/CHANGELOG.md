@@ -2,9 +2,11 @@
 
 ---
 
-## [V5.0.0] - 2026-02-19 — PID Oscillation Shadow System
+## [V5.0.1] - 2026-03-03 — System Updates
 
-### New
+### Changed
+- udpates (initial massive commit with many files updated)
+
 - `docs/JULES_PID_OSCILLATION.md` spec for PID sub-minute shadow analyzer
 - `term_pid` (PID control force) and `oscillation_coherence` added to engine feature space (16D cluster vectors)
 - `PIDOscillationAnalyzer`: STABLE vs TENSION classification, shadow oracle logging to `checkpoints/pid_oracle_log.csv`
