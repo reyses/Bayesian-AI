@@ -341,7 +341,7 @@ class LiveEngine:
                     except Exception as _exit_err:
                         logger.error(f"_check_exit CRASHED (1s loop): {_exit_err} — emergency flatten")
                         await self._close_position('EXIT_CRASH')
-                # Ping-pong flip fires as soon as NT8 confirms flat (1s check)
+                # Legacy PP deferred flip fallback (instant flip handles most cases)
                 if (self._pp_pending_flip and not self._position_open
                         and self._orders.is_flat):
                     flip = self._pp_pending_flip
@@ -644,11 +644,92 @@ class LiveEngine:
             logger.info(f"EXIT signal: {reason} (decay={exit_sig.get('decay_score', 0):.2f})")
             exited_side = pos.side
             self._belief_network.stop_trade_tracking()
-            await self._close_position(reason)
 
-            # Ping-pong: schedule flip entry on next anchor-TF bar
+            # Ping-pong: send 2-contract flip (close + open opposite) in one order
             if self._ping_pong_mode and not self._shutting_down:
-                self._schedule_ping_pong_flip(exited_side, price, ts)
+                await self._flip_position(reason, exited_side, price, ts)
+            else:
+                await self._close_position(reason)
+
+    async def _flip_position(self, reason: str, exited_side: str,
+                             price: float, ts: float):
+        """Ping-pong instant flip: send 2-contract order (close + open opposite).
+
+        Single market order: BUY 2 when SHORT 1 = cover + open long.
+        No waiting for fill confirmation — NT8 handles it atomically.
+        """
+        # Determine new direction before clearing state
+        _fresh = self._last_states or []
+        if not _fresh:
+            logger.info("FLIP: no states — falling back to close only")
+            await self._close_position(reason)
+            return
+
+        tid = self._active_tid or 'MANUAL'
+        base_tid = tid[3:] if isinstance(tid, str) and tid.startswith('PP_') else tid
+        state = _fresh[-1]['state']
+        candidate = self._build_candidate('PP_FLIP', state, price, ts)
+        if candidate is None:
+            await self._close_position(reason)
+            return
+
+        side, _p_long, _dir_src = self._determine_direction(candidate, base_tid)
+        _side_lock = self._shared_state.get('side_lock')
+        if _side_lock:
+            side = _side_lock
+            _dir_src = f'locked_{_side_lock}'
+
+        # Reset exit state (same as _close_position)
+        self._last_exit_side = self._active_side
+        self._last_exit_reason = reason
+        pos = self._wave_rider.position
+        self._last_high_water = pos.high_water_mark if pos else self._entry_price
+        self._wave_rider.position = None
+        self._last_exit_time = time.time()
+
+        # Exit params from tuning
+        sl_ticks = self._pp_sl_override or self._tuning.get('pp_sl', 0) or 15
+        tp_ticks = self._pp_tp_override or self._tuning.get('pp_tp', 0) or 30
+        trail_ticks = self._pp_trail_override or self._tuning.get('pp_trail', 0) or 10
+        trail_act = self._tuning.get('manual_trail_act', 8)
+
+        self._pp_flip_count += 1
+        logger.info(f"INSTANT FLIP #{self._pp_flip_count}: {exited_side}→{side.upper()} "
+                    f"@ {price:.2f}  dir_src={_dir_src}  p_long={_p_long:.2f}  "
+                    f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}")
+
+        # Open new wave rider position for the flip side
+        self._wave_rider.open_position(
+            entry_price=price, side=side, state=state,
+            stop_distance_ticks=sl_ticks, profit_target_ticks=tp_ticks,
+            trailing_stop_ticks=trail_ticks, trail_activation_ticks=trail_act,
+            template_id=f'PP_{base_tid}',
+        )
+        self._position_open = True
+        self._entry_price = price
+        self._entry_time = ts
+        self._entry_bar = self._bar_i
+        self._active_side = side
+        self._active_tid = f'PP_{base_tid}'
+        self._max_hold_bars = 960
+
+        self._belief_network.start_trade_tracking(
+            side=side, entry_bar=self._bar_i,
+            pattern_horizon_bars=self._max_hold_bars)
+
+        if self._dry_run:
+            logger.info("[DRY RUN] Flip logged but no order sent")
+            return
+
+        # Single 2-contract order: 1 to close + 1 to open opposite
+        msg = self._orders.build_flip_order(reason=reason)
+        if msg:
+            self._order_send_ts = time.perf_counter()
+            await self._client.send(msg)
+            logger.info("LATENCY: instant flip order sent (2 contracts)")
+
+        self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
+                        'side': side, 'price': price})
 
     async def _close_position(self, reason: str):
         """Send close order and reset position state."""
