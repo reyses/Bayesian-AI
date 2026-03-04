@@ -68,8 +68,22 @@ def _run_popup(gui_queue, shared_state):
     root.title("Bayesian-AI  LIVE")
 
     def _on_close():
-        shared_state['shutdown'] = True
-        root.destroy()
+        # If already shutting down, force-close
+        if shared_state.get('shutdown'):
+            root.destroy()
+            return
+        # First close: flatten + wait for confirmation
+        shared_state['shutdown_flatten'] = True
+        root.title("Bayesian-AI  LIVE  [CLOSING...]")
+        _check_shutdown()  # start polling for confirmation
+
+    def _check_shutdown():
+        """Poll until engine confirms flat, then destroy."""
+        if shared_state.get('shutdown_confirmed'):
+            shared_state['shutdown'] = True
+            root.destroy()
+            return
+        root.after(200, _check_shutdown)
 
     root.protocol("WM_DELETE_WINDOW", _on_close)
     try:

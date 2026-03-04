@@ -377,6 +377,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                         string connJson = "{"
                             + Q("type") + ":" + Q("CONNECTED") + ","
                             + Q("account") + ":" + Q(AccountName) + ","
+                            + Q("instrument") + ":" + Q(Instrument.FullName) + ","
                             + Q("version") + ":" + Q(BRIDGE_VERSION)
                             + "}";
                         SendRawJson(connJson);
@@ -547,6 +548,16 @@ namespace NinjaTrader.NinjaScript.Indicators
             string orderId = GetVal(cmd, "order_id", "BAY_UNK");
             string side    = GetVal(cmd, "side", "BUY");
             int    qty     = GetIntVal(cmd, "qty", 1);
+            string reqInst = GetVal(cmd, "instrument", "");
+
+            // Instrument safety check — reject if Python wants a different symbol
+            if (reqInst.Length > 0
+                && !Instrument.FullName.ToUpper().Contains(reqInst.Split(' ')[0].ToUpper()))
+            {
+                Print("BayesianBridge: REJECTED PLACE_ORDER — instrument mismatch: "
+                    + "requested=" + reqInst + " chart=" + Instrument.FullName);
+                return;
+            }
 
             Print("BayesianBridge: PLACE_ORDER " + side + " " + qty + " id=" + orderId);
 
@@ -575,6 +586,17 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         private void HandleClosePosition(Dictionary<string, string> cmd)
         {
+            string reqInst = GetVal(cmd, "instrument", "");
+
+            // Instrument safety check
+            if (reqInst.Length > 0
+                && !Instrument.FullName.ToUpper().Contains(reqInst.Split(' ')[0].ToUpper()))
+            {
+                Print("BayesianBridge: REJECTED CLOSE_POSITION — instrument mismatch: "
+                    + "requested=" + reqInst + " chart=" + Instrument.FullName);
+                return;
+            }
+
             Print("BayesianBridge: CLOSE_POSITION");
 
             try

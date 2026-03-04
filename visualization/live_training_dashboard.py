@@ -974,6 +974,26 @@ class ProgressPopup:
         self._price_canvas.pack(padx=20, fill=tk.X, expand=False)
         self._price_canvas.bind("<Configure>", lambda e: self._redraw_price_chart())
 
+        # ── Emergency FLATTEN + UNLOCK buttons ─────────────────────────────────
+        if self._shared_state is not None:
+            _bot_frame = tk.Frame(root, bg=BG)
+            _bot_frame.pack(fill="x", padx=20, pady=(10, 0))
+
+            self._flatten_btn = tk.Button(
+                _bot_frame, text="FLATTEN ALL", bg="#aa0000", fg="#ffffff",
+                activebackground="#ff0000", font=("Consolas", 14, "bold"),
+                height=2, command=lambda: self._manual_order('FLATTEN'),
+            )
+            self._flatten_btn.pack(side=tk.LEFT, fill="x", expand=True)
+
+            self._unlock_btn = tk.Button(
+                _bot_frame, text="UNLOCK", bg="#333333", fg="#666666",
+                activebackground="#555555", font=("Consolas", 14, "bold"),
+                height=2, width=10, state=tk.DISABLED,
+                command=self._unlock_loss_limit,
+            )
+            self._unlock_btn.pack(side=tk.RIGHT, padx=(6, 0))
+
         # ── Status footer ─────────────────────────────────────────────────────
         self._status_var = tk.StringVar(value="Running...")
         tk.Label(
@@ -1125,9 +1145,10 @@ class ProgressPopup:
         self._agg_label_var.set(f"Aggression: {int(val)}% ({labels[nearest]})")
 
     def _manual_order(self, action: str):
-        """BUY/SELL/FLATTEN button callback — engine picks it up next tick."""
+        """BUY/SELL/FLATTEN button callback — engine picks it up instantly."""
         if self._shared_state is not None:
             self._shared_state['manual_order'] = action
+            self._status_var.set(f"{action} sent...")
 
     def _request_save(self):
         """SAVE button — ask engine to prepare for shutdown."""
@@ -1147,6 +1168,14 @@ class ProgressPopup:
             activebackground="#00cc00" if new_val else "#666666",
         )
         self._status_var.set(f"Ping-pong: {'ON' if new_val else 'OFF'}")
+
+    def _unlock_loss_limit(self):
+        """UNLOCK button — clear daily loss limit lock."""
+        if self._shared_state is not None:
+            self._shared_state['unlock_loss_limit'] = True
+            self._unlock_btn.config(
+                state=tk.DISABLED, bg="#333333", fg="#666666")
+            self._status_var.set("Loss limit unlocked — trading resumed")
 
     # ── Queue polling ─────────────────────────────────────────────────────────
     def _poll(self):
@@ -1285,6 +1314,17 @@ class ProgressPopup:
                     side = msg.get("side", "")
                     mprice = msg.get("price", 0)
                     mpnl = msg.get("pnl", 0)
+                    # Update FLATTEN button state
+                    if hasattr(self, '_flatten_btn'):
+                        if action == 'entry':
+                            _clr = "#006600" if side == 'long' else "#aa0000"
+                            _lbl = f"FLATTEN {side.upper()}"
+                            self._flatten_btn.config(
+                                text=_lbl, bg=_clr, activebackground=_clr)
+                        elif action == 'exit':
+                            self._flatten_btn.config(
+                                text="FLAT", bg="#333333",
+                                activebackground="#555555")
                     # Store marker at current price_history index
                     idx = len(self._price_history) - 1
                     if idx >= 0:
@@ -1296,6 +1336,20 @@ class ProgressPopup:
                                 m for m in self._trade_markers if m[0] >= cutoff
                             ]
                         self._redraw_price_chart()
+
+                elif mtype == "LOSS_LIMIT":
+                    locked = msg.get("locked", True)
+                    dpnl = msg.get("daily_pnl", 0)
+                    if hasattr(self, '_unlock_btn'):
+                        if locked:
+                            self._unlock_btn.config(
+                                state=tk.NORMAL, bg="#cc6600", fg="#ffffff",
+                                activebackground="#ff8800")
+                            self._status_var.set(
+                                f"LOSS LIMIT HIT (${dpnl:+,.0f}) — click UNLOCK to resume")
+                        else:
+                            self._unlock_btn.config(
+                                state=tk.DISABLED, bg="#333333", fg="#666666")
 
                 elif mtype == "SHUTDOWN_READY":
                     # Engine reports whether it's safe to close
