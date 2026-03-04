@@ -70,7 +70,7 @@ def _run_popup(gui_queue, shared_state):
     def _on_close():
         # If already shutting down, force-close
         if shared_state.get('shutdown'):
-            root.destroy()
+            root.quit()  # break mainloop; cleanup below
             return
         # First close: flatten + wait for confirmation
         shared_state['shutdown_flatten'] = True
@@ -78,10 +78,10 @@ def _run_popup(gui_queue, shared_state):
         _check_shutdown()  # start polling for confirmation
 
     def _check_shutdown():
-        """Poll until engine confirms flat, then destroy."""
+        """Poll until engine confirms flat, then quit mainloop."""
         if shared_state.get('shutdown_confirmed'):
             shared_state['shutdown'] = True
-            root.destroy()
+            root.quit()  # break mainloop; cleanup below
             return
         root.after(200, _check_shutdown)
 
@@ -90,7 +90,20 @@ def _run_popup(gui_queue, shared_state):
         root.mainloop()
     except Exception:
         pass
-    # If mainloop exits any other way, still signal shutdown
+
+    # ── Post-mainloop cleanup (still in GUI thread) ──────────────
+    # Close matplotlib figures before destroying root so Tcl image
+    # objects are freed here, not by GC in the main thread.
+    try:
+        import matplotlib.pyplot as plt
+        plt.close("all")
+    except Exception:
+        pass
+    try:
+        root.destroy()
+    except Exception:
+        pass
+
     shared_state['shutdown'] = True
 
 
