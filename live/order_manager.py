@@ -180,8 +180,8 @@ class OrderManager:
 
             self.position = PositionState()  # flat
 
-            # Check daily loss limit
-            if self._daily_pnl <= -self._cfg.max_daily_loss_usd:
+            # Check daily loss limit (0 = disabled)
+            if self._cfg.max_daily_loss_usd > 0 and self._daily_pnl <= -self._cfg.max_daily_loss_usd:
                 self._daily_loss_limit_hit = True
                 logger.warning(f"DAILY LOSS LIMIT HIT: ${self._daily_pnl:.2f}")
 

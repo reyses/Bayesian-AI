@@ -41,4 +41,4 @@ class LiveConfig:
 
     # ── Risk ────────────────────────────────────────────────────────────
     max_position_size: int = 1        # Single contract for paper
-    max_daily_loss_usd: float = 200.0
+    max_daily_loss_usd: float = 0.0    # 0 = disabled (sim mode)

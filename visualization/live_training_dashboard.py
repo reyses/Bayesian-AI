@@ -791,14 +791,6 @@ class ProgressPopup:
             )
             self._pp_btn.pack(side=tk.RIGHT, padx=(0, 6))
 
-            self._unlock_btn = tk.Button(
-                btn_frame, text="UNLOCK", bg="#333333", fg="#666666",
-                activebackground="#555555", font=("Consolas", 10, "bold"),
-                width=8, state=tk.DISABLED,
-                command=self._unlock_loss_limit,
-            )
-            self._unlock_btn.pack(side=tk.RIGHT, padx=(0, 6))
-
             # ── NT8 Account Equity row ───────────────────────────────────
             eq_frame = tk.Frame(root, bg=BG)
             eq_frame.pack(fill="x", padx=20, pady=(8, 0))
@@ -1166,14 +1158,6 @@ class ProgressPopup:
         )
         self._status_var.set(f"Ping-pong: {'ON' if new_val else 'OFF'}")
 
-    def _unlock_loss_limit(self):
-        """UNLOCK button — clear daily loss limit lock."""
-        if self._shared_state is not None:
-            self._shared_state['unlock_loss_limit'] = True
-            self._unlock_btn.config(
-                state=tk.DISABLED, bg="#333333", fg="#666666")
-            self._status_var.set("Loss limit unlocked — trading resumed")
-
     # ── Queue polling ─────────────────────────────────────────────────────────
     def _poll(self):
         try:
@@ -1380,20 +1364,6 @@ class ProgressPopup:
                                 m for m in self._trade_markers if m[0] >= cutoff
                             ]
                         self._redraw_price_chart()
-
-                elif mtype == "LOSS_LIMIT":
-                    locked = msg.get("locked", True)
-                    dpnl = msg.get("daily_pnl", 0)
-                    if hasattr(self, '_unlock_btn'):
-                        if locked:
-                            self._unlock_btn.config(
-                                state=tk.NORMAL, bg="#cc6600", fg="#ffffff",
-                                activebackground="#ff8800")
-                            self._status_var.set(
-                                f"LOSS LIMIT HIT (${dpnl:+,.0f}) — click UNLOCK to resume")
-                        else:
-                            self._unlock_btn.config(
-                                state=tk.DISABLED, bg="#333333", fg="#666666")
 
                 elif mtype == "SHUTDOWN_READY":
                     # Engine reports whether it's safe to close
