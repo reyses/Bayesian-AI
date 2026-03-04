@@ -754,23 +754,26 @@ class ProgressPopup:
             btn_frame = tk.Frame(root, bg=BG)
             btn_frame.pack(fill="x", padx=20, pady=(6, 0))
 
-            tk.Button(
+            self._buy_btn = tk.Button(
                 btn_frame, text="BUY", bg="#006600", fg=FG_WHITE,
                 activebackground="#00aa00", font=("Consolas", 10, "bold"),
                 width=8, command=lambda: self._manual_order('BUY'),
-            ).pack(side=tk.LEFT, padx=(0, 6))
+            )
+            self._buy_btn.pack(side=tk.LEFT, padx=(0, 6))
 
-            tk.Button(
+            self._sell_btn = tk.Button(
                 btn_frame, text="SELL", bg="#880000", fg=FG_WHITE,
                 activebackground="#cc0000", font=("Consolas", 10, "bold"),
                 width=8, command=lambda: self._manual_order('SELL'),
-            ).pack(side=tk.LEFT, padx=(0, 6))
+            )
+            self._sell_btn.pack(side=tk.LEFT, padx=(0, 6))
 
-            tk.Button(
-                btn_frame, text="FLATTEN", bg="#555555", fg=FG_WHITE,
-                activebackground="#888888", font=("Consolas", 10, "bold"),
-                width=8, command=lambda: self._manual_order('FLATTEN'),
-            ).pack(side=tk.LEFT, padx=(0, 6))
+            self._flatten_btn = tk.Button(
+                btn_frame, text="FLAT", bg="#333333", fg=FG_WHITE,
+                activebackground="#555555", font=("Consolas", 10, "bold"),
+                width=10, command=lambda: self._manual_order('FLATTEN'),
+            )
+            self._flatten_btn.pack(side=tk.LEFT, padx=(0, 6))
 
             tk.Button(
                 btn_frame, text="SAVE", bg="#004488", fg=FG_WHITE,
@@ -958,6 +961,7 @@ class ProgressPopup:
         self._price_history = []  # last N prices for line chart
         self._MAX_PRICE_PTS = 200  # rolling window
         self._trade_markers = []  # (price_index, action, side, price, pnl)
+        self._active_side = None  # 'long'/'short' when in position, None when flat
 
         price_header = tk.Frame(root, bg=BG)
         price_header.pack(fill="x", padx=20, pady=(10, 2))
@@ -1146,7 +1150,11 @@ class ProgressPopup:
         self._agg_label_var.set(f"Aggression: {int(val)}% ({labels[nearest]})")
 
     def _manual_order(self, action: str):
-        """BUY/SELL/FLATTEN button callback — engine picks it up instantly."""
+        """BUY/SELL/FLATTEN button callback — engine picks it up instantly.
+
+        When in position, BUY/SELL visually show FLIP but still send the
+        original action. Engine handles flatten + re-enter automatically.
+        """
         if self._shared_state is not None:
             self._shared_state['manual_order'] = action
             self._status_var.set(f"{action} sent...")
@@ -1334,17 +1342,45 @@ class ProgressPopup:
                     side = msg.get("side", "")
                     mprice = msg.get("price", 0)
                     mpnl = msg.get("pnl", 0)
-                    # Update FLATTEN button state
+                    # Track position side for FLIP routing
+                    if action == 'entry':
+                        self._active_side = side
+                    elif action == 'exit':
+                        self._active_side = None
+                    # Update button states: FLAT shows position, BUY/SELL become FLIP
                     if hasattr(self, '_flatten_btn'):
                         if action == 'entry':
                             _clr = "#006600" if side == 'long' else "#aa0000"
-                            _lbl = f"FLATTEN {side.upper()}"
                             self._flatten_btn.config(
-                                text=_lbl, bg=_clr, activebackground=_clr)
+                                text=f"FLAT {side.upper()}", bg=_clr,
+                                activebackground=_clr)
+                            # Highlight the FLIP direction, dim the same-dir button
+                            if side == 'long':
+                                # SELL = flip to SHORT (highlighted)
+                                self._sell_btn.config(
+                                    text="FLIP SHORT", bg="#aa5500",
+                                    activebackground="#cc6600")
+                                self._buy_btn.config(
+                                    text="BUY", bg="#333333",
+                                    activebackground="#555555")
+                            else:
+                                # BUY = flip to LONG (highlighted)
+                                self._buy_btn.config(
+                                    text="FLIP LONG", bg="#aa5500",
+                                    activebackground="#cc6600")
+                                self._sell_btn.config(
+                                    text="SELL", bg="#333333",
+                                    activebackground="#555555")
                         elif action == 'exit':
                             self._flatten_btn.config(
                                 text="FLAT", bg="#333333",
                                 activebackground="#555555")
+                            self._buy_btn.config(
+                                text="BUY", bg="#006600",
+                                activebackground="#00aa00")
+                            self._sell_btn.config(
+                                text="SELL", bg="#880000",
+                                activebackground="#cc0000")
                     # Store marker at current price_history index
                     idx = len(self._price_history) - 1
                     if idx >= 0:
