@@ -97,14 +97,9 @@ class LiveBarAggregator:
         return None
 
     def finish_history(self):
-        """Called when HISTORY_DONE received — trim, recompute, go live."""
+        """Called when HISTORY_DONE received — recompute and go live."""
         total = self.bar_count
-        # Keep only the last N bars (enough for state computation + warmup)
-        max_keep = max(self._cfg.warmup_bars * 2, 2000)
-        if total > max_keep:
-            self._rows = self._rows[-max_keep:]
-        logger.info(f"History ingestion complete: {total} received, "
-                     f"{len(self._rows)} retained")
+        logger.info(f"History ingestion complete: {total} bars retained")
         # One bulk recompute
         if len(self._rows) >= self._cfg.warmup_bars:
             self._warmed_up = True
