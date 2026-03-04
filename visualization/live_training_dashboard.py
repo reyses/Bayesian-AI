@@ -1371,9 +1371,11 @@ class ProgressPopup:
                     self._status_var.set(status)
 
                 elif mtype == "SHUTDOWN":
-                    if not self._done:
-                        self._status_var.set("Stopped -- close window when ready")
-                    return  # stop polling; window stays open
+                    try:
+                        self.root.destroy()
+                    except Exception:
+                        pass
+                    return
         except queue.Empty:
             pass
         except Exception as e:

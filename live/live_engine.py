@@ -283,6 +283,8 @@ class LiveEngine:
                         self._cfg.checkpoint_dir, 'live_brain.pkl')
                     self._brain.save(brain_path)
                     logger.info(f"Live brain saved on exit ({self._live_trade_count} trades)")
+                # Clean disconnect — properly await pending tasks
+                await self._client.disconnect()
 
     # ── Main Loop ─────────────────────────────────────────────────────
 
