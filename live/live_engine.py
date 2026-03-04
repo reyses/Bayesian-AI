@@ -341,6 +341,14 @@ class LiveEngine:
                     except Exception as _exit_err:
                         logger.error(f"_check_exit CRASHED (1s loop): {_exit_err} — emergency flatten")
                         await self._close_position('EXIT_CRASH')
+                # Ping-pong flip fires as soon as NT8 confirms flat (1s check)
+                if (self._pp_pending_flip and not self._position_open
+                        and self._orders.is_flat):
+                    flip = self._pp_pending_flip
+                    self._pp_pending_flip = None
+                    await self._enter_ping_pong(
+                        flip['exited_side'], self._last_price, _now,
+                        self._last_states or [])
                 self._compute_life_pct()
                 self._gui_push_stats()
 
@@ -557,17 +565,8 @@ class LiveEngine:
 
         self._belief_network.tick_all(self._bar_i)
 
-        # Ping-pong deferred flip (scheduled by _check_exit, executes on next 15s bar)
-        # Wait for BOTH engine state AND order manager to confirm flat (NT8 fill received)
-        if self._pp_pending_flip and not self._position_open and self._orders.is_flat:
-            flip = self._pp_pending_flip
-            self._pp_pending_flip = None
-            if not self._orders.loss_limit_hit:
-                await self._enter_ping_pong(
-                    flip['exited_side'], price, ts, states)
-                return  # skip normal entry cascade this bar
-
         # Entry check (if flat + cooldown expired — one anchor bar minimum)
+        # Note: PP flip is handled in the 1s main loop for faster response
         _cooldown_ok = (time.time() - self._last_exit_time) > float(self._anchor_period)
         if not self._position_open and not self._orders.loss_limit_hit and _cooldown_ok:
             await self._check_entry(price, ts, states)
