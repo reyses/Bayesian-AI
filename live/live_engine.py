@@ -185,6 +185,7 @@ class LiveEngine:
         self._instrument_mismatch = False  # set True if NT8 chart != config instrument
         self._entry_belief_pct = 0         # aggregated gate cascade progress (0-100%)
         self._exit_belief_pct = 100        # trade life remaining (100%=fresh, 0%=exit imminent)
+        self._exit_watchers = []           # post-exit counterfactual trackers
 
         # Ping-pong mode (continuous wave-riding with direction refinement)
         self._ping_pong_mode = self._shared_state.get('ping_pong', False)
@@ -366,6 +367,19 @@ class LiveEngine:
                         'pnl': pnl,
                     })
                     self._brain_learn(pnl)
+                    # Start post-exit counterfactual watcher
+                    self._exit_watchers.append({
+                        'tid': self._active_tid,
+                        'side': exi.get('side', self._active_side),
+                        'entry_px': exi.get('entry_px', self._entry_price),
+                        'exit_px': exi.get('exit_px', 0),
+                        'exit_pnl': pnl,
+                        'exit_time': time.time(),
+                        'peak_favorable': exi.get('exit_px', 0),
+                        'peak_adverse': exi.get('exit_px', 0),
+                        'bars_watched': 0,
+                        'reason': self._last_exit_reason,
+                    })
                 self._sync_position_state()
                 # Fire deferred manual entry now that position is flat
                 if self._pending_manual_entry and self._orders.is_flat:
@@ -553,6 +567,9 @@ class LiveEngine:
         _cooldown_ok = (time.time() - self._last_exit_time) > float(self._anchor_period)
         if not self._position_open and not self._orders.loss_limit_hit and _cooldown_ok:
             await self._check_entry(price, ts, states)
+
+        # Post-exit counterfactual watchers (cheap: iterates small list)
+        self._tick_exit_watchers(price)
 
     # ── Exit Logic ────────────────────────────────────────────────────
 
@@ -817,7 +834,11 @@ class LiveEngine:
             logger.info("LATENCY: ping-pong flip order sent")
 
     def _direction_learn(self, tid, side: str, pnl: float):
-        """Record direction-specific outcome for live refinement."""
+        """Record direction-specific outcome + counterfactual for live refinement.
+
+        If LONG lost $150, SHORT would have made $150 from the same entry.
+        Learn both: the actual outcome AND the alternative hypothesis.
+        """
         if tid is None:
             return
         # Strip PP_ prefix to aggregate with parent template
@@ -829,20 +850,88 @@ class LiveEngine:
 
         bias = self._live_dir_bias[base_tid]
         key = side.lower()
+        alt_key = 'short' if key == 'long' else 'long'
+        alt_pnl = -pnl  # mirror PnL
+
+        # Learn actual outcome
         if pnl > 0:
             bias[f'{key}_w'] += 1
         else:
             bias[f'{key}_l'] += 1
 
-        # Log the running tally
+        # Counterfactual: learn the alternative hypothesis
+        if alt_pnl > 0:
+            bias[f'{alt_key}_w'] += 1
+        else:
+            bias[f'{alt_key}_l'] += 1
+
+        # Log both
         lw, ll = bias['long_w'], bias['long_l']
         sw, sl = bias['short_w'], bias['short_l']
         lt = lw + ll
         st = sw + sl
         l_wr = f"{lw/lt:.0%}" if lt > 0 else "n/a"
         s_wr = f"{sw/st:.0%}" if st > 0 else "n/a"
-        logger.info(f"DIR LEARN: tid={base_tid}  "
-                    f"LONG {lw}W/{ll}L ({l_wr}) | SHORT {sw}W/{sl}L ({s_wr})")
+        _verdict = "CONFIRMED" if pnl > 0 else f"WRONG (alt {alt_key.upper()} would be ${alt_pnl:+.0f})"
+        logger.info(f"DIR LEARN: tid={base_tid}  {side.upper()} ${pnl:+.0f} -> {_verdict}  |  "
+                    f"LONG {lw}W/{ll}L ({l_wr})  SHORT {sw}W/{sl}L ({s_wr})")
+
+    def _tick_exit_watchers(self, price: float):
+        """Update post-exit counterfactual watchers. Called every 15s bar."""
+        if not self._exit_watchers:
+            return
+        _tick = 0.25
+        _point_val = 5.0  # MNQ $5/point
+        done = []
+        for w in self._exit_watchers:
+            w['bars_watched'] += 1
+            # Track peak favorable/adverse since exit
+            if w['side'] in ('LONG', 'long'):
+                w['peak_favorable'] = max(w['peak_favorable'], price)
+                w['peak_adverse'] = min(w['peak_adverse'], price)
+            else:
+                w['peak_favorable'] = min(w['peak_favorable'], price)
+                w['peak_adverse'] = max(w['peak_adverse'], price)
+
+            # After 60 bars (~15 min), deliver verdict
+            if w['bars_watched'] >= 60:
+                exit_px = w['exit_px']
+                if w['side'] in ('LONG', 'long'):
+                    _could_have = (w['peak_favorable'] - w['entry_px']) * _point_val
+                    _peak_extra = (w['peak_favorable'] - exit_px) * _point_val
+                else:
+                    _could_have = (w['entry_px'] - w['peak_favorable']) * _point_val
+                    _peak_extra = (exit_px - w['peak_favorable']) * _point_val
+
+                _left = _could_have - w['exit_pnl']
+                if _left > 10:  # left more than $10 on the table
+                    logger.info(
+                        f"EXIT REGRET: tid={w['tid']} {w['side']} exited ${w['exit_pnl']:+.0f} "
+                        f"({w['reason']}) but peak was ${_could_have:+.0f} "
+                        f"-> left ${_left:.0f} on table")
+                elif w['exit_pnl'] > 0:
+                    logger.info(
+                        f"EXIT OK: tid={w['tid']} {w['side']} exited ${w['exit_pnl']:+.0f} "
+                        f"({w['reason']}) peak was ${_could_have:+.0f} -> good exit")
+                else:
+                    # Loss trade — did it get worse or recover?
+                    if w['side'] in ('LONG', 'long'):
+                        _recovery = (price - exit_px) * _point_val
+                    else:
+                        _recovery = (exit_px - price) * _point_val
+                    if _recovery > 20:
+                        logger.info(
+                            f"EXIT EARLY: tid={w['tid']} {w['side']} exited ${w['exit_pnl']:+.0f} "
+                            f"({w['reason']}) but price recovered ${_recovery:+.0f} "
+                            f"-> should have held")
+                    else:
+                        logger.info(
+                            f"EXIT CORRECT: tid={w['tid']} {w['side']} exited ${w['exit_pnl']:+.0f} "
+                            f"({w['reason']}) — price didn't recover")
+                done.append(w)
+
+        for w in done:
+            self._exit_watchers.remove(w)
 
     def _prepare_shutdown(self):
         """Save brain + write session report + advise GUI."""
