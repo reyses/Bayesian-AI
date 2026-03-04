@@ -294,8 +294,8 @@ class TimeframeBeliefNetwork:
     (they summarise days/hours of market structure).
     """
 
-    TIMEFRAMES_SECONDS = [3600, 1800, 900, 300, 180, 60, 30, 15, 5, 1]
-    TF_WEIGHTS         = [4.0,  3.5,  3.0, 2.5, 2.0, 1.5, 1.0, 0.5, 0.25, 0.1]
+    TIMEFRAMES_SECONDS = [14400, 3600, 1800, 900, 300, 180, 60, 30, 15, 5, 1]
+    TF_WEIGHTS         = [5.0,   4.0,  3.5,  3.0, 2.5, 2.0, 1.5, 1.0, 0.5, 0.25, 0.1]
     MIN_CONVICTION     = 0.48   # skip trade if path conviction below this (physics at z=0 gives 0.50)
     MIN_ACTIVE_LEVELS  = 3      # need >=3 active TF levels for a signal
     DEFAULT_DECISION_TF = 300   # 5m: default scale at which to read predicted_mfe
@@ -317,7 +317,7 @@ class TimeframeBeliefNetwork:
     DECAY_ALPHA_MIN  = 1.0    # final tolerance band (narrow at pattern horizon)
     DECAY_THETA_EXIT = 1.5    # cascade score threshold -> trigger exit
 
-    _TF_LABELS = {3600:'1h', 1800:'30m', 900:'15m', 300:'5m',
+    _TF_LABELS = {14400:'4h', 3600:'1h', 1800:'30m', 900:'15m', 300:'5m',
                   180:'3m',  60:'1m',   30:'30s',   15:'15s',
                   5:'5s',    1:'1s'}
 
@@ -389,13 +389,16 @@ class TimeframeBeliefNetwork:
     # ------------------------------------------------------------------
 
     def prepare_day(self, df_micro: pd.DataFrame, states_micro: list = None,
-                    df_5s: pd.DataFrame = None, df_1s: pd.DataFrame = None):
+                    df_5s: pd.DataFrame = None, df_1s: pd.DataFrame = None,
+                    df_4h: pd.DataFrame = None):
         """
         Task 1 for all workers: pre-aggregate the day's micro bars (15s or 1s)
         to each TF level and compute quantum states (once per day, fast).
 
         Micro states can be supplied directly (states_micro) if already computed
         by the main forward pass, avoiding redundant work.
+
+        df_4h: external 4h bars (supra-resolution — resampling 15s gives <5 bars).
         """
         # Ensure DatetimeIndex for pandas resample
         df = df_micro.copy()
@@ -410,6 +413,27 @@ class TimeframeBeliefNetwork:
         if states_micro is not None and base_tf in self.workers:
             self.workers[base_tf].prepare(states_micro)
 
+        # Supra-resolution workers (4h): resampling 15s→4h gives <5 bars per day.
+        # Use external monthly data, same pattern as sub-resolution workers.
+        _supra_res_data = {14400: df_4h}
+        for tf_secs, df_ext in _supra_res_data.items():
+            if tf_secs not in self.workers:
+                continue
+            lbl = self._TF_LABELS.get(tf_secs, str(tf_secs))
+            if df_ext is None or (hasattr(df_ext, 'empty') and df_ext.empty):
+                print(f"  TBN [{lbl}]: no data supplied — worker inactive")
+                self.workers[tf_secs].prepare([])
+                continue
+            try:
+                print(f"  TBN [{lbl}]: computing states for {len(df_ext):,} bars ...", end='', flush=True)
+                states = self.engine.batch_compute_states(df_ext, use_cuda=True)
+                self.workers[tf_secs].prepare(states)
+                print(f" {len(states):,} states ready")
+            except Exception as e:
+                print(f" FAILED: {e}")
+                logger.warning(f"TBN: TF={tf_secs}s supra-res state compute failed: {e}")
+                self.workers[tf_secs].prepare([])
+
         for tf_secs in self.active_timeframes:
             if tf_secs == base_tf:
                 if states_micro is None:
@@ -420,6 +444,10 @@ class TimeframeBeliefNetwork:
                     except Exception as e:
                         logger.warning(f"TBN: {base_tf}s state compute failed: {e}")
                         self.workers[base_tf].prepare([])
+                continue
+
+            # Skip supra-resolution TFs (already handled above)
+            if tf_secs in _supra_res_data:
                 continue
 
             try:
