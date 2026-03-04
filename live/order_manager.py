@@ -60,6 +60,7 @@ class OrderManager:
         self._trade_count: int = 0
         self._daily_loss_limit_hit = False
         self.last_exit_info: dict = {}  # filled on exit FILL (entry_px, exit_px, side)
+        self.exit_rejected = False     # set True when a close order is rejected
 
         # CSV trade log
         self._log_dir = os.path.join(config.checkpoint_dir, 'live_logs')
@@ -87,6 +88,11 @@ class OrderManager:
     @property
     def loss_limit_hit(self) -> bool:
         return self._daily_loss_limit_hit
+
+    def reset_loss_limit(self):
+        """Unlock trading after user override. PnL counter is NOT reset."""
+        self._daily_loss_limit_hit = False
+        logger.warning(f"Loss limit unlocked (daily PnL still ${self._daily_pnl:+.2f})")
 
     def build_entry_order(self, side: str) -> Optional[dict]:
         """
@@ -119,6 +125,7 @@ class OrderManager:
         """Build a CLOSE_POSITION message.  Returns None if already flat."""
         if self.is_flat:
             return None
+        self.exit_rejected = False  # reset before new attempt
         logger.info(f"EXIT -> close {self.position.side} ({reason})")
         return close_position(self._cfg.instrument, self._cfg.account)
 
@@ -191,6 +198,15 @@ class OrderManager:
                 logger.warning(f"Order {oid} {status}")
             elif status in ('Accepted', 'Working'):
                 rec.state = OrderState.WORKING
+        else:
+            # Untracked order (e.g. CLOSE_POSITION uses NT8-generated IDs)
+            if status in ('Cancelled', 'Rejected'):
+                logger.warning(f"Untracked order {oid} {status}")
+
+        # Any rejected/cancelled order while we think we have a position = danger
+        if status in ('Cancelled', 'Rejected') and not self.is_flat:
+            self.exit_rejected = True
+            logger.error(f"ORDER REJECTED while in position: {oid} — will retry close")
 
     def on_position(self, msg: dict):
         """Handle a POSITION snapshot from NT8 (source of truth)."""
@@ -208,6 +224,19 @@ class OrderManager:
             )
             self.position.unrealized_pnl = float(msg.get('unrealized_pnl', 0))
             logger.info(f"POSITION sync: {side} {abs(nt8_qty)} @ {self.position.avg_price}")
+
+    def cleanup_stale_orders(self, max_age_s: float = 60.0):
+        """Remove orders stuck in PENDING/WORKING for too long."""
+        now = time.time()
+        stale = [oid for oid, rec in self._orders.items()
+                 if rec.state in (OrderState.PENDING, OrderState.WORKING)
+                 and now - rec.submit_time > max_age_s]
+        for oid in stale:
+            self._orders[oid].state = OrderState.CANCELLED
+            logger.warning(f"Stale order pruned: {oid} "
+                           f"(age={now - self._orders[oid].submit_time:.0f}s)")
+        if stale:
+            logger.info(f"Pruned {len(stale)} stale orders")
 
     def reset_daily(self):
         """Reset daily counters at session boundary."""
