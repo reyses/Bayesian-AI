@@ -704,6 +704,8 @@ class WaveRider:
 
     def _check_layer_breaks(self, current: Union[StateVector, ThreeBodyQuantumState]) -> bool:
         """Check if market structure broke"""
+        if current is None:
+            return False  # no state available (manual trade or missing data)
         if isinstance(current, ThreeBodyQuantumState):
             return False  # Phase 0: No structure checks, rely on trail stop
 
