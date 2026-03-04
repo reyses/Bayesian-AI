@@ -492,11 +492,37 @@ class LiveEngine:
             elif mtype == 'HISTORY_DONE':
                 count = int(msg.get('bar_count', 0))
                 logger.info(f"History dump complete: {count} bars from NT8")
+                self._gui_push({
+                    'type': 'PHASE_PROGRESS',
+                    'phase': 'LIVE',
+                    'step': f'computing states ({self._aggregator.bar_count:,} bars)',
+                    'pct': 50,
+                })
                 # Run heavy recompute in thread to avoid blocking event loop
                 loop = asyncio.get_event_loop()
                 await loop.run_in_executor(None, self._aggregator.finish_history)
                 self._update_live_atr()
                 logger.info(f"Live ATR: {self._live_atr_ticks:.1f} ticks")
+                # Bootstrap TBN from history (4h via resample, 1s/5s unavailable from history)
+                df = self._aggregator.df
+                states = self._aggregator.states
+                df_4h = pd.DataFrame()
+                if len(df) >= 20:
+                    _df15 = df.copy()
+                    _df15.index = pd.to_datetime(_df15['timestamp'], unit='s')
+                    df_4h = _df15.resample('4h').agg({
+                        'open': 'first', 'high': 'max',
+                        'low': 'min', 'close': 'last', 'volume': 'sum',
+                        'timestamp': 'first',
+                    }).dropna()
+                self._belief_network.prepare_day(
+                    df, states_micro=states, df_4h=df_4h)
+                self._gui_push({
+                    'type': 'PHASE_PROGRESS',
+                    'phase': 'LIVE',
+                    'step': f'READY — ATR {self._live_atr_ticks:.0f}t  ({self._aggregator.bar_count:,} bars)',
+                    'pct': 100,
+                })
                 # Drain any remaining stale BAR messages from duplicate
                 # history requests that arrived before HISTORY_DONE
                 drained = 0
@@ -558,6 +584,18 @@ class LiveEngine:
                 self._load_tuning()
                 self._orders.cleanup_stale_orders()
 
+        # ── History ingestion — fill progress bar as bars load ────────
+        if self._aggregator._history_mode:
+            _bc = self._aggregator.bar_count
+            if _bc % 1000 == 0 and _bc > 0:
+                self._gui_push({
+                    'type': 'PHASE_PROGRESS',
+                    'phase': 'LIVE',
+                    'step': f'loading history {_bc:,} bars',
+                    'pct': min(45, _bc / 500),  # ramps to ~45% during load
+                })
+            return
+
         # ── Still warming up — show progress, skip evaluation ─────────
         if not self._aggregator.is_warmed_up:
             if new_bar and self._bar_i % 10 == 0:
@@ -570,6 +608,7 @@ class LiveEngine:
                     'pct': min(99, pct),
                 })
             return
+
 
         # ══ 1-SECOND PROCESSING (runs on every inbound bar) ══════════
 
