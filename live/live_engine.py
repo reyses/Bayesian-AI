@@ -576,10 +576,10 @@ class LiveEngine:
     def _compute_life_pct(self):
         """Compute trade life % (100%=fresh, 0%=exit imminent). Cheap — runs every second.
 
-        Components (weighted to 100%) — all signal-driven, no arbitrary timer:
-          - Trail health (40%): how far from SL, moves with every price tick
-          - Wave freshness (25%): 1 - wave_maturity (exhaustion builds over time)
-          - Conviction (20%): belief network strength (updates every 15s)
+        PnL-anchored: unrealized PnL dominates. A losing trade can't show high life.
+          - PnL health (50%): 100% at TP, 0% at SL, linear between
+          - Trail health (20%): how far from current trail stop
+          - Conviction (15%): belief network strength
           - Alignment (15%): belief direction matches trade side
         """
         pos = self._wave_rider.position
@@ -589,30 +589,40 @@ class LiveEngine:
         if price <= 0:
             return
 
-        # Trail health — distance from SL (moves with every price tick)
         _tick = self._cfg.tick_size
+
+        # PnL health — where are we between SL and TP?
         if pos.side == 'long':
             profit_ticks = (price - pos.entry_price) / _tick
         else:
             profit_ticks = (pos.entry_price - price) / _tick
-        sl_ticks = abs(pos.entry_price - pos.stop_loss) / _tick if pos.stop_loss else 40
-        _trail_health = max(0, min(1, (profit_ticks + sl_ticks) / max(1, 2 * sl_ticks)))
+        sl_ticks = abs(pos.entry_price - pos.stop_loss) / _tick if pos.stop_loss else 80
+        tp_ticks = abs(pos.profit_target - pos.entry_price) / _tick if pos.profit_target else 200
+        # Scale: -1 at SL, 0 at entry, +1 at TP
+        _range = sl_ticks + tp_ticks
+        _pnl_health = max(0, min(1, (profit_ticks + sl_ticks) / max(1, _range)))
 
-        # Wave freshness — belief network tracks how exhausted the wave is
+        # Trail health — distance from current stop (tightened by trail)
+        if pos.stop_loss and pos.side == 'long':
+            _trail_dist = (price - pos.stop_loss) / _tick
+        elif pos.stop_loss:
+            _trail_dist = (pos.stop_loss - price) / _tick
+        else:
+            _trail_dist = sl_ticks
+        _trail_health = max(0, min(1, _trail_dist / max(1, sl_ticks)))
+
+        # Conviction + alignment from belief network
         exit_sig = self._belief_network.get_exit_signal(pos.side)
-        _wave_fresh = 1.0 - exit_sig.get('wave_maturity', 0.0)
         _conviction = exit_sig.get('conviction', 0.5)
-
-        # Alignment — does belief still agree with our side?
         _aligned = 1.0
         belief = self._belief_network.get_belief()
         if belief and belief.direction != pos.side:
             _aligned = 0.3
 
         _life_pct = (
-            _trail_health * 40
-            + _wave_fresh * 25
-            + _conviction * 20
+            _pnl_health * 50
+            + _trail_health * 20
+            + _conviction * 15
             + _aligned * 15
         )
         self._exit_belief_pct = max(0, min(100, _life_pct))
