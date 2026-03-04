@@ -590,7 +590,7 @@ class LiveEngine:
             return
 
         # Trail health — distance from SL (moves with every price tick)
-        _tick = 0.25
+        _tick = self._cfg.tick_size
         if pos.side == 'long':
             profit_ticks = (price - pos.entry_price) / _tick
         else:
@@ -894,8 +894,8 @@ class LiveEngine:
         """Update post-exit counterfactual watchers. Called every 15s bar."""
         if not self._exit_watchers:
             return
-        _tick = 0.25
-        _point_val = 5.0  # MNQ $5/point
+        _tick = self._cfg.tick_size
+        _point_val = self._cfg.point_value
         done = []
         for w in self._exit_watchers:
             w['bars_watched'] += 1
@@ -1215,7 +1215,7 @@ class LiveEngine:
         exit_px = exi.get('exit_px', 0.0)
         if not exit_px:
             # Fallback: compute from PnL (side-aware)
-            tick_val = getattr(self, '_cfg_tick_value', 5.0) or 5.0
+            tick_val = self._cfg.point_value
             if self._active_side == 'short':
                 exit_px = entry_px - pnl / tick_val
             else:
@@ -1251,7 +1251,7 @@ class LiveEngine:
             mfe_ticks = (hwm - entry_px) / 0.25 if entry_px else 0
         else:
             mfe_ticks = (entry_px - hwm) / 0.25 if entry_px else 0
-        pnl_ticks = pnl / 5.0  # MNQ $5/tick
+        pnl_ticks = pnl / (self._cfg.point_value * self._cfg.tick_size)
         if mfe_ticks > 0:
             capture = pnl_ticks / mfe_ticks * 100
         else:
