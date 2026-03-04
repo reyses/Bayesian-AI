@@ -1371,10 +1371,7 @@ class ProgressPopup:
                     self._status_var.set(status)
 
                 elif mtype == "SHUTDOWN":
-                    try:
-                        self.root.destroy()
-                    except Exception:
-                        pass
+                    self.root.quit()  # break mainloop; launcher handles cleanup
                     return
         except queue.Empty:
             pass
