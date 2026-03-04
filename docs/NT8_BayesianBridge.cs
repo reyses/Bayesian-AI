@@ -1,5 +1,5 @@
 // =============================================================================
-// BayesianBridge 6.1.1 — 2026-03-02
+// BayesianBridge 6.1.2 — 2026-03-04 06:15
 // =============================================================================
 // BayesianBridge — NinjaTrader 8 NinjaScript Indicator
 //
@@ -57,7 +57,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         public int DomLevels { get; set; }
 
         // ── Version ──────────────────────────────────────────────────
-        private const string BRIDGE_VERSION = "6.1.1";
+        private const string BRIDGE_VERSION = "6.1.2";
 
         // ── Internal State ────────────────────────────────────────────
         private TcpListener  _listener;
