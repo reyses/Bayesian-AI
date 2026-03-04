@@ -110,6 +110,10 @@ def main():
                         help='Continuous wave-riding with direction refinement')
     parser.add_argument('--yolo', action='store_true',
                         help='Max aggression, minimal warmup — force trades fast')
+    parser.add_argument('--long-only', action='store_true',
+                        help='Force all trades LONG (brain learns long side)')
+    parser.add_argument('--short-only', action='store_true',
+                        help='Force all trades SHORT (brain learns short side)')
     parser.add_argument('--log-level', default='INFO',
                         choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
                         help='Logging level (default: INFO)')
@@ -148,10 +152,16 @@ def main():
         ping_pong=args.ping_pong,
     )
 
+    # Validate side lock
+    if args.long_only and args.short_only:
+        print("ERROR: --long-only and --short-only are mutually exclusive")
+        sys.exit(1)
+
     # Shared mutable state between GUI and engine (thread-safe via GIL)
     shared_state = {
         'aggression': 1.0 if args.yolo else 0.5,
         'ping_pong': args.ping_pong,
+        'side_lock': 'long' if args.long_only else ('short' if args.short_only else None),
     }
 
     # Launch GUI popup (unless --no-gui)

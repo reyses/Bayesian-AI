@@ -622,6 +622,7 @@ class BayesianTrainingOrchestrator:
 
             _df_5s = _load_fine('5s')
             _df_1s  = _load_fine('1s')
+            _df_4h  = _load_fine('4h')
 
             # Pre-extract 1s numpy arrays for wick-aware inner loop
             if _df_1s is not None and not _df_1s.empty:
@@ -632,16 +633,16 @@ class BayesianTrainingOrchestrator:
             else:
                 _has_1s = False
 
-            # Belief network: Task 1 for all 10 TF workers (1h -> 1s)
-            # 1h->15s resampled from df_15s; 5s/1s from monthly ATLAS files.
+            # Belief network: Task 1 for all 11 TF workers (4h -> 1s)
+            # 4h from monthly ATLAS; 1h->15s resampled from df_15s; 5s/1s from monthly ATLAS.
             try:
                 _states_15s = self.engine.batch_compute_states(df_15s, use_cuda=True)
                 belief_network.prepare_day(df_15s, states_micro=_states_15s,
-                                           df_5s=_df_5s, df_1s=_df_1s)
+                                           df_5s=_df_5s, df_1s=_df_1s, df_4h=_df_4h)
             except Exception as _bn_err:
                 _states_15s = []
                 belief_network.prepare_day(df_15s, states_micro=[],
-                                           df_5s=_df_5s, df_1s=_df_1s)
+                                           df_5s=_df_5s, df_1s=_df_1s, df_4h=_df_4h)
 
             # Accumulate worker state counts for report diagnostics
             for _wlbl, _wcnt in belief_network.get_worker_state_counts().items():
@@ -4165,6 +4166,10 @@ def check_and_install_requirements():
 
 def main():
     """Single entry point - command line interface"""
+    from core.keep_awake import keep_awake
+    _awake_ctx = keep_awake()
+    _awake_ctx.__enter__()
+
     parser = argparse.ArgumentParser(
         description="Bayesian-AI Training Orchestrator (Pattern-Adaptive)",
         formatter_class=argparse.RawDescriptionHelpFormatter
@@ -4449,6 +4454,7 @@ def main():
         return 1
     finally:
         orchestrator.shutdown_dashboard()
+        _awake_ctx.__exit__(None, None, None)
         # Restore stdout and close log file
         if isinstance(sys.stdout, _Tee):
             sys.stdout = _tee._stdout

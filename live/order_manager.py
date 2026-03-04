@@ -59,6 +59,7 @@ class OrderManager:
         self._daily_pnl: float = 0.0
         self._trade_count: int = 0
         self._daily_loss_limit_hit = False
+        self.last_exit_info: dict = {}  # filled on exit FILL (entry_px, exit_px, side)
 
         # CSV trade log
         self._log_dir = os.path.join(config.checkpoint_dir, 'live_logs')
@@ -155,6 +156,12 @@ class OrderManager:
                 pnl = (fill_px - entry_px) * qty * 5.0  # MNQ = $5/pt
             else:
                 pnl = (entry_px - fill_px) * qty * 5.0
+
+            # Preserve fill info before clearing position (for trade log)
+            self.last_exit_info = {
+                'entry_px': entry_px, 'exit_px': fill_px,
+                'side': self.position.side,
+            }
 
             self._daily_pnl += pnl
             self._trade_count += 1
