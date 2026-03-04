@@ -129,6 +129,24 @@ class OrderManager:
         logger.info(f"EXIT -> close {self.position.side} ({reason})")
         return close_position(self._cfg.instrument, self._cfg.account)
 
+    def build_flip_order(self, reason: str = 'pp_flip') -> Optional[dict]:
+        """Build a 2-contract PLACE_ORDER that closes + opens opposite in one shot.
+
+        SHORT 1 → BUY 2 = cover short + open long (instant flip).
+        Returns None if already flat.
+        """
+        if self.is_flat:
+            return None
+        flip_side = 'BUY' if self.position.side == 'SHORT' else 'SELL'
+        qty = self.position.qty * 2  # 1 to close + 1 to open
+        oid = f"BAY_{uuid.uuid4().hex[:8]}"
+        rec = OrderRecord(order_id=oid, side=flip_side, qty=qty,
+                          submit_time=time.time())
+        self._orders[oid] = rec
+        logger.info(f"FLIP -> {flip_side} {qty} {self._cfg.instrument}  id={oid}  ({reason})")
+        return place_order(oid, self._cfg.instrument, self._cfg.account,
+                           flip_side, qty)
+
     def on_fill(self, msg: dict) -> Optional[float]:
         """Handle a FILL message from NT8.
 
