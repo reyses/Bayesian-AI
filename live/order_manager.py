@@ -160,9 +160,9 @@ class OrderManager:
             # Exit fill — compute PnL
             entry_px = self.position.avg_price
             if self.position.side == 'LONG':
-                pnl = (fill_px - entry_px) * qty * 5.0  # MNQ = $5/pt
+                pnl = (fill_px - entry_px) * qty * self._cfg.point_value
             else:
-                pnl = (entry_px - fill_px) * qty * 5.0
+                pnl = (entry_px - fill_px) * qty * self._cfg.point_value
 
             # Preserve fill info before clearing position (for trade log)
             self.last_exit_info = {

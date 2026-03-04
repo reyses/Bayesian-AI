@@ -16,6 +16,8 @@ class LiveConfig:
     instrument: str = "MNQ 03-26"     # NT8 instrument name (front month)
     account: str = "Sim101"           # Sim101 for paper, real account for live
     asset_ticker: str = "MNQ"         # Maps to config.symbols.SYMBOL_MAP
+    point_value: float = 2.0          # $/point — MNQ=$2, NQ=$20, ES=$50, MES=$5
+    tick_size: float = 0.25           # Min price increment
 
     # ── Checkpoints (reuses training output) ────────────────────────────
     checkpoint_dir: str = "checkpoints"
