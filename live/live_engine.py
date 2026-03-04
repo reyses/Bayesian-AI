@@ -146,7 +146,10 @@ class LiveEngine:
         self._entry_bar = 0
         self._active_side = ''
         self._active_tid = None
+        self._entry_depth = '?'
         self._max_hold_bars = 960
+        self._last_exit_reason = 'unknown'
+        self._last_high_water = 0.0
 
         self._bar_i = 0   # running 15s bar index (NOT 1s ticks)
         self._last_states = []  # latest quantum states (refreshed every 15s)
@@ -194,6 +197,9 @@ class LiveEngine:
             'traded': 0,
         }
 
+        # Exit capture buckets (Optimal>=80%, Partial 20-80%, Early<20%, Reversed<=0%)
+        self._exit_buckets = {'optimal': 0, 'partial': 0, 'early': 0, 'reversed': 0}
+
         # NT8 account equity (from ACCOUNT_UPDATE messages)
         self._nt8_cash_value = 0.0
         self._nt8_realized_pnl = 0.0
@@ -204,6 +210,8 @@ class LiveEngine:
 
     async def run(self):
         """Main entry point — connect, load checkpoints, run loop."""
+        from core.keep_awake import keep_awake
+
         logger.info("=" * 60)
         logger.info("LIVE ENGINE STARTING")
         logger.info(f"  Instrument: {self._cfg.instrument}")
@@ -221,26 +229,25 @@ class LiveEngine:
             logger.error("Failed to connect to NT8 bridge — exiting")
             return
 
-        try:
-            await self._main_loop()
-        except KeyboardInterrupt:
-            logger.info("Keyboard interrupt — shutting down")
-        except Exception as e:
-            logger.error(f"LiveEngine fatal error: {e}", exc_info=True)
-        finally:
-            # Close any open position on shutdown
-            if self._position_open and not self._dry_run:
-                msg = self._orders.build_exit_order(reason='shutdown')
-                if msg:
-                    await self._client.send(msg)
-            # Save brain on exit (preserve learning)
-            if self._live_trade_count > 0:
-                brain_path = os.path.join(
-                    self._cfg.checkpoint_dir, 'live_brain.pkl')
-                self._brain.save(brain_path)
-                logger.info(f"Live brain saved on exit ({self._live_trade_count} trades)")
-            await self._client.disconnect()
-            logger.info("LiveEngine stopped")
+        with keep_awake(display=True):
+            try:
+                await self._main_loop()
+            except KeyboardInterrupt:
+                logger.info("Keyboard interrupt — shutting down")
+            except Exception as e:
+                logger.error(f"LiveEngine fatal error: {e}", exc_info=True)
+            finally:
+                # Close any open position on shutdown
+                if self._position_open and not self._dry_run:
+                    msg = self._orders.build_exit_order(reason='shutdown')
+                    if msg:
+                        await self._client.send(msg)
+                # Save brain on exit (preserve learning)
+                if self._live_trade_count > 0:
+                    brain_path = os.path.join(
+                        self._cfg.checkpoint_dir, 'live_brain.pkl')
+                    self._brain.save(brain_path)
+                    logger.info(f"Live brain saved on exit ({self._live_trade_count} trades)")
 
     # ── Main Loop ─────────────────────────────────────────────────────
 
@@ -448,6 +455,9 @@ class LiveEngine:
         self._last_exit_side = self._active_side  # for ping-pong flip
         self._position_open = False
         self._last_exit_reason = reason  # for trade log
+        # Snapshot high_water_mark before clearing position (for capture bucket)
+        pos = self._wave_rider.position
+        self._last_high_water = pos.high_water_mark if pos else self._entry_price
         self._wave_rider.position = None
         self._last_exit_time = time.time()
 
@@ -509,6 +519,7 @@ class LiveEngine:
         self._entry_bar = self._bar_i
         self._active_side = side
         self._active_tid = 'MANUAL'
+        self._entry_depth = self._anchor_depth
         self._max_hold_bars = 960  # 4 hours max for manual trades
 
         self._belief_network.start_trade_tracking(
@@ -535,6 +546,11 @@ class LiveEngine:
             return
 
         flip_side = 'short' if exited_side == 'long' else 'long'
+
+        # Side lock override (--long-only / --short-only)
+        _side_lock = self._shared_state.get('side_lock')
+        if _side_lock:
+            flip_side = _side_lock
 
         # Use belief direction if it agrees with flip; otherwise trust the flip
         if belief.direction == exited_side and belief.conviction > self._pp_agree_veto:
@@ -618,6 +634,7 @@ class LiveEngine:
         self._entry_bar = self._bar_i
         self._active_side = side
         self._active_tid = f'PP_{tid}'
+        self._entry_depth = self._entry_depth  # carry depth from original entry
         self._max_hold_bars = max_hold
 
         self._belief_network.start_trade_tracking(
@@ -726,10 +743,7 @@ class LiveEngine:
         if self._trade_log:
             depth_stats = defaultdict(lambda: {'n': 0, 'wins': 0, 'pnl': 0.0})
             for t in self._trade_log:
-                tid = t.get('tid', -1)
-                # Approximate depth from template library
-                lib = self._pattern_library.get(tid, {})
-                d = lib.get('depth', '?')
+                d = t.get('depth', '?')
                 depth_stats[d]['n'] += 1
                 depth_stats[d]['pnl'] += t['pnl']
                 if t['pnl'] > 0:
@@ -876,6 +890,7 @@ class LiveEngine:
               if self._session_trades > 0 else 0.0)
         pf = (self._gross_win / abs(self._gross_loss)
               if self._gross_loss != 0 else 0.0)
+        eb = self._exit_buckets
         self._gui_push({
             'type': 'PHASE_PROGRESS',
             'phase': 'LIVE',
@@ -885,6 +900,10 @@ class LiveEngine:
             'wr': wr,
             'trades': self._session_trades,
             'pf': pf,
+            'exit_optimal': eb['optimal'],
+            'exit_partial': eb['partial'],
+            'exit_early': eb['early'],
+            'exit_reversed': eb['reversed'],
             'gross_w': self._gross_win,
             'gross_l': abs(self._gross_loss),
         })
@@ -909,14 +928,27 @@ class LiveEngine:
         from core.bayesian_brain import TradeOutcome
 
         result = 'WIN' if pnl > 0 else 'LOSS'
+
+        # Use actual fill prices from OrderManager when available
+        exi = self._orders.last_exit_info
+        entry_px = exi.get('entry_px', self._entry_price)
+        exit_px = exi.get('exit_px', 0.0)
+        if not exit_px:
+            # Fallback: compute from PnL (side-aware)
+            tick_val = getattr(self, '_cfg_tick_value', 5.0) or 5.0
+            if self._active_side == 'short':
+                exit_px = entry_px - pnl / tick_val
+            else:
+                exit_px = entry_px + pnl / tick_val
+
         outcome = TradeOutcome(
             state=self._active_tid or 'UNKNOWN',
-            entry_price=self._entry_price,
-            exit_price=self._entry_price + pnl / 5.0,  # approximate
+            entry_price=entry_px,
+            exit_price=exit_px,
             pnl=pnl,
             result=result,
             timestamp=time.time(),
-            exit_reason='live_trade',
+            exit_reason=self._last_exit_reason,
             direction='LONG' if self._active_side == 'long' else 'SHORT',
             template_id=self._active_tid,
         )
@@ -933,21 +965,44 @@ class LiveEngine:
         else:
             self._gross_loss += pnl
 
+        # Capture bucket (MFE-based exit quality)
+        hwm = getattr(self, '_last_high_water', entry_px)
+        if self._active_side == 'long':
+            mfe_ticks = (hwm - entry_px) / 0.25 if entry_px else 0
+        else:
+            mfe_ticks = (entry_px - hwm) / 0.25 if entry_px else 0
+        pnl_ticks = pnl / 5.0  # MNQ $5/tick
+        if mfe_ticks > 0:
+            capture = pnl_ticks / mfe_ticks * 100
+        else:
+            capture = 0.0 if pnl <= 0 else 100.0
+        if capture >= 80:
+            self._exit_buckets['optimal'] += 1
+        elif capture >= 20:
+            self._exit_buckets['partial'] += 1
+        elif capture > 0:
+            self._exit_buckets['early'] += 1
+        else:
+            self._exit_buckets['reversed'] += 1
+
         # Record for session report
         self._trade_log.append({
             'time': time.strftime('%H:%M:%S'),
             'side': 'LONG' if self._active_side == 'long' else 'SHORT',
-            'entry': self._entry_price,
-            'exit': self._entry_price + pnl / (self._cfg_tick_value if hasattr(self, '_cfg_tick_value') else 5.0),
+            'entry': entry_px,
+            'exit': exit_px,
             'pnl': pnl,
             'result': result,
-            'reason': getattr(self, '_last_exit_reason', '?'),
+            'reason': self._last_exit_reason,
             'bars': self._bar_i - self._entry_bar,
             'tid': self._active_tid,
+            'depth': self._entry_depth,
+            'capture': capture,
         })
 
         logger.info(f"Brain learned: tid={self._active_tid} {result} "
-                    f"${pnl:+.2f}  (table size: {len(self._brain.table)})")
+                    f"${pnl:+.2f}  capture={capture:.0f}%  "
+                    f"(table size: {len(self._brain.table)})")
 
         # Push stats to GUI popup
         self._gui_push_stats()
@@ -1104,6 +1159,12 @@ class LiveEngine:
         belief = self._belief_network.get_belief()
         side, _p_long, _dir_src = self._determine_direction(best_candidate, best_tid)
 
+        # Side lock override (--long-only / --short-only)
+        _side_lock = self._shared_state.get('side_lock')
+        if _side_lock:
+            side = _side_lock
+            _dir_src = f'locked_{_side_lock}'
+
         if belief is not None:
             if not belief.is_confident and agg < 0.75:
                 self._gate_stats['gate3_skip'] += 1
@@ -1168,6 +1229,7 @@ class LiveEngine:
         self._entry_bar = self._bar_i
         self._active_side = side
         self._active_tid = best_tid
+        self._entry_depth = best_candidate.depth
 
         _tf_s = str(best_candidate.timeframe)
         _tf_sec = TIMEFRAME_SECONDS.get(_tf_s, 14400)
@@ -1418,11 +1480,12 @@ class LiveEngine:
             logger.info(f"  Depth weights: {len(self._depth_score_adj)} depths, "
                          f"{len(self._depth_filter_out)} filtered out")
 
-        # Build centroid index (centroids already in scaled space from training)
-        self._centroids_scaled = np.array([
+        # Build centroid index — centroids stored RAW, must scale for L2 matching
+        _raw_centroids = np.array([
             self._pattern_library[tid]['centroid']
             for tid in self._valid_tids
         ])
+        self._centroids_scaled = self._scaler.transform(_raw_centroids)
         logger.info(f"  Centroids: {len(self._valid_tids)} ready for matching")
 
         # Exception templates (data-quality override)

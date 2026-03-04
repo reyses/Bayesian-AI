@@ -49,6 +49,9 @@
 - `--forward-data PATH` — custom data for forward pass (skips auto-OOS)
 - `--data DATA/ATLAS_1DAY` — single-day fast validation (~3s)
 - `--strategy-report` — Phase 5 only
+- `--ping-pong` — continuous wave-riding (flip after exit, belief conviction gate)
+- `--pp-conviction 0.55` / `--pp-sl` / `--pp-tp` / `--pp-trail` — PP overrides
+- When `--ping-pong` active, outputs go to `checkpoints/snowflake/` + `reports/snowflake/`
 
 ## Data Pipeline
 - ATLAS: `DATA/ATLAS/{tf}/YYYY_MM.parquet` — 14 TFs, 10 months (Jan-Oct 2025)
@@ -83,7 +86,9 @@
 - **Q status**: Sign-first split working. Adaptive sigma + IQR fallback added.
   Need `--analysis-days 120` to get enough samples (default 7d only gives ~460 bars).
   CLI: `--start X` skips to analysis X, `--cache file.npz` saves/loads feature matrix
-- **Integration spec**: `docs/JULES_WAVEFORM_INTEGRATION.md` (5 parts)
+- **Integration spec**: `docs/JULES_WAVEFORM_SEED_INTEGRATION.md` (5 parts)
+  Part 1: seed_library.py (20 shapes), Part 2: 4h worker, Part 3: shape direction P0.5,
+  Part 4: GradientBoosting 176D direction model, Part 5: live engine wiring
 
 ## Seed Library & Live Worker Architecture (KEY DECISION)
 - **The waveform analysis is OFFLINE research** — too slow for live trading
@@ -111,8 +116,8 @@
 - **Active**: `docs/JULES_PERFORMANCE_TARGETS.md` (Phase A/B/C fixes),
   `docs/JULES_DOE_PHASE3.md` (Part 4: I-MR + dp/dt + DBSCAN framework),
   `docs/JULES_AUTO_DOCS.md`,
-  `docs/JULES_WAVEFORM_INTEGRATION.md` (5 parts: TF weights, Hurst modulation,
-  osc_coh blend, shape gate, feature pruning)
+  `docs/JULES_WAVEFORM_SEED_INTEGRATION.md` (5 parts: seed library extraction,
+  4h worker, shape classification, direction model training, live integration)
 - **Archived**: `docs/old_jules/` — SPECTRAL_GATES, SNOWFLAKE_BASELINE,
   TASK_1_2, TEMPLATE_TIMESCALE, PLAN_PRICE_AWARE_WORKERS, SIGNAL_CAPTURE_AUDIT
 
@@ -121,6 +126,9 @@
 - `pre-snowflake` — **active live trading branch** (best candidate as of 2026-03-02)
   - OOS: 357 trades, 52.4% WR, $1,724.50 — better than main
   - Has live module ported from main + physics quality gate
+  - Ping-pong mode: implemented (config overrides, snowflake output dirs)
+  - PP OOS: 535 trades, 52.5% WR, $1,644.50, 56 flips at 51.8% WR (-$195 PP drag)
+  - Direction improved: 50.3% correct (was 43.1%), now taking LONG trades (98)
   - Session reports: `reports/live/session_*.txt`
 - Killed: `unified-cluster`, `jules/fractal-trend-*` (deleted 2026-02-27)
 

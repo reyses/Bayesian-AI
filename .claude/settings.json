@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git show e787169 --no-stat)"
+      "Bash(git show e787169 --no-stat)",
+      "Bash(git reset --hard origin/main)",
+      "Bash(test -f core/keep_awake.py)"
     ]
   }
 }
