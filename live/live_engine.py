@@ -558,7 +558,8 @@ class LiveEngine:
         self._belief_network.tick_all(self._bar_i)
 
         # Ping-pong deferred flip (scheduled by _check_exit, executes on next 15s bar)
-        if self._pp_pending_flip and not self._position_open:
+        # Wait for BOTH engine state AND order manager to confirm flat (NT8 fill received)
+        if self._pp_pending_flip and not self._position_open and self._orders.is_flat:
             flip = self._pp_pending_flip
             self._pp_pending_flip = None
             if not self._orders.loss_limit_hit:
