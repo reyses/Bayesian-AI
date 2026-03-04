@@ -791,6 +791,14 @@ class ProgressPopup:
             )
             self._pp_btn.pack(side=tk.RIGHT, padx=(0, 6))
 
+            self._unlock_btn = tk.Button(
+                btn_frame, text="UNLOCK", bg="#333333", fg="#666666",
+                activebackground="#555555", font=("Consolas", 10, "bold"),
+                width=8, state=tk.DISABLED,
+                command=self._unlock_loss_limit,
+            )
+            self._unlock_btn.pack(side=tk.RIGHT, padx=(0, 6))
+
             # ── NT8 Account Equity row ───────────────────────────────────
             eq_frame = tk.Frame(root, bg=BG)
             eq_frame.pack(fill="x", padx=20, pady=(8, 0))
@@ -978,26 +986,6 @@ class ProgressPopup:
             bg="#141414", highlightthickness=1, highlightbackground="#333333")
         self._price_canvas.pack(padx=20, fill=tk.X, expand=False)
         self._price_canvas.bind("<Configure>", lambda e: self._redraw_price_chart())
-
-        # ── Emergency FLATTEN + UNLOCK buttons ─────────────────────────────────
-        if self._shared_state is not None:
-            _bot_frame = tk.Frame(root, bg=BG)
-            _bot_frame.pack(fill="x", padx=20, pady=(10, 0))
-
-            self._flatten_btn = tk.Button(
-                _bot_frame, text="FLATTEN ALL", bg="#aa0000", fg="#ffffff",
-                activebackground="#ff0000", font=("Consolas", 14, "bold"),
-                height=2, command=lambda: self._manual_order('FLATTEN'),
-            )
-            self._flatten_btn.pack(side=tk.LEFT, fill="x", expand=True)
-
-            self._unlock_btn = tk.Button(
-                _bot_frame, text="UNLOCK", bg="#333333", fg="#666666",
-                activebackground="#555555", font=("Consolas", 14, "bold"),
-                height=2, width=10, state=tk.DISABLED,
-                command=self._unlock_loss_limit,
-            )
-            self._unlock_btn.pack(side=tk.RIGHT, padx=(6, 0))
 
         # ── Status footer ─────────────────────────────────────────────────────
         self._status_var = tk.StringVar(value="Running...")
