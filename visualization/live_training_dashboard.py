@@ -841,15 +841,16 @@ class ProgressPopup:
         )
         self._pbar.pack(fill=tk.X, padx=20)
 
-        # Percentage label — prominent, right-aligned feel
+        # Trade health label — shows position ticks or trade count
         self._pct_var = tk.StringVar(value="0%")
-        tk.Label(
+        self._pct_lbl = tk.Label(
             root,
             textvariable=self._pct_var,
             bg=BG,
             fg=FG_WHITE,
             font=("Consolas", 10, "bold"),
-        ).pack(pady=(3, 10))
+        )
+        self._pct_lbl.pack(pady=(3, 10))
 
         # ── Stats row ─────────────────────────────────────────────────────────
         stats_frame = tk.Frame(root, bg=BG)
@@ -1226,7 +1227,26 @@ class ProgressPopup:
                     self._phase_var.set(phase_label)
                     self._step_var.set(detail)
                     self._pbar["value"] = pct
-                    self._pct_var.set(f"{pct:.1f}%")
+                    # Bar label: trade life decay or entry belief
+                    if step and step.startswith('WARN'):
+                        # Manual trade against belief — flash warning
+                        self._pct_var.set(step)
+                        self._pct_lbl.config(fg="#ff4444")
+                    elif step and step.startswith('life'):
+                        # In position — trade life decaying 100% -> 0%
+                        self._pct_var.set(step)
+                        _clr = (FG_GREEN if pct >= 60 else
+                                "#ffaa00" if pct >= 30 else FG_RED)
+                        self._pct_lbl.config(fg=_clr)
+                    elif step and step.startswith('belief'):
+                        # Flat — entry belief charging up
+                        self._pct_var.set(step)
+                        _clr = ("#ffaa00" if pct >= 60 else
+                                "#888888" if pct >= 20 else "#444444")
+                        self._pct_lbl.config(fg=_clr)
+                    else:
+                        self._pct_var.set(step if step else f"{pct:.1f}%")
+                        self._pct_lbl.config(fg=FG_WHITE)
 
                     if pnl is not None:
                         sign = "+" if pnl >= 0 else ""

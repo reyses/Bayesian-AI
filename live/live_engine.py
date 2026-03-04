@@ -177,11 +177,14 @@ class LiveEngine:
         self._last_price = 0.0  # latest bar close (for main loop access)
         self._last_ts = 0.0     # latest bar timestamp
         self._last_exit_time = 0.0  # cooldown between trades
+        self._last_gui_push = 0.0  # throttle GUI stats to 1/s
         self._order_send_ts = 0.0  # perf_counter when order was sent (latency tracking)
         self._live_trade_count = 0  # for periodic brain save
         self._brain_save_interval = 5  # save brain every N trades
         self._shutting_down = False    # graceful shutdown in progress
         self._instrument_mismatch = False  # set True if NT8 chart != config instrument
+        self._entry_belief_pct = 0         # aggregated gate cascade progress (0-100%)
+        self._exit_belief_pct = 100        # trade life remaining (100%=fresh, 0%=exit imminent)
 
         # Ping-pong mode (continuous wave-riding with direction refinement)
         self._ping_pong_mode = self._shared_state.get('ping_pong', False)
@@ -323,6 +326,20 @@ class LiveEngine:
                 _last_ts = getattr(self, '_last_ts', time.time())
                 await self._handle_manual_order(
                     manual, _last_px, _last_ts, self._last_states or [])
+
+            # Every ~1s: exit protection + belief compute + GUI push
+            _now = time.time()
+            if _now - self._last_gui_push >= 1.0 and self._aggregator.is_warmed_up:
+                self._last_gui_push = _now
+                # Exit check between bars — catches SL/TP/trail within 1s
+                if self._position_open and self._last_price > 0:
+                    try:
+                        await self._check_exit(self._last_price, _now)
+                    except Exception as _exit_err:
+                        logger.error(f"_check_exit CRASHED (1s loop): {_exit_err} — emergency flatten")
+                        await self._close_position('EXIT_CRASH')
+                self._compute_life_pct()
+                self._gui_push_stats()
 
             try:
                 msg = await asyncio.wait_for(
@@ -505,7 +522,11 @@ class LiveEngine:
 
         # Exit check EVERY SECOND (trail stop, SL, TP are price-dependent)
         if self._position_open:
-            await self._check_exit(price, ts)
+            try:
+                await self._check_exit(price, ts)
+            except Exception as _exit_err:
+                logger.error(f"_check_exit CRASHED: {_exit_err} — emergency flatten")
+                await self._close_position('EXIT_CRASH')
 
         # ══ 15-SECOND PROCESSING (only on fresh state recompute) ══════
         if not new_bar:
@@ -535,9 +556,38 @@ class LiveEngine:
 
     # ── Exit Logic ────────────────────────────────────────────────────
 
+    def _compute_life_pct(self):
+        """Compute trade life % (100%=fresh, 0%=exit imminent). Cheap — runs every second."""
+        pos = self._wave_rider.position
+        if pos is None or not self._position_open:
+            return
+        price = self._last_price
+        if price <= 0:
+            return
+        exit_sig = self._belief_network.get_exit_signal(pos.side)
+        _conviction = exit_sig.get('conviction', 0.5)
+        _wave_mat = exit_sig.get('wave_maturity', 0.0)
+        _aligned = 1.0
+        belief = self._belief_network.get_belief()
+        if belief and belief.direction != pos.side:
+            _aligned = 0.3
+        _tick = 0.25
+        if pos.side == 'long':
+            profit_ticks = (price - pos.entry_price) / _tick
+        else:
+            profit_ticks = (pos.entry_price - price) / _tick
+        sl_ticks = abs(pos.entry_price - pos.stop_loss) / _tick if pos.stop_loss else 40
+        _trail_health = max(0, min(1, (profit_ticks + sl_ticks) / max(1, 2 * sl_ticks)))
+        _life_pct = (
+            _conviction * 30
+            + (1 - _wave_mat) * 30
+            + _trail_health * 25
+            + _aligned * 15
+        )
+        self._exit_belief_pct = max(0, min(100, _life_pct))
+
     async def _check_exit(self, price: float, ts: float):
         """Check for exit signals on the current bar."""
-        # Normal exit via wave rider + belief network
         pos = self._wave_rider.position
         if pos is None:
             return
@@ -612,6 +662,18 @@ class LiveEngine:
         """Execute the manual entry (called directly or after deferred FILL)."""
         side = 'long' if action == 'BUY' else 'short'
 
+        # Belief warning — check if workers disagree with manual direction
+        belief = self._belief_network.get_belief()
+        if belief and belief.direction != side:
+            _warn = (f"WARNING: belief says {belief.direction.upper()} "
+                     f"(conv={belief.conviction:.2f}) — you're going {side.upper()}")
+            logger.warning(_warn)
+            self._gui_push({
+                'type': 'PHASE_PROGRESS', 'phase': 'LIVE',
+                'step': f'WARN: belief={belief.direction.upper()}',
+                'pct': self._entry_belief_pct,
+            })
+
         # Use tuning exit params for manual trades
         sl_ticks = self._tuning.get('manual_sl', 20)
         tp_ticks = self._tuning.get('manual_tp', 50)
@@ -623,8 +685,17 @@ class LiveEngine:
         self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
                         'side': side, 'price': price})
 
-        # Get latest state for wave rider
-        state = states[-1]['state'] if states else None
+        # Always use freshest quantum state — a trade is a trade
+        _fresh_states = self._last_states or states
+        if not _fresh_states:
+            # Force recompute if nothing cached (rare: manual during warmup)
+            _fresh_states = self._aggregator._recompute() or []
+            if _fresh_states:
+                self._last_states = _fresh_states
+                logger.info(f"Forced state recompute for manual entry: {len(_fresh_states)} states")
+        state = _fresh_states[-1]['state'] if _fresh_states else None
+        if state is None:
+            logger.warning("No quantum state available — manual trade will have limited exit protection")
 
         self._wave_rider.open_position(
             entry_price=price, side=side,
@@ -672,14 +743,16 @@ class LiveEngine:
     async def _enter_ping_pong(self, side_hint: str, price: float,
                                 ts: float, states: list):
         """Full-context flip entry — uses direction model + learns outcomes."""
-        if not states:
+        # Always use freshest quantum state
+        _fresh = self._last_states or states
+        if not _fresh:
             logger.debug("PING-PONG: no states for flip entry, skip")
             self._pp_pending_flip = None
             return
 
         tid = self._active_tid or 'MANUAL'
         base_tid = tid[3:] if isinstance(tid, str) and tid.startswith('PP_') else tid
-        latest = states[-1]
+        latest = _fresh[-1]
         state = latest['state']
 
         # Build a candidate from current state for direction model
@@ -986,11 +1059,20 @@ class LiveEngine:
         eb = self._exit_buckets
         # Use OrderManager daily_pnl as source of truth (includes all fills)
         _true_pnl = self._orders.daily_pnl
+        # Bar = belief meter
+        # Flat: entry belief charging up (0% -> 100% = fire)
+        # In position: trade life decaying (100% -> 0% = exit)
+        if self._position_open:
+            _bar_pct = self._exit_belief_pct
+            _bar_label = f'life {_bar_pct:.0f}%'
+        else:
+            _bar_pct = self._entry_belief_pct
+            _bar_label = f'belief {_bar_pct:.0f}%' if _bar_pct > 0 else f'trade {self._session_trades}'
         self._gui_push({
             'type': 'PHASE_PROGRESS',
             'phase': 'LIVE',
-            'step': f'trade {self._session_trades}',
-            'pct': min(100, self._bar_i / max(1, self._cfg.warmup_bars) * 100),
+            'step': _bar_label,
+            'pct': _bar_pct,
             'pnl': _true_pnl,
             'wr': wr,
             'trades': self._session_trades,
@@ -1125,6 +1207,7 @@ class LiveEngine:
         """Run the gate cascade on the current bar's quantum state."""
         _t0 = time.perf_counter()
         if not states:
+            self._entry_belief_pct = 0
             return
         if self._instrument_mismatch:
             return  # wrong instrument on NT8 chart — refuse to trade
@@ -1159,7 +1242,11 @@ class LiveEngine:
                          f"z={state.z_score:.3f} v={state.particle_velocity:.3f}")
 
         if not candidates:
+            self._entry_belief_pct = 0
             return
+
+        # Track best gate progress for belief bar (0-100%)
+        _best_belief = 0
 
         self._gate_stats['bars_seen'] += 1
         self._gate_stats['candidates'] += len(candidates)
@@ -1212,12 +1299,19 @@ class LiveEngine:
 
             if should_skip:
                 self._gate_stats['gate0_skip'] += 1
+                # Belief: physics present but not strong enough — 10%
+                _cand_belief = 10
+                _best_belief = max(_best_belief, _cand_belief)
                 continue
 
             # ── Gate 0.5: Depth filter ────────────────────────────────
             if not _yolo and p.depth in self._depth_filter_out:
                 self._gate_stats['gate0_5_skip'] += 1
+                _best_belief = max(_best_belief, 15)
                 continue
+
+            # Gate 0 passed = 20%
+            _cand_belief = 20
 
             # ── Gate 1: Cluster matching ──────────────────────────────
             features = np.array([FractalClusteringEngine.extract_features(p)])
@@ -1229,18 +1323,30 @@ class LiveEngine:
 
             if dist >= _g1_dist:
                 self._gate_stats['gate1_skip'] += 1
+                # Belief: partial credit for how close the match was
+                _match_pct = max(0, 1 - dist / max(1, _g1_dist)) if _g1_dist < float('inf') else 0.5
+                _cand_belief += _match_pct * 15  # up to 35% total
+                _best_belief = max(_best_belief, _cand_belief)
                 logger.debug(f"Gate 1 reject: dist={dist:.2f} >= {_g1_dist:.2f}")
                 continue
 
+            # Gate 1 passed = 20% + 30% match quality
+            _match_quality = max(0, 1 - dist / max(1, _g1_dist)) if _g1_dist < float('inf') else 1.0
+            _cand_belief = 20 + 30 * _match_quality
             logger.debug(f"Gate 1 pass: tid={tid} dist={dist:.2f}/{_g1_dist:.2f}")
 
             # ── Gate 2: Brain ─────────────────────────────────────────
             if not self._brain.should_fire(tid, min_prob=_g2_prob, min_conf=0.0):
                 self._gate_stats['gate2_skip'] += 1
+                _best_belief = max(_best_belief, _cand_belief)
                 logger.debug(f"Gate 2 reject: tid={tid} "
                              f"prob={self._brain.get_probability(tid):.3f} "
                              f"conf={self._brain.get_confidence(tid):.3f}")
                 continue
+
+            # Gate 2 passed = +20% (now at ~70%)
+            _brain_prob = self._brain.get_probability(tid)
+            _cand_belief += 20 * min(1.0, _brain_prob / max(0.01, _g2_prob + 0.3))
 
             # Score competition
             p_depth = p.depth
@@ -1253,8 +1359,10 @@ class LiveEngine:
                 best_dist = score
                 best_candidate = p
                 best_tid = tid
+            _best_belief = max(_best_belief, _cand_belief)
 
         if best_candidate is None:
+            self._entry_belief_pct = min(99, _best_belief)
             return
 
         # ── Gate 3: Path conviction ───────────────────────────────────
@@ -1270,6 +1378,7 @@ class LiveEngine:
         if belief is not None:
             if not belief.is_confident and agg < 0.75:
                 self._gate_stats['gate3_skip'] += 1
+                self._entry_belief_pct = min(99, _best_belief + 10)  # close but no conviction
                 return  # conviction too low (skipped at AGGRESSIVE+)
             if belief.direction != side:
                 side = belief.direction
@@ -1282,6 +1391,7 @@ class LiveEngine:
         _dir_conf = abs(_p_long - 0.5)
         if _dir_conf < _g4_dir:
             self._gate_stats['gate4_skip'] += 1
+            self._entry_belief_pct = min(99, _best_belief + 15)  # almost there, dir unclear
             logger.debug(f"Gate 4 reject: dir_conf={_dir_conf:.3f} < {_g4_dir:.3f} "
                          f"(src={_dir_src}, tid={best_tid})")
             return
@@ -1308,7 +1418,8 @@ class LiveEngine:
         sl_ticks, trail_ticks, trail_act, tp_ticks = self._compute_exit_params(
             lib_entry, params, _network_tp, best_candidate)
 
-        # ── Execute entry ─────────────────────────────────────────────
+        # ── All gates passed — fire! ─────────────────────────────────
+        self._entry_belief_pct = 100
         self._gate_stats['traded'] += 1
         logger.info(f"ENTRY: {side.upper()} @ {price:.2f}  "
                     f"tid={best_tid}  dist={best_dist:.2f}  "
