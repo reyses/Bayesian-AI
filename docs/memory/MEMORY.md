@@ -8,6 +8,8 @@
 - **NEVER run training via Bash** — user runs it themselves
 - **NT8 bridge deploy**: When updating `docs/NT8_BayesianBridge.cs`, also copy it to
   `C:\Users\reyse\OneDrive\Documents\NinjaTrader 8\bin\Custom\Indicators\NT8_BayesianBridge.cs`
+- **NT8 bridge versioning**: Always bump version + update date + time in both header comment
+  and `BRIDGE_VERSION` const (e.g. `6.1.2 — 2026-03-04 06:15`)
 
 ## Architecture
 - **Core engine**: `core/quantum_field_engine.py` — ThreeBodyQuantumState per bar
