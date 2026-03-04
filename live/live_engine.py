@@ -419,10 +419,13 @@ class LiveEngine:
                 bridge_inst = msg.get('instrument', '')
                 logger.info(f"NT8 CONNECTED: account={msg.get('account')}  "
                             f"instrument={bridge_inst}  bridge={bridge_ver}")
-                # Instrument handshake — refuse to trade wrong instrument
-                if bridge_inst and self._cfg.instrument not in bridge_inst:
+                # Instrument handshake — compare root symbol (MNQ, ES, etc.)
+                # NT8 may send "MNQ MAR26" while config has "MNQ 03-26"
+                _cfg_root = self._cfg.asset_ticker.upper()  # "MNQ"
+                _bridge_root = bridge_inst.split()[0].upper() if bridge_inst else ""
+                if _bridge_root and _cfg_root != _bridge_root:
                     logger.error(
-                        f"INSTRUMENT MISMATCH: engine expects '{self._cfg.instrument}' "
+                        f"INSTRUMENT MISMATCH: engine expects '{_cfg_root}' "
                         f"but NT8 chart is '{bridge_inst}' -- REFUSING TO TRADE")
                     self._instrument_mismatch = True
                     self._gui_push({
@@ -433,8 +436,6 @@ class LiveEngine:
                     })
                 else:
                     self._instrument_mismatch = False
-                if bridge_ver != '6.1.1':
-                    logger.warning(f"BRIDGE VERSION MISMATCH: expected 6.1.1, got {bridge_ver}")
                 self._gui_push({
                     'type': 'PHASE_PROGRESS',
                     'phase': 'LIVE',
