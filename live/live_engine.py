@@ -276,6 +276,13 @@ class LiveEngine:
             elif mtype == 'FILL':
                 pnl = self._orders.on_fill(msg)
                 if pnl is not None:
+                    exi = self._orders.last_exit_info
+                    self._gui_push({
+                        'type': 'TRADE_MARKER', 'action': 'exit',
+                        'side': exi.get('side', self._active_side),
+                        'price': exi.get('exit_px', 0),
+                        'pnl': pnl,
+                    })
                     self._brain_learn(pnl)
                 self._sync_position_state()
             elif mtype == 'ORDER_STATUS':
@@ -500,6 +507,8 @@ class LiveEngine:
 
         logger.info(f"MANUAL ENTRY: {side.upper()} @ {price:.2f}  "
                     f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}")
+        self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
+                        'side': side, 'price': price})
 
         # Get latest state for wave rider
         state = states[-1]['state'] if states else None
@@ -618,6 +627,8 @@ class LiveEngine:
         logger.info(f"PING-PONG FLIP #{self._pp_flip_count}: {side.upper()} "
                     f"@ {price:.2f}  TF={tf_label}  "
                     f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}")
+        self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
+                        'side': side, 'price': price})
 
         self._wave_rider.open_position(
             entry_price=price, side=side,
@@ -1213,6 +1224,8 @@ class LiveEngine:
                     f"dir_src={_dir_src}  conf={_dir_conf:.3f}  "
                     f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}  "
                     f"agg={agg:.0%}")
+        self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
+                        'side': side, 'price': price})
 
         self._wave_rider.open_position(
             entry_price=price, side=side,
