@@ -56,10 +56,10 @@ _WORKER_BYPASS_CONV = 0.65
 _TUNING_DEFAULTS = {
     '_comment': 'Edit while live — engine hot-reloads every 20 bars (~5 min)',
     'max_hold_seconds': 300,
-    'manual_sl': 20,
-    'manual_tp': 50,
-    'manual_trail': 12,
-    'manual_trail_act': 8,
+    'manual_sl': 0,
+    'manual_tp': 0,
+    'manual_trail': 0,
+    'manual_trail_act': 0,
     'sl_offset': 0,
     'tp_offset': 0,
     'trail_offset': 0,
@@ -74,6 +74,7 @@ _TUNING_DEFAULTS = {
     'exit_sl_mult': 3.0,
     'exit_trail_mult': 2.5,
     'exit_trail_act_mult': 0.6,
+    'exit_tp_mult': 5.0,
     'min_tick_floor': 4,
 }
 
@@ -213,6 +214,9 @@ class LiveEngine:
         self._tuning = dict(_TUNING_DEFAULTS)
         self._tuning_mtime = 0.0
         self._pp_last_exit_params = None  # TF-scaled params from exited trade
+
+        # Live ATR — computed from actual bar data (replaces library exit params)
+        self._live_atr_ticks = 0.0  # ATR in ticks, updated after history + each bar
 
         # GUI stats (for popup)
         self._session_pnl = 0.0
@@ -490,6 +494,8 @@ class LiveEngine:
                 # Run heavy recompute in thread to avoid blocking event loop
                 loop = asyncio.get_event_loop()
                 await loop.run_in_executor(None, self._aggregator.finish_history)
+                self._update_live_atr()
+                logger.info(f"Live ATR: {self._live_atr_ticks:.1f} ticks")
                 # Drain any remaining stale BAR messages from duplicate
                 # history requests that arrived before HISTORY_DONE
                 drained = 0
@@ -545,6 +551,7 @@ class LiveEngine:
         if new_bar:
             self._last_states = states
             self._bar_i += 1
+            self._update_live_atr()
             # Hot-reload tuning config every 20 bars (~5 min at 15s anchor)
             if self._bar_i % 20 == 0:
                 self._load_tuning()
@@ -592,8 +599,31 @@ class LiveEngine:
         # Feed belief network (time-constants calibrated to 15s bars)
         df = self._aggregator.df
         if self._bar_i % 240 == 1:
-            # Re-prepare day periodically (resamples higher TFs)
-            self._belief_network.prepare_day(df, states_micro=states)
+            # Re-prepare day periodically — supply all TF data
+            df_1s = self._aggregator.df_1s
+            # Resample 1s→5s for sub-resolution worker
+            df_5s = pd.DataFrame()
+            if len(df_1s) >= 5:
+                _df1 = df_1s.copy()
+                _df1.index = pd.to_datetime(_df1['timestamp'], unit='s')
+                df_5s = _df1.resample('5s').agg({
+                    'open': 'first', 'high': 'max',
+                    'low': 'min', 'close': 'last', 'volume': 'sum',
+                    'timestamp': 'first',
+                }).dropna()
+            # Resample 15s→4h for supra-resolution worker
+            df_4h = pd.DataFrame()
+            if len(df) >= 20:
+                _df15 = df.copy()
+                _df15.index = pd.to_datetime(_df15['timestamp'], unit='s')
+                df_4h = _df15.resample('4h').agg({
+                    'open': 'first', 'high': 'max',
+                    'low': 'min', 'close': 'last', 'volume': 'sum',
+                    'timestamp': 'first',
+                }).dropna()
+            self._belief_network.prepare_day(
+                df, states_micro=states,
+                df_5s=df_5s, df_1s=df_1s, df_4h=df_4h)
 
         self._belief_network.tick_all(self._bar_i)
 
@@ -719,11 +749,13 @@ class LiveEngine:
         self._wave_rider.position = None
         self._last_exit_time = time.time()
 
-        # Exit params from tuning
-        sl_ticks = self._pp_sl_override or self._tuning.get('pp_sl', 0) or 15
-        tp_ticks = self._pp_tp_override or self._tuning.get('pp_tp', 0) or 30
-        trail_ticks = self._pp_trail_override or self._tuning.get('pp_trail', 0) or 10
-        trail_act = self._tuning.get('manual_trail_act', 8)
+        # Exit params: ATR-based defaults, tuning overrides if non-zero
+        atr = self._live_atr_ticks if self._live_atr_ticks > 0 else 8.0
+        _floor = max(4, self._tuning.get('min_tick_floor', 4))
+        sl_ticks = self._pp_sl_override or self._tuning.get('pp_sl', 0) or max(_floor, int(round(atr * self._tuning.get('exit_sl_mult', 3.0))))
+        tp_ticks = self._pp_tp_override or self._tuning.get('pp_tp', 0) or max(_floor, int(round(atr * self._tuning.get('exit_tp_mult', 5.0))))
+        trail_ticks = self._pp_trail_override or self._tuning.get('pp_trail', 0) or max(_floor, int(round(atr * self._tuning.get('exit_trail_mult', 2.5))))
+        trail_act = max(_floor, int(round(atr * self._tuning.get('exit_trail_act_mult', 0.6))))
 
         self._pp_flip_count += 1
         logger.info(f"INSTANT FLIP #{self._pp_flip_count}: {exited_side}->{side.upper()} "
@@ -855,11 +887,13 @@ class LiveEngine:
                 'pct': self._entry_belief_pct,
             })
 
-        # Use tuning exit params for manual trades
-        sl_ticks = self._tuning.get('manual_sl', 20)
-        tp_ticks = self._tuning.get('manual_tp', 50)
-        trail_ticks = self._tuning.get('manual_trail', 12)
-        trail_act = self._tuning.get('manual_trail_act', 8)
+        # Exit params: ATR-based defaults, manual overrides if non-zero
+        atr = self._live_atr_ticks if self._live_atr_ticks > 0 else 8.0
+        _floor = max(4, self._tuning.get('min_tick_floor', 4))
+        sl_ticks = self._tuning.get('manual_sl', 0) or max(_floor, int(round(atr * self._tuning.get('exit_sl_mult', 3.0))))
+        tp_ticks = self._tuning.get('manual_tp', 0) or max(_floor, int(round(atr * self._tuning.get('exit_tp_mult', 5.0))))
+        trail_ticks = self._tuning.get('manual_trail', 0) or max(_floor, int(round(atr * self._tuning.get('exit_trail_mult', 2.5))))
+        trail_act = max(_floor, int(round(atr * self._tuning.get('exit_trail_act_mult', 0.6))))
 
         logger.info(f"MANUAL ENTRY: {side.upper()} @ {price:.2f}  "
                     f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}")
@@ -951,11 +985,13 @@ class LiveEngine:
             side = _side_lock
             _dir_src = f'locked_{_side_lock}'
 
-        # Exit params from tuning
-        sl_ticks = self._pp_sl_override or self._tuning.get('pp_sl', 0) or 15
-        tp_ticks = self._pp_tp_override or self._tuning.get('pp_tp', 0) or 30
-        trail_ticks = self._pp_trail_override or self._tuning.get('pp_trail', 0) or 10
-        trail_act = self._tuning.get('manual_trail_act', 8)
+        # Exit params: ATR-based defaults, tuning overrides if non-zero
+        atr = self._live_atr_ticks if self._live_atr_ticks > 0 else 8.0
+        _floor = max(4, self._tuning.get('min_tick_floor', 4))
+        sl_ticks = self._pp_sl_override or self._tuning.get('pp_sl', 0) or max(_floor, int(round(atr * self._tuning.get('exit_sl_mult', 3.0))))
+        tp_ticks = self._pp_tp_override or self._tuning.get('pp_tp', 0) or max(_floor, int(round(atr * self._tuning.get('exit_tp_mult', 5.0))))
+        trail_ticks = self._pp_trail_override or self._tuning.get('pp_trail', 0) or max(_floor, int(round(atr * self._tuning.get('exit_trail_mult', 2.5))))
+        trail_act = max(_floor, int(round(atr * self._tuning.get('exit_trail_act_mult', 0.6))))
 
         self._pp_flip_count += 1
         logger.info(f"PING-PONG FLIP #{self._pp_flip_count}: {side.upper()} "
@@ -1686,7 +1722,7 @@ class LiveEngine:
                     f"tid={best_tid}  dist={best_dist:.2f}  "
                     f"dir_src={_dir_src}  conf={_dir_conf:.3f}  "
                     f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}  "
-                    f"agg={agg:.0%}")
+                    f"ATR={self._live_atr_ticks:.1f}  agg={agg:.0%}")
         self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
                         'side': side, 'price': price})
 
@@ -1829,62 +1865,46 @@ class LiveEngine:
         side = 'long' if vel >= 0 else 'short'
         return side, 0.55 if side == 'long' else 0.45, 'velocity'
 
+    def _update_live_atr(self):
+        """Compute ATR in ticks from the live bar buffer (rolling 14-period)."""
+        df = self._aggregator.df
+        if len(df) < 2:
+            return
+        highs = df['high'].values
+        lows = df['low'].values
+        closes = df['close'].values
+        # True Range: max(H-L, |H-prevC|, |L-prevC|)
+        hl = highs[1:] - lows[1:]
+        hpc = np.abs(highs[1:] - closes[:-1])
+        lpc = np.abs(lows[1:] - closes[:-1])
+        tr = np.maximum(hl, np.maximum(hpc, lpc))
+        # EMA-14 ATR (use last 14 bars, or all if fewer)
+        n = min(14, len(tr))
+        atr = float(np.mean(tr[-n:]))
+        self._live_atr_ticks = max(1.0, atr / self._cfg.tick_size)
+        logger.debug(f"Live ATR: {self._live_atr_ticks:.1f} ticks "
+                     f"({atr:.2f} points, {len(df)} bars)")
+
     def _compute_exit_params(self, lib_entry: dict, params: dict,
                              network_tp: Optional[int],
                              candidate: _LiveCandidate):
-        """Compute SL, trail, trail activation, and TP ticks."""
-        _reg_sigma = lib_entry.get('regression_sigma_ticks', 0.0)
-        _mean_mae = lib_entry.get('mean_mae_ticks', 0.0)
-        _p75_mfe = lib_entry.get('p75_mfe_ticks', 0.0)
-        _p25_mae = lib_entry.get('p25_mae_ticks', 0.0)
-
+        """Compute SL, trail, trail activation, and TP ticks from live ATR."""
         _sl_mult = self._tuning.get('exit_sl_mult', 3.0)
         _trail_mult = self._tuning.get('exit_trail_mult', 2.5)
         _trail_act_mult = self._tuning.get('exit_trail_act_mult', 0.6)
+        _tp_mult = self._tuning.get('exit_tp_mult', 5.0)
         _min_floor = self._tuning.get('min_tick_floor', 4)
 
-        # Phase 1: hard stop
-        if _p25_mae > 2.0:
-            sl = max(_min_floor, int(round(_p25_mae * _sl_mult)))
-        elif _mean_mae > 2.0:
-            sl = max(_min_floor, int(round(_mean_mae * 2.0)))
-        else:
-            sl = params.get('stop_loss_ticks', 20)
+        atr = self._live_atr_ticks if self._live_atr_ticks > 0 else 8.0
 
-        # Phase 2: trail — sigma*trail_mult captures normal noise in trending move;
-        # floor at 8 ticks ($10/tick MNQ = $80 minimum breathing room).
-        if _reg_sigma > 2.0:
-            trail = max(8, int(round(_reg_sigma * _trail_mult)))
-        elif _mean_mae > 2.0:
-            trail = max(8, int(round(_mean_mae * 1.5)))
-        else:
-            trail = max(8, params.get('trailing_stop_ticks', 12))
+        sl = max(_min_floor, int(round(atr * _sl_mult)))
+        trail = max(_min_floor, int(round(atr * _trail_mult)))
+        trail_act = max(_min_floor, int(round(atr * _trail_act_mult)))
+        tp = max(_min_floor, int(round(atr * _tp_mult)))
 
-        # Trail activation: trail_act_mult × p25_mae ensures trade is meaningfully
-        # in profit before trail takes over from hard SL.
-        trail_act = (max(_min_floor, int(round(_p25_mae * _trail_act_mult)))
-                     if _p25_mae > 2.0 else None)
-
-        # TP priority: network → OLS → p75 → fallback
+        # Network TP override (belief network prediction) if available
         if network_tp is not None:
-            tp = network_tp
-        else:
-            _live_feat = np.array(FractalClusteringEngine.extract_features(candidate))
-            _live_scaled = self._scaler.transform([_live_feat])[0]
-            _mfe_coeff = lib_entry.get('mfe_coeff')
-            if _mfe_coeff is not None:
-                _pred = (np.dot(_live_scaled, np.array(_mfe_coeff))
-                         + lib_entry.get('mfe_intercept', 0.0))
-                _pred_ticks = max(0.0, _pred / 0.25)
-                tp = (max(4, int(round(_pred_ticks)))
-                      if _pred_ticks > 2.0
-                      else (max(4, int(round(_p75_mfe)))
-                            if _p75_mfe > 2.0
-                            else params.get('take_profit_ticks', 50)))
-            elif _p75_mfe > 2.0:
-                tp = max(4, int(round(_p75_mfe)))
-            else:
-                tp = params.get('take_profit_ticks', 50)
+            tp = max(_min_floor, network_tp)
 
         return sl, trail, trail_act, tp
 
