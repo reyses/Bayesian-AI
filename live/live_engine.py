@@ -60,6 +60,10 @@ _TUNING_DEFAULTS = {
     'manual_tp': 50,
     'manual_trail': 12,
     'manual_trail_act': 8,
+    'sl_offset': 0,
+    'tp_offset': 0,
+    'trail_offset': 0,
+    'trail_act_offset': 0,
     'pp_sl': 0,
     'pp_tp': 0,
     'pp_trail': 0,
@@ -273,19 +277,22 @@ class LiveEngine:
             except Exception as e:
                 logger.error(f"LiveEngine fatal error: {e}", exc_info=True)
             finally:
-                # Close any open position on shutdown
+                # Safety: close any open position (no-op if graceful shutdown already flattened)
                 if self._position_open and not self._dry_run:
                     msg = self._orders.build_exit_order(reason='shutdown')
                     if msg:
                         await self._client.send(msg)
-                # Save brain on exit (preserve learning)
+                # Safety: save brain (no-op if _prepare_shutdown already saved)
                 if self._live_trade_count > 0:
                     brain_path = os.path.join(
                         self._cfg.checkpoint_dir, 'live_brain.pkl')
                     self._brain.save(brain_path)
                     logger.info(f"Live brain saved on exit ({self._live_trade_count} trades)")
-                # Clean disconnect — properly await pending tasks
+                # Disconnect from NT8
                 await self._client.disconnect()
+                logger.info("NT8 disconnected — shutdown complete")
+                # NOW signal GUI that everything is done
+                self._shared_state['shutdown_confirmed'] = True
 
     # ── Main Loop ─────────────────────────────────────────────────────
 
@@ -297,17 +304,18 @@ class LiveEngine:
                 logger.info("Shutdown requested by GUI -- stopping engine")
                 break
 
-            # Graceful shutdown: flatten, wait for NT8 flat confirmation
+            # Graceful shutdown: flatten → disable trading → confirm → exit
             if self._shared_state.pop('shutdown_flatten', False):
                 self._shutting_down = True
+                self._ping_pong_mode = False  # kill PP immediately
+                self._belief_network.stop_trade_tracking()
                 if self._position_open and not self._dry_run:
                     logger.info("SHUTDOWN: flattening position before close...")
-                    self._belief_network.stop_trade_tracking()
                     await self._close_position('SHUTDOWN')
                 else:
+                    logger.info("SHUTDOWN: already flat")
                     self._prepare_shutdown()
-                    self._shared_state['shutdown_confirmed'] = True
-                    logger.info("SHUTDOWN: already flat -- confirmed")
+                    break  # exit main loop -> finally: disconnect -> confirmed
 
             # Prepare-for-shutdown: save brain + advise on position
             if self._shared_state.pop('prepare_shutdown', False):
@@ -426,11 +434,11 @@ class LiveEngine:
                         logger.info(f"Deferred manual entry firing (flat confirmed @ {fill_px})")
                         await self._execute_manual_entry(
                             _pm['action'], fill_px, _pm['ts'], _pm['states'])
-                # Graceful shutdown: confirm flat to GUI
+                # Graceful shutdown: confirm flat to GUI, then exit loop
                 if self._shutting_down and self._orders.is_flat:
-                    logger.info("SHUTDOWN: NT8 confirmed flat -- safe to close")
+                    logger.info("SHUTDOWN: NT8 confirmed flat")
                     self._prepare_shutdown()
-                    self._shared_state['shutdown_confirmed'] = True
+                    break  # exit main loop -> finally: disconnect -> confirmed
             elif mtype == 'ORDER_STATUS':
                 self._orders.on_order_status(msg)
                 # Retry close if exit was rejected (position still open in NT8)
@@ -677,10 +685,10 @@ class LiveEngine:
 
     async def _flip_position(self, reason: str, exited_side: str,
                              price: float, ts: float):
-        """Ping-pong instant flip: send 2-contract order (close + open opposite).
+        """Ping-pong flip/continuation after exit trigger.
 
-        Single market order: BUY 2 when SHORT 1 = cover + open long.
-        No waiting for fill confirmation — NT8 handles it atomically.
+        Opposite side: single 2-contract flip order (BUY 2 when SHORT 1).
+        Same side: no orders — keep NT8 position, reset exits internally.
         """
         # Determine new direction before clearing state
         _fresh = self._last_states or []
@@ -745,13 +753,36 @@ class LiveEngine:
             logger.info("[DRY RUN] Flip logged but no order sent")
             return
 
-        # Single 2-contract order: 1 to close + 1 to open opposite
-        self._flip_in_progress = True
-        msg = self._orders.build_flip_order(reason=reason)
-        if msg:
-            self._order_send_ts = time.perf_counter()
-            await self._client.send(msg)
-            logger.info("LATENCY: instant flip order sent (2 contracts)")
+        same_side = (side.lower() == exited_side.lower())
+        if same_side:
+            # Same-side continuation: keep NT8 position open, reset exits.
+            # No orders = zero latency, zero commission, zero slippage.
+            # Track PnL internally for the "closed" trade segment.
+            pos = self._orders.position
+            if pos and pos.avg_price > 0:
+                if pos.side == 'LONG':
+                    seg_pnl = (price - pos.avg_price) * pos.qty * self._cfg.point_value
+                else:
+                    seg_pnl = (pos.avg_price - price) * pos.qty * self._cfg.point_value
+                self._orders._daily_pnl += seg_pnl
+                self._orders._trade_count += 1
+                self._orders._log_trade(price, seg_pnl, reason='pp_continuation')
+                self._orders.last_exit_info = {
+                    'entry_px': pos.avg_price, 'exit_px': price, 'side': pos.side,
+                }
+                # Reset entry price to current for next segment
+                pos.avg_price = price
+                pos.entry_time = time.time()
+                logger.info(f"PP CONTINUATION: {side.upper()} @ {price:.2f}  "
+                            f"seg_pnl=${seg_pnl:+.2f}  (no orders, exits reset)")
+        else:
+            # Opposite side: single 2-contract flip order
+            self._flip_in_progress = True
+            msg = self._orders.build_flip_order(reason=reason)
+            if msg:
+                self._order_send_ts = time.perf_counter()
+                await self._client.send(msg)
+                logger.info("INSTANT FLIP: 2-contract order sent")
 
         self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
                         'side': side, 'price': price})
@@ -1640,6 +1671,14 @@ class LiveEngine:
         sl_ticks, trail_ticks, trail_act, tp_ticks = self._compute_exit_params(
             lib_entry, params, _network_tp, best_candidate)
 
+        # Signed offsets: library_value + offset (negative = tighter, 0 = no change)
+        _floor = max(4, self._tuning.get('min_tick_floor', 4))
+        sl_ticks = max(_floor, sl_ticks + self._tuning.get('sl_offset', 0))
+        tp_ticks = max(_floor, tp_ticks + self._tuning.get('tp_offset', 0))
+        trail_ticks = max(_floor, trail_ticks + self._tuning.get('trail_offset', 0))
+        if trail_act is not None:
+            trail_act = max(_floor, trail_act + self._tuning.get('trail_act_offset', 0))
+
         # ── All gates passed — fire! ─────────────────────────────────
         self._entry_belief_pct = 100
         self._gate_stats['traded'] += 1
@@ -1851,8 +1890,8 @@ class LiveEngine:
 
     def _sync_position_state(self):
         """Sync local position tracking with OrderManager's state."""
-        # During a 2-contract flip, order manager goes flat momentarily
-        # between the exit fill and entry fill — don't reset engine state
+        # During a 2-contract flip, on_fill creates new position atomically;
+        # guard stays until order_manager confirms non-flat (fill received)
         if self._flip_in_progress:
             if not self._orders.is_flat:
                 # Entry fill received — flip complete
