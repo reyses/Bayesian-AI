@@ -30,6 +30,7 @@ class LiveBarAggregator:
         self._cfg = config
         self._target_period = target_period
         self._rows: list = []       # completed anchor-TF bars
+        self._rows_1s: list = []    # raw 1s bars (for TBN sub-resolution workers)
         self._states: list = []
         self._warmed_up = False
         self._sub_bars: list = []   # buffered 1s bars for current window
@@ -55,6 +56,13 @@ class LiveBarAggregator:
         if not self._rows:
             return pd.DataFrame()
         return pd.DataFrame(self._rows)
+
+    @property
+    def df_1s(self) -> pd.DataFrame:
+        """Raw 1s bar DataFrame (for TBN sub-resolution workers)."""
+        if not self._rows_1s:
+            return pd.DataFrame()
+        return pd.DataFrame(self._rows_1s)
 
     def add_bar(self, msg: dict) -> Optional[list]:
         """
@@ -85,6 +93,9 @@ class LiveBarAggregator:
         if bar_period >= self._target_period:
             return self._append_bar(row_1s)
 
+        # Keep raw 1s bars for TBN sub-resolution workers
+        self._rows_1s.append(row_1s)
+
         # Buffer the 1s bar
         self._sub_bars.append(row_1s)
 
@@ -110,6 +121,7 @@ class LiveBarAggregator:
     def reset(self):
         """Flush all bars and states (session boundary)."""
         self._rows.clear()
+        self._rows_1s.clear()
         self._states.clear()
         self._sub_bars.clear()
         self._warmed_up = False
