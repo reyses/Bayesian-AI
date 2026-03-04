@@ -202,6 +202,7 @@ class LiveEngine:
         self._pp_max_hold_override = config.pp_max_hold_bars
         self._pp_flip_count = 0
         self._pp_pending_flip = None  # deferred flip: {'side', 'price', 'ts'}
+        self._flip_in_progress = False  # True between flip order sent and entry fill received
         self._pending_manual_entry = None  # deferred manual entry after exit fill
 
         # Hot-reloadable tuning (loaded in _load_checkpoints, refreshed every 20 bars)
@@ -694,7 +695,7 @@ class LiveEngine:
         trail_act = self._tuning.get('manual_trail_act', 8)
 
         self._pp_flip_count += 1
-        logger.info(f"INSTANT FLIP #{self._pp_flip_count}: {exited_side}→{side.upper()} "
+        logger.info(f"INSTANT FLIP #{self._pp_flip_count}: {exited_side}->{side.upper()} "
                     f"@ {price:.2f}  dir_src={_dir_src}  p_long={_p_long:.2f}  "
                     f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}")
 
@@ -722,6 +723,7 @@ class LiveEngine:
             return
 
         # Single 2-contract order: 1 to close + 1 to open opposite
+        self._flip_in_progress = True
         msg = self._orders.build_flip_order(reason=reason)
         if msg:
             self._order_send_ts = time.perf_counter()
@@ -1826,6 +1828,13 @@ class LiveEngine:
 
     def _sync_position_state(self):
         """Sync local position tracking with OrderManager's state."""
+        # During a 2-contract flip, order manager goes flat momentarily
+        # between the exit fill and entry fill — don't reset engine state
+        if self._flip_in_progress:
+            if not self._orders.is_flat:
+                # Entry fill received — flip complete
+                self._flip_in_progress = False
+            return
         if self._position_open and self._orders.is_flat:
             # Position closed (fill received)
             self._position_open = False
