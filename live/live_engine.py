@@ -574,20 +574,27 @@ class LiveEngine:
     # ── Exit Logic ────────────────────────────────────────────────────
 
     def _compute_life_pct(self):
-        """Compute trade life % (100%=fresh, 0%=exit imminent). Cheap — runs every second."""
+        """Compute trade life % (100%=fresh, 0%=exit imminent). Cheap — runs every second.
+
+        Components (weighted to 100%):
+          - Time remaining (35%): linear decay from entry to max_hold
+          - Trail health (30%): how far from SL, moves with price every tick
+          - Conviction (20%): belief network strength (updates every 15s)
+          - Alignment (15%): belief direction matches trade side
+        """
         pos = self._wave_rider.position
         if pos is None or not self._position_open:
             return
         price = self._last_price
         if price <= 0:
             return
-        exit_sig = self._belief_network.get_exit_signal(pos.side)
-        _conviction = exit_sig.get('conviction', 0.5)
-        _wave_mat = exit_sig.get('wave_maturity', 0.0)
-        _aligned = 1.0
-        belief = self._belief_network.get_belief()
-        if belief and belief.direction != pos.side:
-            _aligned = 0.3
+
+        # Time decay — linear drain from 100% to 0% over max_hold
+        _elapsed = time.time() - self._entry_time
+        _max_hold_s = self._max_hold_bars * self._anchor_period
+        _time_remaining = max(0, 1.0 - _elapsed / max(1, _max_hold_s))
+
+        # Trail health — distance from SL (moves with every price tick)
         _tick = 0.25
         if pos.side == 'long':
             profit_ticks = (price - pos.entry_price) / _tick
@@ -595,10 +602,19 @@ class LiveEngine:
             profit_ticks = (pos.entry_price - price) / _tick
         sl_ticks = abs(pos.entry_price - pos.stop_loss) / _tick if pos.stop_loss else 40
         _trail_health = max(0, min(1, (profit_ticks + sl_ticks) / max(1, 2 * sl_ticks)))
+
+        # Conviction + alignment (update every 15s from belief network)
+        exit_sig = self._belief_network.get_exit_signal(pos.side)
+        _conviction = exit_sig.get('conviction', 0.5)
+        _aligned = 1.0
+        belief = self._belief_network.get_belief()
+        if belief and belief.direction != pos.side:
+            _aligned = 0.3
+
         _life_pct = (
-            _conviction * 30
-            + (1 - _wave_mat) * 30
-            + _trail_health * 25
+            _time_remaining * 35
+            + _trail_health * 30
+            + _conviction * 20
             + _aligned * 15
         )
         self._exit_belief_pct = max(0, min(100, _life_pct))
