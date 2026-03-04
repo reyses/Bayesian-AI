@@ -189,7 +189,17 @@ def main():
 
     engine = LiveEngine(config, dry_run=args.dry_run, gui_queue=gui_queue,
                         shared_state=shared_state)
-    asyncio.run(engine.run())
+    try:
+        asyncio.run(engine.run())
+    except KeyboardInterrupt:
+        pass
+    finally:
+        # Signal GUI to exit cleanly (avoids Tcl_AsyncDelete crash)
+        shared_state['shutdown'] = True
+        if gui_queue is not None:
+            gui_queue.put({'type': 'SHUTDOWN'})
+        if not args.no_gui:
+            gui_thread.join(timeout=3)
 
 
 if __name__ == '__main__':
