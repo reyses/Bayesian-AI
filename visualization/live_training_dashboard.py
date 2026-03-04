@@ -956,6 +956,7 @@ class ProgressPopup:
         # ── Live Price Chart ─────────────────────────────────────────────
         self._price_history = []  # last N prices for line chart
         self._MAX_PRICE_PTS = 200  # rolling window
+        self._trade_markers = []  # (price_index, action, side, price, pnl)
 
         price_header = tk.Frame(root, bg=BG)
         price_header.pack(fill="x", padx=20, pady=(10, 2))
@@ -1086,6 +1087,32 @@ class ProgressPopup:
         c.create_oval(coords[-2] - 3, coords[-1] - 3,
                       coords[-2] + 3, coords[-1] + 3,
                       fill=color, outline="")
+
+        # Trade markers (entry=triangle, exit=square)
+        n_pts = len(pts)
+        for (idx, action, side, mprice, mpnl) in self._trade_markers:
+            if idx < 0 or idx >= n_pts:
+                continue
+            mx = pad + idx / max(1, n_pts - 1) * (W - 2 * pad)
+            my = H - pad - ((mprice - mn) / span) * (H - 2 * pad)
+            if action == 'entry':
+                # Triangle: green=LONG, red=SHORT
+                mc = "#00FF00" if side == 'long' else "#FF4444"
+                sz = 5
+                if side == 'long':
+                    # Up triangle
+                    c.create_polygon(mx, my - sz, mx - sz, my + sz,
+                                     mx + sz, my + sz, fill=mc, outline="#000")
+                else:
+                    # Down triangle
+                    c.create_polygon(mx, my + sz, mx - sz, my - sz,
+                                     mx + sz, my - sz, fill=mc, outline="#000")
+            else:
+                # Exit: square, colored by PnL
+                mc = "#00FF00" if mpnl and mpnl > 0 else "#FF4444"
+                sz = 3
+                c.create_rectangle(mx - sz, my - sz, mx + sz, my + sz,
+                                   fill=mc, outline="#000")
 
     def _on_aggression_change(self, val):
         """Slider callback — update shared state so engine reads it."""
@@ -1243,7 +1270,31 @@ class ProgressPopup:
                         # Feed price chart
                         self._price_history.append(p)
                         if len(self._price_history) > self._MAX_PRICE_PTS:
+                            trim = len(self._price_history) - self._MAX_PRICE_PTS
                             self._price_history = self._price_history[-self._MAX_PRICE_PTS:]
+                            # Shift marker indices and drop expired ones
+                            self._trade_markers = [
+                                (idx - trim, a, s, mp, mpnl)
+                                for (idx, a, s, mp, mpnl) in self._trade_markers
+                                if idx - trim >= 0
+                            ]
+                        self._redraw_price_chart()
+
+                elif mtype == "TRADE_MARKER":
+                    action = msg.get("action", "")
+                    side = msg.get("side", "")
+                    mprice = msg.get("price", 0)
+                    mpnl = msg.get("pnl", 0)
+                    # Store marker at current price_history index
+                    idx = len(self._price_history) - 1
+                    if idx >= 0:
+                        self._trade_markers.append((idx, action, side, mprice, mpnl))
+                        # Trim markers that fell off the rolling window
+                        cutoff = len(self._price_history) - self._MAX_PRICE_PTS
+                        if cutoff > 0:
+                            self._trade_markers = [
+                                m for m in self._trade_markers if m[0] >= cutoff
+                            ]
                         self._redraw_price_chart()
 
                 elif mtype == "SHUTDOWN_READY":
