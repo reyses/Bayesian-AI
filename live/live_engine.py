@@ -166,6 +166,10 @@ class LiveEngine:
         self._orders = OrderManager(config)
         self._belief_network: Optional[TimeframeBeliefNetwork] = None
 
+        # Multi-TF bar buffers for TBN workers (populated from NT8 bridge)
+        # Key = bar_period_s, value = list of OHLCV dicts
+        self._tf_bars: Dict[int, list] = {5: [], 14400: []}
+
         # Position tracking (mirrors orchestrator forward pass)
         self._position_open = False
         self._entry_price = 0.0
@@ -503,20 +507,16 @@ class LiveEngine:
                 await loop.run_in_executor(None, self._aggregator.finish_history)
                 self._update_live_atr()
                 logger.info(f"Live ATR: {self._live_atr_ticks:.1f} ticks")
-                # Bootstrap TBN from history (4h via resample, 1s/5s unavailable from history)
+                # Bootstrap TBN from history — native NT8 bars for each TF
                 df = self._aggregator.df
                 states = self._aggregator.states
-                df_4h = pd.DataFrame()
-                if len(df) >= 20:
-                    _df15 = df.copy()
-                    _df15.index = pd.to_datetime(_df15['timestamp'], unit='s')
-                    df_4h = _df15.resample('4h').agg({
-                        'open': 'first', 'high': 'max',
-                        'low': 'min', 'close': 'last', 'volume': 'sum',
-                        'timestamp': 'first',
-                    }).dropna()
+                df_5s = pd.DataFrame(self._tf_bars.get(5, [])) if self._tf_bars.get(5) else pd.DataFrame()
+                df_4h = pd.DataFrame(self._tf_bars.get(14400, [])) if self._tf_bars.get(14400) else pd.DataFrame()
+                _n5 = len(df_5s)
+                _n4h = len(df_4h)
+                logger.info(f"TBN bootstrap: 5s={_n5} bars, 4h={_n4h} bars (native from NT8)")
                 self._belief_network.prepare_day(
-                    df, states_micro=states, df_4h=df_4h)
+                    df, states_micro=states, df_5s=df_5s, df_4h=df_4h)
                 self._gui_push({
                     'type': 'PHASE_PROGRESS',
                     'phase': 'LIVE',
@@ -555,11 +555,20 @@ class LiveEngine:
           - Every 15s bar: full state recompute + entry evaluation
         This ensures exits fire within 1 second of trigger, not up to 15s late.
         """
-        # Only feed 15s and 1s bars to the aggregator.  Higher-TF bars
-        # (30s, 1m, … 1D) from the NT8 history dump have different
-        # timestamps that trigger spurious session-gap resets.
         bar_period = int(msg.get('bar_period_s', 1))
-        # Accept 1s bars (for aggregation + exit checks) and anchor-TF bars
+
+        # Capture multi-TF bars for TBN workers (5s, 4h, etc.)
+        if bar_period in self._tf_bars:
+            self._tf_bars[bar_period].append({
+                'timestamp': float(msg['timestamp']),
+                'open':      float(msg['open']),
+                'high':      float(msg['high']),
+                'low':       float(msg['low']),
+                'close':     float(msg['close']),
+                'volume':    float(msg.get('volume', 0)),
+            })
+
+        # Only feed 1s and anchor-TF bars to the aggregator
         if bar_period != 1 and bar_period != self._anchor_period:
             return
 
@@ -639,28 +648,10 @@ class LiveEngine:
         # Feed belief network (time-constants calibrated to 15s bars)
         df = self._aggregator.df
         if self._bar_i % 240 == 1:
-            # Re-prepare day periodically — supply all TF data
+            # Re-prepare day periodically — supply native NT8 multi-TF data
             df_1s = self._aggregator.df_1s
-            # Resample 1s→5s for sub-resolution worker
-            df_5s = pd.DataFrame()
-            if len(df_1s) >= 5:
-                _df1 = df_1s.copy()
-                _df1.index = pd.to_datetime(_df1['timestamp'], unit='s')
-                df_5s = _df1.resample('5s').agg({
-                    'open': 'first', 'high': 'max',
-                    'low': 'min', 'close': 'last', 'volume': 'sum',
-                    'timestamp': 'first',
-                }).dropna()
-            # Resample 15s→4h for supra-resolution worker
-            df_4h = pd.DataFrame()
-            if len(df) >= 20:
-                _df15 = df.copy()
-                _df15.index = pd.to_datetime(_df15['timestamp'], unit='s')
-                df_4h = _df15.resample('4h').agg({
-                    'open': 'first', 'high': 'max',
-                    'low': 'min', 'close': 'last', 'volume': 'sum',
-                    'timestamp': 'first',
-                }).dropna()
+            df_5s = pd.DataFrame(self._tf_bars.get(5, [])) if self._tf_bars.get(5) else pd.DataFrame()
+            df_4h = pd.DataFrame(self._tf_bars.get(14400, [])) if self._tf_bars.get(14400) else pd.DataFrame()
             self._belief_network.prepare_day(
                 df, states_micro=states,
                 df_5s=df_5s, df_1s=df_1s, df_4h=df_4h)
