@@ -103,8 +103,16 @@ class NT8Client:
         self._connected = False
         if self._read_task and not self._read_task.done():
             self._read_task.cancel()
+            try:
+                await self._read_task
+            except (asyncio.CancelledError, Exception):
+                pass
         if self._hb_task and not self._hb_task.done():
             self._hb_task.cancel()
+            try:
+                await self._hb_task
+            except (asyncio.CancelledError, Exception):
+                pass
         if self._writer:
             self._writer.close()
             try:
@@ -183,11 +191,17 @@ class NT8Client:
         current = asyncio.current_task()
         if self._read_task and self._read_task is not current and not self._read_task.done():
             self._read_task.cancel()
+            try:
+                await self._read_task
+            except (asyncio.CancelledError, Exception):
+                pass
         if self._hb_task and self._hb_task is not current and not self._hb_task.done():
             self._hb_task.cancel()
+            try:
+                await self._hb_task
+            except (asyncio.CancelledError, Exception):
+                pass
         if self._writer:
             self._writer.close()
-        # Brief delay to let old tasks finish cancelling
-        await asyncio.sleep(0.5)
         if not self._stop:
             await self.connect()
