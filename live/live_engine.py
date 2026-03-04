@@ -34,6 +34,7 @@ from live.config import LiveConfig
 from live.nt8_client import NT8Client
 from live.bar_aggregator import LiveBarAggregator
 from live.order_manager import OrderManager
+from live.protocol import close_position
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,26 @@ _WORKER_BYPASS_CONV = 0.65
 
 # Anchor TF → depth mapping (from OOS depth distribution)
 # depth numbers match the fractal DNA tree levels in training
+_TUNING_DEFAULTS = {
+    '_comment': 'Edit while live — engine hot-reloads every 20 bars (~5 min)',
+    'max_hold_seconds': 300,
+    'manual_sl': 20,
+    'manual_tp': 50,
+    'manual_trail': 12,
+    'manual_trail_act': 8,
+    'pp_sl': 0,
+    'pp_tp': 0,
+    'pp_trail': 0,
+    'pp_max_hold_seconds': 0,
+    'gate1_dist': 4.5,
+    'gate0_adx': 25.0,
+    'gate0_hurst': 0.6,
+    'exit_sl_mult': 3.0,
+    'exit_trail_mult': 2.5,
+    'exit_trail_act_mult': 0.6,
+    'min_tick_floor': 4,
+}
+
 _ANCHOR_TF_MAP = {
     '1s':  {'period_s': 1,   'depth': 12},
     '5s':  {'period_s': 5,   'depth': 10},
@@ -153,9 +174,14 @@ class LiveEngine:
 
         self._bar_i = 0   # running 15s bar index (NOT 1s ticks)
         self._last_states = []  # latest quantum states (refreshed every 15s)
+        self._last_price = 0.0  # latest bar close (for main loop access)
+        self._last_ts = 0.0     # latest bar timestamp
         self._last_exit_time = 0.0  # cooldown between trades
+        self._order_send_ts = 0.0  # perf_counter when order was sent (latency tracking)
         self._live_trade_count = 0  # for periodic brain save
         self._brain_save_interval = 5  # save brain every N trades
+        self._shutting_down = False    # graceful shutdown in progress
+        self._instrument_mismatch = False  # set True if NT8 chart != config instrument
 
         # Ping-pong mode (continuous wave-riding with direction refinement)
         self._ping_pong_mode = self._shared_state.get('ping_pong', False)
@@ -172,6 +198,11 @@ class LiveEngine:
         self._pp_max_hold_override = config.pp_max_hold_bars
         self._pp_flip_count = 0
         self._pp_pending_flip = None  # deferred flip: {'side', 'price', 'ts'}
+        self._pending_manual_entry = None  # deferred manual entry after exit fill
+
+        # Hot-reloadable tuning (loaded in _load_checkpoints, refreshed every 20 bars)
+        self._tuning = dict(_TUNING_DEFAULTS)
+        self._tuning_mtime = 0.0
         self._pp_last_exit_params = None  # TF-scaled params from exited trade
 
         # GUI stats (for popup)
@@ -256,16 +287,46 @@ class LiveEngine:
         while not self._client._stop:
             # Check if GUI requested shutdown (popup closed)
             if self._shared_state.get('shutdown'):
-                logger.info("Shutdown requested by GUI — stopping engine")
+                logger.info("Shutdown requested by GUI -- stopping engine")
                 break
+
+            # Graceful shutdown: flatten, wait for NT8 flat confirmation
+            if self._shared_state.pop('shutdown_flatten', False):
+                self._shutting_down = True
+                if self._position_open and not self._dry_run:
+                    logger.info("SHUTDOWN: flattening position before close...")
+                    self._belief_network.stop_trade_tracking()
+                    await self._close_position('SHUTDOWN')
+                else:
+                    self._prepare_shutdown()
+                    self._shared_state['shutdown_confirmed'] = True
+                    logger.info("SHUTDOWN: already flat -- confirmed")
 
             # Prepare-for-shutdown: save brain + advise on position
             if self._shared_state.pop('prepare_shutdown', False):
                 self._prepare_shutdown()
 
+            # Sync ping-pong toggle from GUI
+            self._ping_pong_mode = self._shared_state.get('ping_pong', False)
+
+            # Unlock daily loss limit (from GUI button)
+            if self._shared_state.pop('unlock_loss_limit', False):
+                self._orders.reset_loss_limit()
+                logger.warning("DAILY LOSS LIMIT UNLOCKED by user")
+                self._gui_push({'type': 'LOSS_LIMIT', 'locked': False,
+                                'daily_pnl': self._orders.daily_pnl})
+
+            # Manual order — checked every loop cycle (instant response)
+            manual = self._shared_state.pop('manual_order', None)
+            if manual:
+                _last_px = getattr(self, '_last_price', 0.0)
+                _last_ts = getattr(self, '_last_ts', time.time())
+                await self._handle_manual_order(
+                    manual, _last_px, _last_ts, self._last_states or [])
+
             try:
                 msg = await asyncio.wait_for(
-                    self._client.inbound.get(), timeout=30.0)
+                    self._client.inbound.get(), timeout=0.1)
             except asyncio.TimeoutError:
                 continue
 
@@ -274,6 +335,10 @@ class LiveEngine:
             if mtype == 'BAR':
                 await self._on_bar(msg)
             elif mtype == 'FILL':
+                if self._order_send_ts:
+                    _rt_ms = (time.perf_counter() - self._order_send_ts) * 1000
+                    logger.info(f"LATENCY: fill_rtt={_rt_ms:.1f}ms  (order sent->fill)")
+                    self._order_send_ts = 0.0
                 pnl = self._orders.on_fill(msg)
                 if pnl is not None:
                     exi = self._orders.last_exit_info
@@ -285,14 +350,58 @@ class LiveEngine:
                     })
                     self._brain_learn(pnl)
                 self._sync_position_state()
+                # Fire deferred manual entry now that position is flat
+                if self._pending_manual_entry and self._orders.is_flat:
+                    _pm = self._pending_manual_entry
+                    self._pending_manual_entry = None
+                    if self._orders.loss_limit_hit:
+                        logger.warning("Deferred manual entry cancelled — daily loss limit hit")
+                    else:
+                        fill_px = msg.get('fill_price', _pm['price'])
+                        logger.info(f"Deferred manual entry firing (flat confirmed @ {fill_px})")
+                        await self._execute_manual_entry(
+                            _pm['action'], fill_px, _pm['ts'], _pm['states'])
+                # Graceful shutdown: confirm flat to GUI
+                if self._shutting_down and self._orders.is_flat:
+                    logger.info("SHUTDOWN: NT8 confirmed flat -- safe to close")
+                    self._prepare_shutdown()
+                    self._shared_state['shutdown_confirmed'] = True
             elif mtype == 'ORDER_STATUS':
                 self._orders.on_order_status(msg)
+                # Retry close if exit was rejected (position still open in NT8)
+                if self._orders.exit_rejected:
+                    self._orders.exit_rejected = False
+                    logger.warning("Retrying CLOSE_POSITION after rejection...")
+                    await asyncio.sleep(0.5)
+                    await self._client.send(
+                        close_position(self._cfg.instrument, self._cfg.account))
             elif mtype == 'POSITION':
                 self._orders.on_position(msg)
                 self._sync_position_state()
+                # Auto-flatten leftover position from previous session
+                if not self._aggregator.is_warmed_up and not self._orders.is_flat:
+                    logger.warning("STALE POSITION detected during warmup — auto-flattening")
+                    await self._client.send(
+                        close_position(self._cfg.instrument, self._cfg.account))
             elif mtype == 'CONNECTED':
                 bridge_ver = msg.get('version', '???')
-                logger.info(f"NT8 CONNECTED: account={msg.get('account')}  bridge={bridge_ver}")
+                bridge_inst = msg.get('instrument', '')
+                logger.info(f"NT8 CONNECTED: account={msg.get('account')}  "
+                            f"instrument={bridge_inst}  bridge={bridge_ver}")
+                # Instrument handshake — refuse to trade wrong instrument
+                if bridge_inst and self._cfg.instrument not in bridge_inst:
+                    logger.error(
+                        f"INSTRUMENT MISMATCH: engine expects '{self._cfg.instrument}' "
+                        f"but NT8 chart is '{bridge_inst}' -- REFUSING TO TRADE")
+                    self._instrument_mismatch = True
+                    self._gui_push({
+                        'type': 'PHASE_PROGRESS',
+                        'phase': 'LIVE',
+                        'step': f'WRONG INSTRUMENT: {bridge_inst}',
+                        'pct': 0,
+                    })
+                else:
+                    self._instrument_mismatch = False
                 if bridge_ver != '6.1.1':
                     logger.warning(f"BRIDGE VERSION MISMATCH: expected 6.1.1, got {bridge_ver}")
                 self._gui_push({
@@ -349,6 +458,8 @@ class LiveEngine:
 
         price = float(msg['close'])
         ts = float(msg['timestamp'])
+        self._last_price = price
+        self._last_ts = ts
 
         # Run add_bar (which may trigger recompute) in thread to avoid
         # blocking the event loop for 1-3s during batch_compute_states
@@ -360,6 +471,10 @@ class LiveEngine:
         if new_bar:
             self._last_states = states
             self._bar_i += 1
+            # Hot-reload tuning config every 20 bars (~5 min at 15s anchor)
+            if self._bar_i % 20 == 0:
+                self._load_tuning()
+                self._orders.cleanup_stale_orders()
 
         # ── Still warming up — show progress, skip evaluation ─────────
         if not self._aggregator.is_warmed_up:
@@ -388,15 +503,6 @@ class LiveEngine:
         if age > 120:
             return  # stale bar from history leak, skip
 
-        # Sync ping-pong toggle from GUI
-        self._ping_pong_mode = self._shared_state.get('ping_pong', False)
-
-        # Manual order check (from popup buttons)
-        manual = self._shared_state.pop('manual_order', None)
-        if manual:
-            await self._handle_manual_order(manual, price, ts, self._last_states or [])
-            return  # skip gate cascade this tick
-
         # Exit check EVERY SECOND (trail stop, SL, TP are price-dependent)
         if self._position_open:
             await self._check_exit(price, ts)
@@ -418,7 +524,8 @@ class LiveEngine:
             flip = self._pp_pending_flip
             self._pp_pending_flip = None
             if not self._orders.loss_limit_hit:
-                await self._enter_ping_pong(flip['side'], price, ts, states)
+                await self._enter_ping_pong(
+                    flip['exited_side'], price, ts, states)
                 return  # skip normal entry cascade this bar
 
         # Entry check (if flat + cooldown expired — one anchor bar minimum)
@@ -430,14 +537,6 @@ class LiveEngine:
 
     async def _check_exit(self, price: float, ts: float):
         """Check for exit signals on the current bar."""
-        # Max hold check
-        bars_held = self._bar_i - self._entry_bar
-        if bars_held >= self._max_hold_bars:
-            logger.info(f"MAX_HOLD reached ({bars_held} bars) — closing")
-            self._belief_network.stop_trade_tracking()
-            await self._close_position('MAX_HOLD')
-            return
-
         # Normal exit via wave rider + belief network
         pos = self._wave_rider.position
         if pos is None:
@@ -454,7 +553,7 @@ class LiveEngine:
             await self._close_position(reason)
 
             # Ping-pong: schedule flip entry on next anchor-TF bar
-            if self._ping_pong_mode:
+            if self._ping_pong_mode and not self._shutting_down:
                 self._schedule_ping_pong_flip(exited_side, price, ts)
 
     async def _close_position(self, reason: str):
@@ -474,11 +573,16 @@ class LiveEngine:
 
         msg = self._orders.build_exit_order(reason=reason)
         if msg:
+            self._order_send_ts = time.perf_counter()
             await self._client.send(msg)
+            logger.info(f"LATENCY: exit order sent  (reason={reason})")
 
     async def _handle_manual_order(self, action: str, price: float,
                                    ts: float, states: list):
         """Process a manual BUY/SELL/FLATTEN from the popup buttons."""
+        if self._instrument_mismatch:
+            logger.error("BLOCKED: instrument mismatch — fix NT8 chart first")
+            return
         if action == 'FLATTEN':
             if self._position_open:
                 logger.info(f"MANUAL FLATTEN @ {price:.2f}")
@@ -491,19 +595,28 @@ class LiveEngine:
         if action not in ('BUY', 'SELL'):
             return
 
-        # If already in a position, flatten first
+        # If already in a position, flatten first then defer entry until FILL
         if self._position_open:
             logger.info(f"MANUAL {action}: flattening existing position first")
             self._belief_network.stop_trade_tracking()
+            self._pending_manual_entry = {
+                'action': action, 'price': price, 'ts': ts, 'states': states,
+            }
             await self._close_position('MANUAL_REVERSE')
+            return  # entry will fire from _execute_pending_manual on FILL
 
+        await self._execute_manual_entry(action, price, ts, states)
+
+    async def _execute_manual_entry(self, action: str, price: float,
+                                    ts: float, states: list):
+        """Execute the manual entry (called directly or after deferred FILL)."""
         side = 'long' if action == 'BUY' else 'short'
 
-        # Use default exit params (generous for manual trades)
-        sl_ticks = 20
-        tp_ticks = 50
-        trail_ticks = 12
-        trail_act = 8
+        # Use tuning exit params for manual trades
+        sl_ticks = self._tuning.get('manual_sl', 20)
+        tp_ticks = self._tuning.get('manual_tp', 50)
+        trail_ticks = self._tuning.get('manual_trail', 12)
+        trail_act = self._tuning.get('manual_trail_act', 8)
 
         logger.info(f"MANUAL ENTRY: {side.upper()} @ {price:.2f}  "
                     f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}")
@@ -542,90 +655,57 @@ class LiveEngine:
         order_msg = self._orders.build_entry_order(
             'BUY' if side == 'long' else 'SELL')
         if order_msg:
+            self._order_send_ts = time.perf_counter()
             await self._client.send(order_msg)
+            logger.info("LATENCY: manual entry order sent")
 
     # ── Ping-Pong Mode ──────────────────────────────────────────────
 
     def _schedule_ping_pong_flip(self, exited_side: str, price: float,
                                   ts: float):
-        """After exit, check belief network and schedule a flip entry."""
-        belief = self._belief_network.get_belief()
-        if belief is None:
-            logger.debug("PING-PONG: no belief available, skip flip")
-            return
+        """After exhaustion exit, schedule a flip — direction decided on entry."""
+        logger.info(f"PING-PONG: scheduling flip after {exited_side} exhaustion")
+        self._pp_pending_flip = {
+            'exited_side': exited_side, 'price': price, 'ts': ts,
+        }
 
-        flip_side = 'short' if exited_side == 'long' else 'long'
-
-        # Side lock override (--long-only / --short-only)
-        _side_lock = self._shared_state.get('side_lock')
-        if _side_lock:
-            flip_side = _side_lock
-
-        # Use belief direction if it agrees with flip; otherwise trust the flip
-        if belief.direction == exited_side and belief.conviction > self._pp_agree_veto:
-            # Belief still agrees with old direction — don't flip
-            logger.info(f"PING-PONG: belief still {belief.direction} "
-                        f"(conv={belief.conviction:.2f}), skip flip")
-            return
-
-        if belief.conviction < self._pp_min_conviction:
-            logger.info(f"PING-PONG: conviction {belief.conviction:.2f} "
-                        f"< {self._pp_min_conviction}, skip flip")
-            return
-
-        # If belief has a strong opinion, use it
-        if belief.conviction > 0.6:
-            flip_side = belief.direction
-
-        logger.info(f"PING-PONG: scheduling flip {exited_side}→{flip_side} "
-                    f"(belief={belief.direction}, conv={belief.conviction:.2f})")
-        self._pp_pending_flip = {'side': flip_side, 'price': price, 'ts': ts}
-
-    async def _enter_ping_pong(self, side: str, price: float, ts: float,
-                                states: list):
-        """Lightweight entry for ping-pong flip — skip full gate cascade."""
+    async def _enter_ping_pong(self, side_hint: str, price: float,
+                                ts: float, states: list):
+        """Full-context flip entry — uses direction model + learns outcomes."""
         if not states:
             logger.debug("PING-PONG: no states for flip entry, skip")
             self._pp_pending_flip = None
             return
 
-        # Check live direction bias (refinement cycle)
         tid = self._active_tid or 'MANUAL'
-        bias = self._live_dir_bias.get(tid)
-        if bias:
-            dir_key = 'long' if side == 'long' else 'short'
-            my_total = bias.get(f'{dir_key}_w', 0) + bias.get(f'{dir_key}_l', 0)
-            if my_total >= self._pp_bias_min_trades:
-                my_wr = bias.get(f'{dir_key}_w', 0) / my_total
-                if my_wr < self._pp_bias_wr_bad:
-                    # This direction loses — don't flip into it
-                    logger.info(f"PING-PONG: live bias rejects {side.upper()} "
-                                f"(WR={my_wr:.0%} on {my_total} trades)")
-                    return
-
+        base_tid = tid[3:] if isinstance(tid, str) and tid.startswith('PP_') else tid
         latest = states[-1]
         state = latest['state']
 
-        # Inherit TF-scaled exit params, with config overrides
-        ep = self._pp_last_exit_params
-        if ep:
-            sl_ticks = self._pp_sl_override or ep['sl']
-            tp_ticks = self._pp_tp_override or ep['tp']
-            trail_ticks = self._pp_trail_override or ep['trail']
-            trail_act = ep['trail_act']
-            max_hold = self._pp_max_hold_override or ep['max_hold']
-            tf_label = ep.get('tf', '?')
-        else:
-            sl_ticks = self._pp_sl_override or 15
-            tp_ticks = self._pp_tp_override or 30
-            trail_ticks = self._pp_trail_override or 10
-            trail_act = 6
-            max_hold = self._pp_max_hold_override or max(20, 3600 // self._anchor_period)
-            tf_label = '?'
+        # Build a candidate from current state for direction model
+        candidate = self._build_candidate('PP_FLIP', state, price, ts)
+        if candidate is None:
+            logger.debug("PING-PONG: could not build candidate, skip")
+            return
+
+        # Full direction determination (same as normal entry)
+        side, _p_long, _dir_src = self._determine_direction(candidate, base_tid)
+
+        # Side lock override (--long-only / --short-only)
+        _side_lock = self._shared_state.get('side_lock')
+        if _side_lock:
+            side = _side_lock
+            _dir_src = f'locked_{_side_lock}'
+
+        # Exit params from tuning
+        sl_ticks = self._pp_sl_override or self._tuning.get('pp_sl', 0) or 15
+        tp_ticks = self._pp_tp_override or self._tuning.get('pp_tp', 0) or 30
+        trail_ticks = self._pp_trail_override or self._tuning.get('pp_trail', 0) or 10
+        trail_act = self._tuning.get('manual_trail_act', 8)
 
         self._pp_flip_count += 1
         logger.info(f"PING-PONG FLIP #{self._pp_flip_count}: {side.upper()} "
-                    f"@ {price:.2f}  TF={tf_label}  "
+                    f"@ {price:.2f}  dir_src={_dir_src}  p_long={_p_long:.2f}  "
                     f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}")
         self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
                         'side': side, 'price': price})
@@ -637,16 +717,16 @@ class LiveEngine:
             profit_target_ticks=tp_ticks,
             trailing_stop_ticks=trail_ticks,
             trail_activation_ticks=trail_act,
-            template_id=f'PP_{tid}',
+            template_id=f'PP_{base_tid}',
         )
         self._position_open = True
         self._entry_price = price
         self._entry_time = ts
         self._entry_bar = self._bar_i
         self._active_side = side
-        self._active_tid = f'PP_{tid}'
-        self._entry_depth = self._entry_depth  # carry depth from original entry
-        self._max_hold_bars = max_hold
+        self._active_tid = f'PP_{base_tid}'
+        self._entry_depth = self._entry_depth
+        self._max_hold_bars = 960  # no forced exit — exhaustion only
 
         self._belief_network.start_trade_tracking(
             side=side, entry_bar=self._bar_i,
@@ -659,7 +739,9 @@ class LiveEngine:
         order_msg = self._orders.build_entry_order(
             'BUY' if side == 'long' else 'SELL')
         if order_msg:
+            self._order_send_ts = time.perf_counter()
             await self._client.send(order_msg)
+            logger.info("LATENCY: ping-pong flip order sent")
 
     def _direction_learn(self, tid, side: str, pnl: float):
         """Record direction-specific outcome for live refinement."""
@@ -902,12 +984,14 @@ class LiveEngine:
         pf = (self._gross_win / abs(self._gross_loss)
               if self._gross_loss != 0 else 0.0)
         eb = self._exit_buckets
+        # Use OrderManager daily_pnl as source of truth (includes all fills)
+        _true_pnl = self._orders.daily_pnl
         self._gui_push({
             'type': 'PHASE_PROGRESS',
             'phase': 'LIVE',
             'step': f'trade {self._session_trades}',
             'pct': min(100, self._bar_i / max(1, self._cfg.warmup_bars) * 100),
-            'pnl': self._session_pnl,
+            'pnl': _true_pnl,
             'wr': wr,
             'trades': self._session_trades,
             'pf': pf,
@@ -1024,6 +1108,9 @@ class LiveEngine:
             'trades': 1,
             'wins': 1 if pnl > 0 else 0,
         })
+        if self._orders.loss_limit_hit:
+            self._gui_push({'type': 'LOSS_LIMIT', 'locked': True,
+                            'daily_pnl': self._orders.daily_pnl})
 
         # Save every N trades
         if self._live_trade_count % self._brain_save_interval == 0:
@@ -1036,14 +1123,18 @@ class LiveEngine:
 
     async def _check_entry(self, price: float, ts: float, states: list):
         """Run the gate cascade on the current bar's quantum state."""
+        _t0 = time.perf_counter()
         if not states:
             return
+        if self._instrument_mismatch:
+            return  # wrong instrument on NT8 chart — refuse to trade
 
         # Aggression scaling (0.0=SNIPER … 1.0=YOLO)
         agg = self._shared_state.get('aggression', 0.5)
         _yolo = agg >= 0.99
+        _g1_base = self._tuning.get('gate1_dist', _GATE1_DIST_THRESHOLD)
         _g1_dist = (float('inf') if _yolo
-                    else _GATE1_DIST_THRESHOLD + agg * 10.0)  # YOLO=∞, else 4.5→14.5
+                    else _g1_base + agg * 10.0)  # YOLO=∞, else base→base+10
         _g2_prob = 0.05 * (1.0 - agg)                    # 0.05 → 0.0
         _g4_dir  = 0.05 * (1.0 - agg)                    # 0.05 → 0.0
         _skip_screening = agg > 0.75                      # AGGRESSIVE+ skips 3.5
@@ -1094,7 +1185,7 @@ class LiveEngine:
                 _e_scaled = self._scaler.transform(_e_feat)
                 _e_dists = np.linalg.norm(self._centroids_scaled - _e_scaled, axis=1)
                 _e_nearest = int(np.argmin(_e_dists))
-                if (_e_dists[_e_nearest] < _GATE1_DIST_THRESHOLD
+                if (_e_dists[_e_nearest] < self._tuning.get('gate1_dist', _GATE1_DIST_THRESHOLD)
                         and self._valid_tids[_e_nearest] in self._exception_tids):
                     _data_override = True
 
@@ -1105,8 +1196,8 @@ class LiveEngine:
                     should_skip = True
                 elif 0.5 <= micro_z < 2.0:
                     if micro_pattern == 'STRUCTURAL_DRIVE':
-                        if (state.adx_strength < _ADX_TREND_CONFIRMATION
-                                or state.hurst_exponent < _HURST_TREND_CONFIRMATION):
+                        if (state.adx_strength < self._tuning.get('gate0_adx', _ADX_TREND_CONFIRMATION)
+                                or state.hurst_exponent < self._tuning.get('gate0_hurst', _HURST_TREND_CONFIRMATION)):
                             should_skip = True
                     elif micro_pattern == 'ROCHE_SNAP':
                         should_skip = True
@@ -1246,7 +1337,8 @@ class LiveEngine:
 
         _tf_s = str(best_candidate.timeframe)
         _tf_sec = TIMEFRAME_SECONDS.get(_tf_s, 14400)
-        self._max_hold_bars = max(20, _tf_sec // self._anchor_period)
+        _hold_sec = self._tuning.get('max_hold_seconds', 300) or _tf_sec
+        self._max_hold_bars = max(20, _hold_sec // self._anchor_period)
 
         # Store TF-scaled exit params for ping-pong reuse
         self._pp_last_exit_params = {
@@ -1266,7 +1358,10 @@ class LiveEngine:
         order_msg = self._orders.build_entry_order(
             'BUY' if side == 'long' else 'SELL')
         if order_msg:
+            self._order_send_ts = time.perf_counter()
             await self._client.send(order_msg)
+            _decision_ms = (self._order_send_ts - _t0) * 1000
+            logger.info(f"LATENCY: decision={_decision_ms:.1f}ms  (bar->order sent)")
 
     # ── Helpers ───────────────────────────────────────────────────────
 
@@ -1371,26 +1466,31 @@ class LiveEngine:
         _p75_mfe = lib_entry.get('p75_mfe_ticks', 0.0)
         _p25_mae = lib_entry.get('p25_mae_ticks', 0.0)
 
+        _sl_mult = self._tuning.get('exit_sl_mult', 3.0)
+        _trail_mult = self._tuning.get('exit_trail_mult', 2.5)
+        _trail_act_mult = self._tuning.get('exit_trail_act_mult', 0.6)
+        _min_floor = self._tuning.get('min_tick_floor', 4)
+
         # Phase 1: hard stop
         if _p25_mae > 2.0:
-            sl = max(4, int(round(_p25_mae * 3.0)))
+            sl = max(_min_floor, int(round(_p25_mae * _sl_mult)))
         elif _mean_mae > 2.0:
-            sl = max(4, int(round(_mean_mae * 2.0)))
+            sl = max(_min_floor, int(round(_mean_mae * 2.0)))
         else:
             sl = params.get('stop_loss_ticks', 20)
 
-        # Phase 2: trail — sigma*2.5 captures normal noise in trending move;
+        # Phase 2: trail — sigma*trail_mult captures normal noise in trending move;
         # floor at 8 ticks ($10/tick MNQ = $80 minimum breathing room).
         if _reg_sigma > 2.0:
-            trail = max(8, int(round(_reg_sigma * 2.5)))
+            trail = max(8, int(round(_reg_sigma * _trail_mult)))
         elif _mean_mae > 2.0:
             trail = max(8, int(round(_mean_mae * 1.5)))
         else:
             trail = max(8, params.get('trailing_stop_ticks', 12))
 
-        # Trail activation: 0.6× p25_mae ensures trade is meaningfully
+        # Trail activation: trail_act_mult × p25_mae ensures trade is meaningfully
         # in profit before trail takes over from hard SL.
-        trail_act = (max(4, int(round(_p25_mae * 0.6)))
+        trail_act = (max(_min_floor, int(round(_p25_mae * _trail_act_mult)))
                      if _p25_mae > 2.0 else None)
 
         # TP priority: network → OLS → p75 → fallback
@@ -1428,6 +1528,37 @@ class LiveEngine:
             self._position_open = True
 
     # ── Checkpoint Loading ────────────────────────────────────────────
+
+    def _load_tuning(self, force: bool = False):
+        """Hot-reload live_tuning.json if changed (mtime check)."""
+        path = os.path.join(self._cfg.checkpoint_dir, 'live_tuning.json')
+        if not os.path.exists(path):
+            # Auto-create with defaults so user has a template to edit
+            with open(path, 'w') as f:
+                json.dump(_TUNING_DEFAULTS, f, indent=2)
+            logger.info(f"Created default live_tuning.json in {self._cfg.checkpoint_dir}/")
+
+        try:
+            mt = os.path.getmtime(path)
+        except OSError:
+            return
+        if not force and mt == self._tuning_mtime:
+            return  # unchanged
+
+        try:
+            with open(path) as f:
+                data = json.load(f)
+            # Merge with defaults (missing keys get default values)
+            merged = dict(_TUNING_DEFAULTS)
+            merged.update(data)
+            self._tuning = merged
+            self._tuning_mtime = mt
+            logger.info(f"Tuning reloaded: max_hold={merged['max_hold_seconds']}s  "
+                        f"gate1_dist={merged['gate1_dist']}  "
+                        f"sl_mult={merged['exit_sl_mult']}  "
+                        f"trail_mult={merged['exit_trail_mult']}")
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning(f"Failed to reload live_tuning.json: {e}")
 
     def _load_checkpoints(self):
         """Load all training checkpoints needed for live trading."""
@@ -1535,6 +1666,9 @@ class LiveEngine:
                          f"{len(self._good_hours_utc)} good hours")
         else:
             logger.warning("  No screening_gates.json — all signals unfiltered")
+
+        # Live tuning config (hot-reloadable)
+        self._load_tuning(force=True)
 
     def _init_belief_network(self):
         """Initialize the fractal belief network from loaded checkpoints."""
