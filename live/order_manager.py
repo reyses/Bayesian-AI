@@ -168,19 +168,20 @@ class OrderManager:
             # Entry fill
             self.position = PositionState(
                 side='LONG' if side == 'BUY' else 'SHORT',
-                qty=qty,
+                qty=min(qty, self._cfg.max_position_size),
                 avg_price=fill_px,
                 entry_time=time.time(),
             )
             logger.info(f"FILL entry: {self.position.side} @ {fill_px}")
             return None
         else:
-            # Exit fill — compute PnL
+            # Exit fill — PnL uses position qty (1), NOT fill qty (may be 2 for flip)
             entry_px = self.position.avg_price
+            exit_qty = self.position.qty
             if self.position.side == 'LONG':
-                pnl = (fill_px - entry_px) * qty * self._cfg.point_value
+                pnl = (fill_px - entry_px) * exit_qty * self._cfg.point_value
             else:
-                pnl = (entry_px - fill_px) * qty * self._cfg.point_value
+                pnl = (entry_px - fill_px) * exit_qty * self._cfg.point_value
 
             # Preserve fill info before clearing position (for trade log)
             self.last_exit_info = {
@@ -193,10 +194,20 @@ class OrderManager:
 
             self._log_trade(fill_px, pnl, reason='fill')
 
-            logger.info(f"FILL exit: {self.position.side} @ {fill_px}  "
-                        f"PnL=${pnl:+.2f}  daily=${self._daily_pnl:+.2f}")
-
-            self.position = PositionState()  # flat
+            # Flip order: qty > position.qty means close + open opposite
+            if qty > self.position.qty:
+                new_side = 'LONG' if side == 'BUY' else 'SHORT'
+                new_qty = qty - self.position.qty
+                logger.info(f"FILL flip: {self.position.side}->{new_side} @ {fill_px}  "
+                            f"PnL=${pnl:+.2f}  daily=${self._daily_pnl:+.2f}")
+                self.position = PositionState(
+                    side=new_side, qty=new_qty,
+                    avg_price=fill_px, entry_time=time.time(),
+                )
+            else:
+                logger.info(f"FILL exit: {self.position.side} @ {fill_px}  "
+                            f"PnL=${pnl:+.2f}  daily=${self._daily_pnl:+.2f}")
+                self.position = PositionState()  # flat
 
             # Check daily loss limit (0 = disabled)
             if self._cfg.max_daily_loss_usd > 0 and self._daily_pnl <= -self._cfg.max_daily_loss_usd:

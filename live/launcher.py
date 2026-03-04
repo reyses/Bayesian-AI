@@ -64,7 +64,7 @@ def _run_popup(gui_queue, shared_state):
     from visualization.live_training_dashboard import ProgressPopup
 
     root = tk.Tk()
-    ProgressPopup(root, gui_queue, shared_state=shared_state)
+    popup = ProgressPopup(root, gui_queue, shared_state=shared_state)
     root.title("Bayesian-AI  LIVE")
 
     def _on_close():
@@ -92,8 +92,7 @@ def _run_popup(gui_queue, shared_state):
         pass
 
     # ── Post-mainloop cleanup (still in GUI thread) ──────────────
-    # Close matplotlib figures before destroying root so Tcl image
-    # objects are freed here, not by GC in the main thread.
+    # Must GC all tkinter/matplotlib objects HERE, not in the main thread.
     try:
         import matplotlib.pyplot as plt
         plt.close("all")
@@ -103,6 +102,10 @@ def _run_popup(gui_queue, shared_state):
         root.destroy()
     except Exception:
         pass
+    # Release all references so GC collects tkinter objects in THIS thread
+    del popup, root
+    import gc
+    gc.collect()
 
     shared_state['shutdown'] = True
 
