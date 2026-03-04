@@ -1,5 +1,5 @@
 // =============================================================================
-// BayesianBridge 6.1.2 — 2026-03-04 06:15
+// BayesianBridge 6.2.0 — 2026-03-04 12:10
 // =============================================================================
 // BayesianBridge — NinjaTrader 8 NinjaScript Indicator
 //
@@ -57,7 +57,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         public int DomLevels { get; set; }
 
         // ── Version ──────────────────────────────────────────────────
-        private const string BRIDGE_VERSION = "6.1.2";
+        private const string BRIDGE_VERSION = "6.2.0";
 
         // ── Internal State ────────────────────────────────────────────
         private TcpListener  _listener;
@@ -113,27 +113,28 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
             else if (State == State.Configure)
             {
-                // Add all timeframes the engine needs (12 TFs total).
-                // Index 0 = primary chart (1s). Indices 1-11 below.
-                // Order matches TF_HIERARCHY: 15s,30s,1m,2m,3m,5m,15m,30m,1h,4h,1D
-                AddDataSeries(BarsPeriodType.Second, 15);   // idx 1: 15s
-                AddDataSeries(BarsPeriodType.Second, 30);   // idx 2: 30s
-                AddDataSeries(BarsPeriodType.Minute, 1);    // idx 3: 1m
-                AddDataSeries(BarsPeriodType.Minute, 2);    // idx 4: 2m
-                AddDataSeries(BarsPeriodType.Minute, 3);    // idx 5: 3m
-                AddDataSeries(BarsPeriodType.Minute, 5);    // idx 6: 5m
-                AddDataSeries(BarsPeriodType.Minute, 15);   // idx 7: 15m
-                AddDataSeries(BarsPeriodType.Minute, 30);   // idx 8: 30m
-                AddDataSeries(BarsPeriodType.Minute, 60);   // idx 9: 1h
-                AddDataSeries(BarsPeriodType.Minute, 240);  // idx 10: 4h
-                AddDataSeries(BarsPeriodType.Day, 1);       // idx 11: 1D
+                // Add all timeframes the engine needs (13 TFs total).
+                // Index 0 = primary chart (1s). Indices 1-12 below.
+                // Order: 5s,15s,30s,1m,2m,3m,5m,15m,30m,1h,4h,1D
+                AddDataSeries(BarsPeriodType.Second, 5);    // idx 1: 5s
+                AddDataSeries(BarsPeriodType.Second, 15);   // idx 2: 15s
+                AddDataSeries(BarsPeriodType.Second, 30);   // idx 3: 30s
+                AddDataSeries(BarsPeriodType.Minute, 1);    // idx 4: 1m
+                AddDataSeries(BarsPeriodType.Minute, 2);    // idx 5: 2m
+                AddDataSeries(BarsPeriodType.Minute, 3);    // idx 6: 3m
+                AddDataSeries(BarsPeriodType.Minute, 5);    // idx 7: 5m
+                AddDataSeries(BarsPeriodType.Minute, 15);   // idx 8: 15m
+                AddDataSeries(BarsPeriodType.Minute, 30);   // idx 9: 30m
+                AddDataSeries(BarsPeriodType.Minute, 60);   // idx 10: 1h
+                AddDataSeries(BarsPeriodType.Minute, 240);  // idx 11: 4h
+                AddDataSeries(BarsPeriodType.Day, 1);       // idx 12: 1D
 
                 _barLabels = new string[] {
-                    "1s", "15s", "30s", "1m", "2m", "3m",
+                    "1s", "5s", "15s", "30s", "1m", "2m", "3m",
                     "5m", "15m", "30m", "1h", "4h", "1D"
                 };
                 _barPeriodSecs = new int[] {
-                    1, 15, 30, 60, 120, 180,
+                    1, 5, 15, 30, 60, 120, 180,
                     300, 900, 1800, 3600, 14400, 86400
                 };
             }
