@@ -342,6 +342,29 @@ class LiveEngine:
                     except Exception as _exit_err:
                         logger.error(f"_check_exit CRASHED (1s loop): {_exit_err} — emergency flatten")
                         await self._close_position('EXIT_CRASH')
+                # Safety net: NT8 has position but engine thinks flat — emergency exit calc
+                elif (not self._position_open and not self._orders.is_flat
+                      and not self._flip_in_progress and self._last_price > 0):
+                    _om_pos = self._orders.position
+                    _om_side = _om_pos.side if _om_pos else '?'
+                    _om_px = _om_pos.avg_price if _om_pos else 0
+                    _tick = self._cfg.tick_size
+                    _pv = self._cfg.point_value
+                    if _om_side == 'LONG':
+                        _unreal = (self._last_price - _om_px) * _pv
+                    elif _om_side == 'SHORT':
+                        _unreal = (_om_px - self._last_price) * _pv
+                    else:
+                        _unreal = 0
+                    # Emergency flatten if orphan position loses > $20
+                    if _unreal < -20:
+                        logger.error(f"ORPHAN POSITION: {_om_side} @ {_om_px} "
+                                     f"unreal=${_unreal:+.0f} — emergency flatten")
+                        await self._close_position('ORPHAN_FLATTEN')
+                    elif not hasattr(self, '_orphan_warn_ts') or _now - self._orphan_warn_ts > 30:
+                        self._orphan_warn_ts = _now
+                        logger.warning(f"ORPHAN POSITION detected: {_om_side} @ {_om_px} "
+                                       f"unreal=${_unreal:+.0f} — monitoring")
                 # Legacy PP deferred flip fallback (instant flip handles most cases)
                 if (self._pp_pending_flip and not self._position_open
                         and self._orders.is_flat):
