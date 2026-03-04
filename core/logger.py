@@ -37,15 +37,13 @@ def setup_logger(name, log_file, level=logging.DEBUG, console=False):
                     with open(log_path, 'w'):
                         pass
                 except Exception as e:
-                    print(f"Warning: Could not truncate old log file {log_file}: {e}")
-                except Exception as e:
-                    print(f"Warning: Could not delete old log file {log_file}: {e}")
+                    pass  # Silent fallback if truncation fails
 
             fh = RotatingFileHandler(str(log_path), maxBytes=10*1024*1024, backupCount=1)
             fh.setFormatter(formatter)
             logger.addHandler(fh)
         except Exception as e:
-            print(f"Failed to setup file logging to {log_file}: {e}")
+            pass  # Silent fallback if file logging fails entirely
 
     # Console Handler
     if console:
