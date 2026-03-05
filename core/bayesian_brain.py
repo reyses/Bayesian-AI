@@ -330,7 +330,9 @@ class BayesianBrain:
         }
         with open(filepath, 'wb') as f:
             pickle.dump(save_data, f)
-        print(f"[BAYESIAN] Saved {len(self.table)} state patterns to {filepath}")
+        from core.logger import setup_logger
+        logger = setup_logger("BayesianBrain", "debug_outputs/bayesian_brain.log", console=True)
+        logger.info(f"[BAYESIAN] Saved {len(self.table)} state patterns to {filepath}")
     
     def load(self, filepath: str):
         """Load probability table from disk"""
@@ -349,7 +351,9 @@ class BayesianBrain:
             save_data.get('dir_table', {})
         )
 
-        print(f"[BAYESIAN] Loaded {len(self.table)} state patterns from {filepath}")
+        from core.logger import setup_logger
+        logger = setup_logger("BayesianBrain", "debug_outputs/bayesian_brain.log", console=True)
+        logger.info(f"[BAYESIAN] Loaded {len(self.table)} state patterns from {filepath}")
     
     def get_summary(self) -> Dict:
         """Overall learning statistics"""

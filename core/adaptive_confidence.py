@@ -133,8 +133,10 @@ class AdaptiveConfidenceManager:
         old_phase = self.phase
         self.phase = min(self.phase + 1, 4)
         self.trades_in_phase = 0
-        print(f"\n🎯 PHASE ADVANCEMENT: {self.PHASES[old_phase]['name']} → {self.PHASES[self.phase]['name']}")
-        print(f"New threshold: {self.PHASES[self.phase]['prob_threshold']:.0%}")
+        from core.logger import setup_logger
+        logger = setup_logger("AdaptiveConfidence", "debug_outputs/adaptive_confidence.log", console=True)
+        logger.info(f"\n🎯 PHASE ADVANCEMENT: {self.PHASES[old_phase]['name']} → {self.PHASES[self.phase]['name']}")
+        logger.info(f"New threshold: {self.PHASES[self.phase]['prob_threshold']:.0%}")
         
     def generate_progress_report(self) -> str:
         """Generate a string report of the current learning status."""

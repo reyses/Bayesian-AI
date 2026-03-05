@@ -529,9 +529,12 @@ class ContextDetector:
 
 # Example usage
 if __name__ == "__main__":
-    print("="*80)
-    print("CONTEXT DETECTOR - DEMO")
-    print("="*80)
+    from core.logger import setup_logger
+    logger = setup_logger("ContextDetector", "debug_outputs/context_detector.log", console=True)
+
+    logger.info("="*80)
+    logger.info("CONTEXT DETECTOR - DEMO")
+    logger.info("="*80)
 
     detector = ContextDetector()
 
@@ -556,14 +559,14 @@ if __name__ == "__main__":
     contexts = detector.detect(test_state, {}, 'open')
 
     # Print summary
-    print(detector.get_context_summary(contexts))
+    logger.info(detector.get_context_summary(contexts))
 
     # Print active parameters
     active_params = detector.get_active_parameters(contexts)
-    print(f"\nSample Active Parameters:")
+    logger.info(f"\nSample Active Parameters:")
     for key, value in list(active_params.items())[:10]:
-        print(f"  {key}: {value}")
+        logger.info(f"  {key}: {value}")
 
-    print("\n" + "="*80)
-    print("✅ CONTEXT DETECTOR READY")
-    print("="*80)
+    logger.info("\n" + "="*80)
+    logger.info("✅ CONTEXT DETECTOR READY")
+    logger.info("="*80)
