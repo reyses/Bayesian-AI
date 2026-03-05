@@ -2,6 +2,13 @@
 
 ---
 
+## [V5.0.1] - 2026-03-05 — info update
+
+### Changed
+- info update
+
+---
+
 ## [V5.0.0] - 2026-02-19 — PID Oscillation Shadow System
 
 ### New
