@@ -246,5 +246,60 @@ def test_hurst_performance():
     assert dur_opt < dur_orig / 10
     print(f"Speedup: {dur_orig/dur_opt:.2f}x")
 
+
+from numpy.lib.stride_tricks import sliding_window_view
+from core.quantum_field_engine import _compute_rolling_std_numba
+
+def test_rolling_std_numba_correctness():
+    """Verify the Numba implementation output matches sliding_window_view exactly."""
+    np.random.seed(42)
+    n = 1000
+    z_scores = np.random.randn(n)
+    _ow = 5
+
+    # Original
+    osc_std_orig = np.full(n, np.nan)
+    if n >= _ow:
+         z_windows = sliding_window_view(z_scores, window_shape=_ow)
+         osc_std_orig[_ow-1:] = z_windows.std(axis=1, ddof=1)
+         if n > _ow - 1:
+              osc_std_orig[:_ow - 1] = osc_std_orig[_ow - 1]
+
+    # Numba
+    osc_std_numba = _compute_rolling_std_numba(z_scores, _ow)
+
+    assert np.allclose(osc_std_orig, osc_std_numba, equal_nan=True)
+
+def test_rolling_std_numba_speed():
+    """Verify the Numba implementation is substantially faster."""
+    np.random.seed(42)
+    n = 100_000
+    z_scores = np.random.randn(n)
+    _ow = 5
+
+    # Warmup
+    _compute_rolling_std_numba(np.random.randn(100), _ow)
+
+    t0 = time.perf_counter()
+    osc_std_orig = np.full(n, np.nan)
+    if n >= _ow:
+         z_windows = sliding_window_view(z_scores, window_shape=_ow)
+         osc_std_orig[_ow-1:] = z_windows.std(axis=1, ddof=1)
+         if n > _ow - 1:
+              osc_std_orig[:_ow - 1] = osc_std_orig[_ow - 1]
+    t1 = time.perf_counter()
+    t_orig = t1 - t0
+
+    t0 = time.perf_counter()
+    osc_std_numba = _compute_rolling_std_numba(z_scores, _ow)
+    t1 = time.perf_counter()
+    t_numba = t1 - t0
+
+    print(f"\nOriginal sliding_window_view: {t_orig:.5f}s")
+    print(f"Numba: {t_numba:.5f}s")
+    print(f"Speedup: {t_orig / t_numba:.2f}x")
+
+    assert t_numba < t_orig
+
 if __name__ == "__main__":
     pytest.main([__file__])
