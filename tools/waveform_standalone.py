@@ -6313,6 +6313,318 @@ def main():
             print(f"  [saved] analysis_q_signed_bins.csv ({len(_csv_rows)} bins)")
 
 
+    # =====================================================================
+    #  ANALYSIS R: CNN PATTERN DETECTION
+    # =====================================================================
+    if _start_at <= 'R':
+        print(f"\n{'='*70}")
+        print(f"  ANALYSIS R: CNN PATTERN DETECTION (Conv1D, 7 classes)")
+        print(f"{'='*70}")
+
+        try:
+            import torch
+            import torch.optim as optim
+            from torch.utils.data import TensorDataset, DataLoader
+            from tools.cnn_pattern_model import (
+                PatternCNN, PATTERN_CLASSES, SEED_TO_CLASS, N_CLASSES,
+                WINDOW_LEN, extract_ohlcv_windows, TORCH_AVAILABLE as _torch_ok,
+                detect_peak_touch_levels, compute_level_context,
+            )
+        except ImportError:
+            _torch_ok = False
+
+        if not _torch_ok:
+            print("  SKIP: PyTorch not available")
+        else:
+            _cl = base_df['close'].values.astype(float)
+            _hi = base_df['high'].values.astype(float)
+            _lo = base_df['low'].values.astype(float)
+            _active_levels = []
+
+            # ── Step 0: Detect liquidation levels via peak-touch scanning ──
+            try:
+                import matplotlib
+                matplotlib.use('Agg')
+                import matplotlib.pyplot as plt
+
+                # Resample intraday to daily for level detection
+                _daily_df = base_df.copy()
+                if hasattr(_daily_df.index, 'date'):
+                    _daily_df['_date'] = _daily_df.index.date
+                else:
+                    _daily_df['_date'] = range(len(_daily_df))
+                _daily_agg = _daily_df.groupby('_date').agg({
+                    'open': 'first', 'high': 'max', 'low': 'min',
+                    'close': 'last', 'volume': 'sum'
+                })
+                _d_hi = _daily_agg['high'].values.astype(float)
+                _d_lo = _daily_agg['low'].values.astype(float)
+
+                print(f"  Daily bars for level detection: {len(_d_hi)}")
+
+                # Detect levels from daily swing peaks
+                _levels = detect_peak_touch_levels(
+                    _d_hi, _d_lo,
+                    lookback_bars=min(60, len(_d_hi)),
+                    swing_order=3, tolerance=75.0,
+                    merge_dist=150.0, top_k=7)
+
+                if _levels:
+                    print(f"\n  Detected liquidation levels ({len(_levels)}):")
+                    for _lp, _lt in _levels:
+                        print(f"    {_lp:>10.0f}  ({_lt} touches)")
+                else:
+                    print(f"  No levels detected (need more daily data)")
+
+                # Also load manual levels from checkpoint if available
+                _manual_path = os.path.join(
+                    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                    'checkpoints', 'price_levels.json')
+                _manual_levels = []
+                if os.path.exists(_manual_path):
+                    import json
+                    with open(_manual_path) as _f:
+                        _ml = json.load(_f)
+                    _manual_levels = [(float(p), 99) for p in _ml.get('levels', [])]
+                    print(f"\n  Manual levels from checkpoint ({len(_manual_levels)}):")
+                    for _mp, _ in _manual_levels:
+                        print(f"    {_mp:>10.0f}  (manual)")
+
+                # Use detected levels (fall back to manual if detection empty)
+                _active_levels = _levels if _levels else _manual_levels
+
+                # Visualization: price chart with horizontal level lines
+                _aw = price_imr['analysis_mask']
+                _ai = np.where(_aw)[0]
+                if len(_ai) > 0 and _active_levels:
+                    _s0, _s1 = _ai[0], _ai[-1] + 1
+                    _x = np.arange(_s1 - _s0)
+                    _cl_w = _cl[_s0:_s1]
+
+                    _fig, _ax = plt.subplots(figsize=(20, 10))
+                    _ax.plot(_x, _cl_w, color='black', linewidth=0.5,
+                             label='Close', zorder=3)
+
+                    # Draw horizontal level lines
+                    _colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12',
+                               '#9b59b6', '#1abc9c', '#e67e22']
+                    for _li, (_lp, _lt) in enumerate(_active_levels):
+                        _c = _colors[_li % len(_colors)]
+                        _lw = 1.0 + min(_lt, 5) * 0.4
+                        _ax.axhline(y=_lp, color=_c, linewidth=_lw,
+                                    alpha=0.7, linestyle='--',
+                                    label=f'{_lp:.0f} ({_lt}t)')
+
+                    _ax.set_xlabel('Bar index (analysis window)')
+                    _ax.set_ylabel('Price')
+                    _ax.set_title('Liquidation Levels (peak-touch detection)')
+                    _ax.legend(loc='upper left', fontsize=8)
+                    _ax.grid(True, alpha=0.3)
+                    _fig.tight_layout()
+                    _lv_path = os.path.join(PLOTS_DIR, '0v_liquidation_levels.png')
+                    _fig.savefig(_lv_path, dpi=150)
+                    plt.close(_fig)
+                    print(f"\n  [saved] {_lv_path}")
+
+                    # Context stats preview
+                    _ctx_preview = compute_level_context(
+                        _cl, _active_levels, _ai)
+                    _da = _ctx_preview[:, 0]
+                    _db = _ctx_preview[:, 1]
+                    print(f"\n  Level context (dist_above / dist_below):")
+                    print(f"    dist_above: {_da.mean():.3f} +/- {_da.std():.3f}  "
+                          f"[{_da.min():.3f}, {_da.max():.3f}]")
+                    print(f"    dist_below: {_db.mean():.3f} +/- {_db.std():.3f}  "
+                          f"[{_db.min():.3f}, {_db.max():.3f}]")
+
+            except Exception as _e:
+                import traceback
+                print(f"  (level detection failed: {_e})")
+                traceback.print_exc()
+                _active_levels = []
+
+            # ── Step 1: analysis bar indices with enough lookback ──
+            _analysis_mask_r = price_imr['analysis_mask']
+            _analysis_idx_r = np.where(_analysis_mask_r)[0]
+            _analysis_idx_r = _analysis_idx_r[_analysis_idx_r >= WINDOW_LEN - 1]
+            print(f"  Analysis bars with {WINDOW_LEN}-bar lookback: {len(_analysis_idx_r):,}")
+
+            # ── Step 2: pseudo-label via seed primitives ──
+            _seed_len_r = best_seg_len if 'best_seg_len' in dir() else 16
+            _lib_r = SeedPrimitiveLibrary(N=_seed_len_r)
+
+            _labels_r, _valid_idx_r = [], []
+            for _idx in tqdm(_analysis_idx_r, desc='  Labeling', ascii=True,
+                             dynamic_ncols=True):
+                if _idx + _seed_len_r > len(close):
+                    continue
+                _seg = close[_idx : _idx + _seed_len_r]
+                _shape_name, _corr = _lib_r.classify_trajectory(_seg)
+                if _shape_name == 'NOISE':
+                    continue
+                _cnn_cls = SEED_TO_CLASS.get(_shape_name)
+                if _cnn_cls is None:
+                    continue
+                _labels_r.append(_cnn_cls)
+                _valid_idx_r.append(_idx)
+
+            _valid_idx_r = np.array(_valid_idx_r)
+            _labels_r = np.array(_labels_r)
+            print(f"  Labeled samples: {len(_labels_r):,}  (NOISE excluded)")
+
+            if len(_labels_r) < 100:
+                print(f"  SKIP: too few samples ({len(_labels_r)}, need >= 100)")
+            else:
+                # ── Step 3: extract OHLCV windows + level context ──
+                _windows_r, _vmask_r = extract_ohlcv_windows(
+                    base_df, _valid_idx_r, window_len=WINDOW_LEN)
+                _labels_r = _labels_r[_vmask_r]
+                _valid_idx_r = _valid_idx_r[_vmask_r]
+                print(f"  Valid windows: {len(_labels_r):,}")
+
+                # Liquidation level context (dist_above, dist_below)
+                _n_ctx = 2  # 2 level-distance scalars
+                if _active_levels:
+                    _ctx_r = compute_level_context(
+                        _cl, _active_levels, _valid_idx_r)
+                    print(f"\n  Level context (liquidation distances):")
+                    print(f"    dist_above: {_ctx_r[:,0].mean():.3f} +/- {_ctx_r[:,0].std():.3f}")
+                    print(f"    dist_below: {_ctx_r[:,1].mean():.3f} +/- {_ctx_r[:,1].std():.3f}")
+                else:
+                    _ctx_r = np.full((len(_valid_idx_r), 2), 0.5, dtype=np.float32)
+                    print(f"\n  No levels detected — using neutral context (0.5, 0.5)")
+
+                # Class distribution
+                print(f"\n  Class distribution:")
+                for _ci, _cn in enumerate(PATTERN_CLASSES):
+                    _nc = int((_labels_r == _ci).sum())
+                    print(f"    {_cn:<20} {_nc:>6} ({_nc/len(_labels_r)*100:>5.1f}%)")
+
+                # ── Step 4: stratified train/test split ──
+                from sklearn.model_selection import train_test_split
+                _i_train, _i_test = train_test_split(
+                    np.arange(len(_labels_r)), test_size=0.30,
+                    random_state=42, stratify=_labels_r)
+
+                _X_train = torch.FloatTensor(_windows_r[_i_train])
+                _C_train = torch.FloatTensor(_ctx_r[_i_train])
+                _y_train = torch.LongTensor(_labels_r[_i_train])
+                _X_test = torch.FloatTensor(_windows_r[_i_test])
+                _C_test = torch.FloatTensor(_ctx_r[_i_test])
+                _y_test = torch.LongTensor(_labels_r[_i_test])
+
+                _device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+                print(f"\n  Device: {_device}  |  Train: {len(_i_train):,}  Test: {len(_i_test):,}")
+
+                # ── Step 5: train CNN (dual-path: conv shapes + macro context) ──
+                # Class weights for imbalanced data
+                _counts = np.bincount(_labels_r, minlength=N_CLASSES).astype(float)
+                _counts[_counts == 0] = 1.0
+                _class_w = torch.FloatTensor(len(_labels_r) / (N_CLASSES * _counts)).to(_device)
+
+                _model = PatternCNN(n_context=_n_ctx).to(_device)
+                _criterion = torch.nn.CrossEntropyLoss(weight=_class_w)
+                _optimizer = optim.Adam(_model.parameters(), lr=1e-3, weight_decay=1e-4)
+
+                _train_ds = TensorDataset(_X_train, _C_train, _y_train)
+                _train_loader = DataLoader(_train_ds, batch_size=64, shuffle=True)
+
+                _N_EPOCHS = 50
+                for _epoch in tqdm(range(_N_EPOCHS), desc='  Training CNN',
+                                   ascii=True, dynamic_ncols=True):
+                    _model.train()
+                    for _xb, _cb, _yb in _train_loader:
+                        _xb, _cb, _yb = _xb.to(_device), _cb.to(_device), _yb.to(_device)
+                        _optimizer.zero_grad()
+                        _loss = _criterion(_model(_xb, _cb), _yb)
+                        _loss.backward()
+                        _optimizer.step()
+
+                # ── Step 6: evaluate ──
+                _model.eval()
+                with torch.no_grad():
+                    _preds_test = _model(_X_test.to(_device), _C_test.to(_device)).argmax(dim=1).cpu().numpy()
+                    _preds_train = _model(_X_train.to(_device), _C_train.to(_device)).argmax(dim=1).cpu().numpy()
+
+                _y_test_np = _y_test.numpy()
+                _y_train_np = _y_train.numpy()
+
+                from sklearn.metrics import accuracy_score, classification_report
+
+                _acc_train = accuracy_score(_y_train_np, _preds_train) * 100
+                _acc_test = accuracy_score(_y_test_np, _preds_test) * 100
+                _baseline = max(np.bincount(_labels_r)) / len(_labels_r) * 100
+
+                print(f"\n  CNN Results ({_N_EPOCHS} epochs, lr=1e-3):")
+                print(f"    Train accuracy:  {_acc_train:.1f}%")
+                print(f"    Test accuracy:   {_acc_test:.1f}%")
+                print(f"    Majority baseline: {_baseline:.1f}%")
+                print(f"    Lift over baseline: {_acc_test - _baseline:+.1f}%")
+
+                # Per-class report
+                _present = sorted(set(_y_test_np))
+                _tgt_names = [PATTERN_CLASSES[i] for i in _present]
+                print(f"\n  Per-class report:")
+                print(classification_report(
+                    _y_test_np, _preds_test,
+                    labels=_present, target_names=_tgt_names, zero_division=0))
+
+                # ── Step 7: direction accuracy ──
+                _dir_map = {0: 1, 1: 0, 2: 1, 3: 0, 4: 1, 5: 0}  # 6=neutral, skip
+                _dir_mask = np.array([p in _dir_map for p in _preds_test])
+                if _dir_mask.sum() >= 10:
+                    _pred_dirs = np.array([_dir_map[p] for p in _preds_test[_dir_mask]])
+                    _test_bar_idx = _valid_idx_r[_i_test][_dir_mask]
+                    _actual_dirs = []
+                    for _bi in _test_bar_idx:
+                        if _bi + _seed_len_r < len(close):
+                            _actual_dirs.append(1 if close[_bi + _seed_len_r] > close[_bi] else 0)
+                        else:
+                            _actual_dirs.append(-1)
+                    _actual_dirs = np.array(_actual_dirs)
+                    _ok = _actual_dirs >= 0
+                    if _ok.sum() >= 10:
+                        _dir_acc = (_pred_dirs[_ok] == _actual_dirs[_ok]).mean() * 100
+                        print(f"  DIRECTION ACCURACY:")
+                        print(f"    CNN direction: {_dir_acc:.1f}%  "
+                              f"({_ok.sum()} directional predictions)")
+                        print(f"    Ref: Analysis K = 70.6%")
+                else:
+                    print(f"  Direction: too few directional predictions ({_dir_mask.sum()})")
+
+                # ── Step 8: confusion matrix plot ──
+                try:
+                    from sklearn.metrics import confusion_matrix as _cm_func
+                    import matplotlib
+                    matplotlib.use('Agg')
+                    import matplotlib.pyplot as plt
+
+                    _cm = _cm_func(_y_test_np, _preds_test, labels=_present)
+                    _fig, _ax = plt.subplots(figsize=(8, 6))
+                    _im = _ax.imshow(_cm, cmap='Blues')
+                    _ax.set_xticks(range(len(_tgt_names)))
+                    _ax.set_yticks(range(len(_tgt_names)))
+                    _ax.set_xticklabels(_tgt_names, rotation=45, ha='right', fontsize=8)
+                    _ax.set_yticklabels(_tgt_names, fontsize=8)
+                    for _ri in range(len(_tgt_names)):
+                        for _ci2 in range(len(_tgt_names)):
+                            _ax.text(_ci2, _ri, str(_cm[_ri, _ci2]),
+                                     ha='center', va='center', fontsize=9)
+                    _ax.set_xlabel('Predicted')
+                    _ax.set_ylabel('Actual')
+                    _ax.set_title(f'CNN Pattern Confusion (test acc={_acc_test:.1f}%)')
+                    _fig.colorbar(_im)
+                    _fig.tight_layout()
+                    _cm_path = os.path.join(PLOTS_DIR, '0v_cnn_confusion.png')
+                    _fig.savefig(_cm_path, dpi=150)
+                    plt.close(_fig)
+                    print(f"\n  [saved] {_cm_path}")
+                except Exception as _e:
+                    print(f"  (confusion matrix plot failed: {_e})")
+
+    else:
+        print(f"  [SKIP] Analysis R (--start {_start_at})")
+
 
     # =====================================================================
     if not args.full:

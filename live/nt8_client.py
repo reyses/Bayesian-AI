@@ -17,7 +17,7 @@ from typing import Optional
 from live.config import LiveConfig
 from live.protocol import (
     encode, MessageReader, subscribe, heartbeat as hb_msg,
-    request_history, validate,
+    request_history, resume_from, validate,
 )
 
 logger = logging.getLogger(__name__)
@@ -42,12 +42,17 @@ class NT8Client:
         self._last_hb_recv: float = 0.0
         self._history_received = False  # only request history once
         self._last_connect_time: float = 0.0  # rate-limit reconnections
+        self._resume_ts: float = 0.0  # last bar timestamp for delta sync
 
     # ── Public API ────────────────────────────────────────────────────
 
     @property
     def is_connected(self) -> bool:
         return self._connected
+
+    def set_resume_timestamp(self, ts: float):
+        """Set the last known bar timestamp for delta sync."""
+        self._resume_ts = ts
 
     async def connect(self) -> bool:
         """Connect to NT8 bridge with retries.  Returns True on success."""
@@ -76,12 +81,15 @@ class NT8Client:
                                 self._cfg.account)
                 await self.send(sub)
 
-                # Only request history once (set flag immediately to prevent
-                # duplicate requests on rapid reconnects during history dump)
+                # Request history (once per connect cycle)
                 if not self._history_received:
                     self._history_received = True  # lock before sending
-                    await self.send(request_history())
-                    logger.info("Requested history dump from NT8")
+                    if self._resume_ts > 0:
+                        await self.send(resume_from(self._resume_ts))
+                        logger.info(f"Requested delta sync from ts={self._resume_ts:.0f}")
+                    else:
+                        await self.send(request_history())
+                        logger.info("Requested full history dump from NT8")
 
                 # Start background tasks
                 self._read_task = asyncio.create_task(self._read_loop())
@@ -203,5 +211,7 @@ class NT8Client:
                 pass
         if self._writer:
             self._writer.close()
+        # Allow re-requesting history on reconnect (NT8 restart scenario)
+        self._history_received = False
         if not self._stop:
             await self.connect()

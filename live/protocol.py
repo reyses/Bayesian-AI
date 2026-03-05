@@ -40,6 +40,7 @@ class MsgType(str, Enum):
     CANCEL_ORDER     = 'CANCEL_ORDER'
     SUBSCRIBE        = 'SUBSCRIBE'
     REQUEST_HISTORY  = 'REQUEST_HISTORY'
+    RESUME_FROM      = 'RESUME_FROM'
     # HEARTBEAT is shared
 
 
@@ -174,6 +175,11 @@ def cancel_order(order_id: str) -> dict:
 
 def request_history() -> dict:
     return {'type': MsgType.REQUEST_HISTORY}
+
+
+def resume_from(last_timestamp: float) -> dict:
+    """Request only bars after last_timestamp (delta sync)."""
+    return {'type': MsgType.RESUME_FROM, 'last_timestamp': last_timestamp}
 
 
 def heartbeat() -> dict:
