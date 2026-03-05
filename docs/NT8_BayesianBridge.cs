@@ -1,5 +1,5 @@
 // =============================================================================
-// BayesianBridge 6.2.0 — 2026-03-04 12:10
+// BayesianBridge 6.4.0 — 2026-03-05 12:00
 // =============================================================================
 // BayesianBridge — NinjaTrader 8 NinjaScript Indicator
 //
@@ -11,7 +11,7 @@
 // INSTALLATION:
 //   1. Copy this file to: Documents\NinjaTrader 8\bin\Custom\Indicators\
 //   2. In NT8: Tools > NinjaScript Editor > right-click > Compile
-//   3. Add indicator to a 1-second MNQ chart on your sim account
+//   3. Add indicator to ANY MNQ chart (1s, 15s, 1m, etc.) on your sim account
 //   4. Start the Python live engine: python -m live.launcher
 //
 // PROTOCOL: Length-prefixed JSON over TCP (port 5199)
@@ -57,7 +57,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         public int DomLevels { get; set; }
 
         // ── Version ──────────────────────────────────────────────────
-        private const string BRIDGE_VERSION = "6.2.0";
+        private const string BRIDGE_VERSION = "6.4.0";
 
         // ── Internal State ────────────────────────────────────────────
         private TcpListener  _listener;
@@ -73,9 +73,10 @@ namespace NinjaTrader.NinjaScript.Indicators
             = new Queue<Dictionary<string, string>>();
 
         // Map BarsInProgress index -> period label for the BAR message
-        // Index 0 = primary chart (1s), indices 1-11 = added data series
+        // Index 0 = primary chart (auto-detected), indices 1+ = added data series
         private string[] _barLabels;
         private int[]    _barPeriodSecs;
+        private int      _primaryPeriodSecs;  // primary chart period in seconds
 
         // History buffer — completed bars (TFs 1-11 only, skip 1s) stored
         // here; dumped to client on connect so Python bypasses warmup.
@@ -113,30 +114,32 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
             else if (State == State.Configure)
             {
-                // Add all timeframes the engine needs (13 TFs total).
-                // Index 0 = primary chart (1s). Indices 1-12 below.
-                // Order: 5s,15s,30s,1m,2m,3m,5m,15m,30m,1h,4h,1D
-                AddDataSeries(BarsPeriodType.Second, 5);    // idx 1: 5s
-                AddDataSeries(BarsPeriodType.Second, 15);   // idx 2: 15s
-                AddDataSeries(BarsPeriodType.Second, 30);   // idx 3: 30s
-                AddDataSeries(BarsPeriodType.Minute, 1);    // idx 4: 1m
-                AddDataSeries(BarsPeriodType.Minute, 2);    // idx 5: 2m
-                AddDataSeries(BarsPeriodType.Minute, 3);    // idx 6: 3m
-                AddDataSeries(BarsPeriodType.Minute, 5);    // idx 7: 5m
-                AddDataSeries(BarsPeriodType.Minute, 15);   // idx 8: 15m
-                AddDataSeries(BarsPeriodType.Minute, 30);   // idx 9: 30m
-                AddDataSeries(BarsPeriodType.Minute, 60);   // idx 10: 1h
-                AddDataSeries(BarsPeriodType.Minute, 240);  // idx 11: 4h
-                AddDataSeries(BarsPeriodType.Day, 1);       // idx 12: 1D
+                // ── Detect primary chart timeframe dynamically ──────────
+                _primaryPeriodSecs = GetBarsPeriodSeconds(BarsPeriod);
+                string primaryLabel = GetTFLabel(_primaryPeriodSecs);
 
-                _barLabels = new string[] {
-                    "1s", "5s", "15s", "30s", "1m", "2m", "3m",
-                    "5m", "15m", "30m", "1h", "4h", "1D"
-                };
-                _barPeriodSecs = new int[] {
-                    1, 5, 15, 30, 60, 120, 180,
-                    300, 900, 1800, 3600, 14400, 86400
-                };
+                // Standard TFs the engine may need — only add those
+                // STRICTLY LARGER than the primary chart (NT8 requires this).
+                BarsPeriodType[] addTypes  = { BarsPeriodType.Second, BarsPeriodType.Second, BarsPeriodType.Second, BarsPeriodType.Minute, BarsPeriodType.Minute, BarsPeriodType.Minute, BarsPeriodType.Minute, BarsPeriodType.Minute, BarsPeriodType.Minute, BarsPeriodType.Minute, BarsPeriodType.Minute, BarsPeriodType.Day };
+                int[]    addValues = { 5, 15, 30, 1, 2, 3, 5, 15, 30, 60, 240, 1 };
+                string[] addLabels = { "5s", "15s", "30s", "1m", "2m", "3m", "5m", "15m", "30m", "1h", "4h", "1D" };
+                int[]    addSecs   = { 5, 15, 30, 60, 120, 180, 300, 900, 1800, 3600, 14400, 86400 };
+
+                var labels  = new List<string> { primaryLabel };
+                var periods = new List<int>    { _primaryPeriodSecs };
+
+                for (int i = 0; i < addSecs.Length; i++)
+                {
+                    if (addSecs[i] > _primaryPeriodSecs)
+                    {
+                        AddDataSeries(addTypes[i], addValues[i]);
+                        labels.Add(addLabels[i]);
+                        periods.Add(addSecs[i]);
+                    }
+                }
+
+                _barLabels     = labels.ToArray();
+                _barPeriodSecs = periods.ToArray();
             }
             else if (State == State.DataLoaded)
             {
@@ -169,7 +172,11 @@ namespace NinjaTrader.NinjaScript.Indicators
                 _serverThread = new Thread(ServerLoop) { IsBackground = true };
                 _serverThread.Start();
 
-                Print("BayesianBridge " + BRIDGE_VERSION + ": Started on port " + Port + ", account=" + AccountName);
+                Print("BayesianBridge " + BRIDGE_VERSION + ": Started on port " + Port
+                    + ", account=" + AccountName
+                    + ", chart=" + GetTFLabel(_primaryPeriodSecs)
+                    + " (" + _barLabels.Length + " series: "
+                    + string.Join(",", _barLabels) + ")");
             }
             else if (State == State.Terminated)
             {
@@ -213,9 +220,9 @@ namespace NinjaTrader.NinjaScript.Indicators
                 + Q("volume") + ":" + D2S(Volumes[idx][1])
                 + "}";
 
-            // Buffer TFs 1-11 for history dump (skip 1s — too many bars).
-            // 1s bars still stream live but aren't replayed on reconnect.
-            if (idx > 0)
+            // Buffer bars >= 5s for history dump (skip sub-5s — too many bars).
+            // Sub-5s bars still stream live but aren't replayed on reconnect.
+            if (_barPeriodSecs[idx] >= 5)
             {
                 lock (_barLock)
                 {
@@ -379,6 +386,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                             + Q("type") + ":" + Q("CONNECTED") + ","
                             + Q("account") + ":" + Q(AccountName) + ","
                             + Q("instrument") + ":" + Q(Instrument.FullName) + ","
+                            + Q("primary_period_s") + ":" + _primaryPeriodSecs + ","
                             + Q("version") + ":" + Q(BRIDGE_VERSION)
                             + "}";
                         SendRawJson(connJson);
@@ -536,6 +544,11 @@ namespace NinjaTrader.NinjaScript.Indicators
                     case "REQUEST_HISTORY":
                         Print("BayesianBridge: Sending history buffer on request...");
                         SendHistoryBuffer();
+                        break;
+                    case "RESUME_FROM":
+                        string lastTs = GetVal(cmd, "last_timestamp", "0");
+                        Print("BayesianBridge: Delta sync from ts=" + lastTs);
+                        SendHistoryBufferFrom(double.Parse(lastTs));
                         break;
                     default:
                         Print("BayesianBridge: Unknown command: " + msgType);
@@ -742,6 +755,51 @@ namespace NinjaTrader.NinjaScript.Indicators
             Print("BayesianBridge: Sent " + snapshot.Count + " historical bars to client");
         }
 
+        private void SendHistoryBufferFrom(double afterTimestamp)
+        {
+            // Delta sync: only send bars with timestamp > afterTimestamp
+            List<string> snapshot;
+            lock (_barLock)
+            {
+                snapshot = new List<string>(_allBars);
+            }
+
+            int sent = 0;
+            foreach (string json in snapshot)
+            {
+                // Fast timestamp extraction: find "timestamp": and parse the value
+                int tsIdx = json.IndexOf("\"timestamp\":");
+                if (tsIdx < 0) { SendRawJson(json); sent++; continue; }
+
+                int valStart = tsIdx + 12; // length of "timestamp":
+                int valEnd = json.IndexOf(',', valStart);
+                if (valEnd < 0) valEnd = json.IndexOf('}', valStart);
+                if (valEnd < 0) { SendRawJson(json); sent++; continue; }
+
+                double barTs;
+                if (double.TryParse(json.Substring(valStart, valEnd - valStart),
+                    System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out barTs))
+                {
+                    if (barTs <= afterTimestamp)
+                        continue; // skip — Python already has this bar
+                }
+
+                SendRawJson(json);
+                sent++;
+            }
+
+            // Send HISTORY_DONE with the delta count
+            string done = "{"
+                + Q("type") + ":" + Q("HISTORY_DONE") + ","
+                + Q("bar_count") + ":" + sent
+                + "}";
+            SendRawJson(done);
+
+            Print("BayesianBridge: Delta sync — sent " + sent + "/" + snapshot.Count
+                + " bars (after ts=" + afterTimestamp + ")");
+        }
+
         private void SendAccountUpdate()
         {
             if (_account == null) return;
@@ -886,6 +944,26 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         // ── Utilities ─────────────────────────────────────────────────
+
+        private static int GetBarsPeriodSeconds(BarsPeriod bp)
+        {
+            switch (bp.BarsPeriodType)
+            {
+                case BarsPeriodType.Second: return bp.Value;
+                case BarsPeriodType.Minute: return bp.Value * 60;
+                case BarsPeriodType.Day:    return bp.Value * 86400;
+                case BarsPeriodType.Week:   return bp.Value * 604800;
+                default: return 1;  // Tick, Volume, Range — treat as 1s
+            }
+        }
+
+        private static string GetTFLabel(int secs)
+        {
+            if (secs >= 86400) return (secs / 86400) + "D";
+            if (secs >= 3600)  return (secs / 3600) + "h";
+            if (secs >= 60)    return (secs / 60) + "m";
+            return secs + "s";
+        }
 
         private static double ToUnixSeconds(DateTime dt)
         {

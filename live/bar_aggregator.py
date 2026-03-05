@@ -9,6 +9,7 @@ OHLCV 15s bar, and appends it to the state buffer.  At session reset
 """
 
 import logging
+import os
 import numpy as np
 import pandas as pd
 from typing import List, Optional
@@ -19,6 +20,9 @@ from live.config import LiveConfig
 logger = logging.getLogger(__name__)
 
 TARGET_PERIOD = 15   # default; overridden by constructor
+MAX_MEMORY_BARS = 10000   # keep last N bars in RAM (~42h of 15s bars)
+PERSIST_DIR = os.path.join('checkpoints', 'live')
+FLUSH_INTERVAL = 1000     # auto-flush to parquet every N new bars
 
 
 class LiveBarAggregator:
@@ -35,6 +39,7 @@ class LiveBarAggregator:
         self._warmed_up = False
         self._sub_bars: list = []   # buffered 1s bars for current window
         self._history_mode = True   # True until HISTORY_DONE received
+        self._bars_since_flush = 0  # counter for auto-flush
 
     # ── Public API ────────────────────────────────────────────────────
 
@@ -82,12 +87,12 @@ class LiveBarAggregator:
             'volume':    float(msg.get('volume', 0)),
         }
 
-        # Session reset detection: >2h gap between bars (disabled during history)
+        # Session gap detection: >2h gap = daily maintenance break
         if self._sub_bars and not self._history_mode:
             gap = row_1s['timestamp'] - self._sub_bars[-1]['timestamp']
             if gap > 7200:
-                logger.info(f"Session gap ({gap:.0f}s) — resetting aggregator")
-                self.reset()
+                logger.info(f"Session gap ({gap:.0f}s) — running daily maintenance")
+                self.daily_maintenance()
 
         # If source is already at anchor period (or larger), pass through
         if bar_period >= self._target_period:
@@ -118,6 +123,11 @@ class LiveBarAggregator:
             logger.info(f"Post-history recompute: {len(self._states)} states ready")
         self._history_mode = False
 
+    @property
+    def last_timestamp(self) -> float:
+        """Timestamp of most recent bar (0.0 if empty)."""
+        return self._rows[-1]['timestamp'] if self._rows else 0.0
+
     def reset(self):
         """Flush all bars and states (session boundary)."""
         self._rows.clear()
@@ -125,7 +135,100 @@ class LiveBarAggregator:
         self._states.clear()
         self._sub_bars.clear()
         self._warmed_up = False
+        self._bars_since_flush = 0
         logger.info("Aggregator reset")
+
+    # ── Persistence ──────────────────────────────────────────────────
+
+    def _parquet_path(self) -> str:
+        """Path to the persisted bar file."""
+        os.makedirs(PERSIST_DIR, exist_ok=True)
+        return os.path.join(PERSIST_DIR,
+                            f'bars_{self._cfg.asset_ticker}_{self._target_period}s.parquet')
+
+    def save_to_parquet(self):
+        """Flush current bars to parquet (append-safe — overwrites with full buffer)."""
+        if not self._rows:
+            return
+        path = self._parquet_path()
+        df = pd.DataFrame(self._rows)
+        # Merge with existing on-disk data (dedup by timestamp)
+        if os.path.exists(path):
+            try:
+                old = pd.read_parquet(path)
+                df = pd.concat([old, df]).drop_duplicates(
+                    subset='timestamp', keep='last').sort_values('timestamp')
+            except Exception as e:
+                logger.warning(f"Could not merge with existing parquet: {e}")
+        # Trim to 60 days max (60 * 24 * 3600 / target_period)
+        max_bars = 60 * 24 * 3600 // max(self._target_period, 1)
+        if len(df) > max_bars:
+            df = df.iloc[-max_bars:]
+        df.to_parquet(path, index=False)
+        self._bars_since_flush = 0
+        logger.info(f"Bars saved: {len(df):,} rows → {path}")
+
+    def load_from_parquet(self) -> float:
+        """Load persisted bars into the buffer. Returns last timestamp (0 if none)."""
+        path = self._parquet_path()
+        if not os.path.exists(path):
+            logger.info("No persisted bars found — fresh start")
+            return 0.0
+        try:
+            df = pd.read_parquet(path)
+            if df.empty:
+                return 0.0
+            # Only keep last MAX_MEMORY_BARS for RAM
+            if len(df) > MAX_MEMORY_BARS:
+                df = df.iloc[-MAX_MEMORY_BARS:]
+            self._rows = df.to_dict('records')
+            last_ts = self._rows[-1]['timestamp']
+            logger.info(f"Loaded {len(self._rows):,} persisted bars "
+                        f"(last ts={last_ts:.0f})")
+            return last_ts
+        except Exception as e:
+            logger.warning(f"Failed to load persisted bars: {e}")
+            return 0.0
+
+    def daily_maintenance(self):
+        """Run during daily break (CME 5PM-6PM ET gap).
+
+        Saves bars to parquet, trims 1s buffer, resets for fresh session.
+        Called automatically when a >2h gap is detected between bars.
+        """
+        logger.info("=" * 50)
+        logger.info("DAILY MAINTENANCE — session gap detected")
+
+        # 1. Save current bars to disk before resetting
+        n_bars = self.bar_count
+        n_1s = len(self._rows_1s)
+        self.save_to_parquet()
+
+        # 2. Trim 1s bars (no need to persist these — only for intra-session TBN)
+        self._rows_1s.clear()
+
+        # 3. Memory cap: keep only last MAX_MEMORY_BARS in RAM
+        if len(self._rows) > MAX_MEMORY_BARS:
+            trimmed = len(self._rows) - MAX_MEMORY_BARS
+            self._rows = self._rows[-MAX_MEMORY_BARS:]
+            logger.info(f"  Trimmed {trimmed:,} old bars from RAM "
+                        f"(kept {MAX_MEMORY_BARS:,})")
+
+        # 4. Clear states + sub-bars for fresh session recompute
+        self._states.clear()
+        self._sub_bars.clear()
+        self._warmed_up = False
+        self._bars_since_flush = 0
+
+        logger.info(f"  Saved {n_bars:,} bars, cleared {n_1s:,} 1s bars")
+        logger.info(f"  RAM buffer: {len(self._rows):,} bars retained")
+        logger.info("=" * 50)
+
+    def _maybe_auto_flush(self):
+        """Auto-flush to parquet every FLUSH_INTERVAL bars."""
+        self._bars_since_flush += 1
+        if self._bars_since_flush >= FLUSH_INTERVAL:
+            self.save_to_parquet()
 
     # ── Internal ──────────────────────────────────────────────────────
 
@@ -147,8 +250,8 @@ class LiveBarAggregator:
         if self._rows and not self._history_mode:
             gap = row['timestamp'] - self._rows[-1]['timestamp']
             if gap > 7200:
-                logger.info(f"Session gap ({gap:.0f}s) — resetting aggregator")
-                self.reset()
+                logger.info(f"Session gap ({gap:.0f}s) — daily maintenance")
+                self.daily_maintenance()
 
         self._rows.append(row)
 
@@ -166,6 +269,7 @@ class LiveBarAggregator:
             return None
 
         self._warmed_up = True
+        self._maybe_auto_flush()
         return self._recompute()
 
     def _recompute(self) -> list:

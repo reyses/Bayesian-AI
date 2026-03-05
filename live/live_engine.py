@@ -182,7 +182,8 @@ class LiveEngine:
         self._last_exit_reason = 'unknown'
         self._last_high_water = 0.0
 
-        self._bar_i = 0   # running 15s bar index (NOT 1s ticks)
+        self._primary_period = config.base_resolution_s  # updated from CONNECTED
+        self._bar_i = 0   # running anchor-TF bar index
         self._last_states = []  # latest quantum states (refreshed every 15s)
         self._last_price = 0.0  # latest bar close (for main loop access)
         self._last_ts = 0.0     # latest bar timestamp
@@ -273,6 +274,12 @@ class LiveEngine:
         self._load_checkpoints()
         self._init_belief_network()
 
+        # Load persisted bars for delta sync (skip full history replay)
+        last_ts = self._aggregator.load_from_parquet()
+        if last_ts > 0:
+            self._client.set_resume_timestamp(last_ts)
+            logger.info(f"Delta sync enabled: will request bars after ts={last_ts:.0f}")
+
         connected = await self._client.connect()
         if not connected:
             logger.error("Failed to connect to NT8 bridge — exiting")
@@ -297,6 +304,8 @@ class LiveEngine:
                         self._cfg.checkpoint_dir, 'live_brain.pkl')
                     self._brain.save(brain_path)
                     logger.info(f"Live brain saved on exit ({self._live_trade_count} trades)")
+                # Safety: persist bars for delta sync on next start
+                self._aggregator.save_to_parquet()
                 # Disconnect from NT8
                 await self._client.disconnect()
                 logger.info("NT8 disconnected — shutdown complete")
@@ -468,8 +477,25 @@ class LiveEngine:
             elif mtype == 'CONNECTED':
                 bridge_ver = msg.get('version', '???')
                 bridge_inst = msg.get('instrument', '')
+                # Read primary chart period from bridge (v6.4+)
+                self._primary_period = int(msg.get('primary_period_s',
+                                                   self._cfg.base_resolution_s))
                 logger.info(f"NT8 CONNECTED: account={msg.get('account')}  "
-                            f"instrument={bridge_inst}  bridge={bridge_ver}")
+                            f"instrument={bridge_inst}  bridge={bridge_ver}  "
+                            f"primary={self._primary_period}s")
+                # Prepare aggregator for history ingestion (handles NT8 restarts)
+                if self._aggregator.bar_count > 0:
+                    # Delta sync: keep existing bars, just enter history mode
+                    # for the incoming delta bars
+                    self._aggregator._history_mode = True
+                    self._client.set_resume_timestamp(self._aggregator.last_timestamp)
+                    logger.info(f"Delta sync: keeping {self._aggregator.bar_count:,} bars, "
+                                f"requesting from ts={self._aggregator.last_timestamp:.0f}")
+                else:
+                    # Full reset — no persisted data
+                    self._aggregator.reset()
+                    self._aggregator._history_mode = True
+                    logger.info("Aggregator reset for full history ingestion")
                 # Instrument handshake — compare root symbol (MNQ, ES, etc.)
                 # NT8 may send "MNQ MAR26" while config has "MNQ 03-26"
                 _cfg_root = self._cfg.asset_ticker.upper()  # "MNQ"
@@ -568,8 +594,8 @@ class LiveEngine:
                 'volume':    float(msg.get('volume', 0)),
             })
 
-        # Only feed 1s and anchor-TF bars to the aggregator
-        if bar_period != 1 and bar_period != self._anchor_period:
+        # Only feed primary chart bars and anchor-TF bars to the aggregator
+        if bar_period != self._primary_period and bar_period != self._anchor_period:
             return
 
         price = float(msg['close'])
@@ -1165,13 +1191,16 @@ class LiveEngine:
             self._exit_watchers.remove(w)
 
     def _prepare_shutdown(self):
-        """Save brain + write session report + advise GUI."""
+        """Save brain + bars + write session report + advise GUI."""
         # Save brain
         if self._live_trade_count > 0:
             brain_path = os.path.join(
                 self._cfg.checkpoint_dir, 'live_brain.pkl')
             self._brain.save(brain_path)
             logger.info(f"Brain saved ({self._live_trade_count} trades)")
+
+        # Persist bars to parquet for delta sync on next start
+        self._aggregator.save_to_parquet()
 
         # Write session report
         self._write_session_report()
