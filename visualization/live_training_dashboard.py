@@ -40,10 +40,19 @@ class Tooltip:
         self.widget = widget
         self.text = text
         self.tip_window = None
-        widget.bind("<Enter>", self.show_tip)
+        self._id = None
+        widget.bind("<Enter>", self.schedule_tip)
         widget.bind("<Leave>", self.hide_tip)
+        widget.bind("<ButtonPress>", self.hide_tip)
 
-    def show_tip(self, event=None):
+    def schedule_tip(self, event=None):
+        if self.tip_window or not self.text:
+            return
+        if self._id:
+            self.widget.after_cancel(self._id)
+        self._id = self.widget.after(500, self.show_tip)
+
+    def show_tip(self):
         if self.tip_window or not self.text:
             return
 
@@ -72,6 +81,9 @@ class Tooltip:
         label.pack(ipadx=1)
 
     def hide_tip(self, event=None):
+        if self._id:
+            self.widget.after_cancel(self._id)
+            self._id = None
         if self.tip_window:
             self.tip_window.destroy()
             self.tip_window = None
@@ -380,7 +392,7 @@ class FractalDashboard:
             txt = self.log_text.get(tk.SEL_FIRST, tk.SEL_LAST)
             self.root.clipboard_clear()
             self.root.clipboard_append(txt)
-        except tk.TclError:
+        except Exception:
             pass
 
     def _log_copy_all(self):
