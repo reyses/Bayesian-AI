@@ -2,6 +2,13 @@
 
 ---
 
+## [V5.0.1] - 2026-03-06 — Automated Docs Update
+
+### Changed
+- s
+
+---
+
 ## [V5.0.0] - 2026-02-19 — PID Oscillation Shadow System
 
 ### New
