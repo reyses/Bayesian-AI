@@ -570,7 +570,8 @@ class WaveRider:
         # (F_net pushing against the trade) shortens the half-life.
         envelope_exit = False
         _env_T0 = self.position.envelope_T0
-        if _env_T0 > 0 and self.position.bars_in_trade > 0:
+        _env_min_bars = getattr(self, '_envelope_min_bars', 5)
+        if _env_T0 > 0 and self.position.bars_in_trade > _env_min_bars:
             _accel = getattr(self, '_last_acceleration', 0.0)
             # Adverse: for LONG, F_net<0 is bad; for SHORT, F_net>0 is bad
             if self.position.side == 'long':

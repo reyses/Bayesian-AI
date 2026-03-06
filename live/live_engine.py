@@ -767,6 +767,7 @@ class LiveEngine:
         self._wave_rider._last_acceleration = float(getattr(_st, 'F_net', 0.0)) if _st else 0.0
         self._wave_rider._envelope_accel_sensitivity = self._tuning.get('envelope_accel_sensitivity', 1.0)
         self._wave_rider._envelope_floor_ticks = self._tuning.get('envelope_floor_ticks', 4)
+        self._wave_rider._envelope_min_bars = self._tuning.get('envelope_min_bars', 5)
         if pos.envelope_halflife != self._tuning.get('envelope_halflife_bars', 20):
             pos.envelope_halflife = self._tuning.get('envelope_halflife_bars', 20)
         result = self._wave_rider.update_trail(price, None, ts, exit_signal=exit_sig)
@@ -2015,7 +2016,19 @@ class LiveEngine:
                 if s_wr > _wr_good and (lt < 3 or l_wr < _wr_bad):
                     return 'short', 0.5 - s_wr * 0.4, 'live_bias'
 
-        # Priority 1: signed MFE regression (sign=direction, |val|=confidence)
+        # Priority 1: live momentum (velocity + acceleration from physics engine)
+        # Trusts real-time market direction over stale regression coefficients.
+        s = candidate.state
+        _vel = float(getattr(s, 'particle_velocity', 0.0))
+        _acc = float(getattr(s, 'F_net', 0.0))
+        _mom = _vel + 0.5 * _acc
+        _mom_thresh = self._tuning.get('dir_momentum_thresh', 0.5)
+        if abs(_mom) > _mom_thresh:
+            side = 'long' if _mom > 0 else 'short'
+            _p_long = 0.5 + min(abs(_mom) / 10.0, 0.45) * (1 if _mom > 0 else -1)
+            return side, _p_long, 'live_momentum'
+
+        # Priority 2: signed MFE regression (sign=direction, |val|=confidence)
         _live_feat = np.array(FractalClusteringEngine.extract_features(candidate))
         _live_scaled = self._scaler.transform([_live_feat])[0]
 
@@ -2027,7 +2040,7 @@ class LiveEngine:
             _p_long = 0.5 + min(abs(_pred_smfe) / 20.0, 0.45) * (1 if _pred_smfe > 0 else -1)
             return side, _p_long, 'signed_mfe'
 
-        # Priority 2: balanced direction logistic regression
+        # Priority 3: balanced direction logistic regression
         _dir_coeff = lib_entry.get('dir_coeff')
         if _dir_coeff is not None:
             _dir_logit = (np.dot(_live_scaled, np.array(_dir_coeff))
