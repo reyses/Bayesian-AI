@@ -253,6 +253,10 @@ class Position:
     entry_dmi_inverse: bool = False                # True if DMI was against trade direction at entry
     bars_in_trade: int = 0                           # incremented each update_trail call
 
+    # Half-life decay envelope
+    envelope_T0: float = 0.0            # initial tolerance in ticks (set at open)
+    envelope_halflife: float = 20.0     # base half-life in bars
+
     # CST
     cst_centroid: Optional[np.ndarray] = None
     cst_basin_mean: float = 0.0
@@ -352,6 +356,9 @@ class WaveRider:
             pt_dist = profit_target_ticks * self.asset.tick_size
             profit_target = entry_price - pt_dist if side == 'short' else entry_price + pt_dist
 
+        # Half-life envelope: initial tolerance = stop distance (in ticks)
+        _env_T0 = float(stop_distance_ticks)
+
         self.position = Position(
             entry_price=entry_price,
             entry_time=time.time(),
@@ -364,6 +371,8 @@ class WaveRider:
             trailing_stop_ticks=trailing_stop_ticks,
             trail_activation_ticks=trail_activation_ticks,
             original_trail_ticks=trailing_stop_ticks,
+            envelope_T0=_env_T0,
+            envelope_halflife=20.0,
             cst_centroid=cst_centroid,
             cst_basin_mean=cst_basin_mean,
             cst_basin_std=cst_basin_std,
@@ -556,15 +565,37 @@ class WaveRider:
                 and exit_signal.get('workers_against', 0) >= WATCHDOG_WORKERS):
             watchdog_exit = True
 
+        # ── Half-life decay envelope ──────────────────────────────────
+        # Tolerance decays exponentially from entry. Adverse acceleration
+        # (F_net pushing against the trade) shortens the half-life.
+        envelope_exit = False
+        _env_T0 = self.position.envelope_T0
+        if _env_T0 > 0 and self.position.bars_in_trade > 0:
+            _accel = getattr(self, '_last_acceleration', 0.0)
+            # Adverse: for LONG, F_net<0 is bad; for SHORT, F_net>0 is bad
+            if self.position.side == 'long':
+                _adv_accel = max(0, -_accel)
+            else:
+                _adv_accel = max(0, _accel)
+            _alpha = getattr(self, '_envelope_accel_sensitivity', 1.0)
+            _t_half = self.position.envelope_halflife * max(0.25, min(4.0, 1.0 - _alpha * _adv_accel))
+            _floor_ticks = getattr(self, '_envelope_floor_ticks', 4)
+            _tolerance = _env_T0 * (0.5 ** (self.position.bars_in_trade / max(1, _t_half))) + _floor_ticks
+            _adverse_ticks = -profit_ticks if profit_ticks < 0 else 0
+            if _adverse_ticks > _tolerance:
+                envelope_exit = True
+
         # Check Stop Hit, Profit Target, or Structure Break
         stop_hit = (self.position.side == 'short' and current_price >= new_stop) or \
                    (self.position.side == 'long' and current_price <= new_stop)
 
         structure_broken = self._check_layer_breaks(current_state)
 
-        if stop_hit or structure_broken or pt_hit or urgent_exit or decay_exit or watchdog_exit:
+        if stop_hit or structure_broken or pt_hit or urgent_exit or decay_exit or watchdog_exit or envelope_exit:
             if urgent_exit:
                 exit_reason = 'belief_flip'
+            elif envelope_exit:
+                exit_reason = 'envelope_breach'
             elif watchdog_exit:
                 exit_reason = 'loss_watchdog'
             elif decay_exit:
