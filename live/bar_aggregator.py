@@ -166,7 +166,7 @@ class LiveBarAggregator:
             df = df.iloc[-max_bars:]
         df.to_parquet(path, index=False)
         self._bars_since_flush = 0
-        logger.info(f"Bars saved: {len(df):,} rows → {path}")
+        logger.info(f"Bars saved: {len(df):,} rows -> {path}")
 
     def load_from_parquet(self) -> float:
         """Load persisted bars into the buffer. Returns last timestamp (0 if none)."""

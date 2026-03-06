@@ -165,6 +165,27 @@ half-curve problem observed when snowflake split lost the full cycle view.
 
 ---
 
+## 12. Neural Direction Model (trained on I-MR segments)
+**Status:** IDEA — strong case, needs spec
+**Category:** Direction prediction — replaces physics blend + logistic regression
+**Attacks:** Leak #3 (wrong direction) — but also improves entry quality broadly
+**Key insight:** I-MR regime segments ARE perfect trades. Each segment has a known
+direction + magnitude + the full 192D feature context at its start. This gives
+50k-200k labeled samples from ATLAS (not just ~392 actual trades).
+**Architecture options:**
+- **GBM baseline**: XGBoost/LightGBM on 192D → direction + magnitude (Analysis K got 70.6%)
+- **MLP**: 192 → 128 → 64 → 2 (direction class + magnitude regression)
+- **1D-CNN on TF grid**: treat 16F × 12TF as a 2D image — conv layers learn
+  cross-TF patterns ("4h accel + 15m decel = reversal") that geometric mean misses
+**Training data:** Every I-MR segment in ATLAS = one labeled sample. 10 months ×
+12 TFs × avg segment length → 50k-200k samples. Enough for neural approaches.
+**Integration:** Replaces `_phys_dir` in TBN workers AND/OR replaces the entire
+`_determine_direction()` cascade. Serialize trained model, load at startup.
+**Depends on:** I-MR segmentation pipeline (waveform analysis), ATLAS data coverage
+**Related:** Analysis K (70.6% direction, 1h_hurst #1 feature), JULES_WAVEFORM_SEED_INTEGRATION Part 4
+
+---
+
 ## Recently Completed
 - `--fresh --depth-iso` combo wired (single command)
 - Parent-based max hold (5 × immediate parent TF)
