@@ -5,3 +5,7 @@
 ## 2026-02-12 - [Mocking Tkinter Widgets Identity]
 **Learning:** When mocking `tkinter` with `MagicMock`, distinct widget instantiations (e.g., `tk.Label()`) return the *same* mock object by default. This breaks identity checks (`id(w1) != id(w2)`) and shared state assumptions in tests.
 **Action:** Always use `side_effect=lambda *a, **k: MagicMock()` or a factory function when mocking widget classes to ensure each instantiation returns a unique mock object.
+
+## 2026-03-06 - [Tkinter Tooltip UX in High-Density Dashboards]
+**Learning:** Immediate tooltips in high-density dashboards (like the Live Dashboard) can cause aggressive flashing and UI obstruction as the mouse moves over multiple elements rapidly.
+**Action:** Add a ~500ms delay (`widget.after`) before showing tooltips, include a `<ButtonPress>` binding to dismiss them during interaction, and ensure scheduled events are cancelled (`widget.after_cancel`) if the mouse leaves before the timeout.
