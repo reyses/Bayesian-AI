@@ -44,6 +44,20 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class BandContext:
+    """Where price sits relative to Standard Error Bands at one TF."""
+    tf_seconds: int
+    z_score: float
+    sigma: float
+    center: float
+    band: int                   # discrete sigma level: -3..+3
+    band_position: float        # continuous [-1.0, +1.0]
+    at_support: bool            # z <= -1.0
+    at_resistance: bool         # z >= +1.0
+    band_label: str             # '-2σ', '+1σ', 'center', etc.
+
+
+@dataclass
 class WorkerBelief:
     """Current belief from one TF worker."""
     tf_seconds:    int
@@ -53,6 +67,7 @@ class WorkerBelief:
     tf_bar_idx:    int      # which TF bar produced this belief
     conviction:    float    # |dir_prob - 0.5| * 2  -> how sure this worker is [0..1]
     wave_maturity: float = 0.0  # P(wave near completion) [0..1]
+    band_context:  Optional[BandContext] = None
     # Composite: 0.4*pattern_maturity + 0.3*min(1,|z|/3) + 0.3*tunnel_probability
     # High value = wave is well-developed/near exhaustion = higher entry risk
 
@@ -70,6 +85,7 @@ class BeliefState:
     # Use decision_wave_maturity (5m) to assess if the TRADEABLE wave is exhausted.
     # Use wave_maturity (weighted avg) for reference only.
     tf_beliefs:     Dict[int, WorkerBelief] = field(default_factory=dict)
+    band_confluence: Optional[dict] = None
 
     @property
     def is_confident(self) -> bool:
@@ -268,6 +284,24 @@ class TimeframeWorker:
             0.0, 1.0
         ))
 
+        # ── Band Context (Standard Error Bands) ─────────────────────────
+        _z_raw = float(getattr(state, 'z_score', 0.0))
+        _sigma = float(getattr(state, 'sigma_fractal', 0.0))
+        _center = float(getattr(state, 'center_position', 0.0))
+        _band_int = int(np.clip(np.round(_z_raw), -3, 3))
+        _band_pos = float(np.clip(_z_raw / 3.0, -1.0, 1.0))
+        if abs(_z_raw) < 0.5:
+            _band_lbl = 'center'
+        else:
+            _sign = '+' if _z_raw > 0 else '-'
+            _band_lbl = f'{_sign}{abs(_band_int)}\u03c3'
+        _band_ctx = BandContext(
+            tf_seconds=self.tf_seconds, z_score=_z_raw, sigma=_sigma,
+            center=_center, band=_band_int, band_position=_band_pos,
+            at_support=(_z_raw <= -1.0), at_resistance=(_z_raw >= 1.0),
+            band_label=_band_lbl,
+        )
+
         self.current_belief = WorkerBelief(
             tf_seconds    = self.tf_seconds,
             dir_prob      = dir_prob,
@@ -276,6 +310,7 @@ class TimeframeWorker:
             tf_bar_idx    = tf_bar_idx,
             conviction    = abs(dir_prob - 0.5) * 2.0,
             wave_maturity = wave_maturity,
+            band_context  = _band_ctx,
         )
         return True
 
@@ -574,6 +609,8 @@ class TimeframeBeliefNetwork:
         # Only the decision-TF worker's maturity tells us if the TRADEABLE move is exhausted.
         decision_wave_maturity = dec_belief.wave_maturity if dec_belief else wave_maturity
 
+        band_confluence = self.get_band_confluence()
+
         return BeliefState(
             direction              = direction,
             conviction             = conviction,
@@ -582,6 +619,7 @@ class TimeframeBeliefNetwork:
             wave_maturity          = wave_maturity,
             decision_wave_maturity = decision_wave_maturity,
             tf_beliefs             = active,
+            band_confluence        = band_confluence,
         )
 
     # ------------------------------------------------------------------
@@ -715,6 +753,73 @@ class TimeframeBeliefNetwork:
     # WORKER SNAPSHOT
     # ------------------------------------------------------------------
 
+    def get_band_confluence(self) -> Optional[dict]:
+        """Multi-TF Standard Error Band confluence for structural direction.
+
+        Aggregates band positions across active workers:
+        - Majority at support (z <= -1) -> LONG
+        - Majority at resistance (z >= +1) -> SHORT
+        - Mixed -> None (no signal)
+        Higher TFs carry more weight (same as path conviction).
+        """
+        active_bands = {}
+        for tf, worker in self.workers.items():
+            b = worker.current_belief
+            if b is not None and b.band_context is not None:
+                active_bands[tf] = b.band_context
+
+        if len(active_bands) < 3:
+            return None
+
+        support_score = 0.0
+        resistance_score = 0.0
+        total_weight = 0.0
+        per_tf = {}
+        summary_parts = []
+
+        for tf, ctx in active_bands.items():
+            w = self._weight_map.get(tf, 1.0)
+            total_weight += w
+            tf_label = self._TF_LABELS.get(tf, str(tf))
+            per_tf[tf_label] = ctx
+
+            if ctx.at_support:
+                support_score += w * abs(ctx.z_score)
+                summary_parts.append(f"{tf_label}:{ctx.band_label}")
+            elif ctx.at_resistance:
+                resistance_score += w * ctx.z_score
+                summary_parts.append(f"{tf_label}:{ctx.band_label}")
+            else:
+                summary_parts.append(f"{tf_label}:center")
+
+        if total_weight > 0:
+            support_score /= total_weight
+            resistance_score /= total_weight
+
+        if support_score > resistance_score * 2 and support_score > 0.5:
+            direction = 'long'
+            strength = min(1.0, support_score / 3.0)
+        elif resistance_score > support_score * 2 and resistance_score > 0.5:
+            direction = 'short'
+            strength = min(1.0, resistance_score / 3.0)
+        else:
+            direction = None
+            strength = 0.0
+
+        arrow = ('\u2192 LONG' if direction == 'long'
+                 else ('\u2192 SHORT' if direction == 'short' else '\u2192 MIXED'))
+        summary = ' | '.join(summary_parts) + f' {arrow}'
+
+        return {
+            'direction': direction,
+            'strength': strength,
+            'support_score': support_score,
+            'resistance_score': resistance_score,
+            'active_bands': len(active_bands),
+            'band_summary': summary,
+            'per_tf': per_tf,
+        }
+
     def get_worker_snapshot(self) -> dict:
         """
         Freeze every active worker's current belief as a compact dict.
@@ -734,12 +839,17 @@ class TimeframeBeliefNetwork:
         for tf, worker in self.workers.items():
             b = worker.current_belief
             if b is not None:
-                snap[self._TF_LABELS.get(tf, str(tf))] = {
+                entry = {
                     'd':   round(b.dir_prob,      3),
                     'c':   round(b.conviction,    3),
                     'm':   round(b.wave_maturity, 3),
                     'mfe': round(b.pred_mfe,      1),
                 }
+                if b.band_context is not None:
+                    entry['z'] = round(b.band_context.z_score, 2)
+                    entry['band'] = b.band_context.band
+                    entry['band_label'] = b.band_context.band_label
+                snap[self._TF_LABELS.get(tf, str(tf))] = entry
         return snap
 
     def get_worker_state_counts(self) -> dict:
@@ -753,12 +863,13 @@ class TimeframeBeliefNetwork:
     # DIAGNOSTICS
     # ------------------------------------------------------------------
 
-    def get_exit_signal(self, side: str) -> dict:
+    def get_exit_signal(self, side: str, entry_price: float = 0.0) -> dict:
         """
         Called every bar while a position is open.
         Returns a dict with exit adjustment recommendations.
 
         side: 'long' or 'short' — the current position direction.
+        entry_price: trade entry price (enables band-aware exit logic).
 
         Returns:
             {
@@ -809,16 +920,59 @@ class TimeframeBeliefNetwork:
         tighten = tighten or _time_tighten
         urgent  = urgent  or _time_urgent
 
-        reason = ('time_exhausted' if _time_urgent  else
-                  'urgent_flip'    if urgent         else
-                  'time_tighten'   if _time_tighten  else
+        # ── Band-aware exit adjustments ─────────────────────────────────
+        # Use multi-TF band confluence to modulate trail behavior:
+        # - In profit + approaching resistance (LONG) or support (SHORT) → tighten
+        # - In loss + sitting at support (LONG) or resistance (SHORT) → widen (give room)
+        # - In loss + support/resistance BROKEN → urgent exit
+        _band_tighten = False
+        _band_widen = False
+        _band_urgent = False
+        _bc = belief.band_confluence
+        if _bc is not None and entry_price > 0:
+            _sup = _bc['support_score']
+            _res = _bc['resistance_score']
+            _in_profit = True  # approximate from band position vs trade side
+            # For LONG: profit when price above entry → resistance bands = approaching TP zone
+            # For SHORT: profit when price below entry → support bands = approaching TP zone
+            if side == 'long':
+                # Approaching resistance while long & in profit → tighten
+                if _res > 0.5:
+                    _band_tighten = True
+                # Sitting at support while long → give room (price at value)
+                if _sup > 0.5 and direction_aligned:
+                    _band_widen = True
+                # Support broken while long (bands say SHORT strongly) → urgent
+                if _bc['direction'] == 'short' and _bc['strength'] > 0.5:
+                    _band_urgent = True
+            else:  # short
+                # Approaching support while short & in profit → tighten
+                if _sup > 0.5:
+                    _band_tighten = True
+                # Sitting at resistance while short → give room
+                if _res > 0.5 and direction_aligned:
+                    _band_widen = True
+                # Resistance broken while short (bands say LONG strongly) → urgent
+                if _bc['direction'] == 'long' and _bc['strength'] > 0.5:
+                    _band_urgent = True
+
+        tighten = tighten or _band_tighten
+        widen   = widen or _band_widen
+        urgent  = urgent or _band_urgent
+
+        reason = ('band_broken'    if _band_urgent   else
+                  'time_exhausted' if _time_urgent    else
+                  'urgent_flip'    if urgent           else
+                  'band_tighten'   if _band_tighten   else
+                  'time_tighten'   if _time_tighten   else
                   'wave_mature'    if wave_mature > self.TIGHTEN_TRAIL_WAVE_MATURITY_THRESHOLD else
-                  'aligned_fresh'  if widen           else
+                  'band_widen'     if _band_widen     else
+                  'aligned_fresh'  if widen            else
                   'low_conviction' if not belief.is_confident else 'neutral')
 
         return {
             'tighten_trail': tighten and not urgent,
-            'widen_trail':   widen and not _time_tighten,
+            'widen_trail':   widen and not _time_tighten and not _band_tighten,
             'urgent_exit':   urgent,
             'conviction':    belief.conviction,
             'wave_maturity': wave_mature,
