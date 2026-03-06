@@ -110,8 +110,23 @@ def _run_popup(gui_queue, shared_state):
     shared_state['shutdown'] = True
 
 
+def _clean_nt8_cache():
+    """Delete NinjaTrader.sqlite to prevent stale connection issues."""
+    import pathlib
+    db_path = pathlib.Path.home() / 'OneDrive' / 'Documents' / 'NinjaTrader 8' / 'db' / 'NinjaTrader.sqlite'
+    if db_path.exists():
+        try:
+            db_path.unlink()
+            print(f"[cleanup] Deleted {db_path}")
+        except PermissionError:
+            print(f"[cleanup] Cannot delete {db_path} — NT8 may be running. Close NT8 first.")
+        except Exception as e:
+            print(f"[cleanup] Failed to delete {db_path}: {e}")
+
+
 def main():
     _kill_stale_live_engines()
+    _clean_nt8_cache()
 
     parser = argparse.ArgumentParser(
         description='Bayesian-AI NinjaTrader 8 Live Connector')
