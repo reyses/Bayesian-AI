@@ -740,7 +740,7 @@ class LiveEngine:
         _trail_health = max(0, min(1, _trail_dist / max(1, sl_ticks)))
 
         # Conviction + alignment from belief network
-        exit_sig = self._belief_network.get_exit_signal(pos.side)
+        exit_sig = self._belief_network.get_exit_signal(pos.side, pos.entry_price)
         _conviction = exit_sig.get('conviction', 0.5)
         _aligned = 1.0
         belief = self._belief_network.get_belief()
@@ -761,7 +761,7 @@ class LiveEngine:
         if pos is None:
             return
 
-        exit_sig = self._belief_network.get_exit_signal(pos.side)
+        exit_sig = self._belief_network.get_exit_signal(pos.side, pos.entry_price)
         # Feed acceleration + envelope tuning to wave_rider for half-life envelope
         _st = self._last_states[-1]['state'] if self._last_states else None
         self._wave_rider._last_acceleration = float(getattr(_st, 'F_net', 0.0)) if _st else 0.0
@@ -1916,6 +1916,9 @@ class LiveEngine:
                     f"dir_src={_dir_src}  conf={_dir_conf:.3f}  "
                     f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}  "
                     f"ATR={self._live_atr_ticks:.1f}  agg={agg:.0%}")
+        _band = self._belief_network.get_band_confluence()
+        if _band:
+            logger.info(f"  BANDS: {_band['band_summary']}")
         self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
                         'side': side, 'price': price})
 
@@ -2059,14 +2062,24 @@ class LiveEngine:
             _p_long = long_bias / (long_bias + short_bias)
             return side, _p_long, 'template_bias'
 
-        # Priority 4: live DMI (trend-following)
-        s = candidate.state
+        # Priority 4: Multi-TF band confluence (Standard Error Bands)
+        _band = self._belief_network.get_band_confluence()
+        if _band is not None and _band['direction'] is not None:
+            side = _band['direction']
+            _p_long = 0.5 + (0.3 if side == 'long' else -0.3) * _band['strength']
+            return side, _p_long, 'band_confluence'
+
+        # Priority 5: live DMI (trend-following)
         _dmi_diff = (getattr(s, 'dmi_plus', 0.0)
                      - getattr(s, 'dmi_minus', 0.0))
         if _dmi_diff != 0:
             side = 'long' if _dmi_diff > 0 else 'short'
             _p_long = 0.6 if side == 'long' else 0.4
             return side, _p_long, 'dmi_live'
+
+        # Fallback: band confluence (relaxed) > velocity
+        if _band is not None and _band['direction'] is not None:
+            return _band['direction'], 0.55 if _band['direction'] == 'long' else 0.45, 'band_fallback'
 
         vel = getattr(s, 'particle_velocity', 0.0)
         side = 'long' if vel >= 0 else 'short'
