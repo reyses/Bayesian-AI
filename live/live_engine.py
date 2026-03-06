@@ -36,6 +36,7 @@ from live.nt8_client import NT8Client
 from live.bar_aggregator import LiveBarAggregator
 from live.order_manager import OrderManager
 from live.protocol import close_position
+from live.trade_logger import TradeLogger
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,10 @@ _TUNING_DEFAULTS = {
     'exit_trail_act_mult': 0.6,
     'exit_tp_mult': 5.0,
     'min_tick_floor': 4,
+    'envelope_halflife_bars': 20,
+    'envelope_floor_ticks': 4,
+    'envelope_accel_sensitivity': 1.0,
+    'auto_tp_reentry': True,
 }
 
 _ANCHOR_TF_MAP = {
@@ -232,6 +237,7 @@ class LiveEngine:
         self._gross_loss = 0.0
         self._trade_log = []  # per-trade records for session report
         self._session_start = time.time()
+        self._trade_logger = TradeLogger()  # per-trade diagnostic CSV
 
         # Gate rejection counters (for session report)
         self._gate_stats = {
@@ -756,7 +762,53 @@ class LiveEngine:
             return
 
         exit_sig = self._belief_network.get_exit_signal(pos.side)
+        # Feed acceleration + envelope tuning to wave_rider for half-life envelope
+        _st = self._last_states[-1]['state'] if self._last_states else None
+        self._wave_rider._last_acceleration = float(getattr(_st, 'F_net', 0.0)) if _st else 0.0
+        self._wave_rider._envelope_accel_sensitivity = self._tuning.get('envelope_accel_sensitivity', 1.0)
+        self._wave_rider._envelope_floor_ticks = self._tuning.get('envelope_floor_ticks', 4)
+        if pos.envelope_halflife != self._tuning.get('envelope_halflife_bars', 20):
+            pos.envelope_halflife = self._tuning.get('envelope_halflife_bars', 20)
         result = self._wave_rider.update_trail(price, None, ts, exit_signal=exit_sig)
+
+        # Per-trade diagnostic capture
+        _tick = self._cfg.tick_size
+        if pos.side == 'long':
+            _pnl_t = (price - pos.entry_price) / _tick
+        else:
+            _pnl_t = (pos.entry_price - price) / _tick
+        _last_st = self._last_states[-1]['state'] if self._last_states else None
+        # Compute envelope tolerance for diagnostic logging
+        _env_tol = 0.0
+        _t_half = pos.envelope_halflife
+        if pos.envelope_T0 > 0 and pos.bars_in_trade > 0:
+            _f_net = float(getattr(_last_st, 'F_net', 0.0)) if _last_st else 0.0
+            _adv = max(0, -_f_net) if pos.side == 'long' else max(0, _f_net)
+            _alpha = self._tuning.get('envelope_accel_sensitivity', 1.0)
+            _t_half = pos.envelope_halflife * max(0.25, min(4.0, 1.0 - _alpha * _adv))
+            _floor = self._tuning.get('envelope_floor_ticks', 4)
+            _env_tol = pos.envelope_T0 * (0.5 ** (pos.bars_in_trade / max(1, _t_half))) + _floor
+        self._trade_logger.log_bar({
+            'ts': ts,
+            'price': price,
+            'bars_held': pos.bars_in_trade,
+            'pnl_ticks': round(_pnl_t, 2),
+            'hwm_ticks': round((pos.high_water_mark - pos.entry_price) / _tick, 2)
+                         if pos.side == 'long' else
+                         round((pos.entry_price - pos.high_water_mark) / _tick, 2),
+            'F_net': round(getattr(_last_st, 'F_net', 0.0), 4) if _last_st else 0,
+            'envelope_tol': round(_env_tol, 2),
+            't_half_eff': round(_t_half, 1),
+            'stop_level': pos.stop_loss,
+            'trail_ticks': pos.trailing_stop_ticks,
+            'conviction': round(exit_sig.get('conviction', 0), 3),
+            'direction': exit_sig.get('direction', ''),
+            'wave_maturity': round(exit_sig.get('wave_maturity', 0), 3),
+            'decay_score': round(exit_sig.get('decay_score', 0), 3),
+            'z_score': round(getattr(_last_st, 'z_score', 0.0), 3) if _last_st else 0,
+            'velocity': round(getattr(_last_st, 'particle_velocity', 0.0), 4)
+                        if _last_st else 0,
+        })
 
         if result.get('should_exit', False):
             reason = result.get('exit_reason', 'trail_stop')
@@ -764,8 +816,13 @@ class LiveEngine:
             exited_side = pos.side
             self._belief_network.stop_trade_tracking()
 
+            # Auto-TP re-entry: bank profit, re-enter same side if belief agrees
+            if (reason == 'profit_target'
+                    and self._tuning.get('auto_tp_reentry', False)
+                    and not self._shutting_down):
+                await self._auto_tp_reentry(exited_side, price, ts)
             # Ping-pong: send 2-contract flip (close + open opposite) in one order
-            if self._ping_pong_mode and not self._shutting_down:
+            elif self._ping_pong_mode and not self._shutting_down:
                 await self._flip_position(reason, exited_side, price, ts)
             else:
                 await self._close_position(reason)
@@ -801,6 +858,7 @@ class LiveEngine:
         # Reset exit state (same as _close_position)
         self._last_exit_side = self._active_side
         self._last_exit_reason = reason
+        self._trade_logger.finish_trade(reason, price)
         pos = self._wave_rider.position
         self._last_high_water = pos.high_water_mark if pos else self._entry_price
         self._wave_rider.position = None
@@ -833,6 +891,8 @@ class LiveEngine:
         self._active_side = side
         self._active_tid = f'PP_{base_tid}'
         self._max_hold_bars = 960
+        self._trade_logger.start_trade(
+            self._session_trades + 1, side, price, ts)
 
         self._belief_network.start_trade_tracking(
             side=side, entry_bar=self._bar_i,
@@ -881,6 +941,8 @@ class LiveEngine:
         self._last_exit_side = self._active_side  # for ping-pong flip
         self._position_open = False
         self._last_exit_reason = reason  # for trade log
+        # Finish per-trade diagnostic CSV
+        self._trade_logger.finish_trade(reason, self._last_price)
         # Snapshot high_water_mark before clearing position (for capture bucket)
         pos = self._wave_rider.position
         self._last_high_water = pos.high_water_mark if pos else self._entry_price
@@ -896,6 +958,67 @@ class LiveEngine:
             self._order_send_ts = time.perf_counter()
             await self._client.send(msg)
             logger.info(f"LATENCY: exit order sent  (reason={reason})")
+
+    async def _auto_tp_reentry(self, exited_side: str, price: float, ts: float):
+        """Auto take-profit re-entry: close, bank profit, re-enter same side if belief agrees."""
+        belief = self._belief_network.get_belief()
+        _side_lock = self._shared_state.get('side_lock')
+
+        # Re-entry gate: belief must agree with exited side + conviction threshold
+        reenter = (belief is not None
+                   and belief.direction == exited_side
+                   and belief.is_confident
+                   and (not _side_lock or _side_lock == exited_side))
+
+        if reenter:
+            logger.info(f"AUTO-TP RE-ENTRY: {exited_side.upper()} @ {price:.2f} "
+                        f"(conv={belief.conviction:.2f})")
+            # Close current position first (banks the profit)
+            await self._close_position('profit_target')
+            # Re-enter same side with fresh stops
+            atr = self._live_atr_ticks if self._live_atr_ticks > 0 else 8.0
+            _floor = max(4, self._tuning.get('min_tick_floor', 4))
+            sl_ticks = max(_floor, int(round(atr * self._tuning.get('exit_sl_mult', 3.0))))
+            tp_ticks = max(_floor, int(round(atr * self._tuning.get('exit_tp_mult', 5.0))))
+            trail_ticks = max(_floor, int(round(atr * self._tuning.get('exit_trail_mult', 2.5))))
+            trail_act = max(_floor, int(round(atr * self._tuning.get('exit_trail_act_mult', 0.6))))
+
+            _fresh = self._last_states or []
+            state = _fresh[-1]['state'] if _fresh else None
+            tid = self._active_tid or 'REENTRY'
+
+            self._wave_rider.open_position(
+                entry_price=price, side=exited_side, state=state,
+                stop_distance_ticks=sl_ticks, profit_target_ticks=tp_ticks,
+                trailing_stop_ticks=trail_ticks, trail_activation_ticks=trail_act,
+                template_id=f'RE_{tid}',
+            )
+            self._position_open = True
+            self._entry_price = price
+            self._entry_time = ts
+            self._entry_bar = self._bar_i
+            self._active_side = exited_side
+            self._active_tid = f'RE_{tid}'
+            self._max_hold_bars = 960
+            self._trade_logger.start_trade(
+                self._session_trades + 1, exited_side, price, ts)
+
+            self._belief_network.start_trade_tracking(
+                side=exited_side, entry_bar=self._bar_i,
+                pattern_horizon_bars=self._max_hold_bars)
+
+            if not self._dry_run:
+                order_msg = self._orders.build_entry_order(
+                    'BUY' if exited_side == 'long' else 'SELL')
+                if order_msg:
+                    self._order_send_ts = time.perf_counter()
+                    await self._client.send(order_msg)
+            self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
+                            'side': exited_side, 'price': price})
+        else:
+            _reason = 'no belief' if belief is None else f'dir={belief.direction} conv={belief.conviction:.2f}'
+            logger.info(f"AUTO-TP: no re-entry ({_reason}) — closing flat")
+            await self._close_position('profit_target')
 
     async def _handle_manual_order(self, action: str, price: float,
                                    ts: float, states: list):
@@ -986,6 +1109,8 @@ class LiveEngine:
         self._active_tid = 'MANUAL'
         self._entry_depth = self._anchor_depth
         self._max_hold_bars = 960  # 4 hours max for manual trades
+        self._trade_logger.start_trade(
+            self._session_trades + 1, side, price, ts)
 
         self._belief_network.start_trade_tracking(
             side=side, entry_bar=self._bar_i,
@@ -1074,6 +1199,8 @@ class LiveEngine:
         self._active_tid = f'PP_{base_tid}'
         self._entry_depth = self._entry_depth
         self._max_hold_bars = 960  # no forced exit — exhaustion only
+        self._trade_logger.start_trade(
+            self._session_trades + 1, side, price, ts)
 
         self._belief_network.start_trade_tracking(
             side=side, entry_bar=self._bar_i,
@@ -1110,17 +1237,22 @@ class LiveEngine:
         alt_key = 'short' if key == 'long' else 'long'
         alt_pnl = -pnl  # mirror PnL
 
+        # PnL-weighted learning: 1 point per tick — fire AND reward
+        # MNQ tick=$0.50, so +$25 = 50 ticks = 50 win points
+        _tick_val = self._cfg.tick_size * self._cfg.point_value  # $0.50 for MNQ
+        _weight = max(1, int(abs(pnl) / _tick_val))
+
         # Learn actual outcome
         if pnl > 0:
-            bias[f'{key}_w'] += 1
+            bias[f'{key}_w'] += _weight
         else:
-            bias[f'{key}_l'] += 1
+            bias[f'{key}_l'] += _weight
 
         # Counterfactual: learn the alternative hypothesis
         if alt_pnl > 0:
-            bias[f'{alt_key}_w'] += 1
+            bias[f'{alt_key}_w'] += _weight
         else:
-            bias[f'{alt_key}_l'] += 1
+            bias[f'{alt_key}_l'] += _weight
 
         # Log both
         lw, ll = bias['long_w'], bias['long_l']
@@ -1568,7 +1700,7 @@ class LiveEngine:
         _g1_dist = (float('inf') if _yolo
                     else _g1_base + agg * 10.0)  # YOLO=∞, else base→base+10
         _g2_prob = 0.05 * (1.0 - agg)                    # 0.05 → 0.0
-        _g4_dir  = 0.05 * (1.0 - agg)                    # 0.05 → 0.0
+        _g4_dir  = 0.05                                    # direction gate stays fixed
         _skip_screening = agg > 0.75                      # AGGRESSIVE+ skips 3.5
 
         # Get the latest state
@@ -1802,6 +1934,8 @@ class LiveEngine:
         self._active_side = side
         self._active_tid = best_tid
         self._entry_depth = best_candidate.depth
+        self._trade_logger.start_trade(
+            self._session_trades + 1, side, price, ts)
 
         _tf_s = str(best_candidate.timeframe)
         _tf_sec = TIMEFRAME_SECONDS.get(_tf_s, 14400)
@@ -1942,8 +2076,11 @@ class LiveEngine:
         n = min(14, len(tr))
         atr = float(np.mean(tr[-n:]))
         self._live_atr_ticks = max(1.0, atr / self._cfg.tick_size)
-        logger.debug(f"Live ATR: {self._live_atr_ticks:.1f} ticks "
-                     f"({atr:.2f} points, {len(df)} bars)")
+        # ATR logged silently — only on significant change (>20% shift)
+        if abs(self._live_atr_ticks - getattr(self, '_last_logged_atr', 0)) > self._live_atr_ticks * 0.2:
+            logger.debug(f"Live ATR: {self._live_atr_ticks:.1f} ticks "
+                         f"({atr:.2f} points, {len(df)} bars)")
+            self._last_logged_atr = self._live_atr_ticks
 
     def _compute_exit_params(self, lib_entry: dict, params: dict,
                              network_tp: Optional[int],
