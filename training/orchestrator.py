@@ -1275,6 +1275,7 @@ class BayesianTrainingOrchestrator:
                         #   oracle_marker == 0 -> NOISE -> fall through to regression tiers
                         _BIAS_THRESH = bias_threshold if bias_threshold is not None else 0.55
                         _DMI_THRESH  = dmi_threshold  if dmi_threshold  is not None else 0.0
+                        _band = None  # populated at Priority 3 (band confluence)
                         long_bias  = lib_entry.get('long_bias',  0.0)
                         short_bias = lib_entry.get('short_bias', 0.0)
                         _nn_marker = _effective_oracle(best_candidate)  # macro-to-leaf aggregated
@@ -1309,15 +1310,26 @@ class BayesianTrainingOrchestrator:
                                 elif long_bias + short_bias >= 0.10:
                                     side = 'long' if long_bias >= short_bias else 'short'
 
-                            # Priority 3: live DMI (trend-following)
+                            # Priority 3: Multi-TF band confluence
                             if side is None:
-                                _live_s   = best_candidate.state
+                                _band = belief_network.get_band_confluence()
+                                if _band is not None and _band['direction'] is not None:
+                                    side = _band['direction']
+
+                            # Priority 4: live DMI (trend-following)
+                            _live_s = best_candidate.state
+                            if side is None:
                                 _dmi_diff = (getattr(_live_s, 'dmi_plus',  0.0)
                                            - getattr(_live_s, 'dmi_minus', 0.0))
                                 if abs(_dmi_diff) >= _DMI_THRESH and _dmi_diff > 0:
                                     side = 'long'
                                 elif abs(_dmi_diff) >= _DMI_THRESH and _dmi_diff < 0:
                                     side = 'short'
+
+                            # Fallback: band > velocity
+                            if side is None:
+                                if _band is not None and _band['direction'] is not None:
+                                    side = _band['direction']
                                 else:
                                     _vel = getattr(_live_s, 'particle_velocity', 0.0)
                                     side = 'long' if _vel >= 0 else 'short'
@@ -1515,6 +1527,10 @@ class BayesianTrainingOrchestrator:
                             # Stored as JSON string; parse with json.loads() for analysis.
                             # Compare entry_workers vs exit_workers to find who flipped direction.
                             'entry_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
+                            # Band confluence diagnostics
+                            'band_direction': _band['direction'] if _band else None,
+                            'band_strength': round(_band['strength'], 3) if _band else 0.0,
+                            'band_summary': _band.get('band_summary', '') if _band else '',
                         }
 
                         # Signal log: add 'traded' record, save index for outcome update
@@ -1677,6 +1693,9 @@ class BayesianTrainingOrchestrator:
                                 'wave_maturity':        round(_bypass_belief.wave_maturity, 4),
                                 'decision_wave_maturity': round(_bypass_belief.decision_wave_maturity, 4),
                                 'entry_workers':    __import__('json').dumps(belief_network.get_worker_snapshot()),
+                                'band_direction': None,
+                                'band_strength': 0.0,
+                                'band_summary': '',
                             }
                             # Signal log: bypass trade record
                             _bp_mz  = round(abs(_bypass_candidate.z_score), 2)
