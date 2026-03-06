@@ -169,17 +169,7 @@ class LiveEngine:
         self._aggregator = LiveBarAggregator(self._engine, config,
                                              target_period=self._anchor_period)
         self._orders = OrderManager(config)
-
         self._belief_network: Optional[TimeframeBeliefNetwork] = None
-
-        from core.exit_engine import ExitEngine
-        self._exit_engine = ExitEngine(
-            mode='live',
-            wave_rider=self._wave_rider,
-            tick_size=config.tick_size if hasattr(config, 'tick_size') else 0.25,
-            tick_value=config.point_value if hasattr(config, 'point_value') else 0.50,
-        )
-
 
         # Multi-TF bar buffers for TBN workers (populated from NT8 bridge)
         # Key = bar_period_s, value = list of OHLCV dicts
@@ -772,33 +762,7 @@ class LiveEngine:
             return
 
         exit_sig = self._belief_network.get_exit_signal(pos.side, pos.entry_price)
-
-        from core.exit_engine import ExitAction
-        _band_ctx = None
-        if hasattr(self._belief_network, 'get_band_confluence'):
-            _band_ctx = self._belief_network.get_band_confluence()
-
-        _last_st = self._last_states[-1]['state'] if self._last_states else None
-        _net_force = getattr(_last_st, 'net_force', 0.0) if _last_st else 0.0
-
-        if not hasattr(self, '_pos_state'):
-            return
-
-        _exit_result = self._exit_engine.evaluate(
-            pos=self._pos_state,
-            bar_high=price,
-            bar_low=price,
-            bar_close=price,
-            current_bar_index=self._bar_i,
-            band_context=_band_ctx,
-            net_force=_net_force,
-            worker_beliefs=self._belief_network.get_worker_snapshot() if self._belief_network else None,
-            sub_bar_highs=None,
-            sub_bar_lows=None,
-        )
-
-        # Feed acceleration + envelope tuning to wave_rider for half-life envelope logging
-
+        # Feed acceleration + envelope tuning to wave_rider for half-life envelope
         _st = self._last_states[-1]['state'] if self._last_states else None
         self._wave_rider._last_acceleration = float(getattr(_st, 'F_net', 0.0)) if _st else 0.0
         self._wave_rider._envelope_accel_sensitivity = self._tuning.get('envelope_accel_sensitivity', 1.0)
@@ -806,14 +770,48 @@ class LiveEngine:
         self._wave_rider._envelope_min_bars = self._tuning.get('envelope_min_bars', 5)
         if pos.envelope_halflife != self._tuning.get('envelope_halflife_bars', 20):
             pos.envelope_halflife = self._tuning.get('envelope_halflife_bars', 20)
+        result = self._wave_rider.update_trail(price, None, ts, exit_signal=exit_sig)
 
-        res = {'should_exit': False}
-        if _exit_result.action != ExitAction.HOLD:
-            res['should_exit'] = True
-            res['exit_reason'] = _exit_result.reason
+        # Per-trade diagnostic capture
+        _tick = self._cfg.tick_size
+        if pos.side == 'long':
+            _pnl_t = (price - pos.entry_price) / _tick
+        else:
+            _pnl_t = (pos.entry_price - price) / _tick
+        _last_st = self._last_states[-1]['state'] if self._last_states else None
+        # Compute envelope tolerance for diagnostic logging
+        _env_tol = 0.0
+        _t_half = pos.envelope_halflife
+        if pos.envelope_T0 > 0 and pos.bars_in_trade > 0:
+            _f_net = float(getattr(_last_st, 'F_net', 0.0)) if _last_st else 0.0
+            _adv = max(0, -_f_net) if pos.side == 'long' else max(0, _f_net)
+            _alpha = self._tuning.get('envelope_accel_sensitivity', 1.0)
+            _t_half = pos.envelope_halflife * max(0.25, min(4.0, 1.0 - _alpha * _adv))
+            _floor = self._tuning.get('envelope_floor_ticks', 4)
+            _env_tol = pos.envelope_T0 * (0.5 ** (pos.bars_in_trade / max(1, _t_half))) + _floor
+        self._trade_logger.log_bar({
+            'ts': ts,
+            'price': price,
+            'bars_held': pos.bars_in_trade,
+            'pnl_ticks': round(_pnl_t, 2),
+            'hwm_ticks': round((pos.high_water_mark - pos.entry_price) / _tick, 2)
+                         if pos.side == 'long' else
+                         round((pos.entry_price - pos.high_water_mark) / _tick, 2),
+            'F_net': round(getattr(_last_st, 'F_net', 0.0), 4) if _last_st else 0,
+            'envelope_tol': round(_env_tol, 2),
+            't_half_eff': round(_t_half, 1),
+            'stop_level': pos.stop_loss,
+            'trail_ticks': pos.trailing_stop_ticks,
+            'conviction': round(exit_sig.get('conviction', 0), 3),
+            'direction': exit_sig.get('direction', ''),
+            'wave_maturity': round(exit_sig.get('wave_maturity', 0), 3),
+            'decay_score': round(exit_sig.get('decay_score', 0), 3),
+            'z_score': round(getattr(_last_st, 'z_score', 0.0), 3) if _last_st else 0,
+            'velocity': round(getattr(_last_st, 'particle_velocity', 0.0), 4)
+                        if _last_st else 0,
+        })
 
-        if res.get('should_exit', False):
-
+        if result.get('should_exit', False):
             reason = result.get('exit_reason', 'trail_stop')
             logger.info(f"EXIT signal: {reason} (decay={exit_sig.get('decay_score', 0):.2f})")
             exited_side = pos.side
@@ -881,6 +879,1048 @@ class LiveEngine:
                     f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}")
 
         # Open new wave rider position for the flip side
+        self._wave_rider.open_position(
+            entry_price=price, side=side, state=state,
+            stop_distance_ticks=sl_ticks, profit_target_ticks=tp_ticks,
+            trailing_stop_ticks=trail_ticks, trail_activation_ticks=trail_act,
+            template_id=f'PP_{base_tid}',
+        )
+        self._position_open = True
+        self._entry_price = price
+        self._entry_time = ts
+        self._entry_bar = self._bar_i
+        self._active_side = side
+        self._active_tid = f'PP_{base_tid}'
+        self._max_hold_bars = 960
+        self._trade_logger.start_trade(
+            self._session_trades + 1, side, price, ts)
+
+        self._belief_network.start_trade_tracking(
+            side=side, entry_bar=self._bar_i,
+            pattern_horizon_bars=self._max_hold_bars)
+
+        if self._dry_run:
+            logger.info("[DRY RUN] Flip logged but no order sent")
+            return
+
+        same_side = (side.lower() == exited_side.lower())
+        if same_side:
+            # Same-side continuation: keep NT8 position open, reset exits.
+            # No orders = zero latency, zero commission, zero slippage.
+            # Track PnL internally for the "closed" trade segment.
+            pos = self._orders.position
+            if pos and pos.avg_price > 0:
+                if pos.side == 'LONG':
+                    seg_pnl = (price - pos.avg_price) * pos.qty * self._cfg.point_value
+                else:
+                    seg_pnl = (pos.avg_price - price) * pos.qty * self._cfg.point_value
+                self._orders._daily_pnl += seg_pnl
+                self._orders._trade_count += 1
+                self._orders._log_trade(price, seg_pnl, reason='pp_continuation')
+                self._orders.last_exit_info = {
+                    'entry_px': pos.avg_price, 'exit_px': price, 'side': pos.side,
+                }
+                # Reset entry price to current for next segment
+                pos.avg_price = price
+                pos.entry_time = time.time()
+                logger.info(f"PP CONTINUATION: {side.upper()} @ {price:.2f}  "
+                            f"seg_pnl=${seg_pnl:+.2f}  (no orders, exits reset)")
+        else:
+            # Opposite side: single 2-contract flip order
+            self._flip_in_progress = True
+            msg = self._orders.build_flip_order(reason=reason)
+            if msg:
+                self._order_send_ts = time.perf_counter()
+                await self._client.send(msg)
+                logger.info("INSTANT FLIP: 2-contract order sent")
+
+        self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
+                        'side': side, 'price': price})
+
+    async def _close_position(self, reason: str):
+        """Send close order and reset position state."""
+        self._last_exit_side = self._active_side  # for ping-pong flip
+        self._position_open = False
+        self._last_exit_reason = reason  # for trade log
+        # Finish per-trade diagnostic CSV
+        self._trade_logger.finish_trade(reason, self._last_price)
+        # Snapshot high_water_mark before clearing position (for capture bucket)
+        pos = self._wave_rider.position
+        self._last_high_water = pos.high_water_mark if pos else self._entry_price
+        self._wave_rider.position = None
+        self._last_exit_time = time.time()
+
+        if self._dry_run:
+            logger.info(f"[DRY RUN] Would close position: {reason}")
+            return
+
+        msg = self._orders.build_exit_order(reason=reason)
+        if msg:
+            self._order_send_ts = time.perf_counter()
+            await self._client.send(msg)
+            logger.info(f"LATENCY: exit order sent  (reason={reason})")
+
+    async def _auto_tp_reentry(self, exited_side: str, price: float, ts: float):
+        """Auto take-profit re-entry: close, bank profit, re-enter same side if belief agrees."""
+        belief = self._belief_network.get_belief()
+        _side_lock = self._shared_state.get('side_lock')
+
+        # Re-entry gate: belief must agree with exited side + conviction threshold
+        reenter = (belief is not None
+                   and belief.direction == exited_side
+                   and belief.is_confident
+                   and (not _side_lock or _side_lock == exited_side))
+
+        if reenter:
+            logger.info(f"AUTO-TP RE-ENTRY: {exited_side.upper()} @ {price:.2f} "
+                        f"(conv={belief.conviction:.2f})")
+            # Close current position first (banks the profit)
+            await self._close_position('profit_target')
+            # Re-enter same side with fresh stops
+            atr = self._live_atr_ticks if self._live_atr_ticks > 0 else 8.0
+            _floor = max(4, self._tuning.get('min_tick_floor', 4))
+            sl_ticks = max(_floor, int(round(atr * self._tuning.get('exit_sl_mult', 3.0))))
+            tp_ticks = max(_floor, int(round(atr * self._tuning.get('exit_tp_mult', 5.0))))
+            trail_ticks = max(_floor, int(round(atr * self._tuning.get('exit_trail_mult', 2.5))))
+            trail_act = max(_floor, int(round(atr * self._tuning.get('exit_trail_act_mult', 0.6))))
+
+            _fresh = self._last_states or []
+            state = _fresh[-1]['state'] if _fresh else None
+            tid = self._active_tid or 'REENTRY'
+
+            self._wave_rider.open_position(
+                entry_price=price, side=exited_side, state=state,
+                stop_distance_ticks=sl_ticks, profit_target_ticks=tp_ticks,
+                trailing_stop_ticks=trail_ticks, trail_activation_ticks=trail_act,
+                template_id=f'RE_{tid}',
+            )
+            self._position_open = True
+            self._entry_price = price
+            self._entry_time = ts
+            self._entry_bar = self._bar_i
+            self._active_side = exited_side
+            self._active_tid = f'RE_{tid}'
+            self._max_hold_bars = 960
+            self._trade_logger.start_trade(
+                self._session_trades + 1, exited_side, price, ts)
+
+            self._belief_network.start_trade_tracking(
+                side=exited_side, entry_bar=self._bar_i,
+                pattern_horizon_bars=self._max_hold_bars)
+
+            if not self._dry_run:
+                order_msg = self._orders.build_entry_order(
+                    'BUY' if exited_side == 'long' else 'SELL')
+                if order_msg:
+                    self._order_send_ts = time.perf_counter()
+                    await self._client.send(order_msg)
+            self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
+                            'side': exited_side, 'price': price})
+        else:
+            _reason = 'no belief' if belief is None else f'dir={belief.direction} conv={belief.conviction:.2f}'
+            logger.info(f"AUTO-TP: no re-entry ({_reason}) — closing flat")
+            await self._close_position('profit_target')
+
+    async def _handle_manual_order(self, action: str, price: float,
+                                   ts: float, states: list):
+        """Process a manual BUY/SELL/FLATTEN from the popup buttons."""
+        if self._instrument_mismatch:
+            logger.error("BLOCKED: instrument mismatch — fix NT8 chart first")
+            return
+        if action == 'FLATTEN':
+            if self._position_open:
+                logger.info(f"MANUAL FLATTEN @ {price:.2f}")
+                self._belief_network.stop_trade_tracking()
+                await self._close_position('MANUAL_FLATTEN')
+            else:
+                logger.info("MANUAL FLATTEN — already flat")
+            return
+
+        if action not in ('BUY', 'SELL'):
+            return
+
+        # If already in a position, flatten first then defer entry until FILL
+        if self._position_open:
+            logger.info(f"MANUAL {action}: flattening existing position first")
+            self._belief_network.stop_trade_tracking()
+            self._pending_manual_entry = {
+                'action': action, 'price': price, 'ts': ts, 'states': states,
+            }
+            await self._close_position('MANUAL_REVERSE')
+            return  # entry will fire from _execute_pending_manual on FILL
+
+        await self._execute_manual_entry(action, price, ts, states)
+
+    async def _execute_manual_entry(self, action: str, price: float,
+                                    ts: float, states: list):
+        """Execute the manual entry (called directly or after deferred FILL)."""
+        side = 'long' if action == 'BUY' else 'short'
+
+        # Belief warning — check if workers disagree with manual direction
+        belief = self._belief_network.get_belief()
+        if belief and belief.direction != side:
+            _warn = (f"WARNING: belief says {belief.direction.upper()} "
+                     f"(conv={belief.conviction:.2f}) — you're going {side.upper()}")
+            logger.warning(_warn)
+            self._gui_push({
+                'type': 'PHASE_PROGRESS', 'phase': 'LIVE',
+                'step': f'WARN: belief={belief.direction.upper()}',
+                'pct': self._entry_belief_pct,
+            })
+
+        # Exit params: ATR-based defaults, manual overrides if non-zero
+        atr = self._live_atr_ticks if self._live_atr_ticks > 0 else 8.0
+        _floor = max(4, self._tuning.get('min_tick_floor', 4))
+        sl_ticks = self._tuning.get('manual_sl', 0) or max(_floor, int(round(atr * self._tuning.get('exit_sl_mult', 3.0))))
+        tp_ticks = self._tuning.get('manual_tp', 0) or max(_floor, int(round(atr * self._tuning.get('exit_tp_mult', 5.0))))
+        trail_ticks = self._tuning.get('manual_trail', 0) or max(_floor, int(round(atr * self._tuning.get('exit_trail_mult', 2.5))))
+        trail_act = max(_floor, int(round(atr * self._tuning.get('exit_trail_act_mult', 0.6))))
+
+        logger.info(f"MANUAL ENTRY: {side.upper()} @ {price:.2f}  "
+                    f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}")
+        self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
+                        'side': side, 'price': price})
+
+        # Always use freshest quantum state — a trade is a trade
+        _fresh_states = self._last_states or states
+        if not _fresh_states:
+            # Force recompute if nothing cached (rare: manual during warmup)
+            _fresh_states = self._aggregator._recompute() or []
+            if _fresh_states:
+                self._last_states = _fresh_states
+                logger.info(f"Forced state recompute for manual entry: {len(_fresh_states)} states")
+        state = _fresh_states[-1]['state'] if _fresh_states else None
+        if state is None:
+            logger.warning("No quantum state available — manual trade will have limited exit protection")
+
+        self._wave_rider.open_position(
+            entry_price=price, side=side,
+            state=state,
+            stop_distance_ticks=sl_ticks,
+            profit_target_ticks=tp_ticks,
+            trailing_stop_ticks=trail_ticks,
+            trail_activation_ticks=trail_act,
+            template_id='MANUAL',
+        )
+        self._position_open = True
+        self._entry_price = price
+        self._entry_time = ts
+        self._entry_bar = self._bar_i
+        self._active_side = side
+        self._active_tid = 'MANUAL'
+        self._entry_depth = self._anchor_depth
+        self._max_hold_bars = 960  # 4 hours max for manual trades
+        self._trade_logger.start_trade(
+            self._session_trades + 1, side, price, ts)
+
+        self._belief_network.start_trade_tracking(
+            side=side, entry_bar=self._bar_i,
+            pattern_horizon_bars=self._max_hold_bars)
+
+        if self._dry_run:
+            logger.info("[DRY RUN] Manual entry logged but no order sent")
+            return
+
+        order_msg = self._orders.build_entry_order(
+            'BUY' if side == 'long' else 'SELL')
+        if order_msg:
+            self._order_send_ts = time.perf_counter()
+            await self._client.send(order_msg)
+            logger.info("LATENCY: manual entry order sent")
+
+    # ── Ping-Pong Mode ──────────────────────────────────────────────
+
+    def _schedule_ping_pong_flip(self, exited_side: str, price: float,
+                                  ts: float):
+        """After exhaustion exit, schedule a flip — direction decided on entry."""
+        logger.info(f"PING-PONG: scheduling flip after {exited_side} exhaustion")
+        self._pp_pending_flip = {
+            'exited_side': exited_side, 'price': price, 'ts': ts,
+        }
+
+    async def _enter_ping_pong(self, side_hint: str, price: float,
+                                ts: float, states: list):
+        """Full-context flip entry — uses direction model + learns outcomes."""
+        # Always use freshest quantum state
+        _fresh = self._last_states or states
+        if not _fresh:
+            logger.debug("PING-PONG: no states for flip entry, skip")
+            self._pp_pending_flip = None
+            return
+
+        tid = self._active_tid or 'MANUAL'
+        base_tid = tid[3:] if isinstance(tid, str) and tid.startswith('PP_') else tid
+        latest = _fresh[-1]
+        state = latest['state']
+
+        # Build a candidate from current state for direction model
+        candidate = self._build_candidate('PP_FLIP', state, price, ts)
+        if candidate is None:
+            logger.debug("PING-PONG: could not build candidate, skip")
+            return
+
+        # Full direction determination (same as normal entry)
+        side, _p_long, _dir_src = self._determine_direction(candidate, base_tid)
+
+        # Side lock override (--long-only / --short-only)
+        _side_lock = self._shared_state.get('side_lock')
+        if _side_lock:
+            side = _side_lock
+            _dir_src = f'locked_{_side_lock}'
+
+        # Exit params: ATR-based defaults, tuning overrides if non-zero
+        atr = self._live_atr_ticks if self._live_atr_ticks > 0 else 8.0
+        _floor = max(4, self._tuning.get('min_tick_floor', 4))
+        sl_ticks = self._pp_sl_override or self._tuning.get('pp_sl', 0) or max(_floor, int(round(atr * self._tuning.get('exit_sl_mult', 3.0))))
+        tp_ticks = self._pp_tp_override or self._tuning.get('pp_tp', 0) or max(_floor, int(round(atr * self._tuning.get('exit_tp_mult', 5.0))))
+        trail_ticks = self._pp_trail_override or self._tuning.get('pp_trail', 0) or max(_floor, int(round(atr * self._tuning.get('exit_trail_mult', 2.5))))
+        trail_act = max(_floor, int(round(atr * self._tuning.get('exit_trail_act_mult', 0.6))))
+
+        self._pp_flip_count += 1
+        logger.info(f"PING-PONG FLIP #{self._pp_flip_count}: {side.upper()} "
+                    f"@ {price:.2f}  dir_src={_dir_src}  p_long={_p_long:.2f}  "
+                    f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}")
+        self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
+                        'side': side, 'price': price})
+
+        self._wave_rider.open_position(
+            entry_price=price, side=side,
+            state=state,
+            stop_distance_ticks=sl_ticks,
+            profit_target_ticks=tp_ticks,
+            trailing_stop_ticks=trail_ticks,
+            trail_activation_ticks=trail_act,
+            template_id=f'PP_{base_tid}',
+        )
+        self._position_open = True
+        self._entry_price = price
+        self._entry_time = ts
+        self._entry_bar = self._bar_i
+        self._active_side = side
+        self._active_tid = f'PP_{base_tid}'
+        self._entry_depth = self._entry_depth
+        self._max_hold_bars = 960  # no forced exit — exhaustion only
+        self._trade_logger.start_trade(
+            self._session_trades + 1, side, price, ts)
+
+        self._belief_network.start_trade_tracking(
+            side=side, entry_bar=self._bar_i,
+            pattern_horizon_bars=self._max_hold_bars)
+
+        if self._dry_run:
+            logger.info("[DRY RUN] Ping-pong flip logged but no order sent")
+            return
+
+        order_msg = self._orders.build_entry_order(
+            'BUY' if side == 'long' else 'SELL')
+        if order_msg:
+            self._order_send_ts = time.perf_counter()
+            await self._client.send(order_msg)
+            logger.info("LATENCY: ping-pong flip order sent")
+
+    def _direction_learn(self, tid, side: str, pnl: float):
+        """Record direction-specific outcome + counterfactual for live refinement.
+
+        If LONG lost $150, SHORT would have made $150 from the same entry.
+        Learn both: the actual outcome AND the alternative hypothesis.
+        """
+        if tid is None:
+            return
+        # Strip PP_ prefix to aggregate with parent template
+        base_tid = tid[3:] if isinstance(tid, str) and tid.startswith('PP_') else tid
+
+        if base_tid not in self._live_dir_bias:
+            self._live_dir_bias[base_tid] = {
+                'long_w': 0, 'long_l': 0, 'short_w': 0, 'short_l': 0}
+
+        bias = self._live_dir_bias[base_tid]
+        key = side.lower()
+        alt_key = 'short' if key == 'long' else 'long'
+        alt_pnl = -pnl  # mirror PnL
+
+        # PnL-weighted learning: 1 point per tick — fire AND reward
+        # MNQ tick=$0.50, so +$25 = 50 ticks = 50 win points
+        _tick_val = self._cfg.tick_size * self._cfg.point_value  # $0.50 for MNQ
+        _weight = max(1, int(abs(pnl) / _tick_val))
+
+        # Learn actual outcome
+        if pnl > 0:
+            bias[f'{key}_w'] += _weight
+        else:
+            bias[f'{key}_l'] += _weight
+
+        # Counterfactual: learn the alternative hypothesis
+        if alt_pnl > 0:
+            bias[f'{alt_key}_w'] += _weight
+        else:
+            bias[f'{alt_key}_l'] += _weight
+
+        # Log both
+        lw, ll = bias['long_w'], bias['long_l']
+        sw, sl = bias['short_w'], bias['short_l']
+        lt = lw + ll
+        st = sw + sl
+        l_wr = f"{lw/lt:.0%}" if lt > 0 else "n/a"
+        s_wr = f"{sw/st:.0%}" if st > 0 else "n/a"
+        _verdict = "CONFIRMED" if pnl > 0 else f"WRONG (alt {alt_key.upper()} would be ${alt_pnl:+.0f})"
+        logger.info(f"DIR LEARN: tid={base_tid}  {side.upper()} ${pnl:+.0f} -> {_verdict}  |  "
+                    f"LONG {lw}W/{ll}L ({l_wr})  SHORT {sw}W/{sl}L ({s_wr})")
+
+    def _tick_exit_watchers(self, price: float):
+        """Update post-exit counterfactual watchers. Called every 15s bar."""
+        if not self._exit_watchers:
+            return
+        _tick = self._cfg.tick_size
+        _point_val = self._cfg.point_value
+        done = []
+        for w in self._exit_watchers:
+            w['bars_watched'] += 1
+            # Track peak favorable/adverse since exit
+            if w['side'] in ('LONG', 'long'):
+                w['peak_favorable'] = max(w['peak_favorable'], price)
+                w['peak_adverse'] = min(w['peak_adverse'], price)
+            else:
+                w['peak_favorable'] = min(w['peak_favorable'], price)
+                w['peak_adverse'] = max(w['peak_adverse'], price)
+
+            # After 60 bars (~15 min), deliver verdict
+            if w['bars_watched'] >= 60:
+                exit_px = w['exit_px']
+                if w['side'] in ('LONG', 'long'):
+                    _could_have = (w['peak_favorable'] - w['entry_px']) * _point_val
+                    _peak_extra = (w['peak_favorable'] - exit_px) * _point_val
+                else:
+                    _could_have = (w['entry_px'] - w['peak_favorable']) * _point_val
+                    _peak_extra = (exit_px - w['peak_favorable']) * _point_val
+
+                _left = _could_have - w['exit_pnl']
+                if _left > 10:  # left more than $10 on the table
+                    logger.info(
+                        f"EXIT REGRET: tid={w['tid']} {w['side']} exited ${w['exit_pnl']:+.0f} "
+                        f"({w['reason']}) but peak was ${_could_have:+.0f} "
+                        f"-> left ${_left:.0f} on table")
+                elif w['exit_pnl'] > 0:
+                    logger.info(
+                        f"EXIT OK: tid={w['tid']} {w['side']} exited ${w['exit_pnl']:+.0f} "
+                        f"({w['reason']}) peak was ${_could_have:+.0f} -> good exit")
+                else:
+                    # Loss trade — did it get worse or recover?
+                    if w['side'] in ('LONG', 'long'):
+                        _recovery = (price - exit_px) * _point_val
+                    else:
+                        _recovery = (exit_px - price) * _point_val
+                    if _recovery > 20:
+                        logger.info(
+                            f"EXIT EARLY: tid={w['tid']} {w['side']} exited ${w['exit_pnl']:+.0f} "
+                            f"({w['reason']}) but price recovered ${_recovery:+.0f} "
+                            f"-> should have held")
+                    else:
+                        logger.info(
+                            f"EXIT CORRECT: tid={w['tid']} {w['side']} exited ${w['exit_pnl']:+.0f} "
+                            f"({w['reason']}) — price didn't recover")
+                done.append(w)
+
+        for w in done:
+            self._exit_watchers.remove(w)
+
+    def _prepare_shutdown(self):
+        """Save brain + bars + write session report + advise GUI."""
+        # Save brain
+        if self._live_trade_count > 0:
+            brain_path = os.path.join(
+                self._cfg.checkpoint_dir, 'live_brain.pkl')
+            self._brain.save(brain_path)
+            logger.info(f"Brain saved ({self._live_trade_count} trades)")
+
+        # Persist bars to parquet for delta sync on next start
+        self._aggregator.save_to_parquet()
+
+        # Write session report
+        self._write_session_report()
+
+        # Check position status
+        if self._position_open:
+            unreal = self._nt8_unrealized_pnl
+            side = self._active_side or '?'
+            sign = '+' if unreal >= 0 else ''
+            status = (f"OPEN {side.upper()} ({sign}${unreal:,.0f}) "
+                      f"— FLATTEN first or close to lock in")
+            logger.info(f"Prepare shutdown: {status}")
+        else:
+            status = "FLAT — saved — safe to close"
+            logger.info("Prepare shutdown: no open position, safe to close")
+
+        self._gui_push({'type': 'SHUTDOWN_READY', 'status': status})
+
+    def _write_session_report(self):
+        """Write session summary to reports/live/ (OOS-level detail)."""
+        from collections import defaultdict
+
+        report_dir = os.path.join('reports', 'live')
+        os.makedirs(report_dir, exist_ok=True)
+        ts = time.strftime('%Y%m%d_%H%M%S')
+        path = os.path.join(report_dir, f'session_{ts}.txt')
+
+        dur = time.time() - self._session_start
+        dur_h = int(dur // 3600)
+        dur_m = int((dur % 3600) // 60)
+        wr = (self._session_wins / self._session_trades * 100
+              if self._session_trades > 0 else 0.0)
+        pf = (self._gross_win / abs(self._gross_loss)
+              if self._gross_loss != 0 else 0.0)
+        avg = (self._session_pnl / self._session_trades
+               if self._session_trades > 0 else 0.0)
+
+        L = []
+        L.append("=" * 72)
+        L.append(f"LIVE SESSION REPORT  (run: {time.strftime('%Y-%m-%d %H:%M:%S')})")
+        L.append(f"  Account:    {self._cfg.account}")
+        L.append(f"  Instrument: {self._cfg.instrument}")
+        L.append(f"  Anchor TF:  {self._anchor_tf}  (depth={self._anchor_depth})")
+        L.append(f"  Duration:   {dur_h}h {dur_m}m  ({self._bar_i} bars)")
+        L.append(f"Total Trades: {self._session_trades}")
+        L.append(f"Win Rate: {wr:.1f}%")
+        L.append(f"Total PnL: ${self._session_pnl:+,.2f}")
+        L.append("=" * 72)
+
+        # ── Per-depth PnL breakdown ──
+        L.append("")
+        L.append("=" * 72)
+        L.append("PER-DEPTH PnL BREAKDOWN")
+        L.append("=" * 72)
+        if self._trade_log:
+            depth_stats = defaultdict(lambda: {'n': 0, 'wins': 0, 'pnl': 0.0})
+            for t in self._trade_log:
+                d = t.get('depth', '?')
+                depth_stats[d]['n'] += 1
+                depth_stats[d]['pnl'] += t['pnl']
+                if t['pnl'] > 0:
+                    depth_stats[d]['wins'] += 1
+            L.append(f"  {'Depth':<10} {'Trades':>7} {'Win%':>6} {'Total PnL':>12} {'Avg/trade':>10}")
+            L.append(f"  {'-'*10} {'-'*7} {'-'*6} {'-'*12} {'-'*10}")
+            for d in sorted(depth_stats.keys()):
+                s = depth_stats[d]
+                _wr = s['wins'] / s['n'] * 100 if s['n'] > 0 else 0
+                _avg = s['pnl'] / s['n'] if s['n'] > 0 else 0
+                L.append(f"  depth {str(d):<5} {s['n']:>7} {_wr:>5.0f}% ${s['pnl']:>10,.2f} ${_avg:>9,.2f}")
+
+        # ── Exit reason breakdown ──
+        L.append("")
+        L.append("=" * 72)
+        L.append("EXIT REASON BREAKDOWN")
+        L.append("=" * 72)
+        if self._trade_log:
+            reason_stats = defaultdict(lambda: {'n': 0, 'wins': 0, 'pnl': 0.0})
+            for t in self._trade_log:
+                r = t.get('reason', '?')
+                reason_stats[r]['n'] += 1
+                reason_stats[r]['pnl'] += t['pnl']
+                if t['pnl'] > 0:
+                    reason_stats[r]['wins'] += 1
+            L.append(f"  {'Reason':<18} {'Trades':>7} {'Win%':>6} {'Total PnL':>12} {'Avg/trade':>10}")
+            L.append(f"  {'-'*18} {'-'*7} {'-'*6} {'-'*12} {'-'*10}")
+            for r in sorted(reason_stats.keys()):
+                s = reason_stats[r]
+                _wr = s['wins'] / s['n'] * 100 if s['n'] > 0 else 0
+                _avg = s['pnl'] / s['n'] if s['n'] > 0 else 0
+                L.append(f"  {r:<18} {s['n']:>7} {_wr:>5.0f}% ${s['pnl']:>10,.2f} ${_avg:>9,.2f}")
+
+        # ── Direction breakdown ──
+        L.append("")
+        L.append("=" * 72)
+        L.append("DIRECTION BREAKDOWN")
+        L.append("=" * 72)
+        if self._trade_log:
+            for d in ('LONG', 'SHORT'):
+                dt = [t for t in self._trade_log if t['side'] == d]
+                if dt:
+                    _dw = sum(1 for t in dt if t['pnl'] > 0)
+                    _dp = sum(t['pnl'] for t in dt)
+                    _dwr = _dw / len(dt) * 100
+                    L.append(f"  {d:<8} {len(dt):>4} trades  WR={_dwr:.0f}%  "
+                             f"PnL=${_dp:+,.2f}  Avg=${_dp/len(dt):+,.2f}")
+
+        # ── Ping-pong direction refinement ──
+        if self._pp_flip_count > 0 or self._live_dir_bias:
+            L.append("")
+            L.append("=" * 72)
+            L.append("PING-PONG DIRECTION REFINEMENT")
+            L.append("=" * 72)
+            L.append(f"  Flip count: {self._pp_flip_count}")
+            if self._live_dir_bias:
+                L.append(f"  {'Template':<20} {'LONG WR':>10} {'LONG N':>8} "
+                         f"{'SHORT WR':>10} {'SHORT N':>8}")
+                L.append("  " + "-" * 58)
+                for tid, b in sorted(self._live_dir_bias.items(),
+                                     key=lambda x: sum(x[1].values()),
+                                     reverse=True):
+                    lw, ll = b['long_w'], b['long_l']
+                    sw, sl = b['short_w'], b['short_l']
+                    lt, st = lw + ll, sw + sl
+                    l_wr = f"{lw/lt:.0%}" if lt > 0 else "n/a"
+                    s_wr = f"{sw/st:.0%}" if st > 0 else "n/a"
+                    L.append(f"  {str(tid):<20} {l_wr:>10} {lt:>8} "
+                             f"{s_wr:>10} {st:>8}")
+
+        # ── Gate rejection funnel ──
+        L.append("")
+        L.append("=" * 72)
+        L.append("GATE REJECTION FUNNEL")
+        L.append("=" * 72)
+        gs = self._gate_stats
+        _total = gs['candidates'] or 1
+        L.append(f"  Bars with candidates:           {gs['bars_seen']:>8,}")
+        L.append(f"  Total candidates evaluated:     {gs['candidates']:>8,}")
+        _pct = lambda n: f"{n/_total*100:.1f}%"
+        L.append(f"    Gate 0 (headroom/physics):     {gs['gate0_skip']:>8,}  ({_pct(gs['gate0_skip'])})")
+        L.append(f"    Gate 0.5 (depth filter):       {gs['gate0_5_skip']:>8,}  ({_pct(gs['gate0_5_skip'])})")
+        L.append(f"    Gate 1 (cluster dist):         {gs['gate1_skip']:>8,}  ({_pct(gs['gate1_skip'])})")
+        L.append(f"    Gate 2 (brain rejected):       {gs['gate2_skip']:>8,}  ({_pct(gs['gate2_skip'])})")
+        L.append(f"    Gate 3 (conviction):           {gs['gate3_skip']:>8,}  ({_pct(gs['gate3_skip'])})")
+        L.append(f"    Gate 3.5 (screening/hours):    {gs['gate3_5_skip']:>8,}  ({_pct(gs['gate3_5_skip'])})")
+        L.append(f"    Gate 4 (direction conf):       {gs['gate4_skip']:>8,}  ({_pct(gs['gate4_skip'])})")
+        L.append(f"    Passed all gates -> traded:    {gs['traded']:>8,}  ({_pct(gs['traded'])})")
+
+        # ── Session equity ──
+        L.append("")
+        L.append("=" * 72)
+        L.append("ACCOUNT SNAPSHOT")
+        L.append("=" * 72)
+        L.append(f"  Cash Value:      ${self._nt8_cash_value:>12,.2f}")
+        L.append(f"  Unrealized PnL:  ${self._nt8_unrealized_pnl:>+12,.2f}")
+        L.append(f"  Net Liquidation: ${self._nt8_net_liquidation:>12,.2f}")
+        L.append(f"  Profit Factor:   {pf:.2f}")
+        L.append(f"  Avg PnL/trade:   ${avg:+,.2f}")
+        L.append(f"  Gross Win:       ${self._gross_win:+,.2f}")
+        L.append(f"  Gross Loss:      ${abs(self._gross_loss):,.2f}")
+
+        # ── Trade log ──
+        L.append("")
+        L.append("=" * 72)
+        L.append("TRADE LOG")
+        L.append("=" * 72)
+        if self._trade_log:
+            L.append(f"  {'#':>3}  {'Time':<10} {'Side':<6} {'Entry':>10} "
+                     f"{'Exit':>10} {'PnL':>10} {'Reason':<14} {'Bars':>5}")
+            L.append("  " + "-" * 68)
+            cum = 0.0
+            for i, t in enumerate(self._trade_log, 1):
+                cum += t['pnl']
+                L.append(
+                    f"  {i:>3}  {t['time']:<10} {t['side']:<6} "
+                    f"{t['entry']:>10,.2f} {t['exit']:>10,.2f} "
+                    f"${t['pnl']:>+9,.2f} {t['reason']:<14} {t['bars']:>5}")
+            L.append("  " + "-" * 68)
+            L.append(f"  {'':>3}  {'':10} {'':6} {'':10} {'TOTAL':>10} "
+                     f"${self._session_pnl:>+9,.2f}")
+        else:
+            L.append("  No trades this session.")
+
+        L.append("")
+        L.append("=" * 72)
+
+        with open(path, 'w') as f:
+            f.write('\n'.join(L) + '\n')
+        logger.info(f"Session report saved: {path}")
+
+    def _gui_push(self, msg: dict):
+        """Non-blocking push to GUI queue. Drop if full."""
+        if self._gui_queue is None:
+            return
+        try:
+            self._gui_queue.put_nowait(msg)
+        except Exception:
+            pass
+
+    def _gui_push_stats(self):
+        """Push current session stats to the popup."""
+        wr = (self._session_wins / self._session_trades * 100
+              if self._session_trades > 0 else 0.0)
+        pf = (self._gross_win / abs(self._gross_loss)
+              if self._gross_loss != 0 else 0.0)
+        eb = self._exit_buckets
+        # Use OrderManager daily_pnl as source of truth (includes all fills)
+        _true_pnl = self._orders.daily_pnl
+        # Bar = belief meter
+        # Flat: entry belief charging up (0% -> 100% = fire)
+        # In position: trade life decaying (100% -> 0% = exit)
+        if self._position_open:
+            _bar_pct = self._exit_belief_pct
+            _bar_label = f'life {_bar_pct:.0f}%'
+        else:
+            _bar_pct = self._entry_belief_pct
+            _bar_label = f'belief {_bar_pct:.0f}%' if _bar_pct > 0 else f'trade {self._session_trades}'
+        self._gui_push({
+            'type': 'PHASE_PROGRESS',
+            'phase': 'LIVE',
+            'step': _bar_label,
+            'pct': _bar_pct,
+            'pnl': _true_pnl,
+            'wr': wr,
+            'trades': self._session_trades,
+            'pf': pf,
+            'exit_optimal': eb['optimal'],
+            'exit_partial': eb['partial'],
+            'exit_early': eb['early'],
+            'exit_reversed': eb['reversed'],
+            'gross_w': self._gross_win,
+            'gross_l': abs(self._gross_loss),
+        })
+
+    def _on_account_update(self, msg: dict):
+        """Handle ACCOUNT_UPDATE from NT8 — push equity to GUI."""
+        self._nt8_cash_value = float(msg.get('cash_value', 0))
+        self._nt8_realized_pnl = float(msg.get('realized_pnl', 0))
+        self._nt8_unrealized_pnl = float(msg.get('unrealized_pnl', 0))
+        self._nt8_net_liquidation = float(msg.get('net_liquidation', 0))
+
+        self._gui_push({
+            'type': 'ACCOUNT_UPDATE',
+            'cash_value': self._nt8_cash_value,
+            'realized_pnl': self._nt8_realized_pnl,
+            'unrealized_pnl': self._nt8_unrealized_pnl,
+            'net_liquidation': self._nt8_net_liquidation,
+        })
+
+    def _brain_learn(self, pnl: float):
+        """Feed trade outcome to brain, update GUI stats, save periodically."""
+        from core.bayesian_brain import TradeOutcome
+
+        result = 'WIN' if pnl > 0 else 'LOSS'
+
+        # Use actual fill prices from OrderManager when available
+        exi = self._orders.last_exit_info
+        entry_px = exi.get('entry_px', self._entry_price)
+        exit_px = exi.get('exit_px', 0.0)
+        if not exit_px:
+            # Fallback: compute from PnL (side-aware)
+            tick_val = self._cfg.point_value
+            if self._active_side == 'short':
+                exit_px = entry_px - pnl / tick_val
+            else:
+                exit_px = entry_px + pnl / tick_val
+
+        outcome = TradeOutcome(
+            state=self._active_tid or 'UNKNOWN',
+            entry_price=entry_px,
+            exit_price=exit_px,
+            pnl=pnl,
+            result=result,
+            timestamp=time.time(),
+            exit_reason=self._last_exit_reason,
+            direction='LONG' if self._active_side == 'long' else 'SHORT',
+            template_id=self._active_tid,
+        )
+        self._brain.update(outcome)
+        self._direction_learn(self._active_tid, self._active_side, pnl)
+        self._live_trade_count += 1
+
+        # Update session stats for GUI
+        self._session_pnl += pnl
+        self._session_trades += 1
+        if pnl > 0:
+            self._session_wins += 1
+            self._gross_win += pnl
+        else:
+            self._gross_loss += pnl
+
+        # Capture bucket (MFE-based exit quality)
+        hwm = getattr(self, '_last_high_water', entry_px)
+        if self._active_side == 'long':
+            mfe_ticks = (hwm - entry_px) / 0.25 if entry_px else 0
+        else:
+            mfe_ticks = (entry_px - hwm) / 0.25 if entry_px else 0
+        pnl_ticks = pnl / (self._cfg.point_value * self._cfg.tick_size)
+        if mfe_ticks > 0:
+            capture = pnl_ticks / mfe_ticks * 100
+        else:
+            capture = 0.0 if pnl <= 0 else 100.0
+        if capture >= 80:
+            self._exit_buckets['optimal'] += 1
+        elif capture >= 20:
+            self._exit_buckets['partial'] += 1
+        elif capture > 0:
+            self._exit_buckets['early'] += 1
+        else:
+            self._exit_buckets['reversed'] += 1
+
+        # Record for session report
+        self._trade_log.append({
+            'time': time.strftime('%H:%M:%S'),
+            'side': 'LONG' if self._active_side == 'long' else 'SHORT',
+            'entry': entry_px,
+            'exit': exit_px,
+            'pnl': pnl,
+            'result': result,
+            'reason': self._last_exit_reason,
+            'bars': self._bar_i - self._entry_bar,
+            'tid': self._active_tid,
+            'depth': self._entry_depth,
+            'capture': capture,
+        })
+
+        logger.info(f"Brain learned: tid={self._active_tid} {result} "
+                    f"${pnl:+.2f}  capture={capture:.0f}%  "
+                    f"(table size: {len(self._brain.table)})")
+
+        # Push stats to GUI popup
+        self._gui_push_stats()
+        self._gui_push({
+            'type': 'DAY_PNL',
+            'day': time.strftime('%H:%M'),
+            'pnl': pnl,
+            'trades': 1,
+            'wins': 1 if pnl > 0 else 0,
+        })
+        if self._orders.loss_limit_hit:
+            self._gui_push({'type': 'LOSS_LIMIT', 'locked': True,
+                            'daily_pnl': self._orders.daily_pnl})
+
+        # Save every N trades
+        if self._live_trade_count % self._brain_save_interval == 0:
+            brain_path = os.path.join(
+                self._cfg.checkpoint_dir, 'live_brain.pkl')
+            self._brain.save(brain_path)
+            logger.info(f"Live brain saved ({self._live_trade_count} trades)")
+
+    # ── Entry Logic (Gate 0 → 3) ─────────────────────────────────────
+
+    async def _check_entry(self, price: float, ts: float, states: list):
+        """Run the gate cascade on the current bar's quantum state."""
+        _t0 = time.perf_counter()
+        if not states:
+            self._entry_belief_pct = 0
+            return
+        if self._instrument_mismatch:
+            return  # wrong instrument on NT8 chart — refuse to trade
+
+        # Aggression scaling (0.0=SNIPER … 1.0=YOLO)
+        agg = self._shared_state.get('aggression', 0.5)
+        _yolo = agg >= 0.99
+        _g1_base = self._tuning.get('gate1_dist', _GATE1_DIST_THRESHOLD)
+        _g1_dist = (float('inf') if _yolo
+                    else _g1_base + agg * 10.0)  # YOLO=∞, else base→base+10
+        _g2_prob = 0.05 * (1.0 - agg)                    # 0.05 → 0.0
+        _g4_dir  = 0.05                                    # direction gate stays fixed
+        _skip_screening = agg > 0.75                      # AGGRESSIVE+ skips 3.5
+
+        # Get the latest state
+        latest = states[-1]
+        state = latest['state']
+
+        # Detect pattern type from state flags
+        candidates = []
+        if state.cascade_detected:
+            candidates.append(self._build_candidate(
+                'ROCHE_SNAP', state, price, ts))
+        if state.structure_confirmed:
+            candidates.append(self._build_candidate(
+                'STRUCTURAL_DRIVE', state, price, ts))
+        # YOLO: if no physics triggers found, force a candidate anyway
+        if not candidates and _yolo:
+            candidates.append(self._build_candidate(
+                'STRUCTURAL_DRIVE', state, price, ts))
+            logger.debug(f"YOLO forced candidate @ {price:.2f}  "
+                         f"z={state.z_score:.3f} v={state.particle_velocity:.3f}")
+
+        if not candidates:
+            self._entry_belief_pct = 0
+            return
+
+        # Track best gate progress for belief bar (0-100%)
+        _best_belief = 0
+
+        self._gate_stats['bars_seen'] += 1
+        self._gate_stats['candidates'] += len(candidates)
+        logger.debug(f"Gate cascade: {len(candidates)} candidate(s), agg={agg:.2f}")
+
+        # Run gates on each candidate
+        best_candidate = None
+        best_dist = 999.0
+        best_tid = None
+
+        for p in candidates:
+            # ── Gate 0: Headroom ──────────────────────────────────────
+            micro_z = abs(p.z_score)
+            micro_pattern = p.pattern_type
+            macro_z = 0.0  # no parent chain in live (single TF)
+
+            should_skip = False
+
+            # Data-quality override check
+            _data_override = False
+            if self._exception_tids and micro_pattern:
+                _e_feat = np.array([FractalClusteringEngine.extract_features(p)])
+                _e_scaled = self._scaler.transform(_e_feat)
+                _e_dists = np.linalg.norm(self._centroids_scaled - _e_scaled, axis=1)
+                _e_nearest = int(np.argmin(_e_dists))
+                if (_e_dists[_e_nearest] < self._tuning.get('gate1_dist', _GATE1_DIST_THRESHOLD)
+                        and self._valid_tids[_e_nearest] in self._exception_tids):
+                    _data_override = True
+
+            if not _data_override and not _yolo:
+                if not micro_pattern:
+                    should_skip = True
+                elif micro_z < 0.5:
+                    should_skip = True
+                elif 0.5 <= micro_z < 2.0:
+                    if micro_pattern == 'STRUCTURAL_DRIVE':
+                        if (state.adx_strength < self._tuning.get('gate0_adx', _ADX_TREND_CONFIRMATION)
+                                or state.hurst_exponent < self._tuning.get('gate0_hurst', _HURST_TREND_CONFIRMATION)):
+                            should_skip = True
+                    elif micro_pattern == 'ROCHE_SNAP':
+                        should_skip = True
+                elif micro_z >= 2.0:
+                    headroom = macro_z < 3.0
+                    if micro_pattern == 'ROCHE_SNAP':
+                        if not headroom and micro_z > 3.0:
+                            should_skip = True
+                    elif micro_pattern == 'STRUCTURAL_DRIVE':
+                        if not headroom:
+                            should_skip = True
+
+            if should_skip:
+                self._gate_stats['gate0_skip'] += 1
+                # Belief: physics present but not strong enough — 10%
+                _cand_belief = 10
+                _best_belief = max(_best_belief, _cand_belief)
+                continue
+
+            # ── Gate 0.5: Depth filter ────────────────────────────────
+            if not _yolo and p.depth in self._depth_filter_out:
+                self._gate_stats['gate0_5_skip'] += 1
+                _best_belief = max(_best_belief, 15)
+                continue
+
+            # Gate 0 passed = 20%
+            _cand_belief = 20
+
+            # ── Gate 1: Cluster matching ──────────────────────────────
+            features = np.array([FractalClusteringEngine.extract_features(p)])
+            feat_scaled = self._scaler.transform(features)
+            dists = np.linalg.norm(self._centroids_scaled - feat_scaled, axis=1)
+            nearest_idx = np.argmin(dists)
+            dist = float(dists[nearest_idx])
+            tid = self._valid_tids[nearest_idx]
+
+            if dist >= _g1_dist:
+                self._gate_stats['gate1_skip'] += 1
+                # Belief: partial credit for how close the match was
+                _match_pct = max(0, 1 - dist / max(1, _g1_dist)) if _g1_dist < float('inf') else 0.5
+                _cand_belief += _match_pct * 15  # up to 35% total
+                _best_belief = max(_best_belief, _cand_belief)
+                logger.debug(f"Gate 1 reject: dist={dist:.2f} >= {_g1_dist:.2f}")
+                continue
+
+            # Gate 1 passed = 20% + 30% match quality
+            _match_quality = max(0, 1 - dist / max(1, _g1_dist)) if _g1_dist < float('inf') else 1.0
+            _cand_belief = 20 + 30 * _match_quality
+            logger.debug(f"Gate 1 pass: tid={tid} dist={dist:.2f}/{_g1_dist:.2f}")
+
+            # ── Gate 2: Brain ─────────────────────────────────────────
+            if not self._brain.should_fire(tid, min_prob=_g2_prob, min_conf=0.0):
+                self._gate_stats['gate2_skip'] += 1
+                _best_belief = max(_best_belief, _cand_belief)
+                logger.debug(f"Gate 2 reject: tid={tid} "
+                             f"prob={self._brain.get_probability(tid):.3f} "
+                             f"conf={self._brain.get_confidence(tid):.3f}")
+                continue
+
+            # Gate 2 passed = +20% (now at ~70%)
+            _brain_prob = self._brain.get_probability(tid)
+            _cand_belief += 20 * min(1.0, _brain_prob / max(0.01, _g2_prob + 0.3))
+
+            # Score competition
+            p_depth = p.depth
+            tier_adj = self._tier_score_adj.get(
+                self._template_tier_map.get(tid, 3), 0.0)
+            depth_adj = self._depth_score_adj.get(p_depth, 0.0)
+            score = p_depth + dist + tier_adj + depth_adj
+
+            if score < best_dist:
+                best_dist = score
+                best_candidate = p
+                best_tid = tid
+            _best_belief = max(_best_belief, _cand_belief)
+
+        if best_candidate is None:
+            self._entry_belief_pct = min(99, _best_belief)
+            return
+
+        # ── Gate 3: Path conviction ───────────────────────────────────
+        belief = self._belief_network.get_belief()
+        side, _p_long, _dir_src = self._determine_direction(best_candidate, best_tid)
+
+        # Side lock override (--long-only / --short-only)
+        _side_lock = self._shared_state.get('side_lock')
+        if _side_lock:
+            side = _side_lock
+            _dir_src = f'locked_{_side_lock}'
+
+        if belief is not None:
+            if not belief.is_confident and agg < 0.75:
+                self._gate_stats['gate3_skip'] += 1
+                self._entry_belief_pct = min(99, _best_belief + 10)  # close but no conviction
+                return  # conviction too low (skipped at AGGRESSIVE+)
+            if belief.direction != side:
+                side = belief.direction
+            _network_tp = (max(4, int(round(belief.predicted_mfe)))
+                           if belief.predicted_mfe > 2.0 else None)
+        else:
+            _network_tp = None
+
+        # ── Gate 4: Direction confidence ─────────────────────────────
+        _dir_conf = abs(_p_long - 0.5)
+        if _dir_conf < _g4_dir:
+            self._gate_stats['gate4_skip'] += 1
+            self._entry_belief_pct = min(99, _best_belief + 15)  # almost there, dir unclear
+            logger.debug(f"Gate 4 reject: dir_conf={_dir_conf:.3f} < {_g4_dir:.3f} "
+                         f"(src={_dir_src}, tid={best_tid})")
+            return
+
+        # ── Gate 3.5: Screening fission + hour filter ────────────────
+        if not _skip_screening:
+            if self._fission_map:
+                _fission_rule = self._fission_map.get(best_tid)
+                if _fission_rule and _fission_rule.get('action') == 'reject':
+                    self._gate_stats['gate3_5_skip'] += 1
+                    logger.debug(f"Gate 3.5 reject: fission rule for tid={best_tid}")
+                    return
+            if self._good_hours_utc:
+                import datetime as _dt
+                _hour_utc = _dt.datetime.utcnow().hour
+                if _hour_utc not in self._good_hours_utc:
+                    self._gate_stats['gate3_5_skip'] += 1
+                    logger.debug(f"Gate 3.5 reject: hour {_hour_utc} not in good_hours_utc")
+                    return
+
+        # ── Exit sizing ───────────────────────────────────────────────
+        lib_entry = self._pattern_library.get(best_tid, {})
+        params = lib_entry.get('params', {})
+        sl_ticks, trail_ticks, trail_act, tp_ticks = self._compute_exit_params(
+            lib_entry, params, _network_tp, best_candidate)
+
+        # Signed offsets: library_value + offset (negative = tighter, 0 = no change)
+        _floor = max(4, self._tuning.get('min_tick_floor', 4))
+        sl_ticks = max(_floor, sl_ticks + self._tuning.get('sl_offset', 0))
+        tp_ticks = max(_floor, tp_ticks + self._tuning.get('tp_offset', 0))
+        trail_ticks = max(_floor, trail_ticks + self._tuning.get('trail_offset', 0))
+        if trail_act is not None:
+            trail_act = max(_floor, trail_act + self._tuning.get('trail_act_offset', 0))
+
+        # ── All gates passed — fire! ─────────────────────────────────
+        self._entry_belief_pct = 100
+        self._gate_stats['traded'] += 1
+        logger.info(f"ENTRY: {side.upper()} @ {price:.2f}  "
+                    f"tid={best_tid}  dist={best_dist:.2f}  "
+                    f"dir_src={_dir_src}  conf={_dir_conf:.3f}  "
+                    f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}  "
+                    f"ATR={self._live_atr_ticks:.1f}  agg={agg:.0%}")
+        _band = self._belief_network.get_band_confluence()
+        if _band:
+            logger.info(f"  BANDS: {_band['band_summary']}")
+        self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
+                        'side': side, 'price': price})
 
         self._wave_rider.open_position(
             entry_price=price, side=side,
@@ -891,15 +1931,6 @@ class LiveEngine:
             trail_activation_ticks=trail_act,
             template_id=best_tid,
         )
-
-        self._pos_state = self._exit_engine.open_position(
-            side=side,
-            entry_price=price,
-            entry_bar_index=self._bar_i,
-            template_id=best_tid,
-            lib_entry=lib_entry,
-        )
-
         self._position_open = True
         self._entry_price = price
         self._entry_time = ts
@@ -988,19 +2019,7 @@ class LiveEngine:
                 if s_wr > _wr_good and (lt < 3 or l_wr < _wr_bad):
                     return 'short', 0.5 - s_wr * 0.4, 'live_bias'
 
-
-        # Priority 0.5: Brain direction-specific win rate
-        if hasattr(self._brain, 'get_dir_probability'):
-            _dir_long = self._brain.get_dir_probability(base_tid, 'LONG')
-            _dir_short = self._brain.get_dir_probability(base_tid, 'SHORT')
-            if _dir_long is not None and _dir_short is not None:
-                if _dir_long > _dir_short + 0.10:
-                    return 'long', _dir_long, 'brain_dir'
-                elif _dir_short > _dir_long + 0.10:
-                    return 'short', 1.0 - _dir_short, 'brain_dir'
-
         # Priority 1: live momentum (velocity + acceleration from physics engine)
-
         # Trusts real-time market direction over stale regression coefficients.
         s = candidate.state
         _vel = float(getattr(s, 'particle_velocity', 0.0))
@@ -1245,24 +2264,18 @@ class LiveEngine:
         logger.info(f"  Exception templates: {len(self._exception_tids)}")
 
         # Brain — prefer live_brain.pkl (has live learning), then training brain
-
         live_brain_path = os.path.join(cpdir, 'live_brain.pkl')
-        forward_brain_path = os.path.join(cpdir, 'pattern_forward_brain.pkl')
         training_brains = sorted(glob.glob(os.path.join(cpdir, 'pattern_*_brain.pkl')))
 
         if os.path.exists(live_brain_path):
             self._brain.load(live_brain_path)
             logger.info(f"  Brain: live_brain.pkl ({len(self._brain.table)} states)")
-        elif os.path.exists(forward_brain_path):
-            self._brain.load(forward_brain_path)
-            logger.info(f"  Brain: pattern_forward_brain.pkl ({len(self._brain.table)} states) — IS-learned directions")
         elif training_brains:
             self._brain.load(training_brains[-1])
             logger.info(f"  Brain: {os.path.basename(training_brains[-1])} (training base)")
         else:
             logger.warning("  No brain checkpoint found — starting fresh "
                           "(will learn from live trades)")
-
 
         # Screening gates (Gate 3.5 fission + temporal filter)
         sg_path = os.path.join(cpdir, 'screening_gates.json')
