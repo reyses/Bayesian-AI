@@ -971,10 +971,23 @@ class LiveEngine:
         self._last_exit_reason = reason  # for trade log
         # Finish per-trade diagnostic CSV
         self._trade_logger.finish_trade(reason, self._last_price)
-        # Snapshot peak before clearing position (for capture bucket)
+        # Snapshot peak before clearing position (for capture bucket + self-tune)
         pos = self._position
-        self._last_high_water = (self._pos_state.peak_favorable if self._pos_state
+        _ps = self._pos_state
+        self._last_high_water = (_ps.peak_favorable if _ps
                                  else (pos.high_water_mark if pos else self._entry_price))
+        # Self-tune envelope halflife
+        if _ps is not None and self._entry_price > 0:
+            _tick = self._asset.tick_size
+            _tv = self._asset.tick_value
+            if self._active_side == 'long':
+                _tmfe = (_ps.peak_favorable - self._entry_price) / _tick
+            else:
+                _tmfe = (self._entry_price - _ps.peak_favorable) / _tick
+            _pnl_ticks = (self._last_price - self._entry_price) / _tick if self._active_side == 'long' \
+                else (self._entry_price - self._last_price) / _tick
+            _cap = _pnl_ticks / _tmfe if _tmfe > 0 else 0.0
+            self._exit_engine.record_trade_outcome(_tmfe, _pnl_ticks, _cap)
         self._position = None
         self._pos_state = None  # reset ExitEngine position
         self._last_exit_time = time.time()

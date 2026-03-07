@@ -426,14 +426,16 @@ class Trainer:
               f"(conviction threshold: {TimeframeBeliefNetwork.MIN_CONVICTION:.2f})")
 
         # ── Unified Execution Engine ──────────────────────────────────────────
+        # Reuse exit engine across iterations (carries self-tuned params)
+        _exit_eng = getattr(self, '_persisted_exit_engine', None) or ExitEngine(
+            mode='training',
+            tick_size=self.asset.tick_size,
+            tick_value=self.asset.tick_size * self.asset.point_value,
+        )
         _exec_engine = ExecutionEngine(
             brain=self.brain,
             belief_network=belief_network,
-            exit_engine=ExitEngine(
-                mode='training',
-                tick_size=self.asset.tick_size,
-                tick_value=self.asset.tick_size * self.asset.point_value,
-            ),
+            exit_engine=_exit_eng,
             pattern_library=self.pattern_library,
             scaler=self.scaler,
             centroids_scaled=centroids_scaled,
@@ -816,7 +818,7 @@ class Trainer:
                         refresh=True)
                     if self.dashboard_queue:
                         _wr = (_running_wins / _running_trades * 100) if _running_trades > 0 else 0.0
-                        _all_pnls = [t['actual_pnl'] for t in oracle_trade_records] + [t.pnl for t in day_trades]
+                        _all_pnls = [t['actual_pnl'] for t in oracle_trade_records]
                         _gw = sum(p for p in _all_pnls if p > 0)
                         _gl = abs(sum(p for p in _all_pnls if p < 0))
                         _pf = _gw / _gl if _gl > 0 else 0.0
@@ -910,6 +912,16 @@ class Trainer:
                         _ee_pnl = _exit_action.pnl_dollars
                         _ee_reason = _exit_action.exit_reason
                         _exit_result = _exit_action.exit_result
+                        # Capture trade MFE before clearing position
+                        _pos_st = _exec_engine.pos_state
+                        if _pos_st is not None:
+                            _peak = _pos_st.peak_favorable
+                            if active_side == 'long':
+                                _trade_mfe_ticks = (_peak - active_entry_price) / self.asset.tick_size
+                            else:
+                                _trade_mfe_ticks = (active_entry_price - _peak) / self.asset.tick_size
+                        else:
+                            _trade_mfe_ticks = 0.0
                         self._position = None
                         _exec_engine.position_closed()
                         outcome = TradeOutcome(
@@ -959,6 +971,7 @@ class Trainer:
                                 'exit_wave_maturity': _exit_sig.get('wave_maturity', 0.0),
                                 'exit_signal_reason': getattr(_exit_result, 'reason', _ee_reason),
                                 'exit_decay_score': _exit_sig.get('decay_score', 0.0),
+                                'trade_mfe_ticks': round(_trade_mfe_ticks, 2),
                             })
                             if _pending_dm_idx is not None:
                                 decision_matrix_records[_pending_dm_idx].update({
@@ -972,6 +985,12 @@ class Trainer:
                             belief_network.stop_trade_tracking()
                             pending_oracle = None
                             _pending_dm_idx = None
+
+                        # Self-tune envelope halflife from trade outcome
+                        _actual_ticks = outcome.pnl / self.asset.tick_value
+                        _cap = oracle_trade_records[-1]['capture_rate'] if oracle_trade_records else 0.0
+                        _exec_engine.exit_engine.record_trade_outcome(
+                            _trade_mfe_ticks, _actual_ticks, _cap)
 
                         # H0/H1 direction learning (always, mirrors live)
                         self.brain.direction_learn(active_template_id, active_side, outcome.pnl)
@@ -1304,8 +1323,10 @@ class Trainer:
 
                 if pos.side == 'short':
                     eod_pnl = (pos.entry_price - price) * self.asset.point_value
+                    _trade_mfe_ticks = (pos.entry_price - pos.peak_favorable) / self.asset.tick_size
                 else:
                     eod_pnl = (price - pos.entry_price) * self.asset.point_value
+                    _trade_mfe_ticks = (pos.peak_favorable - pos.entry_price) / self.asset.tick_size
                 self._position = None
                 _exec_engine.position_closed()  # reset engine position state
 
@@ -1360,6 +1381,7 @@ class Trainer:
                         'exit_wave_maturity': _eod_sig.get('wave_maturity', 0.0),
                         'exit_signal_reason': (_eod_adj_reason or _eod_sig.get('reason', '')),
                         'exit_decay_score':   _eod_sig.get('decay_score', 0.0),
+                        'trade_mfe_ticks':    round(_trade_mfe_ticks, 2),
                     })
                     # Update signal-log record with trade outcome
                     if _pending_dm_idx is not None:
@@ -1761,6 +1783,14 @@ class Trainer:
             _loss_decay = [r.get('exit_decay_score', 0.0) for r in oracle_trade_records if r.get('result') == 'LOSS']
             if _win_decay and _loss_decay:
                 report_lines.append(f"    Decay score at exit:  WIN avg={sum(_win_decay)/len(_win_decay):.3f}  LOSS avg={sum(_loss_decay)/len(_loss_decay):.3f}")
+            # Self-tuned parameters (independent knobs)
+            _ee = _exec_engine.exit_engine
+            report_lines.append(f"    Envelope halflife:   {_ee.envelope_half_life_bars:.1f} bars (self-tuned from 20)")
+            report_lines.append(f"    Giveback threshold:  {_ee.giveback_pct:.0%} (self-tuned from 70%)")
+
+            # Peak giveback exits
+            b_giveback = [r for r in oracle_trade_records if r.get('exit_reason') == 'peak_giveback']
+            report_lines.append(f"    Peak giveback exits: {_stats(b_giveback)}")
 
         # ── 2g. Worker agreement analysis ────────────────────────────────────────
         _sec['workers'] = len(report_lines)
@@ -1883,8 +1913,18 @@ class Trainer:
         _sec['exit_detail'] = len(report_lines)
         if tp_recs:
             optimal   = [r for r in tp_recs if r['capture_rate'] >= 0.80]
-            too_early = [r for r in tp_recs if 0 < r['capture_rate'] < 0.20]
             reversed_ = [r for r in tp_recs if r['capture_rate'] <= 0]
+
+            # Too late: reached ≥8 ticks MFE during trade but gave back ≥50%
+            # (trade was right, held too long past the peak)
+            _low_cap = [r for r in tp_recs if 0 < r['capture_rate'] < 0.20]
+            too_late = [r for r in _low_cap
+                        if r.get('trade_mfe_ticks', 0) >= 8
+                        and r.get('trade_mfe_ticks', 0) > 0
+                        and (1.0 - r['actual_pnl'] / (r['trade_mfe_ticks'] * self.asset.tick_value))
+                            >= 0.50]
+            _too_late_ids = set(id(r) for r in too_late)
+            too_early = [r for r in _low_cap if id(r) not in _too_late_ids]
 
             # Partial broken into 10% bands: 20-30, 30-40, ..., 70-80
             _partial_bands = []
@@ -1913,7 +1953,16 @@ class Trainer:
             report_lines.append(f"    {'Bucket':<36} {'n':>5}  {'Total PnL':>11}  {'Avg PnL':>8}  {'Hold':>9}  {'Cap%':>7}")
             report_lines.append(f"    {'─'*36} {'─'*5}  {'─'*11}  {'─'*8}  {'─'*9}  {'─'*7}")
             report_lines.append(_eq_row("Reversed (mkt flipped after entry)",reversed_, flag="<- leakage"))
-            report_lines.append(_eq_row("Too early (<20% captured)",         too_early))
+            report_lines.append(_eq_row("Too late  (reached peak, gave back)",too_late,  flag="<- giveback"))
+            # Too-late sub-bands by giveback percentage
+            for _gb_lo in range(50, 100, 10):
+                _gb_hi = _gb_lo + 10
+                _gb_band = [r for r in too_late
+                            if r.get('trade_mfe_ticks', 0) > 0
+                            and _gb_lo / 100 <= (1.0 - r['actual_pnl'] / (r['trade_mfe_ticks'] * self.asset.tick_value)) < _gb_hi / 100]
+                if _gb_band:
+                    report_lines.append(_eq_row(f"  Gave back ({_gb_lo}-{_gb_hi}%)", _gb_band, indent='    '))
+            report_lines.append(_eq_row("Too early (<20%, never reached)",   too_early))
             # Partial bands (ascending capture)
             for _lo, _hi, _band in _partial_bands:
                 if not _band:
@@ -1930,6 +1979,7 @@ class Trainer:
                 ('Optimal',   optimal),
                 ('Partial',   partial),
                 ('Too early', too_early),
+                ('Too late',  too_late),
                 ('Reversed',  reversed_),
             ]
             _hdr = f"    {'Exit reason':<18}" + "".join(f"  {b[0]:>9}" for b in buckets_def) + f"  {'Total':>6}  {'Avg PnL':>8}"
@@ -1950,18 +2000,19 @@ class Trainer:
             # ── Per-bucket capture detail ─────────────────────────────────────
             report_lines.append("")
             report_lines.append(f"  CAPTURE DETAIL (correct-direction trades):")
-            report_lines.append(f"    {'Bucket':<22}  {'Avg oracle MFE':>14}  {'Avg actual PnL':>14}  {'Avg hold bars':>13}")
+            report_lines.append(f"    {'Bucket':<22}  {'Avg oracle MFE':>14}  {'Avg trade MFE':>13}  {'Avg actual PnL':>14}  {'Avg hold bars':>13}")
             _detail_buckets = (
-                [('Optimal', optimal), ('Too early', too_early), ('Reversed', reversed_)]
+                [('Optimal', optimal), ('Too early', too_early), ('Too late', too_late), ('Reversed', reversed_)]
                 + [(f'Partial {lo}-{hi}%', band) for lo, hi, band in _partial_bands if band]
             )
             for label, recs in _detail_buckets:
                 if not recs:
                     continue
                 avg_mfe_usd = sum(r.get('oracle_mfe', 0) for r in recs) / len(recs) * self.asset.point_value
+                avg_tmfe    = sum(r.get('trade_mfe_ticks', 0) for r in recs) / len(recs)
                 avg_act     = sum(r['actual_pnl'] for r in recs) / len(recs)
                 avg_hb      = sum(r.get('hold_bars', 0) for r in recs) / len(recs)
-                report_lines.append(f"    {label:<22}  ${avg_mfe_usd:>13,.0f}  ${avg_act:>13,.0f}  {avg_hb:>13.1f}")
+                report_lines.append(f"    {label:<22}  ${avg_mfe_usd:>13,.0f}  {avg_tmfe:>10.1f}tks  ${avg_act:>13,.0f}  {avg_hb:>13.1f}")
 
             # ── Per-depth exit quality (hold shown as real time, not 15s bars) ──
             _depths_seen = sorted({r.get('entry_depth', 6) for r in tp_recs})
@@ -2499,6 +2550,10 @@ class Trainer:
             with open(_snap_path, 'w') as _sf:
                 _snap_json.dump(_snap, _sf, indent=2)
             print(f"  Run snapshot saved: {_snap_path}")
+
+        # Persist exit engine for multi-iteration runs
+        self._persisted_exit_engine = _exec_engine.exit_engine
+        self.exec_engine = _exec_engine
 
         print("\n  [OK] Forward pass complete -- all files saved.", flush=True)
 
@@ -3995,12 +4050,15 @@ def main():
     )
 
     parser.add_argument('--data', default=os.path.join("DATA", "ATLAS"), help="Path to ATLAS root, single TF directory, or parquet file")
-    parser.add_argument('--iterations', type=int, default=1000, help="Iterations per pattern (default: 1000)")
     parser.add_argument('--checkpoint-dir', type=str, default="checkpoints", help="Checkpoint directory")
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
     parser.add_argument('--fresh', action='store_true', help="Clear all pipeline checkpoints and start fresh")
     parser.add_argument('--forward-pass', action='store_true', help="Run Phase 4 forward pass using existing playbook")
+    parser.add_argument('--passes', type=int, default=1, metavar='N',
+                        help="Run IS forward pass N times. Exit params (halflife, giveback) "
+                             "carry between passes — each refines from the previous. "
+                             "Final pass feeds into strategy selection + OOS.")
     parser.add_argument('--depth-iso', action='store_true',
                         help="Run per-depth isolation analysis: forward pass once per depth (1-12), "
                              "no capital blocking between depths. Prints comparison table at end.")
@@ -4234,14 +4292,49 @@ def main():
             else:
                 # Default: Bayesian path -> IS Forward Pass -> Strategy -> OOS
                 _fwd_data = getattr(args, 'forward_data', None) or args.data
-                orchestrator.run_forward_pass(_fwd_data,
-                                          start_date=args.forward_start,
-                                          end_date=args.forward_end,
-                                          min_tier=args.min_tier,
-                                          bias_threshold=args.bias_threshold,
-                                          dmi_threshold=args.dmi_threshold,
-                                          oos_mode=getattr(args, 'oos', False),
-                                          account_size=getattr(args, 'account_size', 0.0))
+                _n_iter = getattr(args, 'passes', 1)
+                _iter_results = []
+                for _iter_i in range(1, _n_iter + 1):
+                    _ee_pre = getattr(orchestrator, '_persisted_exit_engine', None)
+                    _hl_pre = _ee_pre.envelope_half_life_bars if _ee_pre else 20
+                    _gb_pre = _ee_pre.giveback_pct if _ee_pre else 0.70
+                    if _n_iter > 1:
+                        print(f"\n{'='*80}")
+                        print(f"  ITERATION {_iter_i}/{_n_iter}  "
+                              f"(halflife={_hl_pre:.1f}  giveback={_gb_pre:.0%})")
+                        print(f"{'='*80}")
+                    orchestrator.run_forward_pass(_fwd_data,
+                                              start_date=args.forward_start,
+                                              end_date=args.forward_end,
+                                              min_tier=args.min_tier,
+                                              bias_threshold=args.bias_threshold,
+                                              dmi_threshold=args.dmi_threshold,
+                                              oos_mode=getattr(args, 'oos', False),
+                                              account_size=getattr(args, 'account_size', 0.0))
+                    _s = orchestrator._fp_summary
+                    _ee_post = orchestrator._persisted_exit_engine
+                    _iter_results.append({
+                        'iter': _iter_i,
+                        'trades': _s.get('total_trades', 0),
+                        'wr': _s.get('win_rate', 0) * 100,
+                        'pnl': _s.get('total_pnl', 0),
+                        'hl_in': _hl_pre,
+                        'gb_in': _gb_pre,
+                        'hl_out': _ee_post.envelope_half_life_bars,
+                        'gb_out': _ee_post.giveback_pct,
+                    })
+                if _n_iter > 1:
+                    print(f"\n{'='*80}")
+                    print(f"  ITERATION COMPARISON  ({_n_iter} passes)")
+                    print(f"{'='*80}")
+                    print(f"  {'Iter':>4}  {'Trades':>6}  {'WR%':>6}  {'PnL':>10}  "
+                          f"{'HL in':>6}  {'HL out':>6}  {'GB in':>6}  {'GB out':>6}")
+                    print(f"  {'─'*4}  {'─'*6}  {'─'*6}  {'─'*10}  "
+                          f"{'─'*6}  {'─'*6}  {'─'*6}  {'─'*6}")
+                    for r in _iter_results:
+                        print(f"  {r['iter']:>4}  {r['trades']:>6}  {r['wr']:>5.1f}%  "
+                              f"${r['pnl']:>9,.0f}  {r['hl_in']:>6.1f}  {r['hl_out']:>6.1f}  "
+                              f"{r['gb_in']:>5.0%}  {r['gb_out']:>5.0%}")
                 orchestrator.run_strategy_selection()
                 if args.depth_iso:
                     orchestrator.run_depth_analysis(args.data,
