@@ -4,7 +4,7 @@
     "LOAD": [
       "config/settings.py",
       "training/databento_loader.py",
-      "training/orchestrator.py"
+      "training/trainer.py"
     ],
     "TRANSFORM": [
       "core/quantum_field_engine.py",
