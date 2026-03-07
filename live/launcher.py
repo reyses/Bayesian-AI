@@ -61,7 +61,7 @@ def _kill_stale_live_engines():
 def _run_popup(gui_queue, shared_state):
     """Launch ProgressPopup in its own Tk mainloop (daemon thread)."""
     import tkinter as tk
-    from visualization.live_training_dashboard import ProgressPopup
+    from visualization.dashboard import ProgressPopup
 
     root = tk.Tk()
     popup = ProgressPopup(root, gui_queue, shared_state=shared_state)
