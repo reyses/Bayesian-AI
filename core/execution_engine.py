@@ -182,6 +182,12 @@ class ExecutionEngine:
 
         self.feature_extractor = feature_extractor
 
+        # Oracle-computed gate thresholds (loaded from gate_thresholds.json)
+        self.hurst_min = 0.5            # default fallback
+        self.tunnel_prob_min = 0.40     # default fallback
+        self.momentum_override_ratio = 1.0  # block when mom < rev (ratio < 1.0)
+        self._load_gate_thresholds()
+
         # Position state
         self.pos_state: Optional[PositionState] = None
         self.active_side: Optional[str] = None
@@ -205,6 +211,28 @@ class ExecutionEngine:
             'traded': 0, 'bypass_traded': 0,
             'total_candidates': 0,
         }
+
+    def _load_gate_thresholds(self):
+        """Load oracle-computed gate thresholds from checkpoints/gate_thresholds.json."""
+        import json, os
+        for path in ('checkpoints/gate_thresholds.json',
+                      'checkpoints/snowflake/gate_thresholds.json'):
+            if os.path.exists(path):
+                try:
+                    with open(path, 'r') as f:
+                        gt = json.load(f)
+                    if 'hurst_min' in gt:
+                        self.hurst_min = float(gt['hurst_min'])
+                    if 'tunnel_prob_min' in gt:
+                        self.tunnel_prob_min = float(gt['tunnel_prob_min'])
+                    if 'momentum_override_ratio' in gt:
+                        self.momentum_override_ratio = float(gt['momentum_override_ratio'])
+                    print(f"  [ExecutionEngine] Gate thresholds from {path}: "
+                          f"hurst>{self.hurst_min} tunnel>{self.tunnel_prob_min} "
+                          f"mom_ratio>{self.momentum_override_ratio}")
+                    return
+                except Exception as e:
+                    print(f"  [ExecutionEngine] WARN: failed to load {path}: {e}")
 
     @property
     def in_position(self) -> bool:
@@ -482,17 +510,17 @@ class ExecutionEngine:
         # Rule 5: Physics safety
         if not should_skip and not _data_override:
             _st = state
-            if getattr(_st, 'hurst_exponent', 1.0) < 0.5:
+            if self.hurst_min > 0 and getattr(_st, 'hurst_exponent', 1.0) < self.hurst_min:
                 should_skip = True
                 skip_label = 'gate0_hurst'
             # Rule 5b: low momentum filter — skip when reversion dominates
             # (choppy/ranging, no follow-through). We WANT high momentum.
             elif (abs(getattr(_st, 'F_momentum', 0.0)) <
-                  abs(getattr(_st, 'mean_reversion_force', 0.0))
+                  abs(getattr(_st, 'mean_reversion_force', 0.0)) * self.momentum_override_ratio
                   and abs(getattr(_st, 'mean_reversion_force', 0.0)) > 0):
                 should_skip = True
                 skip_label = 'gate0_momentum'
-            elif getattr(_st, 'reversion_probability', 1.0) < 0.40:
+            elif self.tunnel_prob_min > 0 and getattr(_st, 'reversion_probability', 1.0) < self.tunnel_prob_min:
                 should_skip = True
                 skip_label = 'gate0_tunnel'
 

@@ -523,6 +523,25 @@ class Trainer:
                     best = macro_om
             return best
 
+        def _physics_fields(p):
+            """Extract physics state fields from a pattern event for oracle records."""
+            _st = getattr(p, 'state', None)
+            _f_mom = float(getattr(_st, 'F_momentum', 0.0)) if _st else 0.0
+            _f_rev = float(getattr(_st, 'mean_reversion_force', 0.0)) if _st else 0.0
+            _f_rev_abs = abs(_f_rev)
+            _vel = float(getattr(_st, 'velocity', 0.0)) if _st else 0.0
+            _sigma = float(getattr(_st, 'regression_sigma', 0.0)) if _st else 0.0
+            return {
+                'F_momentum': round(_f_mom, 6),
+                'F_reversion': round(_f_rev, 6),
+                'mom_rev_ratio': round(abs(_f_mom) / _f_rev_abs if _f_rev_abs > 0 else 0.0, 2),
+                'hurst': round(float(getattr(_st, 'hurst_exponent', 0.0)) if _st else 0.0, 3),
+                'tunnel_prob': round(float(getattr(_st, 'reversion_probability', 0.0)) if _st else 0.0, 3),
+                'velocity': round(_vel, 6),
+                'sigma': round(_sigma, 6),
+                'band_speed': round(abs(_vel) / _sigma if _sigma > 0 else 0.0, 4),
+            }
+
         def _dm_rec(p, gate, day, ts_val, micro_z_val, macro_z_val, pattern_val,
                     dist=0.0, conviction=0.0, template_id='', tier='', playbook=''):
             """Build one signal-log record. Trade outcome fields default to empty."""
@@ -531,15 +550,6 @@ class Trainer:
             mfe  = float(meta.get('mfe', 0.0)) if isinstance(meta, dict) else 0.0
             olbl = {2:'MEGA', 1:'SCALP', 0:'NOISE', -1:'SCALP', -2:'MEGA'}.get(om, 'NOISE')
             opnl = round(abs(mfe) * self.asset.point_value, 2)
-            # Physics state for post-hoc gate analysis
-            _st = getattr(p, 'state', None)
-            _f_mom = float(getattr(_st, 'F_momentum', 0.0)) if _st else 0.0
-            _f_rev = float(getattr(_st, 'mean_reversion_force', 0.0)) if _st else 0.0
-            _hurst = float(getattr(_st, 'hurst_exponent', 0.0)) if _st else 0.0
-            _tunnel = float(getattr(_st, 'reversion_probability', 0.0)) if _st else 0.0
-            _velocity = float(getattr(_st, 'particle_velocity', 0.0)) if _st else 0.0
-            _f_rev_abs = abs(_f_rev)
-            _mom_rev_ratio = abs(_f_mom) / _f_rev_abs if _f_rev_abs > 0 else 0.0
             return {
                 # Detection context
                 'ts': ts_val, 'day': day, 'depth': getattr(p, 'depth', 6),
@@ -555,12 +565,7 @@ class Trainer:
                 'template_id': str(template_id), 'tier': str(tier),
                 'playbook': playbook,
                 # Physics state (for gate threshold analysis)
-                'F_momentum': round(_f_mom, 6),
-                'F_reversion': round(_f_rev, 6),
-                'mom_rev_ratio': round(_mom_rev_ratio, 2),
-                'hurst': round(_hurst, 3),
-                'tunnel_prob': round(_tunnel, 3),
-                'velocity': round(_velocity, 6),
+                **_physics_fields(p),
                 # Trade outcome (filled in later if gate='traded')
                 'trade_direction': '', 'trade_result': '', 'trade_pnl': 0.0,
                 'exit_reason': '', 'exit_signal_reason': '',
@@ -1201,6 +1206,7 @@ class Trainer:
                                 'band_direction': _band['direction'] if _band else None,
                                 'band_strength': round(_band['strength'], 3) if _band else 0.0,
                                 'band_summary': _band.get('band_summary', '') if _band else '',
+                                **_physics_fields(best_candidate),
                             }
 
                             # Signal log: traded record
@@ -1266,6 +1272,7 @@ class Trainer:
                                         'reason':          'competed',
                                         'gate_blocked':    _candidate_gate.get(id(p), 'unknown'),
                                         'workers':         __import__('json').dumps(belief_network.get_worker_snapshot()),
+                                        **_physics_fields(p),
                                     })
                     else:
                         # No entry -- audit all candidates as SKIPPED
@@ -1289,6 +1296,7 @@ class Trainer:
                                     'reason':          'no_match',
                                     'gate_blocked':    _candidate_gate.get(id(p), 'unknown'),
                                     'workers':         __import__('json').dumps(belief_network.get_worker_snapshot()),
+                                    **_physics_fields(p),
                                 })
 
             # End of day cleanup -- force close any open position
