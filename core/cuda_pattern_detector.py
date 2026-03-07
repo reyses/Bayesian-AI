@@ -1,7 +1,7 @@
 """
 CUDA-Accelerated Pattern Detector
 Modernized implementation of legacy pattern recognition logic using Numba CUDA kernels.
-Designed for high-throughput batch processing in QuantumFieldEngine.
+Designed for high-throughput batch processing in StatisticalFieldEngine.
 """
 import numpy as np
 from core.pattern_utils import (

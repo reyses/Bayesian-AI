@@ -24,8 +24,9 @@ import pandas as pd
 from dataclasses import dataclass
 from typing import Optional, Dict, List
 
-from core.quantum_field_engine import QuantumFieldEngine
+from core.quantum_field_engine import StatisticalFieldEngine
 from core.bayesian_brain import QuantumBayesianBrain
+from core.exit_engine import ExitEngine, ExitAction
 from training.fractal_clustering import FractalClusteringEngine
 from training.timeframe_belief_network import TimeframeBeliefNetwork
 from training.wave_rider import WaveRider
@@ -102,11 +103,11 @@ class _LiveCandidate:
     z_score: float
     velocity: float
     momentum: float
-    coherence: float
-    state: object         # ThreeBodyQuantumState
+    entropy_normalized: float
+    state: object         # MarketState
     depth: int = 10       # default: 15s depth level
     timeframe: str = '15s'
-    parent_type: str = 'STRUCTURAL_DRIVE'  # needed by extract_features
+    parent_type: str = 'MOMENTUM_BREAK'  # needed by extract_features
     parent_chain: list = None
     timestamp: float = 0.0
     price: float = 0.0
@@ -139,9 +140,17 @@ class LiveEngine:
         if self._asset is None:
             raise ValueError(f"Unknown asset ticker: {config.asset_ticker}")
 
-        self._engine = QuantumFieldEngine()
+        self._engine = StatisticalFieldEngine()
         self._brain = QuantumBayesianBrain()
         self._wave_rider = WaveRider(self._asset)
+
+        # Unified exit engine (same logic as training — training/live parity)
+        self._exit_engine = ExitEngine(
+            mode='live',
+            tick_size=self._asset.tick_size,
+            tick_value=self._asset.tick_size * self._asset.point_value,
+        )
+        self._pos_state = None  # ExitEngine PositionState for current trade
 
         # These are loaded in _load_checkpoints()
         self._pattern_library: Dict = {}
@@ -608,6 +617,8 @@ class LiveEngine:
         ts = float(msg['timestamp'])
         self._last_price = price
         self._last_ts = ts
+        self._last_bar_high = float(msg.get('high', price))
+        self._last_bar_low = float(msg.get('low', price))
 
         # Run add_bar (which may trigger recompute) in thread to avoid
         # blocking the event loop for 1-3s during batch_compute_states
@@ -756,63 +767,64 @@ class LiveEngine:
         self._exit_belief_pct = max(0, min(100, _life_pct))
 
     async def _check_exit(self, price: float, ts: float):
-        """Check for exit signals on the current bar."""
+        """Check for exit signals on the current bar — Unified ExitEngine."""
         pos = self._wave_rider.position
-        if pos is None:
+        if pos is None or self._pos_state is None:
             return
 
         exit_sig = self._belief_network.get_exit_signal(pos.side, pos.entry_price)
-        # Feed acceleration + envelope tuning to wave_rider for half-life envelope
+
+        # Gather inputs for unified exit engine
+        _band_ctx = (self._belief_network.get_band_confluence()
+                     if hasattr(self._belief_network, 'get_band_confluence') else None)
         _st = self._last_states[-1]['state'] if self._last_states else None
-        self._wave_rider._last_acceleration = float(getattr(_st, 'F_net', 0.0)) if _st else 0.0
-        self._wave_rider._envelope_accel_sensitivity = self._tuning.get('envelope_accel_sensitivity', 1.0)
-        self._wave_rider._envelope_floor_ticks = self._tuning.get('envelope_floor_ticks', 4)
-        self._wave_rider._envelope_min_bars = self._tuning.get('envelope_min_bars', 5)
-        if pos.envelope_halflife != self._tuning.get('envelope_halflife_bars', 20):
-            pos.envelope_halflife = self._tuning.get('envelope_halflife_bars', 20)
-        result = self._wave_rider.update_trail(price, None, ts, exit_signal=exit_sig)
+        _f_net = float(getattr(_st, 'net_force', 0.0)) if _st else 0.0
+        _bar_high = getattr(self, '_last_bar_high', price)
+        _bar_low = getattr(self, '_last_bar_low', price)
+
+        # Sync tuning params to exit engine
+        self._exit_engine.envelope_half_life_bars = self._tuning.get('envelope_halflife_bars', 40)
+        self._exit_engine.envelope_min_bars = self._tuning.get('envelope_min_bars', 5)
+
+        _exit_result = self._exit_engine.evaluate(
+            pos=self._pos_state,
+            bar_high=_bar_high, bar_low=_bar_low, bar_close=price,
+            current_bar_index=self._bar_i,
+            band_context=_band_ctx,
+            net_force=_f_net,
+            exit_signal=exit_sig,
+        )
 
         # Per-trade diagnostic capture
         _tick = self._cfg.tick_size
-        if pos.side == 'long':
-            _pnl_t = (price - pos.entry_price) / _tick
+        _pnl_t = self._exit_engine._calc_pnl_ticks(self._pos_state, price)
+        _peak = self._pos_state.peak_favorable
+        if self._pos_state.side == 'long':
+            _hwm_t = (_peak - self._pos_state.entry_price) / _tick
         else:
-            _pnl_t = (pos.entry_price - price) / _tick
-        _last_st = self._last_states[-1]['state'] if self._last_states else None
-        # Compute envelope tolerance for diagnostic logging
-        _env_tol = 0.0
-        _t_half = pos.envelope_halflife
-        if pos.envelope_T0 > 0 and pos.bars_in_trade > 0:
-            _f_net = float(getattr(_last_st, 'F_net', 0.0)) if _last_st else 0.0
-            _adv = max(0, -_f_net) if pos.side == 'long' else max(0, _f_net)
-            _alpha = self._tuning.get('envelope_accel_sensitivity', 1.0)
-            _t_half = pos.envelope_halflife * max(0.25, min(4.0, 1.0 - _alpha * _adv))
-            _floor = self._tuning.get('envelope_floor_ticks', 4)
-            _env_tol = pos.envelope_T0 * (0.5 ** (pos.bars_in_trade / max(1, _t_half))) + _floor
+            _hwm_t = (self._pos_state.entry_price - _peak) / _tick
         self._trade_logger.log_bar({
             'ts': ts,
             'price': price,
-            'bars_held': pos.bars_in_trade,
+            'bars_held': self._pos_state.bars_held,
             'pnl_ticks': round(_pnl_t, 2),
-            'hwm_ticks': round((pos.high_water_mark - pos.entry_price) / _tick, 2)
-                         if pos.side == 'long' else
-                         round((pos.entry_price - pos.high_water_mark) / _tick, 2),
-            'F_net': round(getattr(_last_st, 'F_net', 0.0), 4) if _last_st else 0,
-            'envelope_tol': round(_env_tol, 2),
-            't_half_eff': round(_t_half, 1),
-            'stop_level': pos.stop_loss,
-            'trail_ticks': pos.trailing_stop_ticks,
+            'hwm_ticks': round(_hwm_t, 2),
+            'net_force': round(_f_net, 4),
+            'envelope_tol': round(self._pos_state.envelope_level, 2),
+            't_half_eff': round(self._exit_engine.envelope_half_life_bars, 1),
+            'stop_level': self._exit_engine._get_stop_price(self._pos_state),
+            'trail_ticks': round(self._pos_state.trailing_stop_ticks, 1),
             'conviction': round(exit_sig.get('conviction', 0), 3),
             'direction': exit_sig.get('direction', ''),
             'wave_maturity': round(exit_sig.get('wave_maturity', 0), 3),
             'decay_score': round(exit_sig.get('decay_score', 0), 3),
-            'z_score': round(getattr(_last_st, 'z_score', 0.0), 3) if _last_st else 0,
-            'velocity': round(getattr(_last_st, 'particle_velocity', 0.0), 4)
-                        if _last_st else 0,
+            'z_score': round(getattr(_st, 'z_score', 0.0), 3) if _st else 0,
+            'velocity': round(getattr(_st, 'velocity', 0.0), 4)
+                        if _st else 0,
         })
 
-        if result.get('should_exit', False):
-            reason = result.get('exit_reason', 'trail_stop')
+        if _exit_result.action != ExitAction.HOLD:
+            reason = _exit_result.action.value
             logger.info(f"EXIT signal: {reason} (decay={exit_sig.get('decay_score', 0):.2f})")
             exited_side = pos.side
             self._belief_network.stop_trade_tracking()
@@ -885,6 +897,7 @@ class LiveEngine:
             trailing_stop_ticks=trail_ticks, trail_activation_ticks=trail_act,
             template_id=f'PP_{base_tid}',
         )
+        self._init_exit_state(side, price, sl_ticks, tp_ticks, f'PP_{base_tid}')
         self._position_open = True
         self._entry_price = price
         self._entry_time = ts
@@ -937,6 +950,19 @@ class LiveEngine:
         self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
                         'side': side, 'price': price})
 
+    def _init_exit_state(self, side: str, price: float, sl_ticks: float,
+                         tp_ticks: float, template_id, lib_entry: dict = None):
+        """Create ExitEngine PositionState for a new trade."""
+        _lib = lib_entry or {}
+        _lib.setdefault('max_hold_bars', self._max_hold_bars)
+        self._pos_state = self._exit_engine.open_position(
+            side=side, entry_price=price, entry_bar_index=self._bar_i,
+            template_id=template_id, lib_entry=_lib,
+        )
+        # Override with computed SL/TP (already tuning-adjusted)
+        self._pos_state.sl_ticks = float(sl_ticks)
+        self._pos_state.tp_ticks = float(tp_ticks)
+
     async def _close_position(self, reason: str):
         """Send close order and reset position state."""
         self._last_exit_side = self._active_side  # for ping-pong flip
@@ -948,6 +974,7 @@ class LiveEngine:
         pos = self._wave_rider.position
         self._last_high_water = pos.high_water_mark if pos else self._entry_price
         self._wave_rider.position = None
+        self._pos_state = None  # reset ExitEngine position
         self._last_exit_time = time.time()
 
         if self._dry_run:
@@ -994,6 +1021,7 @@ class LiveEngine:
                 trailing_stop_ticks=trail_ticks, trail_activation_ticks=trail_act,
                 template_id=f'RE_{tid}',
             )
+            self._init_exit_state(exited_side, price, sl_ticks, tp_ticks, f'RE_{tid}')
             self._position_open = True
             self._entry_price = price
             self._entry_time = ts
@@ -1102,6 +1130,7 @@ class LiveEngine:
             trail_activation_ticks=trail_act,
             template_id='MANUAL',
         )
+        self._init_exit_state(side, price, sl_ticks, tp_ticks, 'MANUAL')
         self._position_open = True
         self._entry_price = price
         self._entry_time = ts
@@ -1192,6 +1221,7 @@ class LiveEngine:
             trail_activation_ticks=trail_act,
             template_id=f'PP_{base_tid}',
         )
+        self._init_exit_state(side, price, sl_ticks, tp_ticks, f'PP_{base_tid}')
         self._position_open = True
         self._entry_price = price
         self._entry_time = ts
@@ -1712,16 +1742,16 @@ class LiveEngine:
         candidates = []
         if state.cascade_detected:
             candidates.append(self._build_candidate(
-                'ROCHE_SNAP', state, price, ts))
+                'BAND_REVERSAL', state, price, ts))
         if state.structure_confirmed:
             candidates.append(self._build_candidate(
-                'STRUCTURAL_DRIVE', state, price, ts))
+                'MOMENTUM_BREAK', state, price, ts))
         # YOLO: if no physics triggers found, force a candidate anyway
         if not candidates and _yolo:
             candidates.append(self._build_candidate(
-                'STRUCTURAL_DRIVE', state, price, ts))
+                'MOMENTUM_BREAK', state, price, ts))
             logger.debug(f"YOLO forced candidate @ {price:.2f}  "
-                         f"z={state.z_score:.3f} v={state.particle_velocity:.3f}")
+                         f"z={state.z_score:.3f} v={state.velocity:.3f}")
 
         if not candidates:
             self._entry_belief_pct = 0
@@ -1764,18 +1794,18 @@ class LiveEngine:
                 elif micro_z < 0.5:
                     should_skip = True
                 elif 0.5 <= micro_z < 2.0:
-                    if micro_pattern == 'STRUCTURAL_DRIVE':
+                    if micro_pattern == 'MOMENTUM_BREAK':
                         if (state.adx_strength < self._tuning.get('gate0_adx', _ADX_TREND_CONFIRMATION)
                                 or state.hurst_exponent < self._tuning.get('gate0_hurst', _HURST_TREND_CONFIRMATION)):
                             should_skip = True
-                    elif micro_pattern == 'ROCHE_SNAP':
+                    elif micro_pattern == 'BAND_REVERSAL':
                         should_skip = True
                 elif micro_z >= 2.0:
                     headroom = macro_z < 3.0
-                    if micro_pattern == 'ROCHE_SNAP':
+                    if micro_pattern == 'BAND_REVERSAL':
                         if not headroom and micro_z > 3.0:
                             should_skip = True
-                    elif micro_pattern == 'STRUCTURAL_DRIVE':
+                    elif micro_pattern == 'MOMENTUM_BREAK':
                         if not headroom:
                             should_skip = True
 
@@ -1931,6 +1961,7 @@ class LiveEngine:
             trail_activation_ticks=trail_act,
             template_id=best_tid,
         )
+        self._init_exit_state(side, price, sl_ticks, tp_ticks, best_tid, lib_entry)
         self._position_open = True
         self._entry_price = price
         self._entry_time = ts
@@ -1977,9 +2008,9 @@ class LiveEngine:
         return _LiveCandidate(
             pattern_type=pattern_type,
             z_score=state.z_score,
-            velocity=state.particle_velocity,
+            velocity=state.velocity,
             momentum=state.momentum_strength,
-            coherence=state.coherence,
+            entropy_normalized=state.entropy_normalized,
             state=state,
             depth=self._anchor_depth,
             timeframe=self._anchor_tf,
@@ -2019,11 +2050,20 @@ class LiveEngine:
                 if s_wr > _wr_good and (lt < 3 or l_wr < _wr_bad):
                     return 'short', 0.5 - s_wr * 0.4, 'live_bias'
 
+        # Priority 0.5: Brain direction-specific win rate (learned from IS + live)
+        _dir_long = self._brain.get_dir_probability(base_tid, 'LONG')
+        _dir_short = self._brain.get_dir_probability(base_tid, 'SHORT')
+        if _dir_long is not None and _dir_short is not None:
+            if _dir_long > _dir_short + 0.10:
+                return 'long', _dir_long, 'brain_dir'
+            elif _dir_short > _dir_long + 0.10:
+                return 'short', 1.0 - _dir_short, 'brain_dir'
+
         # Priority 1: live momentum (velocity + acceleration from physics engine)
         # Trusts real-time market direction over stale regression coefficients.
         s = candidate.state
-        _vel = float(getattr(s, 'particle_velocity', 0.0))
-        _acc = float(getattr(s, 'F_net', 0.0))
+        _vel = float(getattr(s, 'velocity', 0.0))
+        _acc = float(getattr(s, 'net_force', 0.0))
         _mom = _vel + 0.5 * _acc
         _mom_thresh = self._tuning.get('dir_momentum_thresh', 0.5)
         if abs(_mom) > _mom_thresh:
@@ -2081,7 +2121,7 @@ class LiveEngine:
         if _band is not None and _band['direction'] is not None:
             return _band['direction'], 0.55 if _band['direction'] == 'long' else 0.45, 'band_fallback'
 
-        vel = getattr(s, 'particle_velocity', 0.0)
+        vel = getattr(s, 'velocity', 0.0)
         side = 'long' if vel >= 0 else 'short'
         return side, 0.55 if side == 'long' else 0.45, 'velocity'
 
@@ -2263,13 +2303,19 @@ class LiveEngine:
                 self._exception_tids.add(tid)
         logger.info(f"  Exception templates: {len(self._exception_tids)}")
 
-        # Brain — prefer live_brain.pkl (has live learning), then training brain
+        # Brain — prefer live > forward_pass > training
         live_brain_path = os.path.join(cpdir, 'live_brain.pkl')
+        forward_brain_path = os.path.join(cpdir, 'pattern_forward_brain.pkl')
         training_brains = sorted(glob.glob(os.path.join(cpdir, 'pattern_*_brain.pkl')))
 
         if os.path.exists(live_brain_path):
             self._brain.load(live_brain_path)
-            logger.info(f"  Brain: live_brain.pkl ({len(self._brain.table)} states)")
+            logger.info(f"  Brain: live_brain.pkl ({len(self._brain.table)} states, "
+                        f"{len(self._brain.dir_table)} dir pairs)")
+        elif os.path.exists(forward_brain_path):
+            self._brain.load(forward_brain_path)
+            logger.info(f"  Brain: pattern_forward_brain.pkl ({len(self._brain.table)} states, "
+                        f"{len(self._brain.dir_table)} dir pairs) — IS-learned directions")
         elif training_brains:
             self._brain.load(training_brains[-1])
             logger.info(f"  Brain: {os.path.basename(training_brains[-1])} (training base)")

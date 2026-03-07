@@ -9,8 +9,8 @@ from dataclasses import dataclass
 from typing import Optional, Dict, Union, List, Tuple, Literal
 import numpy as np
 from core.state_vector import StateVector
-from core.three_body_state import ThreeBodyQuantumState
-from core.quantum_field_engine import QuantumFieldEngine
+from core.three_body_state import MarketState
+from core.quantum_field_engine import StatisticalFieldEngine
 
 # Fallback threshold if basin stats are zero
 CST_FALLBACK_SIGMA_THRESHOLD = 4.5
@@ -241,7 +241,7 @@ class Position:
     side: str  # 'long' or 'short'
     stop_loss: float          # initial wide hard stop (absolute price level)
     high_water_mark: float
-    entry_layer_state: Union[StateVector, ThreeBodyQuantumState]
+    entry_layer_state: Union[StateVector, MarketState]
     template_id: Optional[int] = None
     profit_target: Optional[float] = None
     trailing_stop_ticks: Optional[int] = None
@@ -319,7 +319,7 @@ class WaveRider:
     WIDEN_TRAIL_FACTOR = 1.30             # was 1.20
 
     def open_position(self, entry_price: float, side: str,
-                     state: Union[StateVector, ThreeBodyQuantumState],
+                     state: Union[StateVector, MarketState],
                      stop_distance_ticks: int = 20,
                      profit_target_ticks: Optional[int] = None,
                      trailing_stop_ticks: Optional[int] = None,
@@ -335,7 +335,7 @@ class WaveRider:
         Args:
             entry_price: Entry price
             side: 'long' or 'short'
-            state: StateVector or ThreeBodyQuantumState at entry
+            state: StateVector or MarketState at entry
             stop_distance_ticks: Initial WIDE hard stop -- held until trail activates
             profit_target_ticks: Optional profit target in ticks
             trailing_stop_ticks: Trail distance once the trail is active
@@ -432,7 +432,7 @@ class WaveRider:
         self.pending_reviews = remaining_reviews
 
     def update_trail(self, current_price: float, 
-                    current_state: Union[StateVector, ThreeBodyQuantumState],
+                    current_state: Union[StateVector, MarketState],
                     timestamp: Optional[float] = None,
                     exit_signal: Optional[Dict] = None) -> Dict:
         """
@@ -442,7 +442,7 @@ class WaveRider:
         
         Args:
             current_price: Current market price
-            current_state: Current StateVector or ThreeBodyQuantumState
+            current_state: Current StateVector or MarketState
             timestamp: Optional timestamp (uses time.time() if None)
             exit_signal: Optional dict with exit recommendations
             
@@ -567,13 +567,13 @@ class WaveRider:
 
         # ── Half-life decay envelope ──────────────────────────────────
         # Tolerance decays exponentially from entry. Adverse acceleration
-        # (F_net pushing against the trade) shortens the half-life.
+        # (net_force pushing against the trade) shortens the half-life.
         envelope_exit = False
         _env_T0 = self.position.envelope_T0
         _env_min_bars = getattr(self, '_envelope_min_bars', 5)
         if _env_T0 > 0 and self.position.bars_in_trade > _env_min_bars:
             _accel = getattr(self, '_last_acceleration', 0.0)
-            # Adverse: for LONG, F_net<0 is bad; for SHORT, F_net>0 is bad
+            # Adverse: for LONG, net_force<0 is bad; for SHORT, net_force>0 is bad
             if self.position.side == 'long':
                 _adv_accel = max(0, -_accel)
             else:
@@ -734,11 +734,11 @@ class WaveRider:
 
         return {'should_exit': False}
 
-    def _check_layer_breaks(self, current: Union[StateVector, ThreeBodyQuantumState]) -> bool:
+    def _check_layer_breaks(self, current: Union[StateVector, MarketState]) -> bool:
         """Check if market structure broke"""
         if current is None:
             return False  # no state available (manual trade or missing data)
-        if isinstance(current, ThreeBodyQuantumState):
+        if isinstance(current, MarketState):
             return False  # Phase 0: No structure checks, rely on trail stop
 
         entry = self.position.entry_layer_state
@@ -815,7 +815,7 @@ class WaveRider:
         
         print(f"{'='*60}\n")
     
-    def check_structural_integrity(self, current_state: ThreeBodyQuantumState) -> bool:
+    def check_structural_integrity(self, current_state: MarketState) -> bool:
         """
         Returns True if structural integrity is maintained (distance <= basin radius),
         False if structure is broken (tether snapped).
@@ -824,7 +824,7 @@ class WaveRider:
             return True
 
         try:
-            current_vec = np.array(QuantumFieldEngine.build_16d_vector(current_state, self.position.cst_ancestry))
+            current_vec = np.array(StatisticalFieldEngine.build_16d_vector(current_state, self.position.cst_ancestry))
             dist = np.linalg.norm(current_vec - self.position.cst_centroid)
 
             # Tether Break: Distance > Basin_Radius (e.g. mean + 3*std)

@@ -32,7 +32,7 @@ from tqdm import tqdm
 # Add project root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from core.quantum_field_engine import QuantumFieldEngine
+from core.quantum_field_engine import StatisticalFieldEngine
 from config.oracle_config import ORACLE_LOOKAHEAD_BARS
 
 
@@ -55,7 +55,7 @@ TF_LABELS = [
 
 # 16D feature names
 FEATURE_NAMES = [
-    'z_score', 'log1p_vol', 'log1p_mom', 'coherence', 'tf_scale', 'depth',
+    'z_score', 'log1p_vol', 'log1p_mom', 'entropy_normalized', 'tf_scale', 'depth',
     'parent_ctx', 'self_adx', 'self_hurst', 'self_dmi_diff',
     'parent_z', 'parent_dmi_diff', 'root_is_roche', 'tf_alignment',
     'self_pid', 'osc_coh'
@@ -118,15 +118,15 @@ def load_atlas_tf(data_dir, tf_name, months=None):
 
 
 def compute_tf_physics(tf_name, df):
-    """Run QuantumFieldEngine on a single TF's data.
+    """Run StatisticalFieldEngine on a single TF's data.
 
     Returns:
-        dict mapping timestamp (int) → ThreeBodyQuantumState
+        dict mapping timestamp (int) → MarketState
     """
     if df.empty or len(df) < 21:
         return {}
 
-    engine = QuantumFieldEngine(regression_period=21)
+    engine = StatisticalFieldEngine(regression_period=21)
     results = engine.batch_compute_states(df, use_cuda=False)
 
     states = {}
@@ -140,15 +140,15 @@ def compute_tf_physics(tf_name, df):
 
 
 def extract_16d(state, tf_name):
-    """Build 16D feature vector from a ThreeBodyQuantumState.
+    """Build 16D feature vector from a MarketState.
 
     Matches the feature layout in fractal_clustering.py:extract_features()
     but without ancestry (features 5-6, 10-13 set to 0).
     """
     z = state.z_score
-    v = abs(state.particle_velocity) if hasattr(state, 'particle_velocity') else 0.0
+    v = abs(state.velocity) if hasattr(state, 'velocity') else 0.0
     m = abs(state.momentum_strength) if hasattr(state, 'momentum_strength') else 0.0
-    c = state.coherence if hasattr(state, 'coherence') else 0.0
+    c = state.entropy_normalized if hasattr(state, 'entropy_normalized') else 0.0
 
     tf_scale = math.log2(max(TF_SECONDS.get(tf_name, 60), 1))
 
@@ -188,7 +188,7 @@ def build_stacked_matrices(all_tf_states, base_tf, base_df,
       - Compute oracle MFE/MAE from the base TF's future bars
 
     Args:
-        all_tf_states: dict {tf_name: {timestamp: ThreeBodyQuantumState}}
+        all_tf_states: dict {tf_name: {timestamp: MarketState}}
         base_tf: Base timeframe string (e.g., '15m')
         base_df: DataFrame for the base TF (for MFE/MAE lookahead)
         context_days: Days of warmup before analysis window
@@ -963,7 +963,7 @@ def plot_imr_charts(padded, mfes):
         (0,  'z_score',    'Signed z (fair value distance)'),
         (9,  'dmi_diff',   'DMI diff (directional bias)'),
         (14, 'self_pid',   'PID control force'),
-        (3,  'coherence',  'Wave coherence'),
+        (3,  'entropy_normalized',  'Wave coherence'),
         (7,  'self_adx',   'ADX (trend strength)'),
         (8,  'self_hurst', 'Hurst exponent'),
     ]
@@ -3256,7 +3256,7 @@ def main():
                 best_seg_len = seg_len
             marker = ' <--' if is_best else ''
             print(f"    len={seg_len:>2}: {n_seg} segs, k={k_test}, "
-                  f"coherence={coh:.2f} ({n_valid} valid clusters){marker}")
+                  f"entropy_normalized={coh:.2f} ({n_valid} valid clusters){marker}")
 
         print(f"  Best length: {best_seg_len}")
 
@@ -3294,7 +3294,7 @@ def main():
                 best_config = {
                     'seg_len': best_seg_len, 'k': k,
                     'labels': labels, 'raws': raws, 'feats': feats,
-                    'idxs': idxs, 'coherence': coh,
+                    'idxs': idxs, 'entropy_normalized': coh,
                 }
 
             marker = ' <--' if is_best else ''
@@ -3313,7 +3313,7 @@ def main():
         else:
             bc = best_config
             print(f"\n  BEST: len={bc['seg_len']}, k={bc['k']}, "
-                  f"coherence={bc['coherence']:.2f}")
+                  f"entropy_normalized={bc['entropy_normalized']:.2f}")
 
             # Build cluster stats
             labels = bc['labels']
@@ -3338,11 +3338,11 @@ def main():
                 mean_chg = changes.mean()
                 std_chg = changes.std()
                 wr = (changes > 0).sum() / len(changes) * 100
-                coherence = feat_c.std(axis=0).mean()
+                entropy_normalized= feat_c.std(axis=0).mean()
 
                 cluster_stats.append({
                     'cid': cid, 'count': count, 'mean_chg': mean_chg,
-                    'std_chg': std_chg, 'wr': wr, 'coherence': coherence,
+                    'std_chg': std_chg, 'wr': wr, 'entropy_normalized': coherence,
                     'feat': feat_c, 'raw': raw_c,
                 })
 
@@ -3390,7 +3390,7 @@ def main():
                 ax.set_ylim(y_c - y_s, y_c + y_s)
 
                 ax.set_title(f"C{cs['cid']}: n={n_in}, WR={cs['wr']:.0f}%\n"
-                             f"coh={cs['coherence']:.1f}, chg={cs['mean_chg']:+.0f}",
+                             f"coh={cs['entropy_normalized']:.1f}, chg={cs['mean_chg']:+.0f}",
                              fontsize=9)
                 if col == 0:
                     ax.set_ylabel('Delta (ticks)')
@@ -3403,7 +3403,7 @@ def main():
                 axes_h[row, col].set_visible(False)
 
             fig_h.suptitle(f'Top {n_plot} Shape Clusters (len={seg_len}, k={bc["k"]})\n'
-                            f'Delta from entry, coherence={bc["coherence"]:.1f}, '
+                            f'Delta from entry, entropy_normalized={bc["entropy_normalized"]:.1f}, '
                             f'{len(feats)} segments',
                             fontsize=13)
             plt.tight_layout()

@@ -18,7 +18,7 @@ import numpy as np
 
 # ── feature labels for the 16D centroid ──────────────────────────────────────
 FEATURE_NAMES = [
-    'abs_z', 'log_v', 'log_m', 'coherence', 'tf_scale', 'depth',
+    'abs_z', 'log_v', 'log_m', 'entropy_normalized', 'tf_scale', 'depth',
     'parent_ctx', 'self_adx', 'self_hurst', 'self_dmi_diff',
     'parent_z', 'parent_dmi_diff', 'root_roche', 'tf_align',
     'self_pid', 'osc_coh',

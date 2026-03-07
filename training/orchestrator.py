@@ -39,9 +39,10 @@ if PROJECT_ROOT not in sys.path:
 
 # Core components
 from core.bayesian_brain import QuantumBayesianBrain, TradeOutcome
-from core.quantum_field_engine import QuantumFieldEngine
+from core.quantum_field_engine import StatisticalFieldEngine
+from core.exit_engine import ExitEngine, ExitAction
 from core.dynamic_binner import DynamicBinner
-from core.three_body_state import ThreeBodyQuantumState
+from core.three_body_state import MarketState
 
 # Training components
 from training.doe_parameter_generator import DOEParameterGenerator
@@ -153,7 +154,7 @@ class BayesianTrainingOrchestrator:
 
         # Initialize core components
         self.brain = QuantumBayesianBrain()
-        self.engine = QuantumFieldEngine()
+        self.engine = StatisticalFieldEngine()
         self.param_generator = DOEParameterGenerator(None)
         self.wave_rider = WaveRider(self.asset)
         self.discovery_agent = FractalDiscoveryAgent()
@@ -650,7 +651,7 @@ class BayesianTrainingOrchestrator:
                 _worker_days_with_data[_wlbl] = _worker_days_with_data.get(_wlbl, 0) + (1 if _wcnt > 0 else 0)
 
             # Reset PID analyzer for the day
-            _day_sigmas = [s['state'].sigma_fractal for s in _states_15s if s['state'].sigma_fractal > 0]
+            _day_sigmas = [s['state'].regression_sigma for s in _states_15s if s['state'].regression_sigma > 0]
             day_sigma = np.nanmean(_day_sigmas) if _day_sigmas else 1.0
             self.pid_analyzer.reset(sigma=day_sigma)
 
@@ -694,6 +695,14 @@ class BayesianTrainingOrchestrator:
             active_max_hold_bars = 960  # default 4h; overwritten at entry from pattern timeframe
             active_side = 'long'
             active_template_id = None
+
+            # Unified exit engine (same logic as live — training/live parity)
+            _exit_engine = ExitEngine(
+                mode='training',
+                tick_size=self.asset.tick_size,
+                tick_value=self.asset.tick_size * self.asset.point_value,
+            )
+            _pos_state = None  # ExitEngine PositionState for current trade
 
             # Ping-pong state (direction refinement)
             _pp_enabled = getattr(self, '_ping_pong', False)
@@ -830,8 +839,150 @@ class BayesianTrainingOrchestrator:
 
                 _bar_i += 1
 
-                # 1. Manage existing position
-                if self.wave_rider.position is not None:
+                # 1. Manage existing position — Unified ExitEngine
+                if self.wave_rider.position is not None and _pos_state is not None:
+                    _exit_sig = belief_network.get_exit_signal(
+                        self.wave_rider.position.side, active_entry_price)
+
+                    # Gather inputs for unified exit engine
+                    _band_ctx = (belief_network.get_band_confluence()
+                                 if hasattr(belief_network, 'get_band_confluence') else None)
+                    _bar_state = _states_map.get(_bar_i - 1)
+                    _f_net = float(getattr(_bar_state, 'net_force', 0.0)) if _bar_state else 0.0
+                    _bar_high = getattr(row, 'high', price)
+                    _bar_low = getattr(row, 'low', price)
+
+                    # Sub-bar 1s data for wick checking (training precision)
+                    _sub_h, _sub_l = None, None
+                    if _has_1s:
+                        _s0 = np.searchsorted(_1s_ts, ts_raw, side='left')
+                        _s1 = np.searchsorted(_1s_ts, ts_raw + 15, side='left')
+                        if _s1 > _s0:
+                            _sub_h = _1s_highs[_s0:_s1].tolist()
+                            _sub_l = _1s_lows[_s0:_s1].tolist()
+
+                    _exit_result = _exit_engine.evaluate(
+                        pos=_pos_state,
+                        bar_high=_bar_high, bar_low=_bar_low, bar_close=price,
+                        current_bar_index=_bar_i,
+                        band_context=_band_ctx,
+                        net_force=_f_net,
+                        exit_signal=_exit_sig,
+                        sub_bar_highs=_sub_h, sub_bar_lows=_sub_l,
+                    )
+
+                    if _exit_result.action != ExitAction.HOLD:
+                        _ee_pnl = _exit_result.pnl_ticks * self.asset.tick_size * self.asset.point_value
+                        _ee_reason = _exit_result.action.value
+                        self.wave_rider.position = None
+                        outcome = TradeOutcome(
+                            state=active_template_id,
+                            entry_price=active_entry_price,
+                            exit_price=_exit_result.exit_price,
+                            pnl=_ee_pnl,
+                            result='WIN' if _ee_pnl > 0 else 'LOSS',
+                            timestamp=ts_raw,
+                            exit_reason=_ee_reason,
+                            entry_time=active_entry_time,
+                            exit_time=ts_raw,
+                            duration=ts_raw - active_entry_time,
+                            direction='LONG' if active_side == 'long' else 'SHORT',
+                            template_id=active_template_id
+                        )
+                        self.brain.update(outcome)
+                        day_trades.append(outcome)
+                        current_position_open = False
+                        _pos_state = None
+
+                        # Update running equity
+                        if _equity_enabled:
+                            running_equity += outcome.pnl
+                            peak_equity = max(peak_equity, running_equity)
+                            trough_equity = min(trough_equity, running_equity)
+                            if running_equity < _NINJATRADER_MNQ_MARGIN:
+                                account_ruined = True
+                                ruin_day = ruin_day or day_date
+
+                        # Complete oracle record
+                        if pending_oracle is not None:
+                            o_mfe = pending_oracle['oracle_mfe']
+                            o_mae = pending_oracle['oracle_mae']
+                            oracle_favorable = o_mfe if pending_oracle['direction'] == 'LONG' else o_mae
+                            oracle_potential = oracle_favorable * self.asset.point_value
+                            capture = outcome.pnl / oracle_potential if oracle_potential > 0 else 0.0
+                            oracle_trade_records.append({
+                                **pending_oracle,
+                                'exit_price': outcome.exit_price,
+                                'exit_time': ts_raw,
+                                'hold_bars': max(1, _exit_result.bars_held),
+                                'exit_reason': _ee_reason,
+                                'actual_pnl': outcome.pnl,
+                                'oracle_potential_pnl': oracle_potential,
+                                'capture_rate': round(min(capture, 9.99), 4),
+                                'result': outcome.result,
+                                'exit_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
+                                'exit_conviction': _exit_sig.get('conviction', 0.0),
+                                'exit_wave_maturity': _exit_sig.get('wave_maturity', 0.0),
+                                'exit_signal_reason': _exit_result.reason,
+                                'exit_decay_score': _exit_sig.get('decay_score', 0.0),
+                            })
+                            if _pending_dm_idx is not None:
+                                decision_matrix_records[_pending_dm_idx].update({
+                                    'trade_result': outcome.result,
+                                    'trade_pnl': round(outcome.pnl, 2),
+                                    'exit_reason': _ee_reason,
+                                    'exit_signal_reason': _exit_result.reason,
+                                    'exit_conviction': _exit_sig.get('conviction', 0.0),
+                                    'exit_wave_maturity': _exit_sig.get('wave_maturity', 0.0),
+                                })
+                            belief_network.stop_trade_tracking()
+                            pending_oracle = None
+                            _pending_dm_idx = None
+
+                        # Ping-pong: direction learn + flip after exit
+                        if _pp_enabled:
+                            _pp_direction_learn(active_template_id, active_side, outcome.result, outcome)
+                            _should_flip, _flip_side = _pp_try_flip(
+                                active_side, active_template_id, price, ts_raw,
+                                _pp_last_exit_params)
+                            if _should_flip and _pp_last_exit_params:
+                                ep = _pp_last_exit_params
+                                _pp_tid = f'PP_{active_template_id}'
+                                self.wave_rider.open_position(
+                                    entry_price=price, side=_flip_side,
+                                    state=None,
+                                    stop_distance_ticks=_pp_sl_ov or ep['sl'],
+                                    profit_target_ticks=_pp_tp_ov or ep['tp'],
+                                    trailing_stop_ticks=_pp_trail_ov or ep['trail'],
+                                    trail_activation_ticks=ep['trail_act'],
+                                    template_id=_pp_tid)
+                                # ExitEngine position for PP flip
+                                _ee_pp_lib = {
+                                    'p25_mae': 0, 'mean_mae': 0,
+                                    'regression_sigma': 0, 'p75_mfe': 0,
+                                    'max_hold_bars': ep['max_hold'],
+                                }
+                                _pos_state = _exit_engine.open_position(
+                                    side=_flip_side, entry_price=price,
+                                    entry_bar_index=_bar_i,
+                                    template_id=_pp_tid, lib_entry=_ee_pp_lib,
+                                )
+                                _pos_state.sl_ticks = float(_pp_sl_ov or ep['sl'])
+                                _pos_state.tp_ticks = float(_pp_tp_ov or ep['tp'])
+                                current_position_open = True
+                                active_entry_price = price
+                                active_entry_time = ts_raw
+                                active_side = _flip_side
+                                active_template_id = _pp_tid
+                                active_max_hold_bars = ep['max_hold']
+                                _pp_flip_count += 1
+                                belief_network.start_trade_tracking(
+                                    side=_flip_side, entry_bar=_bar_i,
+                                    pattern_horizon_bars=active_max_hold_bars)
+                                pending_oracle = None
+
+                # OLD EXIT LOGIC — replaced by ExitEngine above (kept for reference)
+                if False and self.wave_rider.position is not None:
                     # MAX HOLD: pattern's own timeframe length (floor 5 min = 20 bars).
                     # Holding beyond the pattern's natural window means the market has moved
                     # into a different regime — exit and free capital for the next signal.
@@ -1099,22 +1250,22 @@ class BayesianTrainingOrchestrator:
 
                             # RULE 3: Approach zone (0.5 - 2.0 sigma)
                             elif 0.5 <= micro_z < 2.0:
-                                if micro_pattern == 'STRUCTURAL_DRIVE':
+                                if micro_pattern == 'MOMENTUM_BREAK':
                                     if p.state.adx_strength < _ADX_TREND_CONFIRMATION or p.state.hurst_exponent < _HURST_TREND_CONFIRMATION:
                                         should_skip = True
                                         _skip_label = 'gate0_r3_struct'
-                                elif micro_pattern == 'ROCHE_SNAP':
+                                elif micro_pattern == 'BAND_REVERSAL':
                                     should_skip = True
                                     _skip_label = 'gate0_r3_snap'
 
                             # RULE 4: Mean Reversion / Extreme zone (>= 2.0 sigma)
                             elif micro_z >= 2.0:
                                 headroom = macro_z < 3.0
-                                if micro_pattern == 'ROCHE_SNAP':
+                                if micro_pattern == 'BAND_REVERSAL':
                                     if not headroom and micro_z > 3.0:
                                         should_skip = True
                                         _skip_label = 'gate0_r4_nightmare'
-                                elif micro_pattern == 'STRUCTURAL_DRIVE':
+                                elif micro_pattern == 'MOMENTUM_BREAK':
                                     if not headroom:
                                         should_skip = True
                                         _skip_label = 'gate0_r4_struct'
@@ -1127,11 +1278,11 @@ class BayesianTrainingOrchestrator:
                                 should_skip = True
                                 _skip_label = 'gate0_hurst'
                             # 5b. Momentum override: momentum dominates reversion → breakout likely
-                            elif abs(_st.F_momentum) > abs(_st.F_reversion) * 1.5 and abs(_st.F_reversion) > 0:
+                            elif abs(_st.F_momentum) > abs(_st.mean_reversion_force) * 1.5 and abs(_st.mean_reversion_force) > 0:
                                 should_skip = True
                                 _skip_label = 'gate0_momentum'
                             # 5c. Tunnel probability too low (now analytically computed)
-                            elif _st.tunnel_probability < 0.40:
+                            elif _st.reversion_probability < 0.40:
                                 should_skip = True
                                 _skip_label = 'gate0_tunnel'
 
@@ -1290,6 +1441,19 @@ class BayesianTrainingOrchestrator:
                             # NOISE pattern -- use regression model hierarchy
                             side = None
 
+                            # Priority 0.5: Signed MFE regression (learned from oracle)
+                            _smfe_coeff = lib_entry.get('signed_mfe_coeff')
+                            if side is None and _smfe_coeff is not None:
+                                _entry_depth = getattr(best_candidate, 'depth', 6)
+                                _live_dmi = (getattr(best_candidate.state, 'dmi_plus', 0.0)
+                                           - getattr(best_candidate.state, 'dmi_minus', 0.0))
+                                _pred_smfe = float(
+                                    np.dot(np.array([[_entry_depth, _live_dmi]]),
+                                           np.array(_smfe_coeff))
+                                    + lib_entry.get('signed_mfe_intercept', 0.0))
+                                if abs(_pred_smfe) > 0.5:
+                                    side = 'long' if _pred_smfe > 0 else 'short'
+
                             # Priority 1: per-cluster logistic regression P(LONG)
                             _dir_coeff = lib_entry.get('dir_coeff')
                             if _dir_coeff is not None:
@@ -1300,6 +1464,16 @@ class BayesianTrainingOrchestrator:
                                     side = 'long'
                                 elif _dir_prob < (1.0 - _BIAS_THRESH):
                                     side = 'short'
+
+                            # Priority 1.5: Brain direction-specific win rate
+                            if side is None:
+                                _dir_long_prob = self.brain.get_dir_probability(best_tid, 'LONG')
+                                _dir_short_prob = self.brain.get_dir_probability(best_tid, 'SHORT')
+                                if _dir_long_prob is not None and _dir_short_prob is not None:
+                                    if _dir_long_prob > _dir_short_prob + 0.10:
+                                        side = 'long'
+                                    elif _dir_short_prob > _dir_long_prob + 0.10:
+                                        side = 'short'
 
                             # Priority 2: template aggregate bias
                             if side is None:
@@ -1331,7 +1505,7 @@ class BayesianTrainingOrchestrator:
                                 if _band is not None and _band['direction'] is not None:
                                     side = _band['direction']
                                 else:
-                                    _vel = getattr(_live_s, 'particle_velocity', 0.0)
+                                    _vel = getattr(_live_s, 'velocity', 0.0)
                                     side = 'long' if _vel >= 0 else 'short'
 
                         # ── Path conviction gate (fractal belief network) ─────────
@@ -1481,6 +1655,19 @@ class BayesianTrainingOrchestrator:
                             'max_hold': active_max_hold_bars,
                             'tf': _parent_tf, 'depth': _cand_depth,
                         }
+                        # Initialize ExitEngine position state (unified exit logic)
+                        _ee_lib = {
+                            'p25_mae': _p25_mae, 'mean_mae': _mean_mae,
+                            'regression_sigma': _reg_sigma,
+                            'p75_mfe': _p75_mfe,
+                            'max_hold_bars': active_max_hold_bars,
+                        }
+                        _pos_state = _exit_engine.open_position(
+                            side=side, entry_price=price, entry_bar_index=_bar_i,
+                            template_id=best_tid, lib_entry=_ee_lib,
+                            network_tp=float(_network_tp) if _network_tp else None,
+                        )
+
                         # Start physics decay tracking (bottom-up exit cascade)
                         belief_network.start_trade_tracking(
                             side=side,
@@ -1623,7 +1810,7 @@ class BayesianTrainingOrchestrator:
 
                     if _bypass_belief is not None and best_candidate is None:
                         side         = _bypass_belief.direction   # 'long' or 'short'
-                        _bp_sigma    = getattr(_bypass_candidate.state, 'sigma_fractal', 0.0)
+                        _bp_sigma    = getattr(_bypass_candidate.state, 'regression_sigma', 0.0)
                         _bp_sl_ticks = max(4, int(round(_bp_sigma / self.asset.tick_size * 1.5))) if _bp_sigma > 0 else 8
                         _bp_tp_ticks = (max(8, int(round(_bypass_belief.predicted_mfe)))
                                         if _bypass_belief.predicted_mfe > 2.0 else 20)
@@ -1660,6 +1847,18 @@ class BayesianTrainingOrchestrator:
                             _bp_parent_tf = _bp_chain[0].get('tf', '4h') if _bp_chain else str(getattr(_bypass_candidate, 'timeframe', '4h'))
                             _btf_sec = TIMEFRAME_SECONDS.get(_bp_parent_tf, 14400)
                             active_max_hold_bars  = max(20, (_btf_sec * 5) // 15)
+                            # Initialize ExitEngine position state for bypass entry
+                            _ee_bp_lib = {
+                                'p25_mae': 0, 'mean_mae': 0, 'regression_sigma': 0,
+                                'p75_mfe': _bp_tp_ticks,
+                                'max_hold_bars': active_max_hold_bars,
+                            }
+                            _pos_state = _exit_engine.open_position(
+                                side=side, entry_price=price, entry_bar_index=_bar_i,
+                                template_id=-1, lib_entry=_ee_bp_lib,
+                            )
+                            # Override SL with bypass-specific value
+                            _pos_state.sl_ticks = float(_bp_sl_ticks)
                             _pp_last_exit_params = {
                                 'sl': _bp_sl_ticks, 'tp': _bp_tp_ticks,
                                 'trail': 6, 'trail_act': None,
@@ -1746,6 +1945,7 @@ class BayesianTrainingOrchestrator:
                 else:
                     eod_pnl = (price - pos.entry_price) * self.asset.point_value
                 self.wave_rider.position = None
+                _pos_state = None  # reset ExitEngine position
 
                 outcome = TradeOutcome(
                     state=active_template_id,
@@ -1841,6 +2041,125 @@ class BayesianTrainingOrchestrator:
                                           'month_label': day_date})
 
         _pbar.close()
+
+        # ═══════════════════════════════════════════════════════════════
+        # ORACLE DIRECTION LEARNING (supervised correction)
+        # Update pattern library so live starts with corrected direction
+        # profiles, not the Phase 2.5 originals.
+        # ═══════════════════════════════════════════════════════════════
+        _dir_corrections = defaultdict(lambda: {
+            'long_correct': 0, 'long_wrong': 0,
+            'short_correct': 0, 'short_wrong': 0,
+            'long_pnl': 0.0, 'short_pnl': 0.0,
+            'signed_mfe_samples': [],
+        })
+
+        if oracle_trade_records and not oos_mode:
+            print("\n  Learning direction corrections from oracle...")
+            for rec in oracle_trade_records:
+                tid = rec.get('template_id')
+                if tid is None or tid == -1:
+                    continue
+                direction = rec.get('direction', '')
+                oracle_label = rec.get('oracle_label', 0)
+                actual_pnl = rec.get('actual_pnl', 0.0)
+                oracle_mfe = rec.get('oracle_mfe', 0.0)
+                oracle_mae = rec.get('oracle_mae', 0.0)
+                acc = _dir_corrections[tid]
+
+                oracle_says_long = oracle_label > 0
+                oracle_says_short = oracle_label < 0
+                we_went_long = direction == 'LONG'
+                we_went_short = direction == 'SHORT'
+
+                if we_went_long:
+                    acc['long_pnl'] += actual_pnl
+                    if oracle_says_long:
+                        acc['long_correct'] += 1
+                    elif oracle_says_short:
+                        acc['long_wrong'] += 1
+                if we_went_short:
+                    acc['short_pnl'] += actual_pnl
+                    if oracle_says_short:
+                        acc['short_correct'] += 1
+                    elif oracle_says_long:
+                        acc['short_wrong'] += 1
+
+                if oracle_label != 0:
+                    signed_mfe = oracle_mfe if oracle_label > 0 else -oracle_mae
+                    acc['signed_mfe_samples'].append({
+                        'signed_mfe': signed_mfe,
+                        'entry_depth': rec.get('entry_depth', 6),
+                        'dmi_diff': rec.get('dmi_diff', 0.0),
+                    })
+
+            # Update pattern library with corrected biases
+            _updated_count = 0
+            _regression_count = 0
+            for tid, acc in _dir_corrections.items():
+                if tid not in self.pattern_library:
+                    continue
+                lib = self.pattern_library[tid]
+                long_total = acc['long_correct'] + acc['long_wrong']
+                short_total = acc['short_correct'] + acc['short_wrong']
+                total_dir_trades = long_total + short_total
+
+                if total_dir_trades >= 3:
+                    fp_long_correct = acc['long_correct']
+                    fp_short_correct = acc['short_correct']
+                    fp_total_correct = fp_long_correct + fp_short_correct
+                    if fp_total_correct > 0:
+                        fp_long_bias = fp_long_correct / fp_total_correct
+                        fp_short_bias = fp_short_correct / fp_total_correct
+                    else:
+                        fp_long_bias = 0.5
+                        fp_short_bias = 0.5
+                    orig_long = lib.get('long_bias', 0.5)
+                    orig_short = lib.get('short_bias', 0.5)
+                    new_long = 0.7 * fp_long_bias + 0.3 * orig_long
+                    new_short = 0.7 * fp_short_bias + 0.3 * orig_short
+                    total = new_long + new_short
+                    if total > 0:
+                        new_long /= total
+                        new_short /= total
+                    lib['long_bias'] = round(new_long, 4)
+                    lib['short_bias'] = round(new_short, 4)
+                    lib['direction_source'] = 'oracle_corrected'
+                    _updated_count += 1
+
+                if long_total >= 2 and short_total >= 2:
+                    lib['long_avg_pnl'] = round(acc['long_pnl'] / long_total, 2)
+                    lib['short_avg_pnl'] = round(acc['short_pnl'] / short_total, 2)
+
+                # Signed MFE regression
+                samples = acc['signed_mfe_samples']
+                if len(samples) >= 15:
+                    try:
+                        from sklearn.linear_model import LinearRegression
+                        X = np.array([[s['entry_depth'], s['dmi_diff']] for s in samples])
+                        y = np.array([s['signed_mfe'] for s in samples])
+                        reg = LinearRegression().fit(X, y)
+                        lib['signed_mfe_coeff'] = reg.coef_.tolist()
+                        lib['signed_mfe_intercept'] = float(reg.intercept_)
+                        _regression_count += 1
+                    except Exception:
+                        pass
+
+            print(f"  Direction corrections: {_updated_count} templates updated")
+            print(f"  Signed MFE regression: {_regression_count} templates fitted")
+
+            # Save updated library
+            _lib_path = os.path.join(self.checkpoint_dir, 'pattern_library.pkl')
+            with open(_lib_path, 'wb') as _f:
+                pickle.dump(self.pattern_library, _f)
+            print(f"  Updated pattern_library.pkl saved")
+
+            # Save brain with direction-specific learning for live
+            _brain_path = os.path.join(self.checkpoint_dir, 'pattern_forward_brain.pkl')
+            self.brain.save(_brain_path)
+            print(f"  Forward pass brain saved: {_brain_path}")
+            print(f"    States: {len(self.brain.table)}, "
+                  f"Direction pairs: {len(self.brain.dir_table)}")
 
         # Final Report
         import datetime as _datetime
@@ -2307,6 +2626,86 @@ class BayesianTrainingOrchestrator:
         report_lines.append(f"    Actual profit:                               ${total_pnl:>12,.2f}  ({total_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else f"    Actual profit: ${total_pnl:.2f}")
         report_lines.append(f"    [info] Score-competition pool (took better same bar): ${score_loser_pnl:>12,.2f}  (not missed -- golden path chose better candidate)")
 
+        # ── DIRECTION LEARNING SUMMARY ────────────────────────────────────
+        if _dir_corrections:
+            _sec['direction_learning'] = len(report_lines)
+            report_lines.append("")
+            report_lines.append("=" * 80)
+            report_lines.append("DIRECTION LEARNING (oracle corrections absorbed)")
+            report_lines.append("=" * 80)
+
+            _total_corrected = sum(
+                1 for acc in _dir_corrections.values()
+                if (acc['long_correct'] + acc['long_wrong'] +
+                    acc['short_correct'] + acc['short_wrong']) >= 3
+            )
+
+            _total_smfe = sum(
+                1 for acc in _dir_corrections.values()
+                if len(acc['signed_mfe_samples']) >= 15
+            )
+
+            report_lines.append(f"  Templates with direction corrections: {_total_corrected}")
+            report_lines.append(f"  Templates with signed MFE regression: {_total_smfe}")
+
+            # Show biggest corrections (where the system was most wrong)
+            _corrections_list = []
+            for tid, acc in _dir_corrections.items():
+                if tid not in self.pattern_library:
+                    continue
+                lib = self.pattern_library[tid]
+                orig_long = lib.get('long_bias', 0.5)
+                long_total = acc['long_correct'] + acc['long_wrong']
+                short_total = acc['short_correct'] + acc['short_wrong']
+                if long_total + short_total < 3:
+                    continue
+
+                _corrections_list.append({
+                    'tid': tid,
+                    'orig_long_bias': orig_long,
+                    'new_long_bias': lib.get('long_bias', 0.5),
+                    'long_correct': acc['long_correct'],
+                    'long_wrong': acc['long_wrong'],
+                    'short_correct': acc['short_correct'],
+                    'short_wrong': acc['short_wrong'],
+                    'long_pnl': acc['long_pnl'],
+                    'short_pnl': acc['short_pnl'],
+                    'shift': abs(lib.get('long_bias', 0.5) - orig_long),
+                })
+
+            _corrections_list.sort(key=lambda x: -x['shift'])
+
+            if _corrections_list:
+                report_lines.append("")
+                report_lines.append(f"  TOP 15 DIRECTION CORRECTIONS (biggest bias shift):")
+                report_lines.append(f"  {'TID':>8} {'Orig':>6} {'New':>6} {'Shift':>6} "
+                                   f"{'L_ok':>5} {'L_bad':>6} {'S_ok':>5} {'S_bad':>6} "
+                                   f"{'L_PnL':>10} {'S_PnL':>10}")
+                for r in _corrections_list[:15]:
+                    report_lines.append(
+                        f"  {r['tid']:>8} {r['orig_long_bias']:>6.2f} "
+                        f"{r['new_long_bias']:>6.2f} {r['shift']:>+5.2f} "
+                        f"{r['long_correct']:>5} {r['long_wrong']:>6} "
+                        f"{r['short_correct']:>5} {r['short_wrong']:>6} "
+                        f"${r['long_pnl']:>9,.0f} ${r['short_pnl']:>9,.0f}")
+
+            # Overall direction accuracy before vs after correction
+            _all_long_ok = sum(a['long_correct'] for a in _dir_corrections.values())
+            _all_long_bad = sum(a['long_wrong'] for a in _dir_corrections.values())
+            _all_short_ok = sum(a['short_correct'] for a in _dir_corrections.values())
+            _all_short_bad = sum(a['short_wrong'] for a in _dir_corrections.values())
+            _all_total = _all_long_ok + _all_long_bad + _all_short_ok + _all_short_bad
+            _all_correct = _all_long_ok + _all_short_ok
+
+            if _all_total > 0:
+                report_lines.append("")
+                report_lines.append(f"  DIRECTION ACCURACY (this run):")
+                report_lines.append(f"    Correct: {_all_correct}/{_all_total} "
+                                   f"({_all_correct/_all_total*100:.1f}%)")
+                report_lines.append(f"    LONG  correct: {_all_long_ok}  wrong: {_all_long_bad}")
+                report_lines.append(f"    SHORT correct: {_all_short_ok}  wrong: {_all_short_bad}")
+                report_lines.append(f"    NOTE: Next run will use these corrected biases as starting point")
+
         # Store for bottom-line summary at program exit
         self._fp_summary = {
             'total_trades':    total_trades,
@@ -2342,6 +2741,7 @@ class BayesianTrainingOrchestrator:
             'skip_reasons',    # gate breakdown
             'depth_dist',      # traded signal depth distribution
             'profit_gap',      # profit gap analysis (final summary)
+            'direction_learning',  # oracle direction corrections absorbed
         ]
         # Build ordered section names (only those that exist)
         _ordered_secs = [s for s in _detail_order if s in _sec]
@@ -2531,10 +2931,10 @@ class BayesianTrainingOrchestrator:
             _GATE_LABELS = {
                 'gate0':             'Gate 0  no pattern (Rule 1)',
                 'gate0_noise':       'Gate 0  noise zone <0.5sigma (Rule 2)',
-                'gate0_r3_snap':     'Gate 0  approach zone ROCHE_SNAP (Rule 3) -- no qualified tmpl',
-                'gate0_r3_struct':   'Gate 0  approach zone STRUCTURAL_DRIVE weak trend (Rule 3)',
+                'gate0_r3_snap':     'Gate 0  approach zone BAND_REVERSAL (Rule 3) -- no qualified tmpl',
+                'gate0_r3_struct':   'Gate 0  approach zone MOMENTUM_BREAK weak trend (Rule 3)',
                 'gate0_r4_nightmare':'Gate 0  extreme zone nightmare field (Rule 4)',
-                'gate0_r4_struct':   'Gate 0  extreme zone STRUCTURAL_DRIVE no headroom (Rule 4)',
+                'gate0_r4_struct':   'Gate 0  extreme zone MOMENTUM_BREAK no headroom (Rule 4)',
                 'gate0_hurst':       'Gate 0  Hurst < 0.5 choppy/anti-persistent (Rule 5a)',
                 'gate0_momentum':    'Gate 0  momentum override breakout likely (Rule 5b)',
                 'gate0_tunnel':      'Gate 0  tunnel probability < 40% (Rule 5c)',
@@ -3326,8 +3726,8 @@ class BayesianTrainingOrchestrator:
             ckpt.save_discovery(manifest, completed_levels)
 
         # Print manifest summary
-        roche = sum(1 for p in manifest if p.pattern_type == 'ROCHE_SNAP')
-        struct = sum(1 for p in manifest if p.pattern_type == 'STRUCTURAL_DRIVE')
+        roche = sum(1 for p in manifest if p.pattern_type == 'BAND_REVERSAL')
+        struct = sum(1 for p in manifest if p.pattern_type == 'MOMENTUM_BREAK')
         print(f"Discovery: {len(manifest)} patterns (ROCHE: {roche}, STRUCT: {struct})")
 
         manifest.sort(key=lambda x: x.timestamp)
@@ -3342,8 +3742,8 @@ class BayesianTrainingOrchestrator:
             depth_counts = Counter(p.depth for p in manifest)
             print(f"  By timeframe:")
             for tf, count in sorted(tf_counts.items(), key=lambda x: TIMEFRAME_SECONDS.get(x[0], 0), reverse=True):
-                r = sum(1 for p in manifest if p.timeframe == tf and p.pattern_type == 'ROCHE_SNAP')
-                s = sum(1 for p in manifest if p.timeframe == tf and p.pattern_type == 'STRUCTURAL_DRIVE')
+                r = sum(1 for p in manifest if p.timeframe == tf and p.pattern_type == 'BAND_REVERSAL')
+                s = sum(1 for p in manifest if p.timeframe == tf and p.pattern_type == 'MOMENTUM_BREAK')
                 print(f"    [{tf:>4s}] {count:>7,} (R:{r:,} S:{s:,})")
             print(f"  By depth: {dict(sorted(depth_counts.items()))}")
 

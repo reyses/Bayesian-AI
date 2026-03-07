@@ -68,7 +68,7 @@ class WorkerBelief:
     conviction:    float    # |dir_prob - 0.5| * 2  -> how sure this worker is [0..1]
     wave_maturity: float = 0.0  # P(wave near completion) [0..1]
     band_context:  Optional[BandContext] = None
-    # Composite: 0.4*pattern_maturity + 0.3*min(1,|z|/3) + 0.3*tunnel_probability
+    # Composite: 0.4*pattern_maturity + 0.3*min(1,|z|/3) + 0.3*reversion_probability
     # High value = wave is well-developed/near exhaustion = higher entry risk
 
 
@@ -130,7 +130,7 @@ class TimeframeWorker:
     Monitors one timeframe level.
 
     Task 1 (Aggregation, per-day):
-        Receives pre-computed ThreeBodyQuantumState list for its TF (light).
+        Receives pre-computed MarketState list for its TF (light).
         State list is built by TimeframeBeliefNetwork.prepare_day() once per day.
 
     Task 2 (Analysis, event-driven):
@@ -192,7 +192,7 @@ class TimeframeWorker:
             return False   # No state yet (warmup period)
 
         state_raw = self._states[tf_bar_idx]
-        # batch_compute_states() wraps each result as {'bar_idx': i, 'state': ThreeBodyQuantumState, ...}
+        # batch_compute_states() wraps each result as {'bar_idx': i, 'state': MarketState, ...}
         # Unwrap so state_to_features() receives the actual physics object, not the dict wrapper.
         state = state_raw['state'] if isinstance(state_raw, dict) and 'state' in state_raw else state_raw
         self._last_tf_bar_idx = tf_bar_idx
@@ -250,15 +250,15 @@ class TimeframeWorker:
 
         # ── Physics blend: momentum-aware direction from velocity + acceleration ──
         # Instead of mean-reverting z_score (which fights trends), use the
-        # particle's velocity (dp/dt) and net force (d²p/dt² ≈ F_net) to
+        # particle's velocity (dp/dt) and net force (d²p/dt² ≈ net_force) to
         # determine direction.  Positive momentum → P(LONG) high.
         #
         # Sensitivity scales with log(bars_aggregated) — higher TF workers have
         # more samples so the signal is statistically stronger.
         _n_bars = max(1, self.bars_per_update)
         _phys_sensitivity = 0.5 + 0.5 * (np.log(_n_bars) / np.log(240))  # [0.5, 1.0]
-        _velocity = float(getattr(state, 'particle_velocity', 0.0))
-        _accel    = float(getattr(state, 'F_net', 0.0))
+        _velocity = float(getattr(state, 'velocity', 0.0))
+        _accel    = float(getattr(state, 'net_force', 0.0))
         _momentum = _velocity + 0.5 * _accel
         _phys_dir = _sigmoid(_momentum * _phys_sensitivity)
 
@@ -275,9 +275,9 @@ class TimeframeWorker:
         # Composite of the three strongest exhaustion signals from the quantum state:
         #   pattern_maturity  : engine's L7 development measure (0-1)
         #   |z_score| / 3.0   : approach to Roche limit (3 sigma = fully mature)
-        #   tunnel_probability: P(revert to center) = how close to reversal
+        #   reversion_probability: P(revert to center) = how close to reversal
         _pm  = getattr(state, 'pattern_maturity',   0.0)
-        _tp  = getattr(state, 'tunnel_probability', 0.0)
+        _tp  = getattr(state, 'reversion_probability', 0.0)
         _z   = abs(getattr(state, 'z_score',        0.0))
         wave_maturity = float(np.clip(
             0.4 * _pm + 0.3 * min(1.0, _z / 3.0) + 0.3 * _tp,
@@ -286,8 +286,8 @@ class TimeframeWorker:
 
         # ── Band Context (Standard Error Bands) ─────────────────────────
         _z_raw = float(getattr(state, 'z_score', 0.0))
-        _sigma = float(getattr(state, 'sigma_fractal', 0.0))
-        _center = float(getattr(state, 'center_position', 0.0))
+        _sigma = float(getattr(state, 'regression_sigma', 0.0))
+        _center = float(getattr(state, 'regression_center', 0.0))
         _band_int = int(np.clip(np.round(_z_raw), -3, 3))
         _band_pos = float(np.clip(_z_raw / 3.0, -1.0, 1.0))
         if abs(_z_raw) < 0.5:
@@ -629,20 +629,20 @@ class TimeframeBeliefNetwork:
     @staticmethod
     def state_to_features(state, tf_secs: int, depth: int = 0) -> list:
         """
-        Convert ThreeBodyQuantumState -> 16D feature vector.
+        Convert MarketState -> 16D feature vector.
         Same order as FractalClusteringEngine.extract_features().
         Ancestry features (parent_z, parent_dmi_diff, root_is_roche, tf_alignment)
         are 0.0 because live TF-aggregated bars have no parent chain context.
-        PID features (term_pid, oscillation_coherence) default to 0.0 if the
+        PID features (term_pid, oscillation_entropy_normalized) default to 0.0 if the
         engine hasn't computed them yet (safe fallback).
 
         velocity and momentum use log1p(|x|) compression -- must match
         FractalClusteringEngine.extract_features() exactly.
         """
         z = getattr(state, 'z_score',           0.0)
-        v = getattr(state, 'particle_velocity',  0.0)
+        v = getattr(state, 'velocity',  0.0)
         m = getattr(state, 'momentum_strength',  0.0)
-        c = getattr(state, 'coherence',          0.0)
+        c = getattr(state, 'entropy_normalized',          0.0)
 
         tf_scale   = np.log2(max(1, tf_secs))
         self_adx   = getattr(state, 'adx_strength',   0.0) / 100.0
@@ -656,7 +656,7 @@ class TimeframeBeliefNetwork:
 
         # PID / oscillation features (positions 14-15 in the 16D vector)
         self_pid     = getattr(state, 'term_pid',              0.0)
-        self_osc_coh = getattr(state, 'oscillation_coherence', 0.0)
+        self_osc_coh = getattr(state, 'oscillation_entropy_normalized', 0.0)
 
         # Ancestry = 0.0 (no parent chain for live aggregated TF bars)
         return [abs(z), v_feat, m_feat, c,

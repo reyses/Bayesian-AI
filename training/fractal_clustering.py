@@ -155,7 +155,7 @@ class FractalClusteringEngine:
         z = getattr(p, 'z_score', 0.0)
         v = getattr(p, 'velocity', 0.0)
         m = getattr(p, 'momentum', 0.0)
-        c = getattr(p, 'coherence', 0.0)
+        c = getattr(p, 'entropy_normalized', 0.0)
         # log1p compression keeps extreme TF values finite
         v_feat = np.log1p(abs(v))
         m_feat = np.log1p(abs(m))
@@ -167,7 +167,7 @@ class FractalClusteringEngine:
 
         depth = float(getattr(p, 'depth', 0))
         parent_type = getattr(p, 'parent_type', '')
-        parent_ctx = 1.0 if parent_type == 'ROCHE_SNAP' else 0.0
+        parent_ctx = 1.0 if parent_type == 'BAND_REVERSAL' else 0.0
 
         # Self Regime features
         state = getattr(p, 'state', None)
@@ -193,7 +193,7 @@ class FractalClusteringEngine:
 
             # Root ancestor
             root = chain[-1]
-            root_is_roche = 1.0 if root.get('type') == 'ROCHE_SNAP' else 0.0
+            root_is_roche = 1.0 if root.get('type') == 'BAND_REVERSAL' else 0.0
             root_dmi_diff = (root.get('dmi_plus', 0.0) - root.get('dmi_minus', 0.0)) / 100.0
 
             # TF Alignment

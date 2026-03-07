@@ -6,7 +6,7 @@ Performs Monte Carlo simulations for event horizon probability
 import numpy as np
 from typing import Tuple
 
-class QuantumRiskEngine:
+class MonteCarloRiskEngine:
     """
     Monte Carlo engine for Three-Body probability estimation.
     Uses Ornstein-Uhlenbeck process to model mean-reversion dynamics.
