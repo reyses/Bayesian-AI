@@ -1,9 +1,9 @@
 ================================================================================
-FORWARD PASS COMPLETE  (run: 2026-03-02 17:13:09)
+FORWARD PASS COMPLETE  (run: 2026-03-06 17:22:06)
   Period: DATA\ATLAS_OOS\15s\2026_01.parquet to 2026_02 (2 files)
-Total Trades: 535
-Win Rate: 52.5%
-Total PnL: $1644.50
+Total Trades: 442
+Win Rate: 67.2%
+Total PnL: $-338.57
 
 ── WORKER STATES LOADED ──
   1h=287/file(2/2 files ok)  30m=595/file(2/2 files ok)  15m=1212/file(2/2 files ok)  5m=3678/file(2/2 files ok)  3m=6144/file(2/2 files ok)
@@ -17,14 +17,14 @@ ORACLE PROFIT ATTRIBUTION
   PER-DEPTH PnL BREAKDOWN (-> depth_weights.json for next run):
     Depth     Trades    Win%    Total PnL  Avg/trade
     -----     ------    ----    ---------  ---------
-    depth 5         3     33% $   -269.00 $   -89.67
-    depth 6         1      0% $    -69.00 $   -69.00
-    depth 7         1      0% $     -5.00 $    -5.00
-    depth 8         1    100% $     52.00 $    52.00
-    depth 9        41     59% $    292.00 $     7.12
-    depth 10       47     57% $     30.00 $     0.64
-    depth 11       70     47% $    465.00 $     6.64
-    depth 12      158     50% $    317.50 $     2.01
+    depth 5         2     50% $     -6.50 $    -3.25
+    depth 6         1      0% $    -40.00 $   -40.00
+    depth 7         3    100% $     50.79 $    16.93
+    depth 8         6     67% $     13.89 $     2.31
+    depth 9        42     71% $   -120.68 $    -2.87  <- FILTER NEXT RUN
+    depth 10       53     58% $   -324.04 $    -6.11  <- FILTER NEXT RUN
+    depth 11       86     67% $     20.63 $     0.24
+    depth 12      249     68% $     67.33 $     0.27
 
   DYNAMIC EXIT QUALITY:
     Belief-flip exits:  0 trades
@@ -32,201 +32,181 @@ ORACLE PROFIT ATTRIBUTION
     Trail-tightened:    0 trades
     Trail-widened:      0 trades
     Loss watchdog:      0 trades
-    Standard trail:        17 trades  ->  avg PnL $ -89.24
+    Standard trail:     0 trades
     Decay score at exit:  WIN avg=0.000  LOSS avg=0.000
 
   EXIT QUALITY (correct-direction trades, worst → best):
     Bucket                                   n    Total PnL   Avg PnL       Hold     Cap%
     ──────────────────────────────────── ─────  ───────────  ────────  ─────────  ───────
-    Reversed (mkt flipped after entry)      59  $    -1,537  avg$    -26     19bars  cap  -14%  <- leakage
-    Too early (<20% captured)               57  $     1,534  avg$     27     23bars  cap  +10%  
-      Partial  (20-30% captured)            15  $       666  avg$     44     39bars  cap  +26%  
-      Partial  (30-40% captured)            11  $       698  avg$     63     20bars  cap  +35%  
-      Partial  (40-50% captured)             7  $       446  avg$     64     21bars  cap  +44%  
-      Partial  (50-60% captured)             7  $       357  avg$     51     17bars  cap  +55%  
-      Partial  (70-80% captured)             3  $       136  avg$     45     20bars  cap  +73%  
-    Optimal  (>=80% captured)                3  $       312  avg$    104     20bars  cap  +91%  
-    Left on table (non-reversed gap):                        $    19,704
+    Reversed (mkt flipped after entry)      57  $    -1,538  avg$    -27      6bars  cap  -12%  <- leakage
+    Too early (<20% captured)              145  $     1,388  avg$     10      6bars  cap   +4%  
+      Partial  (20-30% captured)            11  $       374  avg$     34     10bars  cap  +24%  
+      Partial  (30-40% captured)             6  $       212  avg$     35     12bars  cap  +34%  
+      Partial  (40-50% captured)             4  $       151  avg$     38     17bars  cap  +45%  
+      Partial  (50-60% captured)             3  $       192  avg$     64     11bars  cap  +56%  
+      Partial  (70-80% captured)             1  $        38  avg$     38      9bars  cap  +70%  
+    Optimal  (>=80% captured)                0  $         0  avg$      0      0bars  cap   +0%  
+    Left on table (non-reversed gap):                        $    41,028
 
   EXIT REASON → QUALITY CROSS-BREAKDOWN (correct-direction trades):
     Exit reason           Optimal    Partial  Too early   Reversed   Total   Avg PnL
     ──────────────────  ─────────  ─────────  ─────────  ─────────  ──────  ────────
-    MAX_HOLD                    3         41         54         54     152  $     19
-    profit_target               0          2          3          0       5  $     53
-    trail_stop                  0          0          0          5       5  $   -102
+    max_hold                    0          7          8          8      23  $     13
+    stop_loss                   0          0          0         31      31  $    -40
+    take_profit                 0          1          1          0       2  $    100
+    trail_stop                  0         17        136          7     160  $     10
+    watchdog                    0          0          0         11      11  $     -9
 
   CAPTURE DETAIL (correct-direction trades):
     Bucket                  Avg oracle MFE  Avg actual PnL  Avg hold bars
-    Optimal                 $            2  $          104           20.0
-    Too early               $          132  $           27           23.1
-    Reversed                $          107  $          -26           19.2
-    Partial 20-30%          $           49  $           44           38.7
-    Partial 30-40%          $          116  $           63           20.0
-    Partial 40-50%          $           58  $           64           21.0
-    Partial 50-60%          $           54  $           51           17.4
-    Partial 70-80%          $           19  $           45           20.0
+    Too early               $           70  $           10            5.9
+    Reversed                $          147  $          -27            5.9
+    Partial 20-30%          $           51  $           34           10.2
+    Partial 30-40%          $           65  $           35           12.5
+    Partial 40-50%          $            5  $           38           17.0
+    Partial 50-60%          $           84  $           64           11.3
+    Partial 70-80%          $           54  $           38            9.0
 
   EXIT QUALITY BY DEPTH  (hold = real time from 15s bars × 15):
     Depth            n  Optimal%  Reversed%   Avg PnL    Avg Hold       Left$
     ───────────── ────  ────────  ─────────  ────────  ──────────  ──────────
-    depth  5 (1m )     1       0%        0%  $     49       1h15m  $      124
-    depth  7 (15s)     1       0%      100%  $     -5       0h15m  $        0
-    depth  8 (15s)     1       0%        0%  $     52       0h10m  $       56
-    depth  9 (5s )    28       0%       32%  $     14       0h04m  $    2,032
-    depth 10 (5s )    22       0%       23%  $     15       0h05m  $    2,132
-    depth 11 (1s )    30       7%       40%  $     23       0h04m  $    2,613
-    depth 12 (1s )    79       1%       41%  $     14       0h05m  $   12,749
+    depth  5 (1m )     2       0%       50%  $     -3       0h03m  $      359
+    depth  7 (15s)     1       0%        0%  $     43       0h07m  $      181
+    depth  8 (15s)     4       0%       50%  $     -3       0h00m  $      563
+    depth  9 (5s )    20       0%       15%  $      2       0h01m  $    2,338
+    depth 10 (5s )    25       0%       24%  $      1       0h02m  $    2,356
+    depth 11 (1s )    40       0%       20%  $      9       0h01m  $    5,059
+    depth 12 (1s )   135       0%       27%  $      3       0h01m  $   30,172
 
   WORKER AGREEMENT AT ENTRY  (agree = worker dir matches trade direction)
     TF      WIN agree  LOSS agree    Edge  <-- positive = worker is predictive
-    1h           0.76        0.75   +0.01
-    30m          0.72        0.62   +0.10
-    15m          0.62        0.64   -0.03
-    5m           0.65        0.62   +0.04
-    3m           0.60        0.59   +0.01
-    1m           0.52        0.60   -0.08
-    30s          0.60        0.58   +0.02
-    15s          0.70        0.61   +0.10
-    5s           0.53        0.51   +0.02
-    1s           0.51        0.65   -0.14
+    1h           0.63        0.70   -0.08
+    30m          0.65        0.68   -0.02
+    15m          0.67        0.62   +0.05
+    5m           0.67        0.59   +0.08
+    3m           0.62        0.63   -0.02
+    1m           0.61        0.57   +0.03
+    30s          0.56        0.57   -0.01
+    15s          0.55        0.51   +0.04
+    5s           0.41        0.41   -0.00
+    1s           0.49        0.54   -0.05
 
   DIRECTION FLIPS BETWEEN ENTRY AND EXIT:
     (worker flipped = changed LONG/SHORT conviction side during the trade)
-    1h     WIN flip=0.02  LOSS flip=0.01  diff=-0.01
+    1h     WIN flip=0.01  LOSS flip=0.01  diff=-0.01
     30m    WIN flip=0.02  LOSS flip=0.03  diff=+0.01
-    15m    WIN flip=0.10  LOSS flip=0.05  diff=-0.05
-    5m     WIN flip=0.23  LOSS flip=0.20  diff=-0.03
-    3m     WIN flip=0.26  LOSS flip=0.27  diff=+0.01
-    1m     WIN flip=0.41  LOSS flip=0.45  diff=+0.04
-    30s    WIN flip=0.52  LOSS flip=0.45  diff=-0.07
-    15s    WIN flip=0.18  LOSS flip=0.22  diff=+0.03
-    5s     WIN flip=0.48  LOSS flip=0.41  diff=-0.07
-    1s     WIN flip=0.47  LOSS flip=0.48  diff=+0.01
+    15m    WIN flip=0.04  LOSS flip=0.04  diff=+0.00
+    5m     WIN flip=0.18  LOSS flip=0.10  diff=-0.08
+    3m     WIN flip=0.18  LOSS flip=0.23  diff=+0.05
+    1m     WIN flip=0.39  LOSS flip=0.36  diff=-0.03
+    30s    WIN flip=0.41  LOSS flip=0.50  diff=+0.09
+    15s    WIN flip=0.53  LOSS flip=0.50  diff=-0.03
+    5s     WIN flip=0.42  LOSS flip=0.45  diff=+0.02
+    1s     WIN flip=0.47  LOSS flip=0.50  diff=+0.03
 
   DECISION-TF WAVE MATURITY AT ENTRY  (0=fresh wave, 1=exhausted)
-    All trades:  avg=0.380
-    Winners:     avg=0.379
-    Losers:      avg=0.381
-    Insight: maturity gap=0.002 (positive = entering losers at wave exhaustion)
+    All trades:  avg=0.377
+    Winners:     avg=0.375
+    Losers:      avg=0.380
+    Insight: maturity gap=0.004 (positive = entering losers at wave exhaustion)
 
-  OF 322 TRADES TAKEN:
-    Correct direction:     162  (50.3%)  ->  actual: $  2,613.00
-    Wrong direction:       128  (39.8%)  ->  losses: $ -1,949.00
-    Traded noise:           32  (9.9%)  ->  losses: $    149.50
+  OF 442 TRADES TAKEN:
+    Correct direction:     227  (51.4%)  ->  actual: $    817.03
+    Wrong direction:       170  (38.5%)  ->  losses: $   -891.21
+    Traded noise:           45  (10.2%)  ->  losses: $   -264.40
 
-  TOTAL SIGNALS SEEN BY ORACLE: 59,137
-    Real moves (MEGA/SCALP):  53,885   -- worth $13,529,024.00 if perfectly traded
-    Noise (no real move):      5,252
+  TOTAL SIGNALS SEEN BY ORACLE: 75,552
+    Real moves (MEGA/SCALP):  68,858   -- worth $17,920,260.50 if perfectly traded
+    Noise (no real move):      6,694
 
   WHAT WE DID:
-    Traded:     322  (0.5% of all signals)
-    Skipped: 58,815  (99.5% of all signals)
+    Traded:     442  (0.6% of all signals)
+    Skipped: 75,110  (99.4% of all signals)
 
-  WHY SIGNALS WERE SKIPPED  (total candidates evaluated: 55,463)
-    Gate 0 (headroom/pattern rule): 54,433  (98.1%)
+  WHY SIGNALS WERE SKIPPED  (total candidates evaluated: 76,727)
+    Gate 0 (headroom/pattern rule): 74,241  (96.8%)
     Gate 1 (dist > 3.0, no match):       4  (0.0%)
     Gate 2 (brain rejected):             0  (0.0%)
-    Gate 3 (conviction < thresh):       65  (0.1%)
-    Physics QG (depth>3 or z>=0):       4  (0.0%)
-    Passed all gates -> traded:        322  (0.6%)
+    Gate 3 (conviction < thresh):      513  (0.7%)
+    Physics QG (depth>3 or z>=0):       0  (0.0%)
+    Passed all gates -> traded:        442  (0.6%)
 
   TRADED SIGNAL DEPTH (which TF level triggered the trade):
-    depth 5=1m   :     3 trades  
+    depth 5=1m   :     2 trades  
     depth 6=15s  (leaf):     1 trades  
-    depth 7:     1 trades  
-    depth 8:     1 trades  
-    depth 9:    41 trades  #####
-    depth 10:    47 trades  #####
-    depth 11:    70 trades  ########
-    depth 12:   158 trades  ###################
+    depth 7:     3 trades  
+    depth 8:     6 trades  
+    depth 9:    42 trades  ###
+    depth 10:    53 trades  ####
+    depth 11:    86 trades  #######
+    depth 12:   249 trades  ######################
 
   PROFIT GAP ANALYSIS:
-    Ideal (golden-path: gate-blocked + traded, perfect exits):  $13,529,024.00
+    Ideal (golden-path: gate-blocked + traded, perfect exits):  $17,920,260.50
     -----------------------------------------------------
-    Lost -- missed opportunities (gate-blocked):  $13,486,305.00  (99.7% of ideal)
-    Lost -- wrong direction at entry:             $    1,949.00  (0.0% of ideal)
-    Lost -- noise trades:                         $      149.50  (0.0% of ideal)
-    Lost -- reversed after correct entry:         $    1,537.00  (0.0% of ideal)
-    Lost -- TP underperform (non-reversed):       $   19,704.50  (0.1% of ideal)
+    Lost -- missed opportunities (gate-blocked):  $17,853,115.00  (99.6% of ideal)
+    Lost -- wrong direction at entry:             $      891.21  (0.0% of ideal)
+    Lost -- noise trades:                         $      264.40  (0.0% of ideal)
+    Lost -- reversed after correct entry:         $    1,538.43  (0.0% of ideal)
+    Lost -- TP underperform (non-reversed):       $   41,028.04  (0.2% of ideal)
     -----------------------------------------------------
-    Actual profit:                               $    1,644.50  (0.0% of ideal)
-    [info] Score-competition pool (took better same bar): $  118,393.50  (not missed -- golden path chose better candidate)
+    Actual profit:                               $     -338.57  (-0.0% of ideal)
+    [info] Score-competition pool (took better same bar): $  144,118.00  (not missed -- golden path chose better candidate)
 
   DETECTION FUNNEL (bar-level)
     Total 15s bars processed:    146,747  (100%)
     Bars with detection:          12,372  (8.4%)
     Bars with NO detection:      134,375  (91.6%)  <- model blind
-    Bars slot-blocked:             4,046  (2.8%)  <- position open, can't trade
-    Bars evaluated (free slot):    8,326  (5.7%)
-    Candidates on those bars:     55,463  (avg 6.7/bar)
+    Bars slot-blocked:             1,538  (1.0%)  <- position open, can't trade
+    Bars evaluated (free slot):   10,834  (7.4%)
+    Candidates on those bars:     76,727  (avg 7.1/bar)
 
   Per-trade oracle log saved: checkpoints\oos_trade_log.csv
   PID oracle log saved: checkpoints\pid_oracle_log.csv (11079 signals)
-  Signal log saved: checkpoints\oos_signal_log_2026_Q1.csv  (322 traded  +  55,141 skipped)
+  Signal log saved: checkpoints\oos_signal_log_2026_Q1.csv  (442 traded  +  76,285 skipped)
 
   DECISION MATRIX SUMMARY  (skipped candidates -- oracle $ = profit left on table)
     Gate                    Count  RealMove%  Avg Oracle$  Total Missed$
-    gate0_momentum          32173      99.2%         156       4972252
-    gate0_hurst             15137      99.7%         133       2009796
-    gate0_r4_struct          5156     100.0%         116        596863
-    gate0_r4_nightmare       1355     100.0%         124        167838
-    score_loser               639     100.0%         134         85647
-    gate0_tunnel              612     100.0%         111         67984
-    traded                    322     100.0%         121         39108
-    gate3                      65     100.0%          78          5074
+    gate0_momentum          43430      99.3%         156       6744876
+    gate0_hurst             20249      99.7%         137       2758726
+    gate0_r4_struct          7570     100.0%         117        882294
+    gate0_r4_nightmare       1955     100.0%         131        256613
+    score_loser              1527     100.0%         148        225672
+    gate0_tunnel             1037     100.0%         129        134196
+    gate3                     513     100.0%         144         73854
+    traded                    442     100.0%         125         55449
     gate1                       4     100.0%          59           236
-  FN oracle log saved: checkpoints\oos_fn_log_0000_Q1.csv  (53,595 missed real moves)
+  FN oracle log saved: checkpoints\oos_fn_log_0000_Q1.csv  (68,461 missed real moves)
 
   FN WORKER AGREEMENT (did workers agree with oracle on missed moves?)
     High agree% = workers called it right but a gate still blocked the trade
-    FN total=53,595  competed=3,828  no_match=49,767
+    FN total=68,461  competed=5,171  no_match=63,290
     TF       All FN  Competed  No-match  <- agree% with oracle dir
-    1h         0.51      0.54      0.51
-    30m        0.64      0.58      0.64  <-- workers right, gate wrong
-    15m        0.51      0.52      0.51
-    5m         0.51      0.54      0.51
-    3m         0.51      0.51      0.51
-    1m         0.52      0.48      0.52
-    30s        0.52      0.53      0.52
-    15s        0.53      0.57      0.53
-    5s         0.53      0.53      0.53
-    1s         0.50      0.50      0.50
+    1h         0.56      0.53      0.56
+    30m        0.50      0.53      0.50
+    15m        0.57      0.54      0.57
+    5m         0.53      0.52      0.53
+    3m         0.51      0.56      0.50
+    1m         0.52      0.55      0.52
+    30s        0.50      0.52      0.50
+    15s        0.54      0.56      0.53
+    5s         0.49      0.48      0.49
+    1s         0.50      0.51      0.49
 
   FN GATE BREAKDOWN (which gate blocked profitable signals):
     Gate 0  no pattern (Rule 1)                     0  (  0.0%)
     Gate 0  noise zone <0.5sigma (Rule 2)           0  (  0.0%)
     Gate 0  approach zone ROCHE_SNAP (Rule 3) -- no qualified tmpl      0  (  0.0%)
     Gate 0  approach zone STRUCTURAL_DRIVE weak trend (Rule 3)      0  (  0.0%)
-    Gate 0  extreme zone nightmare field (Rule 4)  1,415  (  2.6%)
-    Gate 0  extreme zone STRUCTURAL_DRIVE no headroom (Rule 4)  5,202  (  9.7%)
-    Gate 0  Hurst < 0.5 choppy/anti-persistent (Rule 5a) 14,535  ( 27.1%)
-    Gate 0  momentum override breakout likely (Rule 5b) 30,935  ( 57.7%)  <-- main bottleneck
-    Gate 0  tunnel probability < 40% (Rule 5c)    718  (  1.3%)
+    Gate 0  extreme zone nightmare field (Rule 4)  1,811  (  2.6%)
+    Gate 0  extreme zone STRUCTURAL_DRIVE no headroom (Rule 4)  7,060  ( 10.3%)
+    Gate 0  Hurst < 0.5 choppy/anti-persistent (Rule 5a) 18,497  ( 27.0%)
+    Gate 0  momentum override breakout likely (Rule 5b) 39,259  ( 57.3%)  <-- main bottleneck
+    Gate 0  tunnel probability < 40% (Rule 5c)    812  (  1.2%)
     Gate 0.5 depth filter                           0  (  0.0%)
     Gate 1  no cluster match (dist>4.5)             4  (  0.0%)
     Gate 2  brain rejected                          0  (  0.0%)
     Gate 3  conviction below threshold              0  (  0.0%)
     Passed gates, lost to better score              0  (  0.0%)
-    Unknown (pre-gate tracking)                   786  (  1.5%)
+    Unknown (pre-gate tracking)                 1,018  (  1.5%)
   Depth weights: NOT updated (oos_mode preserves training weights)
-
-── PING-PONG DIRECTION REFINEMENT ──
-  Flips: 56
-  PP Trades: 56  WR: 51.8%  PnL: $-195.50
-  Direction Bias Table:
-       TID   L_W  L_L  L_WR   S_W  S_L  S_WR
-        44     6    4   60%    11    1   92%
-        44     3    3   50%     4    4   50%
-        38     4    0  100%     3    2   60%
-        47     3    3   50%     0    3    0%
-        27     0    1    0%     4    3   57%
-        26     0    2    0%     3    2   60%
-        26     1    2   33%     2    1   67%
-        20     1    2   33%     1    1   50%
-        54     2    0  100%     1    2   33%
-        53     0    1    0%     2    1   67%
-        18     0    1    0%     2    1   67%
-        49     2    0  100%     1    1   50%
-        38     0    3    0%     0    1    0%
-        53     1    1   50%     1    0  100%
-        27     1    1   50%     1    0  100%

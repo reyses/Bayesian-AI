@@ -44,12 +44,12 @@ class PatternAnalyzer:
 
             # Get state details
             state_str = self._format_state(state)
-            lagrange_zone = getattr(state, 'lagrange_zone', 'unknown')
+            band_zone = getattr(state, 'band_zone', 'unknown')
 
             patterns.append({
                 'state': state,
                 'state_str': state_str,
-                'lagrange_zone': lagrange_zone,
+                'band_zone': band_zone,
                 'wins': wins,
                 'losses': losses,
                 'total': total,
@@ -76,9 +76,9 @@ class PatternAnalyzer:
 
         for state, record in brain.table.items():
             # Categorize by Lagrange zone
-            lagrange_zone = getattr(state, 'lagrange_zone', 'unknown')
-            contexts[f'lagrange_{lagrange_zone}']['wins'] += record['wins']
-            contexts[f'lagrange_{lagrange_zone}']['losses'] += record['losses']
+            band_zone = getattr(state, 'band_zone', 'unknown')
+            contexts[f'lagrange_{band_zone}']['wins'] += record['wins']
+            contexts[f'lagrange_{band_zone}']['losses'] += record['losses']
 
             # Categorize by structure confirmation
             if hasattr(state, 'structure_confirmed'):
@@ -100,7 +100,7 @@ class PatternAnalyzer:
 
         return dict(contexts)
 
-    def analyze_by_lagrange_zone(self, brain) -> Dict[str, Dict]:
+    def analyze_by_band_zone(self, brain) -> Dict[str, Dict]:
         """
         Breakdown performance by Lagrange zones (L1, L2, L3, etc.)
 
@@ -110,8 +110,8 @@ class PatternAnalyzer:
         zones = defaultdict(lambda: {'wins': 0, 'losses': 0, 'pnls': []})
 
         for state, record in brain.table.items():
-            if hasattr(state, 'lagrange_zone'):
-                zone = state.lagrange_zone
+            if hasattr(state, 'band_zone'):
+                zone = state.band_zone
                 zones[zone]['wins'] += record['wins']
                 zones[zone]['losses'] += record['losses']
 
@@ -169,7 +169,7 @@ class PatternAnalyzer:
                     f"{pattern['win_rate']:>7.1%}   "
                     f"{pattern['total']:>6}   "
                     f"${pattern['avg_pnl']:>7.2f}   "
-                    f"{pattern['lagrange_zone']:<15} "
+                    f"{pattern['band_zone']:<15} "
                     f"{pattern['state_str'][:40]}"
                 )
         else:
@@ -177,7 +177,7 @@ class PatternAnalyzer:
 
         # Section 2: Performance by Lagrange Zone
         report.append("\n\n### PERFORMANCE BY LAGRANGE ZONE")
-        zone_analysis = self.analyze_by_lagrange_zone(brain)
+        zone_analysis = self.analyze_by_band_zone(brain)
 
         if zone_analysis:
             report.append(f"\n{'Zone':<15} {'Win Rate':<10} {'Trades':<8} {'Avg P&L':<10} {'Total P&L'}")
@@ -235,10 +235,10 @@ class PatternAnalyzer:
 
     def _format_state(self, state) -> str:
         """Format state for display"""
-        if hasattr(state, 'lagrange_zone'):
-            # ThreeBodyQuantumState
+        if hasattr(state, 'band_zone'):
+            # MarketState
             parts = [
-                f"Zone={state.lagrange_zone}",
+                f"Zone={state.band_zone}",
                 f"Struct={'Y' if state.structure_confirmed else 'N'}",
                 f"Casc={'Y' if state.cascade_detected else 'N'}"
             ]
@@ -311,7 +311,7 @@ class PatternAnalyzer:
         z_groups = defaultdict(lambda: {'wins': 0, 'losses': 0, 'pnls': [], 'durations': []})
         for trade in cumulative_trades:
             state = trade.state
-            zone = getattr(state, 'lagrange_zone', 'UNKNOWN')
+            zone = getattr(state, 'band_zone', 'UNKNOWN')
             z = getattr(state, 'z_score', 0.0)
             if np.isnan(z):
                 z = 0.0
@@ -378,8 +378,8 @@ class PatternAnalyzer:
         spin_groups = defaultdict(lambda: {'wins': 0, 'losses': 0, 'pnls': []})
         for trade in cumulative_trades:
             state = trade.state
-            zone = getattr(state, 'lagrange_zone', 'UNKNOWN')
-            spin = getattr(state, 'spin_inverted', False)
+            zone = getattr(state, 'band_zone', 'UNKNOWN')
+            spin = getattr(state, 'reversal_confirmed', False)
             key = f"{zone} | spin={'YES' if spin else 'NO'}"
             spin_groups[key]['wins'] += 1 if trade.result == 'WIN' else 0
             spin_groups[key]['losses'] += 1 if trade.result == 'LOSS' else 0
@@ -468,11 +468,11 @@ class PatternAnalyzer:
                     z_b, m_b = state._get_hash_bins()
                     z_bin = f"{z_b:.1f}"
                     mom_bin = f"{m_b:.2f}" if isinstance(m_b, (int, float)) else f"{m_b}"
-                if hasattr(state, 'spin_inverted'):
-                    spin = 'Y' if state.spin_inverted else 'N'
+                if hasattr(state, 'reversal_confirmed'):
+                    spin = 'Y' if state.reversal_confirmed else 'N'
                 report.append(
                     f"  {idx:<3} {p['win_rate']:>5.0%} {p['wins']:>3}/{p['total']:<3} "
-                    f"${p['avg_pnl']:>8.2f} {p['lagrange_zone']:<12} {z_bin:>6} {mom_bin:>8} {spin:<5}"
+                    f"${p['avg_pnl']:>8.2f} {p['band_zone']:<12} {z_bin:>6} {mom_bin:>8} {spin:<5}"
                 )
         else:
             report.append("  No patterns with 2+ samples.")

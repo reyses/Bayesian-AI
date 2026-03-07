@@ -1,7 +1,7 @@
 """
 LiveBarAggregator — aggregates inbound 1s bars into 15s bars, accumulates
 them into a growing DataFrame, and recomputes quantum states via the
-QuantumFieldEngine.
+StatisticalFieldEngine.
 
 NT8 sends 1-second bars.  The aggregator buffers 15 of them, builds one
 OHLCV 15s bar, and appends it to the state buffer.  At session reset
@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from typing import List, Optional
 
-from core.quantum_field_engine import QuantumFieldEngine
+from core.quantum_field_engine import StatisticalFieldEngine
 from live.config import LiveConfig
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ FLUSH_INTERVAL = 1000     # auto-flush to parquet every N new bars
 class LiveBarAggregator:
     """Aggregate 1s bars into anchor-TF bars, accumulate, recompute quantum states."""
 
-    def __init__(self, engine: QuantumFieldEngine, config: LiveConfig,
+    def __init__(self, engine: StatisticalFieldEngine, config: LiveConfig,
                  target_period: int = TARGET_PERIOD):
         self._engine = engine
         self._cfg = config

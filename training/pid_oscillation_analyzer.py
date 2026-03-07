@@ -7,7 +7,7 @@ identifies the band-touch flip points and emits PIDSignal objects.
 
 Trade logic (Hawaiian Surfer at sub-minute scale):
   - Enter at band touch (price at 1σ or 2σ, oscillation confirmed)
-  - Direction: toward center (L1_STABLE) if entering at outer band,
+  - Direction: toward center (INNER) if entering at outer band,
                toward outer band if entering after center cross
   - Exit: at opposite band or at center (depending on entry zone)
   - Stop: outside the band that was touched at entry
@@ -29,13 +29,13 @@ PID_MIN_REGIME_BARS = 3      # must see N consecutive PID bars before entering
 # A PID signal is classified TENSION (dangerous-but-profitable) when any of:
 #   1. z_score near outer Roche (>= 1.5σ) — PID fighting possible breakout
 #   2. term_pid very large (>= 1.0) — control force maxed out, system under strain
-#   3. escape_probability elevated (>= 0.25) — quantum field says breakout is real
+#   3. breakout_probability elevated (>= 0.25) — quantum field says breakout is real
 #   4. oscillation_coherence falling while regime persists — control degrading
 # TENSION signals are logged in shadow but flagged separately.
 # They are NEVER enabled for live trading until a dedicated analysis sprint.
 PID_TENSION_Z_MIN        = 1.5    # z >= this → approaching outer Roche → TENSION
 PID_TENSION_FORCE_MAX    = 1.0    # |term_pid| >= this → maxed-out control → TENSION
-PID_TENSION_ESCAPE_MIN   = 0.25   # escape_probability >= this → TENSION
+PID_TENSION_ESCAPE_MIN   = 0.25   # breakout_probability >= this → TENSION
 PID_TENSION_COH_DROP     = 0.15   # osc_coh dropped >= this vs 3-bar avg → TENSION
 
 
@@ -75,16 +75,16 @@ class PIDOscillationAnalyzer:
 
     def tick(self, state) -> Optional[PIDSignal]:
         """
-        Feed one ThreeBodyQuantumState. Returns a PIDSignal if an entry is triggered,
+        Feed one MarketState. Returns a PIDSignal if an entry is triggered,
         else None. Call once per 15s bar during the forward pass.
         Signal is classified as STABLE or TENSION for separate shadow analysis.
         """
         force    = abs(getattr(state, 'term_pid', 0.0))
         osc_coh  = getattr(state, 'oscillation_coherence', 0.0)
-        base_coh = getattr(state, 'coherence', 0.0)
+        base_coh = getattr(state, 'entropy_normalized', 0.0)
         adx      = getattr(state, 'adx_strength', 100.0)
         z        = state.z_score
-        escape   = getattr(state, 'escape_probability', 0.0)
+        escape   = getattr(state, 'breakout_probability', 0.0)
 
         # Check if this bar is in PID regime
         in_pid = (force    >= PID_MIN_FORCE
@@ -108,8 +108,8 @@ class PIDOscillationAnalyzer:
 
         # Identify band touch and direction
         sigma     = self._sigma
-        price     = state.particle_position
-        center    = price - z * sigma   # L1_STABLE approximation
+        price     = state.price
+        center    = price - z * sigma   # INNER approximation
 
         if z <= -1.0:
             direction    = 'LONG'

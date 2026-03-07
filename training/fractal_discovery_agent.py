@@ -21,8 +21,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Tuple
 
-from core.quantum_field_engine import QuantumFieldEngine
-from core.three_body_state import ThreeBodyQuantumState
+from core.quantum_field_engine import StatisticalFieldEngine
+from core.three_body_state import MarketState
 
 from config.oracle_config import (
     ORACLE_LOOKAHEAD_BARS, ORACLE_MIN_MOVE_TICKS,
@@ -56,19 +56,19 @@ MIN_BARS_FOR_CHILD_REGRESSION = 30
 
 @dataclass
 class PatternEvent:
-    pattern_type: str       # 'ROCHE_SNAP' or 'STRUCTURAL_DRIVE'
+    pattern_type: str       # 'BAND_REVERSAL' or 'MOMENTUM_BREAK'
     timestamp: float
     price: float
     z_score: float
     velocity: float
     momentum: float
-    coherence: float
+    entropy_normalized: float
     file_source: str
     idx: int
-    state: ThreeBodyQuantumState
+    state: MarketState
     timeframe: str = '15s'
     depth: int = 0          # 0 = macro (top TF), 1 = next level down, etc.
-    parent_type: str = ''   # Parent pattern type (e.g. 'ROCHE_SNAP' or 'STRUCTURAL_DRIVE')
+    parent_type: str = ''   # Parent pattern type (e.g. 'BAND_REVERSAL' or 'MOMENTUM_BREAK')
     parent_tf: str = ''     # Parent's timeframe (e.g. '1D')
     window_data: Optional[pd.DataFrame] = None
     parent_chain: Optional[List[Dict]] = None  # Full ancestry chain
@@ -131,7 +131,7 @@ def _load_parquet(file_path: str) -> Tuple[str, pd.DataFrame]:
 class FractalDiscoveryAgent:
     def __init__(self):
         # Single GPU engine — all compute goes through this
-        self.engine = QuantumFieldEngine()
+        self.engine = StatisticalFieldEngine()
         self.tick_size = MNQ.tick_size # Default to MNQ
 
     def _consult_oracle(self, df, bar_index, timeframe, tick_size):
@@ -213,7 +213,7 @@ class FractalDiscoveryAgent:
         then drills into each pattern's time window at the next smaller TF.
         Repeats until reaching the finest TF.
 
-        GPU compute is serialized through a single QuantumFieldEngine to
+        GPU compute is serialized through a single StatisticalFieldEngine to
         maximize GPU utilization (one large batch instead of many tiny ones).
         """
         # Determine available timeframes (sorted large -> small)
@@ -314,8 +314,8 @@ class FractalDiscoveryAgent:
             completed_levels.add(tf)
 
             level_elapsed = time.perf_counter() - t_level
-            roche = sum(1 for p in level_patterns if p.pattern_type == 'ROCHE_SNAP')
-            struct = sum(1 for p in level_patterns if p.pattern_type == 'STRUCTURAL_DRIVE')
+            roche = sum(1 for p in level_patterns if p.pattern_type == 'BAND_REVERSAL')
+            struct = sum(1 for p in level_patterns if p.pattern_type == 'MOMENTUM_BREAK')
             print(
                 f"  Level {level} [{tf}] complete: {len(level_patterns)} patterns "
                 f"(R:{roche} S:{struct}) in {level_elapsed:.1f}s"
@@ -519,10 +519,10 @@ class FractalDiscoveryAgent:
 
             if state.cascade_detected:
                 detected.append(PatternEvent(
-                    pattern_type='ROCHE_SNAP', timestamp=state.timestamp,
-                    price=state.particle_position, z_score=state.z_score,
-                    velocity=state.particle_velocity, momentum=state.momentum_strength,
-                    coherence=state.coherence, file_source=file_path, idx=bar_idx,
+                    pattern_type='BAND_REVERSAL', timestamp=state.timestamp,
+                    price=state.price, z_score=state.z_score,
+                    velocity=state.velocity, momentum=state.momentum_strength,
+                    entropy_normalized=state.entropy_normalized, file_source=file_path, idx=bar_idx,
                     state=state, timeframe=timeframe, depth=depth,
                     parent_type='', parent_tf='', window_data=window_slice,
                     oracle_marker=marker, oracle_meta=meta
@@ -530,10 +530,10 @@ class FractalDiscoveryAgent:
 
             if state.structure_confirmed:
                 detected.append(PatternEvent(
-                    pattern_type='STRUCTURAL_DRIVE', timestamp=state.timestamp,
-                    price=state.particle_position, z_score=state.z_score,
-                    velocity=state.particle_velocity, momentum=state.momentum_strength,
-                    coherence=state.coherence, file_source=file_path, idx=bar_idx,
+                    pattern_type='MOMENTUM_BREAK', timestamp=state.timestamp,
+                    price=state.price, z_score=state.z_score,
+                    velocity=state.velocity, momentum=state.momentum_strength,
+                    entropy_normalized=state.entropy_normalized, file_source=file_path, idx=bar_idx,
                     state=state, timeframe=timeframe, depth=depth,
                     parent_type='', parent_tf='', window_data=window_slice,
                     oracle_marker=marker, oracle_meta=meta
@@ -543,7 +543,7 @@ class FractalDiscoveryAgent:
         from collections import Counter
         file_counts = Counter(os.path.basename(p.file_source) for p in detected)
         for fname, count in sorted(file_counts.items()):
-            r = sum(1 for p in detected if os.path.basename(p.file_source) == fname and p.pattern_type == 'ROCHE_SNAP')
+            r = sum(1 for p in detected if os.path.basename(p.file_source) == fname and p.pattern_type == 'BAND_REVERSAL')
             s = count - r
             print(f"    [{timeframe}] {fname}: R:{r} S:{s}")
 
@@ -652,10 +652,10 @@ class FractalDiscoveryAgent:
 
             if state.cascade_detected:
                 detected.append(PatternEvent(
-                    pattern_type='ROCHE_SNAP', timestamp=state.timestamp,
-                    price=state.particle_position, z_score=state.z_score,
-                    velocity=state.particle_velocity, momentum=state.momentum_strength,
-                    coherence=state.coherence, file_source=file_path, idx=bar_idx,
+                    pattern_type='BAND_REVERSAL', timestamp=state.timestamp,
+                    price=state.price, z_score=state.z_score,
+                    velocity=state.velocity, momentum=state.momentum_strength,
+                    entropy_normalized=state.entropy_normalized, file_source=file_path, idx=bar_idx,
                     state=state, timeframe=timeframe, depth=depth,
                     parent_type=p_type, parent_tf=p_tf, window_data=window_slice,
                     parent_chain=p_chain,
@@ -664,18 +664,18 @@ class FractalDiscoveryAgent:
 
             if state.structure_confirmed:
                 detected.append(PatternEvent(
-                    pattern_type='STRUCTURAL_DRIVE', timestamp=state.timestamp,
-                    price=state.particle_position, z_score=state.z_score,
-                    velocity=state.particle_velocity, momentum=state.momentum_strength,
-                    coherence=state.coherence, file_source=file_path, idx=bar_idx,
+                    pattern_type='MOMENTUM_BREAK', timestamp=state.timestamp,
+                    price=state.price, z_score=state.z_score,
+                    velocity=state.velocity, momentum=state.momentum_strength,
+                    entropy_normalized=state.entropy_normalized, file_source=file_path, idx=bar_idx,
                     state=state, timeframe=timeframe, depth=depth,
                     parent_type=p_type, parent_tf=p_tf, window_data=window_slice,
                     parent_chain=p_chain,
                     oracle_marker=marker, oracle_meta=meta
                 ))
 
-        roche = sum(1 for p in detected if p.pattern_type == 'ROCHE_SNAP')
-        struct = sum(1 for p in detected if p.pattern_type == 'STRUCTURAL_DRIVE')
+        roche = sum(1 for p in detected if p.pattern_type == 'BAND_REVERSAL')
+        struct = sum(1 for p in detected if p.pattern_type == 'MOMENTUM_BREAK')
         print(f"    Extracted {len(detected)} patterns (R:{roche} S:{struct})")
 
         return detected
@@ -687,7 +687,7 @@ class FractalDiscoveryAgent:
             'type': p.pattern_type,
             'z': p.z_score,
             'mom': p.momentum,
-            'coh': p.coherence,
+            'coh': p.entropy_normalized,
             'timestamp': p.timestamp,
             'oracle_marker': getattr(p, 'oracle_marker', 0),
         }
@@ -797,20 +797,20 @@ class FractalDiscoveryAgent:
 
             if state.cascade_detected:
                 detected.append(PatternEvent(
-                    pattern_type='ROCHE_SNAP', timestamp=state.timestamp,
-                    price=state.particle_position, z_score=state.z_score,
-                    velocity=state.particle_velocity, momentum=state.momentum_strength,
-                    coherence=state.coherence, file_source=file_path, idx=bar_idx,
+                    pattern_type='BAND_REVERSAL', timestamp=state.timestamp,
+                    price=state.price, z_score=state.z_score,
+                    velocity=state.velocity, momentum=state.momentum_strength,
+                    entropy_normalized=state.entropy_normalized, file_source=file_path, idx=bar_idx,
                     state=state, timeframe=timeframe, window_data=window_slice,
                     oracle_marker=marker, oracle_meta=meta
                 ))
 
             if state.structure_confirmed:
                 detected.append(PatternEvent(
-                    pattern_type='STRUCTURAL_DRIVE', timestamp=state.timestamp,
-                    price=state.particle_position, z_score=state.z_score,
-                    velocity=state.particle_velocity, momentum=state.momentum_strength,
-                    coherence=state.coherence, file_source=file_path, idx=bar_idx,
+                    pattern_type='MOMENTUM_BREAK', timestamp=state.timestamp,
+                    price=state.price, z_score=state.z_score,
+                    velocity=state.velocity, momentum=state.momentum_strength,
+                    entropy_normalized=state.entropy_normalized, file_source=file_path, idx=bar_idx,
                     state=state, timeframe=timeframe, window_data=window_slice,
                     oracle_marker=marker, oracle_meta=meta
                 ))
