@@ -300,7 +300,7 @@ class BayesianTrainingOrchestrator:
         # ── 0. Rotate previous run files: rename current → _old ────────────────
         _analysis_mode = getattr(self, '_analysis_mode', False)
         if not _analysis_mode:
-            for _old_name in ('phase4_report.txt', 'oracle_trade_log.csv',
+            for _old_name in ('is_report.txt', 'oracle_trade_log.csv',
                               'signal_log.csv', 'depth_weights.json',
                               'run_snapshot.json'):
                 _old_path = os.path.join(self.checkpoint_dir, _old_name)
@@ -3032,7 +3032,7 @@ class BayesianTrainingOrchestrator:
                 print(line)
 
             # Save report to checkpoints (for analytics suite) + reports/ (for sharing)
-            _report_name = 'oos_report.txt' if oos_mode else 'phase4_report.txt'
+            _report_name = 'oos_report.txt' if oos_mode else 'is_report.txt'
             report_path = os.path.join(_out_dir, _report_name)
             with open(report_path, 'w', encoding='utf-8') as f:
                 f.write('\n'.join(report_lines) + '\n')
@@ -3615,7 +3615,7 @@ class BayesianTrainingOrchestrator:
             print(line)
 
         # Save to file
-        report_path = os.path.join(self.checkpoint_dir, 'phase5_report.txt')
+        report_path = os.path.join(self.checkpoint_dir, 'strategy_report.txt')
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write('\n'.join(rpt) + '\n')
         print(f"\n  Report saved to {report_path}")

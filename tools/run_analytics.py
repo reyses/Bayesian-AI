@@ -252,7 +252,7 @@ def main():
 
     # -- Suite --
     if args.suite:
-        report_path = os.path.join(args.checkpoint_dir, f'{prefix}phase4_report.txt')
+        report_path = os.path.join(args.checkpoint_dir, f'{prefix}is_report.txt')
         from training.trade_analytics import run_trade_analytics
         text = run_trade_analytics(log_path, report_path)
         print(text)
