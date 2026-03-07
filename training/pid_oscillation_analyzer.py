@@ -19,7 +19,7 @@ import numpy as np
 
 # Regime detection thresholds
 PID_MIN_FORCE       = 0.3    # |term_pid| must exceed this
-PID_MIN_OSC_COH     = 0.5    # oscillation_coherence threshold
+PID_MIN_OSC_COH     = 0.5    # oscillation_entropy_normalized threshold
 PID_MAX_Z_ENTER     = 2.0    # don't enter if z >= 2.0 (nightmare field)
 PID_MIN_BASE_COH    = 0.4    # base quantum coherence minimum
 PID_MAX_ADX         = 30.0   # DMI low = PID regime (visual shows 20-26)
@@ -30,7 +30,7 @@ PID_MIN_REGIME_BARS = 3      # must see N consecutive PID bars before entering
 #   1. z_score near outer Roche (>= 1.5σ) — PID fighting possible breakout
 #   2. term_pid very large (>= 1.0) — control force maxed out, system under strain
 #   3. breakout_probability elevated (>= 0.25) — quantum field says breakout is real
-#   4. oscillation_coherence falling while regime persists — control degrading
+#   4. oscillation_entropy_normalized falling while regime persists — control degrading
 # TENSION signals are logged in shadow but flagged separately.
 # They are NEVER enabled for live trading until a dedicated analysis sprint.
 PID_TENSION_Z_MIN        = 1.5    # z >= this → approaching outer Roche → TENSION
@@ -49,7 +49,7 @@ class PIDSignal:
     z_score:       float        # entry z_score
     band_touched:  str          # '1sig' | '2sig'
     regime_bars:   int          # how many consecutive PID bars before this signal
-    osc_coherence: float        # oscillation_coherence at entry
+    osc_coherence: float        # oscillation_entropy_normalized at entry
     term_pid:      float        # PID control force at entry
     pid_class:     str          # 'STABLE' | 'TENSION'
     tension_reason: str         # '' | 'outer_roche' | 'maxed_force' | 'escape_risk' | 'coh_drop'
@@ -80,7 +80,7 @@ class PIDOscillationAnalyzer:
         Signal is classified as STABLE or TENSION for separate shadow analysis.
         """
         force    = abs(getattr(state, 'term_pid', 0.0))
-        osc_coh  = getattr(state, 'oscillation_coherence', 0.0)
+        osc_coh  = getattr(state, 'oscillation_entropy_normalized', 0.0)
         base_coh = getattr(state, 'entropy_normalized', 0.0)
         adx      = getattr(state, 'adx_strength', 100.0)
         z        = state.z_score
