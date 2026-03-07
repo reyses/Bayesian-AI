@@ -52,6 +52,7 @@ from training.fractal_discovery_agent import FractalDiscoveryAgent, PatternEvent
 from core.fractal_clustering import FractalClusteringEngine, PatternTemplate
 from training.pipeline_checkpoint import PipelineCheckpoint
 from core.timeframe_belief_network import TimeframeBeliefNetwork, BeliefState
+from core.execution_engine import ExecutionEngine, ActionType, TradeAction, Candidate
 
 # Execution components
 from training.batch_regret_analyzer import BatchRegretAnalyzer
@@ -126,7 +127,7 @@ class DayResults:
     real_sharpe: float = 0.0
 
 
-class BayesianTrainingOrchestrator:
+class Trainer:
     """
     UNIFIED TRAINING ORCHESTRATOR
 
@@ -431,6 +432,34 @@ class BayesianTrainingOrchestrator:
         print(f"  Belief network: {len(TimeframeBeliefNetwork.TIMEFRAMES_SECONDS)} TF workers "
               f"(conviction threshold: {TimeframeBeliefNetwork.MIN_CONVICTION:.2f})")
 
+        # ── Unified Execution Engine ──────────────────────────────────────────
+        _exec_engine = ExecutionEngine(
+            brain=self.brain,
+            belief_network=belief_network,
+            exit_engine=ExitEngine(
+                mode='training',
+                tick_size=self.asset.tick_size,
+                tick_value=self.asset.tick_size * self.asset.point_value,
+            ),
+            pattern_library=self.pattern_library,
+            scaler=self.scaler,
+            centroids_scaled=centroids_scaled,
+            valid_tids=valid_template_ids,
+            tick_size=self.asset.tick_size,
+            point_value=self.asset.point_value,
+            mode='oos' if oos_mode else 'is',
+            tier_score_adj=_TIER_SCORE_ADJ,
+            depth_score_adj=_DEPTH_SCORE_ADJ,
+            template_tier_map=template_tier_map,
+            exception_tids=_exception_tids,
+            bias_threshold=bias_threshold if bias_threshold is not None else 0.55,
+            dmi_threshold=dmi_threshold if dmi_threshold is not None else 0.0,
+            depth_filter_out=_DEPTH_FILTER_OUT,
+            depth_only=getattr(self, '_depth_only', None),
+            feature_extractor=FractalClusteringEngine.extract_features,
+        )
+        print(f"  Execution engine: mode={_exec_engine.mode}")
+
         # 2. Iterate files (monthly YYYY_MM.parquet or daily YYYYMMDD.parquet)
         daily_files_15s = sorted(glob.glob(os.path.join(data_source, '15s', '*.parquet')))
         if not daily_files_15s:
@@ -549,11 +578,8 @@ class BayesianTrainingOrchestrator:
         bars_slot_blocked     = 0   # Bars with detection but position was open (slot occupied)
 
         # Skip reason counters (per-candidate across all days)
-        skip_headroom    = 0   # Gate 0: no pattern or noise zone / structural rules
-        skip_dist        = 0   # No cluster match within distance 3.0
-        skip_brain       = 0   # Brain gate: template probability too low
-        skip_conviction  = 0   # Belief network: path conviction below MIN_CONVICTION
-        skip_physics_qg  = 0   # Physics quality gate: depth>3 or z>=0 on bypass
+        # Gate skip counters now tracked inside _exec_engine.gate_stats
+        # Accessed via _exec_engine.get_skip_counts() in report section
         n_signals_seen   = 0   # Total candidate signals evaluated (all gates combined)
         depth_traded     = defaultdict(int)  # depth -> trade count (1=high TF, 6=15s)
 
@@ -708,13 +734,7 @@ class BayesianTrainingOrchestrator:
             active_side = 'long'
             active_template_id = None
 
-            # Unified exit engine (same logic as live — training/live parity)
-            _exit_engine = ExitEngine(
-                mode='training',
-                tick_size=self.asset.tick_size,
-                tick_value=self.asset.tick_size * self.asset.point_value,
-            )
-            _pos_state = None  # ExitEngine PositionState for current trade
+            # ExitEngine now lives inside _exec_engine (unified execution)
 
             # Ping-pong state (direction refinement)
             _pp_enabled = getattr(self, '_ping_pong', False)
@@ -851,12 +871,10 @@ class BayesianTrainingOrchestrator:
 
                 _bar_i += 1
 
-                # 1. Manage existing position — Unified ExitEngine
-                if self.wave_rider.position is not None and _pos_state is not None:
+                # 1. Manage existing position — via ExecutionEngine
+                if _exec_engine.in_position:
                     _exit_sig = belief_network.get_exit_signal(
-                        self.wave_rider.position.side, active_entry_price)
-
-                    # Gather inputs for unified exit engine
+                        _exec_engine.active_side, active_entry_price)
                     _band_ctx = (belief_network.get_band_confluence()
                                  if hasattr(belief_network, 'get_band_confluence') else None)
                     _bar_state = _states_map.get(_bar_i - 1)
@@ -864,7 +882,6 @@ class BayesianTrainingOrchestrator:
                     _bar_high = getattr(row, 'high', price)
                     _bar_low = getattr(row, 'low', price)
 
-                    # Sub-bar 1s data for wick checking (training precision)
                     _sub_h, _sub_l = None, None
                     if _has_1s:
                         _s0 = np.searchsorted(_1s_ts, ts_raw, side='left')
@@ -873,24 +890,24 @@ class BayesianTrainingOrchestrator:
                             _sub_h = _1s_highs[_s0:_s1].tolist()
                             _sub_l = _1s_lows[_s0:_s1].tolist()
 
-                    _exit_result = _exit_engine.evaluate(
-                        pos=_pos_state,
-                        bar_high=_bar_high, bar_low=_bar_low, bar_close=price,
-                        current_bar_index=_bar_i,
-                        band_context=_band_ctx,
+                    _exit_action = _exec_engine.on_bar(
+                        price=price, bar_high=_bar_high, bar_low=_bar_low,
+                        bar_index=_bar_i,
                         net_force=_f_net,
-                        exit_signal=_exit_sig,
                         sub_bar_highs=_sub_h, sub_bar_lows=_sub_l,
+                        band_context=_band_ctx, exit_signal=_exit_sig,
                     )
 
-                    if _exit_result.action != ExitAction.HOLD:
-                        _ee_pnl = _exit_result.pnl_ticks * self.asset.tick_size * self.asset.point_value
-                        _ee_reason = _exit_result.action.value
+                    if _exit_action.type == ActionType.EXIT:
+                        _ee_pnl = _exit_action.pnl_dollars
+                        _ee_reason = _exit_action.exit_reason
+                        _exit_result = _exit_action.exit_result
                         self.wave_rider.position = None
+                        _exec_engine.position_closed()
                         outcome = TradeOutcome(
                             state=active_template_id,
                             entry_price=active_entry_price,
-                            exit_price=_exit_result.exit_price,
+                            exit_price=_exit_action.price,
                             pnl=_ee_pnl,
                             result='WIN' if _ee_pnl > 0 else 'LOSS',
                             timestamp=ts_raw,
@@ -904,9 +921,7 @@ class BayesianTrainingOrchestrator:
                         self.brain.update(outcome)
                         day_trades.append(outcome)
                         current_position_open = False
-                        _pos_state = None
 
-                        # Update running equity
                         if _equity_enabled:
                             running_equity += outcome.pnl
                             peak_equity = max(peak_equity, running_equity)
@@ -915,7 +930,6 @@ class BayesianTrainingOrchestrator:
                                 account_ruined = True
                                 ruin_day = ruin_day or day_date
 
-                        # Complete oracle record
                         if pending_oracle is not None:
                             o_mfe = pending_oracle['oracle_mfe']
                             o_mae = pending_oracle['oracle_mae']
@@ -926,7 +940,7 @@ class BayesianTrainingOrchestrator:
                                 **pending_oracle,
                                 'exit_price': outcome.exit_price,
                                 'exit_time': ts_raw,
-                                'hold_bars': max(1, _exit_result.bars_held),
+                                'hold_bars': max(1, _exit_action.bars_held),
                                 'exit_reason': _ee_reason,
                                 'actual_pnl': outcome.pnl,
                                 'oracle_potential_pnl': oracle_potential,
@@ -935,7 +949,7 @@ class BayesianTrainingOrchestrator:
                                 'exit_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
                                 'exit_conviction': _exit_sig.get('conviction', 0.0),
                                 'exit_wave_maturity': _exit_sig.get('wave_maturity', 0.0),
-                                'exit_signal_reason': _exit_result.reason,
+                                'exit_signal_reason': getattr(_exit_result, 'reason', _ee_reason),
                                 'exit_decay_score': _exit_sig.get('decay_score', 0.0),
                             })
                             if _pending_dm_idx is not None:
@@ -943,7 +957,7 @@ class BayesianTrainingOrchestrator:
                                     'trade_result': outcome.result,
                                     'trade_pnl': round(outcome.pnl, 2),
                                     'exit_reason': _ee_reason,
-                                    'exit_signal_reason': _exit_result.reason,
+                                    'exit_signal_reason': getattr(_exit_result, 'reason', _ee_reason),
                                     'exit_conviction': _exit_sig.get('conviction', 0.0),
                                     'exit_wave_maturity': _exit_sig.get('wave_maturity', 0.0),
                                 })
@@ -968,19 +982,15 @@ class BayesianTrainingOrchestrator:
                                     trailing_stop_ticks=_pp_trail_ov or ep['trail'],
                                     trail_activation_ticks=ep['trail_act'],
                                     template_id=_pp_tid)
-                                # ExitEngine position for PP flip
-                                _ee_pp_lib = {
-                                    'p25_mae': 0, 'mean_mae': 0,
-                                    'regression_sigma': 0, 'p75_mfe': 0,
-                                    'max_hold_bars': ep['max_hold'],
-                                }
-                                _pos_state = _exit_engine.open_position(
-                                    side=_flip_side, entry_price=price,
-                                    entry_bar_index=_bar_i,
-                                    template_id=_pp_tid, lib_entry=_ee_pp_lib,
+                                _exec_engine.position_opened(
+                                    side=_flip_side, price=price,
+                                    bar_index=_bar_i, template_id=_pp_tid,
+                                    lib_entry={'p25_mae_ticks': 0, 'mean_mae_ticks': 0,
+                                               'regression_sigma_ticks': 0, 'p75_mfe_ticks': 0},
+                                    sl_ticks=float(_pp_sl_ov or ep['sl']),
+                                    tp_ticks=float(_pp_tp_ov or ep['tp']),
+                                    max_hold_bars=ep['max_hold'],
                                 )
-                                _pos_state.sl_ticks = float(_pp_sl_ov or ep['sl'])
-                                _pos_state.tp_ticks = float(_pp_tp_ov or ep['tp'])
                                 current_position_open = True
                                 active_entry_price = price
                                 active_entry_time = ts_raw
@@ -992,216 +1002,6 @@ class BayesianTrainingOrchestrator:
                                     side=_flip_side, entry_bar=_bar_i,
                                     pattern_horizon_bars=active_max_hold_bars)
                                 pending_oracle = None
-
-                # OLD EXIT LOGIC — replaced by ExitEngine above (kept for reference)
-                if False and self.wave_rider.position is not None:
-                    # MAX HOLD: pattern's own timeframe length (floor 5 min = 20 bars).
-                    # Holding beyond the pattern's natural window means the market has moved
-                    # into a different regime — exit and free capital for the next signal.
-                    _bars_held = max(0, int((ts_raw - active_entry_time) / 15))
-                    if _bars_held >= active_max_hold_bars:
-                        _mh_pos = self.wave_rider.position
-                        _mh_sig = belief_network.get_exit_signal(_mh_pos.side)
-                        _mh_adj = _mh_pos.last_adjustment_reason or ''
-                        _mh_pnl = ((price - _mh_pos.entry_price) if _mh_pos.side == 'long'
-                                   else (_mh_pos.entry_price - price)) * self.asset.point_value
-                        self.wave_rider.position = None
-                        outcome = TradeOutcome(
-                            state=active_template_id, entry_price=active_entry_price,
-                            exit_price=price, pnl=_mh_pnl,
-                            result='WIN' if _mh_pnl > 0 else 'LOSS',
-                            timestamp=ts_raw, exit_reason='MAX_HOLD',
-                            entry_time=active_entry_time, exit_time=ts_raw,
-                            duration=ts_raw - active_entry_time,
-                            direction='LONG' if active_side == 'long' else 'SHORT',
-                            template_id=active_template_id
-                        )
-                        self.brain.update(outcome)
-                        day_trades.append(outcome)
-                        current_position_open = False
-                        if _equity_enabled:
-                            running_equity += outcome.pnl
-                            peak_equity   = max(peak_equity, running_equity)
-                            trough_equity = min(trough_equity, running_equity)
-                            if running_equity < _NINJATRADER_MNQ_MARGIN:
-                                account_ruined = True
-                                ruin_day = ruin_day or day_date
-                        if pending_oracle is not None:
-                            _mh_o_fav = (pending_oracle['oracle_mfe'] if pending_oracle['direction'] == 'LONG'
-                                         else pending_oracle['oracle_mae'])
-                            _mh_pot   = _mh_o_fav * self.asset.point_value
-                            _mh_cap   = outcome.pnl / _mh_pot if _mh_pot > 0 else 0.0
-                            oracle_trade_records.append({
-                                **pending_oracle,
-                                'exit_price':  price, 'exit_time': ts_raw,
-                                'hold_bars':   _bars_held, 'exit_reason': 'MAX_HOLD',
-                                'actual_pnl':  outcome.pnl, 'oracle_potential_pnl': _mh_pot,
-                                'capture_rate': round(min(_mh_cap, 9.99), 4),
-                                'result': outcome.result,
-                                'exit_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
-                                'exit_conviction':    _mh_sig.get('conviction', 0.0),
-                                'exit_wave_maturity': _mh_sig.get('wave_maturity', 0.0),
-                                'exit_signal_reason': (_mh_adj or _mh_sig.get('reason', '')),
-                                'exit_decay_score':   _mh_sig.get('decay_score', 0.0),
-                            })
-                            if _pending_dm_idx is not None:
-                                decision_matrix_records[_pending_dm_idx].update({
-                                    'trade_result': outcome.result, 'trade_pnl': round(outcome.pnl, 2),
-                                    'exit_reason': 'MAX_HOLD', 'exit_signal_reason': (_mh_adj or _mh_sig.get('reason', '')),
-                                    'exit_conviction': _mh_sig.get('conviction', 0.0),
-                                    'exit_wave_maturity': _mh_sig.get('wave_maturity', 0.0),
-                                })
-                            belief_network.stop_trade_tracking()
-                            pending_oracle = None
-                            _pending_dm_idx = None
-                        # ── Ping-pong: direction learn + flip after MAX_HOLD ──
-                        if _pp_enabled:
-                            _pp_direction_learn(active_template_id, active_side, outcome.result, outcome)
-                            _should_flip, _flip_side = _pp_try_flip(
-                                active_side, active_template_id, price, ts_raw,
-                                _pp_last_exit_params)
-                            if _should_flip and _pp_last_exit_params:
-                                ep = _pp_last_exit_params
-                                _pp_tid = f'PP_{active_template_id}'
-                                self.wave_rider.open_position(
-                                    entry_price=price, side=_flip_side,
-                                    state=None,
-                                    stop_distance_ticks=_pp_sl_ov or ep['sl'],
-                                    profit_target_ticks=_pp_tp_ov or ep['tp'],
-                                    trailing_stop_ticks=_pp_trail_ov or ep['trail'],
-                                    trail_activation_ticks=ep['trail_act'],
-                                    template_id=_pp_tid)
-                                current_position_open = True
-                                active_entry_price = price
-                                active_entry_time = ts_raw
-                                active_side = _flip_side
-                                active_template_id = _pp_tid
-                                active_max_hold_bars = ep['max_hold']
-                                _pp_flip_count += 1
-                                belief_network.start_trade_tracking(
-                                    side=_flip_side, entry_bar=_bar_i,
-                                    pattern_horizon_bars=active_max_hold_bars)
-                                pending_oracle = None  # no oracle for PP trades
-                    else:
-                        # Get exit signal from belief network every bar
-                        _exit_sig = belief_network.get_exit_signal(self.wave_rider.position.side)
-                        res = self.wave_rider.update_trail(price, None, ts_raw, exit_signal=_exit_sig)
-
-                        # ── 1s inner loop: check wicks within this 15s bar ──
-                        if not res['should_exit'] and _has_1s:
-                            _s0 = np.searchsorted(_1s_ts, ts_raw, side='left')
-                            _s1 = np.searchsorted(_1s_ts, ts_raw + 15, side='left')
-                            for _1s_i in range(_s0, _s1):
-                                belief_network.tick_sub_resolution(
-                                    tf_bar_idx_1s=_1s_i,
-                                    tf_bar_idx_5s=_1s_i // 5
-                                )
-                                res_1s = self.wave_rider.check_stops_hilo(
-                                    _1s_highs[_1s_i], _1s_lows[_1s_i], _1s_ts[_1s_i]
-                                )
-                                if res_1s['should_exit']:
-                                    res = res_1s
-                                    break
-
-                        if res['should_exit']:
-                            _exit_ts = res.get('exit_time', ts_raw)
-                            outcome = TradeOutcome(
-                                state=active_template_id,
-                                entry_price=active_entry_price,
-                                exit_price=res['exit_price'],
-                                pnl=res['pnl'],
-                                result='WIN' if res['pnl'] > 0 else 'LOSS',
-                                timestamp=ts_raw,
-                                exit_reason=res['exit_reason'],
-                                entry_time=active_entry_time,
-                                exit_time=_exit_ts,
-                                duration=_exit_ts - active_entry_time,
-                                direction='LONG' if active_side == 'long' else 'SHORT',
-                                template_id=active_template_id
-                            )
-                            self.brain.update(outcome)
-                            day_trades.append(outcome)
-                            current_position_open = False
-
-                            # Update running equity after trade close
-                            if _equity_enabled:
-                                running_equity += outcome.pnl
-                                peak_equity   = max(peak_equity, running_equity)
-                                trough_equity = min(trough_equity, running_equity)
-                                if running_equity < _NINJATRADER_MNQ_MARGIN:
-                                    account_ruined = True
-                                    ruin_day = ruin_day or day_date
-
-                            # Complete oracle record for this trade
-                            if pending_oracle is not None:
-                                o_mfe = pending_oracle['oracle_mfe']
-                                o_mae = pending_oracle['oracle_mae']
-                                oracle_favorable = o_mfe if pending_oracle['direction'] == 'LONG' else o_mae
-                                oracle_potential = oracle_favorable * self.asset.point_value
-                                capture = outcome.pnl / oracle_potential if oracle_potential > 0 else 0.0
-                                _exit_t = outcome.exit_time
-                                _entry_t = pending_oracle['entry_time']
-                                oracle_trade_records.append({
-                                    **pending_oracle,
-                                    'exit_price':  outcome.exit_price,
-                                    'exit_time':   _exit_t,
-                                    'hold_bars':   max(1, int((_exit_t - _entry_t) / 15)),  # 15s bars held
-                                    'exit_reason': outcome.exit_reason,
-                                    'actual_pnl':  outcome.pnl,
-                                    'oracle_potential_pnl': oracle_potential,
-                                    'capture_rate': round(min(capture, 9.99), 4),
-                                    'result': outcome.result,
-                                    # Worker snapshot at exit: compare vs entry_workers to find direction flips
-                                    'exit_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
-                                    'exit_conviction':    _exit_sig.get('conviction', 0.0),
-                                    'exit_wave_maturity': _exit_sig.get('wave_maturity', 0.0),
-                                    'exit_signal_reason': (res.get('adjustment_reason') or
-                                                           _exit_sig.get('reason', '')),
-                                    'exit_decay_score':   _exit_sig.get('decay_score', 0.0),
-                                })
-                                # Update signal-log record with trade outcome
-                                if _pending_dm_idx is not None:
-                                    decision_matrix_records[_pending_dm_idx].update({
-                                        'trade_result':       outcome.result,
-                                        'trade_pnl':          round(outcome.pnl, 2),
-                                        'exit_reason':        outcome.exit_reason,
-                                        'exit_signal_reason': (res.get('adjustment_reason') or
-                                                               _exit_sig.get('reason', '')),
-                                        'exit_conviction':    _exit_sig.get('conviction', 0.0),
-                                        'exit_wave_maturity': _exit_sig.get('wave_maturity', 0.0),
-                                    })
-                                belief_network.stop_trade_tracking()
-                                pending_oracle = None
-                                _pending_dm_idx = None
-
-                            # ── Ping-pong: direction learn + flip after normal exit ──
-                            if _pp_enabled:
-                                _pp_direction_learn(active_template_id, active_side, outcome.result, outcome)
-                                _should_flip, _flip_side = _pp_try_flip(
-                                    active_side, active_template_id, price, ts_raw,
-                                    _pp_last_exit_params)
-                                if _should_flip and _pp_last_exit_params:
-                                    ep = _pp_last_exit_params
-                                    _pp_tid = f'PP_{active_template_id}'
-                                    self.wave_rider.open_position(
-                                        entry_price=price, side=_flip_side,
-                                        state=None,
-                                        stop_distance_ticks=_pp_sl_ov or ep['sl'],
-                                        profit_target_ticks=_pp_tp_ov or ep['tp'],
-                                        trailing_stop_ticks=_pp_trail_ov or ep['trail'],
-                                        trail_activation_ticks=ep['trail_act'],
-                                        template_id=_pp_tid)
-                                    current_position_open = True
-                                    active_entry_price = price
-                                    active_entry_time = ts_raw
-                                    active_side = _flip_side
-                                    active_template_id = _pp_tid
-                                    active_max_hold_bars = ep['max_hold']
-                                    _pp_flip_count += 1
-                                    belief_network.start_trade_tracking(
-                                        side=_flip_side, entry_bar=_bar_i,
-                                        pattern_horizon_bars=active_max_hold_bars)
-                                    pending_oracle = None
 
                 # 2. Check for entries (if no position)
                 # Equity ruin check: simulation ends when equity hits 0 (no money to trade).
@@ -1213,723 +1013,256 @@ class BayesianTrainingOrchestrator:
                     if current_position_open:
                         bars_slot_blocked += 1
                 if not current_position_open and ts in pattern_map:
-                    candidates = pattern_map[ts]
-                    best_candidate = None
-                    best_dist = 999.0
-                    best_tid = None
-                    _candidate_gate = {}    # id(p) -> gate that blocked it (for FN audit)
-                    _bypass_candidate = None  # best Gate-1 reject for worker-conviction bypass
-                    _bypass_dist      = 999.0
-                    _gate_passers = {}      # id(p) -> record dict (for score_loser tracking)
+                    raw_candidates = pattern_map[ts]
+                    _candidate_gate = {}    # id(p) -> gate label (for FN audit)
 
-                    for p in candidates:
-                        n_signals_seen += 1
-                        # --- Gate 0: Headroom Gate (Nightmare Field Equation) ---
-                        micro_z = abs(p.z_score)
-                        micro_pattern = p.pattern_type
+                    # ── Build Candidate objects for ExecutionEngine ──
+                    _eng_candidates = [
+                        Candidate(
+                            state=p.state,
+                            depth=getattr(p, 'depth', 6),
+                            timeframe=getattr(p, 'timeframe', '15s'),
+                            timestamp=ts,
+                            pattern_type=p.pattern_type,
+                            z_score=p.z_score,
+                            features=np.array([FractalClusteringEngine.extract_features(p)]),
+                            raw_event=p,
+                        ) for p in raw_candidates
+                    ]
+                    n_signals_seen += len(raw_candidates)
 
-                        # Macro context
-                        chain = getattr(p, 'parent_chain', [])
-                        root_entry = chain[-1] if chain else None
-                        macro_z = abs(root_entry['z']) if root_entry else 0.0
-
-                        should_skip = False
-                        _skip_label = 'gate0'
-
-                        # DATA-QUALITY OVERRIDE: if this pattern maps to a high-quality
-                        # template (>=10 members, WR>=55%, sigma<=10 ticks) it is admitted
-                        # regardless of which structural rule would have blocked it.
-                        # "Predictable structure + low residuals" beats any physics heuristic.
-                        _data_override = False
-                        if _exception_tids and micro_pattern:
-                            _e_feat    = np.array([FractalClusteringEngine.extract_features(p)])
-                            _e_scaled  = self.scaler.transform(_e_feat)
-                            _e_dists   = np.linalg.norm(centroids_scaled - _e_scaled, axis=1)
-                            _e_nearest = int(np.argmin(_e_dists))
-                            if (_e_dists[_e_nearest] < 4.5
-                                    and valid_template_ids[_e_nearest] in _exception_tids):
-                                _data_override = True
-
-                        if not _data_override:
-                            # RULE 1: No pattern = no trade
-                            if not micro_pattern:
-                                should_skip = True
-
-                            # RULE 2: Noise zone (<0.5 sigma)
-                            elif micro_z < 0.5:
-                                should_skip = True
-                                _skip_label = 'gate0_noise'
-
-                            # RULE 3: Approach zone (0.5 - 2.0 sigma)
-                            elif 0.5 <= micro_z < 2.0:
-                                if micro_pattern == 'MOMENTUM_BREAK':
-                                    if p.state.adx_strength < _ADX_TREND_CONFIRMATION or p.state.hurst_exponent < _HURST_TREND_CONFIRMATION:
-                                        should_skip = True
-                                        _skip_label = 'gate0_r3_struct'
-                                elif micro_pattern == 'BAND_REVERSAL':
-                                    should_skip = True
-                                    _skip_label = 'gate0_r3_snap'
-
-                            # RULE 4: Mean Reversion / Extreme zone (>= 2.0 sigma)
-                            elif micro_z >= 2.0:
-                                headroom = macro_z < 3.0
-                                if micro_pattern == 'BAND_REVERSAL':
-                                    if not headroom and micro_z > 3.0:
-                                        should_skip = True
-                                        _skip_label = 'gate0_r4_nightmare'
-                                elif micro_pattern == 'MOMENTUM_BREAK':
-                                    if not headroom:
-                                        should_skip = True
-                                        _skip_label = 'gate0_r4_struct'
-
-                        # RULE 5: Physics safety (from reconnected get_trade_directive)
-                        if not should_skip and not _data_override:
-                            _st = p.state
-                            # 5a. Hurst < 0.5 = anti-persistent / choppy — unsafe for all patterns
-                            if _st.hurst_exponent < 0.5:
-                                should_skip = True
-                                _skip_label = 'gate0_hurst'
-                            # 5b. Momentum override: momentum dominates reversion → breakout likely
-                            elif abs(_st.F_momentum) > abs(_st.mean_reversion_force) * 1.5 and abs(_st.mean_reversion_force) > 0:
-                                should_skip = True
-                                _skip_label = 'gate0_momentum'
-                            # 5c. Tunnel probability too low (now analytically computed)
-                            elif _st.reversion_probability < 0.40:
-                                should_skip = True
-                                _skip_label = 'gate0_tunnel'
-
-                        if should_skip:
-                            skip_headroom += 1
-                            _candidate_gate[id(p)] = _skip_label
-                            decision_matrix_records.append(_dm_rec(
-                                p, _skip_label, day_date, ts, micro_z, macro_z, micro_pattern))
-                            continue
-
-                        # Gate 0.5: depth filter
-                        _cand_depth = getattr(p, 'depth', 6)
-
-                        # Depth isolation mode: only allow one specific depth
-                        _iso_depth = getattr(self, '_depth_only', None)
-                        if _iso_depth is not None and _cand_depth != _iso_depth:
-                            skip_headroom += 1
-                            _candidate_gate[id(p)] = 'gate0_5'
-                            decision_matrix_records.append(_dm_rec(
-                                p, 'gate0_5', day_date, ts, micro_z, macro_z, micro_pattern))
-                            continue
-
-                        # Hard gate: depths 0-2 (1D/4H/1H) are context-only, never trade.
-                        # Their workers feed conviction but the patterns don't fire entries.
-                        _MIN_TRADE_DEPTH = 3  # 15m and below only
-                        if _cand_depth < _MIN_TRADE_DEPTH:
-                            skip_headroom += 1
-                            _candidate_gate[id(p)] = 'gate0_5'
-                            decision_matrix_records.append(_dm_rec(
-                                p, 'gate0_5', day_date, ts, micro_z, macro_z, micro_pattern))
-                            continue
-
-                        # Exclude depths with negative avg PnL from previous run
-                        if _cand_depth in _DEPTH_FILTER_OUT:
-                            skip_headroom += 1
-                            _candidate_gate[id(p)] = 'gate0_5'
-                            decision_matrix_records.append(_dm_rec(
-                                p, 'gate0_5', day_date, ts, micro_z, macro_z, micro_pattern))
-                            continue
-
-                        # Extract 14D features using shared logic
-                        features = np.array([FractalClusteringEngine.extract_features(p)])
-
-                        # Scale
-                        feat_scaled = self.scaler.transform(features)
-
-                        # Match
-                        dists = np.linalg.norm(centroids_scaled - feat_scaled, axis=1)
-                        nearest_idx = np.argmin(dists)
-                        dist = dists[nearest_idx]
-                        tid = valid_template_ids[nearest_idx]
-
-                        if dist < 4.5: # Threshold (raised from 3.0 so extreme-z profitable patterns reach their nearest cluster)
-                            # Brain gate -- use low threshold for exploration
-                            if self.brain.should_fire(tid, min_prob=0.05, min_conf=0.0):
-                                # Score: lower is better
-                                # depth: 1=4h (best) -> 6=15s (worst)
-                                # Tier bonus: Tier 1 = -1.5, Tier 2 = -0.5, Tier 3 = 0, Tier 4 = +0.5
-                                # Depth adj: data-driven from previous run avg PnL/trade
-                                #   positive avg_pnl -> negative score_adj (favored)
-                                #   negative avg_pnl -> positive score_adj (penalized)
-                                p_depth   = getattr(p, 'depth', 6)
-                                tier_adj  = _TIER_SCORE_ADJ.get(template_tier_map.get(tid, 3), 0.0)
-                                depth_adj = _DEPTH_SCORE_ADJ.get(p_depth, 0.0)
-                                score     = p_depth + dist + tier_adj + depth_adj
-                                if score < best_dist:
-                                    best_dist = score
-                                    best_candidate = p
-                                    best_tid = tid
-                                # Track for score_loser detection (all gate-passers)
-                                _gate_passers[id(p)] = _dm_rec(
-                                    p, 'score_loser', day_date, ts, micro_z, macro_z,
-                                    micro_pattern, dist=dist,
-                                    template_id=tid, tier=template_tier_map.get(tid, 3))
-                            else:
-                                skip_brain += 1
-                                _candidate_gate[id(p)] = 'gate2'
-                                decision_matrix_records.append(_dm_rec(
-                                    p, 'gate2', day_date, ts, micro_z, macro_z,
-                                    micro_pattern, dist=dist,
-                                    template_id=tid, tier=template_tier_map.get(tid, 3)))
-                        else:
-                            # Gate 1 rejected -- track nearest miss for worker-bypass path
-                            if dist < _bypass_dist:
-                                _bypass_dist      = dist
-                                _bypass_candidate = p
-                            skip_dist += 1
-                            _candidate_gate[id(p)] = 'gate1'
-                            decision_matrix_records.append(_dm_rec(
-                                p, 'gate1', day_date, ts, micro_z, macro_z,
-                                micro_pattern, dist=dist))
-
-                    # ── Emit score_loser records (gate-passers that lost on score) ──
-                    for _pid, _prec in _gate_passers.items():
-                        if best_candidate is None or _pid != id(best_candidate):
-                            decision_matrix_records.append(_prec)
-
-                    # ── Worker-conviction bypass (Gate 1 override) ───────────────
-                    # FN analysis: when no cluster matches, 30m/15m/5m workers still
-                    # called the right direction 85-100% of the time. Allow the trade
-                    # if conviction is high enough to act without a template.
-                    _WORKER_BYPASS_CONV = 0.65   # minimum conviction to bypass Gate 1
-                    _bypass_belief = None
-                    if best_candidate is None and _bypass_candidate is not None:
-                        _bypass_belief = belief_network.get_belief()
-                        if _bypass_belief is None or _bypass_belief.conviction < _WORKER_BYPASS_CONV:
-                            _bypass_belief = None   # not confident enough -- skip
-
-                    if best_candidate:
-                        # FIRE
-                        params = self.pattern_library[best_tid]['params']
-                        lib_entry = self.pattern_library[best_tid]
-
-                        # ── Live feature vector (shared by direction + MFE models) ──
-                        # Same 14D features used during clustering -- scaler already fitted
-                        _live_feat = np.array(FractalClusteringEngine.extract_features(best_candidate))
-                        _live_scaled = self.scaler.transform([_live_feat])[0]
-
-                        # ── Direction gate ──────────────────────────────────────────
-                        # Priority -1 (ping-pong live bias): if 5+ directional trades
-                        # show clear WR split, override all other direction methods.
-                        _pp_dir_override = None
-                        if _pp_enabled:
-                            _pp_base = best_tid
-                            _pp_b = _pp_live_dir_bias.get(_pp_base)
-                            if _pp_b:
-                                _lw, _ll = _pp_b.get('long_w', 0), _pp_b.get('long_l', 0)
-                                _sw, _sl = _pp_b.get('short_w', 0), _pp_b.get('short_l', 0)
-                                _lt, _st = _lw + _ll, _sw + _sl
-                                if _lt >= 5 and _st >= 5:
-                                    _lwr = _lw / _lt
-                                    _swr = _sw / _st
-                                    if _lwr > 0.60 and _swr < 0.40:
-                                        _pp_dir_override = 'long'
-                                    elif _swr > 0.60 and _lwr < 0.40:
-                                        _pp_dir_override = 'short'
-
-                        # Priority 0: individual oracle_marker (highest resolution signal)
-                        #   oracle_marker > 0  -> LONG move followed this exact training pattern
-                        #   oracle_marker < 0  -> SHORT move
-                        #   oracle_marker == 0 -> NOISE -> fall through to regression tiers
-                        _BIAS_THRESH = bias_threshold if bias_threshold is not None else 0.55
-                        _DMI_THRESH  = dmi_threshold  if dmi_threshold  is not None else 0.0
-                        _band = None  # populated at Priority 3 (band confluence)
-                        long_bias  = lib_entry.get('long_bias',  0.0)
-                        short_bias = lib_entry.get('short_bias', 0.0)
-                        _nn_marker = _effective_oracle(best_candidate)  # macro-to-leaf aggregated
-
-                        if _pp_dir_override is not None:
-                            side = _pp_dir_override
-                        elif _nn_marker > 0:
-                            side = 'long'
-                        elif _nn_marker < 0:
-                            side = 'short'
-                        else:
-                            # NOISE pattern -- use regression model hierarchy
-                            side = None
-
-                            # Priority 0.5: Signed MFE regression (learned from oracle)
-                            _smfe_coeff = lib_entry.get('signed_mfe_coeff')
-                            if side is None and _smfe_coeff is not None:
-                                _entry_depth = getattr(best_candidate, 'depth', 6)
-                                _live_dmi = (getattr(best_candidate.state, 'dmi_plus', 0.0)
-                                           - getattr(best_candidate.state, 'dmi_minus', 0.0))
-                                _pred_smfe = float(
-                                    np.dot(np.array([[_entry_depth, _live_dmi]]),
-                                           np.array(_smfe_coeff))
-                                    + lib_entry.get('signed_mfe_intercept', 0.0))
-                                if abs(_pred_smfe) > 0.5:
-                                    side = 'long' if _pred_smfe > 0 else 'short'
-
-                            # Priority 1: per-cluster logistic regression P(LONG)
-                            _dir_coeff = lib_entry.get('dir_coeff')
-                            if _dir_coeff is not None:
-                                _dir_logit = (np.dot(_live_scaled, np.array(_dir_coeff))
-                                              + lib_entry.get('dir_intercept', 0.0))
-                                _dir_prob  = 1.0 / (1.0 + np.exp(-_dir_logit))
-                                if _dir_prob > _BIAS_THRESH:
-                                    side = 'long'
-                                elif _dir_prob < (1.0 - _BIAS_THRESH):
-                                    side = 'short'
-
-                            # Priority 1.5: Brain direction-specific win rate
-                            if side is None:
-                                _dir_long_prob = self.brain.get_dir_probability(best_tid, 'LONG')
-                                _dir_short_prob = self.brain.get_dir_probability(best_tid, 'SHORT')
-                                if _dir_long_prob is not None and _dir_short_prob is not None:
-                                    if _dir_long_prob > _dir_short_prob + 0.10:
-                                        side = 'long'
-                                    elif _dir_short_prob > _dir_long_prob + 0.10:
-                                        side = 'short'
-
-                            # Priority 2: template aggregate bias
-                            if side is None:
-                                if long_bias >= _BIAS_THRESH:
-                                    side = 'long'
-                                elif short_bias >= _BIAS_THRESH:
-                                    side = 'short'
-                                elif long_bias + short_bias >= 0.10:
-                                    side = 'long' if long_bias >= short_bias else 'short'
-
-                            # Priority 3: Multi-TF band confluence
-                            if side is None:
-                                _band = belief_network.get_band_confluence()
-                                if _band is not None and _band['direction'] is not None:
-                                    side = _band['direction']
-
-                            # Priority 4: live DMI (trend-following)
-                            _live_s = best_candidate.state
-                            if side is None:
-                                _dmi_diff = (getattr(_live_s, 'dmi_plus',  0.0)
-                                           - getattr(_live_s, 'dmi_minus', 0.0))
-                                if abs(_dmi_diff) >= _DMI_THRESH and _dmi_diff > 0:
-                                    side = 'long'
-                                elif abs(_dmi_diff) >= _DMI_THRESH and _dmi_diff < 0:
-                                    side = 'short'
-
-                            # Fallback: band > velocity
-                            if side is None:
-                                if _band is not None and _band['direction'] is not None:
-                                    side = _band['direction']
-                                else:
-                                    _vel = getattr(_live_s, 'velocity', 0.0)
-                                    side = 'long' if _vel >= 0 else 'short'
-
-                        # ── Path conviction gate (fractal belief network) ─────────
-                        # Collect all 8 TF workers' current beliefs.
-                        # If the fractal tree is uncertain (conviction < threshold) -> skip.
-                        # If tree agrees but disagrees with our leaf direction -> flip.
-                        # If tree agrees and TP from decision-level worker is better -> use it.
-                        _belief = belief_network.get_belief()
-                        if _belief is not None:
-                            if not _belief.is_confident:
-                                # Tree uncertain across scales -- skip this bar
-                                skip_conviction += 1
-                                _candidate_gate[id(p)] = 'gate3'
-                                _bc_mz = abs(best_candidate.z_score)
-                                _bc_mac = abs((getattr(best_candidate, 'parent_chain', None) or [{}])[-1].get('z', 0.0))
-                                decision_matrix_records.append(_dm_rec(
-                                    best_candidate, 'gate3', day_date, ts,
-                                    _bc_mz, _bc_mac,
-                                    getattr(best_candidate, 'pattern_type', ''),
-                                    dist=best_dist,
-                                    conviction=_belief.conviction if _belief else 0.0,
-                                    template_id=best_tid,
-                                    tier=template_tier_map.get(best_tid, 3)))
+                    # -- PP direction override --
+                    _pp_dir_ov = None
+                    if _pp_enabled:
+                        for _ec in _eng_candidates:
+                            _raw = _ec.raw_event
+                            if _raw is None:
                                 continue
-                            # Path direction override: belief network wins over z_score branch
-                            # OOS: workers have +0.20 edge at 15m, +0.09 at 15s.
-                            # IS forward pass: z_score sign was ~56% accurate (near random).
-                            # Belief direction is a stronger signal than z_score sign alone.
-                            if _belief.direction != side:
-                                side = _belief.direction
-                            # Use network's predicted MFE if better than leaf-level estimate
-                            _network_tp = max(4, int(round(_belief.predicted_mfe))) if _belief.predicted_mfe > 2.0 else None
-                        else:
-                            _network_tp = None
+                            _pp_base = None
+                            _ec_feat = _ec.features
+                            if _ec_feat is not None:
+                                _ec_fs = self.scaler.transform(_ec_feat.reshape(1, -1) if _ec_feat.ndim == 1 else _ec_feat)
+                                _ec_ds = np.linalg.norm(centroids_scaled - _ec_fs, axis=1)
+                                _ec_ni = int(np.argmin(_ec_ds))
+                                if _ec_ds[_ec_ni] < 4.5:
+                                    _pp_base = valid_template_ids[_ec_ni]
+                            if _pp_base is not None:
+                                _pp_b = _pp_live_dir_bias.get(_pp_base)
+                                if _pp_b:
+                                    _lw, _ll = _pp_b.get('long_w', 0), _pp_b.get('long_l', 0)
+                                    _sw, _sl = _pp_b.get('short_w', 0), _pp_b.get('short_l', 0)
+                                    _lt, _st = _lw + _ll, _sw + _sl
+                                    if _lt >= 5 and _st >= 5:
+                                        _lwr = _lw / _lt
+                                        _swr = _sw / _st
+                                        if _lwr > 0.60 and _swr < 0.40:
+                                            _pp_dir_ov = 'long'
+                                        elif _swr > 0.60 and _lwr < 0.40:
+                                            _pp_dir_ov = 'short'
+                                if _pp_dir_ov is not None:
+                                    break
 
-                        # ── Exit sizing from per-cluster regression models ────────
-                        # TWO-PHASE EXIT DESIGN
-                        # Phase 1 (initial hard stop): wide enough to survive entry
-                        #   noise at the Roche limit before mean reversion kicks in.
-                        #   = mean_mae_ticks * 2.0  (cluster's avg adverse excursion x2)
-                        # Phase 2 (trailing stop): activates once price has moved
-                        #   trail_activation_ticks in our favour, then trails HWM.
-                        #   = regression_sigma_ticks * 1.1  (OLS breathing room)
-                        # Trail activation threshold = p25_mae_ticks * 0.5
-                        #   (half the 25th-pct adverse excursion -- modest confirmation)
-                        _reg_sigma = lib_entry.get('regression_sigma_ticks', 0.0)
-                        _mean_mae  = lib_entry.get('mean_mae_ticks', 0.0)
-                        _p75_mfe   = lib_entry.get('p75_mfe_ticks',  0.0)
-                        _p25_mae   = lib_entry.get('p25_mae_ticks',  0.0)
+                    # -- Call ExecutionEngine --
+                    _entry_action = _exec_engine.on_bar(
+                        price=price,
+                        bar_high=getattr(row, 'high', price),
+                        bar_low=getattr(row, 'low', price),
+                        bar_index=_bar_i,
+                        candidates=_eng_candidates,
+                        oracle_marker_fn=_effective_oracle,
+                        pp_dir_override=_pp_dir_ov,
+                    )
+                    # Copy gate labels for FN audit
+                    _candidate_gate = _entry_action.candidate_gates
 
-                        # Phase 1: initial hard stop (wide)
-                        # Anchor to p25_mae (25th-pct adverse excursion) * 3.0 so that
-                        # outlier clusters with huge mean_mae don't produce runaway stops.
-                        # Falls back to mean_mae * 2.0 when p25 is unavailable.
-                        if _p25_mae > 2.0:
-                            _sl_ticks = max(4, int(round(_p25_mae * 3.0)))
-                        elif _mean_mae > 2.0:
-                            _sl_ticks = max(4, int(round(_mean_mae * 2.0)))
-                        else:
-                            _sl_ticks = params.get('stop_loss_ticks', 20)
+                    if _entry_action.type == ActionType.ENTER:
+                        best_candidate = _entry_action.raw_event
+                        best_tid = _entry_action.template_id
+                        lib_entry = _entry_action.lib_entry
+                        side = _entry_action.side
+                        _belief = _entry_action.belief_state
+                        _band = _entry_action.band_context
+                        _network_tp = _entry_action.network_tp
+                        _sl_ticks = int(_entry_action.sl_ticks)
+                        _tp_ticks = int(_entry_action.tp_ticks)
+                        _trail_ticks = int(_entry_action.trail_ticks)
+                        _trail_act_ticks = int(_entry_action.trail_activation_ticks) or None
+                        _cand_depth = _entry_action.depth
+                        _parent_tf = _entry_action.parent_tf
+                        active_max_hold_bars = _entry_action.max_hold_bars
+                        long_bias = _entry_action.long_bias
+                        short_bias = _entry_action.short_bias
 
-                        # Phase 2: trailing stop distance (tight, from HWM)
-                        if _reg_sigma > 2.0:
-                            _trail_ticks = max(2, int(round(_reg_sigma * 1.1)))
-                        elif _mean_mae > 2.0:
-                            _trail_ticks = max(2, int(round(_mean_mae * 1.1)))
-                        else:
-                            _trail_ticks = params.get('trailing_stop_ticks', 10)
-
-                        # Trail activation: needs p25_mae * 0.3 profit ticks to engage
-                        # (30% of the tight adverse excursion -- locks in gain quickly
-                        #  once the trade is moving our way)
-                        _trail_act_ticks = (max(2, int(round(_p25_mae * 0.3)))
-                                            if _p25_mae > 2.0
-                                            else None)  # None = immediate (legacy)
-
-                        # TP: network path prediction (highest priority, sees all scales)
-                        #     -> per-bar OLS (leaf cluster model)
-                        #     -> template p75 (historical average)
-                        #     -> DOE param (last resort)
-                        if _network_tp is not None:
-                            _tp_ticks = _network_tp
-                        else:
-                            _mfe_coeff = lib_entry.get('mfe_coeff')
-                            if _mfe_coeff is not None:
-                                _pred_mfe_pts   = (np.dot(_live_scaled, np.array(_mfe_coeff))
-                                                   + lib_entry.get('mfe_intercept', 0.0))
-                                _pred_mfe_ticks = max(0.0, _pred_mfe_pts / 0.25)
-                                _tp_ticks = max(4, int(round(_pred_mfe_ticks))) if _pred_mfe_ticks > 2.0 else (
-                                    max(4, int(round(_p75_mfe))) if _p75_mfe > 2.0
-                                    else params.get('take_profit_ticks', 50))
-                            elif _p75_mfe > 2.0:
-                                _tp_ticks = max(4, int(round(_p75_mfe)))
-                            else:
-                                _tp_ticks = params.get('take_profit_ticks', 50)
-
-                        # ── Equity risk gate ─────────────────────────────────
-                        # When account_size is set, skip trades whose max loss
-                        # (SL in $) would consume more than half the remaining
-                        # equity. This prevents a single stop-out from wiping
-                        # the account below the NinjaTrader margin floor.
-                        _MAX_RISK_FRACTION = 0.50   # fraction of equity risked per trade
+                        # Equity risk gate (stays in orchestrator)
+                        _MAX_RISK_FRACTION = 0.50
+                        _skip_equity = False
                         if _equity_enabled:
                             _max_loss_usd = _sl_ticks * self.asset.tick_size * self.asset.point_value
                             _max_risk_usd = running_equity * _MAX_RISK_FRACTION
                             if _max_loss_usd > _max_risk_usd:
                                 skipped_ruin += 1
-                                continue   # skip this trade — risk too large for current equity
+                                _skip_equity = True
 
-                        self.wave_rider.open_position(
-                            entry_price=price,
-                            side=side,
-                            state=best_candidate.state,
-                            stop_distance_ticks=_sl_ticks,
-                            profit_target_ticks=_tp_ticks,
-                            trailing_stop_ticks=_trail_ticks,
-                            trail_activation_ticks=_trail_act_ticks,
-                            template_id=best_tid
-                        )
-                        # Loss watchdog: flag if DMI is inverse to trade direction at entry
-                        _entry_dmi = (getattr(best_candidate.state, 'dmi_plus', 0.0)
-                                      - getattr(best_candidate.state, 'dmi_minus', 0.0))
-                        _dmi_inv = (_entry_dmi < 0) if side == 'long' else (_entry_dmi > 0)
-                        if self.wave_rider.position:
-                            self.wave_rider.position.entry_dmi_inverse = _dmi_inv
-
-                        current_position_open = True
-                        active_entry_price = price
-                        active_entry_time = ts
-                        active_side = side
-                        active_template_id = best_tid
-                        # Max hold = 5 bars of the parent timeframe.
-                        # Parent structure takes ~5 bars to resolve; child trade
-                        # lives within that window. Leaf precision, parent duration.
-                        _chain = getattr(best_candidate, 'parent_chain', None) or []
-                        _HOLD_PARENT_BARS = 5
-                        if _chain:
-                            _parent_tf = _chain[0].get('tf', '4h')  # chain[0] = immediate parent
-                        else:
-                            _parent_tf = str(getattr(best_candidate, 'timeframe', '4h'))
-                        _parent_tf_sec = TIMEFRAME_SECONDS.get(_parent_tf, 14400)
-                        active_max_hold_bars = max(20, (_parent_tf_sec * _HOLD_PARENT_BARS) // 15)
-                        # Store TF-scaled exit params for ping-pong reuse
-                        _pp_last_exit_params = {
-                            'sl': _sl_ticks, 'tp': _tp_ticks,
-                            'trail': _trail_ticks, 'trail_act': _trail_act_ticks,
-                            'max_hold': active_max_hold_bars,
-                            'tf': _parent_tf, 'depth': _cand_depth,
-                        }
-                        # Initialize ExitEngine position state (unified exit logic)
-                        _ee_lib = {
-                            'p25_mae': _p25_mae, 'mean_mae': _mean_mae,
-                            'regression_sigma': _reg_sigma,
-                            'p75_mfe': _p75_mfe,
-                            'max_hold_bars': active_max_hold_bars,
-                        }
-                        _pos_state = _exit_engine.open_position(
-                            side=side, entry_price=price, entry_bar_index=_bar_i,
-                            template_id=best_tid, lib_entry=_ee_lib,
-                            network_tp=float(_network_tp) if _network_tp else None,
-                        )
-
-                        # Start physics decay tracking (bottom-up exit cascade)
-                        belief_network.start_trade_tracking(
-                            side=side,
-                            entry_bar=_bar_i,
-                            pattern_horizon_bars=active_max_hold_bars,
-                        )
-                        depth_traded[getattr(best_candidate, 'depth', 6)] += 1
-
-                        # Store oracle facts for this trade (linked at exit)
-                        # Direction-gate diagnostic columns enable offline DOE sweep of
-                        # bias_threshold without re-running the forward pass.
-                        _live_state  = best_candidate.state
-                        _dmi_at_entry = round(
-                            getattr(_live_state, 'dmi_plus',  0.0)
-                          - getattr(_live_state, 'dmi_minus', 0.0), 2)
-                        _entry_depth = getattr(best_candidate, 'depth', 6)
-                        _playbook = lib_entry.get('semantic_name', '') or ''
-                        if (not _playbook or _playbook == 'Unknown') and lib_entry.get('centroid') is not None:
-                            from core.fractal_clustering import generate_semantic_name
-                            _playbook = generate_semantic_name(lib_entry['centroid'])
-                        pending_oracle = {
-                            'template_id':      best_tid,
-                            'playbook':         _playbook,
-                            'direction':        'LONG' if side == 'long' else 'SHORT',
-                            'entry_price':      price,
-                            'entry_time':       ts,        # Unix timestamp (15s resolution)
-                            'entry_depth':      _entry_depth,  # Fractal depth (1=daily,6=15s)
-                            'root_tf':          _parent_tf,  # Immediate parent TF (max hold source)
-                            'max_hold_bars':    active_max_hold_bars,
-                            'oracle_label':     best_candidate.oracle_marker,
-                            'oracle_label_name':_ORACLE_LABEL_NAMES.get(best_candidate.oracle_marker, 'UNKNOWN'),
-                            'oracle_mfe':       best_candidate.oracle_meta.get('mfe', 0.0),
-                            'oracle_mae':       best_candidate.oracle_meta.get('mae', 0.0),
-                            # Direction DOE diagnostics
-                            'long_bias':        round(long_bias,  4),
-                            'short_bias':       round(short_bias, 4),
-                            'dmi_diff':         _dmi_at_entry,
-                            # Belief network diagnostics
-                            'belief_active_levels': _belief.active_levels if _belief is not None else 0,
-                            'belief_conviction':    round(_belief.conviction, 4) if _belief is not None else 0.0,
-                            'wave_maturity':        round(_belief.wave_maturity, 4) if _belief is not None else 0.0,
-                            'decision_wave_maturity': round(_belief.decision_wave_maturity, 4) if _belief is not None else 0.0,
-                            # Per-worker snapshots at entry: each worker's dir_prob/conviction/wave_maturity/pred_mfe
-                            # Stored as JSON string; parse with json.loads() for analysis.
-                            # Compare entry_workers vs exit_workers to find who flipped direction.
-                            'entry_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
-                            # Band confluence diagnostics
-                            'band_direction': _band['direction'] if _band else None,
-                            'band_strength': round(_band['strength'], 3) if _band else 0.0,
-                            'band_summary': _band.get('band_summary', '') if _band else '',
-                        }
-
-                        # Signal log: add 'traded' record, save index for outcome update
-                        _bc_mz  = round(abs(best_candidate.z_score), 2)
-                        _bc_mac = round(abs((getattr(best_candidate, 'parent_chain', None) or [{}])[-1].get('z', 0.0)), 2)
-                        _dm_entry = _dm_rec(
-                            best_candidate, 'traded', day_date, ts,
-                            _bc_mz, _bc_mac,
-                            getattr(best_candidate, 'pattern_type', ''),
-                            dist=best_dist,
-                            conviction=round(_belief.conviction, 3) if _belief else 0.0,
-                            template_id=best_tid,
-                            tier=template_tier_map.get(best_tid, 3),
-                            playbook=_playbook)
-                        _dm_entry['trade_direction'] = 'LONG' if side == 'long' else 'SHORT'
-                        decision_matrix_records.append(_dm_entry)
-                        _pending_dm_idx = len(decision_matrix_records) - 1
-
-                        # AUDIT: True Positive or False Positive
-                        audit_outcome = TradeOutcome(
-                            state=best_candidate.state,
-                            entry_price=price,
-                            exit_price=0.0,
-                            pnl=0.0,
-                            result='PENDING',
-                            timestamp=ts,
-                            exit_reason='PENDING',
-                            direction='LONG' if side == 'long' else 'SHORT'
-                        )
-                        audit_res = _audit_trade(audit_outcome, best_candidate)
-                        cls = audit_res['classification']
-                        if cls == 'TP': audit_tp += 1
-                        elif cls == 'FP_NOISE': audit_fp_noise += 1
-                        elif cls == 'FP_WRONG': audit_fp_wrong += 1
-
-                        # Audit other candidates as SKIPPED
-                        for p in candidates:
-                            if p == best_candidate: continue
-                            audit_res = _audit_trade(None, p)
-                            if audit_res['classification'] == 'TN':
-                                audit_tn += 1
-                            elif audit_res['classification'] == 'FN':
-                                # Skip if PID regime covers this bar (handled by PID analyzer)
-                                _s = p.state
-                                _is_pid = (abs(_s.term_pid) >= 0.3
-                                           and _s.oscillation_entropy_normalized >= 0.5
-                                           and _s.adx_strength <= 30.0)
-                                if _is_pid:
-                                    continue
-
-                                _om = _effective_oracle(p)
-                                _meta = getattr(p, 'oracle_meta', {})
-                                _fn_pot = (_meta.get('mfe', 0.0) if _om > 0 else _meta.get('mae', 0.0)) * self.asset.point_value
-
-                                # Golden-path rule: if this candidate passed all gates but lost
-                                # the score competition, it is NOT a missed opportunity -- we
-                                # deliberately chose a better trade at this bar.
-                                if id(p) in _gate_passers:
-                                    score_loser_pnl += _fn_pot
-                                    continue  # do NOT add to fn_oracle_records or fn_potential_pnl
-
-                                audit_fn += 1
-                                fn_potential_pnl += _fn_pot
-                                fn_oracle_records.append({
-                                    'timestamp':       ts,
-                                    'depth':           getattr(p, 'depth', 6),
-                                    'oracle_label':    _om,
-                                    'oracle_label_name': _ORACLE_LABEL_NAMES.get(_om, '?'),
-                                    'oracle_dir':      'LONG' if _om > 0 else 'SHORT',
-                                    'fn_potential_pnl': round(_fn_pot, 2),
-                                    'reason':          'competed',
-                                    'gate_blocked':    _candidate_gate.get(id(p), 'unknown'),
-                                    'workers':         __import__('json').dumps(belief_network.get_worker_snapshot()),
-                                })
-                    elif _bypass_belief is not None:
-                        # ── Worker-bypass trade ────────────────────────────────
-                        # No cluster template matched (Gate 1) but belief conviction
-                        # >= 0.65. Workers called the direction 85-100% correctly for
-                        # these no-match signals -- fire using worker-derived params.
-
-                        # ── Physics quality gate (Analysis B: depth<=3 + z<0) ─
-                        # Filters to high-TF triggers with extended price only.
-                        # OOS: 69.2% WR, $188.83/trade vs baseline 33.3%, $20.69.
-                        _bp_depth_raw = getattr(_bypass_candidate, 'depth', 5)
-                        _bp_z_raw     = getattr(_bypass_candidate, 'z_score',
-                                                getattr(_bypass_candidate.state, 'z_score', 0.0))
-                        if _bp_depth_raw > 3 or _bp_z_raw >= 0:
-                            skip_physics_qg += 1
-                            _bypass_belief = None  # reject — low-quality entry
-
-                    if _bypass_belief is not None and best_candidate is None:
-                        side         = _bypass_belief.direction   # 'long' or 'short'
-                        _bp_sigma    = getattr(_bypass_candidate.state, 'regression_sigma', 0.0)
-                        _bp_sl_ticks = max(4, int(round(_bp_sigma / self.asset.tick_size * 1.5))) if _bp_sigma > 0 else 8
-                        _bp_tp_ticks = (max(8, int(round(_bypass_belief.predicted_mfe)))
-                                        if _bypass_belief.predicted_mfe > 2.0 else 20)
-
-                        _bypass_risk_ok = True
-                        if _equity_enabled:
-                            _max_loss_usd = _bp_sl_ticks * self.asset.tick_size * self.asset.point_value
-                            if _max_loss_usd > running_equity * 0.50:
-                                skipped_ruin += 1
-                                _bypass_risk_ok = False
-
-                        if _bypass_risk_ok:
+                        if not _skip_equity:
+                            # Open WaveRider position
                             self.wave_rider.open_position(
                                 entry_price=price,
                                 side=side,
-                                state=_bypass_candidate.state,
-                                stop_distance_ticks=_bp_sl_ticks,
-                                profit_target_ticks=_bp_tp_ticks,
-                                template_id=-1,
+                                state=best_candidate.state if best_candidate else None,
+                                stop_distance_ticks=_sl_ticks,
+                                profit_target_ticks=_tp_ticks,
+                                trailing_stop_ticks=_trail_ticks,
+                                trail_activation_ticks=_trail_act_ticks,
+                                template_id=best_tid,
                             )
-                            # Loss watchdog: flag if DMI is inverse to trade direction at entry
-                            _bp_entry_dmi = (getattr(_bypass_candidate.state, 'dmi_plus', 0.0)
-                                             - getattr(_bypass_candidate.state, 'dmi_minus', 0.0))
-                            _bp_dmi_inv = (_bp_entry_dmi < 0) if side == 'long' else (_bp_entry_dmi > 0)
-                            if self.wave_rider.position:
-                                self.wave_rider.position.entry_dmi_inverse = _bp_dmi_inv
+                            # DMI inverse flag
+                            if best_candidate and self.wave_rider.position:
+                                _entry_dmi = (getattr(best_candidate.state, 'dmi_plus', 0.0)
+                                              - getattr(best_candidate.state, 'dmi_minus', 0.0))
+                                _dmi_inv = (_entry_dmi < 0) if side == 'long' else (_entry_dmi > 0)
+                                self.wave_rider.position.entry_dmi_inverse = _dmi_inv
+
+                            # Notify engine
+                            _exec_engine.position_opened(
+                                side=side, price=price, bar_index=_bar_i,
+                                template_id=best_tid, lib_entry=lib_entry,
+                                sl_ticks=_sl_ticks, tp_ticks=_tp_ticks,
+                                network_tp=float(_network_tp) if _network_tp else None,
+                                max_hold_bars=active_max_hold_bars,
+                            )
 
                             current_position_open = True
-                            active_entry_price    = price
-                            active_entry_time     = ts_raw
-                            active_side           = side
-                            active_template_id    = -1
-                            _bp_chain = getattr(_bypass_candidate, 'parent_chain', None) or []
-                            _bp_parent_tf = _bp_chain[0].get('tf', '4h') if _bp_chain else str(getattr(_bypass_candidate, 'timeframe', '4h'))
-                            _btf_sec = TIMEFRAME_SECONDS.get(_bp_parent_tf, 14400)
-                            active_max_hold_bars  = max(20, (_btf_sec * 5) // 15)
-                            # Initialize ExitEngine position state for bypass entry
-                            _ee_bp_lib = {
-                                'p25_mae': 0, 'mean_mae': 0, 'regression_sigma': 0,
-                                'p75_mfe': _bp_tp_ticks,
-                                'max_hold_bars': active_max_hold_bars,
-                            }
-                            _pos_state = _exit_engine.open_position(
-                                side=side, entry_price=price, entry_bar_index=_bar_i,
-                                template_id=-1, lib_entry=_ee_bp_lib,
-                            )
-                            # Override SL with bypass-specific value
-                            _pos_state.sl_ticks = float(_bp_sl_ticks)
+                            active_entry_price = price
+                            active_entry_time = ts
+                            active_side = side
+                            active_template_id = best_tid
+
+                            # Store TF-scaled exit params for ping-pong
                             _pp_last_exit_params = {
-                                'sl': _bp_sl_ticks, 'tp': _bp_tp_ticks,
-                                'trail': 6, 'trail_act': None,
+                                'sl': _sl_ticks, 'tp': _tp_ticks,
+                                'trail': _trail_ticks, 'trail_act': _trail_act_ticks,
                                 'max_hold': active_max_hold_bars,
-                                'tf': _bp_parent_tf,
-                                'depth': getattr(_bypass_candidate, 'depth', 6),
+                                'tf': _parent_tf, 'depth': _cand_depth,
                             }
+
+                            # Start physics decay tracking
                             belief_network.start_trade_tracking(
-                                side=side,
-                                entry_bar=_bar_i,
+                                side=side, entry_bar=_bar_i,
                                 pattern_horizon_bars=active_max_hold_bars,
                             )
-                            depth_traded[getattr(_bypass_candidate, 'depth', 6)] += 1
+                            depth_traded[_cand_depth] += 1
+
+                            # -- Oracle record assembly --
+                            _live_state = best_candidate.state if best_candidate else None
+                            _dmi_at_entry = round(
+                                getattr(_live_state, 'dmi_plus', 0.0)
+                                - getattr(_live_state, 'dmi_minus', 0.0), 2) if _live_state else 0.0
+                            _nn_marker = _effective_oracle(best_candidate) if best_candidate else 0
+                            _playbook = lib_entry.get('semantic_name', '') or ''
+                            if (not _playbook or _playbook == 'Unknown') and lib_entry.get('centroid') is not None:
+                                from core.fractal_clustering import generate_semantic_name
+                                _playbook = generate_semantic_name(lib_entry['centroid'])
+
                             pending_oracle = {
-                                'template_id':      -1,
+                                'template_id':      best_tid,
+                                'playbook':         _playbook,
                                 'direction':        'LONG' if side == 'long' else 'SHORT',
                                 'entry_price':      price,
                                 'entry_time':       ts,
-                                'entry_depth':      getattr(_bypass_candidate, 'depth', 6),
-                                'oracle_label':     _effective_oracle(_bypass_candidate),
-                                'oracle_label_name': 'WORKER_BYPASS',
-                                'oracle_mfe':       getattr(_bypass_candidate, 'oracle_meta', {}).get('mfe', 0.0),
-                                'oracle_mae':       getattr(_bypass_candidate, 'oracle_meta', {}).get('mae', 0.0),
-                                'long_bias':        0.0,
-                                'short_bias':       0.0,
-                                'dmi_diff':         round(
-                                    getattr(_bypass_candidate.state, 'dmi_plus',  0.0)
-                                  - getattr(_bypass_candidate.state, 'dmi_minus', 0.0), 2),
-                                'belief_active_levels': _bypass_belief.active_levels,
-                                'belief_conviction':    round(_bypass_belief.conviction, 4),
-                                'wave_maturity':        round(_bypass_belief.wave_maturity, 4),
-                                'decision_wave_maturity': round(_bypass_belief.decision_wave_maturity, 4),
-                                'entry_workers':    __import__('json').dumps(belief_network.get_worker_snapshot()),
-                                'band_direction': None,
-                                'band_strength': 0.0,
-                                'band_summary': '',
+                                'entry_depth':      _cand_depth,
+                                'root_tf':          _parent_tf,
+                                'max_hold_bars':    active_max_hold_bars,
+                                'oracle_label':     _nn_marker,
+                                'oracle_label_name': _ORACLE_LABEL_NAMES.get(
+                                    _nn_marker, 'WORKER_BYPASS' if _entry_action.is_bypass else 'UNKNOWN'),
+                                'oracle_mfe':       getattr(best_candidate, 'oracle_meta', {}).get('mfe', 0.0) if best_candidate else 0.0,
+                                'oracle_mae':       getattr(best_candidate, 'oracle_meta', {}).get('mae', 0.0) if best_candidate else 0.0,
+                                'long_bias':        round(long_bias, 4),
+                                'short_bias':       round(short_bias, 4),
+                                'dmi_diff':         _dmi_at_entry,
+                                'belief_active_levels': _belief.active_levels if _belief is not None else 0,
+                                'belief_conviction':    round(_belief.conviction, 4) if _belief is not None else 0.0,
+                                'wave_maturity':        round(_belief.wave_maturity, 4) if _belief is not None else 0.0,
+                                'decision_wave_maturity': round(_belief.decision_wave_maturity, 4) if _belief is not None else 0.0,
+                                'entry_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
+                                'band_direction': _band['direction'] if _band else None,
+                                'band_strength': round(_band['strength'], 3) if _band else 0.0,
+                                'band_summary': _band.get('band_summary', '') if _band else '',
                             }
-                            # Signal log: bypass trade record
-                            _bp_mz  = round(abs(_bypass_candidate.z_score), 2)
-                            _bp_mac = round(abs((getattr(_bypass_candidate, 'parent_chain', None) or [{}])[-1].get('z', 0.0)), 2)
-                            _dm_bypass = _dm_rec(
-                                _bypass_candidate, 'traded', day_date, ts,
-                                _bp_mz, _bp_mac,
-                                getattr(_bypass_candidate, 'pattern_type', ''),
-                                dist=_bypass_dist,
-                                conviction=round(_bypass_belief.conviction, 3),
-                                template_id=-1, tier='bypass')
-                            _dm_bypass['trade_direction'] = 'LONG' if side == 'long' else 'SHORT'
-                            decision_matrix_records.append(_dm_bypass)
+
+                            # Signal log: traded record
+                            _bc_mz = round(abs(best_candidate.z_score), 2) if best_candidate else 0.0
+                            _bc_mac = round(abs((getattr(best_candidate, 'parent_chain', None) or [{}])[-1].get('z', 0.0)), 2) if best_candidate else 0.0
+                            _dm_entry = _dm_rec(
+                                best_candidate, 'traded', day_date, ts,
+                                _bc_mz, _bc_mac,
+                                getattr(best_candidate, 'pattern_type', ''),
+                                dist=_entry_action.dist,
+                                conviction=round(_entry_action.conviction, 3),
+                                template_id=best_tid,
+                                tier=template_tier_map.get(best_tid, 3),
+                                playbook=_playbook)
+                            _dm_entry['trade_direction'] = 'LONG' if side == 'long' else 'SHORT'
+                            decision_matrix_records.append(_dm_entry)
                             _pending_dm_idx = len(decision_matrix_records) - 1
+
+                            # AUDIT: True Positive or False Positive
+                            audit_outcome = TradeOutcome(
+                                state=best_candidate.state if best_candidate else None,
+                                entry_price=price, exit_price=0.0, pnl=0.0,
+                                result='PENDING', timestamp=ts,
+                                exit_reason='PENDING',
+                                direction='LONG' if side == 'long' else 'SHORT'
+                            )
+                            audit_res = _audit_trade(audit_outcome, best_candidate)
+                            cls = audit_res['classification']
+                            if cls == 'TP': audit_tp += 1
+                            elif cls == 'FP_NOISE': audit_fp_noise += 1
+                            elif cls == 'FP_WRONG': audit_fp_wrong += 1
+
+                            # Audit other candidates as SKIPPED
+                            for p in raw_candidates:
+                                if p == best_candidate:
+                                    continue
+                                audit_res = _audit_trade(None, p)
+                                if audit_res['classification'] == 'TN':
+                                    audit_tn += 1
+                                elif audit_res['classification'] == 'FN':
+                                    _s = p.state
+                                    _is_pid = (abs(_s.term_pid) >= 0.3
+                                               and _s.oscillation_entropy_normalized >= 0.5
+                                               and _s.adx_strength <= 30.0)
+                                    if _is_pid:
+                                        continue
+                                    _om = _effective_oracle(p)
+                                    _meta = getattr(p, 'oracle_meta', {})
+                                    _fn_pot = (_meta.get('mfe', 0.0) if _om > 0 else _meta.get('mae', 0.0)) * self.asset.point_value
+                                    # Gate passers that lost on score are not FN
+                                    if _candidate_gate.get(id(p)) == 'score_loser':
+                                        score_loser_pnl += _fn_pot
+                                        continue
+                                    audit_fn += 1
+                                    fn_potential_pnl += _fn_pot
+                                    fn_oracle_records.append({
+                                        'timestamp':       ts,
+                                        'depth':           getattr(p, 'depth', 6),
+                                        'oracle_label':    _om,
+                                        'oracle_label_name': _ORACLE_LABEL_NAMES.get(_om, '?'),
+                                        'oracle_dir':      'LONG' if _om > 0 else 'SHORT',
+                                        'fn_potential_pnl': round(_fn_pot, 2),
+                                        'reason':          'competed',
+                                        'gate_blocked':    _candidate_gate.get(id(p), 'unknown'),
+                                        'workers':         __import__('json').dumps(belief_network.get_worker_snapshot()),
+                                    })
                     else:
-                        # Audit all candidates as SKIPPED
-                        for p in candidates:
+                        # No entry -- audit all candidates as SKIPPED
+                        for p in raw_candidates:
                             audit_res = _audit_trade(None, p)
                             if audit_res['classification'] == 'TN':
                                 audit_tn += 1
                             elif audit_res['classification'] == 'FN':
                                 audit_fn += 1
-                                _om = _effective_oracle(p)  # macro-to-leaf aggregated
+                                _om = _effective_oracle(p)
                                 _meta = getattr(p, 'oracle_meta', {})
                                 _fn_pot = (_meta.get('mfe', 0.0) if _om > 0 else _meta.get('mae', 0.0)) * self.asset.point_value
                                 fn_potential_pnl += _fn_pot
@@ -1940,7 +1273,7 @@ class BayesianTrainingOrchestrator:
                                     'oracle_label_name': _ORACLE_LABEL_NAMES.get(_om, '?'),
                                     'oracle_dir':      'LONG' if _om > 0 else 'SHORT',
                                     'fn_potential_pnl': round(_fn_pot, 2),
-                                    'reason':          'no_match',  # nothing passed gates at this bar
+                                    'reason':          'no_match',
                                     'gate_blocked':    _candidate_gate.get(id(p), 'unknown'),
                                     'workers':         __import__('json').dumps(belief_network.get_worker_snapshot()),
                                 })
@@ -1957,7 +1290,7 @@ class BayesianTrainingOrchestrator:
                 else:
                     eod_pnl = (price - pos.entry_price) * self.asset.point_value
                 self.wave_rider.position = None
-                _pos_state = None  # reset ExitEngine position
+                _exec_engine.position_closed()  # reset engine position state
 
                 outcome = TradeOutcome(
                     state=active_template_id,
@@ -2272,6 +1605,12 @@ class BayesianTrainingOrchestrator:
             report_lines.append(f"    Candidates on those bars:  {n_signals_seen:>9,}  (avg {n_signals_seen/max(1,_bars_evaluated):.1f}/bar)")
 
         # ── 2c. Skip reason breakdown ─────────────────────────────────────────────
+        _skip = _exec_engine.get_skip_counts()
+        skip_headroom = _skip['skip_headroom']
+        skip_dist = _skip['skip_dist']
+        skip_brain = _skip['skip_brain']
+        skip_conviction = _skip['skip_conviction']
+        skip_physics_qg = _skip['skip_physics_qg']
         _n_pass = n_signals_seen - skip_headroom - skip_dist - skip_brain - skip_conviction
         _sec['skip_reasons'] = len(report_lines)
         report_lines.append("")
@@ -3098,10 +2437,10 @@ class BayesianTrainingOrchestrator:
                 'bars_detected':  bars_with_detection,
                 'bars_blind':     total_bars_processed - bars_with_detection,
                 'bars_slot_blocked': bars_slot_blocked,
-                'gate0_skip':     skip_headroom,
-                'gate1_skip':     skip_dist,
-                'gate2_skip':     skip_brain,
-                'gate3_skip':     skip_conviction,
+                'gate0_skip':     _exec_engine.get_skip_counts()['skip_headroom'],
+                'gate1_skip':     _exec_engine.get_skip_counts()['skip_dist'],
+                'gate2_skip':     _exec_engine.get_skip_counts()['skip_brain'],
+                'gate3_skip':     _exec_engine.get_skip_counts()['skip_conviction'],
                 'decay_win_avg':  round(sum(_win_decay) / len(_win_decay), 3) if _win_decay else 0,
                 'decay_loss_avg': round(sum(_loss_decay) / len(_loss_decay), 3) if _loss_decay else 0,
                 'depth_breakdown': {
@@ -4289,7 +3628,7 @@ class BayesianTrainingOrchestrator:
         by net PnL.  Runs in seconds -- no re-simulation needed.
 
         Usage:
-            python training/orchestrator.py --sweep-params
+            python training/trainer.py --sweep-params
         """
         from itertools import product as _product
 
@@ -4475,7 +3814,7 @@ class BayesianTrainingOrchestrator:
 
             if best_overall:
                 print(f"\nFULL RECOMMENDATION (best tier filter + best direction gate):")
-                print(f"  python training/orchestrator.py --forward-pass "
+                print(f"  python training/trainer.py --forward-pass "
                       f"--min-tier {best_overall['min_tier']} "
                       f"--bias-threshold {best_dir['bias_thresh']:.2f} "
                       f"--dmi-threshold {best_dir['dmi_thresh']:.1f}")
@@ -4483,7 +3822,7 @@ class BayesianTrainingOrchestrator:
         elif live_hits:
             best = live_hits[0]
             print(f"\nRECOMMENDED NEXT RUN:")
-            print(f"  python training/orchestrator.py --forward-pass "
+            print(f"  python training/trainer.py --forward-pass "
                   f"--min-tier {best['min_tier']}" +
                   (f" --direction {best['direction']}" if best['direction'] != 'all' else ''))
             print(f"  Expected in-sample PnL: ${best['net_pnl']:,.0f} "
@@ -4706,7 +4045,7 @@ def main():
     if not args.skip_deps:
         check_and_install_requirements()
 
-    orchestrator = BayesianTrainingOrchestrator(args)
+    orchestrator = Trainer(args)
     orchestrator._ping_pong = getattr(args, 'ping_pong', False)
     orchestrator._pp_conviction = getattr(args, 'pp_conviction', 0.55)
     orchestrator._pp_sl_override = getattr(args, 'pp_sl', 0)
