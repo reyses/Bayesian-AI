@@ -77,7 +77,7 @@ def extract_matrices(templates, warmup_days=30, window_days=7):
         window_days: collect only this many days after warmup (screening sample)
         If warmup_days=0 and window_days=0, use ALL patterns (no filtering).
     """
-    from training.fractal_clustering import FractalClusteringEngine
+    from core.fractal_clustering import FractalClusteringEngine
 
     matrices = []  # Each is (depth, 16) — variable depth
     mfes = []
