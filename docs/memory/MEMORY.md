@@ -14,11 +14,24 @@
 ## Architecture
 - **Core engine**: `core/quantum_field_engine.py` — ThreeBodyQuantumState per bar
 - **Brain**: `core/bayesian_brain.py` — Bayesian table with hash-based state lookups
-- **Trainer**: `training/trainer.py` — main loop, DOE/Optuna, forward pass (renamed from orchestrator)
-- **Execution Engine**: `core/execution_engine.py` — unified gate/direction/sizing for IS+OOS+live
+- **Trainer**: `training/trainer.py` — main entry point, CLI, forward pass
+  - Run: `python training/trainer.py --fresh --forward-pass`
+  - NOT `python -m training.orchestrator` (old name, no longer exists)
+- **Exit Engine**: `core/exit_engine.py` — unified 10-level exit cascade (SL→TP→Watchdog→
+  MaxHold→BandUrgent→EnvelopeDecay→TrailStop→BreakevenLock→BeliefFlip→Hold)
+- **Execution Engine**: `core/execution_engine.py` — gate/direction/sizing, oracle-driven thresholds
+- **Belief Network**: `core/timeframe_belief_network.py` — 10 TF workers, BandContext per worker,
+  `get_band_confluence()` for multi-TF SE band direction (Priority 4 in direction cascade)
+- **Wave Rider**: `core/wave_rider.py` — position management, regret analysis
+- **Trade Logger**: `live/trade_logger.py` — per-trade diagnostic CSV
+- **Dashboard**: `visualization/dashboard.py` — Tkinter popup "Fractal Command Center".
+  Single-instance, 1600x950 window. Receives data via queue from trainer/live engine.
+  Live mode: price ticker (green/red flash per tick), rolling price chart with trade
+  markers, PnL tracking, net liquidity display, exit belief bar.
+  Training mode: Pareto chart of loss categories (Missed/Wrong Dir/Too Early/Noise),
+  template manifold (z vs momentum scatter), template leaderboard, phase progress,
+  fission events.
 - **Clustering**: `core/fractal_clustering.py` — DMI pre-split → I-MR(DMI diff) → DBSCAN(vol+ADX)
-- **Belief Network**: `core/timeframe_belief_network.py` — 10 TF workers, price-aware
-- **Wave Rider**: `core/wave_rider.py` — position management, exits, CST
 - **DNA Tree**: `training/fractal_dna_tree.py` — hierarchical TF context tree
 - **Feature vector**: 16D — abs(z), log1p(v), log1p(m), coherence, tf_scale, depth,
   parent_ctx, self_adx, self_hurst, self_dmi_diff, parent_z, parent_dmi_diff,
@@ -43,7 +56,7 @@
 **To read latest IS results**: `reports/is/oracle_trade_log.csv` (or shards)
 **To read latest OOS results**: `reports/oos/oracle_trade_log.csv`
 
-## CLI Flags (current)
+## CLI Flags (current) — entry point: `python training/trainer.py`
 - `--fresh` — wipe ALL checkpoints + full pipeline
 - `--train-only` — Phases 2-3 only
 - `--forward-pass` — IS → Strategy → OOS auto-chain (existing library)
@@ -57,7 +70,8 @@
 - When `--ping-pong` active, outputs go to `checkpoints/snowflake/` + `reports/snowflake/`
 
 ## Data Pipeline
-- ATLAS: `DATA/ATLAS/{tf}/YYYY_MM.parquet` — 14 TFs, 11 months (2025)
+- ATLAS: `DATA/ATLAS/{tf}/YYYY_MM.parquet` — 14 TFs, 12 months (Jan-Dec 2025)
+- ATLAS 1s: `DATA/ATLAS/1s/YYYY_MM.parquet` — 12 files, used by golden_path.py
 - ATLAS_1DAY: `DATA/ATLAS_1DAY/` — single day (Jan 2) for fast validation
 - ATLAS_1WEEK: `DATA/ATLAS_1WEEK/` — 7 trading days (Jan 2-10) for screening
 - ATLAS_OOS: `DATA/ATLAS_OOS/` — 2 months (Jan-Feb 2026)
@@ -67,9 +81,12 @@
 - `tools/run_benchmark.py` — chains IS+OOS, snapshots to reports/benchmarks/, --history
 - `tools/compare_oos_runs.py` — side-by-side comparison of two runs
 - `tools/analyze_exits.py` — deep exit analysis for a single run
+- `tools/analyze_gates.py` — oracle-driven gate threshold analysis, `--apply` writes JSON
+- `tools/gate_interaction_matrix.py` — C&E matrix empirical validation (Spearman/Kruskal)
+- `tools/golden_path.py` — Y10/Y11/Y12 chord length metrics from 1s data
 - `tools/pattern_map.py` — signal funnel visualization
 - `tools/trade_visualizer.py` — trade overlay on price waveform
-- `training/run_analytics.py` — re-run analytics without forward pass
+- `tools/run_analytics.py` — re-run analytics without forward pass
 - `scripts/monthly_pnl_chart.py` — monthly PnL bar chart
 - `tools/make_atlas_1day.py` — create 1-day ATLAS subset
 - `tools/make_atlas_1week.py` — create 7-day ATLAS subset
@@ -135,15 +152,32 @@
   - Session reports: `reports/live/session_*.txt`
 - Killed: `unified-cluster`, `jules/fractal-trend-*` (deleted 2026-02-27)
 
-## Implemented Features (confirmed in codebase)
+## Implemented Features (confirmed in codebase, 2026-03-06)
+- **Direction fix**: momentum-aware physics (velocity+acceleration, not mean-reverting z)
+  in TBN worker (core/timeframe_belief_network.py:251-263)
+- **Unified exit engine**: core/exit_engine.py — 10-level cascade, envelope decay with
+  F_net modulation, band-aware trail, cluster-fitted stops
+- **Band confluence**: BandContext per TF worker + get_band_confluence() aggregator.
+  Wired into direction cascade (Priority 4) AND exit trail adjustment
+- **Auto-TP re-entry**: live_engine.py:832 — bank profit, re-enter if belief agrees
+- **Trade logger**: live/trade_logger.py — per-trade diagnostic CSV
+- **Oracle-driven gates**: execution_engine.py loads thresholds from gate_thresholds.json
+- **Physics fields in oracle records**: trainer.py _physics_fields() — F_momentum,
+  F_reversion, mom_rev_ratio, hurst, tunnel_prob, velocity, sigma, band_speed
 - Spectral gates: Fourier half-cycle + Laplace kinetic damping (orchestrator_worker.py)
 - Template timescale: avg_mfe_bar/p75_mfe_bar time-exhaustion exits
 - Price-aware workers: trade_side + profit_ticks modulate conviction
-- Continuous pressure model: net_pressure drives trail widen/tighten/urgent
 - Decay cascade: z-score drift from expected trajectory (belief_network)
 - OU tunnel probabilities: analytical erfi-based (quantum_field_engine)
 - Semantic cluster names: generate_semantic_name() (fractal_clustering)
 - Live trading module: live/ (7 files) + docs/NT8_BayesianBridge.cs
+
+## Design Docs
+- `docs/CAUSE_AND_EFFECT_MATRIX.md` — 48 X params × 12 Y responses, entry/exit domain
+  split, sample size analysis, golden path hierarchy, parameter role assignment
+- `docs/CLAUDE_CODE_BAND_CONTEXT.md` — SE band confluence spec (IMPLEMENTED)
+- `docs/CLAUDE_CODE_UNIFIED_EXIT_ENGINE.md` — exit engine spec (IMPLEMENTED)
+- `docs/LEVEL_DETECTOR_SPEC.md` — fib + swing detection + DBSCAN levels (FUTURE STATE)
 
 ## Current Baseline (IS+OOS, 2026-03-01, main branch, pre-integration PRs)
 - IS: 392 trades, 33.7% WR, $8,117 total, $20.71/trade
