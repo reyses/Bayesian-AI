@@ -12,8 +12,8 @@ from numpy.lib.stride_tricks import sliding_window_view
 import logging
 from scipy.special import erfi
 
-from core.three_body_state import ThreeBodyQuantumState
-from core.risk_engine import QuantumRiskEngine
+from core.three_body_state import MarketState
+from core.risk_engine import MonteCarloRiskEngine
 from core.pattern_utils import (
     PATTERN_NONE, PATTERN_COMPRESSION, PATTERN_WEDGE, PATTERN_BREAKDOWN,
     detect_geometric_pattern, detect_candlestick_pattern,
@@ -170,7 +170,7 @@ def _compute_rs_numba(returns, window):
 
     return output_rs
 
-class QuantumFieldEngine:
+class StatisticalFieldEngine:
     """
     Unified field calculator — GPU-accelerated when CUDA available
     - Nightmare Protocol (gravity wells, O-U process)
@@ -237,7 +237,7 @@ class QuantumFieldEngine:
             self.device = None
 
         # Risk Engine (Monte Carlo)
-        self.risk_engine = QuantumRiskEngine(
+        self.risk_engine = MonteCarloRiskEngine(
             theta=RISK_THETA,
             horizon_seconds=RISK_HORIZON_SECONDS
         )
@@ -251,19 +251,19 @@ class QuantumFieldEngine:
         tick_velocity: float,
         context: dict = None,     # Optional multi-timeframe context
         params: dict = None       # Optional physics parameters
-    ) -> ThreeBodyQuantumState:
+    ) -> MarketState:
         """
         MASTER FUNCTION: Computes complete quantum state using NIGHTMARE FIELD EQUATION
         Uses GPU batch computation internally for the window.
         """
         if len(df_macro) < self.regression_period:
-            return ThreeBodyQuantumState.null_state()
+            return MarketState.null_state()
 
         # We can reuse batch_compute_states logic but for a single step (the last one)
         # Pass use_cuda explicitly based on self.use_gpu to allow fallback
         results = self.batch_compute_states(df_macro, use_cuda=self.use_gpu)
         if not results:
-             return ThreeBodyQuantumState.null_state()
+             return MarketState.null_state()
 
         # Get the last state
         last_result = results[-1]
@@ -392,7 +392,7 @@ class QuantumFieldEngine:
         velocity = np.zeros(n, dtype=np.float64)
         force = np.zeros(n, dtype=np.float64)
         momentum = np.zeros(n, dtype=np.float64)
-        coherence = np.ones(n, dtype=np.float64)
+        entropy_normalized = np.ones(n, dtype=np.float64)
         entropy = np.zeros(n, dtype=np.float64)
         prob0 = np.ones(n, dtype=np.float64)
         prob1 = np.zeros(n, dtype=np.float64)
@@ -411,7 +411,7 @@ class QuantumFieldEngine:
             return {
                 'center': center, 'sigma': sigma, 'slope': slope, 'z': z_scores,
                 'velocity': velocity, 'force': force, 'momentum': momentum,
-                'coherence': coherence, 'entropy': entropy,
+                'entropy_normalized': entropy_normalized, 'entropy': entropy,
                 'prob0': prob0, 'prob1': prob1, 'prob2': prob2,
                 'roche': roche_snap, 'drive': structural_drive,
                 'hurst': hurst, 'adx': adx_strength, 'dmi_plus': dmi_plus, 'dmi_minus': dmi_minus
@@ -505,8 +505,8 @@ class QuantumFieldEngine:
 
         repulsion = np.where(z_valid > 0, -F_upper, F_lower)
 
-        F_net = F_gravity[start_idx:] + momentum[start_idx:] + repulsion
-        force[start_idx:] = F_net
+        net_force = F_gravity[start_idx:] + momentum[start_idx:] + repulsion
+        force[start_idx:] = net_force
 
         # 4. Wave Function
         z = z_scores
@@ -535,11 +535,11 @@ class QuantumFieldEngine:
                  p2 * np.log(p2 + eps))
 
         entropy[start_idx:] = ent[start_idx:]
-        coherence[start_idx:] = ent[start_idx:] / self.LOG_3
+        entropy_normalized[start_idx:] = ent[start_idx:] / self.LOG_3
 
         # Archetypes
         roche_snap[start_idx:] = (np.abs(z_scores[start_idx:]) > 2.0) & (np.abs(velocity[start_idx:]) > self.VELOCITY_THRESHOLD)
-        structural_drive[start_idx:] = (np.abs(momentum[start_idx:]) > self.MOMENTUM_THRESHOLD) & (coherence[start_idx:] < self.COHERENCE_THRESHOLD)
+        structural_drive[start_idx:] = (np.abs(momentum[start_idx:]) > self.MOMENTUM_THRESHOLD) & (entropy_normalized[start_idx:] < self.COHERENCE_THRESHOLD)
 
         # ═════ INDICATORS (CPU Fallback) ═════
 
@@ -574,7 +574,7 @@ class QuantumFieldEngine:
         return {
             'center': center, 'sigma': sigma, 'slope': slope, 'z': z_scores,
             'velocity': velocity, 'force': force, 'momentum': momentum,
-            'coherence': coherence, 'entropy': entropy,
+            'entropy_normalized': entropy_normalized, 'entropy': entropy,
             'prob0': prob0, 'prob1': prob1, 'prob2': prob2,
             'roche': roche_snap, 'drive': structural_drive,
             'hurst': hurst, 'adx': adx_strength, 'dmi_plus': dmi_plus, 'dmi_minus': dmi_minus
@@ -586,7 +586,7 @@ class QuantumFieldEngine:
 
     def batch_compute_states(self, day_data: pd.DataFrame, use_cuda: bool = True, params: dict = None) -> list:
         """
-        Compute ALL ThreeBodyQuantumState objects for a day using Fused CUDA Physics Kernels or Optimized CPU Fallback.
+        Compute ALL MarketState objects for a day using Fused CUDA Physics Kernels or Optimized CPU Fallback.
         """
         params = params or {}
         n = len(day_data)
@@ -630,7 +630,7 @@ class QuantumFieldEngine:
         velocity = None
         force = None
         momentum = None
-        coherence = None
+        entropy_normalized = None
         entropy = None
         prob0 = None
         prob1 = None
@@ -661,7 +661,7 @@ class QuantumFieldEngine:
             d_velocity = cuda.device_array(n, dtype=np.float64)
             d_force = cuda.device_array(n, dtype=np.float64)
             d_momentum = cuda.device_array(n, dtype=np.float64)
-            d_coherence = cuda.device_array(n, dtype=np.float64)
+            d_entropy_normalized = cuda.device_array(n, dtype=np.float64)
             d_entropy = cuda.device_array(n, dtype=np.float64)
             d_prob0 = cuda.device_array(n, dtype=np.float64)
             d_prob1 = cuda.device_array(n, dtype=np.float64)
@@ -690,14 +690,14 @@ class QuantumFieldEngine:
                 d_prices, d_volumes,
                 d_center, d_sigma, d_slope,
                 d_z, d_velocity, d_force, d_momentum,
-                d_coherence, d_entropy,
+                d_entropy_normalized, d_entropy,
                 d_prob0, d_prob1, d_prob2,
                 rp, self.mean_x, self.inv_reg_period, self.inv_denom, self.denom
             )
 
             # 2. Archetype Kernel
             detect_archetype_kernel[blocks_per_grid, threads_per_block](
-                d_z, d_velocity, d_momentum, d_coherence,
+                d_z, d_velocity, d_momentum, d_entropy_normalized,
                 d_roche, d_drive
             )
 
@@ -723,7 +723,7 @@ class QuantumFieldEngine:
             velocity = d_velocity.copy_to_host()
             force = d_force.copy_to_host()
             momentum = d_momentum.copy_to_host()
-            coherence = d_coherence.copy_to_host()
+            entropy_normalized = d_entropy_normalized.copy_to_host()
             entropy = d_entropy.copy_to_host()
             prob0 = d_prob0.copy_to_host()
             prob1 = d_prob1.copy_to_host()
@@ -750,7 +750,7 @@ class QuantumFieldEngine:
             velocity = cpu_results['velocity']
             force = cpu_results['force']
             momentum = cpu_results['momentum']
-            coherence = cpu_results['coherence']
+            entropy_normalized = cpu_results['entropy_normalized']
             entropy = cpu_results['entropy']
             prob0 = cpu_results['prob0']
             prob1 = cpu_results['prob1']
@@ -804,8 +804,8 @@ class QuantumFieldEngine:
              if n > _ow - 1:
                   osc_std[:_ow - 1] = osc_std[_ow - 1]
 
-        oscillation_coherence_arr = 1.0 / (1.0 + osc_std)   # (0, 1]
-        np.nan_to_num(oscillation_coherence_arr, copy=False, nan=0.0)
+        oscillation_entropy_normalized_arr = 1.0 / (1.0 + osc_std)   # (0, 1]
+        np.nan_to_num(oscillation_entropy_normalized_arr, copy=False, nan=0.0)
 
         # ─── Analytical OU First-Passage Probabilities ────────────────────────
         # Replaces Monte Carlo (500 paths × 600 steps) with exact solution.
@@ -834,11 +834,11 @@ class QuantumFieldEngine:
         cond_chaos = abs_z < 2.0
         cond_roche_upper = z_scores >= 2.0
 
-        # Default is L3_ROCHE (z <= -2.0)
+        # Default is LOWER_EXTREME (z <= -2.0)
         lz_arr = np.select(
             [cond_stable, cond_chaos, cond_roche_upper],
-            ['L1_STABLE', 'CHAOS', 'L2_ROCHE'],
-            default='L3_ROCHE'
+            ['INNER', 'CHAOS', 'UPPER_EXTREME'],
+            default='LOWER_EXTREME'
         )
 
         # 2. Amplitudes (Vectorized sqrt)
@@ -866,20 +866,20 @@ class QuantumFieldEngine:
         results = [
             {
                 'bar_idx': i,
-                'state': ThreeBodyQuantumState(
-                    center_position=center[i],
-                    upper_singularity=center[i] + 2.0 * sigma[i],
-                    lower_singularity=center[i] - 2.0 * sigma[i],
-                    event_horizon_upper=center[i] + 3.0 * sigma[i],
-                    event_horizon_lower=center[i] - 3.0 * sigma[i],
-                    particle_position=prices[i],
-                    particle_velocity=velocity[i],
+                'state': MarketState(
+                    regression_center=center[i],
+                    upper_band_2sigma=center[i] + 2.0 * sigma[i],
+                    lower_band_2sigma=center[i] - 2.0 * sigma[i],
+                    upper_band_3sigma=center[i] + 3.0 * sigma[i],
+                    lower_band_3sigma=center[i] - 3.0 * sigma[i],
+                    price=prices[i],
+                    velocity=velocity[i],
                     z_score=z_scores[i],
-                    F_reversion=-0.5 * z_scores[i] * sigma[i],
+                    mean_reversion_force=-0.5 * z_scores[i] * sigma[i],
                     F_upper_repulsion=0.0,
                     F_lower_repulsion=0.0,
                     F_momentum=momentum[i],
-                    F_net=force[i],
+                    net_force=force[i],
                     amplitude_center=a0_arr[i],
                     amplitude_upper=a1_arr[i],
                     amplitude_lower=a2_arr[i],
@@ -887,31 +887,31 @@ class QuantumFieldEngine:
                     P_near_upper=prob1[i],
                     P_near_lower=prob2[i],
                     entropy=entropy[i],
-                    coherence=coherence[i],
+                    entropy_normalized=entropy_normalized[i],
                     pattern_maturity=0.0,
                     momentum_strength=momentum[i],
                     structure_confirmed=bool(structural_drive[i]),
                     cascade_detected=bool(roche_snap[i]),
-                    spin_inverted=False,
-                    lagrange_zone=lz_arr[i],
+                    reversal_confirmed=False,
+                    band_zone=lz_arr[i],
                     stability_index=1.0,
-                    tunnel_probability=tunnel_prob[i],
-                    escape_probability=escape_prob[i],
+                    reversion_probability=tunnel_prob[i],
+                    breakout_probability=escape_prob[i],
                     barrier_height=barrier_height_arr[i],
                     pattern_type=str(pattern_types[i]),
                     candlestick_pattern=str(candlestick_types[i]),
                     trend_direction_15m=trend_direction_arr[i],
                     hurst_exponent=hurst_arr[i],
                     adx_strength=adx_arr[i], dmi_plus=dmi_plus_arr[i], dmi_minus=dmi_minus_arr[i],
-                    sigma_fractal=sigma[i],
+                    regression_sigma=sigma[i],
                     term_pid=float(term_pid_arr[i]),
-                    oscillation_coherence=float(oscillation_coherence_arr[i]),
+                    oscillation_entropy_normalized=float(oscillation_entropy_normalized_arr[i]),
                     lyapunov_exponent=0.0,
                     market_regime='STABLE',
                     timestamp=timestamps[i]
                 ),
                 'price': prices[i],
-                'structure_ok': lz_arr[i] in ('L2_ROCHE', 'L3_ROCHE')
+                'structure_ok': lz_arr[i] in ('UPPER_EXTREME', 'LOWER_EXTREME')
             }
             for i in range(rp, n)
         ]

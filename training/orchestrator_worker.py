@@ -156,7 +156,7 @@ def simulate_trade_standalone(entry_price: float, data: Any, state: Any,
     base_slippage = DEFAULT_BASE_SLIPPAGE
     velocity_factor = DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 
-    velocity = state.particle_velocity
+    velocity = state.velocity
     slippage = base_slippage + velocity_factor * abs(velocity)
     total_slippage = slippage * 2.0
 

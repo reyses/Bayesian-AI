@@ -5,7 +5,7 @@ No rules. No gates. Pure pattern discovery.
 from dataclasses import dataclass, field
 from typing import Dict, Set, Optional
 import random
-from core.three_body_state import ThreeBodyQuantumState
+from core.three_body_state import MarketState
 
 @dataclass
 class ExplorationConfig:
@@ -29,7 +29,7 @@ class UnconstrainedExplorer:
         self.trades_executed = 0
         self.unique_states_seen: Set[int] = set()
 
-    def should_fire(self, state: ThreeBodyQuantumState) -> dict:
+    def should_fire(self, state: MarketState) -> dict:
         """
         PHASE 0 LOGIC: Fire on (almost) everything
 

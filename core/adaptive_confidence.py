@@ -6,7 +6,7 @@ Starts at 0% → Converges to 80% over 600 trades
 from dataclasses import dataclass
 from typing import Dict
 import numpy as np
-from core.three_body_state import ThreeBodyQuantumState
+from core.three_body_state import MarketState
 
 @dataclass
 class ConfidenceEvolution:
@@ -70,7 +70,7 @@ class AdaptiveConfidenceManager:
         self.trades_in_phase = 0
         self.decay_observations = []
     
-    def should_fire(self, state: ThreeBodyQuantumState) -> dict:
+    def should_fire(self, state: MarketState) -> dict:
         """Adaptive firing decision based on learning phase"""
         phase_config = self.PHASES[self.phase]
         prob = self.brain.get_probability(state)
@@ -78,7 +78,7 @@ class AdaptiveConfidenceManager:
         
         # Phase 1: Fire at everything (exploration)
         if self.phase == 1:
-            if state.lagrange_zone in ['L2_ROCHE', 'L3_ROCHE']:
+            if state.band_zone in ['UPPER_EXTREME', 'LOWER_EXTREME']:
                 return {
                     'should_fire': True,
                     'reason': 'EXPLORATION: Learning all Roche states',

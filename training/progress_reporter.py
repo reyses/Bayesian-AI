@@ -84,7 +84,7 @@ class ProgressReporter:
                 total = pattern['total']
                 wr = pattern['win_rate']
                 avg_pnl = pattern['avg_pnl']
-                zone = pattern.get('lagrange_zone', 'unknown')
+                zone = pattern.get('band_zone', 'unknown')
 
                 print(f"  {idx}. [{zone}] -> {wins}/{total} wins ({wr:.1%}) | Avg: ${avg_pnl:.2f}/trade")
 
