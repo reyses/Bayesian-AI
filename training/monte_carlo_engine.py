@@ -16,8 +16,8 @@ from dataclasses import dataclass
 from sklearn.preprocessing import StandardScaler
 
 # Project imports
-from core.quantum_field_engine import QuantumFieldEngine
-from core.three_body_state import ThreeBodyQuantumState
+from core.quantum_field_engine import StatisticalFieldEngine
+from core.three_body_state import MarketState
 from core.bayesian_brain import BayesianBrain, TradeOutcome
 from training.doe_parameter_generator import DOEParameterGenerator
 from training.fractal_discovery_agent import TIMEFRAME_SECONDS
@@ -76,9 +76,9 @@ class ComboResult:
     total_losses: int
     top_iterations: List[IterationSummary]  # Only top 10 by PnL
 
-def extract_features_from_state(state: ThreeBodyQuantumState, timeframe: str) -> np.ndarray:
+def extract_features_from_state(state: MarketState, timeframe: str) -> np.ndarray:
     """
-    Extracts 14D feature vector from a ThreeBodyQuantumState.
+    Extracts 14D feature vector from a MarketState.
     Fills hierarchy features with defaults for flat scanning.
     """
     tf_secs = TIMEFRAME_SECONDS.get(timeframe, 15)
@@ -96,7 +96,7 @@ def extract_features_from_state(state: ThreeBodyQuantumState, timeframe: str) ->
     z = getattr(state, 'z_score', 0.0)
     v = getattr(state, 'velocity', 0.0)
     m = getattr(state, 'momentum', 0.0)
-    c = getattr(state, 'coherence', 0.0)
+    c = getattr(state, 'entropy_normalized', 0.0)
 
     # Self regime
     self_adx = getattr(state, 'adx_strength', 0.0) / 100.0
@@ -315,7 +315,7 @@ def simulate_template_tf_combo(template_id: int, timeframe: str, n_iterations: i
              return ComboResult(template_id, timeframe, None, 0, 0, 0, n_iterations, 0, 0, [])
 
         # Pre-compute physics states
-        engine = QuantumFieldEngine(use_gpu=False)
+        engine = StatisticalFieldEngine(use_gpu=False)
         all_states = []
         all_z_scores = []
 

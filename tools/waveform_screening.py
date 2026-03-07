@@ -41,7 +41,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # -- Feature names (16D) -----------------------------------------------------
 FEATURE_NAMES = [
-    'abs_z', 'log1p_vol', 'log1p_mom', 'coherence', 'tf_scale', 'depth',
+    'abs_z', 'log1p_vol', 'log1p_mom', 'entropy_normalized', 'tf_scale', 'depth',
     'parent_ctx', 'self_adx', 'self_hurst', 'self_dmi_diff',
     'parent_z', 'parent_dmi_diff', 'root_is_roche', 'tf_alignment',
     'self_pid', 'osc_coh'

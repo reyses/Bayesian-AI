@@ -10,7 +10,7 @@ Philosophy:
 from typing import Dict, List, Any
 from dataclasses import dataclass
 from core.state_vector import StateVector
-from core.three_body_state import ThreeBodyQuantumState
+from core.three_body_state import MarketState
 import pandas as pd
 import numpy as np
 
@@ -300,7 +300,7 @@ class ContextDetector:
         Detect active market contexts
 
         Args:
-            state: StateVector or ThreeBodyQuantumState
+            state: StateVector or MarketState
             market_data: Dictionary with market data (df_ticks, df_bars, etc.)
             time_of_day: Session time ('open', 'mid', 'close')
 
@@ -328,8 +328,8 @@ class ContextDetector:
                     parameters=self.context_params['KILL_ZONE'],
                     reason='L4 at killzone'
                 ))
-        elif hasattr(state, 'lagrange_zone'):
-            if state.lagrange_zone in ['L2_ROCHE', 'L3_ROCHE']:
+        elif hasattr(state, 'band_zone'):
+            if state.band_zone in ['UPPER_EXTREME', 'LOWER_EXTREME']:
                 contexts.append(MarketContext(
                     name='KILL_ZONE',
                     active=True,
@@ -487,10 +487,10 @@ class ContextDetector:
                 if state.L7_pattern != 'none' and state.L8_confirm and state.L9_cascade:
                     score += 4.0
 
-        # Check if ThreeBodyQuantumState
-        elif hasattr(state, 'lagrange_zone'):
+        # Check if MarketState
+        elif hasattr(state, 'band_zone'):
             # At Lagrange point = stable configuration
-            if state.lagrange_zone in ['L1_MACRO', 'L2_MESO', 'L3_MICRO']:
+            if state.band_zone in ['L1_MACRO', 'L2_MESO', 'L3_MICRO']:
                 score += 5.0
 
             # Structure confirmed + cascade = resonance

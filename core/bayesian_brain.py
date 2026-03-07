@@ -8,7 +8,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, Optional, Union, Any
 from core.state_vector import StateVector
-from core.three_body_state import ThreeBodyQuantumState
+from core.three_body_state import MarketState
 
 # Statistical validation components (optional imports)
 try:
@@ -23,7 +23,7 @@ except ImportError:
 @dataclass
 class TradeOutcome:
     """Single trade result for learning"""
-    state: Union[StateVector, ThreeBodyQuantumState, str, int]
+    state: Union[StateVector, MarketState, str, int]
     entry_price: float
     exit_price: float
     pnl: float
@@ -367,12 +367,12 @@ class BayesianBrain:
         }
 
 class QuantumBayesianBrain(BayesianBrain):
-    """Extends BayesianBrain for ThreeBodyQuantumState"""
+    """Extends BayesianBrain for MarketState"""
     
-    def get_quantum_probability(self, state: ThreeBodyQuantumState) -> float:
+    def get_quantum_probability(self, state: MarketState) -> float:
         """Get learned tunnel probability for quantum state"""
         # Bin continuous values for lookup
-        # Note: The ThreeBodyQuantumState.__hash__ already bins values, 
+        # Note: The MarketState.__hash__ already bins values, 
         # so using state as key works.
         
         # Use hashed state for lookup
@@ -380,7 +380,7 @@ class QuantumBayesianBrain(BayesianBrain):
     
     def should_fire_quantum(
         self, 
-        state: ThreeBodyQuantumState, 
+        state: MarketState, 
         min_prob: float = 0.80,
         min_conf: float = 0.30
     ) -> bool:
@@ -392,13 +392,13 @@ class QuantumBayesianBrain(BayesianBrain):
         3. Learned probability > threshold
         4. Confidence sufficient
         """
-        if state.lagrange_zone not in ['L2_ROCHE', 'L3_ROCHE']:
+        if state.band_zone not in ['UPPER_EXTREME', 'LOWER_EXTREME']:
             return False
         
         if not (state.structure_confirmed and state.cascade_detected):
             return False
         
-        if state.F_momentum > state.F_reversion * 1.5:
+        if state.F_momentum > state.mean_reversion_force * 1.5:
             return False
         
         prob = self.get_quantum_probability(state)

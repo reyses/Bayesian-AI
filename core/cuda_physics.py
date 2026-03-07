@@ -1,6 +1,6 @@
 """
 CUDA-Accelerated Physics Engine
-Implements fused kernels for QuantumFieldEngine.
+Implements fused kernels for StatisticalFieldEngine.
 Replacing CPU-bound physics calculations with parallel GPU compute.
 """
 import math
@@ -143,8 +143,8 @@ def compute_physics_kernel(prices, volumes,
 
             repulsion = -F_upper if z > 0 else F_lower
 
-            F_net = F_gravity + momentum + repulsion
-            out_force[i] = F_net
+            net_force = F_gravity + momentum + repulsion
+            out_force[i] = net_force
 
             # 4. Wave Function
             E0 = - (z * z) / 2.0
