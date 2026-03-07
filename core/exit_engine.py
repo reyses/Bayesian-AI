@@ -269,15 +269,8 @@ class ExitEngine:
         if watchdog is not None:
             return watchdog
 
-        # -- 4. MAX HOLD --
-        if pos.bars_held >= pos.max_hold_bars:
-            return ExitResult(
-                action=ExitAction.MAX_HOLD,
-                exit_price=bar_close,
-                reason=f"Max hold {pos.max_hold_bars} bars reached",
-                pnl_ticks=self._calc_pnl_ticks(pos, bar_close),
-                bars_held=pos.bars_held,
-            )
+        # -- 4. MAX HOLD -- DISABLED: envelope_decay handles time-based exits
+        #    better ($46/trade vs $24/trade). Max hold cut winners short.
 
         # -- 5. BAND-AWARE URGENT EXIT --
         band_result = self._check_band_exit(pos, bar_close, band_context)
@@ -289,18 +282,10 @@ class ExitEngine:
         if envelope_result is not None:
             return envelope_result
 
-        # -- 7. TRAIL STOP UPDATE + CHECK --
+        # -- 7. TRAIL STOP -- DISABLED: trail exits avg $3-4/trade with 84%
+        #    "too early" rate.  Envelope decay is physics-aware and 12x more
+        #    profitable per trade.  Still update HWM for breakeven logic.
         self._update_trail(pos, best_price, band_context)
-
-        if self._is_trail_hit(pos, worst_price):
-            return ExitResult(
-                action=ExitAction.TRAIL_STOP,
-                exit_price=pos.current_trail,
-                reason=f"Trail stop at {pos.current_trail:.2f}",
-                pnl_ticks=self._calc_pnl_ticks(pos, pos.current_trail),
-                bars_held=pos.bars_held,
-                trail_level=pos.current_trail,
-            )
 
         # -- 8. BREAKEVEN LOCK --
         self._check_breakeven(pos)
