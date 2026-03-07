@@ -1,0 +1,142 @@
+======================================================================
+  STANDALONE WAVEFORM SCREENING
+  Data: DATA/ATLAS
+  Base TF: 15m
+  Context: 21d warmup, 7d analysis
+  Mode: PRICE I-MR (default)
+======================================================================
+
+--- STEP 1: Loading base TF data (15m) ---
+  15m: 23,505 bars loaded
+
+--- STEP 2: Price I-MR Chart ---
+  Price I-MR: 23505 bars, warmup=1334, analysis=460
+  Center=21384.36, MR_bar=17.77, UCL_MR=58.05, UCL_I=21431.62, LCL_I=21337.10
+
+--- STEP 3: Regime Detection ---
+  Regimes: 29 raw -> 11 after merge (min_bars=8)
+    R0:   87 bars, price=21930.8, vol=7.87, dir=SHORT, chg=-3.2
+    R1:   97 bars, price=21988.7, vol=11.79, dir=SHORT, chg=-134.0
+    R2:   35 bars, price=21517.4, vol=23.45, dir=SHORT, chg=-334.2
+    R3:   17 bars, price=21117.1, vol=46.24, dir=SHORT, chg=-284.0
+    R4:   15 bars, price=21187.7, vol=40.30, dir=LONG, chg=+330.5
+    R5:   14 bars, price=21204.9, vol=34.29, dir=SHORT, chg=-139.5
+    R6:   22 bars, price=21270.9, vol=26.94, dir=LONG, chg=+67.0
+    R7:   61 bars, price=21332.4, vol=25.50, dir=LONG, chg=+234.5
+    R8:   48 bars, price=21570.9, vol=11.35, dir=LONG, chg=+45.8
+    R9:   34 bars, price=21651.2, vol=13.12, dir=SHORT, chg=-57.2
+    R10:   30 bars, price=21508.2, vol=32.16, dir=LONG, chg=+64.2
+
+--- STEP 4: Oracle MFE/MAE ---
+  Oracle: 460 bars with MFE/MAE (lookahead=16)
+
+--- STEP 5: Generating charts ---
+  Saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1w\0_price_imr.png
+  Saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1w\0b_regime_summary.png
+
+======================================================================
+  REGIME SUMMARY
+======================================================================
+  Analysis bars: 460
+  Regimes: 11
+  MFE: mean=111.38, std=113.81
+  MAE: mean=56.00, std=64.42
+  Win rate (MFE > MAE): 62.6%
+
+  Regime     Dir        N      WR      MFE      MAE    Vol      Price
+  ---------- ------ ----- ------- -------- -------- ------ ----------
+  R0         SHORT     87   46.0%    +37.4     42.9   7.87    21930.8
+  R1         SHORT     97   59.8%    +97.9     33.8  11.79    21988.7
+  R2         SHORT     35  100.0%   +256.7     15.7  23.45    21517.4
+  R3         SHORT     17   64.7%   +304.5    167.7  46.24    21117.1
+  R4         LONG      15   73.3%   +229.7     91.3  40.30    21187.7
+  R5         SHORT     14   57.1%   +109.9    120.6  34.29    21204.9
+  R6         LONG      22   31.8%    +75.4     73.7  26.94    21270.9
+  R7         LONG      61   68.9%   +123.5     83.2  25.50    21332.4
+  R8         LONG      48   75.0%    +65.1     26.0  11.35    21570.9
+  R9         SHORT     34   85.3%   +115.6     25.8  13.12    21651.2
+  R10        LONG      30   36.7%   +103.1    115.7  32.16    21508.2
+
+  DIRECTIONAL SPLIT:
+  LONG:    176 bars, WR=60.8%
+  SHORT:   284 bars, WR=63.7%
+
+--- STEP 7: Loading all TF data + fractal context ---
+    1W:       54 bars
+    1D:      313 bars
+    4h:    1,597 bars
+    1h:    5,881 bars
+   30m:   11,756 bars
+    5m:   70,458 bars
+    3m:  117,299 bars
+    2m:  175,722 bars
+    1m:  350,355 bars
+   30s:  696,721 bars
+   15s: 1,369,925 bars
+
+  Computing physics per TF...
+    1W:       32 states computed
+    1D:      291 states computed
+    4h:    1,575 states computed
+    1h:    5,859 states computed
+   30m:   11,734 states computed
+   15m:   23,483 states computed
+    5m:   70,436 states computed
+    3m:  117,277 states computed
+    2m:  175,700 states computed
+    1m:  350,333 states computed
+   30s:  696,699 states computed
+   15s: 1,369,903 states computed
+
+--- STEP 8: Building context matrix (193 features per bar) ---
+  Samples: 460, Level features: 193, Delta features: 192
+  X: 192 fractal + 1 current MR = 193 level features
+  X_delta: 192 rate-of-change (feature[t] - feature[t-1])
+  [SKIP] Analysis A (--start S)
+  [SKIP] Analysis B (--start S)
+  [SKIP] Analysis C (--start S)
+  [SKIP] Analysis D (--start S)
+  [SKIP] Analysis E (--start S)
+  [SKIP] Analysis F (--start S)
+  [SKIP] Analysis G (--start S)
+  [SKIP] Analysis H (--start S)
+  [SKIP] Analysis I (--start S)
+  [SKIP] Analysis J (--start S)
+  [SKIP] Analysis K (--start S)
+  [SKIP] Analysis L (--start S)
+  [SKIP] Analysis M (--start S)
+  [SKIP] Analysis N (--start S)
+  [SKIP] Analysis O (--start S)
+  [SKIP] Analysis P (--start S)
+  [SKIP] Analysis R (--start S)
+
+======================================================================
+  ANALYSIS S: EXIT TREND GUARD — BAND CONFLICT STUDY
+======================================================================
+  Computed rolling z-scores: slow(240), mid(60), fast(15)
+  Valid bars: slow=23265, mid=23445, fast=23490
+  Oracle trades available: 460
+  Analyzed 460 trades (skipped 0 edge/NaN)
+
+  --- Tighten Signal Summary ---
+  Total tighten events (no guard):   9671
+  Total tighten events (with guard): 5641
+  Suppressed by trend guard:         4030 (41.7%)
+
+  First tighten bar (no guard):   median=2, mean=7.6, p25=0
+  First tighten bar (with guard): median=6, mean=15.0, p25=0
+  Average delay from guard:       +7.4 bars
+
+  LONG trades (176): tightens 3802->2069 (suppressed 1733, 45.6%), avg MFE=107.2
+
+  SHORT trades (284): tightens 5869->3572 (suppressed 2297, 39.1%), avg MFE=114.0
+
+  --- MFE by Suppression Rate ---
+  High suppression (>50% tightens blocked): 232 trades, avg MFE=73.2
+  Low suppression (<=50% blocked):          219 trades, avg MFE=155.5
+  MFE difference: -82.3 (guard neutral/hurts)
+
+  [saved] C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1w\analysis_s_exit_trend_guard.png
+  [saved] C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1w\analysis_s_entry_zscores.png
+
+  (Skipping full 16D pipeline -- use --full to enable)

@@ -142,70 +142,51 @@
   Samples: 2008, Level features: 193, Delta features: 192
   X: 192 fractal + 1 current MR = 193 level features
   X_delta: 192 rate-of-change (feature[t] - feature[t-1])
-  [SKIP] Analysis A (--start R)
-  [SKIP] Analysis B (--start R)
-  [SKIP] Analysis C (--start R)
-  [SKIP] Analysis D (--start R)
-  [SKIP] Analysis E (--start R)
-  [SKIP] Analysis F (--start R)
-  [SKIP] Analysis G (--start R)
-  [SKIP] Analysis H (--start R)
-  [SKIP] Analysis I (--start R)
-  [SKIP] Analysis J (--start R)
-  [SKIP] Analysis K (--start R)
-  [SKIP] Analysis L (--start R)
-  [SKIP] Analysis M (--start R)
-  [SKIP] Analysis N (--start R)
-  [SKIP] Analysis O (--start R)
-  [SKIP] Analysis P (--start R)
+  [SKIP] Analysis A (--start S)
+  [SKIP] Analysis B (--start S)
+  [SKIP] Analysis C (--start S)
+  [SKIP] Analysis D (--start S)
+  [SKIP] Analysis E (--start S)
+  [SKIP] Analysis F (--start S)
+  [SKIP] Analysis G (--start S)
+  [SKIP] Analysis H (--start S)
+  [SKIP] Analysis I (--start S)
+  [SKIP] Analysis J (--start S)
+  [SKIP] Analysis K (--start S)
+  [SKIP] Analysis L (--start S)
+  [SKIP] Analysis M (--start S)
+  [SKIP] Analysis N (--start S)
+  [SKIP] Analysis O (--start S)
+  [SKIP] Analysis P (--start S)
+  [SKIP] Analysis R (--start S)
 
 ======================================================================
-  ANALYSIS R: CNN PATTERN DETECTION (Conv1D, 7 classes)
+  ANALYSIS S: EXIT TREND GUARD — BAND CONFLICT STUDY
 ======================================================================
-  Analysis bars with 64-bar lookback: 2,008
-  Labeled samples: 1,206  (NOISE excluded)
-  Valid windows: 1,206
+  Computed rolling z-scores: slow(240), mid(60), fast(15)
+  Valid bars: slow=23265, mid=23445, fast=23490
+  Oracle trades available: 2008
+  Analyzed 2008 trades (skipped 0 edge/NaN)
 
-  Macro three-body context (60-day avg daily H/L):
-    range_pct: mean=1.59  std=1.22  [-2.25, 3.76]
-    sigma_z:   mean=0.76  std=0.80  [-1.66, 2.17]
+  --- Tighten Signal Summary ---
+  Total tighten events (no guard):   36684
+  Total tighten events (with guard): 25078
+  Suppressed by trend guard:         11606 (31.6%)
 
-  Class distribution:
-    RAMP_UP                 438 ( 36.3%)
-    RAMP_DOWN               330 ( 27.4%)
-    V_REVERSAL_UP           121 ( 10.0%)
-    V_REVERSAL_DOWN         134 ( 11.1%)
-    STEP_UP                  82 (  6.8%)
-    STEP_DOWN                42 (  3.5%)
-    OSCILLATION              59 (  4.9%)
+  First tighten bar (no guard):   median=3, mean=7.9, p25=0
+  First tighten bar (with guard): median=5, mean=11.8, p25=0
+  Average delay from guard:       +3.9 bars
 
-  Device: cuda  |  Train: 844  Test: 362
+  LONG trades (975): tightens 19664->15200 (suppressed 4464, 22.7%), avg MFE=77.1
 
-  CNN Results (50 epochs, lr=1e-3):
-    Train accuracy:  54.7%
-    Test accuracy:   36.7%
-    Majority baseline: 36.3%
-    Lift over baseline: +0.4%
+  SHORT trades (1033): tightens 17020->9878 (suppressed 7142, 42.0%), avg MFE=86.8
 
-  Per-class report:
-                 precision    recall  f1-score   support
+  --- MFE by Suppression Rate ---
+  High suppression (>50% tightens blocked): 642 trades, avg MFE=73.2
+  Low suppression (<=50% blocked):          1313 trades, avg MFE=88.4
+  MFE difference: -15.3 (guard neutral/hurts)
 
-        RAMP_UP       0.75      0.40      0.52       131
-      RAMP_DOWN       0.74      0.37      0.50        99
-  V_REVERSAL_UP       0.15      0.28      0.20        36
-V_REVERSAL_DOWN       0.21      0.10      0.14        40
-        STEP_UP       0.19      0.72      0.31        25
-      STEP_DOWN       0.09      0.15      0.11        13
-    OSCILLATION       0.23      0.56      0.32        18
-
-       accuracy                           0.37       362
-      macro avg       0.34      0.37      0.30       362
-   weighted avg       0.54      0.37      0.40       362
-
-  DIRECTION ACCURACY:
-    CNN direction: 78.3%  (318 directional predictions)
-    Ref: Analysis K = 70.6%
-
-  [saved] C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1m\0v_cnn_confusion.png
+  [saved] C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1m\analysis_s_exit_trend_guard.png
+  [saved] C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1m\analysis_s_entry_zscores.png
 
   (Skipping full 16D pipeline -- use --full to enable)

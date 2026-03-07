@@ -1,0 +1,409 @@
+PIPELINE ANALYSIS JOURNAL
+=========================
+Started: 2026-03-01
+Purpose: Systematic analysis of the live pipeline results, same step-by-step
+approach as the waveform standalone investigation.
+
+
+BASELINE RUN (2026-03-01, main branch, pre-integration PRs)
+============================================================
+
+Run command: python training/orchestrator.py --forward-pass
+Data: ATLAS (IS: Jan-Oct 2025, 10 months), ATLAS_OOS (Jan-Feb 2026, 2 months)
+
+IS SUMMARY:
+  Trades: 392
+  Win Rate: 33.7% (132 wins / 260 losses)
+  Total PnL: $8,116.50
+  Avg PnL/trade: $20.70
+  Direction: 43.1% correct, 50.5% wrong, 6.4% noise
+
+OOS SUMMARY:
+  Trades: 162
+  Win Rate: 33.3% (54 wins / 108 losses)
+  Total PnL: $3,352.50
+  Avg PnL/trade: $20.70
+
+KEY OBSERVATIONS FROM REPORTS:
+
+1. ALL TRADES ARE SHORT
+   Every single trade (IS and OOS) is SHORT direction. Zero LONG trades.
+   This is either a bias in the model or a data characteristic.
+
+2. DEPTH = MONEY
+   Depth 1 (4h+): 10 trades, 60% WR, $209/trade  <- BEST
+   Depth 2 (1h):  41 trades, 51% WR, $73/trade
+   Depth 3 (15m): 79 trades, 28% WR, $25/trade
+   Depth 4 (5m):  73 trades, 26% WR, $16/trade
+   Depth 5+ :     189 trades, ~30% WR, near-zero or negative avg PnL
+
+   Clear gradient: higher TF triggers = better trades. This aligns
+   perfectly with Analysis K finding (4h/1h dominate direction).
+
+3. TEMPLATE MATCHING IS BROKEN
+   Strategy report shows template_id=-1 for ALL trades. Zero templates
+   matched. Phase 5 produced 0 Tier 1 strategies. The template library
+   exists but nothing is matching at Gate 1 (dist > 3.0 rejection).
+   52,541 signals rejected at Gate 1 = 7.5% of all candidates.
+
+4. EXIT QUALITY TELLS THE STORY
+   trail_stop:      90 trades, $136.67 avg  <- WINNERS
+   max_hold:        26 trades, $122.87 avg  <- WINNERS
+   physics_decay:   17 trades, $97.09 avg   <- WINNERS
+   profit_target:   42 trades, $22.77 avg   <- OK
+   emergency_close: 64 trades, -$14.50 avg  <- LOSERS
+   stop_loss:      153 trades, -$59.20 avg  <- BIGGEST LOSERS
+
+   Stop loss is the #1 PnL drain: 153 trades * -$59 = -$9,058
+   Trail stop is the #1 PnL source: 90 trades * $137 = +$12,300
+
+5. DMI_DIFF IS THE ONLY SIGNIFICANT PREDICTOR
+   Welch t-test: winners have dmi_diff = -11.3 vs losers = -3.3
+   p < 0.001 (***). More negative dmi_diff at entry = more likely to win.
+   This means: stronger SHORT momentum (negative DMI diff) at entry
+   predicts success. Makes sense for an all-SHORT portfolio.
+
+6. SESSION MATTERS
+   Overnight: 29 trades, $77.83 avg  <- BEST
+   US_Mid:    53 trades, $67.91 avg
+   US_Close:  24 trades, $60.90 avg
+   US_Open:  105 trades, $11.67 avg
+   Europe:   181 trades, -$2.36 avg  <- WORST (46% of all trades!)
+
+7. CONVICTION IS FLAT
+   belief_conviction: winners 0.682 vs losers 0.684 (p=0.41, NOT sig)
+   The conviction model is NOT distinguishing winners from losers.
+   This is a major problem — conviction should be the primary filter.
+
+8. OOS HOLDS
+   IS $20.70/trade -> OOS $20.70/trade. Nearly identical avg PnL.
+   WR: IS 33.7% -> OOS 33.3%. Consistent.
+   The model is not overfit — but it's consistently mediocre.
+
+9. REVERSED TRADES ARE THE LEAK
+   102 correct-direction trades "reversed" (market flipped after entry)
+   These leaked -$4,419. This is timing — we enter right direction but
+   too early or too late within the move.
+
+10. BEST 20 vs WORST 20
+    Best: 70% exit via trail_stop, 25% max_hold, 0% stop_loss
+    Worst: 85% exit via stop_loss, 0% trail_stop
+    Best are depth 2-3, worst are depth 3-4
+    ALL are SHORT, ALL similar conviction (~0.68)
+
+
+ANALYSIS A: HIGH-LEVEL EFFECTIVENESS
+======================================
+Date: 2026-03-01
+
+QUESTION 1: WAS THE I-MR WORKER MODEL EFFECTIVE?
+-------------------------------------------------
+
+NO — not in its current form. Evidence:
+
+a) ALL trades labeled WORKER_BYPASS (392/392 IS, 162/162 OOS)
+   The oracle never classified trades as CORRECT_DIR or WRONG_DIR.
+   Workers are bypassing the template matching entirely.
+
+b) ALL 36,252 missed IS signals are reason="no_match"
+   The template library exists but NOTHING matches at Gate 1.
+   Same for OOS: 1,544 missed, all "no_match".
+
+c) Conviction is non-predictive:
+   Winners 0.682 vs Losers 0.684 (IS, p=0.41)
+   Winners 0.696 vs Losers 0.697 (OOS)
+   The conviction model is producing FLAT values — it doesn't
+   distinguish good entries from bad ones.
+
+d) Capture rate is essentially zero:
+   Mean 0.1%, Median -0.0% (both IS and OOS)
+   61% of IS trades and 65% of OOS trades have NEGATIVE capture.
+   We're not capturing any of the available move.
+
+QUESTION 2: WAS DIRECTION SUCCESSFULLY PREDICTED?
+--------------------------------------------------
+
+NO — direction prediction is coin flip or worse. Evidence:
+
+a) MFE > MAE ratio (proxy for "right direction"):
+   IS: 49.5% (coin flip)
+   OOS: 36.4% (WORSE than coin flip)
+
+b) 391/392 IS trades are SHORT, 162/162 OOS are SHORT.
+   The model has a hardcoded SHORT bias. Zero LONG diversity.
+
+c) Direction accuracy from phase4_report:
+   IS:  43.1% correct, 50.5% wrong
+   OOS: (not computed — WORKER_BYPASS labels)
+
+WHAT IS WORKING:
+-----------------
+
+a) Z-SCORE AND DMI_DIFF SEPARATE WINNERS FROM LOSERS
+
+   This is the strongest finding — consistent IS and OOS:
+
+                        IS                  OOS
+                   Win      Loss       Win      Loss
+   z_score:     -1.511    +0.144    -1.449    +0.938
+   dmi_diff:   -11.265    -3.267    -7.034    +4.597
+
+   Winners have negative z (price extended SHORT) AND negative dmi
+   (bearish momentum). Losers have positive/neutral values.
+
+b) SIMPLE FILTER DRAMATICALLY IMPROVES RESULTS
+
+   Filter: z_score < 0 AND dmi_diff < -5
+
+   Metric              Unfiltered        Filtered
+   IS trades           392               139
+   IS WR               33.7%             52.5%
+   IS avg PnL          $20.71            $90.95
+   IS total PnL        $8,116            $12,642
+
+   OOS trades          162               45
+   OOS WR              33.3%             60.0%
+   OOS avg PnL         $20.69            $107.88
+   OOS total PnL       $3,352            $4,854
+
+   The filter IMPROVES OOS even more than IS. This is NOT overfit.
+   60% WR and $108/trade OOS is real signal.
+
+c) DEPTH GRADIENT IS REAL
+
+   Higher TF triggers = better trades (both IS and OOS):
+   Depth 1 (4h+): $209/trade IS
+   Depth 2 (1h):  $73/trade IS, $106/trade OOS
+   Depth 5+:      near-zero or negative
+
+d) EXIT SYSTEM WORKS WHEN IT ACTIVATES
+
+   IS exit PnL:
+   trail_stop:   $137 avg (90 trades)  <- PROFITABLE
+   max_hold:     $123 avg (26 trades)  <- PROFITABLE
+   stop_loss:    -$59 avg (153 trades) <- DRAIN
+
+   OOS exit PnL:
+   trail_stop:   $120 avg (41 trades)  <- HOLDS
+   max_hold:     $132 avg (11 trades)  <- HOLDS
+   stop_loss:    -$47 avg (64 trades)  <- CONSISTENT DRAIN
+
+
+DIAGNOSIS
+---------
+
+The pipeline has two fundamental problems and one hidden strength:
+
+PROBLEM 1: Template matching is non-functional.
+  Zero templates match -> all trades are WORKER_BYPASS -> the direction
+  model, playbook, and brain table are completely bypassed. The system
+  is essentially trading on raw physics + conviction, with no learned
+  context.
+
+PROBLEM 2: Direction model outputs only SHORT.
+  Whether this is a data artifact (ES was bearish Jan-Oct 2025) or a
+  model bias, the system has zero ability to go LONG. In a mixed market
+  this would be fatal.
+
+HIDDEN STRENGTH: z_score + dmi_diff are real, OOS-stable signals.
+  The physics layer DOES capture something meaningful: when z < 0 and
+  dmi < -5 (price extended + momentum confirming), SHORT trades win
+  at 52-60% with $91-108/trade. This survives OOS perfectly.
+  This is essentially the waveform finding that "4h/1h features
+  dominate direction" — dmi_diff IS the 1h/4h feature.
+
+
+ANALYSIS A2: COMPONENT-BY-COMPONENT STATUS
+============================================
+Date: 2026-03-01
+
+THREE WORKER COMPONENTS:
+  1. Live price analysis (physics features per bar)
+  2. Template matching (Gate 1: match live features to trained clusters)
+  3. Direction model (logistic + physics blend -> LONG/SHORT)
+
+COMPONENT 1: LIVE PRICE ANALYSIS -- WORKING
+-------------------------------------------
+The physics engine computes 16D features per bar per TF correctly.
+z_score, dmi_diff, hurst, adx, coherence, osc_coh all populate.
+Evidence: these features show up in trade logs and SEPARATE winners
+from losers (z_score p<0.001, dmi_diff p<0.001).
+
+The belief network aggregates across 10 TF workers using weighted
+geometric mean. Higher TFs carry more weight. This works correctly --
+depth 1-2 (4h/1h) trades are the most profitable.
+
+STATUS: OPERATIONAL
+
+COMPONENT 2: TEMPLATE MATCHING -- COMPLETELY BROKEN
+----------------------------------------------------
+
+production_playbook.pkl = 5 bytes (EMPTY DICT)
+pattern_library.pkl = 18 templates, ALL Tier 3 (UNPROVEN)
+pattern_library_long.pkl = 0 templates (EMPTY)
+
+Template inventory:
+  - 18 templates total, ALL direction=SHORT
+  - ALL have n_patterns=0 (zero forward-pass matches)
+  - ALL have adj_r2_mfe=0.000 (regression never ran or failed)
+  - WR ranges 88-97% (training oracle, not live)
+  - MFE ranges 17-1298 ticks (training oracle estimates)
+  - long_bias ranges 0.00-0.49 (some templates ~50/50)
+  - dir_coeff=True for all (logistic IS fitted)
+
+Phase 5 found 0 Tier 1 strategies -> production_playbook is EMPTY.
+Gate 1 ("no_match") rejected 36,252 IS signals because the
+hypervolume tree navigation couldn't place live bars into template
+cells. ALL 392 trades came through WORKER_BYPASS (belief conviction
+>= 0.65 without template match).
+
+ROOT CAUSE: The hypervolume tree (1.86 GB!) has cell bounds from
+training, but live feature vectors fall OUTSIDE those bounds. Either:
+  a) Feature scaling changed between training and forward pass
+  b) Cell bounds are too tight (I-MR split produced narrow cells)
+  c) Market regime shifted so live features are out-of-distribution
+
+STATUS: NON-FUNCTIONAL -- zero template matches in IS or OOS
+
+COMPONENT 3: DIRECTION MODEL -- BIASED SHORT
+---------------------------------------------
+
+ALL 18 templates have direction=SHORT. The pattern_library_long.pkl
+is EMPTY (0 templates). The system literally cannot go LONG via
+template matching.
+
+For WORKER_BYPASS trades (all 392), direction comes from:
+  1. belief_network.get_belief().direction (multi-TF consensus)
+  2. Fallback: z_score sign (z > 0 -> SHORT, z < 0 -> LONG)
+
+Result: 391 SHORT, 1 LONG. The worker consensus is overwhelmingly
+SHORT. This could be:
+  a) Market was genuinely bearish (ES Jan-Oct 2025)
+  b) The logistic dir_coeff has SHORT bias baked in from training
+     (all templates show short_bias 0.51-1.00)
+  c) Physics blend: if most bars had z > 0 (price above mean),
+     physics says SHORT (mean reversion). The physics blend at 50%
+     weight could dominate the ML direction.
+
+STATUS: BIASED -- functional but locked to SHORT
+
+
+SCORECARD
+---------
+
+  Component          Status           Impact
+  Live Physics       WORKING          Features separate W/L (p<0.001)
+  Template Matching  BROKEN           Zero matches, all WORKER_BYPASS
+  Direction Model    BIASED SHORT     No LONG capability, 43% accuracy
+  Conviction         NON-PREDICTIVE   Flat 0.68, p=0.41 W vs L
+  Exit System        WORKING          Trail=$137, MaxHold=$123 avg
+  Depth Gradient     WORKING          Depth 1-2 are profitable
+
+  Overall: The system makes money ($20.70/trade) DESPITE two broken
+  components because the physics features + exit system + depth
+  gradient carry the load. With template matching and direction
+  fixed, there is significant upside.
+
+
+KEY INSIGHT: LIVE PHYSICS CARRIES THE SYSTEM
+----------------------------------------------
+
+With ONLY live physics working (template matching broken, direction
+model biased SHORT), the system:
+  - Finds real opportunities: 95% of entries had a profitable move
+  - Makes money: $20.70/trade, holds perfectly IS->OOS
+  - But captures only 7-8% of available profit
+
+THE PARADOX: "Wrong direction" trades make MORE money
+  IS:  Right dir avg=$8.58,  Wrong dir avg=$33.75
+  OOS: Right dir avg=-$9.40, Wrong dir avg=$32.53
+
+Why? Trail stop is the explanation:
+  - Wrong dir trail_stop:  $168 avg (IS), $110 avg (OOS)
+  - Right dir trail_stop:  $87 avg (IS),  $112 avg (OOS)
+
+  Wrong-direction trades that survive the initial adverse move and
+  then mean-revert get caught by trail stop at a profit. The physics
+  (z-score reversion + trail) creates a "mean reversion catcher" that
+  works REGARDLESS of the initial direction call.
+
+This means: direction accuracy is NOT the bottleneck we thought.
+The exit system (trail stops) converts wrong-direction entries into
+profit when mean reversion kicks in. The REAL bottleneck is:
+  1. Stop losses killing 153 trades at -$59 avg (IS)
+  2. Only 7-8% capture of available moves
+  3. Template matching not working (no learned context)
+
+
+ANALYSIS MODULE: tools/pipeline_analysis.py
+--------------------------------------------
+All analyses consolidated into a reusable module.
+Run: python tools/pipeline_analysis.py --is reports/is --oos reports/oos
+
+
+CRITICAL WARNING: HURST INTEGRATION CONFLICT
+===============================================
+Date: 2026-03-01
+
+Waveform Analysis K found hurst was #1 feature for direction prediction:
+  1h_hurst: 0.042 importance (rank #1)
+  4h_hurst: 0.035 importance (rank #3)
+
+The integration PR (Part 2) adds hurst conviction scaling:
+  High hurst (>0.5, trending) -> 1.3x conviction boost
+  Low hurst  (<0.5, choppy)   -> 0.7x conviction discount
+
+BUT the live pipeline filter test shows the OPPOSITE effect:
+  hurst > 0.55:  IS $27.51/trade, OOS $10.81/trade (WORSE)
+  hurst > 0.60:  IS $19.54/trade, OOS $9.69/trade  (WORSE)
+  Baseline:      IS $20.71/trade, OOS $20.69/trade
+
+WHY THE CONTRADICTION:
+  Waveform analysis tested hurst for DIRECTION PREDICTION (next 16 bars,
+  which way?). High hurst = trending = direction more predictable.
+  That is correct for a working direction model.
+
+  But the live pipeline has NO working direction model. It runs on
+  WORKER_BYPASS with mean-reversion physics. The system makes money
+  when price reverts to mean and trail stop catches the bounce.
+
+  High hurst = trending = mean reversion FAILS
+  Low hurst  = choppy   = mean reversion WORKS
+
+  The integration PR's hurst modulation would BOOST conviction on
+  trending trades (where the exit system struggles) and DISCOUNT
+  choppy trades (where the exit system thrives). It would make
+  the current system WORSE.
+
+DEPENDENCY:
+  Hurst modulation (Part 2) requires a working direction model (Part 4)
+  to be beneficial. The two must be deployed TOGETHER or not at all.
+  Part 2 alone is counterproductive.
+
+  Same logic applies to osc_coh blend (Part 3) — it shifts weight
+  toward physics in high-coherence markets, which helps a direction
+  model but is irrelevant for mean-reversion-only trading.
+
+INTEGRATION ORDER RECOMMENDATION:
+  1. Fix template matching FIRST (Component 2 broken)
+  2. Fix direction model (Component 3 biased)
+  3. THEN deploy Parts 1-5 as a package
+  Do NOT deploy Parts 1-3 without working direction
+
+
+NEXT ANALYSES
+-------------
+
+Analysis B: Fix template matching
+  - Is the hypervolume tree stale? Check training date vs data
+  - Feature scaling alignment between training and forward pass
+  - Cell bounds audit: how wide are they vs live feature range?
+
+Analysis C: Stop loss optimization
+  - Stop loss is the #1 drain ($9,058 IS, $3,034 OOS)
+  - What if we widened SL? Removed it? Used trailing only?
+  - Physics-based SL: use z_score/dmi_diff to set dynamic stops
+
+Analysis D: Fix conviction calibration
+  - Inject z_score/dmi_diff into conviction scoring
+  - Conviction should NOT be flat -- it should vary with signal quality
