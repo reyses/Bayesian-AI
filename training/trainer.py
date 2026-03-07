@@ -278,6 +278,9 @@ class Trainer:
             print("\n" + "="*80)
             if oos_mode:
                 print("OOS BLIND SIMULATION (templates/scaler frozen from training)")
+                # Snapshot brain keys so we can drop new patterns at the end
+                _brain_keys_before_oos = set(self.brain.table.keys())
+                _brain_dir_keys_before_oos = set(self.brain.dir_table.keys())
             else:
                 print("PHASE 4: FORWARD PASS (EXECUTION MODE)")
             if start_date or end_date:
@@ -750,7 +753,7 @@ class Trainer:
             # Ping-pong state (direction refinement)
             _pp_enabled = getattr(self, '_ping_pong', False)
             _pp_flip_count = 0
-            _pp_live_dir_bias = {}  # tid -> {long_w, long_l, short_w, short_l}
+            _live_dir_bias = {}  # tid -> {long_w, long_l, short_w, short_l}
             _pp_last_exit_params = None  # TF-scaled params from exited trade
             _pp_all_trades = []  # cross-day PP trade accumulator
 
@@ -767,13 +770,38 @@ class Trainer:
             _bar_i = 0  # 15s bar index for belief network worker ticks
             _current_day = None  # for per-day progress tracking
 
-            def _pp_direction_learn(tid, side, result, outcome=None):
-                """Record direction outcome for ping-pong refinement."""
+            def _direction_learn(tid, side, pnl, outcome=None):
+                """H0/H1 direction learning — mirrors live_engine._direction_learn.
+
+                H0 (actual): we went this side, record the PnL-weighted result.
+                H1 (counterfactual): the opposite side would have mirrored PnL.
+                Both get recorded so the bias table converges to the true best side.
+                """
                 base_tid = tid.replace('PP_', '') if isinstance(tid, str) and tid.startswith('PP_') else tid
-                if base_tid not in _pp_live_dir_bias:
-                    _pp_live_dir_bias[base_tid] = {'long_w': 0, 'long_l': 0, 'short_w': 0, 'short_l': 0}
-                key = f"{'long' if side == 'long' else 'short'}_{'w' if result == 'WIN' else 'l'}"
-                _pp_live_dir_bias[base_tid][key] += 1
+                if base_tid not in _live_dir_bias:
+                    _live_dir_bias[base_tid] = {'long_w': 0, 'long_l': 0, 'short_w': 0, 'short_l': 0}
+
+                bias = _live_dir_bias[base_tid]
+                key = side.lower()
+                alt_key = 'short' if key == 'long' else 'long'
+                alt_pnl = -pnl  # mirror
+
+                # PnL-weighted: 1 point per tick (MNQ tick=$0.50)
+                _tick_val = 0.25 * 2.0  # tick_size * point_value
+                _weight = max(1, int(abs(pnl) / _tick_val))
+
+                # H0: actual outcome
+                if pnl > 0:
+                    bias[f'{key}_w'] += _weight
+                else:
+                    bias[f'{key}_l'] += _weight
+
+                # H1: counterfactual (opposite side)
+                if alt_pnl > 0:
+                    bias[f'{alt_key}_w'] += _weight
+                else:
+                    bias[f'{alt_key}_l'] += _weight
+
                 # Track PP-originated trades across all days
                 if outcome is not None and isinstance(tid, str) and tid.startswith('PP_'):
                     _pp_all_trades.append(outcome)
@@ -799,7 +827,7 @@ class Trainer:
                     return False, None
                 # Check live direction bias (reject if known loser)
                 base_tid = exited_tid.replace('PP_', '') if isinstance(exited_tid, str) and exited_tid.startswith('PP_') else exited_tid
-                bias = _pp_live_dir_bias.get(base_tid)
+                bias = _live_dir_bias.get(base_tid)
                 if bias:
                     d = 'long' if flip_side == 'long' else 'short'
                     total = bias.get(f'{d}_w', 0) + bias.get(f'{d}_l', 0)
@@ -983,9 +1011,11 @@ class Trainer:
                             pending_oracle = None
                             _pending_dm_idx = None
 
-                        # Ping-pong: direction learn + flip after exit
+                        # H0/H1 direction learning (always, mirrors live)
+                        _direction_learn(active_template_id, active_side, outcome.pnl, outcome)
+
+                        # Ping-pong: flip after exit
                         if _pp_enabled:
-                            _pp_direction_learn(active_template_id, active_side, outcome.result, outcome)
                             _should_flip, _flip_side = _pp_try_flip(
                                 active_side, active_template_id, price, ts_raw,
                                 _pp_last_exit_params)
@@ -1065,7 +1095,7 @@ class Trainer:
                                 if _ec_ds[_ec_ni] < 4.5:
                                     _pp_base = valid_template_ids[_ec_ni]
                             if _pp_base is not None:
-                                _pp_b = _pp_live_dir_bias.get(_pp_base)
+                                _pp_b = _live_dir_bias.get(_pp_base)
                                 if _pp_b:
                                     _lw, _ll = _pp_b.get('long_w', 0), _pp_b.get('long_l', 0)
                                     _sw, _sl = _pp_b.get('short_w', 0), _pp_b.get('short_l', 0)
@@ -1329,6 +1359,7 @@ class Trainer:
                 )
                 self.brain.update(outcome)
                 day_trades.append(outcome)
+                _direction_learn(active_template_id, active_side, eod_pnl, outcome)
 
                 # Update running equity after EOD close
                 if _equity_enabled:
@@ -1530,6 +1561,23 @@ class Trainer:
             _brain_path = os.path.join(self.checkpoint_dir, 'pattern_forward_brain.pkl')
             self.brain.save(_brain_path)
             print(f"  Forward pass brain saved: {_brain_path}")
+            print(f"    States: {len(self.brain.table)}, "
+                  f"Direction pairs: {len(self.brain.dir_table)}")
+
+        # OOS: save brain with updated weights but drop new patterns
+        if oos_mode and oracle_trade_records:
+            _new_keys = set(self.brain.table.keys()) - _brain_keys_before_oos
+            _new_dir_keys = set(self.brain.dir_table.keys()) - _brain_dir_keys_before_oos
+            for k in _new_keys:
+                del self.brain.table[k]
+            for k in _new_dir_keys:
+                del self.brain.dir_table[k]
+            print(f"\n  OOS brain cleanup: dropped {len(_new_keys)} new patterns, "
+                  f"{len(_new_dir_keys)} new dir entries")
+            print(f"  Retained weights on {len(self.brain.table)} pre-existing patterns")
+            _brain_path = os.path.join(self.checkpoint_dir, 'pattern_forward_brain.pkl')
+            self.brain.save(_brain_path)
+            print(f"  OOS brain saved: {_brain_path}")
             print(f"    States: {len(self.brain.table)}, "
                   f"Direction pairs: {len(self.brain.dir_table)}")
 
@@ -2395,10 +2443,10 @@ class Trainer:
                 _pp_wins = sum(1 for t in _pp_trades if t.result == 'WIN')
                 _pp_pnl  = sum(t.pnl for t in _pp_trades)
                 report_lines.append(f"  PP Trades: {len(_pp_trades)}  WR: {_pp_wins/len(_pp_trades)*100:.1f}%  PnL: ${_pp_pnl:.2f}")
-            if _pp_live_dir_bias:
+            if _live_dir_bias:
                 report_lines.append("  Direction Bias Table:")
                 report_lines.append(f"    {'TID':>6s}  {'L_W':>4s} {'L_L':>4s} {'L_WR':>5s}  {'S_W':>4s} {'S_L':>4s} {'S_WR':>5s}")
-                for _tid, _b in sorted(_pp_live_dir_bias.items(), key=lambda x: sum(x[1].values()), reverse=True)[:15]:
+                for _tid, _b in sorted(_live_dir_bias.items(), key=lambda x: sum(x[1].values()), reverse=True)[:15]:
                     _lw, _ll = _b.get('long_w', 0), _b.get('long_l', 0)
                     _sw, _sl2 = _b.get('short_w', 0), _b.get('short_l', 0)
                     _lt = _lw + _ll
