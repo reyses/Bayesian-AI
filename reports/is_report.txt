@@ -1,5 +1,5 @@
 ================================================================================
-FORWARD PASS COMPLETE  (run: 2026-03-06 17:55:22)
+FORWARD PASS COMPLETE  (run: 2026-03-06 19:14:55)
   Period: DATA/ATLAS_1DAY\15s\2025_01.parquet to 2025_01 (1 files)
 Total Trades: 0
 Win Rate: N/A
@@ -92,12 +92,6 @@ ORACLE PROFIT ATTRIBUTION
     Bars evaluated (free slot):      108  (2.0%)
     Candidates on those bars:        684  (avg 6.3/bar)
   PID oracle log saved: checkpoints\pid_oracle_log.csv (342 signals)
-  Signal log saved: checkpoints\signal_log.csv  (0 traded  +  684 skipped)
-
-  DECISION MATRIX SUMMARY  (skipped candidates -- oracle $ = profit left on table)
-    Gate                    Count  RealMove%  Avg Oracle$  Total Missed$
-    gate0_momentum            624      93.6%          57         33122
-    gate0_hurst                60     100.0%           0             0
   FN oracle log saved: checkpoints\fn_oracle_log.csv  (232 missed real moves)
 
   FN WORKER AGREEMENT (did workers agree with oracle on missed moves?)
