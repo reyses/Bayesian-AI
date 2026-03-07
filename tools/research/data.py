@@ -1,5 +1,5 @@
 """
-Waveform data loading and physics extraction utilities.
+Research data loading and physics extraction utilities.
 
 Provides functions for loading ATLAS parquet data, computing per-TF physics
 via StatisticalFieldEngine, extracting 16D feature vectors, and building
@@ -30,7 +30,7 @@ TF_SECONDS = {
     '1m': 60, '30s': 30, '15s': 15,
 }
 
-# TF labels for column naming (matches waveform_screening.py convention)
+# TF labels for column naming (matches standalone_research.py convention)
 TF_LABELS = [
     'd0_1W', 'd1_1D', 'd2_4h', 'd3_1h', 'd4_30m', 'd5_15m',
     'd6_5m', 'd7_3m', 'd8_2m', 'd9_1m', 'd10_30s', 'd11_15s'

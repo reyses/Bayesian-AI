@@ -1,6 +1,6 @@
 """Seed primitive library and adaptive splitting for trajectory classification.
 
-Extracted from tools/waveform_standalone.py (lines 1662-1947).
+Extracted from tools/standalone_research.py (lines 1662-1947).
 Contains the 20-shape SeedPrimitiveLibrary and helper functions for
 inflection detection and adaptive KMeans sub-typing.
 """

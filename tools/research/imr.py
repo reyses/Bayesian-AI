@@ -246,4 +246,3 @@ def compute_regime_oracle(base_df, regime_ids, regime_meta, lookahead=16):
     return (np.array(bar_indices), np.array(mfes),
             np.array(maes), np.array(directions))
 
-

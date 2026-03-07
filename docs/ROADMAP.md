@@ -58,11 +58,25 @@ Needs a Jules spec + dedicated branch.
 - IS uses everything before that, OOS validates last N days
 - Depends on: pattern relevance (otherwise old IS patterns contaminate)
 
-### 2. Counter-Trend Scalp Research
+### 2. Partial Bar Aggregation (Timescale Fix)
+- **Findings**: `docs/SCALP_TIMESCALE_FINDINGS.md` (2026-03-07)
+- Root cause: workers only update on TF bar close (4h worker frozen for hours)
+- Exit side: fast TFs (1m) hit local resistance, tighten trail, cause too-early exits
+- Entry side: band confluence blend added (40% influence) — needs validation
+- **Hourly overlap**: r=0.716 between scalps and too-early exits (same regime problem)
+- **Fix**: blend completed bar with forming bar, weighted by bar maturity %
+  `effective = completed * (1 - maturity) + partial * maturity`
+  Early-bar noise suppressed (maturity ~0.02), late-bar signal trusted (~0.96)
+- Scope: worker tick loop, quantum engine partial states, band context interpolation
+- Needs Jules spec
+
+### 3. Counter-Trend Scalp Research
 - New trade_class column added (correct_dir / counter_trend_scalp / genuinely_wrong / noise)
-- 28% of trades are counter-trend scalps (profitable micro-peaks against oracle direction)
-- Research: can we intentionally identify these? Different exit strategy?
-- Risk: fragile edge, 40% of wrong-dir winners are <$5 (slippage-sensitive)
+- 30% of trades are counter-trend scalps ($10,314 profit, oracle timescale mismatch)
+- Scalps cluster in bursts (52.8% follow another scalp), MFE is real (68.7 ticks)
+- Workers see the trend (57.4% agree with oracle) but template bias overrides
+- Partially addressed by band confluence entry blend — run `--fresh --forward-pass` to validate
+- Deeper fix: partial bar aggregation (#2 above) addresses exit-side too-early problem
 
 ### 3. Extended OOS Data Pipeline
 - NT8 tick export to all-TF parquet converter: `tools/nt8_to_parquet.py` (DONE)

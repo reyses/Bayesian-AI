@@ -1,4 +1,4 @@
-"""Waveform analysis subpackage.
+"""Research analysis subpackage.
 
 Submodules:
     data       — ATLAS loading, 16D physics extraction, stacked matrices

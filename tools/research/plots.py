@@ -1,6 +1,6 @@
-"""Waveform standalone plotting functions.
+"""Research standalone plotting functions.
 
-Extracted from tools/waveform_standalone.py. Contains:
+Extracted from tools/standalone_research.py. Contains:
   - plot_price_imr: Price I-MR chart with regime coloring (4 panels)
   - plot_regime_summary: 2x2 regime dashboard
   - plot_imr_charts: Minitab-style I-MR charts for key features + heatmaps
@@ -38,9 +38,9 @@ def resolve_plots_dir(data_path, analysis_days=0):
     global PLOTS_DIR
     base = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'plots', 'standalone')
     dp = data_path.upper().replace('\\', '/')
-    if '1DAY' in dp or '1_DAY' in dp:
+    if '1DAY' in dp or '1_DAY' in dp or (0 < analysis_days <= 1):
         sub = '1d'
-    elif '1WEEK' in dp or '1_WEEK' in dp:
+    elif '1WEEK' in dp or '1_WEEK' in dp or (1 < analysis_days <= 7):
         sub = '1w'
     elif 'OOS' in dp:
         sub = '1y'

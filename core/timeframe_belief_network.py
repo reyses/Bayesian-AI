@@ -589,6 +589,22 @@ class TimeframeBeliefNetwork:
         path_short     = float(np.exp(np.dot(w_arr, probs_short)))
         wave_maturity  = float(np.dot(w_arr, wave_maturities))
 
+        # ── Band confluence direction blend ─────────────────────────────
+        # Multi-TF SE bands capture structural trend that template biases miss.
+        # When bands strongly signal a direction, blend it into path probabilities
+        # to prevent template SHORT bias from overriding a clear LONG trend.
+        band_confluence = self.get_band_confluence()
+        if band_confluence is not None and band_confluence.get('direction') is not None:
+            _bc_str = band_confluence['strength']  # 0..1
+            if _bc_str > 0.3:  # only blend when bands have meaningful signal
+                _bc_weight = _bc_str * 0.4  # max 40% influence at full strength
+                if band_confluence['direction'] == 'long':
+                    path_long  = path_long  * (1 - _bc_weight) + _bc_weight * 0.75
+                    path_short = path_short * (1 - _bc_weight) + _bc_weight * 0.25
+                else:
+                    path_long  = path_long  * (1 - _bc_weight) + _bc_weight * 0.25
+                    path_short = path_short * (1 - _bc_weight) + _bc_weight * 0.75
+
         if path_long >= path_short:
             direction  = 'long'
             conviction = path_long
@@ -608,8 +624,6 @@ class TimeframeBeliefNetwork:
         # A mature 30s sub-wave is often just a forming 5m wave -- don't conflate them.
         # Only the decision-TF worker's maturity tells us if the TRADEABLE move is exhausted.
         decision_wave_maturity = dec_belief.wave_maturity if dec_belief else wave_maturity
-
-        band_confluence = self.get_band_confluence()
 
         return BeliefState(
             direction              = direction,
@@ -955,6 +969,18 @@ class TimeframeBeliefNetwork:
                 # Resistance broken while short (bands say LONG strongly) → urgent
                 if _bc['direction'] == 'long' and _bc['strength'] > 0.5:
                     _band_urgent = True
+
+        # Exit trend guard: when band confluence confirms trade direction with
+        # strong signal, suppress band_tighten. Fast TFs hitting local resistance
+        # shouldn't spook us out of a trade the slow TFs still support.
+        # See: reports/findings/2026-03-07_brain_aggregation.md (Fix #2)
+        if _band_tighten and _bc is not None and _bc.get('direction') is not None:
+            _bc_matches_trade = (
+                (_bc['direction'] == 'long' and side == 'long') or
+                (_bc['direction'] == 'short' and side == 'short')
+            )
+            if _bc_matches_trade and _bc['strength'] > 0.5:
+                _band_tighten = False  # trend is with us, don't tighten
 
         tighten = tighten or _band_tighten
         widen   = widen or _band_widen

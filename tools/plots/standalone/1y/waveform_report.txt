@@ -2,7 +2,7 @@
   STANDALONE WAVEFORM SCREENING
   Data: DATA/ATLAS
   Base TF: 15m
-  Context: 21d warmup, 200d analysis
+  Context: 21d warmup, 0d analysis
   Mode: PRICE I-MR (default)
 ======================================================================
 
@@ -10,11 +10,11 @@
   15m: 23,505 bars loaded
 
 --- STEP 2: Price I-MR Chart ---
-  Price I-MR: 23505 bars, warmup=1334, analysis=12897
+  Price I-MR: 23505 bars, warmup=1334, analysis=22171
   Center=21384.36, MR_bar=17.77, UCL_MR=58.05, UCL_I=21431.62, LCL_I=21337.10
 
 --- STEP 3: Regime Detection ---
-  Regimes: 830 raw -> 238 after merge (min_bars=8)
+  Regimes: 1211 raw -> 369 after merge (min_bars=8)
     R0:   87 bars, price=21930.8, vol=7.87, dir=SHORT, chg=-3.2
     R1:   97 bars, price=21988.7, vol=11.79, dir=SHORT, chg=-134.0
     R2:   35 bars, price=21517.4, vol=23.45, dir=SHORT, chg=-334.2
@@ -252,10 +252,141 @@
     R234:  207 bars, price=23332.8, vol=15.00, dir=LONG, chg=+127.0
     R235:   67 bars, price=23550.9, vol=9.16, dir=LONG, chg=+40.5
     R236:    9 bars, price=23652.0, vol=30.39, dir=LONG, chg=+16.5
-    R237:   25 bars, price=23710.8, vol=12.75, dir=LONG, chg=+51.2
+    R237:  176 bars, price=23697.2, vol=10.25, dir=LONG, chg=+56.5
+    R238:  183 bars, price=23933.9, vol=9.97, dir=LONG, chg=+205.2
+    R239:   10 bars, price=23930.2, vol=31.55, dir=LONG, chg=+8.5
+    R240:   84 bars, price=23912.8, vol=10.88, dir=SHORT, chg=-60.0
+    R241:  185 bars, price=23792.2, vol=11.08, dir=SHORT, chg=-164.2
+    R242:   99 bars, price=23405.1, vol=17.21, dir=SHORT, chg=-455.5
+    R243:   12 bars, price=23251.9, vol=33.04, dir=LONG, chg=+3.2
+    R244:   79 bars, price=23311.2, vol=15.07, dir=SHORT, chg=-29.0
+    R245:   55 bars, price=23208.5, vol=12.02, dir=SHORT, chg=-38.5
+    R246:   30 bars, price=23237.3, vol=16.42, dir=LONG, chg=+178.2
+    R247:  130 bars, price=23546.3, vol=12.88, dir=SHORT, chg=-126.8
+    R248:  166 bars, price=23546.4, vol=10.16, dir=LONG, chg=+238.8
+    R249:   71 bars, price=23579.2, vol=12.86, dir=LONG, chg=+133.5
+    R250:   93 bars, price=23709.6, vol=12.33, dir=SHORT, chg=-91.0
+    R251:   12 bars, price=23465.6, vol=29.00, dir=LONG, chg=+19.2
+    R252:   50 bars, price=23474.0, vol=11.60, dir=SHORT, chg=-44.8
+    R253:   81 bars, price=23461.4, vol=9.47, dir=SHORT, chg=-105.2
+    R254:   27 bars, price=23237.7, vol=25.03, dir=SHORT, chg=-16.0
+    R255:   22 bars, price=23154.5, vol=26.07, dir=LONG, chg=+95.0
+    R256:   70 bars, price=23371.0, vol=11.55, dir=LONG, chg=+80.8
+    R257:  187 bars, price=23588.3, vol=12.89, dir=LONG, chg=+66.2
+    R258:  181 bars, price=23782.7, vol=10.14, dir=LONG, chg=+178.0
+    R259:   88 bars, price=23893.2, vol=9.38, dir=LONG, chg=+254.2
+    R260:   38 bars, price=23901.4, vol=14.29, dir=SHORT, chg=-30.2
+    R261:  443 bars, price=24390.1, vol=9.21, dir=LONG, chg=+312.0
+    R262:   70 bars, price=24628.4, vol=13.28, dir=LONG, chg=+94.5
+    R263:  291 bars, price=24849.1, vol=10.37, dir=LONG, chg=+172.0
+    R264:   85 bars, price=24849.6, vol=9.77, dir=SHORT, chg=-38.2
+    R265:   91 bars, price=24710.4, vol=14.98, dir=SHORT, chg=-81.0
+    R266:   95 bars, price=24621.1, vol=18.63, dir=SHORT, chg=-87.8
+    R267:   81 bars, price=24804.5, vol=8.89, dir=LONG, chg=+189.5
+    R268:  157 bars, price=24820.1, vol=11.90, dir=SHORT, chg=-185.5
+    R269:   27 bars, price=24735.1, vol=14.73, dir=LONG, chg=+111.2
+    R270:   92 bars, price=25038.3, vol=9.51, dir=LONG, chg=+336.0
+    R271:  111 bars, price=25124.9, vol=10.47, dir=SHORT, chg=-75.2
+    R272:   73 bars, price=25089.6, vol=9.47, dir=LONG, chg=+176.0
+    R273:   98 bars, price=25179.1, vol=9.73, dir=LONG, chg=+45.2
+    R274:  285 bars, price=25216.8, vol=13.59, dir=SHORT, chg=-486.5
+    R275:   14 bars, price=24572.6, vol=35.07, dir=SHORT, chg=-293.5
+    R276:   53 bars, price=24807.1, vol=28.26, dir=LONG, chg=+662.0
+    R277:   15 bars, price=24819.4, vol=28.63, dir=LONG, chg=+50.2
+    R278:   55 bars, price=24913.7, vol=19.88, dir=LONG, chg=+32.2
+    R279:   43 bars, price=24660.2, vol=34.63, dir=LONG, chg=+116.8
+    R280:   13 bars, price=24903.4, vol=19.02, dir=LONG, chg=+31.0
+    R281:   85 bars, price=24885.9, vol=22.26, dir=LONG, chg=+120.5
+    R282:  101 bars, price=24960.7, vol=24.65, dir=SHORT, chg=-72.8
+    R283:   40 bars, price=24738.0, vol=19.49, dir=SHORT, chg=-173.5
+    R284:   16 bars, price=24502.7, vol=25.06, dir=LONG, chg=+76.0
+    R285:   20 bars, price=24769.7, vol=41.91, dir=LONG, chg=+133.0
+    R286:   82 bars, price=25050.5, vol=16.51, dir=LONG, chg=+200.5
+    R287:  200 bars, price=25276.1, vol=14.16, dir=SHORT, chg=-279.8
+    R288:   77 bars, price=25041.5, vol=15.53, dir=LONG, chg=+262.5
+    R289:    8 bars, price=25160.1, vol=27.47, dir=SHORT, chg=-32.0
+    R290:   79 bars, price=25314.2, vol=9.92, dir=LONG, chg=+173.5
+    R291:    9 bars, price=25495.2, vol=32.78, dir=LONG, chg=+61.0
+    R292:   25 bars, price=25531.7, vol=13.20, dir=LONG, chg=+42.2
+    R293:  271 bars, price=26025.8, vol=11.31, dir=LONG, chg=+484.5
+    R294:   29 bars, price=26280.4, vol=21.47, dir=LONG, chg=+96.5
+    R295:   56 bars, price=26170.8, vol=35.57, dir=SHORT, chg=-141.5
+    R296:    8 bars, price=25954.6, vol=25.50, dir=SHORT, chg=-134.8
+    R297:   67 bars, price=26179.5, vol=15.64, dir=LONG, chg=+202.0
+    R298:    9 bars, price=26129.6, vol=27.61, dir=LONG, chg=+2.5
+    R299:   16 bars, price=25997.2, vol=24.73, dir=LONG, chg=+41.8
+    R300:   70 bars, price=26097.1, vol=14.07, dir=LONG, chg=+133.5
+    R301:   32 bars, price=26103.0, vol=19.26, dir=SHORT, chg=-1.2
+    R302:   62 bars, price=25831.4, vol=19.25, dir=SHORT, chg=-112.2
+    R303:   15 bars, price=25704.4, vol=21.78, dir=SHORT, chg=-129.0
+    R304:   24 bars, price=25488.4, vol=25.33, dir=SHORT, chg=-294.2
+    R305:   10 bars, price=25462.6, vol=30.07, dir=LONG, chg=+96.2
+    R306:   23 bars, price=25509.5, vol=16.82, dir=SHORT, chg=-39.2
+    R307:   16 bars, price=25511.9, vol=21.36, dir=LONG, chg=+112.2
+    R308:   24 bars, price=25787.9, vol=26.70, dir=LONG, chg=+113.5
+    R309:   85 bars, price=25640.4, vol=26.35, dir=SHORT, chg=-410.8
+    R310:   60 bars, price=25294.7, vol=20.49, dir=SHORT, chg=-175.8
+    R311:   25 bars, price=25011.5, vol=33.63, dir=SHORT, chg=-355.0
+    R312:   13 bars, price=24953.6, vol=35.25, dir=LONG, chg=+224.5
+    R313:   68 bars, price=25446.0, vol=15.97, dir=LONG, chg=+406.8
+    R314:  191 bars, price=25680.2, vol=15.86, dir=SHORT, chg=-119.0
+    R315:   23 bars, price=25597.1, vol=16.24, dir=LONG, chg=+42.8
+    R316:    8 bars, price=25562.3, vol=21.91, dir=LONG, chg=+0.8
+    R317:   32 bars, price=25685.0, vol=15.64, dir=SHORT, chg=-22.0
+    R318:   41 bars, price=25403.1, vol=37.44, dir=SHORT, chg=-565.2
+    R319:   43 bars, price=25101.4, vol=21.69, dir=SHORT, chg=-52.8
+    R320:   22 bars, price=24926.1, vol=28.93, dir=SHORT, chg=-215.5
+    R321:   15 bars, price=24851.2, vol=55.00, dir=LONG, chg=+419.8
+    R322:    9 bars, price=25231.1, vol=40.72, dir=SHORT, chg=-75.5
+    R323:  101 bars, price=25159.3, vol=27.88, dir=SHORT, chg=-299.8
+    R324:   10 bars, price=24909.4, vol=20.32, dir=LONG, chg=+37.2
+    R325:   16 bars, price=24859.1, vol=27.58, dir=SHORT, chg=-148.0
+    R326:    9 bars, price=24716.6, vol=29.00, dir=LONG, chg=+70.2
+    R327:   22 bars, price=24765.8, vol=26.41, dir=LONG, chg=+147.5
+    R328:   22 bars, price=24639.3, vol=42.70, dir=SHORT, chg=-173.8
+    R329:   13 bars, price=24728.8, vol=45.56, dir=SHORT, chg=-63.2
+    R330:   14 bars, price=24563.2, vol=28.80, dir=SHORT, chg=-52.8
+    R331:   18 bars, price=24565.6, vol=24.92, dir=SHORT, chg=-134.0
+    R332:   65 bars, price=24685.5, vol=34.07, dir=LONG, chg=+424.0
+    R333:   86 bars, price=25007.5, vol=38.64, dir=SHORT, chg=-788.5
+    R334:   98 bars, price=24195.2, vol=37.98, dir=LONG, chg=+188.0
+    R335:   41 bars, price=24483.6, vol=17.82, dir=LONG, chg=+29.0
+    R336:   25 bars, price=24496.4, vol=35.44, dir=LONG, chg=+368.0
+    R337:   95 bars, price=24903.2, vol=19.60, dir=SHORT, chg=-15.0
+    R338:   86 bars, price=25127.8, vol=14.06, dir=LONG, chg=+378.5
+    R339:  137 bars, price=25324.0, vol=10.43, dir=LONG, chg=+228.2
+    R340:   69 bars, price=25303.4, vol=18.36, dir=SHORT, chg=-153.8
+    R341:  100 bars, price=25440.6, vol=18.88, dir=LONG, chg=+184.2
+    R342:   78 bars, price=25631.3, vol=14.36, dir=SHORT, chg=-72.5
+    R343:  102 bars, price=25630.8, vol=15.54, dir=LONG, chg=+74.2
+    R344:   10 bars, price=25612.7, vol=20.00, dir=SHORT, chg=-49.2
+    R345:   75 bars, price=25683.3, vol=11.59, dir=LONG, chg=+258.8
+    R346:   91 bars, price=25768.6, vol=10.38, dir=SHORT, chg=-53.0
+    R347:  166 bars, price=25678.8, vol=9.90, dir=SHORT, chg=-40.5
+    R348:   38 bars, price=25644.6, vol=20.87, dir=LONG, chg=+32.2
+    R349:   13 bars, price=25790.6, vol=27.04, dir=SHORT, chg=-93.0
+    R350:   12 bars, price=25911.2, vol=37.56, dir=SHORT, chg=-166.2
+    R351:   56 bars, price=25812.0, vol=28.47, dir=LONG, chg=+76.5
+    R352:   17 bars, price=25918.9, vol=30.06, dir=LONG, chg=+174.2
+    R353:   75 bars, price=25864.8, vol=22.94, dir=SHORT, chg=-653.2
+    R354:   90 bars, price=25521.5, vol=18.61, dir=LONG, chg=+0.8
+    R355:   32 bars, price=25349.2, vol=21.27, dir=SHORT, chg=-143.0
+    R356:   68 bars, price=25211.8, vol=25.23, dir=LONG, chg=+81.0
+    R357:   81 bars, price=25378.1, vol=20.28, dir=SHORT, chg=-176.2
+    R358:   20 bars, price=24997.7, vol=23.30, dir=SHORT, chg=-91.2
+    R359:   79 bars, price=25065.6, vol=22.51, dir=LONG, chg=+337.2
+    R360:   10 bars, price=25314.1, vol=31.93, dir=SHORT, chg=-132.8
+    R361:   40 bars, price=25266.2, vol=16.59, dir=LONG, chg=+9.2
+    R362:   30 bars, price=25349.5, vol=14.26, dir=LONG, chg=+0.8
+    R363:   94 bars, price=25652.8, vol=12.54, dir=LONG, chg=+200.5
+    R364:   90 bars, price=25694.3, vol=8.69, dir=SHORT, chg=-32.5
+    R365:  264 bars, price=25827.3, vol=9.20, dir=SHORT, chg=-53.2
+    R366:   91 bars, price=25722.3, vol=11.10, dir=LONG, chg=+11.8
+    R367:   90 bars, price=25646.8, vol=9.56, dir=SHORT, chg=-17.0
+    R368:   30 bars, price=25556.8, vol=18.41, dir=SHORT, chg=-185.2
 
 --- STEP 4: Oracle MFE/MAE ---
-  Oracle: 12897 bars with MFE/MAE (lookahead=16)
+  Oracle: 22155 bars with MFE/MAE (lookahead=16)
 
 --- STEP 5: Generating charts ---
   Saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1y\0_price_imr.png
@@ -264,11 +395,11 @@
 ======================================================================
   REGIME SUMMARY
 ======================================================================
-  Analysis bars: 12897
-  Regimes: 238
-  MFE: mean=104.60, std=130.39
-  MAE: mean=66.32, std=90.92
-  Win rate (MFE > MAE): 60.6%
+  Analysis bars: 22155
+  Regimes: 369
+  MFE: mean=96.72, std=117.67
+  MAE: mean=60.31, std=79.21
+  Win rate (MFE > MAE): 61.1%
 
   Regime     Dir        N      WR      MFE      MAE    Vol      Price
   ---------- ------ ----- ------- -------- -------- ------ ----------
@@ -509,11 +640,142 @@
   R234       LONG     207   62.3%    +78.8     57.3  15.00    23332.8
   R235       LONG      67   62.7%    +54.4     32.9   9.16    23550.9
   R236       LONG       9   66.7%    +68.4     40.7  30.39    23652.0
-  R237       LONG      25   76.0%    +57.0     30.8  12.75    23710.8
+  R237       LONG     176   48.9%    +53.8     48.7  10.25    23697.2
+  R238       LONG     183   60.7%    +44.8     38.4   9.97    23933.9
+  R239       LONG      10   40.0%    +63.7     66.7  31.55    23930.2
+  R240       SHORT     84   57.1%    +58.9     30.8  10.88    23912.8
+  R241       SHORT    185   53.0%    +60.1     33.1  11.08    23792.2
+  R242       SHORT     99   66.7%   +109.5     44.9  17.21    23405.1
+  R243       LONG      12   83.3%   +116.9     50.9  33.04    23251.9
+  R244       SHORT     79   72.2%    +76.7     43.0  15.07    23311.2
+  R245       SHORT     55   61.8%    +64.7     38.5  12.02    23208.5
+  R246       LONG      30  100.0%   +240.4     34.5  16.42    23237.3
+  R247       SHORT    130   70.8%    +65.5     33.6  12.88    23546.3
+  R248       LONG     166   45.8%    +43.5     49.5  10.16    23546.4
+  R249       LONG      71   76.1%    +77.7     41.2  12.86    23579.2
+  R250       SHORT     93   74.2%    +75.1     29.5  12.33    23709.6
+  R251       LONG      12   16.7%    +33.3     68.1  29.00    23465.6
+  R252       SHORT     50   50.0%    +62.8     51.5  11.60    23474.0
+  R253       SHORT     81   72.8%    +67.2     22.2   9.47    23461.4
+  R254       SHORT     27   81.5%   +187.5     57.9  25.03    23237.7
+  R255       LONG      22   90.9%   +194.1     32.7  26.07    23154.5
+  R256       LONG      70   60.0%    +58.6     37.5  11.55    23371.0
+  R257       LONG     187   65.2%    +64.5     57.0  12.89    23588.3
+  R258       LONG     181   57.5%    +44.4     37.9  10.14    23782.7
+  R259       LONG      88   77.3%    +58.9     24.8   9.38    23893.2
+  R260       SHORT     38   52.6%    +65.9    129.8  14.29    23901.4
+  R261       LONG     443   53.3%    +43.3     37.6   9.21    24390.1
+  R262       LONG      70   68.6%    +79.8     44.9  13.28    24628.4
+  R263       LONG     291   48.1%    +41.0     41.3  10.37    24849.1
+  R264       SHORT     85   51.8%    +63.9     29.7   9.77    24849.6
+  R265       SHORT     91   63.7%    +87.0     42.7  14.98    24710.4
+  R266       SHORT     95   47.4%    +67.4     65.8  18.63    24621.1
+  R267       LONG      81   92.6%    +60.9     20.8   8.89    24804.5
+  R268       SHORT    157   68.2%    +63.8     34.3  11.90    24820.1
+  R269       LONG      27  100.0%   +134.4     29.4  14.73    24735.1
+  R270       LONG      92   73.9%    +58.3     36.1   9.51    25038.3
+  R271       SHORT    111   53.2%    +60.5     35.1  10.47    25124.9
+  R272       LONG      73   74.0%    +60.4     31.5   9.47    25089.6
+  R273       LONG      98   50.0%    +43.1     64.3   9.73    25179.1
+  R274       SHORT    285   51.6%    +87.5     49.5  13.59    25216.8
+  R275       SHORT     14   71.4%   +414.1    221.4  35.07    24572.6
+  R276       LONG      53   50.9%    +89.0     62.4  28.26    24807.1
+  R277       LONG      15   80.0%   +120.8     88.4  28.63    24819.4
+  R278       LONG      55   50.9%    +62.8    121.0  19.88    24913.7
+  R279       LONG      43   39.5%   +149.2    144.1  34.63    24660.2
+  R280       LONG      13    0.0%    +27.8    217.7  19.02    24903.4
+  R281       LONG      85   74.1%    +93.8     92.6  22.26    24885.9
+  R282       SHORT    101   45.5%   +110.2     73.9  24.65    24960.7
+  R283       SHORT     40   77.5%   +160.2     36.6  19.49    24738.0
+  R284       LONG      16  100.0%   +325.8     37.0  25.06    24502.7
+  R285       LONG      20   90.0%   +225.2     83.5  41.91    24769.7
+  R286       LONG      82   69.5%   +104.4     41.6  16.51    25050.5
+  R287       SHORT    200   65.5%    +81.8     39.5  14.16    25276.1
+  R288       LONG      77   50.6%    +87.6     63.4  15.53    25041.5
+  R289       SHORT      8    0.0%    +49.0    126.2  27.47    25160.1
+  R290       LONG      79   88.6%    +70.9     20.3   9.92    25314.2
+  R291       LONG       9   55.6%    +71.2     64.5  32.78    25495.2
+  R292       LONG      25   88.0%   +165.4     26.2  13.20    25531.7
+  R293       LONG     271   70.8%    +64.5     34.2  11.31    26025.8
+  R294       LONG      29   37.9%   +100.4    127.4  21.47    26280.4
+  R295       SHORT     56   76.8%   +153.9     61.6  35.57    26170.8
+  R296       SHORT      8    0.0%   +101.6    240.2  25.50    25954.6
+  R297       LONG      67   47.8%    +50.6     69.6  15.64    26179.5
+  R298       LONG       9    0.0%    +47.6    240.9  27.61    26129.6
+  R299       LONG      16   68.8%   +121.8     67.4  24.73    25997.2
+  R300       LONG      70   47.1%    +72.2     59.5  14.07    26097.1
+  R301       SHORT     32   78.1%    +95.5     49.5  19.26    26103.0
+  R302       SHORT     62   72.6%   +138.9     56.6  19.25    25831.4
+  R303       SHORT     15  100.0%   +177.9     24.2  21.78    25704.4
+  R304       SHORT     24   75.0%   +189.0     76.6  25.33    25488.4
+  R305       LONG      10   90.0%    +91.4     30.3  30.07    25462.6
+  R306       SHORT     23   78.3%    +90.1     52.7  16.82    25509.5
+  R307       LONG      16  100.0%   +263.3     38.0  21.36    25511.9
+  R308       LONG      24   41.7%    +85.6    114.6  26.70    25787.9
+  R309       SHORT     85   62.4%   +155.9     69.0  26.35    25640.4
+  R310       SHORT     60   76.7%   +135.0     47.2  20.49    25294.7
+  R311       SHORT     25   72.0%   +268.3    121.6  33.63    25011.5
+  R312       LONG      13  100.0%   +400.0     46.1  35.25    24953.6
+  R313       LONG      68   91.2%   +107.1     29.2  15.97    25446.0
+  R314       SHORT    191   56.0%    +72.4     59.1  15.86    25680.2
+  R315       LONG      23   30.4%    +78.7     86.1  16.24    25597.1
+  R316       LONG       8  100.0%   +157.7     31.6  21.91    25562.3
+  R317       SHORT     32   71.9%    +96.5     28.3  15.64    25685.0
+  R318       SHORT     41   87.8%   +254.8     45.0  37.44    25403.1
+  R319       SHORT     43   79.1%   +113.0     40.6  21.69    25101.4
+  R320       SHORT     22   81.8%   +242.2    118.5  28.93    24926.1
+  R321       LONG      15  100.0%   +438.7     65.7  55.00    24851.2
+  R322       SHORT      9  100.0%   +167.0     43.1  40.72    25231.1
+  R323       SHORT    101   53.5%   +147.1     84.9  27.88    25159.3
+  R324       LONG      10   20.0%    +50.1    107.8  20.32    24909.4
+  R325       SHORT     16  100.0%   +253.2     37.6  27.58    24859.1
+  R326       LONG       9   77.8%   +133.1    112.8  29.00    24716.6
+  R327       LONG      22   36.4%    +83.1    152.6  26.41    24765.8
+  R328       SHORT     22   59.1%   +231.3    179.7  42.70    24639.3
+  R329       SHORT     13  100.0%   +216.9     58.0  45.56    24728.8
+  R330       SHORT     14   35.7%    +67.6     87.0  28.80    24563.2
+  R331       SHORT     18   66.7%   +117.4     79.9  24.92    24565.6
+  R332       LONG      65   83.1%   +238.7    102.7  34.07    24685.5
+  R333       SHORT     86   64.0%   +270.1     85.7  38.64    25007.5
+  R334       LONG      98   44.9%   +161.4    140.5  37.98    24195.2
+  R335       LONG      41   34.1%    +57.9     82.3  17.82    24483.6
+  R336       LONG      25  100.0%   +318.2     29.7  35.44    24496.4
+  R337       SHORT     95   58.9%    +87.8     76.3  19.60    24903.2
+  R338       LONG      86   79.1%    +93.5     40.4  14.06    25127.8
+  R339       LONG     137   60.6%    +51.4     28.8  10.43    25324.0
+  R340       SHORT     69   52.2%    +82.1     80.7  18.36    25303.4
+  R341       LONG     100   55.0%    +78.4     61.0  18.88    25440.6
+  R342       SHORT     78   56.4%    +71.0     38.9  14.36    25631.3
+  R343       LONG     102   44.1%    +52.8     55.3  15.54    25630.8
+  R344       SHORT     10  100.0%   +123.9     31.9  20.00    25612.7
+  R345       LONG      75   81.3%    +75.4     43.8  11.59    25683.3
+  R346       SHORT     91   51.6%    +59.4     42.0  10.38    25768.6
+  R347       SHORT    166   62.0%    +53.0     40.2   9.90    25678.8
+  R348       LONG      38   50.0%   +143.7     79.0  20.87    25644.6
+  R349       SHORT     13    7.7%    +96.8    197.4  27.04    25790.6
+  R350       SHORT     12  100.0%   +266.7      2.1  37.56    25911.2
+  R351       LONG      56   64.3%    +99.3     96.1  28.47    25812.0
+  R352       LONG      17  100.0%   +188.0     39.6  30.06    25918.9
+  R353       SHORT     75   70.7%   +149.2     39.1  22.94    25864.8
+  R354       LONG      90   53.3%    +61.1     98.2  18.61    25521.5
+  R355       SHORT     32   87.5%   +150.2     25.6  21.27    25349.2
+  R356       LONG      68   70.6%   +113.6     69.5  25.23    25211.8
+  R357       SHORT     81   53.1%   +136.1     63.8  20.28    25378.1
+  R358       SHORT     20   95.0%   +103.1     44.1  23.30    24997.7
+  R359       LONG      79   75.9%   +119.6     50.5  22.51    25065.6
+  R360       SHORT     10   80.0%   +121.6     56.1  31.93    25314.1
+  R361       LONG      40   90.0%    +76.0     32.0  16.59    25266.2
+  R362       LONG      30   66.7%   +150.4     58.8  14.26    25349.5
+  R363       LONG      94   70.2%    +56.4     34.1  12.54    25652.8
+  R364       SHORT     90   43.3%    +37.8     39.4   8.69    25694.3
+  R365       SHORT    264   54.2%    +34.8     32.8   9.20    25827.3
+  R366       LONG      91   53.8%    +40.1     37.0  11.10    25722.3
+  R367       SHORT     90   70.0%    +57.4     36.2   9.56    25646.8
+  R368       SHORT     14   92.9%   +100.4     44.2  18.41    25556.8
 
   DIRECTIONAL SPLIT:
-  LONG:   7502 bars, WR=59.2%
-  SHORT:  5395 bars, WR=62.4%
+  LONG:  12444 bars, WR=60.3%
+  SHORT:  9711 bars, WR=62.1%
 
 --- STEP 7: Loading all TF data + fractal context ---
     1W:       54 bars
@@ -543,88 +805,54 @@
    15s: 1,369,903 states computed
 
 --- STEP 8: Building context matrix (193 features per bar) ---
-  Samples: 12897, Level features: 193, Delta features: 192
+  Samples: 22170, Level features: 193, Delta features: 192
   X: 192 fractal + 1 current MR = 193 level features
   X_delta: 192 rate-of-change (feature[t] - feature[t-1])
-  [SKIP] Analysis A (--start R)
-  [SKIP] Analysis B (--start R)
-  [SKIP] Analysis C (--start R)
-  [SKIP] Analysis D (--start R)
-  [SKIP] Analysis E (--start R)
-  [SKIP] Analysis F (--start R)
-  [SKIP] Analysis G (--start R)
-  [SKIP] Analysis H (--start R)
-  [SKIP] Analysis I (--start R)
-  [SKIP] Analysis J (--start R)
-  [SKIP] Analysis K (--start R)
-  [SKIP] Analysis L (--start R)
-  [SKIP] Analysis M (--start R)
-  [SKIP] Analysis N (--start R)
-  [SKIP] Analysis O (--start R)
-  [SKIP] Analysis P (--start R)
+  [SKIP] Analysis A (--start S)
+  [SKIP] Analysis B (--start S)
+  [SKIP] Analysis C (--start S)
+  [SKIP] Analysis D (--start S)
+  [SKIP] Analysis E (--start S)
+  [SKIP] Analysis F (--start S)
+  [SKIP] Analysis G (--start S)
+  [SKIP] Analysis H (--start S)
+  [SKIP] Analysis I (--start S)
+  [SKIP] Analysis J (--start S)
+  [SKIP] Analysis K (--start S)
+  [SKIP] Analysis L (--start S)
+  [SKIP] Analysis M (--start S)
+  [SKIP] Analysis N (--start S)
+  [SKIP] Analysis O (--start S)
+  [SKIP] Analysis P (--start S)
+  [SKIP] Analysis R (--start S)
 
 ======================================================================
-  ANALYSIS R: CNN PATTERN DETECTION (Conv1D, 7 classes)
+  ANALYSIS S: EXIT TREND GUARD — BAND CONFLICT STUDY
 ======================================================================
-  Swing detection (order=78 bars = ~3 trading days):
-    Peaks: 59, Troughs: 60
-    Upper trend: slope=0.1994/bar, R=0.53
-    Lower trend: slope=0.2461/bar, R=0.54
-    Channel containment:
-      Above upper: 44.3%
-      Inside:      21.6%
-      Below lower: 34.1%
-  [saved] C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1y\0v_regime_boundaries.png
+  Computed rolling z-scores: slow(240), mid(60), fast(15)
+  Valid bars: slow=23265, mid=23445, fast=23490
+  Oracle trades available: 22155
+  Analyzed 22111 trades (skipped 44 edge/NaN)
 
-  Regime-sectioned context:
-    range_pct: 0.57 +/- 0.23  [0.00, 1.00]
-    time_pct:  0.49 +/- 0.29
-    vol_ratio: 0.93 +/- 0.64
-  Analysis bars with 64-bar lookback: 12,897
-  Labeled samples: 7,675  (NOISE excluded)
-  Valid windows: 7,675
+  --- Tighten Signal Summary ---
+  Total tighten events (no guard):   429207
+  Total tighten events (with guard): 309585
+  Suppressed by trend guard:         119622 (27.9%)
 
-  Regime context (sectioned boundaries):
-    range_pct: 0.56 +/- 0.23
-    time_pct:  0.49 +/- 0.29
-    vol_ratio: 0.96 +/- 0.68
+  First tighten bar (no guard):   median=3, mean=6.9, p25=0
+  First tighten bar (with guard): median=5, mean=11.4, p25=0
+  Average delay from guard:       +4.5 bars
 
-  Class distribution:
-    RAMP_UP                2761 ( 36.0%)
-    RAMP_DOWN              2161 ( 28.2%)
-    V_REVERSAL_UP           713 (  9.3%)
-    V_REVERSAL_DOWN         766 ( 10.0%)
-    STEP_UP                 528 (  6.9%)
-    STEP_DOWN               315 (  4.1%)
-    OSCILLATION             431 (  5.6%)
+  LONG trades (12444): tightens 255030->198105 (suppressed 56925, 22.3%), avg MFE=84.8
 
-  Device: cuda  |  Train: 5,372  Test: 2,303
+  SHORT trades (9667): tightens 174177->111480 (suppressed 62697, 36.0%), avg MFE=112.2
 
-  CNN Results (50 epochs, lr=1e-3):
-    Train accuracy:  31.6%
-    Test accuracy:   26.1%
-    Majority baseline: 36.0%
-    Lift over baseline: -9.9%
+  --- MFE by Suppression Rate ---
+  High suppression (>50% tightens blocked): 6476 trades, avg MFE=81.0
+  Low suppression (<=50% blocked):          15528 trades, avg MFE=103.8
+  MFE difference: -22.8 (guard neutral/hurts)
 
-  Per-class report:
-                 precision    recall  f1-score   support
-
-        RAMP_UP       0.83      0.32      0.46       829
-      RAMP_DOWN       0.63      0.24      0.34       648
-  V_REVERSAL_UP       0.09      0.07      0.08       214
-V_REVERSAL_DOWN       0.14      0.20      0.17       230
-        STEP_UP       0.14      0.13      0.13       158
-      STEP_DOWN       0.07      0.42      0.12        95
-    OSCILLATION       0.11      0.49      0.18       129
-
-       accuracy                           0.26      2303
-      macro avg       0.29      0.27      0.21      2303
-   weighted avg       0.52      0.26      0.31      2303
-
-  DIRECTION ACCURACY:
-    CNN direction: 74.9%  (1743 directional predictions)
-    Ref: Analysis K = 70.6%
-
-  [saved] C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1y\0v_cnn_confusion.png
+  [saved] C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1y\analysis_s_exit_trend_guard.png
+  [saved] C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1y\analysis_s_entry_zscores.png
 
   (Skipping full 16D pipeline -- use --full to enable)
