@@ -17,12 +17,13 @@
 - **Trainer**: `training/trainer.py` — main entry point, CLI, forward pass
   - Run: `python training/trainer.py --fresh --forward-pass`
   - NOT `python -m training.orchestrator` (old name, no longer exists)
-- **Exit Engine**: `core/exit_engine.py` — unified 10-level exit cascade (SL→TP→Watchdog→
-  MaxHold→BandUrgent→EnvelopeDecay→TrailStop→BreakevenLock→BeliefFlip→Hold)
+- **Exit Engine**: `core/exit_engine.py` — unified exit cascade (SL→TP→BandUrgent→
+  EnvelopeDecay→BreakevenLock→BeliefFlip→Hold). Trail/MaxHold/Watchdog DISABLED.
 - **Execution Engine**: `core/execution_engine.py` — gate/direction/sizing, oracle-driven thresholds
 - **Belief Network**: `core/timeframe_belief_network.py` — 10 TF workers, BandContext per worker,
   `get_band_confluence()` for multi-TF SE band direction (Priority 4 in direction cascade)
-- **Wave Rider**: `core/wave_rider.py` — position management, regret analysis
+- **Wave Rider**: `core/wave_rider.py` — thin position state holder + regret analysis (280 lines).
+  All exit logic removed (was 830 lines). Exits live exclusively in exit_engine.py.
 - **Trade Logger**: `live/trade_logger.py` — per-trade diagnostic CSV
 - **Dashboard**: `visualization/dashboard.py` — Tkinter popup "Fractal Command Center".
   Single-instance, 1600x950 window. Receives data via queue from trainer/live engine.
@@ -168,6 +169,10 @@ After every forward pass, always read these reports to understand the run:
 ## Implemented Features (confirmed in codebase, 2026-03-06)
 - **Direction fix**: momentum-aware physics (velocity+acceleration, not mean-reverting z)
   in TBN worker (core/timeframe_belief_network.py:251-263)
+- **Gate 4 momentum alignment**: execution_engine.py — skip trades where sign(F_momentum)
+  disagrees with trade direction. Eliminated 55% misaligned trades (+$7,815 recovery).
+- **Trail/MaxHold/Watchdog disabled**: exit_engine.py — envelope_decay handles all exits
+  better. Trail was $3-4/trade (84% too early), watchdog 0% WR, max_hold redundant.
 - **Unified exit engine**: core/exit_engine.py — 10-level cascade, envelope decay with
   F_net modulation, band-aware trail, cluster-fitted stops
 - **Band confluence**: BandContext per TF worker + get_band_confluence() aggregator.
@@ -192,12 +197,13 @@ After every forward pass, always read these reports to understand the run:
 - `docs/CLAUDE_CODE_UNIFIED_EXIT_ENGINE.md` — exit engine spec (IMPLEMENTED)
 - `docs/LEVEL_DETECTOR_SPEC.md` — fib + swing detection + DBSCAN levels (FUTURE STATE)
 
-## Current Baseline (IS+OOS, 2026-03-01, main branch, pre-integration PRs)
-- IS: 392 trades, 33.7% WR, $8,117 total, $20.71/trade
-- OOS: 162 trades, 33.3% WR, $3,353 total, $20.69/trade (2 months Jan-Feb 2026)
-- Direction: 43.1% correct, all SHORT, zero LONG trades
-- Template matching: BROKEN (0 matches, all WORKER_BYPASS, playbook empty)
-- Conviction: NON-PREDICTIVE (flat 0.68, p=0.41)
+## Current Baseline (IS+OOS, 2026-03-07, main branch)
+- IS: 7,262 trades, 85.7% WR, $86,351 total, $11.89/trade, PF 3.54
+- OOS: 536 trades, 88.4% WR, $10,804 total, $20.16/trade (~$5.4K/month)
+- Direction: 60.4% correct OOS (was 43.1%), taking both LONG and SHORT
+- Envelope_decay is primary exit: 91% of exits, $33-52/trade avg
+- Depth 5-7 sweet spot: 94-100% WR, $35-44/trade OOS
+- Key fixes (2026-03-07): Gate 4 momentum alignment, trail/maxhold/watchdog disabled
 - Best filter: depth<=3 + z<0 → 69.2% WR, $188.83/trade OOS (26 trades)
 - Key insight: physics + exit system carry all profit; trail stop = mean reversion catcher
 - Prior baseline (2026-02-25): 3,754 trades, 37.5% WR, $1.55/trade

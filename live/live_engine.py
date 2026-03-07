@@ -29,7 +29,7 @@ from core.bayesian_brain import QuantumBayesianBrain
 from core.exit_engine import ExitEngine, ExitAction
 from core.fractal_clustering import FractalClusteringEngine
 from core.timeframe_belief_network import TimeframeBeliefNetwork
-from core.wave_rider import WaveRider
+from core.exit_engine import make_position
 from config.symbols import SYMBOL_MAP
 
 from live.config import LiveConfig
@@ -142,7 +142,7 @@ class LiveEngine:
 
         self._engine = StatisticalFieldEngine()
         self._brain = QuantumBayesianBrain()
-        self._wave_rider = WaveRider(self._asset)
+        self._position = None  # PositionState or None
 
         # Unified exit engine (same logic as training — training/live parity)
         self._exit_engine = ExitEngine(
@@ -721,7 +721,7 @@ class LiveEngine:
           - Conviction (15%): belief network strength
           - Alignment (15%): belief direction matches trade side
         """
-        pos = self._wave_rider.position
+        pos = self._position
         if pos is None or not self._position_open:
             return
         price = self._last_price
@@ -768,7 +768,7 @@ class LiveEngine:
 
     async def _check_exit(self, price: float, ts: float):
         """Check for exit signals on the current bar — Unified ExitEngine."""
-        pos = self._wave_rider.position
+        pos = self._position
         if pos is None or self._pos_state is None:
             return
 
@@ -872,10 +872,10 @@ class LiveEngine:
         self._last_exit_side = self._active_side
         self._last_exit_reason = reason
         self._trade_logger.finish_trade(reason, price)
-        pos = self._wave_rider.position
+        pos = self._position
         self._last_high_water = (self._pos_state.peak_favorable if self._pos_state
                                  else (pos.high_water_mark if pos else self._entry_price))
-        self._wave_rider.position = None
+        self._position = None
         self._last_exit_time = time.time()
 
         # Exit params: ATR-based defaults, tuning overrides if non-zero
@@ -891,9 +891,9 @@ class LiveEngine:
                     f"@ {price:.2f}  dir_src={_dir_src}  p_long={_p_long:.2f}  "
                     f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}")
 
-        # Open new wave rider position for the flip side
-        self._wave_rider.open_position(
+        self._position = make_position(
             entry_price=price, side=side, state=state,
+            tick_size=self._asset.tick_size, tick_value=self._asset.tick_value,
             stop_distance_ticks=sl_ticks, profit_target_ticks=tp_ticks,
             trailing_stop_ticks=trail_ticks, trail_activation_ticks=trail_act,
             template_id=f'PP_{base_tid}',
@@ -972,10 +972,10 @@ class LiveEngine:
         # Finish per-trade diagnostic CSV
         self._trade_logger.finish_trade(reason, self._last_price)
         # Snapshot peak before clearing position (for capture bucket)
-        pos = self._wave_rider.position
+        pos = self._position
         self._last_high_water = (self._pos_state.peak_favorable if self._pos_state
                                  else (pos.high_water_mark if pos else self._entry_price))
-        self._wave_rider.position = None
+        self._position = None
         self._pos_state = None  # reset ExitEngine position
         self._last_exit_time = time.time()
 
@@ -1017,8 +1017,9 @@ class LiveEngine:
             state = _fresh[-1]['state'] if _fresh else None
             tid = self._active_tid or 'REENTRY'
 
-            self._wave_rider.open_position(
+            self._position = make_position(
                 entry_price=price, side=exited_side, state=state,
+                tick_size=self._asset.tick_size, tick_value=self._asset.tick_value,
                 stop_distance_ticks=sl_ticks, profit_target_ticks=tp_ticks,
                 trailing_stop_ticks=trail_ticks, trail_activation_ticks=trail_act,
                 template_id=f'RE_{tid}',
@@ -1123,9 +1124,10 @@ class LiveEngine:
         if state is None:
             logger.warning("No quantum state available — manual trade will have limited exit protection")
 
-        self._wave_rider.open_position(
+        self._position = make_position(
             entry_price=price, side=side,
             state=state,
+            tick_size=self._asset.tick_size, tick_value=self._asset.tick_value,
             stop_distance_ticks=sl_ticks,
             profit_target_ticks=tp_ticks,
             trailing_stop_ticks=trail_ticks,
@@ -1214,9 +1216,10 @@ class LiveEngine:
         self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
                         'side': side, 'price': price})
 
-        self._wave_rider.open_position(
+        self._position = make_position(
             entry_price=price, side=side,
             state=state,
+            tick_size=self._asset.tick_size, tick_value=self._asset.tick_value,
             stop_distance_ticks=sl_ticks,
             profit_target_ticks=tp_ticks,
             trailing_stop_ticks=trail_ticks,
@@ -1925,9 +1928,10 @@ class LiveEngine:
         self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
                         'side': side, 'price': price})
 
-        self._wave_rider.open_position(
+        self._position = make_position(
             entry_price=price, side=side,
             state=best_candidate.state,
+            tick_size=self._asset.tick_size, tick_value=self._asset.tick_value,
             stop_distance_ticks=sl_ticks,
             profit_target_ticks=tp_ticks,
             trailing_stop_ticks=trail_ticks,
@@ -2155,7 +2159,7 @@ class LiveEngine:
         if self._position_open and self._orders.is_flat:
             # Position closed (fill received)
             self._position_open = False
-            self._wave_rider.position = None
+            self._position = None
         elif not self._position_open and not self._orders.is_flat:
             # Unexpected position (NT8 source of truth)
             logger.warning("NT8 has position but engine thinks flat — syncing")
