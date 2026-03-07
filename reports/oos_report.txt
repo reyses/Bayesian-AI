@@ -1,5 +1,5 @@
 ================================================================================
-FORWARD PASS COMPLETE  (run: 2026-03-07 07:52:44)
+FORWARD PASS COMPLETE  (run: 2026-03-07 08:26:16)
   Period: DATA\ATLAS_OOS\15s\2026_01.parquet to 2026_03 (3 files)
 Total Trades: 1924
 Win Rate: 78.3%
@@ -29,11 +29,12 @@ ORACLE PROFIT ATTRIBUTION
     depth 12      217     74% $  1,242.00 $     5.72
 
   DYNAMIC EXIT QUALITY:
-    Belief-flip exits:  0 trades
-    Physics-decay exits:0 trades
+    Belief-flip exits:      1 trades  ->  avg PnL $  -9.50
+    Envelope decay:       873 trades  ->  avg PnL $  25.94
     Trail-tightened:    0 trades
     Trail-widened:      0 trades
-    Loss watchdog:      0 trades
+    Band-urgent exits:  0 trades
+    Loss watchdog:         52 trades  ->  avg PnL $ -19.44
     Standard trail:     0 trades
     Decay score at exit:  WIN avg=0.000  LOSS avg=0.000
     Envelope halflife:   24.2 bars (self-tuned from 20)
@@ -174,6 +175,36 @@ ORACLE PROFIT ATTRIBUTION
     -----------------------------------------------------
     Actual profit:                               $   21,683.50  (0.1% of ideal)
     [info] Score-competition pool (took better same bar): $1,001,914.50  (not missed -- golden path chose better candidate)
+
+================================================================================
+DIRECTION LEARNING (oracle corrections absorbed)
+================================================================================
+  Templates with direction corrections: 64
+  Templates with signed MFE regression: 34
+
+  TOP 15 DIRECTION CORRECTIONS (biggest bias shift):
+       TID   Orig    New  Shift  L_ok  L_bad  S_ok  S_bad      L_PnL      S_PnL
+        21   0.03   0.03 +0.00     2      3    66     48 $      124 $    2,501
+        17   0.01   0.01 +0.00     0      1    31     20 $        4 $      784
+        18   0.06   0.06 +0.00     3      1    52     31 $       -4 $      522
+        60   0.11   0.11 +0.00     4     12    65     33 $      466 $      348
+        63   0.07   0.07 +0.00     2      1    26     16 $      144 $      319
+       111   0.02   0.02 +0.00     0      1    17     12 $        2 $      202
+         6   0.62   0.62 +0.00     4      2     3      0 $       15 $       21
+        15   0.52   0.52 +0.00     2      0     3      1 $       13 $       83
+        55   0.03   0.03 +0.00     1      2    60     40 $       22 $    1,642
+        23   0.02   0.02 +0.00     0      1    41     20 $        2 $      742
+        93   0.12   0.12 +0.00     4      2    26     19 $      107 $    1,143
+        59   0.37   0.37 +0.00    11      3    24     10 $      133 $       88
+        54   0.07   0.07 +0.00     3      0    58     54 $        7 $    1,511
+        14   0.34   0.34 +0.00     8     11    28     16 $      437 $      900
+        99   0.84   0.84 +0.00     8      5     2      5 $      228 $       95
+
+  DIRECTION ACCURACY (this run):
+    Correct: 1122/1895 (59.2%)
+    LONG  correct: 203  wrong: 136
+    SHORT correct: 919  wrong: 637
+    NOTE: Next run will use these corrected biases as starting point
 
   DETECTION FUNNEL (bar-level)
     Total 15s bars processed:    252,702  (100%)
