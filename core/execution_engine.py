@@ -485,13 +485,8 @@ class ExecutionEngine:
             if getattr(_st, 'hurst_exponent', 1.0) < 0.5:
                 should_skip = True
                 skip_label = 'gate0_hurst'
-            # Rule 5b: momentum override — only block extreme cases (p90+)
-            # Median ratio is 17.5x; threshold at 200x blocks ~10% of bars
-            elif (abs(getattr(_st, 'F_momentum', 0.0)) >
-                  abs(getattr(_st, 'mean_reversion_force', 0.0)) * 200.0
-                  and abs(getattr(_st, 'mean_reversion_force', 0.0)) > 0):
-                should_skip = True
-                skip_label = 'gate0_momentum'
+            # Rule 5b: REMOVED — momentum is the signal, not the enemy.
+            # Oracle will determine if any ratio filter actually helps.
             elif getattr(_st, 'reversion_probability', 1.0) < 0.40:
                 should_skip = True
                 skip_label = 'gate0_tunnel'
