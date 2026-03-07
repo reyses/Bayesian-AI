@@ -17,6 +17,7 @@ import argparse
 import threading
 import tempfile
 import multiprocessing
+import queue
 import glob
 import warnings
 warnings.filterwarnings("ignore", message=".*Grid size.*will likely result in GPU under-utilization.*")
@@ -71,12 +72,7 @@ _ADX_TREND_CONFIRMATION = 25.0
 _HURST_TREND_CONFIRMATION = 0.6
 
 # Visualization
-try:
-    from visualization.live_training_dashboard import launch_dashboard, launch_popup
-    DASHBOARD_AVAILABLE = True
-except ImportError:
-    DASHBOARD_AVAILABLE = False
-    print("WARNING: Live dashboard not available")
+from visualization.dashboard import ProgressPopup
 
 # Configuration
 from config.symbols import MNQ
@@ -173,8 +169,8 @@ class Trainer:
         self._best_trades_today: List[TradeOutcome] = []
         self._cumulative_best_trades: List[TradeOutcome] = []
         self.dashboard = None
-        self.dashboard_thread = None
-        self.dashboard_queue = multiprocessing.Manager().Queue()
+
+        self.dashboard_queue = queue.Queue()
 
         # Pattern Library (Bayesian Priors)
         self.pattern_library = {}
@@ -274,16 +270,10 @@ class Trainer:
                           running equity drops below NinjaTrader MNQ intraday margin
                           ($50/contract). Report shows equity curve + max drawdown.
         """
-        # Launch UI — popup by default, full dashboard with --dashboard, nothing with --no-dashboard
-        # (run_forward_pass is called directly for --forward-pass so we launch here too)
         _analysis_mode_early = getattr(self, '_analysis_mode', False)
         if not _analysis_mode_early:
-            if not getattr(self.config, 'no_dashboard', False) and DASHBOARD_AVAILABLE:
-                if not self.dashboard_thread or not self.dashboard_thread.is_alive():
-                    if getattr(self.config, 'dashboard', False):
-                        self.launch_dashboard()
-                    else:
-                        self.launch_popup()
+            # Launch popup in background thread
+            self._launch_popup(mode='oos' if oos_mode else 'is')
 
             print("\n" + "="*80)
             if oos_mode:
@@ -3018,13 +3008,6 @@ class Trainer:
         else:
             print(f"  WARNING: Path does not exist!")
 
-        # Launch UI — popup by default, full dashboard with --dashboard, nothing with --no-dashboard
-        if not self.config.no_dashboard and DASHBOARD_AVAILABLE:
-            if getattr(self.config, 'dashboard', False):
-                self.launch_dashboard()
-            else:
-                self.launch_popup()
-
         # ===================================================================
         # PHASE 2: Pattern Discovery (with checkpoint/resume)
         # ===================================================================
@@ -3478,28 +3461,37 @@ class Trainer:
         return outcome
 
     # Helpers
-    def launch_popup(self):
-        """Launch lightweight progress popup in background thread (default UI)."""
-        self.dashboard_thread = threading.Thread(target=launch_popup, args=(self.dashboard_queue,), daemon=True)
-        self.dashboard_thread.start()
-        print("Progress popup launching in background...")
-        time.sleep(1)
 
-    def launch_dashboard(self):
-        """Launch full dashboard in background thread (opt-in via --dashboard)."""
-        self.dashboard_thread = threading.Thread(target=launch_dashboard, args=(self.dashboard_queue,), daemon=True)
-        self.dashboard_thread.start()
-        print("Dashboard launching in background...")
-        time.sleep(2)
+    def _launch_popup(self, mode='is'):
+        """Launch ProgressPopup in a daemon thread (same widget as live).
+        Only one popup per session — subsequent calls update the title."""
+        if getattr(self, '_popup_shared', None) is not None:
+            # Already running — just update the mode label
+            self._popup_shared['mode'] = mode
+            return
+        import tkinter as tk
+        shared = {'mode': mode}
+        self._popup_shared = shared
+        q = self.dashboard_queue
 
-    def shutdown_dashboard(self):
-        """Cleanly stop the dashboard before process exit to avoid tkinter GC errors."""
-        if self.dashboard_thread and self.dashboard_thread.is_alive():
+        def _run():
+            root = tk.Tk()
+            popup = ProgressPopup(root, q, shared_state=shared)
+            root.title(f"Bayesian-AI  {mode.upper()} Training")
+            root.protocol("WM_DELETE_WINDOW", lambda: (root.quit(),))
             try:
-                self.dashboard_queue.put({'type': 'SHUTDOWN'})
-                self.dashboard_thread.join(timeout=5)
+                root.mainloop()
             except Exception:
                 pass
+            try:
+                root.destroy()
+            except Exception:
+                pass
+            del popup, root
+            import gc; gc.collect()
+
+        t = threading.Thread(target=_run, daemon=True, name='TrainerPopup')
+        t.start()
 
     def _prepare_dashboard_history(self):
         self._history_trades_data = []
@@ -3948,8 +3940,6 @@ def main():
     parser.add_argument('--data', default=os.path.join("DATA", "ATLAS"), help="Path to ATLAS root, single TF directory, or parquet file")
     parser.add_argument('--iterations', type=int, default=1000, help="Iterations per pattern (default: 1000)")
     parser.add_argument('--checkpoint-dir', type=str, default="checkpoints", help="Checkpoint directory")
-    parser.add_argument('--no-dashboard', action='store_true', help="Disable all UI (popup and dashboard)")
-    parser.add_argument('--dashboard', action='store_true', help="Show full live dashboard instead of default lightweight popup")
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
     parser.add_argument('--fresh', action='store_true', help="Clear all pipeline checkpoints and start fresh")
@@ -4230,7 +4220,6 @@ def main():
         traceback.print_exc()
         return 1
     finally:
-        orchestrator.shutdown_dashboard()
         _awake_ctx.__exit__(None, None, None)
         # Restore stdout and close log file
         if isinstance(sys.stdout, _Tee):
