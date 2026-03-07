@@ -873,7 +873,8 @@ class LiveEngine:
         self._last_exit_reason = reason
         self._trade_logger.finish_trade(reason, price)
         pos = self._wave_rider.position
-        self._last_high_water = pos.high_water_mark if pos else self._entry_price
+        self._last_high_water = (self._pos_state.peak_favorable if self._pos_state
+                                 else (pos.high_water_mark if pos else self._entry_price))
         self._wave_rider.position = None
         self._last_exit_time = time.time()
 
@@ -970,9 +971,10 @@ class LiveEngine:
         self._last_exit_reason = reason  # for trade log
         # Finish per-trade diagnostic CSV
         self._trade_logger.finish_trade(reason, self._last_price)
-        # Snapshot high_water_mark before clearing position (for capture bucket)
+        # Snapshot peak before clearing position (for capture bucket)
         pos = self._wave_rider.position
-        self._last_high_water = pos.high_water_mark if pos else self._entry_price
+        self._last_high_water = (self._pos_state.peak_favorable if self._pos_state
+                                 else (pos.high_water_mark if pos else self._entry_price))
         self._wave_rider.position = None
         self._pos_state = None  # reset ExitEngine position
         self._last_exit_time = time.time()
