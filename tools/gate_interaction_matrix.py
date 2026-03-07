@@ -29,7 +29,7 @@ from scipy import stats as sp_stats
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 warnings.filterwarnings('ignore', category=RuntimeWarning)
 
-# ── Column mappings: oracle_trade_log columns → X identifiers ──────────────
+# -- Column mappings: oracle_trade_log columns → X identifiers --------------
 # Each entry: (X_id, display_name, column_or_callable, type)
 # type: 'cont' = continuous, 'cat' = categorical
 
@@ -57,7 +57,7 @@ X_MAP = [
     ('X31', 'band_speed',    'band_speed',               'cont'),
 ]
 
-# ── Y response variables ───────────────────────────────────────────────────
+# -- Y response variables ---------------------------------------------------
 
 def _compute_ys(df: pd.DataFrame) -> pd.DataFrame:
     """Compute all Y response variables from oracle trade log."""
@@ -118,7 +118,7 @@ Y_EXIT  = {'Y2_pnl', 'Y3_capture', 'Y4_reversed', 'Y6_hold_eff',
            'Y7_hold_time', 'Y12_risk_adj'}
 
 
-# ── Analysis functions ─────────────────────────────────────────────────────
+# -- Analysis functions -----------------------------------------------------
 
 def analyze_continuous(x: pd.Series, y: pd.Series):
     """Correlation + regression for continuous X vs Y."""
@@ -227,7 +227,7 @@ def interaction_heatmap(x1: pd.Series, x2: pd.Series, y: pd.Series,
     return {'means': pivot_mean, 'counts': pivot_n, 'underpowered_cells': underpowered}
 
 
-# ── Main pipeline ──────────────────────────────────────────────────────────
+# -- Main pipeline ----------------------------------------------------------
 
 def load_data(data_dir: str) -> pd.DataFrame:
     """Load oracle trade log from reports dir or checkpoint dir."""
@@ -276,7 +276,7 @@ def run_matrix(df: pd.DataFrame, top_n: int = 5, do_plot: bool = False):
         delta_wr = 2.8 * math.sqrt(0.25 / n_trades) * 100
         print(f"Min detectable WR effect: ~{delta_wr:.1f}% (80% power)")
 
-    # ── Build results matrix ──
+    # -- Build results matrix --
     results = {}  # results[x_id][y_col] = analysis_dict
 
     available_xs = []
@@ -304,10 +304,10 @@ def run_matrix(df: pd.DataFrame, top_n: int = 5, do_plot: bool = False):
             else:
                 results[x_id][y_col] = analyze_categorical(x_series, y_series)
 
-    # ── Print summary matrix ──
-    print(f"\n{'─'*80}")
+    # -- Print summary matrix --
+    print(f"\n{'-'*80}")
     print("CORRELATION MATRIX (Spearman r / Kruskal eta²)")
-    print(f"{'─'*80}")
+    print(f"{'-'*80}")
 
     # Header
     header = f"{'X':>18}"
@@ -315,7 +315,7 @@ def run_matrix(df: pd.DataFrame, top_n: int = 5, do_plot: bool = False):
         header += f" {Y_NAMES[y_col]:>10}"
     header += f" {'Domain':>8}"
     print(header)
-    print("─" * len(header))
+    print("-" * len(header))
 
     # Compute domain scores for sorting
     x_domain_scores = {}
@@ -369,10 +369,10 @@ def run_matrix(df: pd.DataFrame, top_n: int = 5, do_plot: bool = False):
 
     print(f"\n  ** p<0.01  * p<0.05  -- insufficient data")
 
-    # ── Top X per Y ──
-    print(f"\n{'─'*80}")
+    # -- Top X per Y --
+    print(f"\n{'-'*80}")
     print(f"TOP {top_n} PARAMETERS PER RESPONSE VARIABLE")
-    print(f"{'─'*80}")
+    print(f"{'-'*80}")
 
     for y_col in y_cols:
         y_domain = 'ENTRY' if y_col in Y_ENTRY else 'EXIT'
@@ -400,10 +400,10 @@ def run_matrix(df: pd.DataFrame, top_n: int = 5, do_plot: bool = False):
             print(f"    {rank}. {x_id} {x_name:>15}: {detail}  "
                   f"effect={effect} {pw}")
 
-    # ── Sample size warnings ──
-    print(f"\n{'─'*80}")
+    # -- Sample size warnings --
+    print(f"\n{'-'*80}")
     print("SAMPLE SIZE WARNINGS")
-    print(f"{'─'*80}")
+    print(f"{'-'*80}")
 
     for x_id, x_name, x_col, x_type in available_xs:
         for y_col in y_cols:
@@ -418,7 +418,7 @@ def run_matrix(df: pd.DataFrame, top_n: int = 5, do_plot: bool = False):
                         print(f"  WARNING: {x_id} {x_name} group={grp}: "
                               f"N={cnt} (<15 per cell)")
 
-    # ── Interaction plots for top pair per Y ──
+    # -- Interaction plots for top pair per Y --
     if do_plot:
         _generate_plots(df, ys, y_cols, available_xs, results, top_n)
 

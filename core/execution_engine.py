@@ -205,6 +205,7 @@ class ExecutionEngine:
             'gate0_5_skip': 0,
             'gate1_skip': 0, 'gate2_skip': 0,
             'gate3_skip': 0,
+            'gate4_momentum_align': 0,
             'physics_qg_skip': 0,
             'traded': 0, 'bypass_traded': 0,
             'total_candidates': 0,
@@ -614,6 +615,20 @@ class ExecutionEngine:
             # Network TP from predicted MFE
             if hasattr(_belief, 'predicted_mfe') and _belief.predicted_mfe > 2.0:
                 network_tp = max(4, int(round(_belief.predicted_mfe)))
+
+        # ── Gate 4: Momentum alignment ───────────────────────
+        # F_momentum = velocity * volume / sigma.  When its sign disagrees
+        # with the trade direction, WR drops from 88% to ~45%.  Skip.
+        _F_mom = getattr(cand.state, 'F_momentum', 0.0)
+        _mom_sign = 1 if _F_mom > 0 else (-1 if _F_mom < 0 else 0)
+        _side_sign = 1 if side == 'long' else -1
+        if _mom_sign != 0 and _mom_sign != _side_sign:
+            self.gate_stats['gate4_momentum_align'] += 1
+            return TradeAction(
+                type=ActionType.HOLD, gate_label='gate4_momentum_align',
+                dist=gr.dist, template_id=tid, raw_event=cand.raw_event,
+                belief_state=_belief if '_belief' in dir() else None,
+            )
 
         # ── Exit sizing ───────────────────────────────────────
         sl_ticks, tp_ticks, trail_ticks, trail_act_ticks = self._compute_sizing(
