@@ -156,7 +156,7 @@ def extract_16d(state, tf_name):
     hurst = state.hurst_exponent if hasattr(state, 'hurst_exponent') else 0.5
     dmi_diff = ((state.dmi_plus - state.dmi_minus) * 0.01) if hasattr(state, 'dmi_plus') else 0.0
     pid = state.term_pid if hasattr(state, 'term_pid') else 0.0
-    osc = state.oscillation_coherence if hasattr(state, 'oscillation_coherence') else 0.0
+    osc = state.oscillation_entropy_normalized if hasattr(state, 'oscillation_entropy_normalized') else 0.0
 
     return [
         z,                          # [0]  signed z-score

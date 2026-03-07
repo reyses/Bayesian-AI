@@ -1762,7 +1762,7 @@ class BayesianTrainingOrchestrator:
                                 # Skip if PID regime covers this bar (handled by PID analyzer)
                                 _s = p.state
                                 _is_pid = (abs(_s.term_pid) >= 0.3
-                                           and _s.oscillation_coherence >= 0.5
+                                           and _s.oscillation_entropy_normalized >= 0.5
                                            and _s.adx_strength <= 30.0)
                                 if _is_pid:
                                     continue
@@ -4662,7 +4662,10 @@ def main():
             self._file = open(log_path, 'a', encoding='utf-8', buffering=1)
             self._stdout = sys.stdout
         def write(self, data):
-            self._stdout.write(data)
+            try:
+                self._stdout.write(data)
+            except UnicodeEncodeError:
+                self._stdout.write(data.encode('ascii', 'replace').decode('ascii'))
             self._file.write(data)
             return len(data)
         def flush(self):

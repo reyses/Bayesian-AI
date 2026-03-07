@@ -176,7 +176,7 @@ class FractalClusteringEngine:
              self_hurst = getattr(state, 'hurst_exponent', 0.5)
              self_dmi_diff = (getattr(state, 'dmi_plus', 0.0) - getattr(state, 'dmi_minus', 0.0)) / 100.0
              self_pid       = getattr(state, 'term_pid', 0.0)
-             self_osc_coh   = getattr(state, 'oscillation_coherence', 0.0)
+             self_osc_coh   = getattr(state, 'oscillation_entropy_normalized', 0.0)
         else:
              self_adx = 0.0
              self_hurst = 0.5
