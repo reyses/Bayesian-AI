@@ -139,8 +139,8 @@ def main():
                               f"[{files[0].stem} .. {files[-1].stem}]")
 
     print("\nDone.")
-    print("\nTo train:   python training/orchestrator.py --data DATA/ATLAS --fresh --no-dashboard")
-    print("To OOS sim: python training/orchestrator.py --oos --data DATA/ATLAS_OOS "
+    print("\nTo train:   python training/trainer.py --data DATA/ATLAS --fresh --no-dashboard")
+    print("To OOS sim: python training/trainer.py --oos --data DATA/ATLAS_OOS "
           "--account-size 100.0 --no-dashboard")
 
 

@@ -14,17 +14,18 @@
 ## Architecture
 - **Core engine**: `core/quantum_field_engine.py` — ThreeBodyQuantumState per bar
 - **Brain**: `core/bayesian_brain.py` — Bayesian table with hash-based state lookups
-- **Orchestrator**: `training/orchestrator.py` — main loop, DOE/Optuna, forward pass
-- **Clustering**: `training/fractal_clustering.py` — DMI pre-split → I-MR(DMI diff) → DBSCAN(vol+ADX)
-- **Belief Network**: `training/timeframe_belief_network.py` — 10 TF workers, price-aware
-- **Wave Rider**: `training/wave_rider.py` — position management, exits, CST
+- **Trainer**: `training/trainer.py` — main loop, DOE/Optuna, forward pass (renamed from orchestrator)
+- **Execution Engine**: `core/execution_engine.py` — unified gate/direction/sizing for IS+OOS+live
+- **Clustering**: `core/fractal_clustering.py` — DMI pre-split → I-MR(DMI diff) → DBSCAN(vol+ADX)
+- **Belief Network**: `core/timeframe_belief_network.py` — 10 TF workers, price-aware
+- **Wave Rider**: `core/wave_rider.py` — position management, exits, CST
 - **DNA Tree**: `training/fractal_dna_tree.py` — hierarchical TF context tree
 - **Feature vector**: 16D — abs(z), log1p(v), log1p(m), coherence, tf_scale, depth,
   parent_ctx, self_adx, self_hurst, self_dmi_diff, parent_z, parent_dmi_diff,
   root_is_roche, tf_alignment, self_pid, osc_coh
 
 ## Report & Output Locations
-> Source of truth: `_get_reports_dir(mode)` in `training/orchestrator.py` line ~43
+> Source of truth: `_get_reports_dir(mode)` in `training/trainer.py` line ~43
 > Pattern: `reports/{mode}/` where mode = is | oos | phase5 | training
 
 | Path | Contents | Notes |
