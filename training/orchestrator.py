@@ -49,13 +49,13 @@ from training.pattern_analyzer import PatternAnalyzer
 from training.progress_reporter import ProgressReporter, DayMetrics
 from training.databento_loader import DatabentoLoader
 from training.fractal_discovery_agent import FractalDiscoveryAgent, PatternEvent, TIMEFRAME_SECONDS
-from training.fractal_clustering import FractalClusteringEngine, PatternTemplate
+from core.fractal_clustering import FractalClusteringEngine, PatternTemplate
 from training.pipeline_checkpoint import PipelineCheckpoint
-from training.timeframe_belief_network import TimeframeBeliefNetwork, BeliefState
+from core.timeframe_belief_network import TimeframeBeliefNetwork, BeliefState
 
 # Execution components
 from training.batch_regret_analyzer import BatchRegretAnalyzer
-from training.wave_rider import WaveRider
+from core.wave_rider import WaveRider
 from training.orchestrator_worker import simulate_trade_standalone, _optimize_pattern_task, _optimize_template_task, _process_template_job, _audit_trade
 from training.orchestrator_worker import FISSION_SUBSET_SIZE, INDIVIDUAL_OPTIMIZATION_ITERATIONS, DEFAULT_BASE_SLIPPAGE, DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 
@@ -1685,7 +1685,7 @@ class BayesianTrainingOrchestrator:
                         _entry_depth = getattr(best_candidate, 'depth', 6)
                         _playbook = lib_entry.get('semantic_name', '') or ''
                         if (not _playbook or _playbook == 'Unknown') and lib_entry.get('centroid') is not None:
-                            from training.fractal_clustering import generate_semantic_name
+                            from core.fractal_clustering import generate_semantic_name
                             _playbook = generate_semantic_name(lib_entry['centroid'])
                         pending_oracle = {
                             'template_id':      best_tid,
@@ -3445,7 +3445,7 @@ class BayesianTrainingOrchestrator:
             _lib = self.pattern_library.get(tid, {})
             _sname = _lib.get('semantic_name', '') or ''
             if (not _sname or _sname == 'Unknown') and _lib.get('centroid') is not None:
-                from training.fractal_clustering import generate_semantic_name
+                from core.fractal_clustering import generate_semantic_name
                 _sname = generate_semantic_name(_lib['centroid'])
             _sname = _sname or 'Unknown'
             report_data.append({
