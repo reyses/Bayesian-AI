@@ -1,5 +1,5 @@
 ================================================================================
-FORWARD PASS COMPLETE  (run: 2026-03-06 17:22:06)
+FORWARD PASS COMPLETE  (run: 2026-03-06 17:58:16)
   Period: DATA\ATLAS_OOS\15s\2026_01.parquet to 2026_02 (2 files)
 Total Trades: 442
 Win Rate: 67.2%
@@ -196,10 +196,10 @@ ORACLE PROFIT ATTRIBUTION
   FN GATE BREAKDOWN (which gate blocked profitable signals):
     Gate 0  no pattern (Rule 1)                     0  (  0.0%)
     Gate 0  noise zone <0.5sigma (Rule 2)           0  (  0.0%)
-    Gate 0  approach zone ROCHE_SNAP (Rule 3) -- no qualified tmpl      0  (  0.0%)
-    Gate 0  approach zone STRUCTURAL_DRIVE weak trend (Rule 3)      0  (  0.0%)
+    Gate 0  approach zone BAND_REVERSAL (Rule 3) -- no qualified tmpl      0  (  0.0%)
+    Gate 0  approach zone MOMENTUM_BREAK weak trend (Rule 3)      0  (  0.0%)
     Gate 0  extreme zone nightmare field (Rule 4)  1,811  (  2.6%)
-    Gate 0  extreme zone STRUCTURAL_DRIVE no headroom (Rule 4)  7,060  ( 10.3%)
+    Gate 0  extreme zone MOMENTUM_BREAK no headroom (Rule 4)  7,060  ( 10.3%)
     Gate 0  Hurst < 0.5 choppy/anti-persistent (Rule 5a) 18,497  ( 27.0%)
     Gate 0  momentum override breakout likely (Rule 5b) 39,259  ( 57.3%)  <-- main bottleneck
     Gate 0  tunnel probability < 40% (Rule 5c)    812  (  1.2%)
