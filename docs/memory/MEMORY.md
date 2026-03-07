@@ -56,6 +56,19 @@
 **To read latest IS results**: `reports/is/oracle_trade_log.csv` (or shards)
 **To read latest OOS results**: `reports/oos/oracle_trade_log.csv`
 
+### Post-Run Reports to Review
+After every forward pass, always read these reports to understand the run:
+1. `reports/is_report.txt` — IS summary (WR, PnL, depth breakdown, exit quality, direction, gates)
+2. `reports/oos_report.txt` — OOS summary (same structure, validates IS findings)
+3. `checkpoints/oos_analytics.txt` — OOS trade analytics suite:
+   - Part 2: t-tests (winners vs losers feature comparison)
+   - Part 3: ANOVA (PnL by session, day, depth, direction, exit reason)
+   - Part 4: OLS regression (what predicts PnL magnitude)
+   - Part 5: Logistic regression (what predicts win/loss)
+   - Part 6: Capture rate regression (what predicts MFE extraction)
+   - Part 7: Session × Direction cross-tab + hourly breakdown
+4. `checkpoints/trade_analytics.txt` — IS version of the analytics suite
+
 ## CLI Flags (current) — entry point: `python training/trainer.py`
 - `--fresh` — wipe ALL checkpoints + full pipeline
 - `--train-only` — Phases 2-3 only
