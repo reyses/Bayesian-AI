@@ -27,9 +27,9 @@ from typing import Optional, Dict, List
 from core.quantum_field_engine import StatisticalFieldEngine
 from core.bayesian_brain import QuantumBayesianBrain
 from core.exit_engine import ExitEngine, ExitAction
-from training.fractal_clustering import FractalClusteringEngine
-from training.timeframe_belief_network import TimeframeBeliefNetwork
-from training.wave_rider import WaveRider
+from core.fractal_clustering import FractalClusteringEngine
+from core.timeframe_belief_network import TimeframeBeliefNetwork
+from core.wave_rider import WaveRider
 from config.symbols import SYMBOL_MAP
 
 from live.config import LiveConfig
