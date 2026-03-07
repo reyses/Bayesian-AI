@@ -16,9 +16,7 @@
       "core/bayesian_brain.py",
       "core/risk_engine.py"
     ],
-    "VISUALIZE": [
-      "visualization/live_training_dashboard.py"
-    ],
+    "VISUALIZE": [],
     "MAINTENANCE": [
       "archive/old_scripts/generate_status_report.py",
       "archive/old_scripts/build_executable.py"
@@ -28,8 +26,7 @@
     "Quantum_Field": "core/quantum_field_engine.py",
     "Three_Body_State": "core/three_body_state.py",
     "Bayesian_Brain": "core/bayesian_brain.py",
-    "Risk_Engine": "core/risk_engine.py",
-    "Dashboard": "visualization/live_training_dashboard.py"
+    "Risk_Engine": "core/risk_engine.py"
   },
   "resources": {
     "DATA_RAW": "DATA/RAW"
