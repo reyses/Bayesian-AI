@@ -291,9 +291,9 @@ class WaveRider:
         # Trail configuration (adaptive)
         if trail_config is None:
             self.trail_config = {
-                'tight': 10,
-                'medium': 20,
-                'wide': 30
+                'tight': 16,
+                'medium': 28,
+                'wide': 40
             }
         else:
             self.trail_config = trail_config
@@ -313,7 +313,7 @@ class WaveRider:
     # Gentle tightening (8% per bar instead of 30%) with a hard floor at 60% of original.
     # Pre-fix: 30% tighten per bar → trail collapses to 2 ticks in 4 bars → premature exit.
     MIN_TRAIL_TICKS = 4
-    TIGHTEN_TRAIL_FACTOR = 0.92           # was 0.70 — gentle 8% per bar
+    TIGHTEN_TRAIL_FACTOR = 0.96           # was 0.92 — gentle 4% per bar
     TRAIL_FLOOR_FACTOR   = 0.60           # trail never drops below 60% of original
     MAX_ORIGINAL_TRAIL_MULTIPLIER = 3     # allow wider extension when aligned
     WIDEN_TRAIL_FACTOR = 1.30             # was 1.20
@@ -516,33 +516,9 @@ class WaveRider:
              pt_hit = (self.position.side == 'short' and current_price <= self.position.profit_target) or \
                       (self.position.side == 'long' and current_price >= self.position.profit_target)
 
-        # Two-phase stop logic
-        # Phase 1 (initial): use wide hard stop until trail_activation_ticks profit reached
-        # Phase 2 (trail):   once activated, trail from high_water_mark
-        activation = self.position.trail_activation_ticks
-        profit_ticks = profit / self.asset.tick_size  # points -> ticks
-
-        trail_active = (activation is None) or (profit_ticks >= activation)
-
-        if trail_active:
-            # Trail logic: Fixed (from template) or Adaptive (from config)
-            if self.position.trailing_stop_ticks:
-                trail_ticks = self.position.trailing_stop_ticks
-            else:
-                if profit_usd < 50:
-                    trail_ticks = self.trail_config['tight']
-                elif profit_usd < 150:
-                    trail_ticks = self.trail_config['medium']
-                else:
-                    trail_ticks = self.trail_config['wide']
-
-            trail_dist = trail_ticks * self.asset.tick_size
-            new_stop = (self.position.high_water_mark + trail_dist
-                        if self.position.side == 'short'
-                        else self.position.high_water_mark - trail_dist)
-        else:
-            # Phase 1: use the initial wide hard stop (absolute level set at entry)
-            new_stop = self.position.stop_loss
+        # Trail stop DISABLED — envelope_decay is physics-aware and 12x more
+        # profitable per trade.  Keep only the hard stop_loss as catastrophic protection.
+        new_stop = self.position.stop_loss
 
         # Apply breakeven floor: stop can never be worse than entry+1 tick once locked
         if self.position.breakeven_locked and self.position.breakeven_level is not None:
@@ -551,19 +527,10 @@ class WaveRider:
             else:
                 new_stop = min(new_stop, self.position.breakeven_level)
 
-        # Loss watchdog: DMI inverse + underwater + workers agree on reversal
-        # Triple confirmation prevents cutting on noise dips.
-        # 8 ticks = $2.00 move = $4.00 PnL on MNQ -- filters out normal noise.
-        WATCHDOG_TICKS = 8       # must be at least this far underwater
-        WATCHDOG_WORKERS = 5     # at least N workers must disagree with trade side
-        WATCHDOG_MIN_BARS = 5    # must hold at least N bars before watchdog can fire
+        # Loss watchdog: DISABLED — 0% WR across 116 trades (-$1,704).
+        # Even momentum-aligned watchdog trades lose.  The envelope_breach
+        # exit handles adverse scenarios much better (+$40/trade vs $0).
         watchdog_exit = False
-        if (self.position.bars_in_trade >= WATCHDOG_MIN_BARS
-                and self.position.entry_dmi_inverse
-                and profit_ticks <= -WATCHDOG_TICKS
-                and exit_signal
-                and exit_signal.get('workers_against', 0) >= WATCHDOG_WORKERS):
-            watchdog_exit = True
 
         # ── Half-life decay envelope ──────────────────────────────────
         # Tolerance decays exponentially from entry. Adverse acceleration
