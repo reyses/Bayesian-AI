@@ -50,7 +50,9 @@ class BayesianBrain:
             lambda: {'wins': 0, 'losses': 0, 'total': 0}
         )
         self.trade_history = []
-        
+        # H0/H1 direction bias: tid -> {long_w, long_l, short_w, short_l}
+        self.dir_bias: Dict[Any, Dict[str, int]] = {}
+
     def update(self, outcome: TradeOutcome):
         """
         Bayesian update after trade completion
@@ -79,6 +81,57 @@ class BayesianBrain:
 
         # Log trade
         self.trade_history.append(outcome)
+
+    def direction_learn(self, tid, side: str, pnl: float,
+                        tick_value: float = 0.50):
+        """H0/H1 counterfactual direction learning.
+
+        H0 (actual): we went this side, record PnL-weighted result.
+        H1 (counterfactual): opposite side would have mirrored PnL.
+        Both get recorded so the bias table converges to the true best side.
+
+        Args:
+            tid: template ID (PP_ prefix stripped automatically)
+            side: 'long' or 'short'
+            pnl: realized PnL in dollars
+            tick_value: dollar value per tick (MNQ = 0.50)
+        Returns:
+            dict with current bias for this tid
+        """
+        if tid is None:
+            return None
+        base_tid = tid[3:] if isinstance(tid, str) and tid.startswith('PP_') else tid
+
+        if base_tid not in self.dir_bias:
+            self.dir_bias[base_tid] = {
+                'long_w': 0, 'long_l': 0, 'short_w': 0, 'short_l': 0}
+
+        bias = self.dir_bias[base_tid]
+        key = side.lower()
+        alt_key = 'short' if key == 'long' else 'long'
+
+        # PnL-weighted: 1 point per tick
+        _weight = max(1, int(abs(pnl) / tick_value))
+
+        # H0: actual outcome
+        if pnl > 0:
+            bias[f'{key}_w'] += _weight
+        else:
+            bias[f'{key}_l'] += _weight
+
+        # H1: counterfactual (opposite side)
+        alt_pnl = -pnl
+        if alt_pnl > 0:
+            bias[f'{alt_key}_w'] += _weight
+        else:
+            bias[f'{alt_key}_l'] += _weight
+
+        return bias
+
+    def get_dir_bias(self, tid) -> dict | None:
+        """Get direction bias for a template ID."""
+        base_tid = tid[3:] if isinstance(tid, str) and tid.startswith('PP_') else tid
+        return self.dir_bias.get(base_tid)
 
     def batch_update(self, outcomes: list[TradeOutcome]):
         """
@@ -326,7 +379,8 @@ class BayesianBrain:
         save_data = {
             'table': dict(self.table),  # Convert defaultdict to dict
             'dir_table': dict(self.dir_table),
-            'trade_history': self.trade_history
+            'trade_history': self.trade_history,
+            'dir_bias': self.dir_bias,
         }
         with open(filepath, 'wb') as f:
             pickle.dump(save_data, f)
@@ -348,6 +402,7 @@ class BayesianBrain:
             lambda: {'wins': 0, 'losses': 0, 'total': 0},
             save_data.get('dir_table', {})
         )
+        self.dir_bias = save_data.get('dir_bias', {})
 
         print(f"[BAYESIAN] Loaded {len(self.table)} state patterns from {filepath}")
     

@@ -195,8 +195,6 @@ class ExecutionEngine:
         self.entry_price: float = 0.0
         self.entry_bar: int = 0
 
-        # Direction learning (live mode)
-        self._live_dir_bias: Dict[str, dict] = {}
 
         # Gate stats
         self.gate_stats = {
@@ -872,28 +870,15 @@ class ExecutionEngine:
         s = 'long' if _vel >= 0 else 'short'
         return s, 0.52 if s == 'long' else 0.48, 'velocity'
 
-    # ── LIVE DIRECTION LEARNING ──────────────────────────────────────────
+    # ── LIVE DIRECTION LEARNING (delegated to brain) ─────────────────────
 
-    def learn_direction(self, tid, side: str, pnl_ticks: float):
-        """Record direction outcome for live refinement."""
-        if tid is None:
-            return
-        base_tid = tid[3:] if isinstance(tid, str) and tid.startswith('PP_') else tid
-        if base_tid not in self._live_dir_bias:
-            self._live_dir_bias[base_tid] = {
-                'long_w': 0, 'long_l': 0, 'short_w': 0, 'short_l': 0}
-        bias = self._live_dir_bias[base_tid]
-        key = side.lower()
-        weight = max(1, int(abs(pnl_ticks)))
-        if pnl_ticks > 0:
-            bias[f'{key}_w'] += weight
-        else:
-            bias[f'{key}_l'] += weight
+    def learn_direction(self, tid, side: str, pnl: float):
+        """Delegate to brain.direction_learn() — shared H0/H1 engine."""
+        self.brain.direction_learn(tid, side, pnl)
 
     def get_live_dir_bias(self, tid) -> Optional[str]:
-        """Check if live learning has a strong direction preference."""
-        base_tid = tid[3:] if isinstance(tid, str) and tid.startswith('PP_') else tid
-        bias = self._live_dir_bias.get(base_tid)
+        """Check if brain's direction bias has a strong preference."""
+        bias = self.brain.get_dir_bias(tid)
         if not bias:
             return None
         total = sum(bias.values())
