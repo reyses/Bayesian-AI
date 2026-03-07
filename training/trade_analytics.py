@@ -6,7 +6,7 @@ Post-run statistical exploration: compares winners vs losers across every
 available dimension in oracle_trade_log.csv.
 
 Outputs:
-  - Appended to checkpoints/phase4_report.txt
+  - Appended to checkpoints/is_report.txt
   - Saved standalone to checkpoints/trade_analytics.txt
 
 Parts:
