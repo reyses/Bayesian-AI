@@ -152,14 +152,14 @@ def analyze_gate_5b(df: pd.DataFrame):
 
 
 def analyze_gate_hurst(df: pd.DataFrame):
-    """Analyze Hurst exponent gate using oracle labels."""
+    """Analyze Hurst exponent gate using oracle labels. Returns optimal threshold."""
     print("\n" + "=" * 70)
     print("GATE 5a ANALYSIS: Hurst Exponent")
     print("=" * 70)
 
     if 'hurst' not in df.columns:
         print("  ERROR: 'hurst' column not found. Run forward pass first.")
-        return
+        return None
 
     real = df[df['oracle_label'].isin(['MEGA', 'SCALP'])]
     noise = df[df['oracle_label'] == 'NOISE']
@@ -176,29 +176,46 @@ def analyze_gate_hurst(df: pd.DataFrame):
         for p in [10, 25, 50, 75, 90]:
             print(f"    p{p}: {np.percentile(r, p):.3f}")
 
-    print(f"\n  {'Threshold':>10} {'Blocked':>8} {'Blk Real':>9} {'Capture':>8} {'Signal WR':>10}")
-    print("  " + "-" * 50)
+    print(f"\n  {'Threshold':>10} {'Blocked':>8} {'Blk Real':>9} {'Capture':>8} "
+          f"{'Signal WR':>10} {'Rec':>4}")
+    print("  " + "-" * 60)
 
-    for thresh in [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6]:
-        blocked = df[df['hurst'] < thresh]
+    best_score = -999
+    best_thresh = None
+
+    for thresh in [0.0, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6]:
         passed = df[df['hurst'] >= thresh]
         pass_real = real[real['hurst'] >= thresh]
         blk_real = real[real['hurst'] < thresh]
         capture = len(pass_real) / len(real) * 100 if len(real) > 0 else 0
         signal_wr = len(pass_real) / len(passed) * 100 if len(passed) > 0 else 0
-        print(f"  {thresh:>10.2f} {len(blocked):>8} {len(blk_real):>9} "
-              f"{capture:>7.1f}% {signal_wr:>9.1f}%")
+        score = capture * 0.7 + signal_wr * 0.3
+        marker = ""
+        if score > best_score:
+            best_score = score
+            best_thresh = thresh
+            marker = " <--"
+        print(f"  {thresh:>10.2f} {len(blk_real):>8} {len(blk_real):>9} "
+              f"{capture:>7.1f}% {signal_wr:>9.1f}%{marker}")
+
+    print(f"\n  RECOMMENDATION: hurst_min = {best_thresh}")
+    if best_thresh == 0.0:
+        print("  -> Hurst gate has NO predictive power at these thresholds. DISABLE it.")
+    else:
+        print(f"  -> Set hurst_min = {best_thresh}")
+
+    return best_thresh
 
 
 def analyze_gate_tunnel(df: pd.DataFrame):
-    """Analyze tunnel probability gate using oracle labels."""
+    """Analyze tunnel probability gate using oracle labels. Returns optimal threshold."""
     print("\n" + "=" * 70)
     print("GATE 5c ANALYSIS: Tunnel (Reversion) Probability")
     print("=" * 70)
 
     if 'tunnel_prob' not in df.columns:
         print("  ERROR: 'tunnel_prob' column not found. Run forward pass first.")
-        return
+        return None
 
     real = df[df['oracle_label'].isin(['MEGA', 'SCALP'])]
     noise = df[df['oracle_label'] == 'NOISE']
@@ -209,18 +226,35 @@ def analyze_gate_tunnel(df: pd.DataFrame):
         for p in [10, 25, 50, 75, 90]:
             print(f"    p{p}: {np.percentile(r, p):.3f}")
 
-    print(f"\n  {'Threshold':>10} {'Blocked':>8} {'Blk Real':>9} {'Capture':>8} {'Signal WR':>10}")
-    print("  " + "-" * 50)
+    print(f"\n  {'Threshold':>10} {'Blocked':>8} {'Blk Real':>9} {'Capture':>8} "
+          f"{'Signal WR':>10} {'Rec':>4}")
+    print("  " + "-" * 60)
 
-    for thresh in [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]:
-        blocked = df[df['tunnel_prob'] < thresh]
+    best_score = -999
+    best_thresh = None
+
+    for thresh in [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]:
         passed = df[df['tunnel_prob'] >= thresh]
         pass_real = real[real['tunnel_prob'] >= thresh]
         blk_real = real[real['tunnel_prob'] < thresh]
         capture = len(pass_real) / len(real) * 100 if len(real) > 0 else 0
         signal_wr = len(pass_real) / len(passed) * 100 if len(passed) > 0 else 0
-        print(f"  {thresh:>10.2f} {len(blocked):>8} {len(blk_real):>9} "
-              f"{capture:>7.1f}% {signal_wr:>9.1f}%")
+        score = capture * 0.7 + signal_wr * 0.3
+        marker = ""
+        if score > best_score:
+            best_score = score
+            best_thresh = thresh
+            marker = " <--"
+        print(f"  {thresh:>10.2f} {len(blk_real):>8} {len(blk_real):>9} "
+              f"{capture:>7.1f}% {signal_wr:>9.1f}%{marker}")
+
+    print(f"\n  RECOMMENDATION: tunnel_prob_min = {best_thresh}")
+    if best_thresh == 0.0:
+        print("  -> Tunnel gate has NO predictive power at these thresholds. DISABLE it.")
+    else:
+        print(f"  -> Set tunnel_prob_min = {best_thresh}")
+
+    return best_thresh
 
 
 def analyze_traded_physics(df: pd.DataFrame):
@@ -266,6 +300,8 @@ def main():
                         help='Which gate to analyze (default: all)')
     parser.add_argument('--save', action='store_true',
                         help='Save combined analysis to reports/gate_analysis.csv')
+    parser.add_argument('--apply', action='store_true',
+                        help='Write optimal thresholds to checkpoints/gate_thresholds.json')
     args = parser.parse_args()
 
     print("=" * 70)
@@ -295,12 +331,23 @@ def main():
         print("  Re-run forward pass to populate F_momentum, hurst, etc.")
         print("  Only basic analysis available.\n")
 
+    thresholds = {}
+
     if args.gate in ('5b', 'all') and has_physics:
-        analyze_gate_5b(df)
+        t = analyze_gate_5b(df)
+        if t is not None:
+            thresholds['momentum_override_ratio'] = t
+
     if args.gate in ('5a', 'all') and has_physics:
-        analyze_gate_hurst(df)
+        t = analyze_gate_hurst(df)
+        if t is not None:
+            thresholds['hurst_min'] = t
+
     if args.gate in ('5c', 'all') and has_physics:
-        analyze_gate_tunnel(df)
+        t = analyze_gate_tunnel(df)
+        if t is not None:
+            thresholds['tunnel_prob_min'] = t
+
     if args.gate in ('traded', 'all'):
         analyze_traded_physics(df)
 
@@ -309,6 +356,26 @@ def main():
         out = 'reports/gate_analysis.csv'
         df.to_csv(out, index=False)
         print(f"\n  Saved full data to {out}")
+
+    # Write optimal thresholds JSON
+    if thresholds and args.apply:
+        import json
+        out_path = os.path.join(args.dir, 'gate_thresholds.json')
+        # Merge with existing if present
+        existing = {}
+        if os.path.exists(out_path):
+            with open(out_path, 'r') as f:
+                existing = json.load(f)
+        existing.update(thresholds)
+        with open(out_path, 'w') as f:
+            json.dump(existing, f, indent=2)
+        print(f"\n  THRESHOLDS WRITTEN -> {out_path}")
+        for k, v in existing.items():
+            print(f"    {k}: {v}")
+    elif thresholds:
+        print(f"\n  OPTIMAL THRESHOLDS (use --apply to write to {args.dir}/gate_thresholds.json):")
+        for k, v in thresholds.items():
+            print(f"    {k}: {v}")
 
     print("\n" + "=" * 70)
     print("DONE")
