@@ -214,7 +214,7 @@ class LiveEngine:
 
         # Ping-pong mode (continuous wave-riding with direction refinement)
         self._ping_pong_mode = self._shared_state.get('ping_pong', False)
-        self._live_dir_bias: Dict[str, dict] = {}  # tid → {long_w, long_l, short_w, short_l}
+        # dir_bias now lives on brain.dir_bias (shared with trainer)
         self._last_exit_side = ''  # side we just exited (for flip)
         self._pp_min_conviction = config.pp_min_conviction
         self._pp_agree_veto = config.pp_agree_veto
@@ -1251,50 +1251,20 @@ class LiveEngine:
             logger.info("LATENCY: ping-pong flip order sent")
 
     def _direction_learn(self, tid, side: str, pnl: float):
-        """Record direction-specific outcome + counterfactual for live refinement.
-
-        If LONG lost $150, SHORT would have made $150 from the same entry.
-        Learn both: the actual outcome AND the alternative hypothesis.
-        """
-        if tid is None:
+        """Delegate to brain.direction_learn() — single shared H0/H1 engine."""
+        tick_val = self._cfg.tick_size * self._cfg.point_value
+        bias = self._brain.direction_learn(tid, side, pnl, tick_value=tick_val)
+        if bias is None:
             return
-        # Strip PP_ prefix to aggregate with parent template
+        # Log for live monitoring
         base_tid = tid[3:] if isinstance(tid, str) and tid.startswith('PP_') else tid
-
-        if base_tid not in self._live_dir_bias:
-            self._live_dir_bias[base_tid] = {
-                'long_w': 0, 'long_l': 0, 'short_w': 0, 'short_l': 0}
-
-        bias = self._live_dir_bias[base_tid]
-        key = side.lower()
-        alt_key = 'short' if key == 'long' else 'long'
-        alt_pnl = -pnl  # mirror PnL
-
-        # PnL-weighted learning: 1 point per tick — fire AND reward
-        # MNQ tick=$0.50, so +$25 = 50 ticks = 50 win points
-        _tick_val = self._cfg.tick_size * self._cfg.point_value  # $0.50 for MNQ
-        _weight = max(1, int(abs(pnl) / _tick_val))
-
-        # Learn actual outcome
-        if pnl > 0:
-            bias[f'{key}_w'] += _weight
-        else:
-            bias[f'{key}_l'] += _weight
-
-        # Counterfactual: learn the alternative hypothesis
-        if alt_pnl > 0:
-            bias[f'{alt_key}_w'] += _weight
-        else:
-            bias[f'{alt_key}_l'] += _weight
-
-        # Log both
         lw, ll = bias['long_w'], bias['long_l']
         sw, sl = bias['short_w'], bias['short_l']
-        lt = lw + ll
-        st = sw + sl
+        lt, st = lw + ll, sw + sl
         l_wr = f"{lw/lt:.0%}" if lt > 0 else "n/a"
         s_wr = f"{sw/st:.0%}" if st > 0 else "n/a"
-        _verdict = "CONFIRMED" if pnl > 0 else f"WRONG (alt {alt_key.upper()} would be ${alt_pnl:+.0f})"
+        alt_key = 'short' if side.lower() == 'long' else 'long'
+        _verdict = "CONFIRMED" if pnl > 0 else f"WRONG (alt {alt_key.upper()} would be ${-pnl:+.0f})"
         logger.info(f"DIR LEARN: tid={base_tid}  {side.upper()} ${pnl:+.0f} -> {_verdict}  |  "
                     f"LONG {lw}W/{ll}L ({l_wr})  SHORT {sw}W/{sl}L ({s_wr})")
 
@@ -1473,17 +1443,18 @@ class LiveEngine:
                              f"PnL=${_dp:+,.2f}  Avg=${_dp/len(dt):+,.2f}")
 
         # ── Ping-pong direction refinement ──
-        if self._pp_flip_count > 0 or self._live_dir_bias:
+        _dir_bias = self._brain.dir_bias if self._brain else {}
+        if self._pp_flip_count > 0 or _dir_bias:
             L.append("")
             L.append("=" * 72)
             L.append("PING-PONG DIRECTION REFINEMENT")
             L.append("=" * 72)
             L.append(f"  Flip count: {self._pp_flip_count}")
-            if self._live_dir_bias:
+            if _dir_bias:
                 L.append(f"  {'Template':<20} {'LONG WR':>10} {'LONG N':>8} "
                          f"{'SHORT WR':>10} {'SHORT N':>8}")
                 L.append("  " + "-" * 58)
-                for tid, b in sorted(self._live_dir_bias.items(),
+                for tid, b in sorted(_dir_bias.items(),
                                      key=lambda x: sum(x[1].values()),
                                      reverse=True):
                     lw, ll = b['long_w'], b['long_l']
@@ -2035,8 +2006,7 @@ class LiveEngine:
         _BIAS_THRESH = 0.55
 
         # Priority 0: live direction bias (refinement cycle)
-        base_tid = tid[3:] if isinstance(tid, str) and tid.startswith('PP_') else tid
-        bias = self._live_dir_bias.get(base_tid)
+        bias = self._brain.get_dir_bias(tid) if self._brain else None
         if bias:
             lw, ll = bias.get('long_w', 0), bias.get('long_l', 0)
             sw, sl = bias.get('short_w', 0), bias.get('short_l', 0)
