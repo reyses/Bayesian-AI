@@ -22,8 +22,8 @@
 - **Execution Engine**: `core/execution_engine.py` — gate/direction/sizing, oracle-driven thresholds
 - **Belief Network**: `core/timeframe_belief_network.py` — 10 TF workers, BandContext per worker,
   `get_band_confluence()` for multi-TF SE band direction (Priority 4 in direction cascade)
-- **Wave Rider**: `core/wave_rider.py` — thin position state holder + regret analysis (280 lines).
-  All exit logic removed (was 830 lines). Exits live exclusively in exit_engine.py.
+- **Position factory**: `make_position()` in `core/exit_engine.py` — creates PositionState directly.
+  wave_rider.py DELETED (2026-03-07). All position/exit logic in exit_engine.py.
 - **Trade Logger**: `live/trade_logger.py` — per-trade diagnostic CSV
 - **Dashboard**: `visualization/dashboard.py` — Tkinter popup "Fractal Command Center".
   Single-instance, 1600x950 window. Receives data via queue from trainer/live engine.
@@ -173,8 +173,12 @@ After every forward pass, always read these reports to understand the run:
   disagrees with trade direction. Eliminated 55% misaligned trades (+$7,815 recovery).
 - **Trail/MaxHold/Watchdog disabled**: exit_engine.py — envelope_decay handles all exits
   better. Trail was $3-4/trade (84% too early), watchdog 0% WR, max_hold redundant.
-- **Unified exit engine**: core/exit_engine.py — 10-level cascade, envelope decay with
-  F_net modulation, band-aware trail, cluster-fitted stops
+- **Unified exit engine**: core/exit_engine.py — cascade: SL→TP→BandUrgent→EnvelopeDecay→
+  PeakGiveback→BreakevenLock→BeliefFlip→Hold. Self-tuning halflife + giveback.
+- **Self-tuning exits**: `record_trade_outcome()` in ExitEngine — two independent signals:
+  too_early→grow halflife, too_late→tighten giveback. 30-trade calibration window.
+- **Dynamic halflife**: envelope halflife shrinks when trade is giving back from peak
+  (giveback_ratio modulates effective_hl). Base=20 bars, range 8-60.
 - **Band confluence**: BandContext per TF worker + get_band_confluence() aggregator.
   Wired into direction cascade (Priority 4) AND exit trail adjustment
 - **Auto-TP re-entry**: live_engine.py:832 — bank profit, re-enter if belief agrees
@@ -189,6 +193,17 @@ After every forward pass, always read these reports to understand the run:
 - OU tunnel probabilities: analytical erfi-based (quantum_field_engine)
 - Semantic cluster names: generate_semantic_name() (fractal_clustering)
 - Live trading module: live/ (7 files) + docs/NT8_BayesianBridge.cs
+
+## C&E Matrix Methodology (KEY WORKFLOW)
+> Full methodology: `memory/ce_methodology.md`
+
+When optimizing exits (or entries), follow the **Cause & Effect matrix** approach:
+1. **Identify** problem from report buckets (too-early, too-late, reversed)
+2. **C&E t-test**: split trade log into problem vs good, Welch t-test all features
+3. **Simulate** the exit mechanic at each bar to find the smoking gun
+4. **Fix** with targeted parameter change + self-tuning feedback loop
+5. **Add analytics bucket** to report so future runs track the split
+6. **Verify** with `--forward-pass` — compare before/after metrics
 
 ## Design Docs
 - `docs/CAUSE_AND_EFFECT_MATRIX.md` — 48 X params × 12 Y responses, entry/exit domain
@@ -208,26 +223,10 @@ After every forward pass, always read these reports to understand the run:
 - Key insight: physics + exit system carry all profit; trail stop = mean reversion catcher
 - Prior baseline (2026-02-25): 3,754 trades, 37.5% WR, $1.55/trade
 
-## Clustering Rework (2026-02-27, in progress)
-- **Pipeline**: DMI pre-split (LONG/SHORT) → I-MR on signed DMI diff → DBSCAN(vol+ADX)
-- **I-MR**: Individual = DMI_diff (signed), sorted by ADX, MR = signed diff
-  Boundaries: |MR| > UCL OR sign-flip with significant magnitude
-- **Phase 3**: Stepwise MFE refinement (trim 10% outliers per pass), no simulation
-  adj-R²(16D→MFE) computed per template
-- **IMR_D4**: 3.267 (standard SPC n=2), was wrongly 2.0
-- **CLUSTER_DIMS**: [1, 7] = volume + ADX (2D clustering, 16D as identity)
-
-## Design Direction (confirmed via waveform analysis)
-- **Shape-first architecture**: Identify shape type (seed function) FIRST,
-  then layer 16D physics for magnitude/timing refinement
-- **Separation proven**: Shape clustering (Analysis H) produces WR=0% or 98%+
-  clusters. Direction comes from shape, precision from physics.
-- **16F×12TF as regression constants**: The 192 values explain waveform shape
-  variation WITHIN a shape type (why is this V-reversal deeper than that one?)
-- **Laplacian = shape identifier**: d²p/dt² tells you ramp (d²=0) vs V-shape
-  (d² sign flip) vs exponential (d² same sign as d¹) — already computed
-- **Seed functions replace DBSCAN clusters**: Named mathematical functions
-  (ramp, V, sigmoid, etc.) instead of opaque cluster IDs
+## Clustering & Design Direction
+- **Pipeline**: DMI pre-split → I-MR(DMI diff) → DBSCAN(vol+ADX), 2D clustering, 16D identity
+- **Shape-first**: seed functions (ramp, V, sigmoid) replace DBSCAN clusters
+- **Laplacian = shape identifier**: d²p/dt² discriminates shape types
 
 ## Requirements
 - PyTorch CUDA (cu121), numba, scipy, optuna>=3.5.0
