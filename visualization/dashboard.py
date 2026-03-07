@@ -40,8 +40,26 @@ class Tooltip:
         self.widget = widget
         self.text = text
         self.tip_window = None
-        widget.bind("<Enter>", self.show_tip)
-        widget.bind("<Leave>", self.hide_tip)
+        self._id = None
+        widget.bind("<Enter>", self.enter)
+        widget.bind("<Leave>", self.leave)
+        widget.bind("<ButtonPress>", self.leave)
+
+    def enter(self, event=None):
+        self.schedule()
+
+    def leave(self, event=None):
+        self.unschedule()
+        self.hide_tip()
+
+    def schedule(self):
+        self.unschedule()
+        self._id = self.widget.after(500, self.show_tip)
+
+    def unschedule(self):
+        if self._id:
+            self.widget.after_cancel(self._id)
+            self._id = None
 
     def show_tip(self, event=None):
         if self.tip_window or not self.text:
