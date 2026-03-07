@@ -249,6 +249,7 @@ class BayesianTrainingOrchestrator:
 
     def run_forward_pass(self, data_source: str,
                          start_date: str = None, end_date: str = None,
+                         trade_start_date: str = None,
                          min_tier: int = None,
                          bias_threshold: float = None,
                          dmi_threshold: float = None,
@@ -457,6 +458,8 @@ class BayesianTrainingOrchestrator:
                   f"({start_date or 'start'} -> {end_date or 'end'})")
 
         print(f"  Found {len(daily_files_15s)} files to simulate.")
+        if trade_start_date:
+            print(f"  Warmup until {trade_start_date} (context only, no trades)")
 
         total_pnl = 0.0
         total_trades = 0
@@ -581,6 +584,16 @@ class BayesianTrainingOrchestrator:
                      ncols=120)
         for day_idx, day_file in enumerate(daily_files_15s):
             day_date = os.path.basename(day_file).replace('.parquet', '')
+
+            # ── Warmup gate: process TBN context but skip trading ──
+            if trade_start_date:
+                _day_key = day_date.replace('_', '')  # 2025_01 → 202501
+                if _day_key + '01' < trade_start_date:
+                    # Still run discovery to build TBN state
+                    self.discovery_agent.scan_day_cascade(data_source, day_date)
+                    _pbar.update(1)
+                    _pbar.set_postfix_str(f"{day_date} | WARMUP (context only)")
+                    continue
 
             # A. Fractal Cascade Scan (get actionable patterns with chains)
             # This uses the discovery agent logic but focused on this day
@@ -4619,6 +4632,9 @@ def main():
                              "Use with --forward-start for a clean train/test split.")
     parser.add_argument('--forward-start', type=str, default=None, metavar='YYYYMMDD',
                         help="First day to include in forward pass (inclusive, e.g. 20260101)")
+    parser.add_argument('--trade-start', type=str, default=None, metavar='YYYYMMDD',
+                        help="First day to allow trades (earlier days = warmup/context only). "
+                             "E.g. --trade-start 20250201 uses Jan as context, trades from Feb.")
     parser.add_argument('--forward-end', type=str, default=None, metavar='YYYYMMDD',
                         help="Last day to include in forward pass (inclusive, e.g. 20260209)")
     parser.add_argument('--min-tier', type=int, default=None, choices=[1, 2, 3, 4],
@@ -4764,6 +4780,7 @@ def main():
             orchestrator.run_forward_pass(_fwd_data,
                                           start_date=args.forward_start,
                                           end_date=args.forward_end,
+                                          trade_start_date=args.trade_start,
                                           min_tier=args.min_tier,
                                           bias_threshold=args.bias_threshold,
                                           dmi_threshold=args.dmi_threshold,
