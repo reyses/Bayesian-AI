@@ -828,7 +828,7 @@ class ExecutionEngine:
             _dmi = (getattr(state, 'dmi_plus', 0.0)
                     - getattr(state, 'dmi_minus', 0.0))
             _pred = float(
-                np.dot(np.array([[_depth, _dmi]]), np.array(_smfe_coeff))
+                np.dot(np.array([[_depth, _dmi]]), np.array(_smfe_coeff)).item()
                 + lib_entry.get('signed_mfe_intercept', 0.0)
             )
             if abs(_pred) > 0.5:
