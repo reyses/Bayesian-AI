@@ -41,7 +41,6 @@ if PROJECT_ROOT not in sys.path:
 from core.bayesian_brain import QuantumBayesianBrain, TradeOutcome
 from core.quantum_field_engine import StatisticalFieldEngine
 from core.exit_engine import ExitEngine, ExitAction
-from core.dynamic_binner import DynamicBinner
 from core.three_body_state import MarketState
 
 # Training components
