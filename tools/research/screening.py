@@ -1,6 +1,6 @@
-"""Waveform screening functions: I-MR features, factor correlation, stepwise regression.
+"""Research screening functions: I-MR features, factor correlation, stepwise regression.
 
-Extracted from tools/waveform_standalone.py (lines 1459-1660).
+Extracted from tools/standalone_research.py (lines 1459-1660).
 """
 
 import numpy as np
@@ -169,7 +169,7 @@ def regression_r2(flat, col_names, mfes, top_k=20, return_model=False):
 def print_screening_report(results, mfes, maes, meta, top_n=30):
     """Print the screening report."""
     print(f"\n{'='*70}")
-    print(f"  STANDALONE WAVEFORM SCREENING REPORT")
+    print(f"  STANDALONE RESEARCH SCREENING REPORT")
     print(f"{'='*70}")
     print(f"  Data points: {len(mfes):,}")
     print(f"  MFE: mean={np.mean(mfes):.2f}, std={np.std(mfes):.2f}")

@@ -2,10 +2,19 @@
 > Future topics backlog: see `docs/ROADMAP.md`
 > Daily interaction journals: `docs/daily/YYYY-MM-DD.md`
 
+## **HARD RULES — DO NOT SKIP**
+- **KEEP JOURNALS UPDATED**: At the start and end of EVERY session, update:
+  1. `docs/daily/YYYY-MM-DD.md` — daily interaction journal (findings, changes, decisions)
+  2. `docs/WAVEFORM_ANALYSIS_JOURNAL.txt` — research journal (analysis results, new modules)
+  3. `docs/PIPELINE_ANALYSIS_JOURNAL.txt` — pipeline changes journal
+  4. `reports/findings/` — standalone finding reports (YYYY-MM-DD_topic.md)
+  NEVER let journals go stale. Lost journals = lost days of work.
+- **KEEP MEMORY UPDATED**: Update MEMORY.md when discovering new patterns, preferences, or architecture changes
+
 ## Workflow Preference
 - **Always discuss before changing**: propose a plan, get approval, then execute
 - **Progress bars are mandatory**: any long-running loop MUST have tqdm with live stats
-- **NEVER run training via Bash** — user runs it themselves
+- **Training via Bash**: show exact command, ask "Confirm to run?" — only execute after user confirms
 - **NT8 bridge deploy**: When updating `docs/NT8_BayesianBridge.cs`, also copy it to
   `C:\Users\reyse\OneDrive\Documents\NinjaTrader 8\bin\Custom\Indicators\NT8_BayesianBridge.cs`
 - **NT8 bridge versioning**: Always bump version + update date + time in both header comment
@@ -101,10 +110,15 @@ After every forward pass, always read these reports to understand the run:
 - `tools/pattern_map.py` — signal funnel visualization
 - `tools/trade_visualizer.py` — trade overlay on price waveform
 - `tools/run_analytics.py` — re-run analytics without forward pass
+- `tools/analyze_scalps.py` — worker signal analysis on counter-trend scalps
+- `tools/analyze_scalp_timing.py` — temporal clustering, MFE, physics on scalps
+- `tools/analyze_scalp_vs_early_exit.py` — too-early/scalp hourly overlap (r=0.716)
+- `tools/analyze_wrong_dir.py` — wrong-direction filter simulations
 - `scripts/monthly_pnl_chart.py` — monthly PnL bar chart
 - `tools/make_atlas_1day.py` — create 1-day ATLAS subset
 - `tools/make_atlas_1week.py` — create 7-day ATLAS subset
-- `tools/waveform_standalone.py` — price-first I-MR screening (see journal)
+- `tools/standalone_research.py` — research harness: lettered analyses A-R, `--start X` to skip.
+  See `tools/STANDALONE_RESEARCH_GUIDE.md` for how to add new modules.
 
 ## Waveform Screening (active research)
 - **Journal**: `docs/WAVEFORM_ANALYSIS_JOURNAL.txt` — full methodology + insights
@@ -211,6 +225,8 @@ When optimizing exits (or entries), follow the **Cause & Effect matrix** approac
 - `docs/CLAUDE_CODE_BAND_CONTEXT.md` — SE band confluence spec (IMPLEMENTED)
 - `docs/CLAUDE_CODE_UNIFIED_EXIT_ENGINE.md` — exit engine spec (IMPLEMENTED)
 - `docs/LEVEL_DETECTOR_SPEC.md` — fib + swing detection + DBSCAN levels (FUTURE STATE)
+- `reports/findings/` — pure research findings (no specs/instructions), date-prefixed
+  - `2026-03-07_scalp_timescale.md` — scalp/too-early overlap (r=0.716), timescale mismatch
 
 ## Current Baseline (IS+OOS, 2026-03-07, main branch)
 - IS: 7,262 trades, 85.7% WR, $86,351 total, $11.89/trade, PF 3.54

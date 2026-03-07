@@ -1,12 +1,12 @@
 """
-Standalone Waveform Screening Tool  (orchestrator)
+Standalone Research Screening Tool  (orchestrator)
 =====================================================
-Thin CLI orchestrator — all helpers live in tools/waveform/ subpackage.
+Thin CLI orchestrator — all helpers live in tools/research/ subpackage.
 
 Usage:
-    python tools/waveform_standalone.py --data DATA/ATLAS_1WEEK --base-tf 15m
-    python tools/waveform_standalone.py --data DATA/ATLAS_1WEEK --base-tf 15m --full
-    python tools/waveform_standalone.py --data DATA/ATLAS --context-days 30 --analysis-days 7
+    python tools/standalone_research.py --data DATA/ATLAS_1WEEK --base-tf 15m
+    python tools/standalone_research.py --data DATA/ATLAS_1WEEK --base-tf 15m --full
+    python tools/standalone_research.py --data DATA/ATLAS --context-days 30 --analysis-days 7
 
 Output: tools/standalone_report.txt + tools/plots/standalone/
 """
@@ -22,36 +22,36 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from config.oracle_config import ORACLE_LOOKAHEAD_BARS
 
-# ── Imports from tools.waveform subpackage ──
-from tools.waveform.data import (
+# ── Imports from tools.research subpackage ──
+from tools.research.data import (
     TF_HIERARCHY, TF_SECONDS, TF_LABELS, FEATURE_NAMES,
     load_atlas_tf, compute_tf_physics, extract_16d, build_stacked_matrices,
 )
-from tools.waveform.imr import (
+from tools.research.imr import (
     compute_price_imr, detect_regimes, compute_regime_oracle,
 )
-from tools.waveform.screening import (
+from tools.research.screening import (
     pad_to_fixed_depth, compute_moving_range, flatten_matrices,
     screen_factors, regression_r2, print_screening_report,
 )
-from tools.waveform.seeds import (
+from tools.research.seeds import (
     SeedPrimitiveLibrary, _detect_inflections, _adaptive_split,
 )
-from tools.waveform import plots as _wf_plots
-from tools.waveform.plots import (
+from tools.research import plots as _res_plots
+from tools.research.plots import (
     plot_price_imr, plot_regime_summary, plot_imr_charts, plot_segmented_imr,
 )
 
 
 # Module-level PLOTS_DIR — synced from plots module after resolve_plots_dir()
-PLOTS_DIR = _wf_plots.PLOTS_DIR
+PLOTS_DIR = _res_plots.PLOTS_DIR
 
 
 def _resolve_plots_dir(data_path, analysis_days=0):
     """Thin wrapper: resolve in plots module, sync to this module."""
     global PLOTS_DIR
-    sub = _wf_plots.resolve_plots_dir(data_path, analysis_days)
-    PLOTS_DIR = _wf_plots.PLOTS_DIR
+    sub = _res_plots.resolve_plots_dir(data_path, analysis_days)
+    PLOTS_DIR = _res_plots.PLOTS_DIR
     return sub
 
 
@@ -83,12 +83,12 @@ from matplotlib.collections import LineCollection
 #  MAIN
 # =============================================================================
 # All helper functions (data loading, I-MR, screening, seeds, plots) now live
-# in tools/waveform/ subpackage. Only the analysis pipeline (main) remains here
+# in tools/research/ subpackage. Only the analysis pipeline (main) remains here
 # because analyses A-R share extensive local state that doesn't factor cleanly.
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description='Standalone waveform screening from raw ATLAS data')
+    parser = argparse.ArgumentParser(description='Standalone research screening from raw ATLAS data')
     parser.add_argument('--data', default='DATA/ATLAS',
                         help='ATLAS data directory (default: DATA/ATLAS)')
     parser.add_argument('--months', nargs='+', default=None,
@@ -120,7 +120,7 @@ def main():
     sys.stdout = _Tee(_orig_stdout, _report_buf)
 
     print(f"{'='*70}")
-    print(f"  STANDALONE WAVEFORM SCREENING")
+    print(f"  STANDALONE RESEARCH")
     print(f"  Data: {args.data}")
     print(f"  Base TF: {args.base_tf}")
     print(f"  Context: {args.context_days}d warmup, {args.analysis_days}d analysis")
@@ -4762,11 +4762,294 @@ def main():
 
 
     # =====================================================================
+    if _start_at <= 'S':
+        print(f"\n{'='*70}")
+        print(f"  ANALYSIS S: EXIT TREND GUARD — BAND CONFLICT STUDY")
+        print(f"{'='*70}")
+
+        try:
+            import matplotlib
+            matplotlib.use('Agg')
+            import matplotlib.pyplot as plt
+
+            # ------------------------------------------------------------------
+            # Goal: measure how often fast-TF band resistance triggers tighten
+            # during a trend that slow TFs still support, and what suppressing
+            # those tightens would do to trade duration / capture rate.
+            #
+            # We simulate multi-scale z-scores from price data:
+            #   "slow" = 240-bar rolling regression (proxies 4h at 1m base)
+            #   "mid"  = 60-bar rolling regression  (proxies 1h)
+            #   "fast" = 15-bar rolling regression   (proxies 15m)
+            # Then for each oracle trade we check band conflicts.
+            # ------------------------------------------------------------------
+
+            _closes = base_df['close'].values.astype(float)
+            _n = len(_closes)
+
+            # Compute rolling z-scores at 3 scales
+            def _rolling_z(prices, window):
+                """Z-score: (price - rolling_mean) / rolling_std."""
+                z = np.full(len(prices), np.nan)
+                for i in range(window, len(prices)):
+                    seg = prices[i - window:i + 1]
+                    mu = seg.mean()
+                    sd = seg.std()
+                    if sd > 1e-12:
+                        z[i] = (prices[i] - mu) / sd
+                    else:
+                        z[i] = 0.0
+                return z
+
+            _z_slow = _rolling_z(_closes, 240)
+            _z_mid  = _rolling_z(_closes, 60)
+            _z_fast = _rolling_z(_closes, 15)
+
+            print(f"  Computed rolling z-scores: slow(240), mid(60), fast(15)")
+            print(f"  Valid bars: slow={np.sum(~np.isnan(_z_slow))}, "
+                  f"mid={np.sum(~np.isnan(_z_mid))}, fast={np.sum(~np.isnan(_z_fast))}")
+
+            # Build simulated trades from oracle labels
+            _n_trades = min(len(bar_indices), len(directions), len(mfes), len(maes))
+            print(f"  Oracle trades available: {_n_trades}")
+
+            # For each trade, look forward up to 60 bars and track band conflicts
+            _HOLD_MAX = 60
+            _trade_results = []  # list of dicts per trade
+
+            for _ti in range(_n_trades):
+                _entry_bar = int(bar_indices[_ti])
+                _dir_raw = directions[_ti]
+                _dir = 1 if (str(_dir_raw).upper() == 'LONG' or _dir_raw == 1) else -1
+                _mfe = float(mfes[_ti])
+                _mae = float(maes[_ti])
+
+                if _entry_bar + _HOLD_MAX >= _n:
+                    continue
+                if np.isnan(_z_slow[_entry_bar]) or np.isnan(_z_fast[_entry_bar]):
+                    continue
+
+                _tightens_no_guard = 0
+                _tightens_with_guard = 0
+                _first_tighten_no_guard = None
+                _first_tighten_with_guard = None
+                _slow_trend_bars = 0
+                _fast_resist_bars = 0
+
+                for _b in range(_HOLD_MAX):
+                    _idx = _entry_bar + _b
+                    _zs = _z_slow[_idx]
+                    _zm = _z_mid[_idx]
+                    _zf = _z_fast[_idx]
+
+                    if np.isnan(_zs) or np.isnan(_zf):
+                        continue
+
+                    # Determine slow TF trend direction
+                    _slow_long = _zs < -0.5   # price below slow mean = trending up potential
+                    _slow_short = _zs > 0.5   # price above slow mean = trending down potential
+
+                    # Fast TF band hit (resistance for LONG, support for SHORT)
+                    if _dir == 1:  # LONG trade
+                        _fast_at_resist = _zf >= 1.0
+                        _slow_supports = _slow_long or (_zs < 0.3)  # slow not at resistance
+                    else:  # SHORT trade
+                        _fast_at_resist = _zf <= -1.0
+                        _slow_supports = _slow_short or (_zs > -0.3)
+
+                    if _slow_supports:
+                        _slow_trend_bars += 1
+                    if _fast_at_resist:
+                        _fast_resist_bars += 1
+
+                    # Without guard: fast resistance = tighten
+                    if _fast_at_resist:
+                        _tightens_no_guard += 1
+                        if _first_tighten_no_guard is None:
+                            _first_tighten_no_guard = _b
+
+                    # With guard: suppress tighten if slow TF supports trade
+                    if _fast_at_resist and not _slow_supports:
+                        _tightens_with_guard += 1
+                        if _first_tighten_with_guard is None:
+                            _first_tighten_with_guard = _b
+
+                _trade_results.append({
+                    'dir': _dir,
+                    'mfe': _mfe,
+                    'mae': _mae,
+                    'tightens_no_guard': _tightens_no_guard,
+                    'tightens_with_guard': _tightens_with_guard,
+                    'first_tighten_no': _first_tighten_no_guard,
+                    'first_tighten_with': _first_tighten_with_guard,
+                    'slow_trend_bars': _slow_trend_bars,
+                    'fast_resist_bars': _fast_resist_bars,
+                })
+
+            print(f"  Analyzed {len(_trade_results)} trades (skipped {_n_trades - len(_trade_results)} edge/NaN)")
+
+            if len(_trade_results) > 0:
+                _tr = _trade_results
+                _tightens_no = [t['tightens_no_guard'] for t in _tr]
+                _tightens_wi = [t['tightens_with_guard'] for t in _tr]
+                _first_no = [t['first_tighten_no'] for t in _tr if t['first_tighten_no'] is not None]
+                _first_wi = [t['first_tighten_with'] for t in _tr if t['first_tighten_with'] is not None]
+
+                _total_tightens_no = sum(_tightens_no)
+                _total_tightens_wi = sum(_tightens_wi)
+                _suppressed = _total_tightens_no - _total_tightens_wi
+                _suppress_pct = (_suppressed / _total_tightens_no * 100) if _total_tightens_no > 0 else 0
+
+                print(f"\n  --- Tighten Signal Summary ---")
+                print(f"  Total tighten events (no guard):   {_total_tightens_no}")
+                print(f"  Total tighten events (with guard): {_total_tightens_wi}")
+                print(f"  Suppressed by trend guard:         {_suppressed} ({_suppress_pct:.1f}%)")
+
+                if _first_no:
+                    print(f"\n  First tighten bar (no guard):   median={np.median(_first_no):.0f}, "
+                          f"mean={np.mean(_first_no):.1f}, p25={np.percentile(_first_no,25):.0f}")
+                if _first_wi:
+                    print(f"  First tighten bar (with guard): median={np.median(_first_wi):.0f}, "
+                          f"mean={np.mean(_first_wi):.1f}, p25={np.percentile(_first_wi,25):.0f}")
+                    _delay = np.mean(_first_wi) - np.mean(_first_no) if _first_no else 0
+                    print(f"  Average delay from guard:       {_delay:+.1f} bars")
+
+                # Split by direction
+                for _side_name, _side_val in [('LONG', 1), ('SHORT', -1)]:
+                    _side_tr = [t for t in _tr if t['dir'] == _side_val]
+                    if not _side_tr:
+                        continue
+                    _s_no = sum(t['tightens_no_guard'] for t in _side_tr)
+                    _s_wi = sum(t['tightens_with_guard'] for t in _side_tr)
+                    _s_sup = _s_no - _s_wi
+                    _s_pct = (_s_sup / _s_no * 100) if _s_no > 0 else 0
+                    _avg_mfe = np.mean([t['mfe'] for t in _side_tr])
+                    print(f"\n  {_side_name} trades ({len(_side_tr)}): "
+                          f"tightens {_s_no}->{_s_wi} (suppressed {_s_sup}, {_s_pct:.1f}%), "
+                          f"avg MFE={_avg_mfe:.1f}")
+
+                # MFE analysis: trades with high suppression vs low
+                _high_suppress = [t for t in _tr if t['tightens_no_guard'] > 0 and
+                                  (t['tightens_no_guard'] - t['tightens_with_guard']) / t['tightens_no_guard'] > 0.5]
+                _low_suppress = [t for t in _tr if t['tightens_no_guard'] > 0 and
+                                 (t['tightens_no_guard'] - t['tightens_with_guard']) / t['tightens_no_guard'] <= 0.5]
+
+                if _high_suppress and _low_suppress:
+                    _mfe_high = np.mean([t['mfe'] for t in _high_suppress])
+                    _mfe_low = np.mean([t['mfe'] for t in _low_suppress])
+                    print(f"\n  --- MFE by Suppression Rate ---")
+                    print(f"  High suppression (>50% tightens blocked): {len(_high_suppress)} trades, "
+                          f"avg MFE={_mfe_high:.1f}")
+                    print(f"  Low suppression (<=50% blocked):          {len(_low_suppress)} trades, "
+                          f"avg MFE={_mfe_low:.1f}")
+                    print(f"  MFE difference: {_mfe_high - _mfe_low:+.1f} "
+                          f"({'guard helps' if _mfe_high > _mfe_low else 'guard neutral/hurts'})")
+
+                # ── Plot 1: Tighten timeline histogram ──
+                _fig, _axes = plt.subplots(2, 2, figsize=(14, 10))
+
+                # Top-left: first tighten bar distribution
+                if _first_no:
+                    _axes[0, 0].hist(_first_no, bins=30, alpha=0.6, label='No guard', color='red')
+                if _first_wi:
+                    _axes[0, 0].hist(_first_wi, bins=30, alpha=0.6, label='With guard', color='green')
+                _axes[0, 0].set_xlabel('Bar # of first tighten')
+                _axes[0, 0].set_ylabel('Count')
+                _axes[0, 0].set_title('First Tighten Timing (later = better)')
+                _axes[0, 0].legend()
+
+                # Top-right: suppression rate by MFE bucket
+                _mfe_vals = np.array([t['mfe'] for t in _tr])
+                _supp_rates = np.array([
+                    (t['tightens_no_guard'] - t['tightens_with_guard']) / max(t['tightens_no_guard'], 1)
+                    for t in _tr
+                ])
+                _mfe_bins = np.percentile(_mfe_vals[~np.isnan(_mfe_vals)], [0, 20, 40, 60, 80, 100])
+                _bin_labels = []
+                _bin_rates = []
+                for _bi in range(len(_mfe_bins) - 1):
+                    _mask = (_mfe_vals >= _mfe_bins[_bi]) & (_mfe_vals < _mfe_bins[_bi + 1] + 0.01)
+                    if _mask.sum() > 0:
+                        _bin_labels.append(f"{_mfe_bins[_bi]:.0f}-{_mfe_bins[_bi+1]:.0f}")
+                        _bin_rates.append(np.mean(_supp_rates[_mask]) * 100)
+                _axes[0, 1].bar(_bin_labels, _bin_rates, color='steelblue')
+                _axes[0, 1].set_xlabel('MFE bucket (ticks)')
+                _axes[0, 1].set_ylabel('Suppression rate (%)')
+                _axes[0, 1].set_title('Guard Suppression Rate by MFE')
+                _axes[0, 1].tick_params(axis='x', rotation=30)
+
+                # Bottom-left: slow trend bars vs fast resist bars scatter
+                _stb = np.array([t['slow_trend_bars'] for t in _tr])
+                _frb = np.array([t['fast_resist_bars'] for t in _tr])
+                _colors = ['green' if t['dir'] == 1 else 'red' for t in _tr]
+                _axes[1, 0].scatter(_stb, _frb, c=_colors, alpha=0.3, s=10)
+                _axes[1, 0].set_xlabel('Slow TF trend-confirming bars (of 60)')
+                _axes[1, 0].set_ylabel('Fast TF resistance-hit bars')
+                _axes[1, 0].set_title('Band Conflict: Slow Support vs Fast Resist')
+
+                # Bottom-right: cumulative tighten suppression over hold time
+                _cum_no = np.zeros(_HOLD_MAX)
+                _cum_wi = np.zeros(_HOLD_MAX)
+                for _t in _tr:
+                    if _t['first_tighten_no'] is not None:
+                        _cum_no[_t['first_tighten_no']:] += 1
+                    if _t['first_tighten_with'] is not None:
+                        _cum_wi[_t['first_tighten_with']:] += 1
+                _axes[1, 1].plot(range(_HOLD_MAX), _cum_no, 'r-', label='No guard')
+                _axes[1, 1].plot(range(_HOLD_MAX), _cum_wi, 'g-', label='With guard')
+                _axes[1, 1].set_xlabel('Bars held')
+                _axes[1, 1].set_ylabel('Cumulative trades with first tighten')
+                _axes[1, 1].set_title('Cumulative First-Tighten (gap = guard benefit)')
+                _axes[1, 1].legend()
+
+                _fig.suptitle('Analysis S: Exit Trend Guard — Band Conflict Study', fontsize=14)
+                _fig.tight_layout()
+                _s_path = os.path.join(PLOTS_DIR, 'analysis_s_exit_trend_guard.png')
+                _fig.savefig(_s_path, dpi=150)
+                plt.close(_fig)
+                print(f"\n  [saved] {_s_path}")
+
+                # ── Plot 2: Z-score snapshot at trade entries ──
+                _fig2, _ax2 = plt.subplots(figsize=(12, 5))
+                _entry_bars = [int(bar_indices[i]) for i in range(min(_n_trades, len(bar_indices)))
+                               if int(bar_indices[i]) + _HOLD_MAX < _n and not np.isnan(_z_slow[int(bar_indices[i])])]
+                _zs_at_entry = [_z_slow[b] for b in _entry_bars[:500]]
+                _zm_at_entry = [_z_mid[b] for b in _entry_bars[:500]]
+                _zf_at_entry = [_z_fast[b] for b in _entry_bars[:500]]
+                _x_idx = range(len(_zs_at_entry))
+                _ax2.scatter(_x_idx, _zs_at_entry, s=8, alpha=0.5, label='Slow (240)', c='blue')
+                _ax2.scatter(_x_idx, _zm_at_entry, s=8, alpha=0.5, label='Mid (60)', c='orange')
+                _ax2.scatter(_x_idx, _zf_at_entry, s=8, alpha=0.5, label='Fast (15)', c='red')
+                _ax2.axhline(1.0, color='gray', ls='--', alpha=0.5, label='Resist (+1)')
+                _ax2.axhline(-1.0, color='gray', ls='--', alpha=0.5, label='Support (-1)')
+                _ax2.set_xlabel('Trade #')
+                _ax2.set_ylabel('Z-score at entry')
+                _ax2.set_title('Multi-Scale Z-Score at Trade Entry')
+                _ax2.legend(fontsize=8)
+                _fig2.tight_layout()
+                _s2_path = os.path.join(PLOTS_DIR, 'analysis_s_entry_zscores.png')
+                _fig2.savefig(_s2_path, dpi=150)
+                plt.close(_fig2)
+                print(f"  [saved] {_s2_path}")
+
+            else:
+                print("  No valid trades to analyze.")
+
+        except Exception as _e:
+            import traceback
+            print(f"  [ERROR] Analysis S failed: {_e}")
+            traceback.print_exc()
+
+    else:
+        print(f"  [SKIP] Analysis S (--start {_start_at})")
+
+
+    # =====================================================================
     if not args.full:
         print(f"\n  (Skipping full 16D pipeline -- use --full to enable)")
         # Save report + exit
         sys.stdout = _orig_stdout
-        _report_path = os.path.join(PLOTS_DIR, 'waveform_report.txt')
+        _report_path = os.path.join(PLOTS_DIR, 'research_report.txt')
         with open(_report_path, 'w', encoding='utf-8', errors='replace') as _rf:
             _rf.write(_report_buf.getvalue())
         print(f"  [saved] {_report_path}")
@@ -5937,7 +6220,7 @@ def main():
     sys.stdout = _orig_stdout
 
     report_path = os.path.join(os.path.dirname(__file__), 'standalone_report.txt')
-    header = f"STANDALONE WAVEFORM SCREENING REPORT (FULL 16D)\n"
+    header = f"STANDALONE RESEARCH REPORT (FULL 16D)\n"
     header += f"Data: {args.data}, Base TF: {args.base_tf}\n"
     header += f"Context: {args.context_days}d, Analysis: {args.analysis_days}d\n"
     header += f"Regimes: {len(regime_meta)}, Data points: {len(mfes)}\n"
