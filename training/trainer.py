@@ -1445,8 +1445,8 @@ class Trainer:
             'signed_mfe_samples': [],
         })
 
-        if oracle_trade_records and not oos_mode:
-            print("\n  Learning direction corrections from oracle...")
+        if oracle_trade_records:
+            print(f"\n  Learning direction corrections from oracle{' (OOS refinement)' if oos_mode else ''}...")
             for rec in oracle_trade_records:
                 tid = rec.get('template_id')
                 if tid is None or tid == -1:
@@ -1756,14 +1756,17 @@ class Trainer:
             # Special exits (flip, decay, watchdog) are keyed on exit_reason.
             # Trail quality (tighten/widen/standard) is keyed on exit_signal_reason.
 
-            b_flip     = [r for r in oracle_trade_records if r.get('exit_reason') == 'belief_flip']
-            b_decay    = [r for r in oracle_trade_records if r.get('exit_reason') == 'physics_decay']
-            b_watchdog = [r for r in oracle_trade_records if r.get('exit_reason') == 'loss_watchdog']
-            # Trail-quality buckets: only among trail_stop exits
+            # Belief flip exits use ExitAction.TRAIL_STOP but reason contains "Belief flip"
             _trail_exits = [r for r in oracle_trade_records if r.get('exit_reason') == 'trail_stop']
-            b_tight    = [r for r in _trail_exits if r.get('exit_signal_reason') in ('low_conviction', 'wave_mature')]
-            b_widen    = [r for r in _trail_exits if r.get('exit_signal_reason') == 'aligned_fresh']
-            b_standard = [r for r in _trail_exits if r.get('exit_signal_reason') in ('neutral', 'no_belief', '')]
+            b_flip     = [r for r in _trail_exits if 'Belief flip' in str(r.get('exit_signal_reason', ''))]
+            _non_flip_trails = [r for r in _trail_exits if r not in b_flip]
+            b_decay    = [r for r in oracle_trade_records if r.get('exit_reason') == 'envelope_decay']
+            b_watchdog = [r for r in oracle_trade_records if r.get('exit_reason') == 'watchdog']
+            b_band     = [r for r in oracle_trade_records if r.get('exit_reason') == 'band_urgent']
+            # Trail-quality buckets: only non-belief-flip trail_stop exits
+            b_tight    = [r for r in _non_flip_trails if r.get('exit_signal_reason') in ('low_conviction', 'wave_mature')]
+            b_widen    = [r for r in _non_flip_trails if r.get('exit_signal_reason') == 'aligned_fresh']
+            b_standard = [r for r in _non_flip_trails if r.get('exit_signal_reason') in ('neutral', 'no_belief', '')]
 
             def _stats(subset):
                 if not subset: return "0 trades"
@@ -1772,9 +1775,10 @@ class Trainer:
                 return f"{n:>5} trades  ->  avg PnL ${avg:>7.2f}"
 
             report_lines.append(f"    Belief-flip exits:  {_stats(b_flip)}")
-            report_lines.append(f"    Physics-decay exits:{_stats(b_decay)}")
+            report_lines.append(f"    Envelope decay:     {_stats(b_decay)}")
             report_lines.append(f"    Trail-tightened:    {_stats(b_tight)}")
             report_lines.append(f"    Trail-widened:      {_stats(b_widen)}")
+            report_lines.append(f"    Band-urgent exits:  {_stats(b_band)}")
             report_lines.append(f"    Loss watchdog:      {_stats(b_watchdog)}")
             report_lines.append(f"    Standard trail:     {_stats(b_standard)}")
 
@@ -1896,16 +1900,23 @@ class Trainer:
         fp_wrong_recs = [r for r in oracle_trade_records if r['oracle_label'] != 0 and r not in tp_recs]
         fp_noise_recs = [r for r in oracle_trade_records if r['oracle_label'] == 0]
 
+        # Sub-classify wrong-direction: counter-trend scalps (profitable) vs genuinely wrong
+        fp_counter_scalps = [r for r in fp_wrong_recs if r['actual_pnl'] > 0]
+        fp_genuinely_wrong = [r for r in fp_wrong_recs if r['actual_pnl'] <= 0]
+
         tp_pnl       = sum(r['actual_pnl'] for r in tp_recs)
         fp_wrong_pnl = sum(r['actual_pnl'] for r in fp_wrong_recs)
         fp_noise_pnl = sum(r['actual_pnl'] for r in fp_noise_recs)
+        _cs_pnl      = sum(r['actual_pnl'] for r in fp_counter_scalps)
+        _gw_pnl      = sum(r['actual_pnl'] for r in fp_genuinely_wrong)
 
         report_lines.append("")
         report_lines.append(f"  OF {n_traded:,} TRADES TAKEN:")
         _pct = lambda n: f"{n/n_traded*100:.1f}%" if n_traded else "N/A"
-        report_lines.append(f"    Correct direction:  {len(tp_recs):>6,}  ({_pct(len(tp_recs))})  ->  actual: ${tp_pnl:>10,.2f}")
-        report_lines.append(f"    Wrong direction:    {len(fp_wrong_recs):>6,}  ({_pct(len(fp_wrong_recs))})  ->  losses: ${fp_wrong_pnl:>10,.2f}")
-        report_lines.append(f"    Traded noise:       {len(fp_noise_recs):>6,}  ({_pct(len(fp_noise_recs))})  ->  losses: ${fp_noise_pnl:>10,.2f}")
+        report_lines.append(f"    Correct direction:     {len(tp_recs):>6,}  ({_pct(len(tp_recs))})  ->  actual: ${tp_pnl:>10,.2f}")
+        report_lines.append(f"    Counter-trend scalps:  {len(fp_counter_scalps):>6,}  ({_pct(len(fp_counter_scalps))})  ->  profit: ${_cs_pnl:>10,.2f}  <- oracle wrong-dir but micro-peak captured")
+        report_lines.append(f"    Genuinely wrong dir:   {len(fp_genuinely_wrong):>6,}  ({_pct(len(fp_genuinely_wrong))})  ->  losses: ${abs(_gw_pnl):>10,.2f}")
+        report_lines.append(f"    Traded noise:          {len(fp_noise_recs):>6,}  ({_pct(len(fp_noise_recs))})  ->  losses: ${abs(fp_noise_pnl):>10,.2f}")
 
         # ── 4. Exit quality on correct-direction trades ──────────────────────────
         # NOTE: "Reversed" trades had the correct oracle direction but the market
@@ -2061,7 +2072,8 @@ class Trainer:
         report_lines.append(f"    Ideal (golden-path: gate-blocked + traded, perfect exits):  ${ideal_profit:>12,.2f}")
         report_lines.append(f"    -----------------------------------------------------")
         report_lines.append(f"    Lost -- missed opportunities (gate-blocked):  ${fn_potential_pnl:>12,.2f}  ({fn_potential_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
-        report_lines.append(f"    Lost -- wrong direction at entry:             ${abs(fp_wrong_pnl):>12,.2f}  ({abs(fp_wrong_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    Lost -- genuinely wrong direction:            ${abs(_gw_pnl):>12,.2f}  ({abs(_gw_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
+        report_lines.append(f"    Banked -- counter-trend scalps:              +${_cs_pnl:>11,.2f}  (micro-peak profit, oracle horizon mismatch)" if ideal_profit and _cs_pnl > 0 else "")
         report_lines.append(f"    Lost -- noise trades:                         ${abs(fp_noise_pnl):>12,.2f}  ({abs(fp_noise_pnl)/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
         report_lines.append(f"    Lost -- reversed after correct entry:         ${reversed_loss_val:>12,.2f}  ({reversed_loss_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
         report_lines.append(f"    Lost -- TP underperform (non-reversed):       ${left_on_table_val:>12,.2f}  ({left_on_table_val/ideal_profit*100:.1f}% of ideal)" if ideal_profit else "")
@@ -2159,12 +2171,15 @@ class Trainer:
             'date_end':        end_date   or (os.path.basename(daily_files_15s[-1]).replace('.parquet','') if daily_files_15s else '?'),
             'pct_correct':     len(tp_recs) / n_traded * 100 if n_traded else 0.0,
             'pct_wrong':       len(fp_wrong_recs) / n_traded * 100 if n_traded else 0.0,
+            'pct_counter_scalp': len(fp_counter_scalps) / n_traded * 100 if n_traded else 0.0,
+            'pct_genuinely_wrong': len(fp_genuinely_wrong) / n_traded * 100 if n_traded else 0.0,
             'pct_noise':       len(fp_noise_recs) / n_traded * 100 if n_traded else 0.0,
             'pct_skipped':     n_skipped / (total_real_opps + total_noise_opps) * 100 if (total_real_opps + total_noise_opps) else 0.0,
             'ideal_profit':    ideal_profit,
             'left_on_table':   left_on_table_val,
             'missed':          fn_potential_pnl,
-            'wrong_dir_loss':  abs(fp_wrong_pnl),
+            'wrong_dir_loss':  abs(_gw_pnl),
+            'counter_scalp_profit': _cs_pnl,
         }
 
         # ── Reorder report: DETAIL sections first, SUMMARIES at end ────────────
@@ -2273,6 +2288,20 @@ class Trainer:
 
         if not _analysis_mode:
             if oracle_trade_records:
+                # Add trade_class column: correct_dir / counter_trend_scalp / genuinely_wrong / noise
+                for _rec in oracle_trade_records:
+                    _ol = _rec.get('oracle_label', 0)
+                    _td = _rec.get('direction', '')
+                    _pnl = _rec.get('actual_pnl', 0)
+                    if _ol == 0:
+                        _rec['trade_class'] = 'noise'
+                    elif (_td == 'LONG' and _ol > 0) or (_td == 'SHORT' and _ol < 0):
+                        _rec['trade_class'] = 'correct_dir'
+                    elif _pnl > 0:
+                        _rec['trade_class'] = 'counter_trend_scalp'
+                    else:
+                        _rec['trade_class'] = 'genuinely_wrong'
+
                 _log_name = 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv'
                 csv_path = os.path.join(_out_dir, _log_name)
                 with open(csv_path, 'w', newline='', encoding='utf-8') as f:
@@ -3975,9 +4004,9 @@ class Trainer:
             if fp['total_trades']:
                 lines.append(
                     f"    Correct direction: {fp['pct_correct']:4.1f}%  |  "
-                    f"Wrong: {fp['pct_wrong']:4.1f}%  |  "
-                    f"Noise: {fp['pct_noise']:4.1f}%  |  "
-                    f"Skipped: {fp['pct_skipped']:4.1f}%"
+                    f"Counter-trend scalps: {fp['pct_counter_scalp']:4.1f}%  |  "
+                    f"Wrong: {fp['pct_genuinely_wrong']:4.1f}%  |  "
+                    f"Noise: {fp['pct_noise']:4.1f}%"
                 )
 
         # ── Opportunity gap ───────────────────────────────────────────────────
@@ -3989,7 +4018,9 @@ class Trainer:
             lines.append(f"    Actual:         ${fp['total_pnl']:>12,.2f}   ({captured_pct:.2f}% captured)")
             lines.append(f"    #1 leak  skipped signals:   ${fp['missed']:>12,.2f}   ({fp['missed']/ideal*100:.1f}%)")
             lines.append(f"    #2 leak  exits too early:   ${fp['left_on_table']:>12,.2f}   ({fp['left_on_table']/ideal*100:.1f}%)")
-            lines.append(f"    #3 leak  wrong direction:   ${fp['wrong_dir_loss']:>12,.2f}   ({fp['wrong_dir_loss']/ideal*100:.1f}%)")
+            lines.append(f"    #3 leak  genuinely wrong:   ${fp['wrong_dir_loss']:>12,.2f}   ({fp['wrong_dir_loss']/ideal*100:.1f}%)")
+            if fp.get('counter_scalp_profit', 0) > 0:
+                lines.append(f"    banked   counter-trend:    +${fp['counter_scalp_profit']:>11,.2f}   (micro-peak scalps)")
 
         # ── Top Tier 1 ────────────────────────────────────────────────────────
         if ts and ts.get('top_t1'):
@@ -4081,6 +4112,10 @@ def main():
                              "E.g. --trade-start 20250201 uses Jan as context, trades from Feb.")
     parser.add_argument('--forward-end', type=str, default=None, metavar='YYYYMMDD',
                         help="Last day to include in forward pass (inclusive, e.g. 20260209)")
+    parser.add_argument('--live-prep', action='store_true', default=False,
+                        help="Auto-set --forward-end to last Friday (most recent weekend cutoff). "
+                             "Use before going live: trains on all data up to last week, "
+                             "keeps the final week clean for live trading.")
     parser.add_argument('--min-tier', type=int, default=None, choices=[1, 2, 3, 4],
                         help="Only activate templates of this tier or better (1=Tier1 only, 3=drop Tier4 losers)")
     parser.add_argument('--bias-threshold', type=float, default=None,
@@ -4143,6 +4178,20 @@ def main():
 
     # Print a run separator so phases from different runs are easy to distinguish
     import datetime as _dt
+
+    # --live-prep: auto-compute OOS cutoff to last Friday
+    # Only applies to OOS pass — IS runs on full ATLAS data uncapped
+    args._live_prep_cutoff = None
+    if getattr(args, 'live_prep', False):
+        _today = _dt.date.today()
+        _days_since_fri = (_today.weekday() - 4) % 7
+        if _days_since_fri == 0 and _today.weekday() == 4:
+            _days_since_fri = 7
+        _last_friday = _today - _dt.timedelta(days=_days_since_fri)
+        args._live_prep_cutoff = _last_friday.strftime('%Y%m%d')
+        print(f"  --live-prep: OOS cutoff = {args._live_prep_cutoff} (last Friday: {_last_friday})")
+        print(f"  IS pass runs uncapped. OOS capped at {args._live_prep_cutoff}.")
+
     print(f"\n{'='*80}")
     print(f"RUN STARTED: {_dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'='*80}")
@@ -4210,9 +4259,10 @@ def main():
         elif args.oos and not args.forward_pass and not args.fresh:
             # Standalone OOS rerun (Phase 6 only)
             _oos_data = getattr(args, 'forward_data', None) or os.path.join('DATA', 'ATLAS_OOS')
+            _oos_end = getattr(args, '_live_prep_cutoff', None) or args.forward_end
             orchestrator.run_forward_pass(_oos_data,
                                           start_date=args.forward_start,
-                                          end_date=args.forward_end,
+                                          end_date=_oos_end,
                                           min_tier=args.min_tier,
                                           bias_threshold=args.bias_threshold,
                                           dmi_threshold=args.dmi_threshold,
@@ -4241,9 +4291,10 @@ def main():
                 print("\n" + "=" * 80)
                 print("  AUTO-CHAINING: OOS Blind Validation (Phase 6)")
                 print("=" * 80)
+                _oos_end = getattr(args, '_live_prep_cutoff', None) or args.forward_end
                 orchestrator.run_forward_pass(_oos_path,
                                               start_date=args.forward_start,
-                                              end_date=args.forward_end,
+                                              end_date=_oos_end,
                                               min_tier=args.min_tier,
                                               bias_threshold=args.bias_threshold,
                                               dmi_threshold=args.dmi_threshold,
@@ -4323,18 +4374,6 @@ def main():
                         'hl_out': _ee_post.envelope_half_life_bars,
                         'gb_out': _ee_post.giveback_pct,
                     })
-                if _n_iter > 1:
-                    print(f"\n{'='*80}")
-                    print(f"  ITERATION COMPARISON  ({_n_iter} passes)")
-                    print(f"{'='*80}")
-                    print(f"  {'Iter':>4}  {'Trades':>6}  {'WR%':>6}  {'PnL':>10}  "
-                          f"{'HL in':>6}  {'HL out':>6}  {'GB in':>6}  {'GB out':>6}")
-                    print(f"  {'─'*4}  {'─'*6}  {'─'*6}  {'─'*10}  "
-                          f"{'─'*6}  {'─'*6}  {'─'*6}  {'─'*6}")
-                    for r in _iter_results:
-                        print(f"  {r['iter']:>4}  {r['trades']:>6}  {r['wr']:>5.1f}%  "
-                              f"${r['pnl']:>9,.0f}  {r['hl_in']:>6.1f}  {r['hl_out']:>6.1f}  "
-                              f"{r['gb_in']:>5.0%}  {r['gb_out']:>5.0%}")
                 orchestrator.run_strategy_selection()
                 if args.depth_iso:
                     orchestrator.run_depth_analysis(args.data,
@@ -4350,14 +4389,71 @@ def main():
                     print("\n" + "=" * 80)
                     print("  AUTO-CHAINING: OOS Blind Validation (Phase 6)")
                     print("=" * 80)
+                    _oos_end = getattr(args, '_live_prep_cutoff', None) or args.forward_end
                     orchestrator.run_forward_pass(_oos_path,
                                               start_date=args.forward_start,
-                                              end_date=args.forward_end,
+                                              end_date=_oos_end,
                                               min_tier=args.min_tier,
                                               bias_threshold=args.bias_threshold,
                                               dmi_threshold=args.dmi_threshold,
                                               oos_mode=True,
                                               account_size=getattr(args, 'account_size', 0.0))
+                    # Capture OOS results for comparison report
+                    _oos_s = orchestrator._fp_summary
+                    _oos_ee = orchestrator._persisted_exit_engine
+                    _iter_results.append({
+                        'iter': 'OOS',
+                        'trades': _oos_s.get('total_trades', 0),
+                        'wr': _oos_s.get('win_rate', 0) * 100,
+                        'pnl': _oos_s.get('total_pnl', 0),
+                        'hl_in': _oos_ee.envelope_half_life_bars,
+                        'gb_in': _oos_ee.giveback_pct,
+                        'hl_out': _oos_ee.envelope_half_life_bars,
+                        'gb_out': _oos_ee.giveback_pct,
+                    })
+
+                # Write iteration comparison report to file
+                if _n_iter > 1 and _iter_results:
+                    _comp_lines = []
+                    import datetime as _cdt
+                    _comp_lines.append(f"{'='*80}")
+                    _comp_lines.append(f"PASS COMPARISON REPORT  ({_cdt.datetime.now():%Y-%m-%d %H:%M:%S})")
+                    _comp_lines.append(f"  {_n_iter} IS passes + OOS validation")
+                    _comp_lines.append(f"{'='*80}")
+                    _comp_lines.append("")
+                    _comp_lines.append(f"  {'Pass':>6}  {'Trades':>6}  {'WR%':>6}  {'PnL':>10}  {'$/trade':>8}  "
+                                       f"{'HL in':>6}  {'HL out':>6}  {'GB in':>6}  {'GB out':>6}")
+                    _comp_lines.append(f"  {'─'*6}  {'─'*6}  {'─'*6}  {'─'*10}  {'─'*8}  "
+                                       f"{'─'*6}  {'─'*6}  {'─'*6}  {'─'*6}")
+                    for r in _iter_results:
+                        _lbl = f"IS {r['iter']}" if isinstance(r['iter'], int) else str(r['iter'])
+                        _avg = r['pnl'] / r['trades'] if r['trades'] > 0 else 0
+                        _comp_lines.append(
+                            f"  {_lbl:>6}  {r['trades']:>6}  {r['wr']:>5.1f}%  "
+                            f"${r['pnl']:>9,.0f}  ${_avg:>6,.1f}  {r['hl_in']:>6.1f}  {r['hl_out']:>6.1f}  "
+                            f"{r['gb_in']:>5.0%}  {r['gb_out']:>5.0%}")
+                    # Delta row: first IS vs OOS
+                    if len(_iter_results) >= 2:
+                        _first = _iter_results[0]
+                        _last = _iter_results[-1]
+                        _d_trades = _last['trades'] - _first['trades']
+                        _d_wr = _last['wr'] - _first['wr']
+                        _d_pnl = _last['pnl'] - _first['pnl']
+                        _avg_f = _first['pnl'] / _first['trades'] if _first['trades'] else 0
+                        _avg_l = _last['pnl'] / _last['trades'] if _last['trades'] else 0
+                        _comp_lines.append(f"  {'─'*6}  {'─'*6}  {'─'*6}  {'─'*10}  {'─'*8}  "
+                                           f"{'─'*6}  {'─'*6}  {'─'*6}  {'─'*6}")
+                        _comp_lines.append(
+                            f"  {'Delta':>6}  {_d_trades:>+6}  {_d_wr:>+5.1f}%  "
+                            f"${_d_pnl:>+9,.0f}  ${_avg_l - _avg_f:>+6,.1f}  "
+                            f"{'':>6}  {'':>6}  {'':>6}  {'':>6}")
+                    _comp_lines.append("")
+                    _comp_text = '\n'.join(_comp_lines)
+                    print(f"\n{_comp_text}")
+                    _comp_path = os.path.join('reports', 'pass_comparison.txt')
+                    with open(_comp_path, 'w') as _cf:
+                        _cf.write(_comp_text + '\n')
+                    print(f"  Saved: {_comp_path}")
 
         orchestrator.print_bottom_line()
         return 0
