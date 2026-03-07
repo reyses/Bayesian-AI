@@ -57,7 +57,7 @@
 - When `--ping-pong` active, outputs go to `checkpoints/snowflake/` + `reports/snowflake/`
 
 ## Data Pipeline
-- ATLAS: `DATA/ATLAS/{tf}/YYYY_MM.parquet` — 14 TFs, 10 months (Jan-Oct 2025)
+- ATLAS: `DATA/ATLAS/{tf}/YYYY_MM.parquet` — 14 TFs, 11 months (2025)
 - ATLAS_1DAY: `DATA/ATLAS_1DAY/` — single day (Jan 2) for fast validation
 - ATLAS_1WEEK: `DATA/ATLAS_1WEEK/` — 7 trading days (Jan 2-10) for screening
 - ATLAS_OOS: `DATA/ATLAS_OOS/` — 2 months (Jan-Feb 2026)
