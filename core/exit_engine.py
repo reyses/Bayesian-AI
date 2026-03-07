@@ -33,6 +33,7 @@ class ExitAction(Enum):
     BAND_URGENT = 'band_urgent'
     WATCHDOG = 'watchdog'
     BREAKEVEN_LOCK = 'breakeven_lock'
+    PEAK_GIVEBACK = 'peak_giveback'
 
 
 @dataclass
@@ -148,14 +149,72 @@ class ExitEngine:
         self.tick_value = tick_value
 
         # Envelope decay parameters
-        self.envelope_half_life_bars = 40
+        self.envelope_half_life_bars = 20
         self.envelope_floor_pct = 0.3
         self.envelope_min_bars = 5
+
+        # Peak giveback parameters
+        self.giveback_min_mfe_ticks = 16   # must have reached at least 16 ticks profit
+        self.giveback_pct = 0.70           # exit if gave back 70% of peak profit
+
+        # Self-tuning state — two independent counters
+        self._tune_too_early = 0   # exited before move materialized
+        self._tune_too_late = 0    # held past peak, gave back profit
+        self._tune_total = 0
+        self._tune_hl_min = 8
+        self._tune_hl_max = 60
+        self._tune_gb_min = 0.55   # giveback_pct floor
+        self._tune_gb_max = 0.90   # giveback_pct ceiling
+        self._tune_window = 30     # recalibrate every N trades
 
         # Watchdog parameters
         self.watchdog_tick_threshold = 8
         self.watchdog_bar_threshold = 5
         self.watchdog_worker_threshold = 5
+
+
+    # ==================================================================
+    # SELF-TUNING
+    # ==================================================================
+
+    def record_trade_outcome(self, trade_mfe_ticks: float, actual_pnl_ticks: float,
+                             capture_rate: float):
+        """Feed closed-trade stats back to auto-tune exit parameters.
+
+        Two independent signals, each tuning a different knob:
+          too_early → grow halflife (be more patient)
+          too_late  → shrink giveback_pct (cut losers faster at peak)
+
+        Called after every trade close. Recalibrates every _tune_window trades.
+        """
+        self._tune_total += 1
+
+        # Too early: low capture AND trade never reached a good peak
+        if 0 < capture_rate < 0.20 and trade_mfe_ticks < 8:
+            self._tune_too_early += 1
+
+        # Too late: reached good peak but gave most of it back
+        if trade_mfe_ticks >= 16:
+            gave_back = (trade_mfe_ticks - actual_pnl_ticks) / trade_mfe_ticks
+            if gave_back >= 0.50:
+                self._tune_too_late += 1
+
+        # Recalibrate envelope every N trades
+        if self._tune_total % self._tune_window == 0 and self._tune_total > 0:
+            if self._tune_too_early >= 3:
+                self.envelope_half_life_bars = min(
+                    self._tune_hl_max,
+                    self.envelope_half_life_bars * 1.10)
+            if self._tune_too_late >= 3:
+                self.giveback_pct = max(
+                    self._tune_gb_min,
+                    self.giveback_pct - 0.05)
+            if self._tune_too_early < 3 and self._tune_too_late < 3:
+                self.envelope_half_life_bars += (20 - self.envelope_half_life_bars) * 0.1
+                self.giveback_pct += (0.70 - self.giveback_pct) * 0.1
+            self._tune_too_early = 0
+            self._tune_too_late = 0
+
 
     # ==================================================================
     # PUBLIC API
@@ -345,9 +404,14 @@ class ExitEngine:
             return band_result
 
         # -- 6. ENVELOPE DECAY --
-        envelope_result = self._check_envelope(pos, bar_close, net_force)
+        envelope_result = self._check_envelope(pos, bar_close, net_force, band_context)
         if envelope_result is not None:
             return envelope_result
+
+        # -- 6b. PEAK GIVEBACK --
+        giveback_result = self._check_peak_giveback(pos, bar_close)
+        if giveback_result is not None:
+            return giveback_result
 
         # -- 7. TRAIL STOP -- DISABLED: trail exits avg $3-4/trade with 84%
         #    "too early" rate.  Envelope decay is physics-aware and 12x more
@@ -466,13 +530,54 @@ class ExitEngine:
     # ==================================================================
 
     def _check_envelope(self, pos: PositionState, bar_close: float,
-                        net_force: float = 0.0) -> Optional[ExitResult]:
-        """Half-life envelope decay with net_force modulation."""
+                        net_force: float = 0.0,
+                        band_context: dict = None) -> Optional[ExitResult]:
+        """Half-life envelope decay with dynamic halflife.
+
+        Halflife modulated by three fractal signals:
+          1. Giveback ratio: shrinks when trade gives back from peak
+          2. Net force: extends when force aligned, shrinks when adverse
+          3. Band exhaustion: shrinks when multi-TF bands say move is exhausted
+        """
         if not pos.envelope_active or pos.bars_held < self.envelope_min_bars:
             return None
 
+        # Dynamic halflife: shrinks when trade is giving back from peak
+        base_hl = self.envelope_half_life_bars
+        if pos.side == 'long':
+            peak_ticks = (pos.peak_favorable - pos.entry_price) / self.tick_size
+            current_ticks = (bar_close - pos.entry_price) / self.tick_size
+        else:
+            peak_ticks = (pos.entry_price - pos.peak_favorable) / self.tick_size
+            current_ticks = (pos.entry_price - bar_close) / self.tick_size
+
+        # Signal 1: giveback from peak
+        hl_mult = 1.0
+        if peak_ticks > 4:
+            giveback_ratio = max(0, peak_ticks - current_ticks) / peak_ticks
+            hl_mult *= max(0.5, 1.0 - giveback_ratio)
+
+        # Signal 2: band exhaustion (fractal)
+        # When bands across TFs say price is at resistance (LONG) or support (SHORT),
+        # the move is exhausted → shrink halflife. Aligned → extend.
+        if band_context is not None:
+            sup = band_context.get('support_score', 0.0)
+            res = band_context.get('resistance_score', 0.0)
+            if pos.side == 'long':
+                # Resistance = exhaustion for longs, support = wind at back
+                exhaustion = res - sup
+            else:
+                # Support = exhaustion for shorts, resistance = wind at back
+                exhaustion = sup - res
+            # exhaustion > 0 → move exhausted → shrink halflife (0.5x at exhaustion=1)
+            # exhaustion < 0 → move has room → extend halflife (1.5x at exhaustion=-1)
+            band_mult = max(0.5, min(1.5, 1.0 - exhaustion * 0.5))
+            hl_mult *= band_mult
+
+        effective_hl = base_hl * max(0.3, hl_mult)
+
         # Decay factor
-        decay = math.exp(-0.693 * pos.bars_held / max(1, self.envelope_half_life_bars))
+        decay = math.exp(-0.693 * pos.bars_held / max(1, effective_hl))
 
         # net_force modulation
         if net_force != 0.0:
@@ -491,8 +596,8 @@ class ExitEngine:
         current_envelope = floor + (initial_tp - floor) * decay
         pos.envelope_level = current_envelope
 
-        # Only trigger after significant time
-        if pos.bars_held < self.envelope_half_life_bars * 0.5:
+        # Only trigger after significant time (uses dynamic halflife)
+        if pos.bars_held < effective_hl * 0.5:
             return None
 
         if pos.side == 'long':
@@ -509,6 +614,37 @@ class ExitEngine:
                 pnl_ticks=self._calc_pnl_ticks(pos, bar_close),
                 bars_held=pos.bars_held,
                 envelope_level=current_envelope,
+            )
+
+        return None
+
+    # ==================================================================
+    # PRIVATE -- Peak Giveback
+    # ==================================================================
+
+    def _check_peak_giveback(self, pos: PositionState, bar_close: float) -> Optional[ExitResult]:
+        """Exit if trade reached a good peak then gave back most of the profit."""
+        # How far did price get from entry (peak MFE in ticks)?
+        if pos.side == 'long':
+            peak_ticks = (pos.peak_favorable - pos.entry_price) / self.tick_size
+            current_ticks = (bar_close - pos.entry_price) / self.tick_size
+        else:
+            peak_ticks = (pos.entry_price - pos.peak_favorable) / self.tick_size
+            current_ticks = (pos.entry_price - bar_close) / self.tick_size
+
+        # Only trigger if the trade actually reached a meaningful peak
+        if peak_ticks < self.giveback_min_mfe_ticks:
+            return None
+
+        # How much was given back?
+        gave_back = peak_ticks - current_ticks
+        if peak_ticks > 0 and gave_back / peak_ticks >= self.giveback_pct:
+            return ExitResult(
+                action=ExitAction.PEAK_GIVEBACK,
+                exit_price=bar_close,
+                reason=f"Peak giveback: peak={peak_ticks:.1f}t now={current_ticks:.1f}t gave_back={gave_back/peak_ticks:.0%}",
+                pnl_ticks=self._calc_pnl_ticks(pos, bar_close),
+                bars_held=pos.bars_held,
             )
 
         return None
