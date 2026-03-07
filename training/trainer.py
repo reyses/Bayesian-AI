@@ -57,7 +57,7 @@ from core.execution_engine import ExecutionEngine, ActionType, TradeAction, Cand
 
 # Execution components
 from training.batch_regret_analyzer import BatchRegretAnalyzer
-from core.wave_rider import WaveRider
+from core.exit_engine import make_position
 from training.orchestrator_worker import simulate_trade_standalone, _optimize_pattern_task, _optimize_template_task, _process_template_job, _audit_trade
 from training.orchestrator_worker import FISSION_SUBSET_SIZE, INDIVIDUAL_OPTIMIZATION_ITERATIONS, DEFAULT_BASE_SLIPPAGE, DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 
@@ -152,7 +152,7 @@ class Trainer:
         self.brain = QuantumBayesianBrain()
         self.engine = StatisticalFieldEngine()
         self.param_generator = DOEParameterGenerator(None)
-        self.wave_rider = WaveRider(self.asset)
+        self._position = None  # PositionState or None
         self.discovery_agent = FractalDiscoveryAgent()
 
         # Dynamic histogram binner (fitted from first day's data)
@@ -254,7 +254,7 @@ class Trainer:
                          account_size: float = 0.0):
         """
         Phase 4: Forward pass -- replay full year using playbook.
-        Scans fractal cascade per day, matches templates, trades via WaveRider.
+        Scans fractal cascade per day, matches templates, trades via ExitEngine.
         Brain learns from outcomes.
 
         Args:
@@ -733,12 +733,12 @@ class Trainer:
             # We iterate through the dataframe row by row
             # To speed up, we can convert to list of namedtuples or similar?
             # Or just iterate row tuples.
-            # WaveRider expects: price, state (optional for trail?), timestamp
+            # ExitEngine expects: price, state (optional for trail?), timestamp
 
             # Pre-compute states for the day?
             # _scan_day_cascade already computed states for the patterns.
             # For 15s bars that are NOT patterns, we might need state for exit logic?
-            # WaveRider usually needs price and timestamp. Some logic might use state.
+            # ExitEngine usually needs price and timestamp. Some logic might use state.
             # Let's assume exit logic primarily uses price action (trail, stop).
 
             current_position_open = False
@@ -910,7 +910,7 @@ class Trainer:
                         _ee_pnl = _exit_action.pnl_dollars
                         _ee_reason = _exit_action.exit_reason
                         _exit_result = _exit_action.exit_result
-                        self.wave_rider.position = None
+                        self._position = None
                         _exec_engine.position_closed()
                         outcome = TradeOutcome(
                             state=active_template_id,
@@ -986,9 +986,10 @@ class Trainer:
                             if _should_flip and _pp_last_exit_params:
                                 ep = _pp_last_exit_params
                                 _pp_tid = f'PP_{active_template_id}'
-                                self.wave_rider.open_position(
+                                self._position = make_position(
                                     entry_price=price, side=_flip_side,
-                                    state=None,
+                                    tick_size=self.asset.tick_size,
+                                    tick_value=self.asset.tick_value,
                                     stop_distance_ticks=_pp_sl_ov or ep['sl'],
                                     profit_target_ticks=_pp_tp_ov or ep['tp'],
                                     trailing_stop_ticks=_pp_trail_ov or ep['trail'],
@@ -1116,10 +1117,11 @@ class Trainer:
                                 _skip_equity = True
 
                         if not _skip_equity:
-                            # Open WaveRider position
-                            self.wave_rider.open_position(
+                            self._position = make_position(
                                 entry_price=price,
                                 side=side,
+                                tick_size=self.asset.tick_size,
+                                tick_value=self.asset.tick_value,
                                 state=best_candidate.state if best_candidate else None,
                                 stop_distance_ticks=_sl_ticks,
                                 profit_target_ticks=_tp_ticks,
@@ -1128,11 +1130,11 @@ class Trainer:
                                 template_id=best_tid,
                             )
                             # DMI inverse flag
-                            if best_candidate and self.wave_rider.position:
+                            if best_candidate and self._position:
                                 _entry_dmi = (getattr(best_candidate.state, 'dmi_plus', 0.0)
                                               - getattr(best_candidate.state, 'dmi_minus', 0.0))
                                 _dmi_inv = (_entry_dmi < 0) if side == 'long' else (_entry_dmi > 0)
-                                self.wave_rider.position.entry_dmi_inverse = _dmi_inv
+                                self._position.entry_dmi_inverse = _dmi_inv
 
                             # Notify engine
                             _exec_engine.position_opened(
@@ -1294,8 +1296,8 @@ class Trainer:
                                 })
 
             # End of day cleanup -- force close any open position
-            if self.wave_rider.position is not None:
-                pos = self.wave_rider.position
+            if self._position is not None:
+                pos = self._position
                 # Get final exit signal for logging
                 _eod_sig = belief_network.get_exit_signal(pos.side)
                 _eod_adj_reason = pos.last_adjustment_reason or ''  # capture before clearing
@@ -1304,7 +1306,7 @@ class Trainer:
                     eod_pnl = (pos.entry_price - price) * self.asset.point_value
                 else:
                     eod_pnl = (price - pos.entry_price) * self.asset.point_value
-                self.wave_rider.position = None
+                self._position = None
                 _exec_engine.position_closed()  # reset engine position state
 
                 outcome = TradeOutcome(
@@ -1727,7 +1729,7 @@ class Trainer:
             # Trail-widened: aligned_fresh
             # Standard trail: neutral, no_belief
 
-            # exit_reason = WaveRider's structural exit type (trail_stop, belief_flip, etc.)
+            # exit_reason = ExitEngine's structural exit type (trail_stop, belief_flip, etc.)
             # exit_signal_reason = belief network state at exit (tighten, widen, neutral)
             # Special exits (flip, decay, watchdog) are keyed on exit_reason.
             # Trail quality (tighten/widen/standard) is keyed on exit_signal_reason.
@@ -2680,7 +2682,7 @@ class Trainer:
 
         for d in range(1, 13):
             self._depth_only = d
-            self.wave_rider = WaveRider(self.asset)  # fresh rider per depth
+            self._position = None  # fresh per depth
             self.run_forward_pass(
                 data_source, start_date=start_date, end_date=end_date,
                 oos_mode=oos_mode)

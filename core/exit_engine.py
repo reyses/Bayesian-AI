@@ -50,7 +50,7 @@ class ExitResult:
 
 @dataclass
 class PositionState:
-    """Minimal position representation -- populated by caller."""
+    """Unified position state — used by ExitEngine AND WaveRider (single object)."""
     side: str                    # 'long' or 'short'
     entry_price: float
     entry_bar_index: int
@@ -62,7 +62,7 @@ class PositionState:
     sl_ticks: float = 0.0
     tp_ticks: float = 0.0
     trail_activation_ticks: float = 0.0
-    trailing_stop_ticks: float = 0.0  # current trail distance in ticks
+    trailing_stop_ticks: float = 0.0
     max_hold_bars: int = 120
 
     # Dynamic state (updated each bar)
@@ -72,6 +72,57 @@ class PositionState:
     breakeven_locked: bool = False
     envelope_active: bool = False
     envelope_level: float = 0.0
+
+    # Position lifecycle (formerly wave_rider.Position)
+    entry_time: float = 0.0
+    stop_loss: float = 0.0          # absolute price level
+    profit_target: float = 0.0      # absolute price level (0 = none)
+    high_water_mark: float = 0.0
+    entry_layer_state: object = None
+    entry_dmi_inverse: bool = False
+    original_trail_ticks: float = 0.0
+    last_adjustment_reason: str = ''
+    breakeven_level: float = 0.0
+    bars_in_trade: int = 0
+    envelope_T0: float = 0.0
+    envelope_halflife: float = 20.0
+
+    # CST structural integrity
+    cst_centroid: object = None
+    cst_basin_mean: float = 0.0
+    cst_basin_std: float = 0.0
+    cst_ancestry: object = None
+
+
+def make_position(entry_price: float, side: str, tick_size: float = 0.25,
+                   tick_value: float = 0.50, stop_distance_ticks: int = 20,
+                   profit_target_ticks: int = 0, trailing_stop_ticks: int = 0,
+                   trail_activation_ticks: int = 0, template_id=0,
+                   state=None, cst_centroid=None, cst_basin_mean: float = 0.0,
+                   cst_basin_std: float = 0.0, cst_ancestry=None) -> PositionState:
+    """Create a PositionState with absolute price levels. Replaces WaveRider.open_position()."""
+    import time as _time
+    sd = stop_distance_ticks * tick_size
+    sl = (entry_price + sd) if side == 'short' else (entry_price - sd)
+    pt = 0.0
+    if profit_target_ticks:
+        ptd = profit_target_ticks * tick_size
+        pt = (entry_price - ptd) if side == 'short' else (entry_price + ptd)
+    return PositionState(
+        side=side, entry_price=entry_price, entry_bar_index=0,
+        template_id=template_id or 0, tick_size=tick_size, tick_value=tick_value,
+        sl_ticks=float(stop_distance_ticks), tp_ticks=float(profit_target_ticks or 0),
+        trailing_stop_ticks=float(trailing_stop_ticks or 0),
+        trail_activation_ticks=float(trail_activation_ticks or 0),
+        original_trail_ticks=float(trailing_stop_ticks or 0),
+        stop_loss=sl, profit_target=pt,
+        high_water_mark=entry_price, peak_favorable=entry_price, current_trail=sl,
+        entry_time=_time.time(), entry_layer_state=state,
+        envelope_T0=float(stop_distance_ticks), envelope_halflife=20.0,
+        envelope_active=True,
+        cst_centroid=cst_centroid, cst_basin_mean=cst_basin_mean,
+        cst_basin_std=cst_basin_std, cst_ancestry=cst_ancestry,
+    )
 
 
 class ExitEngine:
@@ -195,6 +246,20 @@ class ExitEngine:
         pos.envelope_active = True
         pos.envelope_level = pos.tp_ticks * self.tick_size
 
+        # -- Populate backward-compat fields (formerly wave_rider.Position) --
+        import time as _time
+        pos.entry_time = _time.time()
+        pos.high_water_mark = entry_price
+        pos.original_trail_ticks = pos.trailing_stop_ticks
+        pos.envelope_T0 = float(pos.sl_ticks)
+        # Absolute price levels
+        if side == 'long':
+            pos.stop_loss = entry_price - (pos.sl_ticks * self.tick_size)
+            pos.profit_target = entry_price + (pos.tp_ticks * self.tick_size) if pos.tp_ticks > 0 else 0.0
+        else:
+            pos.stop_loss = entry_price + (pos.sl_ticks * self.tick_size)
+            pos.profit_target = entry_price - (pos.tp_ticks * self.tick_size) if pos.tp_ticks > 0 else 0.0
+
         return pos
 
     def evaluate(
@@ -225,6 +290,7 @@ class ExitEngine:
         9. HOLD
         """
         pos.bars_held = current_bar_index - pos.entry_bar_index
+        pos.bars_in_trade = pos.bars_held  # sync alias
 
         # -- Determine worst/best price this bar --
         if sub_bar_highs is not None and sub_bar_lows is not None and len(sub_bar_highs) > 0:
@@ -239,6 +305,7 @@ class ExitEngine:
             pos.peak_favorable = max(pos.peak_favorable, best_price)
         else:
             pos.peak_favorable = min(pos.peak_favorable, best_price)
+        pos.high_water_mark = pos.peak_favorable  # sync alias
 
         # -- 1. STOP LOSS --
         sl_price = self._get_stop_price(pos)
