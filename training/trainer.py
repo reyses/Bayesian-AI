@@ -1052,6 +1052,9 @@ class Trainer:
                                 'exit_signal_reason': getattr(_exit_result, 'reason', _ee_reason),
                                 'exit_decay_score': _exit_sig.get('decay_score', 0.0),
                                 'trade_mfe_ticks': round(_trade_mfe_ticks, 2),
+                                'price_expected_error': round(
+                                    (outcome.exit_price - pending_oracle.get('price_expected', pending_oracle['entry_price']))
+                                    / self.asset.tick_size, 2),
                             })
                             if _pending_dm_idx is not None:
                                 decision_matrix_records[_pending_dm_idx].update({
@@ -1309,6 +1312,10 @@ class Trainer:
                                 'target_price': round(price + (_tp_ticks if side == 'long' else -_tp_ticks) * self.asset.tick_size, 6),
                                 'stop_price':   round(price - (_sl_ticks if side == 'long' else -_sl_ticks) * self.asset.tick_size, 6),
                                 'expected_pnl': self.brain.get_expected_pnl(best_tid, side),
+                                'predicted_mfe_ticks': round(_belief.predicted_mfe, 2) if _belief is not None else 0.0,
+                                'price_expected': round(
+                                    price + ((_belief.predicted_mfe if side == 'long' else -_belief.predicted_mfe)
+                                             * self.asset.tick_size), 6) if _belief is not None and _belief.predicted_mfe > 0 else price,
                                 **_physics_fields(best_candidate),
                             }
 
@@ -1492,6 +1499,9 @@ class Trainer:
                         'exit_signal_reason': (_eod_adj_reason or _eod_sig.get('reason', '')),
                         'exit_decay_score':   _eod_sig.get('decay_score', 0.0),
                         'trade_mfe_ticks':    round(_trade_mfe_ticks, 2),
+                        'price_expected_error': round(
+                            (outcome.exit_price - pending_oracle.get('price_expected', pending_oracle['entry_price']))
+                            / self.asset.tick_size, 2),
                     })
                     # Update signal-log record with trade outcome
                     if _pending_dm_idx is not None:

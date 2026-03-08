@@ -190,6 +190,8 @@ class LiveEngine:
         self._entry_time = 0.0
         self._entry_bar = 0
         self._active_side = ''
+        self._predicted_mfe_ticks = 0.0
+        self._price_expected = 0.0
         self._active_tid = None
         self._entry_depth = '?'
         self._max_hold_bars = 960
@@ -1701,6 +1703,8 @@ class LiveEngine:
             self._exit_buckets['reversed'] += 1
 
         # Record for session report
+        _pe = getattr(self, '_price_expected', entry_px)
+        _pe_err = round((exit_px - _pe) / self._asset.tick_size, 2) if _pe != entry_px else 0.0
         self._trade_log.append({
             'time': time.strftime('%H:%M:%S'),
             'side': 'LONG' if self._active_side == 'long' else 'SHORT',
@@ -1713,6 +1717,9 @@ class LiveEngine:
             'tid': self._active_tid,
             'depth': self._entry_depth,
             'capture': capture,
+            'predicted_mfe': getattr(self, '_predicted_mfe_ticks', 0.0),
+            'price_expected': _pe,
+            'price_expected_error': _pe_err,
         })
 
         logger.info(f"Brain learned: tid={self._active_tid} {result} "
@@ -1996,6 +2003,10 @@ class LiveEngine:
         self._active_side = side
         self._active_tid = best_tid
         self._entry_depth = best_candidate.depth
+        self._predicted_mfe_ticks = round(belief.predicted_mfe, 2) if belief and belief.predicted_mfe > 0 else 0.0
+        self._price_expected = round(
+            price + ((belief.predicted_mfe if side == 'long' else -belief.predicted_mfe)
+                     * self._asset.tick_size), 6) if belief and belief.predicted_mfe > 0 else price
         self._trade_logger.start_trade(
             self._session_trades + 1, side, price, ts)
 
