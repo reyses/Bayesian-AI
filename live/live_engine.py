@@ -2323,7 +2323,7 @@ class LiveEngine:
         # Exception templates (data-quality override)
         for tid in self._valid_tids:
             lib = self._pattern_library.get(tid, {})
-            if (lib.get('n_members', 0) >= 10
+            if (lib.get('member_count', 0) >= 10
                     and lib.get('stats_win_rate', 0.0) >= 0.55
                     and (lib.get('regression_sigma_ticks') or 999) <= 10.0):
                 self._exception_tids.add(tid)
