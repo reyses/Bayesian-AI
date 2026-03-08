@@ -12,6 +12,9 @@
 - **KEEP MEMORY UPDATED**: Update MEMORY.md when discovering new patterns, preferences, or architecture changes
 
 ## Workflow Preference
+- **All test/research analyses must mirror live trading conditions** — no lookahead, use only
+  data available at decision time. Slow TF bars incomplete mid-bar = use last completed bar.
+  Features at time t must only use information the live system would have at time t.
 - **Always discuss before changing**: propose a plan, get approval, then execute
 - **Progress bars are mandatory**: any long-running loop MUST have tqdm with live stats
 - **Training via Bash**: show exact command, ask "Confirm to run?" — only execute after user confirms

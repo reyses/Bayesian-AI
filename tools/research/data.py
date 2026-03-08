@@ -3,7 +3,7 @@ Research data loading and physics extraction utilities.
 
 Provides functions for loading ATLAS parquet data, computing per-TF physics
 via StatisticalFieldEngine, extracting 16D feature vectors, and building
-stacked (12, 16) hypervolume matrices with oracle MFE/MAE labels.
+stacked (12, 16) multi-TF state matrices with oracle MFE/MAE labels.
 """
 
 import sys, os, glob, math
@@ -145,7 +145,7 @@ def extract_16d(state, tf_name):
 
 def build_stacked_matrices(all_tf_states, base_tf, base_df,
                            context_days=21, analysis_days=7):
-    """Build (12, 16) hypervolume matrices from stacked TF physics.
+    """Build (12, 16) multi-TF state matrices from stacked TF physics.
 
     For each bar in the base TF's analysis window:
       - Find the most recent state at each of the 12 TFs
@@ -347,5 +347,5 @@ def build_stacked_matrices(all_tf_states, base_tf, base_df,
             )
 
     _pbar.close()
-    print(f"  Built {len(matrices)} hypervolume matrices with oracle labels")
+    print(f"  Built {len(matrices)} multi-TF state matrices with oracle labels")
     return matrices, np.array(mfes), np.array(maes), meta

@@ -24,7 +24,7 @@ def pad_to_fixed_depth(matrices, max_depth=12):
 
 
 def compute_moving_range(padded):
-    """Compute I-MR segmentation features from (n, 12, 16) hypervolume.
+    """Compute I-MR segmentation features from (n, 12, 16) TF state matrix.
 
     Returns: mr_flat (n, 448), mr_col_names
     """
