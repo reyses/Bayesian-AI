@@ -1877,6 +1877,19 @@ class Trainer:
             report_lines.append(f"    Bars evaluated (free slot):{_bars_evaluated:>9,}  ({_pct_b(_bars_evaluated)})")
             report_lines.append(f"    Candidates on those bars:  {n_signals_seen:>9,}  (avg {n_signals_seen/max(1,_bars_evaluated):.1f}/bar)")
 
+        # ── 2b2. Candidate competition stats ─────────────────────────────────────
+        _comp_total = _exec_engine.bars_with_competition + _exec_engine.bars_single_candidate
+        if _comp_total > 0:
+            report_lines.append("")
+            report_lines.append(f"  CANDIDATE COMPETITION (bars where gates were passed)")
+            report_lines.append(f"    Single candidate (no competition): {_exec_engine.bars_single_candidate:>7,}  "
+                                f"({_exec_engine.bars_single_candidate/_comp_total*100:.1f}%)")
+            report_lines.append(f"    Multiple candidates (tiebreaker):  {_exec_engine.bars_with_competition:>7,}  "
+                                f"({_exec_engine.bars_with_competition/_comp_total*100:.1f}%)")
+            if _exec_engine.tier_changed_winner > 0:
+                report_lines.append(f"    Tier preference flipped winner:    {_exec_engine.tier_changed_winner:>7,}  "
+                                    f"({_exec_engine.tier_changed_winner/_exec_engine.bars_with_competition*100:.1f}% of competitions)")
+
         # ── 2c. Skip reason breakdown ─────────────────────────────────────────────
         _skip = _exec_engine.get_skip_counts()
         skip_headroom = _skip['skip_headroom']
