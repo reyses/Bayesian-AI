@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional, Dict
 
-from live.config import LiveConfig
+from live.live_config import LiveConfig
 from live.protocol import place_order, close_position
 
 logger = logging.getLogger(__name__)

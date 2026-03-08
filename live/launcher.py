@@ -17,7 +17,7 @@ import queue as stdlib_queue
 import sys
 import threading
 
-from live.config import LiveConfig
+from live.live_config import LiveConfig
 from live.live_engine import LiveEngine
 
 

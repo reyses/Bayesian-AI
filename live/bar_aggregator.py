@@ -15,7 +15,7 @@ import pandas as pd
 from typing import List, Optional
 
 from core.quantum_field_engine import StatisticalFieldEngine
-from live.config import LiveConfig
+from live.live_config import LiveConfig
 
 logger = logging.getLogger(__name__)
 

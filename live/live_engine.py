@@ -32,7 +32,7 @@ from core.timeframe_belief_network import TimeframeBeliefNetwork
 from core.exit_engine import make_position
 from config.symbols import SYMBOL_MAP
 
-from live.config import LiveConfig
+from live.live_config import LiveConfig
 from live.nt8_client import NT8Client
 from live.bar_aggregator import LiveBarAggregator
 from live.order_manager import OrderManager
