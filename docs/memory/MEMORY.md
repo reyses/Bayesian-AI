@@ -170,15 +170,10 @@ After every forward pass, always read these reports to understand the run:
   TASK_1_2, TEMPLATE_TIMESCALE, PLAN_PRICE_AWARE_WORKERS, SIGNAL_CAPTURE_AUDIT
 
 ## Branches
-- `main` — unified clustering, three-body exits, pipeline gauntlet, all fixes
-- `pre-snowflake` — **active live trading branch** (best candidate as of 2026-03-02)
-  - OOS: 357 trades, 52.4% WR, $1,724.50 — better than main
-  - Has live module ported from main + physics quality gate
-  - Ping-pong mode: implemented (config overrides, snowflake output dirs)
-  - PP OOS: 535 trades, 52.5% WR, $1,644.50, 56 flips at 51.8% WR (-$195 PP drag)
-  - Direction improved: 50.3% correct (was 43.1%), now taking LONG trades (98)
-  - Session reports: `reports/live/session_*.txt`
-- Killed: `unified-cluster`, `jules/fractal-trend-*` (deleted 2026-02-27)
+- `main` — sole branch, all fixes consolidated
+- Killed: `pre-snowflake` (deleted 2026-03-07, lived as foundation but had no real edge —
+  $1,496 session was market trend not system intelligence, net -$2,600 across all sessions),
+  `unified-cluster`, `jules/fractal-trend-*`
 
 ## Implemented Features (confirmed in codebase, 2026-03-06)
 - **Direction fix**: momentum-aware physics (velocity+acceleration, not mean-reverting z)
