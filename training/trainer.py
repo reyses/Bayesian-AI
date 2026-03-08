@@ -2141,6 +2141,80 @@ class Trainer:
         report_lines.append(f"    Genuinely wrong dir:   {len(fp_genuinely_wrong):>6,}  ({_pct(len(fp_genuinely_wrong))})  ->  losses: ${abs(_gw_pnl):>10,.2f}")
         report_lines.append(f"    Traded noise:          {len(fp_noise_recs):>6,}  ({_pct(len(fp_noise_recs))})  ->  losses: ${abs(fp_noise_pnl):>10,.2f}")
 
+        # ── 3b. Counter-trend template analysis ─────────────────────────────────
+        # Per-template: would blocking counter-trend trades improve profitability?
+        _sec['counter_trend'] = len(report_lines)
+        if fp_wrong_recs or tp_recs:
+            from collections import defaultdict as _dct
+            _ct_data = _dct(lambda: {'ct_n': 0, 'ct_pnl': 0.0, 'gw_n': 0, 'gw_pnl': 0.0,
+                                      'tp_n': 0, 'tp_pnl': 0.0, 'noise_n': 0, 'noise_pnl': 0.0})
+            for _r in oracle_trade_records:
+                _tid = _r.get('template_id', '?')
+                _ol = _r.get('oracle_label', 0)
+                _d = _r.get('direction', '')
+                _pnl = _r.get('actual_pnl', 0.0)
+                if _ol == 0:
+                    _ct_data[_tid]['noise_n'] += 1
+                    _ct_data[_tid]['noise_pnl'] += _pnl
+                elif (_d == 'LONG' and _ol > 0) or (_d == 'SHORT' and _ol < 0):
+                    _ct_data[_tid]['tp_n'] += 1
+                    _ct_data[_tid]['tp_pnl'] += _pnl
+                elif _pnl > 0:
+                    _ct_data[_tid]['ct_n'] += 1
+                    _ct_data[_tid]['ct_pnl'] += _pnl
+                else:
+                    _ct_data[_tid]['gw_n'] += 1
+                    _ct_data[_tid]['gw_pnl'] += _pnl
+
+            # Sort by wrong-dir total (ct + gw) impact — most active first
+            _ct_sorted = sorted(_ct_data.items(),
+                                key=lambda x: x[1]['ct_n'] + x[1]['gw_n'], reverse=True)
+            # Only show templates with >=5 wrong-dir trades
+            _ct_active = [(t, d) for t, d in _ct_sorted if d['ct_n'] + d['gw_n'] >= 5]
+
+            if _ct_active:
+                # Global summary
+                _total_ct_pnl = sum(d['ct_pnl'] for _, d in _ct_data.items())
+                _total_gw_pnl = sum(d['gw_pnl'] for _, d in _ct_data.items())
+                _total_wrong_pnl = _total_ct_pnl + _total_gw_pnl
+                _n_templates_hurt = sum(1 for _, d in _ct_active if d['ct_pnl'] + d['gw_pnl'] < 0)
+                _n_templates_help = sum(1 for _, d in _ct_active if d['ct_pnl'] + d['gw_pnl'] > 0)
+
+                report_lines.append("")
+                report_lines.append(f"  COUNTER-TREND TEMPLATE ANALYSIS (would blocking wrong-dir help?)")
+                report_lines.append(f"    Global wrong-dir net: ${_total_wrong_pnl:>+,.2f}  "
+                                    f"(scalps: ${_total_ct_pnl:>+,.2f}  genuinely wrong: ${_total_gw_pnl:>+,.2f})")
+                report_lines.append(f"    Templates where wrong-dir HURTS: {_n_templates_hurt}  "
+                                    f"Templates where wrong-dir HELPS: {_n_templates_help}")
+                report_lines.append(f"")
+                report_lines.append(f"    {'TID':>5}  {'Correct':>8} {'Correct$':>10}  "
+                                    f"{'CtrScalp':>8} {'Scalp$':>10}  "
+                                    f"{'Wrong':>6} {'Wrong$':>10}  "
+                                    f"{'Net Wrong$':>11}  Verdict")
+                report_lines.append(f"    {'-----':>5}  {'-------':>8} {'--------':>10}  "
+                                    f"{'--------':>8} {'------':>10}  "
+                                    f"{'-----':>6} {'------':>10}  "
+                                    f"{'-----------':>11}  -------")
+                for _tid, _d in _ct_active[:25]:  # top 25
+                    _net_wrong = _d['ct_pnl'] + _d['gw_pnl']
+                    _verdict = "BLOCK" if _net_wrong < -50 else "KEEP" if _net_wrong > 50 else "NEUTRAL"
+                    report_lines.append(
+                        f"    {str(_tid):>5}  {_d['tp_n']:>8,} ${_d['tp_pnl']:>9,.2f}  "
+                        f"{_d['ct_n']:>8,} ${_d['ct_pnl']:>9,.2f}  "
+                        f"{_d['gw_n']:>6,} ${_d['gw_pnl']:>9,.2f}  "
+                        f"${_net_wrong:>10,.2f}  {_verdict}")
+
+                # Bottom line
+                _block_savings = sum(-(d['ct_pnl'] + d['gw_pnl'])
+                                     for _, d in _ct_active if d['ct_pnl'] + d['gw_pnl'] < -50)
+                _block_cost = sum(d['ct_pnl'] + d['gw_pnl']
+                                  for _, d in _ct_active if d['ct_pnl'] + d['gw_pnl'] > 50)
+                report_lines.append(f"")
+                report_lines.append(f"    If BLOCK templates with wrong-dir < -$50:")
+                report_lines.append(f"      Savings (avoided losses): ${_block_savings:>+,.2f}")
+                report_lines.append(f"      Cost (lost scalp profit): ${_block_cost:>+,.2f}")
+                report_lines.append(f"      Net impact: ${_block_savings - _block_cost:>+,.2f}")
+
         # ── 4. Exit quality on correct-direction trades ──────────────────────────
         # NOTE: "Reversed" trades had the correct oracle direction but the market
         # still moved against us after entry (capture_rate <= 0).  Their actual
