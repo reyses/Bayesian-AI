@@ -143,3 +143,6 @@ Helper modules used by standalone_research:
 | P | Combined direction+magnitude model | Joint model performance |
 | Q | Signed magnitude histogram + 192D profiles | Histogram + profile pairs |
 | R | CNN pattern detection (Conv1D, 7 classes) | Confusion matrix |
+| S | Exit trend guard — band conflict study | Band conflict chart |
+| T | Partial bar robustness (live simulation) | Complete vs partial accuracy, per-TF staleness |
+| U | Expected move confidence interval (dp/dt psychohistory) | CI coverage, direction from P50, ambition ratio, counter-trend context |

@@ -1698,3 +1698,68 @@ PLOTS (all 4 scales):
   tools/plots/standalone/1w/analysis_s_*.png
   tools/plots/standalone/1m/analysis_s_*.png
   tools/plots/standalone/1y/analysis_s_*.png
+
+
+================================================================================
+WHY WE ARE HERE — THE RESEARCH ROADMAP (2026-03-08)
+================================================================================
+
+THE TWO CORE QUESTIONS:
+  1. Should I enter this trade?  (gate decision)
+  2. What is the expected outcome of this trade?  (E[PnL] prediction)
+
+HOW WE GOT HERE:
+  The standalone research proved the 192D physics feature vector has real
+  predictive power:
+    - Analysis A: Price R² = 0.924 (92% explained variance)
+    - Analysis L: Signed MFE OLS = 79.2% direction accuracy
+    - Analysis K: Direction prediction 70.6% with 4h/1h features dominant
+
+  These fitted regressions can answer both questions: predict the signed MFE
+  (magnitude + direction) of the next move from the current 192D state.
+  If E[PnL] < 0, don't enter. If E[PnL] > 0, enter with a realistic TP.
+
+THE ADAPTATION ATTEMPT (stopped):
+  We started wiring the fitted regression into the execution pipeline as an
+  E[PnL] predictor — workers would query the model at entry time, output
+  expected profit per candidate, gate would skip neg-EV entries.
+
+  User stopped this: "this is a major change that needs research first."
+
+  The concern: the regression was fit on research data with complete bars,
+  clean alignment, specific analysis window. Dropping it into the live
+  pipeline without validation is reckless. We need to prove it holds under
+  real conditions BEFORE touching the pipeline.
+
+RESEARCH PREREQUISITES (must pass before pipeline integration):
+  1. Analysis T — Partial Bar Robustness
+     Does the model survive when slow TF bars are stale (live conditions)?
+     Sub-TF proxy substitution: 4h->1h, 1h->30m, 30m->15m.
+     Status: code complete, needs --analysis-days 120 for reliable results.
+
+  2. Counter-Trend Scale Analysis (new, not yet built)
+     The forward pass shows counter-trend scalps are profitable ($+26k IS,
+     $+5.8k OOS). But the current analysis is binary (net PnL). We need:
+       a) Scalp/trend ratio: actual_pnl / oracle_mfe per counter-trend trade
+       b) Where in the trend: early (dangerous) vs exhaustion (safest)
+       c) TP ambition vs trend reality: tp_ticks vs oracle_mfe
+       d) Survival by depth: slow TF counter-trends vs fast TF
+       e) Time-in-trend: how many bars into the oracle move did we enter?
+     This feeds into E[PnL] — the model needs trend magnitude context to
+     predict whether a counter-trend scalp is worth taking.
+
+  3. E[PnL] Validation on OOS
+     Train the regression on IS data, predict on OOS, measure correlation
+     between predicted E[PnL] and realized PnL. If r < 0.3, the model
+     doesn't generalize and shouldn't be in the pipeline.
+
+ONCE ALL THREE PASS:
+  - Extract fitted model into lightweight serialized form (seed library)
+  - Workers load model at startup, query at entry time
+  - E[PnL] output feeds into gate cascade as new gate
+  - Counter-trend trades get scale-aware filtering
+  - Spec: docs/JULES_EXPECTED_PROFIT_PREDICTOR.md
+
+RELATED SPECS:
+  - docs/JULES_WAVEFORM_SEED_INTEGRATION.md (5 parts: library, worker, shape, model, live)
+  - docs/JULES_EXPECTED_PROFIT_PREDICTOR.md (E[PnL] gate design)

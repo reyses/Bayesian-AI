@@ -77,6 +77,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.collections import LineCollection
+import matplotlib.lines as mlines
 
 
 # =============================================================================
@@ -102,14 +103,17 @@ def main():
     parser.add_argument('--top', type=int, default=30,
                         help='Number of top factors to display')
     parser.add_argument('--full', action='store_true',
-                        help='Run full 16D fractal pipeline (physics + hypervolumes)')
+                        help='Run full 16D fractal pipeline (physics + TF state matrices)')
     parser.add_argument('--start', default='A',
                         help='Start from this analysis letter (e.g. --start Q). Skips earlier analyses.')
+    parser.add_argument('--skip', default='',
+                        help='Comma-separated analysis letters to skip (e.g. --skip G,H,I,J,K)')
     parser.add_argument('--cache', default=None,
                         help='Path to .npz cache. If exists, load instead of recomputing Steps 1-8. '
                              'If not exists, compute and save to this path.')
     args = parser.parse_args()
     _start_at = args.start.upper()
+    _skip_set = set(s.strip().upper() for s in args.skip.split(',') if s.strip())
 
     # Resolve plots dir based on data path
     sample_label = _resolve_plots_dir(args.data, getattr(args, 'analysis_days', 0))
@@ -374,7 +378,7 @@ def main():
                                 sample_ts=np.array(sample_ts, dtype=np.float64))
             print(f"\n  Cache saved: {args.cache} ({os.path.getsize(args.cache)/1e6:.1f} MB)")
 
-    if _start_at <= 'A':
+    if _start_at <= 'A' and 'A' not in _skip_set:
         # =====================================================================
         #  ANALYSIS A: PRICE EXPLANATION (independent)
         #
@@ -449,7 +453,7 @@ def main():
     else:
         print(f"  [SKIP] Analysis A (--start {_start_at})")
 
-    if _start_at <= 'B':
+    if _start_at <= 'B' and 'B' not in _skip_set:
         # =====================================================================
         #  ANALYSIS B: DIRECTION EXPLANATION (independent)
         #
@@ -549,7 +553,7 @@ def main():
     else:
         print(f"  [SKIP] Analysis B (--start {_start_at})")
 
-    if _start_at <= 'C':
+    if _start_at <= 'C' and 'C' not in _skip_set:
         # =====================================================================
         #  ANALYSIS C: DIRECTION FROM PRICE MODEL (derived)
         #
@@ -638,7 +642,7 @@ def main():
     else:
         print(f"  [SKIP] Analysis C (--start {_start_at})")
 
-    if _start_at <= 'D':
+    if _start_at <= 'D' and 'D' not in _skip_set:
         # =====================================================================
         #  ANALYSIS D: DOES RATE-OF-CHANGE IMPROVE PRICE & DIRECTION?
         #
@@ -751,7 +755,7 @@ def main():
     else:
         print(f"  [SKIP] Analysis D (--start {_start_at})")
 
-    if _start_at <= 'E':
+    if _start_at <= 'E' and 'E' not in _skip_set:
         # =====================================================================
         #  ANALYSIS E: dP/dT-GROUPED DIRECTION (signal amplification)
         #
@@ -870,7 +874,7 @@ def main():
     else:
         print(f"  [SKIP] Analysis E (--start {_start_at})")
 
-    if _start_at <= 'F':
+    if _start_at <= 'F' and 'F' not in _skip_set:
         # =====================================================================
         #  ANALYSIS F: REGIME SIGNATURE PLOT
         #
@@ -1057,7 +1061,7 @@ def main():
     else:
         print(f"  [SKIP] Analysis F (--start {_start_at})")
 
-    if _start_at <= 'G':
+    if _start_at <= 'G' and 'G' not in _skip_set:
         # =====================================================================
         #  ANALYSIS G: LAPLACIAN SUB-SEGMENTATION
         #
@@ -1318,7 +1322,7 @@ def main():
     else:
         print(f"  [SKIP] Analysis G (--start {_start_at})")
 
-    if _start_at <= 'H':
+    if _start_at <= 'H' and 'H' not in _skip_set:
         # =====================================================================
         #  ANALYSIS H: ITERATIVE SHAPE CLUSTERING (delta from entry)
         #
@@ -1550,7 +1554,7 @@ def main():
     else:
         print(f"  [SKIP] Analysis H (--start {_start_at})")
 
-    if _start_at <= 'I':
+    if _start_at <= 'I' and 'I' not in _skip_set:
         # =====================================================================
         #  ANALYSIS I: SEED PRIMITIVE SHAPE CLASSIFICATION
         #
@@ -2082,7 +2086,7 @@ def main():
     else:
         print(f"  [SKIP] Analysis I (--start {_start_at})")
 
-    if _start_at <= 'J':
+    if _start_at <= 'J' and 'J' not in _skip_set:
         # =====================================================================
         #  ANALYSIS J: RAW DELTA SUB-CLASSIFICATION (ADAPTIVE R² >= 0.80)
         #
@@ -2369,7 +2373,7 @@ def main():
     else:
         print(f"  [SKIP] Analysis J (--start {_start_at})")
 
-    if _start_at <= 'K':
+    if _start_at <= 'K' and 'K' not in _skip_set:
         # =====================================================================
         #  ANALYSIS K: DIRECTION PREDICTION WITH FRACTAL CONTEXT
         #
@@ -2568,7 +2572,7 @@ def main():
     else:
         print(f"  [SKIP] Analysis K (--start {_start_at})")
 
-    if _start_at <= 'L':
+    if _start_at <= 'L' and 'L' not in _skip_set:
         # =====================================================================
         #  ANALYSIS L: SIGNED MFE OLS (direction from price prediction)
         #
@@ -2867,7 +2871,7 @@ def main():
     else:
         print(f"  [SKIP] Analysis L (--start {_start_at})")
 
-    if _start_at <= 'M':
+    if _start_at <= 'M' and 'M' not in _skip_set:
         # =====================================================================
         #  ANALYSIS M: NEXT-PRICE FORECAST (direction from delta)
         #
@@ -3206,7 +3210,7 @@ def main():
     else:
         print(f"  [SKIP] Analysis M (--start {_start_at})")
 
-    if _start_at <= 'N':
+    if _start_at <= 'N' and 'N' not in _skip_set:
         # =====================================================================
         #  ANALYSIS N: DELTA-DIRECT FORECAST (MR-centered)
         #
@@ -3535,7 +3539,7 @@ def main():
     else:
         print(f"  [SKIP] Analysis N (--start {_start_at})")
 
-    if _start_at <= 'O':
+    if _start_at <= 'O' and 'O' not in _skip_set:
         # =====================================================================
         #  ANALYSIS O: STEPWISE DELTA DIRECTION
         #
@@ -3833,7 +3837,7 @@ def main():
     else:
         print(f"  [SKIP] Analysis O (--start {_start_at})")
 
-    if _start_at <= 'P':
+    if _start_at <= 'P' and 'P' not in _skip_set:
         # =====================================================================
         #  ANALYSIS P: PAIRED DATA POINT DIRECTION
         #
@@ -4161,7 +4165,7 @@ def main():
     else:
         print(f"  [SKIP] Analysis P (--start {_start_at})")
 
-    if _start_at <= 'Q':
+    if _start_at <= 'Q' and 'Q' not in _skip_set:
         # =====================================================================
         #  ANALYSIS Q: SIGNED MAGNITUDE HISTOGRAM + PAIRED 192D PROFILES
         #
@@ -4451,7 +4455,7 @@ def main():
     # =====================================================================
     #  ANALYSIS R: CNN PATTERN DETECTION
     # =====================================================================
-    if _start_at <= 'R':
+    if _start_at <= 'R' and 'R' not in _skip_set:
         print(f"\n{'='*70}")
         print(f"  ANALYSIS R: CNN PATTERN DETECTION (Conv1D, 7 classes)")
         print(f"{'='*70}")
@@ -4478,10 +4482,6 @@ def main():
 
             # ── Step 0: Detect liquidation levels via peak-touch scanning ──
             try:
-                import matplotlib
-                matplotlib.use('Agg')
-                import matplotlib.pyplot as plt
-
                 # Resample intraday to daily for level detection
                 _daily_df = base_df.copy()
                 if hasattr(_daily_df.index, 'date'):
@@ -4730,9 +4730,6 @@ def main():
                 # ── Step 8: confusion matrix plot ──
                 try:
                     from sklearn.metrics import confusion_matrix as _cm_func
-                    import matplotlib
-                    matplotlib.use('Agg')
-                    import matplotlib.pyplot as plt
 
                     _cm = _cm_func(_y_test_np, _preds_test, labels=_present)
                     _fig, _ax = plt.subplots(figsize=(8, 6))
@@ -4762,16 +4759,12 @@ def main():
 
 
     # =====================================================================
-    if _start_at <= 'S':
+    if _start_at <= 'S' and 'S' not in _skip_set:
         print(f"\n{'='*70}")
         print(f"  ANALYSIS S: EXIT TREND GUARD — BAND CONFLICT STUDY")
         print(f"{'='*70}")
 
         try:
-            import matplotlib
-            matplotlib.use('Agg')
-            import matplotlib.pyplot as plt
-
             # ------------------------------------------------------------------
             # Goal: measure how often fast-TF band resistance triggers tighten
             # during a trend that slow TFs still support, and what suppressing
@@ -5044,6 +5037,9 @@ def main():
         print(f"  [SKIP] Analysis S (--start {_start_at})")
 
 
+    # Save the 193D feature matrix before full pipeline may overwrite `X`
+    _X_193d = X.copy() if 'X' in dir() and X is not None and len(X.shape) == 2 and X.shape[1] == 193 else None
+
     # =====================================================================
     if not args.full:
         print(f"\n  (Skipping full 16D pipeline -- use --full to enable)")
@@ -5082,8 +5078,8 @@ def main():
             all_tf_states[tf] = states
             print(f"  {tf:>4}: {len(states):>8,} states computed")
 
-    # --- 8. Build stacked hypervolume matrices (regime-based segmentation) ---
-    print(f"\n--- STEP 8: Building fractal hypervolume matrices ---")
+    # --- 8. Build stacked TF state matrices (regime-based segmentation) ---
+    print(f"\n--- STEP 8: Building multi-TF state matrices ---")
     matrices, mfes_16d, maes_16d, meta = build_stacked_matrices(
         all_tf_states, args.base_tf, all_dfs[args.base_tf],
         context_days=args.context_days,
@@ -5929,6 +5925,738 @@ def main():
 
     else:
         print(f"  (Skipped — insufficient valid timestamps)")
+
+    # =====================================================================
+    #  ANALYSIS T: PARTIAL BAR ROBUSTNESS
+    #
+    #  Live trading problem: slow TF bars (4h, 1h, 30m) are incomplete
+    #  mid-bar. Current research uses only completed bars — best case.
+    #  This analysis tests: how much accuracy degrades when slow TF
+    #  features are stale (simulating live conditions)?
+    #
+    #  Approach: for each slow TF, substitute its physics with the
+    #  nearest completed sub-TF as a proxy for partial bar state.
+    #  E.g., 4h slot uses latest 1h state, 1h uses 30m, etc.
+    # =====================================================================
+    if _start_at <= 'T' and 'T' not in _skip_set:
+        print(f"\n{'='*70}")
+        print(f"  ANALYSIS T: PARTIAL BAR ROBUSTNESS")
+        print(f"  Does prediction survive when slow TFs are stale/partial?")
+        print(f"{'='*70}")
+
+        try:
+            # Check prerequisites from earlier analyses
+            if _X_193d is None or len(_X_193d) == 0:
+                raise RuntimeError("No 193D feature matrix — need --full without --start past A")
+            if '_l_xrows' not in dir() or len(_l_xrows) < 50:
+                raise RuntimeError("Need Analysis L signed MFE data (>= 50 samples)")
+
+            from sklearn.linear_model import LinearRegression as _LR_T
+            from sklearn.preprocessing import StandardScaler as _SS_T
+
+            base_secs_t = TF_SECONDS.get(args.base_tf, 900)
+
+            # Proxy map: slow TF -> use nearest faster TF as partial substitute
+            PARTIAL_PROXY = {
+                '1W': '1D', '1D': '4h', '4h': '1h',
+                '1h': '30m', '30m': '15m',
+            }
+
+            # Identify which TF depth indices are "slow" (longer than base TF)
+            slow_depths = []
+            for depth_idx, tf in enumerate(TF_HIERARCHY):
+                tf_secs = TF_SECONDS.get(tf, 60)
+                if tf_secs > base_secs_t:
+                    proxy_tf = PARTIAL_PROXY.get(tf)
+                    if proxy_tf and proxy_tf in tf_sorted_ts:
+                        slow_depths.append((depth_idx, tf, proxy_tf))
+
+            print(f"\n  Slow TFs (> {args.base_tf}): {len(slow_depths)}")
+            for di, tf, proxy in slow_depths:
+                print(f"    depth {di} ({tf}) -> proxy: {proxy}")
+
+            if not slow_depths:
+                print(f"  No slow TFs to test — all TFs <= base TF")
+                raise RuntimeError("No slow TFs")
+
+            # ── Build partial feature matrix ──────────────────────────────
+            # For each sample, rebuild the 192D vector but substitute slow
+            # TF slots with the proxy TF's latest completed state
+            def _build_mat_partial(t):
+                """Like _build_mat but slow TFs use sub-TF proxy."""
+                mat = np.zeros((12, 16))
+                n = 0
+                for depth_idx, tf in enumerate(TF_HIERARCHY):
+                    # Check if this TF should use a proxy
+                    use_proxy = False
+                    for di, slow_tf, proxy_tf in slow_depths:
+                        if depth_idx == di:
+                            use_proxy = True
+                            actual_tf = proxy_tf
+                            break
+                    if not use_proxy:
+                        actual_tf = tf
+
+                    if actual_tf not in tf_sorted_ts:
+                        continue
+
+                    tf_ts_list = tf_sorted_ts[actual_tf]
+                    actual_secs = TF_SECONDS.get(actual_tf, 60)
+
+                    if actual_secs > base_secs_t:
+                        pos = np.searchsorted(tf_ts_list, t, side='right') - 2
+                    else:
+                        pos = np.searchsorted(tf_ts_list, t, side='right') - 1
+
+                    if pos < 0:
+                        continue
+
+                    nearest_ts = tf_ts_list[pos]
+                    state = all_tf_states[actual_tf][nearest_ts]
+                    # Extract 16D but keep original TF label for tf_scale/depth
+                    vec = extract_16d(state, actual_tf)
+                    mat[depth_idx, :] = vec
+                    n += 1
+                return mat, n
+
+            # Build X_partial for all samples
+            mr_signed_t = price_imr['mr']
+            timestamps_t = base_df['timestamp'].values
+            X_partial_rows = []
+            _partial_valid = []
+
+            for xi, ts_val in enumerate(sample_ts):
+                mat_p, n_p = _build_mat_partial(ts_val)
+                if n_p < 3:
+                    X_partial_rows.append(np.zeros(193))
+                    _partial_valid.append(False)
+                    continue
+                # Find matching bar index for current_MR
+                _bi = np.searchsorted(timestamps_t.astype(np.int64), ts_val, side='right') - 1
+                if 0 <= _bi < len(mr_signed_t):
+                    _mr = mr_signed_t[_bi]
+                else:
+                    _mr = 0.0
+                x_row = np.concatenate([mat_p.flatten(), [_mr]])
+                X_partial_rows.append(x_row)
+                _partial_valid.append(True)
+
+            X_partial = np.array(X_partial_rows)
+            _partial_valid = np.array(_partial_valid)
+            print(f"\n  Partial matrix: {X_partial.shape[0]} samples, "
+                  f"{_partial_valid.sum()} valid ({_partial_valid.mean():.1%})")
+
+            # ── Compare: complete vs partial on signed MFE (Analysis L model) ──
+            _l_xrows_arr = np.array(_l_xrows)
+            Y_l_arr = np.array(_l_smfe)
+
+            # Filter to samples valid in both complete and partial
+            _both_valid = _partial_valid[_l_xrows_arr]
+            _valid_mask = _both_valid
+            _xr = _l_xrows_arr[_valid_mask]
+            _yl = Y_l_arr[_valid_mask]
+
+            n_valid = len(_yl)
+            print(f"  Signed MFE samples (both valid): {n_valid}")
+
+            if n_valid < 30:
+                raise RuntimeError(f"Too few valid samples: {n_valid}")
+            if n_valid < 500:
+                print(f"  WARNING: only {n_valid} samples with 193 features — "
+                      f"results may be noisy. Use --analysis-days 120 for reliable test.")
+
+            # Train/test split (70/30)
+            _split = int(n_valid * 0.7)
+            _train_idx = np.arange(_split)
+            _test_idx = np.arange(_split, n_valid)
+
+            X_complete_train = _X_193d[_xr[_train_idx]]
+            X_complete_test = _X_193d[_xr[_test_idx]]
+            X_partial_train = X_partial[_xr[_train_idx]]
+            X_partial_test = X_partial[_xr[_test_idx]]
+            Y_train = _yl[_train_idx]
+            Y_test = _yl[_test_idx]
+
+            # Standardize
+            _sc_c = _SS_T()
+            X_ct = _sc_c.fit_transform(X_complete_train)
+            X_cte = _sc_c.transform(X_complete_test)
+            _sc_p = _SS_T()
+            X_pt = _sc_p.fit_transform(X_partial_train)
+            X_pte = _sc_p.transform(X_partial_test)
+
+            # ── Model A: Train on complete, test on complete (baseline) ──
+            _m_cc = _LR_T()
+            _m_cc.fit(X_ct, Y_train)
+            _pred_cc = _m_cc.predict(X_cte)
+            _r2_cc = _m_cc.score(X_cte, Y_test)
+            _dir_cc = np.sign(_pred_cc)
+            _dir_actual = np.sign(Y_test)
+            _nz_cc = (_dir_actual != 0) & (_dir_cc != 0)
+            _acc_cc = (_dir_cc[_nz_cc] == _dir_actual[_nz_cc]).mean() if _nz_cc.sum() > 0 else 0
+
+            # ── Model B: Train on complete, test on PARTIAL (live simulation) ──
+            # This is the realistic scenario: model trained on complete bars,
+            # but at inference time slow TFs are stale/partial
+            _pred_cp = _m_cc.predict(_sc_c.transform(X_partial[_xr[_test_idx]]))
+            _dir_cp = np.sign(_pred_cp)
+            _nz_cp = (_dir_actual != 0) & (_dir_cp != 0)
+            _acc_cp = (_dir_cp[_nz_cp] == _dir_actual[_nz_cp]).mean() if _nz_cp.sum() > 0 else 0
+            # R2 on partial input
+            _ss_res_cp = np.sum((Y_test - _pred_cp) ** 2)
+            _ss_tot = np.sum((Y_test - Y_test.mean()) ** 2)
+            _r2_cp = 1 - _ss_res_cp / _ss_tot if _ss_tot > 0 else 0
+
+            # ── Model C: Train on partial, test on partial (adapted) ──
+            _m_pp = _LR_T()
+            _m_pp.fit(X_pt, Y_train)
+            _pred_pp = _m_pp.predict(X_pte)
+            _r2_pp = _m_pp.score(X_pte, Y_test)
+            _dir_pp = np.sign(_pred_pp)
+            _nz_pp = (_dir_actual != 0) & (_dir_pp != 0)
+            _acc_pp = (_dir_pp[_nz_pp] == _dir_actual[_nz_pp]).mean() if _nz_pp.sum() > 0 else 0
+
+            # ── Results table ─────────────────────────────────────────────
+            print(f"\n  SIGNED MFE PREDICTION: COMPLETE vs PARTIAL FEATURES")
+            print(f"  (test set: {len(Y_test)} samples)")
+            print(f"")
+            print(f"  {'Scenario':<45} {'R2':>8} {'Dir Acc':>8} {'N':>5}")
+            print(f"  {'-'*45} {'-'*8} {'-'*8} {'-'*5}")
+            print(f"  {'A: Train complete, test complete (baseline)':<45} "
+                  f"{_r2_cc:>8.4f} {_acc_cc:>7.1%} {_nz_cc.sum():>5}")
+            print(f"  {'B: Train complete, test PARTIAL (live sim)':<45} "
+                  f"{_r2_cp:>8.4f} {_acc_cp:>7.1%} {_nz_cp.sum():>5}")
+            print(f"  {'C: Train partial, test partial (adapted)':<45} "
+                  f"{_r2_pp:>8.4f} {_acc_pp:>7.1%} {_nz_pp.sum():>5}")
+
+            # Degradation summary
+            _deg_r2 = _r2_cp - _r2_cc
+            _deg_acc = _acc_cp - _acc_cc
+            print(f"\n  DEGRADATION (B vs A):")
+            print(f"    R2:        {_deg_r2:+.4f}  ({_deg_r2/_r2_cc*100:+.1f}%)" if _r2_cc != 0
+                  else f"    R2:        {_deg_r2:+.4f}")
+            print(f"    Direction: {_deg_acc:+.1%}")
+
+            _recov_r2 = _r2_pp - _r2_cp
+            _recov_acc = _acc_pp - _acc_cp
+            print(f"\n  RECOVERY (C vs B — does retraining on partial help?):")
+            print(f"    R2:        {_recov_r2:+.4f}")
+            print(f"    Direction: {_recov_acc:+.1%}")
+
+            # ── Per-TF staleness analysis ─────────────────────────────────
+            # Test each slow TF individually to find which one hurts most
+            print(f"\n  PER-TF STALENESS IMPACT:")
+            print(f"  (substitute ONE slow TF at a time, measure degradation)")
+            print(f"")
+            print(f"  {'TF':<8} {'Proxy':<8} {'R2':>8} {'Dir Acc':>8} {'dR2':>8} {'dAcc':>8}")
+            print(f"  {'-'*8} {'-'*8} {'-'*8} {'-'*8} {'-'*8} {'-'*8}")
+
+            for di, tf, proxy_tf in slow_depths:
+                # Build matrix with ONLY this TF substituted
+                def _build_mat_single_sub(t, sub_depth=di, sub_proxy=proxy_tf):
+                    mat = np.zeros((12, 16))
+                    n = 0
+                    for depth_idx, tf_i in enumerate(TF_HIERARCHY):
+                        actual_tf = sub_proxy if depth_idx == sub_depth else tf_i
+                        if actual_tf not in tf_sorted_ts:
+                            continue
+                        tf_ts_list = tf_sorted_ts[actual_tf]
+                        actual_secs = TF_SECONDS.get(actual_tf, 60)
+                        if actual_secs > base_secs_t:
+                            pos = np.searchsorted(tf_ts_list, t, side='right') - 2
+                        else:
+                            pos = np.searchsorted(tf_ts_list, t, side='right') - 1
+                        if pos < 0:
+                            continue
+                        nearest_ts = tf_ts_list[pos]
+                        state = all_tf_states[actual_tf][nearest_ts]
+                        mat[depth_idx, :] = extract_16d(state, actual_tf)
+                        n += 1
+                    return mat, n
+
+                _X_single = []
+                for xi_s in _xr[_test_idx]:
+                    ts_s = sample_ts[xi_s]
+                    _bi_s = np.searchsorted(timestamps_t.astype(np.int64), ts_s, side='right') - 1
+                    _mr_s = mr_signed_t[_bi_s] if 0 <= _bi_s < len(mr_signed_t) else 0.0
+                    mat_s, _ = _build_mat_single_sub(ts_s)
+                    _X_single.append(np.concatenate([mat_s.flatten(), [_mr_s]]))
+                _X_single = np.array(_X_single)
+                _pred_s = _m_cc.predict(_sc_c.transform(_X_single))
+                _ss_res_s = np.sum((Y_test - _pred_s) ** 2)
+                _r2_s = 1 - _ss_res_s / _ss_tot if _ss_tot > 0 else 0
+                _dir_s = np.sign(_pred_s)
+                _nz_s = (_dir_actual != 0) & (_dir_s != 0)
+                _acc_s = (_dir_s[_nz_s] == _dir_actual[_nz_s]).mean() if _nz_s.sum() > 0 else 0
+                _dr2 = _r2_s - _r2_cc
+                _dacc = _acc_s - _acc_cc
+
+                flag = " ← CRITICAL" if _dacc < -0.05 else ""
+                print(f"  {tf:<8} {proxy_tf:<8} {_r2_s:>8.4f} {_acc_s:>7.1%} "
+                      f"{_dr2:>+8.4f} {_dacc:>+7.1%}{flag}")
+
+            # ── Conclusion ────────────────────────────────────────────────
+            print(f"\n  ANALYSIS T CONCLUSION:")
+            if abs(_deg_acc) < 0.03:
+                print(f"  ROBUST: partial bars degrade direction by only {_deg_acc:+.1%}.")
+                print(f"  The model tolerates stale slow-TF features well.")
+                print(f"  E[PnL] predictor can use completed-bar-trained model in live.")
+            elif abs(_deg_acc) < 0.10:
+                print(f"  MODERATE DEGRADATION: {_deg_acc:+.1%} direction loss with partial bars.")
+                print(f"  Consider retraining on partial features (scenario C) for live use.")
+                if _recov_acc > 0.02:
+                    print(f"  Retraining recovers {_recov_acc:+.1%} — worth doing.")
+            else:
+                print(f"  FRAGILE: {_deg_acc:+.1%} direction loss — model relies on slow TF bars.")
+                print(f"  Partial bar aggregation (maturity weighting) is critical for live.")
+                if _recov_acc > 0.03:
+                    print(f"  Retraining on partial features recovers {_recov_acc:+.1%}.")
+
+            # ── Plot: complete vs partial accuracy comparison ──────────────
+            fig_t, axes_t = plt.subplots(1, 2, figsize=(14, 5))
+
+            # Left: scatter pred vs actual for complete and partial
+            ax1 = axes_t[0]
+            ax1.scatter(_pred_cc, Y_test, alpha=0.4, s=15, c='steelblue', label='Complete')
+            ax1.scatter(_pred_cp, Y_test, alpha=0.4, s=15, c='coral', label='Partial (live)')
+            _lim = max(abs(Y_test).max(), abs(_pred_cc).max(), abs(_pred_cp).max()) * 1.1
+            ax1.plot([-_lim, _lim], [-_lim, _lim], 'k--', alpha=0.3)
+            ax1.axhline(0, color='gray', alpha=0.3)
+            ax1.axvline(0, color='gray', alpha=0.3)
+            ax1.set_xlabel('Predicted Signed MFE')
+            ax1.set_ylabel('Actual Signed MFE')
+            ax1.set_title(f'Signed MFE: Complete R²={_r2_cc:.3f} vs Partial R²={_r2_cp:.3f}')
+            ax1.legend(fontsize=8)
+
+            # Right: per-TF degradation bar chart
+            ax2 = axes_t[1]
+            _tf_names = [tf for _, tf, _ in slow_depths]
+            _tf_daccs = []
+            for di, tf, proxy_tf in slow_depths:
+                # Recompute per-TF degradation for chart (reuse values from loop)
+                _X_s2 = []
+                for xi_s in _xr[_test_idx]:
+                    ts_s = sample_ts[xi_s]
+                    _bi_s2 = np.searchsorted(timestamps_t.astype(np.int64), ts_s, side='right') - 1
+                    _mr_s2 = mr_signed_t[_bi_s2] if 0 <= _bi_s2 < len(mr_signed_t) else 0.0
+                    mat_s2, _ = _build_mat_single_sub(ts_s, sub_depth=di, sub_proxy=proxy_tf)
+                    _X_s2.append(np.concatenate([mat_s2.flatten(), [_mr_s2]]))
+                _X_s2 = np.array(_X_s2)
+                _pred_s2 = _m_cc.predict(_sc_c.transform(_X_s2))
+                _dir_s2 = np.sign(_pred_s2)
+                _nz_s2 = (_dir_actual != 0) & (_dir_s2 != 0)
+                _acc_s2 = (_dir_s2[_nz_s2] == _dir_actual[_nz_s2]).mean() if _nz_s2.sum() > 0 else 0
+                _tf_daccs.append(_acc_s2 - _acc_cc)
+
+            colors = ['#d32f2f' if d < -0.05 else '#ff9800' if d < -0.02 else '#4caf50'
+                      for d in _tf_daccs]
+            ax2.barh(_tf_names, [d * 100 for d in _tf_daccs], color=colors)
+            ax2.axvline(0, color='black', linewidth=0.8)
+            ax2.set_xlabel('Direction Accuracy Change (%)')
+            ax2.set_title('Per-TF Staleness Impact')
+            for i, (tf_n, d) in enumerate(zip(_tf_names, _tf_daccs)):
+                ax2.text(d * 100 + (0.3 if d >= 0 else -0.3), i, f'{d:+.1%}',
+                        va='center', ha='left' if d >= 0 else 'right', fontsize=8)
+
+            fig_t.tight_layout()
+            _plot_path_t = os.path.join(PLOTS_DIR, 'analysis_t_partial_bar_robustness.png')
+            fig_t.savefig(_plot_path_t, dpi=150)
+            plt.close(fig_t)
+            print(f"\n  [saved] {_plot_path_t}")
+
+        except Exception as _e_t:
+            print(f"  [ERROR] Analysis T: {_e_t}")
+            import traceback; traceback.print_exc()
+
+    else:
+        print(f"  [SKIP] Analysis T (--start {_start_at})")
+
+
+    # =====================================================================
+    #  ANALYSIS U: EXPECTED MOVE CONFIDENCE INTERVAL (dp/dt psychohistory)
+    #
+    #  For each bar, find k-nearest neighbors in 192D feature space.
+    #  The neighbors' oracle MFE distribution gives a confidence interval
+    #  for the expected move: [P10, P25, P50, P75, P90].
+    #
+    #  We don't predict the exact path — we predict the DESTINATION
+    #  with a confidence interval.  Like psychohistory: individual bars
+    #  are unpredictable, but patterns with similar characteristics
+    #  (velocity, momentum, hurst, coherence) resolve predictably.
+    #
+    #  Outputs:
+    #    1. CI coverage: how often does actual MFE fall within predicted CI?
+    #    2. CI width vs accuracy tradeoff
+    #    3. dp/dt signature scoring: which physics features tighten the CI?
+    #    4. Counter-trend context: CI direction vs regime direction
+    #    5. Ambition ratio: if TP were set to P50, how realistic?
+    # =====================================================================
+    if _start_at <= 'U' and 'U' not in _skip_set:
+        print(f"\n{'='*70}")
+        print(f"  ANALYSIS U: EXPECTED MOVE CONFIDENCE INTERVAL")
+        print(f"  dp/dt psychohistory — predict the destination, not the path")
+        print(f"  Method: k-NN in 192D feature space -> neighbor MFE distribution")
+        print(f"{'='*70}")
+
+        try:
+            from sklearn.preprocessing import StandardScaler as _SS_U
+            from sklearn.neighbors import NearestNeighbors as _KNN_U
+
+            # ── Bridge: match full-pipeline oracle (meta) to step-8 X rows ──
+            # meta[i]['ts'] = timestamp of the i-th stacked matrix
+            # sample_ts[j] = timestamp of the j-th X row from step 8
+            # We need pairs (j, i) where timestamps match
+            _meta_ts_map = {int(m['ts']): _i for _i, m in enumerate(meta)}
+            _sample_ts_map = {int(t): _j for _j, t in enumerate(sample_ts)}
+
+            _u_xi = []       # index into _X_193d (step 8 rows)
+            _u_oi = []       # index into mfes/maes/meta (full pipeline rows)
+            for _ts_int, _oi in _meta_ts_map.items():
+                _xi = _sample_ts_map.get(_ts_int, -1)
+                if _xi >= 0:
+                    _u_xi.append(_xi)
+                    _u_oi.append(_oi)
+
+            _n_u = len(_u_xi)
+            print(f"\n  Matched samples: {_n_u} (oracle bars with fractal context)")
+
+            if _n_u < 30:
+                raise RuntimeError(f"Need >= 30 matched samples, got {_n_u}")
+
+            # Use _X_193d (step 8, 193 features) indexed by _u_xi
+            _X_u = _X_193d[_u_xi] if _X_193d is not None else X[_u_xi]
+            _mfe_u = np.array([float(mfes[o]) for o in _u_oi])
+            _mae_u = np.array([float(maes[o]) for o in _u_oi])
+            # Direction from meta's dmi_diff (positive=LONG, negative=SHORT)
+            _dir_u = np.array([
+                'LONG' if meta[o].get('dmi_diff', 0) >= 0 else 'SHORT'
+                for o in _u_oi
+            ])
+            _signed_mfe_u = np.array([
+                float(mfes[o]) * (1.0 if meta[o].get('dmi_diff', 0) >= 0 else -1.0)
+                for o in _u_oi
+            ])
+
+            print(f"  Feature matrix: {_X_u.shape}")
+            print(f"  MFE: mean={_mfe_u.mean():.1f}, std={_mfe_u.std():.1f}")
+            print(f"  Signed MFE: mean={_signed_mfe_u.mean():.1f}, std={_signed_mfe_u.std():.1f}")
+
+            # ── Scale features and fit k-NN ──
+            _k = min(50, _n_u // 5)  # 50 neighbors or 20% of data
+            print(f"  k = {_k} neighbors")
+
+            _sc_u = _SS_U()
+            _X_u_sc = _sc_u.fit_transform(_X_u)
+
+            _knn = _KNN_U(n_neighbors=_k + 1, metric='euclidean', n_jobs=-1)
+            _knn.fit(_X_u_sc)
+
+            # ── For each sample, get neighbor MFE distribution ──
+            # Use leave-one-out: query all, exclude self (index 0 in results)
+            _dists, _indices = _knn.kneighbors(_X_u_sc)
+
+            # Percentiles for confidence interval
+            _pcts = [10, 25, 50, 75, 90]
+            _ci_results = []
+
+            for _i in range(_n_u):
+                # Exclude self (first neighbor is always self)
+                _nbr_idx = _indices[_i, 1:]  # skip self
+                _nbr_mfe = _mfe_u[_nbr_idx]
+                _nbr_signed = _signed_mfe_u[_nbr_idx]
+                _nbr_dir = _dir_u[_nbr_idx]
+
+                # CI from neighbor signed MFE distribution
+                _ci = {f'p{p}': float(np.percentile(_nbr_signed, p)) for p in _pcts}
+                _ci['actual_mfe'] = float(_mfe_u[_i])
+                _ci['actual_signed_mfe'] = float(_signed_mfe_u[_i])
+                _ci['actual_dir'] = _dir_u[_i]
+                _ci['predicted_dir'] = 'LONG' if _ci['p50'] > 0 else 'SHORT'
+                _ci['ci_width'] = _ci['p75'] - _ci['p25']  # IQR
+                _ci['ci_wide'] = _ci['p90'] - _ci['p10']   # 80% CI
+
+                # Neighbor agreement on direction
+                _nbr_long_pct = (_nbr_dir == 'LONG').sum() / len(_nbr_dir)
+                _ci['nbr_long_pct'] = float(_nbr_long_pct)
+                _ci['nbr_consensus'] = max(_nbr_long_pct, 1 - _nbr_long_pct)
+
+                _ci_results.append(_ci)
+
+            # ── 1. CI Coverage: how often does actual fall within predicted CI? ──
+            print(f"\n  CONFIDENCE INTERVAL COVERAGE:")
+            print(f"  {'CI Range':<20} {'Coverage':>10} {'Avg Width':>12} {'Interpretation'}")
+            print(f"  {'-'*20} {'-'*10} {'-'*12} {'-'*30}")
+
+            for _lo_p, _hi_p, _label in [
+                ('p25', 'p75', '50% CI (IQR)'),
+                ('p10', 'p90', '80% CI'),
+            ]:
+                _hits = sum(1 for c in _ci_results
+                           if c[_lo_p] <= c['actual_signed_mfe'] <= c[_hi_p])
+                _cov = _hits / _n_u
+                _avg_w = np.mean([c[_hi_p] - c[_lo_p] for c in _ci_results])
+                _ideal = int(_hi_p[1:]) - int(_lo_p[1:])
+                _interp = "CALIBRATED" if abs(_cov * 100 - _ideal) < 10 else \
+                          "OVER-CONFIDENT" if _cov * 100 < _ideal - 10 else "CONSERVATIVE"
+                print(f"  {_label:<20} {_cov:>9.1%} {_avg_w:>11.1f}t {_interp}")
+
+            # P50 as point prediction
+            _p50_within_20 = sum(1 for c in _ci_results
+                                if c['actual_signed_mfe'] != 0 and
+                                abs(c['p50'] - c['actual_signed_mfe']) / max(abs(c['actual_signed_mfe']), 1) <= 0.20)
+            print(f"\n  P50 within 20% of actual: {_p50_within_20}/{_n_u} = {_p50_within_20/_n_u:.1%}")
+
+            # ── 2. Direction accuracy from CI ──
+            _dir_correct = sum(1 for c in _ci_results if c['predicted_dir'] == c['actual_dir'])
+            _dir_acc_u = _dir_correct / _n_u
+            _baseline_u = max(sum(1 for c in _ci_results if c['actual_dir'] == 'LONG'),
+                             sum(1 for c in _ci_results if c['actual_dir'] == 'SHORT')) / _n_u
+
+            print(f"\n  DIRECTION FROM P50 (sign of median neighbor MFE):")
+            print(f"    Accuracy:  {_dir_correct}/{_n_u} = {_dir_acc_u:.1%}")
+            print(f"    Baseline:  {_baseline_u:.1%}")
+            print(f"    Lift:      {_dir_acc_u - _baseline_u:+.1%}")
+
+            # Direction accuracy by consensus strength
+            print(f"\n  DIRECTION BY NEIGHBOR CONSENSUS:")
+            print(f"  {'Consensus':>12} {'N':>6} {'Dir Acc':>9} {'Avg |P50|':>11} {'Avg IQR':>9}")
+            print(f"  {'-'*12} {'-'*6} {'-'*9} {'-'*11} {'-'*9}")
+            for _lo_cons, _hi_cons in [(0.5, 0.6), (0.6, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 1.01)]:
+                _grp = [c for c in _ci_results if _lo_cons <= c['nbr_consensus'] < _hi_cons]
+                if len(_grp) >= 10:
+                    _ga = sum(1 for c in _grp if c['predicted_dir'] == c['actual_dir']) / len(_grp)
+                    _gp50 = np.mean([abs(c['p50']) for c in _grp])
+                    _giqr = np.mean([c['ci_width'] for c in _grp])
+                    print(f"  {_lo_cons:.0%}-{_hi_cons:.0%}{' ':>5} {len(_grp):>6} {_ga:>9.1%} {_gp50:>10.1f}t {_giqr:>8.1f}t")
+
+            # ── 3. dp/dt signature: which physics features correlate with CI tightness? ──
+            print(f"\n  dp/dt SIGNATURE — FEATURES THAT TIGHTEN THE CI:")
+            print(f"  (negative correlation with IQR width = tighter CI = more predictable)")
+
+            _iqr_arr = np.array([c['ci_width'] for c in _ci_results])
+            _feat_iqr_corr = []
+            for _fi in range(_X_u.shape[1]):
+                _col = _X_u[:, _fi]
+                if np.std(_col) > 1e-10:
+                    _r = float(np.corrcoef(_col, _iqr_arr)[0, 1])
+                    _fname = col_names[_fi] if _fi < len(col_names) else f'f{_fi}'
+                    _feat_iqr_corr.append((_fname, _r, abs(_r)))
+
+            _feat_iqr_corr.sort(key=lambda x: -x[2])
+            print(f"\n  {'Rank':>4} {'Feature':<40} {'r(IQR)':>8} {'Effect'}")
+            print(f"  {'-'*4} {'-'*40} {'-'*8} {'-'*20}")
+            for _ri, (_fn, _rv, _av) in enumerate(_feat_iqr_corr[:15], 1):
+                _eff = "tightens CI" if _rv < 0 else "widens CI"
+                print(f"  {_ri:>4} {_fn:<40} {_rv:>+8.4f} {_eff}")
+
+            # ── 4. Counter-trend context ──
+            # For each bar, compare CI direction vs regime direction
+            # Map meta timestamps back to base_df indices for regime lookup
+            _base_ts_arr = base_df['timestamp'].values.astype(float)
+            _ts_to_baseidx = {int(t): _i for _i, t in enumerate(_base_ts_arr)}
+            _regime_at_bar = np.array([
+                regime_ids[_ts_to_baseidx[int(meta[o]['ts'])]]
+                if int(meta[o]['ts']) in _ts_to_baseidx and
+                   _ts_to_baseidx[int(meta[o]['ts'])] < len(regime_ids)
+                else -1
+                for o in _u_oi
+            ])
+            _regime_dir_at_bar = []
+            _regime_meta_map = {rm['regime_id']: rm for rm in regime_meta}
+            for _ri_val in _regime_at_bar:
+                _rm = _regime_meta_map.get(_ri_val, None)
+                _regime_dir_at_bar.append(_rm['direction'] if _rm else 'UNKNOWN')
+            _regime_dir_at_bar = np.array(_regime_dir_at_bar)
+
+            # Classify: with-trend vs counter-trend based on CI
+            _with_trend = []
+            _counter_trend = []
+            for _i, _c in enumerate(_ci_results):
+                if _regime_dir_at_bar[_i] == 'UNKNOWN':
+                    continue
+                if _c['predicted_dir'] == _regime_dir_at_bar[_i]:
+                    _with_trend.append(_c)
+                else:
+                    _counter_trend.append(_c)
+
+            print(f"\n  COUNTER-TREND CONTEXT (CI direction vs regime direction):")
+            print(f"  {'Category':<20} {'N':>6} {'Dir Acc':>9} {'Avg |P50|':>11} {'Avg MFE':>10} {'Avg IQR':>9}")
+            print(f"  {'-'*20} {'-'*6} {'-'*9} {'-'*11} {'-'*10} {'-'*9}")
+            for _cat, _grp in [('With-trend', _with_trend), ('Counter-trend', _counter_trend)]:
+                if _grp:
+                    _ga = sum(1 for c in _grp if c['predicted_dir'] == c['actual_dir']) / len(_grp)
+                    _gp50 = np.mean([abs(c['p50']) for c in _grp])
+                    _gmfe = np.mean([c['actual_mfe'] for c in _grp])
+                    _giqr = np.mean([c['ci_width'] for c in _grp])
+                    print(f"  {_cat:<20} {len(_grp):>6} {_ga:>9.1%} {_gp50:>10.1f}t {_gmfe:>9.1f}t {_giqr:>8.1f}t")
+
+            # ── 5. Ambition ratio: P50 as TP target ──
+            # If TP = |P50|, what capture rate would we get?
+            _ambition = []
+            for _c in _ci_results:
+                _pred_mag = abs(_c['p50'])
+                _actual_mfe = _c['actual_mfe']
+                if _pred_mag > 0 and _actual_mfe > 0:
+                    _ratio = _pred_mag / _actual_mfe
+                    _ambition.append({
+                        'ratio': _ratio,
+                        'pred_mag': _pred_mag,
+                        'actual_mfe': _actual_mfe,
+                        'dir_correct': _c['predicted_dir'] == _c['actual_dir'],
+                        'achievable': _actual_mfe >= _pred_mag,
+                    })
+
+            if _ambition:
+                _achievable = sum(1 for a in _ambition if a['achievable'])
+                _avg_ratio = np.mean([a['ratio'] for a in _ambition])
+                _med_pred = np.median([a['pred_mag'] for a in _ambition])
+                _med_actual = np.median([a['actual_mfe'] for a in _ambition])
+
+                print(f"\n  AMBITION RATIO (P50 as TP target):")
+                print(f"    Avg ratio (|P50| / actual MFE):  {_avg_ratio:.2f}")
+                print(f"    Median predicted magnitude:      {_med_pred:.1f} ticks")
+                print(f"    Median actual MFE:               {_med_actual:.1f} ticks")
+                print(f"    Achievable (MFE >= |P50|):       {_achievable}/{len(_ambition)} = {_achievable/len(_ambition):.1%}")
+
+                # Bucket by ambition ratio
+                print(f"\n  {'Ambition':>12} {'N':>6} {'Achievable':>12} {'Avg MFE':>10} {'Dir Acc':>9}")
+                print(f"  {'-'*12} {'-'*6} {'-'*12} {'-'*10} {'-'*9}")
+                for _lo_a, _hi_a in [(0.0, 0.5), (0.5, 1.0), (1.0, 1.5), (1.5, 2.0), (2.0, 99)]:
+                    _ab = [a for a in _ambition if _lo_a <= a['ratio'] < _hi_a]
+                    if len(_ab) >= 5:
+                        _ach = sum(1 for a in _ab if a['achievable']) / len(_ab)
+                        _amfe = np.mean([a['actual_mfe'] for a in _ab])
+                        _adir = sum(1 for a in _ab if a['dir_correct']) / len(_ab)
+                        _label = f"{_lo_a:.1f}-{_hi_a:.1f}" if _hi_a < 99 else f">{_lo_a:.1f}"
+                        print(f"  {_label:>12} {len(_ab):>6} {_ach:>11.1%} {_amfe:>9.1f}t {_adir:>9.1%}")
+
+            # ── 6. CI quality by regime volatility ──
+            print(f"\n  CI QUALITY BY REGIME VOLATILITY:")
+            _regime_vols = []
+            for _i, _c in enumerate(_ci_results):
+                _rm = _regime_meta_map.get(_regime_at_bar[_i], None)
+                if _rm:
+                    _regime_vols.append((_rm['volatility'], _c))
+
+            if _regime_vols:
+                _vols = np.array([v for v, _ in _regime_vols])
+                _vol_q = np.percentile(_vols, [25, 50, 75])
+                _bounds = [(0, _vol_q[0], 'Low vol'), (_vol_q[0], _vol_q[1], 'Med-low'),
+                           (_vol_q[1], _vol_q[2], 'Med-high'), (_vol_q[2], 999, 'High vol')]
+
+                print(f"  {'Vol Regime':<12} {'N':>6} {'50%CI Cov':>11} {'80%CI Cov':>11} {'Dir Acc':>9} {'Avg IQR':>9}")
+                print(f"  {'-'*12} {'-'*6} {'-'*11} {'-'*11} {'-'*9} {'-'*9}")
+                for _vlo, _vhi, _vlbl in _bounds:
+                    _vgrp = [c for v, c in _regime_vols if _vlo <= v < _vhi]
+                    if len(_vgrp) >= 10:
+                        _c50 = sum(1 for c in _vgrp if c['p25'] <= c['actual_signed_mfe'] <= c['p75']) / len(_vgrp)
+                        _c80 = sum(1 for c in _vgrp if c['p10'] <= c['actual_signed_mfe'] <= c['p90']) / len(_vgrp)
+                        _da = sum(1 for c in _vgrp if c['predicted_dir'] == c['actual_dir']) / len(_vgrp)
+                        _iqr = np.mean([c['ci_width'] for c in _vgrp])
+                        print(f"  {_vlbl:<12} {len(_vgrp):>6} {_c50:>10.1%} {_c80:>10.1%} {_da:>9.1%} {_iqr:>8.1f}t")
+
+            # ── Plot ──
+            fig_u, axes_u = plt.subplots(2, 2, figsize=(16, 12))
+            fig_u.suptitle('Analysis U: Expected Move Confidence Interval', fontsize=14, fontweight='bold')
+
+            # Plot 1: Actual vs P50 scatter
+            ax1 = axes_u[0, 0]
+            _p50s = np.array([c['p50'] for c in _ci_results])
+            _actuals = np.array([c['actual_signed_mfe'] for c in _ci_results])
+            ax1.scatter(_p50s, _actuals, alpha=0.15, s=8, c='steelblue')
+            _lim = max(abs(_p50s.max()), abs(_actuals.max()), abs(_p50s.min()), abs(_actuals.min()))
+            ax1.plot([-_lim, _lim], [-_lim, _lim], 'r--', alpha=0.5, label='Perfect')
+            ax1.set_xlabel('Predicted (P50 signed MFE)')
+            ax1.set_ylabel('Actual signed MFE')
+            ax1.set_title('P50 vs Actual')
+            ax1.legend()
+            ax1.grid(True, alpha=0.3)
+
+            # Plot 2: CI width vs prediction error
+            ax2 = axes_u[0, 1]
+            _errors = np.abs(_actuals - _p50s)
+            _iqrs = np.array([c['ci_width'] for c in _ci_results])
+            ax2.scatter(_iqrs, _errors, alpha=0.15, s=8, c='coral')
+            ax2.set_xlabel('CI Width (IQR)')
+            ax2.set_ylabel('|Prediction Error|')
+            ax2.set_title('CI Width vs Error (wider CI = less certain)')
+            ax2.grid(True, alpha=0.3)
+
+            # Plot 3: Direction accuracy by consensus bin
+            ax3 = axes_u[1, 0]
+            _cons_bins = [(0.5, 0.6), (0.6, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 1.01)]
+            _cons_accs = []
+            _cons_labels = []
+            _cons_ns = []
+            for _lo, _hi in _cons_bins:
+                _grp = [c for c in _ci_results if _lo <= c['nbr_consensus'] < _hi]
+                if len(_grp) >= 5:
+                    _acc = sum(1 for c in _grp if c['predicted_dir'] == c['actual_dir']) / len(_grp)
+                    _cons_accs.append(_acc * 100)
+                    _cons_labels.append(f'{_lo:.0%}-{_hi:.0%}')
+                    _cons_ns.append(len(_grp))
+            if _cons_accs:
+                _bars = ax3.bar(range(len(_cons_accs)), _cons_accs, color='teal', alpha=0.7)
+                ax3.set_xticks(range(len(_cons_labels)))
+                ax3.set_xticklabels(_cons_labels, fontsize=9)
+                ax3.set_ylabel('Direction Accuracy %')
+                ax3.set_xlabel('Neighbor Consensus')
+                ax3.set_title('Direction Accuracy by Consensus')
+                ax3.axhline(50, color='red', linestyle='--', alpha=0.5, label='Coin flip')
+                ax3.legend()
+                ax3.grid(True, alpha=0.3, axis='y')
+                for _b, _n in zip(_bars, _cons_ns):
+                    ax3.text(_b.get_x() + _b.get_width()/2, _b.get_height() + 1,
+                            f'n={_n}', ha='center', va='bottom', fontsize=8)
+
+            # Plot 4: Ambition ratio histogram
+            ax4 = axes_u[1, 1]
+            if _ambition:
+                _ratios = np.array([a['ratio'] for a in _ambition])
+                _ratios_clipped = np.clip(_ratios, 0, 3)
+                ax4.hist(_ratios_clipped, bins=30, color='mediumpurple', alpha=0.7, edgecolor='black', linewidth=0.5)
+                ax4.axvline(1.0, color='red', linestyle='--', alpha=0.7, label='TP = actual MFE')
+                ax4.set_xlabel('Ambition Ratio (|P50| / Actual MFE)')
+                ax4.set_ylabel('Count')
+                ax4.set_title('Ambition Ratio Distribution')
+                ax4.legend()
+                ax4.grid(True, alpha=0.3, axis='y')
+
+            fig_u.tight_layout()
+            _plot_path_u = os.path.join(PLOTS_DIR, 'analysis_u_confidence_interval.png')
+            fig_u.savefig(_plot_path_u, dpi=150)
+            plt.close(fig_u)
+            print(f"\n  [saved] {_plot_path_u}")
+
+            # ── Conclusion ──
+            print(f"\n  ANALYSIS U CONCLUSION:")
+            _ci50_cov = sum(1 for c in _ci_results if c['p25'] <= c['actual_signed_mfe'] <= c['p75']) / _n_u
+            _ci80_cov = sum(1 for c in _ci_results if c['p10'] <= c['actual_signed_mfe'] <= c['p90']) / _n_u
+            if _ci50_cov >= 0.40 and _ci50_cov <= 0.60:
+                print(f"  WELL-CALIBRATED: 50% CI covers {_ci50_cov:.0%} of actuals.")
+            elif _ci50_cov < 0.40:
+                print(f"  OVER-CONFIDENT: 50% CI only covers {_ci50_cov:.0%} — intervals too narrow.")
+            else:
+                print(f"  CONSERVATIVE: 50% CI covers {_ci50_cov:.0%} — intervals too wide.")
+
+            if _dir_acc_u > 0.55:
+                print(f"  DIRECTION USEFUL: {_dir_acc_u:.1%} from P50 sign ({_dir_acc_u - _baseline_u:+.1%} lift).")
+            else:
+                print(f"  DIRECTION MARGINAL: {_dir_acc_u:.1%} from P50 sign ({_dir_acc_u - _baseline_u:+.1%} lift).")
+
+            _med_iqr = np.median(_iqrs)
+            print(f"  Median CI width (IQR): {_med_iqr:.1f} ticks")
+            print(f"  Practical use: set TP = |P50|, SL = P25 (for LONG) or P75 (for SHORT).")
+            print(f"  Hook into pipeline as observation layer — log predictions, measure accuracy.")
+            print(f"  Promote to decision layer only after proving coverage > 40% on OOS.")
+
+        except Exception as _e_u:
+            print(f"  [ERROR] Analysis U: {_e_u}")
+            import traceback; traceback.print_exc()
+
+    else:
+        print(f"  [SKIP] Analysis U (--start {_start_at})")
+
 
     # --- 20. Stacked gate analysis ---
     print(f"\n{'='*70}")
