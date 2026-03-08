@@ -176,8 +176,8 @@ class Trainer:
         self.pattern_library = {}
 
         # Bottom-line accumulators -- populated by run_forward_pass / run_strategy_selection
-        self._fp_summary   = {}   # Phase 4 key metrics
-        self._tier_summary = {}   # Phase 5 tier counts + top templates
+        self._fp_summary   = {}   # IS/OOS key metrics
+        self._tier_summary = {}   # Phase 6 tier counts + top templates
 
         # PID Analyzer (Shadow Mode)
         self.pid_analyzer = PIDOscillationAnalyzer()
@@ -247,13 +247,13 @@ class Trainer:
     def run_forward_pass(self, data_source: str,
                          start_date: str = None, end_date: str = None,
                          trade_start_date: str = None,
-                         min_tier: int = None,
                          bias_threshold: float = None,
                          dmi_threshold: float = None,
                          oos_mode: bool = False,
-                         account_size: float = 0.0):
+                         account_size: float = 0.0,
+                         tier_preference: bool = False):
         """
-        Phase 4: Forward pass -- replay full year using playbook.
+        Phase 4 (IS) / Phase 5 (OOS): Forward pass -- replay data using playbook.
         Scans fractal cascade per day, matches templates, trades via ExitEngine.
         Brain learns from outcomes.
 
@@ -282,7 +282,7 @@ class Trainer:
                 _brain_keys_before_oos = set(self.brain.table.keys())
                 _brain_dir_keys_before_oos = set(self.brain.dir_table.keys())
             else:
-                print("PHASE 4: FORWARD PASS (EXECUTION MODE)")
+                print("PHASE 4: IS BACKTEST" if not oos_mode else "PHASE 5: OOS VALIDATION")
             if start_date or end_date:
                 _lo = start_date or "start"
                 _hi = end_date   or "end"
@@ -336,7 +336,7 @@ class Trainer:
         else:
             print(f"  Loaded scaler: Not fitted (no patterns found)")
             if not self.pattern_library:
-                print("  No patterns/templates to simulate. Exiting Phase 4.")
+                print("  No patterns/templates to simulate. Exiting.")
                 return
 
         # Build centroid index for fast matching
@@ -348,17 +348,20 @@ class Trainer:
             print("ERROR: No valid templates in library.")
             return
 
-        # Load tier map before centroid build so we can pre-filter by min_tier
-        _TIER_SCORE_ADJ = {1: -1.5, 2: -0.5, 3: 0.0, 4: 0.5}
+        # Load tier map (read-only labels for signal log + tiebreaker)
+        _TIER_SCORE_ADJ = {1: -1.5, 2: -0.5, 3: 0.0, 4: 0.5} if tier_preference else {}
         tiers_path = os.path.join(self.checkpoint_dir, 'template_tiers.pkl')
         template_tier_map = {}
         if os.path.exists(tiers_path):
             with open(tiers_path, 'rb') as f:
                 template_tier_map = pickle.load(f)
             t1 = sum(1 for v in template_tier_map.values() if v == 1)
-            print(f"  Loaded tier map: {len(template_tier_map)} templates ({t1} Tier 1)")
+            if tier_preference:
+                print(f"  Loaded tier map (TIEBREAKER ACTIVE): {len(template_tier_map)} templates ({t1} Tier 1)")
+            else:
+                print(f"  Loaded tier map (labels only): {len(template_tier_map)} templates ({t1} Tier 1)")
         else:
-            print("  No tier map found -- all templates weighted equally (run strategy report first)")
+            print("  No tier map found -- all templates weighted equally")
 
         # Load per-depth PnL weights computed from the previous forward pass.
         # depth_weights.json is written at the end of each run so the NEXT run
@@ -379,14 +382,6 @@ class Trainer:
                       f"score_adj={_dv.get('score_adj',0):+.2f}  filter={_dv.get('filter_out',False)}")
         else:
             print("  No depth weights found -- uniform depth scoring (run forward pass first to build weights)")
-
-        # Apply min_tier filter -- removes losing tiers from the centroid index entirely
-        # (oracle_trade_log shows Tier 4 = -$52K drag; min_tier=3 -> +$96K vs $44K baseline)
-        if min_tier is not None and template_tier_map:
-            _before = len(valid_template_ids)
-            valid_template_ids = [tid for tid in valid_template_ids
-                                  if template_tier_map.get(tid, 4) <= min_tier]
-            print(f"  Min-tier filter (tier <= {min_tier}): {_before} -> {len(valid_template_ids)} active templates")
 
         centroids = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
         centroids_scaled = self.scaler.transform(centroids)
@@ -1580,7 +1575,7 @@ class Trainer:
         # ═══════════════════════════════════════════════════════════════
         # ORACLE DIRECTION LEARNING (supervised correction)
         # Update pattern library so live starts with corrected direction
-        # profiles, not the Phase 2.5 originals.
+        # profiles, not the Phase 2 Clustering originals.
         # ═══════════════════════════════════════════════════════════════
         _dir_corrections = defaultdict(lambda: {
             'long_correct': 0, 'long_wrong': 0,
@@ -3112,10 +3107,10 @@ class Trainer:
 
     def run_strategy_selection(self):
         """
-        Phase 5: Analyze brain data + regret history to rank strategies.
+        Phase 6: Grade templates on OOS blind validation results. Assign tiers.
         """
         print("\n" + "="*80)
-        print("PHASE 5: STRATEGY SELECTION & RISK SCORING")
+        print("PHASE 6: STRATEGY SELECTION (grading on OOS results)")
         print("="*80)
         if self.dashboard_queue:
             self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Improve',
@@ -3129,46 +3124,43 @@ class Trainer:
         with open(lib_path, 'rb') as f:
             self.pattern_library = pickle.load(f)
 
-        # Try to load brain from latest checkpoint or assume it's loaded
-        # The orchestrator init loads a fresh brain. If we ran forward pass in same process, it's populated.
-        # If running separately, we need to load the brain.
-        # Look for the latest brain checkpoint.
-        brain_files = sorted(glob.glob(os.path.join(self.checkpoint_dir, '*_brain.pkl')))
-        if brain_files:
-            latest_brain = brain_files[-1]
-            self.brain.load(latest_brain)
-            print(f"  Loaded brain state from {os.path.basename(latest_brain)}")
-        else:
-            print("  WARNING: No brain checkpoint found. Using empty brain (or current memory if chained).")
+        # Read OOS trade log — this is the blind validation data
+        import csv as _strat_csv
+        _oos_csv_path = os.path.join(self.checkpoint_dir, 'oos_trade_log.csv')
+        if not os.path.exists(_oos_csv_path):
+            print("ERROR: oos_trade_log.csv not found. Run OOS forward pass first.")
+            return
+        with open(_oos_csv_path, newline='', encoding='utf-8') as _sf:
+            _oos_trades = list(_strat_csv.DictReader(_sf))
+        print(f"  Loaded {len(_oos_trades)} OOS trades for grading")
+
+        # Group trades by template_id
+        history_by_template = defaultdict(list)
+        for row in _oos_trades:
+            tid = row.get('template_id', '')
+            # template_id may be int or str depending on CSV
+            try:
+                tid = int(tid)
+            except (ValueError, TypeError):
+                pass
+            history_by_template[tid].append(float(row.get('actual_pnl', 0)))
 
         tier1_templates = []
         report_data = []
 
-        print(f"\nAnalyzing {len(self.pattern_library)} strategies...")
-
-        # Pre-group history by template_id for O(1) lookup
-        history_by_template = defaultdict(list)
-        for trade in self.brain.trade_history:
-            if trade.template_id is not None:
-                history_by_template[trade.template_id].append(trade)
+        print(f"\nAnalyzing {len(self.pattern_library)} strategies against OOS results...")
 
         for tid in self.pattern_library:
-            stats = self.brain.get_stats(tid)
-            prob = stats['probability']
-            conf = stats['confidence']
-            total = stats['total']
+            pnls = history_by_template.get(tid, [])
+            total = len(pnls)
 
-            # Calculate Risk Metrics from history
-            history = history_by_template.get(tid, [])
-
-            if not history:
+            if not pnls:
                 sharpe = 0.0
                 max_dd = 0.0
                 win_rate = 0.0
-                risk_score = 1.0 # High risk if unknown
+                risk_score = 1.0  # High risk if unseen in OOS
                 avg_pnl = 0.0
             else:
-                pnls = [t.pnl for t in history]
                 wins = [p for p in pnls if p > 0]
                 losses = [p for p in pnls if p <= 0]
 
@@ -3197,32 +3189,25 @@ class Trainer:
                     else:
                         curr_consec = 0
 
-                # Risk Score Formula
-                # 0.3 * (1 - win_rate) +
-                # 0.3 * (abs(avg_loss) / (avg_win + 1e-6)) +
-                # 0.2 * (max_consec_loss / 10.0) +
-                # 0.2 * (abs(max_dd) / (sum(wins) + 1e-6))  # vs total gains? or total pnl?
-                # Prompt said: abs(max_dd) / (total_pnl + 1e-6)
-
                 total_gain = sum(wins)
                 dd_ratio = abs(max_dd) / (total_gain + 1e-6) if total_gain > 0 else 1.0
                 loss_ratio = abs(avg_loss) / (avg_win + 1e-6)
 
                 risk_score = (
                     0.3 * (1.0 - win_rate) +
-                    0.3 * min(loss_ratio, 2.0) + # Cap ratio
+                    0.3 * min(loss_ratio, 2.0) +
                     0.2 * min(max_consec_loss / 10.0, 1.0) +
                     0.2 * min(dd_ratio, 1.0)
                 )
 
-            # Determine Tier (use actual win_rate from history, not brain's Bayesian prob)
-            tier = 3  # Default: UNPROVEN
+            # Tier assignment based on OOS performance (blind validation)
+            tier = 3  # Default: UNPROVEN (not seen in OOS)
             if total >= 20 and win_rate > 0.45 and avg_pnl > 0 and sharpe > 0.3:
-                tier = 1  # PRODUCTION
+                tier = 1  # PRODUCTION — proven on unseen data
             elif total >= 10 and win_rate > 0.40 and avg_pnl > 0:
                 tier = 2  # PROMISING
             elif total >= 10 and (win_rate < 0.35 or avg_pnl < 0):
-                tier = 4  # TOXIC
+                tier = 4  # TOXIC — failed blind validation
 
             _lib = self.pattern_library.get(tid, {})
             _sname = _lib.get('semantic_name', '') or ''
@@ -3323,11 +3308,11 @@ class Trainer:
         # Dimensions: template, direction, oracle_label, time-of-day.
         import csv as _csv
         import datetime as _dt
-        oracle_csv = os.path.join(self.checkpoint_dir, 'oracle_trade_log.csv')
+        # Pareto analysis on OOS trades (same data used for tier grading)
+        oracle_csv = _oos_csv_path
         if os.path.exists(oracle_csv):
             try:
-                with open(oracle_csv, newline='', encoding='utf-8') as f:
-                    rows = list(_csv.DictReader(f))
+                rows = _oos_trades  # already loaded above
 
                 # Only winning trades with positive actual_pnl
                 profit_rows = [r for r in rows if float(r.get('actual_pnl', 0)) > 0]
@@ -3449,7 +3434,7 @@ class Trainer:
             print(f"  WARNING: Path does not exist!")
 
         # ===================================================================
-        # PHASE 2: Pattern Discovery (with checkpoint/resume)
+        # PHASE 1: Discovery (with checkpoint/resume)
         # ===================================================================
         manifest = None
         templates = None
@@ -3457,12 +3442,12 @@ class Trainer:
         if ckpt.has_discovery():
             cached_manifest, cached_levels = ckpt.load_discovery()
             if cached_manifest is not None:
-                print(f"\n[RESUME] Phase 2: Loaded {len(cached_manifest)} patterns "
+                print(f"\n[RESUME] Phase 1 Discovery: Loaded {len(cached_manifest)} patterns "
                       f"from {len(cached_levels)} completed levels")
                 manifest = cached_manifest
 
         if manifest is None:
-            print("\nPhase 2: Fractal Top-Down Discovery...")
+            print("\nPhase 1: Discovery — Fractal Top-Down Scan...")
             ckpt.update_phase('discovery', 'in_progress')
             if self.dashboard_queue:
                 self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Discover',
@@ -3522,15 +3507,15 @@ class Trainer:
             print(f"  By depth: {dict(sorted(depth_counts.items()))}")
 
         # ===================================================================
-        # PHASE 2.5: Recursive Clustering (with checkpoint)
+        # PHASE 2: Clustering (with checkpoint)
         # ===================================================================
         if ckpt.has_templates():
             templates = ckpt.load_templates()
             if templates is not None:
-                print(f"\n[RESUME] Phase 2.5: Loaded {len(templates)} templates from checkpoint")
+                print(f"\n[RESUME] Phase 2 Clustering: Loaded {len(templates)} templates from checkpoint")
 
         if templates is None:
-            print("\nPhase 2.5: Generating Physically Tight Templates...")
+            print("\nPhase 2 Clustering: Generating Physically Tight Templates...")
             ckpt.update_phase('clustering', 'in_progress')
             if self.dashboard_queue:
                 self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Cluster',
@@ -3543,7 +3528,7 @@ class Trainer:
             templates = clustering_engine.create_templates(manifest)
             print(f"  Condensed {len(manifest)} raw patterns into {len(templates)} Tight Templates.")
 
-            # Save scaler for Phase 4
+            # Save scaler for IS/OOS forward passes
             import pickle as _pickle
             scaler_path = os.path.join(self.checkpoint_dir, 'clustering_scaler.pkl')
             with open(scaler_path, 'wb') as f:
@@ -3590,7 +3575,7 @@ class Trainer:
 
         ckpt.update_phase('optimization', 'in_progress')
 
-        # We need a clustering engine for fission checks (may not exist if we resumed past Phase 2.5)
+        # We need a clustering engine for fission checks (may not exist if we resumed past Phase 2 Clustering)
         try:
             clustering_engine
         except NameError:
@@ -3745,7 +3730,7 @@ class Trainer:
         print(f"    Total validated PnL: ${total_val_pnl:.2f}")
         print(f"    Time: {phase3_elapsed:.1f}s")
 
-        # Save pattern library for Phase 4
+        # Save pattern library for IS/OOS forward passes
         lib_path = os.path.join(self.checkpoint_dir, 'pattern_library.pkl')
         with open(lib_path, 'wb') as f:
             pickle.dump(self.pattern_library, f)
@@ -4368,6 +4353,53 @@ def check_and_install_requirements():
         print(f"WARNING: Could not check dependencies: {e}")
 
 
+def _print_oos_comparison(oos1: dict, oos2: dict):
+    """Print OOS₁ vs OOS₂ comparison showing tier preference impact."""
+    print("\n" + "=" * 80)
+    print("  PLAYBOOK TIEBREAKER COMPARISON: OOS₁ (blind) vs OOS₂ (tier preference)")
+    print("=" * 80)
+    _metrics = [
+        ('Trades',   'total_trades', '{:>7,}'),
+        ('Win Rate',  'win_rate',    '{:>6.1%}'),
+        ('Total PnL', 'total_pnl',  '${:>10,.2f}'),
+        ('$/trade',   None,         '${:>8,.2f}'),
+    ]
+    print(f"  {'Metric':<14}  {'OOS₁':>12}  {'OOS₂':>12}  {'Delta':>12}")
+    print(f"  {'─'*14}  {'─'*12}  {'─'*12}  {'─'*12}")
+    for label, key, fmt in _metrics:
+        if key is None:  # $/trade computed
+            t1, t2 = oos1.get('total_trades', 1) or 1, oos2.get('total_trades', 1) or 1
+            v1 = oos1.get('total_pnl', 0) / t1
+            v2 = oos2.get('total_pnl', 0) / t2
+        else:
+            v1, v2 = oos1.get(key, 0), oos2.get(key, 0)
+        d = v2 - v1
+        f1 = fmt.format(v1)
+        f2 = fmt.format(v2)
+        # Delta formatting
+        if isinstance(v1, float) and 'rate' in (key or ''):
+            fd = f'{d:>+.1%}'
+        elif '$' in fmt:
+            fd = f'${d:>+,.2f}'
+        else:
+            fd = f'{d:>+,}'
+        print(f"  {label:<14}  {f1:>12}  {f2:>12}  {fd:>12}")
+    _pnl_d = oos2.get('total_pnl', 0) - oos1.get('total_pnl', 0)
+    verdict = "HELPS" if _pnl_d > 0 else "HURTS" if _pnl_d < 0 else "NEUTRAL"
+    print(f"\n  Verdict: Tier preference tiebreaker {verdict} (${_pnl_d:+,.2f})")
+    print("=" * 80)
+
+    # Save to file
+    import datetime as _cdt
+    _comp_path = os.path.join('reports', 'playbook_comparison.txt')
+    with open(_comp_path, 'w') as _cf:
+        _cf.write(f"Playbook Tiebreaker Comparison ({_cdt.datetime.now():%Y-%m-%d %H:%M})\n")
+        _cf.write(f"OOS₁ PnL: ${oos1.get('total_pnl', 0):,.2f}  "
+                  f"OOS₂ PnL: ${oos2.get('total_pnl', 0):,.2f}  "
+                  f"Delta: ${_pnl_d:+,.2f}  Verdict: {verdict}\n")
+    print(f"  Saved: {_comp_path}")
+
+
 def main():
     """Single entry point - command line interface"""
     from core.keep_awake import keep_awake
@@ -4383,12 +4415,8 @@ def main():
     parser.add_argument('--checkpoint-dir', type=str, default="checkpoints", help="Checkpoint directory")
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
-    parser.add_argument('--fresh', action='store_true', help="Wipe checkpoints + full pipeline: Train → IS → Strategy → OOS")
-    parser.add_argument('--forward-pass', action='store_true', help="IS → Strategy → OOS only (reuse existing checkpoints, skip training)")
-    parser.add_argument('--passes', type=int, default=1, metavar='N',
-                        help="Run IS forward pass N times. Exit params (halflife, giveback) "
-                             "carry between passes — each refines from the previous. "
-                             "Final pass feeds into strategy selection + OOS.")
+    parser.add_argument('--fresh', action='store_true', help="Wipe checkpoints + full pipeline: Train → IS → OOS → Strategy → OOS₂ verify")
+    parser.add_argument('--forward-pass', action='store_true', help="IS → OOS → Strategy → OOS₂ verify (reuse existing checkpoints, skip training)")
     parser.add_argument('--depth-iso', action='store_true',
                         help="Run per-depth isolation analysis: forward pass once per depth (1-12), "
                              "no capital blocking between depths. Prints comparison table at end.")
@@ -4415,15 +4443,13 @@ def main():
                         help="Auto-set --forward-end to last Friday (most recent weekend cutoff). "
                              "Use before going live: trains on all data up to last week, "
                              "keeps the final week clean for live trading.")
-    parser.add_argument('--min-tier', type=int, default=None, choices=[1, 2, 3, 4],
-                        help="Only activate templates of this tier or better (1=Tier1 only, 3=drop Tier4 losers)")
     parser.add_argument('--bias-threshold', type=float, default=None,
                         help="Oracle bias threshold for direction lock (default 0.55). Lower = more oracle-locked trades.")
     parser.add_argument('--dmi-threshold', type=float, default=None,
                         help="Min |dmi_diff| required to use DMI signal (default 0.0 = any non-zero DMI counts).")
     parser.add_argument('--sweep-params', action='store_true',
                         help="Post-hoc DOE: sweep filter combinations on oracle_trade_log.csv and rank by net PnL")
-    parser.add_argument('--strategy-report', action='store_true', help="Run Phase 5 strategy selection report")
+    parser.add_argument('--strategy-report', action='store_true', help="Run Phase 6 strategy selection (requires OOS trade log)")
     parser.add_argument('--forward-data', type=str, default=None, metavar='PATH',
                         help="Custom data path for forward pass (skips auto-OOS chain)")
     parser.add_argument('--skip-oos', action='store_true',
@@ -4441,7 +4467,7 @@ def main():
                         help="Ping-pong: override trail ticks (0=inherit)")
 
     # Monte Carlo Flags (opt-in with --mc)
-    parser.add_argument('--mc', action='store_true', help='Enable Monte Carlo sweep after Bayesian Phase 3')
+    parser.add_argument('--mc', action='store_true', help='Enable Monte Carlo sweep after Phase 3 Optimization')
     parser.add_argument('--mc-iters', type=int, default=2000, help='Monte Carlo iterations per (template, timeframe) combo')
     parser.add_argument('--mc-only', action='store_true', help='Skip discovery, just run Monte Carlo from existing templates')
     parser.add_argument('--anova-only', action='store_true', help='Skip MC sweep, just run ANOVA on existing results')
@@ -4556,56 +4582,76 @@ def main():
                                             end_date=args.forward_end,
                                             oos_mode=args.oos)
         elif args.oos and not args.forward_pass and not args.fresh:
-            # Standalone OOS rerun (Phase 6 only)
+            # Standalone OOS rerun (Phase 5 only)
             _oos_data = getattr(args, 'forward_data', None) or os.path.join('DATA', 'ATLAS_OOS')
             _oos_end = getattr(args, '_live_prep_cutoff', None) or args.forward_end
             orchestrator.run_forward_pass(_oos_data,
                                           start_date=args.forward_start,
                                           end_date=_oos_end,
-                                          min_tier=args.min_tier,
+
                                           bias_threshold=args.bias_threshold,
                                           dmi_threshold=args.dmi_threshold,
                                           oos_mode=True,
                                           account_size=args.account_size)
         elif (args.forward_pass or args.oos) and not args.fresh:
-            # Phase 4 IS → Phase 5 Strategy → Phase 6 OOS (auto-chain)
+            # Phase 4 IS → Phase 5 OOS₁ → Phase 6 Strategy → OOS₂ verify
             _fwd_data = getattr(args, 'forward_data', None) or args.data
             orchestrator.run_forward_pass(_fwd_data,
                                           start_date=args.forward_start,
                                           end_date=args.forward_end,
                                           trade_start_date=args.trade_start,
-                                          min_tier=args.min_tier,
                                           bias_threshold=args.bias_threshold,
                                           dmi_threshold=args.dmi_threshold,
                                           oos_mode=args.oos,
                                           account_size=args.account_size)
-            orchestrator.run_strategy_selection()  # always run Phase 5
 
-            # Auto-chain OOS if ATLAS_OOS exists and not suppressed
+            # Auto-chain OOS₁ → Strategy → OOS₂ verify
             _oos_path = os.path.join('DATA', 'ATLAS_OOS')
             if (not args.skip_oos
                     and not getattr(args, 'forward_data', None)
                     and not args.oos
                     and os.path.isdir(_oos_path)):
-                print("\n" + "=" * 80)
-                print("  AUTO-CHAINING: OOS Blind Validation (Phase 6)")
-                print("=" * 80)
                 _oos_end = getattr(args, '_live_prep_cutoff', None) or args.forward_end
+
+                # Phase 5: OOS₁ (blind, no tier preference)
+                print("\n" + "=" * 80)
+                print("  PHASE 5: OOS VALIDATION (blind, no tier preference)")
+                print("=" * 80)
                 orchestrator.run_forward_pass(_oos_path,
                                               start_date=args.forward_start,
                                               end_date=_oos_end,
-                                              min_tier=args.min_tier,
                                               bias_threshold=args.bias_threshold,
                                               dmi_threshold=args.dmi_threshold,
                                               oos_mode=True,
                                               account_size=args.account_size)
+                _oos1 = dict(orchestrator._fp_summary)
+
+                # Phase 6: Strategy (grades on OOS trade log)
+                orchestrator.run_strategy_selection()
+
+                # OOS₂: re-run with tier preference tiebreaker
+                print("\n" + "=" * 80)
+                print("  OOS₂ VERIFICATION (tier preference tiebreaker active)")
+                print("=" * 80)
+                orchestrator.run_forward_pass(_oos_path,
+                                              start_date=args.forward_start,
+                                              end_date=_oos_end,
+                                              bias_threshold=args.bias_threshold,
+                                              dmi_threshold=args.dmi_threshold,
+                                              oos_mode=True,
+                                              account_size=args.account_size,
+                                              tier_preference=True)
+                _oos2 = dict(orchestrator._fp_summary)
+
+                # Comparison: OOS₁ vs OOS₂
+                _print_oos_comparison(_oos1, _oos2)
         elif args.strategy_report and not args.forward_pass:
-            orchestrator.run_strategy_selection()
+            orchestrator.run_strategy_selection()  # requires oos_trade_log.csv to exist
         else:
             # Full pipeline
             if args.mc_only:
                 # MC-only: skip discovery, load existing library
-                print("Skipping Phase 2/2.5, loading existing library...")
+                print("Skipping Phase 1/2, loading existing library...")
                 lib_path = os.path.join(orchestrator.checkpoint_dir, 'pattern_library.pkl')
                 if os.path.exists(lib_path):
                     with open(lib_path, 'rb') as f:
@@ -4614,7 +4660,7 @@ def main():
                     print("ERROR: pattern_library.pkl not found for --mc-only")
                     return 1
             else:
-                # Phase 2 (Discovery) + 2.5 (Clustering) + 3 (Bayesian DOE Optimization)
+                # Phase 1 (Discovery) + 2 (Clustering) + 3 (Optimization)
                 orchestrator.train(args.data)
 
             if args.mc or args.mc_only:
@@ -4640,119 +4686,63 @@ def main():
                 refined_strategies = refiner.refine()
                 orchestrator.run_final_validation(refined_strategies)
             else:
-                # Default: Bayesian path -> IS Forward Pass -> Strategy -> OOS
+                # Default: Bayesian path -> IS -> OOS₁ -> Strategy -> OOS₂ (verify)
                 _fwd_data = getattr(args, 'forward_data', None) or args.data
-                _n_iter = getattr(args, 'passes', 1)
-                _iter_results = []
-                for _iter_i in range(1, _n_iter + 1):
-                    _ee_pre = getattr(orchestrator, '_persisted_exit_engine', None)
-                    _hl_pre = _ee_pre.envelope_half_life_bars if _ee_pre else 20
-                    _gb_pre = _ee_pre.giveback_pct if _ee_pre else 0.70
-                    if _n_iter > 1:
-                        print(f"\n{'='*80}")
-                        print(f"  ITERATION {_iter_i}/{_n_iter}  "
-                              f"(halflife={_hl_pre:.1f}  giveback={_gb_pre:.0%})")
-                        print(f"{'='*80}")
-                    orchestrator.run_forward_pass(_fwd_data,
+
+                # Phase 4: IS Backtest
+                orchestrator.run_forward_pass(_fwd_data,
                                               start_date=args.forward_start,
                                               end_date=args.forward_end,
-                                              min_tier=args.min_tier,
                                               bias_threshold=args.bias_threshold,
                                               dmi_threshold=args.dmi_threshold,
                                               oos_mode=getattr(args, 'oos', False),
                                               account_size=getattr(args, 'account_size', 0.0))
-                    _s = orchestrator._fp_summary
-                    _ee_post = orchestrator._persisted_exit_engine
-                    _iter_results.append({
-                        'iter': _iter_i,
-                        'trades': _s.get('total_trades', 0),
-                        'wr': _s.get('win_rate', 0) * 100,
-                        'pnl': _s.get('total_pnl', 0),
-                        'hl_in': _hl_pre,
-                        'gb_in': _gb_pre,
-                        'hl_out': _ee_post.envelope_half_life_bars,
-                        'gb_out': _ee_post.giveback_pct,
-                    })
-                orchestrator.run_strategy_selection()
+
                 if args.depth_iso:
                     orchestrator.run_depth_analysis(args.data,
                                                     start_date=args.forward_start,
                                                     end_date=args.forward_end,
                                                     oos_mode=getattr(args, 'oos', False))
 
-                # Auto-chain OOS if ATLAS_OOS exists and not suppressed
+                # Auto-chain OOS + Strategy + OOS₂ verify
                 _oos_path = os.path.join('DATA', 'ATLAS_OOS')
                 if (not getattr(args, 'skip_oos', False)
                         and not getattr(args, 'forward_data', None)
                         and os.path.isdir(_oos_path)):
-                    print("\n" + "=" * 80)
-                    print("  AUTO-CHAINING: OOS Blind Validation (Phase 6)")
-                    print("=" * 80)
                     _oos_end = getattr(args, '_live_prep_cutoff', None) or args.forward_end
+
+                    # Phase 5: OOS₁ (blind, no tier preference)
+                    print("\n" + "=" * 80)
+                    print("  PHASE 5: OOS VALIDATION (blind, no tier preference)")
+                    print("=" * 80)
                     orchestrator.run_forward_pass(_oos_path,
                                               start_date=args.forward_start,
                                               end_date=_oos_end,
-                                              min_tier=args.min_tier,
                                               bias_threshold=args.bias_threshold,
                                               dmi_threshold=args.dmi_threshold,
                                               oos_mode=True,
                                               account_size=getattr(args, 'account_size', 0.0))
-                    # Capture OOS results for comparison report
-                    _oos_s = orchestrator._fp_summary
-                    _oos_ee = orchestrator._persisted_exit_engine
-                    _iter_results.append({
-                        'iter': 'OOS',
-                        'trades': _oos_s.get('total_trades', 0),
-                        'wr': _oos_s.get('win_rate', 0) * 100,
-                        'pnl': _oos_s.get('total_pnl', 0),
-                        'hl_in': _oos_ee.envelope_half_life_bars,
-                        'gb_in': _oos_ee.giveback_pct,
-                        'hl_out': _oos_ee.envelope_half_life_bars,
-                        'gb_out': _oos_ee.giveback_pct,
-                    })
+                    _oos1 = dict(orchestrator._fp_summary)
 
-                # Write iteration comparison report to file
-                if _n_iter > 1 and _iter_results:
-                    _comp_lines = []
-                    import datetime as _cdt
-                    _comp_lines.append(f"{'='*80}")
-                    _comp_lines.append(f"PASS COMPARISON REPORT  ({_cdt.datetime.now():%Y-%m-%d %H:%M:%S})")
-                    _comp_lines.append(f"  {_n_iter} IS passes + OOS validation")
-                    _comp_lines.append(f"{'='*80}")
-                    _comp_lines.append("")
-                    _comp_lines.append(f"  {'Pass':>6}  {'Trades':>6}  {'WR%':>6}  {'PnL':>10}  {'$/trade':>8}  "
-                                       f"{'HL in':>6}  {'HL out':>6}  {'GB in':>6}  {'GB out':>6}")
-                    _comp_lines.append(f"  {'─'*6}  {'─'*6}  {'─'*6}  {'─'*10}  {'─'*8}  "
-                                       f"{'─'*6}  {'─'*6}  {'─'*6}  {'─'*6}")
-                    for r in _iter_results:
-                        _lbl = f"IS {r['iter']}" if isinstance(r['iter'], int) else str(r['iter'])
-                        _avg = r['pnl'] / r['trades'] if r['trades'] > 0 else 0
-                        _comp_lines.append(
-                            f"  {_lbl:>6}  {r['trades']:>6}  {r['wr']:>5.1f}%  "
-                            f"${r['pnl']:>9,.0f}  ${_avg:>6,.1f}  {r['hl_in']:>6.1f}  {r['hl_out']:>6.1f}  "
-                            f"{r['gb_in']:>5.0%}  {r['gb_out']:>5.0%}")
-                    # Delta row: first IS vs OOS
-                    if len(_iter_results) >= 2:
-                        _first = _iter_results[0]
-                        _last = _iter_results[-1]
-                        _d_trades = _last['trades'] - _first['trades']
-                        _d_wr = _last['wr'] - _first['wr']
-                        _d_pnl = _last['pnl'] - _first['pnl']
-                        _avg_f = _first['pnl'] / _first['trades'] if _first['trades'] else 0
-                        _avg_l = _last['pnl'] / _last['trades'] if _last['trades'] else 0
-                        _comp_lines.append(f"  {'─'*6}  {'─'*6}  {'─'*6}  {'─'*10}  {'─'*8}  "
-                                           f"{'─'*6}  {'─'*6}  {'─'*6}  {'─'*6}")
-                        _comp_lines.append(
-                            f"  {'Delta':>6}  {_d_trades:>+6}  {_d_wr:>+5.1f}%  "
-                            f"${_d_pnl:>+9,.0f}  ${_avg_l - _avg_f:>+6,.1f}  "
-                            f"{'':>6}  {'':>6}  {'':>6}  {'':>6}")
-                    _comp_lines.append("")
-                    _comp_text = '\n'.join(_comp_lines)
-                    print(f"\n{_comp_text}")
-                    _comp_path = os.path.join('reports', 'pass_comparison.txt')
-                    with open(_comp_path, 'w') as _cf:
-                        _cf.write(_comp_text + '\n')
-                    print(f"  Saved: {_comp_path}")
+                    # Phase 6: Strategy (grades on OOS trade log)
+                    orchestrator.run_strategy_selection()
+
+                    # OOS₂: re-run with tier preference tiebreaker
+                    print("\n" + "=" * 80)
+                    print("  OOS₂ VERIFICATION (tier preference tiebreaker active)")
+                    print("=" * 80)
+                    orchestrator.run_forward_pass(_oos_path,
+                                              start_date=args.forward_start,
+                                              end_date=_oos_end,
+                                              bias_threshold=args.bias_threshold,
+                                              dmi_threshold=args.dmi_threshold,
+                                              oos_mode=True,
+                                              account_size=getattr(args, 'account_size', 0.0),
+                                              tier_preference=True)
+                    _oos2 = dict(orchestrator._fp_summary)
+
+                    # Comparison: OOS₁ vs OOS₂
+                    _print_oos_comparison(_oos1, _oos2)
 
         orchestrator.print_bottom_line()
         return 0
