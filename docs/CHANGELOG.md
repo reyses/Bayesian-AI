@@ -2,6 +2,17 @@
 
 ---
 
+## [Unreleased]
+
+### Fixes
+- `fix: n_members→member_count bug (exception filter was dead), fix history NameError in strategy selection` (bc9ef49)
+  - `trainer.py`, `live_engine.py`: exception template filter was always seeing 0, now reads actual member_count from pattern library
+  - `trainer.py`: leftover from CSV rewrite that crashed Phase 6 fixed (`sum(t.pnl for t in history)→sum(pnls)`)
+  - `research_belief_flip.py`: simplified to just member_count check
+  - Updated IS/OOS reports from latest run
+
+---
+
 ## [V5.0.0] - 2026-02-19 — PID Oscillation Shadow System
 
 ### New
