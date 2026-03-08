@@ -248,6 +248,16 @@ class LiveEngine:
         self._session_start = time.time()
         self._trade_logger = TradeLogger()  # per-trade diagnostic CSV
 
+        # Drawdown survival tracking
+        self._consec_losses = 0           # current streak of consecutive losses
+        self._consec_loss_dollars = 0.0   # cumulative $ lost in current streak
+        self._max_consec_losses = 0       # worst streak this session
+        self._max_consec_loss_dollars = 0.0  # worst streak $ this session
+        self._peak_equity = 0.0           # high water mark of session PnL
+        self._session_drawdown = 0.0      # current drawdown from peak
+        self._max_session_drawdown = 0.0  # worst drawdown this session
+        self._consec_wins = 0             # current streak of consecutive wins
+
         # Gate rejection counters (for session report)
         self._gate_stats = {
             'bars_seen': 0,
@@ -1399,7 +1409,17 @@ class LiveEngine:
         L.append(f"Total Trades: {self._session_trades}")
         L.append(f"Win Rate: {wr:.1f}%")
         L.append(f"Total PnL: ${self._session_pnl:+,.2f}")
+        L.append(f"Profit Factor: {pf:.2f}")
+        L.append(f"Avg Trade: ${avg:+,.2f}")
         L.append("=" * 72)
+
+        # ── Drawdown & Survival ──
+        L.append("")
+        L.append("── DRAWDOWN & SURVIVAL ──")
+        L.append(f"  Max Consecutive Losses: {self._max_consec_losses}")
+        L.append(f"  Max Consec Loss $:      ${self._max_consec_loss_dollars:,.2f}")
+        L.append(f"  Peak Equity:            ${self._peak_equity:+,.2f}")
+        L.append(f"  Max Session Drawdown:   ${self._max_session_drawdown:,.2f}")
 
         # ── Per-depth PnL breakdown ──
         L.append("")
@@ -1640,8 +1660,25 @@ class LiveEngine:
         if pnl > 0:
             self._session_wins += 1
             self._gross_win += pnl
+            self._consec_wins += 1
+            self._consec_losses = 0
+            self._consec_loss_dollars = 0.0
         else:
             self._gross_loss += pnl
+            self._consec_losses += 1
+            self._consec_loss_dollars += abs(pnl)
+            self._consec_wins = 0
+            if self._consec_losses > self._max_consec_losses:
+                self._max_consec_losses = self._consec_losses
+            if self._consec_loss_dollars > self._max_consec_loss_dollars:
+                self._max_consec_loss_dollars = self._consec_loss_dollars
+
+        # Drawdown tracking (equity curve)
+        if self._session_pnl > self._peak_equity:
+            self._peak_equity = self._session_pnl
+        self._session_drawdown = self._peak_equity - self._session_pnl
+        if self._session_drawdown > self._max_session_drawdown:
+            self._max_session_drawdown = self._session_drawdown
 
         # Capture bucket (MFE-based exit quality)
         hwm = getattr(self, '_last_high_water', entry_px)
