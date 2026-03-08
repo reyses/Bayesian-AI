@@ -821,7 +821,6 @@ class ExecutionEngine:
 
         Priority order:
           -1  Ping-pong live bias (caller provides override)
-           0  Oracle marker (IS only)
          0.5  Signed MFE regression (learned)
            1  Per-cluster logistic regression
          1.5  Brain direction-specific win rate
@@ -836,13 +835,6 @@ class ExecutionEngine:
         # ── Priority -1: Ping-pong / live direction override ──
         if pp_dir_override is not None:
             return pp_dir_override, 0.65, 'pp_override'
-
-        # ── Priority 0: Oracle marker (IS mode only) ──────────
-        if self.mode == 'is' and oracle_marker is not None:
-            if oracle_marker > 0:
-                return 'long', 0.7, 'oracle'
-            elif oracle_marker < 0:
-                return 'short', 0.3, 'oracle'
 
         # ── Priority 0.5: Signed MFE regression ──────────────
         _smfe_coeff = lib_entry.get('signed_mfe_coeff')

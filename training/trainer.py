@@ -2305,6 +2305,44 @@ class Trainer:
         report_lines.append(f"    Actual profit:                               ${total_pnl:>12,.2f}  ({total_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else f"    Actual profit: ${total_pnl:.2f}")
         report_lines.append(f"    [info] Score-competition pool (took better same bar): ${score_loser_pnl:>12,.2f}  (not missed -- golden path chose better candidate)")
 
+        # ── 5b. Detection rate by depth ──────────────────────────────────────
+        # "Of all real moves oracle saw at each depth, how many did we trade?"
+        _sec['detection_rate'] = len(report_lines)
+        if oracle_trade_records or fn_oracle_records:
+            from collections import defaultdict as _ddr
+            _det_traded   = _ddr(int)    # traded real moves per depth
+            _det_missed   = _ddr(int)    # missed real moves per depth
+            _det_missed_pnl = _ddr(float)
+            # Count traded real moves (TP + FP_WRONG, not noise)
+            for _r in oracle_trade_records:
+                if _r.get('oracle_label', 0) != 0:  # real move, not noise
+                    _d = _r.get('entry_depth', 6)
+                    _det_traded[_d] += 1
+            # Count missed real moves (FN)
+            for _r in fn_oracle_records:
+                _d = _r.get('depth', 6)
+                _det_missed[_d] += 1
+                _det_missed_pnl[_d] += _r.get('fn_potential_pnl', 0.0)
+            _all_depths = sorted(set(_det_traded) | set(_det_missed))
+            if _all_depths:
+                _total_real = sum(_det_traded.values()) + sum(_det_missed.values())
+                _total_traded_real = sum(_det_traded.values())
+                _total_det_rate = _total_traded_real / _total_real * 100 if _total_real else 0
+                report_lines.append("")
+                report_lines.append(f"  DETECTION RATE BY DEPTH (real moves: traded vs missed)")
+                report_lines.append(f"    Overall: {_total_traded_real:,}/{_total_real:,} = {_total_det_rate:.1f}% detection rate")
+                report_lines.append(f"    {'Depth':<16} {'Traded':>8} {'Missed':>8} {'Total':>8} {'Rate':>8} {'Missed $':>12}")
+                report_lines.append(f"    {'-----':<16} {'------':>8} {'------':>8} {'-----':>8} {'----':>8} {'--------':>12}")
+                for _d in _all_depths:
+                    _t = _det_traded[_d]
+                    _m = _det_missed[_d]
+                    _tot = _t + _m
+                    _rate = _t / _tot * 100 if _tot else 0
+                    _mpnl = _det_missed_pnl[_d]
+                    _lbl = _DEPTH_LABELS.get(_d, str(_d))
+                    _flag = "  <- blind spot" if _rate < 30 and _tot >= 10 else ""
+                    report_lines.append(f"    {_lbl:<16} {_t:>8,} {_m:>8,} {_tot:>8,} {_rate:>7.1f}% ${_mpnl:>10,.2f}{_flag}")
+
         # ── DIRECTION LEARNING SUMMARY ────────────────────────────────────
         if _dir_corrections:
             _sec['direction_learning'] = len(report_lines)
@@ -4367,9 +4405,9 @@ def check_and_install_requirements():
 
 
 def _print_oos_comparison(oos1: dict, oos2: dict):
-    """Print OOS₁ vs OOS₂ comparison showing tier preference impact."""
+    """Print OOS1 vs OOS2 comparison showing tier preference impact."""
     print("\n" + "=" * 80)
-    print("  PLAYBOOK TIEBREAKER COMPARISON: OOS₁ (blind) vs OOS₂ (tier preference)")
+    print("  PLAYBOOK TIEBREAKER COMPARISON: OOS1 (blind) vs OOS2 (tier preference)")
     print("=" * 80)
     _metrics = [
         ('Trades',   'total_trades', '{:>7,}'),
@@ -4377,7 +4415,7 @@ def _print_oos_comparison(oos1: dict, oos2: dict):
         ('Total PnL', 'total_pnl',  '${:>10,.2f}'),
         ('$/trade',   None,         '${:>8,.2f}'),
     ]
-    print(f"  {'Metric':<14}  {'OOS₁':>12}  {'OOS₂':>12}  {'Delta':>12}")
+    print(f"  {'Metric':<14}  {'OOS1':>12}  {'OOS2':>12}  {'Delta':>12}")
     print(f"  {'─'*14}  {'─'*12}  {'─'*12}  {'─'*12}")
     for label, key, fmt in _metrics:
         if key is None:  # $/trade computed
@@ -4405,10 +4443,10 @@ def _print_oos_comparison(oos1: dict, oos2: dict):
     # Save to file
     import datetime as _cdt
     _comp_path = os.path.join('reports', 'playbook_comparison.txt')
-    with open(_comp_path, 'w') as _cf:
+    with open(_comp_path, 'w', encoding='utf-8') as _cf:
         _cf.write(f"Playbook Tiebreaker Comparison ({_cdt.datetime.now():%Y-%m-%d %H:%M})\n")
-        _cf.write(f"OOS₁ PnL: ${oos1.get('total_pnl', 0):,.2f}  "
-                  f"OOS₂ PnL: ${oos2.get('total_pnl', 0):,.2f}  "
+        _cf.write(f"OOS1 PnL: ${oos1.get('total_pnl', 0):,.2f}  "
+                  f"OOS2 PnL: ${oos2.get('total_pnl', 0):,.2f}  "
                   f"Delta: ${_pnl_d:+,.2f}  Verdict: {verdict}\n")
     print(f"  Saved: {_comp_path}")
 
@@ -4428,8 +4466,8 @@ def main():
     parser.add_argument('--checkpoint-dir', type=str, default="checkpoints", help="Checkpoint directory")
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
-    parser.add_argument('--fresh', action='store_true', help="Wipe checkpoints + full pipeline: Train → IS → OOS → Strategy → OOS₂ verify")
-    parser.add_argument('--forward-pass', action='store_true', help="IS → OOS → Strategy → OOS₂ verify (reuse existing checkpoints, skip training)")
+    parser.add_argument('--fresh', action='store_true', help="Wipe checkpoints + full pipeline: Train → IS → OOS → Strategy → OOS2 verify")
+    parser.add_argument('--forward-pass', action='store_true', help="IS → OOS → Strategy → OOS2 verify (reuse existing checkpoints, skip training)")
     parser.add_argument('--depth-iso', action='store_true',
                         help="Run per-depth isolation analysis: forward pass once per depth (1-12), "
                              "no capital blocking between depths. Prints comparison table at end.")
@@ -4607,7 +4645,7 @@ def main():
                                           oos_mode=True,
                                           account_size=args.account_size)
         elif (args.forward_pass or args.oos) and not args.fresh:
-            # Phase 4 IS → Phase 5 OOS₁ → Phase 6 Strategy → OOS₂ verify
+            # Phase 4 IS → Phase 5 OOS1 → Phase 6 Strategy → OOS2 verify
             _fwd_data = getattr(args, 'forward_data', None) or args.data
             orchestrator.run_forward_pass(_fwd_data,
                                           start_date=args.forward_start,
@@ -4618,7 +4656,7 @@ def main():
                                           oos_mode=args.oos,
                                           account_size=args.account_size)
 
-            # Auto-chain OOS₁ → Strategy → OOS₂ verify
+            # Auto-chain OOS1 → Strategy → OOS2 verify
             _oos_path = os.path.join('DATA', 'ATLAS_OOS')
             if (not args.skip_oos
                     and not getattr(args, 'forward_data', None)
@@ -4626,7 +4664,7 @@ def main():
                     and os.path.isdir(_oos_path)):
                 _oos_end = getattr(args, '_live_prep_cutoff', None) or args.forward_end
 
-                # Phase 5: OOS₁ (blind, no tier preference)
+                # Phase 5: OOS1 (blind, no tier preference)
                 print("\n" + "=" * 80)
                 print("  PHASE 5: OOS VALIDATION (blind, no tier preference)")
                 print("=" * 80)
@@ -4642,9 +4680,9 @@ def main():
                 # Phase 6: Strategy (grades on OOS trade log)
                 orchestrator.run_strategy_selection()
 
-                # OOS₂: re-run with tier preference tiebreaker
+                # OOS2: re-run with tier preference tiebreaker
                 print("\n" + "=" * 80)
-                print("  OOS₂ VERIFICATION (tier preference tiebreaker active)")
+                print("  OOS2 VERIFICATION (tier preference tiebreaker active)")
                 print("=" * 80)
                 orchestrator.run_forward_pass(_oos_path,
                                               start_date=args.forward_start,
@@ -4656,7 +4694,7 @@ def main():
                                               tier_preference=True)
                 _oos2 = dict(orchestrator._fp_summary)
 
-                # Comparison: OOS₁ vs OOS₂
+                # Comparison: OOS1 vs OOS2
                 _print_oos_comparison(_oos1, _oos2)
         elif args.strategy_report and not args.forward_pass:
             orchestrator.run_strategy_selection()  # requires oos_trade_log.csv to exist
@@ -4699,7 +4737,7 @@ def main():
                 refined_strategies = refiner.refine()
                 orchestrator.run_final_validation(refined_strategies)
             else:
-                # Default: Bayesian path -> IS -> OOS₁ -> Strategy -> OOS₂ (verify)
+                # Default: Bayesian path -> IS -> OOS1 -> Strategy -> OOS2 (verify)
                 _fwd_data = getattr(args, 'forward_data', None) or args.data
 
                 # Phase 4: IS Backtest
@@ -4717,14 +4755,14 @@ def main():
                                                     end_date=args.forward_end,
                                                     oos_mode=getattr(args, 'oos', False))
 
-                # Auto-chain OOS + Strategy + OOS₂ verify
+                # Auto-chain OOS + Strategy + OOS2 verify
                 _oos_path = os.path.join('DATA', 'ATLAS_OOS')
                 if (not getattr(args, 'skip_oos', False)
                         and not getattr(args, 'forward_data', None)
                         and os.path.isdir(_oos_path)):
                     _oos_end = getattr(args, '_live_prep_cutoff', None) or args.forward_end
 
-                    # Phase 5: OOS₁ (blind, no tier preference)
+                    # Phase 5: OOS1 (blind, no tier preference)
                     print("\n" + "=" * 80)
                     print("  PHASE 5: OOS VALIDATION (blind, no tier preference)")
                     print("=" * 80)
@@ -4740,9 +4778,9 @@ def main():
                     # Phase 6: Strategy (grades on OOS trade log)
                     orchestrator.run_strategy_selection()
 
-                    # OOS₂: re-run with tier preference tiebreaker
+                    # OOS2: re-run with tier preference tiebreaker
                     print("\n" + "=" * 80)
-                    print("  OOS₂ VERIFICATION (tier preference tiebreaker active)")
+                    print("  OOS2 VERIFICATION (tier preference tiebreaker active)")
                     print("=" * 80)
                     orchestrator.run_forward_pass(_oos_path,
                                               start_date=args.forward_start,
@@ -4754,7 +4792,7 @@ def main():
                                               tier_preference=True)
                     _oos2 = dict(orchestrator._fp_summary)
 
-                    # Comparison: OOS₁ vs OOS₂
+                    # Comparison: OOS1 vs OOS2
                     _print_oos_comparison(_oos1, _oos2)
 
         orchestrator.print_bottom_line()
