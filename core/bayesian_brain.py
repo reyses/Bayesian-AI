@@ -104,7 +104,8 @@ class BayesianBrain:
 
         if base_tid not in self.dir_bias:
             self.dir_bias[base_tid] = {
-                'long_w': 0, 'long_l': 0, 'short_w': 0, 'short_l': 0}
+                'long_w': 0, 'long_l': 0, 'short_w': 0, 'short_l': 0,
+                'long_pnl': 0.0, 'long_n': 0, 'short_pnl': 0.0, 'short_n': 0}
 
         bias = self.dir_bias[base_tid]
         key = side.lower()
@@ -126,12 +127,33 @@ class BayesianBrain:
         else:
             bias[f'{alt_key}_l'] += _weight
 
+        # Dollar PnL tracking for expected profit computation
+        bias[f'{key}_pnl'] = bias.get(f'{key}_pnl', 0.0) + pnl
+        bias[f'{key}_n'] = bias.get(f'{key}_n', 0) + 1
+        # Counterfactual: opposite side would have mirrored PnL
+        bias[f'{alt_key}_pnl'] = bias.get(f'{alt_key}_pnl', 0.0) + alt_pnl
+        bias[f'{alt_key}_n'] = bias.get(f'{alt_key}_n', 0) + 1
+
         return bias
 
     def get_dir_bias(self, tid) -> dict | None:
         """Get direction bias for a template ID."""
         base_tid = tid[3:] if isinstance(tid, str) and tid.startswith('PP_') else tid
         return self.dir_bias.get(base_tid)
+
+    def get_expected_pnl(self, tid, side: str) -> float | None:
+        """Return average PnL per trade for (template, direction).
+
+        Returns None if fewer than 3 observations (not enough data).
+        """
+        bias = self.get_dir_bias(tid)
+        if bias is None:
+            return None
+        key = side.lower()
+        n = bias.get(f'{key}_n', 0)
+        if n < 3:
+            return None
+        return bias.get(f'{key}_pnl', 0.0) / n
 
     def batch_update(self, outcomes: list[TradeOutcome]):
         """
