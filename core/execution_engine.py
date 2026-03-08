@@ -188,6 +188,12 @@ class ExecutionEngine:
         self.momentum_override_ratio = 1.0  # block when mom < rev (ratio < 1.0)
         self._load_gate_thresholds()
 
+        # Competition tracking
+        self.bars_with_competition = 0   # 2+ candidates passed gates
+        self.bars_single_candidate = 0   # exactly 1 candidate passed
+        self.bars_no_candidate = 0       # 0 candidates passed
+        self.tier_changed_winner = 0     # tier preference flipped the winner
+
         # Position state
         self.pos_state: Optional[PositionState] = None
         self.active_side: Optional[str] = None
@@ -389,7 +395,15 @@ class ExecutionEngine:
                     bypass_dist = gr.dist
                     bypass_candidate = cand
 
-        # Pick best scorer
+        # Pick best scorer + track competition
+        n_passers = len(gate_passers)
+        if n_passers == 0:
+            self.bars_no_candidate += 1
+        elif n_passers == 1:
+            self.bars_single_candidate += 1
+        else:
+            self.bars_with_competition += 1
+
         best_raw_id = None
         best_score = 999.0
         best_gr = None
@@ -398,6 +412,15 @@ class ExecutionEngine:
                 best_score = gr.score
                 best_raw_id = raw_id
                 best_gr = gr
+
+        # Track if tier preference changed the winner
+        if n_passers >= 2 and self.tier_score_adj and best_gr is not None:
+            # Recompute winner without tier adjustment
+            _best_no_tier = min(gate_passers.values(),
+                                key=lambda g: g.score - self.tier_score_adj.get(
+                                    self.template_tier_map.get(g.tid, 3), 0.0))
+            if _best_no_tier.tid != best_gr.tid:
+                self.tier_changed_winner += 1
 
         # Mark score losers
         for raw_id in gate_passers:
