@@ -1308,6 +1308,7 @@ class Trainer:
                                 'sl_ticks':     _sl_ticks,
                                 'target_price': round(price + (_tp_ticks if side == 'long' else -_tp_ticks) * self.asset.tick_size, 6),
                                 'stop_price':   round(price - (_sl_ticks if side == 'long' else -_sl_ticks) * self.asset.tick_size, 6),
+                                'expected_pnl': self.brain.get_expected_pnl(best_tid, side),
                                 **_physics_fields(best_candidate),
                             }
 
@@ -2214,6 +2215,90 @@ class Trainer:
                 report_lines.append(f"      Savings (avoided losses): ${_block_savings:>+,.2f}")
                 report_lines.append(f"      Cost (lost scalp profit): ${_block_cost:>+,.2f}")
                 report_lines.append(f"      Net impact: ${_block_savings - _block_cost:>+,.2f}")
+
+        # ── 3c. Expected Profit Analysis ────────────────────────────────────────
+        # Per-template per-direction: avg PnL = E[PnL]. Was each trade positive EV?
+        _sec['expected_profit'] = len(report_lines)
+        if oracle_trade_records:
+            from collections import defaultdict as _dep
+            _ep_data = _dep(lambda: {'long_pnl': 0.0, 'long_n': 0, 'short_pnl': 0.0, 'short_n': 0})
+            for _r in oracle_trade_records:
+                _tid = _r.get('template_id', '?')
+                _d = _r.get('direction', 'LONG')
+                _pnl = _r.get('actual_pnl', 0.0)
+                _k = _d.lower()
+                _ep_data[_tid][f'{_k}_pnl'] += _pnl
+                _ep_data[_tid][f'{_k}_n'] += 1
+
+            # Compute E[PnL] for each trade and classify
+            _pos_ev_n = 0; _pos_ev_pnl = 0.0
+            _neg_ev_n = 0; _neg_ev_pnl = 0.0
+            _unknown_n = 0; _unknown_pnl = 0.0
+            _neg_ev_would_save = 0.0  # if we had blocked neg-EV trades
+
+            # Running accumulators (simulate sequential E[PnL] as trades happen)
+            _run = _dep(lambda: {'long_pnl': 0.0, 'long_n': 0, 'short_pnl': 0.0, 'short_n': 0})
+            for _r in oracle_trade_records:
+                _tid = _r.get('template_id', '?')
+                _d = _r.get('direction', 'LONG').lower()
+                _pnl = _r.get('actual_pnl', 0.0)
+                _n_prior = _run[_tid][f'{_d}_n']
+                if _n_prior >= 3:
+                    _e_pnl = _run[_tid][f'{_d}_pnl'] / _n_prior
+                    if _e_pnl > 0:
+                        _pos_ev_n += 1; _pos_ev_pnl += _pnl
+                    else:
+                        _neg_ev_n += 1; _neg_ev_pnl += _pnl
+                        _neg_ev_would_save -= _pnl  # saving = not losing
+                else:
+                    _unknown_n += 1; _unknown_pnl += _pnl
+                # Update running stats
+                _run[_tid][f'{_d}_pnl'] += _pnl
+                _run[_tid][f'{_d}_n'] += 1
+
+            _total_n = _pos_ev_n + _neg_ev_n + _unknown_n
+            report_lines.append("")
+            report_lines.append(f"  EXPECTED PROFIT ANALYSIS (E[PnL] = running avg PnL per template×direction)")
+            report_lines.append(f"    Positive EV trades (E[PnL]>0 at entry): {_pos_ev_n:>6,}  "
+                                f"({_pos_ev_n/_total_n*100:.1f}%)  actual: ${_pos_ev_pnl:>+12,.2f}  "
+                                f"avg: ${_pos_ev_pnl/_pos_ev_n:.2f}/trade" if _pos_ev_n else
+                                f"    Positive EV trades: 0")
+            report_lines.append(f"    Negative EV trades (E[PnL]<0 at entry): {_neg_ev_n:>6,}  "
+                                f"({_neg_ev_n/_total_n*100:.1f}%)  actual: ${_neg_ev_pnl:>+12,.2f}  "
+                                f"avg: ${_neg_ev_pnl/_neg_ev_n:.2f}/trade" if _neg_ev_n else
+                                f"    Negative EV trades: 0")
+            report_lines.append(f"    Unknown (< 3 samples):                  {_unknown_n:>6,}  "
+                                f"({_unknown_n/_total_n*100:.1f}%)  actual: ${_unknown_pnl:>+12,.2f}")
+            report_lines.append(f"    If blocked neg-EV trades: would save ${_neg_ev_would_save:>+,.2f}")
+
+            # Top templates by negative EV impact
+            _ep_sorted = sorted(_ep_data.items(),
+                                key=lambda x: min(
+                                    x[1]['long_pnl'] / max(1, x[1]['long_n']) if x[1]['long_n'] >= 3 else 999,
+                                    x[1]['short_pnl'] / max(1, x[1]['short_n']) if x[1]['short_n'] >= 3 else 999))
+            _neg_templates = [(t, d) for t, d in _ep_sorted
+                              if (d['long_n'] >= 3 and d['long_pnl'] / d['long_n'] < 0)
+                              or (d['short_n'] >= 3 and d['short_pnl'] / d['short_n'] < 0)]
+            if _neg_templates:
+                report_lines.append(f"")
+                report_lines.append(f"    Templates with NEGATIVE E[PnL] direction (top 15):")
+                report_lines.append(f"    {'TID':>5}  {'LONG n':>7} {'LONG E[PnL]':>12}  "
+                                    f"{'SHORT n':>8} {'SHORT E[PnL]':>13}  Action")
+                report_lines.append(f"    {'-----':>5}  {'------':>7} {'-----------':>12}  "
+                                    f"{'-------':>8} {'------------':>13}  ------")
+                for _tid, _d in _neg_templates[:15]:
+                    _l_e = f"${_d['long_pnl']/_d['long_n']:>+8.2f}" if _d['long_n'] >= 3 else "    n/a "
+                    _s_e = f"${_d['short_pnl']/_d['short_n']:>+8.2f}" if _d['short_n'] >= 3 else "     n/a "
+                    _l_neg = _d['long_n'] >= 3 and _d['long_pnl'] / _d['long_n'] < 0
+                    _s_neg = _d['short_n'] >= 3 and _d['short_pnl'] / _d['short_n'] < 0
+                    if _l_neg and _s_neg:
+                        _act = "SKIP BOTH"
+                    elif _l_neg:
+                        _act = "SKIP LONG"
+                    else:
+                        _act = "SKIP SHORT"
+                    report_lines.append(f"    {str(_tid):>5}  {_d['long_n']:>7,} {_l_e:>12}  "
+                                        f"{_d['short_n']:>8,} {_s_e:>13}  {_act}")
 
         # ── 4. Exit quality on correct-direction trades ──────────────────────────
         # NOTE: "Reversed" trades had the correct oracle direction but the market
