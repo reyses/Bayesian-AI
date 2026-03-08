@@ -504,6 +504,32 @@ class Trainer:
         ruin_day         = None     # Date string when ruin occurred
         skipped_ruin     = 0        # Trade entries skipped due to insufficient equity
 
+        # ── Daily session tracking & drawdown survival ──────────────────────
+        _daily_ledger = []          # [{date, trades, wins, pnl, equity, consec_loss_days, aggression}]
+        _consec_losing_days = 0     # current streak of losing days
+        _max_consec_losing_days = 0
+        _dd_aggression = 1.0        # 1.0 = full, scales down during drawdown
+        _daily_peak_equity = running_equity  # reset each day to track intraday DD
+
+        # ── Intraday dip tracking (min equity calculation) ────────────────
+        _day_running_pnl = 0.0      # cumulative PnL within current day, resets each day
+        _day_min_pnl = 0.0          # worst intraday dip this day (most negative)
+        _worst_intraday_dip = 0.0   # worst dip across ALL days (most negative)
+        _worst_dip_date = ''        # which day had the worst dip
+        _all_day_dips = []          # list of (date, min_pnl) for every trading day
+        _cal_day_trades = []        # trades within current calendar day (per-day ledger)
+        _prev_cal_date = ''         # readable date of previous calendar day
+        _current_day = None         # unix day number for calendar-day boundary detection
+
+        # ── Cumulative equity curve (never resets — carries across days) ──
+        _cumul_pnl = 0.0            # running total PnL from trade 1
+        _cumul_peak = 0.0           # highest point on the equity curve
+        _cumul_trough = 0.0         # lowest point on the equity curve
+        _cumul_trough_date = ''     # date of the lowest point
+        _cumul_max_dd = 0.0         # max drawdown from peak (peak - trough)
+        _cumul_dd_peak_date = ''    # date of peak before max drawdown
+        _cumul_dd_trough_date = ''  # date of trough during max drawdown
+
         if _equity_enabled:
             print(f"  Account constraint: start=${account_size:.2f}  margin/contract=${_NINJATRADER_MNQ_MARGIN:.2f}")
 
@@ -769,7 +795,6 @@ class Trainer:
                 _reports_out = os.path.join(os.path.dirname(self.checkpoint_dir), 'reports')
 
             _bar_i = 0  # 15s bar index for belief network worker ticks
-            _current_day = None  # for per-day progress tracking
 
             _pp_conv_thresh = getattr(self, '_pp_conviction', 0.55)
             _pp_sl_ov = getattr(self, '_pp_sl_override', 0)
@@ -806,8 +831,45 @@ class Trainer:
                 # ── Per-day progress update ──────────────────────────────
                 _row_day = int(ts_raw) // 86400
                 if _row_day != _current_day:
+                    # ── Flush previous calendar day to ledger ─────────
+                    if _prev_cal_date and _cal_day_trades:
+                        _cd_pnl = sum(t.pnl for t in _cal_day_trades)
+                        _cd_wins = sum(1 for t in _cal_day_trades if t.result == 'WIN')
+                        _cd_losing = _cd_pnl < 0
+                        if _cd_losing:
+                            _consec_losing_days += 1
+                        else:
+                            _consec_losing_days = 0
+                        _max_consec_losing_days = max(_max_consec_losing_days, _consec_losing_days)
+                        # Capture intraday dip
+                        _all_day_dips.append((_prev_cal_date, _day_min_pnl))
+                        if _day_min_pnl < _worst_intraday_dip:
+                            _worst_intraday_dip = _day_min_pnl
+                            _worst_dip_date = _prev_cal_date
+                        _daily_ledger.append({
+                            'date': _prev_cal_date,
+                            'trades': len(_cal_day_trades),
+                            'wins': _cd_wins,
+                            'pnl': _cd_pnl,
+                            'min_dip': _day_min_pnl,
+                            'cumul_pnl': _cumul_pnl,
+                            'cumul_dd': _cumul_peak - _cumul_pnl,
+                            'equity': running_equity if _equity_enabled else total_pnl + sum(t.pnl for t in day_trades),
+                            'consec_loss_days': _consec_losing_days,
+                            'aggression': _dd_aggression,
+                        })
                     _current_day = _row_day
                     _cumulative_days += 1
+                    # Readable date from unix day
+                    import datetime as _dt_mod
+                    _prev_cal_date = _dt_mod.datetime.utcfromtimestamp(int(ts_raw)).strftime('%Y-%m-%d')
+                    _cal_day_trades = []
+                    # Reset daily peak for intraday drawdown tracking
+                    if _equity_enabled:
+                        _daily_peak_equity = running_equity
+                    # Reset intraday PnL for min-equity dip tracking
+                    _day_running_pnl = 0.0
+                    _day_min_pnl = 0.0
                     _running_pnl = total_pnl + sum(t.pnl for t in day_trades)
                     _running_trades = total_trades + len(day_trades)
                     _running_wins = total_wins + sum(1 for t in day_trades if t.result == 'WIN')
@@ -940,12 +1002,32 @@ class Trainer:
                         )
                         self.brain.update(outcome)
                         day_trades.append(outcome)
+                        _cal_day_trades.append(outcome)
                         current_position_open = False
+
+                        # Track intraday dip (min equity calc — no account needed)
+                        _day_running_pnl += outcome.pnl
+                        _day_min_pnl = min(_day_min_pnl, _day_running_pnl)
+
+                        # Track cumulative equity curve (never resets)
+                        _cumul_pnl += outcome.pnl
+                        if _cumul_pnl > _cumul_peak:
+                            _cumul_peak = _cumul_pnl
+                        if _cumul_pnl < _cumul_trough:
+                            _cumul_trough = _cumul_pnl
+                            _cumul_trough_date = _prev_cal_date
+                        _dd_from_peak = _cumul_peak - _cumul_pnl
+                        if _dd_from_peak > _cumul_max_dd:
+                            _cumul_max_dd = _dd_from_peak
+                            _cumul_dd_trough_date = _prev_cal_date
 
                         if _equity_enabled:
                             running_equity += outcome.pnl
                             peak_equity = max(peak_equity, running_equity)
                             trough_equity = min(trough_equity, running_equity)
+                            # Aggression scales with equity: $500→100%, $250→50%, $100→20% floor
+                            _daily_peak_equity = max(_daily_peak_equity, running_equity)
+                            _dd_aggression = min(1.0, max(0.2, running_equity / account_size)) if account_size > 0 else 1.0
                             if running_equity < _NINJATRADER_MNQ_MARGIN:
                                 account_ruined = True
                                 ruin_day = ruin_day or day_date
@@ -956,6 +1038,8 @@ class Trainer:
                             oracle_favorable = o_mfe if pending_oracle['direction'] == 'LONG' else o_mae
                             oracle_potential = oracle_favorable * self.asset.point_value
                             capture = outcome.pnl / oracle_potential if oracle_potential > 0 else 0.0
+                            _tp_potential = pending_oracle.get('tp_ticks', 0) * self.asset.tick_value
+                            _target_capture = outcome.pnl / _tp_potential if _tp_potential > 0 else 0.0
                             oracle_trade_records.append({
                                 **pending_oracle,
                                 'exit_price': outcome.exit_price,
@@ -965,6 +1049,7 @@ class Trainer:
                                 'actual_pnl': outcome.pnl,
                                 'oracle_potential_pnl': oracle_potential,
                                 'capture_rate': round(min(capture, 9.99), 4),
+                                'target_capture': round(min(_target_capture, 9.99), 4),
                                 'result': outcome.result,
                                 'exit_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
                                 'exit_conviction': _exit_sig.get('conviction', 0.0),
@@ -1039,6 +1124,7 @@ class Trainer:
                 # Equity ruin check: simulation ends when equity hits 0 (no money to trade).
                 if _equity_enabled and account_ruined:
                     break   # stop processing this day's bars entirely
+
                 # Detection funnel: count bars where pattern_map had signals
                 if ts in pattern_map:
                     bars_with_detection += 1
@@ -1125,8 +1211,10 @@ class Trainer:
                         long_bias = _entry_action.long_bias
                         short_bias = _entry_action.short_bias
 
-                        # Equity risk gate (stays in orchestrator)
-                        _MAX_RISK_FRACTION = 0.50
+                        # Equity risk gate — scales with intraday drawdown aggression
+                        # Full equity: risk up to 50% per trade
+                        # 20% DD: risk up to 25%, 40%+ DD: risk up to 10%
+                        _MAX_RISK_FRACTION = 0.50 * _dd_aggression
                         _skip_equity = False
                         if _equity_enabled:
                             _max_loss_usd = _sl_ticks * self.asset.tick_size * self.asset.point_value
@@ -1221,6 +1309,10 @@ class Trainer:
                                 'band_direction': _band['direction'] if _band else None,
                                 'band_strength': round(_band['strength'], 3) if _band else 0.0,
                                 'band_summary': _band.get('band_summary', '') if _band else '',
+                                'tp_ticks':     _tp_ticks,
+                                'sl_ticks':     _sl_ticks,
+                                'target_price': round(price + (_tp_ticks if side == 'long' else -_tp_ticks) * self.asset.tick_size, 6),
+                                'stop_price':   round(price - (_sl_ticks if side == 'long' else -_sl_ticks) * self.asset.tick_size, 6),
                                 **_physics_fields(best_candidate),
                             }
 
@@ -1346,13 +1438,32 @@ class Trainer:
                 )
                 self.brain.update(outcome)
                 day_trades.append(outcome)
+                _cal_day_trades.append(outcome)
                 self.brain.direction_learn(active_template_id, active_side, eod_pnl)
+
+                # Track intraday dip (min equity calc)
+                _day_running_pnl += outcome.pnl
+                _day_min_pnl = min(_day_min_pnl, _day_running_pnl)
+
+                # Track cumulative equity curve (never resets)
+                _cumul_pnl += outcome.pnl
+                if _cumul_pnl > _cumul_peak:
+                    _cumul_peak = _cumul_pnl
+                if _cumul_pnl < _cumul_trough:
+                    _cumul_trough = _cumul_pnl
+                    _cumul_trough_date = _prev_cal_date
+                _dd_from_peak = _cumul_peak - _cumul_pnl
+                if _dd_from_peak > _cumul_max_dd:
+                    _cumul_max_dd = _dd_from_peak
+                    _cumul_dd_trough_date = _prev_cal_date
 
                 # Update running equity after EOD close
                 if _equity_enabled:
                     running_equity += outcome.pnl
                     peak_equity   = max(peak_equity, running_equity)
                     trough_equity = min(trough_equity, running_equity)
+                    _daily_peak_equity = max(_daily_peak_equity, running_equity)
+                    _dd_aggression = min(1.0, max(0.2, running_equity / account_size)) if account_size > 0 else 1.0
                     if running_equity < _NINJATRADER_MNQ_MARGIN:
                         account_ruined = True
                         ruin_day = ruin_day or day_date
@@ -1366,6 +1477,8 @@ class Trainer:
                     capture = outcome.pnl / oracle_potential if oracle_potential > 0 else 0.0
                     _eod_exit_t = ts
                     _eod_entry_t = pending_oracle['entry_time']
+                    _tp_potential = pending_oracle.get('tp_ticks', 0) * self.asset.tick_value
+                    _target_capture = outcome.pnl / _tp_potential if _tp_potential > 0 else 0.0
                     oracle_trade_records.append({
                         **pending_oracle,
                         'exit_price':  outcome.exit_price,
@@ -1375,6 +1488,7 @@ class Trainer:
                         'actual_pnl':  outcome.pnl,
                         'oracle_potential_pnl': oracle_potential,
                         'capture_rate': round(min(capture, 9.99), 4),
+                        'target_capture': round(min(_target_capture, 9.99), 4),
                         'result': outcome.result,
                         'exit_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
                         'exit_conviction':    _eod_sig.get('conviction', 0.0),
@@ -1413,6 +1527,9 @@ class Trainer:
             else:
                 d_pnl = 0.0
 
+            # NOTE: daily ledger + dip tracking now handled at calendar-day
+            # boundaries inside the inner loop (see _row_day flush above)
+
             # Send end-of-month update with per-month breakdown (for monthly bar chart)
             if self.dashboard_queue:
                 _wr_end = (total_wins / total_trades * 100) if total_trades > 0 else 0.0
@@ -1430,6 +1547,33 @@ class Trainer:
                                           'gross_l': round(_gl2, 0),
                                           'month_pnl': d_pnl,
                                           'month_label': day_date})
+
+        # ── Flush last calendar day to ledger ────────────────────────────
+        if _prev_cal_date and _cal_day_trades:
+            _cd_pnl = sum(t.pnl for t in _cal_day_trades)
+            _cd_wins = sum(1 for t in _cal_day_trades if t.result == 'WIN')
+            _cd_losing = _cd_pnl < 0
+            if _cd_losing:
+                _consec_losing_days += 1
+            else:
+                _consec_losing_days = 0
+            _max_consec_losing_days = max(_max_consec_losing_days, _consec_losing_days)
+            _all_day_dips.append((_prev_cal_date, _day_min_pnl))
+            if _day_min_pnl < _worst_intraday_dip:
+                _worst_intraday_dip = _day_min_pnl
+                _worst_dip_date = _prev_cal_date
+            _daily_ledger.append({
+                'date': _prev_cal_date,
+                'trades': len(_cal_day_trades),
+                'wins': _cd_wins,
+                'pnl': _cd_pnl,
+                'min_dip': _day_min_pnl,
+                'cumul_pnl': _cumul_pnl,
+                'cumul_dd': _cumul_peak - _cumul_pnl,
+                'equity': running_equity if _equity_enabled else total_pnl,
+                'consec_loss_days': _consec_losing_days,
+                'aggression': _dd_aggression,
+            })
 
         _pbar.close()
 
@@ -1614,11 +1758,82 @@ class Trainer:
             report_lines.append(f"  Peak equity:       ${peak_equity:.2f}")
             report_lines.append(f"  Trough equity:     ${trough_equity:.2f}")
             report_lines.append(f"  Max drawdown:      ${_max_dd_usd:.2f}  ({_max_dd_pct:.1f}% of start)")
-            report_lines.append(f"  Trades skipped (risk too large for equity): {skipped_ruin}")
+            report_lines.append(f"  Trades skipped (risk/survival gate): {skipped_ruin}")
+            report_lines.append(f"  Final aggression:  {_dd_aggression:.0%}  (equity/start: ${running_equity:.0f}/${account_size:.0f})")
             if account_ruined:
                 report_lines.append(f"  !! ACCOUNT RUINED on {ruin_day} -- equity fell below margin (${_NINJATRADER_MNQ_MARGIN:.0f})")
             else:
                 report_lines.append(f"  Account status:    SURVIVED ({_final_equity:.2f} remaining)")
+
+        # ── Daily session ledger + survival summary ─────────────────────────────
+        if _daily_ledger:
+            report_lines.append("")
+            report_lines.append("── DAILY SESSION LEDGER ──")
+            report_lines.append(f"  {'Date':<12} {'Trades':>6} {'Wins':>5} {'WR%':>6} {'Day PnL':>12} {'Min Dip':>10} {'Cumul PnL':>12} {'Cumul DD':>10}")
+            report_lines.append("  " + "─" * 90)
+            for dl in _daily_ledger:
+                _dwr = (dl['wins'] / dl['trades'] * 100) if dl['trades'] > 0 else 0.0
+                _dip = dl.get('min_dip', 0.0)
+                _dip_str = f"${_dip:>+8,.2f}" if _dip < 0 else f"{'$0':>9}"
+                _cdd = dl.get('cumul_dd', 0.0)
+                _cdd_str = f"${_cdd:>8,.2f}" if _cdd > 0 else f"{'$0':>9}"
+                report_lines.append(
+                    f"  {dl['date']:<12} {dl['trades']:>6} {dl['wins']:>5} {_dwr:>5.1f}% "
+                    f"${dl['pnl']:>+10,.2f} {_dip_str} ${dl.get('cumul_pnl', 0):>+10,.2f} {_cdd_str}"
+                )
+            report_lines.append("")
+            report_lines.append("── DRAWDOWN SUMMARY ──")
+            report_lines.append(f"  Max consecutive losing days: {_max_consec_losing_days}")
+            # Count how many days aggression was reduced
+            _reduced_days = sum(1 for dl in _daily_ledger if dl['aggression'] < 1.0)
+            if _reduced_days:
+                report_lines.append(f"  Days with reduced aggression: {_reduced_days}/{len(_daily_ledger)}")
+
+        # ── MINIMUM EQUITY CALCULATION ────────────────────────────────────────
+        # Each day starts at $0. The worst intraday dip below $0 = min equity needed.
+        if _all_day_dips:
+            report_lines.append("")
+            report_lines.append("── MINIMUM EQUITY REQUIRED ──")
+            report_lines.append(f"  Method: worst intraday dip below $0 across all trading days")
+            report_lines.append(f"  (each day starts fresh at $0 — captures the deepest hole before recovery)")
+            report_lines.append("")
+            # Worst dip
+            _min_eq = abs(_worst_intraday_dip) if _worst_intraday_dip < 0 else 0.0
+            report_lines.append(f"  Worst intraday dip:  ${_worst_intraday_dip:+,.2f}  on {_worst_dip_date}")
+            report_lines.append(f"  ► MINIMUM EQUITY:    ${_min_eq:,.2f}")
+            report_lines.append(f"  ► With 50% buffer:   ${_min_eq * 1.5:,.2f}")
+            report_lines.append("")
+            # Top 5 worst days
+            _sorted_dips = sorted(_all_day_dips, key=lambda x: x[1])
+            _top_n = min(5, len(_sorted_dips))
+            report_lines.append(f"  Top {_top_n} worst intraday dips:")
+            for _d, _v in _sorted_dips[:_top_n]:
+                report_lines.append(f"    {_d}:  ${_v:+,.2f}")
+            # Days that dipped below zero
+            _dip_days = sum(1 for _, v in _all_day_dips if v < 0)
+            report_lines.append(f"  Days that dipped below $0: {_dip_days}/{len(_all_day_dips)}")
+
+        # ── CUMULATIVE EQUITY CURVE (carries across days) ─────────────────────
+        report_lines.append("")
+        report_lines.append("── CUMULATIVE EQUITY CURVE ──")
+        report_lines.append(f"  (starts at $0 on day 1, never resets — shows true equity path)")
+        report_lines.append("")
+        report_lines.append(f"  Final cumulative PnL:  ${_cumul_pnl:+,.2f}")
+        report_lines.append(f"  Peak equity:           ${_cumul_peak:+,.2f}")
+        report_lines.append(f"  Trough equity:         ${_cumul_trough:+,.2f}  on {_cumul_trough_date or 'N/A'}")
+        report_lines.append(f"  Max drawdown from peak: ${_cumul_max_dd:,.2f}  (trough on {_cumul_dd_trough_date or 'N/A'})")
+        if _cumul_trough < 0:
+            report_lines.append(f"  ► MIN EQUITY (cumulative): ${abs(_cumul_trough):,.2f}  (deepest hole from $0 start)")
+        else:
+            report_lines.append(f"  ► Equity never went negative — $0 start survives the entire run")
+        # Identify critical days: days where cumulative equity was at its lowest
+        if _daily_ledger:
+            report_lines.append("")
+            report_lines.append("  Critical days (cumulative equity at risk):")
+            _sorted_by_cumul = sorted(_daily_ledger, key=lambda d: d.get('cumul_pnl', 0))
+            for _dl in _sorted_by_cumul[:5]:
+                _cpnl = _dl.get('cumul_pnl', 0)
+                report_lines.append(f"    {_dl['date']}:  cumul=${_cpnl:+,.2f}  day_pnl=${_dl['pnl']:+,.2f}  dip=${_dl.get('min_dip', 0):+,.2f}")
 
         report_lines.append("=" * 80)
 
@@ -2057,6 +2272,7 @@ class Trainer:
                     )
         else:
             reversed_ = []
+            optimal = []
             left_on_table = 0.0
 
         # ── 5. Profit gap summary ────────────────────────────────────────────────
@@ -2523,7 +2739,90 @@ class Trainer:
             print(f"  Report saved to {report_path}")
             print(f"  Shareable copy: {_share_path}")
 
-            # ── 6b. Run trade analytics suite (t-tests, ANOVA, OLS, logistic, capture) ──
+            # ── 6b. Append to run history (persistent cross-run comparison) ──────
+            try:
+                import datetime as _hist_dt
+                import subprocess as _hist_sp
+                _hist_path = os.path.join('reports', 'run_history.csv')
+                _hist_exists = os.path.exists(_hist_path)
+                _mode_label = 'OOS' if oos_mode else 'IS'
+                try:
+                    _git_hash = _hist_sp.check_output(
+                        ['git', 'rev-parse', '--short', 'HEAD'],
+                        stderr=_hist_sp.DEVNULL).decode().strip()
+                except Exception:
+                    _git_hash = 'unknown'
+                _ee_h = _exec_engine.exit_engine
+                _hl = getattr(_ee_h, 'envelope_half_life_bars', 0)
+                _gb = getattr(_ee_h, 'giveback_pct', 0)
+                _wr = round(total_wins / total_trades * 100, 1) if total_trades else 0
+                _avg_pnl = round(total_pnl / total_trades, 2) if total_trades else 0
+                _correct_dir_pct = round(len(tp_recs) / n_traded * 100, 1) if n_traded else 0
+                _reversed_pct = round(len(reversed_) / len(tp_recs) * 100, 1) if tp_recs else 0
+                _avg_capture = round(sum(r['capture_rate'] for r in tp_recs) / len(tp_recs) * 100, 1) if tp_recs else 0
+                _avg_target_cap = round(sum(r.get('target_capture', 0) for r in tp_recs) / len(tp_recs) * 100, 1) if tp_recs else 0
+                _worst_dip = _worst_intraday_dip if oos_mode else 0
+                _max_dd = _cumul_max_dd if oos_mode else 0
+                # Gross profit / gross loss
+                _gross_profit = round(sum(r['actual_pnl'] for r in oracle_trade_records if r['actual_pnl'] > 0), 2)
+                _gross_loss = round(abs(sum(r['actual_pnl'] for r in oracle_trade_records if r['actual_pnl'] < 0)), 2)
+                # Exit quality bucket blends (% of correct-dir trades)
+                _n_tp = len(tp_recs) if tp_recs else 1  # avoid div/0
+                _too_early_blend = round(len(too_early) / _n_tp * 100, 1) if tp_recs else 0
+                _too_late_blend = round(len(too_late) / _n_tp * 100, 1) if tp_recs else 0
+                # Counter-trend scalps (% of all trades)
+                _counter_trend_pct = round(len(fp_counter_scalps) / n_traded * 100, 1) if n_traded else 0
+                # Average hold time in minutes (hold_bars × 15s per bar / 60)
+                _all_holds = [r.get('hold_bars', 0) for r in oracle_trade_records]
+                _avg_hold_min = round(sum(_all_holds) / len(_all_holds) * 15 / 60, 1) if _all_holds else 0
+                # Macro → micro: profit first, then grosses, then WR, then detail
+                _hist_cols = ['timestamp', 'git_hash', 'mode',
+                              'total_pnl', 'profit_factor', 'gross_profit', 'gross_loss',
+                              'trades', 'win_rate', 'avg_pnl',
+                              'correct_dir_pct', 'counter_trend_pct', 'reversed_pct',
+                              'avg_capture_pct', 'avg_target_capture_pct', 'too_early_pct', 'too_late_pct',
+                              'avg_hold_min',
+                              'worst_dip', 'max_dd',
+                              'halflife', 'giveback_pct',
+                              'wrong_dir_pnl', 'scalp_pnl', 'left_on_table']
+                _hist_row = [
+                    _hist_dt.datetime.now().strftime('%Y-%m-%d %H:%M'),
+                    _git_hash,
+                    _mode_label,
+                    round(total_pnl, 2),
+                    round(_gross_profit / _gross_loss, 2) if _gross_loss > 0 else 999.0,
+                    _gross_profit,
+                    _gross_loss,
+                    total_trades,
+                    _wr,
+                    _avg_pnl,
+                    _correct_dir_pct,
+                    _counter_trend_pct,
+                    _reversed_pct,
+                    _avg_capture,
+                    _avg_target_cap,
+                    _too_early_blend,
+                    _too_late_blend,
+                    _avg_hold_min,
+                    round(_worst_dip, 2),
+                    round(_max_dd, 2),
+                    round(_hl, 1),
+                    round(_gb * 100),
+                    round(abs(_gw_pnl), 2),
+                    round(_cs_pnl, 2),
+                    round(left_on_table_val, 2),
+                ]
+                with open(_hist_path, 'a', newline='') as _hf:
+                    import csv as _hist_csv
+                    _hw = _hist_csv.writer(_hf)
+                    if not _hist_exists:
+                        _hw.writerow(_hist_cols)
+                    _hw.writerow(_hist_row)
+                print(f"  Run history appended: {_hist_path}")
+            except Exception as _he:
+                print(f"  Run history append failed: {_he}")
+
+            # ── 6c. Run trade analytics suite (t-tests, ANOVA, OLS, logistic, capture) ──
             print("  Running trade analytics suite...", flush=True)
             _trade_log_path = os.path.join(_out_dir,
                 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv')
@@ -2672,10 +2971,10 @@ class Trainer:
             )
 
             # Extract best (and only) iteration
-            if not oos_result.iterations:
+            if not oos_result.top_iterations:
                 continue
 
-            iter_res = oos_result.iterations[0]
+            iter_res = oos_result.top_iterations[0]
             oos_pnl = iter_res.total_pnl
             oos_win_rate = iter_res.win_rate
             oos_trades = iter_res.num_trades
@@ -3287,7 +3586,7 @@ class Trainer:
         print(f"  Templates to process: {len(template_queue)}")
         print(f"  Already completed: {len(completed_results)}")
         print(f"  Workers: {num_workers}")
-        print(f"  Iterations per template: {self.config.iterations}")
+        print(f"  Iterations per template: {INDIVIDUAL_OPTIMIZATION_ITERATIONS}")
 
         ckpt.update_phase('optimization', 'in_progress')
 
@@ -3336,7 +3635,7 @@ class Trainer:
                     tasks.append({
                         'template': tmpl,
                         'clustering_engine': clustering_engine,
-                        'iterations': self.config.iterations,
+                        'iterations': INDIVIDUAL_OPTIMIZATION_ITERATIONS,
                         'generator': self.param_generator,
                         'point_value': self.asset.point_value,
                         'pattern_library': self.pattern_library
@@ -3463,7 +3762,7 @@ class Trainer:
     def _optimize_template_batch(self, subset):
         """Wrapper for standalone _optimize_template_task (Consensus Optimization)"""
         # We pass None for template as it is not used in the optimization logic
-        best_params, best_sharpe = _optimize_template_task((None, subset, self.config.iterations, self.param_generator, self.asset.point_value))
+        best_params, best_sharpe = _optimize_template_task((None, subset, INDIVIDUAL_OPTIMIZATION_ITERATIONS, self.param_generator, self.asset.point_value))
         return best_params
 
     def _run_discovery(self, data_source: Any,
@@ -4084,8 +4383,8 @@ def main():
     parser.add_argument('--checkpoint-dir', type=str, default="checkpoints", help="Checkpoint directory")
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
-    parser.add_argument('--fresh', action='store_true', help="Clear all pipeline checkpoints and start fresh")
-    parser.add_argument('--forward-pass', action='store_true', help="Run Phase 4 forward pass using existing playbook")
+    parser.add_argument('--fresh', action='store_true', help="Wipe checkpoints + full pipeline: Train → IS → Strategy → OOS")
+    parser.add_argument('--forward-pass', action='store_true', help="IS → Strategy → OOS only (reuse existing checkpoints, skip training)")
     parser.add_argument('--passes', type=int, default=1, metavar='N',
                         help="Run IS forward pass N times. Exit params (halflife, giveback) "
                              "carry between passes — each refines from the previous. "
