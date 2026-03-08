@@ -1,5 +1,5 @@
 ================================================================================
-FORWARD PASS COMPLETE  (run: 2026-03-08 11:48:34)
+FORWARD PASS COMPLETE  (run: 2026-03-08 12:48:50)
   Period: DATA\ATLAS_OOS\15s\2026_01.parquet to 2026_03 (3 files)
 Total Trades: 1750
 Win Rate: 77.5%
@@ -280,7 +280,7 @@ DIRECTION LEARNING (oracle corrections absorbed)
         17   0.00   0.00 +0.00     0      1    20     15 $        4 $      460
         18   0.08   0.08 +0.00     4      1    48     38 $      -10 $      418
        111   0.00   0.00 +0.00     0      1    26     22 $        2 $      194
-         6   0.29   0.29 +0.00     1      2     3      0 $       16 $       36
+         6   0.28   0.28 +0.00     1      2     3      0 $       16 $       36
          1   0.08   0.08 +0.00     2      1    24     24 $       46 $      662
         55   0.02   0.02 +0.00     1      1    43     41 $       11 $    1,409
         23   0.00   0.00 +0.00     0      1    35     17 $        2 $      680
@@ -309,6 +309,80 @@ DIRECTION LEARNING (oracle corrections absorbed)
     Single candidate (no competition):   1,879  (18.4%)
     Multiple candidates (tiebreaker):    8,343  (81.6%)
     Tier preference flipped winner:        461  (5.5% of competitions)
+
+  COUNTER-TREND TEMPLATE ANALYSIS (would blocking wrong-dir help?)
+    Global wrong-dir net: $+5,768.50  (scalps: $+10,154.00  genuinely wrong: $-4,385.50)
+    Templates where wrong-dir HURTS: 11  Templates where wrong-dir HELPS: 25
+
+      TID   Correct   Correct$  CtrScalp     Scalp$   Wrong     Wrong$   Net Wrong$  Verdict
+    -----   -------   --------  --------     ------   -----     ------  -----------  -------
+       54        51 $ 1,458.00        36 $   486.00      12 $  -254.00  $    232.00  KEEP
+       21        56 $ 1,897.50        34 $   811.50      11 $   -90.50  $    721.00  KEEP
+       55        44 $ 1,067.50        31 $   619.00      11 $  -266.50  $    352.50  KEEP
+       60        54 $   578.00        34 $   577.50       6 $  -325.00  $    252.50  KEEP
+        0        56 $   562.00        30 $   789.50      10 $   -83.00  $    706.50  KEEP
+       18        52 $   231.00        29 $   419.50      10 $  -242.50  $    177.00  KEEP
+       14        40 $   567.00        30 $   864.00       3 $   -16.50  $    847.50  KEEP
+       39        30 $   207.00        19 $   128.00       7 $  -134.50  $     -6.50  NEUTRAL
+       64        13 $   399.50        13 $   192.00      13 $  -440.50  $   -248.50  BLOCK
+        1        26 $   260.50        16 $   452.00       9 $  -148.50  $    303.50  KEEP
+      111        26 $   363.00        14 $   137.50       9 $  -305.00  $   -167.50  BLOCK
+       53         9 $   138.00        16 $   238.50       6 $  -120.50  $    118.00  KEEP
+       23        35 $   474.50        11 $   225.50       7 $   -69.00  $    156.50  KEEP
+       93        26 $ 1,271.50        13 $   360.00       5 $  -115.50  $    244.50  KEEP
+       61        15 $   235.50        11 $   172.00       6 $  -256.50  $    -84.50  BLOCK
+       17        20 $   320.00        11 $   347.50       5 $  -203.00  $    144.50  KEEP
+       63        26 $   268.50        14 $   231.00       2 $   -33.50  $    197.50  KEEP
+      115        38 $ 1,499.50        12 $   441.00       4 $   -17.00  $    424.00  KEEP
+       41        24 $   186.00        13 $   164.50       3 $    -7.00  $    157.50  KEEP
+       74        19 $   119.50        11 $    80.50       4 $  -211.00  $   -130.50  BLOCK
+       67        11 $    -5.00         8 $    93.50       5 $   -29.50  $     64.00  KEEP
+       38        20 $    17.00        12 $    70.50       1 $    -5.50  $     65.00  KEEP
+       59        32 $   303.00        10 $   132.50       2 $  -226.00  $    -93.50  BLOCK
+       29        14 $    94.00         8 $   113.00       4 $  -115.50  $     -2.50  NEUTRAL
+      107        27 $   477.00        10 $   257.50       2 $   -12.50  $    245.00  KEEP
+
+    If BLOCK templates with wrong-dir < -$50:
+      Savings (avoided losses): $+854.50
+      Cost (lost scalp profit): $+5,911.50
+      Net impact: $-5,057.00
+
+  EXPECTED PROFIT ANALYSIS (E[PnL] = running avg PnL per template×direction)
+    Positive EV trades (E[PnL]>0 at entry):  1,338  (76.5%)  actual: $  +18,097.50  avg: $13.53/trade
+    Negative EV trades (E[PnL]<0 at entry):    108  (6.2%)  actual: $     +838.00  avg: $7.76/trade
+    Unknown (< 3 samples):                     304  (17.4%)  actual: $   +3,447.50
+    If blocked neg-EV trades: would save $-838.00
+
+    Templates with NEGATIVE E[PnL] direction (top 15):
+      TID   LONG n  LONG E[PnL]   SHORT n  SHORT E[PnL]  Action
+    -----   ------  -----------   -------  ------------  ------
+       79        3    $   +0.50         3     $  -18.50  SKIP SHORT
+       50        0         n/a          4     $  -16.50  SKIP SHORT
+       97        0         n/a          9     $   -6.50  SKIP SHORT
+       72        6    $   -6.42         0          n/a   SKIP LONG
+       57        4    $   -2.50         1          n/a   SKIP LONG
+       61       24    $   -2.40         8     $  +26.06  SKIP LONG
+       18        5    $   -2.00        86     $   +4.86  SKIP LONG
+       53       19    $   -0.95        12     $  +22.83  SKIP LONG
+       42        4    $   -0.75         2          n/a   SKIP LONG
+       74        0         n/a         34     $   -0.32  SKIP SHORT
+
+  DETECTION RATE BY DEPTH (real moves: traded vs missed)
+    Overall: 1,719/76,536 = 2.2% detection rate
+    Depth              Traded   Missed    Total     Rate     Missed $
+    -----              ------   ------    -----     ----     --------
+    1=4h+  (high TF)        0       92       92     0.0% $ 58,814.00  <- blind spot
+    2=1h                    0      512      512     0.0% $231,332.00  <- blind spot
+    3=15m                  57      701      758     7.5% $599,650.50  <- blind spot
+    4=5m                   91    1,605    1,696     5.4% $440,561.00  <- blind spot
+    5=1m                  159    2,345    2,504     6.3% $680,285.00  <- blind spot
+    6=15s  (leaf)         160    2,850    3,010     5.3% $1,160,456.50  <- blind spot
+    7                     165    3,683    3,848     4.3% $1,278,489.50  <- blind spot
+    8                     178    5,077    5,255     3.4% $1,355,694.00  <- blind spot
+    9                     202    7,191    7,393     2.7% $1,530,691.00  <- blind spot
+    10                    224   10,085   10,309     2.2% $1,639,906.50  <- blind spot
+    11                    301   14,062   14,363     2.1% $2,667,164.50  <- blind spot
+    12                    182   26,614   26,796     0.7% $6,917,122.00  <- blind spot
 
   Per-trade oracle log saved: checkpoints\oos_trade_log.csv
   PID oracle log saved: checkpoints\pid_oracle_log.csv (19003 signals)

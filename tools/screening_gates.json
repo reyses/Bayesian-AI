@@ -1,0 +1,12 @@
+{
+  "fission_map": {},
+  "good_hours_utc": [
+    0,
+    5,
+    17,
+    18,
+    19,
+    20
+  ],
+  "default_class": "DROP"
+}
