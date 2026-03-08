@@ -139,8 +139,7 @@ def run_research(args):
 
     # Valid template IDs
     valid_tids = sorted([tid for tid in pattern_library
-                         if isinstance(tid, int) and (pattern_library[tid].get('n_members', 0) > 0
-                                                       or pattern_library[tid].get('member_count', 0) > 0)])
+                         if isinstance(tid, int) and pattern_library[tid].get('member_count', 0) > 0])
     centroids = np.array([pattern_library[tid]['centroid'] for tid in valid_tids])
     centroids_scaled = scaler.transform(centroids)
 

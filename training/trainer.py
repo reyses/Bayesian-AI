@@ -395,7 +395,7 @@ class Trainer:
         _exception_tids = set()
         for _etid in valid_template_ids:
             _elib = self.pattern_library.get(_etid, {})
-            _en   = _elib.get('n_members', 0)
+            _en   = _elib.get('member_count', 0)
             _ewr  = _elib.get('stats_win_rate', 0.0)
             _esig = _elib.get('regression_sigma_ticks', None)
             if (_en >= _EXCEPTION_MIN_MEMBERS
@@ -3235,7 +3235,7 @@ class Trainer:
                 'trades': total,
                 'win_rate': win_rate,
                 'sharpe': sharpe,
-                'pnl': sum(t.pnl for t in history),
+                'pnl': sum(pnls),
                 'max_dd': max_dd,
                 'risk': risk_score
             })
