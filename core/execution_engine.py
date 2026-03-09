@@ -490,7 +490,7 @@ class ExecutionEngine:
             if dist < self.gate1_dist and tid in self.exception_tids:
                 _data_override = True
 
-        # ── Gate 0: Headroom & Physics ────────────────────────
+        # ── Pattern Quality: headroom & physics rules ─────────
         micro_z = abs(cand.z_score)
         micro_pattern = cand.pattern_type
         should_skip = False
@@ -553,7 +553,7 @@ class ExecutionEngine:
             r.dist = dist
             return r
 
-        # ── Gate 0.5: Depth filter ────────────────────────────
+        # ── Depth Filter: min depth & blacklist ───────────────
         _cand_depth = cand.depth
 
         if self.depth_only is not None and _cand_depth != self.depth_only:
@@ -573,14 +573,14 @@ class ExecutionEngine:
             self.gate_stats['gate0_5_skip'] += 1
             return fail('gate0_5')
 
-        # ── Gate 1: Cluster distance ──────────────────────────
+        # ── Template Match: cluster distance ──────────────────
         if dist >= self.gate1_dist:
             self.gate_stats['gate1_skip'] += 1
             r = fail('gate1')
             r.dist = dist
             return r
 
-        # ── Gate 2: Brain profitability ───────────────────────
+        # ── Brain Reject: profitability check ─────────────────
         if not self.brain.should_fire(tid, min_prob=0.05, min_conf=0.0):
             self.gate_stats['gate2_skip'] += 1
             r = fail('gate2')
@@ -618,7 +618,7 @@ class ExecutionEngine:
             return TradeAction(type=ActionType.HOLD, gate_label='no_direction',
                                raw_event=cand.raw_event)
 
-        # ── Gate 3: Belief conviction ─────────────────────────
+        # ── Low Conviction: belief strength check ─────────────
         _belief = self.belief_network.get_belief()
         network_tp = None
         _band = None
@@ -639,7 +639,7 @@ class ExecutionEngine:
             if hasattr(_belief, 'predicted_mfe') and _belief.predicted_mfe > 2.0:
                 network_tp = max(4, int(round(_belief.predicted_mfe)))
 
-        # ── Gate 4: Momentum alignment ───────────────────────
+        # ── Momentum Misalign: F_mom vs trade direction ──────
         # F_momentum = velocity * volume / sigma.  When its sign disagrees
         # with the trade direction, WR drops from 88% to ~45%.  Skip.
         _F_mom = getattr(cand.state, 'F_momentum', 0.0)
@@ -700,12 +700,12 @@ class ExecutionEngine:
     def _check_worker_bypass(self, bypass_cand: Candidate,
                              bypass_dist: float,
                              price: float, bar_index: int) -> TradeAction:
-        """Gate 1 override: high-conviction belief fires without template match."""
+        """Worker bypass: high-conviction belief fires without template match."""
         belief = self.belief_network.get_belief()
         if belief is None or belief.conviction < self.worker_bypass_conviction:
             return TradeAction(type=ActionType.HOLD)
 
-        # Physics quality gate: depth <= 3 and z < 0
+        # Physics Quality: depth <= 3 and z < 0
         depth = bypass_cand.depth
         z = getattr(bypass_cand, 'z_score',
                     getattr(bypass_cand.state, 'z_score', 0.0))
@@ -940,9 +940,13 @@ class ExecutionEngine:
                               self.gate_stats.get('gate0_hurst', 0) +
                               self.gate_stats.get('gate0_momentum', 0) +
                               self.gate_stats.get('gate0_tunnel', 0)),
+            'skip_depth': self.gate_stats.get('gate0_5_skip', 0),
             'skip_dist': self.gate_stats.get('gate1_skip', 0),
             'skip_brain': self.gate_stats.get('gate2_skip', 0),
             'skip_conviction': self.gate_stats.get('gate3_skip', 0),
+            'skip_momentum_align': self.gate_stats.get('gate4_momentum_align', 0),
             'skip_physics_qg': self.gate_stats.get('physics_qg_skip', 0),
             'n_signals_seen': self.gate_stats.get('total_candidates', 0),
+            'n_traded': self.gate_stats.get('traded', 0),
+            'n_bypass_traded': self.gate_stats.get('bypass_traded', 0),
         }

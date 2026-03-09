@@ -1904,22 +1904,29 @@ class Trainer:
         # ── 2c. Skip reason breakdown ─────────────────────────────────────────────
         _skip = _exec_engine.get_skip_counts()
         skip_headroom = _skip['skip_headroom']
+        skip_depth = _skip.get('skip_depth', 0)
         skip_dist = _skip['skip_dist']
         skip_brain = _skip['skip_brain']
         skip_conviction = _skip['skip_conviction']
+        skip_mom_align = _skip.get('skip_momentum_align', 0)
         skip_physics_qg = _skip['skip_physics_qg']
-        _n_pass = n_signals_seen - skip_headroom - skip_dist - skip_brain - skip_conviction
+        _all_skipped = skip_headroom + skip_depth + skip_dist + skip_brain + skip_conviction + skip_mom_align + skip_physics_qg
+        _unaccounted = n_signals_seen - _all_skipped - n_traded
         _sec['skip_reasons'] = len(report_lines)
         report_lines.append("")
         report_lines.append(f"  WHY SIGNALS WERE SKIPPED  (total candidates evaluated: {n_signals_seen:,})")
         if n_signals_seen > 0:
             _pct_s = lambda n: f"{n/n_signals_seen*100:.1f}%"
-            report_lines.append(f"    Gate 0 (headroom/pattern rule): {skip_headroom:>6,}  ({_pct_s(skip_headroom)})")
-            report_lines.append(f"    Gate 1 (dist > 3.0, no match):  {skip_dist:>6,}  ({_pct_s(skip_dist)})")
-            report_lines.append(f"    Gate 2 (brain rejected):        {skip_brain:>6,}  ({_pct_s(skip_brain)})")
-            report_lines.append(f"    Gate 3 (conviction < thresh):   {skip_conviction:>6,}  ({_pct_s(skip_conviction)})")
-            report_lines.append(f"    Physics QG (depth>3 or z>=0):  {skip_physics_qg:>6,}  ({_pct_s(skip_physics_qg)})")
-            report_lines.append(f"    Passed all gates -> traded:     {n_traded:>6,}  ({_pct_s(n_traded)})")
+            report_lines.append(f"    Pattern Quality  (no match/noise/struct): {skip_headroom:>6,}  ({_pct_s(skip_headroom)})")
+            report_lines.append(f"    Depth Filter     (depth<3 or blacklist):  {skip_depth:>6,}  ({_pct_s(skip_depth)})")
+            report_lines.append(f"    Template Match   (dist > 3.0):            {skip_dist:>6,}  ({_pct_s(skip_dist)})")
+            report_lines.append(f"    Brain Reject     (unprofitable pattern):  {skip_brain:>6,}  ({_pct_s(skip_brain)})")
+            report_lines.append(f"    Low Conviction   (belief too weak):       {skip_conviction:>6,}  ({_pct_s(skip_conviction)})")
+            report_lines.append(f"    Momentum Misalign (F_mom vs direction):   {skip_mom_align:>6,}  ({_pct_s(skip_mom_align)})")
+            report_lines.append(f"    Physics Quality  (bypass: depth>3/z>=0):  {skip_physics_qg:>6,}  ({_pct_s(skip_physics_qg)})")
+            report_lines.append(f"    Passed all gates -> traded:               {n_traded:>6,}  ({_pct_s(n_traded)})")
+            if _unaccounted > 0:
+                report_lines.append(f"    ⚠ Unaccounted:                    {_unaccounted:>6,}  ({_pct_s(_unaccounted)})")
 
         # ── 2c. Traded signal depth distribution ─────────────────────────────────
         _sec['depth_dist'] = len(report_lines)
@@ -2838,19 +2845,19 @@ class Trainer:
             # gate0/gate0_5 = structural rules; gate1 = no cluster match; gate2/gate3 = brain/conviction
             # 'passed' = scored fine but another candidate at same bar was chosen instead
             _GATE_LABELS = {
-                'gate0':             'Gate 0  no pattern (Rule 1)',
-                'gate0_noise':       'Gate 0  noise zone <0.5sigma (Rule 2)',
-                'gate0_r3_snap':     'Gate 0  approach zone BAND_REVERSAL (Rule 3) -- no qualified tmpl',
-                'gate0_r3_struct':   'Gate 0  approach zone MOMENTUM_BREAK weak trend (Rule 3)',
-                'gate0_r4_nightmare':'Gate 0  extreme zone nightmare field (Rule 4)',
-                'gate0_r4_struct':   'Gate 0  extreme zone MOMENTUM_BREAK no headroom (Rule 4)',
-                'gate0_hurst':       'Gate 0  Hurst < 0.5 choppy/anti-persistent (Rule 5a)',
-                'gate0_momentum':    'Gate 0  momentum override breakout likely (Rule 5b)',
-                'gate0_tunnel':      'Gate 0  tunnel probability < 40% (Rule 5c)',
-                'gate0_5':           'Gate 0.5 depth filter',
-                'gate1':             'Gate 1  no cluster match (dist>4.5)',
-                'gate2':             'Gate 2  brain rejected',
-                'gate3':             'Gate 3  conviction below threshold',
+                'gate0':             'Pattern Quality: no pattern match',
+                'gate0_noise':       'Pattern Quality: noise zone <0.5 sigma',
+                'gate0_r3_snap':     'Pattern Quality: approach zone BAND_REVERSAL no tmpl',
+                'gate0_r3_struct':   'Pattern Quality: approach zone MOMENTUM_BREAK weak',
+                'gate0_r4_nightmare':'Pattern Quality: extreme zone nightmare field',
+                'gate0_r4_struct':   'Pattern Quality: extreme zone MOMENTUM_BREAK',
+                'gate0_hurst':       'Pattern Quality: Hurst < 0.5 choppy',
+                'gate0_momentum':    'Pattern Quality: momentum override breakout',
+                'gate0_tunnel':      'Pattern Quality: tunnel prob < 40%',
+                'gate0_5':           'Depth Filter: depth<3 or blacklist',
+                'gate1':             'Template Match: no cluster match (dist>4.5)',
+                'gate2':             'Brain Reject: unprofitable pattern',
+                'gate3':             'Low Conviction: belief below threshold',
                 'passed':            'Passed gates, lost to better score',
                 'unknown':           'Unknown (pre-gate tracking)',
             }
