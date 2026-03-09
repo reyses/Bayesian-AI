@@ -30,8 +30,13 @@ from core.exit_engine import ExitEngine, ExitAction
 from core.execution_engine import (ExecutionEngine, ActionType, Candidate,
                                    TradeAction)
 from core.fractal_clustering import FractalClusteringEngine
+from core.feature_extraction import extract_feature_vector
 from core.timeframe_belief_network import TimeframeBeliefNetwork
 from core.exit_engine import make_position
+from live.exit_watcher import ExitWatcher
+from live.gui_bridge import GUIBridge
+from live.session_tracker import SessionTracker
+from live.ping_pong import PingPongManager
 from config.symbols import SYMBOL_MAP
 
 from live.config import LiveConfig
@@ -98,32 +103,24 @@ _ANCHOR_TF_MAP = {
 }
 
 
-@dataclass
-class _LiveCandidate:
-    """Lightweight stand-in for PatternEvent in live mode."""
-    pattern_type: str
-    z_score: float
-    velocity: float
-    momentum: float
-    entropy_normalized: float
-    state: object         # MarketState
-    depth: int = 10       # default: 15s depth level
-    timeframe: str = '15s'
-    parent_type: str = 'MOMENTUM_BREAK'  # needed by extract_features
-    parent_chain: list = None
-    timestamp: float = 0.0
-    price: float = 0.0
-    idx: int = 0
-    file_source: str = 'live'
-    window_data: object = None
-    oracle_marker: int = 0
-    oracle_meta: dict = None
-
-    def __post_init__(self):
-        if self.parent_chain is None:
-            self.parent_chain = []
-        if self.oracle_meta is None:
-            self.oracle_meta = {}
+def _live_features(state, tf_seconds: int, depth: int) -> np.ndarray:
+    """Build 16D feature vector from a live MarketState (no parent chain)."""
+    return np.array(extract_feature_vector(
+        z_score=getattr(state, 'z_score', 0.0),
+        velocity=getattr(state, 'velocity', 0.0),
+        momentum=getattr(state, 'momentum_strength', 0.0),
+        entropy_normalized=getattr(state, 'entropy_normalized', 0.0),
+        tf_seconds=tf_seconds,
+        depth=float(depth),
+        parent_is_band_reversal=0.0,
+        adx=getattr(state, 'adx_strength', 0.0) / 100.0,
+        hurst=getattr(state, 'hurst_exponent', 0.5),
+        dmi_diff=(getattr(state, 'dmi_plus', 0.0) - getattr(state, 'dmi_minus', 0.0)) / 100.0,
+        parent_z=0.0, parent_dmi_diff=0.0,
+        root_is_roche=0.0, tf_alignment=0.0,
+        pid=getattr(state, 'term_pid', 0.0),
+        osc_coherence=getattr(state, 'oscillation_entropy_normalized', 0.0),
+    ))
 
 
 class LiveEngine:
@@ -134,7 +131,6 @@ class LiveEngine:
         self._cfg = config
         self._dry_run = dry_run
         self._client_override = client  # None = use NT8Client
-        self._gui_queue = gui_queue     # None = headless
         self._shared_state = shared_state or {}  # mutable dict from launcher
 
         # Core components (loaded from checkpoints)
@@ -183,10 +179,9 @@ class LiveEngine:
         self._belief_network: Optional[TimeframeBeliefNetwork] = None
 
         # Multi-TF bar buffers for TBN workers (populated from NT8 bridge)
-        # Key = bar_period_s, value = list of OHLCV dicts
         self._tf_bars: Dict[int, list] = {5: [], 14400: []}
 
-        # Position tracking (mirrors orchestrator forward pass)
+        # Position tracking
         self._position_open = False
         self._entry_price = 0.0
         self._entry_time = 0.0
@@ -200,84 +195,44 @@ class LiveEngine:
         self._last_exit_reason = 'unknown'
         self._last_high_water = 0.0
 
-        self._primary_period = config.base_resolution_s  # updated from CONNECTED
-        self._bar_i = 0   # running anchor-TF bar index
-        self._last_states = []  # latest market states (refreshed every 15s)
-        self._last_price = 0.0  # latest bar close (for main loop access)
-        self._last_ts = 0.0     # latest bar timestamp
-        self._last_exit_time = 0.0  # cooldown between trades
-        self._last_gui_push = 0.0  # throttle GUI stats to 1/s
-        self._order_send_ts = 0.0  # perf_counter when order was sent (latency tracking)
-        self._live_trade_count = 0  # for periodic brain save
-        self._brain_save_interval = 5  # save brain every N trades
-        self._shutting_down = False    # graceful shutdown in progress
-        self._instrument_mismatch = False  # set True if NT8 chart != config instrument
-        self._entry_belief_pct = 0         # aggregated gate cascade progress (0-100%)
-        self._exit_belief_pct = 100        # trade life remaining (100%=fresh, 0%=exit imminent)
-        self._exit_watchers = []           # post-exit counterfactual trackers
-
-        # Ping-pong mode (continuous wave-riding with direction refinement)
-        self._ping_pong_mode = self._shared_state.get('ping_pong', False)
-        # dir_bias now lives on brain.dir_bias (shared with trainer)
-        self._last_exit_side = ''  # side we just exited (for flip)
-        self._pp_min_conviction = config.pp_min_conviction
-        self._pp_agree_veto = config.pp_agree_veto
-        self._pp_bias_min_trades = config.pp_bias_min_trades
-        self._pp_bias_wr_good = config.pp_bias_wr_good
-        self._pp_bias_wr_bad = config.pp_bias_wr_bad
-        self._pp_sl_override = config.pp_sl_override
-        self._pp_tp_override = config.pp_tp_override
-        self._pp_trail_override = config.pp_trail_override
-        self._pp_max_hold_override = config.pp_max_hold_bars
-        self._pp_flip_count = 0
-        self._pp_pending_flip = None  # deferred flip: {'side', 'price', 'ts'}
-        self._flip_in_progress = False  # True between flip order sent and entry fill received
-        self._pending_manual_entry = None  # deferred manual entry after exit fill
+        self._primary_period = config.base_resolution_s
+        self._bar_i = 0
+        self._last_states = []
+        self._last_price = 0.0
+        self._last_ts = 0.0
+        self._last_exit_time = 0.0
+        self._last_1s_tick = 0.0
+        self._order_send_ts = 0.0
+        self._live_trade_count = 0
+        self._brain_save_interval = 5
+        self._shutting_down = False
+        self._instrument_mismatch = False
+        self._entry_belief_pct = 0
+        self._exit_belief_pct = 100
 
         # Hot-reloadable tuning (loaded in _load_checkpoints, refreshed every 20 bars)
         self._tuning = dict(_TUNING_DEFAULTS)
         self._tuning_mtime = 0.0
-        self._pp_last_exit_params = None  # TF-scaled params from exited trade
 
-        # Live ATR — computed from actual bar data (replaces library exit params)
-        self._live_atr_ticks = 0.0  # ATR in ticks, updated after history + each bar
+        # Live ATR — computed from actual bar data
+        self._live_atr_ticks = 0.0
 
-        # GUI stats (for popup)
-        self._session_pnl = 0.0
-        self._session_wins = 0
-        self._session_trades = 0
-        self._gross_win = 0.0
-        self._gross_loss = 0.0
-        self._trade_log = []  # per-trade records for session report
-        self._session_start = time.time()
-        self._trade_logger = TradeLogger()  # per-trade diagnostic CSV
+        # ── Extracted subsystems ──
+        self._gui = GUIBridge(gui_queue)
+        self._session = SessionTracker(config)
+        self._exit_watcher = ExitWatcher(self._asset.tick_size,
+                                         self._asset.point_value)
+        self._pp = PingPongManager(config, self._tuning)
+        self._trade_logger = TradeLogger()
 
-        # Drawdown survival tracking
-        self._consec_losses = 0           # current streak of consecutive losses
-        self._consec_loss_dollars = 0.0   # cumulative $ lost in current streak
-        self._max_consec_losses = 0       # worst streak this session
-        self._max_consec_loss_dollars = 0.0  # worst streak $ this session
-        self._peak_equity = 0.0           # high water mark of session PnL
-        self._session_drawdown = 0.0      # current drawdown from peak
-        self._max_session_drawdown = 0.0  # worst drawdown this session
-        self._consec_wins = 0             # current streak of consecutive wins
-
-        # Gate rejection counters (for session report)
-        self._gate_stats = {
-            'bars_seen': 0,
-            'candidates': 0,
-            'gate0_skip': 0,
-            'gate0_5_skip': 0,
-            'gate1_skip': 0,
-            'gate2_skip': 0,
-            'gate3_skip': 0,
-            'gate3_5_skip': 0,
-            'gate4_skip': 0,
-            'traded': 0,
-        }
-
-        # Exit capture buckets (Optimal>=80%, Partial 20-80%, Early<20%, Reversed<=0%)
-        self._exit_buckets = {'optimal': 0, 'partial': 0, 'early': 0, 'reversed': 0}
+        # Ping-pong state (kept on LiveEngine — guards NT8 order lifecycle)
+        self._ping_pong_mode = self._shared_state.get('ping_pong', False)
+        self._last_exit_side = ''
+        self._pp_min_conviction = config.pp_min_conviction
+        self._pp_agree_veto = config.pp_agree_veto
+        self._flip_in_progress = False
+        self._pending_manual_entry = None
+        self._pp_last_exit_params = None
 
         # NT8 account equity (from ACCOUNT_UPDATE messages)
         self._nt8_cash_value = 0.0
@@ -409,7 +364,7 @@ class LiveEngine:
             if self._shared_state.pop('unlock_loss_limit', False):
                 self._orders.reset_loss_limit()
                 logger.warning("DAILY LOSS LIMIT UNLOCKED by user")
-                self._gui_push({'type': 'LOSS_LIMIT', 'locked': False,
+                self._gui.push({'type': 'LOSS_LIMIT', 'locked': False,
                                 'daily_pnl': self._orders.daily_pnl})
 
             # Manual order — checked every loop cycle (instant response)
@@ -422,8 +377,8 @@ class LiveEngine:
 
             # Every ~1s: exit protection + belief compute + GUI push
             _now = time.time()
-            if _now - self._last_gui_push >= 1.0 and self._aggregator.is_warmed_up:
-                self._last_gui_push = _now
+            if _now - self._last_1s_tick >= 1.0 and self._aggregator.is_warmed_up:
+                self._last_1s_tick = _now
                 # Exit check between bars — catches SL/TP/trail within 1s
                 if self._position_open and self._last_price > 0:
                     try:
@@ -455,15 +410,23 @@ class LiveEngine:
                         logger.warning(f"ORPHAN POSITION detected: {_om_side} @ {_om_px} "
                                        f"unreal=${_unreal:+.0f} — monitoring")
                 # Legacy PP deferred flip fallback (instant flip handles most cases)
-                if (self._pp_pending_flip and not self._position_open
-                        and self._orders.is_flat):
-                    flip = self._pp_pending_flip
-                    self._pp_pending_flip = None
+                _pf = self._pp.consume_pending()
+                if _pf and not self._position_open and self._orders.is_flat:
                     await self._enter_ping_pong(
-                        flip['exited_side'], self._last_price, _now,
+                        _pf['exited_side'], self._last_price, _now,
                         self._last_states or [])
                 self._compute_life_pct()
-                self._gui_push_stats()
+                self._gui.push_stats(
+                    session_pnl=self._session.stats.pnl,
+                    session_wins=self._session.stats.wins,
+                    session_trades=self._session.stats.trades,
+                    gross_win=self._session.stats.gross_win,
+                    gross_loss=self._session.stats.gross_loss,
+                    exit_buckets=self._session.stats.exit_buckets,
+                    belief_pct=self._exit_belief_pct if self._position_open else self._entry_belief_pct,
+                    in_position=self._position_open,
+                    daily_pnl=self._orders.daily_pnl,
+                )
 
             try:
                 msg = await asyncio.wait_for(
@@ -483,7 +446,7 @@ class LiveEngine:
                 pnl = self._orders.on_fill(msg)
                 if pnl is not None:
                     exi = self._orders.last_exit_info
-                    self._gui_push({
+                    self._gui.push({
                         'type': 'TRADE_MARKER', 'action': 'exit',
                         'side': exi.get('side', self._active_side),
                         'price': exi.get('exit_px', 0),
@@ -491,18 +454,14 @@ class LiveEngine:
                     })
                     self._brain_learn(pnl)
                     # Start post-exit counterfactual watcher
-                    self._exit_watchers.append({
-                        'tid': self._active_tid,
-                        'side': exi.get('side', self._active_side),
-                        'entry_px': exi.get('entry_px', self._entry_price),
-                        'exit_px': exi.get('exit_px', 0),
-                        'exit_pnl': pnl,
-                        'exit_time': time.time(),
-                        'peak_favorable': exi.get('exit_px', 0),
-                        'peak_adverse': exi.get('exit_px', 0),
-                        'bars_watched': 0,
-                        'reason': self._last_exit_reason,
-                    })
+                    self._exit_watcher.add(
+                        tid=self._active_tid,
+                        side=exi.get('side', self._active_side),
+                        entry_px=exi.get('entry_px', self._entry_price),
+                        exit_px=exi.get('exit_px', 0),
+                        exit_pnl=pnl,
+                        reason=self._last_exit_reason,
+                    )
                 self._sync_position_state()
                 # Fire deferred manual entry now that position is flat
                 if self._pending_manual_entry and self._orders.is_flat:
@@ -568,7 +527,7 @@ class LiveEngine:
                         f"INSTRUMENT MISMATCH: engine expects '{_cfg_root}' "
                         f"but NT8 chart is '{bridge_inst}' -- REFUSING TO TRADE")
                     self._instrument_mismatch = True
-                    self._gui_push({
+                    self._gui.push({
                         'type': 'PHASE_PROGRESS',
                         'phase': 'LIVE',
                         'step': f'WRONG INSTRUMENT: {bridge_inst}',
@@ -576,7 +535,7 @@ class LiveEngine:
                     })
                 else:
                     self._instrument_mismatch = False
-                self._gui_push({
+                self._gui.push({
                     'type': 'PHASE_PROGRESS',
                     'phase': 'LIVE',
                     'step': 'CONNECTED — warming up',
@@ -585,7 +544,7 @@ class LiveEngine:
             elif mtype == 'HISTORY_DONE':
                 count = int(msg.get('bar_count', 0))
                 logger.info(f"History dump complete: {count} bars from NT8")
-                self._gui_push({
+                self._gui.push({
                     'type': 'PHASE_PROGRESS',
                     'phase': 'LIVE',
                     'step': f'computing states ({self._aggregator.bar_count:,} bars)',
@@ -606,7 +565,7 @@ class LiveEngine:
                 logger.info(f"TBN bootstrap: 5s={_n5} bars, 4h={_n4h} bars (native from NT8)")
                 self._belief_network.prepare_day(
                     df, states_micro=states, df_5s=df_5s, df_4h=df_4h)
-                self._gui_push({
+                self._gui.push({
                     'type': 'PHASE_PROGRESS',
                     'phase': 'LIVE',
                     'step': f'READY — ATR {self._live_atr_ticks:.0f}t  ({self._aggregator.bar_count:,} bars)',
@@ -630,20 +589,14 @@ class LiveEngine:
             elif mtype == 'ACCOUNT_UPDATE':
                 self._on_account_update(msg)
             elif mtype == 'DOM':
-                self._gui_push({
+                self._gui.push({
                     'type': 'DOM_UPDATE',
                     'bid': msg.get('bid'),
                     'ask': msg.get('ask'),
                 })
 
     async def _on_bar(self, msg: dict):
-        """Process a single inbound BAR message.
-
-        Two-tier compute:
-          - Every 1s bar: price ticker, exit checks (trail/SL/TP)
-          - Every 15s bar: full state recompute + entry evaluation
-        This ensures exits fire within 1 second of trigger, not up to 15s late.
-        """
+        """Route inbound BAR to 1s or 15s processing."""
         bar_period = int(msg.get('bar_period_s', 1))
 
         # Capture multi-TF bars for TBN workers (5s, 4h, etc.)
@@ -668,63 +621,58 @@ class LiveEngine:
         self._last_bar_high = float(msg.get('high', price))
         self._last_bar_low = float(msg.get('low', price))
 
-        # Run add_bar (which may trigger recompute) in thread to avoid
-        # blocking the event loop for 1-3s during batch_compute_states
+        # Run add_bar (may trigger state recompute) in thread
         loop = asyncio.get_event_loop()
         states = await loop.run_in_executor(None, self._aggregator.add_bar, msg)
 
-        # 15s bar completed → save fresh states, advance bar counter
         new_bar = states is not None
         if new_bar:
             self._last_states = states
             self._bar_i += 1
             self._update_live_atr()
-            # Hot-reload tuning config every 20 bars (~5 min at 15s anchor)
             if self._bar_i % 20 == 0:
                 self._load_tuning()
                 self._orders.cleanup_stale_orders()
 
-        # ── History ingestion — fill progress bar as bars load ────────
+        # History ingestion — progress bar only
         if self._aggregator._history_mode:
             _bc = self._aggregator.bar_count
             if _bc % 1000 == 0 and _bc > 0:
-                self._gui_push({
-                    'type': 'PHASE_PROGRESS',
-                    'phase': 'LIVE',
+                self._gui.push({
+                    'type': 'PHASE_PROGRESS', 'phase': 'LIVE',
                     'step': f'loading history {_bc:,} bars',
-                    'pct': min(45, _bc / 500),  # ramps to ~45% during load
+                    'pct': min(45, _bc / 500),
                 })
             return
 
-        # ── Still warming up — show progress, skip evaluation ─────────
+        # Warmup — show progress, skip evaluation
         if not self._aggregator.is_warmed_up:
             if new_bar and self._bar_i % 10 == 0:
                 pct = self._aggregator.bar_count / max(1, self._cfg.warmup_bars) * 100
-                self._gui_push({
-                    'type': 'PHASE_PROGRESS',
-                    'phase': 'LIVE',
+                self._gui.push({
+                    'type': 'PHASE_PROGRESS', 'phase': 'LIVE',
                     'step': (f'warmup {self._aggregator.bar_count}'
                              f'/{self._cfg.warmup_bars}'),
                     'pct': min(99, pct),
                 })
             return
 
+        # Every bar: exits + GUI tick
+        await self._process_1s(price, ts)
 
-        # ══ 1-SECOND PROCESSING (runs on every inbound bar) ══════════
+        # 15s bars only: entries + TBN
+        if new_bar:
+            await self._process_15s(price, ts, states)
 
-        # Push live price to GUI ticker
-        self._gui_push({
-            'type': 'TICK_UPDATE',
-            'price': price,
-            'bars': self._bar_i,
+    async def _process_1s(self, price: float, ts: float):
+        """Sub-second processing: GUI tick, staleness check, exit checks."""
+        self._gui.push({
+            'type': 'TICK_UPDATE', 'price': price, 'bars': self._bar_i,
         })
 
-        # Safety: skip trading on stale data (>2 min old)
-        age = time.time() - ts
-        if age > 120:
-            return  # stale bar from history leak, skip
+        if time.time() - ts > 120:
+            return  # stale bar from history leak
 
-        # Exit check EVERY SECOND (trail stop, SL, TP are price-dependent)
         if self._position_open:
             try:
                 await self._check_exit(price, ts)
@@ -732,31 +680,23 @@ class LiveEngine:
                 logger.error(f"_check_exit CRASHED: {_exit_err} — emergency flatten")
                 await self._close_position('EXIT_CRASH')
 
-        # ══ 15-SECOND PROCESSING (only on fresh state recompute) ══════
-        if not new_bar:
-            return
-
-        # Feed belief network (time-constants calibrated to 15s bars)
-        df = self._aggregator.df
+    async def _process_15s(self, price: float, ts: float, states: list):
+        """Per-anchor-bar processing: TBN, entries, counterfactual watchers."""
         if self._bar_i % 240 == 1:
-            # Re-prepare day periodically — supply native NT8 multi-TF data
             df_1s = self._aggregator.df_1s
             df_5s = pd.DataFrame(self._tf_bars.get(5, [])) if self._tf_bars.get(5) else pd.DataFrame()
             df_4h = pd.DataFrame(self._tf_bars.get(14400, [])) if self._tf_bars.get(14400) else pd.DataFrame()
             self._belief_network.prepare_day(
-                df, states_micro=states,
+                self._aggregator.df, states_micro=states,
                 df_5s=df_5s, df_1s=df_1s, df_4h=df_4h)
 
         self._belief_network.tick_all(self._bar_i)
 
-        # Entry check (if flat + cooldown expired — one anchor bar minimum)
-        # Note: PP flip is handled in the 1s main loop for faster response
         _cooldown_ok = (time.time() - self._last_exit_time) > float(self._anchor_period)
         if not self._position_open and not self._orders.loss_limit_hit and _cooldown_ok:
             await self._check_entry(price, ts, states)
 
-        # Post-exit counterfactual watchers (cheap: iterates small list)
-        self._tick_exit_watchers(price)
+        self._exit_watcher.tick(price)
 
     # ── Exit Logic ────────────────────────────────────────────────────
 
@@ -902,19 +842,20 @@ class LiveEngine:
             await self._close_position(reason)
             return
 
+        state = _fresh[-1]['state']
+        flip = self._pp.determine_flip(
+            exited_side=exited_side, state=state,
+            exec_engine=self._exec_engine,
+            anchor_depth=self._anchor_depth, anchor_tf=self._anchor_tf,
+            ts=ts, active_tid=self._active_tid,
+            side_lock=self._shared_state.get('side_lock'),
+            atr_ticks=self._live_atr_ticks,
+        )
+        side = flip.side
+        sl_ticks, tp_ticks = flip.sl_ticks, flip.tp_ticks
+        trail_ticks, trail_act = flip.trail_ticks, flip.trail_act
         tid = self._active_tid or 'MANUAL'
         base_tid = tid[3:] if isinstance(tid, str) and tid.startswith('PP_') else tid
-        state = _fresh[-1]['state']
-        candidate = self._build_candidate('PP_FLIP', state, price, ts)
-        if candidate is None:
-            await self._close_position(reason)
-            return
-
-        side, _p_long, _dir_src = self._determine_direction(candidate, base_tid)
-        _side_lock = self._shared_state.get('side_lock')
-        if _side_lock:
-            side = _side_lock
-            _dir_src = f'locked_{_side_lock}'
 
         # Reset exit state (same as _close_position)
         self._last_exit_side = self._active_side
@@ -926,17 +867,8 @@ class LiveEngine:
         self._position = None
         self._last_exit_time = time.time()
 
-        # Exit params: ATR-based defaults, tuning overrides if non-zero
-        atr = self._live_atr_ticks if self._live_atr_ticks > 0 else 8.0
-        _floor = max(4, self._tuning.get('min_tick_floor', 4))
-        sl_ticks = self._pp_sl_override or self._tuning.get('pp_sl', 0) or max(_floor, int(round(atr * self._tuning.get('exit_sl_mult', 3.0))))
-        tp_ticks = self._pp_tp_override or self._tuning.get('pp_tp', 0) or max(_floor, int(round(atr * self._tuning.get('exit_tp_mult', 5.0))))
-        trail_ticks = self._pp_trail_override or self._tuning.get('pp_trail', 0) or max(_floor, int(round(atr * self._tuning.get('exit_trail_mult', 2.5))))
-        trail_act = max(_floor, int(round(atr * self._tuning.get('exit_trail_act_mult', 0.6))))
-
-        self._pp_flip_count += 1
-        logger.info(f"INSTANT FLIP #{self._pp_flip_count}: {exited_side}->{side.upper()} "
-                    f"@ {price:.2f}  dir_src={_dir_src}  p_long={_p_long:.2f}  "
+        logger.info(f"INSTANT FLIP #{self._pp.flip_count}: {exited_side}->{side.upper()} "
+                    f"@ {price:.2f}  dir_src={flip.dir_source}  p_long={flip.p_long:.2f}  "
                     f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}")
 
         self._position = make_position(
@@ -955,7 +887,7 @@ class LiveEngine:
         self._active_tid = f'PP_{base_tid}'
         self._max_hold_bars = 960
         self._trade_logger.start_trade(
-            self._session_trades + 1, side, price, ts)
+            self._session.stats.trades + 1, side, price, ts)
 
         self._belief_network.start_trade_tracking(
             side=side, entry_bar=self._bar_i,
@@ -965,7 +897,7 @@ class LiveEngine:
             logger.info("[DRY RUN] Flip logged but no order sent")
             return
 
-        same_side = (side.lower() == exited_side.lower())
+        same_side = flip.same_side
         if same_side:
             # Same-side continuation: keep NT8 position open, reset exits.
             # No orders = zero latency, zero commission, zero slippage.
@@ -996,7 +928,7 @@ class LiveEngine:
                 await self._client.send(msg)
                 logger.info("INSTANT FLIP: 2-contract order sent")
 
-        self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
+        self._gui.push({'type': 'TRADE_MARKER', 'action': 'entry',
                         'side': side, 'price': price})
 
     def _init_exit_state(self, side: str, price: float, sl_ticks: float,
@@ -1094,7 +1026,7 @@ class LiveEngine:
             self._active_tid = f'RE_{tid}'
             self._max_hold_bars = 960
             self._trade_logger.start_trade(
-                self._session_trades + 1, exited_side, price, ts)
+                self._session.stats.trades + 1, exited_side, price, ts)
 
             self._belief_network.start_trade_tracking(
                 side=exited_side, entry_bar=self._bar_i,
@@ -1106,7 +1038,7 @@ class LiveEngine:
                 if order_msg:
                     self._order_send_ts = time.perf_counter()
                     await self._client.send(order_msg)
-            self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
+            self._gui.push({'type': 'TRADE_MARKER', 'action': 'entry',
                             'side': exited_side, 'price': price})
         else:
             _reason = 'no belief' if belief is None else f'dir={belief.direction} conv={belief.conviction:.2f}'
@@ -1154,7 +1086,7 @@ class LiveEngine:
             _warn = (f"WARNING: belief says {belief.direction.upper()} "
                      f"(conv={belief.conviction:.2f}) — you're going {side.upper()}")
             logger.warning(_warn)
-            self._gui_push({
+            self._gui.push({
                 'type': 'PHASE_PROGRESS', 'phase': 'LIVE',
                 'step': f'WARN: belief={belief.direction.upper()}',
                 'pct': self._entry_belief_pct,
@@ -1170,7 +1102,7 @@ class LiveEngine:
 
         logger.info(f"MANUAL ENTRY: {side.upper()} @ {price:.2f}  "
                     f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}")
-        self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
+        self._gui.push({'type': 'TRADE_MARKER', 'action': 'entry',
                         'side': side, 'price': price})
 
         # Always use freshest market state — a trade is a trade
@@ -1205,7 +1137,7 @@ class LiveEngine:
         self._entry_depth = self._anchor_depth
         self._max_hold_bars = 960  # 4 hours max for manual trades
         self._trade_logger.start_trade(
-            self._session_trades + 1, side, price, ts)
+            self._session.stats.trades + 1, side, price, ts)
 
         self._belief_network.start_trade_tracking(
             side=side, entry_bar=self._bar_i,
@@ -1224,14 +1156,6 @@ class LiveEngine:
 
     # ── Ping-Pong Mode ──────────────────────────────────────────────
 
-    def _schedule_ping_pong_flip(self, exited_side: str, price: float,
-                                  ts: float):
-        """After exhaustion exit, schedule a flip — direction decided on entry."""
-        logger.info(f"PING-PONG: scheduling flip after {exited_side} exhaustion")
-        self._pp_pending_flip = {
-            'exited_side': exited_side, 'price': price, 'ts': ts,
-        }
-
     async def _enter_ping_pong(self, side_hint: str, price: float,
                                 ts: float, states: list):
         """Full-context flip entry — uses direction model + learns outcomes."""
@@ -1239,42 +1163,28 @@ class LiveEngine:
         _fresh = self._last_states or states
         if not _fresh:
             logger.debug("PING-PONG: no states for flip entry, skip")
-            self._pp_pending_flip = None
+            self._pp.pending_flip = None
             return
 
+        state = _fresh[-1]['state']
+        flip = self._pp.determine_flip(
+            exited_side=side_hint, state=state,
+            exec_engine=self._exec_engine,
+            anchor_depth=self._anchor_depth, anchor_tf=self._anchor_tf,
+            ts=ts, active_tid=self._active_tid,
+            side_lock=self._shared_state.get('side_lock'),
+            atr_ticks=self._live_atr_ticks,
+        )
+        side = flip.side
+        sl_ticks, tp_ticks = flip.sl_ticks, flip.tp_ticks
+        trail_ticks, trail_act = flip.trail_ticks, flip.trail_act
         tid = self._active_tid or 'MANUAL'
         base_tid = tid[3:] if isinstance(tid, str) and tid.startswith('PP_') else tid
-        latest = _fresh[-1]
-        state = latest['state']
 
-        # Build a candidate from current state for direction model
-        candidate = self._build_candidate('PP_FLIP', state, price, ts)
-        if candidate is None:
-            logger.debug("PING-PONG: could not build candidate, skip")
-            return
-
-        # Full direction determination (same as normal entry)
-        side, _p_long, _dir_src = self._determine_direction(candidate, base_tid)
-
-        # Side lock override (--long-only / --short-only)
-        _side_lock = self._shared_state.get('side_lock')
-        if _side_lock:
-            side = _side_lock
-            _dir_src = f'locked_{_side_lock}'
-
-        # Exit params: ATR-based defaults, tuning overrides if non-zero
-        atr = self._live_atr_ticks if self._live_atr_ticks > 0 else 8.0
-        _floor = max(4, self._tuning.get('min_tick_floor', 4))
-        sl_ticks = self._pp_sl_override or self._tuning.get('pp_sl', 0) or max(_floor, int(round(atr * self._tuning.get('exit_sl_mult', 3.0))))
-        tp_ticks = self._pp_tp_override or self._tuning.get('pp_tp', 0) or max(_floor, int(round(atr * self._tuning.get('exit_tp_mult', 5.0))))
-        trail_ticks = self._pp_trail_override or self._tuning.get('pp_trail', 0) or max(_floor, int(round(atr * self._tuning.get('exit_trail_mult', 2.5))))
-        trail_act = max(_floor, int(round(atr * self._tuning.get('exit_trail_act_mult', 0.6))))
-
-        self._pp_flip_count += 1
-        logger.info(f"PING-PONG FLIP #{self._pp_flip_count}: {side.upper()} "
-                    f"@ {price:.2f}  dir_src={_dir_src}  p_long={_p_long:.2f}  "
+        logger.info(f"PING-PONG FLIP #{self._pp.flip_count}: {side.upper()} "
+                    f"@ {price:.2f}  dir_src={flip.dir_source}  p_long={flip.p_long:.2f}  "
                     f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}")
-        self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
+        self._gui.push({'type': 'TRADE_MARKER', 'action': 'entry',
                         'side': side, 'price': price})
 
         self._position = make_position(
@@ -1297,7 +1207,7 @@ class LiveEngine:
         self._entry_depth = self._entry_depth
         self._max_hold_bars = 960  # no forced exit — exhaustion only
         self._trade_logger.start_trade(
-            self._session_trades + 1, side, price, ts)
+            self._session.stats.trades + 1, side, price, ts)
 
         self._belief_network.start_trade_tracking(
             side=side, entry_bar=self._bar_i,
@@ -1332,63 +1242,6 @@ class LiveEngine:
         logger.info(f"DIR LEARN: tid={base_tid}  {side.upper()} ${pnl:+.0f} -> {_verdict}  |  "
                     f"LONG {lw}W/{ll}L ({l_wr})  SHORT {sw}W/{sl}L ({s_wr})")
 
-    def _tick_exit_watchers(self, price: float):
-        """Update post-exit counterfactual watchers. Called every 15s bar."""
-        if not self._exit_watchers:
-            return
-        _tick = self._cfg.tick_size
-        _point_val = self._cfg.point_value
-        done = []
-        for w in self._exit_watchers:
-            w['bars_watched'] += 1
-            # Track peak favorable/adverse since exit
-            if w['side'] in ('LONG', 'long'):
-                w['peak_favorable'] = max(w['peak_favorable'], price)
-                w['peak_adverse'] = min(w['peak_adverse'], price)
-            else:
-                w['peak_favorable'] = min(w['peak_favorable'], price)
-                w['peak_adverse'] = max(w['peak_adverse'], price)
-
-            # After 60 bars (~15 min), deliver verdict
-            if w['bars_watched'] >= 60:
-                exit_px = w['exit_px']
-                if w['side'] in ('LONG', 'long'):
-                    _could_have = (w['peak_favorable'] - w['entry_px']) * _point_val
-                    _peak_extra = (w['peak_favorable'] - exit_px) * _point_val
-                else:
-                    _could_have = (w['entry_px'] - w['peak_favorable']) * _point_val
-                    _peak_extra = (exit_px - w['peak_favorable']) * _point_val
-
-                _left = _could_have - w['exit_pnl']
-                if _left > 10:  # left more than $10 on the table
-                    logger.info(
-                        f"EXIT REGRET: tid={w['tid']} {w['side']} exited ${w['exit_pnl']:+.0f} "
-                        f"({w['reason']}) but peak was ${_could_have:+.0f} "
-                        f"-> left ${_left:.0f} on table")
-                elif w['exit_pnl'] > 0:
-                    logger.info(
-                        f"EXIT OK: tid={w['tid']} {w['side']} exited ${w['exit_pnl']:+.0f} "
-                        f"({w['reason']}) peak was ${_could_have:+.0f} -> good exit")
-                else:
-                    # Loss trade — did it get worse or recover?
-                    if w['side'] in ('LONG', 'long'):
-                        _recovery = (price - exit_px) * _point_val
-                    else:
-                        _recovery = (exit_px - price) * _point_val
-                    if _recovery > 20:
-                        logger.info(
-                            f"EXIT EARLY: tid={w['tid']} {w['side']} exited ${w['exit_pnl']:+.0f} "
-                            f"({w['reason']}) but price recovered ${_recovery:+.0f} "
-                            f"-> should have held")
-                    else:
-                        logger.info(
-                            f"EXIT CORRECT: tid={w['tid']} {w['side']} exited ${w['exit_pnl']:+.0f} "
-                            f"({w['reason']}) — price didn't recover")
-                done.append(w)
-
-        for w in done:
-            self._exit_watchers.remove(w)
-
     def _prepare_shutdown(self):
         """Save brain + bars + write session report + advise GUI."""
         # Save brain
@@ -1402,7 +1255,20 @@ class LiveEngine:
         self._aggregator.save_to_parquet()
 
         # Write session report
-        self._write_session_report()
+        self._session.write_report(
+            gate_stats=(self._exec_engine.gate_stats
+                        if hasattr(self, '_exec_engine') else {}),
+            brain_dir_bias=self._brain.dir_bias if self._brain else {},
+            account_snapshot={
+                'cash': self._nt8_cash_value,
+                'unrealized': self._nt8_unrealized_pnl,
+                'net_liq': self._nt8_net_liquidation,
+            },
+            pp_flip_count=self._pp.flip_count,
+            anchor_tf=self._anchor_tf,
+            anchor_depth=self._anchor_depth,
+            bar_count=self._bar_i,
+        )
 
         # Check position status
         if self._position_open:
@@ -1416,235 +1282,7 @@ class LiveEngine:
             status = "FLAT — saved — safe to close"
             logger.info("Prepare shutdown: no open position, safe to close")
 
-        self._gui_push({'type': 'SHUTDOWN_READY', 'status': status})
-
-    def _write_session_report(self):
-        """Write session summary to reports/live/ (OOS-level detail)."""
-        from collections import defaultdict
-
-        report_dir = os.path.join('reports', 'live')
-        os.makedirs(report_dir, exist_ok=True)
-        ts = time.strftime('%Y%m%d_%H%M%S')
-        path = os.path.join(report_dir, f'session_{ts}.txt')
-
-        dur = time.time() - self._session_start
-        dur_h = int(dur // 3600)
-        dur_m = int((dur % 3600) // 60)
-        wr = (self._session_wins / self._session_trades * 100
-              if self._session_trades > 0 else 0.0)
-        pf = (self._gross_win / abs(self._gross_loss)
-              if self._gross_loss != 0 else 0.0)
-        avg = (self._session_pnl / self._session_trades
-               if self._session_trades > 0 else 0.0)
-
-        L = []
-        L.append("=" * 72)
-        L.append(f"LIVE SESSION REPORT  (run: {time.strftime('%Y-%m-%d %H:%M:%S')})")
-        L.append(f"  Account:    {self._cfg.account}")
-        L.append(f"  Instrument: {self._cfg.instrument}")
-        L.append(f"  Anchor TF:  {self._anchor_tf}  (depth={self._anchor_depth})")
-        L.append(f"  Duration:   {dur_h}h {dur_m}m  ({self._bar_i} bars)")
-        L.append(f"Total Trades: {self._session_trades}")
-        L.append(f"Win Rate: {wr:.1f}%")
-        L.append(f"Total PnL: ${self._session_pnl:+,.2f}")
-        L.append(f"Profit Factor: {pf:.2f}")
-        L.append(f"Avg Trade: ${avg:+,.2f}")
-        L.append("=" * 72)
-
-        # ── Drawdown & Survival ──
-        L.append("")
-        L.append("── DRAWDOWN & SURVIVAL ──")
-        L.append(f"  Max Consecutive Losses: {self._max_consec_losses}")
-        L.append(f"  Max Consec Loss $:      ${self._max_consec_loss_dollars:,.2f}")
-        L.append(f"  Peak Equity:            ${self._peak_equity:+,.2f}")
-        L.append(f"  Max Session Drawdown:   ${self._max_session_drawdown:,.2f}")
-
-        # ── Per-depth PnL breakdown ──
-        L.append("")
-        L.append("=" * 72)
-        L.append("PER-DEPTH PnL BREAKDOWN")
-        L.append("=" * 72)
-        if self._trade_log:
-            depth_stats = defaultdict(lambda: {'n': 0, 'wins': 0, 'pnl': 0.0})
-            for t in self._trade_log:
-                d = t.get('depth', '?')
-                depth_stats[d]['n'] += 1
-                depth_stats[d]['pnl'] += t['pnl']
-                if t['pnl'] > 0:
-                    depth_stats[d]['wins'] += 1
-            L.append(f"  {'Depth':<10} {'Trades':>7} {'Win%':>6} {'Total PnL':>12} {'Avg/trade':>10}")
-            L.append(f"  {'-'*10} {'-'*7} {'-'*6} {'-'*12} {'-'*10}")
-            for d in sorted(depth_stats.keys()):
-                s = depth_stats[d]
-                _wr = s['wins'] / s['n'] * 100 if s['n'] > 0 else 0
-                _avg = s['pnl'] / s['n'] if s['n'] > 0 else 0
-                L.append(f"  depth {str(d):<5} {s['n']:>7} {_wr:>5.0f}% ${s['pnl']:>10,.2f} ${_avg:>9,.2f}")
-
-        # ── Exit reason breakdown ──
-        L.append("")
-        L.append("=" * 72)
-        L.append("EXIT REASON BREAKDOWN")
-        L.append("=" * 72)
-        if self._trade_log:
-            reason_stats = defaultdict(lambda: {'n': 0, 'wins': 0, 'pnl': 0.0})
-            for t in self._trade_log:
-                r = t.get('reason', '?')
-                reason_stats[r]['n'] += 1
-                reason_stats[r]['pnl'] += t['pnl']
-                if t['pnl'] > 0:
-                    reason_stats[r]['wins'] += 1
-            L.append(f"  {'Reason':<18} {'Trades':>7} {'Win%':>6} {'Total PnL':>12} {'Avg/trade':>10}")
-            L.append(f"  {'-'*18} {'-'*7} {'-'*6} {'-'*12} {'-'*10}")
-            for r in sorted(reason_stats.keys()):
-                s = reason_stats[r]
-                _wr = s['wins'] / s['n'] * 100 if s['n'] > 0 else 0
-                _avg = s['pnl'] / s['n'] if s['n'] > 0 else 0
-                L.append(f"  {r:<18} {s['n']:>7} {_wr:>5.0f}% ${s['pnl']:>10,.2f} ${_avg:>9,.2f}")
-
-        # ── Direction breakdown ──
-        L.append("")
-        L.append("=" * 72)
-        L.append("DIRECTION BREAKDOWN")
-        L.append("=" * 72)
-        if self._trade_log:
-            for d in ('LONG', 'SHORT'):
-                dt = [t for t in self._trade_log if t['side'] == d]
-                if dt:
-                    _dw = sum(1 for t in dt if t['pnl'] > 0)
-                    _dp = sum(t['pnl'] for t in dt)
-                    _dwr = _dw / len(dt) * 100
-                    L.append(f"  {d:<8} {len(dt):>4} trades  WR={_dwr:.0f}%  "
-                             f"PnL=${_dp:+,.2f}  Avg=${_dp/len(dt):+,.2f}")
-
-        # ── Ping-pong direction refinement ──
-        _dir_bias = self._brain.dir_bias if self._brain else {}
-        if self._pp_flip_count > 0 or _dir_bias:
-            L.append("")
-            L.append("=" * 72)
-            L.append("PING-PONG DIRECTION REFINEMENT")
-            L.append("=" * 72)
-            L.append(f"  Flip count: {self._pp_flip_count}")
-            if _dir_bias:
-                L.append(f"  {'Template':<20} {'LONG WR':>10} {'LONG N':>8} "
-                         f"{'SHORT WR':>10} {'SHORT N':>8}")
-                L.append("  " + "-" * 58)
-                for tid, b in sorted(_dir_bias.items(),
-                                     key=lambda x: sum(x[1].values()),
-                                     reverse=True):
-                    lw, ll = b['long_w'], b['long_l']
-                    sw, sl = b['short_w'], b['short_l']
-                    lt, st = lw + ll, sw + sl
-                    l_wr = f"{lw/lt:.0%}" if lt > 0 else "n/a"
-                    s_wr = f"{sw/st:.0%}" if st > 0 else "n/a"
-                    L.append(f"  {str(tid):<20} {l_wr:>10} {lt:>8} "
-                             f"{s_wr:>10} {st:>8}")
-
-        # ── Gate rejection funnel ──
-        L.append("")
-        L.append("=" * 72)
-        L.append("GATE REJECTION FUNNEL")
-        L.append("=" * 72)
-        # Pull gate stats from ExecutionEngine (single source of truth)
-        gs = (self._exec_engine.gate_stats if hasattr(self, '_exec_engine')
-              else self._gate_stats)
-        _total = gs.get('candidates', gs.get('gate0_skip', 0) + gs.get('traded', 0)) or 1
-        L.append(f"  Bars with candidates:           {gs.get('bars_seen', 0):>8,}")
-        L.append(f"  Total candidates evaluated:     {_total:>8,}")
-        _pct = lambda n: f"{n/_total*100:.1f}%"
-        L.append(f"    Pattern Quality  (headroom/physics):   {gs.get('gate0_skip', 0):>8,}  ({_pct(gs.get('gate0_skip', 0))})")
-        L.append(f"    Depth Filter     (depth blacklist):    {gs.get('gate0_5_skip', 0):>8,}  ({_pct(gs.get('gate0_5_skip', 0))})")
-        L.append(f"    Template Match   (cluster dist):       {gs.get('gate1_nomatch', gs.get('gate1_skip', 0)):>8,}  ({_pct(gs.get('gate1_nomatch', gs.get('gate1_skip', 0)))})")
-        L.append(f"    Brain Reject     (unprofitable):       {gs.get('gate2_brain', gs.get('gate2_skip', 0)):>8,}  ({_pct(gs.get('gate2_brain', gs.get('gate2_skip', 0)))})")
-        L.append(f"    Low Conviction   (belief too weak):    {gs.get('gate3_conviction', gs.get('gate3_skip', 0)):>8,}  ({_pct(gs.get('gate3_conviction', gs.get('gate3_skip', 0)))})")
-        L.append(f"    Screening Filter (fission/hours):      {gs.get('gate3_5_screening', gs.get('gate3_5_skip', 0)):>8,}  ({_pct(gs.get('gate3_5_screening', gs.get('gate3_5_skip', 0)))})")
-        L.append(f"    Direction Unclear (dir conf too low):   {gs.get('gate4_direction', gs.get('gate4_skip', 0)):>8,}  ({_pct(gs.get('gate4_direction', gs.get('gate4_skip', 0)))})")
-        L.append(f"    Passed all gates -> traded:            {gs.get('traded', 0):>8,}  ({_pct(gs.get('traded', 0))})")
-
-        # ── Session equity ──
-        L.append("")
-        L.append("=" * 72)
-        L.append("ACCOUNT SNAPSHOT")
-        L.append("=" * 72)
-        L.append(f"  Cash Value:      ${self._nt8_cash_value:>12,.2f}")
-        L.append(f"  Unrealized PnL:  ${self._nt8_unrealized_pnl:>+12,.2f}")
-        L.append(f"  Net Liquidation: ${self._nt8_net_liquidation:>12,.2f}")
-        L.append(f"  Profit Factor:   {pf:.2f}")
-        L.append(f"  Avg PnL/trade:   ${avg:+,.2f}")
-        L.append(f"  Gross Win:       ${self._gross_win:+,.2f}")
-        L.append(f"  Gross Loss:      ${abs(self._gross_loss):,.2f}")
-
-        # ── Trade log ──
-        L.append("")
-        L.append("=" * 72)
-        L.append("TRADE LOG")
-        L.append("=" * 72)
-        if self._trade_log:
-            L.append(f"  {'#':>3}  {'Time':<10} {'Side':<6} {'Entry':>10} "
-                     f"{'Exit':>10} {'PnL':>10} {'Reason':<14} {'Bars':>5}")
-            L.append("  " + "-" * 68)
-            cum = 0.0
-            for i, t in enumerate(self._trade_log, 1):
-                cum += t['pnl']
-                L.append(
-                    f"  {i:>3}  {t['time']:<10} {t['side']:<6} "
-                    f"{t['entry']:>10,.2f} {t['exit']:>10,.2f} "
-                    f"${t['pnl']:>+9,.2f} {t['reason']:<14} {t['bars']:>5}")
-            L.append("  " + "-" * 68)
-            L.append(f"  {'':>3}  {'':10} {'':6} {'':10} {'TOTAL':>10} "
-                     f"${self._session_pnl:>+9,.2f}")
-        else:
-            L.append("  No trades this session.")
-
-        L.append("")
-        L.append("=" * 72)
-
-        with open(path, 'w') as f:
-            f.write('\n'.join(L) + '\n')
-        logger.info(f"Session report saved: {path}")
-
-    def _gui_push(self, msg: dict):
-        """Non-blocking push to GUI queue. Drop if full."""
-        if self._gui_queue is None:
-            return
-        try:
-            self._gui_queue.put_nowait(msg)
-        except Exception:
-            pass
-
-    def _gui_push_stats(self):
-        """Push current session stats to the popup."""
-        wr = (self._session_wins / self._session_trades * 100
-              if self._session_trades > 0 else 0.0)
-        pf = (self._gross_win / abs(self._gross_loss)
-              if self._gross_loss != 0 else 0.0)
-        eb = self._exit_buckets
-        # Use OrderManager daily_pnl as source of truth (includes all fills)
-        _true_pnl = self._orders.daily_pnl
-        # Bar = belief meter
-        # Flat: entry belief charging up (0% -> 100% = fire)
-        # In position: trade life decaying (100% -> 0% = exit)
-        if self._position_open:
-            _bar_pct = self._exit_belief_pct
-            _bar_label = f'life {_bar_pct:.0f}%'
-        else:
-            _bar_pct = self._entry_belief_pct
-            _bar_label = f'belief {_bar_pct:.0f}%' if _bar_pct > 0 else f'trade {self._session_trades}'
-        self._gui_push({
-            'type': 'PHASE_PROGRESS',
-            'phase': 'LIVE',
-            'step': _bar_label,
-            'pct': _bar_pct,
-            'pnl': _true_pnl,
-            'wr': wr,
-            'trades': self._session_trades,
-            'pf': pf,
-            'exit_optimal': eb['optimal'],
-            'exit_partial': eb['partial'],
-            'exit_early': eb['early'],
-            'exit_reversed': eb['reversed'],
-            'gross_w': self._gross_win,
-            'gross_l': abs(self._gross_loss),
-        })
+        self._gui.push({'type': 'SHUTDOWN_READY', 'status': status})
 
     def _on_account_update(self, msg: dict):
         """Handle ACCOUNT_UPDATE from NT8 — push equity to GUI."""
@@ -1653,13 +1291,8 @@ class LiveEngine:
         self._nt8_unrealized_pnl = float(msg.get('unrealized_pnl', 0))
         self._nt8_net_liquidation = float(msg.get('net_liquidation', 0))
 
-        self._gui_push({
-            'type': 'ACCOUNT_UPDATE',
-            'cash_value': self._nt8_cash_value,
-            'realized_pnl': self._nt8_realized_pnl,
-            'unrealized_pnl': self._nt8_unrealized_pnl,
-            'net_liquidation': self._nt8_net_liquidation,
-        })
+        self._gui.push_account(self._nt8_cash_value, self._nt8_realized_pnl,
+                               self._nt8_unrealized_pnl, self._nt8_net_liquidation)
 
     def _brain_learn(self, pnl: float):
         """Feed trade outcome to brain, update GUI stats, save periodically."""
@@ -1694,70 +1327,28 @@ class LiveEngine:
         self._direction_learn(self._active_tid, self._active_side, pnl)
         self._live_trade_count += 1
 
-        # Update session stats for GUI
-        self._session_pnl += pnl
-        self._session_trades += 1
-        if pnl > 0:
-            self._session_wins += 1
-            self._gross_win += pnl
-            self._consec_wins += 1
-            self._consec_losses = 0
-            self._consec_loss_dollars = 0.0
-        else:
-            self._gross_loss += pnl
-            self._consec_losses += 1
-            self._consec_loss_dollars += abs(pnl)
-            self._consec_wins = 0
-            if self._consec_losses > self._max_consec_losses:
-                self._max_consec_losses = self._consec_losses
-            if self._consec_loss_dollars > self._max_consec_loss_dollars:
-                self._max_consec_loss_dollars = self._consec_loss_dollars
-
-        # Drawdown tracking (equity curve)
-        if self._session_pnl > self._peak_equity:
-            self._peak_equity = self._session_pnl
-        self._session_drawdown = self._peak_equity - self._session_pnl
-        if self._session_drawdown > self._max_session_drawdown:
-            self._max_session_drawdown = self._session_drawdown
-
-        # Capture bucket (MFE-based exit quality)
+        # Compute MFE for capture bucket
         hwm = getattr(self, '_last_high_water', entry_px)
         if self._active_side == 'long':
             mfe_ticks = (hwm - entry_px) / 0.25 if entry_px else 0
         else:
             mfe_ticks = (entry_px - hwm) / 0.25 if entry_px else 0
         pnl_ticks = pnl / (self._cfg.point_value * self._cfg.tick_size)
-        if mfe_ticks > 0:
-            capture = pnl_ticks / mfe_ticks * 100
-        else:
-            capture = 0.0 if pnl <= 0 else 100.0
-        if capture >= 80:
-            self._exit_buckets['optimal'] += 1
-        elif capture >= 20:
-            self._exit_buckets['partial'] += 1
-        elif capture > 0:
-            self._exit_buckets['early'] += 1
-        else:
-            self._exit_buckets['reversed'] += 1
-
-        # Record for session report
         _pe = getattr(self, '_price_expected', entry_px)
         _pe_err = round((exit_px - _pe) / self._asset.tick_size, 2) if _pe != entry_px else 0.0
-        self._trade_log.append({
+
+        # Delegate all stat tracking + trade log to SessionTracker
+        self._session.record_trade(pnl, {
             'time': time.strftime('%H:%M:%S'),
             'side': 'LONG' if self._active_side == 'long' else 'SHORT',
-            'entry': entry_px,
-            'exit': exit_px,
-            'pnl': pnl,
-            'result': result,
+            'entry': entry_px, 'exit': exit_px,
+            'pnl': pnl, 'result': result,
             'reason': self._last_exit_reason,
             'bars': self._bar_i - self._entry_bar,
-            'tid': self._active_tid,
-            'depth': self._entry_depth,
-            'capture': capture,
+            'tid': self._active_tid, 'depth': self._entry_depth,
+            'mfe_ticks': mfe_ticks, 'pnl_ticks': pnl_ticks,
             'predicted_mfe': getattr(self, '_predicted_mfe_ticks', 0.0),
-            'price_expected': _pe,
-            'price_expected_error': _pe_err,
+            'price_expected': _pe, 'price_expected_error': _pe_err,
         })
 
         logger.info(f"Brain learned: tid={self._active_tid} {result} "
@@ -1765,8 +1356,18 @@ class LiveEngine:
                     f"(table size: {len(self._brain.table)})")
 
         # Push stats to GUI popup
-        self._gui_push_stats()
-        self._gui_push({
+        self._gui.push_stats(
+                    session_pnl=self._session.stats.pnl,
+                    session_wins=self._session.stats.wins,
+                    session_trades=self._session.stats.trades,
+                    gross_win=self._session.stats.gross_win,
+                    gross_loss=self._session.stats.gross_loss,
+                    exit_buckets=self._session.stats.exit_buckets,
+                    belief_pct=self._exit_belief_pct if self._position_open else self._entry_belief_pct,
+                    in_position=self._position_open,
+                    daily_pnl=self._orders.daily_pnl,
+                )
+        self._gui.push({
             'type': 'DAY_PNL',
             'day': time.strftime('%H:%M'),
             'pnl': pnl,
@@ -1774,7 +1375,7 @@ class LiveEngine:
             'wins': 1 if pnl > 0 else 0,
         })
         if self._orders.loss_limit_hit:
-            self._gui_push({'type': 'LOSS_LIMIT', 'locked': True,
+            self._gui.push({'type': 'LOSS_LIMIT', 'locked': True,
                             'daily_pnl': self._orders.daily_pnl})
 
         # Save every N trades
@@ -1812,7 +1413,7 @@ class LiveEngine:
             flag = (state.cascade_detected if ptype == 'BAND_REVERSAL'
                     else state.structure_confirmed)
             if flag or _yolo:
-                _live_cand = self._build_candidate(ptype, state, price, ts)
+                _tf_s = _ANCHOR_TF_MAP.get(self._anchor_tf, {}).get('period_s', 15)
                 ee_candidates.append(Candidate(
                     state=state,
                     depth=self._anchor_depth,
@@ -1820,7 +1421,7 @@ class LiveEngine:
                     timestamp=ts,
                     pattern_type=ptype,
                     z_score=state.z_score,
-                    raw_event=_live_cand,
+                    features=_live_features(state, _tf_s, self._anchor_depth),
                 ))
                 if _yolo and not flag:
                     break  # one forced candidate is enough
@@ -1875,7 +1476,7 @@ class LiveEngine:
         _band = self._belief_network.get_band_confluence()
         if _band:
             logger.info(f"  BANDS: {_band.get('band_summary', '')}")
-        self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
+        self._gui.push({'type': 'TRADE_MARKER', 'action': 'entry',
                         'side': side, 'price': price})
 
         self._position = make_position(
@@ -1912,7 +1513,7 @@ class LiveEngine:
             price + ((belief.predicted_mfe if side == 'long' else -belief.predicted_mfe)
                      * self._asset.tick_size), 6) if belief and belief.predicted_mfe > 0 else price
         self._trade_logger.start_trade(
-            self._session_trades + 1, side, price, ts)
+            self._session.stats.trades + 1, side, price, ts)
 
         _hold_sec = self._tuning.get('max_hold_seconds', 300) or 14400
         self._max_hold_bars = max(20, _hold_sec // self._anchor_period)
@@ -1959,24 +1560,6 @@ class LiveEngine:
         return min(99, _MAP.get(gate_label, 0))
 
     # ── Helpers ───────────────────────────────────────────────────────
-
-    def _build_candidate(self, pattern_type: str, state, price: float,
-                         ts: float) -> _LiveCandidate:
-        """Build a PatternEvent-like candidate from a market state."""
-        return _LiveCandidate(
-            pattern_type=pattern_type,
-            z_score=state.z_score,
-            velocity=state.velocity,
-            momentum=state.momentum_strength,
-            entropy_normalized=state.entropy_normalized,
-            state=state,
-            depth=self._anchor_depth,
-            timeframe=self._anchor_tf,
-            parent_type=pattern_type,  # same as self in live (no tree yet)
-            timestamp=ts,
-            price=price,
-            idx=self._bar_i,
-        )
 
     def _update_live_atr(self):
         """Compute ATR in ticks from the live bar buffer (rolling 14-period)."""
