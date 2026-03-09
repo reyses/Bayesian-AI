@@ -1,5 +1,5 @@
 ================================================================================
-FORWARD PASS COMPLETE  (run: 2026-03-08 12:36:21)
+FORWARD PASS COMPLETE  (run: 2026-03-08 16:52:43)
   Period: DATA\ATLAS\15s\2025_01.parquet to 2025_12 (12 files)
 Total Trades: 7705
 Win Rate: 78.8%
