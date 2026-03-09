@@ -369,12 +369,7 @@ class ExitEngine:
         if giveback_result is not None:
             return giveback_result
 
-        # -- 7. TRAIL STOP -- DISABLED: trail exits avg $3-4/trade with 84%
-        #    "too early" rate.  Envelope decay is physics-aware and 12x more
-        #    profitable per trade.  Still update HWM for breakeven logic.
-        self._update_trail(pos, best_price, band_context)
-
-        # -- 8. BREAKEVEN LOCK --
+        # -- 7. BREAKEVEN LOCK --
         self._check_breakeven(pos)
 
         # -- 9. Exit signal from belief network (tighten/urgent) --
@@ -434,52 +429,6 @@ class ExitEngine:
     # ==================================================================
     # PRIVATE -- Trail Stop
     # ==================================================================
-
-    def _update_trail(self, pos: PositionState, best_price: float,
-                      band_context: dict = None):
-        """Update trailing stop with band-aware tighten/widen."""
-        if pos.side == 'long':
-            favorable_move = (best_price - pos.entry_price) / self.tick_size
-        else:
-            favorable_move = (pos.entry_price - best_price) / self.tick_size
-
-        if favorable_move < pos.trail_activation_ticks:
-            return  # not enough profit to start trailing
-
-        # Band-aware trail adjustment
-        trail_mult = 1.0
-        if band_context is not None:
-            _sup = band_context.get('support_score', 0.0)
-            _res = band_context.get('resistance_score', 0.0)
-
-            if pos.side == 'long' and _res > 0.5:
-                trail_mult = 0.6   # tighten at ceiling
-            elif pos.side == 'long' and _sup > 0.5:
-                trail_mult = 1.4   # widen at floor
-            elif pos.side == 'short' and _sup > 0.5:
-                trail_mult = 0.6   # tighten at floor
-            elif pos.side == 'short' and _res > 0.5:
-                trail_mult = 1.4   # widen at ceiling
-
-        # Trail tightens as profit grows
-        progress_ratio = favorable_move / max(1, pos.trail_activation_ticks)
-        tightening = max(0.4, 1.0 - (progress_ratio - 1.0) * 0.15)
-        trail_dist_ticks = pos.sl_ticks * tightening * trail_mult
-        trail_dist = trail_dist_ticks * self.tick_size
-
-        # Move trail (only tightens, never widens)
-        if pos.side == 'long':
-            new_trail = best_price - trail_dist
-            pos.current_trail = max(pos.current_trail, new_trail)
-        else:
-            new_trail = best_price + trail_dist
-            pos.current_trail = min(pos.current_trail, new_trail)
-
-    def _is_trail_hit(self, pos: PositionState, worst_price: float) -> bool:
-        if pos.side == 'long':
-            return worst_price <= pos.current_trail
-        else:
-            return worst_price >= pos.current_trail
 
     # ==================================================================
     # PRIVATE -- Envelope Decay
@@ -732,7 +681,7 @@ class ExitEngine:
     # ==================================================================
 
     def _check_breakeven(self, pos: PositionState):
-        """Lock trail to breakeven once profitable past activation threshold."""
+        """Lock stop to breakeven once profit exceeds activation threshold."""
         if pos.breakeven_locked:
             return
 
@@ -744,10 +693,10 @@ class ExitEngine:
         if favorable >= pos.trail_activation_ticks * 0.6:
             if pos.side == 'long':
                 be_level = pos.entry_price + (2 * self.tick_size)
-                pos.current_trail = max(pos.current_trail, be_level)
+                pos.stop_loss = max(pos.stop_loss, be_level)
             else:
                 be_level = pos.entry_price - (2 * self.tick_size)
-                pos.current_trail = min(pos.current_trail, be_level)
+                pos.stop_loss = min(pos.stop_loss, be_level)
             pos.breakeven_locked = True
 
     # ==================================================================
