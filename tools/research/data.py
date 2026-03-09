@@ -92,7 +92,7 @@ def compute_tf_physics(tf_name, df):
         return {}
 
     engine = StatisticalFieldEngine(regression_period=21)
-    results = engine.batch_compute_states(df, use_cuda=False)
+    results = engine.batch_compute_states(df, use_cuda=True)
 
     states = {}
     for r in results:
