@@ -1,43 +1,62 @@
-==========================================================================================
-ANALYSIS V: TRAJECTORY k-NN EXTRAPOLATION
+====================================================================================================
+ANALYSIS V: TRAJECTORY k-NN — STATE EXTRAPOLATION (v2)
 Data: DATA/ATLAS_1MONTH, Base TF: 15m, k=50
-Total samples: 607, Direction split: LONG=312 SHORT=295
-==========================================================================================
+Total samples: 607, CPU cores: 11
+====================================================================================================
 
-Variant                  Dims  N_test  DirAcc Baseline    Lift   CI50   CI80  CIw_med 90%+_acc  90%+_n
-------------------------------------------------------------------------------------------------------
-Single-Point (U)          192     152   63.2%    60.5%   +2.6%  54.6%  78.3%   128.25     0.0%       0
-flat_w4                   768     151   58.9%    60.9%   -2.0%  60.3%  78.1%   145.75     0.0%       0
-delta_w4                  576     151   53.6%    60.9%   -7.3%  53.6%  76.8%   140.00     0.0%       0
-summary_w4                576     151   58.3%    60.9%   -2.6%  49.7%  76.2%   128.25     0.0%       0
-flat_w8                  1536     150   66.0%    61.3%   +4.7%  62.7%  80.7%   175.88     0.0%       0
-delta_w8                 1344     150   59.3%    61.3%   -2.0%  55.3%  80.0%   148.00     0.0%       0
-summary_w8                576     150   60.0%    61.3%   -1.3%  50.0%  74.7%   126.06     0.0%       0
-flat_w12                 2304     149   64.4%    61.7%   +2.7%  63.8%  79.9%   196.56     0.0%       0
-delta_w12                2112     149   57.0%    61.7%   -4.7%  54.4%  79.2%   140.94     0.0%       0
-summary_w12               576     149   57.7%    61.7%   -4.0%  51.7%  73.8%   129.25     0.0%       0
-flat_w16                 3072     148   60.8%    62.2%   -1.4%  64.9%  78.4%   197.44     0.0%       0
-delta_w16                2880     148   52.0%    62.2%  -10.1%  48.0%  76.4%   134.97     0.0%       0
-summary_w16               576     148   60.8%    62.2%   -1.4%  53.4%  74.3%   138.25     0.0%       0
+APPROACH: Predict the 9th 192D state from trajectory of 8 states,
+          then derive direction from the predicted state's features.
 
-----------------------------------------------------------------------
-HEAD-TO-HEAD: Best Trajectory vs Single-Point (U)
-----------------------------------------------------------------------
-                                 Single-Point (U)     Trajectory (V)      Delta
-Direction accuracy                          63.2%              66.0%      +2.8%
-Lift over baseline                          +2.6%              +4.7%      +2.0%
-50% CI coverage                             54.6%              62.7%
-80% CI coverage                             78.3%              80.7%
-CI width (median)                         128.25            175.88
-Consensus 90%+ accuracy                      0.0% (N=0)     0.0% (N=0)
-Best variant                                                 flat_w8
+Variant           TrajD  N_test  R²_state      MAE    DirZ  DirMom  DirComp  BestDir Method      
+-------------------------------------------------------------------------------------------------
+flat_w4             768     151   -0.0332   0.2380   41.1%   39.7%    41.1%    41.1% z_mean      
+delta_w4            576     151   -0.0753   0.2895   46.4%   46.4%    45.0%    46.4% z_mean      
+summary_w4          576     151   -0.0343   0.2625   48.3%   34.4%    47.7%    48.3% z_mean      
+flat_w8            1536     150   -0.0481   0.2407   51.3%   39.3%    56.7%    56.7% composite   
+delta_w8           1344     150   -0.0792   0.2904   50.7%   51.3%    54.0%    54.0% composite   
+summary_w8          576     150   -0.0344   0.2695   51.3%   38.0%    46.7%    51.3% z_mean      
+flat_w12           2304     149   -0.0590   0.2428   47.0%   36.9%    49.0%    49.0% composite   
+delta_w12          2112     149   -0.0832   0.2976   58.4%   45.0%    54.4%    58.4% z_mean      
+summary_w12         576     149   -0.0482   0.2733   46.3%   31.5%    36.9%    46.3% z_mean      
+flat_w16           3072     148   -0.0647   0.2429   48.0%   37.8%    55.4%    55.4% composite   
+delta_w16          2880     148   -0.0986   0.3091   58.1%   51.4%    48.6%    58.1% z_mean      
+summary_w16         576     148   -0.0484   0.2696   50.7%   36.5%    58.1%    58.1% composite   
+
+--- BEST: flat_w4 ---
+
+  Per-TF State Prediction R²:
+  TF           R²   DirAcc
+  ------ -------- --------
+  1W       0.0000    39.1%
+  1D     -20539538198961645181468672.0000    60.9% <-- best
+  4h      -0.0376    39.7%
+  1h      -1.1629    53.6%
+  30m     -0.4974    58.9%
+  15m      0.2902    58.9%
+  5m       0.5015    39.7%
+  3m       0.4528    34.4%
+  2m       0.4608    29.8%
+  1m       0.4671    33.8%
+  30s      0.4584    37.1%
+  15s      0.4497    54.3%
+
+  Top 10 most predictable features (by R²):
+    4h_log1p_mom                   R²=0.4947
+    1h_log1p_mom                   R²=0.4811
+    30m_log1p_mom                  R²=0.4585
+    1h_osc_coh                     R²=0.4502
+    30m_z_score                    R²=0.4491
+    30m_osc_coh                    R²=0.3923
+    4h_log1p_vol                   R²=0.3335
+    1h_z_score                     R²=0.3102
+    30m_entropy_normalized         R²=0.2612
+    30m_log1p_vol                  R²=0.2460
 
 ======================================================================
 GATE EVALUATION
 ======================================================================
-  Direction accuracy delta:  +2.8pp  (need >= +2.0pp for PROMOTE)
-  CI50 coverage delta:       +8.1pp  (within ±5pp = OK)
-  CI80 coverage delta:       +2.4pp  (degrade > -10pp = KILL)
-  90%+ consensus accuracy:   0.0% with N=0  (need >= 95% with N>=100)
+  State prediction R²:  -0.0332  (PROMOTE >= 0.50, KILL < 0.20)
+  Best direction acc:   41.1%  (PROMOTE >= 60%, KILL < 55%)
+  Best method:          z_mean
 
->>> DEFER: Promising but insufficient high-consensus samples
+>>> KILL: State prediction too weak or direction not derivable
