@@ -2,6 +2,13 @@
 
 ---
 
+## [2026-03-09] - Automated Documentation Update
+
+### Commits
+b5d3f2a - research: trade duration fractal analysis + noise floor measurement
+
+
+
 ## [V6.0.0] - 2026-03-08 — Statistical Architecture Refactor & Unified Execution
 
 ### Architecture

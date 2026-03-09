@@ -1,18 +1,18 @@
 # Architecture Reference — Bayesian-AI
-> Last updated: 2026-03-08. CUDA-only (CPU fallback removed).
+> Last updated: 2026-03-09. CUDA-only (CPU fallback removed).
 
 ## Core Pipeline
 
 | File | Lines | Main Class/Function | Purpose |
 |------|------:|---------------------|---------|
 | `core/statistical_field_engine.py` | 489 | `StatisticalFieldEngine` | GPU-accelerated OLS regression bands, z-scores, OU probabilities, forces, entropy per bar |
-| `core/market_state.py` | 255 | `MarketState` (frozen) | 50+ field snapshot: bands, z-score, velocity, forces, probabilities, ADX/DMI, Hurst |
+| `core/market_state.py` | 255 | `MarketState (frozen)` | 50+ field snapshot: bands, z-score, velocity, forces, probabilities, ADX/DMI, Hurst |
 | `core/fractal_clustering.py` | 651 | `FractalClusteringEngine` | Recursive K-Means → 100-1000 templates with per-template OLS/logistic models |
 | `core/execution_engine.py` | 976 | `ExecutionEngine` | Gate cascade (0-4), direction cascade, sizing. Single source for IS/OOS/live |
-| `core/exit_engine.py` | 710 | `ExitEngine`, `PositionState`, `make_position()` | Unified exit cascade: SL→TP→BandUrgent→EnvelopeDecay→PeakGiveback→BreakevenLock→BeliefFlip→Hold |
+| `core/exit_engine.py` | 683 | `ExitEngine, PositionState, make_position()` | Unified exit cascade: SL→TP→BandUrgent→EnvelopeDecay→PeakGiveback→BreakevenLock→BeliefFlip→Hold |
 | `core/feature_extraction.py` | 53 | `extract_feature_vector()` | Canonical 16D feature vector (single source of truth) |
 | `core/timeframe_belief_network.py` | 1018 | `TimeframeBeliefNetwork` | 11 TF workers (1s→1D), path conviction, band confluence, direction models |
-| `core/bayesian_brain.py` | 298 | `BayesianBrain` | Hash table: state_key → {wins, losses}. Direction learning per template |
+| `core/bayesian_brain.py` | 324 | `BayesianBrain` | Hash table: state_key → {wins, losses}. Direction learning per template |
 
 ## Core Support
 
@@ -29,7 +29,7 @@
 
 | File | Lines | Main Class | Purpose |
 |------|------:|------------|---------|
-| `live/live_engine.py` | 1785 | `LiveEngine` | Main live trading loop — mirrors Phase 4 on real-time NT8 feed |
+| `live/live_engine.py` | 1766 | `LiveEngine` | Main live trading loop — mirrors Phase 4 on real-time NT8 feed |
 | `live/history_replay.py` | 524 | `HistoryReplayEngine` | Compressed forward pass over ATLAS to warm up brain/TBN/exits |
 | `live/atlas_loader.py` | 143 | `load_atlas_range()` | Parquet I/O for ATLAS multi-TF dataset |
 | `live/bar_aggregator.py` | 295 | `LiveBarAggregator` | 1s→15s OHLCV aggregation with state recomputation |
@@ -40,19 +40,19 @@
 | `live/exit_watcher.py` | 86 | `ExitWatcher` | Post-exit counterfactual tracking (regret analysis) |
 | `live/gui_bridge.py` | 79 | `GUIBridge` | Non-blocking queue wrapper for Tk dashboard |
 | `live/trade_logger.py` | 64 | `TradeLogger` | Per-trade diagnostic CSV |
-| `live/protocol.py` | 187 | Message encoding/decoding | Wire protocol for NT8 TCP communication |
+| `live/protocol.py` | 187 | `Message encoding/decoding` | Wire protocol for NT8 TCP communication |
 | `live/launcher.py` | 246 | `main()` | Entry point for live mode |
 
 ## Training
 
 | File | Lines | Purpose |
 |------|------:|---------|
-| `training/trainer.py` | 4994 | Main entry point: 6-phase pipeline (discovery→clustering→optimization→IS→OOS→strategy) |
+| `training/trainer.py` | 4971 | Main entry point: 6-phase pipeline (discovery→clustering→optimization→IS→OOS→strategy) |
 | `training/orchestrator_worker.py` | 617 | Numba JIT simulation loops, spectral gates (Fourier half-cycle + Laplace damping) |
 | `training/fractal_discovery_agent.py` | 830 | Multi-TF fractal scan → PatternEvent manifest with oracle markers |
 | `training/trade_analytics.py` | 562 | Post-run analytics: t-tests, ANOVA, OLS, logistic, capture rate regression |
 | `training/pattern_analyzer.py` | 548 | State table analysis, strongest patterns, contextual breakdowns |
-| `training/cuda_kmeans.py` | — | GPU-accelerated K-Means with sklearn fallback |
+| `training/cuda_kmeans.py` | 207 | GPU-accelerated K-Means with sklearn fallback |
 
 ## Visualization
 
