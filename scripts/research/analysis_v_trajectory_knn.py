@@ -1,21 +1,29 @@
 #!/usr/bin/env python3
 """
-Analysis V: Trajectory k-NN Extrapolation
-==========================================
+Analysis V: Trajectory k-NN — State Extrapolation
+===================================================
 Standalone research script. No core/ or live/ modifications.
 
-Hypothesis: 8 sequential 192D state snapshots (trajectory) predict direction
-better than a single 192D snapshot (Analysis U baseline).
+THESIS: 8 consecutive 192D state snapshots can predict the 9th state.
+State transitions are deterministic (Analysis P: 100% at scale).
+Direction falls out from the predicted state's z-scores and velocities.
 
-Variants tested:
-  A) Flat: 8×192D = 1536D concatenation
-  B) Delta: 7×192D differences between consecutive snapshots = 1344D
-  C) Summary: mean/std/slope of each 192 feature across window = 576D
-  Window sizes: 4, 8, 12, 16
+Method:
+  1. Build 192D state matrix for all bars
+  2. For each bar i, trajectory = states[i-W:i] (W consecutive snapshots)
+  3. Target = states[i] (the NEXT state, not direction)
+  4. k-NN: find similar trajectories in training set, average their next-states
+  5. Predicted state → extract direction from predicted z-scores/velocities
+  6. Compare predicted-state-derived direction vs actual direction
+
+Variants:
+  - Window sizes: 4, 8, 12, 16
+  - Trajectory encodings: flat, delta, summary
+  - Direction extraction: from predicted z-score sign, velocity sign, composite
 
 Gate:
-  PROMOTE if V direction accuracy > U by >= 2pp AND CI coverage within 5pp
-  KILL if V <= U OR CI degrades > 10pp
+  PROMOTE if state prediction R² >= 0.50 AND derived direction accuracy >= 60%
+  KILL if R² < 0.20 OR direction < 55%
 
 Usage:
     python scripts/research/analysis_v_trajectory_knn.py
@@ -26,10 +34,11 @@ import argparse
 import os
 import sys
 import time
-import math
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import multiprocessing
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -43,32 +52,7 @@ OUT_DIR = os.path.join('reports', 'research', ANALYSIS_ID)
 os.makedirs(OUT_DIR, exist_ok=True)
 
 TICK = 0.25
-
-
-# ---------------------------------------------------------------------------
-# Oracle: signed MFE (positive = up move dominant, negative = down)
-# ---------------------------------------------------------------------------
-def compute_signed_mfe(base_df, lookahead):
-    """For each bar, compute signed MFE = max_up - max_down over lookahead.
-
-    Positive → LONG is better, Negative → SHORT is better.
-    This is direction-agnostic (doesn't depend on z-score assignment).
-    """
-    closes = base_df['close'].values.astype(float)
-    highs = base_df['high'].values.astype(float)
-    lows = base_df['low'].values.astype(float)
-    n = len(closes)
-    signed_mfe = np.full(n, np.nan)
-
-    for i in tqdm(range(n - lookahead), desc="Oracle signed MFE",
-                  ascii=True, dynamic_ncols=True, mininterval=0.3):
-        future_hi = highs[i + 1: i + 1 + lookahead]
-        future_lo = lows[i + 1: i + 1 + lookahead]
-        max_up = future_hi.max() - closes[i]
-        max_down = closes[i] - future_lo.min()
-        signed_mfe[i] = max_up - max_down  # positive = LONG better
-
-    return signed_mfe
+N_CORES = max(1, multiprocessing.cpu_count() - 1)  # leave 1 core free
 
 
 # ---------------------------------------------------------------------------
@@ -76,11 +60,6 @@ def compute_signed_mfe(base_df, lookahead):
 # ---------------------------------------------------------------------------
 def build_trajectories(X, window, variant):
     """Build trajectory feature matrix from sequence of 192D state vectors.
-
-    Args:
-        X: (N, 192) state matrix
-        window: number of consecutive states to use
-        variant: 'flat', 'delta', or 'summary'
 
     Returns:
         X_traj: (N - window, D) trajectory features
@@ -93,27 +72,20 @@ def build_trajectories(X, window, variant):
     indices = np.arange(window, n)
 
     if variant == 'flat':
-        # Concatenate window consecutive states: window * 192D
         trajs = np.array([X[i - window: i].flatten() for i in indices])
-
     elif variant == 'delta':
-        # Differences between consecutive states: (window-1) * 192D
         trajs = np.array([
             np.diff(X[i - window: i], axis=0).flatten() for i in indices
         ])
-
     elif variant == 'summary':
-        # Per-feature statistics across window: mean, std, slope = 3 * 192D
         trajs = []
         for i in indices:
-            chunk = X[i - window: i]  # (window, 192)
+            chunk = X[i - window: i]
             mu = chunk.mean(axis=0)
             sd = chunk.std(axis=0)
-            # Linear slope via polyfit shortcut: (last - first) / (window - 1)
             slope = (chunk[-1] - chunk[0]) / max(window - 1, 1)
             trajs.append(np.concatenate([mu, sd, slope]))
         trajs = np.array(trajs)
-
     else:
         raise ValueError(f"Unknown variant: {variant}")
 
@@ -121,253 +93,332 @@ def build_trajectories(X, window, variant):
 
 
 # ---------------------------------------------------------------------------
-# k-NN experiment
+# Worker function for parallel k-NN prediction
 # ---------------------------------------------------------------------------
-def run_knn_experiment(X_features, y_signed_mfe, label, k=50):
-    """Run k-NN direction prediction + CI experiment.
+def _predict_chunk(chunk_indices, X_train_sc, Y_train, X_test_sc, k):
+    """Predict next-state for a chunk of test indices. Runs in separate process."""
+    from sklearn.neighbors import NearestNeighbors
+
+    knn = NearestNeighbors(n_neighbors=k, metric='euclidean')
+    knn.fit(X_train_sc)
+
+    X_chunk = X_test_sc[chunk_indices]
+    dists, nbr_idx = knn.kneighbors(X_chunk)
+
+    # For each test point: predicted state = weighted mean of neighbor targets
+    # Weight by inverse distance (closer neighbors matter more)
+    predictions = np.zeros((len(chunk_indices), Y_train.shape[1]))
+    for i in range(len(chunk_indices)):
+        d = dists[i]
+        w = 1.0 / (d + 1e-8)
+        w /= w.sum()
+        predictions[i] = np.average(Y_train[nbr_idx[i]], axis=0, weights=w)
+
+    return chunk_indices, predictions
+
+
+# ---------------------------------------------------------------------------
+# Run state extrapolation experiment
+# ---------------------------------------------------------------------------
+def run_state_extrapolation(X_traj, Y_target, X_raw_target, label, k=50,
+                            signed_mfe=None):
+    """Predict the 9th 192D state from trajectory, then derive direction.
 
     Args:
-        X_features: (N, D) feature matrix (already scaled)
-        y_signed_mfe: (N,) signed MFE targets
-        label: experiment name for logging
+        X_traj: (N, D) trajectory features
+        Y_target: (N, 192) target states to predict
+        X_raw_target: (N, 192) actual states (same as Y_target, for direction extraction)
+        label: experiment name
         k: number of neighbors
+        signed_mfe: (N,) actual signed MFE for direction ground truth
 
     Returns:
         dict with metrics
     """
     from sklearn.preprocessing import StandardScaler
-    from sklearn.neighbors import NearestNeighbors
+    from sklearn.metrics import r2_score, mean_absolute_error
 
-    n = len(X_features)
+    n = len(X_traj)
     split = int(n * 0.75)
     if split < k + 10 or n - split < 10:
+        print(f"    Skipped {label}: insufficient data")
         return None
 
-    X_train, X_test = X_features[:split], X_features[split:]
-    y_train, y_test = y_signed_mfe[:split], y_signed_mfe[split:]
+    X_train, X_test = X_traj[:split], X_traj[split:]
+    Y_train, Y_test = Y_target[:split], Y_target[split:]
 
-    # Scale
-    scaler = StandardScaler().fit(X_train)
-    X_train_sc = scaler.transform(X_train)
-    X_test_sc = scaler.transform(X_test)
+    # Scale trajectories (inputs)
+    scaler_x = StandardScaler().fit(X_train)
+    X_train_sc = np.nan_to_num(scaler_x.transform(X_train), nan=0.0, posinf=0.0, neginf=0.0)
+    X_test_sc = np.nan_to_num(scaler_x.transform(X_test), nan=0.0, posinf=0.0, neginf=0.0)
 
-    # Replace NaN/inf from scaling
-    X_train_sc = np.nan_to_num(X_train_sc, nan=0.0, posinf=0.0, neginf=0.0)
-    X_test_sc = np.nan_to_num(X_test_sc, nan=0.0, posinf=0.0, neginf=0.0)
+    # Scale targets — predict in normalized space, then inverse-transform
+    scaler_y = StandardScaler().fit(Y_train)
+    Y_train_sc = np.nan_to_num(scaler_y.transform(Y_train), nan=0.0, posinf=0.0, neginf=0.0)
+    Y_test_sc = np.nan_to_num(scaler_y.transform(Y_test), nan=0.0, posinf=0.0, neginf=0.0)
 
     k_actual = min(k, len(X_train) // 10, len(X_train) - 1)
     if k_actual < 5:
         return None
 
-    knn = NearestNeighbors(n_neighbors=k_actual, metric='euclidean', n_jobs=-1)
-    knn.fit(X_train_sc)
+    # ---- Parallel k-NN prediction (in scaled target space) ----
+    n_test = len(X_test)
+    chunk_size = max(50, n_test // N_CORES)
+    chunks = [list(range(i, min(i + chunk_size, n_test)))
+              for i in range(0, n_test, chunk_size)]
 
-    dists, indices = knn.kneighbors(X_test_sc)
+    print(f"    k-NN {label}: {n_test} test points, {len(chunks)} chunks across {N_CORES} cores")
 
-    results = []
-    for i in tqdm(range(len(X_test)), desc=f"  k-NN {label}",
-                  ascii=True, leave=False, mininterval=0.5):
-        nbr_mfe = y_train[indices[i]]
+    Y_pred_sc = np.zeros_like(Y_test_sc)
 
-        p10, p25, p50, p75, p90 = np.percentile(nbr_mfe, [10, 25, 50, 75, 90])
-        predicted_dir = 'LONG' if p50 > 0 else 'SHORT'
-        actual_dir = 'LONG' if y_test[i] > 0 else 'SHORT'
+    with ProcessPoolExecutor(max_workers=N_CORES) as executor:
+        futures = {
+            executor.submit(_predict_chunk, chunk, X_train_sc, Y_train_sc,
+                            X_test_sc, k_actual): chunk
+            for chunk in chunks
+        }
+        for future in tqdm(as_completed(futures), total=len(futures),
+                           desc=f"    {label}", ascii=True, leave=False):
+            idx, preds = future.result()
+            Y_pred_sc[idx] = preds
 
-        nbr_long_pct = np.mean(nbr_mfe > 0)
-        consensus = max(nbr_long_pct, 1 - nbr_long_pct)
+    # Inverse-transform predictions back to original scale
+    Y_pred = scaler_y.inverse_transform(Y_pred_sc)
 
-        results.append({
-            'p10': p10, 'p25': p25, 'p50': p50, 'p75': p75, 'p90': p90,
-            'predicted_dir': predicted_dir, 'actual_dir': actual_dir,
-            'actual_signed_mfe': y_test[i],
-            'consensus': consensus,
-            'ci_width': p75 - p25,
-            'mean_dist': np.mean(dists[i]),
-        })
+    # ---- State prediction quality ----
+    # Per-feature R² (computed individually to avoid scale issues)
+    r2_per_feat = np.array([
+        r2_score(Y_test[:, j], Y_pred[:, j])
+        if np.std(Y_test[:, j]) > 1e-8 else 0.0
+        for j in range(Y_test.shape[1])
+    ])
+    # Clip extreme negatives for averaging (a few degenerate features shouldn't dominate)
+    r2_per_feat_clipped = np.clip(r2_per_feat, -1.0, 1.0)
+    r2_overall = r2_per_feat_clipped.mean()
+    mae_overall = mean_absolute_error(Y_test, Y_pred, multioutput='uniform_average')
 
-    rdf = pd.DataFrame(results)
+    # Per-TF R² (which TFs are most predictable?)
+    r2_per_tf = []
+    for tf_idx in range(12):
+        cols = slice(tf_idx * 16, (tf_idx + 1) * 16)
+        if np.std(Y_test[:, cols]) > 1e-8:
+            r2_tf = r2_score(Y_test[:, cols], Y_pred[:, cols],
+                             multioutput='uniform_average')
+        else:
+            r2_tf = 0.0
+        r2_per_tf.append(r2_tf)
 
-    # Direction accuracy
-    dir_correct = (rdf['predicted_dir'] == rdf['actual_dir']).sum()
-    dir_acc = dir_correct / len(rdf)
-    baseline = max((rdf['actual_dir'] == 'LONG').sum(),
-                   (rdf['actual_dir'] == 'SHORT').sum()) / len(rdf)
-    lift = dir_acc - baseline
+    # ---- Direction from predicted state ----
+    # Feature layout per TF: [z_score, log1p_vol, log1p_mom, coherence, tf_scale,
+    #                         depth, parent_ctx, adx, hurst, dmi_diff, ...]
+    # z_score is feature 0 in each TF's 16D block
 
-    # CI coverage
-    ci50 = ((rdf['p25'] <= rdf['actual_signed_mfe']) &
-            (rdf['actual_signed_mfe'] <= rdf['p75'])).mean()
-    ci80 = ((rdf['p10'] <= rdf['actual_signed_mfe']) &
-            (rdf['actual_signed_mfe'] <= rdf['p90'])).mean()
+    # Extract predicted z-scores for each TF
+    pred_z_per_tf = np.array([Y_pred[:, tf_idx * 16] for tf_idx in range(12)]).T  # (N, 12)
+    actual_z_per_tf = np.array([Y_test[:, tf_idx * 16] for tf_idx in range(12)]).T
 
-    # High-consensus accuracy
-    hi_cons = rdf[rdf['consensus'] >= 0.90]
-    hi_cons_acc = (hi_cons['predicted_dir'] == hi_cons['actual_dir']).mean() \
-        if len(hi_cons) > 0 else 0.0
+    # Direction methods:
+    # Method 1: Sign of mean predicted z across all TFs
+    #   z < 0 → LONG (below mean), z > 0 → SHORT (above mean)
+    pred_z_mean = pred_z_per_tf.mean(axis=1)
+    pred_dir_z = np.where(pred_z_mean < 0, 1, -1)  # 1=LONG, -1=SHORT
 
-    ci_width_med = rdf['ci_width'].median()
+    # Method 2: Sign of predicted velocity (feature 1 = log1p_vol, feature 2 = log1p_mom)
+    #   Use momentum (feature 2) from the base TF (depth 11 = index 11)
+    pred_mom = Y_pred[:, 11 * 16 + 2]  # base TF momentum
+    pred_dir_mom = np.where(pred_mom > np.median(pred_mom), 1, -1)
+
+    # Method 3: Composite — z-score sign weighted by TF (slower TFs = more weight)
+    tf_weights = np.array([2**i for i in range(12)], dtype=float)
+    tf_weights /= tf_weights.sum()
+    weighted_z = (pred_z_per_tf * tf_weights).sum(axis=1)
+    pred_dir_composite = np.where(weighted_z < 0, 1, -1)
+
+    # Actual direction from signed MFE (if provided) or from actual z
+    if signed_mfe is not None:
+        y_smfe_test = signed_mfe[split:]
+        actual_dir = np.where(y_smfe_test > 0, 1, -1)
+    else:
+        actual_z_mean = actual_z_per_tf.mean(axis=1)
+        actual_dir = np.where(actual_z_mean < 0, 1, -1)
+
+    dir_acc_z = (pred_dir_z == actual_dir).mean()
+    dir_acc_mom = (pred_dir_mom == actual_dir).mean()
+    dir_acc_composite = (pred_dir_composite == actual_dir).mean()
+    best_dir_acc = max(dir_acc_z, dir_acc_mom, dir_acc_composite)
+    best_method = ['z_mean', 'momentum', 'composite'][
+        [dir_acc_z, dir_acc_mom, dir_acc_composite].index(best_dir_acc)]
+
+    # ---- Per-depth direction accuracy ----
+    # For each TF, use just that TF's predicted z to call direction
+    depth_dir_acc = []
+    for tf_idx in range(12):
+        pred_z_tf = Y_pred[:, tf_idx * 16]
+        pred_dir_tf = np.where(pred_z_tf < 0, 1, -1)
+        acc = (pred_dir_tf == actual_dir).mean()
+        depth_dir_acc.append(acc)
 
     return {
         'label': label,
         'n_train': split,
-        'n_test': len(rdf),
-        'dims': X_features.shape[1],
+        'n_test': n_test,
+        'dims_traj': X_traj.shape[1],
         'k': k_actual,
-        'dir_accuracy': dir_acc,
-        'baseline': baseline,
-        'lift': lift,
-        'ci50_coverage': ci50,
-        'ci80_coverage': ci80,
-        'ci_width_median': ci_width_med,
-        'hi_cons_n': len(hi_cons),
-        'hi_cons_acc': hi_cons_acc,
-        'mean_dist': rdf['mean_dist'].mean(),
-        'results_df': rdf,
+        'r2_overall': r2_overall,
+        'mae_overall': mae_overall,
+        'r2_per_feat': r2_per_feat,
+        'r2_per_tf': r2_per_tf,
+        'dir_acc_z': dir_acc_z,
+        'dir_acc_mom': dir_acc_mom,
+        'dir_acc_composite': dir_acc_composite,
+        'best_dir_acc': best_dir_acc,
+        'best_method': best_method,
+        'depth_dir_acc': depth_dir_acc,
+        'Y_test': Y_test,
+        'Y_pred': Y_pred,
     }
+
+
+# ---------------------------------------------------------------------------
+# Compute signed MFE oracle
+# ---------------------------------------------------------------------------
+def compute_signed_mfe(base_df, lookahead):
+    """Signed MFE: positive = LONG better, negative = SHORT better."""
+    closes = base_df['close'].values.astype(float)
+    highs = base_df['high'].values.astype(float)
+    lows = base_df['low'].values.astype(float)
+    n = len(closes)
+    signed_mfe = np.full(n, np.nan)
+
+    for i in range(n - lookahead):
+        max_up = highs[i + 1: i + 1 + lookahead].max() - closes[i]
+        max_down = closes[i] - lows[i + 1: i + 1 + lookahead].min()
+        signed_mfe[i] = max_up - max_down
+
+    return signed_mfe
 
 
 # ---------------------------------------------------------------------------
 # Plotting
 # ---------------------------------------------------------------------------
-def make_plots(all_results, single_point_result):
-    """Generate the 4 required plots."""
+def make_plots(all_results, X_all):
+    """Generate analysis plots."""
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
 
-    # Find best trajectory result
-    traj_results = [r for r in all_results if r and 'Single' not in r['label']]
-    if not traj_results:
-        print("  No trajectory results to plot.")
+    valid = [r for r in all_results if r is not None]
+    if not valid:
         return
-    best = max(traj_results, key=lambda r: r['dir_accuracy'])
-    sp = single_point_result
 
-    # ---- Plot 1: Direction accuracy by consensus bin (V vs U) ----
+    best = max(valid, key=lambda r: r['r2_overall'])
+
+    # ---- Plot 1: State prediction R² per TF ----
     fig, ax = plt.subplots(figsize=(10, 6))
-    bins = [0.5, 0.6, 0.7, 0.8, 0.9, 1.01]
-    bin_labels = ['50-60%', '60-70%', '70-80%', '80-90%', '90-100%']
+    tf_labels = [TF_HIERARCHY[i] for i in range(12)]
+    r2_vals = best['r2_per_tf']
+    colors = ['#228833' if v > 0.5 else '#CCBB44' if v > 0.2 else '#EE6677'
+              for v in r2_vals]
+    bars = ax.bar(range(12), r2_vals, color=colors, alpha=0.85)
+    ax.set_xticks(range(12))
+    ax.set_xticklabels(tf_labels, rotation=45, ha='right')
+    ax.set_ylabel('R² (state prediction)')
+    ax.set_title(f'State Prediction R² per TF ({best["label"]}, overall R²={best["r2_overall"]:.3f})')
+    ax.axhline(0.5, color='green', linestyle='--', alpha=0.5, label='PROMOTE threshold')
+    ax.axhline(0.2, color='red', linestyle='--', alpha=0.5, label='KILL threshold')
+    ax.legend()
+    for bar, v in zip(bars, r2_vals):
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.01,
+                f'{v:.2f}', ha='center', va='bottom', fontsize=8)
+    plt.tight_layout()
+    plt.savefig(os.path.join(OUT_DIR, 'plot1_r2_per_tf.png'), dpi=150)
+    plt.close()
 
-    for result, color, offset, name in [
-        (sp, '#4477AA', -0.15, f'Single-Point (U)'),
-        (best, '#EE7733', 0.15, f'Trajectory ({best["label"]})')
-    ]:
-        if result is None:
-            continue
-        rdf = result['results_df']
-        accs = []
-        counts = []
-        for j in range(len(bins) - 1):
-            mask = (rdf['consensus'] >= bins[j]) & (rdf['consensus'] < bins[j + 1])
-            subset = rdf[mask]
-            if len(subset) > 0:
-                acc = (subset['predicted_dir'] == subset['actual_dir']).mean()
-                accs.append(acc * 100)
-                counts.append(len(subset))
-            else:
-                accs.append(0)
-                counts.append(0)
-
-        x = np.arange(len(bin_labels))
-        bars = ax.bar(x + offset, accs, width=0.28, label=name, color=color, alpha=0.85)
-        for bar, cnt in zip(bars, counts):
-            if cnt > 0:
-                ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.5,
-                        f'n={cnt}', ha='center', va='bottom', fontsize=7)
-
-    ax.set_xticks(np.arange(len(bin_labels)))
-    ax.set_xticklabels(bin_labels)
-    ax.set_xlabel('Neighbor Consensus')
+    # ---- Plot 2: Direction accuracy per depth ----
+    fig, ax = plt.subplots(figsize=(10, 6))
+    depth_accs = [a * 100 for a in best['depth_dir_acc']]
+    colors = ['#228833' if a > 55 else '#CCBB44' if a > 52 else '#EE6677'
+              for a in depth_accs]
+    bars = ax.bar(range(12), depth_accs, color=colors, alpha=0.85)
+    ax.set_xticks(range(12))
+    ax.set_xticklabels(tf_labels, rotation=45, ha='right')
     ax.set_ylabel('Direction Accuracy %')
-    ax.set_title('V vs U: Direction Accuracy by Consensus Bin')
+    ax.set_title(f'Direction from Predicted State — Per Depth ({best["label"]})')
+    ax.axhline(50, color='gray', linestyle='--', alpha=0.4)
+    ax.axhline(55, color='green', linestyle='--', alpha=0.4, label='55% target')
     ax.legend()
-    ax.axhline(50, color='gray', linestyle='--', alpha=0.5)
-    ax.set_ylim(0, 105)
+    for bar, a in zip(bars, depth_accs):
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.3,
+                f'{a:.1f}%', ha='center', va='bottom', fontsize=8)
     plt.tight_layout()
-    plt.savefig(os.path.join(OUT_DIR, 'plot1_accuracy_by_consensus.png'), dpi=150)
+    plt.savefig(os.path.join(OUT_DIR, 'plot2_direction_per_depth.png'), dpi=150)
     plt.close()
 
-    # ---- Plot 2: CI calibration curve ----
-    fig, ax = plt.subplots(figsize=(8, 6))
-    for result, color, name in [
-        (sp, '#4477AA', 'Single-Point (U)'),
-        (best, '#EE7733', f'Trajectory ({best["label"]})')
-    ]:
-        if result is None:
-            continue
-        rdf = result['results_df']
-        nominal = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-        actual_cov = []
-        for p in nominal:
-            lo_q = (1 - p) / 2 * 100
-            hi_q = (1 + p) / 2 * 100
-            lo_vals = np.percentile(rdf[['p10', 'p25', 'p50', 'p75', 'p90']].values,
-                                     lo_q, axis=1)
-            hi_vals = np.percentile(rdf[['p10', 'p25', 'p50', 'p75', 'p90']].values,
-                                     hi_q, axis=1)
-            cov = ((rdf['actual_signed_mfe'].values >= lo_vals) &
-                   (rdf['actual_signed_mfe'].values <= hi_vals)).mean()
-            actual_cov.append(cov)
-        ax.plot(nominal, actual_cov, 'o-', color=color, label=name)
-
-    ax.plot([0, 1], [0, 1], 'k--', alpha=0.5, label='Perfect calibration')
-    ax.set_xlabel('Nominal CI Coverage')
-    ax.set_ylabel('Actual Coverage')
-    ax.set_title('CI Calibration: V vs U')
-    ax.legend()
+    # ---- Plot 3: Predicted vs actual state (sample features) ----
+    fig, axes = plt.subplots(2, 3, figsize=(15, 8))
+    # Show z-score prediction for 6 TFs
+    sample_tfs = [0, 3, 5, 8, 10, 11]  # 1W, 1h, 15m, 2m, 30s, 15s
+    for ax, tf_idx in zip(axes.flat, sample_tfs):
+        feat_col = tf_idx * 16  # z-score is feature 0
+        actual = best['Y_test'][:, feat_col]
+        pred = best['Y_pred'][:, feat_col]
+        ax.scatter(pred, actual, alpha=0.1, s=5, color='#4477AA')
+        lims = [min(ax.get_xlim()[0], ax.get_ylim()[0]),
+                max(ax.get_xlim()[1], ax.get_ylim()[1])]
+        ax.plot(lims, lims, 'k--', alpha=0.5)
+        r2 = best['r2_per_tf'][tf_idx]
+        ax.set_title(f'{TF_HIERARCHY[tf_idx]} z-score (R²={r2:.2f})', fontsize=10)
+        ax.set_xlabel('Predicted')
+        ax.set_ylabel('Actual')
+    plt.suptitle(f'State Extrapolation: Predicted vs Actual z-scores ({best["label"]})')
     plt.tight_layout()
-    plt.savefig(os.path.join(OUT_DIR, 'plot2_ci_calibration.png'), dpi=150)
+    plt.savefig(os.path.join(OUT_DIR, 'plot3_state_scatter.png'), dpi=150)
     plt.close()
 
-    # ---- Plot 3: P50 vs actual scatter ----
-    fig, ax = plt.subplots(figsize=(8, 8))
-    if sp:
-        ax.scatter(sp['results_df']['p50'], sp['results_df']['actual_signed_mfe'],
-                   alpha=0.15, s=8, color='gray', label='Single-Point (U)')
-    ax.scatter(best['results_df']['p50'], best['results_df']['actual_signed_mfe'],
-               alpha=0.3, s=10, color='#EE7733', label=f'Trajectory ({best["label"]})')
-    lims = ax.get_xlim()
-    ax.plot(lims, lims, 'k--', alpha=0.5)
-    ax.set_xlabel('Predicted p50 (signed MFE)')
-    ax.set_ylabel('Actual signed MFE')
-    ax.set_title('P50 Prediction vs Actual')
-    ax.legend()
-    plt.tight_layout()
-    plt.savefig(os.path.join(OUT_DIR, 'plot3_p50_vs_actual.png'), dpi=150)
-    plt.close()
+    # ---- Plot 4: Variant comparison ----
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+    labels = [r['label'] for r in valid]
+    r2s = [r['r2_overall'] for r in valid]
+    dir_accs = [r['best_dir_acc'] * 100 for r in valid]
 
-    # ---- Plot 4: Variant comparison grid ----
-    fig, ax = plt.subplots(figsize=(12, 6))
-    labels = []
-    accs = []
-    colors = []
     cmap = {'flat': '#EE7733', 'delta': '#33BBEE', 'summary': '#009988'}
-    for r in all_results:
-        if r is None or 'Single' in r['label']:
-            continue
-        labels.append(r['label'])
-        accs.append(r['dir_accuracy'] * 100)
-        variant = r['label'].split('_')[0] if '_' in r['label'] else 'flat'
-        colors.append(cmap.get(variant, '#999999'))
+    colors = [cmap.get(l.split('_')[0], '#999999') for l in labels]
 
-    if labels:
-        x = np.arange(len(labels))
-        bars = ax.bar(x, accs, color=colors, alpha=0.85)
-        if sp:
-            ax.axhline(sp['dir_accuracy'] * 100, color='#4477AA',
-                        linestyle='--', linewidth=2, label=f'Single-Point baseline ({sp["dir_accuracy"]*100:.1f}%)')
-        ax.set_xticks(x)
-        ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=8)
-        ax.set_ylabel('Direction Accuracy %')
-        ax.set_title('All Variants: Direction Accuracy')
-        ax.legend()
-        for bar, acc in zip(bars, accs):
-            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.3,
-                    f'{acc:.1f}%', ha='center', va='bottom', fontsize=7)
-        plt.tight_layout()
+    ax1.bar(range(len(labels)), r2s, color=colors, alpha=0.85)
+    ax1.set_xticks(range(len(labels)))
+    ax1.set_xticklabels(labels, rotation=45, ha='right', fontsize=8)
+    ax1.set_ylabel('R² (state prediction)')
+    ax1.set_title('State Prediction Quality')
+    ax1.axhline(0.5, color='green', linestyle='--', alpha=0.5)
+    ax1.axhline(0.2, color='red', linestyle='--', alpha=0.5)
 
+    ax2.bar(range(len(labels)), dir_accs, color=colors, alpha=0.85)
+    ax2.set_xticks(range(len(labels)))
+    ax2.set_xticklabels(labels, rotation=45, ha='right', fontsize=8)
+    ax2.set_ylabel('Best Direction Accuracy %')
+    ax2.set_title('Derived Direction Accuracy')
+    ax2.axhline(60, color='green', linestyle='--', alpha=0.5)
+    ax2.axhline(55, color='red', linestyle='--', alpha=0.5)
+    ax2.axhline(50, color='gray', linestyle='--', alpha=0.3)
+
+    plt.tight_layout()
     plt.savefig(os.path.join(OUT_DIR, 'plot4_variant_comparison.png'), dpi=150)
     plt.close()
+
+    # ---- Plot 5: Per-feature R² heatmap (12 TFs × 16 features) ----
+    fig, ax = plt.subplots(figsize=(14, 6))
+    r2_matrix = best['r2_per_feat'].reshape(12, 16)
+    im = ax.imshow(r2_matrix, aspect='auto', cmap='RdYlGn', vmin=-0.5, vmax=1.0)
+    ax.set_xticks(range(16))
+    ax.set_xticklabels(FEATURE_NAMES, rotation=60, ha='right', fontsize=7)
+    ax.set_yticks(range(12))
+    ax.set_yticklabels(TF_HIERARCHY, fontsize=9)
+    ax.set_title(f'State Prediction R² per Feature × TF ({best["label"]})')
+    plt.colorbar(im, ax=ax, label='R²')
+    plt.tight_layout()
+    plt.savefig(os.path.join(OUT_DIR, 'plot5_r2_heatmap.png'), dpi=150)
+    plt.close()
+
     print(f"  Plots saved to {OUT_DIR}/")
 
 
@@ -375,7 +426,7 @@ def make_plots(all_results, single_point_result):
 # Main
 # ---------------------------------------------------------------------------
 def main():
-    parser = argparse.ArgumentParser(description='Analysis V: Trajectory k-NN')
+    parser = argparse.ArgumentParser(description='Analysis V: Trajectory State Extrapolation')
     parser.add_argument('--data', default='DATA/ATLAS_1MONTH',
                         help='ATLAS data directory')
     parser.add_argument('--base-tf', default='15m',
@@ -389,11 +440,12 @@ def main():
     args = parser.parse_args()
 
     t0 = time.perf_counter()
-    print(f'Analysis V: Trajectory k-NN Extrapolation')
+    print(f'Analysis V: Trajectory k-NN — State Extrapolation (v2)')
     print(f'Data: {args.data}, Base TF: {args.base_tf}, k={args.k}')
+    print(f'CPU cores: {N_CORES} (of {multiprocessing.cpu_count()})')
     print('=' * 70)
 
-    # ---- 1. Load data & compute physics for all TFs ----
+    # ---- 1. Load data & compute physics ----
     print("\n[1/5] Loading ATLAS data and computing physics...")
     all_tf_states = {}
     for tf in tqdm(TF_HIERARCHY, desc="TF physics", ascii=True):
@@ -421,17 +473,15 @@ def main():
         print("ERROR: No matrices built.")
         return
 
-    # Flatten (12, 16) -> 192D
     X_all = np.array([m.flatten() for m in matrices])  # (N, 192)
     print(f"  State matrix: {X_all.shape}")
 
-    # ---- 3. Compute signed MFE oracle ----
+    # ---- 3. Compute signed MFE for direction ground truth ----
     print("\n[3/5] Computing signed MFE oracle...")
     from config.oracle_config import ORACLE_LOOKAHEAD_BARS
     lookahead = ORACLE_LOOKAHEAD_BARS.get(args.base_tf, 16)
     raw_signed_mfe = compute_signed_mfe(base_df, lookahead)
 
-    # Map signed_mfe to matrix indices via meta timestamps
     ts_col = base_df['timestamp'].values
     ts_to_idx_df = {int(ts_col[i]): i for i in range(len(ts_col))}
 
@@ -440,158 +490,132 @@ def main():
         for m in meta
     ])
 
-    # Drop NaN entries
     valid = ~np.isnan(y_signed_mfe)
     X_all = X_all[valid]
     y_signed_mfe = y_signed_mfe[valid]
-    print(f"  Valid samples: {len(X_all)} (signed MFE: "
-          f"mean={y_signed_mfe.mean():.2f}, std={y_signed_mfe.std():.2f})")
-    n_long = (y_signed_mfe > 0).sum()
-    n_short = (y_signed_mfe <= 0).sum()
-    print(f"  Direction split: LONG={n_long} ({n_long/len(y_signed_mfe)*100:.1f}%), "
-          f"SHORT={n_short} ({n_short/len(y_signed_mfe)*100:.1f}%)")
+    print(f"  Valid samples: {len(X_all)}")
 
     # ---- 4. Run experiments ----
-    print("\n[4/5] Running k-NN experiments...")
+    print("\n[4/5] Running state extrapolation experiments...")
     all_results = []
 
-    # Single-point baseline (Analysis U equivalent)
-    print("\n  --- Single-Point Baseline (U) ---")
-    sp_result = run_knn_experiment(X_all, y_signed_mfe, "Single-Point (U)", k=args.k)
-    all_results.append(sp_result)
-
-    # Trajectory variants
     windows = [4, 8, 12, 16]
     variants = ['flat', 'delta', 'summary']
 
     for window in windows:
         for variant in variants:
             label = f"{variant}_w{window}"
-            print(f"\n  --- {label} ---")
+            print(f"\n  === {label} ===")
 
             X_traj, traj_indices = build_trajectories(X_all, window, variant)
             if len(X_traj) == 0:
                 print(f"    Skipped: not enough data for window={window}")
                 continue
 
-            y_traj = y_signed_mfe[traj_indices]
-            print(f"    Features: {X_traj.shape}, samples: {len(y_traj)}")
+            # Target: the NEXT 192D state (what we're predicting)
+            Y_target = X_all[traj_indices]
+            y_smfe_aligned = y_signed_mfe[traj_indices]
 
-            result = run_knn_experiment(X_traj, y_traj, label, k=args.k)
+            print(f"    Trajectories: {X_traj.shape}, targets: {Y_target.shape}")
+
+            result = run_state_extrapolation(
+                X_traj, Y_target, X_all[traj_indices],
+                label, k=args.k, signed_mfe=y_smfe_aligned)
             all_results.append(result)
 
     # ---- 5. Results ----
     print("\n[5/5] Compiling results...")
     valid_results = [r for r in all_results if r is not None]
 
-    # Build comparison table
     lines = []
-    lines.append("=" * 90)
-    lines.append("ANALYSIS V: TRAJECTORY k-NN EXTRAPOLATION")
+    lines.append("=" * 100)
+    lines.append("ANALYSIS V: TRAJECTORY k-NN — STATE EXTRAPOLATION (v2)")
     lines.append(f"Data: {args.data}, Base TF: {args.base_tf}, k={args.k}")
-    lines.append(f"Total samples: {len(X_all)}, Direction split: "
-                 f"LONG={n_long} SHORT={n_short}")
-    lines.append("=" * 90)
+    lines.append(f"Total samples: {len(X_all)}, CPU cores: {N_CORES}")
+    lines.append("=" * 100)
+    lines.append("")
+    lines.append("APPROACH: Predict the 9th 192D state from trajectory of 8 states,")
+    lines.append("          then derive direction from the predicted state's features.")
     lines.append("")
 
     # Summary table
-    header = (f"{'Variant':<22} {'Dims':>6} {'N_test':>7} {'DirAcc':>7} "
-              f"{'Baseline':>8} {'Lift':>7} {'CI50':>6} {'CI80':>6} "
-              f"{'CIw_med':>8} {'90%+_acc':>8} {'90%+_n':>7}")
+    header = (f"{'Variant':<16} {'TrajD':>6} {'N_test':>7} {'R²_state':>9} "
+              f"{'MAE':>8} {'DirZ':>7} {'DirMom':>7} {'DirComp':>8} "
+              f"{'BestDir':>8} {'Method':<12}")
     lines.append(header)
     lines.append("-" * len(header))
 
     for r in valid_results:
-        line = (f"{r['label']:<22} {r['dims']:>6} {r['n_test']:>7} "
-                f"{r['dir_accuracy']*100:>6.1f}% {r['baseline']*100:>7.1f}% "
-                f"{r['lift']*100:>+6.1f}% {r['ci50_coverage']*100:>5.1f}% "
-                f"{r['ci80_coverage']*100:>5.1f}% {r['ci_width_median']:>8.2f} "
-                f"{r['hi_cons_acc']*100:>7.1f}% {r['hi_cons_n']:>7}")
-        lines.append(line)
+        lines.append(
+            f"{r['label']:<16} {r['dims_traj']:>6} {r['n_test']:>7} "
+            f"{r['r2_overall']:>9.4f} {r['mae_overall']:>8.4f} "
+            f"{r['dir_acc_z']*100:>6.1f}% {r['dir_acc_mom']*100:>6.1f}% "
+            f"{r['dir_acc_composite']*100:>7.1f}% "
+            f"{r['best_dir_acc']*100:>7.1f}% {r['best_method']:<12}")
 
-    lines.append("")
+    # Best result detail
+    if valid_results:
+        best = max(valid_results, key=lambda r: r['r2_overall'])
+        lines.append("")
+        lines.append(f"--- BEST: {best['label']} ---")
+        lines.append("")
 
-    # Direct comparison: best trajectory vs single-point
-    traj_only = [r for r in valid_results if 'Single' not in r['label']]
-    if traj_only and sp_result:
-        best = max(traj_only, key=lambda r: r['dir_accuracy'])
-        lines.append("-" * 70)
-        lines.append("HEAD-TO-HEAD: Best Trajectory vs Single-Point (U)")
-        lines.append("-" * 70)
-        lines.append(f"{'':30} {'Single-Point (U)':>18} {'Trajectory (V)':>18} {'Delta':>10}")
-        lines.append(f"{'Direction accuracy':30} {sp_result['dir_accuracy']*100:>17.1f}% "
-                     f"{best['dir_accuracy']*100:>17.1f}% "
-                     f"{(best['dir_accuracy']-sp_result['dir_accuracy'])*100:>+9.1f}%")
-        lines.append(f"{'Lift over baseline':30} {sp_result['lift']*100:>+17.1f}% "
-                     f"{best['lift']*100:>+17.1f}% "
-                     f"{(best['lift']-sp_result['lift'])*100:>+9.1f}%")
-        lines.append(f"{'50% CI coverage':30} {sp_result['ci50_coverage']*100:>17.1f}% "
-                     f"{best['ci50_coverage']*100:>17.1f}%")
-        lines.append(f"{'80% CI coverage':30} {sp_result['ci80_coverage']*100:>17.1f}% "
-                     f"{best['ci80_coverage']*100:>17.1f}%")
-        lines.append(f"{'CI width (median)':30} {sp_result['ci_width_median']:>17.2f} "
-                     f"{best['ci_width_median']:>17.2f}")
-        lines.append(f"{'Consensus 90%+ accuracy':30} {sp_result['hi_cons_acc']*100:>17.1f}% "
-                     f"(N={sp_result['hi_cons_n']}) "
-                     f"{best['hi_cons_acc']*100:>7.1f}% (N={best['hi_cons_n']})")
-        lines.append(f"{'Best variant':30} {'':>18} {best['label']:>18}")
+        # Per-TF R²
+        lines.append("  Per-TF State Prediction R²:")
+        lines.append(f"  {'TF':<6} {'R²':>8} {'DirAcc':>8}")
+        lines.append(f"  {'-'*6} {'-'*8} {'-'*8}")
+        for i, tf in enumerate(TF_HIERARCHY):
+            r2 = best['r2_per_tf'][i]
+            da = best['depth_dir_acc'][i] * 100
+            marker = " <-- best" if da == max(d * 100 for d in best['depth_dir_acc']) else ""
+            lines.append(f"  {tf:<6} {r2:>8.4f} {da:>7.1f}%{marker}")
+
+        # Top 10 most predictable features
+        lines.append("")
+        lines.append("  Top 10 most predictable features (by R²):")
+        feat_names = []
+        for tf in TF_HIERARCHY:
+            for fn in FEATURE_NAMES:
+                feat_names.append(f'{tf}_{fn}')
+        top_idx = np.argsort(best['r2_per_feat'])[-10:][::-1]
+        for idx in top_idx:
+            lines.append(f"    {feat_names[idx]:<30} R²={best['r2_per_feat'][idx]:.4f}")
 
         # Gate evaluation
         lines.append("")
         lines.append("=" * 70)
         lines.append("GATE EVALUATION")
         lines.append("=" * 70)
-
-        delta_acc = (best['dir_accuracy'] - sp_result['dir_accuracy']) * 100
-        delta_ci50 = (best['ci50_coverage'] - sp_result['ci50_coverage']) * 100
-        delta_ci80 = (best['ci80_coverage'] - sp_result['ci80_coverage']) * 100
-
-        promote = (delta_acc >= 2.0 and
-                   abs(delta_ci50) <= 5.0 and
-                   best['hi_cons_acc'] >= 0.95 and best['hi_cons_n'] >= 100)
-        kill = (delta_acc <= 0.0 or
-                delta_ci50 < -10.0 or delta_ci80 < -10.0)
-        defer = (delta_acc > 0 and not promote and
-                 best['hi_cons_n'] < 100)
-
-        lines.append(f"  Direction accuracy delta:  {delta_acc:+.1f}pp  "
-                     f"(need >= +2.0pp for PROMOTE)")
-        lines.append(f"  CI50 coverage delta:       {delta_ci50:+.1f}pp  "
-                     f"(within ±5pp = OK)")
-        lines.append(f"  CI80 coverage delta:       {delta_ci80:+.1f}pp  "
-                     f"(degrade > -10pp = KILL)")
-        lines.append(f"  90%+ consensus accuracy:   {best['hi_cons_acc']*100:.1f}% "
-                     f"with N={best['hi_cons_n']}  (need >= 95% with N>=100)")
+        lines.append(f"  State prediction R²:  {best['r2_overall']:.4f}  "
+                     f"(PROMOTE >= 0.50, KILL < 0.20)")
+        lines.append(f"  Best direction acc:   {best['best_dir_acc']*100:.1f}%  "
+                     f"(PROMOTE >= 60%, KILL < 55%)")
+        lines.append(f"  Best method:          {best['best_method']}")
         lines.append("")
 
+        promote = best['r2_overall'] >= 0.50 and best['best_dir_acc'] >= 0.60
+        kill = best['r2_overall'] < 0.20 or best['best_dir_acc'] < 0.55
+
         if promote:
-            verdict = ">>> PROMOTE: Trajectory k-NN adds significant value over single-point"
+            verdict = ">>> PROMOTE: State extrapolation works — predicted states carry direction signal"
         elif kill:
-            verdict = ">>> KILL: Trajectory k-NN does not improve over single-point"
-        elif defer:
-            verdict = ">>> DEFER: Promising but insufficient high-consensus samples"
+            verdict = ">>> KILL: State prediction too weak or direction not derivable"
         else:
-            verdict = ">>> INCONCLUSIVE: Review manually"
+            verdict = ">>> DEFER: Partial state prediction — explore richer trajectory encodings"
+
         lines.append(verdict)
 
     results_text = "\n".join(lines)
     print("\n" + results_text)
 
-    # Write results
     with open(os.path.join(OUT_DIR, 'results.txt'), 'w') as f:
         f.write(results_text)
 
-    # Save detailed CSV
-    for r in valid_results:
-        if r and 'results_df' in r:
-            r['results_df'].to_csv(
-                os.path.join(OUT_DIR, f'detail_{r["label"]}.csv'), index=False)
-
     # Plots
     print("\n  Generating plots...")
-    make_plots(all_results, sp_result)
+    make_plots(all_results, X_all)
 
-    # Append to journal
+    # Journal
     _append_journal(ANALYSIS_ID, results_text)
 
     elapsed = time.perf_counter() - t0
@@ -600,7 +624,6 @@ def main():
 
 
 def _append_journal(analysis_id, text):
-    """Append results to the research journal."""
     journal = 'docs/reference/RESEARCH_JOURNAL.txt'
     if not os.path.exists(journal):
         print(f"  Journal not found at {journal}, skipping append.")
