@@ -184,7 +184,7 @@ class ExecutionEngine:
 
         # Oracle-computed gate thresholds (loaded from gate_thresholds.json)
         self.hurst_min = 0.5            # default fallback
-        self.tunnel_prob_min = 0.40     # default fallback
+        self.reversion_prob_min = 0.40     # default fallback
         self.momentum_override_ratio = 1.0  # block when mom < rev (ratio < 1.0)
         self._load_gate_thresholds()
 
@@ -193,6 +193,9 @@ class ExecutionEngine:
         self.bars_single_candidate = 0   # exactly 1 candidate passed
         self.bars_no_candidate = 0       # 0 candidates passed
         self.tier_changed_winner = 0     # tier preference flipped the winner
+
+        # Live ATR (set by caller for live/replay mode)
+        self._live_atr_ticks: float = 0.0
 
         # Position state
         self.pos_state: Optional[PositionState] = None
@@ -228,12 +231,12 @@ class ExecutionEngine:
                         gt = json.load(f)
                     if 'hurst_min' in gt:
                         self.hurst_min = float(gt['hurst_min'])
-                    if 'tunnel_prob_min' in gt:
-                        self.tunnel_prob_min = float(gt['tunnel_prob_min'])
+                    if 'tunnel_prob_min' in gt:  # backward compat key name
+                        self.reversion_prob_min = float(gt['tunnel_prob_min'])
                     if 'momentum_override_ratio' in gt:
                         self.momentum_override_ratio = float(gt['momentum_override_ratio'])
                     print(f"  [ExecutionEngine] Gate thresholds from {path}: "
-                          f"hurst>{self.hurst_min} tunnel>{self.tunnel_prob_min} "
+                          f"hurst>{self.hurst_min} reversion_prob>{self.reversion_prob_min} "
                           f"mom_ratio>{self.momentum_override_ratio}")
                     return
                 except Exception as e:
@@ -291,23 +294,15 @@ class ExecutionEngine:
                         network_tp: float = None,
                         max_hold_bars: int = 960):
         """Caller tells engine a position was opened."""
-        _ee_lib = {
-            'p25_mae': lib_entry.get('p25_mae_ticks', lib_entry.get('p25_mae', 0)),
-            'mean_mae': lib_entry.get('mean_mae_ticks', lib_entry.get('mean_mae', 0)),
-            'regression_sigma': lib_entry.get('regression_sigma_ticks',
-                                              lib_entry.get('regression_sigma', 0)),
-            'p75_mfe': lib_entry.get('p75_mfe_ticks', lib_entry.get('p75_mfe', 0)),
-            'max_hold_bars': max_hold_bars,
-        }
+        _sl = float(sl_ticks) if sl_ticks > 0 else 20.0
+        _tp = float(tp_ticks) if tp_ticks > 0 else (float(network_tp) if network_tp and network_tp > 0 else 40.0)
         self.pos_state = self.exit_engine.open_position(
             side=side, entry_price=price, entry_bar_index=bar_index,
-            template_id=template_id, lib_entry=_ee_lib,
-            network_tp=network_tp,
+            template_id=template_id,
+            sl_ticks=_sl, tp_ticks=_tp,
+            max_hold_bars=max_hold_bars,
+            lib_entry=lib_entry,
         )
-        if sl_ticks > 0:
-            self.pos_state.sl_ticks = float(sl_ticks)
-        if tp_ticks > 0:
-            self.pos_state.tp_ticks = float(tp_ticks)
         self.active_side = side
         self.active_tid = template_id
         self.entry_price = price
@@ -542,7 +537,7 @@ class ExecutionEngine:
                   and abs(getattr(_st, 'mean_reversion_force', 0.0)) > 0):
                 should_skip = True
                 skip_label = 'gate0_momentum'
-            elif self.tunnel_prob_min > 0 and getattr(_st, 'reversion_probability', 1.0) < self.tunnel_prob_min:
+            elif self.reversion_prob_min > 0 and getattr(_st, 'reversion_probability', 1.0) < self.reversion_prob_min:
                 should_skip = True
                 skip_label = 'gate0_tunnel'
 
@@ -809,7 +804,17 @@ class ExecutionEngine:
             else:
                 tp_ticks = params.get('take_profit_ticks', 50)
 
+        # ATR floor enforcement in live/replay mode
+        if self.mode in ('live', 'replay') and self._live_atr_ticks > 0:
+            _atr = self._live_atr_ticks
+            sl_ticks = max(sl_ticks, max(4, int(round(_atr * 3.0))))
+            tp_ticks = max(tp_ticks, max(4, int(round(_atr * 5.0))))
+
         return float(sl_ticks), float(tp_ticks), float(trail_ticks), float(trail_act_ticks)
+
+    def set_live_atr(self, atr_ticks: float):
+        """Set ATR in ticks for live/replay mode SL/TP floor enforcement."""
+        self._live_atr_ticks = atr_ticks
 
     # ── DIRECTION CASCADE ────────────────────────────────────────────────
 
@@ -820,14 +825,16 @@ class ExecutionEngine:
         Unified direction cascade matching orchestrator priority order.
 
         Priority order:
-          -1  Ping-pong live bias (caller provides override)
-         0.5  Signed MFE regression (learned)
-           1  Per-cluster logistic regression
-         1.5  Brain direction-specific win rate
-           2  Template aggregate bias
-           3  Multi-TF band confluence
-           4  DMI (trend-following)
-           5  Velocity fallback
+          -1   Ping-pong live bias (caller provides override)
+          -0.5 Live brain dir_bias (live/replay only, min 5 trades)
+           0.3 Live momentum (velocity+accel, live/replay only)
+           0.5 Signed MFE regression (learned)
+           1   Per-cluster logistic regression
+           1.5 Brain direction-specific win rate
+           2   Template aggregate bias
+           3   Multi-TF band confluence
+           4   DMI (trend-following)
+           5   Velocity fallback
         """
         state = cand.state
         _BIAS_THRESH = self.bias_threshold
@@ -835,6 +842,23 @@ class ExecutionEngine:
         # ── Priority -1: Ping-pong / live direction override ──
         if pp_dir_override is not None:
             return pp_dir_override, 0.65, 'pp_override'
+
+        # ── Priority -0.5: Live brain dir_bias (live/replay only) ──
+        if self.mode in ('live', 'replay'):
+            _live_bias = self.get_live_dir_bias(tid)
+            if _live_bias is not None:
+                _p = 0.60 if _live_bias == 'long' else 0.40
+                return _live_bias, _p, 'live_bias'
+
+        # ── Priority 0.3: Live momentum (velocity+accel, live/replay only) ──
+        if self.mode in ('live', 'replay'):
+            _vel = float(getattr(state, 'velocity', 0.0))
+            _fnet = float(getattr(state, 'F_net', 0.0))
+            _mom = _vel + 0.5 * _fnet
+            if abs(_mom) > 0.5:
+                s = 'long' if _mom > 0 else 'short'
+                _p = 0.5 + min(0.15, abs(_mom) * 0.05)
+                return s, _p if s == 'long' else 1.0 - _p, 'live_momentum'
 
         # ── Priority 0.5: Signed MFE regression ──────────────
         _smfe_coeff = lib_entry.get('signed_mfe_coeff')

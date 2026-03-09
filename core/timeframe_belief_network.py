@@ -6,7 +6,7 @@ N workers, each monitoring a different timeframe level simultaneously.
 ARCHITECTURE
 ------------
 Each worker has TWO tasks:
-  Task 1 (Aggregation):  accumulate 15s bars -> TF OHLCV bar -> QuantumState
+  Task 1 (Aggregation):  accumulate 15s bars -> TF OHLCV bar -> MarketState
   Task 2 (Analysis):     state -> cluster match -> regression -> P(LONG), pred_MFE
 
 Update cadence (15s bar count per worker wakeup):
@@ -272,9 +272,9 @@ class TimeframeWorker:
 
         # Wave maturity: estimate of how "mature" (near completion) the current wave is.
         # High value = wave is well-developed / near exhaustion = higher entry risk.
-        # Composite of the three strongest exhaustion signals from the quantum state:
+        # Composite of the three strongest exhaustion signals from the market state:
         #   pattern_maturity  : engine's L7 development measure (0-1)
-        #   |z_score| / 3.0   : approach to Roche limit (3 sigma = fully mature)
+        #   |z_score| / 3.0   : approach to band extreme (3 sigma = fully mature)
         #   reversion_probability: P(revert to center) = how close to reversal
         _pm  = getattr(state, 'pattern_maturity',   0.0)
         _tp  = getattr(state, 'reversion_probability', 0.0)
@@ -427,7 +427,7 @@ class TimeframeBeliefNetwork:
                     df_4h: pd.DataFrame = None):
         """
         Task 1 for all workers: pre-aggregate the day's micro bars (15s or 1s)
-        to each TF level and compute quantum states (once per day, fast).
+        to each TF level and compute market states (once per day, fast).
 
         Micro states can be supplied directly (states_micro) if already computed
         by the main forward pass, avoiding redundant work.
@@ -644,40 +644,26 @@ class TimeframeBeliefNetwork:
     def state_to_features(state, tf_secs: int, depth: int = 0) -> list:
         """
         Convert MarketState -> 16D feature vector.
-        Same order as FractalClusteringEngine.extract_features().
-        Ancestry features (parent_z, parent_dmi_diff, root_is_roche, tf_alignment)
-        are 0.0 because live TF-aggregated bars have no parent chain context.
-        PID features (term_pid, oscillation_entropy_normalized) default to 0.0 if the
-        engine hasn't computed them yet (safe fallback).
-
-        velocity and momentum use log1p(|x|) compression -- must match
-        FractalClusteringEngine.extract_features() exactly.
+        Delegates to core.feature_extraction.extract_feature_vector().
+        Ancestry features are 0.0 (no parent chain for live aggregated TF bars).
         """
-        z = getattr(state, 'z_score',           0.0)
-        v = getattr(state, 'velocity',  0.0)
-        m = getattr(state, 'momentum_strength',  0.0)
-        c = getattr(state, 'entropy_normalized',          0.0)
-
-        tf_scale   = np.log2(max(1, tf_secs))
-        self_adx   = getattr(state, 'adx_strength',   0.0) / 100.0
-        self_hurst = getattr(state, 'hurst_exponent',  0.5)
-        self_dmi   = (getattr(state, 'dmi_plus',  0.0)
-                    - getattr(state, 'dmi_minus', 0.0)) / 100.0
-
-        # log1p compression -- must match extract_features()
-        v_feat = np.log1p(abs(v))
-        m_feat = np.log1p(abs(m))
-
-        # PID / oscillation features (positions 14-15 in the 16D vector)
-        self_pid     = getattr(state, 'term_pid',              0.0)
-        self_osc_coh = getattr(state, 'oscillation_entropy_normalized', 0.0)
-
-        # Ancestry = 0.0 (no parent chain for live aggregated TF bars)
-        return [abs(z), v_feat, m_feat, c,
-                tf_scale, float(depth), 0.0,
-                self_adx, self_hurst, self_dmi,
-                0.0, 0.0, 0.0, 0.0,
-                self_pid, self_osc_coh]
+        from core.feature_extraction import extract_feature_vector
+        return extract_feature_vector(
+            z_score=getattr(state, 'z_score', 0.0),
+            velocity=getattr(state, 'velocity', 0.0),
+            momentum=getattr(state, 'momentum_strength', 0.0),
+            entropy_normalized=getattr(state, 'entropy_normalized', 0.0),
+            tf_seconds=tf_secs,
+            depth=float(depth),
+            parent_is_band_reversal=0.0,
+            adx=getattr(state, 'adx_strength', 0.0) / 100.0,
+            hurst=getattr(state, 'hurst_exponent', 0.5),
+            dmi_diff=(getattr(state, 'dmi_plus', 0.0) - getattr(state, 'dmi_minus', 0.0)) / 100.0,
+            parent_z=0.0, parent_dmi_diff=0.0,
+            root_is_roche=0.0, tf_alignment=0.0,
+            pid=getattr(state, 'term_pid', 0.0),
+            osc_coherence=getattr(state, 'oscillation_entropy_normalized', 0.0),
+        )
 
     # ------------------------------------------------------------------
     # DECAY CASCADE (trade tracking)
@@ -986,9 +972,21 @@ class TimeframeBeliefNetwork:
         widen   = widen or _band_widen
         urgent  = urgent or _band_urgent
 
+        # ── 30m worker flip detection ─────────────────────────────────────
+        # When the 30m (slow) worker flips direction against the trade, the
+        # structural trend has changed. Tighten giveback threshold by 15pp.
+        _slow_flip_tighten = False
+        _30m_belief = belief.tf_beliefs.get(1800)
+        if _30m_belief is not None:
+            if side == 'long' and _30m_belief.dir_prob < 0.45:
+                _slow_flip_tighten = True
+            elif side == 'short' and _30m_belief.dir_prob > 0.55:
+                _slow_flip_tighten = True
+
         reason = ('band_broken'    if _band_urgent   else
                   'time_exhausted' if _time_urgent    else
                   'urgent_flip'    if urgent           else
+                  'slow_flip'      if _slow_flip_tighten else
                   'band_tighten'   if _band_tighten   else
                   'time_tighten'   if _time_tighten   else
                   'wave_mature'    if wave_mature > self.TIGHTEN_TRAIL_WAVE_MATURITY_THRESHOLD else
@@ -1002,6 +1000,7 @@ class TimeframeBeliefNetwork:
             'urgent_exit':   urgent,
             'conviction':    belief.conviction,
             'wave_maturity': wave_mature,
+            'slow_flip_tighten': _slow_flip_tighten,
             'reason':        reason,
         }
 

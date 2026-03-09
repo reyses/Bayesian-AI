@@ -39,6 +39,11 @@ class LiveConfig:
     pp_trail_override: int = 0        # Override trail ticks (0 = inherit)
     pp_max_hold_bars: int = 0         # Override max hold (0 = inherit)
 
+    # ── Compressed Replay ─────────────────────────────────────────────
+    skip_replay: bool = False         # Skip replay, use NT8 history (old behavior)
+    replay_days: int = 5             # Days of ATLAS to replay
+    atlas_root: str = 'DATA/ATLAS'   # Path to ATLAS data root
+
     # ── Risk ────────────────────────────────────────────────────────────
     max_position_size: int = 1        # Single contract for paper
     max_daily_loss_usd: float = 0.0    # 0 = disabled (sim mode)

@@ -162,6 +162,12 @@ def main():
     parser.add_argument('--log-level', default='INFO',
                         choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
                         help='Logging level (default: INFO)')
+    parser.add_argument('--skip-replay', action='store_true',
+                        help='Skip compressed replay, load from NT8 history (old behavior)')
+    parser.add_argument('--replay-days', type=int, default=5,
+                        help='Days of ATLAS history to replay (default: 5)')
+    parser.add_argument('--atlas-root', default='DATA/ATLAS',
+                        help='Path to ATLAS data root (default: DATA/ATLAS)')
     args = parser.parse_args()
 
     # YOLO mode: override warmup + aggression
@@ -195,6 +201,9 @@ def main():
         max_daily_loss_usd=args.max_daily_loss,
         anchor_tf=args.anchor_tf,
         ping_pong=args.ping_pong,
+        skip_replay=args.skip_replay,
+        replay_days=args.replay_days,
+        atlas_root=args.atlas_root,
     )
 
     # Validate side lock

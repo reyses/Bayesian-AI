@@ -89,7 +89,7 @@ for lo, hi in [(0,8), (8,16), (16,32), (32,64), (64,128), (128,999)]:
         print(f"  MFE {lo:>3d}-{hi:>3d}t: {len(sub):4d} trades, avg PnL {sub['actual_pnl'].mean():.2f}, avg hold {sub['hold_mins'].mean():.1f}m")
 print()
 
-# 6. Physics state — are scalps at extremes (Roche limit)?
+# 6. Market state — are scalps at extremes (band extreme)?
 print("=== PHYSICS AT ENTRY: Scalps vs Correct ===")
 for col in ['velocity', 'sigma', 'hurst', 'tunnel_prob', 'F_momentum', 'F_reversion', 'mom_rev_ratio']:
     if col in scalps.columns:

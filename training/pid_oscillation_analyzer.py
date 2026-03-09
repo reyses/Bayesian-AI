@@ -1,7 +1,7 @@
 """
 PID Oscillation Analyzer — Sub-Minute Band Flip Detector
 
-Watches the 15s quantum state stream. When the market enters a PID-controlled
+Watches the 15s market state stream. When the market enters a PID-controlled
 oscillation regime (price bouncing between Standard Error Bands with low DMI),
 identifies the band-touch flip points and emits PIDSignal objects.
 
@@ -21,7 +21,7 @@ import numpy as np
 PID_MIN_FORCE       = 0.3    # |term_pid| must exceed this
 PID_MIN_OSC_COH     = 0.5    # oscillation_entropy_normalized threshold
 PID_MAX_Z_ENTER     = 2.0    # don't enter if z >= 2.0 (nightmare field)
-PID_MIN_BASE_COH    = 0.4    # base quantum coherence minimum
+PID_MIN_BASE_COH    = 0.4    # base coherence minimum
 PID_MAX_ADX         = 30.0   # DMI low = PID regime (visual shows 20-26)
 PID_MIN_REGIME_BARS = 3      # must see N consecutive PID bars before entering
 
@@ -29,7 +29,7 @@ PID_MIN_REGIME_BARS = 3      # must see N consecutive PID bars before entering
 # A PID signal is classified TENSION (dangerous-but-profitable) when any of:
 #   1. z_score near outer Roche (>= 1.5σ) — PID fighting possible breakout
 #   2. term_pid very large (>= 1.0) — control force maxed out, system under strain
-#   3. breakout_probability elevated (>= 0.25) — quantum field says breakout is real
+#   3. breakout_probability elevated (>= 0.25) — statistical field says breakout is real
 #   4. oscillation_entropy_normalized falling while regime persists — control degrading
 # TENSION signals are logged in shadow but flagged separately.
 # They are NEVER enabled for live trading until a dedicated analysis sprint.
@@ -134,7 +134,7 @@ class PIDOscillationAnalyzer:
         elif force >= PID_TENSION_FORCE_MAX:
             tension_reason = 'maxed_force'      # PID control maxed out
         elif escape >= PID_TENSION_ESCAPE_MIN:
-            tension_reason = 'escape_risk'      # quantum field says breakout is real
+            tension_reason = 'escape_risk'      # statistical field says breakout is real
         elif (len(self._osc_coh_history) >= 3
               and (self._osc_coh_history[0] - osc_coh) >= PID_TENSION_COH_DROP):
             tension_reason = 'coh_drop'         # coherence degrading mid-regime

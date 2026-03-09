@@ -30,7 +30,7 @@ from tqdm import tqdm
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from core.quantum_field_engine import StatisticalFieldEngine
+from core.statistical_field_engine import StatisticalFieldEngine
 from core.timeframe_belief_network import TimeframeBeliefNetwork  # baseline
 from tools.research.tbn_trade_aware import TimeframeBeliefNetwork as TradeAwareTBN  # experiment
 from config.symbols import MNQ

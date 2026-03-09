@@ -123,7 +123,7 @@ class DOEParameterGenerator:
 
         # Define module mappings based on parameter prefixes or explicit lists
         module_map = {
-            'Quantum Field (PID)': ['pid_'],
+            'Statistical Field (PID)': ['pid_'],
             'Core': [] # Catch-all
         }
 
@@ -205,7 +205,7 @@ class DOEParameterGenerator:
             'take_profit_ticks':  (30, 60, 'int'),   # fallback TP distance in ticks
             'trailing_stop_ticks': (5, 20, 'int'),   # fallback trail distance in ticks
 
-            # Quantum Field PID (consumed by quantum_field_engine.batch_compute_states)
+            # Statistical Field PID (consumed by statistical_field_engine.batch_compute_states)
             'pid_kp': (0.1, 1.0, 'float'),   # Proportional — reaction strength
             'pid_ki': (0.01, 0.2, 'float'),  # Integral — accumulated bias
             'pid_kd': (0.1, 0.5, 'float'),   # Derivative — dampening
