@@ -289,6 +289,35 @@ class BayesianBrain:
             'avg_trades_per_state': total_trades / total_states if total_states > 0 else 0
         }
 
+def record_trade(brain: 'BayesianBrain', *, tid, entry_price: float,
+                 exit_price: float, pnl: float, side: str,
+                 exit_reason: str, timestamp: float,
+                 entry_time: float = 0.0, exit_time: float = 0.0,
+                 tick_value: float = 0.50) -> TradeOutcome:
+    """Shared trade recording — used by both trainer and live.
+
+    Constructs TradeOutcome, updates brain table + direction learning.
+    Returns the outcome for caller-specific bookkeeping.
+    """
+    outcome = TradeOutcome(
+        state=tid if tid is not None else 'UNKNOWN',
+        entry_price=entry_price,
+        exit_price=exit_price,
+        pnl=pnl,
+        result='WIN' if pnl > 0 else 'LOSS',
+        timestamp=timestamp,
+        exit_reason=exit_reason,
+        entry_time=entry_time,
+        exit_time=exit_time,
+        duration=exit_time - entry_time if exit_time and entry_time else 0.0,
+        direction='LONG' if side == 'long' else 'SHORT',
+        template_id=tid,
+    )
+    brain.update(outcome)
+    brain.direction_learn(tid, side, pnl, tick_value=tick_value)
+    return outcome
+
+
 # Backward compat: old checkpoints may pickle these class names
 MarketBayesianBrain = BayesianBrain
 QuantumBayesianBrain = BayesianBrain
