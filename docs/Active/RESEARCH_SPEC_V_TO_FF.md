@@ -22,7 +22,7 @@
    "promote to pipeline" vs "kill and move on." No ambiguous conclusions.
 
 5. **Journal continuity.** Each script appends its results to
-   `docs/WAVEFORM_ANALYSIS_JOURNAL.txt` in the established format.
+   `docs/reference/RESEARCH_JOURNAL.txt` in the established format.
 
 ---
 
@@ -131,7 +131,7 @@ def main():
 
 def _append_journal(analysis_id: str, text: str):
     """Append results to the waveform analysis journal."""
-    journal = 'docs/WAVEFORM_ANALYSIS_JOURNAL.txt'
+    journal = 'docs/reference/RESEARCH_JOURNAL.txt'
     with open(journal, 'a', encoding='utf-8') as f:
         f.write(f'\n\n{"=" * 77}\n')
         f.write(f'ANALYSIS {analysis_id.upper()} (auto-generated {time.strftime("%Y-%m-%d")})\n')
@@ -1191,7 +1191,7 @@ PARTIAL:    If only FIB levels work (not swing sub-levels) → simplify pipeline
 
 ## Analysis EE — Stop Loss Optimization & Dynamic SL
 
-**Source:** `docs/PIPELINE_ANALYSIS_JOURNAL.txt` — Analysis C (proposed but never run)
+**Source:** `docs/reference/RESEARCH_JOURNAL.txt` — Pipeline Analysis section, Analysis C (proposed but never run)
 
 ### Thesis
 
@@ -1294,7 +1294,7 @@ NOTE:       This analysis reads existing trade logs. No ATLAS needed.
 
 ## Analysis FF — Conviction Calibration Audit
 
-**Source:** `docs/PIPELINE_ANALYSIS_JOURNAL.txt` — Analysis D (proposed but never run)
+**Source:** `docs/reference/RESEARCH_JOURNAL.txt` — Pipeline Analysis section, Analysis D (proposed but never run)
 
 ### Thesis
 
@@ -1481,8 +1481,8 @@ Once promoted/killed, the corresponding spec sections are DONE.
 | BB | `JULES_EXPECTED_PROFIT_PREDICTOR.md` | Phase 1-2 (worker prediction + aggregation) |
 | CC | `JULES_EXPECTED_PROFIT_PREDICTOR.md` | Phases 3-5 (entry gate + exit sizing + progress) |
 | DD | `LEVEL_DETECTOR_SPEC.md` | Full spec (if PROMOTED → build pipeline; if KILLED → archive) |
-| EE | `PIPELINE_ANALYSIS_JOURNAL.txt` | Analysis C (stop loss optimization — proposed, never run) |
-| FF | `PIPELINE_ANALYSIS_JOURNAL.txt` | Analysis D (conviction calibration — proposed, never run) |
+| EE | `RESEARCH_JOURNAL.txt` (Pipeline section) | Analysis C (stop loss optimization — proposed, never run) |
+| FF | `RESEARCH_JOURNAL.txt` (Pipeline section) | Analysis D (conviction calibration — proposed, never run) |
 
 **Not covered by research (implementation work, do after promotion):**
 - `JULES_WAVEFORM_SEED_INTEGRATION.md` Part 2 (4h worker addition) — infra, not research
