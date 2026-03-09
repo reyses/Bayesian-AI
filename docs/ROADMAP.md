@@ -1,5 +1,21 @@
 # Roadmap & Future Work
 
+## COMPLETED (V6.0.0, 2026-03-08)
+
+- **Unified ExitEngine** -- 7-stage cascade (SL→TP→BandUrgent→EnvelopeDecay→PeakGiveback→BreakevenLock→BeliefFlip→Hold) with self-tuning halflife and giveback
+- **ExecutionEngine integration** -- gate cascade, direction cascade, sizing. IS/OOS/live share one code path
+- **Band confluence entry/exit** -- BandContext per TF worker, get_band_confluence() (Priority 4)
+- **Exit improvements (Fixes 1-4)** -- tiered giveback, 30m flip lag, hurst gate, avg_mfe_bar
+- **Feature extraction unified** -- core/feature_extraction.py (16D single source of truth)
+- **Compressed history replay** -- live/history_replay.py + live/atlas_loader.py
+- **Terminology refactor** -- quantum→statistical, ThreeBody→MarketState, full metaphor purge
+- **CPU path removed** -- CUDA-only (~310 lines deleted)
+- **Pipeline restructured** -- 5→6 phases (Strategy moved after OOS)
+- **LiveEngine decomposition** -- exit_watcher, gui_bridge, session_tracker, ping_pong extracted
+- **Code consolidation** -- ~600 lines dead code removed, PositionState trimmed, docs reorganized
+
+---
+
 ## BRANCH: Pattern Relevance & Living Brain (next major branch)
 
 ### Problem

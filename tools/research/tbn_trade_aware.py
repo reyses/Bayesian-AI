@@ -346,9 +346,9 @@ class TimeframeWorker:
 
         # Wave maturity: estimate of how "mature" (near completion) the current wave is.
         # High value = wave is well-developed / near exhaustion = higher entry risk.
-        # Composite of the three strongest exhaustion signals from the quantum state:
+        # Composite of the three strongest exhaustion signals from the market state:
         #   pattern_maturity  : engine's L7 development measure (0-1)
-        #   |z_score| / 3.0   : approach to Roche limit (3 sigma = fully mature)
+        #   |z_score| / 3.0   : approach to 2-sigma band extreme (3 sigma = fully mature)
         #   reversion_probability: P(revert to center) = how close to reversal
         _pm  = getattr(state, 'pattern_maturity',   0.0)
         _tp  = getattr(state, 'reversion_probability', 0.0)
@@ -501,7 +501,7 @@ class TimeframeBeliefNetwork:
                     df_4h: pd.DataFrame = None):
         """
         Task 1 for all workers: pre-aggregate the day's micro bars (15s or 1s)
-        to each TF level and compute quantum states (once per day, fast).
+        to each TF level and compute market states (once per day, fast).
 
         Micro states can be supplied directly (states_micro) if already computed
         by the main forward pass, avoiding redundant work.

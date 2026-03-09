@@ -2,6 +2,74 @@
 
 ---
 
+## [V6.0.0] - 2026-03-08 — Statistical Architecture Refactor & Unified Execution
+
+### Architecture
+- Global rename: `quantum_field_engine` → `statistical_field_engine`, `ThreeBodyQuantumState` → `MarketState`
+- All physics metaphors purged from code, comments, and docs (Roche→band extreme, quantum→statistical)
+- CPU fallback path removed (~310 lines) — engine is CUDA-only
+- Pipeline restructured: 5 → 6 phases (Strategy moved after OOS to prevent circular validation)
+- IS oracle direction override removed (was contaminating IS results)
+
+### ExecutionEngine Integration
+- `core/execution_engine.py` (976 lines): unified gate cascade + direction cascade + sizing
+- Direction cascade (4 priorities): momentum alignment → belief conviction → band confluence
+- Gate cascade: pattern quality → cluster match → brain → conviction → direction
+- Oracle-driven thresholds loaded from `gate_thresholds.json`
+- LiveEngine delegates all entry decisions to ExecutionEngine (thin wrapper)
+
+### Unified ExitEngine
+- `core/exit_engine.py` (710 lines): cascade SL→TP→BandUrgent→EnvelopeDecay→PeakGiveback→BreakevenLock→BeliefFlip→Hold
+- Self-tuning: `record_trade_outcome()` calibrates halflife (too_early) and giveback (too_late)
+- Trail/MaxHold/Watchdog disabled (envelope_decay superior in all metrics)
+- Exit improvements: tiered giveback, 30m flip lag, hurst gate, avg_mfe_bar time exhaustion
+
+### Belief Network & Feature Extraction
+- TBN expanded to 11 workers (added 5s, 1s, 4h)
+- Band confluence: `BandContext` per worker + `get_band_confluence()` (Priority 4 in direction cascade)
+- `core/feature_extraction.py`: unified 16D feature vector (single source of truth)
+- Momentum-aware physics: velocity+acceleration direction signal (replacing mean-reverting z)
+
+### Compressed Replay & Atlas Loader
+- `live/history_replay.py` (524 lines): compressed forward pass for live warmup
+- `live/atlas_loader.py` (143 lines): ATLAS parquet reader for date ranges
+
+### LiveEngine Decomposition
+- Split 2,150-line monolith into 4 focused modules:
+  - `live/exit_watcher.py` (86): post-exit counterfactual tracking
+  - `live/gui_bridge.py` (79): GUI queue abstraction
+  - `live/session_tracker.py` (289): session PnL, trade log, reports
+  - `live/ping_pong.py` (117): flip direction + ATR sizing
+- LiveEngine trimmed to 1,785 lines (-365, -17%)
+- Deleted `_LiveCandidate`, `_build_candidate()`, `_determine_direction()`, `_write_session_report()`
+
+### Code Consolidation
+- `PositionState` trimmed: 7 dead fields deleted
+- `make_position()` simplified (removed cluster_* params)
+- `ExitEngine.open_position()` accepts pre-computed sizing (single source = EE._compute_sizing())
+- Dead code removed: ~300 lines (MonteCarloRiskEngine instantiation, scalar pattern functions, unused constants, QuantumBayesianBrain subclass methods, get_trade_directive())
+- `get_all_states_above_threshold()` deleted (never called)
+- `QuantumBayesianBrain` backward-compat alias deleted
+
+### Tooling & Reports
+- `reports/run_history.csv`: append-only KPI tracking across runs
+- Expected profit tracking: `get_expected_pnl()` in brain
+- Doc reorganization: `docs/archive/`, `docs/active/`, `docs/specs/`, `docs/reference/`
+- Git cleanup: ~533MB of tracked generated files removed from index (tools/plots, reports CSVs)
+- `tools/archive/`: 5 one-off analysis scripts archived
+
+### Bug Fixes
+- member_count field: template filter read `n_members` (always 0) instead of `member_count`
+- Phase 6 Strategy NameError after CSV DictReader rewrite
+- Unicode encoding crash on Windows cp1252 with subscript chars
+
+### Validation
+- IS: $86,685 PnL, 7,704 trades, 78.8% WR, 52.8% correct direction
+- OOS: $22,383 PnL, 1,750 trades, 77.5% WR, 57.0% correct direction
+- Max DD: $395, 0 consecutive losing days
+
+---
+
 ## [V5.0.0] - 2026-02-19 — PID Oscillation Shadow System
 
 ### New

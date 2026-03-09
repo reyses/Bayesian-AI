@@ -1,79 +1,66 @@
 # Bayesian-AI
 
-> **Algorithmic Trading System with 9-Layer Temporal Hierarchy & Bayesian Inference**
+> **Algorithmic Trading System with Statistical Regression Bands, Multi-TF Belief Network & Bayesian Inference**
 
-[![Status](https://img.shields.io/badge/Status-Active-success.svg)](docs/TECHNICAL_MANUAL.md#part-4-current-project-status)
+Bayesian-AI is a high-frequency algorithmic trading system for US equity index futures (MNQ, NQ, ES, MES). It models the market using OLS regression bands with z-score standardization, computes a 3-class softmax probability distribution over price location, then applies Bayesian probability learning to discover which market states lead to profitable trades.
 
-Bayesian-AI is a high-frequency trading system that utilizes a Fractal Three-Body Quantum model to capture market conditions across multiple timeframes (from 90 days down to 1 second) and applies Bayesian probability to estimate win rates.
+**Primary instrument:** Micro Nasdaq-100 futures (MNQ)
+**Compute:** NVIDIA CUDA GPU required (CPU fallback removed)
 
-**Active Engine:** Fractal Three-Body Quantum (PyTorch/CUDA)
-**Legacy Engine:** 9-Layer Hierarchy (Deprecated/Archived)
+## Quick Start
 
-## 📖 Documentation
+```bash
+# Install dependencies
+pip install -r requirements.txt
 
-*   **[Technical Manual](docs/TECHNICAL_MANUAL.md)**: The single source of truth. Contains:
-    *   **System Logic & Parameters**: Physics Engine, Math ("Nightmare Protocol"), Learning Cycle.
-    *   **Dashboard Guide**: Interactive validation and debugging.
-    *   **Legacy Reference**: Archived architecture for historical context.
-    *   **Current Status**: Live project health, code statistics, and validation metrics.
-*   **[Agent Instructions](AGENTS.md)**: Guidelines for AI agents working on this codebase.
+# Training pipeline (full: discovery -> clustering -> IS -> OOS -> strategy)
+python training/trainer.py --fresh --forward-pass
 
-## 🚀 Quick Start (Local Development)
+# Live trading (dry run)
+python -m live.launcher --dry-run
 
-To run the workflow locally, ensure you have Python 3.10+ installed.
+# Research harness
+python tools/standalone_research.py --data DATA/ATLAS_1WEEK
+```
 
-1.  **Install Dependencies**:
-    ```bash
-    pip install -r requirements.txt
-    ```
+## Documentation
 
-2.  **Run Tests**:
-    ```bash
-    python tests/test_phase1.py
-    python tests/test_integration_quantum.py
-    ```
+- [System Description](docs/SYSTEM_DESCRIPTION.md) — architecture overview, components, algorithms
+- [Architecture Reference](docs/ARCHITECTURE.md) — file/class/line-count mapping + dependency graph
+- [Changelog](docs/CHANGELOG.md) — version history
+- [Roadmap](docs/ROADMAP.md) — future work + dependency graph
+- [Agent Instructions](AGENTS.md) — guidelines for AI agents working on this codebase
 
-3.  **Build Executable**:
-    ```bash
-    python scripts/build_executable.py
-    ```
-    The output will be in `dist/Bayesian_AI_Engine/`.
+## System Architecture
 
-4.  **Generate Status Report**:
-    ```bash
-    python scripts/generate_status_report.py
-    ```
+**Pipeline:** `LOAD -> TRANSFORM -> ANALYZE -> DECIDE -> EXECUTE -> LEARN`
 
-## 🔧 Troubleshooting
+| Phase | Name | Description |
+|-------|------|-------------|
+| 1 | Data Preparation | Loads ATLAS parquet files (14 TFs, 12 months) |
+| 2 | Pattern Discovery | Scans history for statistical events |
+| 3 | Template Optimization | Clusters events into templates via GPU K-Means + DOE |
+| 4 | IS Forward Pass | Replays history using ExecutionEngine |
+| 5 | OOS Validation | Blind out-of-sample validation |
+| 6 | Strategy Selection | Ranks templates into tiers |
 
-### CUDA Not Detected / Running on CPU
-If you have an NVIDIA GPU but the system says "CUDA: NOT AVAILABLE" or runs slowly on CPU:
+**Core components:**
+- **Statistical Field Engine** — GPU-accelerated OLS regression bands, z-scores, OU probabilities, forces, entropy
+- **Execution Engine** — gate cascade + direction cascade + sizing (single source for IS/OOS/live)
+- **Exit Engine** — unified cascade: SL -> TP -> BandUrgent -> EnvelopeDecay -> PeakGiveback -> BreakevenLock -> BeliefFlip -> Hold
+- **Bayesian Brain** — hash table: state_key -> {wins, losses, P(win)}
+- **Timeframe Belief Network** — 11 TF workers (1s through 1D), path conviction, band confluence
+- **CUDA acceleration** — Numba kernels for regression, forces, probabilities
 
-1.  **Check GPU Health**:
-    ```bash
-    python scripts/gpu_health_check.py
-    ```
-2.  **Fix PyTorch Installation**:
-    If the above check fails or reports CPU-only torch, run the fix script to force a CUDA-enabled reinstallation:
-    ```bash
-    python scripts/fix_cuda.py
-    ```
-    This will uninstall existing PyTorch packages and reinstall the correct CUDA 12.1 version.
+## Key Directories
 
-## 🏗 System Architecture
-
-The system operates on a **LOAD -> TRANSFORM -> ANALYZE -> VISUALIZE** pipeline.
-
-*   **Fractal Three-Body Quantum**: Uses Roche limits, wave functions, and tunnel probabilities to model market state.
-*   **Bayesian Brain**: Learns probability distributions of "WIN" outcomes for unique quantum states.
-*   **CUDA Acceleration**: Offloads quantum wave function calculations and simulations to the GPU via PyTorch.
-*   **Design of Experiments (DOE)**: Advanced parameter optimization using Latin Hypercube Sampling (LHS), Response Surface Optimization, and PnL-prioritized Regret Analysis.
-
-For detailed architecture, see the [Technical Manual](docs/TECHNICAL_MANUAL.md).
-
-## 🏛 Legacy Architecture (Archived)
-
-The legacy **9-Layer Hierarchy** trading engine has been moved to `archive/` (`archive/layer_engine.py`, `archive/cuda_modules/`). This system is **deprecated** and no longer active in the main execution loop.
-
-*   **9-Layer Hierarchy**: Decomposes market state into Static (L1-L4) and Fluid (L5-L9) layers.
-*   **Status**: Archived / Deprecated.
+```
+core/           Core engine modules (statistical field, brain, execution, exits, TBN)
+training/       Training pipeline (trainer.py entry point, discovery, clustering, analytics)
+live/           Live trading stack (NT8 bridge, bar aggregation, order management)
+tools/          Production tools + research harness
+DATA/           ATLAS parquet datasets (gitignored)
+checkpoints/    Model state (gitignored)
+reports/        Run outputs (text tracked, CSVs gitignored)
+docs/           Documentation, specs, journals
+```
