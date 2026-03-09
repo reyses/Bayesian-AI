@@ -19,7 +19,7 @@ class PatternAnalyzer:
         Find top N states by win rate with sufficient sample size
 
         Args:
-            brain: QuantumBayesianBrain instance
+            brain: MarketBayesianBrain instance
             top_n: Number of top patterns to return
             min_samples: Minimum trades required per state
 
@@ -142,7 +142,7 @@ class PatternAnalyzer:
         Generate comprehensive pattern analysis report
 
         Args:
-            brain: QuantumBayesianBrain instance
+            brain: MarketBayesianBrain instance
             day_results: List of daily results
 
         Returns:
@@ -260,7 +260,7 @@ class PatternAnalyzer:
         so patterns are visible even when fine-grained state space is fragmented.
 
         Args:
-            brain: QuantumBayesianBrain instance
+            brain: MarketBayesianBrain instance
             day_results: List of DayResults objects
             cumulative_trades: List of TradeOutcome objects (best iteration only)
 
@@ -534,10 +534,10 @@ class PatternAnalyzer:
 
 # Example usage
 if __name__ == "__main__":
-    from core.bayesian_brain import QuantumBayesianBrain
+    from core.bayesian_brain import MarketBayesianBrain
 
     # Demo
-    brain = QuantumBayesianBrain()
+    brain = MarketBayesianBrain()
     analyzer = PatternAnalyzer()
 
     # Would normally have actual data

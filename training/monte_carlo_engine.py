@@ -16,8 +16,8 @@ from dataclasses import dataclass
 from sklearn.preprocessing import StandardScaler
 
 # Project imports
-from core.quantum_field_engine import StatisticalFieldEngine
-from core.three_body_state import MarketState
+from core.statistical_field_engine import StatisticalFieldEngine
+from core.market_state import MarketState
 from core.bayesian_brain import BayesianBrain, TradeOutcome
 from training.doe_parameter_generator import DOEParameterGenerator
 from training.fractal_discovery_agent import TIMEFRAME_SECONDS

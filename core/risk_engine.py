@@ -1,14 +1,14 @@
 """
-Quantum Risk Engine
-Powered by Numpy Vectorization (formerly QuantLib)
-Performs Monte Carlo simulations for event horizon probability
+Reversion Probability Engine
+Monte Carlo simulation for mean-reversion vs breakout probability.
+Models price as Ornstein-Uhlenbeck process between regression bands.
 """
 import numpy as np
 from typing import Tuple
 
 class MonteCarloRiskEngine:
     """
-    Monte Carlo engine for Three-Body probability estimation.
+    Monte Carlo engine for reversion/breakout probability estimation.
     Uses Ornstein-Uhlenbeck process to model mean-reversion dynamics.
     """
 
@@ -23,12 +23,12 @@ class MonteCarloRiskEngine:
                               sigma: float) -> Tuple[float, float]:
         """
         Run Monte Carlo simulation to estimate:
-        1. Tunnel Probability (Revert to Center)
-        2. Escape Probability (Hit Event Horizon)
+        1. Reversion Probability (price reverts to center)
+        2. Breakout Probability (price hits 3-sigma band)
 
         Assumes boundaries:
-        - Target: Center
-        - Stop: +/- 3 Sigma (Event Horizon)
+        - Target: Regression center
+        - Stop: +/- 3 sigma breakout level
         """
         if sigma <= 0:
             return 0.5, 0.0
@@ -136,11 +136,11 @@ class MonteCarloRiskEngine:
 
         total_finished = hits_target + hits_stop
         if total_finished > 0:
-            p_tunnel = hits_target / total_finished
-            p_escape = hits_stop / total_finished
+            p_reversion = hits_target / total_finished
+            p_breakout = hits_stop / total_finished
         else:
             # Fallback if no boundary hit
-            p_tunnel = 0.5
-            p_escape = 0.0 # Didn't escape
+            p_reversion = 0.5
+            p_breakout = 0.0
 
-        return p_tunnel, p_escape
+        return p_reversion, p_breakout

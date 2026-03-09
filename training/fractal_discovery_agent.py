@@ -21,8 +21,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Tuple
 
-from core.quantum_field_engine import StatisticalFieldEngine
-from core.three_body_state import MarketState
+from core.statistical_field_engine import StatisticalFieldEngine
+from core.market_state import MarketState
 
 from config.oracle_config import (
     ORACLE_LOOKAHEAD_BARS, ORACLE_MIN_MOVE_TICKS,
@@ -171,6 +171,10 @@ class FractalDiscoveryAgent:
         max_up = float(future_slice[high_col].max() - entry_price)
         max_down = float(entry_price - future_slice[low_col].min())
 
+        # Bar offset where MFE peaks (for per-template exit timescale)
+        mfe_bar_long = int((future_slice[high_col] - entry_price).values.argmax()) + 1
+        mfe_bar_short = int((entry_price - future_slice[low_col].values).argmax()) + 1
+
         min_move = ORACLE_MIN_MOVE_TICKS * tick_size
         marker = MARKER_NOISE
 
@@ -192,9 +196,13 @@ class FractalDiscoveryAgent:
             elif max_up == 0:
                 marker = MARKER_MEGA_SHORT
 
+        # Pick mfe_bar based on which side won
+        mfe_bar = mfe_bar_long if max_up >= max_down else mfe_bar_short
+
         meta = {
             'mfe': max_up,
             'mae': max_down,
+            'mfe_bar': mfe_bar,
             'lookahead_bars': lookahead
         }
 

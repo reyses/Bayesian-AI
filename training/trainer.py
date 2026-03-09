@@ -39,10 +39,10 @@ if PROJECT_ROOT not in sys.path:
     sys.path.append(PROJECT_ROOT)
 
 # Core components
-from core.bayesian_brain import QuantumBayesianBrain, TradeOutcome
-from core.quantum_field_engine import StatisticalFieldEngine
+from core.bayesian_brain import MarketBayesianBrain, TradeOutcome
+from core.statistical_field_engine import StatisticalFieldEngine
 from core.exit_engine import ExitEngine, ExitAction
-from core.three_body_state import MarketState
+from core.market_state import MarketState
 
 # Training components
 from training.doe_parameter_generator import DOEParameterGenerator
@@ -149,7 +149,7 @@ class Trainer:
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
         # Initialize core components
-        self.brain = QuantumBayesianBrain()
+        self.brain = MarketBayesianBrain()
         self.engine = StatisticalFieldEngine()
         self.param_generator = DOEParameterGenerator(None)
         self._position = None  # PositionState or None
@@ -1234,13 +1234,6 @@ class Trainer:
                                 trail_activation_ticks=_trail_act_ticks,
                                 template_id=best_tid,
                             )
-                            # DMI inverse flag
-                            if best_candidate and self._position:
-                                _entry_dmi = (getattr(best_candidate.state, 'dmi_plus', 0.0)
-                                              - getattr(best_candidate.state, 'dmi_minus', 0.0))
-                                _dmi_inv = (_entry_dmi < 0) if side == 'long' else (_entry_dmi > 0)
-                                self._position.entry_dmi_inverse = _dmi_inv
-
                             # Notify engine
                             _exec_engine.position_opened(
                                 side=side, price=price, bar_index=_bar_i,
@@ -1269,6 +1262,11 @@ class Trainer:
                                 side=side, entry_bar=_bar_i,
                                 pattern_horizon_bars=active_max_hold_bars,
                             )
+                            # Per-template exit timescale
+                            _avg_mfe_bar = lib_entry.get('avg_mfe_bar', 0.0)
+                            _p75_mfe_bar = lib_entry.get('p75_mfe_bar', 0.0)
+                            if _avg_mfe_bar > 0:
+                                belief_network.set_active_trade_timescale(_avg_mfe_bar, _p75_mfe_bar)
                             depth_traded[_cand_depth] += 1
 
                             # -- Oracle record assembly --
@@ -4042,6 +4040,9 @@ class Trainer:
             'p25_mae_ticks':           getattr(template, 'p25_mae_ticks',           0.0),
             'risk_variance':           getattr(template, 'risk_variance',           0.0),
             'regression_sigma_ticks':  getattr(template, 'regression_sigma_ticks',  0.0),
+            # Per-template exit timescale (bars where MFE peaks — halflife anchor)
+            'avg_mfe_bar':             getattr(template, 'avg_mfe_bar',             0.0),
+            'p75_mfe_bar':             getattr(template, 'p75_mfe_bar',             0.0),
             # Per-cluster regression model coefficients (14D scaled feature space)
             # mfe_coeff @ live_scaled_features + mfe_intercept  -> predicted MFE in price pts
             # sigmoid(dir_coeff @ live_scaled_features + dir_intercept) -> P(LONG)

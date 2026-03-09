@@ -69,6 +69,10 @@ class PatternTemplate:
     p25_mae_ticks:  float = 0.0   # 25th-pct MAE — tight SL floor
     regression_sigma_ticks: float = 0.0  # Residual std from per-cluster OLS; trail = this * 1.1
 
+    # PER-TEMPLATE EXIT TIMESCALE (in bars; populated by _aggregate_oracle_intelligence)
+    avg_mfe_bar: float = 0.0    # Mean bar offset where MFE peaks — base halflife anchor
+    p75_mfe_bar: float = 0.0    # 75th-pct MFE bar — conservative time exhaustion ceiling
+
     # PER-CLUSTER REGRESSION MODELS (fitted on 14D scaled feature vectors of members)
     # MFE model: predicted_mfe = live_features @ mfe_coeff + mfe_intercept
     # Dir model: P(LONG) = sigmoid(live_features @ dir_coeff + dir_intercept)
@@ -100,8 +104,8 @@ def generate_semantic_name(centroid: np.ndarray) -> str:
     tf_log2 = centroid[4]       # log2(tf_seconds)
 
     # 1. Trigger (z-score magnitude)
-    if z > 3.0:     trigger = "Singularity"
-    elif z > 2.0:   trigger = "Roche"
+    if z > 3.0:     trigger = "Extreme"
+    elif z > 2.0:   trigger = "BandSnap"
     elif z > 1.0:   trigger = "MeanRev"
     else:           trigger = "Chop"
 
@@ -145,71 +149,52 @@ class FractalClusteringEngine:
     def extract_features(p: Any) -> List[float]:
         """
         Extracts 16D feature vector from a PatternEvent.
-        [7 base] + [3 self regime] + [2 PID] + [4 ancestry]
-
-        velocity and momentum use log1p(|x|) compression so that
-        high-timeframe bars (where volume * velocity blows up) remain
-        comparable to 15s bars.  The scaler then standardizes the
-        log-compressed values across the full training set.
+        Delegates to core.feature_extraction.extract_feature_vector().
         """
-        z = getattr(p, 'z_score', 0.0)
-        v = getattr(p, 'velocity', 0.0)
-        m = getattr(p, 'momentum', 0.0)
-        c = getattr(p, 'entropy_normalized', 0.0)
-        # log1p compression keeps extreme TF values finite
-        v_feat = np.log1p(abs(v))
-        m_feat = np.log1p(abs(m))
+        from core.feature_extraction import extract_feature_vector
 
-        # Fractal hierarchy features
+        state = getattr(p, 'state', None)
         tf = getattr(p, 'timeframe', '15s')
         tf_secs = TIMEFRAME_SECONDS.get(tf, 15)
-        tf_scale = np.log2(max(1, tf_secs))  # log2 for even spacing
 
-        depth = float(getattr(p, 'depth', 0))
-        parent_type = getattr(p, 'parent_type', '')
-        parent_ctx = 1.0 if parent_type == 'BAND_REVERSAL' else 0.0
-
-        # Self Regime features
-        state = getattr(p, 'state', None)
+        # Self regime features
         if state:
-             self_adx = getattr(state, 'adx_strength', 0.0) / 100.0
-             self_hurst = getattr(state, 'hurst_exponent', 0.5)
-             self_dmi_diff = (getattr(state, 'dmi_plus', 0.0) - getattr(state, 'dmi_minus', 0.0)) / 100.0
-             self_pid       = getattr(state, 'term_pid', 0.0)
-             self_osc_coh   = getattr(state, 'oscillation_entropy_normalized', 0.0)
+            self_adx = getattr(state, 'adx_strength', 0.0) / 100.0
+            self_hurst = getattr(state, 'hurst_exponent', 0.5)
+            self_dmi_diff = (getattr(state, 'dmi_plus', 0.0) - getattr(state, 'dmi_minus', 0.0)) / 100.0
+            self_pid = getattr(state, 'term_pid', 0.0)
+            self_osc_coh = getattr(state, 'oscillation_entropy_normalized', 0.0)
         else:
-             self_adx = 0.0
-             self_hurst = 0.5
-             self_dmi_diff = 0.0
-             self_pid = 0.0
-             self_osc_coh = 0.0
+            self_adx, self_hurst, self_dmi_diff = 0.0, 0.5, 0.0
+            self_pid, self_osc_coh = 0.0, 0.0
 
         # Ancestry features
         chain = getattr(p, 'parent_chain', None) or []
         if chain:
-            # Immediate parent
             parent_z = abs(chain[0].get('z', 0.0))
             parent_dmi_diff = (chain[0].get('dmi_plus', 0.0) - chain[0].get('dmi_minus', 0.0)) / 100.0
-
-            # Root ancestor
             root = chain[-1]
             root_is_roche = 1.0 if root.get('type') == 'BAND_REVERSAL' else 0.0
             root_dmi_diff = (root.get('dmi_plus', 0.0) - root.get('dmi_minus', 0.0)) / 100.0
-
-            # TF Alignment
             self_dir = 1.0 if self_dmi_diff > 0 else -1.0
             root_dir = 1.0 if root_dmi_diff > 0 else -1.0
             tf_alignment = self_dir * root_dir
         else:
-            parent_z = 0.0
-            parent_dmi_diff = 0.0
-            root_is_roche = 0.0
-            tf_alignment = 0.0
+            parent_z = parent_dmi_diff = root_is_roche = tf_alignment = 0.0
 
-        return [abs(z), v_feat, m_feat, c, tf_scale, depth, parent_ctx,
-                self_adx, self_hurst, self_dmi_diff,
-                parent_z, parent_dmi_diff, root_is_roche, tf_alignment,
-                self_pid, self_osc_coh]
+        return extract_feature_vector(
+            z_score=getattr(p, 'z_score', 0.0),
+            velocity=getattr(p, 'velocity', 0.0),
+            momentum=getattr(p, 'momentum', 0.0),
+            entropy_normalized=getattr(p, 'entropy_normalized', 0.0),
+            tf_seconds=tf_secs,
+            depth=float(getattr(p, 'depth', 0)),
+            parent_is_band_reversal=1.0 if getattr(p, 'parent_type', '') == 'BAND_REVERSAL' else 0.0,
+            adx=self_adx, hurst=self_hurst, dmi_diff=self_dmi_diff,
+            parent_z=parent_z, parent_dmi_diff=parent_dmi_diff,
+            root_is_roche=root_is_roche, tf_alignment=tf_alignment,
+            pid=self_pid, osc_coherence=self_osc_coh,
+        )
 
     def _recursive_split(self, X: np.ndarray, patterns: list, start_id: int, depth: int = 0) -> list:
         """Recursively split a cluster until z-variance <= max_variance or too small."""
@@ -282,6 +267,14 @@ class FractalClusteringEngine:
             template.mean_mae_ticks = float(np.mean(mae_ticks))
             template.p75_mfe_ticks  = float(np.percentile(mfe_ticks, 75))
             template.p25_mae_ticks  = float(np.percentile(mae_ticks, 25))
+
+            # Per-template exit timescale: bar offset where MFE peaks
+            mfe_bar_values = [meta.get('mfe_bar', 0) for p in patterns
+                              for meta in [getattr(p, 'oracle_meta', {})]
+                              if meta.get('mfe_bar', 0) > 0]
+            if mfe_bar_values:
+                template.avg_mfe_bar = float(np.mean(mfe_bar_values))
+                template.p75_mfe_bar = float(np.percentile(mfe_bar_values, 75))
 
             # ---------------------------------------------------------------
             # PER-CLUSTER REGRESSION MODELS (14D feature space)
