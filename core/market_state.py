@@ -116,6 +116,9 @@ class MarketState:
     fractal_confidence: str = 'LOW'       # LOW|MEDIUM|HIGH|EXTREME
     fractal_edge: float = 0.0             # 0-1 scale alignment
 
+    # ═══ NOISE MEASUREMENT ═══
+    swing_noise_ticks: float = 35.0   # Max intra-wave pullback (rolling 32-bar window, in ticks)
+
     # ═══ TIME EVOLUTION ═══
     time_at_band_extreme: float = 0.0
     field_evolution_rate: float = 0.0

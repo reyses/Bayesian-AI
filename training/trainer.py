@@ -653,8 +653,8 @@ class Trainer:
                 if _day_key + '01' < trade_start_date:
                     # Still run discovery to build TBN state
                     self.discovery_agent.scan_day_cascade(data_source, day_date)
+                    _pbar.set_postfix_str(f"{day_date} | WARMUP (context only)", refresh=False)
                     _pbar.update(1)
-                    _pbar.set_postfix_str(f"{day_date} | WARMUP (context only)")
                     continue
 
             # A. Fractal Cascade Scan (get actionable patterns with chains)
@@ -867,11 +867,11 @@ class Trainer:
                     _running_pnl = total_pnl + sum(t.pnl for t in day_trades)
                     _running_trades = total_trades + len(day_trades)
                     _running_wins = total_wins + sum(1 for t in day_trades if t.result == 'WIN')
-                    _pbar.update(1)
                     _pbar.set_postfix_str(
                         f'{day_date} | ${_running_pnl:,.0f} PnL | {_running_trades} trades | '
                         f'{(_running_wins/_running_trades*100) if _running_trades else 0:.0f}% WR',
-                        refresh=True)
+                        refresh=False)
+                    _pbar.update(1)
                     if self.dashboard_queue:
                         _wr = (_running_wins / _running_trades * 100) if _running_trades > 0 else 0.0
                         _all_pnls = [t['actual_pnl'] for t in oracle_trade_records]
@@ -956,12 +956,14 @@ class Trainer:
                             _sub_h = _1s_highs[_s0:_s1].tolist()
                             _sub_l = _1s_lows[_s0:_s1].tolist()
 
+                    _noise = float(getattr(_bar_state, 'swing_noise_ticks', 0.0)) if _bar_state else 0.0
                     _exit_action = _exec_engine.on_bar(
                         price=price, bar_high=_bar_high, bar_low=_bar_low,
                         bar_index=_bar_i,
                         net_force=_f_net,
                         sub_bar_highs=_sub_h, sub_bar_lows=_sub_l,
                         band_context=_band_ctx, exit_signal=_exit_sig,
+                        noise_ticks=_noise,
                     )
 
                     if _exit_action.type == ActionType.EXIT:
