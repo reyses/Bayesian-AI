@@ -34,6 +34,8 @@
   BandContext per worker, `get_band_confluence()` (Priority 4 in direction cascade)
 - **Position factory**: `ExitEngine.open_position()` — creates PositionState (make_position deleted 2026-03-09).
   wave_rider.py DELETED (2026-03-07). All position/exit logic in exit_engine.py.
+- **Trade recording**: `record_trade()` in `core/bayesian_brain.py` — shared by trainer + live.
+  Constructs TradeOutcome + brain.update() + brain.direction_learn(). Single code path.
 - **Trade Logger**: `live/trade_logger.py` — per-trade diagnostic CSV
 - **History Replay**: `live/history_replay.py` — compressed forward pass for live warmup
 - **Atlas Loader**: `live/atlas_loader.py` — ATLAS parquet reader for date ranges

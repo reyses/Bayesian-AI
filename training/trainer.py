@@ -39,7 +39,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.append(PROJECT_ROOT)
 
 # Core components
-from core.bayesian_brain import MarketBayesianBrain, TradeOutcome
+from core.bayesian_brain import MarketBayesianBrain, TradeOutcome, record_trade
 from core.statistical_field_engine import StatisticalFieldEngine
 from core.exit_engine import ExitEngine, ExitAction
 from core.market_state import MarketState
@@ -980,21 +980,15 @@ class Trainer:
                             _trade_mfe_ticks = 0.0
                         self._position = None
                         _exec_engine.position_closed()
-                        outcome = TradeOutcome(
-                            state=active_template_id,
+                        outcome = record_trade(
+                            self.brain, tid=active_template_id,
                             entry_price=active_entry_price,
                             exit_price=_exit_action.price,
-                            pnl=_ee_pnl,
-                            result='WIN' if _ee_pnl > 0 else 'LOSS',
-                            timestamp=ts_raw,
-                            exit_reason=_ee_reason,
-                            entry_time=active_entry_time,
-                            exit_time=ts_raw,
-                            duration=ts_raw - active_entry_time,
-                            direction='LONG' if active_side == 'long' else 'SHORT',
-                            template_id=active_template_id
+                            pnl=_ee_pnl, side=active_side,
+                            exit_reason=_ee_reason, timestamp=ts_raw,
+                            entry_time=active_entry_time, exit_time=ts_raw,
+                            tick_value=self.asset.tick_value,
                         )
-                        self.brain.update(outcome)
                         day_trades.append(outcome)
                         _cal_day_trades.append(outcome)
                         current_position_open = False
@@ -1074,8 +1068,6 @@ class Trainer:
                         _exec_engine.exit_engine.record_trade_outcome(
                             _trade_mfe_ticks, _actual_ticks, _cap)
 
-                        # H0/H1 direction learning (always, mirrors live)
-                        self.brain.direction_learn(active_template_id, active_side, outcome.pnl)
                         if isinstance(active_template_id, str) and active_template_id.startswith('PP_'):
                             _pp_all_trades.append(outcome)
 
@@ -1415,24 +1407,17 @@ class Trainer:
                 self._position = None
                 _exec_engine.position_closed()  # reset engine position state
 
-                outcome = TradeOutcome(
-                    state=active_template_id,
+                outcome = record_trade(
+                    self.brain, tid=active_template_id,
                     entry_price=active_entry_price,
                     exit_price=price,
-                    pnl=eod_pnl,
-                    result='WIN' if eod_pnl > 0 else 'LOSS',
-                    timestamp=ts,
-                    exit_reason='TIME_EXIT',
-                    entry_time=active_entry_time,
-                    exit_time=ts,
-                    duration=ts - active_entry_time,
-                    direction='LONG' if active_side == 'long' else 'SHORT',
-                    template_id=active_template_id
+                    pnl=eod_pnl, side=active_side,
+                    exit_reason='TIME_EXIT', timestamp=ts,
+                    entry_time=active_entry_time, exit_time=ts,
+                    tick_value=self.asset.tick_value,
                 )
-                self.brain.update(outcome)
                 day_trades.append(outcome)
                 _cal_day_trades.append(outcome)
-                self.brain.direction_learn(active_template_id, active_side, eod_pnl)
 
                 # Track intraday dip (min equity calc)
                 _day_running_pnl += outcome.pnl

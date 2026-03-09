@@ -1213,13 +1213,11 @@ class LiveEngine:
             await self._client.send(order_msg)
             logger.info("LATENCY: ping-pong flip order sent")
 
-    def _direction_learn(self, tid, side: str, pnl: float):
-        """Delegate to brain.direction_learn() — single shared H0/H1 engine."""
-        tick_val = self._cfg.tick_size * self._cfg.point_value
-        bias = self._brain.direction_learn(tid, side, pnl, tick_value=tick_val)
+    def _log_direction_bias(self, tid, side: str, pnl: float):
+        """Log direction bias after record_trade() has already updated the brain."""
+        bias = self._brain.get_dir_bias(tid)
         if bias is None:
             return
-        # Log for live monitoring
         base_tid = tid[3:] if isinstance(tid, str) and tid.startswith('PP_') else tid
         lw, ll = bias['long_w'], bias['long_l']
         sw, sl = bias['short_w'], bias['short_l']
@@ -1285,7 +1283,7 @@ class LiveEngine:
 
     def _brain_learn(self, pnl: float):
         """Feed trade outcome to brain, update GUI stats, save periodically."""
-        from core.bayesian_brain import TradeOutcome
+        from core.bayesian_brain import record_trade
 
         result = 'WIN' if pnl > 0 else 'LOSS'
 
@@ -1301,19 +1299,15 @@ class LiveEngine:
             else:
                 exit_px = entry_px + pnl / tick_val
 
-        outcome = TradeOutcome(
-            state=self._active_tid or 'UNKNOWN',
-            entry_price=entry_px,
-            exit_price=exit_px,
-            pnl=pnl,
-            result=result,
-            timestamp=time.time(),
+        outcome = record_trade(
+            self._brain, tid=self._active_tid,
+            entry_price=entry_px, exit_price=exit_px,
+            pnl=pnl, side=self._active_side,
             exit_reason=self._last_exit_reason,
-            direction='LONG' if self._active_side == 'long' else 'SHORT',
-            template_id=self._active_tid,
+            timestamp=time.time(),
+            tick_value=self._cfg.tick_size * self._cfg.point_value,
         )
-        self._brain.update(outcome)
-        self._direction_learn(self._active_tid, self._active_side, pnl)
+        self._log_direction_bias(self._active_tid, self._active_side, pnl)
         self._live_trade_count += 1
 
         # Compute MFE for capture bucket
