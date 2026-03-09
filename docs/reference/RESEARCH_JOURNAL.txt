@@ -2673,3 +2673,70 @@ GATE EVALUATION
   Best method:          z_mean
 
 >>> KILL: State prediction too weak or direction not derivable
+
+========================================================================
+TRADE DURATION FRACTAL ANALYSIS (2026-03-09)
+========================================================================
+Data: checkpoints/oos_trade_log.csv (3,178 OOS trades, 15m base TF)
+
+PURPOSE: Understand trade completion time in real clock time (not bars)
+to validate the fractal timing hypothesis — dp/dt collapses price's
+fractal structure into a 2D velocity space.
+
+DURATION SUMMARY
+  Median: 45 seconds
+  Mean:   70 seconds
+  P25: 30s, P75: 75s, P95: 180s
+  98.7% of trades complete in under 5 minutes
+  On a 15m base TF, trades live and die within a fraction of one bar.
+
+BY RESULT (t-test p < 0.000004)
+  WIN:  median=60s, mean=77s  (n=2170)
+  LOSS: median=30s, mean=53s  (n=1008)
+  Winners hold longer — they ride the move; losers get stopped fast.
+
+BY VELOCITY QUARTILE
+  Q1 slow: dur=60s  WR=68.2%  avg_pnl=$3.86   mfe_rate=0.32 t/s
+  Q2:      dur=52s  WR=68.6%  avg_pnl=$4.47   mfe_rate=0.47 t/s
+  Q3:      dur=45s  WR=69.8%  avg_pnl=$6.85   mfe_rate=0.60 t/s
+  Q4 fast: dur=45s  WR=66.6%  avg_pnl=$12.01  mfe_rate=0.78 t/s
+  WR is flat across velocity (~68%), but PnL triples from slow to fast.
+  The edge is move magnitude, not direction accuracy.
+
+BY DEPTH (fractal hierarchy)
+  d=3  (30m): |vel|=86.8, dur=45s, mfe=28t, WR=68.5%
+  d=8  (2m):  |vel|=10.0, dur=60s, mfe=33t, WR=74.2%  <-- sweet spot
+  d=12 (5s):  |vel|=2.5,  dur=45s, mfe=20t, WR=61.1%
+  Same clock time, velocity drops 35x across depths.
+  Same "move" in fractal space, different speeds.
+
+FRACTAL TIME: duration x |velocity| (distance in velocity space)
+  WIN:  median=562.5, mean=1625.5
+  LOSS: median=352.5, mean=888.9
+  t-test: t=3.21, p=0.001 — winners travel more distance in velocity space
+
+PREDICTIVE POWER (Spearman correlations with WIN)
+  raw_duration -> win:  rho=0.345, p < 1e-6
+  velocity-normalized duration -> win:  rho=0.169, p < 1e-6
+  Raw duration is the stronger predictor (exit engine's time-based
+  envelope decay is already partially capturing this).
+
+KEY INSIGHT: WHY ANALYSIS V IS A COIN FLIP
+  Analysis V used 8x15m bars (2 hours) of trajectory to predict direction.
+  But trades complete in 45 seconds median — 160x faster than the
+  prediction horizon. The trajectory k-NN operates on a timescale
+  completely disconnected from where the actual trade decision lives.
+  The signal is in micro dp/dt, not macro state trajectory.
+
+  The fractal collapse: dp/dt maps the same directional move at any
+  depth to a comparable 2D velocity-space representation. A depth-3
+  trade (|vel|=87) in 45s covers the same fractal distance as a
+  depth-12 trade (|vel|=2.5) in 45s — but 35x more ticks.
+
+ACTIONABLE IMPLICATIONS
+  1. Exit timing should be velocity-scaled, not fixed-bar
+  2. Depth 7-8 (3m-2m TF) is the sweet spot: WR 73-74%, best mfe
+  3. Future direction research should focus on micro-TF dp/dt features,
+     not multi-bar trajectory at the base TF
+  4. Envelope halflife should decay faster at high velocity (move plays
+     out faster) and slower at low velocity
