@@ -57,7 +57,6 @@ from core.execution_engine import ExecutionEngine, ActionType, TradeAction, Cand
 
 # Execution components
 from training.batch_regret_analyzer import BatchRegretAnalyzer
-from core.exit_engine import make_position
 from training.orchestrator_worker import simulate_trade_standalone, _optimize_pattern_task, _optimize_template_task, _process_template_job, _audit_trade
 from training.orchestrator_worker import FISSION_SUBSET_SIZE, INDIVIDUAL_OPTIMIZATION_ITERATIONS, DEFAULT_BASE_SLIPPAGE, DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 
@@ -1088,15 +1087,13 @@ class Trainer:
                             if _should_flip and _pp_last_exit_params:
                                 ep = _pp_last_exit_params
                                 _pp_tid = f'PP_{active_template_id}'
-                                self._position = make_position(
-                                    entry_price=price, side=_flip_side,
-                                    tick_size=self.asset.tick_size,
-                                    tick_value=self.asset.tick_value,
-                                    stop_distance_ticks=_pp_sl_ov or ep['sl'],
-                                    profit_target_ticks=_pp_tp_ov or ep['tp'],
-                                    trailing_stop_ticks=_pp_trail_ov or ep['trail'],
-                                    trail_activation_ticks=ep['trail_act'],
-                                    template_id=_pp_tid)
+                                self._position = _exit_eng.open_position(
+                                    side=_flip_side, entry_price=price,
+                                    entry_bar_index=_bar_i, template_id=_pp_tid,
+                                    sl_ticks=_pp_sl_ov or ep['sl'],
+                                    tp_ticks=_pp_tp_ov or ep['tp'],
+                                    trail_ticks=_pp_trail_ov or ep['trail'],
+                                    trail_activation_ticks=ep['trail_act'])
                                 _exec_engine.position_opened(
                                     side=_flip_side, price=price,
                                     bar_index=_bar_i, template_id=_pp_tid,
@@ -1222,17 +1219,12 @@ class Trainer:
                                 _skip_equity = True
 
                         if not _skip_equity:
-                            self._position = make_position(
-                                entry_price=price,
-                                side=side,
-                                tick_size=self.asset.tick_size,
-                                tick_value=self.asset.tick_value,
-                                state=best_candidate.state if best_candidate else None,
-                                stop_distance_ticks=_sl_ticks,
-                                profit_target_ticks=_tp_ticks,
-                                trailing_stop_ticks=_trail_ticks,
+                            self._position = _exit_eng.open_position(
+                                side=side, entry_price=price,
+                                entry_bar_index=_bar_i, template_id=best_tid,
+                                sl_ticks=_sl_ticks, tp_ticks=_tp_ticks,
+                                trail_ticks=_trail_ticks,
                                 trail_activation_ticks=_trail_act_ticks,
-                                template_id=best_tid,
                             )
                             # Notify engine
                             _exec_engine.position_opened(
@@ -1412,7 +1404,7 @@ class Trainer:
                 pos = self._position
                 # Get final exit signal for logging
                 _eod_sig = belief_network.get_exit_signal(pos.side)
-                _eod_adj_reason = pos.last_adjustment_reason or ''  # capture before clearing
+                _eod_adj_reason = ''
 
                 if pos.side == 'short':
                     eod_pnl = (pos.entry_price - price) * self.asset.point_value
@@ -3514,18 +3506,18 @@ class Trainer:
         }
 
         # Ancestry Analysis
-        roche_roots = 0
+        band_roots = 0
         struct_roots = 0
         for tid, data in tier1_templates:
             centroid = data['centroid']
             if centroid[-1] > 0.5:
-                roche_roots += 1
+                band_roots += 1
             else:
                 struct_roots += 1
 
         rpt.append("")
         rpt.append("ANCESTRY ANALYSIS (Tier 1):")
-        rpt.append(f"  Roche-backed: {roche_roots}")
+        rpt.append(f"  Band-backed: {band_roots}")
         rpt.append(f"  Structure-backed: {struct_roots}")
 
         # ── PARETO ANALYSIS ──────────────────────────────────────────────────

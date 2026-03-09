@@ -161,7 +161,7 @@ def simulate_trade_standalone(entry_price: float, data: Any, state: Any,
     total_slippage = slippage * 2.0
 
     # Direction from Archetype/State
-    if hasattr(state, 'cascade_detected') and state.cascade_detected: # Roche Snap
+    if hasattr(state, 'cascade_detected') and state.cascade_detected: # Band Snap
         direction = 'SHORT' if state.z_score > 0 else 'LONG'
     elif hasattr(state, 'structure_confirmed') and state.structure_confirmed: # Structural Drive
         direction = 'LONG' if state.momentum_strength > 0 else 'SHORT'

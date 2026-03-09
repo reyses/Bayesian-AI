@@ -380,10 +380,10 @@ class StatisticalFieldEngine:
         # ─── Analytical OU First-Passage Probabilities ────────────────────────
         # Replaces Monte Carlo (500 paths × 600 steps) with exact solution.
         # For OU process dz = -θz dt + σ_z dW, the probability of hitting
-        # boundary 0 (center) before boundary B (event horizon) starting at z:
+        # boundary 0 (center) before boundary B (3σ breakout boundary) starting at z:
         #   P(tunnel) = 1 - erfi(|z|/√2) / erfi(B/√2)
         # This is universal for any θ,σ (the ratio θ/σ² cancels in z-space).
-        _B = 3.0  # event horizon in z-score units
+        _B = 3.0  # breakout boundary in z-score units
         _inv_sqrt2 = 1.0 / np.sqrt(2.0)
         _erfi_B = erfi(_B * _inv_sqrt2)  # scalar constant ≈ 28.3
         _abs_z_arr = np.abs(z_scores)

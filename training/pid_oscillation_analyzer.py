@@ -27,13 +27,13 @@ PID_MIN_REGIME_BARS = 3      # must see N consecutive PID bars before entering
 
 # ── TENSION classification thresholds ───────────────────────────────────────
 # A PID signal is classified TENSION (dangerous-but-profitable) when any of:
-#   1. z_score near outer Roche (>= 1.5σ) — PID fighting possible breakout
+#   1. z_score near outer 2σ band (>= 1.5σ) — PID fighting possible breakout
 #   2. term_pid very large (>= 1.0) — control force maxed out, system under strain
 #   3. breakout_probability elevated (>= 0.25) — statistical field says breakout is real
 #   4. oscillation_entropy_normalized falling while regime persists — control degrading
 # TENSION signals are logged in shadow but flagged separately.
 # They are NEVER enabled for live trading until a dedicated analysis sprint.
-PID_TENSION_Z_MIN        = 1.5    # z >= this → approaching outer Roche → TENSION
+PID_TENSION_Z_MIN        = 1.5    # z >= this → approaching 2σ band → TENSION
 PID_TENSION_FORCE_MAX    = 1.0    # |term_pid| >= this → maxed-out control → TENSION
 PID_TENSION_ESCAPE_MIN   = 0.25   # breakout_probability >= this → TENSION
 PID_TENSION_COH_DROP     = 0.15   # osc_coh dropped >= this vs 3-bar avg → TENSION
@@ -130,7 +130,7 @@ class PIDOscillationAnalyzer:
         # until a dedicated analysis sprint.
         tension_reason = ''
         if abs(z) >= PID_TENSION_Z_MIN:
-            tension_reason = 'outer_roche'      # approaching outer Roche limit
+            tension_reason = 'outer_band'       # approaching outer 2σ band
         elif force >= PID_TENSION_FORCE_MAX:
             tension_reason = 'maxed_force'      # PID control maxed out
         elif escape >= PID_TENSION_ESCAPE_MIN:
