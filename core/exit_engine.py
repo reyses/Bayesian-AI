@@ -157,6 +157,10 @@ class ExitEngine:
         self._tune_gb_max = 0.90   # giveback_pct ceiling
         self._tune_window = 30     # recalibrate every N trades
 
+        # Breakeven lock: fixed activation threshold (ticks of favorable excursion)
+        # Analysis EE found 4 ticks optimal: 77% of OOS losers reached MFE >= 4
+        self.be_activation_ticks = 4
+
         # Watchdog parameters
         self.watchdog_tick_threshold = 8
         self.watchdog_bar_threshold = 5
@@ -359,6 +363,9 @@ class ExitEngine:
         if band_result is not None:
             return band_result
 
+        # -- 5b. BREAKEVEN LOCK (adjust SL before envelope/giveback) --
+        self._check_breakeven(pos)
+
         # -- 6. ENVELOPE DECAY --
         envelope_result = self._check_envelope(pos, bar_close, net_force, band_context)
         if envelope_result is not None:
@@ -368,9 +375,6 @@ class ExitEngine:
         giveback_result = self._check_peak_giveback(pos, bar_close, exit_signal)
         if giveback_result is not None:
             return giveback_result
-
-        # -- 7. BREAKEVEN LOCK --
-        self._check_breakeven(pos)
 
         # -- 9. Exit signal from belief network (tighten/urgent) --
         if exit_signal is not None and exit_signal.get('urgent_exit', False):
@@ -399,10 +403,9 @@ class ExitEngine:
     # ==================================================================
 
     def _get_stop_price(self, pos: PositionState) -> float:
-        if pos.side == 'long':
-            return pos.entry_price - (pos.sl_ticks * self.tick_size)
-        else:
-            return pos.entry_price + (pos.sl_ticks * self.tick_size)
+        # Use pos.stop_loss directly — it may have been tightened by
+        # breakeven lock or other adjustments.
+        return pos.stop_loss
 
     def _is_stopped(self, pos: PositionState, worst_price: float, sl_price: float) -> bool:
         if pos.side == 'long':
@@ -681,7 +684,12 @@ class ExitEngine:
     # ==================================================================
 
     def _check_breakeven(self, pos: PositionState):
-        """Lock stop to breakeven once profit exceeds activation threshold."""
+        """Lock stop to breakeven once MFE exceeds be_activation_ticks.
+
+        Uses a fixed threshold (default 4 ticks) instead of trail_activation.
+        The old threshold (trail_activation * 0.6) was effectively unreachable
+        when trail_activation was tied to enormous tp_ticks values.
+        """
         if pos.breakeven_locked:
             return
 
@@ -690,12 +698,14 @@ class ExitEngine:
         else:
             favorable = (pos.entry_price - pos.peak_favorable) / self.tick_size
 
-        if favorable >= pos.trail_activation_ticks * 0.6:
+        if favorable >= self.be_activation_ticks:
+            # Lock SL to entry + 1 tick buffer (avoid slippage-induced loss)
+            buffer = 1 * self.tick_size
             if pos.side == 'long':
-                be_level = pos.entry_price + (2 * self.tick_size)
+                be_level = pos.entry_price + buffer
                 pos.stop_loss = max(pos.stop_loss, be_level)
             else:
-                be_level = pos.entry_price - (2 * self.tick_size)
+                be_level = pos.entry_price - buffer
                 pos.stop_loss = min(pos.stop_loss, be_level)
             pos.breakeven_locked = True
 
