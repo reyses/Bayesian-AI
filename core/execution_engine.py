@@ -262,6 +262,7 @@ class ExecutionEngine:
         exit_signal: dict = None,
         oracle_marker_fn=None,   # callable(raw_event) -> int
         pp_dir_override: str = None,
+        noise_ticks: float = 0.0,
     ) -> TradeAction:
         """
         Process one bar. Returns a TradeAction.
@@ -275,6 +276,7 @@ class ExecutionEngine:
                 price, bar_high, bar_low, bar_index,
                 net_force, sub_bar_highs, sub_bar_lows,
                 band_context, exit_signal,
+                noise_ticks=noise_ticks,
             )
 
         if candidates:
@@ -320,7 +322,8 @@ class ExecutionEngine:
 
     def _check_exit(self, price, bar_high, bar_low, bar_index,
                     net_force, sub_bar_highs, sub_bar_lows,
-                    band_context=None, exit_signal=None) -> TradeAction:
+                    band_context=None, exit_signal=None,
+                    noise_ticks: float = 0.0) -> TradeAction:
         """Evaluate exit conditions via ExitEngine."""
         if band_context is None and hasattr(self.belief_network, 'get_band_confluence'):
             band_context = self.belief_network.get_band_confluence()
@@ -338,6 +341,7 @@ class ExecutionEngine:
             exit_signal=exit_signal,
             sub_bar_highs=sub_bar_highs,
             sub_bar_lows=sub_bar_lows,
+            noise_ticks=noise_ticks,
         )
 
         if result.action != ExitAction.HOLD:

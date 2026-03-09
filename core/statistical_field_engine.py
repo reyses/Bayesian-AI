@@ -427,11 +427,22 @@ class StatisticalFieldEngine:
         # 4. Confirmation signals (Already boolean arrays)
         # band_snap and trend_drive are boolean arrays from kernels/vectorized logic
 
-        # Loop from rp to n using pre-calculated arrays
-        # This reduces the loop body to simple instantiation
-
-        # Pre-slice arrays to avoid indexing in loop if possible?
-        # No, indexing is fast. But we can use list comprehension which is faster than append loop.
+        # --- Swing noise: max intra-wave pullback over rolling window ---
+        # Measures "how much pullback is normal right now" in ticks.
+        # Used by exit engine to set dynamic giveback threshold.
+        _noise_window = 32  # ~8 min at 15s bars
+        _tick_size = params.get('tick_size', 0.25)
+        swing_noise = np.full(n, 35.0)  # default 35 ticks
+        for _ni in range(_noise_window, n):
+            _seg_hi = highs[_ni - _noise_window:_ni + 1]
+            _seg_lo = lows[_ni - _noise_window:_ni + 1]
+            # Max drawdown from running high (long-side noise)
+            _run_hi = np.maximum.accumulate(_seg_hi)
+            _dd = (_run_hi - _seg_lo).max() / _tick_size
+            # Max drawup from running low (short-side noise)
+            _run_lo = np.minimum.accumulate(_seg_lo)
+            _du = (_seg_hi - _run_lo).max() / _tick_size
+            swing_noise[_ni] = max(_dd, _du)
 
         results = [
             {
@@ -478,6 +489,7 @@ class StatisticalFieldEngine:
                     oscillation_entropy_normalized=float(oscillation_entropy_normalized_arr[i]),
                     lyapunov_exponent=0.0,
                     market_regime='STABLE',
+                    swing_noise_ticks=float(swing_noise[i]),
                     timestamp=timestamps[i]
                 ),
                 'price': prices[i],
