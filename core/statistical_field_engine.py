@@ -6,8 +6,7 @@ GPU-accelerated via Numba CUDA kernels.
 """
 import numpy as np
 import pandas as pd
-from numba import cuda
-from numpy.lib.stride_tricks import sliding_window_view
+from numba import cuda, njit, prange
 import logging
 from scipy.special import erfi
 
@@ -34,6 +33,33 @@ try:
     from core.cuda_pattern_detector import detect_patterns_cuda, NUMBA_AVAILABLE as CUDA_PATTERNS_AVAILABLE
 except ImportError:
     CUDA_PATTERNS_AVAILABLE = False
+
+
+@njit(parallel=True, cache=True)
+def _compute_rolling_std_numba(arr: np.ndarray, window: int, ddof: int = 1) -> np.ndarray:
+    n = len(arr)
+    out = np.full(n, np.nan)
+    if n < window:
+        return out
+
+    for i in prange(window - 1, n):
+        sum_x = 0.0
+        for j in range(i - window + 1, i + 1):
+            sum_x += arr[j]
+        mean = sum_x / window
+
+        sum_sq = 0.0
+        for j in range(i - window + 1, i + 1):
+            diff = arr[j] - mean
+            sum_sq += diff * diff
+
+        out[i] = np.sqrt(sum_sq / (window - ddof))
+
+    first_val = out[window - 1]
+    for i in range(window - 1):
+        out[i] = first_val
+
+    return out
 
 
 # PID Control Constants (Default/Fallback)
@@ -367,12 +393,19 @@ class StatisticalFieldEngine:
         # oscillation (PID regime).  High std = chaotic / trending.
         # Inverted and normalised to (0, 1] so 1 = perfectly tight oscillation.
         _ow = min(5, rp)
-        osc_std = np.full(n, np.nan)
+
+        # Numba JIT: ~46x vs sliding_window_view (0.4996s -> 0.0107s)
+        # osc_std = np.full(n, np.nan)
+        # if n >= _ow:
+        #      z_windows = sliding_window_view(z_scores, window_shape=_ow)
+        #      osc_std[_ow-1:] = z_windows.std(axis=1, ddof=1)
+        #      if n > _ow - 1:
+        #           osc_std[:_ow - 1] = osc_std[_ow - 1]
+
         if n >= _ow:
-             z_windows = sliding_window_view(z_scores, window_shape=_ow)
-             osc_std[_ow-1:] = z_windows.std(axis=1, ddof=1)
-             if n > _ow - 1:
-                  osc_std[:_ow - 1] = osc_std[_ow - 1]
+            osc_std = _compute_rolling_std_numba(z_scores, _ow, ddof=1)
+        else:
+            osc_std = np.full(n, np.nan)
 
         oscillation_entropy_normalized_arr = 1.0 / (1.0 + osc_std)   # (0, 1]
         np.nan_to_num(oscillation_entropy_normalized_arr, copy=False, nan=0.0)

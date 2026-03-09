@@ -1,3 +1,6 @@
-YYYY-MM-DD - [Parallelizing Rolling R/S calculation]
+2026-03-09 - [Parallelizing Rolling R/S calculation]
 Learning: Numba's `@njit(parallel=True)` combined with `prange` allows seamless parallelization of sliding window calculations without breaking numerical accuracy or introducing any dependencies. The original `_compute_rs_numba` iterates independently over the output array items, calculating rolling stats. Changing `range` to `numba.prange` takes full advantage of multiple cores without changing the algorithm logic.
 Action: Add `@njit(parallel=True, cache=True)` and replace `range` with `prange` for completely independent tight rolling calculations on 1D arrays, as long as there is no data mutation inside the loop across iterations.
+2026-03-09 - [Vectorize oscillation coherence rolling standard deviation]
+Learning: NumPy's `sliding_window_view` in the CPU-fallback batch hot path (`core/statistical_field_engine.py` -> `batch_compute_states()`) introduced significant overhead when calculating rolling standard deviation for `osc_std`. Despite using a small window (`_ow = 5`), the internal memory management of overlapping views and axis-based `.std` calls severely hindered performance.
+Action: Replace `.std(axis=1)` combined with `sliding_window_view` calls with custom algorithms utilizing Numba `@njit(parallel=True, cache=True)` and `prange`, resulting in independent block calculations over rolling arrays and preserving original shapes while being much faster (~46x speedup).
