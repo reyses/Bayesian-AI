@@ -32,7 +32,7 @@
 - **Feature Extraction**: `core/feature_extraction.py` — canonical 16D feature vector (single source of truth)
 - **Belief Network**: `core/timeframe_belief_network.py` — 11 TF workers (incl 5s, 1s),
   BandContext per worker, `get_band_confluence()` (Priority 4 in direction cascade)
-- **Position factory**: `make_position()` in `core/exit_engine.py` — creates PositionState directly.
+- **Position factory**: `ExitEngine.open_position()` — creates PositionState (make_position deleted 2026-03-09).
   wave_rider.py DELETED (2026-03-07). All position/exit logic in exit_engine.py.
 - **Trade Logger**: `live/trade_logger.py` — per-trade diagnostic CSV
 - **History Replay**: `live/history_replay.py` — compressed forward pass for live warmup

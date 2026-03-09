@@ -72,7 +72,7 @@ class MarketState:
 
     # ═══ SIGNAL QUALITY ═══
     entropy: float                  # Shannon entropy
-    entropy_normalized: float                # 1.0=superposition, 0.0=collapsed
+    entropy_normalized: float                # 1.0=uncertain/mixed, 0.0=decisive/aligned
     pattern_maturity: float         # L7 development
     momentum_strength: float        # Normalized KE
 

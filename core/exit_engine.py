@@ -67,7 +67,6 @@ class PositionState:
     max_hold_bars: int = 120
 
     # Dynamic state (updated each bar)
-    current_trail: float = 0.0
     peak_favorable: float = 0.0
     bars_held: int = 0
     breakeven_locked: bool = False
@@ -78,42 +77,11 @@ class PositionState:
     entry_time: float = 0.0
     stop_loss: float = 0.0          # absolute price level
     profit_target: float = 0.0      # absolute price level (0 = none)
-    high_water_mark: float = 0.0    # alias for peak_favorable (read by live_engine)
-    original_trail_ticks: float = 0.0
-    last_adjustment_reason: str = ''
     envelope_T0: float = 0.0
     envelope_halflife: float = 20.0
 
     # 30m worker flip: once fired, stays True for remainder of trade
     slow_flip_active: bool = False
-
-
-def make_position(entry_price: float, side: str, tick_size: float = 0.25,
-                   tick_value: float = 0.50, stop_distance_ticks: int = 20,
-                   profit_target_ticks: int = 0, trailing_stop_ticks: int = 0,
-                   trail_activation_ticks: int = 0, template_id=0,
-                   state=None, **_kwargs) -> PositionState:
-    """Create a PositionState with absolute price levels."""
-    import time as _time
-    sd = stop_distance_ticks * tick_size
-    sl = (entry_price + sd) if side == 'short' else (entry_price - sd)
-    pt = 0.0
-    if profit_target_ticks:
-        ptd = profit_target_ticks * tick_size
-        pt = (entry_price - ptd) if side == 'short' else (entry_price + ptd)
-    return PositionState(
-        side=side, entry_price=entry_price, entry_bar_index=0,
-        template_id=template_id or 0, tick_size=tick_size, tick_value=tick_value,
-        sl_ticks=float(stop_distance_ticks), tp_ticks=float(profit_target_ticks or 0),
-        trailing_stop_ticks=float(trailing_stop_ticks or 0),
-        trail_activation_ticks=float(trail_activation_ticks or 0),
-        original_trail_ticks=float(trailing_stop_ticks or 0),
-        stop_loss=sl, profit_target=pt,
-        high_water_mark=entry_price, peak_favorable=entry_price, current_trail=sl,
-        entry_time=_time.time(),
-        envelope_T0=float(stop_distance_ticks), envelope_halflife=20.0,
-        envelope_active=True,
-    )
 
 
 class ExitEngine:
@@ -257,24 +225,20 @@ class ExitEngine:
             max_hold_bars=max_hold_bars,
         )
 
-        # Absolute price levels + initial trail
+        # Absolute price levels
         _sd = sl_ticks * self.tick_size
         _td = tp_ticks * self.tick_size
         if side == 'long':
-            pos.current_trail = entry_price - _sd
             pos.stop_loss = entry_price - _sd
             pos.profit_target = entry_price + _td if tp_ticks > 0 else 0.0
         else:
-            pos.current_trail = entry_price + _sd
             pos.stop_loss = entry_price + _sd
             pos.profit_target = entry_price - _td if tp_ticks > 0 else 0.0
 
         pos.peak_favorable = entry_price
-        pos.high_water_mark = entry_price
         pos.envelope_active = True
         pos.envelope_level = tp_ticks * self.tick_size
         pos.envelope_T0 = float(sl_ticks)
-        pos.original_trail_ticks = pos.trailing_stop_ticks
 
         import time as _time
         pos.entry_time = _time.time()
@@ -324,7 +288,6 @@ class ExitEngine:
             pos.peak_favorable = max(pos.peak_favorable, best_price)
         else:
             pos.peak_favorable = min(pos.peak_favorable, best_price)
-        pos.high_water_mark = pos.peak_favorable  # sync alias
 
         # -- 1. STOP LOSS --
         sl_price = self._get_stop_price(pos)
@@ -335,7 +298,7 @@ class ExitEngine:
                 reason=f"SL hit at {sl_price:.2f} (worst={worst_price:.2f})",
                 pnl_ticks=self._calc_pnl_ticks(pos, sl_price),
                 bars_held=pos.bars_held,
-                trail_level=pos.current_trail,
+                trail_level=pos.stop_loss,
             )
 
         # -- 2. TAKE PROFIT --
@@ -347,7 +310,7 @@ class ExitEngine:
                 reason=f"TP hit at {tp_price:.2f} (best={best_price:.2f})",
                 pnl_ticks=self._calc_pnl_ticks(pos, tp_price),
                 bars_held=pos.bars_held,
-                trail_level=pos.current_trail,
+                trail_level=pos.stop_loss,
             )
 
         # -- 3. WATCHDOG --
@@ -384,7 +347,7 @@ class ExitEngine:
                 reason=f"Belief flip: {exit_signal.get('reason', 'urgent')}",
                 pnl_ticks=self._calc_pnl_ticks(pos, bar_close),
                 bars_held=pos.bars_held,
-                trail_level=pos.current_trail,
+                trail_level=pos.stop_loss,
             )
 
         # -- 10. HOLD --
@@ -393,7 +356,7 @@ class ExitEngine:
             exit_price=0.0,
             reason='hold',
             bars_held=pos.bars_held,
-            trail_level=pos.current_trail,
+            trail_level=pos.stop_loss,
             envelope_level=pos.envelope_level,
             band_zone=band_context.get('band_summary', '') if band_context else '',
         )
