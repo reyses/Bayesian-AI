@@ -1,7 +1,7 @@
 """
-Three-Body Quantum State Vector
-Unified field theory for market microstructure
-Multi-timeframe cascade with 8 layers (1D -> 1S)
+Market State Vector
+Statistical representation of market microstructure.
+Multi-timeframe cascade with 8 layers (1D -> 1S).
 """
 from dataclasses import dataclass, field
 import numpy as np
@@ -10,18 +10,18 @@ from typing import Optional, List
 @dataclass(frozen=True)
 class MarketState:
     """
-    Complete quantum state representation of market as three-body system
+    Complete statistical state representation of market microstructure.
 
-    PHYSICS MODEL:
-    - Body 1 (Center Star): Fair value regression - ATTRACTIVE
-    - Body 2 (Upper Singularity): +2 sigma resistance - REPULSIVE
-    - Body 3 (Lower Singularity): -2 sigma support - REPULSIVE
-    - Particle: Price - exists in SUPERPOSITION until measured
+    REGRESSION MODEL:
+    - Center: Fair value (OLS regression center)
+    - Upper band: +2 sigma resistance
+    - Lower band: -2 sigma support
+    - Price: Current position relative to bands
 
-    QUANTUM MECHANICS:
-    - Wave function psi = a0*psi_center + a1*psi_upper + a2*psi_lower
-    - Measurement (L8-L9) causes collapse to definite state
-    - Tunneling probability determines mean reversion likelihood
+    PROBABILITY MODEL:
+    - 3-class softmax: P(near center), P(near upper), P(near lower)
+    - Confirmation signals (structure + cascade) validate setups
+    - Reversion probability from OU first-passage analysis
 
     BINNING:
     - z_score and momentum_strength are binned via DynamicBinner
@@ -43,52 +43,52 @@ class MarketState:
     def get_binner(cls):
         return cls._binner
 
-    # ═══ THREE ATTRACTORS ═══
-    regression_center: float           # Fair value (Body 1)
-    upper_band_2sigma: float         # +2 sigma resistance (Body 2)
-    lower_band_2sigma: float         # -2 sigma support (Body 3)
-    upper_band_3sigma: float       # +3 sigma point of no return
-    lower_band_3sigma: float       # -3 sigma point of no return
+    # ═══ REGRESSION BANDS ═══
+    regression_center: float           # Fair value (OLS center)
+    upper_band_2sigma: float         # +2 sigma resistance
+    lower_band_2sigma: float         # -2 sigma support
+    upper_band_3sigma: float       # +3 sigma breakout level
+    lower_band_3sigma: float       # -3 sigma breakout level
 
-    # ═══ PARTICLE STATE ═══
+    # ═══ PRICE STATE ═══
     price: float         # Current price
     velocity: float         # Price momentum
     z_score: float                   # Normalized distance (sigma units)
 
-    # ═══ FORCE FIELDS ═══
-    mean_reversion_force: float              # Tidal force = z squared / 9
-    F_upper_repulsion: float        # 1/r cubed from upper
-    F_lower_repulsion: float        # 1/r cubed from lower
+    # ═══ STATISTICAL FORCES ═══
+    mean_reversion_force: float              # Mean reversion force = -theta * z * sigma
+    F_upper_band: float             # Band pressure from upper
+    F_lower_band: float             # Band pressure from lower
     F_momentum: float               # Kinetic energy
     net_force: float                    # Vector sum
 
-    # ═══ QUANTUM WAVE FUNCTION ═══
-    amplitude_center: complex       # a0
-    amplitude_upper: complex        # a1
-    amplitude_lower: complex        # a2
+    # ═══ PROBABILITY DISTRIBUTION ═══
+    prob_weight_center: complex     # sqrt(P_at_center)
+    prob_weight_upper: complex      # sqrt(P_near_upper)
+    prob_weight_lower: complex      # sqrt(P_near_lower)
     P_at_center: float             # |a0| squared
     P_near_upper: float            # |a1| squared
     P_near_lower: float            # |a2| squared
 
-    # ═══ DECOHERENCE ═══
+    # ═══ SIGNAL QUALITY ═══
     entropy: float                  # Shannon entropy
     entropy_normalized: float                # 1.0=superposition, 0.0=collapsed
     pattern_maturity: float         # L7 development
     momentum_strength: float        # Normalized KE
 
-    # ═══ MEASUREMENT OPERATORS ═══
+    # ═══ CONFIRMATION SIGNALS ═══
     structure_confirmed: bool       # L8 validation
     cascade_detected: bool          # L9 velocity trigger
     reversal_confirmed: bool             # Micro confirms macro
 
-    # ═══ LAGRANGE CLASSIFICATION ═══
+    # ═══ BAND CLASSIFICATION ═══
     band_zone: str             # INNER | UPPER_EXTREME | LOWER_EXTREME
     stability_index: float         # 0=chaos, 1=stable
 
-    # ═══ QUANTUM TUNNELING ═══
+    # ═══ REVERSION STATISTICS ═══
     reversion_probability: float      # P(revert to center)
     breakout_probability: float      # P(break through horizon)
-    barrier_height: float          # Potential energy
+    reversion_potential: float     # OU potential energy
     pattern_type: str = 'NONE'     # NONE | COMPRESSION | WEDGE | BREAKDOWN
 
     # ═══ FRACTAL & TREND INDICATORS ═══
@@ -98,21 +98,21 @@ class MarketState:
     dmi_minus: float = 0.0          # Directional Movement Minus
     candlestick_pattern: str = 'NONE' # HAMMER | ENGULFING_BULL | ENGULFING_BEAR | DOJI | NONE
 
-    # ═══ NIGHTMARE FIELD EQUATION COMPONENTS ═══
+    # ═══ VOLATILITY MODEL COMPONENTS ═══
     regression_sigma: float = 0.0      # Fractal diffusion volatility
     term_pid: float = 0.0           # Algorithmic control force
     oscillation_entropy_normalized: float = 0.0 # 1=tight periodic PID oscillation, 0=noisy/trending
     lyapunov_exponent: float = 0.0  # Stability coefficient (lambda)
     market_regime: str = 'UNKNOWN'  # STABLE | CHAOTIC
 
-    # ═══ RESONANCE (PHASE 3 EXTENSION) ═══
+    # ═══ ALIGNMENT (PHASE 3 EXTENSION) ═══
     alignment_score: float = 0.0      # Phase alignment
     cascade_probability: float = 0.0      # P(flash move)
-    amplitude_multiplier: float = 1.0     # Energy amplification
-    resonance_type: str = 'NONE'          # NONE|PARTIAL|FULL|CRITICAL
+    signal_multiplier: float = 1.0        # Signal amplification
+    alignment_type: str = 'NONE'          # NONE|PARTIAL|FULL|STRONG
 
     # ═══ FRACTAL (PHASE 2 EXTENSION) ═══
-    multi_tf_alignment_count: int = 0      # How many scales at Roche
+    multi_tf_alignment_count: int = 0      # How many scales at band extreme
     fractal_confidence: str = 'LOW'       # LOW|MEDIUM|HIGH|EXTREME
     fractal_edge: float = 0.0             # 0-1 scale alignment
 
@@ -235,77 +235,6 @@ class MarketState:
 
         return self._get_context_tuple() == other._get_context_tuple()
 
-    def get_trade_directive(self) -> dict:
-        """Convert quantum state to trade decision"""
-        # FRACTAL FILTER: Halt if market is mean reverting/choppy (H < 0.5)
-        # Exception: Allow if we are strictly looking for mean reversion at extremes,
-        # but typically H < 0.5 means "random walk / chop" which is dangerous.
-        # Actually, H < 0.5 is anti-persistent (mean reverting), H > 0.5 is persistent (trending).
-        # If we are betting on a reversal (Roche limit), H < 0.5 might actually be good?
-        # User Instruction: "H < 0.5: Mean Reverting/Chop (Halt execution)."
-        # So we treat H < 0.5 as "Noise/Chop" and avoid.
-        if self.hurst_exponent < 0.5:
-             return {
-                'action': 'WAIT',
-                'reason': f'Fractal Filter: H={self.hurst_exponent:.2f} < 0.5 (Chop)'
-            }
-
-        # No trade if not at Roche limit
-        if self.band_zone not in ['UPPER_EXTREME', 'LOWER_EXTREME']:
-            return {
-                'action': 'WAIT',
-                'reason': f'Not at Roche. Zone: {self.band_zone}, Z: {self.z_score:.2f}'
-            }
-
-        # No trade if momentum override
-        if self.F_momentum > self.mean_reversion_force * 1.5:
-            return {
-                'action': 'WAIT',
-                'reason': f'Momentum too strong (breakout likely)'
-            }
-
-        # No trade unless measured
-        if not (self.structure_confirmed and self.cascade_detected):
-            return {
-                'action': 'WAIT',
-                'reason': f'Wave function not collapsed'
-            }
-
-        # REGIME FILTER: Prevent fighting strong volatility expansion trends
-        # If daily volatility is HIGH, respect the daily trend
-        if self.daily_volatility == 'HIGH':
-            # Don't short a Bullish Expansion
-            if self.daily_trend == 'BULL' and self.z_score > 2.0:
-                return {
-                    'action': 'WAIT',
-                    'reason': 'Regime Filter: Cannot short BULL expansion'
-                }
-            # Don't buy a Bearish Crash
-            if self.daily_trend == 'BEAR' and self.z_score < -2.0:
-                return {
-                    'action': 'WAIT',
-                    'reason': 'Regime Filter: Cannot buy BEAR crash'
-                }
-
-        # Trade if tunnel probability sufficient
-        if self.reversion_probability >= 0.80:
-            if self.z_score > 2.0:
-                return {
-                    'action': 'SELL',
-                    'confidence': self.reversion_probability,
-                    'target': self.regression_center,
-                    'stop': self.upper_band_3sigma
-                }
-            else:
-                return {
-                    'action': 'BUY',
-                    'confidence': self.reversion_probability,
-                    'target': self.regression_center,
-                    'stop': self.lower_band_3sigma
-                }
-
-        return {'action': 'WAIT', 'reason': f'Tunnel prob too low ({self.reversion_probability:.2%})'}
-
     @classmethod
     def null_state(cls):
         """Returns a null state (safe default)"""
@@ -313,13 +242,13 @@ class MarketState:
             regression_center=0.0, upper_band_2sigma=0.0, lower_band_2sigma=0.0,
             upper_band_3sigma=0.0, lower_band_3sigma=0.0,
             price=0.0, velocity=0.0, z_score=0.0,
-            mean_reversion_force=0.0, F_upper_repulsion=0.0, F_lower_repulsion=0.0, F_momentum=0.0, net_force=0.0,
-            amplitude_center=0+0j, amplitude_upper=0+0j, amplitude_lower=0+0j,
+            mean_reversion_force=0.0, F_upper_band=0.0, F_lower_band=0.0, F_momentum=0.0, net_force=0.0,
+            prob_weight_center=0+0j, prob_weight_upper=0+0j, prob_weight_lower=0+0j,
             P_at_center=0.0, P_near_upper=0.0, P_near_lower=0.0,
             entropy=0.0, entropy_normalized=0.0, pattern_maturity=0.0, momentum_strength=0.0,
             structure_confirmed=False, cascade_detected=False, reversal_confirmed=False, pattern_type='NONE',
             band_zone='INNER', stability_index=1.0,
-            reversion_probability=0.0, breakout_probability=0.0, barrier_height=0.0,
+            reversion_probability=0.0, breakout_probability=0.0, reversion_potential=0.0,
             hurst_exponent=0.5, adx_strength=0.0, dmi_plus=0.0, dmi_minus=0.0,
             candlestick_pattern='NONE',
             regression_sigma=0.0, term_pid=0.0, oscillation_entropy_normalized=0.0, lyapunov_exponent=0.0, market_regime='STABLE'

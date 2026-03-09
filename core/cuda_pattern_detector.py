@@ -187,11 +187,3 @@ def detect_patterns_cuda(opens: np.ndarray, highs: np.ndarray, lows: np.ndarray,
     out_cdl = np.clip(out_cdl, 0, 4)
 
     return geo_lookup[out_geo], cdl_lookup[out_cdl]
-
-# Legacy wrapper for backward compatibility if needed (though we will update caller)
-def detect_geometric_patterns_cuda(highs: np.ndarray, lows: np.ndarray) -> np.ndarray:
-    """Legacy wrapper: Runs unified kernel but passes dummy open/close and returns only geo."""
-    n = len(highs)
-    dummy = np.zeros(n, dtype=np.float32)
-    geo, _ = detect_patterns_cuda(dummy, highs, lows, dummy)
-    return geo

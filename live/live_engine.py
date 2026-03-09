@@ -24,9 +24,11 @@ import pandas as pd
 from dataclasses import dataclass
 from typing import Optional, Dict, List
 
-from core.quantum_field_engine import StatisticalFieldEngine
-from core.bayesian_brain import QuantumBayesianBrain
+from core.statistical_field_engine import StatisticalFieldEngine
+from core.bayesian_brain import MarketBayesianBrain
 from core.exit_engine import ExitEngine, ExitAction
+from core.execution_engine import (ExecutionEngine, ActionType, Candidate,
+                                   TradeAction)
 from core.fractal_clustering import FractalClusteringEngine
 from core.timeframe_belief_network import TimeframeBeliefNetwork
 from core.exit_engine import make_position
@@ -141,7 +143,7 @@ class LiveEngine:
             raise ValueError(f"Unknown asset ticker: {config.asset_ticker}")
 
         self._engine = StatisticalFieldEngine()
-        self._brain = QuantumBayesianBrain()
+        self._brain = MarketBayesianBrain()
         self._position = None  # PositionState or None
 
         # Unified exit engine (same logic as training — training/live parity)
@@ -200,7 +202,7 @@ class LiveEngine:
 
         self._primary_period = config.base_resolution_s  # updated from CONNECTED
         self._bar_i = 0   # running anchor-TF bar index
-        self._last_states = []  # latest quantum states (refreshed every 15s)
+        self._last_states = []  # latest market states (refreshed every 15s)
         self._last_price = 0.0  # latest bar close (for main loop access)
         self._last_ts = 0.0     # latest bar timestamp
         self._last_exit_time = 0.0  # cooldown between trades
@@ -300,12 +302,46 @@ class LiveEngine:
 
         self._load_checkpoints()
         self._init_belief_network()
+        self._init_exec_engine()
 
-        # Load persisted bars for delta sync (skip full history replay)
-        last_ts = self._aggregator.load_from_parquet()
-        if last_ts > 0:
-            self._client.set_resume_timestamp(last_ts)
-            logger.info(f"Delta sync enabled: will request bars after ts={last_ts:.0f}")
+        # ── Compressed replay: warm brain/TBN/exits from ATLAS ─────────
+        if not self._cfg.skip_replay:
+            try:
+                from live.history_replay import HistoryReplayEngine
+                replay = HistoryReplayEngine(
+                    checkpoint_dir=self._cfg.checkpoint_dir,
+                    n_days=self._cfg.replay_days,
+                    atlas_root=self._cfg.atlas_root,
+                    anchor_tf=self._anchor_tf,
+                )
+                result = replay.run()
+
+                if not result.validation.passed:
+                    logger.error("REPLAY VALIDATION FAILED — refusing to go live")
+                    for w in result.validation.warnings:
+                        logger.error(f"  WARNING: {w}")
+                    logger.error(f"  Parity score: {result.validation.parity_score:.2f}")
+                    return
+
+                # Transfer warmed state
+                self._brain = result.brain
+                self._belief_network = result.belief_network
+                self._aggregator.seed_from_replay(
+                    result.df_micro, result.states_micro)
+                # Set resume timestamp so NT8 only sends delta bars
+                self._client.set_resume_timestamp(result.last_timestamp)
+                logger.info(f"REPLAY VALIDATED: {result.validation.replay_trades} trades, "
+                            f"WR={result.validation.replay_wr:.1%}, "
+                            f"PnL=${result.validation.replay_pnl:+,.2f}, "
+                            f"Parity={result.validation.parity_score:.2f}")
+            except Exception as e:
+                logger.warning(f"Replay failed ({e}) — falling back to NT8 history")
+        else:
+            # Old behavior: load persisted bars for delta sync
+            last_ts = self._aggregator.load_from_parquet()
+            if last_ts > 0:
+                self._client.set_resume_timestamp(last_ts)
+                logger.info(f"Delta sync enabled: will request bars after ts={last_ts:.0f}")
 
         connected = await self._client.connect()
         if not connected:
@@ -966,15 +1002,13 @@ class LiveEngine:
     def _init_exit_state(self, side: str, price: float, sl_ticks: float,
                          tp_ticks: float, template_id, lib_entry: dict = None):
         """Create ExitEngine PositionState for a new trade."""
-        _lib = lib_entry or {}
-        _lib.setdefault('max_hold_bars', self._max_hold_bars)
         self._pos_state = self._exit_engine.open_position(
             side=side, entry_price=price, entry_bar_index=self._bar_i,
-            template_id=template_id, lib_entry=_lib,
+            template_id=template_id,
+            sl_ticks=sl_ticks, tp_ticks=tp_ticks,
+            max_hold_bars=self._max_hold_bars,
+            lib_entry=lib_entry,
         )
-        # Override with computed SL/TP (already tuning-adjusted)
-        self._pos_state.sl_ticks = float(sl_ticks)
-        self._pos_state.tp_ticks = float(tp_ticks)
 
     async def _close_position(self, reason: str):
         """Send close order and reset position state."""
@@ -1002,6 +1036,8 @@ class LiveEngine:
             self._exit_engine.record_trade_outcome(_tmfe, _pnl_ticks, _cap)
         self._position = None
         self._pos_state = None  # reset ExitEngine position
+        if hasattr(self, '_exec_engine'):
+            self._exec_engine.position_closed()
         self._last_exit_time = time.time()
 
         if self._dry_run:
@@ -1137,7 +1173,7 @@ class LiveEngine:
         self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
                         'side': side, 'price': price})
 
-        # Always use freshest quantum state — a trade is a trade
+        # Always use freshest market state — a trade is a trade
         _fresh_states = self._last_states or states
         if not _fresh_states:
             # Force recompute if nothing cached (rare: manual during warmup)
@@ -1147,7 +1183,7 @@ class LiveEngine:
                 logger.info(f"Forced state recompute for manual entry: {len(_fresh_states)} states")
         state = _fresh_states[-1]['state'] if _fresh_states else None
         if state is None:
-            logger.warning("No quantum state available — manual trade will have limited exit protection")
+            logger.warning("No market state available — manual trade will have limited exit protection")
 
         self._position = make_position(
             entry_price=price, side=side,
@@ -1199,7 +1235,7 @@ class LiveEngine:
     async def _enter_ping_pong(self, side_hint: str, price: float,
                                 ts: float, states: list):
         """Full-context flip entry — uses direction model + learns outcomes."""
-        # Always use freshest quantum state
+        # Always use freshest market state
         _fresh = self._last_states or states
         if not _fresh:
             logger.debug("PING-PONG: no states for flip entry, skip")
@@ -1508,19 +1544,21 @@ class LiveEngine:
         L.append("=" * 72)
         L.append("GATE REJECTION FUNNEL")
         L.append("=" * 72)
-        gs = self._gate_stats
-        _total = gs['candidates'] or 1
-        L.append(f"  Bars with candidates:           {gs['bars_seen']:>8,}")
-        L.append(f"  Total candidates evaluated:     {gs['candidates']:>8,}")
+        # Pull gate stats from ExecutionEngine (single source of truth)
+        gs = (self._exec_engine.gate_stats if hasattr(self, '_exec_engine')
+              else self._gate_stats)
+        _total = gs.get('candidates', gs.get('gate0_skip', 0) + gs.get('traded', 0)) or 1
+        L.append(f"  Bars with candidates:           {gs.get('bars_seen', 0):>8,}")
+        L.append(f"  Total candidates evaluated:     {_total:>8,}")
         _pct = lambda n: f"{n/_total*100:.1f}%"
-        L.append(f"    Pattern Quality  (headroom/physics):   {gs['gate0_skip']:>8,}  ({_pct(gs['gate0_skip'])})")
-        L.append(f"    Depth Filter     (depth blacklist):    {gs['gate0_5_skip']:>8,}  ({_pct(gs['gate0_5_skip'])})")
-        L.append(f"    Template Match   (cluster dist):       {gs['gate1_skip']:>8,}  ({_pct(gs['gate1_skip'])})")
-        L.append(f"    Brain Reject     (unprofitable):       {gs['gate2_skip']:>8,}  ({_pct(gs['gate2_skip'])})")
-        L.append(f"    Low Conviction   (belief too weak):    {gs['gate3_skip']:>8,}  ({_pct(gs['gate3_skip'])})")
-        L.append(f"    Screening Filter (fission/hours):      {gs['gate3_5_skip']:>8,}  ({_pct(gs['gate3_5_skip'])})")
-        L.append(f"    Direction Unclear (dir conf too low):   {gs['gate4_skip']:>8,}  ({_pct(gs['gate4_skip'])})")
-        L.append(f"    Passed all gates -> traded:            {gs['traded']:>8,}  ({_pct(gs['traded'])})")
+        L.append(f"    Pattern Quality  (headroom/physics):   {gs.get('gate0_skip', 0):>8,}  ({_pct(gs.get('gate0_skip', 0))})")
+        L.append(f"    Depth Filter     (depth blacklist):    {gs.get('gate0_5_skip', 0):>8,}  ({_pct(gs.get('gate0_5_skip', 0))})")
+        L.append(f"    Template Match   (cluster dist):       {gs.get('gate1_nomatch', gs.get('gate1_skip', 0)):>8,}  ({_pct(gs.get('gate1_nomatch', gs.get('gate1_skip', 0)))})")
+        L.append(f"    Brain Reject     (unprofitable):       {gs.get('gate2_brain', gs.get('gate2_skip', 0)):>8,}  ({_pct(gs.get('gate2_brain', gs.get('gate2_skip', 0)))})")
+        L.append(f"    Low Conviction   (belief too weak):    {gs.get('gate3_conviction', gs.get('gate3_skip', 0)):>8,}  ({_pct(gs.get('gate3_conviction', gs.get('gate3_skip', 0)))})")
+        L.append(f"    Screening Filter (fission/hours):      {gs.get('gate3_5_screening', gs.get('gate3_5_skip', 0)):>8,}  ({_pct(gs.get('gate3_5_screening', gs.get('gate3_5_skip', 0)))})")
+        L.append(f"    Direction Unclear (dir conf too low):   {gs.get('gate4_direction', gs.get('gate4_skip', 0)):>8,}  ({_pct(gs.get('gate4_direction', gs.get('gate4_skip', 0)))})")
+        L.append(f"    Passed all gates -> traded:            {gs.get('traded', 0):>8,}  ({_pct(gs.get('traded', 0))})")
 
         # ── Session equity ──
         L.append("")
@@ -1749,245 +1787,100 @@ class LiveEngine:
     # ── Entry Logic (gate cascade) ───────────────────────────────────
 
     async def _check_entry(self, price: float, ts: float, states: list):
-        """Run the gate cascade on the current bar's quantum state."""
+        """Thin wrapper: delegates gate cascade to ExecutionEngine."""
         _t0 = time.perf_counter()
         if not states:
             self._entry_belief_pct = 0
             return
         if self._instrument_mismatch:
-            return  # wrong instrument on NT8 chart — refuse to trade
+            return
 
-        # Aggression scaling (0.0=SNIPER … 1.0=YOLO)
+        # Aggression scaling → set on exec_engine before each call
         agg = self._shared_state.get('aggression', 0.5)
         _yolo = agg >= 0.99
         _g1_base = self._tuning.get('gate1_dist', _GATE1_DIST_THRESHOLD)
-        _g1_dist = (float('inf') if _yolo
-                    else _g1_base + agg * 10.0)  # YOLO=∞, else base→base+10
-        _g2_prob = 0.05 * (1.0 - agg)                    # 0.05 → 0.0
-        _g4_dir  = 0.05                                    # direction gate stays fixed
-        _skip_screening = agg > 0.75                      # AGGRESSIVE+ skips 3.5
+        self._exec_engine.gate1_dist = (
+            float('inf') if _yolo else _g1_base + agg * 10.0)
+        self._exec_engine.set_live_atr(self._live_atr_ticks)
 
-        # Get the latest state
+        # Build Candidate objects from live states
         latest = states[-1]
         state = latest['state']
+        ee_candidates = []
 
-        # Detect pattern type from state flags
-        candidates = []
-        if state.cascade_detected:
-            candidates.append(self._build_candidate(
-                'BAND_REVERSAL', state, price, ts))
-        if state.structure_confirmed:
-            candidates.append(self._build_candidate(
-                'MOMENTUM_BREAK', state, price, ts))
-        # YOLO: if no physics triggers found, force a candidate anyway
-        if not candidates and _yolo:
-            candidates.append(self._build_candidate(
-                'MOMENTUM_BREAK', state, price, ts))
-            logger.debug(f"YOLO forced candidate @ {price:.2f}  "
-                         f"z={state.z_score:.3f} v={state.velocity:.3f}")
+        for ptype in ('BAND_REVERSAL', 'MOMENTUM_BREAK'):
+            flag = (state.cascade_detected if ptype == 'BAND_REVERSAL'
+                    else state.structure_confirmed)
+            if flag or _yolo:
+                _live_cand = self._build_candidate(ptype, state, price, ts)
+                ee_candidates.append(Candidate(
+                    state=state,
+                    depth=self._anchor_depth,
+                    timeframe=self._anchor_tf,
+                    timestamp=ts,
+                    pattern_type=ptype,
+                    z_score=state.z_score,
+                    raw_event=_live_cand,
+                ))
+                if _yolo and not flag:
+                    break  # one forced candidate is enough
 
-        if not candidates:
+        if not ee_candidates:
             self._entry_belief_pct = 0
             return
 
-        # Track best gate progress for belief bar (0-100%)
-        _best_belief = 0
-
-        self._gate_stats['bars_seen'] += 1
-        self._gate_stats['candidates'] += len(candidates)
-        logger.debug(f"Gate cascade: {len(candidates)} candidate(s), agg={agg:.2f}")
-
-        # Run gates on each candidate
-        best_candidate = None
-        best_dist = 999.0
-        best_tid = None
-
-        for p in candidates:
-            # ── Pattern Quality: headroom & physics ───────────────────
-            micro_z = abs(p.z_score)
-            micro_pattern = p.pattern_type
-            macro_z = 0.0  # no parent chain in live (single TF)
-
-            should_skip = False
-
-            # Data-quality override check
-            _data_override = False
-            if self._exception_tids and micro_pattern:
-                _e_feat = np.array([FractalClusteringEngine.extract_features(p)])
-                _e_scaled = self._scaler.transform(_e_feat)
-                _e_dists = np.linalg.norm(self._centroids_scaled - _e_scaled, axis=1)
-                _e_nearest = int(np.argmin(_e_dists))
-                if (_e_dists[_e_nearest] < self._tuning.get('gate1_dist', _GATE1_DIST_THRESHOLD)
-                        and self._valid_tids[_e_nearest] in self._exception_tids):
-                    _data_override = True
-
-            if not _data_override and not _yolo:
-                if not micro_pattern:
-                    should_skip = True
-                elif micro_z < 0.5:
-                    should_skip = True
-                elif 0.5 <= micro_z < 2.0:
-                    if micro_pattern == 'MOMENTUM_BREAK':
-                        if (state.adx_strength < self._tuning.get('gate0_adx', _ADX_TREND_CONFIRMATION)
-                                or state.hurst_exponent < self._tuning.get('gate0_hurst', _HURST_TREND_CONFIRMATION)):
-                            should_skip = True
-                    elif micro_pattern == 'BAND_REVERSAL':
-                        should_skip = True
-                elif micro_z >= 2.0:
-                    headroom = macro_z < 3.0
-                    if micro_pattern == 'BAND_REVERSAL':
-                        if not headroom and micro_z > 3.0:
-                            should_skip = True
-                    elif micro_pattern == 'MOMENTUM_BREAK':
-                        if not headroom:
-                            should_skip = True
-
-            if should_skip:
-                self._gate_stats['gate0_skip'] += 1
-                # Belief: physics present but not strong enough — 10%
-                _cand_belief = 10
-                _best_belief = max(_best_belief, _cand_belief)
-                continue
-
-            # ── Depth Filter ──────────────────────────────────────────
-            if not _yolo and p.depth in self._depth_filter_out:
-                self._gate_stats['gate0_5_skip'] += 1
-                _best_belief = max(_best_belief, 15)
-                continue
-
-            # Pattern Quality passed = 20%
-            _cand_belief = 20
-
-            # ── Template Match: cluster distance ──────────────────────
-            features = np.array([FractalClusteringEngine.extract_features(p)])
-            feat_scaled = self._scaler.transform(features)
-            dists = np.linalg.norm(self._centroids_scaled - feat_scaled, axis=1)
-            nearest_idx = np.argmin(dists)
-            dist = float(dists[nearest_idx])
-            tid = self._valid_tids[nearest_idx]
-
-            if dist >= _g1_dist:
-                self._gate_stats['gate1_skip'] += 1
-                # Belief: partial credit for how close the match was
-                _match_pct = max(0, 1 - dist / max(1, _g1_dist)) if _g1_dist < float('inf') else 0.5
-                _cand_belief += _match_pct * 15  # up to 35% total
-                _best_belief = max(_best_belief, _cand_belief)
-                logger.debug(f"Template Match reject: dist={dist:.2f} >= {_g1_dist:.2f}")
-                continue
-
-            # Template Match passed = 20% + 30% match quality
-            _match_quality = max(0, 1 - dist / max(1, _g1_dist)) if _g1_dist < float('inf') else 1.0
-            _cand_belief = 20 + 30 * _match_quality
-            logger.debug(f"Template Match pass: tid={tid} dist={dist:.2f}/{_g1_dist:.2f}")
-
-            # ── Brain Reject: profitability check ─────────────────────
-            if not self._brain.should_fire(tid, min_prob=_g2_prob, min_conf=0.0):
-                self._gate_stats['gate2_skip'] += 1
-                _best_belief = max(_best_belief, _cand_belief)
-                logger.debug(f"Brain Reject: tid={tid} "
-                             f"prob={self._brain.get_probability(tid):.3f} "
-                             f"conf={self._brain.get_confidence(tid):.3f}")
-                continue
-
-            # Brain passed = +20% (now at ~70%)
-            _brain_prob = self._brain.get_probability(tid)
-            _cand_belief += 20 * min(1.0, _brain_prob / max(0.01, _g2_prob + 0.3))
-
-            # Score competition
-            p_depth = p.depth
-            tier_adj = self._tier_score_adj.get(
-                self._template_tier_map.get(tid, 3), 0.0)
-            depth_adj = self._depth_score_adj.get(p_depth, 0.0)
-            score = p_depth + dist + tier_adj + depth_adj
-
-            if score < best_dist:
-                best_dist = score
-                best_candidate = p
-                best_tid = tid
-            _best_belief = max(_best_belief, _cand_belief)
-
-        if best_candidate is None:
-            self._entry_belief_pct = min(99, _best_belief)
-            return
-
-        # ── Low Conviction: belief strength check ─────────────────────
-        belief = self._belief_network.get_belief()
-        side, _p_long, _dir_src = self._determine_direction(best_candidate, best_tid)
-
-        # Side lock override (--long-only / --short-only)
+        # Side lock → ping-pong override
         _side_lock = self._shared_state.get('side_lock')
-        if _side_lock:
-            side = _side_lock
-            _dir_src = f'locked_{_side_lock}'
+        _pp_dir = _side_lock if _side_lock else None
 
-        if belief is not None:
-            if not belief.is_confident and agg < 0.75:
-                self._gate_stats['gate3_skip'] += 1
-                self._entry_belief_pct = min(99, _best_belief + 10)  # close but no conviction
-                return  # conviction too low (skipped at AGGRESSIVE+)
-            if belief.direction != side:
-                side = belief.direction
-            _network_tp = (max(4, int(round(belief.predicted_mfe)))
-                           if belief.predicted_mfe > 2.0 else None)
-        else:
-            _network_tp = None
+        # Ask ExecutionEngine for decision
+        action = self._exec_engine.on_bar(
+            price=price, bar_high=price, bar_low=price,
+            bar_index=self._bar_i,
+            candidates=ee_candidates,
+            pp_dir_override=_pp_dir,
+        )
 
-        # ── Direction Unclear: confidence threshold ─────────────────
-        _dir_conf = abs(_p_long - 0.5)
-        if _dir_conf < _g4_dir:
-            self._gate_stats['gate4_skip'] += 1
-            self._entry_belief_pct = min(99, _best_belief + 15)  # almost there, dir unclear
-            logger.debug(f"Direction Unclear: dir_conf={_dir_conf:.3f} < {_g4_dir:.3f} "
-                         f"(src={_dir_src}, tid={best_tid})")
+        if action.type != ActionType.ENTER:
+            # Map gate_label to belief bar percentage
+            self._entry_belief_pct = self._gate_label_to_pct(
+                action.gate_label if hasattr(action, 'gate_label') else '')
             return
 
-        # ── Screening Filter: fission + hour filter ─────────────────
-        if not _skip_screening:
-            if self._fission_map:
-                _fission_rule = self._fission_map.get(best_tid)
-                if _fission_rule and _fission_rule.get('action') == 'reject':
-                    self._gate_stats['gate3_5_skip'] += 1
-                    logger.debug(f"Screening Filter reject: fission rule for tid={best_tid}")
-                    return
-            if self._good_hours_utc:
-                import datetime as _dt
-                _hour_utc = _dt.datetime.utcnow().hour
-                if _hour_utc not in self._good_hours_utc:
-                    self._gate_stats['gate3_5_skip'] += 1
-                    logger.debug(f"Screening Filter reject: hour {_hour_utc} not in good_hours_utc")
-                    return
+        # ── All gates passed — execute entry ──────────────────────────
+        await self._execute_entry(action, price, ts, _t0)
 
-        # ── Exit sizing ───────────────────────────────────────────────
+    async def _execute_entry(self, action: TradeAction, price: float,
+                             ts: float, t0: float):
+        """Execute an ENTER action from ExecutionEngine."""
+        side = action.side
+        best_tid = action.template_id
         lib_entry = self._pattern_library.get(best_tid, {})
-        params = lib_entry.get('params', {})
-        sl_ticks, trail_ticks, trail_act, tp_ticks = self._compute_exit_params(
-            lib_entry, params, _network_tp, best_candidate)
+        _dir_src = action.dir_source
 
-        # Signed offsets: library_value + offset (negative = tighter, 0 = no change)
+        # Tuning offsets
         _floor = max(4, self._tuning.get('min_tick_floor', 4))
-        sl_ticks = max(_floor, sl_ticks + self._tuning.get('sl_offset', 0))
-        tp_ticks = max(_floor, tp_ticks + self._tuning.get('tp_offset', 0))
-        trail_ticks = max(_floor, trail_ticks + self._tuning.get('trail_offset', 0))
-        if trail_act is not None:
-            trail_act = max(_floor, trail_act + self._tuning.get('trail_act_offset', 0))
+        sl_ticks = max(_floor, action.sl_ticks + self._tuning.get('sl_offset', 0))
+        tp_ticks = max(_floor, action.tp_ticks + self._tuning.get('tp_offset', 0))
+        trail_ticks = max(_floor, action.trail_ticks + self._tuning.get('trail_offset', 0))
+        trail_act = max(_floor, action.trail_activation_ticks
+                        + self._tuning.get('trail_act_offset', 0))
 
-        # ── All gates passed — fire! ─────────────────────────────────
         self._entry_belief_pct = 100
-        self._gate_stats['traded'] += 1
         logger.info(f"ENTRY: {side.upper()} @ {price:.2f}  "
-                    f"tid={best_tid}  dist={best_dist:.2f}  "
-                    f"dir_src={_dir_src}  conf={_dir_conf:.3f}  "
+                    f"tid={best_tid}  dist={action.dist:.2f}  "
+                    f"dir_src={_dir_src}  "
                     f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}  "
-                    f"ATR={self._live_atr_ticks:.1f}  agg={agg:.0%}")
+                    f"ATR={self._live_atr_ticks:.1f}")
         _band = self._belief_network.get_band_confluence()
         if _band:
-            logger.info(f"  BANDS: {_band['band_summary']}")
+            logger.info(f"  BANDS: {_band.get('band_summary', '')}")
         self._gui_push({'type': 'TRADE_MARKER', 'action': 'entry',
                         'side': side, 'price': price})
 
         self._position = make_position(
             entry_price=price, side=side,
-            state=best_candidate.state,
+            state=action.raw_event.state if action.raw_event else None,
             tick_size=self._asset.tick_size, tick_value=self._asset.tick_value,
             stop_distance_ticks=sl_ticks,
             profit_target_ticks=tp_ticks,
@@ -1996,13 +1889,24 @@ class LiveEngine:
             template_id=best_tid,
         )
         self._init_exit_state(side, price, sl_ticks, tp_ticks, best_tid, lib_entry)
+
+        # Sync ExecutionEngine position state
+        self._exec_engine.position_opened(
+            side=side, price=price, bar_index=self._bar_i,
+            template_id=best_tid, lib_entry=lib_entry,
+            sl_ticks=sl_ticks, tp_ticks=tp_ticks,
+            max_hold_bars=action.max_hold_bars or 960,
+        )
+
         self._position_open = True
         self._entry_price = price
         self._entry_time = ts
         self._entry_bar = self._bar_i
         self._active_side = side
         self._active_tid = best_tid
-        self._entry_depth = best_candidate.depth
+        self._entry_depth = action.depth
+
+        belief = self._belief_network.get_belief()
         self._predicted_mfe_ticks = round(belief.predicted_mfe, 2) if belief and belief.predicted_mfe > 0 else 0.0
         self._price_expected = round(
             price + ((belief.predicted_mfe if side == 'long' else -belief.predicted_mfe)
@@ -2010,21 +1914,25 @@ class LiveEngine:
         self._trade_logger.start_trade(
             self._session_trades + 1, side, price, ts)
 
-        _tf_s = str(best_candidate.timeframe)
-        _tf_sec = TIMEFRAME_SECONDS.get(_tf_s, 14400)
-        _hold_sec = self._tuning.get('max_hold_seconds', 300) or _tf_sec
+        _hold_sec = self._tuning.get('max_hold_seconds', 300) or 14400
         self._max_hold_bars = max(20, _hold_sec // self._anchor_period)
 
-        # Store TF-scaled exit params for ping-pong reuse
         self._pp_last_exit_params = {
             'sl': sl_ticks, 'tp': tp_ticks,
             'trail': trail_ticks, 'trail_act': trail_act,
-            'max_hold': self._max_hold_bars, 'tf': _tf_s,
+            'max_hold': self._max_hold_bars,
         }
 
         self._belief_network.start_trade_tracking(
             side=side, entry_bar=self._bar_i,
             pattern_horizon_bars=self._max_hold_bars)
+
+        # Per-template exit timescale
+        _avg_mfe_bar = lib_entry.get('avg_mfe_bar', 0.0)
+        _p75_mfe_bar = lib_entry.get('p75_mfe_bar', 0.0)
+        if _avg_mfe_bar > 0:
+            self._belief_network.set_active_trade_timescale(
+                _avg_mfe_bar, _p75_mfe_bar)
 
         if self._dry_run:
             logger.info("[DRY RUN] Entry logged but no order sent")
@@ -2035,14 +1943,26 @@ class LiveEngine:
         if order_msg:
             self._order_send_ts = time.perf_counter()
             await self._client.send(order_msg)
-            _decision_ms = (self._order_send_ts - _t0) * 1000
+            _decision_ms = (self._order_send_ts - t0) * 1000
             logger.info(f"LATENCY: decision={_decision_ms:.1f}ms  (bar->order sent)")
+
+    @staticmethod
+    def _gate_label_to_pct(gate_label: str) -> int:
+        """Map ExecutionEngine rejection labels to GUI belief bar %."""
+        _MAP = {
+            'gate0_skip': 10, 'gate0_noise': 10, 'gate0_hurst': 15,
+            'gate0_momentum': 15, 'gate0_tunnel': 15,
+            'gate0_5_skip': 20, 'gate1_nomatch': 35,
+            'gate2_brain': 55, 'gate3_conviction': 70,
+            'gate4_direction': 80, 'gate3_5_screening': 85,
+        }
+        return min(99, _MAP.get(gate_label, 0))
 
     # ── Helpers ───────────────────────────────────────────────────────
 
     def _build_candidate(self, pattern_type: str, state, price: float,
                          ts: float) -> _LiveCandidate:
-        """Build a PatternEvent-like candidate from a quantum state."""
+        """Build a PatternEvent-like candidate from a market state."""
         return _LiveCandidate(
             pattern_type=pattern_type,
             z_score=state.z_score,
@@ -2057,110 +1977,6 @@ class LiveEngine:
             price=price,
             idx=self._bar_i,
         )
-
-    def _determine_direction(self, candidate: _LiveCandidate,
-                             tid: str):
-        """Determine trade direction from template library + live state.
-
-        Returns (side, p_long, source) where p_long is the probability of
-        long direction (0..1) and source is a debug label.
-        """
-        lib_entry = self._pattern_library.get(tid, {})
-        long_bias = lib_entry.get('long_bias', 0.0)
-        short_bias = lib_entry.get('short_bias', 0.0)
-        _BIAS_THRESH = 0.55
-
-        # Priority 0: live direction bias (refinement cycle)
-        bias = self._brain.get_dir_bias(tid) if self._brain else None
-        if bias:
-            lw, ll = bias.get('long_w', 0), bias.get('long_l', 0)
-            sw, sl = bias.get('short_w', 0), bias.get('short_l', 0)
-            lt, st = lw + ll, sw + sl
-            _min_t = self._pp_bias_min_trades
-            _wr_good = self._pp_bias_wr_good
-            _wr_bad = self._pp_bias_wr_bad
-            if lt >= _min_t or st >= _min_t:
-                l_wr = lw / lt if lt > 0 else 0.5
-                s_wr = sw / st if st > 0 else 0.5
-                if l_wr > _wr_good and (st < 3 or s_wr < _wr_bad):
-                    return 'long', 0.5 + l_wr * 0.4, 'live_bias'
-                if s_wr > _wr_good and (lt < 3 or l_wr < _wr_bad):
-                    return 'short', 0.5 - s_wr * 0.4, 'live_bias'
-
-        # Priority 0.5: Brain direction-specific win rate (learned from IS + live)
-        _dir_long = self._brain.get_dir_probability(base_tid, 'LONG')
-        _dir_short = self._brain.get_dir_probability(base_tid, 'SHORT')
-        if _dir_long is not None and _dir_short is not None:
-            if _dir_long > _dir_short + 0.10:
-                return 'long', _dir_long, 'brain_dir'
-            elif _dir_short > _dir_long + 0.10:
-                return 'short', 1.0 - _dir_short, 'brain_dir'
-
-        # Priority 1: live momentum (velocity + acceleration from physics engine)
-        # Trusts real-time market direction over stale regression coefficients.
-        s = candidate.state
-        _vel = float(getattr(s, 'velocity', 0.0))
-        _acc = float(getattr(s, 'net_force', 0.0))
-        _mom = _vel + 0.5 * _acc
-        _mom_thresh = self._tuning.get('dir_momentum_thresh', 0.5)
-        if abs(_mom) > _mom_thresh:
-            side = 'long' if _mom > 0 else 'short'
-            _p_long = 0.5 + min(abs(_mom) / 10.0, 0.45) * (1 if _mom > 0 else -1)
-            return side, _p_long, 'live_momentum'
-
-        # Priority 2: signed MFE regression (sign=direction, |val|=confidence)
-        _live_feat = np.array(FractalClusteringEngine.extract_features(candidate))
-        _live_scaled = self._scaler.transform([_live_feat])[0]
-
-        _smfe_coeff = lib_entry.get('signed_mfe_coeff')
-        if _smfe_coeff is not None:
-            _pred_smfe = float(np.dot(_live_scaled, np.array(_smfe_coeff))
-                               + lib_entry.get('signed_mfe_intercept', 0.0))
-            side = 'long' if _pred_smfe > 0 else 'short'
-            _p_long = 0.5 + min(abs(_pred_smfe) / 20.0, 0.45) * (1 if _pred_smfe > 0 else -1)
-            return side, _p_long, 'signed_mfe'
-
-        # Priority 3: balanced direction logistic regression
-        _dir_coeff = lib_entry.get('dir_coeff')
-        if _dir_coeff is not None:
-            _dir_logit = (np.dot(_live_scaled, np.array(_dir_coeff))
-                          + lib_entry.get('dir_intercept', 0.0))
-            _p_long = 1.0 / (1.0 + np.exp(-np.clip(_dir_logit, -20, 20)))
-            side = 'long' if _p_long > 0.5 else 'short'
-            return side, _p_long, 'balanced_dir'
-
-        # Priority 3: template aggregate bias
-        if long_bias >= _BIAS_THRESH:
-            return 'long', long_bias, 'template_bias'
-        elif short_bias >= _BIAS_THRESH:
-            return 'short', 1.0 - short_bias, 'template_bias'
-        elif long_bias + short_bias >= 0.10:
-            side = 'long' if long_bias >= short_bias else 'short'
-            _p_long = long_bias / (long_bias + short_bias)
-            return side, _p_long, 'template_bias'
-
-        # Priority 4: Multi-TF band confluence (Standard Error Bands)
-        _band = self._belief_network.get_band_confluence()
-        if _band is not None and _band['direction'] is not None:
-            side = _band['direction']
-            _p_long = 0.5 + (0.3 if side == 'long' else -0.3) * _band['strength']
-            return side, _p_long, 'band_confluence'
-
-        # Priority 5: live DMI (trend-following)
-        _dmi_diff = (getattr(s, 'dmi_plus', 0.0)
-                     - getattr(s, 'dmi_minus', 0.0))
-        if _dmi_diff != 0:
-            side = 'long' if _dmi_diff > 0 else 'short'
-            _p_long = 0.6 if side == 'long' else 0.4
-            return side, _p_long, 'dmi_live'
-
-        # Fallback: band confluence (relaxed) > velocity
-        if _band is not None and _band['direction'] is not None:
-            return _band['direction'], 0.55 if _band['direction'] == 'long' else 0.45, 'band_fallback'
-
-        vel = getattr(s, 'velocity', 0.0)
-        side = 'long' if vel >= 0 else 'short'
-        return side, 0.55 if side == 'long' else 0.45, 'velocity'
 
     def _update_live_atr(self):
         """Compute ATR in ticks from the live bar buffer (rolling 14-period)."""
@@ -2184,29 +2000,6 @@ class LiveEngine:
             logger.debug(f"Live ATR: {self._live_atr_ticks:.1f} ticks "
                          f"({atr:.2f} points, {len(df)} bars)")
             self._last_logged_atr = self._live_atr_ticks
-
-    def _compute_exit_params(self, lib_entry: dict, params: dict,
-                             network_tp: Optional[int],
-                             candidate: _LiveCandidate):
-        """Compute SL, trail, trail activation, and TP ticks from live ATR."""
-        _sl_mult = self._tuning.get('exit_sl_mult', 3.0)
-        _trail_mult = self._tuning.get('exit_trail_mult', 2.5)
-        _trail_act_mult = self._tuning.get('exit_trail_act_mult', 0.6)
-        _tp_mult = self._tuning.get('exit_tp_mult', 5.0)
-        _min_floor = self._tuning.get('min_tick_floor', 4)
-
-        atr = self._live_atr_ticks if self._live_atr_ticks > 0 else 8.0
-
-        sl = max(_min_floor, int(round(atr * _sl_mult)))
-        trail = max(_min_floor, int(round(atr * _trail_mult)))
-        trail_act = max(_min_floor, int(round(atr * _trail_act_mult)))
-        tp = max(_min_floor, int(round(atr * _tp_mult)))
-
-        # Network TP override (belief network prediction) if available
-        if network_tp is not None:
-            tp = max(_min_floor, network_tp)
-
-        return sl, trail, trail_act, tp
 
     def _sync_position_state(self):
         """Sync local position tracking with OrderManager's state."""
@@ -2385,3 +2178,25 @@ class LiveEngine:
             centroids_scaled=self._centroids_scaled,
         )
         logger.info(f"  Belief network: {len(TimeframeBeliefNetwork.TIMEFRAMES_SECONDS)} TF workers")
+
+    def _init_exec_engine(self):
+        """Initialize ExecutionEngine for live gate cascade (single source of truth)."""
+        self._exec_engine = ExecutionEngine(
+            brain=self._brain,
+            belief_network=self._belief_network,
+            exit_engine=self._exit_engine,
+            pattern_library=self._pattern_library,
+            scaler=self._scaler,
+            centroids_scaled=self._centroids_scaled,
+            valid_tids=self._valid_tids,
+            tick_size=self._asset.tick_size,
+            point_value=self._asset.point_value,
+            mode='live',
+            tier_score_adj=self._tier_score_adj,
+            depth_score_adj=self._depth_score_adj,
+            template_tier_map=self._template_tier_map,
+            exception_tids=self._exception_tids,
+            depth_filter_out=self._depth_filter_out,
+            feature_extractor=FractalClusteringEngine.extract_features,
+        )
+        logger.info(f"  Execution engine: live mode, {len(self._valid_tids)} templates")

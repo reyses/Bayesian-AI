@@ -1,7 +1,7 @@
 """
-CUDA-Accelerated Physics Engine
+CUDA-Accelerated Statistical Engine
 Implements fused kernels for StatisticalFieldEngine.
-Replacing CPU-bound physics calculations with parallel GPU compute.
+Regression, z-score, and probability computations on GPU.
 """
 import math
 import numpy as np
@@ -9,37 +9,37 @@ import numba
 from numba import cuda
 from core.physics_utils import ADX_PERIOD, HURST_WINDOW, HURST_MIN_WINDOW
 
-# Physics Constants
+# Statistical Constants
 reg_period = 21
-SIGMA_ROCHE = 2.0
-SIGMA_EVENT = 3.0
-GRAVITY_THETA = 0.5
+SIGMA_EXTREME = 2.0
+SIGMA_BREAKOUT = 3.0
+REVERSION_THETA = 0.5
 PID_KP = 0.5
 PID_KI = 0.1
 PID_KD = 0.2
 
-# Repulsion Constants
-REPULSION_EPSILON = 0.01
-REPULSION_FORCE_CAP = 100.0
+# Band Pressure Constants
+BAND_PRESSURE_EPSILON = 0.01
+BAND_PRESSURE_CAP = 100.0
 
-# Archetype Thresholds
+# Pattern Flag Thresholds
 VELOCITY_THRESHOLD = 0.5
 MOMENTUM_THRESHOLD = 5.0
-COHERENCE_THRESHOLD = 0.3
+ENTROPY_THRESHOLD = 0.3
 
 @cuda.jit
-def compute_physics_kernel(prices, volumes,
+def compute_regression_kernel(prices, volumes,
                            out_center, out_sigma, out_slope,
                            out_z, out_velocity, out_force, out_momentum,
                            out_coherence, out_entropy,
                            out_prob0, out_prob1, out_prob2,
                            reg_period, mean_x, inv_reg_period, inv_denom, denom):
     """
-    Fused Physics Kernel:
+    Fused Statistical Kernel:
     1. Rolling Linear Regression (Center, Sigma, Slope)
     2. Z-Score & Volatility
-    3. Tidal Forces (Gravity, Momentum)
-    4. Wave Function (Probabilities, Entropy, Coherence)
+    3. Mean Reversion + Band Pressure Forces
+    4. Probability Distribution (3-class softmax, Entropy)
     """
     i = cuda.grid(1)
     n = prices.shape[0]
@@ -122,24 +122,24 @@ def compute_physics_kernel(prices, volumes,
             out_momentum[i] = momentum
 
             # Forces (Gravity)
-            F_gravity = -GRAVITY_THETA * (z * sigma)
+            F_gravity = -REVERSION_THETA * (z * sigma)
 
             # Repulsion
-            upper_sing = center + SIGMA_ROCHE * sigma
-            lower_sing = center - SIGMA_ROCHE * sigma
+            upper_sing = center + SIGMA_EXTREME * sigma
+            lower_sing = center - SIGMA_EXTREME * sigma
 
             dist_upper = abs(prices[i] - upper_sing) / sigma
             dist_lower = abs(prices[i] - lower_sing) / sigma
 
             F_upper = 0.0
             if z > 0:
-                F_upper = 1.0 / (dist_upper**3 + REPULSION_EPSILON)
-                if F_upper > REPULSION_FORCE_CAP: F_upper = REPULSION_FORCE_CAP
+                F_upper = 1.0 / (dist_upper**3 + BAND_PRESSURE_EPSILON)
+                if F_upper > BAND_PRESSURE_CAP: F_upper = BAND_PRESSURE_CAP
 
             F_lower = 0.0
             if z < 0:
-                F_lower = 1.0 / (dist_lower**3 + REPULSION_EPSILON)
-                if F_lower > REPULSION_FORCE_CAP: F_lower = REPULSION_FORCE_CAP
+                F_lower = 1.0 / (dist_lower**3 + BAND_PRESSURE_EPSILON)
+                if F_lower > BAND_PRESSURE_CAP: F_lower = BAND_PRESSURE_CAP
 
             repulsion = -F_upper if z > 0 else F_lower
 
@@ -177,21 +177,21 @@ def compute_physics_kernel(prices, volumes,
             out_coherence[i] = entropy / 1.09861228867 # ln(3)
 
 @cuda.jit
-def detect_archetype_kernel(z_scores, velocities, momentums, coherences,
-                            out_roche_snap, out_structural_drive):
+def detect_pattern_flags_kernel(z_scores, velocities, momentums, coherences,
+                            out_band_snap, out_structural_drive):
     """
-    Detects Physics Archetypes based on computed fields.
+    Detects statistical pattern flags (band snap, trend drive).
     """
     i = cuda.grid(1)
     n = z_scores.shape[0]
 
     if i < n:
-        # Roche Snap
-        is_roche = abs(z_scores[i]) > 2.0 and abs(velocities[i]) > VELOCITY_THRESHOLD
-        out_roche_snap[i] = is_roche
+        # Band Snap: price at extreme z with velocity confirming
+        is_snap = abs(z_scores[i]) > 2.0 and abs(velocities[i]) > VELOCITY_THRESHOLD
+        out_band_snap[i] = is_snap
 
         # Structural Drive
-        is_drive = abs(momentums[i]) > MOMENTUM_THRESHOLD and coherences[i] < COHERENCE_THRESHOLD
+        is_drive = abs(momentums[i]) > MOMENTUM_THRESHOLD and coherences[i] < ENTROPY_THRESHOLD
         out_structural_drive[i] = is_drive
 
 @cuda.jit

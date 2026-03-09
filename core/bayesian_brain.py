@@ -7,23 +7,12 @@ import numpy as np
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, Optional, Union, Any
-from core.state_vector import StateVector
-from core.three_body_state import MarketState
-
-# Statistical validation components (optional imports)
-try:
-    from training.integrated_statistical_system import (
-        BayesianStateValidator,
-        MonteCarloRiskAnalyzer
-    )
-    STATISTICAL_VALIDATION_AVAILABLE = True
-except ImportError:
-    STATISTICAL_VALIDATION_AVAILABLE = False
+from core.market_state import MarketState
 
 @dataclass
 class TradeOutcome:
     """Single trade result for learning"""
-    state: Union[StateVector, MarketState, str, int]
+    state: Union[MarketState, str, int]
     entry_price: float
     exit_price: float
     pnl: float
@@ -231,130 +220,6 @@ class BayesianBrain:
 
         return prob >= min_prob and conf >= min_conf
 
-    def should_fire_validated(self, state: Any, use_statistical_validation: bool = True) -> Dict:
-        """
-        ENHANCED DECISION FUNCTION with Statistical Validation
-
-        Applies multiple layers of validation:
-        1. Bayesian validation: P(win_rate > 50%) > 80%
-        2. Monte Carlo risk analysis: Expected DD, consecutive losses
-        3. Sample size requirements
-
-        Args:
-            state: Current market state
-            use_statistical_validation: Enable rigorous statistical checks
-
-        Returns:
-            dict with decision and validation results
-        """
-        if state not in self.table:
-            return {
-                'should_fire': False,
-                'reason': 'Unknown state (no history)',
-                'validations': None
-            }
-
-        record = self.table[state]
-        wins = record['wins']
-        losses = record['losses']
-        total = record['total']
-
-        # Basic threshold check
-        prob = self.get_probability(state)
-        conf = self.get_confidence(state)
-
-        if not (prob >= 0.80 and conf >= 0.30):
-            return {
-                'should_fire': False,
-                'reason': f'Basic threshold not met: P={prob:.1%}, Conf={conf:.1%}',
-                'probability': prob,
-                'confidence': conf,
-                'validations': None
-            }
-
-        # If statistical validation not requested or not available, return basic result
-        if not use_statistical_validation or not STATISTICAL_VALIDATION_AVAILABLE:
-            return {
-                'should_fire': True,
-                'reason': f'Basic validation passed: P={prob:.1%}, Conf={conf:.1%}',
-                'probability': prob,
-                'confidence': conf,
-                'validations': None
-            }
-
-        # STATISTICAL VALIDATION (requires imports)
-        # Phase 1: Bayesian validation
-        bayesian_validator = BayesianStateValidator(
-            prior_wins=50,
-            prior_losses=50,
-            min_samples=30,
-            confidence_threshold=0.80
-        )
-
-        bayesian_result = bayesian_validator.validate_state(wins, losses)
-
-        if not bayesian_result['approved']:
-            return {
-                'should_fire': False,
-                'reason': f"Bayesian validation failed: {bayesian_result['reason']}",
-                'probability': prob,
-                'confidence': conf,
-                'validations': {
-                    'bayesian': bayesian_result,
-                    'monte_carlo': None
-                }
-            }
-
-        # Phase 2: Monte Carlo risk analysis (if enough history)
-        if total >= 10:
-            # Get average win/loss amounts from trade history
-            state_trades = [t for t in self.trade_history if t.state == state]
-
-            if state_trades:
-                pnls = [t.pnl for t in state_trades]
-                avg_win = np.mean([p for p in pnls if p > 0]) if any(p > 0 for p in pnls) else 200
-                avg_loss = np.mean([p for p in pnls if p < 0]) if any(p < 0 for p in pnls) else -100
-
-                mc_analyzer = MonteCarloRiskAnalyzer(n_simulations=10000)
-                mc_results = mc_analyzer.simulate_drawdown(
-                    win_rate=bayesian_result['expected_win_rate'],
-                    avg_win=avg_win,
-                    avg_loss=avg_loss,
-                    n_trades=100
-                )
-
-                risk_validation = mc_analyzer.validate_risk_profile(mc_results)
-
-                if not risk_validation['risk_approved']:
-                    return {
-                        'should_fire': False,
-                        'reason': f"Risk validation failed: {', '.join(risk_validation['concerns'])}",
-                        'probability': prob,
-                        'confidence': conf,
-                        'validations': {
-                            'bayesian': bayesian_result,
-                            'monte_carlo': risk_validation
-                        }
-                    }
-            else:
-                risk_validation = {'risk_approved': True, 'concerns': []}
-        else:
-            risk_validation = {'risk_approved': True, 'concerns': []}
-
-        # ALL VALIDATIONS PASSED
-        return {
-            'should_fire': True,
-            'reason': f"All validations passed: {bayesian_result['confidence']:.1%} confidence",
-            'probability': prob,
-            'confidence': conf,
-            'validations': {
-                'bayesian': bayesian_result,
-                'monte_carlo': risk_validation if total >= 10 else None
-            },
-            'expected_win_rate': bayesian_result['expected_win_rate'],
-            'credible_interval': bayesian_result['credible_interval']
-        }
-    
     def get_stats(self, state: Any) -> Dict:
         """Get detailed statistics for a state"""
         if state not in self.table:
@@ -443,42 +308,12 @@ class BayesianBrain:
             'avg_trades_per_state': total_trades / total_states if total_states > 0 else 0
         }
 
-class QuantumBayesianBrain(BayesianBrain):
-    """Extends BayesianBrain for MarketState"""
-    
-    def get_quantum_probability(self, state: MarketState) -> float:
-        """Get learned tunnel probability for quantum state"""
-        # Bin continuous values for lookup
-        # Note: The MarketState.__hash__ already bins values, 
-        # so using state as key works.
-        
-        # Use hashed state for lookup
-        return self.get_probability(state)
-    
-    def should_fire_quantum(
-        self, 
-        state: MarketState, 
-        min_prob: float = 0.80,
-        min_conf: float = 0.30
-    ) -> bool:
-        """
-        Quantum decision function
-        Fire if:
-        1. At Roche limit
-        2. Wave function collapsed
-        3. Learned probability > threshold
-        4. Confidence sufficient
-        """
-        if state.band_zone not in ['UPPER_EXTREME', 'LOWER_EXTREME']:
-            return False
-        
-        if not (state.structure_confirmed and state.cascade_detected):
-            return False
-        
-        if state.F_momentum > state.mean_reversion_force * 1.5:
-            return False
-        
-        prob = self.get_quantum_probability(state)
-        conf = self.get_confidence(state)
-        
-        return prob >= min_prob and conf >= min_conf
+class MarketBayesianBrain(BayesianBrain):
+    """Extends BayesianBrain with MarketState-specific filters.
+    Checks band zone, confirmation signals, and reversion probability
+    before firing.
+    """
+    pass
+
+# Backward compatibility for pickled checkpoints
+QuantumBayesianBrain = MarketBayesianBrain

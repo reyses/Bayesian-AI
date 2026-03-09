@@ -1,6 +1,6 @@
 """
 LiveBarAggregator — aggregates inbound 1s bars into 15s bars, accumulates
-them into a growing DataFrame, and recomputes quantum states via the
+them into a growing DataFrame, and recomputes market states via the
 StatisticalFieldEngine.
 
 NT8 sends 1-second bars.  The aggregator buffers 15 of them, builds one
@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from typing import List, Optional
 
-from core.quantum_field_engine import StatisticalFieldEngine
+from core.statistical_field_engine import StatisticalFieldEngine
 from live.config import LiveConfig
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ FLUSH_INTERVAL = 1000     # auto-flush to parquet every N new bars
 
 
 class LiveBarAggregator:
-    """Aggregate 1s bars into anchor-TF bars, accumulate, recompute quantum states."""
+    """Aggregate 1s bars into anchor-TF bars, accumulate, recompute market states."""
 
     def __init__(self, engine: StatisticalFieldEngine, config: LiveConfig,
                  target_period: int = TARGET_PERIOD):
@@ -137,6 +137,18 @@ class LiveBarAggregator:
         self._warmed_up = False
         self._bars_since_flush = 0
         logger.info("Aggregator reset")
+
+    def seed_from_replay(self, df: 'pd.DataFrame', states: list):
+        """Accept pre-computed state from history replay.
+
+        Skips history ingestion entirely — aggregator starts warm.
+        """
+        self._rows = df.to_dict('records')
+        self._states = states
+        self._warmed_up = True
+        self._history_mode = False
+        logger.info(f"Seeded from replay: {len(self._rows):,} bars, "
+                    f"{len(self._states)} states")
 
     # ── Persistence ──────────────────────────────────────────────────
 
@@ -273,7 +285,7 @@ class LiveBarAggregator:
         return self._recompute()
 
     def _recompute(self) -> list:
-        """Recompute quantum states on the full bar buffer."""
+        """Recompute market states on the full bar buffer."""
         df = self.df
         try:
             self._states = self._engine.batch_compute_states(df, use_cuda=True)

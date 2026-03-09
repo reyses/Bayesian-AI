@@ -74,34 +74,26 @@ class PositionState:
     envelope_active: bool = False
     envelope_level: float = 0.0
 
-    # Position lifecycle (formerly wave_rider.Position)
+    # Position lifecycle
     entry_time: float = 0.0
     stop_loss: float = 0.0          # absolute price level
     profit_target: float = 0.0      # absolute price level (0 = none)
-    high_water_mark: float = 0.0
-    entry_layer_state: object = None
-    entry_dmi_inverse: bool = False
+    high_water_mark: float = 0.0    # alias for peak_favorable (read by live_engine)
     original_trail_ticks: float = 0.0
     last_adjustment_reason: str = ''
-    breakeven_level: float = 0.0
-    bars_in_trade: int = 0
     envelope_T0: float = 0.0
     envelope_halflife: float = 20.0
 
-    # CST structural integrity
-    cst_centroid: object = None
-    cst_basin_mean: float = 0.0
-    cst_basin_std: float = 0.0
-    cst_ancestry: object = None
+    # 30m worker flip: once fired, stays True for remainder of trade
+    slow_flip_active: bool = False
 
 
 def make_position(entry_price: float, side: str, tick_size: float = 0.25,
                    tick_value: float = 0.50, stop_distance_ticks: int = 20,
                    profit_target_ticks: int = 0, trailing_stop_ticks: int = 0,
                    trail_activation_ticks: int = 0, template_id=0,
-                   state=None, cst_centroid=None, cst_basin_mean: float = 0.0,
-                   cst_basin_std: float = 0.0, cst_ancestry=None) -> PositionState:
-    """Create a PositionState with absolute price levels. Replaces WaveRider.open_position()."""
+                   state=None, **_kwargs) -> PositionState:
+    """Create a PositionState with absolute price levels."""
     import time as _time
     sd = stop_distance_ticks * tick_size
     sl = (entry_price + sd) if side == 'short' else (entry_price - sd)
@@ -118,11 +110,9 @@ def make_position(entry_price: float, side: str, tick_size: float = 0.25,
         original_trail_ticks=float(trailing_stop_ticks or 0),
         stop_loss=sl, profit_target=pt,
         high_water_mark=entry_price, peak_favorable=entry_price, current_trail=sl,
-        entry_time=_time.time(), entry_layer_state=state,
+        entry_time=_time.time(),
         envelope_T0=float(stop_distance_ticks), envelope_halflife=20.0,
         envelope_active=True,
-        cst_centroid=cst_centroid, cst_basin_mean=cst_basin_mean,
-        cst_basin_std=cst_basin_std, cst_ancestry=cst_ancestry,
     )
 
 
@@ -226,16 +216,29 @@ class ExitEngine:
         entry_price: float,
         entry_bar_index: int,
         template_id: int,
-        lib_entry: dict,
-        atr_ticks: float = 0.0,
-        network_tp: Optional[float] = None,
+        sl_ticks: float,
+        tp_ticks: float,
+        trail_ticks: float = 0.0,
+        trail_activation_ticks: float = 0.0,
+        max_hold_bars: int = 120,
+        lib_entry: dict = None,
     ) -> PositionState:
         """
-        Initialize a new position with template-specific exit parameters.
+        Initialize a new position with pre-computed exit parameters.
 
-        STOP SIZING: Uses cluster-fitted metrics from pattern_library.
-        Falls back to ATR-based only if cluster metrics are missing.
+        Sizing is computed by ExecutionEngine._compute_sizing() — this method
+        does NOT recompute. It sets up position state and absolute price levels.
+
+        If lib_entry is passed, p75_mfe_bar is used for max_hold_bars override.
         """
+        # Per-template exit timescale override
+        if lib_entry:
+            _p75_bar = lib_entry.get('p75_mfe_bar', 0.0)
+            if _p75_bar > 0:
+                max_hold_bars = int(_p75_bar * 2.5)
+            else:
+                max_hold_bars = lib_entry.get('max_hold_bars', max_hold_bars)
+
         pos = PositionState(
             side=side,
             entry_price=entry_price,
@@ -243,81 +246,34 @@ class ExitEngine:
             template_id=template_id,
             tick_size=self.tick_size,
             tick_value=self.tick_value,
+            sl_ticks=float(sl_ticks),
+            tp_ticks=float(tp_ticks),
+            trailing_stop_ticks=float(trail_ticks) if trail_ticks else float(sl_ticks),
+            trail_activation_ticks=float(trail_activation_ticks),
+            max_hold_bars=max_hold_bars,
         )
 
-        # -- Stop Loss sizing (cluster-fitted, not ATR) --
-        p25_mae = lib_entry.get('p25_mae')
-        mean_mae = lib_entry.get('mean_mae')
-        reg_sigma = lib_entry.get('regression_sigma')
-        _atr = atr_ticks if atr_ticks > 0 else lib_entry.get('atr', 20.0)
-
-        if p25_mae is not None and p25_mae > 0:
-            pos.sl_ticks = p25_mae * 3.0
-        elif mean_mae is not None and mean_mae > 0:
-            pos.sl_ticks = mean_mae * 2.0
-        elif reg_sigma is not None and reg_sigma > 0:
-            pos.sl_ticks = reg_sigma * 1.1  # already in ticks from lib_entry
-        else:
-            pos.sl_ticks = _atr * 3.0  # ATR fallback
-
-        pos.sl_ticks = max(pos.sl_ticks, 8.0)
-        pos.sl_ticks = min(pos.sl_ticks, 80.0)
-
-        # -- Take Profit sizing (cascade) --
-        mfe_coeff = lib_entry.get('mfe_coeff')
-        p75_mfe = lib_entry.get('p75_mfe')
-
-        if network_tp is not None and network_tp > 0:
-            pos.tp_ticks = network_tp
-        elif mfe_coeff is not None and mfe_coeff > 0:
-            pos.tp_ticks = mfe_coeff
-        elif p75_mfe is not None and p75_mfe > 0:
-            pos.tp_ticks = p75_mfe
-        else:
-            pos.tp_ticks = _atr * 3.0
-
-        pos.tp_ticks = max(pos.tp_ticks, 4.0)
-        pos.tp_ticks = min(pos.tp_ticks, 200.0)
-
-        # -- Trail activation --
-        if p25_mae is not None and p25_mae > 0:
-            pos.trail_activation_ticks = p25_mae * 0.3
-        else:
-            pos.trail_activation_ticks = _atr * 0.6
-
-        pos.trail_activation_ticks = max(pos.trail_activation_ticks, 3.0)
-
-        # -- Trailing stop distance (starts at SL distance) --
-        pos.trailing_stop_ticks = pos.sl_ticks
-
-        # -- Max hold --
-        pos.max_hold_bars = lib_entry.get('max_hold_bars', 120)
-
-        # -- Initial trail at entry --
+        # Absolute price levels + initial trail
+        _sd = sl_ticks * self.tick_size
+        _td = tp_ticks * self.tick_size
         if side == 'long':
-            pos.current_trail = entry_price - (pos.sl_ticks * self.tick_size)
-            pos.peak_favorable = entry_price
+            pos.current_trail = entry_price - _sd
+            pos.stop_loss = entry_price - _sd
+            pos.profit_target = entry_price + _td if tp_ticks > 0 else 0.0
         else:
-            pos.current_trail = entry_price + (pos.sl_ticks * self.tick_size)
-            pos.peak_favorable = entry_price
+            pos.current_trail = entry_price + _sd
+            pos.stop_loss = entry_price + _sd
+            pos.profit_target = entry_price - _td if tp_ticks > 0 else 0.0
 
-        # -- Envelope initialization --
+        pos.peak_favorable = entry_price
+        pos.high_water_mark = entry_price
         pos.envelope_active = True
-        pos.envelope_level = pos.tp_ticks * self.tick_size
+        pos.envelope_level = tp_ticks * self.tick_size
+        pos.envelope_T0 = float(sl_ticks)
+        pos.original_trail_ticks = pos.trailing_stop_ticks
 
-        # -- Populate backward-compat fields (formerly wave_rider.Position) --
         import time as _time
         pos.entry_time = _time.time()
-        pos.high_water_mark = entry_price
-        pos.original_trail_ticks = pos.trailing_stop_ticks
-        pos.envelope_T0 = float(pos.sl_ticks)
-        # Absolute price levels
-        if side == 'long':
-            pos.stop_loss = entry_price - (pos.sl_ticks * self.tick_size)
-            pos.profit_target = entry_price + (pos.tp_ticks * self.tick_size) if pos.tp_ticks > 0 else 0.0
-        else:
-            pos.stop_loss = entry_price + (pos.sl_ticks * self.tick_size)
-            pos.profit_target = entry_price - (pos.tp_ticks * self.tick_size) if pos.tp_ticks > 0 else 0.0
 
         return pos
 
@@ -409,7 +365,7 @@ class ExitEngine:
             return envelope_result
 
         # -- 6b. PEAK GIVEBACK --
-        giveback_result = self._check_peak_giveback(pos, bar_close)
+        giveback_result = self._check_peak_giveback(pos, bar_close, exit_signal)
         if giveback_result is not None:
             return giveback_result
 
@@ -542,8 +498,12 @@ class ExitEngine:
         if not pos.envelope_active or pos.bars_held < self.envelope_min_bars:
             return None
 
-        # Dynamic halflife: shrinks when trade is giving back from peak
-        base_hl = self.envelope_half_life_bars
+        # Dynamic halflife: per-template when available, else global default
+        # max_hold_bars is set from template's p75_mfe_bar at entry; /5 gives base HL
+        if pos.max_hold_bars > 0 and pos.max_hold_bars != 120:
+            base_hl = max(8.0, pos.max_hold_bars / 5.0)
+        else:
+            base_hl = self.envelope_half_life_bars
         if pos.side == 'long':
             peak_ticks = (pos.peak_favorable - pos.entry_price) / self.tick_size
             current_ticks = (bar_close - pos.entry_price) / self.tick_size
@@ -622,8 +582,33 @@ class ExitEngine:
     # PRIVATE -- Peak Giveback
     # ==================================================================
 
-    def _check_peak_giveback(self, pos: PositionState, bar_close: float) -> Optional[ExitResult]:
-        """Exit if trade reached a good peak then gave back most of the profit."""
+    def _get_giveback_threshold(self, peak_ticks: float) -> float:
+        """Tiered giveback: protect big winners aggressively,
+        give small winners room to develop.
+
+        Peak MFE (ticks)  →  Giveback trigger
+        ────────────────     ────────────────
+        30+               →  40% (aggressive protection)
+        16-30             →  self.giveback_pct (self-tuned, ~55-70%)
+        <16               →  disabled (move hasn't proven itself)
+        """
+        if peak_ticks >= 30:
+            return 0.40
+        elif peak_ticks >= self.giveback_min_mfe_ticks:
+            return self.giveback_pct
+        else:
+            return 1.01  # >100% = never triggers
+
+    def _check_peak_giveback(self, pos: PositionState, bar_close: float,
+                             exit_signal: dict = None) -> Optional[ExitResult]:
+        """Exit if trade reached a good peak then gave back most of the profit.
+        When 30m worker flips against trade direction (slow_flip_tighten),
+        threshold tightens by 15pp to protect profit sooner.
+        """
+        # -- 30m slow-flip detection (sticky once set) --
+        if exit_signal and exit_signal.get('slow_flip_tighten'):
+            pos.slow_flip_active = True
+
         # How far did price get from entry (peak MFE in ticks)?
         if pos.side == 'long':
             peak_ticks = (pos.peak_favorable - pos.entry_price) / self.tick_size
@@ -632,17 +617,23 @@ class ExitEngine:
             peak_ticks = (pos.entry_price - pos.peak_favorable) / self.tick_size
             current_ticks = (pos.entry_price - bar_close) / self.tick_size
 
-        # Only trigger if the trade actually reached a meaningful peak
-        if peak_ticks < self.giveback_min_mfe_ticks:
+        if peak_ticks <= 0:
             return None
 
-        # How much was given back?
+        # Tiered threshold based on peak size
+        threshold = self._get_giveback_threshold(peak_ticks)
+
+        # 30m flip tightens threshold by 15pp (protect profit when higher TF turns)
+        if pos.slow_flip_active and threshold < 1.0:
+            threshold = max(0.25, threshold - 0.15)
+
         gave_back = peak_ticks - current_ticks
-        if peak_ticks > 0 and gave_back / peak_ticks >= self.giveback_pct:
+        if gave_back / peak_ticks >= threshold:
             return ExitResult(
                 action=ExitAction.PEAK_GIVEBACK,
                 exit_price=bar_close,
-                reason=f"Peak giveback: peak={peak_ticks:.1f}t now={current_ticks:.1f}t gave_back={gave_back/peak_ticks:.0%}",
+                reason=f"Peak giveback: peak={peak_ticks:.1f}t now={current_ticks:.1f}t "
+                       f"gave_back={gave_back/peak_ticks:.0%} (tier={threshold:.0%})",
                 pnl_ticks=self._calc_pnl_ticks(pos, bar_close),
                 bars_held=pos.bars_held,
             )
