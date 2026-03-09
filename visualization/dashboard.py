@@ -40,10 +40,17 @@ class Tooltip:
         self.widget = widget
         self.text = text
         self.tip_window = None
+        self._id = None
         widget.bind("<Enter>", self.show_tip)
         widget.bind("<Leave>", self.hide_tip)
+        widget.bind("<ButtonPress>", self.hide_tip)
 
     def show_tip(self, event=None):
+        if self._id:
+            self.widget.after_cancel(self._id)
+        self._id = self.widget.after(500, self._show_tip_delayed)
+
+    def _show_tip_delayed(self):
         if self.tip_window or not self.text:
             return
 
@@ -72,6 +79,9 @@ class Tooltip:
         label.pack(ipadx=1)
 
     def hide_tip(self, event=None):
+        if self._id:
+            self.widget.after_cancel(self._id)
+            self._id = None
         if self.tip_window:
             self.tip_window.destroy()
             self.tip_window = None
