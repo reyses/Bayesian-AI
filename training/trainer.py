@@ -387,7 +387,7 @@ class Trainer:
         centroids_scaled = self.scaler.transform(centroids)
         print(f"  Prepared {len(valid_template_ids)} centroids for matching.")
 
-        # Pre-compute templates that earned a Gate 0 Rule 3 exception via data quality.
+        # Pre-compute templates that earned a Pattern Quality exception via data quality.
         # A template earns an exception if: enough members + positive win rate + low residuals.
         _EXCEPTION_MIN_MEMBERS  = 10
         _EXCEPTION_MIN_WIN_RATE = 0.55
@@ -403,7 +403,7 @@ class Trainer:
                     and _esig is not None
                     and _esig <= _EXCEPTION_MAX_SIGMA):
                 _exception_tids.add(_etid)
-        print(f"  Gate 0 exception templates: {len(_exception_tids)} / {len(valid_template_ids)} "
+        print(f"  Pattern Quality exceptions: {len(_exception_tids)} / {len(valid_template_ids)} "
               f"(>={_EXCEPTION_MIN_MEMBERS} members, WR>={_EXCEPTION_MIN_WIN_RATE:.0%}, "
               f"sigma<={_EXCEPTION_MAX_SIGMA} ticks)")
 
