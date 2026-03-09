@@ -1,6 +1,6 @@
 """
 Bayesian-AI - Bayesian Probability Engine
-HashMap-based learning system: StateVector -> WinRate
+HashMap-based learning system: state_key -> WinRate
 """
 import pickle
 import numpy as np
@@ -28,7 +28,7 @@ class TradeOutcome:
 class BayesianBrain:
     """
     Probability table that learns from outcomes
-    Core logic: probability_table[StateVector] = {'wins': X, 'losses': Y}
+    Core logic: probability_table[state_key] = {'wins': X, 'losses': Y}
     """
     def __init__(self):
         self.table: Dict[Any, Dict[str, int]] = defaultdict(
@@ -242,25 +242,6 @@ class BayesianBrain:
             'sample_size': data['total']
         }
     
-    def get_all_states_above_threshold(self, min_prob: float = 0.80) -> list:
-        """
-        Find all learned states with win probability above threshold
-        Useful for analysis
-        """
-        results = []
-        for state, data in self.table.items():
-            prob = self.get_probability(state)
-            if prob >= min_prob and data['total'] >= 10:  # Minimum 10 samples
-                results.append({
-                    'state': state,
-                    'probability': prob,
-                    'wins': data['wins'],
-                    'losses': data['losses'],
-                    'total': data['total']
-                })
-        
-        return sorted(results, key=lambda x: x['probability'], reverse=True)
-    
     def save(self, filepath: str):
         """Persist probability table to disk"""
         save_data = {
@@ -315,5 +296,3 @@ class MarketBayesianBrain(BayesianBrain):
     """
     pass
 
-# Backward compatibility for pickled checkpoints
-QuantumBayesianBrain = MarketBayesianBrain
