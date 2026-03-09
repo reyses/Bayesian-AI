@@ -1191,7 +1191,7 @@ class Trainer:
                         _sl_ticks = int(_entry_action.sl_ticks)
                         _tp_ticks = int(_entry_action.tp_ticks)
                         _trail_ticks = int(_entry_action.trail_ticks)
-                        _trail_act_ticks = int(_entry_action.trail_activation_ticks) or None
+                        _trail_act_ticks = int(_entry_action.trail_activation_ticks or 0)
                         _cand_depth = _entry_action.depth
                         _parent_tf = _entry_action.parent_tf
                         active_max_hold_bars = _entry_action.max_hold_bars
