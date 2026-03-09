@@ -48,10 +48,10 @@ TIMEFRAME_SECONDS = {
     '5s': 5, '1s': 1,
 }
 
-# Gate 0 constants (match orchestrator.py)
+# Pattern Quality constants
 _ADX_TREND_CONFIRMATION = 25.0
 _HURST_TREND_CONFIRMATION = 0.6
-_GATE1_DIST_THRESHOLD = 4.5
+_GATE1_DIST_THRESHOLD = 4.5  # Template Match distance threshold
 _WORKER_BYPASS_CONV = 0.65
 
 # Anchor TF → depth mapping (from OOS depth distribution)
@@ -1513,14 +1513,14 @@ class LiveEngine:
         L.append(f"  Bars with candidates:           {gs['bars_seen']:>8,}")
         L.append(f"  Total candidates evaluated:     {gs['candidates']:>8,}")
         _pct = lambda n: f"{n/_total*100:.1f}%"
-        L.append(f"    Gate 0 (headroom/physics):     {gs['gate0_skip']:>8,}  ({_pct(gs['gate0_skip'])})")
-        L.append(f"    Gate 0.5 (depth filter):       {gs['gate0_5_skip']:>8,}  ({_pct(gs['gate0_5_skip'])})")
-        L.append(f"    Gate 1 (cluster dist):         {gs['gate1_skip']:>8,}  ({_pct(gs['gate1_skip'])})")
-        L.append(f"    Gate 2 (brain rejected):       {gs['gate2_skip']:>8,}  ({_pct(gs['gate2_skip'])})")
-        L.append(f"    Gate 3 (conviction):           {gs['gate3_skip']:>8,}  ({_pct(gs['gate3_skip'])})")
-        L.append(f"    Gate 3.5 (screening/hours):    {gs['gate3_5_skip']:>8,}  ({_pct(gs['gate3_5_skip'])})")
-        L.append(f"    Gate 4 (direction conf):       {gs['gate4_skip']:>8,}  ({_pct(gs['gate4_skip'])})")
-        L.append(f"    Passed all gates -> traded:    {gs['traded']:>8,}  ({_pct(gs['traded'])})")
+        L.append(f"    Pattern Quality  (headroom/physics):   {gs['gate0_skip']:>8,}  ({_pct(gs['gate0_skip'])})")
+        L.append(f"    Depth Filter     (depth blacklist):    {gs['gate0_5_skip']:>8,}  ({_pct(gs['gate0_5_skip'])})")
+        L.append(f"    Template Match   (cluster dist):       {gs['gate1_skip']:>8,}  ({_pct(gs['gate1_skip'])})")
+        L.append(f"    Brain Reject     (unprofitable):       {gs['gate2_skip']:>8,}  ({_pct(gs['gate2_skip'])})")
+        L.append(f"    Low Conviction   (belief too weak):    {gs['gate3_skip']:>8,}  ({_pct(gs['gate3_skip'])})")
+        L.append(f"    Screening Filter (fission/hours):      {gs['gate3_5_skip']:>8,}  ({_pct(gs['gate3_5_skip'])})")
+        L.append(f"    Direction Unclear (dir conf too low):   {gs['gate4_skip']:>8,}  ({_pct(gs['gate4_skip'])})")
+        L.append(f"    Passed all gates -> traded:            {gs['traded']:>8,}  ({_pct(gs['traded'])})")
 
         # ── Session equity ──
         L.append("")
@@ -1746,7 +1746,7 @@ class LiveEngine:
             self._brain.save(brain_path)
             logger.info(f"Live brain saved ({self._live_trade_count} trades)")
 
-    # ── Entry Logic (Gate 0 → 3) ─────────────────────────────────────
+    # ── Entry Logic (gate cascade) ───────────────────────────────────
 
     async def _check_entry(self, price: float, ts: float, states: list):
         """Run the gate cascade on the current bar's quantum state."""
@@ -1803,7 +1803,7 @@ class LiveEngine:
         best_tid = None
 
         for p in candidates:
-            # ── Gate 0: Headroom ──────────────────────────────────────
+            # ── Pattern Quality: headroom & physics ───────────────────
             micro_z = abs(p.z_score)
             micro_pattern = p.pattern_type
             macro_z = 0.0  # no parent chain in live (single TF)
@@ -1849,16 +1849,16 @@ class LiveEngine:
                 _best_belief = max(_best_belief, _cand_belief)
                 continue
 
-            # ── Gate 0.5: Depth filter ────────────────────────────────
+            # ── Depth Filter ──────────────────────────────────────────
             if not _yolo and p.depth in self._depth_filter_out:
                 self._gate_stats['gate0_5_skip'] += 1
                 _best_belief = max(_best_belief, 15)
                 continue
 
-            # Gate 0 passed = 20%
+            # Pattern Quality passed = 20%
             _cand_belief = 20
 
-            # ── Gate 1: Cluster matching ──────────────────────────────
+            # ── Template Match: cluster distance ──────────────────────
             features = np.array([FractalClusteringEngine.extract_features(p)])
             feat_scaled = self._scaler.transform(features)
             dists = np.linalg.norm(self._centroids_scaled - feat_scaled, axis=1)
@@ -1872,24 +1872,24 @@ class LiveEngine:
                 _match_pct = max(0, 1 - dist / max(1, _g1_dist)) if _g1_dist < float('inf') else 0.5
                 _cand_belief += _match_pct * 15  # up to 35% total
                 _best_belief = max(_best_belief, _cand_belief)
-                logger.debug(f"Gate 1 reject: dist={dist:.2f} >= {_g1_dist:.2f}")
+                logger.debug(f"Template Match reject: dist={dist:.2f} >= {_g1_dist:.2f}")
                 continue
 
-            # Gate 1 passed = 20% + 30% match quality
+            # Template Match passed = 20% + 30% match quality
             _match_quality = max(0, 1 - dist / max(1, _g1_dist)) if _g1_dist < float('inf') else 1.0
             _cand_belief = 20 + 30 * _match_quality
-            logger.debug(f"Gate 1 pass: tid={tid} dist={dist:.2f}/{_g1_dist:.2f}")
+            logger.debug(f"Template Match pass: tid={tid} dist={dist:.2f}/{_g1_dist:.2f}")
 
-            # ── Gate 2: Brain ─────────────────────────────────────────
+            # ── Brain Reject: profitability check ─────────────────────
             if not self._brain.should_fire(tid, min_prob=_g2_prob, min_conf=0.0):
                 self._gate_stats['gate2_skip'] += 1
                 _best_belief = max(_best_belief, _cand_belief)
-                logger.debug(f"Gate 2 reject: tid={tid} "
+                logger.debug(f"Brain Reject: tid={tid} "
                              f"prob={self._brain.get_probability(tid):.3f} "
                              f"conf={self._brain.get_confidence(tid):.3f}")
                 continue
 
-            # Gate 2 passed = +20% (now at ~70%)
+            # Brain passed = +20% (now at ~70%)
             _brain_prob = self._brain.get_probability(tid)
             _cand_belief += 20 * min(1.0, _brain_prob / max(0.01, _g2_prob + 0.3))
 
@@ -1910,7 +1910,7 @@ class LiveEngine:
             self._entry_belief_pct = min(99, _best_belief)
             return
 
-        # ── Gate 3: Path conviction ───────────────────────────────────
+        # ── Low Conviction: belief strength check ─────────────────────
         belief = self._belief_network.get_belief()
         side, _p_long, _dir_src = self._determine_direction(best_candidate, best_tid)
 
@@ -1932,29 +1932,29 @@ class LiveEngine:
         else:
             _network_tp = None
 
-        # ── Gate 4: Direction confidence ─────────────────────────────
+        # ── Direction Unclear: confidence threshold ─────────────────
         _dir_conf = abs(_p_long - 0.5)
         if _dir_conf < _g4_dir:
             self._gate_stats['gate4_skip'] += 1
             self._entry_belief_pct = min(99, _best_belief + 15)  # almost there, dir unclear
-            logger.debug(f"Gate 4 reject: dir_conf={_dir_conf:.3f} < {_g4_dir:.3f} "
+            logger.debug(f"Direction Unclear: dir_conf={_dir_conf:.3f} < {_g4_dir:.3f} "
                          f"(src={_dir_src}, tid={best_tid})")
             return
 
-        # ── Gate 3.5: Screening fission + hour filter ────────────────
+        # ── Screening Filter: fission + hour filter ─────────────────
         if not _skip_screening:
             if self._fission_map:
                 _fission_rule = self._fission_map.get(best_tid)
                 if _fission_rule and _fission_rule.get('action') == 'reject':
                     self._gate_stats['gate3_5_skip'] += 1
-                    logger.debug(f"Gate 3.5 reject: fission rule for tid={best_tid}")
+                    logger.debug(f"Screening Filter reject: fission rule for tid={best_tid}")
                     return
             if self._good_hours_utc:
                 import datetime as _dt
                 _hour_utc = _dt.datetime.utcnow().hour
                 if _hour_utc not in self._good_hours_utc:
                     self._gate_stats['gate3_5_skip'] += 1
-                    logger.debug(f"Gate 3.5 reject: hour {_hour_utc} not in good_hours_utc")
+                    logger.debug(f"Screening Filter reject: hour {_hour_utc} not in good_hours_utc")
                     return
 
         # ── Exit sizing ───────────────────────────────────────────────
@@ -2253,7 +2253,7 @@ class LiveEngine:
             self._tuning = merged
             self._tuning_mtime = mt
             logger.info(f"Tuning reloaded: max_hold={merged['max_hold_seconds']}s  "
-                        f"gate1_dist={merged['gate1_dist']}  "
+                        f"template_dist={merged['gate1_dist']}  "
                         f"sl_mult={merged['exit_sl_mult']}  "
                         f"trail_mult={merged['exit_trail_mult']}")
         except (json.JSONDecodeError, OSError) as e:
@@ -2360,7 +2360,7 @@ class LiveEngine:
             logger.warning("  No brain checkpoint found — starting fresh "
                           "(will learn from live trades)")
 
-        # Screening gates (Gate 3.5 fission + temporal filter)
+        # Screening Filter (fission + temporal filter)
         sg_path = os.path.join(cpdir, 'screening_gates.json')
         if os.path.exists(sg_path):
             with open(sg_path) as f:
