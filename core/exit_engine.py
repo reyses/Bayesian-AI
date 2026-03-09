@@ -221,7 +221,7 @@ class ExitEngine:
             sl_ticks=float(sl_ticks),
             tp_ticks=float(tp_ticks),
             trailing_stop_ticks=float(trail_ticks) if trail_ticks else float(sl_ticks),
-            trail_activation_ticks=float(trail_activation_ticks),
+            trail_activation_ticks=float(trail_activation_ticks or 0),
             max_hold_bars=max_hold_bars,
         )
 
