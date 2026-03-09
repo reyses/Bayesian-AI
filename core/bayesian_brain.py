@@ -289,10 +289,7 @@ class BayesianBrain:
             'avg_trades_per_state': total_trades / total_states if total_states > 0 else 0
         }
 
-class MarketBayesianBrain(BayesianBrain):
-    """Extends BayesianBrain with MarketState-specific filters.
-    Checks band zone, confirmation signals, and reversion probability
-    before firing.
-    """
-    pass
+# Backward compat: old checkpoints may pickle these class names
+MarketBayesianBrain = BayesianBrain
+QuantumBayesianBrain = BayesianBrain
 

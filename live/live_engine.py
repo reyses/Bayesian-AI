@@ -26,13 +26,12 @@ from typing import Optional, Dict, List
 
 from core.statistical_field_engine import StatisticalFieldEngine
 from core.bayesian_brain import MarketBayesianBrain
-from core.exit_engine import ExitEngine, ExitAction
+from core.exit_engine import ExitEngine, ExitAction, PositionState
 from core.execution_engine import (ExecutionEngine, ActionType, Candidate,
                                    TradeAction)
 from core.fractal_clustering import FractalClusteringEngine
 from core.feature_extraction import extract_feature_vector
 from core.timeframe_belief_network import TimeframeBeliefNetwork
-from core.exit_engine import make_position
 from live.exit_watcher import ExitWatcher
 from live.gui_bridge import GUIBridge
 from live.session_tracker import SessionTracker
@@ -863,7 +862,7 @@ class LiveEngine:
         self._trade_logger.finish_trade(reason, price)
         pos = self._position
         self._last_high_water = (self._pos_state.peak_favorable if self._pos_state
-                                 else (pos.high_water_mark if pos else self._entry_price))
+                                 else (pos.peak_favorable if pos else self._entry_price))
         self._position = None
         self._last_exit_time = time.time()
 
@@ -871,12 +870,11 @@ class LiveEngine:
                     f"@ {price:.2f}  dir_src={flip.dir_source}  p_long={flip.p_long:.2f}  "
                     f"SL={sl_ticks} TP={tp_ticks} trail={trail_ticks}")
 
-        self._position = make_position(
-            entry_price=price, side=side, state=state,
-            tick_size=self._asset.tick_size, tick_value=self._asset.tick_value,
-            stop_distance_ticks=sl_ticks, profit_target_ticks=tp_ticks,
-            trailing_stop_ticks=trail_ticks, trail_activation_ticks=trail_act,
+        self._position = self._exit_engine.open_position(
+            side=side, entry_price=price, entry_bar_index=self._bar_i,
             template_id=f'PP_{base_tid}',
+            sl_ticks=sl_ticks, tp_ticks=tp_ticks,
+            trail_ticks=trail_ticks, trail_activation_ticks=trail_act,
         )
         self._init_exit_state(side, price, sl_ticks, tp_ticks, f'PP_{base_tid}')
         self._position_open = True
@@ -953,7 +951,7 @@ class LiveEngine:
         pos = self._position
         _ps = self._pos_state
         self._last_high_water = (_ps.peak_favorable if _ps
-                                 else (pos.high_water_mark if pos else self._entry_price))
+                                 else (pos.peak_favorable if pos else self._entry_price))
         # Self-tune envelope halflife
         if _ps is not None and self._entry_price > 0:
             _tick = self._asset.tick_size
@@ -1010,12 +1008,11 @@ class LiveEngine:
             state = _fresh[-1]['state'] if _fresh else None
             tid = self._active_tid or 'REENTRY'
 
-            self._position = make_position(
-                entry_price=price, side=exited_side, state=state,
-                tick_size=self._asset.tick_size, tick_value=self._asset.tick_value,
-                stop_distance_ticks=sl_ticks, profit_target_ticks=tp_ticks,
-                trailing_stop_ticks=trail_ticks, trail_activation_ticks=trail_act,
+            self._position = self._exit_engine.open_position(
+                side=exited_side, entry_price=price, entry_bar_index=self._bar_i,
                 template_id=f'RE_{tid}',
+                sl_ticks=sl_ticks, tp_ticks=tp_ticks,
+                trail_ticks=trail_ticks, trail_activation_ticks=trail_act,
             )
             self._init_exit_state(exited_side, price, sl_ticks, tp_ticks, f'RE_{tid}')
             self._position_open = True
@@ -1117,15 +1114,11 @@ class LiveEngine:
         if state is None:
             logger.warning("No market state available — manual trade will have limited exit protection")
 
-        self._position = make_position(
-            entry_price=price, side=side,
-            state=state,
-            tick_size=self._asset.tick_size, tick_value=self._asset.tick_value,
-            stop_distance_ticks=sl_ticks,
-            profit_target_ticks=tp_ticks,
-            trailing_stop_ticks=trail_ticks,
-            trail_activation_ticks=trail_act,
+        self._position = self._exit_engine.open_position(
+            side=side, entry_price=price, entry_bar_index=self._bar_i,
             template_id='MANUAL',
+            sl_ticks=sl_ticks, tp_ticks=tp_ticks,
+            trail_ticks=trail_ticks, trail_activation_ticks=trail_act,
         )
         self._init_exit_state(side, price, sl_ticks, tp_ticks, 'MANUAL')
         self._position_open = True
@@ -1187,15 +1180,11 @@ class LiveEngine:
         self._gui.push({'type': 'TRADE_MARKER', 'action': 'entry',
                         'side': side, 'price': price})
 
-        self._position = make_position(
-            entry_price=price, side=side,
-            state=state,
-            tick_size=self._asset.tick_size, tick_value=self._asset.tick_value,
-            stop_distance_ticks=sl_ticks,
-            profit_target_ticks=tp_ticks,
-            trailing_stop_ticks=trail_ticks,
-            trail_activation_ticks=trail_act,
+        self._position = self._exit_engine.open_position(
+            side=side, entry_price=price, entry_bar_index=self._bar_i,
             template_id=f'PP_{base_tid}',
+            sl_ticks=sl_ticks, tp_ticks=tp_ticks,
+            trail_ticks=trail_ticks, trail_activation_ticks=trail_act,
         )
         self._init_exit_state(side, price, sl_ticks, tp_ticks, f'PP_{base_tid}')
         self._position_open = True
@@ -1334,6 +1323,7 @@ class LiveEngine:
         else:
             mfe_ticks = (entry_px - hwm) / 0.25 if entry_px else 0
         pnl_ticks = pnl / (self._cfg.point_value * self._cfg.tick_size)
+        capture = (pnl_ticks / mfe_ticks * 100) if mfe_ticks > 0 else 0.0
         _pe = getattr(self, '_price_expected', entry_px)
         _pe_err = round((exit_px - _pe) / self._asset.tick_size, 2) if _pe != entry_px else 0.0
 
@@ -1479,15 +1469,12 @@ class LiveEngine:
         self._gui.push({'type': 'TRADE_MARKER', 'action': 'entry',
                         'side': side, 'price': price})
 
-        self._position = make_position(
-            entry_price=price, side=side,
-            state=action.raw_event.state if action.raw_event else None,
-            tick_size=self._asset.tick_size, tick_value=self._asset.tick_value,
-            stop_distance_ticks=sl_ticks,
-            profit_target_ticks=tp_ticks,
-            trailing_stop_ticks=trail_ticks,
-            trail_activation_ticks=trail_act,
+        self._position = self._exit_engine.open_position(
+            side=side, entry_price=price, entry_bar_index=self._bar_i,
             template_id=best_tid,
+            sl_ticks=sl_ticks, tp_ticks=tp_ticks,
+            trail_ticks=trail_ticks, trail_activation_ticks=trail_act,
+            lib_entry=lib_entry,
         )
         self._init_exit_state(side, price, sl_ticks, tp_ticks, best_tid, lib_entry)
 
