@@ -110,11 +110,11 @@ class ExecutionEngine:
     """
     Stateful per-bar decision engine.
 
-    Execution flow (matches orchestrator exactly):
-      1. Gates 0-2 filter ALL candidates
+    Execution flow:
+      1. Pattern Quality + Depth + Template Match + Brain filter ALL candidates
       2. Score competition picks the BEST passing candidate
-      3. Direction cascade + Gate 3 (conviction) run for winner ONLY
-      4. If winner rejected by Gate 3, try worker-bypass path
+      3. Direction cascade + conviction check for winner ONLY
+      4. If winner rejected, try worker-bypass path
       5. Return ENTER or HOLD
 
     Caller responsibilities:
@@ -368,9 +368,9 @@ class ExecutionEngine:
     def _check_entry(self, price, bar_index, candidates,
                      oracle_marker_fn=None, pp_dir_override=None) -> TradeAction:
         """
-        Two-phase entry evaluation matching orchestrator:
-          Phase 1: Gates 0-2 for ALL candidates → score competition
-          Phase 2: Direction + Gate 3 for winner ONLY
+        Two-phase entry evaluation:
+          Phase 1: Pattern/Depth/Template/Brain for ALL candidates → score competition
+          Phase 2: Direction + conviction for winner ONLY
           Fallback: Worker bypass if no winner
         """
         candidate_gates = {}    # id(raw) -> gate_label
@@ -390,7 +390,7 @@ class ExecutionEngine:
                 gate_passers[raw_id] = gr
             else:
                 candidate_gates[raw_id] = gr.gate_label
-                # Track best Gate 1 reject for worker bypass
+                # Track best Template Match reject for worker bypass
                 if gr.gate_label == 'gate1' and gr.dist < bypass_dist:
                     bypass_dist = gr.dist
                     bypass_candidate = cand
@@ -427,7 +427,7 @@ class ExecutionEngine:
             if raw_id != best_raw_id:
                 candidate_gates[raw_id] = 'score_loser'
 
-        # ── Phase 2: Direction + Gate 3 for winner ────────────
+        # ── Phase 2: Direction + conviction for winner ─────────
         if best_gr is not None:
             oracle_marker = None
             if oracle_marker_fn is not None and best_gr.cand.raw_event is not None:
@@ -443,7 +443,7 @@ class ExecutionEngine:
                 action.candidate_gates = candidate_gates
                 return action
             else:
-                # Gate 3 rejected the winner
+                # Conviction/momentum rejected the winner
                 raw_id = id(best_gr.cand.raw_event) if best_gr.cand.raw_event else id(best_gr.cand)
                 candidate_gates[raw_id] = action.gate_label
 
@@ -604,7 +604,7 @@ class ExecutionEngine:
     def _finalize_entry(self, gr: _GateResult, price: float, bar_index: int,
                         oracle_marker=None,
                         pp_dir_override=None) -> TradeAction:
-        """Phase 2: Direction cascade + Gate 3 + sizing for the winning candidate."""
+        """Phase 2: Direction cascade + conviction + sizing for the winning candidate."""
         cand = gr.cand
         tid = gr.tid
         lib_entry = gr.lib_entry

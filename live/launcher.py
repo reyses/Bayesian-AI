@@ -134,8 +134,8 @@ def main():
                         help='NT8 bridge host (default: 127.0.0.1)')
     parser.add_argument('--port', type=int, default=5199,
                         help='NT8 bridge port (default: 5199)')
-    parser.add_argument('--account', default='Sim101',
-                        help='NT8 account name (default: Sim101)')
+    parser.add_argument('--account', default='DEMO6872628',
+                        help='NT8 account name (default: DEMO6872628)')
     parser.add_argument('--instrument', default='MNQ 03-26',
                         help='NT8 instrument name (default: MNQ 03-26)')
     parser.add_argument('--checkpoint-dir', default='checkpoints',
