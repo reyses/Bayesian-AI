@@ -257,6 +257,7 @@ class ExitEngine:
         exit_signal: dict = None,
         sub_bar_highs: list = None,
         sub_bar_lows: list = None,
+        noise_ticks: float = 0.0,
     ) -> ExitResult:
         """
         Evaluate all exit conditions for current bar.
@@ -330,12 +331,12 @@ class ExitEngine:
         self._check_breakeven(pos)
 
         # -- 6. ENVELOPE DECAY --
-        envelope_result = self._check_envelope(pos, bar_close, net_force, band_context)
+        envelope_result = self._check_envelope(pos, bar_close, net_force, band_context, noise_ticks)
         if envelope_result is not None:
             return envelope_result
 
         # -- 6b. PEAK GIVEBACK --
-        giveback_result = self._check_peak_giveback(pos, bar_close, exit_signal)
+        giveback_result = self._check_peak_giveback(pos, bar_close, exit_signal, noise_ticks)
         if giveback_result is not None:
             return giveback_result
 
@@ -402,7 +403,8 @@ class ExitEngine:
 
     def _check_envelope(self, pos: PositionState, bar_close: float,
                         net_force: float = 0.0,
-                        band_context: dict = None) -> Optional[ExitResult]:
+                        band_context: dict = None,
+                        noise_ticks: float = 0.0) -> Optional[ExitResult]:
         """Half-life envelope decay with dynamic halflife.
 
         Halflife modulated by three fractal signals:
@@ -425,6 +427,10 @@ class ExitEngine:
         else:
             peak_ticks = (pos.entry_price - pos.peak_favorable) / self.tick_size
             current_ticks = (pos.entry_price - bar_close) / self.tick_size
+
+        # Noise gate: trade still within normal market breathing — don't exit
+        if noise_ticks > 0 and peak_ticks < noise_ticks:
+            return None
 
         # Signal 1: giveback from peak
         hl_mult = 1.0
@@ -465,9 +471,10 @@ class ExitEngine:
             else:
                 decay = decay * 0.7
 
-        # Current envelope level
+        # Current envelope level (noise-aware floor)
         initial_tp = pos.tp_ticks * self.tick_size
-        floor = initial_tp * self.envelope_floor_pct
+        noise_floor = noise_ticks * self.tick_size if noise_ticks > 0 else 0
+        floor = max(initial_tp * self.envelope_floor_pct, noise_floor)
         current_envelope = floor + (initial_tp - floor) * decay
         pos.envelope_level = current_envelope
 
@@ -497,28 +504,40 @@ class ExitEngine:
     # PRIVATE -- Peak Giveback
     # ==================================================================
 
-    def _get_giveback_threshold(self, peak_ticks: float) -> float:
+    def _get_giveback_threshold(self, peak_ticks: float, noise_ticks: float = 0.0) -> float:
         """Tiered giveback: protect big winners aggressively,
         give small winners room to develop.
 
+        Uses dynamic noise floor when available — the MFE must exceed
+        the current market noise level before giveback activates.
+        This prevents exiting on normal intra-wave pullbacks.
+
         Peak MFE (ticks)  →  Giveback trigger
         ────────────────     ────────────────
-        30+               →  40% (aggressive protection)
-        16-30             →  self.giveback_pct (self-tuned, ~55-70%)
-        <16               →  disabled (move hasn't proven itself)
+        2× noise+         →  40% (aggressive protection)
+        1× noise - 2×     →  self.giveback_pct (self-tuned, ~55-70%)
+        < noise           →  disabled (move within noise floor)
         """
-        if peak_ticks >= 30:
+        # Dynamic noise floor: use measured noise if available, else static default
+        min_mfe = max(self.giveback_min_mfe_ticks, noise_ticks) if noise_ticks > 0 else self.giveback_min_mfe_ticks
+
+        if peak_ticks >= min_mfe * 2:
             return 0.40
-        elif peak_ticks >= self.giveback_min_mfe_ticks:
+        elif peak_ticks >= min_mfe:
             return self.giveback_pct
         else:
             return 1.01  # >100% = never triggers
 
     def _check_peak_giveback(self, pos: PositionState, bar_close: float,
-                             exit_signal: dict = None) -> Optional[ExitResult]:
+                             exit_signal: dict = None,
+                             noise_ticks: float = 0.0) -> Optional[ExitResult]:
         """Exit if trade reached a good peak then gave back most of the profit.
         When 30m worker flips against trade direction (slow_flip_tighten),
         threshold tightens by 15pp to protect profit sooner.
+
+        noise_ticks: dynamic noise floor from MarketState.swing_noise_ticks.
+        If > 0, overrides the static giveback_min_mfe_ticks threshold —
+        giveback only activates after MFE exceeds the current noise level.
         """
         # -- 30m slow-flip detection (sticky once set) --
         if exit_signal and exit_signal.get('slow_flip_tighten'):
@@ -536,7 +555,7 @@ class ExitEngine:
             return None
 
         # Tiered threshold based on peak size
-        threshold = self._get_giveback_threshold(peak_ticks)
+        threshold = self._get_giveback_threshold(peak_ticks, noise_ticks)
 
         # 30m flip tightens threshold by 15pp (protect profit when higher TF turns)
         if pos.slow_flip_active and threshold < 1.0:

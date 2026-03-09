@@ -766,6 +766,7 @@ class LiveEngine:
                      if hasattr(self._belief_network, 'get_band_confluence') else None)
         _st = self._last_states[-1]['state'] if self._last_states else None
         _f_net = float(getattr(_st, 'net_force', 0.0)) if _st else 0.0
+        _noise = float(getattr(_st, 'swing_noise_ticks', 0.0)) if _st else 0.0
         _bar_high = getattr(self, '_last_bar_high', price)
         _bar_low = getattr(self, '_last_bar_low', price)
 
@@ -780,6 +781,7 @@ class LiveEngine:
             band_context=_band_ctx,
             net_force=_f_net,
             exit_signal=exit_sig,
+            noise_ticks=_noise,
         )
 
         # Per-trade diagnostic capture
