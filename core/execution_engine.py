@@ -654,7 +654,7 @@ class ExecutionEngine:
 
         # ── Exit sizing ───────────────────────────────────────
         sl_ticks, tp_ticks, trail_ticks, trail_act_ticks = self._compute_sizing(
-            lib_entry, network_tp, feat_scaled)
+            lib_entry, network_tp, feat_scaled, trade_side=side, template_id=tid)
 
         # ── Max hold bars from parent TF ──────────────────────
         chain = (getattr(cand.raw_event, 'parent_chain', None)
@@ -760,7 +760,9 @@ class ExecutionEngine:
     # ── EXIT SIZING ───────────────────────────────────────────────────────
 
     def _compute_sizing(self, lib_entry: dict, network_tp: float,
-                        live_scaled: np.ndarray = None) -> Tuple[float, float, float, float]:
+                        live_scaled: np.ndarray = None,
+                        trade_side: str = None,
+                        template_id: int = None) -> Tuple[float, float, float, float]:
         """Compute SL, TP, trail, trail activation from template stats."""
         _reg_sigma = lib_entry.get('regression_sigma_ticks', 0.0)
         _mean_mae = lib_entry.get('mean_mae_ticks', 0.0)
@@ -788,7 +790,10 @@ class ExecutionEngine:
         trail_act_ticks = (max(2, int(round(_p25_mae * 0.3)))
                            if _p25_mae > 2.0 else 0)
 
-        # TP: network > OLS regression > p75 > DOE param
+        # TP: template p75_mfe as anchor, OLS adjusts within sanity bounds
+        # Brain expected PnL offsets the anchor with actual realized performance
+        _anchor_ticks = _p75_mfe if _p75_mfe > 2.0 else params.get('take_profit_ticks', 50)
+
         if network_tp is not None:
             tp_ticks = network_tp
         else:
@@ -797,16 +802,26 @@ class ExecutionEngine:
                 _pred_mfe_pts = (np.dot(live_scaled, np.array(_mfe_coeff))
                                  + lib_entry.get('mfe_intercept', 0.0))
                 _pred_mfe_ticks = max(0.0, float(_pred_mfe_pts) / self.tick_size)
-                if _pred_mfe_ticks > 2.0:
+                # Sanity gate: OLS must be within [anchor*0.2, anchor*5.0]
+                # If outside this range, the regression is hallucinating
+                if (_pred_mfe_ticks > 2.0
+                        and _anchor_ticks * 0.2 <= _pred_mfe_ticks <= _anchor_ticks * 5.0):
                     tp_ticks = max(4, int(round(_pred_mfe_ticks)))
-                elif _p75_mfe > 2.0:
-                    tp_ticks = max(4, int(round(_p75_mfe)))
                 else:
-                    tp_ticks = params.get('take_profit_ticks', 50)
-            elif _p75_mfe > 2.0:
-                tp_ticks = max(4, int(round(_p75_mfe)))
+                    tp_ticks = max(4, int(round(_anchor_ticks)))
             else:
-                tp_ticks = params.get('take_profit_ticks', 50)
+                tp_ticks = max(4, int(round(_anchor_ticks)))
+
+        # Brain offset: adjust anchor with actual realized performance
+        if self.brain is not None and trade_side is not None:
+            _tid = template_id
+            _side = trade_side.lower()
+            _exp_pnl = self.brain.get_expected_pnl(_tid, _side) if _tid is not None else None
+            if _exp_pnl is not None:
+                _exp_ticks = _exp_pnl / (self.tick_size * 2)  # $ → ticks
+                # Blend: anchor stays base, brain nudges ±50% max
+                _adj = np.clip(_exp_ticks, -_anchor_ticks * 0.5, _anchor_ticks * 0.5)
+                tp_ticks = max(4, int(round(tp_ticks + _adj)))
 
         # ATR floor enforcement in live/replay mode
         if self.mode in ('live', 'replay') and self._live_atr_ticks > 0:
@@ -930,9 +945,11 @@ class ExecutionEngine:
 
     # ── LIVE DIRECTION LEARNING (delegated to brain) ─────────────────────
 
-    def learn_direction(self, tid, side: str, pnl: float):
+    def learn_direction(self, tid, side: str, pnl: float, hold_bars: int = 0):
         """Delegate to brain.direction_learn() — shared H0/H1 engine."""
         self.brain.direction_learn(tid, side, pnl)
+        if hold_bars > 0:
+            self.brain.record_hold_bars(tid, side, hold_bars)
 
     def get_live_dir_bias(self, tid) -> Optional[str]:
         """Check if brain's direction bias has a strong preference."""

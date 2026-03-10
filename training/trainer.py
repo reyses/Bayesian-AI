@@ -643,7 +643,7 @@ class Trainer:
 
         _pbar = tqdm(total=_total_trading_days, desc='Forward Pass', unit='day',
                      bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {postfix}',
-                     ncols=120)
+                     ascii=True, dynamic_ncols=True)
         for day_idx, day_file in enumerate(daily_files_15s):
             day_date = os.path.basename(day_file).replace('.parquet', '')
 
@@ -937,6 +937,84 @@ class Trainer:
 
                 _bar_i += 1
 
+                # 0. CME maintenance cutoff: flatten before daily halt (16:45-18:00 ET)
+                _in_maintenance = _exit_eng.is_maintenance_window(ts_raw)
+                if _in_maintenance and _exec_engine.in_position:
+                    pos = self._position
+                    if pos.side == 'short':
+                        _maint_pnl = (pos.entry_price - price) * self.asset.point_value
+                        _trade_mfe_ticks = (pos.entry_price - pos.peak_favorable) / self.asset.tick_size
+                    else:
+                        _maint_pnl = (price - pos.entry_price) * self.asset.point_value
+                        _trade_mfe_ticks = (pos.peak_favorable - pos.entry_price) / self.asset.tick_size
+                    self._position = None
+                    _exec_engine.position_closed()
+                    outcome = record_trade(
+                        self.brain, tid=active_template_id,
+                        entry_price=active_entry_price,
+                        exit_price=price,
+                        pnl=_maint_pnl, side=active_side,
+                        exit_reason='maintenance_flat', timestamp=ts_raw,
+                        entry_time=active_entry_time, exit_time=ts_raw,
+                        tick_value=self.asset.tick_value,
+                        hold_bars=pos.bars_held,
+                    )
+                    day_trades.append(outcome)
+                    _cal_day_trades.append(outcome)
+                    current_position_open = False
+                    _day_running_pnl += outcome.pnl
+                    _day_min_pnl = min(_day_min_pnl, _day_running_pnl)
+                    _cumul_pnl += outcome.pnl
+                    if _cumul_pnl > _cumul_peak:
+                        _cumul_peak = _cumul_pnl
+                    if _cumul_pnl < _cumul_trough:
+                        _cumul_trough = _cumul_pnl
+                        _cumul_trough_date = _prev_cal_date
+                    _dd_from_peak = _cumul_peak - _cumul_pnl
+                    if _dd_from_peak > _cumul_max_dd:
+                        _cumul_max_dd = _dd_from_peak
+                        _cumul_dd_trough_date = _prev_cal_date
+                    if _equity_enabled:
+                        running_equity += outcome.pnl
+                        peak_equity = max(peak_equity, running_equity)
+                        trough_equity = min(trough_equity, running_equity)
+                    if pending_oracle is not None:
+                        o_mfe = pending_oracle['oracle_mfe']
+                        o_mae = pending_oracle['oracle_mae']
+                        oracle_favorable = o_mfe if pending_oracle['direction'] == 'LONG' else o_mae
+                        oracle_potential = oracle_favorable * self.asset.point_value
+                        capture = outcome.pnl / oracle_potential if oracle_potential > 0 else 0.0
+                        _tp_potential = pending_oracle.get('tp_ticks', 0) * self.asset.tick_value
+                        _target_capture = outcome.pnl / _tp_potential if _tp_potential > 0 else 0.0
+                        oracle_trade_records.append({
+                            **pending_oracle,
+                            'exit_price': outcome.exit_price,
+                            'exit_time': ts_raw,
+                            'hold_bars': max(1, pos.bars_held),
+                            'exit_reason': 'maintenance_flat',
+                            'actual_pnl': outcome.pnl,
+                            'oracle_potential_pnl': oracle_potential,
+                            'capture_rate': round(min(capture, 9.99), 4),
+                            'target_capture': round(min(_target_capture, 9.99), 4),
+                            'result': outcome.result,
+                            'exit_workers': '{}',
+                            'exit_conviction': 0.0,
+                            'exit_wave_maturity': 0.0,
+                            'exit_signal_reason': 'maintenance_flat',
+                            'exit_decay_score': 0.0,
+                            'trade_mfe_ticks': round(_trade_mfe_ticks, 2),
+                            'price_expected_error': 0.0,
+                        })
+                        belief_network.stop_trade_tracking()
+                        pending_oracle = None
+                        _pending_dm_idx = None
+                    _exit_eng.record_trade_outcome(
+                        trade_mfe_ticks=_trade_mfe_ticks,
+                        actual_pnl_ticks=_maint_pnl / self.asset.tick_value,
+                        capture_rate=0.0,
+                    )
+                    continue  # Skip to next bar — no entries during maintenance
+
                 # 1. Manage existing position — via ExecutionEngine
                 if _exec_engine.in_position:
                     _exit_sig = belief_network.get_exit_signal(
@@ -990,6 +1068,7 @@ class Trainer:
                             exit_reason=_ee_reason, timestamp=ts_raw,
                             entry_time=active_entry_time, exit_time=ts_raw,
                             tick_value=self.asset.tick_value,
+                            hold_bars=_exit_action.bars_held,
                         )
                         day_trades.append(outcome)
                         _cal_day_trades.append(outcome)
@@ -1073,8 +1152,8 @@ class Trainer:
                         if isinstance(active_template_id, str) and active_template_id.startswith('PP_'):
                             _pp_all_trades.append(outcome)
 
-                        # Ping-pong: flip after exit
-                        if _pp_enabled:
+                        # Ping-pong: flip after exit (skip during maintenance)
+                        if _pp_enabled and not _in_maintenance:
                             _should_flip, _flip_side = _pp_try_flip(
                                 active_side, active_template_id, price, ts_raw,
                                 _pp_last_exit_params)
@@ -1119,7 +1198,7 @@ class Trainer:
                     bars_with_detection += 1
                     if current_position_open:
                         bars_slot_blocked += 1
-                if not current_position_open and ts in pattern_map:
+                if not current_position_open and not _in_maintenance and ts in pattern_map:
                     raw_candidates = pattern_map[ts]
                     _candidate_gate = {}    # id(p) -> gate label (for FN audit)
 
@@ -1219,6 +1298,7 @@ class Trainer:
                                 sl_ticks=_sl_ticks, tp_ticks=_tp_ticks,
                                 trail_ticks=_trail_ticks,
                                 trail_activation_ticks=_trail_act_ticks,
+                                lib_entry=lib_entry,
                             )
                             # Notify engine
                             _exec_engine.position_opened(
@@ -1296,6 +1376,8 @@ class Trainer:
                                 'target_price': round(price + (_tp_ticks if side == 'long' else -_tp_ticks) * self.asset.tick_size, 6),
                                 'stop_price':   round(price - (_sl_ticks if side == 'long' else -_sl_ticks) * self.asset.tick_size, 6),
                                 'expected_pnl': self.brain.get_expected_pnl(best_tid, side),
+                                'anchor_mfe_ticks': round(self._position.anchor_mfe_ticks, 1) if self._position else 0.0,
+                                'anchor_mfe_bars': round(self._position.anchor_mfe_bars, 1) if self._position else 0.0,
                                 'predicted_mfe_ticks': round(_belief.predicted_mfe, 2) if _belief is not None else 0.0,
                                 'price_expected': round(
                                     price + ((_belief.predicted_mfe if side == 'long' else -_belief.predicted_mfe)
@@ -1417,6 +1499,7 @@ class Trainer:
                     exit_reason='TIME_EXIT', timestamp=ts,
                     entry_time=active_entry_time, exit_time=ts,
                     tick_value=self.asset.tick_value,
+                    hold_bars=pos.bars_held,
                 )
                 day_trades.append(outcome)
                 _cal_day_trades.append(outcome)

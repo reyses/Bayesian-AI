@@ -437,6 +437,8 @@ class LiveEngine:
 
             if mtype == 'BAR':
                 await self._on_bar(msg)
+            elif mtype == 'PARTIAL_BAR':
+                self._on_partial_bar(msg)
             elif mtype == 'FILL':
                 if self._order_send_ts:
                     _rt_ms = (time.perf_counter() - self._order_send_ts) * 1000
@@ -593,6 +595,23 @@ class LiveEngine:
                     'bid': msg.get('bid'),
                     'ask': msg.get('ask'),
                 })
+
+    def _on_partial_bar(self, msg: dict):
+        """Handle PARTIAL_BAR from NT8 — update TBN worker with forming bar."""
+        if not self._belief_network:
+            return
+        bar_period = int(msg.get('bar_period_s', 0))
+        if bar_period == 0:
+            return
+        bar_data = {
+            'timestamp': float(msg['timestamp']),
+            'open':      float(msg['open']),
+            'high':      float(msg['high']),
+            'low':       float(msg['low']),
+            'close':     float(msg['close']),
+            'volume':    float(msg.get('volume', 0)),
+        }
+        self._belief_network.update_partial(bar_period, bar_data)
 
     async def _on_bar(self, msg: dict):
         """Route inbound BAR to 1s or 15s processing."""
@@ -757,6 +776,12 @@ class LiveEngine:
         """Check for exit signals on the current bar — Unified ExitEngine."""
         pos = self._position
         if pos is None or self._pos_state is None:
+            return
+
+        # CME maintenance cutoff: flatten before daily halt (16:45-18:00 ET)
+        if self._exit_engine.is_maintenance_window(ts):
+            logger.warning("MAINTENANCE FLAT: closing position before CME halt")
+            await self._close_position('maintenance_flat')
             return
 
         exit_sig = self._belief_network.get_exit_signal(pos.side, pos.entry_price)
@@ -1380,6 +1405,9 @@ class LiveEngine:
             self._entry_belief_pct = 0
             return
         if self._instrument_mismatch:
+            return
+        # Block entries during CME maintenance window
+        if self._exit_engine.is_maintenance_window(ts):
             return
 
         # Aggression scaling → set on exec_engine before each call

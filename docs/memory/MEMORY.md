@@ -118,19 +118,19 @@ After every forward pass, always read these reports:
 3. **Live Simulated**: Paper trading via live/ module. Failure = engineering.
 4. **Live Real**: Real money via NT8_BayesianBridge. Failure = risk management.
 
-## Current Baseline (IS+OOS, 2026-03-07, main branch)
-- IS: 7,262 trades, 85.7% WR, $86,351 total, $11.89/trade, PF 3.54
-- OOS: 536 trades, 88.4% WR, $10,804 total, $20.16/trade (~$5.4K/month)
-- Direction: 60.4% correct OOS (was 43.1%), taking both LONG and SHORT
-- Envelope_decay is primary exit: 91% of exits, $33-52/trade avg
-- Key fixes (2026-03-07): Gate 4 momentum alignment, trail/maxhold/watchdog disabled
-- Prior baseline (2026-02-25): 3,754 trades, 37.5% WR, $1.55/trade
+## Current Baseline (2026-03-09, active anchor exits)
+- IS: $83,821 PnL, 7,773 trades, 97.9% WR, $10.78/trade, 53.1% correct direction
+- OOS: $21,378 PnL, 1,881 trades, 98.5% WR, $11.37/trade, 56.2% correct direction
+- OOS Max DD: $197, worst dip $-48, 0 consecutive losing days
+- Key: 42% of OOS trades are breakeven SL exits (BE lock + anchor patience)
+- Productive exits: envelope $62.70/trade, giveback $42.49/trade, TP $204/trade
+- Genuinely wrong direction: 0.9% OOS (collapsed from 13.9%)
+- Risk: breakeven exits assume no slippage; 2 ticks slippage = $786 OOS cost
 
-## Updated Baseline (2026-03-08, oracle removed, pipeline restructured)
-- IS: $86,685 PnL, 7704 trades, 78.8% WR, 52.8% correct direction
-- OOS: $22,383 PnL, 1750 trades, 77.5% WR, 57.0% correct direction
-- Max DD: $395, 0 consecutive losing days
-- Key change: IS oracle direction override removed (was contaminating)
+## Prior Baselines
+- 2026-03-08: $86,685 IS / $22,383 OOS, 78.8%/77.5% WR, oracle removed
+- 2026-03-07: $86,351 IS / $10,804 OOS, 85.7%/88.4% WR, gate 4 momentum
+- 2026-02-25: $5,818 IS, 3,754 trades, 37.5% WR, $1.55/trade
 
 ## Implemented Features (confirmed in codebase)
 - **Direction fix** (2026-03-06): momentum-aware physics (velocity+acceleration) in TBN worker

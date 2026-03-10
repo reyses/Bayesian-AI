@@ -1,10 +1,12 @@
 // =============================================================================
-// BayesianBridge 6.4.0 — 2026-03-05 12:00
+// BayesianBridge 6.5.0 — 2026-03-09 18:00
 // =============================================================================
 // BayesianBridge — NinjaTrader 8 NinjaScript Indicator
 //
 // PURPOSE: TCP server inside NT8 that bridges to the Python live trading engine.
 //   - Streams completed bars (any TF, e.g. 1s) to Python
+//   - Streams PARTIAL_BAR for forming bars (higher TFs on child close,
+//     sub-minute on throttled ticks) so TBN workers get fresh beliefs
 //   - Receives PLACE_ORDER / CLOSE_POSITION / CANCEL_ORDER from Python
 //   - Sends FILL / ORDER_STATUS / POSITION messages back to Python
 //
@@ -57,7 +59,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         public int DomLevels { get; set; }
 
         // ── Version ──────────────────────────────────────────────────
-        private const string BRIDGE_VERSION = "6.4.0";
+        private const string BRIDGE_VERSION = "6.5.0";
 
         // ── Internal State ────────────────────────────────────────────
         private TcpListener  _listener;
@@ -92,6 +94,10 @@ namespace NinjaTrader.NinjaScript.Indicators
         // Account equity update throttle
         private DateTime _lastAccountSend = DateTime.MinValue;
         private const int ACCOUNT_UPDATE_MS = 5000;  // every 5 seconds
+
+        // Partial bar throttle for sub-minute tick feed
+        private DateTime _lastPartialSend = DateTime.MinValue;
+        private const int PARTIAL_THROTTLE_MS = 250;
 
         // Latest best bid/ask (updated on every depth event, sent throttled)
         private double _bestBid, _bestAsk;
@@ -232,6 +238,57 @@ namespace NinjaTrader.NinjaScript.Indicators
                 }
             }
             SendRawJson(json);
+
+            // Send PARTIAL_BAR for all higher TF series (their forming bar)
+            for (int hi = idx + 1; hi < _barPeriodSecs.Length; hi++)
+            {
+                if (CurrentBars[hi] < 1) continue;
+                string partial = "{"
+                    + Q("type") + ":" + Q("PARTIAL_BAR") + ","
+                    + Q("instrument") + ":" + Q(Instrument.FullName) + ","
+                    + Q("tf") + ":" + Q(_barLabels[hi]) + ","
+                    + Q("bar_period_s") + ":" + _barPeriodSecs[hi] + ","
+                    + Q("timestamp") + ":" + D2S(ToUnixSeconds(Times[hi][0])) + ","
+                    + Q("open") + ":" + D2S(Opens[hi][0]) + ","
+                    + Q("high") + ":" + D2S(Highs[hi][0]) + ","
+                    + Q("low") + ":" + D2S(Lows[hi][0]) + ","
+                    + Q("close") + ":" + D2S(Closes[hi][0]) + ","
+                    + Q("volume") + ":" + D2S(Volumes[hi][0])
+                    + "}";
+                SendRawJson(partial);
+            }
+        }
+
+        // ── Partial bars for sub-minute TFs on each trade tick ──────
+
+        protected override void OnMarketData(MarketDataEventArgs e)
+        {
+            if (e.MarketDataType != MarketDataType.Last) return;
+            if (_client == null || !_clientAlive) return;
+
+            DateTime now = DateTime.UtcNow;
+            if ((now - _lastPartialSend).TotalMilliseconds < PARTIAL_THROTTLE_MS)
+                return;
+            _lastPartialSend = now;
+
+            for (int i = 0; i < _barPeriodSecs.Length; i++)
+            {
+                if (_barPeriodSecs[i] >= 60) break;  // sorted ascending — stop at 1m+
+                if (CurrentBars[i] < 1) continue;
+                string partial = "{"
+                    + Q("type") + ":" + Q("PARTIAL_BAR") + ","
+                    + Q("instrument") + ":" + Q(Instrument.FullName) + ","
+                    + Q("tf") + ":" + Q(_barLabels[i]) + ","
+                    + Q("bar_period_s") + ":" + _barPeriodSecs[i] + ","
+                    + Q("timestamp") + ":" + D2S(ToUnixSeconds(Times[i][0])) + ","
+                    + Q("open") + ":" + D2S(Opens[i][0]) + ","
+                    + Q("high") + ":" + D2S(Highs[i][0]) + ","
+                    + Q("low") + ":" + D2S(Lows[i][0]) + ","
+                    + Q("close") + ":" + D2S(Closes[i][0]) + ","
+                    + Q("volume") + ":" + D2S(Volumes[i][0])
+                    + "}";
+                SendRawJson(partial);
+            }
         }
 
         // ── DOM (Depth of Market) ────────────────────────────────────
