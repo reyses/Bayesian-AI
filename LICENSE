@@ -1,0 +1,92 @@
+Copyright (c) 2025-2026 reyses. All Rights Reserved.
+
+PROPRIETARY SOFTWARE LICENSE AGREEMENT
+
+This software, including all source code, object code, algorithms, data
+structures, trading strategies, machine learning models, configuration files,
+documentation, and associated materials (collectively, the "Software"), is the
+exclusive intellectual property of the copyright holder and is protected under:
+
+  - Title 17, United States Code (U.S. Copyright Act)
+  - The Digital Millennium Copyright Act (DMCA), 17 U.S.C. 1201 et seq.
+  - The Defend Trade Secrets Act (DTSA), 18 U.S.C. 1836 et seq.
+  - The Economic Espionage Act, 18 U.S.C. 1831-1839
+  - The Computer Fraud and Abuse Act (CFAA), 18 U.S.C. 1030
+  - Applicable state trade secret laws (including the Uniform Trade
+    Secrets Act as adopted by the relevant jurisdiction)
+  - International intellectual property treaties and conventions,
+    including the Berne Convention and the TRIPS Agreement
+
+TRADE SECRET NOTICE
+
+The Software contains proprietary trade secrets including but not limited to
+trading algorithms, statistical models, signal processing methods, Bayesian
+inference techniques, and market microstructure strategies. All such
+information is confidential and constitutes trade secrets under federal and
+state law.
+
+NO LICENSE GRANTED
+
+No license, right, or permission of any kind is granted to any person or
+entity, whether by implication, estoppel, or otherwise, to:
+
+  (a) Use, execute, or run the Software for any purpose;
+  (b) Copy, reproduce, or duplicate the Software in whole or in part;
+  (c) Modify, adapt, translate, or create derivative works of the Software;
+  (d) Distribute, publish, display, sublicense, lease, rent, loan, or
+      otherwise transfer the Software to any third party;
+  (e) Reverse engineer, decompile, disassemble, or otherwise attempt to
+      derive the source code, algorithms, or data structures of the Software;
+  (f) Remove, alter, or obscure any copyright, trademark, or other
+      proprietary notices contained in or on the Software;
+  (g) Use any portion of the Software to develop competing products or
+      services;
+  (h) Access, analyze, or extract the Software's trading strategies,
+      parameters, or model weights for any purpose.
+
+ENFORCEMENT
+
+Unauthorized access, use, reproduction, distribution, or disclosure of the
+Software or any portion thereof constitutes:
+
+  - Copyright infringement under 17 U.S.C. 501 et seq., subject to
+    statutory damages of up to $150,000 per work infringed (17 U.S.C. 504);
+  - A violation of the DMCA, subject to civil and criminal penalties;
+  - Misappropriation of trade secrets under the DTSA and applicable state
+    law, subject to injunctive relief, actual damages, unjust enrichment,
+    exemplary damages up to 2x actual damages, and attorney's fees;
+  - A potential federal criminal offense under the Economic Espionage Act,
+    punishable by fines up to $5,000,000 and imprisonment up to 10 years;
+  - A potential violation of the CFAA, subject to civil and criminal
+    penalties.
+
+The copyright holder reserves the right to pursue all available legal and
+equitable remedies, including but not limited to temporary restraining orders,
+preliminary and permanent injunctions, actual and statutory damages, and
+recovery of attorney's fees and costs.
+
+DISCLAIMER OF WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+
+LIMITATION OF LIABILITY
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE,
+ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+GOVERNING LAW
+
+This License shall be governed by and construed in accordance with the laws
+of the United States of America and the State of Florida, without regard to
+conflict of law principles. Any legal action arising under this License shall
+be brought exclusively in the federal or state courts located in the State of
+Florida, and the parties consent to the personal jurisdiction of such courts.
+
+SEVERABILITY
+
+If any provision of this License is held to be unenforceable, the remaining
+provisions shall continue in full force and effect.
