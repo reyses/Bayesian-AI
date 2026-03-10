@@ -91,3 +91,38 @@ def calculate_kinetic_damping(velocity_vector: np.ndarray) -> float:
     x = np.arange(len(peaks))
     slope, _ = np.polyfit(x, y, 1)
     return abs(slope)
+
+from numba import njit, prange
+
+@njit(parallel=True, cache=True)
+def _compute_rolling_std_numba(arr: np.ndarray, window: int, ddof: int = 1) -> np.ndarray:
+    """
+    Numba-optimized rolling standard deviation.
+    Replaces slow `sliding_window_view(...).std(axis=1)`
+    """
+    n = len(arr)
+    out = np.empty(n, dtype=np.float64)
+    # Fill nan
+    for i in range(n):
+        out[i] = np.nan
+
+    if n < window:
+        return out
+
+    # Calculate for each window
+    for i in prange(window - 1, n):
+        # Calculate mean
+        sum_val = 0.0
+        for j in range(window):
+            sum_val += arr[i - j]
+        mean_val = sum_val / window
+
+        # Calculate variance
+        sum_sq_diff = 0.0
+        for j in range(window):
+            diff = arr[i - j] - mean_val
+            sum_sq_diff += diff * diff
+
+        out[i] = np.sqrt(sum_sq_diff / (window - ddof))
+
+    return out
