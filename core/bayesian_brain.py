@@ -125,6 +125,29 @@ class BayesianBrain:
 
         return bias
 
+    def record_hold_bars(self, tid, side: str, hold_bars: int):
+        """Track actual hold time per template×direction for time anchor calibration."""
+        if tid is None:
+            return
+        base_tid = tid[3:] if isinstance(tid, str) and tid.startswith('PP_') else tid
+        if base_tid not in self.dir_bias:
+            return
+        bias = self.dir_bias[base_tid]
+        key = side.lower()
+        bias[f'{key}_hold_sum'] = bias.get(f'{key}_hold_sum', 0) + hold_bars
+        bias[f'{key}_hold_n'] = bias.get(f'{key}_hold_n', 0) + 1
+
+    def get_expected_hold(self, tid, side: str) -> float | None:
+        """Return average hold bars for (template, direction). None if < 3 samples."""
+        bias = self.get_dir_bias(tid)
+        if bias is None:
+            return None
+        key = side.lower()
+        n = bias.get(f'{key}_hold_n', 0)
+        if n < 3:
+            return None
+        return bias.get(f'{key}_hold_sum', 0) / n
+
     def get_dir_bias(self, tid) -> dict | None:
         """Get direction bias for a template ID."""
         base_tid = tid[3:] if isinstance(tid, str) and tid.startswith('PP_') else tid
@@ -293,7 +316,8 @@ def record_trade(brain: 'BayesianBrain', *, tid, entry_price: float,
                  exit_price: float, pnl: float, side: str,
                  exit_reason: str, timestamp: float,
                  entry_time: float = 0.0, exit_time: float = 0.0,
-                 tick_value: float = 0.50) -> TradeOutcome:
+                 tick_value: float = 0.50,
+                 hold_bars: int = 0) -> TradeOutcome:
     """Shared trade recording — used by both trainer and live.
 
     Constructs TradeOutcome, updates brain table + direction learning.
@@ -315,6 +339,8 @@ def record_trade(brain: 'BayesianBrain', *, tid, entry_price: float,
     )
     brain.update(outcome)
     brain.direction_learn(tid, side, pnl, tick_value=tick_value)
+    if hold_bars > 0:
+        brain.record_hold_bars(tid, side, hold_bars)
     return outcome
 
 
