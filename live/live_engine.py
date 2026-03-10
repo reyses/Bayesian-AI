@@ -32,6 +32,8 @@ from core.execution_engine import (ExecutionEngine, ActionType, Candidate,
 from core.fractal_clustering import FractalClusteringEngine
 from core.feature_extraction import extract_feature_vector
 from core.timeframe_belief_network import TimeframeBeliefNetwork
+from core.checkpoint_loader import load_checkpoints
+from core.engine_factory import create_belief_network, create_execution_engine
 from live.exit_watcher import ExitWatcher
 from live.gui_bridge import GUIBridge
 from live.session_tracker import SessionTracker
@@ -1651,81 +1653,16 @@ class LiveEngine:
         cpdir = self._cfg.checkpoint_dir
         logger.info(f"Loading checkpoints from {cpdir}/")
 
-        # Pattern library
-        lib_path = os.path.join(cpdir, 'pattern_library.pkl')
-        if not os.path.exists(lib_path):
-            raise FileNotFoundError(f"Missing pattern_library.pkl in {cpdir}")
-        with open(lib_path, 'rb') as f:
-            self._pattern_library = pickle.load(f)
-        logger.info(f"  Library: {len(self._pattern_library)} templates")
-
-        # Clustering scaler (for scaling live features before L2 matching)
-        scaler_path = os.path.join(cpdir, 'clustering_scaler.pkl')
-        if os.path.exists(scaler_path):
-            with open(scaler_path, 'rb') as f:
-                self._scaler = pickle.load(f)
-            logger.info(f"  Scaler: loaded from clustering_scaler.pkl")
-        else:
-            # Fallback: fit scaler on library centroids (already scaled space)
-            # This gives identity-like transform; works for matching but
-            # won't perfectly standardize new features. Retrain with --fresh
-            # to generate proper scaler.
-            from sklearn.preprocessing import StandardScaler
-            logger.warning("  clustering_scaler.pkl not found — reconstructing from centroids")
-            _cents = [v['centroid'] for v in self._pattern_library.values()
-                      if 'centroid' in v]
-            if _cents:
-                self._scaler = StandardScaler().fit(np.array(_cents))
-            else:
-                raise FileNotFoundError("No centroids in library and no scaler")
-
-        # Valid template IDs (must have centroids)
-        self._valid_tids = [
-            tid for tid in self._pattern_library
-            if 'centroid' in self._pattern_library[tid]
-        ]
-        if not self._valid_tids:
-            raise ValueError("No valid templates with centroids found")
-
-        # Template tiers
-        tiers_path = os.path.join(cpdir, 'template_tiers.pkl')
-        if os.path.exists(tiers_path):
-            with open(tiers_path, 'rb') as f:
-                self._template_tier_map = pickle.load(f)
-            logger.info(f"  Tiers: {len(self._template_tier_map)} templates")
-
-        # Depth weights
-        dw_path = os.path.join(cpdir, 'depth_weights.json')
-        if os.path.exists(dw_path):
-            with open(dw_path) as f:
-                dw_data = json.load(f)
-            self._depth_score_adj = {
-                int(k): float(v.get('score_adj', 0.0))
-                for k, v in dw_data.items()
-            }
-            self._depth_filter_out = {
-                int(k) for k, v in dw_data.items()
-                if v.get('filter_out', False)
-            }
-            logger.info(f"  Depth weights: {len(self._depth_score_adj)} depths, "
-                         f"{len(self._depth_filter_out)} filtered out")
-
-        # Build centroid index — centroids stored RAW, must scale for L2 matching
-        _raw_centroids = np.array([
-            self._pattern_library[tid]['centroid']
-            for tid in self._valid_tids
-        ])
-        self._centroids_scaled = self._scaler.transform(_raw_centroids)
-        logger.info(f"  Centroids: {len(self._valid_tids)} ready for matching")
-
-        # Exception templates (data-quality override)
-        for tid in self._valid_tids:
-            lib = self._pattern_library.get(tid, {})
-            if (lib.get('member_count', 0) >= 10
-                    and lib.get('stats_win_rate', 0.0) >= 0.55
-                    and (lib.get('regression_sigma_ticks') or 999) <= 10.0):
-                self._exception_tids.add(tid)
-        logger.info(f"  Exception templates: {len(self._exception_tids)}")
+        # Shared checkpoint loading (same as trainer.py)
+        _bundle = load_checkpoints(cpdir, verbose=False)
+        self._pattern_library = _bundle.pattern_library
+        self._scaler = _bundle.scaler
+        self._valid_tids = _bundle.valid_tids
+        self._centroids_scaled = _bundle.centroids_scaled
+        self._template_tier_map = _bundle.template_tier_map
+        self._depth_score_adj = _bundle.depth_score_adj
+        self._depth_filter_out = _bundle.depth_filter_out
+        self._exception_tids = _bundle.exception_tids
 
         # Brain — prefer live > forward_pass > training
         live_brain_path = os.path.join(cpdir, 'live_brain.pkl')
@@ -1764,33 +1701,33 @@ class LiveEngine:
 
     def _init_belief_network(self):
         """Initialize the fractal belief network from loaded checkpoints."""
-        self._belief_network = TimeframeBeliefNetwork(
-            pattern_library=self._pattern_library,
-            scaler=self._scaler,
-            engine=self._engine,
-            valid_tids=self._valid_tids,
-            centroids_scaled=self._centroids_scaled,
-        )
-        logger.info(f"  Belief network: {len(TimeframeBeliefNetwork.TIMEFRAMES_SECONDS)} TF workers")
+        _bundle = self._checkpoint_bundle()
+        self._belief_network = create_belief_network(_bundle, self._engine)
 
     def _init_exec_engine(self):
         """Initialize ExecutionEngine for live gate cascade (single source of truth)."""
-        self._exec_engine = ExecutionEngine(
+        _bundle = self._checkpoint_bundle()
+        self._exec_engine = create_execution_engine(
+            bundle=_bundle,
             brain=self._brain,
             belief_network=self._belief_network,
             exit_engine=self._exit_engine,
-            pattern_library=self._pattern_library,
-            scaler=self._scaler,
-            centroids_scaled=self._centroids_scaled,
-            valid_tids=self._valid_tids,
             tick_size=self._asset.tick_size,
             point_value=self._asset.point_value,
             mode='live',
-            tier_score_adj=self._tier_score_adj,
-            depth_score_adj=self._depth_score_adj,
-            template_tier_map=self._template_tier_map,
-            exception_tids=self._exception_tids,
-            depth_filter_out=self._depth_filter_out,
-            feature_extractor=FractalClusteringEngine.extract_features,
+            tier_preference=True,
         )
-        logger.info(f"  Execution engine: live mode, {len(self._valid_tids)} templates")
+
+    def _checkpoint_bundle(self):
+        """Build a CheckpointBundle from already-loaded instance attrs."""
+        from core.checkpoint_loader import CheckpointBundle
+        return CheckpointBundle(
+            pattern_library=self._pattern_library,
+            scaler=self._scaler,
+            valid_tids=self._valid_tids,
+            centroids_scaled=self._centroids_scaled,
+            template_tier_map=self._template_tier_map,
+            depth_score_adj=self._depth_score_adj,
+            depth_filter_out=self._depth_filter_out,
+            exception_tids=self._exception_tids,
+        )
