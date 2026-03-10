@@ -54,6 +54,8 @@ from core.fractal_clustering import FractalClusteringEngine, PatternTemplate
 from training.pipeline_checkpoint import PipelineCheckpoint
 from core.timeframe_belief_network import TimeframeBeliefNetwork, BeliefState
 from core.execution_engine import ExecutionEngine, ActionType, TradeAction, Candidate
+from core.checkpoint_loader import load_checkpoints
+from core.engine_factory import create_belief_network, create_execution_engine
 
 # Execution components
 from training.batch_regret_analyzer import BatchRegretAnalyzer
@@ -314,140 +316,56 @@ class Trainer:
                     except OSError:
                         pass
 
-        # 1. Load Prerequisites
-        lib_path = os.path.join(self.checkpoint_dir, 'pattern_library.pkl')
-        scaler_path = os.path.join(self.checkpoint_dir, 'clustering_scaler.pkl')
-
-        if not os.path.exists(lib_path) or not os.path.exists(scaler_path):
-            print("ERROR: pattern_library.pkl or clustering_scaler.pkl not found.")
-            print("Run with --fresh to build from scratch.")
+        # 1. Load Prerequisites (shared with live_engine.py)
+        try:
+            _bundle = load_checkpoints(self.checkpoint_dir, verbose=True)
+        except (FileNotFoundError, ValueError) as e:
+            print(f"ERROR: {e}")
             return
 
-        with open(lib_path, 'rb') as f:
-            self.pattern_library = pickle.load(f)
-        with open(scaler_path, 'rb') as f:
-            self.scaler = pickle.load(f)
+        self.pattern_library = _bundle.pattern_library
+        self.scaler = _bundle.scaler
+        valid_template_ids = _bundle.valid_tids
+        centroids_scaled = _bundle.centroids_scaled
+        template_tier_map = _bundle.template_tier_map
+        _exception_tids = _bundle.exception_tids
 
-        print(f"  Loaded library: {len(self.pattern_library)} templates")
-
-        if hasattr(self.scaler, 'mean_'):
-            print(f"  Loaded scaler: {self.scaler.mean_.shape[0]} features")
-        else:
-            print(f"  Loaded scaler: Not fitted (no patterns found)")
-            if not self.pattern_library:
-                print("  No patterns/templates to simulate. Exiting.")
-                return
-
-        # Build centroid index for fast matching
-        template_ids = list(self.pattern_library.keys())
-        # Filter only templates with valid centroids (some might be empty/invalid if manually edited)
-        valid_template_ids = [tid for tid in template_ids if 'centroid' in self.pattern_library[tid]]
-
-        if not valid_template_ids:
-            print("ERROR: No valid templates in library.")
-            return
-
-        # Load tier map (read-only labels for signal log + tiebreaker)
-        _TIER_SCORE_ADJ = {1: -1.5, 2: -0.5, 3: 0.0, 4: 0.5} if tier_preference else {}
-        tiers_path = os.path.join(self.checkpoint_dir, 'template_tiers.pkl')
-        template_tier_map = {}
-        if os.path.exists(tiers_path):
-            with open(tiers_path, 'rb') as f:
-                template_tier_map = pickle.load(f)
+        # Tier tiebreaker logging
+        if tier_preference:
             t1 = sum(1 for v in template_tier_map.values() if v == 1)
-            if tier_preference:
-                print(f"  Loaded tier map (TIEBREAKER ACTIVE): {len(template_tier_map)} templates ({t1} Tier 1)")
-            else:
-                print(f"  Loaded tier map (labels only): {len(template_tier_map)} templates ({t1} Tier 1)")
-        else:
-            print("  No tier map found -- all templates weighted equally")
+            print(f"  Tier tiebreaker ACTIVE: {t1} Tier 1 templates")
 
-        # Load per-depth PnL weights computed from the previous forward pass.
-        # depth_weights.json is written at the end of each run so the NEXT run
-        # can use data-driven depth scoring and filtering.
-        _DEPTH_SCORE_ADJ  = {}   # depth (int) -> score adjustment (float, lower=better)
-        _DEPTH_FILTER_OUT = set()  # depths whose avg_pnl/trade was negative last run
+        # Depth weight detail logging (trainer-specific verbosity)
         _depth_weights_path = os.path.join(self.checkpoint_dir, 'depth_weights.json')
         if os.path.exists(_depth_weights_path):
             import json as _json
             with open(_depth_weights_path) as _dw_f:
                 _dw_data = _json.load(_dw_f)
-            _DEPTH_SCORE_ADJ  = {int(k): float(v.get('score_adj', 0.0)) for k, v in _dw_data.items()}
-            _DEPTH_FILTER_OUT = {int(k) for k, v in _dw_data.items() if v.get('filter_out', False)}
-            print(f"  Loaded depth weights ({len(_DEPTH_SCORE_ADJ)} depths, {len(_DEPTH_FILTER_OUT)} filtered out):")
             for _dk in sorted(_dw_data.keys(), key=int):
                 _dv = _dw_data[_dk]
                 print(f"    depth {_dk}: avg_pnl=${_dv.get('avg_pnl',0):.1f}/trade  "
                       f"score_adj={_dv.get('score_adj',0):+.2f}  filter={_dv.get('filter_out',False)}")
-        else:
-            print("  No depth weights found -- uniform depth scoring (run forward pass first to build weights)")
 
-        centroids = np.array([self.pattern_library[tid]['centroid'] for tid in valid_template_ids])
-        centroids_scaled = self.scaler.transform(centroids)
-        print(f"  Prepared {len(valid_template_ids)} centroids for matching.")
-
-        # Pre-compute templates that earned a Pattern Quality exception via data quality.
-        # A template earns an exception if: enough members + positive win rate + low residuals.
-        _EXCEPTION_MIN_MEMBERS  = 10
-        _EXCEPTION_MIN_WIN_RATE = 0.55
-        _EXCEPTION_MAX_SIGMA    = 10.0   # ticks; low = consistent behaviour
-        _exception_tids = set()
-        for _etid in valid_template_ids:
-            _elib = self.pattern_library.get(_etid, {})
-            _en   = _elib.get('member_count', 0)
-            _ewr  = _elib.get('stats_win_rate', 0.0)
-            _esig = _elib.get('regression_sigma_ticks', None)
-            if (_en >= _EXCEPTION_MIN_MEMBERS
-                    and _ewr >= _EXCEPTION_MIN_WIN_RATE
-                    and _esig is not None
-                    and _esig <= _EXCEPTION_MAX_SIGMA):
-                _exception_tids.add(_etid)
-        print(f"  Pattern Quality exceptions: {len(_exception_tids)} / {len(valid_template_ids)} "
-              f"(>={_EXCEPTION_MIN_MEMBERS} members, WR>={_EXCEPTION_MIN_WIN_RATE:.0%}, "
-              f"sigma<={_EXCEPTION_MAX_SIGMA} ticks)")
-
-        # Fractal belief network: 8 TF workers (1h -> 15s), path conviction
-        # Each worker: Task1 = aggregate TF bars (once/day), Task2 = cluster match + regression
-        # 1h worker fires ~7x/day (light); 15s fires every bar (heavy: top-3 matching)
-        belief_network = TimeframeBeliefNetwork(
-            pattern_library  = self.pattern_library,
-            scaler           = self.scaler,
-            engine           = self.engine,
-            valid_tids       = valid_template_ids,
-            centroids_scaled = centroids_scaled,
-        )
-        print(f"  Belief network: {len(TimeframeBeliefNetwork.TIMEFRAMES_SECONDS)} TF workers "
-              f"(conviction threshold: {TimeframeBeliefNetwork.MIN_CONVICTION:.2f})")
-
-        # ── Unified Execution Engine ──────────────────────────────────────────
-        # Reuse exit engine across iterations (carries self-tuned params)
+        # Belief network + Execution engine (shared factory)
         _exit_eng = getattr(self, '_persisted_exit_engine', None) or ExitEngine(
             mode='training',
             tick_size=self.asset.tick_size,
             tick_value=self.asset.tick_size * self.asset.point_value,
         )
-        _exec_engine = ExecutionEngine(
+        belief_network = create_belief_network(_bundle, self.engine)
+        _exec_engine = create_execution_engine(
+            bundle=_bundle,
             brain=self.brain,
             belief_network=belief_network,
             exit_engine=_exit_eng,
-            pattern_library=self.pattern_library,
-            scaler=self.scaler,
-            centroids_scaled=centroids_scaled,
-            valid_tids=valid_template_ids,
             tick_size=self.asset.tick_size,
             point_value=self.asset.point_value,
             mode='oos' if oos_mode else 'is',
-            tier_score_adj=_TIER_SCORE_ADJ,
-            depth_score_adj=_DEPTH_SCORE_ADJ,
-            template_tier_map=template_tier_map,
-            exception_tids=_exception_tids,
+            tier_preference=tier_preference,
             bias_threshold=bias_threshold if bias_threshold is not None else 0.55,
             dmi_threshold=dmi_threshold if dmi_threshold is not None else 0.0,
-            depth_filter_out=_DEPTH_FILTER_OUT,
             depth_only=getattr(self, '_depth_only', None),
-            feature_extractor=FractalClusteringEngine.extract_features,
         )
-        print(f"  Execution engine: mode={_exec_engine.mode}")
 
         # 2. Iterate files (monthly YYYY_MM.parquet or daily YYYYMMDD.parquet)
         daily_files_15s = sorted(glob.glob(os.path.join(data_source, '15s', '*.parquet')))
@@ -1643,142 +1561,76 @@ class Trainer:
 
         _pbar.close()
 
-        # ═══════════════════════════════════════════════════════════════
-        # ORACLE DIRECTION LEARNING (supervised correction)
-        # Update pattern library so live starts with corrected direction
-        # profiles, not the Phase 2 Clustering originals.
-        # ═══════════════════════════════════════════════════════════════
-        _dir_corrections = defaultdict(lambda: {
-            'long_correct': 0, 'long_wrong': 0,
-            'short_correct': 0, 'short_wrong': 0,
-            'long_pnl': 0.0, 'short_pnl': 0.0,
-            'signed_mfe_samples': [],
-        })
+        _dir_corrections = self._learn_oracle_directions(
+            oracle_trade_records, oos_mode,
+            brain_keys_before_oos=_brain_keys_before_oos if oos_mode else None,
+            brain_dir_keys_before_oos=_brain_dir_keys_before_oos if oos_mode else None,
+        )
 
-        if oracle_trade_records:
-            print(f"\n  Learning direction corrections from oracle{' (OOS refinement)' if oos_mode else ''}...")
-            for rec in oracle_trade_records:
-                tid = rec.get('template_id')
-                if tid is None or tid == -1:
-                    continue
-                direction = rec.get('direction', '')
-                oracle_label = rec.get('oracle_label', 0)
-                actual_pnl = rec.get('actual_pnl', 0.0)
-                oracle_mfe = rec.get('oracle_mfe', 0.0)
-                oracle_mae = rec.get('oracle_mae', 0.0)
-                acc = _dir_corrections[tid]
+        self._write_forward_pass_reports(
+            total_trades=total_trades, total_wins=total_wins, total_pnl=total_pnl,
+            oracle_trade_records=oracle_trade_records,
+            fn_oracle_records=fn_oracle_records,
+            decision_matrix_records=decision_matrix_records,
+            pid_oracle_records=pid_oracle_records,
+            daily_files_15s=daily_files_15s, start_date=start_date, end_date=end_date,
+            _worker_total_states=_worker_total_states,
+            _worker_days_with_data=_worker_days_with_data,
+            _equity_enabled=_equity_enabled, account_size=account_size,
+            running_equity=running_equity, peak_equity=peak_equity,
+            trough_equity=trough_equity, skipped_ruin=skipped_ruin,
+            _dd_aggression=_dd_aggression, account_ruined=account_ruined, ruin_day=ruin_day,
+            _daily_ledger=_daily_ledger, _max_consec_losing_days=_max_consec_losing_days,
+            _all_day_dips=_all_day_dips, _worst_intraday_dip=_worst_intraday_dip,
+            _worst_dip_date=_worst_dip_date,
+            _cumul_pnl=_cumul_pnl, _cumul_peak=_cumul_peak, _cumul_trough=_cumul_trough,
+            _cumul_trough_date=_cumul_trough_date, _cumul_max_dd=_cumul_max_dd,
+            _cumul_dd_trough_date=_cumul_dd_trough_date,
+            audit_tp=audit_tp, audit_fp_wrong=audit_fp_wrong,
+            audit_fp_noise=audit_fp_noise, audit_fn=audit_fn, audit_tn=audit_tn,
+            fn_potential_pnl=fn_potential_pnl, score_loser_pnl=score_loser_pnl,
+            total_bars_processed=total_bars_processed,
+            bars_with_detection=bars_with_detection,
+            bars_slot_blocked=bars_slot_blocked, n_signals_seen=n_signals_seen,
+            depth_traded=depth_traded,
+            _exec_engine=_exec_engine, _dir_corrections=_dir_corrections,
+            _out_dir=_out_dir, _reports_out=_reports_out,
+            oos_mode=oos_mode, _analysis_mode=_analysis_mode,
+            _pp_enabled=_pp_enabled, _pp_flip_count=_pp_flip_count,
+            _pp_all_trades=_pp_all_trades,
+            _NINJATRADER_MNQ_MARGIN=_NINJATRADER_MNQ_MARGIN,
+        )
 
-                oracle_says_long = oracle_label > 0
-                oracle_says_short = oracle_label < 0
-                we_went_long = direction == 'LONG'
-                we_went_short = direction == 'SHORT'
+        # Persist exit engine for multi-iteration runs
+        self._persisted_exit_engine = _exec_engine.exit_engine
+        self.exec_engine = _exec_engine
 
-                if we_went_long:
-                    acc['long_pnl'] += actual_pnl
-                    if oracle_says_long:
-                        acc['long_correct'] += 1
-                    elif oracle_says_short:
-                        acc['long_wrong'] += 1
-                if we_went_short:
-                    acc['short_pnl'] += actual_pnl
-                    if oracle_says_short:
-                        acc['short_correct'] += 1
-                    elif oracle_says_long:
-                        acc['short_wrong'] += 1
+        print("\n  [OK] Forward pass complete -- all files saved.", flush=True)
 
-                if oracle_label != 0:
-                    signed_mfe = oracle_mfe if oracle_label > 0 else -oracle_mae
-                    acc['signed_mfe_samples'].append({
-                        'signed_mfe': signed_mfe,
-                        'entry_depth': rec.get('entry_depth', 6),
-                        'dmi_diff': rec.get('dmi_diff', 0.0),
-                    })
-
-            # Update pattern library with corrected biases
-            _updated_count = 0
-            _regression_count = 0
-            for tid, acc in _dir_corrections.items():
-                if tid not in self.pattern_library:
-                    continue
-                lib = self.pattern_library[tid]
-                long_total = acc['long_correct'] + acc['long_wrong']
-                short_total = acc['short_correct'] + acc['short_wrong']
-                total_dir_trades = long_total + short_total
-
-                if total_dir_trades >= 3:
-                    fp_long_correct = acc['long_correct']
-                    fp_short_correct = acc['short_correct']
-                    fp_total_correct = fp_long_correct + fp_short_correct
-                    if fp_total_correct > 0:
-                        fp_long_bias = fp_long_correct / fp_total_correct
-                        fp_short_bias = fp_short_correct / fp_total_correct
-                    else:
-                        fp_long_bias = 0.5
-                        fp_short_bias = 0.5
-                    orig_long = lib.get('long_bias', 0.5)
-                    orig_short = lib.get('short_bias', 0.5)
-                    new_long = 0.7 * fp_long_bias + 0.3 * orig_long
-                    new_short = 0.7 * fp_short_bias + 0.3 * orig_short
-                    total = new_long + new_short
-                    if total > 0:
-                        new_long /= total
-                        new_short /= total
-                    lib['long_bias'] = round(new_long, 4)
-                    lib['short_bias'] = round(new_short, 4)
-                    lib['direction_source'] = 'oracle_corrected'
-                    _updated_count += 1
-
-                if long_total >= 2 and short_total >= 2:
-                    lib['long_avg_pnl'] = round(acc['long_pnl'] / long_total, 2)
-                    lib['short_avg_pnl'] = round(acc['short_pnl'] / short_total, 2)
-
-                # Signed MFE regression
-                samples = acc['signed_mfe_samples']
-                if len(samples) >= 15:
-                    try:
-                        from sklearn.linear_model import LinearRegression
-                        X = np.array([[s['entry_depth'], s['dmi_diff']] for s in samples])
-                        y = np.array([s['signed_mfe'] for s in samples])
-                        reg = LinearRegression().fit(X, y)
-                        lib['signed_mfe_coeff'] = reg.coef_.tolist()
-                        lib['signed_mfe_intercept'] = float(reg.intercept_)
-                        _regression_count += 1
-                    except Exception:
-                        pass
-
-            print(f"  Direction corrections: {_updated_count} templates updated")
-            print(f"  Signed MFE regression: {_regression_count} templates fitted")
-
-            # Save updated library
-            _lib_path = os.path.join(self.checkpoint_dir, 'pattern_library.pkl')
-            with open(_lib_path, 'wb') as _f:
-                pickle.dump(self.pattern_library, _f)
-            print(f"  Updated pattern_library.pkl saved")
-
-            # Save brain with direction-specific learning for live
-            _brain_path = os.path.join(self.checkpoint_dir, 'pattern_forward_brain.pkl')
-            self.brain.save(_brain_path)
-            print(f"  Forward pass brain saved: {_brain_path}")
-            print(f"    States: {len(self.brain.table)}, "
-                  f"Direction pairs: {len(self.brain.dir_table)}")
-
-        # OOS: save brain with updated weights but drop new patterns
-        if oos_mode and oracle_trade_records:
-            _new_keys = set(self.brain.table.keys()) - _brain_keys_before_oos
-            _new_dir_keys = set(self.brain.dir_table.keys()) - _brain_dir_keys_before_oos
-            for k in _new_keys:
-                del self.brain.table[k]
-            for k in _new_dir_keys:
-                del self.brain.dir_table[k]
-            print(f"\n  OOS brain cleanup: dropped {len(_new_keys)} new patterns, "
-                  f"{len(_new_dir_keys)} new dir entries")
-            print(f"  Retained weights on {len(self.brain.table)} pre-existing patterns")
-            _brain_path = os.path.join(self.checkpoint_dir, 'pattern_forward_brain.pkl')
-            self.brain.save(_brain_path)
-            print(f"  OOS brain saved: {_brain_path}")
-            print(f"    States: {len(self.brain.table)}, "
-                  f"Direction pairs: {len(self.brain.dir_table)}")
-
+    def _write_forward_pass_reports(
+        self, *,
+        total_trades, total_wins, total_pnl,
+        oracle_trade_records, fn_oracle_records,
+        decision_matrix_records, pid_oracle_records,
+        daily_files_15s, start_date, end_date,
+        _worker_total_states, _worker_days_with_data,
+        _equity_enabled, account_size, running_equity, peak_equity, trough_equity,
+        skipped_ruin, _dd_aggression, account_ruined, ruin_day,
+        _daily_ledger, _max_consec_losing_days,
+        _all_day_dips, _worst_intraday_dip, _worst_dip_date,
+        _cumul_pnl, _cumul_peak, _cumul_trough, _cumul_trough_date,
+        _cumul_max_dd, _cumul_dd_trough_date,
+        audit_tp, audit_fp_wrong, audit_fp_noise, audit_fn, audit_tn,
+        fn_potential_pnl, score_loser_pnl,
+        total_bars_processed, bars_with_detection, bars_slot_blocked, n_signals_seen,
+        depth_traded,
+        _exec_engine, _dir_corrections,
+        _out_dir, _reports_out,
+        oos_mode, _analysis_mode,
+        _pp_enabled, _pp_flip_count, _pp_all_trades,
+        _NINJATRADER_MNQ_MARGIN,
+    ):
+        """Generate forward pass reports, save CSVs, run analytics, save snapshot."""
         # Final Report
         import datetime as _datetime
         _run_ts = _datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -3161,11 +3013,146 @@ class Trainer:
                 _snap_json.dump(_snap, _sf, indent=2)
             print(f"  Run snapshot saved: {_snap_path}")
 
-        # Persist exit engine for multi-iteration runs
-        self._persisted_exit_engine = _exec_engine.exit_engine
-        self.exec_engine = _exec_engine
+    def _learn_oracle_directions(self, oracle_trade_records, oos_mode,
+                                  brain_keys_before_oos=None,
+                                  brain_dir_keys_before_oos=None):
+        """Oracle direction learning — update pattern library biases from forward pass.
 
-        print("\n  [OK] Forward pass complete -- all files saved.", flush=True)
+        Returns:
+            defaultdict of per-template direction correction stats.
+        """
+        _dir_corrections = defaultdict(lambda: {
+            'long_correct': 0, 'long_wrong': 0,
+            'short_correct': 0, 'short_wrong': 0,
+            'long_pnl': 0.0, 'short_pnl': 0.0,
+            'signed_mfe_samples': [],
+        })
+
+        if oracle_trade_records:
+            print(f"\n  Learning direction corrections from oracle{' (OOS refinement)' if oos_mode else ''}...")
+            for rec in oracle_trade_records:
+                tid = rec.get('template_id')
+                if tid is None or tid == -1:
+                    continue
+                direction = rec.get('direction', '')
+                oracle_label = rec.get('oracle_label', 0)
+                actual_pnl = rec.get('actual_pnl', 0.0)
+                oracle_mfe = rec.get('oracle_mfe', 0.0)
+                oracle_mae = rec.get('oracle_mae', 0.0)
+                acc = _dir_corrections[tid]
+
+                oracle_says_long = oracle_label > 0
+                oracle_says_short = oracle_label < 0
+                we_went_long = direction == 'LONG'
+                we_went_short = direction == 'SHORT'
+
+                if we_went_long:
+                    acc['long_pnl'] += actual_pnl
+                    if oracle_says_long:
+                        acc['long_correct'] += 1
+                    elif oracle_says_short:
+                        acc['long_wrong'] += 1
+                if we_went_short:
+                    acc['short_pnl'] += actual_pnl
+                    if oracle_says_short:
+                        acc['short_correct'] += 1
+                    elif oracle_says_long:
+                        acc['short_wrong'] += 1
+
+                if oracle_label != 0:
+                    signed_mfe = oracle_mfe if oracle_label > 0 else -oracle_mae
+                    acc['signed_mfe_samples'].append({
+                        'signed_mfe': signed_mfe,
+                        'entry_depth': rec.get('entry_depth', 6),
+                        'dmi_diff': rec.get('dmi_diff', 0.0),
+                    })
+
+            # Update pattern library with corrected biases
+            _updated_count = 0
+            _regression_count = 0
+            for tid, acc in _dir_corrections.items():
+                if tid not in self.pattern_library:
+                    continue
+                lib = self.pattern_library[tid]
+                long_total = acc['long_correct'] + acc['long_wrong']
+                short_total = acc['short_correct'] + acc['short_wrong']
+                total_dir_trades = long_total + short_total
+
+                if total_dir_trades >= 3:
+                    fp_long_correct = acc['long_correct']
+                    fp_short_correct = acc['short_correct']
+                    fp_total_correct = fp_long_correct + fp_short_correct
+                    if fp_total_correct > 0:
+                        fp_long_bias = fp_long_correct / fp_total_correct
+                        fp_short_bias = fp_short_correct / fp_total_correct
+                    else:
+                        fp_long_bias = 0.5
+                        fp_short_bias = 0.5
+                    orig_long = lib.get('long_bias', 0.5)
+                    orig_short = lib.get('short_bias', 0.5)
+                    new_long = 0.7 * fp_long_bias + 0.3 * orig_long
+                    new_short = 0.7 * fp_short_bias + 0.3 * orig_short
+                    total = new_long + new_short
+                    if total > 0:
+                        new_long /= total
+                        new_short /= total
+                    lib['long_bias'] = round(new_long, 4)
+                    lib['short_bias'] = round(new_short, 4)
+                    lib['direction_source'] = 'oracle_corrected'
+                    _updated_count += 1
+
+                if long_total >= 2 and short_total >= 2:
+                    lib['long_avg_pnl'] = round(acc['long_pnl'] / long_total, 2)
+                    lib['short_avg_pnl'] = round(acc['short_pnl'] / short_total, 2)
+
+                # Signed MFE regression
+                samples = acc['signed_mfe_samples']
+                if len(samples) >= 15:
+                    try:
+                        from sklearn.linear_model import LinearRegression
+                        X = np.array([[s['entry_depth'], s['dmi_diff']] for s in samples])
+                        y = np.array([s['signed_mfe'] for s in samples])
+                        reg = LinearRegression().fit(X, y)
+                        lib['signed_mfe_coeff'] = reg.coef_.tolist()
+                        lib['signed_mfe_intercept'] = float(reg.intercept_)
+                        _regression_count += 1
+                    except Exception:
+                        pass
+
+            print(f"  Direction corrections: {_updated_count} templates updated")
+            print(f"  Signed MFE regression: {_regression_count} templates fitted")
+
+            # Save updated library
+            _lib_path = os.path.join(self.checkpoint_dir, 'pattern_library.pkl')
+            with open(_lib_path, 'wb') as _f:
+                pickle.dump(self.pattern_library, _f)
+            print(f"  Updated pattern_library.pkl saved")
+
+            # Save brain with direction-specific learning for live
+            _brain_path = os.path.join(self.checkpoint_dir, 'pattern_forward_brain.pkl')
+            self.brain.save(_brain_path)
+            print(f"  Forward pass brain saved: {_brain_path}")
+            print(f"    States: {len(self.brain.table)}, "
+                  f"Direction pairs: {len(self.brain.dir_table)}")
+
+        # OOS: save brain with updated weights but drop new patterns
+        if oos_mode and oracle_trade_records:
+            _new_keys = set(self.brain.table.keys()) - brain_keys_before_oos
+            _new_dir_keys = set(self.brain.dir_table.keys()) - brain_dir_keys_before_oos
+            for k in _new_keys:
+                del self.brain.table[k]
+            for k in _new_dir_keys:
+                del self.brain.dir_table[k]
+            print(f"\n  OOS brain cleanup: dropped {len(_new_keys)} new patterns, "
+                  f"{len(_new_dir_keys)} new dir entries")
+            print(f"  Retained weights on {len(self.brain.table)} pre-existing patterns")
+            _brain_path = os.path.join(self.checkpoint_dir, 'pattern_forward_brain.pkl')
+            self.brain.save(_brain_path)
+            print(f"  OOS brain saved: {_brain_path}")
+            print(f"    States: {len(self.brain.table)}, "
+                  f"Direction pairs: {len(self.brain.dir_table)}")
+
+        return _dir_corrections
 
     def run_final_validation(self, top_strategies):
         """
