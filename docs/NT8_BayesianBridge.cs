@@ -113,7 +113,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 Name        = "BayesianBridge";
                 IsOverlay   = true;
                 Port        = 5199;
-                AccountName = "DEMO6872628";
+                AccountName = "Sim101";
                 DomLevels   = 5;
                 MaximumBarsLookBack = MaximumBarsLookBack.Infinite;
                 Calculate           = Calculate.OnBarClose;
