@@ -40,10 +40,21 @@ class Tooltip:
         self.widget = widget
         self.text = text
         self.tip_window = None
+        self._schedule_id = None
         widget.bind("<Enter>", self.show_tip)
         widget.bind("<Leave>", self.hide_tip)
+        widget.bind("<ButtonPress>", self.hide_tip)
 
     def show_tip(self, event=None):
+        if self.tip_window or not self.text:
+            return
+
+        if self._schedule_id is not None:
+            self.widget.after_cancel(self._schedule_id)
+
+        self._schedule_id = self.widget.after(500, self._create_tip)
+
+    def _create_tip(self):
         if self.tip_window or not self.text:
             return
 
@@ -70,8 +81,13 @@ class Tooltip:
             font=("Consolas", 8),
         )
         label.pack(ipadx=1)
+        self._schedule_id = None
 
     def hide_tip(self, event=None):
+        if self._schedule_id is not None:
+            self.widget.after_cancel(self._schedule_id)
+            self._schedule_id = None
+
         if self.tip_window:
             self.tip_window.destroy()
             self.tip_window = None
