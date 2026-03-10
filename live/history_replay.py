@@ -299,10 +299,16 @@ class HistoryReplayEngine:
                     _current_entry['tid'],
                     1 if pnl_dollars > 0 else 0,
                 )
+                _hold = bar_i - _current_entry['entry_bar']
                 self.brain.direction_learn(
                     _current_entry['tid'],
                     _current_entry['side'],
                     pnl_dollars,
+                )
+                self.brain.record_hold_bars(
+                    _current_entry['tid'],
+                    _current_entry['side'],
+                    _hold,
                 )
 
                 exec_engine.position_closed()

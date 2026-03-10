@@ -556,6 +556,33 @@ class TimeframeBeliefNetwork:
             w5.tick_at(tf_bar_idx_5s, self.pattern_library, self.scaler,
                        self.valid_tids, self.centroids_scaled)
 
+    def update_partial(self, tf_seconds: int, bar_data: dict):
+        """
+        Update a worker with a partial (forming) bar from NT8.
+        Computes a fresh state and re-runs analysis without advancing
+        the bar index — the completed bar will still trigger normal tick().
+        """
+        if tf_seconds not in self.workers:
+            return
+        if not self.pattern_library or not self.scaler:
+            return
+
+        try:
+            df = pd.DataFrame([bar_data])
+            if 'timestamp' in df.columns:
+                df.index = pd.to_datetime(df['timestamp'], unit='s')
+            states = self.engine.batch_compute_states(df, use_cuda=True)
+            if not states:
+                return
+            state_raw = states[-1]
+            state = state_raw['state'] if isinstance(state_raw, dict) and 'state' in state_raw else state_raw
+            worker = self.workers[tf_seconds]
+            tf_bar_idx = max(worker._last_tf_bar_idx, 0)
+            worker._analyze(state, tf_bar_idx, self.pattern_library,
+                            self.scaler, self.valid_tids, self.centroids_scaled)
+        except Exception as e:
+            logger.debug(f"TBN partial update TF={tf_seconds}s failed: {e}")
+
     def get_belief(self) -> Optional[BeliefState]:
         """
         Collect current beliefs from all active workers and compute

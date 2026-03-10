@@ -34,6 +34,7 @@ class ExitAction(Enum):
     WATCHDOG = 'watchdog'
     BREAKEVEN_LOCK = 'breakeven_lock'
     PEAK_GIVEBACK = 'peak_giveback'
+    MAINTENANCE_FLAT = 'maintenance_flat'
 
 
 @dataclass
@@ -82,6 +83,10 @@ class PositionState:
 
     # 30m worker flip: once fired, stays True for remainder of trade
     slow_flip_active: bool = False
+
+    # Anchor: expected trade outcome (price + time)
+    anchor_mfe_ticks: float = 0.0   # template p75_mfe, brain-adjusted
+    anchor_mfe_bars: float = 0.0    # template avg_mfe_bar, brain-adjusted
 
 
 class ExitEngine:
@@ -211,6 +216,13 @@ class ExitEngine:
             else:
                 max_hold_bars = lib_entry.get('max_hold_bars', max_hold_bars)
 
+        # Anchor: template historical MFE (price + time)
+        _anchor_mfe = 0.0
+        _anchor_bars = 0.0
+        if lib_entry:
+            _anchor_mfe = lib_entry.get('p75_mfe_ticks', 0.0)
+            _anchor_bars = lib_entry.get('avg_mfe_bar', 0.0)
+
         pos = PositionState(
             side=side,
             entry_price=entry_price,
@@ -223,6 +235,8 @@ class ExitEngine:
             trailing_stop_ticks=float(trail_ticks) if trail_ticks else float(sl_ticks),
             trail_activation_ticks=float(trail_activation_ticks or 0),
             max_hold_bars=max_hold_bars,
+            anchor_mfe_ticks=float(_anchor_mfe),
+            anchor_mfe_bars=float(_anchor_bars),
         )
 
         # Absolute price levels
@@ -455,6 +469,12 @@ class ExitEngine:
             band_mult = max(0.5, min(1.5, 1.0 - exhaustion * 0.5))
             hl_mult *= band_mult
 
+        # Signal 3: anchor time patience (trade before expected MFE time)
+        if pos.anchor_mfe_bars > 0 and pos.bars_held < pos.anchor_mfe_bars:
+            anchor_progress = pos.bars_held / pos.anchor_mfe_bars
+            # 2x patience at trade start, tapering to 1x at expected MFE time
+            hl_mult *= (2.0 - anchor_progress)
+
         effective_hl = base_hl * max(0.3, hl_mult)
 
         # Decay factor
@@ -554,8 +574,14 @@ class ExitEngine:
         if peak_ticks <= 0:
             return None
 
+        # Anchor patience: trade still developing (before expected time + below expected MFE)
+        if (pos.anchor_mfe_ticks > 0 and pos.anchor_mfe_bars > 0
+                and pos.bars_held < pos.anchor_mfe_bars
+                and peak_ticks < pos.anchor_mfe_ticks * 0.3):
+            return None
+
         # Tiered threshold based on peak size
-        threshold = self._get_giveback_threshold(peak_ticks, noise_ticks)
+        threshold = self._get_giveback_threshold(peak_ticks)
 
         # 30m flip tightens threshold by 15pp (protect profit when higher TF turns)
         if pos.slow_flip_active and threshold < 1.0:
@@ -690,6 +716,26 @@ class ExitEngine:
                 be_level = pos.entry_price - buffer
                 pos.stop_loss = min(pos.stop_loss, be_level)
             pos.breakeven_locked = True
+
+    # ==================================================================
+    # CME Maintenance Flatten
+    # ==================================================================
+
+    # CME daily halt: 17:00-18:00 ET. Flatten 15 min before.
+    MAINT_FLATTEN_MINUTE = 16 * 60 + 45   # 16:45 ET
+    MAINT_REOPEN_MINUTE = 18 * 60         # 18:00 ET
+
+    @staticmethod
+    def is_maintenance_window(bar_timestamp: float) -> bool:
+        """Check if bar falls in CME maintenance flatten window (16:45-18:00 ET)."""
+        from datetime import datetime, timezone
+        from zoneinfo import ZoneInfo
+        _et = datetime.fromtimestamp(bar_timestamp, tz=timezone.utc).astimezone(
+            ZoneInfo('US/Eastern'))
+        _minute_of_day = _et.hour * 60 + _et.minute
+        return (ExitEngine.MAINT_FLATTEN_MINUTE
+                <= _minute_of_day
+                < ExitEngine.MAINT_REOPEN_MINUTE)
 
     # ==================================================================
     # PRIVATE -- Utilities
