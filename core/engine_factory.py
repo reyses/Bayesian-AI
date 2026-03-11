@@ -47,6 +47,7 @@ def create_execution_engine(
     bias_threshold: float = 0.55,
     dmi_threshold: float = 0.0,
     depth_only: Optional[int] = None,
+    looseness: int = 0,
 ) -> ExecutionEngine:
     """Create ExecutionEngine from checkpoint bundle + mode-specific params.
 
@@ -62,6 +63,7 @@ def create_execution_engine(
         bias_threshold: Gate threshold for direction bias.
         dmi_threshold: Gate threshold for DMI.
         depth_only: If set, restrict to single depth (for depth analysis).
+        looseness: Gate looseness level (0=default, 1-4=progressively looser).
     """
     tier_score_adj = ({1: -1.5, 2: -0.5, 3: 0.0, 4: 0.5}
                       if tier_preference or mode == 'live' else {})
@@ -86,6 +88,8 @@ def create_execution_engine(
         depth_filter_out=bundle.depth_filter_out,
         depth_only=depth_only,
         feature_extractor=FractalClusteringEngine.extract_features,
+        looseness=looseness,
     )
-    logger.info(f"  Execution engine: mode={mode}")
+    logger.info(f"  Execution engine: mode={mode}" +
+                (f" looseness={looseness}" if looseness else ""))
     return ee
