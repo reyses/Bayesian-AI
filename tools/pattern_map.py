@@ -56,6 +56,8 @@ def main():
         q = (month_num - 1) // 3 + 1
         year = args.month.split('_')[0]
         candidates = [
+            f'reports/is/shards/signal_log_{year}_Q{q}.csv',
+            f'reports/oos/shards/signal_log_{year}_Q{q}.csv',
             f'runs/2026-02-22_pre-depth-gate/signal_log_{year}_Q{q}.csv',
             f'checkpoints/signal_log_{year}_Q{q}.csv',
         ]
