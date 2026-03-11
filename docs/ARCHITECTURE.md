@@ -5,14 +5,14 @@
 
 | File | Lines | Main Class/Function | Purpose |
 |------|------:|---------------------|---------|
-| `core/statistical_field_engine.py` | 489 | `StatisticalFieldEngine` | GPU-accelerated OLS regression bands, z-scores, OU probabilities, forces, entropy per bar |
-| `core/market_state.py` | 255 | `MarketState` (frozen) | 50+ field snapshot: bands, z-score, velocity, forces, probabilities, ADX/DMI, Hurst |
+| `core/statistical_field_engine.py` | 501 | `StatisticalFieldEngine` | GPU-accelerated OLS regression bands, z-scores, OU probabilities, forces, entropy per bar |
+| `core/market_state.py` | 258 | `MarketState` (frozen) | 50+ field snapshot: bands, z-score, velocity, forces, probabilities, ADX/DMI, Hurst |
 | `core/fractal_clustering.py` | 651 | `FractalClusteringEngine` | Recursive K-Means → 100-1000 templates with per-template OLS/logistic models |
-| `core/execution_engine.py` | 976 | `ExecutionEngine` | Gate cascade (0-4), direction cascade, sizing. Single source for IS/OOS/live |
-| `core/exit_engine.py` | 710 | `ExitEngine`, `PositionState`, `make_position()` | Unified exit cascade: SL→TP→BandUrgent→EnvelopeDecay→PeakGiveback→BreakevenLock→BeliefFlip→Hold |
+| `core/execution_engine.py` | 997 | `ExecutionEngine` | Gate cascade (0-4), direction cascade, sizing. Single source for IS/OOS/live |
+| `core/exit_engine.py` | 748 | `ExitEngine`, `PositionState`, `make_position()` | Unified exit cascade: SL→TP→BandUrgent→EnvelopeDecay→PeakGiveback→BreakevenLock→BeliefFlip→Hold |
 | `core/feature_extraction.py` | 53 | `extract_feature_vector()` | Canonical 16D feature vector (single source of truth) |
-| `core/timeframe_belief_network.py` | 1018 | `TimeframeBeliefNetwork` | 11 TF workers (1s→1D), path conviction, band confluence, direction models |
-| `core/bayesian_brain.py` | 298 | `BayesianBrain` | Hash table: state_key → {wins, losses}. Direction learning per template |
+| `core/timeframe_belief_network.py` | 1045 | `TimeframeBeliefNetwork` | 11 TF workers (1s→1D), path conviction, band confluence, direction models |
+| `core/bayesian_brain.py` | 350 | `BayesianBrain` | Hash table: state_key → {wins, losses}. Direction learning per template |
 
 ## Core Support
 
@@ -29,8 +29,8 @@
 
 | File | Lines | Main Class | Purpose |
 |------|------:|------------|---------|
-| `live/live_engine.py` | 1785 | `LiveEngine` | Main live trading loop — mirrors Phase 4 on real-time NT8 feed |
-| `live/history_replay.py` | 524 | `HistoryReplayEngine` | Compressed forward pass over ATLAS to warm up brain/TBN/exits |
+| `live/live_engine.py` | 1796 | `LiveEngine` | Main live trading loop — mirrors Phase 4 on real-time NT8 feed |
+| `live/history_replay.py` | 530 | `HistoryReplayEngine` | Compressed forward pass over ATLAS to warm up brain/TBN/exits |
 | `live/atlas_loader.py` | 143 | `load_atlas_range()` | Parquet I/O for ATLAS multi-TF dataset |
 | `live/bar_aggregator.py` | 295 | `LiveBarAggregator` | 1s→15s OHLCV aggregation with state recomputation |
 | `live/nt8_client.py` | 217 | `NT8Client` | Asyncio TCP bridge to NinjaTrader 8 BayesianBridge indicator |
@@ -47,12 +47,12 @@
 
 | File | Lines | Purpose |
 |------|------:|---------|
-| `training/trainer.py` | 4994 | Main entry point: 6-phase pipeline (discovery→clustering→optimization→IS→OOS→strategy) |
+| `training/trainer.py` | 5056 | Main entry point: 6-phase pipeline (discovery→clustering→optimization→IS→OOS→strategy) |
 | `training/orchestrator_worker.py` | 617 | Numba JIT simulation loops, spectral gates (Fourier half-cycle + Laplace damping) |
 | `training/fractal_discovery_agent.py` | 830 | Multi-TF fractal scan → PatternEvent manifest with oracle markers |
 | `training/trade_analytics.py` | 562 | Post-run analytics: t-tests, ANOVA, OLS, logistic, capture rate regression |
 | `training/pattern_analyzer.py` | 548 | State table analysis, strongest patterns, contextual breakdowns |
-| `training/cuda_kmeans.py` | — | GPU-accelerated K-Means with sklearn fallback |
+| `training/cuda_kmeans.py` | 207 | GPU-accelerated K-Means with sklearn fallback |
 
 ## Visualization
 
