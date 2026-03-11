@@ -40,8 +40,19 @@ class Tooltip:
         self.widget = widget
         self.text = text
         self.tip_window = None
-        widget.bind("<Enter>", self.show_tip)
+        self._id = None
+        widget.bind("<Enter>", self.schedule_tip)
         widget.bind("<Leave>", self.hide_tip)
+        widget.bind("<ButtonPress>", self.hide_tip)
+
+    def schedule_tip(self, event=None):
+        self.unschedule()
+        self._id = self.widget.after(500, self.show_tip)
+
+    def unschedule(self):
+        if self._id:
+            self.widget.after_cancel(self._id)
+            self._id = None
 
     def show_tip(self, event=None):
         if self.tip_window or not self.text:
@@ -72,6 +83,7 @@ class Tooltip:
         label.pack(ipadx=1)
 
     def hide_tip(self, event=None):
+        self.unschedule()
         if self.tip_window:
             self.tip_window.destroy()
             self.tip_window = None
@@ -353,7 +365,7 @@ class FractalDashboard:
         )
         if fn:
             try:
-                fig.savefig(fn, dpi=DEFAULT_CHART_DPI, bbox_inches="tight", facecolor=BG)
+                fig.savefig(fn, dpi=globals().get("DEFAULT_CHART_DPI", 100), bbox_inches="tight", facecolor=BG)
                 self._log(f"Chart saved: {fn}")
             except Exception as e:
                 self._log(f"Error saving chart: {e}", error=True)
