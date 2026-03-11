@@ -3,6 +3,7 @@ Physics Utilities (CPU-based)
 Shared physics functions and constants that do not require CUDA.
 """
 import numpy as np
+import numba
 
 # Indicator Constants
 ADX_PERIOD = 14
@@ -91,3 +92,31 @@ def calculate_kinetic_damping(velocity_vector: np.ndarray) -> float:
     x = np.arange(len(peaks))
     slope, _ = np.polyfit(x, y, 1)
     return abs(slope)
+
+@numba.njit(parallel=True, cache=True)
+def _compute_rolling_std_numba(z_scores, _ow):
+    n = len(z_scores)
+    osc_std = np.full(n, np.nan)
+    if n >= _ow:
+        # Loop starting from the first fully populated window
+        for i in numba.prange(_ow - 1, n):
+            sum_x = 0.0
+            sum_x2 = 0.0
+            for j in range(i - _ow + 1, i + 1):
+                val = z_scores[j]
+                sum_x += val
+                sum_x2 += val * val
+
+            mean = sum_x / _ow
+            var = (sum_x2 - _ow * mean * mean) / (_ow - 1)
+            # handle negative float accuracy issues around 0
+            if var < 0:
+                var = 0.0
+            osc_std[i] = np.sqrt(var)
+
+        # Fill the front padding
+        front_val = osc_std[_ow - 1]
+        for i in range(_ow - 1):
+            osc_std[i] = front_val
+
+    return osc_std

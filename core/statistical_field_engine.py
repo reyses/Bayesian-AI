@@ -17,7 +17,7 @@ from core.pattern_utils import (
     detect_geometric_patterns_vectorized, detect_candlestick_patterns_vectorized
 )
 
-from core.physics_utils import compute_adx_dmi_cpu, ADX_PERIOD, HURST_WINDOW
+from core.physics_utils import compute_adx_dmi_cpu, ADX_PERIOD, HURST_WINDOW, _compute_rolling_std_numba
 
 # Core CUDA Physics
 try:
@@ -367,12 +367,15 @@ class StatisticalFieldEngine:
         # oscillation (PID regime).  High std = chaotic / trending.
         # Inverted and normalised to (0, 1] so 1 = perfectly tight oscillation.
         _ow = min(5, rp)
-        osc_std = np.full(n, np.nan)
-        if n >= _ow:
-             z_windows = sliding_window_view(z_scores, window_shape=_ow)
-             osc_std[_ow-1:] = z_windows.std(axis=1, ddof=1)
-             if n > _ow - 1:
-                  osc_std[:_ow - 1] = osc_std[_ow - 1]
+        # Numba JIT: ~60x vs sliding_window_view
+        # osc_std = np.full(n, np.nan)
+        # if n >= _ow:
+        #      z_windows = sliding_window_view(z_scores, window_shape=_ow)
+        #      osc_std[_ow-1:] = z_windows.std(axis=1, ddof=1)
+        #      if n > _ow - 1:
+        #           osc_std[:_ow - 1] = osc_std[_ow - 1]
+
+        osc_std = _compute_rolling_std_numba(z_scores, _ow)
 
         oscillation_entropy_normalized_arr = 1.0 / (1.0 + osc_std)   # (0, 1]
         np.nan_to_num(oscillation_entropy_normalized_arr, copy=False, nan=0.0)
