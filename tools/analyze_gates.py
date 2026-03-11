@@ -27,15 +27,32 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
 def load_signal_log(checkpoint_dir: str) -> pd.DataFrame:
-    """Load the signal log CSV (all candidates: traded + skipped)."""
+    """Load the signal log CSV (all candidates: traded + skipped).
+    Searches checkpoint_dir first, then reports/{is,oos,oos2}/ for shards.
+    """
+    # Legacy: check checkpoint dir
     for name in ('is_signal_log.csv', 'oos_signal_log.csv', 'signal_log.csv'):
         path = os.path.join(checkpoint_dir, name)
         if os.path.exists(path):
             df = pd.read_csv(path)
             print(f"  Loaded {path}: {len(df)} records")
             return df
-    # Try sharded
+    # New layout: reports/{mode}/ (single file or shards/)
     import glob
+    for mode in ('is', 'oos', 'oos2'):
+        mode_dir = os.path.join('reports', mode)
+        shards = sorted(glob.glob(os.path.join(mode_dir, 'shards', 'signal_log_*.csv')))
+        if shards:
+            dfs = [pd.read_csv(s) for s in shards]
+            df = pd.concat(dfs, ignore_index=True)
+            print(f"  Loaded {len(shards)} signal log shards from {mode_dir}: {len(df)} records")
+            return df
+        single = os.path.join(mode_dir, 'signal_log.csv')
+        if os.path.exists(single):
+            df = pd.read_csv(single)
+            print(f"  Loaded {single}: {len(df)} records")
+            return df
+    # Legacy shards in checkpoint dir
     shards = sorted(glob.glob(os.path.join(checkpoint_dir, 'shards', '*signal_log*.csv')))
     if shards:
         dfs = [pd.read_csv(s) for s in shards]
@@ -59,13 +76,28 @@ def load_oracle_log(checkpoint_dir: str) -> pd.DataFrame:
 def load_fn_log(checkpoint_dir: str) -> pd.DataFrame:
     """Load FN oracle log (missed profitable signals)."""
     import glob
+    # Legacy checkpoint dir
     for name in ('fn_oracle_log.csv',):
         path = os.path.join(checkpoint_dir, name)
         if os.path.exists(path):
             df = pd.read_csv(path)
             print(f"  Loaded {path}: {len(df)} FN records")
             return df
-    # Sharded
+    # New layout: reports/{mode}/
+    for mode in ('is', 'oos', 'oos2'):
+        mode_dir = os.path.join('reports', mode)
+        shards = sorted(glob.glob(os.path.join(mode_dir, 'shards', 'fn_oracle_log_*.csv')))
+        if shards:
+            dfs = [pd.read_csv(s) for s in shards]
+            df = pd.concat(dfs, ignore_index=True)
+            print(f"  Loaded {len(shards)} FN shards from {mode_dir}: {len(df)} records")
+            return df
+        single = os.path.join(mode_dir, 'fn_oracle_log.csv')
+        if os.path.exists(single):
+            df = pd.read_csv(single)
+            print(f"  Loaded {single}: {len(df)} FN records")
+            return df
+    # Legacy sharded in checkpoint dir
     shards = sorted(glob.glob(os.path.join(checkpoint_dir, '*fn_*log*.csv')))
     if shards:
         dfs = [pd.read_csv(s) for s in shards]

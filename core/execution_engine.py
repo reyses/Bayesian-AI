@@ -69,6 +69,8 @@ class TradeAction:
     live_features_scaled: Optional[np.ndarray] = None
     # Per-candidate gate tracking (for decision matrix)
     candidate_gates: dict = field(default_factory=dict)
+    # Score competition details: id(raw) -> {score, tid, dist, depth}
+    candidate_scores: dict = field(default_factory=dict)
     # Worker bypass info
     is_bypass: bool = False
     bypass_candidate: Any = None
@@ -154,6 +156,8 @@ class ExecutionEngine:
         depth_only: int = None,
         # Feature extractor
         feature_extractor=None,
+        # Gate looseness (0=default, 1=relaxed, 2=open, 3=wide, 4=yolo)
+        looseness: int = 0,
     ):
         self.brain = brain
         self.belief_network = belief_network
@@ -165,6 +169,7 @@ class ExecutionEngine:
         self.tick_size = tick_size
         self.point_value = point_value
         self.mode = mode
+        self.looseness = looseness
 
         self.tier_score_adj = tier_score_adj or {}
         self.depth_score_adj = depth_score_adj or {}
@@ -186,7 +191,14 @@ class ExecutionEngine:
         self.hurst_min = 0.5            # default fallback
         self.reversion_prob_min = 0.40     # default fallback
         self.momentum_override_ratio = 1.0  # block when mom < rev (ratio < 1.0)
+        self._min_trade_depth = 3       # configurable by looseness
+        self._brain_min_prob = 0.05     # configurable by looseness
         self._load_gate_thresholds()
+        self._apply_looseness()
+
+        # Quality-based scoring (loaded from quality_weights.json)
+        self._quality_weights = None
+        self._load_quality_weights()
 
         # Competition tracking
         self.bars_with_competition = 0   # 2+ candidates passed gates
@@ -220,6 +232,46 @@ class ExecutionEngine:
             'total_candidates': 0,
         }
 
+    # Looseness levels:
+    #   0 = Default (current production thresholds)
+    #   1 = Relaxed: softer physics (hurst 0.35, tunnel 0.25, mom 0.5)
+    #   2 = Open: + wider template match (7.0), + depth min 2
+    #   3 = Wide: + disable physics gates, + bypass conviction 0.50
+    #   4 = YOLO: + all depths, + dist 12.0, + no brain reject
+    _LOOSENESS_PRESETS = {
+        1: {'hurst_min': 0.35, 'reversion_prob_min': 0.25, 'momentum_override_ratio': 0.5},
+        2: {'hurst_min': 0.35, 'reversion_prob_min': 0.25, 'momentum_override_ratio': 0.5,
+            'gate1_dist': 7.0, 'min_trade_depth': 2},
+        3: {'hurst_min': 0.0, 'reversion_prob_min': 0.0, 'momentum_override_ratio': 0.0,
+            'gate1_dist': 7.0, 'min_trade_depth': 2,
+            'worker_bypass_conviction': 0.50},
+        4: {'hurst_min': 0.0, 'reversion_prob_min': 0.0, 'momentum_override_ratio': 0.0,
+            'gate1_dist': 12.0, 'min_trade_depth': 1,
+            'worker_bypass_conviction': 0.40, 'brain_min_prob': 0.0,
+            'depth_blacklist': set()},
+    }
+
+    def _apply_looseness(self):
+        """Override gate thresholds based on looseness level."""
+        if self.looseness <= 0:
+            return
+        preset = self._LOOSENESS_PRESETS.get(self.looseness)
+        if not preset:
+            # Clamp to max level
+            preset = self._LOOSENESS_PRESETS[max(self._LOOSENESS_PRESETS)]
+        for key, val in preset.items():
+            if hasattr(self, key):
+                setattr(self, key, val)
+        # Special fields not directly attributes
+        self._min_trade_depth = preset.get('min_trade_depth', 3)
+        self._brain_min_prob = preset.get('brain_min_prob', 0.05)
+        if 'depth_blacklist' in preset:
+            self.depth_blacklist = preset['depth_blacklist']
+        print(f"  [ExecutionEngine] Looseness={self.looseness}: "
+              f"hurst>{self.hurst_min} tunnel>{self.reversion_prob_min} "
+              f"mom_ratio>{self.momentum_override_ratio} dist<{self.gate1_dist} "
+              f"min_depth={self._min_trade_depth}")
+
     def _load_gate_thresholds(self):
         """Load oracle-computed gate thresholds from checkpoints/gate_thresholds.json."""
         import json, os
@@ -241,6 +293,90 @@ class ExecutionEngine:
                     return
                 except Exception as e:
                     print(f"  [ExecutionEngine] WARN: failed to load {path}: {e}")
+
+    def _load_quality_weights(self):
+        """Load physics-based quality weights from checkpoints/quality_weights.json.
+
+        When available, score competition uses predicted signal quality
+        instead of structural score (depth + dist + tier).
+        """
+        import json, os
+        path = 'checkpoints/quality_weights.json'
+        if not os.path.exists(path):
+            return
+        try:
+            with open(path, 'r') as f:
+                qw = json.load(f)
+            self._quality_weights = qw
+            n_feat = len(qw.get('features', []))
+            r2 = qw.get('r2', 0)
+            print(f"  [ExecutionEngine] Quality weights loaded: "
+                  f"{n_feat} features, R2={r2:.3f}")
+        except Exception as e:
+            print(f"  [ExecutionEngine] WARN: failed to load {path}: {e}")
+
+    def _compute_quality_score(self, state, cand=None) -> float:
+        """Predict signal quality (0-10) from physics state using loaded weights.
+
+        Falls back to 0.0 if weights not loaded or feature missing.
+        """
+        qw = self._quality_weights
+        if qw is None:
+            return 0.0
+
+        weights = qw['weights']
+        means = qw['scaler_mean']
+        stds = qw['scaler_std']
+
+        score = qw.get('intercept', 0.0)
+        for feat in qw['features']:
+            # Get raw value (some features come from candidate, not state)
+            if feat == 'micro_z' and cand is not None:
+                raw = abs(cand.z_score)
+            elif feat == 'depth' and cand is not None:
+                raw = float(cand.depth)
+            elif feat == 'macro_z' and cand is not None:
+                chain = (getattr(cand.raw_event, 'parent_chain', [])
+                         if cand.raw_event else [])
+                raw = abs(chain[-1]['z']) if chain else 0.0
+            elif feat == 'mom_rev_ratio':
+                f_mom = abs(float(getattr(state, 'F_momentum', 0.0)))
+                f_rev = abs(float(getattr(state, 'mean_reversion_force', 0.0)))
+                raw = f_mom / f_rev if f_rev > 0 else 0.0
+            elif feat == 'band_speed':
+                vel = abs(float(getattr(state, 'velocity', 0.0)))
+                sig = float(getattr(state, 'regression_sigma', 0.0))
+                raw = vel / sig if sig > 0 else 0.0
+            else:
+                raw = self._get_physics_value(state, feat)
+            # Standardize
+            m = means.get(feat, 0.0)
+            s = stds.get(feat, 1.0)
+            if s < 1e-12:
+                s = 1.0
+            scaled = (raw - m) / s
+            score += weights.get(feat, 0.0) * scaled
+
+        return score
+
+    @staticmethod
+    def _get_physics_value(state, feat_name: str) -> float:
+        """Extract a physics feature value from MarketState."""
+        _MAP = {
+            'hurst': 'hurst_exponent',
+            'tunnel_prob': 'reversion_probability',
+            'F_momentum': 'F_momentum',
+            'F_reversion': 'mean_reversion_force',
+            'velocity': 'velocity',
+            'sigma': 'regression_sigma',
+            'micro_z': None,  # from candidate, not state
+            'macro_z': None,
+            'depth': None,
+        }
+        attr = _MAP.get(feat_name, feat_name)
+        if attr is None:
+            return 0.0
+        return float(getattr(state, attr, 0.0))
 
     @property
     def in_position(self) -> bool:
@@ -373,6 +509,7 @@ class ExecutionEngine:
           Fallback: Worker bypass if no winner
         """
         candidate_gates = {}    # id(raw) -> gate_label
+        candidate_scores = {}   # id(raw) -> {score, tid, dist, depth}
         gate_passers = {}       # id(raw) -> _GateResult
         bypass_candidate = None
         bypass_dist = 999.0
@@ -421,8 +558,12 @@ class ExecutionEngine:
             if _best_no_tier.tid != best_gr.tid:
                 self.tier_changed_winner += 1
 
-        # Mark score losers
-        for raw_id in gate_passers:
+        # Mark score losers + record scores for all passers
+        for raw_id, gr in gate_passers.items():
+            candidate_scores[raw_id] = {
+                'score': gr.score, 'tid': gr.tid,
+                'dist': gr.dist, 'depth': gr.depth,
+            }
             if raw_id != best_raw_id:
                 candidate_gates[raw_id] = 'score_loser'
 
@@ -440,6 +581,7 @@ class ExecutionEngine:
 
             if action.type == ActionType.ENTER:
                 action.candidate_gates = candidate_gates
+                action.candidate_scores = candidate_scores
                 return action
             else:
                 # Conviction/momentum rejected the winner
@@ -452,11 +594,13 @@ class ExecutionEngine:
                 bypass_candidate, bypass_dist, price, bar_index)
             if bypass_action.type == ActionType.ENTER:
                 bypass_action.candidate_gates = candidate_gates
+                bypass_action.candidate_scores = candidate_scores
                 return bypass_action
 
         # Nothing fired
         action = TradeAction(type=ActionType.HOLD)
         action.candidate_gates = candidate_gates
+        action.candidate_scores = candidate_scores
         return action
 
     def _gate_check(self, cand: Candidate) -> _GateResult:
@@ -559,8 +703,7 @@ class ExecutionEngine:
             self.gate_stats['gate0_5_skip'] += 1
             return fail('gate0_5')
 
-        _MIN_TRADE_DEPTH = 3
-        if _cand_depth < _MIN_TRADE_DEPTH:
+        if _cand_depth < self._min_trade_depth:
             self.gate_stats['gate0_5_skip'] += 1
             return fail('gate0_5')
 
@@ -580,7 +723,7 @@ class ExecutionEngine:
             return r
 
         # ── Brain Reject: profitability check ─────────────────
-        if not self.brain.should_fire(tid, min_prob=0.05, min_conf=0.0):
+        if not self.brain.should_fire(tid, min_prob=self._brain_min_prob, min_conf=0.0):
             self.gate_stats['gate2_skip'] += 1
             r = fail('gate2')
             r.dist = dist
@@ -588,10 +731,16 @@ class ExecutionEngine:
             return r
 
         # ── Score computation ─────────────────────────────────
-        tier_adj = self.tier_score_adj.get(
-            self.template_tier_map.get(tid, 3), 0.0)
-        depth_adj = self.depth_score_adj.get(_cand_depth, 0.0)
-        score = _cand_depth + dist + tier_adj + depth_adj
+        # Quality-based scoring: use physics-predicted signal quality when
+        # weights are available. Negative because lower score = wins competition.
+        if self._quality_weights is not None:
+            quality = self._compute_quality_score(state, cand=cand)
+            score = -quality  # higher quality → lower (better) score
+        else:
+            tier_adj = self.tier_score_adj.get(
+                self.template_tier_map.get(tid, 3), 0.0)
+            depth_adj = self.depth_score_adj.get(_cand_depth, 0.0)
+            score = _cand_depth + dist + tier_adj + depth_adj
 
         return _GateResult(
             passed=True, tid=tid, dist=dist, score=score,
