@@ -58,6 +58,7 @@ from core.timeframe_belief_network import TimeframeBeliefNetwork, BeliefState
 from core.execution_engine import ExecutionEngine, ActionType, TradeAction, Candidate
 from core.checkpoint_loader import load_checkpoints
 from core.engine_factory import create_belief_network, create_execution_engine
+from core.bar_processor import BarProcessor, BarProcessorHooks, BarResult
 
 # Execution components
 from training.batch_regret_analyzer import BatchRegretAnalyzer
@@ -254,7 +255,8 @@ class Trainer:
                          dmi_threshold: float = None,
                          oos_mode: bool = False,
                          account_size: float = 0.0,
-                         tier_preference: bool = False):
+                         tier_preference: bool = False,
+                         live_validation_days: int = 0):
         """
         Phase 4 (IS) / Phase 5 (OOS): Forward pass -- replay data using playbook.
         Scans fractal cascade per day, matches templates, trades via ExitEngine.
@@ -382,6 +384,27 @@ class Trainer:
         _tick_val = self.asset.tick_value  # $0.50 for MNQ
         if _slip_ticks > 0:
             print(f"  Slippage: +-{_slip_ticks:.1f} ticks/trade (+-${_slip_ticks * _tick_val:.2f})")
+
+        # BarProcessor for live validation days (same decision path as live engine)
+        _live_val_processor = None
+        if live_validation_days > 0 and oos_mode:
+            def _lv_modify_pnl(pnl_dollars):
+                if _slip_rng:
+                    return pnl_dollars + _slip_rng.uniform(-_slip_ticks, _slip_ticks) * _tick_val
+                return pnl_dollars
+
+            _live_val_processor = BarProcessor(
+                exec_engine=_exec_engine,
+                belief_network=belief_network,
+                exit_engine=_exit_eng,
+                brain=self.brain,
+                pattern_library=_bundle.pattern_library,
+                anchor_tf='15s',
+                anchor_depth=8,
+                tick_size=self.asset.tick_size,
+                point_value=self.asset.point_value,
+                hooks=BarProcessorHooks(modify_pnl=_lv_modify_pnl),
+            )
 
         # 2. Iterate files (monthly YYYY_MM.parquet or daily YYYYMMDD.parquet)
         daily_files_15s = sorted(glob.glob(os.path.join(data_source, '15s', '*.parquet')))
@@ -575,6 +598,16 @@ class Trainer:
         _cumulative_days = 0
         print(f"  Total trading days: {_total_trading_days}")
 
+        # ── Live Validation: last N days processed bar-by-bar via BarProcessor ──
+        _live_val_days = live_validation_days if (oos_mode and live_validation_days > 0) else 0
+        _live_val_start_idx = len(daily_files_15s) - _live_val_days if _live_val_days > 0 else len(daily_files_15s)
+        _live_val_trades = []       # trades from live validation days
+        _live_val_day_ledger = []   # per-day stats for live validation
+        _live_val_gate_stats = {}   # gate funnel for live validation
+        _live_val_dir_sources = {}  # direction source distribution
+        if _live_val_days > 0:
+            print(f"  Live validation: last {_live_val_days} days via BarProcessor (mimics NT8 feed)")
+
         _pbar = tqdm(total=_total_trading_days, desc='Forward Pass', unit='day',
                      bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {postfix}',
                      ascii=True, dynamic_ncols=True)
@@ -670,6 +703,65 @@ class Trainer:
 
             # Map states for fast access by bar_idx
             _states_map = {s['bar_idx']: s['state'] for s in _states_15s}
+
+            # ── Live Validation: process this day via BarProcessor (mimics NT8) ──
+            if _live_val_days > 0 and day_idx >= _live_val_start_idx and _live_val_processor is not None:
+                _lv_day_trades = []
+                rp = self.engine.regression_period
+                for _lv_i, _lv_result in enumerate(_states_15s):
+                    _lv_state = _lv_result['state']
+                    _lv_row_idx = _lv_result['bar_idx'] + rp
+                    if _lv_row_idx >= len(df_15s):
+                        break
+                    _lv_row = df_15s.iloc[_lv_row_idx]
+                    result = _live_val_processor.process_bar(
+                        bar_index=_lv_i,
+                        price=float(_lv_row['close']),
+                        bar_high=float(_lv_row['high']),
+                        bar_low=float(_lv_row['low']),
+                        timestamp=float(_lv_row['timestamp']),
+                        state=_lv_state,
+                    )
+                    if result.trade_completed:
+                        _lv_day_trades.append(result.trade_completed)
+                # Force close at EOD
+                if _live_val_processor.in_position:
+                    _last_row = df_15s.iloc[-1]
+                    _eod = _live_val_processor.force_close(
+                        price=float(_last_row['close']),
+                        timestamp=float(_last_row['timestamp']),
+                        bar_index=len(_states_15s),
+                    )
+                    if _eod:
+                        _lv_day_trades.append(_eod)
+
+                _lv_n = len(_lv_day_trades)
+                _lv_wins = sum(1 for t in _lv_day_trades if t['pnl'] > 0)
+                _lv_pnl = sum(t['pnl'] for t in _lv_day_trades)
+                _lv_wr = _lv_wins / _lv_n * 100 if _lv_n else 0
+                _live_val_trades.extend(_lv_day_trades)
+                import datetime as _dt_lv
+                _lv_date = _dt_lv.datetime.utcfromtimestamp(
+                    int(df_15s['timestamp'].iloc[0])).strftime('%Y-%m-%d')
+                _live_val_day_ledger.append({
+                    'date': _lv_date, 'trades': _lv_n,
+                    'wins': _lv_wins, 'pnl': _lv_pnl,
+                })
+                _pbar.set_postfix_str(
+                    f"{day_date} | LIVE_VAL {_lv_n}t {_lv_wr:.0f}% ${_lv_pnl:+.0f}",
+                    refresh=False)
+                _pbar.update(1)
+                _cumulative_days += 1
+
+                # Capture gate stats from exec_engine
+                if hasattr(_exec_engine, 'gate_stats'):
+                    for k, v in _exec_engine.gate_stats.items():
+                        _live_val_gate_stats[k] = _live_val_gate_stats.get(k, 0) + v
+
+                # ALSO run normal OOS on this day (for comparison baseline)
+                # Fall through to inline loop — don't continue
+                # Actually: skip inline loop, we already processed via BarProcessor
+                continue
 
             # Map patterns to bar indices for efficient processing
             # Or just iterate bars and check if a pattern triggered?
@@ -1697,7 +1789,177 @@ class Trainer:
         self._persisted_exit_engine = _exec_engine.exit_engine
         self.exec_engine = _exec_engine
 
+        # ── Live Validation Parity Report ──────────────────────────────────
+        if _live_val_days > 0 and _live_val_trades:
+            self._write_live_validation_report(
+                _live_val_trades, _live_val_day_ledger,
+                _daily_ledger, oracle_trade_records,
+                _live_val_days, _exec_engine,
+            )
+
         print("\n  [OK] Forward pass complete -- all files saved.", flush=True)
+
+    def _write_live_validation_report(
+            self, lv_trades, lv_day_ledger, oos_daily_ledger,
+            oos_trade_records, n_days, exec_engine):
+        """Write parity report comparing live validation (BarProcessor) vs OOS inline."""
+        import datetime as _dt
+
+        # Live validation stats
+        lv_n = len(lv_trades)
+        lv_wins = sum(1 for t in lv_trades if t['pnl'] > 0)
+        lv_losses = sum(1 for t in lv_trades if t['pnl'] < 0)
+        lv_pnl = sum(t['pnl'] for t in lv_trades)
+        lv_wr = lv_wins / lv_n * 100 if lv_n else 0
+        lv_avg = lv_pnl / lv_n if lv_n else 0
+
+        # OOS stats for the same date range (last N days of daily ledger)
+        lv_dates = {d['date'] for d in lv_day_ledger}
+        oos_matching = [d for d in oos_daily_ledger if d['date'] in lv_dates]
+        oos_n = sum(d['trades'] for d in oos_matching)
+        oos_wins = sum(d['wins'] for d in oos_matching)
+        oos_pnl = sum(d['pnl'] for d in oos_matching)
+        oos_wr = oos_wins / oos_n * 100 if oos_n else 0
+        oos_avg = oos_pnl / oos_n if oos_n else 0
+        oos_days = max(1, len(oos_matching))
+
+        # Exit reason breakdown
+        from collections import Counter
+        exit_reasons = Counter()
+        exit_pnl = defaultdict(float)
+        exit_wins = Counter()
+        for t in lv_trades:
+            r = t.get('exit_reason', 'unknown')
+            exit_reasons[r] += 1
+            exit_pnl[r] += t['pnl']
+            if t['pnl'] > 0:
+                exit_wins[r] += 1
+
+        # Direction breakdown
+        dir_counts = Counter()
+        dir_pnl = defaultdict(float)
+        dir_wins = Counter()
+        for t in lv_trades:
+            s = t.get('side', 'unknown')
+            dir_counts[s] += 1
+            dir_pnl[s] += t['pnl']
+            if t['pnl'] > 0:
+                dir_wins[s] += 1
+
+        # Direction source distribution
+        dir_sources = Counter()
+        for t in lv_trades:
+            ds = t.get('dir_source', 'unknown')
+            dir_sources[ds] += 1
+
+        # Gate stats from exec engine
+        gate_stats = exec_engine.gate_stats if hasattr(exec_engine, 'gate_stats') else {}
+
+        # Build report
+        lines = []
+        lines.append("=" * 72)
+        lines.append("  OOS vs LIVE VALIDATION (BarProcessor) — PARITY REPORT")
+        lines.append("=" * 72)
+        lines.append("")
+        lines.append(f"  {'Metric':<30} {'OOS':>12} {'LiveVal':>12} {'Delta':>12}")
+        lines.append(f"  {'-'*66}")
+        lines.append(f"  {'Trades':<30} {oos_n:>12} {lv_n:>12} {lv_n - oos_n:>+12}")
+        lines.append(f"  {'Win Rate':<30} {oos_wr:>11.1f}% {lv_wr:>11.1f}% {lv_wr - oos_wr:>+11.1f}%")
+        lines.append(f"  {'Total PnL':<30} ${oos_pnl:>10,.2f} ${lv_pnl:>10,.2f} ${lv_pnl - oos_pnl:>+10,.2f}")
+        lines.append(f"  {'Avg Trade':<30} ${oos_avg:>10,.2f} ${lv_avg:>10,.2f} ${lv_avg - oos_avg:>+10,.2f}")
+        oos_rate = oos_n / oos_days
+        lv_rate = lv_n / max(1, n_days)
+        lines.append(f"  {'Trades/Day':<30} {oos_rate:>12.1f} {lv_rate:>12.1f} {lv_rate - oos_rate:>+12.1f}")
+        lines.append(f"  {'PnL/Day':<30} ${oos_pnl/oos_days:>10,.2f} ${lv_pnl/max(1,n_days):>10,.2f} "
+                     f"${lv_pnl/max(1,n_days) - oos_pnl/oos_days:>+10,.2f}")
+        lines.append("")
+
+        # Exit reason breakdown
+        lines.append("  EXIT REASON BREAKDOWN (LiveVal)")
+        lines.append(f"  {'Reason':<25} {'Trades':>8} {'WR%':>8} {'PnL':>12} {'Avg':>8}")
+        lines.append(f"  {'-'*63}")
+        for reason in sorted(exit_reasons.keys(), key=lambda r: -exit_pnl[r]):
+            rn = exit_reasons[reason]
+            rw = exit_wins[reason]
+            rp = exit_pnl[reason]
+            wr = rw / rn * 100 if rn else 0
+            lines.append(f"  {reason:<25} {rn:>8} {wr:>7.1f}% ${rp:>10,.2f} ${rp/rn:>7.2f}")
+        lines.append("")
+
+        # Direction breakdown
+        lines.append("  DIRECTION BREAKDOWN (LiveVal)")
+        lines.append(f"  {'Side':<10} {'Trades':>8} {'WR%':>8} {'PnL':>12} {'Avg':>8}")
+        lines.append(f"  {'-'*50}")
+        for side in sorted(dir_counts.keys()):
+            sn = dir_counts[side]
+            sw = dir_wins[side]
+            sp = dir_pnl[side]
+            wr = sw / sn * 100 if sn else 0
+            lines.append(f"  {side:<10} {sn:>8} {wr:>7.1f}% ${sp:>10,.2f} ${sp/sn:>7.2f}")
+        lines.append("")
+
+        # Direction source distribution
+        if dir_sources:
+            lines.append("  DIRECTION SOURCE DISTRIBUTION")
+            for ds, cnt in dir_sources.most_common():
+                pct = cnt / lv_n * 100 if lv_n else 0
+                lines.append(f"    {ds}: {cnt} ({pct:.1f}%)")
+            lines.append("")
+
+        # Per-day breakdown
+        lines.append("  PER DAY")
+        lines.append(f"  {'Date':<12} {'OOS_T':>6} {'OOS_PnL':>10} {'LV_T':>6} {'LV_PnL':>10} {'Delta':>10}")
+        lines.append(f"  {'-'*58}")
+        for lv_day in lv_day_ledger:
+            d = lv_day['date']
+            oos_day = next((o for o in oos_matching if o['date'] == d), None)
+            oos_dt = oos_day['trades'] if oos_day else 0
+            oos_dp = oos_day['pnl'] if oos_day else 0
+            lines.append(f"  {d:<12} {oos_dt:>6} ${oos_dp:>9,.2f} "
+                        f"{lv_day['trades']:>6} ${lv_day['pnl']:>9,.2f} "
+                        f"${lv_day['pnl'] - oos_dp:>+9,.2f}")
+        lines.append("")
+
+        # Parity verdict
+        _score = 1.0
+        warnings_list = []
+        if oos_n > 0:
+            trade_ratio = lv_n / oos_n
+            if abs(trade_ratio - 1.0) > 0.3:
+                _score -= 0.3
+                warnings_list.append(f"Trade count diverged: {lv_n} vs OOS {oos_n}")
+        if abs(lv_wr - oos_wr) > 5:
+            _score -= 0.2
+            warnings_list.append(f"WR diverged: {lv_wr:.1f}% vs OOS {oos_wr:.1f}%")
+        if oos_avg > 0 and abs(lv_avg - oos_avg) > oos_avg * 0.5:
+            _score -= 0.2
+            warnings_list.append(f"Avg trade diverged: ${lv_avg:.2f} vs OOS ${oos_avg:.2f}")
+        _score = max(0, _score)
+        _status = "PASSED" if _score >= 0.7 else "FAILED"
+
+        lines.append("  PARITY VERDICT")
+        lines.append(f"    Score: {_score:.2f}")
+        lines.append(f"    Status: {_status}")
+        for w in warnings_list:
+            lines.append(f"    WARNING: {w}")
+        lines.append("")
+        lines.append("=" * 72)
+
+        report_text = '\n'.join(lines)
+        print("\n" + report_text)
+
+        # Save report
+        os.makedirs(os.path.join('reports', 'live'), exist_ok=True)
+        ts_str = _dt.datetime.now().strftime('%Y%m%d_%H%M%S')
+        report_path = os.path.join('reports', 'live', f'parity_report_{ts_str}.txt')
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write(report_text + '\n')
+        print(f"  Parity report: {report_path}")
+
+        # Save warmed brain for live handoff
+        brain_path = os.path.join(self.checkpoint_dir, 'live_brain.pkl')
+        self.brain.save(brain_path)
+        print(f"  Warmed brain saved: {brain_path} ({len(self.brain.table)} states)")
 
     def _write_forward_pass_reports(
         self, *,
@@ -2623,6 +2885,19 @@ class Trainer:
             'wrong_dir_loss':  abs(_gw_pnl),
             'counter_scalp_profit': _cs_pnl,
         }
+
+        # OOS3 override: when ALL days went through BarProcessor, use live_val stats
+        if _live_val_days > 0 and _live_val_start_idx <= 0 and _live_val_trades:
+            _lv_n = len(_live_val_trades)
+            _lv_wins = sum(1 for t in _live_val_trades if t['pnl'] > 0)
+            _lv_pnl = sum(t['pnl'] for t in _live_val_trades)
+            self._fp_summary.update({
+                'total_trades': _lv_n,
+                'trades':       _lv_n,
+                'total_pnl':    _lv_pnl,
+                'win_rate':     _lv_wins / _lv_n if _lv_n else 0.0,
+                'avg_trade':    _lv_pnl / _lv_n if _lv_n else 0.0,
+            })
 
         # ── Reorder report: DETAIL sections first, SUMMARIES at end ────────────
         # User preference: see actionable per-trade data first, then high-level picture.
@@ -5019,25 +5294,51 @@ def main():
                 # Comparison: OOS1 vs OOS2
                 _print_oos_comparison(_oos1, _oos2)
 
-                # Phase 7: Live Replay Validation (calls actual live launcher)
-                try:
-                    from live.launcher import main as live_main
+                # OOS3: Live Mode Validation (bar-by-bar via BarProcessor)
+                # Same OOS data, same warmed brain/TBN, but processed bar-by-bar
+                # like NT8 feeds data. Validates parity before going live.
+                print("\n" + "=" * 80)
+                print("  OOS3: LIVE MODE VALIDATION (bar-by-bar via BarProcessor)")
+                print("=" * 80)
+                orchestrator.run_forward_pass(_oos_path,
+                                              start_date=args.forward_start,
+                                              end_date=_oos_end,
+                                              bias_threshold=args.bias_threshold,
+                                              dmi_threshold=args.dmi_threshold,
+                                              oos_mode=True,
+                                              account_size=args.account_size,
+                                              tier_preference=True,
+                                              live_validation_days=999)
+                _oos3 = dict(orchestrator._fp_summary)
 
-                    print("\n" + "=" * 80)
-                    print("  PHASE 7: LIVE REPLAY VALIDATION (full live stack)")
-                    print("=" * 80)
-                    live_main(argv=[
-                        'live.launcher',
-                        '--replay-only',
-                        '--checkpoint-dir', orchestrator.checkpoint_dir,
-                        '--atlas-root', _fwd_data,
-                        '--replay-days', '5',
-                    ])
-                    print("  Phase 7 complete — parity report in reports/live/")
-                except Exception as _replay_err:
-                    print(f"  Live replay failed: {_replay_err}")
-                    import traceback as _tb
-                    _tb.print_exc()
+                # Comparison: OOS2 vs OOS3 (inline vs BarProcessor)
+                print("\n  OOS2 vs OOS3 (inline vs BarProcessor):")
+                for _k in ['trades', 'win_rate', 'total_pnl', 'avg_trade']:
+                    _v2 = _oos2.get(_k, 0)
+                    _v3 = _oos3.get(_k, 0)
+                    if isinstance(_v2, float):
+                        print(f"    {_k:20s}  OOS2={_v2:>10.2f}  OOS3={_v3:>10.2f}  delta={_v3-_v2:>+10.2f}")
+                    else:
+                        print(f"    {_k:20s}  OOS2={_v2:>10}  OOS3={_v3:>10}  delta={_v3-_v2:>+10}")
+
+                # Save warmed brain for live handoff
+                _live_brain_path = os.path.join(orchestrator.checkpoint_dir, 'live_brain.pkl')
+                orchestrator.brain.save(_live_brain_path)
+                print(f"\n  Saved warmed brain: {_live_brain_path}")
+
+                # Verdict
+                print("\n" + "=" * 80)
+                print("  PIPELINE COMPLETE — OOS3 VERDICT")
+                print("=" * 80)
+                _oos3_trades = _oos3.get('total_trades', _oos3.get('trades', 0))
+                _oos3_wr = _oos3.get('win_rate', 0)
+                _oos3_pnl = _oos3.get('total_pnl', 0)
+                print(f"  OOS3: {_oos3_trades} trades, {_oos3_wr:.1%} WR, ${_oos3_pnl:+,.2f}")
+                print(f"\n  Brain saved to: {_live_brain_path}")
+                print(f"\n  NEXT STEP (manual):")
+                print(f"    python -m live.launcher")
+                print(f"    NT8 account controls sim vs real money.")
+                print("=" * 80)
 
         elif args.strategy_report and not args.forward_pass:
             orchestrator.run_strategy_selection()  # requires oos_trade_log.csv to exist
@@ -5138,25 +5439,49 @@ def main():
                     # Comparison: OOS1 vs OOS2
                     _print_oos_comparison(_oos1, _oos2)
 
-                # Phase 7: Live Replay Validation (calls actual live launcher)
-                try:
-                    from live.launcher import main as live_main
+                # OOS3: Live Mode Validation (bar-by-bar via BarProcessor)
+                print("\n" + "=" * 80)
+                print("  OOS3: LIVE MODE VALIDATION (bar-by-bar via BarProcessor)")
+                print("=" * 80)
+                orchestrator.run_forward_pass(_oos_path,
+                                              start_date=args.forward_start,
+                                              end_date=_oos_end,
+                                              bias_threshold=args.bias_threshold,
+                                              dmi_threshold=args.dmi_threshold,
+                                              oos_mode=True,
+                                              account_size=getattr(args, 'account_size', 0.0),
+                                              tier_preference=True,
+                                              live_validation_days=999)
+                _oos3 = dict(orchestrator._fp_summary)
 
-                    print("\n" + "=" * 80)
-                    print("  PHASE 7: LIVE REPLAY VALIDATION (full live stack)")
-                    print("=" * 80)
-                    live_main(argv=[
-                        'live.launcher',
-                        '--replay-only',
-                        '--checkpoint-dir', orchestrator.checkpoint_dir,
-                        '--atlas-root', args.data,
-                        '--replay-days', '5',
-                    ])
-                    print("  Phase 7 complete — parity report in reports/live/")
-                except Exception as _replay_err:
-                    print(f"  Live replay failed: {_replay_err}")
-                    import traceback as _tb
-                    _tb.print_exc()
+                # Comparison: OOS2 vs OOS3 (inline vs BarProcessor)
+                print("\n  OOS2 vs OOS3 (inline vs BarProcessor):")
+                for _k in ['trades', 'win_rate', 'total_pnl', 'avg_trade']:
+                    _v2 = _oos2.get(_k, 0)
+                    _v3 = _oos3.get(_k, 0)
+                    if isinstance(_v2, float):
+                        print(f"    {_k:20s}  OOS2={_v2:>10.2f}  OOS3={_v3:>10.2f}  delta={_v3-_v2:>+10.2f}")
+                    else:
+                        print(f"    {_k:20s}  OOS2={_v2:>10}  OOS3={_v3:>10}  delta={_v3-_v2:>+10}")
+
+                # Save warmed brain for live handoff
+                _live_brain_path = os.path.join(orchestrator.checkpoint_dir, 'live_brain.pkl')
+                orchestrator.brain.save(_live_brain_path)
+                print(f"\n  Saved warmed brain: {_live_brain_path}")
+
+                # Verdict
+                print("\n" + "=" * 80)
+                print("  PIPELINE COMPLETE — OOS3 VERDICT")
+                print("=" * 80)
+                _oos3_trades = _oos3.get('total_trades', _oos3.get('trades', 0))
+                _oos3_wr = _oos3.get('win_rate', 0)
+                _oos3_pnl = _oos3.get('total_pnl', 0)
+                print(f"  OOS3: {_oos3_trades} trades, {_oos3_wr:.1%} WR, ${_oos3_pnl:+,.2f}")
+                print(f"\n  Brain saved to: {_live_brain_path}")
+                print(f"\n  NEXT STEP (manual):")
+                print(f"    python -m live.launcher")
+                print(f"    NT8 account controls sim vs real money.")
+                print("=" * 80)
 
         orchestrator.print_bottom_line()
         return 0

@@ -2,9 +2,8 @@
 CLI launcher for the live trading connector.
 
 Usage:
-    python -m live.launcher                     # paper trade (Sim101)
-    python -m live.launcher --dry-run           # log signals, no orders
-    python -m live.launcher --account MyAccount  # real account
+    python -m live.launcher                     # connect to NT8 (account controls sim/real)
+    python -m live.launcher --account MyAccount  # specific NT8 account
     python -m live.launcher --no-gui            # headless (no popup)
     python -m live.launcher --checkpoint-dir checkpoints_v2
 """
@@ -124,13 +123,8 @@ def _clean_nt8_cache():
             print(f"[cleanup] Failed to delete {db_path}: {e}")
 
 
-def main(argv=None):
-    """Entry point. Pass argv list to override sys.argv (used by trainer Phase 7)."""
-    # argv override for programmatic calls (e.g. trainer Phase 7)
-    _orig_argv = sys.argv
-    if argv is not None:
-        sys.argv = argv
-
+def main():
+    """Entry point for live trading. Connects to NT8 and trades."""
     parser = argparse.ArgumentParser(
         description='Bayesian-AI NinjaTrader 8 Live Connector')
     parser.add_argument('--host', default='127.0.0.1',
@@ -143,8 +137,6 @@ def main(argv=None):
                         help='NT8 instrument name (default: MNQ 03-26)')
     parser.add_argument('--checkpoint-dir', default='checkpoints',
                         help='Training checkpoint directory')
-    parser.add_argument('--dry-run', action='store_true',
-                        help='Run full pipeline but send no orders')
     parser.add_argument('--no-gui', action='store_true',
                         help='Run headless without progress popup')
     parser.add_argument('--max-daily-loss', type=float, default=200.0,
@@ -165,25 +157,10 @@ def main(argv=None):
     parser.add_argument('--log-level', default='INFO',
                         choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
                         help='Logging level (default: INFO)')
-    parser.add_argument('--replay-days', type=int, default=5,
-                        help='Days of ATLAS history to replay (default: 5)')
-    parser.add_argument('--atlas-root', default='DATA/ATLAS',
-                        help='Path to ATLAS data root (default: DATA/ATLAS)')
-    parser.add_argument('--replay-only', action='store_true',
-                        help='Run replay, write parity report, exit (no NT8 connection)')
     args = parser.parse_args()
 
-    # Restore argv for programmatic calls
-    if argv is not None:
-        sys.argv = _orig_argv
-
-    # replay-only: force dry-run + no-gui, skip NT8 cleanup
-    if args.replay_only:
-        args.dry_run = True
-        args.no_gui = True
-    else:
-        _kill_stale_live_engines()
-        _clean_nt8_cache()
+    _kill_stale_live_engines()
+    _clean_nt8_cache()
 
     # YOLO mode: override warmup + aggression
     if args.yolo:
@@ -216,9 +193,6 @@ def main(argv=None):
         max_daily_loss_usd=args.max_daily_loss,
         anchor_tf=args.anchor_tf,
         ping_pong=args.ping_pong,
-        replay_days=args.replay_days,
-        atlas_root=args.atlas_root,
-        replay_only=args.replay_only,
     )
 
     # Validate side lock
@@ -242,8 +216,7 @@ def main(argv=None):
             daemon=True, name='LivePopup')
         gui_thread.start()
 
-    engine = LiveEngine(config, dry_run=args.dry_run, gui_queue=gui_queue,
-                        shared_state=shared_state)
+    engine = LiveEngine(config, gui_queue=gui_queue, shared_state=shared_state)
     try:
         asyncio.run(engine.run())
     except KeyboardInterrupt:
