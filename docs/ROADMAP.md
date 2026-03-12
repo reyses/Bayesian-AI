@@ -1,5 +1,12 @@
 # Roadmap & Future Work
 
+## COMPLETED (V7.0.0, 2026-03-12)
+
+- **TF-bucketed clustering** -- patterns binned by timeframe before K-Means (no scale mixing)
+- **OOS compressed per-bar** -- OOS uses same path as live (no discovery, no ancestry features)
+- **Phase 7 live replay** -- training calls actual live launcher for integrity test + parity report
+- **Live startup simplified** -- no replay warmup, connects straight to NT8 with pre-warmed brain
+
 ## COMPLETED (V6.0.0, 2026-03-08)
 
 - **Unified ExitEngine** -- 7-stage cascade (SL→TP→BandUrgent→EnvelopeDecay→PeakGiveback→BreakevenLock→BeliefFlip→Hold) with self-tuning halflife and giveback
@@ -10,7 +17,7 @@
 - **Compressed history replay** -- live/history_replay.py + live/atlas_loader.py
 - **Terminology refactor** -- quantum→statistical, ThreeBody→MarketState, full metaphor purge
 - **CPU path removed** -- CUDA-only (~310 lines deleted)
-- **Pipeline restructured** -- 5→6 phases (Strategy moved after OOS)
+- **Pipeline restructured** -- 5→7 phases (Strategy after OOS, Live Replay as Phase 7)
 - **LiveEngine decomposition** -- exit_watcher, gui_bridge, session_tracker, ping_pong extracted
 - **Code consolidation** -- ~600 lines dead code removed, PositionState trimmed, docs reorganized
 

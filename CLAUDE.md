@@ -5,8 +5,9 @@ MNQ futures trading system. Statistical regression bands + Bayesian learning.
 NOT quantum physics — the physics metaphors are historical and fully purged.
 
 ## Entry Points
-- Training: `python training/trainer.py --fresh --forward-pass`
+- Training: `python training/trainer.py --fresh`
 - Live: `python -m live.launcher --dry-run`
+- Replay validation: `python -m live.launcher --replay-only`
 - Research: `python tools/standalone_research.py --data DATA/ATLAS_1WEEK`
 
 ## Key Files
@@ -18,8 +19,8 @@ NOT quantum physics — the physics metaphors are historical and fully purged.
 - `core/fractal_clustering.py` — recursive K-Means templates
 - `core/feature_extraction.py` — canonical 16D feature vector
 - `live/live_engine.py` — NT8 bridge orchestrator
-- `live/history_replay.py` — compressed forward pass for warmup
-- `training/trainer.py` — main pipeline (6 phases)
+- `live/history_replay.py` — compressed forward pass + parity report
+- `training/trainer.py` — main pipeline (7 phases)
 
 ## Active Work
 - See `docs/Active/RESEARCH_SPEC_V_TO_FF.md` for async research tasks
