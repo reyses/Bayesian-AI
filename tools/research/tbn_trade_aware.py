@@ -9,7 +9,7 @@ pnl_ticks, bars_held, stop_distance) and use it to modulate dir_prob.
 ARCHITECTURE
 ------------
 Each worker has TWO tasks:
-  Task 1 (Aggregation):  accumulate 15s bars -> TF OHLCV bar -> QuantumState
+  Task 1 (Aggregation):  accumulate 15s bars -> TF OHLCV bar -> MarketState
   Task 2 (Analysis):     state -> cluster match -> regression -> P(LONG), pred_MFE
 
 Update cadence (15s bar count per worker wakeup):
