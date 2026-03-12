@@ -935,6 +935,12 @@ class Trainer:
 
                 # 1. Manage existing position — via ExecutionEngine
                 if _exec_engine.in_position:
+                    # Update trade pace cache before exit evaluation
+                    _tp = belief_network.get_trade_progress(
+                        price, tick_size=self.asset.tick_size)
+                    belief_network._trade_pace_cache = _tp
+                    belief_network._trade_pace_blend = _tp.get('pace', 1.0) - 1.0
+
                     _exit_sig = belief_network.get_exit_signal(
                         _exec_engine.active_side, active_entry_price)
                     _band_ctx = (belief_network.get_band_confluence()
@@ -1242,13 +1248,17 @@ class Trainer:
                             }
 
                             # Start physics decay tracking
+                            _avg_mfe_bar = lib_entry.get('avg_mfe_bar', 0.0)
+                            _p75_mfe_bar = lib_entry.get('p75_mfe_bar', 0.0)
+                            _p75_mfe_ticks = lib_entry.get('p75_mfe_ticks', 0.0)
                             belief_network.start_trade_tracking(
                                 side=side, entry_bar=_bar_i,
                                 pattern_horizon_bars=active_max_hold_bars,
+                                target_mfe_ticks=_p75_mfe_ticks,
+                                resolve_bars=_avg_mfe_bar,
+                                entry_price=price,
                             )
                             # Per-template exit timescale
-                            _avg_mfe_bar = lib_entry.get('avg_mfe_bar', 0.0)
-                            _p75_mfe_bar = lib_entry.get('p75_mfe_bar', 0.0)
                             if _avg_mfe_bar > 0:
                                 belief_network.set_active_trade_timescale(_avg_mfe_bar, _p75_mfe_bar)
                             depth_traded[_cand_depth] += 1
