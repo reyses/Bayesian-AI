@@ -1721,9 +1721,9 @@ class Trainer:
         self.exec_engine = _exec_engine
 
         # ── OOS3: Replay last N trading days through BarProcessor ──────────
-        # Inline OOS ran all files. Now replay the last N days through a FRESH
-        # BarProcessor (own EE + exit engine) to verify parity. Same brain,
-        # same TBN state, but independent execution engine — no shared mutation.
+        # Inline OOS ran all files. Now replay the last N days through a
+        # BarProcessor with SAME belief_network (preserves 48 days of TBN
+        # state) but independent execution engine — no shared mutation.
         if _live_val_days > 0 and _daily_ledger:
             # Identify last N trading days from inline OOS ledger
             _lv_target_dates = [d['date'] for d in _daily_ledger[-_live_val_days:]]
@@ -1741,7 +1741,9 @@ class Trainer:
                 _tuned = _exec_engine.exit_engine
                 _lv_exit_eng.envelope_half_life_bars = _tuned.envelope_half_life_bars
                 _lv_exit_eng.giveback_pct = _tuned.giveback_pct
-                _lv_belief = create_belief_network(_bundle, self.engine)
+                # FIX 1: Reuse inline OOS's warmed belief_network (48 days of state)
+                # Fresh TBN has no accumulated conviction/momentum → different exits
+                _lv_belief = belief_network
                 _lv_exec = create_execution_engine(
                     bundle=_bundle,
                     brain=self.brain,
@@ -1859,12 +1861,14 @@ class Trainer:
                     _all_dates_sorted = sorted(_lv_df['_date'].unique())
                     _first_target = min(_target_set.intersection(_file_dates))
                     _lv_bar_counter = 0  # global bar index within file (matches inline _bar_i)
+                    _lv_last_warmup_state = None  # track last warmup state for FIX 2
                     for _warmup_date in _all_dates_sorted:
                         if _warmup_date >= _first_target:
                             break
                         _warmup_indices = _lv_df.index[_lv_df['_date'] == _warmup_date].tolist()
                         for _w_idx in _warmup_indices:
                             _lv_belief.tick_all(_lv_bar_counter)
+                            _lv_last_warmup_state = _lv_states_map.get(_w_idx)
                             _lv_bar_counter += 1
 
                     # Process bars day-by-day (only target dates)
@@ -1875,6 +1879,8 @@ class Trainer:
                             continue
 
                         _lv_day_trades = []
+                        # FIX 2: seed with last warmup state (or last bar of prev day)
+                        _lv_prev_state = _lv_last_warmup_state
                         for _lv_i, _lv_row_idx in enumerate(_day_indices):
                             _lv_state = _lv_states_map.get(_lv_row_idx)
                             if _lv_state is None:
@@ -1882,17 +1888,25 @@ class Trainer:
                                 continue
                             _lv_row = _lv_df.iloc[_lv_row_idx]
                             _lv_cur_ts[0] = float(_lv_row['timestamp'])
+                            # FIX 2: pass prior bar state for exit eval (inline uses _bar_i-1)
+                            # First bar of day uses None → defaults to 0.0 for net_force/noise
+                            _state_for_exit = _lv_prev_state if _lv_prev_state is not None else _lv_state
                             result = _lv_processor.process_bar(
                                 bar_index=_lv_bar_counter,
                                 price=float(_lv_row['close']),
                                 bar_high=float(_lv_row['high']),
                                 bar_low=float(_lv_row['low']),
                                 timestamp=float(_lv_row['timestamp']),
-                                state=_lv_state,
+                                state=_state_for_exit,
                             )
+                            _lv_prev_state = _lv_state  # save current as next bar's "prior"
                             _lv_bar_counter += 1
                             if result.trade_completed:
                                 _lv_day_trades.append(result.trade_completed)
+
+                        # Update last warmup state for next day's prior-bar seed
+                        if _day_indices:
+                            _lv_last_warmup_state = _lv_states_map.get(_day_indices[-1])
 
                         # Force close at EOD
                         if _lv_processor.in_position:
