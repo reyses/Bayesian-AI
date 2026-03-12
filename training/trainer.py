@@ -19,6 +19,7 @@ import tempfile
 import multiprocessing
 import queue
 import glob
+import random
 import warnings
 warnings.filterwarnings("ignore", message=".*Grid size.*will likely result in GPU under-utilization.*")
 warnings.filterwarnings("ignore", message=".*Mean of empty slice.*",               category=RuntimeWarning)
@@ -366,6 +367,13 @@ class Trainer:
             dmi_threshold=dmi_threshold if dmi_threshold is not None else 0.0,
             depth_only=getattr(self, '_depth_only', None),
         )
+
+        # Slippage RNG (seeded for reproducibility)
+        _slip_ticks = float(getattr(self, '_slippage_ticks', 0.0))
+        _slip_rng = random.Random(42) if _slip_ticks > 0 else None
+        _tick_val = self.asset.tick_value  # $0.50 for MNQ
+        if _slip_ticks > 0:
+            print(f"  Slippage: +-{_slip_ticks:.1f} ticks/trade (+-${_slip_ticks * _tick_val:.2f})")
 
         # 2. Iterate files (monthly YYYY_MM.parquet or daily YYYYMMDD.parquet)
         daily_files_15s = sorted(glob.glob(os.path.join(data_source, '15s', '*.parquet')))
@@ -865,6 +873,8 @@ class Trainer:
                     else:
                         _maint_pnl = (price - pos.entry_price) * self.asset.point_value
                         _trade_mfe_ticks = (pos.peak_favorable - pos.entry_price) / self.asset.tick_size
+                    if _slip_rng:
+                        _maint_pnl += _slip_rng.uniform(-_slip_ticks, _slip_ticks) * _tick_val
                     self._position = None
                     _exec_engine.position_closed()
                     outcome = record_trade(
@@ -970,6 +980,8 @@ class Trainer:
 
                     if _exit_action.type == ActionType.EXIT:
                         _ee_pnl = _exit_action.pnl_dollars
+                        if _slip_rng:
+                            _ee_pnl += _slip_rng.uniform(-_slip_ticks, _slip_ticks) * _tick_val
                         _ee_reason = _exit_action.exit_reason
                         _exit_result = _exit_action.exit_result
                         # Capture trade MFE before clearing position
@@ -1416,6 +1428,8 @@ class Trainer:
                 else:
                     eod_pnl = (price - pos.entry_price) * self.asset.point_value
                     _trade_mfe_ticks = (pos.peak_favorable - pos.entry_price) / self.asset.tick_size
+                if _slip_rng:
+                    eod_pnl += _slip_rng.uniform(-_slip_ticks, _slip_ticks) * _tick_val
                 self._position = None
                 _exec_engine.position_closed()  # reset engine position state
 
@@ -4752,6 +4766,9 @@ def main():
                         help="Ping-pong: override TP ticks (0=inherit)")
     parser.add_argument('--pp-trail', type=int, default=0,
                         help="Ping-pong: override trail ticks (0=inherit)")
+    parser.add_argument('--slippage', type=float, default=0.0,
+                        help="Random fill slippage per trade in ticks (e.g., 2). "
+                             "Each trade PnL gets uniform(-N, +N) * tick_value noise.")
 
     # Monte Carlo Flags (opt-in with --mc)
     parser.add_argument('--mc', action='store_true', help='Enable Monte Carlo sweep after Phase 3 Optimization')
@@ -4817,6 +4834,7 @@ def main():
     orchestrator._pp_sl_override = getattr(args, 'pp_sl', 0)
     orchestrator._pp_tp_override = getattr(args, 'pp_tp', 0)
     orchestrator._pp_trail_override = getattr(args, 'pp_trail', 0)
+    orchestrator._slippage_ticks = getattr(args, 'slippage', 0.0)
 
     try:
         if args.anova_only:
