@@ -14,6 +14,8 @@
 - **All test/research analyses must mirror live trading conditions** — no lookahead, use only
   data available at decision time. Slow TF bars incomplete mid-bar = use last completed bar.
 - **Always discuss before changing**: propose a plan, get approval, then execute
+- **Live launcher defaults**: Default = send orders to NT8. NT8 account (sim/real) controls risk.
+  `--dry-run` = opt-in observation only. See `memory/feedback_live_defaults.md`
 - **Progress bars are mandatory**: any long-running loop MUST have tqdm with live stats
 - **Training via Bash**: show exact command, ask "Confirm to run?" — only execute after user confirms
 - **NT8 bridge deploy**: When updating `docs/NT8_BayesianBridge.cs`, also copy it to
@@ -90,6 +92,13 @@ After every forward pass, always read these reports:
 - ATLAS_1WEEK: `DATA/ATLAS_1WEEK/` — 7 trading days (Jan 2-10) for screening
 - ATLAS_OOS: `DATA/ATLAS_OOS/` — 2 months (Jan-Feb 2026)
 
+## Timeframe Rules
+- **ATLAS has 14 TFs**: 1s, 5s, 15s, 30s, 1m, 3m, 5m, 15m, 30m, 1h — use the right one for the job
+- **Oracle/template stats**: computed from 1m (discovery TF) — NOT 15s
+- **Forward pass iteration**: 15s (execution TF) — only this is 15s
+- **Analysis/tools**: match TF to the question (session overlay → 1h, trade anatomy → 1m or 5m)
+- **4x mismatch bug (2026-03-11)**: oracle bar counts are 1m bars, consumed as 15s → 4x error everywhere
+
 ## Analysis & Benchmark Tools
 - `tools/analyze_gates.py` — oracle-driven gate threshold analysis, `--apply` writes JSON
 - `tools/gate_interaction_matrix.py` — C&E matrix empirical validation (Spearman/Kruskal)
@@ -118,14 +127,22 @@ After every forward pass, always read these reports:
 3. **Live Simulated**: Paper trading via live/ module. Failure = engineering.
 4. **Live Real**: Real money via NT8_BayesianBridge. Failure = risk management.
 
-## Current Baseline (2026-03-09, active anchor exits)
+## Current Baseline (2026-03-09, recursive hierarchy — main branch)
 - IS: $83,821 PnL, 7,773 trades, 97.9% WR, $10.78/trade, 53.1% correct direction
 - OOS: $21,378 PnL, 1,881 trades, 98.5% WR, $11.37/trade, 56.2% correct direction
 - OOS Max DD: $197, worst dip $-48, 0 consecutive losing days
 - Key: 42% of OOS trades are breakeven SL exits (BE lock + anchor patience)
 - Productive exits: envelope $62.70/trade, giveback $42.49/trade, TP $204/trade
 - Genuinely wrong direction: 0.9% OOS (collapsed from 13.9%)
-- Risk: breakeven exits assume no slippage; 2 ticks slippage = $786 OOS cost
+
+## R2 Baseline (2026-03-11, 1m-anchor + exit tuning — exp/1m-anchor)
+- IS: $43,272 PnL, 5,227 trades, 95.6% WR, $8.28/trade, 43.6% correct direction
+- OOS: $7,901 PnL, 855 trades, 95.2% WR, $9.24/trade, 44.4% correct direction
+- IS Max DD: $99.50, OOS Max DD: $76.00
+- Giveback primary exit: 2,131 trades IS, avg 1.7 min hold, 91% gave back, $13.70/trade
+- Trade health WIN vs LOSS: 0.711 vs 0.421 (IS), 0.738 vs 0.418 (OOS) — clear separation
+- Pace WIN vs LOSS: 0.867 vs -1.351 (IS), 0.883 vs -1.857 (OOS) — strong signal
+- ~50% of main branch PnL (expected: single-TF patterns vs recursive hierarchy)
 
 ## Prior Baselines
 - 2026-03-08: $86,685 IS / $22,383 OOS, 78.8%/77.5% WR, oracle removed
@@ -158,10 +175,30 @@ After every forward pass, always read these reports:
 - **(2026-03-08) ExitEngine simplified**: `open_position()` accepts pre-computed sizing
 - **(2026-03-08) PositionState trimmed**: 7 dead fields deleted
 - **(2026-03-08) LiveEngine decomposition**: exit_watcher, gui_bridge, session_tracker, ping_pong
+- **(2026-03-11) Exit tuning**: giveback 10% primary exit, envelope halflife 40 (lazy safety net)
+- **(2026-03-11) Trade-aware workers**: TBN orchestrator tracks pace (tick/time progress), blends into direction
+- **(2026-03-11) Trade health fusion**: `0.6*pace + 0.4*(1-decay)` — single score replacing dead decay_score
+- **(2026-03-11) Report improvements**: hold time in minutes, GIVEBACK & DECAY CONTEXT table, health/pace WIN vs LOSS
+- **(2026-03-11) Magic number audit**: 203 numbers identified, spec at `docs/JULES_MAGIC_NUMBER_REFACTOR.md`
 
 ## C&E Matrix Methodology (KEY WORKFLOW)
 > Full methodology: `memory/ce_methodology.md`
 - Identify problem → C&E t-test → Simulate → Fix → Add analytics bucket → Verify
+
+## Research Lines
+- **R1**: TF-Bucketed Clustering (main) — see `docs/ROADMAP.md`
+- **R2**: 1-Minute Anchor Discovery (exp/1m-anchor) — see `docs/ROADMAP.md`
+- **R3**: Pre-Entry Pace Filter — see `memory/research_pre_entry_pace.md`
+  - Use velocity/acceleration at entry time to filter noise trades before committing
+  - 43% of trades are counter-trend/noise, bailed out by fast exits not good entries
+- **Level Detector**: see `docs/specs/LEVEL_DETECTOR` + `memory/user_level_trading.md`
+  - User hand-drew S/R levels on MES 4h that held for weeks — this is ground truth
+  - System must: detect levels from price action, build incrementally, find confluence
+  - Reference image: TradingView /MES 4h chart in `examples/`
+- **Headroom / Nesting Gate**: see `memory/user_headroom_framework.md`
+  - "Micro wave must fit inside macro container" — T_micro < C_macro
+  - BLOCKED when |Z_macro| >= 2.0, WARNING when >= 1.5
+  - All data already available (z_score, self_adx, parent_z) — just needs wiring as a gate
 
 ## Design Docs & Specs
 - `docs/active/` — currently being worked on (REMAINING_WORK, CONSOLIDATION)
@@ -170,7 +207,8 @@ After every forward pass, always read these reports:
 - `docs/reference/` — journals (C&E Matrix, Pipeline Analysis, Waveform Analysis)
 
 ## Branches
-- `main` — sole branch, all fixes consolidated
+- `main` — recursive hierarchy baseline (commit `33e4890`)
+- `exp/1m-anchor` — 1m anchor experiment (created at `33e4890`, changes pending commit)
 - Killed: `pre-snowflake` (deleted 2026-03-07), `unified-cluster`, `jules/fractal-trend-*`
 
 ## Requirements

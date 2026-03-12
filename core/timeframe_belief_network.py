@@ -393,6 +393,12 @@ class TimeframeBeliefNetwork:
         self._decay_pattern_horizon: int = 1
         self._decay_entry_physics: Dict[int, dict] = {}  # {tf_secs: {'z','m','d'}}
         self._current_bar: int = 0
+        # Trade-aware pace tracking
+        self._trade_target_mfe_ticks: float = 0.0
+        self._trade_resolve_bars: float = 0.0
+        self._trade_entry_price: float = 0.0
+        self._trade_pace_cache: Optional[dict] = None
+        self._trade_pace_blend: float = 0.0
 
     # ------------------------------------------------------------------
     # TRADE TIME-SCALE MANAGEMENT
@@ -632,6 +638,32 @@ class TimeframeBeliefNetwork:
                     path_long  = path_long  * (1 - _bc_weight) + _bc_weight * 0.25
                     path_short = path_short * (1 - _bc_weight) + _bc_weight * 0.75
 
+        # ── Trade-aware direction blend ──────────────────────────────
+        # When a trade is active and we know the template's expected target,
+        # blend actual price progress into direction probabilities.
+        # Ahead of pace → reinforce trade direction. Behind → weaken it.
+        if (self._decay_trade_side is not None and
+                self._trade_target_mfe_ticks > 0 and
+                self._trade_entry_price > 0):
+            _pace_blend = getattr(self, '_trade_pace_blend', 0.0)
+            if abs(_pace_blend) > 0.05:
+                _trade_is_long = (self._decay_trade_side == 'long')
+                _weight = min(0.3, abs(_pace_blend) * 0.15)  # max 30% influence
+                if _pace_blend > 0:  # ahead of schedule → reinforce trade dir
+                    if _trade_is_long:
+                        path_long  = path_long  * (1 - _weight) + _weight * 0.80
+                        path_short = path_short * (1 - _weight) + _weight * 0.20
+                    else:
+                        path_long  = path_long  * (1 - _weight) + _weight * 0.20
+                        path_short = path_short * (1 - _weight) + _weight * 0.80
+                else:  # behind schedule → weaken trade dir
+                    if _trade_is_long:
+                        path_long  = path_long  * (1 - _weight) + _weight * 0.35
+                        path_short = path_short * (1 - _weight) + _weight * 0.65
+                    else:
+                        path_long  = path_long  * (1 - _weight) + _weight * 0.65
+                        path_short = path_short * (1 - _weight) + _weight * 0.35
+
         if path_long >= path_short:
             direction  = 'long'
             conviction = path_long
@@ -697,14 +729,26 @@ class TimeframeBeliefNetwork:
     # ------------------------------------------------------------------
 
     def start_trade_tracking(self, side: str, entry_bar: int,
-                             pattern_horizon_bars: int):
+                             pattern_horizon_bars: int,
+                             target_mfe_ticks: float = 0.0,
+                             resolve_bars: float = 0.0,
+                             entry_price: float = 0.0):
         """
         Called when a trade opens. Records each worker's current z_score
         so we can track physics decay (drift away from expected trajectory).
+
+        Trade-aware fields:
+          target_mfe_ticks: template p75_mfe_ticks — expected move magnitude
+          resolve_bars:     template avg_mfe_bar — expected bars to peak
+          entry_price:      trade entry price for tick delta calculation
         """
         self._decay_trade_side = side
         self._decay_entry_bar = entry_bar
         self._decay_pattern_horizon = max(1, pattern_horizon_bars)
+        # Trade-aware state
+        self._trade_target_mfe_ticks = target_mfe_ticks
+        self._trade_resolve_bars = resolve_bars
+        self._trade_entry_price = entry_price
         self._decay_entry_physics = {}
         for tf, worker in self.workers.items():
             b = worker.current_belief
@@ -720,6 +764,50 @@ class TimeframeBeliefNetwork:
         self._decay_trade_side = None
         self._decay_entry_bar = 0
         self._decay_entry_physics = {}
+        self._trade_target_mfe_ticks = 0.0
+        self._trade_resolve_bars = 0.0
+        self._trade_entry_price = 0.0
+        self._trade_pace_cache = None
+        self._trade_pace_blend = 0.0
+
+    def get_trade_progress(self, current_price: float, tick_size: float = 0.25) -> dict:
+        """
+        Trade-aware progress: is price moving toward the template's expected target
+        at the expected rate?
+
+        Returns:
+          tick_progress: actual ticks moved / target ticks (0=no move, 1=at target)
+          time_progress: bars held / resolve bars (0=just entered, 1=should have peaked)
+          pace:          tick_progress / max(0.1, time_progress)
+                         >1 = ahead of schedule, <1 = behind, ~1 = on track
+          direction_ok:  True if price is moving in the trade's direction
+        """
+        if (self._decay_trade_side is None or
+                self._trade_target_mfe_ticks <= 0 or
+                self._trade_entry_price <= 0):
+            return {'tick_progress': 0.0, 'time_progress': 0.0,
+                    'pace': 1.0, 'direction_ok': True}
+
+        # Tick delta from entry
+        if self._decay_trade_side == 'long':
+            delta_ticks = (current_price - self._trade_entry_price) / tick_size
+        else:
+            delta_ticks = (self._trade_entry_price - current_price) / tick_size
+
+        tick_progress = delta_ticks / max(1.0, self._trade_target_mfe_ticks)
+        bars_held = max(1, self._current_bar - self._decay_entry_bar)
+        resolve = max(1.0, self._trade_resolve_bars)
+        time_progress = bars_held / resolve
+        pace = tick_progress / max(0.1, time_progress)
+        direction_ok = delta_ticks >= 0
+
+        return {
+            'tick_progress': round(float(tick_progress), 3),
+            'time_progress': round(float(time_progress), 3),
+            'pace': round(float(pace), 3),
+            'direction_ok': direction_ok,
+            'delta_ticks': round(float(delta_ticks), 1),
+        }
 
     def get_decay_cascade(self) -> dict:
         """
@@ -1010,16 +1098,43 @@ class TimeframeBeliefNetwork:
             elif side == 'short' and _30m_belief.dir_prob > 0.55:
                 _slow_flip_tighten = True
 
+        # ── Trade pace check ──────────────────────────────────────────
+        # If we know the template's expected target and resolve time,
+        # check if price is on track. Behind pace + past halfway = tighten.
+        _pace_tighten = False
+        _pace_widen = False
+        _tp = getattr(self, '_trade_pace_cache', None)
+        if _tp is not None and _tp.get('time_progress', 0) > 0.3:
+            if _tp['pace'] < 0.3 and not _tp['direction_ok']:
+                # Way behind AND wrong direction → tighten aggressively
+                _pace_tighten = True
+            elif _tp['pace'] > 1.5 and _tp['direction_ok']:
+                # Ahead of schedule + correct direction → widen, let it run
+                _pace_widen = True
+
+        tighten = tighten or _pace_tighten
+        widen   = widen or _pace_widen
+
         reason = ('band_broken'    if _band_urgent   else
                   'time_exhausted' if _time_urgent    else
                   'urgent_flip'    if urgent           else
+                  'pace_behind'    if _pace_tighten   else
                   'slow_flip'      if _slow_flip_tighten else
                   'band_tighten'   if _band_tighten   else
                   'time_tighten'   if _time_tighten   else
                   'wave_mature'    if wave_mature > self.TIGHTEN_TRAIL_WAVE_MATURITY_THRESHOLD else
+                  'pace_ahead'     if _pace_widen     else
                   'band_widen'     if _band_widen     else
                   'aligned_fresh'  if widen            else
                   'low_conviction' if not belief.is_confident else 'neutral')
+
+        # ── Trade health: fused pace + structure decay ──────────────────
+        _decay = self.get_decay_cascade()
+        _cascade = _decay['cascade_score']  # 0..1+ (higher = worse)
+        _pace_val = _tp.get('pace', 1.0) if _tp is not None else 1.0
+        _pace_health = min(1.0, max(0.0, _pace_val))  # clamp 0-1
+        _decay_health = max(0.0, 1.0 - _cascade)      # invert: 0=bad, 1=good
+        _trade_health = 0.6 * _pace_health + 0.4 * _decay_health
 
         return {
             'tighten_trail': tighten and not urgent,
@@ -1029,6 +1144,8 @@ class TimeframeBeliefNetwork:
             'wave_maturity': wave_mature,
             'slow_flip_tighten': _slow_flip_tighten,
             'reason':        reason,
+            'trade_health':  round(_trade_health, 3),
+            'pace':          round(_pace_val, 3),
         }
 
     def summary(self) -> str:

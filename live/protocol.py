@@ -25,6 +25,7 @@ class MsgType(str, Enum):
     """All valid message types on the wire."""
     # NT8 → Python
     BAR          = 'BAR'
+    PARTIAL_BAR  = 'PARTIAL_BAR'
     FILL         = 'FILL'
     ORDER_STATUS = 'ORDER_STATUS'
     POSITION     = 'POSITION'
@@ -47,6 +48,7 @@ class MsgType(str, Enum):
 # Required fields per inbound message type (minimal validation)
 _REQUIRED: Dict[str, tuple] = {
     'BAR':          ('instrument', 'timestamp', 'open', 'high', 'low', 'close', 'volume'),
+    'PARTIAL_BAR':  ('instrument', 'timestamp', 'open', 'high', 'low', 'close', 'volume'),
     'FILL':         ('order_id', 'side', 'qty', 'fill_price', 'fill_time'),
     'ORDER_STATUS': ('order_id', 'status'),
     'POSITION':     ('instrument', 'qty'),
