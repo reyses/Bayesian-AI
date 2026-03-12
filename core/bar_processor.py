@@ -260,7 +260,7 @@ class BarProcessor:
                     candidates_built=n_candidates,
                 )
 
-        # Open position via EE
+        # Open position via EE (pass network_tp for TP fallback — FIX #2)
         self.exec_engine.position_opened(
             side=action.side,
             price=action.price,
@@ -269,6 +269,7 @@ class BarProcessor:
             lib_entry=lib_entry,
             sl_ticks=action.sl_ticks,
             tp_ticks=action.tp_ticks,
+            network_tp=getattr(action, 'network_tp', None),
             max_hold_bars=getattr(action, 'max_hold_bars', 960),
         )
 
@@ -282,13 +283,22 @@ class BarProcessor:
             'dir_source': getattr(action, 'dir_source', 'unknown'),
         }
 
-        # Start TBN trade tracking
-        _max_hold = lib_entry.get('avg_mfe_bar', 960)
+        # Start TBN trade tracking (FIX #4: full params matching inline OOS)
+        _avg_mfe_bar = lib_entry.get('avg_mfe_bar', 0.0)
+        _p75_mfe_bar = lib_entry.get('p75_mfe_bar', 0.0)
+        _p75_mfe_ticks = lib_entry.get('p75_mfe_ticks', 0.0)
+        _max_hold = getattr(action, 'max_hold_bars', 960)
         self.belief_network.start_trade_tracking(
             side=action.side,
             entry_bar=bar_index,
             pattern_horizon_bars=_max_hold,
+            target_mfe_ticks=_p75_mfe_ticks,
+            resolve_bars=_avg_mfe_bar,
+            entry_price=price,
         )
+        # Per-template exit timescale (inline OOS lines 1364-1366)
+        if _avg_mfe_bar > 0:
+            self.belief_network.set_active_trade_timescale(_avg_mfe_bar, _p75_mfe_bar)
 
         return BarResult(
             action=action,
@@ -336,6 +346,16 @@ class BarProcessor:
             'exit_reason': exit_reason,
             'bars_held': bars_held,
         }
+
+        # Self-tune exit engine (FIX 3: matches inline OOS self-tuning)
+        _pos = self.exec_engine.pos_state
+        if _pos is not None:
+            if entry['side'] == 'long':
+                _trade_mfe = (_pos.peak_favorable - entry['entry_price']) / self._tick_size
+            else:
+                _trade_mfe = (entry['entry_price'] - _pos.peak_favorable) / self._tick_size
+            _cap = pnl_ticks / _trade_mfe if _trade_mfe > 0 else 0.0
+            self.exit_engine.record_trade_outcome(_trade_mfe, pnl_ticks, _cap)
 
         # Stop TBN trade tracking
         self.belief_network.stop_trade_tracking()
