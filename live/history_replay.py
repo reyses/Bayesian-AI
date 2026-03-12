@@ -16,53 +16,21 @@ Usage:
 import glob
 import json
 import os
-import pickle
 import time
 from dataclasses import dataclass, field
 from typing import Optional
 
-import numpy as np
 import pandas as pd
 
-from core.bayesian_brain import MarketBayesianBrain, record_trade
-from core.execution_engine import (ActionType, Candidate, ExecutionEngine,
-                                   TradeAction)
+from core.bar_processor import BarProcessor, BarProcessorHooks
+from core.bayesian_brain import MarketBayesianBrain
+from core.checkpoint_loader import load_checkpoints
+from core.engine_factory import create_belief_network, create_execution_engine
+from core.execution_engine import ExecutionEngine
 from core.exit_engine import ExitEngine
-from core.feature_extraction import extract_feature_vector
-from core.fractal_clustering import FractalClusteringEngine
 from core.statistical_field_engine import StatisticalFieldEngine
 from core.timeframe_belief_network import TimeframeBeliefNetwork
 from live.atlas_loader import load_multi_tf, split_trading_days, _slice_day
-
-# TF seconds for feature extraction
-_TF_SECS = {'1s': 1, '5s': 5, '15s': 15, '30s': 30, '1m': 60, '2m': 120,
-             '3m': 180, '5m': 300, '15m': 900, '30m': 1800, '1h': 3600}
-
-
-def _compressed_features(state, tf_seconds: int, depth: int) -> np.ndarray:
-    """Build 16D feature vector from MarketState (no parent chain).
-
-    Identical to live_engine._live_features() — single source of truth
-    for the compressed per-bar path used by live, replay, and OOS.
-    """
-    return np.array([extract_feature_vector(
-        z_score=getattr(state, 'z_score', 0.0),
-        velocity=getattr(state, 'velocity', 0.0),
-        momentum=getattr(state, 'momentum_strength',
-                         getattr(state, 'momentum', 0.0)),
-        entropy_normalized=getattr(state, 'entropy_normalized', 0.0),
-        tf_seconds=tf_seconds,
-        depth=float(depth),
-        parent_is_band_reversal=0.0,
-        adx=getattr(state, 'adx_strength', 0.0) / 100.0,
-        hurst=getattr(state, 'hurst_exponent', 0.5),
-        dmi_diff=(getattr(state, 'dmi_plus', 0.0)
-                  - getattr(state, 'dmi_minus', 0.0)) / 100.0,
-        parent_z=0.0, parent_dmi_diff=0.0,
-        root_is_roche=0.0, tf_alignment=0.0,
-        pid=getattr(state, 'term_pid', 0.0),
-        osc_coherence=getattr(state, 'oscillation_entropy_normalized', 0.0),
-    )])
 
 
 @dataclass
@@ -124,18 +92,10 @@ class HistoryReplayEngine:
         self.aggression = aggression
 
         self.anchor_depth = self._TF_DEPTH.get(anchor_tf, 8)
-        self._tf_seconds = _TF_SECS.get(anchor_tf, 15)
 
-        # Loaded in _load_checkpoints
-        self.pattern_library = {}
-        self.scaler = None
-        self.valid_tids = []
-        self.centroids_scaled = None
+        # Loaded in _load_checkpoints (via shared checkpoint_loader)
+        self._bundle = None
         self.brain = MarketBayesianBrain()
-        self.template_tier_map = {}
-        self.depth_score_adj = {}
-        self.depth_filter_out = set()
-        self.exception_tids = set()
 
     def run(self) -> ReplayResult:
         """Execute compressed replay and return warmed state."""
@@ -166,7 +126,7 @@ class HistoryReplayEngine:
             context_days_list = []
             trade_days_list = all_days
 
-        # 4. Initialize components
+        # 4. Initialize components — SAME factory as trainer (parity)
         engine = StatisticalFieldEngine()
 
         exit_engine = ExitEngine(
@@ -175,37 +135,40 @@ class HistoryReplayEngine:
             tick_value=0.25 * 2.0,
         )
 
-        belief_network = TimeframeBeliefNetwork(
-            pattern_library=self.pattern_library,
-            scaler=self.scaler,
-            engine=engine,
-            valid_tids=self.valid_tids,
-            centroids_scaled=self.centroids_scaled,
-        )
+        belief_network = create_belief_network(self._bundle, engine)
 
-        exec_engine = ExecutionEngine(
+        exec_engine = create_execution_engine(
+            bundle=self._bundle,
             brain=self.brain,
             belief_network=belief_network,
             exit_engine=exit_engine,
-            pattern_library=self.pattern_library,
-            scaler=self.scaler,
-            centroids_scaled=self.centroids_scaled,
-            valid_tids=self.valid_tids,
             tick_size=0.25,
             point_value=2.0,
-            mode='replay',
-            tier_score_adj={},
-            depth_score_adj=self.depth_score_adj,
-            template_tier_map=self.template_tier_map,
-            exception_tids=self.exception_tids,
-            depth_filter_out=self.depth_filter_out,
-            feature_extractor=FractalClusteringEngine.extract_features,
+            mode='oos',
+            tier_preference=True,
         )
 
-        # Match live engine's aggression-scaled gate1_dist
+        # OOS compressed mode: widen gate1_dist (same as trainer OOS)
         _g1 = 4.5 + self.aggression * 10.0
         exec_engine.gate1_dist = _g1
         print(f"  gate1_dist={_g1:.1f} (aggression={self.aggression})")
+
+        # 4b. BarProcessor — shared per-bar decision loop
+        all_trades = []
+
+        def _on_exit(trade, outcome):
+            all_trades.append(trade)
+
+        processor = BarProcessor(
+            exec_engine=exec_engine,
+            belief_network=belief_network,
+            exit_engine=exit_engine,
+            brain=self.brain,
+            pattern_library=self._bundle.pattern_library,
+            anchor_tf=self.anchor_tf,
+            anchor_depth=self.anchor_depth,
+            hooks=BarProcessorHooks(on_exit=_on_exit),
+        )
 
         # 5a. Context warmup — TBN state only, no trading
         if context_days_list:
@@ -222,14 +185,14 @@ class HistoryReplayEngine:
             print(f"    Context {i+1}/{len(context_days_list)}: "
                   f"{len(states) if states else 0} bars")
 
-        # 5b. Trading days — compressed per-bar (same as live)
-        all_trades = []
+        # 5b. Trading days — shared BarProcessor (same as trainer OOS)
         last_day_states = []
         for i, day_df in enumerate(trade_days_list):
-            day_trades, day_states = self._replay_day(
-                day_df, tf_data, engine, exec_engine, belief_network)
-            all_trades.extend(day_trades)
+            day_start = len(all_trades)
+            day_states = self._replay_day(day_df, tf_data, engine, processor)
             last_day_states = day_states
+
+            day_trades = all_trades[day_start:]
             n_w = sum(1 for t in day_trades if t['pnl'] > 0)
             n_t = len(day_trades)
             pnl = sum(t['pnl'] for t in day_trades)
@@ -266,132 +229,42 @@ class HistoryReplayEngine:
             trades=all_trades,
         )
 
-    def _replay_day(self, day_df, tf_data, engine, exec_engine, tbn):
-        """Compressed per-bar forward pass — identical to live trading path.
-
-        1. batch_compute_states (all 15s bars)
-        2. TBN prepare_day
-        3. Per-bar: build Candidate from MarketState features (no discovery)
-        4. ExecutionEngine gate cascade
-        5. Brain learning from outcomes
-        """
+    def _replay_day(self, day_df, tf_data, engine, processor):
+        """Compressed per-bar forward pass via shared BarProcessor."""
         states = engine.batch_compute_states(day_df, use_cuda=True)
         if not states:
-            return [], []
+            return []
 
         rp = engine.regression_period
 
-        # Prepare TBN
+        # Prepare TBN for this day
         df_5s = _slice_day(tf_data.get('5s'), day_df)
         df_4h = _slice_day(tf_data.get('4h'), day_df)
-        tbn.prepare_day(day_df, states_micro=states,
-                        df_5s=df_5s, df_4h=df_4h)
-
-        trades = []
-        _current_entry = None
-        tick_size = 0.25
-        point_value = 2.0
+        processor.belief_network.prepare_day(
+            day_df, states_micro=states, df_5s=df_5s, df_4h=df_4h)
 
         for bar_i, result in enumerate(states):
-            state = result['state']
             row_idx = bar_i + rp
-            price = float(day_df.iloc[row_idx]['close'])
-            bar_high = float(day_df.iloc[row_idx]['high'])
-            bar_low = float(day_df.iloc[row_idx]['low'])
-            ts = float(day_df.iloc[row_idx]['timestamp'])
-
-            tbn.tick_all(bar_i)
-
-            # Build candidates from MarketState (compressed path — same as live)
-            candidates = []
-            if not exec_engine.in_position:
-                _pt = getattr(state, 'pattern_type', '')
-                _z = getattr(state, 'z_score', 0.0)
-                _cascade = getattr(state, 'cascade_detected', False)
-                _struct = getattr(state, 'structure_confirmed', False)
-
-                if _pt and _pt != 'NONE' and (_cascade or _struct):
-                    _feat = _compressed_features(
-                        state, self._tf_seconds, self.anchor_depth)
-                    candidates.append(Candidate(
-                        state=state,
-                        depth=self.anchor_depth,
-                        timeframe=self.anchor_tf,
-                        timestamp=ts,
-                        pattern_type=_pt,
-                        z_score=_z,
-                        features=_feat,
-                    ))
-
-            # Exit signal from TBN
-            _exit_sig = None
-            if exec_engine.in_position:
-                _exit_sig = tbn.get_exit_signal(
-                    side=exec_engine.active_side,
-                    entry_price=exec_engine.entry_price,
-                )
-
-            # ExecutionEngine
-            action = exec_engine.on_bar(
-                price=price,
-                bar_high=bar_high,
-                bar_low=bar_low,
+            row = day_df.iloc[row_idx]
+            processor.process_bar(
                 bar_index=bar_i,
-                candidates=candidates if candidates else None,
-                exit_signal=_exit_sig,
+                price=float(row['close']),
+                bar_high=float(row['high']),
+                bar_low=float(row['low']),
+                timestamp=float(row['timestamp']),
+                state=result['state'],
             )
 
-            if action.type == ActionType.ENTER:
-                _lib_entry = self.pattern_library.get(action.template_id, {})
-                exec_engine.position_opened(
-                    side=action.side,
-                    price=action.price,
-                    bar_index=bar_i,
-                    template_id=action.template_id,
-                    lib_entry=_lib_entry,
-                    sl_ticks=action.sl_ticks,
-                    tp_ticks=action.tp_ticks,
-                    max_hold_bars=getattr(action, 'max_hold_bars', 960),
-                )
-                _current_entry = {
-                    'side': action.side,
-                    'entry_price': price,
-                    'entry_bar': bar_i,
-                    'tid': action.template_id,
-                    'dir_source': getattr(action, 'dir_source', 'unknown'),
-                }
+        # Force-close any open position at EOD
+        if processor.in_position:
+            last_row = day_df.iloc[-1]
+            processor.force_close(
+                price=float(last_row['close']),
+                timestamp=float(last_row['timestamp']),
+                bar_index=len(states) - 1,
+            )
 
-            elif action.type == ActionType.EXIT and _current_entry is not None:
-                pnl_ticks = action.pnl_ticks if hasattr(action, 'pnl_ticks') else 0
-                pnl_dollars = pnl_ticks * tick_size * point_value
-
-                trades.append({
-                    **_current_entry,
-                    'exit_price': price,
-                    'exit_bar': bar_i,
-                    'pnl': pnl_dollars,
-                    'pnl_ticks': pnl_ticks,
-                    'exit_reason': getattr(action, 'exit_reason', 'unknown'),
-                    'bars_held': bar_i - _current_entry['entry_bar'],
-                })
-
-                record_trade(
-                    self.brain,
-                    tid=_current_entry['tid'],
-                    entry_price=_current_entry['entry_price'],
-                    exit_price=price,
-                    pnl=pnl_dollars,
-                    side=_current_entry['side'],
-                    exit_reason=getattr(action, 'exit_reason', 'unknown'),
-                    timestamp=ts,
-                    tick_value=tick_size * point_value,
-                    hold_bars=bar_i - _current_entry['entry_bar'],
-                )
-
-                exec_engine.position_closed()
-                _current_entry = None
-
-        return trades, states
+        return states
 
     # ── Validation ────────────────────────────────────────────────────────
 
@@ -637,62 +510,12 @@ class HistoryReplayEngine:
         return path
 
     def _load_checkpoints(self):
-        """Load all training checkpoints."""
+        """Load checkpoints via shared loader (same as trainer)."""
         cpdir = self.checkpoint_dir
         print(f"  Loading checkpoints from {cpdir}/")
 
-        lib_path = os.path.join(cpdir, 'pattern_library.pkl')
-        if not os.path.exists(lib_path):
-            raise FileNotFoundError(f"Missing pattern_library.pkl in {cpdir}")
-        with open(lib_path, 'rb') as f:
-            self.pattern_library = pickle.load(f)
-        print(f"  Library: {len(self.pattern_library)} templates")
-
-        scaler_path = os.path.join(cpdir, 'clustering_scaler.pkl')
-        if os.path.exists(scaler_path):
-            with open(scaler_path, 'rb') as f:
-                self.scaler = pickle.load(f)
-        else:
-            from sklearn.preprocessing import StandardScaler
-            _cents = [v['centroid'] for v in self.pattern_library.values()
-                      if 'centroid' in v]
-            self.scaler = StandardScaler().fit(np.array(_cents))
-
-        self.valid_tids = [
-            tid for tid in self.pattern_library
-            if 'centroid' in self.pattern_library[tid]
-        ]
-
-        centroids = np.array([
-            self.pattern_library[tid]['centroid']
-            for tid in self.valid_tids
-        ])
-        self.centroids_scaled = self.scaler.transform(centroids)
-
-        tiers_path = os.path.join(cpdir, 'template_tiers.pkl')
-        if os.path.exists(tiers_path):
-            with open(tiers_path, 'rb') as f:
-                self.template_tier_map = pickle.load(f)
-
-        dw_path = os.path.join(cpdir, 'depth_weights.json')
-        if os.path.exists(dw_path):
-            with open(dw_path) as f:
-                dw_data = json.load(f)
-            self.depth_score_adj = {
-                int(k): float(v.get('score_adj', 0.0))
-                for k, v in dw_data.items()
-            }
-            self.depth_filter_out = {
-                int(k) for k, v in dw_data.items()
-                if v.get('filter_out', False)
-            }
-
-        for tid in self.valid_tids:
-            lib = self.pattern_library.get(tid, {})
-            if (lib.get('member_count', 0) >= 10
-                    and lib.get('stats_win_rate', 0.0) >= 0.55
-                    and (lib.get('regression_sigma_ticks') or 999) <= 10.0):
-                self.exception_tids.add(tid)
+        # Same loader the trainer uses — single source of truth
+        self._bundle = load_checkpoints(cpdir, verbose=True)
 
         # Brain: forward_pass (OOS weights) > training > live
         forward_brain = os.path.join(cpdir, 'pattern_forward_brain.pkl')
@@ -708,9 +531,6 @@ class HistoryReplayEngine:
             print(f"  Brain: {os.path.basename(training_brains[-1])}")
         else:
             print("  Brain: starting fresh")
-
-        print(f"  Centroids: {len(self.valid_tids)} ready")
-        print(f"  Exception templates: {len(self.exception_tids)}")
 
 
 if __name__ == '__main__':

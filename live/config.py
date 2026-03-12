@@ -39,11 +39,6 @@ class LiveConfig:
     pp_trail_override: int = 0        # Override trail ticks (0 = inherit)
     pp_max_hold_bars: int = 0         # Override max hold (0 = inherit)
 
-    # ── Replay (Phase 7 validation / standalone) ────────────────────────
-    replay_days: int = 5             # Days of ATLAS to replay
-    atlas_root: str = 'DATA/ATLAS'   # Path to ATLAS data root
-    replay_only: bool = False         # If True: run replay, write report, exit (no NT8)
-
     # ── Risk ────────────────────────────────────────────────────────────
     max_position_size: int = 1        # Single contract for paper
     max_daily_loss_usd: float = 0.0    # 0 = disabled (sim mode)

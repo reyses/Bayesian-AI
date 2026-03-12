@@ -128,13 +128,16 @@ After every forward pass, always read these reports:
 4. **Live Simulated**: Paper trading via live/ module. Failure = engineering.
 5. **Live Real**: Real money via NT8_BayesianBridge. Failure = risk management.
 
-## Current Baseline (2026-03-09, recursive hierarchy — main branch)
+## Current Baseline (2026-03-12, V7.0.0 TF binning — main branch)
+- IS: $39,736 PnL, 3,298 trades, 96.6% WR, $12.05/trade
+- OOS (compressed): $8,200 PnL, 643 trades, 100% WR, $12.75/trade (all depth 8)
+- Phase 7 Replay: $88.50 PnL, 120 trades, 91.7% WR, $0.74/trade — **PARITY FAILED**
+- Replay issues: 82 SL exits (churn), peak_giveback 11.1% WR, 97% SHORT direction
+- OOS oracle metadata blank (compressed path, no discovery = no oracle classification)
+
+## Prior Baseline (2026-03-09, recursive hierarchy — main branch)
 - IS: $83,821 PnL, 7,773 trades, 97.9% WR, $10.78/trade, 53.1% correct direction
 - OOS: $21,378 PnL, 1,881 trades, 98.5% WR, $11.37/trade, 56.2% correct direction
-- OOS Max DD: $197, worst dip $-48, 0 consecutive losing days
-- Key: 42% of OOS trades are breakeven SL exits (BE lock + anchor patience)
-- Productive exits: envelope $62.70/trade, giveback $42.49/trade, TP $204/trade
-- Genuinely wrong direction: 0.9% OOS (collapsed from 13.9%)
 
 ## R2 Baseline (2026-03-11, 1m-anchor + exit tuning — exp/1m-anchor)
 - IS: $43,272 PnL, 5,227 trades, 95.6% WR, $8.28/trade, 43.6% correct direction

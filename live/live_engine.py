@@ -27,13 +27,11 @@ from typing import Optional, Dict, List
 from core.statistical_field_engine import StatisticalFieldEngine
 from core.bayesian_brain import MarketBayesianBrain
 from core.exit_engine import ExitEngine, ExitAction, PositionState
-from core.execution_engine import (ExecutionEngine, ActionType, Candidate,
-                                   TradeAction)
-from core.fractal_clustering import FractalClusteringEngine
-from core.feature_extraction import extract_feature_vector
+from core.execution_engine import (ExecutionEngine, ActionType, TradeAction)
 from core.timeframe_belief_network import TimeframeBeliefNetwork
 from core.checkpoint_loader import load_checkpoints
 from core.engine_factory import create_belief_network, create_execution_engine
+from core.bar_processor import BarProcessor
 from live.exit_watcher import ExitWatcher
 from live.gui_bridge import GUIBridge
 from live.session_tracker import SessionTracker
@@ -104,33 +102,15 @@ _ANCHOR_TF_MAP = {
 }
 
 
-def _live_features(state, tf_seconds: int, depth: int) -> np.ndarray:
-    """Build 16D feature vector from a live MarketState (no parent chain)."""
-    return np.array(extract_feature_vector(
-        z_score=getattr(state, 'z_score', 0.0),
-        velocity=getattr(state, 'velocity', 0.0),
-        momentum=getattr(state, 'momentum_strength', 0.0),
-        entropy_normalized=getattr(state, 'entropy_normalized', 0.0),
-        tf_seconds=tf_seconds,
-        depth=float(depth),
-        parent_is_band_reversal=0.0,
-        adx=getattr(state, 'adx_strength', 0.0) / 100.0,
-        hurst=getattr(state, 'hurst_exponent', 0.5),
-        dmi_diff=(getattr(state, 'dmi_plus', 0.0) - getattr(state, 'dmi_minus', 0.0)) / 100.0,
-        parent_z=0.0, parent_dmi_diff=0.0,
-        root_is_roche=0.0, tf_alignment=0.0,
-        pid=getattr(state, 'term_pid', 0.0),
-        osc_coherence=getattr(state, 'oscillation_entropy_normalized', 0.0),
-    ))
+# _live_features() DELETED — use BarProcessor._build_features() instead
 
 
 class LiveEngine:
     """Main live trading loop — replaces Phase 4 forward pass for real-time."""
 
-    def __init__(self, config: LiveConfig, dry_run: bool = False,
+    def __init__(self, config: LiveConfig,
                  client=None, gui_queue=None, shared_state=None):
         self._cfg = config
-        self._dry_run = dry_run
         self._client_override = client  # None = use NT8Client
         self._shared_state = shared_state or {}  # mutable dict from launcher
 
@@ -252,45 +232,17 @@ class LiveEngine:
         logger.info(f"  Instrument: {self._cfg.instrument}")
         logger.info(f"  Account:    {self._cfg.account}")
         logger.info(f"  Anchor TF:  {self._anchor_tf}  (depth={self._anchor_depth}, period={self._anchor_period}s)")
-        logger.info(f"  Dry run:    {self._dry_run}")
         logger.info(f"  Ping-pong:  {self._ping_pong_mode}")
         logger.info("=" * 60)
 
         self._load_checkpoints()
         self._init_belief_network()
         self._init_exec_engine()
+        self._init_bar_processor()
 
-        # ── Replay-only mode (Phase 7 validation) ────────────────────────
-        if self._cfg.replay_only:
-            try:
-                from live.history_replay import HistoryReplayEngine
-                replay = HistoryReplayEngine(
-                    checkpoint_dir=self._cfg.checkpoint_dir,
-                    n_days=self._cfg.replay_days,
-                    atlas_root=self._cfg.atlas_root,
-                    anchor_tf=self._anchor_tf,
-                )
-                result = replay.run()
-
-                # Save warmed brain for live handoff
-                brain_path = os.path.join(
-                    self._cfg.checkpoint_dir, 'live_brain.pkl')
-                result.brain.save(brain_path)
-                logger.info(f"Saved warmed brain: {brain_path} "
-                            f"({len(result.brain.table)} states)")
-                logger.info(f"REPLAY COMPLETE: {result.validation.replay_trades} trades, "
-                            f"WR={result.validation.replay_wr:.1%}, "
-                            f"PnL=${result.validation.replay_pnl:+,.2f}, "
-                            f"Parity={result.validation.parity_score:.2f}")
-            except Exception as e:
-                logger.error(f"Replay-only failed: {e}")
-                import traceback
-                traceback.print_exc()
-            self._shared_state['shutdown_confirmed'] = True
-            return
-
-        # ── Normal live: connect straight to NT8 ─────────────────────────
-        # Brain already warmed by Phase 7 (live_brain.pkl) — no replay needed
+        # ── Connect to NT8 ────────────────────────────────────────────────
+        # Brain warm from OOS3 (live_brain.pkl).
+        # TBN warmed from NT8's 10k bar history dump (in HISTORY_DONE handler).
         last_ts = self._aggregator.load_from_parquet()
         if last_ts > 0:
             self._client.set_resume_timestamp(last_ts)
@@ -310,7 +262,7 @@ class LiveEngine:
                 logger.error(f"LiveEngine fatal error: {e}", exc_info=True)
             finally:
                 # Safety: close any open position (no-op if graceful shutdown already flattened)
-                if self._position_open and not self._dry_run:
+                if self._position_open:
                     msg = self._orders.build_exit_order(reason='shutdown')
                     if msg:
                         await self._client.send(msg)
@@ -343,7 +295,7 @@ class LiveEngine:
                 self._shutting_down = True
                 self._ping_pong_mode = False  # kill PP immediately
                 self._belief_network.stop_trade_tracking()
-                if self._position_open and not self._dry_run:
+                if self._position_open:
                     logger.info("SHUTDOWN: flattening position before close...")
                     await self._close_position('SHUTDOWN')
                 else:
@@ -565,6 +517,10 @@ class LiveEngine:
                 logger.info(f"TBN bootstrap: 5s={_n5} bars, 4h={_n4h} bars (native from NT8)")
                 self._belief_network.prepare_day(
                     df, states_micro=states, df_5s=df_5s, df_4h=df_4h)
+                # Tick through all history bars so workers form beliefs
+                for _hist_i in range(len(states)):
+                    self._belief_network.tick_all(_hist_i)
+                logger.info(f"TBN warmed: ticked {len(states)} bars from NT8 history")
                 self._gui.push({
                     'type': 'PHASE_PROGRESS',
                     'phase': 'LIVE',
@@ -923,10 +879,6 @@ class LiveEngine:
             side=side, entry_bar=self._bar_i,
             pattern_horizon_bars=self._max_hold_bars)
 
-        if self._dry_run:
-            logger.info("[DRY RUN] Flip logged but no order sent")
-            return
-
         same_side = flip.same_side
         if same_side:
             # Same-side continuation: keep NT8 position open, reset exits.
@@ -1002,10 +954,6 @@ class LiveEngine:
             self._exec_engine.position_closed()
         self._last_exit_time = time.time()
 
-        if self._dry_run:
-            logger.info(f"[DRY RUN] Would close position: {reason}")
-            return
-
         msg = self._orders.build_exit_order(reason=reason)
         if msg:
             self._order_send_ts = time.perf_counter()
@@ -1061,12 +1009,11 @@ class LiveEngine:
                 side=exited_side, entry_bar=self._bar_i,
                 pattern_horizon_bars=self._max_hold_bars)
 
-            if not self._dry_run:
-                order_msg = self._orders.build_entry_order(
-                    'BUY' if exited_side == 'long' else 'SELL')
-                if order_msg:
-                    self._order_send_ts = time.perf_counter()
-                    await self._client.send(order_msg)
+            order_msg = self._orders.build_entry_order(
+                'BUY' if exited_side == 'long' else 'SELL')
+            if order_msg:
+                self._order_send_ts = time.perf_counter()
+                await self._client.send(order_msg)
             self._gui.push({'type': 'TRADE_MARKER', 'action': 'entry',
                             'side': exited_side, 'price': price})
         else:
@@ -1168,10 +1115,6 @@ class LiveEngine:
             side=side, entry_bar=self._bar_i,
             pattern_horizon_bars=self._max_hold_bars)
 
-        if self._dry_run:
-            logger.info("[DRY RUN] Manual entry logged but no order sent")
-            return
-
         order_msg = self._orders.build_entry_order(
             'BUY' if side == 'long' else 'SELL')
         if order_msg:
@@ -1233,10 +1176,6 @@ class LiveEngine:
         self._belief_network.start_trade_tracking(
             side=side, entry_bar=self._bar_i,
             pattern_horizon_bars=self._max_hold_bars)
-
-        if self._dry_run:
-            logger.info("[DRY RUN] Ping-pong flip logged but no order sent")
-            return
 
         order_msg = self._orders.build_entry_order(
             'BUY' if side == 'long' else 'SELL')
@@ -1423,27 +1362,10 @@ class LiveEngine:
             float('inf') if _yolo else _g1_base + agg * 10.0)
         self._exec_engine.set_live_atr(self._live_atr_ticks)
 
-        # Build Candidate objects from live states
+        # Build Candidate objects via shared BarProcessor (same as OOS/replay)
         latest = states[-1]
         state = latest['state']
-        ee_candidates = []
-
-        for ptype in ('BAND_REVERSAL', 'MOMENTUM_BREAK'):
-            flag = (state.cascade_detected if ptype == 'BAND_REVERSAL'
-                    else state.structure_confirmed)
-            if flag or _yolo:
-                _tf_s = _ANCHOR_TF_MAP.get(self._anchor_tf, {}).get('period_s', 15)
-                ee_candidates.append(Candidate(
-                    state=state,
-                    depth=self._anchor_depth,
-                    timeframe=self._anchor_tf,
-                    timestamp=ts,
-                    pattern_type=ptype,
-                    z_score=state.z_score,
-                    features=_live_features(state, _tf_s, self._anchor_depth),
-                ))
-                if _yolo and not flag:
-                    break  # one forced candidate is enough
+        ee_candidates = self._processor._build_candidates(state, ts, yolo=_yolo)
 
         if not ee_candidates:
             self._entry_belief_pct = 0
@@ -1555,10 +1477,6 @@ class LiveEngine:
         if _avg_mfe_bar > 0:
             self._belief_network.set_active_trade_timescale(
                 _avg_mfe_bar, _p75_mfe_bar)
-
-        if self._dry_run:
-            logger.info("[DRY RUN] Entry logged but no order sent")
-            return
 
         order_msg = self._orders.build_entry_order(
             'BUY' if side == 'long' else 'SELL')
@@ -1713,7 +1631,7 @@ class LiveEngine:
         self._belief_network = create_belief_network(_bundle, self._engine)
 
     def _init_exec_engine(self):
-        """Initialize ExecutionEngine for live gate cascade (single source of truth)."""
+        """Initialize ExecutionEngine — same mode as OOS for parity."""
         _bundle = self._checkpoint_bundle()
         self._exec_engine = create_execution_engine(
             bundle=_bundle,
@@ -1722,8 +1640,22 @@ class LiveEngine:
             exit_engine=self._exit_engine,
             tick_size=self._asset.tick_size,
             point_value=self._asset.point_value,
-            mode='live',
+            mode='oos',
             tier_preference=True,
+        )
+
+    def _init_bar_processor(self):
+        """Create shared BarProcessor — same decision logic as OOS/replay."""
+        self._processor = BarProcessor(
+            exec_engine=self._exec_engine,
+            belief_network=self._belief_network,
+            exit_engine=self._exit_engine,
+            brain=self._brain,
+            pattern_library=self._pattern_library,
+            anchor_tf=self._anchor_tf,
+            anchor_depth=self._anchor_depth,
+            tick_size=self._asset.tick_size,
+            point_value=self._asset.point_value,
         )
 
     def _checkpoint_bundle(self):
