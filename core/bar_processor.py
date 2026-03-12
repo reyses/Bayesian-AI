@@ -164,11 +164,20 @@ class BarProcessor:
         timestamp: float,
         state,
         *,
+        exit_state=None,
         pp_dir_override: str = None,
         oracle_marker_fn=None,
         yolo: bool = False,
     ) -> BarResult:
         """Process one bar. Returns BarResult with action and optional trade.
+
+        Args:
+            state:      Current bar's MarketState — used for BOTH entry candidates
+                        (pattern_type, z_score, features) AND exit evaluation
+                        (net_force, noise_ticks). Matches inline OOS behavior.
+            exit_state: Optional override for exit evaluation. Usually omitted
+                        (defaults to `state`). Only useful if caller needs
+                        different state for exits (e.g. live 1s sub-bar exits).
 
         Callers iterate bars and call this once per bar. The processor handles:
         TBN tick, candidate building, EE entry/exit, trade recording.
@@ -176,12 +185,13 @@ class BarProcessor:
         # 1. Tick TBN workers
         self.belief_network.tick_all(bar_index)
 
-        # 2. If in position → exit evaluation
+        # 2. If in position → exit evaluation (uses PREVIOUS bar state)
         if self.exec_engine.in_position:
+            _es = exit_state if exit_state is not None else state
             return self._process_exit(
-                bar_index, price, bar_high, bar_low, timestamp, state)
+                bar_index, price, bar_high, bar_low, timestamp, _es)
 
-        # 3. If flat → entry evaluation
+        # 3. If flat → entry evaluation (uses CURRENT bar state)
         candidates = self._build_candidates(state, timestamp, yolo=yolo)
         if not candidates:
             return BarResult(

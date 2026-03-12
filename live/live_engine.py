@@ -1230,6 +1230,10 @@ class LiveEngine:
             bar_count=self._bar_i,
         )
 
+        # Replay parity report (replay mode only)
+        if self._shared_state.get('replay_mode'):
+            self._write_replay_parity_report()
+
         # Check position status
         if self._position_open:
             unreal = self._nt8_unrealized_pnl
@@ -1243,6 +1247,270 @@ class LiveEngine:
             logger.info("Prepare shutdown: no open position, safe to close")
 
         self._gui.push({'type': 'SHUTDOWN_READY', 'status': status})
+
+    def _write_replay_parity_report(self):
+        """Write detailed parity report comparing replay results vs OOS inline."""
+        import re
+        from collections import Counter, defaultdict
+        from datetime import datetime, timezone
+
+        trades = self._session.trade_log
+        s = self._session.stats
+
+        if not trades:
+            logger.warning("Replay parity: no trades to report")
+            return
+
+        # ── Parse OOS daily ledger from reports/oos_report.txt ────────────
+        oos_daily = {}  # date_str -> {trades, wins, pnl}
+        oos_report_path = os.path.join('reports', 'oos_report.txt')
+        try:
+            with open(oos_report_path, 'r') as f:
+                in_ledger = False
+                for line in f:
+                    if 'DAILY SESSION LEDGER' in line:
+                        in_ledger = True
+                        continue
+                    if in_ledger and re.match(r'\s+20\d\d-\d\d-\d\d', line):
+                        parts = line.split()
+                        if len(parts) >= 7:
+                            date_str = parts[0]
+                            n_trades = int(parts[1])
+                            n_wins = int(parts[2])
+                            # PnL has $ and +/- signs, find it
+                            pnl_str = parts[5].replace(',', '').replace('+', '')
+                            try:
+                                pnl_val = float(pnl_str)
+                            except ValueError:
+                                pnl_val = 0.0
+                            oos_daily[date_str] = {
+                                'trades': n_trades, 'wins': n_wins, 'pnl': pnl_val}
+                    elif in_ledger and line.strip().startswith('──') and oos_daily:
+                        break  # end of ledger
+        except FileNotFoundError:
+            logger.warning(f"OOS report not found: {oos_report_path}")
+
+        # ── Build replay daily ledger from trade log ──────────────────────
+        # Derive date from entry price timestamp approximation
+        # Use bar index and anchor period to estimate timestamps
+        replay_daily = defaultdict(lambda: {
+            'trades': 0, 'wins': 0, 'losses': 0, 'pnl': 0.0,
+            'gross_win': 0.0, 'gross_loss': 0.0, 'exits': Counter()})
+
+        for t in trades:
+            _date = t.get('date', 'unknown')
+            d = replay_daily[_date]
+            d['trades'] += 1
+            d['pnl'] += t['pnl']
+            if t['pnl'] > 0:
+                d['wins'] += 1
+                d['gross_win'] += t['pnl']
+            elif t['pnl'] < 0:
+                d['losses'] += 1
+                d['gross_loss'] += t['pnl']
+            d['exits'][t.get('reason', '?')] += 1
+
+        # ── Identify last 5 OOS days for comparison ───────────────────────
+        oos_dates_sorted = sorted(oos_daily.keys())
+        last_5_oos = oos_dates_sorted[-5:] if len(oos_dates_sorted) >= 5 else oos_dates_sorted
+        oos_5d_trades = sum(oos_daily[d]['trades'] for d in last_5_oos)
+        oos_5d_wins = sum(oos_daily[d]['wins'] for d in last_5_oos)
+        oos_5d_pnl = sum(oos_daily[d]['pnl'] for d in last_5_oos)
+        oos_5d_wr = oos_5d_wins / oos_5d_trades * 100 if oos_5d_trades else 0
+        oos_5d_avg = oos_5d_pnl / oos_5d_trades if oos_5d_trades else 0
+
+        # Replay totals
+        rp_wr = s.wins / s.trades * 100 if s.trades else 0
+        rp_avg = s.pnl / s.trades if s.trades else 0
+        pf = s.gross_win / abs(s.gross_loss) if s.gross_loss else float('inf')
+        n_days = max(1, len(replay_daily))
+
+        # ── Exit reason breakdown ─────────────────────────────────────────
+        exit_stats = defaultdict(lambda: {'n': 0, 'wins': 0, 'pnl': 0.0,
+                                          'gross_win': 0.0, 'gross_loss': 0.0})
+        for t in trades:
+            r = t.get('reason', '?')
+            exit_stats[r]['n'] += 1
+            exit_stats[r]['pnl'] += t['pnl']
+            if t['pnl'] > 0:
+                exit_stats[r]['wins'] += 1
+                exit_stats[r]['gross_win'] += t['pnl']
+            elif t['pnl'] < 0:
+                exit_stats[r]['gross_loss'] += t['pnl']
+
+        # ── Direction breakdown ───────────────────────────────────────────
+        dir_stats = defaultdict(lambda: {'n': 0, 'wins': 0, 'pnl': 0.0})
+        for t in trades:
+            side = t.get('side', '?')
+            dir_stats[side]['n'] += 1
+            dir_stats[side]['pnl'] += t['pnl']
+            if t['pnl'] > 0:
+                dir_stats[side]['wins'] += 1
+
+        # ── Build report ──────────────────────────────────────────────────
+        L = []
+        L.append("=" * 80)
+        L.append(f"  REPLAY PARITY REPORT  ({time.strftime('%Y-%m-%d %H:%M:%S')})")
+        L.append(f"  Engine: LiveEngine + ReplayBridge (same code path as live)")
+        L.append(f"  Bars processed: {self._bar_i:,}  |  Anchor: {self._anchor_tf}")
+        L.append("=" * 80)
+
+        # ── Key Metrics (OOS vs Replay) ───────────────────────────────────
+        L.append("")
+        L.append(f"  {'Metric':<30} {'OOS (last 5d)':>14} {'Replay':>14} {'Delta':>14}")
+        L.append(f"  {'-'*72}")
+        L.append(f"  {'Trades':<30} {oos_5d_trades:>14} {s.trades:>14} {s.trades - oos_5d_trades:>+14}")
+        L.append(f"  {'Win Rate':<30} {oos_5d_wr:>13.1f}% {rp_wr:>13.1f}% {rp_wr - oos_5d_wr:>+13.1f}%")
+        L.append(f"  {'Total PnL':<30} ${oos_5d_pnl:>12,.2f} ${s.pnl:>12,.2f} ${s.pnl - oos_5d_pnl:>+12,.2f}")
+        L.append(f"  {'Avg Trade':<30} ${oos_5d_avg:>12,.2f} ${rp_avg:>12,.2f} ${rp_avg - oos_5d_avg:>+12,.2f}")
+        L.append(f"  {'Gross Profit':<30} {'':>14} ${s.gross_win:>12,.2f}")
+        L.append(f"  {'Gross Loss':<30} {'':>14} ${abs(s.gross_loss):>12,.2f}")
+        L.append(f"  {'Profit Factor':<30} {'':>14} {pf:>14.2f}")
+        L.append(f"  {'Max Drawdown':<30} {'':>14} ${s.max_session_drawdown:>12,.2f}")
+        L.append(f"  {'Max Consec Losses':<30} {'':>14} {s.max_consec_losses:>14}")
+        L.append(f"  {'Trades/Day':<30} {oos_5d_trades/max(1,len(last_5_oos)):>14.1f} "
+                 f"{s.trades/n_days:>14.1f}")
+
+        # ── Exit Reason Breakdown ─────────────────────────────────────────
+        L.append("")
+        L.append("  EXIT REASON BREAKDOWN")
+        L.append(f"  {'Reason':<20} {'Trades':>7} {'Win%':>7} {'PnL':>12} "
+                 f"{'Avg':>9} {'GrossWin':>10} {'GrossLoss':>10}")
+        L.append(f"  {'-'*75}")
+        for r in sorted(exit_stats.keys(), key=lambda k: -exit_stats[k]['pnl']):
+            es = exit_stats[r]
+            wr = es['wins'] / es['n'] * 100 if es['n'] else 0
+            avg = es['pnl'] / es['n'] if es['n'] else 0
+            L.append(f"  {r:<20} {es['n']:>7} {wr:>6.1f}% ${es['pnl']:>10,.2f} "
+                     f"${avg:>8,.2f} ${es['gross_win']:>9,.2f} "
+                     f"${abs(es['gross_loss']):>9,.2f}")
+
+        # ── Direction Breakdown ───────────────────────────────────────────
+        L.append("")
+        L.append("  DIRECTION BREAKDOWN")
+        L.append(f"  {'Side':<10} {'Trades':>8} {'Win%':>8} {'PnL':>12} {'Avg':>9}")
+        L.append(f"  {'-'*50}")
+        for side in sorted(dir_stats.keys()):
+            ds = dir_stats[side]
+            wr = ds['wins'] / ds['n'] * 100 if ds['n'] else 0
+            avg = ds['pnl'] / ds['n'] if ds['n'] else 0
+            L.append(f"  {side:<10} {ds['n']:>8} {wr:>7.1f}% ${ds['pnl']:>10,.2f} ${avg:>8,.2f}")
+
+        # ── Gate Rejection Funnel ─────────────────────────────────────────
+        gs = self._exec_engine.gate_stats if hasattr(self, '_exec_engine') else {}
+        if gs:
+            L.append("")
+            L.append("  GATE REJECTION FUNNEL")
+            _total = gs.get('candidates', 1) or 1
+            _pct = lambda n: f"{n/_total*100:.1f}%"
+            L.append(f"    Total candidates:     {_total:>8,}")
+            L.append(f"    Pattern Quality:      {gs.get('gate0_skip', 0):>8,}  ({_pct(gs.get('gate0_skip', 0))})")
+            L.append(f"    Template Match:       {gs.get('gate1_nomatch', gs.get('gate1_skip', 0)):>8,}  "
+                     f"({_pct(gs.get('gate1_nomatch', gs.get('gate1_skip', 0)))})")
+            L.append(f"    Brain Reject:         {gs.get('gate2_brain', gs.get('gate2_skip', 0)):>8,}  "
+                     f"({_pct(gs.get('gate2_brain', gs.get('gate2_skip', 0)))})")
+            L.append(f"    Low Conviction:       {gs.get('gate3_conviction', gs.get('gate3_skip', 0)):>8,}  "
+                     f"({_pct(gs.get('gate3_conviction', gs.get('gate3_skip', 0)))})")
+            L.append(f"    Momentum Misalign:    {gs.get('gate4_direction', gs.get('gate4_skip', 0)):>8,}  "
+                     f"({_pct(gs.get('gate4_direction', gs.get('gate4_skip', 0)))})")
+            L.append(f"    -> Traded:            {gs.get('traded', 0):>8,}  ({_pct(gs.get('traded', 0))})")
+
+        # ── Per-Day Comparison ────────────────────────────────────────────
+        L.append("")
+        L.append("  PER-DAY COMPARISON")
+        L.append(f"  {'Date':<12} {'OOS_T':>6} {'OOS_PnL':>11} {'RP_T':>6} {'RP_PnL':>11} "
+                 f"{'RP_GW':>10} {'RP_GL':>10} {'Delta':>11}")
+        L.append(f"  {'-'*78}")
+        all_dates = sorted(set(list(last_5_oos) + list(replay_daily.keys())))
+        for d in all_dates:
+            if d == 'unknown':
+                continue
+            oos_d = oos_daily.get(d, {'trades': 0, 'pnl': 0})
+            rp_d = replay_daily.get(d, {'trades': 0, 'pnl': 0, 'gross_win': 0, 'gross_loss': 0})
+            delta = rp_d['pnl'] - oos_d['pnl']
+            L.append(f"  {d:<12} {oos_d['trades']:>6} ${oos_d['pnl']:>9,.2f} "
+                     f"{rp_d['trades']:>6} ${rp_d['pnl']:>9,.2f} "
+                     f"${rp_d.get('gross_win', 0):>9,.2f} "
+                     f"${abs(rp_d.get('gross_loss', 0)):>9,.2f} "
+                     f"${delta:>+9,.2f}")
+        # Unknown date bucket
+        if 'unknown' in replay_daily:
+            ud = replay_daily['unknown']
+            L.append(f"  {'(undated)':<12} {'':>6} {'':>11} "
+                     f"{ud['trades']:>6} ${ud['pnl']:>9,.2f} "
+                     f"${ud.get('gross_win', 0):>9,.2f} "
+                     f"${abs(ud.get('gross_loss', 0)):>9,.2f}")
+
+        # ── Trade-by-Trade Log ────────────────────────────────────────────
+        L.append("")
+        L.append("  TRADE LOG (all replay trades)")
+        L.append(f"  {'#':>4} {'Side':<6} {'Entry':>10} {'Exit':>10} {'PnL':>10} "
+                 f"{'Reason':<18} {'Bars':>5} {'MFE':>6} {'Capture':>8}")
+        L.append(f"  {'-'*83}")
+        cum = 0.0
+        for i, t in enumerate(trades, 1):
+            cum += t['pnl']
+            mfe = t.get('mfe_ticks', 0)
+            cap = t.get('capture', 0)
+            L.append(f"  {i:>4} {t.get('side', '?'):<6} "
+                     f"{t.get('entry', 0):>10,.2f} {t.get('exit', 0):>10,.2f} "
+                     f"${t['pnl']:>+9,.2f} {t.get('reason', '?'):<18} "
+                     f"{t.get('bars', 0):>5} {mfe:>6.1f} {cap:>7.0f}%")
+        L.append(f"  {'-'*83}")
+        L.append(f"  {'':>4} {'':6} {'':10} {'TOTAL':>10} ${s.pnl:>+9,.2f}")
+
+        # ── Parity Verdict ────────────────────────────────────────────────
+        L.append("")
+        _score = 1.0
+        warnings = []
+        if oos_5d_trades > 0:
+            trade_ratio = s.trades / oos_5d_trades
+            if abs(trade_ratio - 1.0) > 0.3:
+                _score -= 0.2
+                warnings.append(f"Trade count: {s.trades} vs OOS {oos_5d_trades} "
+                                f"(ratio {trade_ratio:.2f})")
+        if abs(rp_wr - oos_5d_wr) > 5:
+            _score -= 0.2
+            warnings.append(f"Win rate: {rp_wr:.1f}% vs OOS {oos_5d_wr:.1f}%")
+        if oos_5d_pnl > 0:
+            pnl_ratio = s.pnl / oos_5d_pnl
+            if pnl_ratio < 0.5:
+                _score -= 0.3
+                warnings.append(f"PnL capture: ${s.pnl:,.2f} / ${oos_5d_pnl:,.2f} "
+                                f"= {pnl_ratio:.1%}")
+            elif pnl_ratio < 0.8:
+                _score -= 0.15
+                warnings.append(f"PnL gap: ${s.pnl:,.2f} vs OOS ${oos_5d_pnl:,.2f} "
+                                f"({pnl_ratio:.1%})")
+        if s.gross_loss != 0 and pf < 1.5:
+            _score -= 0.1
+            warnings.append(f"Low profit factor: {pf:.2f}")
+        _score = max(0, min(1, _score))
+        _status = "PASSED" if _score >= 0.7 else "FAILED"
+
+        L.append("  PARITY VERDICT")
+        L.append(f"    Score:  {_score:.2f}")
+        L.append(f"    Status: {_status}")
+        if not warnings:
+            L.append("    No warnings — replay matches OOS")
+        for w in warnings:
+            L.append(f"    WARNING: {w}")
+
+        L.append("")
+        L.append("=" * 80)
+
+        report_text = '\n'.join(L)
+
+        # Save to file
+        os.makedirs(os.path.join('reports', 'live'), exist_ok=True)
+        ts_str = time.strftime('%Y%m%d_%H%M%S')
+        path = os.path.join('reports', 'live', f'replay_parity_{ts_str}.txt')
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(report_text + '\n')
+
+        # Print to console
+        print("\n" + report_text)
+        logger.info(f"Replay parity report: {path}")
 
     def _on_account_update(self, msg: dict):
         """Handle ACCOUNT_UPDATE from NT8 — push equity to GUI."""
@@ -1294,14 +1562,24 @@ class LiveEngine:
         _pe = getattr(self, '_price_expected', entry_px)
         _pe_err = round((exit_px - _pe) / self._asset.tick_size, 2) if _pe != entry_px else 0.0
 
+        # Derive trade date from aggregator bar timestamp
+        _trade_date = time.strftime('%Y-%m-%d')
+        if self._entry_bar < len(self._aggregator._rows):
+            _bar_ts = self._aggregator._rows[self._entry_bar].get('timestamp', 0)
+            if _bar_ts:
+                from datetime import datetime as _dt, timezone as _tz
+                _trade_date = _dt.fromtimestamp(_bar_ts, tz=_tz.utc).strftime('%Y-%m-%d')
+
         # Delegate all stat tracking + trade log to SessionTracker
         self._session.record_trade(pnl, {
             'time': time.strftime('%H:%M:%S'),
+            'date': _trade_date,
             'side': 'LONG' if self._active_side == 'long' else 'SHORT',
             'entry': entry_px, 'exit': exit_px,
             'pnl': pnl, 'result': result,
             'reason': self._last_exit_reason,
             'bars': self._bar_i - self._entry_bar,
+            'entry_bar': self._entry_bar,
             'tid': self._active_tid, 'depth': self._entry_depth,
             'mfe_ticks': mfe_ticks, 'pnl_ticks': pnl_ticks,
             'predicted_mfe': getattr(self, '_predicted_mfe_ticks', 0.0),

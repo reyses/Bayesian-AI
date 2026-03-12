@@ -246,13 +246,15 @@ class HistoryReplayEngine:
         for bar_i, result in enumerate(states):
             row_idx = bar_i + rp
             row = day_df.iloc[row_idx]
+            _cur_state = result['state']
+            # Same state for entry + exit (matches inline OOS behavior)
             processor.process_bar(
                 bar_index=bar_i,
                 price=float(row['close']),
                 bar_high=float(row['high']),
                 bar_low=float(row['low']),
                 timestamp=float(row['timestamp']),
-                state=result['state'],
+                state=_cur_state,
             )
 
         # Force-close any open position at EOD
