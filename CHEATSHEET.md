@@ -2,8 +2,8 @@
 
 ## Training
 ```bash
-python training/trainer.py --fresh --forward-pass       # Full pipeline (wipe + IS + OOS)
-python training/trainer.py --forward-pass               # IS + OOS (keep checkpoints)
+python training/trainer.py --fresh                      # Full pipeline (wipe + IS + OOS + Replay)
+python training/trainer.py --forward-pass               # IS + OOS + Replay (keep checkpoints)
 python training/trainer.py --forward-pass --skip-oos    # IS only
 python training/trainer.py --oos                        # OOS only (reuse library)
 python training/trainer.py --train-only                 # Phases 2-3 only
@@ -21,8 +21,8 @@ python -m live.launcher --dry-run --ping-pong           # Continuous wave-riding
 python -m live.launcher --dry-run --long-only           # Long bias only
 python -m live.launcher --dry-run --short-only          # Short bias only
 python -m live.launcher --dry-run --anchor-tf 1m        # Change anchor TF
-python -m live.launcher --dry-run --skip-replay         # Skip history warmup
 python -m live.launcher --dry-run --max-daily-loss 100  # Tighter loss limit
+python -m live.launcher --replay-only                   # Replay only + parity report (no NT8)
 ```
 
 ## Tools
@@ -55,6 +55,7 @@ reports/oos_report.txt         # OOS summary
 checkpoints/trade_analytics.txt    # IS analytics (t-test, ANOVA, OLS)
 checkpoints/oos_analytics.txt      # OOS analytics
 reports/run_history.csv        # All runs comparison
+reports/live/parity_report_*.txt   # Phase 7: OOS vs Replay parity
 ```
 
 ## Key Checkpoints

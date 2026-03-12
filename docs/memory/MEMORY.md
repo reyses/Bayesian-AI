@@ -26,8 +26,8 @@
 ## Architecture
 - **Core engine**: `core/statistical_field_engine.py` — MarketState per bar (CUDA-only since 2026-03-08)
 - **Brain**: `core/bayesian_brain.py` — Bayesian table with hash-based state lookups
-- **Trainer**: `training/trainer.py` — main entry point, CLI, 6-phase pipeline
-  - Run: `python training/trainer.py --fresh --forward-pass`
+- **Trainer**: `training/trainer.py` — main entry point, CLI, 7-phase pipeline
+  - Run: `python training/trainer.py --fresh`
 - **Exit Engine**: `core/exit_engine.py` — unified exit cascade (SL→TP→BandUrgent→
   EnvelopeDecay→BreakevenLock→BeliefFlip→Hold). Trail/MaxHold/Watchdog DISABLED.
 - **Execution Engine**: `core/execution_engine.py` — gate/direction/sizing, oracle-driven thresholds
@@ -39,7 +39,7 @@
 - **Trade recording**: `record_trade()` in `core/bayesian_brain.py` — shared by trainer + live.
   Constructs TradeOutcome + brain.update() + brain.direction_learn(). Single code path.
 - **Trade Logger**: `live/trade_logger.py` — per-trade diagnostic CSV
-- **History Replay**: `live/history_replay.py` — compressed forward pass for live warmup
+- **History Replay**: `live/history_replay.py` — compressed forward pass + parity report (Phase 7)
 - **Atlas Loader**: `live/atlas_loader.py` — ATLAS parquet reader for date ranges
 - **Exit Watcher**: `live/exit_watcher.py` — post-exit counterfactual tracking (regret analysis)
 - **GUI Bridge**: `live/gui_bridge.py` — non-blocking queue wrapper for Tk dashboard
@@ -47,7 +47,7 @@
 - **Ping Pong**: `live/ping_pong.py` — flip direction, ATR sizing, deferred flip management
 - **Worker**: `training/orchestrator_worker.py` — per-TF fractal worker
 - **Dashboard**: `visualization/dashboard.py` — Tkinter "Fractal Command Center" (1600x950)
-- **Clustering**: `core/fractal_clustering.py` — Main: recursive K-Means | Experimental: DMI→I-MR→DBSCAN
+- **Clustering**: `core/fractal_clustering.py` — TF-bucketed recursive K-Means (patterns binned by TF before clustering)
 - **Feature vector**: 16D — abs(z), log1p(v), log1p(m), coherence, tf_scale, depth,
   parent_ctx, self_adx, self_hurst, self_dmi_diff, parent_z, parent_dmi_diff,
   root_is_roche, tf_alignment, self_pid, osc_coh
@@ -75,9 +75,9 @@ After every forward pass, always read these reports:
 4. `checkpoints/trade_analytics.txt` — IS version of analytics suite
 
 ## CLI Flags — entry point: `python training/trainer.py`
-- `--fresh` — wipe ALL checkpoints + full pipeline
+- `--fresh` — wipe ALL checkpoints + full pipeline (Phases 1-7 including live replay)
 - `--train-only` — Phases 2-3 only
-- `--forward-pass` — IS → OOS → Strategy auto-chain (existing library)
+- `--forward-pass` — IS → OOS → Strategy → Phase 7 auto-chain (existing library)
 - `--forward-pass --skip-oos` — IS only
 - `--oos` — standalone OOS rerun (uses DATA/ATLAS_OOS)
 - `--forward-data PATH` — custom data for forward pass
@@ -121,11 +121,12 @@ After every forward pass, always read these reports:
 - 20 shape primitives (V-reversal, ramp, sigmoid, etc.) replace DBSCAN clusters
 - Spec: `docs/JULES_WAVEFORM_SEED_INTEGRATION.md` (5 parts, not yet started)
 
-## Validation Ladder (4 gates, sequential)
-1. **IS**: `--forward-pass` on ATLAS. Failure = library broken.
-2. **OOS**: Auto-OOS on ATLAS_OOS. Failure = overfit.
-3. **Live Simulated**: Paper trading via live/ module. Failure = engineering.
-4. **Live Real**: Real money via NT8_BayesianBridge. Failure = risk management.
+## Validation Ladder (5 gates, sequential)
+1. **IS**: Full discovery on ATLAS. Failure = library broken.
+2. **OOS**: Compressed per-bar on ATLAS_OOS. Failure = overfit.
+3. **Phase 7 Replay**: `--replay-only` on ATLAS (parity report). Failure = live stack broken.
+4. **Live Simulated**: Paper trading via live/ module. Failure = engineering.
+5. **Live Real**: Real money via NT8_BayesianBridge. Failure = risk management.
 
 ## Current Baseline (2026-03-09, recursive hierarchy — main branch)
 - IS: $83,821 PnL, 7,773 trades, 97.9% WR, $10.78/trade, 53.1% correct direction
@@ -180,13 +181,18 @@ After every forward pass, always read these reports:
 - **(2026-03-11) Trade health fusion**: `0.6*pace + 0.4*(1-decay)` — single score replacing dead decay_score
 - **(2026-03-11) Report improvements**: hold time in minutes, GIVEBACK & DECAY CONTEXT table, health/pace WIN vs LOSS
 - **(2026-03-11) Magic number audit**: 203 numbers identified, spec at `docs/JULES_MAGIC_NUMBER_REFACTOR.md`
+- **(2026-03-12) TF-bucketed clustering**: patterns binned by TF before K-Means (no scale mixing)
+- **(2026-03-12) OOS compressed per-bar**: OOS uses same path as live (no discovery, no ancestry)
+- **(2026-03-12) Phase 7 live replay**: training calls actual `live.launcher --replay-only` for integrity test
+- **(2026-03-12) Parity report**: `reports/live/parity_report_*.txt` — OOS vs Replay comparison
+- **(2026-03-12) Live startup simplified**: no replay warmup in normal live, connects straight to NT8
 
 ## C&E Matrix Methodology (KEY WORKFLOW)
 > Full methodology: `memory/ce_methodology.md`
 - Identify problem → C&E t-test → Simulate → Fix → Add analytics bucket → Verify
 
 ## Research Lines
-- **R1**: TF-Bucketed Clustering (main) — see `docs/ROADMAP.md`
+- **R1**: TF-Bucketed Clustering (main) — DONE (2026-03-12), 403 templates from 13 TF buckets
 - **R2**: 1-Minute Anchor Discovery (exp/1m-anchor) — see `docs/ROADMAP.md`
 - **R3**: Pre-Entry Pace Filter — see `memory/research_pre_entry_pace.md`
   - Use velocity/acceleration at entry time to filter noise trades before committing

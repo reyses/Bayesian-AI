@@ -439,10 +439,12 @@ class FractalClusteringEngine:
 
     def create_templates(self, manifest: List[Any]) -> List[PatternTemplate]:
         """
-        Groups raw PatternEvents into Templates using RECURSIVE REFINEMENT.
-        Ensures every template is physically homogeneous before optimization begins.
+        Groups raw PatternEvents into Templates using TF-BUCKETED RECURSIVE REFINEMENT.
+        Patterns are binned by timeframe FIRST, then clustered within each bucket.
+        This prevents scale-mixing: a 15m swing template won't contain 1m scalp patterns.
         """
         import time as _time
+        from collections import defaultdict
 
         if not manifest:
             print("WARNING: FractalClusteringEngine received empty manifest.")
@@ -450,38 +452,27 @@ class FractalClusteringEngine:
 
         t0 = _time.perf_counter()
 
-        # 1. Extract Feature Matrix (11D)
-        # Vector: [|Z-Score|, |Velocity|, |Momentum|, Coherence,
-        #          log2(tf_seconds), depth, parent_is_roche,
-        #          parent_z, parent_mom, root_z, root_is_roche]
-        features = []
-        valid_patterns = []
+        # 1. Extract features + bin by timeframe
+        tf_buckets: Dict[str, tuple] = defaultdict(lambda: ([], []))  # tf -> (features, patterns)
 
         for p in manifest:
             try:
                 feat = self.extract_features(p)
-                features.append(feat)
-                valid_patterns.append(p)
+                tf = getattr(p, 'timeframe', '15s')
+                bucket = tf_buckets[tf]
+                bucket[0].append(feat)
+                bucket[1].append(p)
             except AttributeError:
                 continue
 
-        if not features:
+        total_valid = sum(len(v[0]) for v in tf_buckets.values())
+        if total_valid == 0:
             return []
 
-        X = np.array(features)
-        X_scaled = self.scaler.fit_transform(X)
-        print(f"  Feature matrix: {X.shape[0]} patterns x {X.shape[1]} features (extracted in {_time.perf_counter() - t0:.2f}s)")
+        print(f"  Feature matrix: {total_valid} patterns x 16 features (extracted in {_time.perf_counter() - t0:.2f}s)")
+        print(f"  TF buckets: {', '.join(f'{tf}={len(v[0])}' for tf, v in sorted(tf_buckets.items(), key=lambda x: -len(x[1][0])))}")
 
-        # 2. Initial Coarse Clustering
-        # Start with a conservative K
-        target_k = min(self.n_clusters, len(valid_patterns) // 20)
-        target_k = max(target_k, 1)
-
-        t1 = _time.perf_counter()
-        print(f"  Coarse KMeans: fitting {len(valid_patterns)} patterns into {target_k} clusters...", end="", flush=True)
-
-        # Flush any GPU tensors left from Phase 2 discovery before allocating
-        # the (n_samples x n_clusters) distance matrix inside CUDAKMeans.
+        # Flush GPU before clustering
         try:
             import torch as _torch
             if _torch.cuda.is_available():
@@ -490,65 +481,71 @@ class FractalClusteringEngine:
         except Exception:
             pass
 
-        try:
-            model = self._get_kmeans_model(n_clusters=target_k, n_samples=len(valid_patterns))
-            labels = model.fit_predict(X_scaled)
-        except Exception as _cuda_err:
-            # GPU crash (OOM / driver error) -- fall back to sklearn CPU silently
-            print(f"\n  [KMeans CUDA fallback: {type(_cuda_err).__name__}]", end="", flush=True)
-            from sklearn.cluster import KMeans as _SKMeans
-            _fallback = _SKMeans(n_clusters=target_k, random_state=42, n_init=3, max_iter=300)
-            labels = _fallback.fit_predict(X_scaled)
-        print(f" done ({_time.perf_counter() - t1:.2f}s)")
-
-        # Group indices by label
-        cluster_indices = {}
-        for idx, label in enumerate(labels):
-            if label not in cluster_indices: cluster_indices[label] = []
-            cluster_indices[label].append(idx)
-
-        # Show cluster size distribution
-        sizes = [len(v) for v in cluster_indices.values()]
-        print(f"  Cluster sizes: min={min(sizes)}, max={max(sizes)}, median={sorted(sizes)[len(sizes)//2]}, avg={np.mean(sizes):.0f}")
-
-        # 3. Recursive Refinement (The "Physics Tightening" Loop)
-        t2 = _time.perf_counter()
-        print(f"  Recursive refinement (max_variance={self.max_variance})...", end="", flush=True)
+        # 2. Cluster each TF bucket independently
         final_templates = []
         next_id = 0
-        splits_count = 0
+        total_splits = 0
 
-        for label, indices in cluster_indices.items():
-            sub_X = X_scaled[indices]
-            sub_patterns = [valid_patterns[i] for i in indices]
+        for tf in sorted(tf_buckets.keys(), key=lambda t: TIMEFRAME_SECONDS.get(t, 0)):
+            bucket_features, bucket_patterns = tf_buckets[tf]
+            n = len(bucket_features)
+            if n == 0:
+                continue
 
-            # Check Variance (Goodness of Fit on Physics)
-            # We look primarily at Z-Score variance (Feature 0)
-            z_variance = np.std(sub_X[:, 0])
+            X = np.array(bucket_features)
+            X_scaled = self.scaler.fit_transform(X)
 
-            if z_variance > self.max_variance and len(indices) > 20:
-                # CLUSTER IS TOO LOOSE -> RECURSIVE SPLIT
-                splits_count += 1
-                refined_subsets = self._recursive_split(sub_X, sub_patterns, next_id)
-                final_templates.extend(refined_subsets)
-                next_id += len(refined_subsets)
-            else:
-                # CLUSTER IS TIGHT -> KEEP
-                centroid = np.mean(sub_X, axis=0)
-                raw_centroid = self.scaler.inverse_transform([centroid])[0]
+            # Conservative K per bucket
+            target_k = min(self.n_clusters, n // 20)
+            target_k = max(target_k, 1)
 
-                final_templates.append(PatternTemplate(
-                    template_id=next_id,
-                    centroid=raw_centroid,
-                    member_count=len(sub_patterns),
-                    patterns=sub_patterns,
-                    physics_variance=z_variance,
-                    semantic_name=generate_semantic_name(raw_centroid)
-                ))
-                next_id += 1
+            t1 = _time.perf_counter()
+            print(f"  [{tf}] KMeans: {n} patterns -> {target_k} clusters...", end="", flush=True)
 
-        print(f" done ({_time.perf_counter() - t2:.2f}s)")
-        print(f"  Refinement: {target_k} coarse -> {len(final_templates)} tight templates ({splits_count} clusters split)")
+            try:
+                model = self._get_kmeans_model(n_clusters=target_k, n_samples=n)
+                labels = model.fit_predict(X_scaled)
+            except Exception as _cuda_err:
+                print(f" [CUDA fallback: {type(_cuda_err).__name__}]", end="", flush=True)
+                from sklearn.cluster import KMeans as _SKMeans
+                _fallback = _SKMeans(n_clusters=target_k, random_state=42, n_init=3, max_iter=300)
+                labels = _fallback.fit_predict(X_scaled)
+
+            # Group indices by label
+            cluster_indices = {}
+            for idx, label in enumerate(labels):
+                if label not in cluster_indices: cluster_indices[label] = []
+                cluster_indices[label].append(idx)
+
+            # Recursive refinement within this TF bucket
+            splits_count = 0
+            for label, indices in cluster_indices.items():
+                sub_X = X_scaled[indices]
+                sub_patterns = [bucket_patterns[i] for i in indices]
+                z_variance = np.std(sub_X[:, 0])
+
+                if z_variance > self.max_variance and len(indices) > 20:
+                    splits_count += 1
+                    refined_subsets = self._recursive_split(sub_X, sub_patterns, next_id)
+                    final_templates.extend(refined_subsets)
+                    next_id += len(refined_subsets)
+                else:
+                    centroid = np.mean(sub_X, axis=0)
+                    raw_centroid = self.scaler.inverse_transform([centroid])[0]
+                    final_templates.append(PatternTemplate(
+                        template_id=next_id,
+                        centroid=raw_centroid,
+                        member_count=len(sub_patterns),
+                        patterns=sub_patterns,
+                        physics_variance=z_variance,
+                        semantic_name=generate_semantic_name(raw_centroid)
+                    ))
+                    next_id += 1
+
+            total_splits += splits_count
+            print(f" {target_k}->{target_k + splits_count} templates ({_time.perf_counter() - t1:.2f}s)")
+
+        print(f"  Total: {len(final_templates)} templates from {len(tf_buckets)} TF buckets ({total_splits} splits)")
 
         # Sort by size
         final_templates.sort(key=lambda x: x.member_count, reverse=True)
@@ -567,7 +564,8 @@ class FractalClusteringEngine:
 
         # --- NEW: Transition Matrix ---
         print(f"  Building Transition Matrix...", end="", flush=True)
-        self._build_transition_matrix(final_templates, valid_patterns)
+        all_patterns = [p for (_, patterns) in tf_buckets.values() for p in patterns]
+        self._build_transition_matrix(final_templates, all_patterns)
         print(" done.")
 
         print(f"  Total clustering time: {_time.perf_counter() - t0:.2f}s")

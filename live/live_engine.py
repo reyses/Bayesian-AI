@@ -260,8 +260,8 @@ class LiveEngine:
         self._init_belief_network()
         self._init_exec_engine()
 
-        # ── Compressed replay: warm brain/TBN/exits from ATLAS ─────────
-        if not self._cfg.skip_replay:
+        # ── Replay-only mode (Phase 7 validation) ────────────────────────
+        if self._cfg.replay_only:
             try:
                 from live.history_replay import HistoryReplayEngine
                 replay = HistoryReplayEngine(
@@ -272,38 +272,29 @@ class LiveEngine:
                 )
                 result = replay.run()
 
-                if not result.validation.passed:
-                    if self._dry_run:
-                        logger.warning("REPLAY VALIDATION FAILED — continuing anyway (dry-run)")
-                        for w in result.validation.warnings:
-                            logger.warning(f"  {w}")
-                        logger.warning(f"  Parity score: {result.validation.parity_score:.2f}")
-                    else:
-                        logger.error("REPLAY VALIDATION FAILED — refusing to go live")
-                        for w in result.validation.warnings:
-                            logger.error(f"  WARNING: {w}")
-                        logger.error(f"  Parity score: {result.validation.parity_score:.2f}")
-                        return
-
-                # Transfer warmed state
-                self._brain = result.brain
-                self._belief_network = result.belief_network
-                self._aggregator.seed_from_replay(
-                    result.df_micro, result.states_micro)
-                # Set resume timestamp so NT8 only sends delta bars
-                self._client.set_resume_timestamp(result.last_timestamp)
-                logger.info(f"REPLAY VALIDATED: {result.validation.replay_trades} trades, "
+                # Save warmed brain for live handoff
+                brain_path = os.path.join(
+                    self._cfg.checkpoint_dir, 'live_brain.pkl')
+                result.brain.save(brain_path)
+                logger.info(f"Saved warmed brain: {brain_path} "
+                            f"({len(result.brain.table)} states)")
+                logger.info(f"REPLAY COMPLETE: {result.validation.replay_trades} trades, "
                             f"WR={result.validation.replay_wr:.1%}, "
                             f"PnL=${result.validation.replay_pnl:+,.2f}, "
                             f"Parity={result.validation.parity_score:.2f}")
             except Exception as e:
-                logger.warning(f"Replay failed ({e}) — falling back to NT8 history")
-        else:
-            # Old behavior: load persisted bars for delta sync
-            last_ts = self._aggregator.load_from_parquet()
-            if last_ts > 0:
-                self._client.set_resume_timestamp(last_ts)
-                logger.info(f"Delta sync enabled: will request bars after ts={last_ts:.0f}")
+                logger.error(f"Replay-only failed: {e}")
+                import traceback
+                traceback.print_exc()
+            self._shared_state['shutdown_confirmed'] = True
+            return
+
+        # ── Normal live: connect straight to NT8 ─────────────────────────
+        # Brain already warmed by Phase 7 (live_brain.pkl) — no replay needed
+        last_ts = self._aggregator.load_from_parquet()
+        if last_ts > 0:
+            self._client.set_resume_timestamp(last_ts)
+            logger.info(f"Delta sync enabled: will request bars after ts={last_ts:.0f}")
 
         connected = await self._client.connect()
         if not connected:
