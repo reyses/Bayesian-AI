@@ -2863,3 +2863,51 @@ See: reports/findings/2026-03-11_runtime_improvements.md
   - Phase 2: template oracle stats table in console
   - Phase 3: worker cap 10->4, 30s heartbeat, 5min timeout per template
   - Forward pass: per-day flush, per-template OK/TIMEOUT confirmation
+
+
+TF-BUCKETED CLUSTERING + OOS PARITY FIX (2026-03-12)
+=====================================================
+Status: Implemented on main, training in progress
+
+PROBLEM 1 — SCALE MIXING:
+Clustering mixed all 14 TFs in one K-Means pool. 1D patterns (43) and 1s
+patterns (4,613) ended up in the same clusters. A 15m swing template could
+contain 1m scalp patterns. Scale semantics destroyed.
+
+FIX — TF BINNING:
+  core/fractal_clustering.py:create_templates() rewritten.
+  Patterns binned by timeframe BEFORE clustering. Each TF bucket gets
+  independent K-Means with target_k = max(2, n_patterns / 100).
+  Result: 403 templates from 13 TF buckets (was 103 mixed).
+  Each template now has consistent scale semantics.
+
+PROBLEM 2 — TRAINER/LIVE PARITY:
+IS training uses full recursive discovery (14 TFs, parent chains, ancestry
+features). Live/replay uses flat per-bar MarketState features (no ancestry).
+This caused massive divergence: 98% WR in OOS (discovery) vs 75% in replay
+(compressed). OOS was validating an idealized path, not what live actually sees.
+
+FIX — OOS COMPRESSED MODE:
+  training/trainer.py: when oos_mode=True, skip scan_day_cascade(). Build
+  candidates from MarketState using extract_feature_vector() with zero
+  ancestry (parent_z=0, parent_dmi_diff=0, root_is_roche=0, tf_alignment=0).
+  gate1_dist set to 9.5 (matches live aggression scaling).
+  IS keeps full discovery. OOS now matches live path exactly.
+
+PROBLEM 3 — LIVE INTEGRITY VALIDATION:
+No automated test that the full live stack (LiveEngine + checkpoints + TBN +
+ExecutionEngine + HistoryReplayEngine) actually works end-to-end.
+
+FIX — PHASE 7:
+  Phase 7 added to training pipeline. Calls live.launcher.main() with
+  --replay-only. Runs actual LiveEngine, does compressed replay, writes
+  parity report (OOS vs Replay comparison), saves warmed brain. Full stack
+  integrity test without NT8 connection.
+
+  Normal live no longer does replay warmup — connects straight to NT8 with
+  pre-warmed brain from Phase 7.
+
+  Pipeline: --fresh → Phase 1-3 (train) → Phase 4 (IS) → Phase 5 (OOS,
+  compressed) → Phase 6 (Strategy) → OOS2 → Phase 7 (Live Replay)
+
+RESULTS: Awaiting --fresh completion (first run with all changes).

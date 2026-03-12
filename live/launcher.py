@@ -124,9 +124,12 @@ def _clean_nt8_cache():
             print(f"[cleanup] Failed to delete {db_path}: {e}")
 
 
-def main():
-    _kill_stale_live_engines()
-    _clean_nt8_cache()
+def main(argv=None):
+    """Entry point. Pass argv list to override sys.argv (used by trainer Phase 7)."""
+    # argv override for programmatic calls (e.g. trainer Phase 7)
+    _orig_argv = sys.argv
+    if argv is not None:
+        sys.argv = argv
 
     parser = argparse.ArgumentParser(
         description='Bayesian-AI NinjaTrader 8 Live Connector')
@@ -162,13 +165,25 @@ def main():
     parser.add_argument('--log-level', default='INFO',
                         choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
                         help='Logging level (default: INFO)')
-    parser.add_argument('--skip-replay', action='store_true',
-                        help='Skip compressed replay, load from NT8 history (old behavior)')
     parser.add_argument('--replay-days', type=int, default=5,
                         help='Days of ATLAS history to replay (default: 5)')
     parser.add_argument('--atlas-root', default='DATA/ATLAS',
                         help='Path to ATLAS data root (default: DATA/ATLAS)')
+    parser.add_argument('--replay-only', action='store_true',
+                        help='Run replay, write parity report, exit (no NT8 connection)')
     args = parser.parse_args()
+
+    # Restore argv for programmatic calls
+    if argv is not None:
+        sys.argv = _orig_argv
+
+    # replay-only: force dry-run + no-gui, skip NT8 cleanup
+    if args.replay_only:
+        args.dry_run = True
+        args.no_gui = True
+    else:
+        _kill_stale_live_engines()
+        _clean_nt8_cache()
 
     # YOLO mode: override warmup + aggression
     if args.yolo:
@@ -201,9 +216,9 @@ def main():
         max_daily_loss_usd=args.max_daily_loss,
         anchor_tf=args.anchor_tf,
         ping_pong=args.ping_pong,
-        skip_replay=args.skip_replay,
         replay_days=args.replay_days,
         atlas_root=args.atlas_root,
+        replay_only=args.replay_only,
     )
 
     # Validate side lock

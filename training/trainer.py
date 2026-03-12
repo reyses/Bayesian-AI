@@ -51,6 +51,7 @@ from training.pattern_analyzer import PatternAnalyzer
 from training.progress_reporter import ProgressReporter, DayMetrics
 from training.databento_loader import DatabentoLoader
 from training.fractal_discovery_agent import FractalDiscoveryAgent, PatternEvent, TIMEFRAME_SECONDS
+from core.feature_extraction import extract_feature_vector
 from core.fractal_clustering import FractalClusteringEngine, PatternTemplate
 from training.pipeline_checkpoint import PipelineCheckpoint
 from core.timeframe_belief_network import TimeframeBeliefNetwork, BeliefState
@@ -368,6 +369,13 @@ class Trainer:
             depth_only=getattr(self, '_depth_only', None),
         )
 
+        # OOS compressed mode: widen gate1_dist to match live engine
+        # Live uses: gate1_dist = 4.5 + aggression * 10.0 (default agg=0.5 → 9.5)
+        if oos_mode:
+            _oos_g1 = 4.5 + 0.5 * 10.0  # match live default aggression
+            _exec_engine.gate1_dist = _oos_g1
+            print(f"  OOS compressed mode: gate1_dist={_oos_g1:.1f}")
+
         # Slippage RNG (seeded for reproducibility)
         _slip_ticks = float(getattr(self, '_slippage_ticks', 0.0))
         _slip_rng = random.Random(42) if _slip_ticks > 0 else None
@@ -577,15 +585,20 @@ class Trainer:
             if trade_start_date:
                 _day_key = day_date.replace('_', '')  # 2025_01 → 202501
                 if _day_key + '01' < trade_start_date:
-                    # Still run discovery to build TBN state
-                    self.discovery_agent.scan_day_cascade(data_source, day_date)
+                    # Still run discovery to build TBN state (IS only)
+                    if not oos_mode:
+                        self.discovery_agent.scan_day_cascade(data_source, day_date)
                     _pbar.set_postfix_str(f"{day_date} | WARMUP (context only)", refresh=False)
                     _pbar.update(1)
                     continue
 
             # A. Fractal Cascade Scan (get actionable patterns with chains)
-            # This uses the discovery agent logic but focused on this day
-            actionable_patterns = self.discovery_agent.scan_day_cascade(data_source, day_date)
+            # OOS mode: skip discovery — uses compressed per-bar features (same as live)
+            # IS mode: full recursive discovery for library training
+            if oos_mode:
+                actionable_patterns = []
+            else:
+                actionable_patterns = self.discovery_agent.scan_day_cascade(data_source, day_date)
 
             # Sort by timestamp to simulate real-time feed
             actionable_patterns.sort(key=lambda x: x.timestamp)
@@ -1134,24 +1147,79 @@ class Trainer:
                     bars_with_detection += 1
                     if current_position_open:
                         bars_slot_blocked += 1
-                if not current_position_open and not _in_maintenance and ts in pattern_map:
-                    raw_candidates = pattern_map[ts]
+
+                # ── Candidate building: two paths ──
+                # IS: full discovery (PatternEvents from scan_day_cascade)
+                # OOS: compressed per-bar (MarketState features — same as live)
+                _has_discovery_signal = ts in pattern_map
+                _has_compressed_signal = False
+                if oos_mode:
+                    _oos_state = _states_map.get(_bar_i)
+                    if _oos_state:
+                        _oos_pt = getattr(_oos_state, 'pattern_type', '')
+                        _oos_cascade = getattr(_oos_state, 'cascade_detected', False)
+                        _oos_struct = getattr(_oos_state, 'structure_confirmed', False)
+                        if _oos_pt and _oos_pt != 'NONE' and (_oos_cascade or _oos_struct):
+                            _has_compressed_signal = True
+
+                _should_check_entry = (not current_position_open and not _in_maintenance
+                                       and (_has_discovery_signal if not oos_mode
+                                            else _has_compressed_signal))
+
+                if _should_check_entry:
                     _candidate_gate = {}    # id(p) -> gate label (for FN audit)
 
-                    # ── Build Candidate objects for ExecutionEngine ──
-                    _eng_candidates = [
-                        Candidate(
-                            state=p.state,
-                            depth=getattr(p, 'depth', 6),
-                            timeframe=getattr(p, 'timeframe', '15s'),
+                    if oos_mode:
+                        # ── OOS: compressed per-bar (same as live/replay) ──
+                        _oos_state = _states_map.get(_bar_i)
+                        _oos_z = getattr(_oos_state, 'z_score', 0.0)
+                        _oos_pt = getattr(_oos_state, 'pattern_type', '')
+                        _oos_tf_s = 15  # 15s anchor
+                        _oos_depth = 8  # 15s depth
+                        _oos_feat = np.array([extract_feature_vector(
+                            z_score=_oos_z,
+                            velocity=getattr(_oos_state, 'velocity', 0.0),
+                            momentum=getattr(_oos_state, 'momentum_strength',
+                                             getattr(_oos_state, 'momentum', 0.0)),
+                            entropy_normalized=getattr(_oos_state, 'entropy_normalized', 0.0),
+                            tf_seconds=_oos_tf_s,
+                            depth=float(_oos_depth),
+                            parent_is_band_reversal=0.0,
+                            adx=getattr(_oos_state, 'adx_strength', 0.0) / 100.0,
+                            hurst=getattr(_oos_state, 'hurst_exponent', 0.5),
+                            dmi_diff=(getattr(_oos_state, 'dmi_plus', 0.0)
+                                      - getattr(_oos_state, 'dmi_minus', 0.0)) / 100.0,
+                            parent_z=0.0, parent_dmi_diff=0.0,
+                            root_is_roche=0.0, tf_alignment=0.0,
+                            pid=getattr(_oos_state, 'term_pid', 0.0),
+                            osc_coherence=getattr(_oos_state, 'oscillation_entropy_normalized', 0.0),
+                        )])
+                        _eng_candidates = [Candidate(
+                            state=_oos_state,
+                            depth=_oos_depth,
+                            timeframe='15s',
                             timestamp=ts,
-                            pattern_type=p.pattern_type,
-                            z_score=p.z_score,
-                            features=np.array([FractalClusteringEngine.extract_features(p)]),
-                            raw_event=p,
-                        ) for p in raw_candidates
-                    ]
-                    n_signals_seen += len(raw_candidates)
+                            pattern_type=_oos_pt,
+                            z_score=_oos_z,
+                            features=_oos_feat,
+                        )]
+                        raw_candidates = []  # no PatternEvents in compressed mode
+                    else:
+                        # ── IS: full discovery (PatternEvents) ──
+                        raw_candidates = pattern_map[ts]
+                        _eng_candidates = [
+                            Candidate(
+                                state=p.state,
+                                depth=getattr(p, 'depth', 6),
+                                timeframe=getattr(p, 'timeframe', '15s'),
+                                timestamp=ts,
+                                pattern_type=p.pattern_type,
+                                z_score=p.z_score,
+                                features=np.array([FractalClusteringEngine.extract_features(p)]),
+                                raw_event=p,
+                            ) for p in raw_candidates
+                        ]
+                    n_signals_seen += len(_eng_candidates)
 
                     # -- PP direction override --
                     _pp_dir_ov = None
@@ -4950,6 +5018,27 @@ def main():
 
                 # Comparison: OOS1 vs OOS2
                 _print_oos_comparison(_oos1, _oos2)
+
+                # Phase 7: Live Replay Validation (calls actual live launcher)
+                try:
+                    from live.launcher import main as live_main
+
+                    print("\n" + "=" * 80)
+                    print("  PHASE 7: LIVE REPLAY VALIDATION (full live stack)")
+                    print("=" * 80)
+                    live_main(argv=[
+                        'live.launcher',
+                        '--replay-only',
+                        '--checkpoint-dir', orchestrator.checkpoint_dir,
+                        '--atlas-root', _fwd_data,
+                        '--replay-days', '5',
+                    ])
+                    print("  Phase 7 complete — parity report in reports/live/")
+                except Exception as _replay_err:
+                    print(f"  Live replay failed: {_replay_err}")
+                    import traceback as _tb
+                    _tb.print_exc()
+
         elif args.strategy_report and not args.forward_pass:
             orchestrator.run_strategy_selection()  # requires oos_trade_log.csv to exist
         else:
@@ -5048,6 +5137,26 @@ def main():
 
                     # Comparison: OOS1 vs OOS2
                     _print_oos_comparison(_oos1, _oos2)
+
+                # Phase 7: Live Replay Validation (calls actual live launcher)
+                try:
+                    from live.launcher import main as live_main
+
+                    print("\n" + "=" * 80)
+                    print("  PHASE 7: LIVE REPLAY VALIDATION (full live stack)")
+                    print("=" * 80)
+                    live_main(argv=[
+                        'live.launcher',
+                        '--replay-only',
+                        '--checkpoint-dir', orchestrator.checkpoint_dir,
+                        '--atlas-root', args.data,
+                        '--replay-days', '5',
+                    ])
+                    print("  Phase 7 complete — parity report in reports/live/")
+                except Exception as _replay_err:
+                    print(f"  Live replay failed: {_replay_err}")
+                    import traceback as _tb
+                    _tb.print_exc()
 
         orchestrator.print_bottom_line()
         return 0
