@@ -273,11 +273,17 @@ class LiveEngine:
                 result = replay.run()
 
                 if not result.validation.passed:
-                    logger.error("REPLAY VALIDATION FAILED — refusing to go live")
-                    for w in result.validation.warnings:
-                        logger.error(f"  WARNING: {w}")
-                    logger.error(f"  Parity score: {result.validation.parity_score:.2f}")
-                    return
+                    if self._dry_run:
+                        logger.warning("REPLAY VALIDATION FAILED — continuing anyway (dry-run)")
+                        for w in result.validation.warnings:
+                            logger.warning(f"  {w}")
+                        logger.warning(f"  Parity score: {result.validation.parity_score:.2f}")
+                    else:
+                        logger.error("REPLAY VALIDATION FAILED — refusing to go live")
+                        for w in result.validation.warnings:
+                            logger.error(f"  WARNING: {w}")
+                        logger.error(f"  Parity score: {result.validation.parity_score:.2f}")
+                        return
 
                 # Transfer warmed state
                 self._brain = result.brain
@@ -779,6 +785,12 @@ class LiveEngine:
         pos = self._position
         if pos is None or self._pos_state is None:
             return
+
+        # Update trade pace cache for TBN exit signals
+        _tp = self._belief_network.get_trade_progress(
+            price, tick_size=self._cfg.tick_size)
+        self._belief_network._trade_pace_cache = _tp
+        self._belief_network._trade_pace_blend = _tp.get('pace', 1.0) - 1.0
 
         # CME maintenance cutoff: flatten before daily halt (16:45-18:00 ET)
         if self._exit_engine.is_maintenance_window(ts):
@@ -1537,13 +1549,18 @@ class LiveEngine:
             'max_hold': self._max_hold_bars,
         }
 
-        self._belief_network.start_trade_tracking(
-            side=side, entry_bar=self._bar_i,
-            pattern_horizon_bars=self._max_hold_bars)
-
-        # Per-template exit timescale
         _avg_mfe_bar = lib_entry.get('avg_mfe_bar', 0.0)
         _p75_mfe_bar = lib_entry.get('p75_mfe_bar', 0.0)
+        _p75_mfe_ticks = lib_entry.get('p75_mfe_ticks', 0.0)
+
+        self._belief_network.start_trade_tracking(
+            side=side, entry_bar=self._bar_i,
+            pattern_horizon_bars=self._max_hold_bars,
+            target_mfe_ticks=_p75_mfe_ticks,
+            resolve_bars=_avg_mfe_bar,
+            entry_price=price)
+
+        # Per-template exit timescale
         if _avg_mfe_bar > 0:
             self._belief_network.set_active_trade_timescale(
                 _avg_mfe_bar, _p75_mfe_bar)
