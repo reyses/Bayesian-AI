@@ -180,6 +180,67 @@ class LiveBarAggregator:
         self._bars_since_flush = 0
         logger.info(f"Bars saved: {len(df):,} rows -> {path}")
 
+    def update_atlas(self, atlas_root: str = 'DATA/ATLAS_OOS'):
+        """Append current bars to ATLAS parquet files (keeps OOS data current).
+
+        NT8 sends 10k bars on connect + live bars during trading.
+        This merges them into ATLAS format: {atlas_root}/{tf}/YYYY_MM.parquet
+        so the next OOS3 run includes the most recent market data.
+        """
+        from datetime import datetime, timezone
+        if not self._rows:
+            return
+
+        tf_label = f'{self._target_period}s'
+        tf_dir = os.path.join(atlas_root, tf_label)
+        os.makedirs(tf_dir, exist_ok=True)
+
+        df = pd.DataFrame(self._rows)
+        df = df.sort_values('timestamp').drop_duplicates(subset='timestamp', keep='last')
+
+        # Group bars by YYYY_MM for ATLAS file structure
+        df['_month'] = df['timestamp'].apply(
+            lambda ts: datetime.fromtimestamp(ts, tz=timezone.utc).strftime('%Y_%m'))
+        n_written = 0
+        for month, group in df.groupby('_month'):
+            month_path = os.path.join(tf_dir, f'{month}.parquet')
+            out = group.drop(columns=['_month'])
+            # Merge with existing month file
+            if os.path.exists(month_path):
+                try:
+                    old = pd.read_parquet(month_path)
+                    out = pd.concat([old, out]).drop_duplicates(
+                        subset='timestamp', keep='last').sort_values('timestamp')
+                except Exception as e:
+                    logger.warning(f"Could not merge with {month_path}: {e}")
+            out.to_parquet(month_path, index=False)
+            n_written += len(group)
+            logger.info(f"ATLAS updated: {month_path} ({len(out):,} bars)")
+
+        # Also update 1s bars if we have them
+        if self._rows_1s:
+            tf_1s_dir = os.path.join(atlas_root, '1s')
+            os.makedirs(tf_1s_dir, exist_ok=True)
+            df_1s = pd.DataFrame(self._rows_1s)
+            df_1s = df_1s.sort_values('timestamp').drop_duplicates(
+                subset='timestamp', keep='last')
+            df_1s['_month'] = df_1s['timestamp'].apply(
+                lambda ts: datetime.fromtimestamp(ts, tz=timezone.utc).strftime('%Y_%m'))
+            for month, group in df_1s.groupby('_month'):
+                month_path = os.path.join(tf_1s_dir, f'{month}.parquet')
+                out = group.drop(columns=['_month'])
+                if os.path.exists(month_path):
+                    try:
+                        old = pd.read_parquet(month_path)
+                        out = pd.concat([old, out]).drop_duplicates(
+                            subset='timestamp', keep='last').sort_values('timestamp')
+                    except Exception:
+                        pass
+                out.to_parquet(month_path, index=False)
+            logger.info(f"ATLAS 1s updated: {len(df_1s):,} bars")
+
+        logger.info(f"ATLAS update complete: {n_written:,} {tf_label} bars -> {atlas_root}")
+
     def load_from_parquet(self) -> float:
         """Load persisted bars into the buffer. Returns last timestamp (0 if none)."""
         path = self._parquet_path()
@@ -211,10 +272,11 @@ class LiveBarAggregator:
         logger.info("=" * 50)
         logger.info("DAILY MAINTENANCE — session gap detected")
 
-        # 1. Save current bars to disk before resetting
+        # 1. Save current bars to disk + update ATLAS
         n_bars = self.bar_count
         n_1s = len(self._rows_1s)
         self.save_to_parquet()
+        self.update_atlas()
 
         # 2. Trim 1s bars (no need to persist these — only for intra-session TBN)
         self._rows_1s.clear()

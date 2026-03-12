@@ -521,6 +521,8 @@ class LiveEngine:
                 for _hist_i in range(len(states)):
                     self._belief_network.tick_all(_hist_i)
                 logger.info(f"TBN warmed: ticked {len(states)} bars from NT8 history")
+                # Update ATLAS with NT8 bars so OOS data stays current
+                self._aggregator.update_atlas()
                 self._gui.push({
                     'type': 'PHASE_PROGRESS',
                     'phase': 'LIVE',
