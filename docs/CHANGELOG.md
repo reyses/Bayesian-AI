@@ -2,6 +2,10 @@
 
 ---
 
+## [V6.1.0] - 2026-03-12
+### New Commits
+- `9bddb95` feat: TF-bucketed clustering + OOS compressed mode + Phase 7 live replay
+
 ## [V6.0.0] - 2026-03-08 — Statistical Architecture Refactor & Unified Execution
 
 ### Architecture
