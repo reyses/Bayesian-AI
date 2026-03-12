@@ -1720,6 +1720,18 @@ class Trainer:
         self._persisted_exit_engine = _exec_engine.exit_engine
         self.exec_engine = _exec_engine
 
+        # Save tuned exit params for standalone OOS3
+        import json as _json_save
+        _tuned_exit = {
+            'envelope_half_life_bars': _exec_engine.exit_engine.envelope_half_life_bars,
+            'giveback_pct': _exec_engine.exit_engine.giveback_pct,
+        }
+        _tuned_path = os.path.join(self.checkpoint_dir, 'exit_tuning.json')
+        with open(_tuned_path, 'w') as _tf:
+            _json_save.dump(_tuned_exit, _tf)
+        print(f"  Exit tuning saved: hl={_tuned_exit['envelope_half_life_bars']:.1f}, "
+              f"gb={_tuned_exit['giveback_pct']:.0%} → {_tuned_path}")
+
         # ── OOS3: Replay last N trading days through BarProcessor ──────────
         # Inline OOS ran all files. Now replay the last N days through a
         # BarProcessor with SAME belief_network (preserves 48 days of TBN
@@ -1879,8 +1891,6 @@ class Trainer:
                             continue
 
                         _lv_day_trades = []
-                        # FIX 2: seed with last warmup state (or last bar of prev day)
-                        _lv_prev_state = _lv_last_warmup_state
                         for _lv_i, _lv_row_idx in enumerate(_day_indices):
                             _lv_state = _lv_states_map.get(_lv_row_idx)
                             if _lv_state is None:
@@ -1888,18 +1898,16 @@ class Trainer:
                                 continue
                             _lv_row = _lv_df.iloc[_lv_row_idx]
                             _lv_cur_ts[0] = float(_lv_row['timestamp'])
-                            # FIX 2: pass prior bar state for exit eval (inline uses _bar_i-1)
-                            # First bar of day uses None → defaults to 0.0 for net_force/noise
-                            _state_for_exit = _lv_prev_state if _lv_prev_state is not None else _lv_state
+                            # Same state for entry + exit (matches inline OOS:
+                            # exit uses _states_map[_bar_i-1] = current bar due to pre-increment)
                             result = _lv_processor.process_bar(
                                 bar_index=_lv_bar_counter,
                                 price=float(_lv_row['close']),
                                 bar_high=float(_lv_row['high']),
                                 bar_low=float(_lv_row['low']),
                                 timestamp=float(_lv_row['timestamp']),
-                                state=_state_for_exit,
+                                state=_lv_state,
                             )
-                            _lv_prev_state = _lv_state  # save current as next bar's "prior"
                             _lv_bar_counter += 1
                             if result.trade_completed:
                                 _lv_day_trades.append(result.trade_completed)
@@ -1940,6 +1948,290 @@ class Trainer:
             )
 
         print("\n  [OK] Forward pass complete -- all files saved.", flush=True)
+
+    @staticmethod
+    def _load_tf_dir(tf_dir: str):
+        """Load and concat all parquet files in a timeframe directory."""
+        _files = sorted(glob.glob(os.path.join(tf_dir, '*.parquet')))
+        if not _files:
+            return None
+        _dfs = [pd.read_parquet(f) for f in _files]
+        return pd.concat(_dfs, ignore_index=True).sort_values('timestamp').reset_index(drop=True)
+
+    def run_oos3_standalone(self, data_source: str = None,
+                            n_days: int = 5,
+                            bias_threshold: float = None,
+                            dmi_threshold: float = None,
+                            account_size: float = 0.0):
+        """Standalone OOS3: BarProcessor only, no inline OOS.
+
+        Loads checkpoints, computes states on OOS data, ticks TBN through
+        warmup bars, then runs BarProcessor on the last N trading days.
+        Writes parity report comparing against reports/oos_report.txt.
+        """
+        import re
+        from collections import defaultdict
+
+        data_source = data_source or os.path.join('DATA', 'ATLAS_OOS')
+        print("\n" + "=" * 80)
+        print("  OOS3 STANDALONE — BarProcessor parity test")
+        print(f"  Data: {data_source}  |  Last {n_days} trading days")
+        print("=" * 80)
+
+        # ── Load checkpoints ──────────────────────────────────────────────
+        from core.checkpoint_loader import load_checkpoints
+        _bundle = load_checkpoints(self.checkpoint_dir, verbose=True)
+        self.pattern_library = _bundle.pattern_library
+        self.scaler = _bundle.scaler
+
+        # ── Load 15s data files ───────────────────────────────────────────
+        _15s_dir = os.path.join(data_source, '15s')
+        if not os.path.isdir(_15s_dir):
+            print(f"ERROR: no 15s directory in {data_source}")
+            return
+        _files = sorted(glob.glob(os.path.join(_15s_dir, '*.parquet')))
+        if not _files:
+            print(f"ERROR: no parquet files in {_15s_dir}")
+            return
+        print(f"  Found {len(_files)} 15s files")
+
+        # ── Concat all files, identify trading days ───────────────────────
+        _dfs = [pd.read_parquet(f) for f in _files]
+        _df_all = pd.concat(_dfs, ignore_index=True).sort_values('timestamp')
+        _ts_col = _df_all['timestamp']
+        if np.issubdtype(_ts_col.dtype, np.number):
+            _df_all['_date'] = pd.to_datetime(_ts_col, unit='s').dt.strftime('%Y-%m-%d')
+        else:
+            _df_all['_date'] = pd.to_datetime(_ts_col).dt.strftime('%Y-%m-%d')
+
+        _all_dates = sorted(_df_all['_date'].unique())
+        _target_dates = _all_dates[-n_days:]
+        _warmup_dates = _all_dates[:-n_days] if len(_all_dates) > n_days else []
+
+        print(f"  Total trading days: {len(_all_dates)}")
+        print(f"  Warmup days: {len(_warmup_dates)} ({_warmup_dates[0] if _warmup_dates else 'none'} → "
+              f"{_warmup_dates[-1] if _warmup_dates else 'none'})")
+        print(f"  Target days: {_target_dates[0]} → {_target_dates[-1]}")
+
+        # ── Compute states (GPU, fast) ────────────────────────────────────
+        print("  Computing market states...", flush=True)
+        _states = self.engine.batch_compute_states(_df_all, use_cuda=True)
+        _states_map = {s['bar_idx']: s['state'] for s in _states}
+        print(f"  {len(_states)} states computed")
+
+        # ── Load sub-TF data for TBN ─────────────────────────────────────
+        _5s_dir = os.path.join(data_source, '5s')
+        _1s_dir = os.path.join(data_source, '1s')
+        _4h_dir = os.path.join(data_source, '4h')
+        _df_5s = self._load_tf_dir(_5s_dir) if os.path.isdir(_5s_dir) else None
+        _df_1s = self._load_tf_dir(_1s_dir) if os.path.isdir(_1s_dir) else None
+        _df_4h = self._load_tf_dir(_4h_dir) if os.path.isdir(_4h_dir) else None
+
+        # ── Create TBN + prepare ──────────────────────────────────────────
+        belief_network = create_belief_network(_bundle, self.engine)
+        belief_network.prepare_day(_df_all, states_micro=_states,
+                                   df_5s=_df_5s, df_1s=_df_1s, df_4h=_df_4h)
+
+        # ── Tick TBN through warmup bars (fast, no trades) ────────────────
+        _warmup_mask = _df_all['_date'].isin(set(_warmup_dates))
+        _warmup_indices = _df_all.index[_warmup_mask].tolist()
+        print(f"  Ticking TBN through {len(_warmup_indices)} warmup bars...", flush=True)
+        for _wi, _w_idx in enumerate(_warmup_indices):
+            belief_network.tick_all(_wi)
+        _bar_counter = len(_warmup_indices)
+        print(f"  TBN warmed ({_bar_counter} bars ticked)")
+
+        # (exit_state removed — exit uses same state as entry, matching inline OOS)
+
+        # ── Create EE + ExitEngine + BarProcessor ─────────────────────────
+        _exit_eng = ExitEngine(
+            mode='training',
+            tick_size=self.asset.tick_size,
+            tick_value=self.asset.tick_size * self.asset.point_value,
+        )
+        # Load self-tuned exit params from last forward pass if available
+        _tuned_path = os.path.join(self.checkpoint_dir, 'exit_tuning.json')
+        if os.path.exists(_tuned_path):
+            import json as _json
+            with open(_tuned_path) as _f:
+                _tuned = _json.load(_f)
+            _exit_eng.envelope_half_life_bars = _tuned.get('envelope_half_life_bars', 20)
+            _exit_eng.giveback_pct = _tuned.get('giveback_pct', 0.70)
+            print(f"  Loaded exit tuning: hl={_exit_eng.envelope_half_life_bars}, "
+                  f"gb={_exit_eng.giveback_pct:.0%}")
+
+        _exec_engine = create_execution_engine(
+            bundle=_bundle,
+            brain=self.brain,
+            belief_network=belief_network,
+            exit_engine=_exit_eng,
+            tick_size=self.asset.tick_size,
+            point_value=self.asset.point_value,
+            mode='oos',
+            tier_preference=True,
+            bias_threshold=bias_threshold if bias_threshold is not None else 0.55,
+            dmi_threshold=dmi_threshold if dmi_threshold is not None else 0.0,
+            depth_only=getattr(self, '_depth_only', None),
+        )
+        _exec_engine.gate1_dist = 4.5 + 0.5 * 10.0  # match live aggression
+
+        # Random slippage (same as forward pass)
+        _slip_rng = np.random.default_rng(42)
+        _slip_ticks = 1.0
+        _tick_val = self.asset.tick_size * self.asset.point_value
+
+        def _modify_pnl(pnl_dollars):
+            return pnl_dollars + _slip_rng.uniform(-_slip_ticks, _slip_ticks) * _tick_val
+
+        # 1s sub-bar wicks
+        _has_1s = _df_1s is not None and not _df_1s.empty
+        _1s_ts_arr = _df_1s['timestamp'].values.astype(np.float64) if _has_1s else None
+        _1s_hi_arr = _df_1s['high'].values.astype(np.float64) if _has_1s else None
+        _1s_lo_arr = _df_1s['low'].values.astype(np.float64) if _has_1s else None
+        _cur_ts = [0.0]
+
+        def _pre_exit_eval(price, bar_index):
+            extra = {}
+            if _has_1s and _1s_ts_arr is not None:
+                _s0 = np.searchsorted(_1s_ts_arr, _cur_ts[0], side='left')
+                _s1 = np.searchsorted(_1s_ts_arr, _cur_ts[0] + 15, side='left')
+                if _s1 > _s0:
+                    extra['sub_bar_highs'] = _1s_hi_arr[_s0:_s1].tolist()
+                    extra['sub_bar_lows'] = _1s_lo_arr[_s0:_s1].tolist()
+            _tp = belief_network.get_trade_progress(
+                price, tick_size=self.asset.tick_size)
+            belief_network._trade_pace_cache = _tp
+            belief_network._trade_pace_blend = _tp.get('pace', 1.0) - 1.0
+            return extra
+
+        processor = BarProcessor(
+            exec_engine=_exec_engine,
+            belief_network=belief_network,
+            exit_engine=_exit_eng,
+            brain=self.brain,
+            pattern_library=_bundle.pattern_library,
+            anchor_tf='15s', anchor_depth=8,
+            tick_size=self.asset.tick_size,
+            point_value=self.asset.point_value,
+            hooks=BarProcessorHooks(
+                modify_pnl=_modify_pnl,
+                pre_exit_eval=_pre_exit_eval,
+            ),
+        )
+
+        # ── Run BarProcessor on target days ───────────────────────────────
+        _all_trades = []
+        _day_ledger = []
+        _target_set = set(_target_dates)
+
+        for _date in _target_dates:
+            _day_mask = _df_all['_date'] == _date
+            _day_indices = _df_all.index[_day_mask].tolist()
+            if not _day_indices:
+                continue
+
+            _day_trades = []
+            for _idx in _day_indices:
+                _state = _states_map.get(_idx)
+                if _state is None:
+                    _bar_counter += 1
+                    continue
+                _row = _df_all.iloc[_idx]
+                _cur_ts[0] = float(_row['timestamp'])
+                # Use SAME state for entry + exit (matches inline OOS behavior:
+                # inline OOS entry uses _states_map[_bar_i] (off-by-one look-ahead),
+                # exit uses _states_map[_bar_i-1] which = CURRENT bar.
+                # BarProcessor can't replicate the entry look-ahead without breaking
+                # causality, but exit must use current bar state — NOT previous.)
+                result = processor.process_bar(
+                    bar_index=_bar_counter,
+                    price=float(_row['close']),
+                    bar_high=float(_row['high']),
+                    bar_low=float(_row['low']),
+                    timestamp=float(_row['timestamp']),
+                    state=_state,
+                    # exit_state omitted → defaults to state (current bar)
+                )
+                _bar_counter += 1
+                if result.trade_completed:
+                    _day_trades.append(result.trade_completed)
+
+            # EOD flatten
+            if processor.in_position and _day_indices:
+                _last_row = _df_all.iloc[_day_indices[-1]]
+                _eod = processor.force_close(
+                    price=float(_last_row['close']),
+                    timestamp=float(_last_row['timestamp']),
+                    bar_index=_bar_counter,
+                )
+                if _eod:
+                    _day_trades.append(_eod)
+
+            _n = len(_day_trades)
+            _wins = sum(1 for t in _day_trades if t['pnl'] > 0)
+            _pnl = sum(t['pnl'] for t in _day_trades)
+            _all_trades.extend(_day_trades)
+            _day_ledger.append({'date': _date, 'trades': _n, 'wins': _wins, 'pnl': _pnl})
+            print(f"    {_date}: {_n} trades, "
+                  f"{_wins/_n*100:.0f}% WR, ${_pnl:+.2f}" if _n else
+                  f"    {_date}: 0 trades")
+
+        # ── Parse OOS report for comparison ───────────────────────────────
+        oos_daily = {}
+        oos_report_path = os.path.join('reports', 'oos_report.txt')
+        try:
+            with open(oos_report_path, 'r') as f:
+                in_ledger = False
+                for line in f:
+                    if 'DAILY SESSION LEDGER' in line:
+                        in_ledger = True
+                        continue
+                    if in_ledger and re.match(r'\s+20\d\d-\d\d-\d\d', line):
+                        parts = line.split()
+                        if len(parts) >= 7:
+                            _d = parts[0]
+                            _nt = int(parts[1])
+                            _nw = int(parts[2])
+                            _pnl_str = parts[5].replace(',', '').replace('+', '')
+                            try:
+                                _pv = float(_pnl_str)
+                            except ValueError:
+                                _pv = 0.0
+                            oos_daily[_d] = {'trades': _nt, 'wins': _nw, 'pnl': _pv}
+                    elif in_ledger and line.strip().startswith('──') and oos_daily:
+                        break
+        except FileNotFoundError:
+            print(f"  WARNING: {oos_report_path} not found — no OOS comparison")
+
+        # ── Write parity report ───────────────────────────────────────────
+        self._write_live_validation_report(
+            _all_trades, _day_ledger,
+            [{'date': d, **oos_daily.get(d, {'trades': 0, 'wins': 0, 'pnl': 0})}
+             for d in _target_dates],
+            [], n_days, _exec_engine,
+        )
+
+        # ── Summary ──────────────────────────────────────────────────────
+        _total_trades = len(_all_trades)
+        _total_pnl = sum(t['pnl'] for t in _all_trades)
+        _total_wins = sum(1 for t in _all_trades if t['pnl'] > 0)
+        _wr = _total_wins / _total_trades if _total_trades else 0
+
+        # Save warmed brain
+        _brain_path = os.path.join(self.checkpoint_dir, 'live_brain.pkl')
+        self.brain.save(_brain_path)
+
+        print("\n" + "=" * 80)
+        print("  OOS3 STANDALONE COMPLETE")
+        print(f"  Trades: {_total_trades}  |  WR: {_wr:.1%}  |  PnL: ${_total_pnl:+,.2f}")
+        print(f"  Brain saved: {_brain_path}")
+        print("=" * 80)
+
+        # Store summary for external access
+        self._fp_summary = {
+            'total_trades': _total_trades, 'win_rate': _wr,
+            'total_pnl': _total_pnl, 'trades': _total_trades,
+        }
 
     def _write_live_validation_report(
             self, lv_trades, lv_day_ledger, oos_daily_ledger,
@@ -5058,7 +5350,7 @@ class Trainer:
                 f"Win rate: {fp['win_rate']*100:5.1f}%  |  "
                 f"Total PnL: ${fp['total_pnl']:>10,.2f}"
             )
-            if fp['total_trades']:
+            if fp['total_trades'] and 'pct_correct' in fp:
                 lines.append(
                     f"    Correct direction: {fp['pct_correct']:4.1f}%  |  "
                     f"Counter-trend scalps: {fp['pct_counter_scalp']:4.1f}%  |  "
@@ -5362,41 +5654,15 @@ def main():
                                             end_date=args.forward_end,
                                             oos_mode=args.oos)
         elif args.oos3 and not args.fresh:
-            # Standalone OOS3: bar-by-bar via BarProcessor (live mode validation)
+            # Standalone OOS3: BarProcessor only, no inline OOS needed
             _oos_data = getattr(args, 'forward_data', None) or os.path.join('DATA', 'ATLAS_OOS')
-            _oos_end = getattr(args, '_live_prep_cutoff', None) or args.forward_end
-            print("\n" + "=" * 80)
-            print("  OOS3: LIVE MODE VALIDATION (bar-by-bar via BarProcessor)")
-            print("=" * 80)
-            orchestrator.run_forward_pass(_oos_data,
-                                          start_date=args.forward_start,
-                                          end_date=_oos_end,
-                                          bias_threshold=args.bias_threshold,
-                                          dmi_threshold=args.dmi_threshold,
-                                          oos_mode=True,
-                                          account_size=args.account_size,
-                                          tier_preference=True,
-                                          live_validation_days=5)
-
-            # Save warmed brain for live handoff
-            _live_brain_path = os.path.join(orchestrator.checkpoint_dir, 'live_brain.pkl')
-            orchestrator.brain.save(_live_brain_path)
-            print(f"\n  Saved warmed brain: {_live_brain_path}")
-
-            # Verdict
-            _oos3 = dict(orchestrator._fp_summary)
-            _oos3_trades = _oos3.get('total_trades', _oos3.get('trades', 0))
-            _oos3_wr = _oos3.get('win_rate', 0)
-            _oos3_pnl = _oos3.get('total_pnl', 0)
-            print("\n" + "=" * 80)
-            print("  PIPELINE COMPLETE — OOS3 VERDICT")
-            print("=" * 80)
-            print(f"  OOS3: {_oos3_trades} trades, {_oos3_wr:.1%} WR, ${_oos3_pnl:+,.2f}")
-            print(f"\n  Brain saved to: {_live_brain_path}")
-            print(f"\n  NEXT STEP (manual):")
-            print(f"    python -m live.launcher")
-            print(f"    NT8 account controls sim vs real money.")
-            print("=" * 80)
+            orchestrator.run_oos3_standalone(
+                data_source=_oos_data,
+                n_days=5,
+                bias_threshold=args.bias_threshold,
+                dmi_threshold=args.dmi_threshold,
+                account_size=args.account_size,
+            )
 
         elif args.oos and not args.forward_pass and not args.fresh:
             # Standalone OOS rerun (Phase 5 only)
