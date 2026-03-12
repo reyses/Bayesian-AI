@@ -2802,3 +2802,64 @@ GATE EVALUATION
       1D: -0.5pp
 
 >>> PROMOTE: k-NN is robust to partial bars — safe for live deployment
+
+
+======================================================================
+2026-03-11: TF MAGNITUDE MISMATCH — TWO RESEARCH LINES
+======================================================================
+
+PROBLEM STATEMENT
+-----------------
+K-Means mixes patterns from different TFs (15s, 5m, 1h) into the same template.
+Oracle MFE averages multi-hour price swings with 3-minute trades:
+  - Template p75_mfe median: 486 ticks ($243)
+  - Actual p75 trade MFE median: 61 ticks ($30)
+  - Ratio: 12.6% — templates overstate by ~8x
+This causes 76% of OOS trades to exit at breakeven SL because anchor patience
+(30% of template MFE = hundreds of ticks) is unreachable in a 3-minute trade.
+
+Confirmed via OOS shard analysis (2026-03-10):
+  - 184 traded / 595 total signals
+  - 139/184 (76%) exit at breakeven SL ($0.50)
+  - Only 50% direction match on SL trades
+  - SL rate 65-88% at every depth — uniform, not depth-specific
+  - $32K left on table across all depths
+
+RESEARCH LINE R1: TF-Bucketed Clustering (main branch)
+-------------------------------------------------------
+Status: Planned
+Approach: Group patterns by timeframe BEFORE K-Means. Each TF group clusters
+independently. Oracle stats, MFE, and exit sizing become TF-coherent automatically.
+  - 15s patterns only cluster with 15s, 5m with 5m, etc.
+  - Templates get TF-prefixed IDs (e.g., 15s_001, 5m_042)
+  - p75_mfe_ticks reflects actual TF resolution, not mixed averages
+Scope: core/fractal_clustering.py — create_templates() only
+Expected outcome: fewer breakeven SL exits, more productive envelope/giveback
+Baseline: $83,821 IS, $21,378 OOS, 76% BE SL exits (2026-03-09)
+
+RESEARCH LINE R2: 1-Minute Anchor Discovery (exp/1m-anchor branch)
+-------------------------------------------------------------------
+Status: In progress (depth gate bug found + fixed, awaiting validation)
+Approach: Architectural — only discover patterns at 1m, everything else is context.
+Three-layer architecture:
+  - Above 1m (3m→1D) = "how we got here" — macro regime, trend context features
+  - 1m anchor = "where we are going" — pattern detection + oracle MFE (16 bars = 16 min)
+  - Below 1m (30s, 15s) = "how we are doing" — micro execution context
+Changes: 6 files rewritten (fractal_discovery_agent, feature_extraction, oracle_config,
+fractal_clustering, timeframe_belief_network, trainer)
+New 16D vector: replaced depth/tf_seconds/parent_chain with context TF features
+  (context_15m_z, context_1h_z, context_1h_dmi_sign, context_1D_z, etc.)
+Early results (ATLAS_1DAY): MFE median=51 ticks, p75=103 (vs old 486 median)
+Open issues:
+  - Forward pass had 0 trades — root cause: depth gate (_min_trade_depth=3) rejected
+    all 1m patterns (depth=0). Fixed by mapping depth->6 for 1m anchor patterns.
+  - Timestamp alignment between 1m patterns and 15s simulation bars TBD
+  - 880 templates (5x more than old pipeline) — Phase 3 heartbeat/timeout added
+
+RUNTIME IMPROVEMENTS (applied to both lines)
+---------------------------------------------
+See: reports/findings/2026-03-11_runtime_improvements.md
+  - Phase 1: tqdm progress bars for context TFs + oracle scan, verbose control
+  - Phase 2: template oracle stats table in console
+  - Phase 3: worker cap 10->4, 30s heartbeat, 5min timeout per template
+  - Forward pass: per-day flush, per-template OK/TIMEOUT confirmation
