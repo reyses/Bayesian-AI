@@ -73,11 +73,14 @@ class BayesianBrain:
 
     def direction_learn(self, tid, side: str, pnl: float,
                         tick_value: float = 0.50):
-        """H0/H1 counterfactual direction learning.
+        """H0/H1 direction learning from actual outcomes.
 
-        H0 (actual): we went this side, record PnL-weighted result.
-        H1 (counterfactual): opposite side would have mirrored PnL.
-        Both get recorded so the bias table converges to the true best side.
+        H0 (actual): we went this side — record 1 win or 1 loss.
+        H1 (counterfactual): opposite side gets the inverse signal,
+            but with count=1 (we don't know the actual counterfactual PnL).
+
+        Uses simple counts so one big loss doesn't permanently poison the table.
+        PnL tracking is separate (for expected profit computation only).
 
         Args:
             tid: template ID (PP_ prefix stripped automatically)
@@ -100,28 +103,23 @@ class BayesianBrain:
         key = side.lower()
         alt_key = 'short' if key == 'long' else 'long'
 
-        # PnL-weighted: 1 point per tick
-        _weight = max(1, int(abs(pnl) / tick_value))
-
-        # H0: actual outcome
+        # H0: actual outcome (simple count — 1 win or 1 loss)
         if pnl > 0:
-            bias[f'{key}_w'] += _weight
+            bias[f'{key}_w'] += 1
         else:
-            bias[f'{key}_l'] += _weight
+            bias[f'{key}_l'] += 1
 
-        # H1: counterfactual (opposite side)
-        alt_pnl = -pnl
-        if alt_pnl > 0:
-            bias[f'{alt_key}_w'] += _weight
+        # H1: counterfactual (opposite side gets inverse signal, count=1)
+        if pnl > 0:
+            # We won going this side → opposite side would have lost
+            bias[f'{alt_key}_l'] += 1
         else:
-            bias[f'{alt_key}_l'] += _weight
+            # We lost going this side → opposite side would have won
+            bias[f'{alt_key}_w'] += 1
 
-        # Dollar PnL tracking for expected profit computation
+        # Dollar PnL tracking (actual only — no counterfactual PnL assumed)
         bias[f'{key}_pnl'] = bias.get(f'{key}_pnl', 0.0) + pnl
         bias[f'{key}_n'] = bias.get(f'{key}_n', 0) + 1
-        # Counterfactual: opposite side would have mirrored PnL
-        bias[f'{alt_key}_pnl'] = bias.get(f'{alt_key}_pnl', 0.0) + alt_pnl
-        bias[f'{alt_key}_n'] = bias.get(f'{alt_key}_n', 0) + 1
 
         return bias
 
