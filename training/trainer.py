@@ -1165,19 +1165,13 @@ class Trainer:
                 if _equity_enabled and account_ruined:
                     break   # stop processing this day's bars entirely
 
-                # Detection funnel: count bars where pattern_map had signals
-                if ts in pattern_map:
-                    bars_with_detection += 1
-                    if current_position_open:
-                        bars_slot_blocked += 1
-
                 # ── Candidate building: two paths ──
                 # IS: full discovery (PatternEvents from scan_day_cascade)
-                # OOS: compressed per-bar (MarketState features — same as live)
+                # OOS: compressed per-bar (15s state) + bonus multi-TF candidates
                 _has_discovery_signal = ts in pattern_map
                 _has_compressed_signal = False
                 if oos_mode:
-                    # FIX: use _bar_i-1 (current bar) not _bar_i (next bar = look-ahead)
+                    # Primary: check 15s execution state (same as original)
                     _oos_state = _states_map.get(_bar_i - 1)
                     if _oos_state:
                         _oos_pt = getattr(_oos_state, 'pattern_type', '')
@@ -1185,6 +1179,16 @@ class Trainer:
                         _oos_struct = getattr(_oos_state, 'structure_confirmed', False)
                         if _oos_pt and _oos_pt != 'NONE' and (_oos_cascade or _oos_struct):
                             _has_compressed_signal = True
+
+                # Detection funnel: count bars where signals were found
+                if ts in pattern_map:
+                    bars_with_detection += 1
+                    if current_position_open:
+                        bars_slot_blocked += 1
+                elif oos_mode and _has_compressed_signal:
+                    bars_with_detection += 1
+                    if current_position_open:
+                        bars_slot_blocked += 1
 
                 _should_check_entry = (not current_position_open and not _in_maintenance
                                        and (_has_discovery_signal if not oos_mode
@@ -1194,8 +1198,7 @@ class Trainer:
                     _candidate_gate = {}    # id(p) -> gate label (for FN audit)
 
                     if oos_mode:
-                        # ── OOS: compressed per-bar (same as live/replay) ──
-                        # FIX: use _bar_i-1 (current bar) — removes look-ahead advantage
+                        # ── OOS: 15s primary candidate + bonus multi-TF ──
                         _oos_state = _states_map.get(_bar_i - 1)
                         _oos_z = getattr(_oos_state, 'z_score', 0.0)
                         _oos_pt = getattr(_oos_state, 'pattern_type', '')
@@ -1228,6 +1231,67 @@ class Trainer:
                             z_score=_oos_z,
                             features=_oos_feat,
                         )]
+                        # Bonus: add candidates from other TF workers with signals
+                        _OOS_TF_DEPTH = {
+                            3600: 1, 1800: 2, 900: 3, 300: 4, 180: 5,
+                            60: 6, 30: 7, 5: 9, 1: 10,  # skip 15=8 (already added)
+                        }
+                        _TF_LABEL = {
+                            3600:'1h', 1800:'30m', 900:'15m', 300:'5m',
+                            180:'3m', 60:'1m', 30:'30s', 5:'5s', 1:'1s',
+                        }
+                        for _tf_sec_c in sorted(belief_network.workers.keys(),
+                                                reverse=True):
+                            if _tf_sec_c == 15:  # skip 15s (already primary)
+                                continue
+                            _w_c = belief_network.workers[_tf_sec_c]
+                            if _w_c._last_tf_bar_idx < 0 or not _w_c._states:
+                                continue
+                            _widx_c = min(_w_c._last_tf_bar_idx,
+                                          len(_w_c._states) - 1)
+                            _wraw_c = _w_c._states[_widx_c]
+                            _wst_c = (_wraw_c['state']
+                                      if isinstance(_wraw_c, dict)
+                                      and 'state' in _wraw_c else _wraw_c)
+                            _wpt_c = getattr(_wst_c, 'pattern_type', '')
+                            if (not _wpt_c or _wpt_c == 'NONE'):
+                                continue
+                            _wdepth = _OOS_TF_DEPTH.get(_tf_sec_c, 8)
+                            _wz = getattr(_wst_c, 'z_score', 0.0)
+                            _wfeat = np.array([extract_feature_vector(
+                                z_score=_wz,
+                                velocity=getattr(_wst_c, 'velocity', 0.0),
+                                momentum=getattr(_wst_c, 'momentum_strength',
+                                    getattr(_wst_c, 'momentum', 0.0)),
+                                entropy_normalized=getattr(
+                                    _wst_c, 'entropy_normalized', 0.0),
+                                tf_seconds=_tf_sec_c,
+                                depth=float(_wdepth),
+                                parent_is_band_reversal=0.0,
+                                adx=getattr(_wst_c, 'adx_strength',
+                                            0.0) / 100.0,
+                                hurst=getattr(_wst_c, 'hurst_exponent',
+                                              0.5),
+                                dmi_diff=(getattr(_wst_c, 'dmi_plus', 0.0)
+                                          - getattr(_wst_c, 'dmi_minus',
+                                                    0.0)) / 100.0,
+                                parent_z=0.0, parent_dmi_diff=0.0,
+                                root_is_roche=0.0, tf_alignment=0.0,
+                                pid=getattr(_wst_c, 'term_pid', 0.0),
+                                osc_coherence=getattr(
+                                    _wst_c,
+                                    'oscillation_entropy_normalized', 0.0),
+                            )])
+                            _eng_candidates.append(Candidate(
+                                state=_wst_c,
+                                depth=_wdepth,
+                                timeframe=_TF_LABEL.get(_tf_sec_c,
+                                                        f'{_tf_sec_c}s'),
+                                timestamp=ts,
+                                pattern_type=_wpt_c,
+                                z_score=_wz,
+                                features=_wfeat,
+                            ))
                         raw_candidates = []  # no PatternEvents in compressed mode
                     else:
                         # ── IS: full discovery (PatternEvents) ──
@@ -2616,6 +2680,8 @@ class Trainer:
         report_lines.append("=" * 80)
 
         # ── 1. Opportunity landscape ─────────────────────────────────────────────
+        _oracle_available = any(r.get('oracle_label', 0) != 0
+                                for r in oracle_trade_records)
         total_real_opps = audit_tp + audit_fp_wrong + audit_fn  # oracle said real move
         total_noise_opps = audit_fp_noise + audit_tn              # oracle said noise
         tp_potential  = sum(r['oracle_potential_pnl'] for r in oracle_trade_records if r['oracle_label'] != 0 and r['oracle_label_name'] not in ('NOISE',))
@@ -2623,9 +2689,12 @@ class Trainer:
 
         _sec['opportunity'] = len(report_lines)
         report_lines.append("")
-        report_lines.append(f"  TOTAL SIGNALS SEEN BY ORACLE: {total_real_opps + total_noise_opps:,}")
-        report_lines.append(f"    Real moves (MEGA/SCALP):  {total_real_opps:>6,}   -- worth ${ideal_profit:>10,.2f} if perfectly traded")
-        report_lines.append(f"    Noise (no real move):     {total_noise_opps:>6,}")
+        if not _oracle_available and oos_mode:
+            report_lines.append(f"  ORACLE: N/A (compressed mode — no forward-looking labels)")
+        else:
+            report_lines.append(f"  TOTAL SIGNALS SEEN BY ORACLE: {total_real_opps + total_noise_opps:,}")
+            report_lines.append(f"    Real moves (MEGA/SCALP):  {total_real_opps:>6,}   -- worth ${ideal_profit:>10,.2f} if perfectly traded")
+            report_lines.append(f"    Noise (no real move):     {total_noise_opps:>6,}")
 
         # ── 2. What we did ───────────────────────────────────────────────────────
         n_traded   = len(oracle_trade_records)
@@ -2915,12 +2984,21 @@ class Trainer:
         _gw_pnl      = sum(r['actual_pnl'] for r in fp_genuinely_wrong)
 
         report_lines.append("")
-        report_lines.append(f"  OF {n_traded:,} TRADES TAKEN:")
-        _pct = lambda n: f"{n/n_traded*100:.1f}%" if n_traded else "N/A"
-        report_lines.append(f"    Correct direction:     {len(tp_recs):>6,}  ({_pct(len(tp_recs))})  ->  actual: ${tp_pnl:>10,.2f}")
-        report_lines.append(f"    Counter-trend scalps:  {len(fp_counter_scalps):>6,}  ({_pct(len(fp_counter_scalps))})  ->  profit: ${_cs_pnl:>10,.2f}  <- oracle wrong-dir but micro-peak captured")
-        report_lines.append(f"    Genuinely wrong dir:   {len(fp_genuinely_wrong):>6,}  ({_pct(len(fp_genuinely_wrong))})  ->  losses: ${abs(_gw_pnl):>10,.2f}")
-        report_lines.append(f"    Traded noise:          {len(fp_noise_recs):>6,}  ({_pct(len(fp_noise_recs))})  ->  losses: ${abs(fp_noise_pnl):>10,.2f}")
+        _oracle_available = any(r.get('oracle_label', 0) != 0
+                                for r in oracle_trade_records)
+        if not _oracle_available and oos_mode:
+            report_lines.append(f"  OF {n_traded:,} TRADES TAKEN:")
+            report_lines.append(f"    [Oracle N/A — compressed mode has no forward-looking labels]")
+            report_lines.append(f"    Total PnL: ${sum(r['actual_pnl'] for r in oracle_trade_records):>10,.2f}")
+            report_lines.append(f"    Winners: {len([r for r in oracle_trade_records if r['actual_pnl'] > 0]):,}  "
+                                f"Losers: {len([r for r in oracle_trade_records if r['actual_pnl'] <= 0]):,}")
+        else:
+            report_lines.append(f"  OF {n_traded:,} TRADES TAKEN:")
+            _pct = lambda n: f"{n/n_traded*100:.1f}%" if n_traded else "N/A"
+            report_lines.append(f"    Correct direction:     {len(tp_recs):>6,}  ({_pct(len(tp_recs))})  ->  actual: ${tp_pnl:>10,.2f}")
+            report_lines.append(f"    Counter-trend scalps:  {len(fp_counter_scalps):>6,}  ({_pct(len(fp_counter_scalps))})  ->  profit: ${_cs_pnl:>10,.2f}  <- oracle wrong-dir but micro-peak captured")
+            report_lines.append(f"    Genuinely wrong dir:   {len(fp_genuinely_wrong):>6,}  ({_pct(len(fp_genuinely_wrong))})  ->  losses: ${abs(_gw_pnl):>10,.2f}")
+            report_lines.append(f"    Traded noise:          {len(fp_noise_recs):>6,}  ({_pct(len(fp_noise_recs))})  ->  losses: ${abs(fp_noise_pnl):>10,.2f}")
 
         # ── 3b. Counter-trend template analysis ─────────────────────────────────
         # Per-template: would blocking counter-trend trades improve profitability?
