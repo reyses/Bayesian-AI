@@ -208,6 +208,15 @@ class StatisticalFieldEngine:
         else:
             closes = prices
 
+        # Volume delta: buy bar (+vol), sell bar (-vol), doji (0)
+        if 'volume' in day_data.columns:
+            _vol = day_data['volume'].values.astype(np.float64)
+            _open = day_data['open'].values.astype(np.float64) if 'open' in day_data.columns else prices
+            _close = day_data['close'].values.astype(np.float64) if 'close' in day_data.columns else prices
+            volume_delta_arr = np.where(_close > _open, _vol, np.where(_close < _open, -_vol, 0.0))
+        else:
+            volume_delta_arr = np.zeros(n, dtype=np.float64)
+
         pattern_types, candlestick_types = self._detect_patterns_unified(opens, highs, lows, closes)
 
         # Output variables to be filled by either GPU or CPU path
@@ -484,6 +493,10 @@ class StatisticalFieldEngine:
                     trend_direction_15m=trend_direction_arr[i],
                     hurst_exponent=hurst_arr[i],
                     adx_strength=adx_arr[i], dmi_plus=dmi_plus_arr[i], dmi_minus=dmi_minus_arr[i],
+                    adx_prev=adx_arr[i-1] if i > 0 else 0.0,
+                    di_plus_prev=dmi_plus_arr[i-1] if i > 0 else 0.0,
+                    di_minus_prev=dmi_minus_arr[i-1] if i > 0 else 0.0,
+                    volume_delta=float(volume_delta_arr[i]),
                     regression_sigma=sigma[i],
                     term_pid=float(term_pid_arr[i]),
                     oscillation_entropy_normalized=float(oscillation_entropy_normalized_arr[i]),

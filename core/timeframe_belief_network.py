@@ -967,6 +967,73 @@ class TimeframeBeliefNetwork:
                 snap[self._TF_LABELS.get(tf, str(tf))] = entry
         return snap
 
+    def get_dmi_trend(self, min_strength: float = 20.0) -> Optional[dict]:
+        """Scan TFs bottom-up for a strong DMI trend.
+
+        Returns the first TF where |dmi_plus - dmi_minus| > min_strength
+        and the dominant side exceeds the other. If no TF qualifies, returns None.
+
+        Returns:
+            {'direction': 'long'|'short', 'strength': float,
+             'tf': str, 'dmi_plus': float, 'dmi_minus': float}
+        """
+        # Workers are keyed by tf_seconds — sort ascending (low TF first)
+        for tf_sec in sorted(self.workers.keys()):
+            worker = self.workers[tf_sec]
+            if worker._last_tf_bar_idx < 0 or not worker._states:
+                continue
+            idx = min(worker._last_tf_bar_idx, len(worker._states) - 1)
+            state_raw = worker._states[idx]
+            state = (state_raw['state'] if isinstance(state_raw, dict)
+                     and 'state' in state_raw else state_raw)
+            dmi_p = getattr(state, 'dmi_plus', 0.0)
+            dmi_m = getattr(state, 'dmi_minus', 0.0)
+            diff = dmi_p - dmi_m
+            if abs(diff) > min_strength and max(dmi_p, dmi_m) > min(dmi_p, dmi_m):
+                return {
+                    'direction': 'long' if diff > 0 else 'short',
+                    'strength': abs(diff),
+                    'tf': self._TF_LABELS.get(tf_sec, str(tf_sec)),
+                    'dmi_plus': dmi_p,
+                    'dmi_minus': dmi_m,
+                }
+        return None
+
+    def get_dmi_alignment(self) -> dict:
+        """Check if DMI direction agrees across timeframes.
+
+        Returns dict with:
+            alignment_score: -1.0 to +1.0 (negative=bearish, positive=bullish consensus)
+            aligned_tfs: count of TFs agreeing with majority direction
+            total_tfs: total TFs with valid DMI data
+        """
+        scores = []
+        for tf_sec in sorted(self.workers.keys()):
+            worker = self.workers[tf_sec]
+            idx = worker._last_tf_bar_idx
+            if idx < 0 or not worker._states or idx >= len(worker._states):
+                continue
+            raw = worker._states[idx]
+            state = raw['state'] if isinstance(raw, dict) and 'state' in raw else raw
+            dmi_p = getattr(state, 'dmi_plus', 0.0)
+            dmi_m = getattr(state, 'dmi_minus', 0.0)
+            diff = dmi_p - dmi_m
+            if abs(diff) > 1.0:  # ignore noise
+                scores.append(1.0 if diff > 0 else -1.0)
+
+        if not scores:
+            return {'alignment_score': 0.0, 'aligned_tfs': 0, 'total_tfs': 0}
+
+        avg = sum(scores) / len(scores)
+        # Majority direction
+        majority_bull = sum(1 for s in scores if s > 0) > len(scores) / 2
+        aligned = sum(1 for s in scores if (s > 0) == majority_bull)
+        return {
+            'alignment_score': avg,
+            'aligned_tfs': aligned,
+            'total_tfs': len(scores),
+        }
+
     def get_worker_state_counts(self) -> dict:
         """Return {tf_label: n_states} for every worker. 0 = worker has no data."""
         return {
@@ -1136,6 +1203,27 @@ class TimeframeBeliefNetwork:
         _decay_health = max(0.0, 1.0 - _cascade)      # invert: 0=bad, 1=good
         _trade_health = 0.6 * _pace_health + 0.4 * _decay_health
 
+        # ── Macro DMI/ADX fields for exit modules ─────────────────────
+        _macro_tf = 60  # 1m macro
+        _di_plus = 0.0
+        _di_minus = 0.0
+        _di_plus_prev = 0.0
+        _di_minus_prev = 0.0
+        _adx_slope = 0.0
+        _macro_w = self.workers.get(_macro_tf)
+        if _macro_w is not None:
+            _mi = _macro_w._last_tf_bar_idx
+            if _mi >= 0 and _macro_w._states and _mi < len(_macro_w._states):
+                _raw = _macro_w._states[_mi]
+                _ms = _raw['state'] if isinstance(_raw, dict) and 'state' in _raw else _raw
+                _di_plus = getattr(_ms, 'dmi_plus', 0.0)
+                _di_minus = getattr(_ms, 'dmi_minus', 0.0)
+                _di_plus_prev = getattr(_ms, 'di_plus_prev', _di_plus)
+                _di_minus_prev = getattr(_ms, 'di_minus_prev', _di_minus)
+                _adx_now = getattr(_ms, 'adx_strength', 0.0)
+                _adx_prev = getattr(_ms, 'adx_prev', _adx_now)
+                _adx_slope = _adx_now - _adx_prev
+
         return {
             'tighten_trail': tighten and not urgent,
             'widen_trail':   widen and not _time_tighten and not _band_tighten,
@@ -1146,6 +1234,12 @@ class TimeframeBeliefNetwork:
             'reason':        reason,
             'trade_health':  round(_trade_health, 3),
             'pace':          round(_pace_val, 3),
+            # Macro DMI/ADX for exit modules (belief_flip DI cross, envelope/giveback ADX slope)
+            'di_plus':       _di_plus,
+            'di_minus':      _di_minus,
+            'di_plus_prev':  _di_plus_prev,
+            'di_minus_prev': _di_minus_prev,
+            'adx_slope':     _adx_slope,
         }
 
     def summary(self) -> str:

@@ -82,6 +82,18 @@ class EnvelopeDecay:
 
         effective_hl = base_hl * max(self._hl_mult_floor, hl_mult)
 
+        # ADX slope modulation: rising trend → slow decay, falling → speed up
+        # exit_signal carries 'adx_slope' from TBN when available
+        # (intentionally not gated behind config flag — always active when data present)
+        if band_context is not None:
+            _adx_slope = band_context.get('adx_slope', 0.0)
+            if _adx_slope > 0:
+                # Trend strengthening — slow down envelope decay (up to 50%)
+                effective_hl *= 1.0 + min(0.5, _adx_slope * 0.05)
+            elif _adx_slope < -1.0:
+                # Trend weakening — speed up decay (up to 50% faster)
+                effective_hl *= max(0.5, 1.0 + _adx_slope * 0.1)
+
         # Decay factor
         decay = math.exp(-_LN2 * pos.bars_held / max(1, effective_hl))
 
