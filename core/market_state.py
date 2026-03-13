@@ -96,6 +96,10 @@ class MarketState:
     adx_strength: float = 0.0       # Trend strength (0-100)
     dmi_plus: float = 0.0           # Directional Movement Plus
     dmi_minus: float = 0.0          # Directional Movement Minus
+    adx_prev: float = 0.0           # Previous bar's ADX (for slope computation)
+    di_plus_prev: float = 0.0       # Previous bar's DI+ (for crossover detection)
+    di_minus_prev: float = 0.0      # Previous bar's DI- (for crossover detection)
+    volume_delta: float = 0.0          # Volume delta: positive=buy pressure, negative=sell
     candlestick_pattern: str = 'NONE' # HAMMER | ENGULFING_BULL | ENGULFING_BEAR | DOJI | NONE
 
     # ═══ VOLATILITY MODEL COMPONENTS ═══

@@ -1382,6 +1382,7 @@ class Trainer:
                                 'template_id':      best_tid,
                                 'playbook':         _playbook,
                                 'direction':        'LONG' if side == 'long' else 'SHORT',
+                                'dir_source':       _entry_action.dir_source,
                                 'entry_price':      price,
                                 'entry_time':       ts,
                                 'entry_depth':      _cand_depth,

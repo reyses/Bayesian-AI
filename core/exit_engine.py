@@ -29,6 +29,10 @@ class ExitAction(Enum):
     BREAKEVEN_LOCK = 'breakeven_lock'
     PEAK_GIVEBACK = 'peak_giveback'
     MAINTENANCE_FLAT = 'maintenance_flat'
+    # C&E Matrix structural exits
+    DEATH_HOOK = 'death_hook'           # liquidity absorption at macro wall
+    REGIME_DECAY = 'regime_decay'       # macro trend collapsed / DI reversal
+    SURVIVAL_STOP = 'survival_stop'     # time-survival probability expired
 
 
 @dataclass
@@ -144,6 +148,15 @@ class ExitEngine:
             config=config)
         self.belief_flip = BeliefFlipExit()
 
+        from core.exits.fractal_exhaust import FractalExhaustExit
+        from core.exits.regime_decay import RegimeDecayExit
+        from core.exits.survival_stop import SurvivalStopExit
+        from core.exits.tidal_wave import TidalWaveExit
+        self.fractal_exhaust = FractalExhaustExit(config=config)
+        self.regime_decay = RegimeDecayExit(config=config)
+        self.survival_stop = SurvivalStopExit(config=config)
+        self.tidal_wave = TidalWaveExit(config=config)
+
         # Self-tuning state — two independent counters
         self._tune_too_early = 0
         self._tune_too_late = 0
@@ -153,6 +166,10 @@ class ExitEngine:
         self._tune_gb_min = config.tune_gb_min
         self._tune_gb_max = config.tune_gb_max
         self._tune_window = config.tune_window
+
+    def set_brain(self, brain):
+        """Attach Bayesian brain for ePnL-based exits."""
+        self.survival_stop.set_brain(brain)
 
     # ── Convenience aliases for tuned params ──
 
@@ -308,14 +325,21 @@ class ExitEngine:
         sub_bar_highs: list = None,
         sub_bar_lows: list = None,
         noise_ticks: float = 0.0,
+        belief_network=None,
     ) -> ExitResult:
         """
         Evaluate all exit conditions for current bar.
 
         Cascade order (first trigger wins):
-        1. Stop loss       2. Take profit     3. Watchdog
-        4. Band urgent     5. Breakeven lock   6. Envelope decay
-        7. Peak giveback   8. Belief flip      9. HOLD
+        === Structural exits (thesis invalidation — before SL/TP) ===
+        1. Death Hook       — liquidity absorption at macro wall
+        2. Regime Decay     — Hurst/ADX collapse + DI trend reversal
+        3. Survival Stop    — Bayesian ePnL / time-survival probability
+        4. Tidal Wave       — adverse volatility expansion
+        === Standard exits ===
+        5. Stop Loss        6. Take Profit      7. Watchdog
+        8. Band Urgent      9. Breakeven lock   10. Envelope decay
+        11. Peak Giveback   12. Belief Flip     13. HOLD
         """
         pos.bars_held = current_bar_index - pos.entry_bar_index
         pos.bars_in_trade = pos.bars_held  # sync alias
@@ -337,39 +361,59 @@ class ExitEngine:
         # ── Cascade ──
         ts = self.tick_size
 
-        # 1. Stop Loss
+        # === STRUCTURAL EXITS (thesis invalidation — checked before SL/TP) ===
+
+        # 1. Death Hook (Liquidity Absorption)
+        r = self.fractal_exhaust.evaluate(pos, bar_close, ts, belief_network)
+        if r: return r
+
+        # 2. Regime Decay (Sand Trap — macro ADX collapse + DI reversal)
+        r = self.regime_decay.evaluate(pos, bar_close, ts, belief_network)
+        if r: return r
+
+        # 3. Survival Stop (Bayesian ePnL / Time-Survival Probability)
+        r = self.survival_stop.evaluate(pos, bar_close, ts, belief_network)
+        if r: return r
+
+        # 4. Tidal Wave (Adverse Volatility Expansion)
+        r = self.tidal_wave.evaluate(pos, bar_close, ts, belief_network)
+        if r: return r
+
+        # === STANDARD EXITS ===
+
+        # 5. Stop Loss
         r = self.stop_loss.evaluate(pos, worst_price, ts)
         if r: return r
 
-        # 2. Take Profit
+        # 6. Take Profit
         r = self.take_profit.evaluate(pos, best_price, ts)
         if r: return r
 
-        # 3. Watchdog
+        # 7. Watchdog
         r = self.watchdog.evaluate(pos, bar_close, ts, exit_signal)
         if r: return r
 
-        # 4. Band Urgent
+        # 8. Band Urgent
         r = self.band_exit.evaluate(pos, bar_close, ts, band_context)
         if r: return r
 
-        # 5. Breakeven Lock (adjusts SL in-place, no exit)
+        # 9. Breakeven Lock (adjusts SL in-place, no exit)
         self.breakeven.apply(pos, ts)
 
-        # 6. Envelope Decay
+        # 10. Envelope Decay
         r = self.envelope.evaluate(pos, bar_close, ts, net_force, band_context,
                                    noise_ticks)
         if r: return r
 
-        # 7. Peak Giveback
+        # 11. Peak Giveback
         r = self.giveback.evaluate(pos, bar_close, ts, exit_signal, noise_ticks)
         if r: return r
 
-        # 8. Belief Flip
+        # 12. Belief Flip
         r = self.belief_flip.evaluate(pos, bar_close, ts, exit_signal)
         if r: return r
 
-        # 9. HOLD
+        # 13. HOLD
         return ExitResult(
             action=ExitAction.HOLD,
             exit_price=0.0,

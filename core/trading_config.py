@@ -193,3 +193,92 @@ class TradingConfig:
     live_bias_min_trades: int = 5
     live_bias_winrate_min: float = 0.60
     live_bias_margin: float = 0.15
+
+    # === Fractal DMI (dual-timeframe trend gating) ===
+    # State A: Fakeout filter — block trend entries when macro has no energy
+    fdmi_fakeout_micro_z: float = 2.5       # micro Z breakout threshold
+    fdmi_fakeout_macro_adx: float = 20.0    # macro ADX below this = no energy
+    # State B: Wave rider — enter on micro pullback realigning with macro trend
+    fdmi_trend_macro_adx: float = 25.0      # macro ADX above this = strong trend
+    # State C: Fractal exhaustion — exit when micro energy spikes and dies at macro wall
+    fdmi_exhaust_micro_adx: float = 45.0    # micro ADX overextended threshold
+    fdmi_exhaust_macro_z: float = 2.5       # macro Z band wall (2.5-3.0 SE)
+    # TF pairing
+    fdmi_macro_tf: int = 60        # macro TF in seconds (60 = 1m)
+    fdmi_micro_tf: int = 5         # micro TF in seconds (5 = 5s)
+
+    # === C&E Matrix: Entry — Momentum Ignition (enhanced Wave Rider) ===
+    ce_momentum_micro_z_max: float = 0.5       # micro Z pullback upper bound (fair value)
+    ce_momentum_micro_z_min: float = -1.5      # micro Z pullback lower bound (1-sigma dip)
+
+    # === C&E Matrix: Entry — Structural Reversion (Rubber Band / OU process) ===
+    ce_reversion_macro_adx: float = 20.0       # macro ADX below this = mean-reverting regime
+    ce_reversion_micro_z: float = 3.0          # micro Z extreme for reversion entry (3-sigma)
+
+    # === C&E Matrix: Exit — Death Hook (Liquidity Absorption) ===
+    ce_death_hook_micro_adx: float = 40.0      # micro ADX overextended threshold
+    ce_death_hook_macro_z: float = 2.0         # macro Z band wall (2-sigma)
+
+    # === C&E Matrix: Exit — Regime Decay (Sand Trap) ===
+    ce_regime_decay_adx: float = 20.0          # macro ADX collapse threshold
+    ce_regime_decay_di_cross: bool = True       # also exit on DI crossover against trade
+
+    # === C&E Matrix: Exit — Survival Probability (Time-Stop) ===
+    ce_survival_min_bars: int = 10             # minimum bars before time-stop activates
+    ce_survival_target_pct: float = 0.50       # must achieve 50% of TP target in time
+    ce_survival_z_var_max: float = 0.20        # Z variance below this = flatlining
+    ce_survival_lookback: int = 5              # bars to compute Z variance over
+
+    # === Quant: Hurst-based regime (replaces/supplements ADX) ===
+    hurst_persistent_threshold: float = 0.55   # H > this = persistent trend (Hawkes)
+    hurst_mean_revert_threshold: float = 0.45  # H < this = anti-persistent (OU)
+    hurst_regime_exit: float = 0.50            # H drops below this = trend memory dead
+
+    # === Quant: Volume Delta confirmation ===
+    volume_delta_min: float = 0.0              # minimum abs(delta) to count as confirmed
+
+    # === Quant: Bayesian ePnL exit ===
+    epnl_exit_min_obs: int = 3                 # minimum brain observations before ePnL active
+    epnl_exit_threshold: float = 0.0           # exit when ePnL drops below this
+
+    # === Quant: Tidal Wave (adverse volatility expansion) ===
+    tidal_wave_se_expansion_pct: float = 0.20  # SE must expand by 20% in lookback
+    tidal_wave_lookback: int = 3               # bars to measure SE expansion over
+
+    # === Entry: Regime-Aware Gate 0 (improvement A) ===
+    regime_strong_adx: float = 25.0            # ADX above = strong trend
+    regime_developing_adx: float = 20.0        # ADX above + rising = developing
+    regime_exhaust_slope: float = -2.0         # ADX slope below = exhausting
+    regime_range_adx: float = 20.0             # ADX below + H<0.45 = range
+
+    # === Entry: Multi-TF Confluence Gate 2.5 (improvement C) ===
+    tf_confluence_min: float = 0.40            # block when < 40% TFs agree on direction
+    tf_confluence_enabled: bool = True
+
+    # === Entry: Time-of-Day Session Filter (improvement F) ===
+    session_filter_enabled: bool = True
+    overnight_z_min: float = 1.5               # minimum z for overnight entries
+    overnight_dist_mult: float = 0.7           # tighter template match overnight
+
+    # === Entry: Volatility-Normalized Sizing (improvement B) ===
+    vol_sizing_enabled: bool = True
+    vol_sl_strong_trend: float = 1.5           # SL = ATR × this in strong trend
+    vol_sl_developing: float = 2.0
+    vol_sl_range: float = 2.5
+    vol_sl_default: float = 2.0
+    vol_tp_strong_trend: float = 5.0           # TP = ATR × this in strong trend
+    vol_tp_developing: float = 3.0
+    vol_tp_range: float = 2.0
+    vol_tp_default: float = 3.0
+
+    # === Entry: Confidence-Weighted Direction (improvement G) ===
+    dir_voting_enabled: bool = True
+    dir_min_vote_score: float = 0.08           # minimum net score to enter (0 = any signal)
+    dir_smfe_weight: float = 3.0               # signed MFE regression weight
+    dir_logistic_weight: float = 2.5           # per-cluster logistic weight
+    dir_brain_weight: float = 1.5              # brain direction WR weight
+    dir_template_weight: float = 1.0           # template bias weight
+    dir_band_weight: float = 2.0               # multi-TF band confluence weight
+    dir_dmi_weight: float = 1.5                # DMI trend weight
+    dir_velocity_weight: float = 0.5           # velocity fallback weight
+    dir_fdmi_weight: float = 4.0               # FDMI ignition/reversion weight (highest)
