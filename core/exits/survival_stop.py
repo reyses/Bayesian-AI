@@ -46,6 +46,11 @@ class SurvivalStopExit:
         else:
             current_ticks = (pos.entry_price - bar_close) / tick_size
 
+        # ── Breakeven gate: only exit if trade is at or above breakeven ──
+        # If underwater, let stop_loss handle it (tighter loss cap).
+        if current_ticks < 0:
+            return None
+
         # ── Mode 1: Bayesian ePnL (primary — continuous inference) ──
         # If brain has enough observations for this template+direction,
         # check if expected PnL of holding has dropped to zero or below.

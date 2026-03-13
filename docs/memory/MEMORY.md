@@ -113,6 +113,10 @@ After every forward pass, always read these reports:
   See `tools/STANDALONE_RESEARCH_GUIDE.md` for how to add new modules.
 - `tools/research/` — subpackage: data.py, imr.py, screening.py, seeds.py, plots.py, tbn_trade_aware.py
 - `tools/research_belief_flip.py` — side-by-side TBN comparison
+- `tools/dmi_crossover_validation.py` — DMI crossover accuracy on IS/OOS data
+- `tools/equity_risk_simulator.py` — equity growth simulation (flat vs dynamic sizing)
+- `tools/l2_risk_budget.py` — L2 risk budget (MAE/MFE of $30+ segments from 1s data)
+- `tools/imr_golden_path.py` — I-MR control chart + golden path overlay
 - `tools/archive/` — one-off analysis scripts (analyze_scalps, analyze_wrong_dir, etc.)
 
 ## Waveform Screening & Seed Library
@@ -198,16 +202,13 @@ After every forward pass, always read these reports:
 - **R1**: TF-Bucketed Clustering (main) — DONE (2026-03-12), 403 templates from 13 TF buckets
 - **R2**: 1-Minute Anchor Discovery (exp/1m-anchor) — see `docs/ROADMAP.md`
 - **R3**: Pre-Entry Pace Filter — see `memory/research_pre_entry_pace.md`
-  - Use velocity/acceleration at entry time to filter noise trades before committing
-  - 43% of trades are counter-trend/noise, bailed out by fast exits not good entries
+- **R4**: Regime Trading Framework (THE ANCHOR) — see `docs/REGIME_TRADING_SPEC.md`
+  - DMI crossover entry + 192D noise filter + equity-scaled sizing
+  - $10 risk → 94.9% WR, $22 avg reward, 1:2.2 R:R, $20.35 EV/trade
+  - Tools: `dmi_crossover_validation.py`, `equity_risk_simulator.py`, `l2_risk_budget.py`
+  - Replaces scalping ($1.67/trade) with regime riding ($20+/trade)
 - **Level Detector**: see `docs/specs/LEVEL_DETECTOR` + `memory/user_level_trading.md`
-  - User hand-drew S/R levels on MES 4h that held for weeks — this is ground truth
-  - System must: detect levels from price action, build incrementally, find confluence
-  - Reference image: TradingView /MES 4h chart in `examples/`
 - **Headroom / Nesting Gate**: see `memory/user_headroom_framework.md`
-  - "Micro wave must fit inside macro container" — T_micro < C_macro
-  - BLOCKED when |Z_macro| >= 2.0, WARNING when >= 1.5
-  - All data already available (z_score, self_adx, parent_z) — just needs wiring as a gate
 
 ## Design Docs & Specs
 - `docs/active/` — currently being worked on (REMAINING_WORK, CONSOLIDATION)
