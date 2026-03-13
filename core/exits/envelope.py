@@ -5,13 +5,32 @@ from typing import Optional
 from core.exit_engine import ExitAction, ExitResult, PositionState
 
 
+_LN2 = 0.693  # ln(2) — structural constant for halflife decay
+
+
 class EnvelopeDecay:
 
     def __init__(self, half_life_bars: float = 20, floor_pct: float = 0.3,
-                 min_bars: int = 5):
+                 min_bars: int = 5, config=None):
         self.half_life_bars = half_life_bars
         self.floor_pct = floor_pct
         self.min_bars = min_bars
+        if config is None:
+            from core.trading_config import TradingConfig
+            config = TradingConfig()
+        self._force_boost = config.envelope_force_boost
+        self._force_penalty = config.envelope_force_penalty
+        self._early_suppress_pct = config.envelope_early_suppress_pct
+        self._floor_trigger_pct = config.envelope_floor_trigger_pct
+        self._template_hl_divisor = config.envelope_template_hl_divisor
+        self._template_hl_floor = config.envelope_template_hl_floor
+        self._peak_min_ticks = config.envelope_peak_min_ticks
+        self._giveback_hl_floor = config.envelope_giveback_hl_floor
+        self._band_coeff = config.envelope_band_coeff
+        self._band_mult_min = config.envelope_band_mult_min
+        self._band_mult_max = config.envelope_band_mult_max
+        self._anchor_patience_max = config.envelope_anchor_patience_max
+        self._hl_mult_floor = config.envelope_hl_mult_floor
 
     def evaluate(self, pos: PositionState, bar_close: float, tick_size: float,
                  net_force: float = 0.0, band_context: dict = None,
@@ -21,7 +40,8 @@ class EnvelopeDecay:
 
         # Base halflife: per-template when available, else global default
         if pos.max_hold_bars > 0 and pos.max_hold_bars != 120:
-            base_hl = max(8.0, pos.max_hold_bars / 5.0)
+            base_hl = max(self._template_hl_floor,
+                          pos.max_hold_bars / self._template_hl_divisor)
         else:
             base_hl = self.half_life_bars
 
@@ -38,9 +58,9 @@ class EnvelopeDecay:
 
         # Signal 1: giveback from peak
         hl_mult = 1.0
-        if peak_ticks > 4:
+        if peak_ticks > self._peak_min_ticks:
             giveback_ratio = max(0, peak_ticks - current_ticks) / peak_ticks
-            hl_mult *= max(0.5, 1.0 - giveback_ratio)
+            hl_mult *= max(self._giveback_hl_floor, 1.0 - giveback_ratio)
 
         # Signal 2: band exhaustion
         if band_context is not None:
@@ -50,18 +70,20 @@ class EnvelopeDecay:
                 exhaustion = res - sup
             else:
                 exhaustion = sup - res
-            band_mult = max(0.5, min(1.5, 1.0 - exhaustion * 0.5))
+            band_mult = max(self._band_mult_min,
+                            min(self._band_mult_max,
+                                1.0 - exhaustion * self._band_coeff))
             hl_mult *= band_mult
 
         # Signal 3: anchor time patience
         if pos.anchor_mfe_bars > 0 and pos.bars_held < pos.anchor_mfe_bars:
             anchor_progress = pos.bars_held / pos.anchor_mfe_bars
-            hl_mult *= (2.0 - anchor_progress)
+            hl_mult *= (self._anchor_patience_max - anchor_progress)
 
-        effective_hl = base_hl * max(0.3, hl_mult)
+        effective_hl = base_hl * max(self._hl_mult_floor, hl_mult)
 
         # Decay factor
-        decay = math.exp(-0.693 * pos.bars_held / max(1, effective_hl))
+        decay = math.exp(-_LN2 * pos.bars_held / max(1, effective_hl))
 
         # Net force modulation
         if net_force != 0.0:
@@ -70,9 +92,9 @@ class EnvelopeDecay:
                 (pos.side == 'short' and net_force < 0)
             )
             if force_aligned:
-                decay = min(decay * 1.3, 1.0)
+                decay = min(decay * self._force_boost, 1.0)
             else:
-                decay = decay * 0.7
+                decay = decay * self._force_penalty
 
         # Current envelope level (noise-aware floor)
         initial_tp = pos.tp_ticks * tick_size
@@ -82,7 +104,7 @@ class EnvelopeDecay:
         pos.envelope_level = current_envelope
 
         # Only trigger after significant time
-        if pos.bars_held < effective_hl * 0.5:
+        if pos.bars_held < effective_hl * self._early_suppress_pct:
             return None
 
         if pos.side == 'long':
@@ -90,7 +112,7 @@ class EnvelopeDecay:
         else:
             unrealized = pos.entry_price - bar_close
 
-        if 0 < unrealized < current_envelope * 0.3:
+        if 0 < unrealized < current_envelope * self._floor_trigger_pct:
             return ExitResult(
                 action=ExitAction.ENVELOPE_DECAY,
                 exit_price=bar_close,

@@ -126,9 +126,6 @@ class ExecutionEngine:
     - Call position_closed() after executing an EXIT action
     """
 
-    _ADX_TREND_CONFIRMATION = 25.0
-    _HURST_TREND_CONFIRMATION = 0.6
-
     def __init__(
         self,
         brain,
@@ -146,10 +143,10 @@ class ExecutionEngine:
         depth_score_adj: dict = None,
         template_tier_map: dict = None,
         exception_tids: set = None,
-        # Thresholds
-        bias_threshold: float = 0.55,
-        dmi_threshold: float = 0.0,
-        worker_bypass_conviction: float = 0.65,
+        # Thresholds (deprecated — use config)
+        bias_threshold: float = None,
+        dmi_threshold: float = None,
+        worker_bypass_conviction: float = None,
         # Depth filters
         depth_blacklist: set = None,
         depth_filter_out: set = None,
@@ -158,7 +155,14 @@ class ExecutionEngine:
         feature_extractor=None,
         # Gate looseness (0=default, 1=relaxed, 2=open, 3=wide, 4=yolo)
         looseness: int = 0,
+        config=None,
     ):
+        # Config — single source of truth for all thresholds
+        if config is None:
+            from core.trading_config import TradingConfig
+            config = TradingConfig()
+        self.config = config
+
         self.brain = brain
         self.belief_network = belief_network
         self.exit_engine = exit_engine
@@ -176,10 +180,14 @@ class ExecutionEngine:
         self.template_tier_map = template_tier_map or {}
         self.exception_tids = exception_tids or set()
 
-        self.bias_threshold = bias_threshold
-        self.dmi_threshold = dmi_threshold
-        self.gate1_dist = 4.5
-        self.worker_bypass_conviction = worker_bypass_conviction
+        # Thresholds from config (constructor args override for backward compat)
+        self.bias_threshold = bias_threshold if bias_threshold is not None else config.bias_threshold
+        self.dmi_threshold = dmi_threshold if dmi_threshold is not None else config.dmi_threshold
+        self.gate1_dist = config.gate1_dist
+        self.worker_bypass_conviction = (worker_bypass_conviction if worker_bypass_conviction is not None
+                                          else config.worker_bypass_conviction)
+        self._ADX_TREND_CONFIRMATION = config.adx_trend_confirmation
+        self._HURST_TREND_CONFIRMATION = config.hurst_trend_confirmation
 
         self.depth_blacklist = depth_blacklist if depth_blacklist is not None else {0, 1, 2}
         self.depth_filter_out = depth_filter_out or set()
@@ -187,12 +195,12 @@ class ExecutionEngine:
 
         self.feature_extractor = feature_extractor
 
-        # Oracle-computed gate thresholds (loaded from gate_thresholds.json)
-        self.hurst_min = 0.5            # default fallback
-        self.reversion_prob_min = 0.40     # default fallback
-        self.momentum_override_ratio = 1.0  # block when mom < rev (ratio < 1.0)
-        self._min_trade_depth = 3       # configurable by looseness
-        self._brain_min_prob = 0.05     # configurable by looseness
+        # Gate thresholds from config (gate_thresholds.json can still override)
+        self.hurst_min = config.hurst_min
+        self.reversion_prob_min = config.reversion_prob_min
+        self.momentum_override_ratio = config.momentum_override_ratio
+        self._min_trade_depth = 3
+        self._brain_min_prob = config.brain_min_prob
         self._load_gate_thresholds()
         self._apply_looseness()
 
@@ -396,17 +404,10 @@ class ExecutionEngine:
         sub_bar_lows: list = None,
         band_context: dict = None,
         exit_signal: dict = None,
-        oracle_marker_fn=None,   # callable(raw_event) -> int
         pp_dir_override: str = None,
         noise_ticks: float = 0.0,
     ) -> TradeAction:
-        """
-        Process one bar. Returns a TradeAction.
-
-        oracle_marker_fn: callable that takes a raw PatternEvent and returns
-        the effective oracle marker (int). IS mode only. This keeps oracle
-        logic in the caller while letting the engine use it for direction.
-        """
+        """Process one bar. Returns a TradeAction."""
         if self.in_position:
             return self._check_exit(
                 price, bar_high, bar_low, bar_index,
@@ -418,7 +419,6 @@ class ExecutionEngine:
         if candidates:
             return self._check_entry(
                 price, bar_index, candidates,
-                oracle_marker_fn=oracle_marker_fn,
                 pp_dir_override=pp_dir_override,
             )
 
@@ -432,8 +432,8 @@ class ExecutionEngine:
                         network_tp: float = None,
                         max_hold_bars: int = 960):
         """Caller tells engine a position was opened."""
-        _sl = float(sl_ticks) if sl_ticks > 0 else 20.0
-        _tp = float(tp_ticks) if tp_ticks > 0 else (float(network_tp) if network_tp and network_tp > 0 else 40.0)
+        _sl = float(sl_ticks) if sl_ticks > 0 else self.config.sl_default_ticks
+        _tp = float(tp_ticks) if tp_ticks > 0 else (float(network_tp) if network_tp and network_tp > 0 else self.config.tp_default_ticks * 0.8)
         self.pos_state = self.exit_engine.open_position(
             side=side, entry_price=price, entry_bar_index=bar_index,
             template_id=template_id,
@@ -501,7 +501,7 @@ class ExecutionEngine:
     # ── ENTRY EVALUATION (matches orchestrator flow exactly) ─────────────
 
     def _check_entry(self, price, bar_index, candidates,
-                     oracle_marker_fn=None, pp_dir_override=None) -> TradeAction:
+                     pp_dir_override=None) -> TradeAction:
         """
         Two-phase entry evaluation:
           Phase 1: Pattern/Depth/Template/Brain for ALL candidates → score competition
@@ -569,13 +569,8 @@ class ExecutionEngine:
 
         # ── Phase 2: Direction + conviction for winner ─────────
         if best_gr is not None:
-            oracle_marker = None
-            if oracle_marker_fn is not None and best_gr.cand.raw_event is not None:
-                oracle_marker = oracle_marker_fn(best_gr.cand.raw_event)
-
             action = self._finalize_entry(
                 best_gr, price, bar_index,
-                oracle_marker=oracle_marker,
                 pp_dir_override=pp_dir_override,
             )
 
@@ -639,14 +634,15 @@ class ExecutionEngine:
         should_skip = False
         skip_label = 'gate0'
 
+        _cfg = self.config
         if not _data_override:
             if not micro_pattern:
                 should_skip = True
                 skip_label = 'gate0'
-            elif micro_z < 0.5:
+            elif micro_z < _cfg.noise_z_threshold:
                 should_skip = True
                 skip_label = 'gate0_noise'
-            elif 0.5 <= micro_z < 2.0:
+            elif _cfg.noise_z_threshold <= micro_z < _cfg.approach_z_threshold:
                 if micro_pattern == 'MOMENTUM_BREAK':
                     adx = getattr(state, 'adx_strength', 0)
                     hurst = getattr(state, 'hurst_exponent', 0)
@@ -657,14 +653,14 @@ class ExecutionEngine:
                 elif micro_pattern == 'BAND_REVERSAL':
                     should_skip = True
                     skip_label = 'gate0_r3_snap'
-            elif micro_z >= 2.0:
+            elif micro_z >= _cfg.approach_z_threshold:
                 chain = (getattr(cand.raw_event, 'parent_chain', [])
                          if cand.raw_event else [])
                 root_entry = chain[-1] if chain else None
                 macro_z = abs(root_entry['z']) if root_entry else 0.0
-                headroom = macro_z < 3.0
+                headroom = macro_z < _cfg.headroom_z_max
                 if micro_pattern == 'BAND_REVERSAL':
-                    if not headroom and micro_z > 3.0:
+                    if not headroom and micro_z > _cfg.nightmare_z:
                         should_skip = True
                         skip_label = 'gate0_r4_nightmare'
                 elif micro_pattern == 'MOMENTUM_BREAK':
@@ -750,7 +746,6 @@ class ExecutionEngine:
         )
 
     def _finalize_entry(self, gr: _GateResult, price: float, bar_index: int,
-                        oracle_marker=None,
                         pp_dir_override=None) -> TradeAction:
         """Phase 2: Direction cascade + conviction + sizing for the winning candidate."""
         cand = gr.cand
@@ -760,7 +755,7 @@ class ExecutionEngine:
 
         # ── Direction cascade ─────────────────────────────────
         side, p_long, dir_source = self._direction_cascade(
-            cand, tid, lib_entry, oracle_marker, pp_dir_override, feat_scaled)
+            cand, tid, lib_entry, pp_dir_override, feat_scaled)
 
         if side is None:
             return TradeAction(type=ActionType.HOLD, gate_label='no_direction',
@@ -784,8 +779,8 @@ class ExecutionEngine:
             if hasattr(_belief, 'direction') and _belief.direction != side:
                 side = _belief.direction
             # Network TP from predicted MFE
-            if hasattr(_belief, 'predicted_mfe') and _belief.predicted_mfe > 2.0:
-                network_tp = max(4, int(round(_belief.predicted_mfe)))
+            if hasattr(_belief, 'predicted_mfe') and _belief.predicted_mfe > self.config.significance_threshold:
+                network_tp = max(self.config.tp_min_ticks, int(round(_belief.predicted_mfe)))
 
         # ── Momentum Misalign: F_mom vs trade direction ──────
         # F_momentum = velocity * volume / sigma.  When its sign disagrees
@@ -808,11 +803,11 @@ class ExecutionEngine:
         # ── Max hold bars from parent TF ──────────────────────
         chain = (getattr(cand.raw_event, 'parent_chain', None)
                  if cand.raw_event else None) or []
-        _HOLD_PARENT_BARS = 5
         parent_tf = chain[0].get('tf', '4h') if chain else str(getattr(cand, 'timeframe', '4h'))
         from training.fractal_discovery_agent import TIMEFRAME_SECONDS
         parent_tf_sec = TIMEFRAME_SECONDS.get(parent_tf, 14400)
-        max_hold_bars = max(20, (parent_tf_sec * _HOLD_PARENT_BARS) // 15)
+        max_hold_bars = max(self.config.max_hold_min_bars,
+                            (parent_tf_sec * self.config.max_hold_parent_bars) // 15)
 
         self.gate_stats['traded'] += 1
 
@@ -861,13 +856,14 @@ class ExecutionEngine:
             self.gate_stats['physics_qg_skip'] += 1
             return TradeAction(type=ActionType.HOLD, gate_label='physics_qg')
 
+        _cfg = self.config
         side = belief.direction
         _st = bypass_cand.state
         _sigma = getattr(_st, 'regression_sigma', 0.0)
-        sl_ticks = (max(4, int(round(_sigma / self.tick_size * 1.5)))
-                    if _sigma > 0 else 8)
-        tp_ticks = (max(8, int(round(belief.predicted_mfe)))
-                    if belief.predicted_mfe > 2.0 else 20)
+        sl_ticks = (max(_cfg.sl_min_ticks, int(round(_sigma / self.tick_size * _cfg.timescale_tighten_mult)))
+                    if _sigma > 0 else _cfg.sl_default_ticks * 0.4)
+        tp_ticks = (max(_cfg.tp_min_ticks * 2, int(round(belief.predicted_mfe)))
+                    if belief.predicted_mfe > _cfg.significance_threshold else _cfg.sl_default_ticks)
 
         chain = (getattr(bypass_cand.raw_event, 'parent_chain', None)
                  if bypass_cand.raw_event else None) or []
@@ -875,7 +871,8 @@ class ExecutionEngine:
                      else str(getattr(bypass_cand, 'timeframe', '4h')))
         from training.fractal_discovery_agent import TIMEFRAME_SECONDS
         parent_tf_sec = TIMEFRAME_SECONDS.get(parent_tf, 14400)
-        max_hold_bars = max(20, (parent_tf_sec * 5) // 15)
+        max_hold_bars = max(_cfg.max_hold_min_bars,
+                            (parent_tf_sec * _cfg.max_hold_parent_bars) // 15)
 
         self.gate_stats['bypass_traded'] += 1
 
@@ -889,7 +886,7 @@ class ExecutionEngine:
             belief_state=belief,
             sl_ticks=float(sl_ticks),
             tp_ticks=float(tp_ticks),
-            trail_ticks=6.0,
+            trail_ticks=float(_cfg.trail_default_ticks * 0.6),
             trail_activation_ticks=0.0,
             depth=depth,
             dist=bypass_dist,
@@ -913,6 +910,7 @@ class ExecutionEngine:
                         trade_side: str = None,
                         template_id: int = None) -> Tuple[float, float, float, float]:
         """Compute SL, TP, trail, trail activation from template stats."""
+        _cfg = self.config
         _reg_sigma = lib_entry.get('regression_sigma_ticks', 0.0)
         _mean_mae = lib_entry.get('mean_mae_ticks', 0.0)
         _p75_mfe = lib_entry.get('p75_mfe_ticks', 0.0)
@@ -920,28 +918,29 @@ class ExecutionEngine:
         params = lib_entry.get('params', {})
 
         # Phase 1: initial hard stop
-        if _p25_mae > 2.0:
-            sl_ticks = max(4, int(round(_p25_mae * 3.0)))
-        elif _mean_mae > 2.0:
-            sl_ticks = max(4, int(round(_mean_mae * 2.0)))
+        if _p25_mae > _cfg.significance_threshold:
+            sl_ticks = max(_cfg.sl_min_ticks, int(round(_p25_mae * _cfg.sl_p25_mae_mult)))
+        elif _mean_mae > _cfg.significance_threshold:
+            sl_ticks = max(_cfg.sl_min_ticks, int(round(_mean_mae * _cfg.sl_mean_mae_mult)))
         else:
-            sl_ticks = params.get('stop_loss_ticks', 20)
+            sl_ticks = params.get('stop_loss_ticks', _cfg.sl_default_ticks)
 
         # Phase 2: trailing stop distance
-        if _reg_sigma > 2.0:
-            trail_ticks = max(2, int(round(_reg_sigma * 1.1)))
-        elif _mean_mae > 2.0:
-            trail_ticks = max(2, int(round(_mean_mae * 1.1)))
+        if _reg_sigma > _cfg.significance_threshold:
+            trail_ticks = max(_cfg.trail_min_ticks, int(round(_reg_sigma * _cfg.trail_sigma_mult)))
+        elif _mean_mae > _cfg.significance_threshold:
+            trail_ticks = max(_cfg.trail_min_ticks, int(round(_mean_mae * _cfg.trail_mae_mult)))
         else:
-            trail_ticks = params.get('trailing_stop_ticks', 10)
+            trail_ticks = params.get('trailing_stop_ticks', _cfg.trail_default_ticks)
 
         # Trail activation
-        trail_act_ticks = (max(2, int(round(_p25_mae * 0.3)))
-                           if _p25_mae > 2.0 else 0)
+        trail_act_ticks = (max(_cfg.trail_min_ticks, int(round(_p25_mae * _cfg.trail_activation_mae_mult)))
+                           if _p25_mae > _cfg.significance_threshold else 0)
 
         # TP: template p75_mfe as anchor, OLS adjusts within sanity bounds
         # Brain expected PnL offsets the anchor with actual realized performance
-        _anchor_ticks = _p75_mfe if _p75_mfe > 2.0 else params.get('take_profit_ticks', 50)
+        _anchor_ticks = (_p75_mfe if _p75_mfe > _cfg.significance_threshold
+                         else params.get('take_profit_ticks', _cfg.tp_default_ticks))
 
         if network_tp is not None:
             tp_ticks = network_tp
@@ -951,15 +950,14 @@ class ExecutionEngine:
                 _pred_mfe_pts = (np.dot(live_scaled, np.array(_mfe_coeff))
                                  + lib_entry.get('mfe_intercept', 0.0))
                 _pred_mfe_ticks = max(0.0, float(_pred_mfe_pts) / self.tick_size)
-                # Sanity gate: OLS must be within [anchor*0.2, anchor*5.0]
-                # If outside this range, the regression is hallucinating
-                if (_pred_mfe_ticks > 2.0
-                        and _anchor_ticks * 0.2 <= _pred_mfe_ticks <= _anchor_ticks * 5.0):
-                    tp_ticks = max(4, int(round(_pred_mfe_ticks)))
+                # Sanity gate: OLS must be within bounds of anchor
+                if (_pred_mfe_ticks > _cfg.significance_threshold
+                        and _anchor_ticks * _cfg.ols_lower_pct <= _pred_mfe_ticks <= _anchor_ticks * _cfg.ols_upper_pct):
+                    tp_ticks = max(_cfg.tp_min_ticks, int(round(_pred_mfe_ticks)))
                 else:
-                    tp_ticks = max(4, int(round(_anchor_ticks)))
+                    tp_ticks = max(_cfg.tp_min_ticks, int(round(_anchor_ticks)))
             else:
-                tp_ticks = max(4, int(round(_anchor_ticks)))
+                tp_ticks = max(_cfg.tp_min_ticks, int(round(_anchor_ticks)))
 
         # Brain offset: adjust anchor with actual realized performance
         if self.brain is not None and trade_side is not None:
@@ -967,16 +965,18 @@ class ExecutionEngine:
             _side = trade_side.lower()
             _exp_pnl = self.brain.get_expected_pnl(_tid, _side) if _tid is not None else None
             if _exp_pnl is not None:
-                _exp_ticks = _exp_pnl / (self.tick_size * 2)  # $ → ticks
-                # Blend: anchor stays base, brain nudges ±50% max
-                _adj = np.clip(_exp_ticks, -_anchor_ticks * 0.5, _anchor_ticks * 0.5)
-                tp_ticks = max(4, int(round(tp_ticks + _adj)))
+                _exp_ticks = _exp_pnl / (self.tick_size * self.point_value)  # $ → ticks
+                # Blend: anchor stays base, brain nudges within cap
+                _adj = np.clip(_exp_ticks,
+                               -_anchor_ticks * _cfg.brain_tp_adjust_pct,
+                               _anchor_ticks * _cfg.brain_tp_adjust_pct)
+                tp_ticks = max(_cfg.tp_min_ticks, int(round(tp_ticks + _adj)))
 
         # ATR floor enforcement in live/replay mode
         if self.mode in ('live', 'replay') and self._live_atr_ticks > 0:
             _atr = self._live_atr_ticks
-            sl_ticks = max(sl_ticks, max(4, int(round(_atr * 3.0))))
-            tp_ticks = max(tp_ticks, max(4, int(round(_atr * 5.0))))
+            sl_ticks = max(sl_ticks, max(_cfg.sl_min_ticks, int(round(_atr * _cfg.atr_sl_mult))))
+            tp_ticks = max(tp_ticks, max(_cfg.tp_min_ticks, int(round(_atr * _cfg.atr_tp_mult))))
 
         return float(sl_ticks), float(tp_ticks), float(trail_ticks), float(trail_act_ticks)
 
@@ -987,7 +987,7 @@ class ExecutionEngine:
     # ── DIRECTION CASCADE ────────────────────────────────────────────────
 
     def _direction_cascade(self, cand: Candidate, tid, lib_entry: dict,
-                           oracle_marker=None, pp_dir_override=None,
+                           pp_dir_override=None,
                            live_scaled=None) -> Tuple[Optional[str], float, str]:
         """
         Unified direction cascade matching orchestrator priority order.
@@ -1005,6 +1005,7 @@ class ExecutionEngine:
            5   Velocity fallback
         """
         state = cand.state
+        _cfg = self.config
         _BIAS_THRESH = self.bias_threshold
 
         # ── Priority -1: Ping-pong / live direction override ──
@@ -1022,10 +1023,11 @@ class ExecutionEngine:
         if self.mode in ('live', 'replay'):
             _vel = float(getattr(state, 'velocity', 0.0))
             _fnet = float(getattr(state, 'F_net', 0.0))
-            _mom = _vel + 0.5 * _fnet
-            if abs(_mom) > 0.5:
+            _mom = _vel + _cfg.momentum_accel_weight * _fnet
+            if abs(_mom) > _cfg.momentum_trigger:
                 s = 'long' if _mom > 0 else 'short'
-                _p = 0.5 + min(0.15, abs(_mom) * 0.05)
+                _p = 0.5 + min(_cfg.momentum_conviction_cap,
+                               abs(_mom) * _cfg.momentum_conviction_coeff)
                 return s, _p if s == 'long' else 1.0 - _p, 'live_momentum'
 
         # ── Priority 0.5: Signed MFE regression ──────────────
@@ -1038,9 +1040,10 @@ class ExecutionEngine:
                 np.dot(np.array([[_depth, _dmi]]), np.array(_smfe_coeff)).item()
                 + lib_entry.get('signed_mfe_intercept', 0.0)
             )
-            if abs(_pred) > 0.5:
+            if abs(_pred) > _cfg.momentum_trigger:
                 side = 'long' if _pred > 0 else 'short'
-                _p = 0.5 + min(0.3, abs(_pred) * 0.1)
+                _p = 0.5 + min(_cfg.signed_mfe_conviction_cap,
+                               abs(_pred) * _cfg.signed_mfe_conviction_coeff)
                 return side, _p if side == 'long' else 1 - _p, 'signed_mfe'
 
         # ── Priority 1: Per-cluster logistic regression ───────
@@ -1058,9 +1061,9 @@ class ExecutionEngine:
         _dir_long = self.brain.get_dir_probability(tid, 'LONG')
         _dir_short = self.brain.get_dir_probability(tid, 'SHORT')
         if _dir_long is not None and _dir_short is not None:
-            if _dir_long > _dir_short + 0.10:
+            if _dir_long > _dir_short + _cfg.brain_winrate_margin:
                 return 'long', _dir_long, 'brain_dir'
-            elif _dir_short > _dir_long + 0.10:
+            elif _dir_short > _dir_long + _cfg.brain_winrate_margin:
                 return 'short', 1.0 - _dir_short, 'brain_dir'
 
         # ── Priority 2: Template aggregate bias ───────────────
@@ -1070,7 +1073,7 @@ class ExecutionEngine:
             return 'long', long_bias, 'template_bias'
         elif short_bias >= _BIAS_THRESH:
             return 'short', 1.0 - short_bias, 'template_bias'
-        elif long_bias + short_bias >= 0.10:
+        elif long_bias + short_bias >= _cfg.template_bias_min_sum:
             s = 'long' if long_bias >= short_bias else 'short'
             return s, long_bias if s == 'long' else 1.0 - short_bias, 'template_bias'
 
@@ -1078,19 +1081,19 @@ class ExecutionEngine:
         if hasattr(self.belief_network, 'get_band_confluence'):
             _band = self.belief_network.get_band_confluence()
             if _band is not None and _band.get('direction') is not None:
-                return _band['direction'], 0.55, 'band_confluence'
+                return _band['direction'], _cfg.band_cascade_conviction, 'band_confluence'
 
         # ── Priority 4: DMI (trend-following) ─────────────────
         _dmi_diff = (getattr(state, 'dmi_plus', 0.0)
                      - getattr(state, 'dmi_minus', 0.0))
         if abs(_dmi_diff) >= self.dmi_threshold and _dmi_diff != 0:
             s = 'long' if _dmi_diff > 0 else 'short'
-            return s, 0.55 if s == 'long' else 0.45, 'dmi'
+            return s, _cfg.dmi_long_prob if s == 'long' else _cfg.dmi_short_prob, 'dmi'
 
         # ── Priority 5: Velocity fallback ─────────────────────
         _vel = float(getattr(state, 'velocity', 0.0))
         s = 'long' if _vel >= 0 else 'short'
-        return s, 0.52 if s == 'long' else 0.48, 'velocity'
+        return s, _cfg.velocity_long_prob if s == 'long' else _cfg.velocity_short_prob, 'velocity'
 
     # ── LIVE DIRECTION LEARNING (delegated to brain) ─────────────────────
 
@@ -1106,13 +1109,14 @@ class ExecutionEngine:
         if not bias:
             return None
         total = sum(bias.values())
-        if total < 5:
+        _cfg = self.config
+        if total < _cfg.live_bias_min_trades:
             return None
         long_wr = bias['long_w'] / max(1, bias['long_w'] + bias['long_l'])
         short_wr = bias['short_w'] / max(1, bias['short_w'] + bias['short_l'])
-        if long_wr > 0.60 and long_wr > short_wr + 0.15:
+        if long_wr > _cfg.live_bias_winrate_min and long_wr > short_wr + _cfg.live_bias_margin:
             return 'long'
-        if short_wr > 0.60 and short_wr > long_wr + 0.15:
+        if short_wr > _cfg.live_bias_winrate_min and short_wr > long_wr + _cfg.live_bias_margin:
             return 'short'
         return None
 
