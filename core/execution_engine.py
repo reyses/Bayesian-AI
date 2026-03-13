@@ -1012,12 +1012,11 @@ class ExecutionEngine:
         if pp_dir_override is not None:
             return pp_dir_override, 0.65, 'pp_override'
 
-        # ── Priority -0.5: Live brain dir_bias (live/replay only) ──
-        if self.mode in ('live', 'replay'):
-            _live_bias = self.get_live_dir_bias(tid)
-            if _live_bias is not None:
-                _p = 0.60 if _live_bias == 'long' else 0.40
-                return _live_bias, _p, 'live_bias'
+        # ── Priority -0.5: Brain dir_bias (H0/H1 counterfactual learned) ──
+        _learned_bias = self.get_live_dir_bias(tid)
+        if _learned_bias is not None:
+            _p = 0.60 if _learned_bias == 'long' else 0.40
+            return _learned_bias, _p, 'brain_bias'
 
         # ── Priority 0.3: Live momentum (velocity+accel, live/replay only) ──
         if self.mode in ('live', 'replay'):
@@ -1104,13 +1103,16 @@ class ExecutionEngine:
             self.brain.record_hold_bars(tid, side, hold_bars)
 
     def get_live_dir_bias(self, tid) -> Optional[str]:
-        """Check if brain's direction bias has a strong preference."""
+        """Check if brain's direction bias has a strong preference.
+
+        Uses actual trade counts (long_n + short_n), not PnL-weighted sums.
+        """
         bias = self.brain.get_dir_bias(tid)
         if not bias:
             return None
-        total = sum(bias.values())
         _cfg = self.config
-        if total < _cfg.live_bias_min_trades:
+        total_trades = bias.get('long_n', 0) + bias.get('short_n', 0)
+        if total_trades < _cfg.live_bias_min_trades:
             return None
         long_wr = bias['long_w'] / max(1, bias['long_w'] + bias['long_l'])
         short_wr = bias['short_w'] / max(1, bias['short_w'] + bias['short_l'])
