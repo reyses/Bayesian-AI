@@ -10,22 +10,31 @@ from core.exit_engine import ExitAction, ExitResult, PositionState
 
 class PeakGiveback:
 
-    def __init__(self, min_mfe_ticks: float = 16, giveback_pct: float = 0.70):
+    def __init__(self, min_mfe_ticks: float = 16, giveback_pct: float = 0.70,
+                 config=None):
         self.min_mfe_ticks = min_mfe_ticks
         self.giveback_pct = giveback_pct
+        if config is None:
+            from core.trading_config import TradingConfig
+            config = TradingConfig()
+        self._aggressive_mult = config.giveback_aggressive_mult
+        self._aggressive_pct = config.giveback_aggressive_pct
+        self._slow_flip_reduction = config.giveback_slow_flip_reduction
+        self._slow_flip_floor = config.giveback_slow_flip_floor
+        self._anchor_patience_pct = config.giveback_anchor_patience_pct
 
     def get_threshold(self, peak_ticks: float, noise_ticks: float = 0.0) -> float:
         """Tiered giveback threshold.
 
         Peak MFE (ticks)  ->  Giveback trigger
-        2x noise+         ->  40% (aggressive protection)
+        2x noise+         ->  aggressive_pct (40%)
         1x noise - 2x     ->  self.giveback_pct (~55-70%)
         < noise            ->  disabled (move within noise floor)
         """
         min_mfe = (max(self.min_mfe_ticks, noise_ticks)
                    if noise_ticks > 0 else self.min_mfe_ticks)
-        if peak_ticks >= min_mfe * 2:
-            return 0.40
+        if peak_ticks >= min_mfe * self._aggressive_mult:
+            return self._aggressive_pct
         elif peak_ticks >= min_mfe:
             return self.giveback_pct
         else:
@@ -51,19 +60,18 @@ class PeakGiveback:
         # Anchor patience: trade still developing
         if (pos.anchor_mfe_ticks > 0 and pos.anchor_mfe_bars > 0
                 and pos.bars_held < pos.anchor_mfe_bars
-                and peak_ticks < pos.anchor_mfe_ticks * 0.3):
+                and peak_ticks < pos.anchor_mfe_ticks * self._anchor_patience_pct):
             return None
 
         threshold = self.get_threshold(peak_ticks, noise_ticks)
 
-        # 30m flip tightens threshold by 15pp
+        # 30m flip tightens threshold
         if pos.slow_flip_active and threshold < 1.0:
-            threshold = max(0.25, threshold - 0.15)
+            threshold = max(self._slow_flip_floor,
+                            threshold - self._slow_flip_reduction)
 
         gave_back = peak_ticks - current_ticks
         if gave_back / peak_ticks >= threshold:
-            pnl_ticks = (current_ticks if pos.side == 'long'
-                         else (pos.entry_price - bar_close) / tick_size)
             return ExitResult(
                 action=ExitAction.PEAK_GIVEBACK,
                 exit_price=bar_close,

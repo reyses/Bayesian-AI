@@ -859,7 +859,7 @@ class Trainer:
                 belief_network.tick_all(_bar_i)
 
                 # PID ANALYZER TICK
-                _pid_state = _states_map.get(_bar_i)
+                _pid_state = _states_map.get(_bar_i - 1)
                 if _pid_state:
                      pid_signal = self.pid_analyzer.tick(_pid_state)
                      if pid_signal:
@@ -1177,7 +1177,8 @@ class Trainer:
                 _has_discovery_signal = ts in pattern_map
                 _has_compressed_signal = False
                 if oos_mode:
-                    _oos_state = _states_map.get(_bar_i)
+                    # FIX: use _bar_i-1 (current bar) not _bar_i (next bar = look-ahead)
+                    _oos_state = _states_map.get(_bar_i - 1)
                     if _oos_state:
                         _oos_pt = getattr(_oos_state, 'pattern_type', '')
                         _oos_cascade = getattr(_oos_state, 'cascade_detected', False)
@@ -1194,7 +1195,8 @@ class Trainer:
 
                     if oos_mode:
                         # ── OOS: compressed per-bar (same as live/replay) ──
-                        _oos_state = _states_map.get(_bar_i)
+                        # FIX: use _bar_i-1 (current bar) — removes look-ahead advantage
+                        _oos_state = _states_map.get(_bar_i - 1)
                         _oos_z = getattr(_oos_state, 'z_score', 0.0)
                         _oos_pt = getattr(_oos_state, 'pattern_type', '')
                         _oos_tf_s = 15  # 15s anchor
@@ -1282,7 +1284,6 @@ class Trainer:
                         bar_low=getattr(row, 'low', price),
                         bar_index=_bar_i,
                         candidates=_eng_candidates,
-                        oracle_marker_fn=_effective_oracle,
                         pp_dir_override=_pp_dir_ov,
                     )
                     # Copy gate labels for FN audit
@@ -2138,11 +2139,8 @@ class Trainer:
                     continue
                 _row = _df_all.iloc[_idx]
                 _cur_ts[0] = float(_row['timestamp'])
-                # Use SAME state for entry + exit (matches inline OOS behavior:
-                # inline OOS entry uses _states_map[_bar_i] (off-by-one look-ahead),
-                # exit uses _states_map[_bar_i-1] which = CURRENT bar.
-                # BarProcessor can't replicate the entry look-ahead without breaking
-                # causality, but exit must use current bar state — NOT previous.)
+                # Both inline OOS and BarProcessor now use current bar state
+                # (look-ahead bug in inline OOS fixed: _bar_i-1 for all state lookups)
                 result = processor.process_bar(
                     bar_index=_bar_counter,
                     price=float(_row['close']),
@@ -2236,18 +2234,25 @@ class Trainer:
     def _write_live_validation_report(
             self, lv_trades, lv_day_ledger, oos_daily_ledger,
             oos_trade_records, n_days, exec_engine):
-        """Write parity report comparing live validation (BarProcessor) vs OOS inline."""
+        """Write OOS3 parity report: OOS2 (inline) vs OOS3 (BarProcessor)."""
         import datetime as _dt
+        from collections import Counter
 
-        # Live validation stats
+        W = 80
+
+        # ── OOS3 stats ──
         lv_n = len(lv_trades)
         lv_wins = sum(1 for t in lv_trades if t['pnl'] > 0)
         lv_losses = sum(1 for t in lv_trades if t['pnl'] < 0)
+        lv_be = sum(1 for t in lv_trades if t['pnl'] == 0)
         lv_pnl = sum(t['pnl'] for t in lv_trades)
+        lv_gross_win = sum(t['pnl'] for t in lv_trades if t['pnl'] > 0)
+        lv_gross_loss = sum(t['pnl'] for t in lv_trades if t['pnl'] < 0)
         lv_wr = lv_wins / lv_n * 100 if lv_n else 0
         lv_avg = lv_pnl / lv_n if lv_n else 0
+        lv_pf = lv_gross_win / abs(lv_gross_loss) if lv_gross_loss else 0
 
-        # OOS stats for the same date range (last N days of daily ledger)
+        # ── OOS2 stats (from daily ledger) ──
         lv_dates = {d['date'] for d in lv_day_ledger}
         oos_matching = [d for d in oos_daily_ledger if d['date'] in lv_dates]
         oos_n = sum(d['trades'] for d in oos_matching)
@@ -2257,129 +2262,186 @@ class Trainer:
         oos_avg = oos_pnl / oos_n if oos_n else 0
         oos_days = max(1, len(oos_matching))
 
-        # Exit reason breakdown
-        from collections import Counter
-        exit_reasons = Counter()
-        exit_pnl = defaultdict(float)
-        exit_wins = Counter()
+        # ── Exit reason breakdown (OOS3) ──
+        exit_stats = {}  # reason -> {n, wins, pnl, gross_win, gross_loss}
         for t in lv_trades:
             r = t.get('exit_reason', 'unknown')
-            exit_reasons[r] += 1
-            exit_pnl[r] += t['pnl']
+            if r not in exit_stats:
+                exit_stats[r] = {'n': 0, 'wins': 0, 'pnl': 0.0,
+                                 'gross_win': 0.0, 'gross_loss': 0.0}
+            exit_stats[r]['n'] += 1
+            exit_stats[r]['pnl'] += t['pnl']
             if t['pnl'] > 0:
-                exit_wins[r] += 1
+                exit_stats[r]['wins'] += 1
+                exit_stats[r]['gross_win'] += t['pnl']
+            elif t['pnl'] < 0:
+                exit_stats[r]['gross_loss'] += t['pnl']
 
-        # Direction breakdown
-        dir_counts = Counter()
-        dir_pnl = defaultdict(float)
-        dir_wins = Counter()
+        # ── Direction breakdown (OOS3) ──
+        dir_stats = {}
         for t in lv_trades:
-            s = t.get('side', 'unknown')
-            dir_counts[s] += 1
-            dir_pnl[s] += t['pnl']
+            s = t.get('side', '?')
+            if s not in dir_stats:
+                dir_stats[s] = {'n': 0, 'wins': 0, 'pnl': 0.0}
+            dir_stats[s]['n'] += 1
+            dir_stats[s]['pnl'] += t['pnl']
             if t['pnl'] > 0:
-                dir_wins[s] += 1
+                dir_stats[s]['wins'] += 1
 
-        # Direction source distribution
+        # ── Direction source distribution (OOS3) ──
         dir_sources = Counter()
         for t in lv_trades:
-            ds = t.get('dir_source', 'unknown')
-            dir_sources[ds] += 1
+            dir_sources[t.get('dir_source', '?')] += 1
 
-        # Gate stats from exec engine
-        gate_stats = exec_engine.gate_stats if hasattr(exec_engine, 'gate_stats') else {}
+        # ── Drawdown (OOS3) ──
+        cum = 0.0
+        peak = 0.0
+        max_dd = 0.0
+        consec_loss = 0
+        max_consec = 0
+        for t in lv_trades:
+            cum += t['pnl']
+            peak = max(peak, cum)
+            max_dd = max(max_dd, peak - cum)
+            if t['pnl'] < 0:
+                consec_loss += 1
+                max_consec = max(max_consec, consec_loss)
+            else:
+                consec_loss = 0
 
-        # Build report
-        lines = []
-        lines.append("=" * 72)
-        lines.append("  OOS vs LIVE VALIDATION (BarProcessor) — PARITY REPORT")
-        lines.append("=" * 72)
-        lines.append("")
-        lines.append(f"  {'Metric':<30} {'OOS':>12} {'LiveVal':>12} {'Delta':>12}")
-        lines.append(f"  {'-'*66}")
-        lines.append(f"  {'Trades':<30} {oos_n:>12} {lv_n:>12} {lv_n - oos_n:>+12}")
-        lines.append(f"  {'Win Rate':<30} {oos_wr:>11.1f}% {lv_wr:>11.1f}% {lv_wr - oos_wr:>+11.1f}%")
-        lines.append(f"  {'Total PnL':<30} ${oos_pnl:>10,.2f} ${lv_pnl:>10,.2f} ${lv_pnl - oos_pnl:>+10,.2f}")
-        lines.append(f"  {'Avg Trade':<30} ${oos_avg:>10,.2f} ${lv_avg:>10,.2f} ${lv_avg - oos_avg:>+10,.2f}")
-        oos_rate = oos_n / oos_days
-        lv_rate = lv_n / max(1, n_days)
-        lines.append(f"  {'Trades/Day':<30} {oos_rate:>12.1f} {lv_rate:>12.1f} {lv_rate - oos_rate:>+12.1f}")
-        lines.append(f"  {'PnL/Day':<30} ${oos_pnl/oos_days:>10,.2f} ${lv_pnl/max(1,n_days):>10,.2f} "
-                     f"${lv_pnl/max(1,n_days) - oos_pnl/oos_days:>+10,.2f}")
-        lines.append("")
+        # ── Build report ──
+        L = []
+        L.append("=" * W)
+        L.append("  OOS3 PARITY REPORT — OOS2 (inline) vs OOS3 (BarProcessor)")
+        L.append(f"  Generated: {_dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        L.append(f"  Target: last {n_days} trading days")
+        L.append("=" * W)
 
-        # Exit reason breakdown
-        lines.append("  EXIT REASON BREAKDOWN (LiveVal)")
-        lines.append(f"  {'Reason':<25} {'Trades':>8} {'WR%':>8} {'PnL':>12} {'Avg':>8}")
-        lines.append(f"  {'-'*63}")
-        for reason in sorted(exit_reasons.keys(), key=lambda r: -exit_pnl[r]):
-            rn = exit_reasons[reason]
-            rw = exit_wins[reason]
-            rp = exit_pnl[reason]
-            wr = rw / rn * 100 if rn else 0
-            lines.append(f"  {reason:<25} {rn:>8} {wr:>7.1f}% ${rp:>10,.2f} ${rp/rn:>7.2f}")
-        lines.append("")
+        # ── Key Metrics ──
+        L.append("")
+        L.append(f"  {'Metric':<22} {'OOS2':>14} {'OOS3':>14} {'Delta':>14}")
+        L.append(f"  {'-'*22} {'-'*14} {'-'*14} {'-'*14}")
+        L.append(f"  {'Trades':<22} {oos_n:>14} {lv_n:>14} {lv_n - oos_n:>+14}")
+        L.append(f"  {'Win Rate':<22} {oos_wr:>13.1f}% {lv_wr:>13.1f}% {lv_wr - oos_wr:>+13.1f}%")
+        L.append(f"  {'Total PnL':<22} ${oos_pnl:>12,.2f} ${lv_pnl:>12,.2f} ${lv_pnl - oos_pnl:>+12,.2f}")
+        L.append(f"  {'Avg Trade':<22} ${oos_avg:>12,.2f} ${lv_avg:>12,.2f} ${lv_avg - oos_avg:>+12,.2f}")
+        L.append(f"  {'Gross Win':<22} {'':>14} ${lv_gross_win:>12,.2f}")
+        L.append(f"  {'Gross Loss':<22} {'':>14} ${abs(lv_gross_loss):>12,.2f}")
+        L.append(f"  {'Profit Factor':<22} {'':>14} {lv_pf:>14.2f}")
+        L.append(f"  {'Max Drawdown':<22} {'':>14} ${max_dd:>12,.2f}")
+        L.append(f"  {'Max Consec Losses':<22} {'':>14} {max_consec:>14}")
 
-        # Direction breakdown
-        lines.append("  DIRECTION BREAKDOWN (LiveVal)")
-        lines.append(f"  {'Side':<10} {'Trades':>8} {'WR%':>8} {'PnL':>12} {'Avg':>8}")
-        lines.append(f"  {'-'*50}")
-        for side in sorted(dir_counts.keys()):
-            sn = dir_counts[side]
-            sw = dir_wins[side]
-            sp = dir_pnl[side]
-            wr = sw / sn * 100 if sn else 0
-            lines.append(f"  {side:<10} {sn:>8} {wr:>7.1f}% ${sp:>10,.2f} ${sp/sn:>7.2f}")
-        lines.append("")
+        # ── Exit Reason Breakdown (OOS3) ──
+        L.append("")
+        L.append("=" * W)
+        L.append("  EXIT REASON BREAKDOWN (OOS3)")
+        L.append("=" * W)
+        L.append(f"  {'Reason':<18} {'Trades':>7} {'Win%':>6} {'Gross Win':>12} "
+                 f"{'Gross Loss':>12} {'Net PnL':>12} {'Avg':>9}")
+        L.append(f"  {'-'*18} {'-'*7} {'-'*6} {'-'*12} {'-'*12} {'-'*12} {'-'*9}")
+        for r in sorted(exit_stats.keys(), key=lambda k: -exit_stats[k]['pnl']):
+            es = exit_stats[r]
+            wr = es['wins'] / es['n'] * 100 if es['n'] else 0
+            avg = es['pnl'] / es['n'] if es['n'] else 0
+            L.append(f"  {r:<18} {es['n']:>7} {wr:>5.0f}% ${es['gross_win']:>10,.2f} "
+                     f"${abs(es['gross_loss']):>10,.2f} ${es['pnl']:>+10,.2f} ${avg:>+8,.2f}")
 
-        # Direction source distribution
+        # ── Direction Breakdown (OOS3) ──
+        L.append("")
+        L.append("=" * W)
+        L.append("  DIRECTION BREAKDOWN (OOS3)")
+        L.append("=" * W)
+        for s in sorted(dir_stats.keys()):
+            ds = dir_stats[s]
+            wr = ds['wins'] / ds['n'] * 100 if ds['n'] else 0
+            avg = ds['pnl'] / ds['n'] if ds['n'] else 0
+            L.append(f"  {s:<8} {ds['n']:>4} trades  WR={wr:.0f}%  "
+                     f"PnL=${ds['pnl']:>+10,.2f}  Avg=${avg:>+8,.2f}")
+
+        # ── Direction Source (OOS3) ──
         if dir_sources:
-            lines.append("  DIRECTION SOURCE DISTRIBUTION")
+            L.append("")
+            L.append("  DIRECTION SOURCE DISTRIBUTION")
             for ds, cnt in dir_sources.most_common():
                 pct = cnt / lv_n * 100 if lv_n else 0
-                lines.append(f"    {ds}: {cnt} ({pct:.1f}%)")
-            lines.append("")
+                L.append(f"    {ds}: {cnt} ({pct:.1f}%)")
 
-        # Per-day breakdown
-        lines.append("  PER DAY")
-        lines.append(f"  {'Date':<12} {'OOS_T':>6} {'OOS_PnL':>10} {'LV_T':>6} {'LV_PnL':>10} {'Delta':>10}")
-        lines.append(f"  {'-'*58}")
+        # ── Per-Day Comparison ──
+        L.append("")
+        L.append("=" * W)
+        L.append("  PER-DAY COMPARISON")
+        L.append("=" * W)
+        L.append(f"  {'Date':<12} {'OOS2_T':>7} {'OOS2_PnL':>11} "
+                 f"{'OOS3_T':>7} {'OOS3_PnL':>11} {'Delta':>11}")
+        L.append(f"  {'-'*12} {'-'*7} {'-'*11} {'-'*7} {'-'*11} {'-'*11}")
         for lv_day in lv_day_ledger:
             d = lv_day['date']
             oos_day = next((o for o in oos_matching if o['date'] == d), None)
             oos_dt = oos_day['trades'] if oos_day else 0
             oos_dp = oos_day['pnl'] if oos_day else 0
-            lines.append(f"  {d:<12} {oos_dt:>6} ${oos_dp:>9,.2f} "
-                        f"{lv_day['trades']:>6} ${lv_day['pnl']:>9,.2f} "
-                        f"${lv_day['pnl'] - oos_dp:>+9,.2f}")
-        lines.append("")
+            delta = lv_day['pnl'] - oos_dp
+            L.append(f"  {d:<12} {oos_dt:>7} ${oos_dp:>9,.2f} "
+                     f"{lv_day['trades']:>7} ${lv_day['pnl']:>9,.2f} "
+                     f"${delta:>+9,.2f}")
 
-        # Parity verdict
-        _score = 1.0
-        warnings_list = []
+        # ── Trade Log (OOS3) ──
+        L.append("")
+        L.append("=" * W)
+        L.append("  TRADE LOG (OOS3)")
+        L.append("=" * W)
+        if lv_trades:
+            L.append(f"  {'#':>3}  {'Side':<6} {'Entry':>10} {'Exit':>10} "
+                     f"{'PnL':>10} {'Reason':<18} {'Bars':>5} {'DirSrc':<12}")
+            L.append("  " + "-" * 75)
+            cum_pnl = 0.0
+            for i, t in enumerate(lv_trades, 1):
+                cum_pnl += t['pnl']
+                side = t.get('side', '?')
+                entry = t.get('entry_price', 0)
+                exit_p = t.get('exit_price', 0)
+                pnl = t['pnl']
+                reason = t.get('exit_reason', '?')
+                bars = t.get('bars_held', 0)
+                dsrc = t.get('dir_source', '?')
+                L.append(f"  {i:>3}  {side:<6} {entry:>10,.2f} {exit_p:>10,.2f} "
+                         f"${pnl:>+9,.2f} {reason:<18} {bars:>5} {dsrc:<12}")
+            L.append("  " + "-" * 75)
+            L.append(f"  {'':>3}  {'':6} {'':10} {'TOTAL':>10} "
+                     f"${lv_pnl:>+9,.2f}")
+        else:
+            L.append("  No trades.")
+
+        # ── Parity Verdict ──
+        L.append("")
+        L.append("=" * W)
+        L.append("  PARITY VERDICT")
+        L.append("=" * W)
+        issues = []
         if oos_n > 0:
             trade_ratio = lv_n / oos_n
             if abs(trade_ratio - 1.0) > 0.3:
-                _score -= 0.3
-                warnings_list.append(f"Trade count diverged: {lv_n} vs OOS {oos_n}")
+                issues.append(f"TRADE COUNT: OOS3={lv_n} vs OOS2={oos_n} "
+                              f"({trade_ratio:.0%} ratio)")
         if abs(lv_wr - oos_wr) > 5:
-            _score -= 0.2
-            warnings_list.append(f"WR diverged: {lv_wr:.1f}% vs OOS {oos_wr:.1f}%")
+            issues.append(f"WIN RATE: OOS3={lv_wr:.1f}% vs OOS2={oos_wr:.1f}%")
         if oos_avg > 0 and abs(lv_avg - oos_avg) > oos_avg * 0.5:
-            _score -= 0.2
-            warnings_list.append(f"Avg trade diverged: ${lv_avg:.2f} vs OOS ${oos_avg:.2f}")
-        _score = max(0, _score)
-        _status = "PASSED" if _score >= 0.7 else "FAILED"
+            issues.append(f"AVG TRADE: OOS3=${lv_avg:.2f} vs OOS2=${oos_avg:.2f}")
 
-        lines.append("  PARITY VERDICT")
-        lines.append(f"    Score: {_score:.2f}")
-        lines.append(f"    Status: {_status}")
-        for w in warnings_list:
-            lines.append(f"    WARNING: {w}")
-        lines.append("")
-        lines.append("=" * 72)
+        sl_count = exit_stats.get('stop_loss', {}).get('n', 0)
+        if lv_n > 0 and sl_count / lv_n > 0.85:
+            issues.append(f"SL DOMINANT: {sl_count}/{lv_n} trades "
+                          f"({sl_count/lv_n:.0%}) exit via stop_loss")
 
-        report_text = '\n'.join(lines)
+        if issues:
+            L.append(f"  Status: FAILED ({len(issues)} issues)")
+            for issue in issues:
+                L.append(f"    - {issue}")
+        else:
+            L.append("  Status: PASSED")
+        L.append("")
+        L.append("=" * W)
+
+        report_text = '\n'.join(L)
         print("\n" + report_text)
 
         # Save report
@@ -5489,6 +5551,9 @@ def main():
                         help="Blind out-of-sample simulation: frozen templates, separate oos_trade_log.csv/oos_report.txt, "
                              "training depth_weights.json preserved. Implies --forward-pass. "
                              "Pair with --forward-start YYYYMMDD to slice the OOS window.")
+    parser.add_argument('--oos-chain', action='store_true',
+                        help="Run full OOS chain: OOS1 (blind) → Strategy → OOS2 (tier pref) → OOS3 (BarProcessor). "
+                             "Skips IS. Uses existing checkpoints.")
     parser.add_argument('--oos3', action='store_true',
                         help="OOS3 only: bar-by-bar via BarProcessor (live mode validation). "
                              "Uses existing checkpoints + warmed brain. Saves live_brain.pkl.")
@@ -5663,6 +5728,69 @@ def main():
                 dmi_threshold=args.dmi_threshold,
                 account_size=args.account_size,
             )
+
+        elif getattr(args, 'oos_chain', False) and not args.fresh:
+            # Full OOS chain: OOS1 → Strategy → OOS2 → OOS3 (no IS)
+            _oos_path = getattr(args, 'forward_data', None) or os.path.join('DATA', 'ATLAS_OOS')
+            _oos_end = getattr(args, '_live_prep_cutoff', None) or args.forward_end
+
+            # OOS1: blind, no tier preference
+            print("\n" + "=" * 80)
+            print("  OOS1: BLIND VALIDATION (no tier preference)")
+            print("=" * 80)
+            orchestrator.run_forward_pass(_oos_path,
+                                          start_date=args.forward_start,
+                                          end_date=_oos_end,
+                                          bias_threshold=args.bias_threshold,
+                                          dmi_threshold=args.dmi_threshold,
+                                          oos_mode=True,
+                                          account_size=args.account_size)
+            _oos1 = dict(orchestrator._fp_summary)
+
+            # Strategy grading
+            orchestrator.run_strategy_selection()
+
+            # OOS2: re-run with tier preference tiebreaker
+            print("\n" + "=" * 80)
+            print("  OOS2: VERIFICATION (tier preference tiebreaker active)")
+            print("=" * 80)
+            orchestrator.run_forward_pass(_oos_path,
+                                          start_date=args.forward_start,
+                                          end_date=_oos_end,
+                                          bias_threshold=args.bias_threshold,
+                                          dmi_threshold=args.dmi_threshold,
+                                          oos_mode=True,
+                                          account_size=args.account_size,
+                                          tier_preference=True)
+            _oos2 = dict(orchestrator._fp_summary)
+
+            # OOS1 vs OOS2 comparison
+            _print_oos_comparison(_oos1, _oos2)
+
+            # OOS3: BarProcessor live mode validation
+            print("\n" + "=" * 80)
+            print("  OOS3: LIVE MODE VALIDATION (bar-by-bar via BarProcessor)")
+            print("=" * 80)
+            orchestrator.run_forward_pass(_oos_path,
+                                          start_date=args.forward_start,
+                                          end_date=_oos_end,
+                                          bias_threshold=args.bias_threshold,
+                                          dmi_threshold=args.dmi_threshold,
+                                          oos_mode=True,
+                                          account_size=args.account_size,
+                                          tier_preference=True,
+                                          live_validation_days=5)
+            _oos3 = dict(orchestrator._fp_summary)
+
+            # OOS2 vs OOS3 comparison
+            print("\n  OOS2 vs OOS3 (inline vs BarProcessor):")
+            for _k in ['trades', 'win_rate', 'total_pnl', 'avg_trade']:
+                _v2 = _oos2.get(_k, 0)
+                _v3 = _oos3.get(_k, 0)
+                if isinstance(_v2, float):
+                    print(f"    {_k:20s}  OOS2={_v2:>10.2f}  OOS3={_v3:>10.2f}  delta={_v3-_v2:>+10.2f}")
+                else:
+                    print(f"    {_k:20s}  OOS2={_v2:>10}  OOS3={_v3:>10}  delta={_v3-_v2:>+10}")
 
         elif args.oos and not args.forward_pass and not args.fresh:
             # Standalone OOS rerun (Phase 5 only)
