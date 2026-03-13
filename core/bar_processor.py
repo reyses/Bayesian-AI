@@ -166,7 +166,6 @@ class BarProcessor:
         *,
         exit_state=None,
         pp_dir_override: str = None,
-        oracle_marker_fn=None,
         yolo: bool = False,
     ) -> BarResult:
         """Process one bar. Returns BarResult with action and optional trade.
@@ -206,7 +205,6 @@ class BarProcessor:
             bar_low=bar_low,
             bar_index=bar_index,
             candidates=candidates,
-            oracle_marker_fn=oracle_marker_fn,
             pp_dir_override=pp_dir_override,
         )
 
@@ -329,12 +327,13 @@ class BarProcessor:
         bars_held = bar_index - entry['entry_bar']
         exit_reason = getattr(action, 'exit_reason', 'unknown')
 
-        # Record trade in brain
+        # Record trade in brain — use actual fill price
+        _fill_price = getattr(action, 'price', price)
         outcome = record_trade(
             self.brain,
             tid=entry['tid'],
             entry_price=entry['entry_price'],
-            exit_price=price,
+            exit_price=_fill_price,
             pnl=pnl_dollars,
             side=entry['side'],
             exit_reason=exit_reason,
@@ -348,7 +347,7 @@ class BarProcessor:
         # Build trade dict
         trade = {
             **entry,
-            'exit_price': price,
+            'exit_price': _fill_price,
             'exit_bar': bar_index,
             'exit_ts': timestamp,
             'pnl': pnl_dollars,

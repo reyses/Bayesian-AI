@@ -7,10 +7,15 @@ from core.exit_engine import ExitAction, ExitResult, PositionState
 class WatchdogCheck:
 
     def __init__(self, tick_threshold: float = 8, bar_threshold: int = 5,
-                 worker_threshold: int = 5):
+                 worker_threshold: int = 5, config=None):
         self.tick_threshold = tick_threshold
         self.bar_threshold = bar_threshold
         self.worker_threshold = worker_threshold
+        if config is None:
+            from core.trading_config import TradingConfig
+            config = TradingConfig()
+        self._mfe_progress_pct = config.watchdog_mfe_progress_pct
+        self._mfe_floor_ticks = config.watchdog_mfe_floor_ticks
 
     def evaluate(self, pos: PositionState, bar_close: float, tick_size: float,
                  exit_signal: dict = None) -> Optional[ExitResult]:
@@ -30,14 +35,14 @@ class WatchdogCheck:
         else:
             mfe_ticks = (pos.entry_price - pos.peak_favorable) / tick_size
 
-        if mfe_ticks >= pos.trail_activation_ticks * 0.5:
+        if mfe_ticks >= pos.trail_activation_ticks * self._mfe_progress_pct:
             return None
 
         workers_against = 0
         if exit_signal is not None:
             workers_against = exit_signal.get('workers_against', 0)
 
-        if workers_against >= self.worker_threshold or mfe_ticks < 2:
+        if workers_against >= self.worker_threshold or mfe_ticks < self._mfe_floor_ticks:
             return ExitResult(
                 action=ExitAction.WATCHDOG,
                 exit_price=bar_close,

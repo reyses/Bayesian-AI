@@ -99,13 +99,20 @@ class ExitEngine:
         mode: str = 'live',
         tick_size: float = 0.25,
         tick_value: float = 0.50,
+        config=None,
     ):
         assert mode in ('training', 'live'), f"Invalid mode: {mode}"
         self.mode = mode
         self.tick_size = tick_size
         self.tick_value = tick_value
 
-        # ── Exit modules ──
+        # Lazy import to avoid circular deps
+        if config is None:
+            from core.trading_config import TradingConfig
+            config = TradingConfig()
+        self.config = config
+
+        # ── Exit modules (params from config) ──
         from core.exits.stop_loss import StopLossCheck
         from core.exits.take_profit import TakeProfitCheck
         from core.exits.breakeven import BreakevenLock
@@ -117,23 +124,35 @@ class ExitEngine:
 
         self.stop_loss = StopLossCheck()
         self.take_profit = TakeProfitCheck()
-        self.breakeven = BreakevenLock(activation_ticks=4)
-        self.envelope = EnvelopeDecay(half_life_bars=20, floor_pct=0.3, min_bars=5)
-        self.giveback = PeakGiveback(min_mfe_ticks=16, giveback_pct=0.70)
-        self.band_exit = BandUrgentExit()
-        self.watchdog = WatchdogCheck(tick_threshold=8, bar_threshold=5,
-                                       worker_threshold=5)
+        self.breakeven = BreakevenLock(
+            activation_ticks=config.be_activation_ticks,
+            buffer_ticks=config.be_buffer_ticks)
+        self.envelope = EnvelopeDecay(
+            half_life_bars=config.envelope_halflife_bars,
+            floor_pct=config.envelope_floor_pct,
+            min_bars=config.envelope_min_bars,
+            config=config)
+        self.giveback = PeakGiveback(
+            min_mfe_ticks=config.giveback_min_mfe_ticks,
+            giveback_pct=config.giveback_pct,
+            config=config)
+        self.band_exit = BandUrgentExit(config=config)
+        self.watchdog = WatchdogCheck(
+            tick_threshold=config.watchdog_tick_threshold,
+            bar_threshold=config.watchdog_bar_threshold,
+            worker_threshold=config.watchdog_worker_threshold,
+            config=config)
         self.belief_flip = BeliefFlipExit()
 
         # Self-tuning state — two independent counters
         self._tune_too_early = 0
         self._tune_too_late = 0
         self._tune_total = 0
-        self._tune_hl_min = 8
-        self._tune_hl_max = 60
-        self._tune_gb_min = 0.55
-        self._tune_gb_max = 0.90
-        self._tune_window = 30
+        self._tune_hl_min = config.tune_hl_min
+        self._tune_hl_max = config.tune_hl_max
+        self._tune_gb_min = config.tune_gb_min
+        self._tune_gb_max = config.tune_gb_max
+        self._tune_window = config.tune_window
 
     # ── Convenience aliases for tuned params ──
 
@@ -180,28 +199,33 @@ class ExitEngine:
     def record_trade_outcome(self, trade_mfe_ticks: float, actual_pnl_ticks: float,
                              capture_rate: float):
         """Feed closed-trade stats back to auto-tune exit parameters."""
+        c = self.config
         self._tune_total += 1
 
-        if 0 < capture_rate < 0.20 and trade_mfe_ticks < 8:
+        if 0 < capture_rate < c.tune_too_early_capture and trade_mfe_ticks < c.tune_too_early_mfe:
             self._tune_too_early += 1
 
-        if trade_mfe_ticks >= 16:
+        if trade_mfe_ticks >= c.giveback_min_mfe_ticks:
             gave_back = (trade_mfe_ticks - actual_pnl_ticks) / trade_mfe_ticks
-            if gave_back >= 0.50:
+            if gave_back >= c.tune_too_late_giveback:
                 self._tune_too_late += 1
 
         if self._tune_total % self._tune_window == 0 and self._tune_total > 0:
             if self._tune_too_early >= 3:
                 self.envelope_half_life_bars = min(
                     self._tune_hl_max,
-                    self.envelope_half_life_bars * 1.10)
+                    self.envelope_half_life_bars * c.tune_growth_rate)
             if self._tune_too_late >= 3:
                 self.giveback_pct = max(
                     self._tune_gb_min,
-                    self.giveback_pct - 0.05)
+                    self.giveback_pct - c.tune_shrink_step)
             if self._tune_too_early < 3 and self._tune_too_late < 3:
-                self.envelope_half_life_bars += (20 - self.envelope_half_life_bars) * 0.1
-                self.giveback_pct += (0.70 - self.giveback_pct) * 0.1
+                self.envelope_half_life_bars += (
+                    c.envelope_halflife_bars - self.envelope_half_life_bars
+                ) * c.tune_revert_rate
+                self.giveback_pct += (
+                    c.giveback_pct - self.giveback_pct
+                ) * c.tune_revert_rate
             self._tune_too_early = 0
             self._tune_too_late = 0
 
@@ -226,7 +250,7 @@ class ExitEngine:
         if lib_entry:
             _p75_bar = lib_entry.get('p75_mfe_bar', 0.0)
             if _p75_bar > 0:
-                max_hold_bars = int(_p75_bar * 2.5)
+                max_hold_bars = int(_p75_bar * self.config.timescale_urgent_mult)
             else:
                 max_hold_bars = lib_entry.get('max_hold_bars', max_hold_bars)
 
