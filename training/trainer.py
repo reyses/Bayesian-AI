@@ -5733,6 +5733,7 @@ def main():
             # Full OOS chain: OOS1 → Strategy → OOS2 → OOS3 (no IS)
             _oos_path = getattr(args, 'forward_data', None) or os.path.join('DATA', 'ATLAS_OOS')
             _oos_end = getattr(args, '_live_prep_cutoff', None) or args.forward_end
+            import shutil as _shutil
 
             # OOS1: blind, no tier preference
             print("\n" + "=" * 80)
@@ -5746,6 +5747,8 @@ def main():
                                           oos_mode=True,
                                           account_size=args.account_size)
             _oos1 = dict(orchestrator._fp_summary)
+            _shutil.copy2(os.path.join(orchestrator.checkpoint_dir, 'oos_trade_log.csv'),
+                          os.path.join(orchestrator.checkpoint_dir, 'oos1_trade_log.csv'))
 
             # Strategy grading
             orchestrator.run_strategy_selection()
@@ -5763,6 +5766,8 @@ def main():
                                           account_size=args.account_size,
                                           tier_preference=True)
             _oos2 = dict(orchestrator._fp_summary)
+            _shutil.copy2(os.path.join(orchestrator.checkpoint_dir, 'oos_trade_log.csv'),
+                          os.path.join(orchestrator.checkpoint_dir, 'oos2_trade_log.csv'))
 
             # OOS1 vs OOS2 comparison
             _print_oos_comparison(_oos1, _oos2)
@@ -5781,6 +5786,8 @@ def main():
                                           tier_preference=True,
                                           live_validation_days=5)
             _oos3 = dict(orchestrator._fp_summary)
+            _shutil.copy2(os.path.join(orchestrator.checkpoint_dir, 'oos_trade_log.csv'),
+                          os.path.join(orchestrator.checkpoint_dir, 'oos3_trade_log.csv'))
 
             # OOS2 vs OOS3 comparison
             print("\n  OOS2 vs OOS3 (inline vs BarProcessor):")
@@ -5791,6 +5798,15 @@ def main():
                     print(f"    {_k:20s}  OOS2={_v2:>10.2f}  OOS3={_v3:>10.2f}  delta={_v3-_v2:>+10.2f}")
                 else:
                     print(f"    {_k:20s}  OOS2={_v2:>10}  OOS3={_v3:>10}  delta={_v3-_v2:>+10}")
+
+            # Generate OOS chain comparison chart
+            _chart_path = os.path.join('reports', 'oos_chain_comparison.png')
+            try:
+                from tools.oos_chain_chart import generate_oos_chain_chart
+                generate_oos_chain_chart(orchestrator.checkpoint_dir, _chart_path)
+                print(f"\n  OOS chain chart saved: {_chart_path}")
+            except Exception as _e:
+                print(f"\n  OOS chain chart failed: {_e}")
 
         elif args.oos and not args.forward_pass and not args.fresh:
             # Standalone OOS rerun (Phase 5 only)
