@@ -166,6 +166,9 @@ class ExecutionEngine:
         self.brain = brain
         self.belief_network = belief_network
         self.exit_engine = exit_engine
+        # Wire brain into exit engine for Bayesian ePnL exits
+        if exit_engine is not None and brain is not None:
+            exit_engine.set_brain(brain)
         self.pattern_library = pattern_library
         self.scaler = scaler
         self.centroids_scaled = centroids_scaled
@@ -204,6 +207,10 @@ class ExecutionEngine:
         self._load_gate_thresholds()
         self._apply_looseness()
 
+        # Fractal DMI (dual-TF trend gating)
+        from core.fractal_dmi import FractalDMI
+        self.fractal_dmi = FractalDMI(config=config)
+
         # Quality-based scoring (loaded from quality_weights.json)
         self._quality_weights = None
         self._load_quality_weights()
@@ -231,14 +238,51 @@ class ExecutionEngine:
             'gate0_r3_struct': 0, 'gate0_r3_snap': 0,
             'gate0_r4_nightmare': 0, 'gate0_r4_struct': 0,
             'gate0_hurst': 0, 'gate0_momentum': 0, 'gate0_tunnel': 0,
+            'gate0_regime': 0, 'gate0_session': 0,
             'gate0_5_skip': 0,
             'gate1_skip': 0, 'gate2_skip': 0,
+            'gate2_5_tf_disagree': 0,
             'gate3_skip': 0,
             'gate4_momentum_align': 0,
             'physics_qg_skip': 0,
+            'fdmi_fakeout_block': 0,
             'traded': 0, 'bypass_traded': 0,
             'total_candidates': 0,
         }
+
+    # ── Regime Classification (improvement A) ─────────────────────────────
+
+    # Pattern × regime compatibility matrix
+    # True = allow, False = block, 'reduce' = allow with lower score
+    _REGIME_PATTERN_COMPAT = {
+        'strong_trend':  {'MOMENTUM_BREAK': True,  'BAND_REVERSAL': False},
+        'developing':    {'MOMENTUM_BREAK': True,  'BAND_REVERSAL': 'reduce'},
+        'exhausting':    {'MOMENTUM_BREAK': False, 'BAND_REVERSAL': True},
+        'range':         {'MOMENTUM_BREAK': False, 'BAND_REVERSAL': True},
+        'chop':          {'MOMENTUM_BREAK': False, 'BAND_REVERSAL': False},
+    }
+
+    def _classify_regime(self, state) -> str:
+        """Classify current market regime from ADX, ADX slope, and Hurst.
+
+        Returns: 'strong_trend', 'developing', 'exhausting', 'range', or 'chop'.
+        """
+        _cfg = self.config
+        adx = getattr(state, 'adx_strength', 0.0)
+        adx_prev = getattr(state, 'adx_prev', adx)
+        hurst = getattr(state, 'hurst_exponent', 0.5)
+        adx_slope = adx - adx_prev
+
+        if adx >= _cfg.regime_strong_adx and adx_slope >= 0 and hurst > 0.55:
+            return 'strong_trend'
+        elif adx >= _cfg.regime_developing_adx and adx_slope > 0:
+            return 'developing'
+        elif adx >= _cfg.regime_strong_adx and adx_slope < _cfg.regime_exhaust_slope:
+            return 'exhausting'
+        elif adx < _cfg.regime_range_adx and hurst < 0.45:
+            return 'range'
+        else:
+            return 'chop'
 
     # Looseness levels:
     #   0 = Default (current production thresholds)
@@ -478,6 +522,7 @@ class ExecutionEngine:
             sub_bar_highs=sub_bar_highs,
             sub_bar_lows=sub_bar_lows,
             noise_ticks=noise_ticks,
+            belief_network=self.belief_network,
         )
 
         if result.action != ExitAction.HOLD:
@@ -635,7 +680,32 @@ class ExecutionEngine:
         skip_label = 'gate0'
 
         _cfg = self.config
-        if not _data_override:
+
+        # ── Improvement A: Regime-aware pattern compatibility ──
+        if not _data_override and micro_pattern:
+            _regime = self._classify_regime(state)
+            _compat = self._REGIME_PATTERN_COMPAT.get(_regime, {}).get(micro_pattern)
+            if _compat is False:
+                should_skip = True
+                skip_label = 'gate0_regime'
+            # 'reduce' = allow but pattern is fighting the regime (handled by scoring later)
+
+        # ── Improvement F: Time-of-day session filter ──
+        if not should_skip and _cfg.session_filter_enabled and cand.timestamp > 0:
+            try:
+                from datetime import datetime, timezone
+                from zoneinfo import ZoneInfo
+                _et = datetime.fromtimestamp(cand.timestamp, tz=timezone.utc).astimezone(
+                    ZoneInfo('US/Eastern'))
+                _hour_et = _et.hour + _et.minute / 60.0
+                _is_overnight = _hour_et < 9.5 or _hour_et >= 16.0
+                if _is_overnight and micro_z < _cfg.overnight_z_min:
+                    should_skip = True
+                    skip_label = 'gate0_session'
+            except Exception:
+                pass  # timestamp parse failure — don't block
+
+        if not _data_override and not should_skip:
             if not micro_pattern:
                 should_skip = True
                 skip_label = 'gate0'
@@ -726,6 +796,18 @@ class ExecutionEngine:
             r.tid = tid
             return r
 
+        # ── Gate 2.5: Multi-TF Confluence (improvement C) ─────
+        if _cfg.tf_confluence_enabled:
+            _align = self.belief_network.get_dmi_alignment()
+            _total = max(1, _align['total_tfs'])
+            _tf_agree = _align['aligned_tfs'] / _total
+            if _total >= 3 and _tf_agree < _cfg.tf_confluence_min:
+                self.gate_stats['gate2_5_tf_disagree'] += 1
+                r = fail('gate2_5_tf_disagree')
+                r.dist = dist
+                r.tid = tid
+                return r
+
         # ── Score computation ─────────────────────────────────
         # Quality-based scoring: use physics-predicted signal quality when
         # weights are available. Negative because lower score = wins competition.
@@ -796,9 +878,20 @@ class ExecutionEngine:
                 belief_state=_belief if '_belief' in dir() else None,
             )
 
+        # ── Fractal DMI: State A fakeout filter ──────────────
+        _fdmi = self.fractal_dmi.evaluate(self.belief_network)
+        if _fdmi.state_a_block:
+            self.gate_stats['fdmi_fakeout_block'] += 1
+            return TradeAction(
+                type=ActionType.HOLD, gate_label='fdmi_fakeout',
+                dist=gr.dist, template_id=tid, raw_event=cand.raw_event,
+                belief_state=_belief if '_belief' in dir() else None,
+            )
+
         # ── Exit sizing ───────────────────────────────────────
         sl_ticks, tp_ticks, trail_ticks, trail_act_ticks = self._compute_sizing(
-            lib_entry, network_tp, feat_scaled, trade_side=side, template_id=tid)
+            lib_entry, network_tp, feat_scaled, trade_side=side, template_id=tid,
+            state=cand.state)
 
         # ── Max hold bars from parent TF ──────────────────────
         chain = (getattr(cand.raw_event, 'parent_chain', None)
@@ -908,7 +1001,8 @@ class ExecutionEngine:
     def _compute_sizing(self, lib_entry: dict, network_tp: float,
                         live_scaled: np.ndarray = None,
                         trade_side: str = None,
-                        template_id: int = None) -> Tuple[float, float, float, float]:
+                        template_id: int = None,
+                        state=None) -> Tuple[float, float, float, float]:
         """Compute SL, TP, trail, trail activation from template stats."""
         _cfg = self.config
         _reg_sigma = lib_entry.get('regression_sigma_ticks', 0.0)
@@ -972,11 +1066,23 @@ class ExecutionEngine:
                                _anchor_ticks * _cfg.brain_tp_adjust_pct)
                 tp_ticks = max(_cfg.tp_min_ticks, int(round(tp_ticks + _adj)))
 
-        # ATR floor enforcement in live/replay mode
-        if self.mode in ('live', 'replay') and self._live_atr_ticks > 0:
-            _atr = self._live_atr_ticks
-            sl_ticks = max(sl_ticks, max(_cfg.sl_min_ticks, int(round(_atr * _cfg.atr_sl_mult))))
-            tp_ticks = max(tp_ticks, max(_cfg.tp_min_ticks, int(round(_atr * _cfg.atr_tp_mult))))
+        # ── Improvement B: Volatility-normalized ATR sizing by regime ──
+        _atr = self._live_atr_ticks
+        if _atr <= 0 and state is not None:
+            _atr = getattr(state, 'swing_noise_ticks', 0.0)
+
+        if _cfg.vol_sizing_enabled and _atr > 0:
+            _regime = self._classify_regime(state) if state is not None else 'chop'
+            if _regime == 'strong_trend':
+                _sl_mult, _tp_mult = _cfg.vol_sl_strong_trend, _cfg.vol_tp_strong_trend
+            elif _regime == 'developing':
+                _sl_mult, _tp_mult = _cfg.vol_sl_developing, _cfg.vol_tp_developing
+            elif _regime in ('range', 'exhausting'):
+                _sl_mult, _tp_mult = _cfg.vol_sl_range, _cfg.vol_tp_range
+            else:
+                _sl_mult, _tp_mult = _cfg.vol_sl_default, _cfg.vol_tp_default
+            sl_ticks = max(sl_ticks, max(_cfg.sl_min_ticks, int(round(_atr * _sl_mult))))
+            tp_ticks = max(tp_ticks, max(_cfg.tp_min_ticks, int(round(_atr * _tp_mult))))
 
         return float(sl_ticks), float(tp_ticks), float(trail_ticks), float(trail_act_ticks)
 
@@ -1029,7 +1135,15 @@ class ExecutionEngine:
                                abs(_mom) * _cfg.momentum_conviction_coeff)
                 return s, _p if s == 'long' else 1.0 - _p, 'live_momentum'
 
-        # ── Priority 0.5: Signed MFE regression ──────────────
+        # ── Improvement G: Confidence-weighted direction voting ──
+        # All direction sources contribute weighted votes instead of first-match waterfall.
+        # Each vote: (side, confidence 0-1, weight, source_name)
+        # Weighted sum determines direction. Minimum threshold to enter.
+        _votes_long = 0.0    # weighted long score
+        _votes_short = 0.0   # weighted short score
+        _sources = []
+
+        # Vote 1: Signed MFE regression (highest-trained signal)
         _smfe_coeff = lib_entry.get('signed_mfe_coeff')
         if _smfe_coeff is not None:
             _depth = cand.depth
@@ -1040,59 +1154,121 @@ class ExecutionEngine:
                 + lib_entry.get('signed_mfe_intercept', 0.0)
             )
             if abs(_pred) > _cfg.momentum_trigger:
-                side = 'long' if _pred > 0 else 'short'
-                _p = 0.5 + min(_cfg.signed_mfe_conviction_cap,
-                               abs(_pred) * _cfg.signed_mfe_conviction_coeff)
-                return side, _p if side == 'long' else 1 - _p, 'signed_mfe'
+                _conf = min(1.0, abs(_pred) * _cfg.signed_mfe_conviction_coeff * 2)
+                _w = _cfg.dir_smfe_weight
+                if _pred > 0:
+                    _votes_long += _w * _conf
+                else:
+                    _votes_short += _w * _conf
+                _sources.append('smfe')
 
-        # ── Priority 1: Per-cluster logistic regression ───────
+        # Vote 2: Per-cluster logistic regression
         _dir_coeff = lib_entry.get('dir_coeff')
         if _dir_coeff is not None and live_scaled is not None:
             _dir_logit = (np.dot(live_scaled, np.array(_dir_coeff))
                           + lib_entry.get('dir_intercept', 0.0))
             _dir_prob = 1.0 / (1.0 + np.exp(-float(_dir_logit)))
-            if _dir_prob > _BIAS_THRESH:
-                return 'long', _dir_prob, 'logistic'
-            elif _dir_prob < (1.0 - _BIAS_THRESH):
-                return 'short', _dir_prob, 'logistic'
+            _conf = abs(_dir_prob - 0.5) * 2.0  # 0-1
+            _w = _cfg.dir_logistic_weight
+            if _dir_prob > 0.5:
+                _votes_long += _w * _conf
+            else:
+                _votes_short += _w * _conf
+            _sources.append('logistic')
 
-        # ── Priority 1.5: Brain direction-specific win rate ───
+        # Vote 3: Brain direction-specific win rate
         _dir_long = self.brain.get_dir_probability(tid, 'LONG')
         _dir_short = self.brain.get_dir_probability(tid, 'SHORT')
         if _dir_long is not None and _dir_short is not None:
-            if _dir_long > _dir_short + _cfg.brain_winrate_margin:
-                return 'long', _dir_long, 'brain_dir'
-            elif _dir_short > _dir_long + _cfg.brain_winrate_margin:
-                return 'short', 1.0 - _dir_short, 'brain_dir'
+            _diff = _dir_long - _dir_short
+            if abs(_diff) > _cfg.brain_winrate_margin:
+                _conf = min(1.0, abs(_diff) * 2.0)
+                _w = _cfg.dir_brain_weight
+                if _diff > 0:
+                    _votes_long += _w * _conf
+                else:
+                    _votes_short += _w * _conf
+                _sources.append('brain_dir')
 
-        # ── Priority 2: Template aggregate bias ───────────────
+        # Vote 4: Template aggregate bias
         long_bias = lib_entry.get('long_bias', 0.0)
         short_bias = lib_entry.get('short_bias', 0.0)
-        if long_bias >= _BIAS_THRESH:
-            return 'long', long_bias, 'template_bias'
-        elif short_bias >= _BIAS_THRESH:
-            return 'short', 1.0 - short_bias, 'template_bias'
-        elif long_bias + short_bias >= _cfg.template_bias_min_sum:
-            s = 'long' if long_bias >= short_bias else 'short'
-            return s, long_bias if s == 'long' else 1.0 - short_bias, 'template_bias'
+        if long_bias + short_bias >= _cfg.template_bias_min_sum:
+            _diff = long_bias - short_bias
+            _conf = min(1.0, abs(_diff) * 2.0)
+            _w = _cfg.dir_template_weight
+            if _diff > 0:
+                _votes_long += _w * _conf
+            else:
+                _votes_short += _w * _conf
+            _sources.append('template')
 
-        # ── Priority 3: Multi-TF band confluence ─────────────
-        if hasattr(self.belief_network, 'get_band_confluence'):
-            _band = self.belief_network.get_band_confluence()
-            if _band is not None and _band.get('direction') is not None:
-                return _band['direction'], _cfg.band_cascade_conviction, 'band_confluence'
+        # Vote 5: Fractal DMI ignition / reversion (strongest dynamic signal)
+        _fdmi = self.fractal_dmi.evaluate(self.belief_network)
+        if _fdmi.state_b_long or _fdmi.state_d_reversion_long:
+            _w = _cfg.dir_fdmi_weight
+            _votes_long += _w * 0.8
+            _sources.append('fdmi_L')
+        elif _fdmi.state_b_short or _fdmi.state_d_reversion_short:
+            _w = _cfg.dir_fdmi_weight
+            _votes_short += _w * 0.8
+            _sources.append('fdmi_S')
 
-        # ── Priority 4: DMI (trend-following) ─────────────────
-        _dmi_diff = (getattr(state, 'dmi_plus', 0.0)
-                     - getattr(state, 'dmi_minus', 0.0))
-        if abs(_dmi_diff) >= self.dmi_threshold and _dmi_diff != 0:
-            s = 'long' if _dmi_diff > 0 else 'short'
-            return s, _cfg.dmi_long_prob if s == 'long' else _cfg.dmi_short_prob, 'dmi'
+        # Vote 6: Multi-TF band confluence
+        _band = self.belief_network.get_band_confluence()
+        if _band is not None and _band.get('direction') is not None:
+            _conf = _band['strength']
+            _w = _cfg.dir_band_weight
+            if _band['direction'] == 'long':
+                _votes_long += _w * _conf
+            else:
+                _votes_short += _w * _conf
+            _sources.append('band')
 
-        # ── Priority 5: Velocity fallback ─────────────────────
+        # Vote 7: Multi-TF DMI trend
+        _dmi_trend = self.belief_network.get_dmi_trend(min_strength=20.0)
+        if _dmi_trend is not None:
+            _conf = min(1.0, _dmi_trend['strength'] / 40.0)  # normalize
+            _w = _cfg.dir_dmi_weight
+            if _dmi_trend['direction'] == 'long':
+                _votes_long += _w * _conf
+            else:
+                _votes_short += _w * _conf
+            _sources.append('dmi')
+
+        # Vote 8: Velocity fallback (weakest, always available)
         _vel = float(getattr(state, 'velocity', 0.0))
-        s = 'long' if _vel >= 0 else 'short'
-        return s, _cfg.velocity_long_prob if s == 'long' else _cfg.velocity_short_prob, 'velocity'
+        if abs(_vel) > 0.01:
+            _conf = min(1.0, abs(_vel) * 0.5)
+            _w = _cfg.dir_velocity_weight
+            if _vel > 0:
+                _votes_long += _w * _conf
+            else:
+                _votes_short += _w * _conf
+            _sources.append('vel')
+
+        # ── Aggregate votes ────────────────────────────────────
+        _total_votes = _votes_long + _votes_short
+        if _total_votes < 1e-6:
+            # No signals at all — velocity zero, no model, no FDMI
+            return 'long', 0.50, 'no_signal'
+
+        _net_score = abs(_votes_long - _votes_short)
+
+        # Minimum vote threshold — too close = skip
+        if _cfg.dir_voting_enabled and _net_score < _cfg.dir_min_vote_score:
+            return None, 0.50, 'insufficient_votes'
+
+        if _votes_long >= _votes_short:
+            _p_long = 0.5 + 0.5 * (_votes_long - _votes_short) / max(1.0, _total_votes)
+            _p_long = min(0.90, max(0.51, _p_long))
+            _src = '+'.join(_sources[:3]) if _sources else 'vote'
+            return 'long', _p_long, f'vote_L({_src})'
+        else:
+            _p_long = 0.5 - 0.5 * (_votes_short - _votes_long) / max(1.0, _total_votes)
+            _p_long = max(0.10, min(0.49, _p_long))
+            _src = '+'.join(_sources[:3]) if _sources else 'vote'
+            return 'short', 1.0 - _p_long, f'vote_S({_src})'
 
     # ── LIVE DIRECTION LEARNING (delegated to brain) ─────────────────────
 
@@ -1140,12 +1316,16 @@ class ExecutionEngine:
                               self.gate_stats.get('gate0_hurst', 0) +
                               self.gate_stats.get('gate0_momentum', 0) +
                               self.gate_stats.get('gate0_tunnel', 0)),
+            'skip_regime': self.gate_stats.get('gate0_regime', 0),
+            'skip_session': self.gate_stats.get('gate0_session', 0),
             'skip_depth': self.gate_stats.get('gate0_5_skip', 0),
             'skip_dist': self.gate_stats.get('gate1_skip', 0),
             'skip_brain': self.gate_stats.get('gate2_skip', 0),
+            'skip_tf_disagree': self.gate_stats.get('gate2_5_tf_disagree', 0),
             'skip_conviction': self.gate_stats.get('gate3_skip', 0),
             'skip_momentum_align': self.gate_stats.get('gate4_momentum_align', 0),
             'skip_physics_qg': self.gate_stats.get('physics_qg_skip', 0),
+            'skip_fdmi_fakeout': self.gate_stats.get('fdmi_fakeout_block', 0),
             'n_signals_seen': self.gate_stats.get('total_candidates', 0),
             'n_traded': self.gate_stats.get('traded', 0),
             'n_bypass_traded': self.gate_stats.get('bypass_traded', 0),

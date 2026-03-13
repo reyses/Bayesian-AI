@@ -65,6 +65,12 @@ class PeakGiveback:
 
         threshold = self.get_threshold(peak_ticks, noise_ticks)
 
+        # ADX slope tightening: rapid trend deceleration → tighten giveback by 10pp
+        if exit_signal is not None:
+            _adx_slope = exit_signal.get('adx_slope', 0.0)
+            if _adx_slope < -2.0 and threshold < 1.0:
+                threshold = max(0.25, threshold - 0.10)
+
         # 30m flip tightens threshold
         if pos.slow_flip_active and threshold < 1.0:
             threshold = max(self._slow_flip_floor,

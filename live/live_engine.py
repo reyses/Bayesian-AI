@@ -770,6 +770,7 @@ class LiveEngine:
             net_force=_f_net,
             exit_signal=exit_sig,
             noise_ticks=_noise,
+            belief_network=self._belief_network,
         )
 
         # Per-trade diagnostic capture
