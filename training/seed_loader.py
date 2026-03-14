@@ -1,20 +1,22 @@
 """
-Seed Loader — Convert manual seed JSON into List[PatternEvent] for the training pipeline.
+Seed Loader — Convert seed JSON into List[PatternEvent] for the training pipeline.
 
-Seeds are manually marked trades from visual inspection. Each seed has:
-  - timestamp, direction, entry_price, mfe/mae in ticks, duration
-  - lookback_timestamps for context window
+Supports two formats:
+  1. Manual seeds: single-day, flat {seeds: [...]} from visual marking
+  2. Auto-swing seeds: multi-day, nested {days: {date: {seeds: [...]}}} from ZigZag detection
 
-This module:
-  1. Loads the seed JSON file
-  2. Loads the ATLAS 1m data for the seed date
-  3. Computes MarketState at each seed entry timestamp via StatisticalFieldEngine
-  4. Converts each seed into a PatternEvent with oracle_marker and oracle_meta
-  5. Returns List[PatternEvent] that plugs directly into Phase 2 clustering
+Both formats produce PatternEvents for Phase 2 clustering:
+  - Loads ATLAS data at the execution TF (15s)
+  - Computes MarketState via StatisticalFieldEngine
+  - Classifies oracle markers from MFE/MAE
+  - Returns List[PatternEvent] that plugs directly into clustering
 
 Usage:
-    from training.seed_loader import load_seeds_as_manifest
+    from training.seed_loader import load_seeds_as_manifest, load_auto_swing_as_manifest
+    # Manual seeds (single day, ~50 seeds):
     manifest = load_seeds_as_manifest("DATA/regime_seeds/seeds.json", "DATA/ATLAS")
+    # Auto-swing seeds (multi-day, ~37K seeds):
+    manifest = load_auto_swing_as_manifest("DATA/regime_seeds/auto_swing/auto_seeds_all.json", "DATA/ATLAS")
 """
 
 import json
@@ -567,3 +569,223 @@ def load_template_feedback(feedback_path: str) -> Dict[int, Dict]:
     overrides = sum(1 for v in feedback.values() if v['direction_override'] != 'AUTO')
     print(f"\n[Feedback] Loaded: {kept} KEEP, {dropped} DROP, {overrides} direction overrides")
     return feedback
+
+
+def is_auto_swing_format(seed_path: str) -> bool:
+    """Detect if a seed file is auto-swing format (multi-day, nested by date)."""
+    return 'auto_seeds' in os.path.basename(seed_path)
+
+
+def load_auto_swing_as_manifest(
+    seed_path: str,
+    atlas_dir: str,
+    timeframe: str = '15s',
+    depth: int = 8,
+) -> List[PatternEvent]:
+    """
+    Load auto-swing seeds (multi-day ZigZag format) and convert to PatternEvents.
+
+    Auto-swing files have nested structure:
+        {days: {"2025-01-02": {seeds: [...]}, "2025-01-03": {seeds: [...]}, ...}}
+
+    Groups seeds by ATLAS month for efficient parquet loading.
+    Computes MarketState from 15s data (matches forward pass TF).
+
+    Args:
+        seed_path: Path to auto-swing seed JSON
+        atlas_dir: Path to ATLAS root (e.g., DATA/ATLAS)
+        timeframe: Execution TF for MarketState (default '15s')
+        depth: Fractal depth to assign (default 8)
+
+    Returns:
+        List[PatternEvent] ready for Phase 2 clustering
+    """
+    from tqdm import tqdm
+    from collections import defaultdict
+
+    # 1. Load and flatten all seeds with globally unique IDs
+    with open(seed_path, encoding='utf-8') as f:
+        data = json.load(f)
+
+    if 'days' not in data:
+        raise ValueError(f"Not an auto-swing file (no 'days' key): {seed_path}")
+
+    all_seeds = []
+    global_id = 0
+    for date_str, day_data in sorted(data['days'].items()):
+        for seed in day_data.get('seeds', []):
+            seed['_date'] = date_str
+            seed['_global_id'] = global_id
+            global_id += 1
+            all_seeds.append(seed)
+
+    if not all_seeds:
+        print(f"[AutoSwingLoader] No seeds found in {seed_path}")
+        return []
+
+    n_days = len(data['days'])
+    print(f"\n{'='*60}")
+    print(f"AUTO-SWING SEED LOADER")
+    print(f"  Seeds: {len(all_seeds):,} across {n_days} days")
+    print(f"  Source: {os.path.basename(seed_path)}")
+    print(f"  MarketState TF: {timeframe} (matches forward pass)")
+    print(f"{'='*60}")
+
+    # 2. Group seeds by ATLAS month for efficient parquet loading
+    month_seeds: Dict[str, List] = defaultdict(list)
+    for seed in all_seeds:
+        dt = datetime.strptime(seed['_date'], '%Y-%m-%d')
+        month_key = f"{dt.year}_{dt.month:02d}"
+        month_seeds[month_key].append(seed)
+
+    print(f"  Months: {', '.join(f'{m}({len(s):,})' for m, s in sorted(month_seeds.items()))}")
+
+    # 3. Process each month
+    manifest = []
+    skipped = 0
+    engine = StatisticalFieldEngine(regression_period=21)
+
+    for month_key in tqdm(sorted(month_seeds.keys()), desc="Loading months", unit="mo"):
+        seeds_this_month = month_seeds[month_key]
+
+        # Load ATLAS 15s parquet for this month (one load per month)
+        try:
+            df_month = _load_atlas_tf(atlas_dir, timeframe, month_key)
+        except FileNotFoundError:
+            print(f"\n  SKIP month {month_key}: no {timeframe} data")
+            skipped += len(seeds_this_month)
+            continue
+
+        # Prepare timestamp column
+        if 'timestamp' in df_month.columns:
+            ts_col = 'timestamp'
+        elif 'time' in df_month.columns:
+            ts_col = 'time'
+        else:
+            print(f"\n  SKIP month {month_key}: no timestamp column")
+            skipped += len(seeds_this_month)
+            continue
+
+        if pd.api.types.is_datetime64_any_dtype(df_month[ts_col]):
+            df_month['_ts'] = df_month[ts_col].astype(np.int64) // 10**9
+        else:
+            df_month['_ts'] = df_month[ts_col].astype(float)
+
+        month_timestamps = df_month['_ts'].values
+
+        # Group seeds by date within this month
+        date_seeds: Dict[str, List] = defaultdict(list)
+        for seed in seeds_this_month:
+            date_seeds[seed['_date']].append(seed)
+
+        for date_str in sorted(date_seeds.keys()):
+            day_seeds = date_seeds[date_str]
+
+            # Filter ATLAS to this day (+/- 30 min margin)
+            ts_min = min(s['ts_start'] for s in day_seeds) - 1800
+            ts_max = max(s['ts_end'] for s in day_seeds) + 1800
+            day_mask = (month_timestamps >= ts_min) & (month_timestamps <= ts_max)
+            day_data = df_month[day_mask].copy().reset_index(drop=True)
+
+            if len(day_data) < 30:
+                skipped += len(day_seeds)
+                continue
+
+            # Compute MarketState for all bars this day (single CUDA batch)
+            raw_states = engine.batch_compute_states(day_data)
+            state_map = {}
+            for entry in raw_states:
+                if isinstance(entry, dict):
+                    state_map[entry['bar_idx']] = entry['state']
+                else:
+                    state_map[len(state_map)] = entry
+
+            day_timestamps = day_data['_ts'].values
+            day_prices = (day_data['close'].values if 'close' in day_data.columns
+                          else day_data['price'].values)
+
+            # Match each seed to nearest 15s bar
+            for seed in day_seeds:
+                entry_ts = seed['ts_start']
+                diffs = np.abs(day_timestamps - entry_ts)
+                best_idx = int(np.argmin(diffs))
+
+                if diffs[best_idx] > 60:
+                    skipped += 1
+                    continue
+
+                state = state_map.get(best_idx)
+                if state is None:
+                    skipped += 1
+                    continue
+
+                marker = _classify_oracle_marker(
+                    seed['direction'],
+                    seed.get('mfe_ticks', 0),
+                    seed.get('mae_ticks', 0.25),
+                )
+
+                oracle_meta = {
+                    'mfe': seed.get('mfe_ticks', 0) * 0.25,
+                    'mae': seed.get('mae_ticks', 0) * 0.25,
+                    'mfe_bar': seed.get('n_bars', 0),
+                    'duration_mins': seed.get('duration_mins', 0),
+                    'seed_id': seed['_global_id'],
+                    'direction': seed['direction'],
+                    'source': 'auto_swing',
+                }
+
+                z = getattr(state, 'z_score', 0.0)
+                pattern_type = 'BAND_REVERSAL' if abs(z) > 1.5 else 'MOMENTUM_BREAK'
+
+                pe = PatternEvent(
+                    pattern_type=pattern_type,
+                    timestamp=float(day_timestamps[best_idx]),
+                    price=float(day_prices[best_idx]),
+                    z_score=getattr(state, 'z_score', 0.0),
+                    velocity=getattr(state, 'velocity', 0.0),
+                    momentum=getattr(state, 'momentum_strength', 0.0),
+                    entropy_normalized=getattr(state, 'entropy_normalized', 0.0),
+                    file_source=f"auto_swing:{date_str}:T{seed.get('trade_id', seed['_global_id'])}",
+                    idx=best_idx,
+                    state=state,
+                    timeframe=timeframe,
+                    depth=depth,
+                    parent_type='',
+                    parent_tf='',
+                    window_data=None,
+                    parent_chain=[],
+                    oracle_marker=marker,
+                    oracle_meta=oracle_meta,
+                )
+                manifest.append(pe)
+
+        # Free GPU memory between months
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:
+            pass
+
+    matched = len(manifest)
+    print(f"\n  Result: {matched:,} PatternEvents created, {skipped:,} skipped")
+
+    if manifest:
+        markers = [p.oracle_marker for p in manifest]
+        print(f"  Oracle breakdown:")
+        for label, val in [('MEGA_LONG', 2), ('SCALP_LONG', 1), ('NOISE', 0),
+                           ('SCALP_SHORT', -1), ('MEGA_SHORT', -2)]:
+            count = sum(1 for m in markers if m == val)
+            if count > 0:
+                print(f"    {label:>12s}: {count:,}")
+
+        types = [p.pattern_type for p in manifest]
+        print(f"  Pattern types: BAND_REVERSAL={sum(1 for t in types if t=='BAND_REVERSAL'):,}, "
+              f"MOMENTUM_BREAK={sum(1 for t in types if t=='MOMENTUM_BREAK'):,}")
+
+        dirs = [p.oracle_meta.get('direction', '?') for p in manifest]
+        print(f"  Direction: LONG={sum(1 for d in dirs if d=='LONG'):,}, "
+              f"SHORT={sum(1 for d in dirs if d=='SHORT'):,}")
+
+    return manifest

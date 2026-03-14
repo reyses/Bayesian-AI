@@ -12,13 +12,14 @@ class CUDAKMeans:
     A GPU-accelerated K-Means implementation using PyTorch.
     Mimics sklearn.cluster.KMeans API.
     """
-    def __init__(self, n_clusters, max_iter=300, tol=1e-4, n_init=10, random_state=None, verbose=False):
+    def __init__(self, n_clusters, max_iter=300, tol=1e-4, n_init=10, random_state=None, verbose=False, init_centroids=None):
         self.n_clusters = n_clusters
         self.max_iter = max_iter
         self.tol = tol
         self.n_init = n_init
         self.random_state = random_state
         self.verbose = verbose
+        self.init_centroids = init_centroids  # (K, D) or (<=K, D) numpy array; used for first n_init run
         self.centroids = None
         self.cluster_centers_ = None
         self.labels_ = None
@@ -70,8 +71,21 @@ class CUDAKMeans:
         rng = np.random.RandomState(self.random_state)
 
         for init_idx in range(self.n_init):
-            # 1. KMeans++ Initialization (CPU — only K iterations, cheap)
-            centroids_cpu = self._kmeans_plus_plus_init(X_cpu, rng)
+            # 1. Initialization: use provided centroids on first run, KMeans++ otherwise
+            if init_idx == 0 and self.init_centroids is not None:
+                provided = np.asarray(self.init_centroids, dtype=np.float32)
+                n_provided = provided.shape[0]
+                if n_provided >= self.n_clusters:
+                    centroids_cpu = provided[:self.n_clusters]
+                else:
+                    # Pad remaining slots with KMeans++ picks
+                    kpp = self._kmeans_plus_plus_init(X_cpu, rng)
+                    centroids_cpu = np.vstack([provided, kpp[n_provided:]])
+                if self.verbose:
+                    print(f"CUDAKMeans: init run 0 using {min(n_provided, self.n_clusters)} provided centroids"
+                          f"{f' + {self.n_clusters - n_provided} KMeans++ pads' if n_provided < self.n_clusters else ''}")
+            else:
+                centroids_cpu = self._kmeans_plus_plus_init(X_cpu, rng)
             centroids = torch.from_numpy(centroids_cpu).float().cuda()
 
             current_centroids = centroids.clone()

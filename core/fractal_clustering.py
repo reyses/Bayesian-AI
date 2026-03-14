@@ -137,10 +137,11 @@ class FractalClusteringEngine:
         self.scaler = StandardScaler()
 
     def _get_kmeans_model(self, n_clusters: int, n_samples: int, random_state: int = 42,
-                          n_init: int = 3, use_cuda: bool = True):
+                          n_init: int = 3, use_cuda: bool = True, init_centroids=None):
         """Returns a KMeans model -- CUDA for main process, sklearn CPU for workers."""
         if use_cuda:
-            return CUDAKMeans(n_clusters=n_clusters, random_state=random_state, n_init=n_init)
+            return CUDAKMeans(n_clusters=n_clusters, random_state=random_state,
+                              n_init=n_init, init_centroids=init_centroids)
         from sklearn.cluster import KMeans
         return KMeans(n_clusters=n_clusters, random_state=random_state,
                       n_init=n_init, max_iter=300)
@@ -437,11 +438,14 @@ class FractalClusteringEngine:
                 # Sync alias
                 template.transition_probs = template.transition_map
 
-    def create_templates(self, manifest: List[Any]) -> List[PatternTemplate]:
+    def create_templates(self, manifest: List[Any], shape_primitives=None) -> List[PatternTemplate]:
         """
         Groups raw PatternEvents into Templates using TF-BUCKETED RECURSIVE REFINEMENT.
         Patterns are binned by timeframe FIRST, then clustered within each bucket.
         This prevents scale-mixing: a 15m swing template won't contain 1m scalp patterns.
+
+        shape_primitives: optional ShapePrimitiveLibrary — if provided, primitive
+        centroids are used as initial KMeans centroids for the first n_init run.
         """
         import time as _time
         from collections import defaultdict
@@ -499,11 +503,21 @@ class FractalClusteringEngine:
             target_k = min(self.n_clusters, n // 20)
             target_k = max(target_k, 1)
 
+            # Shape primitive centroids for this TF bucket (if available)
+            tf_init_centroids = None
+            if shape_primitives is not None:
+                raw_centroids = shape_primitives.get_centroids_for_tf(tf)
+                if raw_centroids is not None and len(raw_centroids) > 0:
+                    # Scale primitive centroids with the same scaler fitted on this bucket
+                    tf_init_centroids = self.scaler.transform(raw_centroids)
+                    print(f"  [{tf}] Using {len(tf_init_centroids)} shape primitive centroids")
+
             t1 = _time.perf_counter()
             print(f"  [{tf}] KMeans: {n} patterns -> {target_k} clusters...", end="", flush=True)
 
             try:
-                model = self._get_kmeans_model(n_clusters=target_k, n_samples=n)
+                model = self._get_kmeans_model(n_clusters=target_k, n_samples=n,
+                                               init_centroids=tf_init_centroids)
                 labels = model.fit_predict(X_scaled)
             except Exception as _cuda_err:
                 print(f" [CUDA fallback: {type(_cuda_err).__name__}]", end="", flush=True)
