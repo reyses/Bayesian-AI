@@ -4649,6 +4649,14 @@ class Trainer:
                       f"from {len(cached_levels)} completed levels")
                 manifest = cached_manifest
 
+        # --seeds: compute quality thresholds from seeds (applied AFTER discovery)
+        _seed_path = getattr(self.config, 'seeds', None)
+        _seed_thresholds = None
+        if _seed_path:
+            from training.seed_loader import compute_seed_thresholds
+            _seed_tag = getattr(self.config, 'seed_tag', None)
+            _seed_thresholds = compute_seed_thresholds(_seed_path, tag_filter=_seed_tag)
+
         if manifest is None:
             print("\nPhase 1: Discovery — Fractal Top-Down Scan...")
             ckpt.update_phase('discovery', 'in_progress')
@@ -4709,6 +4717,16 @@ class Trainer:
                 print(f"    [{tf:>4s}] {count:>7,} (R:{r:,} S:{s:,})")
             print(f"  By depth: {dict(sorted(depth_counts.items()))}")
 
+        # Apply seed-guided quality filter (--seeds)
+        if _seed_thresholds and manifest:
+            from training.seed_loader import filter_manifest_by_thresholds
+            manifest = filter_manifest_by_thresholds(manifest, _seed_thresholds)
+            # Force re-clustering since the manifest changed
+            templates = None
+            if ckpt.has_templates():
+                os.remove(ckpt.templates_path)
+                print("  [Seed Filter] Cleared cached templates (manifest changed)")
+
         # ===================================================================
         # PHASE 2: Clustering (with checkpoint)
         # ===================================================================
@@ -4739,6 +4757,41 @@ class Trainer:
             print(f"  Saved clustering scaler to {scaler_path}")
 
             ckpt.save_templates(templates)
+
+        # Template inspection (feedback loop) — when --inspect-templates or --seeds
+        if getattr(self.config, 'inspect_templates', False) or getattr(self.config, 'seeds', None):
+            from training.seed_loader import inspect_templates
+            _inspect_path = os.path.join('reports', 'template_inspection.txt')
+            inspect_templates(templates, output_path=_inspect_path)
+
+        # Apply template feedback (KEEP/DROP + direction overrides)
+        _feedback_path = getattr(self.config, 'template_feedback', None)
+        if _feedback_path and os.path.isfile(_feedback_path):
+            from training.seed_loader import load_template_feedback
+            _fb = load_template_feedback(_feedback_path)
+
+            _before = len(templates)
+            templates = [t for t in templates if _fb.get(t.template_id, {}).get('action', 'KEEP') != 'DROP']
+            _dropped = _before - len(templates)
+
+            # Apply direction overrides to long_bias/short_bias
+            _overridden = 0
+            for t in templates:
+                fb = _fb.get(t.template_id, {})
+                override = fb.get('direction_override', 'AUTO')
+                if override == 'LONG':
+                    t.long_bias = 1.0
+                    t.short_bias = 0.0
+                    _overridden += 1
+                elif override == 'SHORT':
+                    t.long_bias = 0.0
+                    t.short_bias = 1.0
+                    _overridden += 1
+
+            if _dropped or _overridden:
+                print(f"\n  [Feedback] Applied: {_dropped} dropped, {_overridden} direction overrides")
+                print(f"  [Feedback] Remaining templates: {len(templates)}")
+                ckpt.save_templates(templates)  # re-save with feedback applied
 
         # ===================================================================
         # PHASE 3: Template Optimization & Fission (with persistent scheduler)
@@ -5680,6 +5733,17 @@ def main():
     parser.add_argument('--slippage', type=float, default=0.0,
                         help="Random fill slippage per trade in ticks (e.g., 2). "
                              "Each trade PnL gets uniform(-N, +N) * tick_value noise.")
+    parser.add_argument('--seeds', nargs='?', const='AUTO', default=None, metavar='PATH',
+                        help="Path to seed JSON file (manual trades). Replaces Phase 1 discovery "
+                             "with seed-derived PatternEvents. Use bare --seeds to auto-detect "
+                             "latest file in DATA/regime_seeds/.")
+    parser.add_argument('--seed-tag', type=str, default=None, metavar='TAG',
+                        help="Filter seeds by tag (e.g., 'Swing', 'Scalp'). Only used with --seeds.")
+    parser.add_argument('--inspect-templates', action='store_true',
+                        help="After clustering, print template inspection table for manual review (feedback loop)")
+    parser.add_argument('--template-feedback', type=str, default=None, metavar='PATH',
+                        help="Path to edited template feedback JSON. Applies KEEP/DROP + direction overrides "
+                             "before forward pass. E.g., reports/template_inspection_feedback.json")
 
     # Monte Carlo Flags (opt-in with --mc)
     parser.add_argument('--mc', action='store_true', help='Enable Monte Carlo sweep after Phase 3 Optimization')
@@ -5689,6 +5753,22 @@ def main():
     parser.add_argument('--refine-only', action='store_true', help='Skip MC+ANOVA, just run Thompson refinement')
 
     args = parser.parse_args()
+
+    # --seeds AUTO: find latest seed file in DATA/regime_seeds/
+    if args.seeds == 'AUTO':
+        _seed_dir = os.path.join('DATA', 'regime_seeds')
+        if os.path.isdir(_seed_dir):
+            import glob as _g
+            _seed_files = sorted(_g.glob(os.path.join(_seed_dir, 'seeds_*.json')))
+            if _seed_files:
+                args.seeds = _seed_files[-1]  # latest by name (date-sorted)
+                print(f"  --seeds AUTO: using {args.seeds}")
+            else:
+                print(f"  --seeds AUTO: no seed files in {_seed_dir}")
+                args.seeds = None
+        else:
+            print(f"  --seeds AUTO: {_seed_dir} not found")
+            args.seeds = None
 
     # ── Tee stdout -> checkpoints/training_log.txt (append, one file per project) ──
     import io

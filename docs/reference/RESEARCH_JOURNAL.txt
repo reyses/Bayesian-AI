@@ -2911,3 +2911,118 @@ FIX — PHASE 7:
   compressed) → Phase 6 (Strategy) → OOS2 → Phase 7 (Live Replay)
 
 RESULTS: Awaiting --fresh completion (first run with all changes).
+
+=== 2026-03-13 SESSION 3: REGIME LABELER BUG FIX ===
+
+BUG — REGIME LABELER NO POPUP:
+  tools/regime_labeler.py interactive matplotlib window never appeared.
+  Error: "FigureCanvasAgg is non-interactive, and thus cannot be shown"
+
+ROOT CAUSE:
+  tools/research/__init__.py (line 43) imports from .plots, which has
+  matplotlib.use('Agg') at module level (plots.py:16). Any import from
+  tools.research.* triggers the package __init__.py, which imports plots.py,
+  which overrides any previously-set interactive backend back to Agg.
+
+  Import chain: regime_labeler.py → from tools.research.data import X
+  → triggers tools/research/__init__.py → from .plots import Y
+  → plots.py: matplotlib.use('Agg') → backend locked to Agg
+
+FIX:
+  plt.switch_backend('TkAgg') called AFTER all imports in regime_labeler.py.
+  switch_backend() works even after the backend is already initialized,
+  unlike matplotlib.use() which is a no-op (or silently ignored) once
+  pyplot has been imported and the backend set.
+
+=== 2026-03-13 SESSION 4: TRADE TYPE CLASSIFICATION ===
+
+NEW TOOL — TRADE MARKER (tools/trade_marker.py):
+  Manual crosshair marking: click START, click END, auto-detect direction.
+  1h zoom window, pan/zoom, live preview (duration/ticks/bars on hover).
+  Saves to DATA/regime_seeds/ with 10-bar lookback timestamps.
+
+FIRST MARKING PASS (28 trades, July 14, 2025):
+  1 trade every 4.7 min, $9.9 avg MFE, 89% survive $10 SL.
+  User self-corrected: stopped marking micro-bounces, shifted to longer
+  swings. Later trades longer/cleaner than early ones.
+
+KEY INSIGHT — SEGMENTATION IS THE BOTTLENECK:
+  The 192D features + brain + TBN already understand market state.
+  The problem is upstream: WHERE to draw segment boundaries.
+  K-Means = random centroids, I-MR = 6-hour blocks. Both bad.
+  Manual marking = 5x more MFE/trade vs current system ($9.9 vs $1.67).
+
+[RESEARCH] TRADE TYPE CLASSIFICATION — SCALP VS SWING:
+  Core realization: system doesn't know WHAT TYPE of trade it's taking.
+  Scalping is fine when the system KNOWS it's scalping. But taking a
+  1-tick scalp inside a 10+ tick regime move wastes 90% of available PnL.
+
+  Classification metric: VELOCITY (ticks per minute).
+    Scalp: >10 t/min, 1-3 bars, tight SL ($5), quick TP, smaller size
+    Swing: 5-10 t/min, 5-30 bars, wider SL ($20), trail, larger size
+
+  I-MR ROLE REDEFINED — not entry signal, but CONTEXT LAYER:
+    Answers: "am I inside a larger directional move right now?"
+    Regime aligns with trade direction → SWING mode (hold, trail, ride)
+    No regime / choppy → SCALP mode (tight SL, fast TP, get out)
+
+  IMPLEMENTATION PATH:
+    1. Exit engine gets trade_type parameter (scalp vs swing profiles)
+    2. I-MR regime state feeds classification in real-time
+    3. 192D features at entry predict trade type (volatility, momentum, ADX)
+    4. Position sizing adjusts per type
+
+  DECISION: NO SCALPING — swing-only. No regime = sit flat.
+    "The hardest part of trading is not trading."
+
+=== 2026-03-13 SESSION 5: SEED ORACLE TRAINER ===
+
+SEED TAGGING:
+  47 manual seeds from July 14 second marking pass.
+  Tag field added: "Swing" (43 trades, 5+ min) vs "Scalp" (4 trades, <5 min).
+  Scalp IDs: T15 (4 min), T29 (1 min), T38 (4 min), T41 (2 min).
+
+NEW TOOL — SEED ORACLE TRAINER (tools/seed_oracle_trainer.py):
+  Extracts 192D features (12 TF x 16D) at every 1m bar on seed day.
+  Labels bars as entry (1) or skip (0) from manual seed timestamps.
+  Trains 3 models: entry (L1 logistic), direction (logistic), MFE (Ridge).
+  Saves training matrix to DATA/oracle_training/.
+
+FIRST RESULTS (47 seeds, 741 bars, July 14):
+  Entry classifier: 60.7% balanced accuracy (weak, above chance)
+    27/192 features non-zero (L1 sparsity). 79% recall, 16% precision.
+  Direction classifier: 75.3% balanced accuracy — STRONG SIGNAL
+    93% full-data (19 LONG, 24 SHORT correctly classified).
+    Top: 1m PID (coef -1.12 → SHORT), 5m momentum, 1m DMI diff.
+  MFE regressor: CV R² = -1.5 (garbage, overfitting with 43 samples).
+
+[RESEARCH] MULTI-TF ENTRY SIGNAL — FEATURE IMPORTANCE:
+  Entry signal from 3 TF layers (multi-TF confirmed):
+    MACRO: 30m z-score (+0.53), 30m hurst (+0.31)
+    MIDDLE: 1m momentum (+0.62), 1m ADX (+0.18)
+    MICRO: 15s ADX (+0.46), 15s entropy (+0.38)
+  Direction signal concentrated in 1m and 5m:
+    1m PID (-1.12 → SHORT), 5m momentum (-0.52), 1m DMI diff (-0.48)
+  IMPLICATION: single-TF features miss macro context. Multi-TF stacking
+    captures signal that no single TF can provide alone.
+
+[RESEARCH] TF STEPPING — MANUAL FEATURE ABLATION:
+  IDEA: Step from macro to micro, measure accuracy at each layer:
+    Run 1: 1h only (16D)
+    Run 2: 1h + 30m (32D)
+    Run 3: 1h + 30m + 15m (48D)
+    ... continue to 15s (full 192D)
+  PURPOSE: Find minimum TF set that captures entry signal.
+    If 1h+5m+1m suffices → skip 30s/15s (saves compute in live).
+    If micro TFs add signal → entry detector needs sub-minute data.
+  STATUS: NOT STARTED — need more seed days first (47 too few for 192D).
+  IMPLEMENTATION: Add --tf-from flag to seed_oracle_trainer.py.
+
+[RESEARCH] SEED PIPELINE INTEGRATION:
+  GOAL: Load manual seeds into main training pipeline as oracle labels.
+  HOOKUP: Seeds → PatternEvent (set oracle_marker + oracle_meta manually)
+    → FractalClusteringEngine → templates with seed-derived statistics
+    → ExecutionEngine uses seeded templates for gates.
+  ALTERNATIVE: Seeds → Candidate injection at bar_processor level,
+    bypassing discovery entirely.
+  STATUS: NOT STARTED — architecture review done, needs implementation.

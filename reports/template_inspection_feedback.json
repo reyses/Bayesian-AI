@@ -1,0 +1,144 @@
+{
+  "created": "2026-03-13 11:35:42",
+  "n_templates": 1,
+  "templates": [
+    {
+      "template_id": 0,
+      "name": "[15s] Chop+Shock Range",
+      "member_count": 11,
+      "win_rate": 0.727,
+      "mean_mfe_ticks": 168.5,
+      "mean_mae_ticks": 53.2,
+      "dominant_direction": "LONG",
+      "direction_confidence": 0.64,
+      "long_count": 7,
+      "short_count": 4,
+      "members": [
+        {
+          "seed_id": "T0",
+          "direction": "SHORT",
+          "marker": -2,
+          "mfe_ticks": 201.0,
+          "mae_ticks": 36.0,
+          "duration_mins": 364.0,
+          "tag": "",
+          "z_score": -0.094,
+          "price": 22865.75
+        },
+        {
+          "seed_id": "T1",
+          "direction": "SHORT",
+          "marker": 0,
+          "mfe_ticks": 91.0,
+          "mae_ticks": 76.0,
+          "duration_mins": 84.0,
+          "tag": "",
+          "z_score": -0.153,
+          "price": 22815.5
+        },
+        {
+          "seed_id": "T2",
+          "direction": "LONG",
+          "marker": 2,
+          "mfe_ticks": 321.0,
+          "mae_ticks": 38.0,
+          "duration_mins": 216.0,
+          "tag": "",
+          "z_score": 0.287,
+          "price": 22815.5
+        },
+        {
+          "seed_id": "T3",
+          "direction": "LONG",
+          "marker": 2,
+          "mfe_ticks": 413.0,
+          "mae_ticks": 41.0,
+          "duration_mins": 176.0,
+          "tag": "",
+          "z_score": -2.576,
+          "price": 22882.25
+        },
+        {
+          "seed_id": "T4",
+          "direction": "SHORT",
+          "marker": -2,
+          "mfe_ticks": 48.0,
+          "mae_ticks": 3.0,
+          "duration_mins": 8.0,
+          "tag": "",
+          "z_score": 0.979,
+          "price": 22929.0
+        },
+        {
+          "seed_id": "T5",
+          "direction": "LONG",
+          "marker": 1,
+          "mfe_ticks": 179.0,
+          "mae_ticks": 118.0,
+          "duration_mins": 13.0,
+          "tag": "",
+          "z_score": -0.386,
+          "price": 22925.75
+        },
+        {
+          "seed_id": "T6",
+          "direction": "LONG",
+          "marker": 1,
+          "mfe_ticks": 135.0,
+          "mae_ticks": 93.0,
+          "duration_mins": 28.0,
+          "tag": "",
+          "z_score": -2.493,
+          "price": 22946.75
+        },
+        {
+          "seed_id": "T7",
+          "direction": "LONG",
+          "marker": 2,
+          "mfe_ticks": 178.0,
+          "mae_ticks": 12.0,
+          "duration_mins": 9.0,
+          "tag": "",
+          "z_score": 0.988,
+          "price": 22987.5
+        },
+        {
+          "seed_id": "T8",
+          "direction": "LONG",
+          "marker": 0,
+          "mfe_ticks": 72.0,
+          "mae_ticks": 71.0,
+          "duration_mins": 68.0,
+          "tag": "",
+          "z_score": -0.519,
+          "price": 23005.75
+        },
+        {
+          "seed_id": "T9",
+          "direction": "SHORT",
+          "marker": 0,
+          "mfe_ticks": 35.0,
+          "mae_ticks": 50.0,
+          "duration_mins": 24.0,
+          "tag": "",
+          "z_score": 0.087,
+          "price": 23024.75
+        },
+        {
+          "seed_id": "T10",
+          "direction": "LONG",
+          "marker": 2,
+          "mfe_ticks": 181.0,
+          "mae_ticks": 47.0,
+          "duration_mins": 67.0,
+          "tag": "",
+          "z_score": 0.915,
+          "price": 23011.75
+        }
+      ],
+      "action": "KEEP",
+      "direction_override": "AUTO",
+      "notes": ""
+    }
+  ]
+}

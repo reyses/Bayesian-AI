@@ -32,6 +32,9 @@ from tools.research.data import load_atlas_tf
 from tools.research.imr import compute_price_imr, detect_regimes
 from tools.golden_path import load_1s_index, load_1s_window
 
+# Force interactive backend AFTER imports (tools/research/__init__.py sets Agg via plots.py)
+plt.switch_backend('TkAgg')
+
 TICK_SIZE = 0.25
 TICK_VALUE = 0.50
 SEEDS_DIR = 'data/regime_seeds'
