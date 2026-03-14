@@ -418,6 +418,51 @@ class Trainer:
         if trade_start_date:
             print(f"  Warmup until {trade_start_date} (context only, no trades)")
 
+        # ── OOS warmup: load tail of IS data for regression context ────────
+        # Without warmup, the first OOS file starts cold (z=0, v=0 for first
+        # 21 bars of each TF). Macro TF workers (1h) lose ~4% of states.
+        # Prepending IS tail gives regression full history from the start.
+        # Also loads IS 4h/5s/1s for external-file TF workers.
+        _oos_warmup_df = None
+        _oos_warmup_n_bars = 0
+        _oos_warmup_ext = {}  # {tf_label: DataFrame} for external TFs (4h, 5s, 1s)
+        if oos_mode:
+            # Derive IS path: DATA/ATLAS_OOS → DATA/ATLAS
+            _is_root = data_source.replace('ATLAS_OOS', 'ATLAS') if 'ATLAS_OOS' in data_source else None
+            _is_15s_dir = os.path.join(_is_root, '15s') if _is_root else None
+            if _is_15s_dir and os.path.isdir(_is_15s_dir):
+                _is_files = sorted(glob.glob(os.path.join(_is_15s_dir, '*.parquet')))
+                if _is_files:
+                    # Load last IS monthly file (≈21 trading days)
+                    _warmup_file = _is_files[-1]
+                    _warmup_stem = os.path.basename(_warmup_file).replace('.parquet', '')
+                    try:
+                        _oos_warmup_df = pd.read_parquet(_warmup_file)
+                        if 'timestamp' in _oos_warmup_df.columns and not np.issubdtype(
+                                _oos_warmup_df['timestamp'].dtype, np.number):
+                            _oos_warmup_df['timestamp'] = _oos_warmup_df['timestamp'].apply(
+                                lambda x: x.timestamp())
+                        _oos_warmup_n_bars = len(_oos_warmup_df)
+                        print(f"  OOS warmup: {_oos_warmup_n_bars:,} bars from IS 15s/{_warmup_stem}")
+
+                        # Also load IS data for external TF workers (4h, 5s, 1s)
+                        for _ext_tf in ('4h', '5s', '1s'):
+                            _ext_path = os.path.join(_is_root, _ext_tf, f"{_warmup_stem}.parquet")
+                            if os.path.exists(_ext_path):
+                                try:
+                                    _ext_df = pd.read_parquet(_ext_path)
+                                    if 'timestamp' in _ext_df.columns and not np.issubdtype(
+                                            _ext_df['timestamp'].dtype, np.number):
+                                        _ext_df['timestamp'] = _ext_df['timestamp'].apply(
+                                            lambda x: x.timestamp())
+                                    _oos_warmup_ext[_ext_tf] = _ext_df
+                                    print(f"  OOS warmup: {len(_ext_df):,} bars from IS {_ext_tf}/{_warmup_stem}")
+                                except Exception:
+                                    pass
+                    except Exception as _wup_err:
+                        print(f"  OOS warmup: failed to load IS tail ({_wup_err})")
+                        _oos_warmup_df = None
+
         total_pnl = 0.0
         total_trades = 0
         total_wins = 0
@@ -667,19 +712,60 @@ class Trainer:
             else:
                 _has_1s = False
 
-            # Compute 15s states (backward-looking regression — batch is identical to incremental)
-            try:
-                _states_15s = self.engine.batch_compute_states(df_15s, use_cuda=True)
-            except Exception as _bn_err:
-                _states_15s = []
+            # ── OOS warmup: prepend IS tail to first file for regression context ──
+            # This gives macro TF workers (1h, 30m) full regression history
+            # from bar 0 instead of starting cold with z=0.
+            _warmup_offset = 0  # added to _bar_i for tick_all() calls
+            if _oos_warmup_df is not None and day_idx == 0:
+                _df_combined = pd.concat([_oos_warmup_df, df_15s], ignore_index=True)
+                _warmup_offset = _oos_warmup_n_bars
 
-            # TBN: prepare workers with day data
-            try:
-                belief_network.prepare_day(df_15s, states_micro=_states_15s,
-                                           df_5s=_df_5s, df_1s=_df_1s, df_4h=_df_4h)
-            except Exception:
-                belief_network.prepare_day(df_15s, states_micro=[],
-                                           df_5s=_df_5s, df_1s=_df_1s, df_4h=_df_4h)
+                # Prepend IS data for external TF workers (4h, 5s, 1s)
+                _df_5s_w = _df_5s
+                _df_1s_w = _df_1s
+                _df_4h_w = _df_4h
+                for _ext_tf, _ext_warmup_df in _oos_warmup_ext.items():
+                    if _ext_tf == '4h' and _df_4h is not None:
+                        _df_4h_w = pd.concat([_ext_warmup_df, _df_4h], ignore_index=True)
+                    elif _ext_tf == '5s' and _df_5s is not None:
+                        _df_5s_w = pd.concat([_ext_warmup_df, _df_5s], ignore_index=True)
+                    elif _ext_tf == '1s' and _df_1s is not None:
+                        _df_1s_w = pd.concat([_ext_warmup_df, _df_1s], ignore_index=True)
+
+                try:
+                    _states_combined = self.engine.batch_compute_states(_df_combined, use_cuda=True)
+                    # _states_map uses only OOS bars (remap bar_idx to start at 0)
+                    _states_15s = [
+                        {**s, 'bar_idx': s['bar_idx'] - _warmup_offset}
+                        for s in _states_combined
+                        if s['bar_idx'] >= _warmup_offset
+                    ]
+                    # TBN gets full combined data (resampled TFs have IS history)
+                    # External TFs also get IS data prepended for regression context
+                    belief_network.prepare_day(_df_combined, states_micro=_states_combined,
+                                               df_5s=_df_5s_w, df_1s=_df_1s_w, df_4h=_df_4h_w)
+                    print(f"    OOS warmup applied: {_warmup_offset:,} IS bars prepended "
+                          f"({len(_states_15s):,} OOS states)")
+                except Exception as _wup_err:
+                    print(f"    OOS warmup failed ({_wup_err}), falling back to cold start")
+                    _warmup_offset = 0
+                    _states_15s = self.engine.batch_compute_states(df_15s, use_cuda=True)
+                    belief_network.prepare_day(df_15s, states_micro=_states_15s,
+                                               df_5s=_df_5s, df_1s=_df_1s, df_4h=_df_4h)
+            else:
+                # Normal path (IS mode, or OOS file 2+)
+                try:
+                    _states_15s = self.engine.batch_compute_states(df_15s, use_cuda=True)
+                except Exception as _bn_err:
+                    _states_15s = []
+
+                # TBN: prepare workers with day data
+                try:
+                    belief_network.prepare_day(df_15s, states_micro=_states_15s,
+                                               df_5s=_df_5s, df_1s=_df_1s, df_4h=_df_4h)
+                except Exception:
+                    belief_network.prepare_day(df_15s, states_micro=[],
+                                               df_5s=_df_5s, df_1s=_df_1s, df_4h=_df_4h)
 
             # Accumulate worker state counts for report diagnostics
             for _wlbl, _wcnt in belief_network.get_worker_state_counts().items():
@@ -856,7 +942,9 @@ class Trainer:
 
                 # Belief network: tick all workers (event-driven by TF bar change)
                 # 1h worker updates once per 240 bars; 15s worker updates every bar
-                belief_network.tick_all(_bar_i)
+                # _warmup_offset > 0 on first OOS file: IS data prepended to TBN states,
+                # so bar_i=0 in OOS needs to point to states[_warmup_offset].
+                belief_network.tick_all(_bar_i + _warmup_offset)
 
                 # PID ANALYZER TICK
                 _pid_state = _states_map.get(_bar_i - 1)
@@ -4649,13 +4737,28 @@ class Trainer:
                       f"from {len(cached_levels)} completed levels")
                 manifest = cached_manifest
 
-        # --seeds: compute quality thresholds from seeds (applied AFTER discovery)
+        # --seeds: auto-swing replaces discovery; manual seeds filter discovery
         _seed_path = getattr(self.config, 'seeds', None)
         _seed_thresholds = None
+        _is_auto_swing = False
         if _seed_path:
-            from training.seed_loader import compute_seed_thresholds
-            _seed_tag = getattr(self.config, 'seed_tag', None)
-            _seed_thresholds = compute_seed_thresholds(_seed_path, tag_filter=_seed_tag)
+            from training.seed_loader import is_auto_swing_format
+            _is_auto_swing = is_auto_swing_format(_seed_path)
+            if _is_auto_swing:
+                # Auto-swing seeds REPLACE Phase 1 discovery entirely
+                from training.seed_loader import load_auto_swing_as_manifest
+                manifest = load_auto_swing_as_manifest(
+                    _seed_path, self.config.data,
+                    timeframe='15s', depth=8,
+                )
+                # Save to checkpoint for reuse by --forward-pass
+                completed_levels = list(set(p.timeframe for p in manifest))
+                ckpt.save_discovery(manifest, completed_levels)
+            else:
+                # Manual seeds: compute quality thresholds (applied AFTER discovery)
+                from training.seed_loader import compute_seed_thresholds
+                _seed_tag = getattr(self.config, 'seed_tag', None)
+                _seed_thresholds = compute_seed_thresholds(_seed_path, tag_filter=_seed_tag)
 
         if manifest is None:
             print("\nPhase 1: Discovery — Fractal Top-Down Scan...")
@@ -4742,11 +4845,20 @@ class Trainer:
                 self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Cluster',
                                           'step': 'CLUSTERING', 'pct': 0})
 
+            # Load shape primitives if available (data-derived KMeans init centroids)
+            shape_primitives = None
+            _sp_path = os.path.join(self.checkpoint_dir, 'shape_primitives.pkl')
+            if os.path.exists(_sp_path):
+                import pickle as _sp_pkl
+                with open(_sp_path, 'rb') as _sp_f:
+                    shape_primitives = _sp_pkl.load(_sp_f)
+                print(f"  Loaded shape primitives: {len(shape_primitives.primitives)} primitives from {_sp_path}")
+
             n_initial = max(10, len(manifest) // INITIAL_CLUSTER_DIVISOR)
             print(f"  Initial clusters: {n_initial} (from {len(manifest)} patterns / {INITIAL_CLUSTER_DIVISOR})")
 
             clustering_engine = FractalClusteringEngine(n_clusters=n_initial, max_variance=0.5)
-            templates = clustering_engine.create_templates(manifest)
+            templates = clustering_engine.create_templates(manifest, shape_primitives=shape_primitives)
             print(f"  Condensed {len(manifest)} raw patterns into {len(templates)} Tight Templates.")
 
             # Save scaler for IS/OOS forward passes
@@ -5754,20 +5866,27 @@ def main():
 
     args = parser.parse_args()
 
-    # --seeds AUTO: find latest seed file in DATA/regime_seeds/
+    # --seeds AUTO: find latest seed file (prefer auto-swing over manual)
     if args.seeds == 'AUTO':
         _seed_dir = os.path.join('DATA', 'regime_seeds')
-        if os.path.isdir(_seed_dir):
-            import glob as _g
-            _seed_files = sorted(_g.glob(os.path.join(_seed_dir, 'seeds_*.json')))
-            if _seed_files:
-                args.seeds = _seed_files[-1]  # latest by name (date-sorted)
-                print(f"  --seeds AUTO: using {args.seeds}")
-            else:
-                print(f"  --seeds AUTO: no seed files in {_seed_dir}")
-                args.seeds = None
+        _found = None
+        import glob as _g
+        # Prefer auto-swing seeds (37K+ seeds, full coverage)
+        _auto_dir = os.path.join(_seed_dir, 'auto_swing')
+        if os.path.isdir(_auto_dir):
+            _auto_files = sorted(_g.glob(os.path.join(_auto_dir, 'auto_seeds_all_*.json')))
+            if _auto_files:
+                _found = _auto_files[-1]
+        # Fallback to manual seeds
+        if not _found and os.path.isdir(_seed_dir):
+            _manual_files = sorted(_g.glob(os.path.join(_seed_dir, 'seeds_*.json')))
+            if _manual_files:
+                _found = _manual_files[-1]
+        if _found:
+            args.seeds = _found
+            print(f"  --seeds AUTO: using {args.seeds}")
         else:
-            print(f"  --seeds AUTO: {_seed_dir} not found")
+            print(f"  --seeds AUTO: no seed files found in {_seed_dir}")
             args.seeds = None
 
     # ── Tee stdout -> checkpoints/training_log.txt (append, one file per project) ──

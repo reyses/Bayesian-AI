@@ -508,7 +508,7 @@ class StatisticalFieldEngine:
                 'price': prices[i],
                 'structure_ok': band_zone_arr[i] in ('UPPER_EXTREME', 'LOWER_EXTREME')
             }
-            for i in range(rp, n)
+            for i in range(n)
         ]
 
         return results

@@ -475,15 +475,19 @@ class TimeframeBeliefNetwork:
                 self.workers[tf_secs].prepare([])
 
         for tf_secs in self.active_timeframes:
+            lbl = self._TF_LABELS.get(tf_secs, str(tf_secs))
             if tf_secs == base_tf:
                 if states_micro is None:
                     # Compute fresh from micro bars
                     try:
                         s = self.engine.batch_compute_states(df_micro, use_cuda=True)
                         self.workers[base_tf].prepare(s)
+                        print(f"  TBN [{lbl}]: {len(s):,} states (base, computed)")
                     except Exception as e:
                         logger.warning(f"TBN: {base_tf}s state compute failed: {e}")
                         self.workers[base_tf].prepare([])
+                else:
+                    print(f"  TBN [{lbl}]: {len(states_micro):,} states (base, pre-computed)")
                 continue
 
             # Skip supra-resolution TFs (already handled above)
@@ -500,10 +504,12 @@ class TimeframeBeliefNetwork:
                 if len(tf_df) < 5:
                     # Too few bars -- 1h workers may have <5 bars near day start
                     self.workers[tf_secs].prepare([])
+                    print(f"  TBN [{lbl}]: <5 bars — worker inactive")
                     continue
 
                 states = self.engine.batch_compute_states(tf_df, use_cuda=True)
                 self.workers[tf_secs].prepare(states)
+                print(f"  TBN [{lbl}]: {len(states):,} states (resampled from {len(tf_df):,} bars)")
             except Exception as e:
                 logger.warning(f"TBN: TF={tf_secs}s state compute failed: {e}")
                 self.workers[tf_secs].prepare([])

@@ -14,6 +14,7 @@
 - **All test/research analyses must mirror live trading conditions** — no lookahead, use only
   data available at decision time. Slow TF bars incomplete mid-bar = use last completed bar.
 - **Always discuss before changing**: propose a plan, get approval, then execute
+- **Challenge ideas**: Push back on proposals that don't make technical sense. See `memory/feedback_challenge_ideas.md`
 - **Live launcher defaults**: Default = send orders to NT8. NT8 account (sim/real) controls risk.
   `--dry-run` = opt-in observation only. See `memory/feedback_live_defaults.md`
 - **Progress bars are mandatory**: any long-running loop MUST have tqdm with live stats
