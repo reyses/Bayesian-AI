@@ -704,6 +704,7 @@ class ProgressPopup:
         self.q = q
         self._shared_state = shared_state  # None = training mode
         self._pnl_history = [0]  # cumulative PnL per trade (chart tracks by trade)
+        self._current_mode = shared_state.get('mode', 'is') if shared_state else 'is'
         self._done = False
 
         self.root.title("Bayesian-AI LIVE" if shared_state else "Bayesian-AI Training")
@@ -1160,6 +1161,17 @@ class ProgressPopup:
 
     # ── Queue polling ─────────────────────────────────────────────────────────
     def _poll(self):
+        # Detect mode change (IS → OOS) and reset chart
+        if self._shared_state is not None:
+            _new_mode = self._shared_state.get('mode', self._current_mode)
+            if _new_mode != self._current_mode:
+                self._current_mode = _new_mode
+                self._pnl_history = [0]
+                self._price_history = []
+                self._trade_markers = []
+                self._redraw_chart()
+                self._redraw_price_chart()
+                self.root.title(f"Bayesian-AI  {_new_mode.upper()} Training")
         try:
             while True:
                 msg = self.q.get_nowait()
@@ -1178,15 +1190,16 @@ class ProgressPopup:
                     _day_m = _re.search(r"day\s+(\d+)/(\d+)", step, _re.I)
                     _lvl_m = _re.search(r"lvl\s+(\d+)/(\d+)", step, _re.I)
                     _tmpl_m = _re.search(r"tmpl\s+(\d+)/(\d+)", step, _re.I)
+                    _mode_tag = self._current_mode.upper() if hasattr(self, '_current_mode') else 'IS'
                     if _day_m:
                         _cur, _tot = int(_day_m.group(1)), int(_day_m.group(2))
-                        phase_label = "FORWARD PASS"
+                        phase_label = f"{_mode_tag} FORWARD PASS"
                         detail = f"Day {_cur} / {_tot}"
                     elif step == "FORWARD_PASS COMPLETE":
-                        phase_label = "FORWARD PASS"
+                        phase_label = f"{_mode_tag} FORWARD PASS"
                         detail = "Complete"
                     elif step == "FORWARD_PASS":
-                        phase_label = "FORWARD PASS"
+                        phase_label = f"{_mode_tag} FORWARD PASS"
                         detail = "Starting..."
                     elif _lvl_m:
                         phase_label = "PATTERN DISCOVERY"

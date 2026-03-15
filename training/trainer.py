@@ -256,7 +256,8 @@ class Trainer:
                          oos_mode: bool = False,
                          account_size: float = 0.0,
                          tier_preference: bool = False,
-                         live_validation_days: int = 0):
+                         live_validation_days: int = 0,
+                         popup_label: str = ''):
         """
         Phase 4 (IS) / Phase 5 (OOS): Forward pass -- replay data using playbook.
         Scans fractal cascade per day, matches templates, trades via ExitEngine.
@@ -274,11 +275,13 @@ class Trainer:
                           When > 0, simulates a funded account: gates new entries if
                           running equity drops below NinjaTrader MNQ intraday margin
                           ($50/contract). Report shows equity curve + max drawdown.
+            popup_label:  Override for popup window label (e.g. 'oos1', 'oos2', 'oos3').
         """
         _analysis_mode_early = getattr(self, '_analysis_mode', False)
         if not _analysis_mode_early:
             # Launch popup in background thread
-            self._launch_popup(mode='oos' if oos_mode else 'is')
+            _mode = popup_label or ('oos' if oos_mode else 'is')
+            self._launch_popup(mode=_mode)
 
             print("\n" + "="*80)
             if oos_mode:
@@ -6187,7 +6190,8 @@ def main():
                                           bias_threshold=args.bias_threshold,
                                           dmi_threshold=args.dmi_threshold,
                                           oos_mode=True,
-                                          account_size=args.account_size)
+                                          account_size=args.account_size,
+                                          popup_label='oos1')
             _oos1 = dict(orchestrator._fp_summary)
             _shutil.copy2(os.path.join(orchestrator.checkpoint_dir, 'oos_trade_log.csv'),
                           os.path.join(orchestrator.checkpoint_dir, 'oos1_trade_log.csv'))
@@ -6206,7 +6210,8 @@ def main():
                                           dmi_threshold=args.dmi_threshold,
                                           oos_mode=True,
                                           account_size=args.account_size,
-                                          tier_preference=True)
+                                          tier_preference=True,
+                                          popup_label='oos2')
             _oos2 = dict(orchestrator._fp_summary)
             _shutil.copy2(os.path.join(orchestrator.checkpoint_dir, 'oos_trade_log.csv'),
                           os.path.join(orchestrator.checkpoint_dir, 'oos2_trade_log.csv'))
@@ -6226,7 +6231,8 @@ def main():
                                           oos_mode=True,
                                           account_size=args.account_size,
                                           tier_preference=True,
-                                          live_validation_days=5)
+                                          live_validation_days=5,
+                                          popup_label='oos3')
             _oos3 = dict(orchestrator._fp_summary)
             _shutil.copy2(os.path.join(orchestrator.checkpoint_dir, 'oos_trade_log.csv'),
                           os.path.join(orchestrator.checkpoint_dir, 'oos3_trade_log.csv'))
@@ -6292,7 +6298,8 @@ def main():
                                               bias_threshold=args.bias_threshold,
                                               dmi_threshold=args.dmi_threshold,
                                               oos_mode=True,
-                                              account_size=args.account_size)
+                                              account_size=args.account_size,
+                                              popup_label='oos1')
                 _oos1 = dict(orchestrator._fp_summary)
 
                 # Phase 6: Strategy (grades on OOS trade log)
@@ -6309,7 +6316,8 @@ def main():
                                               dmi_threshold=args.dmi_threshold,
                                               oos_mode=True,
                                               account_size=args.account_size,
-                                              tier_preference=True)
+                                              tier_preference=True,
+                                              popup_label='oos2')
                 _oos2 = dict(orchestrator._fp_summary)
 
                 # Comparison: OOS1 vs OOS2
@@ -6329,7 +6337,8 @@ def main():
                                               oos_mode=True,
                                               account_size=args.account_size,
                                               tier_preference=True,
-                                              live_validation_days=5)
+                                              live_validation_days=5,
+                                              popup_label='oos3')
                 _oos3 = dict(orchestrator._fp_summary)
 
                 # Comparison: OOS2 vs OOS3 (inline vs BarProcessor)
@@ -6437,7 +6446,8 @@ def main():
                                               bias_threshold=args.bias_threshold,
                                               dmi_threshold=args.dmi_threshold,
                                               oos_mode=True,
-                                              account_size=getattr(args, 'account_size', 0.0))
+                                              account_size=getattr(args, 'account_size', 0.0),
+                                              popup_label='oos1')
                     _oos1 = dict(orchestrator._fp_summary)
 
                     # Phase 6: Strategy (grades on OOS trade log)
@@ -6454,7 +6464,8 @@ def main():
                                               dmi_threshold=args.dmi_threshold,
                                               oos_mode=True,
                                               account_size=getattr(args, 'account_size', 0.0),
-                                              tier_preference=True)
+                                              tier_preference=True,
+                                              popup_label='oos2')
                     _oos2 = dict(orchestrator._fp_summary)
 
                     # Comparison: OOS1 vs OOS2
@@ -6472,7 +6483,8 @@ def main():
                                               oos_mode=True,
                                               account_size=getattr(args, 'account_size', 0.0),
                                               tier_preference=True,
-                                              live_validation_days=5)
+                                              live_validation_days=5,
+                                              popup_label='oos3')
                 _oos3 = dict(orchestrator._fp_summary)
 
                 # Comparison: OOS2 vs OOS3 (inline vs BarProcessor)

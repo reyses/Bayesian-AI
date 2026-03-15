@@ -5,16 +5,18 @@
 ## **HARD RULES — DO NOT SKIP**
 - **KEEP JOURNALS UPDATED**: At the start and end of EVERY session, update:
   1. `docs/daily/YYYY-MM-DD.md` — daily interaction journal (findings, changes, decisions)
-  2. `docs/reference/RESEARCH_JOURNAL.txt` — research journal (analysis results, pipeline, new modules)
-  3. `reports/findings/` — standalone finding reports (YYYY-MM-DD_topic.md)
+  2. `docs/daily/INDEX.md` — add one-line summary at top of table (newest first)
+  3. `docs/reference/RESEARCH_JOURNAL.txt` — research journal (analysis results, pipeline, new modules)
+  4. `reports/findings/` — standalone finding reports (YYYY-MM-DD_topic.md)
   NEVER let journals go stale. Lost journals = lost days of work.
+  **Start of session**: read `docs/daily/INDEX.md` for context (not full journals).
 - **KEEP MEMORY UPDATED**: Update MEMORY.md when discovering new patterns, preferences, or architecture changes
 
 ## Workflow Preference
 - **All test/research analyses must mirror live trading conditions** — no lookahead, use only
   data available at decision time. Slow TF bars incomplete mid-bar = use last completed bar.
 - **Always discuss before changing**: propose a plan, get approval, then execute
-- **Challenge ideas**: Push back on proposals that don't make technical sense. See `memory/feedback_challenge_ideas.md`
+- **Challenge ideas HARD**: Push back aggressively, don't be complacent. See `memory/feedback_challenge_ideas.md` + `memory/feedback_challenge_harder.md`
 - **Live launcher defaults**: Default = send orders to NT8. NT8 account (sim/real) controls risk.
   `--dry-run` = opt-in observation only. See `memory/feedback_live_defaults.md`
 - **Progress bars are mandatory**: any long-running loop MUST have tqdm with live stats
