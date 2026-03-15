@@ -659,8 +659,12 @@ class ExecutionEngine:
             return fail('gate0_no_features')
 
         # ── Cluster match ─────────────────────────────────────
-        feat_scaled = self.scaler.transform(
-            features.reshape(1, -1) if features.ndim == 1 else features)
+        _feat_2d = features.reshape(1, -1) if features.ndim == 1 else features
+        _expected_dim = getattr(self.scaler, 'n_features_in_', _feat_2d.shape[-1])
+        if _feat_2d.shape[-1] < _expected_dim:
+            _pad = np.zeros((_feat_2d.shape[0], _expected_dim - _feat_2d.shape[-1]))
+            _feat_2d = np.concatenate([_feat_2d, _pad], axis=-1)
+        feat_scaled = self.scaler.transform(_feat_2d)
         dists = np.linalg.norm(self.centroids_scaled - feat_scaled, axis=1)
         nearest_idx = int(np.argmin(dists))
         dist = float(dists[nearest_idx])
