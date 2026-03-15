@@ -1009,11 +1009,18 @@ class ExecutionEngine:
         _mean_mae = lib_entry.get('mean_mae_ticks', 0.0)
         _p75_mfe = lib_entry.get('p75_mfe_ticks', 0.0)
         _p25_mae = lib_entry.get('p25_mae_ticks', 0.0)
+        _p95_mae = lib_entry.get('p95_mae_ticks', 0.0)
+        _mae_std = lib_entry.get('mae_std_ticks', 0.0)
         params = lib_entry.get('params', {})
 
-        # Phase 1: initial hard stop
-        if _p25_mae > _cfg.significance_threshold:
-            sl_ticks = max(_cfg.sl_min_ticks, int(round(_p25_mae * _cfg.sl_p25_mae_mult)))
+        # Phase 1: initial hard stop — tolerance interval from MAE distribution
+        # SL = p95 MAE × multiplier (last-resort: only ~5% of trades should naturally exceed)
+        # sl_tolerance_mult tunes this: >1 = wider (more room), <1 = tighter
+        if _p95_mae > _cfg.significance_threshold:
+            sl_ticks = max(_cfg.sl_min_ticks, int(round(_p95_mae * _cfg.sl_tolerance_mult)))
+        elif _mean_mae > _cfg.significance_threshold and _mae_std > 0:
+            # Fallback: mean + k*σ (k=2 ≈ 97.5th percentile)
+            sl_ticks = max(_cfg.sl_min_ticks, int(round((_mean_mae + _cfg.sl_tolerance_k * _mae_std) * _cfg.sl_tolerance_mult)))
         elif _mean_mae > _cfg.significance_threshold:
             sl_ticks = max(_cfg.sl_min_ticks, int(round(_mean_mae * _cfg.sl_mean_mae_mult)))
         else:

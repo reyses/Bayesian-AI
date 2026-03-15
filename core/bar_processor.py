@@ -104,8 +104,8 @@ class BarProcessor:
     # ── Feature Extraction (single source of truth) ──────────────────
 
     def _build_features(self, state) -> np.ndarray:
-        """Build 16D feature vector from MarketState. No parent chain."""
-        return np.array([extract_feature_vector(
+        """Build feature vector from MarketState. Pads to scaler dims if needed."""
+        feat = extract_feature_vector(
             z_score=getattr(state, 'z_score', 0.0),
             velocity=getattr(state, 'velocity', 0.0),
             momentum=getattr(state, 'momentum_strength',
@@ -124,7 +124,12 @@ class BarProcessor:
             tf_alignment=0.0,
             pid=getattr(state, 'term_pid', 0.0),
             osc_coherence=getattr(state, 'oscillation_entropy_normalized', 0.0),
-        )])
+        )
+        # Pad to match scaler dimensions (22D when --lookback, 16D otherwise)
+        _expected = getattr(self.exec_engine.scaler, 'n_features_in_', len(feat))
+        if len(feat) < _expected:
+            feat = feat + [0.0] * (_expected - len(feat))
+        return np.array([feat])
 
     # ── Candidate Building ───────────────────────────────────────────
 

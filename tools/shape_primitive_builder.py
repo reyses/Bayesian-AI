@@ -1,19 +1,29 @@
 #!/usr/bin/env python
 """
-Shape Primitive Builder — UMAP + HDBSCAN waveform clustering.
+Two-Stage Shape Primitive Builder — Entry + Exit primitives via UMAP + HDBSCAN.
 
-Pipeline:
-  Multi-TF ZigZag → quality filter → normalize + resample to 32pts + magnitude →
-  UMAP 34D→2D → HDBSCAN (power-analyzed min_cluster_size) → bootstrap →
-  shape primitives with 16D centroids.
+Entry primitives: 10-bar lookback geometry + 192D context -> "what setup?"
+Exit primitives:  segment shape + magnitude -> "how to exit?"
 
-Primitives feed into Phase 2 K-Means as informed initial centroids.
+Pipeline (shared):
+  Multi-TF ZigZag -> quality filter -> split into entry/exit paths
+
+Entry path:
+  Extract lookback geometry (6D) + 192D context @ entry bar
+  -> per-TF UMAP 198D->2D -> HDBSCAN -> entry primitives
+  -> checkpoints/entry_primitives.pkl
+
+Exit path:
+  Extract segment (post-entry) -> normalize + resample to 32pts + magnitude (34D)
+  -> per-TF UMAP 34D->2D -> HDBSCAN -> calibrate exit params -> exit primitives
+  -> checkpoints/exit_primitives.pkl
 
 Usage:
-    python tools/shape_primitive_builder.py                              # full ATLAS
-    python tools/shape_primitive_builder.py --data DATA/ATLAS_1WEEK      # fast test
-    python tools/shape_primitive_builder.py --plot                        # save UMAP scatter
-    python tools/shape_primitive_builder.py --skip-physics                # skip 16D (fast)
+    python tools/shape_primitive_builder.py --all                    # both (default)
+    python tools/shape_primitive_builder.py --entry                  # entry only
+    python tools/shape_primitive_builder.py --exit                   # exit only
+    python tools/shape_primitive_builder.py --data DATA/ATLAS_1WEEK  # fast test
+    python tools/shape_primitive_builder.py --plot                   # save UMAP scatter
 """
 
 import argparse
@@ -23,7 +33,6 @@ import os
 import pickle
 import sys
 from collections import Counter, defaultdict
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -35,78 +44,42 @@ from tqdm import tqdm
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tools.auto_swing_marker import detect_swings, TICK_SIZE
-from tools.research.data import load_atlas_tf, compute_tf_physics, extract_16d, TF_SECONDS
-from tools.research.shape_classifier import classify_shape, quality_score, quality_tier, load_calibration
+from tools.research.data import (
+    load_atlas_tf, compute_tf_physics, extract_16d,
+    TF_SECONDS, TF_HIERARCHY
+)
+from tools.research.shape_classifier import (
+    classify_shape, quality_score, quality_tier, load_calibration
+)
+from core.shape_primitives import (
+    EntryPrimitive, ExitPrimitive,
+    EntryPrimitiveLibrary, ExitPrimitiveLibrary,
+    extract_lookback_geometry,
+    GEOMETRY_DIM, CONTEXT_DIM, ENTRY_DIM, SEGMENT_DIM, MAGNITUDE_DIM, EXIT_DIM,
+)
 
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 # Constants
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 
-# 7 active ZigZag TFs (3-to-5 ratio, excluding 2m/3m, 1s/5s too noisy)
 SWING_TFS = ['15s', '30s', '1m', '5m', '15m', '30m', '1h']
-
 LOOKBACK_BARS = 10
-RESAMPLE_POINTS = 32
+RESAMPLE_POINTS = SEGMENT_DIM  # 32
 SEEDS_DIR = 'DATA/regime_seeds'
 
 UMAP_DEFAULTS = dict(n_neighbors=30, min_dist=0.05, metric='euclidean', random_state=42)
+UMAP_ENTRY_DEFAULTS = dict(n_neighbors=50, min_dist=0.05, metric='euclidean', random_state=42)
 HDBSCAN_DEFAULTS = dict(min_cluster_size=50, min_samples=10, cluster_selection_method='eom')
 
-# Trading economics for power analysis
-TICK_VALUE_USD = 0.50    # MNQ $0.50 per tick
-CONFIDENCE_Z = 1.645     # z-score for 90% confidence (shape recognition, not MFE prediction)
-MAGNITUDE_WEIGHT = 3.0   # Weight for magnitude features in UMAP input
+TICK_VALUE_USD = 0.50
+CONFIDENCE_Z = 1.645     # 90% confidence
+MAGNITUDE_WEIGHT = 3.0   # Weight for magnitude features in exit UMAP
+GEOMETRY_WEIGHT = 5.0     # Weight for lookback geometry in entry UMAP (vs 192D context)
 
 
-# ═══════════════════════════════════════════════════════════════
-# Data structures
-# ═══════════════════════════════════════════════════════════════
-
-@dataclass
-class ShapePrimitive:
-    primitive_id: int
-    centroid_waveform: np.ndarray      # (32,) normalized shape
-    centroid_16d: np.ndarray           # (16,) mean feature vector
-    n_members: int
-    dominant_tf: str                   # Most common TF among members
-    tf_distribution: Dict[str, int]    # {tf: count}
-    direction_bias: float              # Fraction LONG (0-1)
-    mean_mfe_ticks: float
-    mean_mae_ticks: float
-    mean_duration_mins: float
-    shape_r2: float                    # Tightness (r^2 vs centroid)
-    umap_center: Tuple[float, float]   # 2D center for visualization
-    member_indices: List[int]          # Into global seed array
-    dominant_shape: str = ''           # Most common shape label among members
-    shape_distribution: Dict[str, int] = field(default_factory=dict)  # {shape: count}
-    mean_quality_score: float = 0.0    # Average quality score of members
-    quality_tier_label: str = ''       # GOLD/SILVER/BRONZE based on mean score
-    bootstrap_stable: bool = True      # Passed bootstrap stability test
-    centroid_drift: float = 0.0        # Bootstrap centroid drift (lower = more stable)
-
-
-@dataclass
-class ShapePrimitiveLibrary:
-    primitives: List[ShapePrimitive]
-    created_at: str
-    n_total_seeds: int
-    n_clustered_seeds: int
-    n_noise_seeds: int
-    umap_params: Dict
-    hdbscan_params: Dict
-    tf_params: Dict[str, Dict]         # Per-TF ZigZag params
-    version: str = '1.0'
-
-    def get_centroids_for_tf(self, tf: str) -> Optional[np.ndarray]:
-        """Return (K, 16) centroids for a TF bucket."""
-        matching = [p for p in self.primitives
-                    if p.dominant_tf == tf or tf in p.tf_distribution]
-        return np.array([p.centroid_16d for p in matching]) if matching else None
-
-
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 # ZigZag parameter scaling
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 
 def get_zigzag_params(tf: str) -> dict:
     """Per-TF ZigZag parameters scaled from 1m baseline via sqrt(tf_secs/60)."""
@@ -132,15 +105,14 @@ def get_zigzag_params(tf: str) -> dict:
     return {'min_reversal': min_reversal, 'min_bars': min_bars, 'max_bars': max_bars}
 
 
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 # Step 1: Multi-TF swing detection
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 
 def detect_multi_tf_swings(data_dir: str, burn_hours: int = 10) -> list:
     """Run ZigZag on all swing TFs. Returns unified list of seed dicts."""
     all_seeds = []
 
-    # Determine burn cutoff from first timestamp in 1m data
     df_1m = load_atlas_tf(data_dir, '1m')
     if df_1m.empty:
         print("  ERROR: No 1m data for burn calculation")
@@ -164,7 +136,6 @@ def detect_multi_tf_swings(data_dir: str, burn_hours: int = 10) -> list:
         timestamps = df['timestamp'].values.astype(np.float64)
         print(f"  [{tf}] {len(close):,} bars")
 
-        # Run ZigZag on full continuous series
         pivots = detect_swings(close,
                                min_reversal=params['min_reversal'],
                                min_bars=params['min_bars'],
@@ -193,7 +164,6 @@ def detect_multi_tf_swings(data_dir: str, burn_hours: int = 10) -> list:
             lb_start = max(0, si - LOOKBACK_BARS)
             actual_lb = si - lb_start
 
-            # Drop seeds with < 3 bars lookback (near data start)
             if actual_lb < 3:
                 short_lb += 1
                 continue
@@ -215,7 +185,9 @@ def detect_multi_tf_swings(data_dir: str, burn_hours: int = 10) -> list:
                 'duration_mins': float((ts_end - ts_start) / 60.0),
                 'n_bars': ei - si,
                 'lookback_bars': actual_lb,
-                'waveform_close': close[lb_start:ei + 1].copy(),
+                'lookback_close': close[lb_start:si + 1].copy(),   # lookback path (lb_start to entry inclusive)
+                'segment_close': close[si:ei + 1].copy(),          # segment path (entry to exit inclusive)
+                'waveform_close': close[lb_start:ei + 1].copy(),   # full path (for quality filter)
                 'source': 'auto_swing',
             }
             all_seeds.append(seed)
@@ -227,16 +199,15 @@ def detect_multi_tf_swings(data_dir: str, burn_hours: int = 10) -> list:
     return all_seeds
 
 
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 # Step 1b: Load human seeds
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 
 def load_human_seeds(seeds_dir: str, data_dir: str, burn_until: float = 0) -> list:
     """Load human-marked seeds from JSON files and extract their waveforms."""
     if not os.path.exists(seeds_dir):
         return []
 
-    # Prefer merged multi-TF files, fallback to individual
     seed_files = sorted(Path(seeds_dir).glob('seeds_*_multi.json'))
     if not seed_files:
         seed_files = sorted(Path(seeds_dir).glob('seeds_*.json'))
@@ -245,7 +216,7 @@ def load_human_seeds(seeds_dir: str, data_dir: str, burn_until: float = 0) -> li
 
     print(f"\n  Loading human seeds from {len(seed_files)} files...")
 
-    tf_close_cache = {}  # tf -> close array
+    tf_close_cache = {}
     human_seeds = []
 
     for sf in seed_files:
@@ -262,7 +233,6 @@ def load_human_seeds(seeds_dir: str, data_dir: str, burn_until: float = 0) -> li
             if ts_start < burn_until:
                 continue
 
-            # Cache close prices per TF
             if tf not in tf_close_cache:
                 df = load_atlas_tf(data_dir, tf)
                 if df.empty:
@@ -304,6 +274,8 @@ def load_human_seeds(seeds_dir: str, data_dir: str, burn_until: float = 0) -> li
                 'duration_mins': float(s.get('duration_mins', 0)),
                 'n_bars': ei - si,
                 'lookback_bars': actual_lb,
+                'lookback_close': close[lb_start:si + 1].copy(),
+                'segment_close': close[si:ei + 1].copy(),
                 'waveform_close': close[lb_start:ei + 1].copy(),
                 'source': 'human',
             }
@@ -313,46 +285,35 @@ def load_human_seeds(seeds_dir: str, data_dir: str, burn_until: float = 0) -> li
     return human_seeds
 
 
-# ═══════════════════════════════════════════════════════════════
-# Step 2: Waveform normalization
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
+# Step 2a: Exit waveform normalization (segment only)
+# ===================================================================
 
-def normalize_waveforms(seeds: list, magnitude_weight: float = MAGNITUDE_WEIGHT) -> Tuple[np.ndarray, list]:
-    """Normalize and resample segment waveforms to fixed-length vectors with magnitude.
-
-    Clusters the SEGMENT (lookback + swing). In ZigZag, every lookback IS the
-    previous segment, so segment shapes = lookback shapes = same vocabulary.
-    Matching a completed swing to a primitive tells you both "what just happened"
-    AND "the setup context for what comes next."
+def normalize_segments(seeds: list, magnitude_weight: float = MAGNITUDE_WEIGHT
+                       ) -> Tuple[np.ndarray, list]:
+    """Normalize and resample SEGMENT waveforms (post-entry) to 34D vectors.
 
     Shape (32D): zero at entry price, divide by max(|range|), resample to 32pts.
     Magnitude (2D): log1p of segment range and net change in ticks, weighted.
-    Direction-normalized: SHORT flipped so all shapes face favorable direction.
-
-    Output: (N, 34) array — 32 shape + 2 magnitude dimensions.
-    Left-pad with first available price if lookback < LOOKBACK_BARS.
+    Direction-normalized: SHORT flipped so UMAP clusters by shape, not direction.
 
     Returns: (N, 34) array, list of bool (valid mask).
     """
     waveforms = []
     valid_mask = []
-    n_dims = RESAMPLE_POINTS + 2  # 32 shape + 2 magnitude
+    n_dims = RESAMPLE_POINTS + MAGNITUDE_DIM  # 34
 
-    for seed in tqdm(seeds, desc='Normalizing waveforms', unit='seed',
+    for seed in tqdm(seeds, desc='Normalizing segments', unit='seed',
                      bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'):
-        raw = seed['waveform_close']
-        lb = seed['lookback_bars']
+        segment = seed['segment_close']
 
-        # Left-pad if lookback < LOOKBACK_BARS (flat extension)
-        if lb < LOOKBACK_BARS:
-            pad_n = LOOKBACK_BARS - lb
-            raw = np.concatenate([np.full(pad_n, raw[0]), raw])
-            lb = LOOKBACK_BARS
+        if len(segment) < 3:
+            valid_mask.append(False)
+            waveforms.append(np.zeros(n_dims, dtype=np.float32))
+            continue
 
-        entry_price = raw[lb]  # entry is at lookback boundary
-
-        # Full waveform (lookback + segment)
-        shifted = raw - entry_price
+        entry_price = segment[0]
+        shifted = segment - entry_price
         max_range = np.max(np.abs(shifted))
 
         if max_range < 1e-10:
@@ -363,7 +324,6 @@ def normalize_waveforms(seeds: list, magnitude_weight: float = MAGNITUDE_WEIGHT)
         normalized = shifted / max_range  # [-1, 1]
 
         # Direction-normalize: flip SHORT so all shapes face "favorable" direction
-        # This makes UMAP cluster by SHAPE, not LONG vs SHORT
         if seed.get('direction') == 'SHORT':
             normalized = -normalized
 
@@ -372,8 +332,7 @@ def normalize_waveforms(seeds: list, magnitude_weight: float = MAGNITUDE_WEIGHT)
         x_new = np.linspace(0, 1, RESAMPLE_POINTS)
         resampled = np.interp(x_new, x_orig, normalized)
 
-        # Magnitude features: distinguish big moves from small moves
-        # log scale keeps outliers from dominating; /6 normalizes to ~[0, 1]
+        # Magnitude features
         abs_change_ticks = abs(seed.get('change_ticks', 0))
         max_range_ticks = max_range / TICK_SIZE
         mag_change = np.log1p(abs_change_ticks) / 6.0 * magnitude_weight
@@ -386,16 +345,125 @@ def normalize_waveforms(seeds: list, magnitude_weight: float = MAGNITUDE_WEIGHT)
     return np.array(waveforms, dtype=np.float32), valid_mask
 
 
-# ═══════════════════════════════════════════════════════════════
-# Step 3: UMAP embedding
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
+# Step 2b: Entry feature extraction (6D geometry + 192D context)
+# ===================================================================
 
-def embed_umap(waveforms: np.ndarray, params: dict) -> np.ndarray:
-    """UMAP: 32D waveforms -> 2D embedding."""
+def compute_entry_features(seeds: list, data_dir: str,
+                           geometry_weight: float = GEOMETRY_WEIGHT
+                           ) -> Tuple[np.ndarray, list]:
+    """Extract 198D entry feature vectors: 6D lookback geometry + 192D context.
+
+    Groups seeds by (tf, month), runs physics once per group for 192D extraction.
+    Returns: (N, 198) array, list of bool (valid mask).
+    """
+    n_seeds = len(seeds)
+    features = np.zeros((n_seeds, ENTRY_DIM), dtype=np.float32)
+    valid_mask = [False] * n_seeds
+
+    # Step A: Compute 6D lookback geometry for all seeds (fast, no I/O)
+    print(f"  Extracting lookback geometry ({GEOMETRY_DIM}D) for {n_seeds:,} seeds...")
+    for i, seed in enumerate(tqdm(seeds, desc='Lookback geometry',
+                                   bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]')):
+        lb_close = seed['lookback_close']
+        # Left-pad if < LOOKBACK_BARS
+        if len(lb_close) < LOOKBACK_BARS + 1:
+            pad_n = (LOOKBACK_BARS + 1) - len(lb_close)
+            lb_close = np.concatenate([np.full(pad_n, lb_close[0]), lb_close])
+        geom = extract_lookback_geometry(lb_close)
+        features[i, :GEOMETRY_DIM] = geom * geometry_weight
+
+    # Step B: Compute 192D context at each seed's entry timestamp
+    # Group seeds by (tf, month) for batch physics computation
+    tf_month_groups = defaultdict(list)
+    for i, seed in enumerate(seeds):
+        month = datetime.fromtimestamp(seed['ts_start'], tz=timezone.utc).strftime('%Y_%m')
+        tf_month_groups[(seed['tf'], month)].append(i)
+
+    # We need ALL 12 TFs for 192D context, not just the seed's own TF
+    # Strategy: for each seed timestamp, get the most recent state from each of the 12 TFs
+    # Pre-compute physics for all (TF, month) combos needed
+
+    # First, find all months present in seeds
+    all_months = sorted(set(
+        datetime.fromtimestamp(s['ts_start'], tz=timezone.utc).strftime('%Y_%m')
+        for s in seeds
+    ))
+
+    # Build physics cache: (tf, month) -> {timestamp: MarketState}
+    # Only load TFs that have data
+    print(f"\n  Computing 192D context ({CONTEXT_DIM}D) across {len(all_months)} months x {len(TF_HIERARCHY)} TFs...")
+    physics_cache = {}  # (tf, month) -> (ts_array, states_dict)
+
+    for tf in tqdm(TF_HIERARCHY, desc='Loading TF physics',
+                   bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'):
+        for month in all_months:
+            df = load_atlas_tf(data_dir, tf, months=[month])
+            if df.empty:
+                continue
+            states = compute_tf_physics(tf, df)
+            if states:
+                ts_arr = np.array(sorted(states.keys()))
+                physics_cache[(tf, month)] = (ts_arr, states)
+            del df
+
+    # Now extract 192D for each seed
+    print(f"  Extracting 192D per seed...")
+    n_context_ok = 0
+
+    for i, seed in enumerate(tqdm(seeds, desc='192D context',
+                                   bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]')):
+        ts = int(seed['ts_start'])
+        month = datetime.fromtimestamp(ts, tz=timezone.utc).strftime('%Y_%m')
+
+        context_vec = np.zeros(CONTEXT_DIM, dtype=np.float32)
+        n_tfs_found = 0
+
+        for tf_idx, tf in enumerate(TF_HIERARCHY):
+            cached = physics_cache.get((tf, month))
+            if cached is None:
+                continue
+
+            ts_arr, states = cached
+            pos = np.searchsorted(ts_arr, ts)
+            # Use most recent completed bar (at or before entry)
+            if pos > 0:
+                nearest = ts_arr[pos - 1]
+            elif pos < len(ts_arr):
+                nearest = ts_arr[pos]
+            else:
+                continue
+
+            state = states.get(int(nearest))
+            if state is not None:
+                feat_16d = extract_16d(state, tf)
+                context_vec[tf_idx * 16:(tf_idx + 1) * 16] = feat_16d
+                n_tfs_found += 1
+
+        features[i, GEOMETRY_DIM:] = context_vec
+        # Valid if we got at least 3 TFs of context
+        valid_mask[i] = n_tfs_found >= 3
+        if valid_mask[i]:
+            n_context_ok += 1
+
+    print(f"  {n_context_ok:,}/{n_seeds:,} seeds with valid 192D context (>=3 TFs)")
+
+    # Clean up physics cache
+    del physics_cache
+
+    return features, valid_mask
+
+
+# ===================================================================
+# Step 3: UMAP embedding
+# ===================================================================
+
+def embed_umap(waveforms: np.ndarray, params: dict, label: str = '') -> np.ndarray:
+    """UMAP: ND -> 2D embedding."""
     import umap
 
-    print(f"\n  UMAP: {waveforms.shape[0]:,} waveforms, {waveforms.shape[1]}D "
-          f"(32 shape + {waveforms.shape[1]-32} magnitude) -> 2D")
+    print(f"\n  UMAP{' (' + label + ')' if label else ''}: "
+          f"{waveforms.shape[0]:,} points, {waveforms.shape[1]}D -> 2D")
     print(f"  Params: {params}")
 
     reducer = umap.UMAP(n_components=2, **params)
@@ -404,86 +472,26 @@ def embed_umap(waveforms: np.ndarray, params: dict) -> np.ndarray:
     return embedding
 
 
-# ═══════════════════════════════════════════════════════════════
-# Step 3b: Power analysis — compute min_cluster_size from economics
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
+# Step 3b: Power analysis
+# ===================================================================
 
-def compute_min_cluster_size(seeds: list, relative_tolerance: float = 0.50,
-                             confidence_z: float = CONFIDENCE_Z) -> Tuple[int, dict]:
-    """Compute minimum cluster size via power analysis, per-TF.
-
-    Uses RELATIVE tolerance: each primitive's mean MFE must be within
-    ±relative_tolerance of the true mean at 90% confidence.
-
-    The primitives are for SHAPE RECOGNITION, not MFE prediction.
-    The exit engine (giveback, envelope, SL) handles risk management.
-    So tolerance is generous — we just need to distinguish "good shape"
-    from "noise shape", not predict exact tick outcomes.
-
-    Default 50% = "this primitive's mean MFE is accurate within ±50%"
-    → n = (z / relative_tolerance)² = (1.645 / 0.50)² ≈ 11 members
-
-    Per-TF: computed from each TF's coefficient of variation (CV = σ/μ).
-    TFs with higher CV need more members; low CV need fewer.
-
-    Returns: (global_min_cluster_size, {tf: stats})
-    """
-    # Group seeds by TF
-    tf_groups = defaultdict(list)
-    for s in seeds:
-        tf_groups[s['tf']].append(abs(s['change_ticks']))
-
-    # Base n from relative tolerance (CV-independent)
-    # n = (z / relative_tolerance)² when CV=1; scale by actual CV²
+def compute_tf_power_analysis(tf_seeds: list, relative_tolerance: float = 0.50,
+                              confidence_z: float = CONFIDENCE_Z) -> int:
+    """Compute min_cluster_size for a single TF via power analysis."""
+    mfe_vals = np.array([abs(s['change_ticks']) for s in tf_seeds])
+    mu = max(float(np.mean(mfe_vals)), 1.0) if len(mfe_vals) > 0 else 50.0
+    sigma = float(np.std(mfe_vals)) if len(mfe_vals) > 2 else 50.0
+    cv = sigma / mu
     base_n = (confidence_z / relative_tolerance) ** 2
-
-    print(f"\n  Power analysis ({confidence_z:.3f}z / 90% CI, {relative_tolerance*100:.0f}% relative tolerance):")
-    print(f"    Base n (CV=1): {base_n:.0f}")
-    print(f"    Primitives identify SHAPE — exits handle risk")
-    print(f"    {'TF':>5s}  {'Seeds':>7s}  {'u_mfe':>7s}  {'s_mfe':>7s}  {'CV':>6s}  {'n_req':>6s}")
-    print(f"    {'-'*5}  {'-'*7}  {'-'*7}  {'-'*7}  {'-'*6}  {'-'*6}")
-
-    tf_stats = {}
-    all_n_required = []
-
-    for tf in sorted(tf_groups.keys()):
-        mfe_vals = np.array(tf_groups[tf])
-        mu = float(np.mean(mfe_vals)) if len(mfe_vals) > 0 else 50.0
-        sigma = float(np.std(mfe_vals)) if len(mfe_vals) > 2 else 50.0
-        if mu < 1.0:
-            mu = 1.0
-
-        cv = sigma / mu  # Coefficient of variation
-
-        # n = (z * CV / relative_tolerance)² = base_n * CV²
-        n_req = int(np.ceil(base_n * cv ** 2))
-        n_req = max(15, min(500, n_req))
-
-        tf_stats[tf] = {
-            'n_required': n_req,
-            'mean_mfe': mu,
-            'sigma_mfe': sigma,
-            'cv': cv,
-            'n_seeds': len(mfe_vals),
-        }
-
-        all_n_required.append(n_req)
-
-        print(f"    {tf:>5s}  {len(mfe_vals):7,d}  {mu:6.1f}t  {sigma:6.1f}t  {cv:6.2f}  {n_req:6d}")
-
-    # Use median n_required (robust to outlier TFs), capped for small datasets
-    median_n = int(np.median(all_n_required)) if all_n_required else 30
-    global_min = max(15, min(median_n, len(seeds) // 20))
-
-    print(f"\n    HDBSCAN min_cluster_size = {global_min} "
-          f"(median across TFs, capped at N/20={len(seeds)//20})")
-
-    return global_min, tf_stats
+    n_req = int(np.ceil(base_n * cv ** 2))
+    n_req = max(15, min(500, n_req))
+    return max(15, min(n_req, len(tf_seeds) // 20))
 
 
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 # Step 4: HDBSCAN clustering
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 
 def cluster_hdbscan(embedding: np.ndarray, params: dict) -> np.ndarray:
     """HDBSCAN clustering in 2D UMAP space."""
@@ -497,26 +505,19 @@ def cluster_hdbscan(embedding: np.ndarray, params: dict) -> np.ndarray:
 
     n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
     n_noise = int(np.sum(labels == -1))
-    print(f"  Found {n_clusters} clusters, {n_noise:,} noise ({n_noise / len(labels) * 100:.1f}%)")
+    print(f"  Found {n_clusters} clusters, {n_noise:,} noise ({n_noise / max(len(labels), 1) * 100:.1f}%)")
 
     return labels
 
 
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 # Step 4b: Bootstrap stability test
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 
 def bootstrap_stability_test(waveforms: np.ndarray, labels: np.ndarray,
                              n_bootstrap: int = 100, max_drift_frac: float = 0.15,
                              rng_seed: int = 42) -> dict:
-    """Test each cluster's centroid stability via bootstrap resampling.
-
-    For each cluster: resample members with replacement N times,
-    recompute centroid each time, measure drift (RMSE vs full centroid).
-    Reject clusters where drift > max_drift_frac of centroid range.
-
-    Returns: {cluster_id: {'stable': bool, 'drift': float, 'n_members': int}}
-    """
+    """Test each cluster's centroid stability via bootstrap resampling."""
     rng = np.random.RandomState(rng_seed)
     cluster_ids = sorted(set(labels) - {-1})
     results = {}
@@ -562,17 +563,12 @@ def bootstrap_stability_test(waveforms: np.ndarray, labels: np.ndarray,
     return results
 
 
-# ═══════════════════════════════════════════════════════════════
-# Step 5: 16D feature centroids (physics-based)
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
+# Step 5: 16D feature centroids (for K-Means init)
+# ===================================================================
 
 def compute_16d_centroids(seeds: list, labels: np.ndarray, data_dir: str) -> dict:
-    """Compute 16D feature centroid per cluster.
-
-    Groups seeds by (tf, month), runs physics once per group,
-    then extracts 16D at each seed's entry timestamp.
-    """
-    # Group seed indices by (tf, month)
+    """Compute 16D feature centroid per cluster."""
     tf_month_groups = defaultdict(list)
     for i, seed in enumerate(seeds):
         if labels[i] == -1:
@@ -583,7 +579,7 @@ def compute_16d_centroids(seeds: list, labels: np.ndarray, data_dir: str) -> dic
     n_groups = len(tf_month_groups)
     print(f"\n  Computing 16D across {n_groups} (tf, month) groups...")
 
-    seed_features = {}  # seed_index -> 16D array
+    seed_features = {}
 
     for (tf, month), indices in tqdm(tf_month_groups.items(), desc='Physics',
                                      bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'):
@@ -613,7 +609,6 @@ def compute_16d_centroids(seeds: list, labels: np.ndarray, data_dir: str) -> dic
 
         del df, states
 
-    # Per-cluster mean
     cluster_ids = set(labels) - {-1}
     centroids = {}
 
@@ -630,12 +625,174 @@ def compute_16d_centroids(seeds: list, labels: np.ndarray, data_dir: str) -> dic
     return centroids
 
 
-# ═══════════════════════════════════════════════════════════════
-# Step 6: Build primitives
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
+# Step 6a: Build ENTRY primitives from clusters
+# ===================================================================
 
-def build_primitives(seeds, waveforms, labels, embedding, centroids_16d) -> list:
-    """Assemble ShapePrimitive objects from clustering results."""
+def build_entry_primitives_from_clusters(seeds, features, labels, embedding,
+                                         centroids_16d, tf_label: str,
+                                         bootstrap_results: dict = None) -> list:
+    """Assemble EntryPrimitive objects from entry clustering results."""
+    cluster_ids = sorted(set(labels) - {-1})
+    primitives = []
+
+    for cid in cluster_ids:
+        member_idx = np.where(labels == cid)[0]
+        member_seeds = [seeds[i] for i in member_idx]
+        member_feats = features[member_idx]
+        member_embed = embedding[member_idx]
+
+        # Centroid geometry (first 6D after unweighting)
+        centroid_geom = np.mean(member_feats[:, :GEOMETRY_DIM], axis=0) / GEOMETRY_WEIGHT
+        # Centroid 192D (remaining dims)
+        centroid_192d = np.mean(member_feats[:, GEOMETRY_DIM:], axis=0)
+
+        # Shape R2 on geometry dims only (6D unweighted) — interpretable cluster tightness
+        geom_feats = member_feats[:, :GEOMETRY_DIM] / GEOMETRY_WEIGHT
+        geom_centroid = np.mean(geom_feats, axis=0)
+        if len(geom_feats) > 1:
+            ss_res = np.sum((geom_feats - geom_centroid) ** 2)
+            # scalar mean for ss_tot (matches exit R2 pattern)
+            ss_tot = np.sum((geom_feats - np.mean(geom_feats)) ** 2)
+            r2 = 1.0 - ss_res / max(ss_tot, 1e-10)
+        else:
+            r2 = 1.0
+
+        n_long = sum(1 for s in member_seeds if s['direction'] == 'LONG')
+        direction_bias = n_long / len(member_seeds)
+
+        mfes = [abs(s['change_ticks']) for s in member_seeds]
+        durations = [s['duration_mins'] for s in member_seeds]
+
+        sh_counts = Counter(s.get('shape', 'UNKNOWN') for s in member_seeds)
+        dom_shape = sh_counts.most_common(1)[0][0] if sh_counts else 'UNKNOWN'
+
+        # Bootstrap info
+        stable = True
+        drift = 0.0
+        if bootstrap_results and cid in bootstrap_results:
+            stable = bootstrap_results[cid]['stable']
+            drift = bootstrap_results[cid].get('drift', 0.0)
+
+        prim = EntryPrimitive(
+            primitive_id=cid,
+            tf=tf_label,
+            centroid_geometry=centroid_geom.astype(np.float32),
+            centroid_192d=centroid_192d.astype(np.float32),
+            centroid_16d=centroids_16d.get(cid, np.zeros(16, dtype=np.float32)),
+            n_members=len(member_idx),
+            direction_bias=direction_bias,
+            mean_mfe_ticks=float(np.mean(mfes)),
+            mean_mae_ticks=0.0,
+            mean_duration_mins=float(np.mean(durations)),
+            shape_r2=float(r2),
+            dominant_shape=dom_shape,
+            umap_center=(float(np.mean(member_embed[:, 0])),
+                         float(np.mean(member_embed[:, 1]))),
+            member_indices=member_idx.tolist(),
+            bootstrap_stable=stable,
+            centroid_drift=drift,
+        )
+        primitives.append(prim)
+
+    return primitives
+
+
+# ===================================================================
+# Step 6b: Build EXIT primitives from clusters + calibrate exit params
+# ===================================================================
+
+def calibrate_exit_params(member_seeds: list) -> dict:
+    """Compute calibrated exit parameters from member oracle outcomes.
+
+    Returns dict with giveback_pct, giveback_delay_bars, envelope_halflife_mult,
+    expected_peak_bar.
+    """
+    if not member_seeds:
+        return {'giveback_pct': 0.55, 'giveback_delay_bars': 3,
+                'envelope_halflife_mult': 1.0, 'expected_peak_bar': 0.5}
+
+    # Giveback pct: derived from peak position + monotonicity, NOT efficiency.
+    # ZigZag segments are clean swings (efficiency ≈ 1.0 always), so efficiency
+    # can't differentiate shapes. Instead:
+    #   - Early peak → tight giveback (sharp move reverses quickly)
+    #   - Late peak → loose giveback (steady ramp, pullbacks are normal)
+    #   - Low monotonicity → slightly tighter (choppy = unreliable)
+    peak_positions = []
+    monotonicities = []
+    durations = []
+    n_bars_list = []
+    for s in member_seeds:
+        seg = s.get('segment_close', None)
+        if seg is not None and len(seg) > 2:
+            entry = seg[0]
+            direction = s.get('direction', 'LONG')
+            if direction == 'LONG':
+                shifted = seg - entry
+            else:
+                shifted = entry - seg
+            peak_idx = np.argmax(shifted)
+            peak_positions.append(peak_idx / max(len(seg) - 1, 1))
+            # Monotonicity: fraction of bars moving in favorable direction
+            diffs = np.diff(shifted)
+            mono = np.sum(diffs > 0) / max(len(diffs), 1)
+            monotonicities.append(mono)
+        durations.append(s.get('duration_mins', 5.0))
+        n_bars_list.append(s.get('n_bars', 5))
+
+    if peak_positions:
+        med_peak_pos = float(np.median(peak_positions))
+        med_mono = float(np.median(monotonicities)) if monotonicities else 0.5
+        # Peak position drives base giveback (linear: 0.30 at early peak → 0.80 at late peak)
+        base_gb = 0.30 + med_peak_pos * 0.50
+        # Monotonicity modulates: high mono → loosen, low mono → tighten (±0.05)
+        mono_adj = (med_mono - 0.5) * 0.10
+        giveback_pct = max(0.25, min(0.85, base_gb + mono_adj))
+    else:
+        giveback_pct = 0.55
+
+    # Delay bars: approximate as half the segment length (peak in middle)
+    if n_bars_list:
+        median_bars = float(np.median(n_bars_list))
+        delay_bars = max(1, min(20, int(median_bars * 0.4)))
+    else:
+        delay_bars = 3
+
+    # Envelope halflife multiplier: based on duration relative to global median
+    if durations:
+        global_median_dur = 5.0  # approximate global median
+        median_dur = float(np.median(durations))
+        hl_mult = max(0.3, min(3.0, median_dur / max(global_median_dur, 0.1)))
+    else:
+        hl_mult = 1.0
+
+    # Expected peak bar: fraction through segment where MFE peaks
+    # Approximate from segment shape (find the extreme point)
+    peak_fracs = []
+    for s in member_seeds:
+        seg = s.get('segment_close', None)
+        if seg is not None and len(seg) > 2:
+            entry = seg[0]
+            shifted = seg - entry
+            if s.get('direction') == 'SHORT':
+                shifted = -shifted
+            peak_idx = np.argmax(shifted)
+            peak_fracs.append(peak_idx / max(len(seg) - 1, 1))
+
+    expected_peak_bar = float(np.median(peak_fracs)) if peak_fracs else 0.5
+
+    return {
+        'giveback_pct': round(giveback_pct, 3),
+        'giveback_delay_bars': delay_bars,
+        'envelope_halflife_mult': round(hl_mult, 3),
+        'expected_peak_bar': round(expected_peak_bar, 3),
+    }
+
+
+def build_exit_primitives_from_clusters(seeds, waveforms, labels, embedding,
+                                        tf_label: str,
+                                        bootstrap_results: dict = None) -> list:
+    """Assemble ExitPrimitive objects with calibrated exit parameters."""
     cluster_ids = sorted(set(labels) - {-1})
     primitives = []
 
@@ -645,11 +802,10 @@ def build_primitives(seeds, waveforms, labels, embedding, centroids_16d) -> list
         member_waves = waveforms[member_idx]
         member_embed = embedding[member_idx]
 
-        # Centroid and R2 computed on shape dims only (first 32), not magnitude
+        # Centroid and R2 on shape dims only (first 32)
         shape_waves = member_waves[:, :RESAMPLE_POINTS]
         centroid_wave = np.mean(shape_waves, axis=0)
 
-        # Shape R^2
         if len(shape_waves) > 1:
             ss_res = np.sum((shape_waves - centroid_wave) ** 2)
             ss_tot = np.sum((shape_waves - np.mean(shape_waves)) ** 2)
@@ -657,51 +813,60 @@ def build_primitives(seeds, waveforms, labels, embedding, centroids_16d) -> list
         else:
             r2 = 1.0
 
-        tf_counts = Counter(s['tf'] for s in member_seeds)
-        dominant_tf = tf_counts.most_common(1)[0][0]
-
         n_long = sum(1 for s in member_seeds if s['direction'] == 'LONG')
         direction_bias = n_long / len(member_seeds)
 
         mfes = [abs(s['change_ticks']) for s in member_seeds]
         durations = [s['duration_mins'] for s in member_seeds]
 
-        # Shape distribution from quality filter (if run)
         sh_counts = Counter(s.get('shape', 'UNKNOWN') for s in member_seeds)
         dom_shape = sh_counts.most_common(1)[0][0] if sh_counts else 'UNKNOWN'
         q_scores = [s.get('quality_score', 0.0) for s in member_seeds]
         mean_q = float(np.mean(q_scores)) if q_scores else 0.0
 
-        prim = ShapePrimitive(
+        # Exit calibration
+        exit_params = calibrate_exit_params(member_seeds)
+
+        # Bootstrap info
+        stable = True
+        drift = 0.0
+        if bootstrap_results and cid in bootstrap_results:
+            stable = bootstrap_results[cid]['stable']
+            drift = bootstrap_results[cid].get('drift', 0.0)
+
+        prim = ExitPrimitive(
             primitive_id=cid,
+            tf=tf_label,
             centroid_waveform=centroid_wave.astype(np.float32),
-            centroid_16d=centroids_16d.get(cid, np.zeros(16, dtype=np.float32)),
             n_members=len(member_idx),
-            dominant_tf=dominant_tf,
-            tf_distribution=dict(tf_counts),
+            dominant_shape=dom_shape,
+            shape_distribution=dict(sh_counts),
+            mean_quality_score=mean_q,
             direction_bias=direction_bias,
             mean_mfe_ticks=float(np.mean(mfes)),
-            mean_mae_ticks=0.0,  # Not available from ZigZag alone
+            mean_mae_ticks=0.0,
             mean_duration_mins=float(np.mean(durations)),
             shape_r2=float(r2),
             umap_center=(float(np.mean(member_embed[:, 0])),
                          float(np.mean(member_embed[:, 1]))),
             member_indices=member_idx.tolist(),
-            dominant_shape=dom_shape,
-            shape_distribution=dict(sh_counts),
-            mean_quality_score=mean_q,
-            quality_tier_label=quality_tier(mean_q),
+            bootstrap_stable=stable,
+            centroid_drift=drift,
+            giveback_pct=exit_params['giveback_pct'],
+            giveback_delay_bars=exit_params['giveback_delay_bars'],
+            envelope_halflife_mult=exit_params['envelope_halflife_mult'],
+            expected_peak_bar=exit_params['expected_peak_bar'],
         )
         primitives.append(prim)
 
     return primitives
 
 
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 # Visualization
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 
-def save_umap_plot(embedding, labels, seeds, output_path):
+def save_umap_plot(embedding, labels, seeds, output_path, title_prefix=''):
     """Save UMAP scatter plot colored by cluster, with TF marker shapes."""
     import matplotlib
     matplotlib.use('Agg')
@@ -743,75 +908,261 @@ def save_umap_plot(embedding, labels, seeds, output_path):
     ax.set_xlabel('UMAP 1')
     ax.set_ylabel('UMAP 2')
 
-    plt.suptitle('Shape Primitive Builder — UMAP Embedding', fontsize=14)
+    prefix = f'{title_prefix} ' if title_prefix else ''
+    plt.suptitle(f'{prefix}Shape Primitive Builder - UMAP Embedding', fontsize=14)
     plt.tight_layout()
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
     plt.close()
     print(f"  Plot saved: {output_path}")
 
 
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
+# Quality filter (shared by both paths)
+# ===================================================================
+
+def apply_quality_filter(seeds: list, threshold: float, recalibrate: bool,
+                         seeds_dir: str, data_dir: str) -> list:
+    """Classify shapes and filter by quality score."""
+    q_priors = None
+    if recalibrate:
+        from tools.research.shape_classifier import calibrate_from_human_seeds
+        q_priors = calibrate_from_human_seeds(seeds_dir, data_dir)
+    else:
+        q_priors = load_calibration()
+
+    if q_priors:
+        print(f"  Using calibrated priors ({len(q_priors)} shapes)")
+    else:
+        print(f"  Using default priors (255 human seeds, Jan 5-7 2025)")
+
+    print(f"  Classifying {len(seeds):,} raw swings (threshold={threshold})...")
+
+    filtered_seeds = []
+    shape_counts = defaultdict(int)
+    tier_counts = {'GOLD': 0, 'SILVER': 0, 'BRONZE': 0, 'NOISE': 0}
+
+    for seed in tqdm(seeds, desc='Classifying',
+                     bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'):
+        waveform = seed['waveform_close']
+        entry_idx = seed['lookback_bars']
+        shape, conf, features = classify_shape(waveform, entry_idx)
+
+        score = quality_score(shape, conf, features, priors=q_priors)
+
+        if seed.get('source') == 'human':
+            score = max(score, 0.7)
+
+        seed['shape'] = shape
+        seed['shape_confidence'] = conf
+        seed['quality_score'] = score
+
+        shape_counts[shape] += 1
+        tier = quality_tier(score)
+        tier_counts[tier] += 1
+
+        if score >= threshold:
+            filtered_seeds.append(seed)
+
+    print(f"\n  Shape distribution:")
+    for sh, cnt in sorted(shape_counts.items(), key=lambda x: -x[1]):
+        print(f"    {sh:22s}: {cnt:6,d} ({cnt/len(seeds)*100:5.1f}%)")
+    print(f"\n  Quality tiers:")
+    for tier in ['GOLD', 'SILVER', 'BRONZE', 'NOISE']:
+        cnt = tier_counts[tier]
+        print(f"    {tier:8s}: {cnt:6,d} ({cnt/len(seeds)*100:5.1f}%)")
+    print(f"\n  Kept: {len(filtered_seeds):,} / {len(seeds):,} "
+          f"({len(filtered_seeds)/max(len(seeds),1)*100:.1f}%)")
+
+    return filtered_seeds
+
+
+# ===================================================================
+# Per-TF clustering loop (shared logic)
+# ===================================================================
+
+def run_per_tf_clustering(seeds: list, features_or_waveforms: np.ndarray,
+                          umap_params: dict, hdbscan_params: dict,
+                          conf_z: float, rel_tol: float,
+                          manual_min_cluster: int = 0,
+                          do_bootstrap: bool = True, bootstrap_n: int = 100,
+                          label: str = '') -> Tuple[dict, dict, dict]:
+    """Run per-TF UMAP + HDBSCAN clustering.
+
+    Returns:
+        tf_labels: {tf: labels array}
+        tf_embeddings: {tf: embedding array}
+        tf_seeds_map: {tf: list of seeds}
+        tf_features_map: {tf: features/waveforms array}
+        tf_bootstrap: {tf: bootstrap_results}
+    """
+    tf_seed_groups = defaultdict(list)
+    tf_seed_indices = defaultdict(list)
+    for i, s in enumerate(seeds):
+        tf_seed_groups[s['tf']].append(s)
+        tf_seed_indices[s['tf']].append(i)
+
+    active_tfs = sorted(tf_seed_groups.keys(),
+                        key=lambda t: TF_SECONDS.get(t, 0))
+
+    results = {}  # tf -> {seeds, features, labels, embedding, bootstrap}
+
+    for tf in active_tfs:
+        tf_seeds = tf_seed_groups[tf]
+        tf_idx = tf_seed_indices[tf]
+        tf_feats = features_or_waveforms[tf_idx]
+
+        print(f"\n{'=' * 60}")
+        print(f"  {label} TF: {tf} ({len(tf_seeds):,} seeds)")
+        print(f"{'=' * 60}")
+
+        if len(tf_seeds) < 30:
+            print(f"  Too few seeds, skipping")
+            continue
+
+        # Power analysis
+        if not manual_min_cluster:
+            tf_min_cluster = compute_tf_power_analysis(tf_seeds, rel_tol, conf_z)
+            tf_hdbscan = hdbscan_params.copy()
+            tf_hdbscan['min_cluster_size'] = tf_min_cluster
+            tf_hdbscan['min_samples'] = max(5, tf_min_cluster // 5)
+            print(f"  Power: min_cluster={tf_min_cluster}")
+        else:
+            tf_hdbscan = hdbscan_params.copy()
+            tf_hdbscan['min_cluster_size'] = manual_min_cluster
+
+        # Filter out invalid features (all-zero rows)
+        valid_mask = np.any(tf_feats != 0, axis=1)
+        if not np.all(valid_mask):
+            n_dropped = int(np.sum(~valid_mask))
+            print(f"  Dropped {n_dropped} zero-feature seeds")
+            valid_idx = np.where(valid_mask)[0]
+            tf_seeds = [tf_seeds[i] for i in valid_idx]
+            tf_feats = tf_feats[valid_idx]
+
+        if len(tf_seeds) < tf_hdbscan.get('min_cluster_size', 15) * 2:
+            print(f"  Too few valid seeds for clustering, skipping")
+            continue
+
+        # UMAP
+        tf_umap = umap_params.copy()
+        tf_umap['n_neighbors'] = min(tf_umap['n_neighbors'],
+                                     max(5, len(tf_seeds) - 1))
+        embedding = embed_umap(tf_feats, tf_umap, label=f'{label} {tf}')
+
+        # HDBSCAN
+        labels = cluster_hdbscan(embedding, tf_hdbscan)
+
+        # Bootstrap
+        bootstrap_res = {}
+        if do_bootstrap:
+            bootstrap_res = bootstrap_stability_test(tf_feats, labels,
+                                                      n_bootstrap=bootstrap_n)
+            n_rejected = 0
+            for cid, info in bootstrap_res.items():
+                if not info['stable']:
+                    labels[np.where(labels == cid)] = -1
+                    n_rejected += 1
+            if n_rejected > 0:
+                n_remaining = len(set(labels) - {-1})
+                print(f"  Rejected {n_rejected} unstable -> {n_remaining} remain")
+
+        n_clustered = int(np.sum(labels != -1))
+        n_noise = int(np.sum(labels == -1))
+        n_clusters = len(set(labels) - {-1})
+        print(f"  {tf}: {n_clusters} clusters, {n_clustered:,} clustered, {n_noise:,} noise")
+
+        results[tf] = {
+            'seeds': tf_seeds,
+            'features': tf_feats,
+            'labels': labels,
+            'embedding': embedding,
+            'bootstrap': bootstrap_res,
+        }
+
+    return results
+
+
+# ===================================================================
 # Main
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 
 def main():
-    parser = argparse.ArgumentParser(description='Shape Primitive Builder')
+    parser = argparse.ArgumentParser(description='Two-Stage Shape Primitive Builder')
     parser.add_argument('--data', default='DATA/ATLAS', help='ATLAS data directory')
-    parser.add_argument('--output', default='checkpoints/shape_primitives.pkl',
-                        help='Output pickle path')
-    parser.add_argument('--burn-hours', type=int, default=10,
-                        help='Skip first N hours of dataset (regression warmup)')
-    parser.add_argument('--seeds-dir', default=SEEDS_DIR,
-                        help='Human seeds directory')
-    parser.add_argument('--plot', action='store_true', help='Save UMAP scatter plot')
+    parser.add_argument('--burn-hours', type=int, default=10)
+    parser.add_argument('--seeds-dir', default=SEEDS_DIR)
+
+    # Mode selection
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--entry', action='store_true', help='Build entry primitives only')
+    mode.add_argument('--exit', action='store_true', help='Build exit primitives only')
+    mode.add_argument('--all', action='store_true', default=True,
+                      help='Build both entry and exit primitives (default)')
+
+    parser.add_argument('--plot', action='store_true', help='Save UMAP scatter plots')
     parser.add_argument('--skip-physics', action='store_true',
-                        help='Skip 16D computation (fast test)')
-    parser.add_argument('--quality-threshold', type=float, default=0.3,
-                        help='Minimum quality score to keep (default 0.3, 0=no filter)')
-    parser.add_argument('--no-filter', action='store_true',
-                        help='Disable quality filter (cluster everything)')
-    parser.add_argument('--recalibrate', action='store_true',
-                        help='Recalibrate quality priors from human seeds before filtering')
-    parser.add_argument('--relative-tolerance', type=float, default=0.50,
-                        help='Relative MFE tolerance as fraction (default 0.50 = ±50%%)')
-    parser.add_argument('--confidence', type=float, default=None,
-                        help='Confidence z-score for power analysis (default 1.645 = 90%%)')
-    parser.add_argument('--magnitude-weight', type=float, default=MAGNITUDE_WEIGHT,
-                        help='Weight for magnitude features in UMAP (default 3.0, 0=shape only)')
-    parser.add_argument('--no-bootstrap', action='store_true',
-                        help='Skip bootstrap stability test')
-    parser.add_argument('--bootstrap-n', type=int, default=100,
-                        help='Bootstrap resampling iterations (default 100)')
+                        help='Skip 16D computation (fast test for exit path)')
+
+    # Quality filter
+    parser.add_argument('--quality-threshold', type=float, default=0.3)
+    parser.add_argument('--no-filter', action='store_true')
+    parser.add_argument('--recalibrate', action='store_true')
+
+    # Clustering params
+    parser.add_argument('--relative-tolerance', type=float, default=0.50)
+    parser.add_argument('--confidence', type=float, default=None)
+    parser.add_argument('--magnitude-weight', type=float, default=MAGNITUDE_WEIGHT)
+    parser.add_argument('--geometry-weight', type=float, default=GEOMETRY_WEIGHT)
+    parser.add_argument('--no-bootstrap', action='store_true')
+    parser.add_argument('--bootstrap-n', type=int, default=100)
+
+    # UMAP/HDBSCAN overrides
     parser.add_argument('--umap-neighbors', type=int, default=None)
     parser.add_argument('--umap-min-dist', type=float, default=None)
     parser.add_argument('--hdbscan-min-cluster', type=int, default=None)
     parser.add_argument('--hdbscan-min-samples', type=int, default=None)
+
+    # Output paths
+    parser.add_argument('--entry-output', default='checkpoints/entry_primitives.pkl')
+    parser.add_argument('--exit-output', default='checkpoints/exit_primitives.pkl')
+
     args = parser.parse_args()
 
+    # Resolve mode
+    do_entry = args.entry or (not args.exit)
+    do_exit = args.exit or (not args.entry)
+
     print('=' * 60)
-    print('  SHAPE PRIMITIVE BUILDER')
+    print('  TWO-STAGE SHAPE PRIMITIVE BUILDER')
+    print(f'  Mode: {"ENTRY+EXIT" if (do_entry and do_exit) else "ENTRY" if do_entry else "EXIT"}')
     print('=' * 60)
 
-    umap_params = UMAP_DEFAULTS.copy()
+    conf_z = args.confidence if args.confidence else CONFIDENCE_Z
+
+    # Build UMAP/HDBSCAN param dicts
+    exit_umap_params = UMAP_DEFAULTS.copy()
+    entry_umap_params = UMAP_ENTRY_DEFAULTS.copy()
     if args.umap_neighbors:
-        umap_params['n_neighbors'] = args.umap_neighbors
+        exit_umap_params['n_neighbors'] = args.umap_neighbors
+        entry_umap_params['n_neighbors'] = args.umap_neighbors
     if args.umap_min_dist is not None:
-        umap_params['min_dist'] = args.umap_min_dist
+        exit_umap_params['min_dist'] = args.umap_min_dist
+        entry_umap_params['min_dist'] = args.umap_min_dist
 
     hdbscan_params = HDBSCAN_DEFAULTS.copy()
-    # NOTE: min_cluster_size may be overridden by power analysis below
+    manual_min_cluster = 0
     if args.hdbscan_min_cluster:
         hdbscan_params['min_cluster_size'] = args.hdbscan_min_cluster
+        manual_min_cluster = args.hdbscan_min_cluster
     if args.hdbscan_min_samples:
         hdbscan_params['min_samples'] = args.hdbscan_min_samples
 
-    # ── Step 1: Multi-TF swing detection ──────────────────────
+    # ── Step 1: Multi-TF swing detection (shared) ────────────────
     print(f"\n{'=' * 60}")
     print('  STEP 1: Multi-TF Swing Detection')
     print(f"{'=' * 60}")
     seeds = detect_multi_tf_swings(args.data, burn_hours=args.burn_hours)
 
-    # Step 1b: Human seeds
     if os.path.exists(args.seeds_dir):
         df_1m = load_atlas_tf(args.data, '1m')
         burn_until = float(df_1m['timestamp'].iloc[0]) + args.burn_hours * 3600
@@ -829,222 +1180,237 @@ def main():
     print(f"  By TF:     {dict(sorted(tf_counts.items()))}")
     print(f"  By source: {dict(src_counts)}")
 
-    # ── Step 1c: Shape quality filter ─────────────────────────
+    # ── Step 1c: Shape quality filter (shared) ───────────────────
     if not args.no_filter and args.quality_threshold > 0:
         print(f"\n{'=' * 60}")
         print('  STEP 1c: Shape Quality Filter')
         print(f"{'=' * 60}")
+        seeds = apply_quality_filter(seeds, args.quality_threshold,
+                                     args.recalibrate, args.seeds_dir, args.data)
 
-        # Load calibration if available, or recalibrate
-        q_priors = None
-        if args.recalibrate:
-            from tools.research.shape_classifier import calibrate_from_human_seeds
-            q_priors = calibrate_from_human_seeds(args.seeds_dir, args.data)
-        else:
-            q_priors = load_calibration()
+    if not seeds:
+        print('  No seeds after filtering. Exiting.')
+        return
 
-        if q_priors:
-            print(f"  Using calibrated priors ({len(q_priors)} shapes)")
-        else:
-            print(f"  Using default priors (255 human seeds, Jan 5-7 2025)")
+    # ==============================================================
+    # ENTRY PRIMITIVES
+    # ==============================================================
 
-        print(f"  Classifying {len(seeds):,} raw swings (threshold={args.quality_threshold})...")
-
-        filtered_seeds = []
-        shape_counts = defaultdict(int)
-        tier_counts = {'GOLD': 0, 'SILVER': 0, 'BRONZE': 0, 'NOISE': 0}
-
-        for seed in tqdm(seeds, desc='Classifying',
-                         bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'):
-            waveform = seed['waveform_close']
-            entry_idx = seed['lookback_bars']
-            shape, conf, features = classify_shape(waveform, entry_idx)
-
-            score = quality_score(shape, conf, features, priors=q_priors)
-
-            # Human seeds always pass as GOLD
-            if seed.get('source') == 'human':
-                score = max(score, 0.7)
-
-            seed['shape'] = shape
-            seed['shape_confidence'] = conf
-            seed['quality_score'] = score
-
-            shape_counts[shape] += 1
-            tier = quality_tier(score)
-            tier_counts[tier] += 1
-
-            if score >= args.quality_threshold:
-                filtered_seeds.append(seed)
-
-        print(f"\n  Shape distribution:")
-        for sh, cnt in sorted(shape_counts.items(), key=lambda x: -x[1]):
-            print(f"    {sh:22s}: {cnt:6,d} ({cnt/len(seeds)*100:5.1f}%)")
-        print(f"\n  Quality tiers:")
-        for tier in ['GOLD', 'SILVER', 'BRONZE', 'NOISE']:
-            cnt = tier_counts[tier]
-            print(f"    {tier:8s}: {cnt:6,d} ({cnt/len(seeds)*100:5.1f}%)")
-        print(f"\n  Kept: {len(filtered_seeds):,} / {len(seeds):,} "
-              f"({len(filtered_seeds)/max(len(seeds),1)*100:.1f}%)")
-
-        seeds = filtered_seeds
-
-    # ═══════════════════════════════════════════════════════════
-    # PER-TF CLUSTERING LOOP
-    # Each TF gets its own UMAP + HDBSCAN so shapes aren't drowned
-    # by higher-frequency TFs with more seeds.
-    # ═══════════════════════════════════════════════════════════
-
-    conf_z = args.confidence if args.confidence else CONFIDENCE_Z
-    all_primitives = []
-    total_clustered = 0
-    total_noise = 0
-    next_prim_id = 0
-
-    # Group seeds by TF
-    tf_seed_groups = defaultdict(list)
-    for s in seeds:
-        tf_seed_groups[s['tf']].append(s)
-
-    active_tfs = sorted(tf_seed_groups.keys(),
-                        key=lambda t: TF_SECONDS.get(t, 0))
-
-    for tf in active_tfs:
-        tf_seeds = tf_seed_groups[tf]
+    if do_entry:
         print(f"\n{'=' * 60}")
-        print(f"  TF: {tf} ({len(tf_seeds):,} seeds)")
+        print('  ENTRY PRIMITIVE BUILDER')
+        print(f"  Input: {GEOMETRY_DIM}D lookback geometry (x{args.geometry_weight}) + {CONTEXT_DIM}D context = {ENTRY_DIM}D")
         print(f"{'=' * 60}")
 
-        if len(tf_seeds) < 30:
-            print(f"  Too few seeds, skipping")
-            continue
+        # Step 2b: Compute entry features (6D geometry + 192D context)
+        entry_features, entry_valid = compute_entry_features(
+            seeds, args.data, geometry_weight=args.geometry_weight)
 
-        # ── Power analysis for this TF ─────────────────────────
-        if not args.hdbscan_min_cluster:
-            tf_mfe = np.array([abs(s['change_ticks']) for s in tf_seeds])
-            mu = float(np.mean(tf_mfe))
-            sigma = float(np.std(tf_mfe))
-            cv = sigma / max(mu, 1.0)
-            base_n = (conf_z / args.relative_tolerance) ** 2
-            n_req = max(15, min(500, int(np.ceil(base_n * cv ** 2))))
-            tf_min_cluster = max(15, min(n_req, len(tf_seeds) // 20))
-            tf_hdbscan = hdbscan_params.copy()
-            tf_hdbscan['min_cluster_size'] = tf_min_cluster
-            tf_hdbscan['min_samples'] = max(5, tf_min_cluster // 5)
-            print(f"  Power: CV={cv:.2f}, n_req={n_req}, min_cluster={tf_min_cluster}")
+        # Filter invalid
+        valid_idx = [i for i, v in enumerate(entry_valid) if v]
+        entry_seeds = [seeds[i] for i in valid_idx]
+        entry_feats = entry_features[valid_idx]
+        print(f"  Valid entry seeds: {len(entry_seeds):,} / {len(seeds):,}")
+
+        if len(entry_seeds) < 50:
+            print("  Too few valid entry seeds. Skipping entry primitives.")
         else:
-            tf_hdbscan = hdbscan_params.copy()
+            # Per-TF clustering
+            entry_results = run_per_tf_clustering(
+                entry_seeds, entry_feats,
+                entry_umap_params, hdbscan_params,
+                conf_z, args.relative_tolerance,
+                manual_min_cluster=manual_min_cluster,
+                do_bootstrap=not args.no_bootstrap,
+                bootstrap_n=args.bootstrap_n,
+                label='ENTRY',
+            )
 
-        # ── Normalize ──────────────────────────────────────────
-        waveforms, valid_mask = normalize_waveforms(tf_seeds,
-                                                     magnitude_weight=args.magnitude_weight)
-        valid_idx = [i for i, v in enumerate(valid_mask) if v]
-        if len(valid_idx) < len(tf_seeds):
-            print(f"  Dropped {len(tf_seeds) - len(valid_idx)} flat waveforms")
-            tf_seeds = [tf_seeds[i] for i in valid_idx]
-            waveforms = waveforms[valid_idx]
+            # Build entry primitives
+            all_entry_prims = []
+            total_entry_clustered = 0
+            total_entry_noise = 0
+            next_id = 0
 
-        if len(tf_seeds) < tf_hdbscan.get('min_cluster_size', 15) * 2:
-            print(f"  Too few valid seeds for clustering, skipping")
-            continue
+            for tf, res in sorted(entry_results.items(),
+                                   key=lambda x: TF_SECONDS.get(x[0], 0)):
+                # 16D centroids for K-Means init
+                if args.skip_physics:
+                    centroids_16d = {}
+                else:
+                    centroids_16d = compute_16d_centroids(
+                        res['seeds'], res['labels'], args.data)
 
-        # ── UMAP ───────────────────────────────────────────────
-        # Scale n_neighbors to pool size (can't exceed N-1)
-        tf_umap = umap_params.copy()
-        tf_umap['n_neighbors'] = min(tf_umap['n_neighbors'],
-                                     max(5, len(tf_seeds) - 1))
-        embedding = embed_umap(waveforms, tf_umap)
+                prims = build_entry_primitives_from_clusters(
+                    res['seeds'], res['features'], res['labels'],
+                    res['embedding'], centroids_16d, tf,
+                    bootstrap_results=res['bootstrap'])
 
-        # ── HDBSCAN ────────────────────────────────────────────
-        labels = cluster_hdbscan(embedding, tf_hdbscan)
+                for p in prims:
+                    p.primitive_id = next_id
+                    next_id += 1
 
-        # ── Bootstrap ──────────────────────────────────────────
-        if not args.no_bootstrap:
-            stability = bootstrap_stability_test(waveforms, labels,
-                                                 n_bootstrap=args.bootstrap_n)
-            n_rejected = 0
-            for cid, info in stability.items():
-                if not info['stable']:
-                    labels[np.where(labels == cid)] = -1
-                    n_rejected += 1
-            if n_rejected > 0:
-                n_remaining = len(set(labels) - {-1})
-                print(f"  Rejected {n_rejected} unstable → {n_remaining} remain")
+                total_entry_clustered += int(np.sum(res['labels'] != -1))
+                total_entry_noise += int(np.sum(res['labels'] == -1))
+                all_entry_prims.extend(prims)
 
-        # ── 16D centroids ──────────────────────────────────────
-        if args.skip_physics:
-            centroids_16d = {}
+            # Fit StandardScaler on all valid entry features for runtime matching
+            from sklearn.preprocessing import StandardScaler
+            entry_scaler = StandardScaler()
+            entry_scaler.fit(entry_feats)
+
+            entry_library = EntryPrimitiveLibrary(
+                primitives=all_entry_prims,
+                created_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                n_total_seeds=len(entry_seeds),
+                n_clustered_seeds=total_entry_clustered,
+                n_noise_seeds=total_entry_noise,
+                umap_params=entry_umap_params,
+                hdbscan_params=hdbscan_params,
+                tf_params={tf: get_zigzag_params(tf) for tf in SWING_TFS},
+                context_scaler=entry_scaler,
+            )
+
+            os.makedirs(os.path.dirname(args.entry_output) or '.', exist_ok=True)
+            with open(args.entry_output, 'wb') as f:
+                pickle.dump(entry_library, f)
+            print(f"\n  Saved entry primitives: {args.entry_output}")
+
+            # Summary
+            print(f"\n{'=' * 60}")
+            print('  ENTRY PRIMITIVE SUMMARY')
+            print(f"{'=' * 60}")
+            print(f"  Total seeds:     {len(entry_seeds):,}")
+            print(f"  Clustered:       {total_entry_clustered:,}")
+            print(f"  Noise:           {total_entry_noise:,}")
+            print(f"  Primitives:      {len(all_entry_prims)}")
+
+            tf_prim_counts = Counter(p.tf for p in all_entry_prims)
+            for tf in sorted(tf_prim_counts.keys(),
+                             key=lambda t: TF_SECONDS.get(t, 0)):
+                print(f"    {tf:>5s}: {tf_prim_counts[tf]:4d} primitives")
+
+            for p in sorted(all_entry_prims, key=lambda x: x.n_members, reverse=True)[:15]:
+                bias = max(p.direction_bias, 1 - p.direction_bias)
+                dir_label = 'LONG' if p.direction_bias > 0.5 else 'SHORT'
+                print(f"  #{p.primitive_id:3d}: {p.n_members:6,d} members | {p.tf:4s} | "
+                      f"{p.dominant_shape:16s} | "
+                      f"{dir_label} {bias * 100:4.0f}% | R2={p.shape_r2:.3f} | "
+                      f"MFE={p.mean_mfe_ticks:5.0f}t | {p.mean_duration_mins:5.1f}m")
+
+            # Plot
+            if args.plot:
+                for tf, res in entry_results.items():
+                    plot_path = f"checkpoints/umap_entry_{tf}.png"
+                    save_umap_plot(res['embedding'], res['labels'],
+                                   res['seeds'], plot_path,
+                                   title_prefix=f'Entry {tf}')
+
+    # ==============================================================
+    # EXIT PRIMITIVES
+    # ==============================================================
+
+    if do_exit:
+        print(f"\n{'=' * 60}")
+        print('  EXIT PRIMITIVE BUILDER')
+        print(f"  Input: {SEGMENT_DIM}D shape + {MAGNITUDE_DIM}D magnitude = {EXIT_DIM}D")
+        print(f"{'=' * 60}")
+
+        # Step 2a: Normalize segments
+        exit_waveforms, exit_valid = normalize_segments(
+            seeds, magnitude_weight=args.magnitude_weight)
+
+        valid_idx = [i for i, v in enumerate(exit_valid) if v]
+        exit_seeds = [seeds[i] for i in valid_idx]
+        exit_waves = exit_waveforms[valid_idx]
+        print(f"  Valid exit seeds: {len(exit_seeds):,} / {len(seeds):,}")
+
+        if len(exit_seeds) < 50:
+            print("  Too few valid exit seeds. Skipping exit primitives.")
         else:
-            centroids_16d = compute_16d_centroids(tf_seeds, labels, args.data)
+            # Per-TF clustering
+            exit_results = run_per_tf_clustering(
+                exit_seeds, exit_waves,
+                exit_umap_params, hdbscan_params,
+                conf_z, args.relative_tolerance,
+                manual_min_cluster=manual_min_cluster,
+                do_bootstrap=not args.no_bootstrap,
+                bootstrap_n=args.bootstrap_n,
+                label='EXIT',
+            )
 
-        # ── Build primitives for this TF ───────────────────────
-        for s in tf_seeds:
-            s.pop('waveform_close', None)
+            # Build exit primitives
+            all_exit_prims = []
+            total_exit_clustered = 0
+            total_exit_noise = 0
+            next_id = 0
 
-        tf_prims = build_primitives(tf_seeds, waveforms, labels,
-                                    embedding, centroids_16d)
+            for tf, res in sorted(exit_results.items(),
+                                   key=lambda x: TF_SECONDS.get(x[0], 0)):
+                prims = build_exit_primitives_from_clusters(
+                    res['seeds'], res['features'], res['labels'],
+                    res['embedding'], tf,
+                    bootstrap_results=res['bootstrap'])
 
-        # Renumber primitive IDs globally
-        for p in tf_prims:
-            p.primitive_id = next_prim_id
-            next_prim_id += 1
+                for p in prims:
+                    p.primitive_id = next_id
+                    next_id += 1
 
-        tf_clustered = int(np.sum(labels != -1))
-        tf_noise = int(np.sum(labels == -1))
-        total_clustered += tf_clustered
-        total_noise += tf_noise
-        all_primitives.extend(tf_prims)
+                total_exit_clustered += int(np.sum(res['labels'] != -1))
+                total_exit_noise += int(np.sum(res['labels'] == -1))
+                all_exit_prims.extend(prims)
 
-        print(f"  {tf}: {len(tf_prims)} primitives, "
-              f"{tf_clustered:,} clustered, {tf_noise:,} noise")
+            exit_library = ExitPrimitiveLibrary(
+                primitives=all_exit_prims,
+                created_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                n_total_seeds=len(exit_seeds),
+                n_clustered_seeds=total_exit_clustered,
+                n_noise_seeds=total_exit_noise,
+                umap_params=exit_umap_params,
+                hdbscan_params=hdbscan_params,
+                tf_params={tf: get_zigzag_params(tf) for tf in SWING_TFS},
+            )
 
-    # ═══════════════════════════════════════════════════════════
-    # Save library
-    # ═══════════════════════════════════════════════════════════
+            os.makedirs(os.path.dirname(args.exit_output) or '.', exist_ok=True)
+            with open(args.exit_output, 'wb') as f:
+                pickle.dump(exit_library, f)
+            print(f"\n  Saved exit primitives: {args.exit_output}")
 
-    tf_zz_params = {tf: get_zigzag_params(tf) for tf in SWING_TFS}
+            # Summary
+            print(f"\n{'=' * 60}")
+            print('  EXIT PRIMITIVE SUMMARY')
+            print(f"{'=' * 60}")
+            print(f"  Total seeds:     {len(exit_seeds):,}")
+            print(f"  Clustered:       {total_exit_clustered:,}")
+            print(f"  Noise:           {total_exit_noise:,}")
+            print(f"  Primitives:      {len(all_exit_prims)}")
 
-    library = ShapePrimitiveLibrary(
-        primitives=all_primitives,
-        created_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        n_total_seeds=len(seeds),
-        n_clustered_seeds=total_clustered,
-        n_noise_seeds=total_noise,
-        umap_params=umap_params,
-        hdbscan_params=hdbscan_params,
-        tf_params=tf_zz_params,
-    )
+            tf_prim_counts = Counter(p.tf for p in all_exit_prims)
+            for tf in sorted(tf_prim_counts.keys(),
+                             key=lambda t: TF_SECONDS.get(t, 0)):
+                print(f"    {tf:>5s}: {tf_prim_counts[tf]:4d} primitives")
 
-    os.makedirs(os.path.dirname(args.output) or '.', exist_ok=True)
-    with open(args.output, 'wb') as f:
-        pickle.dump(library, f)
-    print(f"\n  Saved: {args.output}")
+            for p in sorted(all_exit_prims, key=lambda x: x.n_members, reverse=True)[:15]:
+                bias = max(p.direction_bias, 1 - p.direction_bias)
+                dir_label = 'LONG' if p.direction_bias > 0.5 else 'SHORT'
+                print(f"  #{p.primitive_id:3d}: {p.n_members:6,d} members | {p.tf:4s} | "
+                      f"{p.dominant_shape:16s} | "
+                      f"{dir_label} {bias * 100:4.0f}% | R2={p.shape_r2:.3f} | "
+                      f"MFE={p.mean_mfe_ticks:5.0f}t | {p.mean_duration_mins:5.1f}m | "
+                      f"GB={p.giveback_pct:.0%} delay={p.giveback_delay_bars}b "
+                      f"HL={p.envelope_halflife_mult:.2f}x peak@{p.expected_peak_bar:.0%}")
 
-    # ── Summary ──────────────────────────────────────────────
+            # Plot
+            if args.plot:
+                for tf, res in exit_results.items():
+                    plot_path = f"checkpoints/umap_exit_{tf}.png"
+                    save_umap_plot(res['embedding'], res['labels'],
+                                   res['seeds'], plot_path,
+                                   title_prefix=f'Exit {tf}')
+
     print(f"\n{'=' * 60}")
-    print('  SHAPE PRIMITIVE SUMMARY')
+    print('  DONE')
     print(f"{'=' * 60}")
-    print(f"  Total seeds:     {len(seeds):,}")
-    print(f"  Clustered:       {total_clustered:,} ({total_clustered / max(len(seeds),1) * 100:.1f}%)")
-    print(f"  Noise:           {total_noise:,} ({total_noise / max(len(seeds),1) * 100:.1f}%)")
-    print(f"  Primitives:      {len(all_primitives)}")
-    print()
-
-    # Per-TF summary
-    tf_prim_counts = Counter(p.dominant_tf for p in all_primitives)
-    for tf in active_tfs:
-        cnt = tf_prim_counts.get(tf, 0)
-        if cnt > 0:
-            print(f"    {tf:>5s}: {cnt:4d} primitives")
-    print()
-
-    for p in sorted(all_primitives, key=lambda x: x.n_members, reverse=True)[:20]:
-        bias = max(p.direction_bias, 1 - p.direction_bias)
-        dir_label = 'LONG' if p.direction_bias > 0.5 else 'SHORT'
-        print(f"  #{p.primitive_id:3d}: {p.n_members:6,d} members | {p.dominant_tf:4s} | "
-              f"{p.dominant_shape:16s} | {p.quality_tier_label:6s} Q={p.mean_quality_score:.2f} | "
-              f"{dir_label} {bias * 100:4.0f}% | R2={p.shape_r2:.3f} | "
-              f"MFE={p.mean_mfe_ticks:5.0f}t | {p.mean_duration_mins:5.1f}m")
 
 
 if __name__ == '__main__':
