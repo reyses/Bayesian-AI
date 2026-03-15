@@ -66,7 +66,12 @@ def load_checkpoints(checkpoint_dir: str, *, verbose: bool = True) -> Checkpoint
     if os.path.exists(scaler_path):
         with open(scaler_path, 'rb') as f:
             scaler = pickle.load(f)
-        _log(f"  Loaded scaler: {scaler.mean_.shape[0] if hasattr(scaler, 'mean_') else '?'} features")
+        _n_feat = scaler.mean_.shape[0] if hasattr(scaler, 'mean_') else '?'
+        _log(f"  Loaded scaler: {_n_feat} features")
+        if isinstance(_n_feat, int) and _n_feat not in (16, 22):
+            logger.warning(f"  ⚠ Unexpected scaler dimensionality: {_n_feat} (expected 16 or 22)")
+        if isinstance(_n_feat, int) and _n_feat == 22:
+            _log(f"  ℹ Scaler expects 22D (--lookback mode) — features will be auto-padded if needed")
     else:
         # Fallback: fit on library centroids (identity-like transform)
         from sklearn.preprocessing import StandardScaler
