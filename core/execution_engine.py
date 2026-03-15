@@ -1007,14 +1007,25 @@ class ExecutionEngine:
                         trade_side: str = None,
                         template_id: int = None,
                         state=None) -> Tuple[float, float, float, float]:
-        """Compute SL, TP, trail, trail activation from template stats."""
+        """Compute SL, TP, trail, trail activation from template stats.
+
+        Oracle stats (MAE/MFE) are computed in the discovery TF (e.g. 30m bars).
+        Execution happens on 15s bars. We scale by sqrt(tf_ratio) because price
+        excursion scales with sqrt(time) under diffusion (volatility scaling).
+        """
         _cfg = self.config
-        _reg_sigma = lib_entry.get('regression_sigma_ticks', 0.0)
-        _mean_mae = lib_entry.get('mean_mae_ticks', 0.0)
-        _p75_mfe = lib_entry.get('p75_mfe_ticks', 0.0)
-        _p25_mae = lib_entry.get('p25_mae_ticks', 0.0)
-        _p95_mae = lib_entry.get('p95_mae_ticks', 0.0)
-        _mae_std = lib_entry.get('mae_std_ticks', 0.0)
+        _EXEC_TF_SEC = 15.0  # execution timeframe
+        _disc_tf = lib_entry.get('discovery_tf_seconds', _EXEC_TF_SEC)
+        _tf_ratio = _disc_tf / _EXEC_TF_SEC
+        # Sqrt scaling: MAE ~ sqrt(T), so scale down by sqrt(ratio)
+        _tf_scale = _tf_ratio ** 0.5 if _tf_ratio > 1.0 else 1.0
+
+        _reg_sigma = lib_entry.get('regression_sigma_ticks', 0.0) / _tf_scale
+        _mean_mae = lib_entry.get('mean_mae_ticks', 0.0) / _tf_scale
+        _p75_mfe = lib_entry.get('p75_mfe_ticks', 0.0) / _tf_scale
+        _p25_mae = lib_entry.get('p25_mae_ticks', 0.0) / _tf_scale
+        _p95_mae = lib_entry.get('p95_mae_ticks', 0.0) / _tf_scale
+        _mae_std = lib_entry.get('mae_std_ticks', 0.0) / _tf_scale
         params = lib_entry.get('params', {})
 
         # Phase 1: initial hard stop — tolerance interval from MAE distribution
@@ -1023,12 +1034,14 @@ class ExecutionEngine:
         if _p95_mae > _cfg.significance_threshold:
             sl_ticks = max(_cfg.sl_min_ticks, int(round(_p95_mae * _cfg.sl_tolerance_mult)))
         elif _mean_mae > _cfg.significance_threshold and _mae_std > 0:
-            # Fallback: mean + k*σ (k=2 ≈ 97.5th percentile)
+            # Fallback: mean + k*σ (k=5 ≈ 99.99994%)
             sl_ticks = max(_cfg.sl_min_ticks, int(round((_mean_mae + _cfg.sl_tolerance_k * _mae_std) * _cfg.sl_tolerance_mult)))
         elif _mean_mae > _cfg.significance_threshold:
             sl_ticks = max(_cfg.sl_min_ticks, int(round(_mean_mae * _cfg.sl_mean_mae_mult)))
         else:
             sl_ticks = params.get('stop_loss_ticks', _cfg.sl_default_ticks)
+        # Hard cap: prevents runaway SL from unscaled/extreme TF stats
+        sl_ticks = min(sl_ticks, _cfg.sl_max_ticks)
 
         # Phase 2: trailing stop distance
         if _reg_sigma > _cfg.significance_threshold:
