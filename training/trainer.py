@@ -6110,11 +6110,16 @@ def main():
             at_line_start = True
         return ''.join(stamped), at_line_start
 
-    class _Tee(io.TextIOWrapper):
+    class _Tee:
+        """Tee stdout to file + terminal with timestamps. Plain class (not
+        io.TextIOWrapper — inheriting without super().__init__() deadlocks
+        when tqdm or logging probe uninitialized parent attributes)."""
         def __init__(self, log_path):
             self._file = open(log_path, 'a', encoding='utf-8', buffering=1)
             self._stdout = sys.stdout
             self._at_line_start = True
+            self.encoding = getattr(self._stdout, 'encoding', 'utf-8')
+            self.errors = getattr(self._stdout, 'errors', 'replace')
         def write(self, data):
             if not data:
                 return 0
@@ -6132,6 +6137,10 @@ def main():
             return self._stdout.isatty()
         def fileno(self):
             return self._stdout.fileno()
+        def writable(self):
+            return True
+        def readable(self):
+            return False
 
     os.makedirs(args.checkpoint_dir, exist_ok=True)
     log_path = os.path.join(args.checkpoint_dir, 'training_log.txt')
@@ -6415,33 +6424,13 @@ def main():
                 # Comparison: OOS1 vs OOS2
                 _print_oos_comparison(_oos1, _oos2)
 
-                # OOS3: Live Mode Validation (bar-by-bar via BarProcessor)
-                # Same OOS data, same warmed brain/TBN, but processed bar-by-bar
-                # like NT8 feeds data. Validates parity before going live.
-                print("\n" + "=" * 80)
-                print("  OOS3: LIVE MODE VALIDATION (bar-by-bar via BarProcessor)")
-                print("=" * 80)
-                orchestrator.run_forward_pass(_oos_path,
-                                              start_date=args.forward_start,
-                                              end_date=_oos_end,
-                                              bias_threshold=args.bias_threshold,
-                                              dmi_threshold=args.dmi_threshold,
-                                              oos_mode=True,
-                                              account_size=args.account_size,
-                                              tier_preference=True,
-                                              live_validation_days=5,
-                                              popup_label='oos3')
-                _oos3 = dict(orchestrator._fp_summary)
-
-                # Comparison: OOS2 vs OOS3 (inline vs BarProcessor)
-                print("\n  OOS2 vs OOS3 (inline vs BarProcessor):")
-                for _k in ['trades', 'win_rate', 'total_pnl', 'avg_trade']:
-                    _v2 = _oos2.get(_k, 0)
-                    _v3 = _oos3.get(_k, 0)
-                    if isinstance(_v2, float):
-                        print(f"    {_k:20s}  OOS2={_v2:>10.2f}  OOS3={_v3:>10.2f}  delta={_v3-_v2:>+10.2f}")
-                    else:
-                        print(f"    {_k:20s}  OOS2={_v2:>10}  OOS3={_v3:>10}  delta={_v3-_v2:>+10}")
+                # OOS3: BarProcessor parity (standalone — only last 5 days)
+                orchestrator.run_oos3_standalone(
+                    data_source=_oos_path,
+                    n_days=5,
+                    bias_threshold=args.bias_threshold,
+                    dmi_threshold=args.dmi_threshold,
+                    account_size=args.account_size)
 
                 # Save warmed brain for live handoff
                 _live_brain_path = os.path.join(orchestrator.checkpoint_dir, 'live_brain.pkl')
@@ -6450,13 +6439,8 @@ def main():
 
                 # Verdict
                 print("\n" + "=" * 80)
-                print("  PIPELINE COMPLETE — OOS3 VERDICT")
-                print("=" * 80)
-                _oos3_trades = _oos3.get('total_trades', _oos3.get('trades', 0))
-                _oos3_wr = _oos3.get('win_rate', 0)
-                _oos3_pnl = _oos3.get('total_pnl', 0)
-                print(f"  OOS3: {_oos3_trades} trades, {_oos3_wr:.1%} WR, ${_oos3_pnl:+,.2f}")
-                print(f"\n  Brain saved to: {_live_brain_path}")
+                print("  PIPELINE COMPLETE")
+                print(f"  Brain saved to: {_live_brain_path}")
                 print(f"\n  NEXT STEP (manual):")
                 print(f"    python -m live.launcher")
                 print(f"    NT8 account controls sim vs real money.")
@@ -6563,31 +6547,13 @@ def main():
                     # Comparison: OOS1 vs OOS2
                     _print_oos_comparison(_oos1, _oos2)
 
-                # OOS3: Live Mode Validation (bar-by-bar via BarProcessor)
-                print("\n" + "=" * 80)
-                print("  OOS3: LIVE MODE VALIDATION (bar-by-bar via BarProcessor)")
-                print("=" * 80)
-                orchestrator.run_forward_pass(_oos_path,
-                                              start_date=args.forward_start,
-                                              end_date=_oos_end,
-                                              bias_threshold=args.bias_threshold,
-                                              dmi_threshold=args.dmi_threshold,
-                                              oos_mode=True,
-                                              account_size=getattr(args, 'account_size', 0.0),
-                                              tier_preference=True,
-                                              live_validation_days=5,
-                                              popup_label='oos3')
-                _oos3 = dict(orchestrator._fp_summary)
-
-                # Comparison: OOS2 vs OOS3 (inline vs BarProcessor)
-                print("\n  OOS2 vs OOS3 (inline vs BarProcessor):")
-                for _k in ['trades', 'win_rate', 'total_pnl', 'avg_trade']:
-                    _v2 = _oos2.get(_k, 0)
-                    _v3 = _oos3.get(_k, 0)
-                    if isinstance(_v2, float):
-                        print(f"    {_k:20s}  OOS2={_v2:>10.2f}  OOS3={_v3:>10.2f}  delta={_v3-_v2:>+10.2f}")
-                    else:
-                        print(f"    {_k:20s}  OOS2={_v2:>10}  OOS3={_v3:>10}  delta={_v3-_v2:>+10}")
+                # OOS3: BarProcessor parity (standalone — only processes last 5 days)
+                orchestrator.run_oos3_standalone(
+                    data_source=_oos_path,
+                    n_days=5,
+                    bias_threshold=args.bias_threshold,
+                    dmi_threshold=args.dmi_threshold,
+                    account_size=getattr(args, 'account_size', 0.0))
 
                 # Save warmed brain for live handoff
                 _live_brain_path = os.path.join(orchestrator.checkpoint_dir, 'live_brain.pkl')
@@ -6596,13 +6562,8 @@ def main():
 
                 # Verdict
                 print("\n" + "=" * 80)
-                print("  PIPELINE COMPLETE — OOS3 VERDICT")
-                print("=" * 80)
-                _oos3_trades = _oos3.get('total_trades', _oos3.get('trades', 0))
-                _oos3_wr = _oos3.get('win_rate', 0)
-                _oos3_pnl = _oos3.get('total_pnl', 0)
-                print(f"  OOS3: {_oos3_trades} trades, {_oos3_wr:.1%} WR, ${_oos3_pnl:+,.2f}")
-                print(f"\n  Brain saved to: {_live_brain_path}")
+                print("  PIPELINE COMPLETE")
+                print(f"  Brain saved to: {_live_brain_path}")
                 print(f"\n  NEXT STEP (manual):")
                 print(f"    python -m live.launcher")
                 print(f"    NT8 account controls sim vs real money.")
