@@ -80,6 +80,10 @@ class EnvelopeDecay:
             anchor_progress = pos.bars_held / pos.anchor_mfe_bars
             hl_mult *= (self._anchor_patience_max - anchor_progress)
 
+        # Shape primitive halflife modulation (from exit primitive calibration)
+        if pos.envelope_halflife_mult != 1.0:
+            hl_mult *= pos.envelope_halflife_mult
+
         effective_hl = base_hl * max(self._hl_mult_floor, hl_mult)
 
         # ADX slope modulation: rising trend → slow decay, falling → speed up

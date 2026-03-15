@@ -73,6 +73,9 @@ class PatternEvent:
     window_data: Optional[pd.DataFrame] = None
     parent_chain: Optional[List[Dict]] = None  # Full ancestry chain
 
+    # 10-bar lookback closes for 22D clustering (optional, populated when --lookback)
+    lookback_closes: Optional[np.ndarray] = None
+
     # THE ORACLE FACT (Hidden from Clustering, Visible to Audit)
     oracle_marker: int = 0                  # MARKER_* constants from oracle_config
     oracle_meta: Dict = field(default_factory=dict)  # {'mfe': float, 'mae': float, 'lookahead_bars': int}
@@ -525,6 +528,10 @@ class FractalDiscoveryAgent:
             # --- Consult Oracle ---
             marker, meta = self._consult_oracle(combined, bar_idx, timeframe, self.tick_size)
 
+            # 10-bar lookback closes for 22D clustering
+            _lb_start = max(0, bar_idx - 10)
+            _lb_closes = combined['close'].iloc[_lb_start:bar_idx].values if bar_idx >= 3 else None
+
             if state.cascade_detected:
                 detected.append(PatternEvent(
                     pattern_type='BAND_REVERSAL', timestamp=state.timestamp,
@@ -533,6 +540,7 @@ class FractalDiscoveryAgent:
                     entropy_normalized=state.entropy_normalized, file_source=file_path, idx=bar_idx,
                     state=state, timeframe=timeframe, depth=depth,
                     parent_type='', parent_tf='', window_data=window_slice,
+                    lookback_closes=_lb_closes,
                     oracle_marker=marker, oracle_meta=meta
                 ))
 
@@ -544,6 +552,7 @@ class FractalDiscoveryAgent:
                     entropy_normalized=state.entropy_normalized, file_source=file_path, idx=bar_idx,
                     state=state, timeframe=timeframe, depth=depth,
                     parent_type='', parent_tf='', window_data=window_slice,
+                    lookback_closes=_lb_closes,
                     oracle_marker=marker, oracle_meta=meta
                 ))
 
@@ -658,6 +667,10 @@ class FractalDiscoveryAgent:
             # --- Consult Oracle ---
             marker, meta = self._consult_oracle(combined, bar_idx, timeframe, self.tick_size)
 
+            # 10-bar lookback closes for 22D clustering
+            _lb_start = max(0, bar_idx - 10)
+            _lb_closes = combined['close'].iloc[_lb_start:bar_idx].values if bar_idx >= 3 else None
+
             if state.cascade_detected:
                 detected.append(PatternEvent(
                     pattern_type='BAND_REVERSAL', timestamp=state.timestamp,
@@ -666,7 +679,7 @@ class FractalDiscoveryAgent:
                     entropy_normalized=state.entropy_normalized, file_source=file_path, idx=bar_idx,
                     state=state, timeframe=timeframe, depth=depth,
                     parent_type=p_type, parent_tf=p_tf, window_data=window_slice,
-                    parent_chain=p_chain,
+                    parent_chain=p_chain, lookback_closes=_lb_closes,
                     oracle_marker=marker, oracle_meta=meta
                 ))
 
@@ -678,7 +691,7 @@ class FractalDiscoveryAgent:
                     entropy_normalized=state.entropy_normalized, file_source=file_path, idx=bar_idx,
                     state=state, timeframe=timeframe, depth=depth,
                     parent_type=p_type, parent_tf=p_tf, window_data=window_slice,
-                    parent_chain=p_chain,
+                    parent_chain=p_chain, lookback_closes=_lb_closes,
                     oracle_marker=marker, oracle_meta=meta
                 ))
 
@@ -803,6 +816,10 @@ class FractalDiscoveryAgent:
             # --- Consult Oracle ---
             marker, meta = self._consult_oracle(df, bar_idx, timeframe, self.tick_size)
 
+            # 10-bar lookback closes for 22D clustering
+            _lb_start = max(0, bar_idx - 10)
+            _lb_closes = df['close'].iloc[_lb_start:bar_idx].values if bar_idx >= 3 else None
+
             if state.cascade_detected:
                 detected.append(PatternEvent(
                     pattern_type='BAND_REVERSAL', timestamp=state.timestamp,
@@ -810,6 +827,7 @@ class FractalDiscoveryAgent:
                     velocity=state.velocity, momentum=state.momentum_strength,
                     entropy_normalized=state.entropy_normalized, file_source=file_path, idx=bar_idx,
                     state=state, timeframe=timeframe, window_data=window_slice,
+                    lookback_closes=_lb_closes,
                     oracle_marker=marker, oracle_meta=meta
                 ))
 
@@ -820,6 +838,7 @@ class FractalDiscoveryAgent:
                     velocity=state.velocity, momentum=state.momentum_strength,
                     entropy_normalized=state.entropy_normalized, file_source=file_path, idx=bar_idx,
                     state=state, timeframe=timeframe, window_data=window_slice,
+                    lookback_closes=_lb_closes,
                     oracle_marker=marker, oracle_meta=meta
                 ))
 

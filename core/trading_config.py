@@ -172,7 +172,9 @@ class TradingConfig:
     sl_p25_mae_mult: float = 3.0
     sl_mean_mae_mult: float = 2.0
     sl_default_ticks: float = 20.0
-    sl_min_ticks: float = 4.0
+    sl_min_ticks: float = 20.0  # absolute minimum floor (rarely hit with tolerance interval)
+    sl_tolerance_mult: float = 1.0  # multiplier on p95 MAE tolerance interval (>1 = wider, <1 = tighter)
+    sl_tolerance_k: float = 5.0    # fallback: mean + k*std when p95 unavailable (5σ ≈ 99.99994%)
     tp_min_ticks: float = 4.0
     tp_default_ticks: float = 50.0
     trail_sigma_mult: float = 1.1

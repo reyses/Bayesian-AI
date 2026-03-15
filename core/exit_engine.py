@@ -68,6 +68,7 @@ class PositionState:
     # Dynamic state (updated each bar)
     peak_favorable: float = 0.0
     bars_held: int = 0
+    bars_since_peak: int = 0        # bars since last new MFE — V-reversal detector
     breakeven_locked: bool = False
     envelope_active: bool = False
     envelope_level: float = 0.0
@@ -85,6 +86,16 @@ class PositionState:
     # Anchor: expected trade outcome (price + time)
     anchor_mfe_ticks: float = 0.0   # template p75_mfe, brain-adjusted
     anchor_mfe_bars: float = 0.0    # template avg_mfe_bar, brain-adjusted
+
+    # Shape primitive tracking (two-stage primitives)
+    entry_primitive_id: Optional[int] = None
+    exit_primitive_id: Optional[int] = None
+    exit_primitive_confidence: float = 0.0
+    envelope_halflife_mult: float = 1.0   # from exit primitive or --shapes calibration
+
+    # Template shape calibration (from --shapes flag, set at open_position)
+    # Dict with: giveback_pct, delay_bars, hl_mult, peak_bar. None = not calibrated.
+    template_shape_params: Optional[Dict] = None
 
 
 class ExitEngine:
@@ -104,11 +115,15 @@ class ExitEngine:
         tick_size: float = 0.25,
         tick_value: float = 0.50,
         config=None,
+        exit_primitives=None,
+        min_hold_bars: int = 0,
     ):
         assert mode in ('training', 'live'), f"Invalid mode: {mode}"
         self.mode = mode
         self.tick_size = tick_size
         self.tick_value = tick_value
+        self._exit_primitives = exit_primitives  # ExitPrimitiveLibrary or None
+        self.min_hold_bars = min_hold_bars  # 0 = disabled; suppresses non-reversal exits
 
         # Lazy import to avoid circular deps
         if config is None:
@@ -262,12 +277,16 @@ class ExitEngine:
         trail_activation_ticks: float = 0.0,
         max_hold_bars: int = 120,
         lib_entry: dict = None,
+        entry_primitive_id: int = None,
     ) -> PositionState:
         """Initialize a new position with pre-computed exit parameters."""
         if lib_entry:
             _p75_bar = lib_entry.get('p75_mfe_bar', 0.0)
             if _p75_bar > 0:
-                max_hold_bars = int(_p75_bar * self.config.timescale_urgent_mult)
+                # Convert discovery TF bars to 15s execution bars
+                _disc_tf_sec = lib_entry.get('discovery_tf_seconds', 15.0)
+                _p75_bar_exec = _p75_bar * (_disc_tf_sec / 15.0)
+                max_hold_bars = int(_p75_bar_exec * self.config.timescale_urgent_mult)
             else:
                 max_hold_bars = lib_entry.get('max_hold_bars', max_hold_bars)
 
@@ -276,6 +295,23 @@ class ExitEngine:
         if lib_entry:
             _anchor_mfe = lib_entry.get('p75_mfe_ticks', 0.0)
             _anchor_bars = lib_entry.get('avg_mfe_bar', 0.0)
+            # Convert bar-based stats from discovery TF to 15s execution TF
+            _disc_tf_sec = lib_entry.get('discovery_tf_seconds', 15.0)
+            _tf_ratio = _disc_tf_sec / 15.0  # e.g., 1m=4x, 5m=20x
+            if _tf_ratio > 1.0 and _anchor_bars > 0:
+                _anchor_bars = _anchor_bars * _tf_ratio
+
+        # Template shape calibration (from --shapes)
+        _tsp = None
+        _hl_mult = 1.0
+        if lib_entry and lib_entry.get('shape_giveback_pct') is not None:
+            _disc_tf_sec = lib_entry.get('discovery_tf_seconds', 15.0)
+            _tf_ratio = _disc_tf_sec / 15.0
+            _tsp = {
+                'giveback_pct': lib_entry['shape_giveback_pct'],
+                'delay_bars': lib_entry.get('shape_delay_bars', 3) * _tf_ratio,
+            }
+            _hl_mult = lib_entry.get('shape_envelope_hl_mult', 1.0)
 
         pos = PositionState(
             side=side,
@@ -291,8 +327,13 @@ class ExitEngine:
             max_hold_bars=max_hold_bars,
             anchor_mfe_ticks=float(_anchor_mfe),
             anchor_mfe_bars=float(_anchor_bars),
+            template_shape_params=_tsp,
+            envelope_halflife_mult=_hl_mult,
         )
 
+        # Min-hold experiment: SL is last resort if all reversal exits fail — wide floor
+        if self.min_hold_bars > 0:
+            sl_ticks = max(sl_ticks, 40.0)
         _sd = sl_ticks * self.tick_size
         _td = tp_ticks * self.tick_size
         if side == 'long':
@@ -309,6 +350,9 @@ class ExitEngine:
 
         import time as _time
         pos.entry_time = _time.time()
+
+        if entry_primitive_id is not None:
+            pos.entry_primitive_id = entry_primitive_id
 
         return pos
 
@@ -353,65 +397,127 @@ class ExitEngine:
             best_price = bar_high if pos.side == 'long' else bar_low
 
         # ── Update MFE tracking ──
+        _old_peak = pos.peak_favorable
         if pos.side == 'long':
             pos.peak_favorable = max(pos.peak_favorable, best_price)
         else:
             pos.peak_favorable = min(pos.peak_favorable, best_price)
+        if pos.peak_favorable != _old_peak:
+            pos.bars_since_peak = 0
+        else:
+            pos.bars_since_peak += 1
 
         # ── Cascade ──
         ts = self.tick_size
 
+        # ── Min-hold suppression: only SL + strong DMI reversal during hold ──
+        _in_hold_period = (self.min_hold_bars > 0 and pos.bars_held < self.min_hold_bars)
+
+        # Strong DMI reversal check: DI crossed against position with large gap
+        _strong_dmi_reversal = False
+        if _in_hold_period and exit_signal is not None and pos.bars_held >= 4:
+            _di_plus = exit_signal.get('di_plus', 0.0)
+            _di_minus = exit_signal.get('di_minus', 0.0)
+            _di_plus_prev = exit_signal.get('di_plus_prev', _di_plus)
+            _di_minus_prev = exit_signal.get('di_minus_prev', _di_minus)
+            _di_gap = abs(_di_plus - _di_minus)
+            if pos.side == 'long':
+                _crossed = (_di_plus_prev > _di_minus_prev and _di_minus >= _di_plus)
+            else:
+                _crossed = (_di_minus_prev > _di_plus_prev and _di_plus >= _di_minus)
+            # Strong = crossed AND DI gap >= 5 (5m DMI is 87% accurate at gap≥5)
+            _strong_dmi_reversal = _crossed and _di_gap >= 5.0
+
         # === STRUCTURAL EXITS (thesis invalidation — checked before SL/TP) ===
 
-        # 1. Death Hook (Liquidity Absorption)
-        r = self.fractal_exhaust.evaluate(pos, bar_close, ts, belief_network)
-        if r: return r
+        # 1. Death Hook (Liquidity Absorption) — suppressed during min-hold
+        if not _in_hold_period:
+            r = self.fractal_exhaust.evaluate(pos, bar_close, ts, belief_network)
+            if r: return r
 
-        # 2. Regime Decay (Sand Trap — macro ADX collapse + DI reversal)
-        r = self.regime_decay.evaluate(pos, bar_close, ts, belief_network)
-        if r: return r
+        # 2. Regime Decay — only with strong DMI during min-hold
+        if not _in_hold_period or _strong_dmi_reversal:
+            r = self.regime_decay.evaluate(pos, bar_close, ts, belief_network)
+            if r: return r
 
-        # 3. Survival Stop (Bayesian ePnL / Time-Survival Probability)
-        r = self.survival_stop.evaluate(pos, bar_close, ts, belief_network)
-        if r: return r
+        # 3. Survival Stop — suppressed during min-hold
+        if not _in_hold_period:
+            r = self.survival_stop.evaluate(pos, bar_close, ts, belief_network)
+            if r: return r
 
-        # 4. Tidal Wave (Adverse Volatility Expansion)
-        r = self.tidal_wave.evaluate(pos, bar_close, ts, belief_network)
-        if r: return r
+        # 4. Tidal Wave — suppressed during min-hold
+        if not _in_hold_period:
+            r = self.tidal_wave.evaluate(pos, bar_close, ts, belief_network)
+            if r: return r
 
         # === STANDARD EXITS ===
 
-        # 5. Stop Loss
+        # 5. Stop Loss — ALWAYS allowed (capital protection, 40t floor)
         r = self.stop_loss.evaluate(pos, worst_price, ts)
         if r: return r
 
-        # 6. Take Profit
-        r = self.take_profit.evaluate(pos, best_price, ts)
-        if r: return r
+        # 6. Take Profit — suppressed during min-hold
+        if not _in_hold_period:
+            r = self.take_profit.evaluate(pos, best_price, ts)
+            if r: return r
 
-        # 7. Watchdog
-        r = self.watchdog.evaluate(pos, bar_close, ts, exit_signal)
-        if r: return r
+        # 7. Watchdog — suppressed
+        if not _in_hold_period:
+            r = self.watchdog.evaluate(pos, bar_close, ts, exit_signal)
+            if r: return r
 
-        # 8. Band Urgent
-        r = self.band_exit.evaluate(pos, bar_close, ts, band_context)
-        if r: return r
+        # 8. Band Urgent — suppressed (chop detection, not true reversal)
+        if not _in_hold_period:
+            r = self.band_exit.evaluate(pos, bar_close, ts, band_context)
+            if r: return r
 
-        # 9. Breakeven Lock (adjusts SL in-place, no exit)
+        # 9. Trailing stop (adjusts SL in-place, ratchets behind peak)
         self.breakeven.apply(pos, ts)
 
-        # 10. Envelope Decay
-        r = self.envelope.evaluate(pos, bar_close, ts, net_force, band_context,
-                                   noise_ticks)
-        if r: return r
+        # 9b. V-reversal exit: 4 bars without new peak + in profit = cycle reversed
+        #     Active during min-hold too — 8-min cycle confirmed from human seeds
+        if pos.bars_since_peak >= 4 and pos.breakeven_locked:
+            if pos.side == 'long':
+                _pnl_ticks = (bar_close - pos.entry_price) / ts
+            else:
+                _pnl_ticks = (pos.entry_price - bar_close) / ts
+            if _pnl_ticks > 0:
+                _mfe = ((pos.peak_favorable - pos.entry_price) / ts
+                        if pos.side == 'long'
+                        else (pos.entry_price - pos.peak_favorable) / ts)
+                return ExitResult(
+                    action=ExitAction.TRAIL_STOP,
+                    exit_price=bar_close,
+                    reason=f"V-reversal: {pos.bars_since_peak} bars off peak "
+                           f"(MFE={_mfe:.0f}t, exit={_pnl_ticks:.1f}t)",
+                    pnl_ticks=_pnl_ticks,
+                    bars_held=pos.bars_held,
+                    trail_level=pos.stop_loss,
+                )
 
-        # 11. Peak Giveback
-        r = self.giveback.evaluate(pos, bar_close, ts, exit_signal, noise_ticks)
-        if r: return r
+        # 10. Envelope Decay — suppressed
+        if not _in_hold_period:
+            r = self.envelope.evaluate(pos, bar_close, ts, net_force, band_context,
+                                       noise_ticks)
+            if r: return r
 
-        # 12. Belief Flip
-        r = self.belief_flip.evaluate(pos, bar_close, ts, exit_signal)
-        if r: return r
+        # 11. Peak Giveback — suppressed during min-hold
+        if not _in_hold_period:
+            _shape_params = None
+            if (self._exit_primitives is not None
+                    and pos.exit_primitive_id is not None
+                    and pos.exit_primitive_confidence >= 0.3):
+                _shape_params = self._exit_primitives.get_exit_params(pos.exit_primitive_id)
+            elif pos.template_shape_params is not None:
+                _shape_params = pos.template_shape_params
+            r = self.giveback.evaluate(pos, bar_close, ts, exit_signal, noise_ticks,
+                                       shape_params=_shape_params)
+            if r: return r
+
+        # 12. Belief Flip — only with strong DMI during min-hold
+        if not _in_hold_period or _strong_dmi_reversal:
+            r = self.belief_flip.evaluate(pos, bar_close, ts, exit_signal)
+            if r: return r
 
         # 13. HOLD
         return ExitResult(

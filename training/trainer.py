@@ -351,11 +351,16 @@ class Trainer:
                       f"score_adj={_dv.get('score_adj',0):+.2f}  filter={_dv.get('filter_out',False)}")
 
         # Belief network + Execution engine (shared factory)
+        _min_hold = getattr(self, '_min_hold_bars', 0)
         _exit_eng = getattr(self, '_persisted_exit_engine', None) or ExitEngine(
             mode='training',
             tick_size=self.asset.tick_size,
             tick_value=self.asset.tick_size * self.asset.point_value,
+            min_hold_bars=_min_hold,
         )
+        if _min_hold > 0:
+            print(f"  Min-hold active: {_min_hold} bars ({_min_hold * 15 / 60:.0f} min) — "
+                  f"reversal exits only before threshold")
         belief_network = create_belief_network(_bundle, self.engine)
         _exec_engine = create_execution_engine(
             bundle=_bundle,
@@ -377,6 +382,10 @@ class Trainer:
             _oos_g1 = 4.5 + 0.5 * 10.0  # match live default aggression
             _exec_engine.gate1_dist = _oos_g1
             print(f"  OOS compressed mode: gate1_dist={_oos_g1:.1f}")
+
+        # Feature extractor for IS candidates (22D when --lookback)
+        _use_lb = getattr(self, '_use_lookback', False)
+        _feat_extractor = FractalClusteringEngine(use_lookback=_use_lb)
 
         # Slippage RNG (seeded for reproducibility)
         _slip_ticks = float(getattr(self, '_slippage_ticks', 0.0))
@@ -551,6 +560,25 @@ class Trainer:
                 'band_speed': round(abs(_vel) / _sigma if _sigma > 0 else 0.0, 4),
             }
 
+        def _macro_obs(bn, trade_side):
+            """Macro trend observation columns (non-actionable — research only)."""
+            try:
+                mt = bn.get_macro_trend()
+            except Exception:
+                mt = {'direction': None, 'strength': 0.0, 'macro_z': 0.0, 'macro_band_pos': 0.0, 'detail': ''}
+            _dir = mt.get('direction')
+            _aligned = ''
+            if _dir is not None and trade_side:
+                _aligned = 'WITH' if trade_side.lower() == _dir else 'COUNTER'
+            return {
+                'macro_direction': _dir or 'neutral',
+                'macro_strength': round(mt.get('strength', 0.0), 3),
+                'macro_z': round(mt.get('macro_z', 0.0), 3),
+                'macro_band_pos': round(mt.get('macro_band_pos', 0.0), 3),
+                'macro_alignment': _aligned or 'NEUTRAL',
+                'macro_detail': mt.get('detail', ''),
+            }
+
         def _dm_rec(p, gate, day, ts_val, micro_z_val, macro_z_val, pattern_val,
                     dist=0.0, conviction=0.0, template_id='', tier='', playbook=''):
             """Build one signal-log record. Trade outcome fields default to empty."""
@@ -581,11 +609,39 @@ class Trainer:
                 'exit_conviction': 0.0, 'exit_wave_maturity': 0.0,
             }
 
+        # Default output dirs (may be overridden later for inline OOS)
+        _out_dir = self.checkpoint_dir
+        _reports_out = os.path.join(os.path.dirname(self.checkpoint_dir), 'reports')
+        import csv as _csv
+
         # Per-trade oracle tracking
         _ORACLE_LABEL_NAMES = {2: 'MEGA_LONG', 1: 'SCALP_LONG', 0: 'NOISE', -1: 'SCALP_SHORT', -2: 'MEGA_SHORT'}
         oracle_trade_records = []  # completed per-trade oracle dicts
         pending_oracle = None      # oracle facts for currently open trade
         _pending_dm_idx = None     # index into decision_matrix_records for open trade
+
+        # Streaming trade log — append each trade to disk as it completes
+        _stream_log_name = 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv'
+        _stream_log_path = os.path.join(_out_dir, _stream_log_name)
+        _stream_log_header_written = False
+        _stream_log_file = None
+
+        def _stream_trade(rec):
+            """Append a single trade record to the streaming CSV."""
+            nonlocal _stream_log_header_written, _stream_log_file
+            if _stream_log_file is None:
+                _stream_log_file = open(_stream_log_path, 'w', newline='', encoding='utf-8')
+                _w = _csv.DictWriter(_stream_log_file, fieldnames=list(rec.keys()))
+                _w.writeheader()
+                _stream_log_header_written = True
+                _w.writerow(rec)
+                _stream_log_file.flush()
+            else:
+                _w = _csv.DictWriter(_stream_log_file, fieldnames=list(rec.keys()))
+                _w.writerow(rec)
+                # Flush every 50 trades for peekability without I/O overhead
+                if len(oracle_trade_records) % 50 == 0:
+                    _stream_log_file.flush()
         fn_potential_pnl    = 0.0  # dollar potential of real moves we missed (gate-blocked)
         score_loser_pnl     = 0.0  # dollar potential of real moves we correctly passed over (took better trade same bar)
 
@@ -635,10 +691,6 @@ class Trainer:
         _live_val_dir_sources = {}  # direction source distribution
         if _live_val_days > 0:
             print(f"  Live validation: last {_live_val_days} trading days replayed via BarProcessor after inline OOS")
-
-        # Default output dirs (overridden inside loop when inline OOS runs)
-        _out_dir = self.checkpoint_dir
-        _reports_out = os.path.join(os.path.dirname(self.checkpoint_dir), 'reports')
 
         _pbar = tqdm(total=_total_trading_days, desc='Forward Pass', unit='day',
                      bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {postfix}',
@@ -817,6 +869,7 @@ class Trainer:
             active_max_hold_bars = 960  # default 4h; overwritten at entry from pattern timeframe
             active_side = 'long'
             active_template_id = None
+            _belief = None  # initialized for scope safety (set at entry)
 
             # ExitEngine now lives inside _exec_engine (unified execution)
 
@@ -1057,6 +1110,7 @@ class Trainer:
                             'trade_mfe_ticks': round(_trade_mfe_ticks, 2),
                             'price_expected_error': 0.0,
                         })
+                        _stream_trade(oracle_trade_records[-1])
                         belief_network.stop_trade_tracking()
                         pending_oracle = None
                         _pending_dm_idx = None
@@ -1190,6 +1244,7 @@ class Trainer:
                                     (outcome.exit_price - pending_oracle.get('price_expected', pending_oracle['entry_price']))
                                     / self.asset.tick_size, 2),
                             })
+                            _stream_trade(oracle_trade_records[-1])
                             if _pending_dm_idx is not None:
                                 decision_matrix_records[_pending_dm_idx].update({
                                     'trade_result': outcome.result,
@@ -1292,7 +1347,7 @@ class Trainer:
                         _oos_pt = getattr(_oos_state, 'pattern_type', '')
                         _oos_tf_s = 15  # 15s anchor
                         _oos_depth = 8  # 15s depth
-                        _oos_feat = np.array([extract_feature_vector(
+                        _oos_feat_list = extract_feature_vector(
                             z_score=_oos_z,
                             velocity=getattr(_oos_state, 'velocity', 0.0),
                             momentum=getattr(_oos_state, 'momentum_strength',
@@ -1309,7 +1364,17 @@ class Trainer:
                             root_is_roche=0.0, tf_alignment=0.0,
                             pid=getattr(_oos_state, 'term_pid', 0.0),
                             osc_coherence=getattr(_oos_state, 'oscillation_entropy_normalized', 0.0),
-                        )])
+                        )
+                        # 22D mode: append 6D lookback geometry from 15s closes
+                        if getattr(self, '_use_lookback', False):
+                            _lb_start = max(0, _bar_i - 10)
+                            if _bar_i >= 3 and 'close' in df_15s.columns:
+                                from core.shape_primitives import extract_lookback_geometry
+                                _lb_closes = df_15s['close'].iloc[_lb_start:_bar_i].values
+                                _oos_feat_list.extend(extract_lookback_geometry(_lb_closes).tolist())
+                            else:
+                                _oos_feat_list.extend([0.0] * 6)
+                        _oos_feat = np.array([_oos_feat_list])
                         _eng_candidates = [Candidate(
                             state=_oos_state,
                             depth=_oos_depth,
@@ -1346,7 +1411,7 @@ class Trainer:
                                 continue
                             _wdepth = _OOS_TF_DEPTH.get(_tf_sec_c, 8)
                             _wz = getattr(_wst_c, 'z_score', 0.0)
-                            _wfeat = np.array([extract_feature_vector(
+                            _wfeat_list = extract_feature_vector(
                                 z_score=_wz,
                                 velocity=getattr(_wst_c, 'velocity', 0.0),
                                 momentum=getattr(_wst_c, 'momentum_strength',
@@ -1369,7 +1434,17 @@ class Trainer:
                                 osc_coherence=getattr(
                                     _wst_c,
                                     'oscillation_entropy_normalized', 0.0),
-                            )])
+                            )
+                            # 22D: reuse 15s lookback geometry for bonus TF candidates
+                            if getattr(self, '_use_lookback', False):
+                                _lb_start_b = max(0, _bar_i - 10)
+                                if _bar_i >= 3 and 'close' in df_15s.columns:
+                                    from core.shape_primitives import extract_lookback_geometry
+                                    _lb_c = df_15s['close'].iloc[_lb_start_b:_bar_i].values
+                                    _wfeat_list.extend(extract_lookback_geometry(_lb_c).tolist())
+                                else:
+                                    _wfeat_list.extend([0.0] * 6)
+                            _wfeat = np.array([_wfeat_list])
                             _eng_candidates.append(Candidate(
                                 state=_wst_c,
                                 depth=_wdepth,
@@ -1392,7 +1467,7 @@ class Trainer:
                                 timestamp=ts,
                                 pattern_type=p.pattern_type,
                                 z_score=p.z_score,
-                                features=np.array([FractalClusteringEngine.extract_features(p)]),
+                                features=np.array([_feat_extractor.extract_features(p)]),
                                 raw_event=p,
                             ) for p in raw_candidates
                         ]
@@ -1556,6 +1631,8 @@ class Trainer:
                                 'band_direction': _band['direction'] if _band else None,
                                 'band_strength': round(_band['strength'], 3) if _band else 0.0,
                                 'band_summary': _band.get('band_summary', '') if _band else '',
+                                # ── Macro trend observation (non-actionable) ──
+                                **_macro_obs(belief_network, side),
                                 'tp_ticks':     _tp_ticks,
                                 'sl_ticks':     _sl_ticks,
                                 'target_price': round(price + (_tp_ticks if side == 'long' else -_tp_ticks) * self.asset.tick_size, 6),
@@ -1583,6 +1660,7 @@ class Trainer:
                                 tier=template_tier_map.get(best_tid, 3),
                                 playbook=_playbook)
                             _dm_entry['trade_direction'] = 'LONG' if side == 'long' else 'SHORT'
+                            _dm_entry.update(_macro_obs(belief_network, side))
                             decision_matrix_records.append(_dm_entry)
                             _pending_dm_idx = len(decision_matrix_records) - 1
 
@@ -1750,6 +1828,7 @@ class Trainer:
                             (outcome.exit_price - pending_oracle.get('price_expected', pending_oracle['entry_price']))
                             / self.asset.tick_size, 2),
                     })
+                    _stream_trade(oracle_trade_records[-1])
                     # Update signal-log record with trade outcome
                     if _pending_dm_idx is not None:
                         decision_matrix_records[_pending_dm_idx].update({
@@ -1836,6 +1915,11 @@ class Trainer:
             brain_dir_keys_before_oos=_brain_dir_keys_before_oos if oos_mode else None,
         )
 
+        # Close streaming trade log before report generation
+        if _stream_log_file is not None:
+            _stream_log_file.close()
+            _stream_log_file = None
+
         self._write_forward_pass_reports(
             total_trades=total_trades, total_wins=total_wins, total_pnl=total_pnl,
             oracle_trade_records=oracle_trade_records,
@@ -1902,6 +1986,7 @@ class Trainer:
                     mode='training',
                     tick_size=self.asset.tick_size,
                     tick_value=self.asset.tick_size * self.asset.point_value,
+                    min_hold_bars=getattr(self, '_min_hold_bars', 0),
                 )
                 # Copy self-tuned exit params from inline OOS (537 trades of tuning)
                 _tuned = _exec_engine.exit_engine
@@ -2202,6 +2287,7 @@ class Trainer:
             mode='training',
             tick_size=self.asset.tick_size,
             tick_value=self.asset.tick_size * self.asset.point_value,
+            min_hold_bars=getattr(self, '_min_hold_bars', 0),
         )
         # Load self-tuned exit params from last forward pass if available
         _tuned_path = os.path.join(self.checkpoint_dir, 'exit_tuning.json')
@@ -2899,6 +2985,46 @@ class Trainer:
                 _flag = "  <- FILTER NEXT RUN" if _avg < 0 and _cnt >= 5 else ("  <- TOP" if _avg > 100 else "")
                 report_lines.append(
                     f"    depth {_d:<3} {_cnt:>7,} {_wr:>6.0f}% ${_tot:>10,.2f} ${_avg:>9.2f}{_flag}")
+
+        # ── 2e2. Trade Duration Bins (top 3 by trade count) ───────────────────────
+        if oracle_trade_records and 'hold_bars' in oracle_trade_records[0]:
+            from collections import defaultdict as _ddd2
+            # Duration bins: hold_bars * 15s → minutes → bucket
+            _dur_bins = _ddd2(lambda: {'n': 0, 'wins': 0, 'pnl': 0.0})
+            _dur_edges = [
+                (0, 2, '<30s'),
+                (2, 4, '30s-1m'),
+                (4, 8, '1-2m'),
+                (8, 20, '2-5m'),
+                (20, 40, '5-10m'),
+                (40, 80, '10-20m'),
+                (80, 160, '20-40m'),
+                (160, 480, '40m-2h'),
+                (480, float('inf'), '>2h'),
+            ]
+            for _r in oracle_trade_records:
+                _hb = _r.get('hold_bars', 0)
+                for _lo, _hi, _label in _dur_edges:
+                    if _lo <= _hb < _hi:
+                        _dur_bins[_label]['n'] += 1
+                        _dur_bins[_label]['wins'] += 1 if _r['result'] == 'WIN' else 0
+                        _dur_bins[_label]['pnl'] += _r['actual_pnl']
+                        break
+            # Sort by trade count descending, take top 3
+            _sorted_bins = sorted(
+                [(lbl, d) for lbl, d in _dur_bins.items() if d['n'] > 0],
+                key=lambda x: x[1]['n'], reverse=True)
+            if _sorted_bins:
+                report_lines.append("")
+                report_lines.append(f"  TRADE DURATION BINS (top 3 by volume):")
+                report_lines.append(f"    {'Duration':<10} {'Trades':>7} {'Win%':>7} {'Total PnL':>12} {'Avg/trade':>10}")
+                report_lines.append(f"    {'--------':<10} {'------':>7} {'----':>7} {'---------':>12} {'---------':>10}")
+                for _lbl, _d in _sorted_bins[:3]:
+                    _n = _d['n']
+                    _wr = _d['wins'] / _n * 100
+                    _avg = _d['pnl'] / _n
+                    report_lines.append(
+                        f"    {_lbl:<10} {_n:>7,} {_wr:>6.0f}% ${_d['pnl']:>10,.2f} ${_avg:>9.2f}")
 
         # ── 2f. Dynamic Exit Quality ─────────────────────────────────────────────
         _sec['exit_quality'] = len(report_lines)
@@ -3669,6 +3795,7 @@ class Trainer:
                     else:
                         _rec['trade_class'] = 'genuinely_wrong'
 
+                # Final write with trade_class column (overwrites streaming version)
                 _log_name = 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv'
                 csv_path = os.path.join(_out_dir, _log_name)
                 with open(csv_path, 'w', newline='', encoding='utf-8') as f:
@@ -4845,21 +4972,31 @@ class Trainer:
                 self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Cluster',
                                           'step': 'CLUSTERING', 'pct': 0})
 
-            # Load shape primitives if available (data-derived KMeans init centroids)
+            # Load shape primitives if --primitives flag and .pkl exists
             shape_primitives = None
-            _sp_path = os.path.join(self.checkpoint_dir, 'shape_primitives.pkl')
-            if os.path.exists(_sp_path):
-                import pickle as _sp_pkl
-                with open(_sp_path, 'rb') as _sp_f:
-                    shape_primitives = _sp_pkl.load(_sp_f)
-                print(f"  Loaded shape primitives: {len(shape_primitives.primitives)} primitives from {_sp_path}")
+            if getattr(self, '_use_primitives', False):
+                _sp_path = os.path.join(self.checkpoint_dir, 'shape_primitives.pkl')
+                if os.path.exists(_sp_path):
+                    import pickle as _sp_pkl
+                    with open(_sp_path, 'rb') as _sp_f:
+                        shape_primitives = _sp_pkl.load(_sp_f)
+                    print(f"  Loaded shape primitives: {len(shape_primitives.primitives)} primitives from {_sp_path}")
+                else:
+                    print(f"  --primitives: no shape_primitives.pkl found, using pure K-Means++")
 
             n_initial = max(10, len(manifest) // INITIAL_CLUSTER_DIVISOR)
             print(f"  Initial clusters: {n_initial} (from {len(manifest)} patterns / {INITIAL_CLUSTER_DIVISOR})")
 
-            clustering_engine = FractalClusteringEngine(n_clusters=n_initial, max_variance=0.5)
+            _use_lb = getattr(self, '_use_lookback', False)
+            clustering_engine = FractalClusteringEngine(n_clusters=n_initial, max_variance=0.5,
+                                                        use_lookback=_use_lb)
             templates = clustering_engine.create_templates(manifest, shape_primitives=shape_primitives)
             print(f"  Condensed {len(manifest)} raw patterns into {len(templates)} Tight Templates.")
+
+            # Shape calibration: derive exit params per template from member segments
+            if getattr(self, '_use_shapes', False):
+                print("  Shape-aware exit calibration...")
+                clustering_engine.calibrate_template_shapes(templates)
 
             # Save scaler for IS/OOS forward passes
             import pickle as _pickle
@@ -4948,7 +5085,9 @@ class Trainer:
             clustering_engine
         except NameError:
             n_initial = max(10, len(manifest) // INITIAL_CLUSTER_DIVISOR)
-            clustering_engine = FractalClusteringEngine(n_clusters=n_initial, max_variance=0.5)
+            _use_lb = getattr(self, '_use_lookback', False)
+            clustering_engine = FractalClusteringEngine(n_clusters=n_initial, max_variance=0.5,
+                                                        use_lookback=_use_lb)
 
         self.pattern_library = self.pattern_library or {}
         processed_count = len(completed_results)
@@ -5181,11 +5320,14 @@ class Trainer:
             'mean_mae_ticks':          getattr(template, 'mean_mae_ticks',          0.0),
             'p75_mfe_ticks':           getattr(template, 'p75_mfe_ticks',           0.0),
             'p25_mae_ticks':           getattr(template, 'p25_mae_ticks',           0.0),
+            'p95_mae_ticks':           getattr(template, 'p95_mae_ticks',           0.0),
+            'mae_std_ticks':           getattr(template, 'mae_std_ticks',           0.0),
             'risk_variance':           getattr(template, 'risk_variance',           0.0),
             'regression_sigma_ticks':  getattr(template, 'regression_sigma_ticks',  0.0),
             # Per-template exit timescale (bars where MFE peaks — halflife anchor)
             'avg_mfe_bar':             getattr(template, 'avg_mfe_bar',             0.0),
             'p75_mfe_bar':             getattr(template, 'p75_mfe_bar',             0.0),
+            'discovery_tf_seconds':    getattr(template, 'discovery_tf_seconds',    15.0),
             # Per-cluster regression model coefficients (14D scaled feature space)
             # mfe_coeff @ live_scaled_features + mfe_intercept  -> predicted MFE in price pts
             # sigmoid(dir_coeff @ live_scaled_features + dir_intercept) -> P(LONG)
@@ -5194,6 +5336,12 @@ class Trainer:
             'mfe_intercept': getattr(template, 'mfe_intercept', 0.0),
             'dir_coeff':     getattr(template, 'dir_coeff',     None),
             'dir_intercept': getattr(template, 'dir_intercept', 0.0),
+            # Shape-aware exit calibration (from --shapes flag)
+            'shape_giveback_pct':      getattr(template, 'shape_giveback_pct',      None),
+            'shape_delay_bars':        getattr(template, 'shape_delay_bars',        None),
+            'shape_envelope_hl_mult':  getattr(template, 'shape_envelope_hl_mult',  None),
+            'shape_peak_bar':          getattr(template, 'shape_peak_bar',          None),
+            'shape_dominant':          getattr(template, 'shape_dominant',          None),
         }
 
     def validate_template_group(self, patterns: List[PatternEvent], params: Dict) -> float:
@@ -5845,6 +5993,12 @@ def main():
     parser.add_argument('--slippage', type=float, default=0.0,
                         help="Random fill slippage per trade in ticks (e.g., 2). "
                              "Each trade PnL gets uniform(-N, +N) * tick_value noise.")
+    parser.add_argument('--primitives', action='store_true',
+                        help="Use shape primitives for K-Means init (requires checkpoints/*_primitives.pkl)")
+    parser.add_argument('--lookback', action='store_true',
+                        help="22D clustering: append 10-bar lookback geometry (6D) to 16D features")
+    parser.add_argument('--shapes', action='store_true',
+                        help="Shape-aware exits: calibrate giveback/envelope per template from member segment shapes")
     parser.add_argument('--seeds', nargs='?', const='AUTO', default=None, metavar='PATH',
                         help="Path to seed JSON file (manual trades). Replaces Phase 1 discovery "
                              "with seed-derived PatternEvents. Use bare --seeds to auto-detect "
@@ -5863,6 +6017,10 @@ def main():
     parser.add_argument('--mc-only', action='store_true', help='Skip discovery, just run Monte Carlo from existing templates')
     parser.add_argument('--anova-only', action='store_true', help='Skip MC sweep, just run ANOVA on existing results')
     parser.add_argument('--refine-only', action='store_true', help='Skip MC+ANOVA, just run Thompson refinement')
+    parser.add_argument('--min-hold', type=float, default=0.0, metavar='MINUTES',
+                        help="Minimum hold time in minutes (e.g., 5). Suppresses non-reversal exits "
+                             "before this duration. Reversal exits (belief_flip, regime_decay, band_urgent) "
+                             "and stop_loss still fire.")
 
     args = parser.parse_args()
 
@@ -5945,6 +6103,12 @@ def main():
     orchestrator._pp_tp_override = getattr(args, 'pp_tp', 0)
     orchestrator._pp_trail_override = getattr(args, 'pp_trail', 0)
     orchestrator._slippage_ticks = getattr(args, 'slippage', 0.0)
+    orchestrator._use_primitives = getattr(args, 'primitives', False)
+    orchestrator._use_lookback = getattr(args, 'lookback', False)
+    orchestrator._use_shapes = getattr(args, 'shapes', False)
+    # Min-hold: convert minutes → 15s bars (execution TF)
+    _min_hold_mins = getattr(args, 'min_hold', 0.0)
+    orchestrator._min_hold_bars = int(_min_hold_mins * 60 / 15) if _min_hold_mins > 0 else 0
 
     try:
         if args.anova_only:
@@ -6349,6 +6513,11 @@ def main():
         print(f"\nERROR: Training failed: {e}")
         import traceback
         traceback.print_exc()
+        # Also print to stdout so training_log.txt captures it
+        import io as _io
+        _tb_buf = _io.StringIO()
+        traceback.print_exc(file=_tb_buf)
+        print(_tb_buf.getvalue())
         return 1
     finally:
         _awake_ctx.__exit__(None, None, None)

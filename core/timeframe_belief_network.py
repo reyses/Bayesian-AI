@@ -220,6 +220,10 @@ class TimeframeWorker:
                  valid_tids: list, centroids_scaled: np.ndarray) -> bool:
         """Task 2: feature extraction, cluster matching, physics blend, belief update."""
         feat   = TimeframeBeliefNetwork.state_to_features(state, self.tf_seconds)
+        # Pad to match scaler dimensions (22D when --lookback, 16D otherwise)
+        _expected = scaler.n_features_in_
+        if len(feat) < _expected:
+            feat = feat + [0.0] * (_expected - len(feat))
         feat_s = scaler.transform([feat])[0]
         dists  = np.linalg.norm(centroids_scaled - feat_s, axis=1)
 
@@ -941,6 +945,78 @@ class TimeframeBeliefNetwork:
             'per_tf': per_tf,
         }
 
+    def get_macro_trend(self) -> dict:
+        """Macro trend from 30m+ TFs: DMI direction + band position.
+
+        Combines DMI trend signal (60%) with band position (40%) across
+        30m, 1h, 4h workers.  Higher TFs weighted more heavily.
+
+        Returns:
+            {'direction': 'long'|'short'|None, 'strength': 0.0-1.0,
+             'macro_z': float, 'macro_band_pos': float, 'detail': str}
+        """
+        import numpy as _np
+        _MACRO_TFS = {1800: 3.5, 3600: 4.0, 14400: 5.0}  # 30m, 1h, 4h
+
+        dmi_score = 0.0
+        band_score = 0.0
+        z_weighted = 0.0
+        bp_weighted = 0.0
+        total_w = 0.0
+
+        for tf_sec, w in _MACRO_TFS.items():
+            worker = self.workers.get(tf_sec)
+            if worker is None:
+                continue
+
+            # DMI component
+            if worker._last_tf_bar_idx >= 0 and worker._states:
+                idx = min(worker._last_tf_bar_idx, len(worker._states) - 1)
+                state_raw = worker._states[idx]
+                state = (state_raw['state'] if isinstance(state_raw, dict)
+                         and 'state' in state_raw else state_raw)
+                dmi_p = getattr(state, 'dmi_plus', 0.0)
+                dmi_m = getattr(state, 'dmi_minus', 0.0)
+                dmi_diff = dmi_p - dmi_m
+                if abs(dmi_diff) > 5.0:  # noise floor
+                    dmi_score += w * _np.sign(dmi_diff) * min(1.0, abs(dmi_diff) / 30.0)
+
+            # Band component
+            b = worker.current_belief
+            if b is not None and b.band_context is not None:
+                z_weighted += w * b.band_context.z_score
+                bp_weighted += w * b.band_context.band_position
+                total_w += w
+
+        if total_w < 3.5:  # need at least 30m
+            return {'direction': None, 'strength': 0.0, 'macro_z': 0.0,
+                    'macro_band_pos': 0.0, 'detail': 'insufficient_macro'}
+
+        macro_z = z_weighted / total_w
+        macro_bp = bp_weighted / total_w
+
+        # DMI says WHERE trend is going; band_position says WHERE price IS
+        # High DMI bullish + low band_pos = strong long (price low, trend up)
+        combined = (0.6 * _np.sign(dmi_score) * min(1.0, abs(dmi_score) / total_w)
+                    + 0.4 * (-macro_bp))
+
+        if combined > 0.15:
+            direction = 'long'
+        elif combined < -0.15:
+            direction = 'short'
+        else:
+            direction = None
+
+        strength = min(1.0, abs(combined))
+
+        return {
+            'direction': direction,
+            'strength': strength,
+            'macro_z': macro_z,
+            'macro_band_pos': macro_bp,
+            'detail': f'dmi={dmi_score:.2f} bp={macro_bp:.2f}',
+        }
+
     def get_worker_snapshot(self) -> dict:
         """
         Freeze every active worker's current belief as a compact dict.
@@ -1210,7 +1286,9 @@ class TimeframeBeliefNetwork:
         _trade_health = 0.6 * _pace_health + 0.4 * _decay_health
 
         # ── Macro DMI/ADX fields for exit modules ─────────────────────
-        _macro_tf = 60  # 1m macro
+        # 5m macro: simulator showed 5m crossover is 87% accurate (gap≥5)
+        # vs 1m at 63%. 15s/30s are coin-flip noise (49-54%).
+        _macro_tf = 300  # 5m macro
         _di_plus = 0.0
         _di_minus = 0.0
         _di_plus_prev = 0.0
