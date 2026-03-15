@@ -42,7 +42,8 @@ class PeakGiveback:
 
     def evaluate(self, pos: PositionState, bar_close: float, tick_size: float,
                  exit_signal: dict = None,
-                 noise_ticks: float = 0.0) -> Optional[ExitResult]:
+                 noise_ticks: float = 0.0,
+                 shape_params: dict = None) -> Optional[ExitResult]:
         # 30m slow-flip detection (sticky once set)
         if exit_signal and exit_signal.get('slow_flip_tighten'):
             pos.slow_flip_active = True
@@ -65,7 +66,16 @@ class PeakGiveback:
 
         threshold = self.get_threshold(peak_ticks, noise_ticks)
 
-        # ADX slope tightening: rapid trend deceleration → tighten giveback by 10pp
+        # Shape-aware override: blend data-derived threshold with tier-based
+        if shape_params is not None:
+            shape_threshold = shape_params['giveback_pct']
+            blend = 0.7  # 70% shape, 30% tier
+            threshold = blend * shape_threshold + (1 - blend) * threshold
+            # Delay: suppress giveback before shape's expected peak bar
+            if pos.bars_held < shape_params.get('delay_bars', 0):
+                threshold = 1.01  # effectively disabled until delay expires
+
+        # ADX slope tightening: rapid trend deceleration -> tighten giveback by 10pp
         if exit_signal is not None:
             _adx_slope = exit_signal.get('adx_slope', 0.0)
             if _adx_slope < -2.0 and threshold < 1.0:
@@ -82,7 +92,8 @@ class PeakGiveback:
                 action=ExitAction.PEAK_GIVEBACK,
                 exit_price=bar_close,
                 reason=f"Peak giveback: peak={peak_ticks:.1f}t now={current_ticks:.1f}t "
-                       f"gave_back={gave_back/peak_ticks:.0%} (tier={threshold:.0%})",
+                       f"gave_back={gave_back/peak_ticks:.0%} "
+                       f"({'shape' if shape_params else 'tier'}={threshold:.0%})",
                 pnl_ticks=(bar_close - pos.entry_price) / tick_size
                           if pos.side == 'long'
                           else (pos.entry_price - bar_close) / tick_size,

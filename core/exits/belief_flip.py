@@ -35,12 +35,14 @@ class BeliefFlipExit:
             )
 
         # Trigger 2: DI crossover against position (trend reversal)
+        # Uses 5m DMI (87% accurate at gap≥5, vs 1m at 63%)
         # Only after minimum hold to avoid noise on entry bar
         if pos.bars_held >= 3:
             di_plus = exit_signal.get('di_plus', 0.0)
             di_minus = exit_signal.get('di_minus', 0.0)
             di_plus_prev = exit_signal.get('di_plus_prev', di_plus)
             di_minus_prev = exit_signal.get('di_minus_prev', di_minus)
+            di_gap = abs(di_plus - di_minus)
 
             if pos.side == 'long':
                 crossed_against = (di_plus_prev > di_minus_prev
@@ -49,7 +51,7 @@ class BeliefFlipExit:
                 crossed_against = (di_minus_prev > di_plus_prev
                                    and di_plus >= di_minus)
 
-            if crossed_against:
+            if crossed_against and di_gap >= 5.0:
                 return ExitResult(
                     action=ExitAction.TRAIL_STOP,
                     exit_price=bar_close,

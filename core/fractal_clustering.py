@@ -67,11 +67,14 @@ class PatternTemplate:
     mean_mae_ticks: float = 0.0   # Mean max-adverse-excursion seen across members
     p75_mfe_ticks:  float = 0.0   # 75th-pct MFE — conservative TP ceiling
     p25_mae_ticks:  float = 0.0   # 25th-pct MAE — tight SL floor
+    p95_mae_ticks:  float = 0.0   # 95th-pct MAE — tolerance interval SL (last-resort)
+    mae_std_ticks:  float = 0.0   # Std of MAE distribution — for tolerance interval calc
     regression_sigma_ticks: float = 0.0  # Residual std from per-cluster OLS; trail = this * 1.1
 
     # PER-TEMPLATE EXIT TIMESCALE (in bars; populated by _aggregate_oracle_intelligence)
     avg_mfe_bar: float = 0.0    # Mean bar offset where MFE peaks — base halflife anchor
     p75_mfe_bar: float = 0.0    # 75th-pct MFE bar — conservative time exhaustion ceiling
+    discovery_tf_seconds: float = 15.0  # TF of the bucket this template was discovered in
 
     # PER-CLUSTER REGRESSION MODELS (fitted on 14D scaled feature vectors of members)
     # MFE model: predicted_mfe = live_features @ mfe_coeff + mfe_intercept
@@ -82,6 +85,14 @@ class PatternTemplate:
     dir_coeff:     Optional[List[float]] = field(default=None)  # 14 logistic weights
     dir_intercept: float = 0.0
     semantic_name: str = "Unknown"
+
+    # SHAPE-AWARE EXIT CALIBRATION (populated by calibrate_template_shapes when --shapes)
+    # Data-derived from member oracle segment analysis. None = not calibrated.
+    shape_giveback_pct: Optional[float] = None        # calibrated giveback threshold
+    shape_delay_bars: Optional[int] = None             # bars before giveback activates
+    shape_envelope_hl_mult: Optional[float] = None     # halflife multiplier
+    shape_peak_bar: Optional[float] = None             # expected peak bar fraction (0-1)
+    shape_dominant: Optional[str] = None                # dominant shape label
 
 
 def generate_semantic_name(centroid: np.ndarray) -> str:
@@ -131,10 +142,11 @@ def generate_semantic_name(centroid: np.ndarray) -> str:
 
 
 class FractalClusteringEngine:
-    def __init__(self, n_clusters=1000, max_variance=0.5):
+    def __init__(self, n_clusters=1000, max_variance=0.5, use_lookback=False):
         self.n_clusters = n_clusters
         self.max_variance = max_variance  # Max allowed std deviation for Z-score in a cluster
         self.scaler = StandardScaler()
+        self._use_lookback = use_lookback  # 22D mode: append 6D lookback geometry
 
     def _get_kmeans_model(self, n_clusters: int, n_samples: int, random_state: int = 42,
                           n_init: int = 3, use_cuda: bool = True, init_centroids=None):
@@ -146,11 +158,11 @@ class FractalClusteringEngine:
         return KMeans(n_clusters=n_clusters, random_state=random_state,
                       n_init=n_init, max_iter=300)
 
-    @staticmethod
-    def extract_features(p: Any) -> List[float]:
+    def extract_features(self, p: Any) -> List[float]:
         """
-        Extracts 16D feature vector from a PatternEvent.
+        Extracts 16D (or 22D with --lookback) feature vector from a PatternEvent.
         Delegates to core.feature_extraction.extract_feature_vector().
+        When self._use_lookback is True, appends 6D lookback geometry.
         """
         from core.feature_extraction import extract_feature_vector
 
@@ -183,7 +195,7 @@ class FractalClusteringEngine:
         else:
             parent_z = parent_dmi_diff = root_is_roche = tf_alignment = 0.0
 
-        return extract_feature_vector(
+        feat = extract_feature_vector(
             z_score=getattr(p, 'z_score', 0.0),
             velocity=getattr(p, 'velocity', 0.0),
             momentum=getattr(p, 'momentum', 0.0),
@@ -196,6 +208,18 @@ class FractalClusteringEngine:
             root_is_roche=root_is_roche, tf_alignment=tf_alignment,
             pid=self_pid, osc_coherence=self_osc_coh,
         )
+
+        # 22D mode: append 6D lookback geometry
+        if self._use_lookback:
+            lb = getattr(p, 'lookback_closes', None)
+            if lb is not None and len(lb) >= 3:
+                from core.shape_primitives import extract_lookback_geometry
+                geom = extract_lookback_geometry(lb)
+                feat.extend(geom.tolist())
+            else:
+                feat.extend([0.0] * 6)
+
+        return feat
 
     def _recursive_split(self, X: np.ndarray, patterns: list, start_id: int, depth: int = 0) -> list:
         """Recursively split a cluster until z-variance <= max_variance or too small."""
@@ -228,6 +252,114 @@ class FractalClusteringEngine:
             result.extend(children)
             nid += len(children)
         return result
+
+    def calibrate_template_shapes(self, templates):
+        """Post-clustering: calibrate shape-aware exit params per template.
+
+        For each template, examines member PatternEvents' window_data to derive:
+          - giveback_pct: based on peak position + monotonicity
+          - delay_bars: bars before giveback activates
+          - envelope_hl_mult: halflife multiplier
+          - peak_bar: expected peak bar fraction (0-1)
+          - dominant shape label
+
+        Only called when --shapes flag is active.
+        """
+        n_calibrated = 0
+        for tmpl in templates:
+            peak_positions = []
+            monotonicities = []
+            durations_bars = []
+            shape_labels = []
+
+            for p in tmpl.patterns:
+                wd = getattr(p, 'window_data', None)
+                meta = getattr(p, 'oracle_meta', {})
+                if wd is None or 'close' not in wd.columns or len(wd) < 5:
+                    continue
+
+                closes = wd['close'].values
+                entry = closes[0]
+                marker = getattr(p, 'oracle_marker', 0)
+
+                # Direction from oracle marker
+                if marker > 0:
+                    shifted = closes - entry
+                elif marker < 0:
+                    shifted = entry - closes
+                else:
+                    continue  # skip noise markers
+
+                # Peak position (fraction through window where MFE occurs)
+                peak_idx = int(np.argmax(shifted))
+                peak_frac = peak_idx / max(len(closes) - 1, 1)
+                peak_positions.append(peak_frac)
+
+                # Monotonicity (fraction of bars moving favorably)
+                diffs = np.diff(shifted)
+                mono = np.sum(diffs > 0) / max(len(diffs), 1)
+                monotonicities.append(mono)
+
+                # Duration
+                mfe_bar = meta.get('mfe_bar', len(closes) // 2)
+                durations_bars.append(mfe_bar)
+
+                # Shape classification from peak position
+                if peak_frac < 0.25:
+                    shape_labels.append('IMPULSE')
+                elif peak_frac < 0.45:
+                    shape_labels.append('V_REVERSAL')
+                elif peak_frac > 0.75:
+                    shape_labels.append('RAMP')
+                else:
+                    shape_labels.append('OTHER')
+
+            if len(peak_positions) < 5:
+                continue  # not enough data to calibrate
+
+            med_peak = float(np.median(peak_positions))
+            med_mono = float(np.median(monotonicities))
+
+            # Giveback: peak position drives base (0.30 early → 0.80 late)
+            base_gb = 0.30 + med_peak * 0.50
+            mono_adj = (med_mono - 0.5) * 0.10
+            tmpl.shape_giveback_pct = round(max(0.25, min(0.85, base_gb + mono_adj)), 3)
+
+            # Delay: fraction of median MFE bar, clamped
+            if durations_bars:
+                med_dur = float(np.median(durations_bars))
+                tmpl.shape_delay_bars = max(1, min(20, int(med_dur * 0.4)))
+            else:
+                tmpl.shape_delay_bars = 3
+
+            # Envelope halflife mult: based on duration relative to global median
+            if durations_bars:
+                global_med = max(5.0, float(np.median([b for t in templates
+                                                        for p in t.patterns
+                                                        for b in [getattr(p, 'oracle_meta', {}).get('mfe_bar', 0)]
+                                                        if b > 0] or [5])))
+                tmpl.shape_envelope_hl_mult = round(max(0.3, min(3.0,
+                    float(np.median(durations_bars)) / global_med)), 3)
+            else:
+                tmpl.shape_envelope_hl_mult = 1.0
+
+            tmpl.shape_peak_bar = round(med_peak, 3)
+
+            # Dominant shape
+            from collections import Counter
+            if shape_labels:
+                tmpl.shape_dominant = Counter(shape_labels).most_common(1)[0][0]
+
+            n_calibrated += 1
+
+        print(f"  Shape calibration: {n_calibrated}/{len(templates)} templates calibrated")
+        # Summary stats
+        calibrated = [t for t in templates if t.shape_giveback_pct is not None]
+        if calibrated:
+            gbs = [t.shape_giveback_pct for t in calibrated]
+            print(f"    Giveback range: {min(gbs):.0%} - {max(gbs):.0%} (median {np.median(gbs):.0%})")
+            shapes = Counter(t.shape_dominant for t in calibrated if t.shape_dominant)
+            print(f"    Shapes: {dict(shapes)}")
 
     def _aggregate_oracle_intelligence(self, template, patterns):
         """
@@ -268,6 +400,8 @@ class FractalClusteringEngine:
             template.mean_mae_ticks = float(np.mean(mae_ticks))
             template.p75_mfe_ticks  = float(np.percentile(mfe_ticks, 75))
             template.p25_mae_ticks  = float(np.percentile(mae_ticks, 25))
+            template.p95_mae_ticks  = float(np.percentile(mae_ticks, 95))
+            template.mae_std_ticks  = float(np.std(mae_ticks))
 
             # Per-template exit timescale: bar offset where MFE peaks
             mfe_bar_values = [meta.get('mfe_bar', 0) for p in patterns
@@ -473,7 +607,8 @@ class FractalClusteringEngine:
         if total_valid == 0:
             return []
 
-        print(f"  Feature matrix: {total_valid} patterns x 16 features (extracted in {_time.perf_counter() - t0:.2f}s)")
+        _fdim = 22 if self._use_lookback else 16
+        print(f"  Feature matrix: {total_valid} patterns x {_fdim} features (extracted in {_time.perf_counter() - t0:.2f}s)")
         print(f"  TF buckets: {', '.join(f'{tf}={len(v[0])}' for tf, v in sorted(tf_buckets.items(), key=lambda x: -len(x[1][0])))}")
 
         # Flush GPU before clustering
@@ -532,6 +667,7 @@ class FractalClusteringEngine:
                 cluster_indices[label].append(idx)
 
             # Recursive refinement within this TF bucket
+            _tf_sec = float(TIMEFRAME_SECONDS.get(tf, 15))
             splits_count = 0
             for label, indices in cluster_indices.items():
                 sub_X = X_scaled[indices]
@@ -541,19 +677,23 @@ class FractalClusteringEngine:
                 if z_variance > self.max_variance and len(indices) > 20:
                     splits_count += 1
                     refined_subsets = self._recursive_split(sub_X, sub_patterns, next_id)
+                    for _rs in refined_subsets:
+                        _rs.discovery_tf_seconds = _tf_sec
                     final_templates.extend(refined_subsets)
                     next_id += len(refined_subsets)
                 else:
                     centroid = np.mean(sub_X, axis=0)
                     raw_centroid = self.scaler.inverse_transform([centroid])[0]
-                    final_templates.append(PatternTemplate(
+                    _tmpl = PatternTemplate(
                         template_id=next_id,
                         centroid=raw_centroid,
                         member_count=len(sub_patterns),
                         patterns=sub_patterns,
                         physics_variance=z_variance,
                         semantic_name=generate_semantic_name(raw_centroid)
-                    ))
+                    )
+                    _tmpl.discovery_tf_seconds = _tf_sec
+                    final_templates.append(_tmpl)
                     next_id += 1
 
             total_splits += splits_count

@@ -87,7 +87,7 @@ def create_execution_engine(
         dmi_threshold=dmi_threshold,
         depth_filter_out=bundle.depth_filter_out,
         depth_only=depth_only,
-        feature_extractor=FractalClusteringEngine.extract_features,
+        feature_extractor=FractalClusteringEngine().extract_features,
         looseness=looseness,
     )
     logger.info(f"  Execution engine: mode={mode}" +

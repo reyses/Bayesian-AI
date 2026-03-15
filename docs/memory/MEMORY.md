@@ -120,11 +120,13 @@ After every forward pass, always read these reports:
 - `tools/imr_golden_path.py` — I-MR control chart + golden path overlay
 - `tools/archive/` — one-off analysis scripts (analyze_scalps, analyze_wrong_dir, etc.)
 
-## Waveform Screening & Seed Library
-> Full details: `memory/waveform_research.md`
-- Offline research producing pre-built SEED LIBRARY for live matching
-- 20 shape primitives (V-reversal, ramp, sigmoid, etc.) replace DBSCAN clusters
-- Spec: `docs/JULES_WAVEFORM_SEED_INTEGRATION.md` (5 parts, not yet started)
+## Two-Stage Shape Primitives (2026-03-14)
+- **Entry primitives**: 10-bar lookback geometry (6D) + 192D context -> UMAP+HDBSCAN per-TF
+- **Exit primitives**: 32-point segment shape (34D) -> UMAP+HDBSCAN per-TF + exit calibration
+- Builder: `tools/shape_primitive_builder.py --entry/--exit/--all`
+- Data structures: `core/shape_primitives.py`
+- Exit integration: giveback gets shape-aware thresholds, envelope gets halflife modulation
+- Research line: telescoping TF (1m entry, 15s confirm, 5s/1s ticker) — see `memory/research_telescoping_tf.md`
 
 ## Validation Ladder (5 gates, sequential)
 1. **IS**: Full discovery on ATLAS. Failure = library broken.
