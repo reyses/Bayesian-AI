@@ -50,6 +50,17 @@ NOT quantum physics — the physics metaphors are historical and fully purged.
 - Checkpoints: checkpoints/ (gitignored)
 - Progress bars mandatory (tqdm) for any loop > 100 iterations
 - Update `docs/daily/YYYY-MM-DD.md` at end of every session
+- **Change report**: After ANY code change (feature, fix, refactor), write a short
+  exit report to `docs/daily/YYYY-MM-DD.md` listing: (1) what changed, (2) what files,
+  (3) what to look for in the next run, (4) expected impact on metrics. This survives
+  context loss — future sessions can read the report instead of reconstructing intent.
+- **Tool outputs to file**: Any standalone research script or analysis tool MUST write
+  its results to a file (e.g. `reports/findings/` or a tool-specific output path),
+  not just print to stdout. This lets Claude read results directly instead of relying
+  on the user to paste terminal output.
+- **Save analysis tools**: When building a research/analysis script, always save it as
+  a reusable file in `tools/` (not as throwaway inline code). Name it descriptively.
+  Add it to `tools/` inventory in MEMORY.md so future sessions know it exists.
 
 ## Do NOT
 - Add CPU fallback paths (CUDA-only decision)

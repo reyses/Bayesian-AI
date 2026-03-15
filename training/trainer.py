@@ -1486,7 +1486,11 @@ class Trainer:
                             _pp_base = None
                             _ec_feat = _ec.features
                             if _ec_feat is not None:
-                                _ec_fs = self.scaler.transform(_ec_feat.reshape(1, -1) if _ec_feat.ndim == 1 else _ec_feat)
+                                _pp_2d = _ec_feat.reshape(1, -1) if _ec_feat.ndim == 1 else _ec_feat
+                                _pp_exp = getattr(self.scaler, 'n_features_in_', _pp_2d.shape[-1])
+                                if _pp_2d.shape[-1] < _pp_exp:
+                                    _pp_2d = np.concatenate([_pp_2d, np.zeros((_pp_2d.shape[0], _pp_exp - _pp_2d.shape[-1]))], axis=-1)
+                                _ec_fs = self.scaler.transform(_pp_2d)
                                 _ec_ds = np.linalg.norm(centroids_scaled - _ec_fs, axis=1)
                                 _ec_ni = int(np.argmin(_ec_ds))
                                 if _ec_ds[_ec_ni] < 4.5:
@@ -2725,12 +2729,40 @@ class Trainer:
         """Generate forward pass reports, save CSVs, run analytics, save snapshot."""
         # Final Report
         import datetime as _datetime
+        import subprocess as _rpt_sp
         _run_ts = _datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # ── Git change context for report traceability ────────────────────────
+        try:
+            _git_hash = _rpt_sp.check_output(
+                ['git', 'rev-parse', '--short', 'HEAD'],
+                stderr=_rpt_sp.DEVNULL).decode().strip()
+        except Exception:
+            _git_hash = 'unknown'
+        try:
+            _git_msg = _rpt_sp.check_output(
+                ['git', 'log', '-1', '--pretty=%s'],
+                stderr=_rpt_sp.DEVNULL).decode().strip()
+        except Exception:
+            _git_msg = ''
+        try:
+            _git_diff_stat = _rpt_sp.check_output(
+                ['git', 'diff', '--stat', 'HEAD~1', 'HEAD'],
+                stderr=_rpt_sp.DEVNULL).decode().strip()
+            # Keep only the summary line (last line: "N files changed, ...")
+            _git_diff_summary = _git_diff_stat.split('\n')[-1].strip() if _git_diff_stat else ''
+        except Exception:
+            _git_diff_summary = ''
+
         report_lines = []
         _sec = {}  # section_name -> start index in report_lines (for reorder)
         _sec['header'] = len(report_lines)
         report_lines.append("=" * 80)
-        report_lines.append(f"FORWARD PASS COMPLETE  (run: {_run_ts})")
+        _mode_tag = 'OOS' if oos_mode else 'IS'
+        report_lines.append(f"{_mode_tag} FORWARD PASS COMPLETE  (run: {_run_ts})")
+        report_lines.append(f"  Commit: {_git_hash} — {_git_msg}")
+        if _git_diff_summary:
+            report_lines.append(f"  Changes: {_git_diff_summary}")
         _date_range = (
             f"  Period: {start_date or daily_files_15s[0] if daily_files_15s else 'N/A'} "
             f"to {end_date or (os.path.basename(daily_files_15s[-1]).replace('.parquet','') if daily_files_15s else 'N/A')} "
@@ -6052,16 +6084,46 @@ def main():
 
     # ── Tee stdout -> checkpoints/training_log.txt (append, one file per project) ──
     import io
+    import datetime as _dt_tee
+
+    def _stamp_data(data, at_line_start):
+        """Prepend [HH:MM:SS] to each new line. Skip \r-only updates (tqdm)."""
+        if not data:
+            return data, at_line_start
+        # \r anywhere = tqdm progress bar — pass through raw
+        if '\r' in data:
+            return data, True  # next write after progress bar is a fresh line
+        stamped = []
+        for i, line in enumerate(data.split('\n')):
+            if i > 0:
+                stamped.append('\n')
+            if line and at_line_start:
+                ts = _dt_tee.datetime.now().strftime('%H:%M:%S')
+                stamped.append(f'[{ts}] {line}')
+            elif line:
+                stamped.append(line)
+            if i > 0:
+                at_line_start = True
+        if data and not data.endswith('\n'):
+            at_line_start = False
+        elif data.endswith('\n'):
+            at_line_start = True
+        return ''.join(stamped), at_line_start
+
     class _Tee(io.TextIOWrapper):
         def __init__(self, log_path):
             self._file = open(log_path, 'a', encoding='utf-8', buffering=1)
             self._stdout = sys.stdout
+            self._at_line_start = True
         def write(self, data):
+            if not data:
+                return 0
+            out, self._at_line_start = _stamp_data(data, self._at_line_start)
             try:
-                self._stdout.write(data)
+                self._stdout.write(out)
             except UnicodeEncodeError:
-                self._stdout.write(data.encode('ascii', 'replace').decode('ascii'))
-            self._file.write(data)
+                self._stdout.write(out.encode('ascii', 'replace').decode('ascii'))
+            self._file.write(out)
             return len(data)
         def flush(self):
             self._stdout.flush()
@@ -6075,6 +6137,36 @@ def main():
     log_path = os.path.join(args.checkpoint_dir, 'training_log.txt')
     _tee = _Tee(log_path)
     sys.stdout = _tee
+
+    # Also timestamp stderr (warnings, tracebacks)
+    class _StderrTee:
+        def __init__(self):
+            self._stderr = sys.__stderr__
+            self._at_line_start = True
+        def write(self, data):
+            if not data:
+                return 0
+            out, self._at_line_start = _stamp_data(data, self._at_line_start)
+            self._stderr.write(out)
+            return len(data)
+        def flush(self):
+            self._stderr.flush()
+        def isatty(self):
+            return self._stderr.isatty()
+        def fileno(self):
+            return self._stderr.fileno()
+    sys.stderr = _StderrTee()
+
+    # Configure logging module (timestamps added by _StderrTee wrapper)
+    import logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(levelname)s %(name)s: %(message)s',
+        stream=sys.stderr,
+        force=True,
+    )
+    logging.getLogger('numba').setLevel(logging.ERROR)
+    logging.getLogger('numba.cuda').setLevel(logging.ERROR)
 
     # Print a run separator so phases from different runs are easy to distinguish
     import datetime as _dt
