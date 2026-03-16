@@ -4,6 +4,7 @@
 
 | Date | Summary |
 |------|---------|
+| 2026-03-16 | QUANTUM RECONNECTION: 9 orphaned GPU variables found, original probabilistic scoring recovered, funnel decision tree (85% acc), market hierarchy model, reference docs from PDFs |
 | 2026-03-15 | TrailingStop rewrite (MFE-based activation), SL TF sqrt scaling + cap, report traceability, shard_reader tool, I-MR date targeting, division-by-zero fixes, thin-market analysis |
 | 2026-03-14 | Shape Primitive Pipeline (entry+exit primitives, UMAP+HDBSCAN), exit C&E matrix + PFMEA report |
 | 2026-03-13 | Regime Trading Framework ("The Anchor"), DMI reversal research |
