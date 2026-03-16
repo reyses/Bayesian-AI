@@ -1,9 +1,11 @@
 ================================================================================
-FORWARD PASS COMPLETE  (run: 2026-03-15 11:16:05)
+IS FORWARD PASS COMPLETE  (run: 2026-03-15 18:08:08)
+  Commit: b2b5343 — fix: SL TF scaling + max cap + OOS3 standalone + _Tee deadlock
+  Changes: 8 files changed, 1036 insertions(+), 350 deletions(-)
   Period: DATA\ATLAS\15s\2025_01.parquet to 2025_12 (12 files)
 Total Trades: 9253
 Win Rate: 83.2%
-Total PnL: $59761.48
+Total PnL: $59850.98
 
 ── WORKER STATES LOADED ──
   1h=490/file(12/12 files ok)  30m=979/file(12/12 files ok)  15m=1958/file(12/12 files ok)  5m=5871/file(12/12 files ok)  3m=9774/file(12/12 files ok)
@@ -272,15 +274,15 @@ Total PnL: $59761.48
   2025-12-16       49    45  91.8% $   +368.25        $0 $+58,998.50        $0
   2025-12-17       28    22  78.6% $    +43.00        $0 $+59,041.50 $  173.25
   2025-12-18       38    34  89.5% $   +376.05        $0 $+59,417.55        $0
-  2025-12-19       33    26  78.8% $   -101.72 $ -156.47 $+59,315.83 $  204.25
-  2025-12-21        3     3 100.0% $     +8.50        $0 $+59,324.33 $  195.75
-  2025-12-22        6     5  83.3% $     +4.88        $0 $+59,329.20 $  190.88
-  2025-12-23       45    38  84.4% $   +135.15        $0 $+59,464.35 $   55.72
-  2025-12-24       14    12  85.7% $    +71.93        $0 $+59,536.28        $0
-  2025-12-26       10     8  80.0% $    +45.03        $0 $+59,581.30        $0
-  2025-12-29        8     7  87.5% $    +42.35        $0 $+59,623.65        $0
-  2025-12-30       16    15  93.8% $    +62.38        $0 $+59,686.03        $0
-  2025-12-31       19    15  78.9% $    +75.45        $0 $+59,761.48        $0
+  2025-12-19       33    26  78.8% $    -12.22 $  -66.97 $+59,405.33 $  114.75
+  2025-12-21        3     3 100.0% $     +8.50        $0 $+59,413.83 $  106.25
+  2025-12-22        6     5  83.3% $     +4.88        $0 $+59,418.70 $  101.38
+  2025-12-23       45    38  84.4% $   +135.15        $0 $+59,553.85 $   13.57
+  2025-12-24       14    12  85.7% $    +71.93        $0 $+59,625.78        $0
+  2025-12-26       10     8  80.0% $    +45.03        $0 $+59,670.80        $0
+  2025-12-29        8     7  87.5% $    +42.35        $0 $+59,713.15        $0
+  2025-12-30       16    15  93.8% $    +62.38        $0 $+59,775.53        $0
+  2025-12-31       19    15  78.9% $    +75.45        $0 $+59,850.98        $0
 
 ── DRAWDOWN SUMMARY ──
   Max consecutive losing days: 2
@@ -289,25 +291,25 @@ Total PnL: $59761.48
   Method: worst intraday dip below $0 across all trading days
   (each day starts fresh at $0 — captures the deepest hole before recovery)
 
-  Worst intraday dip:  $-156.47  on 2025-12-19
-  ► MINIMUM EQUITY:    $156.47
-  ► With 50% buffer:   $234.71
+  Worst intraday dip:  $-152.25  on 2025-03-14
+  ► MINIMUM EQUITY:    $152.25
+  ► With 50% buffer:   $228.38
 
   Top 5 worst intraday dips:
-    2025-12-19:  $-156.47
     2025-03-14:  $-152.25
     2025-03-03:  $-112.75
     2025-02-07:  $-108.50
     2025-06-20:  $-107.25
+    2025-04-22:  $-98.75
   Days that dipped below $0: 81/269
 
 ── CUMULATIVE EQUITY CURVE ──
   (starts at $0 on day 1, never resets — shows true equity path)
 
-  Final cumulative PnL:  $+59,761.48
-  Peak equity:           $+59,761.48
+  Final cumulative PnL:  $+59,850.98
+  Peak equity:           $+59,850.98
   Trough equity:         $-0.50  on 2025-01-02
-  Max drawdown from peak: $259.00  (trough on 2025-12-19)
+  Max drawdown from peak: $181.00  (trough on 2025-01-29)
   ► MIN EQUITY (cumulative): $0.50  (deepest hole from $0 start)
 
   Critical days (cumulative equity at risk):
@@ -333,7 +335,7 @@ ORACLE PROFIT ATTRIBUTION
     depth 8       940     86% $  7,386.70 $     7.86
     depth 9       922     83% $  6,507.72 $     7.06
     depth 10    1,218     83% $  7,047.95 $     5.79
-    depth 11    1,908     80% $  8,516.90 $     4.46
+    depth 11    1,908     80% $  8,606.40 $     4.51
     depth 12    1,053     78% $  4,087.10 $     3.88
 
   TRADE DURATION BINS (top 3 by volume):
@@ -439,7 +441,7 @@ ORACLE PROFIT ATTRIBUTION
     1m     WIN flip=0.27  LOSS flip=0.17  diff=-0.10
     30s    WIN flip=0.40  LOSS flip=0.28  diff=-0.12
     15s    WIN flip=0.49  LOSS flip=0.56  diff=+0.08
-    5s     WIN flip=0.43  LOSS flip=0.43  diff=-0.01
+    5s     WIN flip=0.43  LOSS flip=0.42  diff=-0.01
     1s     WIN flip=0.51  LOSS flip=0.49  diff=-0.01
 
   DECISION-TF WAVE MATURITY AT ENTRY  (0=fresh wave, 1=exhausted)
@@ -451,27 +453,27 @@ ORACLE PROFIT ATTRIBUTION
   OF 9,253 TRADES TAKEN:
     Correct direction:      5,003  (54.1%)  ->  actual: $ 36,074.40
     Counter-trend scalps:   3,448  (37.3%)  ->  profit: $ 31,651.30  <- oracle wrong-dir but micro-peak captured
-    Genuinely wrong dir:      720  (7.8%)  ->  losses: $  8,493.50
+    Genuinely wrong dir:      720  (7.8%)  ->  losses: $  8,404.00
     Traded noise:              82  (0.9%)  ->  losses: $    529.28
 
-  TOTAL SIGNALS SEEN BY ORACLE: 626,034
-    Real moves (MEGA/SCALP):  566,418   -- worth $143,165,578.50 if perfectly traded
-    Noise (no real move):     59,616
+  TOTAL SIGNALS SEEN BY ORACLE: 626,054
+    Real moves (MEGA/SCALP):  566,434   -- worth $143,168,110.50 if perfectly traded
+    Noise (no real move):     59,620
 
   WHAT WE DID:
     Traded:   9,253  (1.5% of all signals)
-    Skipped: 616,781  (98.5% of all signals)
+    Skipped: 616,801  (98.5% of all signals)
 
-  WHY SIGNALS WERE SKIPPED  (total candidates evaluated: 661,493)
+  WHY SIGNALS WERE SKIPPED  (total candidates evaluated: 661,513)
     Pattern Quality  (no match/noise/struct): 121,657  (18.4%)
     Depth Filter     (depth<3 or blacklist):   1,166  (0.2%)
-    Template Match   (dist > 3.0):             3,621  (0.5%)
+    Template Match   (dist > 3.0):             3,625  (0.5%)
     Brain Reject     (unprofitable pattern):       0  (0.0%)
     Low Conviction   (belief too weak):       44,279  (6.7%)
-    Momentum Misalign (F_mom vs direction):   15,316  (2.3%)
-    Physics Quality  (bypass: depth>3/z>=0):     285  (0.0%)
+    Momentum Misalign (F_mom vs direction):   15,320  (2.3%)
+    Physics Quality  (bypass: depth>3/z>=0):     289  (0.0%)
     Passed all gates -> traded:                9,253  (1.4%)
-    ⚠ Unaccounted:                    465,916  (70.4%)
+    ⚠ Unaccounted:                    465,924  (70.4%)
 
   TRADED SIGNAL DEPTH (which TF level triggered the trade):
     depth 3=15m  :   148 trades  
@@ -486,16 +488,16 @@ ORACLE PROFIT ATTRIBUTION
     depth 12: 1,053 trades  ####
 
   PROFIT GAP ANALYSIS:
-    Ideal (golden-path: gate-blocked + traded, perfect exits):  $143,165,578.50
+    Ideal (golden-path: gate-blocked + traded, perfect exits):  $143,168,110.50
     -----------------------------------------------------
-    Lost -- missed opportunities (gate-blocked):  $141,751,754.00  (99.0% of ideal)
-    Lost -- genuinely wrong direction:            $    8,493.50  (0.0% of ideal)
+    Lost -- missed opportunities (gate-blocked):  $141,754,286.00  (99.0% of ideal)
+    Lost -- genuinely wrong direction:            $    8,404.00  (0.0% of ideal)
     Banked -- counter-trend scalps:              +$  31,651.30  (micro-peak profit, oracle horizon mismatch)
     Lost -- noise trades:                         $      529.28  (0.0% of ideal)
     Lost -- reversed after correct entry:         $    6,153.15  (0.0% of ideal)
     Lost -- TP underperform (non-reversed):       $  952,568.82  (0.7% of ideal)
     -----------------------------------------------------
-    Actual profit:                               $   59,761.48  (0.0% of ideal)
+    Actual profit:                               $   59,850.98  (0.0% of ideal)
     [info] Score-competition pool (took better same bar): $6,380,392.00  (not missed -- golden path chose better candidate)
 
 ================================================================================
@@ -532,16 +534,16 @@ DIRECTION LEARNING (oracle corrections absorbed)
     Total 15s bars processed:  1,369,925  (100%)
     Bars with detection:         102,519  (7.5%)
     Bars with NO detection:    1,267,406  (92.5%)  <- model blind
-    Bars slot-blocked:            11,669  (0.9%)  <- position open, can't trade
-    Bars evaluated (free slot):   90,850  (6.6%)
-    Candidates on those bars:    661,493  (avg 7.3/bar)
+    Bars slot-blocked:            11,661  (0.9%)  <- position open, can't trade
+    Bars evaluated (free slot):   90,858  (6.6%)
+    Candidates on those bars:    661,513  (avg 7.3/bar)
 
   CANDIDATE COMPETITION (bars where gates were passed)
-    Single candidate (no competition):   9,515  (13.7%)
+    Single candidate (no competition):   9,519  (13.7%)
     Multiple candidates (tiebreaker):   59,771  (86.3%)
 
   COUNTER-TREND TEMPLATE ANALYSIS (would blocking wrong-dir help?)
-    Global wrong-dir net: $+23,157.80  (scalps: $+31,651.30  genuinely wrong: $-8,493.50)
+    Global wrong-dir net: $+23,247.30  (scalps: $+31,651.30  genuinely wrong: $-8,404.00)
     Templates where wrong-dir HURTS: 23  Templates where wrong-dir HELPS: 161
 
       TID   Correct   Correct$  CtrScalp     Scalp$   Wrong     Wrong$   Net Wrong$  Verdict
@@ -573,12 +575,12 @@ DIRECTION LEARNING (oracle corrections absorbed)
       364        46 $   298.68        34 $   337.68       5 $   -20.00  $    317.68  KEEP
 
     If BLOCK templates with wrong-dir < -$50:
-      Savings (avoided losses): $+707.98
+      Savings (avoided losses): $+618.48
       Cost (lost scalp profit): $+21,650.57
-      Net impact: $-20,942.60
+      Net impact: $-21,032.10
 
   EXPECTED PROFIT ANALYSIS (E[PnL] = running avg PnL per template×direction)
-    Positive EV trades (E[PnL]>0 at entry):  7,776  (84.0%)  actual: $  +49,823.88  avg: $6.41/trade
+    Positive EV trades (E[PnL]>0 at entry):  7,776  (84.0%)  actual: $  +49,913.38  avg: $6.42/trade
     Negative EV trades (E[PnL]<0 at entry):    366  (4.0%)  actual: $   +2,198.58  avg: $6.01/trade
     Unknown (< 3 samples):                   1,111  (12.0%)  actual: $   +7,739.03
     If blocked neg-EV trades: would save $-2,198.58
@@ -599,21 +601,21 @@ DIRECTION LEARNING (oracle corrections absorbed)
       222       15    $   +7.34        13     $   -2.54  SKIP SHORT
        98        0         n/a          5     $   -2.05  SKIP SHORT
        13        0         n/a          6     $   -1.67  SKIP SHORT
-      140       11    $   +0.86        48     $   -1.64  SKIP SHORT
       176        3    $   -1.50         1          n/a   SKIP LONG
+      312        0         n/a         12     $   -1.42  SKIP SHORT
 
   DETECTION RATE BY DEPTH (real moves: traded vs missed)
-    Overall: 9,171/567,253 = 1.6% detection rate
+    Overall: 9,171/567,269 = 1.6% detection rate
     Depth              Traded   Missed    Total     Rate     Missed $
     -----              ------   ------    -----     ----     --------
     0                       0        8        8     0.0% $  5,332.00
     1=4h+  (high TF)        0      562      562     0.0% $437,201.00  <- blind spot
     2=1h                    0    3,227    3,227     0.0% $1,361,334.00  <- blind spot
     3=15m                 132    6,173    6,305     2.1% $5,112,013.00  <- blind spot
-    4=5m                  216   11,634   11,850     1.8% $3,601,287.00  <- blind spot
+    4=5m                  216   11,642   11,858     1.8% $3,602,891.00  <- blind spot
     5=1m                  900   14,322   15,222     5.9% $3,968,426.50  <- blind spot
     6=15s  (leaf)         977   18,693   19,670     5.0% $7,074,418.50  <- blind spot
-    7                     907   23,672   24,579     3.7% $7,395,917.50  <- blind spot
+    7                     907   23,680   24,587     3.7% $7,396,845.50  <- blind spot
     8                     940   33,251   34,191     2.7% $8,285,000.50  <- blind spot
     9                     920   46,329   47,249     1.9% $9,138,599.50  <- blind spot
     10                  1,218   64,372   65,590     1.9% $9,794,830.50  <- blind spot
@@ -627,11 +629,11 @@ DIRECTION LEARNING (oracle corrections absorbed)
   DECISION MATRIX SUMMARY  (skipped candidates -- oracle $ = profit left on table)
     Gate                    Count  RealMove%  Avg Oracle$  Total Missed$
     traded                   9253      99.1%         153       1403646
-  FN oracle log saved: checkpoints\fn_oracle_log_0000_Q1.csv  (558,082 missed real moves)
+  FN oracle log saved: checkpoints\fn_oracle_log_0000_Q1.csv  (558,098 missed real moves)
 
   FN WORKER AGREEMENT (did workers agree with oracle on missed moves?)
     High agree% = workers called it right but a gate still blocked the trade
-    FN total=558,082  competed=32,747  no_match=525,335
+    FN total=558,098  competed=32,747  no_match=525,351
     TF       All FN  Competed  No-match  <- agree% with oracle dir
     1h         0.51      0.55      0.50
     30m        0.50      0.54      0.50
@@ -655,7 +657,7 @@ DIRECTION LEARNING (oracle corrections absorbed)
     Pattern Quality: momentum override breakout 11,747  (  2.1%)
     Pattern Quality: tunnel prob < 40%         34,703  (  6.2%)
     Depth Filter: depth<3 or blacklist            986  (  0.2%)
-    Template Match: no cluster match (dist>4.5)  3,158  (  0.6%)
+    Template Match: no cluster match (dist>4.5)  3,162  (  0.6%)
     Brain Reject: unprofitable pattern              0  (  0.0%)
     Low Conviction: belief below threshold     40,225  (  7.2%)
     Passed gates, lost to better score              0  (  0.0%)

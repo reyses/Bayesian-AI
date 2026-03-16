@@ -423,13 +423,23 @@ def main():
     index_1s = load_1s_index(args.data_dir)
 
     # Determine time window
+    _ctx_days = None  # computed by --date path; None = default 21
     if args.date:
-        # Single day: 21 days context + 1 day analysis
+        # Single day: all prior data as context, target day as analysis
         dt = datetime.strptime(args.date, '%Y-%m-%d').replace(tzinfo=timezone.utc)
-        t_start = dt.timestamp() - 21 * 86400
-        t_end = dt.timestamp() + 86400
-        mask = (df_1m['timestamp'] >= t_start) & (df_1m['timestamp'] <= t_end)
+        t_day_start = dt.timestamp()
+        t_day_end = t_day_start + 86400
+        # Use all data up to end of target day (prior bars = context)
+        mask = df_1m['timestamp'] <= t_day_end
         df_window = df_1m[mask].reset_index(drop=True)
+        # Count how many bars are ON the target day → that's the analysis window
+        _on_day = (df_window['timestamp'] >= t_day_start).sum()
+        _total = len(df_window)
+        _ctx_bars = _total - _on_day
+        # Convert context bars to approximate days for compute_price_imr
+        _ctx_days = max(0, int(_ctx_bars / 1380))  # ~1380 1m bars/day
+        print(f"  Window: {_total} bars, Day: {args.date}")
+        print(f"  Context: {_ctx_bars} bars (~{_ctx_days}d), Analysis: {_on_day} bars")
         label = f"Day: {args.date}"
         analysis_days = 1
         file_tag = args.date.replace('-', '')
@@ -473,12 +483,14 @@ def main():
         analysis_days = 7
         file_tag = "seed42"
 
+    # Use computed context days for --date mode, default 21 otherwise
+    _context_days = _ctx_days if args.date else 21
     print(f"\n  Window: {len(df_window)} bars, {label}")
 
     # Extract segments
     segments, price_imr, regime_ids = extract_regime_segments(
         df_window, index_1s,
-        context_days=21, analysis_days=analysis_days,
+        context_days=_context_days, analysis_days=analysis_days,
         min_regime_bars=args.min_regime_bars
     )
 

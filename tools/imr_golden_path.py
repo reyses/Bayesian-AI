@@ -457,6 +457,8 @@ def main():
                         help='Restrict random pick to this month (e.g., 2025_07)')
     parser.add_argument('--seed', type=int, default=None,
                         help='Random seed for reproducibility')
+    parser.add_argument('--date', default=None,
+                        help='Target date (YYYY-MM-DD) — centers analysis around this day')
     parser.add_argument('--context-days', type=int, default=21,
                         help='Warmup context days before analysis week')
     parser.add_argument('--analysis-days', type=int, default=7,
@@ -476,10 +478,17 @@ def main():
         sys.exit(1)
     print(f"  Loaded {len(df_1m):,} 1m bars")
 
-    # Pick random week
-    print("\n[2] Picking random week...")
-    context_start, week_start, week_end = pick_random_week(
-        df_1m, seed=args.seed)
+    # Pick analysis window
+    if args.date:
+        print(f"\n[2] Targeting date: {args.date}")
+        _target_dt = datetime.strptime(args.date, '%Y-%m-%d').replace(tzinfo=timezone.utc)
+        week_start = _target_dt.timestamp()
+        week_end = week_start + args.analysis_days * 86400
+        context_start = week_start - args.context_days * 86400
+    else:
+        print("\n[2] Picking random week...")
+        context_start, week_start, week_end = pick_random_week(
+            df_1m, seed=args.seed)
 
     ctx_dt = datetime.fromtimestamp(context_start, tz=timezone.utc)
     ws_dt = datetime.fromtimestamp(week_start, tz=timezone.utc)
