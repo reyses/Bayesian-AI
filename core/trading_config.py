@@ -181,8 +181,9 @@ class TradingConfig:
     sl_p25_mae_mult: float = 3.0
     sl_mean_mae_mult: float = 2.0
     sl_default_ticks: float = 20.0
-    sl_min_ticks: float = 20.0  # absolute minimum floor (rarely hit with tolerance interval)
-    sl_max_ticks: float = 200.0  # absolute maximum cap ($50 for MNQ) — prevents runaway from unscaled TF stats
+    sl_min_ticks: float = 2.0   # absolute minimum floor ($0.50 MNQ — near breakeven)
+    sl_max_ticks: float = 200.0  # absolute maximum cap ($100 for MNQ) — prevents runaway from unscaled TF stats
+    sl_mfe_ratio: float = 1.0   # SL capped at 1× expected MFE (risk = expected reward, not more)
     sl_tolerance_mult: float = 1.0  # multiplier on p95 MAE tolerance interval (>1 = wider, <1 = tighter)
     sl_tolerance_k: float = 5.0    # fallback: mean + k*std when p95 unavailable (5σ ≈ 99.99994%)
     tp_min_ticks: float = 4.0

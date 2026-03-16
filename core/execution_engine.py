@@ -1019,8 +1019,11 @@ class ExecutionEngine:
         _EXEC_TF_SEC = 15.0  # execution timeframe
         _disc_tf = lib_entry.get('discovery_tf_seconds', _EXEC_TF_SEC)
         _tf_ratio = _disc_tf / _EXEC_TF_SEC
-        # Sqrt scaling: MAE ~ sqrt(T), so scale down by sqrt(ratio)
-        _tf_scale = _tf_ratio ** 0.5 if _tf_ratio > 1.0 else 1.0
+        # TF scaling: discovery stats → execution timeframe.
+        # discovery_tf > exec_tf: sqrt scaling (diffusion model, MAE ~ sqrt(T))
+        # discovery_tf < exec_tf: linear scaling (1s oracle covers 15× more bars,
+        #   captures moves we can't replicate on coarser execution bars)
+        _tf_scale = _tf_ratio ** 0.5 if _tf_ratio >= 1.0 else 1.0 / _tf_ratio
 
         _reg_sigma = lib_entry.get('regression_sigma_ticks', 0.0) / _tf_scale
         _mean_mae = lib_entry.get('mean_mae_ticks', 0.0) / _tf_scale
@@ -1044,6 +1047,13 @@ class ExecutionEngine:
             sl_ticks = params.get('stop_loss_ticks', _cfg.sl_default_ticks)
         # Hard cap: prevents runaway SL from unscaled/extreme TF stats
         sl_ticks = min(sl_ticks, _cfg.sl_max_ticks)
+
+        # MFE-proportional cap: SL should not exceed sl_mfe_ratio × expected profit
+        # Small expected MFE → tight SL (breakeven protection)
+        # Large expected MFE → wider SL (room to develop)
+        if _p75_mfe > _cfg.significance_threshold:
+            _mfe_cap = max(_cfg.sl_min_ticks, int(round(_p75_mfe * _cfg.sl_mfe_ratio)))
+            sl_ticks = min(sl_ticks, _mfe_cap)
 
         # Phase 2: trailing stop distance
         if _reg_sigma > _cfg.significance_threshold:
