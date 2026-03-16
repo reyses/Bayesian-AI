@@ -86,9 +86,12 @@ class PositionState:
     # 30m worker flip: once fired, stays True for remainder of trade
     slow_flip_active: bool = False
 
-    # 5m DMI direction confirmation counter.
-    # Counts consecutive bars where 5m DMI agrees with trade direction.
-    # At 3+ bars (15 min), direction is confirmed (research: MAE drops 40%).
+    # Discovery TF for TF-aware exits (regime_decay checks this TF's DMI)
+    discovery_tf_seconds: float = 15.0
+
+    # DMI direction confirmation counter — uses discovery TF's DMI.
+    # Counts consecutive bars where discovery-TF DMI agrees with trade direction.
+    # At 3+ bars, direction is confirmed (research: MAE drops 40%).
     dmi_confirmed_bars: int = 0
     dmi_direction_confirmed: bool = False
 
@@ -342,6 +345,7 @@ class ExitEngine:
             max_hold_bars=max_hold_bars,
             anchor_mfe_ticks=float(_anchor_mfe),
             anchor_mfe_bars=float(_anchor_bars),
+            discovery_tf_seconds=float(lib_entry.get('discovery_tf_seconds', 15.0)) if lib_entry else 15.0,
             template_shape_params=_tsp,
             envelope_halflife_mult=_hl_mult,
         )
@@ -422,8 +426,9 @@ class ExitEngine:
         else:
             pos.bars_since_peak += 1
 
-        # ── 5m DMI direction confirmation (3 bars = 15 min = confirmed) ──
+        # ── Discovery TF DMI direction confirmation (3 bars = confirmed) ──
         # Research: at 3 confirmed bars, MAE drops 40%, MFE increases 10%.
+        # Uses discovery TF DMI (from exit_signal, routed by TBN).
         if exit_signal is not None:
             _di_p = exit_signal.get('di_plus', 0.0)
             _di_m = exit_signal.get('di_minus', 0.0)

@@ -1158,7 +1158,8 @@ class Trainer:
                     belief_network._trade_pace_blend = _tp.get('pace', 1.0) - 1.0
 
                     _exit_sig = belief_network.get_exit_signal(
-                        _exec_engine.active_side, active_entry_price)
+                        _exec_engine.active_side, active_entry_price,
+                        discovery_tf_seconds=self._position.discovery_tf_seconds if self._position else 300.0)
                     _band_ctx = (belief_network.get_band_confluence()
                                  if hasattr(belief_network, 'get_band_confluence') else None)
                     _bar_state = _states_map.get(_bar_i - 1)
