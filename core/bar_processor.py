@@ -172,6 +172,7 @@ class BarProcessor:
         exit_state=None,
         pp_dir_override: str = None,
         yolo: bool = False,
+        exit_only: bool = False,
     ) -> BarResult:
         """Process one bar. Returns BarResult with action and optional trade.
 
@@ -182,20 +183,27 @@ class BarProcessor:
             exit_state: Optional override for exit evaluation. Usually omitted
                         (defaults to `state`). Only useful if caller needs
                         different state for exits (e.g. live 1s sub-bar exits).
+            exit_only:  If True, only evaluate exits (skip TBN tick + entry).
+                        Used for sub-bar (1s) exit checks between anchor bars.
+                        SL and trail need 1s resolution to protect capital.
 
         Callers iterate bars and call this once per bar. The processor handles:
         TBN tick, candidate building, EE entry/exit, trade recording.
         """
-        # 1. Tick TBN workers
-        self.belief_network.tick_all(bar_index)
+        if not exit_only:
+            # 1. Tick TBN workers (only on anchor bars, not sub-bar ticks)
+            self.belief_network.tick_all(bar_index)
 
-        # 2. If in position → exit evaluation (uses PREVIOUS bar state)
+        # 2. If in position → exit evaluation
         if self.exec_engine.in_position:
             _es = exit_state if exit_state is not None else state
             return self._process_exit(
                 bar_index, price, bar_high, bar_low, timestamp, _es)
 
-        # 3. If flat → entry evaluation (uses CURRENT bar state)
+        # 3. If flat and not exit_only → entry evaluation
+        if exit_only:
+            return BarResult(action=TradeAction(type=ActionType.HOLD))
+
         candidates = self._build_candidates(state, timestamp, yolo=yolo)
         if not candidates:
             return BarResult(
