@@ -1016,6 +1016,11 @@ class Trainer:
                 ts = int(ts_raw) // 60 * 60
                 price = getattr(row, 'close', getattr(row, 'price', 0.0))
 
+                # Feed price to dashboard chart (every 20 bars = 5 min)
+                if self.dashboard_queue is not None and _bar_i % 20 == 0:
+                    self.dashboard_queue.put({
+                        'type': 'TICK_UPDATE', 'price': price})
+
                 # Belief network: tick all workers (event-driven by TF bar change)
                 # 1h worker updates once per 240 bars; 15s worker updates every bar
                 # _warmup_offset > 0 on first OOS file: IS data prepended to TBN states,
@@ -1197,6 +1202,12 @@ class Trainer:
                             _trade_mfe_ticks = 0.0
                         self._position = None
                         _exec_engine.position_closed()
+                        # Trade exit marker on dashboard
+                        if self.dashboard_queue is not None:
+                            self.dashboard_queue.put({
+                                'type': 'TRADE_MARKER', 'action': 'EXIT',
+                                'side': active_side, 'price': _exit_action.price,
+                                'pnl': _ee_pnl})
                         outcome = record_trade(
                             self.brain, tid=active_template_id,
                             entry_price=active_entry_price,
@@ -1582,6 +1593,11 @@ class Trainer:
                                 trail_activation_ticks=_trail_act_ticks,
                                 lib_entry=lib_entry,
                             )
+                            # Trade marker on dashboard
+                            if self.dashboard_queue is not None:
+                                self.dashboard_queue.put({
+                                    'type': 'TRADE_MARKER', 'action': 'ENTRY',
+                                    'side': side, 'price': price, 'pnl': 0})
                             # Notify engine
                             _exec_engine.position_opened(
                                 side=side, price=price, bar_index=_bar_i,
