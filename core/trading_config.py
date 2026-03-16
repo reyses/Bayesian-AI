@@ -183,6 +183,10 @@ class TradingConfig:
     trail_default_ticks: float = 10.0
     trail_min_ticks: float = 2.0
     trail_activation_mae_mult: float = 0.3
+    # Trailing stop activation: wait for MFE to reach this fraction of expected profit
+    trail_activation_pct: float = 0.80       # activate at 80% of p75_mfe
+    trail_activation_floor: float = 20.0     # minimum activation threshold ($5 MNQ)
+    trail_activation_ceiling: float = 400.0  # maximum activation threshold ($100 MNQ)
     atr_sl_mult: float = 3.0
     atr_tp_mult: float = 5.0
     significance_threshold: float = 2.0

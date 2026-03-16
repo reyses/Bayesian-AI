@@ -134,7 +134,7 @@ class ExitEngine:
         # ── Exit modules (params from config) ──
         from core.exits.stop_loss import StopLossCheck
         from core.exits.take_profit import TakeProfitCheck
-        from core.exits.breakeven import BreakevenLock
+        from core.exits.breakeven import TrailingStop
         from core.exits.envelope import EnvelopeDecay
         from core.exits.giveback import PeakGiveback
         from core.exits.band_exit import BandUrgentExit
@@ -143,8 +143,10 @@ class ExitEngine:
 
         self.stop_loss = StopLossCheck()
         self.take_profit = TakeProfitCheck()
-        self.breakeven = BreakevenLock(
-            activation_ticks=config.be_activation_ticks,
+        self.breakeven = TrailingStop(
+            activation_pct=config.trail_activation_pct,
+            activation_floor_ticks=config.trail_activation_floor,
+            activation_ceiling_ticks=config.trail_activation_ceiling,
             buffer_ticks=config.be_buffer_ticks)
         self.envelope = EnvelopeDecay(
             half_life_bars=config.envelope_halflife_bars,
@@ -293,11 +295,13 @@ class ExitEngine:
         _anchor_mfe = 0.0
         _anchor_bars = 0.0
         if lib_entry:
-            _anchor_mfe = lib_entry.get('p75_mfe_ticks', 0.0)
+            _disc_tf_sec = lib_entry.get('discovery_tf_seconds', 15.0)
+            _tf_ratio = _disc_tf_sec / 15.0
+            _tf_scale = _tf_ratio ** 0.5 if _tf_ratio > 1.0 else 1.0
+            # Scale MFE from discovery TF to execution TF (sqrt diffusion)
+            _anchor_mfe = lib_entry.get('p75_mfe_ticks', 0.0) / _tf_scale
             _anchor_bars = lib_entry.get('avg_mfe_bar', 0.0)
             # Convert bar-based stats from discovery TF to 15s execution TF
-            _disc_tf_sec = lib_entry.get('discovery_tf_seconds', 15.0)
-            _tf_ratio = _disc_tf_sec / 15.0  # e.g., 1m=4x, 5m=20x
             if _tf_ratio > 1.0 and _anchor_bars > 0:
                 _anchor_bars = _anchor_bars * _tf_ratio
 
