@@ -6,12 +6,20 @@ type: user
 
 ## Professional Background
 
-- **Six Sigma Black Belt** — that's why PFMEA, C&E matrices, RPN scoring,
+- **Electromechanical Engineer** — that's where PID control comes from.
+  Not borrowed from control theory textbooks — from actually tuning PID
+  loops on motors, 3D printers, servos. He recognized the same Kp/Ki/Kd
+  response in HFT market-making behavior because he's built physical
+  systems that do the exact same thing.
+- **Six Sigma Black Belt** — PFMEA, C&E matrices, RPN scoring,
   DOE (screening → characterization → RSM), Pareto analysis, and control
   charts (I-MR) are native tools, not afterthoughts
 - **Medical Device NPI Project Engineer** — ISO 13485/14971 risk management,
-  design controls, process validation. That's why everything has a risk
-  assessment, traceability, and verification/validation phases
+  design controls, process validation. Everything has a risk assessment,
+  traceability, and verification/validation phases
+- **3D printing enthusiast** — hands-on PID tuning experience. When he says
+  "the algos run a PID controller on price," he means it literally because
+  he's watched the same P/I/D behavior in stepper motors and hotend temp control
 - **The PFMEA approach to gates/exits** isn't borrowed from manufacturing —
   it IS manufacturing process control applied to trade execution
 
