@@ -1247,6 +1247,18 @@ class TimeframeBeliefNetwork:
             elif side == 'short' and _30m_belief.dir_prob > 0.55:
                 _slow_flip_tighten = True
 
+        # ── 15s execution-TF flip detection ──────────────────────────
+        # OOS data shows 66% of losses had the 15s worker flip mid-trade
+        # vs 44% of wins (+22% edge). When the execution TF flips against
+        # the trade, the micro structure has reversed.
+        _exec_flip = False
+        _15s_belief = belief.tf_beliefs.get(15)
+        if _15s_belief is not None:
+            if side == 'long' and _15s_belief.dir_prob < 0.40:
+                _exec_flip = True
+            elif side == 'short' and _15s_belief.dir_prob > 0.60:
+                _exec_flip = True
+
         # ── Trade pace check ──────────────────────────────────────────
         # If we know the template's expected target and resolve time,
         # check if price is on track. Behind pace + past halfway = tighten.
@@ -1267,6 +1279,7 @@ class TimeframeBeliefNetwork:
         reason = ('band_broken'    if _band_urgent   else
                   'time_exhausted' if _time_urgent    else
                   'urgent_flip'    if urgent           else
+                  'exec_tf_flip'   if _exec_flip      else
                   'pace_behind'    if _pace_tighten   else
                   'slow_flip'      if _slow_flip_tighten else
                   'band_tighten'   if _band_tighten   else
@@ -1315,6 +1328,7 @@ class TimeframeBeliefNetwork:
             'conviction':    belief.conviction,
             'wave_maturity': wave_mature,
             'slow_flip_tighten': _slow_flip_tighten,
+            'exec_tf_flip': _exec_flip,
             'reason':        reason,
             'trade_health':  round(_trade_health, 3),
             'pace':          round(_pace_val, 3),
