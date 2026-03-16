@@ -109,17 +109,26 @@ def load_imr_seeds(seed_path: str) -> dict:
 
 def compute_template_match(bar_features, scaler, centroids_scaled, valid_tids,
                             gate1_dist=3.0):
-    """Find which templates match the current bar's features."""
-    feat_2d = bar_features.reshape(1, -1)
-    expected_dim = centroids_scaled.shape[1]
-    if feat_2d.shape[1] < expected_dim:
-        pad = np.zeros((1, expected_dim - feat_2d.shape[1]))
-        feat_2d = np.concatenate([feat_2d, pad], axis=1)
-    elif feat_2d.shape[1] > expected_dim:
-        feat_2d = feat_2d[:, :expected_dim]
+    """Find which templates match the current bar's features.
 
-    feat_scaled = scaler.transform(feat_2d)
-    dists = np.linalg.norm(centroids_scaled - feat_scaled, axis=1)
+    When features are 16D but scaler/centroids are 22D (lookback mode),
+    compare only the first 16 dimensions to avoid zero-padding distortion.
+    """
+    feat_dim = bar_features.shape[0]
+    expected_dim = centroids_scaled.shape[1]
+
+    if feat_dim < expected_dim:
+        # Scale 16D features manually using first 16 dims of scaler params
+        # (avoids distortion from zero-padded lookback dims in scaler.transform)
+        _mean = scaler.mean_[:feat_dim]
+        _scale = scaler.scale_[:feat_dim]
+        feat_scaled_16 = (bar_features - _mean) / _scale
+        # Distance on shared dimensions only
+        dists = np.linalg.norm(centroids_scaled[:, :feat_dim] - feat_scaled_16.reshape(1, -1), axis=1)
+    else:
+        feat_2d = bar_features.reshape(1, -1)[:, :expected_dim]
+        feat_scaled = scaler.transform(feat_2d)
+        dists = np.linalg.norm(centroids_scaled - feat_scaled, axis=1)
 
     matches = []
     for i, (tid, dist) in enumerate(zip(valid_tids, dists)):
@@ -164,9 +173,6 @@ def run_funnel_simulation(data_dir: str, month: str = None,
     print(f"  {len(states):,} states computed")
 
     # Feature extractor
-    from core.feature_extraction import extract_canonical_features
-    feat_dim = centroids_scaled.shape[1]
-
     # Load traded signals for outcome matching
     traded = load_traded_signals()
     traded_ts_set = set(traded['ts'].values) if len(traded) > 0 else set()
@@ -211,27 +217,44 @@ def run_funnel_simulation(data_dir: str, month: str = None,
 
         # Extract features for template matching
         try:
-            # Create a minimal pattern-like object for feature extraction
-            class _FakePattern:
-                def __init__(self, s, z):
-                    self.state = s
-                    self.z_score = z
-                    self.pattern_type = 'MOMENTUM_BREAK'
-                    self.parent_chain = []
-                    self.lookback_closes = None
-
-            fake = _FakePattern(state, z_score)
-            from core.fractal_clustering import FractalClusteringEngine
-            _ce = FractalClusteringEngine.__new__(FractalClusteringEngine)
-            _ce._use_lookback = False
-            features = np.array(_ce.extract_features(fake))
-        except Exception:
+            from core.feature_extraction import extract_feature_vector
+            _adx = getattr(state, 'adx_strength', 0.0) / 100.0
+            _hurst = getattr(state, 'hurst_exponent', 0.5)
+            _dmi_diff = (getattr(state, 'dmi_plus', 0.0) - getattr(state, 'dmi_minus', 0.0)) / 100.0
+            _pid = getattr(state, 'term_pid', 0.0)
+            _osc = getattr(state, 'oscillation_entropy_normalized', 0.0)
+            features = np.array(extract_feature_vector(
+                z_score=getattr(state, 'z_score', 0.0),
+                velocity=getattr(state, 'velocity', 0.0),
+                momentum=getattr(state, 'momentum', 0.0),
+                entropy_normalized=getattr(state, 'entropy_normalized', 0.0),
+                tf_seconds=15,
+                depth=0.0,
+                parent_is_band_reversal=0.0,
+                adx=_adx, hurst=_hurst, dmi_diff=_dmi_diff,
+                parent_z=0.0, parent_dmi_diff=0.0,
+                root_is_roche=0.0, tf_alignment=0.0,
+                pid=_pid, osc_coherence=_osc,
+            ))
+        except Exception as _fe_err:
             funnel_width_history.append(len(active_funnel))
             continue
 
         # Find matching templates
         matches = compute_template_match(features, scaler, centroids_scaled,
                                           valid_tids, gate1_dist)
+
+        # Debug: log first bar with z > 1
+        if bar_i < 500 and z_score > 1.0 and not getattr(run_funnel_simulation, '_debug_done', False):
+            feat_2d = features.reshape(1, -1)
+            if feat_2d.shape[1] < centroids_scaled.shape[1]:
+                pad = np.zeros((1, centroids_scaled.shape[1] - feat_2d.shape[1]))
+                feat_2d = np.concatenate([feat_2d, pad], axis=1)
+            feat_s = scaler.transform(feat_2d)
+            dists = np.linalg.norm(centroids_scaled - feat_s, axis=1)
+            print(f"  DEBUG bar={bar_i} z={z_score:.2f} feat={features.shape} "
+                  f"min_dist={dists.min():.2f} matches={len(matches)}")
+            run_funnel_simulation._debug_done = True
 
         # Determine direction from z-score sign (simplified)
         raw_z = getattr(state, 'z_score', 0.0)
