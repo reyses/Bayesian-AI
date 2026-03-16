@@ -1,3 +1,6 @@
+# Quantum State Reference — Unified Market Physics Theories
+> Source: Original design document (Mar 2026)
+
 QUANTUM STATE REFERENCE: THE UNIFIED MARKET PHYSICS
 THEORIES
 TARGET AUDIENCE: Claude Code (Development AI) PURPOSE: This document is the ultimate
