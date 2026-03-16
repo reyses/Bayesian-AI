@@ -1133,6 +1133,48 @@ class ProgressPopup:
                 c.create_polygon(mx_pos, my_pos + sz, mx_pos - sz, my_pos - sz,
                                  mx_pos + sz, my_pos - sz, fill=mc, outline="#000")
 
+    def _save_chart_data(self):
+        """Save price history + trade markers to CSV at end of phase."""
+        import os, csv
+        from datetime import datetime
+        _mode = self._current_mode if hasattr(self, '_current_mode') else 'is'
+        _ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+        _dir = os.path.join('reports', _mode)
+        os.makedirs(_dir, exist_ok=True)
+
+        # Save trade markers
+        _markers_path = os.path.join(_dir, f'chart_markers_{_ts}.csv')
+        try:
+            with open(_markers_path, 'w', newline='') as f:
+                w = csv.writer(f)
+                w.writerow(['idx', 'action', 'side', 'price', 'pnl'])
+                for m in self._trade_markers:
+                    w.writerow(m)
+            print(f"  [CHART] Markers saved: {_markers_path} ({len(self._trade_markers)} markers)")
+        except Exception as e:
+            print(f"  [CHART] Marker save failed: {e}")
+
+        # Save price history
+        _price_path = os.path.join(_dir, f'chart_prices_{_ts}.csv')
+        try:
+            with open(_price_path, 'w', newline='') as f:
+                w = csv.writer(f)
+                w.writerow(['idx', 'price'])
+                for i, p in enumerate(self._price_history):
+                    w.writerow([i, p])
+            print(f"  [CHART] Prices saved: {_price_path} ({len(self._price_history)} points)")
+        except Exception as e:
+            print(f"  [CHART] Price save failed: {e}")
+
+        # Save canvas as PostScript → convert if possible
+        try:
+            _ps_path = os.path.join(_dir, f'chart_{_mode}_{_ts}.ps')
+            self._price_canvas.postscript(file=_ps_path, colormode='color')
+            self._canvas.postscript(file=_ps_path.replace('chart_', 'pnl_'), colormode='color')
+            print(f"  [CHART] Canvas saved: {_ps_path}")
+        except Exception as e:
+            print(f"  [CHART] Canvas save failed: {e}")
+
     def _on_aggression_change(self, val):
         """Slider callback — update shared state so engine reads it."""
         v = int(val) / 100.0
@@ -1300,6 +1342,8 @@ class ProgressPopup:
                         self._status_var.set("COMPLETE — close window when ready")
                         self._pct_var.set("100%")
                         self.root.attributes("-topmost", False)
+                        # Save chart data + screenshot
+                        self._save_chart_data()
 
                 elif mtype == "ACCOUNT_UPDATE":
                     cash = float(msg.get("cash_value", 0))
