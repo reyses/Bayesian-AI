@@ -68,6 +68,8 @@ class SurvivalStopExit:
                 )
 
         # ── Mode 2: Structural flatline (fallback) ──
+        # Only fires if there's evidence of imminent reversal.
+        # A flat trade with macro support = accumulation, not danger.
         target_ticks = pos.tp_ticks if pos.tp_ticks > 0 else pos.anchor_mfe_ticks
         if target_ticks <= 0:
             return None
@@ -79,15 +81,74 @@ class SurvivalStopExit:
         if z_var is None or z_var >= self._z_var_max:
             return None  # still moving
 
+        # Check if higher TF still supports the trade.
+        # If macro agrees, this flat period is accumulation — hold.
+        # Only exit flat trades when macro support is fading.
+        _disc_tf = int(getattr(pos, 'discovery_tf_seconds', 300))
+        _danger = self._check_flip_imminent(belief_network, _disc_tf, pos.side)
+        if not _danger:
+            return None  # macro still supports — flat is OK, hold
+
         return ExitResult(
             action=ExitAction.SURVIVAL_FLATLINE,
             exit_price=bar_close,
             reason=f"Survival flatline: {pos.bars_held}bars, "
                    f"pnl={current_ticks:.1f}t < {target_ticks*self._target_pct:.1f}t target, "
-                   f"z_var={z_var:.3f}",
+                   f"z_var={z_var:.3f}, flip_imminent",
             pnl_ticks=current_ticks,
             bars_held=pos.bars_held,
         )
+
+    @staticmethod
+    def _check_flip_imminent(belief_network, disc_tf_sec: int, side: str) -> bool:
+        """Check if the adjacent higher TF is turning against the trade."""
+        if belief_network is None:
+            return True  # no data = assume danger
+
+        _hierarchy = [1, 5, 15, 30, 60, 120, 180, 300, 900, 1800, 3600, 14400]
+        _higher = disc_tf_sec
+        for tf in _hierarchy:
+            if tf > disc_tf_sec:
+                _higher = tf
+                break
+
+        w = belief_network.workers.get(_higher)
+        if w is None:
+            return True  # can't check = assume danger
+
+        mi = w._last_tf_bar_idx
+        if mi < 1 or not w._states or mi >= len(w._states):
+            return True
+
+        # Current and previous state
+        raw = w._states[mi]
+        ms = raw['state'] if isinstance(raw, dict) and 'state' in raw else raw
+        dp = getattr(ms, 'dmi_plus', 0.0)
+        dm = getattr(ms, 'dmi_minus', 0.0)
+
+        prev_raw = w._states[mi - 1]
+        prev_ms = prev_raw['state'] if isinstance(prev_raw, dict) and 'state' in prev_raw else prev_raw
+        prev_dp = getattr(prev_ms, 'dmi_plus', 0.0)
+        prev_dm = getattr(prev_ms, 'dmi_minus', 0.0)
+
+        # Danger = higher TF DMI is crossing or has crossed against
+        if side == 'long':
+            # Was bullish, now bearish or closing gap
+            agrees = dp > dm
+            was_agree = prev_dp > prev_dm
+            gap_shrinking = (dp - dm) < (prev_dp - prev_dm) * 0.5
+        else:
+            agrees = dm > dp
+            was_agree = prev_dm > prev_dp
+            gap_shrinking = (dm - dp) < (prev_dm - prev_dp) * 0.5
+
+        # Flip imminent: either already flipped or gap halved
+        if not agrees:
+            return True  # already flipped
+        if was_agree and gap_shrinking:
+            return True  # gap closing fast
+
+        return False  # macro still solid
 
     def _compute_z_variance(self, belief_network) -> Optional[float]:
         """Compute Z-score variance over last N micro bars."""
