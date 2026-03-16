@@ -919,29 +919,32 @@ class ProgressPopup:
         )
         self._gl_lbl.grid(row=1, column=2, padx=20)
 
-        # ── Exit timing row ─────────────────────────────────────────────────
+        # ── Capture rate quartiles ─────────────────────────────────────────
         exit_frame = tk.Frame(root, bg=BG)
         exit_frame.pack(fill="x", padx=20, pady=(6, 0))
-        _exit_labels = ("Optimal >=80%", "Partial 20-80%", "Early <20%", "Reversed <=0%")
-        _exit_colors = (FG_GREEN, FG_AMBER, FG_RED, "#ff2222")
+        _exit_labels = ("Reversed", "Q1 0-25%", "Q2 25-50%", "Q3 50-75%", "Q4 75-100%", "100%+")
+        _exit_colors = ("#ff2222", FG_RED, FG_AMBER, FG_AMBER, FG_GREEN, "#00ffff")
         for col, lbl in enumerate(_exit_labels):
             tk.Label(
                 exit_frame, text=lbl, bg=BG, fg=FG_GREY, font=("Consolas", 8)
-            ).grid(row=0, column=col, padx=12)
+            ).grid(row=0, column=col, padx=8)
 
-        self._exit_opt_var = tk.StringVar(value="—")
-        self._exit_par_var = tk.StringVar(value="—")
-        self._exit_ear_var = tk.StringVar(value="—")
-        self._exit_rev_var = tk.StringVar(value="—")
+        self._cap_rev_var = tk.StringVar(value="—")
+        self._cap_q1_var = tk.StringVar(value="—")
+        self._cap_q2_var = tk.StringVar(value="—")
+        self._cap_q3_var = tk.StringVar(value="—")
+        self._cap_q4_var = tk.StringVar(value="—")
+        self._cap_plus_var = tk.StringVar(value="—")
 
         for col, (var, clr) in enumerate(zip(
-            (self._exit_opt_var, self._exit_par_var, self._exit_ear_var, self._exit_rev_var),
+            (self._cap_rev_var, self._cap_q1_var, self._cap_q2_var,
+             self._cap_q3_var, self._cap_q4_var, self._cap_plus_var),
             _exit_colors,
         )):
             tk.Label(
                 exit_frame, textvariable=var, bg=BG, fg=clr,
                 font=("Consolas", 12, "bold"),
-            ).grid(row=1, column=col, padx=12)
+            ).grid(row=1, column=col, padx=8)
 
         # ── PnL control chart ─────────────────────────────────────────────────
         tk.Label(root, text="PnL by Trade", bg=BG, fg=FG_GREY, font=("Consolas", 8)).pack(
@@ -1264,17 +1267,21 @@ class ProgressPopup:
                     if _gl is not None:
                         self._gl_var.set(f"-${_gl:,.0f}")
 
-                    # Exit timing buckets
-                    _e_opt = msg.get('exit_optimal')
-                    _e_par = msg.get('exit_partial')
-                    _e_ear = msg.get('exit_early')
-                    _e_rev = msg.get('exit_reversed')
-                    _e_tot = (_e_opt or 0) + (_e_par or 0) + (_e_ear or 0) + (_e_rev or 0)
-                    if _e_tot > 0:
-                        self._exit_opt_var.set(f"{_e_opt}  ({_e_opt/_e_tot*100:.0f}%)")
-                        self._exit_par_var.set(f"{_e_par}  ({_e_par/_e_tot*100:.0f}%)")
-                        self._exit_ear_var.set(f"{_e_ear}  ({_e_ear/_e_tot*100:.0f}%)")
-                        self._exit_rev_var.set(f"{_e_rev}  ({_e_rev/_e_tot*100:.0f}%)")
+                    # Capture rate quartile buckets
+                    _c_rev = msg.get('cap_reversed', 0)
+                    _c_q1 = msg.get('cap_q1', 0)
+                    _c_q2 = msg.get('cap_q2', 0)
+                    _c_q3 = msg.get('cap_q3', 0)
+                    _c_q4 = msg.get('cap_q4', 0)
+                    _c_plus = msg.get('cap_100plus', 0)
+                    _c_tot = _c_rev + _c_q1 + _c_q2 + _c_q3 + _c_q4 + _c_plus
+                    if _c_tot > 0:
+                        self._cap_rev_var.set(f"{_c_rev}  ({_c_rev/_c_tot*100:.0f}%)")
+                        self._cap_q1_var.set(f"{_c_q1}  ({_c_q1/_c_tot*100:.0f}%)")
+                        self._cap_q2_var.set(f"{_c_q2}  ({_c_q2/_c_tot*100:.0f}%)")
+                        self._cap_q3_var.set(f"{_c_q3}  ({_c_q3/_c_tot*100:.0f}%)")
+                        self._cap_q4_var.set(f"{_c_q4}  ({_c_q4/_c_tot*100:.0f}%)")
+                        self._cap_plus_var.set(f"{_c_plus}  ({_c_plus/_c_tot*100:.0f}%)")
 
                     if step == "FORWARD_PASS COMPLETE":
                         self._done = True
