@@ -59,10 +59,18 @@ class PeakGiveback:
         if peak_ticks <= 0:
             return None
 
-        # Anchor patience: trade still developing — but NEVER suppress if
-        # trade has reversed through entry (current_ticks < 0 = losing money).
-        # The patience window is for trades that haven't peaked yet, not for
-        # trades that peaked and reversed.
+        # Giveback only fires if trade actually reached a meaningful peak.
+        # A 1-2 tick bounce is noise, not a "peak to give back from."
+        # Require peak >= 20% of expected MFE (anchor_mfe_ticks) before
+        # giveback activates. If no anchor, require at least min_mfe_ticks.
+        _min_peak = self.min_mfe_ticks
+        if pos.anchor_mfe_ticks > 0:
+            _min_peak = max(_min_peak, pos.anchor_mfe_ticks * 0.20)
+        if peak_ticks < _min_peak:
+            return None  # trade never reached projected peak — not giveback's job
+
+        # Anchor patience: trade still developing — suppress if still in profit
+        # and hasn't reached expected peak within expected time.
         if (pos.anchor_mfe_ticks > 0 and pos.anchor_mfe_bars > 0
                 and pos.bars_held < pos.anchor_mfe_bars
                 and peak_ticks < pos.anchor_mfe_ticks * self._anchor_patience_pct
