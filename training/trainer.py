@@ -2959,7 +2959,11 @@ class Trainer:
         skip_conviction = _skip['skip_conviction']
         skip_mom_align = _skip.get('skip_momentum_align', 0)
         skip_physics_qg = _skip['skip_physics_qg']
-        _all_skipped = skip_headroom + skip_depth + skip_dist + skip_brain + skip_conviction + skip_mom_align + skip_physics_qg
+        skip_competition = _skip.get('skip_competition', 0)
+        skip_fdmi = _skip.get('skip_fdmi_fakeout', 0)
+        _all_skipped = (skip_headroom + skip_depth + skip_dist + skip_brain
+                        + skip_conviction + skip_mom_align + skip_physics_qg
+                        + skip_competition + skip_fdmi)
         _unaccounted = n_signals_seen - _all_skipped - n_traded
         _sec['skip_reasons'] = len(report_lines)
         report_lines.append("")
@@ -2970,8 +2974,10 @@ class Trainer:
             report_lines.append(f"    Depth Filter     (depth<3 or blacklist):  {skip_depth:>6,}  ({_pct_s(skip_depth)})")
             report_lines.append(f"    Template Match   (dist > 3.0):            {skip_dist:>6,}  ({_pct_s(skip_dist)})")
             report_lines.append(f"    Brain Reject     (unprofitable pattern):  {skip_brain:>6,}  ({_pct_s(skip_brain)})")
+            report_lines.append(f"    Score Competition (better candidate won): {skip_competition:>6,}  ({_pct_s(skip_competition)})")
             report_lines.append(f"    Low Conviction   (belief too weak):       {skip_conviction:>6,}  ({_pct_s(skip_conviction)})")
             report_lines.append(f"    Momentum Misalign (F_mom vs direction):   {skip_mom_align:>6,}  ({_pct_s(skip_mom_align)})")
+            report_lines.append(f"    FDMI Fakeout     (State A block):         {skip_fdmi:>6,}  ({_pct_s(skip_fdmi)})")
             report_lines.append(f"    Physics Quality  (bypass: depth>3/z>=0):  {skip_physics_qg:>6,}  ({_pct_s(skip_physics_qg)})")
             report_lines.append(f"    Passed all gates -> traded:               {n_traded:>6,}  ({_pct_s(n_traded)})")
             if _unaccounted > 0:
