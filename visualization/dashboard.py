@@ -708,7 +708,7 @@ class ProgressPopup:
         self._done = False
 
         self.root.title("Bayesian-AI LIVE" if shared_state else "Bayesian-AI Training")
-        self.root.geometry("460x720+60+60")
+        self.root.geometry("620x780+60+60")
         self.root.configure(bg=BG)
         self.root.resizable(True, True)
         self.root.attributes("-topmost", True)
@@ -1108,29 +1108,25 @@ class ProgressPopup:
                           text=f"{self._active_entry_side.upper()} @ {self._active_entry_price:,.2f}",
                           fill=_ec, font=("Consolas", 6), anchor="w")
 
-        # Trade markers (entry=triangle, exit=square)
+        # Trade markers: entry = up triangle (direction), exit = down triangle (outcome)
         n_pts = len(pts)
         for (idx, action, side, mprice, mpnl) in self._trade_markers:
             if idx < 0 or idx >= n_pts:
                 continue
             mx_pos = pad + idx / max(1, n_pts - 1) * (W - 2 * pad)
             my_pos = H - pad - ((mprice - mn) / span) * (H - 2 * pad)
+            sz = 5
             if action == 'entry':
-                # Triangle: green=LONG, red=SHORT
+                # Up triangle: green=LONG, red=SHORT (points in trade direction)
                 mc = "#00FF00" if side == 'long' else "#FF4444"
-                sz = 5
-                if side == 'long':
-                    c.create_polygon(mx_pos, my_pos - sz, mx_pos - sz, my_pos + sz,
-                                     mx_pos + sz, my_pos + sz, fill=mc, outline="#000")
-                else:
-                    c.create_polygon(mx_pos, my_pos + sz, mx_pos - sz, my_pos - sz,
-                                     mx_pos + sz, my_pos - sz, fill=mc, outline="#000")
+                # Up triangle (entry = opening a position)
+                c.create_polygon(mx_pos, my_pos - sz, mx_pos - sz, my_pos + sz,
+                                 mx_pos + sz, my_pos + sz, fill=mc, outline="#000")
             else:
-                # Exit: square, colored by PnL
+                # Down triangle: green=win, red=loss (closing position)
                 mc = "#00FF00" if mpnl and mpnl > 0 else "#FF4444"
-                sz = 3
-                c.create_rectangle(mx_pos - sz, my_pos - sz, mx_pos + sz, my_pos + sz,
-                                   fill=mc, outline="#000")
+                c.create_polygon(mx_pos, my_pos + sz, mx_pos - sz, my_pos - sz,
+                                 mx_pos + sz, my_pos - sz, fill=mc, outline="#000")
 
     def _on_aggression_change(self, val):
         """Slider callback — update shared state so engine reads it."""
