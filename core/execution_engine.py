@@ -248,6 +248,7 @@ class ExecutionEngine:
             'fdmi_fakeout_block': 0,
             'traded': 0, 'bypass_traded': 0,
             'total_candidates': 0,
+            'competition_loser': 0,
         }
 
     # ── Regime Classification (improvement A) ─────────────────────────────
@@ -611,6 +612,7 @@ class ExecutionEngine:
             }
             if raw_id != best_raw_id:
                 candidate_gates[raw_id] = 'score_loser'
+                self.gate_stats['competition_loser'] += 1
 
         # ── Phase 2: Direction + conviction for winner ─────────
         if best_gr is not None:
@@ -1350,6 +1352,7 @@ class ExecutionEngine:
             'skip_momentum_align': self.gate_stats.get('gate4_momentum_align', 0),
             'skip_physics_qg': self.gate_stats.get('physics_qg_skip', 0),
             'skip_fdmi_fakeout': self.gate_stats.get('fdmi_fakeout_block', 0),
+            'skip_competition': self.gate_stats.get('competition_loser', 0),
             'n_signals_seen': self.gate_stats.get('total_candidates', 0),
             'n_traded': self.gate_stats.get('traded', 0),
             'n_bypass_traded': self.gate_stats.get('bypass_traded', 0),
