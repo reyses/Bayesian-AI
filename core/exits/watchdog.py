@@ -1,7 +1,21 @@
-"""Watchdog — detect stuck trades going nowhere."""
+"""Watchdog — end-of-session flatten + live operational safety.
+
+Purpose:
+  - Flatten positions before market maintenance windows
+  - Flatten on program shutdown / connection loss (live only)
+  - NOT for "stuck trade" detection (other exits handle that)
+
+In IS/OOS: only fires near end-of-day (last N minutes before session close).
+In live: also fires on maintenance windows, shutdown, disconnection.
+"""
 from typing import Optional
 
 from core.exit_engine import ExitAction, ExitResult, PositionState
+
+
+# CME MNQ session close = 16:00 CT (22:00 UTC), maintenance 16:15-16:30 CT
+# RTH close = 16:00 CT, Globex close = 17:00 CT
+SESSION_END_BUFFER_BARS = 20  # 5 minutes at 15s — flatten before close
 
 
 class WatchdogCheck:
@@ -19,40 +33,27 @@ class WatchdogCheck:
 
     def evaluate(self, pos: PositionState, bar_close: float, tick_size: float,
                  exit_signal: dict = None) -> Optional[ExitResult]:
-        if pos.bars_held < self.bar_threshold:
-            return None
+        """End-of-session flatten only.
 
-        if pos.side == 'long':
-            adverse_ticks = (pos.entry_price - bar_close) / tick_size
-        else:
-            adverse_ticks = (bar_close - pos.entry_price) / tick_size
+        The old "stuck trade" logic (adverse ticks + workers against) is removed.
+        Other exits (regime_decay, tidal_wave, belief_flip, giveback, 15s flip)
+        handle mid-trade thesis invalidation. Watchdog is purely operational.
+        """
+        # End-of-session flatten: check if we're near session close
+        # This is signaled by the trainer/live engine setting 'session_ending'
+        # in exit_signal, or by the bars_remaining field.
+        if exit_signal is not None and exit_signal.get('session_ending'):
+            if pos.side == 'long':
+                _pnl = (bar_close - pos.entry_price) / tick_size
+            else:
+                _pnl = (pos.entry_price - bar_close) / tick_size
 
-        if adverse_ticks <= self.tick_threshold:
-            return None
-
-        if pos.side == 'long':
-            mfe_ticks = (pos.peak_favorable - pos.entry_price) / tick_size
-        else:
-            mfe_ticks = (pos.entry_price - pos.peak_favorable) / tick_size
-
-        # Use anchor_mfe (expected profit from template) as reference, not trail activation
-        _expected = getattr(pos, 'anchor_mfe_ticks', 0.0) or pos.trail_activation_ticks
-        if mfe_ticks >= _expected * self._mfe_progress_pct:
-            return None
-
-        workers_against = 0
-        if exit_signal is not None:
-            workers_against = exit_signal.get('workers_against', 0)
-
-        if workers_against >= self.worker_threshold or mfe_ticks < self._mfe_floor_ticks:
             return ExitResult(
                 action=ExitAction.WATCHDOG,
                 exit_price=bar_close,
-                reason=f"Watchdog: {adverse_ticks:.0f} ticks adverse, "
-                       f"MFE only {mfe_ticks:.0f} ticks",
-                pnl_ticks=(bar_close - pos.entry_price) / tick_size
-                          if pos.side == 'long'
-                          else (pos.entry_price - bar_close) / tick_size,
+                reason=f"Watchdog: session ending, flatten "
+                       f"(held {pos.bars_held} bars, PnL={_pnl:.1f}t)",
+                pnl_ticks=_pnl,
                 bars_held=pos.bars_held,
             )
 

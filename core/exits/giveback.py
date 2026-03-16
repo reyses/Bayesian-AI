@@ -82,6 +82,11 @@ class PeakGiveback:
             if _adx_slope < -2.0 and threshold < 1.0:
                 threshold = max(0.25, threshold - 0.10)
 
+        # 15s execution-TF flip: micro structure reversed → tighten aggressively
+        # OOS validated: 66% of losses had 15s flip vs 44% of wins (+22% edge)
+        if exit_signal is not None and exit_signal.get('exec_tf_flip') and threshold < 1.0:
+            threshold = max(0.15, threshold * 0.5)  # halve threshold = exit faster
+
         # 30m flip tightens threshold
         if pos.slow_flip_active and threshold < 1.0:
             threshold = max(self._slow_flip_floor,
