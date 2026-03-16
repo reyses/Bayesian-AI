@@ -59,10 +59,14 @@ class PeakGiveback:
         if peak_ticks <= 0:
             return None
 
-        # Anchor patience: trade still developing
+        # Anchor patience: trade still developing — but NEVER suppress if
+        # trade has reversed through entry (current_ticks < 0 = losing money).
+        # The patience window is for trades that haven't peaked yet, not for
+        # trades that peaked and reversed.
         if (pos.anchor_mfe_ticks > 0 and pos.anchor_mfe_bars > 0
                 and pos.bars_held < pos.anchor_mfe_bars
-                and peak_ticks < pos.anchor_mfe_ticks * self._anchor_patience_pct):
+                and peak_ticks < pos.anchor_mfe_ticks * self._anchor_patience_pct
+                and current_ticks > 0):  # still in profit — patience OK
             return None
 
         threshold = self.get_threshold(peak_ticks, noise_ticks)
