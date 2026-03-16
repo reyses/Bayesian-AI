@@ -225,10 +225,15 @@ class BarProcessor:
     def _process_exit(self, bar_index, price, bar_high, bar_low,
                       timestamp, state) -> BarResult:
         """Evaluate exit for open position."""
-        # Gather TBN signals
+        # Gather TBN signals (routed to discovery TF for TF-aware exits)
+        _disc_tf = 300.0  # fallback 5m
+        _pos = self.exec_engine.pos_state
+        if _pos is not None:
+            _disc_tf = getattr(_pos, 'discovery_tf_seconds', 300.0)
         _exit_sig = self.belief_network.get_exit_signal(
             side=self.exec_engine.active_side,
             entry_price=self.exec_engine.entry_price,
+            discovery_tf_seconds=_disc_tf,
         )
         _band_ctx = self.belief_network.get_band_confluence()
         _net_force = float(getattr(state, 'net_force',
