@@ -6475,8 +6475,27 @@ def main():
                     print("ERROR: pattern_library.pkl not found for --mc-only")
                     return 1
             else:
-                # Phase 1 (Discovery) + 2 (Clustering) + 3 (Optimization)
-                orchestrator.train(args.data)
+                # Phase 1-3: only if --fresh or no checkpoints exist.
+                # Default: reuse existing templates/library, fresh brain for IS.
+                _lib_exists = os.path.exists(os.path.join(
+                    orchestrator.checkpoint_dir, 'pattern_library.pkl'))
+                _tmpl_exists = os.path.exists(os.path.join(
+                    orchestrator.checkpoint_dir, 'templates.pkl'))
+
+                if args.fresh or not (_lib_exists and _tmpl_exists):
+                    # Phase 1 (Discovery) + 2 (Clustering) + 3 (Optimization)
+                    orchestrator.train(args.data)
+                else:
+                    print("\n  [SKIP] Phase 1-3: checkpoints exist, reusing templates/library.")
+                    print("         Brain will be fresh for IS. Use --fresh to rebuild everything.")
+                    # Load existing checkpoints
+                    _ckpt = load_checkpoints(orchestrator.checkpoint_dir)
+                    if _ckpt.pattern_library:
+                        orchestrator.pattern_library = _ckpt.pattern_library
+                    if _ckpt.templates:
+                        orchestrator.templates = _ckpt.templates
+                    if _ckpt.scaler:
+                        orchestrator.scaler = _ckpt.scaler
 
             if args.mc or args.mc_only:
                 # Optional: Monte Carlo Sweep -> ANOVA -> Thompson -> Validation
