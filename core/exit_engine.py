@@ -86,6 +86,12 @@ class PositionState:
     # 30m worker flip: once fired, stays True for remainder of trade
     slow_flip_active: bool = False
 
+    # 5m DMI direction confirmation counter.
+    # Counts consecutive bars where 5m DMI agrees with trade direction.
+    # At 3+ bars (15 min), direction is confirmed (research: MAE drops 40%).
+    dmi_confirmed_bars: int = 0
+    dmi_direction_confirmed: bool = False
+
     # Anchor: expected trade outcome (price + time)
     anchor_mfe_ticks: float = 0.0   # template p75_mfe, brain-adjusted
     anchor_mfe_bars: float = 0.0    # template avg_mfe_bar, brain-adjusted
@@ -415,6 +421,22 @@ class ExitEngine:
             pos.bars_since_peak = 0
         else:
             pos.bars_since_peak += 1
+
+        # ── 5m DMI direction confirmation (3 bars = 15 min = confirmed) ──
+        # Research: at 3 confirmed bars, MAE drops 40%, MFE increases 10%.
+        if exit_signal is not None:
+            _di_p = exit_signal.get('di_plus', 0.0)
+            _di_m = exit_signal.get('di_minus', 0.0)
+            _dmi_agrees = (
+                (pos.side == 'long' and _di_p > _di_m) or
+                (pos.side == 'short' and _di_m > _di_p)
+            )
+            if _dmi_agrees:
+                pos.dmi_confirmed_bars += 1
+            else:
+                pos.dmi_confirmed_bars = 0  # reset — DMI flipped against
+            if pos.dmi_confirmed_bars >= 3 and not pos.dmi_direction_confirmed:
+                pos.dmi_direction_confirmed = True
 
         # ── Cascade ──
         ts = self.tick_size

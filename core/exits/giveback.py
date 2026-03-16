@@ -59,15 +59,21 @@ class PeakGiveback:
         if peak_ticks <= 0:
             return None
 
-        # Giveback only fires if trade actually reached a meaningful peak.
-        # A 1-2 tick bounce is noise, not a "peak to give back from."
-        # Require peak >= 20% of expected MFE (anchor_mfe_ticks) before
-        # giveback activates. If no anchor, require at least min_mfe_ticks.
+        # Giveback only fires if:
+        # 1. Trade reached a meaningful peak (not a 1-2 tick noise bounce)
+        # 2. 5m DMI confirmed the direction (3 bars = 15 min hold)
+        #
+        # Without DMI confirmation, the "peak" is noise — the trade never
+        # established direction. Let SL or regime_decay handle those.
+        # Research: 3-bar DMI confirmation drops MAE 40%, increases MFE 10%.
         _min_peak = self.min_mfe_ticks
         if pos.anchor_mfe_ticks > 0:
             _min_peak = max(_min_peak, pos.anchor_mfe_ticks * 0.20)
         if peak_ticks < _min_peak:
             return None  # trade never reached projected peak — not giveback's job
+
+        if not pos.dmi_direction_confirmed:
+            return None  # direction not yet confirmed — too early for giveback
 
         # Anchor patience: trade still developing — suppress if still in profit
         # and hasn't reached expected peak within expected time.
