@@ -1,19 +1,25 @@
 """Tidal Wave Exit — adverse volatility expansion against position.
 
 Academic basis: Volatility clustering (GARCH) + structural shift detection.
-If standard error (volatility) suddenly expands against our position,
-the gravitational center has shifted — abort before macro gravity pulls
-the trade to a disastrous level.
+If standard error suddenly expands against our position, the gravitational
+center has shifted — abort before macro gravity pulls the trade to disaster.
+
+Uses discovery TF for SE expansion check (not hardcoded 5m).
+Suppressed when adjacent higher TF still agrees with trade direction.
 
 Logic:
-  IF position is open (long)
-  AND macro SE expands by > 20% in last 3 bars (violent structural shift)
-  AND price is below micro mean (caught on wrong side of expansion)
+  IF SE expands > 20% in last 3 bars on discovery TF
+  AND price is on wrong side of micro mean
+  AND higher TF DMI does NOT agree with trade
   → FORCE_EXIT
 """
 from typing import Optional
 
 from core.exit_engine import ExitAction, ExitResult, PositionState
+
+
+# TF hierarchy for adjacent-higher lookup
+_TF_HIERARCHY = [1, 5, 15, 30, 60, 120, 180, 300, 900, 1800, 3600, 14400]
 
 
 class TidalWaveExit:
@@ -24,21 +30,24 @@ class TidalWaveExit:
             config = TradingConfig()
         self._se_expansion_pct = config.tidal_wave_se_expansion_pct
         self._lookback = config.tidal_wave_lookback
-        self._macro_tf = config.fdmi_macro_tf
-        self._micro_tf = config.fdmi_micro_tf
+        self._macro_tf = config.fdmi_macro_tf    # fallback
+        self._micro_tf = config.fdmi_micro_tf    # fallback
 
     def evaluate(self, pos: PositionState, bar_close: float, tick_size: float,
                  belief_network=None) -> Optional[ExitResult]:
-        """Check for adverse volatility expansion."""
+        """Check for adverse volatility expansion on discovery TF."""
         if belief_network is None:
             return None
 
-        macro_worker = belief_network.workers.get(self._macro_tf)
-        micro_worker = belief_network.workers.get(self._micro_tf)
-        if macro_worker is None or micro_worker is None:
+        # Use trade's discovery TF, fallback to config macro
+        _disc_tf = int(getattr(pos, 'discovery_tf_seconds', self._macro_tf))
+        macro_worker = belief_network.workers.get(_disc_tf)
+        if macro_worker is None:
+            macro_worker = belief_network.workers.get(self._macro_tf)
+        if macro_worker is None:
             return None
 
-        # Get macro SE history (last N+1 bars to compute expansion)
+        # Get SE history (last N+1 bars to compute expansion)
         macro_idx = macro_worker._last_tf_bar_idx
         if macro_idx < self._lookback or not macro_worker._states:
             return None
@@ -59,24 +68,22 @@ class TidalWaveExit:
             return None
 
         se_expansion = (se_current - se_baseline) / se_baseline
-
         if se_expansion < self._se_expansion_pct:
             return None  # volatility hasn't expanded enough
 
-        # Check if price is on the WRONG side of the micro mean
-        micro_idx = micro_worker._last_tf_bar_idx
-        if micro_idx < 0 or not micro_worker._states:
-            return None
-        raw_micro = micro_worker._states[min(micro_idx, len(micro_worker._states) - 1)]
-        micro_state = raw_micro['state'] if isinstance(raw_micro, dict) and 'state' in raw_micro else raw_micro
-        micro_z = getattr(micro_state, 'z_score', 0.0)
+        # Check if price is on the WRONG side of the discovery TF mean
+        micro_z = getattr(state_curr, 'z_score', 0.0)
 
-        # Long: price below mean (z < 0) = caught on wrong side
-        # Short: price above mean (z > 0) = caught on wrong side
         if pos.side == 'long' and micro_z >= 0:
             return None  # price still above mean, not adverse
         if pos.side == 'short' and micro_z <= 0:
             return None  # price still below mean, not adverse
+
+        # Higher TF override: if macro trend still supports, this expansion
+        # might be the resonance cascade building (bands SHOULD expand).
+        # Only exit if higher TF is also turning against.
+        if self._higher_tf_agrees(belief_network, _disc_tf, pos.side):
+            return None  # macro supports — expansion may be cascade, hold
 
         pnl_ticks = ((bar_close - pos.entry_price) / tick_size
                      if pos.side == 'long'
@@ -86,7 +93,34 @@ class TidalWaveExit:
             action=ExitAction.TIDAL_WAVE,
             exit_price=bar_close,
             reason=f"Tidal wave: SE expanded {se_expansion:.0%} in {self._lookback} bars, "
-                   f"micro_z={micro_z:+.2f} (wrong side)",
+                   f"z={micro_z:+.2f} (wrong side, TF={_disc_tf}s)",
             pnl_ticks=pnl_ticks,
             bars_held=pos.bars_held,
         )
+
+    @staticmethod
+    def _higher_tf_agrees(belief_network, disc_tf_sec: int, side: str) -> bool:
+        """Check if adjacent higher TF DMI still agrees with trade."""
+        _higher = disc_tf_sec
+        for tf in _TF_HIERARCHY:
+            if tf > disc_tf_sec:
+                _higher = tf
+                break
+
+        w = belief_network.workers.get(_higher)
+        if w is None:
+            return False  # can't check = don't suppress
+
+        mi = w._last_tf_bar_idx
+        if mi < 0 or not w._states or mi >= len(w._states):
+            return False
+
+        raw = w._states[mi]
+        ms = raw['state'] if isinstance(raw, dict) and 'state' in raw else raw
+        dp = getattr(ms, 'dmi_plus', 0.0)
+        dm = getattr(ms, 'dmi_minus', 0.0)
+
+        if side == 'long':
+            return dp > dm
+        else:
+            return dm > dp
