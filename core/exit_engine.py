@@ -32,7 +32,8 @@ class ExitAction(Enum):
     # C&E Matrix structural exits
     DEATH_HOOK = 'death_hook'           # liquidity absorption at macro wall
     REGIME_DECAY = 'regime_decay'       # macro trend collapsed / DI reversal
-    SURVIVAL_STOP = 'survival_stop'     # time-survival probability expired
+    SURVIVAL_STOP = 'survival_stop'     # Bayesian ePnL expired
+    SURVIVAL_FLATLINE = 'survival_flatline'  # structural flatline (z-var + under target)
     BELIEF_FLIP = 'belief_flip'         # TBN consensus flipped or DI crossover
     TIDAL_WAVE = 'tidal_wave'           # adverse volatility expansion
     V_REVERSAL = 'v_reversal'           # 4 bars off peak + profit + breakeven locked

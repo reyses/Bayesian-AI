@@ -80,7 +80,7 @@ class SurvivalStopExit:
             return None  # still moving
 
         return ExitResult(
-            action=ExitAction.SURVIVAL_STOP,
+            action=ExitAction.SURVIVAL_FLATLINE,
             exit_price=bar_close,
             reason=f"Survival flatline: {pos.bars_held}bars, "
                    f"pnl={current_ticks:.1f}t < {target_ticks*self._target_pct:.1f}t target, "
