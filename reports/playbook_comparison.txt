@@ -1,2 +1,2 @@
-Playbook Tiebreaker Comparison (2026-03-15 18:23)
-OOS1 PnL: $5,747.07  OOS2 PnL: $5,747.57  Delta: $+0.50  Verdict: HELPS
+Playbook Tiebreaker Comparison (2026-03-15 22:04)
+OOS1 PnL: $2,501.90  OOS2 PnL: $2,538.05  Delta: $+36.15  Verdict: HELPS
