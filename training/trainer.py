@@ -3617,6 +3617,18 @@ class Trainer:
         report_lines.append(f"    Actual profit:                               ${total_pnl:>12,.2f}  ({total_pnl/ideal_profit*100:.1f}% of ideal)" if ideal_profit else f"    Actual profit: ${total_pnl:.2f}")
         report_lines.append(f"    [info] Score-competition pool (took better same bar): ${score_loser_pnl:>12,.2f}  (not missed -- golden path chose better candidate)")
 
+        # ── 5a-bis. REGRET ANALYSIS (embedded) ────────────────────────────────
+        try:
+            from tools.regret_analysis import run_regret_analysis as _run_regret
+            _regret_df = pd.DataFrame(oracle_trade_records)
+            if 'trade_mfe_ticks' in _regret_df.columns and len(_regret_df) > 10:
+                _regret_label = 'OOS' if oos_mode else 'IS'
+                _regret_text = _run_regret(_regret_df, _regret_label)
+                report_lines.append("")
+                report_lines.append(_regret_text)
+        except Exception as _re:
+            report_lines.append(f"\n  [regret analysis skipped: {_re}]")
+
         # ── 5b. Detection rate by depth ──────────────────────────────────────
         # "Of all real moves oracle saw at each depth, how many did we trade?"
         _sec['detection_rate'] = len(report_lines)
