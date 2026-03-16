@@ -6532,7 +6532,7 @@ def main():
                 import shutil as _shutil_bak
                 _pre_is_dir = os.path.join('checkpoints', 'pre_is_backup')
                 if os.path.isdir(_pre_is_dir):
-                    _shutil_bak.rmtree(_pre_is_dir)
+                    _shutil_bak.rmtree(_pre_is_dir, ignore_errors=True)
                 os.makedirs(_pre_is_dir, exist_ok=True)
                 for _bak_f in ['templates.pkl', 'pattern_library.pkl',
                                'discovery_manifest.pkl', 'discovery_levels.json',
