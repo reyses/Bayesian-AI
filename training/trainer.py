@@ -6504,6 +6504,22 @@ def main():
                 # Default: Bayesian path -> IS -> OOS1 -> Strategy -> OOS2 (verify)
                 _fwd_data = getattr(args, 'forward_data', None) or args.data
 
+                # Snapshot checkpoints before IS — restore with --forward-pass
+                # to skip Phase 1-3 and re-run IS with code changes only.
+                import shutil as _shutil_bak
+                _pre_is_dir = os.path.join('checkpoints', 'pre_is_backup')
+                if os.path.isdir(_pre_is_dir):
+                    _shutil_bak.rmtree(_pre_is_dir)
+                os.makedirs(_pre_is_dir, exist_ok=True)
+                for _bak_f in ['templates.pkl', 'pattern_library.pkl',
+                               'discovery_manifest.pkl', 'discovery_levels.json',
+                               'pipeline_state.json', 'scaler.pkl',
+                               'gate_thresholds.json', 'depth_weights.json']:
+                    _src = os.path.join('checkpoints', _bak_f)
+                    if os.path.exists(_src):
+                        _shutil_bak.copy2(_src, os.path.join(_pre_is_dir, _bak_f))
+                print(f"  [BACKUP] Pre-IS checkpoint snapshot saved to {_pre_is_dir}/")
+
                 # Phase 4: IS Backtest
                 orchestrator.run_forward_pass(_fwd_data,
                                               start_date=args.forward_start,
