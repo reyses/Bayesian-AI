@@ -26,6 +26,15 @@
 - **NT8 bridge versioning**: Always bump version + update date + time in both header comment
   and `BRIDGE_VERSION` const (e.g. `6.1.2 — 2026-03-04 06:15`)
 
+## **QUANTUM RECONNECTION — #1 PRIORITY (2026-03-15)**
+- **READ FIRST**: `memory/project_quantum_reconnect.md` — full context + action items
+- System is probabilistic by design (quantum model). Gates broke it. Reconnect wave function to scoring.
+- Wave function probs (prob0/1/2), tunnel_prob, coherence computed EVERY BAR but unused in scoring
+- Reference docs: `docs/reference/quantum_field_engine_original.py`, `QUANTUM_STATE_REFERENCE.md`, `NIGHTMARE_PROTOCOL.md`, `THREE_THEORIES.md`
+- Decision funnel validated: 85% accuracy predicting regime starts (funnel tree research)
+- PFMEA: RPN 648 (score competition), 392 (conviction position), 336 (giveback flip)
+- Fresh run needed: `python training/trainer.py --fresh --lookback`
+
 ## Architecture
 - **Core engine**: `core/statistical_field_engine.py` — MarketState per bar (CUDA-only since 2026-03-08)
 - **Brain**: `core/bayesian_brain.py` — Bayesian table with hash-based state lookups
