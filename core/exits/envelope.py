@@ -31,6 +31,8 @@ class EnvelopeDecay:
         self._band_mult_max = config.envelope_band_mult_max
         self._anchor_patience_max = config.envelope_anchor_patience_max
         self._hl_mult_floor = config.envelope_hl_mult_floor
+        self._adx_slope_boost = config.envelope_adx_slope_boost
+        self._adx_slope_penalty = config.envelope_adx_slope_penalty
 
     def evaluate(self, pos: PositionState, bar_close: float, tick_size: float,
                  net_force: float = 0.0, band_context: dict = None,
@@ -93,10 +95,10 @@ class EnvelopeDecay:
             _adx_slope = band_context.get('adx_slope', 0.0)
             if _adx_slope > 0:
                 # Trend strengthening — slow down envelope decay (up to 50%)
-                effective_hl *= 1.0 + min(0.5, _adx_slope * 0.05)
+                effective_hl *= 1.0 + min(0.5, _adx_slope * self._adx_slope_boost)
             elif _adx_slope < -1.0:
                 # Trend weakening — speed up decay (up to 50% faster)
-                effective_hl *= max(0.5, 1.0 + _adx_slope * 0.1)
+                effective_hl *= max(0.5, 1.0 + _adx_slope * self._adx_slope_penalty)
 
         # Decay factor
         decay = math.exp(-_LN2 * pos.bars_held / max(1, effective_hl))

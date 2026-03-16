@@ -148,3 +148,108 @@ and envelope) would have caught real reversals that regime_decay and belief_flip
 - How many trades hit SL during hold period (= guardrail failures)
 - What exit would have fired first if not suppressed
 - PnL difference between actual exit and what suppressed exit would have given
+
+---
+
+## 5. AUDIT UPDATE (2026-03-15) — Code-Level Exit Cascade Review
+
+### Finding 6: BreakevenLock Was the Real Primary Exit (56% of trades)
+**Root cause discovered**: `BreakevenLock` activated after just **4 ticks ($1)** of MFE and
+ratcheted SL above entry price. Any 1-tick reversal triggered "stop_loss" at $0.50 profit.
+5,174/9,253 IS trades (56%) exited this way — labeled as `stop_loss` but actually breakeven
+scalping. The dashboard WR of 80% was real; the 97% WR from signal_log shards was wrong
+(signal_log PnL column misaligned with trade outcomes).
+
+**Fix (commit acd08ff)**: Rewrote as `TrailingStop` with MFE-based activation:
+- Activation at 80% of template p75_mfe (TF-scaled), floor $10, ceiling $100
+- Old: 4 ticks → immediate breakeven lock. New: wait for statistical profit target.
+
+| # | Exit Module | Failure Mode | Effect | S | O | D | **RPN** | Status |
+|---|-------------|-------------|--------|---|---|---|---------|--------|
+| 21 | **breakeven (old)** | 4-tick activation = instant SL ratchet | 56% of trades exit at $0.50 profit. Prevents any trade from developing. | **9** | **9** | **3** | **243** | **FIXED** — TrailingStop rewrite |
+
+### Finding 7: ExitAction Enum Reuse (Reporting Ambiguity)
+Three different exits return `ExitAction.TRAIL_STOP`:
+- V-reversal (exit_engine.py line 492)
+- Belief flip urgent (belief_flip.py line 29)
+- Belief flip DI cross (belief_flip.py line 56)
+
+One exit returns `ExitAction.REGIME_DECAY` but isn't regime decay:
+- Tidal Wave (tidal_wave.py line 86)
+
+**Impact**: Trade reports aggregate these together — can't distinguish belief flips from
+V-reversals from trailing stops. The prior PFMEA entry for "trail_stop/belief_flip" (row 6)
+was actually 3+ different exit mechanisms lumped together.
+
+| # | Exit Module | Failure Mode | Effect | S | O | D | **RPN** | Status |
+|---|-------------|-------------|--------|---|---|---|---------|--------|
+| 22 | **belief_flip + tidal_wave** | ExitAction enum reuse | Reports can't distinguish exit types. Misattributed PnL per exit. | 4 | 8 | 7 | **224** | OPEN — need unique ExitAction values |
+
+### Finding 8: Peak Giveback Config Mismatch
+Constructor default: `giveback_pct=0.70`. TradingConfig default: `giveback_pct=0.10`.
+Production uses config (correct), but direct instantiation in tests/tools would use 0.70.
+
+| # | Exit Module | Failure Mode | Effect | S | O | D | **RPN** | Status |
+|---|-------------|-------------|--------|---|---|---|---------|--------|
+| 23 | **peak_giveback** | Constructor vs config default mismatch | Direct instantiation uses 7x tighter threshold than production | 3 | 2 | 8 | **48** | LOW — production is correct, footgun for tests |
+
+### Finding 9: Watchdog Uses Wrong Reference Field
+Watchdog compares MFE progress against `trail_activation_ticks` (line 38), but should use
+`anchor_mfe_ticks`. Trail activation is for the trailing stop, not watchdog progress checks.
+
+| # | Exit Module | Failure Mode | Effect | S | O | D | **RPN** | Status |
+|---|-------------|-------------|--------|---|---|---|---------|--------|
+| 24 | **watchdog** | Wrong reference field (trail_activation vs anchor_mfe) | Watchdog fires at wrong MFE threshold — either too early or never | 5 | 5 | 6 | **150** | OPEN — fix field reference |
+
+### Finding 10: Band Urgent Requires Loss to Fire
+Band urgent only fires when `unrealized_ticks < -loss_ticks` (underwater by 2+ ticks).
+If multi-TF support breaks but the trade is still in profit, no exit fires.
+Thesis invalidation is ignored if PnL is positive.
+
+| # | Exit Module | Failure Mode | Effect | S | O | D | **RPN** | Status |
+|---|-------------|-------------|--------|---|---|---|---------|--------|
+| 25 | **band_urgent** | Only fires on loss (ignores in-profit reversals) | Structural reversal missed while in profit → gives back gains | 5 | 4 | 7 | **140** | OPEN — consider removing loss gate |
+
+### Finding 11: Hardcoded Thresholds Not in Config
+- Belief Flip DI gap: `5.0` (belief_flip.py line 54) — cited as "87% accurate at gap≥5"
+- Envelope ADX slope boost: `0.05` (envelope.py line 96)
+- Envelope ADX slope penalty: `0.1` (envelope.py line 99)
+- Giveback shape blend: `0.7` (giveback.py line 72)
+- Survival stop breakeven gate: `current_ticks < 0 → return None` (never fires on losses)
+
+| # | Exit Module | Failure Mode | Effect | S | O | D | **RPN** | Status |
+|---|-------------|-------------|--------|---|---|---|---------|--------|
+| 26 | **multiple** | Magic numbers not in TradingConfig | Can't tune without code changes. Violates no-magic-numbers rule. | 3 | 8 | 4 | **96** | OPEN — extract to config fields |
+
+### Finding 12: Death Hook Private Member Access
+`fractal_exhaust.py` directly accesses `worker._last_tf_bar_idx` and `worker._states` — private
+members of TBN workers. If worker internals change, death hook silently breaks.
+
+| # | Exit Module | Failure Mode | Effect | S | O | D | **RPN** | Status |
+|---|-------------|-------------|--------|---|---|---|---------|--------|
+| 27 | **death_hook** | Fragile coupling to TBN internals | Refactoring TBN workers breaks death hook silently | 4 | 3 | 8 | **96** | OPEN — add public accessor methods |
+
+---
+
+## 6. UPDATED PFMEA PRIORITY RANKING (2026-03-15)
+
+| Rank | RPN | Exit Module | Failure Mode | Status |
+|------|-----|-------------|-------------|--------|
+| 1 | **336** | peak_giveback | IS→OOS performance flip | INVESTIGATE |
+| 2 | **252** | regime_decay | Premature fire (ADX oscillates near 20) | MONITOR |
+| 3 | **243** | breakeven (old) | 4-tick activation = instant SL ratchet | **FIXED** (TrailingStop rewrite) |
+| 4 | **224** | belief_flip + tidal_wave | ExitAction enum reuse (reporting ambiguity) | OPEN |
+| 5 | **216** | stop_loss | SL too tight (4-tick floor) | **FIXED** (tolerance interval + cap) |
+| 6 | **196** | ALL (min-hold) | Suppressed exits miss real reversals | EXPERIMENT |
+| 7 | **192** | belief_flip | Never fires (gradual fade) | COVERED by regime_decay |
+| 8 | **162** | ALL (cascade) | No exit fires before SL | BY DESIGN |
+| 9 | **150** | regime_decay | DI cross false signal in chop | CONSIDER ADX gate |
+| 10 | **150** | peak_giveback | 10% threshold too tight | CONSIDER raising base |
+| 11 | **150** | watchdog | Wrong reference field (trail_activation vs anchor_mfe) | OPEN |
+| 12 | **140** | regime_decay | Fires too late (slow ADX decline) | Hurst is faster backup |
+| 13 | **140** | band_urgent | Only fires on loss (thesis invalidation ignored) | OPEN |
+| 14 | **120** | belief_flip | False flip in choppy conviction | CONSIDER 2-bar confirmation |
+| 15 | **120** | watchdog | 5-worker threshold rarely met | CONSIDER lowering to 3-4 |
+| 16 | **96** | multiple | Magic numbers not in TradingConfig | OPEN |
+| 17 | **96** | death_hook | Fragile coupling to TBN internals | OPEN |
+| 18 | **48** | peak_giveback | Constructor vs config default mismatch | LOW |

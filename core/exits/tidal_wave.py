@@ -83,7 +83,7 @@ class TidalWaveExit:
                      else (pos.entry_price - bar_close) / tick_size)
 
         return ExitResult(
-            action=ExitAction.REGIME_DECAY,  # reuse closest action type
+            action=ExitAction.TIDAL_WAVE,
             exit_price=bar_close,
             reason=f"Tidal wave: SE expanded {se_expansion:.0%} in {self._lookback} bars, "
                    f"micro_z={micro_z:+.2f} (wrong side)",
