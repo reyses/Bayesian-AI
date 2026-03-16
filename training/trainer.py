@@ -6492,10 +6492,14 @@ def main():
                     _ckpt = load_checkpoints(orchestrator.checkpoint_dir)
                     if _ckpt.pattern_library:
                         orchestrator.pattern_library = _ckpt.pattern_library
-                    if _ckpt.templates:
-                        orchestrator.templates = _ckpt.templates
                     if _ckpt.scaler:
                         orchestrator.scaler = _ckpt.scaler
+                    # Templates loaded separately (not in CheckpointBundle)
+                    _tmpl_path = os.path.join(orchestrator.checkpoint_dir, 'templates.pkl')
+                    if os.path.exists(_tmpl_path):
+                        with open(_tmpl_path, 'rb') as f:
+                            orchestrator.templates = pickle.load(f)
+                        print(f"  Loaded {len(orchestrator.templates)} templates")
 
             if args.mc or args.mc_only:
                 # Optional: Monte Carlo Sweep -> ANOVA -> Thompson -> Validation
