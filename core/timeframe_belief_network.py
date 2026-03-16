@@ -1127,7 +1127,11 @@ class TimeframeBeliefNetwork:
     # DIAGNOSTICS
     # ------------------------------------------------------------------
 
-    def get_exit_signal(self, side: str, entry_price: float = 0.0) -> dict:
+    # TF hierarchy for adjacent-higher lookup
+    _TF_HIERARCHY = [1, 5, 15, 30, 60, 120, 180, 300, 900, 1800, 3600, 14400, 86400]
+
+    def get_exit_signal(self, side: str, entry_price: float = 0.0,
+                        discovery_tf_seconds: float = 300.0) -> dict:
         """
         Called every bar while a position is open.
         Returns a dict with exit adjustment recommendations.
@@ -1298,28 +1302,47 @@ class TimeframeBeliefNetwork:
         _decay_health = max(0.0, 1.0 - _cascade)      # invert: 0=bad, 1=good
         _trade_health = 0.6 * _pace_health + 0.4 * _decay_health
 
-        # ── Macro DMI/ADX fields for exit modules ─────────────────────
-        # 5m macro: simulator showed 5m crossover is 87% accurate (gap≥5)
-        # vs 1m at 63%. 15s/30s are coin-flip noise (49-54%).
-        _macro_tf = 300  # 5m macro
-        _di_plus = 0.0
-        _di_minus = 0.0
-        _di_plus_prev = 0.0
-        _di_minus_prev = 0.0
-        _adx_slope = 0.0
-        _macro_w = self.workers.get(_macro_tf)
-        if _macro_w is not None:
-            _mi = _macro_w._last_tf_bar_idx
-            if _mi >= 0 and _macro_w._states and _mi < len(_macro_w._states):
-                _raw = _macro_w._states[_mi]
-                _ms = _raw['state'] if isinstance(_raw, dict) and 'state' in _raw else _raw
-                _di_plus = getattr(_ms, 'dmi_plus', 0.0)
-                _di_minus = getattr(_ms, 'dmi_minus', 0.0)
-                _di_plus_prev = getattr(_ms, 'di_plus_prev', _di_plus)
-                _di_minus_prev = getattr(_ms, 'di_minus_prev', _di_minus)
-                _adx_now = getattr(_ms, 'adx_strength', 0.0)
-                _adx_prev = getattr(_ms, 'adx_prev', _adx_now)
-                _adx_slope = _adx_now - _adx_prev
+        # ── TF-aware DMI/ADX for exit modules ─────────────────────────
+        # Uses discovery TF for exit signal + adjacent higher TF for hold override.
+        # Research: 5m DMI crossover 87% accurate (gap>=5), 3-bar confirmation
+        # drops MAE 40%. Each trade should check its OWN TF, not hardcoded 5m.
+        _disc_tf = int(discovery_tf_seconds)
+
+        # Find adjacent higher TF for hold override
+        _higher_tf = _disc_tf  # fallback to same
+        for _tf in self._TF_HIERARCHY:
+            if _tf > _disc_tf:
+                _higher_tf = _tf
+                break
+
+        def _read_worker_dmi(tf_seconds):
+            """Read DMI/ADX from a specific TF worker."""
+            w = self.workers.get(tf_seconds)
+            if w is None:
+                return 0.0, 0.0, 0.0, 0.0, 0.0
+            mi = w._last_tf_bar_idx
+            if mi < 0 or not w._states or mi >= len(w._states):
+                return 0.0, 0.0, 0.0, 0.0, 0.0
+            raw = w._states[mi]
+            ms = raw['state'] if isinstance(raw, dict) and 'state' in raw else raw
+            dp = getattr(ms, 'dmi_plus', 0.0)
+            dm = getattr(ms, 'dmi_minus', 0.0)
+            dp_prev = getattr(ms, 'di_plus_prev', dp)
+            dm_prev = getattr(ms, 'di_minus_prev', dm)
+            adx_now = getattr(ms, 'adx_strength', 0.0)
+            adx_prev = getattr(ms, 'adx_prev', adx_now)
+            return dp, dm, dp_prev, dm_prev, adx_now - adx_prev
+
+        # Discovery TF DMI (exit signal source)
+        _di_plus, _di_minus, _di_plus_prev, _di_minus_prev, _adx_slope = \
+            _read_worker_dmi(_disc_tf)
+
+        # Adjacent higher TF DMI (hold override — is macro trend alive?)
+        _h_di_plus, _h_di_minus, _, _, _ = _read_worker_dmi(_higher_tf)
+        _higher_tf_agrees = (
+            (side == 'long' and _h_di_plus > _h_di_minus) or
+            (side == 'short' and _h_di_minus > _h_di_plus)
+        )
 
         return {
             'tighten_trail': tighten and not urgent,
@@ -1332,7 +1355,8 @@ class TimeframeBeliefNetwork:
             'reason':        reason,
             'trade_health':  round(_trade_health, 3),
             'pace':          round(_pace_val, 3),
-            # Macro DMI/ADX for exit modules (belief_flip DI cross, envelope/giveback ADX slope)
+            # TF-aware DMI/ADX for exit modules (discovery TF + adjacent higher TF)
+            'higher_tf_agrees': _higher_tf_agrees,
             'di_plus':       _di_plus,
             'di_minus':      _di_minus,
             'di_plus_prev':  _di_plus_prev,

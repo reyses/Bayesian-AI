@@ -1,17 +1,17 @@
-"""Regime Decay Exit (Sand Trap) — exit when macro trend collapses or DI reverses.
+"""Regime Decay Exit — exit when discovery TF's trend collapses.
 
-Academic basis: Markov Regime Switching.
-A strategy designed for State A (trending) has negative expectancy in State B (chop).
-When the macro gravitational field collapses, cut immediately.
-
-Also detects DI crossover against the trade — a direct trend reversal signal.
-If DI+ crosses below DI- during a long (or vice versa), the trend has flipped.
+Uses the trade's discovery TF for exit signal (not hardcoded 5m).
+Adjacent higher TF provides hold override: if macro trend still alive,
+suppress regime_decay (the chop is noise from the demi-gods' PID).
 
 Logic:
-  Regime collapse:
-    IF macro ADX drops below 20 → thesis invalidated, FORCE_EXIT
-  DI trend reversal:
-    IF DI crosses against trade direction → trend reversed, FORCE_EXIT
+  1. Hurst regime shift: H drops below threshold on discovery TF
+  2. ADX collapse: ADX drops below 20 on discovery TF
+  3. DI crossover: DI crosses against trade on discovery TF
+
+  ALL checks suppressed if higher TF DMI still agrees with trade direction.
+  Research: depth 7-9 regime_decay was -$5.22/trade (37% WR) because 5m ADX
+  oscillations killed trades while 30m/1h trend was intact.
 """
 from typing import Optional
 
@@ -26,20 +26,25 @@ class RegimeDecayExit:
             config = TradingConfig()
         self._adx_threshold = config.ce_regime_decay_adx
         self._di_cross_enabled = config.ce_regime_decay_di_cross
-        self._macro_tf = config.fdmi_macro_tf
+        self._macro_tf = config.fdmi_macro_tf  # fallback if no discovery TF
         self._hurst_exit = config.hurst_regime_exit
 
     def evaluate(self, pos: PositionState, bar_close: float, tick_size: float,
                  belief_network=None) -> Optional[ExitResult]:
-        """Check regime decay / DI trend reversal."""
+        """Check regime decay using discovery TF, with higher TF override."""
         if belief_network is None:
             return None
 
-        macro_worker = belief_network.workers.get(self._macro_tf)
+        # Use trade's discovery TF worker, fallback to config macro TF
+        _disc_tf = int(getattr(pos, 'discovery_tf_seconds', self._macro_tf))
+        macro_worker = belief_network.workers.get(_disc_tf)
+        if macro_worker is None:
+            # Fallback to nearest available worker
+            macro_worker = belief_network.workers.get(self._macro_tf)
         if macro_worker is None:
             return None
 
-        # Get current and previous macro state
+        # Get current and previous state from discovery TF
         macro_idx = macro_worker._last_tf_bar_idx
         if macro_idx < 1 or not macro_worker._states:
             return None
@@ -49,6 +54,7 @@ class RegimeDecayExit:
         macro_adx = getattr(macro_state, 'adx_strength', 0.0)
         macro_di_plus = getattr(macro_state, 'dmi_plus', 0.0)
         macro_di_minus = getattr(macro_state, 'dmi_minus', 0.0)
+        macro_hurst = getattr(macro_state, 'hurst_exponent', 0.5)
 
         prev_idx = macro_idx - 1
         if prev_idx < 0 or prev_idx >= len(macro_worker._states):
@@ -58,43 +64,48 @@ class RegimeDecayExit:
         prev_di_plus = getattr(prev_state, 'dmi_plus', 0.0)
         prev_di_minus = getattr(prev_state, 'dmi_minus', 0.0)
         prev_adx = getattr(prev_state, 'adx_strength', 0.0)
+        prev_hurst = getattr(prev_state, 'hurst_exponent', 0.5)
 
         pnl_ticks = ((bar_close - pos.entry_price) / tick_size
                      if pos.side == 'long'
                      else (pos.entry_price - bar_close) / tick_size)
 
-        # ── Check 0: Hurst regime shift (academic primary) ──
-        # Hurst dropping below 0.50 = trend memory has died mathematically
-        macro_hurst = getattr(macro_state, 'hurst_exponent', 0.5)
-        prev_hurst = getattr(prev_state, 'hurst_exponent', 0.5)
+        # ── Higher TF override: check adjacent higher TF ──
+        # If the macro trend (next TF up) still agrees with trade direction,
+        # suppress regime_decay. The chop on the discovery TF is micro noise.
+        _higher_tf_agrees = self._check_higher_tf(
+            belief_network, _disc_tf, pos.side)
+        if _higher_tf_agrees:
+            return None  # macro trend alive — ride the chop
+
+        # ── Check 0: Hurst regime shift ──
         if macro_hurst < self._hurst_exit and prev_hurst >= self._hurst_exit:
             return ExitResult(
                 action=ExitAction.REGIME_DECAY,
                 exit_price=bar_close,
-                reason=f"Hurst regime shift: H={macro_hurst:.3f} collapsed from {prev_hurst:.3f}",
+                reason=f"Hurst regime shift: H={macro_hurst:.3f} "
+                       f"collapsed from {prev_hurst:.3f} (TF={_disc_tf}s)",
                 pnl_ticks=pnl_ticks,
                 bars_held=pos.bars_held,
             )
 
-        # ── Check 1: Regime collapse (ADX drops below threshold — lagging confirmation) ──
-        # Only trigger if ADX was previously above threshold (actual collapse, not always-low)
+        # ── Check 1: ADX collapse ──
         if macro_adx < self._adx_threshold and prev_adx >= self._adx_threshold:
             return ExitResult(
                 action=ExitAction.REGIME_DECAY,
                 exit_price=bar_close,
-                reason=f"Regime decay: macro_adx={macro_adx:.1f} collapsed from {prev_adx:.1f}",
+                reason=f"Regime decay: ADX={macro_adx:.1f} collapsed "
+                       f"from {prev_adx:.1f} (TF={_disc_tf}s)",
                 pnl_ticks=pnl_ticks,
                 bars_held=pos.bars_held,
             )
 
-        # ── Check 2: DI crossover against trade (trend reversal) ──
+        # ── Check 2: DI crossover against trade ──
         if self._di_cross_enabled and pos.bars_held >= 3:
             if pos.side == 'long':
-                # Was bullish (DI+ > DI-), now bearish (DI- >= DI+)
                 crossed_against = (prev_di_plus > prev_di_minus
                                    and macro_di_minus >= macro_di_plus)
             else:
-                # Was bearish (DI- > DI+), now bullish (DI+ >= DI-)
                 crossed_against = (prev_di_minus > prev_di_plus
                                    and macro_di_plus >= macro_di_minus)
 
@@ -102,9 +113,38 @@ class RegimeDecayExit:
                 return ExitResult(
                     action=ExitAction.REGIME_DECAY,
                     exit_price=bar_close,
-                    reason=f"DI reversal: macro DI crossed against {pos.side}",
+                    reason=f"DI reversal: DI crossed against "
+                           f"{pos.side} (TF={_disc_tf}s)",
                     pnl_ticks=pnl_ticks,
                     bars_held=pos.bars_held,
                 )
 
         return None
+
+    @staticmethod
+    def _check_higher_tf(belief_network, disc_tf_sec: int, side: str) -> bool:
+        """Check if the adjacent higher TF's DMI still agrees with trade."""
+        _hierarchy = [1, 5, 15, 30, 60, 120, 180, 300, 900, 1800, 3600, 14400]
+        _higher = disc_tf_sec  # fallback
+        for tf in _hierarchy:
+            if tf > disc_tf_sec:
+                _higher = tf
+                break
+
+        w = belief_network.workers.get(_higher)
+        if w is None:
+            return False  # can't check → don't suppress
+
+        mi = w._last_tf_bar_idx
+        if mi < 0 or not w._states or mi >= len(w._states):
+            return False
+
+        raw = w._states[mi]
+        ms = raw['state'] if isinstance(raw, dict) and 'state' in raw else raw
+        dp = getattr(ms, 'dmi_plus', 0.0)
+        dm = getattr(ms, 'dmi_minus', 0.0)
+
+        if side == 'long':
+            return dp > dm
+        else:
+            return dm > dp
