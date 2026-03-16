@@ -695,6 +695,11 @@ class Trainer:
         if _live_val_days > 0:
             print(f"  Live validation: last {_live_val_days} trading days replayed via BarProcessor after inline OOS")
 
+        # Pre-loop defaults (survive thin-market skips)
+        _pp_enabled = getattr(self, '_ping_pong', False)
+        _pp_flip_count = 0
+        _pp_all_trades = []
+
         _pbar = tqdm(total=_total_trading_days, desc='Forward Pass', unit='day',
                      bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {postfix}',
                      ascii=True, dynamic_ncols=True)
@@ -2911,8 +2916,11 @@ class Trainer:
         _sec['what_we_did'] = len(report_lines)
         report_lines.append("")
         report_lines.append(f"  WHAT WE DID:")
-        report_lines.append(f"    Traded:  {n_traded:>6,}  ({n_traded/(total_real_opps+total_noise_opps)*100:.1f}% of all signals)")
-        report_lines.append(f"    Skipped: {n_skipped:>6,}  ({n_skipped/(total_real_opps+total_noise_opps)*100:.1f}% of all signals)")
+        _total_opps = total_real_opps + total_noise_opps
+        _traded_pct = n_traded / _total_opps * 100 if _total_opps > 0 else 0
+        _skipped_pct = n_skipped / _total_opps * 100 if _total_opps > 0 else 0
+        report_lines.append(f"    Traded:  {n_traded:>6,}  ({_traded_pct:.1f}% of all signals)")
+        report_lines.append(f"    Skipped: {n_skipped:>6,}  ({_skipped_pct:.1f}% of all signals)")
 
         # ── 2b. Detection funnel (bar-level) ──────────────────────────────────────
         _bars_blind = total_bars_processed - bars_with_detection
@@ -3363,7 +3371,7 @@ class Trainer:
                 _run[_tid][f'{_d}_pnl'] += _pnl
                 _run[_tid][f'{_d}_n'] += 1
 
-            _total_n = _pos_ev_n + _neg_ev_n + _unknown_n
+            _total_n = max(_pos_ev_n + _neg_ev_n + _unknown_n, 1)
             report_lines.append("")
             report_lines.append(f"  EXPECTED PROFIT ANALYSIS (E[PnL] = running avg PnL per template×direction)")
             report_lines.append(f"    Positive EV trades (E[PnL]>0 at entry): {_pos_ev_n:>6,}  "

@@ -1,21 +1,35 @@
-"""Trailing Stop — continuously ratchet SL behind peak favorable price.
+"""Trailing Stop — ratchet SL behind peak favorable price once expected profit is reached.
 
-Direction-aware: longs and shorts have inverted cycle shapes.
+Activation is based on per-template expected MFE (p75_mfe_ticks), not a fixed
+threshold. This lets trades develop to their statistical potential before
+protection kicks in.
+
+Once activated:
+  - SL moves to entry + (MFE * trail_pct) → locks in profit
+  - Only ratchets UP (longs) or DOWN (shorts) — never weakens
+
+Direction-aware trailing:
   SHORT cycle: sharp drop → gradual recovery (slow reversal)
   LONG  cycle: gradual rise → sharp drop (fast reversal)
-
-So longs get tighter trail + faster activation to catch the sharp giveback.
+  So longs get tighter trail to catch the sharp giveback.
 """
 from core.exit_engine import PositionState
 
 
-class BreakevenLock:
-    """Trailing stop disguised as BreakevenLock for backward compatibility."""
+class TrailingStop:
+    """Profit-protecting trailing stop. Activates when MFE reaches a
+    configurable fraction of the template's expected profit (p75_mfe)."""
 
-    def __init__(self, activation_ticks: float = 4, buffer_ticks: float = 1.0,
-                 trail_pct_short: float = 0.50, trail_pct_long: float = 0.65):
-        self.activation_ticks = activation_ticks
-        self.buffer_ticks = buffer_ticks
+    def __init__(self, activation_pct: float = 0.80,
+                 activation_floor_ticks: float = 20.0,
+                 activation_ceiling_ticks: float = 400.0,
+                 buffer_ticks: float = 2.0,
+                 trail_pct_short: float = 0.50,
+                 trail_pct_long: float = 0.65):
+        self.activation_pct = activation_pct          # fraction of anchor_mfe to activate
+        self.activation_floor_ticks = activation_floor_ticks  # minimum activation ($5 for MNQ)
+        self.activation_ceiling_ticks = activation_ceiling_ticks  # max activation ($100 MNQ)
+        self.buffer_ticks = buffer_ticks              # minimum trail distance from peak
         self.trail_pct_short = trail_pct_short
         self.trail_pct_long = trail_pct_long
 
@@ -26,10 +40,19 @@ class BreakevenLock:
         else:
             mfe_ticks = (pos.entry_price - pos.peak_favorable) / tick_size
 
-        if mfe_ticks < self.activation_ticks:
+        # Activation: wait until MFE reaches activation_pct of expected profit
+        # anchor_mfe_ticks comes from template p75_mfe (TF-scaled in open_position)
+        _anchor = getattr(pos, 'anchor_mfe_ticks', 0.0)
+        _activation = max(
+            self.activation_floor_ticks,
+            min(self.activation_ceiling_ticks,
+                _anchor * self.activation_pct if _anchor > 0 else self.activation_floor_ticks)
+        )
+
+        if mfe_ticks < _activation:
             return
 
-        # Longs get tighter trail — sharp drops eat profit fast
+        # Trail distance: keep trail_pct of profit locked in
         trail_pct = self.trail_pct_long if pos.side == 'long' else self.trail_pct_short
         trail_ticks = max(self.buffer_ticks, mfe_ticks * trail_pct)
         trail_distance = trail_ticks * tick_size
@@ -41,5 +64,8 @@ class BreakevenLock:
             new_sl = pos.entry_price - trail_distance
             pos.stop_loss = min(pos.stop_loss, new_sl)
 
-        # Mark as active (for reporting compatibility)
         pos.breakeven_locked = True
+
+
+# Backward compatibility alias
+BreakevenLock = TrailingStop
