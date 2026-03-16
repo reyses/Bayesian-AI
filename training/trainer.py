@@ -1555,6 +1555,15 @@ class Trainer:
                     # Copy gate labels for FN audit
                     _candidate_gate = _entry_action.candidate_gates
 
+                    # Yellow marker for evaluated-but-rejected signals
+                    if (_entry_action.type != ActionType.ENTER
+                            and self.dashboard_queue is not None
+                            and len(_eng_candidates) > 0
+                            and _bar_i % 4 == 0):  # throttle: every 4th bar max
+                        self.dashboard_queue.put({
+                            'type': 'TRADE_MARKER', 'action': 'SKIP',
+                            'side': '', 'price': price, 'pnl': 0})
+
                     if _entry_action.type == ActionType.ENTER:
                         best_candidate = _entry_action.raw_event
                         best_tid = _entry_action.template_id

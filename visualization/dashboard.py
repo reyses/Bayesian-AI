@@ -1117,13 +1117,18 @@ class ProgressPopup:
             my_pos = H - pad - ((mprice - mn) / span) * (H - 2 * pad)
             sz = 5
             if action == 'entry':
-                # Up triangle: green=LONG, red=SHORT (points in trade direction)
+                # Up triangle: green=LONG, red=SHORT
                 mc = "#00FF00" if side == 'long' else "#FF4444"
-                # Up triangle (entry = opening a position)
                 c.create_polygon(mx_pos, my_pos - sz, mx_pos - sz, my_pos + sz,
                                  mx_pos + sz, my_pos + sz, fill=mc, outline="#000")
+            elif action == 'skip':
+                # Small yellow diamond: signal evaluated but rejected
+                sz = 3
+                c.create_polygon(mx_pos, my_pos - sz, mx_pos - sz, my_pos,
+                                 mx_pos, my_pos + sz, mx_pos + sz, my_pos,
+                                 fill="#FFAA00", outline="")
             else:
-                # Down triangle: green=win, red=loss (closing position)
+                # Down triangle: green=win, red=loss
                 mc = "#00FF00" if mpnl and mpnl > 0 else "#FF4444"
                 c.create_polygon(mx_pos, my_pos + sz, mx_pos - sz, my_pos - sz,
                                  mx_pos + sz, my_pos - sz, fill=mc, outline="#000")
@@ -1337,7 +1342,7 @@ class ProgressPopup:
                         self._redraw_price_chart()
 
                 elif mtype == "TRADE_MARKER":
-                    action = msg.get("action", "")
+                    action = msg.get("action", "").lower()
                     side = msg.get("side", "")
                     mprice = msg.get("price", 0)
                     mpnl = msg.get("pnl", 0)
