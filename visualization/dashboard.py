@@ -34,16 +34,29 @@ TOP_TEMPLATES_LIMIT = 50
 class Tooltip:
     """
     Creates a tooltip for a given widget as the mouse hovers over it.
+    Includes a 500ms delay to avoid aggressive flashing.
     """
 
     def __init__(self, widget, text):
         self.widget = widget
         self.text = text
         self.tip_window = None
-        widget.bind("<Enter>", self.show_tip)
+        self._id = None
+        widget.bind("<Enter>", self.schedule_tip)
         widget.bind("<Leave>", self.hide_tip)
+        widget.bind("<ButtonPress>", self.hide_tip)
+
+    def schedule_tip(self, event=None):
+        self.cancel_scheduled()
+        self._id = self.widget.after(500, self.show_tip)
+
+    def cancel_scheduled(self):
+        if self._id:
+            self.widget.after_cancel(self._id)
+            self._id = None
 
     def show_tip(self, event=None):
+        self._id = None
         if self.tip_window or not self.text:
             return
 
@@ -72,6 +85,7 @@ class Tooltip:
         label.pack(ipadx=1)
 
     def hide_tip(self, event=None):
+        self.cancel_scheduled()
         if self.tip_window:
             self.tip_window.destroy()
             self.tip_window = None
