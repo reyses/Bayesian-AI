@@ -650,9 +650,28 @@ class LiveEngine:
 
         if self._position_open:
             try:
-                await self._check_exit(price, ts)
+                # Sub-bar exit check via BarProcessor (1s resolution for SL/trail)
+                _st = self._last_states[-1]['state'] if self._last_states else None
+                if _st is not None:
+                    result = self._processor.process_bar(
+                        bar_index=self._bar_i,
+                        price=price,
+                        bar_high=price,  # 1s bar = tick level
+                        bar_low=price,
+                        timestamp=ts,
+                        state=_st,
+                        exit_only=True,
+                    )
+                    if result.action.type == ActionType.EXIT:
+                        reason = getattr(result.action, 'exit_reason', 'unknown')
+                        exited_side = self._position.side if self._position else 'flat'
+                        self._belief_network.stop_trade_tracking()
+                        if self._ping_pong_mode and not self._shutting_down:
+                            await self._flip_position(reason, exited_side, price, ts)
+                        else:
+                            await self._close_position(reason)
             except Exception as _exit_err:
-                logger.error(f"_check_exit CRASHED: {_exit_err} — emergency flatten")
+                logger.error(f"sub-bar exit CRASHED: {_exit_err} — emergency flatten")
                 await self._close_position('EXIT_CRASH')
 
     async def _process_15s(self, price: float, ts: float, states: list):
