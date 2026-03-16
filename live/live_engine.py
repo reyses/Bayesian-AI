@@ -656,7 +656,7 @@ class LiveEngine:
                 await self._close_position('EXIT_CRASH')
 
     async def _process_15s(self, price: float, ts: float, states: list):
-        """Per-anchor-bar processing: TBN, entries, counterfactual watchers."""
+        """Per-anchor-bar processing: BarProcessor handles entry + exit."""
         if self._bar_i % 240 == 1:
             df_1s = self._aggregator.df_1s
             df_5s = pd.DataFrame(self._tf_bars.get(5, [])) if self._tf_bars.get(5) else pd.DataFrame()
@@ -665,11 +665,52 @@ class LiveEngine:
                 self._aggregator.df, states_micro=states,
                 df_5s=df_5s, df_1s=df_1s, df_4h=df_4h)
 
-        self._belief_network.tick_all(self._bar_i)
-
+        # Block entries during maintenance or loss limit
         _cooldown_ok = (time.time() - self._last_exit_time) > float(self._anchor_period)
-        if not self._position_open and not self._orders.loss_limit_hit and _cooldown_ok:
-            await self._check_entry(price, ts, states)
+        _can_enter = (not self._position_open
+                      and not self._orders.loss_limit_hit
+                      and _cooldown_ok
+                      and not self._instrument_mismatch
+                      and not self._exit_engine.is_maintenance_window(ts))
+
+        # Aggression scaling
+        agg = self._shared_state.get('aggression', 0.5)
+        _yolo = agg >= 0.99
+        _side_lock = self._shared_state.get('side_lock')
+
+        # Get latest state
+        state = states[-1]['state'] if states else None
+        if state is None:
+            return
+
+        # ── UNIFIED: BarProcessor handles BOTH entry and exit ──
+        result = self._processor.process_bar(
+            bar_index=self._bar_i,
+            price=price,
+            bar_high=getattr(self, '_last_bar_high', price),
+            bar_low=getattr(self, '_last_bar_low', price),
+            timestamp=ts,
+            state=state,
+            pp_dir_override=_side_lock if _side_lock else None,
+            yolo=_yolo,
+        )
+
+        # Route BarResult to live order management
+        if result.action.type == ActionType.ENTER and _can_enter:
+            await self._execute_entry(result.action, price, ts, time.perf_counter())
+        elif result.action.type == ActionType.EXIT and self._position_open:
+            reason = getattr(result.action, 'exit_reason', 'unknown')
+            exited_side = self._position.side if self._position else 'flat'
+            self._belief_network.stop_trade_tracking()
+
+            if (reason == 'profit_target'
+                    and self._tuning.get('auto_tp_reentry', False)
+                    and not self._shutting_down):
+                await self._auto_tp_reentry(exited_side, price, ts)
+            elif self._ping_pong_mode and not self._shutting_down:
+                await self._flip_position(reason, exited_side, price, ts)
+            else:
+                await self._close_position(reason)
 
         self._exit_watcher.tick(price)
 
