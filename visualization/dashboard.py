@@ -963,6 +963,8 @@ class ProgressPopup:
 
         # ── Live Price Chart ─────────────────────────────────────────────
         self._price_history = []  # last N prices for line chart
+        self._active_entry_price = None  # horizontal line while in trade
+        self._active_entry_side = None
         self._MAX_PRICE_PTS = 200  # rolling window
         self._trade_markers = []  # (price_index, action, side, price, pnl)
         self._active_side = None  # 'long'/'short' when in position, None when flat
@@ -1097,30 +1099,37 @@ class ProgressPopup:
                       coords[-2] + 3, coords[-1] + 3,
                       fill=color, outline="")
 
+        # Active trade: horizontal entry line (persists until exit)
+        if self._active_entry_price is not None and mn <= self._active_entry_price <= mx:
+            _ey = H - pad - ((self._active_entry_price - mn) / span) * (H - 2 * pad)
+            _ec = "#00FF00" if self._active_entry_side == 'long' else "#FF4444"
+            c.create_line(pad, _ey, W - pad, _ey, fill=_ec, width=1, dash=(4, 3))
+            c.create_text(pad + 4, _ey - 8,
+                          text=f"{self._active_entry_side.upper()} @ {self._active_entry_price:,.2f}",
+                          fill=_ec, font=("Consolas", 6), anchor="w")
+
         # Trade markers (entry=triangle, exit=square)
         n_pts = len(pts)
         for (idx, action, side, mprice, mpnl) in self._trade_markers:
             if idx < 0 or idx >= n_pts:
                 continue
-            mx = pad + idx / max(1, n_pts - 1) * (W - 2 * pad)
-            my = H - pad - ((mprice - mn) / span) * (H - 2 * pad)
+            mx_pos = pad + idx / max(1, n_pts - 1) * (W - 2 * pad)
+            my_pos = H - pad - ((mprice - mn) / span) * (H - 2 * pad)
             if action == 'entry':
                 # Triangle: green=LONG, red=SHORT
                 mc = "#00FF00" if side == 'long' else "#FF4444"
                 sz = 5
                 if side == 'long':
-                    # Up triangle
-                    c.create_polygon(mx, my - sz, mx - sz, my + sz,
-                                     mx + sz, my + sz, fill=mc, outline="#000")
+                    c.create_polygon(mx_pos, my_pos - sz, mx_pos - sz, my_pos + sz,
+                                     mx_pos + sz, my_pos + sz, fill=mc, outline="#000")
                 else:
-                    # Down triangle
-                    c.create_polygon(mx, my + sz, mx - sz, my - sz,
-                                     mx + sz, my - sz, fill=mc, outline="#000")
+                    c.create_polygon(mx_pos, my_pos + sz, mx_pos - sz, my_pos - sz,
+                                     mx_pos + sz, my_pos - sz, fill=mc, outline="#000")
             else:
                 # Exit: square, colored by PnL
                 mc = "#00FF00" if mpnl and mpnl > 0 else "#FF4444"
                 sz = 3
-                c.create_rectangle(mx - sz, my - sz, mx + sz, my + sz,
+                c.create_rectangle(mx_pos - sz, my_pos - sz, mx_pos + sz, my_pos + sz,
                                    fill=mc, outline="#000")
 
     def _on_aggression_change(self, val):
@@ -1172,6 +1181,8 @@ class ProgressPopup:
                 self._pnl_history = [0]
                 self._price_history = []
                 self._trade_markers = []
+                self._active_entry_price = None
+                self._active_entry_side = None
                 self._redraw_chart()
                 self._redraw_price_chart()
                 self.root.title(f"Bayesian-AI  {_new_mode.upper()} Training")
@@ -1334,11 +1345,15 @@ class ProgressPopup:
                     side = msg.get("side", "")
                     mprice = msg.get("price", 0)
                     mpnl = msg.get("pnl", 0)
-                    # Track position side for FLIP routing
-                    if action == 'entry':
+                    # Track position side for FLIP routing + entry line
+                    if action == 'entry' or action == 'ENTRY':
                         self._active_side = side
-                    elif action == 'exit':
+                        self._active_entry_price = mprice
+                        self._active_entry_side = side
+                    elif action == 'exit' or action == 'EXIT':
                         self._active_side = None
+                        self._active_entry_price = None
+                        self._active_entry_side = None
                     # Update button states: FLAT shows position, BUY/SELL become FLIP
                     if hasattr(self, '_flatten_btn'):
                         if action == 'entry':
