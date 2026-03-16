@@ -6222,7 +6222,7 @@ def main():
     orchestrator._pp_trail_override = getattr(args, 'pp_trail', 0)
     orchestrator._slippage_ticks = getattr(args, 'slippage', 0.0)
     orchestrator._use_primitives = getattr(args, 'primitives', False)
-    orchestrator._use_lookback = getattr(args, 'lookback', False)
+    orchestrator._use_lookback = True  # 22D features always on (6D lookback geometry)
     orchestrator._use_shapes = getattr(args, 'shapes', False)
     # Min-hold: convert minutes → 15s bars (execution TF)
     _min_hold_mins = getattr(args, 'min_hold', 0.0)
