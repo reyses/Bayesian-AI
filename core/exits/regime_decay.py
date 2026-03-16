@@ -101,7 +101,12 @@ class RegimeDecayExit:
             )
 
         # ── Check 2: DI crossover against trade ──
-        if self._di_cross_enabled and pos.bars_held >= 3:
+        # Research: DMI crossover is unreliable below 3m (MFE/MAE = 1.0x).
+        # Only check DI cross for discovery TFs >= 180s (3m).
+        # Below that, ADX collapse and Hurst shift (checks 0+1) handle exits.
+        _di_cross_min_tf = 180  # 3m — below this, DI cross is noise
+        if (self._di_cross_enabled and pos.bars_held >= 3
+                and _disc_tf >= _di_cross_min_tf):
             if pos.side == 'long':
                 crossed_against = (prev_di_plus > prev_di_minus
                                    and macro_di_minus >= macro_di_plus)
