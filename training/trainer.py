@@ -563,6 +563,61 @@ class Trainer:
                 'band_speed': round(abs(_vel) / _sigma if _sigma > 0 else 0.0, 4),
             }
 
+        def _quantum_score(state, belief, side, template_wr, norm_dist):
+            """Compute quantum P(success) score from orphaned + active fields.
+
+            Observation only — logged but not used for decisions (yet).
+            Original scoring: P_i > 0.75 AND tunnel > 0.60 AND low entropy.
+            """
+            if state is None:
+                return {'q_score': 0.0, 'q_wave': 0.0, 'q_tunnel': 0.0,
+                        'q_entropy': 0.0, 'q_coherence': 0.0}
+
+            # Wave function probability (dominant direction)
+            p_center = float(getattr(state, 'P_at_center', 0.0))
+            p_upper = float(getattr(state, 'P_near_upper', 0.0))
+            p_lower = float(getattr(state, 'P_near_lower', 0.0))
+            p_wave = max(p_center, p_upper, p_lower)
+
+            # Tunnel probability (reversion confidence)
+            p_tunnel = float(getattr(state, 'reversion_probability', 0.0))
+
+            # Entropy (chaos measure — lower = more decisive)
+            entropy = float(getattr(state, 'entropy_normalized', 0.5))
+            entropy_inv = 1.0 - entropy  # higher = better
+
+            # Conviction (TBN consensus)
+            conviction = belief.conviction if belief is not None else 0.0
+
+            # Coherence (TF alignment)
+            coherence = float(getattr(state, 'oscillation_entropy_normalized', 0.0))
+
+            # Momentum alignment (F_momentum sign vs trade direction)
+            f_mom = float(getattr(state, 'F_momentum', 0.0))
+            mom_align = 1.0
+            if side == 'long' and f_mom < 0:
+                mom_align = 0.6
+            elif side == 'short' and f_mom > 0:
+                mom_align = 0.6
+
+            # Weighted combination
+            q = (0.20 * p_wave +
+                 0.15 * p_tunnel +
+                 0.15 * entropy_inv +
+                 0.15 * conviction +
+                 0.10 * template_wr +
+                 0.10 * (1.0 - min(1.0, norm_dist / 3.0)) +
+                 0.10 * mom_align +
+                 0.05 * coherence)
+
+            return {
+                'q_score': round(q, 4),
+                'q_wave': round(p_wave, 4),
+                'q_tunnel': round(p_tunnel, 4),
+                'q_entropy': round(entropy_inv, 4),
+                'q_coherence': round(coherence, 4),
+            }
+
         def _macro_obs(bn, trade_side):
             """Macro trend observation columns (non-actionable — research only)."""
             try:
@@ -1698,6 +1753,11 @@ class Trainer:
                                     price + ((_belief.predicted_mfe if side == 'long' else -_belief.predicted_mfe)
                                              * self.asset.tick_size), 6) if _belief is not None and _belief.predicted_mfe > 0 else price,
                                 **_physics_fields(best_candidate),
+                                # ── Quantum score (observation only) ──
+                                **_quantum_score(
+                                    _live_state, _belief, side,
+                                    template_wr=lib_entry.get('win_rate', 0.5),
+                                    norm_dist=_entry_action.dist if hasattr(_entry_action, 'dist') else 1.0),
                             }
 
                             # Signal log: traded record
