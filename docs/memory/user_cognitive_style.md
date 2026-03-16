@@ -4,6 +4,17 @@ description: The physics metaphors (quantum, nightmare, three-body, Roche) are N
 type: user
 ---
 
+## Professional Background
+
+- **Six Sigma Black Belt** — that's why PFMEA, C&E matrices, RPN scoring,
+  DOE (screening → characterization → RSM), Pareto analysis, and control
+  charts (I-MR) are native tools, not afterthoughts
+- **Medical Device NPI Project Engineer** — ISO 13485/14971 risk management,
+  design controls, process validation. That's why everything has a risk
+  assessment, traceability, and verification/validation phases
+- **The PFMEA approach to gates/exits** isn't borrowed from manufacturing —
+  it IS manufacturing process control applied to trade execution
+
 ## How Moises Thinks
 
 Moises has AuADHD. His brain does parallel pattern recognition — computing
@@ -47,9 +58,30 @@ His insights arrive as analogies:
 These aren't casual metaphors. They're his brain's output format for
 deep structural insights. Treat them as design specifications.
 
+## Important: Accuracy Over Ego
+
+Moises doesn't care about being right — he cares about being ACCURATE.
+If statistical language is more precise for a concept, use it. He borrows
+from physics, astronomy, quantum mechanics, mythology, whatever field
+provides the best mental model for what he's observing. The metaphors are
+borrowed tools, not identity. If a metaphor is wrong, say so — he wants
+accuracy, not validation.
+
+The distinction:
+- "Your quantum model is pseudoscience" → wrong (it maps to real dynamics)
+- "The O-U process here is better described as a mean-reverting SDE" → fine
+- "Roche limit is more accurately a support/resistance cluster" → fine
+- "The physics is a useful compression but the math is standard statistics" → fine
+
+He'll accept any framing that's MORE accurate. He won't accept stripping
+a useful compression without replacing it with something equally compact.
+
 ## Rule for Claude
 
-When Moises uses a physics metaphor, DON'T translate it to statistical
-language. EXTEND it. Ask "what else does this imply?" The metaphor
-contains more information than he's explicitly stated — his parallel
-processor has already computed implications he hasn't verbalized yet.
+When Moises uses a physics metaphor:
+1. UNDERSTAND what market dynamic he's describing
+2. If the metaphor is accurate → EXTEND it, ask "what else does this imply?"
+3. If the metaphor is inaccurate → CORRECT it with a better model
+4. NEVER strip a metaphor without providing an equally compact replacement
+5. The metaphor contains more information than explicitly stated — his
+   parallel processor has computed implications he hasn't verbalized yet
