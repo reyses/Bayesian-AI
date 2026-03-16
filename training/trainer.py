@@ -987,13 +987,15 @@ class Trainer:
                         _gw = sum(p for p in _all_pnls if p > 0)
                         _gl = abs(sum(p for p in _all_pnls if p < 0))
                         _pf = _gw / _gl if _gl > 0 else 0.0
-                        # Exit quality buckets from capture_rate
+                        # Capture rate quartile buckets
                         _caps = [t.get('capture_rate', 0) for t in oracle_trade_records
                                  if t.get('capture_rate') is not None]
-                        _e_opt = sum(1 for c in _caps if c >= 0.80)
-                        _e_par = sum(1 for c in _caps if 0.20 <= c < 0.80)
-                        _e_ear = sum(1 for c in _caps if 0 < c < 0.20)
-                        _e_rev = sum(1 for c in _caps if c <= 0)
+                        _c_rev = sum(1 for c in _caps if c <= 0)
+                        _c_q1 = sum(1 for c in _caps if 0 < c <= 0.25)
+                        _c_q2 = sum(1 for c in _caps if 0.25 < c <= 0.50)
+                        _c_q3 = sum(1 for c in _caps if 0.50 < c <= 0.75)
+                        _c_q4 = sum(1 for c in _caps if 0.75 < c <= 1.0)
+                        _c_plus = sum(1 for c in _caps if c > 1.0)
                         self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
                                                   'step': f'FORWARD_PASS  day {_cumulative_days}/{_total_trading_days}',
                                                   'pct': round(_cumulative_days / _total_trading_days * 100, 1),
@@ -1003,10 +1005,12 @@ class Trainer:
                                                   'pf': round(_pf, 2),
                                                   'gross_w': round(_gw, 0),
                                                   'gross_l': round(_gl, 0),
-                                                  'exit_optimal': _e_opt,
-                                                  'exit_partial': _e_par,
-                                                  'exit_early': _e_ear,
-                                                  'exit_reversed': _e_rev})
+                                                  'cap_reversed': _c_rev,
+                                                  'cap_q1': _c_q1,
+                                                  'cap_q2': _c_q2,
+                                                  'cap_q3': _c_q3,
+                                                  'cap_q4': _c_q4,
+                                                  'cap_100plus': _c_plus})
 
                 # Snap to 60s boundary to match pattern_map keys
                 ts = int(ts_raw) // 60 * 60
