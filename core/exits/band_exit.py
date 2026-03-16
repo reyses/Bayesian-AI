@@ -23,13 +23,16 @@ class BandUrgentExit:
         if strength < self._min_strength:
             return None
 
+        # Thesis invalidation: band direction flipped against position
+        # loss_ticks=0 means fire regardless of PnL (pure thesis invalidation)
+        # loss_ticks>0 means only fire if underwater by that amount
         if pos.side == 'long' and direction == 'short' and strength > self._trigger_strength:
             unrealized_ticks = (bar_close - pos.entry_price) / tick_size
-            if unrealized_ticks < -self._loss_ticks:
+            if self._loss_ticks <= 0 or unrealized_ticks < -self._loss_ticks:
                 return ExitResult(
                     action=ExitAction.BAND_URGENT,
                     exit_price=bar_close,
-                    reason=f"Band urgent: LONG but support broken (str={strength:.2f})",
+                    reason=f"Band urgent: LONG but support broken (str={strength:.2f}, pnl={unrealized_ticks:.0f}t)",
                     pnl_ticks=unrealized_ticks,
                     bars_held=pos.bars_held,
                     band_zone=band_context.get('band_summary', ''),
@@ -38,11 +41,11 @@ class BandUrgentExit:
 
         if pos.side == 'short' and direction == 'long' and strength > self._trigger_strength:
             unrealized_ticks = (pos.entry_price - bar_close) / tick_size
-            if unrealized_ticks < -self._loss_ticks:
+            if self._loss_ticks <= 0 or unrealized_ticks < -self._loss_ticks:
                 return ExitResult(
                     action=ExitAction.BAND_URGENT,
                     exit_price=bar_close,
-                    reason=f"Band urgent: SHORT but resistance broken (str={strength:.2f})",
+                    reason=f"Band urgent: SHORT but resistance broken (str={strength:.2f}, pnl={unrealized_ticks:.0f}t)",
                     pnl_ticks=unrealized_ticks,
                     bars_held=pos.bars_held,
                     band_zone=band_context.get('band_summary', ''),
