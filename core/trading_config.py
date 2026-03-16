@@ -78,11 +78,20 @@ class TradingConfig:
     envelope_band_mult_max: float = 1.5
     envelope_anchor_patience_max: float = 2.0
     envelope_hl_mult_floor: float = 0.3
+    envelope_adx_slope_boost: float = 0.05   # rising ADX slows decay (hl *= 1 + slope * this)
+    envelope_adx_slope_penalty: float = 0.1  # falling ADX speeds decay (hl *= 1 + slope * this)
+
+    # === Exit: Giveback shape blend ===
+    giveback_shape_blend: float = 0.70       # 70% shape threshold + 30% tier (when shape available)
+
+    # === Exit: Belief flip ===
+    belief_flip_di_gap: float = 5.0          # DI gap threshold for crossover exit (87% accurate at ≥5)
+    belief_flip_min_bars: int = 3            # minimum bars before DI crossover allowed
 
     # === Exit: Band urgent ===
     band_urgent_min_strength: float = 0.6
     band_urgent_trigger_strength: float = 0.7
-    band_urgent_loss_ticks: float = 2.0
+    band_urgent_loss_ticks: float = 0.0  # 0 = fire on any thesis invalidation (even in profit)
 
     # === TBN: Physics blend ===
     physics_accel_weight: float = 0.5

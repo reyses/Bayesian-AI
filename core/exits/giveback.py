@@ -10,7 +10,7 @@ from core.exit_engine import ExitAction, ExitResult, PositionState
 
 class PeakGiveback:
 
-    def __init__(self, min_mfe_ticks: float = 16, giveback_pct: float = 0.70,
+    def __init__(self, min_mfe_ticks: float = 16, giveback_pct: float = 0.10,
                  config=None):
         self.min_mfe_ticks = min_mfe_ticks
         self.giveback_pct = giveback_pct
@@ -22,6 +22,7 @@ class PeakGiveback:
         self._slow_flip_reduction = config.giveback_slow_flip_reduction
         self._slow_flip_floor = config.giveback_slow_flip_floor
         self._anchor_patience_pct = config.giveback_anchor_patience_pct
+        self._shape_blend = config.giveback_shape_blend
 
     def get_threshold(self, peak_ticks: float, noise_ticks: float = 0.0) -> float:
         """Tiered giveback threshold.
@@ -69,7 +70,7 @@ class PeakGiveback:
         # Shape-aware override: blend data-derived threshold with tier-based
         if shape_params is not None:
             shape_threshold = shape_params['giveback_pct']
-            blend = 0.7  # 70% shape, 30% tier
+            blend = self._shape_blend  # shape vs tier blend (default 70/30)
             threshold = blend * shape_threshold + (1 - blend) * threshold
             # Delay: suppress giveback before shape's expected peak bar
             if pos.bars_held < shape_params.get('delay_bars', 0):

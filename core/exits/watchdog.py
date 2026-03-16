@@ -35,7 +35,9 @@ class WatchdogCheck:
         else:
             mfe_ticks = (pos.entry_price - pos.peak_favorable) / tick_size
 
-        if mfe_ticks >= pos.trail_activation_ticks * self._mfe_progress_pct:
+        # Use anchor_mfe (expected profit from template) as reference, not trail activation
+        _expected = getattr(pos, 'anchor_mfe_ticks', 0.0) or pos.trail_activation_ticks
+        if mfe_ticks >= _expected * self._mfe_progress_pct:
             return None
 
         workers_against = 0

@@ -33,6 +33,9 @@ class ExitAction(Enum):
     DEATH_HOOK = 'death_hook'           # liquidity absorption at macro wall
     REGIME_DECAY = 'regime_decay'       # macro trend collapsed / DI reversal
     SURVIVAL_STOP = 'survival_stop'     # time-survival probability expired
+    BELIEF_FLIP = 'belief_flip'         # TBN consensus flipped or DI crossover
+    TIDAL_WAVE = 'tidal_wave'           # adverse volatility expansion
+    V_REVERSAL = 'v_reversal'           # 4 bars off peak + profit + breakeven locked
 
 
 @dataclass
@@ -163,7 +166,9 @@ class ExitEngine:
             bar_threshold=config.watchdog_bar_threshold,
             worker_threshold=config.watchdog_worker_threshold,
             config=config)
-        self.belief_flip = BeliefFlipExit()
+        self.belief_flip = BeliefFlipExit(
+            di_gap_threshold=config.belief_flip_di_gap,
+            min_bars=config.belief_flip_min_bars)
 
         from core.exits.fractal_exhaust import FractalExhaustExit
         from core.exits.regime_decay import RegimeDecayExit
@@ -490,7 +495,7 @@ class ExitEngine:
                         if pos.side == 'long'
                         else (pos.entry_price - pos.peak_favorable) / ts)
                 return ExitResult(
-                    action=ExitAction.TRAIL_STOP,
+                    action=ExitAction.V_REVERSAL,
                     exit_price=bar_close,
                     reason=f"V-reversal: {pos.bars_since_peak} bars off peak "
                            f"(MFE={_mfe:.0f}t, exit={_pnl_ticks:.1f}t)",
