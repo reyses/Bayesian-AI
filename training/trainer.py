@@ -365,6 +365,7 @@ class Trainer:
             print(f"  Min-hold active: {_min_hold} bars ({_min_hold * 15 / 60:.0f} min) — "
                   f"reversal exits only before threshold")
         belief_network = create_belief_network(_bundle, self.engine)
+        belief_network._atlas_root = data_source  # for pre-built TF parquet loading
         _exec_engine = create_execution_engine(
             bundle=_bundle,
             brain=self.brain,
