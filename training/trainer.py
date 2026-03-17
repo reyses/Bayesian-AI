@@ -6533,23 +6533,8 @@ def main():
                 # Phase 6: Strategy (grades on OOS trade log)
                 orchestrator.run_strategy_selection()
 
-                # OOS2: re-run with tier preference tiebreaker
-                print("\n" + "=" * 80)
-                print("  OOS2 VERIFICATION (tier preference tiebreaker active)")
-                print("=" * 80)
-                orchestrator.run_forward_pass(_oos_path,
-                                              start_date=args.forward_start,
-                                              end_date=_oos_end,
-                                              bias_threshold=args.bias_threshold,
-                                              dmi_threshold=args.dmi_threshold,
-                                              oos_mode=True,
-                                              account_size=args.account_size,
-                                              tier_preference=True,
-                                              popup_label='oos2')
-                _oos2 = dict(orchestrator._fp_summary)
-
-                # Comparison: OOS1 vs OOS2
-                _print_oos_comparison(_oos1, _oos2)
+                # OOS2 removed — tier preferences showed <$140 delta on 1,700 trades.
+                # OOS1 (blind) is the real validation. OOS3 (parity) is engineering check.
 
                 # OOS3: BarProcessor parity (standalone — only last 5 days)
                 orchestrator.run_oos3_standalone(
@@ -6695,23 +6680,7 @@ def main():
                     # Phase 6: Strategy (grades on OOS trade log)
                     orchestrator.run_strategy_selection()
 
-                    # OOS2: re-run with tier preference tiebreaker
-                    print("\n" + "=" * 80)
-                    print("  OOS2 VERIFICATION (tier preference tiebreaker active)")
-                    print("=" * 80)
-                    orchestrator.run_forward_pass(_oos_path,
-                                              start_date=args.forward_start,
-                                              end_date=_oos_end,
-                                              bias_threshold=args.bias_threshold,
-                                              dmi_threshold=args.dmi_threshold,
-                                              oos_mode=True,
-                                              account_size=getattr(args, 'account_size', 0.0),
-                                              tier_preference=True,
-                                              popup_label='oos2')
-                    _oos2 = dict(orchestrator._fp_summary)
-
-                    # Comparison: OOS1 vs OOS2
-                    _print_oos_comparison(_oos1, _oos2)
+                    # OOS2 removed — tier preferences showed <$140 delta.
 
                 # OOS3: BarProcessor parity (standalone — only processes last 5 days)
                 orchestrator.run_oos3_standalone(
