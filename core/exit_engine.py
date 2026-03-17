@@ -465,24 +465,41 @@ class ExitEngine:
             # Strong = crossed AND DI gap >= 5 (5m DMI is 87% accurate at gap≥5)
             _strong_dmi_reversal = _crossed and _di_gap >= 5.0
 
-        # === STRUCTURAL EXITS (thesis invalidation — checked before SL/TP) ===
+        # === PROFIT PROTECTION (giveback first — if trade peaked, protect it) ===
 
-        # 1. Death Hook (Liquidity Absorption) — suppressed during min-hold
+        # 1. Peak Giveback — catches trades that peaked and are reversing.
+        #    Fires BEFORE structural exits so profitable trades get a controlled
+        #    exit, not a panic kill at -$35 from regime_decay/tidal_wave.
+        if not _in_hold_period:
+            _shape_params = None
+            if (self._exit_primitives is not None
+                    and pos.exit_primitive_id is not None
+                    and pos.exit_primitive_confidence >= 0.3):
+                _shape_params = self._exit_primitives.get_exit_params(pos.exit_primitive_id)
+            elif pos.template_shape_params is not None:
+                _shape_params = pos.template_shape_params
+            r = self.giveback.evaluate(pos, bar_close, ts, exit_signal, noise_ticks,
+                                       shape_params=_shape_params)
+            if r: return r
+
+        # === STRUCTURAL EXITS (thesis invalidation) ===
+
+        # 2. Death Hook (Liquidity Absorption) — suppressed during min-hold
         if not _in_hold_period:
             r = self.fractal_exhaust.evaluate(pos, bar_close, ts, belief_network)
             if r: return r
 
-        # 2. Regime Decay — only with strong DMI during min-hold
+        # 3. Regime Decay — only with strong DMI during min-hold
         if not _in_hold_period or _strong_dmi_reversal:
             r = self.regime_decay.evaluate(pos, bar_close, ts, belief_network)
             if r: return r
 
-        # 3. Survival Stop — suppressed during min-hold
+        # 4. Survival Stop — suppressed during min-hold
         if not _in_hold_period:
             r = self.survival_stop.evaluate(pos, bar_close, ts, belief_network)
             if r: return r
 
-        # 4. Tidal Wave — suppressed during min-hold
+        # 5. Tidal Wave — suppressed during min-hold
         if not _in_hold_period:
             r = self.tidal_wave.evaluate(pos, bar_close, ts, belief_network)
             if r: return r
@@ -538,18 +555,7 @@ class ExitEngine:
                                        noise_ticks)
             if r: return r
 
-        # 11. Peak Giveback — suppressed during min-hold
-        if not _in_hold_period:
-            _shape_params = None
-            if (self._exit_primitives is not None
-                    and pos.exit_primitive_id is not None
-                    and pos.exit_primitive_confidence >= 0.3):
-                _shape_params = self._exit_primitives.get_exit_params(pos.exit_primitive_id)
-            elif pos.template_shape_params is not None:
-                _shape_params = pos.template_shape_params
-            r = self.giveback.evaluate(pos, bar_close, ts, exit_signal, noise_ticks,
-                                       shape_params=_shape_params)
-            if r: return r
+        # 11. (Giveback moved to position #1 — profit protection first)
 
         # 12. Belief Flip — only with strong DMI during min-hold
         if not _in_hold_period or _strong_dmi_reversal:
