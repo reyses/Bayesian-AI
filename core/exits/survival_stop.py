@@ -52,20 +52,40 @@ class SurvivalStopExit:
             return None
 
         # ── Mode 1: Bayesian ePnL (primary — continuous inference) ──
-        # If brain has enough observations for this template+direction,
-        # check if expected PnL of holding has dropped to zero or below.
+        # Brain's historical ePnL modulated by CURRENT conviction.
+        # High conviction = workers agree with trade = hold longer (scale up ePnL).
+        # Low conviction = workers disagree = exit sooner (scale down ePnL).
+        # This prevents the brain from overriding a live signal that says "hold."
         brain = getattr(self, '_brain', None)
         if brain is not None:
             epnl = brain.get_expected_pnl(pos.template_id, pos.side.upper())
-            if epnl is not None and epnl <= self._epnl_threshold:
-                return ExitResult(
-                    action=ExitAction.SURVIVAL_STOP,
-                    exit_price=bar_close,
-                    reason=f"Bayesian ePnL exit: ePnL={epnl:.2f} <= {self._epnl_threshold:.2f} "
-                           f"for tid={pos.template_id} {pos.side}",
-                    pnl_ticks=current_ticks,
-                    bars_held=pos.bars_held,
-                )
+            if epnl is not None:
+                # Get current conviction from belief network
+                _conviction = 0.5
+                if belief_network is not None:
+                    _belief = belief_network.get_belief()
+                    if _belief is not None:
+                        _conviction = _belief.conviction
+                        # Direction alignment bonus: if belief agrees with trade, boost
+                        if _belief.direction == pos.side:
+                            _conviction = min(1.0, _conviction * 1.2)
+                        else:
+                            _conviction = _conviction * 0.6  # penalize disagreement
+
+                # Scale ePnL by conviction: high conviction = harder to trigger exit
+                _conv_scale = 0.5 + _conviction  # range: 0.5 (low conv) to 1.5 (high conv)
+                _effective_epnl = epnl * _conv_scale
+
+                if _effective_epnl <= self._epnl_threshold:
+                    return ExitResult(
+                        action=ExitAction.SURVIVAL_STOP,
+                        exit_price=bar_close,
+                        reason=f"Bayesian ePnL exit: ePnL={epnl:.2f}*conv={_conv_scale:.2f}"
+                               f"={_effective_epnl:.2f} <= {self._epnl_threshold:.2f} "
+                               f"for tid={pos.template_id} {pos.side}",
+                        pnl_ticks=current_ticks,
+                        bars_held=pos.bars_held,
+                    )
 
         # ── Mode 2: Structural flatline (fallback) ──
         # Only fires if there's evidence of imminent reversal.
