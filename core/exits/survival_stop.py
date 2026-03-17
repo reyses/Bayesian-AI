@@ -51,41 +51,64 @@ class SurvivalStopExit:
         if current_ticks < 0:
             return None
 
-        # ── Mode 1: Bayesian ePnL (primary — continuous inference) ──
-        # Brain's historical ePnL modulated by CURRENT conviction.
-        # High conviction = workers agree with trade = hold longer (scale up ePnL).
-        # Low conviction = workers disagree = exit sooner (scale down ePnL).
-        # This prevents the brain from overriding a live signal that says "hold."
-        brain = getattr(self, '_brain', None)
-        if brain is not None:
-            epnl = brain.get_expected_pnl(pos.template_id, pos.side.upper())
-            if epnl is not None:
-                # Get current conviction from belief network
-                _conviction = 0.5
-                if belief_network is not None:
-                    _belief = belief_network.get_belief()
-                    if _belief is not None:
-                        _conviction = _belief.conviction
-                        # Direction alignment bonus: if belief agrees with trade, boost
-                        if _belief.direction == pos.side:
-                            _conviction = min(1.0, _conviction * 1.2)
-                        else:
-                            _conviction = _conviction * 0.6  # penalize disagreement
+        # ── Mode 1: State-based expected profit ──
+        # Estimate remaining profit from CURRENT market conditions, not historical avg.
+        # Uses: z-score (band position), Hurst (trend strength), conviction (TF agreement),
+        # momentum alignment (forces with or against trade).
+        #
+        # Logic: P(remaining profit) estimated from current state.
+        # If all signals say "more room" → hold. If signals say "exhausted" → exit.
+        if belief_network is not None:
+            _belief = belief_network.get_belief()
+            _conviction = _belief.conviction if _belief else 0.5
+            _aligned = (_belief.direction == pos.side) if _belief else True
 
-                # Scale ePnL by conviction: high conviction = harder to trigger exit
-                _conv_scale = 0.5 + _conviction  # range: 0.5 (low conv) to 1.5 (high conv)
-                _effective_epnl = epnl * _conv_scale
+            # Get current bar state from the discovery TF worker
+            _disc_tf = int(getattr(pos, 'discovery_tf_seconds', 300))
+            _worker = belief_network.workers.get(_disc_tf)
+            _z = 0.0
+            _hurst = 0.5
+            _mom_with = True
+            if _worker is not None and _worker._states:
+                _mi = _worker._last_tf_bar_idx
+                if 0 <= _mi < len(_worker._states):
+                    _raw = _worker._states[_mi]
+                    _ms = _raw['state'] if isinstance(_raw, dict) and 'state' in _raw else _raw
+                    _z = getattr(_ms, 'z_score', 0.0)
+                    _hurst = getattr(_ms, 'hurst_exponent', 0.5)
+                    _f_mom = getattr(_ms, 'F_momentum', 0.0)
+                    # Momentum aligned with trade?
+                    _mom_with = (_f_mom > 0 and pos.side == 'long') or \
+                                (_f_mom < 0 and pos.side == 'short')
 
-                if _effective_epnl <= self._epnl_threshold:
-                    return ExitResult(
-                        action=ExitAction.SURVIVAL_STOP,
-                        exit_price=bar_close,
-                        reason=f"Bayesian ePnL exit: ePnL={epnl:.2f}*conv={_conv_scale:.2f}"
-                               f"={_effective_epnl:.2f} <= {self._epnl_threshold:.2f} "
-                               f"for tid={pos.template_id} {pos.side}",
-                        pnl_ticks=current_ticks,
-                        bars_held=pos.bars_held,
-                    )
+            # Estimate remaining room:
+            # For LONG: z approaching +2σ = near Roche limit = little room left
+            # For SHORT: z approaching -2σ = near Roche limit
+            if pos.side == 'long':
+                _room = max(0, 2.0 - _z)  # how far to upper band (0 = at limit, 2+ = plenty)
+            else:
+                _room = max(0, 2.0 + _z)  # how far to lower band
+
+            # Score: combine room + trend + conviction + alignment
+            _trend_bonus = 1.0 if _hurst > 0.55 else (0.5 if _hurst < 0.45 else 0.75)
+            _conv_bonus = _conviction  # 0.0 to 1.0
+            _align_bonus = 1.0 if _aligned else 0.3
+            _mom_bonus = 1.0 if _mom_with else 0.5
+
+            _remain_score = (_room / 2.0) * _trend_bonus * _conv_bonus * _align_bonus * _mom_bonus
+
+            # Exit when remaining score drops below threshold
+            # Score < 0.1 means: near band limit + mean-reverting + low conviction + misaligned
+            if _remain_score < 0.10:
+                return ExitResult(
+                    action=ExitAction.SURVIVAL_STOP,
+                    exit_price=bar_close,
+                    reason=f"State ePnL exit: remain={_remain_score:.3f} "
+                           f"(room={_room:.2f} H={_hurst:.2f} conv={_conviction:.2f} "
+                           f"align={'Y' if _aligned else 'N'} mom={'W' if _mom_with else 'A'})",
+                    pnl_ticks=current_ticks,
+                    bars_held=pos.bars_held,
+                )
 
         # ── Mode 2: Structural flatline (fallback) ──
         # Only fires if there's evidence of imminent reversal.
