@@ -1441,7 +1441,6 @@ class LiveEngine:
             _decision_ms = (self._order_send_ts - t0) * 1000
             logger.info(f"LATENCY: decision={_decision_ms:.1f}ms  (bar->order sent)")
 
-    @staticmethod
     # ── Helpers ───────────────────────────────────────────────────────
 
     def _update_live_atr(self):
