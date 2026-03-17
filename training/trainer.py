@@ -675,6 +675,7 @@ class Trainer:
         # Per-trade oracle tracking
         _ORACLE_LABEL_NAMES = {2: 'MEGA_LONG', 1: 'SCALP_LONG', 0: 'NOISE', -1: 'SCALP_SHORT', -2: 'MEGA_SHORT'}
         oracle_trade_records = []  # completed per-trade oracle dicts
+        _trade_replays = []       # per-trade bar series for I-MR replay
         pending_oracle = None      # oracle facts for currently open trade
         _pending_dm_idx = None     # index into decision_matrix_records for open trade
 
@@ -1335,6 +1336,58 @@ class Trainer:
                                     / self.asset.tick_size, 2),
                             })
                             _stream_trade(oracle_trade_records[-1])
+
+                            # ── Trade replay capture ──
+                            # Save per-bar price path + MarketState snapshots for I-MR analysis.
+                            # 10 bars before entry to 20 bars after exit (15s execution bars).
+                            # Includes discovery TF state (z, sigma, DMI, Hurst, forces) per bar.
+                            try:
+                                _entry_bar_idx = _bar_i - max(1, _exit_action.bars_held)
+                                _replay_start = max(0, _entry_bar_idx - 10)
+                                _replay_end = min(len(df_15s), _bar_i + 20)
+                                _replay_bars = df_15s.iloc[_replay_start:_replay_end]
+                                if len(_replay_bars) > 5:
+                                    # Capture MarketState at each bar (from states_map)
+                                    _state_snaps = []
+                                    for _ri in range(_replay_start, _replay_end):
+                                        _rs = _states_map.get(_ri)
+                                        if _rs is not None:
+                                            _state_snaps.append({
+                                                'bar_i': _ri - _replay_start,
+                                                'z': round(getattr(_rs, 'z_score', 0.0), 4),
+                                                'sigma': round(getattr(_rs, 'regression_sigma', 0.0), 4),
+                                                'dmi_p': round(getattr(_rs, 'dmi_plus', 0.0), 2),
+                                                'dmi_m': round(getattr(_rs, 'dmi_minus', 0.0), 2),
+                                                'adx': round(getattr(_rs, 'adx_strength', 0.0), 2),
+                                                'hurst': round(getattr(_rs, 'hurst_exponent', 0.0), 4),
+                                                'f_mom': round(getattr(_rs, 'F_momentum', 0.0), 4),
+                                                'f_rev': round(getattr(_rs, 'mean_reversion_force', 0.0), 4),
+                                                'vel': round(getattr(_rs, 'velocity', 0.0), 4),
+                                                'P_center': round(getattr(_rs, 'P_at_center', 0.0), 4),
+                                                'entropy': round(getattr(_rs, 'entropy_normalized', 0.0), 4),
+                                                'tunnel': round(getattr(_rs, 'reversion_probability', 0.0), 4),
+                                                'coherence': round(getattr(_rs, 'oscillation_entropy_normalized', 0.0), 4),
+                                            })
+                                    _replay_rec = {
+                                        'trade_id': len(oracle_trade_records) - 1,
+                                        'template_id': active_template_id,
+                                        'side': active_side,
+                                        'entry_bar': _entry_bar_idx - _replay_start,
+                                        'exit_bar': _bar_i - _replay_start,
+                                        'entry_price': active_entry_price,
+                                        'exit_price': outcome.exit_price,
+                                        'actual_pnl': outcome.pnl,
+                                        'exit_reason': _ee_reason,
+                                        'trade_mfe_ticks': round(_trade_mfe_ticks, 2),
+                                        'hold_bars': max(1, _exit_action.bars_held),
+                                        'discovery_tf': lib_entry.get('discovery_tf_seconds', 15.0) if lib_entry else 15.0,
+                                        'bars': _replay_bars[['timestamp', 'open', 'high', 'low', 'close']].values.tolist(),
+                                        'states': _state_snaps,
+                                    }
+                                    _trade_replays.append(_replay_rec)
+                            except Exception:
+                                pass  # don't crash forward pass for replay capture
+
                             if _pending_dm_idx is not None:
                                 decision_matrix_records[_pending_dm_idx].update({
                                     'trade_result': outcome.result,
@@ -4178,6 +4231,20 @@ class Trainer:
                 f.write('\n'.join(report_lines) + '\n')
             print(f"  Report saved to {report_path}")
             print(f"  Shareable copy: {_share_path}")
+
+            # ── 6a-bis. Save trade replays (per-bar price + state for I-MR analysis) ──
+            if _trade_replays:
+                _replay_mode = 'oos' if oos_mode else 'is'
+                _replay_dir = os.path.join('reports', 'trade_replays')
+                os.makedirs(_replay_dir, exist_ok=True)
+                _replay_path = os.path.join(_replay_dir, f'{_replay_mode}_replays.json')
+                try:
+                    import json as _rj
+                    with open(_replay_path, 'w') as _rf:
+                        _rj.dump(_trade_replays, _rf)
+                    print(f"  Trade replays: {_replay_path} ({len(_trade_replays)} trades)")
+                except Exception as _re:
+                    print(f"  Trade replay save failed: {_re}")
 
             # ── 6b. Append to run history (persistent cross-run comparison) ──────
             try:
