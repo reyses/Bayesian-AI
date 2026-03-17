@@ -666,12 +666,19 @@ class ExecutionEngine:
         if _feat_2d.shape[-1] < _expected_dim:
             _pad = np.zeros((_feat_2d.shape[0], _expected_dim - _feat_2d.shape[-1]))
             _feat_2d = np.concatenate([_feat_2d, _pad], axis=-1)
-        feat_scaled = self.scaler.transform(_feat_2d)
-        dists = np.linalg.norm(self.centroids_scaled - feat_scaled, axis=1)
-        nearest_idx = int(np.argmin(dists))
-        dist = float(dists[nearest_idx])
-        tid = self.valid_tids[nearest_idx]
-        lib_entry = self.pattern_library.get(tid, {})
+        # Check for forced template (PEAK_REVERSAL bypasses distance check)
+        _forced_tid = getattr(cand, 'forced_template_id', None)
+        if _forced_tid is not None and _forced_tid in self.pattern_library:
+            tid = _forced_tid
+            dist = 0.0  # forced match — no distance penalty
+            lib_entry = self.pattern_library[tid]
+        else:
+            feat_scaled = self.scaler.transform(_feat_2d)
+            dists = np.linalg.norm(self.centroids_scaled - feat_scaled, axis=1)
+            nearest_idx = int(np.argmin(dists))
+            dist = float(dists[nearest_idx])
+            tid = self.valid_tids[nearest_idx]
+            lib_entry = self.pattern_library.get(tid, {})
 
         # ── Data quality override ─────────────────────────────
         _data_override = False
