@@ -1374,6 +1374,42 @@ class TimeframeBeliefNetwork:
             (side == 'short' and _h_di_minus > _h_di_plus)
         )
 
+        # ── Sensor fusion: 1s velocity (fast) + 1m volume (slow/accurate) ──
+        # 1s detects inflection instantly, 1m confirms via volume collapse
+        _1s_vel = 0.0
+        _1s_vel_prev = 0.0
+        _1s_w = self.workers.get(1)
+        if _1s_w is not None and _1s_w._states:
+            _mi = _1s_w._last_tf_bar_idx
+            if 0 <= _mi < len(_1s_w._states):
+                _raw = _1s_w._states[_mi]
+                _ms = _raw['state'] if isinstance(_raw, dict) and 'state' in _raw else _raw
+                _1s_vel = getattr(_ms, 'velocity', 0.0)
+            if 0 <= _mi - 1 < len(_1s_w._states):
+                _raw_p = _1s_w._states[_mi - 1]
+                _ms_p = _raw_p['state'] if isinstance(_raw_p, dict) and 'state' in _raw_p else _raw_p
+                _1s_vel_prev = getattr(_ms_p, 'velocity', 0.0)
+
+        _1m_vol = 0.0
+        _1m_vol_prev = 0.0
+        _1m_w = self.workers.get(60)
+        if _1m_w is not None and _1m_w._states:
+            _mi = _1m_w._last_tf_bar_idx
+            if 0 <= _mi < len(_1m_w._states):
+                _raw = _1m_w._states[_mi]
+                _ms = _raw['state'] if isinstance(_raw, dict) and 'state' in _raw else _raw
+                _1m_vol = getattr(_ms, 'volume_delta', 0.0)
+            if 0 <= _mi - 1 < len(_1m_w._states):
+                _raw_p = _1m_w._states[_mi - 1]
+                _ms_p = _raw_p['state'] if isinstance(_raw_p, dict) and 'state' in _raw_p else _raw_p
+                _1m_vol_prev = getattr(_ms_p, 'volume_delta', 0.0)
+
+        # Velocity flip: 1s velocity changed sign
+        _vel_flipped = (_1s_vel * _1s_vel_prev < 0) and abs(_1s_vel_prev) > 0.5
+
+        # Volume collapse: 1m volume dropped >50% from previous bar
+        _vol_collapsing = (_1m_vol_prev > 0 and _1m_vol < _1m_vol_prev * 0.5)
+
         return {
             'tighten_trail': tighten and not urgent,
             'widen_trail':   widen and not _time_tighten and not _band_tighten,
@@ -1392,6 +1428,9 @@ class TimeframeBeliefNetwork:
             'di_plus_prev':  _di_plus_prev,
             'di_minus_prev': _di_minus_prev,
             'adx_slope':     _adx_slope,
+            # Sensor fusion: fast (1s) + slow (1m)
+            'vel_flipped':     _vel_flipped,      # 1s velocity changed sign
+            'vol_collapsing':  _vol_collapsing,    # 1m volume dropped >50%
         }
 
     def summary(self) -> str:
