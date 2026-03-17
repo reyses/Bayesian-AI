@@ -925,33 +925,6 @@ class ProgressPopup:
         )
         self._gl_lbl.grid(row=1, column=2, padx=20)
 
-        # ── Capture rate quartiles ─────────────────────────────────────────
-        exit_frame = tk.Frame(root, bg=BG)
-        exit_frame.pack(fill="x", padx=20, pady=(6, 0))
-        _exit_labels = ("Reversed", "Q1 0-25%", "Q2 25-50%", "Q3 50-75%", "Q4 75-100%", "100%+")
-        _exit_colors = ("#ff2222", FG_RED, FG_AMBER, FG_AMBER, FG_GREEN, "#00ffff")
-        for col, lbl in enumerate(_exit_labels):
-            tk.Label(
-                exit_frame, text=lbl, bg=BG, fg=FG_GREY, font=("Consolas", 8)
-            ).grid(row=0, column=col, padx=8)
-
-        self._cap_rev_var = tk.StringVar(value="—")
-        self._cap_q1_var = tk.StringVar(value="—")
-        self._cap_q2_var = tk.StringVar(value="—")
-        self._cap_q3_var = tk.StringVar(value="—")
-        self._cap_q4_var = tk.StringVar(value="—")
-        self._cap_plus_var = tk.StringVar(value="—")
-
-        for col, (var, clr) in enumerate(zip(
-            (self._cap_rev_var, self._cap_q1_var, self._cap_q2_var,
-             self._cap_q3_var, self._cap_q4_var, self._cap_plus_var),
-            _exit_colors,
-        )):
-            tk.Label(
-                exit_frame, textvariable=var, bg=BG, fg=clr,
-                font=("Consolas", 12, "bold"),
-            ).grid(row=1, column=col, padx=8)
-
         # ── PnL control chart ─────────────────────────────────────────────────
         tk.Label(root, text="PnL by Trade", bg=BG, fg=FG_GREY, font=("Consolas", 8)).pack(
             pady=(14, 2)
@@ -966,6 +939,33 @@ class ProgressPopup:
         )
         self._canvas.pack(padx=20, fill=tk.X, expand=False)
         self._canvas.bind("<Configure>", lambda e: self._redraw_chart())
+
+        # ── Capture rate quartiles (between PnL and Price charts) ─────────
+        exit_frame = tk.Frame(root, bg=BG)
+        exit_frame.pack(fill="x", padx=20, pady=(4, 0))
+        _exit_labels = ("Reversed", "Q1 0-25%", "Q2 25-50%", "Q3 50-75%", "Q4 75-100%", "100%+")
+        _exit_colors = ("#ff2222", FG_RED, FG_AMBER, FG_AMBER, FG_GREEN, "#00ffff")
+        for col, lbl in enumerate(_exit_labels):
+            tk.Label(
+                exit_frame, text=lbl, bg=BG, fg=FG_GREY, font=("Consolas", 7)
+            ).grid(row=0, column=col, padx=6)
+
+        self._cap_rev_var = tk.StringVar(value="--")
+        self._cap_q1_var = tk.StringVar(value="--")
+        self._cap_q2_var = tk.StringVar(value="--")
+        self._cap_q3_var = tk.StringVar(value="--")
+        self._cap_q4_var = tk.StringVar(value="--")
+        self._cap_plus_var = tk.StringVar(value="--")
+
+        for col, (var, clr) in enumerate(zip(
+            (self._cap_rev_var, self._cap_q1_var, self._cap_q2_var,
+             self._cap_q3_var, self._cap_q4_var, self._cap_plus_var),
+            _exit_colors,
+        )):
+            tk.Label(
+                exit_frame, textvariable=var, bg=BG, fg=clr,
+                font=("Consolas", 10, "bold"),
+            ).grid(row=1, column=col, padx=6)
 
         # ── Live Price Chart ─────────────────────────────────────────────
         self._price_history = []  # last N prices for line chart
