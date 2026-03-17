@@ -1246,7 +1246,7 @@ class ProgressPopup:
             self._status_var.set(f"{action} sent...")
 
     def _take_screenshot(self):
-        """Capture full dashboard window as PNG (including title bar)."""
+        """Capture full dashboard window as PNG — uses Win32 API for exact bounds."""
         import os
         from datetime import datetime
         _dir = os.path.join('reports', 'screenshots')
@@ -1256,23 +1256,23 @@ class ProgressPopup:
         _path = os.path.join(_dir, f'{_mode}_{_ts}.png')
         try:
             from PIL import ImageGrab
-            # Force geometry update before capture
             self.root.update_idletasks()
-            # Use winfo_geometry to get full window (WxH+X+Y)
-            # But grab the outer frame using winfo_x/y for the frame origin
-            # and add padding for the title bar
-            x = self.root.winfo_x()
-            y = self.root.winfo_y()
-            w = self.root.winfo_width()
-            h = self.root.winfo_height()
-            # Account for window decorations (title bar ~32px on Windows)
-            _title_bar = 32
-            _border = 8
-            img = ImageGrab.grab(bbox=(
-                x, y,
-                x + w + _border * 2,
-                y + h + _title_bar + _border
-            ))
+            # Get the HWND and use it for exact window rect (handles DPI scaling)
+            try:
+                import ctypes
+                hwnd = ctypes.windll.user32.GetParent(self.root.winfo_id())
+                rect = ctypes.wintypes.RECT()
+                ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect))
+                img = ImageGrab.grab(bbox=(
+                    rect.left, rect.top, rect.right, rect.bottom))
+            except Exception:
+                # Fallback: grab entire screen area around the window
+                x = self.root.winfo_rootx()
+                y = self.root.winfo_rooty()
+                w = self.root.winfo_width()
+                h = self.root.winfo_height()
+                img = ImageGrab.grab(bbox=(
+                    x - 8, y - 32, x + w + 8, y + h + 8))
             img.save(_path)
             self._status_var.set(f"Screenshot: {_path}")
             print(f"  [SCREENSHOT] {_path}")
