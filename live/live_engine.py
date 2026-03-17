@@ -1218,7 +1218,7 @@ class LiveEngine:
 
         # Replay parity report (replay mode only)
         if self._shared_state.get('replay_mode'):
-            # Parity check handled by OOS3 in trainer (no separate replay report)
+            pass  # Parity check handled by OOS3 in trainer
 
         # Check position status
         if self._position_open:
