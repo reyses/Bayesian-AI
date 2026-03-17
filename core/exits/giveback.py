@@ -86,20 +86,32 @@ class PeakGiveback:
         # Base threshold: 50% giveback = exit (conservative default)
         _threshold_pct = 0.50
 
-        # Modulate by post-peak bar characteristics from exit_signal
+        # Modulate by sensor fusion: 1s velocity (fast) + 1m volume (slow/accurate)
         if exit_signal is not None:
-            # Range expansion check: if post-peak bars are bigger than pre-peak
-            # This indicates violent reversal, not settlement → tighten
+            _vel_flipped = exit_signal.get('vel_flipped', False)
+            _vol_collapsing = exit_signal.get('vol_collapsing', False)
             _adx_slope = exit_signal.get('adx_slope', 0.0)
+            _exec_flip = exit_signal.get('exec_tf_flip', False)
+
+            # Sensor fusion: both sensors agree = high confidence exit
+            if _vel_flipped and _vol_collapsing:
+                _threshold_pct = 0.20  # both agree → exit fast (88% WR on vol collapse)
+
+            # Fast sensor only: 1s velocity flipped but 1m hasn't confirmed
+            elif _vel_flipped:
+                _threshold_pct = 0.35  # alert — tighten but wait for confirmation
+
+            # Slow sensor only: 1m volume collapsing but 1s hasn't flipped
+            elif _vol_collapsing:
+                _threshold_pct = 0.30  # institutional flow dying
+
+            # ADX collapsing (trend dying)
             if _adx_slope < -2.0:
-                _threshold_pct = 0.30  # ADX collapsing → trend dying, tighten
+                _threshold_pct = min(_threshold_pct, 0.30)
 
-            # Higher TF flipping → tighten aggressively
-            if exit_signal.get('exec_tf_flip'):
-                _threshold_pct = 0.25  # 15s micro reversed
-
-            # Volume proxy: if momentum died (F_momentum from state), the energy is gone
-            # Research: F_momentum collapses at peak+1 bar, 83% detection rate
+            # 15s execution TF flipped → tighten aggressively
+            if _exec_flip:
+                _threshold_pct = min(_threshold_pct, 0.25)
 
         # Never-profitable override: if trade never peaked meaningfully, exit at 30%
         if peak_ticks < _min_peak * 1.5:
