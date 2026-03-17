@@ -1073,10 +1073,21 @@ class Trainer:
                 ts = int(ts_raw) // 60 * 60
                 price = getattr(row, 'close', getattr(row, 'price', 0.0))
 
-                # Feed price to dashboard chart (every 20 bars = 5 min)
+                # Feed price + DMI to dashboard chart (every 20 bars = 5 min)
                 if self.dashboard_queue is not None and _bar_i % 20 == 0:
+                    _dmi_p, _dmi_m = 0.0, 0.0
+                    _5m_w = belief_network.workers.get(300)
+                    if _5m_w is not None and _5m_w._states:
+                        _mi = _5m_w._last_tf_bar_idx
+                        if 0 <= _mi < len(_5m_w._states):
+                            _raw = _5m_w._states[_mi]
+                            _ms = _raw['state'] if isinstance(_raw, dict) and 'state' in _raw else _raw
+                            _dmi_p = getattr(_ms, 'dmi_plus', 0.0)
+                            _dmi_m = getattr(_ms, 'dmi_minus', 0.0)
                     self.dashboard_queue.put({
-                        'type': 'TICK_UPDATE', 'price': price})
+                        'type': 'TICK_UPDATE', 'price': price,
+                        'dmi_plus': round(_dmi_p, 2),
+                        'dmi_minus': round(_dmi_m, 2)})
 
                 # Belief network: tick all workers (event-driven by TF bar change)
                 # 1h worker updates once per 240 bars; 15s worker updates every bar
