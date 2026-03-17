@@ -331,10 +331,37 @@ class Trainer:
             return
 
         self.pattern_library = _bundle.pattern_library
+
+        # Inject synthetic PEAK_REVERSAL template (ID=-100)
+        # Magnitude-driven: params scale with z-score at entry.
+        # Big peak (high |z|) = big reversal expected → wide params.
+        # Small peak (low |z|) = small reversal → tight params.
+        # These are bootstrap values — will be replaced by real stats
+        # after the first run with peak reversal trades.
+        _PEAK_TID = -100
+        self.pattern_library[_PEAK_TID] = {
+            'semantic_name': 'PEAK_REVERSAL',
+            'discovery_tf_seconds': 15.0,
+            'depth': 8,
+            'n_patterns': 0,
+            'win_rate': 0.5,
+            'mean_mae_ticks': 20.0,
+            'p95_mae_ticks': 40.0,
+            'mae_std_ticks': 10.0,
+            'p75_mfe_ticks': 40.0,      # conservative — real data will calibrate
+            'avg_mfe_bar': 10.0,
+            'p75_mfe_bar': 15.0,
+            'stop_loss_ticks': 40,       # wider SL — reversals need room
+            'take_profit_ticks': 80,     # wider TP — expect full reversion
+            'trailing_stop_ticks': 20,
+            'is_peak_reversal': True,    # flag for magnitude scaling
+        }
+
         self.scaler = _bundle.scaler
         valid_template_ids = _bundle.valid_tids
         centroids_scaled = _bundle.centroids_scaled
         template_tier_map = _bundle.template_tier_map
+        template_tier_map[_PEAK_TID] = 2  # tier 2 (not priority, not blocked)
         _exception_tids = _bundle.exception_tids
 
         # Tier tiebreaker logging
@@ -1653,7 +1680,7 @@ class Trainer:
                                 _feat = _feat_extractor.extract_features_from_state(_bar_state) \
                                     if hasattr(_feat_extractor, 'extract_features_from_state') \
                                     else [0.0] * 22
-                                _eng_candidates = [Candidate(
+                                _peak_cand = Candidate(
                                     state=_bar_state,
                                     depth=8,
                                     timeframe='15s',
@@ -1661,7 +1688,10 @@ class Trainer:
                                     pattern_type='PEAK_REVERSAL',
                                     z_score=getattr(_bar_state, 'z_score', 0.0),
                                     features=np.array([_feat]),
-                                )]
+                                )
+                                # Force template match to PEAK_REVERSAL template
+                                _peak_cand.forced_template_id = -100
+                                _eng_candidates = [_peak_cand]
 
                     # Track peak reversal candidates
                     _is_peak_entry = any(getattr(c, 'pattern_type', '') == 'PEAK_REVERSAL'
