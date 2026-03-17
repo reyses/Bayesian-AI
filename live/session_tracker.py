@@ -283,7 +283,7 @@ class SessionTracker:
         L.append("")
         L.append("=" * 72)
 
-        with open(path, 'w') as f:
+        with open(path, 'w', encoding='utf-8') as f:
             f.write('\n'.join(L) + '\n')
         logger.info(f"Session report saved: {path}")
         return path
