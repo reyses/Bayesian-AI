@@ -1,0 +1,87 @@
+import numpy as np
+import time
+from core.physics_utils import extract_dominant_cycle, calculate_kinetic_damping
+from numba import njit, prange
+import math
+import pandas as pd
+from training.orchestrator_worker import _extract_arrays_from_df
+
+def _extract_arrays_from_df_old(df):
+    prices = None
+    timestamps = None
+
+    if 'price' in df.columns:
+        prices = df['price'].values
+    elif 'close' in df.columns:
+        prices = df['close'].values
+    else:
+        return None
+
+    if 'timestamp' in df.columns:
+        ts_data = df['timestamp'].values
+        if ts_data.dtype.type == np.datetime64:
+             timestamps = ts_data.astype('int64') / 1e9
+        else:
+             timestamps = ts_data.astype(np.float64)
+    else:
+        return None
+
+    n = len(prices)
+    periods = np.zeros(n)
+    dampings = np.zeros(n)
+
+    if 'z_score' in df.columns and 'velocity' in df.columns:
+        z_scores = df['z_score'].values
+        velocities = df['velocity'].values
+
+        dt = 1.0
+        if timestamps is not None and len(timestamps) > 1:
+            diffs = np.diff(timestamps)
+            dt = float(np.median(diffs))
+            if dt <= 0: dt = 1.0
+
+        for i in range(10, n):
+            w_z = z_scores[max(0, i - 60):i]
+            w_v = velocities[max(0, i - 20):i]
+            periods[i] = extract_dominant_cycle(w_z, dt=dt)
+            dampings[i] = calculate_kinetic_damping(w_v)
+
+    return prices, timestamps, periods, dampings
+
+n = 1000
+df = pd.DataFrame({
+    'price': np.random.randn(n),
+    'timestamp': np.arange(n) * 1e9, # ns
+    'z_score': np.random.randn(n),
+    'velocity': np.random.randn(n)
+})
+
+# Warmup new function
+_ = _extract_arrays_from_df(df)
+
+t0 = time.perf_counter()
+for i in range(100):
+    _ = _extract_arrays_from_df(df)
+t1 = time.perf_counter()
+new_time = t1-t0
+
+t0 = time.perf_counter()
+for i in range(100):
+    _ = _extract_arrays_from_df_old(df)
+t1 = time.perf_counter()
+old_time = t1-t0
+
+print(f"Old _extract_arrays_from_df time: {old_time:.4f}")
+print(f"New _extract_arrays_from_df time: {new_time:.4f}")
+print(f"Speedup: {old_time/new_time:.2f}x")
+
+_, _, per_new, damp_new = _extract_arrays_from_df(df)
+_, _, per_old, damp_old = _extract_arrays_from_df_old(df)
+
+print(f"Periods max diff: {np.max(np.abs(per_new - per_old)):.15f}")
+print(f"Dampings max diff: {np.max(np.abs(damp_new - damp_old)):.15f}")
+
+assert np.allclose(per_new, per_old, atol=1e-5), "Periods mismatch"
+assert np.allclose(damp_new, damp_old, atol=1e-5), "Dampings mismatch"
+
+print("All outputs match!")
