@@ -59,14 +59,14 @@ class PeakGiveback:
         if peak_ticks <= 0:
             return None
 
-        # Giveback has two modes:
+        # Giveback uses Brownian motion to detect real reversals vs noise.
         #
-        # PRE-CONFIRMATION: trade peaked significantly but DMI hasn't confirmed.
-        #   If gave back >50% of peak, exit immediately — price already told you
-        #   the move is over. Don't wait for DMI to catch up.
+        # Random walk expects σ√N deviation after N bars off peak.
+        # If actual giveback > 2σ√N, the reversal is statistically significant.
+        # This is adaptive: high vol = wider tolerance, low vol = tighter.
         #
-        # POST-CONFIRMATION: DMI confirmed direction (3 bars).
-        #   Use normal tiered thresholds (10%/40%).
+        # Nightmare Protocol: σ = gravitational field width, √N = fractal diffusion.
+        # Price within σ√N of peak = PID noise (hold). Beyond 2σ√N = escape velocity (exit).
         #
         _min_peak = self.min_mfe_ticks
         if pos.anchor_mfe_ticks > 0:
@@ -74,20 +74,29 @@ class PeakGiveback:
         if peak_ticks < _min_peak:
             return None  # trade never reached projected peak — not giveback's job
 
+        gave_back = peak_ticks - current_ticks
+        if gave_back <= 0:
+            return None  # still at or above peak
+
+        # Brownian motion check: is the giveback beyond random walk expectation?
+        import math
+        _bars_off = max(1, pos.bars_since_peak)
+        _sigma = noise_ticks if noise_ticks > 0 else 4.0  # fallback 4 ticks
+        _brownian_threshold = 2.0 * _sigma * math.sqrt(_bars_off)
+
+        if gave_back > _brownian_threshold:
+            return ExitResult(
+                action=ExitAction.BROWNIAN_GIVEBACK,
+                exit_price=bar_close,
+                reason=f"Brownian giveback: peak={peak_ticks:.1f}t "
+                       f"now={current_ticks:.1f}t gave_back={gave_back:.1f}t "
+                       f"> 2sig*sqrt({_bars_off})={_brownian_threshold:.1f}t",
+                pnl_ticks=current_ticks,
+                bars_held=pos.bars_held,
+            )
+
         if not pos.dmi_direction_confirmed:
-            # Pre-confirmation: only fire on large giveback (>50% of peak)
-            # The peak IS the confirmation — price proved the trade was right
-            gave_back = peak_ticks - current_ticks
-            if peak_ticks > 0 and gave_back / peak_ticks >= 0.50:
-                return ExitResult(
-                    action=ExitAction.PEAK_GIVEBACK,
-                    exit_price=bar_close,
-                    reason=f"Peak giveback (pre-DMI): peak={peak_ticks:.1f}t "
-                           f"now={current_ticks:.1f}t gave_back={gave_back/peak_ticks:.0%}",
-                    pnl_ticks=current_ticks,
-                    bars_held=pos.bars_held,
-                )
-            return None  # not enough giveback yet, wait
+            return None  # within noise band AND no DMI confirmation — hold
 
         # Anchor patience: trade still developing — suppress if still in profit
         # and hasn't reached expected peak within expected time.
