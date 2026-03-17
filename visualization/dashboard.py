@@ -969,7 +969,7 @@ class ProgressPopup:
         tk.Label(_dmi_frame, textvariable=self._dmi_label_var, bg=BG, fg=FG_WHITE,
                  font=("Consolas", 8)).pack(side="right")
 
-        self._DMI_CHART_H = 60
+        self._DMI_CHART_H = 100
         self._dmi_canvas = tk.Canvas(
             root, width=self._CHART_W, height=self._DMI_CHART_H,
             bg="#141414", highlightthickness=1, highlightbackground="#333333")
