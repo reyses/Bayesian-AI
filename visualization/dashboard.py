@@ -1580,6 +1580,7 @@ class ProgressPopup:
                                 m for m in self._trade_markers if m[0] >= cutoff
                             ]
                         self._redraw_price_chart()
+                        self._redraw_dmi_chart()
 
                 elif mtype == "SHUTDOWN_READY":
                     # Engine reports whether it's safe to close
