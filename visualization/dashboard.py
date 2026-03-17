@@ -1202,7 +1202,7 @@ class ProgressPopup:
             self._status_var.set(f"{action} sent...")
 
     def _take_screenshot(self):
-        """Capture dashboard window as PNG."""
+        """Capture full dashboard window as PNG (including title bar)."""
         import os
         from datetime import datetime
         _dir = os.path.join('reports', 'screenshots')
@@ -1211,19 +1211,28 @@ class ProgressPopup:
         _mode = self._current_mode if hasattr(self, '_current_mode') else 'live'
         _path = os.path.join(_dir, f'{_mode}_{_ts}.png')
         try:
-            # Get window position and size
-            x = self.root.winfo_rootx()
-            y = self.root.winfo_rooty()
+            from PIL import ImageGrab
+            # Force geometry update before capture
+            self.root.update_idletasks()
+            # Use winfo_geometry to get full window (WxH+X+Y)
+            # But grab the outer frame using winfo_x/y for the frame origin
+            # and add padding for the title bar
+            x = self.root.winfo_x()
+            y = self.root.winfo_y()
             w = self.root.winfo_width()
             h = self.root.winfo_height()
-            # Use PIL if available
-            from PIL import ImageGrab
-            img = ImageGrab.grab(bbox=(x, y, x + w, y + h))
+            # Account for window decorations (title bar ~32px on Windows)
+            _title_bar = 32
+            _border = 8
+            img = ImageGrab.grab(bbox=(
+                x, y,
+                x + w + _border * 2,
+                y + h + _title_bar + _border
+            ))
             img.save(_path)
             self._status_var.set(f"Screenshot: {_path}")
             print(f"  [SCREENSHOT] {_path}")
         except ImportError:
-            # Fallback: save canvas as PostScript
             _ps = _path.replace('.png', '.ps')
             self._price_canvas.postscript(file=_ps, colormode='color')
             self._status_var.set(f"Screenshot (PS): {_ps}")
