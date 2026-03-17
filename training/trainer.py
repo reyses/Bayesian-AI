@@ -1680,7 +1680,7 @@ class Trainer:
                                 _feat = _feat_extractor.extract_features_from_state(_bar_state) \
                                     if hasattr(_feat_extractor, 'extract_features_from_state') \
                                     else [0.0] * 22
-                                _peak_cand = Candidate(
+                                _eng_candidates = [Candidate(
                                     state=_bar_state,
                                     depth=8,
                                     timeframe='15s',
@@ -1688,10 +1688,8 @@ class Trainer:
                                     pattern_type='PEAK_REVERSAL',
                                     z_score=getattr(_bar_state, 'z_score', 0.0),
                                     features=np.array([_feat]),
-                                )
-                                # Force template match to PEAK_REVERSAL template
-                                _peak_cand.forced_template_id = -100
-                                _eng_candidates = [_peak_cand]
+                                    forced_template_id=-100,
+                                )]
 
                     # Track peak reversal candidates
                     _is_peak_entry = any(getattr(c, 'pattern_type', '') == 'PEAK_REVERSAL'
