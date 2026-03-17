@@ -28,6 +28,7 @@ class ExitAction(Enum):
     WATCHDOG = 'watchdog'
     BREAKEVEN_LOCK = 'breakeven_lock'
     PEAK_GIVEBACK = 'peak_giveback'
+    BROWNIAN_GIVEBACK = 'brownian_giveback'  # Brownian motion reversal detection
     MAINTENANCE_FLAT = 'maintenance_flat'
     # C&E Matrix structural exits
     DEATH_HOOK = 'death_hook'           # liquidity absorption at macro wall
