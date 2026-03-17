@@ -90,6 +90,7 @@ class Candidate:
     z_score: float = 0.0
     features: Optional[np.ndarray] = None  # 16D feature vector
     raw_event: Any = None         # original PatternEvent (for oracle access)
+    forced_template_id: Optional[int] = None  # bypass template match (PEAK_REVERSAL)
 
 
 # ── Internal result from gate pre-check ──────────────────────────────────
