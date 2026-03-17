@@ -1092,6 +1092,12 @@ class LiveEngine:
             trail_ticks=trail_ticks, trail_activation_ticks=trail_act,
         )
         self._init_exit_state(side, price, sl_ticks, tp_ticks, 'MANUAL')
+        # Sync with exec_engine so BarProcessor sees the position for exits
+        self._exec_engine.position_opened(
+            side=side, price=price, bar_index=self._bar_i,
+            template_id=-1, lib_entry={},
+            sl_ticks=sl_ticks, tp_ticks=tp_ticks,
+        )
         self._position_open = True
         self._entry_price = price
         self._entry_time = ts
