@@ -163,6 +163,39 @@ This is the fuse blowing sequence. Detectable on 1m, too noisy on 1s.
 
 ---
 
+## Detection Capability Summary (2,432 IS trades)
+
+### What we CAN detect:
+- **Peak (100% MFE)**: 1 bar lag. P_center +0.15, F_momentum collapses, entropy rises.
+  All 4 signals change >10% within 1 bar of peak. Reliable.
+- **Early vs late trade**: ADX (p<0.001) and coherence (p<0.001) distinguish
+  25% from 75% MFE level. ADX 27→29.2, coherence 0.57→0.60.
+
+### What we CANNOT detect:
+- **Exact mid-trade level**: P_center, F_momentum, entropy, z-score all plateau
+  between 25-75% of MFE. Can't distinguish "50% done" from "25% done."
+
+### Proposed approach: peak detection + confidence interval
+1. Detect peak via state change (P_center jump + F_momentum collapse)
+2. At peak, MFE is known. Look up historical giveback distribution for
+   trades with similar peak MFE.
+3. Set exit at P(giveback > X%) = 5% (confidence interval from distribution)
+4. Track position within CI using standard deviation of giveback-from-peak.
+   If current giveback exceeds 2σ of the distribution → statistically unusual → exit.
+
+### State variable trajectories:
+- 10% → 50% MFE: momentum builds, z deepens, entropy drops, ADX rises
+- 50% → 75% MFE: plateau — states barely change (the move is running)
+- 75% → 100% MFE: ADX peaks, coherence peaks — trend at maximum
+- 100% → exit: P_center jumps, F_momentum dies — reversal starting
+
+### Trade life timing:
+- F_momentum completes 75% of total change in first 14% of trade life
+- Price (z-score) completes 75% of change by 41% of trade life
+- Physics leads price by ~2:1 ratio
+- At 50% of trade life: median 78% of MFE already captured
+- At 75% of trade life: 63% of trades have captured >90% of MFE
+
 ## Next Steps (Ordered)
 
 1. **I-MR trade replay** — run I-MR on each trade's per-bar price path.
