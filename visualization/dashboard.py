@@ -1344,8 +1344,11 @@ class ProgressPopup:
                 self._redraw_price_chart()
                 self.root.title(f"Bayesian-AI  {_new_mode.upper()} Training")
         try:
-            while True:
+            _max_msgs = 20  # process max 20 messages per poll cycle to prevent freeze
+            _msg_count = 0
+            while _msg_count < _max_msgs:
                 msg = self.q.get_nowait()
+                _msg_count += 1
                 mtype = msg.get("type", "")
                 if mtype == "PHASE_PROGRESS":
                     phase = msg.get("phase", "")
