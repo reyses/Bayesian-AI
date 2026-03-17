@@ -1,7 +1,7 @@
 ================================================================================
-OOS FORWARD PASS COMPLETE  (run: 2026-03-17 11:11:37)
-  Commit: 5fec583 — fix: trainer feeds 5m DMI to dashboard chart (was missing)
-  Changes: 1 file changed, 13 insertions(+), 2 deletions(-)
+OOS FORWARD PASS COMPLETE  (run: 2026-03-17 15:58:30)
+  Commit: bfda778 — remove: strategy selection from all pipeline paths (was dead code)
+  Changes: 1 file changed, 2 insertions(+), 27 deletions(-)
   Period: DATA\ATLAS_OOS\15s\2026_01.parquet to 2026_03 (3 files)
 Total Trades: 1691
 Win Rate: 66.4%

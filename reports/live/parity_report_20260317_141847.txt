@@ -1,0 +1,126 @@
+================================================================================
+  OOS3 PARITY REPORT — OOS2 (inline) vs OOS3 (BarProcessor)
+  Generated: 2026-03-17 14:18:47
+  Target: last 5 trading days
+================================================================================
+
+  Metric                           OOS2           OOS3          Delta
+  ---------------------- -------------- -------------- --------------
+  Trades                             73             49            -24
+  Win Rate                        60.3%          65.3%          +5.0%
+  Total PnL              $     -110.95 $      482.62 $     +593.57
+  Avg Trade              $       -1.52 $        9.85 $      +11.37
+  Gross Win                             $      678.35
+  Gross Loss                            $      195.73
+  Profit Factor                                   3.47
+  Max Drawdown                          $       51.56
+  Max Consec Losses                                  4
+
+================================================================================
+  EXIT REASON BREAKDOWN (OOS3)
+================================================================================
+  Reason              Trades   Win%    Gross Win   Gross Loss      Net PnL       Avg
+  ------------------ ------- ------ ------------ ------------ ------------ ---------
+  peak_giveback           17    71% $    262.32 $     58.51 $   +203.81 $  +11.99
+  belief_flip              5    80% $    140.26 $     23.31 $   +116.96 $  +23.39
+  survival_flatline        4   100% $     93.52 $      0.00 $    +93.52 $  +23.38
+  survival_stop            9   100% $     88.21 $      0.00 $    +88.21 $   +9.80
+  v_reversal               1   100% $     68.70 $      0.00 $    +68.70 $  +68.70
+  stop_loss                1   100% $     13.55 $      0.00 $    +13.55 $  +13.55
+  envelope_decay           1   100% $     11.78 $      0.00 $    +11.78 $  +11.78
+  death_hook               1     0% $      0.00 $      3.05 $     -3.05 $   -3.05
+  tidal_wave               5     0% $      0.00 $     37.82 $    -37.82 $   -7.56
+  regime_decay             5     0% $      0.00 $     73.04 $    -73.04 $  -14.61
+
+================================================================================
+  DIRECTION BREAKDOWN (OOS3)
+================================================================================
+  long       17 trades  WR=47%  PnL=$    -20.08  Avg=$   -1.18
+  short      32 trades  WR=75%  PnL=$   +502.71  Avg=$  +15.71
+
+  DIRECTION SOURCE DISTRIBUTION
+    brain_bias: 28 (57.1%)
+    vote_S(smfe+logistic+template): 9 (18.4%)
+    vote_S(smfe+template+band): 4 (8.2%)
+    vote_S(template+band+dmi): 4 (8.2%)
+    vote_S(template+dmi+vel): 1 (2.0%)
+    vote_S(template+vel): 1 (2.0%)
+    vote_L(template+band+dmi): 1 (2.0%)
+    vote_S(smfe+template+dmi): 1 (2.0%)
+
+================================================================================
+  PER-DAY COMPARISON
+================================================================================
+  Date          OOS2_T    OOS2_PnL  OOS3_T    OOS3_PnL       Delta
+  ------------ ------- ----------- ------- ----------- -----------
+  2026-03-09        11 $    19.55       1 $    -9.73 $   -29.28
+  2026-03-12         0 $     0.00       0 $     0.00 $    +0.00
+  2026-03-13        36 $   -92.00      22 $   355.29 $  +447.29
+  2026-03-16        18 $   -43.00      20 $   130.25 $  +173.25
+  2026-03-17         8 $     4.50       6 $     6.81 $    +2.31
+
+================================================================================
+  TRADE LOG (OOS3)
+================================================================================
+    #  Side        Entry       Exit        PnL Reason              Bars DirSrc      
+  ---------------------------------------------------------------------------
+    1  long    24,295.75  24,290.75 $    -9.73 tidal_wave             1 brain_bias  
+    2  short   24,819.00  24,817.75 $    +2.44 survival_stop         77 vote_S(template+dmi+vel)
+    3  short   24,827.75  24,827.25 $    +1.36 belief_flip            1 vote_S(smfe+template+band)
+    4  short   24,831.00  24,796.75 $   +68.70 v_reversal            21 vote_S(template+band+dmi)
+    5  short   24,790.25  24,791.75 $    -3.41 peak_giveback          9 brain_bias  
+    6  short   24,773.50  24,774.50 $    -1.52 peak_giveback          5 vote_S(template+band+dmi)
+    7  long    24,688.25  24,678.50 $   -19.24 regime_decay           5 brain_bias  
+    8  long    24,659.75  24,659.00 $    -1.21 peak_giveback          9 brain_bias  
+    9  long    24,621.50  24,631.25 $   +19.13 peak_giveback         16 brain_bias  
+   10  long    24,797.50  24,796.00 $    -3.05 death_hook            10 vote_S(template+band+dmi)
+   11  short   24,965.50  24,958.75 $   +13.37 peak_giveback         11 vote_S(smfe+template+band)
+   12  short   24,897.25  24,883.75 $   +27.43 belief_flip           11 brain_bias  
+   13  short   24,918.75  24,864.25 $  +109.14 belief_flip            8 vote_S(smfe+logistic+template)
+   14  short   24,843.50  24,832.00 $   +23.32 peak_giveback         10 brain_bias  
+   15  short   24,763.25  24,789.00 $   -51.56 peak_giveback          6 brain_bias  
+   16  short   24,754.50  24,738.50 $   +31.73 survival_flatline     16 vote_S(template+vel)
+   17  short   24,711.00  24,704.25 $   +13.55 stop_loss              3 brain_bias  
+   18  short   24,716.75  24,700.25 $   +32.56 peak_giveback         17 vote_S(smfe+logistic+template)
+   19  short   24,729.00  24,742.50 $   -26.67 regime_decay           2 brain_bias  
+   20  short   24,652.50  24,641.75 $   +21.63 peak_giveback          4 brain_bias  
+   21  short   24,659.00  24,652.25 $   +13.76 survival_flatline     17 vote_S(smfe+logistic+template)
+   22  short   24,650.00  24,631.00 $   +37.85 survival_flatline     39 brain_bias  
+   23  short   24,665.00  24,642.25 $   +45.97 peak_giveback          8 brain_bias  
+   24  short   24,723.50  24,721.25 $    +4.89 peak_giveback          6 brain_bias  
+   25  short   24,735.75  24,730.00 $   +11.78 envelope_decay        42 vote_S(template+band+dmi)
+   26  long    24,740.00  24,728.50 $   -23.31 belief_flip            9 vote_L(template+band+dmi)
+   27  long    24,730.00  24,731.25 $    +2.47 survival_stop         42 brain_bias  
+   28  long    24,768.00  24,771.50 $    +6.54 peak_giveback         11 brain_bias  
+   29  short   24,781.75  24,785.75 $    -8.35 regime_decay           4 vote_S(smfe+logistic+template)
+   30  short   24,762.25  24,757.25 $   +10.18 survival_flatline     10 brain_bias  
+   31  short   24,720.25  24,718.25 $    +4.24 peak_giveback         21 brain_bias  
+   32  short   24,730.00  24,732.25 $    -4.03 tidal_wave            14 vote_S(smfe+template+band)
+   33  short   24,733.25  24,740.50 $   -14.67 regime_decay           9 vote_S(smfe+template+band)
+   34  short   24,765.75  24,734.50 $   +62.37 peak_giveback         19 brain_bias  
+   35  long    24,811.25  24,804.25 $   -14.03 tidal_wave             6 vote_S(smfe+logistic+template)
+   36  short   24,921.25  24,921.50 $    -0.81 peak_giveback          8 vote_S(smfe+template+dmi)
+   37  short   24,874.50  24,869.50 $    +9.63 survival_stop         12 brain_bias  
+   38  short   24,862.50  24,857.25 $   +10.48 peak_giveback          3 brain_bias  
+   39  short   24,894.75  24,880.75 $   +27.73 survival_stop         29 brain_bias  
+   40  short   24,855.00  24,847.50 $   +15.17 survival_stop         31 brain_bias  
+   41  short   24,890.00  24,882.75 $   +14.44 survival_stop         11 brain_bias  
+   42  long    24,904.75  24,911.50 $   +13.83 survival_stop         10 vote_S(smfe+logistic+template)
+   43  long    24,875.75  24,876.50 $    +1.70 survival_stop         84 brain_bias  
+   44  long    24,793.25  24,793.75 $    +0.81 survival_stop         13 brain_bias  
+   45  long    24,801.00  24,802.00 $    +2.33 belief_flip            4 vote_S(smfe+logistic+template)
+   46  long    24,802.25  24,811.00 $   +17.80 peak_giveback         12 brain_bias  
+   47  long    24,838.25  24,836.25 $    -4.11 regime_decay           6 vote_S(smfe+logistic+template)
+   48  long    24,833.50  24,831.50 $    -4.21 tidal_wave            15 vote_S(smfe+logistic+template)
+   49  long    24,846.50  24,843.50 $    -5.82 tidal_wave             7 brain_bias  
+  ---------------------------------------------------------------------------
+                              TOTAL $  +482.62
+
+================================================================================
+  PARITY VERDICT
+================================================================================
+  Status: FAILED (2 issues)
+    - TRADE COUNT: OOS3=49 vs OOS2=73 (67% ratio)
+    - WIN RATE: OOS3=65.3% vs OOS2=60.3%
+
+================================================================================
