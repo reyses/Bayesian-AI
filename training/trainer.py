@@ -2117,6 +2117,7 @@ class Trainer:
             oos_mode=oos_mode, _analysis_mode=_analysis_mode,
             _pp_enabled=_pp_enabled, _pp_flip_count=_pp_flip_count,
             _pp_all_trades=_pp_all_trades,
+            _trade_replays=_trade_replays,
             _NINJATRADER_MNQ_MARGIN=_NINJATRADER_MNQ_MARGIN,
         )
 
@@ -2884,6 +2885,7 @@ class Trainer:
         oos_mode, _analysis_mode,
         _pp_enabled, _pp_flip_count, _pp_all_trades,
         _NINJATRADER_MNQ_MARGIN,
+        _trade_replays=None,
     ):
         """Generate forward pass reports, save CSVs, run analytics, save snapshot."""
         # Final Report
@@ -4233,7 +4235,7 @@ class Trainer:
             print(f"  Shareable copy: {_share_path}")
 
             # ── 6a-bis. Save trade replays (per-bar price + state for I-MR analysis) ──
-            if _trade_replays:
+            if _trade_replays is not None and _trade_replays:
                 _replay_mode = 'oos' if oos_mode else 'is'
                 _replay_dir = os.path.join('reports', 'trade_replays')
                 os.makedirs(_replay_dir, exist_ok=True)
