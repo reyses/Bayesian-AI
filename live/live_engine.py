@@ -332,9 +332,22 @@ class LiveEngine:
                 # Exit check between bars — catches SL/TP/trail within 1s
                 if self._position_open and self._last_price > 0:
                     try:
-                        await self._check_exit(self._last_price, _now)
+                        _st = self._last_states[-1]['state'] if self._last_states else None
+                        if _st is not None:
+                            _r = self._processor.process_bar(
+                                bar_index=self._bar_i, price=self._last_price,
+                                bar_high=self._last_price, bar_low=self._last_price,
+                                timestamp=_now, state=_st, exit_only=True)
+                            if _r.action.type == ActionType.EXIT:
+                                _reason = getattr(_r.action, 'exit_reason', 'unknown')
+                                _side = self._position.side if self._position else 'flat'
+                                self._belief_network.stop_trade_tracking()
+                                if self._ping_pong_mode and not self._shutting_down:
+                                    await self._flip_position(_reason, _side, self._last_price, _now)
+                                else:
+                                    await self._close_position(_reason)
                     except Exception as _exit_err:
-                        logger.error(f"_check_exit CRASHED (1s loop): {_exit_err} — emergency flatten")
+                        logger.error(f"sub-bar exit CRASHED (1s loop): {_exit_err} — emergency flatten")
                         await self._close_position('EXIT_CRASH')
                 # Safety net: NT8 has position but engine thinks flat — emergency exit calc
                 elif (not self._position_open and not self._orders.is_flat
@@ -789,94 +802,6 @@ class LiveEngine:
         )
         self._exit_belief_pct = max(0, min(100, _life_pct))
 
-    async def _check_exit(self, price: float, ts: float):
-        """Check for exit signals on the current bar — Unified ExitEngine."""
-        pos = self._position
-        if pos is None or self._pos_state is None:
-            return
-
-        # Update trade pace cache for TBN exit signals
-        _tp = self._belief_network.get_trade_progress(
-            price, tick_size=self._cfg.tick_size)
-        self._belief_network._trade_pace_cache = _tp
-        self._belief_network._trade_pace_blend = _tp.get('pace', 1.0) - 1.0
-
-        # CME maintenance cutoff: flatten before daily halt (16:45-18:00 ET)
-        if self._exit_engine.is_maintenance_window(ts):
-            logger.warning("MAINTENANCE FLAT: closing position before CME halt")
-            await self._close_position('maintenance_flat')
-            return
-
-        exit_sig = self._belief_network.get_exit_signal(pos.side, pos.entry_price)
-
-        # Gather inputs for unified exit engine
-        _band_ctx = (self._belief_network.get_band_confluence()
-                     if hasattr(self._belief_network, 'get_band_confluence') else None)
-        _st = self._last_states[-1]['state'] if self._last_states else None
-        _f_net = float(getattr(_st, 'net_force', 0.0)) if _st else 0.0
-        _noise = float(getattr(_st, 'swing_noise_ticks', 0.0)) if _st else 0.0
-        _bar_high = getattr(self, '_last_bar_high', price)
-        _bar_low = getattr(self, '_last_bar_low', price)
-
-        # Sync tuning params to exit engine
-        self._exit_engine.envelope_half_life_bars = self._tuning.get('envelope_halflife_bars', 40)
-        self._exit_engine.envelope_min_bars = self._tuning.get('envelope_min_bars', 5)
-
-        _exit_result = self._exit_engine.evaluate(
-            pos=self._pos_state,
-            bar_high=_bar_high, bar_low=_bar_low, bar_close=price,
-            current_bar_index=self._bar_i,
-            band_context=_band_ctx,
-            net_force=_f_net,
-            exit_signal=exit_sig,
-            noise_ticks=_noise,
-            belief_network=self._belief_network,
-        )
-
-        # Per-trade diagnostic capture
-        _tick = self._cfg.tick_size
-        _pnl_t = self._exit_engine._calc_pnl_ticks(self._pos_state, price)
-        _peak = self._pos_state.peak_favorable
-        if self._pos_state.side == 'long':
-            _hwm_t = (_peak - self._pos_state.entry_price) / _tick
-        else:
-            _hwm_t = (self._pos_state.entry_price - _peak) / _tick
-        self._trade_logger.log_bar({
-            'ts': ts,
-            'price': price,
-            'bars_held': self._pos_state.bars_held,
-            'pnl_ticks': round(_pnl_t, 2),
-            'hwm_ticks': round(_hwm_t, 2),
-            'net_force': round(_f_net, 4),
-            'envelope_tol': round(self._pos_state.envelope_level, 2),
-            't_half_eff': round(self._exit_engine.envelope_half_life_bars, 1),
-            'stop_level': self._exit_engine._get_stop_price(self._pos_state),
-            'trail_ticks': round(self._pos_state.trailing_stop_ticks, 1),
-            'conviction': round(exit_sig.get('conviction', 0), 3),
-            'direction': exit_sig.get('direction', ''),
-            'wave_maturity': round(exit_sig.get('wave_maturity', 0), 3),
-            'decay_score': round(exit_sig.get('decay_score', 0), 3),
-            'z_score': round(getattr(_st, 'z_score', 0.0), 3) if _st else 0,
-            'velocity': round(getattr(_st, 'velocity', 0.0), 4)
-                        if _st else 0,
-        })
-
-        if _exit_result.action != ExitAction.HOLD:
-            reason = _exit_result.action.value
-            logger.info(f"EXIT signal: {reason} (decay={exit_sig.get('decay_score', 0):.2f})")
-            exited_side = pos.side
-            self._belief_network.stop_trade_tracking()
-
-            # Auto-TP re-entry: bank profit, re-enter same side if belief agrees
-            if (reason == 'profit_target'
-                    and self._tuning.get('auto_tp_reentry', False)
-                    and not self._shutting_down):
-                await self._auto_tp_reentry(exited_side, price, ts)
-            # Ping-pong: send 2-contract flip (close + open opposite) in one order
-            elif self._ping_pong_mode and not self._shutting_down:
-                await self._flip_position(reason, exited_side, price, ts)
-            else:
-                await self._close_position(reason)
 
     async def _flip_position(self, reason: str, exited_side: str,
                              price: float, ts: float):
@@ -1681,57 +1606,7 @@ class LiveEngine:
             self._brain.save(brain_path)
             logger.info(f"Live brain saved ({self._live_trade_count} trades)")
 
-    # ── Entry Logic (gate cascade) ───────────────────────────────────
-
-    async def _check_entry(self, price: float, ts: float, states: list):
-        """Thin wrapper: delegates gate cascade to ExecutionEngine."""
-        _t0 = time.perf_counter()
-        if not states:
-            self._entry_belief_pct = 0
-            return
-        if self._instrument_mismatch:
-            return
-        # Block entries during CME maintenance window
-        if self._exit_engine.is_maintenance_window(ts):
-            return
-
-        # Aggression scaling → set on exec_engine before each call
-        agg = self._shared_state.get('aggression', 0.5)
-        _yolo = agg >= 0.99
-        _g1_base = self._tuning.get('gate1_dist', _GATE1_DIST_THRESHOLD)
-        self._exec_engine.gate1_dist = (
-            float('inf') if _yolo else _g1_base + agg * 10.0)
-        self._exec_engine.set_live_atr(self._live_atr_ticks)
-
-        # Build Candidate objects via shared BarProcessor (same as OOS/replay)
-        latest = states[-1]
-        state = latest['state']
-        ee_candidates = self._processor._build_candidates(state, ts, yolo=_yolo)
-
-        if not ee_candidates:
-            self._entry_belief_pct = 0
-            return
-
-        # Side lock → ping-pong override
-        _side_lock = self._shared_state.get('side_lock')
-        _pp_dir = _side_lock if _side_lock else None
-
-        # Ask ExecutionEngine for decision
-        action = self._exec_engine.on_bar(
-            price=price, bar_high=price, bar_low=price,
-            bar_index=self._bar_i,
-            candidates=ee_candidates,
-            pp_dir_override=_pp_dir,
-        )
-
-        if action.type != ActionType.ENTER:
-            # Map gate_label to belief bar percentage
-            self._entry_belief_pct = self._gate_label_to_pct(
-                action.gate_label if hasattr(action, 'gate_label') else '')
-            return
-
-        # ── All gates passed — execute entry ──────────────────────────
-        await self._execute_entry(action, price, ts, _t0)
+    # ── Entry Logic — handled by BarProcessor.process_bar() in _process_15s ──
 
     async def _execute_entry(self, action: TradeAction, price: float,
                              ts: float, t0: float):
@@ -1828,17 +1703,6 @@ class LiveEngine:
             logger.info(f"LATENCY: decision={_decision_ms:.1f}ms  (bar->order sent)")
 
     @staticmethod
-    def _gate_label_to_pct(gate_label: str) -> int:
-        """Map ExecutionEngine rejection labels to GUI belief bar %."""
-        _MAP = {
-            'gate0_skip': 10, 'gate0_noise': 10, 'gate0_hurst': 15,
-            'gate0_momentum': 15, 'gate0_tunnel': 15,
-            'gate0_5_skip': 20, 'gate1_nomatch': 35,
-            'gate2_brain': 55, 'gate3_conviction': 70,
-            'gate4_direction': 80, 'gate3_5_screening': 85,
-        }
-        return min(99, _MAP.get(gate_label, 0))
-
     # ── Helpers ───────────────────────────────────────────────────────
 
     def _update_live_atr(self):
