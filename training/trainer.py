@@ -677,6 +677,8 @@ class Trainer:
         _ORACLE_LABEL_NAMES = {2: 'MEGA_LONG', 1: 'SCALP_LONG', 0: 'NOISE', -1: 'SCALP_SHORT', -2: 'MEGA_SHORT'}
         oracle_trade_records = []  # completed per-trade oracle dicts
         _trade_replays = []       # per-trade bar series for I-MR replay
+        self._peak_prev_pc = 0.0  # peak detection: previous bar P_center
+        self._peak_prev_fm = 0.0  # peak detection: previous bar |F_momentum|
         pending_oracle = None      # oracle facts for currently open trade
         _pending_dm_idx = None     # index into decision_matrix_records for open trade
 
@@ -1626,6 +1628,36 @@ class Trainer:
                                 raw_event=p,
                             ) for p in raw_candidates
                         ]
+                    # Peak detection fallback: if no pattern candidates,
+                    # check for peak reversal (P_center + F_momentum change)
+                    if not _eng_candidates:
+                        _bar_state = _states_map.get(_bar_i)
+                        if _bar_state is not None:
+                            _pc = getattr(_bar_state, 'P_at_center', 0.0)
+                            _fm = abs(getattr(_bar_state, 'F_momentum', 0.0))
+                            _coh = getattr(_bar_state, 'oscillation_entropy_normalized', 0.0)
+                            _prev_pc = getattr(self, '_peak_prev_pc', _pc)
+                            _prev_fm = getattr(self, '_peak_prev_fm', _fm)
+                            self._peak_prev_pc = _pc
+                            self._peak_prev_fm = _fm
+
+                            _pc_up = _pc > _prev_pc * 1.05 if _prev_pc > 0.01 else False
+                            _fm_down = _fm < _prev_fm * 0.90 if _prev_fm > 0.5 else False
+
+                            if (_pc_up or _fm_down) and _coh > 0.55:
+                                _feat = _feat_extractor.extract_features_from_state(_bar_state) \
+                                    if hasattr(_feat_extractor, 'extract_features_from_state') \
+                                    else [0.0] * 22
+                                _eng_candidates = [Candidate(
+                                    state=_bar_state,
+                                    depth=8,
+                                    timeframe='15s',
+                                    timestamp=ts,
+                                    pattern_type='PEAK_REVERSAL',
+                                    z_score=getattr(_bar_state, 'z_score', 0.0),
+                                    features=np.array([_feat]),
+                                )]
+
                     n_signals_seen += len(_eng_candidates)
 
                     # -- PP direction override --
