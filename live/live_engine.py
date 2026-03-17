@@ -730,6 +730,10 @@ class LiveEngine:
         # Route BarResult to live order management
         if result.action.type == ActionType.ENTER and _can_enter:
             await self._execute_entry(result.action, price, ts, time.perf_counter())
+        elif result.action.type == ActionType.HOLD and result.candidates_built > 0:
+            # Yellow diamond: candidates evaluated but rejected
+            self._gui.push({'type': 'TRADE_MARKER', 'action': 'SKIP',
+                            'side': '', 'price': price, 'pnl': 0})
         elif result.action.type == ActionType.EXIT and self._position_open:
             reason = getattr(result.action, 'exit_reason', 'unknown')
             exited_side = self._position.side if self._position else 'flat'
