@@ -862,68 +862,37 @@ class ProgressPopup:
         )
         self._pct_lbl.pack(pady=(3, 10))
 
-        # ── Stats row ─────────────────────────────────────────────────────────
+        # ── Stats (compact single row) ───────────────────────────────────────
         stats_frame = tk.Frame(root, bg=BG)
-        stats_frame.pack(fill="x", padx=20)
-        for col, lbl in enumerate(("Net PnL", "Win Rate", "Trades")):
-            tk.Label(
-                stats_frame, text=lbl, bg=BG, fg=FG_GREY, font=("Consolas", 8)
-            ).grid(row=0, column=col, padx=20)
+        stats_frame.pack(fill="x", padx=10, pady=(2, 0))
+        _stat_labels = ("PnL", "WR", "Trades", "PF", "Win$", "Loss$")
+        for col, lbl in enumerate(_stat_labels):
+            tk.Label(stats_frame, text=lbl, bg=BG, fg=FG_GREY,
+                     font=("Consolas", 7)).grid(row=0, column=col, padx=6)
 
         self._pnl_var = tk.StringVar(value="$0")
-        self._wr_var = tk.StringVar(value="—")
+        self._wr_var = tk.StringVar(value="--")
         self._trades_var = tk.StringVar(value="0")
-
-        self._pnl_lbl = tk.Label(
-            stats_frame,
-            textvariable=self._pnl_var,
-            bg=BG,
-            fg=FG_GREEN,
-            font=("Consolas", 14, "bold"),
-        )
-        self._pnl_lbl.grid(row=1, column=0, padx=20)
-        tk.Label(
-            stats_frame,
-            textvariable=self._wr_var,
-            bg=BG,
-            fg=FG_WHITE,
-            font=("Consolas", 14, "bold"),
-        ).grid(row=1, column=1, padx=20)
-        tk.Label(
-            stats_frame,
-            textvariable=self._trades_var,
-            bg=BG,
-            fg=FG_WHITE,
-            font=("Consolas", 14, "bold"),
-        ).grid(row=1, column=2, padx=20)
-
-        # ── PnL ratio row ───────────────────────────────────────────────────
-        pf_frame = tk.Frame(root, bg=BG)
-        pf_frame.pack(fill="x", padx=20, pady=(6, 0))
-        for col, lbl in enumerate(("Profit Factor", "Gross Win", "Gross Loss")):
-            tk.Label(
-                pf_frame, text=lbl, bg=BG, fg=FG_GREY, font=("Consolas", 8)
-            ).grid(row=0, column=col, padx=20)
-
-        self._pf_var = tk.StringVar(value="—")
+        self._pf_var = tk.StringVar(value="--")
         self._gw_var = tk.StringVar(value="$0")
         self._gl_var = tk.StringVar(value="$0")
 
-        self._pf_lbl = tk.Label(
-            pf_frame, textvariable=self._pf_var, bg=BG, fg=FG_WHITE,
-            font=("Consolas", 14, "bold"),
-        )
-        self._pf_lbl.grid(row=1, column=0, padx=20)
-        self._gw_lbl = tk.Label(
-            pf_frame, textvariable=self._gw_var, bg=BG, fg=FG_GREEN,
-            font=("Consolas", 14, "bold"),
-        )
-        self._gw_lbl.grid(row=1, column=1, padx=20)
-        self._gl_lbl = tk.Label(
-            pf_frame, textvariable=self._gl_var, bg=BG, fg=FG_RED,
-            font=("Consolas", 14, "bold"),
-        )
-        self._gl_lbl.grid(row=1, column=2, padx=20)
+        self._pnl_lbl = tk.Label(stats_frame, textvariable=self._pnl_var,
+                                  bg=BG, fg=FG_GREEN, font=("Consolas", 12, "bold"))
+        self._pnl_lbl.grid(row=1, column=0, padx=6)
+        tk.Label(stats_frame, textvariable=self._wr_var, bg=BG, fg=FG_WHITE,
+                 font=("Consolas", 12, "bold")).grid(row=1, column=1, padx=6)
+        tk.Label(stats_frame, textvariable=self._trades_var, bg=BG, fg=FG_WHITE,
+                 font=("Consolas", 12, "bold")).grid(row=1, column=2, padx=6)
+        self._pf_lbl = tk.Label(stats_frame, textvariable=self._pf_var,
+                                 bg=BG, fg=FG_WHITE, font=("Consolas", 12, "bold"))
+        self._pf_lbl.grid(row=1, column=3, padx=6)
+        self._gw_lbl = tk.Label(stats_frame, textvariable=self._gw_var,
+                                 bg=BG, fg=FG_GREEN, font=("Consolas", 12, "bold"))
+        self._gw_lbl.grid(row=1, column=4, padx=6)
+        self._gl_lbl = tk.Label(stats_frame, textvariable=self._gl_var,
+                                 bg=BG, fg=FG_RED, font=("Consolas", 12, "bold"))
+        self._gl_lbl.grid(row=1, column=5, padx=6)
 
         # ── PnL control chart ─────────────────────────────────────────────────
         tk.Label(root, text="PnL by Trade", bg=BG, fg=FG_GREY, font=("Consolas", 8)).pack(
