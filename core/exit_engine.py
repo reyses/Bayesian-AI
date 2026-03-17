@@ -466,6 +466,33 @@ class ExitEngine:
             # Strong = crossed AND DI gap >= 5 (5m DMI is 87% accurate at gap≥5)
             _strong_dmi_reversal = _crossed and _di_gap >= 5.0
 
+        # === WRONG DIRECTION EXIT (thesis invalidated immediately) ===
+        # If the trade was NEVER profitable after N bars, the entry was wrong.
+        # Don't wait for SL — cut the loss early. Different from SL (price level)
+        # and from watchdog (stuck trade). This is "you had time, price never
+        # moved in your favor, not even 1 tick."
+        _wrong_dir_bars = self.config.wrong_dir_min_bars  # min bars before checking
+        if pos.bars_held >= _wrong_dir_bars:
+            if pos.side == 'long':
+                _peak_ticks = (pos.peak_favorable - pos.entry_price) / ts
+            else:
+                _peak_ticks = (pos.entry_price - pos.peak_favorable) / ts
+            # Never profitable (peak < 2 ticks = noise, not a real move)
+            if _peak_ticks < 2.0:
+                _adverse = ((pos.entry_price - bar_close) / ts if pos.side == 'long'
+                            else (bar_close - pos.entry_price) / ts)
+                if _adverse > self.config.wrong_dir_adverse_ticks:
+                    _pnl = ((bar_close - pos.entry_price) / ts if pos.side == 'long'
+                            else (pos.entry_price - bar_close) / ts)
+                    return ExitResult(
+                        action=ExitAction.REGIME_DECAY,  # reuse — thesis invalidation
+                        exit_price=bar_close,
+                        reason=f"Wrong direction: {pos.bars_held} bars, never profitable "
+                               f"(peak={_peak_ticks:.1f}t), adverse={_adverse:.0f}t",
+                        pnl_ticks=_pnl,
+                        bars_held=pos.bars_held,
+                    )
+
         # === PROFIT PROTECTION (giveback first — if trade peaked, protect it) ===
 
         # 1. Peak Giveback — catches trades that peaked and are reversing.

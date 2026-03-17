@@ -51,6 +51,10 @@ class TradingConfig:
     be_activation_ticks: float = 4.0
     be_buffer_ticks: float = 1.0
 
+    # === Exit: Wrong Direction (never profitable) ===
+    wrong_dir_min_bars: int = 8        # 2 min at 15s — time to develop before checking
+    wrong_dir_adverse_ticks: float = 10.0  # $5 MNQ — adverse threshold to cut
+
     # === Exit: Watchdog ===
     watchdog_tick_threshold: float = 8.0
     watchdog_bar_threshold: int = 5
