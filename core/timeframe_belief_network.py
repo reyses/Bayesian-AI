@@ -34,6 +34,7 @@ The default decision resolution is 5m: we decide "what is the NEXT 5m bar going 
 The 15s execution workers provide the precise entry trigger.
 """
 
+import os
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass, field
@@ -386,6 +387,9 @@ class TimeframeBeliefNetwork:
             for tf in self.TIMEFRAMES_SECONDS  # ALL TFs, including sub-resolution
         }
 
+        # ATLAS root for loading pre-built TF parquets (set by caller)
+        self._atlas_root = None
+
         # Active-trade time-scale state (set at entry, cleared at exit)
         self._trade_avg_mfe_bar = 0.0
         self._trade_p75_mfe_bar = 0.0
@@ -499,21 +503,47 @@ class TimeframeBeliefNetwork:
                 continue
 
             try:
-                tf_df = df.resample(f'{tf_secs}s').agg({
-                    'open': 'first', 'high': 'max',
-                    'low': 'min',   'close': 'last',
-                    'volume': 'sum'
-                }).dropna()
+                # Try loading pre-built parquet first (avoids resampling)
+                tf_df = None
+                if hasattr(self, '_atlas_root') and self._atlas_root:
+                    _tf_label = self._TF_LABELS.get(tf_secs, f'{tf_secs}s')
+                    _parquet_dir = os.path.join(self._atlas_root, _tf_label)
+                    if os.path.isdir(_parquet_dir):
+                        import glob as _g
+                        _pq_files = sorted(_g.glob(os.path.join(_parquet_dir, '*.parquet')))
+                        if _pq_files:
+                            # Load all months, filter to current day's time range
+                            _ts_min = df_micro['timestamp'].iloc[0] if 'timestamp' in df_micro.columns else 0
+                            _ts_max = df_micro['timestamp'].iloc[-1] if 'timestamp' in df_micro.columns else 0
+                            _chunks = []
+                            for _pf in _pq_files:
+                                _ch = pd.read_parquet(_pf)
+                                if 'timestamp' in _ch.columns:
+                                    _ch = _ch[(_ch['timestamp'] >= _ts_min) & (_ch['timestamp'] <= _ts_max)]
+                                if len(_ch) > 0:
+                                    _chunks.append(_ch)
+                            if _chunks:
+                                tf_df = pd.concat(_chunks).sort_values('timestamp').reset_index(drop=True)
+
+                # Fallback: resample from 15s
+                if tf_df is None or len(tf_df) < 5:
+                    tf_df = df.resample(f'{tf_secs}s').agg({
+                        'open': 'first', 'high': 'max',
+                        'low': 'min',   'close': 'last',
+                        'volume': 'sum'
+                    }).dropna()
+                    _src = 'resampled'
+                else:
+                    _src = 'parquet'
 
                 if len(tf_df) < 5:
-                    # Too few bars -- 1h workers may have <5 bars near day start
                     self.workers[tf_secs].prepare([])
-                    print(f"  TBN [{lbl}]: <5 bars — worker inactive")
+                    print(f"  TBN [{lbl}]: <5 bars -- worker inactive")
                     continue
 
                 states = self.engine.batch_compute_states(tf_df, use_cuda=True)
                 self.workers[tf_secs].prepare(states)
-                print(f"  TBN [{lbl}]: {len(states):,} states (resampled from {len(tf_df):,} bars)")
+                print(f"  TBN [{lbl}]: {len(states):,} states ({_src} from {len(tf_df):,} bars)")
             except Exception as e:
                 logger.warning(f"TBN: TF={tf_secs}s state compute failed: {e}")
                 self.workers[tf_secs].prepare([])
