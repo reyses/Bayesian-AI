@@ -708,7 +708,7 @@ class ProgressPopup:
         self._done = False
 
         self.root.title("Bayesian-AI LIVE" if shared_state else "Bayesian-AI Training")
-        self.root.geometry("620x780+60+60")
+        self.root.geometry("620x880+60+60")
         self.root.configure(bg=BG)
         self.root.resizable(True, True)
         self.root.attributes("-topmost", True)
@@ -991,6 +991,25 @@ class ProgressPopup:
         self._price_canvas.pack(padx=20, fill=tk.X, expand=False)
         self._price_canvas.bind("<Configure>", lambda e: self._redraw_price_chart())
 
+        # ── DMI chart ─────────────────────────────────────────────────────────
+        _dmi_frame = tk.Frame(root, bg=BG)
+        _dmi_frame.pack(fill="x", padx=20, pady=(6, 0))
+        tk.Label(_dmi_frame, text="DMI", bg=BG, fg=FG_GREY,
+                 font=("Consolas", 8)).pack(side="left")
+        self._dmi_label_var = tk.StringVar(value="--")
+        tk.Label(_dmi_frame, textvariable=self._dmi_label_var, bg=BG, fg=FG_WHITE,
+                 font=("Consolas", 8)).pack(side="right")
+
+        self._DMI_CHART_H = 60
+        self._dmi_canvas = tk.Canvas(
+            root, width=self._CHART_W, height=self._DMI_CHART_H,
+            bg="#141414", highlightthickness=1, highlightbackground="#333333")
+        self._dmi_canvas.pack(padx=20, fill=tk.X, expand=False)
+        self._dmi_canvas.bind("<Configure>", lambda e: self._redraw_dmi_chart())
+        self._dmi_plus_history = []
+        self._dmi_minus_history = []
+        self._MAX_DMI_PTS = self._MAX_PRICE_PTS
+
         # ── Status footer ─────────────────────────────────────────────────────
         self._status_var = tk.StringVar(value="Running...")
         tk.Label(
@@ -1181,6 +1200,62 @@ class ProgressPopup:
         except Exception as e:
             print(f"  [CHART] Canvas save failed: {e}")
 
+    def _redraw_dmi_chart(self):
+        """Draw DMI+/DMI- overlay chart."""
+        c = self._dmi_canvas
+        c.delete("all")
+        W = max(100, c.winfo_width())
+        H = max(30, c.winfo_height())
+        pad = 4
+
+        dp = self._dmi_plus_history
+        dm = self._dmi_minus_history
+        n = min(len(dp), len(dm))
+        if n < 2:
+            c.create_text(W // 2, H // 2, text="Waiting for DMI...",
+                          fill="#444444", font=("Consolas", 7))
+            return
+
+        # Auto-scale to data range
+        all_vals = dp[-n:] + dm[-n:]
+        mn = max(0, min(all_vals) - 2)
+        mx = max(all_vals) + 2
+        span = mx - mn if mx != mn else 1.0
+
+        def _y(v):
+            return H - pad - ((v - mn) / span) * (H - 2 * pad)
+
+        # Grid: 20 and 30 reference lines
+        for ref in (20, 30):
+            if mn <= ref <= mx:
+                gy = _y(ref)
+                c.create_line(pad, gy, W - pad, gy, fill="#282828", dash=(2, 4))
+                c.create_text(W - pad + 2, gy, text=str(ref),
+                              fill="#444444", font=("Consolas", 5), anchor="w")
+
+        # DMI+ line (green)
+        coords_p = []
+        for i in range(n):
+            x = pad + i / max(1, n - 1) * (W - 2 * pad)
+            coords_p.extend([x, _y(dp[len(dp) - n + i])])
+        if len(coords_p) >= 4:
+            c.create_line(coords_p, fill="#00CC00", width=1, smooth=True)
+
+        # DMI- line (red)
+        coords_m = []
+        for i in range(n):
+            x = pad + i / max(1, n - 1) * (W - 2 * pad)
+            coords_m.extend([x, _y(dm[len(dm) - n + i])])
+        if len(coords_m) >= 4:
+            c.create_line(coords_m, fill="#CC0000", width=1, smooth=True)
+
+        # Current values at right edge
+        if dp and dm:
+            c.create_text(W - 2, _y(dp[-1]) - 6, text=f"+{dp[-1]:.0f}",
+                          fill="#00CC00", font=("Consolas", 6), anchor="e")
+            c.create_text(W - 2, _y(dm[-1]) + 6, text=f"-{dm[-1]:.0f}",
+                          fill="#CC0000", font=("Consolas", 6), anchor="e")
+
     def _on_aggression_change(self, val):
         """Slider callback — update shared state so engine reads it."""
         v = int(val) / 100.0
@@ -1271,6 +1346,8 @@ class ProgressPopup:
                 self._trade_markers = []
                 self._active_entry_price = None
                 self._active_entry_side = None
+                self._dmi_plus_history = []
+                self._dmi_minus_history = []
                 self._redraw_chart()
                 self._redraw_price_chart()
                 self.root.title(f"Bayesian-AI  {_new_mode.upper()} Training")
@@ -1429,6 +1506,19 @@ class ProgressPopup:
                                 if idx - trim >= 0
                             ]
                         self._redraw_price_chart()
+
+                    # Feed DMI chart
+                    _dp = msg.get('dmi_plus')
+                    _dm = msg.get('dmi_minus')
+                    if _dp is not None and _dm is not None:
+                        self._dmi_plus_history.append(float(_dp))
+                        self._dmi_minus_history.append(float(_dm))
+                        if len(self._dmi_plus_history) > self._MAX_DMI_PTS:
+                            self._dmi_plus_history = self._dmi_plus_history[-self._MAX_DMI_PTS:]
+                            self._dmi_minus_history = self._dmi_minus_history[-self._MAX_DMI_PTS:]
+                        self._dmi_label_var.set(
+                            f"+{float(_dp):.0f} / -{float(_dm):.0f}")
+                        self._redraw_dmi_chart()
 
                     # Update unrealized PnL from tick (instant, don't wait for NT8)
                     _tick_unreal = msg.get('unrealized_pnl')
