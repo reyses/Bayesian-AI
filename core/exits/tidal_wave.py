@@ -81,8 +81,14 @@ class TidalWaveExit:
 
         # Higher TF override: if macro trend still supports, this expansion
         # might be the resonance cascade building (bands SHOULD expand).
-        # Only exit if higher TF is also turning against.
-        if self._higher_tf_agrees(belief_network, _disc_tf, pos.side):
+        # ADAPTIVE: never-profitable trades skip override — nothing to protect.
+        if pos.side == 'long':
+            _peak_t = (pos.peak_favorable - pos.entry_price) / tick_size
+        else:
+            _peak_t = (pos.entry_price - pos.peak_favorable) / tick_size
+        _never_profitable = _peak_t < 2.0 and pos.bars_held >= 4
+
+        if not _never_profitable and self._higher_tf_agrees(belief_network, _disc_tf, pos.side):
             return None  # macro supports — expansion may be cascade, hold
 
         pnl_ticks = ((bar_close - pos.entry_price) / tick_size

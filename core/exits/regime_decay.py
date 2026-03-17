@@ -73,8 +73,18 @@ class RegimeDecayExit:
         # ── Higher TF override: check adjacent higher TF ──
         # If the macro trend (next TF up) still agrees with trade direction,
         # suppress regime_decay. The chop on the discovery TF is micro noise.
-        _higher_tf_agrees = self._check_higher_tf(
-            belief_network, _disc_tf, pos.side)
+        # ADAPTIVE: never-profitable trades (peak < 2t after 4+ bars) skip this
+        # override — there's nothing to protect, let regime_decay fire.
+        if pos.side == 'long':
+            _peak_t = (pos.peak_favorable - pos.entry_price) / tick_size
+        else:
+            _peak_t = (pos.entry_price - pos.peak_favorable) / tick_size
+        _never_profitable = _peak_t < 2.0 and pos.bars_held >= 4
+
+        _higher_tf_agrees = False
+        if not _never_profitable:
+            _higher_tf_agrees = self._check_higher_tf(
+                belief_network, _disc_tf, pos.side)
         if _higher_tf_agrees:
             return None  # macro trend alive — ride the chop
 
