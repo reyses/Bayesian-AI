@@ -1747,10 +1747,12 @@ class Trainer:
                     _candidate_gate = _entry_action.candidate_gates
 
                     # Skip markers: yellow for pattern, purple for peak detection
+                    # Skip markers: throttle to 1 per real second (same as tick)
                     if (_entry_action.type != ActionType.ENTER
                             and self.dashboard_queue is not None
                             and len(_eng_candidates) > 0
-                            and _bar_i % 4 == 0):  # throttle: every 4th bar max
+                            and _now_wall - getattr(self, '_last_skip_tick', 0) >= 1.0):
+                        self._last_skip_tick = _now_wall
                         _skip_action = 'PEAK_SKIP' if _is_peak_entry else 'SKIP'
                         self.dashboard_queue.put({
                             'type': 'TRADE_MARKER', 'action': _skip_action,
