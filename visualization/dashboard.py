@@ -1258,21 +1258,25 @@ class ProgressPopup:
             from PIL import ImageGrab
             self.root.update_idletasks()
             # Get the HWND and use it for exact window rect (handles DPI scaling)
-            try:
-                import ctypes
-                hwnd = ctypes.windll.user32.GetParent(self.root.winfo_id())
-                rect = ctypes.wintypes.RECT()
-                ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect))
+            # Bring window to front, then grab by geometry string
+            self.root.lift()
+            self.root.update()
+            # Parse geometry: WxH+X+Y
+            geo = self.root.winfo_geometry()  # e.g. "620x880+60+60"
+            import re as _re
+            m = _re.match(r'(\d+)x(\d+)\+(-?\d+)\+(-?\d+)', geo)
+            if m:
+                w, h, x, y = int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4))
+                # Content area starts at rootx/rooty, but window frame is larger
+                # Use rootx/rooty for content origin, add frame padding
+                rx, ry = self.root.winfo_rootx(), self.root.winfo_rooty()
+                # Frame extends above (title bar) and around (borders)
+                frame_left = rx - x
+                frame_top = ry - y
                 img = ImageGrab.grab(bbox=(
-                    rect.left, rect.top, rect.right, rect.bottom))
-            except Exception:
-                # Fallback: grab entire screen area around the window
-                x = self.root.winfo_rootx()
-                y = self.root.winfo_rooty()
-                w = self.root.winfo_width()
-                h = self.root.winfo_height()
-                img = ImageGrab.grab(bbox=(
-                    x - 8, y - 32, x + w + 8, y + h + 8))
+                    x, y, x + w + frame_left * 2, y + h + frame_top + frame_left))
+            else:
+                img = ImageGrab.grab()  # full screen fallback
             img.save(_path)
             self._status_var.set(f"Screenshot: {_path}")
             print(f"  [SCREENSHOT] {_path}")
