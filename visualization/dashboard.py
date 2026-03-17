@@ -782,6 +782,12 @@ class ProgressPopup:
                 width=8, command=self._request_save,
             ).pack(side=tk.RIGHT)
 
+            tk.Button(
+                btn_frame, text="SNAP", bg="#664400", fg=FG_WHITE,
+                activebackground="#886600", font=("Consolas", 10, "bold"),
+                width=6, command=self._take_screenshot,
+            ).pack(side=tk.RIGHT, padx=4)
+
             _pp_on = self._shared_state.get('ping_pong', False)
             self._pp_btn = tk.Button(
                 btn_frame, text="PING-PONG",
@@ -1194,6 +1200,36 @@ class ProgressPopup:
         if self._shared_state is not None:
             self._shared_state['manual_order'] = action
             self._status_var.set(f"{action} sent...")
+
+    def _take_screenshot(self):
+        """Capture dashboard window as PNG."""
+        import os
+        from datetime import datetime
+        _dir = os.path.join('reports', 'screenshots')
+        os.makedirs(_dir, exist_ok=True)
+        _ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+        _mode = self._current_mode if hasattr(self, '_current_mode') else 'live'
+        _path = os.path.join(_dir, f'{_mode}_{_ts}.png')
+        try:
+            # Get window position and size
+            x = self.root.winfo_rootx()
+            y = self.root.winfo_rooty()
+            w = self.root.winfo_width()
+            h = self.root.winfo_height()
+            # Use PIL if available
+            from PIL import ImageGrab
+            img = ImageGrab.grab(bbox=(x, y, x + w, y + h))
+            img.save(_path)
+            self._status_var.set(f"Screenshot: {_path}")
+            print(f"  [SCREENSHOT] {_path}")
+        except ImportError:
+            # Fallback: save canvas as PostScript
+            _ps = _path.replace('.png', '.ps')
+            self._price_canvas.postscript(file=_ps, colormode='color')
+            self._status_var.set(f"Screenshot (PS): {_ps}")
+            print(f"  [SCREENSHOT] {_ps} (install Pillow for PNG)")
+        except Exception as e:
+            self._status_var.set(f"Screenshot failed: {e}")
 
     def _request_save(self):
         """SAVE button — ask engine to prepare for shutdown."""
