@@ -1430,6 +1430,15 @@ class ProgressPopup:
                             ]
                         self._redraw_price_chart()
 
+                    # Update unrealized PnL from tick (instant, don't wait for NT8)
+                    _tick_unreal = msg.get('unrealized_pnl')
+                    if _tick_unreal is not None and hasattr(self, '_unreal_var'):
+                        _u = float(_tick_unreal)
+                        sign_u = "+" if _u >= 0 else ""
+                        self._unreal_var.set(f"{sign_u}${_u:,.0f}")
+                        self._unreal_lbl.config(
+                            fg=FG_GREEN if _u >= 0 else FG_RED)
+
                 elif mtype == "TRADE_MARKER":
                     action = msg.get("action", "").lower()
                     side = msg.get("side", "")
