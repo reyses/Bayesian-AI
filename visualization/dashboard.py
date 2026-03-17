@@ -1116,11 +1116,22 @@ class ProgressPopup:
                 c.create_polygon(mx_pos, my_pos - sz, mx_pos - sz, my_pos + sz,
                                  mx_pos + sz, my_pos + sz, fill=mc, outline="#000")
             elif action == 'skip':
-                # Small yellow diamond: signal evaluated but rejected
+                # Small yellow diamond: pattern signal rejected
                 sz = 3
                 c.create_polygon(mx_pos, my_pos - sz, mx_pos - sz, my_pos,
                                  mx_pos, my_pos + sz, mx_pos + sz, my_pos,
                                  fill="#FFAA00", outline="")
+            elif action == 'peak_skip':
+                # Small purple diamond: peak detection signal rejected
+                sz = 3
+                c.create_polygon(mx_pos, my_pos - sz, mx_pos - sz, my_pos,
+                                 mx_pos, my_pos + sz, mx_pos + sz, my_pos,
+                                 fill="#CC44FF", outline="")
+            elif action == 'peak_entry':
+                # Purple up triangle: peak detection entry
+                mc = "#CC44FF"
+                c.create_polygon(mx_pos, my_pos - sz, mx_pos - sz, my_pos + sz,
+                                 mx_pos + sz, my_pos + sz, fill=mc, outline="#000")
             else:
                 # Down triangle: green=win, red=loss
                 mc = "#00FF00" if mpnl and mpnl > 0 else "#FF4444"
@@ -1224,6 +1235,32 @@ class ProgressPopup:
                           fill="#00CC00", font=("Consolas", 6), anchor="e")
             c.create_text(W - 2, _y(dm[-1]) + 6, text=f"-{dm[-1]:.0f}",
                           fill="#CC0000", font=("Consolas", 6), anchor="e")
+
+        # Overlay trade markers on DMI chart (same indices as price chart)
+        # Shows where entries/exits/skips occurred relative to DMI state
+        n_pts = len(self._price_history)  # markers indexed to price history
+        _mid_y = H // 2  # place markers at vertical center of DMI chart
+        for (idx, action, side, mprice, mpnl) in self._trade_markers:
+            if idx < 0 or idx >= n_pts:
+                continue
+            mx = pad + idx / max(1, n_pts - 1) * (W - 2 * pad)
+            sz = 3
+            if action == 'entry':
+                mc = "#00FF00" if side == 'long' else "#FF4444"
+                c.create_line(mx, pad, mx, H - pad, fill=mc, width=1, dash=(1, 3))
+            elif action == 'peak_entry':
+                c.create_line(mx, pad, mx, H - pad, fill="#CC44FF", width=1, dash=(1, 3))
+            elif action == 'peak_skip':
+                c.create_polygon(mx, _mid_y - sz, mx - sz, _mid_y,
+                                 mx, _mid_y + sz, mx + sz, _mid_y,
+                                 fill="#CC44FF", outline="")
+            elif action == 'skip':
+                c.create_polygon(mx, _mid_y - sz, mx - sz, _mid_y,
+                                 mx, _mid_y + sz, mx + sz, _mid_y,
+                                 fill="#FFAA00", outline="")
+            elif action == 'exit':
+                mc = "#00FF00" if mpnl and mpnl > 0 else "#FF4444"
+                c.create_line(mx, pad, mx, H - pad, fill=mc, width=1, dash=(2, 2))
 
     def _on_aggression_change(self, val):
         """Slider callback — update shared state so engine reads it."""

@@ -1715,13 +1715,14 @@ class Trainer:
                     # Copy gate labels for FN audit
                     _candidate_gate = _entry_action.candidate_gates
 
-                    # Yellow marker for evaluated-but-rejected signals
+                    # Skip markers: yellow for pattern, purple for peak detection
                     if (_entry_action.type != ActionType.ENTER
                             and self.dashboard_queue is not None
                             and len(_eng_candidates) > 0
                             and _bar_i % 4 == 0):  # throttle: every 4th bar max
+                        _skip_action = 'PEAK_SKIP' if _is_peak_entry else 'SKIP'
                         self.dashboard_queue.put({
-                            'type': 'TRADE_MARKER', 'action': 'SKIP',
+                            'type': 'TRADE_MARKER', 'action': _skip_action,
                             'side': '', 'price': price, 'pnl': 0})
 
                     if _entry_action.type == ActionType.ENTER:
@@ -1731,6 +1732,11 @@ class Trainer:
                         side = _entry_action.side
                         if _is_peak_entry:
                             n_peak_traded += 1
+                            # Purple entry marker for peak detection trades
+                            if self.dashboard_queue is not None:
+                                self.dashboard_queue.put({
+                                    'type': 'TRADE_MARKER', 'action': 'PEAK_ENTRY',
+                                    'side': side, 'price': price, 'pnl': 0})
                         _belief = _entry_action.belief_state
                         _band = _entry_action.band_context
                         _network_tp = _entry_action.network_tp
