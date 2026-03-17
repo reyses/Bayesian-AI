@@ -1382,7 +1382,7 @@ class Trainer:
                                         'trade_mfe_ticks': round(_trade_mfe_ticks, 2),
                                         'hold_bars': max(1, _exit_action.bars_held),
                                         'discovery_tf': lib_entry.get('discovery_tf_seconds', 15.0) if lib_entry else 15.0,
-                                        'bars': _replay_bars[['timestamp', 'open', 'high', 'low', 'close']].values.tolist(),
+                                        'bars': _replay_bars[['timestamp', 'open', 'high', 'low', 'close', 'volume']].values.tolist() if 'volume' in _replay_bars.columns else _replay_bars[['timestamp', 'open', 'high', 'low', 'close']].values.tolist(),
                                         'states': _state_snaps,
                                     }
                                     _trade_replays.append(_replay_rec)
