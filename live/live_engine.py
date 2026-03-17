@@ -654,8 +654,18 @@ class LiveEngine:
 
     async def _process_1s(self, price: float, ts: float):
         """Sub-second processing: GUI tick, staleness check, exit checks."""
+        # Compute unrealized PnL locally for instant GUI update
+        _unreal = 0.0
+        if self._position_open and self._position:
+            _pv = self._asset.point_value
+            if self._position.side == 'long':
+                _unreal = (price - self._position.entry_price) * _pv
+            else:
+                _unreal = (self._position.entry_price - price) * _pv
+
         self._gui.push({
             'type': 'TICK_UPDATE', 'price': price, 'bars': self._bar_i,
+            'unrealized_pnl': round(_unreal, 2),
         })
 
         if time.time() - ts > 120:
