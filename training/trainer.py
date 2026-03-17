@@ -1077,8 +1077,11 @@ class Trainer:
                 ts = int(ts_raw) // 60 * 60
                 price = getattr(row, 'close', getattr(row, 'price', 0.0))
 
-                # Feed price + DMI to dashboard chart (every 4 bars = 1 min)
-                if self.dashboard_queue is not None and _bar_i % 4 == 0:
+                # Feed price + DMI to dashboard chart (1 real second throttle)
+                _now_wall = __import__('time').time()
+                if (self.dashboard_queue is not None
+                        and _now_wall - getattr(self, '_last_dash_tick', 0) >= 1.0):
+                    self._last_dash_tick = _now_wall
                     _dmi_p, _dmi_m = 0.0, 0.0
                     _5m_w = belief_network.workers.get(300)
                     if _5m_w is not None and _5m_w._states:
