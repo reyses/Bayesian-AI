@@ -2,6 +2,13 @@
 
 ---
 
+## [Unreleased]
+
+### Research
+- f3a980e research: 1s volume analysis — 1m is better for volume signals
+
+---
+
 ## [V6.0.0] - 2026-03-08 — Statistical Architecture Refactor & Unified Execution
 
 ### Architecture
