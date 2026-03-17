@@ -719,10 +719,14 @@ class ExecutionEngine:
             except Exception:
                 pass  # timestamp parse failure — don't block
 
+        _is_peak_reversal = (micro_pattern == 'PEAK_REVERSAL')
+
         if not _data_override and not should_skip:
             if not micro_pattern:
                 should_skip = True
                 skip_label = 'gate0'
+            elif _is_peak_reversal:
+                pass  # peak reversal bypasses z-score gates (signal is state-based, not z-based)
             elif micro_z < _cfg.noise_z_threshold:
                 should_skip = True
                 skip_label = 'gate0_noise'
