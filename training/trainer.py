@@ -719,6 +719,8 @@ class Trainer:
         # Gate skip counters now tracked inside _exec_engine.gate_stats
         # Accessed via _exec_engine.get_skip_counts() in report section
         n_signals_seen   = 0   # Total candidate signals evaluated (all gates combined)
+        n_peak_reversal  = 0   # Peak detection candidates (subset of n_signals_seen)
+        n_peak_traded    = 0   # Peak detection candidates that became trades
         depth_traded     = defaultdict(int)  # depth -> trade count (1=high TF, 6=15s)
 
         # FN oracle records: per-signal log of missed real moves with worker snapshots.
@@ -1658,6 +1660,12 @@ class Trainer:
                                     features=np.array([_feat]),
                                 )]
 
+                    # Track peak reversal candidates
+                    _is_peak_entry = any(getattr(c, 'pattern_type', '') == 'PEAK_REVERSAL'
+                                         for c in _eng_candidates)
+                    if _is_peak_entry:
+                        n_peak_reversal += len([c for c in _eng_candidates
+                                                if getattr(c, 'pattern_type', '') == 'PEAK_REVERSAL'])
                     n_signals_seen += len(_eng_candidates)
 
                     # -- PP direction override --
@@ -1721,6 +1729,8 @@ class Trainer:
                         best_tid = _entry_action.template_id
                         lib_entry = _entry_action.lib_entry
                         side = _entry_action.side
+                        if _is_peak_entry:
+                            n_peak_traded += 1
                         _belief = _entry_action.belief_state
                         _band = _entry_action.band_context
                         _network_tp = _entry_action.network_tp
@@ -2162,6 +2172,8 @@ class Trainer:
             _pp_enabled=_pp_enabled, _pp_flip_count=_pp_flip_count,
             _pp_all_trades=_pp_all_trades,
             _trade_replays=_trade_replays,
+            n_peak_reversal=n_peak_reversal,
+            n_peak_traded=n_peak_traded,
             _NINJATRADER_MNQ_MARGIN=_NINJATRADER_MNQ_MARGIN,
         )
 
@@ -2930,6 +2942,8 @@ class Trainer:
         _pp_enabled, _pp_flip_count, _pp_all_trades,
         _NINJATRADER_MNQ_MARGIN,
         _trade_replays=None,
+        n_peak_reversal=0,
+        n_peak_traded=0,
     ):
         """Generate forward pass reports, save CSVs, run analytics, save snapshot."""
         # Final Report
@@ -3168,6 +3182,10 @@ class Trainer:
         _sec['skip_reasons'] = len(report_lines)
         report_lines.append("")
         report_lines.append(f"  WHY SIGNALS WERE SKIPPED  (total candidates evaluated: {n_signals_seen:,})")
+        if n_peak_reversal > 0:
+            report_lines.append(f"    PEAK_REVERSAL candidates: {n_peak_reversal:>9,}  "
+                                f"(traded: {n_peak_traded}, "
+                                f"rejected: {n_peak_reversal - n_peak_traded})")
         if n_signals_seen > 0:
             _pct_s = lambda n: f"{n/n_signals_seen*100:.1f}%"
             report_lines.append(f"    Pattern Quality  (no match/noise/struct): {skip_headroom:>6,}  ({_pct_s(skip_headroom)})")
