@@ -1258,25 +1258,7 @@ class ProgressPopup:
             from PIL import ImageGrab
             self.root.update_idletasks()
             # Get the HWND and use it for exact window rect (handles DPI scaling)
-            # Bring window to front, then grab by geometry string
-            self.root.lift()
-            self.root.update()
-            # Parse geometry: WxH+X+Y
-            geo = self.root.winfo_geometry()  # e.g. "620x880+60+60"
-            import re as _re
-            m = _re.match(r'(\d+)x(\d+)\+(-?\d+)\+(-?\d+)', geo)
-            if m:
-                w, h, x, y = int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4))
-                # Content area starts at rootx/rooty, but window frame is larger
-                # Use rootx/rooty for content origin, add frame padding
-                rx, ry = self.root.winfo_rootx(), self.root.winfo_rooty()
-                # Frame extends above (title bar) and around (borders)
-                frame_left = rx - x
-                frame_top = ry - y
-                img = ImageGrab.grab(bbox=(
-                    x, y, x + w + frame_left * 2, y + h + frame_top + frame_left))
-            else:
-                img = ImageGrab.grab()  # full screen fallback
+            img = ImageGrab.grab(all_screens=True)
             img.save(_path)
             self._status_var.set(f"Screenshot: {_path}")
             print(f"  [SCREENSHOT] {_path}")
