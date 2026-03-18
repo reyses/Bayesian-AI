@@ -1167,11 +1167,11 @@ class ExecutionEngine:
         if pp_dir_override is not None:
             return pp_dir_override, 0.65, 'pp_override'
 
-        # ── Priority -0.5: Brain dir_bias (H0/H1 counterfactual learned) ──
+        # ── Brain dir_bias: moved into voting system (was pre-empting all votes) ──
+        # Previously returned immediately at Priority -0.5, bypassing all 8 voters.
+        # OOS showed 99.8% SHORT in a balanced market because brain overrode DMI.
+        # Now participates as one vote among many.
         _learned_bias = self.get_live_dir_bias(tid)
-        if _learned_bias is not None:
-            _p = 0.60 if _learned_bias == 'long' else 0.40
-            return _learned_bias, _p, 'brain_bias'
 
         # ── Priority 0.3: Live momentum (velocity+accel, live/replay only) ──
         if self.mode in ('live', 'replay'):
@@ -1191,6 +1191,16 @@ class ExecutionEngine:
         _votes_long = 0.0    # weighted long score
         _votes_short = 0.0   # weighted short score
         _sources = []
+
+        # Vote 0: Brain dir_bias (historical, ONE vote not a veto)
+        if _learned_bias is not None:
+            _w = _cfg.dir_brain_weight  # same weight as other brain signals
+            _conf = 0.6  # moderate confidence — historical, not current
+            if _learned_bias == 'long':
+                _votes_long += _w * _conf
+            else:
+                _votes_short += _w * _conf
+            _sources.append('brain_bias')
 
         # Vote 1: Signed MFE regression (highest-trained signal)
         _smfe_coeff = lib_entry.get('signed_mfe_coeff')
