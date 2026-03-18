@@ -1,0 +1,161 @@
+================================================================================
+  OOS3 PARITY REPORT — OOS2 (inline) vs OOS3 (BarProcessor)
+  Generated: 2026-03-18 06:54:05
+  Target: last 5 trading days
+================================================================================
+
+  Metric                           OOS2           OOS3          Delta
+  ---------------------- -------------- -------------- --------------
+  Trades                             73             80             +7
+  Win Rate                        60.3%          57.5%          -2.8%
+  Total PnL              $     -112.45 $      487.22 $     +599.67
+  Avg Trade              $       -1.54 $        6.09 $       +7.63
+  Gross Win                             $    1,099.92
+  Gross Loss                            $      612.70
+  Profit Factor                                   1.80
+  Max Drawdown                          $      130.13
+  Max Consec Losses                                  4
+
+================================================================================
+  EXIT REASON BREAKDOWN (OOS3)
+================================================================================
+  Reason              Trades   Win%    Gross Win   Gross Loss      Net PnL       Avg
+  ------------------ ------- ------ ------------ ------------ ------------ ---------
+  v_reversal               3   100% $    211.34 $      0.00 $   +211.34 $  +70.45
+  stop_loss               13   100% $    195.73 $      0.00 $   +195.73 $  +15.06
+  peak_giveback           30    47% $    338.20 $    236.19 $   +102.01 $   +3.40
+  survival_stop            4   100% $     33.78 $      0.00 $    +33.78 $   +8.45
+  envelope_decay           1   100% $     11.14 $      0.00 $    +11.14 $  +11.14
+  regime_decay            15    40% $    189.73 $    178.69 $    +11.03 $   +0.74
+  survival_flatline        1   100% $      9.96 $      0.00 $     +9.96 $   +9.96
+  death_hook               2    50% $      9.32 $      2.74 $     +6.58 $   +3.29
+  belief_flip              7    43% $    100.71 $    101.68 $     -0.97 $   -0.14
+  tidal_wave               4     0% $      0.00 $     93.40 $    -93.40 $  -23.35
+
+================================================================================
+  DIRECTION BREAKDOWN (OOS3)
+================================================================================
+  long       11 trades  WR=55%  PnL=$    +14.42  Avg=$   +1.31
+  short      69 trades  WR=58%  PnL=$   +472.80  Avg=$   +6.85
+
+  DIRECTION SOURCE DISTRIBUTION
+    vote_S(dmi+vel): 19 (23.8%)
+    vote_L(dmi+vel): 13 (16.2%)
+    vote_S(vel): 10 (12.5%)
+    vote_S(band+dmi+vel): 9 (11.2%)
+    brain_bias: 8 (10.0%)
+    vote_L(band+dmi+vel): 5 (6.2%)
+    vote_S(template+band+dmi): 4 (5.0%)
+    vote_S(smfe+template+band): 3 (3.8%)
+    vote_S(template+dmi+vel): 2 (2.5%)
+    vote_S(smfe+logistic+template): 2 (2.5%)
+    vote_S(band+vel): 2 (2.5%)
+    vote_L(smfe+logistic+template): 1 (1.2%)
+    vote_S(smfe+template+dmi): 1 (1.2%)
+    vote_L(vel): 1 (1.2%)
+
+================================================================================
+  PER-DAY COMPARISON
+================================================================================
+  Date          OOS2_T    OOS2_PnL  OOS3_T    OOS3_PnL       Delta
+  ------------ ------- ----------- ------- ----------- -----------
+  2026-03-09        11 $    19.55       0 $     0.00 $   -19.55
+  2026-03-12         0 $     0.00       0 $     0.00 $    +0.00
+  2026-03-13        36 $   -93.50      48 $   391.94 $  +485.44
+  2026-03-16        18 $   -43.00      30 $    85.44 $  +128.44
+  2026-03-17         8 $     4.50       2 $     9.84 $    +5.34
+
+================================================================================
+  TRADE LOG (OOS3)
+================================================================================
+    #  Side        Entry       Exit        PnL Reason              Bars DirSrc      
+  ---------------------------------------------------------------------------
+    1  short   24,819.00  24,817.75 $    +2.77 survival_stop         77 vote_S(template+dmi+vel)
+    2  short   24,827.75  24,827.25 $    +0.94 belief_flip            1 vote_S(smfe+template+band)
+    3  short   24,831.00  24,796.75 $   +68.86 v_reversal            21 vote_S(template+band+dmi)
+    4  short   24,790.25  24,791.75 $    -2.80 peak_giveback          9 vote_S(smfe+template+band)
+    5  short   24,773.50  24,774.50 $    -2.41 peak_giveback          5 vote_S(template+band+dmi)
+    6  long    24,626.00  24,631.25 $   +10.98 peak_giveback         12 vote_S(smfe+logistic+template)
+    7  long    24,797.50  24,796.00 $    -2.74 death_hook            10 vote_S(template+band+dmi)
+    8  short   24,933.75  24,967.00 $   -66.21 peak_giveback          3 vote_L(dmi+vel)
+    9  short   24,977.25  24,983.25 $   -12.37 peak_giveback          3 vote_L(dmi+vel)
+   10  short   24,970.00  24,960.62 $   +18.70 stop_loss              2 vote_S(dmi+vel)
+   11  short   24,963.50  24,968.50 $   -10.13 tidal_wave             1 vote_L(dmi+vel)
+   12  short   24,993.50  24,997.00 $    -6.57 peak_giveback          3 vote_L(dmi+vel)
+   13  short   24,965.50  24,958.75 $   +13.64 peak_giveback         11 vote_S(smfe+template+band)
+   14  short   24,941.00  24,936.50 $    +9.32 death_hook             9 vote_S(band+dmi+vel)
+   15  short   24,897.25  24,883.75 $   +26.94 belief_flip           11 vote_L(smfe+logistic+template)
+   16  short   24,884.00  24,894.00 $   -20.27 peak_giveback          4 vote_S(band+dmi+vel)
+   17  short   24,884.00  24,891.00 $   -13.95 peak_giveback          3 vote_S(dmi+vel)
+   18  short   24,893.00  24,887.50 $   +10.56 stop_loss              5 vote_L(dmi+vel)
+   19  short   24,900.50  24,864.25 $   +72.83 belief_flip            7 brain_bias  
+   20  short   24,880.00  24,882.25 $    -4.37 regime_decay           2 vote_S(dmi+vel)
+   21  short   24,887.75  24,843.25 $   +89.26 regime_decay           5 vote_S(vel) 
+   22  short   24,832.50  24,823.75 $   +17.35 stop_loss              2 vote_S(dmi+vel)
+   23  short   24,820.50  24,815.25 $   +10.97 stop_loss              3 vote_S(dmi+vel)
+   24  short   24,808.50  24,807.75 $    +1.89 peak_giveback          3 vote_S(dmi+vel)
+   25  short   24,790.00  24,783.75 $   +12.78 stop_loss              3 vote_S(dmi+vel)
+   26  short   24,778.00  24,779.00 $    -2.31 peak_giveback          3 vote_S(vel) 
+   27  short   24,784.75  24,779.00 $   +11.47 peak_giveback          7 vote_S(dmi+vel)
+   28  short   24,765.25  24,758.50 $   +13.04 stop_loss              3 vote_S(band+dmi+vel)
+   29  short   24,745.50  24,715.00 $   +60.65 peak_giveback          8 vote_S(band+dmi+vel)
+   30  short   24,701.75  24,712.75 $   -21.82 regime_decay           1 vote_L(band+dmi+vel)
+   31  short   24,707.00  24,682.00 $   +50.24 regime_decay           2 vote_S(band+vel)
+   32  short   24,685.00  24,689.00 $    -7.53 regime_decay           1 vote_L(band+dmi+vel)
+   33  short   24,684.25  24,698.75 $   -29.17 belief_flip            7 vote_L(dmi+vel)
+   34  short   24,733.25  24,743.50 $   -20.63 peak_giveback          9 vote_S(dmi+vel)
+   35  short   24,756.75  24,761.50 $    -9.53 peak_giveback          3 vote_L(dmi+vel)
+   36  short   24,774.25  24,765.25 $   +17.69 stop_loss              6 vote_L(dmi+vel)
+   37  short   24,740.00  24,686.50 $  +106.63 v_reversal            17 vote_S(dmi+vel)
+   38  short   24,676.75  24,688.50 $   -23.52 peak_giveback         14 vote_S(dmi+vel)
+   39  short   24,674.50  24,636.00 $   +76.73 peak_giveback         22 vote_S(dmi+vel)
+   40  short   24,618.00  24,621.00 $    -5.83 peak_giveback          5 vote_S(dmi+vel)
+   41  short   24,638.00  24,630.88 $   +14.19 stop_loss              6 vote_L(dmi+vel)
+   42  short   24,652.50  24,641.75 $   +21.83 peak_giveback          4 vote_S(template+dmi+vel)
+   43  short   24,666.50  24,658.25 $   +16.70 stop_loss              9 vote_S(dmi+vel)
+   44  short   24,638.00  24,671.25 $   -66.69 tidal_wave             4 vote_S(band+dmi+vel)
+   45  short   24,662.50  24,665.00 $    -4.67 regime_decay          15 vote_S(band+dmi+vel)
+   46  short   24,646.75  24,642.25 $    +9.30 peak_giveback          7 brain_bias  
+   47  short   24,610.00  24,608.50 $    +2.89 peak_giveback          5 vote_S(band+dmi+vel)
+   48  short   24,605.00  24,626.75 $   -43.71 belief_flip           17 vote_S(dmi+vel)
+   49  short   24,723.50  24,721.25 $    +4.68 peak_giveback          6 brain_bias  
+   50  short   24,735.75  24,730.00 $   +11.14 envelope_decay        42 vote_S(template+band+dmi)
+   51  long    24,740.00  24,728.50 $   -23.30 belief_flip            9 vote_L(band+dmi+vel)
+   52  long    24,730.00  24,727.50 $    -5.49 belief_flip            5 vote_L(dmi+vel)
+   53  long    24,723.75  24,726.75 $    +6.29 survival_stop         18 vote_L(dmi+vel)
+   54  long    24,768.00  24,772.00 $    +8.16 regime_decay           2 vote_L(band+dmi+vel)
+   55  short   24,781.75  24,785.75 $    -7.79 regime_decay           4 vote_S(smfe+logistic+template)
+   56  short   24,779.50  24,787.25 $   -15.22 peak_giveback          6 vote_S(band+dmi+vel)
+   57  short   24,762.25  24,757.25 $    +9.96 survival_flatline     10 brain_bias  
+   58  short   24,720.25  24,718.25 $    +4.07 peak_giveback         21 brain_bias  
+   59  short   24,730.00  24,732.25 $    -4.86 tidal_wave            14 brain_bias  
+   60  short   24,733.25  24,740.50 $   -14.89 regime_decay           9 brain_bias  
+   61  short   24,765.75  24,734.50 $   +62.67 peak_giveback         19 brain_bias  
+   62  short   24,921.25  24,921.50 $    -0.53 peak_giveback          8 vote_S(smfe+template+dmi)
+   63  short   24,915.00  24,905.50 $   +19.07 regime_decay           1 vote_S(vel) 
+   64  short   24,903.75  24,894.75 $   +18.26 peak_giveback          6 vote_S(vel) 
+   65  short   24,890.75  24,871.25 $   +39.13 peak_giveback          4 vote_S(vel) 
+   66  short   24,851.50  24,861.50 $   -19.95 peak_giveback          4 vote_S(band+vel)
+   67  short   24,854.75  24,846.25 $   +17.06 survival_stop         13 vote_S(vel) 
+   68  short   24,908.00  24,899.25 $   +17.30 stop_loss              8 vote_L(dmi+vel)
+   69  short   24,892.50  24,899.25 $   -13.97 regime_decay           3 vote_S(vel) 
+   70  short   24,895.00  24,893.50 $    +2.94 regime_decay           2 vote_S(vel) 
+   71  short   24,872.75  24,863.25 $   +18.71 stop_loss              2 vote_S(vel) 
+   72  short   24,856.00  24,863.00 $   -14.09 peak_giveback          4 vote_S(dmi+vel)
+   73  short   24,857.50  24,839.75 $   +35.85 v_reversal             7 vote_S(dmi+vel)
+   74  short   24,853.25  24,846.62 $   +12.98 stop_loss              3 vote_S(dmi+vel)
+   75  short   24,846.00  24,892.50 $   -93.44 regime_decay          49 vote_S(vel) 
+   76  long    24,898.50  24,892.75 $   -11.72 tidal_wave             4 vote_L(vel) 
+   77  long    24,894.50  24,901.97 $   +14.74 stop_loss              5 vote_L(dmi+vel)
+   78  long    24,872.75  24,876.50 $    +7.66 survival_stop         85 vote_S(dmi+vel)
+   79  long    24,802.25  24,812.25 $   +20.06 regime_decay           9 vote_S(band+dmi+vel)
+   80  long    24,838.25  24,833.00 $   -10.22 regime_decay          27 vote_L(band+dmi+vel)
+  ---------------------------------------------------------------------------
+                              TOTAL $  +487.22
+
+================================================================================
+  PARITY VERDICT
+================================================================================
+  Status: PASSED
+
+================================================================================
