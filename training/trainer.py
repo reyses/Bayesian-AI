@@ -1568,7 +1568,7 @@ class Trainer:
 
                 _should_check_entry = (not current_position_open and not _in_maintenance
                                        and ((_has_discovery_signal or _has_peak_signal) if not oos_mode
-                                            else (_has_compressed_signal or _has_peak_signal)))
+                                            else _has_compressed_signal))
 
                 if _should_check_entry:
                     _candidate_gate = {}    # id(p) -> gate label (for FN audit)
