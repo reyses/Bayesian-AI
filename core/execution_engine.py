@@ -673,6 +673,7 @@ class ExecutionEngine:
             tid = _forced_tid
             dist = 0.0  # forced match — no distance penalty
             lib_entry = self.pattern_library[tid]
+            feat_scaled = self.scaler.transform(_feat_2d)  # still needed for _GateResult
         else:
             feat_scaled = self.scaler.transform(_feat_2d)
             dists = np.linalg.norm(self.centroids_scaled - feat_scaled, axis=1)
