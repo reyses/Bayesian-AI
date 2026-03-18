@@ -5,14 +5,14 @@
 
 | File | Lines | Main Class/Function | Purpose |
 |------|------:|---------------------|---------|
-| `core/statistical_field_engine.py` | 489 | `StatisticalFieldEngine` | GPU-accelerated OLS regression bands, z-scores, OU probabilities, forces, entropy per bar |
-| `core/market_state.py` | 255 | `MarketState` (frozen) | 50+ field snapshot: bands, z-score, velocity, forces, probabilities, ADX/DMI, Hurst |
-| `core/fractal_clustering.py` | 651 | `FractalClusteringEngine` | Recursive K-Means → 100-1000 templates with per-template OLS/logistic models |
-| `core/execution_engine.py` | 976 | `ExecutionEngine` | Gate cascade (0-4), direction cascade, sizing. Single source for IS/OOS/live |
-| `core/exit_engine.py` | 710 | `ExitEngine`, `PositionState`, `make_position()` | Unified exit cascade: SL→TP→BandUrgent→EnvelopeDecay→PeakGiveback→BreakevenLock→BeliefFlip→Hold |
+| `core/statistical_field_engine.py` | 514 | `StatisticalFieldEngine` | GPU-accelerated OLS regression bands, z-scores, OU probabilities, forces, entropy per bar |
+| `core/market_state.py` | 262 | `MarketState` (frozen) | 50+ field snapshot: bands, z-score, velocity, forces, probabilities, ADX/DMI, Hurst |
+| `core/fractal_clustering.py` | 803 | `FractalClusteringEngine` | Recursive K-Means → 100-1000 templates with per-template OLS/logistic models |
+| `core/execution_engine.py` | 1381 | `ExecutionEngine` | Gate cascade (0-4), direction cascade, sizing. Single source for IS/OOS/live |
+| `core/exit_engine.py` | 613 | `ExitEngine`, `PositionState`, `make_position()` | Unified exit cascade: SL→TP→BandUrgent→EnvelopeDecay→PeakGiveback→BreakevenLock→BeliefFlip→Hold |
 | `core/feature_extraction.py` | 53 | `extract_feature_vector()` | Canonical 16D feature vector (single source of truth) |
-| `core/timeframe_belief_network.py` | 1018 | `TimeframeBeliefNetwork` | 11 TF workers (1s→1D), path conviction, band confluence, direction models |
-| `core/bayesian_brain.py` | 298 | `BayesianBrain` | Hash table: state_key → {wins, losses}. Direction learning per template |
+| `core/timeframe_belief_network.py` | 1447 | `TimeframeBeliefNetwork` | 11 TF workers (1s→1D), path conviction, band confluence, direction models |
+| `core/bayesian_brain.py` | 348 | `BayesianBrain` | Hash table: state_key → {wins, losses}. Direction learning per template |
 
 ## Core Support
 
