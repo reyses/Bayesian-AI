@@ -53,7 +53,17 @@ class TrailingStop:
             return
 
         # Trail distance: keep trail_pct of profit locked in
+        # Cascade mode: if strong trend (Hurst > 0.55 + ADX > 30), widen trail
+        # to let the move develop. Normal days: tight trail captures small profits.
+        # Research: Feb 9 resonance cascade = $27K from wide trail on trend day.
         trail_pct = self.trail_pct_long if pos.side == 'long' else self.trail_pct_short
+
+        # Check for cascade conditions via position's DMI confirmation
+        if pos.dmi_direction_confirmed and mfe_ticks > _activation * 1.5:
+            # Trade confirmed + well past activation = trending strongly
+            # Reduce trail_pct by 30% → let more profit run
+            trail_pct *= 0.70
+
         trail_ticks = max(self.buffer_ticks, mfe_ticks * trail_pct)
         trail_distance = trail_ticks * tick_size
 
