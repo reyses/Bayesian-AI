@@ -1679,14 +1679,15 @@ class Trainer:
                                 features=_wfeat,
                             ))
                         raw_candidates = []  # compressed mode — no PatternEvents (no lookahead)
-                    # Peak detection fallback: if no pattern candidates but peak signal fired
-                    if not _eng_candidates and _has_peak_signal:
+                    # Peak detection: always add peak candidate when signal fires
+                    # (competes with compressed candidates in gate cascade)
+                    if _has_peak_signal:
                         _bar_state_p = _states_map.get(_bar_i)
                         if _bar_state_p is not None:
                             _feat = _feat_extractor.extract_features_from_state(_bar_state_p) \
                                 if hasattr(_feat_extractor, 'extract_features_from_state') \
                                 else [0.0] * 22
-                            _eng_candidates = [Candidate(
+                            _eng_candidates.append(Candidate(
                                 state=_bar_state_p,
                                 depth=8,
                                 timeframe='15s',
@@ -1695,7 +1696,7 @@ class Trainer:
                                 z_score=getattr(_bar_state_p, 'z_score', 0.0),
                                 features=np.array([_feat]),
                                 forced_template_id=-100,
-                            )]
+                            ))
 
                     # Track peak reversal candidates
                     _is_peak_entry = any(getattr(c, 'pattern_type', '') == 'PEAK_REVERSAL'
