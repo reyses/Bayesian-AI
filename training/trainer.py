@@ -1111,8 +1111,15 @@ class Trainer:
                 ts = int(ts_raw) // 60 * 60
                 price = getattr(row, 'close', getattr(row, 'price', 0.0))
 
-                # Feed price + DMI to dashboard chart (1 real second throttle)
                 _now_wall = __import__('time').time()
+
+                # Belief network: tick all workers (event-driven by TF bar change)
+                # 1h worker updates once per 240 bars; 15s worker updates every bar
+                # _warmup_offset > 0 on first OOS file: IS data prepended to TBN states,
+                # so bar_i=0 in OOS needs to point to states[_warmup_offset].
+                belief_network.tick_all(_bar_i + _warmup_offset)
+
+                # Feed price + DMI to dashboard (AFTER tick_all so workers are current)
                 if (self.dashboard_queue is not None
                         and _now_wall - getattr(self, '_last_dash_tick', 0) >= 1.0):
                     self._last_dash_tick = _now_wall
@@ -1129,12 +1136,6 @@ class Trainer:
                         'type': 'TICK_UPDATE', 'price': price,
                         'dmi_plus': round(_dmi_p, 2),
                         'dmi_minus': round(_dmi_m, 2)})
-
-                # Belief network: tick all workers (event-driven by TF bar change)
-                # 1h worker updates once per 240 bars; 15s worker updates every bar
-                # _warmup_offset > 0 on first OOS file: IS data prepended to TBN states,
-                # so bar_i=0 in OOS needs to point to states[_warmup_offset].
-                belief_network.tick_all(_bar_i + _warmup_offset)
 
                 # PID ANALYZER TICK
                 _pid_state = _states_map.get(_bar_i - 1)
