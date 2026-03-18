@@ -1,5 +1,5 @@
 """
-Data Feeder — source-agnostic bar provider for the trading engine.
+Data Feeder  -- source-agnostic bar provider for the trading engine.
 
 The engine doesn't know or care where bars come from.
 ParquetFeeder reads ATLAS files. NT8Feeder (future) receives socket messages.
@@ -7,7 +7,7 @@ Same engine.feed_bar() call regardless of source.
 """
 import os
 from pathlib import Path
-from typing import Iterator, Dict, Optional
+from typing import Iterator, Dict
 
 import pandas as pd
 
@@ -115,7 +115,7 @@ class ContinuousFeeder(BarFeeder):
                 bar['_phase'] = phase_name
                 yield bar
 
-            # Phase complete — run checkpoint callback if registered
+            # Phase complete  -- run checkpoint callback if registered
             cb = self._phase_callbacks.get(phase_name)
             if cb:
                 cb(phase_name)

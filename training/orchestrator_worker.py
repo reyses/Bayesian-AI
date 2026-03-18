@@ -1,10 +1,9 @@
 
 import time
 import numpy as np
-from typing import Any, Dict, Optional, List, Tuple
+from typing import Any, Dict, Optional, Tuple
 from numba import jit
 from core.bayesian_brain import TradeOutcome
-from training.doe_parameter_generator import DOEParameterGenerator
 from config.settings import DEFAULT_BASE_SLIPPAGE, DEFAULT_VELOCITY_SLIPPAGE_FACTOR
 from config.oracle_config import MARKER_NOISE
 from core.physics_utils import extract_dominant_cycle, calculate_kinetic_damping

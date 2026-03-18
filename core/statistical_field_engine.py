@@ -13,7 +13,6 @@ from scipy.special import erfi
 
 from core.market_state import MarketState
 from core.pattern_utils import (
-    PATTERN_NONE, PATTERN_COMPRESSION, PATTERN_WEDGE, PATTERN_BREAKDOWN,
     detect_geometric_patterns_vectorized, detect_candlestick_patterns_vectorized
 )
 
@@ -47,7 +46,7 @@ logger = logging.getLogger(__name__)
 
 class StatisticalFieldEngine:
     """
-    Unified statistical field calculator — GPU-accelerated when CUDA available.
+    Unified statistical field calculator  -- GPU-accelerated when CUDA available.
     Computes regression bands, z-scores, mean-reversion forces, probability
     distributions, and pattern flags from price data.
     """
@@ -412,7 +411,7 @@ class StatisticalFieldEngine:
         cond_upper_extreme = z_scores >= 2.0
 
         # Default is LOWER_EXTREME (z <= -2.0)
-        # 'CHAOS' = transition zone (1σ < |z| < 2σ) — name is historical, do not rename
+        # 'CHAOS' = transition zone (1σ < |z| < 2σ)  -- name is historical, do not rename
         # (renaming would invalidate all BayesianBrain hash keys)
         band_zone_arr = np.select(
             [cond_stable, cond_chaos, cond_upper_extreme],

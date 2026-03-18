@@ -1,5 +1,5 @@
 """
-Shared Bar Processor — single per-bar decision loop.
+Shared Bar Processor  -- single per-bar decision loop.
 
 Replaces duplicated bar-processing logic across:
   - training/trainer.py (OOS compressed path)
@@ -15,7 +15,7 @@ Callers provide fully initialized engines via engine_factory.py.
 Context-specific side effects are injected via BarProcessorHooks.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Callable, Optional
 
 import numpy as np
@@ -242,7 +242,7 @@ class BarProcessor:
         """Process one bar. Returns BarResult with action and optional trade.
 
         Args:
-            state:      Current bar's MarketState — used for BOTH entry candidates
+            state:      Current bar's MarketState  -- used for BOTH entry candidates
                         (pattern_type, z_score, features) AND exit evaluation
                         (net_force, noise_ticks). Matches inline OOS behavior.
             exit_state: Optional override for exit evaluation. Usually omitted
@@ -259,13 +259,13 @@ class BarProcessor:
             # 1. Tick TBN workers (only on anchor bars, not sub-bar ticks)
             self.belief_network.tick_all(bar_index)
 
-        # 2. If in position → exit evaluation
+        # 2. If in position -> exit evaluation
         if self.exec_engine.in_position:
             _es = exit_state if exit_state is not None else state
             return self._process_exit(
                 bar_index, price, bar_high, bar_low, timestamp, _es)
 
-        # 3. If flat and not exit_only → entry evaluation
+        # 3. If flat and not exit_only -> entry evaluation
         if exit_only:
             return BarResult(action=TradeAction(type=ActionType.HOLD))
 
@@ -351,7 +351,7 @@ class BarProcessor:
                     candidates_built=n_candidates,
                 )
 
-        # Open position via EE (pass network_tp for TP fallback — FIX #2)
+        # Open position via EE (pass network_tp for TP fallback  -- FIX #2)
         self.exec_engine.position_opened(
             side=action.side,
             price=action.price,
@@ -398,7 +398,7 @@ class BarProcessor:
 
     def _handle_exit(self, action: TradeAction, bar_index: int,
                      price: float, timestamp: float) -> BarResult:
-        """Handle EXIT action — record trade, clean up."""
+        """Handle EXIT action  -- record trade, clean up."""
         entry = self._current_entry
         pnl_ticks = getattr(action, 'pnl_ticks', 0)
         pnl_dollars = pnl_ticks * self._tick_size * self._point_value
@@ -410,7 +410,7 @@ class BarProcessor:
         bars_held = bar_index - entry['entry_bar']
         exit_reason = getattr(action, 'exit_reason', 'unknown')
 
-        # Record trade in brain — use actual fill price
+        # Record trade in brain  -- use actual fill price
         _fill_price = getattr(action, 'price', price)
         outcome = record_trade(
             self.brain,

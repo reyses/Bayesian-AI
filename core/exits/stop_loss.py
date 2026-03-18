@@ -1,4 +1,4 @@
-"""Stop Loss — hard stop at absolute price level."""
+"""Stop Loss  -- hard stop at absolute price level."""
 from core.exit_engine import ExitAction, ExitResult, PositionState
 
 

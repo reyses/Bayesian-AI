@@ -1,5 +1,5 @@
 """
-Shared checkpoint loader — used by both trainer.py and live_engine.py.
+Shared checkpoint loader  -- used by both trainer.py and live_engine.py.
 
 Loads the common artifacts (library, scaler, tiers, depth weights, centroids)
 from a checkpoint directory and returns a CheckpointBundle.
@@ -13,13 +13,13 @@ import os
 import pickle
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Set, Optional
+from typing import Dict, List, Set
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
 
-# Quality gate thresholds — templates that fail ANY are excluded from trading
+# Quality gate thresholds  -- templates that fail ANY are excluded from trading
 QUALITY_MIN_MEMBERS  = 10    # minimum cluster members to trust the statistics
 QUALITY_MIN_WIN_RATE = 0.55  # minimum historical win rate
 QUALITY_MAX_SIGMA    = 10.0  # maximum regression sigma in ticks
@@ -74,11 +74,11 @@ def load_checkpoints(checkpoint_dir: str, *, verbose: bool = True) -> Checkpoint
         if isinstance(_n_feat, int) and _n_feat not in (16, 22):
             logger.warning(f"  [WARN] Unexpected scaler dimensionality: {_n_feat} (expected 16 or 22)")
         if isinstance(_n_feat, int) and _n_feat == 22:
-            _log(f"  [info] Scaler expects 22D (--lookback mode) — features will be auto-padded if needed")
+            _log(f"  [info] Scaler expects 22D (--lookback mode)  -- features will be auto-padded if needed")
     else:
         # Fallback: fit on library centroids (identity-like transform)
         from sklearn.preprocessing import StandardScaler
-        logger.warning("  clustering_scaler.pkl not found — reconstructing from centroids")
+        logger.warning("  clustering_scaler.pkl not found  -- reconstructing from centroids")
         _cents = [v['centroid'] for v in pattern_library.values() if 'centroid' in v]
         if _cents:
             scaler = StandardScaler().fit(np.array(_cents))
@@ -86,7 +86,7 @@ def load_checkpoints(checkpoint_dir: str, *, verbose: bool = True) -> Checkpoint
             raise FileNotFoundError("No centroids in library and no scaler")
 
     if not pattern_library:
-        raise ValueError("Pattern library is empty — nothing to simulate")
+        raise ValueError("Pattern library is empty  -- nothing to simulate")
 
     # ── Valid template IDs (must have centroids) ─────────────────────
     _all_tids = [tid for tid in pattern_library if 'centroid' in pattern_library[tid]]
@@ -113,7 +113,7 @@ def load_checkpoints(checkpoint_dir: str, *, verbose: bool = True) -> Checkpoint
          f"(>={QUALITY_MIN_MEMBERS} members, WR>={QUALITY_MIN_WIN_RATE:.0%}, "
          f"sigma<={QUALITY_MAX_SIGMA} ticks)")
     if not valid_tids:
-        raise ValueError("All templates rejected by quality filter — "
+        raise ValueError("All templates rejected by quality filter  -- "
                          "lower thresholds or rebuild library with --fresh")
 
     # ── Template tiers ───────────────────────────────────────────────

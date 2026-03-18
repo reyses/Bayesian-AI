@@ -1,4 +1,4 @@
-"""Peak Giveback — exit when trade retraces too far from MFE peak.
+"""Peak Giveback  -- exit when trade retraces too far from MFE peak.
 
 Currently uses static tiered thresholds + self-tuning.
 Future: physics-based dynamic thresholds from a separate peak module.
@@ -64,16 +64,16 @@ class PeakGiveback:
         # 1. Peak detected via bars_since_peak (P_center + F_momentum change at +1 bar)
         #    83% detection rate, 85% precision, 0% false alarm (IS validated)
         # 2. After peak: check post-peak bar characteristics
-        #    - Range expanding (>1.2x pre-peak): danger, tighten (IS 75% → OOS 67% WR)
-        #    - Range shrinking (<0.8x): safe, hold (IS 87% → OOS 84% WR)
-        #    - Volume collapse (post < 50% pre): move done (IS 88% → OOS confirmed)
+        #    - Range expanding (>1.2x pre-peak): danger, tighten (IS 75% -> OOS 67% WR)
+        #    - Range shrinking (<0.8x): safe, hold (IS 87% -> OOS 84% WR)
+        #    - Volume collapse (post < 50% pre): move done (IS 88% -> OOS confirmed)
         #    - Volume spike (post > 150% pre): counter-force, tighten (IS 55% WR)
         #
         _min_peak = self.min_mfe_ticks
         if pos.anchor_mfe_ticks > 0:
             _min_peak = max(_min_peak, pos.anchor_mfe_ticks * 0.20)
         if peak_ticks < _min_peak:
-            return None  # trade never reached projected peak — not giveback's job
+            return None  # trade never reached projected peak  -- not giveback's job
 
         gave_back = peak_ticks - current_ticks
         if gave_back <= 0:
@@ -95,11 +95,11 @@ class PeakGiveback:
 
             # Sensor fusion: both sensors agree = high confidence exit
             if _vel_flipped and _vol_collapsing:
-                _threshold_pct = 0.20  # both agree → exit fast (88% WR on vol collapse)
+                _threshold_pct = 0.20  # both agree -> exit fast (88% WR on vol collapse)
 
             # Fast sensor only: 1s velocity flipped but 1m hasn't confirmed
             elif _vel_flipped:
-                _threshold_pct = 0.35  # alert — tighten but wait for confirmation
+                _threshold_pct = 0.35  # alert  -- tighten but wait for confirmation
 
             # Slow sensor only: 1m volume collapsing but 1s hasn't flipped
             elif _vol_collapsing:
@@ -109,7 +109,7 @@ class PeakGiveback:
             if _adx_slope < -2.0:
                 _threshold_pct = min(_threshold_pct, 0.30)
 
-            # 15s execution TF flipped → tighten aggressively
+            # 15s execution TF flipped -> tighten aggressively
             if _exec_flip:
                 _threshold_pct = min(_threshold_pct, 0.25)
 
@@ -129,14 +129,14 @@ class PeakGiveback:
             )
 
         if not pos.dmi_direction_confirmed:
-            return None  # below threshold AND no DMI confirmation — hold
+            return None  # below threshold AND no DMI confirmation  -- hold
 
-        # Anchor patience: trade still developing — suppress if still in profit
+        # Anchor patience: trade still developing  -- suppress if still in profit
         # and hasn't reached expected peak within expected time.
         if (pos.anchor_mfe_ticks > 0 and pos.anchor_mfe_bars > 0
                 and pos.bars_held < pos.anchor_mfe_bars
                 and peak_ticks < pos.anchor_mfe_ticks * self._anchor_patience_pct
-                and current_ticks > 0):  # still in profit — patience OK
+                and current_ticks > 0):  # still in profit  -- patience OK
             return None
 
         threshold = self.get_threshold(peak_ticks, noise_ticks)
@@ -156,7 +156,7 @@ class PeakGiveback:
             if _adx_slope < -2.0 and threshold < 1.0:
                 threshold = max(0.25, threshold - 0.10)
 
-        # 15s execution-TF flip: micro structure reversed → tighten aggressively
+        # 15s execution-TF flip: micro structure reversed -> tighten aggressively
         # OOS validated: 66% of losses had 15s flip vs 44% of wins (+22% edge)
         if exit_signal is not None and exit_signal.get('exec_tf_flip') and threshold < 1.0:
             threshold = max(0.15, threshold * 0.5)  # halve threshold = exit faster

@@ -1,16 +1,16 @@
-"""Trailing Stop — ratchet SL behind peak favorable price once expected profit is reached.
+"""Trailing Stop  -- ratchet SL behind peak favorable price once expected profit is reached.
 
 Activation is based on per-template expected MFE (p75_mfe_ticks), not a fixed
 threshold. This lets trades develop to their statistical potential before
 protection kicks in.
 
 Once activated:
-  - SL moves to entry + (MFE * trail_pct) → locks in profit
-  - Only ratchets UP (longs) or DOWN (shorts) — never weakens
+  - SL moves to entry + (MFE * trail_pct) -> locks in profit
+  - Only ratchets UP (longs) or DOWN (shorts)  -- never weakens
 
 Direction-aware trailing:
-  SHORT cycle: sharp drop → gradual recovery (slow reversal)
-  LONG  cycle: gradual rise → sharp drop (fast reversal)
+  SHORT cycle: sharp drop -> gradual recovery (slow reversal)
+  LONG  cycle: gradual rise -> sharp drop (fast reversal)
   So longs get tighter trail to catch the sharp giveback.
 """
 from core.exit_engine import PositionState
@@ -34,7 +34,7 @@ class TrailingStop:
         self.trail_pct_long = trail_pct_long
 
     def apply(self, pos: PositionState, tick_size: float) -> None:
-        """Adjust pos.stop_loss in-place. No ExitResult — this is an SL adjustment."""
+        """Adjust pos.stop_loss in-place. No ExitResult  -- this is an SL adjustment."""
         if pos.side == 'long':
             mfe_ticks = (pos.peak_favorable - pos.entry_price) / tick_size
         else:
@@ -61,7 +61,7 @@ class TrailingStop:
         # Check for cascade conditions via position's DMI confirmation
         if pos.dmi_direction_confirmed and mfe_ticks > _activation * 1.5:
             # Trade confirmed + well past activation = trending strongly
-            # Reduce trail_pct by 30% → let more profit run
+            # Reduce trail_pct by 30% -> let more profit run
             trail_pct *= 0.70
 
         trail_ticks = max(self.buffer_ticks, mfe_ticks * trail_pct)

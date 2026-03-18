@@ -1,5 +1,5 @@
 """
-OrderManager — tracks order lifecycle, position state, and logs trades to CSV.
+OrderManager  -- tracks order lifecycle, position state, and logs trades to CSV.
 
 NT8 is the source of truth for position state.  The OrderManager keeps a
 local shadow that updates on FILL / POSITION messages from the bridge.
@@ -10,7 +10,7 @@ import logging
 import os
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, Dict
 
@@ -100,10 +100,10 @@ class OrderManager:
         Returns None if risk limits prevent it.
         """
         if self._daily_loss_limit_hit:
-            logger.warning("Daily loss limit hit — no new orders")
+            logger.warning("Daily loss limit hit  -- no new orders")
             return None
         if not self.is_flat:
-            logger.warning(f"Already in position ({self.position.side}) — skipping entry")
+            logger.warning(f"Already in position ({self.position.side})  -- skipping entry")
             return None
         if side not in ('BUY', 'SELL'):
             logger.error(f"Invalid side: {side}")
@@ -132,7 +132,7 @@ class OrderManager:
     def build_flip_order(self, reason: str = 'pp_flip') -> Optional[dict]:
         """Build a 2-contract PLACE_ORDER that closes + opens opposite in one shot.
 
-        SHORT 1 → BUY 2 = cover short + open long (instant flip).
+        SHORT 1 -> BUY 2 = cover short + open long (instant flip).
         Returns None if already flat.
         """
         if self.is_flat:
@@ -175,7 +175,7 @@ class OrderManager:
             logger.info(f"FILL entry: {self.position.side} @ {fill_px}")
             return None
         else:
-            # Exit fill — PnL uses position qty (1), NOT fill qty (may be 2 for flip)
+            # Exit fill  -- PnL uses position qty (1), NOT fill qty (may be 2 for flip)
             entry_px = self.position.avg_price
             exit_qty = self.position.qty
             if self.position.side == 'LONG':
@@ -235,14 +235,14 @@ class OrderManager:
         # Any rejected/cancelled order while we think we have a position = danger
         if status in ('Cancelled', 'Rejected') and not self.is_flat:
             self.exit_rejected = True
-            logger.error(f"ORDER REJECTED while in position: {oid} — will retry close")
+            logger.error(f"ORDER REJECTED while in position: {oid}  -- will retry close")
 
     def on_position(self, msg: dict):
         """Handle a POSITION snapshot from NT8 (source of truth)."""
         nt8_qty = int(msg.get('qty', 0))
         if nt8_qty == 0:
             if not self.is_flat:
-                logger.warning("NT8 says flat — syncing local state")
+                logger.warning("NT8 says flat  -- syncing local state")
             self.position = PositionState()
         else:
             side = 'LONG' if nt8_qty > 0 else 'SHORT'

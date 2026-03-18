@@ -1,4 +1,4 @@
-"""Take Profit — hard target at absolute price level."""
+"""Take Profit  -- hard target at absolute price level."""
 from core.exit_engine import ExitAction, ExitResult, PositionState
 
 

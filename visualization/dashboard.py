@@ -1,6 +1,6 @@
 """
 Fractal Command Center (Live Dashboard)
-DMAIC Analyze Layer — real-time Pareto of profit gap across all phases.
+DMAIC Analyze Layer  -- real-time Pareto of profit gap across all phases.
 """
 
 import tkinter as tk
@@ -400,7 +400,7 @@ class FractalDashboard:
         except queue.Empty:
             pass
         finally:
-            # Only reschedule while running — stops dangling callbacks after SHUTDOWN
+            # Only reschedule while running  -- stops dangling callbacks after SHUTDOWN
             if self._running:
                 self.root.after(500, self._process_queue)
 
@@ -693,7 +693,7 @@ class FractalDashboard:
 class ProgressPopup:
     """
     460x490 progress window with live PnL control chart.
-    Stays open after training completes — close manually when done.
+    Stays open after training completes  -- close manually when done.
     """
 
     _CHART_W = 420
@@ -825,7 +825,7 @@ class ProgressPopup:
             )
             self._netliq_lbl.grid(row=1, column=2, padx=14)
 
-        # Phase name (bold, amber) — e.g. "FORWARD PASS"
+        # Phase name (bold, amber)  -- e.g. "FORWARD PASS"
         self._phase_var = tk.StringVar(value="Initializing...")
         tk.Label(
             root,
@@ -835,7 +835,7 @@ class ProgressPopup:
             font=("Consolas", 11, "bold"),
         ).pack()
 
-        # Progress detail line — e.g. "Day 126 / 250" or sub-step name
+        # Progress detail line  -- e.g. "Day 126 / 250" or sub-step name
         self._step_var = tk.StringVar(value="")
         tk.Label(
             root, textvariable=self._step_var, bg=BG, fg=FG_GREY, font=("Consolas", 9)
@@ -851,7 +851,7 @@ class ProgressPopup:
         )
         self._pbar.pack(fill=tk.X, padx=20)
 
-        # Trade health label — shows position ticks or trade count
+        # Trade health label  -- shows position ticks or trade count
         self._pct_var = tk.StringVar(value="0%")
         self._pct_lbl = tk.Label(
             root,
@@ -1084,7 +1084,7 @@ class ProgressPopup:
             y = H - pad - ((v - mn) / span) * (H - 2 * pad)
             coords.extend([x, y])
 
-        # Neutral blue — no buy/sell connotation
+        # Neutral blue  -- no buy/sell connotation
         color = "#4A9EFF"
         c.create_line(coords, fill=color, width=2, smooth=True)
 
@@ -1171,7 +1171,7 @@ class ProgressPopup:
         except Exception as e:
             print(f"  [CHART] Price save failed: {e}")
 
-        # Save canvas as PostScript → convert if possible
+        # Save canvas as PostScript -> convert if possible
         try:
             _ps_path = os.path.join(_dir, f'chart_{_mode}_{_ts}.ps')
             self._price_canvas.postscript(file=_ps_path, colormode='color')
@@ -1263,7 +1263,7 @@ class ProgressPopup:
                 c.create_line(mx, pad, mx, H - pad, fill=mc, width=1, dash=(2, 2))
 
     def _on_aggression_change(self, val):
-        """Slider callback — update shared state so engine reads it."""
+        """Slider callback  -- update shared state so engine reads it."""
         v = int(val) / 100.0
         if self._shared_state is not None:
             self._shared_state['aggression'] = v
@@ -1273,7 +1273,7 @@ class ProgressPopup:
         self._agg_label_var.set(f"Aggression: {int(val)}% ({labels[nearest]})")
 
     def _manual_order(self, action: str):
-        """BUY/SELL/FLATTEN button callback — engine picks it up instantly.
+        """BUY/SELL/FLATTEN button callback  -- engine picks it up instantly.
 
         When in position, BUY/SELL visually show FLIP but still send the
         original action. Engine handles flatten + re-enter automatically.
@@ -1283,7 +1283,7 @@ class ProgressPopup:
             self._status_var.set(f"{action} sent...")
 
     def _take_screenshot(self):
-        """Capture full dashboard window as PNG — uses Win32 API for exact bounds."""
+        """Capture full dashboard window as PNG  -- uses Win32 API for exact bounds."""
         import os
         from datetime import datetime
         _dir = os.path.join('reports', 'screenshots')
@@ -1308,7 +1308,7 @@ class ProgressPopup:
             self._status_var.set(f"Screenshot failed: {e}")
 
     def _request_save(self):
-        """SAVE button — ask engine to prepare for shutdown."""
+        """SAVE button  -- ask engine to prepare for shutdown."""
         if self._shared_state is not None:
             self._shared_state['prepare_shutdown'] = True
             self._status_var.set("Preparing for shutdown...")
@@ -1328,7 +1328,7 @@ class ProgressPopup:
 
     # ── Queue polling ─────────────────────────────────────────────────────────
     def _poll(self):
-        # Detect mode change (IS → OOS) and reset chart
+        # Detect mode change (IS -> OOS) and reset chart
         if self._shared_state is not None:
             _new_mode = self._shared_state.get('mode', self._current_mode)
             if _new_mode != self._current_mode:
@@ -1396,17 +1396,17 @@ class ProgressPopup:
                     self._pbar["value"] = pct
                     # Bar label: trade life decay or entry belief
                     if step and step.startswith('WARN'):
-                        # Manual trade against belief — flash warning
+                        # Manual trade against belief  -- flash warning
                         self._pct_var.set(step)
                         self._pct_lbl.config(fg="#ff4444")
                     elif step and step.startswith('life'):
-                        # In position — trade life decaying 100% -> 0%
+                        # In position  -- trade life decaying 100% -> 0%
                         self._pct_var.set(step)
                         _clr = (FG_GREEN if pct >= 60 else
                                 "#ffaa00" if pct >= 30 else FG_RED)
                         self._pct_lbl.config(fg=_clr)
                     elif step and step.startswith('belief'):
-                        # Flat — entry belief charging up
+                        # Flat  -- entry belief charging up
                         self._pct_var.set(step)
                         _clr = ("#ffaa00" if pct >= 60 else
                                 "#888888" if pct >= 20 else "#444444")
@@ -1456,7 +1456,7 @@ class ProgressPopup:
 
                     if step == "FORWARD_PASS COMPLETE":
                         self._done = True
-                        self._status_var.set("COMPLETE — close window when ready")
+                        self._status_var.set("COMPLETE  -- close window when ready")
                         self._pct_var.set("100%")
                         self.root.attributes("-topmost", False)
                         # Save chart data + screenshot

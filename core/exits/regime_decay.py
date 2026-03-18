@@ -1,4 +1,4 @@
-"""Regime Decay Exit — exit when discovery TF's trend collapses.
+"""Regime Decay Exit  -- exit when discovery TF's trend collapses.
 
 Uses the trade's discovery TF for exit signal (not hardcoded 5m).
 Adjacent higher TF provides hold override: if macro trend still alive,
@@ -74,7 +74,7 @@ class RegimeDecayExit:
         # If the macro trend (next TF up) still agrees with trade direction,
         # suppress regime_decay. The chop on the discovery TF is micro noise.
         # ADAPTIVE: never-profitable trades (peak < 2t after 4+ bars) skip this
-        # override — there's nothing to protect, let regime_decay fire.
+        # override  -- there's nothing to protect, let regime_decay fire.
         if pos.side == 'long':
             _peak_t = (pos.peak_favorable - pos.entry_price) / tick_size
         else:
@@ -86,7 +86,7 @@ class RegimeDecayExit:
             _higher_tf_agrees = self._check_higher_tf(
                 belief_network, _disc_tf, pos.side)
         if _higher_tf_agrees:
-            return None  # macro trend alive — ride the chop
+            return None  # macro trend alive  -- ride the chop
 
         # ── Check 0: Hurst regime shift ──
         if macro_hurst < self._hurst_exit and prev_hurst >= self._hurst_exit:
@@ -114,7 +114,7 @@ class RegimeDecayExit:
         # Research: DMI crossover is unreliable below 3m (MFE/MAE = 1.0x).
         # Only check DI cross for discovery TFs >= 180s (3m).
         # Below that, ADX collapse and Hurst shift (checks 0+1) handle exits.
-        _di_cross_min_tf = 180  # 3m — below this, DI cross is noise
+        _di_cross_min_tf = 180  # 3m  -- below this, DI cross is noise
         if (self._di_cross_enabled and pos.bars_held >= 3
                 and _disc_tf >= _di_cross_min_tf):
             if pos.side == 'long':
@@ -148,7 +148,7 @@ class RegimeDecayExit:
 
         w = belief_network.workers.get(_higher)
         if w is None:
-            return False  # can't check → don't suppress
+            return False  # can't check -> don't suppress
 
         mi = w._last_tf_bar_idx
         if mi < 0 or not w._states or mi >= len(w._states):

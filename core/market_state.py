@@ -3,9 +3,9 @@ Market State Vector
 Statistical representation of market microstructure.
 Multi-timeframe cascade with 8 layers (1D -> 1S).
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import numpy as np
-from typing import Optional, List
+from typing import Optional
 
 @dataclass(frozen=True)
 class MarketState:
@@ -26,7 +26,7 @@ class MarketState:
     BINNING:
     - z_score and momentum_strength are binned via DynamicBinner
       (Freedman-Diaconis histogram edges fitted from observed data).
-    - All bin values remain continuous floats — no categorical conversion.
+    - All bin values remain continuous floats  -- no categorical conversion.
     - If no binner is attached, falls back to fixed equal-width bins.
     """
 
@@ -161,7 +161,7 @@ class MarketState:
         bin edges.  Otherwise falls back to fixed equal-width bins.
 
         Returns:
-            (z_bin: float, momentum_bin: float)  — both continuous
+            (z_bin: float, momentum_bin: float)   -- both continuous
         """
         z_val = self.z_score if not np.isnan(self.z_score) else 0.0
         mom_val = self.momentum_strength if not np.isnan(self.momentum_strength) else 0.0

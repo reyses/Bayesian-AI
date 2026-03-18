@@ -18,7 +18,7 @@ Usage:
 import numpy as np
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, Dict, List, Tuple, Any
+from typing import Optional, List, Tuple, Any
 
 from core.exit_engine import ExitEngine, ExitAction, PositionState
 
@@ -143,7 +143,7 @@ class ExecutionEngine:
         tier_score_adj: dict = None,
         depth_score_adj: dict = None,
         template_tier_map: dict = None,
-        # Thresholds (deprecated — use config)
+        # Thresholds (deprecated  -- use config)
         bias_threshold: float = None,
         dmi_threshold: float = None,
         worker_bypass_conviction: float = None,
@@ -157,7 +157,7 @@ class ExecutionEngine:
         looseness: int = 0,
         config=None,
     ):
-        # Config — single source of truth for all thresholds
+        # Config  -- single source of truth for all thresholds
         if config is None:
             from core.trading_config import TradingConfig
             config = TradingConfig()
@@ -548,7 +548,7 @@ class ExecutionEngine:
                      pp_dir_override=None) -> TradeAction:
         """
         Two-phase entry evaluation:
-          Phase 1: Pattern/Depth/Template/Brain for ALL candidates → score competition
+          Phase 1: Pattern/Depth/Template/Brain for ALL candidates -> score competition
           Phase 2: Direction + conviction for winner ONLY
           Fallback: Worker bypass if no winner
         """
@@ -668,7 +668,7 @@ class ExecutionEngine:
         _forced_tid = getattr(cand, 'forced_template_id', None)
         if _forced_tid is not None and _forced_tid in self.pattern_library:
             tid = _forced_tid
-            dist = 0.0  # forced match — no distance penalty
+            dist = 0.0  # forced match  -- no distance penalty
             lib_entry = self.pattern_library[tid]
             feat_scaled = self.scaler.transform(_feat_2d)  # still needed for _GateResult
         else:
@@ -709,7 +709,7 @@ class ExecutionEngine:
                     should_skip = True
                     skip_label = 'gate0_session'
             except Exception:
-                pass  # timestamp parse failure — don't block
+                pass  # timestamp parse failure  -- don't block
 
         _is_peak_reversal = (micro_pattern == 'PEAK_REVERSAL')
 
@@ -754,7 +754,7 @@ class ExecutionEngine:
             if self.hurst_min > 0 and getattr(_st, 'hurst_exponent', 1.0) < self.hurst_min:
                 should_skip = True
                 skip_label = 'gate0_hurst'
-            # Rule 5b: low momentum filter — skip when reversion dominates
+            # Rule 5b: low momentum filter  -- skip when reversion dominates
             # (choppy/ranging, no follow-through). We WANT high momentum.
             elif (abs(getattr(_st, 'F_momentum', 0.0)) <
                   abs(getattr(_st, 'mean_reversion_force', 0.0)) * self.momentum_override_ratio
@@ -823,7 +823,7 @@ class ExecutionEngine:
         # weights are available. Negative because lower score = wins competition.
         if self._quality_weights is not None:
             quality = self._compute_quality_score(state, cand=cand)
-            score = -quality  # higher quality → lower (better) score
+            score = -quality  # higher quality -> lower (better) score
         else:
             tier_adj = self.tier_score_adj.get(
                 self.template_tier_map.get(tid, 3), 0.0)
@@ -1023,7 +1023,7 @@ class ExecutionEngine:
         _EXEC_TF_SEC = 15.0  # execution timeframe
         _disc_tf = lib_entry.get('discovery_tf_seconds', _EXEC_TF_SEC)
         _tf_ratio = _disc_tf / _EXEC_TF_SEC
-        # TF scaling: discovery stats → execution timeframe.
+        # TF scaling: discovery stats -> execution timeframe.
         # discovery_tf > exec_tf: sqrt scaling (diffusion model, MAE ~ sqrt(T))
         # discovery_tf < exec_tf: linear scaling (1s oracle covers 15× more bars,
         #   captures moves we can't replicate on coarser execution bars)
@@ -1037,7 +1037,7 @@ class ExecutionEngine:
         _mae_std = lib_entry.get('mae_std_ticks', 0.0) / _tf_scale
         params = lib_entry.get('params', {})
 
-        # Phase 1: initial hard stop — tolerance interval from MAE distribution
+        # Phase 1: initial hard stop  -- tolerance interval from MAE distribution
         # SL = p95 MAE × multiplier (last-resort: only ~5% of trades should naturally exceed)
         # sl_tolerance_mult tunes this: >1 = wider (more room), <1 = tighter
         if _p95_mae > _cfg.significance_threshold:
@@ -1053,8 +1053,8 @@ class ExecutionEngine:
         sl_ticks = min(sl_ticks, _cfg.sl_max_ticks)
 
         # MFE-proportional cap: SL should not exceed sl_mfe_ratio × expected profit
-        # Small expected MFE → tight SL (breakeven protection)
-        # Large expected MFE → wider SL (room to develop)
+        # Small expected MFE -> tight SL (breakeven protection)
+        # Large expected MFE -> wider SL (room to develop)
         if _p75_mfe > _cfg.significance_threshold:
             _mfe_cap = max(_cfg.sl_min_ticks, int(round(_p75_mfe * _cfg.sl_mfe_ratio)))
             sl_ticks = min(sl_ticks, _mfe_cap)
@@ -1099,7 +1099,7 @@ class ExecutionEngine:
             _side = trade_side.lower()
             _exp_pnl = self.brain.get_expected_pnl(_tid, _side) if _tid is not None else None
             if _exp_pnl is not None:
-                _exp_ticks = _exp_pnl / (self.tick_size * self.point_value)  # $ → ticks
+                _exp_ticks = _exp_pnl / (self.tick_size * self.point_value)  # $ -> ticks
                 # Blend: anchor stays base, brain nudges within cap
                 _adj = np.clip(_exp_ticks,
                                -_anchor_ticks * _cfg.brain_tp_adjust_pct,
@@ -1198,7 +1198,7 @@ class ExecutionEngine:
         # Vote 0: Brain dir_bias (historical, ONE vote not a veto)
         if _learned_bias is not None:
             _w = _cfg.dir_brain_weight  # same weight as other brain signals
-            _conf = 0.6  # moderate confidence — historical, not current
+            _conf = 0.6  # moderate confidence  -- historical, not current
             if _learned_bias == 'long':
                 _votes_long += _w * _conf
             else:
@@ -1312,12 +1312,12 @@ class ExecutionEngine:
         # ── Aggregate votes ────────────────────────────────────
         _total_votes = _votes_long + _votes_short
         if _total_votes < 1e-6:
-            # No signals at all — velocity zero, no model, no FDMI
+            # No signals at all  -- velocity zero, no model, no FDMI
             return 'long', 0.50, 'no_signal'
 
         _net_score = abs(_votes_long - _votes_short)
 
-        # Minimum vote threshold — too close = skip
+        # Minimum vote threshold  -- too close = skip
         if _cfg.dir_voting_enabled and _net_score < _cfg.dir_min_vote_score:
             return None, 0.50, 'insufficient_votes'
 
@@ -1335,7 +1335,7 @@ class ExecutionEngine:
     # ── LIVE DIRECTION LEARNING (delegated to brain) ─────────────────────
 
     def learn_direction(self, tid, side: str, pnl: float, hold_bars: int = 0):
-        """Delegate to brain.direction_learn() — shared H0/H1 engine."""
+        """Delegate to brain.direction_learn()  -- shared H0/H1 engine."""
         self.brain.direction_learn(tid, side, pnl)
         if hold_bars > 0:
             self.brain.record_hold_bars(tid, side, hold_bars)

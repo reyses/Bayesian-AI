@@ -7,7 +7,7 @@ Usage:
 
 import glob
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 
 import numpy as np
 import pandas as pd

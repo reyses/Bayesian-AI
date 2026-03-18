@@ -3,8 +3,7 @@ Progress Reporter - Real-time terminal output for training
 Provides comprehensive metrics tracking without timeouts
 """
 import time
-from datetime import datetime
-from typing import Dict, List, Any
+from typing import Dict, List
 from dataclasses import dataclass
 
 

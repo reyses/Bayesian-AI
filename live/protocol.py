@@ -1,19 +1,19 @@
 """
-NT8 Bridge Protocol — length-prefixed JSON over TCP.
+NT8 Bridge Protocol  -- length-prefixed JSON over TCP.
 
 Wire format:
     [4 bytes: uint32 big-endian payload length] [N bytes: UTF-8 JSON]
 
 Message types:
-    NT8 → Python:  BAR, FILL, ORDER_STATUS, POSITION, CONNECTED, HEARTBEAT
-    Python → NT8:  PLACE_ORDER, CLOSE_POSITION, CANCEL_ORDER, SUBSCRIBE, HEARTBEAT
+    NT8 -> Python:  BAR, FILL, ORDER_STATUS, POSITION, CONNECTED, HEARTBEAT
+    Python -> NT8:  PLACE_ORDER, CLOSE_POSITION, CANCEL_ORDER, SUBSCRIBE, HEARTBEAT
 """
 
 import json
 import struct
 import asyncio
 from enum import Enum
-from typing import Optional, Dict, Any
+from typing import Optional, Dict
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 HEADER_SIZE = 4                # uint32 big-endian
@@ -23,7 +23,7 @@ HEADER_FMT = '>I'              # big-endian unsigned int
 
 class MsgType(str, Enum):
     """All valid message types on the wire."""
-    # NT8 → Python
+    # NT8 -> Python
     BAR          = 'BAR'
     PARTIAL_BAR  = 'PARTIAL_BAR'
     FILL         = 'FILL'
@@ -35,7 +35,7 @@ class MsgType(str, Enum):
     HISTORY_DONE   = 'HISTORY_DONE'
     ACCOUNT_UPDATE = 'ACCOUNT_UPDATE'
 
-    # Python → NT8
+    # Python -> NT8
     PLACE_ORDER      = 'PLACE_ORDER'
     CLOSE_POSITION   = 'CLOSE_POSITION'
     CANCEL_ORDER     = 'CANCEL_ORDER'
@@ -136,7 +136,7 @@ class MessageReader:
         return msg
 
 
-# ── Message Builders (Python → NT8) ──────────────────────────────────────────
+# ── Message Builders (Python -> NT8) ──────────────────────────────────────────
 
 def subscribe(instrument: str, bar_period_s: int, account: str) -> dict:
     return {

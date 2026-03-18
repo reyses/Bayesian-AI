@@ -4,7 +4,6 @@ Brute-force simulator: sweep templates × timeframes × parameters.
 """
 
 import os
-import sys
 import glob
 import pickle
 import itertools
@@ -18,7 +17,7 @@ from sklearn.preprocessing import StandardScaler
 # Project imports
 from core.statistical_field_engine import StatisticalFieldEngine
 from core.market_state import MarketState
-from core.bayesian_brain import BayesianBrain, TradeOutcome
+from core.bayesian_brain import TradeOutcome
 from training.doe_parameter_generator import DOEParameterGenerator
 from training.fractal_discovery_agent import TIMEFRAME_SECONDS
 

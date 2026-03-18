@@ -1,10 +1,10 @@
 """
-Shared engine factory — creates TBN + ExecutionEngine from a CheckpointBundle.
+Shared engine factory  -- creates TBN + ExecutionEngine from a CheckpointBundle.
 
 Used by both trainer.py and live_engine.py to avoid duplicated initialization.
 """
 import logging
-from typing import Optional, Dict, Set
+from typing import Optional
 
 from core.checkpoint_loader import CheckpointBundle
 from core.timeframe_belief_network import TimeframeBeliefNetwork

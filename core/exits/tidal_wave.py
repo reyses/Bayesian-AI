@@ -1,8 +1,8 @@
-"""Tidal Wave Exit — adverse volatility expansion against position.
+"""Tidal Wave Exit  -- adverse volatility expansion against position.
 
 Academic basis: Volatility clustering (GARCH) + structural shift detection.
 If standard error suddenly expands against our position, the gravitational
-center has shifted — abort before macro gravity pulls the trade to disaster.
+center has shifted  -- abort before macro gravity pulls the trade to disaster.
 
 Uses discovery TF for SE expansion check (not hardcoded 5m).
 Suppressed when adjacent higher TF still agrees with trade direction.
@@ -11,7 +11,7 @@ Logic:
   IF SE expands > 20% in last 3 bars on discovery TF
   AND price is on wrong side of micro mean
   AND higher TF DMI does NOT agree with trade
-  → FORCE_EXIT
+  -> FORCE_EXIT
 """
 from typing import Optional
 
@@ -81,7 +81,7 @@ class TidalWaveExit:
 
         # Higher TF override: if macro trend still supports, this expansion
         # might be the resonance cascade building (bands SHOULD expand).
-        # ADAPTIVE: never-profitable trades skip override — nothing to protect.
+        # ADAPTIVE: never-profitable trades skip override  -- nothing to protect.
         if pos.side == 'long':
             _peak_t = (pos.peak_favorable - pos.entry_price) / tick_size
         else:
@@ -89,7 +89,7 @@ class TidalWaveExit:
         _never_profitable = _peak_t < 2.0 and pos.bars_held >= 4
 
         if not _never_profitable and self._higher_tf_agrees(belief_network, _disc_tf, pos.side):
-            return None  # macro supports — expansion may be cascade, hold
+            return None  # macro supports  -- expansion may be cascade, hold
 
         pnl_ticks = ((bar_close - pos.entry_price) / tick_size
                      if pos.side == 'long'

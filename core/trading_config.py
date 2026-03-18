@@ -52,8 +52,8 @@ class TradingConfig:
     be_buffer_ticks: float = 1.0
 
     # === Exit: Wrong Direction (never profitable) ===
-    wrong_dir_min_bars: int = 8        # 2 min at 15s — time to develop before checking
-    wrong_dir_adverse_ticks: float = 10.0  # $5 MNQ — adverse threshold to cut
+    wrong_dir_min_bars: int = 8        # 2 min at 15s  -- time to develop before checking
+    wrong_dir_adverse_ticks: float = 10.0  # $5 MNQ  -- adverse threshold to cut
 
     # === Exit: Watchdog ===
     watchdog_tick_threshold: float = 8.0
@@ -185,8 +185,8 @@ class TradingConfig:
     sl_p25_mae_mult: float = 3.0
     sl_mean_mae_mult: float = 2.0
     sl_default_ticks: float = 20.0
-    sl_min_ticks: float = 2.0   # absolute minimum floor ($0.50 MNQ — near breakeven)
-    sl_max_ticks: float = 200.0  # absolute maximum cap ($100 for MNQ) — prevents runaway from unscaled TF stats
+    sl_min_ticks: float = 2.0   # absolute minimum floor ($0.50 MNQ  -- near breakeven)
+    sl_max_ticks: float = 200.0  # absolute maximum cap ($100 for MNQ)  -- prevents runaway from unscaled TF stats
     sl_mfe_ratio: float = 1.0   # SL capped at 1× expected MFE (risk = expected reward, not more)
     sl_tolerance_mult: float = 1.0  # multiplier on p95 MAE tolerance interval (>1 = wider, <1 = tighter)
     sl_tolerance_k: float = 5.0    # fallback: mean + k*std when p95 unavailable (5σ ≈ 99.99994%)
@@ -216,35 +216,35 @@ class TradingConfig:
     live_bias_margin: float = 0.15
 
     # === Fractal DMI (dual-timeframe trend gating) ===
-    # State A: Fakeout filter — block trend entries when macro has no energy
+    # State A: Fakeout filter  -- block trend entries when macro has no energy
     fdmi_fakeout_micro_z: float = 2.5       # micro Z breakout threshold
     fdmi_fakeout_macro_adx: float = 20.0    # macro ADX below this = no energy
-    # State B: Wave rider — enter on micro pullback realigning with macro trend
+    # State B: Wave rider  -- enter on micro pullback realigning with macro trend
     fdmi_trend_macro_adx: float = 25.0      # macro ADX above this = strong trend
-    # State C: Fractal exhaustion — exit when micro energy spikes and dies at macro wall
+    # State C: Fractal exhaustion  -- exit when micro energy spikes and dies at macro wall
     fdmi_exhaust_micro_adx: float = 45.0    # micro ADX overextended threshold
     fdmi_exhaust_macro_z: float = 2.5       # macro Z band wall (2.5-3.0 SE)
     # TF pairing
     fdmi_macro_tf: int = 60        # macro TF in seconds (60 = 1m)
     fdmi_micro_tf: int = 5         # micro TF in seconds (5 = 5s)
 
-    # === C&E Matrix: Entry — Momentum Ignition (enhanced Wave Rider) ===
+    # === C&E Matrix: Entry  -- Momentum Ignition (enhanced Wave Rider) ===
     ce_momentum_micro_z_max: float = 0.5       # micro Z pullback upper bound (fair value)
     ce_momentum_micro_z_min: float = -1.5      # micro Z pullback lower bound (1-sigma dip)
 
-    # === C&E Matrix: Entry — Structural Reversion (Rubber Band / OU process) ===
+    # === C&E Matrix: Entry  -- Structural Reversion (Rubber Band / OU process) ===
     ce_reversion_macro_adx: float = 20.0       # macro ADX below this = mean-reverting regime
     ce_reversion_micro_z: float = 3.0          # micro Z extreme for reversion entry (3-sigma)
 
-    # === C&E Matrix: Exit — Death Hook (Liquidity Absorption) ===
+    # === C&E Matrix: Exit  -- Death Hook (Liquidity Absorption) ===
     ce_death_hook_micro_adx: float = 40.0      # micro ADX overextended threshold
     ce_death_hook_macro_z: float = 2.0         # macro Z band wall (2-sigma)
 
-    # === C&E Matrix: Exit — Regime Decay (Sand Trap) ===
+    # === C&E Matrix: Exit  -- Regime Decay (Sand Trap) ===
     ce_regime_decay_adx: float = 20.0          # macro ADX collapse threshold
     ce_regime_decay_di_cross: bool = True       # also exit on DI crossover against trade
 
-    # === C&E Matrix: Exit — Survival Probability (Time-Stop) ===
+    # === C&E Matrix: Exit  -- Survival Probability (Time-Stop) ===
     ce_survival_min_bars: int = 10             # minimum bars before time-stop activates
     ce_survival_target_pct: float = 0.50       # must achieve 50% of TP target in time
     ce_survival_z_var_max: float = 0.20        # Z variance below this = flatlining

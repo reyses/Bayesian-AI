@@ -1,4 +1,4 @@
-"""Death Hook Exit (formerly Fractal Exhaust) — Liquidity Absorption at macro wall.
+"""Death Hook Exit (formerly Fractal Exhaust)  -- Liquidity Absorption at macro wall.
 
 Academic basis: Order Book Imbalance / Toxic Flow.
 A sudden drop in directional energy at a known mathematical boundary means
@@ -8,8 +8,8 @@ Logic:
   IF position is open
   AND price at macro 2-sigma band IN THE FAVORABLE DIRECTION
   AND micro ADX > 40 (energy was extreme)
-  AND micro ADX[current] < micro ADX[previous] (ADX vector rolls over — energy dying)
-  → FORCE_MARKET_EXIT (exit at the wall, don't wait for reversal)
+  AND micro ADX[current] < micro ADX[previous] (ADX vector rolls over  -- energy dying)
+  -> FORCE_MARKET_EXIT (exit at the wall, don't wait for reversal)
 
 Position-aware: for longs, checks upper band (macro_z > 0); for shorts, lower band.
 """
@@ -56,7 +56,7 @@ class FractalExhaustExit:
         prev_state = prev_raw['state'] if isinstance(prev_raw, dict) and 'state' in prev_raw else prev_raw
         prev_micro_adx = getattr(prev_state, 'adx_strength', 0.0)
 
-        # Macro state — SIGNED z-score (positive = above mean, negative = below)
+        # Macro state  -- SIGNED z-score (positive = above mean, negative = below)
         macro_idx = macro_worker._last_tf_bar_idx
         if macro_idx < 0 or not macro_worker._states:
             return None
@@ -65,8 +65,8 @@ class FractalExhaustExit:
         macro_z = getattr(macro_state, 'z_score', 0.0)  # SIGNED
 
         # Position-aware wall check:
-        # Long: price at UPPER band (macro_z positive) → favorable extreme, wall ahead
-        # Short: price at LOWER band (macro_z negative) → favorable extreme, floor ahead
+        # Long: price at UPPER band (macro_z positive) -> favorable extreme, wall ahead
+        # Short: price at LOWER band (macro_z negative) -> favorable extreme, floor ahead
         if pos.side == 'long':
             at_wall = macro_z >= self._macro_z_threshold
         else:
@@ -82,7 +82,7 @@ class FractalExhaustExit:
             return ExitResult(
                 action=ExitAction.DEATH_HOOK,
                 exit_price=bar_close,
-                reason=f"Death hook: micro_adx={micro_adx:.1f}↓ macro_z={macro_z:+.1f} wall",
+                reason=f"Death hook: micro_adx={micro_adx:.1f}v macro_z={macro_z:+.1f} wall",
                 pnl_ticks=pnl_ticks,
                 bars_held=pos.bars_held,
                 band_action='urgent',

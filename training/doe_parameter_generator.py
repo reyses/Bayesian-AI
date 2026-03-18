@@ -11,9 +11,8 @@ Philosophy:
 import numpy as np
 from scipy.stats import qmc
 from scipy.optimize import minimize
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Dict, Any
 from dataclasses import dataclass
-import itertools
 
 
 @dataclass

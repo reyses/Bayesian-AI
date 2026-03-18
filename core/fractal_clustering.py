@@ -11,19 +11,17 @@ The timeframe scale + depth + parent context + PID regime let the clustering nat
 patterns that look similar in physics but live at different fractal scales or regimes.
 """
 import numpy as np
-import pandas as pd
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression, LogisticRegression
-from training.cuda_kmeans import CUDAKMeans, cuda_silhouette_score
+from training.cuda_kmeans import CUDAKMeans
 
 # Local import of timeframe mapping
 from training.fractal_discovery_agent import TIMEFRAME_SECONDS
 from config.oracle_config import (
     TEMPLATE_MIN_MEMBERS_FOR_STATS,
-    MARKER_MEGA_LONG, MARKER_SCALP_LONG,
-    MARKER_SCALP_SHORT, MARKER_MEGA_SHORT, MARKER_NOISE,
+    MARKER_NOISE,
     TRANSITION_MIN_SEQUENCE_GAP_BARS,
     TRANSITION_MAX_SEQUENCE_GAP_BARS
 )
@@ -65,15 +63,15 @@ class PatternTemplate:
     # Used by workers to anchor TP/SL to what this pattern historically achieves.
     mean_mfe_ticks: float = 0.0   # Mean max-favorable-excursion seen across members
     mean_mae_ticks: float = 0.0   # Mean max-adverse-excursion seen across members
-    p75_mfe_ticks:  float = 0.0   # 75th-pct MFE — conservative TP ceiling
-    p25_mae_ticks:  float = 0.0   # 25th-pct MAE — tight SL floor
-    p95_mae_ticks:  float = 0.0   # 95th-pct MAE — tolerance interval SL (last-resort)
-    mae_std_ticks:  float = 0.0   # Std of MAE distribution — for tolerance interval calc
+    p75_mfe_ticks:  float = 0.0   # 75th-pct MFE  -- conservative TP ceiling
+    p25_mae_ticks:  float = 0.0   # 25th-pct MAE  -- tight SL floor
+    p95_mae_ticks:  float = 0.0   # 95th-pct MAE  -- tolerance interval SL (last-resort)
+    mae_std_ticks:  float = 0.0   # Std of MAE distribution  -- for tolerance interval calc
     regression_sigma_ticks: float = 0.0  # Residual std from per-cluster OLS; trail = this * 1.1
 
     # PER-TEMPLATE EXIT TIMESCALE (in bars; populated by _aggregate_oracle_intelligence)
-    avg_mfe_bar: float = 0.0    # Mean bar offset where MFE peaks — base halflife anchor
-    p75_mfe_bar: float = 0.0    # 75th-pct MFE bar — conservative time exhaustion ceiling
+    avg_mfe_bar: float = 0.0    # Mean bar offset where MFE peaks  -- base halflife anchor
+    p75_mfe_bar: float = 0.0    # 75th-pct MFE bar  -- conservative time exhaustion ceiling
     discovery_tf_seconds: float = 15.0  # TF of the bucket this template was discovered in
 
     # PER-CLUSTER REGRESSION MODELS (fitted on 14D scaled feature vectors of members)
@@ -121,8 +119,8 @@ def generate_semantic_name(centroid: np.ndarray) -> str:
     else:           trigger = "Chop"
 
     # 2. Kinetic state (log1p-compressed velocity / momentum)
-    if vel > 0.7:       kinetic = "Shock"      # log1p(|v|)>0.7 → |v|>1.0
-    elif mom > 1.1:     kinetic = "Drive"       # log1p(|m|)>1.1 → |m|>2.0
+    if vel > 0.7:       kinetic = "Shock"      # log1p(|v|)>0.7 -> |v|>1.0
+    elif mom > 1.1:     kinetic = "Drive"       # log1p(|m|)>1.1 -> |m|>2.0
     elif vel > 0.3:     kinetic = "Flow"        # moderate velocity
     else:               kinetic = "Grind"
 
@@ -320,7 +318,7 @@ class FractalClusteringEngine:
             med_peak = float(np.median(peak_positions))
             med_mono = float(np.median(monotonicities))
 
-            # Giveback: peak position drives base (0.30 early → 0.80 late)
+            # Giveback: peak position drives base (0.30 early -> 0.80 late)
             base_gb = 0.30 + med_peak * 0.50
             mono_adj = (med_mono - 0.5) * 0.10
             tmpl.shape_giveback_pct = round(max(0.25, min(0.85, base_gb + mono_adj)), 3)
@@ -578,7 +576,7 @@ class FractalClusteringEngine:
         Patterns are binned by timeframe FIRST, then clustered within each bucket.
         This prevents scale-mixing: a 15m swing template won't contain 1m scalp patterns.
 
-        shape_primitives: optional ShapePrimitiveLibrary — if provided, primitive
+        shape_primitives: optional ShapePrimitiveLibrary  -- if provided, primitive
         centroids are used as initial KMeans centroids for the first n_init run.
         """
         import time as _time

@@ -1,5 +1,5 @@
 """
-LiveEngine — main live trading loop.
+LiveEngine  -- main live trading loop.
 
 Mirrors the Phase 4 forward pass (orchestrator.py) but operates on real-time
 bars from NinjaTrader 8 via the NT8Client TCP bridge.
@@ -7,8 +7,8 @@ bars from NinjaTrader 8 via the NT8Client TCP bridge.
 Key simplifications vs Phase 4:
   - No oracle markers (no lookahead in live)
   - No score_loser tracking
-  - No scan_day_cascade — state-to-centroid matching directly from latest bar
-  - No equity sim — real equity from NT8 POSITION messages
+  - No scan_day_cascade  -- state-to-centroid matching directly from latest bar
+  - No equity sim  -- real equity from NT8 POSITION messages
   - Single "best candidate" per bar (no multi-TF cascade scan)
 """
 
@@ -16,17 +16,15 @@ import asyncio
 import json
 import logging
 import os
-import pickle
 import time
 import glob
 import numpy as np
 import pandas as pd
-from dataclasses import dataclass
 from typing import Optional, Dict, List
 
 from core.statistical_field_engine import StatisticalFieldEngine
 from core.bayesian_brain import MarketBayesianBrain
-from core.exit_engine import ExitEngine, ExitAction, PositionState
+from core.exit_engine import ExitEngine
 from core.execution_engine import (ExecutionEngine, ActionType, TradeAction)
 from core.timeframe_belief_network import TimeframeBeliefNetwork
 from core.checkpoint_loader import load_checkpoints
@@ -60,10 +58,10 @@ _HURST_TREND_CONFIRMATION = 0.6
 _GATE1_DIST_THRESHOLD = 4.5  # Template Match distance threshold
 _WORKER_BYPASS_CONV = 0.65
 
-# Anchor TF → depth mapping (from OOS depth distribution)
+# Anchor TF -> depth mapping (from OOS depth distribution)
 # depth numbers match the fractal DNA tree levels in training
 _TUNING_DEFAULTS = {
-    '_comment': 'Edit while live — engine hot-reloads every 20 bars (~5 min)',
+    '_comment': 'Edit while live  -- engine hot-reloads every 20 bars (~5 min)',
     'max_hold_seconds': 300,
     'manual_sl': 0,
     'manual_tp': 0,
@@ -102,11 +100,11 @@ _ANCHOR_TF_MAP = {
 }
 
 
-# _live_features() DELETED — use BarProcessor._build_features() instead
+# _live_features() DELETED  -- use BarProcessor._build_features() instead
 
 
 class LiveEngine:
-    """Main live trading loop — replaces Phase 4 forward pass for real-time."""
+    """Main live trading loop  -- replaces Phase 4 forward pass for real-time."""
 
     def __init__(self, config: LiveConfig,
                  client=None, gui_queue=None, shared_state=None):
@@ -123,7 +121,7 @@ class LiveEngine:
         self._brain = MarketBayesianBrain()
         self._position = None  # PositionState or None
 
-        # Unified exit engine (same logic as training — training/live parity)
+        # Unified exit engine (same logic as training  -- training/live parity)
         self._exit_engine = ExitEngine(
             mode='live',
             tick_size=self._asset.tick_size,
@@ -194,7 +192,7 @@ class LiveEngine:
         self._tuning = dict(_TUNING_DEFAULTS)
         self._tuning_mtime = 0.0
 
-        # Live ATR — computed from actual bar data
+        # Live ATR  -- computed from actual bar data
         self._live_atr_ticks = 0.0
 
         # ── Extracted subsystems ──
@@ -205,7 +203,7 @@ class LiveEngine:
         self._pp = PingPongManager(config, self._tuning)
         self._trade_logger = TradeLogger()
 
-        # Ping-pong state (kept on LiveEngine — guards NT8 order lifecycle)
+        # Ping-pong state (kept on LiveEngine  -- guards NT8 order lifecycle)
         self._ping_pong_mode = self._shared_state.get('ping_pong', False)
         self._last_exit_side = ''
         self._pp_min_conviction = config.pp_min_conviction
@@ -223,7 +221,7 @@ class LiveEngine:
     # ── Public API ────────────────────────────────────────────────────
 
     async def run(self):
-        """Main entry point — connect, load checkpoints, run loop."""
+        """Main entry point  -- connect, load checkpoints, run loop."""
         from core.keep_awake import keep_awake
 
         logger.info("=" * 60)
@@ -240,7 +238,7 @@ class LiveEngine:
         self._init_bar_processor()
 
         # ── Connect to NT8 ────────────────────────────────────────────────
-        # Brain warm from OOS3 (live_brain.pkl).
+        # Brain warm from training (live_brain.pkl).
         # TBN warmed from NT8's 10k bar history dump (in HISTORY_DONE handler).
         last_ts = self._aggregator.load_from_parquet()
         if last_ts > 0:
@@ -249,14 +247,14 @@ class LiveEngine:
 
         connected = await self._client.connect()
         if not connected:
-            logger.error("Failed to connect to NT8 bridge — exiting")
+            logger.error("Failed to connect to NT8 bridge  -- exiting")
             return
 
         with keep_awake(display=True):
             try:
                 await self._main_loop()
             except KeyboardInterrupt:
-                logger.info("Keyboard interrupt — shutting down")
+                logger.info("Keyboard interrupt  -- shutting down")
             except Exception as e:
                 logger.error(f"LiveEngine fatal error: {e}", exc_info=True)
             finally:
@@ -275,7 +273,7 @@ class LiveEngine:
                 self._aggregator.save_to_parquet()
                 # Disconnect from NT8
                 await self._client.disconnect()
-                logger.info("NT8 disconnected — shutdown complete")
+                logger.info("NT8 disconnected  -- shutdown complete")
                 # NOW signal GUI that everything is done
                 self._shared_state['shutdown_confirmed'] = True
 
@@ -289,7 +287,7 @@ class LiveEngine:
                 logger.info("Shutdown requested by GUI -- stopping engine")
                 break
 
-            # Graceful shutdown: flatten → disable trading → confirm → exit
+            # Graceful shutdown: flatten -> disable trading -> confirm -> exit
             if self._shared_state.pop('shutdown_flatten', False):
                 self._shutting_down = True
                 self._ping_pong_mode = False  # kill PP immediately
@@ -316,7 +314,7 @@ class LiveEngine:
                 self._gui.push({'type': 'LOSS_LIMIT', 'locked': False,
                                 'daily_pnl': self._orders.daily_pnl})
 
-            # Manual order — checked every loop cycle (instant response)
+            # Manual order  -- checked every loop cycle (instant response)
             manual = self._shared_state.pop('manual_order', None)
             if manual:
                 _last_px = getattr(self, '_last_price', 0.0)
@@ -328,7 +326,7 @@ class LiveEngine:
             _now = time.time()
             if _now - self._last_1s_tick >= 1.0 and self._aggregator.is_warmed_up:
                 self._last_1s_tick = _now
-                # Exit check between bars — catches SL/TP/trail within 1s
+                # Exit check between bars  -- catches SL/TP/trail within 1s
                 if self._position_open and self._last_price > 0:
                     try:
                         _st = self._last_states[-1]['state'] if self._last_states else None
@@ -346,9 +344,9 @@ class LiveEngine:
                                 else:
                                     await self._close_position(_reason)
                     except Exception as _exit_err:
-                        logger.error(f"sub-bar exit CRASHED (1s loop): {_exit_err} — emergency flatten")
+                        logger.error(f"sub-bar exit CRASHED (1s loop): {_exit_err}  -- emergency flatten")
                         await self._close_position('EXIT_CRASH')
-                # Safety net: NT8 has position but engine thinks flat — emergency exit calc
+                # Safety net: NT8 has position but engine thinks flat  -- emergency exit calc
                 elif (not self._position_open and not self._orders.is_flat
                       and not self._flip_in_progress and self._last_price > 0):
                     _om_pos = self._orders.position
@@ -365,12 +363,12 @@ class LiveEngine:
                     # Emergency flatten if orphan position loses > $20
                     if _unreal < -20:
                         logger.error(f"ORPHAN POSITION: {_om_side} @ {_om_px} "
-                                     f"unreal=${_unreal:+.0f} — emergency flatten")
+                                     f"unreal=${_unreal:+.0f}  -- emergency flatten")
                         await self._close_position('ORPHAN_FLATTEN')
                     elif not hasattr(self, '_orphan_warn_ts') or _now - self._orphan_warn_ts > 30:
                         self._orphan_warn_ts = _now
                         logger.warning(f"ORPHAN POSITION detected: {_om_side} @ {_om_px} "
-                                       f"unreal=${_unreal:+.0f} — monitoring")
+                                       f"unreal=${_unreal:+.0f}  -- monitoring")
                 # Legacy PP deferred flip fallback (instant flip handles most cases)
                 _pf = self._pp.consume_pending()
                 if _pf and not self._position_open and self._orders.is_flat:
@@ -432,7 +430,7 @@ class LiveEngine:
                     _pm = self._pending_manual_entry
                     self._pending_manual_entry = None
                     if self._orders.loss_limit_hit:
-                        logger.warning("Deferred manual entry cancelled — daily loss limit hit")
+                        logger.warning("Deferred manual entry cancelled  -- daily loss limit hit")
                     else:
                         fill_px = msg.get('fill_price', _pm['price'])
                         logger.info(f"Deferred manual entry firing (flat confirmed @ {fill_px})")
@@ -457,7 +455,7 @@ class LiveEngine:
                 self._sync_position_state()
                 # Auto-flatten leftover position from previous session
                 if not self._aggregator.is_warmed_up and not self._orders.is_flat:
-                    logger.warning("STALE POSITION detected during warmup — auto-flattening")
+                    logger.warning("STALE POSITION detected during warmup  -- auto-flattening")
                     await self._client.send(
                         close_position(self._cfg.instrument, self._cfg.account))
             elif mtype == 'CONNECTED':
@@ -478,11 +476,11 @@ class LiveEngine:
                     logger.info(f"Delta sync: keeping {self._aggregator.bar_count:,} bars, "
                                 f"requesting from ts={self._aggregator.last_timestamp:.0f}")
                 else:
-                    # Full reset — no persisted data
+                    # Full reset  -- no persisted data
                     self._aggregator.reset()
                     self._aggregator._history_mode = True
                     logger.info("Aggregator reset for full history ingestion")
-                # Instrument handshake — compare root symbol (MNQ, ES, etc.)
+                # Instrument handshake  -- compare root symbol (MNQ, ES, etc.)
                 # NT8 may send "MNQ MAR26" while config has "MNQ 03-26"
                 _cfg_root = self._cfg.asset_ticker.upper()  # "MNQ"
                 _bridge_root = bridge_inst.split()[0].upper() if bridge_inst else ""
@@ -502,7 +500,7 @@ class LiveEngine:
                 self._gui.push({
                     'type': 'PHASE_PROGRESS',
                     'phase': 'LIVE',
-                    'step': 'CONNECTED — warming up',
+                    'step': 'CONNECTED  -- warming up',
                     'pct': 0,
                 })
             elif mtype == 'HISTORY_DONE':
@@ -519,7 +517,7 @@ class LiveEngine:
                 await loop.run_in_executor(None, self._aggregator.finish_history)
                 self._update_live_atr()
                 logger.info(f"Live ATR: {self._live_atr_ticks:.1f} ticks")
-                # Bootstrap TBN from history — native NT8 bars for each TF
+                # Bootstrap TBN from history  -- native NT8 bars for each TF
                 df = self._aggregator.df
                 states = self._aggregator.states
                 df_5s = pd.DataFrame(self._tf_bars.get(5, [])) if self._tf_bars.get(5) else pd.DataFrame()
@@ -538,7 +536,7 @@ class LiveEngine:
                 self._gui.push({
                     'type': 'PHASE_PROGRESS',
                     'phase': 'LIVE',
-                    'step': f'READY — ATR {self._live_atr_ticks:.0f}t  ({self._aggregator.bar_count:,} bars)',
+                    'step': f'READY  -- ATR {self._live_atr_ticks:.0f}t  ({self._aggregator.bar_count:,} bars)',
                     'pct': 100,
                 })
                 # Drain any remaining stale BAR messages from duplicate
@@ -566,7 +564,7 @@ class LiveEngine:
                 })
 
     def _on_partial_bar(self, msg: dict):
-        """Handle PARTIAL_BAR from NT8 — update TBN worker with forming bar."""
+        """Handle PARTIAL_BAR from NT8  -- update TBN worker with forming bar."""
         if not self._belief_network:
             return
         bar_period = int(msg.get('bar_period_s', 0))
@@ -621,7 +619,7 @@ class LiveEngine:
                 self._load_tuning()
                 self._orders.cleanup_stale_orders()
 
-        # History ingestion — progress bar only
+        # History ingestion  -- progress bar only
         if self._aggregator._history_mode:
             _bc = self._aggregator.bar_count
             if _bc % 1000 == 0 and _bc > 0:
@@ -632,7 +630,7 @@ class LiveEngine:
                 })
             return
 
-        # Warmup — show progress, skip evaluation
+        # Warmup  -- show progress, skip evaluation
         if not self._aggregator.is_warmed_up:
             if new_bar and self._bar_i % 10 == 0:
                 pct = self._aggregator.bar_count / max(1, self._cfg.warmup_bars) * 100
@@ -706,7 +704,7 @@ class LiveEngine:
                         else:
                             await self._close_position(reason)
             except Exception as _exit_err:
-                logger.error(f"sub-bar exit CRASHED: {_exit_err} — emergency flatten")
+                logger.error(f"sub-bar exit CRASHED: {_exit_err}  -- emergency flatten")
                 await self._close_position('EXIT_CRASH')
 
     async def _process_15s(self, price: float, ts: float, states: list):
@@ -775,7 +773,7 @@ class LiveEngine:
     # ── Exit Logic ────────────────────────────────────────────────────
 
     def _compute_life_pct(self):
-        """Compute trade life % (100%=fresh, 0%=exit imminent). Cheap — runs every second.
+        """Compute trade life % (100%=fresh, 0%=exit imminent). Cheap  -- runs every second.
 
         PnL-anchored: unrealized PnL dominates. A losing trade can't show high life.
           - PnL health (50%): 100% at TP, 0% at SL, linear between
@@ -792,7 +790,7 @@ class LiveEngine:
 
         _tick = self._cfg.tick_size
 
-        # PnL health — where are we between SL and TP?
+        # PnL health  -- where are we between SL and TP?
         if pos.side == 'long':
             profit_ticks = (price - pos.entry_price) / _tick
         else:
@@ -803,7 +801,7 @@ class LiveEngine:
         _range = sl_ticks + tp_ticks
         _pnl_health = max(0, min(1, (profit_ticks + sl_ticks) / max(1, _range)))
 
-        # Trail health — distance from current stop (tightened by trail)
+        # Trail health  -- distance from current stop (tightened by trail)
         if pos.stop_loss and pos.side == 'long':
             _trail_dist = (price - pos.stop_loss) / _tick
         elif pos.stop_loss:
@@ -834,12 +832,12 @@ class LiveEngine:
         """Ping-pong flip/continuation after exit trigger.
 
         Opposite side: single 2-contract flip order (BUY 2 when SHORT 1).
-        Same side: no orders — keep NT8 position, reset exits internally.
+        Same side: no orders  -- keep NT8 position, reset exits internally.
         """
         # Determine new direction before clearing state
         _fresh = self._last_states or []
         if not _fresh:
-            logger.info("FLIP: no states — falling back to close only")
+            logger.info("FLIP: no states  -- falling back to close only")
             await self._close_position(reason)
             return
 
@@ -1032,14 +1030,14 @@ class LiveEngine:
                             'side': exited_side, 'price': price})
         else:
             _reason = 'no belief' if belief is None else f'dir={belief.direction} conv={belief.conviction:.2f}'
-            logger.info(f"AUTO-TP: no re-entry ({_reason}) — closing flat")
+            logger.info(f"AUTO-TP: no re-entry ({_reason})  -- closing flat")
             await self._close_position('profit_target')
 
     async def _handle_manual_order(self, action: str, price: float,
                                    ts: float, states: list):
         """Process a manual BUY/SELL/FLATTEN from the popup buttons."""
         if self._instrument_mismatch:
-            logger.error("BLOCKED: instrument mismatch — fix NT8 chart first")
+            logger.error("BLOCKED: instrument mismatch  -- fix NT8 chart first")
             return
         if action == 'FLATTEN':
             if self._position_open:
@@ -1047,7 +1045,7 @@ class LiveEngine:
                 self._belief_network.stop_trade_tracking()
                 await self._close_position('MANUAL_FLATTEN')
             else:
-                logger.info("MANUAL FLATTEN — already flat")
+                logger.info("MANUAL FLATTEN  -- already flat")
             return
 
         if action not in ('BUY', 'SELL'):
@@ -1070,11 +1068,11 @@ class LiveEngine:
         """Execute the manual entry (called directly or after deferred FILL)."""
         side = 'long' if action == 'BUY' else 'short'
 
-        # Belief warning — check if workers disagree with manual direction
+        # Belief warning  -- check if workers disagree with manual direction
         belief = self._belief_network.get_belief()
         if belief and belief.direction != side:
             _warn = (f"WARNING: belief says {belief.direction.upper()} "
-                     f"(conv={belief.conviction:.2f}) — you're going {side.upper()}")
+                     f"(conv={belief.conviction:.2f})  -- you're going {side.upper()}")
             logger.warning(_warn)
             self._gui.push({
                 'type': 'PHASE_PROGRESS', 'phase': 'LIVE',
@@ -1095,7 +1093,7 @@ class LiveEngine:
         self._gui.push({'type': 'TRADE_MARKER', 'action': 'entry',
                         'side': side, 'price': price})
 
-        # Always use freshest market state — a trade is a trade
+        # Always use freshest market state  -- a trade is a trade
         _fresh_states = self._last_states or states
         if not _fresh_states:
             # Force recompute if nothing cached (rare: manual during warmup)
@@ -1105,7 +1103,7 @@ class LiveEngine:
                 logger.info(f"Forced state recompute for manual entry: {len(_fresh_states)} states")
         state = _fresh_states[-1]['state'] if _fresh_states else None
         if state is None:
-            logger.warning("No market state available — manual trade will have limited exit protection")
+            logger.warning("No market state available  -- manual trade will have limited exit protection")
 
         self._position = self._exit_engine.open_position(
             side=side, entry_price=price, entry_bar_index=self._bar_i,
@@ -1146,7 +1144,7 @@ class LiveEngine:
 
     async def _enter_ping_pong(self, side_hint: str, price: float,
                                 ts: float, states: list):
-        """Full-context flip entry — uses direction model + learns outcomes."""
+        """Full-context flip entry  -- uses direction model + learns outcomes."""
         # Always use freshest market state
         _fresh = self._last_states or states
         if not _fresh:
@@ -1189,7 +1187,7 @@ class LiveEngine:
         self._active_side = side
         self._active_tid = f'PP_{base_tid}'
         self._entry_depth = self._entry_depth
-        self._max_hold_bars = 960  # no forced exit — exhaustion only
+        self._max_hold_bars = 960  # no forced exit  -- exhaustion only
         self._trade_logger.start_trade(
             self._session.stats.trades + 1, side, price, ts)
 
@@ -1250,7 +1248,7 @@ class LiveEngine:
 
         # Replay parity report (replay mode only)
         if self._shared_state.get('replay_mode'):
-            pass  # Parity check handled by OOS3 in trainer
+            pass  # Parity check handled by forward pass in trainer
 
         # Check position status
         if self._position_open:
@@ -1258,19 +1256,19 @@ class LiveEngine:
             side = self._active_side or '?'
             sign = '+' if unreal >= 0 else ''
             status = (f"OPEN {side.upper()} ({sign}${unreal:,.0f}) "
-                      f"— FLATTEN first or close to lock in")
+                      f" -- FLATTEN first or close to lock in")
             logger.info(f"Prepare shutdown: {status}")
         else:
-            status = "FLAT — saved — safe to close"
+            status = "FLAT  -- saved  -- safe to close"
             logger.info("Prepare shutdown: no open position, safe to close")
 
         self._gui.push({'type': 'SHUTDOWN_READY', 'status': status})
 
     # _write_replay_parity_report DELETED (264 lines)
-    # Parity checking handled by OOS3 in trainer pipeline.
+    # Parity checking handled by forward pass in trainer.
 
     def _on_account_update(self, msg: dict):
-        """Handle ACCOUNT_UPDATE from NT8 — push equity to GUI."""
+        """Handle ACCOUNT_UPDATE from NT8  -- push equity to GUI."""
         self._nt8_cash_value = float(msg.get('cash_value', 0))
         self._nt8_realized_pnl = float(msg.get('realized_pnl', 0))
         self._nt8_unrealized_pnl = float(msg.get('unrealized_pnl', 0))
@@ -1377,7 +1375,7 @@ class LiveEngine:
             self._brain.save(brain_path)
             logger.info(f"Live brain saved ({self._live_trade_count} trades)")
 
-    # ── Entry Logic — handled by BarProcessor.process_bar() in _process_15s ──
+    # ── Entry Logic  -- handled by BarProcessor.process_bar() in _process_15s ──
 
     async def _execute_entry(self, action: TradeAction, price: float,
                              ts: float, t0: float):
@@ -1492,7 +1490,7 @@ class LiveEngine:
         n = min(14, len(tr))
         atr = float(np.mean(tr[-n:]))
         self._live_atr_ticks = max(1.0, atr / self._cfg.tick_size)
-        # ATR logged silently — only on significant change (>20% shift)
+        # ATR logged silently  -- only on significant change (>20% shift)
         if abs(self._live_atr_ticks - getattr(self, '_last_logged_atr', 0)) > self._live_atr_ticks * 0.2:
             logger.debug(f"Live ATR: {self._live_atr_ticks:.1f} ticks "
                          f"({atr:.2f} points, {len(df)} bars)")
@@ -1504,7 +1502,7 @@ class LiveEngine:
         # guard stays until order_manager confirms non-flat (fill received)
         if self._flip_in_progress:
             if not self._orders.is_flat:
-                # Entry fill received — flip complete
+                # Entry fill received  -- flip complete
                 self._flip_in_progress = False
             return
         if self._position_open and self._orders.is_flat:
@@ -1513,7 +1511,7 @@ class LiveEngine:
             self._position = None
         elif not self._position_open and not self._orders.is_flat:
             # Unexpected position (NT8 source of truth)
-            logger.warning("NT8 has position but engine thinks flat — syncing")
+            logger.warning("NT8 has position but engine thinks flat  -- syncing")
             self._position_open = True
 
     # ── Checkpoint Loading ────────────────────────────────────────────
@@ -1564,7 +1562,7 @@ class LiveEngine:
         self._depth_score_adj = _bundle.depth_score_adj
         self._depth_filter_out = _bundle.depth_filter_out
 
-        # Brain — prefer live > forward_pass > training
+        # Brain  -- prefer live > forward_pass > training
         live_brain_path = os.path.join(cpdir, 'live_brain.pkl')
         forward_brain_path = os.path.join(cpdir, 'pattern_forward_brain.pkl')
         training_brains = sorted(glob.glob(os.path.join(cpdir, 'pattern_*_brain.pkl')))
@@ -1576,12 +1574,12 @@ class LiveEngine:
         elif os.path.exists(forward_brain_path):
             self._brain.load(forward_brain_path)
             logger.info(f"  Brain: pattern_forward_brain.pkl ({len(self._brain.table)} states, "
-                        f"{len(self._brain.dir_table)} dir pairs) — IS-learned directions")
+                        f"{len(self._brain.dir_table)} dir pairs)  -- IS-learned directions")
         elif training_brains:
             self._brain.load(training_brains[-1])
             logger.info(f"  Brain: {os.path.basename(training_brains[-1])} (training base)")
         else:
-            logger.warning("  No brain checkpoint found — starting fresh "
+            logger.warning("  No brain checkpoint found  -- starting fresh "
                           "(will learn from live trades)")
 
         # Screening Filter (fission + temporal filter)
@@ -1594,7 +1592,7 @@ class LiveEngine:
             logger.info(f"  Screening gates: {len(self._fission_map)} fission rules, "
                          f"{len(self._good_hours_utc)} good hours")
         else:
-            logger.warning("  No screening_gates.json — all signals unfiltered")
+            logger.warning("  No screening_gates.json  -- all signals unfiltered")
 
         # Live tuning config (hot-reloadable)
         self._load_tuning(force=True)
@@ -1605,7 +1603,7 @@ class LiveEngine:
         self._belief_network = create_belief_network(_bundle, self._engine)
 
     def _init_exec_engine(self):
-        """Initialize ExecutionEngine — same mode as OOS for parity."""
+        """Initialize ExecutionEngine  -- same mode as OOS for parity."""
         _bundle = self._checkpoint_bundle()
         self._exec_engine = create_execution_engine(
             bundle=_bundle,
@@ -1619,7 +1617,7 @@ class LiveEngine:
         )
 
     def _init_bar_processor(self):
-        """Create shared BarProcessor — same decision logic as OOS/replay."""
+        """Create shared BarProcessor  -- same decision logic as OOS/replay."""
         self._processor = BarProcessor(
             exec_engine=self._exec_engine,
             belief_network=self._belief_network,
