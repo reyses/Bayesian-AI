@@ -183,7 +183,11 @@ class BarProcessor:
                     pattern_type='PEAK_REVERSAL',
                     z_score=_z,
                     features=_feat,
+                    forced_template_id=-100,
                 ))
+        else:
+            # Always update peak state even when not checking (same fix as IS path)
+            self._detect_peak_reversal(state)  # updates _prev_P_center/_prev_F_momentum
 
         return candidates
 
