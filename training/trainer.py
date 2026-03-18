@@ -1508,6 +1508,22 @@ class Trainer:
                 # IS: full discovery (PatternEvents from scan_day_cascade)
                 # OOS: compressed per-bar (15s state) + bonus multi-TF candidates
                 _has_discovery_signal = ts in pattern_map
+
+                # Peak detection: check if state shows peak reversal
+                # (runs even when no pattern fires — the whole point)
+                _has_peak_signal = False
+                if not _has_discovery_signal:
+                    _bar_state = _states_map.get(_bar_i)
+                    if _bar_state is not None:
+                        _pc = getattr(_bar_state, 'P_at_center', 0.0)
+                        _fm = abs(getattr(_bar_state, 'F_momentum', 0.0))
+                        _coh = getattr(_bar_state, 'oscillation_entropy_normalized', 0.0)
+                        _prev_pc = getattr(self, '_peak_prev_pc', _pc)
+                        _prev_fm = getattr(self, '_peak_prev_fm', _fm)
+                        _pc_up = _pc > _prev_pc * 1.05 if _prev_pc > 0.01 else False
+                        _fm_down = _fm < _prev_fm * 0.90 if _prev_fm > 0.5 else False
+                        if (_pc_up or _fm_down) and _coh > 0.55:
+                            _has_peak_signal = True
                 _has_compressed_signal = False
                 if oos_mode:
                     # Primary: check 15s execution state (same as original)
@@ -1530,7 +1546,7 @@ class Trainer:
                         bars_slot_blocked += 1
 
                 _should_check_entry = (not current_position_open and not _in_maintenance
-                                       and (_has_discovery_signal if not oos_mode
+                                       and ((_has_discovery_signal or _has_peak_signal) if not oos_mode
                                             else _has_compressed_signal))
 
                 if _should_check_entry:
