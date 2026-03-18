@@ -358,7 +358,9 @@ class Trainer:
         }
 
         self.scaler = _bundle.scaler
-        valid_template_ids = _bundle.valid_tids
+        valid_template_ids = list(_bundle.valid_tids)
+        if _PEAK_TID not in valid_template_ids:
+            valid_template_ids.append(_PEAK_TID)
         centroids_scaled = _bundle.centroids_scaled
         template_tier_map = _bundle.template_tier_map
         template_tier_map[_PEAK_TID] = 2  # tier 2 (not priority, not blocked)
