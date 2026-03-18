@@ -1540,44 +1540,31 @@ class Trainer:
                         _fm_down = _fm < _prev_fm * 0.90 if _prev_fm > 0.5 else False
                         if (_pc_up or _fm_down) and _coh > 0.55:
                             _has_peak_signal = True
+                # Unified compressed signal check (IS + OOS — no lookahead)
                 _has_compressed_signal = False
-                if oos_mode:
-                    # Primary: check 15s execution state (same as original)
-                    _oos_state = _states_map.get(_bar_i - 1)
-                    if _oos_state:
-                        _oos_pt = getattr(_oos_state, 'pattern_type', '')
-                        _oos_cascade = getattr(_oos_state, 'cascade_detected', False)
-                        _oos_struct = getattr(_oos_state, 'structure_confirmed', False)
-                        if _oos_pt and _oos_pt != 'NONE' and (_oos_cascade or _oos_struct):
-                            _has_compressed_signal = True
-                        # NOTE: removing cascade/struct requirement → 3x trades, $12K OOS
-                        # (excl Feb 9 outlier). Lower $/trade ($2.52 vs $6.16).
-                        # Future avenue: loosen gate + filter low-quality pattern trades.
+                _bar_state_cs = _states_map.get(_bar_i - 1)
+                if _bar_state_cs:
+                    _cs_pt = getattr(_bar_state_cs, 'pattern_type', '')
+                    _cs_cascade = getattr(_bar_state_cs, 'cascade_detected', False)
+                    _cs_struct = getattr(_bar_state_cs, 'structure_confirmed', False)
+                    if _cs_pt and _cs_pt != 'NONE' and (_cs_cascade or _cs_struct):
+                        _has_compressed_signal = True
 
-                # Detection funnel: count bars where signals were found
-                if ts in pattern_map:
-                    bars_with_detection += 1
-                    if current_position_open:
-                        bars_slot_blocked += 1
-                elif oos_mode and _has_compressed_signal:
-                    bars_with_detection += 1
-                elif oos_mode and _has_peak_signal:
+                # Detection funnel
+                if _has_compressed_signal or _has_peak_signal:
                     bars_with_detection += 1
                     if current_position_open:
                         bars_slot_blocked += 1
 
-                # Unified entry gate: same logic for IS and OOS.
-                # IS uses pattern_map + peak detection.
-                # OOS: pattern_map is empty, so only peak detection fires.
-                # This eliminates the OOS-specific compressed candidate builder.
+                # Unified entry gate — same for IS and OOS. No pattern_map.
                 _should_check_entry = (not current_position_open and not _in_maintenance
-                                       and (_has_discovery_signal or _has_peak_signal))
+                                       and (_has_compressed_signal or _has_peak_signal))
 
                 if _should_check_entry:
                     _candidate_gate = {}    # id(p) -> gate label (for FN audit)
 
-                    if True:  # Unified engine: compressed candidates + peak detection (IS + OOS + Live)
-                        # ── OOS: 15s primary candidate + bonus multi-TF ──
+                    if True:  # Unified: compressed candidates + peak detection (IS = OOS = Live)
+                        # ── Compressed state candidates (no lookahead) ──
                         _oos_state = _states_map.get(_bar_i - 1)
                         _oos_z = getattr(_oos_state, 'z_score', 0.0)
                         _oos_pt = getattr(_oos_state, 'pattern_type', '')
@@ -1691,22 +1678,7 @@ class Trainer:
                                 z_score=_wz,
                                 features=_wfeat,
                             ))
-                        raw_candidates = []  # no PatternEvents in compressed mode
-                    else:
-                        # ── Unified: discovery PatternEvents (IS) or empty (OOS) ──
-                        raw_candidates = pattern_map.get(ts, [])
-                        _eng_candidates = [
-                            Candidate(
-                                state=p.state,
-                                depth=getattr(p, 'depth', 6),
-                                timeframe=getattr(p, 'timeframe', '15s'),
-                                timestamp=ts,
-                                pattern_type=p.pattern_type,
-                                z_score=p.z_score,
-                                features=np.array([_feat_extractor.extract_features(p)]),
-                                raw_event=p,
-                            ) for p in raw_candidates
-                        ]
+                        raw_candidates = []  # compressed mode — no PatternEvents (no lookahead)
                     # Peak detection fallback: if no pattern candidates but peak signal fired
                     if not _eng_candidates and _has_peak_signal:
                         _bar_state_p = _states_map.get(_bar_i)
