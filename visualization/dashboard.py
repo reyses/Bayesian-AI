@@ -337,7 +337,7 @@ class FractalDashboard:
     def _add_chart_context_menu(self, canvas, fig, default_name):
         menu = tk.Menu(self.root, tearoff=0)
         menu.add_command(
-            label="💾 Save Chart as Image...",
+            label="Save Chart as Image...",
             command=lambda: self._save_chart(fig, default_name),
         )
         canvas.get_tk_widget().bind(
@@ -635,7 +635,7 @@ class FractalDashboard:
         for c in ("ID", "Trades", "Win%", "PnL"):
             text = c
             if c == self._sort_col:
-                text += " ↓" if self._sort_reverse else " ↑"
+                text += " v" if self._sort_reverse else " ^"
             self.tree_ranks.heading(c, text=text)
 
         self._update_leaderboard()

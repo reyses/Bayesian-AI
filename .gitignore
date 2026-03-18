@@ -36,5 +36,9 @@ reports/live/trades/
 tools/plots/
 tools/standalone_report.txt
 
+# Trade replay JSON files (60MB+)
+trade_replays/
+reports/*/trade_replays/
+
 # NT8 raw data exports
 DATA/nt8_exports/

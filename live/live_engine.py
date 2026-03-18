@@ -137,7 +137,6 @@ class LiveEngine:
         self._valid_tids: List[str] = []
         self._centroids_scaled: np.ndarray = None
         self._template_tier_map: Dict = {}
-        self._exception_tids: set = set()
         self._depth_score_adj: Dict[int, float] = {}
         self._depth_filter_out: set = set()
         self._tier_score_adj = {1: -1.5, 2: -0.5, 3: 0.0, 4: 0.5}
@@ -1564,7 +1563,6 @@ class LiveEngine:
         self._template_tier_map = _bundle.template_tier_map
         self._depth_score_adj = _bundle.depth_score_adj
         self._depth_filter_out = _bundle.depth_filter_out
-        self._exception_tids = _bundle.exception_tids
 
         # Brain — prefer live > forward_pass > training
         live_brain_path = os.path.join(cpdir, 'live_brain.pkl')
@@ -1645,5 +1643,4 @@ class LiveEngine:
             template_tier_map=self._template_tier_map,
             depth_score_adj=self._depth_score_adj,
             depth_filter_out=self._depth_filter_out,
-            exception_tids=self._exception_tids,
         )
