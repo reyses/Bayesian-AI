@@ -1344,7 +1344,7 @@ class ProgressPopup:
                 self._redraw_price_chart()
                 self.root.title(f"Bayesian-AI  {_new_mode.upper()} Training")
         try:
-            _max_msgs = 20  # process max 20 messages per poll cycle to prevent freeze
+            _max_msgs = 100  # process many messages per cycle (redraw only once at end)
             _msg_count = 0
             while _msg_count < _max_msgs:
                 msg = self.q.get_nowait()
@@ -1500,7 +1500,7 @@ class ProgressPopup:
                                 for (idx, a, s, mp, mpnl) in self._trade_markers
                                 if idx - trim >= 0
                             ]
-                        self._redraw_price_chart()
+                        self._needs_redraw = True
 
                     # Feed DMI chart
                     _dp = msg.get('dmi_plus')
@@ -1513,7 +1513,7 @@ class ProgressPopup:
                             self._dmi_minus_history = self._dmi_minus_history[-self._MAX_DMI_PTS:]
                         self._dmi_label_var.set(
                             f"+{float(_dp):.0f} / -{float(_dm):.0f}")
-                        self._redraw_dmi_chart()
+                        self._needs_redraw = True
 
                     # Update unrealized PnL from tick (instant, don't wait for NT8)
                     _tick_unreal = msg.get('unrealized_pnl')
@@ -1582,8 +1582,7 @@ class ProgressPopup:
                             self._trade_markers = [
                                 m for m in self._trade_markers if m[0] >= cutoff
                             ]
-                        self._redraw_price_chart()
-                        self._redraw_dmi_chart()
+                        self._needs_redraw = True
 
                 elif mtype == "SHUTDOWN_READY":
                     # Engine reports whether it's safe to close
@@ -1598,7 +1597,12 @@ class ProgressPopup:
         except Exception as e:
             import traceback
             traceback.print_exc()
-        self.root.after(250, self._poll)
+        # Single redraw per poll cycle (not per message)
+        if getattr(self, '_needs_redraw', False):
+            self._redraw_price_chart()
+            self._redraw_dmi_chart()
+            self._needs_redraw = False
+        self.root.after(1000, self._poll)  # poll every 1 second
 
 
 def launch_popup(queue):
