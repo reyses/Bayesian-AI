@@ -15,7 +15,6 @@ Trade logic (Hawaiian Surfer at sub-minute scale):
 
 from dataclasses import dataclass
 from typing import Optional, List
-import numpy as np
 
 # Regime detection thresholds
 PID_MIN_FORCE       = 0.3    # |term_pid| must exceed this

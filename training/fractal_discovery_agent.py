@@ -19,7 +19,7 @@ import numpy as np
 import multiprocessing
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Optional, Tuple
 
 from core.statistical_field_engine import StatisticalFieldEngine
 from core.market_state import MarketState

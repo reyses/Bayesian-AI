@@ -119,7 +119,7 @@ def _clean_nt8_cache():
             db_path.unlink()
             print(f"[cleanup] Deleted {db_path}")
         except PermissionError:
-            print(f"[cleanup] Cannot delete {db_path} — NT8 may be running. Close NT8 first.")
+            print(f"[cleanup] Cannot delete {db_path}  -- NT8 may be running. Close NT8 first.")
         except Exception as e:
             print(f"[cleanup] Failed to delete {db_path}: {e}")
 
@@ -150,7 +150,7 @@ def main():
     parser.add_argument('--ping-pong', action='store_true',
                         help='Continuous wave-riding with direction refinement')
     parser.add_argument('--yolo', action='store_true',
-                        help='Max aggression, minimal warmup — force trades fast')
+                        help='Max aggression, minimal warmup  -- force trades fast')
     parser.add_argument('--long-only', action='store_true',
                         help='Force all trades LONG (brain learns long side)')
     parser.add_argument('--short-only', action='store_true',
@@ -240,7 +240,7 @@ def main():
         import time as _time
         _time.sleep(1.0)
         logging.getLogger(__name__).info(
-            f"ReplayBridge started on port {args.port} — "
+            f"ReplayBridge started on port {args.port}  -- "
             f"feeding {args.replay} at {args.speed}ms/bar")
 
     # Launch GUI popup (unless --no-gui)

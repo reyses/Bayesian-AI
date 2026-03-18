@@ -1,5 +1,5 @@
 """
-NT8Client — asyncio TCP client that talks to the BayesianBridge indicator
+NT8Client  -- asyncio TCP client that talks to the BayesianBridge indicator
 running inside NinjaTrader 8.
 
 Handles:
@@ -102,7 +102,7 @@ class NT8Client:
                 await asyncio.sleep(delay)
                 delay = min(delay * 1.5, 30.0)  # exponential backoff, cap 30s
 
-        logger.error("Max reconnect attempts reached — giving up.")
+        logger.error("Max reconnect attempts reached  -- giving up.")
         return False
 
     async def disconnect(self):
@@ -132,7 +132,7 @@ class NT8Client:
     async def send(self, msg: dict):
         """Encode and send a message to NT8."""
         if not self._connected or self._writer is None:
-            logger.warning(f"Cannot send — not connected: {msg.get('type')}")
+            logger.warning(f"Cannot send  -- not connected: {msg.get('type')}")
             return
         try:
             self._writer.write(encode(msg))
@@ -182,7 +182,7 @@ class NT8Client:
                     logger.warning(f"No heartbeat from NT8 for {elapsed:.0f}s")
                 # Force reconnect after 60s of silence
                 if elapsed > 60:
-                    logger.warning("Heartbeat timeout (60s) — forcing reconnect")
+                    logger.warning("Heartbeat timeout (60s)  -- forcing reconnect")
                     await self._handle_disconnect()
                     return
         except asyncio.CancelledError:
@@ -193,8 +193,8 @@ class NT8Client:
         if not self._connected:
             return
         self._connected = False
-        logger.warning("Connection lost — attempting reconnect...")
-        # Cancel old background tasks — but don't self-cancel if called
+        logger.warning("Connection lost  -- attempting reconnect...")
+        # Cancel old background tasks  -- but don't self-cancel if called
         # from within _read_loop (that would abort the reconnection).
         current = asyncio.current_task()
         if self._read_task and self._read_task is not current and not self._read_task.done():

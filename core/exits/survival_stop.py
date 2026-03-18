@@ -1,10 +1,10 @@
-"""Survival Probability Exit (Time-Stop) — exit when alpha has decayed.
+"""Survival Probability Exit (Time-Stop)  -- exit when alpha has decayed.
 
 Academic basis: Survival Analysis (Kaplan-Meier) + Bayesian Expected PnL.
 
 Two exit modes (first match wins):
 1. Bayesian ePnL: Brain computes expected PnL of holding for this (template, direction).
-   When ePnL drops to 0 or below, the mathematical edge is gone — exit immediately.
+   When ePnL drops to 0 or below, the mathematical edge is gone  -- exit immediately.
    This replaces arbitrary trailing stops with continuous Bayesian inference.
 
 2. Structural flatline: bars_held > N, PnL < 50% of target, Z variance < 0.2 (flatlining).
@@ -57,7 +57,7 @@ class SurvivalStopExit:
         # momentum alignment (forces with or against trade).
         #
         # Logic: P(remaining profit) estimated from current state.
-        # If all signals say "more room" → hold. If signals say "exhausted" → exit.
+        # If all signals say "more room" -> hold. If signals say "exhausted" -> exit.
         if belief_network is not None:
             _belief = belief_network.get_belief()
             _conviction = _belief.conviction if _belief else 0.5
@@ -125,12 +125,12 @@ class SurvivalStopExit:
             return None  # still moving
 
         # Check if higher TF still supports the trade.
-        # If macro agrees, this flat period is accumulation — hold.
+        # If macro agrees, this flat period is accumulation  -- hold.
         # Only exit flat trades when macro support is fading.
         _disc_tf = int(getattr(pos, 'discovery_tf_seconds', 300))
         _danger = self._check_flip_imminent(belief_network, _disc_tf, pos.side)
         if not _danger:
-            return None  # macro still supports — flat is OK, hold
+            return None  # macro still supports  -- flat is OK, hold
 
         return ExitResult(
             action=ExitAction.SURVIVAL_FLATLINE,

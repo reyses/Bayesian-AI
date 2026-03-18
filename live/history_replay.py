@@ -2,7 +2,7 @@
 Compressed History Replay Engine.
 
 Replays ATLAS parquet data through the SAME per-bar compressed path that
-live trading uses. No pre-computed discovery — just MarketState features
+live trading uses. No pre-computed discovery  -- just MarketState features
 matched against library centroids, identical to live_engine.py.
 
 This ensures replay/live/OOS parity.
@@ -18,7 +18,6 @@ import json
 import os
 import time
 from dataclasses import dataclass, field
-from typing import Optional
 
 import pandas as pd
 
@@ -126,7 +125,7 @@ class HistoryReplayEngine:
             context_days_list = []
             trade_days_list = all_days
 
-        # 4. Initialize components — SAME factory as trainer (parity)
+        # 4. Initialize components  -- SAME factory as trainer (parity)
         engine = StatisticalFieldEngine()
 
         exit_engine = ExitEngine(
@@ -153,7 +152,7 @@ class HistoryReplayEngine:
         exec_engine.gate1_dist = _g1
         print(f"  gate1_dist={_g1:.1f} (aggression={self.aggression})")
 
-        # 4b. BarProcessor — shared per-bar decision loop
+        # 4b. BarProcessor  -- shared per-bar decision loop
         all_trades = []
 
         def _on_exit(trade, outcome):
@@ -170,7 +169,7 @@ class HistoryReplayEngine:
             hooks=BarProcessorHooks(on_exit=_on_exit),
         )
 
-        # 5a. Context warmup — TBN state only, no trading
+        # 5a. Context warmup  -- TBN state only, no trading
         if context_days_list:
             print(f"  Context warmup: {len(context_days_list)} days")
         for i, day_df in enumerate(context_days_list):
@@ -185,7 +184,7 @@ class HistoryReplayEngine:
             print(f"    Context {i+1}/{len(context_days_list)}: "
                   f"{len(states) if states else 0} bars")
 
-        # 5b. Trading days — shared BarProcessor (same as trainer OOS)
+        # 5b. Trading days  -- shared BarProcessor (same as trainer OOS)
         last_day_states = []
         for i, day_df in enumerate(trade_days_list):
             day_start = len(all_trades)
@@ -313,7 +312,7 @@ class HistoryReplayEngine:
                         f"vs OOS {oos_rate:.1f}/day")
                     parity -= 0.15
         else:
-            warnings.append("No OOS reference available — cannot validate")
+            warnings.append("No OOS reference available  -- cannot validate")
             parity = 0.5
 
         parity = max(0.0, min(1.0, parity))
@@ -391,7 +390,7 @@ class HistoryReplayEngine:
         oos = self._load_oos_reference() or {}
         lines = []
         lines.append("=" * 72)
-        lines.append("  OOS vs LIVE REPLAY — PARITY REPORT")
+        lines.append("  OOS vs LIVE REPLAY  -- PARITY REPORT")
         lines.append("=" * 72)
         lines.append("")
 
@@ -516,7 +515,7 @@ class HistoryReplayEngine:
         cpdir = self.checkpoint_dir
         print(f"  Loading checkpoints from {cpdir}/")
 
-        # Same loader the trainer uses — single source of truth
+        # Same loader the trainer uses  -- single source of truth
         self._bundle = load_checkpoints(cpdir, verbose=True)
 
         # Brain: forward_pass (OOS weights) > training > live

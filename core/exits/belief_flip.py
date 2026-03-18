@@ -1,10 +1,10 @@
-"""Belief Flip Exit — TBN urgency signal + DI crossover trend reversal.
+"""Belief Flip Exit  -- TBN urgency signal + DI crossover trend reversal.
 
 Two triggers:
 1. TBN urgent_exit flag (workers flipped conviction against trade)
 2. DI crossover against position (direct trend reversal signal from DMI)
-   - Long: DI+ was > DI-, now DI- >= DI+ → bearish reversal
-   - Short: DI- was > DI+, now DI+ >= DI- → bullish reversal
+   - Long: DI+ was > DI-, now DI- >= DI+ -> bearish reversal
+   - Short: DI- was > DI+, now DI+ >= DI- -> bullish reversal
 """
 from typing import Optional
 

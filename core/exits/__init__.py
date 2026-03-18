@@ -1,4 +1,4 @@
-"""Exit modules — each implements a single exit check."""
+"""Exit modules  -- each implements a single exit check."""
 from core.exits.stop_loss import StopLossCheck
 from core.exits.take_profit import TakeProfitCheck
 from core.exits.breakeven import BreakevenLock

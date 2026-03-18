@@ -38,7 +38,7 @@ import os
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -256,9 +256,9 @@ class TimeframeWorker:
         # ── Physics blend: momentum-aware direction from velocity + acceleration ──
         # Instead of mean-reverting z_score (which fights trends), use the
         # particle's velocity (dp/dt) and net force (d²p/dt² ≈ net_force) to
-        # determine direction.  Positive momentum → P(LONG) high.
+        # determine direction.  Positive momentum -> P(LONG) high.
         #
-        # Sensitivity scales with log(bars_aggregated) — higher TF workers have
+        # Sensitivity scales with log(bars_aggregated)  -- higher TF workers have
         # more samples so the signal is statistically stronger.
         _n_bars = max(1, self.bars_per_update)
         _phys_sensitivity = 0.5 + 0.5 * (np.log(_n_bars) / np.log(240))  # [0.5, 1.0]
@@ -346,9 +346,9 @@ class TimeframeBeliefNetwork:
     # meaning urgent_exit was cutting winners not protecting against losers.
     # Trail stop handles exits naturally; re-enable only with directional evidence.
     URGENT_EXIT_CONVICTION_THRESHOLD = 1.01   # effectively disabled
-    # Pre-fix: tighten fired on (not is_confident) OR wave_mature > 0.65 → every bar
+    # Pre-fix: tighten fired on (not is_confident) OR wave_mature > 0.65 -> every bar
     # during a normal move triggered tightening, collapsing the trail to 2 ticks.
-    # Now: only tighten on extreme maturity (0.85) — wave is clearly exhausting.
+    # Now: only tighten on extreme maturity (0.85)  -- wave is clearly exhausting.
     # Low conviction during a trade is normal and does NOT predict reversal.
     TIGHTEN_TRAIL_WAVE_MATURITY_THRESHOLD = 0.85
     WIDEN_TRAIL_WAVE_MATURITY_THRESHOLD = 0.30
@@ -416,14 +416,14 @@ class TimeframeBeliefNetwork:
         """
         Call at trade entry with the matched template's time-scale stats.
         avg_mfe_bar / p75_mfe_bar are in 15s bars (0-based bar index where
-        MFE historically peaked).  0.0 means unknown → time signals silent.
+        MFE historically peaked).  0.0 means unknown -> time signals silent.
         """
         self._trade_avg_mfe_bar = avg_mfe_bar
         self._trade_p75_mfe_bar = p75_mfe_bar
         self._trade_bars_held   = 0
 
     def tick_trade_bar(self):
-        """Increment hold counter — call once per 15s bar while position is open."""
+        """Increment hold counter  -- call once per 15s bar while position is open."""
         self._trade_bars_held += 1
 
     def clear_active_trade_timescale(self):
@@ -446,7 +446,7 @@ class TimeframeBeliefNetwork:
         Micro states can be supplied directly (states_micro) if already computed
         by the main forward pass, avoiding redundant work.
 
-        df_4h: external 4h bars (supra-resolution — resampling 15s gives <5 bars).
+        df_4h: external 4h bars (supra-resolution  -- resampling 15s gives <5 bars).
         """
         # Ensure DatetimeIndex for pandas resample
         df = df_micro.copy()
@@ -461,7 +461,7 @@ class TimeframeBeliefNetwork:
         if states_micro is not None and base_tf in self.workers:
             self.workers[base_tf].prepare(states_micro)
 
-        # Supra-resolution workers (4h): resampling 15s→4h gives <5 bars per day.
+        # Supra-resolution workers (4h): resampling 15s->4h gives <5 bars per day.
         # Use external monthly data, same pattern as sub-resolution workers.
         _supra_res_data = {14400: df_4h}
         for tf_secs, df_ext in _supra_res_data.items():
@@ -469,7 +469,7 @@ class TimeframeBeliefNetwork:
                 continue
             lbl = self._TF_LABELS.get(tf_secs, str(tf_secs))
             if df_ext is None or (hasattr(df_ext, 'empty') and df_ext.empty):
-                print(f"  TBN [{lbl}]: no data supplied — worker inactive")
+                print(f"  TBN [{lbl}]: no data supplied  -- worker inactive")
                 self.workers[tf_secs].prepare([])
                 continue
             try:
@@ -556,7 +556,7 @@ class TimeframeBeliefNetwork:
             lbl = self._TF_LABELS.get(tf_secs, str(tf_secs))
             df_sub = _sub_res_data.get(tf_secs)
             if df_sub is None or (hasattr(df_sub, 'empty') and df_sub.empty):
-                print(f"  TBN [{lbl}]: no data supplied — worker inactive")
+                print(f"  TBN [{lbl}]: no data supplied  -- worker inactive")
                 self.workers[tf_secs].prepare([])
                 continue
             try:
@@ -606,7 +606,7 @@ class TimeframeBeliefNetwork:
         """
         Update a worker with a partial (forming) bar from NT8.
         Computes a fresh state and re-runs analysis without advancing
-        the bar index — the completed bar will still trigger normal tick().
+        the bar index  -- the completed bar will still trigger normal tick().
         """
         if tf_seconds not in self.workers:
             return
@@ -681,7 +681,7 @@ class TimeframeBeliefNetwork:
         # ── Trade-aware direction blend ──────────────────────────────
         # When a trade is active and we know the template's expected target,
         # blend actual price progress into direction probabilities.
-        # Ahead of pace → reinforce trade direction. Behind → weaken it.
+        # Ahead of pace -> reinforce trade direction. Behind -> weaken it.
         if (self._decay_trade_side is not None and
                 self._trade_target_mfe_ticks > 0 and
                 self._trade_entry_price > 0):
@@ -689,14 +689,14 @@ class TimeframeBeliefNetwork:
             if abs(_pace_blend) > 0.05:
                 _trade_is_long = (self._decay_trade_side == 'long')
                 _weight = min(0.3, abs(_pace_blend) * 0.15)  # max 30% influence
-                if _pace_blend > 0:  # ahead of schedule → reinforce trade dir
+                if _pace_blend > 0:  # ahead of schedule -> reinforce trade dir
                     if _trade_is_long:
                         path_long  = path_long  * (1 - _weight) + _weight * 0.80
                         path_short = path_short * (1 - _weight) + _weight * 0.20
                     else:
                         path_long  = path_long  * (1 - _weight) + _weight * 0.20
                         path_short = path_short * (1 - _weight) + _weight * 0.80
-                else:  # behind schedule → weaken trade dir
+                else:  # behind schedule -> weaken trade dir
                     if _trade_is_long:
                         path_long  = path_long  * (1 - _weight) + _weight * 0.35
                         path_short = path_short * (1 - _weight) + _weight * 0.65
@@ -778,8 +778,8 @@ class TimeframeBeliefNetwork:
         so we can track physics decay (drift away from expected trajectory).
 
         Trade-aware fields:
-          target_mfe_ticks: template p75_mfe_ticks — expected move magnitude
-          resolve_bars:     template avg_mfe_bar — expected bars to peak
+          target_mfe_ticks: template p75_mfe_ticks  -- expected move magnitude
+          resolve_bars:     template avg_mfe_bar  -- expected bars to peak
           entry_price:      trade entry price for tick delta calculation
         """
         self._decay_trade_side = side
@@ -1089,7 +1089,7 @@ class TimeframeBeliefNetwork:
             {'direction': 'long'|'short', 'strength': float,
              'tf': str, 'dmi_plus': float, 'dmi_minus': float}
         """
-        # Workers are keyed by tf_seconds — sort ascending (low TF first)
+        # Workers are keyed by tf_seconds  -- sort ascending (low TF first)
         for tf_sec in sorted(self.workers.keys()):
             worker = self.workers[tf_sec]
             if worker._last_tf_bar_idx < 0 or not worker._states:
@@ -1166,7 +1166,7 @@ class TimeframeBeliefNetwork:
         Called every bar while a position is open.
         Returns a dict with exit adjustment recommendations.
 
-        side: 'long' or 'short' — the current position direction.
+        side: 'long' or 'short'  -- the current position direction.
         entry_price: trade entry price (enables band-aware exit logic).
 
         Returns:
@@ -1194,7 +1194,7 @@ class TimeframeBeliefNetwork:
         urgent = belief.is_confident and not direction_aligned and belief.conviction > self.URGENT_EXIT_CONVICTION_THRESHOLD
 
         # Tighten: ONLY when wave is deeply mature (approaching exhaustion zone, > 0.85).
-        # Pre-fix: also tightened when conviction was low — this fired on ~32% of all
+        # Pre-fix: also tightened when conviction was low  -- this fired on ~32% of all
         # bars, collapsing the trail to 2 ticks mid-move and causing premature exits.
         # Low conviction during an active trade is normal noise, not a reversal signal.
         tighten = wave_mature > self.TIGHTEN_TRAIL_WAVE_MATURITY_THRESHOLD
@@ -1203,7 +1203,7 @@ class TimeframeBeliefNetwork:
         widen = belief.is_confident and direction_aligned and wave_mature < self.WIDEN_TRAIL_WAVE_MATURITY_THRESHOLD
 
         # Time-exhaustion: template's historical MFE peak window has passed.
-        # avg_mfe_bar = 0.0 means unknown (no --fresh run yet) → silent.
+        # avg_mfe_bar = 0.0 means unknown (no --fresh run yet) -> silent.
         # At 1.5× avg_mfe_bar: tighten trail (move is likely past its peak).
         # At 2.5× p75_mfe_bar: urgent exit (conservative window fully elapsed).
         _time_tighten = False
@@ -1220,9 +1220,9 @@ class TimeframeBeliefNetwork:
 
         # ── Band-aware exit adjustments ─────────────────────────────────
         # Use multi-TF band confluence to modulate trail behavior:
-        # - In profit + approaching resistance (LONG) or support (SHORT) → tighten
-        # - In loss + sitting at support (LONG) or resistance (SHORT) → widen (give room)
-        # - In loss + support/resistance BROKEN → urgent exit
+        # - In profit + approaching resistance (LONG) or support (SHORT) -> tighten
+        # - In loss + sitting at support (LONG) or resistance (SHORT) -> widen (give room)
+        # - In loss + support/resistance BROKEN -> urgent exit
         _band_tighten = False
         _band_widen = False
         _band_urgent = False
@@ -1231,26 +1231,26 @@ class TimeframeBeliefNetwork:
             _sup = _bc['support_score']
             _res = _bc['resistance_score']
             _in_profit = True  # approximate from band position vs trade side
-            # For LONG: profit when price above entry → resistance bands = approaching TP zone
-            # For SHORT: profit when price below entry → support bands = approaching TP zone
+            # For LONG: profit when price above entry -> resistance bands = approaching TP zone
+            # For SHORT: profit when price below entry -> support bands = approaching TP zone
             if side == 'long':
-                # Approaching resistance while long & in profit → tighten
+                # Approaching resistance while long & in profit -> tighten
                 if _res > 0.5:
                     _band_tighten = True
-                # Sitting at support while long → give room (price at value)
+                # Sitting at support while long -> give room (price at value)
                 if _sup > 0.5 and direction_aligned:
                     _band_widen = True
-                # Support broken while long (bands say SHORT strongly) → urgent
+                # Support broken while long (bands say SHORT strongly) -> urgent
                 if _bc['direction'] == 'short' and _bc['strength'] > 0.5:
                     _band_urgent = True
             else:  # short
-                # Approaching support while short & in profit → tighten
+                # Approaching support while short & in profit -> tighten
                 if _sup > 0.5:
                     _band_tighten = True
-                # Sitting at resistance while short → give room
+                # Sitting at resistance while short -> give room
                 if _res > 0.5 and direction_aligned:
                     _band_widen = True
-                # Resistance broken while short (bands say LONG strongly) → urgent
+                # Resistance broken while short (bands say LONG strongly) -> urgent
                 if _bc['direction'] == 'long' and _bc['strength'] > 0.5:
                     _band_urgent = True
 
@@ -1301,10 +1301,10 @@ class TimeframeBeliefNetwork:
         _tp = getattr(self, '_trade_pace_cache', None)
         if _tp is not None and _tp.get('time_progress', 0) > 0.3:
             if _tp['pace'] < 0.3 and not _tp['direction_ok']:
-                # Way behind AND wrong direction → tighten aggressively
+                # Way behind AND wrong direction -> tighten aggressively
                 _pace_tighten = True
             elif _tp['pace'] > 1.5 and _tp['direction_ok']:
-                # Ahead of schedule + correct direction → widen, let it run
+                # Ahead of schedule + correct direction -> widen, let it run
                 _pace_widen = True
 
         tighten = tighten or _pace_tighten
@@ -1367,7 +1367,7 @@ class TimeframeBeliefNetwork:
         _di_plus, _di_minus, _di_plus_prev, _di_minus_prev, _adx_slope = \
             _read_worker_dmi(_disc_tf)
 
-        # Adjacent higher TF DMI (hold override — is macro trend alive?)
+        # Adjacent higher TF DMI (hold override  -- is macro trend alive?)
         _h_di_plus, _h_di_minus, _, _, _ = _read_worker_dmi(_higher_tf)
         _higher_tf_agrees = (
             (side == 'long' and _h_di_plus > _h_di_minus) or

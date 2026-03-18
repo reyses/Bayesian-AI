@@ -5,13 +5,12 @@ to reports/live/trades/ for post-session inspection.
 """
 
 import csv
-import os
 import time
 from pathlib import Path
 
 
 class TradeLogger:
-    """Lightweight per-trade state capture → CSV on disk."""
+    """Lightweight per-trade state capture -> CSV on disk."""
 
     def __init__(self, output_dir: str = 'reports/live/trades'):
         self._dir = Path(output_dir)

@@ -1,4 +1,4 @@
-"""Watchdog — end-of-session flatten + live operational safety.
+"""Watchdog  -- end-of-session flatten + live operational safety.
 
 Purpose:
   - Flatten positions before market maintenance windows
@@ -15,7 +15,7 @@ from core.exit_engine import ExitAction, ExitResult, PositionState
 
 # CME MNQ session close = 16:00 CT (22:00 UTC), maintenance 16:15-16:30 CT
 # RTH close = 16:00 CT, Globex close = 17:00 CT
-SESSION_END_BUFFER_BARS = 20  # 5 minutes at 15s — flatten before close
+SESSION_END_BUFFER_BARS = 20  # 5 minutes at 15s  -- flatten before close
 
 
 class WatchdogCheck:

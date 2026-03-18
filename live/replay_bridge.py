@@ -1,5 +1,5 @@
 """
-ReplayBridge — TCP server that feeds ATLAS parquet data through the same
+ReplayBridge  -- TCP server that feeds ATLAS parquet data through the same
 protocol as NT8_BayesianBridge.cs.
 
 Eliminates OOS/live parity by construction: LiveEngine sees the exact same
@@ -12,7 +12,7 @@ Usage:
     # Standalone:
     python -m live.replay_bridge DATA/ATLAS_OOS --speed 50
 
-Protocol: Length-prefixed JSON over TCP (port 5199) — identical to NT8 bridge.
+Protocol: Length-prefixed JSON over TCP (port 5199)  -- identical to NT8 bridge.
 """
 
 import asyncio
@@ -22,18 +22,17 @@ import logging
 import os
 import struct
 import time
-from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import pandas as pd
 
-from live.protocol import HEADER_FMT, decode
+from live.protocol import HEADER_FMT
 
 logger = logging.getLogger(__name__)
 
 # ── Defaults ──────────────────────────────────────────────────────────────────
 DEFAULT_PORT = 5199
-DEFAULT_SPEED_MS = 50          # ms per anchor bar (50ms → 57 days in ~35 min)
+DEFAULT_SPEED_MS = 50          # ms per anchor bar (50ms -> 57 days in ~35 min)
 BRIDGE_VERSION = "REPLAY-1.0"
 
 # TFs available in ATLAS, ordered by period (seconds)
@@ -137,7 +136,7 @@ class ReplayBridge:
             self._on_client_connect, '127.0.0.1', self._port)
         addr = server.sockets[0].getsockname()
         logger.info(f"ReplayBridge listening on {addr[0]}:{addr[1]}")
-        logger.info(f"Speed: {self._speed_ms}ms/bar — start live.launcher to connect")
+        logger.info(f"Speed: {self._speed_ms}ms/bar  -- start live.launcher to connect")
 
         async with server:
             await server.serve_forever()
@@ -382,7 +381,7 @@ class ReplayBridge:
     # ── Replay Engine ─────────────────────────────────────────────────────
 
     async def _replay(self):
-        """Feed all bars through the protocol — history warmup + live stream."""
+        """Feed all bars through the protocol  -- history warmup + live stream."""
         anchor_df = self._anchor_df
         n_total = len(anchor_df)
 
@@ -487,7 +486,7 @@ class ReplayBridge:
                 elapsed = time.time() - self._start_time
                 eta_min = (n_live - live_count) * delay_s / 60
                 logger.info(f"Replay: {live_count:,}/{n_live:,} bars "
-                            f"({pct:.1f}%) — {self._fills_sent} fills — "
+                            f"({pct:.1f}%)  -- {self._fills_sent} fills  -- "
                             f"ETA {eta_min:.1f}min")
 
             # Pace control
@@ -520,7 +519,7 @@ class ReplayBridge:
 def main():
     import argparse
     parser = argparse.ArgumentParser(
-        description='ReplayBridge — feed ATLAS parquet through NT8 protocol')
+        description='ReplayBridge  -- feed ATLAS parquet through NT8 protocol')
     parser.add_argument('atlas_dir',
                         help='Path to ATLAS directory (e.g. DATA/ATLAS_OOS)')
     parser.add_argument('--port', type=int, default=DEFAULT_PORT,

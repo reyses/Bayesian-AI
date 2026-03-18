@@ -1,4 +1,4 @@
-"""Band Urgent Exit — exit when multi-TF support/resistance is broken against trade."""
+"""Band Urgent Exit  -- exit when multi-TF support/resistance is broken against trade."""
 from typing import Optional
 
 from core.exit_engine import ExitAction, ExitResult, PositionState

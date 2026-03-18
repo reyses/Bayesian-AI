@@ -4,10 +4,9 @@ Implements fused kernels for StatisticalFieldEngine.
 Regression, z-score, and probability computations on GPU.
 """
 import math
-import numpy as np
 import numba
 from numba import cuda
-from core.physics_utils import ADX_PERIOD, HURST_WINDOW, HURST_MIN_WINDOW
+from core.physics_utils import HURST_WINDOW
 
 # Statistical Constants
 reg_period = 21
@@ -199,7 +198,7 @@ def compute_dm_tr_kernel(highs, lows, closes,
                           out_tr, out_plus_dm, out_minus_dm):
     """
     Pass 1: Compute raw True Range and Directional Movement per bar.
-    Fully parallel — one thread per bar.
+    Fully parallel  -- one thread per bar.
     """
     i = cuda.grid(1)
     n = highs.shape[0]

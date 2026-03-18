@@ -6,8 +6,7 @@ Statistical factor analysis on Monte Carlo results.
 import pandas as pd
 import numpy as np
 from scipy.stats import f_oneway
-from typing import Dict, List, Tuple, Any
-from dataclasses import dataclass
+from typing import Dict, Tuple
 from training.monte_carlo_engine import ComboResult
 
 class ANOVAAnalyzer:

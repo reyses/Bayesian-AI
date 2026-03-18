@@ -1,11 +1,11 @@
-"""Envelope Decay — time-based exit with dynamic halflife modulation."""
+"""Envelope Decay  -- time-based exit with dynamic halflife modulation."""
 import math
 from typing import Optional
 
 from core.exit_engine import ExitAction, ExitResult, PositionState
 
 
-_LN2 = 0.693  # ln(2) — structural constant for halflife decay
+_LN2 = 0.693  # ln(2)  -- structural constant for halflife decay
 
 
 class EnvelopeDecay:
@@ -88,16 +88,16 @@ class EnvelopeDecay:
 
         effective_hl = base_hl * max(self._hl_mult_floor, hl_mult)
 
-        # ADX slope modulation: rising trend → slow decay, falling → speed up
+        # ADX slope modulation: rising trend -> slow decay, falling -> speed up
         # exit_signal carries 'adx_slope' from TBN when available
-        # (intentionally not gated behind config flag — always active when data present)
+        # (intentionally not gated behind config flag  -- always active when data present)
         if band_context is not None:
             _adx_slope = band_context.get('adx_slope', 0.0)
             if _adx_slope > 0:
-                # Trend strengthening — slow down envelope decay (up to 50%)
+                # Trend strengthening  -- slow down envelope decay (up to 50%)
                 effective_hl *= 1.0 + min(0.5, _adx_slope * self._adx_slope_boost)
             elif _adx_slope < -1.0:
-                # Trend weakening — speed up decay (up to 50% faster)
+                # Trend weakening  -- speed up decay (up to 50% faster)
                 effective_hl *= max(0.5, 1.0 + _adx_slope * self._adx_slope_penalty)
 
         # Decay factor

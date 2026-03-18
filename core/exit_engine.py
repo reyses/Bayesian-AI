@@ -1,5 +1,5 @@
 """
-Unified Exit Engine — cascade orchestrator
+Unified Exit Engine  -- cascade orchestrator
 ============================================
 Owns: position state, MFE tracking, sub-bar wick resolution, cascade ordering.
 Delegates each exit check to its standalone module in core/exits/.
@@ -10,11 +10,9 @@ Usage:
     result = exit_eng.evaluate(pos, bar_high, bar_low, bar_close, bar_idx, ...)
 """
 
-import math
-import numpy as np
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Dict, List
+from typing import Optional, Dict
 
 
 class ExitAction(Enum):
@@ -55,7 +53,7 @@ class ExitResult:
 
 @dataclass
 class PositionState:
-    """Unified position state — used by ExitEngine and exit modules."""
+    """Unified position state  -- used by ExitEngine and exit modules."""
     side: str                    # 'long' or 'short'
     entry_price: float
     entry_bar_index: int
@@ -73,7 +71,7 @@ class PositionState:
     # Dynamic state (updated each bar)
     peak_favorable: float = 0.0
     bars_held: int = 0
-    bars_since_peak: int = 0        # bars since last new MFE — V-reversal detector
+    bars_since_peak: int = 0        # bars since last new MFE  -- V-reversal detector
     breakeven_locked: bool = False
     envelope_active: bool = False
     envelope_level: float = 0.0
@@ -91,7 +89,7 @@ class PositionState:
     # Discovery TF for TF-aware exits (regime_decay checks this TF's DMI)
     discovery_tf_seconds: float = 15.0
 
-    # DMI direction confirmation counter — uses discovery TF's DMI.
+    # DMI direction confirmation counter  -- uses discovery TF's DMI.
     # Counts consecutive bars where discovery-TF DMI agrees with trade direction.
     # At 3+ bars, direction is confirmed (research: MAE drops 40%).
     dmi_confirmed_bars: int = 0
@@ -190,7 +188,7 @@ class ExitEngine:
         self.survival_stop = SurvivalStopExit(config=config)
         self.tidal_wave = TidalWaveExit(config=config)
 
-        # Self-tuning state — two independent counters
+        # Self-tuning state  -- two independent counters
         self._tune_too_early = 0
         self._tune_too_late = 0
         self._tune_total = 0
@@ -352,7 +350,7 @@ class ExitEngine:
             envelope_halflife_mult=_hl_mult,
         )
 
-        # Min-hold experiment: SL is last resort if all reversal exits fail — wide floor
+        # Min-hold experiment: SL is last resort if all reversal exits fail  -- wide floor
         if self.min_hold_bars > 0:
             sl_ticks = max(sl_ticks, 40.0)
         _sd = sl_ticks * self.tick_size
@@ -396,11 +394,11 @@ class ExitEngine:
         Evaluate all exit conditions for current bar.
 
         Cascade order (first trigger wins):
-        === Structural exits (thesis invalidation — before SL/TP) ===
-        1. Death Hook       — liquidity absorption at macro wall
-        2. Regime Decay     — Hurst/ADX collapse + DI trend reversal
-        3. Survival Stop    — Bayesian ePnL / time-survival probability
-        4. Tidal Wave       — adverse volatility expansion
+        === Structural exits (thesis invalidation  -- before SL/TP) ===
+        1. Death Hook        -- liquidity absorption at macro wall
+        2. Regime Decay      -- Hurst/ADX collapse + DI trend reversal
+        3. Survival Stop     -- Bayesian ePnL / time-survival probability
+        4. Tidal Wave        -- adverse volatility expansion
         === Standard exits ===
         5. Stop Loss        6. Take Profit      7. Watchdog
         8. Band Urgent      9. Breakeven lock   10. Envelope decay
@@ -441,7 +439,7 @@ class ExitEngine:
             if _dmi_agrees:
                 pos.dmi_confirmed_bars += 1
             else:
-                pos.dmi_confirmed_bars = 0  # reset — DMI flipped against
+                pos.dmi_confirmed_bars = 0  # reset  -- DMI flipped against
             if pos.dmi_confirmed_bars >= 3 and not pos.dmi_direction_confirmed:
                 pos.dmi_direction_confirmed = True
 
@@ -475,9 +473,9 @@ class ExitEngine:
             _peak_ticks = (pos.entry_price - pos.peak_favorable) / ts
         _never_profitable = _peak_ticks < 2.0 and pos.bars_held >= 4
 
-        # === PROFIT PROTECTION (giveback first — if trade peaked, protect it) ===
+        # === PROFIT PROTECTION (giveback first  -- if trade peaked, protect it) ===
 
-        # 1. Peak Giveback — catches trades that peaked and are reversing.
+        # 1. Peak Giveback  -- catches trades that peaked and are reversing.
         #    Fires BEFORE structural exits so profitable trades get a controlled
         #    exit, not a panic kill at -$35 from regime_decay/tidal_wave.
         if not _in_hold_period:
@@ -494,43 +492,43 @@ class ExitEngine:
 
         # === STRUCTURAL EXITS (thesis invalidation) ===
 
-        # 2. Death Hook (Liquidity Absorption) — suppressed during min-hold
+        # 2. Death Hook (Liquidity Absorption)  -- suppressed during min-hold
         if not _in_hold_period:
             r = self.fractal_exhaust.evaluate(pos, bar_close, ts, belief_network)
             if r: return r
 
-        # 3. Regime Decay — only with strong DMI during min-hold
+        # 3. Regime Decay  -- only with strong DMI during min-hold
         if not _in_hold_period or _strong_dmi_reversal:
             r = self.regime_decay.evaluate(pos, bar_close, ts, belief_network)
             if r: return r
 
-        # 4. Survival Stop — suppressed during min-hold
+        # 4. Survival Stop  -- suppressed during min-hold
         if not _in_hold_period:
             r = self.survival_stop.evaluate(pos, bar_close, ts, belief_network)
             if r: return r
 
-        # 5. Tidal Wave — suppressed during min-hold
+        # 5. Tidal Wave  -- suppressed during min-hold
         if not _in_hold_period:
             r = self.tidal_wave.evaluate(pos, bar_close, ts, belief_network)
             if r: return r
 
         # === STANDARD EXITS ===
 
-        # 5. Stop Loss — ALWAYS allowed (capital protection, 40t floor)
+        # 5. Stop Loss  -- ALWAYS allowed (capital protection, 40t floor)
         r = self.stop_loss.evaluate(pos, worst_price, ts)
         if r: return r
 
-        # 6. Take Profit — suppressed during min-hold
+        # 6. Take Profit  -- suppressed during min-hold
         if not _in_hold_period:
             r = self.take_profit.evaluate(pos, best_price, ts)
             if r: return r
 
-        # 7. Watchdog — suppressed
+        # 7. Watchdog  -- suppressed
         if not _in_hold_period:
             r = self.watchdog.evaluate(pos, bar_close, ts, exit_signal)
             if r: return r
 
-        # 8. Band Urgent — suppressed (chop detection, not true reversal)
+        # 8. Band Urgent  -- suppressed (chop detection, not true reversal)
         if not _in_hold_period:
             r = self.band_exit.evaluate(pos, bar_close, ts, band_context)
             if r: return r
@@ -539,7 +537,7 @@ class ExitEngine:
         self.breakeven.apply(pos, ts)
 
         # 9b. V-reversal exit: 4 bars without new peak + in profit = cycle reversed
-        #     Active during min-hold too — 8-min cycle confirmed from human seeds
+        #     Active during min-hold too  -- 8-min cycle confirmed from human seeds
         if pos.bars_since_peak >= 4 and pos.breakeven_locked:
             if pos.side == 'long':
                 _pnl_ticks = (bar_close - pos.entry_price) / ts
@@ -559,15 +557,15 @@ class ExitEngine:
                     trail_level=pos.stop_loss,
                 )
 
-        # 10. Envelope Decay — suppressed
+        # 10. Envelope Decay  -- suppressed
         if not _in_hold_period:
             r = self.envelope.evaluate(pos, bar_close, ts, net_force, band_context,
                                        noise_ticks)
             if r: return r
 
-        # 11. (Giveback moved to position #1 — profit protection first)
+        # 11. (Giveback moved to position #1  -- profit protection first)
 
-        # 12. Belief Flip — only with strong DMI during min-hold
+        # 12. Belief Flip  -- only with strong DMI during min-hold
         if not _in_hold_period or _strong_dmi_reversal:
             r = self.belief_flip.evaluate(pos, bar_close, ts, exit_signal)
             if r: return r

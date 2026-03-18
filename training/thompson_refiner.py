@@ -7,9 +7,8 @@ import os
 import pickle
 import numpy as np
 from typing import Dict, List, Any, Tuple
-from core.bayesian_brain import BayesianBrain, TradeOutcome
-from training.monte_carlo_engine import simulate_template_tf_combo, ComboResult
-from training.doe_parameter_generator import DOEParameterGenerator
+from core.bayesian_brain import BayesianBrain
+from training.monte_carlo_engine import simulate_template_tf_combo
 
 class ThompsonRefiner:
     """

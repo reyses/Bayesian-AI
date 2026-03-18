@@ -1,21 +1,20 @@
-"""Fractal DMI — dual-timeframe directional movement gating.
+"""Fractal DMI  -- dual-timeframe directional movement gating.
 
 Five execution states derived from macro/micro DMI relationship:
-  A. Fakeout Filter      — block trend entries when macro has no energy
-  B. Momentum Ignition   — enter on micro pullback + velocity ignition in macro trend
-  C. Fractal Exhaust     — exit when micro energy spikes and dies at macro wall
-  D. Structural Reversion — fade 3-sigma extremes in non-trending (OU) regimes
+  A. Fakeout Filter       -- block trend entries when macro has no energy
+  B. Momentum Ignition    -- enter on micro pullback + velocity ignition in macro trend
+  C. Fractal Exhaust      -- exit when micro energy spikes and dies at macro wall
+  D. Structural Reversion  -- fade 3-sigma extremes in non-trending (OU) regimes
 
 Academic basis:
   State A: Hawkes process gating (reject self-exciting noise in low-energy macro)
   State B: Hurst H>0.5 persistent trend + micro mean-reversion pullback + ignition
-  State D: Ornstein-Uhlenbeck process — anti-persistent (H<0.5) elastic reversion
+  State D: Ornstein-Uhlenbeck process  -- anti-persistent (H<0.5) elastic reversion
 
 Macro = higher TF (default 1m), Micro = lower TF (default 5s).
 The micro oscillates within the macro's trend container.
 """
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -132,14 +131,14 @@ class FractalDMI:
         _h = result.macro_hurst
         _adx = result.macro_adx
         if _h > self._hurst_persistent or (_h >= 0.50 and _adx >= self._trend_macro_adx):
-            # Persistent / trending — Hurst proves mathematical memory
+            # Persistent / trending  -- Hurst proves mathematical memory
             result.macro_regime = 'trending'
             if result.macro_di_plus > result.macro_di_minus:
                 result.macro_trend = 'long'
             elif result.macro_di_minus > result.macro_di_plus:
                 result.macro_trend = 'short'
         elif _h < self._hurst_mean_revert or (_h <= 0.50 and _adx < self._reversion_macro_adx):
-            # Anti-persistent / mean-reverting — OU regime
+            # Anti-persistent / mean-reverting  -- OU regime
             result.macro_regime = 'mean_reverting'
         else:
             result.macro_regime = 'chop'

@@ -14,7 +14,7 @@ def compute_adx_dmi_cpu(tr_raw, plus_dm_raw, minus_dm_raw, period=14):
     Pass 2: Wilder's smoothed ADX/DMI computation.
     Sequential but fast (single pass over arrays).
 
-    Returns: (adx, dmi_plus, dmi_minus) — all numpy arrays length n
+    Returns: (adx, dmi_plus, dmi_minus)  -- all numpy arrays length n
     """
     n = len(tr_raw)
     adx = np.zeros(n)

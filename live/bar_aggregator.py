@@ -1,5 +1,5 @@
 """
-LiveBarAggregator — aggregates inbound 1s bars into 15s bars, accumulates
+LiveBarAggregator  -- aggregates inbound 1s bars into 15s bars, accumulates
 them into a growing DataFrame, and recomputes market states via the
 StatisticalFieldEngine.
 
@@ -10,9 +10,8 @@ OHLCV 15s bar, and appends it to the state buffer.  At session reset
 
 import logging
 import os
-import numpy as np
 import pandas as pd
-from typing import List, Optional
+from typing import Optional
 
 from core.statistical_field_engine import StatisticalFieldEngine
 from live.config import LiveConfig
@@ -91,7 +90,7 @@ class LiveBarAggregator:
         if self._sub_bars and not self._history_mode:
             gap = row_1s['timestamp'] - self._sub_bars[-1]['timestamp']
             if gap > 7200:
-                logger.info(f"Session gap ({gap:.0f}s) — running daily maintenance")
+                logger.info(f"Session gap ({gap:.0f}s)  -- running daily maintenance")
                 self.daily_maintenance()
 
         # If source is already at anchor period (or larger), pass through
@@ -113,7 +112,7 @@ class LiveBarAggregator:
         return None
 
     def finish_history(self):
-        """Called when HISTORY_DONE received — recompute and go live."""
+        """Called when HISTORY_DONE received  -- recompute and go live."""
         total = self.bar_count
         logger.info(f"History ingestion complete: {total} bars retained")
         # One bulk recompute
@@ -141,7 +140,7 @@ class LiveBarAggregator:
     def seed_from_replay(self, df: 'pd.DataFrame', states: list):
         """Accept pre-computed state from history replay.
 
-        Skips history ingestion entirely — aggregator starts warm.
+        Skips history ingestion entirely  -- aggregator starts warm.
         """
         self._rows = df.to_dict('records')
         self._states = states
@@ -159,7 +158,7 @@ class LiveBarAggregator:
                             f'bars_{self._cfg.asset_ticker}_{self._target_period}s.parquet')
 
     def save_to_parquet(self):
-        """Flush current bars to parquet (append-safe — overwrites with full buffer)."""
+        """Flush current bars to parquet (append-safe  -- overwrites with full buffer)."""
         if not self._rows:
             return
         path = self._parquet_path()
@@ -185,7 +184,7 @@ class LiveBarAggregator:
 
         NT8 sends 10k bars on connect + live bars during trading.
         This merges them into ATLAS format: {atlas_root}/{tf}/YYYY_MM.parquet
-        so the next OOS3 run includes the most recent market data.
+        so the next validation run includes the most recent market data.
         """
         from datetime import datetime, timezone
         if not self._rows:
@@ -245,7 +244,7 @@ class LiveBarAggregator:
         """Load persisted bars into the buffer. Returns last timestamp (0 if none)."""
         path = self._parquet_path()
         if not os.path.exists(path):
-            logger.info("No persisted bars found — fresh start")
+            logger.info("No persisted bars found  -- fresh start")
             return 0.0
         try:
             df = pd.read_parquet(path)
@@ -270,7 +269,7 @@ class LiveBarAggregator:
         Called automatically when a >2h gap is detected between bars.
         """
         logger.info("=" * 50)
-        logger.info("DAILY MAINTENANCE — session gap detected")
+        logger.info("DAILY MAINTENANCE  -- session gap detected")
 
         # 1. Save current bars to disk + update ATLAS
         n_bars = self.bar_count
@@ -278,7 +277,7 @@ class LiveBarAggregator:
         self.save_to_parquet()
         self.update_atlas()
 
-        # 2. Trim 1s bars (no need to persist these — only for intra-session TBN)
+        # 2. Trim 1s bars (no need to persist these  -- only for intra-session TBN)
         self._rows_1s.clear()
 
         # 3. Memory cap: keep only last MAX_MEMORY_BARS in RAM
@@ -324,12 +323,12 @@ class LiveBarAggregator:
         if self._rows and not self._history_mode:
             gap = row['timestamp'] - self._rows[-1]['timestamp']
             if gap > 7200:
-                logger.info(f"Session gap ({gap:.0f}s) — daily maintenance")
+                logger.info(f"Session gap ({gap:.0f}s)  -- daily maintenance")
                 self.daily_maintenance()
 
         self._rows.append(row)
 
-        # During history ingestion, just accumulate — no per-bar recompute
+        # During history ingestion, just accumulate  -- no per-bar recompute
         if self._history_mode:
             if self.bar_count % 500 == 0:
                 logger.info(f"History ingestion: {self.bar_count} bars buffered")

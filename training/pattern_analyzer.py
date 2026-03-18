@@ -3,8 +3,7 @@ Pattern Analyzer - Identify strongest learned patterns
 Analyzes BayesianBrain state table to find high-performing configurations
 """
 import numpy as np
-from typing import List, Dict, Any, Tuple
-import pandas as pd
+from typing import List, Dict
 from collections import defaultdict
 
 

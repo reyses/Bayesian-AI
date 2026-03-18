@@ -49,7 +49,6 @@ from core.market_state import MarketState
 from training.doe_parameter_generator import DOEParameterGenerator
 from training.pattern_analyzer import PatternAnalyzer
 from training.progress_reporter import ProgressReporter, DayMetrics
-from training.databento_loader import DatabentoLoader
 from training.fractal_discovery_agent import FractalDiscoveryAgent, PatternEvent, TIMEFRAME_SECONDS
 from core.feature_extraction import extract_feature_vector
 from core.fractal_clustering import FractalClusteringEngine, PatternTemplate
@@ -186,10 +185,6 @@ class Trainer:
         # PID Analyzer (Shadow Mode)
         self.pid_analyzer = PIDOscillationAnalyzer()
 
-        # Slippage parameters
-        self.BASE_SLIPPAGE = DEFAULT_BASE_SLIPPAGE
-        self.VELOCITY_SLIPPAGE_FACTOR = DEFAULT_VELOCITY_SLIPPAGE_FACTOR
-
     def calculate_optimal_workers(self):
         try:
             return max(1, multiprocessing.cpu_count() - 2)
@@ -201,7 +196,7 @@ class Trainer:
         """
         Scan forward from bar_idx to see if price hit target or stop first.
         Uses high/low of each subsequent bar to check touch.
-        Lookahead cap: 40 bars (10 minutes at 15s) — PID oscillations are fast.
+        Lookahead cap: 40 bars (10 minutes at 15s)  -- PID oscillations are fast.
         """
         lookahead  = min(40, len(day_bars) - bar_idx - 1)
         hit_target = False
@@ -234,7 +229,7 @@ class Trainer:
         elif hit_stop:
             theo_pnl = -abs(sig.stop_price - sig.entry_price) * point_value
         else:
-            # Neither hit within 10 min — use last bar's close vs entry
+            # Neither hit within 10 min  -- use last bar's close vs entry
             last_row = day_bars.iloc[min(bar_idx + lookahead, len(day_bars)-1)]
             last_close = last_row['close']
 
@@ -298,7 +293,7 @@ class Trainer:
             self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Analyze',
                                       'step': 'FORWARD_PASS', 'pct': 0})
 
-        # ── 0. Rotate previous run files: rename current → _old ────────────────
+        # ── 0. Rotate previous run files: rename current -> _old ────────────────
         _analysis_mode = getattr(self, '_analysis_mode', False)
         if not _analysis_mode:
             for _old_name in ('is_report.txt', 'oracle_trade_log.csv',
@@ -332,9 +327,9 @@ class Trainer:
 
         # Inject synthetic PEAK_REVERSAL template (ID=-100)
         # Magnitude-driven: params scale with z-score at entry.
-        # Big peak (high |z|) = big reversal expected → wide params.
-        # Small peak (low |z|) = small reversal → tight params.
-        # These are bootstrap values — will be replaced by real stats
+        # Big peak (high |z|) = big reversal expected -> wide params.
+        # Small peak (low |z|) = small reversal -> tight params.
+        # These are bootstrap values  -- will be replaced by real stats
         # after the first run with peak reversal trades.
         _PEAK_TID = -100
         self.pattern_library[_PEAK_TID] = {
@@ -349,8 +344,8 @@ class Trainer:
             'p75_mfe_ticks': 52.0,        # P75 MFE of IS winners
             'avg_mfe_bar': 6.0,           # peak trades are fast
             'p75_mfe_bar': 10.0,
-            'stop_loss_ticks': 70,        # P95 MAE — true last resort
-            'take_profit_ticks': 52,      # P75 MFE — capture the move
+            'stop_loss_ticks': 70,        # P95 MAE  -- true last resort
+            'take_profit_ticks': 52,      # P75 MFE  -- capture the move
             'trailing_stop_ticks': 15,
             'is_peak_reversal': True,
         }
@@ -388,7 +383,7 @@ class Trainer:
             min_hold_bars=_min_hold,
         )
         if _min_hold > 0:
-            print(f"  Min-hold active: {_min_hold} bars ({_min_hold * 15 / 60:.0f} min) — "
+            print(f"  Min-hold active: {_min_hold} bars ({_min_hold * 15 / 60:.0f} min)  -- "
                   f"reversal exits only before threshold")
         belief_network = create_belief_network(_bundle, self.engine)
         belief_network._atlas_root = data_source  # for pre-built TF parquet loading
@@ -399,7 +394,7 @@ class Trainer:
             exit_engine=_exit_eng,
             tick_size=self.asset.tick_size,
             point_value=self.asset.point_value,
-            mode='is',  # engine mode always 'is' — no behavioral difference
+            mode='is',  # engine mode always 'is'  -- no behavioral difference
             tier_preference=tier_preference,
             bias_threshold=bias_threshold if bias_threshold is not None else 0.55,
             dmi_threshold=dmi_threshold if dmi_threshold is not None else 0.0,
@@ -412,7 +407,7 @@ class Trainer:
         _exec_engine.pattern_library[_PEAK_TID] = self.pattern_library[_PEAK_TID]
 
         # OOS compressed mode: widen gate1_dist to match live engine
-        # Live uses: gate1_dist = 4.5 + aggression * 10.0 (default agg=0.5 → 9.5)
+        # Live uses: gate1_dist = 4.5 + aggression * 10.0 (default agg=0.5 -> 9.5)
         # Gate distance same for IS and OOS (unified engine)
 
         # Feature extractor for IS candidates (22D when --lookback)
@@ -468,7 +463,7 @@ class Trainer:
         _oos_warmup_n_bars = 0
         _oos_warmup_ext = {}  # {tf_label: DataFrame} for external TFs (4h, 5s, 1s)
         if oos_mode:  # Warmup: prepend IS tail for TBN context (data concern, not engine)
-            # Derive IS path: DATA/ATLAS_OOS → DATA/ATLAS
+            # Derive IS path: DATA/ATLAS_OOS -> DATA/ATLAS
             _is_root = data_source.replace('ATLAS_OOS', 'ATLAS') if 'ATLAS_OOS' in data_source else None
             _is_15s_dir = os.path.join(_is_root, '15s') if _is_root else None
             if _is_15s_dir and os.path.isdir(_is_15s_dir):
@@ -540,7 +535,7 @@ class Trainer:
         _prev_cal_date = ''         # readable date of previous calendar day
         _current_day = None         # unix day number for calendar-day boundary detection
 
-        # ── Cumulative equity curve (never resets — carries across days) ──
+        # ── Cumulative equity curve (never resets  -- carries across days) ──
         _cumul_pnl = 0.0            # running total PnL from trade 1
         _cumul_peak = 0.0           # highest point on the equity curve
         _cumul_trough = 0.0         # lowest point on the equity curve
@@ -562,7 +557,7 @@ class Trainer:
         def _effective_oracle(p) -> int:
             """Return the strongest oracle marker across the full macro-to-leaf chain.
             If the leaf pattern is NOISE but a macro ancestor says MEGA_LONG, use that.
-            Chain is ordered leaf-first (index 0) → root (last), so we scan all entries
+            Chain is ordered leaf-first (index 0) -> root (last), so we scan all entries
             and keep the one with the highest |oracle_marker|.
             """
             leaf_om = getattr(p, 'oracle_marker', 0)
@@ -595,7 +590,7 @@ class Trainer:
         def _quantum_score(state, belief, side, template_wr, norm_dist):
             """Compute quantum P(success) score from orphaned + active fields.
 
-            Observation only — logged but not used for decisions (yet).
+            Observation only  -- logged but not used for decisions (yet).
             Original scoring: P_i > 0.75 AND tunnel > 0.60 AND low entropy.
             """
             if state is None:
@@ -611,7 +606,7 @@ class Trainer:
             # Tunnel probability (reversion confidence)
             p_tunnel = float(getattr(state, 'reversion_probability', 0.0))
 
-            # Entropy (chaos measure — lower = more decisive)
+            # Entropy (chaos measure  -- lower = more decisive)
             entropy = float(getattr(state, 'entropy_normalized', 0.5))
             entropy_inv = 1.0 - entropy  # higher = better
 
@@ -648,7 +643,7 @@ class Trainer:
             }
 
         def _macro_obs(bn, trade_side):
-            """Macro trend observation columns (non-actionable — research only)."""
+            """Macro trend observation columns (non-actionable  -- research only)."""
             try:
                 mt = bn.get_macro_trend()
             except Exception:
@@ -710,7 +705,7 @@ class Trainer:
         pending_oracle = None      # oracle facts for currently open trade
         _pending_dm_idx = None     # index into decision_matrix_records for open trade
 
-        # Streaming trade log — append each trade to disk as it completes
+        # Streaming trade log  -- append each trade to disk as it completes
         _stream_log_name = 'oos_trade_log.csv' if oos_mode else 'oracle_trade_log.csv'
         _stream_log_path = os.path.join(_out_dir, _stream_log_name)
         _stream_log_header_written = False
@@ -797,7 +792,7 @@ class Trainer:
 
             # ── Warmup gate: process TBN context but skip trading ──
             if trade_start_date:
-                _day_key = day_date.replace('_', '')  # 2025_01 → 202501
+                _day_key = day_date.replace('_', '')  # 2025_01 -> 202501
                 if _day_key + '01' < trade_start_date:
                     # Still run discovery to build TBN state (IS only)
                     if not oos_mode:
@@ -1246,9 +1241,9 @@ class Trainer:
                         actual_pnl_ticks=_maint_pnl / self.asset.tick_value,
                         capture_rate=0.0,
                     )
-                    continue  # Skip to next bar — no entries during maintenance
+                    continue  # Skip to next bar  -- no entries during maintenance
 
-                # 1. Manage existing position — via ExecutionEngine
+                # 1. Manage existing position  -- via ExecutionEngine
                 if _exec_engine.in_position:
                     # Update trade pace cache before exit evaluation
                     _tp = belief_network.get_trade_progress(
@@ -1322,7 +1317,7 @@ class Trainer:
                         _cal_day_trades.append(outcome)
                         current_position_open = False
 
-                        # Track intraday dip (min equity calc — no account needed)
+                        # Track intraday dip (min equity calc  -- no account needed)
                         _day_running_pnl += outcome.pnl
                         _day_min_pnl = min(_day_min_pnl, _day_running_pnl)
 
@@ -1342,7 +1337,7 @@ class Trainer:
                             running_equity += outcome.pnl
                             peak_equity = max(peak_equity, running_equity)
                             trough_equity = min(trough_equity, running_equity)
-                            # Aggression scales with equity: $500→100%, $250→50%, $100→20% floor
+                            # Aggression scales with equity: $500->100%, $250->50%, $100->20% floor
                             _daily_peak_equity = max(_daily_peak_equity, running_equity)
                             _dd_aggression = min(1.0, max(0.2, running_equity / account_size)) if account_size > 0 else 1.0
                             if running_equity < _NINJATRADER_MNQ_MARGIN:
@@ -1529,7 +1524,7 @@ class Trainer:
                         _fm_down = _fm < _prev_fm * 0.90 if _prev_fm > 0.5 else False
                         if (_pc_up or _fm_down) and _coh > 0.55:
                             _has_peak_signal = True
-                # Unified compressed signal check (IS + OOS — no lookahead)
+                # Unified compressed signal check (IS + OOS  -- no lookahead)
                 _has_compressed_signal = False
                 _bar_state_cs = _states_map.get(_bar_i - 1)
                 if _bar_state_cs:
@@ -1545,7 +1540,7 @@ class Trainer:
                     if current_position_open:
                         bars_slot_blocked += 1
 
-                # Unified entry gate — same for IS and OOS. No pattern_map.
+                # Unified entry gate  -- same for IS and OOS. No pattern_map.
                 _should_check_entry = (not current_position_open and not _in_maintenance
                                        and (_has_compressed_signal or _has_peak_signal))
 
@@ -1667,7 +1662,7 @@ class Trainer:
                             z_score=_wz,
                             features=_wfeat,
                         ))
-                    raw_candidates = []  # compressed mode — no PatternEvents (no lookahead)
+                    raw_candidates = []  # compressed mode  -- no PatternEvents (no lookahead)
                     # Peak detection: always add peak candidate when signal fires
                     # (competes with compressed candidates in gate cascade)
                     if _has_peak_signal:
@@ -1779,7 +1774,7 @@ class Trainer:
                         long_bias = _entry_action.long_bias
                         short_bias = _entry_action.short_bias
 
-                        # Equity risk gate — scales with intraday drawdown aggression
+                        # Equity risk gate  -- scales with intraday drawdown aggression
                         # Full equity: risk up to 50% per trade
                         # 20% DD: risk up to 25%, 40%+ DD: risk up to 10%
                         _MAX_RISK_FRACTION = 0.50 * _dd_aggression
@@ -2226,12 +2221,12 @@ class Trainer:
         with open(_tuned_path, 'w') as _tf:
             _json_save.dump(_tuned_exit, _tf)
         print(f"  Exit tuning saved: hl={_tuned_exit['envelope_half_life_bars']:.1f}, "
-              f"gb={_tuned_exit['giveback_pct']:.0%} → {_tuned_path}")
+              f"gb={_tuned_exit['giveback_pct']:.0%} -> {_tuned_path}")
 
         # ── OOS3: Replay last N trading days through BarProcessor ──────────
         # Inline OOS ran all files. Now replay the last N days through a
         # BarProcessor with SAME belief_network (preserves 48 days of TBN
-        # state) but independent execution engine — no shared mutation.
+        # state) but independent execution engine  -- no shared mutation.
         if _live_val_days > 0 and _daily_ledger:
             # Identify last N trading days from inline OOS ledger
             _lv_target_dates = [d['date'] for d in _daily_ledger[-_live_val_days:]]
@@ -2251,7 +2246,7 @@ class Trainer:
                 _lv_exit_eng.envelope_half_life_bars = _tuned.envelope_half_life_bars
                 _lv_exit_eng.giveback_pct = _tuned.giveback_pct
                 # FIX 1: Reuse inline OOS's warmed belief_network (48 days of state)
-                # Fresh TBN has no accumulated conviction/momentum → different exits
+                # Fresh TBN has no accumulated conviction/momentum -> different exits
                 _lv_belief = belief_network
                 _lv_exec = create_execution_engine(
                     bundle=_bundle,
@@ -2536,7 +2531,7 @@ class Trainer:
         # ── Build report ──
         L = []
         L.append("=" * W)
-        L.append("  OOS3 PARITY REPORT — OOS2 (inline) vs OOS3 (BarProcessor)")
+        L.append("  OOS3 PARITY REPORT  -- OOS2 (inline) vs OOS3 (BarProcessor)")
         L.append(f"  Generated: {_dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         L.append(f"  Target: last {n_days} trading days")
         L.append("=" * W)
@@ -2741,7 +2736,7 @@ class Trainer:
         report_lines.append("=" * 80)
         _mode_tag = 'OOS' if oos_mode else 'IS'
         report_lines.append(f"{_mode_tag} FORWARD PASS COMPLETE  (run: {_run_ts})")
-        report_lines.append(f"  Commit: {_git_hash} — {_git_msg}")
+        report_lines.append(f"  Commit: {_git_hash}  -- {_git_msg}")
         if _git_diff_summary:
             report_lines.append(f"  Changes: {_git_diff_summary}")
         _date_range = (
@@ -2818,7 +2813,7 @@ class Trainer:
             report_lines.append("")
             report_lines.append("── MINIMUM EQUITY REQUIRED ──")
             report_lines.append(f"  Method: worst intraday dip below $0 across all trading days")
-            report_lines.append(f"  (each day starts fresh at $0 — captures the deepest hole before recovery)")
+            report_lines.append(f"  (each day starts fresh at $0  -- captures the deepest hole before recovery)")
             report_lines.append("")
             # Worst dip
             _min_eq = abs(_worst_intraday_dip) if _worst_intraday_dip < 0 else 0.0
@@ -2839,7 +2834,7 @@ class Trainer:
         # ── CUMULATIVE EQUITY CURVE (carries across days) ─────────────────────
         report_lines.append("")
         report_lines.append("── CUMULATIVE EQUITY CURVE ──")
-        report_lines.append(f"  (starts at $0 on day 1, never resets — shows true equity path)")
+        report_lines.append(f"  (starts at $0 on day 1, never resets  -- shows true equity path)")
         report_lines.append("")
         report_lines.append(f"  Final cumulative PnL:  ${_cumul_pnl:+,.2f}")
         report_lines.append(f"  Peak equity:           ${_cumul_peak:+,.2f}")
@@ -2848,7 +2843,7 @@ class Trainer:
         if _cumul_trough < 0:
             report_lines.append(f"  ► MIN EQUITY (cumulative): ${abs(_cumul_trough):,.2f}  (deepest hole from $0 start)")
         else:
-            report_lines.append(f"  ► Equity never went negative — $0 start survives the entire run")
+            report_lines.append(f"  ► Equity never went negative  -- $0 start survives the entire run")
         # Identify critical days: days where cumulative equity was at its lowest
         if _daily_ledger:
             report_lines.append("")
@@ -2880,7 +2875,7 @@ class Trainer:
         _sec['opportunity'] = len(report_lines)
         report_lines.append("")
         if not _oracle_available and oos_mode:
-            report_lines.append(f"  ORACLE: N/A (compressed mode — no forward-looking labels)")
+            report_lines.append(f"  ORACLE: N/A (compressed mode  -- no forward-looking labels)")
         else:
             report_lines.append(f"  TOTAL SIGNALS SEEN BY ORACLE: {total_real_opps + total_noise_opps:,}")
             report_lines.append(f"    Real moves (MEGA/SCALP):  {total_real_opps:>6,}   -- worth ${ideal_profit:>10,.2f} if perfectly traded")
@@ -3018,7 +3013,7 @@ class Trainer:
         # ── 2e2. Trade Duration Bins (top 3 by trade count) ───────────────────────
         if oracle_trade_records and 'hold_bars' in oracle_trade_records[0]:
             from collections import defaultdict as _ddd2
-            # Duration bins: hold_bars * 15s → minutes → bucket
+            # Duration bins: hold_bars * 15s -> minutes -> bucket
             _dur_bins = _ddd2(lambda: {'n': 0, 'wins': 0, 'pnl': 0.0})
             _dur_edges = [
                 (0, 2, '<30s'),
@@ -3231,7 +3226,7 @@ class Trainer:
                                 for r in oracle_trade_records)
         if not _oracle_available and oos_mode:
             report_lines.append(f"  OF {n_traded:,} TRADES TAKEN:")
-            report_lines.append(f"    [Oracle N/A — compressed mode has no forward-looking labels]")
+            report_lines.append(f"    [Oracle N/A  -- compressed mode has no forward-looking labels]")
             report_lines.append(f"    Total PnL: ${sum(r['actual_pnl'] for r in oracle_trade_records):>10,.2f}")
             report_lines.append(f"    Winners: {len([r for r in oracle_trade_records if r['actual_pnl'] > 0]):,}  "
                                 f"Losers: {len([r for r in oracle_trade_records if r['actual_pnl'] <= 0]):,}")
@@ -3268,7 +3263,7 @@ class Trainer:
                     _ct_data[_tid]['gw_n'] += 1
                     _ct_data[_tid]['gw_pnl'] += _pnl
 
-            # Sort by wrong-dir total (ct + gw) impact — most active first
+            # Sort by wrong-dir total (ct + gw) impact  -- most active first
             _ct_sorted = sorted(_ct_data.items(),
                                 key=lambda x: x[1]['ct_n'] + x[1]['gw_n'], reverse=True)
             # Only show templates with >=5 wrong-dir trades
@@ -3443,7 +3438,7 @@ class Trainer:
                         f"avg${avg:>7,.0f}  {avg_h:>5.0f}bars  cap{avg_c:>+6.0%}  {flag}")
 
             report_lines.append("")
-            report_lines.append(f"  EXIT QUALITY (correct-direction trades, worst → best):")
+            report_lines.append(f"  EXIT QUALITY (correct-direction trades, worst -> best):")
             report_lines.append(f"    {'Bucket':<36} {'n':>5}  {'Total PnL':>11}  {'Avg PnL':>8}  {'Hold':>9}  {'Cap%':>7}")
             report_lines.append(f"    {'─'*36} {'─'*5}  {'─'*11}  {'─'*8}  {'─'*9}  {'─'*7}")
             report_lines.append(_eq_row("Reversed (mkt flipped after entry)",reversed_, flag="<- leakage"))
@@ -3467,7 +3462,7 @@ class Trainer:
 
             # ── Exit reason cross-breakdown ───────────────────────────────────
             report_lines.append("")
-            report_lines.append(f"  EXIT REASON → QUALITY CROSS-BREAKDOWN (correct-direction trades):")
+            report_lines.append(f"  EXIT REASON -> QUALITY CROSS-BREAKDOWN (correct-direction trades):")
             all_reasons = sorted({r.get('exit_reason', 'unknown') for r in tp_recs})
             buckets_def = [
                 ('Optimal',   optimal),
@@ -3511,7 +3506,7 @@ class Trainer:
             # ── Per-depth exit quality (hold shown as real time, not 15s bars) ──
             _depths_seen = sorted({r.get('entry_depth', 6) for r in tp_recs})
             if len(_depths_seen) > 1:
-                # Approximate TF label per depth (1h tree → 1s leaf)
+                # Approximate TF label per depth (1h tree -> 1s leaf)
                 _DL = {1:'1h+', 2:'1h', 3:'15m', 4:'5m', 5:'1m',
                        6:'30s', 7:'15s', 8:'15s', 9:'5s', 10:'5s', 11:'1s', 12:'1s'}
                 report_lines.append("")
@@ -3798,7 +3793,7 @@ class Trainer:
                 quarters[f"{year_str}_Q{q}"].append(r)
 
             if len(records) <= 50_000:
-                # Small enough — single file
+                # Small enough  -- single file
                 path = os.path.join(_out_dir, base_name)
                 with open(path, 'w', newline='', encoding='utf-8') as f:
                     w = _csv.DictWriter(f, fieldnames=list(records[0].keys()))
@@ -4107,7 +4102,7 @@ class Trainer:
                 # Average hold time in minutes (hold_bars × 15s per bar / 60)
                 _all_holds = [r.get('hold_bars', 0) for r in oracle_trade_records]
                 _avg_hold_min = round(sum(_all_holds) / len(_all_holds) * 15 / 60, 1) if _all_holds else 0
-                # Macro → micro: profit first, then grosses, then WR, then detail
+                # Macro -> micro: profit first, then grosses, then WR, then detail
                 _hist_cols = ['timestamp', 'git_hash', 'mode',
                               'total_pnl', 'profit_factor', 'gross_profit', 'gross_loss',
                               'trades', 'win_rate', 'avg_pnl',
@@ -4214,7 +4209,7 @@ class Trainer:
     def _learn_oracle_directions(self, oracle_trade_records, oos_mode,
                                   brain_keys_before_oos=None,
                                   brain_dir_keys_before_oos=None):
-        """Oracle direction learning — update pattern library biases from forward pass.
+        """Oracle direction learning  -- update pattern library biases from forward pass.
 
         Returns:
             defaultdict of per-template direction correction stats.
@@ -4515,7 +4510,7 @@ class Trainer:
                            oos_mode: bool = False):
         """
         Run forward pass once per depth for isolated performance analysis.
-        Each depth trades independently — no capital blocking between depths.
+        Each depth trades independently  -- no capital blocking between depths.
         Brain state carries across depth passes (shared learning).
         """
         _DEPTH_LABELS = {
@@ -4524,7 +4519,7 @@ class Trainer:
         }
         print("\n" + "=" * 80)
         print("DEPTH ISOLATION ANALYSIS")
-        print("Each depth trades independently — no capital blocking from other depths.")
+        print("Each depth trades independently  -- no capital blocking from other depths.")
         print("=" * 80)
 
         self._analysis_mode = True
@@ -4659,7 +4654,7 @@ class Trainer:
                 _seed_thresholds = compute_seed_thresholds(_seed_path, tag_filter=_seed_tag)
 
         if manifest is None:
-            print("\nPhase 1: Discovery — Fractal Top-Down Scan...")
+            print("\nPhase 1: Discovery  -- Fractal Top-Down Scan...")
             ckpt.update_phase('discovery', 'in_progress')
             if self.dashboard_queue:
                 self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Discover',
@@ -4778,7 +4773,7 @@ class Trainer:
 
             ckpt.save_templates(templates)
 
-        # Template inspection (feedback loop) — when --inspect-templates or --seeds
+        # Template inspection (feedback loop)  -- when --inspect-templates or --seeds
         if getattr(self.config, 'inspect_templates', False) or getattr(self.config, 'seeds', None):
             from training.seed_loader import inspect_templates
             _inspect_path = os.path.join('reports', 'template_inspection.txt')
@@ -5018,16 +5013,6 @@ class Trainer:
         self.print_final_summary()
         return self.day_results
 
-    def _optimize_pattern_task(self, args):
-        """Wrapper for standalone _optimize_pattern_task"""
-        return _optimize_pattern_task(args)
-
-    def _optimize_template_batch(self, subset):
-        """Wrapper for standalone _optimize_template_task (Consensus Optimization)"""
-        # We pass None for template as it is not used in the optimization logic
-        best_params, best_sharpe = _optimize_template_task((None, subset, INDIVIDUAL_OPTIMIZATION_ITERATIONS, self.param_generator, self.asset.point_value))
-        return best_params
-
     def _run_discovery(self, data_source: Any,
                        checkpoint_callback=None,
                        resume_manifest=None,
@@ -5095,7 +5080,7 @@ class Trainer:
             'mae_std_ticks':           getattr(template, 'mae_std_ticks',           0.0),
             'risk_variance':           getattr(template, 'risk_variance',           0.0),
             'regression_sigma_ticks':  getattr(template, 'regression_sigma_ticks',  0.0),
-            # Per-template exit timescale (bars where MFE peaks — halflife anchor)
+            # Per-template exit timescale (bars where MFE peaks  -- halflife anchor)
             'avg_mfe_bar':             getattr(template, 'avg_mfe_bar',             0.0),
             'p75_mfe_bar':             getattr(template, 'p75_mfe_bar',             0.0),
             'discovery_tf_seconds':    getattr(template, 'discovery_tf_seconds',    15.0),
@@ -5115,73 +5100,11 @@ class Trainer:
             'shape_dominant':          getattr(template, 'shape_dominant',          None),
         }
 
-    def validate_template_group(self, patterns: List[PatternEvent], params: Dict) -> float:
-        """
-        Validates a group of patterns with fixed params. Returns total PnL.
-        """
-        total_pnl = 0.0
-        for p in patterns:
-            outcome = simulate_trade_standalone(
-                entry_price=p.price,
-                data=p.window_data,
-                state=p.state,
-                params=params,
-                point_value=self.asset.point_value
-            )
-            if outcome:
-                total_pnl += outcome.pnl
-        return total_pnl
-
-    def update_library(self, pattern: PatternEvent, params: Dict, result: Dict):
-        """
-        Update Pattern_Library centroid.
-        """
-        ptype = pattern.pattern_type
-        if ptype not in self.pattern_library:
-            self.pattern_library[ptype] = {'count': 0, 'params': {}}
-
-        lib = self.pattern_library[ptype]
-        n = lib['count']
-
-        current_avg = lib['params']
-        for k, v in params.items():
-            if isinstance(v, (int, float)):
-                old_val = current_avg.get(k, v)
-                new_val = (old_val * n + v) / (n + 1)
-                current_avg[k] = new_val
-            else:
-                current_avg[k] = v
-
-        lib['count'] += 1
-        lib['params'] = current_avg
-
-    def validate_pattern(self, pattern: PatternEvent, params: Dict) -> Optional[TradeOutcome]:
-        """
-        Run validation (Walk-Forward) using fixed params.
-        """
-        if not params:
-            return None
-
-        window = pattern.window_data
-        if window is None or window.empty:
-            return None
-
-        outcome = simulate_trade_standalone(
-            entry_price=pattern.price,
-            data=window,
-            state=pattern.state,
-            params=params,
-            point_value=self.asset.point_value
-        )
-        return outcome
-
-    # Helpers
-
     def _launch_popup(self, mode='is'):
         """Launch ProgressPopup in a daemon thread (same widget as live).
-        Only one popup per session — subsequent calls update the title."""
+        Only one popup per session  -- subsequent calls update the title."""
         if getattr(self, '_popup_shared', None) is not None:
-            # Already running — just update the mode label
+            # Already running  -- just update the mode label
             self._popup_shared['mode'] = mode
             return
         import tkinter as tk
@@ -5224,83 +5147,6 @@ class Trainer:
         self._history_durations = [t.duration for t in self._cumulative_best_trades]
         self._history_wins = sum(1 for t in self._cumulative_best_trades if t.result == 'WIN')
         self._history_day_summaries = []
-
-    def _update_dashboard_with_current(self, day_result: DayResults, total_days: int, current_day_trades: List[TradeOutcome] = None):
-        import json as _json
-        json_path = os.path.join(os.path.dirname(__file__), 'training_progress.json')
-
-        current_trades_data = []
-        current_pnls = []
-        current_durations = []
-        current_wins = 0
-
-        if current_day_trades:
-            current_pnls = [t.pnl for t in current_day_trades]
-            current_durations = [t.duration for t in current_day_trades]
-            current_wins = sum(1 for t in current_day_trades if t.result == 'WIN')
-            for t in current_day_trades:
-                current_trades_data.append({
-                    'pnl': t.pnl,
-                    'result': t.result,
-                    'entry_price': t.entry_price,
-                    'exit_price': t.exit_price,
-                    'exit_reason': t.exit_reason,
-                    'duration': t.duration,
-                    'timestamp': t.timestamp,
-                })
-
-        if not hasattr(self, '_history_pnls'):
-            self._prepare_dashboard_history()
-
-        trades_data = self._history_trades_data + current_trades_data
-        all_pnls = self._history_pnls + current_pnls
-        all_durations = self._history_durations + current_durations
-        total_wins = self._history_wins + current_wins
-
-        total_pnl = sum(all_pnls)
-        total_trades = len(all_pnls)
-        cum_win_rate = (total_wins / total_trades * 100) if total_trades > 0 else 0.0
-        cum_sharpe = (np.mean(all_pnls) / (np.std(all_pnls) + 1e-6)) if total_trades >= 2 else 0.0
-        avg_duration = np.mean(all_durations) if total_trades > 0 else 0.0
-
-        cum_pnl = np.cumsum(all_pnls) if all_pnls else np.array([0.0])
-        peak = np.maximum.accumulate(cum_pnl)
-        drawdown = peak - cum_pnl
-        max_drawdown = float(np.max(drawdown)) if len(drawdown) > 0 else 0.0
-
-        day_summaries = self._history_day_summaries
-
-        elapsed = time.time() - self.progress_reporter.start_time
-
-        payload = {
-            'iteration': day_result.day_number,
-            'total_iterations': total_days,
-            'elapsed_seconds': elapsed,
-            'current_date': day_result.date,
-            'states_learned': day_result.states_learned,
-            'high_confidence_states': day_result.high_confidence_states,
-            'trades': trades_data,
-            'total_trades': total_trades,
-            'total_pnl': total_pnl,
-            'cumulative_win_rate': cum_win_rate,
-            'cumulative_sharpe': cum_sharpe,
-            'avg_duration': avg_duration,
-            'max_drawdown': max_drawdown,
-            'best_params': str(day_result.best_params),
-            'day_summaries': day_summaries,
-            'today_trades': day_result.total_trades,
-            'today_pnl': day_result.best_pnl,
-            'today_win_rate': day_result.best_win_rate,
-            'today_sharpe': day_result.best_sharpe,
-        }
-
-        try:
-            with tempfile.NamedTemporaryFile('w', dir=os.path.dirname(json_path), delete=False) as tmp:
-                _json.dump(payload, tmp, default=str)
-                tmp_path = tmp.name
-            os.replace(tmp_path, json_path)
-        except Exception:
-            pass
 
     def save_checkpoint(self, day_number: int, date: str, day_result: DayResults):
         """Save brain, params, and pattern library to checkpoint"""
@@ -5658,8 +5504,8 @@ def main():
     parser.add_argument('--checkpoint-dir', type=str, default="checkpoints", help="Checkpoint directory")
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
-    parser.add_argument('--fresh', action='store_true', help="Wipe checkpoints + full pipeline: Train → IS → checkpoint → OOS")
-    # --forward-pass removed (2026-03-18): default pipeline does IS→checkpoint→OOS
+    parser.add_argument('--fresh', action='store_true', help="Wipe checkpoints + full pipeline: Train -> IS -> checkpoint -> OOS")
+    # --forward-pass removed (2026-03-18): default pipeline does IS->checkpoint->OOS
     parser.add_argument('--depth-iso', action='store_true',
                         help="Run per-depth isolation analysis: forward pass once per depth (1-12), "
                              "no capital blocking between depths. Prints comparison table at end.")
@@ -5778,7 +5624,7 @@ def main():
         """Prepend [HH:MM:SS] to each new line. Skip \r-only updates (tqdm)."""
         if not data:
             return data, at_line_start
-        # \r anywhere = tqdm progress bar — pass through raw
+        # \r anywhere = tqdm progress bar  -- pass through raw
         if '\r' in data:
             return data, True  # next write after progress bar is a fresh line
         stamped = []
@@ -5800,7 +5646,7 @@ def main():
 
     class _Tee:
         """Tee stdout to file + terminal with timestamps. Plain class (not
-        io.TextIOWrapper — inheriting without super().__init__() deadlocks
+        io.TextIOWrapper  -- inheriting without super().__init__() deadlocks
         when tqdm or logging probe uninitialized parent attributes)."""
         def __init__(self, log_path):
             self._file = open(log_path, 'a', encoding='utf-8', buffering=1)
@@ -5869,7 +5715,7 @@ def main():
     import datetime as _dt
 
     # --live-prep: auto-compute OOS cutoff to last Friday
-    # Only applies to OOS pass — IS runs on full ATLAS data uncapped
+    # Only applies to OOS pass  -- IS runs on full ATLAS data uncapped
     args._live_prep_cutoff = None
     if getattr(args, 'live_prep', False):
         _today = _dt.date.today()
@@ -5898,7 +5744,7 @@ def main():
     orchestrator._use_primitives = getattr(args, 'primitives', False)
     orchestrator._use_lookback = True  # 22D features always on (6D lookback geometry)
     orchestrator._use_shapes = getattr(args, 'shapes', False)
-    # Min-hold: convert minutes → 15s bars (execution TF)
+    # Min-hold: convert minutes -> 15s bars (execution TF)
     _min_hold_mins = getattr(args, 'min_hold', 0.0)
     orchestrator._min_hold_bars = int(_min_hold_mins * 60 / 15) if _min_hold_mins > 0 else 0
 
@@ -5968,9 +5814,9 @@ def main():
                 orchestrator._peak_prev_pc = _ckpt.get('peak_prev_pc', 0.0)
                 orchestrator._peak_prev_fm = _ckpt.get('peak_prev_fm', 0.0)
                 print(f"  [RECALL] Peak state restored")
-                print(f"  [RECALL] Total recall from IS→OOS boundary")
+                print(f"  [RECALL] Total recall from IS->OOS boundary")
             else:
-                print(f"  WARNING: {_ckpt_path} not found — run training first (default pipeline creates checkpoint)")
+                print(f"  WARNING: {_ckpt_path} not found  -- run training first (default pipeline creates checkpoint)")
 
             # --frozen-brain: disable learning
             if getattr(args, 'frozen_brain', False):
@@ -6048,7 +5894,7 @@ def main():
                 refined_strategies = refiner.refine()
                 orchestrator.run_final_validation(refined_strategies)
             else:
-                # Default: IS → checkpoint → OOS (continuous, same engine)
+                # Default: IS -> checkpoint -> OOS (continuous, same engine)
                 _fwd_data = getattr(args, 'forward_data', None) or args.data
                 _oos_path = os.path.join('DATA', 'ATLAS_OOS')
 
@@ -6077,7 +5923,7 @@ def main():
                                               oos_mode=False,
                                               account_size=getattr(args, 'account_size', 0.0))
 
-                # Total recall checkpoint at IS→OOS boundary
+                # Total recall checkpoint at IS->OOS boundary
                 import pickle as _ckpt_pkl2
                 _ckpt_path2 = os.path.join(orchestrator.checkpoint_dir, 'is_oos_checkpoint.pkl')
                 _is_brain_path2 = os.path.join(orchestrator.checkpoint_dir, 'is_brain.pkl')

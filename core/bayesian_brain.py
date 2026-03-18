@@ -3,7 +3,6 @@ Bayesian-AI - Bayesian Probability Engine
 HashMap-based learning system: state_key -> WinRate
 """
 import pickle
-import numpy as np
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, Optional, Union, Any
@@ -34,7 +33,7 @@ class BayesianBrain:
         self.table: Dict[Any, Dict[str, int]] = defaultdict(
             lambda: {'wins': 0, 'losses': 0, 'total': 0}
         )
-        # Direction-aware table: (tid, 'LONG'|'SHORT') → {wins, losses, total}
+        # Direction-aware table: (tid, 'LONG'|'SHORT') -> {wins, losses, total}
         self.dir_table: Dict[tuple, Dict[str, int]] = defaultdict(
             lambda: {'wins': 0, 'losses': 0, 'total': 0}
         )
@@ -58,7 +57,7 @@ class BayesianBrain:
             outcome: TradeOutcome with state vector and result
         """
         if self._frozen:
-            return  # frozen brain — no learning (OOS validation mode)
+            return  # frozen brain  -- no learning (OOS validation mode)
         # Prefer template_id if available, otherwise use state as key
         key = outcome.template_id if outcome.template_id is not None else outcome.state
         
@@ -86,7 +85,7 @@ class BayesianBrain:
                         tick_value: float = 0.50):
         """H0/H1 direction learning from actual outcomes.
 
-        H0 (actual): we went this side — record 1 win or 1 loss.
+        H0 (actual): we went this side  -- record 1 win or 1 loss.
         H1 (counterfactual): opposite side gets the inverse signal,
             but with count=1 (we don't know the actual counterfactual PnL).
 
@@ -114,7 +113,7 @@ class BayesianBrain:
         key = side.lower()
         alt_key = 'short' if key == 'long' else 'long'
 
-        # H0: actual outcome (simple count — 1 win or 1 loss)
+        # H0: actual outcome (simple count  -- 1 win or 1 loss)
         if pnl > 0:
             bias[f'{key}_w'] += 1
         else:
@@ -122,13 +121,13 @@ class BayesianBrain:
 
         # H1: counterfactual (opposite side gets inverse signal, count=1)
         if pnl > 0:
-            # We won going this side → opposite side would have lost
+            # We won going this side -> opposite side would have lost
             bias[f'{alt_key}_l'] += 1
         else:
-            # We lost going this side → opposite side would have won
+            # We lost going this side -> opposite side would have won
             bias[f'{alt_key}_w'] += 1
 
-        # Dollar PnL tracking (actual only — no counterfactual PnL assumed)
+        # Dollar PnL tracking (actual only  -- no counterfactual PnL assumed)
         bias[f'{key}_pnl'] = bias.get(f'{key}_pnl', 0.0) + pnl
         bias[f'{key}_n'] = bias.get(f'{key}_n', 0) + 1
 
@@ -146,43 +145,11 @@ class BayesianBrain:
         bias[f'{key}_hold_sum'] = bias.get(f'{key}_hold_sum', 0) + hold_bars
         bias[f'{key}_hold_n'] = bias.get(f'{key}_hold_n', 0) + 1
 
-    def get_expected_hold(self, tid, side: str) -> float | None:
-        """Return average hold bars for (template, direction). None if < 3 samples."""
-        bias = self.get_dir_bias(tid)
-        if bias is None:
-            return None
-        key = side.lower()
-        n = bias.get(f'{key}_hold_n', 0)
-        if n < 3:
-            return None
-        return bias.get(f'{key}_hold_sum', 0) / n
-
     def get_dir_bias(self, tid) -> dict | None:
         """Get direction bias for a template ID."""
         base_tid = tid[3:] if isinstance(tid, str) and tid.startswith('PP_') else tid
         return self.dir_bias.get(base_tid)
 
-    def get_expected_pnl(self, tid, side: str) -> float | None:
-        """Return average PnL per trade for (template, direction).
-
-        Returns None if fewer than 3 observations (not enough data).
-        """
-        bias = self.get_dir_bias(tid)
-        if bias is None:
-            return None
-        key = side.lower()
-        n = bias.get(f'{key}_n', 0)
-        if n < 3:
-            return None
-        return bias.get(f'{key}_pnl', 0.0) / n
-
-    def batch_update(self, outcomes: list[TradeOutcome]):
-        """
-        Batch update for bulk outcome recording (Monte Carlo)
-        """
-        for outcome in outcomes:
-            self.update(outcome)
-    
     def get_probability(self, state: Any) -> float:
         """
         Get win probability for given state
@@ -218,62 +185,6 @@ class BayesianBrain:
         # 30 trades = 30% confidence (minimum for validation)
         return min(total / 100.0, 1.0)
     
-    def get_dir_probability(self, state: Any, direction: str) -> Optional[float]:
-        """Direction-specific win rate for a template.
-
-        Returns None if fewer than 3 samples (not enough data).
-        """
-        dir_key = (state, direction)
-        if dir_key not in self.dir_table:
-            return None
-        data = self.dir_table[dir_key]
-        if data['total'] < 3:
-            return None
-        # Same pessimistic prior Beta(1, 10)
-        return (data['wins'] + 1) / (data['total'] + 11)
-
-    def should_fire(self, state: Any, min_prob: float = 0.80, min_conf: float = 0.30) -> bool:
-        """
-        CORE DECISION FUNCTION
-        Fire trade only if:
-        1. Win probability > min_prob (default 80%)
-        2. Confidence > min_conf (default 30% = ~10 prior trades)
-
-        Args:
-            state: Current market state
-            min_prob: Minimum required win probability
-            min_conf: Minimum required confidence
-
-        Returns:
-            bool: True if should fire, False otherwise
-        """
-        prob = self.get_probability(state)
-        conf = self.get_confidence(state)
-
-        return prob >= min_prob and conf >= min_conf
-
-    def get_stats(self, state: Any) -> Dict:
-        """Get detailed statistics for a state"""
-        if state not in self.table:
-            return {
-                'probability': 0.50,
-                'confidence': 0.0,
-                'wins': 0,
-                'losses': 0,
-                'total': 0,
-                'sample_size': 0
-            }
-        
-        data = self.table[state]
-        return {
-            'probability': self.get_probability(state),
-            'confidence': self.get_confidence(state),
-            'wins': data['wins'],
-            'losses': data['losses'],
-            'total': data['total'],
-            'sample_size': data['total']
-        }
-    
     def save(self, filepath: str):
         """Persist probability table to disk"""
         save_data = {
@@ -306,28 +217,13 @@ class BayesianBrain:
 
         print(f"[BAYESIAN] Loaded {len(self.table)} state patterns from {filepath}")
     
-    def get_summary(self) -> Dict:
-        """Overall learning statistics"""
-        total_states = len(self.table)
-        total_trades = sum(data['total'] for data in self.table.values())
-        
-        # Count high-probability states (>80%)
-        high_prob_states = len([s for s in self.table if self.get_probability(s) >= 0.80 and self.table[s]['total'] >= 10])
-        
-        return {
-            'total_unique_states': total_states,
-            'total_trades': total_trades,
-            'high_probability_states': high_prob_states,
-            'avg_trades_per_state': total_trades / total_states if total_states > 0 else 0
-        }
-
 def record_trade(brain: 'BayesianBrain', *, tid, entry_price: float,
                  exit_price: float, pnl: float, side: str,
                  exit_reason: str, timestamp: float,
                  entry_time: float = 0.0, exit_time: float = 0.0,
                  tick_value: float = 0.50,
                  hold_bars: int = 0) -> TradeOutcome:
-    """Shared trade recording — used by both trainer and live.
+    """Shared trade recording  -- used by both trainer and live.
 
     Constructs TradeOutcome, updates brain table + direction learning.
     Returns the outcome for caller-specific bookkeeping.

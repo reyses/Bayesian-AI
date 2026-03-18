@@ -8,7 +8,7 @@ import queue
 class GUIBridge:
     """Encapsulates all GUI message formatting and throttling.
 
-    LiveEngine never touches gui_queue directly — all pushes go through
+    LiveEngine never touches gui_queue directly  -- all pushes go through
     this bridge. If no GUI queue is provided, all pushes silently no-op.
     """
 
@@ -40,7 +40,7 @@ class GUIBridge:
                    session_trades: int, gross_win: float, gross_loss: float,
                    exit_buckets: dict, belief_pct: float, in_position: bool,
                    daily_pnl: float):
-        """Throttled stats push — max 1/second."""
+        """Throttled stats push  -- max 1/second."""
         now = time.time()
         if now - self._last_stats_push < 1.0:
             return

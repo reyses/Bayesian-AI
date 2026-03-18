@@ -1,4 +1,4 @@
-"""Post-exit counterfactual tracking — measures exit quality in hindsight."""
+"""Post-exit counterfactual tracking  -- measures exit quality in hindsight."""
 
 import logging
 import time
@@ -66,7 +66,7 @@ class ExitWatcher:
                         f"EXIT OK: tid={w['tid']} {w['side']} exited ${w['exit_pnl']:+.0f} "
                         f"({w['reason']}) peak was ${_could_have:+.0f} -> good exit")
                 else:
-                    # Loss trade — did it get worse or recover?
+                    # Loss trade  -- did it get worse or recover?
                     if w['side'] in ('LONG', 'long'):
                         _recovery = (price - exit_px) * self._pv
                     else:
@@ -79,7 +79,7 @@ class ExitWatcher:
                     else:
                         logger.info(
                             f"EXIT CORRECT: tid={w['tid']} {w['side']} exited ${w['exit_pnl']:+.0f} "
-                            f"({w['reason']}) — price didn't recover")
+                            f"({w['reason']})  -- price didn't recover")
                 done.append(w)
 
         for w in done:

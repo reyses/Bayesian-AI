@@ -1,4 +1,4 @@
-"""Ping-pong flip logic — direction, sizing, deferred flip management."""
+"""Ping-pong flip logic  -- direction, sizing, deferred flip management."""
 
 import logging
 from dataclasses import dataclass
@@ -104,7 +104,7 @@ class PingPongManager:
         )
 
     def schedule_flip(self, exited_side: str, price: float, ts: float):
-        """Deferred flip — fires when NT8 confirms flat."""
+        """Deferred flip  -- fires when NT8 confirms flat."""
         logger.info(f"PING-PONG: scheduling flip after {exited_side} exhaustion")
         self.pending_flip = {
             'exited_side': exited_side, 'price': price, 'ts': ts,
