@@ -1522,8 +1522,8 @@ class Trainer:
                     # Always update (even when in position or pattern fires)
                     self._peak_prev_pc = _pc_now
                     self._peak_prev_fm = _fm_now
-                    # Only signal when flat and no pattern
-                    if (not _has_discovery_signal and not current_position_open
+                    # Peak detection fires regardless of pattern_map (no lookahead dependency)
+                    if (not current_position_open
                             and (_pc_up_chk or _fm_down_chk) and _coh_now > 0.55):
                         _has_peak_signal = True
                     _bar_state = _states_map.get(_bar_i)
