@@ -6656,12 +6656,29 @@ def main():
                                           oos_mode=False,
                                           account_size=getattr(args, 'account_size', 0.0))
 
-            # Checkpoint: save brain state after IS
+            # Total recall checkpoint: save COMPLETE engine state at IS→OOS boundary.
+            # Loading this checkpoint makes --oos reproduce exactly where IS left off.
+            import pickle as _ckpt_pkl
+            _ckpt_path = os.path.join(orchestrator.checkpoint_dir, 'is_oos_checkpoint.pkl')
             _is_brain_path = os.path.join(orchestrator.checkpoint_dir, 'is_brain.pkl')
             orchestrator.brain.save(_is_brain_path)
-            print(f"\n  [CHECKPOINT] IS brain saved: {_is_brain_path}")
-            print(f"  Brain has {len(orchestrator.brain.table)} states, "
+            _checkpoint = {
+                'brain_path': _is_brain_path,
+                'peak_prev_pc': getattr(orchestrator, '_peak_prev_pc', 0.0),
+                'peak_prev_fm': getattr(orchestrator, '_peak_prev_fm', 0.0),
+                'exit_tuning': {
+                    'envelope_halflife': getattr(orchestrator, '_exit_eng', None) and
+                        getattr(orchestrator._exit_eng, 'envelope_half_life_bars', 20),
+                    'giveback_pct': getattr(orchestrator, '_exit_eng', None) and
+                        getattr(orchestrator._exit_eng, 'giveback_pct', 0.10),
+                },
+            }
+            with open(_ckpt_path, 'wb') as _cf:
+                _ckpt_pkl.dump(_checkpoint, _cf)
+            print(f"\n  [CHECKPOINT] Total recall saved: {_ckpt_path}")
+            print(f"  Brain: {len(orchestrator.brain.table)} states, "
                   f"{len(orchestrator.brain.dir_table)} dir pairs")
+            print(f"  Peak state: pc={_checkpoint['peak_prev_pc']:.4f} fm={_checkpoint['peak_prev_fm']:.4f}")
 
             # Phase 2: OOS forward pass (same brain, continues learning)
             print("\n  PHASE: OOS (brain carries over from IS)")
@@ -6694,16 +6711,29 @@ def main():
             print("=" * 80)
 
         elif args.oos and not args.forward_pass and not args.fresh:
-            # Standalone OOS rerun
-            # --frozen-brain: load live_brain.pkl, disable learning
+            # Standalone OOS: load total recall checkpoint from IS
+            import pickle as _oos_pkl
+            _ckpt_path = os.path.join(orchestrator.checkpoint_dir, 'is_oos_checkpoint.pkl')
+            if os.path.exists(_ckpt_path):
+                with open(_ckpt_path, 'rb') as _cf:
+                    _ckpt = _oos_pkl.load(_cf)
+                # Restore brain
+                _brain_path = _ckpt.get('brain_path', '')
+                if os.path.exists(_brain_path):
+                    orchestrator.brain.load(_brain_path)
+                    print(f"  [RECALL] Brain loaded: {_brain_path}")
+                # Restore peak detection state
+                orchestrator._peak_prev_pc = _ckpt.get('peak_prev_pc', 0.0)
+                orchestrator._peak_prev_fm = _ckpt.get('peak_prev_fm', 0.0)
+                print(f"  [RECALL] Peak state restored")
+                print(f"  [RECALL] Total recall from IS→OOS boundary")
+            else:
+                print(f"  WARNING: {_ckpt_path} not found — run --continuous first")
+
+            # --frozen-brain: disable learning
             if getattr(args, 'frozen_brain', False):
-                _lb_path = os.path.join(orchestrator.checkpoint_dir, 'live_brain.pkl')
-                if os.path.exists(_lb_path):
-                    orchestrator.brain.load(_lb_path)
-                    orchestrator.brain.freeze()  # disable learning
-                    print(f"  [FROZEN] Brain loaded from {_lb_path} — learning disabled")
-                else:
-                    print(f"  WARNING: {_lb_path} not found — using fresh brain")
+                orchestrator.brain.freeze()
+                print(f"  [FROZEN] Brain learning disabled")
             _oos_data = getattr(args, 'forward_data', None) or os.path.join('DATA', 'ATLAS_OOS')
             _oos_end = getattr(args, '_live_prep_cutoff', None) or args.forward_end
             orchestrator.run_forward_pass(_oos_data,
