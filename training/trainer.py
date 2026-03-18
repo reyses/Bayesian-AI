@@ -409,6 +409,11 @@ class Trainer:
             depth_only=getattr(self, '_depth_only', None),
         )
 
+        # Inject PEAK_REVERSAL template into ExecutionEngine
+        if _PEAK_TID not in _exec_engine.valid_tids:
+            _exec_engine.valid_tids = list(_exec_engine.valid_tids) + [_PEAK_TID]
+        _exec_engine.pattern_library[_PEAK_TID] = self.pattern_library[_PEAK_TID]
+
         # OOS compressed mode: widen gate1_dist to match live engine
         # Live uses: gate1_dist = 4.5 + aggression * 10.0 (default agg=0.5 → 9.5)
         if oos_mode:
