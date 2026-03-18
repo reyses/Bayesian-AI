@@ -807,13 +807,8 @@ class Trainer:
                     _pbar.update(1)
                     continue
 
-            # A. Fractal Cascade Scan (oracle/template building — IS only)
-            # Discovery builds the template library. Not an engine decision.
-            # OOS and Live don't run discovery (templates frozen from IS).
-            if oos_mode:
-                actionable_patterns = []
-            else:
-                actionable_patterns = self.discovery_agent.scan_day_cascade(data_source, day_date)
+            # Discovery already ran in Phase 1. Forward pass only TRADES.
+            actionable_patterns = []
 
             # Sort by timestamp to simulate real-time feed
             actionable_patterns.sort(key=lambda x: x.timestamp)
