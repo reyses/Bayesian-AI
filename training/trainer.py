@@ -1547,7 +1547,9 @@ class Trainer:
                         _oos_pt = getattr(_oos_state, 'pattern_type', '')
                         _oos_cascade = getattr(_oos_state, 'cascade_detected', False)
                         _oos_struct = getattr(_oos_state, 'structure_confirmed', False)
-                        if _oos_pt and _oos_pt != 'NONE' and (_oos_cascade or _oos_struct):
+                        if _oos_pt and _oos_pt != 'NONE':
+                            # pattern_type alone is valid signal — cascade/struct
+                            # was too restrictive (blocked 44% of tradeable bars)
                             _has_compressed_signal = True
 
                 # Detection funnel: count bars where signals were found
