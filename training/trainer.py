@@ -284,13 +284,11 @@ class Trainer:
             self._launch_popup(mode=_mode)
 
             print("\n" + "="*80)
-            if oos_mode:
-                print("OOS BLIND SIMULATION (templates/scaler frozen from training)")
-                # Snapshot brain keys so we can drop new patterns at the end
-                _brain_keys_before_oos = set(self.brain.table.keys())
-                _brain_dir_keys_before_oos = set(self.brain.dir_table.keys())
-            else:
-                print("PHASE 4: IS BACKTEST" if not oos_mode else "PHASE 5: OOS VALIDATION")
+            _mode_tag = 'OOS' if oos_mode else 'IS'
+            print(f"FORWARD PASS ({_mode_tag})")
+            # Snapshot brain keys (for reporting, not behavioral)
+            _brain_keys_before_oos = set(self.brain.table.keys())
+            _brain_dir_keys_before_oos = set(self.brain.dir_table.keys())
             if start_date or end_date:
                 _lo = start_date or "start"
                 _hi = end_date   or "end"
@@ -402,7 +400,7 @@ class Trainer:
             exit_engine=_exit_eng,
             tick_size=self.asset.tick_size,
             point_value=self.asset.point_value,
-            mode='oos' if oos_mode else 'is',
+            mode='is',  # engine mode always 'is' — no behavioral difference
             tier_preference=tier_preference,
             bias_threshold=bias_threshold if bias_threshold is not None else 0.55,
             dmi_threshold=dmi_threshold if dmi_threshold is not None else 0.0,
@@ -416,10 +414,7 @@ class Trainer:
 
         # OOS compressed mode: widen gate1_dist to match live engine
         # Live uses: gate1_dist = 4.5 + aggression * 10.0 (default agg=0.5 → 9.5)
-        if oos_mode:
-            _oos_g1 = 4.5 + 0.5 * 10.0  # match live default aggression
-            _exec_engine.gate1_dist = _oos_g1
-            print(f"  OOS compressed mode: gate1_dist={_oos_g1:.1f}")
+        # Gate distance same for IS and OOS (unified engine)
 
         # Feature extractor for IS candidates (22D when --lookback)
         _use_lb = getattr(self, '_use_lookback', False)
@@ -473,7 +468,7 @@ class Trainer:
         _oos_warmup_df = None
         _oos_warmup_n_bars = 0
         _oos_warmup_ext = {}  # {tf_label: DataFrame} for external TFs (4h, 5s, 1s)
-        if oos_mode:
+        if oos_mode:  # Warmup: prepend IS tail for TBN context (data concern, not engine)
             # Derive IS path: DATA/ATLAS_OOS → DATA/ATLAS
             _is_root = data_source.replace('ATLAS_OOS', 'ATLAS') if 'ATLAS_OOS' in data_source else None
             _is_15s_dir = os.path.join(_is_root, '15s') if _is_root else None
@@ -812,9 +807,9 @@ class Trainer:
                     _pbar.update(1)
                     continue
 
-            # A. Fractal Cascade Scan (get actionable patterns with chains)
-            # OOS mode: skip discovery — uses compressed per-bar features (same as live)
-            # IS mode: full recursive discovery for library training
+            # A. Fractal Cascade Scan (oracle/template building — IS only)
+            # Discovery builds the template library. Not an engine decision.
+            # OOS and Live don't run discovery (templates frozen from IS).
             if oos_mode:
                 actionable_patterns = []
             else:
@@ -4288,8 +4283,7 @@ class Trainer:
                     'filter_out': bool(_avg < 0 and _cnt >= 5),
                 }
             if oos_mode:
-                # Preserve training depth weights -- OOS results should not overwrite
-                # the model's learned depth preferences from the training period.
+                # Reporting: don't overwrite IS depth weights file with OOS data.
                 report_lines.append("  Depth weights: NOT updated (oos_mode preserves training weights)")
             else:
                 _dw_out_path = os.path.join(_out_dir, 'depth_weights.json')
@@ -4457,7 +4451,7 @@ class Trainer:
                     print(f"  Trade analytics failed: {_ae}")
 
         # ── 7. Save compact run snapshot (current vs _old for LLM comparison) ───
-        if not oos_mode and not _analysis_mode:
+        if not _analysis_mode:  # save snapshot for both IS and OOS
             import json as _snap_json
             import datetime as _snap_dt
             _win_decay  = [r.get('exit_decay_score', 0.0) for r in oracle_trade_records if r.get('result') == 'WIN']
