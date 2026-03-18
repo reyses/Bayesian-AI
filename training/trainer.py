@@ -1566,14 +1566,17 @@ class Trainer:
                     if current_position_open:
                         bars_slot_blocked += 1
 
+                # Unified entry gate: same logic for IS and OOS.
+                # IS uses pattern_map + peak detection.
+                # OOS: pattern_map is empty, so only peak detection fires.
+                # This eliminates the OOS-specific compressed candidate builder.
                 _should_check_entry = (not current_position_open and not _in_maintenance
-                                       and ((_has_discovery_signal or _has_peak_signal) if not oos_mode
-                                            else (_has_compressed_signal or _has_peak_signal)))
+                                       and (_has_discovery_signal or _has_peak_signal))
 
                 if _should_check_entry:
                     _candidate_gate = {}    # id(p) -> gate label (for FN audit)
 
-                    if oos_mode and _has_compressed_signal:
+                    if True:  # Unified engine: compressed candidates + peak detection (IS + OOS + Live)
                         # ── OOS: 15s primary candidate + bonus multi-TF ──
                         _oos_state = _states_map.get(_bar_i - 1)
                         _oos_z = getattr(_oos_state, 'z_score', 0.0)
@@ -1690,8 +1693,8 @@ class Trainer:
                             ))
                         raw_candidates = []  # no PatternEvents in compressed mode
                     else:
-                        # ── IS: full discovery (PatternEvents) ──
-                        raw_candidates = pattern_map[ts]
+                        # ── Unified: discovery PatternEvents (IS) or empty (OOS) ──
+                        raw_candidates = pattern_map.get(ts, [])
                         _eng_candidates = [
                             Candidate(
                                 state=p.state,
@@ -6302,6 +6305,12 @@ def main():
     parser.add_argument('--depth-iso', action='store_true',
                         help="Run per-depth isolation analysis: forward pass once per depth (1-12), "
                              "no capital blocking between depths. Prints comparison table at end.")
+    parser.add_argument('--continuous', action='store_true',
+                        help="Continuous IS→OOS: run IS on ATLAS, checkpoint brain, "
+                             "continue OOS on ATLAS_OOS with same engine. No restart.")
+    parser.add_argument('--frozen-brain', action='store_true',
+                        help="OOS with frozen brain (no learning). Load live_brain.pkl, "
+                             "validate without brain drift.")
     parser.add_argument('--oos', action='store_true',
                         help="Blind out-of-sample simulation: frozen templates, separate oos_trade_log.csv/oos_report.txt, "
                              "training depth_weights.json preserved. Implies --forward-pass. "
@@ -6664,8 +6673,75 @@ def main():
             except Exception as _e:
                 print(f"\n  OOS chain chart failed: {_e}")
 
+        elif getattr(args, 'continuous', False):
+            # ── CONTINUOUS: IS → checkpoint → OOS (same engine, no restart) ──
+            _is_data = getattr(args, 'forward_data', None) or args.data
+            _oos_data = os.path.join('DATA', 'ATLAS_OOS')
+
+            print("\n" + "=" * 80)
+            print("  CONTINUOUS MODE: IS → checkpoint → OOS")
+            print(f"  IS data:  {_is_data}")
+            print(f"  OOS data: {_oos_data}")
+            print("=" * 80)
+
+            # Phase 1: IS forward pass
+            print("\n  PHASE: IS")
+            orchestrator.run_forward_pass(_is_data,
+                                          start_date=args.forward_start,
+                                          end_date=args.forward_end,
+                                          bias_threshold=args.bias_threshold,
+                                          dmi_threshold=args.dmi_threshold,
+                                          oos_mode=False,
+                                          account_size=getattr(args, 'account_size', 0.0))
+
+            # Checkpoint: save brain state after IS
+            _is_brain_path = os.path.join(orchestrator.checkpoint_dir, 'is_brain.pkl')
+            orchestrator.brain.save(_is_brain_path)
+            print(f"\n  [CHECKPOINT] IS brain saved: {_is_brain_path}")
+            print(f"  Brain has {len(orchestrator.brain.table)} states, "
+                  f"{len(orchestrator.brain.dir_table)} dir pairs")
+
+            # Phase 2: OOS forward pass (same brain, continues learning)
+            print("\n  PHASE: OOS (brain carries over from IS)")
+            orchestrator.run_forward_pass(_oos_data,
+                                          start_date=args.forward_start,
+                                          end_date=args.forward_end,
+                                          bias_threshold=args.bias_threshold,
+                                          dmi_threshold=args.dmi_threshold,
+                                          oos_mode=True,
+                                          account_size=getattr(args, 'account_size', 0.0),
+                                          popup_label='oos1')
+
+            # Save live brain (frozen for live deployment + reproducible OOS reruns)
+            _live_brain_path = os.path.join(orchestrator.checkpoint_dir, 'live_brain.pkl')
+            orchestrator.brain.save(_live_brain_path)
+            print(f"\n  [CHECKPOINT] Live brain saved: {_live_brain_path}")
+
+            # OOS3 parity
+            orchestrator.run_oos3_standalone(
+                data_source=_oos_data, n_days=5,
+                bias_threshold=args.bias_threshold,
+                dmi_threshold=args.dmi_threshold,
+                account_size=getattr(args, 'account_size', 0.0))
+
+            print("\n" + "=" * 80)
+            print("  CONTINUOUS COMPLETE")
+            print(f"  IS brain: {_is_brain_path}")
+            print(f"  Live brain: {_live_brain_path}")
+            print(f"  Next: python -m live.launcher")
+            print("=" * 80)
+
         elif args.oos and not args.forward_pass and not args.fresh:
-            # Standalone OOS rerun (Phase 5 only)
+            # Standalone OOS rerun
+            # --frozen-brain: load live_brain.pkl, disable learning
+            if getattr(args, 'frozen_brain', False):
+                _lb_path = os.path.join(orchestrator.checkpoint_dir, 'live_brain.pkl')
+                if os.path.exists(_lb_path):
+                    orchestrator.brain.load(_lb_path)
+                    orchestrator.brain.freeze()  # disable learning
+                    print(f"  [FROZEN] Brain loaded from {_lb_path} — learning disabled")
+                else:
+                    print(f"  WARNING: {_lb_path} not found — using fresh brain")
             _oos_data = getattr(args, 'forward_data', None) or os.path.join('DATA', 'ATLAS_OOS')
             _oos_end = getattr(args, '_live_prep_cutoff', None) or args.forward_end
             orchestrator.run_forward_pass(_oos_data,
