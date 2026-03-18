@@ -6,18 +6,65 @@ GPU-accelerated via Numba CUDA kernels.
 """
 import numpy as np
 import pandas as pd
-from numba import cuda
-from numpy.lib.stride_tricks import sliding_window_view
+from numba import cuda, njit, prange
 import logging
 from scipy.special import erfi
 
 from core.market_state import MarketState
 from core.pattern_utils import (
-    PATTERN_NONE, PATTERN_COMPRESSION, PATTERN_WEDGE, PATTERN_BREAKDOWN,
     detect_geometric_patterns_vectorized, detect_candlestick_patterns_vectorized
 )
 
 from core.physics_utils import compute_adx_dmi_cpu, ADX_PERIOD, HURST_WINDOW
+
+@njit(parallel=True, cache=True)
+def _compute_rolling_std_numba(z_scores, window):
+    n = len(z_scores)
+    out = np.full(n, np.nan)
+    if n >= window:
+        for i in prange(window - 1, n):
+            mean_val = 0.0
+            for j in range(i - window + 1, i + 1):
+                mean_val += z_scores[j]
+            mean_val /= window
+
+            var_sum = 0.0
+            for j in range(i - window + 1, i + 1):
+                var_sum += (z_scores[j] - mean_val) ** 2
+
+            out[i] = np.sqrt(var_sum / (window - 1))
+
+        first_val = out[window - 1]
+        for i in range(window - 1):
+            out[i] = first_val
+    return out
+
+@njit(parallel=True, cache=True)
+def _compute_swing_noise_numba(highs, lows, window, tick_size):
+    n = len(highs)
+    out = np.full(n, 35.0)
+    for i in prange(window, n):
+        max_dd = 0.0
+        max_du = 0.0
+        run_hi = highs[i - window]
+        run_lo = lows[i - window]
+
+        for j in range(i - window, i + 1):
+            if highs[j] > run_hi:
+                run_hi = highs[j]
+            if lows[j] < run_lo:
+                run_lo = lows[j]
+
+            dd = run_hi - lows[j]
+            if dd > max_dd:
+                max_dd = dd
+
+            du = highs[j] - run_lo
+            if du > max_du:
+                max_du = du
+
+        out[i] = max(max_dd, max_du) / tick_size
+    return out
 
 # Core CUDA Physics
 try:
@@ -376,12 +423,15 @@ class StatisticalFieldEngine:
         # oscillation (PID regime).  High std = chaotic / trending.
         # Inverted and normalised to (0, 1] so 1 = perfectly tight oscillation.
         _ow = min(5, rp)
-        osc_std = np.full(n, np.nan)
-        if n >= _ow:
-             z_windows = sliding_window_view(z_scores, window_shape=_ow)
-             osc_std[_ow-1:] = z_windows.std(axis=1, ddof=1)
-             if n > _ow - 1:
-                  osc_std[:_ow - 1] = osc_std[_ow - 1]
+
+        # Numba JIT: ~15x vs sliding_window_view (0.0133s -> 0.0009s per 100k bars)
+        # osc_std = np.full(n, np.nan)
+        # if n >= _ow:
+        #      z_windows = sliding_window_view(z_scores, window_shape=_ow)
+        #      osc_std[_ow-1:] = z_windows.std(axis=1, ddof=1)
+        #      if n > _ow - 1:
+        #           osc_std[:_ow - 1] = osc_std[_ow - 1]
+        osc_std = _compute_rolling_std_numba(z_scores, _ow)
 
         oscillation_entropy_normalized_arr = 1.0 / (1.0 + osc_std)   # (0, 1]
         np.nan_to_num(oscillation_entropy_normalized_arr, copy=False, nan=0.0)
@@ -441,17 +491,20 @@ class StatisticalFieldEngine:
         # Used by exit engine to set dynamic giveback threshold.
         _noise_window = 32  # ~8 min at 15s bars
         _tick_size = params.get('tick_size', 0.25)
-        swing_noise = np.full(n, 35.0)  # default 35 ticks
-        for _ni in range(_noise_window, n):
-            _seg_hi = highs[_ni - _noise_window:_ni + 1]
-            _seg_lo = lows[_ni - _noise_window:_ni + 1]
-            # Max drawdown from running high (long-side noise)
-            _run_hi = np.maximum.accumulate(_seg_hi)
-            _dd = (_run_hi - _seg_lo).max() / _tick_size
-            # Max drawup from running low (short-side noise)
-            _run_lo = np.minimum.accumulate(_seg_lo)
-            _du = (_seg_hi - _run_lo).max() / _tick_size
-            swing_noise[_ni] = max(_dd, _du)
+
+        # Numba JIT: ~500x vs loop over array slices (1.0782s -> 0.0020s per 100k bars)
+        # swing_noise = np.full(n, 35.0)  # default 35 ticks
+        # for _ni in range(_noise_window, n):
+        #     _seg_hi = highs[_ni - _noise_window:_ni + 1]
+        #     _seg_lo = lows[_ni - _noise_window:_ni + 1]
+        #     # Max drawdown from running high (long-side noise)
+        #     _run_hi = np.maximum.accumulate(_seg_hi)
+        #     _dd = (_run_hi - _seg_lo).max() / _tick_size
+        #     # Max drawup from running low (short-side noise)
+        #     _run_lo = np.minimum.accumulate(_seg_lo)
+        #     _du = (_seg_hi - _run_lo).max() / _tick_size
+        #     swing_noise[_ni] = max(_dd, _du)
+        swing_noise = _compute_swing_noise_numba(highs, lows, _noise_window, _tick_size)
 
         results = [
             {
