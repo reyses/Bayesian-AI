@@ -1509,10 +1509,22 @@ class Trainer:
                 # OOS: compressed per-bar (15s state) + bonus multi-TF candidates
                 _has_discovery_signal = ts in pattern_map
 
-                # Peak detection: check if state shows peak reversal
-                # (runs even when no pattern fires — the whole point)
+                # Peak detection: update state EVERY bar, check signal when flat + no pattern
                 _has_peak_signal = False
-                if not _has_discovery_signal:
+                _bar_state_pk = _states_map.get(_bar_i)
+                if _bar_state_pk is not None:
+                    _pc_now = getattr(_bar_state_pk, 'P_at_center', 0.0)
+                    _fm_now = abs(getattr(_bar_state_pk, 'F_momentum', 0.0))
+                    _coh_now = getattr(_bar_state_pk, 'oscillation_entropy_normalized', 0.0)
+                    _pc_up_chk = _pc_now > self._peak_prev_pc * 1.05 if self._peak_prev_pc > 0.01 else False
+                    _fm_down_chk = _fm_now < self._peak_prev_fm * 0.90 if self._peak_prev_fm > 0.5 else False
+                    # Always update (even when in position or pattern fires)
+                    self._peak_prev_pc = _pc_now
+                    self._peak_prev_fm = _fm_now
+                    # Only signal when flat and no pattern
+                    if (not _has_discovery_signal and not current_position_open
+                            and (_pc_up_chk or _fm_down_chk) and _coh_now > 0.55):
+                        _has_peak_signal = True
                     _bar_state = _states_map.get(_bar_i)
                     if _bar_state is not None:
                         _pc = getattr(_bar_state, 'P_at_center', 0.0)
@@ -1520,6 +1532,9 @@ class Trainer:
                         _coh = getattr(_bar_state, 'oscillation_entropy_normalized', 0.0)
                         _prev_pc = getattr(self, '_peak_prev_pc', _pc)
                         _prev_fm = getattr(self, '_peak_prev_fm', _fm)
+                        # Always update state (even when in position or skipping)
+                        self._peak_prev_pc = _pc
+                        self._peak_prev_fm = _fm
                         _pc_up = _pc > _prev_pc * 1.05 if _prev_pc > 0.01 else False
                         _fm_down = _fm < _prev_fm * 0.90 if _prev_fm > 0.5 else False
                         if (_pc_up or _fm_down) and _coh > 0.55:
@@ -1683,36 +1698,23 @@ class Trainer:
                                 raw_event=p,
                             ) for p in raw_candidates
                         ]
-                    # Peak detection fallback: if no pattern candidates,
-                    # check for peak reversal (P_center + F_momentum change)
-                    if not _eng_candidates:
-                        _bar_state = _states_map.get(_bar_i)
-                        if _bar_state is not None:
-                            _pc = getattr(_bar_state, 'P_at_center', 0.0)
-                            _fm = abs(getattr(_bar_state, 'F_momentum', 0.0))
-                            _coh = getattr(_bar_state, 'oscillation_entropy_normalized', 0.0)
-                            _prev_pc = getattr(self, '_peak_prev_pc', _pc)
-                            _prev_fm = getattr(self, '_peak_prev_fm', _fm)
-                            self._peak_prev_pc = _pc
-                            self._peak_prev_fm = _fm
-
-                            _pc_up = _pc > _prev_pc * 1.05 if _prev_pc > 0.01 else False
-                            _fm_down = _fm < _prev_fm * 0.90 if _prev_fm > 0.5 else False
-
-                            if (_pc_up or _fm_down) and _coh > 0.55:
-                                _feat = _feat_extractor.extract_features_from_state(_bar_state) \
-                                    if hasattr(_feat_extractor, 'extract_features_from_state') \
-                                    else [0.0] * 22
-                                _eng_candidates = [Candidate(
-                                    state=_bar_state,
-                                    depth=8,
-                                    timeframe='15s',
-                                    timestamp=ts,
-                                    pattern_type='PEAK_REVERSAL',
-                                    z_score=getattr(_bar_state, 'z_score', 0.0),
-                                    features=np.array([_feat]),
-                                    forced_template_id=-100,
-                                )]
+                    # Peak detection fallback: if no pattern candidates but peak signal fired
+                    if not _eng_candidates and _has_peak_signal:
+                        _bar_state_p = _states_map.get(_bar_i)
+                        if _bar_state_p is not None:
+                            _feat = _feat_extractor.extract_features_from_state(_bar_state_p) \
+                                if hasattr(_feat_extractor, 'extract_features_from_state') \
+                                else [0.0] * 22
+                            _eng_candidates = [Candidate(
+                                state=_bar_state_p,
+                                depth=8,
+                                timeframe='15s',
+                                timestamp=ts,
+                                pattern_type='PEAK_REVERSAL',
+                                z_score=getattr(_bar_state_p, 'z_score', 0.0),
+                                features=np.array([_feat]),
+                                forced_template_id=-100,
+                            )]
 
                     # Track peak reversal candidates
                     _is_peak_entry = any(getattr(c, 'pattern_type', '') == 'PEAK_REVERSAL'
