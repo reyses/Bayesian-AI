@@ -1167,11 +1167,23 @@ class ExecutionEngine:
         if pp_dir_override is not None:
             return pp_dir_override, 0.65, 'pp_override'
 
-        # ── Brain dir_bias: moved into voting system (was pre-empting all votes) ──
-        # Previously returned immediately at Priority -0.5, bypassing all 8 voters.
-        # OOS showed 99.8% SHORT in a balanced market because brain overrode DMI.
-        # Now participates as one vote among many.
+        # ── Brain dir_bias: veto when confident, vote when uncertain ──
+        # Brain veto produced $109K IS ($13.23/trade, best dir_source).
+        # Removing it broke IS completely (PF 0.97).
+        # Compromise: veto ONLY when brain has >=10 observations for this template.
+        # With <10 obs, brain becomes one vote (allows DMI/velocity to lead in OOS).
         _learned_bias = self.get_live_dir_bias(tid)
+        if _learned_bias is not None:
+            _bias_data = self.brain.get_dir_bias(tid) if self.brain else None
+            _n_obs = 0
+            if _bias_data:
+                _n_obs = (_bias_data.get('long_w', 0) + _bias_data.get('long_l', 0)
+                          + _bias_data.get('short_w', 0) + _bias_data.get('short_l', 0))
+            if _n_obs >= 10:
+                # Strong confidence: brain veto (same as original $109K IS)
+                _p = 0.60 if _learned_bias == 'long' else 0.40
+                return _learned_bias, _p, 'brain_bias'
+            # else: brain participates as one vote below (low obs = uncertain)
 
         # ── Priority 0.3: Live momentum (velocity+accel, live/replay only) ──
         if self.mode in ('live', 'replay'):

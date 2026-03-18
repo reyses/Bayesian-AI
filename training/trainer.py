@@ -344,17 +344,17 @@ class Trainer:
             'discovery_tf_seconds': 15.0,
             'depth': 8,
             'n_patterns': 0,
-            'win_rate': 0.5,
-            'mean_mae_ticks': 20.0,
-            'p95_mae_ticks': 40.0,
-            'mae_std_ticks': 10.0,
-            'p75_mfe_ticks': 40.0,      # conservative — real data will calibrate
-            'avg_mfe_bar': 10.0,
-            'p75_mfe_bar': 15.0,
-            'stop_loss_ticks': 40,       # wider SL — reversals need room
-            'take_profit_ticks': 80,     # wider TP — expect full reversion
-            'trailing_stop_ticks': 20,
-            'is_peak_reversal': True,    # flag for magnitude scaling
+            'win_rate': 0.74,             # from 10,236 IS peak trades
+            'mean_mae_ticks': 16.0,       # P50 loss MFE
+            'p95_mae_ticks': 70.0,        # from IS loss distribution
+            'mae_std_ticks': 25.0,
+            'p75_mfe_ticks': 52.0,        # P75 MFE of IS winners
+            'avg_mfe_bar': 6.0,           # peak trades are fast
+            'p75_mfe_bar': 10.0,
+            'stop_loss_ticks': 70,        # P95 MAE — true last resort
+            'take_profit_ticks': 52,      # P75 MFE — capture the move
+            'trailing_stop_ticks': 15,
+            'is_peak_reversal': True,
         }
 
         self.scaler = _bundle.scaler
