@@ -143,7 +143,6 @@ class ExecutionEngine:
         tier_score_adj: dict = None,
         depth_score_adj: dict = None,
         template_tier_map: dict = None,
-        exception_tids: set = None,
         # Thresholds (deprecated — use config)
         bias_threshold: float = None,
         dmi_threshold: float = None,
@@ -182,8 +181,6 @@ class ExecutionEngine:
         self.tier_score_adj = tier_score_adj or {}
         self.depth_score_adj = depth_score_adj or {}
         self.template_tier_map = template_tier_map or {}
-        self.exception_tids = exception_tids or set()
-
         # Thresholds from config (constructor args override for backward compat)
         self.bias_threshold = bias_threshold if bias_threshold is not None else config.bias_threshold
         self.dmi_threshold = dmi_threshold if dmi_threshold is not None else config.dmi_threshold
@@ -682,12 +679,6 @@ class ExecutionEngine:
             tid = self.valid_tids[nearest_idx]
             lib_entry = self.pattern_library.get(tid, {})
 
-        # ── Data quality override ─────────────────────────────
-        _data_override = False
-        if self.exception_tids and cand.pattern_type:
-            if dist < self.gate1_dist and tid in self.exception_tids:
-                _data_override = True
-
         # ── Pattern Quality: headroom & physics rules ─────────
         micro_z = abs(cand.z_score)
         micro_pattern = cand.pattern_type
@@ -697,7 +688,7 @@ class ExecutionEngine:
         _cfg = self.config
 
         # ── Improvement A: Regime-aware pattern compatibility ──
-        if not _data_override and micro_pattern:
+        if micro_pattern:
             _regime = self._classify_regime(state)
             _compat = self._REGIME_PATTERN_COMPAT.get(_regime, {}).get(micro_pattern)
             if _compat is False:
@@ -722,7 +713,7 @@ class ExecutionEngine:
 
         _is_peak_reversal = (micro_pattern == 'PEAK_REVERSAL')
 
-        if not _data_override and not should_skip:
+        if not should_skip:
             if not micro_pattern:
                 should_skip = True
                 skip_label = 'gate0'
@@ -758,7 +749,7 @@ class ExecutionEngine:
                         skip_label = 'gate0_r4_struct'
 
         # Rule 5: Physics safety
-        if not should_skip and not _data_override:
+        if not should_skip:
             _st = state
             if self.hurst_min > 0 and getattr(_st, 'hurst_exponent', 1.0) < self.hurst_min:
                 should_skip = True

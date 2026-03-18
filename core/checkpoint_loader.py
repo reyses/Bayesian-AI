@@ -1,8 +1,12 @@
 """
 Shared checkpoint loader — used by both trainer.py and live_engine.py.
 
-Loads the common artifacts (library, scaler, tiers, depth weights, centroids,
-exception TIDs) from a checkpoint directory and returns a CheckpointBundle.
+Loads the common artifacts (library, scaler, tiers, depth weights, centroids)
+from a checkpoint directory and returns a CheckpointBundle.
+
+Quality filter: only templates with sufficient data (>=10 members),
+proven edge (WR>=55%), and controlled variance (sigma<=10 ticks) are
+included in valid_tids. Everything else is discarded at load time.
 """
 import json
 import os
@@ -15,10 +19,10 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-# Exception-TID quality thresholds
-_EXCEPTION_MIN_MEMBERS  = 10
-_EXCEPTION_MIN_WIN_RATE = 0.55
-_EXCEPTION_MAX_SIGMA    = 10.0  # ticks
+# Quality gate thresholds — templates that fail ANY are excluded from trading
+QUALITY_MIN_MEMBERS  = 10    # minimum cluster members to trust the statistics
+QUALITY_MIN_WIN_RATE = 0.55  # minimum historical win rate
+QUALITY_MAX_SIGMA    = 10.0  # maximum regression sigma in ticks
 
 
 @dataclass
@@ -31,7 +35,6 @@ class CheckpointBundle:
     template_tier_map: Dict = field(default_factory=dict)
     depth_score_adj: Dict[int, float] = field(default_factory=dict)
     depth_filter_out: Set[int] = field(default_factory=set)
-    exception_tids: Set[int] = field(default_factory=set)
 
 
 def load_checkpoints(checkpoint_dir: str, *, verbose: bool = True) -> CheckpointBundle:
@@ -86,9 +89,32 @@ def load_checkpoints(checkpoint_dir: str, *, verbose: bool = True) -> Checkpoint
         raise ValueError("Pattern library is empty — nothing to simulate")
 
     # ── Valid template IDs (must have centroids) ─────────────────────
-    valid_tids = [tid for tid in pattern_library if 'centroid' in pattern_library[tid]]
-    if not valid_tids:
+    _all_tids = [tid for tid in pattern_library if 'centroid' in pattern_library[tid]]
+    if not _all_tids:
         raise ValueError("No valid templates with centroids found")
+
+    # ── Quality filter: hard gate on template statistics ─────────────
+    # Only templates with proven data quality survive. The rest are noise.
+    valid_tids = []
+    _rejected = 0
+    for tid in _all_tids:
+        lib = pattern_library.get(tid, {})
+        n = lib.get('member_count', 0)
+        wr = lib.get('stats_win_rate', 0.0)
+        sig = lib.get('regression_sigma_ticks', None)
+        if (n >= QUALITY_MIN_MEMBERS
+                and wr >= QUALITY_MIN_WIN_RATE
+                and sig is not None
+                and sig <= QUALITY_MAX_SIGMA):
+            valid_tids.append(tid)
+        else:
+            _rejected += 1
+    _log(f"  Quality filter: {len(valid_tids)} passed, {_rejected} rejected "
+         f"(>={QUALITY_MIN_MEMBERS} members, WR>={QUALITY_MIN_WIN_RATE:.0%}, "
+         f"sigma<={QUALITY_MAX_SIGMA} ticks)")
+    if not valid_tids:
+        raise ValueError("All templates rejected by quality filter — "
+                         "lower thresholds or rebuild library with --fresh")
 
     # ── Template tiers ───────────────────────────────────────────────
     template_tier_map = {}
@@ -119,22 +145,6 @@ def load_checkpoints(checkpoint_dir: str, *, verbose: bool = True) -> Checkpoint
     centroids_scaled = scaler.transform(raw_centroids)
     _log(f"  Centroids: {len(valid_tids)} ready for matching")
 
-    # ── Exception TIDs (data-quality override) ───────────────────────
-    exception_tids: Set[int] = set()
-    for tid in valid_tids:
-        lib = pattern_library.get(tid, {})
-        n = lib.get('member_count', 0)
-        wr = lib.get('stats_win_rate', 0.0)
-        sig = lib.get('regression_sigma_ticks', None)
-        if (n >= _EXCEPTION_MIN_MEMBERS
-                and wr >= _EXCEPTION_MIN_WIN_RATE
-                and sig is not None
-                and sig <= _EXCEPTION_MAX_SIGMA):
-            exception_tids.add(tid)
-    _log(f"  Pattern Quality exceptions: {len(exception_tids)} / {len(valid_tids)} "
-         f"(>={_EXCEPTION_MIN_MEMBERS} members, WR>={_EXCEPTION_MIN_WIN_RATE:.0%}, "
-         f"sigma<={_EXCEPTION_MAX_SIGMA} ticks)")
-
     return CheckpointBundle(
         pattern_library=pattern_library,
         scaler=scaler,
@@ -143,5 +153,4 @@ def load_checkpoints(checkpoint_dir: str, *, verbose: bool = True) -> Checkpoint
         template_tier_map=template_tier_map,
         depth_score_adj=depth_score_adj,
         depth_filter_out=depth_filter_out,
-        exception_tids=exception_tids,
     )

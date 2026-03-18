@@ -82,7 +82,6 @@ def create_execution_engine(
         tier_score_adj=tier_score_adj,
         depth_score_adj=bundle.depth_score_adj,
         template_tier_map=bundle.template_tier_map,
-        exception_tids=bundle.exception_tids,
         bias_threshold=bias_threshold,
         dmi_threshold=dmi_threshold,
         depth_filter_out=bundle.depth_filter_out,

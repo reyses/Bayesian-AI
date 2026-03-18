@@ -179,7 +179,7 @@ class Trainer:
         # Pattern Library (Bayesian Priors)
         self.pattern_library = {}
 
-        # Bottom-line accumulators -- populated by run_forward_pass / run_strategy_selection
+        # Bottom-line accumulators -- populated by run_forward_pass
         self._fp_summary   = {}   # IS/OOS key metrics
         self._tier_summary = {}   # Phase 6 tier counts + top templates
 
@@ -362,7 +362,6 @@ class Trainer:
         centroids_scaled = _bundle.centroids_scaled
         template_tier_map = _bundle.template_tier_map
         template_tier_map[_PEAK_TID] = 2  # tier 2 (not priority, not blocked)
-        _exception_tids = _bundle.exception_tids
 
         # Tier tiebreaker logging
         if tier_preference:
@@ -1553,122 +1552,122 @@ class Trainer:
                 if _should_check_entry:
                     _candidate_gate = {}    # id(p) -> gate label (for FN audit)
 
-                    if True:  # Unified: compressed candidates + peak detection (IS = OOS = Live)
-                        # ── Compressed state candidates (no lookahead) ──
-                        _oos_state = _states_map.get(_bar_i - 1)
-                        _oos_z = getattr(_oos_state, 'z_score', 0.0)
-                        _oos_pt = getattr(_oos_state, 'pattern_type', '')
-                        _oos_tf_s = 15  # 15s anchor
-                        _oos_depth = 8  # 15s depth
-                        _oos_feat_list = extract_feature_vector(
-                            z_score=_oos_z,
-                            velocity=getattr(_oos_state, 'velocity', 0.0),
-                            momentum=getattr(_oos_state, 'momentum_strength',
-                                             getattr(_oos_state, 'momentum', 0.0)),
-                            entropy_normalized=getattr(_oos_state, 'entropy_normalized', 0.0),
-                            tf_seconds=_oos_tf_s,
-                            depth=float(_oos_depth),
+                    # Compressed candidates + peak detection (IS = OOS = Live)
+                    # ── Compressed state candidates (no lookahead) ──
+                    _oos_state = _states_map.get(_bar_i - 1)
+                    _oos_z = getattr(_oos_state, 'z_score', 0.0)
+                    _oos_pt = getattr(_oos_state, 'pattern_type', '')
+                    _oos_tf_s = 15  # 15s anchor
+                    _oos_depth = 8  # 15s depth
+                    _oos_feat_list = extract_feature_vector(
+                        z_score=_oos_z,
+                        velocity=getattr(_oos_state, 'velocity', 0.0),
+                        momentum=getattr(_oos_state, 'momentum_strength',
+                                         getattr(_oos_state, 'momentum', 0.0)),
+                        entropy_normalized=getattr(_oos_state, 'entropy_normalized', 0.0),
+                        tf_seconds=_oos_tf_s,
+                        depth=float(_oos_depth),
+                        parent_is_band_reversal=0.0,
+                        adx=getattr(_oos_state, 'adx_strength', 0.0) / 100.0,
+                        hurst=getattr(_oos_state, 'hurst_exponent', 0.5),
+                        dmi_diff=(getattr(_oos_state, 'dmi_plus', 0.0)
+                                  - getattr(_oos_state, 'dmi_minus', 0.0)) / 100.0,
+                        parent_z=0.0, parent_dmi_diff=0.0,
+                        root_is_roche=0.0, tf_alignment=0.0,
+                        pid=getattr(_oos_state, 'term_pid', 0.0),
+                        osc_coherence=getattr(_oos_state, 'oscillation_entropy_normalized', 0.0),
+                    )
+                    # 22D mode: append 6D lookback geometry from 15s closes
+                    if getattr(self, '_use_lookback', False):
+                        _lb_start = max(0, _bar_i - 10)
+                        if _bar_i >= 3 and 'close' in df_15s.columns:
+                            from core.shape_primitives import extract_lookback_geometry
+                            _lb_closes = df_15s['close'].iloc[_lb_start:_bar_i].values
+                            _oos_feat_list.extend(extract_lookback_geometry(_lb_closes).tolist())
+                        else:
+                            _oos_feat_list.extend([0.0] * 6)
+                    _oos_feat = np.array([_oos_feat_list])
+                    _eng_candidates = [Candidate(
+                        state=_oos_state,
+                        depth=_oos_depth,
+                        timeframe='15s',
+                        timestamp=ts,
+                        pattern_type=_oos_pt,
+                        z_score=_oos_z,
+                        features=_oos_feat,
+                    )]
+                    # Bonus: add candidates from other TF workers with signals
+                    _OOS_TF_DEPTH = {
+                        3600: 1, 1800: 2, 900: 3, 300: 4, 180: 5,
+                        60: 6, 30: 7, 5: 9, 1: 10,  # skip 15=8 (already added)
+                    }
+                    _TF_LABEL = {
+                        3600:'1h', 1800:'30m', 900:'15m', 300:'5m',
+                        180:'3m', 60:'1m', 30:'30s', 5:'5s', 1:'1s',
+                    }
+                    for _tf_sec_c in sorted(belief_network.workers.keys(),
+                                            reverse=True):
+                        if _tf_sec_c == 15:  # skip 15s (already primary)
+                            continue
+                        _w_c = belief_network.workers[_tf_sec_c]
+                        if _w_c._last_tf_bar_idx < 0 or not _w_c._states:
+                            continue
+                        _widx_c = min(_w_c._last_tf_bar_idx,
+                                      len(_w_c._states) - 1)
+                        _wraw_c = _w_c._states[_widx_c]
+                        _wst_c = (_wraw_c['state']
+                                  if isinstance(_wraw_c, dict)
+                                  and 'state' in _wraw_c else _wraw_c)
+                        _wpt_c = getattr(_wst_c, 'pattern_type', '')
+                        if (not _wpt_c or _wpt_c == 'NONE'):
+                            continue
+                        _wdepth = _OOS_TF_DEPTH.get(_tf_sec_c, 8)
+                        _wz = getattr(_wst_c, 'z_score', 0.0)
+                        _wfeat_list = extract_feature_vector(
+                            z_score=_wz,
+                            velocity=getattr(_wst_c, 'velocity', 0.0),
+                            momentum=getattr(_wst_c, 'momentum_strength',
+                                getattr(_wst_c, 'momentum', 0.0)),
+                            entropy_normalized=getattr(
+                                _wst_c, 'entropy_normalized', 0.0),
+                            tf_seconds=_tf_sec_c,
+                            depth=float(_wdepth),
                             parent_is_band_reversal=0.0,
-                            adx=getattr(_oos_state, 'adx_strength', 0.0) / 100.0,
-                            hurst=getattr(_oos_state, 'hurst_exponent', 0.5),
-                            dmi_diff=(getattr(_oos_state, 'dmi_plus', 0.0)
-                                      - getattr(_oos_state, 'dmi_minus', 0.0)) / 100.0,
+                            adx=getattr(_wst_c, 'adx_strength',
+                                        0.0) / 100.0,
+                            hurst=getattr(_wst_c, 'hurst_exponent',
+                                          0.5),
+                            dmi_diff=(getattr(_wst_c, 'dmi_plus', 0.0)
+                                      - getattr(_wst_c, 'dmi_minus',
+                                                0.0)) / 100.0,
                             parent_z=0.0, parent_dmi_diff=0.0,
                             root_is_roche=0.0, tf_alignment=0.0,
-                            pid=getattr(_oos_state, 'term_pid', 0.0),
-                            osc_coherence=getattr(_oos_state, 'oscillation_entropy_normalized', 0.0),
+                            pid=getattr(_wst_c, 'term_pid', 0.0),
+                            osc_coherence=getattr(
+                                _wst_c,
+                                'oscillation_entropy_normalized', 0.0),
                         )
-                        # 22D mode: append 6D lookback geometry from 15s closes
+                        # 22D: reuse 15s lookback geometry for bonus TF candidates
                         if getattr(self, '_use_lookback', False):
-                            _lb_start = max(0, _bar_i - 10)
+                            _lb_start_b = max(0, _bar_i - 10)
                             if _bar_i >= 3 and 'close' in df_15s.columns:
                                 from core.shape_primitives import extract_lookback_geometry
-                                _lb_closes = df_15s['close'].iloc[_lb_start:_bar_i].values
-                                _oos_feat_list.extend(extract_lookback_geometry(_lb_closes).tolist())
+                                _lb_c = df_15s['close'].iloc[_lb_start_b:_bar_i].values
+                                _wfeat_list.extend(extract_lookback_geometry(_lb_c).tolist())
                             else:
-                                _oos_feat_list.extend([0.0] * 6)
-                        _oos_feat = np.array([_oos_feat_list])
-                        _eng_candidates = [Candidate(
-                            state=_oos_state,
-                            depth=_oos_depth,
-                            timeframe='15s',
+                                _wfeat_list.extend([0.0] * 6)
+                        _wfeat = np.array([_wfeat_list])
+                        _eng_candidates.append(Candidate(
+                            state=_wst_c,
+                            depth=_wdepth,
+                            timeframe=_TF_LABEL.get(_tf_sec_c,
+                                                    f'{_tf_sec_c}s'),
                             timestamp=ts,
-                            pattern_type=_oos_pt,
-                            z_score=_oos_z,
-                            features=_oos_feat,
-                        )]
-                        # Bonus: add candidates from other TF workers with signals
-                        _OOS_TF_DEPTH = {
-                            3600: 1, 1800: 2, 900: 3, 300: 4, 180: 5,
-                            60: 6, 30: 7, 5: 9, 1: 10,  # skip 15=8 (already added)
-                        }
-                        _TF_LABEL = {
-                            3600:'1h', 1800:'30m', 900:'15m', 300:'5m',
-                            180:'3m', 60:'1m', 30:'30s', 5:'5s', 1:'1s',
-                        }
-                        for _tf_sec_c in sorted(belief_network.workers.keys(),
-                                                reverse=True):
-                            if _tf_sec_c == 15:  # skip 15s (already primary)
-                                continue
-                            _w_c = belief_network.workers[_tf_sec_c]
-                            if _w_c._last_tf_bar_idx < 0 or not _w_c._states:
-                                continue
-                            _widx_c = min(_w_c._last_tf_bar_idx,
-                                          len(_w_c._states) - 1)
-                            _wraw_c = _w_c._states[_widx_c]
-                            _wst_c = (_wraw_c['state']
-                                      if isinstance(_wraw_c, dict)
-                                      and 'state' in _wraw_c else _wraw_c)
-                            _wpt_c = getattr(_wst_c, 'pattern_type', '')
-                            if (not _wpt_c or _wpt_c == 'NONE'):
-                                continue
-                            _wdepth = _OOS_TF_DEPTH.get(_tf_sec_c, 8)
-                            _wz = getattr(_wst_c, 'z_score', 0.0)
-                            _wfeat_list = extract_feature_vector(
-                                z_score=_wz,
-                                velocity=getattr(_wst_c, 'velocity', 0.0),
-                                momentum=getattr(_wst_c, 'momentum_strength',
-                                    getattr(_wst_c, 'momentum', 0.0)),
-                                entropy_normalized=getattr(
-                                    _wst_c, 'entropy_normalized', 0.0),
-                                tf_seconds=_tf_sec_c,
-                                depth=float(_wdepth),
-                                parent_is_band_reversal=0.0,
-                                adx=getattr(_wst_c, 'adx_strength',
-                                            0.0) / 100.0,
-                                hurst=getattr(_wst_c, 'hurst_exponent',
-                                              0.5),
-                                dmi_diff=(getattr(_wst_c, 'dmi_plus', 0.0)
-                                          - getattr(_wst_c, 'dmi_minus',
-                                                    0.0)) / 100.0,
-                                parent_z=0.0, parent_dmi_diff=0.0,
-                                root_is_roche=0.0, tf_alignment=0.0,
-                                pid=getattr(_wst_c, 'term_pid', 0.0),
-                                osc_coherence=getattr(
-                                    _wst_c,
-                                    'oscillation_entropy_normalized', 0.0),
-                            )
-                            # 22D: reuse 15s lookback geometry for bonus TF candidates
-                            if getattr(self, '_use_lookback', False):
-                                _lb_start_b = max(0, _bar_i - 10)
-                                if _bar_i >= 3 and 'close' in df_15s.columns:
-                                    from core.shape_primitives import extract_lookback_geometry
-                                    _lb_c = df_15s['close'].iloc[_lb_start_b:_bar_i].values
-                                    _wfeat_list.extend(extract_lookback_geometry(_lb_c).tolist())
-                                else:
-                                    _wfeat_list.extend([0.0] * 6)
-                            _wfeat = np.array([_wfeat_list])
-                            _eng_candidates.append(Candidate(
-                                state=_wst_c,
-                                depth=_wdepth,
-                                timeframe=_TF_LABEL.get(_tf_sec_c,
-                                                        f'{_tf_sec_c}s'),
-                                timestamp=ts,
-                                pattern_type=_wpt_c,
-                                z_score=_wz,
-                                features=_wfeat,
-                            ))
-                        raw_candidates = []  # compressed mode — no PatternEvents (no lookahead)
+                            pattern_type=_wpt_c,
+                            z_score=_wz,
+                            features=_wfeat,
+                        ))
+                    raw_candidates = []  # compressed mode — no PatternEvents (no lookahead)
                     # Peak detection: always add peak candidate when signal fires
                     # (competes with compressed candidates in gate cascade)
                     if _has_peak_signal:
@@ -2455,279 +2454,6 @@ class Trainer:
             return None
         _dfs = [pd.read_parquet(f) for f in _files]
         return pd.concat(_dfs, ignore_index=True).sort_values('timestamp').reset_index(drop=True)
-
-    def run_oos3_standalone(self, data_source: str = None,
-                            n_days: int = 5,
-                            bias_threshold: float = None,
-                            dmi_threshold: float = None,
-                            account_size: float = 0.0):
-        """Standalone OOS3: BarProcessor only, no inline OOS.
-
-        Loads checkpoints, computes states on OOS data, ticks TBN through
-        warmup bars, then runs BarProcessor on the last N trading days.
-        Writes parity report comparing against reports/oos_report.txt.
-        """
-        import re
-        from collections import defaultdict
-
-        data_source = data_source or os.path.join('DATA', 'ATLAS_OOS')
-        print("\n" + "=" * 80)
-        print("  OOS3 STANDALONE — BarProcessor parity test")
-        print(f"  Data: {data_source}  |  Last {n_days} trading days")
-        print("=" * 80)
-
-        # ── Load checkpoints ──────────────────────────────────────────────
-        from core.checkpoint_loader import load_checkpoints
-        _bundle = load_checkpoints(self.checkpoint_dir, verbose=True)
-        self.pattern_library = _bundle.pattern_library
-        self.scaler = _bundle.scaler
-
-        # ── Load 15s data files ───────────────────────────────────────────
-        _15s_dir = os.path.join(data_source, '15s')
-        if not os.path.isdir(_15s_dir):
-            print(f"ERROR: no 15s directory in {data_source}")
-            return
-        _files = sorted(glob.glob(os.path.join(_15s_dir, '*.parquet')))
-        if not _files:
-            print(f"ERROR: no parquet files in {_15s_dir}")
-            return
-        print(f"  Found {len(_files)} 15s files")
-
-        # ── Concat all files, identify trading days ───────────────────────
-        _dfs = [pd.read_parquet(f) for f in _files]
-        _df_all = pd.concat(_dfs, ignore_index=True).sort_values('timestamp')
-        _ts_col = _df_all['timestamp']
-        if np.issubdtype(_ts_col.dtype, np.number):
-            _df_all['_date'] = pd.to_datetime(_ts_col, unit='s').dt.strftime('%Y-%m-%d')
-        else:
-            _df_all['_date'] = pd.to_datetime(_ts_col).dt.strftime('%Y-%m-%d')
-
-        _all_dates = sorted(_df_all['_date'].unique())
-        _target_dates = _all_dates[-n_days:]
-        _warmup_dates = _all_dates[:-n_days] if len(_all_dates) > n_days else []
-
-        print(f"  Total trading days: {len(_all_dates)}")
-        print(f"  Warmup days: {len(_warmup_dates)} ({_warmup_dates[0] if _warmup_dates else 'none'} → "
-              f"{_warmup_dates[-1] if _warmup_dates else 'none'})")
-        print(f"  Target days: {_target_dates[0]} → {_target_dates[-1]}")
-
-        # ── Compute states (GPU, fast) ────────────────────────────────────
-        print("  Computing market states...", flush=True)
-        _states = self.engine.batch_compute_states(_df_all, use_cuda=True)
-        _states_map = {s['bar_idx']: s['state'] for s in _states}
-        print(f"  {len(_states)} states computed")
-
-        # ── Load sub-TF data for TBN ─────────────────────────────────────
-        _5s_dir = os.path.join(data_source, '5s')
-        _1s_dir = os.path.join(data_source, '1s')
-        _4h_dir = os.path.join(data_source, '4h')
-        _df_5s = self._load_tf_dir(_5s_dir) if os.path.isdir(_5s_dir) else None
-        _df_1s = self._load_tf_dir(_1s_dir) if os.path.isdir(_1s_dir) else None
-        _df_4h = self._load_tf_dir(_4h_dir) if os.path.isdir(_4h_dir) else None
-
-        # ── Create TBN + prepare ──────────────────────────────────────────
-        belief_network = create_belief_network(_bundle, self.engine)
-        belief_network.prepare_day(_df_all, states_micro=_states,
-                                   df_5s=_df_5s, df_1s=_df_1s, df_4h=_df_4h)
-
-        # ── Tick TBN through warmup bars (fast, no trades) ────────────────
-        _warmup_mask = _df_all['_date'].isin(set(_warmup_dates))
-        _warmup_indices = _df_all.index[_warmup_mask].tolist()
-        print(f"  Ticking TBN through {len(_warmup_indices)} warmup bars...", flush=True)
-        for _wi, _w_idx in enumerate(_warmup_indices):
-            belief_network.tick_all(_wi)
-        _bar_counter = len(_warmup_indices)
-        print(f"  TBN warmed ({_bar_counter} bars ticked)")
-
-        # (exit_state removed — exit uses same state as entry, matching inline OOS)
-
-        # ── Create EE + ExitEngine + BarProcessor ─────────────────────────
-        _exit_eng = ExitEngine(
-            mode='training',
-            tick_size=self.asset.tick_size,
-            tick_value=self.asset.tick_size * self.asset.point_value,
-            min_hold_bars=getattr(self, '_min_hold_bars', 0),
-        )
-        # Load self-tuned exit params from last forward pass if available
-        _tuned_path = os.path.join(self.checkpoint_dir, 'exit_tuning.json')
-        if os.path.exists(_tuned_path):
-            import json as _json
-            with open(_tuned_path) as _f:
-                _tuned = _json.load(_f)
-            _exit_eng.envelope_half_life_bars = _tuned.get('envelope_half_life_bars', 20)
-            _exit_eng.giveback_pct = _tuned.get('giveback_pct', 0.70)
-            print(f"  Loaded exit tuning: hl={_exit_eng.envelope_half_life_bars}, "
-                  f"gb={_exit_eng.giveback_pct:.0%}")
-
-        _exec_engine = create_execution_engine(
-            bundle=_bundle,
-            brain=self.brain,
-            belief_network=belief_network,
-            exit_engine=_exit_eng,
-            tick_size=self.asset.tick_size,
-            point_value=self.asset.point_value,
-            mode='oos',
-            tier_preference=True,
-            bias_threshold=bias_threshold if bias_threshold is not None else 0.55,
-            dmi_threshold=dmi_threshold if dmi_threshold is not None else 0.0,
-            depth_only=getattr(self, '_depth_only', None),
-        )
-        _exec_engine.gate1_dist = 4.5 + 0.5 * 10.0  # match live aggression
-
-        # Random slippage (same as forward pass)
-        _slip_rng = np.random.default_rng(42)
-        _slip_ticks = 1.0
-        _tick_val = self.asset.tick_size * self.asset.point_value
-
-        def _modify_pnl(pnl_dollars):
-            return pnl_dollars + _slip_rng.uniform(-_slip_ticks, _slip_ticks) * _tick_val
-
-        # 1s sub-bar wicks
-        _has_1s = _df_1s is not None and not _df_1s.empty
-        _1s_ts_arr = _df_1s['timestamp'].values.astype(np.float64) if _has_1s else None
-        _1s_hi_arr = _df_1s['high'].values.astype(np.float64) if _has_1s else None
-        _1s_lo_arr = _df_1s['low'].values.astype(np.float64) if _has_1s else None
-        _cur_ts = [0.0]
-
-        def _pre_exit_eval(price, bar_index):
-            extra = {}
-            if _has_1s and _1s_ts_arr is not None:
-                _s0 = np.searchsorted(_1s_ts_arr, _cur_ts[0], side='left')
-                _s1 = np.searchsorted(_1s_ts_arr, _cur_ts[0] + 15, side='left')
-                if _s1 > _s0:
-                    extra['sub_bar_highs'] = _1s_hi_arr[_s0:_s1].tolist()
-                    extra['sub_bar_lows'] = _1s_lo_arr[_s0:_s1].tolist()
-            _tp = belief_network.get_trade_progress(
-                price, tick_size=self.asset.tick_size)
-            belief_network._trade_pace_cache = _tp
-            belief_network._trade_pace_blend = _tp.get('pace', 1.0) - 1.0
-            return extra
-
-        processor = BarProcessor(
-            exec_engine=_exec_engine,
-            belief_network=belief_network,
-            exit_engine=_exit_eng,
-            brain=self.brain,
-            pattern_library=_bundle.pattern_library,
-            anchor_tf='15s', anchor_depth=8,
-            tick_size=self.asset.tick_size,
-            point_value=self.asset.point_value,
-            hooks=BarProcessorHooks(
-                modify_pnl=_modify_pnl,
-                pre_exit_eval=_pre_exit_eval,
-            ),
-        )
-
-        # ── Run BarProcessor on target days ───────────────────────────────
-        _all_trades = []
-        _day_ledger = []
-        _target_set = set(_target_dates)
-
-        for _date in _target_dates:
-            _day_mask = _df_all['_date'] == _date
-            _day_indices = _df_all.index[_day_mask].tolist()
-            if not _day_indices:
-                continue
-
-            _day_trades = []
-            for _idx in _day_indices:
-                _state = _states_map.get(_idx)
-                if _state is None:
-                    _bar_counter += 1
-                    continue
-                _row = _df_all.iloc[_idx]
-                _cur_ts[0] = float(_row['timestamp'])
-                # Both inline OOS and BarProcessor now use current bar state
-                # (look-ahead bug in inline OOS fixed: _bar_i-1 for all state lookups)
-                result = processor.process_bar(
-                    bar_index=_bar_counter,
-                    price=float(_row['close']),
-                    bar_high=float(_row['high']),
-                    bar_low=float(_row['low']),
-                    timestamp=float(_row['timestamp']),
-                    state=_state,
-                    # exit_state omitted → defaults to state (current bar)
-                )
-                _bar_counter += 1
-                if result.trade_completed:
-                    _day_trades.append(result.trade_completed)
-
-            # EOD flatten
-            if processor.in_position and _day_indices:
-                _last_row = _df_all.iloc[_day_indices[-1]]
-                _eod = processor.force_close(
-                    price=float(_last_row['close']),
-                    timestamp=float(_last_row['timestamp']),
-                    bar_index=_bar_counter,
-                )
-                if _eod:
-                    _day_trades.append(_eod)
-
-            _n = len(_day_trades)
-            _wins = sum(1 for t in _day_trades if t['pnl'] > 0)
-            _pnl = sum(t['pnl'] for t in _day_trades)
-            _all_trades.extend(_day_trades)
-            _day_ledger.append({'date': _date, 'trades': _n, 'wins': _wins, 'pnl': _pnl})
-            print(f"    {_date}: {_n} trades, "
-                  f"{_wins/_n*100:.0f}% WR, ${_pnl:+.2f}" if _n else
-                  f"    {_date}: 0 trades")
-
-        # ── Parse OOS report for comparison ───────────────────────────────
-        oos_daily = {}
-        oos_report_path = os.path.join('reports', 'oos_report.txt')
-        try:
-            with open(oos_report_path, 'r') as f:
-                in_ledger = False
-                for line in f:
-                    if 'DAILY SESSION LEDGER' in line:
-                        in_ledger = True
-                        continue
-                    if in_ledger and re.match(r'\s+20\d\d-\d\d-\d\d', line):
-                        parts = line.split()
-                        if len(parts) >= 7:
-                            _d = parts[0]
-                            _nt = int(parts[1])
-                            _nw = int(parts[2])
-                            _pnl_str = parts[5].replace(',', '').replace('+', '')
-                            try:
-                                _pv = float(_pnl_str)
-                            except ValueError:
-                                _pv = 0.0
-                            oos_daily[_d] = {'trades': _nt, 'wins': _nw, 'pnl': _pv}
-                    elif in_ledger and line.strip().startswith('──') and oos_daily:
-                        break
-        except FileNotFoundError:
-            print(f"  WARNING: {oos_report_path} not found — no OOS comparison")
-
-        # ── Write parity report ───────────────────────────────────────────
-        self._write_live_validation_report(
-            _all_trades, _day_ledger,
-            [{'date': d, **oos_daily.get(d, {'trades': 0, 'wins': 0, 'pnl': 0})}
-             for d in _target_dates],
-            [], n_days, _exec_engine,
-        )
-
-        # ── Summary ──────────────────────────────────────────────────────
-        _total_trades = len(_all_trades)
-        _total_pnl = sum(t['pnl'] for t in _all_trades)
-        _total_wins = sum(1 for t in _all_trades if t['pnl'] > 0)
-        _wr = _total_wins / _total_trades if _total_trades else 0
-
-        # Save warmed brain
-        _brain_path = os.path.join(self.checkpoint_dir, 'live_brain.pkl')
-        self.brain.save(_brain_path)
-
-        print("\n" + "=" * 80)
-        print("  OOS3 STANDALONE COMPLETE")
-        print(f"  Trades: {_total_trades}  |  WR: {_wr:.1%}  |  PnL: ${_total_pnl:+,.2f}")
-        print(f"  Brain saved: {_brain_path}")
-        print("=" * 80)
-
-        # Store summary for external access
-        self._fp_summary = {
-            'total_trades': _total_trades, 'win_rate': _wr,
-            'total_pnl': _total_pnl, 'trades': _total_trades,
-        }
 
     def _write_live_validation_report(
             self, lv_trades, lv_day_ledger, oos_daily_ledger,
@@ -4851,289 +4577,6 @@ class Trainer:
         print(f"\n  NOTE: Combined total exceeds normal run because depths trade simultaneously.")
         print(f"  Use this to identify which depths to KEEP vs FILTER in production.\n")
 
-    def run_strategy_selection(self):
-        """
-        Phase 6: Grade templates on OOS blind validation results. Assign tiers.
-        """
-        print("\n" + "="*80)
-        print("PHASE 6: STRATEGY SELECTION (grading on OOS results)")
-        print("="*80)
-        if self.dashboard_queue:
-            self.dashboard_queue.put({'type': 'PHASE_PROGRESS', 'phase': 'Improve',
-                                      'step': 'STRATEGY_SELECTION', 'pct': 0})
-
-        lib_path = os.path.join(self.checkpoint_dir, 'pattern_library.pkl')
-        if not os.path.exists(lib_path):
-            print("ERROR: pattern_library.pkl not found.")
-            return
-
-        with open(lib_path, 'rb') as f:
-            self.pattern_library = pickle.load(f)
-
-        # Read OOS trade log — this is the blind validation data
-        import csv as _strat_csv
-        _oos_csv_path = os.path.join(self.checkpoint_dir, 'oos_trade_log.csv')
-        if not os.path.exists(_oos_csv_path):
-            print("ERROR: oos_trade_log.csv not found. Run OOS forward pass first.")
-            return
-        with open(_oos_csv_path, newline='', encoding='utf-8') as _sf:
-            _oos_trades = list(_strat_csv.DictReader(_sf))
-        print(f"  Loaded {len(_oos_trades)} OOS trades for grading")
-
-        # Group trades by template_id
-        history_by_template = defaultdict(list)
-        for row in _oos_trades:
-            tid = row.get('template_id', '')
-            # template_id may be int or str depending on CSV
-            try:
-                tid = int(tid)
-            except (ValueError, TypeError):
-                pass
-            history_by_template[tid].append(float(row.get('actual_pnl', 0)))
-
-        tier1_templates = []
-        report_data = []
-
-        print(f"\nAnalyzing {len(self.pattern_library)} strategies against OOS results...")
-
-        for tid in self.pattern_library:
-            pnls = history_by_template.get(tid, [])
-            total = len(pnls)
-
-            if not pnls:
-                sharpe = 0.0
-                max_dd = 0.0
-                win_rate = 0.0
-                risk_score = 1.0  # High risk if unseen in OOS
-                avg_pnl = 0.0
-            else:
-                wins = [p for p in pnls if p > 0]
-                losses = [p for p in pnls if p <= 0]
-
-                avg_win = np.mean(wins) if wins else 0
-                avg_loss = np.mean(losses) if losses else 0
-                avg_pnl = np.mean(pnls)
-
-                std_pnl = np.std(pnls)
-                sharpe = avg_pnl / (std_pnl + 1e-6) if std_pnl > 0 else 0.0
-
-                # Max Drawdown
-                cum_pnl = np.cumsum(pnls)
-                peak = np.maximum.accumulate(cum_pnl)
-                dd = peak - cum_pnl
-                max_dd = np.max(dd) if len(dd) > 0 else 0.0
-
-                win_rate = len(wins) / len(pnls)
-
-                # Consec losses
-                max_consec_loss = 0
-                curr_consec = 0
-                for p in pnls:
-                    if p <= 0:
-                        curr_consec += 1
-                        max_consec_loss = max(max_consec_loss, curr_consec)
-                    else:
-                        curr_consec = 0
-
-                total_gain = sum(wins)
-                dd_ratio = abs(max_dd) / (total_gain + 1e-6) if total_gain > 0 else 1.0
-                loss_ratio = abs(avg_loss) / (avg_win + 1e-6)
-
-                risk_score = (
-                    0.3 * (1.0 - win_rate) +
-                    0.3 * min(loss_ratio, 2.0) +
-                    0.2 * min(max_consec_loss / 10.0, 1.0) +
-                    0.2 * min(dd_ratio, 1.0)
-                )
-
-            # Tier assignment based on OOS performance (blind validation)
-            tier = 3  # Default: UNPROVEN (not seen in OOS)
-            if total >= 20 and win_rate > 0.45 and avg_pnl > 0 and sharpe > 0.3:
-                tier = 1  # PRODUCTION — proven on unseen data
-            elif total >= 10 and win_rate > 0.40 and avg_pnl > 0:
-                tier = 2  # PROMISING
-            elif total >= 10 and (win_rate < 0.35 or avg_pnl < 0):
-                tier = 4  # TOXIC — failed blind validation
-
-            _lib = self.pattern_library.get(tid, {})
-            _sname = _lib.get('semantic_name', '') or ''
-            if (not _sname or _sname == 'Unknown') and _lib.get('centroid') is not None:
-                from core.fractal_clustering import generate_semantic_name
-                _sname = generate_semantic_name(_lib['centroid'])
-            _sname = _sname or 'Unknown'
-            report_data.append({
-                'id': tid,
-                'semantic': _sname,
-                'tier': tier,
-                'trades': total,
-                'win_rate': win_rate,
-                'sharpe': sharpe,
-                'pnl': sum(pnls),
-                'max_dd': max_dd,
-                'risk': risk_score
-            })
-
-            if tier == 1:
-                # Add to production playbook
-                entry = self.pattern_library[tid].copy()
-                entry['tier'] = 1
-                entry['stats'] = {
-                    'win_rate': win_rate,
-                    'sharpe': sharpe,
-                    'risk_score': risk_score,
-                    'total_trades': total
-                }
-                tier1_templates.append((tid, entry))
-
-        # Sort report: PnL descending first, then Sharpe descending as tiebreaker
-        report_data.sort(key=lambda x: (-x['pnl'], -x['sharpe']))
-
-        # Build report
-        rpt = []
-        rpt.append("")
-        rpt.append("STRATEGY PERFORMANCE REPORT")
-        header = f"{'ID':<10} | {'Playbook':<28} | {'Tier':<4} | {'Trades':<6} | {'Win%':<5} | {'Sharpe':<6} | {'PnL':<10} | {'MaxDD':<10} | {'Risk':<5}"
-        rpt.append(header)
-        rpt.append("-" * 115)
-        for r in report_data:
-            rpt.append(f"{r['id']:<10} | {r['semantic']:<28} | {r['tier']:<4} | {r['trades']:<6} | {r['win_rate']*100:5.1f} | {r['sharpe']:6.2f} | ${r['pnl']:<9.2f} | ${r['max_dd']:<9.2f} | {r['risk']:.2f}")
-
-        # Save Playbook
-        playbook = {tid: data for tid, data in tier1_templates}
-        pb_path = os.path.join(self.checkpoint_dir, 'production_playbook.pkl')
-        with open(pb_path, 'wb') as f:
-            pickle.dump(playbook, f)
-
-        rpt.append(f"\nSaved {len(playbook)} Tier 1 strategies to {pb_path}")
-
-        # Save full tier map -- used by forward pass for candidate weighting
-        tier_map = {r['id']: r['tier'] for r in report_data}
-        tiers_path = os.path.join(self.checkpoint_dir, 'template_tiers.pkl')
-        with open(tiers_path, 'wb') as f:
-            pickle.dump(tier_map, f)
-
-        # Tier summary
-        from collections import Counter
-        tier_counts = Counter(r['tier'] for r in report_data)
-        rpt.append("")
-        rpt.append("TIER SUMMARY:")
-        for t in sorted(tier_counts.keys()):
-            label = {1: 'PRODUCTION', 2: 'PROMISING', 3: 'UNPROVEN', 4: 'TOXIC'}.get(t, '?')
-            rpt.append(f"  Tier {t} ({label}): {tier_counts[t]} templates")
-
-        # Store for bottom-line summary
-        top_t1 = sorted(
-            [(r['id'], r['sharpe'], r['win_rate'], r['pnl'], r['trades'])
-             for r in report_data if r['tier'] == 1],
-            key=lambda x: -x[1]
-        )[:5]
-        self._tier_summary = {
-            'tier_counts':  dict(tier_counts),
-            'total':        len(report_data),
-            'top_t1':       top_t1,
-            'tier1_pnl':    sum(r['pnl'] for r in report_data if r['tier'] == 1),
-        }
-
-        # Ancestry Analysis
-        band_roots = 0
-        struct_roots = 0
-        for tid, data in tier1_templates:
-            centroid = data['centroid']
-            if centroid[-1] > 0.5:
-                band_roots += 1
-            else:
-                struct_roots += 1
-
-        rpt.append("")
-        rpt.append("ANCESTRY ANALYSIS (Tier 1):")
-        rpt.append(f"  Band-backed: {band_roots}")
-        rpt.append(f"  Structure-backed: {struct_roots}")
-
-        # ── PARETO ANALYSIS ──────────────────────────────────────────────────
-        # Read oracle_trade_log.csv and find the 20% of trades driving 80% of profit.
-        # Dimensions: template, direction, oracle_label, time-of-day.
-        import csv as _csv
-        import datetime as _dt
-        # Pareto analysis on OOS trades (same data used for tier grading)
-        oracle_csv = _oos_csv_path
-        if os.path.exists(oracle_csv):
-            try:
-                rows = _oos_trades  # already loaded above
-
-                # Only winning trades with positive actual_pnl
-                profit_rows = [r for r in rows if float(r.get('actual_pnl', 0)) > 0]
-                total_profit = sum(float(r['actual_pnl']) for r in profit_rows)
-
-                rpt.append("")
-                rpt.append("=" * 80)
-                rpt.append("PARETO ANALYSIS  (top contributors to gross profit)")
-                rpt.append("=" * 80)
-                rpt.append(f"  Gross profit from winning trades: ${total_profit:,.2f}  "
-                           f"({len(profit_rows):,} wins of {len(rows):,} total)")
-
-                def _pareto_table(label, key_fn, top_n=10):
-                    """Aggregate by key_fn, sort desc, find 80% threshold."""
-                    from collections import defaultdict
-                    buckets = defaultdict(float)
-                    counts  = defaultdict(int)
-                    for r in profit_rows:
-                        k = key_fn(r)
-                        buckets[k] += float(r['actual_pnl'])
-                        counts[k]  += 1
-                    ranked = sorted(buckets.items(), key=lambda x: -x[1])
-                    if not ranked:
-                        return
-                    cum = 0.0
-                    threshold_idx = len(ranked)
-                    for i, (k, v) in enumerate(ranked):
-                        cum += v
-                        if cum >= total_profit * 0.80 and threshold_idx == len(ranked):
-                            threshold_idx = i + 1
-
-                    rpt.append(f"\n  -- {label} --")
-                    rpt.append(f"  {'Key':<18} {'PnL':>10} {'Trades':>7} {'Cum%':>7}")
-                    cum = 0.0
-                    for i, (k, v) in enumerate(ranked[:top_n]):
-                        cum += v
-                        marker = " <-- 80%" if i + 1 == threshold_idx else ""
-                        rpt.append(f"  {str(k):<18} ${v:>9,.2f} {counts[k]:>7,}  {cum/total_profit*100:>6.1f}%{marker}")
-                    pct_keys = threshold_idx / max(len(ranked), 1) * 100
-                    rpt.append(f"  => {threshold_idx} of {len(ranked)} keys ({pct_keys:.0f}%) drive 80% of profit")
-
-                # By template
-                _pareto_table("BY TEMPLATE",
-                              lambda r: r.get('template_id', '?'))
-
-                # By direction
-                _pareto_table("BY DIRECTION",
-                              lambda r: r.get('direction', '?'), top_n=4)
-
-                # By oracle label
-                _pareto_table("BY ORACLE LABEL",
-                              lambda r: r.get('oracle_label_name', '?'), top_n=6)
-
-                # By hour-of-day (entry_price timestamp not available; use row order proxy)
-                # oracle_trade_log has no timestamp col -- skip if not present
-                if rows and 'entry_price' in rows[0]:
-                    pass  # no timestamp in log, skip hour breakdown
-
-            except Exception as e:
-                rpt.append(f"\n  (Pareto analysis skipped: {e})")
-        else:
-            rpt.append("")
-            rpt.append("  (Pareto analysis: oracle_trade_log.csv not found -- run forward pass first)")
-
-        # Print to console
-        for line in rpt:
-            print(line)
-
-        # Save to file
-        report_path = os.path.join(self.checkpoint_dir, 'strategy_report.txt')
-        with open(report_path, 'w', encoding='utf-8') as f:
-            f.write('\n'.join(rpt) + '\n')
-        print(f"\n  Report saved to {report_path}")
-
-
     def train(self, data_source: Any):
         """
         Master training loop (Pattern-Adaptive Walk-Forward)
@@ -6200,53 +5643,6 @@ def check_and_install_requirements():
         print(f"WARNING: Could not check dependencies: {e}")
 
 
-def _print_oos_comparison(oos1: dict, oos2: dict):
-    """Print OOS1 vs OOS2 comparison showing tier preference impact."""
-    print("\n" + "=" * 80)
-    print("  PLAYBOOK TIEBREAKER COMPARISON: OOS1 (blind) vs OOS2 (tier preference)")
-    print("=" * 80)
-    _metrics = [
-        ('Trades',   'total_trades', '{:>7,}'),
-        ('Win Rate',  'win_rate',    '{:>6.1%}'),
-        ('Total PnL', 'total_pnl',  '${:>10,.2f}'),
-        ('$/trade',   None,         '${:>8,.2f}'),
-    ]
-    print(f"  {'Metric':<14}  {'OOS1':>12}  {'OOS2':>12}  {'Delta':>12}")
-    print(f"  {'─'*14}  {'─'*12}  {'─'*12}  {'─'*12}")
-    for label, key, fmt in _metrics:
-        if key is None:  # $/trade computed
-            t1, t2 = oos1.get('total_trades', 1) or 1, oos2.get('total_trades', 1) or 1
-            v1 = oos1.get('total_pnl', 0) / t1
-            v2 = oos2.get('total_pnl', 0) / t2
-        else:
-            v1, v2 = oos1.get(key, 0), oos2.get(key, 0)
-        d = v2 - v1
-        f1 = fmt.format(v1)
-        f2 = fmt.format(v2)
-        # Delta formatting
-        if isinstance(v1, float) and 'rate' in (key or ''):
-            fd = f'{d:>+.1%}'
-        elif '$' in fmt:
-            fd = f'${d:>+,.2f}'
-        else:
-            fd = f'{d:>+,}'
-        print(f"  {label:<14}  {f1:>12}  {f2:>12}  {fd:>12}")
-    _pnl_d = oos2.get('total_pnl', 0) - oos1.get('total_pnl', 0)
-    verdict = "HELPS" if _pnl_d > 0 else "HURTS" if _pnl_d < 0 else "NEUTRAL"
-    print(f"\n  Verdict: Tier preference tiebreaker {verdict} (${_pnl_d:+,.2f})")
-    print("=" * 80)
-
-    # Save to file
-    import datetime as _cdt
-    _comp_path = os.path.join('reports', 'playbook_comparison.txt')
-    with open(_comp_path, 'w', encoding='utf-8') as _cf:
-        _cf.write(f"Playbook Tiebreaker Comparison ({_cdt.datetime.now():%Y-%m-%d %H:%M})\n")
-        _cf.write(f"OOS1 PnL: ${oos1.get('total_pnl', 0):,.2f}  "
-                  f"OOS2 PnL: ${oos2.get('total_pnl', 0):,.2f}  "
-                  f"Delta: ${_pnl_d:+,.2f}  Verdict: {verdict}\n")
-    print(f"  Saved: {_comp_path}")
-
-
 def main():
     """Single entry point - command line interface"""
     from core.keep_awake import keep_awake
@@ -6262,27 +5658,20 @@ def main():
     parser.add_argument('--checkpoint-dir', type=str, default="checkpoints", help="Checkpoint directory")
     parser.add_argument('--skip-deps', action='store_true', help="Skip dependency check")
     parser.add_argument('--exploration-mode', action='store_true', help="Enable unconstrained exploration mode")
-    parser.add_argument('--fresh', action='store_true', help="Wipe checkpoints + full pipeline: Train → IS → OOS → Strategy → OOS2 verify")
-    parser.add_argument('--forward-pass', action='store_true', help="IS → OOS → Strategy → OOS2 verify (reuse existing checkpoints, skip training)")
+    parser.add_argument('--fresh', action='store_true', help="Wipe checkpoints + full pipeline: Train → IS → checkpoint → OOS")
+    # --forward-pass removed (2026-03-18): default pipeline does IS→checkpoint→OOS
     parser.add_argument('--depth-iso', action='store_true',
                         help="Run per-depth isolation analysis: forward pass once per depth (1-12), "
                              "no capital blocking between depths. Prints comparison table at end.")
-    parser.add_argument('--continuous', action='store_true',
-                        help="Continuous IS→OOS: run IS on ATLAS, checkpoint brain, "
-                             "continue OOS on ATLAS_OOS with same engine. No restart.")
     parser.add_argument('--frozen-brain', action='store_true',
                         help="OOS with frozen brain (no learning). Load live_brain.pkl, "
                              "validate without brain drift.")
     parser.add_argument('--oos', action='store_true',
-                        help="Blind out-of-sample simulation: frozen templates, separate oos_trade_log.csv/oos_report.txt, "
-                             "training depth_weights.json preserved. Implies --forward-pass. "
-                             "Pair with --forward-start YYYYMMDD to slice the OOS window.")
-    parser.add_argument('--oos-chain', action='store_true',
-                        help="Run full OOS chain: OOS1 (blind) → Strategy → OOS2 (tier pref) → OOS3 (BarProcessor). "
-                             "Skips IS. Uses existing checkpoints.")
-    parser.add_argument('--oos3', action='store_true',
-                        help="OOS3 only: bar-by-bar via BarProcessor (live mode validation). "
-                             "Uses existing checkpoints + warmed brain. Saves live_brain.pkl.")
+                        help="Standalone OOS: load IS checkpoint, run OOS on ATLAS_OOS. "
+                             "Separate oos_trade_log.csv/oos_report.txt. "
+                             "Pair with --frozen-brain to disable learning.")
+    # --oos-chain removed (2026-03-18): default pipeline handles the full chain
+    # --oos3 removed (2026-03-18): live hooks same engine, no separate validation needed
     parser.add_argument('--account-size', type=float, default=0.0, metavar='USD',
                         help="Starting account equity in USD. When set, gates trades that risk >50%% of "
                              "remaining equity (SL in dollars vs equity). Simulation ends if equity "
@@ -6308,7 +5697,7 @@ def main():
                         help="Min |dmi_diff| required to use DMI signal (default 0.0 = any non-zero DMI counts).")
     parser.add_argument('--sweep-params', action='store_true',
                         help="Post-hoc DOE: sweep filter combinations on oracle_trade_log.csv and rank by net PnL")
-    parser.add_argument('--strategy-report', action='store_true', help="Run Phase 6 strategy selection (requires OOS trade log)")
+    # --strategy-report removed (2026-03-18): strategy selection had <$140 delta
     parser.add_argument('--forward-data', type=str, default=None, metavar='PATH',
                         help="Custom data path for forward pass (skips auto-OOS chain)")
     parser.add_argument('--skip-oos', action='store_true',
@@ -6563,154 +5952,7 @@ def main():
                                             start_date=args.forward_start,
                                             end_date=args.forward_end,
                                             oos_mode=args.oos)
-        elif args.oos3 and not args.fresh:
-            # Standalone OOS3: BarProcessor only, no inline OOS needed
-            _oos_data = getattr(args, 'forward_data', None) or os.path.join('DATA', 'ATLAS_OOS')
-            orchestrator.run_oos3_standalone(
-                data_source=_oos_data,
-                n_days=5,
-                bias_threshold=args.bias_threshold,
-                dmi_threshold=args.dmi_threshold,
-                account_size=args.account_size,
-            )
-
-        elif getattr(args, 'oos_chain', False) and not args.fresh:
-            # Full OOS chain: OOS1 → Strategy → OOS2 → OOS3 (no IS)
-            _oos_path = getattr(args, 'forward_data', None) or os.path.join('DATA', 'ATLAS_OOS')
-            _oos_end = getattr(args, '_live_prep_cutoff', None) or args.forward_end
-            import shutil as _shutil
-
-            # OOS1: blind, no tier preference
-            print("\n" + "=" * 80)
-            print("  OOS1: BLIND VALIDATION (no tier preference)")
-            print("=" * 80)
-            orchestrator.run_forward_pass(_oos_path,
-                                          start_date=args.forward_start,
-                                          end_date=_oos_end,
-                                          bias_threshold=args.bias_threshold,
-                                          dmi_threshold=args.dmi_threshold,
-                                          oos_mode=True,
-                                          account_size=args.account_size,
-                                          popup_label='oos1')
-            _oos1 = dict(orchestrator._fp_summary)
-            _shutil.copy2(os.path.join(orchestrator.checkpoint_dir, 'oos_trade_log.csv'),
-                          os.path.join(orchestrator.checkpoint_dir, 'oos1_trade_log.csv'))
-
-            # Strategy selection + OOS2 removed — tier preferences had <$140 delta.
-
-            # OOS3: BarProcessor live mode validation
-            print("\n" + "=" * 80)
-            print("  OOS3: LIVE MODE VALIDATION (bar-by-bar via BarProcessor)")
-            print("=" * 80)
-            orchestrator.run_forward_pass(_oos_path,
-                                          start_date=args.forward_start,
-                                          end_date=_oos_end,
-                                          bias_threshold=args.bias_threshold,
-                                          dmi_threshold=args.dmi_threshold,
-                                          oos_mode=True,
-                                          account_size=args.account_size,
-                                          tier_preference=True,
-                                          live_validation_days=5,
-                                          popup_label='oos3')
-            _oos3 = dict(orchestrator._fp_summary)
-            _shutil.copy2(os.path.join(orchestrator.checkpoint_dir, 'oos_trade_log.csv'),
-                          os.path.join(orchestrator.checkpoint_dir, 'oos3_trade_log.csv'))
-
-            # OOS2 vs OOS3 comparison
-            print("\n  OOS2 vs OOS3 (inline vs BarProcessor):")
-            for _k in ['trades', 'win_rate', 'total_pnl', 'avg_trade']:
-                _v2 = _oos2.get(_k, 0)
-                _v3 = _oos3.get(_k, 0)
-                if isinstance(_v2, float):
-                    print(f"    {_k:20s}  OOS2={_v2:>10.2f}  OOS3={_v3:>10.2f}  delta={_v3-_v2:>+10.2f}")
-                else:
-                    print(f"    {_k:20s}  OOS2={_v2:>10}  OOS3={_v3:>10}  delta={_v3-_v2:>+10}")
-
-            # Generate OOS chain comparison chart
-            _chart_path = os.path.join('reports', 'oos_chain_comparison.png')
-            try:
-                from tools.oos_chain_chart import generate_oos_chain_chart
-                generate_oos_chain_chart(orchestrator.checkpoint_dir, _chart_path)
-                print(f"\n  OOS chain chart saved: {_chart_path}")
-            except Exception as _e:
-                print(f"\n  OOS chain chart failed: {_e}")
-
-        elif getattr(args, 'continuous', False):
-            # ── CONTINUOUS: IS → checkpoint → OOS (same engine, no restart) ──
-            _is_data = getattr(args, 'forward_data', None) or args.data
-            _oos_data = os.path.join('DATA', 'ATLAS_OOS')
-
-            print("\n" + "=" * 80)
-            print("  CONTINUOUS MODE: IS → checkpoint → OOS")
-            print(f"  IS data:  {_is_data}")
-            print(f"  OOS data: {_oos_data}")
-            print("=" * 80)
-
-            # Phase 1: IS forward pass
-            print("\n  PHASE: IS")
-            orchestrator.run_forward_pass(_is_data,
-                                          start_date=args.forward_start,
-                                          end_date=args.forward_end,
-                                          bias_threshold=args.bias_threshold,
-                                          dmi_threshold=args.dmi_threshold,
-                                          oos_mode=False,
-                                          account_size=getattr(args, 'account_size', 0.0))
-
-            # Total recall checkpoint: save COMPLETE engine state at IS→OOS boundary.
-            # Loading this checkpoint makes --oos reproduce exactly where IS left off.
-            import pickle as _ckpt_pkl
-            _ckpt_path = os.path.join(orchestrator.checkpoint_dir, 'is_oos_checkpoint.pkl')
-            _is_brain_path = os.path.join(orchestrator.checkpoint_dir, 'is_brain.pkl')
-            orchestrator.brain.save(_is_brain_path)
-            _checkpoint = {
-                'brain_path': _is_brain_path,
-                'peak_prev_pc': getattr(orchestrator, '_peak_prev_pc', 0.0),
-                'peak_prev_fm': getattr(orchestrator, '_peak_prev_fm', 0.0),
-                'exit_tuning': {
-                    'envelope_halflife': getattr(orchestrator, '_exit_eng', None) and
-                        getattr(orchestrator._exit_eng, 'envelope_half_life_bars', 20),
-                    'giveback_pct': getattr(orchestrator, '_exit_eng', None) and
-                        getattr(orchestrator._exit_eng, 'giveback_pct', 0.10),
-                },
-            }
-            with open(_ckpt_path, 'wb') as _cf:
-                _ckpt_pkl.dump(_checkpoint, _cf)
-            print(f"\n  [CHECKPOINT] Total recall saved: {_ckpt_path}")
-            print(f"  Brain: {len(orchestrator.brain.table)} states, "
-                  f"{len(orchestrator.brain.dir_table)} dir pairs")
-            print(f"  Peak state: pc={_checkpoint['peak_prev_pc']:.4f} fm={_checkpoint['peak_prev_fm']:.4f}")
-
-            # Phase 2: OOS forward pass (same brain, continues learning)
-            print("\n  PHASE: OOS (brain carries over from IS)")
-            orchestrator.run_forward_pass(_oos_data,
-                                          start_date=args.forward_start,
-                                          end_date=args.forward_end,
-                                          bias_threshold=args.bias_threshold,
-                                          dmi_threshold=args.dmi_threshold,
-                                          oos_mode=True,
-                                          account_size=getattr(args, 'account_size', 0.0),
-                                          popup_label='oos1')
-
-            # Save live brain (frozen for live deployment + reproducible OOS reruns)
-            _live_brain_path = os.path.join(orchestrator.checkpoint_dir, 'live_brain.pkl')
-            orchestrator.brain.save(_live_brain_path)
-            print(f"\n  [CHECKPOINT] Live brain saved: {_live_brain_path}")
-
-            # OOS3 parity
-            orchestrator.run_oos3_standalone(
-                data_source=_oos_data, n_days=5,
-                bias_threshold=args.bias_threshold,
-                dmi_threshold=args.dmi_threshold,
-                account_size=getattr(args, 'account_size', 0.0))
-
-            print("\n" + "=" * 80)
-            print("  CONTINUOUS COMPLETE")
-            print(f"  IS brain: {_is_brain_path}")
-            print(f"  Live brain: {_live_brain_path}")
-            print(f"  Next: python -m live.launcher")
-            print("=" * 80)
-
-        elif args.oos and not args.forward_pass and not args.fresh:
+        elif args.oos and not args.fresh:
             # Standalone OOS: load total recall checkpoint from IS
             import pickle as _oos_pkl
             _ckpt_path = os.path.join(orchestrator.checkpoint_dir, 'is_oos_checkpoint.pkl')
@@ -6728,7 +5970,7 @@ def main():
                 print(f"  [RECALL] Peak state restored")
                 print(f"  [RECALL] Total recall from IS→OOS boundary")
             else:
-                print(f"  WARNING: {_ckpt_path} not found — run --continuous first")
+                print(f"  WARNING: {_ckpt_path} not found — run training first (default pipeline creates checkpoint)")
 
             # --frozen-brain: disable learning
             if getattr(args, 'frozen_brain', False):
@@ -6744,66 +5986,6 @@ def main():
                                           dmi_threshold=args.dmi_threshold,
                                           oos_mode=True,
                                           account_size=args.account_size)
-        elif (args.forward_pass or args.oos) and not args.fresh:
-            # Phase 4 IS → Phase 5 OOS1 → Phase 6 Strategy → OOS2 verify
-            _fwd_data = getattr(args, 'forward_data', None) or args.data
-            orchestrator.run_forward_pass(_fwd_data,
-                                          start_date=args.forward_start,
-                                          end_date=args.forward_end,
-                                          trade_start_date=args.trade_start,
-                                          bias_threshold=args.bias_threshold,
-                                          dmi_threshold=args.dmi_threshold,
-                                          oos_mode=args.oos,
-                                          account_size=args.account_size)
-
-            # Auto-chain OOS1 → Strategy → OOS2 verify
-            _oos_path = os.path.join('DATA', 'ATLAS_OOS')
-            if (not args.skip_oos
-                    and not getattr(args, 'forward_data', None)
-                    and not args.oos
-                    and os.path.isdir(_oos_path)):
-                _oos_end = getattr(args, '_live_prep_cutoff', None) or args.forward_end
-
-                # Phase 5: OOS1 (blind, no tier preference)
-                print("\n" + "=" * 80)
-                print("  PHASE 5: OOS VALIDATION (blind, no tier preference)")
-                print("=" * 80)
-                orchestrator.run_forward_pass(_oos_path,
-                                              start_date=args.forward_start,
-                                              end_date=_oos_end,
-                                              bias_threshold=args.bias_threshold,
-                                              dmi_threshold=args.dmi_threshold,
-                                              oos_mode=True,
-                                              account_size=args.account_size,
-                                              popup_label='oos1')
-                _oos1 = dict(orchestrator._fp_summary)
-
-                # Strategy selection + OOS2 removed — tier preferences had <$140 delta.
-
-                # OOS3: BarProcessor parity (standalone — only last 5 days)
-                orchestrator.run_oos3_standalone(
-                    data_source=_oos_path,
-                    n_days=5,
-                    bias_threshold=args.bias_threshold,
-                    dmi_threshold=args.dmi_threshold,
-                    account_size=args.account_size)
-
-                # Save warmed brain for live handoff
-                _live_brain_path = os.path.join(orchestrator.checkpoint_dir, 'live_brain.pkl')
-                orchestrator.brain.save(_live_brain_path)
-                print(f"\n  Saved warmed brain: {_live_brain_path}")
-
-                # Verdict
-                print("\n" + "=" * 80)
-                print("  PIPELINE COMPLETE")
-                print(f"  Brain saved to: {_live_brain_path}")
-                print(f"\n  NEXT STEP (manual):")
-                print(f"    python -m live.launcher")
-                print(f"    NT8 account controls sim vs real money.")
-                print("=" * 80)
-
-        elif args.strategy_report and not args.forward_pass:
-            orchestrator.run_strategy_selection()  # requires oos_trade_log.csv to exist
         else:
             # Full pipeline
             if args.mc_only:
@@ -6866,11 +6048,11 @@ def main():
                 refined_strategies = refiner.refine()
                 orchestrator.run_final_validation(refined_strategies)
             else:
-                # Default: Bayesian path -> IS -> OOS1 -> Strategy -> OOS2 (verify)
+                # Default: IS → checkpoint → OOS (continuous, same engine)
                 _fwd_data = getattr(args, 'forward_data', None) or args.data
+                _oos_path = os.path.join('DATA', 'ATLAS_OOS')
 
-                # Snapshot checkpoints before IS — restore with --forward-pass
-                # to skip Phase 1-3 and re-run IS with code changes only.
+                # Snapshot checkpoints before IS
                 import shutil as _shutil_bak
                 _pre_is_dir = os.path.join('checkpoints', 'pre_is_backup')
                 if os.path.isdir(_pre_is_dir):
@@ -6883,34 +6065,38 @@ def main():
                     _src = os.path.join('checkpoints', _bak_f)
                     if os.path.exists(_src):
                         _shutil_bak.copy2(_src, os.path.join(_pre_is_dir, _bak_f))
-                print(f"  [BACKUP] Pre-IS checkpoint snapshot saved to {_pre_is_dir}/")
+                print(f"  [BACKUP] Pre-IS snapshot saved to {_pre_is_dir}/")
 
-                # Phase 4: IS Backtest
+                # IS forward pass
+                print("\n  PHASE: IS")
                 orchestrator.run_forward_pass(_fwd_data,
                                               start_date=args.forward_start,
                                               end_date=args.forward_end,
                                               bias_threshold=args.bias_threshold,
                                               dmi_threshold=args.dmi_threshold,
-                                              oos_mode=getattr(args, 'oos', False),
+                                              oos_mode=False,
                                               account_size=getattr(args, 'account_size', 0.0))
 
-                if args.depth_iso:
-                    orchestrator.run_depth_analysis(args.data,
-                                                    start_date=args.forward_start,
-                                                    end_date=args.forward_end,
-                                                    oos_mode=getattr(args, 'oos', False))
+                # Total recall checkpoint at IS→OOS boundary
+                import pickle as _ckpt_pkl2
+                _ckpt_path2 = os.path.join(orchestrator.checkpoint_dir, 'is_oos_checkpoint.pkl')
+                _is_brain_path2 = os.path.join(orchestrator.checkpoint_dir, 'is_brain.pkl')
+                orchestrator.brain.save(_is_brain_path2)
+                _ckpt2 = {
+                    'brain_path': _is_brain_path2,
+                    'peak_prev_pc': getattr(orchestrator, '_peak_prev_pc', 0.0),
+                    'peak_prev_fm': getattr(orchestrator, '_peak_prev_fm', 0.0),
+                }
+                with open(_ckpt_path2, 'wb') as _cf2:
+                    _ckpt_pkl2.dump(_ckpt2, _cf2)
+                print(f"\n  [CHECKPOINT] Total recall saved: {_ckpt_path2}")
 
-                # Auto-chain OOS + Strategy + OOS2 verify
-                _oos_path = os.path.join('DATA', 'ATLAS_OOS')
+                # OOS forward pass (same engine continues)
                 if (not getattr(args, 'skip_oos', False)
                         and not getattr(args, 'forward_data', None)
                         and os.path.isdir(_oos_path)):
+                    print("\n  PHASE: OOS")
                     _oos_end = getattr(args, '_live_prep_cutoff', None) or args.forward_end
-
-                    # Phase 5: OOS1 (blind, no tier preference)
-                    print("\n" + "=" * 80)
-                    print("  PHASE 5: OOS VALIDATION (blind, no tier preference)")
-                    print("=" * 80)
                     orchestrator.run_forward_pass(_oos_path,
                                               start_date=args.forward_start,
                                               end_date=_oos_end,
@@ -6919,27 +6105,12 @@ def main():
                                               oos_mode=True,
                                               account_size=getattr(args, 'account_size', 0.0),
                                               popup_label='oos1')
-                    _oos1 = dict(orchestrator._fp_summary)
 
-                    # Phase 6: Strategy (grades on OOS trade log)
-                    orchestrator.run_strategy_selection()
-
-                    # OOS2 removed — tier preferences showed <$140 delta.
-
-                # OOS3: BarProcessor parity (standalone — only processes last 5 days)
-                orchestrator.run_oos3_standalone(
-                    data_source=_oos_path,
-                    n_days=5,
-                    bias_threshold=args.bias_threshold,
-                    dmi_threshold=args.dmi_threshold,
-                    account_size=getattr(args, 'account_size', 0.0))
-
-                # Save warmed brain for live handoff
+                # Save live brain
                 _live_brain_path = os.path.join(orchestrator.checkpoint_dir, 'live_brain.pkl')
                 orchestrator.brain.save(_live_brain_path)
-                print(f"\n  Saved warmed brain: {_live_brain_path}")
+                print(f"\n  Saved live brain: {_live_brain_path}")
 
-                # Verdict
                 print("\n" + "=" * 80)
                 print("  PIPELINE COMPLETE")
                 print(f"  Brain saved to: {_live_brain_path}")

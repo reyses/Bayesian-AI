@@ -6,8 +6,8 @@ type: project
 
 ## Architecture Cleanups
 
-1. **Make continuous IS→OOS the default** — remove `--continuous` flag. `python training/trainer.py`
-   runs IS→checkpoint→OOS by default. `--oos` = resume from checkpoint.
+1. ~~**Make continuous IS→OOS the default**~~ — DONE (2026-03-18). `--continuous` flag removed.
+   Default pipeline runs IS→checkpoint→OOS. `--oos` = resume from checkpoint.
 
 2. **Unify data folders** — one `DATA/ATLAS/` with all data. Oracle coverage boundary determined
    by Phase 1 discovery range, not folder structure. No copy/paste to expand.
@@ -23,7 +23,8 @@ type: project
 
 6. **Remove `_print_oos_comparison`** — OOS2 deleted, this function is dead.
 
-7. **Remove strategy_selection references** — method exists but never called.
+7. **Remove dead methods** — `run_strategy_selection()` (~line 4854), `run_oos3_standalone()` (~line 2459),
+   `_print_oos_comparison()`. All callers deleted 2026-03-18.
 
 8. **Dead imports** — wave_rider, quantum_field_engine references throughout.
 
