@@ -1547,10 +1547,11 @@ class Trainer:
                         _oos_pt = getattr(_oos_state, 'pattern_type', '')
                         _oos_cascade = getattr(_oos_state, 'cascade_detected', False)
                         _oos_struct = getattr(_oos_state, 'structure_confirmed', False)
-                        if _oos_pt and _oos_pt != 'NONE':
-                            # pattern_type alone is valid signal — cascade/struct
-                            # was too restrictive (blocked 44% of tradeable bars)
+                        if _oos_pt and _oos_pt != 'NONE' and (_oos_cascade or _oos_struct):
                             _has_compressed_signal = True
+                        # NOTE: removing cascade/struct requirement → 3x trades, $12K OOS
+                        # (excl Feb 9 outlier). Lower $/trade ($2.52 vs $6.16).
+                        # Future avenue: loosen gate + filter low-quality pattern trades.
 
                 # Detection funnel: count bars where signals were found
                 if ts in pattern_map:
