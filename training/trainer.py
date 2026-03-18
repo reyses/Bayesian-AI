@@ -1573,11 +1573,7 @@ class Trainer:
                 if _should_check_entry:
                     _candidate_gate = {}    # id(p) -> gate label (for FN audit)
 
-                    # OOS peak-only path: if peak signal but no compressed signal,
-                    # skip OOS pattern candidate building — only build peak reversal
-                    _oos_peak_only = oos_mode and _has_peak_signal and not _has_compressed_signal
-
-                    if oos_mode and not _oos_peak_only:
+                    if oos_mode and _has_compressed_signal:
                         # ── OOS: 15s primary candidate + bonus multi-TF ──
                         _oos_state = _states_map.get(_bar_i - 1)
                         _oos_z = getattr(_oos_state, 'z_score', 0.0)
