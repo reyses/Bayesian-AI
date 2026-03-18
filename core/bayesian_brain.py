@@ -41,6 +41,15 @@ class BayesianBrain:
         self.trade_history = []
         # H0/H1 direction bias: tid -> {long_w, long_l, short_w, short_l}
         self.dir_bias: Dict[Any, Dict[str, int]] = {}
+        self._frozen = False  # when True, update() is a no-op
+
+    def freeze(self):
+        """Disable learning. Brain state is read-only (for OOS validation)."""
+        self._frozen = True
+
+    def unfreeze(self):
+        """Re-enable learning."""
+        self._frozen = False
 
     def update(self, outcome: TradeOutcome):
         """
@@ -48,6 +57,8 @@ class BayesianBrain:
         Args:
             outcome: TradeOutcome with state vector and result
         """
+        if self._frozen:
+            return  # frozen brain — no learning (OOS validation mode)
         # Prefer template_id if available, otherwise use state as key
         key = outcome.template_id if outcome.template_id is not None else outcome.state
         
