@@ -1,76 +1,79 @@
 ================================================================================
-OOS FORWARD PASS COMPLETE  (run: 2026-03-17 21:59:50)
-  Commit: 7d8ee3c — finding: January OOS 99.8% SHORT in rising market — brain bias problem
-  Changes: 9 files changed, 176 insertions(+), 173 deletions(-)
+OOS FORWARD PASS COMPLETE  (run: 2026-03-18 08:28:45)
+  Commit: 2a40578 — validated: honest 1-week baseline — peak 72.4% WR, no lookahead
+  Changes: 12 files changed, 79013 insertions(+), 652 deletions(-)
   Period: DATA\ATLAS_OOS\15s\2026_01.parquet to 2026_03 (3 files)
-Total Trades: 1682
-Win Rate: 66.3%
-Total PnL: $6373.65
+Total Trades: 5066
+Win Rate: 63.8%
+Total PnL: $41696.81
 
 ── WORKER STATES LOADED ──
   1h=372/file(3/3 files ok)  30m=743/file(3/3 files ok)  15m=1487/file(3/3 files ok)  5m=4462/file(3/3 files ok)  3m=7436/file(3/3 files ok)
-  1m=22283/file(3/3 files ok)  30s=44462/file(3/3 files ok)  15s=125313/file(3/3 files ok)  5s=391097/file(3/3 files ok)  1s=1805489/file(3/3 files ok)
+  1m=22283/file(3/3 files ok)  30s=44462/file(3/3 files ok)  15s=125915/file(3/3 files ok)  5s=433840/file(3/3 files ok)  1s=1899828/file(3/3 files ok)
 
 ── DAILY SESSION LEDGER ──
   Date         Trades  Wins    WR%      Day PnL    Min Dip    Cumul PnL   Cumul DD
   ──────────────────────────────────────────────────────────────────────────────────────────
-  2026-01-02       33    26  78.8% $   +538.25        $0 $   +538.25        $0
-  2026-01-05       36    21  58.3% $    -35.50 $ -133.50 $   +502.75 $   35.50
-  2026-01-06       36    21  58.3% $   -278.00 $ -281.00 $   +224.75 $  313.50
-  2026-01-07       36    24  66.7% $   +118.00 $   -3.00 $   +342.75 $  195.50
-  2026-01-08       19    15  78.9% $   -103.25 $ -145.25 $   +239.50 $  298.75
-  2026-01-09       14     8  57.1% $    -81.00 $  -91.00 $   +158.50 $  379.75
-  2026-01-11        3     1  33.3% $    +12.00        $0 $   +170.50 $  367.75
-  2026-01-12       37    29  78.4% $   +176.50        $0 $   +347.00 $  191.25
-  2026-01-13       28    22  78.6% $   +109.00 $  -28.00 $   +456.00 $   82.25
-  2026-01-14       56    41  73.2% $    +45.25        $0 $   +501.25 $  228.00
-  2026-01-15       30    20  66.7% $   -175.50 $ -246.75 $   +325.75 $  403.50
-  2026-01-16       36    25  69.4% $    +53.00 $  -76.00 $   +378.75 $  350.50
-  2026-01-18        2     1  50.0% $     +1.50        $0 $   +380.25 $  349.00
-  2026-01-19       27    20  74.1% $     +8.00 $  -31.00 $   +388.25 $  341.00
-  2026-01-20       51    38  74.5% $   +265.00 $  -10.50 $   +653.25 $   76.00
-  2026-01-21       36    27  75.0% $   -662.53 $ -662.53 $     -9.28 $  919.00
-  2026-01-22       20    16  80.0% $   +131.50        $0 $   +122.22 $  787.50
-  2026-01-23       18    13  72.2% $    -38.50 $ -202.50 $    +83.72 $  826.00
-  2026-01-26       25    15  60.0% $    -82.25 $ -139.50 $     +1.47 $  908.25
-  2026-01-27       25    14  56.0% $   -155.50 $ -224.00 $   -154.03 $1,063.75
-  2026-01-28       29    19  65.5% $    -37.50 $ -181.50 $   -191.53 $1,101.25
-  2026-01-29       21    14  66.7% $    +14.50 $  -48.00 $   -177.03 $1,086.75
-  2026-01-30       35    20  57.1% $   -114.25 $ -201.00 $   -291.28 $1,201.00
-  2026-02-01        4     4 100.0% $   +131.50        $0 $   -159.78 $1,069.50
-  2026-02-02       86    54  62.8% $   +254.00        $0 $    +94.22 $  815.50
-  2026-02-03       78    55  70.5% $   +607.25 $  -26.00 $   +701.47 $  208.25
-  2026-02-04       46    27  58.7% $   +663.00 $  -33.00 $ +1,364.47        $0
-  2026-02-05       56    33  58.9% $   +178.20 $ -121.00 $ +1,542.68 $   24.50
-  2026-02-06       12     7  58.3% $   +154.50        $0 $ +1,697.18        $0
-  2026-02-09       22    19  86.4% $ +3,215.43        $0 $ +4,912.60        $0
-  2026-02-10       29    24  82.8% $   +161.00        $0 $ +5,073.60        $0
-  2026-02-11       21    13  61.9% $   -122.00 $ -139.25 $ +4,951.60 $  122.00
-  2026-02-12       29    17  58.6% $     +4.00 $  -49.00 $ +4,955.60 $  118.00
-  2026-02-13       25    14  56.0% $   -316.50 $ -316.50 $ +4,639.10 $  434.50
-  2026-02-14       12     9  75.0% $   +121.00        $0 $ +4,760.10 $  313.50
-  2026-02-16       30    20  66.7% $    +39.25        $0 $ +4,799.35 $  274.25
-  2026-02-17       22    16  72.7% $    -69.00 $ -125.50 $ +4,730.35 $  343.25
-  2026-02-18       22    13  59.1% $   -227.50 $ -351.50 $ +4,502.85 $  570.75
-  2026-02-19       41    23  56.1% $    +27.50 $  -46.00 $ +4,530.35 $  543.25
-  2026-02-20       13    10  76.9% $   +181.25        $0 $ +4,711.60 $  362.00
-  2026-02-21        3     2  66.7% $    -27.50 $  -36.00 $ +4,684.10 $  389.50
-  2026-02-23        5     3  60.0% $    -53.00 $  -53.00 $ +4,631.10 $  442.50
-  2026-02-24       22    15  68.2% $    -49.25 $  -49.25 $ +4,581.85 $  491.75
-  2026-02-25       31    16  51.6% $   -232.00 $ -232.00 $ +4,349.85 $  723.75
-  2026-02-26       33    22  66.7% $   +176.00        $0 $ +4,525.85 $  547.75
-  2026-02-27        7     7 100.0% $   +153.00        $0 $ +4,678.85 $  394.75
-  2026-02-28        9     6  66.7% $   +126.50 $   -8.00 $ +4,805.35 $  268.25
-  2026-03-02       57    39  68.4% $   +108.75 $ -103.00 $ +4,914.10 $  159.50
-  2026-03-03       75    47  62.7% $   +543.00        $0 $ +5,457.10 $    0.50
-  2026-03-04       56    36  64.3% $   +297.50 $ -125.50 $ +5,754.60        $0
-  2026-03-05       76    51  67.1% $   +678.75 $  -60.00 $ +6,433.35        $0
-  2026-03-06       28    14  50.0% $    -19.50 $  -78.50 $ +6,413.85 $   26.00
-  2026-03-07        6     5  83.3% $    +72.25        $0 $ +6,486.10 $    3.00
-  2026-03-09       11     6  54.5% $    +19.55 $  -72.50 $ +6,505.65 $    7.50
-  2026-03-13       36    24  66.7% $    -93.50 $ -215.00 $ +6,412.15 $  182.00
-  2026-03-16       18    11  61.1% $    -43.00 $  -86.00 $ +6,369.15 $  225.00
-  2026-03-17        8     3  37.5% $     +4.50 $  -38.00 $ +6,373.65 $  220.50
+  2026-01-01        1     1 100.0% $    +16.00        $0 $    +16.00        $0
+  2026-01-02       45    34  75.6% $   +391.50 $ -131.75 $   +407.50 $  204.50
+  2026-01-05       56    32  57.1% $    -68.00 $ -131.00 $   +339.50 $  272.50
+  2026-01-06       63    39  61.9% $   -185.50 $ -194.00 $   +154.00 $  458.00
+  2026-01-07      100    44  44.0% $    +21.50 $   -1.50 $   +175.50 $  436.50
+  2026-01-08       89    53  59.6% $    +43.50 $   -4.50 $   +219.00 $  393.00
+  2026-01-09       10     5  50.0% $    -60.50 $  -60.50 $   +158.50 $  453.50
+  2026-01-11       12     7  58.3% $    -24.00 $  -36.50 $   +134.50 $  477.50
+  2026-01-12       34    23  67.6% $    -97.50 $  -97.50 $    +37.00 $  575.00
+  2026-01-13      105    60  57.1% $    -39.00 $ -133.50 $     -2.00 $  614.00
+  2026-01-14      148    93  62.8% $   +565.75 $  -53.00 $   +563.75 $  327.50
+  2026-01-15       62    34  54.8% $   -381.00 $ -430.00 $   +182.75 $  708.50
+  2026-01-16       74    42  56.8% $   -234.00 $ -234.00 $    -51.25 $  942.50
+  2026-01-18       10     5  50.0% $    +12.00 $   -4.00 $    -39.25 $  930.50
+  2026-01-19       47    34  72.3% $   -222.00 $ -270.00 $   -261.25 $1,152.50
+  2026-01-20      102    66  64.7% $    -98.00 $ -168.75 $   -359.25 $1,250.50
+  2026-01-21       78    52  66.7% $   +184.50 $ -120.50 $   -174.75 $1,066.00
+  2026-01-22       27    15  55.6% $    -68.50 $ -139.00 $   -243.25 $1,134.50
+  2026-01-23       63    42  66.7% $   +238.75 $   -1.00 $     -4.50 $  895.75
+  2026-01-25       11     7  63.6% $     -0.75 $  -11.25 $     -5.25 $  896.50
+  2026-01-26       42    22  52.4% $   -479.25 $ -479.25 $   -484.50 $1,375.75
+  2026-01-27       89    47  52.8% $    -90.00 $ -101.00 $   -574.50 $1,465.75
+  2026-01-28       76    47  61.8% $    -56.50 $ -217.00 $   -631.00 $1,522.25
+  2026-01-29       81    53  65.4% $   +133.10 $ -241.00 $   -497.90 $1,389.15
+  2026-01-30       82    56  68.3% $   +589.50        $0 $    +91.60 $  799.65
+  2026-02-01       10     9  90.0% $   +174.00        $0 $   +265.60 $  625.65
+  2026-02-02      185   128  69.2% $ +1,316.60        $0 $ +1,582.20        $0
+  2026-02-03      250   158  63.2% $ +1,336.05 $  -55.50 $ +2,918.25 $  120.00
+  2026-02-04      167   109  65.3% $   +794.38 $ -164.00 $ +3,712.62 $   65.00
+  2026-02-05      218   119  54.6% $   +963.23 $ -104.50 $ +4,675.85 $   24.50
+  2026-02-06       69    43  62.3% $   +217.55 $ -122.25 $ +4,893.40 $  187.00
+  2026-02-08        2     1  50.0% $    +14.00        $0 $ +4,907.40 $  173.00
+  2026-02-09      192   149  77.6% $+26,733.38 $ -189.82 $+31,640.78 $   26.50
+  2026-02-10       74    58  78.4% $   +519.80        $0 $+32,160.58        $0
+  2026-02-11       72    49  68.1% $   +171.00 $  -38.00 $+32,331.58 $  173.00
+  2026-02-12      120    68  56.7% $   -289.50 $ -371.50 $+32,042.08 $  462.50
+  2026-02-13       65    40  61.5% $   -207.00 $ -207.00 $+31,835.08 $  669.50
+  2026-02-14       49    38  77.6% $   +356.10        $0 $+32,191.18 $  313.40
+  2026-02-16       49    32  65.3% $   +100.00 $ -186.00 $+32,291.18 $  213.40
+  2026-02-17       85    57  67.1% $     +0.85 $  -93.90 $+32,292.03 $  236.75
+  2026-02-18       88    51  58.0% $    +87.18 $  -92.00 $+32,379.20 $  206.82
+  2026-02-19      137    82  59.9% $   +196.50 $ -176.50 $+32,575.70 $   80.50
+  2026-02-20       61    45  73.8% $   +322.03        $0 $+32,897.73        $0
+  2026-02-21        9     1  11.1% $   -259.00 $ -259.00 $+32,638.73 $  286.00
+  2026-02-23       29    18  62.1% $   +172.00 $  -18.00 $+32,810.73 $  114.00
+  2026-02-24      102    65  63.7% $    +23.75 $  -56.25 $+32,834.48 $  164.25
+  2026-02-25      104    59  56.7% $    -29.00 $  -29.00 $+32,805.48 $  196.00
+  2026-02-26      153    94  61.4% $   +263.12 $  -20.50 $+33,068.60 $   64.00
+  2026-02-27       42    29  69.0% $   +150.80        $0 $+33,219.40 $   77.70
+  2026-02-28       26    15  57.7% $    +68.50 $  -80.00 $+33,287.90 $   49.00
+  2026-03-02      154   105  68.2% $ +1,269.75 $ -164.50 $+34,557.65        $0
+  2026-03-03      211   145  68.7% $ +2,237.51        $0 $+36,795.16        $0
+  2026-03-04      185   126  68.1% $   +935.30 $ -589.00 $+37,730.46        $0
+  2026-03-05      210   160  76.2% $ +2,211.75 $  -35.50 $+39,942.21 $   40.00
+  2026-03-06       97    57  58.8% $   +317.55 $  -71.00 $+40,259.76        $0
+  2026-03-07       35    22  62.9% $   +235.68 $  -13.07 $+40,495.44 $   34.50
+  2026-03-09       69    41  59.4% $   +235.12 $  -10.00 $+40,730.56 $   32.93
+  2026-03-13      174   102  58.6% $   +804.25 $  -40.00 $+41,534.81        $0
+  2026-03-16       53    35  66.0% $    +99.50 $   -7.00 $+41,634.31 $  116.00
+  2026-03-17       13     9  69.2% $    +62.50 $  -30.00 $+41,696.81 $   53.50
 
 ── DRAWDOWN SUMMARY ──
   Max consecutive losing days: 4
@@ -79,33 +82,33 @@ Total PnL: $6373.65
   Method: worst intraday dip below $0 across all trading days
   (each day starts fresh at $0 — captures the deepest hole before recovery)
 
-  Worst intraday dip:  $-662.53  on 2026-01-21
-  ► MINIMUM EQUITY:    $662.53
-  ► With 50% buffer:   $993.79
+  Worst intraday dip:  $-589.00  on 2026-03-04
+  ► MINIMUM EQUITY:    $589.00
+  ► With 50% buffer:   $883.50
 
   Top 5 worst intraday dips:
-    2026-01-21:  $-662.53
-    2026-02-18:  $-351.50
-    2026-02-13:  $-316.50
-    2026-01-06:  $-281.00
-    2026-01-15:  $-246.75
-  Days that dipped below $0: 39/57
+    2026-03-04:  $-589.00
+    2026-01-26:  $-479.25
+    2026-01-15:  $-430.00
+    2026-02-12:  $-371.50
+    2026-01-19:  $-270.00
+  Days that dipped below $0: 50/60
 
 ── CUMULATIVE EQUITY CURVE ──
   (starts at $0 on day 1, never resets — shows true equity path)
 
-  Final cumulative PnL:  $+6,373.65
-  Peak equity:           $+6,594.15
-  Trough equity:         $-378.03  on 2026-01-30
-  Max drawdown from peak: $1,287.75  (trough on 2026-01-30)
-  ► MIN EQUITY (cumulative): $378.03  (deepest hole from $0 start)
+  Final cumulative PnL:  $+41,696.81
+  Peak equity:           $+41,750.31
+  Trough equity:         $-872.00  on 2026-01-29
+  Max drawdown from peak: $1,763.25  (trough on 2026-01-29)
+  ► MIN EQUITY (cumulative): $872.00  (deepest hole from $0 start)
 
   Critical days (cumulative equity at risk):
-    2026-01-30:  cumul=$-291.28  day_pnl=$-114.25  dip=$-201.00
-    2026-01-28:  cumul=$-191.53  day_pnl=$-37.50  dip=$-181.50
-    2026-01-29:  cumul=$-177.03  day_pnl=$+14.50  dip=$-48.00
-    2026-02-01:  cumul=$-159.78  day_pnl=$+131.50  dip=$+0.00
-    2026-01-27:  cumul=$-154.03  day_pnl=$-155.50  dip=$-224.00
+    2026-01-28:  cumul=$-631.00  day_pnl=$-56.50  dip=$-217.00
+    2026-01-27:  cumul=$-574.50  day_pnl=$-90.00  dip=$-101.00
+    2026-01-29:  cumul=$-497.90  day_pnl=$+133.10  dip=$-241.00
+    2026-01-26:  cumul=$-484.50  day_pnl=$-479.25  dip=$-479.25
+    2026-01-20:  cumul=$-359.25  day_pnl=$-98.00  dip=$-168.75
 ================================================================================
 
 ================================================================================
@@ -115,34 +118,34 @@ ORACLE PROFIT ATTRIBUTION
   PER-DEPTH PnL BREAKDOWN (-> depth_weights.json for next run):
     Depth     Trades    Win%    Total PnL  Avg/trade
     -----     ------    ----    ---------  ---------
-    depth 3       190     71% $  3,163.88 $    16.65
-    depth 4       122     69% $  1,048.75 $     8.60
-    depth 5        72     68% $    639.00 $     8.88
-    depth 6       127     80% $  1,384.25 $    10.90
-    depth 7        74     65% $    146.00 $     1.97
-    depth 8       990     64% $   -230.47 $    -0.23  <- FILTER NEXT RUN
-    depth 9        74     62% $    254.25 $     3.44
-    depth 10       33     48% $    -32.00 $    -0.97  <- FILTER NEXT RUN
+    depth 3       719     69% $ 17,166.03 $    23.87
+    depth 4       389     74% $  8,465.65 $    21.76
+    depth 5       232     70% $  3,426.50 $    14.77
+    depth 6       323     71% $  2,121.75 $     6.57
+    depth 7       193     65% $  1,141.50 $     5.91
+    depth 8     2,117     63% $  7,590.24 $     3.59
+    depth 9       685     53% $  1,219.15 $     1.78
+    depth 10      408     57% $    566.00 $     1.39
 
   TRADE DURATION BINS (top 3 by volume):
     Duration    Trades    Win%    Total PnL  Avg/trade
     --------    ------    ----    ---------  ---------
-    2-5m           715     82% $  7,728.50 $    10.81
-    1-2m           333     56% $  1,488.63 $     4.47
-    5-10m          161     66% $   -137.50 $    -0.85
+    2-5m         1,861     77% $ 20,014.68 $    10.75
+    1-2m         1,087     55% $  4,855.91 $     4.47
+    <30s           823     52% $    929.50 $     1.13
 
   DYNAMIC EXIT QUALITY:
     Belief-flip exits:  0 trades
-    Envelope decay:        13 trades  ->  avg PnL $  18.73
+    Envelope decay:        34 trades  ->  avg PnL $  25.26
     Trail-tightened:    0 trades
     Trail-widened:      0 trades
-    Band-urgent exits:      4 trades  ->  avg PnL $   2.62
+    Band-urgent exits:     40 trades  ->  avg PnL $   4.49
     Loss watchdog:      0 trades
     Standard trail:     0 trades
     Decay score at exit:  WIN avg=0.000  LOSS avg=0.000
     Envelope halflife:   40.0 bars (self-tuned from 20)
     Giveback threshold:  10% (self-tuned from 70%)
-    Peak giveback exits:   475 trades  ->  avg PnL $   7.17
+    Peak giveback exits:  1149 trades  ->  avg PnL $   8.14
 
   PROFIT GAP ANALYSIS:
     Ideal (golden-path: gate-blocked + traded, perfect exits):  $        0.00
@@ -154,136 +157,137 @@ ORACLE PROFIT ATTRIBUTION
 
 
     -----------------------------------------------------
-    Actual profit: $6373.65
+    Actual profit: $41696.81
     [info] Score-competition pool (took better same bar): $        0.00  (not missed -- golden path chose better candidate)
 
 ===========================================================================
   REGRET ANALYSIS — OOS
-  1,682 trades analyzed
+  5,066 trades analyzed
 ===========================================================================
 
   BY EXIT REASON (sorted by total regret):
   Exit                          n  Avg Regret  Total Regret   Avg PnL Avg MFE(t)  Capture%
   -------------------------------------------------------------------------------------
-  peak_giveback               475     +20.82$     +9889.00$    +7.17$      56.0t     +8.4%
-  stop_loss                   114     +78.81$     +8984.35$    +4.62$     166.9t   -961.8%
-  regime_decay                285     +18.27$     +5207.00$   -10.10$      16.3t   -308.6%
-  survival_stop               384      +6.13$     +2355.00$   +11.60$      35.5t    +54.6%
-  survival_flatline           220      +7.78$     +1712.50$   +13.70$      43.0t    +56.5%
-  tidal_wave                   78     +20.78$     +1621.00$   -14.45$      12.7t   -570.8%
-  belief_flip                  71     +19.65$     +1395.50$   -10.13$      19.0t   -374.9%
-  maintenance_flat              9    +141.83$     +1276.50$  -141.83$       0.0t     +nan%
-  death_hook                   17     +24.85$      +422.50$    -8.24$      33.2t   -831.4%
-  envelope_decay               13     +24.12$      +313.50$   +18.73$      85.7t    +36.4%
-  v_reversal                    7     +11.93$       +83.50$   +88.07$     200.0t    +87.3%
-  band_urgent                   4     +16.75$       +67.00$    +2.62$      38.8t    -28.5%
-  take_profit                   5      +5.40$       +27.00$   +49.70$     110.2t    +90.7%
+  stop_loss                   379     +99.22$    +37605.69$   +54.72$     307.9t   -550.3%
+  peak_giveback              1149     +20.50$    +23560.00$    +8.14$      57.3t     +6.2%
+  regime_decay               1011     +15.50$    +15675.50$    -6.35$      18.3t   -298.5%
+  tidal_wave                  529     +15.56$     +8230.50$    -7.94$      15.2t   -280.6%
+  survival_stop               846      +7.41$     +6265.00$   +14.54$      43.9t    +57.1%
+  belief_flip                 445     +13.58$     +6042.00$    -2.20$      22.8t   -181.0%
+  survival_flatline           487      +9.87$     +4805.50$   +15.73$      51.2t    +55.1%
+  take_profit                  30    +152.00$     +4560.00$  +115.57$     535.1t    +68.5%
+  death_hook                   84     +28.64$     +2406.00$   -13.37$      30.5t   -507.8%
+  maintenance_flat             16    +121.75$     +1948.00$  -121.75$       0.0t     +nan%
+  envelope_decay               34     +34.54$     +1174.50$   +25.26$     119.6t    +38.7%
+  band_urgent                  40      +9.89$      +395.50$    +4.49$      28.8t    -19.8%
+  v_reversal                   16     +15.00$      +240.00$  +112.84$     255.7t    +86.1%
 
-  TOTAL PnL:    $    6,373.65
-  TOTAL REGRET: $   33,354.35
-  CAPTURE RATE: 16.0% of available profit captured
+  TOTAL PnL:    $   41,696.81
+  TOTAL REGRET: $  112,908.19
+  CAPTURE RATE: 27.0% of available profit captured
 
   LOSING TRADES THAT PEAKED > 5 TICKS:
-    275 / 514 losses (53.5%)
-    Avg peak MFE: 31.3 ticks ($15.63)
-    Avg actual PnL: $-23.70
-    Total lost opportunity: $10,816.00
+    818 / 1673 losses (48.9%)
+    Avg peak MFE: 29.0 ticks ($14.51)
+    Avg actual PnL: $-21.75
+    Total lost opportunity: $29,660.50
 
     Exit reason breakdown (losing trades that peaked > 5t):
-      peak_giveback             n= 143  avg_peak=38t  avg_pnl=$-12.59
-      regime_decay              n=  74  avg_peak=25t  avg_pnl=$-23.14
-      tidal_wave                n=  19  avg_peak=23t  avg_pnl=$-23.05
-      stop_loss                 n=  19  avg_peak=21t  avg_pnl=$-113.50
-      belief_flip               n=  16  avg_peak=28t  avg_pnl=$-19.06
-      death_hook                n=   2  avg_peak=20t  avg_pnl=$-34.00
-      band_urgent               n=   2  avg_peak=24t  avg_pnl=$-18.75
+      peak_giveback             n= 343  avg_peak=35t  avg_pnl=$-12.43
+      regime_decay              n= 197  avg_peak=26t  avg_pnl=$-21.14
+      belief_flip               n= 102  avg_peak=24t  avg_pnl=$-13.27
+      tidal_wave                n= 101  avg_peak=23t  avg_pnl=$-26.34
+      stop_loss                 n=  47  avg_peak=22t  avg_pnl=$-89.54
+      death_hook                n=  20  avg_peak=28t  avg_pnl=$-52.65
+      band_urgent               n=   8  avg_peak=23t  avg_pnl=$-10.75
 
   REGRET BY DEPTH:
     Depth     n  Avg Regret  Capture%
   -----------------------------------
-        3   190     +24.43$    -41.0%
-        4   122     +27.17$   -123.6%
-        5    72     +24.51$   -175.6%
-        6   127     +25.19$    -36.0%
-        7    74     +15.91$   -229.4%
-        8   990     +17.56$   -161.0%
-        9    74     +19.80$   -136.8%
-       10    33     +12.48$   -128.1%
+        3   719     +36.29$    -59.3%
+        4   389     +30.37$    -39.0%
+        5   232     +28.94$   -188.3%
+        6   323     +22.26$    -95.0%
+        7   193     +22.07$   -190.7%
+        8  2117     +19.63$   -150.5%
+        9   685     +16.20$   -171.0%
+       10   408     +10.27$   -131.2%
 
   REGRET BY HOLD DURATION:
     Duration     n  Avg Regret  Capture%
   ----------------------------------------
-        <30s   143     +17.20$   -111.0%
-      30s-1m   143     +32.05$   -142.4%
-        1-2m   333     +21.41$   -121.1%
-        2-5m   715     +13.46$     +6.4%
-         5m+   348     +27.46$   -452.1%
+        <30s   823     +16.44$    -66.3%
+      30s-1m   570     +49.82$    -81.8%
+        1-2m  1087     +20.55$   -128.6%
+        2-5m  1861     +13.94$    -32.1%
+         5m+   725     +31.32$   -483.1%
 
   WORKER AGREEMENT AT ENTRY  (agree = worker dir matches trade direction)
     TF      WIN agree  LOSS agree    Edge  <-- positive = worker is predictive
-    1h           0.93        0.90   +0.04
-    30m          0.90        0.88   +0.02
-    15m          0.45        0.45   -0.00
-    5m           0.83        0.78   +0.04
-    3m           0.81        0.77   +0.04
-    1m           0.80        0.77   +0.02
-    30s          0.37        0.39   -0.02
-    15s          0.77        0.77   -0.01
-    5s           0.56        0.56   +0.00
-    1s           0.49        0.47   +0.02
+    1h           0.91        0.90   +0.01
+    30m          0.89        0.87   +0.02
+    15m          0.57        0.50   +0.07
+    5m           0.78        0.77   +0.01
+    3m           0.74        0.73   +0.01
+    1m           0.70        0.70   -0.00
+    30s          0.38        0.37   +0.01
+    15s          0.58        0.61   -0.03
+    5s           0.55        0.52   +0.03
+    1s           0.48        0.49   -0.00
 
   DIRECTION FLIPS BETWEEN ENTRY AND EXIT:
     (worker flipped = changed LONG/SHORT conviction side during the trade)
-    1h     WIN flip=0.02  LOSS flip=0.03  diff=+0.02
-    30m    WIN flip=0.04  LOSS flip=0.05  diff=+0.01
-    15m    WIN flip=0.08  LOSS flip=0.06  diff=-0.01
-    5m     WIN flip=0.15  LOSS flip=0.13  diff=-0.03
-    3m     WIN flip=0.20  LOSS flip=0.19  diff=-0.01
-    1m     WIN flip=0.25  LOSS flip=0.27  diff=+0.02
-    30s    WIN flip=0.28  LOSS flip=0.30  diff=+0.02
-    15s    WIN flip=0.45  LOSS flip=0.64  diff=+0.20  <-- flip predicts loss
-    5s     WIN flip=0.46  LOSS flip=0.47  diff=+0.01
-    1s     WIN flip=0.43  LOSS flip=0.43  diff=-0.00
+    1h     WIN flip=0.01  LOSS flip=0.03  diff=+0.01
+    30m    WIN flip=0.03  LOSS flip=0.04  diff=+0.01
+    15m    WIN flip=0.06  LOSS flip=0.06  diff=-0.00
+    5m     WIN flip=0.15  LOSS flip=0.13  diff=-0.02
+    3m     WIN flip=0.21  LOSS flip=0.16  diff=-0.05
+    1m     WIN flip=0.30  LOSS flip=0.26  diff=-0.03
+    30s    WIN flip=0.30  LOSS flip=0.30  diff=-0.00
+    15s    WIN flip=0.47  LOSS flip=0.54  diff=+0.08
+    5s     WIN flip=0.46  LOSS flip=0.45  diff=-0.01
+    1s     WIN flip=0.42  LOSS flip=0.41  diff=-0.01
 
   DECISION-TF WAVE MATURITY AT ENTRY  (0=fresh wave, 1=exhausted)
-    All trades:  avg=0.372
-    Winners:     avg=0.373
-    Losers:      avg=0.371
-    Insight: maturity gap=-0.002 (positive = entering losers at wave exhaustion)
+    All trades:  avg=0.378
+    Winners:     avg=0.380
+    Losers:      avg=0.376
+    Insight: maturity gap=-0.004 (positive = entering losers at wave exhaustion)
 
-  OF 1,682 TRADES TAKEN:
+  OF 5,066 TRADES TAKEN:
     [Oracle N/A — compressed mode has no forward-looking labels]
-    Total PnL: $  6,373.65
-    Winners: 1,115  Losers: 567
+    Total PnL: $ 41,696.81
+    Winners: 3,232  Losers: 1,834
 
   ORACLE: N/A (compressed mode — no forward-looking labels)
 
   WHAT WE DID:
-    Traded:   1,682  (100.0% of all signals)
+    Traded:   5,066  (100.0% of all signals)
     Skipped:      0  (0.0% of all signals)
 
-  WHY SIGNALS WERE SKIPPED  (total candidates evaluated: 46,408)
-    Pattern Quality  (no match/noise/struct):  5,544  (11.9%)
-    Depth Filter     (depth<3 or blacklist):   1,381  (3.0%)
-    Template Match   (dist > 3.0):               354  (0.8%)
+  WHY SIGNALS WERE SKIPPED  (total candidates evaluated: 549,722)
+    PEAK_REVERSAL candidates:    73,850  (traded: 4461, rejected: 69389)
+    Pattern Quality  (no match/noise/struct): 54,086  (9.8%)
+    Depth Filter     (depth<3 or blacklist):  12,849  (2.3%)
+    Template Match   (dist > 3.0):             3,871  (0.7%)
     Brain Reject     (unprofitable pattern):       0  (0.0%)
-    Score Competition (better candidate won):  8,802  (19.0%)
-    Low Conviction   (belief too weak):        4,496  (9.7%)
-    Momentum Misalign (F_mom vs direction):      824  (1.8%)
-    FDMI Fakeout     (State A block):             19  (0.0%)
-    Physics Quality  (bypass: depth>3/z>=0):      13  (0.0%)
-    Passed all gates -> traded:                1,682  (3.6%)
-    ⚠ Unaccounted:                    23,293  (50.2%)
+    Score Competition (better candidate won): 80,680  (14.7%)
+    Low Conviction   (belief too weak):       37,375  (6.8%)
+    Momentum Misalign (F_mom vs direction):    4,649  (0.8%)
+    FDMI Fakeout     (State A block):             82  (0.0%)
+    Physics Quality  (bypass: depth>3/z>=0):      58  (0.0%)
+    Passed all gates -> traded:                5,066  (0.9%)
+    ⚠ Unaccounted:                    351,006  (63.9%)
 
   TRADED SIGNAL DEPTH (which TF level triggered the trade):
-    depth 3=15m  :   190 trades  ####
-    depth 4=5m   :   122 trades  ##
-    depth 5=1m   :    72 trades  #
-    depth 6=15s  (leaf):   127 trades  ###
-    depth 7:    74 trades  #
-    depth 8:   990 trades  #######################
-    depth 9:    74 trades  #
-    depth 10:    33 trades  
+    depth 3=15m  :   719 trades  #####
+    depth 4=5m   :   389 trades  ###
+    depth 5=1m   :   232 trades  #
+    depth 6=15s  (leaf):   323 trades  ##
+    depth 7:   193 trades  #
+    depth 8: 2,117 trades  ################
+    depth 9:   685 trades  #####
+    depth 10:   408 trades  ###
 
   PROFIT GAP ANALYSIS:
     Ideal (golden-path: gate-blocked + traded, perfect exits):  $        0.00
@@ -295,70 +299,70 @@ ORACLE PROFIT ATTRIBUTION
 
 
     -----------------------------------------------------
-    Actual profit: $6373.65
+    Actual profit: $41696.81
     [info] Score-competition pool (took better same bar): $        0.00  (not missed -- golden path chose better candidate)
 
 ===========================================================================
   REGRET ANALYSIS — OOS
-  1,682 trades analyzed
+  5,066 trades analyzed
 ===========================================================================
 
   BY EXIT REASON (sorted by total regret):
   Exit                          n  Avg Regret  Total Regret   Avg PnL Avg MFE(t)  Capture%
   -------------------------------------------------------------------------------------
-  peak_giveback               475     +20.82$     +9889.00$    +7.17$      56.0t     +8.4%
-  stop_loss                   114     +78.81$     +8984.35$    +4.62$     166.9t   -961.8%
-  regime_decay                285     +18.27$     +5207.00$   -10.10$      16.3t   -308.6%
-  survival_stop               384      +6.13$     +2355.00$   +11.60$      35.5t    +54.6%
-  survival_flatline           220      +7.78$     +1712.50$   +13.70$      43.0t    +56.5%
-  tidal_wave                   78     +20.78$     +1621.00$   -14.45$      12.7t   -570.8%
-  belief_flip                  71     +19.65$     +1395.50$   -10.13$      19.0t   -374.9%
-  maintenance_flat              9    +141.83$     +1276.50$  -141.83$       0.0t     +nan%
-  death_hook                   17     +24.85$      +422.50$    -8.24$      33.2t   -831.4%
-  envelope_decay               13     +24.12$      +313.50$   +18.73$      85.7t    +36.4%
-  v_reversal                    7     +11.93$       +83.50$   +88.07$     200.0t    +87.3%
-  band_urgent                   4     +16.75$       +67.00$    +2.62$      38.8t    -28.5%
-  take_profit                   5      +5.40$       +27.00$   +49.70$     110.2t    +90.7%
+  stop_loss                   379     +99.22$    +37605.69$   +54.72$     307.9t   -550.3%
+  peak_giveback              1149     +20.50$    +23560.00$    +8.14$      57.3t     +6.2%
+  regime_decay               1011     +15.50$    +15675.50$    -6.35$      18.3t   -298.5%
+  tidal_wave                  529     +15.56$     +8230.50$    -7.94$      15.2t   -280.6%
+  survival_stop               846      +7.41$     +6265.00$   +14.54$      43.9t    +57.1%
+  belief_flip                 445     +13.58$     +6042.00$    -2.20$      22.8t   -181.0%
+  survival_flatline           487      +9.87$     +4805.50$   +15.73$      51.2t    +55.1%
+  take_profit                  30    +152.00$     +4560.00$  +115.57$     535.1t    +68.5%
+  death_hook                   84     +28.64$     +2406.00$   -13.37$      30.5t   -507.8%
+  maintenance_flat             16    +121.75$     +1948.00$  -121.75$       0.0t     +nan%
+  envelope_decay               34     +34.54$     +1174.50$   +25.26$     119.6t    +38.7%
+  band_urgent                  40      +9.89$      +395.50$    +4.49$      28.8t    -19.8%
+  v_reversal                   16     +15.00$      +240.00$  +112.84$     255.7t    +86.1%
 
-  TOTAL PnL:    $    6,373.65
-  TOTAL REGRET: $   33,354.35
-  CAPTURE RATE: 16.0% of available profit captured
+  TOTAL PnL:    $   41,696.81
+  TOTAL REGRET: $  112,908.19
+  CAPTURE RATE: 27.0% of available profit captured
 
   LOSING TRADES THAT PEAKED > 5 TICKS:
-    275 / 514 losses (53.5%)
-    Avg peak MFE: 31.3 ticks ($15.63)
-    Avg actual PnL: $-23.70
-    Total lost opportunity: $10,816.00
+    818 / 1673 losses (48.9%)
+    Avg peak MFE: 29.0 ticks ($14.51)
+    Avg actual PnL: $-21.75
+    Total lost opportunity: $29,660.50
 
     Exit reason breakdown (losing trades that peaked > 5t):
-      peak_giveback             n= 143  avg_peak=38t  avg_pnl=$-12.59
-      regime_decay              n=  74  avg_peak=25t  avg_pnl=$-23.14
-      tidal_wave                n=  19  avg_peak=23t  avg_pnl=$-23.05
-      stop_loss                 n=  19  avg_peak=21t  avg_pnl=$-113.50
-      belief_flip               n=  16  avg_peak=28t  avg_pnl=$-19.06
-      death_hook                n=   2  avg_peak=20t  avg_pnl=$-34.00
-      band_urgent               n=   2  avg_peak=24t  avg_pnl=$-18.75
+      peak_giveback             n= 343  avg_peak=35t  avg_pnl=$-12.43
+      regime_decay              n= 197  avg_peak=26t  avg_pnl=$-21.14
+      belief_flip               n= 102  avg_peak=24t  avg_pnl=$-13.27
+      tidal_wave                n= 101  avg_peak=23t  avg_pnl=$-26.34
+      stop_loss                 n=  47  avg_peak=22t  avg_pnl=$-89.54
+      death_hook                n=  20  avg_peak=28t  avg_pnl=$-52.65
+      band_urgent               n=   8  avg_peak=23t  avg_pnl=$-10.75
 
   REGRET BY DEPTH:
     Depth     n  Avg Regret  Capture%
   -----------------------------------
-        3   190     +24.43$    -41.0%
-        4   122     +27.17$   -123.6%
-        5    72     +24.51$   -175.6%
-        6   127     +25.19$    -36.0%
-        7    74     +15.91$   -229.4%
-        8   990     +17.56$   -161.0%
-        9    74     +19.80$   -136.8%
-       10    33     +12.48$   -128.1%
+        3   719     +36.29$    -59.3%
+        4   389     +30.37$    -39.0%
+        5   232     +28.94$   -188.3%
+        6   323     +22.26$    -95.0%
+        7   193     +22.07$   -190.7%
+        8  2117     +19.63$   -150.5%
+        9   685     +16.20$   -171.0%
+       10   408     +10.27$   -131.2%
 
   REGRET BY HOLD DURATION:
     Duration     n  Avg Regret  Capture%
   ----------------------------------------
-        <30s   143     +17.20$   -111.0%
-      30s-1m   143     +32.05$   -142.4%
-        1-2m   333     +21.41$   -121.1%
-        2-5m   715     +13.46$     +6.4%
-         5m+   348     +27.46$   -452.1%
+        <30s   823     +16.44$    -66.3%
+      30s-1m   570     +49.82$    -81.8%
+        1-2m  1087     +20.55$   -128.6%
+        2-5m  1861     +13.94$    -32.1%
+         5m+   725     +31.32$   -483.1%
 
 ================================================================================
 DIRECTION LEARNING (oracle corrections absorbed)
@@ -368,65 +372,65 @@ DIRECTION LEARNING (oracle corrections absorbed)
 
   DETECTION FUNNEL (bar-level)
     Total 15s bars processed:    263,902  (100%)
-    Bars with detection:         108,439  (41.1%)
-    Bars with NO detection:      155,463  (58.9%)  <- model blind
-    Bars slot-blocked:                 0  (0.0%)  <- position open, can't trade
-    Bars evaluated (free slot):  108,439  (41.1%)
-    Candidates on those bars:     46,408  (avg 0.4/bar)
+    Bars with detection:          84,667  (32.1%)
+    Bars with NO detection:      179,235  (67.9%)  <- model blind
+    Bars slot-blocked:             3,548  (1.3%)  <- position open, can't trade
+    Bars evaluated (free slot):   81,119  (30.7%)
+    Candidates on those bars:    549,722  (avg 6.8/bar)
 
   CANDIDATE COMPETITION (bars where gates were passed)
-    Single candidate (no competition):   3,181  (45.1%)
-    Multiple candidates (tiebreaker):    3,876  (54.9%)
+    Single candidate (no competition):  18,899  (39.5%)
+    Multiple candidates (tiebreaker):   28,978  (60.5%)
 
   EXPECTED PROFIT ANALYSIS (E[PnL] = running avg PnL per template×direction)
-    Positive EV trades (E[PnL]>0 at entry):    899  (53.4%)  actual: $   +4,240.65  avg: $4.72/trade
-    Negative EV trades (E[PnL]<0 at entry):    514  (30.6%)  actual: $     +480.50  avg: $0.93/trade
-    Unknown (< 3 samples):                     269  (16.0%)  actual: $   +1,652.50
-    If blocked neg-EV trades: would save $-480.50
+    Positive EV trades (E[PnL]>0 at entry):  3,172  (62.6%)  actual: $  +35,035.56  avg: $11.05/trade
+    Negative EV trades (E[PnL]<0 at entry):  1,306  (25.8%)  actual: $   +3,071.48  avg: $2.35/trade
+    Unknown (< 3 samples):                     588  (11.6%)  actual: $   +3,589.78
+    If blocked neg-EV trades: would save $-3,071.48
 
     Templates with NEGATIVE E[PnL] direction (top 15):
       TID   LONG n  LONG E[PnL]   SHORT n  SHORT E[PnL]  Action
     -----   ------  -----------   -------  ------------  ------
-      413        0         n/a         35     $  -17.67  SKIP SHORT
-      275        0         n/a         20     $  -15.15  SKIP SHORT
-      133        0         n/a          6     $  -13.50  SKIP SHORT
-       40        0         n/a          4     $  -13.00  SKIP SHORT
-      339        0         n/a          5     $   -9.30  SKIP SHORT
-      256        0         n/a          9     $   -7.78  SKIP SHORT
-      220        0         n/a         18     $   -7.58  SKIP SHORT
-      320        0         n/a          9     $   -6.83  SKIP SHORT
-      240        0         n/a         52     $   -5.53  SKIP SHORT
-      272        0         n/a          6     $   -4.92  SKIP SHORT
-      292        0         n/a         13     $   -4.65  SKIP SHORT
-      278        0         n/a        166     $   -3.79  SKIP SHORT
-       75        0         n/a          3     $   -3.67  SKIP SHORT
-      395        3    $   -3.17        84     $   +3.11  SKIP LONG
-      330        0         n/a         15     $   -2.83  SKIP SHORT
+      321        5    $  -39.50        52     $   +3.90  SKIP LONG
+      292        0         n/a         11     $  -26.36  SKIP SHORT
+      132        0         n/a          9     $  -13.17  SKIP SHORT
+       29        3    $  +13.00        12     $  -12.79  SKIP SHORT
+       40        1         n/a          8     $  -10.12  SKIP SHORT
+      289       23    $   -5.57        34     $  -10.12  SKIP BOTH
+      220        0         n/a         13     $   -9.96  SKIP SHORT
+      320        0         n/a          5     $   -8.90  SKIP SHORT
+      213       10    $   -8.55         4     $   -1.50  SKIP BOTH
+      173        1         n/a         11     $   -7.86  SKIP SHORT
+       51        0         n/a          3     $   -5.83  SKIP SHORT
+      218        3    $   -5.83         5     $   -2.90  SKIP BOTH
+      138        0         n/a         11     $   -5.64  SKIP SHORT
+      277       12    $   -5.62         1          n/a   SKIP LONG
+      177        0         n/a          6     $   -5.58  SKIP SHORT
 
   EXPECTED PROFIT ANALYSIS (E[PnL] = running avg PnL per template×direction)
-    Positive EV trades (E[PnL]>0 at entry):    899  (53.4%)  actual: $   +4,240.65  avg: $4.72/trade
-    Negative EV trades (E[PnL]<0 at entry):    514  (30.6%)  actual: $     +480.50  avg: $0.93/trade
-    Unknown (< 3 samples):                     269  (16.0%)  actual: $   +1,652.50
-    If blocked neg-EV trades: would save $-480.50
+    Positive EV trades (E[PnL]>0 at entry):  3,172  (62.6%)  actual: $  +35,035.56  avg: $11.05/trade
+    Negative EV trades (E[PnL]<0 at entry):  1,306  (25.8%)  actual: $   +3,071.48  avg: $2.35/trade
+    Unknown (< 3 samples):                     588  (11.6%)  actual: $   +3,589.78
+    If blocked neg-EV trades: would save $-3,071.48
 
     Templates with NEGATIVE E[PnL] direction (top 15):
       TID   LONG n  LONG E[PnL]   SHORT n  SHORT E[PnL]  Action
     -----   ------  -----------   -------  ------------  ------
-      413        0         n/a         35     $  -17.67  SKIP SHORT
-      275        0         n/a         20     $  -15.15  SKIP SHORT
-      133        0         n/a          6     $  -13.50  SKIP SHORT
-       40        0         n/a          4     $  -13.00  SKIP SHORT
-      339        0         n/a          5     $   -9.30  SKIP SHORT
-      256        0         n/a          9     $   -7.78  SKIP SHORT
-      220        0         n/a         18     $   -7.58  SKIP SHORT
-      320        0         n/a          9     $   -6.83  SKIP SHORT
-      240        0         n/a         52     $   -5.53  SKIP SHORT
-      272        0         n/a          6     $   -4.92  SKIP SHORT
-      292        0         n/a         13     $   -4.65  SKIP SHORT
-      278        0         n/a        166     $   -3.79  SKIP SHORT
-       75        0         n/a          3     $   -3.67  SKIP SHORT
-      395        3    $   -3.17        84     $   +3.11  SKIP LONG
-      330        0         n/a         15     $   -2.83  SKIP SHORT
+      321        5    $  -39.50        52     $   +3.90  SKIP LONG
+      292        0         n/a         11     $  -26.36  SKIP SHORT
+      132        0         n/a          9     $  -13.17  SKIP SHORT
+       29        3    $  +13.00        12     $  -12.79  SKIP SHORT
+       40        1         n/a          8     $  -10.12  SKIP SHORT
+      289       23    $   -5.57        34     $  -10.12  SKIP BOTH
+      220        0         n/a         13     $   -9.96  SKIP SHORT
+      320        0         n/a          5     $   -8.90  SKIP SHORT
+      213       10    $   -8.55         4     $   -1.50  SKIP BOTH
+      173        1         n/a         11     $   -7.86  SKIP SHORT
+       51        0         n/a          3     $   -5.83  SKIP SHORT
+      218        3    $   -5.83         5     $   -2.90  SKIP BOTH
+      138        0         n/a         11     $   -5.64  SKIP SHORT
+      277       12    $   -5.62         1          n/a   SKIP LONG
+      177        0         n/a          6     $   -5.58  SKIP SHORT
 
 ================================================================================
 DIRECTION LEARNING (oracle corrections absorbed)
@@ -435,10 +439,10 @@ DIRECTION LEARNING (oracle corrections absorbed)
   Templates with signed MFE regression: 0
 
   Per-trade oracle log saved: checkpoints\oos_trade_log.csv
-  PID oracle log saved: checkpoints\pid_oracle_log.csv (19775 signals)
-  Signal log saved: checkpoints\oos_signal_log.csv  (1682 traded  +  0 skipped)
+  PID oracle log saved: checkpoints\pid_oracle_log.csv (19772 signals)
+  Signal log saved: checkpoints\oos_signal_log.csv  (5066 traded  +  0 skipped)
 
   DECISION MATRIX SUMMARY  (skipped candidates -- oracle $ = profit left on table)
     Gate                    Count  RealMove%  Avg Oracle$  Total Missed$
-    traded                   1682       0.0%           0             0
+    traded                   5066       0.0%           0             0
   Depth weights: NOT updated (oos_mode preserves training weights)
