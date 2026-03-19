@@ -700,8 +700,20 @@ class Trainer:
         _ORACLE_LABEL_NAMES = {2: 'MEGA_LONG', 1: 'SCALP_LONG', 0: 'NOISE', -1: 'SCALP_SHORT', -2: 'MEGA_SHORT'}
         oracle_trade_records = []  # completed per-trade oracle dicts
         _trade_replays = []       # per-trade bar series for I-MR replay
-        self._peak_prev_pc = 0.0  # peak detection: previous bar P_center
-        self._peak_prev_fm = 0.0  # peak detection: previous bar |F_momentum|
+        self._peak_prev_pc = 0.0  # peak detection: previous bar P_center (legacy)
+        self._peak_prev_fm = 0.0  # peak detection: previous bar |F_momentum| (legacy)
+
+        # BarProcessor for peak detection parity (IS uses same buildup buffer,
+        # sensor gate, and fake peak filter as OOS/live). Only peak detection
+        # methods are called -- entry/exit still handled inline until full refactor.
+        from core.bar_processor import BarProcessor, BarProcessorHooks
+        _bp = BarProcessor(
+            exec_engine=_exec_engine,
+            belief_network=belief_network,
+            exit_engine=_exit_eng,
+            brain=self.brain,
+            pattern_library=self.pattern_library or {},
+        )
         pending_oracle = None      # oracle facts for currently open trade
         _pending_dm_idx = None     # index into decision_matrix_records for open trade
 
@@ -1494,36 +1506,28 @@ class Trainer:
                 # OOS: compressed per-bar (15s state) + bonus multi-TF candidates
                 _has_discovery_signal = ts in pattern_map
 
-                # Peak detection: update state EVERY bar, check signal when flat + no pattern
+                # Peak detection: delegates to BarProcessor methods for parity.
+                # Uses the same buildup buffer, 1m sensor gate, and fake peak filter
+                # as OOS/live. The BarProcessor instance (_bp) is created once per
+                # forward pass and shared for peak detection state.
                 _has_peak_signal = False
                 _bar_state_pk = _states_map.get(_bar_i)
                 if _bar_state_pk is not None:
-                    _pc_now = getattr(_bar_state_pk, 'P_at_center', 0.0)
-                    _fm_now = abs(getattr(_bar_state_pk, 'F_momentum', 0.0))
-                    _coh_now = getattr(_bar_state_pk, 'oscillation_entropy_normalized', 0.0)
-                    _pc_up_chk = _pc_now > self._peak_prev_pc * 1.05 if self._peak_prev_pc > 0.01 else False
-                    _fm_down_chk = _fm_now < self._peak_prev_fm * 0.90 if self._peak_prev_fm > 0.5 else False
-                    # Always update (even when in position or pattern fires)
-                    self._peak_prev_pc = _pc_now
-                    self._peak_prev_fm = _fm_now
-                    # Peak detection fires regardless of pattern_map (no lookahead dependency)
-                    if (not current_position_open
-                            and (_pc_up_chk or _fm_down_chk) and _coh_now > 0.55):
-                        _has_peak_signal = True
-                    _bar_state = _states_map.get(_bar_i)
-                    if _bar_state is not None:
-                        _pc = getattr(_bar_state, 'P_at_center', 0.0)
-                        _fm = abs(getattr(_bar_state, 'F_momentum', 0.0))
-                        _coh = getattr(_bar_state, 'oscillation_entropy_normalized', 0.0)
-                        _prev_pc = getattr(self, '_peak_prev_pc', _pc)
-                        _prev_fm = getattr(self, '_peak_prev_fm', _fm)
-                        # Always update state (even when in position or skipping)
-                        self._peak_prev_pc = _pc
-                        self._peak_prev_fm = _fm
-                        _pc_up = _pc > _prev_pc * 1.05 if _prev_pc > 0.01 else False
-                        _fm_down = _fm < _prev_fm * 0.90 if _prev_fm > 0.5 else False
-                        if (_pc_up or _fm_down) and _coh > 0.55:
-                            _has_peak_signal = True
+                    # Cooldown check (same as BarProcessor)
+                    _in_peak_cooldown = (hasattr(_bp, '_peak_cooldown_until')
+                                         and _bar_i < _bp._peak_cooldown_until)
+                    if not current_position_open and not _in_peak_cooldown:
+                        # Use BarProcessor's peak detection (has buildup buffer)
+                        _peak_fired = _bp._detect_peak_reversal(_bar_state_pk)
+                        if _peak_fired:
+                            _bp.peak_stats['peak_detected'] += 1
+                            # Use BarProcessor's 1m sensor gate
+                            if _bp._1m_confirms_peak(_bar_state_pk):
+                                _has_peak_signal = True
+                                _bp.peak_stats['peak_entered'] += 1
+                    else:
+                        # Always update peak state (buffers) even when not checking
+                        _bp._detect_peak_reversal(_bar_state_pk)
                 # Unified compressed signal check (IS + OOS  -- no lookahead)
                 _has_compressed_signal = False
                 _bar_state_cs = _states_map.get(_bar_i - 1)
@@ -2911,6 +2915,32 @@ class Trainer:
             report_lines.append(f"    Bars slot-blocked:         {bars_slot_blocked:>9,}  ({_pct_b(bars_slot_blocked)})  <- position open, can't trade")
             report_lines.append(f"    Bars evaluated (free slot):{_bars_evaluated:>9,}  ({_pct_b(_bars_evaluated)})")
             report_lines.append(f"    Candidates on those bars:  {n_signals_seen:>9,}  (avg {n_signals_seen/max(1,_bars_evaluated):.1f}/bar)")
+
+        # ── 2b1b. Peak detection stats (from BarProcessor) ─────────────────────
+        if hasattr(_bp, 'peak_stats') and _bp.peak_stats.get('peak_detected', 0) > 0:
+            _ps = _bp.peak_stats
+            report_lines.append("")
+            report_lines.append(f"  PEAK DETECTION (buildup/sensor gate)")
+            report_lines.append(f"    Peak signals detected:     {_ps['peak_detected']:>9,}")
+            report_lines.append(f"    Blocked by no buildup:     {_ps['blocked_no_buildup']:>9,}")
+            report_lines.append(f"    Blocked by 1m sensor:      {_ps['blocked_1m_sensor']:>9,}")
+            report_lines.append(f"    Blocked by fake peak:      {_ps['blocked_fake_peak']:>9,}")
+            report_lines.append(f"    Blocked by cooldown:       {_ps['blocked_cooldown']:>9,}")
+            report_lines.append(f"    Peak entries created:      {_ps['peak_entered']:>9,}")
+            _total_blocked = _ps['blocked_no_buildup'] + _ps['blocked_1m_sensor'] + _ps['blocked_fake_peak']
+            if _ps['peak_detected'] > 0:
+                report_lines.append(f"    Filter rate:               {_total_blocked/_ps['peak_detected']*100:>8.1f}%")
+
+        # ── 2b1c. Trailing stop stats ──────────────────────────────────────────
+        if hasattr(_exit_eng, 'breakeven') and hasattr(_exit_eng.breakeven, 'trail_stats'):
+            _ts = _exit_eng.breakeven.trail_stats
+            if _ts['activations'] > 0:
+                report_lines.append("")
+                report_lines.append(f"  TRAILING STOP (sensor-adaptive)")
+                report_lines.append(f"    Activations (MFE >= 40t):  {_ts['activations']:>9,}")
+                report_lines.append(f"    Trail wide  (sensors OK):  {_ts['trail_wide']:>9,}")
+                report_lines.append(f"    Trail medium (neutral):    {_ts['trail_medium']:>9,}")
+                report_lines.append(f"    Trail tight (opposing):    {_ts['trail_tight']:>9,}")
 
         # ── 2b2. Candidate competition stats ─────────────────────────────────────
         _comp_total = _exec_engine.bars_with_competition + _exec_engine.bars_single_candidate
