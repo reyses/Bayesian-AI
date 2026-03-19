@@ -23,8 +23,8 @@
 | BB | Stacked Multi-TF Direction Model | **SUPERSEDED** | The 192D (12 TF x 16D) context is the multi-TF stack. Peak templates use delta + slope of this vector. CNN spec replaces stacked GBM with temporal conv on raw states. |
 | CC | E[PnL] Tick Prediction | **DONE** | Ran with 6 output files. Results in `reports/research/CC_epnl_prediction/`. Brain has `get_expected_pnl()`. Survival stop uses it. Calibration weak (cold start). Worth revisiting after CNN. |
 | DD | Auto-Level Detection | **BACKLOG** | Level proximity features not built. Spec exists at `docs/specs/LEVEL_DETECTOR_SPEC.md`. Could enhance peak context (is the peak at a known level?). |
-| EE | Stop Loss Optimization | **PARTIAL** | Script ran but only 1 output file. SL is PF 0.86 (757 trades, net loss). Needs completion: dynamic SL based on peak context. |
-| FF | Conviction Calibration | **PARTIAL** | Script ran but only 1 output file. Conviction threshold (0.48) is a rubber stamp (PFMEA RPN 160). Lower priority now -- direction comes from peak, not voter conviction. |
+| EE | Stop Loss Optimization | **DONE** | Full IS+OOS results. Fixed SL irrelevant (fires 0.5%). KEY: Breakeven lock at 2 ticks MFE = +40% PnL (IS $82K->$115K, OOS $22K->$31K). Current BE never fires (activation at ~5000 ticks). **ACTION: lower BE activation.** |
+| FF | Conviction Calibration | **DONE** | Full IS+OOS results. KILL: conviction does NOT predict winning (AUC 0.538 IS, 0.501 OOS -- random). Winner/loser conviction not significant (p=0.29). **ACTION: conviction gate is noise, can be removed or kept as rubber stamp.** |
 
 ## Active Specs (docs/Active/)
 
