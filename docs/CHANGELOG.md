@@ -2,6 +2,11 @@
 
 ---
 
+## [Auto-Update] - 2026-03-19
+
+- 2026-03-19 - fix: daily DD stop = day cannot go net negative from start
+
+
 ## [V6.0.0] - 2026-03-08 — Statistical Architecture Refactor & Unified Execution
 
 ### Architecture
