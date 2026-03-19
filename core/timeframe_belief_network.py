@@ -299,7 +299,7 @@ class TimeframeWorker:
             _band_lbl = 'center'
         else:
             _sign = '+' if _z_raw > 0 else '-'
-            _band_lbl = f'{_sign}{abs(_band_int)}\u03c3'
+            _band_lbl = f'{_sign}{abs(_band_int)}s'
         _band_ctx = BandContext(
             tf_seconds=self.tf_seconds, z_score=_z_raw, sigma=_sigma,
             center=_center, band=_band_int, band_position=_band_pos,
@@ -961,8 +961,8 @@ class TimeframeBeliefNetwork:
             direction = None
             strength = 0.0
 
-        arrow = ('\u2192 LONG' if direction == 'long'
-                 else ('\u2192 SHORT' if direction == 'short' else '\u2192 MIXED'))
+        arrow = ('-> LONG' if direction == 'long'
+                 else ('-> SHORT' if direction == 'short' else '-> MIXED'))
         summary = ' | '.join(summary_parts) + f' {arrow}'
 
         return {
