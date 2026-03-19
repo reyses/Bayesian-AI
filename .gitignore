@@ -40,5 +40,17 @@ tools/standalone_report.txt
 trade_replays/
 reports/*/trade_replays/
 
+# Large research CSVs (10MB+)
+reports/research/Z_fractal_dims/fractal_features*.csv
+reports/findings/peak_template_features.csv
+reports/findings/*_trajectories.csv
+
+# Large files near GitHub 50MB limit
+reports/is/fn_oracle_log.csv
+reports/is/signal_log.csv
+reports/is/signal_log_prev.csv
+tools/plots/standalone/1y/0d_regime_audit.png
+DATA/regime_seeds/auto_swing/auto_seeds_all_*.json
+
 # NT8 raw data exports
 DATA/nt8_exports/
