@@ -533,10 +533,9 @@ class Trainer:
         _all_day_dips = []          # list of (date, min_pnl) for every trading day
 
         # ── Daily drawdown stop (circuit breaker) ─────────────────────────
-        # Tracks day's starting cumulative PnL. If intraday PnL drops below
-        # start by more than threshold, stop trading. No auto-resume --
-        # requires human review (in training: logs and stops for the day).
-        DAILY_DRAWDOWN_THRESHOLD = 1000.0  # $1K max daily loss from day start
+        # Tracks day's starting cumulative PnL. If cumulative PnL drops BELOW
+        # the day's starting value, stop trading. The day cannot be net negative.
+        # No auto-resume -- requires human review.
         _daily_dd_stopped = False       # True when limit hit, reset each day
         _daily_dd_skipped = 0           # trades skipped due to daily DD stop
         _day_start_pnl = 0.0            # cumulative PnL at start of this day
@@ -1555,15 +1554,14 @@ class Trainer:
                     if current_position_open:
                         bars_slot_blocked += 1
 
-                # ── Daily drawdown stop: if day's PnL drops > threshold below start ──
+                # ── Daily drawdown stop: day cannot go net negative ──
                 _current_cumul = _day_start_pnl + _day_running_pnl
-                if not _daily_dd_stopped and _day_running_pnl <= -DAILY_DRAWDOWN_THRESHOLD:
+                if not _daily_dd_stopped and _day_running_pnl < 0:
                     _daily_dd_stopped = True
                     _daily_dd_skipped += 1
                     print(f"\n  [DAILY DD STOP] {day_date} | Day started at ${_day_start_pnl:,.2f}, "
                           f"now ${_current_cumul:,.2f} (down ${abs(_day_running_pnl):,.2f}). "
-                          f"Breached ${DAILY_DRAWDOWN_THRESHOLD:,.0f} threshold. "
-                          f"No more trades today -- requires review.", flush=True)
+                          f"Day went negative -- requires review.", flush=True)
 
                 # Unified entry gate  -- same for IS and OOS. No pattern_map.
                 _should_check_entry = (not current_position_open and not _in_maintenance
