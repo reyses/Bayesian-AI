@@ -531,6 +531,13 @@ class Trainer:
         _worst_intraday_dip = 0.0   # worst dip across ALL days (most negative)
         _worst_dip_date = ''        # which day had the worst dip
         _all_day_dips = []          # list of (date, min_pnl) for every trading day
+
+        # ── Daily drawdown stop (circuit breaker) ─────────────────────────
+        # If daily PnL drops below this threshold, stop trading for the day.
+        # Protects against crash days (Feb 9: -$8,869 → capped at -$1,000).
+        DAILY_DRAWDOWN_LIMIT = -1000.0  # $1K max daily loss
+        _daily_dd_stopped = False       # True when limit hit, reset each day
+        _daily_dd_skipped = 0           # trades skipped due to daily DD stop
         _cal_day_trades = []        # trades within current calendar day (per-day ledger)
         _prev_cal_date = ''         # readable date of previous calendar day
         _current_day = None         # unix day number for calendar-day boundary detection
@@ -1064,6 +1071,7 @@ class Trainer:
                     # Reset intraday PnL for min-equity dip tracking
                     _day_running_pnl = 0.0
                     _day_min_pnl = 0.0
+                    _daily_dd_stopped = False  # new day, new chance
                     _running_pnl = total_pnl + sum(t.pnl for t in day_trades)
                     _running_trades = total_trades + len(day_trades)
                     _running_wins = total_wins + sum(1 for t in day_trades if t.result == 'WIN')
@@ -1544,8 +1552,15 @@ class Trainer:
                     if current_position_open:
                         bars_slot_blocked += 1
 
+                # ── Daily drawdown stop: skip all entries if daily loss >= limit ──
+                if not _daily_dd_stopped and _day_running_pnl <= DAILY_DRAWDOWN_LIMIT:
+                    _daily_dd_stopped = True
+                    print(f"\n  [DAILY DD STOP] {day_date} | PnL=${_day_running_pnl:.2f} hit limit "
+                          f"(${DAILY_DRAWDOWN_LIMIT:.0f}). No more trades today.", flush=True)
+
                 # Unified entry gate  -- same for IS and OOS. No pattern_map.
                 _should_check_entry = (not current_position_open and not _in_maintenance
+                                       and not _daily_dd_stopped
                                        and (_has_compressed_signal or _has_peak_signal))
 
                 if _should_check_entry:
