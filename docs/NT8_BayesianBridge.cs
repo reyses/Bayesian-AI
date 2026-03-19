@@ -87,10 +87,11 @@ namespace NinjaTrader.NinjaScript.Indicators
         private readonly object _barLock = new object();
         private const int MAX_HISTORY = 100000;  // ~20MB, covers months of TFs 1-11
 
-        // DMI: use DMI.Value[0] = (DI+ - DI-) / (DI+ + DI-), range [-1, +1]
-        // We send this normalized value. Python side already has raw DI computation.
+        // DMI: Value = (DI+ - DI-) / (DI+ + DI-), range [-1, +1]
+        // ADX: Average Directional Index, range [0, 100]. <20 = chop, >25 = trend.
         private const int DMI_PERIOD = 14;
         private NinjaTrader.NinjaScript.Indicators.DMI[] _dmiInd;
+        private NinjaTrader.NinjaScript.Indicators.ADX[] _adxInd;
 
         // DOM throttle — send at most every N ms to avoid flooding
         private DateTime _lastDomSend = DateTime.MinValue;
@@ -173,12 +174,13 @@ namespace NinjaTrader.NinjaScript.Indicators
                     return;
                 }
 
-                // Initialize DMI indicators for each data series
-                // DMI.Value = (DI+ - DI-) / (DI+ + DI-), range [-1, +1]
+                // Initialize DMI + ADX indicators for each data series
                 _dmiInd = new NinjaTrader.NinjaScript.Indicators.DMI[_barLabels.Length];
+                _adxInd = new NinjaTrader.NinjaScript.Indicators.ADX[_barLabels.Length];
                 for (int i = 0; i < _barLabels.Length; i++)
                 {
                     _dmiInd[i] = DMI(Closes[i], DMI_PERIOD);
+                    _adxInd[i] = ADX(BarsArray[i], DMI_PERIOD);
                 }
 
                 // Subscribe to execution events
@@ -227,13 +229,18 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             // Build bar JSON for whichever TF just completed
             // Includes DMI+/DMI-/ADX from NT8 native indicators
-            // DMI value: (DI+ - DI-) / (DI+ + DI-), range [-1, +1]
-            // Positive = bullish trend, negative = bearish trend
-            double dmiVal = 0;
+            // DMI + ADX from NT8 native indicators
+            double dmiVal = 0, adxVal = 0;
             if (_dmiInd != null && idx < _dmiInd.Length && _dmiInd[idx] != null
                 && CurrentBars[idx] >= DMI_PERIOD)
             {
                 try { dmiVal = _dmiInd[idx].Value[1]; }
+                catch { }
+            }
+            if (_adxInd != null && idx < _adxInd.Length && _adxInd[idx] != null
+                && CurrentBars[idx] >= DMI_PERIOD)
+            {
+                try { adxVal = _adxInd[idx].Value[1]; }
                 catch { }
             }
 
@@ -248,7 +255,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                 + Q("low") + ":" + D2S(Lows[idx][1]) + ","
                 + Q("close") + ":" + D2S(Closes[idx][1]) + ","
                 + Q("volume") + ":" + D2S(Volumes[idx][1]) + ","
-                + Q("dmi") + ":" + D2S(dmiVal)
+                + Q("dmi") + ":" + D2S(dmiVal) + ","
+                + Q("adx") + ":" + D2S(adxVal)
                 + "}";
 
             // Buffer bars >= 5s for history dump (skip sub-5s — too many bars).
@@ -268,11 +276,17 @@ namespace NinjaTrader.NinjaScript.Indicators
             for (int hi = idx + 1; hi < _barPeriodSecs.Length; hi++)
             {
                 if (CurrentBars[hi] < 1) continue;
-                double hiDmi = 0;
+                double hiDmi = 0, hiAdx = 0;
                 if (_dmiInd != null && hi < _dmiInd.Length && _dmiInd[hi] != null
                     && CurrentBars[hi] >= DMI_PERIOD)
                 {
                     try { hiDmi = _dmiInd[hi].Value[0]; }
+                    catch { }
+                }
+                if (_adxInd != null && hi < _adxInd.Length && _adxInd[hi] != null
+                    && CurrentBars[hi] >= DMI_PERIOD)
+                {
+                    try { hiAdx = _adxInd[hi].Value[0]; }
                     catch { }
                 }
                 string partial = "{"
@@ -286,7 +300,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                     + Q("low") + ":" + D2S(Lows[hi][0]) + ","
                     + Q("close") + ":" + D2S(Closes[hi][0]) + ","
                     + Q("volume") + ":" + D2S(Volumes[hi][0]) + ","
-                    + Q("dmi") + ":" + D2S(hiDmi)
+                    + Q("dmi") + ":" + D2S(hiDmi) + ","
+                    + Q("adx") + ":" + D2S(hiAdx)
                     + "}";
                 SendRawJson(partial);
             }

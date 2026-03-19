@@ -26,7 +26,14 @@
 - **NT8 bridge versioning**: Always bump version + update date + time in both header comment
   and `BRIDGE_VERSION` const (e.g. `6.1.2 — 2026-03-04 06:15`)
 
-## **QUANTUM RECONNECTION — #1 PRIORITY (2026-03-15)**
+## **AUTO SEEDS + QUANTUM — NEXT PRIORITIES (2026-03-19)**
+- **READ FIRST**: `memory/project_auto_seeds_next.md` — 31K seeds as template library
+- **THEN**: Quantum reconnect as feature enrichment on seed context
+- ADX chop filter: `memory/project_adx_chop_filter.md` — biggest OOS improvement
+- Peak override FAILED: `memory/feedback_peak_override_failed.md` — do NOT re-enable
+- **Commit flow**: code first (commit+push), then reports/CSVs separately (commit+push)
+
+## **QUANTUM RECONNECTION (deprioritized, was #1 on 2026-03-15)**
 - **READ FIRST**: `memory/project_quantum_reconnect.md` — full context + action items
 - System is probabilistic by design (quantum model). Gates broke it. Reconnect wave function to scoring.
 - Wave function probs (prob0/1/2), tunnel_prob, coherence computed EVERY BAR but unused in scoring

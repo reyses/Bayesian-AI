@@ -290,7 +290,11 @@ class BarProcessor:
             return False
 
         # ── Layer 3: ADX regime check (chop filter) ──
-        _1m_adx = getattr(_ms, 'adx_strength', 0.0)
+        # Primary: NT8 ADX (injected by live engine from bridge).
+        # Fallback: computed adx_strength from MarketState.
+        _1m_adx = getattr(self, '_nt8_1m_adx', 0.0)
+        if _1m_adx < 0.01:
+            _1m_adx = getattr(_ms, 'adx_strength', 0.0)
         _ADX_CHOP_THRESHOLD = 15.0  # below this = market is chopping
         if _1m_adx < _ADX_CHOP_THRESHOLD:
             self.peak_stats['blocked_adx_chop'] = self.peak_stats.get('blocked_adx_chop', 0) + 1
