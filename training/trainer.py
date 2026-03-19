@@ -2213,6 +2213,8 @@ class Trainer:
             n_peak_reversal=n_peak_reversal,
             n_peak_traded=n_peak_traded,
             _NINJATRADER_MNQ_MARGIN=_NINJATRADER_MNQ_MARGIN,
+            _bp=_bp,
+            _exit_eng=_exit_eng,
         )
 
         # Persist exit engine for multi-iteration runs
@@ -2709,6 +2711,8 @@ class Trainer:
         _trade_replays=None,
         n_peak_reversal=0,
         n_peak_traded=0,
+        _bp=None,
+        _exit_eng=None,
     ):
         """Generate forward pass reports, save CSVs, run analytics, save snapshot."""
         # Final Report
