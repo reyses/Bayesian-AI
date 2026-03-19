@@ -533,11 +533,13 @@ class Trainer:
         _all_day_dips = []          # list of (date, min_pnl) for every trading day
 
         # ── Daily drawdown stop (circuit breaker) ─────────────────────────
-        # If daily PnL drops below this threshold, stop trading for the day.
-        # Protects against crash days (Feb 9: -$8,869 → capped at -$1,000).
-        DAILY_DRAWDOWN_LIMIT = -1000.0  # $1K max daily loss
+        # Tracks day's starting cumulative PnL. If intraday PnL drops below
+        # start by more than threshold, stop trading. No auto-resume --
+        # requires human review (in training: logs and stops for the day).
+        DAILY_DRAWDOWN_THRESHOLD = 1000.0  # $1K max daily loss from day start
         _daily_dd_stopped = False       # True when limit hit, reset each day
         _daily_dd_skipped = 0           # trades skipped due to daily DD stop
+        _day_start_pnl = 0.0            # cumulative PnL at start of this day
         _cal_day_trades = []        # trades within current calendar day (per-day ledger)
         _prev_cal_date = ''         # readable date of previous calendar day
         _current_day = None         # unix day number for calendar-day boundary detection
@@ -1073,6 +1075,7 @@ class Trainer:
                     _day_min_pnl = 0.0
                     _daily_dd_stopped = False  # new day, new chance
                     _running_pnl = total_pnl + sum(t.pnl for t in day_trades)
+                    _day_start_pnl = _running_pnl  # snapshot for DD check
                     _running_trades = total_trades + len(day_trades)
                     _running_wins = total_wins + sum(1 for t in day_trades if t.result == 'WIN')
                     _pbar.set_postfix_str(
@@ -1552,11 +1555,15 @@ class Trainer:
                     if current_position_open:
                         bars_slot_blocked += 1
 
-                # ── Daily drawdown stop: skip all entries if daily loss >= limit ──
-                if not _daily_dd_stopped and _day_running_pnl <= DAILY_DRAWDOWN_LIMIT:
+                # ── Daily drawdown stop: if day's PnL drops > threshold below start ──
+                _current_cumul = _day_start_pnl + _day_running_pnl
+                if not _daily_dd_stopped and _day_running_pnl <= -DAILY_DRAWDOWN_THRESHOLD:
                     _daily_dd_stopped = True
-                    print(f"\n  [DAILY DD STOP] {day_date} | PnL=${_day_running_pnl:.2f} hit limit "
-                          f"(${DAILY_DRAWDOWN_LIMIT:.0f}). No more trades today.", flush=True)
+                    _daily_dd_skipped += 1
+                    print(f"\n  [DAILY DD STOP] {day_date} | Day started at ${_day_start_pnl:,.2f}, "
+                          f"now ${_current_cumul:,.2f} (down ${abs(_day_running_pnl):,.2f}). "
+                          f"Breached ${DAILY_DRAWDOWN_THRESHOLD:,.0f} threshold. "
+                          f"No more trades today -- requires review.", flush=True)
 
                 # Unified entry gate  -- same for IS and OOS. No pattern_map.
                 _should_check_entry = (not current_position_open and not _in_maintenance
