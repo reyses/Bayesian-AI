@@ -1,5 +1,5 @@
 // =============================================================================
-// BayesianBridge 6.5.0 — 2026-03-09 18:00
+// BayesianBridge 6.6.0 -- 2026-03-19 15:30
 // =============================================================================
 // BayesianBridge — NinjaTrader 8 NinjaScript Indicator
 //
@@ -59,7 +59,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         public int DomLevels { get; set; }
 
         // ── Version ──────────────────────────────────────────────────
-        private const string BRIDGE_VERSION = "6.5.0";
+        private const string BRIDGE_VERSION = "6.6.0";
 
         // ── Internal State ────────────────────────────────────────────
         private TcpListener  _listener;
@@ -86,6 +86,10 @@ namespace NinjaTrader.NinjaScript.Indicators
         private readonly List<string> _allBars = new List<string>();
         private readonly object _barLock = new object();
         private const int MAX_HISTORY = 100000;  // ~20MB, covers months of TFs 1-11
+
+        // DMI/ADX indicators per series (for enriched bar data)
+        private const int DMI_PERIOD = 14;
+        private DMI[] _dmi;   // one per BarsInProgress series
 
         // DOM throttle — send at most every N ms to avoid flooding
         private DateTime _lastDomSend = DateTime.MinValue;
@@ -168,6 +172,13 @@ namespace NinjaTrader.NinjaScript.Indicators
                     return;
                 }
 
+                // Initialize DMI indicators for each data series
+                _dmi = new DMI[_barLabels.Length];
+                for (int i = 0; i < _barLabels.Length; i++)
+                {
+                    _dmi[i] = DMI(BarsArray[i], DMI_PERIOD);
+                }
+
                 // Subscribe to execution events
                 _account.OrderUpdate     += OnOrderUpdate;
                 _account.ExecutionUpdate += OnExecutionUpdate;
@@ -213,6 +224,20 @@ namespace NinjaTrader.NinjaScript.Indicators
                 return;
 
             // Build bar JSON for whichever TF just completed
+            // Includes DMI+/DMI-/ADX from NT8 native indicators
+            double diPlus = 0, diMinus = 0, adx = 0;
+            if (_dmi != null && idx < _dmi.Length && _dmi[idx] != null
+                && CurrentBars[idx] >= DMI_PERIOD)
+            {
+                try
+                {
+                    diPlus  = _dmi[idx].DiPlus[1];
+                    diMinus = _dmi[idx].DiMinus[1];
+                    adx     = _dmi[idx].ADX[1];
+                }
+                catch { }  // may not be computed yet
+            }
+
             string json = "{"
                 + Q("type") + ":" + Q("BAR") + ","
                 + Q("instrument") + ":" + Q(Instrument.FullName) + ","
@@ -223,7 +248,10 @@ namespace NinjaTrader.NinjaScript.Indicators
                 + Q("high") + ":" + D2S(Highs[idx][1]) + ","
                 + Q("low") + ":" + D2S(Lows[idx][1]) + ","
                 + Q("close") + ":" + D2S(Closes[idx][1]) + ","
-                + Q("volume") + ":" + D2S(Volumes[idx][1])
+                + Q("volume") + ":" + D2S(Volumes[idx][1]) + ","
+                + Q("dmi_plus") + ":" + D2S(diPlus) + ","
+                + Q("dmi_minus") + ":" + D2S(diMinus) + ","
+                + Q("adx") + ":" + D2S(adx)
                 + "}";
 
             // Buffer bars >= 5s for history dump (skip sub-5s — too many bars).
@@ -243,6 +271,13 @@ namespace NinjaTrader.NinjaScript.Indicators
             for (int hi = idx + 1; hi < _barPeriodSecs.Length; hi++)
             {
                 if (CurrentBars[hi] < 1) continue;
+                double hiDiP = 0, hiDiM = 0, hiAdx = 0;
+                if (_dmi != null && hi < _dmi.Length && _dmi[hi] != null
+                    && CurrentBars[hi] >= DMI_PERIOD)
+                {
+                    try { hiDiP = _dmi[hi].DiPlus[0]; hiDiM = _dmi[hi].DiMinus[0]; hiAdx = _dmi[hi].ADX[0]; }
+                    catch { }
+                }
                 string partial = "{"
                     + Q("type") + ":" + Q("PARTIAL_BAR") + ","
                     + Q("instrument") + ":" + Q(Instrument.FullName) + ","
@@ -253,7 +288,10 @@ namespace NinjaTrader.NinjaScript.Indicators
                     + Q("high") + ":" + D2S(Highs[hi][0]) + ","
                     + Q("low") + ":" + D2S(Lows[hi][0]) + ","
                     + Q("close") + ":" + D2S(Closes[hi][0]) + ","
-                    + Q("volume") + ":" + D2S(Volumes[hi][0])
+                    + Q("volume") + ":" + D2S(Volumes[hi][0]) + ","
+                    + Q("dmi_plus") + ":" + D2S(hiDiP) + ","
+                    + Q("dmi_minus") + ":" + D2S(hiDiM) + ","
+                    + Q("adx") + ":" + D2S(hiAdx)
                     + "}";
                 SendRawJson(partial);
             }
