@@ -79,7 +79,13 @@ class OrderManager:
 
     @property
     def is_flat(self) -> bool:
-        return self.position.qty == 0
+        if self.position.qty != 0:
+            return False
+        # Also check for pending entry orders (sent but not filled yet)
+        for rec in self._orders.values():
+            if rec.state == OrderState.PENDING:
+                return False
+        return True
 
     @property
     def daily_pnl(self) -> float:
