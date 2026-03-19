@@ -267,39 +267,34 @@ class BarProcessor:
         # Block if 2+ sensors oppose (strong institutional disagreement)
         if _n_against >= 2:
             self.peak_stats['blocked_1m_sensor'] += 1
+            _dir = 'LONG' if _peak_long else 'SHORT'
+            self._log_peak_skip(f"1m_sensor: {_dir} blocked ({_n_against}/3 sensors oppose: "
+                                f"dmi={'Y' if _dmi_against else 'N'} vol={'Y' if _vol_against else 'N'} "
+                                f"fm={'Y' if _fm_against else 'N'})")
             return False
 
         # ── Layer 2: peak context quality (research-backed thresholds) ──
-        # Top classifier features: volume and momentum at peak.
-        # Continuations (fake peaks): avg vol=14.9, still flowing.
-        # Reversals (real peaks): avg vol=0.6, exhausted.
-        # Use log-transformed values matching the classifier features.
-
         _peak_vol = abs(getattr(state, 'volume_delta', 0.0))
         _peak_fm_abs = abs(_fm)
         _log_vol = np.log1p(_peak_vol)
         _log_fm = np.log1p(_peak_fm_abs)
 
-        # High volume at peak = flow still active = fake peak.
-        # Threshold: log1p(14.9) = 2.77 (continuation avg).
-        # Be conservative: block only when clearly in continuation territory.
-        # Research: at P(reversal) >= 0.65, precision = 72.2%, blocks 35% fakes.
         _FAKE_VOLUME_THRESHOLD = 2.5    # log1p(~11) -- above this = likely fake
         _FAKE_FM_THRESHOLD = 3.0        # log1p(~19) -- momentum still building
 
         if _log_vol > _FAKE_VOLUME_THRESHOLD and _log_fm > _FAKE_FM_THRESHOLD:
-            # Both volume flowing AND momentum building = strong fake signal
             self.peak_stats['blocked_fake_peak'] += 1
+            self._log_peak_skip(f"fake_peak: vol={_peak_vol:.1f} fm={_peak_fm_abs:.1f} "
+                                f"(log_vol={_log_vol:.2f}>{_FAKE_VOLUME_THRESHOLD} "
+                                f"log_fm={_log_fm:.2f}>{_FAKE_FM_THRESHOLD})")
             return False
 
         # ── Layer 3: ADX regime check (chop filter) ──
-        # Low ADX = sideways/choppy market. Peaks in chop are noise, not reversals.
-        # High ADX = trending. Peaks in trends are real exhaustion points.
-        # Research: ADX < 20 at 1m = chop. Peaks in chop have <50% WR.
         _1m_adx = getattr(_ms, 'adx_strength', 0.0)
         _ADX_CHOP_THRESHOLD = 15.0  # below this = market is chopping
         if _1m_adx < _ADX_CHOP_THRESHOLD:
             self.peak_stats['blocked_adx_chop'] = self.peak_stats.get('blocked_adx_chop', 0) + 1
+            self._log_peak_skip(f"adx_chop: 1m ADX={_1m_adx:.1f} < {_ADX_CHOP_THRESHOLD} (choppy market)")
             return False
 
         return True
@@ -373,9 +368,21 @@ class BarProcessor:
                 # Check P_center shifting as fallback (center moving = regime change)
                 if _pc_shifting_bars < 3:
                     self.peak_stats['blocked_no_buildup'] += 1
+                    self._log_peak_skip(f"no_buildup: fm_decay={_fm_decaying_bars} "
+                                        f"fm_build={_fm_building_bars} pc_shift={_pc_shifting_bars} "
+                                        f"(need 3+ in any pattern)")
                     return False  # no pattern in buffer, likely noise
 
         return True
+
+    def _log_peak_skip(self, reason: str):
+        """Log peak skip reason to console (throttled: max 1/second)."""
+        import time as _t
+        _now = _t.monotonic()
+        if not hasattr(self, '_last_skip_log') or _now - self._last_skip_log > 1.0:
+            import logging
+            logging.getLogger('core.bar_processor').debug(f"[PEAK SKIP] {reason}")
+            self._last_skip_log = _now
 
     # ── Main Bar Processing ──────────────────────────────────────────
 
