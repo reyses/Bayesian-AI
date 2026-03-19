@@ -113,6 +113,16 @@ class BarProcessor:
         self._pc_delta_buffer = deque(maxlen=10)   # P_center bar-over-bar changes
         self._fm_delta_buffer = deque(maxlen=10)   # |F_momentum| bar-over-bar changes
 
+        # Observational counters for peak detection validation
+        self.peak_stats = {
+            'peak_detected': 0,         # instantaneous peak signal fired
+            'blocked_cooldown': 0,       # blocked by post-exit cooldown
+            'blocked_no_buildup': 0,     # blocked by buildup/exhaustion filter
+            'blocked_1m_sensor': 0,      # blocked by 1m sensor opposition
+            'blocked_fake_peak': 0,      # blocked by volume+momentum fake filter
+            'peak_entered': 0,           # made it through all gates -> candidate created
+        }
+
     # ── Feature Extraction (single source of truth) ──────────────────
 
     def _build_features(self, state) -> np.ndarray:
@@ -180,20 +190,27 @@ class BarProcessor:
         # The reversal IS the entry for the opposite direction.
         _in_cooldown = (hasattr(self, '_peak_cooldown_until')
                         and bar_index < self._peak_cooldown_until)
-        if not candidates and self._peak_detection_enabled and not _in_cooldown:
-            _peak_entry = self._detect_peak_reversal(state)
-            if _peak_entry and self._1m_confirms_peak(state):
-                _feat = self._build_features(state)
-                candidates.append(Candidate(
-                    state=state,
-                    depth=self._anchor_depth,
-                    timeframe=self._anchor_tf,
-                    timestamp=timestamp,
-                    pattern_type='PEAK_REVERSAL',
-                    z_score=_z,
-                    features=_feat,
-                    forced_template_id=-100,
-                ))
+        if not candidates and self._peak_detection_enabled:
+            if _in_cooldown:
+                self._detect_peak_reversal(state)  # update buffers
+                self.peak_stats['blocked_cooldown'] += 1
+            else:
+                _peak_entry = self._detect_peak_reversal(state)
+                if _peak_entry:
+                    self.peak_stats['peak_detected'] += 1
+                    if self._1m_confirms_peak(state):
+                        _feat = self._build_features(state)
+                        candidates.append(Candidate(
+                            state=state,
+                            depth=self._anchor_depth,
+                            timeframe=self._anchor_tf,
+                            timestamp=timestamp,
+                            pattern_type='PEAK_REVERSAL',
+                            z_score=_z,
+                            features=_feat,
+                            forced_template_id=-100,
+                        ))
+                        self.peak_stats['peak_entered'] += 1
         else:
             # Always update peak state even when not checking (same fix as IS path)
             self._detect_peak_reversal(state)  # updates _prev_P_center/_prev_F_momentum
@@ -248,6 +265,7 @@ class BarProcessor:
 
         # Block if 2+ sensors oppose (strong institutional disagreement)
         if _n_against >= 2:
+            self.peak_stats['blocked_1m_sensor'] += 1
             return False
 
         # ── Layer 2: peak context quality (research-backed thresholds) ──
@@ -270,6 +288,7 @@ class BarProcessor:
 
         if _log_vol > _FAKE_VOLUME_THRESHOLD and _log_fm > _FAKE_FM_THRESHOLD:
             # Both volume flowing AND momentum building = strong fake signal
+            self.peak_stats['blocked_fake_peak'] += 1
             return False
 
         return True
@@ -342,6 +361,7 @@ class BarProcessor:
             if not (_is_exhaustion or _is_buildup):
                 # Check P_center shifting as fallback (center moving = regime change)
                 if _pc_shifting_bars < 3:
+                    self.peak_stats['blocked_no_buildup'] += 1
                     return False  # no pattern in buffer, likely noise
 
         return True
