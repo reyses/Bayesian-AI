@@ -533,9 +533,11 @@ class Trainer:
         _all_day_dips = []          # list of (date, min_pnl) for every trading day
 
         # ── Daily drawdown stop (circuit breaker) ─────────────────────────
-        # Tracks day's starting cumulative PnL. If cumulative PnL drops BELOW
-        # the day's starting value, stop trading. The day cannot be net negative.
+        # Tracks day's starting cumulative PnL. If intraday loss exceeds
+        # $500 below day start, stop trading. Gives room for normal dips
+        # (worst intraday = -$96) while protecting against crashes.
         # No auto-resume -- requires human review.
+        DAILY_DD_BUFFER = 500.0         # $500 below day start = stop
         _daily_dd_stopped = False       # True when limit hit, reset each day
         _daily_dd_skipped = 0           # trades skipped due to daily DD stop
         _day_start_pnl = 0.0            # cumulative PnL at start of this day
@@ -1554,14 +1556,14 @@ class Trainer:
                     if current_position_open:
                         bars_slot_blocked += 1
 
-                # ── Daily drawdown stop: day cannot go net negative ──
+                # ── Daily drawdown stop: $500 buffer below day start ──
                 _current_cumul = _day_start_pnl + _day_running_pnl
-                if not _daily_dd_stopped and _day_running_pnl < 0:
+                if not _daily_dd_stopped and _day_running_pnl < -DAILY_DD_BUFFER:
                     _daily_dd_stopped = True
                     _daily_dd_skipped += 1
                     print(f"\n  [DAILY DD STOP] {day_date} | Day started at ${_day_start_pnl:,.2f}, "
                           f"now ${_current_cumul:,.2f} (down ${abs(_day_running_pnl):,.2f}). "
-                          f"Day went negative -- requires review.", flush=True)
+                          f"Breached ${DAILY_DD_BUFFER:,.0f} buffer -- requires review.", flush=True)
 
                 # Unified entry gate  -- same for IS and OOS. No pattern_map.
                 _should_check_entry = (not current_position_open and not _in_maintenance
