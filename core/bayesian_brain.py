@@ -184,7 +184,51 @@ class BayesianBrain:
         # 100 trades = full confidence (100%)
         # 30 trades = 30% confidence (minimum for validation)
         return min(total / 100.0, 1.0)
-    
+
+    def should_fire(self, state, min_prob: float = 0.80, min_conf: float = 0.30) -> bool:
+        """Fire trade only if win probability and confidence meet thresholds."""
+        return (self.get_probability(state) >= min_prob
+                and self.get_confidence(state) >= min_conf)
+
+    def get_dir_probability(self, state, direction: str):
+        """Direction-specific win rate. Returns None if < 3 samples."""
+        dir_key = (state, direction)
+        if dir_key not in self.dir_table:
+            return None
+        data = self.dir_table[dir_key]
+        if data['total'] < 3:
+            return None
+        return (data['wins'] + 1) / (data['total'] + 11)
+
+    def get_expected_pnl(self, tid, side: str):
+        """Average PnL per trade for (template, direction). None if < 3 obs."""
+        bias = self.get_dir_bias(tid)
+        if bias is None:
+            return None
+        key = side.lower()
+        n = bias.get(f'{key}_n', 0)
+        if n < 3:
+            return None
+        return bias.get(f'{key}_pnl', 0.0) / n
+
+    def get_stats(self, state) -> Dict:
+        """Get detailed statistics for a state."""
+        if state not in self.table:
+            return {'probability': 0.50, 'confidence': 0.0,
+                    'wins': 0, 'losses': 0, 'total': 0, 'sample_size': 0}
+        data = self.table[state]
+        return {
+            'probability': self.get_probability(state),
+            'confidence': self.get_confidence(state),
+            'wins': data['wins'], 'losses': data['losses'],
+            'total': data['total'], 'sample_size': data['total'],
+        }
+
+    def batch_update(self, outcomes: list):
+        """Batch update for bulk outcome recording (Monte Carlo)."""
+        for outcome in outcomes:
+            self.update(outcome)
+
     def save(self, filepath: str):
         """Persist probability table to disk"""
         save_data = {

@@ -139,7 +139,7 @@ class BarProcessor:
     # ── Candidate Building ───────────────────────────────────────────
 
     def _build_candidates(self, state, timestamp: float,
-                          yolo: bool = False) -> list:
+                          yolo: bool = False, bar_index: int = 0) -> list:
         """Build Candidate list from MarketState (compressed path).
 
         Two sources:
@@ -171,9 +171,11 @@ class BarProcessor:
         # Detects when a move just peaked: P_center rising + F_momentum collapsing.
         # Research: 83% detection rate, 85% precision, 0% false alarms.
         # The reversal IS the entry for the opposite direction.
-        if not candidates and self._peak_detection_enabled:
+        _in_cooldown = (hasattr(self, '_peak_cooldown_until')
+                        and bar_index < self._peak_cooldown_until)
+        if not candidates and self._peak_detection_enabled and not _in_cooldown:
             _peak_entry = self._detect_peak_reversal(state)
-            if _peak_entry:
+            if _peak_entry and self._1m_confirms_peak(state):
                 _feat = self._build_features(state)
                 candidates.append(Candidate(
                     state=state,
@@ -190,6 +192,80 @@ class BarProcessor:
             self._detect_peak_reversal(state)  # updates _prev_P_center/_prev_F_momentum
 
         return candidates
+
+    def _1m_confirms_peak(self, state) -> bool:
+        """Check if 1m sensors + approach context confirm peak is real.
+
+        Two-layer gate:
+        Layer 1 (sensor): 1m volume, DMI, F_momentum must not oppose the
+            proposed direction. Blocks LONG-into-crash / SHORT-into-rally.
+            Research (Feb 9): 183 LONG trades into selloff = -$8,593.
+        Layer 2 (context): top-3 classifier features from peak template
+            research (174K peaks, H-stats 2700-5800):
+            - Volume at peak: exhausted (real) vs flowing (fake)
+            - F_momentum at peak: decaying (real) vs building (fake)
+
+        Returns True if peak is confirmed, False to block entry.
+        """
+        import numpy as np
+
+        # Determine peak direction from F_momentum sign
+        _fm = getattr(state, 'F_momentum', 0.0)
+        _peak_long = _fm < 0  # old move was down -> reversal is up -> LONG
+
+        # ── Layer 1: 1m sensor opposition check ──
+        _1m_w = self.belief_network.workers.get(60)
+        if _1m_w is None:
+            return True  # no 1m data -> allow
+
+        _mi = _1m_w._last_tf_bar_idx
+        if _mi < 0 or not _1m_w._states or _mi >= len(_1m_w._states):
+            return True
+
+        _raw = _1m_w._states[_mi]
+        _ms = _raw['state'] if isinstance(_raw, dict) and 'state' in _raw else _raw
+
+        _1m_dmi_p = getattr(_ms, 'dmi_plus', 0.0)
+        _1m_dmi_m = getattr(_ms, 'dmi_minus', 0.0)
+        _1m_vol = getattr(_ms, 'volume_delta', 0.0)
+        _1m_fm = getattr(_ms, 'F_momentum', 0.0)
+
+        _trade_sign = 1.0 if _peak_long else -1.0
+
+        # Sensor opposition: how many 1m signals fight the proposed direction
+        _dmi_against = (_1m_dmi_p - _1m_dmi_m) * _trade_sign < -2.0
+        _vol_against = _1m_vol * _trade_sign < -0.5
+        _fm_against = _1m_fm * _trade_sign < -1.0
+
+        _n_against = sum([_dmi_against, _vol_against, _fm_against])
+
+        # Block if 2+ sensors oppose (strong institutional disagreement)
+        if _n_against >= 2:
+            return False
+
+        # ── Layer 2: peak context quality (research-backed thresholds) ──
+        # Top classifier features: volume and momentum at peak.
+        # Continuations (fake peaks): avg vol=14.9, still flowing.
+        # Reversals (real peaks): avg vol=0.6, exhausted.
+        # Use log-transformed values matching the classifier features.
+
+        _peak_vol = abs(getattr(state, 'volume_delta', 0.0))
+        _peak_fm_abs = abs(_fm)
+        _log_vol = np.log1p(_peak_vol)
+        _log_fm = np.log1p(_peak_fm_abs)
+
+        # High volume at peak = flow still active = fake peak.
+        # Threshold: log1p(14.9) = 2.77 (continuation avg).
+        # Be conservative: block only when clearly in continuation territory.
+        # Research: at P(reversal) >= 0.65, precision = 72.2%, blocks 35% fakes.
+        _FAKE_VOLUME_THRESHOLD = 2.5    # log1p(~11) -- above this = likely fake
+        _FAKE_FM_THRESHOLD = 3.0        # log1p(~19) -- momentum still building
+
+        if _log_vol > _FAKE_VOLUME_THRESHOLD and _log_fm > _FAKE_FM_THRESHOLD:
+            # Both volume flowing AND momentum building = strong fake signal
+            return False
+
+        return True
 
     def _detect_peak_reversal(self, state) -> bool:
         """Detect if the current bar shows a peak reversal.
@@ -269,7 +345,8 @@ class BarProcessor:
         if exit_only:
             return BarResult(action=TradeAction(type=ActionType.HOLD))
 
-        candidates = self._build_candidates(state, timestamp, yolo=yolo)
+        candidates = self._build_candidates(state, timestamp, yolo=yolo,
+                                             bar_index=bar_index)
         if not candidates:
             return BarResult(
                 action=TradeAction(type=ActionType.HOLD),
@@ -448,6 +525,11 @@ class BarProcessor:
                 _trade_mfe = (entry['entry_price'] - _pos.peak_favorable) / self._tick_size
             _cap = pnl_ticks / _trade_mfe if _trade_mfe > 0 else 0.0
             self.exit_engine.record_trade_outcome(_trade_mfe, pnl_ticks, _cap)
+
+        # Set peak cooldown to prevent re-entry on decaying peak
+        self._peak_cooldown_until = bar_index + self.exit_engine.peak_state.cooldown_until - bar_index
+        if hasattr(self.exit_engine.peak_state, 'cooldown_until'):
+            self._peak_cooldown_until = self.exit_engine.peak_state.cooldown_until
 
         # Stop TBN trade tracking
         self.belief_network.stop_trade_tracking()

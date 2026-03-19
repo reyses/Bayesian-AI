@@ -1410,6 +1410,39 @@ class TimeframeBeliefNetwork:
         # Volume collapse: 1m volume dropped >50% from previous bar
         _vol_collapsing = (_1m_vol_prev > 0 and _1m_vol < _1m_vol_prev * 0.5)
 
+        # ── Inverted entry sensors (directional, trade-aware) ──────────
+        # "Would the system enter against me right now?"
+        # 1s velocity against trade: fast turn detected
+        _trade_sign = 1.0 if side == 'long' else -1.0
+        _vel_1s_against = (_1s_vel * _trade_sign < 0) and abs(_1s_vel) > 0.5
+
+        # 1m volume against trade: institutional flow reversed
+        _vol_1m_against = (_1m_vol * _trade_sign < 0) and abs(_1m_vol) > 0.1
+
+        # 1m DMI against trade: direction structure flipped
+        _1m_di_plus, _1m_di_minus = 0.0, 0.0
+        if _1m_w is not None and _1m_w._states:
+            _mi = _1m_w._last_tf_bar_idx
+            if 0 <= _mi < len(_1m_w._states):
+                _raw = _1m_w._states[_mi]
+                _ms = _raw['state'] if isinstance(_raw, dict) and 'state' in _raw else _raw
+                _1m_di_plus = getattr(_ms, 'dmi_plus', 0.0)
+                _1m_di_minus = getattr(_ms, 'dmi_minus', 0.0)
+        _dmi_1m_against = (
+            (side == 'long' and _1m_di_minus > _1m_di_plus) or
+            (side == 'short' and _1m_di_plus > _1m_di_minus)
+        )
+
+        # 1m F_momentum against trade: institutional momentum reversed
+        _1m_fm = 0.0
+        if _1m_w is not None and _1m_w._states:
+            _mi = _1m_w._last_tf_bar_idx
+            if 0 <= _mi < len(_1m_w._states):
+                _raw = _1m_w._states[_mi]
+                _ms = _raw['state'] if isinstance(_raw, dict) and 'state' in _raw else _raw
+                _1m_fm = getattr(_ms, 'F_momentum', 0.0)
+        _fm_1m_against = (_1m_fm * _trade_sign < 0) and abs(_1m_fm) > 0.5
+
         return {
             'tighten_trail': tighten and not urgent,
             'widen_trail':   widen and not _time_tighten and not _band_tighten,
@@ -1431,6 +1464,11 @@ class TimeframeBeliefNetwork:
             # Sensor fusion: fast (1s) + slow (1m)
             'vel_flipped':     _vel_flipped,      # 1s velocity changed sign
             'vol_collapsing':  _vol_collapsing,    # 1m volume dropped >50%
+            # Inverted entry sensors (directional, against trade)
+            'vel_1s_against':  _vel_1s_against,    # 1s velocity against trade
+            'vol_1m_against':  _vol_1m_against,    # 1m volume against trade
+            'dmi_1m_against':  _dmi_1m_against,    # 1m DMI against trade
+            'fm_1m_against':   _fm_1m_against,     # 1m F_momentum against trade
         }
 
     def summary(self) -> str:

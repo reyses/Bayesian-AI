@@ -1,0 +1,27 @@
+================================================================================
+INVERTED ENTRY = EXIT SIGNAL
+When would the system enter the OPPOSITE direction during my trade?
+================================================================================
+
+  Seeds: 260
+  Full inverted signal (peak + vol + dmi + fm_1m): 154 (59%)
+  Partial (peak + 1 confirm): 232 (89%)
+
+  TIMING (% through trade):
+  Event                     |     Mean |   Median |      P25 |      P75
+  ------------------------- | -------- | -------- | -------- | --------
+  MFE (profit peak)         |    77.2% |    91.6% |    62.5% |   100.0%
+  Full inverted entry       |    20.8% |    11.8% |     3.2% |    27.4%
+  Partial inverted entry    |    14.6% |     5.1% |     1.8% |    16.7%
+
+  GAP: inverted signal vs MFE (bars):
+  Negative = fired BEFORE MFE (too early), Positive = fired AFTER MFE (gave back)
+  Full inverted vs MFE     : mean=-118.1  median=  -44  before=130  at=0  after=24
+  Partial vs MFE           : mean= -91.0  median=  -31  before=205  at=6  after=21
+
+  GAP: inverted signal vs actual exit (bars saved):
+  Full inverted -> exit: mean=151.8 bars earlier  median=63  P25=22  P75=187
+
+  PROFIT CAPTURED AT INVERTED SIGNAL:
+  Full inverted       : mean=-20.1%  median=-2.4%  P25=-18.2%  P75=7.3%
+  Partial             : mean=1.2%  median=0.0%  P25=-8.3%  P75=19.5%

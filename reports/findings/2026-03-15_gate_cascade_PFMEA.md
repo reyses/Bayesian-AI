@@ -240,3 +240,34 @@ amplifies this slow-TF dominance.
 5. **FN analysis on Hurst/tunnel/momentum gates** — are they blocking profitable signals?
 6. **Top-N competition** — evaluate top 3 candidates, not just winner
 7. **Conviction threshold sweep** — run at 0.50, 0.55, 0.60 and compare WR/PnL
+
+---
+
+## 8. AUDIT UPDATE (2026-03-18) -- Quality Filter + Peak Detection Changes
+
+### Hard Quality Filter on Templates
+- **Before**: 436 templates in valid_tids, exception_tids soft override allowed noise templates
+- **After**: Hard filter at checkpoint load: >=10 members, >=55% WR, <=10 tick sigma
+- **Result**: 176 templates pass, 260 rejected (60% of library was noise)
+- **Impact**: Gate 1 (template match) now matches against 176 centroids instead of 436
+- Gate 0a (Pattern Quality) block rate should decrease (quality checked at load, not gate)
+
+### Peak Detection Entry + Cooldown
+- Peak detection (template_id=-100) fires when P_center jumps + F_momentum collapses
+- NEW: 6-bar cooldown after peak_state_exit fires -- prevents re-entry stutter
+- Stutter was the #1 source of 1-bar trades (1,239 in OOS before fix)
+
+### Updated Gate Cascade Items
+
+| Orig RPN | New RPN | Gate | Change | Reason |
+|----------|---------|------|--------|--------|
+| 300 | **300** | Gate 2 (brain) | UNCHANGED | should_fire() restored but still needs investigation |
+| 648 | **648** | Competition | UNCHANGED | Score function still distance-based, no conviction |
+
+### New PFMEA Items (Gate Cascade)
+
+| # | Gate | Failure Mode | Effect | S | O | D | **RPN** | Status |
+|---|------|-------------|--------|---|---|---|---------|--------|
+| 16 | **Quality filter** | Threshold too strict (WR>=55%) | Rejects templates that are profitable in specific conditions (e.g., 50% WR but high $/trade) | 4 | 3 | 5 | **60** | MONITOR -- compare trade count + $/trade before/after |
+| 17 | **Peak cooldown** | Cooldown too long (6 bars) | Misses valid re-entry opportunity after genuine double-peak | 3 | 3 | 5 | **45** | LOW -- 6 bars = 1.5 min at 15s, reasonable |
+| 18 | **Peak detection** | Fires on fake peaks (volume still flowing) | Enters against trend on a pause, not a reversal | 6 | 5 | 6 | **180** | OPEN -- sensor fusion at entry would filter (see peak template spec) |

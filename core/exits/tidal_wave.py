@@ -34,8 +34,13 @@ class TidalWaveExit:
         self._micro_tf = config.fdmi_micro_tf    # fallback
 
     def evaluate(self, pos: PositionState, bar_close: float, tick_size: float,
-                 belief_network=None) -> Optional[ExitResult]:
-        """Check for adverse volatility expansion on discovery TF."""
+                 belief_network=None, exit_signal: dict = None) -> Optional[ExitResult]:
+        """Check for adverse volatility expansion on discovery TF.
+
+        Enriched with inverted-entry sensors: SE expansion alone is not enough.
+        Requires at least 1 sensor confirming the expansion is a real reversal,
+        not a resonance cascade building in the trade's favor.
+        """
         if belief_network is None:
             return None
 
@@ -90,6 +95,19 @@ class TidalWaveExit:
 
         if not _never_profitable and self._higher_tf_agrees(belief_network, _disc_tf, pos.side):
             return None  # macro supports  -- expansion may be cascade, hold
+
+        # Sensor enrichment: SE expansion alone is ambiguous.
+        # Require at least 1 inverted-entry sensor confirming the expansion
+        # is against the trade, not a cascade building in our favor.
+        if exit_signal is not None:
+            _n_sensors = sum([
+                exit_signal.get('vel_1s_against', False),
+                exit_signal.get('vol_1m_against', False),
+                exit_signal.get('dmi_1m_against', False),
+                exit_signal.get('fm_1m_against', False),
+            ])
+            if _n_sensors < 1:
+                return None  # SE expanded but no sensor confirms against us
 
         pnl_ticks = ((bar_close - pos.entry_price) / tick_size
                      if pos.side == 'long'
