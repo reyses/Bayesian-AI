@@ -1895,6 +1895,10 @@ class Trainer:
                                     _live_state, _belief, side,
                                     template_wr=lib_entry.get('win_rate', 0.5),
                                     norm_dist=_entry_action.dist if hasattr(_entry_action, 'dist') else 1.0),
+                                # ── PID trance + z-band observation (non-actionable) ──
+                                'entry_term_pid': round(float(getattr(_live_state, 'term_pid', 0.0)), 4) if _live_state else 0.0,
+                                'entry_z_band': round(float(getattr(_live_state, 'z_score', 0.0)), 2) if _live_state else 0.0,
+                                'entry_coherence': round(float(getattr(_live_state, 'oscillation_entropy_normalized', 0.0)), 4) if _live_state else 0.0,
                             }
 
                             # Signal log: traded record

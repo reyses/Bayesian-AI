@@ -50,6 +50,14 @@ class TrailingStop:
         self.trail_pct_short = trail_pct_short
         self.trail_pct_long = trail_pct_long
 
+        # Observational counters
+        self.trail_stats = {
+            'activations': 0,
+            'trail_wide': 0,
+            'trail_medium': 0,
+            'trail_tight': 0,
+        }
+
     def apply(self, pos: PositionState, tick_size: float,
               exit_signal: dict = None) -> None:
         """Adjust pos.stop_loss in-place based on MFE + sensor state.
@@ -76,9 +84,12 @@ class TrailingStop:
         if mfe_ticks < _activation:
             return
 
+        self.trail_stats['activations'] += 1
+
         # ── Sensor-driven trail percentage ──
         # Default: medium trail
         trail_pct = self.trail_pct_long if pos.side == 'long' else self.trail_pct_short
+        _trail_mode = 'medium'
 
         if exit_signal is not None:
             # Count sensors opposing trade direction
@@ -90,12 +101,13 @@ class TrailingStop:
             ])
 
             if _n_against >= 2:
-                # Multiple sensors opposing -> tighten aggressively
                 trail_pct = TRAIL_PCT_TIGHT
+                _trail_mode = 'tight'
             elif _n_against == 0 and pos.dmi_direction_confirmed:
-                # All sensors aligned + DMI confirmed -> wide trail, let it run
                 trail_pct = TRAIL_PCT_WIDE
-            # else: 1 sensor opposing or no DMI confirmation -> medium (default)
+                _trail_mode = 'wide'
+
+        self.trail_stats[f'trail_{_trail_mode}'] += 1
 
         # ── Compute trail and ratchet SL ──
         trail_ticks = max(self.buffer_ticks, mfe_ticks * trail_pct)
