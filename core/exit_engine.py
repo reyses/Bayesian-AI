@@ -484,62 +484,14 @@ class ExitEngine:
             _peak_ticks = (pos.entry_price - pos.peak_favorable) / ts
         _never_profitable = _peak_ticks < 2.0 and pos.bars_held >= 4
 
-        # === PEAK OVERRIDE FRAMEWORK ===
-        # For peak trades: the cascade runs, but peak detection can override exits.
-        # If peak still agrees with trade direction, suppress the exit and log it.
-        # Hard safety SL (2x template SL) CANNOT be overridden.
-        #
-        # Non-peak trades: cascade runs normally, no override.
-        _peak_agrees = False
-        if pos.is_peak_trade and exit_signal is not None:
-            # Peak agrees if sensors are NOT against the trade direction.
-            # Uses the inverted-entry booleans from TBN exit_signal.
-            _vel_against = exit_signal.get('vel_1s_against', False)
-            _vol_against = exit_signal.get('vol_1m_against', False)
-            _fm_against = exit_signal.get('fm_1m_against', False)
-            # Peak agrees when fewer than 2 of 3 sensors oppose the trade
-            _opposing = sum([_vel_against, _vol_against, _fm_against])
-            _peak_agrees = _opposing < 2
-
-        # Hard safety SL: 2x template SL -- peak CANNOT override this
-        HARD_SAFETY_MULT = 2.0
-        _hard_sl_ticks = pos.sl_ticks * HARD_SAFETY_MULT if pos.sl_ticks > 0 else 200.0
-        if pos.side == 'long':
-            _adverse_ticks = (pos.entry_price - worst_price) / ts
-        else:
-            _adverse_ticks = (worst_price - pos.entry_price) / ts
-        _hard_sl_hit = _adverse_ticks >= _hard_sl_ticks
-
-        # Initialize peak_overrides list on first evaluate
-        if pos.peak_overrides is None:
-            pos.peak_overrides = []
-
-        def _check_exit(result):
-            """If peak agrees with trade, suppress exit and log it. Otherwise return it."""
-            if result is None:
-                return None
-            if result.action == ExitAction.HOLD:
-                return result
-            # Hard safety SL: never override
-            if _hard_sl_hit:
-                return result
-            # Non-peak trades: no override
-            if not pos.is_peak_trade:
-                return result
-            # Peak disagrees or neutral: let exit proceed
-            if not _peak_agrees:
-                return result
-            # Peak agrees: suppress exit, log it
-            pos.peak_overrides.append((
-                current_bar_index,
-                result.action.value,
-                result.reason,
-            ))
-            return None  # suppress -- continue cascade
+        # === PEAK OVERRIDE: DISABLED (reverted) ===
+        # Peak override held losers too long, driving PF below 1.0.
+        # Exits fire normally. ADX chop filter on entry handles noise instead.
+        # pos.peak_overrides still tracked for observational logging.
 
         # === PROFIT PROTECTION (giveback first  -- if trade peaked, protect it) ===
 
-        # 1. Peak Giveback  -- catches trades that peaked and are reversing.
+        # 1. Peak Giveback
         if not _in_hold_period:
             _shape_params = None
             if (self._exit_primitives is not None
@@ -550,58 +502,55 @@ class ExitEngine:
                 _shape_params = pos.template_shape_params
             r = self.giveback.evaluate(pos, bar_close, ts, exit_signal, noise_ticks,
                                        shape_params=_shape_params)
-            r = _check_exit(r)
             if r: return r
 
         # === INVERTED ENTRY EXIT (would the system enter against me?) ===
-        # This exit means peak detection DISAGREES -- don't override it.
         if not _in_hold_period:
             r = self.peak_state.evaluate(
                 pos, bar_close, ts, current_bar_index, exit_signal)
-            if r:
-                return r  # peak_state_exit is never overridden (it IS peak saying "done")
+            if r: return r
 
         # === STRUCTURAL EXITS (thesis invalidation) ===
 
         # 2. Death Hook (Liquidity Absorption)
         if not _in_hold_period:
-            r = _check_exit(self.fractal_exhaust.evaluate(pos, bar_close, ts, belief_network))
+            r = self.fractal_exhaust.evaluate(pos, bar_close, ts, belief_network)
             if r: return r
 
         # 3. Regime Decay
         if not _in_hold_period or _strong_dmi_reversal:
-            r = _check_exit(self.regime_decay.evaluate(pos, bar_close, ts, belief_network))
+            r = self.regime_decay.evaluate(pos, bar_close, ts, belief_network)
             if r: return r
 
         # 4. Survival Stop
         if not _in_hold_period:
-            r = _check_exit(self.survival_stop.evaluate(pos, bar_close, ts, belief_network))
+            r = self.survival_stop.evaluate(pos, bar_close, ts, belief_network)
             if r: return r
 
         # 5. Tidal Wave
         if not _in_hold_period:
-            r = _check_exit(self.tidal_wave.evaluate(pos, bar_close, ts, belief_network, exit_signal))
+            r = self.tidal_wave.evaluate(pos, bar_close, ts, belief_network, exit_signal)
             if r: return r
 
         # === STANDARD EXITS ===
 
-        # 5. Stop Loss  -- peak can override regular SL (hard safety SL cannot)
-        r = _check_exit(self.stop_loss.evaluate(pos, worst_price, ts))
+        # 5. Stop Loss  -- ALWAYS allowed (capital protection)
+        r = self.stop_loss.evaluate(pos, worst_price, ts)
         if r: return r
 
         # 6. Take Profit
         if not _in_hold_period:
-            r = _check_exit(self.take_profit.evaluate(pos, best_price, ts))
+            r = self.take_profit.evaluate(pos, best_price, ts)
             if r: return r
 
         # 7. Watchdog
         if not _in_hold_period:
-            r = _check_exit(self.watchdog.evaluate(pos, bar_close, ts, exit_signal))
+            r = self.watchdog.evaluate(pos, bar_close, ts, exit_signal)
             if r: return r
 
         # 8. Band Urgent
         if not _in_hold_period:
-            r = _check_exit(self.band_exit.evaluate(pos, bar_close, ts, band_context))
+            r = self.band_exit.evaluate(pos, bar_close, ts, band_context)
             if r: return r
 
         # 9. Trailing stop (adjusts SL in-place, ratchets behind peak)
@@ -617,7 +566,7 @@ class ExitEngine:
                 _mfe = ((pos.peak_favorable - pos.entry_price) / ts
                         if pos.side == 'long'
                         else (pos.entry_price - pos.peak_favorable) / ts)
-                r = _check_exit(ExitResult(
+                return ExitResult(
                     action=ExitAction.V_REVERSAL,
                     exit_price=bar_close,
                     reason=f"V-reversal: {pos.bars_since_peak} bars off peak "
@@ -625,20 +574,19 @@ class ExitEngine:
                     pnl_ticks=_pnl_ticks,
                     bars_held=pos.bars_held,
                     trail_level=pos.stop_loss,
-                ))
-                if r: return r
+                )
 
         # 10. Envelope Decay
         if not _in_hold_period:
-            r = _check_exit(self.envelope.evaluate(pos, bar_close, ts, net_force, band_context,
-                                       noise_ticks))
+            r = self.envelope.evaluate(pos, bar_close, ts, net_force, band_context,
+                                       noise_ticks)
             if r: return r
 
         # 11. (Giveback moved to position #1)
 
         # 12. Belief Flip
         if not _in_hold_period or _strong_dmi_reversal:
-            r = _check_exit(self.belief_flip.evaluate(pos, bar_close, ts, exit_signal))
+            r = self.belief_flip.evaluate(pos, bar_close, ts, exit_signal)
             if r: return r
 
         # 13. HOLD
