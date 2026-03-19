@@ -547,7 +547,8 @@ class ExitEngine:
             if r: return r
 
         # 9. Trailing stop (adjusts SL in-place, ratchets behind peak)
-        self.breakeven.apply(pos, ts)
+        #    Sensor-adaptive: wide trail when confirmed, tight when opposing
+        self.breakeven.apply(pos, ts, exit_signal=exit_signal)
 
         # 9b. V-reversal exit: 4 bars without new peak + in profit = cycle reversed
         #     Active during min-hold too  -- 8-min cycle confirmed from human seeds

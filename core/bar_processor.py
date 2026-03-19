@@ -106,6 +106,13 @@ class BarProcessor:
         self._prev_P_center = 0.0
         self._prev_F_momentum = 0.0
 
+        # 10-bar buildup buffer: tracks P_center deltas and F_momentum deltas
+        # over a 10-bar window (10 min at 1m). A real reversal builds over
+        # multiple bars. A fake peak is a single-bar spike.
+        from collections import deque
+        self._pc_delta_buffer = deque(maxlen=10)   # P_center bar-over-bar changes
+        self._fm_delta_buffer = deque(maxlen=10)   # |F_momentum| bar-over-bar changes
+
     # ── Feature Extraction (single source of truth) ──────────────────
 
     def _build_features(self, state) -> np.ndarray:
@@ -268,36 +275,76 @@ class BarProcessor:
         return True
 
     def _detect_peak_reversal(self, state) -> bool:
-        """Detect if the current bar shows a peak reversal.
+        """Detect if the current bar shows a peak reversal with buildup.
 
-        Checks: P_center increased + F_momentum collapsed from previous bar.
-        Uses stored previous-bar state for comparison.
+        Two checks:
+        1. Instantaneous: P_center increased + F_momentum collapsed (same as before)
+        2. Buildup: the reversal has been building over multiple bars (decision funnel)
 
-        Returns True if peak reversal detected (entry signal for opposite direction).
+        The 10-bar buffer tracks P_center and F_momentum deltas. A real reversal
+        shows consistent buildup (P_center rising for 3+ of last 10 bars AND
+        F_momentum decaying for 3+ bars). A fake peak is a single-bar spike.
+
+        Returns True if peak reversal detected with sufficient buildup.
         """
         _pc = getattr(state, 'P_at_center', 0.0)
         _fm = abs(getattr(state, 'F_momentum', 0.0))
         _coherence = getattr(state, 'oscillation_entropy_normalized', 0.0)
-        _entropy = getattr(state, 'entropy_normalized', 0.5)
 
         # Compare with previous bar
         _prev_pc = getattr(self, '_prev_P_center', _pc)
         _prev_fm = getattr(self, '_prev_F_momentum', _fm)
 
+        # Compute deltas and update buffers
+        _pc_delta = (_pc - _prev_pc) / max(abs(_prev_pc), 1e-6) if _prev_pc > 0.01 else 0.0
+        _fm_delta = (_fm - _prev_fm) / max(abs(_prev_fm), 1e-6) if _prev_fm > 0.5 else 0.0
+        self._pc_delta_buffer.append(_pc_delta)
+        self._fm_delta_buffer.append(_fm_delta)
+
         # Update for next bar
         self._prev_P_center = _pc
         self._prev_F_momentum = _fm
 
-        # Detection criteria (from research):
-        # P_center increased >5% AND |F_momentum| decreased >10%
-        _pc_up = _pc > _prev_pc * 1.05 if _prev_pc > 0.01 else False
-        _fm_down = _fm < _prev_fm * 0.90 if _prev_fm > 0.5 else False
+        # ── Check 1: Instantaneous signal (same as before) ──
+        _pc_up = _pc_delta > 0.05       # P_center rose >5%
+        _fm_down = _fm_delta < -0.10    # |F_momentum| fell >10%
 
-        # Require at least one signal + minimum coherence (OOS validated)
-        if (_pc_up or _fm_down) and _coherence > 0.55:
-            return True
+        if not ((_pc_up or _fm_down) and _coherence > 0.55):
+            return False  # no instantaneous signal
 
-        return False
+        # ── Check 2: Buildup OR Exhaustion (decision funnel, simplified) ──
+        # Two valid reversal patterns in the 10-bar window:
+        #
+        # BUILDUP: momentum was growing, now suddenly collapses at the peak.
+        #   F_momentum was INCREASING (positive deltas) then drops on this bar.
+        #   The move built to a climax and broke.
+        #
+        # EXHAUSTION: momentum has been dying gradually over several bars.
+        #   F_momentum DECREASING (negative deltas) for 3+ bars.
+        #   P_center shifting as the center of gravity moves.
+        #   The move ran out of energy.
+        #
+        # FAKE PEAK: neither pattern. Single-bar noise spike with no history.
+        #   0-1 bars of consistent direction in the buffer.
+        #
+        if len(self._pc_delta_buffer) >= 3:
+            _fm_decaying_bars = sum(1 for d in self._fm_delta_buffer if d < -0.01)
+            _fm_building_bars = sum(1 for d in self._fm_delta_buffer if d > 0.01)
+            _pc_shifting_bars = sum(1 for d in self._pc_delta_buffer if abs(d) > 0.01)
+
+            # Exhaustion: momentum fading for 3+ bars
+            _is_exhaustion = _fm_decaying_bars >= 3
+
+            # Buildup: momentum was building (3+ bars growing), now collapsed
+            _is_buildup = _fm_building_bars >= 3 and _fm_down
+
+            # Either pattern is valid. Neither = fake spike.
+            if not (_is_exhaustion or _is_buildup):
+                # Check P_center shifting as fallback (center moving = regime change)
+                if _pc_shifting_bars < 3:
+                    return False  # no pattern in buffer, likely noise
+
+        return True
 
     # ── Main Bar Processing ──────────────────────────────────────────
 
