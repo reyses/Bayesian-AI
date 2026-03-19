@@ -593,7 +593,14 @@ class LiveEngine:
                 'low':       float(msg['low']),
                 'close':     float(msg['close']),
                 'volume':    float(msg.get('volume', 0)),
+                'dmi':       float(msg.get('dmi', 0)),
+                'adx':       float(msg.get('adx', 0)),
             })
+
+        # Store latest NT8 ADX per TF for peak detection chop filter
+        _nt8_adx = float(msg.get('adx', 0))
+        if _nt8_adx > 0 and bar_period == 60:  # 1m ADX for chop filter
+            self._nt8_1m_adx = _nt8_adx
 
         # Only feed primary chart bars and anchor-TF bars to the aggregator
         if bar_period != self._primary_period and bar_period != self._anchor_period:
@@ -734,6 +741,10 @@ class LiveEngine:
         state = states[-1]['state'] if states else None
         if state is None:
             return
+
+        # ── Inject NT8 ADX into BarProcessor for chop filter ──
+        if hasattr(self, '_nt8_1m_adx'):
+            self._processor._nt8_1m_adx = self._nt8_1m_adx
 
         # ── UNIFIED: BarProcessor handles BOTH entry and exit ──
         result = self._processor.process_bar(
