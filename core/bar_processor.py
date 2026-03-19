@@ -54,10 +54,11 @@ class BarProcessorHooks:
                     Returns extra kwargs for exec_engine.on_bar() during exit
                     (sub_bar_highs, sub_bar_lows, net_force, noise_ticks, etc.)
     """
-    on_entry: Optional[Callable] = None
-    on_exit: Optional[Callable] = None
-    modify_pnl: Optional[Callable] = None
-    pre_exit_eval: Optional[Callable] = None
+    on_entry: Optional[Callable] = None       # (action, bar_index) -> bool|None
+    on_exit: Optional[Callable] = None        # (trade_dict, outcome) -> None
+    on_bar: Optional[Callable] = None         # (bar_index, price, state, result) -> None
+    modify_pnl: Optional[Callable] = None     # (pnl_dollars) -> float
+    pre_exit_eval: Optional[Callable] = None  # (price, bar_index) -> dict
 
 
 class BarProcessor:
