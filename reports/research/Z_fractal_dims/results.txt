@@ -1,0 +1,149 @@
+========================================================================
+FRACTAL DIMENSION RESEARCH -- Peak Outcome Classification
+Shi 2018: box, katz, higuchi, petrosian, sevcik
+========================================================================
+
+Dataset: 174,085 peaks with valid 10-bar approach segments
+Existing features: 55D
+Fractal features: 5D
+Combined: 60D
+
+Outcome distribution:
+  continuation: 51,633 (29.7%)
+  plateau: 2,509 (1.4%)
+  reversal: 119,943 (68.9%)
+
+────────────────────────────────────────────────────────────────────────
+FRACTAL DIMENSION SUMMARY STATISTICS
+────────────────────────────────────────────────────────────────────────
+  frac_box            : mean=1.0000  std=0.0000  min=1.0000  max=1.0000
+  frac_katz           : mean=1.9217  std=1.7240  min=-317.4977  max=196.6496
+  frac_higuchi        : mean=1.0656  std=0.1303  min=1.0000  max=2.0000
+  frac_petrosian      : mean=1.0662  std=0.0248  min=1.0000  max=1.1371
+  frac_sevcik         : mean=1.2977  std=0.0817  min=1.1229  max=1.6323
+
+════════════════════════════════════════════════════════════════════════
+TEST A: 5 Fractal Dims Only -> 3-Class RF (TimeSeriesSplit, 5 folds)
+════════════════════════════════════════════════════════════════════════
+
+  Per-fold accuracy: ['0.7278', '0.6831', '0.6491', '0.7030', '0.6831']
+  Mean accuracy:  0.6892 +/- 0.0259
+
+  Confusion matrix (rows=true, cols=pred):
+  Classes: ['continuation', 'plateau', 'reversal']
+    continuation   : [    1     0 43016]
+    plateau        : [   0    0 2067]
+    reversal       : [    3     0 99983]
+
+════════════════════════════════════════════════════════════════════════
+TEST B: 54D vs 59D (54D + 5 Fractal) -> 3-Class RF
+════════════════════════════════════════════════════════════════════════
+
+  Training 54D baseline...
+  54D accuracy: 0.6892 +/- 0.0259
+
+  Training 59D (54D + fractal)...
+  59D accuracy: 0.6892 +/- 0.0259
+
+  Delta (59D - 54D): +0.0000 (+0.00 pp)
+
+════════════════════════════════════════════════════════════════════════
+TEST C: Binary Classification (reversal vs not)
+════════════════════════════════════════════════════════════════════════
+
+  Reversal: 119,943 (68.9%)  Not: 54,142
+
+  --- 54D baseline ---
+  Accuracy: 0.6892 +/- 0.0259
+   Threshold   Precision   N_predicted
+        0.50      0.6892       145,070
+        0.55      0.6902       144,286
+        0.60      0.7008       133,135
+        0.65      0.7215       106,890
+        0.70      0.7469        67,089
+        0.75      0.7722        22,699
+        0.80      0.7655         1,629
+        0.85      0.0000             0
+        0.90      0.0000             0
+
+  --- 59D (54D + fractal) ---
+  Accuracy: 0.6892 +/- 0.0259
+   Threshold   Precision   N_predicted
+        0.50      0.6892       145,069
+        0.55      0.6901       144,322
+        0.60      0.7007       133,338
+        0.65      0.7220       107,198
+        0.70      0.7475        66,777
+        0.75      0.7721        22,320
+        0.80      0.7894         1,111
+        0.85      1.0000             1
+        0.90      0.0000             0
+
+════════════════════════════════════════════════════════════════════════
+TEST D: Feature Importance -- Top 20 from 59D RF
+════════════════════════════════════════════════════════════════════════
+
+  Rank                         Feature    Importance
+  ────  ──────────────────────────────  ────────────
+     1                 geom_norm_range      0.141757
+     2              peak_log_vol_delta      0.099467
+     3                     peak_log_fm      0.058183
+     4                    peak_bar_idx      0.040525
+     5             delta_log_vol_delta      0.027809
+     6             slope_log_vol_delta      0.024707
+     7                 peak_pid_output      0.024337
+     8                     frac_sevcik      0.023197 <-- FRACTAL
+     9                  slope_dmi_diff      0.023149
+    10                   peak_dmi_diff      0.022327
+    11                        peak_adx      0.022076
+    12                    delta_log_fm      0.021793
+    13                  delta_dmi_diff      0.021783
+    14                      geom_slope      0.021603
+    15                       frac_katz      0.021586 <-- FRACTAL
+    16                      peak_hurst      0.021233
+    17                delta_pid_output      0.021216
+    18                slope_pid_output      0.021067
+    19                 geom_efficiency      0.021028
+    20                    slope_log_fm      0.020893
+
+  Fractal dimension rankings:
+    frac_box            : rank  60 / 60, importance 0.000000
+    frac_katz           : rank  15 / 60, importance 0.021586
+    frac_higuchi        : rank  36 / 60, importance 0.009221
+    frac_petrosian      : rank  37 / 60, importance 0.005923
+    frac_sevcik         : rank   8 / 60, importance 0.023197
+
+════════════════════════════════════════════════════════════════════════
+TEST E: Kruskal-Wallis H-statistic (3 outcome groups)
+════════════════════════════════════════════════════════════════════════
+
+  Reference benchmarks from existing features:
+    geom_norm_range:    H = 5802
+    peak_log_vol_delta: H = 4244
+
+               Feature      H-stat       p-value     Verdict
+  ────────────────────  ──────────  ────────────  ──────────
+              frac_box         N/A           N/A  DEGENERATE
+             frac_katz        51.4      6.74e-12        WEAK
+          frac_higuchi        40.0      2.09e-09        WEAK
+        frac_petrosian         0.9      6.23e-01        WEAK
+           frac_sevcik        94.3      3.38e-21        WEAK
+
+  Top existing features (for comparison):
+       geom_norm_range      5802.1      0.00e+00
+    peak_log_vol_delta      4243.6      0.00e+00
+            geom_slope        22.6      1.25e-05
+        geom_curvature         3.4      1.82e-01
+       geom_efficiency        55.7      8.21e-13
+
+════════════════════════════════════════════════════════════════════════
+GATE DECISION
+════════════════════════════════════════════════════════════════════════
+
+  Fractal-only accuracy:  0.6892 (threshold: >0.85 for promote)
+  59D vs 54D delta:      +0.0000 (threshold: >=1pp for promote)
+  54D accuracy:          0.6892
+  59D accuracy:          0.6892
+
+  >>> VERDICT: KILL -- fractal dims do not help <<<
+      Reason: fractal-only accuracy 0.6892 < 0.70 AND delta 0.00pp < 0.5pp
