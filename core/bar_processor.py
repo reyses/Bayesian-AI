@@ -376,12 +376,12 @@ class BarProcessor:
         return True
 
     def _log_peak_skip(self, reason: str):
-        """Log peak skip reason to console (throttled: max 1/second)."""
+        """Log peak skip reason to console + logger (throttled: max 1/second)."""
         import time as _t
         _now = _t.monotonic()
         if not hasattr(self, '_last_skip_log') or _now - self._last_skip_log > 1.0:
             import logging
-            logging.getLogger('core.bar_processor').debug(f"[PEAK SKIP] {reason}")
+            logging.getLogger('core.bar_processor').info(f"[PEAK SKIP] {reason}")
             self._last_skip_log = _now
 
     # ── Main Bar Processing ──────────────────────────────────────────
