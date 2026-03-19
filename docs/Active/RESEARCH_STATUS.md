@@ -14,17 +14,17 @@
 
 | ID | Title | Status | Notes |
 |----|-------|--------|-------|
-| V | Trajectory k-NN Extrapolation | **SUPERSEDED** | Peak detection + CNN approach replaces k-NN trajectory prediction. Peak template research (174K peaks, 54D features) is the new trajectory analysis. |
-| W | Partial Bar Robustness | **BACKLOG** | Still valid. Workers only update on bar close. Fix: blend completed + forming bar. In roadmap as "Partial Bar Aggregation." |
+| V | Trajectory k-NN Extrapolation | **DONE** | Ran with 22 output files. Superseded by peak detection + CNN approach. Results in `reports/research/V_trajectory_knn/`. |
+| W | Partial Bar Robustness | **DONE** | Ran with 10 output files. Results in `reports/research/W_partial_bar_u/`. Findings still relevant -- workers stale during bar formation. Fix in roadmap as "Partial Bar Aggregation." |
 | X | Counter-Trend Scale Analysis | **SUPERSEDED** | Feb 9 deep dive + direction bias analysis covered this. Counter-trend LONGs are the problem -- entry sensor gate fixes the worst cases. |
 | Y | Regime-Conditional k-NN | **SUPERSEDED** | Peak template classifier does regime-conditional entry. 3-outcome classification (reversal/plateau/continuation) replaces k-NN regime detection. |
-| Z | Fractal Dimension Features (Shi 2018) | **BACKLOG** | Not started. Hurst exponent already in 16D features. Fractal dims could add discriminative power but lower priority than CNN. |
+| Z | Fractal Dimension Features (Shi 2018) | **NOT RUN** | Never started. Hurst exponent already in 16D features. Fractal dims could add discriminative power but lower priority than CNN. |
 | AA | Seed Shape Direction Signal | **DONE** | Human seed analysis completed (2026-03-18). 6D geometry + direction from seeds analyzed. Findings in fake_vs_real_peaks research. Seeds validate peak detection approach. |
 | BB | Stacked Multi-TF Direction Model | **SUPERSEDED** | The 192D (12 TF x 16D) context is the multi-TF stack. Peak templates use delta + slope of this vector. CNN spec replaces stacked GBM with temporal conv on raw states. |
-| CC | E[PnL] Tick Prediction | **ACTIVE** | Brain has `get_expected_pnl()`. Survival stop uses it. But calibration is weak (cold start, direction-specific). Worth revisiting after CNN baseline. |
+| CC | E[PnL] Tick Prediction | **DONE** | Ran with 6 output files. Results in `reports/research/CC_epnl_prediction/`. Brain has `get_expected_pnl()`. Survival stop uses it. Calibration weak (cold start). Worth revisiting after CNN. |
 | DD | Auto-Level Detection | **BACKLOG** | Level proximity features not built. Spec exists at `docs/specs/LEVEL_DETECTOR_SPEC.md`. Could enhance peak context (is the peak at a known level?). |
-| EE | Stop Loss Optimization | **ACTIVE** | SL is PF 0.86 (757 trades, net loss). Current SL is template-derived. Research needed: dynamic SL based on peak context (wider SL when approach range is large, tighter when small). |
-| FF | Conviction Calibration | **SUPERSEDED** | Conviction threshold (0.48) is a rubber stamp (PFMEA RPN 160). But with peak templates + sensor gates, conviction becomes less important. Direction comes from the peak, not from voter conviction. |
+| EE | Stop Loss Optimization | **PARTIAL** | Script ran but only 1 output file. SL is PF 0.86 (757 trades, net loss). Needs completion: dynamic SL based on peak context. |
+| FF | Conviction Calibration | **PARTIAL** | Script ran but only 1 output file. Conviction threshold (0.48) is a rubber stamp (PFMEA RPN 160). Lower priority now -- direction comes from peak, not voter conviction. |
 
 ## Active Specs (docs/Active/)
 
