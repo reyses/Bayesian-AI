@@ -292,6 +292,16 @@ class BarProcessor:
             self.peak_stats['blocked_fake_peak'] += 1
             return False
 
+        # ── Layer 3: ADX regime check (chop filter) ──
+        # Low ADX = sideways/choppy market. Peaks in chop are noise, not reversals.
+        # High ADX = trending. Peaks in trends are real exhaustion points.
+        # Research: ADX < 20 at 1m = chop. Peaks in chop have <50% WR.
+        _1m_adx = getattr(_ms, 'adx_strength', 0.0)
+        _ADX_CHOP_THRESHOLD = 15.0  # below this = market is chopping
+        if _1m_adx < _ADX_CHOP_THRESHOLD:
+            self.peak_stats['blocked_adx_chop'] = self.peak_stats.get('blocked_adx_chop', 0) + 1
+            return False
+
         return True
 
     def _detect_peak_reversal(self, state) -> bool:
