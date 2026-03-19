@@ -4,6 +4,7 @@
 
 | Date | Summary |
 |------|---------|
+| 2026-03-18 | Sensor fusion overhaul: enriched exits (belief_flip -97%), peak entry gate (1m sensors + fake peak filter), buildup/exhaustion buffer, sensor-adaptive trailing stop (40t), 1700 lines dead code removed, 10 research tools, fractal dims KILL, Feb 9 deep dive, IS peak detection parity via BarProcessor |
 | 2026-03-16 | FULL DAY: quantum reconnection (9 orphaned vars), 12 exit fixes (OOS $2.5K→$8.5K), Brownian motion giveback, live restructure (-337 lines), DMI sample size research, q_score logging, 3 specs written |
 | 2026-03-15 | TrailingStop rewrite (MFE-based activation), SL TF sqrt scaling + cap, report traceability, shard_reader tool, I-MR date targeting, division-by-zero fixes, thin-market analysis |
 | 2026-03-14 | Shape Primitive Pipeline (entry+exit primitives, UMAP+HDBSCAN), exit C&E matrix + PFMEA report |
