@@ -537,7 +537,7 @@ class Trainer:
         # $500 below day start, stop trading. Gives room for normal dips
         # (worst intraday = -$96) while protecting against crashes.
         # No auto-resume -- requires human review.
-        DAILY_DD_BUFFER = 500.0         # $500 below day start = stop
+        DAILY_DD_BUFFER = 1000.0        # $1K below day start = stop
         _daily_dd_stopped = False       # True when limit hit, reset each day
         _daily_dd_skipped = 0           # trades skipped due to daily DD stop
         _day_start_pnl = 0.0            # cumulative PnL at start of this day
