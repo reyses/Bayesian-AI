@@ -1,0 +1,51 @@
+================================================================================
+PEAK vs HUMAN SEEDS -- DMI + Volume at Entry
+================================================================================
+
+  Metric                                   |      Seeds |   Peak WIN |  Peak LOSS |    W-L Sep
+  ---------------------------------------- | ---------- | ---------- | ---------- | ----------
+  Volume 1m (raw)                          |      -6.89 |     +17.26 |     +83.37 |     -66.11
+  Volume 1m (trade-aligned, + = with trade) |     +47.39 |    +153.70 |    +100.53 |     +53.17
+  F_momentum 1m (raw)                      |     -49.50 |     +40.72 |     +71.77 |     -31.05
+  F_momentum 1m (trade-aligned)            |     +36.29 |    +206.97 |     +97.90 |    +109.07
+  DMI Diff 1m (raw)                        |      -0.71 |      -0.09 |      +0.19 |      -0.28
+  DMI Diff 1m (trade-aligned, + = DMI agrees) |      +2.20 |      +2.41 |      +0.99 |      +1.41
+  ADX 1m                                   |     +24.12 |     +24.87 |     +24.64 |      +0.23
+  Velocity 1m                              |      +0.03 |      +0.32 |      +0.58 |      -0.26
+  Z-score 1m                               |      +0.00 |      +0.04 |      +0.06 |      -0.02
+  P_at_center 15s                          |      +0.53 |      +0.43 |      +0.49 |      -0.06
+  |F_momentum| 15s                         |    +133.96 |    +258.78 |    +178.66 |     +80.12
+  Coherence 15s                            |      +0.61 |      +0.62 |      +0.62 |      -0.00
+  DMI Diff 15s (raw)                       |      -0.38 |      +0.19 |      +0.86 |      -0.67
+  DMI Diff 15s (trade-aligned)             |      +4.63 |      +1.31 |      +1.88 |      -0.56
+  ADX 15s                                  |     +22.92 |     +26.27 |     +24.81 |      +1.46
+  Volume 15s                               |      +1.12 |      +4.71 |     +19.41 |     -14.70
+
+
+  DISTRIBUTION COMPARISON (key metrics):
+
+  Vol 1m aligned:
+    Human Seeds    : mean=   +47.4  std=   730.6  P25=   -95.0  P50=    +0.0  P75=  +132.0
+    Peak Winners   : mean=  +153.7  std=  1573.9  P25=  -493.2  P50=  +143.0  P75=  +661.2
+    Peak Losers    : mean=  +100.5  std=  1076.0  P25=  -481.8  P50=   +30.0  P75=  +534.5
+
+  F_mom 1m aligned:
+    Human Seeds    : mean=   +36.3  std=  1161.2  P25=   -46.5  P50=    +1.3  P75=   +70.8
+    Peak Winners   : mean=  +207.0  std=  1880.1  P25=  -206.4  P50=   +33.1  P75=  +346.9
+    Peak Losers    : mean=   +97.9  std=   846.6  P25=  -198.9  P50=    +6.4  P75=  +253.4
+
+  DMI 1m aligned:
+    Human Seeds    : mean=    +2.2  std=    12.1  P25=    -5.7  P50=    +2.9  P75=    +9.9
+    Peak Winners   : mean=    +2.4  std=    13.3  P25=    -6.3  P50=    +2.8  P75=   +10.6
+    Peak Losers    : mean=    +1.0  std=    12.6  P25=    -7.3  P50=    +1.7  P75=    +9.8
+
+  ADX 1m:
+    Human Seeds    : mean=   +24.1  std=     9.4  P25=   +16.8  P50=   +22.6  P75=   +29.8
+    Peak Winners   : mean=   +24.9  std=    10.1  P25=   +17.7  P50=   +22.4  P75=   +30.0
+    Peak Losers    : mean=   +24.6  std=    10.0  P25=   +17.1  P50=   +22.6  P75=   +30.2
+
+
+  FILTERING ANALYSIS:
+  If require vol_1m_aligned >= seed P25 (-95):
+    Peak losers filtered: 418 / 908 (46%)
+    Peak winners filtered: 1230 / 2804 (44%)

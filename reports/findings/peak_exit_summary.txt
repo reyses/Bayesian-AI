@@ -1,0 +1,67 @@
+================================================================================
+PEAK EXIT RESEARCH -- Stateful Trajectory Analysis
+Generated: 2026-03-18 15:23
+================================================================================
+
+  Total peak trades analyzed: 3712
+  Total in-trade bars: 18042
+
+  Bars where peak fires AGAINST position: 5193 (28.8% of bars)
+  Avg bar_offset when fires against: 3.0
+  Median bar_offset: 2
+
+  Fires against in WINNING trades: 3533 bars (avg offset: 2.2)
+  Fires against in LOSING trades:  1660 bars (avg offset: 4.8)
+
+  P_CENTER GIVEBACK AT EXIT:
+    Winners: avg pc_giveback = 0.0001
+    Losers:  avg pc_giveback = 0.0001
+
+  P_CENTER GIVEBACK BY EXIT REASON:
+    band_urgent              n=  194  pc_giveback=+0.0000  avg_pnl=$+6.48
+    belief_flip              n=  631  pc_giveback=+0.0000  avg_pnl=$+2.72
+    death_hook               n=    2  pc_giveback=+0.0000  avg_pnl=$+7.75
+    peak_giveback            n=  880  pc_giveback=+0.0001  avg_pnl=$+0.46
+    regime_decay             n=  746  pc_giveback=+0.0001  avg_pnl=$+4.50
+    stop_loss                n=  624  pc_giveback=+0.0001  avg_pnl=$+0.13
+    survival_flatline        n=   55  pc_giveback=+0.0000  avg_pnl=$+19.16
+    survival_stop            n=   57  pc_giveback=+0.0003  avg_pnl=$+16.49
+    tidal_wave               n=  514  pc_giveback=+0.0001  avg_pnl=$-0.49
+    v_reversal               n=    9  pc_giveback=+0.0000  avg_pnl=$+67.89
+
+  FIRST 'ENTER AGAINST ME' SIGNAL PER TRADE:
+    Trades with at least one signal: 1976 / 3712 (53.2%)
+    Avg bar_offset of first signal: 1.0
+    Median: 0
+    P25: 0  P75: 1
+
+    Bars between 'enter against' and actual exit:
+      avg delta: 3.5 bars (positive = exited AFTER signal)
+      Exited BEFORE signal: 0 trades
+      Exited ON signal bar: 224 trades
+      Exited AFTER signal: 1752 trades
+    Exited ON signal:     avg_pnl=$-2.21 (63% WR)
+    Exited AFTER signal:  avg_pnl=$3.69 (75% WR)
+
+  TRADES WITHOUT 'ENTER AGAINST' SIGNAL: 1736
+    avg_pnl: $1.85
+    WR: 77.2%
+    avg hold: 3.2 bars
+
+  F_MOMENTUM AT EXIT:
+    Winners: avg F_mom = 6.8734
+    Losers:  avg F_mom = 4.9211
+
+  BAR OFFSET WHEN PEAK FIRES AGAINST (distribution):
+    bar +0: 1250 signals
+    bar +1: 1189 signals
+    bar +2: 767 signals
+    bar +3: 596 signals
+    bar +4: 368 signals
+    bar +5: 224 signals
+    bar +6: 153 signals
+    bar +7: 119 signals
+    bar +8: 114 signals
+    bar +9: 72 signals
+    bar +10: 53 signals
+    bar +11: 43 signals

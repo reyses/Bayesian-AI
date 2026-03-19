@@ -235,21 +235,78 @@ members of TBN workers. If worker internals change, death hook silently breaks.
 
 | Rank | RPN | Exit Module | Failure Mode | Status |
 |------|-----|-------------|-------------|--------|
-| 1 | **336** | peak_giveback | IS→OOS performance flip | INVESTIGATE |
-| 2 | **252** | regime_decay | Premature fire (ADX oscillates near 20) | MONITOR |
+| 1 | **336** | peak_giveback | IS→OOS performance flip | **MITIGATED** (sensor fusion thresholds, 2026-03-18) |
+| 2 | **252** | regime_decay | Premature fire (ADX oscillates near 20) | **MITIGATED** (sensor enrichment, 2026-03-18) |
 | 3 | **243** | breakeven (old) | 4-tick activation = instant SL ratchet | **FIXED** (TrailingStop rewrite) |
-| 4 | **224** | belief_flip + tidal_wave | ExitAction enum reuse (reporting ambiguity) | OPEN |
+| 4 | **224** | belief_flip + tidal_wave | ExitAction enum reuse (reporting ambiguity) | **FIXED** (unique ExitAction per exit, 2026-03-18) |
 | 5 | **216** | stop_loss | SL too tight (4-tick floor) | **FIXED** (tolerance interval + cap) |
-| 6 | **196** | ALL (min-hold) | Suppressed exits miss real reversals | EXPERIMENT |
-| 7 | **192** | belief_flip | Never fires (gradual fade) | COVERED by regime_decay |
+| 6 | **196** | ALL (min-hold) | Suppressed exits miss real reversals | **REPLACED** by sensor enrichment approach |
+| 7 | **192** | belief_flip | Never fires (gradual fade) | **MITIGATED** (sensor enrichment gates noise, lets real flips through) |
 | 8 | **162** | ALL (cascade) | No exit fires before SL | BY DESIGN |
-| 9 | **150** | regime_decay | DI cross false signal in chop | CONSIDER ADX gate |
-| 10 | **150** | peak_giveback | 10% threshold too tight | CONSIDER raising base |
+| 9 | **150** | regime_decay | DI cross false signal in chop | **MITIGATED** (requires 1+ sensor confirmation) |
+| 10 | **150** | peak_giveback | 10% threshold too tight | **REPLACED** by sensor fusion tiered thresholds |
 | 11 | **150** | watchdog | Wrong reference field (trail_activation vs anchor_mfe) | OPEN |
 | 12 | **140** | regime_decay | Fires too late (slow ADX decline) | Hurst is faster backup |
 | 13 | **140** | band_urgent | Only fires on loss (thesis invalidation ignored) | OPEN |
-| 14 | **120** | belief_flip | False flip in choppy conviction | CONSIDER 2-bar confirmation |
+| 14 | **120** | belief_flip | False flip in choppy conviction | **FIXED** (requires 2+ sensors, 2026-03-18) |
 | 15 | **120** | watchdog | 5-worker threshold rarely met | CONSIDER lowering to 3-4 |
 | 16 | **96** | multiple | Magic numbers not in TradingConfig | OPEN |
 | 17 | **96** | death_hook | Fragile coupling to TBN internals | OPEN |
 | 18 | **48** | peak_giveback | Constructor vs config default mismatch | LOW |
+
+---
+
+## 7. AUDIT UPDATE (2026-03-18) -- Sensor-Enriched Exits + Peak State Exit
+
+### Context
+Research on human seeds + IS peak trades showed:
+- **Real peaks**: 1m volume collapses, 1m F_momentum leaves, 1s velocity flips
+- **Fake peaks**: 1m volume still flowing, momentum building against trade
+- Belief flip was firing on bar 1-2 (stutter) because it had no sensor confirmation
+- Tidal wave fired on SE expansion without checking if expansion was against trade
+- The exit signal for "the move peaked" is the INVERSE of the entry signal
+
+### Changes Made
+
+**New exit module: `peak_state_exit.py` (inverted entry)**
+- Checks: "would the system enter against me right now?"
+- 4 sensors: 1s velocity against, 1m volume against, 1m DMI against, 1m F_momentum against
+- Full (4/4 sensors) = exit immediately
+- Strong (3/4) + giving back 15%+ = exit
+- Min hold: 3 bars (peak), 5 bars (template) -- prevents stutter
+- Cooldown: 6 bars after exit -- prevents re-entry on same decaying peak
+- Own ExitAction: PEAK_STATE_EXIT (separate from PEAK_GIVEBACK)
+
+**Enriched exits (not suppressed -- they now use sensor data to PREVENT false alarms):**
+- **belief_flip**: TBN urgent requires 2+ sensors confirming. DI crossover requires 1+ sensor.
+  Result: dropped from ~631 fires to 19 in OOS (97% noise reduction).
+- **tidal_wave**: SE expansion requires 1+ sensor confirming against trade.
+  Result: dropped from ~514 to 207 in OOS.
+- **regime_decay**: unchanged (already had higher-TF override + adaptive thresholds)
+
+**TBN enhanced**: `get_exit_signal()` now returns 4 directional sensor signals:
+- `vel_1s_against`: 1s velocity flipped against trade direction
+- `vol_1m_against`: 1m volume flowing against trade direction
+- `dmi_1m_against`: 1m DMI crossed against trade direction
+- `fm_1m_against`: 1m F_momentum against trade direction
+
+### New PFMEA Items
+
+| # | Exit Module | Failure Mode | Effect | S | O | D | **RPN** | Status |
+|---|-------------|-------------|--------|---|---|---|---------|--------|
+| 28 | **peak_state_exit** | Sensors never agree (all 4 rarely fire together) | Inverted entry exit never fires; falls through to proxy exits | 5 | 4 | 5 | **100** | MONITOR -- track fire rate in full IS run |
+| 29 | **peak_state_exit** | Sensors agree on noise (1s velocity noise) | False exit on 1s noise that happens to align with other sensors | 4 | 3 | 6 | **72** | 1m sensors normalize noise; min peak 4t gate |
+| 30 | **belief_flip (enriched)** | Sensor gate too strict (2+ required) | Real belief flip with only 1 sensor confirming gets suppressed | 5 | 3 | 7 | **105** | MONITOR -- compare belief_flip trades before/after |
+| 31 | **tidal_wave (enriched)** | Sensor gate masks real tidal wave | SE expansion against trade but no sensors confirm (1m lagging) | 4 | 3 | 6 | **72** | SL is safety net below; regime_decay also catches |
+
+### Updated Rankings (items changed by 2026-03-18 work)
+
+| Orig RPN | New RPN | Exit Module | Change | Reason |
+|----------|---------|-------------|--------|--------|
+| 336 | **168** | peak_giveback IS->OOS flip | S=7 O=4 D=6 | Sensor fusion thresholds replace static %; less overfit risk |
+| 252 | **126** | regime_decay premature | S=6 O=3 D=7 | Sensor enrichment prevents firing without confirmation |
+| 224 | **0** | ExitAction enum reuse | RESOLVED | Each exit has unique action: BELIEF_FLIP, TIDAL_WAVE, V_REVERSAL, PEAK_STATE_EXIT |
+| 196 | **100** | Min-hold suppression | S=5 O=4 D=5 | Replaced by sensor enrichment (exits not suppressed, just validated) |
+| 192 | **96** | belief_flip never fires | S=6 O=4 D=4 | Sensor gate removes noise, lets real flips through -- net more useful |
+| 150 | **75** | DI cross false signal | S=5 O=3 D=5 | Sensor confirmation prevents chop-triggered crosses |
+| 120 | **0** | belief_flip choppy conviction | RESOLVED | 2+ sensor requirement eliminates conviction wobble exits |

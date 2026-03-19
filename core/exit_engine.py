@@ -36,6 +36,7 @@ class ExitAction(Enum):
     BELIEF_FLIP = 'belief_flip'         # TBN consensus flipped or DI crossover
     TIDAL_WAVE = 'tidal_wave'           # adverse volatility expansion
     V_REVERSAL = 'v_reversal'           # 4 bars off peak + profit + breakeven locked
+    PEAK_STATE_EXIT = 'peak_state_exit'  # inverted entry: opposite direction entry conditions met
 
 
 @dataclass
@@ -183,10 +184,12 @@ class ExitEngine:
         from core.exits.regime_decay import RegimeDecayExit
         from core.exits.survival_stop import SurvivalStopExit
         from core.exits.tidal_wave import TidalWaveExit
+        from core.exits.peak_state_exit import PeakStateExit
         self.fractal_exhaust = FractalExhaustExit(config=config)
         self.regime_decay = RegimeDecayExit(config=config)
         self.survival_stop = SurvivalStopExit(config=config)
         self.tidal_wave = TidalWaveExit(config=config)
+        self.peak_state = PeakStateExit(config=config)
 
         # Self-tuning state  -- two independent counters
         self._tune_too_early = 0
@@ -490,6 +493,16 @@ class ExitEngine:
                                        shape_params=_shape_params)
             if r: return r
 
+        # === INVERTED ENTRY EXIT (would the system enter against me?) ===
+        # Uses 4 sensors: 1s velocity, 1m volume, 1m DMI, 1m F_momentum.
+        # Fires when opposite-direction entry conditions are met.
+        # Enriches (not replaces) structural exits with direct state detection.
+        if not _in_hold_period:
+            r = self.peak_state.evaluate(
+                pos, bar_close, ts, current_bar_index, exit_signal)
+            if r:
+                return r
+
         # === STRUCTURAL EXITS (thesis invalidation) ===
 
         # 2. Death Hook (Liquidity Absorption)  -- suppressed during min-hold
@@ -509,7 +522,7 @@ class ExitEngine:
 
         # 5. Tidal Wave  -- suppressed during min-hold
         if not _in_hold_period:
-            r = self.tidal_wave.evaluate(pos, bar_close, ts, belief_network)
+            r = self.tidal_wave.evaluate(pos, bar_close, ts, belief_network, exit_signal)
             if r: return r
 
         # === STANDARD EXITS ===
