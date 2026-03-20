@@ -57,6 +57,7 @@ class OrderManager:
         self._orders: Dict[str, OrderRecord] = {}
         self.position = PositionState()
         self._daily_pnl: float = 0.0
+        self._awaiting_fill: bool = False  # True from order sent until FILL/REJECT received
         self._trade_count: int = 0
         self._daily_loss_limit_hit = False
         self.last_exit_info: dict = {}  # filled on exit FILL (entry_px, exit_px, side)
@@ -81,10 +82,9 @@ class OrderManager:
     def is_flat(self) -> bool:
         if self.position.qty != 0:
             return False
-        # Also check for pending entry orders (sent but not filled yet)
-        for rec in self._orders.values():
-            if rec.state == OrderState.PENDING:
-                return False
+        # Block if awaiting fill confirmation from NT8
+        if self._awaiting_fill:
+            return False
         return True
 
     @property
@@ -124,6 +124,7 @@ class OrderManager:
         msg = place_order(oid, self._cfg.instrument,
                           self._cfg.account, side,
                           self._cfg.max_position_size)
+        self._awaiting_fill = True
         logger.info(f"ORDER -> {side} {self._cfg.max_position_size} {self._cfg.instrument}  id={oid}")
         return msg
 
@@ -158,6 +159,7 @@ class OrderManager:
 
         Returns PnL (float) on exit fills, None on entry fills.
         """
+        self._awaiting_fill = False  # got confirmation
         oid = msg.get('order_id', '')
         rec = self._orders.get(oid)
         if rec:
@@ -230,6 +232,7 @@ class OrderManager:
         if rec:
             if status in ('Cancelled', 'Rejected'):
                 rec.state = OrderState(status.upper())
+                self._awaiting_fill = False  # order won't fill
                 logger.warning(f"Order {oid} {status}")
             elif status in ('Accepted', 'Working'):
                 rec.state = OrderState.WORKING
@@ -271,6 +274,7 @@ class OrderManager:
             logger.warning(f"Stale order pruned: {oid} "
                            f"(age={now - self._orders[oid].submit_time:.0f}s)")
         if stale:
+            self._awaiting_fill = False  # stale = no fill coming
             logger.info(f"Pruned {len(stale)} stale orders")
 
     def reset_daily(self):
