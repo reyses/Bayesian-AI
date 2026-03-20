@@ -716,13 +716,12 @@ class LiveEngine:
 
     async def _process_15s(self, price: float, ts: float, states: list):
         """Per-anchor-bar processing: BarProcessor handles entry + exit."""
-        if self._bar_i % 240 == 1:
-            df_1s = self._aggregator.df_1s
-            df_5s = pd.DataFrame(self._tf_bars.get(5, [])) if self._tf_bars.get(5) else pd.DataFrame()
-            df_4h = pd.DataFrame(self._tf_bars.get(14400, [])) if self._tf_bars.get(14400) else pd.DataFrame()
-            self._belief_network.prepare_day(
-                self._aggregator.df, states_micro=states,
-                df_5s=df_5s, df_1s=df_1s, df_4h=df_4h)
+        # TBN workers update incrementally via tick_all() -- no need to
+        # recompute from scratch. prepare_day() only runs once on startup
+        # (in HISTORY_DONE handler at line 528). Periodic recompute DISABLED
+        # -- was causing full state rebuild every hour, blocking trading.
+        # if self._bar_i % 240 == 1:
+        #     self._belief_network.prepare_day(...)
 
         # Block entries during maintenance or loss limit
         _cooldown_ok = (time.time() - self._last_exit_time) > float(self._anchor_period)
