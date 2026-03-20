@@ -1116,17 +1116,23 @@ class ProgressPopup:
                 c.create_polygon(mx_pos, my_pos - sz, mx_pos - sz, my_pos + sz,
                                  mx_pos + sz, my_pos + sz, fill=mc, outline="#000")
             elif action == 'skip':
-                # Small yellow diamond: pattern signal rejected
+                # Yellow triangle: up=LONG skip, down=SHORT skip
                 sz = 3
-                c.create_polygon(mx_pos, my_pos - sz, mx_pos - sz, my_pos,
-                                 mx_pos, my_pos + sz, mx_pos + sz, my_pos,
-                                 fill="#FFAA00", outline="")
+                if side == 'long':
+                    c.create_polygon(mx_pos, my_pos - sz, mx_pos - sz, my_pos + sz,
+                                     mx_pos + sz, my_pos + sz, fill="#FFAA00", outline="")
+                else:
+                    c.create_polygon(mx_pos, my_pos + sz, mx_pos - sz, my_pos - sz,
+                                     mx_pos + sz, my_pos - sz, fill="#FFAA00", outline="")
             elif action == 'peak_skip':
-                # Small purple diamond: peak detection signal rejected
+                # Purple triangle: up=LONG skip, down=SHORT skip
                 sz = 3
-                c.create_polygon(mx_pos, my_pos - sz, mx_pos - sz, my_pos,
-                                 mx_pos, my_pos + sz, mx_pos + sz, my_pos,
-                                 fill="#CC44FF", outline="")
+                if side == 'long':
+                    c.create_polygon(mx_pos, my_pos - sz, mx_pos - sz, my_pos + sz,
+                                     mx_pos + sz, my_pos + sz, fill="#CC44FF", outline="")
+                else:
+                    c.create_polygon(mx_pos, my_pos + sz, mx_pos - sz, my_pos - sz,
+                                     mx_pos + sz, my_pos - sz, fill="#CC44FF", outline="")
             elif action == 'peak_entry':
                 # Purple up triangle: peak detection entry
                 mc = "#CC44FF"
