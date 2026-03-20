@@ -1196,11 +1196,18 @@ class ProgressPopup:
                           fill="#444444", font=("Consolas", 7))
             return
 
-        # Auto-scale to data range
+        # Auto-scale to data range, enforce minimum span for visibility
         all_vals = dp[-n:] + dm[-n:]
         mn = max(0, min(all_vals) - 2)
         mx = max(all_vals) + 2
+        # Minimum span of 40 so lines don't look flat when DMI is stable
+        MIN_SPAN = 40.0
         span = mx - mn if mx != mn else 1.0
+        if span < MIN_SPAN:
+            mid = (mn + mx) / 2
+            mn = max(0, mid - MIN_SPAN / 2)
+            mx = mn + MIN_SPAN
+            span = MIN_SPAN
 
         def _y(v):
             return H - pad - ((v - mn) / span) * (H - 2 * pad)
