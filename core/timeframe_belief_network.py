@@ -438,7 +438,7 @@ class TimeframeBeliefNetwork:
 
     def prepare_day(self, df_micro: pd.DataFrame, states_micro: list = None,
                     df_5s: pd.DataFrame = None, df_1s: pd.DataFrame = None,
-                    df_4h: pd.DataFrame = None):
+                    df_4h: pd.DataFrame = None, df_1m: pd.DataFrame = None):
         """
         Task 1 for all workers: pre-aggregate the day's micro bars (15s or 1s)
         to each TF level and compute market states (once per day, fast).
@@ -463,7 +463,10 @@ class TimeframeBeliefNetwork:
 
         # Supra-resolution workers (4h): resampling 15s->4h gives <5 bars per day.
         # Use external monthly data, same pattern as sub-resolution workers.
-        _supra_res_data = {14400: df_4h}
+        # External data: TFs with pre-loaded native bars (avoid resampling)
+        # 4h: supra-resolution (resampling 15s gives <5 bars)
+        # 1m: ATLAS warmup for parity (PID cumsum needs full history)
+        _supra_res_data = {14400: df_4h, 60: df_1m}
         for tf_secs, df_ext in _supra_res_data.items():
             if tf_secs not in self.workers:
                 continue

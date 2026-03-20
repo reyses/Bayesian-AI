@@ -520,16 +520,61 @@ class LiveEngine:
                 await loop.run_in_executor(None, self._aggregator.finish_history)
                 self._update_live_atr()
                 logger.info(f"Live ATR: {self._live_atr_ticks:.1f} ticks")
-                # Bootstrap TBN from history  -- native NT8 bars for each TF
+                # Bootstrap TBN from ATLAS + NT8 history for parity
+                # ATLAS provides contiguous 1m/5s/1s/4h bars matching training data.
+                # Without ATLAS warmup, F_momentum (PID cumsum) starts from zero
+                # and produces different values than training/OOS.
                 df = self._aggregator.df
                 states = self._aggregator.states
                 df_5s = pd.DataFrame(self._tf_bars.get(5, [])) if self._tf_bars.get(5) else pd.DataFrame()
                 df_4h = pd.DataFrame(self._tf_bars.get(14400, [])) if self._tf_bars.get(14400) else pd.DataFrame()
+
+                # Load ATLAS data for TFs that need full history
+                _atlas_root = os.path.join('DATA', 'ATLAS')
+                for _tf_label, _tf_key in [('1m', None), ('5s', '5s'), ('4h', '4h'), ('1s', '1s')]:
+                    _tf_path = os.path.join(_atlas_root, _tf_label)
+                    if not os.path.isdir(_tf_path):
+                        continue
+                    _pfiles = sorted(f for f in os.listdir(_tf_path) if f.endswith('.parquet'))
+                    if not _pfiles:
+                        continue
+                    _atlas_chunks = []
+                    for _pf in _pfiles:
+                        _ch = pd.read_parquet(os.path.join(_tf_path, _pf))
+                        if 'timestamp' in _ch.columns and not np.issubdtype(_ch['timestamp'].dtype, np.number):
+                            _ch['timestamp'] = _ch['timestamp'].apply(lambda x: x.timestamp())
+                        _atlas_chunks.append(_ch)
+                    _atlas_df = pd.concat(_atlas_chunks, ignore_index=True).sort_values('timestamp')
+                    # Also load OOS ATLAS if available
+                    _oos_root = os.path.join('DATA', 'ATLAS_OOS', _tf_label)
+                    if os.path.isdir(_oos_root):
+                        for _pf in sorted(os.listdir(_oos_root)):
+                            if _pf.endswith('.parquet'):
+                                _ch = pd.read_parquet(os.path.join(_oos_root, _pf))
+                                if 'timestamp' in _ch.columns and not np.issubdtype(_ch['timestamp'].dtype, np.number):
+                                    _ch['timestamp'] = _ch['timestamp'].apply(lambda x: x.timestamp())
+                                _atlas_chunks.append(_ch)
+                        _atlas_df = pd.concat(_atlas_chunks, ignore_index=True).sort_values('timestamp')
+
+                    if _tf_label == '5s':
+                        df_5s = pd.concat([_atlas_df, df_5s], ignore_index=True).drop_duplicates(
+                            subset='timestamp', keep='last').sort_values('timestamp')
+                    elif _tf_label == '4h':
+                        df_4h = pd.concat([_atlas_df, df_4h], ignore_index=True).drop_duplicates(
+                            subset='timestamp', keep='last').sort_values('timestamp')
+                    elif _tf_label == '1s':
+                        pass  # 1s is too large to prepend fully, TBN handles via parquet
+                    elif _tf_label == '1m':
+                        # Prepend ATLAS 1m to NT8 15s (TBN will use this for 1m worker)
+                        self._atlas_1m_df = _atlas_df
+                    logger.info(f"ATLAS warmup: {_tf_label} = {len(_atlas_df):,} bars")
+
                 _n5 = len(df_5s)
                 _n4h = len(df_4h)
-                logger.info(f"TBN bootstrap: 5s={_n5} bars, 4h={_n4h} bars (native from NT8)")
+                logger.info(f"TBN bootstrap: 5s={_n5:,} bars, 4h={_n4h:,} bars (ATLAS + NT8)")
                 self._belief_network.prepare_day(
-                    df, states_micro=states, df_5s=df_5s, df_4h=df_4h)
+                    df, states_micro=states, df_5s=df_5s, df_4h=df_4h,
+                    df_1m=getattr(self, '_atlas_1m_df', None))
                 # Tick through all history bars so workers form beliefs
                 for _hist_i in range(len(states)):
                     self._belief_network.tick_all(_hist_i)
