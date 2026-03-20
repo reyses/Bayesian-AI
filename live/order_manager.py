@@ -119,6 +119,14 @@ class OrderManager:
         Build a PLACE_ORDER message for a new entry.
         Returns None if ANY order is pending or risk limits hit.
         """
+        # Hard safety: never exceed max position size
+        MAX_OPEN_ORDERS = 3  # absolute max pending orders before lockout
+        _pending = sum(1 for r in self._orders.values()
+                       if r.state in (OrderState.PENDING, OrderState.WORKING))
+        if _pending >= MAX_OPEN_ORDERS:
+            logger.error(f"SAFETY LOCKOUT: {_pending} pending orders (max={MAX_OPEN_ORDERS})")
+            return None
+
         if not self.can_enter:
             if self._awaiting_entry_fill:
                 logger.warning("Entry blocked: awaiting entry fill")
