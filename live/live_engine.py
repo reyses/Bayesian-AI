@@ -274,13 +274,84 @@ class LiveEngine:
                     logger.info(f"Live brain saved on exit ({self._live_trade_count} trades)")
                 # Safety: persist bars for delta sync on next start
                 self._aggregator.save_to_parquet()
+                # Update ATLAS with all TF bars from this session
+                self._aggregator.update_atlas()
+                self._save_multi_tf_to_atlas()
                 # Save raw NT8 data for parity analysis
                 self._save_nt8_raw_log()
+                # Print coverage summary
+                self._print_data_coverage()
                 # Disconnect from NT8
                 await self._client.disconnect()
                 logger.info("NT8 disconnected  -- shutdown complete")
                 # NOW signal GUI that everything is done
                 self._shared_state['shutdown_confirmed'] = True
+
+    def _print_data_coverage(self):
+        """Print ATLAS_OOS data coverage summary."""
+        from datetime import datetime, timezone
+        atlas_root = 'DATA/ATLAS_OOS'
+        print("\n" + "=" * 60)
+        print("ATLAS_OOS DATA COVERAGE")
+        print("=" * 60)
+        _tf_dirs = sorted([d for d in os.listdir(atlas_root)
+                          if os.path.isdir(os.path.join(atlas_root, d))]) if os.path.isdir(atlas_root) else []
+        for tf in _tf_dirs:
+            tf_dir = os.path.join(atlas_root, tf)
+            files = sorted(f for f in os.listdir(tf_dir) if f.endswith('.parquet'))
+            total_bars = 0
+            ts_min, ts_max = float('inf'), 0
+            for fn in files:
+                try:
+                    df = pd.read_parquet(os.path.join(tf_dir, fn))
+                    total_bars += len(df)
+                    if 'timestamp' in df.columns:
+                        _ts = df['timestamp']
+                        if not pd.api.types.is_numeric_dtype(_ts):
+                            _ts = _ts.apply(lambda x: x.timestamp())
+                        ts_min = min(ts_min, _ts.min())
+                        ts_max = max(ts_max, _ts.max())
+                except Exception:
+                    pass
+            if total_bars > 0:
+                _from = datetime.fromtimestamp(ts_min).strftime('%Y-%m-%d %H:%M')
+                _to = datetime.fromtimestamp(ts_max).strftime('%Y-%m-%d %H:%M')
+                print(f"  {tf:>4s}: {total_bars:>9,} bars  {_from} -> {_to}")
+        print("=" * 60)
+
+    def _save_multi_tf_to_atlas(self, atlas_root: str = 'DATA/ATLAS_OOS'):
+        """Save all multi-TF bars from NT8 to ATLAS parquet structure."""
+        from datetime import datetime, timezone
+        _tf_map = {5: '5s', 14400: '4h', 60: '1m', 300: '5m', 180: '3m',
+                   900: '15m', 1800: '30m', 3600: '1h', 30: '30s', 120: '2m'}
+        total_saved = 0
+        for tf_secs, rows in self._tf_bars.items():
+            if not rows:
+                continue
+            tf_label = _tf_map.get(tf_secs, f'{tf_secs}s')
+            tf_dir = os.path.join(atlas_root, tf_label)
+            os.makedirs(tf_dir, exist_ok=True)
+            df = pd.DataFrame(rows)
+            # Keep only OHLCV columns (drop dmi/adx — those are NT8-specific)
+            _cols = [c for c in ['timestamp', 'open', 'high', 'low', 'close', 'volume'] if c in df.columns]
+            df = df[_cols].sort_values('timestamp').drop_duplicates(subset='timestamp', keep='last')
+            df['_month'] = df['timestamp'].apply(
+                lambda ts: datetime.fromtimestamp(ts, tz=timezone.utc).strftime('%Y_%m'))
+            for month, group in df.groupby('_month'):
+                month_path = os.path.join(tf_dir, f'{month}.parquet')
+                out = group.drop(columns=['_month'])
+                if os.path.exists(month_path):
+                    try:
+                        old = pd.read_parquet(month_path)
+                        out = pd.concat([old, out]).drop_duplicates(
+                            subset='timestamp', keep='last').sort_values('timestamp')
+                    except Exception:
+                        pass
+                out.to_parquet(month_path, index=False)
+            total_saved += len(df)
+            logger.info(f"ATLAS {tf_label}: {len(df):,} bars -> {tf_dir}")
+        if total_saved > 0:
+            logger.info(f"ATLAS multi-TF update: {total_saved:,} bars total")
 
     def _save_nt8_raw_log(self):
         """Save all raw NT8 bar data to parquet files for parity analysis."""
@@ -589,6 +660,7 @@ class LiveEngine:
                 logger.info("SYSTEM READY -- trading enabled")
                 # Update ATLAS with NT8 bars so OOS data stays current
                 self._aggregator.update_atlas()
+                self._save_multi_tf_to_atlas()
                 self._gui.push({
                     'type': 'PHASE_PROGRESS',
                     'phase': 'LIVE',
