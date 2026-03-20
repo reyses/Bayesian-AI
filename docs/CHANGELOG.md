@@ -2,6 +2,9 @@
 
 ---
 
+## [Auto-Docs] - 2026-03-20
+- 7e13609 feat: log accepted peaks to CSV + terminal (not just skips)
+
 ## [V6.0.0] - 2026-03-08 — Statistical Architecture Refactor & Unified Execution
 
 ### Architecture
