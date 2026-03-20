@@ -274,11 +274,27 @@ class LiveEngine:
                     logger.info(f"Live brain saved on exit ({self._live_trade_count} trades)")
                 # Safety: persist bars for delta sync on next start
                 self._aggregator.save_to_parquet()
+                # Save raw NT8 data for parity analysis
+                self._save_nt8_raw_log()
                 # Disconnect from NT8
                 await self._client.disconnect()
                 logger.info("NT8 disconnected  -- shutdown complete")
                 # NOW signal GUI that everything is done
                 self._shared_state['shutdown_confirmed'] = True
+
+    def _save_nt8_raw_log(self):
+        """Save all raw NT8 bar data to parquet files for parity analysis."""
+        if not hasattr(self, '_nt8_raw_log') or not self._nt8_raw_log:
+            return
+        out_dir = os.path.join('reports', 'live', 'nt8_raw')
+        os.makedirs(out_dir, exist_ok=True)
+        for tf_label, rows in self._nt8_raw_log.items():
+            if not rows:
+                continue
+            df = pd.DataFrame(rows)
+            path = os.path.join(out_dir, f'nt8_{tf_label}.parquet')
+            df.to_parquet(path, index=False)
+            logger.info(f"NT8 raw saved: {tf_label} = {len(df):,} bars -> {path}")
 
     # ── Main Loop ─────────────────────────────────────────────────────
 
@@ -623,6 +639,23 @@ class LiveEngine:
     async def _on_bar(self, msg: dict):
         """Route inbound BAR to 1s or 15s processing."""
         bar_period = int(msg.get('bar_period_s', 1))
+
+        # Log ALL raw NT8 bar data for parity analysis
+        if not hasattr(self, '_nt8_raw_log'):
+            self._nt8_raw_log = {}  # {tf_label: [rows]}
+        _tf_label = msg.get('tf', str(bar_period))
+        if _tf_label not in self._nt8_raw_log:
+            self._nt8_raw_log[_tf_label] = []
+        self._nt8_raw_log[_tf_label].append({
+            'timestamp': float(msg.get('timestamp', 0)),
+            'open':      float(msg.get('open', 0)),
+            'high':      float(msg.get('high', 0)),
+            'low':       float(msg.get('low', 0)),
+            'close':     float(msg.get('close', 0)),
+            'volume':    float(msg.get('volume', 0)),
+            'dmi':       float(msg.get('dmi', 0)),
+            'adx':       float(msg.get('adx', 0)),
+        })
 
         # Capture multi-TF bars for TBN workers (5s, 4h, etc.)
         if bar_period in self._tf_bars:
