@@ -385,13 +385,10 @@ class BarProcessor:
         import time as _t
         _now = _t.monotonic()
         if not hasattr(self, '_last_skip_log') or _now - self._last_skip_log > 1.0:
-            import logging
-            _ts_str = ''
-            if bar_ts > 0:
-                from datetime import datetime, timezone
-                _ts_str = datetime.fromtimestamp(bar_ts, tz=timezone.utc).strftime('%H:%M:%S')
-                _ts_str = f'[{_ts_str}] '
-            logging.getLogger('core.bar_processor').info(f"{_ts_str}[PEAK SKIP] {reason}")
+            from datetime import datetime, timezone
+            _nt8 = datetime.fromtimestamp(bar_ts, tz=timezone.utc).strftime('%H:%M:%S') if bar_ts > 0 else '??:??:??'
+            _py = datetime.now().strftime('%H:%M:%S')
+            print(f"{_py} [{_nt8}] [PEAK SKIP] {reason}", flush=True)
             self._last_skip_log = _now
 
     # ── Main Bar Processing ──────────────────────────────────────────
