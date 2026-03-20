@@ -47,7 +47,11 @@ def main():
     engine = StatisticalFieldEngine()
     result = {}
 
-    tfs = ['1m', '5s', '4h', '15s', '30s', '1h', '30m', '15m', '5m', '3m']
+    # Only pre-compute TFs needed for live parity.
+    # 1m: critical (F_momentum for sensor gate, volume_delta)
+    # 4h, 1h, 30m, 15m, 5m, 3m: TBN workers (moderate size)
+    # 15s, 5s, 1s: too large to pickle, computed from NT8 history instead
+    tfs = ['1m', '4h', '1h', '30m', '15m', '5m', '3m']
 
     for tf in tfs:
         print(f'Loading {tf}...', end=' ', flush=True)
