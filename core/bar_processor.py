@@ -282,13 +282,19 @@ class BarProcessor:
         _log_vol = np.log1p(_peak_vol)
         _log_fm = np.log1p(_peak_fm_abs)
 
-        # Fake peak filter DISABLED (2026-03-19 research):
-        # OOS sweep showed blocked trades had 66.3% WR, $4.32/trade (93% of all PnL).
-        # High volume + high momentum at peak = strong institutional move = GOOD trades.
-        # The IS research (174K peaks) said high vol = fake, but OOS contradicts this.
-        # Winners have HIGHER volume and momentum than losers.
-        # _FAKE_VOLUME_THRESHOLD = self._cfg.peak_fake_vol_threshold if self._cfg else 2.5
-        # _FAKE_FM_THRESHOLD = self._cfg.peak_fake_fm_threshold if self._cfg else 3.0
+        # Fake peak: observational flag (no blocking action).
+        # High vol+fm at peak = strong institutional move = good ENTRY but signals
+        # the move hasn't peaked yet for EXIT timing.
+        _FAKE_VOLUME_THRESHOLD = self._cfg.peak_fake_vol_threshold if self._cfg else 2.5
+        _FAKE_FM_THRESHOLD = self._cfg.peak_fake_fm_threshold if self._cfg else 3.0
+        _peak_vol = abs(getattr(state, 'volume_delta', 0.0))
+        _peak_fm_abs = abs(_fm)
+        _log_vol = np.log1p(_peak_vol)
+        _log_fm = np.log1p(_peak_fm_abs)
+        _is_fake_peak = (_log_vol > _FAKE_VOLUME_THRESHOLD and _log_fm > _FAKE_FM_THRESHOLD)
+        if _is_fake_peak:
+            self.peak_stats['fake_peak_flagged'] = self.peak_stats.get('fake_peak_flagged', 0) + 1
+        self._last_fake_peak_flag = _is_fake_peak  # accessible by exit engine
 
         # ── Layer 3: ADX regime check (chop filter) ──
         # Primary: NT8 ADX (injected by live engine from bridge).
