@@ -31,48 +31,80 @@
 
 ---
 
-## ACTIVE: Peak-Based Template Rebuild (next major work)
+## ACTIVE: Live Parity (2026-03-20)
 
 ### Problem
-Current templates are built from z-score threshold crossings (arbitrary, lookahead risk).
-Direction is unknown -- needs a cascade of 8 voters, which votes LONG into crashes (Feb 9: -$8,496).
-Templates have no context about what happens AFTER the pattern.
+OOS: $22.6K, 4,644 trades, $4.87/trade.
+Live: 7 trades, $2 profit in 7.5 hours. 303K sensor blocks.
 
-### Solution: Peak-Derived Conditional Templates
-1. **Peak detection finds reversals** in 1m data (no lookahead by design)
-2. **10-bar approach shape + context** extracted at each peak (6D geometry + 16D state + 16D delta + 16D slope = 54D)
-3. **Outcome classification**: reversal (69%) / continuation (30%) / plateau (1%)
-   Research: 174K peaks analyzed. Top separating features: range (H=5802), volume (H=4244), F_momentum (H=2735)
-4. **Direction baked in**: peak tells you direction. No cascade needed.
-5. **Exit = next entry**: when opposite template fires, you're done.
+### Root Cause (diagnosed 2026-03-20)
+F_momentum uses PID cumsum over full bar history. ATLAS has 417K 1m bars.
+Live starts from zero. 17x median divergence. Sensor gate blocks everything.
 
-### Research completed (2026-03-18)
-- `tools/peak_template_research.py` -- 174K peaks, feature extraction, clustering, classifier
-- RandomForest at 0.65 threshold: 72.2% precision, blocks 35% of fakes
-- Top-3 features alone match full 55-feature classifier
-- Threshold gate already wired into `bar_processor._1m_confirms_peak()`
+### Fix (deployed)
+Pre-computed states: `python tools/precompute_live_states.py` -> pkl loaded at startup.
+1m worker starts with full ATLAS F_momentum. Parity guaranteed.
 
-### Next steps
-1. CNN classifier trained on profit (not labels) -- spec at `docs/specs/CNN_PEAK_CLASSIFIER.md`
-2. Phase 1 rebuild: peak discovery replaces z-score discovery
-3. Templates carry direction + expected MFE + sensor profile
-4. Direction cascade removed for peak entries
-
-### Files
-- Spec: `docs/specs/PEAK_TEMPLATES.md`
-- CNN spec: `docs/specs/CNN_PEAK_CLASSIFIER.md`
-- Research: `tools/peak_template_research.py`
-- Data: `reports/findings/peak_template_*.{csv,txt,png}`
+### Validation (in progress)
+All-day live test running. Compare live trades vs OOS for same hours.
+NT8 raw data captured to `reports/live/nt8_raw/` for calibration.
 
 ---
 
-## BACKLOG (priority order)
+## ROADMAP: Brain Evolution (established 2026-03-20)
 
-### 1. CNN Peak Classifier
-- Train CNN on raw 10-bar x 10-channel time series, target = PnL
-- Replaces threshold gate with learned model
-- Advantages: temporal pattern detection, regime adaptation via retraining
-- Spec: `docs/specs/CNN_PEAK_CLASSIFIER.md`
+### Stage 1: Lizard Brain (current)
+- Win/loss counter per template_id
+- BayesianBrain conviction AUC = 0.501 (random, adds no value)
+- Serves as gate (should_fire) and direction voter
+- **Status**: working but useless for peak trades (one counter for all peaks)
+
+### Stage 2: Crow Brain (8-12 hours)
+- k-NN seed matching with 31,605 auto seeds
+- Enrich seeds with 10-bar MarketState + 192D context
+- Runtime: current state -> 10 nearest seeds -> weighted outcome
+- Gives: probability, direction, expected MFE per CONTEXT (not per template)
+- **Status**: spec ready, awaiting live parity confirmation
+
+### Stage 3: Monkey Brain (12-18 hours, builds on Crow)
+- 1D CNN three-head model trained on enriched seeds
+- Heads: P(profitable), P(direction), expected MFE
+- 12 channels x 10 bars + 6 context values = 126 inputs
+- Replaces: direction cascade (8 voters), exit timing, brain gate
+- Spec: `docs/specs/CNN_PEAK_CLASSIFIER.md` (v2, 10 arguments)
+- **Status**: spec ready for external validation
+
+### Each stage validates the data pipeline for the next.
+### Crow is the safety net -- if CNN fails live, fall back to Crow.
+
+---
+
+## ACTIVE: Research Findings (2026-03-19/20)
+
+### Filters tested and result
+| Filter | IS Research | OOS Result | Action |
+|--------|-----------|------------|--------|
+| ADX chop (<15) | Blocks noise | Blocks profitable trades (PF unchanged) | **Disabled** |
+| Fake peak (vol+fm) | 72% precision | Blocked 93% of PnL ($13.6K) | **Disabled** (flag only) |
+| DMI at 1m | Expected value | Zero predictive value | **Removed from gate** |
+| Buildup (10-bar) | Blocks noise spikes | Blocks 0% of OOS trades | Kept (harmless) |
+| Vol+FM sensor gate | Not tested alone | Vol against=$1.67 vs $5.53, FM against=$1.82 vs $5.44 | **Active (only gate)** |
+| Peak override | Hold through noise | 5.8% WR, PF 1.01 | **Reverted** |
+
+### Key insight
+IS-derived thresholds do NOT transfer to OOS. The features matter (volume, momentum
+separate winners from losers) but the threshold VALUES are wrong. This is why the CNN
+approach is needed -- it learns thresholds from data, not hand-tuning.
+
+---
+
+## BACKLOG (priority order, updated 2026-03-20)
+
+### 1. 1s Peak Entry with Full+Partial 1m Confirmation
+- Peak detection at 1s speed (currently 15s = up to 29.9s latency)
+- Full 1m confirmation: completed 1m bar + partial 1m delta
+- If 1m fully confirms -> enter at 1s. Partial -> wait for 15s.
+- Reduces worst-case entry latency from 29.9s to <1s
 
 ### 2. Unify Data Folders
 - One `DATA/ATLAS/` with all data (IS + OOS in same directory)
