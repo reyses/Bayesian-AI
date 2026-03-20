@@ -203,6 +203,10 @@ class BarProcessor:
                     self.peak_stats['peak_detected'] += 1
                     if self._1m_confirms_peak(state, bar_ts=timestamp):
                         _feat = self._build_features(state)
+                        _fm = getattr(state, 'F_momentum', 0.0)
+                        _peak_long = _fm < 0
+                        _dir = 'LONG' if _peak_long else 'SHORT'
+                        self._log_peak_accept(timestamp, _dir, state)
                         candidates.append(Candidate(
                             state=state,
                             depth=self._anchor_depth,
@@ -411,6 +415,32 @@ class BarProcessor:
             if not _exists:
                 self._skip_writer.writerow(['py_time', 'nt8_time', 'bar_ts', 'reason'])
         self._skip_writer.writerow([_py, _nt8, bar_ts, reason])
+        self._skip_log_file.flush()
+
+    def _log_peak_accept(self, bar_ts: float, direction: str, state):
+        """Log accepted peak to terminal + CSV."""
+        from datetime import datetime, timezone
+        _nt8 = datetime.fromtimestamp(bar_ts, tz=timezone.utc).strftime('%H:%M:%S') if bar_ts > 0 else '??:??:??'
+        _py = datetime.now().strftime('%H:%M:%S')
+        _vol = abs(getattr(state, 'volume_delta', 0.0))
+        _fm = abs(getattr(state, 'F_momentum', 0.0))
+        _z = getattr(state, 'z_score', 0.0)
+
+        print(f"{_py} [{_nt8}] [PEAK ENTRY] {direction} vol={_vol:.0f} fm={_fm:.1f} z={_z:.2f}", flush=True)
+
+        # Same CSV file as skips — reason column distinguishes
+        if not hasattr(self, '_skip_log_file'):
+            import os, csv
+            os.makedirs('reports/live', exist_ok=True)
+            _date = datetime.now().strftime('%Y%m%d')
+            self._skip_log_path = f'reports/live/peak_skips_{_date}.csv'
+            _exists = os.path.exists(self._skip_log_path)
+            self._skip_log_file = open(self._skip_log_path, 'a', newline='')
+            self._skip_writer = csv.writer(self._skip_log_file)
+            if not _exists:
+                self._skip_writer.writerow(['py_time', 'nt8_time', 'bar_ts', 'reason'])
+        self._skip_writer.writerow([_py, _nt8, bar_ts,
+                                    f"ACCEPTED: {direction} vol={_vol:.0f} fm={_fm:.1f} z={_z:.2f}"])
         self._skip_log_file.flush()
 
     # ── Main Bar Processing ──────────────────────────────────────────
