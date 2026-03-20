@@ -25,7 +25,7 @@ class SessionStats:
     session_drawdown: float = 0.0
     max_session_drawdown: float = 0.0
     exit_buckets: dict = field(default_factory=lambda: {
-        'optimal': 0, 'partial': 0, 'early': 0, 'reversed': 0})
+        'reversed': 0, 'q1': 0, 'q2': 0, 'q3': 0, 'q4': 0, 'q100plus': 0})
 
 
 class SessionTracker:
@@ -70,10 +70,12 @@ class SessionTracker:
             capture = pnl_ticks / mfe_ticks * 100
         else:
             capture = 0.0 if pnl <= 0 else 100.0
-        if capture >= 80:   s.exit_buckets['optimal'] += 1
-        elif capture >= 20: s.exit_buckets['partial'] += 1
-        elif capture > 0:   s.exit_buckets['early'] += 1
-        else:               s.exit_buckets['reversed'] += 1
+        if capture > 100:     s.exit_buckets['q100plus'] += 1
+        elif capture >= 75:   s.exit_buckets['q4'] += 1
+        elif capture >= 50:   s.exit_buckets['q3'] += 1
+        elif capture >= 25:   s.exit_buckets['q2'] += 1
+        elif capture > 0:     s.exit_buckets['q1'] += 1
+        else:                 s.exit_buckets['reversed'] += 1
 
         trade_info['capture'] = capture
         self.trade_log.append(trade_info)

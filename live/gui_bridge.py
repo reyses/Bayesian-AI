@@ -60,8 +60,9 @@ class GUIBridge:
             'type': 'PHASE_PROGRESS', 'phase': 'LIVE',
             'step': _bar_label, 'pct': belief_pct,
             'pnl': daily_pnl, 'wr': wr, 'trades': session_trades, 'pf': pf,
-            'exit_optimal': eb['optimal'], 'exit_partial': eb['partial'],
-            'exit_early': eb['early'], 'exit_reversed': eb['reversed'],
+            'cap_reversed': eb['reversed'], 'cap_q1': eb['q1'],
+            'cap_q2': eb['q2'], 'cap_q3': eb['q3'],
+            'cap_q4': eb['q4'], 'cap_100plus': eb['q100plus'],
             'gross_w': gross_win, 'gross_l': abs(gross_loss),
         })
 
