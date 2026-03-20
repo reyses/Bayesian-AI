@@ -799,8 +799,7 @@ class LiveEngine:
         # Block entries during maintenance or loss limit
         _cooldown_ok = (time.time() - self._last_exit_time) > float(self._anchor_period)
         _can_enter = (self._system_ready
-                      and not self._position_open
-                      and not self._orders.loss_limit_hit
+                      and self._orders.can_enter
                       and _cooldown_ok
                       and not self._instrument_mismatch
                       and not self._exit_engine.is_maintenance_window(ts))
