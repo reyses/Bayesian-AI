@@ -750,8 +750,8 @@ class LiveEngine:
         # Convert to DI+/DI- style for the dashboard chart (0-100 scale)
         _dmi_p, _dmi_m = 0.0, 0.0
         _nt8_dmi = getattr(self, '_nt8_latest_dmi', {})
-        # Use 1m DMI (updates every minute, smooth enough for chart)
-        _dmi_val = _nt8_dmi.get(60, 0.0)  # 1m TF
+        # Use 1s DMI (matches ticker speed, from NT8 native)
+        _dmi_val = _nt8_dmi.get(1, _nt8_dmi.get(60, 0.0))  # 1s, fallback 1m
         if _dmi_val != 0:
             # Convert normalized [-1,+1] to pseudo DI+/DI- for chart
             # When dmi > 0: bullish, DI+ > DI-
