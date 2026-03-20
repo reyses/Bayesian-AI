@@ -57,7 +57,9 @@ class OrderManager:
         self._orders: Dict[str, OrderRecord] = {}
         self.position = PositionState()
         self._daily_pnl: float = 0.0
-        self._awaiting_fill: bool = False  # True from order sent until FILL/REJECT received
+        self._awaiting_entry_fill: bool = False   # True from entry sent until FILL/REJECT
+        self._awaiting_exit_fill: bool = False    # True from exit sent until FILL/REJECT
+        self._max_position_size: int = config.max_position_size
         self._trade_count: int = 0
         self._daily_loss_limit_hit = False
         self.last_exit_info: dict = {}  # filled on exit FILL (entry_px, exit_px, side)
@@ -80,12 +82,24 @@ class OrderManager:
 
     @property
     def is_flat(self) -> bool:
+        """True only when NO position AND NO pending orders of any kind."""
         if self.position.qty != 0:
             return False
-        # Block if awaiting fill confirmation from NT8
-        if self._awaiting_fill:
+        if self._awaiting_entry_fill:
+            return False
+        if self._awaiting_exit_fill:
             return False
         return True
+
+    @property
+    def can_enter(self) -> bool:
+        """True only when flat AND no pending entry or exit."""
+        return self.is_flat and not self._daily_loss_limit_hit
+
+    @property
+    def can_exit(self) -> bool:
+        """True when in a position AND not already waiting for exit fill."""
+        return self.position.qty != 0 and not self._awaiting_exit_fill
 
     @property
     def daily_pnl(self) -> float:
@@ -103,13 +117,17 @@ class OrderManager:
     def build_entry_order(self, side: str) -> Optional[dict]:
         """
         Build a PLACE_ORDER message for a new entry.
-        Returns None if risk limits prevent it.
+        Returns None if ANY order is pending or risk limits hit.
         """
-        if self._daily_loss_limit_hit:
-            logger.warning("Daily loss limit hit  -- no new orders")
-            return None
-        if not self.is_flat:
-            logger.warning(f"Already in position ({self.position.side})  -- skipping entry")
+        if not self.can_enter:
+            if self._awaiting_entry_fill:
+                logger.warning("Entry blocked: awaiting entry fill")
+            elif self._awaiting_exit_fill:
+                logger.warning("Entry blocked: awaiting exit fill")
+            elif self.position.qty != 0:
+                logger.warning(f"Entry blocked: in position ({self.position.side})")
+            elif self._daily_loss_limit_hit:
+                logger.warning("Entry blocked: daily loss limit")
             return None
         if side not in ('BUY', 'SELL'):
             logger.error(f"Invalid side: {side}")
@@ -124,15 +142,18 @@ class OrderManager:
         msg = place_order(oid, self._cfg.instrument,
                           self._cfg.account, side,
                           self._cfg.max_position_size)
-        self._awaiting_fill = True
+        self._awaiting_entry_fill = True
         logger.info(f"ORDER -> {side} {self._cfg.max_position_size} {self._cfg.instrument}  id={oid}")
         return msg
 
     def build_exit_order(self, reason: str = 'signal') -> Optional[dict]:
-        """Build a CLOSE_POSITION message.  Returns None if already flat."""
-        if self.is_flat:
+        """Build a CLOSE_POSITION message. Blocks if already exiting or flat."""
+        if not self.can_exit:
+            if self._awaiting_exit_fill:
+                logger.warning(f"Exit blocked: already awaiting exit fill ({reason})")
             return None
-        self.exit_rejected = False  # reset before new attempt
+        self.exit_rejected = False
+        self._awaiting_exit_fill = True
         logger.info(f"EXIT -> close {self.position.side} ({reason})")
         return close_position(self._cfg.instrument, self._cfg.account)
 
@@ -159,7 +180,9 @@ class OrderManager:
 
         Returns PnL (float) on exit fills, None on entry fills.
         """
-        self._awaiting_fill = False  # got confirmation
+        # Clear both flags — fill resolves whatever was pending
+        self._awaiting_entry_fill = False
+        self._awaiting_exit_fill = False
         oid = msg.get('order_id', '')
         rec = self._orders.get(oid)
         if rec:
@@ -232,7 +255,8 @@ class OrderManager:
         if rec:
             if status in ('Cancelled', 'Rejected'):
                 rec.state = OrderState(status.upper())
-                self._awaiting_fill = False  # order won't fill
+                self._awaiting_entry_fill = False
+                self._awaiting_exit_fill = False
                 logger.warning(f"Order {oid} {status}")
             elif status in ('Accepted', 'Working'):
                 rec.state = OrderState.WORKING
@@ -247,12 +271,20 @@ class OrderManager:
             logger.error(f"ORDER REJECTED while in position: {oid}  -- will retry close")
 
     def on_position(self, msg: dict):
-        """Handle a POSITION snapshot from NT8 (source of truth)."""
+        """Handle a POSITION snapshot from NT8 (source of truth).
+
+        NT8 POSITION is authoritative. If NT8 says flat, we're flat —
+        clear all pending flags regardless of local state.
+        """
         nt8_qty = int(msg.get('qty', 0))
         if nt8_qty == 0:
-            if not self.is_flat:
-                logger.warning("NT8 says flat  -- syncing local state")
+            if self.position.qty != 0 or self._awaiting_entry_fill or self._awaiting_exit_fill:
+                logger.warning(f"NT8 says flat -- syncing (was: pos={self.position.side}, "
+                              f"entry_pending={self._awaiting_entry_fill}, "
+                              f"exit_pending={self._awaiting_exit_fill})")
             self.position = PositionState()
+            self._awaiting_entry_fill = False
+            self._awaiting_exit_fill = False
         else:
             side = 'LONG' if nt8_qty > 0 else 'SHORT'
             self.position = PositionState(
@@ -274,7 +306,8 @@ class OrderManager:
             logger.warning(f"Stale order pruned: {oid} "
                            f"(age={now - self._orders[oid].submit_time:.0f}s)")
         if stale:
-            self._awaiting_fill = False  # stale = no fill coming
+            self._awaiting_entry_fill = False
+            self._awaiting_exit_fill = False
             logger.info(f"Pruned {len(stale)} stale orders")
 
     def reset_daily(self):
