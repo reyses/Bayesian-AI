@@ -667,13 +667,13 @@ class LiveEngine:
             else:
                 _unreal = (self._position.entry_price - price) * _pv
 
-        # Get 1m DMI for dashboard chart (updates every minute, not every 5m)
+        # Get 1s DMI for dashboard chart (matches ticker update rate)
         _dmi_p, _dmi_m = 0.0, 0.0
-        _1m_w = self._belief_network.workers.get(60)
-        if _1m_w is not None and _1m_w._states:
-            _mi = _1m_w._last_tf_bar_idx
-            if 0 <= _mi < len(_1m_w._states):
-                _raw = _1m_w._states[_mi]
+        _1s_w = self._belief_network.workers.get(1)
+        if _1s_w is not None and _1s_w._states:
+            _mi = _1s_w._last_tf_bar_idx
+            if 0 <= _mi < len(_1s_w._states):
+                _raw = _1s_w._states[_mi]
                 _ms = _raw['state'] if isinstance(_raw, dict) and 'state' in _raw else _raw
                 _dmi_p = getattr(_ms, 'dmi_plus', 0.0)
                 _dmi_m = getattr(_ms, 'dmi_minus', 0.0)
