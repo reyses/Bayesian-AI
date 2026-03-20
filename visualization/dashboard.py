@@ -894,6 +894,21 @@ class ProgressPopup:
                                  bg=BG, fg=FG_RED, font=("Consolas", 12, "bold"))
         self._gl_lbl.grid(row=1, column=5, padx=6)
 
+        # ── Session timer + $/hour ────────────────────────────────────────────
+        import time as _time_mod
+        self._session_start_time = _time_mod.time()
+        timer_frame = tk.Frame(root, bg=BG)
+        timer_frame.pack(fill="x", padx=10, pady=(4, 0))
+        self._timer_var = tk.StringVar(value="0:00:00")
+        self._pnl_per_hour_var = tk.StringVar(value="$0/hr")
+        tk.Label(timer_frame, text="Session:", bg=BG, fg=FG_GREY,
+                 font=("Consolas", 7)).pack(side="left", padx=(0, 4))
+        tk.Label(timer_frame, textvariable=self._timer_var, bg=BG, fg=FG_WHITE,
+                 font=("Consolas", 9, "bold")).pack(side="left", padx=(0, 12))
+        self._pnl_hr_lbl = tk.Label(timer_frame, textvariable=self._pnl_per_hour_var,
+                                    bg=BG, fg=FG_GREEN, font=("Consolas", 9, "bold"))
+        self._pnl_hr_lbl.pack(side="left")
+
         # ── PnL control chart ─────────────────────────────────────────────────
         tk.Label(root, text="PnL by Trade", bg=BG, fg=FG_GREY, font=("Consolas", 8)).pack(
             pady=(14, 2)
@@ -1438,6 +1453,19 @@ class ProgressPopup:
                         self._wr_var.set(f"{wr:.1f}%")
                     if trades is not None:
                         self._trades_var.set(f"{trades:,}")
+
+                    # Session timer + $/hour
+                    import time as _tm
+                    _elapsed = _tm.time() - self._session_start_time
+                    _hrs = int(_elapsed // 3600)
+                    _mins = int((_elapsed % 3600) // 60)
+                    _secs = int(_elapsed % 60)
+                    self._timer_var.set(f"{_hrs}:{_mins:02d}:{_secs:02d}")
+                    if pnl is not None and _elapsed > 60:
+                        _pnl_hr = pnl / (_elapsed / 3600)
+                        _sign = "+" if _pnl_hr >= 0 else ""
+                        self._pnl_per_hour_var.set(f"{_sign}${_pnl_hr:,.0f}/hr")
+                        self._pnl_hr_lbl.config(fg=FG_GREEN if _pnl_hr >= 0 else FG_RED)
 
                     # Profit factor & gross W/L
                     _pf = msg.get('pf')
