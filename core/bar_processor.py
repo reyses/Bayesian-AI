@@ -87,6 +87,7 @@ class BarProcessor:
         hooks: Optional[BarProcessorHooks] = None,
     ):
         self.exec_engine = exec_engine
+        self._cfg = getattr(exec_engine, 'config', None)  # TradingConfig
         self.belief_network = belief_network
         self.exit_engine = exit_engine
         self.brain = brain
@@ -265,8 +266,9 @@ class BarProcessor:
 
         _n_against = sum([_dmi_against, _vol_against, _fm_against])
 
-        # Block if 2+ sensors oppose (strong institutional disagreement)
-        if _n_against >= 2:
+        # Block if N+ sensors oppose (strong institutional disagreement)
+        _MIN_OPPOSE = self._cfg.peak_sensor_min_oppose if self._cfg else 2
+        if _n_against >= _MIN_OPPOSE:
             self.peak_stats['blocked_1m_sensor'] += 1
             _dir = 'LONG' if _peak_long else 'SHORT'
             self._log_peak_skip(bar_ts, f"1m_sensor: {_dir} blocked ({_n_against}/3 sensors oppose: "
@@ -280,8 +282,8 @@ class BarProcessor:
         _log_vol = np.log1p(_peak_vol)
         _log_fm = np.log1p(_peak_fm_abs)
 
-        _FAKE_VOLUME_THRESHOLD = 2.5    # log1p(~11) -- above this = likely fake
-        _FAKE_FM_THRESHOLD = 3.0        # log1p(~19) -- momentum still building
+        _FAKE_VOLUME_THRESHOLD = self._cfg.peak_fake_vol_threshold if self._cfg else 2.5
+        _FAKE_FM_THRESHOLD = self._cfg.peak_fake_fm_threshold if self._cfg else 3.0
 
         if _log_vol > _FAKE_VOLUME_THRESHOLD and _log_fm > _FAKE_FM_THRESHOLD:
             self.peak_stats['blocked_fake_peak'] += 1
@@ -296,7 +298,7 @@ class BarProcessor:
         _1m_adx = getattr(self, '_nt8_1m_adx', 0.0)
         if _1m_adx < 0.01:
             _1m_adx = getattr(_ms, 'adx_strength', 0.0)
-        _ADX_CHOP_THRESHOLD = 15.0  # below this = market is chopping
+        _ADX_CHOP_THRESHOLD = self._cfg.peak_adx_chop_threshold if self._cfg else 15.0
         if _1m_adx < _ADX_CHOP_THRESHOLD:
             self.peak_stats['blocked_adx_chop'] = self.peak_stats.get('blocked_adx_chop', 0) + 1
             self._log_peak_skip(bar_ts, f"adx_chop: 1m ADX={_1m_adx:.1f} < {_ADX_CHOP_THRESHOLD} (choppy market)")
