@@ -711,7 +711,7 @@ class ProgressPopup:
         self.root.geometry("620x880+60+60")
         self.root.configure(bg=BG)
         self.root.resizable(True, True)
-        self.root.attributes("-topmost", True)
+        self.root.attributes("-topmost", False)
 
         style = ttk.Style()
         style.configure(
