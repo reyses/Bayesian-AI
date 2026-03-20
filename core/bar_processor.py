@@ -196,10 +196,11 @@ class BarProcessor:
                 self._detect_peak_reversal(state)  # update buffers
                 self.peak_stats['blocked_cooldown'] += 1
             else:
+                self._last_bar_ts = timestamp  # for skip logs
                 _peak_entry = self._detect_peak_reversal(state)
                 if _peak_entry:
                     self.peak_stats['peak_detected'] += 1
-                    if self._1m_confirms_peak(state):
+                    if self._1m_confirms_peak(state, bar_ts=timestamp):
                         _feat = self._build_features(state)
                         candidates.append(Candidate(
                             state=state,
@@ -218,7 +219,7 @@ class BarProcessor:
 
         return candidates
 
-    def _1m_confirms_peak(self, state) -> bool:
+    def _1m_confirms_peak(self, state, bar_ts: float = 0.0) -> bool:
         """Check if 1m sensors + approach context confirm peak is real.
 
         Two-layer gate:
@@ -268,7 +269,7 @@ class BarProcessor:
         if _n_against >= 2:
             self.peak_stats['blocked_1m_sensor'] += 1
             _dir = 'LONG' if _peak_long else 'SHORT'
-            self._log_peak_skip(f"1m_sensor: {_dir} blocked ({_n_against}/3 sensors oppose: "
+            self._log_peak_skip(bar_ts, f"1m_sensor: {_dir} blocked ({_n_against}/3 sensors oppose: "
                                 f"dmi={'Y' if _dmi_against else 'N'} vol={'Y' if _vol_against else 'N'} "
                                 f"fm={'Y' if _fm_against else 'N'})")
             return False
@@ -284,7 +285,7 @@ class BarProcessor:
 
         if _log_vol > _FAKE_VOLUME_THRESHOLD and _log_fm > _FAKE_FM_THRESHOLD:
             self.peak_stats['blocked_fake_peak'] += 1
-            self._log_peak_skip(f"fake_peak: vol={_peak_vol:.1f} fm={_peak_fm_abs:.1f} "
+            self._log_peak_skip(bar_ts, f"fake_peak: vol={_peak_vol:.1f} fm={_peak_fm_abs:.1f} "
                                 f"(log_vol={_log_vol:.2f}>{_FAKE_VOLUME_THRESHOLD} "
                                 f"log_fm={_log_fm:.2f}>{_FAKE_FM_THRESHOLD})")
             return False
@@ -298,7 +299,7 @@ class BarProcessor:
         _ADX_CHOP_THRESHOLD = 15.0  # below this = market is chopping
         if _1m_adx < _ADX_CHOP_THRESHOLD:
             self.peak_stats['blocked_adx_chop'] = self.peak_stats.get('blocked_adx_chop', 0) + 1
-            self._log_peak_skip(f"adx_chop: 1m ADX={_1m_adx:.1f} < {_ADX_CHOP_THRESHOLD} (choppy market)")
+            self._log_peak_skip(bar_ts, f"adx_chop: 1m ADX={_1m_adx:.1f} < {_ADX_CHOP_THRESHOLD} (choppy market)")
             return False
 
         return True
@@ -372,20 +373,25 @@ class BarProcessor:
                 # Check P_center shifting as fallback (center moving = regime change)
                 if _pc_shifting_bars < 3:
                     self.peak_stats['blocked_no_buildup'] += 1
-                    self._log_peak_skip(f"no_buildup: fm_decay={_fm_decaying_bars} "
+                    self._log_peak_skip(getattr(self, '_last_bar_ts', 0.0), f"no_buildup: fm_decay={_fm_decaying_bars} "
                                         f"fm_build={_fm_building_bars} pc_shift={_pc_shifting_bars} "
                                         f"(need 3+ in any pattern)")
                     return False  # no pattern in buffer, likely noise
 
         return True
 
-    def _log_peak_skip(self, reason: str):
-        """Log peak skip reason to console + logger (throttled: max 1/second)."""
+    def _log_peak_skip(self, bar_ts: float, reason: str):
+        """Log peak skip reason with NT8 bar timestamp (throttled: max 1/second)."""
         import time as _t
         _now = _t.monotonic()
         if not hasattr(self, '_last_skip_log') or _now - self._last_skip_log > 1.0:
             import logging
-            logging.getLogger('core.bar_processor').info(f"[PEAK SKIP] {reason}")
+            _ts_str = ''
+            if bar_ts > 0:
+                from datetime import datetime, timezone
+                _ts_str = datetime.fromtimestamp(bar_ts, tz=timezone.utc).strftime('%H:%M:%S')
+                _ts_str = f'[{_ts_str}] '
+            logging.getLogger('core.bar_processor').info(f"{_ts_str}[PEAK SKIP] {reason}")
             self._last_skip_log = _now
 
     # ── Main Bar Processing ──────────────────────────────────────────
