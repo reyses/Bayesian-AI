@@ -670,10 +670,15 @@ class LiveEngine:
                 'adx':       float(msg.get('adx', 0)),
             })
 
-        # Store latest NT8 ADX per TF for peak detection chop filter
+        # Store latest NT8 ADX + DMI per TF
         _nt8_adx = float(msg.get('adx', 0))
-        if _nt8_adx > 0 and bar_period == 60:  # 1m ADX for chop filter
+        _nt8_dmi = float(msg.get('dmi', 0))
+        if _nt8_adx > 0 and bar_period == 60:
             self._nt8_1m_adx = _nt8_adx
+        if not hasattr(self, '_nt8_latest_dmi'):
+            self._nt8_latest_dmi = {}
+        if _nt8_dmi != 0:
+            self._nt8_latest_dmi[bar_period] = _nt8_dmi
 
         # Only feed primary chart bars and anchor-TF bars to the aggregator
         if bar_period != self._primary_period and bar_period != self._anchor_period:
@@ -740,16 +745,25 @@ class LiveEngine:
             else:
                 _unreal = (self._position.entry_price - price) * _pv
 
-        # Get 1s DMI for dashboard chart (matches ticker update rate)
+        # Get DMI for dashboard chart from NT8 native values (guaranteed parity)
+        # NT8 sends normalized DMI = (DI+ - DI-) / (DI+ + DI-), range [-1, +1]
+        # Convert to DI+/DI- style for the dashboard chart (0-100 scale)
         _dmi_p, _dmi_m = 0.0, 0.0
-        _1s_w = self._belief_network.workers.get(1)
-        if _1s_w is not None and _1s_w._states:
-            _mi = _1s_w._last_tf_bar_idx
-            if 0 <= _mi < len(_1s_w._states):
-                _raw = _1s_w._states[_mi]
-                _ms = _raw['state'] if isinstance(_raw, dict) and 'state' in _raw else _raw
-                _dmi_p = getattr(_ms, 'dmi_plus', 0.0)
-                _dmi_m = getattr(_ms, 'dmi_minus', 0.0)
+        _nt8_dmi = getattr(self, '_nt8_latest_dmi', {})
+        # Use 1m DMI (updates every minute, smooth enough for chart)
+        _dmi_val = _nt8_dmi.get(60, 0.0)  # 1m TF
+        if _dmi_val != 0:
+            # Convert normalized [-1,+1] to pseudo DI+/DI- for chart
+            # When dmi > 0: bullish, DI+ > DI-
+            # When dmi < 0: bearish, DI- > DI+
+            _base = 25.0  # center both lines around 25
+            _spread = abs(_dmi_val) * 25.0  # scale to 0-50 range
+            if _dmi_val > 0:
+                _dmi_p = _base + _spread
+                _dmi_m = _base - _spread
+            else:
+                _dmi_p = _base - _spread
+                _dmi_m = _base + _spread
 
         self._gui.push({
             'type': 'TICK_UPDATE', 'price': price, 'bars': self._bar_i,
