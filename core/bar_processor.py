@@ -282,15 +282,13 @@ class BarProcessor:
         _log_vol = np.log1p(_peak_vol)
         _log_fm = np.log1p(_peak_fm_abs)
 
-        _FAKE_VOLUME_THRESHOLD = self._cfg.peak_fake_vol_threshold if self._cfg else 2.5
-        _FAKE_FM_THRESHOLD = self._cfg.peak_fake_fm_threshold if self._cfg else 3.0
-
-        if _log_vol > _FAKE_VOLUME_THRESHOLD and _log_fm > _FAKE_FM_THRESHOLD:
-            self.peak_stats['blocked_fake_peak'] += 1
-            self._log_peak_skip(bar_ts, f"fake_peak: vol={_peak_vol:.1f} fm={_peak_fm_abs:.1f} "
-                                f"(log_vol={_log_vol:.2f}>{_FAKE_VOLUME_THRESHOLD} "
-                                f"log_fm={_log_fm:.2f}>{_FAKE_FM_THRESHOLD})")
-            return False
+        # Fake peak filter DISABLED (2026-03-19 research):
+        # OOS sweep showed blocked trades had 66.3% WR, $4.32/trade (93% of all PnL).
+        # High volume + high momentum at peak = strong institutional move = GOOD trades.
+        # The IS research (174K peaks) said high vol = fake, but OOS contradicts this.
+        # Winners have HIGHER volume and momentum than losers.
+        # _FAKE_VOLUME_THRESHOLD = self._cfg.peak_fake_vol_threshold if self._cfg else 2.5
+        # _FAKE_FM_THRESHOLD = self._cfg.peak_fake_fm_threshold if self._cfg else 3.0
 
         # ── Layer 3: ADX regime check (chop filter) ──
         # Primary: NT8 ADX (injected by live engine from bridge).
