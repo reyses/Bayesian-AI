@@ -259,21 +259,20 @@ class BarProcessor:
 
         _trade_sign = 1.0 if _peak_long else -1.0
 
-        # Sensor opposition: how many 1m signals fight the proposed direction
-        _dmi_against = (_1m_dmi_p - _1m_dmi_m) * _trade_sign < -2.0
+        # Sensor opposition: volume + F_momentum are the real signals.
+        # Research (2026-03-19): DMI at 1m adds no value (WR identical with/against).
+        # Volume against = $1.67/tr vs $5.53/tr. F_momentum against = $1.82 vs $5.44.
+        # Block when BOTH volume AND F_momentum oppose (ignore DMI).
         _vol_against = _1m_vol * _trade_sign < -0.5
         _fm_against = _1m_fm * _trade_sign < -1.0
 
-        _n_against = sum([_dmi_against, _vol_against, _fm_against])
-
-        # Block if N+ sensors oppose (strong institutional disagreement)
-        _MIN_OPPOSE = self._cfg.peak_sensor_min_oppose if self._cfg else 2
-        if _n_against >= _MIN_OPPOSE:
+        if _vol_against and _fm_against:
             self.peak_stats['blocked_1m_sensor'] += 1
             _dir = 'LONG' if _peak_long else 'SHORT'
-            self._log_peak_skip(bar_ts, f"1m_sensor: {_dir} blocked ({_n_against}/3 sensors oppose: "
-                                f"dmi={'Y' if _dmi_against else 'N'} vol={'Y' if _vol_against else 'N'} "
-                                f"fm={'Y' if _fm_against else 'N'})")
+            self._log_peak_skip(bar_ts, f"1m_sensor: {_dir} blocked "
+                                f"(vol={'Y' if _vol_against else 'N'} "
+                                f"fm={'Y' if _fm_against else 'N'} "
+                                f"vol={_1m_vol:.1f} fm={_1m_fm:.1f})")
             return False
 
         # ── Layer 2: peak context quality (research-backed thresholds) ──
