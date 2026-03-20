@@ -5890,11 +5890,17 @@ def main():
             else:
                 print(f"  WARNING: {_ckpt_path} not found  -- run training first (default pipeline creates checkpoint)")
 
-            # --frozen-brain: disable learning
+            # Always start OOS with clean IS brain (prevents double-learning)
+            if os.path.exists(_brain_path):
+                orchestrator.brain.load(_brain_path)
+                print(f"  [FRESH] Brain reloaded from IS checkpoint: {_brain_path}")
+
+            _oos_data = getattr(args, 'forward_data', None) or os.path.join('DATA', 'ATLAS_OOS')
+
+            # --frozen-brain: disable learning entirely
             if getattr(args, 'frozen_brain', False):
                 orchestrator.brain.freeze()
                 print(f"  [FROZEN] Brain learning disabled")
-            _oos_data = getattr(args, 'forward_data', None) or os.path.join('DATA', 'ATLAS_OOS')
             _oos_end = getattr(args, '_live_prep_cutoff', None) or args.forward_end
             orchestrator.run_forward_pass(_oos_data,
                                           start_date=args.forward_start,
