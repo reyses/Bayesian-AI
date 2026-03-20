@@ -1479,12 +1479,12 @@ class ProgressPopup:
                     if _gl is not None:
                         self._gl_var.set(f"-${_gl:,.0f}")
 
-                    # Capture rate buckets (live sends exit_* names, training sends cap_*)
-                    _c_rev = msg.get('cap_reversed', 0) or msg.get('exit_reversed', 0)
-                    _c_q1 = msg.get('cap_q1', 0) or msg.get('exit_early', 0)
-                    _c_q2 = msg.get('cap_q2', 0) or msg.get('exit_partial', 0)
+                    # Capture rate quartile buckets
+                    _c_rev = msg.get('cap_reversed', 0)
+                    _c_q1 = msg.get('cap_q1', 0)
+                    _c_q2 = msg.get('cap_q2', 0)
                     _c_q3 = msg.get('cap_q3', 0)
-                    _c_q4 = msg.get('cap_q4', 0) or msg.get('exit_optimal', 0)
+                    _c_q4 = msg.get('cap_q4', 0)
                     _c_plus = msg.get('cap_100plus', 0)
                     _c_tot = _c_rev + _c_q1 + _c_q2 + _c_q3 + _c_q4 + _c_plus
                     if _c_tot > 0:
