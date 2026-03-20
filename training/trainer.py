@@ -2780,6 +2780,18 @@ class Trainer:
         ) if daily_files_15s else ""
         if _date_range:
             report_lines.append(_date_range)
+        # Data timestamps: first and last bar processed
+        from datetime import datetime as _dt
+        if oracle_trade_records:
+            _first_ts = min(t.get('entry_time', 0) for t in oracle_trade_records)
+            _last_ts = max(t.get('exit_time', t.get('entry_time', 0)) for t in oracle_trade_records)
+            _first_str = _dt.fromtimestamp(_first_ts).strftime('%Y-%m-%d %H:%M:%S') if _first_ts else 'N/A'
+            _last_str = _dt.fromtimestamp(_last_ts).strftime('%Y-%m-%d %H:%M:%S') if _last_ts else 'N/A'
+        else:
+            _first_str = _last_str = 'N/A'
+        report_lines.append(f"  First trade: {_first_str}")
+        report_lines.append(f"  Last trade:  {_last_str}")
+        report_lines.append(f"  Report generated: {_dt.now().strftime('%Y-%m-%d %H:%M:%S')}")
         report_lines.append(f"Total Trades: {total_trades}")
         report_lines.append(f"Win Rate: {total_wins/total_trades*100:.1f}%" if total_trades > 0 else "Win Rate: N/A")
         report_lines.append(f"Total PnL: ${total_pnl:.2f}")
