@@ -155,7 +155,7 @@ class TradingConfig:
     nightmare_z: float = 3.0
 
     # === Peak entry gate thresholds ===
-    peak_adx_chop_threshold: float = 2.0    # 1m ADX below this = truly dead market
+    peak_adx_chop_threshold: float = 0.0    # disabled -- ADX filter adds no value (research 2026-03-19)
     # Research (2026-03-19): ADX filter has minimal impact on PF (1.97 at all thresholds).
     # ADX<15 blocked $1,888 profitable trades. ADX<10 blocked 20 trades ($7.80/tr).
     # Lowered to 2 -- only blocks completely flat markets with zero directional movement.
