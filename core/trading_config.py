@@ -154,6 +154,13 @@ class TradingConfig:
     headroom_z_max: float = 3.0
     nightmare_z: float = 3.0
 
+    # === Peak entry gate thresholds ===
+    peak_adx_chop_threshold: float = 15.0   # 1m ADX below this = choppy, block peak entries
+    peak_fake_vol_threshold: float = 2.5    # log1p(volume) above this = flow still active (fake)
+    peak_fake_fm_threshold: float = 3.0     # log1p(F_momentum) above this = momentum building (fake)
+    peak_sensor_min_oppose: int = 2         # block when N+ of 3 1m sensors oppose direction
+    peak_cooldown_bars: int = 6             # bars to wait after peak exit before next entry
+
     # === Execution: Gate thresholds ===
     gate1_dist: float = 4.5
     hurst_min: float = 0.5
