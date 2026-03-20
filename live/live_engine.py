@@ -159,6 +159,9 @@ class LiveEngine:
         # Multi-TF bar buffers for TBN workers (populated from NT8 bridge)
         self._tf_bars: Dict[int, list] = {5: [], 14400: []}
 
+        # System readiness — no trading until HISTORY_DONE + TBN warmed
+        self._system_ready = False
+
         # Position tracking
         self._position_open = False
         self._entry_price = 0.0
@@ -531,6 +534,8 @@ class LiveEngine:
                 for _hist_i in range(len(states)):
                     self._belief_network.tick_all(_hist_i)
                 logger.info(f"TBN warmed: ticked {len(states)} bars from NT8 history")
+                self._system_ready = True
+                logger.info("SYSTEM READY -- trading enabled")
                 # Update ATLAS with NT8 bars so OOS data stays current
                 self._aggregator.update_atlas()
                 self._gui.push({
@@ -725,7 +730,8 @@ class LiveEngine:
 
         # Block entries during maintenance or loss limit
         _cooldown_ok = (time.time() - self._last_exit_time) > float(self._anchor_period)
-        _can_enter = (not self._position_open
+        _can_enter = (self._system_ready
+                      and not self._position_open
                       and not self._orders.loss_limit_hit
                       and _cooldown_ok
                       and not self._instrument_mismatch
