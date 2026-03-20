@@ -381,15 +381,32 @@ class BarProcessor:
         return True
 
     def _log_peak_skip(self, bar_ts: float, reason: str):
-        """Log peak skip reason with NT8 bar timestamp (throttled: max 1/second)."""
+        """Log peak skip to terminal (throttled) + CSV (every skip)."""
+        from datetime import datetime, timezone
+        _nt8 = datetime.fromtimestamp(bar_ts, tz=timezone.utc).strftime('%H:%M:%S') if bar_ts > 0 else '??:??:??'
+        _py = datetime.now().strftime('%H:%M:%S')
+
+        # Terminal: throttled 1/second
         import time as _t
         _now = _t.monotonic()
         if not hasattr(self, '_last_skip_log') or _now - self._last_skip_log > 1.0:
-            from datetime import datetime, timezone
-            _nt8 = datetime.fromtimestamp(bar_ts, tz=timezone.utc).strftime('%H:%M:%S') if bar_ts > 0 else '??:??:??'
-            _py = datetime.now().strftime('%H:%M:%S')
             print(f"{_py} [{_nt8}] [PEAK SKIP] {reason}", flush=True)
             self._last_skip_log = _now
+
+        # CSV: every skip, append to file
+        if not hasattr(self, '_skip_log_file'):
+            import os
+            os.makedirs('reports/live', exist_ok=True)
+            _date = datetime.now().strftime('%Y%m%d')
+            self._skip_log_path = f'reports/live/peak_skips_{_date}.csv'
+            _exists = os.path.exists(self._skip_log_path)
+            self._skip_log_file = open(self._skip_log_path, 'a', newline='')
+            import csv
+            self._skip_writer = csv.writer(self._skip_log_file)
+            if not _exists:
+                self._skip_writer.writerow(['py_time', 'nt8_time', 'bar_ts', 'reason'])
+        self._skip_writer.writerow([_py, _nt8, bar_ts, reason])
+        self._skip_log_file.flush()
 
     # ── Main Bar Processing ──────────────────────────────────────────
 
