@@ -155,7 +155,9 @@ class TradingConfig:
     nightmare_z: float = 3.0
 
     # === Peak entry gate thresholds ===
-    peak_adx_chop_threshold: float = 15.0   # 1m ADX below this = choppy, block peak entries
+    peak_adx_chop_threshold: float = 10.0   # 1m ADX below this = choppy, block peak entries
+    # Research (2026-03-19): ADX<15 blocked $1,888 of profitable trades (65.5% WR, $4.22/tr).
+    # ADX<10 blocks only 20 trades. Filter has minimal impact on PF (1.97 at all thresholds).
     peak_fake_vol_threshold: float = 2.5    # log1p(volume) above this = flow still active (fake)
     peak_fake_fm_threshold: float = 3.0     # log1p(F_momentum) above this = momentum building (fake)
     peak_sensor_min_oppose: int = 2         # block when N+ of 3 1m sensors oppose direction
