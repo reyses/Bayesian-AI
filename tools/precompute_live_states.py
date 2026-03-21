@@ -45,40 +45,66 @@ def load_tf_data(tf_label: str) -> pd.DataFrame:
 def main():
     t0 = time.time()
     engine = StatisticalFieldEngine()
-    result = {}
 
-    # Only pre-compute TFs needed for live parity.
+    out_dir = 'checkpoints/live/warmup'
+    os.makedirs(out_dir, exist_ok=True)
+
+    # Per-TF save: only timestamps + states (no DataFrames).
     # 1m: critical (F_momentum for sensor gate, volume_delta)
-    # 4h, 1h, 30m, 15m, 5m, 3m: TBN workers (moderate size)
-    # 15s, 5s, 1s: too large to pickle, computed from NT8 history instead
-    tfs = ['1m', '4h', '1h', '30m', '15m', '5m', '3m']
+    # 4h, 1h, 30m, 15m, 5m, 3m: TBN workers
+    # 30s: TBN worker (borderline size)
+    # 15s, 5s, 1s: too large, computed from NT8 history
+    tfs = ['4h', '1h', '30m', '15m', '5m', '3m', '1m', '30s']
 
+    total_size = 0
     for tf in tfs:
         print(f'Loading {tf}...', end=' ', flush=True)
         df = load_tf_data(tf)
         if len(df) < 25:
             print(f'skipped ({len(df)} bars)')
             continue
-        print(f'{len(df):,} bars -> ', end='', flush=True)
+
+        # Only keep last N bars to limit memory (PID needs ~500 bars warmup)
+        # But more history = more stable cumsum. Keep last 50K or all if smaller.
+        max_bars = 50000
+        if len(df) > max_bars:
+            df = df.tail(max_bars).reset_index(drop=True)
+            print(f'{len(df):,} bars (trimmed) -> ', end='', flush=True)
+        else:
+            print(f'{len(df):,} bars -> ', end='', flush=True)
+
         states = engine.batch_compute_states(df, use_cuda=True)
-        result[tf] = {
-            'df': df,
-            'states': states,
-            'n_bars': len(df),
-            'ts_min': float(df['timestamp'].min()),
-            'ts_max': float(df['timestamp'].max()),
-        }
-        print(f'{len(states):,} states')
 
-    out_path = 'checkpoints/live/precomputed_states.pkl'
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    with open(out_path, 'wb') as f:
-        pickle.dump(result, f, protocol=pickle.HIGHEST_PROTOCOL)
+        # Extract only timestamps + raw state objects (no DataFrame)
+        timestamps = df['timestamp'].values.astype(np.float64)
 
-    size_mb = os.path.getsize(out_path) / 1024 / 1024
+        out_path = os.path.join(out_dir, f'{tf}.pkl')
+        with open(out_path, 'wb') as f:
+            pickle.dump({
+                'timestamps': timestamps,
+                'states': states,
+                'n_bars': len(states),
+                'ts_min': float(timestamps[0]),
+                'ts_max': float(timestamps[-1]),
+            }, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+        size_mb = os.path.getsize(out_path) / 1024 / 1024
+        total_size += size_mb
+        print(f'{len(states):,} states ({size_mb:.1f} MB)')
+
+        # Free memory between TFs
+        del df, states, timestamps
+        import gc
+        gc.collect()
+        try:
+            import torch
+            torch.cuda.empty_cache()
+        except Exception:
+            pass
+
     elapsed = time.time() - t0
-    print(f'\nSaved: {out_path} ({size_mb:.1f} MB)')
-    print(f'TFs: {list(result.keys())}')
+    print(f'\nSaved to: {out_dir}/')
+    print(f'Total size: {total_size:.1f} MB')
     print(f'Time: {elapsed:.1f}s')
 
 
