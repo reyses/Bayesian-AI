@@ -18,7 +18,7 @@
 - [x] Skip log timestamp fix (??:??:?? -> bar timestamp) — committed
 - [ ] **Run proportional gate + compare 3 baselines**
 - [ ] Fake peak -> exit override (giveback conversation with accountability)
-- [ ] Capture rate 6 buckets on dashboard (track MFE, compute at exit)
+- [x] Capture rate 6 buckets on dashboard — already wired (session_tracker + gui_bridge + dashboard)
 - [ ] Peak-implied direction (skip cascade for peak trades, use peak + 1m)
 - [ ] Sensor gate: if no cat brain, use lenient fallback (-50.0)
 
