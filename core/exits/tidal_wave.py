@@ -44,6 +44,13 @@ class TidalWaveExit:
         if belief_network is None:
             return None
 
+        # Suppress for first 4 bars of peak trades.
+        # Research: tidal_wave PF=0.33 (OOS), panic-exits on momentum that
+        # is the trade's entry signal. Peak trades need time to develop.
+        is_peak_trade = (pos.template_id == -100)
+        if is_peak_trade and pos.bars_held < 4:
+            return None
+
         # Use trade's discovery TF, fallback to config macro
         _disc_tf = int(getattr(pos, 'discovery_tf_seconds', self._macro_tf))
         macro_worker = belief_network.workers.get(_disc_tf)

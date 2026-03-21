@@ -115,10 +115,11 @@ class PeakStateExit:
             exit_reason = 'full_inverted'
 
         elif n_sensors >= STRONG_SENSOR_COUNT:
-            # 3 of 4 agree -> exit if trade is giving back
-            # (don't exit at new highs with only 3 sensors)
+            # 3 of 4 agree -> exit only if significantly giving back
+            # Research: 8,211 trades at $3/tr with $83K regret.
+            # Tightened from 15% to 30% giveback requirement.
             gave_back_pct = (peak_ticks - current_ticks) / peak_ticks if peak_ticks > 0 else 0
-            if gave_back_pct >= 0.15:  # giving back 15%+ from peak
+            if gave_back_pct >= 0.30:  # giving back 30%+ from peak
                 exit_reason = 'strong_inverted'
 
         if exit_reason is None:
