@@ -73,6 +73,7 @@ class PositionState:
     peak_favorable: float = 0.0
     bars_held: int = 0
     bars_since_peak: int = 0        # bars since last new MFE  -- V-reversal detector
+    peak_volume: float = 0.0          # highest volume seen during trade (for vol exhaustion)
     breakeven_locked: bool = False
     envelope_active: bool = False
     envelope_level: float = 0.0

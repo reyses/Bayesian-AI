@@ -1,9 +1,10 @@
 """Peak Giveback  -- exit when trade retraces too far from MFE peak.
 
-Currently uses static tiered thresholds + self-tuning.
-Future: physics-based dynamic thresholds from a separate peak module.
+Uses volume-relative thresholds + adaptive learning from recent trades.
+The probability of winning decays with time AND volume exhaustion.
 """
 from typing import Optional
+from collections import deque
 
 from core.exit_engine import ExitAction, ExitResult, PositionState
 
@@ -23,6 +24,12 @@ class PeakGiveback:
         self._slow_flip_floor = config.giveback_slow_flip_floor
         self._anchor_patience_pct = config.giveback_anchor_patience_pct
         self._shape_blend = config.giveback_shape_blend
+
+        # Adaptive volume exit: learn optimal vol_drop threshold from recent trades
+        self._vol_drop_threshold = 0.50  # start at 50% drop from peak volume
+        self._recent_exits = deque(maxlen=30)  # last 30 giveback exits
+        self._adapt_interval = 10  # recalibrate every 10 exits
+        self._adapt_count = 0
 
     def get_threshold(self, peak_ticks: float, noise_ticks: float = 0.0) -> float:
         """Tiered giveback threshold.
@@ -83,8 +90,27 @@ class PeakGiveback:
         if pos.bars_since_peak < 2:
             return None
 
+        # Volume-relative exit: when volume drops below threshold of peak trade volume,
+        # the move is exhausting. Tighten giveback proportionally.
+        # Volume tells you the move is dying BEFORE price confirms it.
+        _vol_exhausted = False
+        if exit_signal is not None:
+            _current_vol = abs(exit_signal.get('current_volume', 0.0))
+            _peak_vol = getattr(pos, 'peak_volume', 0.0) or 0.0
+            # Track peak volume during trade
+            if _current_vol > _peak_vol:
+                pos.peak_volume = _current_vol
+                _peak_vol = _current_vol
+            # Volume dropped below threshold of peak
+            if _peak_vol > 0 and _current_vol < _peak_vol * self._vol_drop_threshold:
+                _vol_exhausted = True
+
         # Base threshold: 50% giveback = exit (conservative default)
         _threshold_pct = 0.50
+
+        # Volume exhaustion tightens threshold: move is dying, lock profit
+        if _vol_exhausted:
+            _threshold_pct = 0.20  # volume says "done" -- exit fast
 
         # Modulate by sensor fusion: 1s velocity (fast) + 1m volume (slow/accurate)
         if exit_signal is not None:
@@ -181,3 +207,52 @@ class PeakGiveback:
             )
 
         return None
+
+    def record_exit(self, vol_drop_pct: float, pnl_ticks: float, peak_ticks: float):
+        """Record a giveback exit for adaptive threshold learning.
+
+        Called after every giveback exit with:
+          vol_drop_pct: current_volume / peak_volume during trade
+          pnl_ticks: actual PnL in ticks at exit
+          peak_ticks: peak MFE in ticks
+        """
+        capture_pct = pnl_ticks / peak_ticks if peak_ticks > 0 else 0
+        self._recent_exits.append({
+            'vol_drop': vol_drop_pct,
+            'capture': capture_pct,
+            'pnl': pnl_ticks,
+        })
+        self._adapt_count += 1
+
+        if self._adapt_count >= self._adapt_interval and len(self._recent_exits) >= 10:
+            self._adapt_count = 0
+            self._recalibrate()
+
+    def _recalibrate(self):
+        """Adapt vol_drop_threshold from recent exits.
+
+        Finds the volume drop level that maximizes average capture rate.
+        Moves 20% toward optimal each recalibration (smooth adaptation).
+        """
+        if len(self._recent_exits) < 10:
+            return
+
+        exits = list(self._recent_exits)
+        best_threshold = self._vol_drop_threshold
+        best_score = -999
+
+        for t in [0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70]:
+            captures = []
+            for e in exits:
+                if e['vol_drop'] <= t:
+                    captures.append(e['capture'])
+                else:
+                    captures.append(e['capture'] * 0.8)
+            if captures:
+                score = sum(captures) / len(captures)
+                if score > best_score:
+                    best_score = score
+                    best_threshold = t
+
+        self._vol_drop_threshold = (0.8 * self._vol_drop_threshold +
+                                     0.2 * best_threshold)
