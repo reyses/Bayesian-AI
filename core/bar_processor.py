@@ -272,62 +272,14 @@ class BarProcessor:
         _fm = getattr(state, 'F_momentum', 0.0)
         _peak_long = _fm < 0  # old move was down -> reversal is up -> LONG
 
-        # ── Layer 1: 1m sensor opposition check ──
-        _1m_w = self.belief_network.workers.get(60)
-        if _1m_w is None:
-            return True  # no 1m data -> allow
-
-        _mi = _1m_w._last_tf_bar_idx
-        if _mi < 0 or not _1m_w._states or _mi >= len(_1m_w._states):
-            return True
-
-        _raw = _1m_w._states[_mi]
-        _ms = _raw['state'] if isinstance(_raw, dict) and 'state' in _raw else _raw
-
-        _1m_dmi_p = getattr(_ms, 'dmi_plus', 0.0)
-        _1m_dmi_m = getattr(_ms, 'dmi_minus', 0.0)
-        _1m_vol = getattr(_ms, 'volume_delta', 0.0)
-        _1m_fm = getattr(_ms, 'F_momentum', 0.0)
-
-        _trade_sign = 1.0 if _peak_long else -1.0
-
-        # Sensor opposition: proportional thresholds using rolling stats.
-        # Absolute thresholds (-0.5, -1.0) don't scale across regimes.
-        # Use z-score of vol/fm relative to recent bars — auto-calibrates.
-        # Only block when opposition is EXTREME (>1.5 sigma below mean).
-        _vol_signed = _1m_vol * _trade_sign
-        _fm_signed = _1m_fm * _trade_sign
-
-        # Get rolling stats from cat brain if available
-        if self._cat is not None and self._cat.is_warmed_up:
-            import numpy as np
-            _vol_arr = np.array(self._cat._vol_deltas) if len(self._cat._vol_deltas) > 20 else None
-            _fm_arr = np.array(self._cat._fm_deltas) if len(self._cat._fm_deltas) > 20 else None
-
-            if _vol_arr is not None and _fm_arr is not None:
-                _vol_std = max(np.std(_vol_arr), 1e-6)
-                _fm_std = max(np.std(_fm_arr), 1e-6)
-                _vol_z = _vol_signed / _vol_std
-                _fm_z = _fm_signed / _fm_std
-                _vol_against = _vol_z < -1.5  # 1.5 sigma below = extreme opposition
-                _fm_against = _fm_z < -1.5
-            else:
-                # Not enough data — use lenient absolute fallback
-                _vol_against = _vol_signed < -50.0
-                _fm_against = _fm_signed < -50.0
-        else:
-            # No cat brain — use lenient absolute fallback
-            _vol_against = _vol_signed < -50.0
-            _fm_against = _fm_signed < -50.0
-
-        if _vol_against and _fm_against:
-            self.peak_stats['blocked_1m_sensor'] += 1
-            _dir = 'LONG' if _peak_long else 'SHORT'
-            self._log_peak_skip(bar_ts, f"1m_sensor: {_dir} blocked "
-                                f"(vol={'Y' if _vol_against else 'N'} "
-                                f"fm={'Y' if _fm_against else 'N'} "
-                                f"vol={_1m_vol:.1f} fm={_1m_fm:.1f})")
-            return False
+        # ── Layer 1: 1m sensor — OBSERVATIONAL ONLY (no blocking) ──
+        # Research (2026-03-21): parent TF agreement is CONTRARIAN.
+        # When 1m agrees with 15s peak direction, the move is MORE exhausted.
+        # Validated peaks (parent agrees) have WORSE WR than unvalidated.
+        # The 1m gate was costing $95K in IS by blocking profitable entries.
+        # Signal moved to EXIT side: cascade fade (4+ TFs agree against trade = exit).
+        # Kept as observational for the trade log / skip log.
+        pass  # 1m entry gate REMOVED — all peaks pass through
 
         # ── Layer 2: peak context quality (research-backed thresholds) ──
         _peak_vol = abs(getattr(state, 'volume_delta', 0.0))

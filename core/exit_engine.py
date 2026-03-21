@@ -519,7 +519,8 @@ class ExitEngine:
         # === INVERTED ENTRY EXIT (would the system enter against me?) ===
         if not _in_hold_period:
             r = self.peak_state.evaluate(
-                pos, bar_close, ts, current_bar_index, exit_signal)
+                pos, bar_close, ts, current_bar_index, exit_signal,
+                belief_network=belief_network)
             if r: return r
 
         # === STRUCTURAL EXITS (thesis invalidation) ===

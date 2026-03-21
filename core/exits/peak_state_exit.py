@@ -73,8 +73,13 @@ class PeakStateExit:
         tick_size: float,
         current_bar_index: int,
         exit_signal: dict = None,
+        belief_network=None,
     ) -> Optional[ExitResult]:
         """Check if inverted entry fires against current position.
+
+        Two signals:
+        1. Sensor fusion (4 sensors from 1s + 1m) — existing logic
+        2. Cascade fade (4+ TF workers peak against trade) — new, PF=2.44
 
         Returns ExitResult if exit triggered, None if HOLD.
         """
@@ -98,8 +103,23 @@ class PeakStateExit:
         if peak_ticks < MIN_PEAK_TICKS:
             return None  # trade never proved itself -- SL handles these
 
-        # -- Read sensor signals --
-        # These come from TBN's get_exit_signal(), fusing 1s + 1m states
+        # -- Signal 1: Cascade fade (multi-TF peak agreement against trade) --
+        # Research: when 4+ TFs peak in the same direction, entering OPPOSITE
+        # has PF=2.44. If 4+ TFs peak AGAINST our trade, the move we're riding
+        # is exhausted at every scale. Exit immediately.
+        if belief_network is not None:
+            _cascade_against = self._check_cascade_fade(pos, belief_network)
+            if _cascade_against >= 4:
+                return ExitResult(
+                    action=ExitAction.PEAK_STATE_EXIT,
+                    exit_price=bar_close,
+                    reason=f"Cascade fade: {_cascade_against}/5 TFs peaked against "
+                           f"({pos.side}) peak={peak_ticks:.1f}t now={current_ticks:.1f}t",
+                    pnl_ticks=current_ticks,
+                    bars_held=pos.bars_held,
+                )
+
+        # -- Signal 2: Sensor fusion (existing 4-sensor logic) --
         sig_vel_1s = exit_signal.get('vel_1s_against', False)
         sig_vol_1m = exit_signal.get('vol_1m_against', False)
         sig_dmi_1m = exit_signal.get('dmi_1m_against', False)
@@ -116,10 +136,8 @@ class PeakStateExit:
 
         elif n_sensors >= STRONG_SENSOR_COUNT:
             # 3 of 4 agree -> exit only if significantly giving back
-            # Research: 8,211 trades at $3/tr with $83K regret.
-            # Tightened from 15% to 30% giveback requirement.
             gave_back_pct = (peak_ticks - current_ticks) / peak_ticks if peak_ticks > 0 else 0
-            if gave_back_pct >= 0.30:  # giving back 30%+ from peak
+            if gave_back_pct >= 0.30:
                 exit_reason = 'strong_inverted'
 
         if exit_reason is None:
@@ -148,6 +166,49 @@ class PeakStateExit:
             pnl_ticks=current_ticks,
             bars_held=pos.bars_held,
         )
+
+    def _check_cascade_fade(self, pos, belief_network) -> int:
+        """Count how many TF workers show peaks against the trade direction.
+
+        Research (2026-03-21): when 4+ TFs peak against trade = PF 2.44 fade.
+        The move we're riding is exhausted at every scale.
+
+        Checks TF workers: 1m, 5m, 15m, 1h, 4h.
+        A worker "peaks against" when its F_momentum is decaying AND
+        its direction (DMI) opposes the trade side.
+        """
+        _cascade_tfs = [60, 300, 900, 3600, 14400]  # 1m, 5m, 15m, 1h, 4h
+        _trade_sign = 1.0 if pos.side == 'long' else -1.0
+        _against = 0
+
+        for tf_secs in _cascade_tfs:
+            worker = belief_network.workers.get(tf_secs)
+            if worker is None or not worker._states:
+                continue
+            idx = worker._last_tf_bar_idx
+            if idx < 1 or idx >= len(worker._states):
+                continue
+
+            curr = worker._states[idx]
+            prev = worker._states[idx - 1]
+            ms_curr = curr['state'] if isinstance(curr, dict) else curr
+            ms_prev = prev['state'] if isinstance(prev, dict) else prev
+
+            # Worker peaks against trade when:
+            # 1. DMI opposes trade direction
+            dmi_p = getattr(ms_curr, 'dmi_plus', 0.0) or 0.0
+            dmi_m = getattr(ms_curr, 'dmi_minus', 0.0) or 0.0
+            dmi_against = (dmi_m - dmi_p) * _trade_sign > 0
+
+            # 2. F_momentum decaying (peak exhaustion at this scale)
+            fm_curr = abs(getattr(ms_curr, 'F_momentum', 0.0) or 0.0)
+            fm_prev = abs(getattr(ms_prev, 'F_momentum', 0.0) or 0.0)
+            fm_decaying = fm_curr < fm_prev * 0.90 if fm_prev > 0.5 else False
+
+            if dmi_against and fm_decaying:
+                _against += 1
+
+        return _against
 
     def in_cooldown(self, bar_index: int) -> bool:
         """Check if we're in cooldown (suppress re-entry on same peak)."""
