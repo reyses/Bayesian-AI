@@ -673,6 +673,19 @@ class BarProcessor:
             hold_bars=bars_held,
         )
 
+        # Compute trade MFE before position cleanup
+        _pos = self.exec_engine.pos_state
+        _trade_mfe = 0.0
+        if _pos is not None:
+            if entry['side'] == 'long':
+                _trade_mfe = (_pos.peak_favorable - entry['entry_price']) / self._tick_size
+            else:
+                _trade_mfe = (entry['entry_price'] - _pos.peak_favorable) / self._tick_size
+
+        # Capture exit signal for oracle tracking
+        _exit_sig = getattr(action, 'exit_signal', {})
+        _exit_result = getattr(action, 'exit_result', None)
+
         # Build trade dict
         trade = {
             **entry,
@@ -683,15 +696,16 @@ class BarProcessor:
             'pnl_ticks': pnl_ticks,
             'exit_reason': exit_reason,
             'bars_held': bars_held,
+            'trade_mfe_ticks': round(_trade_mfe, 2),
+            'exit_conviction': _exit_sig.get('conviction', 0.0),
+            'exit_wave_maturity': _exit_sig.get('wave_maturity', 0.0),
+            'exit_decay_score': _exit_sig.get('decay_score', 0.0),
+            'exit_signal_reason': getattr(_exit_result, 'reason', exit_reason),
+            'exit_workers': None,  # populated by caller if needed
         }
 
         # Self-tune exit engine (FIX 3: matches inline OOS self-tuning)
-        _pos = self.exec_engine.pos_state
         if _pos is not None:
-            if entry['side'] == 'long':
-                _trade_mfe = (_pos.peak_favorable - entry['entry_price']) / self._tick_size
-            else:
-                _trade_mfe = (entry['entry_price'] - _pos.peak_favorable) / self._tick_size
             _cap = pnl_ticks / _trade_mfe if _trade_mfe > 0 else 0.0
             self.exit_engine.record_trade_outcome(_trade_mfe, pnl_ticks, _cap)
 
@@ -754,6 +768,15 @@ class BarProcessor:
             hold_bars=bars_held,
         )
 
+        # Compute MFE before cleanup
+        _pos = self.exec_engine.pos_state
+        _trade_mfe = 0.0
+        if _pos is not None:
+            if side == 'long':
+                _trade_mfe = (_pos.peak_favorable - entry['entry_price']) / self._tick_size
+            else:
+                _trade_mfe = (entry['entry_price'] - _pos.peak_favorable) / self._tick_size
+
         trade = {
             **entry,
             'exit_price': price,
@@ -763,6 +786,12 @@ class BarProcessor:
             'pnl_ticks': pnl_ticks,
             'exit_reason': 'eod_flatten',
             'bars_held': bars_held,
+            'trade_mfe_ticks': round(_trade_mfe, 2),
+            'exit_conviction': 0.0,
+            'exit_wave_maturity': 0.0,
+            'exit_decay_score': 0.0,
+            'exit_signal_reason': 'eod_flatten',
+            'exit_workers': None,
         }
 
         self.belief_network.stop_trade_tracking()

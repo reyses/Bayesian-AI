@@ -251,7 +251,6 @@ class Trainer:
                          oos_mode: bool = False,
                          account_size: float = 0.0,
                          tier_preference: bool = False,
-                         live_validation_days: int = 0,
                          popup_label: str = ''):
         """
         Phase 4 (IS) / Phase 5 (OOS): Forward pass -- replay data using playbook.
@@ -792,17 +791,6 @@ class Trainer:
         _cumulative_days = 0
         print(f"  Total trading days: {_total_trading_days}")
 
-        # ── Live Validation config ──
-        # All files go through inline OOS first. After the main loop, the last N
-        # trading days are replayed through a FRESH BarProcessor (own EE) for parity.
-        _live_val_days = live_validation_days if (oos_mode and live_validation_days > 0) else 0
-        _live_val_trades = []       # trades from live validation days
-        _live_val_day_ledger = []   # per-day stats for live validation
-        _live_val_gate_stats = {}   # gate funnel for live validation
-        _live_val_dir_sources = {}  # direction source distribution
-        if _live_val_days > 0:
-            print(f"  Live validation: last {_live_val_days} trading days replayed via BarProcessor after inline OOS")
-
         # Pre-loop defaults (survive thin-market skips)
         _pp_enabled = getattr(self, '_ping_pong', False)
         _pp_flip_count = 0
@@ -1136,14 +1124,214 @@ class Trainer:
                         return False, None
                 return True, flip_side
 
-            for row in df_15s.itertuples():
+            # ── BarProcessor hooks for IS forward pass ──────────────
+            _cur_ts = [0.0]  # mutable container for 1s sub-bar hook
+
+            def _pre_exit_hook(price_h, bar_index_h):
+                """Provide 1s sub-bar highs/lows for wick-aware exits."""
+                if not _has_1s:
+                    return {}
+                _t = _cur_ts[0]
+                _s0 = np.searchsorted(_1s_ts, _t, side='left')
+                _s1 = np.searchsorted(_1s_ts, _t + 15, side='left')
+                if _s1 > _s0:
+                    return {'sub_bar_highs': _1s_highs[_s0:_s1].tolist(),
+                            'sub_bar_lows': _1s_lows[_s0:_s1].tolist()}
+                return {}
+
+            def _slippage_hook(pnl_h):
+                if _slip_rng:
+                    return pnl_h + _slip_rng.uniform(-_slip_ticks, _slip_ticks) * _tick_val
+                return pnl_h
+
+            def _equity_entry_hook(action_h, bar_index_h):
+                nonlocal skipped_ruin
+                if not _equity_enabled:
+                    return True
+                _max_loss = action_h.sl_ticks * self.asset.tick_size * self.asset.point_value
+                _max_risk = running_equity * (0.50 * _dd_aggression)
+                if _max_loss > _max_risk:
+                    skipped_ruin += 1
+                    return False
+                return True
+
+            from core.bar_processor import BarProcessorHooks
+            _bp._hooks = BarProcessorHooks(
+                pre_exit_eval=_pre_exit_hook,
+                modify_pnl=_slippage_hook,
+                on_entry=_equity_entry_hook,
+            )
+
+            # ── Helper: process completed trade bookkeeping ──────────
+            def _on_trade_completed(trade, _bar_idx, _ts_raw):
+                """Handle oracle, equity, replay, dashboard after a trade closes."""
+                nonlocal pending_oracle, _pending_dm_idx, current_position_open
+                nonlocal _day_running_pnl, _day_min_pnl
+                nonlocal _cumul_pnl, _cumul_peak, _cumul_trough, _cumul_trough_date
+                nonlocal _cumul_max_dd, _cumul_dd_trough_date
+                nonlocal running_equity, peak_equity, trough_equity
+                nonlocal _daily_peak_equity, _dd_aggression
+                nonlocal account_ruined, ruin_day
+
+                _pnl = trade['pnl']
+                _exit_reason = trade['exit_reason']
+                _bars_held = trade['bars_held']
+                _mfe = trade.get('trade_mfe_ticks', 0.0)
+                current_position_open = False
+
+                # Brain already updated by BarProcessor._handle_exit / force_close.
+                # Build a minimal TradeOutcome for day_trades / _cal_day_trades.
+                _outcome_result = 'WIN' if _pnl > 0 else ('LOSS' if _pnl < 0 else 'BE')
+                _mini_outcome = type('_TO', (), {
+                    'pnl': _pnl, 'result': _outcome_result,
+                    'exit_price': trade['exit_price'],
+                    'entry_price': trade['entry_price'],
+                })()
+                day_trades.append(_mini_outcome)
+                _cal_day_trades.append(_mini_outcome)
+
+                # Dashboard exit marker
+                if self.dashboard_queue is not None:
+                    self.dashboard_queue.put({
+                        'type': 'TRADE_MARKER', 'action': 'EXIT',
+                        'side': trade['side'], 'price': trade['exit_price'],
+                        'pnl': _pnl})
+
+                # Intraday dip tracking
+                _day_running_pnl += _pnl
+                _day_min_pnl = min(_day_min_pnl, _day_running_pnl)
+
+                # Cumulative equity curve
+                _cumul_pnl += _pnl
+                if _cumul_pnl > _cumul_peak:
+                    _cumul_peak = _cumul_pnl
+                if _cumul_pnl < _cumul_trough:
+                    _cumul_trough = _cumul_pnl
+                    _cumul_trough_date = _prev_cal_date
+                _dd = _cumul_peak - _cumul_pnl
+                if _dd > _cumul_max_dd:
+                    _cumul_max_dd = _dd
+                    _cumul_dd_trough_date = _prev_cal_date
+
+                # Equity tracking
+                if _equity_enabled:
+                    running_equity += _pnl
+                    peak_equity = max(peak_equity, running_equity)
+                    trough_equity = min(trough_equity, running_equity)
+                    _daily_peak_equity = max(_daily_peak_equity, running_equity)
+                    _dd_aggression = min(1.0, max(0.2, running_equity / account_size)) if account_size > 0 else 1.0
+                    if running_equity < _NINJATRADER_MNQ_MARGIN:
+                        account_ruined = True
+                        ruin_day = ruin_day or day_date
+
+                # Oracle record completion
+                if pending_oracle is not None:
+                    o_mfe = pending_oracle['oracle_mfe']
+                    o_mae = pending_oracle['oracle_mae']
+                    oracle_fav = o_mfe if pending_oracle['direction'] == 'LONG' else o_mae
+                    oracle_pot = oracle_fav * self.asset.point_value
+                    capture = _pnl / oracle_pot if oracle_pot > 0 else 0.0
+                    _tp_pot = pending_oracle.get('tp_ticks', 0) * self.asset.tick_value
+                    _tgt_cap = _pnl / _tp_pot if _tp_pot > 0 else 0.0
+                    oracle_trade_records.append({
+                        **pending_oracle,
+                        'exit_price': trade['exit_price'],
+                        'exit_time': _ts_raw,
+                        'hold_bars': max(1, _bars_held),
+                        'exit_reason': _exit_reason,
+                        'actual_pnl': _pnl,
+                        'oracle_potential_pnl': oracle_pot,
+                        'capture_rate': round(min(capture, 9.99), 4),
+                        'target_capture': round(min(_tgt_cap, 9.99), 4),
+                        'result': _outcome_result,
+                        'exit_workers': (__import__('json').dumps(belief_network.get_worker_snapshot())
+                                         if trade.get('exit_workers') is None else trade['exit_workers']),
+                        'exit_conviction': trade.get('exit_conviction', 0.0),
+                        'exit_wave_maturity': trade.get('exit_wave_maturity', 0.0),
+                        'exit_signal_reason': trade.get('exit_signal_reason', _exit_reason),
+                        'exit_decay_score': trade.get('exit_decay_score', 0.0),
+                        'trade_mfe_ticks': round(_mfe, 2),
+                        'price_expected_error': round(
+                            (trade['exit_price'] - pending_oracle.get('price_expected', pending_oracle['entry_price']))
+                            / self.asset.tick_size, 2),
+                    })
+                    _stream_trade(oracle_trade_records[-1])
+
+                    # Trade replay capture
+                    try:
+                        _entry_bi = _bar_idx - max(1, _bars_held)
+                        _rep_start = max(0, _entry_bi - 10)
+                        _rep_end = min(len(df_15s), _bar_idx + 20)
+                        _rep_bars = df_15s.iloc[_rep_start:_rep_end]
+                        if len(_rep_bars) > 5:
+                            _snaps = []
+                            for _ri in range(_rep_start, _rep_end):
+                                _rs = _states_map.get(_ri)
+                                if _rs is not None:
+                                    _snaps.append({
+                                        'bar_i': _ri - _rep_start,
+                                        'z': round(getattr(_rs, 'z_score', 0.0), 4),
+                                        'sigma': round(getattr(_rs, 'regression_sigma', 0.0), 4),
+                                        'dmi_p': round(getattr(_rs, 'dmi_plus', 0.0), 2),
+                                        'dmi_m': round(getattr(_rs, 'dmi_minus', 0.0), 2),
+                                        'adx': round(getattr(_rs, 'adx_strength', 0.0), 2),
+                                        'hurst': round(getattr(_rs, 'hurst_exponent', 0.0), 4),
+                                        'f_mom': round(getattr(_rs, 'F_momentum', 0.0), 4),
+                                        'f_rev': round(getattr(_rs, 'mean_reversion_force', 0.0), 4),
+                                        'vel': round(getattr(_rs, 'velocity', 0.0), 4),
+                                        'P_center': round(getattr(_rs, 'P_at_center', 0.0), 4),
+                                        'entropy': round(getattr(_rs, 'entropy_normalized', 0.0), 4),
+                                        'tunnel': round(getattr(_rs, 'reversion_probability', 0.0), 4),
+                                        'coherence': round(getattr(_rs, 'oscillation_entropy_normalized', 0.0), 4),
+                                    })
+                            _trade_replays.append({
+                                'trade_id': len(oracle_trade_records) - 1,
+                                'template_id': trade['tid'],
+                                'side': trade['side'],
+                                'entry_bar': _entry_bi - _rep_start,
+                                'exit_bar': _bar_idx - _rep_start,
+                                'entry_price': trade['entry_price'],
+                                'exit_price': trade['exit_price'],
+                                'actual_pnl': _pnl,
+                                'exit_reason': _exit_reason,
+                                'trade_mfe_ticks': round(_mfe, 2),
+                                'hold_bars': max(1, _bars_held),
+                                'discovery_tf': 15.0,
+                                'bars': (_rep_bars[['timestamp', 'open', 'high', 'low', 'close', 'volume']].values.tolist()
+                                         if 'volume' in _rep_bars.columns
+                                         else _rep_bars[['timestamp', 'open', 'high', 'low', 'close']].values.tolist()),
+                                'states': _snaps,
+                            })
+                    except Exception:
+                        pass  # don't crash forward pass for replay capture
+
+                    # Decision matrix: update with exit outcome
+                    if _pending_dm_idx is not None:
+                        decision_matrix_records[_pending_dm_idx].update({
+                            'trade_result': _outcome_result,
+                            'trade_pnl': round(_pnl, 2),
+                            'exit_reason': _exit_reason,
+                            'exit_signal_reason': trade.get('exit_signal_reason', _exit_reason),
+                            'exit_conviction': trade.get('exit_conviction', 0.0),
+                            'exit_wave_maturity': trade.get('exit_wave_maturity', 0.0),
+                        })
+                    pending_oracle = None
+                    _pending_dm_idx = None
+
+            # ═══════════════════════════════════════════════════════════
+            # BarProcessor-driven forward pass (replaces 1,029-line inline loop)
+            # ═══════════════════════════════════════════════════════════
+            for _i, row in enumerate(df_15s.itertuples()):
                 total_bars_processed += 1
                 ts_raw = row.timestamp
+                _cur_ts[0] = ts_raw
+                price = getattr(row, 'close', getattr(row, 'price', 0.0))
+                _bar_high = getattr(row, 'high', price)
+                _bar_low = getattr(row, 'low', price)
 
                 # ── Per-day progress update ──────────────────────────────
                 _row_day = int(ts_raw) // 86400
                 if _row_day != _current_day:
-                    # ── Flush previous calendar day to ledger ─────────
                     if _prev_cal_date and _cal_day_trades:
                         _cd_pnl = sum(t.pnl for t in _cal_day_trades)
                         _cd_wins = sum(1 for t in _cal_day_trades if t.result == 'WIN')
@@ -1153,7 +1341,6 @@ class Trainer:
                         else:
                             _consec_losing_days = 0
                         _max_consec_losing_days = max(_max_consec_losing_days, _consec_losing_days)
-                        # Capture intraday dip
                         _all_day_dips.append((_prev_cal_date, _day_min_pnl))
                         if _day_min_pnl < _worst_intraday_dip:
                             _worst_intraday_dip = _day_min_pnl
@@ -1172,19 +1359,16 @@ class Trainer:
                         })
                     _current_day = _row_day
                     _cumulative_days += 1
-                    # Readable date from unix day
                     import datetime as _dt_mod
                     _prev_cal_date = _dt_mod.datetime.utcfromtimestamp(int(ts_raw)).strftime('%Y-%m-%d')
                     _cal_day_trades = []
-                    # Reset daily peak for intraday drawdown tracking
                     if _equity_enabled:
                         _daily_peak_equity = running_equity
-                    # Reset intraday PnL for min-equity dip tracking
                     _day_running_pnl = 0.0
                     _day_min_pnl = 0.0
-                    _daily_dd_stopped = False  # new day, new chance
+                    _daily_dd_stopped = False
                     _running_pnl = total_pnl + sum(t.pnl for t in day_trades)
-                    _day_start_pnl = _running_pnl  # snapshot for DD check
+                    _day_start_pnl = _running_pnl
                     _running_trades = total_trades + len(day_trades)
                     _running_wins = total_wins + sum(1 for t in day_trades if t.result == 'WIN')
                     _per_day = _running_pnl / max(_cumulative_days, 1)
@@ -1200,7 +1384,6 @@ class Trainer:
                         _gw = sum(p for p in _all_pnls if p > 0)
                         _gl = abs(sum(p for p in _all_pnls if p < 0))
                         _pf = _gw / _gl if _gl > 0 else 0.0
-                        # Capture rate quartile buckets
                         _caps = [t.get('capture_rate', 0) for t in oracle_trade_records
                                  if t.get('capture_rate') is not None]
                         _c_rev = sum(1 for c in _caps if c <= 0)
@@ -1225,31 +1408,11 @@ class Trainer:
                                                   'cap_q4': _c_q4,
                                                   'cap_100plus': _c_plus})
 
-                # Snap to 60s boundary to match pattern_map keys
                 ts = int(ts_raw) // 60 * 60
-                price = getattr(row, 'close', getattr(row, 'price', 0.0))
-
                 _now_wall = __import__('time').time()
+                _bar_idx = _i + _warmup_offset
 
-                # Belief network: tick all workers (event-driven by TF bar change)
-                # 1h worker updates once per 240 bars; 15s worker updates every bar
-                # _warmup_offset > 0 on first OOS file: IS data prepended to TBN states,
-                # so bar_i=0 in OOS needs to point to states[_warmup_offset].
-                belief_network.tick_all(_bar_i + _warmup_offset)
-
-                # Crow: update phantom trades every bar
-                if _bp._crow is not None:
-                    _bar_high = getattr(row, 'high', price)
-                    _bar_low = getattr(row, 'low', price)
-                    _bp._crow.on_bar(_bar_i, price, _bar_high, _bar_low)
-
-                # Feed cat brain on every bar (even when in position)
-                if _bp._cat is not None and _exec_engine.in_position:
-                    _cat_state = _states_map.get(_bar_i)
-                    if _cat_state is not None:
-                        _bp._cat.update(_cat_state)
-
-                # Feed price + DMI to dashboard (AFTER tick_all so workers are current)
+                # Dashboard: DMI tick (throttled, weekly redraw)
                 if (self.dashboard_queue is not None
                         and _now_wall - getattr(self, '_last_dash_tick', 0) >= 1.0):
                     self._last_dash_tick = _now_wall
@@ -1262,9 +1425,6 @@ class Trainer:
                             _ms = _raw['state'] if isinstance(_raw, dict) and 'state' in _raw else _raw
                             _dmi_p = getattr(_ms, 'dmi_plus', 0.0)
                             _dmi_m = getattr(_ms, 'dmi_minus', 0.0)
-                    # Dashboard: push once per simulated WEEK (every 5 trading days)
-                    # Daily was still too frequent -- 310 redraws for IS.
-                    # Weekly = ~62 redraws for IS, ~8 for OOS.
                     if _row_day != getattr(self, '_last_dashboard_day', None):
                         self._last_dashboard_day = _row_day
                         self._dashboard_day_count = getattr(self, '_dashboard_day_count', 0) + 1
@@ -1274,26 +1434,23 @@ class Trainer:
                                 'dmi_plus': round(_dmi_p, 2),
                                 'dmi_minus': round(_dmi_m, 2)})
 
-                # PID ANALYZER TICK
-                _pid_state = _states_map.get(_bar_i - 1)
-                if _pid_state:
-                     pid_signal = self.pid_analyzer.tick(_pid_state)
-                     if pid_signal:
-                          # Audit
-                          audit_res = self._audit_pid_signal(pid_signal, df_15s, _bar_i, self.asset.point_value)
-
-                          # Find oracle label if any pattern exists at this timestamp
-                          _candidates_here = pattern_map.get(ts, [])
-                          _best_om = 0
-                          _best_meta = {}
-                          if _candidates_here:
-                               for _c in _candidates_here:
+                # PID analyzer tick (previous bar state)
+                if _i > 0:
+                    _pid_state = _states_map.get(_i - 1)
+                    if _pid_state:
+                        pid_signal = self.pid_analyzer.tick(_pid_state)
+                        if pid_signal:
+                            audit_res = self._audit_pid_signal(pid_signal, df_15s, _i, self.asset.point_value)
+                            _candidates_here = pattern_map.get(ts, [])
+                            _best_om = 0
+                            _best_meta = {}
+                            if _candidates_here:
+                                for _c in _candidates_here:
                                     _om = _effective_oracle(_c)
                                     if abs(_om) > abs(_best_om):
-                                         _best_om = _om
-                                         _best_meta = getattr(_c, 'oracle_meta', {})
-
-                          pid_oracle_records.append({
+                                        _best_om = _om
+                                        _best_meta = getattr(_c, 'oracle_meta', {})
+                            pid_oracle_records.append({
                                 'timestamp': pid_signal.timestamp,
                                 'direction': pid_signal.direction,
                                 'entry_price': pid_signal.entry_price,
@@ -1311,964 +1468,246 @@ class Trainer:
                                 'oracle_mfe': _best_meta.get('mfe', 0.0),
                                 'oracle_mae': _best_meta.get('mae', 0.0),
                                 **audit_res
-                          })
-
-                _bar_i += 1
-
-                # 0. CME maintenance cutoff: flatten before daily halt (16:45-18:00 ET)
-                _in_maintenance = _exit_eng.is_maintenance_window(ts_raw)
-                if _in_maintenance and _exec_engine.in_position:
-                    pos = self._position
-                    if pos.side == 'short':
-                        _maint_pnl = (pos.entry_price - price) * self.asset.point_value
-                        _trade_mfe_ticks = (pos.entry_price - pos.peak_favorable) / self.asset.tick_size
-                    else:
-                        _maint_pnl = (price - pos.entry_price) * self.asset.point_value
-                        _trade_mfe_ticks = (pos.peak_favorable - pos.entry_price) / self.asset.tick_size
-                    if _slip_rng:
-                        _maint_pnl += _slip_rng.uniform(-_slip_ticks, _slip_ticks) * _tick_val
-                    self._position = None
-                    _exec_engine.position_closed()
-                    outcome = record_trade(
-                        self.brain, tid=active_template_id,
-                        entry_price=active_entry_price,
-                        exit_price=price,
-                        pnl=_maint_pnl, side=active_side,
-                        exit_reason='maintenance_flat', timestamp=ts_raw,
-                        entry_time=active_entry_time, exit_time=ts_raw,
-                        tick_value=self.asset.tick_value,
-                        hold_bars=pos.bars_held,
-                    )
-                    day_trades.append(outcome)
-                    _cal_day_trades.append(outcome)
-                    current_position_open = False
-                    _day_running_pnl += outcome.pnl
-                    _day_min_pnl = min(_day_min_pnl, _day_running_pnl)
-                    _cumul_pnl += outcome.pnl
-                    if _cumul_pnl > _cumul_peak:
-                        _cumul_peak = _cumul_pnl
-                    if _cumul_pnl < _cumul_trough:
-                        _cumul_trough = _cumul_pnl
-                        _cumul_trough_date = _prev_cal_date
-                    _dd_from_peak = _cumul_peak - _cumul_pnl
-                    if _dd_from_peak > _cumul_max_dd:
-                        _cumul_max_dd = _dd_from_peak
-                        _cumul_dd_trough_date = _prev_cal_date
-                    if _equity_enabled:
-                        running_equity += outcome.pnl
-                        peak_equity = max(peak_equity, running_equity)
-                        trough_equity = min(trough_equity, running_equity)
-                    if pending_oracle is not None:
-                        o_mfe = pending_oracle['oracle_mfe']
-                        o_mae = pending_oracle['oracle_mae']
-                        oracle_favorable = o_mfe if pending_oracle['direction'] == 'LONG' else o_mae
-                        oracle_potential = oracle_favorable * self.asset.point_value
-                        capture = outcome.pnl / oracle_potential if oracle_potential > 0 else 0.0
-                        _tp_potential = pending_oracle.get('tp_ticks', 0) * self.asset.tick_value
-                        _target_capture = outcome.pnl / _tp_potential if _tp_potential > 0 else 0.0
-                        oracle_trade_records.append({
-                            **pending_oracle,
-                            'exit_price': outcome.exit_price,
-                            'exit_time': ts_raw,
-                            'hold_bars': max(1, pos.bars_held),
-                            'exit_reason': 'maintenance_flat',
-                            'actual_pnl': outcome.pnl,
-                            'oracle_potential_pnl': oracle_potential,
-                            'capture_rate': round(min(capture, 9.99), 4),
-                            'target_capture': round(min(_target_capture, 9.99), 4),
-                            'result': outcome.result,
-                            'exit_workers': '{}',
-                            'exit_conviction': 0.0,
-                            'exit_wave_maturity': 0.0,
-                            'exit_signal_reason': 'maintenance_flat',
-                            'exit_decay_score': 0.0,
-                            'trade_mfe_ticks': round(_trade_mfe_ticks, 2),
-                            'price_expected_error': 0.0,
-                        })
-                        _stream_trade(oracle_trade_records[-1])
-                        belief_network.stop_trade_tracking()
-                        pending_oracle = None
-                        _pending_dm_idx = None
-                    _exit_eng.record_trade_outcome(
-                        trade_mfe_ticks=_trade_mfe_ticks,
-                        actual_pnl_ticks=_maint_pnl / self.asset.tick_value,
-                        capture_rate=0.0,
-                    )
-                    continue  # Skip to next bar  -- no entries during maintenance
-
-                # 1. Manage existing position  -- via ExecutionEngine
-                if _exec_engine.in_position:
-                    # Update trade pace cache before exit evaluation
-                    _tp = belief_network.get_trade_progress(
-                        price, tick_size=self.asset.tick_size)
-                    belief_network._trade_pace_cache = _tp
-                    belief_network._trade_pace_blend = _tp.get('pace', 1.0) - 1.0
-
-                    _exit_sig = belief_network.get_exit_signal(
-                        _exec_engine.active_side, active_entry_price,
-                        discovery_tf_seconds=self._position.discovery_tf_seconds if self._position else 300.0)
-                    _band_ctx = (belief_network.get_band_confluence()
-                                 if hasattr(belief_network, 'get_band_confluence') else None)
-                    _bar_state = _states_map.get(_bar_i - 1)
-                    _f_net = float(getattr(_bar_state, 'net_force', 0.0)) if _bar_state else 0.0
-                    _bar_high = getattr(row, 'high', price)
-                    _bar_low = getattr(row, 'low', price)
-
-                    _sub_h, _sub_l = None, None
-                    if _has_1s:
-                        _s0 = np.searchsorted(_1s_ts, ts_raw, side='left')
-                        _s1 = np.searchsorted(_1s_ts, ts_raw + 15, side='left')
-                        if _s1 > _s0:
-                            _sub_h = _1s_highs[_s0:_s1].tolist()
-                            _sub_l = _1s_lows[_s0:_s1].tolist()
-
-                    _noise = float(getattr(_bar_state, 'swing_noise_ticks', 0.0)) if _bar_state else 0.0
-                    _exit_action = _exec_engine.on_bar(
-                        price=price, bar_high=_bar_high, bar_low=_bar_low,
-                        bar_index=_bar_i,
-                        net_force=_f_net,
-                        sub_bar_highs=_sub_h, sub_bar_lows=_sub_l,
-                        band_context=_band_ctx, exit_signal=_exit_sig,
-                        noise_ticks=_noise,
-                    )
-
-                    if _exit_action.type == ActionType.EXIT:
-                        _ee_pnl = _exit_action.pnl_dollars
-                        if _slip_rng:
-                            _ee_pnl += _slip_rng.uniform(-_slip_ticks, _slip_ticks) * _tick_val
-                        _ee_reason = _exit_action.exit_reason
-                        _exit_result = _exit_action.exit_result
-                        # Capture trade MFE before clearing position
-                        _pos_st = _exec_engine.pos_state
-                        if _pos_st is not None:
-                            _peak = _pos_st.peak_favorable
-                            if active_side == 'long':
-                                _trade_mfe_ticks = (_peak - active_entry_price) / self.asset.tick_size
-                            else:
-                                _trade_mfe_ticks = (active_entry_price - _peak) / self.asset.tick_size
-                        else:
-                            _trade_mfe_ticks = 0.0
-                        self._position = None
-                        _exec_engine.position_closed()
-                        # Trade exit marker on dashboard
-                        if self.dashboard_queue is not None:
-                            self.dashboard_queue.put({
-                                'type': 'TRADE_MARKER', 'action': 'EXIT',
-                                'side': active_side, 'price': _exit_action.price,
-                                'pnl': _ee_pnl})
-                        outcome = record_trade(
-                            self.brain, tid=active_template_id,
-                            entry_price=active_entry_price,
-                            exit_price=_exit_action.price,
-                            pnl=_ee_pnl, side=active_side,
-                            exit_reason=_ee_reason, timestamp=ts_raw,
-                            entry_time=active_entry_time, exit_time=ts_raw,
-                            tick_value=self.asset.tick_value,
-                            hold_bars=_exit_action.bars_held,
-                        )
-                        day_trades.append(outcome)
-                        _cal_day_trades.append(outcome)
-                        current_position_open = False
-
-                        # Track intraday dip (min equity calc  -- no account needed)
-                        _day_running_pnl += outcome.pnl
-                        _day_min_pnl = min(_day_min_pnl, _day_running_pnl)
-
-                        # Track cumulative equity curve (never resets)
-                        _cumul_pnl += outcome.pnl
-                        if _cumul_pnl > _cumul_peak:
-                            _cumul_peak = _cumul_pnl
-                        if _cumul_pnl < _cumul_trough:
-                            _cumul_trough = _cumul_pnl
-                            _cumul_trough_date = _prev_cal_date
-                        _dd_from_peak = _cumul_peak - _cumul_pnl
-                        if _dd_from_peak > _cumul_max_dd:
-                            _cumul_max_dd = _dd_from_peak
-                            _cumul_dd_trough_date = _prev_cal_date
-
-                        if _equity_enabled:
-                            running_equity += outcome.pnl
-                            peak_equity = max(peak_equity, running_equity)
-                            trough_equity = min(trough_equity, running_equity)
-                            # Aggression scales with equity: $500->100%, $250->50%, $100->20% floor
-                            _daily_peak_equity = max(_daily_peak_equity, running_equity)
-                            _dd_aggression = min(1.0, max(0.2, running_equity / account_size)) if account_size > 0 else 1.0
-                            if running_equity < _NINJATRADER_MNQ_MARGIN:
-                                account_ruined = True
-                                ruin_day = ruin_day or day_date
-
-                        if pending_oracle is not None:
-                            o_mfe = pending_oracle['oracle_mfe']
-                            o_mae = pending_oracle['oracle_mae']
-                            oracle_favorable = o_mfe if pending_oracle['direction'] == 'LONG' else o_mae
-                            oracle_potential = oracle_favorable * self.asset.point_value
-                            capture = outcome.pnl / oracle_potential if oracle_potential > 0 else 0.0
-                            _tp_potential = pending_oracle.get('tp_ticks', 0) * self.asset.tick_value
-                            _target_capture = outcome.pnl / _tp_potential if _tp_potential > 0 else 0.0
-                            oracle_trade_records.append({
-                                **pending_oracle,
-                                'exit_price': outcome.exit_price,
-                                'exit_time': ts_raw,
-                                'hold_bars': max(1, _exit_action.bars_held),
-                                'exit_reason': _ee_reason,
-                                'actual_pnl': outcome.pnl,
-                                'oracle_potential_pnl': oracle_potential,
-                                'capture_rate': round(min(capture, 9.99), 4),
-                                'target_capture': round(min(_target_capture, 9.99), 4),
-                                'result': outcome.result,
-                                'exit_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
-                                'exit_conviction': _exit_sig.get('conviction', 0.0),
-                                'exit_wave_maturity': _exit_sig.get('wave_maturity', 0.0),
-                                'exit_signal_reason': getattr(_exit_result, 'reason', _ee_reason),
-                                'exit_decay_score': _exit_sig.get('decay_score', 0.0),
-                                'trade_mfe_ticks': round(_trade_mfe_ticks, 2),
-                                'price_expected_error': round(
-                                    (outcome.exit_price - pending_oracle.get('price_expected', pending_oracle['entry_price']))
-                                    / self.asset.tick_size, 2),
                             })
-                            _stream_trade(oracle_trade_records[-1])
 
-                            # ── Trade replay capture ──
-                            # Save per-bar price path + MarketState snapshots for I-MR analysis.
-                            # 10 bars before entry to 20 bars after exit (15s execution bars).
-                            # Includes discovery TF state (z, sigma, DMI, Hurst, forces) per bar.
-                            try:
-                                _entry_bar_idx = _bar_i - max(1, _exit_action.bars_held)
-                                _replay_start = max(0, _entry_bar_idx - 10)
-                                _replay_end = min(len(df_15s), _bar_i + 20)
-                                _replay_bars = df_15s.iloc[_replay_start:_replay_end]
-                                if len(_replay_bars) > 5:
-                                    # Capture MarketState at each bar (from states_map)
-                                    _state_snaps = []
-                                    for _ri in range(_replay_start, _replay_end):
-                                        _rs = _states_map.get(_ri)
-                                        if _rs is not None:
-                                            _state_snaps.append({
-                                                'bar_i': _ri - _replay_start,
-                                                'z': round(getattr(_rs, 'z_score', 0.0), 4),
-                                                'sigma': round(getattr(_rs, 'regression_sigma', 0.0), 4),
-                                                'dmi_p': round(getattr(_rs, 'dmi_plus', 0.0), 2),
-                                                'dmi_m': round(getattr(_rs, 'dmi_minus', 0.0), 2),
-                                                'adx': round(getattr(_rs, 'adx_strength', 0.0), 2),
-                                                'hurst': round(getattr(_rs, 'hurst_exponent', 0.0), 4),
-                                                'f_mom': round(getattr(_rs, 'F_momentum', 0.0), 4),
-                                                'f_rev': round(getattr(_rs, 'mean_reversion_force', 0.0), 4),
-                                                'vel': round(getattr(_rs, 'velocity', 0.0), 4),
-                                                'P_center': round(getattr(_rs, 'P_at_center', 0.0), 4),
-                                                'entropy': round(getattr(_rs, 'entropy_normalized', 0.0), 4),
-                                                'tunnel': round(getattr(_rs, 'reversion_probability', 0.0), 4),
-                                                'coherence': round(getattr(_rs, 'oscillation_entropy_normalized', 0.0), 4),
-                                            })
-                                    _replay_rec = {
-                                        'trade_id': len(oracle_trade_records) - 1,
-                                        'template_id': active_template_id,
-                                        'side': active_side,
-                                        'entry_bar': _entry_bar_idx - _replay_start,
-                                        'exit_bar': _bar_i - _replay_start,
-                                        'entry_price': active_entry_price,
-                                        'exit_price': outcome.exit_price,
-                                        'actual_pnl': outcome.pnl,
-                                        'exit_reason': _ee_reason,
-                                        'trade_mfe_ticks': round(_trade_mfe_ticks, 2),
-                                        'hold_bars': max(1, _exit_action.bars_held),
-                                        'discovery_tf': lib_entry.get('discovery_tf_seconds', 15.0) if lib_entry else 15.0,
-                                        'bars': _replay_bars[['timestamp', 'open', 'high', 'low', 'close', 'volume']].values.tolist() if 'volume' in _replay_bars.columns else _replay_bars[['timestamp', 'open', 'high', 'low', 'close']].values.tolist(),
-                                        'states': _state_snaps,
-                                    }
-                                    _trade_replays.append(_replay_rec)
-                            except Exception:
-                                pass  # don't crash forward pass for replay capture
+                # Get current bar state
+                _bar_state = _states_map.get(_i)
 
-                            if _pending_dm_idx is not None:
-                                decision_matrix_records[_pending_dm_idx].update({
-                                    'trade_result': outcome.result,
-                                    'trade_pnl': round(outcome.pnl, 2),
-                                    'exit_reason': _ee_reason,
-                                    'exit_signal_reason': getattr(_exit_result, 'reason', _ee_reason),
-                                    'exit_conviction': _exit_sig.get('conviction', 0.0),
-                                    'exit_wave_maturity': _exit_sig.get('wave_maturity', 0.0),
-                                })
-                            belief_network.stop_trade_tracking()
-                            pending_oracle = None
-                            _pending_dm_idx = None
+                # Maintenance window: flatten via force_close, skip entries
+                _in_maintenance = _exit_eng.is_maintenance_window(ts_raw)
+                if _in_maintenance:
+                    # Tick TBN even during maintenance (state continuity)
+                    belief_network.tick_all(_bar_idx)
+                    if _bp.in_position:
+                        trade = _bp.force_close(price=price, timestamp=ts_raw, bar_index=_bar_idx)
+                        if trade:
+                            trade['exit_reason'] = 'maintenance_flat'
+                            _on_trade_completed(trade, _i, ts_raw)
+                    continue
 
-                        # Self-tune envelope halflife from trade outcome
-                        _actual_ticks = outcome.pnl / self.asset.tick_value
-                        _cap = oracle_trade_records[-1]['capture_rate'] if oracle_trade_records else 0.0
-                        _exec_engine.exit_engine.record_trade_outcome(
-                            _trade_mfe_ticks, _actual_ticks, _cap)
-
-                        if isinstance(active_template_id, str) and active_template_id.startswith('PP_'):
-                            _pp_all_trades.append(outcome)
-
-                        # Ping-pong: flip after exit (skip during maintenance)
-                        if _pp_enabled and not _in_maintenance:
-                            _should_flip, _flip_side = _pp_try_flip(
-                                active_side, active_template_id, price, ts_raw,
-                                _pp_last_exit_params)
-                            if _should_flip and _pp_last_exit_params:
-                                ep = _pp_last_exit_params
-                                _pp_tid = f'PP_{active_template_id}'
-                                self._position = _exit_eng.open_position(
-                                    side=_flip_side, entry_price=price,
-                                    entry_bar_index=_bar_i, template_id=_pp_tid,
-                                    sl_ticks=_pp_sl_ov or ep['sl'],
-                                    tp_ticks=_pp_tp_ov or ep['tp'],
-                                    trail_ticks=_pp_trail_ov or ep['trail'],
-                                    trail_activation_ticks=ep['trail_act'])
-                                _exec_engine.position_opened(
-                                    side=_flip_side, price=price,
-                                    bar_index=_bar_i, template_id=_pp_tid,
-                                    lib_entry={'p25_mae_ticks': 0, 'mean_mae_ticks': 0,
-                                               'regression_sigma_ticks': 0, 'p75_mfe_ticks': 0},
-                                    sl_ticks=float(_pp_sl_ov or ep['sl']),
-                                    tp_ticks=float(_pp_tp_ov or ep['tp']),
-                                    max_hold_bars=ep['max_hold'],
-                                )
-                                current_position_open = True
-                                active_entry_price = price
-                                active_entry_time = ts_raw
-                                active_side = _flip_side
-                                active_template_id = _pp_tid
-                                active_max_hold_bars = ep['max_hold']
-                                _pp_flip_count += 1
-                                belief_network.start_trade_tracking(
-                                    side=_flip_side, entry_bar=_bar_i,
-                                    pattern_horizon_bars=active_max_hold_bars)
-                                pending_oracle = None
-
-                # 2. Check for entries (if no position)
-                # Equity ruin check: simulation ends when equity hits 0 (no money to trade).
-                if _equity_enabled and account_ruined:
-                    break   # stop processing this day's bars entirely
-
-                # ── Candidate building: two paths ──
-                # IS: full discovery (PatternEvents from scan_day_cascade)
-                # OOS: compressed per-bar (15s state) + bonus multi-TF candidates
-                _has_discovery_signal = ts in pattern_map
-
-                # Peak detection: delegates to BarProcessor methods for parity.
-                # Uses the same buildup buffer, 1m sensor gate, and fake peak filter
-                # as OOS/live. The BarProcessor instance (_bp) is created once per
-                # forward pass and shared for peak detection state.
-                _has_peak_signal = False
-                _bar_state_pk = _states_map.get(_bar_i)
-                if _bar_state_pk is not None:
-                    # Cooldown check (same as BarProcessor)
-                    _in_peak_cooldown = (hasattr(_bp, '_peak_cooldown_until')
-                                         and _bar_i < _bp._peak_cooldown_until)
-                    if not current_position_open and not _in_peak_cooldown:
-                        # Feed cat brain on every bar (same as BarProcessor)
-                        if _bp._cat is not None:
-                            _bp._cat.update(_bar_state_pk)
-                        # Use BarProcessor's peak detection (has buildup buffer)
-                        _peak_fired = _bp._detect_peak_reversal(_bar_state_pk)
-                        if _peak_fired:
-                            _bp.peak_stats['peak_detected'] += 1
-                            # Use BarProcessor's 1m sensor gate
-                            if _bp._1m_confirms_peak(_bar_state_pk):
-                                # Cat brain regime check (same as BarProcessor)
-                                _fm = getattr(_bar_state_pk, 'F_momentum', 0.0)
-                                _peak_dir = 'LONG' if _fm < 0 else 'SHORT'
-                                _cat_ok = True
-                                if _bp._cat is not None:
-                                    _cat_ok, _cat_reason = _bp._cat.should_enter_peak(_peak_dir)
-                                    if not _cat_ok:
-                                        _bp.peak_stats['blocked_cat'] += 1
-                                        # Crow: phantom for blocked entry
-                                        if _bp._crow is not None:
-                                            _bp._crow.on_skip(_bar_i, price, _peak_dir, f'cat_{_cat_reason}')
-                                if _cat_ok:
-                                    _has_peak_signal = True
-                                    _bp.peak_stats['peak_entered'] += 1
-                                    # Crow: phantoms for alt exit thresholds
-                                    if _bp._crow is not None:
-                                        _bp._crow.on_entry(_bar_i, price, _peak_dir)
-                    else:
-                        # Always update peak state (buffers) even when not checking
-                        _bp._detect_peak_reversal(_bar_state_pk)
-                # Unified compressed signal check (IS + OOS  -- no lookahead)
-                _has_compressed_signal = False
-                _bar_state_cs = _states_map.get(_bar_i - 1)
-                if _bar_state_cs:
-                    _cs_pt = getattr(_bar_state_cs, 'pattern_type', '')
-                    _cs_cascade = getattr(_bar_state_cs, 'cascade_detected', False)
-                    _cs_struct = getattr(_bar_state_cs, 'structure_confirmed', False)
-                    if _cs_pt and _cs_pt != 'NONE' and (_cs_cascade or _cs_struct):
-                        _has_compressed_signal = True
-
-                # Detection funnel
-                if _has_compressed_signal or _has_peak_signal:
-                    bars_with_detection += 1
-                    if current_position_open:
-                        bars_slot_blocked += 1
-
-                # ── Daily drawdown stop: $500 buffer below day start ──
-                _current_cumul = _day_start_pnl + _day_running_pnl
+                # Daily DD stop
                 if not _daily_dd_stopped and _day_running_pnl < -DAILY_DD_BUFFER:
                     _daily_dd_stopped = True
                     _daily_dd_skipped += 1
+                    _current_cumul = _day_start_pnl + _day_running_pnl
                     print(f"\n  [DAILY DD STOP] {day_date} | Day started at ${_day_start_pnl:,.2f}, "
                           f"now ${_current_cumul:,.2f} (down ${abs(_day_running_pnl):,.2f}). "
                           f"Breached ${DAILY_DD_BUFFER:,.0f} buffer -- requires review.", flush=True)
+                if _daily_dd_stopped:
+                    belief_network.tick_all(_bar_idx)
+                    continue
 
-                # Unified entry gate  -- same for IS and OOS. No pattern_map.
-                _should_check_entry = (not current_position_open and not _in_maintenance
-                                       and not _daily_dd_stopped
-                                       and (_has_compressed_signal or _has_peak_signal))
+                # Equity ruin
+                if _equity_enabled and account_ruined:
+                    break
 
-                if _should_check_entry:
-                    _candidate_gate = {}    # id(p) -> gate label (for FN audit)
+                # Skip bars without computed state
+                if _bar_state is None:
+                    belief_network.tick_all(_bar_idx)
+                    continue
 
-                    # Compressed candidates + peak detection (IS = OOS = Live)
-                    # ── Compressed state candidates (no lookahead) ──
-                    _oos_state = _states_map.get(_bar_i - 1)
-                    _oos_z = getattr(_oos_state, 'z_score', 0.0)
-                    _oos_pt = getattr(_oos_state, 'pattern_type', '')
-                    _oos_tf_s = 15  # 15s anchor
-                    _oos_depth = 8  # 15s depth
-                    _oos_feat_list = extract_feature_vector(
-                        z_score=_oos_z,
-                        velocity=getattr(_oos_state, 'velocity', 0.0),
-                        momentum=getattr(_oos_state, 'momentum_strength',
-                                         getattr(_oos_state, 'momentum', 0.0)),
-                        entropy_normalized=getattr(_oos_state, 'entropy_normalized', 0.0),
-                        tf_seconds=_oos_tf_s,
-                        depth=float(_oos_depth),
-                        parent_is_band_reversal=0.0,
-                        adx=getattr(_oos_state, 'adx_strength', 0.0) / 100.0,
-                        hurst=getattr(_oos_state, 'hurst_exponent', 0.5),
-                        dmi_diff=(getattr(_oos_state, 'dmi_plus', 0.0)
-                                  - getattr(_oos_state, 'dmi_minus', 0.0)) / 100.0,
-                        parent_z=0.0, parent_dmi_diff=0.0,
-                        root_is_roche=0.0, tf_alignment=0.0,
-                        pid=getattr(_oos_state, 'term_pid', 0.0),
-                        osc_coherence=getattr(_oos_state, 'oscillation_entropy_normalized', 0.0),
-                    )
-                    # 22D mode: append 6D lookback geometry from 15s closes
-                    if getattr(self, '_use_lookback', False):
-                        _lb_start = max(0, _bar_i - 10)
-                        if _bar_i >= 3 and 'close' in df_15s.columns:
-                            from core.shape_primitives import extract_lookback_geometry
-                            _lb_closes = df_15s['close'].iloc[_lb_start:_bar_i].values
-                            _oos_feat_list.extend(extract_lookback_geometry(_lb_closes).tolist())
-                        else:
-                            _oos_feat_list.extend([0.0] * 6)
-                    _oos_feat = np.array([_oos_feat_list])
-                    _eng_candidates = [Candidate(
-                        state=_oos_state,
-                        depth=_oos_depth,
-                        timeframe='15s',
-                        timestamp=ts,
-                        pattern_type=_oos_pt,
-                        z_score=_oos_z,
-                        features=_oos_feat,
-                    )]
-                    # Bonus: add candidates from other TF workers with signals
-                    _OOS_TF_DEPTH = {
-                        3600: 1, 1800: 2, 900: 3, 300: 4, 180: 5,
-                        60: 6, 30: 7, 5: 9, 1: 10,  # skip 15=8 (already added)
-                    }
-                    _TF_LABEL = {
-                        3600:'1h', 1800:'30m', 900:'15m', 300:'5m',
-                        180:'3m', 60:'1m', 30:'30s', 5:'5s', 1:'1s',
-                    }
-                    for _tf_sec_c in sorted(belief_network.workers.keys(),
-                                            reverse=True):
-                        if _tf_sec_c == 15:  # skip 15s (already primary)
-                            continue
-                        _w_c = belief_network.workers[_tf_sec_c]
-                        if _w_c._last_tf_bar_idx < 0 or not _w_c._states:
-                            continue
-                        _widx_c = min(_w_c._last_tf_bar_idx,
-                                      len(_w_c._states) - 1)
-                        _wraw_c = _w_c._states[_widx_c]
-                        _wst_c = (_wraw_c['state']
-                                  if isinstance(_wraw_c, dict)
-                                  and 'state' in _wraw_c else _wraw_c)
-                        _wpt_c = getattr(_wst_c, 'pattern_type', '')
-                        if (not _wpt_c or _wpt_c == 'NONE'):
-                            continue
-                        _wdepth = _OOS_TF_DEPTH.get(_tf_sec_c, 8)
-                        _wz = getattr(_wst_c, 'z_score', 0.0)
-                        _wfeat_list = extract_feature_vector(
-                            z_score=_wz,
-                            velocity=getattr(_wst_c, 'velocity', 0.0),
-                            momentum=getattr(_wst_c, 'momentum_strength',
-                                getattr(_wst_c, 'momentum', 0.0)),
-                            entropy_normalized=getattr(
-                                _wst_c, 'entropy_normalized', 0.0),
-                            tf_seconds=_tf_sec_c,
-                            depth=float(_wdepth),
-                            parent_is_band_reversal=0.0,
-                            adx=getattr(_wst_c, 'adx_strength',
-                                        0.0) / 100.0,
-                            hurst=getattr(_wst_c, 'hurst_exponent',
-                                          0.5),
-                            dmi_diff=(getattr(_wst_c, 'dmi_plus', 0.0)
-                                      - getattr(_wst_c, 'dmi_minus',
-                                                0.0)) / 100.0,
-                            parent_z=0.0, parent_dmi_diff=0.0,
-                            root_is_roche=0.0, tf_alignment=0.0,
-                            pid=getattr(_wst_c, 'term_pid', 0.0),
-                            osc_coherence=getattr(
-                                _wst_c,
-                                'oscillation_entropy_normalized', 0.0),
-                        )
-                        # 22D: reuse 15s lookback geometry for bonus TF candidates
-                        if getattr(self, '_use_lookback', False):
-                            _lb_start_b = max(0, _bar_i - 10)
-                            if _bar_i >= 3 and 'close' in df_15s.columns:
-                                from core.shape_primitives import extract_lookback_geometry
-                                _lb_c = df_15s['close'].iloc[_lb_start_b:_bar_i].values
-                                _wfeat_list.extend(extract_lookback_geometry(_lb_c).tolist())
-                            else:
-                                _wfeat_list.extend([0.0] * 6)
-                        _wfeat = np.array([_wfeat_list])
-                        _eng_candidates.append(Candidate(
-                            state=_wst_c,
-                            depth=_wdepth,
-                            timeframe=_TF_LABEL.get(_tf_sec_c,
-                                                    f'{_tf_sec_c}s'),
-                            timestamp=ts,
-                            pattern_type=_wpt_c,
-                            z_score=_wz,
-                            features=_wfeat,
-                        ))
-                    raw_candidates = []  # compressed mode  -- no PatternEvents (no lookahead)
-                    # Peak detection: always add peak candidate when signal fires
-                    # (competes with compressed candidates in gate cascade)
-                    if _has_peak_signal:
-                        _bar_state_p = _states_map.get(_bar_i)
-                        if _bar_state_p is not None:
-                            _feat = _feat_extractor.extract_features_from_state(_bar_state_p) \
-                                if hasattr(_feat_extractor, 'extract_features_from_state') \
-                                else [0.0] * 22
-                            _eng_candidates.append(Candidate(
-                                state=_bar_state_p,
-                                depth=8,
-                                timeframe='15s',
-                                timestamp=ts,
-                                pattern_type='PEAK_REVERSAL',
-                                z_score=getattr(_bar_state_p, 'z_score', 0.0),
-                                features=np.array([_feat]),
-                                forced_template_id=-100,
-                            ))
+                # ═══ THE REFACTORED CORE: process_bar() ═══════════════
+                result = _bp.process_bar(
+                    bar_index=_bar_idx,
+                    price=price,
+                    bar_high=_bar_high,
+                    bar_low=_bar_low,
+                    timestamp=ts_raw,
+                    state=_bar_state,
+                )
 
-                    # Track peak reversal candidates
-                    _is_peak_entry = any(getattr(c, 'pattern_type', '') == 'PEAK_REVERSAL'
-                                         for c in _eng_candidates)
-                    if _is_peak_entry:
-                        n_peak_reversal += len([c for c in _eng_candidates
-                                                if getattr(c, 'pattern_type', '') == 'PEAK_REVERSAL'])
-                    n_signals_seen += len(_eng_candidates)
+                # ── Handle ENTRY: build oracle record + dashboard ─────
+                if result.action.type == ActionType.ENTER:
+                    _act = result.action
+                    side = _act.side
+                    best_tid = _act.template_id
+                    lib_entry = _act.lib_entry
+                    best_candidate = _act.raw_event
+                    _belief = _act.belief_state
+                    _band = _act.band_context
+                    _cand_depth = _act.depth
+                    _parent_tf = _act.parent_tf
 
-                    # -- PP direction override --
-                    _pp_dir_ov = None
-                    if _pp_enabled:
-                        for _ec in _eng_candidates:
-                            _raw = _ec.raw_event
-                            if _raw is None:
-                                continue
-                            _pp_base = None
-                            _ec_feat = _ec.features
-                            if _ec_feat is not None:
-                                _pp_2d = _ec_feat.reshape(1, -1) if _ec_feat.ndim == 1 else _ec_feat
-                                _pp_exp = getattr(self.scaler, 'n_features_in_', _pp_2d.shape[-1])
-                                if _pp_2d.shape[-1] < _pp_exp:
-                                    _pp_2d = np.concatenate([_pp_2d, np.zeros((_pp_2d.shape[0], _pp_exp - _pp_2d.shape[-1]))], axis=-1)
-                                _ec_fs = self.scaler.transform(_pp_2d)
-                                _ec_ds = np.linalg.norm(centroids_scaled - _ec_fs, axis=1)
-                                _ec_ni = int(np.argmin(_ec_ds))
-                                if _ec_ds[_ec_ni] < 4.5:
-                                    _pp_base = valid_template_ids[_ec_ni]
-                            if _pp_base is not None:
-                                _pp_b = self.brain.get_dir_bias(_pp_base)
-                                if _pp_b:
-                                    _lw, _ll = _pp_b.get('long_w', 0), _pp_b.get('long_l', 0)
-                                    _sw, _sl = _pp_b.get('short_w', 0), _pp_b.get('short_l', 0)
-                                    _lt, _st = _lw + _ll, _sw + _sl
-                                    if _lt >= 5 and _st >= 5:
-                                        _lwr = _lw / _lt
-                                        _swr = _sw / _st
-                                        if _lwr > 0.60 and _swr < 0.40:
-                                            _pp_dir_ov = 'long'
-                                        elif _swr > 0.60 and _lwr < 0.40:
-                                            _pp_dir_ov = 'short'
-                                if _pp_dir_ov is not None:
-                                    break
+                    current_position_open = True
+                    active_entry_price = price
+                    active_entry_time = ts
+                    active_side = side
+                    active_template_id = best_tid
+                    active_max_hold_bars = _act.max_hold_bars
+                    depth_traded[_cand_depth] += 1
 
-                    # -- Call ExecutionEngine --
-                    _entry_action = _exec_engine.on_bar(
-                        price=price,
-                        bar_high=getattr(row, 'high', price),
-                        bar_low=getattr(row, 'low', price),
-                        bar_index=_bar_i,
-                        candidates=_eng_candidates,
-                        pp_dir_override=_pp_dir_ov,
-                    )
-                    # Copy gate labels for FN audit
-                    _candidate_gate = _entry_action.candidate_gates
-
-                    # Skip markers: yellow for pattern, purple for peak detection
-                    # Skip markers: throttle to 1 per real second (same as tick)
-                    if (_entry_action.type != ActionType.ENTER
-                            and self.dashboard_queue is not None
-                            and len(_eng_candidates) > 0
-                            and _now_wall - getattr(self, '_last_skip_tick', 0) >= 1.0):
-                        self._last_skip_tick = _now_wall
-                        _skip_action = 'PEAK_SKIP' if _is_peak_entry else 'SKIP'
+                    # Peak detection stats
+                    _is_peak = (getattr(best_candidate, 'pattern_type', '') == 'PEAK_REVERSAL'
+                                if best_candidate else False)
+                    if _is_peak:
+                        n_peak_traded += 1
+                        if self.dashboard_queue is not None:
+                            self.dashboard_queue.put({
+                                'type': 'TRADE_MARKER', 'action': 'PEAK_ENTRY',
+                                'side': side, 'price': price, 'pnl': 0})
+                    if self.dashboard_queue is not None:
                         self.dashboard_queue.put({
-                            'type': 'TRADE_MARKER', 'action': _skip_action,
-                            'side': '', 'price': price, 'pnl': 0})
+                            'type': 'TRADE_MARKER', 'action': 'ENTRY',
+                            'side': side, 'price': price, 'pnl': 0})
 
-                    if _entry_action.type == ActionType.ENTER:
-                        best_candidate = _entry_action.raw_event
-                        best_tid = _entry_action.template_id
-                        lib_entry = _entry_action.lib_entry
-                        side = _entry_action.side
-                        if _is_peak_entry:
-                            n_peak_traded += 1
-                            # Purple entry marker for peak detection trades
-                            if self.dashboard_queue is not None:
-                                self.dashboard_queue.put({
-                                    'type': 'TRADE_MARKER', 'action': 'PEAK_ENTRY',
-                                    'side': side, 'price': price, 'pnl': 0})
-                        _belief = _entry_action.belief_state
-                        _band = _entry_action.band_context
-                        _network_tp = _entry_action.network_tp
-                        _sl_ticks = int(_entry_action.sl_ticks)
-                        _tp_ticks = int(_entry_action.tp_ticks)
-                        _trail_ticks = int(_entry_action.trail_ticks)
-                        _trail_act_ticks = int(_entry_action.trail_activation_ticks or 0)
-                        _cand_depth = _entry_action.depth
-                        _parent_tf = _entry_action.parent_tf
-                        active_max_hold_bars = _entry_action.max_hold_bars
-                        long_bias = _entry_action.long_bias
-                        short_bias = _entry_action.short_bias
+                    n_signals_seen += result.candidates_built
 
-                        # Equity risk gate  -- scales with intraday drawdown aggression
-                        # Full equity: risk up to 50% per trade
-                        # 20% DD: risk up to 25%, 40%+ DD: risk up to 10%
-                        _MAX_RISK_FRACTION = 0.50 * _dd_aggression
-                        _skip_equity = False
-                        if _equity_enabled:
-                            _max_loss_usd = _sl_ticks * self.asset.tick_size * self.asset.point_value
-                            _max_risk_usd = running_equity * _MAX_RISK_FRACTION
-                            if _max_loss_usd > _max_risk_usd:
-                                skipped_ruin += 1
-                                _skip_equity = True
+                    # Store exit params for ping-pong
+                    _pp_last_exit_params = {
+                        'sl': int(_act.sl_ticks), 'tp': int(_act.tp_ticks),
+                        'trail': int(_act.trail_ticks),
+                        'trail_act': int(_act.trail_activation_ticks or 0),
+                        'max_hold': active_max_hold_bars,
+                        'tf': _parent_tf, 'depth': _cand_depth,
+                    }
 
-                        if not _skip_equity:
-                            self._position = _exit_eng.open_position(
-                                side=side, entry_price=price,
-                                entry_bar_index=_bar_i, template_id=best_tid,
-                                sl_ticks=_sl_ticks, tp_ticks=_tp_ticks,
-                                trail_ticks=_trail_ticks,
-                                trail_activation_ticks=_trail_act_ticks,
-                                lib_entry=lib_entry,
-                            )
-                            # Trade marker on dashboard
-                            if self.dashboard_queue is not None:
-                                self.dashboard_queue.put({
-                                    'type': 'TRADE_MARKER', 'action': 'ENTRY',
-                                    'side': side, 'price': price, 'pnl': 0})
-                            # Notify engine
+                    # Oracle record assembly
+                    _live_state = best_candidate.state if best_candidate else None
+                    _dmi_at_entry = round(
+                        getattr(_live_state, 'dmi_plus', 0.0)
+                        - getattr(_live_state, 'dmi_minus', 0.0), 2) if _live_state else 0.0
+                    _nn_marker = _effective_oracle(best_candidate) if best_candidate else 0
+                    _playbook = lib_entry.get('semantic_name', '') or ''
+                    if (not _playbook or _playbook == 'Unknown') and lib_entry.get('centroid') is not None:
+                        from core.fractal_clustering import generate_semantic_name
+                        _playbook = generate_semantic_name(lib_entry['centroid'])
+
+                    # Position state for anchor MFE (set by BarProcessor._handle_entry)
+                    _pos_state = _exec_engine.pos_state
+
+                    pending_oracle = {
+                        'template_id':      best_tid,
+                        'playbook':         _playbook,
+                        'direction':        'LONG' if side == 'long' else 'SHORT',
+                        'dir_source':       _act.dir_source,
+                        'entry_price':      price,
+                        'entry_time':       ts,
+                        'entry_depth':      _cand_depth,
+                        'root_tf':          _parent_tf,
+                        'max_hold_bars':    active_max_hold_bars,
+                        'oracle_label':     _nn_marker,
+                        'oracle_label_name': _ORACLE_LABEL_NAMES.get(
+                            _nn_marker, 'WORKER_BYPASS' if _act.is_bypass else 'UNKNOWN'),
+                        'oracle_mfe':       getattr(best_candidate, 'oracle_meta', {}).get('mfe', 0.0) if best_candidate else 0.0,
+                        'oracle_mae':       getattr(best_candidate, 'oracle_meta', {}).get('mae', 0.0) if best_candidate else 0.0,
+                        'long_bias':        round(_act.long_bias, 4),
+                        'short_bias':       round(_act.short_bias, 4),
+                        'dmi_diff':         _dmi_at_entry,
+                        'belief_active_levels': _belief.active_levels if _belief is not None else 0,
+                        'belief_conviction':    round(_belief.conviction, 4) if _belief is not None else 0.0,
+                        'wave_maturity':        round(_belief.wave_maturity, 4) if _belief is not None else 0.0,
+                        'decision_wave_maturity': round(_belief.decision_wave_maturity, 4) if _belief is not None else 0.0,
+                        'entry_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
+                        'band_direction': _band['direction'] if _band else None,
+                        'band_strength': round(_band['strength'], 3) if _band else 0.0,
+                        'band_summary': _band.get('band_summary', '') if _band else '',
+                        **_macro_obs(belief_network, side),
+                        'tp_ticks':     int(_act.tp_ticks),
+                        'sl_ticks':     int(_act.sl_ticks),
+                        'target_price': round(price + (_act.tp_ticks if side == 'long' else -_act.tp_ticks) * self.asset.tick_size, 6),
+                        'stop_price':   round(price - (_act.sl_ticks if side == 'long' else -_act.sl_ticks) * self.asset.tick_size, 6),
+                        'expected_pnl': self.brain.get_expected_pnl(best_tid, side),
+                        'anchor_mfe_ticks': round(_pos_state.anchor_mfe_ticks, 1) if _pos_state else 0.0,
+                        'anchor_mfe_bars': round(_pos_state.anchor_mfe_bars, 1) if _pos_state else 0.0,
+                        'predicted_mfe_ticks': round(_belief.predicted_mfe, 2) if _belief is not None else 0.0,
+                        'price_expected': round(
+                            price + ((_belief.predicted_mfe if side == 'long' else -_belief.predicted_mfe)
+                                     * self.asset.tick_size), 6) if _belief is not None and _belief.predicted_mfe > 0 else price,
+                        **_physics_fields(best_candidate),
+                        **_quantum_score(
+                            _live_state, _belief, side,
+                            template_wr=lib_entry.get('win_rate', 0.5),
+                            norm_dist=_act.dist if hasattr(_act, 'dist') else 1.0),
+                        'entry_term_pid': round(float(getattr(_live_state, 'term_pid', 0.0)), 4) if _live_state else 0.0,
+                        'entry_z_band': round(float(getattr(_live_state, 'z_score', 0.0)), 2) if _live_state else 0.0,
+                        'entry_coherence': round(float(getattr(_live_state, 'oscillation_entropy_normalized', 0.0)), 4) if _live_state else 0.0,
+                    }
+
+                    # Decision matrix record
+                    _bc_mz = round(abs(best_candidate.z_score), 2) if best_candidate else 0.0
+                    _bc_mac = round(abs((getattr(best_candidate, 'parent_chain', None) or [{}])[-1].get('z', 0.0)), 2) if best_candidate else 0.0
+                    _dm_entry = _dm_rec(
+                        best_candidate, 'traded', day_date, ts,
+                        _bc_mz, _bc_mac,
+                        getattr(best_candidate, 'pattern_type', ''),
+                        dist=_act.dist,
+                        conviction=round(_act.conviction, 3),
+                        template_id=best_tid,
+                        tier=template_tier_map.get(best_tid, 3),
+                        playbook=_playbook)
+                    _dm_entry['trade_direction'] = 'LONG' if side == 'long' else 'SHORT'
+                    _dm_entry.update(_macro_obs(belief_network, side))
+                    decision_matrix_records.append(_dm_entry)
+                    _pending_dm_idx = len(decision_matrix_records) - 1
+
+                    # Audit: TP/FP classification
+                    audit_outcome = TradeOutcome(
+                        state=best_candidate.state if best_candidate else None,
+                        entry_price=price, exit_price=0.0, pnl=0.0,
+                        result='PENDING', timestamp=ts,
+                        exit_reason='PENDING',
+                        direction='LONG' if side == 'long' else 'SHORT'
+                    )
+                    audit_res = _audit_trade(audit_outcome, best_candidate)
+                    cls = audit_res['classification']
+                    if cls == 'TP': audit_tp += 1
+                    elif cls == 'FP_NOISE': audit_fp_noise += 1
+                    elif cls == 'FP_WRONG': audit_fp_wrong += 1
+
+                # ── Handle completed trade ────────────────────────────
+                if result.trade_completed:
+                    _on_trade_completed(result.trade_completed, _i, ts_raw)
+
+                    # Ping-pong flip after exit
+                    if _pp_enabled and not _in_maintenance and _pp_last_exit_params:
+                        _should_flip, _flip_side = _pp_try_flip(
+                            active_side, active_template_id, price, ts_raw,
+                            _pp_last_exit_params)
+                        if _should_flip:
+                            ep = _pp_last_exit_params
+                            _pp_tid = f'PP_{active_template_id}'
                             _exec_engine.position_opened(
-                                side=side, price=price, bar_index=_bar_i,
-                                template_id=best_tid, lib_entry=lib_entry,
-                                sl_ticks=_sl_ticks, tp_ticks=_tp_ticks,
-                                network_tp=float(_network_tp) if _network_tp else None,
-                                max_hold_bars=active_max_hold_bars,
+                                side=_flip_side, price=price,
+                                bar_index=_bar_idx, template_id=_pp_tid,
+                                lib_entry={'p25_mae_ticks': 0, 'mean_mae_ticks': 0,
+                                           'regression_sigma_ticks': 0, 'p75_mfe_ticks': 0},
+                                sl_ticks=float(_pp_sl_ov or ep['sl']),
+                                tp_ticks=float(_pp_tp_ov or ep['tp']),
+                                max_hold_bars=ep['max_hold'],
                             )
-
+                            # Also register in BarProcessor's tracking
+                            _bp._current_entry = {
+                                'side': _flip_side, 'entry_price': price,
+                                'entry_bar': _bar_idx, 'entry_ts': ts_raw,
+                                'tid': _pp_tid, 'dir_source': 'ping_pong',
+                            }
                             current_position_open = True
                             active_entry_price = price
-                            active_entry_time = ts
-                            active_side = side
-                            active_template_id = best_tid
-
-                            # Store TF-scaled exit params for ping-pong
-                            _pp_last_exit_params = {
-                                'sl': _sl_ticks, 'tp': _tp_ticks,
-                                'trail': _trail_ticks, 'trail_act': _trail_act_ticks,
-                                'max_hold': active_max_hold_bars,
-                                'tf': _parent_tf, 'depth': _cand_depth,
-                            }
-
-                            # Start physics decay tracking
-                            _avg_mfe_bar = lib_entry.get('avg_mfe_bar', 0.0)
-                            _p75_mfe_bar = lib_entry.get('p75_mfe_bar', 0.0)
-                            _p75_mfe_ticks = lib_entry.get('p75_mfe_ticks', 0.0)
+                            active_entry_time = ts_raw
+                            active_side = _flip_side
+                            active_template_id = _pp_tid
+                            active_max_hold_bars = ep['max_hold']
+                            _pp_flip_count += 1
                             belief_network.start_trade_tracking(
-                                side=side, entry_bar=_bar_i,
-                                pattern_horizon_bars=active_max_hold_bars,
-                                target_mfe_ticks=_p75_mfe_ticks,
-                                resolve_bars=_avg_mfe_bar,
-                                entry_price=price,
-                            )
-                            # Per-template exit timescale
-                            if _avg_mfe_bar > 0:
-                                belief_network.set_active_trade_timescale(_avg_mfe_bar, _p75_mfe_bar)
-                            depth_traded[_cand_depth] += 1
+                                side=_flip_side, entry_bar=_bar_idx,
+                                pattern_horizon_bars=active_max_hold_bars)
+                            pending_oracle = None
 
-                            # -- Oracle record assembly --
-                            _live_state = best_candidate.state if best_candidate else None
-                            _dmi_at_entry = round(
-                                getattr(_live_state, 'dmi_plus', 0.0)
-                                - getattr(_live_state, 'dmi_minus', 0.0), 2) if _live_state else 0.0
-                            _nn_marker = _effective_oracle(best_candidate) if best_candidate else 0
-                            _playbook = lib_entry.get('semantic_name', '') or ''
-                            if (not _playbook or _playbook == 'Unknown') and lib_entry.get('centroid') is not None:
-                                from core.fractal_clustering import generate_semantic_name
-                                _playbook = generate_semantic_name(lib_entry['centroid'])
+                # Skip markers on dashboard
+                elif (result.action.type != ActionType.ENTER
+                      and result.candidates_built > 0
+                      and self.dashboard_queue is not None
+                      and _now_wall - getattr(self, '_last_skip_tick', 0) >= 1.0):
+                    self._last_skip_tick = _now_wall
+                    self.dashboard_queue.put({
+                        'type': 'TRADE_MARKER', 'action': 'SKIP',
+                        'side': '', 'price': price, 'pnl': 0})
 
-                            pending_oracle = {
-                                'template_id':      best_tid,
-                                'playbook':         _playbook,
-                                'direction':        'LONG' if side == 'long' else 'SHORT',
-                                'dir_source':       _entry_action.dir_source,
-                                'entry_price':      price,
-                                'entry_time':       ts,
-                                'entry_depth':      _cand_depth,
-                                'root_tf':          _parent_tf,
-                                'max_hold_bars':    active_max_hold_bars,
-                                'oracle_label':     _nn_marker,
-                                'oracle_label_name': _ORACLE_LABEL_NAMES.get(
-                                    _nn_marker, 'WORKER_BYPASS' if _entry_action.is_bypass else 'UNKNOWN'),
-                                'oracle_mfe':       getattr(best_candidate, 'oracle_meta', {}).get('mfe', 0.0) if best_candidate else 0.0,
-                                'oracle_mae':       getattr(best_candidate, 'oracle_meta', {}).get('mae', 0.0) if best_candidate else 0.0,
-                                'long_bias':        round(long_bias, 4),
-                                'short_bias':       round(short_bias, 4),
-                                'dmi_diff':         _dmi_at_entry,
-                                'belief_active_levels': _belief.active_levels if _belief is not None else 0,
-                                'belief_conviction':    round(_belief.conviction, 4) if _belief is not None else 0.0,
-                                'wave_maturity':        round(_belief.wave_maturity, 4) if _belief is not None else 0.0,
-                                'decision_wave_maturity': round(_belief.decision_wave_maturity, 4) if _belief is not None else 0.0,
-                                'entry_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
-                                'band_direction': _band['direction'] if _band else None,
-                                'band_strength': round(_band['strength'], 3) if _band else 0.0,
-                                'band_summary': _band.get('band_summary', '') if _band else '',
-                                # ── Macro trend observation (non-actionable) ──
-                                **_macro_obs(belief_network, side),
-                                'tp_ticks':     _tp_ticks,
-                                'sl_ticks':     _sl_ticks,
-                                'target_price': round(price + (_tp_ticks if side == 'long' else -_tp_ticks) * self.asset.tick_size, 6),
-                                'stop_price':   round(price - (_sl_ticks if side == 'long' else -_sl_ticks) * self.asset.tick_size, 6),
-                                'expected_pnl': self.brain.get_expected_pnl(best_tid, side),
-                                'anchor_mfe_ticks': round(self._position.anchor_mfe_ticks, 1) if self._position else 0.0,
-                                'anchor_mfe_bars': round(self._position.anchor_mfe_bars, 1) if self._position else 0.0,
-                                'predicted_mfe_ticks': round(_belief.predicted_mfe, 2) if _belief is not None else 0.0,
-                                'price_expected': round(
-                                    price + ((_belief.predicted_mfe if side == 'long' else -_belief.predicted_mfe)
-                                             * self.asset.tick_size), 6) if _belief is not None and _belief.predicted_mfe > 0 else price,
-                                **_physics_fields(best_candidate),
-                                # ── Quantum score (observation only) ──
-                                **_quantum_score(
-                                    _live_state, _belief, side,
-                                    template_wr=lib_entry.get('win_rate', 0.5),
-                                    norm_dist=_entry_action.dist if hasattr(_entry_action, 'dist') else 1.0),
-                                # ── PID trance + z-band observation (non-actionable) ──
-                                'entry_term_pid': round(float(getattr(_live_state, 'term_pid', 0.0)), 4) if _live_state else 0.0,
-                                'entry_z_band': round(float(getattr(_live_state, 'z_score', 0.0)), 2) if _live_state else 0.0,
-                                'entry_coherence': round(float(getattr(_live_state, 'oscillation_entropy_normalized', 0.0)), 4) if _live_state else 0.0,
-                            }
-
-                            # Signal log: traded record
-                            _bc_mz = round(abs(best_candidate.z_score), 2) if best_candidate else 0.0
-                            _bc_mac = round(abs((getattr(best_candidate, 'parent_chain', None) or [{}])[-1].get('z', 0.0)), 2) if best_candidate else 0.0
-                            _dm_entry = _dm_rec(
-                                best_candidate, 'traded', day_date, ts,
-                                _bc_mz, _bc_mac,
-                                getattr(best_candidate, 'pattern_type', ''),
-                                dist=_entry_action.dist,
-                                conviction=round(_entry_action.conviction, 3),
-                                template_id=best_tid,
-                                tier=template_tier_map.get(best_tid, 3),
-                                playbook=_playbook)
-                            _dm_entry['trade_direction'] = 'LONG' if side == 'long' else 'SHORT'
-                            _dm_entry.update(_macro_obs(belief_network, side))
-                            decision_matrix_records.append(_dm_entry)
-                            _pending_dm_idx = len(decision_matrix_records) - 1
-
-                            # AUDIT: True Positive or False Positive
-                            audit_outcome = TradeOutcome(
-                                state=best_candidate.state if best_candidate else None,
-                                entry_price=price, exit_price=0.0, pnl=0.0,
-                                result='PENDING', timestamp=ts,
-                                exit_reason='PENDING',
-                                direction='LONG' if side == 'long' else 'SHORT'
-                            )
-                            audit_res = _audit_trade(audit_outcome, best_candidate)
-                            cls = audit_res['classification']
-                            if cls == 'TP': audit_tp += 1
-                            elif cls == 'FP_NOISE': audit_fp_noise += 1
-                            elif cls == 'FP_WRONG': audit_fp_wrong += 1
-
-                            # Audit other candidates as SKIPPED
-                            for p in raw_candidates:
-                                if p == best_candidate:
-                                    continue
-                                audit_res = _audit_trade(None, p)
-                                if audit_res['classification'] == 'TN':
-                                    audit_tn += 1
-                                elif audit_res['classification'] == 'FN':
-                                    _s = p.state
-                                    _is_pid = (abs(_s.term_pid) >= 0.3
-                                               and _s.oscillation_entropy_normalized >= 0.5
-                                               and _s.adx_strength <= 30.0)
-                                    if _is_pid:
-                                        continue
-                                    _om = _effective_oracle(p)
-                                    _meta = getattr(p, 'oracle_meta', {})
-                                    _fn_pot = (_meta.get('mfe', 0.0) if _om > 0 else _meta.get('mae', 0.0)) * self.asset.point_value
-                                    # Gate passers that lost on score are not FN
-                                    if _candidate_gate.get(id(p)) == 'score_loser':
-                                        score_loser_pnl += _fn_pot
-                                        continue
-                                    audit_fn += 1
-                                    fn_potential_pnl += _fn_pot
-                                    fn_oracle_records.append({
-                                        'timestamp':       ts,
-                                        'depth':           getattr(p, 'depth', 6),
-                                        'oracle_label':    _om,
-                                        'oracle_label_name': _ORACLE_LABEL_NAMES.get(_om, '?'),
-                                        'oracle_dir':      'LONG' if _om > 0 else 'SHORT',
-                                        'fn_potential_pnl': round(_fn_pot, 2),
-                                        'reason':          'competed',
-                                        'gate_blocked':    _candidate_gate.get(id(p), 'unknown'),
-                                        'workers':         __import__('json').dumps(belief_network.get_worker_snapshot()),
-                                        **_physics_fields(p),
-                                    })
-                    else:
-                        # No entry -- audit all candidates as SKIPPED
-                        for p in raw_candidates:
-                            audit_res = _audit_trade(None, p)
-                            if audit_res['classification'] == 'TN':
-                                audit_tn += 1
-                            elif audit_res['classification'] == 'FN':
-                                audit_fn += 1
-                                _om = _effective_oracle(p)
-                                _meta = getattr(p, 'oracle_meta', {})
-                                _fn_pot = (_meta.get('mfe', 0.0) if _om > 0 else _meta.get('mae', 0.0)) * self.asset.point_value
-                                fn_potential_pnl += _fn_pot
-                                fn_oracle_records.append({
-                                    'timestamp':       ts,
-                                    'depth':           getattr(p, 'depth', 6),
-                                    'oracle_label':    _om,
-                                    'oracle_label_name': _ORACLE_LABEL_NAMES.get(_om, '?'),
-                                    'oracle_dir':      'LONG' if _om > 0 else 'SHORT',
-                                    'fn_potential_pnl': round(_fn_pot, 2),
-                                    'reason':          'no_match',
-                                    'gate_blocked':    _candidate_gate.get(id(p), 'unknown'),
-                                    'workers':         __import__('json').dumps(belief_network.get_worker_snapshot()),
-                                    **_physics_fields(p),
-                                })
-
-            # End of day cleanup -- force close any open position
-            if self._position is not None:
-                pos = self._position
-                # Get final exit signal for logging
-                _eod_sig = belief_network.get_exit_signal(pos.side)
-                _eod_adj_reason = ''
-
-                if pos.side == 'short':
-                    eod_pnl = (pos.entry_price - price) * self.asset.point_value
-                    _trade_mfe_ticks = (pos.entry_price - pos.peak_favorable) / self.asset.tick_size
-                else:
-                    eod_pnl = (price - pos.entry_price) * self.asset.point_value
-                    _trade_mfe_ticks = (pos.peak_favorable - pos.entry_price) / self.asset.tick_size
-                if _slip_rng:
-                    eod_pnl += _slip_rng.uniform(-_slip_ticks, _slip_ticks) * _tick_val
-                self._position = None
-                _exec_engine.position_closed()  # reset engine position state
-
-                outcome = record_trade(
-                    self.brain, tid=active_template_id,
-                    entry_price=active_entry_price,
-                    exit_price=price,
-                    pnl=eod_pnl, side=active_side,
-                    exit_reason='TIME_EXIT', timestamp=ts,
-                    entry_time=active_entry_time, exit_time=ts,
-                    tick_value=self.asset.tick_value,
-                    hold_bars=pos.bars_held,
-                )
-                day_trades.append(outcome)
-                _cal_day_trades.append(outcome)
-
-                # Track intraday dip (min equity calc)
-                _day_running_pnl += outcome.pnl
-                _day_min_pnl = min(_day_min_pnl, _day_running_pnl)
-
-                # Track cumulative equity curve (never resets)
-                _cumul_pnl += outcome.pnl
-                if _cumul_pnl > _cumul_peak:
-                    _cumul_peak = _cumul_pnl
-                if _cumul_pnl < _cumul_trough:
-                    _cumul_trough = _cumul_pnl
-                    _cumul_trough_date = _prev_cal_date
-                _dd_from_peak = _cumul_peak - _cumul_pnl
-                if _dd_from_peak > _cumul_max_dd:
-                    _cumul_max_dd = _dd_from_peak
-                    _cumul_dd_trough_date = _prev_cal_date
-
-                # Update running equity after EOD close
-                if _equity_enabled:
-                    running_equity += outcome.pnl
-                    peak_equity   = max(peak_equity, running_equity)
-                    trough_equity = min(trough_equity, running_equity)
-                    _daily_peak_equity = max(_daily_peak_equity, running_equity)
-                    _dd_aggression = min(1.0, max(0.2, running_equity / account_size)) if account_size > 0 else 1.0
-                    if running_equity < _NINJATRADER_MNQ_MARGIN:
-                        account_ruined = True
-                        ruin_day = ruin_day or day_date
-
-                # Complete oracle record for EOD-forced close
-                if pending_oracle is not None:
-                    o_mfe = pending_oracle['oracle_mfe']
-                    o_mae = pending_oracle['oracle_mae']
-                    oracle_favorable = o_mfe if pending_oracle['direction'] == 'LONG' else o_mae
-                    oracle_potential = oracle_favorable * self.asset.point_value
-                    capture = outcome.pnl / oracle_potential if oracle_potential > 0 else 0.0
-                    _eod_exit_t = ts
-                    _eod_entry_t = pending_oracle['entry_time']
-                    _tp_potential = pending_oracle.get('tp_ticks', 0) * self.asset.tick_value
-                    _target_capture = outcome.pnl / _tp_potential if _tp_potential > 0 else 0.0
-                    oracle_trade_records.append({
-                        **pending_oracle,
-                        'exit_price':  outcome.exit_price,
-                        'exit_time':   _eod_exit_t,
-                        'hold_bars':   max(1, int((_eod_exit_t - _eod_entry_t) / 15)),
-                        'exit_reason': 'TIME_EXIT',
-                        'actual_pnl':  outcome.pnl,
-                        'oracle_potential_pnl': oracle_potential,
-                        'capture_rate': round(min(capture, 9.99), 4),
-                        'target_capture': round(min(_target_capture, 9.99), 4),
-                        'result': outcome.result,
-                        'exit_workers': __import__('json').dumps(belief_network.get_worker_snapshot()),
-                        'exit_conviction':    _eod_sig.get('conviction', 0.0),
-                        'exit_wave_maturity': _eod_sig.get('wave_maturity', 0.0),
-                        'exit_signal_reason': (_eod_adj_reason or _eod_sig.get('reason', '')),
-                        'exit_decay_score':   _eod_sig.get('decay_score', 0.0),
-                        'trade_mfe_ticks':    round(_trade_mfe_ticks, 2),
-                        'price_expected_error': round(
-                            (outcome.exit_price - pending_oracle.get('price_expected', pending_oracle['entry_price']))
-                            / self.asset.tick_size, 2),
-                    })
-                    _stream_trade(oracle_trade_records[-1])
-                    # Update signal-log record with trade outcome
-                    if _pending_dm_idx is not None:
-                        decision_matrix_records[_pending_dm_idx].update({
-                            'trade_result':       outcome.result,
-                            'trade_pnl':          round(outcome.pnl, 2),
-                            'exit_reason':        'TIME_EXIT',
-                            'exit_signal_reason': (_eod_adj_reason or _eod_sig.get('reason', '')),
-                            'exit_conviction':    _eod_sig.get('conviction', 0.0),
-                            'exit_wave_maturity': _eod_sig.get('wave_maturity', 0.0),
-                        })
-                    belief_network.stop_trade_tracking()
-                    pending_oracle = None
-                    _pending_dm_idx = None
+            # ── End of day: force close via BarProcessor ──────────────
+            if _bp.in_position:
+                trade = _bp.force_close(price=price, timestamp=ts_raw, bar_index=_bar_idx)
+                if trade:
+                    _on_trade_completed(trade, _i, ts_raw)
 
             # Analyze day
             if _equity_enabled and account_ruined:
@@ -2390,7 +1829,7 @@ class Trainer:
         self._persisted_exit_engine = _exec_engine.exit_engine
         self.exec_engine = _exec_engine
 
-        # Save tuned exit params for standalone OOS3
+        # Save tuned exit params
         import json as _json_save
         _tuned_exit = {
             'envelope_half_life_bars': _exec_engine.exit_engine.envelope_half_life_bars,
@@ -2401,224 +1840,6 @@ class Trainer:
             _json_save.dump(_tuned_exit, _tf)
         print(f"  Exit tuning saved: hl={_tuned_exit['envelope_half_life_bars']:.1f}, "
               f"gb={_tuned_exit['giveback_pct']:.0%} -> {_tuned_path}")
-
-        # ── OOS3: Replay last N trading days through BarProcessor ──────────
-        # Inline OOS ran all files. Now replay the last N days through a
-        # BarProcessor with SAME belief_network (preserves 48 days of TBN
-        # state) but independent execution engine  -- no shared mutation.
-        if _live_val_days > 0 and _daily_ledger:
-            # Identify last N trading days from inline OOS ledger
-            _lv_target_dates = [d['date'] for d in _daily_ledger[-_live_val_days:]]
-            if _lv_target_dates:
-                print(f"\n  ── OOS3 Parity Replay: {len(_lv_target_dates)} days via BarProcessor ──")
-                print(f"  Dates: {_lv_target_dates[0]} to {_lv_target_dates[-1]}")
-
-                # Create FRESH EE + exit engine (no shared state with inline OOS)
-                _lv_exit_eng = ExitEngine(
-                    mode='training',
-                    tick_size=self.asset.tick_size,
-                    tick_value=self.asset.tick_size * self.asset.point_value,
-                    min_hold_bars=getattr(self, '_min_hold_bars', 0),
-                )
-                # Copy self-tuned exit params from inline OOS (537 trades of tuning)
-                _tuned = _exec_engine.exit_engine
-                _lv_exit_eng.envelope_half_life_bars = _tuned.envelope_half_life_bars
-                _lv_exit_eng.giveback_pct = _tuned.giveback_pct
-                # FIX 1: Reuse inline OOS's warmed belief_network (48 days of state)
-                # Fresh TBN has no accumulated conviction/momentum -> different exits
-                _lv_belief = belief_network
-                _lv_exec = create_execution_engine(
-                    bundle=_bundle,
-                    brain=self.brain,
-                    belief_network=_lv_belief,
-                    exit_engine=_lv_exit_eng,
-                    tick_size=self.asset.tick_size,
-                    point_value=self.asset.point_value,
-                    mode='oos',
-                    tier_preference=tier_preference,
-                    bias_threshold=bias_threshold if bias_threshold is not None else 0.55,
-                    dmi_threshold=dmi_threshold if dmi_threshold is not None else 0.0,
-                    depth_only=getattr(self, '_depth_only', None),
-                )
-                _lv_exec.gate1_dist = 4.5 + 0.5 * 10.0  # match inline OOS
-
-                def _lv_modify_pnl_fresh(pnl_dollars):
-                    if _slip_rng:
-                        return pnl_dollars + _slip_rng.uniform(-_slip_ticks, _slip_ticks) * _tick_val
-                    return pnl_dollars
-
-                # 1s sub-bar wick arrays (set per-file below)
-                _lv_1s_ts_arr = None
-                _lv_1s_hi_arr = None
-                _lv_1s_lo_arr = None
-                _lv_has_1s = False
-                # Current row timestamp (set per-bar in the loop)
-                _lv_cur_ts = [0.0]  # mutable container for closure
-
-                def _lv_pre_exit_eval(price, bar_index):
-                    """Provide 1s sub-bar wicks + trade pace (matches inline OOS)."""
-                    extra = {}
-                    # Sub-bar wicks from 1s data
-                    if _lv_has_1s and _lv_1s_ts_arr is not None:
-                        _s0 = np.searchsorted(_lv_1s_ts_arr, _lv_cur_ts[0], side='left')
-                        _s1 = np.searchsorted(_lv_1s_ts_arr, _lv_cur_ts[0] + 15, side='left')
-                        if _s1 > _s0:
-                            extra['sub_bar_highs'] = _lv_1s_hi_arr[_s0:_s1].tolist()
-                            extra['sub_bar_lows'] = _lv_1s_lo_arr[_s0:_s1].tolist()
-                    # Trade pace update (matches inline OOS lines 985-988)
-                    _tp = _lv_belief.get_trade_progress(
-                        price, tick_size=self.asset.tick_size)
-                    _lv_belief._trade_pace_cache = _tp
-                    _lv_belief._trade_pace_blend = _tp.get('pace', 1.0) - 1.0
-                    return extra
-
-                _lv_processor = BarProcessor(
-                    exec_engine=_lv_exec,
-                    belief_network=_lv_belief,
-                    exit_engine=_lv_exit_eng,
-                    brain=self.brain,
-                    pattern_library=_bundle.pattern_library,
-                    anchor_tf='15s',
-                    anchor_depth=8,
-                    tick_size=self.asset.tick_size,
-                    point_value=self.asset.point_value,
-                    use_cat=getattr(self, '_use_cat', False),
-            use_crow=getattr(self, '_use_crow', False),
-                    hooks=BarProcessorHooks(
-                        modify_pnl=_lv_modify_pnl_fresh,
-                        pre_exit_eval=_lv_pre_exit_eval,
-                    ),
-                )
-
-                # Find which files contain the target dates and replay them
-                import datetime as _dt_lv
-                _target_set = set(_lv_target_dates)
-
-                for _lv_file in daily_files_15s:
-                    _lv_df = pd.read_parquet(_lv_file)
-                    if _lv_df.empty:
-                        continue
-                    _ts_col = _lv_df['timestamp']
-                    if np.issubdtype(_ts_col.dtype, np.number):
-                        _lv_df['_date'] = pd.to_datetime(_ts_col, unit='s').dt.strftime('%Y-%m-%d')
-                    else:
-                        _lv_df['_date'] = pd.to_datetime(_ts_col).dt.strftime('%Y-%m-%d')
-                    _file_dates = set(_lv_df['_date'].unique())
-                    if not _file_dates.intersection(_target_set):
-                        continue
-
-                    # Compute states for this file
-                    try:
-                        _lv_states = self.engine.batch_compute_states(_lv_df, use_cuda=True)
-                    except Exception:
-                        continue
-
-                    # Load sub-TF data for TBN
-                    _lv_5s_path = _lv_file.replace('/15s/', '/5s/').replace('\\15s\\', '\\5s\\')
-                    _lv_1s_path = _lv_file.replace('/15s/', '/1s/').replace('\\15s\\', '\\1s\\')
-                    _lv_4h_path = _lv_file.replace('/15s/', '/4h/').replace('\\15s\\', '\\4h\\')
-                    _lv_df_5s = pd.read_parquet(_lv_5s_path) if os.path.exists(_lv_5s_path) else None
-                    _lv_df_1s = pd.read_parquet(_lv_1s_path) if os.path.exists(_lv_1s_path) else None
-                    _lv_df_4h = pd.read_parquet(_lv_4h_path) if os.path.exists(_lv_4h_path) else None
-
-                    # Pre-extract 1s numpy arrays for sub-bar wick lookup
-                    if _lv_df_1s is not None and not _lv_df_1s.empty:
-                        _lv_1s_ts_arr = _lv_df_1s['timestamp'].values.astype(np.float64)
-                        _lv_1s_hi_arr = _lv_df_1s['high'].values.astype(np.float64)
-                        _lv_1s_lo_arr = _lv_df_1s['low'].values.astype(np.float64)
-                        _lv_has_1s = True
-                    else:
-                        _lv_has_1s = False
-
-                    # TBN prepare (same as inline OOS)
-                    try:
-                        _lv_belief.prepare_day(_lv_df, states_micro=_lv_states,
-                                               df_5s=_lv_df_5s, df_1s=_lv_df_1s, df_4h=_lv_df_4h)
-                    except Exception:
-                        _lv_belief.prepare_day(_lv_df, states_micro=[],
-                                               df_5s=_lv_df_5s, df_1s=_lv_df_1s, df_4h=_lv_df_4h)
-
-                    # Map states by bar_idx for this file
-                    _lv_states_map = {s['bar_idx']: s['state'] for s in _lv_states}
-
-                    # First tick all bars BEFORE the target dates (TBN warmup)
-                    # This matches inline OOS which ticks through all bars sequentially
-                    _all_dates_sorted = sorted(_lv_df['_date'].unique())
-                    _first_target = min(_target_set.intersection(_file_dates))
-                    _lv_bar_counter = 0  # global bar index within file (matches inline _bar_i)
-                    _lv_last_warmup_state = None  # track last warmup state for FIX 2
-                    for _warmup_date in _all_dates_sorted:
-                        if _warmup_date >= _first_target:
-                            break
-                        _warmup_indices = _lv_df.index[_lv_df['_date'] == _warmup_date].tolist()
-                        for _w_idx in _warmup_indices:
-                            _lv_belief.tick_all(_lv_bar_counter)
-                            _lv_last_warmup_state = _lv_states_map.get(_w_idx)
-                            _lv_bar_counter += 1
-
-                    # Process bars day-by-day (only target dates)
-                    for _lv_date in sorted(_target_set.intersection(_file_dates)):
-                        _day_mask = _lv_df['_date'] == _lv_date
-                        _day_indices = _lv_df.index[_day_mask].tolist()
-                        if not _day_indices:
-                            continue
-
-                        _lv_day_trades = []
-                        for _lv_i, _lv_row_idx in enumerate(_day_indices):
-                            _lv_state = _lv_states_map.get(_lv_row_idx)
-                            if _lv_state is None:
-                                _lv_bar_counter += 1
-                                continue
-                            _lv_row = _lv_df.iloc[_lv_row_idx]
-                            _lv_cur_ts[0] = float(_lv_row['timestamp'])
-                            # Same state for entry + exit (matches inline OOS:
-                            # exit uses _states_map[_bar_i-1] = current bar due to pre-increment)
-                            result = _lv_processor.process_bar(
-                                bar_index=_lv_bar_counter,
-                                price=float(_lv_row['close']),
-                                bar_high=float(_lv_row['high']),
-                                bar_low=float(_lv_row['low']),
-                                timestamp=float(_lv_row['timestamp']),
-                                state=_lv_state,
-                            )
-                            _lv_bar_counter += 1
-                            if result.trade_completed:
-                                _lv_day_trades.append(result.trade_completed)
-
-                        # Update last warmup state for next day's prior-bar seed
-                        if _day_indices:
-                            _lv_last_warmup_state = _lv_states_map.get(_day_indices[-1])
-
-                        # Force close at EOD
-                        if _lv_processor.in_position:
-                            _last_row = _lv_df.iloc[_day_indices[-1]]
-                            _eod = _lv_processor.force_close(
-                                price=float(_last_row['close']),
-                                timestamp=float(_last_row['timestamp']),
-                                bar_index=_lv_bar_counter,
-                            )
-                            if _eod:
-                                _lv_day_trades.append(_eod)
-
-                        _lv_n = len(_lv_day_trades)
-                        _lv_wins = sum(1 for t in _lv_day_trades if t['pnl'] > 0)
-                        _lv_pnl = sum(t['pnl'] for t in _lv_day_trades)
-                        _live_val_trades.extend(_lv_day_trades)
-                        _live_val_day_ledger.append({
-                            'date': _lv_date, 'trades': _lv_n,
-                            'wins': _lv_wins, 'pnl': _lv_pnl,
-                        })
-                        print(f"    {_lv_date}: {_lv_n} trades, "
-                              f"{_lv_wins/_lv_n*100:.0f}% WR, ${_lv_pnl:+.2f}" if _lv_n else
-                              f"    {_lv_date}: 0 trades")
-
-        # ── Live Validation Parity Report ──────────────────────────────────
-        if _live_val_days > 0 and _live_val_trades:
-            self._write_live_validation_report(
-                _live_val_trades, _live_val_day_ledger,
-                _daily_ledger, oracle_trade_records,
-                _live_val_days, _exec_engine,
-            )
 
         print("\n  [OK] Forward pass complete -- all files saved.", flush=True)
 
@@ -2631,372 +1852,27 @@ class Trainer:
         _dfs = [pd.read_parquet(f) for f in _files]
         return pd.concat(_dfs, ignore_index=True).sort_values('timestamp').reset_index(drop=True)
 
-    def _write_live_validation_report(
-            self, lv_trades, lv_day_ledger, oos_daily_ledger,
-            oos_trade_records, n_days, exec_engine):
-        """Write OOS3 parity report: OOS2 (inline) vs OOS3 (BarProcessor)."""
-        import datetime as _dt
-        from collections import Counter
-
-        W = 80
-
-        # ── OOS3 stats ──
-        lv_n = len(lv_trades)
-        lv_wins = sum(1 for t in lv_trades if t['pnl'] > 0)
-        lv_losses = sum(1 for t in lv_trades if t['pnl'] < 0)
-        lv_be = sum(1 for t in lv_trades if t['pnl'] == 0)
-        lv_pnl = sum(t['pnl'] for t in lv_trades)
-        lv_gross_win = sum(t['pnl'] for t in lv_trades if t['pnl'] > 0)
-        lv_gross_loss = sum(t['pnl'] for t in lv_trades if t['pnl'] < 0)
-        lv_wr = lv_wins / lv_n * 100 if lv_n else 0
-        lv_avg = lv_pnl / lv_n if lv_n else 0
-        lv_pf = lv_gross_win / abs(lv_gross_loss) if lv_gross_loss else 0
-
-        # ── OOS2 stats (from daily ledger) ──
-        lv_dates = {d['date'] for d in lv_day_ledger}
-        oos_matching = [d for d in oos_daily_ledger if d['date'] in lv_dates]
-        oos_n = sum(d['trades'] for d in oos_matching)
-        oos_wins = sum(d['wins'] for d in oos_matching)
-        oos_pnl = sum(d['pnl'] for d in oos_matching)
-        oos_wr = oos_wins / oos_n * 100 if oos_n else 0
-        oos_avg = oos_pnl / oos_n if oos_n else 0
-        oos_days = max(1, len(oos_matching))
-
-        # ── Exit reason breakdown (OOS3) ──
-        exit_stats = {}  # reason -> {n, wins, pnl, gross_win, gross_loss}
-        for t in lv_trades:
-            r = t.get('exit_reason', 'unknown')
-            if r not in exit_stats:
-                exit_stats[r] = {'n': 0, 'wins': 0, 'pnl': 0.0,
-                                 'gross_win': 0.0, 'gross_loss': 0.0}
-            exit_stats[r]['n'] += 1
-            exit_stats[r]['pnl'] += t['pnl']
-            if t['pnl'] > 0:
-                exit_stats[r]['wins'] += 1
-                exit_stats[r]['gross_win'] += t['pnl']
-            elif t['pnl'] < 0:
-                exit_stats[r]['gross_loss'] += t['pnl']
-
-        # ── Direction breakdown (OOS3) ──
-        dir_stats = {}
-        for t in lv_trades:
-            s = t.get('side', '?')
-            if s not in dir_stats:
-                dir_stats[s] = {'n': 0, 'wins': 0, 'pnl': 0.0}
-            dir_stats[s]['n'] += 1
-            dir_stats[s]['pnl'] += t['pnl']
-            if t['pnl'] > 0:
-                dir_stats[s]['wins'] += 1
-
-        # ── Direction source distribution (OOS3) ──
-        dir_sources = Counter()
-        for t in lv_trades:
-            dir_sources[t.get('dir_source', '?')] += 1
-
-        # ── Drawdown (OOS3) ──
-        cum = 0.0
-        peak = 0.0
-        max_dd = 0.0
-        consec_loss = 0
-        max_consec = 0
-        for t in lv_trades:
-            cum += t['pnl']
-            peak = max(peak, cum)
-            max_dd = max(max_dd, peak - cum)
-            if t['pnl'] < 0:
-                consec_loss += 1
-                max_consec = max(max_consec, consec_loss)
-            else:
-                consec_loss = 0
-
-        # ── Build report ──
-        L = []
-        L.append("=" * W)
-        L.append("  OOS3 PARITY REPORT  -- OOS2 (inline) vs OOS3 (BarProcessor)")
-        L.append(f"  Generated: {_dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        L.append(f"  Target: last {n_days} trading days")
-        L.append("=" * W)
-
-        # ── Key Metrics ──
-        L.append("")
-        L.append(f"  {'Metric':<22} {'OOS2':>14} {'OOS3':>14} {'Delta':>14}")
-        L.append(f"  {'-'*22} {'-'*14} {'-'*14} {'-'*14}")
-        L.append(f"  {'Trades':<22} {oos_n:>14} {lv_n:>14} {lv_n - oos_n:>+14}")
-        L.append(f"  {'Win Rate':<22} {oos_wr:>13.1f}% {lv_wr:>13.1f}% {lv_wr - oos_wr:>+13.1f}%")
-        L.append(f"  {'Total PnL':<22} ${oos_pnl:>12,.2f} ${lv_pnl:>12,.2f} ${lv_pnl - oos_pnl:>+12,.2f}")
-        L.append(f"  {'Avg Trade':<22} ${oos_avg:>12,.2f} ${lv_avg:>12,.2f} ${lv_avg - oos_avg:>+12,.2f}")
-        L.append(f"  {'Gross Win':<22} {'':>14} ${lv_gross_win:>12,.2f}")
-        L.append(f"  {'Gross Loss':<22} {'':>14} ${abs(lv_gross_loss):>12,.2f}")
-        L.append(f"  {'Profit Factor':<22} {'':>14} {lv_pf:>14.2f}")
-        L.append(f"  {'Max Drawdown':<22} {'':>14} ${max_dd:>12,.2f}")
-        L.append(f"  {'Max Consec Losses':<22} {'':>14} {max_consec:>14}")
-
-        # ── Exit Reason Breakdown (OOS3) ──
-        L.append("")
-        L.append("=" * W)
-        L.append("  EXIT REASON BREAKDOWN (OOS3)")
-        L.append("=" * W)
-        L.append(f"  {'Reason':<18} {'Trades':>7} {'Win%':>6} {'Gross Win':>12} "
-                 f"{'Gross Loss':>12} {'Net PnL':>12} {'Avg':>9}")
-        L.append(f"  {'-'*18} {'-'*7} {'-'*6} {'-'*12} {'-'*12} {'-'*12} {'-'*9}")
-        for r in sorted(exit_stats.keys(), key=lambda k: -exit_stats[k]['pnl']):
-            es = exit_stats[r]
-            wr = es['wins'] / es['n'] * 100 if es['n'] else 0
-            avg = es['pnl'] / es['n'] if es['n'] else 0
-            L.append(f"  {r:<18} {es['n']:>7} {wr:>5.0f}% ${es['gross_win']:>10,.2f} "
-                     f"${abs(es['gross_loss']):>10,.2f} ${es['pnl']:>+10,.2f} ${avg:>+8,.2f}")
-
-        # ── Direction Breakdown (OOS3) ──
-        L.append("")
-        L.append("=" * W)
-        L.append("  DIRECTION BREAKDOWN (OOS3)")
-        L.append("=" * W)
-        for s in sorted(dir_stats.keys()):
-            ds = dir_stats[s]
-            wr = ds['wins'] / ds['n'] * 100 if ds['n'] else 0
-            avg = ds['pnl'] / ds['n'] if ds['n'] else 0
-            L.append(f"  {s:<8} {ds['n']:>4} trades  WR={wr:.0f}%  "
-                     f"PnL=${ds['pnl']:>+10,.2f}  Avg=${avg:>+8,.2f}")
-
-        # ── Direction Source (OOS3) ──
-        if dir_sources:
-            L.append("")
-            L.append("  DIRECTION SOURCE DISTRIBUTION")
-            for ds, cnt in dir_sources.most_common():
-                pct = cnt / lv_n * 100 if lv_n else 0
-                L.append(f"    {ds}: {cnt} ({pct:.1f}%)")
-
-        # ── Per-Day Comparison ──
-        L.append("")
-        L.append("=" * W)
-        L.append("  PER-DAY COMPARISON")
-        L.append("=" * W)
-        L.append(f"  {'Date':<12} {'OOS2_T':>7} {'OOS2_PnL':>11} "
-                 f"{'OOS3_T':>7} {'OOS3_PnL':>11} {'Delta':>11}")
-        L.append(f"  {'-'*12} {'-'*7} {'-'*11} {'-'*7} {'-'*11} {'-'*11}")
-        for lv_day in lv_day_ledger:
-            d = lv_day['date']
-            oos_day = next((o for o in oos_matching if o['date'] == d), None)
-            oos_dt = oos_day['trades'] if oos_day else 0
-            oos_dp = oos_day['pnl'] if oos_day else 0
-            delta = lv_day['pnl'] - oos_dp
-            L.append(f"  {d:<12} {oos_dt:>7} ${oos_dp:>9,.2f} "
-                     f"{lv_day['trades']:>7} ${lv_day['pnl']:>9,.2f} "
-                     f"${delta:>+9,.2f}")
-
-        # ── Trade Log (OOS3) ──
-        L.append("")
-        L.append("=" * W)
-        L.append("  TRADE LOG (OOS3)")
-        L.append("=" * W)
-        if lv_trades:
-            L.append(f"  {'#':>3}  {'Side':<6} {'Entry':>10} {'Exit':>10} "
-                     f"{'PnL':>10} {'Reason':<18} {'Bars':>5} {'DirSrc':<12}")
-            L.append("  " + "-" * 75)
-            cum_pnl = 0.0
-            for i, t in enumerate(lv_trades, 1):
-                cum_pnl += t['pnl']
-                side = t.get('side', '?')
-                entry = t.get('entry_price', 0)
-                exit_p = t.get('exit_price', 0)
-                pnl = t['pnl']
-                reason = t.get('exit_reason', '?')
-                bars = t.get('bars_held', 0)
-                dsrc = t.get('dir_source', '?')
-                L.append(f"  {i:>3}  {side:<6} {entry:>10,.2f} {exit_p:>10,.2f} "
-                         f"${pnl:>+9,.2f} {reason:<18} {bars:>5} {dsrc:<12}")
-            L.append("  " + "-" * 75)
-            L.append(f"  {'':>3}  {'':6} {'':10} {'TOTAL':>10} "
-                     f"${lv_pnl:>+9,.2f}")
-        else:
-            L.append("  No trades.")
-
-        # ── Parity Verdict ──
-        L.append("")
-        L.append("=" * W)
-        L.append("  PARITY VERDICT")
-        L.append("=" * W)
-        issues = []
-        if oos_n > 0:
-            trade_ratio = lv_n / oos_n
-            if abs(trade_ratio - 1.0) > 0.3:
-                issues.append(f"TRADE COUNT: OOS3={lv_n} vs OOS2={oos_n} "
-                              f"({trade_ratio:.0%} ratio)")
-        if abs(lv_wr - oos_wr) > 5:
-            issues.append(f"WIN RATE: OOS3={lv_wr:.1f}% vs OOS2={oos_wr:.1f}%")
-        if oos_avg > 0 and abs(lv_avg - oos_avg) > oos_avg * 0.5:
-            issues.append(f"AVG TRADE: OOS3=${lv_avg:.2f} vs OOS2=${oos_avg:.2f}")
-
-        sl_count = exit_stats.get('stop_loss', {}).get('n', 0)
-        if lv_n > 0 and sl_count / lv_n > 0.85:
-            issues.append(f"SL DOMINANT: {sl_count}/{lv_n} trades "
-                          f"({sl_count/lv_n:.0%}) exit via stop_loss")
-
-        if issues:
-            L.append(f"  Status: FAILED ({len(issues)} issues)")
-            for issue in issues:
-                L.append(f"    - {issue}")
-        else:
-            L.append("  Status: PASSED")
-        L.append("")
-        L.append("=" * W)
-
-        report_text = '\n'.join(L)
-        print("\n" + report_text)
-
-        # Save report
-        os.makedirs(os.path.join('reports', 'live'), exist_ok=True)
-        ts_str = _dt.datetime.now().strftime('%Y%m%d_%H%M%S')
-        report_path = os.path.join('reports', 'live', f'parity_report_{ts_str}.txt')
-        with open(report_path, 'w', encoding='utf-8') as f:
-            f.write(report_text + '\n')
-        print(f"  Parity report: {report_path}")
-
-        # Save warmed brain for live handoff
-        brain_path = os.path.join(self.checkpoint_dir, 'live_brain.pkl')
-        self.brain.save(brain_path)
-        print(f"  Warmed brain saved: {brain_path} ({len(self.brain.table)} states)")
-
     def _write_actionable_scorecard(self, *, oracle_trade_records, total_trades,
                                      total_wins, total_pnl, oos_mode,
                                      _daily_ledger, _cumul_max_dd, _reports_out,
                                      _bp, start_date, end_date, _run_ts, _git_hash):
-        """Write concise actionable report (~80 lines). The ONLY report you need to read."""
-        import os
+        """Write concise actionable report via shared report_engine."""
+        from core.report_engine import write_scorecard
         _mode = 'OOS' if oos_mode else 'IS'
-        _wr = total_wins / total_trades * 100 if total_trades else 0
-        _gw = sum(r['actual_pnl'] for r in oracle_trade_records if r['actual_pnl'] > 0)
-        _gl = abs(sum(r['actual_pnl'] for r in oracle_trade_records if r['actual_pnl'] < 0))
-        _pf = _gw / _gl if _gl > 0 else 0
-        _avg = total_pnl / total_trades if total_trades else 0
-        _n_days = len(_daily_ledger) if _daily_ledger else 1
-        _win_days = sum(1 for d in _daily_ledger if d.get('pnl', 0) > 0) if _daily_ledger else 0
-        _worst_day = min((d.get('pnl', 0) for d in _daily_ledger), default=0) if _daily_ledger else 0
-        _best_day = max((d.get('pnl', 0) for d in _daily_ledger), default=0) if _daily_ledger else 0
-        _med_day = 0
-        if _daily_ledger:
-            _day_pnls = sorted(d.get('pnl', 0) for d in _daily_ledger)
-            _med_day = _day_pnls[len(_day_pnls) // 2]
-
-        # Exit breakdown
-        _exits = {}
-        for r in oracle_trade_records:
-            reason = r.get('exit_reason', 'unknown')
-            if reason not in _exits:
-                _exits[reason] = {'n': 0, 'pnl': 0, 'wins': 0}
-            _exits[reason]['n'] += 1
-            _exits[reason]['pnl'] += r['actual_pnl']
-            if r['actual_pnl'] > 0:
-                _exits[reason]['wins'] += 1
-
-        # Hold duration buckets
-        _hold_buckets = {}
-        for lo, hi, lbl in [(0,2,'<30s'), (2,4,'30s-1m'), (4,8,'1-2m'), (8,20,'2-5m'), (20,40,'5-10m'), (40,999,'10m+')]:
-            bucket = [r for r in oracle_trade_records if lo <= r.get('hold_bars', 0) < hi]
-            if bucket:
-                _hold_buckets[lbl] = {
-                    'n': len(bucket),
-                    'pnl': sum(r['actual_pnl'] for r in bucket),
-                    'avg': sum(r['actual_pnl'] for r in bucket) / len(bucket),
-                }
-
-        # Direction
-        _dirs = {}
-        for r in oracle_trade_records:
-            d = r.get('direction', 'UNKNOWN')
-            if d not in _dirs:
-                _dirs[d] = {'n': 0, 'pnl': 0, 'wins': 0}
-            _dirs[d]['n'] += 1
-            _dirs[d]['pnl'] += r['actual_pnl']
-            if r['actual_pnl'] > 0:
-                _dirs[d]['wins'] += 1
-
-        # Peak stats
-        _ps = _bp.peak_stats if _bp else {}
-
-        # Build report
-        L = []
-        L.append('=' * 70)
-        L.append(f'SCORECARD: {_mode} {start_date} to {end_date}')
-        L.append(f'  Commit: {_git_hash}  |  Generated: {_run_ts}')
-        L.append(f'  PnL: ${total_pnl:,.2f}  |  Trades: {total_trades:,}  |  WR: {_wr:.1f}%  |  PF: {_pf:.2f}')
-        L.append(f'  $/trade: ${_avg:.2f}  |  $/day: ${total_pnl/_n_days:,.0f}  |  Max DD: ${_cumul_max_dd:,.0f}')
-        L.append(f'  Win days: {_win_days}/{_n_days} ({_win_days/_n_days*100:.0f}%)  |  Best: ${_best_day:,.0f}  |  Worst: ${_worst_day:,.0f}  |  Median: ${_med_day:,.0f}')
-        L.append('=' * 70)
-
-        # What's working
-        L.append('')
-        L.append('WHAT WORKS (PF > 1.5):')
-        _good = [(k, v) for k, v in _exits.items() if v['n'] > 0 and v['pnl'] > 0]
-        _good.sort(key=lambda x: -x[1]['pnl'])
-        for reason, v in _good[:6]:
-            _epf = v['pnl'] / abs(sum(r['actual_pnl'] for r in oracle_trade_records if r.get('exit_reason') == reason and r['actual_pnl'] < 0)) if any(r['actual_pnl'] < 0 and r.get('exit_reason') == reason for r in oracle_trade_records) else float('inf')
-            _ewr = v['wins'] / v['n'] * 100
-            L.append(f'  {reason:22s} {v["n"]:>5} trades  PF={_epf:>5.2f}  ${v["pnl"]:>+10,.2f}  ${v["pnl"]/v["n"]:>+7.2f}/tr  WR={_ewr:.0f}%')
-
-        # What's broken
-        L.append('')
-        L.append('WHAT HURTS (PF < 1.0):')
-        _bad = [(k, v) for k, v in _exits.items() if v['n'] > 0 and v['pnl'] < 0]
-        _bad.sort(key=lambda x: x[1]['pnl'])
-        for reason, v in _bad[:5]:
-            _epf = 0
-            _loss_sum = abs(sum(r['actual_pnl'] for r in oracle_trade_records if r.get('exit_reason') == reason and r['actual_pnl'] < 0))
-            _win_sum = sum(r['actual_pnl'] for r in oracle_trade_records if r.get('exit_reason') == reason and r['actual_pnl'] > 0)
-            _epf = _win_sum / _loss_sum if _loss_sum > 0 else 0
-            _ewr = v['wins'] / v['n'] * 100
-            L.append(f'  {reason:22s} {v["n"]:>5} trades  PF={_epf:>5.2f}  ${v["pnl"]:>+10,.2f}  ${v["pnl"]/v["n"]:>+7.2f}/tr  WR={_ewr:.0f}%')
-
-        # Fixable profit
-        _fixable = sum(-v['pnl'] * 0.5 for _, v in _bad)  # conservative: recover 50% of losses
-        L.append(f'  FIXABLE (50% recovery): ~${_fixable:,.0f} -> PnL could be ${total_pnl + _fixable:,.0f}')
-
-        # Hold sweet spot
-        L.append('')
-        L.append('HOLD DURATION:')
-        for lbl, v in _hold_buckets.items():
-            _flag = ' <-- SWEET SPOT' if v['avg'] > _avg * 1.5 and v['n'] > 50 else ''
-            _flag = ' <-- OVER-HOLDING' if v['avg'] < -5 else _flag
-            L.append(f'  {lbl:>6s}: {v["n"]:>5} trades  ${v["avg"]:>+7.2f}/tr{_flag}')
-
-        # Direction
-        L.append('')
-        L.append('DIRECTION:')
-        for d, v in sorted(_dirs.items()):
-            _dwr = v['wins'] / v['n'] * 100 if v['n'] > 0 else 0
-            L.append(f'  {d}: {v["n"]:>5} ({v["n"]/total_trades*100:.0f}%)  WR={_dwr:.0f}%  PnL=${v["pnl"]:>+10,.2f}')
-
-        # Sensor gate
-        if _ps:
-            L.append('')
-            L.append('SENSOR GATE:')
-            _det = _ps.get('peak_detected', 0)
-            _ent = _ps.get('peak_entered', 0)
-            _blk_sensor = _ps.get('blocked_1m_sensor', 0)
-            _blk_cat = _ps.get('blocked_cat', 0)
-            _blk_adx = _ps.get('blocked_adx_chop', 0)
-            _blk_cool = _ps.get('blocked_cooldown', 0)
-            _blk_build = _ps.get('blocked_no_buildup', 0)
-            _blk_total = _blk_sensor + _blk_cat + _blk_adx + _blk_cool + _blk_build
-            _ratio = f'{_blk_total}:{_ent}' if _ent > 0 else 'N/A'
-            L.append(f'  Detected: {_det:,}  |  Entered: {_ent:,}  |  Blocked: {_blk_total:,}  ({_ratio} ratio)')
-            if _blk_sensor > 0: L.append(f'    1m_sensor: {_blk_sensor:,}')
-            if _blk_cat > 0:    L.append(f'    cat_regime: {_blk_cat:,}')
-            if _blk_adx > 0:    L.append(f'    adx_chop: {_blk_adx:,}')
-            if _blk_cool > 0:   L.append(f'    cooldown: {_blk_cool:,}')
-            if _blk_build > 0:  L.append(f'    no_buildup: {_blk_build:,}')
-
-        L.append('')
-        L.append('=' * 70)
-
-        # Save
         _sc_name = f'{"oos" if oos_mode else "is"}_scorecard.txt'
         _sc_path = os.path.join(_reports_out, _sc_name)
-        with open(_sc_path, 'w', encoding='utf-8') as f:
-            f.write('\n'.join(L) + '\n')
-
-        # Also print to terminal
-        for line in L:
+        text = write_scorecard(
+            oracle_trade_records, _sc_path,
+            mode=_mode,
+            start_date=start_date,
+            end_date=end_date,
+            daily_ledger=_daily_ledger,
+            max_dd=_cumul_max_dd,
+            peak_stats=_bp.peak_stats if _bp else None,
+            git_hash=_git_hash,
+            run_ts=_run_ts,
+        )
+        for line in text.split('\n'):
             print(f'  {line}')
         print(f'  Scorecard: {_sc_path}')
 

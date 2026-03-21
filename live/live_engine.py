@@ -900,13 +900,20 @@ class LiveEngine:
         # if self._bar_i % 240 == 1:
         #     self._belief_network.prepare_day(...)
 
+        # Maintenance window: force-close open position before daily halt
+        _in_maintenance = self._exit_engine.is_maintenance_window(ts)
+        if _in_maintenance and self._position_open:
+            logger.warning(f"MAINTENANCE FLATTEN @ {price:.2f}  -- CME daily halt")
+            self._belief_network.stop_trade_tracking()
+            await self._close_position('MAINTENANCE_FLAT')
+
         # Block entries during maintenance or loss limit
         _cooldown_ok = (time.time() - self._last_exit_time) > float(self._anchor_period)
         _can_enter = (self._system_ready
                       and self._orders.can_enter
                       and _cooldown_ok
                       and not self._instrument_mismatch
-                      and not self._exit_engine.is_maintenance_window(ts))
+                      and not _in_maintenance)
 
         # Aggression scaling
         agg = self._shared_state.get('aggression', 0.5)
