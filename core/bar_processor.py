@@ -112,12 +112,12 @@ class BarProcessor:
             from core.cat_brain import CatBrain
             self._cat = CatBrain(window=200)
 
-        # Monkey brain: counterfactual engine (phantom trades for every decision)
-        self._use_monkey = kwargs.get('use_monkey', False)
-        self._monkey = None
-        if self._use_monkey:
+        # Crow brain: counterfactual engine (phantom trades for every decision)
+        self._use_crow = kwargs.get('use_crow', False)
+        self._crow = None
+        if self._use_crow:
             from core.counterfactual_engine import CounterfactualEngine
-            self._monkey = CounterfactualEngine(tick_size=tick_size)
+            self._crow = CounterfactualEngine(tick_size=tick_size)
 
         # Peak detection entry: reversal signal from P_center + F_momentum
         self._peak_detection_enabled = True
@@ -241,8 +241,8 @@ class BarProcessor:
                                 self.peak_stats['blocked_cat'] += 1
                                 self._log_peak_skip(timestamp, f'cat: {_cat_reason}')
                                 # Monkey: spawn phantom for blocked entry
-                                if self._monkey is not None:
-                                    self._monkey.on_skip(bar_index, price, _dir, f'cat_{_cat_reason}')
+                                if self._crow is not None:
+                                    self._crow.on_skip(bar_index, price, _dir, f'cat_{_cat_reason}')
 
                         if _cat_ok:
                             self._log_peak_accept(timestamp, _dir, state)
@@ -258,8 +258,8 @@ class BarProcessor:
                             ))
                             self.peak_stats['peak_entered'] += 1
                             # Monkey: spawn phantoms with alt exit thresholds
-                            if self._monkey is not None:
-                                self._monkey.on_entry(bar_index, price, _dir)
+                            if self._crow is not None:
+                                self._crow.on_entry(bar_index, price, _dir)
         else:
             # Always update peak state even when not checking (same fix as IS path)
             self._detect_peak_reversal(state)  # updates _prev_P_center/_prev_F_momentum
@@ -501,8 +501,8 @@ class BarProcessor:
             self.belief_network.tick_all(bar_index)
 
             # 1b. Update monkey phantoms (every anchor bar)
-            if self._monkey is not None:
-                self._monkey.on_bar(bar_index, price, bar_high, bar_low)
+            if self._crow is not None:
+                self._crow.on_bar(bar_index, price, bar_high, bar_low)
 
         # 2. If in position -> exit evaluation
         if self.exec_engine.in_position:

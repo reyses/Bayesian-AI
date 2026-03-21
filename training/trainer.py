@@ -724,7 +724,7 @@ class Trainer:
             brain=self.brain,
             pattern_library=self.pattern_library or {},
             use_cat=getattr(self, '_use_cat', False),
-            use_monkey=getattr(self, '_use_monkey', False),
+            use_crow=getattr(self, '_use_crow', False),
         )
         pending_oracle = None      # oracle facts for currently open trade
         _pending_dm_idx = None     # index into decision_matrix_records for open trade
@@ -2370,7 +2370,7 @@ class Trainer:
                     tick_size=self.asset.tick_size,
                     point_value=self.asset.point_value,
                     use_cat=getattr(self, '_use_cat', False),
-            use_monkey=getattr(self, '_use_monkey', False),
+            use_crow=getattr(self, '_use_crow', False),
                     hooks=BarProcessorHooks(
                         modify_pnl=_lv_modify_pnl_fresh,
                         pre_exit_eval=_lv_pre_exit_eval,
@@ -4317,14 +4317,14 @@ class Trainer:
             )
 
             # ── 6a-MONKEY. Counterfactual report ──
-            if _bp is not None and hasattr(_bp, '_monkey') and _bp._monkey is not None:
-                _monkey_report = _bp._monkey.report()
-                print(f'\n{_monkey_report}')
-                _monkey_path = os.path.join(_reports_out,
+            if _bp is not None and hasattr(_bp, '_crow') and _bp._crow is not None:
+                _crow_report = _bp._crow.report()
+                print(f'\n{_crow_report}')
+                _crow_path = os.path.join(_reports_out,
                     f'{"oos" if oos_mode else "is"}_counterfactual.txt')
-                with open(_monkey_path, 'w', encoding='utf-8') as f:
-                    f.write(_monkey_report + '\n')
-                print(f'  Counterfactual report: {_monkey_path}')
+                with open(_crow_path, 'w', encoding='utf-8') as f:
+                    f.write(_crow_report + '\n')
+                print(f'  Counterfactual report: {_crow_path}')
 
             # ── 6a-bis. Save trade replays (per-bar price + state for I-MR analysis) ──
             if _trade_replays is not None and _trade_replays:
@@ -5851,8 +5851,8 @@ def main():
     parser.add_argument('--no-cat', action='store_true',
                         help="Disable cat brain (rolling delta regime classifier). "
                              "Cat is ON by default. Use this flag to benchmark without it.")
-    parser.add_argument('--monkey', action='store_true',
-                        help="Enable monkey brain (counterfactual engine). "
+    parser.add_argument('--crow', action='store_true',
+                        help="Enable crow brain (counterfactual engine). "
                              "Spawns phantom trades for every skip/entry to find optimal "
                              "parameter settings. Prints optimization report at end.")
     parser.add_argument('--inspect-templates', action='store_true',
@@ -6026,7 +6026,7 @@ def main():
     orchestrator._use_lookback = True  # 22D features always on (6D lookback geometry)
     orchestrator._use_shapes = getattr(args, 'shapes', False)
     orchestrator._use_cat = not getattr(args, 'no_cat', False)
-    orchestrator._use_monkey = getattr(args, 'monkey', False)
+    orchestrator._use_crow = getattr(args, 'monkey', False)
     # Min-hold: convert minutes -> 15s bars (execution TF)
     _min_hold_mins = getattr(args, 'min_hold', 0.0)
     orchestrator._min_hold_bars = int(_min_hold_mins * 60 / 15) if _min_hold_mins > 0 else 0
