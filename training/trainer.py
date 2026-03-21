@@ -864,6 +864,26 @@ class Trainer:
             _df_5s = _load_fine('5s')
             _df_1s  = _load_fine('1s')
             _df_4h  = _load_fine('4h')
+            _df_1m  = _load_fine('1m')
+
+            # Filter sub-resolution TFs to today's time range only.
+            # Without this, 1s loads the ENTIRE month (1.9M bars) every day.
+            _day_ts_min = df_15s['timestamp'].iloc[0] if len(df_15s) > 0 else 0
+            _day_ts_max = df_15s['timestamp'].iloc[-1] if len(df_15s) > 0 else 0
+            for _varname in ('_df_5s', '_df_1s'):
+                _fdf = locals().get(_varname)
+                if _fdf is not None and not _fdf.empty and _day_ts_min > 0:
+                    _fdf_filtered = _fdf[(_fdf['timestamp'] >= _day_ts_min) &
+                                         (_fdf['timestamp'] <= _day_ts_max)]
+                    if len(_fdf_filtered) > 0:
+                        locals()[_varname] = _fdf_filtered
+            # Re-assign after filtering (locals() trick doesn't work for assignment)
+            if _df_5s is not None and not _df_5s.empty and _day_ts_min > 0:
+                _df_5s = _df_5s[(_df_5s['timestamp'] >= _day_ts_min) &
+                                (_df_5s['timestamp'] <= _day_ts_max)]
+            if _df_1s is not None and not _df_1s.empty and _day_ts_min > 0:
+                _df_1s = _df_1s[(_df_1s['timestamp'] >= _day_ts_min) &
+                                (_df_1s['timestamp'] <= _day_ts_max)]
 
             # Pre-extract 1s numpy arrays for wick-aware inner loop
             if _df_1s is not None and not _df_1s.empty:
@@ -905,7 +925,8 @@ class Trainer:
                     # TBN gets full combined data (resampled TFs have IS history)
                     # External TFs also get IS data prepended for regression context
                     belief_network.prepare_day(_df_combined, states_micro=_states_combined,
-                                               df_5s=_df_5s_w, df_1s=_df_1s_w, df_4h=_df_4h_w)
+                                               df_5s=_df_5s_w, df_1s=_df_1s_w, df_4h=_df_4h_w,
+                                               df_1m=_df_1m)
                     print(f"    OOS warmup applied: {_warmup_offset:,} IS bars prepended "
                           f"({len(_states_15s):,} OOS states)")
                 except Exception as _wup_err:
@@ -913,7 +934,8 @@ class Trainer:
                     _warmup_offset = 0
                     _states_15s = self.engine.batch_compute_states(df_15s, use_cuda=True)
                     belief_network.prepare_day(df_15s, states_micro=_states_15s,
-                                               df_5s=_df_5s, df_1s=_df_1s, df_4h=_df_4h)
+                                               df_5s=_df_5s, df_1s=_df_1s, df_4h=_df_4h,
+                                               df_1m=_df_1m)
             else:
                 # Normal path (IS mode, or OOS file 2+)
                 try:
@@ -924,10 +946,12 @@ class Trainer:
                 # TBN: prepare workers with day data
                 try:
                     belief_network.prepare_day(df_15s, states_micro=_states_15s,
-                                               df_5s=_df_5s, df_1s=_df_1s, df_4h=_df_4h)
+                                               df_5s=_df_5s, df_1s=_df_1s, df_4h=_df_4h,
+                                               df_1m=_df_1m)
                 except Exception:
                     belief_network.prepare_day(df_15s, states_micro=[],
-                                               df_5s=_df_5s, df_1s=_df_1s, df_4h=_df_4h)
+                                               df_5s=_df_5s, df_1s=_df_1s, df_4h=_df_4h,
+                                               df_1m=_df_1m)
 
             # Accumulate worker state counts for report diagnostics
             for _wlbl, _wcnt in belief_network.get_worker_state_counts().items():
