@@ -885,6 +885,9 @@ class Trainer:
             if _df_1s is not None and not _df_1s.empty and _day_ts_min > 0:
                 _df_1s = _df_1s[(_df_1s['timestamp'] >= _day_ts_min) &
                                 (_df_1s['timestamp'] <= _day_ts_max)]
+            if _df_1m is not None and not _df_1m.empty and _day_ts_min > 0:
+                _df_1m = _df_1m[(_df_1m['timestamp'] >= _day_ts_min) &
+                                (_df_1m['timestamp'] <= _day_ts_max)]
 
             # Pre-extract 1s numpy arrays for wick-aware inner loop
             if _df_1s is not None and not _df_1s.empty:
