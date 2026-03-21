@@ -105,8 +105,31 @@ class PeakGiveback:
             if _peak_vol > 0 and _current_vol < _peak_vol * self._vol_drop_threshold:
                 _vol_exhausted = True
 
+        # Fake peak override: if volume + momentum are STILL flowing with the trade,
+        # the pullback is noise — hold. Giveback says "exit," fake peak says "not yet."
+        # Research: high vol+fm at peak = continuation, not reversal.
+        # The fake peak flag is set by bar_processor when log_vol > 2.5 AND log_fm > 3.0.
+        _fake_peak_hold = False
+        if exit_signal is not None:
+            _current_vol = abs(exit_signal.get('current_volume', 0.0))
+            _peak_vol = getattr(pos, 'peak_volume', 0.0) or 0.0
+            # Volume still > 60% of peak = move isn't done, this is a fake peak (noise dip)
+            if _peak_vol > 0 and _current_vol > _peak_vol * 0.60:
+                _fake_peak_hold = True
+                # Track the override for accountability
+                if not hasattr(pos, '_giveback_overrides'):
+                    pos._giveback_overrides = 0
+                pos._giveback_overrides = getattr(pos, '_giveback_overrides', 0) + 1
+                # Safety: if overridden 5+ times, volume is lying — exit anyway
+                if pos._giveback_overrides >= 5:
+                    _fake_peak_hold = False
+
         # Base threshold: 50% giveback = exit (conservative default)
         _threshold_pct = 0.50
+
+        # Fake peak override: widen threshold (harder to trigger = hold longer)
+        if _fake_peak_hold:
+            _threshold_pct = 0.70  # volume says "not done" -- give it room
 
         # Volume exhaustion tightens threshold: move is dying, lock profit
         if _vol_exhausted:
