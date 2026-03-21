@@ -1,3 +1,0 @@
-ts,day,depth,pattern,micro_z,macro_z,gate,gate1_dist,gate3_conv,oracle_label,oracle_dir,oracle_pnl,template_id,tier,playbook,trade_direction,trade_result,trade_pnl,exit_reason,exit_signal_reason,exit_conviction,exit_wave_maturity
-1735805700,2025_01,4,ROCHE_SNAP,2.25,0.0,gate0_momentum,0.0,0.0,MEGA,LONG,286.5,,,,,,0.0,,,0.0,0.0
-1735805700,2025_01,4,STRUCTURAL_DRIVE,2.25,0.0,gate0_momentum,0.0,0.0,MEGA,LONG,286.5,,,,,,0.0,,,0.0,0.0
