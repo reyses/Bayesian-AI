@@ -85,6 +85,7 @@ class BarProcessor:
         tick_size: float = 0.25,
         point_value: float = 2.0,
         hooks: Optional[BarProcessorHooks] = None,
+        use_cat: bool = False,
     ):
         self.exec_engine = exec_engine
         self._cfg = getattr(exec_engine, 'config', None)  # TradingConfig
@@ -102,6 +103,13 @@ class BarProcessor:
 
         self._hooks = hooks or BarProcessorHooks()
         self._current_entry: Optional[dict] = None
+
+        # Cat brain: rolling delta regime classifier (Schrodinger's quantum cat)
+        self._use_cat = use_cat
+        self._cat = None
+        if use_cat:
+            from core.cat_brain import CatBrain
+            self._cat = CatBrain(window=200)
 
         # Peak detection entry: reversal signal from P_center + F_momentum
         self._peak_detection_enabled = True
@@ -122,6 +130,7 @@ class BarProcessor:
             'blocked_no_buildup': 0,     # blocked by buildup/exhaustion filter
             'blocked_1m_sensor': 0,      # blocked by 1m sensor opposition
             'blocked_fake_peak': 0,      # blocked by volume+momentum fake filter
+            'blocked_cat': 0,            # blocked by cat brain regime assessment
             'peak_entered': 0,           # made it through all gates -> candidate created
         }
 
@@ -186,6 +195,10 @@ class BarProcessor:
                     features=_feat,
                 ))
 
+        # Feed cat brain on every bar (regardless of peak detection)
+        if self._cat is not None:
+            self._cat.update(state)
+
         # Source 2: Peak detection (reversal entry)
         # Detects when a move just peaked: P_center rising + F_momentum collapsing.
         # Research: 83% detection rate, 85% precision, 0% false alarms.
@@ -201,23 +214,38 @@ class BarProcessor:
                 _peak_entry = self._detect_peak_reversal(state)
                 if _peak_entry:
                     self.peak_stats['peak_detected'] += 1
-                    if self._1m_confirms_peak(state, bar_ts=timestamp):
+                    # Gate 1: 1m sensor confirmation (vol + fm)
+                    _sensor_ok = self._1m_confirms_peak(state, bar_ts=timestamp)
+                    if not _sensor_ok:
+                        pass  # already logged + counted in _1m_confirms_peak
+                    else:
                         _feat = self._build_features(state)
                         _fm = getattr(state, 'F_momentum', 0.0)
                         _peak_long = _fm < 0
                         _dir = 'LONG' if _peak_long else 'SHORT'
-                        self._log_peak_accept(timestamp, _dir, state)
-                        candidates.append(Candidate(
-                            state=state,
-                            depth=self._anchor_depth,
-                            timeframe=self._anchor_tf,
-                            timestamp=timestamp,
-                            pattern_type='PEAK_REVERSAL',
-                            z_score=_z,
-                            features=_feat,
-                            forced_template_id=-100,
-                        ))
-                        self.peak_stats['peak_entered'] += 1
+
+                        # Gate 2: Cat brain regime check (if enabled)
+                        _cat_ok = True
+                        _cat_reason = ''
+                        if self._cat is not None:
+                            _cat_ok, _cat_reason = self._cat.should_enter_peak(_dir)
+                            if not _cat_ok:
+                                self.peak_stats['blocked_cat'] += 1
+                                self._log_peak_skip(timestamp, f'cat: {_cat_reason}')
+
+                        if _cat_ok:
+                            self._log_peak_accept(timestamp, _dir, state)
+                            candidates.append(Candidate(
+                                state=state,
+                                depth=self._anchor_depth,
+                                timeframe=self._anchor_tf,
+                                timestamp=timestamp,
+                                pattern_type='PEAK_REVERSAL',
+                                z_score=_z,
+                                features=_feat,
+                                forced_template_id=-100,
+                            ))
+                            self.peak_stats['peak_entered'] += 1
         else:
             # Always update peak state even when not checking (same fix as IS path)
             self._detect_peak_reversal(state)  # updates _prev_P_center/_prev_F_momentum
