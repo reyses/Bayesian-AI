@@ -1,6 +1,0 @@
-idx,action,side,price,pnl
-0,exit,long,21040.0,-87.0
-0,peak_entry,long,21018.5,0
-0,entry,long,21018.5,0
-0,exit,long,21008.25,-20.5
-0,peak_skip,,21005.25,0

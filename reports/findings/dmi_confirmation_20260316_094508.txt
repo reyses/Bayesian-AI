@@ -1,3 +1,0 @@
-DMI Crossover Confirmation Research — 2026-03-16 09:45:08.294547
-Data: DATA/ATLAS (month=2025_06)
-See terminal output for full results
