@@ -1237,6 +1237,18 @@ class Trainer:
                 # so bar_i=0 in OOS needs to point to states[_warmup_offset].
                 belief_network.tick_all(_bar_i + _warmup_offset)
 
+                # Crow: update phantom trades every bar
+                if _bp._crow is not None:
+                    _bar_high = getattr(row, 'high', price)
+                    _bar_low = getattr(row, 'low', price)
+                    _bp._crow.on_bar(_bar_i, price, _bar_high, _bar_low)
+
+                # Feed cat brain on every bar (even when in position)
+                if _bp._cat is not None and _exec_engine.in_position:
+                    _cat_state = _states_map.get(_bar_i)
+                    if _cat_state is not None:
+                        _bp._cat.update(_cat_state)
+
                 # Feed price + DMI to dashboard (AFTER tick_all so workers are current)
                 if (self.dashboard_queue is not None
                         and _now_wall - getattr(self, '_last_dash_tick', 0) >= 1.0):
@@ -1646,14 +1658,32 @@ class Trainer:
                     _in_peak_cooldown = (hasattr(_bp, '_peak_cooldown_until')
                                          and _bar_i < _bp._peak_cooldown_until)
                     if not current_position_open and not _in_peak_cooldown:
+                        # Feed cat brain on every bar (same as BarProcessor)
+                        if _bp._cat is not None:
+                            _bp._cat.update(_bar_state_pk)
                         # Use BarProcessor's peak detection (has buildup buffer)
                         _peak_fired = _bp._detect_peak_reversal(_bar_state_pk)
                         if _peak_fired:
                             _bp.peak_stats['peak_detected'] += 1
                             # Use BarProcessor's 1m sensor gate
                             if _bp._1m_confirms_peak(_bar_state_pk):
-                                _has_peak_signal = True
-                                _bp.peak_stats['peak_entered'] += 1
+                                # Cat brain regime check (same as BarProcessor)
+                                _fm = getattr(_bar_state_pk, 'F_momentum', 0.0)
+                                _peak_dir = 'LONG' if _fm < 0 else 'SHORT'
+                                _cat_ok = True
+                                if _bp._cat is not None:
+                                    _cat_ok, _cat_reason = _bp._cat.should_enter_peak(_peak_dir)
+                                    if not _cat_ok:
+                                        _bp.peak_stats['blocked_cat'] += 1
+                                        # Crow: phantom for blocked entry
+                                        if _bp._crow is not None:
+                                            _bp._crow.on_skip(_bar_i, price, _peak_dir, f'cat_{_cat_reason}')
+                                if _cat_ok:
+                                    _has_peak_signal = True
+                                    _bp.peak_stats['peak_entered'] += 1
+                                    # Crow: phantoms for alt exit thresholds
+                                    if _bp._crow is not None:
+                                        _bp._crow.on_entry(_bar_i, price, _peak_dir)
                     else:
                         # Always update peak state (buffers) even when not checking
                         _bp._detect_peak_reversal(_bar_state_pk)
