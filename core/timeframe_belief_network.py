@@ -1501,6 +1501,7 @@ class TimeframeBeliefNetwork:
             # Sensor fusion: fast (1s) + slow (1m)
             'vel_flipped':     _vel_flipped,      # 1s velocity changed sign
             'vol_collapsing':  _vol_collapsing,    # 1m volume dropped >50%
+            'current_volume':  abs(_1m_vol),        # 1m absolute volume (for peak tracking)
             # Inverted entry sensors (directional, against trade)
             'vel_1s_against':  _vel_1s_against,    # 1s velocity against trade
             'vol_1m_against':  _vol_1m_against,    # 1m volume against trade
