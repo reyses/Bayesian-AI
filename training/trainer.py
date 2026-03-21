@@ -536,7 +536,7 @@ class Trainer:
         # $500 below day start, stop trading. Gives room for normal dips
         # (worst intraday = -$96) while protecting against crashes.
         # No auto-resume -- requires human review.
-        DAILY_DD_BUFFER = 1000.0        # $1K below day start = stop
+        DAILY_DD_BUFFER = 999_999.0      # effectively disabled — evaluate raw entry quality
         _daily_dd_stopped = False       # True when limit hit, reset each day
         _daily_dd_skipped = 0           # trades skipped due to daily DD stop
         _day_start_pnl = 0.0            # cumulative PnL at start of this day
@@ -4773,8 +4773,14 @@ def main():
                         help="Run per-depth isolation analysis: forward pass once per depth (1-12), "
                              "no capital blocking between depths. Prints comparison table at end.")
     parser.add_argument('--frozen-brain', action='store_true',
-                        help="OOS with frozen brain (no learning). Load live_brain.pkl, "
-                             "validate without brain drift.")
+                        help="Freeze brain (no learning). Works with IS and OOS. "
+                             "Pair with --brain-path to load a specific brain file.")
+    parser.add_argument('--brain-path', type=str, default=None,
+                        help="Load brain from specific pkl file before forward pass. "
+                             "Use with --frozen-brain for oracle experiments.")
+    parser.add_argument('--library-path', type=str, default=None,
+                        help="Load pattern library from specific pkl file. "
+                             "Overrides checkpoints/pattern_library.pkl.")
     parser.add_argument('--oos', action='store_true',
                         help="Standalone OOS: load IS checkpoint, run OOS on ATLAS_OOS. "
                              "Separate oos_trade_log.csv/oos_report.txt. "
@@ -5190,6 +5196,31 @@ def main():
                     if os.path.exists(_src):
                         _shutil_bak.copy2(_src, os.path.join(_pre_is_dir, _bak_f))
                 print(f"  [BACKUP] Pre-IS snapshot saved to {_pre_is_dir}/")
+
+                # Load custom brain if specified
+                if getattr(args, 'brain_path', None):
+                    _bp_path = args.brain_path
+                    if os.path.exists(_bp_path):
+                        orchestrator.brain.load(_bp_path)
+                        print(f"  [BRAIN] Loaded from: {_bp_path} ({len(orchestrator.brain.table)} states)")
+                    else:
+                        print(f"  [WARN] Brain path not found: {_bp_path}")
+
+                # Load custom pattern library if specified
+                if getattr(args, 'library_path', None):
+                    _lp_path = args.library_path
+                    if os.path.exists(_lp_path):
+                        import pickle as _lp_pkl
+                        with open(_lp_path, 'rb') as _lp_f:
+                            orchestrator.pattern_library = _lp_pkl.load(_lp_f)
+                        print(f"  [LIBRARY] Loaded from: {_lp_path} ({len(orchestrator.pattern_library)} templates)")
+                    else:
+                        print(f"  [WARN] Library path not found: {_lp_path}")
+
+                # Freeze brain if requested (works for IS and OOS)
+                if getattr(args, 'frozen_brain', False):
+                    orchestrator.brain.freeze()
+                    print(f"  [FROZEN] Brain learning disabled")
 
                 # IS forward pass
                 print("\n  PHASE: IS")
