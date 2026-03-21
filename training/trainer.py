@@ -811,8 +811,62 @@ class Trainer:
         _pbar = tqdm(total=_total_trading_days, desc='Forward Pass', unit='day',
                      bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {postfix}',
                      ascii=True, dynamic_ncols=True)
+        _oos_cutoff = getattr(self, '_oos_cutoff', '2026_02')  # default: Feb 2026
+        _oos_boundary_hit = False
+        _is_trades_snapshot = None
+
         for day_idx, day_file in enumerate(daily_files_15s):
             day_date = os.path.basename(day_file).replace('.parquet', '')
+
+            # ── IS→OOS boundary: freeze brain, save checkpoint, reset stats ──
+            if (not oos_mode and not _oos_boundary_hit
+                    and day_date >= _oos_cutoff):
+                _oos_boundary_hit = True
+                # Save IS scorecard before resetting
+                _is_pnl = total_pnl + sum(t.pnl for t in day_trades)
+                _is_trades_count = total_trades + len(day_trades)
+                _is_wins = total_wins + sum(1 for t in day_trades if t.result == 'WIN')
+                _is_trades_snapshot = list(oracle_trade_records)  # copy for IS report
+                print(f'\n  [IS->OOS BOUNDARY] {day_date}: freezing brain, resetting stats')
+                print(f'    IS final: {_is_trades_count} trades, ${_is_pnl:,.2f} PnL, '
+                      f'{_is_wins/_is_trades_count*100:.1f}% WR' if _is_trades_count else '')
+                # Write IS scorecard before resetting
+                import subprocess as _bd_sp
+                try:
+                    _bd_hash = _bd_sp.check_output(['git','rev-parse','--short','HEAD'],
+                                                    stderr=_bd_sp.DEVNULL).decode().strip()
+                except Exception:
+                    _bd_hash = 'unknown'
+                import datetime as _bd_dt
+                self._write_actionable_scorecard(
+                    oracle_trade_records=oracle_trade_records,
+                    total_trades=_is_trades_count, total_wins=_is_wins,
+                    total_pnl=_is_pnl, oos_mode=False,
+                    _daily_ledger=_daily_ledger,
+                    _cumul_max_dd=_cumul_max_dd,
+                    _reports_out=os.path.join('reports'),
+                    _bp=_bp, start_date='2025-01', end_date=_oos_cutoff,
+                    _run_ts=_bd_dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    _git_hash=_bd_hash,
+                )
+                # Freeze brain
+                self.brain.freeze()
+                # Save IS checkpoint
+                _is_brain_path = os.path.join(self.checkpoint_dir, 'is_brain_checkpoint.pkl')
+                self.brain.save(_is_brain_path)
+                print(f'    Brain frozen + saved: {_is_brain_path}')
+                # Reset running stats for OOS
+                total_pnl = 0.0
+                total_trades = 0
+                total_wins = 0
+                oracle_trade_records = []
+                _cumul_pnl = 0.0
+                _cumul_peak = 0.0
+                _cumul_trough = 0.0
+                _cumul_max_dd = 0.0
+                _daily_ledger = []
+                _cumulative_days = 0
+                _consec_losing_days = 0
 
             # ── Warmup gate: process TBN context but skip trading ──
             if trade_start_date:
@@ -6026,7 +6080,7 @@ def main():
     orchestrator._use_lookback = True  # 22D features always on (6D lookback geometry)
     orchestrator._use_shapes = getattr(args, 'shapes', False)
     orchestrator._use_cat = not getattr(args, 'no_cat', False)
-    orchestrator._use_crow = getattr(args, 'monkey', False)
+    orchestrator._use_crow = getattr(args, 'crow', False)
     # Min-hold: convert minutes -> 15s bars (execution TF)
     _min_hold_mins = getattr(args, 'min_hold', 0.0)
     orchestrator._min_hold_bars = int(_min_hold_mins * 60 / 15) if _min_hold_mins > 0 else 0
