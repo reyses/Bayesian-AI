@@ -2739,6 +2739,149 @@ class Trainer:
         self.brain.save(brain_path)
         print(f"  Warmed brain saved: {brain_path} ({len(self.brain.table)} states)")
 
+    def _write_actionable_scorecard(self, *, oracle_trade_records, total_trades,
+                                     total_wins, total_pnl, oos_mode,
+                                     _daily_ledger, _cumul_max_dd, _reports_out,
+                                     _bp, start_date, end_date, _run_ts, _git_hash):
+        """Write concise actionable report (~80 lines). The ONLY report you need to read."""
+        import os
+        _mode = 'OOS' if oos_mode else 'IS'
+        _wr = total_wins / total_trades * 100 if total_trades else 0
+        _gw = sum(r['actual_pnl'] for r in oracle_trade_records if r['actual_pnl'] > 0)
+        _gl = abs(sum(r['actual_pnl'] for r in oracle_trade_records if r['actual_pnl'] < 0))
+        _pf = _gw / _gl if _gl > 0 else 0
+        _avg = total_pnl / total_trades if total_trades else 0
+        _n_days = len(_daily_ledger) if _daily_ledger else 1
+        _win_days = sum(1 for d in _daily_ledger if d.get('pnl', 0) > 0) if _daily_ledger else 0
+        _worst_day = min((d.get('pnl', 0) for d in _daily_ledger), default=0) if _daily_ledger else 0
+        _best_day = max((d.get('pnl', 0) for d in _daily_ledger), default=0) if _daily_ledger else 0
+        _med_day = 0
+        if _daily_ledger:
+            _day_pnls = sorted(d.get('pnl', 0) for d in _daily_ledger)
+            _med_day = _day_pnls[len(_day_pnls) // 2]
+
+        # Exit breakdown
+        _exits = {}
+        for r in oracle_trade_records:
+            reason = r.get('exit_reason', 'unknown')
+            if reason not in _exits:
+                _exits[reason] = {'n': 0, 'pnl': 0, 'wins': 0}
+            _exits[reason]['n'] += 1
+            _exits[reason]['pnl'] += r['actual_pnl']
+            if r['actual_pnl'] > 0:
+                _exits[reason]['wins'] += 1
+
+        # Hold duration buckets
+        _hold_buckets = {}
+        for lo, hi, lbl in [(0,2,'<30s'), (2,4,'30s-1m'), (4,8,'1-2m'), (8,20,'2-5m'), (20,40,'5-10m'), (40,999,'10m+')]:
+            bucket = [r for r in oracle_trade_records if lo <= r.get('hold_bars', 0) < hi]
+            if bucket:
+                _hold_buckets[lbl] = {
+                    'n': len(bucket),
+                    'pnl': sum(r['actual_pnl'] for r in bucket),
+                    'avg': sum(r['actual_pnl'] for r in bucket) / len(bucket),
+                }
+
+        # Direction
+        _dirs = {}
+        for r in oracle_trade_records:
+            d = r.get('direction', 'UNKNOWN')
+            if d not in _dirs:
+                _dirs[d] = {'n': 0, 'pnl': 0, 'wins': 0}
+            _dirs[d]['n'] += 1
+            _dirs[d]['pnl'] += r['actual_pnl']
+            if r['actual_pnl'] > 0:
+                _dirs[d]['wins'] += 1
+
+        # Peak stats
+        _ps = _bp.peak_stats if _bp else {}
+
+        # Build report
+        L = []
+        L.append('=' * 70)
+        L.append(f'SCORECARD: {_mode} {start_date} to {end_date}')
+        L.append(f'  Commit: {_git_hash}  |  Generated: {_run_ts}')
+        L.append(f'  PnL: ${total_pnl:,.2f}  |  Trades: {total_trades:,}  |  WR: {_wr:.1f}%  |  PF: {_pf:.2f}')
+        L.append(f'  $/trade: ${_avg:.2f}  |  $/day: ${total_pnl/_n_days:,.0f}  |  Max DD: ${_cumul_max_dd:,.0f}')
+        L.append(f'  Win days: {_win_days}/{_n_days} ({_win_days/_n_days*100:.0f}%)  |  Best: ${_best_day:,.0f}  |  Worst: ${_worst_day:,.0f}  |  Median: ${_med_day:,.0f}')
+        L.append('=' * 70)
+
+        # What's working
+        L.append('')
+        L.append('WHAT WORKS (PF > 1.5):')
+        _good = [(k, v) for k, v in _exits.items() if v['n'] > 0 and v['pnl'] > 0]
+        _good.sort(key=lambda x: -x[1]['pnl'])
+        for reason, v in _good[:6]:
+            _epf = v['pnl'] / abs(sum(r['actual_pnl'] for r in oracle_trade_records if r.get('exit_reason') == reason and r['actual_pnl'] < 0)) if any(r['actual_pnl'] < 0 and r.get('exit_reason') == reason for r in oracle_trade_records) else float('inf')
+            _ewr = v['wins'] / v['n'] * 100
+            L.append(f'  {reason:22s} {v["n"]:>5} trades  PF={_epf:>5.2f}  ${v["pnl"]:>+10,.2f}  ${v["pnl"]/v["n"]:>+7.2f}/tr  WR={_ewr:.0f}%')
+
+        # What's broken
+        L.append('')
+        L.append('WHAT HURTS (PF < 1.0):')
+        _bad = [(k, v) for k, v in _exits.items() if v['n'] > 0 and v['pnl'] < 0]
+        _bad.sort(key=lambda x: x[1]['pnl'])
+        for reason, v in _bad[:5]:
+            _epf = 0
+            _loss_sum = abs(sum(r['actual_pnl'] for r in oracle_trade_records if r.get('exit_reason') == reason and r['actual_pnl'] < 0))
+            _win_sum = sum(r['actual_pnl'] for r in oracle_trade_records if r.get('exit_reason') == reason and r['actual_pnl'] > 0)
+            _epf = _win_sum / _loss_sum if _loss_sum > 0 else 0
+            _ewr = v['wins'] / v['n'] * 100
+            L.append(f'  {reason:22s} {v["n"]:>5} trades  PF={_epf:>5.2f}  ${v["pnl"]:>+10,.2f}  ${v["pnl"]/v["n"]:>+7.2f}/tr  WR={_ewr:.0f}%')
+
+        # Fixable profit
+        _fixable = sum(-v['pnl'] * 0.5 for _, v in _bad)  # conservative: recover 50% of losses
+        L.append(f'  FIXABLE (50% recovery): ~${_fixable:,.0f} -> PnL could be ${total_pnl + _fixable:,.0f}')
+
+        # Hold sweet spot
+        L.append('')
+        L.append('HOLD DURATION:')
+        for lbl, v in _hold_buckets.items():
+            _flag = ' <-- SWEET SPOT' if v['avg'] > _avg * 1.5 and v['n'] > 50 else ''
+            _flag = ' <-- OVER-HOLDING' if v['avg'] < -5 else _flag
+            L.append(f'  {lbl:>6s}: {v["n"]:>5} trades  ${v["avg"]:>+7.2f}/tr{_flag}')
+
+        # Direction
+        L.append('')
+        L.append('DIRECTION:')
+        for d, v in sorted(_dirs.items()):
+            _dwr = v['wins'] / v['n'] * 100 if v['n'] > 0 else 0
+            L.append(f'  {d}: {v["n"]:>5} ({v["n"]/total_trades*100:.0f}%)  WR={_dwr:.0f}%  PnL=${v["pnl"]:>+10,.2f}')
+
+        # Sensor gate
+        if _ps:
+            L.append('')
+            L.append('SENSOR GATE:')
+            _det = _ps.get('peak_detected', 0)
+            _ent = _ps.get('peak_entered', 0)
+            _blk_sensor = _ps.get('blocked_1m_sensor', 0)
+            _blk_cat = _ps.get('blocked_cat', 0)
+            _blk_adx = _ps.get('blocked_adx_chop', 0)
+            _blk_cool = _ps.get('blocked_cooldown', 0)
+            _blk_build = _ps.get('blocked_no_buildup', 0)
+            _blk_total = _blk_sensor + _blk_cat + _blk_adx + _blk_cool + _blk_build
+            _ratio = f'{_blk_total}:{_ent}' if _ent > 0 else 'N/A'
+            L.append(f'  Detected: {_det:,}  |  Entered: {_ent:,}  |  Blocked: {_blk_total:,}  ({_ratio} ratio)')
+            if _blk_sensor > 0: L.append(f'    1m_sensor: {_blk_sensor:,}')
+            if _blk_cat > 0:    L.append(f'    cat_regime: {_blk_cat:,}')
+            if _blk_adx > 0:    L.append(f'    adx_chop: {_blk_adx:,}')
+            if _blk_cool > 0:   L.append(f'    cooldown: {_blk_cool:,}')
+            if _blk_build > 0:  L.append(f'    no_buildup: {_blk_build:,}')
+
+        L.append('')
+        L.append('=' * 70)
+
+        # Save
+        _sc_name = f'{"oos" if oos_mode else "is"}_scorecard.txt'
+        _sc_path = os.path.join(_reports_out, _sc_name)
+        with open(_sc_path, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(L) + '\n')
+
+        # Also print to terminal
+        for line in L:
+            print(f'  {line}')
+        print(f'  Scorecard: {_sc_path}')
+
     def _write_forward_pass_reports(
         self, *,
         total_trades, total_wins, total_pnl,
@@ -4154,6 +4297,19 @@ class Trainer:
                 f.write('\n'.join(report_lines) + '\n')
             print(f"  Report saved to {report_path}")
             print(f"  Shareable copy: {_share_path}")
+
+            # ── 6a-ACTION. Write actionable scorecard ──
+            self._write_actionable_scorecard(
+                oracle_trade_records=oracle_trade_records,
+                total_trades=total_trades, total_wins=total_wins,
+                total_pnl=total_pnl, oos_mode=oos_mode,
+                _daily_ledger=_daily_ledger,
+                _cumul_max_dd=_cumul_max_dd,
+                _reports_out=_reports_out,
+                _bp=_bp,
+                start_date=start_date, end_date=end_date,
+                _run_ts=_run_ts, _git_hash=_git_hash,
+            )
 
             # ── 6a-bis. Save trade replays (per-bar price + state for I-MR analysis) ──
             if _trade_replays is not None and _trade_replays:
