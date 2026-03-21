@@ -6,21 +6,84 @@ GPU-accelerated via Numba CUDA kernels.
 """
 import numpy as np
 import pandas as pd
-from numba import cuda
-from numpy.lib.stride_tricks import sliding_window_view
 import logging
+import numba
+from numba import cuda
 from scipy.special import erfi
 
-from core.market_state import MarketState
-from core.pattern_utils import (
+
+@numba.njit(parallel=True, cache=True)
+def _compute_rolling_std_numba(z_scores, n, window):
+    """
+    Computes rolling standard deviation (ddof=1) of z_scores over a given window.
+    O(1) space variance calculation inside the kernel avoiding sliding_window_view array instantiations.
+    """
+    osc_std = np.full(n, np.nan)
+    if n >= window:
+        for i in numba.prange(window - 1, n):
+            # Compute mean
+            sum_val = 0.0
+            for j in range(i - window + 1, i + 1):
+                sum_val += z_scores[j]
+            mean_val = sum_val / window
+
+            # Compute variance (ddof=1)
+            sum_sq_diff = 0.0
+            for j in range(i - window + 1, i + 1):
+                diff = z_scores[j] - mean_val
+                sum_sq_diff += diff * diff
+
+            osc_std[i] = np.sqrt(sum_sq_diff / (window - 1))
+
+        for i in range(window - 1):
+            osc_std[i] = osc_std[window - 1]
+
+    return osc_std
+
+
+@numba.njit(parallel=True, cache=True)
+def _compute_swing_noise_numba(highs, lows, n, noise_window, tick_size):
+    """
+    Computes swing noise (max drawdown/drawup) over a rolling window.
+    O(1) space logic avoiding np.maximum.accumulate inside a Python loop.
+    """
+    swing_noise = np.full(n, 35.0)
+    for _ni in numba.prange(noise_window, n):
+        run_hi = highs[_ni - noise_window]
+        run_lo = lows[_ni - noise_window]
+        max_dd = run_hi - run_lo
+        max_du = run_hi - run_lo
+
+        for j in range(_ni - noise_window + 1, _ni + 1):
+            h = highs[j]
+            lv = lows[j]
+            if h > run_hi:
+                run_hi = h
+            if lv < run_lo:
+                run_lo = lv
+
+            dd = run_hi - lv
+            du = h - run_lo
+
+            if dd > max_dd:
+                max_dd = dd
+            if du > max_du:
+                max_du = du
+
+        swing_noise[_ni] = max(max_dd, max_du) / tick_size
+    return swing_noise
+
+
+from core.market_state import MarketState  # noqa: E402
+from core.pattern_utils import (  # noqa: E402
     detect_geometric_patterns_vectorized, detect_candlestick_patterns_vectorized
 )
 
-from core.physics_utils import compute_adx_dmi_cpu, ADX_PERIOD, HURST_WINDOW
+from core.physics_utils import compute_adx_dmi_cpu, ADX_PERIOD, HURST_WINDOW  # noqa: E402
 
 # Core CUDA Physics
 try:
-    from core.cuda_statistics import (
+    from core.cuda_statistics import (  # noqa: E402
         compute_regression_kernel, detect_pattern_flags_kernel,
         compute_dm_tr_kernel, compute_hurst_kernel
     )
@@ -30,7 +93,10 @@ except ImportError:
 
 # Optional: CUDA Pattern Detector
 try:
-    from core.cuda_pattern_detector import detect_patterns_cuda, NUMBA_AVAILABLE as CUDA_PATTERNS_AVAILABLE
+    from core.cuda_pattern_detector import (  # noqa: E402
+        detect_patterns_cuda,
+        NUMBA_AVAILABLE as CUDA_PATTERNS_AVAILABLE
+    )
 except ImportError:
     CUDA_PATTERNS_AVAILABLE = False
 
@@ -44,6 +110,7 @@ DEFAULT_REVERSION_THETA = 0.5
 
 
 logger = logging.getLogger(__name__)
+
 
 class StatisticalFieldEngine:
     """
@@ -91,21 +158,20 @@ class StatisticalFieldEngine:
 
         # === GPU SETUP ===
         if use_gpu is not None:
-             self.use_gpu = use_gpu
-             if self.use_gpu and not (cuda.is_available() and CUDA_PHYSICS_AVAILABLE):
-                 logger.warning("GPU requested but CUDA/Kernels unavailable. Falling back to CPU.")
-                 self.use_gpu = False
+            self.use_gpu = use_gpu
+            if self.use_gpu and not (cuda.is_available() and CUDA_PHYSICS_AVAILABLE):
+                logger.warning("GPU requested but CUDA/Kernels unavailable. Falling back to CPU.")
+                self.use_gpu = False
         else:
-             # Auto-detect
-             self.use_gpu = False
-             if cuda.is_available() and CUDA_PHYSICS_AVAILABLE:
-                 self.use_gpu = True
-             else:
-                 logger.warning("CUDA accelerator not available. Falling back to vectorized CPU execution.")
+            # Auto-detect
+            self.use_gpu = False
+            if cuda.is_available() and CUDA_PHYSICS_AVAILABLE:
+                self.use_gpu = True
+            else:
+                logger.warning("CUDA accelerator not available. Falling back to vectorized CPU execution.")
 
-    
     def calculate_market_state(
-        self, 
+        self,
         df_macro: pd.DataFrame,   # 15min bars
         df_micro: pd.DataFrame,   # 15sec bars
         current_price: float,
@@ -125,12 +191,12 @@ class StatisticalFieldEngine:
         # Pass use_cuda explicitly based on self.use_gpu to allow fallback
         results = self.batch_compute_states(df_macro, use_cuda=self.use_gpu)
         if not results:
-             return MarketState.null_state()
+            return MarketState.null_state()
 
         # Get the last state
         last_result = results[-1]
         state = last_result['state']
-        
+
         # Inject context if provided
         context_args = {}
         if context:
@@ -161,7 +227,7 @@ class StatisticalFieldEngine:
         if self.use_gpu and CUDA_PATTERNS_AVAILABLE and len(highs) >= MIN_CUDA_LEN:
             try:
                 return detect_patterns_cuda(opens, highs, lows, closes)
-            except Exception as e:
+            except Exception:
                 pass
 
         geo = detect_geometric_patterns_vectorized(highs, lows)
@@ -185,11 +251,18 @@ class StatisticalFieldEngine:
 
         # Prepare input data
         # Ensure contiguous float64 arrays
-        prices = day_data['price'].values.astype(np.float64) if 'price' in day_data.columns else day_data['close'].values.astype(np.float64)
+        if 'price' in day_data.columns:
+            prices = day_data['price'].values.astype(np.float64)
+        else:
+            prices = day_data['close'].values.astype(np.float64)
+
         if not prices.flags['C_CONTIGUOUS']:
             prices = np.ascontiguousarray(prices)
 
-        volumes = day_data['volume'].values.astype(np.float64) if 'volume' in day_data.columns else np.zeros(n, dtype=np.float64)
+        if 'volume' in day_data.columns:
+            volumes = day_data['volume'].values.astype(np.float64)
+        else:
+            volumes = np.zeros(n, dtype=np.float64)
         if not volumes.flags['C_CONTIGUOUS']:
             volumes = np.ascontiguousarray(volumes)
 
@@ -211,8 +284,14 @@ class StatisticalFieldEngine:
         # Volume delta: buy bar (+vol), sell bar (-vol), doji (0)
         if 'volume' in day_data.columns:
             _vol = day_data['volume'].values.astype(np.float64)
-            _open = day_data['open'].values.astype(np.float64) if 'open' in day_data.columns else prices
-            _close = day_data['close'].values.astype(np.float64) if 'close' in day_data.columns else prices
+            if 'open' in day_data.columns:
+                _open = day_data['open'].values.astype(np.float64)
+            else:
+                _open = prices
+            if 'close' in day_data.columns:
+                _close = day_data['close'].values.astype(np.float64)
+            else:
+                _close = prices
             volume_delta_arr = np.where(_close > _open, _vol, np.where(_close < _open, -_vol, 0.0))
         else:
             volume_delta_arr = np.zeros(n, dtype=np.float64)
@@ -361,11 +440,11 @@ class StatisticalFieldEngine:
         # P = proportional to current deviation from equilibrium (z_score)
         # I = integral of accumulated deviation (cumulative bias)
         # D = derivative = rate of change of z_score (dampening)
-        pid_kp = params.get('pid_kp', DEFAULT_PID_KP)   # 0.5
-        pid_ki = params.get('pid_ki', DEFAULT_PID_KI)   # 0.1
-        pid_kd = params.get('pid_kd', DEFAULT_PID_KD)   # 0.2
+        pid_kp = params.get('pid_kp', DEFAULT_PID_KP)
+        pid_ki = params.get('pid_ki', DEFAULT_PID_KI)
+        pid_kd = params.get('pid_kd', DEFAULT_PID_KD)
 
-        pid_p       = pid_kp * z_scores
+        pid_p = pid_kp * z_scores
         # Integral term: rolling mean over window (not cumsum)
         # Rolling mean converges after window bars regardless of start point.
         # With window=200, OOS and live produce identical values after 200 bars.
@@ -381,8 +460,8 @@ class StatisticalFieldEngine:
         else:
             # Fallback: standard cumsum (for short sequences or window=0)
             pid_i = pid_ki * np.clip(np.cumsum(z_scores), -10.0, 10.0)
-        pid_d       = np.zeros_like(z_scores)
-        pid_d[1:]   = pid_kd * np.diff(z_scores)
+        pid_d = np.zeros_like(z_scores)
+        pid_d[1:] = pid_kd * np.diff(z_scores)
         term_pid_arr = pid_p + pid_i + pid_d   # shape: (n,)
 
         # ─── Oscillation Coherence ──────────────────────────────────────────────────
@@ -390,12 +469,15 @@ class StatisticalFieldEngine:
         # oscillation (PID regime).  High std = chaotic / trending.
         # Inverted and normalised to (0, 1] so 1 = perfectly tight oscillation.
         _ow = min(5, rp)
-        osc_std = np.full(n, np.nan)
-        if n >= _ow:
-             z_windows = sliding_window_view(z_scores, window_shape=_ow)
-             osc_std[_ow-1:] = z_windows.std(axis=1, ddof=1)
-             if n > _ow - 1:
-                  osc_std[:_ow - 1] = osc_std[_ow - 1]
+        # Numba JIT: massive speedup vs sliding_window_view + var along axis
+        # osc_std = np.full(n, np.nan)
+        # if n >= _ow:
+        #      z_windows = sliding_window_view(z_scores, window_shape=_ow)
+        #      osc_std[_ow-1:] = z_windows.std(axis=1, ddof=1)
+        #      if n > _ow - 1:
+        #           osc_std[:_ow - 1] = osc_std[_ow - 1]
+
+        osc_std = _compute_rolling_std_numba(z_scores, n, _ow)
 
         oscillation_entropy_normalized_arr = 1.0 / (1.0 + osc_std)   # (0, 1]
         np.nan_to_num(oscillation_entropy_normalized_arr, copy=False, nan=0.0)
@@ -455,17 +537,20 @@ class StatisticalFieldEngine:
         # Used by exit engine to set dynamic giveback threshold.
         _noise_window = 32  # ~8 min at 15s bars
         _tick_size = params.get('tick_size', 0.25)
-        swing_noise = np.full(n, 35.0)  # default 35 ticks
-        for _ni in range(_noise_window, n):
-            _seg_hi = highs[_ni - _noise_window:_ni + 1]
-            _seg_lo = lows[_ni - _noise_window:_ni + 1]
-            # Max drawdown from running high (long-side noise)
-            _run_hi = np.maximum.accumulate(_seg_hi)
-            _dd = (_run_hi - _seg_lo).max() / _tick_size
-            # Max drawup from running low (short-side noise)
-            _run_lo = np.minimum.accumulate(_seg_lo)
-            _du = (_seg_hi - _run_lo).max() / _tick_size
-            swing_noise[_ni] = max(_dd, _du)
+        # Numba JIT: O(1) space tracking replaces Python loops and np.maximum.accumulate
+        # swing_noise = np.full(n, 35.0)  # default 35 ticks
+        # for _ni in range(_noise_window, n):
+        #     _seg_hi = highs[_ni - _noise_window:_ni + 1]
+        #     _seg_lo = lows[_ni - _noise_window:_ni + 1]
+        #     # Max drawdown from running high (long-side noise)
+        #     _run_hi = np.maximum.accumulate(_seg_hi)
+        #     _dd = (_run_hi - _seg_lo).max() / _tick_size
+        #     # Max drawup from running low (short-side noise)
+        #     _run_lo = np.minimum.accumulate(_seg_lo)
+        #     _du = (_seg_hi - _run_lo).max() / _tick_size
+        #     swing_noise[_ni] = max(_dd, _du)
+
+        swing_noise = _compute_swing_noise_numba(highs, lows, n, _noise_window, _tick_size)
 
         results = [
             {
