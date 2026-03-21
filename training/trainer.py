@@ -5833,10 +5833,9 @@ def main():
                              "latest file in DATA/regime_seeds/.")
     parser.add_argument('--seed-tag', type=str, default=None, metavar='TAG',
                         help="Filter seeds by tag (e.g., 'Swing', 'Scalp'). Only used with --seeds.")
-    parser.add_argument('--cat', action='store_true',
-                        help="Enable cat brain (rolling delta regime classifier). "
-                             "Replaces sensor gate with probabilistic regime-based entry/exit. "
-                             "Uses quantum channels: P_at_center, entropy, coherence.")
+    parser.add_argument('--no-cat', action='store_true',
+                        help="Disable cat brain (rolling delta regime classifier). "
+                             "Cat is ON by default. Use this flag to benchmark without it.")
     parser.add_argument('--inspect-templates', action='store_true',
                         help="After clustering, print template inspection table for manual review (feedback loop)")
     parser.add_argument('--template-feedback', type=str, default=None, metavar='PATH',
@@ -6007,7 +6006,7 @@ def main():
     orchestrator._use_primitives = getattr(args, 'primitives', False)
     orchestrator._use_lookback = True  # 22D features always on (6D lookback geometry)
     orchestrator._use_shapes = getattr(args, 'shapes', False)
-    orchestrator._use_cat = getattr(args, 'cat', False)
+    orchestrator._use_cat = not getattr(args, 'no_cat', False)
     # Min-hold: convert minutes -> 15s bars (execution TF)
     _min_hold_mins = getattr(args, 'min_hold', 0.0)
     orchestrator._min_hold_bars = int(_min_hold_mins * 60 / 15) if _min_hold_mins > 0 else 0
