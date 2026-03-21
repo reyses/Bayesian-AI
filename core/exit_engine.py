@@ -503,7 +503,18 @@ class ExitEngine:
                 _shape_params = pos.template_shape_params
             r = self.giveback.evaluate(pos, bar_close, ts, exit_signal, noise_ticks,
                                        shape_params=_shape_params)
-            if r: return r
+            if r:
+                # Adaptive learning: record volume state at exit
+                _peak_vol = getattr(pos, 'peak_volume', 0.0)
+                _curr_vol = exit_signal.get('current_volume', 0.0) if exit_signal else 0.0
+                _vol_drop = _curr_vol / _peak_vol if _peak_vol > 0 else 1.0
+                _peak_t = r.pnl_ticks + (r.pnl_ticks if r.pnl_ticks > 0 else 0)  # approximate
+                if pos.side == 'long':
+                    _peak_t = (pos.peak_favorable - pos.entry_price) / pos.tick_size
+                else:
+                    _peak_t = (pos.entry_price - pos.peak_favorable) / pos.tick_size
+                self.giveback.record_exit(_vol_drop, r.pnl_ticks, _peak_t)
+                return r
 
         # === INVERTED ENTRY EXIT (would the system enter against me?) ===
         if not _in_hold_period:
