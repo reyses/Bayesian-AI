@@ -6329,6 +6329,9 @@ def main():
                 orchestrator.brain.save(_live_brain_path)
                 print(f"\n  Saved live brain: {_live_brain_path}")
 
+                import datetime as _end_dt
+                _end_ts = _end_dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                print(f"\n  Completed: {_end_ts}")
                 print("\n" + "=" * 80)
                 print("  PIPELINE COMPLETE")
                 print(f"  Brain saved to: {_live_brain_path}")
