@@ -1224,14 +1224,17 @@ class Trainer:
                             _ms = _raw['state'] if isinstance(_raw, dict) and 'state' in _raw else _raw
                             _dmi_p = getattr(_ms, 'dmi_plus', 0.0)
                             _dmi_m = getattr(_ms, 'dmi_minus', 0.0)
-                    # Dashboard: push once per simulated day (not per bar)
-                    # IS processes ~5,760 bars/day in seconds -- per-bar freezes the GUI
+                    # Dashboard: push once per simulated WEEK (every 5 trading days)
+                    # Daily was still too frequent -- 310 redraws for IS.
+                    # Weekly = ~62 redraws for IS, ~8 for OOS.
                     if _row_day != getattr(self, '_last_dashboard_day', None):
                         self._last_dashboard_day = _row_day
-                        self.dashboard_queue.put({
-                            'type': 'TICK_UPDATE', 'price': price,
-                            'dmi_plus': round(_dmi_p, 2),
-                            'dmi_minus': round(_dmi_m, 2)})
+                        self._dashboard_day_count = getattr(self, '_dashboard_day_count', 0) + 1
+                        if self._dashboard_day_count % 5 == 0:
+                            self.dashboard_queue.put({
+                                'type': 'TICK_UPDATE', 'price': price,
+                                'dmi_plus': round(_dmi_p, 2),
+                                'dmi_minus': round(_dmi_m, 2)})
 
                 # PID ANALYZER TICK
                 _pid_state = _states_map.get(_bar_i - 1)
