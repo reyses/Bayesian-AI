@@ -861,10 +861,11 @@ class Trainer:
                 except Exception:
                     return None
 
-            _df_5s = _load_fine('5s')
-            _df_1s  = _load_fine('1s')
+            # Load TFs macro-to-micro: context before detail
             _df_4h  = _load_fine('4h')
             _df_1m  = _load_fine('1m')
+            _df_5s  = _load_fine('5s')
+            _df_1s  = _load_fine('1s')
 
             # Filter sub-resolution TFs to today's time range only.
             # Without this, 1s loads the ENTIRE month (1.9M bars) every day.
