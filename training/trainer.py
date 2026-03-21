@@ -1163,9 +1163,11 @@ class Trainer:
                     _day_start_pnl = _running_pnl  # snapshot for DD check
                     _running_trades = total_trades + len(day_trades)
                     _running_wins = total_wins + sum(1 for t in day_trades if t.result == 'WIN')
+                    _per_day = _running_pnl / max(_cumulative_days, 1)
                     _pbar.set_postfix_str(
                         f'{day_date} | ${_running_pnl:,.0f} PnL | {_running_trades} trades | '
-                        f'{(_running_wins/_running_trades*100) if _running_trades else 0:.0f}% WR',
+                        f'{(_running_wins/_running_trades*100) if _running_trades else 0:.0f}% WR | '
+                        f'${_per_day:,.0f}/day',
                         refresh=False)
                     _pbar.update(1)
                     if self.dashboard_queue:
