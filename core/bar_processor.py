@@ -291,12 +291,34 @@ class BarProcessor:
 
         _trade_sign = 1.0 if _peak_long else -1.0
 
-        # Sensor opposition: volume + F_momentum are the real signals.
-        # Research (2026-03-19): DMI at 1m adds no value (WR identical with/against).
-        # Volume against = $1.67/tr vs $5.53/tr. F_momentum against = $1.82 vs $5.44.
-        # Block when BOTH volume AND F_momentum oppose (ignore DMI).
-        _vol_against = _1m_vol * _trade_sign < -0.5
-        _fm_against = _1m_fm * _trade_sign < -1.0
+        # Sensor opposition: proportional thresholds using rolling stats.
+        # Absolute thresholds (-0.5, -1.0) don't scale across regimes.
+        # Use z-score of vol/fm relative to recent bars — auto-calibrates.
+        # Only block when opposition is EXTREME (>1.5 sigma below mean).
+        _vol_signed = _1m_vol * _trade_sign
+        _fm_signed = _1m_fm * _trade_sign
+
+        # Get rolling stats from cat brain if available
+        if self._cat is not None and self._cat.is_warmed_up:
+            import numpy as np
+            _vol_arr = np.array(self._cat._vol_deltas) if len(self._cat._vol_deltas) > 20 else None
+            _fm_arr = np.array(self._cat._fm_deltas) if len(self._cat._fm_deltas) > 20 else None
+
+            if _vol_arr is not None and _fm_arr is not None:
+                _vol_std = max(np.std(_vol_arr), 1e-6)
+                _fm_std = max(np.std(_fm_arr), 1e-6)
+                _vol_z = _vol_signed / _vol_std
+                _fm_z = _fm_signed / _fm_std
+                _vol_against = _vol_z < -1.5  # 1.5 sigma below = extreme opposition
+                _fm_against = _fm_z < -1.5
+            else:
+                # Not enough data — use lenient absolute fallback
+                _vol_against = _vol_signed < -50.0
+                _fm_against = _fm_signed < -50.0
+        else:
+            # No cat brain — use lenient absolute fallback
+            _vol_against = _vol_signed < -50.0
+            _fm_against = _fm_signed < -50.0
 
         if _vol_against and _fm_against:
             self.peak_stats['blocked_1m_sensor'] += 1
@@ -420,14 +442,19 @@ class BarProcessor:
     def _log_peak_skip(self, bar_ts: float, reason: str):
         """Log peak skip to terminal (throttled) + CSV (every skip)."""
         from datetime import datetime, timezone
-        _nt8 = datetime.fromtimestamp(bar_ts, tz=timezone.utc).strftime('%H:%M:%S') if bar_ts > 0 else '??:??:??'
+        _bar_time = '??:??:??'
+        if bar_ts > 1e9:
+            _bar_time = datetime.fromtimestamp(bar_ts, tz=timezone.utc).strftime('%H:%M:%S')
+        elif hasattr(self, '_last_bar_ts') and self._last_bar_ts > 1e9:
+            bar_ts = self._last_bar_ts
+            _bar_time = datetime.fromtimestamp(bar_ts, tz=timezone.utc).strftime('%H:%M:%S')
         _py = datetime.now().strftime('%H:%M:%S')
 
         # Terminal: throttled 1/second
         import time as _t
         _now = _t.monotonic()
         if not hasattr(self, '_last_skip_log') or _now - self._last_skip_log > 1.0:
-            print(f"{_py} [{_nt8}] [PEAK SKIP] {reason}", flush=True)
+            print(f"{_py} [{_bar_time}] [PEAK SKIP] {reason}", flush=True)
             self._last_skip_log = _now
 
         # CSV: every skip, append to file
@@ -442,7 +469,7 @@ class BarProcessor:
             self._skip_writer = csv.writer(self._skip_log_file)
             if not _exists:
                 self._skip_writer.writerow(['py_time', 'nt8_time', 'bar_ts', 'reason'])
-        self._skip_writer.writerow([_py, _nt8, bar_ts, reason])
+        self._skip_writer.writerow([_py, _bar_time, bar_ts, reason])
         self._skip_log_file.flush()
 
     def _log_peak_accept(self, bar_ts: float, direction: str, state):

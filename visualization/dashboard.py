@@ -798,6 +798,15 @@ class ProgressPopup:
             )
             self._pp_btn.pack(side=tk.RIGHT, padx=(0, 6))
 
+            # Always-on-top toggle
+            self._topmost = False
+            self._pin_btn = tk.Button(
+                btn_frame, text="PIN", bg="#444444", fg=FG_WHITE,
+                activebackground="#666666", font=("Consolas", 10, "bold"),
+                width=4, command=self._toggle_topmost,
+            )
+            self._pin_btn.pack(side=tk.RIGHT, padx=(0, 4))
+
             # ── NT8 Account Equity row ───────────────────────────────────
             eq_frame = tk.Frame(root, bg=BG)
             eq_frame.pack(fill="x", padx=20, pady=(8, 0))
@@ -1340,6 +1349,15 @@ class ProgressPopup:
         if self._shared_state is not None:
             self._shared_state['prepare_shutdown'] = True
             self._status_var.set("Preparing for shutdown...")
+
+    def _toggle_topmost(self):
+        """Toggle always-on-top."""
+        self._topmost = not self._topmost
+        self.root.attributes("-topmost", self._topmost)
+        self._pin_btn.config(
+            bg="#cc6600" if self._topmost else "#444444",
+            activebackground="#ff8800" if self._topmost else "#666666",
+        )
 
     def _toggle_ping_pong(self):
         """Toggle ping-pong mode on/off."""
