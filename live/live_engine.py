@@ -243,6 +243,13 @@ class LiveEngine:
 
         self._load_checkpoints()
         self._init_belief_network()
+
+        # ATLAS warmup: seed TBN workers with pre-computed states
+        # so F_momentum/volume_delta match OOS values from bar 1.
+        warmup_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                                  'checkpoints', 'live', 'warmup')
+        self._belief_network.warmup_from_precomputed(warmup_dir)
+
         self._init_exec_engine()
         self._init_bar_processor()
 

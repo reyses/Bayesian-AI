@@ -572,6 +572,40 @@ class TimeframeBeliefNetwork:
                 logger.warning(f"TBN: TF={tf_secs}s sub-res state compute failed: {e}")
                 self.workers[tf_secs].prepare([])
 
+    def warmup_from_precomputed(self, warmup_dir: str):
+        """Load pre-computed states from per-TF pickle files.
+
+        This seeds each worker with ATLAS-computed states so that
+        F_momentum, volume_delta, and PID cumsums match OOS values.
+        Called once at startup, before prepare_day.
+        """
+        import pickle
+        if not os.path.isdir(warmup_dir):
+            logger.info(f"TBN warmup: {warmup_dir} not found -- skipping")
+            return
+
+        loaded = 0
+        for tf_secs, worker in self.workers.items():
+            lbl = self._TF_LABELS.get(tf_secs, f'{tf_secs}s')
+            pkl_path = os.path.join(warmup_dir, f'{lbl}.pkl')
+            if not os.path.exists(pkl_path):
+                continue
+            try:
+                with open(pkl_path, 'rb') as f:
+                    data = pickle.load(f)
+                states = data['states']
+                worker.prepare(states)
+                loaded += 1
+                print(f"  TBN [{lbl}]: warmup {data['n_bars']:,} states "
+                      f"(ts {data['ts_min']:.0f} to {data['ts_max']:.0f})")
+            except Exception as e:
+                logger.warning(f"TBN warmup [{lbl}]: failed -- {e}")
+
+        if loaded > 0:
+            print(f"  TBN warmup: {loaded} workers seeded from {warmup_dir}")
+        else:
+            print(f"  TBN warmup: no matching pkl files in {warmup_dir}")
+
     # ------------------------------------------------------------------
     # PER-BAR UPDATE
     # ------------------------------------------------------------------
