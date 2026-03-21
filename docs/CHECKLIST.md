@@ -80,4 +80,5 @@ Goat:    counterfactual engine (SPECCED — 8h)
 | Lizard (cumsum PID) | old | 2,010 | $1,943 | 56.8% | 4,810 | $22,812 | 66.3% |
 | Cat (no 1m gate) | none | 34,446 | $209,734 | 70.4% | 4,636 | $21,631 | 67.1% |
 | Cat (absolute gate) | strict | 21,779 | $114,328 | 66.6% | 3,957 | $16,409 | 65.4% |
-| Cat (proportional) | z-score | — | — | — | — | — | — |
+| Cat (proportional) | z-score | 26,135 | $136,041 | 65.0% | 3,976 | $16,669 | 64.7% |
+| **Cat (no gate + exit fixes)** | **cascade fade** | **43,286** | **$243,190** | **66.0%** | **4,850** | **$22,359** | **64.6%** |
