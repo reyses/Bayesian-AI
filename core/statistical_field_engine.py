@@ -39,6 +39,7 @@ except ImportError:
 DEFAULT_PID_KP = 0.5
 DEFAULT_PID_KI = 0.1
 DEFAULT_PID_KD = 0.2
+DEFAULT_PID_INTEGRAL_WINDOW = 200  # Rolling window for integral term (bars, 0=cumsum)
 DEFAULT_REVERSION_THETA = 0.5
 
 
@@ -365,7 +366,21 @@ class StatisticalFieldEngine:
         pid_kd = params.get('pid_kd', DEFAULT_PID_KD)   # 0.2
 
         pid_p       = pid_kp * z_scores
-        pid_i       = pid_ki * np.clip(np.cumsum(z_scores), -10.0, 10.0)
+        # Integral term: rolling mean over window (not cumsum)
+        # Rolling mean converges after window bars regardless of start point.
+        # With window=200, OOS and live produce identical values after 200 bars.
+        _pid_window = params.get('pid_integral_window', DEFAULT_PID_INTEGRAL_WINDOW)
+        if _pid_window > 0 and n > _pid_window:
+            # Rolling mean of z_scores over last _pid_window bars
+            _cs = np.cumsum(z_scores)
+            _cs[_pid_window:] = _cs[_pid_window:] - _cs[:-_pid_window]
+            _rolling_mean = np.zeros_like(z_scores)
+            _rolling_mean[:_pid_window] = _cs[:_pid_window] / np.arange(1, _pid_window + 1)
+            _rolling_mean[_pid_window:] = _cs[_pid_window:] / _pid_window
+            pid_i = pid_ki * np.clip(_rolling_mean, -10.0, 10.0)
+        else:
+            # Fallback: standard cumsum (for short sequences or window=0)
+            pid_i = pid_ki * np.clip(np.cumsum(z_scores), -10.0, 10.0)
         pid_d       = np.zeros_like(z_scores)
         pid_d[1:]   = pid_kd * np.diff(z_scores)
         term_pid_arr = pid_p + pid_i + pid_d   # shape: (n,)
