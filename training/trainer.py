@@ -809,8 +809,30 @@ class Trainer:
         _pp_all_trades = []
 
         _pbar_label = 'OOS' if oos_mode else 'IS'
-        _pbar = tqdm(total=_total_trading_days, desc=_pbar_label, unit='day',
-                     bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {postfix}',
+
+        def _fmt_eta(remaining_secs):
+            """Round remaining time to nearest 5 minutes for honest estimate."""
+            if remaining_secs is None or remaining_secs <= 0:
+                return '~0 min'
+            mins = int(remaining_secs / 60)
+            rounded = max(5, ((mins + 4) // 5) * 5)  # round up to nearest 5
+            if rounded >= 60:
+                return f'~{rounded // 60}h {rounded % 60:02d}m'
+            return f'~{rounded} min'
+
+        class _EtaBar(tqdm):
+            @property
+            def format_dict(self):
+                d = super().format_dict
+                if d.get('rate') and d.get('total') and d.get('n'):
+                    _remaining = (d['total'] - d['n']) / d['rate']
+                    d['remaining'] = _fmt_eta(_remaining)
+                else:
+                    d['remaining'] = '?'
+                return d
+
+        _pbar = _EtaBar(total=_total_trading_days, desc=_pbar_label, unit='day',
+                     bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed} | ETA {remaining}] {postfix}',
                      ascii=True, dynamic_ncols=True)
         _oos_cutoff = getattr(self, '_oos_cutoff', '2026_02')  # default: Feb 2026
         _oos_boundary_hit = False
