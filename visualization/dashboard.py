@@ -1661,7 +1661,10 @@ class ProgressPopup:
             self._redraw_price_chart()
             self._redraw_dmi_chart()
             self._needs_redraw = False
-        self.root.after(1000, self._poll)  # poll every 1 second
+        # Training: poll every 5s (weekly redraws, no urgency)
+        # Live: poll every 1s (real-time updates needed)
+        _interval = 1000 if self._shared_state else 5000
+        self.root.after(_interval, self._poll)
 
 
 def launch_popup(queue):
