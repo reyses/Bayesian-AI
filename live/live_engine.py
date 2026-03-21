@@ -183,6 +183,12 @@ class LiveEngine:
         self._last_ts = 0.0
         self._last_exit_time = 0.0
         self._last_1s_tick = 0.0
+        self._last_heartbeat = 0.0
+        self._reports_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'reports', 'live')
+        os.makedirs(self._reports_dir, exist_ok=True)
+        self._hb_bars_received = 0
+        self._hb_peaks_detected = 0
+        self._hb_peaks_skipped = 0
         self._order_send_ts = 0.0
         self._live_trade_count = 0
         self._brain_save_interval = 5
@@ -477,6 +483,10 @@ class LiveEngine:
                     in_position=self._position_open,
                     daily_pnl=self._orders.daily_pnl,
                 )
+                # ── Heartbeat (every 60s) ──
+                if _now - self._last_heartbeat >= 60.0:
+                    self._last_heartbeat = _now
+                    self._write_heartbeat(_now)
 
             try:
                 msg = await asyncio.wait_for(
@@ -487,6 +497,7 @@ class LiveEngine:
             mtype = msg.get('type', '')
 
             if mtype == 'BAR':
+                self._hb_bars_received += 1
                 await self._on_bar(msg)
             elif mtype == 'PARTIAL_BAR':
                 self._on_partial_bar(msg)
@@ -940,6 +951,49 @@ class LiveEngine:
         self._exit_watcher.tick(price)
 
     # ── Exit Logic ────────────────────────────────────────────────────
+
+    def _write_heartbeat(self, now: float):
+        """Write heartbeat row to CSV every 60s. Detects silence gaps."""
+        import csv
+        from datetime import datetime
+        date_str = datetime.fromtimestamp(now).strftime('%Y%m%d')
+        hb_path = os.path.join(self._reports_dir, f'heartbeat_{date_str}.csv')
+        write_header = not os.path.exists(hb_path)
+
+        # Read peak stats from processor (cumulative)
+        ps = getattr(self._processor, 'peak_stats', {})
+        peaks_det = ps.get('peak_detected', 0)
+        peaks_skip = (ps.get('blocked_1m_sensor', 0) + ps.get('blocked_adx_chop', 0)
+                      + ps.get('blocked_no_buildup', 0) + ps.get('blocked_cooldown', 0))
+        peaks_entered = ps.get('peak_entered', 0)
+
+        # Compute deltas since last heartbeat
+        det_delta = peaks_det - self._hb_peaks_detected
+        skip_delta = peaks_skip - self._hb_peaks_skipped
+        self._hb_peaks_detected = peaks_det
+        self._hb_peaks_skipped = peaks_skip
+
+        try:
+            with open(hb_path, 'a', newline='') as f:
+                w = csv.writer(f)
+                if write_header:
+                    w.writerow(['timestamp', 'price', 'bars_60s', 'peaks_det',
+                                'peaks_skip', 'peaks_entered', 'position',
+                                'pending_orders', 'session_pnl', 'session_trades'])
+                w.writerow([
+                    datetime.fromtimestamp(now).strftime('%H:%M:%S'),
+                    f'{self._last_price:.2f}',
+                    self._hb_bars_received,
+                    det_delta,
+                    skip_delta,
+                    peaks_entered,
+                    self._active_side if self._position_open else 'flat',
+                    f'{self._session.stats.pnl:.2f}',
+                    self._session.stats.trades,
+                ])
+            self._hb_bars_received = 0
+        except Exception as e:
+            logger.debug(f"Heartbeat write failed: {e}")
 
     def _compute_life_pct(self):
         """Compute trade life % (100%=fresh, 0%=exit imminent). Cheap  -- runs every second.
