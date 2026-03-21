@@ -1,14 +1,14 @@
 ================================================================================
-OOS FORWARD PASS COMPLETE  (run: 2026-03-21 07:41:46)
-  Commit: 2577f240  -- chore: merge scripts/ into tools/archive (6 files, delete scripts/)
-  Changes: 6 files changed, 0 insertions(+), 0 deletions(-)
+OOS FORWARD PASS COMPLETE  (run: 2026-03-21 08:59:55)
+  Commit: a1b0653d  -- feat: print completion timestamp after pipeline finishes
+  Changes: 1 file changed, 3 insertions(+)
   Period: DATA\ATLAS_OOS\15s\2026_02.parquet to 2026_03 (2 files)
   First trade: 2026-02-01 15:37:00
   Last trade:  2026-03-20 13:44:30
-  Report generated: 2026-03-21 07:41:46
+  Report generated: 2026-03-21 08:59:56
 Total Trades: 4850
 Win Rate: 64.6%
-Total PnL: $22386.05
+Total PnL: $22359.05
 
 ── WORKER STATES LOADED ──
   1h=492/file(2/2 files ok)  30m=974/file(2/2 files ok)  15m=1939/file(2/2 files ok)  5m=5796/file(2/2 files ok)  3m=9652/file(2/2 files ok)
@@ -43,17 +43,17 @@ Total PnL: $22386.05
   2026-02-27      195   130  66.7% $   +609.70        $0 $+12,179.05 $   12.00
   2026-02-28       17    14  82.4% $    +86.60        $0 $+12,265.65 $    1.50
   2026-03-02      104    70  67.3% $   +751.97        $0 $+13,017.63 $   42.55
-  2026-03-03      162   111  68.5% $ +1,548.00        $0 $+14,565.63 $   14.55
-  2026-03-04      166   113  68.1% $ +1,361.05        $0 $+15,926.68 $   23.00
-  2026-03-05      179   124  69.3% $ +1,554.12 $  -54.50 $+17,480.80 $    2.50
-  2026-03-06      129    75  58.1% $   +552.60        $0 $+18,033.40 $    6.40
-  2026-03-07       20    11  55.0% $    +64.70        $0 $+18,098.10 $   14.40
-  2026-03-13       50    34  68.0% $   +225.60 $  -30.50 $+18,323.70        $0
-  2026-03-16      130    78  60.0% $   +530.80 $   -1.00 $+18,854.50 $    5.00
-  2026-03-17      144    96  66.7% $   +698.60 $   -6.70 $+19,553.10 $   22.00
-  2026-03-18      122    80  65.6% $   +488.15        $0 $+20,041.25 $   12.50
-  2026-03-19      263   172  65.4% $ +1,599.47 $   -3.00 $+21,640.73        $0
-  2026-03-20      230   145  63.0% $   +745.33 $  -41.00 $+22,386.05        $0
+  2026-03-03      162   111  68.5% $ +1,529.50        $0 $+14,547.13 $   14.55
+  2026-03-04      166   113  68.1% $ +1,352.55        $0 $+15,899.68 $   23.00
+  2026-03-05      179   124  69.3% $ +1,554.12 $  -54.50 $+17,453.80 $    2.50
+  2026-03-06      129    75  58.1% $   +552.60        $0 $+18,006.40 $    6.40
+  2026-03-07       20    11  55.0% $    +64.70        $0 $+18,071.10 $   14.40
+  2026-03-13       50    34  68.0% $   +225.60 $  -30.50 $+18,296.70        $0
+  2026-03-16      130    78  60.0% $   +530.80 $   -1.00 $+18,827.50 $    5.00
+  2026-03-17      144    96  66.7% $   +698.60 $   -6.70 $+19,526.10 $   22.00
+  2026-03-18      122    80  65.6% $   +488.15        $0 $+20,014.25 $   12.50
+  2026-03-19      263   172  65.4% $ +1,599.47 $   -3.00 $+21,613.73        $0
+  2026-03-20      230   145  63.0% $   +745.33 $  -41.00 $+22,359.05        $0
 
 ── DRAWDOWN SUMMARY ──
   Max consecutive losing days: 2
@@ -77,8 +77,8 @@ Total PnL: $22386.05
 ── CUMULATIVE EQUITY CURVE ──
   (starts at $0 on day 1, never resets  -- shows true equity path)
 
-  Final cumulative PnL:  $+22,386.05
-  Peak equity:           $+22,386.05
+  Final cumulative PnL:  $+22,359.05
+  Peak equity:           $+22,359.05
   Trough equity:         $-16.50  on 2026-02-01
   Max drawdown from peak: $1,683.28  (trough on 2026-02-10)
   ► MIN EQUITY (cumulative): $16.50  (deepest hole from $0 start)
@@ -101,17 +101,17 @@ ORACLE PROFIT ATTRIBUTION
     depth 3       306     59% $    247.50 $     0.81
     depth 4        13     85% $    182.45 $    14.03
     depth 5        11     64% $    279.50 $    25.41
-    depth 6         8     62% $    155.50 $    19.44
+    depth 6         8     62% $    147.00 $    18.38
     depth 7         6     67% $     10.50 $     1.75
-    depth 8     4,495     65% $ 21,439.10 $     4.77
+    depth 8     4,495     65% $ 21,420.60 $     4.77
     depth 9        11     73% $     71.50 $     6.50
 
   TRADE DURATION BINS (top 3 by volume):
     Duration    Trades    Win%    Total PnL  Avg/trade
     --------    ------    ----    ---------  ---------
-    30s-1m       2,624     59% $  9,003.10 $     3.43
-    1-2m         1,580     70% $  9,089.23 $     5.75
-    2-5m           452     77% $  5,321.72 $    11.77
+    30s-1m       2,623     59% $  8,983.10 $     3.42
+    1-2m         1,581     70% $  9,090.73 $     5.75
+    2-5m           452     77% $  5,313.22 $    11.75
 
   DYNAMIC EXIT QUALITY:
     Belief-flip exits:  0 trades
@@ -124,7 +124,7 @@ ORACLE PROFIT ATTRIBUTION
     Decay score at exit:  WIN avg=0.000  LOSS avg=0.000
     Envelope halflife:   40.0 bars (self-tuned from 20)
     Giveback threshold:  10% (self-tuned from 70%)
-    Peak giveback exits:   945 trades  ->  avg PnL $  -2.56
+    Peak giveback exits:   945 trades  ->  avg PnL $  -2.57
 
   PROFIT GAP ANALYSIS:
     Ideal (golden-path: gate-blocked + traded, perfect exits):  $        0.00
@@ -136,7 +136,7 @@ ORACLE PROFIT ATTRIBUTION
 
 
     -----------------------------------------------------
-    Actual profit: $22386.05
+    Actual profit: $22359.05
     [info] Score-competition pool (took better same bar): $        0.00  (not missed -- golden path chose better candidate)
 
 ===========================================================================
@@ -147,8 +147,8 @@ ORACLE PROFIT ATTRIBUTION
   BY EXIT REASON (sorted by total regret):
   Exit                          n  Avg Regret  Total Regret   Avg PnL Avg MFE(t)  Capture%
   -------------------------------------------------------------------------------------
-  peak_state_exit            2114      +9.88$    +20888.00$    +1.08$      21.9t    -32.4%
-  peak_giveback               945     +16.81$    +15882.00$    -2.56$      28.5t    -29.3%
+  peak_state_exit            2114      +9.88$    +20888.00$    +1.07$      21.9t    -32.4%
+  peak_giveback               945     +16.81$    +15882.00$    -2.57$      28.5t    -29.3%
   stop_loss                   925     +15.83$    +14640.45$   +18.23$      68.1t     -2.8%
   regime_decay                519      +7.97$     +4138.00$    +3.76$      23.5t    -72.4%
   tidal_wave                   49     +15.10$      +740.00$   -10.43$       9.3t   -933.8%
@@ -160,9 +160,9 @@ ORACLE PROFIT ATTRIBUTION
   death_hook                   14      +7.14$      +100.00$   +12.86$      40.0t    +66.2%
   maintenance_flat              2     -11.25$       -22.50$   +11.25$       0.0t     +nan%
 
-  TOTAL PnL:    $   22,386.05
+  TOTAL PnL:    $   22,359.05
   TOTAL REGRET: $   58,519.95
-  CAPTURE RATE: 27.7% of available profit captured
+  CAPTURE RATE: 27.6% of available profit captured
 
   LOSING TRADES THAT PEAKED > 5 TICKS:
     1037 / 1598 losses (64.9%)
@@ -184,7 +184,7 @@ ORACLE PROFIT ATTRIBUTION
         3   306      +9.47$   -159.5%
         4    13     +13.89$    +34.9%
         5    11     +19.50$   -117.2%
-        6     8     +21.31$    +30.4%
+        6     8     +21.31$    +29.8%
         7     6     +16.00$    -57.5%
         8  4495     +12.21$    -28.6%
         9    11      +7.73$     +1.6%
@@ -193,8 +193,8 @@ ORACLE PROFIT ATTRIBUTION
     Duration     n  Avg Regret  Capture%
   ----------------------------------------
         <30s   137     +10.46$   -125.2%
-      30s-1m  2624     +11.65$    -19.0%
-        1-2m  1580     +12.19$    -20.5%
+      30s-1m  2623     +11.66$    -19.0%
+        1-2m  1581     +12.18$    -20.5%
         2-5m   452     +11.88$    -47.8%
          5m+    57     +33.15$  -1010.9%
 
@@ -232,7 +232,7 @@ ORACLE PROFIT ATTRIBUTION
 
   OF 4,850 TRADES TAKEN:
     [Oracle N/A  -- compressed mode has no forward-looking labels]
-    Total PnL: $ 22,386.05
+    Total PnL: $ 22,359.05
     Winners: 3,135  Losers: 1,715
 
   ORACLE: N/A (compressed mode  -- no forward-looking labels)
@@ -241,19 +241,19 @@ ORACLE PROFIT ATTRIBUTION
     Traded:   4,850  (100.0% of all signals)
     Skipped:      0  (0.0% of all signals)
 
-  WHY SIGNALS WERE SKIPPED  (total candidates evaluated: 482,197)
-    PEAK_REVERSAL candidates:    68,097  (traded: 4756, rejected: 63341)
-    Pattern Quality  (no match/noise/struct): 80,979  (16.8%)
+  WHY SIGNALS WERE SKIPPED  (total candidates evaluated: 482,199)
+    PEAK_REVERSAL candidates:    68,096  (traded: 4755, rejected: 63341)
+    Pattern Quality  (no match/noise/struct): 80,977  (16.8%)
     Depth Filter     (depth<3 or blacklist):  17,420  (3.6%)
-    Template Match   (dist > 3.0):            69,754  (14.5%)
+    Template Match   (dist > 3.0):            69,757  (14.5%)
     Brain Reject     (unprofitable pattern):       0  (0.0%)
-    Score Competition (better candidate won):    538  (0.1%)
-    Low Conviction   (belief too weak):        4,359  (0.9%)
-    Momentum Misalign (F_mom vs direction):    5,019  (1.0%)
+    Score Competition (better candidate won):    539  (0.1%)
+    Low Conviction   (belief too weak):        4,358  (0.9%)
+    Momentum Misalign (F_mom vs direction):    5,015  (1.0%)
     FDMI Fakeout     (State A block):             30  (0.0%)
     Physics Quality  (bypass: depth>3/z>=0):  10,686  (2.2%)
     Passed all gates -> traded:                4,850  (1.0%)
-    ⚠ Unaccounted:                    288,562  (59.8%)
+    ⚠ Unaccounted:                    288,567  (59.8%)
 
   TRADED SIGNAL DEPTH (which TF level triggered the trade):
     depth 3=15m  :   306 trades  ##
@@ -274,7 +274,7 @@ ORACLE PROFIT ATTRIBUTION
 
 
     -----------------------------------------------------
-    Actual profit: $22386.05
+    Actual profit: $22359.05
     [info] Score-competition pool (took better same bar): $        0.00  (not missed -- golden path chose better candidate)
 
 ===========================================================================
@@ -285,8 +285,8 @@ ORACLE PROFIT ATTRIBUTION
   BY EXIT REASON (sorted by total regret):
   Exit                          n  Avg Regret  Total Regret   Avg PnL Avg MFE(t)  Capture%
   -------------------------------------------------------------------------------------
-  peak_state_exit            2114      +9.88$    +20888.00$    +1.08$      21.9t    -32.4%
-  peak_giveback               945     +16.81$    +15882.00$    -2.56$      28.5t    -29.3%
+  peak_state_exit            2114      +9.88$    +20888.00$    +1.07$      21.9t    -32.4%
+  peak_giveback               945     +16.81$    +15882.00$    -2.57$      28.5t    -29.3%
   stop_loss                   925     +15.83$    +14640.45$   +18.23$      68.1t     -2.8%
   regime_decay                519      +7.97$     +4138.00$    +3.76$      23.5t    -72.4%
   tidal_wave                   49     +15.10$      +740.00$   -10.43$       9.3t   -933.8%
@@ -298,9 +298,9 @@ ORACLE PROFIT ATTRIBUTION
   death_hook                   14      +7.14$      +100.00$   +12.86$      40.0t    +66.2%
   maintenance_flat              2     -11.25$       -22.50$   +11.25$       0.0t     +nan%
 
-  TOTAL PnL:    $   22,386.05
+  TOTAL PnL:    $   22,359.05
   TOTAL REGRET: $   58,519.95
-  CAPTURE RATE: 27.7% of available profit captured
+  CAPTURE RATE: 27.6% of available profit captured
 
   LOSING TRADES THAT PEAKED > 5 TICKS:
     1037 / 1598 losses (64.9%)
@@ -322,7 +322,7 @@ ORACLE PROFIT ATTRIBUTION
         3   306      +9.47$   -159.5%
         4    13     +13.89$    +34.9%
         5    11     +19.50$   -117.2%
-        6     8     +21.31$    +30.4%
+        6     8     +21.31$    +29.8%
         7     6     +16.00$    -57.5%
         8  4495     +12.21$    -28.6%
         9    11      +7.73$     +1.6%
@@ -331,8 +331,8 @@ ORACLE PROFIT ATTRIBUTION
     Duration     n  Avg Regret  Capture%
   ----------------------------------------
         <30s   137     +10.46$   -125.2%
-      30s-1m  2624     +11.65$    -19.0%
-        1-2m  1580     +12.19$    -20.5%
+      30s-1m  2623     +11.66$    -19.0%
+        1-2m  1581     +12.18$    -20.5%
         2-5m   452     +11.88$    -47.8%
          5m+    57     +33.15$  -1010.9%
 
@@ -344,33 +344,33 @@ DIRECTION LEARNING (oracle corrections absorbed)
 
   DETECTION FUNNEL (bar-level)
     Total 15s bars processed:    176,273  (100%)
-    Bars with detection:          75,916  (43.1%)
-    Bars with NO detection:      100,357  (56.9%)  <- model blind
-    Bars slot-blocked:               351  (0.2%)  <- position open, can't trade
+    Bars with detection:          75,915  (43.1%)
+    Bars with NO detection:      100,358  (56.9%)  <- model blind
+    Bars slot-blocked:               350  (0.2%)  <- position open, can't trade
     Bars evaluated (free slot):   75,565  (42.9%)
-    Candidates on those bars:    482,197  (avg 6.4/bar)
+    Candidates on those bars:    482,199  (avg 6.4/bar)
 
   PEAK DETECTION (buildup/sensor gate)
-    Peak signals detected:        71,781
+    Peak signals detected:        71,780
     Blocked by no buildup:             0
     Blocked by 1m sensor:              0
     Blocked by fake peak:              0
     Blocked by cooldown:               0
-    Peak entries created:         71,781
+    Peak entries created:         71,780
     Filter rate:                    0.0%
 
   TRAILING STOP (sensor-adaptive)
-    Activations (MFE >= 40t):      2,136
-    Trail wide  (sensors OK):        482
-    Trail medium (neutral):          894
-    Trail tight (opposing):          760
+    Activations (MFE >= 40t):     19,939
+    Trail wide  (sensors OK):      3,617
+    Trail medium (neutral):        8,616
+    Trail tight (opposing):        7,706
 
   CANDIDATE COMPETITION (bars where gates were passed)
-    Single candidate (no competition):  13,440  (96.2%)
-    Multiple candidates (tiebreaker):      529  (3.8%)
+    Single candidate (no competition):  13,439  (96.2%)
+    Multiple candidates (tiebreaker):      530  (3.8%)
 
   EXPECTED PROFIT ANALYSIS (E[PnL] = running avg PnL per template×direction)
-    Positive EV trades (E[PnL]>0 at entry):  4,675  (96.4%)  actual: $  +22,210.63  avg: $4.75/trade
+    Positive EV trades (E[PnL]>0 at entry):  4,675  (96.4%)  actual: $  +22,183.63  avg: $4.75/trade
     Negative EV trades (E[PnL]<0 at entry):    130  (2.7%)  actual: $     +226.30  avg: $1.74/trade
     Unknown (< 3 samples):                      45  (0.9%)  actual: $      -50.88
     If blocked neg-EV trades: would save $-226.30
@@ -385,7 +385,7 @@ DIRECTION LEARNING (oracle corrections absorbed)
        24       98    $   -0.29         1          n/a   SKIP LONG
 
   EXPECTED PROFIT ANALYSIS (E[PnL] = running avg PnL per template×direction)
-    Positive EV trades (E[PnL]>0 at entry):  4,675  (96.4%)  actual: $  +22,210.63  avg: $4.75/trade
+    Positive EV trades (E[PnL]>0 at entry):  4,675  (96.4%)  actual: $  +22,183.63  avg: $4.75/trade
     Negative EV trades (E[PnL]<0 at entry):    130  (2.7%)  actual: $     +226.30  avg: $1.74/trade
     Unknown (< 3 samples):                      45  (0.9%)  actual: $      -50.88
     If blocked neg-EV trades: would save $-226.30
