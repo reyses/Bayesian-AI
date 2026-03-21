@@ -773,3 +773,9 @@ py_time,nt8_time,bar_ts,reason
 13:59:15,20:59:00,1774040340.0,no_buildup: fm_decay=1 fm_build=1 pc_shift=2 (need 3+ in any pattern)
 13:59:30,20:59:15,1774040355.0,ACCEPTED: SHORT vol=155 fm=0.0 z=0.95
 13:59:45,20:59:30,1774040370.0,ACCEPTED: SHORT vol=150 fm=39.9 z=1.05
+19:27:14,??:??:??,0.0,no_buildup: fm_decay=0 fm_build=1 pc_shift=2 (need 3+ in any pattern)
+19:30:47,??:??:??,0.0,no_buildup: fm_decay=0 fm_build=0 pc_shift=2 (need 3+ in any pattern)
+19:34:29,??:??:??,0.0,no_buildup: fm_decay=1 fm_build=1 pc_shift=2 (need 3+ in any pattern)
+21:40:36,??:??:??,0.0,no_buildup: fm_decay=0 fm_build=1 pc_shift=2 (need 3+ in any pattern)
+21:44:06,??:??:??,0.0,no_buildup: fm_decay=0 fm_build=0 pc_shift=2 (need 3+ in any pattern)
+21:47:48,??:??:??,0.0,no_buildup: fm_decay=1 fm_build=1 pc_shift=2 (need 3+ in any pattern)
