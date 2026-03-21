@@ -95,6 +95,7 @@ class SessionTracker:
                      anchor_tf: str = '15s', anchor_depth: int = 8,
                      bar_count: int = 0) -> str:
         """Write session summary to reports/live/. Returns path."""
+        from core.report_engine import format_scorecard
         s = self.stats
         report_dir = os.path.join('reports', 'live')
         os.makedirs(report_dir, exist_ok=True)
@@ -104,92 +105,46 @@ class SessionTracker:
         dur = time.time() - self._start_time
         dur_h = int(dur // 3600)
         dur_m = int((dur % 3600) // 60)
-        wr = s.wins / s.trades * 100 if s.trades > 0 else 0.0
         pf = s.gross_win / abs(s.gross_loss) if s.gross_loss != 0 else 0.0
         avg = s.pnl / s.trades if s.trades > 0 else 0.0
 
+        # Shared scorecard (exit/direction/hold breakdowns via report_engine)
+        # Normalize trade_log field names for report_engine compatibility
+        _norm_trades = []
+        for t in self.trade_log:
+            _norm_trades.append({
+                **t,
+                'exit_reason': t.get('reason', t.get('exit_reason', '?')),
+                'bars_held': t.get('bars', t.get('bars_held', 0)),
+            })
+        scorecard = format_scorecard(
+            _norm_trades,
+            mode='LIVE',
+            start_date=time.strftime('%Y-%m-%d'),
+            run_ts=time.strftime('%Y-%m-%d %H:%M:%S'),
+        )
+
         L = []
+        # Live-specific header
         L.append("=" * 72)
         L.append(f"LIVE SESSION REPORT  (run: {time.strftime('%Y-%m-%d %H:%M:%S')})")
         L.append(f"  Account:    {self._cfg.account}")
         L.append(f"  Instrument: {self._cfg.instrument}")
         L.append(f"  Anchor TF:  {anchor_tf}  (depth={anchor_depth})")
         L.append(f"  Duration:   {dur_h}h {dur_m}m  ({bar_count} bars)")
-        L.append(f"Total Trades: {s.trades}")
-        L.append(f"Win Rate: {wr:.1f}%")
-        L.append(f"Total PnL: ${s.pnl:+,.2f}")
-        L.append(f"Profit Factor: {pf:.2f}")
-        L.append(f"Avg Trade: ${avg:+,.2f}")
         L.append("=" * 72)
-
-        # ── Drawdown & Survival ──
         L.append("")
+
+        # Drawdown (live-specific: consec loss tracking)
         L.append("── DRAWDOWN & SURVIVAL ──")
         L.append(f"  Max Consecutive Losses: {s.max_consec_losses}")
         L.append(f"  Max Consec Loss $:      ${s.max_consec_loss_dollars:,.2f}")
         L.append(f"  Peak Equity:            ${s.peak_equity:+,.2f}")
         L.append(f"  Max Session Drawdown:   ${s.max_session_drawdown:,.2f}")
-
-        # ── Per-depth PnL breakdown ──
         L.append("")
-        L.append("=" * 72)
-        L.append("PER-DEPTH PnL BREAKDOWN")
-        L.append("=" * 72)
-        if self.trade_log:
-            depth_stats = defaultdict(lambda: {'n': 0, 'wins': 0, 'pnl': 0.0})
-            for t in self.trade_log:
-                d = t.get('depth', '?')
-                depth_stats[d]['n'] += 1
-                depth_stats[d]['pnl'] += t['pnl']
-                if t['pnl'] > 0:
-                    depth_stats[d]['wins'] += 1
-            L.append(f"  {'Depth':<10} {'Trades':>7} {'Win%':>6} "
-                     f"{'Total PnL':>12} {'Avg/trade':>10}")
-            L.append(f"  {'-'*10} {'-'*7} {'-'*6} {'-'*12} {'-'*10}")
-            for d in sorted(depth_stats.keys()):
-                ds = depth_stats[d]
-                _wr = ds['wins'] / ds['n'] * 100 if ds['n'] > 0 else 0
-                _avg = ds['pnl'] / ds['n'] if ds['n'] > 0 else 0
-                L.append(f"  depth {str(d):<5} {ds['n']:>7} {_wr:>5.0f}% "
-                         f"${ds['pnl']:>10,.2f} ${_avg:>9,.2f}")
 
-        # ── Exit reason breakdown ──
-        L.append("")
-        L.append("=" * 72)
-        L.append("EXIT REASON BREAKDOWN")
-        L.append("=" * 72)
-        if self.trade_log:
-            reason_stats = defaultdict(lambda: {'n': 0, 'wins': 0, 'pnl': 0.0})
-            for t in self.trade_log:
-                r = t.get('reason', '?')
-                reason_stats[r]['n'] += 1
-                reason_stats[r]['pnl'] += t['pnl']
-                if t['pnl'] > 0:
-                    reason_stats[r]['wins'] += 1
-            L.append(f"  {'Reason':<18} {'Trades':>7} {'Win%':>6} "
-                     f"{'Total PnL':>12} {'Avg/trade':>10}")
-            L.append(f"  {'-'*18} {'-'*7} {'-'*6} {'-'*12} {'-'*10}")
-            for r in sorted(reason_stats.keys()):
-                rs = reason_stats[r]
-                _wr = rs['wins'] / rs['n'] * 100 if rs['n'] > 0 else 0
-                _avg = rs['pnl'] / rs['n'] if rs['n'] > 0 else 0
-                L.append(f"  {r:<18} {rs['n']:>7} {_wr:>5.0f}% "
-                         f"${rs['pnl']:>10,.2f} ${_avg:>9,.2f}")
-
-        # ── Direction breakdown ──
-        L.append("")
-        L.append("=" * 72)
-        L.append("DIRECTION BREAKDOWN")
-        L.append("=" * 72)
-        if self.trade_log:
-            for d in ('LONG', 'SHORT'):
-                dt = [t for t in self.trade_log if t['side'] == d]
-                if dt:
-                    _dw = sum(1 for t in dt if t['pnl'] > 0)
-                    _dp = sum(t['pnl'] for t in dt)
-                    _dwr = _dw / len(dt) * 100
-                    L.append(f"  {d:<8} {len(dt):>4} trades  WR={_dwr:.0f}%  "
-                             f"PnL=${_dp:+,.2f}  Avg=${_dp/len(dt):+,.2f}")
+        # Shared scorecard body
+        L.append(scorecard)
 
         # ── Ping-pong direction refinement ──
         if pp_flip_count > 0 or brain_dir_bias:
