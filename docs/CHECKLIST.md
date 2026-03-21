@@ -16,8 +16,11 @@
 - [x] Proportional sensor gate (z-score from cat window) — committed
 - [x] Dashboard PIN button (always-on-top toggle) — committed
 - [x] Skip log timestamp fix (??:??:?? -> bar timestamp) — committed
-- [ ] **Run proportional gate + compare 3 baselines**
-- [ ] Fake peak -> exit override (giveback conversation with accountability)
+- [ ] **Run proportional gate + exit fixes + compare 4 baselines**
+- [x] Fake peak -> exit override (giveback holds when vol > 60% of peak, 5x safety cap)
+- [x] peak_state_exit tightened (3/4 sensors: 15% -> 30% giveback before fire)
+- [x] tidal_wave suppress first 4 bars of peak trades
+- [x] Actionable scorecard report (80 lines, replaces 700-line report)
 - [x] Capture rate 6 buckets on dashboard — already wired (session_tracker + gui_bridge + dashboard)
 - [ ] Peak-implied direction (skip cascade for peak trades, use peak + 1m)
 - [ ] Sensor gate: if no cat brain, use lenient fallback (-50.0)
