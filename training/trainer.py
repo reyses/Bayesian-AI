@@ -808,7 +808,8 @@ class Trainer:
         _pp_flip_count = 0
         _pp_all_trades = []
 
-        _pbar = tqdm(total=_total_trading_days, desc='Forward Pass', unit='day',
+        _pbar_label = 'OOS' if oos_mode else 'IS'
+        _pbar = tqdm(total=_total_trading_days, desc=_pbar_label, unit='day',
                      bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {postfix}',
                      ascii=True, dynamic_ncols=True)
         _oos_cutoff = getattr(self, '_oos_cutoff', '2026_02')  # default: Feb 2026
@@ -855,6 +856,7 @@ class Trainer:
                 _is_brain_path = os.path.join(self.checkpoint_dir, 'is_brain_checkpoint.pkl')
                 self.brain.save(_is_brain_path)
                 print(f'    Brain frozen + saved: {_is_brain_path}')
+                _pbar.set_description('OOS')
                 # Reset running stats for OOS
                 total_pnl = 0.0
                 total_trades = 0
