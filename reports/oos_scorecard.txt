@@ -1,38 +1,38 @@
 ======================================================================
 SCORECARD: OOS None to None
-  Commit: 2577f240  |  Generated: 2026-03-21 07:41:46
-  PnL: $22,386.05  |  Trades: 4,850  |  WR: 64.6%  |  PF: 2.30
-  $/trade: $4.62  |  $/day: $605  |  Max DD: $1,683
+  Commit: a1b0653d  |  Generated: 2026-03-21 08:59:55
+  PnL: $22,359.05  |  Trades: 4,850  |  WR: 64.6%  |  PF: 2.30
+  $/trade: $4.61  |  $/day: $604  |  Max DD: $1,683
   Win days: 35/37 (95%)  |  Best: $2,070  |  Worst: $-1,055  |  Median: $553
 ======================================================================
 
 WHAT WORKS (PF > 1.5):
   stop_loss                925 trades  PF= 5.87  $+16,864.05  $ +18.23/tr  WR=97%
   survival_stop            119 trades  PF=  inf  $ +2,480.00  $ +20.84/tr  WR=98%
-  peak_state_exit         2114 trades  PF= 0.36  $ +2,273.00  $  +1.08/tr  WR=58%
+  peak_state_exit         2114 trades  PF= 0.35  $ +2,254.50  $  +1.07/tr  WR=58%
   regime_decay             519 trades  PF= 1.16  $ +1,949.00  $  +3.76/tr  WR=61%
   take_profit               99 trades  PF=  inf  $   +990.00  $ +10.00/tr  WR=100%
   v_reversal                 8 trades  PF=  inf  $   +554.50  $ +69.31/tr  WR=100%
 
 WHAT HURTS (PF < 1.0):
-  peak_giveback            945 trades  PF= 0.54  $ -2,420.50  $  -2.56/tr  WR=46%
+  peak_giveback            945 trades  PF= 0.53  $ -2,429.00  $  -2.57/tr  WR=46%
   tidal_wave                49 trades  PF= 0.09  $   -511.00  $ -10.43/tr  WR=14%
   belief_flip               34 trades  PF= 0.35  $   -305.00  $  -8.97/tr  WR=12%
-  FIXABLE (50% recovery): ~$1,618 -> PnL could be $24,004
+  FIXABLE (50% recovery): ~$1,622 -> PnL could be $23,982
 
 HOLD DURATION:
     <30s:   137 trades  $  -0.21/tr
-  30s-1m:  2624 trades  $  +3.43/tr
-    1-2m:  1580 trades  $  +5.75/tr
-    2-5m:   452 trades  $ +11.77/tr <-- SWEET SPOT
+  30s-1m:  2623 trades  $  +3.42/tr
+    1-2m:  1581 trades  $  +5.75/tr
+    2-5m:   452 trades  $ +11.75/tr <-- SWEET SPOT
    5-10m:    37 trades  $  -7.20/tr <-- OVER-HOLDING
     10m+:    19 trades  $ -38.74/tr <-- OVER-HOLDING
 
 DIRECTION:
   LONG:  4612 (95%)  WR=64%  PnL=$+20,027.00
-  SHORT:   238 (5%)  WR=71%  PnL=$ +2,359.05
+  SHORT:   238 (5%)  WR=71%  PnL=$ +2,332.05
 
 SENSOR GATE:
-  Detected: 71,781  |  Entered: 71,781  |  Blocked: 0  (0:71781 ratio)
+  Detected: 71,780  |  Entered: 71,780  |  Blocked: 0  (0:71780 ratio)
 
 ======================================================================
