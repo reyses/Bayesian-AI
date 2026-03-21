@@ -175,7 +175,8 @@ class BarProcessor:
     # ── Candidate Building ───────────────────────────────────────────
 
     def _build_candidates(self, state, timestamp: float,
-                          yolo: bool = False, bar_index: int = 0) -> list:
+                          yolo: bool = False, bar_index: int = 0,
+                          price: float = 0.0) -> list:
         """Build Candidate list from MarketState (compressed path).
 
         Two sources:
@@ -515,7 +516,7 @@ class BarProcessor:
             return BarResult(action=TradeAction(type=ActionType.HOLD))
 
         candidates = self._build_candidates(state, timestamp, yolo=yolo,
-                                             bar_index=bar_index)
+                                             bar_index=bar_index, price=price)
         if not candidates:
             return BarResult(
                 action=TradeAction(type=ActionType.HOLD),
