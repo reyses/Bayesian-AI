@@ -27,6 +27,9 @@ reports/is/*.csv
 reports/is/shards/
 reports/oos/*.csv
 reports/training/*.csv
+reports/findings/*.csv
+reports/findings/peak_seed_audit/*.pkl
+DATA/regime_seeds/peak_seeds.json
 run_logs/
 
 # Live session per-trade diagnostics (regenerated every session)
