@@ -119,6 +119,13 @@ class BarProcessor:
             from core.counterfactual_engine import CounterfactualEngine
             self._crow = CounterfactualEngine(tick_size=tick_size)
 
+        # Observer workers: trend/peak/session monitors (LOG only, no blocking)
+        self._use_observers = kwargs.get('use_observers', False) or self._use_crow
+        self._observers = None
+        if self._use_observers:
+            from core.observer_workers import ObserverHub
+            self._observers = ObserverHub(enabled=True)
+
         # Peak detection entry: reversal signal from P_center + F_momentum
         self._peak_detection_enabled = True
         self._prev_P_center = 0.0
@@ -220,7 +227,12 @@ class BarProcessor:
                     # Gate 1: 1m sensor confirmation (vol + fm)
                     _sensor_ok = self._1m_confirms_peak(state, bar_ts=timestamp)
                     if not _sensor_ok:
-                        pass  # already logged + counted in _1m_confirms_peak
+                        # Observer: log sensor-blocked peak
+                        if self._observers is not None:
+                            _fm = getattr(state, 'F_momentum', 0.0)
+                            _dir = 'LONG' if _fm < 0 else 'SHORT'
+                            self._observers.on_peak(bar_index, timestamp, _dir,
+                                entered=False, fm_15s=_fm, vol_15s=getattr(state, 'volume_delta', 0.0))
                     else:
                         _feat = self._build_features(state)
                         _fm = getattr(state, 'F_momentum', 0.0)
@@ -236,6 +248,9 @@ class BarProcessor:
                                 self.peak_stats['blocked_cat'] += 1
                                 self._log_peak_skip(timestamp, f'cat: {_cat_reason}')
                                 # Monkey: spawn phantom for blocked entry
+                                if self._observers is not None:
+                                    self._observers.on_peak(bar_index, timestamp, _dir,
+                                        entered=False, fm_15s=_fm, vol_15s=getattr(state, 'volume_delta', 0.0))
                                 if self._crow is not None:
                                     self._crow.on_skip(bar_index, price, _dir, f'cat_{_cat_reason}')
 
@@ -252,6 +267,10 @@ class BarProcessor:
                                 forced_template_id=-100,
                             ))
                             self.peak_stats['peak_entered'] += 1
+                            # Observer: log peak entered with trend context
+                            if self._observers is not None:
+                                self._observers.on_peak(bar_index, timestamp, _dir,
+                                    entered=True, fm_15s=_fm, vol_15s=getattr(state, 'volume_delta', 0.0))
                             # Monkey: spawn phantoms with alt exit thresholds
                             if self._crow is not None:
                                 self._crow.on_entry(bar_index, price, _dir)
@@ -284,7 +303,7 @@ class BarProcessor:
         # ── Layer 0a: chasing filter ──
         # Data: winners enter at fm=13.9, losers at fm=20.8.
         # High fm at entry = chasing a move that's already extended.
-        CHASE_FM_THRESHOLD = 20.0
+        CHASE_FM_THRESHOLD = 50.0  # widened from 20 — was blocking too many real entries
         _peak_fm_abs = abs(getattr(state, 'F_momentum', 0.0))
         if _peak_fm_abs > CHASE_FM_THRESHOLD:
             self.peak_stats['blocked_1m_sensor'] += 1
@@ -547,6 +566,11 @@ class BarProcessor:
             if self._crow is not None:
                 self._crow.on_bar(bar_index, price, bar_high, bar_low)
 
+            # 1c. Observer workers: update trend/session state (LOG only)
+            if self._observers is not None:
+                self._observers.update(bar_index, timestamp, state,
+                                       self.belief_network)
+
         # 2. If in position -> exit evaluation
         if self.exec_engine.in_position:
             _es = exit_state if exit_state is not None else state
@@ -765,10 +789,26 @@ class BarProcessor:
         if self._hooks.on_exit:
             self._hooks.on_exit(trade, outcome)
 
+        # Observer: log trade result for session tracking
+        if self._observers is not None:
+            self._observers.on_trade_exit(trade.get('actual_pnl', 0.0))
+
         return BarResult(
             action=action,
             trade_completed=trade,
         )
+
+    # ── Observer Methods ─────────────────────────────────────────────
+
+    def observer_checkpoint(self, label: str):
+        """Save observer state at month/week boundary."""
+        if self._observers is not None:
+            self._observers.checkpoint(label)
+
+    def observer_flush(self):
+        """Write all observer logs to CSV at end of run."""
+        if self._observers is not None:
+            self._observers.flush()
 
     # ── End-of-Day Force Close ───────────────────────────────────────
 

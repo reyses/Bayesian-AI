@@ -724,6 +724,7 @@ class Trainer:
             pattern_library=self.pattern_library or {},
             use_cat=getattr(self, '_use_cat', False),
             use_crow=getattr(self, '_use_crow', False),
+            use_observers=getattr(self, '_use_observers', False),
         )
         pending_oracle = None      # oracle facts for currently open trade
         _pending_dm_idx = None     # index into decision_matrix_records for open trade
@@ -825,9 +826,16 @@ class Trainer:
         _oos_cutoff = getattr(self, '_oos_cutoff', '2026_02')  # default: Feb 2026
         _oos_boundary_hit = False
         _is_trades_snapshot = None
+        _prev_month = None  # for observer monthly checkpoints
 
         for day_idx, day_file in enumerate(daily_files_15s):
             day_date = os.path.basename(day_file).replace('.parquet', '')
+
+            # ── Observer monthly checkpoint ──
+            _cur_month = day_date[:7]  # e.g. '2025_01'
+            if _prev_month is not None and _cur_month != _prev_month:
+                _bp.observer_checkpoint(_prev_month)
+            _prev_month = _cur_month
 
             # ── IS→OOS boundary: freeze brain, save checkpoint, reset stats ──
             if (not oos_mode and not _oos_boundary_hit
@@ -1840,6 +1848,10 @@ class Trainer:
             _json_save.dump(_tuned_exit, _tf)
         print(f"  Exit tuning saved: hl={_tuned_exit['envelope_half_life_bars']:.1f}, "
               f"gb={_tuned_exit['giveback_pct']:.0%} -> {_tuned_path}")
+
+        # Flush observer logs
+        _bp.observer_checkpoint(_prev_month)  # final month
+        _bp.observer_flush()
 
         print("\n  [OK] Forward pass complete -- all files saved.", flush=True)
 
@@ -5022,6 +5034,7 @@ def main():
     orchestrator._use_shapes = getattr(args, 'shapes', False)
     orchestrator._use_cat = not getattr(args, 'no_cat', False)
     orchestrator._use_crow = getattr(args, 'crow', False)
+    orchestrator._use_observers = getattr(args, 'crow', False)  # observers auto-enable with crow
     # Min-hold: convert minutes -> 15s bars (execution TF)
     _min_hold_mins = getattr(args, 'min_hold', 0.0)
     orchestrator._min_hold_bars = int(_min_hold_mins * 60 / 15) if _min_hold_mins > 0 else 0
