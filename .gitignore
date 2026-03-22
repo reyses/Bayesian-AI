@@ -30,6 +30,13 @@ reports/training/*.csv
 reports/findings/*.csv
 reports/findings/peak_seed_audit/*.pkl
 DATA/regime_seeds/peak_seeds.json
+DATA/regime_seeds/auto_seeds_*.json
+reports/findings/imr_charts/
+reports/observers/*.csv
+reports/observers/*.pkl
+reports/is/*.ps
+reports/oos1/*.ps
+reports/oos1/*.csv
 run_logs/
 
 # Live session per-trade diagnostics (regenerated every session)
