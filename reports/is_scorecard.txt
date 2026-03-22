@@ -1,40 +1,39 @@
 ======================================================================
 SCORECARD: IS None to None
-  Commit: a1b0653d  |  Generated: 2026-03-21 08:53:42
-  PnL: $21,849.25  |  Trades: 4,560  |  WR: 65.2%  |  PF: 2.24
-  $/trade: $4.79  |  $/day: $575  |  Max DD: $1,692
-  Win days: 35/38 (92%)  |  Best: $2,292  |  Worst: $-1,021  |  Median: $508
+  Commit: 09cb6171  |  Generated: 2026-03-21 15:00:57
+  PnL: $22,565.25  |  Trades: 3,264  |  WR: 65.0%  |  PF: 2.55
+  $/trade: $6.91  |  $/day: $610  |  Max DD: $2,265
+  Win days: 36/37 (97%)  |  Best: $5,237  |  Worst: $-524  |  Median: $286
 ======================================================================
 
 WHAT WORKS (PF > 1.5):
-  stop_loss                955 trades  PF= 6.37  $+17,233.25  $ +18.05/tr  WR=97%
-  survival_stop            177 trades  PF=  inf  $ +3,433.00  $ +19.40/tr  WR=98%
-  regime_decay             592 trades  PF= 0.82  $ +1,573.00  $  +2.66/tr  WR=59%
-  take_profit               78 trades  PF=  inf  $   +780.00  $ +10.00/tr  WR=100%
-  v_reversal                12 trades  PF=  inf  $   +627.00  $ +52.25/tr  WR=100%
-  survival_flatline         34 trades  PF=  inf  $   +611.00  $ +17.97/tr  WR=94%
+  stop_loss                667 trades  PF= 3.14  $+10,283.75  $ +15.42/tr  WR=95%
+  take_profit               49 trades  PF=  inf  $ +8,024.00  $+163.76/tr  WR=100%
+  survival_stop            189 trades  PF=  inf  $ +4,931.00  $ +26.09/tr  WR=98%
+  peak_giveback            828 trades  PF= 0.28  $   +945.50  $  +1.14/tr  WR=59%
+  v_reversal                 8 trades  PF=  inf  $   +617.50  $ +77.19/tr  WR=100%
+  survival_flatline         27 trades  PF=  inf  $   +409.00  $ +15.15/tr  WR=96%
 
 WHAT HURTS (PF < 1.0):
-  peak_giveback           1150 trades  PF= 0.67  $ -1,742.50  $  -1.52/tr  WR=49%
-  tidal_wave                60 trades  PF= 0.02  $   -970.00  $ -16.17/tr  WR=8%
-  belief_flip               47 trades  PF= 0.64  $   -171.50  $  -3.65/tr  WR=32%
-  maintenance_flat           1 trades  PF= 0.00  $     -7.00  $  -7.00/tr  WR=0%
-  FIXABLE (50% recovery): ~$1,446 -> PnL could be $23,295
+  peak_state_exit          833 trades  PF= 0.70  $ -1,249.00  $  -1.50/tr  WR=52%
+  tidal_wave                84 trades  PF= 0.03  $ -1,187.00  $ -14.13/tr  WR=20%
+  belief_flip               49 trades  PF= 0.21  $   -499.00  $ -10.18/tr  WR=22%
+  FIXABLE (50% recovery): ~$1,468 -> PnL could be $24,033
 
 HOLD DURATION:
-    <30s:   145 trades  $  +0.63/tr
-  30s-1m:  1933 trades  $  +4.24/tr
-    1-2m:  1728 trades  $  +4.51/tr
-    2-5m:   668 trades  $ +10.73/tr <-- SWEET SPOT
-   5-10m:    62 trades  $  -8.42/tr <-- OVER-HOLDING
-    10m+:    24 trades  $ -36.69/tr <-- OVER-HOLDING
+    <30s:   198 trades  $ +18.73/tr <-- SWEET SPOT
+  30s-1m:  1055 trades  $  +5.03/tr
+    1-2m:  1255 trades  $  +4.95/tr
+    2-5m:   667 trades  $ +10.02/tr
+   5-10m:    69 trades  $  -9.61/tr <-- OVER-HOLDING
+    10m+:    20 trades  $ +65.40/tr
 
 DIRECTION:
-  LONG:  4275 (94%)  WR=65%  PnL=$+18,839.97
-  SHORT:   285 (6%)  WR=72%  PnL=$ +3,009.28
+  LONG:  1592 (49%)  WR=65%  PnL=$ +7,756.45
+  SHORT:  1672 (51%)  WR=65%  PnL=$+14,808.80
 
 SENSOR GATE:
-  Detected: 680,848  |  Entered: 680,848  |  Blocked: 4  (4:680848 ratio)
+  Detected: 663,188  |  Entered: 663,188  |  Blocked: 4  (4:663188 ratio)
     no_buildup: 4
 
 ======================================================================
