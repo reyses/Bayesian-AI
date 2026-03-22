@@ -212,13 +212,7 @@ class BarProcessor:
         # Detects when a move just peaked: P_center rising + F_momentum collapsing.
         # Research: 83% detection rate, 85% precision, 0% false alarms.
         # The reversal IS the entry for the opposite direction.
-        _in_cooldown = (hasattr(self, '_peak_cooldown_until')
-                        and bar_index < self._peak_cooldown_until)
         if not candidates and self._peak_detection_enabled:
-            if _in_cooldown:
-                self._detect_peak_reversal(state)  # update buffers
-                self.peak_stats['blocked_cooldown'] += 1
-            else:
                 self._last_bar_ts = timestamp  # for skip logs
                 _peak_entry = self._detect_peak_reversal(state)
                 if _peak_entry:
@@ -749,10 +743,7 @@ class BarProcessor:
             _cap = pnl_ticks / _trade_mfe if _trade_mfe > 0 else 0.0
             self.exit_engine.record_trade_outcome(_trade_mfe, pnl_ticks, _cap)
 
-        # Set peak cooldown to prevent re-entry on decaying peak
-        self._peak_cooldown_until = bar_index + self.exit_engine.peak_state.cooldown_until - bar_index
-        if hasattr(self.exit_engine.peak_state, 'cooldown_until'):
-            self._peak_cooldown_until = self.exit_engine.peak_state.cooldown_until
+        # Peak cooldown removed — was blocking 64% of entries with no value
 
         # Stop TBN trade tracking
         self.belief_network.stop_trade_tracking()

@@ -516,34 +516,20 @@ class ExitEngine:
                 self.giveback.record_exit(_vol_drop, r.pnl_ticks, _peak_t)
                 return r
 
-        # === INVERTED ENTRY EXIT (would the system enter against me?) ===
-        if not _in_hold_period:
-            r = self.peak_state.evaluate(
-                pos, bar_close, ts, current_bar_index, exit_signal,
-                belief_network=belief_network)
-            if r: return r
+        # === INVERTED ENTRY EXIT — DISABLED (PF 0.05, 25% WR, -$980)
 
         # === STRUCTURAL EXITS (thesis invalidation) ===
 
-        # 2. Death Hook (Liquidity Absorption)
-        if not _in_hold_period:
-            r = self.fractal_exhaust.evaluate(pos, bar_close, ts, belief_network)
-            if r: return r
+        # 2. Death Hook — DISABLED (PF 0.00, 0% WR, -$179)
 
-        # 3. Regime Decay
-        if not _in_hold_period or _strong_dmi_reversal:
-            r = self.regime_decay.evaluate(pos, bar_close, ts, belief_network)
-            if r: return r
+        # 3. Regime Decay — DISABLED (PF 0.21, biggest loser -$1,316)
 
         # 4. Survival Stop
         if not _in_hold_period:
             r = self.survival_stop.evaluate(pos, bar_close, ts, belief_network)
             if r: return r
 
-        # 5. Tidal Wave
-        if not _in_hold_period:
-            r = self.tidal_wave.evaluate(pos, bar_close, ts, belief_network, exit_signal)
-            if r: return r
+        # 5. Tidal Wave — DISABLED (PF 0.00, 0% WR, -$387)
 
         # === STANDARD EXITS ===
 
@@ -597,10 +583,7 @@ class ExitEngine:
 
         # 11. (Giveback moved to position #1)
 
-        # 12. Belief Flip
-        if not _in_hold_period or _strong_dmi_reversal:
-            r = self.belief_flip.evaluate(pos, bar_close, ts, exit_signal)
-            if r: return r
+        # 12. Belief Flip — DISABLED (PF 0.02, 10% WR, -$378)
 
         # 13. HOLD
         return ExitResult(

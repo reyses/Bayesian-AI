@@ -124,16 +124,16 @@ class PeakGiveback:
                 if pos._giveback_overrides >= 5:
                     _fake_peak_hold = False
 
-        # Base threshold: 50% giveback = exit (conservative default)
-        _threshold_pct = 0.50
+        # Base threshold: 65% giveback = exit (widened for honest entries)
+        _threshold_pct = 0.65
 
         # Fake peak override: widen threshold (harder to trigger = hold longer)
         if _fake_peak_hold:
-            _threshold_pct = 0.70  # volume says "not done" -- give it room
+            _threshold_pct = 0.80  # volume says "not done" -- give it room
 
         # Volume exhaustion tightens threshold: move is dying, lock profit
         if _vol_exhausted:
-            _threshold_pct = 0.20  # volume says "done" -- exit fast
+            _threshold_pct = 0.40  # volume says "done" -- exit but not panic
 
         # Modulate by sensor fusion: 1s velocity (fast) + 1m volume (slow/accurate)
         if exit_signal is not None:
@@ -144,19 +144,19 @@ class PeakGiveback:
 
             # Sensor fusion: both sensors agree = high confidence exit
             if _vel_flipped and _vol_collapsing:
-                _threshold_pct = 0.20  # both agree -> exit fast (88% WR on vol collapse)
+                _threshold_pct = 0.40  # both agree -> exit (widened from 0.20)
 
-            # Fast sensor only: 1s velocity flipped but 1m hasn't confirmed
+            # Fast sensor only: not enough for action alone
             elif _vel_flipped:
-                _threshold_pct = 0.35  # alert  -- tighten but wait for confirmation
+                pass  # removed — 1s velocity alone is noise without lookahead
 
-            # Slow sensor only: 1m volume collapsing but 1s hasn't flipped
+            # Slow sensor only: 1m volume collapsing
             elif _vol_collapsing:
-                _threshold_pct = 0.30  # institutional flow dying
+                _threshold_pct = 0.50  # institutional flow dying (widened from 0.30)
 
-            # ADX collapsing (trend dying)
-            if _adx_slope < -2.0:
-                _threshold_pct = min(_threshold_pct, 0.30)
+            # ADX collapsing — disabled, was too aggressive
+            # if _adx_slope < -2.0:
+            #     _threshold_pct = min(_threshold_pct, 0.30)
 
             # 15s execution TF flipped -> tighten aggressively
             if _exec_flip:

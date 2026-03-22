@@ -303,7 +303,8 @@ class CatBrain:
             else:
                 return False, f'cat_exhaust_continuation(bias={s.direction_bias:+.2f})'
 
-        # CHOPPY: block -- peak is noise
+        # CHOPPY: block — confirmed: letting choppy peaks through destroys edge
+        # ($2,576 with block -> -$49 without). Cat is protecting real signal.
         if s.regime == REGIME_CHOPPY:
             return False, f'cat_choppy(conf={s.confidence:.2f})'
 

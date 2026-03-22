@@ -107,11 +107,19 @@ def load_seeds_as_manifest(
     Returns:
         List[PatternEvent] ready for Phase 2 clustering
     """
-    # 1. Load seeds
+    # 1. Load seeds (support flat and nested formats)
     with open(seed_path) as f:
         data = json.load(f)
 
-    seeds = data['seeds']
+    if 'seeds' in data:
+        seeds = data['seeds']
+    elif 'days' in data:
+        seeds = []
+        for day_data in data['days'].values():
+            seeds.extend(day_data.get('seeds', []))
+    else:
+        print(f"[SeedLoader] Unknown seed format -- keys: {list(data.keys())}")
+        return []
     if tag_filter:
         seeds = [s for s in seeds if s.get('tag', '') == tag_filter]
 
@@ -434,7 +442,16 @@ def compute_seed_thresholds(
     with open(seed_path) as f:
         data = json.load(f)
 
-    seeds = data['seeds']
+    # Support both flat format {seeds: [...]} and nested format {days: {date: {seeds: [...]}}}
+    if 'seeds' in data:
+        seeds = data['seeds']
+    elif 'days' in data:
+        seeds = []
+        for day_data in data['days'].values():
+            seeds.extend(day_data.get('seeds', []))
+    else:
+        print(f"[SeedThresholds] Unknown seed format -- keys: {list(data.keys())}")
+        return {}
     if tag_filter:
         seeds = [s for s in seeds if s.get('tag', '') == tag_filter]
 
