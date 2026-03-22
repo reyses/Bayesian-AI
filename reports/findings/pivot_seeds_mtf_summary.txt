@@ -1,0 +1,39 @@
+======================================================================
+MULTI-TF PIVOT SCANNER -- 1s detect / 1m confirm / 15s context
+======================================================================
+  Total pivots: 258933
+  REAL: 253786 (98%) avg=83.5t  hold=103s
+  FAKEOUT: 3094 (1%) avg=-54.8t  hold=296s
+  MARGINAL: 2053 (1%)
+
+-- 1m CONFIRMATION (move exhaustion) --
+  1m Feature                   REAL       FAKE      Delta   Signal
+  ---------------------- ---------- ---------- ---------- --------
+  s1m_F_momentum            -0.6948   -27.1094   +26.4146         
+  s1m_dmi_diff              -0.6440    -0.6347    -0.0093         
+  s1m_volume_delta           1.5388   -32.1635   +33.7023         
+  s1m_z_score               -0.0303     0.0226    -0.0529         
+  s1m_adx                   24.9878    25.0326    -0.0448         
+  s1m_coherence              0.6126     0.6055    +0.0071         
+  s1m_term_pid              -0.0180     0.0082    -0.0262         
+
+-- 15s CONTEXT (entry state) --
+  15s Feature                  REAL       FAKE      Delta   Signal
+  ---------------------- ---------- ---------- ---------- --------
+  s15_F_momentum            -1.3078   -16.7169   +15.4091         
+  s15_dmi_diff              -0.5305     0.1703    -0.7008         
+  s15_volume_delta           0.1084     1.8426    -1.7342         
+  s15_z_score               -0.0311     0.0308    -0.0619         
+  s15_P_center               0.4446     0.3849    +0.0597        *
+  s15_coherence              0.6053     0.5839    +0.0214        *
+
+-- CROSS-TF AGREEMENT --
+  dmi_agreement          REAL=0.75  FAKE=0.75
+  vol_agreement          REAL=0.59  FAKE=0.66
+  fm_agreement           REAL=0.59  FAKE=0.67
+
+DIRECTION:
+  LONG: 129468 trades  WR=98%  real=98%
+  SHORT: 129465 trades  WR=98%  real=98%
+
+======================================================================
