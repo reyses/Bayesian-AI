@@ -1,0 +1,28 @@
+======================================================================
+PIVOT SEED SCANNER — Oracle Reversal Analysis
+======================================================================
+  Total pivots: 716
+  REAL reversals: 700 (98%) avg PnL=137.0t  avg hold=9 bars
+  FAKEOUTS:       13 (2%) avg PnL=-72.5t  avg hold=25 bars
+  MARGINAL:       3 (0%) avg PnL=-1.3t  avg hold=15 bars
+
+  Feature           REAL mean  FAKE mean      Delta  Signal?
+  ---------------- ---------- ---------- ---------- --------
+  F_momentum          27.7569     2.0870   +25.6698         
+  z_score             -0.0845    -0.5806    +0.4961       **
+  sigma                7.0312     6.3406    +0.6906        *
+  velocity             0.0014    -0.9808    +0.9822        *
+  hurst                0.5985     0.6028    -0.0043         
+  adx                 24.9447    26.3045    -1.3598        *
+  dmi_diff            -0.9635    -7.5099    +6.5464       **
+  P_center             0.4358     0.4484    -0.0127         
+  entropy              0.5494     0.5811    -0.0317        *
+  coherence            0.6095     0.6446    -0.0351        *
+  volume_delta         6.2257   -12.0769   +18.3026         
+  term_pid            -0.0422    -0.2967    +0.2545       **
+
+DIRECTION BREAKDOWN:
+  LONG: 358 trades  WR=97%  avg=132.7t  real=97%
+  SHORT: 358 trades  WR=99%  avg=132.5t  real=98%
+
+======================================================================
