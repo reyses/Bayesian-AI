@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # Quality gate thresholds  -- templates that fail ANY are excluded from trading
 QUALITY_MIN_MEMBERS  = 10    # minimum cluster members to trust the statistics
 QUALITY_MIN_WIN_RATE = 0.55  # minimum historical win rate
-QUALITY_MAX_SIGMA    = 10.0  # maximum regression sigma in ticks
+QUALITY_MAX_SIGMA    = 100.0  # maximum regression sigma in ticks (MNQ 15s typical: 60-70)
 
 
 @dataclass
