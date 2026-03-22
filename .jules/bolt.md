@@ -1,0 +1,3 @@
+2025-02-18 — Optimized Swing Noise Numba `prange` Calculation
+Learning: Calculating running maximum drawdowns/drawups via slicing (`highs[_ni - noise_window:_ni + 1]`) inside a Python loop scaling `np.maximum.accumulate` and `np.minimum.accumulate` is computationally heavy due to large array slicing and object memory overhead, making it inefficient inside tight loop evaluations.
+Action: Use `@njit(parallel=True, cache=True)` and `numba.prange` for scalar calculations avoiding all temporary slicing arrays. Properly initialize tracking variables `max_dd` and `max_du` by subtracting elements against `run_hi` / `run_lo` directly rather than `0.0` to preserve mathematical parity with `accumulate` arrays, preventing subtle offset deviations.
