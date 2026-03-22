@@ -281,10 +281,19 @@ class BarProcessor:
         _fm = getattr(state, 'F_momentum', 0.0)
         _peak_long = _fm < 0  # old move was down -> reversal is up -> LONG
 
-        # ── Layer 0: minimum signal floor ──
+        # ── Layer 0a: chasing filter ──
+        # Data: winners enter at fm=13.9, losers at fm=20.8.
+        # High fm at entry = chasing a move that's already extended.
+        CHASE_FM_THRESHOLD = 20.0
+        _peak_fm_abs = abs(getattr(state, 'F_momentum', 0.0))
+        if _peak_fm_abs > CHASE_FM_THRESHOLD:
+            self.peak_stats['blocked_1m_sensor'] += 1
+            self._log_peak_skip(bar_ts, f"chasing: fm={_peak_fm_abs:.1f} (>{CHASE_FM_THRESHOLD})")
+            return False
+
+        # ── Layer 0b: minimum signal floor ──
         # Peaks with vol=0 fm=0.0 are noise — no institutional participation.
         _peak_vol = abs(getattr(state, 'volume_delta', 0.0))
-        _peak_fm_abs = abs(_fm)
         if _peak_vol < 1.0 and _peak_fm_abs < 0.5:
             self.peak_stats['blocked_1m_sensor'] += 1
             self._log_peak_skip(bar_ts, f"floor: vol={_peak_vol:.0f} fm={_peak_fm_abs:.1f} (no signal)")
