@@ -132,13 +132,11 @@ class PeakStateExit:
 
         if n_sensors >= FULL_SENSOR_COUNT:
             # All 4 sensors say "enter against me" -> exit immediately
-            exit_reason = 'full_inverted'
-
-        elif n_sensors >= STRONG_SENSOR_COUNT:
-            # 3 of 4 agree -> exit only if significantly giving back
             gave_back_pct = (peak_ticks - current_ticks) / peak_ticks if peak_ticks > 0 else 0
-            if gave_back_pct >= 0.30:
-                exit_reason = 'strong_inverted'
+            if gave_back_pct >= 0.50:
+                exit_reason = 'full_inverted'
+
+        # 3-sensor exit disabled — PF 0.46, too aggressive without lookahead
 
         if exit_reason is None:
             return None
