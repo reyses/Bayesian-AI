@@ -516,13 +516,27 @@ class ExitEngine:
                 self.giveback.record_exit(_vol_drop, r.pnl_ticks, _peak_t)
                 return r
 
-        # === INVERTED ENTRY EXIT — DISABLED (PF 0.05, 25% WR, -$980)
-
-        # === STRUCTURAL EXITS (thesis invalidation) ===
-
-        # 2. Death Hook — DISABLED (PF 0.00, 0% WR, -$179)
-
-        # 3. Regime Decay — DISABLED (PF 0.21, biggest loser -$1,316)
+        # === 1m FLIP EXIT (research-backed: fm_delta > 30 = 1m reversed) ===
+        # Data: winners avg fm_delta = -15, losers avg fm_delta = -86.
+        # When F_momentum drops 30+ from entry, the 1m trend has flipped against us.
+        # The TBN already computes fm_1m_against — use it with magnitude check.
+        FM_FLIP_THRESHOLD = 30.0  # ticks of fm_delta before exit fires
+        if exit_signal is not None and not _in_hold_period:
+            _fm_against = exit_signal.get('fm_1m_against', False)
+            _vol_against = exit_signal.get('vol_1m_against', False)
+            # Both 1m momentum AND volume flipped = strong reversal at 1m scale
+            if _fm_against and _vol_against:
+                if pos.side == 'long':
+                    _current_ticks = (bar_close - pos.entry_price) / ts
+                else:
+                    _current_ticks = (pos.entry_price - bar_close) / ts
+                return ExitResult(
+                    action=ExitAction.REGIME_DECAY,  # reuse existing action type
+                    exit_price=bar_close,
+                    reason=f"1m_flip: fm+vol against ({pos.side}) pnl={_current_ticks:.1f}t",
+                    pnl_ticks=_current_ticks,
+                    bars_held=pos.bars_held,
+                )
 
         # 4. Survival Stop
         if not _in_hold_period:
