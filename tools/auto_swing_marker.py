@@ -223,9 +223,35 @@ def measure_1s(index_1s, ts_start, ts_end, direction, cache):
         return 0.0, 0.0, 0.0
 
 
+def _extract_bar_physics(state):
+    """Extract physics dict from a MarketState object."""
+    if state is None:
+        return None
+    return {
+        'fm': round(float(state.F_momentum), 2),
+        'z': round(float(state.z_score), 3),
+        'dmi_p': round(float(state.dmi_plus), 2),
+        'dmi_m': round(float(state.dmi_minus), 2),
+        'adx': round(float(state.adx_strength), 2),
+        'vel': round(float(state.velocity), 3),
+        'vol': round(float(state.volume_delta), 1),
+        'hurst': round(float(state.hurst_exponent), 3),
+        'P_center': round(float(state.P_at_center), 4),
+        'coherence': round(float(getattr(state, 'oscillation_entropy_normalized', 0)), 4),
+        'sigma': round(float(state.regression_sigma), 3),
+        'pid': round(float(state.term_pid), 4),
+    }
+
+
 def mark_day(df_day, timestamps, close, index_1s, date_str,
-             min_reversal, min_bars, max_bars=0) -> list:
-    """Run auto-swing detection on one day, return seed list."""
+             min_reversal, min_bars, max_bars=0, states=None) -> list:
+    """Run auto-swing detection on one day, return seed list.
+
+    Args:
+        states: optional list of MarketState objects (same length as close).
+                When provided, seeds are enriched with full physics for both
+                lookback (10 bars before entry) and trade segment (entry to exit).
+    """
     pivots = detect_swings(close, min_reversal=min_reversal, min_bars=min_bars,
                            max_bars=max_bars)
 
@@ -277,6 +303,49 @@ def mark_day(df_day, timestamps, close, index_1s, date_str,
             'regime_start_idx': si,
             'source': 'auto_swing',
         }
+
+        # Enrich with physics if states available
+        if states is not None:
+            # Lookback: 10 bars before entry (the approach)
+            lb_start = max(0, si - LOOKBACK_BARS)
+            lookback_physics = []
+            for k in range(lb_start, si):
+                if k < len(states) and states[k] is not None:
+                    ph = _extract_bar_physics(states[k])
+                    if ph is not None:
+                        ph['close'] = round(float(close[k]), 2)
+                        ph['ts'] = float(timestamps[k])
+                        lookback_physics.append(ph)
+            seed['lookback'] = lookback_physics
+
+            # Trade segment: entry to exit
+            trade_physics = []
+            for k in range(si, min(ei + 1, len(states))):
+                if states[k] is not None:
+                    ph = _extract_bar_physics(states[k])
+                    if ph is not None:
+                        ph['close'] = round(float(close[k]), 2)
+                        ph['ts'] = float(timestamps[k])
+                        trade_physics.append(ph)
+            seed['trade'] = trade_physics
+
+            # Entry state summary (for quick filtering)
+            if si < len(states) and states[si] is not None:
+                es = states[si]
+                seed['entry_fm'] = round(float(es.F_momentum), 2)
+                seed['entry_dmi_diff'] = round(float(es.dmi_plus - es.dmi_minus), 2)
+                seed['entry_vol'] = round(float(es.volume_delta), 1)
+                seed['entry_adx'] = round(float(es.adx_strength), 2)
+                seed['entry_z'] = round(float(es.z_score), 3)
+
+            # Exit state summary
+            if ei < len(states) and states[ei] is not None:
+                xs = states[ei]
+                seed['exit_fm'] = round(float(xs.F_momentum), 2)
+                seed['exit_dmi_diff'] = round(float(xs.dmi_plus - xs.dmi_minus), 2)
+                seed['exit_vol'] = round(float(xs.volume_delta), 1)
+                seed['exit_adx'] = round(float(xs.adx_strength), 2)
+
         seeds.append(seed)
 
     return seeds
@@ -388,6 +457,15 @@ def main():
         print("ERROR: Specify --date or --all")
         sys.exit(1)
 
+    # Compute physics states for enrichment
+    print(f"  Computing 1m physics states...")
+    from core.statistical_field_engine import StatisticalFieldEngine
+    _sfe = StatisticalFieldEngine()
+    _raw_states = _sfe.batch_compute_states(df_1m)
+    _states_all = [s['state'] if s and isinstance(s, dict) and 'state' in s else None
+                   for s in _raw_states]
+    print(f"  States: {len(_states_all)}")
+
     print(f"\n  Processing {len(dates)} days...")
 
     all_seeds = {}
@@ -407,8 +485,10 @@ def main():
         close_day = close_all[idx]
         ts_day = timestamps_all[idx]
 
+        states_day = [_states_all[i] for i in idx]
         seeds = mark_day(df_1m.iloc[idx], ts_day, close_day, index_1s,
-                         date_str, min_reversal, min_bars, max_bars)
+                         date_str, min_reversal, min_bars, max_bars,
+                         states=states_day)
 
         if seeds:
             all_seeds[date_str] = {
