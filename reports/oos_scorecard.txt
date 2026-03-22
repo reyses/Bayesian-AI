@@ -1,37 +1,35 @@
 ======================================================================
 SCORECARD: OOS None to None
-  Commit: c7c16715  |  Generated: 2026-03-21 20:12:28
-  PnL: $-48.68  |  Trades: 1,150  |  WR: 71.2%  |  PF: 1.00
-  $/trade: $-0.04  |  $/day: $-1  |  Max DD: $2,609
-  Win days: 19/36 (53%)  |  Best: $866  |  Worst: $-2,192  |  Median: $16
+  Commit: 04400db8  |  Generated: 2026-03-22 02:24:38
+  PnL: $209.28  |  Trades: 451  |  WR: 46.8%  |  PF: 1.13
+  $/trade: $0.46  |  $/day: $6  |  Max DD: $431
+  Win days: 17/34 (50%)  |  Best: $174  |  Worst: $-114  |  Median: $1
 ======================================================================
 
 WHAT WORKS (PF > 1.5):
-  survival_stop            253 trades  PF= 0.00  $ +2,675.00  $ +10.57/tr  WR=95%
-  survival_flatline         30 trades  PF= 0.00  $   +340.00  $ +11.33/tr  WR=97%
-  v_reversal                 1 trades  PF= 0.00  $    +33.50  $ +33.50/tr  WR=100%
+  stop_loss                 29 trades  PF= 2.66  $   +395.28  $ +13.63/tr  WR=90%
+  survival_stop              7 trades  PF= 0.00  $    +98.50  $ +14.07/tr  WR=100%
 
 WHAT HURTS (PF < 1.0):
-  stop_loss                424 trades  PF= 0.82  $ -1,749.18  $  -4.13/tr  WR=82%
-  peak_giveback            439 trades  PF= 0.43  $ -1,319.00  $  -3.00/tr  WR=46%
-  maintenance_flat           3 trades  PF= 0.39  $    -29.00  $  -9.67/tr  WR=33%
-  FIXABLE (50% recovery): ~$1,549 -> PnL could be $1,500
+  peak_giveback             36 trades  PF= 0.36  $   -186.50  $  -5.18/tr  WR=44%
+  regime_decay             379 trades  PF= 0.91  $    -98.00  $  -0.26/tr  WR=43%
+  FIXABLE (50% recovery): ~$142 -> PnL could be $352
 
 HOLD DURATION:
-    <30s:    16 trades  $-101.78/tr <-- OVER-HOLDING
-  30s-1m:   227 trades  $  +7.19/tr <-- SWEET SPOT
-    1-2m:   386 trades  $  +7.73/tr <-- SWEET SPOT
-    2-5m:   312 trades  $ +11.68/tr <-- SWEET SPOT
-   5-10m:    71 trades  $  -4.37/tr
-    10m+:   138 trades  $ -46.15/tr <-- OVER-HOLDING
+    <30s:   297 trades  $  -0.84/tr
+  30s-1m:    65 trades  $  +3.48/tr <-- SWEET SPOT
+    1-2m:    58 trades  $  +2.90/tr <-- SWEET SPOT
+    2-5m:    26 trades  $ +11.11/tr
+   5-10m:     3 trades  $ -24.83/tr <-- OVER-HOLDING
+    10m+:     2 trades  $ -74.50/tr <-- OVER-HOLDING
 
 DIRECTION:
-  LONG:   695 (60%)  WR=71%  PnL=$ -1,194.65
-  SHORT:   455 (40%)  WR=72%  PnL=$ +1,145.97
+  LONG:   331 (73%)  WR=46%  PnL=$   +231.35
+  SHORT:   120 (27%)  WR=50%  PnL=$    -22.07
 
 SENSOR GATE:
-  Detected: 65,434  |  Entered: 49,037  |  Blocked: 16,397  (16397:49037 ratio)
-    1m_sensor: 16,391
-    cat_regime: 6
+  Detected: 76,931  |  Entered: 11,668  |  Blocked: 65,263  (65263:11668 ratio)
+    1m_sensor: 44,716
+    cat_regime: 20,547
 
 ======================================================================
