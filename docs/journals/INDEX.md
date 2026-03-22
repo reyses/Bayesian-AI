@@ -4,6 +4,7 @@
 
 | Date | Summary |
 |------|---------|
+| 2026-03-21 | LOOKAHEAD FOUND: 1-bar peak detection bug since day one, all prior numbers inflated. IS refactor (1,029 lines deleted), OOS3 removed, report_engine shared. Oracle experiment: system profitable with good brain. MTF pivot research: TF agreement = continuation (fakeout), disagreement = real reversal. 1m gate re-enabled. |
 | 2026-03-20 | Live parity root cause: F_momentum 17x divergence (PID cumsum cold start). ATLAS warmup pipeline built. OOS $22.6K/66.8% WR/$4.87/tr. CNN brain spec v2 (10 arguments). Roadmap: Lizard→Crow→Monkey. ADX/fake-peak/DMI filters all disabled (research: no value or harmful). |
 | 2026-03-19 | Peak override (tried/reverted), ADX chop filter (Feb 9: -$8.8K -> -$24), daily DD stop ($1K), live sim debug, NT8 bridge 6.6.0 (DMI+vol), OOS $14.3K/66.6% WR/$4.26/tr, codebase cleanup -1700 lines |
 | 2026-03-18 | Sensor fusion overhaul: enriched exits (belief_flip -97%), peak entry gate (1m sensors + fake peak filter), buildup/exhaustion buffer, sensor-adaptive trailing stop (40t), 1700 lines dead code removed, 10 research tools, fractal dims KILL, Feb 9 deep dive, IS peak detection parity via BarProcessor |

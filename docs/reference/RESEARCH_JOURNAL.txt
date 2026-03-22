@@ -3025,4 +3025,37 @@ FIRST RESULTS (47 seeds, 741 bars, July 14):
     → ExecutionEngine uses seeded templates for gates.
   ALTERNATIVE: Seeds → Candidate injection at bar_processor level,
     bypassing discovery entirely.
-  STATUS: NOT STARTED — architecture review done, needs implementation.
+  STATUS: NOT STARTED -- architecture review done, needs implementation.
+
+[2026-03-21] CRITICAL: 1-BAR LOOKAHEAD BUG FOUND
+  WHAT: IS peak detection used _states_map.get(_bar_i) AFTER _bar_i += 1.
+        This gave peak detector the NEXT bar's state (15s of future data).
+        Present since day one. IS and OOS shared the same loop = both tainted.
+  IMPACT: All prior IS/OOS numbers inflated. $243K IS / $22K OOS were not real.
+  FIX: Refactored IS to use BarProcessor.process_bar() (uses current bar state).
+  BRANCH: pre-lookahead-fix preserves old code at commit 09cb6171.
+
+[2026-03-21] ORACLE BRAIN EXPERIMENT
+  Froze brain from lookahead IS, ran honest IS with frozen brain.
+  RESULT: Profitable. System HAS real edge, but needs good brain to express it.
+  CONCLUSION: Brain quality (from lookahead training) was the enabler, not timing.
+
+[2026-03-21] MULTI-TF PIVOT SEED SCANNER
+  TOOL: tools/pivot_seed_scanner_mtf.py
+  METHOD: Detect pivots at 1s precision (lookback=60s), confirm with 1m state,
+          capture 15s execution context. Label REAL vs FAKEOUT by outcome.
+  DATA: ATLAS_1WEEK, 4,718 pivots (4,626 real, 60 fakeout)
+  KEY FINDINGS:
+    1m confirmation (fakeout = move not done):
+      s1m_F_momentum: REAL=+38, FAKE=-35 (fakeout has 1m momentum AGAINST reversal)
+      s1m_volume_delta: REAL=+23, FAKE=+36 (fakeout has MORE volume)
+      s1m_dmi_diff: REAL=-1.0, FAKE=-2.7 (fakeout has stronger DMI trend)
+    15s context (fakeout = entering against freight train):
+      s15_F_momentum: REAL=-16, FAKE=-92 (huge momentum against entry)
+      s15_dmi_diff: REAL=-0.9, FAKE=+1.2 (DMI trends WITH old move)
+    Cross-TF agreement (the killer):
+      vol_agreement: REAL=0.61, FAKE=0.77 (TFs agree on volume = fakeout)
+      fm_agreement: REAL=0.60, FAKE=0.73 (TFs agree on momentum = fakeout)
+  CONCLUSION: TF agreement = continuation (fakeout). Disagreement = real reversal.
+  VALIDATES: 1m sensor gate, cascade fade exit, resonance cascade (contrarian).
+  NEXT: Run on full ATLAS for more fakeout samples (only 60 in 1 week).
