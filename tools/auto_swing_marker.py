@@ -240,6 +240,17 @@ def _extract_bar_physics(state):
         'coherence': round(float(getattr(state, 'oscillation_entropy_normalized', 0)), 4),
         'sigma': round(float(state.regression_sigma), 3),
         'pid': round(float(state.term_pid), 4),
+        # Additional physics
+        'entropy': round(float(state.entropy_normalized), 4),
+        'net_force': round(float(state.net_force), 2),
+        'mr_force': round(float(state.mean_reversion_force), 3),
+        'rev_prob': round(float(state.reversion_probability), 4),
+        'P_upper': round(float(state.P_near_upper), 4),
+        'P_lower': round(float(state.P_near_lower), 4),
+        'dmi_p_prev': round(float(state.di_plus_prev), 2),
+        'dmi_m_prev': round(float(state.di_minus_prev), 2),
+        'adx_prev': round(float(state.adx_prev), 2),
+        'noise': round(float(state.swing_noise_ticks), 1),
     }
 
 
