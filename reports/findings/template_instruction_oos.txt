@@ -1,0 +1,28 @@
+======================================================================
+TEMPLATE INSTRUCTION TEST — IS Templates on OOS
+Match threshold: 20.0
+Rule: template match -> enter direction -> hold duration -> exit
+No gates. No exit cascade. Pure template instructions.
+======================================================================
+
+OOS bars: 176,273
+Matches: 1,469 | No match: 0
+Trades: 1468
+WR: 49.9%
+Total PnL: 5371t ($2,685.5)
+Avg PnL: 3.7t ($1.83)
+Avg MFE: 144.2t | Avg MAE: 137.6t
+MFE/MAE: 1.0x
+Avg hold: 120 bars (30.0 min)
+Per day: $36.6
+
+DIRECTION:
+  SHORT: 1468 trades, WR=50%, avg=3.7t, total=$2,685.5
+
+TOP TEMPLATES:
+  TID=184: n=1468 WR=50% avg=3.7t total=$2,685.5
+
+COMPARISON:
+  Blind 11-bar flip (OOS):     $7,967
+  Current system (honest):     $1,844
+  Template instructions (this): $2,685.5
