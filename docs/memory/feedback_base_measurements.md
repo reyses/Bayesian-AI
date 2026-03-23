@@ -19,8 +19,12 @@ break when you change any system parameter.
 - Every feature must have a one-sentence explanation: "this measures X of Y over Z window"
   where X = statistical operation, Y = Price/Time/Volume, Z = defined window
 - If you can't explain it without reading the code, it doesn't belong
-- Derivatives are OK when grounded (1 transparent step: velocity = dP/dt)
+- Derivatives are OK at ANY order — so long as each step answers a nameable question
+  (velocity = how fast? acceleration = is force changing? jerk = is onset smooth or sudden?)
+- The PROBLEM is derivatives that compute something nobody can name. F_momentum computes
+  a PID on z on regression — what market question does that answer? Nobody knows.
 - Distribution measures are OK (std, variance — they measure SHAPE of base data)
 - Cross-derivatives are OK (price × volume — combines independent bases)
 - When replacing a feature, keep the QUESTION it answered, replace the plumbing
 - Test: "would this feature mean the same thing on ES as on MNQ?" If no, it's machine-specific
+- The rule is NOT "stay close to base." The rule is "can you NAME what this measures?"
