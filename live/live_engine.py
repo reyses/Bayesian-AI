@@ -89,6 +89,7 @@ _TUNING_DEFAULTS = {
     'envelope_accel_sensitivity': 1.0,
     'auto_tp_reentry': True,
     'physics_sl_ticks': 40,
+    'physics_tp_ticks': 0,          # 0 = disabled (funnel handles exits)
 }
 
 _ANCHOR_TF_MAP = {
@@ -449,18 +450,24 @@ class LiveEngine:
                 # Exit check between bars  -- catches SL/TP/trail within 1s
                 if self._position_open and self._last_price > 0:
                     if self._physics_mode:
-                        # Physics mode: simple SL check at 1s resolution
+                        # Physics mode: SL/TP check at 1s resolution
                         if self._position:
                             _tick = self._asset.tick_size
                             if self._position.side == 'long':
                                 _pt = (self._last_price - self._position.entry_price) / _tick
                             else:
                                 _pt = (self._position.entry_price - self._last_price) / _tick
+                            _tp = self._tuning.get('physics_tp_ticks', 0)
                             if _pt <= -self._physics_sl_ticks:
                                 logger.warning(f"PHYSICS SL (loop): {_pt:+.1f}t")
                                 self._physics._in_trade = False
                                 self._physics._move_start_price = self._last_price
                                 await self._close_position('physics_sl')
+                            elif _tp > 0 and _pt >= _tp:
+                                logger.info(f"PHYSICS TP (loop): {_pt:+.1f}t")
+                                self._physics._in_trade = False
+                                self._physics._move_start_price = self._last_price
+                                await self._close_position('physics_tp')
                     else:
                         try:
                             _st = self._last_states[-1]['state'] if self._last_states else None
@@ -919,18 +926,24 @@ class LiveEngine:
 
         if self._position_open:
             if self._physics_mode:
-                # Physics mode: 1s SL check (capital protection only)
+                # Physics mode: SL/TP check at 1s resolution
                 if self._position:
                     _tick = self._asset.tick_size
                     if self._position.side == 'long':
                         _pnl_t = (price - self._position.entry_price) / _tick
                     else:
                         _pnl_t = (self._position.entry_price - price) / _tick
+                    _tp = self._tuning.get('physics_tp_ticks', 0)
                     if _pnl_t <= -self._physics_sl_ticks:
                         logger.warning(f"PHYSICS SL (1s): {_pnl_t:+.1f}t @ {price:.2f}")
                         self._physics._in_trade = False
                         self._physics._move_start_price = price
                         await self._close_position('physics_sl')
+                    elif _tp > 0 and _pnl_t >= _tp:
+                        logger.info(f"PHYSICS TP (1s): {_pnl_t:+.1f}t @ {price:.2f}")
+                        self._physics._in_trade = False
+                        self._physics._move_start_price = price
+                        await self._close_position('physics_tp')
             else:
                 try:
                     # Sub-bar exit check via AdvanceEngine (1s resolution for SL/trail)
@@ -1091,19 +1104,25 @@ class LiveEngine:
             }
             await self._close_position('physics_flip')
 
-        # SL protection: check if ExitEngine wants out (capital protection only)
+        # SL/TP protection
         if self._position_open and self._position:
             _tick = self._asset.tick_size
             if self._position.side == 'long':
                 _pnl_ticks = (price - self._position.entry_price) / _tick
             else:
                 _pnl_ticks = (self._position.entry_price - price) / _tick
+
+            _tp = self._tuning.get('physics_tp_ticks', 0)
             if _pnl_ticks <= -self._physics_sl_ticks:
                 logger.warning(f"PHYSICS SL HIT: {_pnl_ticks:+.1f}t (limit={self._physics_sl_ticks})")
-                # Force PhysicsEngine to clear its internal trade state
                 self._physics._in_trade = False
                 self._physics._move_start_price = price
                 await self._close_position('physics_sl')
+            elif _tp > 0 and _pnl_ticks >= _tp:
+                logger.info(f"PHYSICS TP HIT: {_pnl_ticks:+.1f}t (target={_tp})")
+                self._physics._in_trade = False
+                self._physics._move_start_price = price
+                await self._close_position('physics_tp')
 
     async def _physics_enter(self, result: 'EngineResult', price: float, ts: float):
         """Execute a PhysicsEngine ENTER/FLIP entry."""
