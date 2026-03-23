@@ -105,8 +105,9 @@
 
 | Question | Best Feature | Category | NOT this feature |
 |----------|-------------|----------|-----------------|
-| **Direction** (which way?) | velocity sign, z_score sign | grounded deriv | ~~ADX~~ (strength not direction) |
+| **Direction** (which way?) | velocity sign, z_score sign, dmi_diff sign | grounded deriv | ~~ADX~~ (strength not direction) |
 | **Timing** (when to enter?) | velocity magnitude, acceleration | grounded deriv | ~~hurst~~ (ungrounded statistic) |
+| **Exhaustion** (reversal coming?) | dmi_volume_exhaustion (|DMI| high + vol low) | cross | ~~DMI cross~~ (cross is too late) |
 | **Position** (where in structure?) | fib_position, 1h_z_score | structural | ~~P_center~~ (model, not structure) |
 | **Quality** (real or fake?) | price×volume alignment, std_volume | cross + distribution | ~~coherence~~ (r≈0) |
 | **Regime** (trending or choppy?) | variance_ratio | distribution | ~~ADX~~ (triple-derived, obscured) |
@@ -139,11 +140,18 @@ Proposed: 4 categories grounded in 3 base measurements (Price, Time, Volume):
 
 | Category | Count | Features |
 |----------|-------|----------|
-| Grounded derivatives | 4 | velocity, z_score, acceleration, volume_rate |
+| Grounded derivatives | 4 | velocity, z_score, acceleration, dmi_diff |
 | Distribution (std/var) | 3 | std_price_changes, std_volume, variance_ratio |
 | Structural position | 3 | fib_position, higher_tf_z, session_phase |
-| Cross (Price×Volume) | 2 | volume_delta, price_volume_alignment |
-| **Total** | **12** | |
+| Cross (Base×Base) | 3 | volume_delta, price_volume_alignment, dmi_volume_exhaustion |
+| **Total** | **13** | |
+
+Note on DMI: DMI+ and DMI- are first derivatives like velocity, but from DIFFERENT
+price components (high-to-high vs low-to-low). Velocity measures center speed, DMI
+measures the buyer/seller battle. Individually weak (r=0.006), but DMI extreme + volume
+collapse is the exhaustion/reversal signal (research 2026-03-21). Collapsed to one feature:
+- **dmi_diff** = DMI+ − DMI− (who's winning — grounded derivative)
+- **dmi_volume_exhaustion** = |dmi_diff| high AND volume low (cross-signal, the reversal)
 
 Principle: derivatives are OK when grounded (1 transparent step from base).
 Principle: std/variance measure the SHAPE of base measurements, not another transformation.
