@@ -1,0 +1,13 @@
+OBSERVER WORKER SUMMARY
+==================================================
+
+Total bars logged: 42373
+Total peak events: 76931
+
+Peak Stats:
+  Total: 76931
+  Entered: 11668 (15.2%)
+  Skipped: 65263
+  Trend-aligned: 37557 (entered: 7914)
+  Counter-trend: 37059 (entered: 3204)
+  Flat/no trend: 2315
