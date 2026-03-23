@@ -1416,7 +1416,11 @@ class LiveEngine:
         if action == 'FLATTEN':
             if self._position_open:
                 logger.info(f"MANUAL FLATTEN @ {price:.2f}")
-                self._belief_network.stop_trade_tracking()
+                if self._belief_network is not None:
+                    self._belief_network.stop_trade_tracking()
+                if self._physics_mode and self._physics:
+                    self._physics._in_trade = False
+                    self._physics._move_start_price = price
                 await self._close_position('MANUAL_FLATTEN')
             else:
                 logger.info("MANUAL FLATTEN  -- already flat")
@@ -1428,7 +1432,8 @@ class LiveEngine:
         # If already in a position, flatten first then defer entry until FILL
         if self._position_open:
             logger.info(f"MANUAL {action}: flattening existing position first")
-            self._belief_network.stop_trade_tracking()
+            if self._belief_network is not None:
+                self._belief_network.stop_trade_tracking()
             self._pending_manual_entry = {
                 'action': action, 'price': price, 'ts': ts, 'states': states,
             }
@@ -1443,16 +1448,17 @@ class LiveEngine:
         side = 'long' if action == 'BUY' else 'short'
 
         # Belief warning  -- check if workers disagree with manual direction
-        belief = self._belief_network.get_belief()
-        if belief and belief.direction != side:
-            _warn = (f"WARNING: belief says {belief.direction.upper()} "
-                     f"(conv={belief.conviction:.2f})  -- you're going {side.upper()}")
-            logger.warning(_warn)
-            self._gui.push({
-                'type': 'PHASE_PROGRESS', 'phase': 'LIVE',
-                'step': f'WARN: belief={belief.direction.upper()}',
-                'pct': self._entry_belief_pct,
-            })
+        if self._belief_network is not None:
+            belief = self._belief_network.get_belief()
+            if belief and belief.direction != side:
+                _warn = (f"WARNING: belief says {belief.direction.upper()} "
+                         f"(conv={belief.conviction:.2f})  -- you're going {side.upper()}")
+                logger.warning(_warn)
+                self._gui.push({
+                    'type': 'PHASE_PROGRESS', 'phase': 'LIVE',
+                    'step': f'WARN: belief={belief.direction.upper()}',
+                    'pct': self._entry_belief_pct,
+                })
 
         # Exit params: ATR-based defaults, manual overrides if non-zero
         atr = self._live_atr_ticks if self._live_atr_ticks > 0 else 8.0
@@ -1487,11 +1493,12 @@ class LiveEngine:
         )
         self._init_exit_state(side, price, sl_ticks, tp_ticks, 'MANUAL')
         # Sync with exec_engine so AdvanceEngine sees the position for exits
-        self._exec_engine.position_opened(
-            side=side, price=price, bar_index=self._bar_i,
-            template_id=-1, lib_entry={},
-            sl_ticks=sl_ticks, tp_ticks=tp_ticks,
-        )
+        if hasattr(self, '_exec_engine') and self._exec_engine is not None:
+            self._exec_engine.position_opened(
+                side=side, price=price, bar_index=self._bar_i,
+                template_id=-1, lib_entry={},
+                sl_ticks=sl_ticks, tp_ticks=tp_ticks,
+            )
         self._position_open = True
         self._entry_price = price
         self._entry_time = ts
@@ -1503,9 +1510,10 @@ class LiveEngine:
         self._trade_logger.start_trade(
             self._session.stats.trades + 1, side, price, ts)
 
-        self._belief_network.start_trade_tracking(
-            side=side, entry_bar=self._bar_i,
-            pattern_horizon_bars=self._max_hold_bars)
+        if self._belief_network is not None:
+            self._belief_network.start_trade_tracking(
+                side=side, entry_bar=self._bar_i,
+                pattern_horizon_bars=self._max_hold_bars)
 
         order_msg = self._orders.build_entry_order(
             'BUY' if side == 'long' else 'SELL')
