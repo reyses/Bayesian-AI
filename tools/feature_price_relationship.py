@@ -46,14 +46,16 @@ FEATURES = [
 LOOKAHEADS = [1, 3, 5, 10]
 
 
-def load_oos_states():
-    """Load OOS 1m data and compute states."""
-    print('Loading OOS 1m data...')
-    oos_files = sorted(glob.glob('DATA/ATLAS_OOS/1m/*.parquet'))
+def load_oos_states(data_dir='DATA/ATLAS_OOS', max_bars=0):
+    """Load 1m data and compute states."""
+    print(f'Loading 1m data from {data_dir}...')
+    oos_files = sorted(glob.glob(os.path.join(data_dir, '1m', '*.parquet')))
     if not oos_files:
-        print('ERROR: No OOS 1m parquet files found in DATA/ATLAS_OOS/1m/')
+        print(f'ERROR: No 1m parquet files found in {data_dir}/1m/')
         sys.exit(1)
     oos = pd.concat([pd.read_parquet(f) for f in oos_files], ignore_index=True)
+    if max_bars > 0 and len(oos) > max_bars:
+        oos = oos.iloc[:max_bars]
     print(f'  {len(oos):,} bars from {len(oos_files)} files')
 
     engine = StatisticalFieldEngine()
@@ -193,10 +195,18 @@ def plot_feature(attr, label, deltas, price_changes, out_dir):
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description='Feature-price relationship analysis')
+    parser.add_argument('--data', default='DATA/ATLAS_OOS',
+                        help='Data directory (default: DATA/ATLAS_OOS)')
+    parser.add_argument('--max-bars', type=int, default=0,
+                        help='Limit bars (0=all, 1440=~1 day of 1m)')
+    args = parser.parse_args()
+
     out_dir = os.path.join('tools', 'plots', 'feature_price')
     os.makedirs(out_dir, exist_ok=True)
 
-    states, closes, timestamps = load_oos_states()
+    states, closes, timestamps = load_oos_states(args.data, args.max_bars)
     feat_vals, feat_deltas, price_changes = extract_features_and_deltas(states, closes)
 
     print(f'\nPlotting {len(FEATURES)} features x {len(LOOKAHEADS)} lookaheads...')
