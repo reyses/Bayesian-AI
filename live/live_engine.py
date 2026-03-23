@@ -508,16 +508,8 @@ class LiveEngine:
                         _pf['exited_side'], self._last_price, _now,
                         self._last_states or [])
                 self._compute_life_pct()
-                # Compute unrealized for stats push
-                _unreal_for_stats = 0.0
-                if self._position_open and self._position and self._last_price > 0:
-                    _pv = self._asset.point_value
-                    if self._position.side == 'long':
-                        _unreal_for_stats = (self._last_price - self._position.entry_price) * _pv
-                    else:
-                        _unreal_for_stats = (self._position.entry_price - self._last_price) * _pv
                 self._gui.push_stats(
-                    session_pnl=self._session.stats.pnl + _unreal_for_stats,
+                    session_pnl=self._session.stats.pnl,
                     session_wins=self._session.stats.wins,
                     session_trades=self._session.stats.trades,
                     gross_win=self._session.stats.gross_win,
@@ -525,7 +517,7 @@ class LiveEngine:
                     exit_buckets=self._session.stats.exit_buckets,
                     belief_pct=self._exit_belief_pct if self._position_open else self._entry_belief_pct,
                     in_position=self._position_open,
-                    daily_pnl=self._orders.daily_pnl + _unreal_for_stats,
+                    daily_pnl=self._orders.daily_pnl,
                 )
                 # ── Heartbeat (every 60s) ──
                 if _now - self._last_heartbeat >= 60.0:
