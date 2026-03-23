@@ -107,6 +107,19 @@ class PeakMarker:
             return
 
         idx = self._find_nearest_bar(click_num)
+
+        # Check if clicking near an existing peak — toggle delete
+        for pi, existing in enumerate(self.peaks):
+            if existing['bar_index'] == idx:
+                # Remove this peak
+                self.peaks.pop(pi)
+                m, label = self._peak_markers.pop(pi)
+                m.remove()
+                label.remove()
+                print(f'  Removed peak @ {existing["time_utc"]}')
+                self.fig.canvas.draw_idle()
+                return
+
         direction = self._detect_direction(idx)
 
         # Snap to bar extreme: use high or low (whichever is the peak)
@@ -165,7 +178,7 @@ class PeakMarker:
             plt.close(self.fig)
 
     def _save(self):
-        """Save marked peaks to JSON."""
+        """Save marked peaks to JSON + screenshot of the chart."""
         os.makedirs(SEEDS_DIR, exist_ok=True)
         path = os.path.join(SEEDS_DIR, f'human_peaks_{self.date_str}_{self.tf}.json')
         out = {
@@ -177,6 +190,39 @@ class PeakMarker:
         with open(path, 'w') as f:
             json.dump(out, f, indent=2)
         print(f'\nSaved {len(self.peaks)} peaks to {path}')
+
+        # Save screenshot
+        ss_dir = os.path.join('reports', 'screenshots')
+        os.makedirs(ss_dir, exist_ok=True)
+        ss_path = os.path.join(ss_dir, f'peak_marker_{self.date_str}_{self.tf}.png')
+        self.fig.savefig(ss_path, dpi=150)
+        print(f'Screenshot: {ss_path}')
+
+    def _load_existing(self):
+        """Load previously saved peaks for this date+tf."""
+        path = os.path.join(SEEDS_DIR, f'human_peaks_{self.date_str}_{self.tf}.json')
+        if not os.path.exists(path):
+            return
+        with open(path) as f:
+            data = json.load(f)
+        prev = data.get('peaks', [])
+        if not prev:
+            return
+        print(f'  Loaded {len(prev)} existing peaks from {path}')
+        for peak in prev:
+            self.peaks.append(peak)
+            idx = peak['bar_index']
+            if idx >= len(self.close):
+                continue
+            snap_price = peak.get('price', self.close[idx])
+            snap_label = peak.get('_snap', '?')
+            m = self.ax.scatter(self.dt_stamps[idx], snap_price,
+                                marker='D', c='cyan', s=150, zorder=10,
+                                edgecolors='black', lw=1.5)
+            label = self.ax.text(self.dt_stamps[idx], snap_price + 2,
+                                 f'#{len(self.peaks)} {snap_label}\n{snap_price:.2f}',
+                                 fontsize=7, ha='center', color='cyan', fontweight='bold')
+            self._peak_markers.append((m, label))
 
     def run(self):
         """Show interactive chart."""
@@ -196,6 +242,9 @@ class PeakMarker:
         self.ax.set_xlabel('Time (UTC)')
         self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
         self.ax.grid(True, alpha=0.3)
+
+        # Load previous marks if re-running
+        self._load_existing()
 
         # Connect events
         self.fig.canvas.mpl_connect('button_press_event', self._on_click)
