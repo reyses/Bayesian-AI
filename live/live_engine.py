@@ -219,6 +219,9 @@ class LiveEngine:
         self._physics: Optional[PhysicsEngine] = None
         self._physics_sl_ticks = self._tuning.get('physics_sl_ticks', 40)
         self._pending_physics_entry: Optional[dict] = None  # deferred FLIP re-entry
+        self._seed_weights: Optional[np.ndarray] = None  # observational weight tracking
+        self._seed_match_count: Optional[np.ndarray] = None
+        self._last_entry_indices: list = []  # seeds from last ENTER (for weight update on exit)
 
         # Ping-pong state (kept on LiveEngine  -- guards NT8 order lifecycle)
         self._ping_pong_mode = self._shared_state.get('ping_pong', False)
@@ -1044,6 +1047,11 @@ class LiveEngine:
 
         if (result.action == 'ENTER' and not self._position_open
                 and not self._closing_position and self._orders.can_enter):
+            # Track which seeds matched (for weight update on exit)
+            self._last_entry_indices = result.matched_indices or []
+            if self._seed_match_count is not None and result.matched_indices:
+                for si in result.matched_indices:
+                    self._seed_match_count[si] += 1
             await self._physics_enter(result, price, ts)
 
         elif result.action == 'ENTER' and (self._position_open or not self._orders.can_enter):
@@ -1709,6 +1717,27 @@ class LiveEngine:
         self._log_direction_bias(self._active_tid, self._active_side, pnl)
         self._live_trade_count += 1
 
+        # Observational seed weight update (slow learning, NOT used for trading)
+        if (self._physics_mode and self._seed_weights is not None
+                and self._last_entry_indices):
+            _win = pnl > 0
+            _step = 0.01  # 1/100th per match
+            for si in self._last_entry_indices:
+                if _win:
+                    self._seed_weights[si] += _step
+                else:
+                    self._seed_weights[si] -= _step * 2  # asymmetric: losses weigh 2x
+                self._seed_weights[si] = max(0.01, self._seed_weights[si])  # floor
+
+            _w = self._seed_weights
+            _matched = self._seed_weights[self._last_entry_indices]
+            logger.info(f"[WEIGHTS] {'WIN' if _win else 'LOSS'} | "
+                        f"matched seeds avg={np.mean(_matched):.3f} | "
+                        f"global: mean={np.mean(_w):.3f} std={np.std(_w):.3f} "
+                        f"min={np.min(_w):.3f} max={np.max(_w):.3f} "
+                        f"moved={int(np.sum(_w != 1.0))}/{len(_w)}")
+            self._last_entry_indices = []
+
         # Compute MFE for capture bucket
         hwm = getattr(self, '_last_high_water', entry_px)
         if self._active_side == 'long':
@@ -2049,8 +2078,12 @@ class LiveEngine:
         logger.info(f"Loading PhysicsEngine seeds: {seed_path}")
         t0 = time.time()
         self._physics = PhysicsEngine.from_seeds(seed_path)
-        logger.info(f"PhysicsEngine ready in {time.time() - t0:.1f}s  "
-                    f"({self._physics.seed_flat.shape[0]} seeds)")
+        n_seeds = self._physics.seed_flat.shape[0]
+        logger.info(f"PhysicsEngine ready in {time.time() - t0:.1f}s  ({n_seeds} seeds)")
+
+        # Initialize observational weight tracking (equal weights, no influence on trading)
+        self._seed_weights = np.ones(n_seeds, dtype=np.float64)
+        self._seed_match_count = np.zeros(n_seeds, dtype=np.int64)
 
     def _checkpoint_bundle(self):
         """Build a CheckpointBundle from already-loaded instance attrs."""

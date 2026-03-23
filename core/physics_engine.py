@@ -47,6 +47,7 @@ class EngineResult:
     coherence: float = 0.0         # TF coherence at decision time
     magnitude: float = 0.0         # prior move magnitude (ticks)
     mag_pctile: float = 0.0        # magnitude percentile
+    matched_indices: list = None   # K-NN seed indices (for weight tracking)
 
 
 class PhysicsEngine:
@@ -197,6 +198,7 @@ class PhysicsEngine:
             'consensus': consensus,
             'hold': hold,
             'avg_dist': float(nearest_dist.mean()),
+            'indices': nearest_idx.tolist(),
         }
 
     def on_bar(
@@ -266,6 +268,7 @@ class PhysicsEngine:
                         pnl_ticks=pnl,
                         reason=f'funnel_flip {old_dir}->{match["direction"]} cons={match["consensus"]:.2f} held={_bars_held}',
                         coherence=coherence,
+                        matched_indices=match.get('indices'),
                     )
 
                 return EngineResult(
@@ -351,6 +354,7 @@ class PhysicsEngine:
             n_matched=self.k,
             reason=f'ENTER {match["direction"]} cons={match["consensus"]:.2f} hold={match["hold"]} mag={prior_move:.1f}t',
             coherence=coherence, magnitude=prior_move, mag_pctile=mag_pctile,
+            matched_indices=match.get('indices'),
         )
 
     def report(self) -> str:
