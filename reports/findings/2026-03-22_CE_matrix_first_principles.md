@@ -46,16 +46,27 @@
 | 4 | **sigma** | Price | Noise floor / environment measure (not direction) | r_s=+0.007 |
 
 ### 2b. Add (missing from first principles)
-| # | Feature | Base | What question it answers |
-|---|---------|------|------------------------|
-| 5 | **acceleration** (d²P/dt²) | Price+Time | Is the move speeding up or exhausting? |
-| 6 | **fib_position** | Price (structural) | WHERE in the 5-day range? (0=low, 1=high) |
-| 7 | **dist_nearest_fib** | Price (structural) | How far from a Fibonacci level? (ticks) |
-| 8 | **volume_rate** (dV/dt) | Volume+Time | Is participation increasing or drying up? |
-| 9 | **price_volume_alignment** | Price×Volume | Is the move BACKED by volume? (sign agreement) |
-| 10 | **session_phase** | Time | Open/morning/lunch/afternoon/close (categorical→numeric) |
-| 11 | **higher_tf_z** (1h z-score) | Price (MTF) | Position in hourly structure |
-| 12 | **higher_tf_fm_sign** (1h direction) | Price (MTF) | Is 1m WITH or AGAINST the 1h? |
+
+**Grounded derivatives** (1 transparent step from base):
+| # | Feature | Formula | Base | What question it answers |
+|---|---------|---------|------|------------------------|
+| 5 | **acceleration** | d(velocity)/dt | Price+Time | Is the move speeding up or exhausting? |
+| 6 | **volume_rate** | dV/dt | Volume+Time | Is participation increasing or drying up? |
+| 7 | **price_volume_alignment** | sign(velocity) × sign(volume) | Price×Volume | Is the move BACKED by volume? |
+
+**Statistical distribution** (std/variance of base measurements — NOT derivatives, these measure the SHAPE):
+| # | Feature | Formula | Base | What question it answers |
+|---|---------|---------|------|------------------------|
+| 8 | **std_price_changes** | std(dP, window=20) | Price | Realized volatility — quiet vs wild? |
+| 9 | **std_volume** | std(V, window=20) | Volume | Is flow steady (institutional) or spiky (retail)? |
+| 10 | **variance_ratio** | var(dP, short=5) / var(dP, long=20) | Price | Trending (>1) vs mean-reverting (<1)? Replaces Hurst. |
+
+**Structural position** (price in context, not just price):
+| # | Feature | Formula | Base | What question it answers |
+|---|---------|---------|------|------------------------|
+| 11 | **fib_position** | (P − low_5d) / (high_5d − low_5d) | Price (structural) | WHERE in the 5-day range? (0=low, 1=high) |
+| 12 | **higher_tf_z** | 1h z-score | Price (MTF) | Position in hourly structure? |
+| 13 | **session_phase** | f(time_of_day) | Time | Open/morning/lunch/afternoon/close? |
 
 ### 2c. Drop (no signal or redundant)
 | Feature | Why drop |
@@ -75,29 +86,32 @@
 
 **Y (Output)** = Next-bar price change direction (correct = profitable trade)
 
-| X (Input) | Measurement Type | Answers | Corr to Y | Priority |
-|-----------|-----------------|---------|-----------|----------|
-| **velocity** | Price÷Time | How fast? | 10 | ENTRY timing |
-| **z_score** | Price−Mean | How far from center? | 9 | ENTRY + EXIT position |
-| **fib_position** | Price÷Range | WHERE in structure? | ? (untested) | EXIT timing |
-| **volume_delta** | Volume | Who's participating? | 8 | ENTRY confirmation |
-| **price×volume** | Price×Volume | Is move real or fake? | ? (untested) | ENTRY quality |
-| **acceleration** | d(velocity)/dt | Speeding up or dying? | ? (untested) | EXIT timing |
-| **sigma** | std(Price) | How noisy? | 5 | SIZING (not direction) |
-| **1h_z_score** | MTF Price | Position in hourly? | ? (untested) | EXIT structure |
-| **session_phase** | Time | When in the day? | ? (untested) | ENTRY filter |
-| **volume_rate** | Volume÷Time | Crowd arriving/leaving? | ? (untested) | EXIT confirmation |
+| X (Input) | Category | Answers | Corr to Y | Priority |
+|-----------|----------|---------|-----------|----------|
+| **velocity** | grounded deriv (dP/dt) | How fast? | 10 | ENTRY timing |
+| **z_score** | grounded deriv (P−mean)/σ | How far from center? | 9 | ENTRY + EXIT |
+| **volume_delta** | base (Volume) | Who's participating? | 8 | ENTRY confirmation |
+| **fib_position** | structural (P in range) | WHERE in structure? | ? | EXIT timing |
+| **price×volume** | cross (Price×Volume) | Real move or fake? | ? | ENTRY quality |
+| **acceleration** | grounded deriv (d²P/dt²) | Speeding up or dying? | ? | EXIT timing |
+| **std_price_changes** | distribution (std of dP) | Quiet or wild? | ? | SIZING |
+| **std_volume** | distribution (std of V) | Steady or spiky flow? | ? | ENTRY quality |
+| **variance_ratio** | distribution (var short/long) | Trending or reverting? | ? | REGIME |
+| **1h_z_score** | structural (MTF) | Position in hourly? | ? | EXIT structure |
+| **session_phase** | base (Time) | When in the day? | ? | ENTRY filter |
+| **volume_rate** | grounded deriv (dV/dt) | Crowd arriving/leaving? | ? | EXIT confirm |
 
 ### 3a. What Each Feature Should Be Used For
 
-| Question | Best Feature | NOT this feature |
-|----------|-------------|-----------------|
-| **Direction** (which way?) | velocity sign, z_score sign | ~~ADX~~ (strength not direction) |
-| **Timing** (when to enter?) | velocity magnitude, acceleration | ~~hurst~~ (statistical, not timing) |
-| **Position** (where in structure?) | fib_position, 1h_z_score | ~~P_center~~ (model, not structure) |
-| **Quality** (real or fake?) | price×volume alignment | ~~coherence~~ (r≈0) |
-| **Sizing** (how much?) | sigma, volume magnitude | ~~ADX~~ (not for sizing either) |
-| **Exit** (when to get out?) | fib_position, acceleration, volume_rate | ~~F_momentum~~ (same as velocity) |
+| Question | Best Feature | Category | NOT this feature |
+|----------|-------------|----------|-----------------|
+| **Direction** (which way?) | velocity sign, z_score sign | grounded deriv | ~~ADX~~ (strength not direction) |
+| **Timing** (when to enter?) | velocity magnitude, acceleration | grounded deriv | ~~hurst~~ (ungrounded statistic) |
+| **Position** (where in structure?) | fib_position, 1h_z_score | structural | ~~P_center~~ (model, not structure) |
+| **Quality** (real or fake?) | price×volume alignment, std_volume | cross + distribution | ~~coherence~~ (r≈0) |
+| **Regime** (trending or choppy?) | variance_ratio | distribution | ~~ADX~~ (triple-derived, obscured) |
+| **Sizing** (how much?) | std_price_changes, volume magnitude | distribution | ~~hurst~~ (grounded alternative exists) |
+| **Exit** (when to get out?) | fib_position, acceleration, volume_rate | structural + deriv | ~~F_momentum~~ (same as velocity) |
 
 ---
 
@@ -120,12 +134,25 @@
 
 ## 5. IMPLICATIONS FOR PhysicsEngine
 
-Current: 12 features, 10 are price derivatives, 1 volume, 0 structure.
-Proposed: 12 features, 4 proven price, 1 volume, 3 structure, 2 cross, 2 context.
+Current: 12 features — 10 ungrounded price derivatives, 1 volume scalar, 0 structure, 0 distribution.
+Proposed: 4 categories grounded in 3 base measurements (Price, Time, Volume):
+
+| Category | Count | Features |
+|----------|-------|----------|
+| Grounded derivatives | 4 | velocity, z_score, acceleration, volume_rate |
+| Distribution (std/var) | 3 | std_price_changes, std_volume, variance_ratio |
+| Structural position | 3 | fib_position, higher_tf_z, session_phase |
+| Cross (Price×Volume) | 2 | volume_delta, price_volume_alignment |
+| **Total** | **12** | |
+
+Principle: derivatives are OK when grounded (1 transparent step from base).
+Principle: std/variance measure the SHAPE of base measurements, not another transformation.
+Principle: each feature answers exactly ONE question about the market.
 
 The K-NN trajectory matching will improve because:
-- Seeds matched by STRUCTURAL POSITION will separate "same physics, different outcome"
-- Price-volume cross will filter real moves from noise
-- Session phase will prevent matching morning patterns against lunch chop
+- **Distribution features** tell the K-NN about the ENVIRONMENT (quiet/loud, trending/reverting)
+- **Structural features** separate "same physics, different outcome" by WHERE in the range
+- **Cross features** confirm whether moves are backed by participation
+- **No redundancy** — 12 features, 12 different questions, 3 independent bases
 
-**Expected impact**: $264/day → $400+ when exits know WHERE they are, not just WHAT the physics says.
+**Expected impact**: $264/day → $400+ when the trajectory encodes environment + structure + confirmation, not just 10 ways of asking "what did price do?"
