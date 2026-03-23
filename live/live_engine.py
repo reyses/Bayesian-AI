@@ -1037,6 +1037,11 @@ class LiveEngine:
         if result.action == 'ENTER' and not self._position_open and self._orders.can_enter:
             await self._physics_enter(result, price, ts)
 
+        elif result.action == 'ENTER' and (self._position_open or not self._orders.can_enter):
+            # Blocked entry — yellow skip diamond
+            self._gui.push({'type': 'TRADE_MARKER', 'action': 'SKIP',
+                            'side': result.direction.lower(), 'price': price, 'pnl': 0})
+
         elif result.action == 'EXIT' and self._position_open:
             logger.info(f"PHYSICS EXIT: {result.direction} pnl={result.pnl_ticks:+.1f}t")
             await self._close_position('physics_hold_expire')
