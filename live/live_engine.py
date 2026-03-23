@@ -1741,6 +1741,7 @@ class LiveEngine:
                 and self._last_entry_indices):
             _win = pnl > 0
             _step = 0.01  # 1/100th per match
+            _side_sign = 1 if self._active_side == 'long' else -1
             for si in self._last_entry_indices:
                 if _win:
                     self._seed_weights[si] += _step
@@ -1748,13 +1749,36 @@ class LiveEngine:
                     self._seed_weights[si] -= _step * 2  # asymmetric: losses weigh 2x
                 self._seed_weights[si] = max(0.01, self._seed_weights[si])  # floor
 
+            # Direction tracking per seed: did seeds voting THIS direction win?
+            if not hasattr(self, '_seed_dir_wins'):
+                n_seeds = len(self._seed_weights)
+                self._seed_dir_wins = np.zeros(n_seeds, dtype=np.int64)
+                self._seed_dir_losses = np.zeros(n_seeds, dtype=np.int64)
+                self._seed_dir_pnl = np.zeros(n_seeds, dtype=np.float64)
+
+            for si in self._last_entry_indices:
+                seed_dir = self._physics.seed_dir[si]  # +1=LONG, -1=SHORT
+                agreed = (seed_dir == _side_sign)  # seed voted same as trade direction
+                if agreed:
+                    if _win:
+                        self._seed_dir_wins[si] += 1
+                    else:
+                        self._seed_dir_losses[si] += 1
+                    self._seed_dir_pnl[si] += pnl
+
             _w = self._seed_weights
             _matched = self._seed_weights[self._last_entry_indices]
-            logger.info(f"[WEIGHTS] {'WIN' if _win else 'LOSS'} | "
-                        f"matched seeds avg={np.mean(_matched):.3f} | "
+            _matched_dirs = self._physics.seed_dir[self._last_entry_indices]
+            _n_agreed = int((_matched_dirs == _side_sign).sum())
+            _n_opposed = len(self._last_entry_indices) - _n_agreed
+            _total_tracked = int(np.sum(self._seed_dir_wins + self._seed_dir_losses))
+
+            logger.info(f"[WEIGHTS] {'WIN' if _win else 'LOSS'} ${pnl:+.2f} {self._active_side.upper()} | "
+                        f"seeds: {_n_agreed} agreed, {_n_opposed} opposed | "
+                        f"matched avg_w={np.mean(_matched):.3f} | "
                         f"global: mean={np.mean(_w):.3f} std={np.std(_w):.3f} "
-                        f"min={np.min(_w):.3f} max={np.max(_w):.3f} "
-                        f"moved={int(np.sum(_w != 1.0))}/{len(_w)}")
+                        f"moved={int(np.sum(_w != 1.0))}/{len(_w)} | "
+                        f"dir_tracked={_total_tracked}")
             self._last_entry_indices = []
 
         # Compute MFE for capture bucket
