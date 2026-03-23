@@ -3,7 +3,6 @@ Advance Engine  -- single per-bar decision loop.
 
 Replaces duplicated bar-processing logic across:
   - training/trainer.py (OOS compressed path)
-  - live/history_replay.py (_replay_day)
   - live/live_engine.py (_check_entry / _check_exit)
 
 Owns: candidate building, feature extraction, EE gate cascade,
