@@ -106,6 +106,23 @@ def compute_features(df):
     else:
         wick_ratio = np.zeros(n)
 
+    # DMI proxy: smoothed directional movement (14-bar)
+    up_move = np.concatenate([[0], np.diff(highs)]) / TICK
+    down_move = np.concatenate([[0], -np.diff(lows)]) / TICK
+    up_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0)
+    down_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0)
+
+    dmi_window = 14
+    dmi_plus = np.full(n, 0.0)
+    dmi_minus = np.full(n, 0.0)
+    for i in range(dmi_window, n):
+        dmi_plus[i] = np.mean(up_dm[i-dmi_window:i])
+        dmi_minus[i] = np.mean(down_dm[i-dmi_window:i])
+
+    dmi_diff = dmi_plus - dmi_minus  # who's winning
+    dmi_sum = dmi_plus + dmi_minus
+    dmi_ratio = np.where(dmi_sum > 0, np.abs(dmi_diff) / dmi_sum, 0)  # how extreme
+
     return {
         'dp': dp,
         'velocity': velocity,
@@ -116,6 +133,10 @@ def compute_features(df):
         'std_price': std_price,
         'bar_range': bar_range,
         'wick_ratio': wick_ratio,
+        'dmi_diff': dmi_diff,
+        'dmi_ratio': dmi_ratio,
+        'dmi_plus': dmi_plus,
+        'dmi_minus': dmi_minus,
         'timestamps': df['timestamp'].values,
     }
 
@@ -126,7 +147,8 @@ def extract_windows(features, peaks, window=WINDOW):
     n = len(timestamps)
 
     feature_names = ['dp', 'velocity', 'acceleration', 'volume',
-                     'vol_delta', 'vol_ratio', 'std_price', 'bar_range', 'wick_ratio']
+                     'vol_delta', 'vol_ratio', 'std_price', 'bar_range', 'wick_ratio',
+                     'dmi_diff', 'dmi_ratio', 'dmi_plus', 'dmi_minus']
 
     # Collect windows: shape (n_peaks, 2*window+1) per feature
     windows = {f: [] for f in feature_names}
@@ -192,7 +214,8 @@ def main():
     lines.append('=' * 90)
 
     for fname in ['velocity', 'acceleration', 'volume', 'vol_delta',
-                   'vol_ratio', 'std_price', 'bar_range', 'wick_ratio', 'dp']:
+                   'vol_ratio', 'std_price', 'bar_range', 'wick_ratio', 'dp',
+                   'dmi_diff', 'dmi_ratio']:
         if fname not in results:
             continue
         r = results[fname]
@@ -218,7 +241,7 @@ def main():
     lines.append('-' * 90)
 
     for fname in ['velocity', 'volume', 'vol_delta', 'vol_ratio',
-                   'std_price', 'bar_range', 'dp']:
+                   'std_price', 'bar_range', 'dp', 'dmi_diff', 'dmi_ratio']:
         if fname not in results:
             continue
         r = results[fname]['mean']
@@ -251,7 +274,8 @@ def _plot(results, offsets, date_str, n_peaks):
     import matplotlib.pyplot as plt
 
     features_to_plot = ['velocity', 'volume', 'vol_delta', 'vol_ratio',
-                         'std_price', 'bar_range', 'dp', 'acceleration']
+                         'std_price', 'bar_range', 'dp', 'acceleration',
+                         'dmi_diff', 'dmi_ratio']
     features_to_plot = [f for f in features_to_plot if f in results]
 
     n_plots = len(features_to_plot)
