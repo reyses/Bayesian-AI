@@ -803,7 +803,17 @@ class LiveEngine:
             self._nt8_latest_dmi[bar_period] = _nt8_dmi
 
         # Only feed primary chart bars and anchor-TF bars to the aggregator
-        if bar_period != self._primary_period and bar_period != self._anchor_period:
+        _is_anchor_or_primary = (bar_period == self._primary_period
+                                 or bar_period == self._anchor_period)
+        if not _is_anchor_or_primary:
+            # In physics mode, still process 1s bars for GUI tick + SL checks
+            if self._physics_mode and bar_period == 1:
+                price = float(msg['close'])
+                ts = float(msg['timestamp'])
+                self._last_price = price
+                self._last_ts = ts
+                if self._aggregator.is_warmed_up and not self._aggregator._history_mode:
+                    await self._process_1s(price, ts)
             return
 
         price = float(msg['close'])
