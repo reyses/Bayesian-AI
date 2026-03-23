@@ -1291,10 +1291,8 @@ class ProgressPopup:
                 c.create_polygon(mx, _mid_y - sz, mx - sz, _mid_y,
                                  mx, _mid_y + sz, mx + sz, _mid_y,
                                  fill="#CC44FF", outline="")
-            elif action == 'skip':
-                c.create_polygon(mx, _mid_y - sz, mx - sz, _mid_y,
-                                 mx, _mid_y + sz, mx + sz, _mid_y,
-                                 fill="#FFAA00", outline="")
+            elif action == 'skip' or action == 'SKIP':
+                c.create_line(mx, pad, mx, H - pad, fill="#FFAA00", width=1, dash=(2, 4))
             elif action == 'exit':
                 mc = "#00FF00" if mpnl and mpnl > 0 else "#FF4444"
                 c.create_line(mx, pad, mx, H - pad, fill=mc, width=1, dash=(2, 2))
