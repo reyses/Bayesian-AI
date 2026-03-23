@@ -177,6 +177,39 @@ class PeakMarker:
             print(f'  Deleted peak @ {removed["time_utc"]}')
             self.fig.canvas.draw_idle()
 
+        elif event.key == 'z':
+            # Zoom in 50% centered on current view
+            xl = self.ax.get_xlim()
+            yl = self.ax.get_ylim()
+            xc = (xl[0] + xl[1]) / 2
+            yc = (yl[0] + yl[1]) / 2
+            xr = (xl[1] - xl[0]) * 0.25
+            yr = (yl[1] - yl[0]) * 0.25
+            self.ax.set_xlim(xc - xr, xc + xr)
+            self.ax.set_ylim(yc - yr, yc + yr)
+            self.fig.canvas.draw_idle()
+
+        elif event.key == 'a':
+            # Zoom out 2x centered on current view
+            xl = self.ax.get_xlim()
+            yl = self.ax.get_ylim()
+            xc = (xl[0] + xl[1]) / 2
+            yc = (yl[0] + yl[1]) / 2
+            xr = (xl[1] - xl[0])
+            yr = (yl[1] - yl[0])
+            self.ax.set_xlim(xc - xr, xc + xr)
+            self.ax.set_ylim(yc - yr, yc + yr)
+            self.fig.canvas.draw_idle()
+
+        elif event.key == 'x':
+            # Toggle pan mode
+            self.fig.canvas.toolbar.pan()
+
+        elif event.key == 'h':
+            # Reset view to full extent
+            self.ax.autoscale()
+            self.fig.canvas.draw_idle()
+
         elif event.key == 'q':
             self._save()
             plt.close(self.fig)
@@ -239,8 +272,8 @@ class PeakMarker:
                          [self.low[i], self.high[i]], color=color, lw=1, alpha=0.6)
             self.ax.plot(self.dt_stamps[i], self.close[i], '.', color=color, markersize=3)
 
-        self.ax.set_title(f'{self.date_str} ({self.tf}) — Click to mark peaks | '
-                          f'D=delete last | Q=save+quit',
+        self.ax.set_title(f'{self.date_str} ({self.tf}) — Click to mark | '
+                          f'Z=zoom in | A=zoom out | X=pan | H=reset | D=del | Q=save',
                           fontsize=14, fontweight='bold')
         self.ax.set_ylabel('Price')
         self.ax.set_xlabel('Time (UTC)')
@@ -255,7 +288,8 @@ class PeakMarker:
         self.fig.canvas.mpl_connect('key_press_event', self._on_key)
 
         print(f'\nPeak Marker — {self.date_str} ({self.tf})')
-        print(f'  Click to mark peaks (location only, no direction)')
+        print(f'  Click = mark peak (location only)')
+        print(f'  Z = zoom in | A = zoom out | X = pan | H = reset view')
         print(f'  D = delete last mark')
         print(f'  Q = save and quit')
         print()
