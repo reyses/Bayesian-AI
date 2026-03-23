@@ -260,14 +260,13 @@ def main():
             near_wall, wall_px, wall_dist = check_wall_proximity(peak['price'], walls)
             stats['near_wall'] = near_wall
             stats['wall_dist_ticks'] = float(wall_dist)
-            stats['direction'] = peak.get('direction', '?')
             stats['price'] = peak['price']
             stats['time'] = peak.get('time_utc', '?')
             tf_stats.append(stats)
             all_peak_stats.append({**stats, 'tf': tf})
 
             wall_str = f' NEAR WALL ({wall_dist:.0f}t)' if near_wall else ''
-            lines.append(f'  #{i+1} {peak.get("time_utc","?")} {peak.get("direction","?")} '
+            lines.append(f'  #{i+1} {peak.get("time_utc","?")} '
                          f'@ {peak["price"]:.2f}{wall_str}')
             lines.append(f'    vel: mean={stats["vel_mean"]:+.2f} trend={stats["vel_trend"]:+.2f} '
                          f'at_peak={stats["vel_at_peak"]:+.2f}')
@@ -365,9 +364,7 @@ def _plot(df_1s, features, peaks_by_tf, walls, date_str):
             continue
         for peak in peaks_by_tf[tf]:
             idx = np.argmin(np.abs(features['timestamps'] - peak['timestamp']))
-            d = peak.get('direction', '?')
-            marker = '^' if d == 'LONG' else ('v' if d == 'SHORT' else 'D')
-            ax1.scatter(times[idx], closes[idx], marker=marker,
+            ax1.scatter(times[idx], closes[idx], marker='D',
                         c=tf_colors.get(tf, 'gray'), s=tf_sizes.get(tf, 80),
                         zorder=10, edgecolors='black', lw=0.5, alpha=0.9)
 
