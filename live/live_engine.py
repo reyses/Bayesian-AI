@@ -1041,9 +1041,28 @@ class LiveEngine:
 
         result = self._physics.on_bar(price, bar_high, bar_low, ts, state)
 
-        # Verbose: log every decision
+        # Verbose: log funnel state every bar
         if result.reason:
-            logger.info(f"[PHYSICS] {result.reason}")
+            # Show funnel buildup: how many seeds are close, what's the consensus
+            _funnel = ''
+            if self._physics and len(self._physics._traj_buffer) >= 10:
+                import numpy as _np
+                _buf = _np.array(list(self._physics._traj_buffer))
+                _normed = (_buf - self._physics.feat_means) / self._physics.feat_stds
+                _flat = _normed.reshape(1, -1)
+                _dist = _np.linalg.norm(self._physics.seed_flat - _flat, axis=1)
+                _k = self._physics.k
+                _near_idx = _np.argpartition(_dist, _k)[:_k]
+                _near_dist = _dist[_near_idx]
+                _dirs = self._physics.seed_dir[_near_idx]
+                _n_long = int((_dirs > 0).sum())
+                _cons = max(_n_long, _k - _n_long) / _k
+                _dir = 'L' if _n_long > _k - _n_long else 'S'
+                # How many seeds within 2x of best distance
+                _best = _near_dist.min()
+                _within_2x = int((_dist < _best * 2).sum())
+                _funnel = f' | funnel: {_dir}({_cons:.0%}) d={_near_dist.mean():.1f} near={_within_2x}'
+            logger.info(f"[PHYSICS] {result.reason}{_funnel}")
 
         if (result.action == 'ENTER' and not self._position_open
                 and not self._closing_position and self._orders.can_enter):
