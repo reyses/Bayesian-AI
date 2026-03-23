@@ -3059,3 +3059,53 @@ FIRST RESULTS (47 seeds, 741 bars, July 14):
   CONCLUSION: TF agreement = continuation (fakeout). Disagreement = real reversal.
   VALIDATES: 1m sensor gate, cascade fade exit, resonance cascade (contrarian).
   NEXT: Run on full ATLAS for more fakeout samples (only 60 in 1 week).
+
+2026-03-22: FIRST PRINCIPLES FEATURE REBUILD
+======================================================================
+
+BASE MEASUREMENTS: Price, Time, Volume — only 3 independent observables.
+Current 12 features = 10 price derivatives + 1 volume + 0 structure.
+
+FEATURE-PRICE ANALYSIS (OOS, 42,795 bars):
+  Ran tools/feature_price_relationship.py — delta(feature) vs future price change.
+  Top 5 |Spearman| at +1bar: velocity(-0.024), FM(-0.024), z(-0.020), PID(-0.019), vol(-0.018).
+  ALL negative = mean-reverting. System is matching mean-reversion patterns.
+  Dead features: coherence(0.001), P_center(0.000), hurst(-0.004).
+  Z-score PERSISTS at +10bar (r=-0.011) — structural signal, not just noise.
+
+KEY INSIGHT: "oscillation_entropy_normalized" (coherence) is NOT entropy.
+  Formula: 1/(1+std(z_scores, window=5)). It's inverted short-term vol of z-score.
+  Grounded replacement: std(price_changes).
+
+VOLATILITY = std(velocity) = std(dP/dt). Distribution of first derivative.
+  At 1h: trend amplitude (the envelope).
+  At 1m: noise amplitude (the tradable chop).
+  Ratio = noise/trend = how much is tradable. THIS IS THE VARIANCE RATIO.
+
+VARIANCE RATIO = Brownian motion test:
+  Ratio=1 → random walk (no edge). >1 → trending. <1 → mean-reverting.
+  Replaces Hurst (ungrounded R/S statistic) AND ADX (double-smoothed ratio).
+
+ADX: standard because Wilder published first (1978), not because it's best.
+  5 layers: DM → smooth → DI → ratio → smooth → ADX. Variance ratio = 1 step.
+
+DMI RESTORED: measures buyer/seller battle (highs vs lows), different from velocity.
+  Individually weak (r=0.006), but DMI extreme + volume collapse = exhaustion signal.
+
+PROPOSED 13-FEATURE SET:
+  Grounded derivatives (4): velocity, z_score, acceleration, dmi_diff
+  Distribution (3): std_price, std_volume, variance_ratio
+  Structural (3): fib_position, higher_tf_z, session_phase
+  Cross signals (3): volume_delta, price*volume, dmi*volume_exhaustion
+  Each answers ONE question. 3 independent bases. No redundancy.
+
+PHYSICS ENGINE PRICE-AWARENESS GAP:
+  Physics leads entry correctly. But exit (funnel flip) is purely physics.
+  Peak seeds are PRICE events, trend seeds are PHYSICS events.
+  Need: Fibonacci position (5-day high/low), higher-TF z-score for structural exits.
+  Research line: docs/Active/RESEARCH_FIBONACCI_STRUCTURE.md
+
+PHYSICS ENGINE DEPLOYED (sim):
+  python -m live.launcher --physics
+  11 commits, 6 live bugs fixed during first sim run.
+  BarProcessor renamed to AdvanceEngine. 1,302 lines dead code removed.
