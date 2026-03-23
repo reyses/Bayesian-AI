@@ -184,7 +184,7 @@ class PeakMarker:
     def _save(self):
         """Save marked peaks to JSON."""
         os.makedirs(SEEDS_DIR, exist_ok=True)
-        path = os.path.join(SEEDS_DIR, f'human_peaks_{self.date_str}.json')
+        path = os.path.join(SEEDS_DIR, f'human_peaks_{self.date_str}_{self.tf}.json')
         out = {
             'date': self.date_str,
             'tf': self.tf,
@@ -240,12 +240,21 @@ def main():
     args = parser.parse_args()
 
     # Load data for the date
-    df = load_atlas_tf(args.data, args.tf, args.date, args.date)
+    # Determine which month file to load from the date
+    _month = args.date[:4] + '_' + args.date[5:7]  # "2026-02-05" -> "2026_02"
+    df = load_atlas_tf(args.data, args.tf, [_month])
     if df is None or len(df) == 0:
-        # Try OOS
-        df = load_atlas_tf('DATA/ATLAS_OOS', args.tf, args.date, args.date)
+        df = load_atlas_tf('DATA/ATLAS_OOS', args.tf, [_month])
     if df is None or len(df) == 0:
         print(f'No data for {args.date} at {args.tf} in {args.data}')
+        sys.exit(1)
+
+    # Filter to requested date
+    df['_dt'] = pd.to_datetime(df['timestamp'], unit='s', utc=True)
+    df = df[df['_dt'].dt.strftime('%Y-%m-%d') == args.date].copy()
+    df = df.drop(columns=['_dt']).reset_index(drop=True)
+    if len(df) == 0:
+        print(f'No bars for {args.date} after date filter')
         sys.exit(1)
 
     print(f'Loaded {len(df)} bars for {args.date} at {args.tf}')
