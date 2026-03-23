@@ -1483,10 +1483,6 @@ class LiveEngine:
             bar_count=self._bar_i,
         )
 
-        # Replay parity report (replay mode only)
-        if self._shared_state.get('replay_mode'):
-            pass  # Parity check handled by forward pass in trainer
-
         # Check position status
         if self._position_open:
             unreal = self._nt8_unrealized_pnl
@@ -1500,9 +1496,6 @@ class LiveEngine:
             logger.info("Prepare shutdown: no open position, safe to close")
 
         self._gui.push({'type': 'SHUTDOWN_READY', 'status': status})
-
-    # _write_replay_parity_report DELETED (264 lines)
-    # Parity checking handled by forward pass in trainer.
 
     def _on_account_update(self, msg: dict):
         """Handle ACCOUNT_UPDATE from NT8  -- push equity to GUI."""
