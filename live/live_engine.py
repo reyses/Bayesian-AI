@@ -227,6 +227,7 @@ class LiveEngine:
         self._flip_in_progress = False
         self._pending_manual_entry = None
         self._pp_last_exit_params = None
+        self._closing_position = False  # True while waiting for close FILL
 
         # NT8 account equity (from ACCOUNT_UPDATE messages)
         self._nt8_cash_value = 0.0
@@ -477,7 +478,9 @@ class LiveEngine:
                             await self._close_position('EXIT_CRASH')
                 # Safety net: NT8 has position but engine thinks flat  -- emergency exit calc
                 elif (not self._position_open and not self._orders.is_flat
-                      and not self._flip_in_progress and self._last_price > 0):
+                      and not self._flip_in_progress
+                      and not self._closing_position
+                      and self._last_price > 0):
                     _om_pos = self._orders.position
                     _om_side = _om_pos.side if _om_pos else '?'
                     _om_px = _om_pos.avg_price if _om_pos else 0
@@ -1046,7 +1049,8 @@ class LiveEngine:
         if result.reason:
             logger.info(f"[PHYSICS] {result.reason}")
 
-        if result.action == 'ENTER' and not self._position_open and self._orders.can_enter:
+        if (result.action == 'ENTER' and not self._position_open
+                and not self._closing_position and self._orders.can_enter):
             await self._physics_enter(result, price, ts)
 
         elif result.action == 'ENTER' and (self._position_open or not self._orders.can_enter):
@@ -1338,9 +1342,13 @@ class LiveEngine:
         )
 
     async def _close_position(self, reason: str):
-        """Send close order and reset position state."""
+        """Send close order and reset position state.
+
+        Position stays 'open' until FILL confirms flat (via _sync_position_state).
+        This prevents ORPHAN_FLATTEN from firing during the fill latency window.
+        """
         self._last_exit_side = self._active_side  # for ping-pong flip
-        self._position_open = False
+        self._closing_position = True  # blocks new entries, prevents orphan detection
         self._last_exit_reason = reason  # for trade log
         # Finish per-trade diagnostic CSV
         self._trade_logger.finish_trade(reason, self._last_price)
@@ -1907,11 +1915,12 @@ class LiveEngine:
                 # Entry fill received  -- flip complete
                 self._flip_in_progress = False
             return
-        if self._position_open and self._orders.is_flat:
-            # Position closed (fill received)
+        if (self._position_open or self._closing_position) and self._orders.is_flat:
+            # Position closed (fill received — NOW safe to clear state)
             self._position_open = False
+            self._closing_position = False
             self._position = None
-        elif not self._position_open and not self._orders.is_flat:
+        elif not self._position_open and not self._closing_position and not self._orders.is_flat:
             # Unexpected position (NT8 source of truth)
             logger.warning("NT8 has position but engine thinks flat  -- syncing")
             self._position_open = True
