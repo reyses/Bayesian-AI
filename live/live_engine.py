@@ -1182,13 +1182,15 @@ class LiveEngine:
             _trail_dist = sl_ticks
         _trail_health = max(0, min(1, _trail_dist / max(1, sl_ticks)))
 
-        # Conviction + alignment from belief network
-        exit_sig = self._belief_network.get_exit_signal(pos.side, pos.entry_price)
-        _conviction = exit_sig.get('conviction', 0.5)
+        # Conviction + alignment from belief network (not available in physics mode)
+        _conviction = 0.5
         _aligned = 1.0
-        belief = self._belief_network.get_belief()
-        if belief and belief.direction != pos.side:
-            _aligned = 0.3
+        if self._belief_network is not None:
+            exit_sig = self._belief_network.get_exit_signal(pos.side, pos.entry_price)
+            _conviction = exit_sig.get('conviction', 0.5)
+            belief = self._belief_network.get_belief()
+            if belief and belief.direction != pos.side:
+                _aligned = 0.3
 
         _life_pct = (
             _pnl_health * 50
