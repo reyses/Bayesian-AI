@@ -96,11 +96,15 @@ class PeakMarker:
             return 'UNKNOWN'
 
     def _on_click(self, event):
-        """Handle click — mark peak."""
+        """Handle click — mark peak. Ignores clicks when toolbar is active (zoom/pan)."""
         if event.inaxes != self.ax:
             return
         if event.button != 1:  # left click only
             return
+        # Skip if toolbar zoom/pan mode is active
+        toolbar = self.fig.canvas.toolbar
+        if toolbar and hasattr(toolbar, 'mode') and toolbar.mode:
+            return  # toolbar is in zoom or pan mode
 
         click_num = event.xdata
         if click_num is None:
