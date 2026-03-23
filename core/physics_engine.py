@@ -43,6 +43,10 @@ class EngineResult:
     consensus: float = 0.0         # K-NN direction consensus
     n_matched: int = 0             # number of seeds matched
     pnl_ticks: float = 0.0        # filled on EXIT
+    reason: str = ''               # human-readable decision reason
+    coherence: float = 0.0         # TF coherence at decision time
+    magnitude: float = 0.0         # prior move magnitude (ticks)
+    mag_pctile: float = 0.0        # magnitude percentile
 
 
 class PhysicsEngine:
@@ -225,7 +229,13 @@ class PhysicsEngine:
         match = self._match_funnel()
 
         # ── IN TRADE: check for funnel flip (exit signal) ──
+        _bars_held = self._bar_count - self._entry_bar if self._in_trade else 0
+        _bars_left = (self._entry_bar + self._trade_hold - self._bar_count) if self._in_trade else 0
+
         if self._in_trade:
+            _match_dir = match['direction'] if match else 'none'
+            _match_cons = match['consensus'] if match else 0.0
+
             # Exit condition 1: funnel flipped direction
             if match and match['direction'] != self._trade_dir:
                 if self._trade_dir == 'LONG':
@@ -254,12 +264,16 @@ class PhysicsEngine:
                         consensus=match['consensus'],
                         n_matched=self.k,
                         pnl_ticks=pnl,
+                        reason=f'funnel_flip {old_dir}->{match["direction"]} cons={match["consensus"]:.2f} held={_bars_held}',
+                        coherence=coherence,
                     )
 
                 return EngineResult(
                     action='EXIT',
                     direction=old_dir,
                     pnl_ticks=pnl,
+                    reason=f'flip_blocked coh={coherence:.2f}>{self.max_coherence} held={_bars_held}',
+                    coherence=coherence,
                 )
 
             # Exit condition 2: max hold reached
@@ -277,33 +291,47 @@ class PhysicsEngine:
                     action='EXIT',
                     direction=self._trade_dir,
                     pnl_ticks=pnl,
+                    reason=f'max_hold {self._trade_hold} bars',
+                    coherence=coherence,
                 )
 
             # Hold
-            return EngineResult()
+            return EngineResult(
+                reason=f'HOLD {self._trade_dir} bar {_bars_held}/{self._trade_hold} funnel={_match_dir}({_match_cons:.0%}) coh={coherence:.2f}',
+                coherence=coherence,
+            )
 
         # ── FLAT: check for entry ──
 
         if len(self._traj_buffer) < TRAJ_LEN:
             self.stats['skipped_warmup'] += 1
-            return EngineResult()
+            return EngineResult(reason=f'warmup {len(self._traj_buffer)}/{TRAJ_LEN}')
 
         # Filter: coherence
         if coherence > self.max_coherence:
             self.stats['skipped_coherence'] += 1
-            return EngineResult()
+            return EngineResult(
+                reason=f'SKIP coh={coherence:.2f}>{self.max_coherence}',
+                coherence=coherence,
+            )
 
         # Filter: magnitude
         prior_move = abs(price - self._move_start_price) / TICK_SIZE
         mag_pctile = sum(1 for m in self._mag_window if m < prior_move) / max(len(self._mag_window), 1)
         if mag_pctile < self.min_mag_pctile:
             self.stats['skipped_magnitude'] += 1
-            return EngineResult()
+            return EngineResult(
+                reason=f'SKIP mag={prior_move:.1f}t p{mag_pctile:.0%}<p{self.min_mag_pctile:.0%}',
+                coherence=coherence, magnitude=prior_move, mag_pctile=mag_pctile,
+            )
 
         # Check funnel match
         if not match:
             self.stats['skipped_consensus'] += 1
-            return EngineResult()
+            return EngineResult(
+                reason=f'SKIP no_consensus mag={prior_move:.1f}t coh={coherence:.2f}',
+                coherence=coherence, magnitude=prior_move, mag_pctile=mag_pctile,
+            )
 
         # Entry
         self._entry_price = price
@@ -321,6 +349,8 @@ class PhysicsEngine:
             hold_bars=match['hold'],
             consensus=match['consensus'],
             n_matched=self.k,
+            reason=f'ENTER {match["direction"]} cons={match["consensus"]:.2f} hold={match["hold"]} mag={prior_move:.1f}t',
+            coherence=coherence, magnitude=prior_move, mag_pctile=mag_pctile,
         )
 
     def report(self) -> str:

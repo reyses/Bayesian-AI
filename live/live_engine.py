@@ -1034,6 +1034,10 @@ class LiveEngine:
 
         result = self._physics.on_bar(price, bar_high, bar_low, ts, state)
 
+        # Verbose: log every decision
+        if result.reason:
+            logger.info(f"[PHYSICS] {result.reason}")
+
         if result.action == 'ENTER' and not self._position_open and self._orders.can_enter:
             await self._physics_enter(result, price, ts)
 
