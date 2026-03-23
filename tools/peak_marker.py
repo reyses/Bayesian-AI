@@ -109,24 +109,38 @@ class PeakMarker:
         idx = self._find_nearest_bar(click_num)
         direction = self._detect_direction(idx)
 
+        # Snap to bar extreme: use high or low (whichever is the peak)
+        # Click above close = peak high, click below close = peak low
+        click_price = event.ydata if event.ydata is not None else self.close[idx]
+        dist_to_high = abs(click_price - self.high[idx])
+        dist_to_low = abs(click_price - self.low[idx])
+        if dist_to_high < dist_to_low:
+            snap_price = float(self.high[idx])
+            snap_label = 'H'
+        else:
+            snap_price = float(self.low[idx])
+            snap_label = 'L'
+
         peak = {
             'bar_index': int(idx),
             'timestamp': float(self.timestamps[idx]),
             'time_utc': self.dt_stamps[idx].strftime('%H:%M:%S'),
-            'price': float(self.close[idx]),
+            'price': snap_price,
+            'close': float(self.close[idx]),
             'high': float(self.high[idx]),
             'low': float(self.low[idx]),
-            '_direction_hint': direction,  # metadata only, not used for detection
+            '_snap': snap_label,
+            '_direction_hint': direction,
             'tf': self.tf,
         }
         self.peaks.append(peak)
 
-        # Draw marker — neutral diamond, no direction color
-        m = self.ax.scatter(self.dt_stamps[idx], self.close[idx],
+        # Draw marker at the snapped extreme
+        m = self.ax.scatter(self.dt_stamps[idx], snap_price,
                             marker='D', c='cyan', s=150, zorder=10,
                             edgecolors='black', lw=1.5)
-        label = self.ax.text(self.dt_stamps[idx], self.high[idx] + 2,
-                             f'#{len(self.peaks)}\n{self.close[idx]:.2f}',
+        label = self.ax.text(self.dt_stamps[idx], snap_price + 2,
+                             f'#{len(self.peaks)} {snap_label}\n{snap_price:.2f}',
                              fontsize=7, ha='center', color='cyan', fontweight='bold')
         self._peak_markers.append((m, label))
 
