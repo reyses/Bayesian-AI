@@ -116,26 +116,22 @@ class PeakMarker:
             'price': float(self.close[idx]),
             'high': float(self.high[idx]),
             'low': float(self.low[idx]),
-            'direction': direction,
+            '_direction_hint': direction,  # metadata only, not used for detection
             'tf': self.tf,
         }
         self.peaks.append(peak)
 
-        # Draw marker
-        color = 'lime' if direction == 'LONG' else ('red' if direction == 'SHORT' else 'yellow')
-        marker = '^' if direction == 'LONG' else ('v' if direction == 'SHORT' else 'D')
-        y = self.low[idx] - 2 if direction == 'LONG' else self.high[idx] + 2
-
+        # Draw marker — neutral diamond, no direction color
         m = self.ax.scatter(self.dt_stamps[idx], self.close[idx],
-                            marker=marker, c=color, s=200, zorder=10,
+                            marker='D', c='cyan', s=150, zorder=10,
                             edgecolors='black', lw=1.5)
-        label = self.ax.text(self.dt_stamps[idx], y,
-                             f'#{len(self.peaks)} {direction}\n{self.close[idx]:.2f}',
-                             fontsize=7, ha='center', color=color, fontweight='bold')
+        label = self.ax.text(self.dt_stamps[idx], self.high[idx] + 2,
+                             f'#{len(self.peaks)}\n{self.close[idx]:.2f}',
+                             fontsize=7, ha='center', color='cyan', fontweight='bold')
         self._peak_markers.append((m, label))
 
         print(f'  Peak #{len(self.peaks)}: {self.dt_stamps[idx].strftime("%H:%M:%S")} '
-              f'{direction} @ {self.close[idx]:.2f}')
+              f'@ {self.close[idx]:.2f}')
 
         self.fig.canvas.draw_idle()
 
@@ -148,33 +144,6 @@ class PeakMarker:
             m.remove()
             label.remove()
             print(f'  Deleted peak @ {removed["time_utc"]}')
-            self.fig.canvas.draw_idle()
-
-        elif event.key == 's' and self.peaks:
-            # Flip direction of last peak
-            last = self.peaks[-1]
-            old_dir = last['direction']
-            new_dir = 'LONG' if old_dir == 'SHORT' else 'SHORT'
-            last['direction'] = new_dir
-
-            # Update visual
-            m, label = self._peak_markers[-1]
-            m.remove()
-            label.remove()
-
-            idx = last['bar_index']
-            color = 'lime' if new_dir == 'LONG' else 'red'
-            marker = '^' if new_dir == 'LONG' else 'v'
-            y = self.low[idx] - 2 if new_dir == 'LONG' else self.high[idx] + 2
-
-            m = self.ax.scatter(self.dt_stamps[idx], self.close[idx],
-                                marker=marker, c=color, s=200, zorder=10,
-                                edgecolors='black', lw=1.5)
-            label = self.ax.text(self.dt_stamps[idx], y,
-                                 f'#{len(self.peaks)} {new_dir}\n{self.close[idx]:.2f}',
-                                 fontsize=7, ha='center', color=color, fontweight='bold')
-            self._peak_markers[-1] = (m, label)
-            print(f'  Flipped #{len(self.peaks)}: {old_dir} -> {new_dir}')
             self.fig.canvas.draw_idle()
 
         elif event.key == 'q':
@@ -207,7 +176,7 @@ class PeakMarker:
             self.ax.plot(self.dt_stamps[i], self.close[i], '.', color=color, markersize=3)
 
         self.ax.set_title(f'{self.date_str} ({self.tf}) — Click to mark peaks | '
-                          f'S=flip direction | D=delete last | Q=save+quit',
+                          f'D=delete last | Q=save+quit',
                           fontsize=14, fontweight='bold')
         self.ax.set_ylabel('Price')
         self.ax.set_xlabel('Time (UTC)')
@@ -219,8 +188,7 @@ class PeakMarker:
         self.fig.canvas.mpl_connect('key_press_event', self._on_key)
 
         print(f'\nPeak Marker — {self.date_str} ({self.tf})')
-        print(f'  Click to mark peaks (direction auto-detected)')
-        print(f'  S = flip direction of last mark')
+        print(f'  Click to mark peaks (location only, no direction)')
         print(f'  D = delete last mark')
         print(f'  Q = save and quit')
         print()
