@@ -231,27 +231,40 @@ class PeakMarker:
 
 def main():
     parser = argparse.ArgumentParser(description='Manual peak marker')
-    parser.add_argument('--date', required=True, help='Date (YYYY-MM-DD)')
+    parser.add_argument('--date', required=True, help='Date (YYYY-MM-DD) or range (YYYY-MM-DD:YYYY-MM-DD)')
     parser.add_argument('--tf', default='5m',
-                        choices=['1m', '3m', '5m', '15m', '30m', '1h'],
+                        choices=['1m', '3m', '5m', '15m', '30m', '1h', '4h'],
                         help='Timeframe for chart (default: 5m)')
     parser.add_argument('--data', default='DATA/ATLAS',
                         help='ATLAS directory (default: DATA/ATLAS)')
     args = parser.parse_args()
 
-    # Load data for the date
-    # Determine which month file to load from the date
-    _month = args.date[:4] + '_' + args.date[5:7]  # "2026-02-05" -> "2026_02"
-    df = load_atlas_tf(args.data, args.tf, [_month])
+    # Load data for the date (supports single date or range with ':')
+    if ':' in args.date:
+        _start, _end = args.date.split(':')
+    else:
+        _start = _end = args.date
+
+    # Collect unique months from date range
+    _months = set()
+    _s = pd.Timestamp(_start)
+    _e = pd.Timestamp(_end)
+    while _s <= _e:
+        _months.add(f'{_s.year}_{_s.month:02d}')
+        _s += pd.DateOffset(months=1)
+    _months = sorted(_months)
+
+    df = load_atlas_tf(args.data, args.tf, _months)
     if df is None or len(df) == 0:
-        df = load_atlas_tf('DATA/ATLAS_OOS', args.tf, [_month])
+        df = load_atlas_tf('DATA/ATLAS_OOS', args.tf, _months)
     if df is None or len(df) == 0:
-        print(f'No data for {args.date} at {args.tf} in {args.data}')
+        print(f'No data for {args.date} at {args.tf}')
         sys.exit(1)
 
-    # Filter to requested date
+    # Filter to requested date range
     df['_dt'] = pd.to_datetime(df['timestamp'], unit='s', utc=True)
-    df = df[df['_dt'].dt.strftime('%Y-%m-%d') == args.date].copy()
+    df = df[(df['_dt'].dt.strftime('%Y-%m-%d') >= _start) &
+            (df['_dt'].dt.strftime('%Y-%m-%d') <= _end)].copy()
     df = df.drop(columns=['_dt']).reset_index(drop=True)
     if len(df) == 0:
         print(f'No bars for {args.date} after date filter')
@@ -259,7 +272,8 @@ def main():
 
     print(f'Loaded {len(df)} bars for {args.date} at {args.tf}')
 
-    marker = PeakMarker(df, args.date, args.tf)
+    _label = _start if _start == _end else f'{_start}_to_{_end}'
+    marker = PeakMarker(df, _label, args.tf)
     marker.run()
 
 
