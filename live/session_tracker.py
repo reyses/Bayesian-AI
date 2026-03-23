@@ -99,8 +99,8 @@ class SessionTracker:
         s = self.stats
         report_dir = os.path.join('reports', 'live')
         os.makedirs(report_dir, exist_ok=True)
-        ts = time.strftime('%Y%m%d_%H%M%S')
-        path = os.path.join(report_dir, f'session_{ts}.txt')
+        _date = time.strftime('%Y%m%d')
+        path = os.path.join(report_dir, f'session_{_date}.txt')
 
         dur = time.time() - self._start_time
         dur_h = int(dur // 3600)
@@ -240,7 +240,7 @@ class SessionTracker:
         L.append("")
         L.append("=" * 72)
 
-        with open(path, 'w', encoding='utf-8') as f:
+        with open(path, 'a', encoding='utf-8') as f:
             f.write('\n'.join(L) + '\n')
         logger.info(f"Session report saved: {path}")
         return path
