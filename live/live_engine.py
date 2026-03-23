@@ -30,6 +30,7 @@ from core.timeframe_belief_network import TimeframeBeliefNetwork
 from core.checkpoint_loader import load_checkpoints
 from core.engine_factory import create_belief_network, create_execution_engine
 from core.advance_engine import AdvanceEngine
+from core.physics_engine import PhysicsEngine, EngineResult
 from live.exit_watcher import ExitWatcher
 from live.gui_bridge import GUIBridge
 from live.session_tracker import SessionTracker
@@ -212,6 +213,12 @@ class LiveEngine:
         self._pp = PingPongManager(config, self._tuning)
         self._trade_logger = TradeLogger()
 
+        # Physics engine mode (K-NN trajectory matching, replaces AdvanceEngine)
+        self._physics_mode = self._shared_state.get('physics_mode', False)
+        self._physics: Optional[PhysicsEngine] = None
+        self._physics_sl_ticks = 40  # capital protection SL (10 points MNQ)
+        self._pending_physics_entry: Optional[dict] = None  # deferred FLIP re-entry
+
         # Ping-pong state (kept on LiveEngine  -- guards NT8 order lifecycle)
         self._ping_pong_mode = self._shared_state.get('ping_pong', False)
         self._last_exit_side = ''
@@ -233,25 +240,29 @@ class LiveEngine:
         """Main entry point  -- connect, load checkpoints, run loop."""
         from core.keep_awake import keep_awake
 
+        _mode_label = 'PHYSICS' if self._physics_mode else 'ADVANCE'
         logger.info("=" * 60)
-        logger.info("LIVE ENGINE STARTING")
+        logger.info(f"LIVE ENGINE STARTING  ({_mode_label})")
         logger.info(f"  Instrument: {self._cfg.instrument}")
         logger.info(f"  Account:    {self._cfg.account}")
         logger.info(f"  Anchor TF:  {self._anchor_tf}  (depth={self._anchor_depth}, period={self._anchor_period}s)")
-        logger.info(f"  Ping-pong:  {self._ping_pong_mode}")
+        logger.info(f"  Engine:     {_mode_label}")
         logger.info("=" * 60)
 
-        self._load_checkpoints()
-        self._init_belief_network()
+        if self._physics_mode:
+            self._init_physics_engine()
+        else:
+            self._load_checkpoints()
+            self._init_belief_network()
 
-        # ATLAS warmup: seed TBN workers with pre-computed states
-        # so F_momentum/volume_delta match OOS values from bar 1.
-        warmup_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                                  'checkpoints', 'live', 'warmup')
-        self._belief_network.warmup_from_precomputed(warmup_dir)
+            # ATLAS warmup: seed TBN workers with pre-computed states
+            # so F_momentum/volume_delta match OOS values from bar 1.
+            warmup_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                                      'checkpoints', 'live', 'warmup')
+            self._belief_network.warmup_from_precomputed(warmup_dir)
 
-        self._init_exec_engine()
-        self._init_advance_engine()
+            self._init_exec_engine()
+            self._init_advance_engine()
 
         # ── Connect to NT8 ────────────────────────────────────────────────
         # Brain warm from training (live_brain.pkl).
@@ -394,7 +405,8 @@ class LiveEngine:
             if self._shared_state.pop('shutdown_flatten', False):
                 self._shutting_down = True
                 self._ping_pong_mode = False  # kill PP immediately
-                self._belief_network.stop_trade_tracking()
+                if self._belief_network:
+                    self._belief_network.stop_trade_tracking()
                 if self._position_open:
                     logger.info("SHUTDOWN: flattening position before close...")
                     await self._close_position('SHUTDOWN')
@@ -431,24 +443,38 @@ class LiveEngine:
                 self._last_1s_tick = _now
                 # Exit check between bars  -- catches SL/TP/trail within 1s
                 if self._position_open and self._last_price > 0:
-                    try:
-                        _st = self._last_states[-1]['state'] if self._last_states else None
-                        if _st is not None:
-                            _r = self._processor.process_bar(
-                                bar_index=self._bar_i, price=self._last_price,
-                                bar_high=self._last_price, bar_low=self._last_price,
-                                timestamp=_now, state=_st, exit_only=True)
-                            if _r.action.type == ActionType.EXIT:
-                                _reason = getattr(_r.action, 'exit_reason', 'unknown')
-                                _side = self._position.side if self._position else 'flat'
-                                self._belief_network.stop_trade_tracking()
-                                if self._ping_pong_mode and not self._shutting_down:
-                                    await self._flip_position(_reason, _side, self._last_price, _now)
-                                else:
-                                    await self._close_position(_reason)
-                    except Exception as _exit_err:
-                        logger.error(f"sub-bar exit CRASHED (1s loop): {_exit_err}  -- emergency flatten")
-                        await self._close_position('EXIT_CRASH')
+                    if self._physics_mode:
+                        # Physics mode: simple SL check at 1s resolution
+                        if self._position:
+                            _tick = self._asset.tick_size
+                            if self._position.side == 'long':
+                                _pt = (self._last_price - self._position.entry_price) / _tick
+                            else:
+                                _pt = (self._position.entry_price - self._last_price) / _tick
+                            if _pt <= -self._physics_sl_ticks:
+                                logger.warning(f"PHYSICS SL (loop): {_pt:+.1f}t")
+                                self._physics._in_trade = False
+                                self._physics._move_start_price = self._last_price
+                                await self._close_position('physics_sl')
+                    else:
+                        try:
+                            _st = self._last_states[-1]['state'] if self._last_states else None
+                            if _st is not None:
+                                _r = self._processor.process_bar(
+                                    bar_index=self._bar_i, price=self._last_price,
+                                    bar_high=self._last_price, bar_low=self._last_price,
+                                    timestamp=_now, state=_st, exit_only=True)
+                                if _r.action.type == ActionType.EXIT:
+                                    _reason = getattr(_r.action, 'exit_reason', 'unknown')
+                                    _side = self._position.side if self._position else 'flat'
+                                    self._belief_network.stop_trade_tracking()
+                                    if self._ping_pong_mode and not self._shutting_down:
+                                        await self._flip_position(_reason, _side, self._last_price, _now)
+                                    else:
+                                        await self._close_position(_reason)
+                        except Exception as _exit_err:
+                            logger.error(f"sub-bar exit CRASHED (1s loop): {_exit_err}  -- emergency flatten")
+                            await self._close_position('EXIT_CRASH')
                 # Safety net: NT8 has position but engine thinks flat  -- emergency exit calc
                 elif (not self._position_open and not self._orders.is_flat
                       and not self._flip_in_progress and self._last_price > 0):
@@ -544,6 +570,16 @@ class LiveEngine:
                         logger.info(f"Deferred manual entry firing (flat confirmed @ {fill_px})")
                         await self._execute_manual_entry(
                             _pm['action'], fill_px, _pm['ts'], _pm['states'])
+                # Fire deferred physics FLIP re-entry after close confirmed
+                if self._pending_physics_entry and self._orders.is_flat:
+                    _pe = self._pending_physics_entry
+                    self._pending_physics_entry = None
+                    if self._shutting_down:
+                        logger.info("PHYSICS FLIP: cancelled (shutting down)")
+                    else:
+                        fill_px = float(msg.get('fill_price', _pe['price']))
+                        logger.info(f"PHYSICS FLIP: close confirmed @ {fill_px}, entering {_pe['result'].direction}")
+                        await self._physics_enter(_pe['result'], fill_px, _pe['ts'])
                 # Graceful shutdown: confirm flat to GUI, then exit loop
                 if self._shutting_down and self._orders.is_flat:
                     logger.info("SHUTDOWN: NT8 confirmed flat")
@@ -625,55 +661,51 @@ class LiveEngine:
                 await loop.run_in_executor(None, self._aggregator.finish_history)
                 self._update_live_atr()
                 logger.info(f"Live ATR: {self._live_atr_ticks:.1f} ticks")
-                # Bootstrap TBN from pre-computed states (fast) or raw ATLAS (slow)
-                # Pre-computed: checkpoints/live/precomputed_states.pkl
-                # Run: python tools/precompute_live_states.py to generate.
-                df = self._aggregator.df
-                states = self._aggregator.states
-                df_5s = pd.DataFrame(self._tf_bars.get(5, [])) if self._tf_bars.get(5) else pd.DataFrame()
-                df_4h = pd.DataFrame(self._tf_bars.get(14400, [])) if self._tf_bars.get(14400) else pd.DataFrame()
-                _df_1m = None
+                # Bootstrap TBN from pre-computed states (physics mode skips TBN)
+                if self._belief_network is not None:
+                    df = self._aggregator.df
+                    states = self._aggregator.states
+                    df_5s = pd.DataFrame(self._tf_bars.get(5, [])) if self._tf_bars.get(5) else pd.DataFrame()
+                    df_4h = pd.DataFrame(self._tf_bars.get(14400, [])) if self._tf_bars.get(14400) else pd.DataFrame()
+                    _df_1m = None
 
-                _precomp_path = os.path.join(self._cfg.checkpoint_dir, 'live', 'precomputed_states.pkl')
-                if os.path.exists(_precomp_path):
-                    import pickle
-                    logger.info(f"Loading pre-computed states: {_precomp_path}")
-                    with open(_precomp_path, 'rb') as _f:
-                        _precomp = pickle.load(_f)
-                    # Feed pre-computed states directly to TBN workers
-                    for _tf_label, _data in _precomp.items():
-                        _tf_map = {'1m': 60, '5s': 5, '4h': 14400, '15s': 15,
-                                   '30s': 30, '1h': 3600, '30m': 1800, '15m': 900,
-                                   '5m': 300, '3m': 180, '1s': 1}
-                        _tf_secs = _tf_map.get(_tf_label, 0)
-                        if _tf_secs in self._belief_network.workers:
-                            self._belief_network.workers[_tf_secs].prepare(_data['states'])
-                            logger.info(f"  TBN [{_tf_label}]: {len(_data['states']):,} pre-computed states loaded")
-                    # Still need df_1m for the sensor gate (volume_delta, F_momentum)
-                    if '1m' in _precomp:
-                        _df_1m = _precomp['1m']['df']
-                else:
-                    logger.warning("No pre-computed states found. Run: python tools/precompute_live_states.py")
-                    logger.info("Falling back to raw ATLAS loading (slow)...")
+                    _precomp_path = os.path.join(self._cfg.checkpoint_dir, 'live', 'precomputed_states.pkl')
+                    if os.path.exists(_precomp_path):
+                        import pickle
+                        logger.info(f"Loading pre-computed states: {_precomp_path}")
+                        with open(_precomp_path, 'rb') as _f:
+                            _precomp = pickle.load(_f)
+                        for _tf_label, _data in _precomp.items():
+                            _tf_map = {'1m': 60, '5s': 5, '4h': 14400, '15s': 15,
+                                       '30s': 30, '1h': 3600, '30m': 1800, '15m': 900,
+                                       '5m': 300, '3m': 180, '1s': 1}
+                            _tf_secs = _tf_map.get(_tf_label, 0)
+                            if _tf_secs in self._belief_network.workers:
+                                self._belief_network.workers[_tf_secs].prepare(_data['states'])
+                                logger.info(f"  TBN [{_tf_label}]: {len(_data['states']):,} pre-computed states loaded")
+                        if '1m' in _precomp:
+                            _df_1m = _precomp['1m']['df']
+                    else:
+                        logger.warning("No pre-computed states found. Run: python tools/precompute_live_states.py")
+                        logger.info("Falling back to raw ATLAS loading (slow)...")
 
-                _n5 = len(df_5s)
-                _n4h = len(df_4h)
-                logger.info(f"TBN bootstrap: 5s={_n5:,} bars, 4h={_n4h:,} bars")
-                # Only call prepare_day if no pre-computed states (otherwise workers already loaded)
-                if not os.path.exists(_precomp_path):
-                    self._belief_network.prepare_day(
-                        df, states_micro=states, df_5s=df_5s, df_4h=df_4h,
-                        df_1m=_df_1m)
+                    _n5 = len(df_5s)
+                    _n4h = len(df_4h)
+                    logger.info(f"TBN bootstrap: 5s={_n5:,} bars, 4h={_n4h:,} bars")
+                    if not os.path.exists(_precomp_path):
+                        self._belief_network.prepare_day(
+                            df, states_micro=states, df_5s=df_5s, df_4h=df_4h,
+                            df_1m=_df_1m)
+                    else:
+                        base_tf = self._belief_network.base_resolution_seconds
+                        if base_tf in self._belief_network.workers and states:
+                            self._belief_network.workers[base_tf].prepare(states)
+                            logger.info(f"  TBN [15s]: {len(states):,} states from NT8 history")
+                    for _hist_i in range(len(states)):
+                        self._belief_network.tick_all(_hist_i)
+                    logger.info(f"TBN warmed: ticked {len(states)} bars from NT8 history")
                 else:
-                    # Base TF (15s) still needs NT8 history states
-                    base_tf = self._belief_network.base_resolution_seconds
-                    if base_tf in self._belief_network.workers and states:
-                        self._belief_network.workers[base_tf].prepare(states)
-                        logger.info(f"  TBN [15s]: {len(states):,} states from NT8 history")
-                # Tick through all history bars so workers form beliefs
-                for _hist_i in range(len(states)):
-                    self._belief_network.tick_all(_hist_i)
-                logger.info(f"TBN warmed: ticked {len(states)} bars from NT8 history")
+                    logger.info("Physics mode: TBN skipped, SFE states from aggregator")
                 self._system_ready = True
                 logger.info("SYSTEM READY -- trading enabled")
                 # Update ATLAS with NT8 bars so OOS data stays current
@@ -820,9 +852,12 @@ class LiveEngine:
         # Every bar: exits + GUI tick
         await self._process_1s(price, ts)
 
-        # 15s bars only: entries + TBN
+        # Anchor bars: entries + exits
         if new_bar:
-            await self._process_15s(price, ts, states)
+            if self._physics_mode:
+                await self._process_1m_physics(price, ts, states)
+            else:
+                await self._process_15s(price, ts, states)
 
     async def _process_1s(self, price: float, ts: float):
         """Sub-second processing: GUI tick, staleness check, exit checks."""
@@ -866,30 +901,44 @@ class LiveEngine:
             return  # stale bar from history leak
 
         if self._position_open:
-            try:
-                # Sub-bar exit check via AdvanceEngine (1s resolution for SL/trail)
-                _st = self._last_states[-1]['state'] if self._last_states else None
-                if _st is not None:
-                    result = self._processor.process_bar(
-                        bar_index=self._bar_i,
-                        price=price,
-                        bar_high=price,  # 1s bar = tick level
-                        bar_low=price,
-                        timestamp=ts,
-                        state=_st,
-                        exit_only=True,
-                    )
-                    if result.action.type == ActionType.EXIT:
-                        reason = getattr(result.action, 'exit_reason', 'unknown')
-                        exited_side = self._position.side if self._position else 'flat'
-                        self._belief_network.stop_trade_tracking()
-                        if self._ping_pong_mode and not self._shutting_down:
-                            await self._flip_position(reason, exited_side, price, ts)
-                        else:
-                            await self._close_position(reason)
-            except Exception as _exit_err:
-                logger.error(f"sub-bar exit CRASHED: {_exit_err}  -- emergency flatten")
-                await self._close_position('EXIT_CRASH')
+            if self._physics_mode:
+                # Physics mode: 1s SL check (capital protection only)
+                if self._position:
+                    _tick = self._asset.tick_size
+                    if self._position.side == 'long':
+                        _pnl_t = (price - self._position.entry_price) / _tick
+                    else:
+                        _pnl_t = (self._position.entry_price - price) / _tick
+                    if _pnl_t <= -self._physics_sl_ticks:
+                        logger.warning(f"PHYSICS SL (1s): {_pnl_t:+.1f}t @ {price:.2f}")
+                        self._physics._in_trade = False
+                        self._physics._move_start_price = price
+                        await self._close_position('physics_sl')
+            else:
+                try:
+                    # Sub-bar exit check via AdvanceEngine (1s resolution for SL/trail)
+                    _st = self._last_states[-1]['state'] if self._last_states else None
+                    if _st is not None:
+                        result = self._processor.process_bar(
+                            bar_index=self._bar_i,
+                            price=price,
+                            bar_high=price,  # 1s bar = tick level
+                            bar_low=price,
+                            timestamp=ts,
+                            state=_st,
+                            exit_only=True,
+                        )
+                        if result.action.type == ActionType.EXIT:
+                            reason = getattr(result.action, 'exit_reason', 'unknown')
+                            exited_side = self._position.side if self._position else 'flat'
+                            self._belief_network.stop_trade_tracking()
+                            if self._ping_pong_mode and not self._shutting_down:
+                                await self._flip_position(reason, exited_side, price, ts)
+                            else:
+                                await self._close_position(reason)
+                except Exception as _exit_err:
+                    logger.error(f"sub-bar exit CRASHED: {_exit_err}  -- emergency flatten")
+                    await self._close_position('EXIT_CRASH')
 
     async def _process_15s(self, price: float, ts: float, states: list):
         """Per-anchor-bar processing: AdvanceEngine handles entry + exit."""
@@ -964,6 +1013,82 @@ class LiveEngine:
 
         self._exit_watcher.tick(price)
 
+    async def _process_1m_physics(self, price: float, ts: float, states: list):
+        """Per-1m-bar processing: PhysicsEngine handles entry + exit via funnel."""
+        state = states[-1]['state'] if states else None
+        if state is None:
+            return
+
+        bar_high = getattr(self, '_last_bar_high', price)
+        bar_low = getattr(self, '_last_bar_low', price)
+
+        result = self._physics.on_bar(price, bar_high, bar_low, ts, state)
+
+        if result.action == 'ENTER' and not self._position_open and self._orders.can_enter:
+            await self._physics_enter(result, price, ts)
+
+        elif result.action == 'EXIT' and self._position_open:
+            logger.info(f"PHYSICS EXIT: {result.direction} pnl={result.pnl_ticks:+.1f}t")
+            await self._close_position('physics_hold_expire')
+
+        elif result.action == 'FLIP' and self._position_open and self._orders.can_exit:
+            logger.info(f"PHYSICS FLIP: -> {result.direction} "
+                        f"(consensus={result.consensus:.2f}, pnl={result.pnl_ticks:+.1f}t)")
+            # Defer re-entry until FILL confirms the close
+            self._pending_physics_entry = {
+                'result': result, 'price': price, 'ts': ts,
+            }
+            await self._close_position('physics_flip')
+
+        # SL protection: check if ExitEngine wants out (capital protection only)
+        if self._position_open and self._position:
+            _tick = self._asset.tick_size
+            if self._position.side == 'long':
+                _pnl_ticks = (price - self._position.entry_price) / _tick
+            else:
+                _pnl_ticks = (self._position.entry_price - price) / _tick
+            if _pnl_ticks <= -self._physics_sl_ticks:
+                logger.warning(f"PHYSICS SL HIT: {_pnl_ticks:+.1f}t (limit={self._physics_sl_ticks})")
+                # Force PhysicsEngine to clear its internal trade state
+                self._physics._in_trade = False
+                self._physics._move_start_price = price
+                await self._close_position('physics_sl')
+
+    async def _physics_enter(self, result: 'EngineResult', price: float, ts: float):
+        """Execute a PhysicsEngine ENTER/FLIP entry."""
+        side = 'long' if result.direction == 'LONG' else 'short'
+
+        logger.info(f"PHYSICS ENTRY: {side.upper()} @ {price:.2f}  "
+                    f"consensus={result.consensus:.2f}  hold={result.hold_bars}  "
+                    f"matched={result.n_matched}")
+
+        # Open position with SL protection (no TP — PhysicsEngine handles exits)
+        self._position = self._exit_engine.open_position(
+            side=side, entry_price=price, entry_bar_index=self._bar_i,
+            template_id='PHYSICS',
+            sl_ticks=self._physics_sl_ticks,
+            tp_ticks=0,  # no TP — funnel handles exits
+        )
+        self._position_open = True
+        self._entry_price = price
+        self._entry_time = ts
+        self._entry_bar = self._bar_i
+        self._active_side = side
+        self._active_tid = 'PHYSICS'
+        self._max_hold_bars = result.hold_bars
+
+        self._trade_logger.start_trade(
+            self._session.stats.trades + 1, side, price, ts)
+        self._gui.push({'type': 'TRADE_MARKER', 'action': 'entry',
+                        'side': side, 'price': price})
+
+        order_msg = self._orders.build_entry_order(
+            'BUY' if side == 'long' else 'SELL')
+        if order_msg:
+            self._order_send_ts = time.perf_counter()
+            await self._client.send(order_msg)
+            logger.info(f"PHYSICS: entry order sent ({side.upper()})")
+
     # ── Exit Logic ────────────────────────────────────────────────────
 
     def _write_heartbeat(self, now: float):
@@ -974,12 +1099,22 @@ class LiveEngine:
         hb_path = os.path.join(self._reports_dir, f'heartbeat_{date_str}.csv')
         write_header = not os.path.exists(hb_path)
 
-        # Read peak stats from processor (cumulative)
-        ps = getattr(self._processor, 'peak_stats', {})
-        peaks_det = ps.get('peak_detected', 0)
-        peaks_skip = (ps.get('blocked_1m_sensor', 0) + ps.get('blocked_adx_chop', 0)
-                      + ps.get('blocked_no_buildup', 0) + ps.get('blocked_cooldown', 0))
-        peaks_entered = ps.get('peak_entered', 0)
+        # Read stats from active engine
+        if self._physics_mode and self._physics:
+            ps = self._physics.stats
+        else:
+            ps = getattr(self, '_processor', None)
+            ps = getattr(ps, 'peak_stats', {}) if ps else {}
+        if self._physics_mode:
+            peaks_det = ps.get('bars', 0)
+            peaks_skip = (ps.get('skipped_coherence', 0) + ps.get('skipped_magnitude', 0)
+                          + ps.get('skipped_consensus', 0) + ps.get('skipped_warmup', 0))
+            peaks_entered = ps.get('entries', 0)
+        else:
+            peaks_det = ps.get('peak_detected', 0)
+            peaks_skip = (ps.get('blocked_1m_sensor', 0) + ps.get('blocked_adx_chop', 0)
+                          + ps.get('blocked_no_buildup', 0) + ps.get('blocked_cooldown', 0))
+            peaks_entered = ps.get('peak_entered', 0)
 
         # Compute deltas since last heartbeat
         det_delta = peaks_det - self._hb_peaks_detected
@@ -1859,6 +1994,18 @@ class LiveEngine:
             tick_size=self._asset.tick_size,
             point_value=self._asset.point_value,
         )
+
+    def _init_physics_engine(self):
+        """Load enriched seeds and create PhysicsEngine for live trading."""
+        seed_path = self._shared_state.get('seed_path')
+        if not seed_path:
+            raise ValueError("PhysicsEngine requires seed_path in shared_state")
+
+        logger.info(f"Loading PhysicsEngine seeds: {seed_path}")
+        t0 = time.time()
+        self._physics = PhysicsEngine.from_seeds(seed_path)
+        logger.info(f"PhysicsEngine ready in {time.time() - t0:.1f}s  "
+                    f"({self._physics.seed_flat.shape[0]} seeds)")
 
     def _checkpoint_bundle(self):
         """Build a CheckpointBundle from already-loaded instance attrs."""

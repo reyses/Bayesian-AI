@@ -6,6 +6,8 @@ Usage:
     python -m live.launcher --account MyAccount  # specific NT8 account
     python -m live.launcher --no-gui            # headless (no popup)
     python -m live.launcher --checkpoint-dir checkpoints_v2
+    python -m live.launcher --physics                       # PhysicsEngine (K-NN trajectory matching)
+    python -m live.launcher --physics --seed-path path.json # custom seed file
 """
 
 import argparse
@@ -148,6 +150,10 @@ def main():
                         help='Primary signal timeframe (default: 15s)')
     parser.add_argument('--ping-pong', action='store_true',
                         help='Continuous wave-riding with direction refinement')
+    parser.add_argument('--physics', action='store_true',
+                        help='Use PhysicsEngine (K-NN trajectory matching) instead of AdvanceEngine')
+    parser.add_argument('--seed-path', default=None,
+                        help='Path to enriched seed JSON for PhysicsEngine')
     parser.add_argument('--yolo', action='store_true',
                         help='Max aggression, minimal warmup  -- force trades fast')
     parser.add_argument('--long-only', action='store_true',
@@ -161,6 +167,21 @@ def main():
 
     _kill_stale_live_engines()
     _clean_nt8_cache()
+
+    # Physics mode: force 1m anchor, auto-find seeds
+    if args.physics:
+        args.anchor_tf = '1m'
+        if not args.seed_path:
+            import glob as _glob
+            _candidates = sorted(_glob.glob('DATA/regime_seeds/auto_seeds_all_*.json'))
+            if _candidates:
+                args.seed_path = _candidates[-1]  # most recent
+            else:
+                print("ERROR: --physics requires seed JSON. Use --seed-path or place in DATA/regime_seeds/")
+                sys.exit(1)
+        print(f"[physics] Engine: PhysicsEngine (K-NN trajectory matching)")
+        print(f"[physics] Seeds:  {args.seed_path}")
+        print(f"[physics] Anchor: 1m")
 
     # YOLO mode: override warmup + aggression
     if args.yolo:
@@ -205,6 +226,8 @@ def main():
         'aggression': 1.0 if args.yolo else 0.5,
         'ping_pong': args.ping_pong,
         'side_lock': 'long' if args.long_only else ('short' if args.short_only else None),
+        'physics_mode': args.physics,
+        'seed_path': getattr(args, 'seed_path', None),
     }
 
     # Launch GUI popup (unless --no-gui)
