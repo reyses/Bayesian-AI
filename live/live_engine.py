@@ -88,6 +88,7 @@ _TUNING_DEFAULTS = {
     'envelope_floor_ticks': 4,
     'envelope_accel_sensitivity': 1.0,
     'auto_tp_reentry': True,
+    'physics_sl_ticks': 40,
 }
 
 _ANCHOR_TF_MAP = {
@@ -216,7 +217,7 @@ class LiveEngine:
         # Physics engine mode (K-NN trajectory matching, replaces AdvanceEngine)
         self._physics_mode = self._shared_state.get('physics_mode', False)
         self._physics: Optional[PhysicsEngine] = None
-        self._physics_sl_ticks = 40  # capital protection SL (10 points MNQ)
+        self._physics_sl_ticks = self._tuning.get('physics_sl_ticks', 40)
         self._pending_physics_entry: Optional[dict] = None  # deferred FLIP re-entry
 
         # Ping-pong state (kept on LiveEngine  -- guards NT8 order lifecycle)
@@ -1943,10 +1944,16 @@ class LiveEngine:
             merged.update(data)
             self._tuning = merged
             self._tuning_mtime = mt
+            # Hot-update physics SL if changed
+            if self._physics_mode:
+                new_sl = merged.get('physics_sl_ticks', 40)
+                if new_sl != self._physics_sl_ticks:
+                    logger.info(f"Physics SL changed: {self._physics_sl_ticks} -> {new_sl} ticks")
+                    self._physics_sl_ticks = new_sl
             logger.info(f"Tuning reloaded: max_hold={merged['max_hold_seconds']}s  "
                         f"template_dist={merged['gate1_dist']}  "
                         f"sl_mult={merged['exit_sl_mult']}  "
-                        f"trail_mult={merged['exit_trail_mult']}")
+                        f"physics_sl={merged.get('physics_sl_ticks', 40)}")
         except (json.JSONDecodeError, OSError) as e:
             logger.warning(f"Failed to reload live_tuning.json: {e}")
 
