@@ -1,9 +1,9 @@
 """Shared trade report generator for IS, OOS, and live.
 
-All three paths produce trade dicts from BarProcessor. This module
+All three paths produce trade dicts from AdvanceEngine. This module
 computes standard breakdowns and formats a consistent scorecard.
 
-Trade dict minimum fields (from BarProcessor._handle_exit / force_close):
+Trade dict minimum fields (from AdvanceEngine._handle_exit / force_close):
     pnl, side, exit_reason, bars_held, trade_mfe_ticks, entry_price, exit_price, tid
 
 Optional enrichment (from trainer oracle tracking):
@@ -28,7 +28,7 @@ def _wr(wins: int, total: int) -> float:
 def compute_stats(trades: list[dict]) -> dict:
     """Compute standard statistics from a list of trade dicts.
 
-    Normalizes field names: supports both BarProcessor format (pnl, side, exit_reason)
+    Normalizes field names: supports both AdvanceEngine format (pnl, side, exit_reason)
     and oracle format (actual_pnl, direction, exit_reason).
     """
     n = len(trades)

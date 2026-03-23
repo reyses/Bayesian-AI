@@ -1,6 +1,6 @@
 """Physics Engine — K-NN trajectory matching against enriched seeds.
 
-Alternative to BarProcessor for live trading. Uses IS-learned seed
+Alternative to AdvanceEngine for live trading. Uses IS-learned seed
 library with full physics (12 features x 10-bar trajectory) to match
 current market state against 38K proven patterns.
 

@@ -113,7 +113,7 @@ EXIT_COLORS = {
 
 def make_overlay(oos2, oos3, matched, oos2_unmatched, oos3_unmatched):
     fig, axes = plt.subplots(3, 2, figsize=(20, 16))
-    fig.suptitle('OOS2 (Inline) vs OOS3 (BarProcessor) — Trade Overlay', fontsize=16, fontweight='bold')
+    fig.suptitle('OOS2 (Inline) vs OOS3 (AdvanceEngine) — Trade Overlay', fontsize=16, fontweight='bold')
 
     # --- Panel 1: Trade timeline by entry price, color by exit reason ---
     ax = axes[0, 0]

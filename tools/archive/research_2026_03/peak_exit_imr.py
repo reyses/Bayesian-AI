@@ -117,7 +117,7 @@ def extract_trajectory(trade, timestamps, states, pre=2, post=10):
         # RC delta from entry in sigma units
         rc_delta_sigma = (rc - entry_rc) / max(sigma, 0.01)
 
-        # Peak detection: would it fire? (same logic as bar_processor)
+        # Peak detection: would it fire? (same logic as advance_engine)
         _fires = False
         _peak_dir = ''
         if i > 0 and i < len(states):

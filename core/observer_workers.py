@@ -12,9 +12,9 @@ All workers:
   - checkpoint() saves state periodically (monthly/weekly)
 
 Integration:
-  - BarProcessor calls observer_hub.update(bar_index, timestamp, state, tbn)
-  - BarProcessor calls observer_hub.on_peak(bar_index, timestamp, direction, entered)
-  - BarProcessor calls observer_hub.on_trade_exit(bar_index, timestamp, trade_result)
+  - AdvanceEngine calls observer_hub.update(bar_index, timestamp, state, tbn)
+  - AdvanceEngine calls observer_hub.on_peak(bar_index, timestamp, direction, entered)
+  - AdvanceEngine calls observer_hub.on_trade_exit(bar_index, timestamp, trade_result)
   - Observer hub writes CSV per worker + combined event log
 
 Usage:

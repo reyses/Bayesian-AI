@@ -108,7 +108,7 @@ class PeakGiveback:
         # Fake peak override: if volume + momentum are STILL flowing with the trade,
         # the pullback is noise — hold. Giveback says "exit," fake peak says "not yet."
         # Research: high vol+fm at peak = continuation, not reversal.
-        # The fake peak flag is set by bar_processor when log_vol > 2.5 AND log_fm > 3.0.
+        # The fake peak flag is set by advance_engine when log_vol > 2.5 AND log_fm > 3.0.
         _fake_peak_hold = False
         if exit_signal is not None:
             _current_vol = abs(exit_signal.get('current_volume', 0.0))
