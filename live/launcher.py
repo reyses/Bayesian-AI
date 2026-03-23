@@ -6,7 +6,6 @@ Usage:
     python -m live.launcher --account MyAccount  # specific NT8 account
     python -m live.launcher --no-gui            # headless (no popup)
     python -m live.launcher --checkpoint-dir checkpoints_v2
-    python -m live.launcher --replay DATA/ATLAS_OOS --speed 50  # replay ATLAS through live stack
 """
 
 import argparse
@@ -155,21 +154,13 @@ def main():
                         help='Force all trades LONG (brain learns long side)')
     parser.add_argument('--short-only', action='store_true',
                         help='Force all trades SHORT (brain learns short side)')
-    parser.add_argument('--replay', default=None, metavar='ATLAS_DIR',
-                        help='Replay ATLAS parquet through live stack '
-                             '(e.g. DATA/ATLAS_OOS)')
-    parser.add_argument('--speed', type=int, default=50,
-                        help='Replay speed: ms per anchor bar (default: 50)')
-    parser.add_argument('--replay-warmup', type=int, default=2400,
-                        help='Replay history bars for warmup (default: 2400 = 10h)')
     parser.add_argument('--log-level', default='INFO',
                         choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
                         help='Logging level (default: INFO)')
     args = parser.parse_args()
 
-    if not args.replay:
-        _kill_stale_live_engines()
-        _clean_nt8_cache()
+    _kill_stale_live_engines()
+    _clean_nt8_cache()
 
     # YOLO mode: override warmup + aggression
     if args.yolo:
@@ -214,34 +205,7 @@ def main():
         'aggression': 1.0 if args.yolo else 0.5,
         'ping_pong': args.ping_pong,
         'side_lock': 'long' if args.long_only else ('short' if args.short_only else None),
-        'replay_mode': bool(args.replay),
     }
-
-    # ── Replay mode: start ReplayBridge as TCP server in background ─────
-    replay_thread = None
-    if args.replay:
-        from live.replay_bridge import ReplayBridge
-        bridge = ReplayBridge(
-            atlas_dir=args.replay,
-            port=args.port,
-            speed_ms=args.speed,
-            instrument=args.instrument,
-            anchor_tf=args.anchor_tf,
-            warmup_bars=args.replay_warmup,
-        )
-
-        def _run_bridge():
-            asyncio.run(bridge.run_with_engine())
-
-        replay_thread = threading.Thread(
-            target=_run_bridge, daemon=True, name='ReplayBridge')
-        replay_thread.start()
-        # Give server time to bind the port
-        import time as _time
-        _time.sleep(1.0)
-        logging.getLogger(__name__).info(
-            f"ReplayBridge started on port {args.port}  -- "
-            f"feeding {args.replay} at {args.speed}ms/bar")
 
     # Launch GUI popup (unless --no-gui)
     gui_queue = None
