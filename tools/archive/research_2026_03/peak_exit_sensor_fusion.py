@@ -127,7 +127,7 @@ def extract_trajectory(trade, ts_15s, states_15s, ts_1m, states_1m,
         p_lower = getattr(st_15s, 'P_near_lower', 0.0) or 0.0
         reversion = getattr(st_15s, 'mean_reversion_force', 0.0) or 0.0
 
-        # Peak detection (same logic as bar_processor)
+        # Peak detection (same logic as advance_engine)
         pac_up = pac > prev_pac * 1.05 if prev_pac > 0.01 else False
         fm_down = fm_abs < prev_fm_abs * 0.90 if prev_fm_abs > 0.5 else False
         peak_fires = (pac_up or fm_down) and coh > 0.55

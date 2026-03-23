@@ -5,7 +5,7 @@ parameter settings. The optimization surface emerges from real-time what-if
 evaluation. No offline optimization needed.
 
 Usage:
-  - Created by BarProcessor when --monkey flag is active
+  - Created by AdvanceEngine when --monkey flag is active
   - on_skip(): peak was blocked -> spawn phantom that enters anyway
   - on_entry(): trade entered -> spawn phantoms with alt exit thresholds
   - on_bar(): update all active phantoms with current bar data

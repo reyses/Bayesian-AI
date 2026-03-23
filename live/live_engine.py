@@ -29,7 +29,7 @@ from core.execution_engine import (ExecutionEngine, ActionType, TradeAction)
 from core.timeframe_belief_network import TimeframeBeliefNetwork
 from core.checkpoint_loader import load_checkpoints
 from core.engine_factory import create_belief_network, create_execution_engine
-from core.bar_processor import BarProcessor
+from core.advance_engine import AdvanceEngine
 from live.exit_watcher import ExitWatcher
 from live.gui_bridge import GUIBridge
 from live.session_tracker import SessionTracker
@@ -100,7 +100,7 @@ _ANCHOR_TF_MAP = {
 }
 
 
-# _live_features() DELETED  -- use BarProcessor._build_features() instead
+# _live_features() DELETED  -- use AdvanceEngine._build_features() instead
 
 
 class LiveEngine:
@@ -251,7 +251,7 @@ class LiveEngine:
         self._belief_network.warmup_from_precomputed(warmup_dir)
 
         self._init_exec_engine()
-        self._init_bar_processor()
+        self._init_advance_engine()
 
         # ── Connect to NT8 ────────────────────────────────────────────────
         # Brain warm from training (live_brain.pkl).
@@ -867,7 +867,7 @@ class LiveEngine:
 
         if self._position_open:
             try:
-                # Sub-bar exit check via BarProcessor (1s resolution for SL/trail)
+                # Sub-bar exit check via AdvanceEngine (1s resolution for SL/trail)
                 _st = self._last_states[-1]['state'] if self._last_states else None
                 if _st is not None:
                     result = self._processor.process_bar(
@@ -892,7 +892,7 @@ class LiveEngine:
                 await self._close_position('EXIT_CRASH')
 
     async def _process_15s(self, price: float, ts: float, states: list):
-        """Per-anchor-bar processing: BarProcessor handles entry + exit."""
+        """Per-anchor-bar processing: AdvanceEngine handles entry + exit."""
         # TBN workers update incrementally via tick_all() -- no need to
         # recompute from scratch. prepare_day() only runs once on startup
         # (in HISTORY_DONE handler at line 528). Periodic recompute DISABLED
@@ -925,11 +925,11 @@ class LiveEngine:
         if state is None:
             return
 
-        # ── Inject NT8 ADX into BarProcessor for chop filter ──
+        # ── Inject NT8 ADX into AdvanceEngine for chop filter ──
         if hasattr(self, '_nt8_1m_adx'):
             self._processor._nt8_1m_adx = self._nt8_1m_adx
 
-        # ── UNIFIED: BarProcessor handles BOTH entry and exit ──
+        # ── UNIFIED: AdvanceEngine handles BOTH entry and exit ──
         result = self._processor.process_bar(
             bar_index=self._bar_i,
             price=price,
@@ -1349,7 +1349,7 @@ class LiveEngine:
             trail_ticks=trail_ticks, trail_activation_ticks=trail_act,
         )
         self._init_exit_state(side, price, sl_ticks, tp_ticks, 'MANUAL')
-        # Sync with exec_engine so BarProcessor sees the position for exits
+        # Sync with exec_engine so AdvanceEngine sees the position for exits
         self._exec_engine.position_opened(
             side=side, price=price, bar_index=self._bar_i,
             template_id=-1, lib_entry={},
@@ -1612,7 +1612,7 @@ class LiveEngine:
             self._brain.save(brain_path)
             logger.info(f"Live brain saved ({self._live_trade_count} trades)")
 
-    # ── Entry Logic  -- handled by BarProcessor.process_bar() in _process_15s ──
+    # ── Entry Logic  -- handled by AdvanceEngine.process_bar() in _process_15s ──
 
     async def _execute_entry(self, action: TradeAction, price: float,
                              ts: float, t0: float):
@@ -1853,9 +1853,9 @@ class LiveEngine:
             tier_preference=True,
         )
 
-    def _init_bar_processor(self):
-        """Create shared BarProcessor  -- same decision logic as OOS/replay."""
-        self._processor = BarProcessor(
+    def _init_advance_engine(self):
+        """Create shared AdvanceEngine  -- same decision logic as OOS/replay."""
+        self._processor = AdvanceEngine(
             exec_engine=self._exec_engine,
             belief_network=self._belief_network,
             exit_engine=self._exit_engine,

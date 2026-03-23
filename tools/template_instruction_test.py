@@ -69,7 +69,7 @@ def load_checkpoints(checkpoint_dir='checkpoints'):
 
 
 def extract_features_from_state(state, tf_seconds=15, depth=8):
-    """Extract 16D feature vector from MarketState (same as BarProcessor._build_features)."""
+    """Extract 16D feature vector from MarketState (same as AdvanceEngine._build_features)."""
     feat = extract_feature_vector(
         z_score=getattr(state, 'z_score', 0.0),
         velocity=getattr(state, 'velocity', 0.0),

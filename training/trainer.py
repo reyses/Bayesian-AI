@@ -57,7 +57,7 @@ from core.timeframe_belief_network import TimeframeBeliefNetwork, BeliefState
 from core.execution_engine import ExecutionEngine, ActionType, TradeAction, Candidate
 from core.checkpoint_loader import load_checkpoints
 from core.engine_factory import create_belief_network, create_execution_engine
-from core.bar_processor import BarProcessor, BarProcessorHooks, BarResult
+from core.advance_engine import AdvanceEngine, AdvanceEngineHooks, BarResult
 
 # Execution components
 from training.batch_regret_analyzer import BatchRegretAnalyzer
@@ -420,7 +420,7 @@ class Trainer:
         if _slip_ticks > 0:
             print(f"  Slippage: +-{_slip_ticks:.1f} ticks/trade (+-${_slip_ticks * _tick_val:.2f})")
 
-        # BarProcessor parity replay is created AFTER inline OOS completes
+        # AdvanceEngine parity replay is created AFTER inline OOS completes
         # (with its own fresh EE to avoid shared-state mutation)
 
         # 2. Iterate files (monthly YYYY_MM.parquet or daily YYYYMMDD.parquet)
@@ -712,11 +712,11 @@ class Trainer:
         self._peak_prev_pc = 0.0  # peak detection: previous bar P_center (legacy)
         self._peak_prev_fm = 0.0  # peak detection: previous bar |F_momentum| (legacy)
 
-        # BarProcessor for peak detection parity (IS uses same buildup buffer,
+        # AdvanceEngine for peak detection parity (IS uses same buildup buffer,
         # sensor gate, and fake peak filter as OOS/live). Only peak detection
         # methods are called -- entry/exit still handled inline until full refactor.
-        from core.bar_processor import BarProcessor, BarProcessorHooks
-        _bp = BarProcessor(
+        from core.advance_engine import AdvanceEngine, AdvanceEngineHooks
+        _ae = AdvanceEngine(
             exec_engine=_exec_engine,
             belief_network=belief_network,
             exit_engine=_exit_eng,
@@ -834,7 +834,7 @@ class Trainer:
             # ── Observer monthly checkpoint ──
             _cur_month = day_date[:7]  # e.g. '2025_01'
             if _prev_month is not None and _cur_month != _prev_month:
-                _bp.observer_checkpoint(_prev_month)
+                _ae.observer_checkpoint(_prev_month)
             _prev_month = _cur_month
 
             # ── IS→OOS boundary: freeze brain, save checkpoint, reset stats ──
@@ -864,7 +864,7 @@ class Trainer:
                     _daily_ledger=_daily_ledger,
                     _cumul_max_dd=_cumul_max_dd,
                     _reports_out=os.path.join('reports'),
-                    _bp=_bp, start_date='2025-01', end_date=_oos_cutoff,
+                    _ae=_ae, start_date='2025-01', end_date=_oos_cutoff,
                     _run_ts=_bd_dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                     _git_hash=_bd_hash,
                 )
@@ -1132,7 +1132,7 @@ class Trainer:
                         return False, None
                 return True, flip_side
 
-            # ── BarProcessor hooks for IS forward pass ──────────────
+            # ── AdvanceEngine hooks for IS forward pass ──────────────
             _cur_ts = [0.0]  # mutable container for 1s sub-bar hook
 
             def _pre_exit_hook(price_h, bar_index_h):
@@ -1163,8 +1163,8 @@ class Trainer:
                     return False
                 return True
 
-            from core.bar_processor import BarProcessorHooks
-            _bp._hooks = BarProcessorHooks(
+            from core.advance_engine import AdvanceEngineHooks
+            _ae._hooks = AdvanceEngineHooks(
                 pre_exit_eval=_pre_exit_hook,
                 modify_pnl=_slippage_hook,
                 on_entry=_equity_entry_hook,
@@ -1187,7 +1187,7 @@ class Trainer:
                 _mfe = trade.get('trade_mfe_ticks', 0.0)
                 current_position_open = False
 
-                # Brain already updated by BarProcessor._handle_exit / force_close.
+                # Brain already updated by AdvanceEngine._handle_exit / force_close.
                 # Build a minimal TradeOutcome for day_trades / _cal_day_trades.
                 _outcome_result = 'WIN' if _pnl > 0 else ('LOSS' if _pnl < 0 else 'BE')
                 _mini_outcome = type('_TO', (), {
@@ -1327,7 +1327,7 @@ class Trainer:
                     _pending_dm_idx = None
 
             # ═══════════════════════════════════════════════════════════
-            # BarProcessor-driven forward pass (replaces 1,029-line inline loop)
+            # AdvanceEngine-driven forward pass (replaces 1,029-line inline loop)
             # ═══════════════════════════════════════════════════════════
             for _i, row in enumerate(df_15s.itertuples()):
                 total_bars_processed += 1
@@ -1486,8 +1486,8 @@ class Trainer:
                 if _in_maintenance:
                     # Tick TBN even during maintenance (state continuity)
                     belief_network.tick_all(_bar_idx)
-                    if _bp.in_position:
-                        trade = _bp.force_close(price=price, timestamp=ts_raw, bar_index=_bar_idx)
+                    if _ae.in_position:
+                        trade = _ae.force_close(price=price, timestamp=ts_raw, bar_index=_bar_idx)
                         if trade:
                             trade['exit_reason'] = 'maintenance_flat'
                             _on_trade_completed(trade, _i, ts_raw)
@@ -1515,7 +1515,7 @@ class Trainer:
                     continue
 
                 # ═══ THE REFACTORED CORE: process_bar() ═══════════════
-                result = _bp.process_bar(
+                result = _ae.process_bar(
                     bar_index=_bar_idx,
                     price=price,
                     bar_high=_bar_high,
@@ -1580,7 +1580,7 @@ class Trainer:
                         from core.fractal_clustering import generate_semantic_name
                         _playbook = generate_semantic_name(lib_entry['centroid'])
 
-                    # Position state for anchor MFE (set by BarProcessor._handle_entry)
+                    # Position state for anchor MFE (set by AdvanceEngine._handle_entry)
                     _pos_state = _exec_engine.pos_state
 
                     pending_oracle = {
@@ -1683,8 +1683,8 @@ class Trainer:
                                 tp_ticks=float(_pp_tp_ov or ep['tp']),
                                 max_hold_bars=ep['max_hold'],
                             )
-                            # Also register in BarProcessor's tracking
-                            _bp._current_entry = {
+                            # Also register in AdvanceEngine's tracking
+                            _ae._current_entry = {
                                 'side': _flip_side, 'entry_price': price,
                                 'entry_bar': _bar_idx, 'entry_ts': ts_raw,
                                 'tid': _pp_tid, 'dir_source': 'ping_pong',
@@ -1711,9 +1711,9 @@ class Trainer:
                         'type': 'TRADE_MARKER', 'action': 'SKIP',
                         'side': '', 'price': price, 'pnl': 0})
 
-            # ── End of day: force close via BarProcessor ──────────────
-            if _bp.in_position:
-                trade = _bp.force_close(price=price, timestamp=ts_raw, bar_index=_bar_idx)
+            # ── End of day: force close via AdvanceEngine ──────────────
+            if _ae.in_position:
+                trade = _ae.force_close(price=price, timestamp=ts_raw, bar_index=_bar_idx)
                 if trade:
                     _on_trade_completed(trade, _i, ts_raw)
 
@@ -1829,7 +1829,7 @@ class Trainer:
             n_peak_reversal=n_peak_reversal,
             n_peak_traded=n_peak_traded,
             _NINJATRADER_MNQ_MARGIN=_NINJATRADER_MNQ_MARGIN,
-            _bp=_bp,
+            _ae=_ae,
             _exit_eng=_exit_eng,
         )
 
@@ -1850,8 +1850,8 @@ class Trainer:
               f"gb={_tuned_exit['giveback_pct']:.0%} -> {_tuned_path}")
 
         # Flush observer logs
-        _bp.observer_checkpoint(_prev_month)  # final month
-        _bp.observer_flush()
+        _ae.observer_checkpoint(_prev_month)  # final month
+        _ae.observer_flush()
 
         print("\n  [OK] Forward pass complete -- all files saved.", flush=True)
 
@@ -1867,7 +1867,7 @@ class Trainer:
     def _write_actionable_scorecard(self, *, oracle_trade_records, total_trades,
                                      total_wins, total_pnl, oos_mode,
                                      _daily_ledger, _cumul_max_dd, _reports_out,
-                                     _bp, start_date, end_date, _run_ts, _git_hash):
+                                     _ae, start_date, end_date, _run_ts, _git_hash):
         """Write concise actionable report via shared report_engine."""
         from core.report_engine import write_scorecard
         _mode = 'OOS' if oos_mode else 'IS'
@@ -1880,7 +1880,7 @@ class Trainer:
             end_date=end_date,
             daily_ledger=_daily_ledger,
             max_dd=_cumul_max_dd,
-            peak_stats=_bp.peak_stats if _bp else None,
+            peak_stats=_ae.peak_stats if _ae else None,
             git_hash=_git_hash,
             run_ts=_run_ts,
         )
@@ -1913,7 +1913,7 @@ class Trainer:
         _trade_replays=None,
         n_peak_reversal=0,
         n_peak_traded=0,
-        _bp=None,
+        _ae=None,
         _exit_eng=None,
     ):
         """Generate forward pass reports, save CSVs, run analytics, save snapshot."""
@@ -2134,9 +2134,9 @@ class Trainer:
             report_lines.append(f"    Bars evaluated (free slot):{_bars_evaluated:>9,}  ({_pct_b(_bars_evaluated)})")
             report_lines.append(f"    Candidates on those bars:  {n_signals_seen:>9,}  (avg {n_signals_seen/max(1,_bars_evaluated):.1f}/bar)")
 
-        # ── 2b1b. Peak detection stats (from BarProcessor) ─────────────────────
-        if hasattr(_bp, 'peak_stats') and _bp.peak_stats.get('peak_detected', 0) > 0:
-            _ps = _bp.peak_stats
+        # ── 2b1b. Peak detection stats (from AdvanceEngine) ─────────────────────
+        if hasattr(_ae, 'peak_stats') and _ae.peak_stats.get('peak_detected', 0) > 0:
+            _ps = _ae.peak_stats
             report_lines.append("")
             report_lines.append(f"  PEAK DETECTION (buildup/sensor gate)")
             report_lines.append(f"    Peak signals detected:     {_ps['peak_detected']:>9,}")
@@ -3312,14 +3312,14 @@ class Trainer:
                 _daily_ledger=_daily_ledger,
                 _cumul_max_dd=_cumul_max_dd,
                 _reports_out=_reports_out,
-                _bp=_bp,
+                _ae=_ae,
                 start_date=start_date, end_date=end_date,
                 _run_ts=_run_ts, _git_hash=_git_hash,
             )
 
             # ── 6a-MONKEY. Counterfactual report ──
-            if _bp is not None and hasattr(_bp, '_crow') and _bp._crow is not None:
-                _crow_report = _bp._crow.report()
+            if _ae is not None and hasattr(_ae, '_crow') and _ae._crow is not None:
+                _crow_report = _ae._crow.report()
                 print(f'\n{_crow_report}')
                 _crow_path = os.path.join(_reports_out,
                     f'{"oos" if oos_mode else "is"}_counterfactual.txt')
@@ -3438,8 +3438,8 @@ class Trainer:
                     with open(_analytics_path, 'w', encoding='utf-8') as _af:
                         _af.write(_analytics_text)
                     print(f"  Trade analytics saved: {_analytics_path}")
-                except Exception as _ae:
-                    print(f"  Trade analytics failed: {_ae}")
+                except Exception as _ex:
+                    print(f"  Trade analytics failed: {_ex}")
 
         # ── 7. Save compact run snapshot (current vs _old for LLM comparison) ───
         if not _analysis_mode:  # save snapshot for both IS and OOS
@@ -5212,12 +5212,12 @@ def main():
 
                 # Load custom brain if specified
                 if getattr(args, 'brain_path', None):
-                    _bp_path = args.brain_path
-                    if os.path.exists(_bp_path):
-                        orchestrator.brain.load(_bp_path)
-                        print(f"  [BRAIN] Loaded from: {_bp_path} ({len(orchestrator.brain.table)} states)")
+                    _ae_path = args.brain_path
+                    if os.path.exists(_ae_path):
+                        orchestrator.brain.load(_ae_path)
+                        print(f"  [BRAIN] Loaded from: {_ae_path} ({len(orchestrator.brain.table)} states)")
                     else:
-                        print(f"  [WARN] Brain path not found: {_bp_path}")
+                        print(f"  [WARN] Brain path not found: {_ae_path}")
 
                 # Load custom pattern library if specified
                 if getattr(args, 'library_path', None):

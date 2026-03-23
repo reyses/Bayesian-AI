@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
-from core.bar_processor import BarProcessor, BarProcessorHooks
+from core.advance_engine import AdvanceEngine, AdvanceEngineHooks
 from core.bayesian_brain import MarketBayesianBrain
 from core.checkpoint_loader import load_checkpoints
 from core.engine_factory import create_belief_network, create_execution_engine
@@ -152,13 +152,13 @@ class HistoryReplayEngine:
         exec_engine.gate1_dist = _g1
         print(f"  gate1_dist={_g1:.1f} (aggression={self.aggression})")
 
-        # 4b. BarProcessor  -- shared per-bar decision loop
+        # 4b. AdvanceEngine  -- shared per-bar decision loop
         all_trades = []
 
         def _on_exit(trade, outcome):
             all_trades.append(trade)
 
-        processor = BarProcessor(
+        processor = AdvanceEngine(
             exec_engine=exec_engine,
             belief_network=belief_network,
             exit_engine=exit_engine,
@@ -166,7 +166,7 @@ class HistoryReplayEngine:
             pattern_library=self._bundle.pattern_library,
             anchor_tf=self.anchor_tf,
             anchor_depth=self.anchor_depth,
-            hooks=BarProcessorHooks(on_exit=_on_exit),
+            hooks=AdvanceEngineHooks(on_exit=_on_exit),
         )
 
         # 5a. Context warmup  -- TBN state only, no trading
@@ -184,7 +184,7 @@ class HistoryReplayEngine:
             print(f"    Context {i+1}/{len(context_days_list)}: "
                   f"{len(states) if states else 0} bars")
 
-        # 5b. Trading days  -- shared BarProcessor (same as trainer OOS)
+        # 5b. Trading days  -- shared AdvanceEngine (same as trainer OOS)
         last_day_states = []
         for i, day_df in enumerate(trade_days_list):
             day_start = len(all_trades)
@@ -229,7 +229,7 @@ class HistoryReplayEngine:
         )
 
     def _replay_day(self, day_df, tf_data, engine, processor):
-        """Compressed per-bar forward pass via shared BarProcessor."""
+        """Compressed per-bar forward pass via shared AdvanceEngine."""
         states = engine.batch_compute_states(day_df, use_cuda=True)
         if not states:
             return []

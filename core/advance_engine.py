@@ -1,5 +1,5 @@
 """
-Shared Bar Processor  -- single per-bar decision loop.
+Advance Engine  -- single per-bar decision loop.
 
 Replaces duplicated bar-processing logic across:
   - training/trainer.py (OOS compressed path)
@@ -12,7 +12,7 @@ Does NOT own: data loading, day preparation, equity tracking,
               GUI, NT8 orders, oracle audit, reporting.
 
 Callers provide fully initialized engines via engine_factory.py.
-Context-specific side effects are injected via BarProcessorHooks.
+Context-specific side effects are injected via AdvanceEngineHooks.
 """
 
 from dataclasses import dataclass
@@ -43,7 +43,7 @@ class BarResult:
 
 
 @dataclass
-class BarProcessorHooks:
+class AdvanceEngineHooks:
     """Optional callbacks for context-specific behavior.
 
     on_entry:       (action: TradeAction, bar_index: int) -> bool|None
@@ -61,11 +61,11 @@ class BarProcessorHooks:
     pre_exit_eval: Optional[Callable] = None  # (price, bar_index) -> dict
 
 
-class BarProcessor:
+class AdvanceEngine:
     """Shared per-bar processing core.
 
     Usage:
-        processor = BarProcessor(exec_engine, tbn, exit_engine, brain,
+        processor = AdvanceEngine(exec_engine, tbn, exit_engine, brain,
                                  pattern_library, hooks=hooks)
         for bar in bars:
             result = processor.process_bar(bar_index, price, high, low, ts, state)
@@ -84,7 +84,7 @@ class BarProcessor:
         anchor_depth: int = 8,
         tick_size: float = 0.25,
         point_value: float = 2.0,
-        hooks: Optional[BarProcessorHooks] = None,
+        hooks: Optional[AdvanceEngineHooks] = None,
         use_cat: bool = False,
         **kwargs,
     ):
@@ -102,7 +102,7 @@ class BarProcessor:
         self._point_value = point_value
         self._tick_value = tick_size * point_value
 
-        self._hooks = hooks or BarProcessorHooks()
+        self._hooks = hooks or AdvanceEngineHooks()
         self._current_entry: Optional[dict] = None
 
         # Cat brain: rolling delta regime classifier (Schrodinger's quantum cat)

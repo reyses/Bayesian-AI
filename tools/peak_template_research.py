@@ -53,7 +53,7 @@ from sklearn.preprocessing import StandardScaler
 TICK_SIZE = 0.25
 TICK_VALUE = 0.50
 
-# ── Peak detection thresholds (mirrors bar_processor._detect_peak_reversal) ─
+# ── Peak detection thresholds (mirrors advance_engine._detect_peak_reversal) ─
 PC_RISE_THRESHOLD = 1.05        # P_center must exceed prev * 1.05
 PC_MIN_PREV = 0.01              # Minimum prev P_center to test rise
 FM_DECAY_THRESHOLD = 0.90       # |F_momentum| must drop below prev * 0.90
@@ -262,7 +262,7 @@ def compute_all_states(df: pd.DataFrame) -> list:
 
 def detect_and_label_peaks(states: list, prices: np.ndarray):
     """
-    Walk through states, detect peaks (same logic as bar_processor), label
+    Walk through states, detect peaks (same logic as advance_engine), label
     outcome from the 10 bars after the peak.
 
     Returns list of dicts (one per peak).
