@@ -1,0 +1,115 @@
+{
+  "date": "2026-02-01_to_2026-02-07",
+  "tf": "1h",
+  "n_peaks": 9,
+  "peaks": [
+    {
+      "bar_index": 1,
+      "timestamp": 1769990400.0,
+      "time_utc": "00:00:00",
+      "price": 25645.75,
+      "close": 25605.5,
+      "high": 25645.75,
+      "low": 25487.0,
+      "_snap": "H",
+      "_direction_hint": "UNKNOWN",
+      "tf": "1h"
+    },
+    {
+      "bar_index": 7,
+      "timestamp": 1770012000.0,
+      "time_utc": "06:00:00",
+      "price": 25180.25,
+      "close": 25232.0,
+      "high": 25274.0,
+      "low": 25180.25,
+      "_snap": "L",
+      "_direction_hint": "LONG",
+      "tf": "1h"
+    },
+    {
+      "bar_index": 31,
+      "timestamp": 1770102000.0,
+      "time_utc": "07:00:00",
+      "price": 26027.75,
+      "close": 26012.5,
+      "high": 26027.75,
+      "low": 25974.25,
+      "_snap": "H",
+      "_direction_hint": "SHORT",
+      "tf": "1h"
+    },
+    {
+      "bar_index": 43,
+      "timestamp": 1770145200.0,
+      "time_utc": "19:00:00",
+      "price": 25219.0,
+      "close": 25316.25,
+      "high": 25359.25,
+      "low": 25219.0,
+      "_snap": "L",
+      "_direction_hint": "LONG",
+      "tf": "1h"
+    },
+    {
+      "bar_index": 55,
+      "timestamp": 1770192000.0,
+      "time_utc": "08:00:00",
+      "price": 25509.5,
+      "close": 25426.5,
+      "high": 25509.5,
+      "low": 25400.75,
+      "_snap": "H",
+      "_direction_hint": "SHORT",
+      "tf": "1h"
+    },
+    {
+      "bar_index": 64,
+      "timestamp": 1770224400.0,
+      "time_utc": "17:00:00",
+      "price": 24783.5,
+      "close": 24874.25,
+      "high": 25057.5,
+      "low": 24783.5,
+      "_snap": "L",
+      "_direction_hint": "LONG",
+      "tf": "1h"
+    },
+    {
+      "bar_index": 78,
+      "timestamp": 1770278400.0,
+      "time_utc": "08:00:00",
+      "price": 25123.75,
+      "close": 24998.25,
+      "high": 25123.75,
+      "low": 24998.0,
+      "_snap": "H",
+      "_direction_hint": "SHORT",
+      "tf": "1h"
+    },
+    {
+      "bar_index": 93,
+      "timestamp": 1770336000.0,
+      "time_utc": "00:00:00",
+      "price": 24239.75,
+      "close": 24400.0,
+      "high": 24409.25,
+      "low": 24239.75,
+      "_snap": "L",
+      "_direction_hint": "LONG",
+      "tf": "1h"
+    },
+    {
+      "bar_index": 113,
+      "timestamp": 1770408000.0,
+      "time_utc": "20:00:00",
+      "price": 25222.0,
+      "close": 25146.75,
+      "high": 25222.0,
+      "low": 25052.75,
+      "_snap": "H",
+      "_direction_hint": "SHORT",
+      "tf": "1h"
+    }
+  ]
+}
