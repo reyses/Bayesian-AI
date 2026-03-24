@@ -308,7 +308,7 @@ class LiveBarAggregator:
     def _aggregate_sub_bars(self) -> dict:
         """Combine buffered 1s bars into a single 15s OHLCV bar."""
         bars = self._sub_bars
-        return {
+        agg = {
             'timestamp': bars[0]['timestamp'],
             'open':      bars[0]['open'],
             'high':      max(b['high'] for b in bars),
@@ -316,6 +316,12 @@ class LiveBarAggregator:
             'close':     bars[-1]['close'],
             'volume':    sum(b['volume'] for b in bars),
         }
+        # Carry NT8 native indicators from last sub-bar (if present)
+        last = bars[-1]
+        for key in ('dmi_plus', 'dmi_minus', 'adx', 'dmi'):
+            if key in last:
+                agg[key] = last[key]
+        return agg
 
     def _append_bar(self, row: dict) -> Optional[list]:
         """Append a completed 15s bar and recompute if warmed up."""
