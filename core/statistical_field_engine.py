@@ -39,7 +39,7 @@ except ImportError:
 DEFAULT_PID_KP = 0.5
 DEFAULT_PID_KI = 0.1
 DEFAULT_PID_KD = 0.2
-DEFAULT_PID_INTEGRAL_WINDOW = 200  # Rolling window for integral term (bars, 0=cumsum)
+DEFAULT_PID_INTEGRAL_WINDOW = 30   # Rolling window for integral term (bars)
 DEFAULT_REVERSION_THETA = 0.5
 
 
@@ -85,9 +85,9 @@ class StatisticalFieldEngine:
             self.inv_denom = 1.0 / self.denom
 
         # Historical residuals for fat-tail sigma calculation (rolling window)
-        # Using 500 bars (~2 hours at 15s) to estimate distribution
+        # 30 bars — minimum for CLT, responsive to current regime
         self.residual_history = []
-        self.residual_window = 500
+        self.residual_window = 30
 
         # === GPU SETUP ===
         if use_gpu is not None:
@@ -368,7 +368,7 @@ class StatisticalFieldEngine:
         pid_p       = pid_kp * z_scores
         # Integral term: rolling mean over window (not cumsum)
         # Rolling mean converges after window bars regardless of start point.
-        # With window=200, OOS and live produce identical values after 200 bars.
+        # With window=30, OOS and live produce identical values after 30 bars.
         _pid_window = params.get('pid_integral_window', DEFAULT_PID_INTEGRAL_WINDOW)
         if _pid_window > 0 and n > _pid_window:
             # Rolling mean of z_scores over last _pid_window bars
@@ -453,7 +453,7 @@ class StatisticalFieldEngine:
         # --- Swing noise: max intra-wave pullback over rolling window ---
         # Measures "how much pullback is normal right now" in ticks.
         # Used by exit engine to set dynamic giveback threshold.
-        _noise_window = 32  # ~8 min at 15s bars
+        _noise_window = 30  # 30 bars — consistent with other windows
         _tick_size = params.get('tick_size', 0.25)
         swing_noise = np.full(n, 35.0)  # default 35 ticks
         for _ni in range(_noise_window, n):

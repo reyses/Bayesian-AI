@@ -152,6 +152,8 @@ def main():
                         help='Continuous wave-riding with direction refinement')
     parser.add_argument('--physics', action='store_true',
                         help='Use PhysicsEngine (K-NN trajectory matching) instead of AdvanceEngine')
+    parser.add_argument('--dmi', action='store_true',
+                        help='Use DMI smoothed cross flipper (simplest profitable engine)')
     parser.add_argument('--seed-path', default=None,
                         help='Path to enriched seed JSON for PhysicsEngine')
     parser.add_argument('--yolo', action='store_true',
@@ -182,6 +184,12 @@ def main():
         print(f"[physics] Engine: PhysicsEngine (K-NN trajectory matching)")
         print(f"[physics] Seeds:  {args.seed_path}")
         print(f"[physics] Anchor: 1m")
+
+    # DMI mode: force 1m anchor, no seeds needed
+    if args.dmi:
+        args.anchor_tf = '1m'
+        print(f"[dmi] Engine: DMI Smoothed Cross Flipper")
+        print(f"[dmi] Anchor: 1m | TP=10t repeating | SL=40t")
 
     # YOLO mode: override warmup + aggression
     if args.yolo:
@@ -227,6 +235,7 @@ def main():
         'ping_pong': args.ping_pong,
         'side_lock': 'long' if args.long_only else ('short' if args.short_only else None),
         'physics_mode': args.physics,
+        'dmi_mode': args.dmi,
         'seed_path': getattr(args, 'seed_path', None),
     }
 

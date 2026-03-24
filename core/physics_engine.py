@@ -126,13 +126,22 @@ class PhysicsEngine:
                 for fi, key in enumerate(TRAJ_KEYS):
                     trajs[si, bi, fi] = bar.get(key, 0.0)
 
-        # Normalize
+        # Self-normalize each trajectory: z-score per trajectory
+        # Each 10-bar window is normalized by its own mean/std per feature
+        # This makes matching regime-independent
+        trajs_normed = np.zeros_like(trajs)
+        for si in range(n):
+            t_mean = trajs[si].mean(axis=0)
+            t_std = trajs[si].std(axis=0)
+            t_std[t_std < 1e-8] = 1.0
+            trajs_normed[si] = (trajs[si] - t_mean) / t_std
+        seed_flat = trajs_normed.reshape(n, -1)
+
+        # Store global stats for reference only (not used in matching)
         flat = trajs.reshape(-1, N_FEAT)
         means = flat.mean(axis=0)
         stds = flat.std(axis=0)
         stds[stds < 1e-8] = 1.0
-        trajs_normed = (trajs - means) / stds
-        seed_flat = trajs_normed.reshape(n, -1)
 
         seed_dir = np.array([1 if s['direction'] == 'LONG' else -1 for s in seeds])
         seed_bars = np.array([s['n_bars'] for s in seeds])
@@ -168,7 +177,11 @@ class PhysicsEngine:
             return None
 
         current_traj = np.array(list(self._traj_buffer))
-        current_normed = (current_traj - self.feat_means) / self.feat_stds
+        # Self-normalize: z-score this trajectory by its own mean/std
+        t_mean = current_traj.mean(axis=0)
+        t_std = current_traj.std(axis=0)
+        t_std[t_std < 1e-8] = 1.0
+        current_normed = (current_traj - t_mean) / t_std
         current_flat = current_normed.reshape(1, -1)
 
         # Full distance against all seeds
