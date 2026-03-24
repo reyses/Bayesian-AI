@@ -469,16 +469,16 @@ class LiveEngine:
                             if _pt <= -self._physics_sl_ticks:
                                 logger.warning(f"PHYSICS SL (loop): {_pt:+.1f}t")
                                 if self._physics:
-                                    self._physics._in_trade = False
-                                    self._physics._move_start_price = self._last_price
+                                    if self._physics: self._physics._in_trade = False
+                                    if self._physics: self._physics._move_start_price = self._last_price
                                 if self._dmi_flipper:
                                     self._dmi_flipper._in_trade = False
                                 await self._close_position('physics_sl')
                             elif _tp > 0 and _pt >= _tp:
                                 logger.info(f"PHYSICS TP (loop): {_pt:+.1f}t")
                                 if self._physics:
-                                    self._physics._in_trade = False
-                                    self._physics._move_start_price = self._last_price
+                                    if self._physics: self._physics._in_trade = False
+                                    if self._physics: self._physics._move_start_price = self._last_price
                                 if self._dmi_flipper:
                                     self._dmi_flipper._in_trade = False
                                 await self._close_position('physics_tp')
@@ -1020,13 +1020,13 @@ class LiveEngine:
                     _tp = self._tuning.get('physics_tp_ticks', 0)
                     if _pnl_t <= -self._physics_sl_ticks:
                         logger.warning(f"PHYSICS SL (1s): {_pnl_t:+.1f}t @ {price:.2f}")
-                        self._physics._in_trade = False
-                        self._physics._move_start_price = price
+                        if self._physics: self._physics._in_trade = False
+                        if self._physics: self._physics._move_start_price = price
                         await self._close_position('physics_sl')
                     elif _tp > 0 and _pnl_t >= _tp:
                         logger.info(f"PHYSICS TP (1s): {_pnl_t:+.1f}t @ {price:.2f}")
-                        self._physics._in_trade = False
-                        self._physics._move_start_price = price
+                        if self._physics: self._physics._in_trade = False
+                        if self._physics: self._physics._move_start_price = price
                         await self._close_position('physics_tp')
             else:
                 try:
@@ -1139,7 +1139,7 @@ class LiveEngine:
         # Route to DMI flipper or PhysicsEngine
         if self._dmi_mode and self._dmi_flipper:
             _vol = getattr(state, 'volume_delta', 0.0)
-            # Prefer NT8 native DMI over SFE-computed DMI
+            # Prefer NT8 native DI+/DI- (from DM indicator) over SFE-computed DMI
             _nt8_dp = getattr(self, '_nt8_dmi_plus', {}).get(self._anchor_period, 0)
             _nt8_dm = getattr(self, '_nt8_dmi_minus', {}).get(self._anchor_period, 0)
             result = self._dmi_flipper.on_bar(price, bar_high, bar_low, ts, state,
@@ -1229,13 +1229,13 @@ class LiveEngine:
             _tp = self._tuning.get('physics_tp_ticks', 0)
             if _pnl_ticks <= -self._physics_sl_ticks:
                 logger.warning(f"PHYSICS SL HIT: {_pnl_ticks:+.1f}t (limit={self._physics_sl_ticks})")
-                self._physics._in_trade = False
-                self._physics._move_start_price = price
+                if self._physics: self._physics._in_trade = False
+                if self._physics: self._physics._move_start_price = price
                 await self._close_position('physics_sl')
             elif _tp > 0 and _pnl_ticks >= _tp:
                 logger.info(f"PHYSICS TP HIT: {_pnl_ticks:+.1f}t (target={_tp})")
-                self._physics._in_trade = False
-                self._physics._move_start_price = price
+                if self._physics: self._physics._in_trade = False
+                if self._physics: self._physics._move_start_price = price
                 await self._close_position('physics_tp')
 
     async def _physics_enter(self, result: 'EngineResult', price: float, ts: float):
@@ -1607,8 +1607,8 @@ class LiveEngine:
                 if self._belief_network is not None:
                     self._belief_network.stop_trade_tracking()
                 if self._physics_mode and self._physics:
-                    self._physics._in_trade = False
-                    self._physics._move_start_price = price
+                    if self._physics: self._physics._in_trade = False
+                    if self._physics: self._physics._move_start_price = price
                 await self._close_position('MANUAL_FLATTEN')
             else:
                 logger.info("MANUAL FLATTEN  -- already flat")

@@ -24,7 +24,9 @@
 - **NT8 bridge deploy**: When updating `docs/NT8_BayesianBridge.cs`, also copy it to
   `C:\Users\reyse\OneDrive\Documents\NinjaTrader 8\bin\Custom\Indicators\NT8_BayesianBridge.cs`
 - **NT8 bridge versioning**: Always bump version + update date + time in both header comment
-  and `BRIDGE_VERSION` const (e.g. `6.1.2 — 2026-03-04 06:15`)
+  and `BRIDGE_VERSION` const (e.g. `6.1.2 — 2026-03-04 06:15`).
+  **ALWAYS run `date` command to get actual current time** — never guess or use stale timestamps.
+- **Track time**: Periodically check the clock during long sessions. Flag when it's late.
 
 ## **AUTO SEEDS + QUANTUM — NEXT PRIORITIES (2026-03-19)**
 - **READ FIRST**: `memory/project_auto_seeds_next.md` — 31K seeds as template library

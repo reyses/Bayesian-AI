@@ -1,5 +1,5 @@
 // =============================================================================
-// BayesianBridge 6.7.2 -- 2026-03-24 08:20
+// BayesianBridge 6.7.4 -- 2026-03-24 10:49
 // =============================================================================
 // BayesianBridge — NinjaTrader 8 NinjaScript Indicator
 //
@@ -59,7 +59,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         public int DomLevels { get; set; }
 
         // ── Version ──────────────────────────────────────────────────
-        private const string BRIDGE_VERSION = "6.7.2";
+        private const string BRIDGE_VERSION = "6.7.4";
 
         // ── Internal State ────────────────────────────────────────────
         private TcpListener  _listener;
@@ -88,9 +88,11 @@ namespace NinjaTrader.NinjaScript.Indicators
         private const int MAX_HISTORY = 100000;  // ~20MB, covers months of TFs 1-11
 
         // DMI: Value = (DI+ - DI-) / (DI+ + DI-), range [-1, +1]
+        // DM: DiPlus = DI+ (0-100), DiMinus = DI- (0-100), ADXPlot = ADX
         // ADX: Average Directional Index, range [0, 100]. <20 = chop, >25 = trend.
         private const int DMI_PERIOD = 14;
         private NinjaTrader.NinjaScript.Indicators.DMI[] _dmiInd;
+        private NinjaTrader.NinjaScript.Indicators.DM[] _dmInd;
         private NinjaTrader.NinjaScript.Indicators.ADX[] _adxInd;
 
         // DOM throttle — send at most every N ms to avoid flooding
@@ -174,12 +176,14 @@ namespace NinjaTrader.NinjaScript.Indicators
                     return;
                 }
 
-                // Initialize DMI + ADX indicators for each data series
+                // Initialize DMI + DM + ADX indicators for each data series
                 _dmiInd = new NinjaTrader.NinjaScript.Indicators.DMI[_barLabels.Length];
+                _dmInd = new NinjaTrader.NinjaScript.Indicators.DM[_barLabels.Length];
                 _adxInd = new NinjaTrader.NinjaScript.Indicators.ADX[_barLabels.Length];
                 for (int i = 0; i < _barLabels.Length; i++)
                 {
                     _dmiInd[i] = DMI(Closes[i], DMI_PERIOD);
+                    _dmInd[i] = DM(BarsArray[i], DMI_PERIOD);
                     _adxInd[i] = ADX(BarsArray[i], DMI_PERIOD);
                 }
 
@@ -236,9 +240,13 @@ namespace NinjaTrader.NinjaScript.Indicators
             {
                 try { dmiVal = _dmiInd[idx].Value[1]; }
                 catch { }
-                try { dmiPlus = _dmiInd[idx].DiPlus[1]; }
+            }
+            if (_dmInd != null && idx < _dmInd.Length && _dmInd[idx] != null
+                && CurrentBars[idx] >= DMI_PERIOD)
+            {
+                try { dmiPlus = _dmInd[idx].DiPlus[1]; }
                 catch { }
-                try { dmiMinus = _dmiInd[idx].DiMinus[1]; }
+                try { dmiMinus = _dmInd[idx].DiMinus[1]; }
                 catch { }
             }
             if (_adxInd != null && idx < _adxInd.Length && _adxInd[idx] != null
@@ -291,9 +299,13 @@ namespace NinjaTrader.NinjaScript.Indicators
                 {
                     try { hiDmi = _dmiInd[hi].Value[0]; }
                     catch { }
-                    try { hiDmiP = _dmiInd[hi].DiPlus[0]; }
+                }
+                if (_dmInd != null && hi < _dmInd.Length && _dmInd[hi] != null
+                    && CurrentBars[hi] >= DMI_PERIOD)
+                {
+                    try { hiDmiP = _dmInd[hi].DiPlus[0]; }
                     catch { }
-                    try { hiDmiM = _dmiInd[hi].DiMinus[0]; }
+                    try { hiDmiM = _dmInd[hi].DiMinus[0]; }
                     catch { }
                 }
                 if (_adxInd != null && hi < _adxInd.Length && _adxInd[hi] != null
