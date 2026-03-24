@@ -60,25 +60,73 @@ class DmiFlipper:
         }
 
     def on_bar(self, price: float, high: float, low: float,
-               timestamp: float, state) -> FlipperResult:
+               timestamp: float, state, volume: float = 0.0) -> FlipperResult:
         """Process one 1m bar. Returns FlipperResult."""
         self._bar_count += 1
         self.stats['bars'] += 1
 
-        # Extract DMI diff
+        # Extract features
         dmi_p = getattr(state, 'dmi_plus', 0.0)
         dmi_m = getattr(state, 'dmi_minus', 0.0)
+        z = getattr(state, 'z_score', 0.0)
         dmi_diff = dmi_p - dmi_m
         self._dmi_diffs.append(dmi_diff)
 
-        # Need enough bars for smoothing
-        if len(self._dmi_diffs) < self.smooth_window + 1:
-            return FlipperResult(reason=f'warmup {len(self._dmi_diffs)}/{self.smooth_window + 1}')
+        # Track DMI+, DMI-, z for divergence widening detection
+        if not hasattr(self, '_dmi_p_hist'):
+            self._dmi_p_hist = deque(maxlen=5)
+            self._dmi_m_hist = deque(maxlen=5)
+            self._z_hist = deque(maxlen=5)
+            self._price_hist = deque(maxlen=30)
+        self._dmi_p_hist.append(dmi_p)
+        self._dmi_m_hist.append(dmi_m)
+        self._price_hist.append(price)
 
-        # Smoothed DMI diff (3-bar MA)
+        # Z using standard error instead of std: SE = std / sqrt(n)
+        # Answers "is this deviation significant given sample size?"
+        import numpy as _np
+        if len(self._price_hist) >= 5:
+            _prices = list(self._price_hist)
+            _mean = sum(_prices) / len(_prices)
+            _std = float(_np.std(_prices))
+            _se = _std / (len(_prices) ** 0.5) if len(_prices) > 1 else _std
+            z_se = (price - _mean) / _se if _se > 1e-8 else 0.0
+        else:
+            z_se = z  # fallback to SFE z during warmup
+        self._z_hist.append(z_se)
+
+        # Track volume
+        if not hasattr(self, '_volumes'):
+            self._volumes = deque(maxlen=30)
+        self._volumes.append(volume)
+        self._last_volume = volume
+        self._avg_volume = sum(self._volumes) / len(self._volumes) if self._volumes else 1.0
+
+        # Peak signature from research (98.8% recall):
+        # DMI+ rising AND DMI- falling AND z rising
+        self._divergence_signal = False
+        if len(self._dmi_p_hist) >= 2 and len(self._z_hist) >= 2:
+            _dp_rising = self._dmi_p_hist[-1] > self._dmi_p_hist[-2]
+            _dm_falling = self._dmi_m_hist[-1] < self._dmi_m_hist[-2]
+            _z_rising = self._z_hist[-1] > self._z_hist[-2]
+            # Either direction: LONG signal or SHORT signal
+            _dp_falling = self._dmi_p_hist[-1] < self._dmi_p_hist[-2]
+            _dm_rising = self._dmi_m_hist[-1] > self._dmi_m_hist[-2]
+            _z_falling = self._z_hist[-1] < self._z_hist[-2]
+            self._divergence_signal = (
+                (_dp_rising and _dm_falling and _z_rising) or   # LONG peak
+                (_dp_falling and _dm_rising and _z_falling)     # SHORT peak
+            )
+
+        # Smoothed DMI diff (3-bar MA, or raw if not enough bars)
+        n_dmi = len(self._dmi_diffs)
+        if n_dmi < 2:
+            return FlipperResult(reason=f'warmup {n_dmi}/2')
+
         recent = list(self._dmi_diffs)
-        smooth_now = sum(recent[-self.smooth_window:]) / self.smooth_window
-        smooth_prev = sum(recent[-(self.smooth_window + 1):-1]) / self.smooth_window
+        w = min(self.smooth_window, n_dmi - 1)  # use fewer bars if warming up
+        smooth_now = sum(recent[-w:]) / w if w > 0 else recent[-1]
+        smooth_prev = sum(recent[-(w + 1):-1]) / w if w > 0 else recent[-2]
 
         # --- IN TRADE: check SL and TP ---
         if self._in_trade:
@@ -137,14 +185,45 @@ class DmiFlipper:
         cross_long = smooth_prev < 0 and smooth_now > 0
         cross_short = smooth_prev > 0 and smooth_now < 0
 
+        # Entry quality from peak research:
+        # 1. Volume >= average (peaks have 1.3x avg volume)
+        # 2. DMI divergence widening (98.8% of peaks)
+        _vol_ok = self._last_volume >= self._avg_volume if self._avg_volume > 0 else True
+        _vol_ratio = self._last_volume / self._avg_volume if self._avg_volume > 0 else 1.0
+        _quality_ok = _vol_ok or self._divergence_signal  # either confirms the move
+
+        # No trade yet and no cross: enter based on current DMI direction (once)
+        if not self._in_trade and not cross_long and not cross_short and self.stats['entries'] == 0:
+            if not _quality_ok:
+                return FlipperResult(reason=f'FLAT dmi={smooth_now:.1f} vol={_vol_ratio:.1f}x div={self._divergence_signal} (low quality)')
+            new_dir = 'LONG' if smooth_now > 0 else 'SHORT'
+            self._in_trade = True
+            self._trade_dir = new_dir
+            self._entry_price = price
+            self._last_tp_price = 0.0
+            self._tp_count = 0
+            self.stats['entries'] += 1
+            return FlipperResult(
+                action='ENTER', direction=new_dir,
+                reason=f'ENTER {new_dir} initial dmi={smooth_now:.1f} vol={_vol_ratio:.1f}x div={self._divergence_signal}',
+            )
+
         if not cross_long and not cross_short:
             if self._in_trade:
                 return FlipperResult(
-                    reason=f'HOLD {self._trade_dir} TPs={self._tp_count} dmi={smooth_now:.1f}',
+                    reason=f'HOLD {self._trade_dir} TPs={self._tp_count} dmi={smooth_now:.1f} vol={_vol_ratio:.1f}x',
                 )
-            return FlipperResult(reason=f'FLAT dmi={smooth_now:.1f}')
+            return FlipperResult(reason=f'FLAT dmi={smooth_now:.1f} vol={_vol_ratio:.1f}x')
 
         new_dir = 'LONG' if cross_long else 'SHORT'
+
+        # Quality gate on flips: skip low-volume + no-divergence crosses (fakeouts)
+        if not _quality_ok:
+            if self._in_trade:
+                return FlipperResult(
+                    reason=f'HOLD {self._trade_dir} cross_blocked vol={_vol_ratio:.1f}x div={self._divergence_signal}',
+                )
+            return FlipperResult(reason=f'SKIP cross vol={_vol_ratio:.1f}x div={self._divergence_signal}')
 
         # FLIP: close existing + open new
         if self._in_trade and new_dir != self._trade_dir:

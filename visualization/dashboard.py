@@ -1101,6 +1101,52 @@ class ProgressPopup:
             c.create_text(W - pad + 2, gy, text=f"{price_at:,.0f}",
                           fill="#444444", font=("Consolas", 5), anchor="w")
 
+        # Standard Error bands (1σ, 2σ, 3σ) — rolling 60-bar window
+        import numpy as _np
+        _se_window = 60
+        if len(pts) >= _se_window:
+            _pts_arr = _np.array(pts)
+            _band_colors = {1: '#333355', 2: '#333344', 3: '#332233'}  # subtle fills
+            _line_colors = {1: '#5555AA', 2: '#6666AA', 3: '#7744AA'}  # band edges
+
+            for _sigma in (3, 2, 1):  # draw outer first
+                _upper_coords = []
+                _lower_coords = []
+                for i in range(len(pts)):
+                    x = pad + i / (len(pts) - 1) * (W - 2 * pad)
+                    if i < _se_window:
+                        _upper_coords.extend([x, H // 2])
+                        _lower_coords.extend([x, H // 2])
+                        continue
+                    _chunk = _pts_arr[i - _se_window:i]
+                    _mean = _chunk.mean()
+                    _std = _chunk.std()
+                    _se = _std / (_se_window ** 0.5)
+                    _up = _mean + _sigma * _se
+                    _lo = _mean - _sigma * _se
+                    _uy = H - pad - ((_up - mn) / span) * (H - 2 * pad)
+                    _ly = H - pad - ((_lo - mn) / span) * (H - 2 * pad)
+                    _upper_coords.extend([x, _uy])
+                    _lower_coords.extend([x, _ly])
+
+                if len(_upper_coords) >= 4:
+                    c.create_line(_upper_coords, fill=_line_colors[_sigma], width=1, dash=(1, 2))
+                    c.create_line(_lower_coords, fill=_line_colors[_sigma], width=1, dash=(1, 2))
+
+            # Regression center line
+            _center_coords = []
+            for i in range(len(pts)):
+                x = pad + i / (len(pts) - 1) * (W - 2 * pad)
+                if i < _se_window:
+                    _center_coords.extend([x, H // 2])
+                    continue
+                _chunk = _pts_arr[i - _se_window:i]
+                _mean = _chunk.mean()
+                _cy = H - pad - ((_mean - mn) / span) * (H - 2 * pad)
+                _center_coords.extend([x, _cy])
+            if len(_center_coords) >= 4:
+                c.create_line(_center_coords, fill='#FFFFFF', width=1, dash=(3, 3))
+
         # Polyline
         coords = []
         for i, v in enumerate(pts):
@@ -1125,6 +1171,40 @@ class ProgressPopup:
             c.create_text(pad + 4, _ey - 8,
                           text=f"{self._active_entry_side.upper()} @ {self._active_entry_price:,.2f}",
                           fill=_ec, font=("Consolas", 6), anchor="w")
+
+        # DMI overlay on price chart (secondary Y-axis, semi-transparent)
+        dp = self._dmi_plus_history
+        dm = self._dmi_minus_history
+        _dmi_n = min(len(dp), len(dm), len(pts))
+        if _dmi_n >= 2:
+            _dmi_all = dp[-_dmi_n:] + dm[-_dmi_n:]
+            _dmi_mn = max(0, min(_dmi_all) - 2)
+            _dmi_mx = max(_dmi_all) + 2
+            _dmi_span = _dmi_mx - _dmi_mn if _dmi_mx != _dmi_mn else 1.0
+            if _dmi_span < 40:
+                _dmi_mid = (_dmi_mn + _dmi_mx) / 2
+                _dmi_mn = max(0, _dmi_mid - 20)
+                _dmi_mx = _dmi_mn + 40
+                _dmi_span = 40.0
+
+            def _dmi_y(v):
+                return H - pad - ((v - _dmi_mn) / _dmi_span) * (H - 2 * pad)
+
+            # DMI+ (green, thin)
+            _dp_coords = []
+            for i in range(_dmi_n):
+                x = pad + i / max(1, _dmi_n - 1) * (W - 2 * pad)
+                _dp_coords.extend([x, _dmi_y(dp[len(dp) - _dmi_n + i])])
+            if len(_dp_coords) >= 4:
+                c.create_line(_dp_coords, fill="#00CC00", width=1, smooth=True, dash=(2, 2))
+
+            # DMI- (red, thin)
+            _dm_coords = []
+            for i in range(_dmi_n):
+                x = pad + i / max(1, _dmi_n - 1) * (W - 2 * pad)
+                _dm_coords.extend([x, _dmi_y(dm[len(dm) - _dmi_n + i])])
+            if len(_dm_coords) >= 4:
+                c.create_line(_dm_coords, fill="#CC0000", width=1, smooth=True, dash=(2, 2))
 
         # Trade markers: entry = up triangle (direction), exit = down triangle (outcome)
         n_pts = len(pts)
