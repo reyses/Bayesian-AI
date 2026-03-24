@@ -66,7 +66,7 @@ class DmiFlipper:
         self._bar_count += 1
         self.stats['bars'] += 1
 
-        # Extract features — prefer NT8 native DMI when available
+        # Extract DMI — prefer NT8 native DI+/DI- (0-100) when available
         if nt8_dmi_plus > 0 or nt8_dmi_minus > 0:
             dmi_p = nt8_dmi_plus
             dmi_m = nt8_dmi_minus
