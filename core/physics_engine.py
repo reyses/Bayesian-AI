@@ -77,6 +77,7 @@ class PhysicsEngine:
         self.min_consensus = min_consensus
         self.max_coherence = max_coherence
         self.min_mag_pctile = min_mag_pctile
+        self.max_hold_bars = 0  # 0 = use seed hold, >0 = global override
 
         # Rolling state
         self._traj_buffer = deque(maxlen=TRAJ_LEN)
@@ -255,7 +256,7 @@ class PhysicsEngine:
                     self._entry_price = price
                     self._entry_bar = self._bar_count
                     self._trade_dir = match['direction']
-                    self._trade_hold = match['hold']
+                    self._trade_hold = self.max_hold_bars if self.max_hold_bars > 0 else match['hold']
                     self._in_trade = True
                     self.stats['entries'] += 1
 
@@ -279,8 +280,8 @@ class PhysicsEngine:
                     coherence=coherence,
                 )
 
-            # Exit condition 2: max hold reached
-            if self._bar_count >= self._entry_bar + self._trade_hold:
+            # Exit condition 2: max hold reached (0 = disabled)
+            if self._trade_hold > 0 and self._bar_count >= self._entry_bar + self._trade_hold:
                 if self._trade_dir == 'LONG':
                     pnl = (price - self._entry_price) / TICK_SIZE
                 else:

@@ -191,7 +191,7 @@ def main():
     # Configure logging
     logging.basicConfig(
         level=getattr(logging, args.log_level),
-        format='%(asctime)s [%(name)s] %(levelname)s: %(message)s',
+        format='%(asctime)s %(levelname)s: %(message)s',
         datefmt='%H:%M:%S',
         handlers=[
             logging.StreamHandler(sys.stdout),

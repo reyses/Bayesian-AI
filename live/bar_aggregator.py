@@ -179,7 +179,7 @@ class LiveBarAggregator:
         self._bars_since_flush = 0
         logger.info(f"Bars saved: {len(df):,} rows -> {path}")
 
-    def update_atlas(self, atlas_root: str = 'DATA/ATLAS_OOS'):
+    def update_atlas(self, atlas_root: str = 'DATA/ATLAS_LIVE'):
         """Append current bars to ATLAS parquet files (keeps OOS data current).
 
         NT8 sends 10k bars on connect + live bars during trading.
