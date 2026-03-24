@@ -60,14 +60,19 @@ class DmiFlipper:
         }
 
     def on_bar(self, price: float, high: float, low: float,
-               timestamp: float, state, volume: float = 0.0) -> FlipperResult:
+               timestamp: float, state, volume: float = 0.0,
+               nt8_dmi_plus: float = 0.0, nt8_dmi_minus: float = 0.0) -> FlipperResult:
         """Process one 1m bar. Returns FlipperResult."""
         self._bar_count += 1
         self.stats['bars'] += 1
 
-        # Extract features
-        dmi_p = getattr(state, 'dmi_plus', 0.0)
-        dmi_m = getattr(state, 'dmi_minus', 0.0)
+        # Extract features — prefer NT8 native DMI when available
+        if nt8_dmi_plus > 0 or nt8_dmi_minus > 0:
+            dmi_p = nt8_dmi_plus
+            dmi_m = nt8_dmi_minus
+        else:
+            dmi_p = getattr(state, 'dmi_plus', 0.0)
+            dmi_m = getattr(state, 'dmi_minus', 0.0)
         z = getattr(state, 'z_score', 0.0)
         dmi_diff = dmi_p - dmi_m
         self._dmi_diffs.append(dmi_diff)
