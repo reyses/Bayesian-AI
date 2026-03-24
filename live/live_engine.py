@@ -847,13 +847,22 @@ class LiveEngine:
 
         # Store latest NT8 ADX + DMI per TF
         _nt8_adx = float(msg.get('adx', 0))
-        _nt8_dmi = float(msg.get('dmi', 0))
+        _nt8_dmi = float(msg.get('dmi', 0))  # legacy single field
+        _nt8_dmi_p = float(msg.get('dmi_plus', 0))  # v6.7.1+
+        _nt8_dmi_m = float(msg.get('dmi_minus', 0))  # v6.7.1+
         if _nt8_adx > 0 and bar_period == 60:
             self._nt8_1m_adx = _nt8_adx
         if not hasattr(self, '_nt8_latest_dmi'):
             self._nt8_latest_dmi = {}
         if _nt8_dmi != 0:
             self._nt8_latest_dmi[bar_period] = _nt8_dmi
+        # Store native DMI+/DMI- for DMI flipper (per TF)
+        if not hasattr(self, '_nt8_dmi_plus'):
+            self._nt8_dmi_plus = {}
+            self._nt8_dmi_minus = {}
+        if _nt8_dmi_p != 0 or _nt8_dmi_m != 0:
+            self._nt8_dmi_plus[bar_period] = _nt8_dmi_p
+            self._nt8_dmi_minus[bar_period] = _nt8_dmi_m
 
         # Only feed primary chart bars and anchor-TF bars to the aggregator
         _is_anchor_or_primary = (bar_period == self._primary_period
@@ -1130,7 +1139,13 @@ class LiveEngine:
         # Route to DMI flipper or PhysicsEngine
         if self._dmi_mode and self._dmi_flipper:
             _vol = getattr(state, 'volume_delta', 0.0)
-            result = self._dmi_flipper.on_bar(price, bar_high, bar_low, ts, state, volume=abs(_vol))
+            # Prefer NT8 native DMI over SFE-computed DMI
+            _nt8_dp = getattr(self, '_nt8_dmi_plus', {}).get(self._anchor_period, 0)
+            _nt8_dm = getattr(self, '_nt8_dmi_minus', {}).get(self._anchor_period, 0)
+            result = self._dmi_flipper.on_bar(price, bar_high, bar_low, ts, state,
+                                              volume=abs(_vol),
+                                              nt8_dmi_plus=_nt8_dp,
+                                              nt8_dmi_minus=_nt8_dm)
         else:
             result = self._physics.on_bar(price, bar_high, bar_low, ts, state)
 

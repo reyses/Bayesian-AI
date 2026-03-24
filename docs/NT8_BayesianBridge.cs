@@ -1,5 +1,5 @@
 // =============================================================================
-// BayesianBridge 6.7.1 -- 2026-03-23 20:35
+// BayesianBridge 6.7.2 -- 2026-03-24 08:20
 // =============================================================================
 // BayesianBridge — NinjaTrader 8 NinjaScript Indicator
 //
@@ -59,7 +59,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         public int DomLevels { get; set; }
 
         // ── Version ──────────────────────────────────────────────────
-        private const string BRIDGE_VERSION = "6.7.1";
+        private const string BRIDGE_VERSION = "6.7.2";
 
         // ── Internal State ────────────────────────────────────────────
         private TcpListener  _listener;
@@ -230,11 +230,15 @@ namespace NinjaTrader.NinjaScript.Indicators
             // Build bar JSON for whichever TF just completed
             // Includes DMI+/DMI-/ADX from NT8 native indicators
             // DMI + ADX from NT8 native indicators
-            double dmiVal = 0, adxVal = 0;
+            double dmiVal = 0, adxVal = 0, dmiPlus = 0, dmiMinus = 0;
             if (_dmiInd != null && idx < _dmiInd.Length && _dmiInd[idx] != null
                 && CurrentBars[idx] >= DMI_PERIOD)
             {
                 try { dmiVal = _dmiInd[idx].Value[1]; }
+                catch { }
+                try { dmiPlus = _dmiInd[idx].DiPlus[1]; }
+                catch { }
+                try { dmiMinus = _dmiInd[idx].DiMinus[1]; }
                 catch { }
             }
             if (_adxInd != null && idx < _adxInd.Length && _adxInd[idx] != null
@@ -257,6 +261,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                 + Q("close") + ":" + D2S(Closes[idx][1]) + ","
                 + Q("volume") + ":" + D2S(Volumes[idx][1]) + ","
                 + Q("dmi") + ":" + D2S(dmiVal) + ","
+                + Q("dmi_plus") + ":" + D2S(dmiPlus) + ","
+                + Q("dmi_minus") + ":" + D2S(dmiMinus) + ","
                 + Q("adx") + ":" + D2S(adxVal)
                 + "}";
 
@@ -279,11 +285,15 @@ namespace NinjaTrader.NinjaScript.Indicators
             for (int hi = idx + 1; hi < _barPeriodSecs.Length; hi++)
             {
                 if (CurrentBars[hi] < 1) continue;
-                double hiDmi = 0, hiAdx = 0;
+                double hiDmi = 0, hiAdx = 0, hiDmiP = 0, hiDmiM = 0;
                 if (_dmiInd != null && hi < _dmiInd.Length && _dmiInd[hi] != null
                     && CurrentBars[hi] >= DMI_PERIOD)
                 {
                     try { hiDmi = _dmiInd[hi].Value[0]; }
+                    catch { }
+                    try { hiDmiP = _dmiInd[hi].DiPlus[0]; }
+                    catch { }
+                    try { hiDmiM = _dmiInd[hi].DiMinus[0]; }
                     catch { }
                 }
                 if (_adxInd != null && hi < _adxInd.Length && _adxInd[hi] != null
@@ -304,6 +314,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                     + Q("close") + ":" + D2S(Closes[hi][0]) + ","
                     + Q("volume") + ":" + D2S(Volumes[hi][0]) + ","
                     + Q("dmi") + ":" + D2S(hiDmi) + ","
+                    + Q("dmi_plus") + ":" + D2S(hiDmiP) + ","
+                    + Q("dmi_minus") + ":" + D2S(hiDmiM) + ","
                     + Q("adx") + ":" + D2S(hiAdx)
                     + "}";
                 SendRawJson(partial);
