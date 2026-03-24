@@ -468,13 +468,19 @@ class LiveEngine:
                             _tp = self._tuning.get('physics_tp_ticks', 0)
                             if _pt <= -self._physics_sl_ticks:
                                 logger.warning(f"PHYSICS SL (loop): {_pt:+.1f}t")
-                                self._physics._in_trade = False
-                                self._physics._move_start_price = self._last_price
+                                if self._physics:
+                                    self._physics._in_trade = False
+                                    self._physics._move_start_price = self._last_price
+                                if self._dmi_flipper:
+                                    self._dmi_flipper._in_trade = False
                                 await self._close_position('physics_sl')
                             elif _tp > 0 and _pt >= _tp:
                                 logger.info(f"PHYSICS TP (loop): {_pt:+.1f}t")
-                                self._physics._in_trade = False
-                                self._physics._move_start_price = self._last_price
+                                if self._physics:
+                                    self._physics._in_trade = False
+                                    self._physics._move_start_price = self._last_price
+                                if self._dmi_flipper:
+                                    self._dmi_flipper._in_trade = False
                                 await self._close_position('physics_tp')
                     else:
                         try:
@@ -602,6 +608,10 @@ class LiveEngine:
                         fill_px = float(msg.get('fill_price', _pe['price']))
                         logger.info(f"PHYSICS FLIP: close confirmed @ {fill_px}, entering {_pe['result'].direction}")
                         await self._physics_enter(_pe['result'], fill_px, _pe['ts'])
+                        # Sync DMI flipper entry price to the new fill price
+                        if self._dmi_flipper and self._dmi_flipper._in_trade:
+                            self._dmi_flipper._entry_price = fill_px
+                            self._dmi_flipper._last_tp_price = 0.0
                 # Graceful shutdown: confirm flat to GUI, then exit loop
                 if self._shutting_down and self._orders.is_flat:
                     logger.info("SHUTDOWN: NT8 confirmed flat")
@@ -1119,7 +1129,8 @@ class LiveEngine:
 
         # Route to DMI flipper or PhysicsEngine
         if self._dmi_mode and self._dmi_flipper:
-            result = self._dmi_flipper.on_bar(price, bar_high, bar_low, ts, state)
+            _vol = getattr(state, 'volume_delta', 0.0)
+            result = self._dmi_flipper.on_bar(price, bar_high, bar_low, ts, state, volume=abs(_vol))
         else:
             result = self._physics.on_bar(price, bar_high, bar_low, ts, state)
 
@@ -1153,11 +1164,16 @@ class LiveEngine:
                     _funnel = f' | funnel: {_dir}({_cons:.0%}) d={_near_dist.mean():.1f} near={_within_2x}'
                 logger.info(f"[{_engine}] nt8={_nt8} | {result.reason}{_funnel}")
 
-        # TP_BANK: profit banked, stay in trade (DMI flipper only)
-        if result.action == 'TP_BANK':
+        # TP_BANK: close position, re-enter if DMI still valid
+        if result.action == 'TP_BANK' and self._position_open:
             from datetime import datetime, timezone
             _nt8 = datetime.fromtimestamp(ts, tz=timezone.utc).strftime('%H:%M:%S')
-            logger.info(f"TP BANK: nt8={_nt8} | {result.reason} (total banked: {result.pnl_ticks:+.0f}t)")
+            logger.info(f"TP BANK: nt8={_nt8} | {result.reason} — closing to bank profit")
+            # Defer re-entry: close first, re-enter on FILL if DMI still agrees
+            self._pending_physics_entry = {
+                'result': result, 'price': price, 'ts': ts,
+            }
+            await self._close_position('dmi_tp')
             return
 
         if (result.action == 'ENTER' and not self._position_open
@@ -1212,8 +1228,8 @@ class LiveEngine:
         side = 'long' if result.direction == 'LONG' else 'short'
 
         logger.info(f"PHYSICS ENTRY: {side.upper()} @ {price:.2f}  "
-                    f"consensus={result.consensus:.2f}  hold={result.hold_bars}  "
-                    f"matched={result.n_matched}")
+                    f"consensus={result.consensus:.2f}  hold={getattr(result, 'hold_bars', 0)}  "
+                    f"matched={getattr(result, 'n_matched', 0)}")
 
         # Open position with SL protection (no TP — PhysicsEngine handles exits)
         self._position = self._exit_engine.open_position(
@@ -1228,7 +1244,7 @@ class LiveEngine:
         self._entry_bar = self._bar_i
         self._active_side = side
         self._active_tid = 'PHYSICS'
-        self._max_hold_bars = result.hold_bars
+        self._max_hold_bars = getattr(result, 'hold_bars', 0)
 
         self._trade_logger.start_trade(
             self._session.stats.trades + 1, side, price, ts)
