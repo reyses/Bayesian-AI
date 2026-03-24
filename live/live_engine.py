@@ -219,7 +219,11 @@ class LiveEngine:
 
         # Physics engine mode (K-NN trajectory matching, replaces AdvanceEngine)
         self._physics_mode = self._shared_state.get('physics_mode', False)
+        self._dmi_mode = self._shared_state.get('dmi_mode', False)
+        if self._dmi_mode:
+            self._physics_mode = True  # reuse physics routing (1m anchor, same bar flow)
         self._physics: Optional[PhysicsEngine] = None
+        self._dmi_flipper = None
         self._physics_sl_ticks = self._tuning.get('physics_sl_ticks', 40)
         self._pending_physics_entry: Optional[dict] = None  # deferred FLIP re-entry
         self._seed_weights: Optional[np.ndarray] = None  # observational weight tracking
@@ -248,7 +252,7 @@ class LiveEngine:
         """Main entry point  -- connect, load checkpoints, run loop."""
         from core.keep_awake import keep_awake
 
-        _mode_label = 'PHYSICS' if self._physics_mode else 'ADVANCE'
+        _mode_label = 'DMI' if self._dmi_mode else ('PHYSICS' if self._physics_mode else 'ADVANCE')
         logger.info("=" * 60)
         logger.info(f"LIVE ENGINE STARTING  ({_mode_label})")
         logger.info(f"  Instrument: {self._cfg.instrument}")
@@ -257,7 +261,9 @@ class LiveEngine:
         logger.info(f"  Engine:     {_mode_label}")
         logger.info("=" * 60)
 
-        if self._physics_mode:
+        if self._dmi_mode:
+            self._init_dmi_flipper()
+        elif self._physics_mode:
             self._init_physics_engine()
         else:
             self._load_checkpoints()
@@ -913,8 +919,8 @@ class LiveEngine:
         _is_live = self._is_live_bar or _stale_s <= 120
         if not _is_live:
             return
-        # Ticker: first 10 live bars then every anchor bar
-        if new_bar:
+        # Ticker: first 10 anchor bars then every anchor bar
+        if new_bar and bar_period == self._anchor_period:
             if not hasattr(self, '_live_bar_count'):
                 self._live_bar_count = 0
             self._live_bar_count += 1
@@ -976,7 +982,15 @@ class LiveEngine:
             return  # stale bar from history leak
 
         if self._position_open:
-            if self._physics_mode:
+            if self._dmi_mode and self._dmi_flipper:
+                # DMI mode: SL + repeating TP at 1s resolution
+                r = self._dmi_flipper.check_sl_1s(price)
+                if r.action == 'EXIT':
+                    logger.warning(f"DMI SL (1s): {r.pnl_ticks:+.1f}t @ {price:.2f} ({r.reason})")
+                    await self._close_position('dmi_sl')
+                elif r.action == 'TP_BANK':
+                    logger.info(f"DMI TP (1s): {r.reason} @ {price:.2f}")
+            elif self._physics_mode:
                 # Physics mode: SL/TP check at 1s resolution
                 if self._position:
                     _tick = self._asset.tick_size
@@ -1095,7 +1109,7 @@ class LiveEngine:
         self._exit_watcher.tick(price)
 
     async def _process_1m_physics(self, price: float, ts: float, states: list):
-        """Per-1m-bar processing: PhysicsEngine handles entry + exit via funnel."""
+        """Per-1m-bar processing: PhysicsEngine or DMI flipper."""
         state = states[-1]['state'] if states else None
         if state is None:
             return
@@ -1103,32 +1117,48 @@ class LiveEngine:
         bar_high = getattr(self, '_last_bar_high', price)
         bar_low = getattr(self, '_last_bar_low', price)
 
-        result = self._physics.on_bar(price, bar_high, bar_low, ts, state)
+        # Route to DMI flipper or PhysicsEngine
+        if self._dmi_mode and self._dmi_flipper:
+            result = self._dmi_flipper.on_bar(price, bar_high, bar_low, ts, state)
+        else:
+            result = self._physics.on_bar(price, bar_high, bar_low, ts, state)
 
-        # Verbose: log funnel state every bar
+        # Log
         if result.reason:
-            # Show funnel buildup: how many seeds are close, what's the consensus
-            _funnel = ''
-            if self._physics and len(self._physics._traj_buffer) >= 10:
-                import numpy as _np
-                _buf = _np.array(list(self._physics._traj_buffer))
-                _normed = (_buf - self._physics.feat_means) / self._physics.feat_stds
-                _flat = _normed.reshape(1, -1)
-                _dist = _np.linalg.norm(self._physics.seed_flat - _flat, axis=1)
-                _k = self._physics.k
-                _near_idx = _np.argpartition(_dist, _k)[:_k]
-                _near_dist = _dist[_near_idx]
-                _dirs = self._physics.seed_dir[_near_idx]
-                _n_long = int((_dirs > 0).sum())
-                _cons = max(_n_long, _k - _n_long) / _k
-                _dir = 'L' if _n_long > _k - _n_long else 'S'
-                # How many seeds within 2x of best distance
-                _best = _near_dist.min()
-                _within_2x = int((_dist < _best * 2).sum())
-                _funnel = f' | funnel: {_dir}({_cons:.0%}) d={_near_dist.mean():.1f} near={_within_2x}'
             from datetime import datetime, timezone
             _nt8 = datetime.fromtimestamp(ts, tz=timezone.utc).strftime('%H:%M:%S')
-            logger.info(f"[PHYSICS] nt8={_nt8} | {result.reason}{_funnel}")
+            _engine = 'DMI' if self._dmi_mode else 'PHYSICS'
+            if self._dmi_mode:
+                logger.info(f"[{_engine}] nt8={_nt8} | {result.reason}")
+            else:
+                _funnel = ''
+                if self._physics and len(self._physics._traj_buffer) >= 10:
+                    import numpy as _np
+                    _buf = _np.array(list(self._physics._traj_buffer))
+                    t_mean = _buf.mean(axis=0)
+                    t_std = _buf.std(axis=0)
+                    t_std[t_std < 1e-8] = 1.0
+                    _normed = (_buf - t_mean) / t_std
+                    _flat = _normed.reshape(1, -1)
+                    _dist = _np.linalg.norm(self._physics.seed_flat - _flat, axis=1)
+                    _k = self._physics.k
+                    _near_idx = _np.argpartition(_dist, _k)[:_k]
+                    _near_dist = _dist[_near_idx]
+                    _dirs = self._physics.seed_dir[_near_idx]
+                    _n_long = int((_dirs > 0).sum())
+                    _cons = max(_n_long, _k - _n_long) / _k
+                    _dir = 'L' if _n_long > _k - _n_long else 'S'
+                    _best = _near_dist.min()
+                    _within_2x = int((_dist < _best * 2).sum())
+                    _funnel = f' | funnel: {_dir}({_cons:.0%}) d={_near_dist.mean():.1f} near={_within_2x}'
+                logger.info(f"[{_engine}] nt8={_nt8} | {result.reason}{_funnel}")
+
+        # TP_BANK: profit banked, stay in trade (DMI flipper only)
+        if result.action == 'TP_BANK':
+            from datetime import datetime, timezone
+            _nt8 = datetime.fromtimestamp(ts, tz=timezone.utc).strftime('%H:%M:%S')
+            logger.info(f"TP BANK: nt8={_nt8} | {result.reason} (total banked: {result.pnl_ticks:+.0f}t)")
+            return
 
         if (result.action == 'ENTER' and not self._position_open
                 and not self._closing_position and self._orders.can_enter):
@@ -2207,6 +2237,15 @@ class LiveEngine:
         # Initialize observational weight tracking (equal weights, no influence on trading)
         self._seed_weights = np.ones(n_seeds, dtype=np.float64)
         self._seed_match_count = np.zeros(n_seeds, dtype=np.int64)
+
+    def _init_dmi_flipper(self):
+        """Create DMI smoothed cross flipper for live trading."""
+        from core.dmi_flipper import DmiFlipper
+        tp = self._tuning.get('physics_tp_ticks', 10)
+        sl = self._tuning.get('physics_sl_ticks', 40)
+        self._dmi_flipper = DmiFlipper(tp_ticks=tp, sl_ticks=sl)
+        self._physics_sl_ticks = sl
+        logger.info(f"DMI Flipper ready: TP={tp}t repeating, SL={sl}t")
 
     def _checkpoint_bundle(self):
         """Build a CheckpointBundle from already-loaded instance attrs."""
