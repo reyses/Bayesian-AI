@@ -186,22 +186,44 @@ class DmiFlipper:
                         reason=f'TP #{self._tp_count} banked (+{self._tp_count * self.tp_ticks}t total)',
                     )
 
-        # --- DMI CROSS DETECTION ---
-        cross_long = smooth_prev < 0 and smooth_now > 0
-        cross_short = smooth_prev > 0 and smooth_now < 0
+        # --- DIVERGENCE-BASED ENTRY (not cross-based) ---
+        # Enter/flip when dominant DMI starts FADING, not when it crosses zero.
+        # Cross is too late — the move already happened.
+        # Divergence = the approach to the cross, 10-20 bars early.
 
-        # Entry quality from peak research:
-        # 1. Volume >= average (peaks have 1.3x avg volume)
-        # 2. DMI divergence widening (98.8% of peaks)
-        _vol_ok = self._last_volume >= self._avg_volume if self._avg_volume > 0 else True
         _vol_ratio = self._last_volume / self._avg_volume if self._avg_volume > 0 else 1.0
-        _quality_ok = _vol_ok or self._divergence_signal  # either confirms the move
+        _vol_ok = self._last_volume >= self._avg_volume if self._avg_volume > 0 else True
 
-        # No trade yet and no cross: enter based on current DMI direction (once)
-        if not self._in_trade and not cross_long and not cross_short and self.stats['entries'] == 0:
-            if not _quality_ok:
-                return FlipperResult(reason=f'FLAT dmi={smooth_now:.1f} vol={_vol_ratio:.1f}x div={self._divergence_signal} (low quality)')
-            new_dir = 'LONG' if smooth_now > 0 else 'SHORT'
+        # Detect divergence: the gap between DMI+ and DMI- is NARROWING
+        # DMI- dominant (negative dmi_diff) but gap shrinking = LONG setup
+        # DMI+ dominant (positive dmi_diff) but gap shrinking = SHORT setup
+        _diverge_long = False
+        _diverge_short = False
+        if len(self._dmi_diffs) >= 3:
+            d0 = self._dmi_diffs[-1]   # current
+            d1 = self._dmi_diffs[-2]   # previous
+            d2 = self._dmi_diffs[-3]   # 2 bars ago
+            # Gap narrowing toward zero from negative = sellers losing grip
+            if d0 < 0 and d0 > d1 and d1 > d2:
+                _diverge_long = True
+            # Gap narrowing toward zero from positive = buyers losing grip
+            if d0 > 0 and d0 < d1 and d1 < d2:
+                _diverge_short = True
+
+        # Combined signal: divergence + volume confirmation
+        _signal_long = _diverge_long and (_vol_ok or self._divergence_signal)
+        _signal_short = _diverge_short and (_vol_ok or self._divergence_signal)
+
+        # No trade yet: enter on first signal or on initial DMI direction
+        if not self._in_trade and self.stats['entries'] == 0:
+            if _signal_long:
+                new_dir = 'LONG'
+            elif _signal_short:
+                new_dir = 'SHORT'
+            else:
+                return FlipperResult(
+                    reason=f'FLAT dmi={smooth_now:.1f} vol={_vol_ratio:.1f}x divL={_diverge_long} divS={_diverge_short}',
+                )
             self._in_trade = True
             self._trade_dir = new_dir
             self._entry_price = price
@@ -210,66 +232,62 @@ class DmiFlipper:
             self.stats['entries'] += 1
             return FlipperResult(
                 action='ENTER', direction=new_dir,
-                reason=f'ENTER {new_dir} initial dmi={smooth_now:.1f} vol={_vol_ratio:.1f}x div={self._divergence_signal}',
+                reason=f'ENTER {new_dir} divergence dmi={smooth_now:.1f} vol={_vol_ratio:.1f}x',
             )
 
-        if not cross_long and not cross_short:
+        # Detect flip signal: divergence in opposite direction while in trade
+        _flip_signal = False
+        new_dir = ''
+        if self._in_trade:
+            if self._trade_dir == 'LONG' and _signal_short:
+                _flip_signal = True
+                new_dir = 'SHORT'
+            elif self._trade_dir == 'SHORT' and _signal_long:
+                _flip_signal = True
+                new_dir = 'LONG'
+
+        if not _flip_signal:
             if self._in_trade:
                 return FlipperResult(
-                    reason=f'HOLD {self._trade_dir} TPs={self._tp_count} dmi={smooth_now:.1f} vol={_vol_ratio:.1f}x',
+                    reason=f'HOLD {self._trade_dir} TPs={self._tp_count} dmi={smooth_now:.1f} vol={_vol_ratio:.1f}x divL={_diverge_long} divS={_diverge_short}',
+                )
+            # Not in trade, no signal
+            if _signal_long or _signal_short:
+                new_dir = 'LONG' if _signal_long else 'SHORT'
+                self._in_trade = True
+                self._trade_dir = new_dir
+                self._entry_price = price
+                self._last_tp_price = 0.0
+                self._tp_count = 0
+                self.stats['entries'] += 1
+                return FlipperResult(
+                    action='ENTER', direction=new_dir,
+                    reason=f'ENTER {new_dir} divergence dmi={smooth_now:.1f} vol={_vol_ratio:.1f}x',
                 )
             return FlipperResult(reason=f'FLAT dmi={smooth_now:.1f} vol={_vol_ratio:.1f}x')
 
-        new_dir = 'LONG' if cross_long else 'SHORT'
+        # FLIP: close existing + open new direction
+        if self._trade_dir == 'LONG':
+            pnl = (price - self._entry_price) / 0.25
+        else:
+            pnl = (self._entry_price - price) / 0.25
 
-        # Quality gate on flips: skip low-volume + no-divergence crosses (fakeouts)
-        if not _quality_ok:
-            if self._in_trade:
-                return FlipperResult(
-                    reason=f'HOLD {self._trade_dir} cross_blocked vol={_vol_ratio:.1f}x div={self._divergence_signal}',
-                )
-            return FlipperResult(reason=f'SKIP cross vol={_vol_ratio:.1f}x div={self._divergence_signal}')
+        self.stats['flips'] += 1
+        self.stats['exits'] += 1
+        self.stats['entries'] += 1
 
-        # FLIP: close existing + open new
-        if self._in_trade and new_dir != self._trade_dir:
-            if self._trade_dir == 'LONG':
-                pnl = (price - self._entry_price) / 0.25
-            else:
-                pnl = (self._entry_price - price) / 0.25
+        old_dir = self._trade_dir
+        old_tps = self._tp_count
+        self._trade_dir = new_dir
+        self._entry_price = price
+        self._last_tp_price = 0.0
+        self._tp_count = 0
 
-            self.stats['flips'] += 1
-            self.stats['exits'] += 1
-            self.stats['entries'] += 1
-
-            # Reset for new trade
-            old_dir = self._trade_dir
-            old_tps = self._tp_count
-            self._trade_dir = new_dir
-            self._entry_price = price
-            self._last_tp_price = 0.0
-            self._tp_count = 0
-
-            return FlipperResult(
-                action='FLIP', direction=new_dir,
-                pnl_ticks=pnl, tp_count=old_tps,
-                reason=f'FLIP {old_dir}->{new_dir} pnl={pnl:+.0f}t (had {old_tps} TPs)',
-            )
-
-        # ENTER: new trade
-        if not self._in_trade:
-            self._in_trade = True
-            self._trade_dir = new_dir
-            self._entry_price = price
-            self._last_tp_price = 0.0
-            self._tp_count = 0
-            self.stats['entries'] += 1
-
-            return FlipperResult(
-                action='ENTER', direction=new_dir,
-                reason=f'ENTER {new_dir} dmi_cross={smooth_now:.1f}',
-            )
-
-        return FlipperResult(reason=f'HOLD {self._trade_dir} dmi={smooth_now:.1f}')
+        return FlipperResult(
+            action='FLIP', direction=new_dir,
+            pnl_ticks=pnl, tp_count=old_tps,
+            reason=f'FLIP {old_dir}->{new_dir} pnl={pnl:+.0f}t (had {old_tps} TPs) divergence',
+        )
 
     def check_sl_1s(self, price: float) -> FlipperResult:
         """Check SL at 1s resolution (called from live_engine _process_1s)."""
