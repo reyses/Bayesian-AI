@@ -1001,6 +1001,10 @@ class ProgressPopup:
         self._dmi_canvas.bind("<Configure>", lambda e: self._redraw_dmi_chart())
         self._dmi_plus_history = []
         self._dmi_minus_history = []
+        self._volume_history = []
+        self._vwap_history = []
+        self._vwap_cum_pv = 0.0  # cumulative price*volume
+        self._vwap_cum_v = 0.0   # cumulative volume
         self._MAX_DMI_PTS = self._MAX_PRICE_PTS
 
         # ── Status footer ─────────────────────────────────────────────────────
@@ -1162,6 +1166,20 @@ class ProgressPopup:
         c.create_oval(coords[-2] - 3, coords[-1] - 3,
                       coords[-2] + 3, coords[-1] + 3,
                       fill=color, outline="")
+
+        # VWAP line (cyan, session cumulative)
+        vwap = self._vwap_history
+        n_vwap = min(len(vwap), len(pts))
+        if n_vwap >= 2:
+            vwap_coords = []
+            for i in range(n_vwap):
+                x = pad + (len(pts) - n_vwap + i) / max(1, len(pts) - 1) * (W - 2 * pad)
+                v = vwap[len(vwap) - n_vwap + i]
+                if mn <= v <= mx:
+                    y = H - pad - ((v - mn) / span) * (H - 2 * pad)
+                    vwap_coords.extend([x, y])
+            if len(vwap_coords) >= 4:
+                c.create_line(vwap_coords, fill="#00FFFF", width=1, smooth=True, dash=(3, 2))
 
         # Active trade: horizontal entry line (persists until exit)
         if self._active_entry_price is not None and mn <= self._active_entry_price <= mx:
@@ -1346,6 +1364,22 @@ class ProgressPopup:
         if len(coords_m) >= 4:
             c.create_line(coords_m, fill="#CC0000", width=1, smooth=True)
 
+        # Volume as yellow line (scaled to DMI panel Y range)
+        vol = self._volume_history
+        n_vol = min(len(vol), n)
+        if n_vol >= 2:
+            vol_slice = vol[-n_vol:]
+            vol_max = max(vol_slice) if vol_slice else 1.0
+            if vol_max > 0:
+                coords_v = []
+                for i in range(n_vol):
+                    x = pad + (n - n_vol + i) / max(1, n - 1) * (W - 2 * pad)
+                    # Scale volume to DMI Y range (0 = bottom, vol_max = top of chart)
+                    v_scaled = mn + (vol_slice[i] / vol_max) * span
+                    coords_v.extend([x, _y(v_scaled)])
+                if len(coords_v) >= 4:
+                    c.create_line(coords_v, fill="#CCAA00", width=1, smooth=True, dash=(1, 2))
+
         # Current values at right edge
         if dp and dm:
             c.create_text(W - 2, _y(dp[-1]) - 6, text=f"+{dp[-1]:.0f}",
@@ -1464,6 +1498,10 @@ class ProgressPopup:
                 self._active_entry_side = None
                 self._dmi_plus_history = []
                 self._dmi_minus_history = []
+                self._volume_history = []
+                self._vwap_history = []
+                self._vwap_cum_pv = 0.0
+                self._vwap_cum_v = 0.0
                 self._redraw_chart()
                 self._redraw_price_chart()
                 self.root.title(f"Bayesian-AI  {_new_mode.upper()} Training")
@@ -1639,7 +1677,7 @@ class ProgressPopup:
                             ]
                         self._needs_redraw = True
 
-                    # Feed DMI chart
+                    # Feed DMI chart + volume + VWAP
                     _dp = msg.get('dmi_plus')
                     _dm = msg.get('dmi_minus')
                     if _dp is not None and _dm is not None:
@@ -1651,6 +1689,23 @@ class ProgressPopup:
                         self._dmi_label_var.set(
                             f"+{float(_dp):.0f} / -{float(_dm):.0f}")
                         self._needs_redraw = True
+
+                    # Track volume
+                    _vol = msg.get('volume', 0)
+                    if _vol:
+                        self._volume_history.append(float(_vol))
+                        if len(self._volume_history) > self._MAX_DMI_PTS:
+                            self._volume_history = self._volume_history[-self._MAX_DMI_PTS:]
+
+                    # Track VWAP (session cumulative)
+                    _price = msg.get('price', 0)
+                    if _price and _vol:
+                        self._vwap_cum_pv += float(_price) * float(_vol)
+                        self._vwap_cum_v += float(_vol)
+                        _vwap = self._vwap_cum_pv / self._vwap_cum_v if self._vwap_cum_v > 0 else float(_price)
+                        self._vwap_history.append(_vwap)
+                        if len(self._vwap_history) > self._MAX_PRICE_PTS:
+                            self._vwap_history = self._vwap_history[-self._MAX_PRICE_PTS:]
 
                     # Update unrealized PnL from tick (instant, don't wait for NT8)
                     _tick_unreal = msg.get('unrealized_pnl')
