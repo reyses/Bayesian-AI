@@ -1,0 +1,217 @@
+{
+  "date": "2026-02-05",
+  "tf": "5m",
+  "n_peaks": 21,
+  "peaks": [
+    {
+      "bar_index": 14,
+      "timestamp": 1770253800.0,
+      "time_utc": "01:10:00",
+      "price": 25154.0,
+      "high": 25159.25,
+      "low": 25150.0,
+      "direction": "SHORT",
+      "tf": "5m"
+    },
+    {
+      "bar_index": 0,
+      "timestamp": 1770249600.0,
+      "time_utc": "00:00:00",
+      "price": 25048.75,
+      "high": 25067.5,
+      "low": 25030.75,
+      "direction": "UNKNOWN",
+      "tf": "5m"
+    },
+    {
+      "bar_index": 26,
+      "timestamp": 1770257400.0,
+      "time_utc": "02:10:00",
+      "price": 25013.75,
+      "high": 25082.75,
+      "low": 25011.25,
+      "direction": "LONG",
+      "tf": "5m"
+    },
+    {
+      "bar_index": 31,
+      "timestamp": 1770258900.0,
+      "time_utc": "02:35:00",
+      "price": 25071.5,
+      "high": 25094.5,
+      "low": 25057.25,
+      "direction": "SHORT",
+      "tf": "5m"
+    },
+    {
+      "bar_index": 52,
+      "timestamp": 1770265200.0,
+      "time_utc": "04:20:00",
+      "price": 24935.25,
+      "high": 24953.0,
+      "low": 24923.25,
+      "direction": "LONG",
+      "tf": "5m"
+    },
+    {
+      "bar_index": 35,
+      "timestamp": 1770260100.0,
+      "time_utc": "02:55:00",
+      "price": 24961.75,
+      "high": 25024.25,
+      "low": 24959.75,
+      "direction": "LONG",
+      "tf": "5m"
+    },
+    {
+      "bar_index": 40,
+      "timestamp": 1770261600.0,
+      "time_utc": "03:20:00",
+      "price": 25021.5,
+      "high": 25037.0,
+      "low": 24991.5,
+      "direction": "SHORT",
+      "tf": "5m"
+    },
+    {
+      "bar_index": 58,
+      "timestamp": 1770267000.0,
+      "time_utc": "04:50:00",
+      "price": 25014.25,
+      "high": 25027.0,
+      "low": 25009.5,
+      "direction": "SHORT",
+      "tf": "5m"
+    },
+    {
+      "bar_index": 64,
+      "timestamp": 1770268800.0,
+      "time_utc": "05:20:00",
+      "price": 24976.75,
+      "high": 24976.75,
+      "low": 24963.75,
+      "direction": "LONG",
+      "tf": "5m"
+    },
+    {
+      "bar_index": 99,
+      "timestamp": 1770279300.0,
+      "time_utc": "08:15:00",
+      "price": 25116.0,
+      "high": 25123.75,
+      "low": 25097.0,
+      "direction": "SHORT",
+      "tf": "5m"
+    },
+    {
+      "bar_index": 111,
+      "timestamp": 1770282900.0,
+      "time_utc": "09:15:00",
+      "price": 25000.5,
+      "high": 25013.75,
+      "low": 24984.25,
+      "direction": "LONG",
+      "tf": "5m"
+    },
+    {
+      "bar_index": 114,
+      "timestamp": 1770283800.0,
+      "time_utc": "09:30:00",
+      "price": 25083.25,
+      "high": 25096.75,
+      "low": 25067.25,
+      "direction": "SHORT",
+      "tf": "5m"
+    },
+    {
+      "bar_index": 153,
+      "timestamp": 1770295500.0,
+      "time_utc": "12:45:00",
+      "price": 24732.75,
+      "high": 24806.0,
+      "low": 24707.5,
+      "direction": "LONG",
+      "tf": "5m"
+    },
+    {
+      "bar_index": 177,
+      "timestamp": 1770302700.0,
+      "time_utc": "14:45:00",
+      "price": 24926.0,
+      "high": 24938.5,
+      "low": 24872.75,
+      "direction": "SHORT",
+      "tf": "5m"
+    },
+    {
+      "bar_index": 194,
+      "timestamp": 1770307800.0,
+      "time_utc": "16:10:00",
+      "price": 24551.25,
+      "high": 24611.5,
+      "low": 24543.25,
+      "direction": "LONG",
+      "tf": "5m"
+    },
+    {
+      "bar_index": 212,
+      "timestamp": 1770313200.0,
+      "time_utc": "17:40:00",
+      "price": 24850.75,
+      "high": 24877.25,
+      "low": 24825.0,
+      "direction": "SHORT",
+      "tf": "5m"
+    },
+    {
+      "bar_index": 226,
+      "timestamp": 1770317400.0,
+      "time_utc": "18:50:00",
+      "price": 24678.25,
+      "high": 24694.5,
+      "low": 24662.0,
+      "direction": "LONG",
+      "tf": "5m"
+    },
+    {
+      "bar_index": 231,
+      "timestamp": 1770318900.0,
+      "time_utc": "19:15:00",
+      "price": 24829.25,
+      "high": 24833.25,
+      "low": 24794.75,
+      "direction": "SHORT",
+      "tf": "5m"
+    },
+    {
+      "bar_index": 238,
+      "timestamp": 1770321000.0,
+      "time_utc": "19:50:00",
+      "price": 24685.75,
+      "high": 24706.75,
+      "low": 24672.5,
+      "direction": "LONG",
+      "tf": "5m"
+    },
+    {
+      "bar_index": 241,
+      "timestamp": 1770321900.0,
+      "time_utc": "20:05:00",
+      "price": 24792.5,
+      "high": 24798.5,
+      "low": 24723.25,
+      "direction": "SHORT",
+      "tf": "5m"
+    },
+    {
+      "bar_index": 273,
+      "timestamp": 1770335100.0,
+      "time_utc": "23:45:00",
+      "price": 24350.75,
+      "high": 24358.75,
+      "low": 24324.25,
+      "direction": "LONG",
+      "tf": "5m"
+    }
+  ]
+}
