@@ -1,5 +1,5 @@
 // =============================================================================
-// BayesianBridge 6.6.0 -- 2026-03-19 15:30
+// BayesianBridge 6.7.1 -- 2026-03-23 20:35
 // =============================================================================
 // BayesianBridge — NinjaTrader 8 NinjaScript Indicator
 //
@@ -59,7 +59,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         public int DomLevels { get; set; }
 
         // ── Version ──────────────────────────────────────────────────
-        private const string BRIDGE_VERSION = "6.6.0";
+        private const string BRIDGE_VERSION = "6.7.1";
 
         // ── Internal State ────────────────────────────────────────────
         private TcpListener  _listener;
@@ -244,7 +244,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                 catch { }
             }
 
-            string json = "{"
+            // Base JSON without live flag (stored in history buffer)
+            string jsonBase = "{"
                 + Q("type") + ":" + Q("BAR") + ","
                 + Q("instrument") + ":" + Q(Instrument.FullName) + ","
                 + Q("tf") + ":" + Q(_barLabels[idx]) + ","
@@ -259,18 +260,20 @@ namespace NinjaTrader.NinjaScript.Indicators
                 + Q("adx") + ":" + D2S(adxVal)
                 + "}";
 
-            // Buffer bars >= 5s for history dump (skip sub-5s — too many bars).
-            // Sub-5s bars still stream live but aren't replayed on reconnect.
+            // Buffer bars >= 5s for history dump (WITHOUT live flag)
             if (_barPeriodSecs[idx] >= 5)
             {
                 lock (_barLock)
                 {
-                    _allBars.Add(json);
+                    _allBars.Add(jsonBase);
                     if (_allBars.Count > MAX_HISTORY)
                         _allBars.RemoveRange(0, _allBars.Count - MAX_HISTORY);
                 }
             }
-            SendRawJson(json);
+            // Send WITH live flag to Python
+            string jsonLive = jsonBase.Substring(0, jsonBase.Length - 1)
+                + "," + Q("live") + ":" + "true" + "}";
+            SendRawJson(jsonLive);
 
             // Send PARTIAL_BAR for all higher TF series (their forming bar)
             for (int hi = idx + 1; hi < _barPeriodSecs.Length; hi++)

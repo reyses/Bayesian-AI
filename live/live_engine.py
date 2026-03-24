@@ -90,6 +90,8 @@ _TUNING_DEFAULTS = {
     'auto_tp_reentry': True,
     'physics_sl_ticks': 40,
     'physics_tp_ticks': 0,          # 0 = disabled (funnel handles exits)
+    'physics_mag_pctile': 0.25,     # min magnitude percentile (0.0 = disabled)
+    'physics_max_hold': 11,         # max hold bars (0 = disabled)
 }
 
 _ANCHOR_TF_MAP = {
@@ -318,11 +320,11 @@ class LiveEngine:
                 self._shared_state['shutdown_confirmed'] = True
 
     def _print_data_coverage(self):
-        """Print ATLAS_OOS data coverage summary."""
+        """Print ATLAS_LIVE data coverage summary."""
         from datetime import datetime, timezone
-        atlas_root = 'DATA/ATLAS_OOS'
+        atlas_root = 'DATA/ATLAS_LIVE'
         print("\n" + "=" * 60)
-        print("ATLAS_OOS DATA COVERAGE")
+        print("ATLAS_LIVE DATA COVERAGE")
         print("=" * 60)
         _tf_dirs = sorted([d for d in os.listdir(atlas_root)
                           if os.path.isdir(os.path.join(atlas_root, d))]) if os.path.isdir(atlas_root) else []
@@ -349,7 +351,7 @@ class LiveEngine:
                 print(f"  {tf:>4s}: {total_bars:>9,} bars  {_from} -> {_to}")
         print("=" * 60)
 
-    def _save_multi_tf_to_atlas(self, atlas_root: str = 'DATA/ATLAS_OOS'):
+    def _save_multi_tf_to_atlas(self, atlas_root: str = 'DATA/ATLAS_LIVE'):
         """Save all multi-TF bars from NT8 to ATLAS parquet structure."""
         from datetime import datetime, timezone
         _tf_map = {5: '5s', 14400: '4h', 60: '1m', 300: '5m', 180: '3m',
@@ -720,6 +722,27 @@ class LiveEngine:
                     logger.info(f"TBN warmed: ticked {len(states)} bars from NT8 history")
                 else:
                     logger.info("Physics mode: TBN skipped, SFE states from aggregator")
+                    # Pre-fill physics trajectory from aggregator history
+                    if self._physics:
+                        agg_states = self._aggregator.states
+                        if len(agg_states) >= 10:
+                            for st in agg_states[-10:]:
+                                bar_feats = [
+                                    getattr(st, 'F_momentum', 0),
+                                    getattr(st, 'z_score', 0),
+                                    getattr(st, 'dmi_plus', 0),
+                                    getattr(st, 'dmi_minus', 0),
+                                    getattr(st, 'adx', 0),
+                                    getattr(st, 'velocity', 0),
+                                    getattr(st, 'volume_delta', 0),
+                                    getattr(st, 'hurst_exponent', 0),
+                                    getattr(st, 'P_at_center', 0),
+                                    getattr(st, 'oscillation_entropy_normalized', 0),
+                                    getattr(st, 'regression_sigma', 0),
+                                    getattr(st, 'term_pid', 0),
+                                ]
+                                self._physics._traj_buffer.append(bar_feats)
+                            logger.info(f"Physics trajectory pre-filled: {len(self._physics._traj_buffer)}/10 bars from history")
                 self._system_ready = True
                 logger.info("SYSTEM READY -- trading enabled")
                 # Update ATLAS with NT8 bars so OOS data stays current
@@ -824,14 +847,22 @@ class LiveEngine:
             if self._physics_mode and bar_period == 1:
                 price = float(msg['close'])
                 ts = float(msg['timestamp'])
+                self._is_live_bar = msg.get('live', False)
                 self._last_price = price
                 self._last_ts = ts
-                if self._aggregator.is_warmed_up and not self._aggregator._history_mode:
+                if self._aggregator.is_warmed_up and not self._aggregator._history_mode and self._is_live_bar:
                     await self._process_1s(price, ts)
             return
 
         price = float(msg['close'])
         ts = float(msg['timestamp'])
+        self._is_live_bar = msg.get('live', False)
+        # First bar: print live flag status
+        if not hasattr(self, '_first_bar_printed'):
+            self._first_bar_printed = True
+            from datetime import datetime, timezone
+            _t = datetime.fromtimestamp(ts, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+            print(f"[STARTUP] first bar: {price:.2f} @ {_t} UTC | live={self._is_live_bar} | period={bar_period}s")
         self._last_price = price
         self._last_ts = ts
         self._last_bar_high = float(msg.get('high', price))
@@ -876,10 +907,30 @@ class LiveEngine:
         # Every bar: exits + GUI tick
         await self._process_1s(price, ts)
 
+        # Staleness gate: only trade on live bars (tagged by NT8 bridge)
+        import time as _time_mod
+        _stale_s = abs(_time_mod.time() - ts)
+        _is_live = self._is_live_bar or _stale_s <= 120
+        if not _is_live:
+            return
+        # Ticker: first 10 live bars then every anchor bar
+        if new_bar:
+            if not hasattr(self, '_live_bar_count'):
+                self._live_bar_count = 0
+            self._live_bar_count += 1
+            if self._live_bar_count <= 10:
+                print(f"[TICK] {self._live_bar_count}/10 {price:.2f} live={self._is_live_bar} lag={_stale_s:.0f}s")
+            else:
+                from datetime import datetime, timezone
+                _t = datetime.fromtimestamp(ts, tz=timezone.utc).strftime('%H:%M:%S')
+                print(f"[1m] {_t} {price:.2f}")
+
         # Anchor bars: entries + exits
         if new_bar:
-            if self._physics_mode:
+            if self._physics_mode and bar_period == self._anchor_period:
                 await self._process_1m_physics(price, ts, states)
+            elif self._physics_mode:
+                pass  # non-anchor bars: skip physics (1s bars go through _process_1s only)
             else:
                 await self._process_15s(price, ts, states)
 
@@ -1075,7 +1126,9 @@ class LiveEngine:
                 _best = _near_dist.min()
                 _within_2x = int((_dist < _best * 2).sum())
                 _funnel = f' | funnel: {_dir}({_cons:.0%}) d={_near_dist.mean():.1f} near={_within_2x}'
-            logger.info(f"[PHYSICS] {result.reason}{_funnel}")
+            from datetime import datetime, timezone
+            _nt8 = datetime.fromtimestamp(ts, tz=timezone.utc).strftime('%H:%M:%S')
+            logger.info(f"[PHYSICS] nt8={_nt8} | {result.reason}{_funnel}")
 
         if (result.action == 'ENTER' and not self._position_open
                 and not self._closing_position and self._orders.can_enter):
@@ -1092,11 +1145,11 @@ class LiveEngine:
                             'side': result.direction.lower(), 'price': price, 'pnl': 0})
 
         elif result.action == 'EXIT' and self._position_open:
-            logger.info(f"PHYSICS EXIT: {result.direction} pnl={result.pnl_ticks:+.1f}t")
+            logger.info(f"PHYSICS EXIT: nt8={_nt8} | {result.direction} pnl={result.pnl_ticks:+.1f}t")
             await self._close_position('physics_hold_expire')
 
         elif result.action == 'FLIP' and self._position_open and self._orders.can_exit:
-            logger.info(f"PHYSICS FLIP: -> {result.direction} "
+            logger.info(f"PHYSICS FLIP: nt8={_nt8} | -> {result.direction} "
                         f"(consensus={result.consensus:.2f}, pnl={result.pnl_ticks:+.1f}t)")
             # Defer re-entry until FILL confirms the close
             self._pending_physics_entry = {
@@ -2035,12 +2088,20 @@ class LiveEngine:
             merged.update(data)
             self._tuning = merged
             self._tuning_mtime = mt
-            # Hot-update physics SL if changed
-            if self._physics_mode:
+            # Hot-update physics params if changed
+            if self._physics_mode and self._physics:
                 new_sl = merged.get('physics_sl_ticks', 40)
                 if new_sl != self._physics_sl_ticks:
                     logger.info(f"Physics SL changed: {self._physics_sl_ticks} -> {new_sl} ticks")
                     self._physics_sl_ticks = new_sl
+                new_mag = merged.get('physics_mag_pctile', 0.25)
+                if new_mag != self._physics.min_mag_pctile:
+                    logger.info(f"Physics mag_pctile changed: {self._physics.min_mag_pctile} -> {new_mag}")
+                    self._physics.min_mag_pctile = new_mag
+                new_hold = merged.get('physics_max_hold', 11)
+                if new_hold != self._physics.max_hold_bars:
+                    logger.info(f"Physics max_hold changed: {self._physics.max_hold_bars} -> {new_hold}")
+                    self._physics.max_hold_bars = new_hold
             logger.info(f"Tuning reloaded: max_hold={merged['max_hold_seconds']}s  "
                         f"template_dist={merged['gate1_dist']}  "
                         f"sl_mult={merged['exit_sl_mult']}  "
