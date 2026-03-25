@@ -1071,6 +1071,13 @@ class LiveEngine:
                     await self._close_position('dmi_sl')
                 elif r.action == 'TP_BANK':
                     logger.info(f"DMI TP (1s): {r.reason} @ {price:.2f}")
+                    # Bank profit: close position, re-enter on fill
+                    self._pending_tp_reentry = {
+                        'direction': self._position.side if self._position else '',
+                        'price': price,
+                        'ts': self._last_ts,
+                    }
+                    await self._close_position('dmi_tp')
             elif self._physics_mode:
                 # Physics mode: SL/TP check at 1s resolution
                 if self._position:
