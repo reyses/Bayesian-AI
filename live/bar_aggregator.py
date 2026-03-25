@@ -318,7 +318,8 @@ class LiveBarAggregator:
         }
         # Carry NT8 native indicators from last sub-bar (if present)
         last = bars[-1]
-        for key in ('dmi_plus', 'dmi_minus', 'adx', 'dmi'):
+        for key in ('dmi_plus', 'dmi_minus', 'adx', 'dmi',
+                     'se_mid', 'se_upper', 'se_lower'):
             if key in last:
                 agg[key] = last[key]
         return agg
