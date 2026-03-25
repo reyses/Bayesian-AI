@@ -961,7 +961,8 @@ class ProgressPopup:
             ).grid(row=1, column=col, padx=6)
 
         # ── Live Price Chart ─────────────────────────────────────────────
-        self._price_history = []  # last N prices for line chart
+        self._price_history = []  # last N prices for line chart (display)
+        self._price_full = []    # longer buffer for computation (SE bands, regression)
         self._active_entry_price = None  # horizontal line while in trade
         self._active_entry_side = None
         self._MAX_PRICE_PTS = 200  # rolling window
@@ -1108,7 +1109,10 @@ class ProgressPopup:
         # Standard Error bands (1σ, 2σ, 3σ) — rolling 60-bar window
         import numpy as _np
         _se_window = 60
-        if len(pts) >= _se_window:
+        _full = self._price_full if hasattr(self, '_price_full') else pts
+        _full_arr = _np.array(_full)
+        _display_offset = len(_full) - len(pts)  # how many extra bars in full buffer
+        if len(_full) >= _se_window:
             _pts_arr = _np.array(pts)
             _band_colors = {1: '#333355', 2: '#333344', 3: '#332233'}  # subtle fills
             _line_colors = {1: '#5555AA', 2: '#6666AA', 3: '#7744AA'}  # band edges
@@ -1118,11 +1122,10 @@ class ProgressPopup:
                 _lower_coords = []
                 for i in range(len(pts)):
                     x = pad + i / (len(pts) - 1) * (W - 2 * pad)
-                    if i < _se_window:
-                        _upper_coords.extend([x, H // 2])
-                        _lower_coords.extend([x, H // 2])
-                        continue
-                    _chunk = _pts_arr[i - _se_window:i]
+                    fi = i + _display_offset  # index into full buffer
+                    if fi < _se_window:
+                        continue  # skip warmup
+                    _chunk = _full_arr[fi - _se_window:fi]
                     _mean = _chunk.mean()
                     _std = _chunk.std()
                     _se = _std / (_se_window ** 0.5)
@@ -1141,10 +1144,10 @@ class ProgressPopup:
             _center_coords = []
             for i in range(len(pts)):
                 x = pad + i / (len(pts) - 1) * (W - 2 * pad)
-                if i < _se_window:
-                    _center_coords.extend([x, H // 2])
+                fi = i + _display_offset
+                if fi < _se_window:
                     continue
-                _chunk = _pts_arr[i - _se_window:i]
+                _chunk = _full_arr[fi - _se_window:fi]
                 _mean = _chunk.mean()
                 _cy = H - pad - ((_mean - mn) / span) * (H - 2 * pad)
                 _center_coords.extend([x, _cy])
@@ -1493,6 +1496,7 @@ class ProgressPopup:
                 self._current_mode = _new_mode
                 self._pnl_history = [0]
                 self._price_history = []
+                self._price_full = []
                 self._trade_markers = []
                 self._active_entry_price = None
                 self._active_entry_side = None
@@ -1664,8 +1668,12 @@ class ProgressPopup:
                             self._price_lbl.config(
                                 fg=FG_GREEN if p >= prev else FG_RED)
                         self._prev_price = p
-                        # Feed price chart
+                        # Feed price chart + computation buffer
                         self._price_history.append(p)
+                        self._price_full.append(p)
+                        _MAX_FULL = self._MAX_PRICE_PTS + 200  # 200 display + 200 lookback
+                        if len(self._price_full) > _MAX_FULL:
+                            self._price_full = self._price_full[-_MAX_FULL:]
                         if len(self._price_history) > self._MAX_PRICE_PTS:
                             trim = len(self._price_history) - self._MAX_PRICE_PTS
                             self._price_history = self._price_history[-self._MAX_PRICE_PTS:]
