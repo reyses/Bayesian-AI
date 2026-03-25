@@ -55,8 +55,12 @@ _REQUIRED: Dict[str, tuple] = {
     'CONNECTED':    ('account',),
     'HEARTBEAT':    (),
     'DOM':            ('bid', 'ask'),
-    'HISTORY_DONE':   (),
-    'ACCOUNT_UPDATE': ('cash_value',),
+    'HISTORY_DONE':      (),
+    'ACCOUNT_UPDATE':    ('cash_value',),
+    'CONNECTION_LOST':   (),
+    'CONNECTION_RESTORED': (),
+    'MARKET_HALT':       (),
+    'MARKET_RESUMED':    (),
 }
 
 
