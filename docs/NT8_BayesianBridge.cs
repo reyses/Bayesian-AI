@@ -1,5 +1,5 @@
 // =============================================================================
-// BayesianBridge 6.8.0 -- 2026-03-25 05:54
+// BayesianBridge 6.8.1 -- 2026-03-25 08:58
 // =============================================================================
 // BayesianBridge — NinjaTrader 8 NinjaScript Indicator
 //
@@ -59,7 +59,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         public int DomLevels { get; set; }
 
         // ── Version ──────────────────────────────────────────────────
-        private const string BRIDGE_VERSION = "6.8.0";
+        private const string BRIDGE_VERSION = "6.8.1";
 
         // ── Internal State ────────────────────────────────────────────
         private TcpListener  _listener;
@@ -221,6 +221,35 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
         }
 
+        // ── Connection Status ─────────────────────────────────────────
+
+        private bool _connectionLost = false;
+
+        protected override void OnConnectionStatusUpdate(ConnectionStatusEventArgs e)
+        {
+            if (e.Status == ConnectionStatus.ConnectionLost)
+            {
+                _connectionLost = true;
+                Print("BayesianBridge: CONNECTION LOST — notifying Python");
+                SendRawJson("{" + Q("type") + ":" + Q("CONNECTION_LOST") + "}");
+            }
+            else if (e.Status == ConnectionStatus.Disconnected)
+            {
+                _connectionLost = true;
+                Print("BayesianBridge: DISCONNECTED — notifying Python");
+                SendRawJson("{" + Q("type") + ":" + Q("CONNECTION_LOST") + "}");
+            }
+            else if (e.Status == ConnectionStatus.Connected)
+            {
+                if (_connectionLost)
+                {
+                    _connectionLost = false;
+                    Print("BayesianBridge: CONNECTION RESTORED — notifying Python");
+                    SendRawJson("{" + Q("type") + ":" + Q("CONNECTION_RESTORED") + "}");
+                }
+            }
+        }
+
         // ── Bar Updates ───────────────────────────────────────────────
 
         protected override void OnBarUpdate()
@@ -229,6 +258,9 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (_barLabels == null || idx >= _barLabels.Length)
                 return;
             if (CurrentBars[idx] < 1 || IsFirstTickOfBar == false)
+                return;
+            // Block data during Playback or connection loss
+            if (State == State.Historical || _connectionLost)
                 return;
 
             // Build bar JSON for whichever TF just completed
