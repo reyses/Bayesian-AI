@@ -167,6 +167,7 @@ class LiveEngine:
         # System readiness — no trading until HISTORY_DONE + TBN warmed
         self._system_ready = False
         self._connection_live = True  # assume connected until told otherwise
+        self._market_halted = False   # set by MARKET_HALT/RESUMED from bridge
 
         # Position tracking
         self._position_open = False
@@ -715,6 +716,26 @@ class LiveEngine:
                 if self._dmi_flipper:
                     self._dmi_flipper._in_trade = False
 
+            elif mtype == 'MARKET_HALT':
+                _gap = msg.get('gap_seconds', '?')
+                logger.warning(f"MARKET HALT: no ticks for {_gap}s — running maintenance")
+                self._market_halted = True
+                # Maintenance tasks during halt
+                try:
+                    self._aggregator.save_to_parquet()
+                    logger.info("HALT: bars saved to parquet")
+                except Exception as e:
+                    logger.error(f"HALT: save failed: {e}")
+                try:
+                    self._session.save_report()
+                    logger.info("HALT: session report saved")
+                except Exception as e:
+                    logger.error(f"HALT: report save failed: {e}")
+
+            elif mtype == 'MARKET_RESUMED':
+                logger.info("MARKET RESUMED: ticks flowing — trading enabled")
+                self._market_halted = False
+
             elif mtype == 'CONNECTION_RESTORED':
                 logger.info("NT8 CONNECTION RESTORED — waiting for re-sync before trading")
                 self._connection_live = True
@@ -1128,6 +1149,7 @@ class LiveEngine:
         _cooldown_ok = (time.time() - self._last_exit_time) > float(self._anchor_period)
         _can_enter = (self._system_ready
                       and self._connection_live
+                      and not self._market_halted
                       and self._orders.can_enter
                       and _cooldown_ok
                       and not self._instrument_mismatch

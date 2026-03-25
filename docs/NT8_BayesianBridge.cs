@@ -1,5 +1,5 @@
 // =============================================================================
-// BayesianBridge 6.8.1 -- 2026-03-25 08:58
+// BayesianBridge 6.8.2 -- 2026-03-25 11:26
 // =============================================================================
 // BayesianBridge — NinjaTrader 8 NinjaScript Indicator
 //
@@ -59,7 +59,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         public int DomLevels { get; set; }
 
         // ── Version ──────────────────────────────────────────────────
-        private const string BRIDGE_VERSION = "6.8.1";
+        private const string BRIDGE_VERSION = "6.8.2";
 
         // ── Internal State ────────────────────────────────────────────
         private TcpListener  _listener;
@@ -252,6 +252,9 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         // ── Bar Updates ───────────────────────────────────────────────
 
+        private DateTime _lastBarTime = DateTime.MinValue;
+        private bool _haltNotified = false;
+
         protected override void OnBarUpdate()
         {
             int idx = BarsInProgress;
@@ -262,6 +265,27 @@ namespace NinjaTrader.NinjaScript.Indicators
             // Block data during Playback or connection loss
             if (State == State.Historical || _connectionLost)
                 return;
+
+            // Market halt detection: if >2 min gap since last bar, notify
+            DateTime now = DateTime.Now;
+            if (_lastBarTime != DateTime.MinValue)
+            {
+                double gap = (now - _lastBarTime).TotalSeconds;
+                if (gap > 15 && !_haltNotified)
+                {
+                    Print("BayesianBridge: MARKET HALT detected (" + gap.ToString("F0") + "s gap)");
+                    SendRawJson("{" + Q("type") + ":" + Q("MARKET_HALT") + ","
+                        + Q("gap_seconds") + ":" + gap.ToString("F0") + "}");
+                    _haltNotified = true;
+                }
+                else if (gap <= 15 && _haltNotified)
+                {
+                    Print("BayesianBridge: MARKET RESUMED (ticks flowing)");
+                    SendRawJson("{" + Q("type") + ":" + Q("MARKET_RESUMED") + "}");
+                    _haltNotified = false;
+                }
+            }
+            _lastBarTime = now;
 
             // Build bar JSON for whichever TF just completed
             // Includes DMI+/DMI-/ADX from NT8 native indicators
@@ -456,6 +480,13 @@ namespace NinjaTrader.NinjaScript.Indicators
             SendRawJson(json);
         }
 
+        // Session tracking for NT8 output
+        private int _sessionTrades = 0;
+        private int _sessionWins = 0;
+        private double _sessionPnl = 0;
+        private double _lastEntryPrice = 0;
+        private string _lastEntrySide = "";
+
         private void OnExecutionUpdate(object sender, ExecutionEventArgs e)
         {
             if (e.Execution == null) return;
@@ -471,6 +502,40 @@ namespace NinjaTrader.NinjaScript.Indicators
                 + Q("commission") + ":" + D2S(e.Execution.Commission)
                 + "}";
             SendRawJson(json);
+
+            // Verbose trade logging to NT8 output
+            string orderName = e.Execution.Order.Name ?? "";
+            if (orderName.StartsWith("BAY_"))
+            {
+                // Entry
+                _lastEntryPrice = e.Execution.Price;
+                _lastEntrySide = side;
+                Print(">> ENTRY " + side + " @ " + e.Execution.Price.ToString("F2")
+                    + "  [" + e.Execution.Time.ToString("HH:mm:ss") + "]");
+            }
+            else if (orderName == "Close" && _lastEntryPrice > 0)
+            {
+                // Exit — compute PnL
+                double pnl = 0;
+                if (_lastEntrySide == "BUY")
+                    pnl = (e.Execution.Price - _lastEntryPrice) * 2.0;  // MNQ $2/point
+                else
+                    pnl = (_lastEntryPrice - e.Execution.Price) * 2.0;
+
+                _sessionTrades++;
+                _sessionPnl += pnl;
+                if (pnl > 0) _sessionWins++;
+                double wr = _sessionTrades > 0 ? (double)_sessionWins / _sessionTrades * 100 : 0;
+
+                string pnlStr = pnl >= 0 ? "+$" + pnl.ToString("F2") : "-$" + Math.Abs(pnl).ToString("F2");
+                Print("<< EXIT  " + _lastEntrySide + " @ " + e.Execution.Price.ToString("F2")
+                    + "  PnL=" + pnlStr
+                    + "  [" + e.Execution.Time.ToString("HH:mm:ss") + "]");
+                Print("   Session: " + _sessionTrades + " trades  WR=" + wr.ToString("F0") + "%"
+                    + "  PnL=$" + _sessionPnl.ToString("F2"));
+
+                _lastEntryPrice = 0;
+            }
         }
 
         private void OnPositionUpdate(object sender, PositionEventArgs e)
