@@ -1,0 +1,4 @@
+DMI SMOOTHED CROSS + TP=10 SL=40
+Jan 2025 - Mar 2026 (377 trading days)
+Trades: 25915 | WR: 29.8% | PnL: $78,744.50
+$/day: $208.87

@@ -41,3 +41,32 @@ type: project
 7. **Test before adding level 4:** What question does it answer that level 3 can't? If none, you don't need it.
 
 **Why:** Old system had level 4+ features (F_momentum = PID of z-score, coherence = entropy of z-score std) that answered questions nobody asked (r≈0). Features should expand organically like colors — primary → secondary → tertiary — each layer intentional.
+
+## Implemented: 7 Features × 10 TFs = 70D (`core/grounded_features.py`)
+| Feature | Level | Question |
+|---------|-------|----------|
+| dmi_diff | 2 | Who's winning? |
+| dmi_gap | 2 | How dominant? |
+| volume_rel | 2 | Participation vs normal? |
+| dir_volume | 3 | Does volume back the direction? |
+| velocity | 2 | How fast? |
+| z_se | 3 | Statistically significant deviation? |
+| price_accel | 3 | Is force changing? |
+
+TFs: 1s, 1m, 3m, 5m, 15m, 30m, 1h, 4h, 1D, 1W
+Higher TFs encode lookback — no sliding window needed.
+
+## Noise & Coherence (rebuilt)
+- Noise = std(dP) at scale below your horizon. One TF's signal = next TF's noise.
+- Coherence = agreement count across grounded directional features. High = late, Low = edge.
+- Variance ratio = std(short)/std(long) — replaces Hurst AND ADX.
+
+## Liquidity (latent variable)
+- Can't measure, only observe effects (volume spike, price rejection, time at price)
+- Fibonacci ≈ where algos cluster orders. Volume profile = direct measurement.
+- Three-body analogy: Price/Volume/Time interacting, solved by pattern matching.
+
+## TCN v5 Architecture (future)
+- Input: (10 TFs, 7 features) as 2D matrix, NOT flattened
+- TCN convolves across TF axis with dilations — discovers cross-TF relationships
+- Replaces K-means as template matcher. See `memory/research_tcn_v5.md`
