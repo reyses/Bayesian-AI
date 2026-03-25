@@ -612,6 +612,23 @@ class LiveEngine:
                         if self._dmi_flipper and self._dmi_flipper._in_trade:
                             self._dmi_flipper._entry_price = fill_px
                             self._dmi_flipper._last_tp_price = 0.0
+                # Fire deferred TP re-entry after close confirmed
+                if hasattr(self, '_pending_tp_reentry') and self._pending_tp_reentry and self._orders.is_flat:
+                    _tr = self._pending_tp_reentry
+                    self._pending_tp_reentry = None
+                    if self._shutting_down:
+                        logger.info("TP RE-ENTRY: cancelled (shutting down)")
+                    elif self._dmi_flipper and self._dmi_flipper._in_trade:
+                        # DMI still agrees — re-enter same direction
+                        fill_px = float(msg.get('fill_price', _tr['price']))
+                        _dir = _tr['direction']
+                        logger.info(f"TP RE-ENTRY: {_dir.upper()} @ {fill_px} (TP #{self._dmi_flipper._tp_count})")
+                        from core.dmi_flipper import FlipperResult
+                        _result = FlipperResult(action='ENTER', direction=_dir.upper(),
+                                                reason=f'TP re-entry #{self._dmi_flipper._tp_count}')
+                        await self._physics_enter(_result, fill_px, _tr['ts'])
+                    else:
+                        logger.info("TP RE-ENTRY: cancelled (DMI no longer agrees)")
                 # Graceful shutdown: confirm flat to GUI, then exit loop
                 if self._shutting_down and self._orders.is_flat:
                     logger.info("SHUTDOWN: NT8 confirmed flat")
@@ -1022,12 +1039,25 @@ class LiveEngine:
                         logger.warning(f"PHYSICS SL (1s): {_pnl_t:+.1f}t @ {price:.2f}")
                         if self._physics: self._physics._in_trade = False
                         if self._physics: self._physics._move_start_price = price
-                        await self._close_position('physics_sl')
+                        if self._dmi_flipper: self._dmi_flipper._in_trade = False
+                        await self._close_position('dmi_sl' if self._dmi_mode else 'physics_sl')
                     elif _tp > 0 and _pnl_t >= _tp:
-                        logger.info(f"PHYSICS TP (1s): {_pnl_t:+.1f}t @ {price:.2f}")
+                        logger.info(f"PHYSICS TP HIT: {_pnl_t:+.1f}t (target={_tp})")
                         if self._physics: self._physics._in_trade = False
                         if self._physics: self._physics._move_start_price = price
-                        await self._close_position('physics_tp')
+                        # DMI mode: bank TP and re-enter if DMI still agrees
+                        if self._dmi_mode and self._dmi_flipper:
+                            self._dmi_flipper._tp_count += 1
+                            self._dmi_flipper._last_tp_price = price
+                            # Defer re-entry: close first, re-enter on FILL
+                            self._pending_tp_reentry = {
+                                'direction': self._position.side,
+                                'price': price,
+                                'ts': self._last_ts,
+                            }
+                            await self._close_position('dmi_tp')
+                        else:
+                            await self._close_position('physics_tp')
             else:
                 try:
                     # Sub-bar exit check via AdvanceEngine (1s resolution for SL/trail)
