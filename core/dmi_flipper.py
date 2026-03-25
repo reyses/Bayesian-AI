@@ -40,11 +40,13 @@ class DmiFlipper:
         sl_ticks: float = DEFAULT_SL_TICKS,
         smooth_window: int = DEFAULT_SMOOTH_WINDOW,
         mode: str = 'cross',  # 'cross' (v1, $208/day) or 'divergence' (v3, $296/day backtest)
+        reg_window: int = 60,  # regression mean window for early exit
     ):
         self.tp_ticks = tp_ticks
         self.sl_ticks = sl_ticks
         self.smooth_window = smooth_window
         self.mode = mode
+        self.reg_window = reg_window
 
         # State
         self._dmi_diffs = deque(maxlen=smooth_window + 1)
@@ -54,11 +56,14 @@ class DmiFlipper:
         self._last_tp_price = 0.0
         self._tp_count = 0
         self._bar_count = 0
+        self._entry_bar = 0
+        self._entry_dmi_sign = 0
 
         # Stats
         self.stats = {
             'bars': 0, 'entries': 0, 'exits': 0,
             'flips': 0, 'tp_banks': 0, 'sl_exits': 0,
+            'reg_exits': 0, 'vol_exits': 0, 'dmi_invalid_exits': 0,
         }
 
     def on_bar(self, price: float, high: float, low: float,
@@ -84,7 +89,7 @@ class DmiFlipper:
             self._dmi_p_hist = deque(maxlen=5)
             self._dmi_m_hist = deque(maxlen=5)
             self._z_hist = deque(maxlen=5)
-            self._price_hist = deque(maxlen=30)
+            self._price_hist = deque(maxlen=max(60, self.reg_window))
         self._dmi_p_hist.append(dmi_p)
         self._dmi_m_hist.append(dmi_m)
         self._price_hist.append(price)
@@ -135,9 +140,62 @@ class DmiFlipper:
         smooth_now = sum(recent[-w:]) / w if w > 0 else recent[-1]
         smooth_prev = sum(recent[-(w + 1):-1]) / w if w > 0 else recent[-2]
 
-        # --- IN TRADE: check SL and TP ---
+        # --- IN TRADE: early exits, then SL, then TP ---
         if self._in_trade:
             ref = self._last_tp_price if self._tp_count > 0 else self._entry_price
+            _bars_held = self._bar_count - self._entry_bar
+
+            # EARLY EXIT 1: DMI invalidation — cross reversed within 3 bars
+            if _bars_held <= 3 and _bars_held >= 1:
+                _cur_sign = 1 if smooth_now > 0 else -1
+                if _cur_sign != self._entry_dmi_sign:
+                    _pnl = (price - self._entry_price) / 0.25 if self._trade_dir == 'LONG' \
+                        else (self._entry_price - price) / 0.25
+                    self._in_trade = False
+                    self.stats['exits'] += 1
+                    self.stats['dmi_invalid_exits'] += 1
+                    return FlipperResult(
+                        action='EXIT', direction=self._trade_dir,
+                        pnl_ticks=_pnl + self._tp_count * self.tp_ticks,
+                        tp_count=self._tp_count,
+                        reason=f'dmi_invalid after {_bars_held} bars pnl={_pnl:+.0f}t',
+                    )
+
+            # EARLY EXIT 2: Price crosses 60-bar regression mean against position
+            if len(self._price_hist) >= self.reg_window and _bars_held >= 2:
+                _reg_prices = list(self._price_hist)
+                _reg_mean = sum(_reg_prices[-self.reg_window:]) / self.reg_window
+                if (self._trade_dir == 'LONG' and price < _reg_mean) or \
+                   (self._trade_dir == 'SHORT' and price > _reg_mean):
+                    _pnl = (price - self._entry_price) / 0.25 if self._trade_dir == 'LONG' \
+                        else (self._entry_price - price) / 0.25
+                    self._in_trade = False
+                    self.stats['exits'] += 1
+                    self.stats['reg_exits'] += 1
+                    return FlipperResult(
+                        action='EXIT', direction=self._trade_dir,
+                        pnl_ticks=_pnl + self._tp_count * self.tp_ticks,
+                        tp_count=self._tp_count,
+                        reason=f'reg_cross mean={_reg_mean:.2f} price={price:.2f} pnl={_pnl:+.0f}t',
+                    )
+
+            # EARLY EXIT 3: Volume spike (2x avg) in direction against position
+            if self._avg_volume > 0 and volume > self._avg_volume * 2:
+                _price_dir = 'UP' if price > self._price_hist[-2] else 'DOWN' \
+                    if len(self._price_hist) >= 2 else ''
+                if (self._trade_dir == 'LONG' and _price_dir == 'DOWN') or \
+                   (self._trade_dir == 'SHORT' and _price_dir == 'UP'):
+                    _pnl = (price - self._entry_price) / 0.25 if self._trade_dir == 'LONG' \
+                        else (self._entry_price - price) / 0.25
+                    self._in_trade = False
+                    self.stats['exits'] += 1
+                    self.stats['vol_exits'] += 1
+                    return FlipperResult(
+                        action='EXIT', direction=self._trade_dir,
+                        pnl_ticks=_pnl + self._tp_count * self.tp_ticks,
+                        tp_count=self._tp_count,
+                        reason=f'vol_spike {volume:.0f} vs avg {self._avg_volume:.0f} pnl={_pnl:+.0f}t',
+                    )
 
             if self._trade_dir == 'LONG':
                 # SL check (from entry)
@@ -210,6 +268,8 @@ class DmiFlipper:
             self._entry_price = price
             self._last_tp_price = 0.0
             self._tp_count = 0
+            self._entry_bar = self._bar_count
+            self._entry_dmi_sign = 1 if smooth_now > 0 else -1
             self.stats['entries'] += 1
             return FlipperResult(
                 action='ENTER', direction=new_dir,
@@ -237,6 +297,8 @@ class DmiFlipper:
             self._entry_price = price
             self._last_tp_price = 0.0
             self._tp_count = 0
+            self._entry_bar = self._bar_count
+            self._entry_dmi_sign = 1 if smooth_now > 0 else -1
             return FlipperResult(
                 action='FLIP', direction=new_dir,
                 pnl_ticks=pnl, tp_count=old_tps,
@@ -250,6 +312,8 @@ class DmiFlipper:
             self._entry_price = price
             self._last_tp_price = 0.0
             self._tp_count = 0
+            self._entry_bar = self._bar_count
+            self._entry_dmi_sign = 1 if smooth_now > 0 else -1
             self.stats['entries'] += 1
             return FlipperResult(
                 action='ENTER', direction=new_dir,
