@@ -39,10 +39,12 @@ class DmiFlipper:
         tp_ticks: float = DEFAULT_TP_TICKS,
         sl_ticks: float = DEFAULT_SL_TICKS,
         smooth_window: int = DEFAULT_SMOOTH_WINDOW,
+        mode: str = 'cross',  # 'cross' (v1, $208/day) or 'divergence' (v3, $296/day backtest)
     ):
         self.tp_ticks = tp_ticks
         self.sl_ticks = sl_ticks
         self.smooth_window = smooth_window
+        self.mode = mode
 
         # State
         self._dmi_diffs = deque(maxlen=smooth_window + 1)
@@ -186,6 +188,78 @@ class DmiFlipper:
                         reason=f'TP #{self._tp_count} banked (+{self._tp_count * self.tp_ticks}t total)',
                     )
 
+        # --- ENTRY LOGIC (mode-dependent) ---
+        _vol_ratio = self._last_volume / self._avg_volume if self._avg_volume > 0 else 1.0
+
+        if self.mode == 'cross':
+            return self._entry_cross(price, smooth_now, smooth_prev, _vol_ratio)
+        else:
+            return self._entry_divergence(price, smooth_now, smooth_prev, _vol_ratio)
+
+    def _entry_cross(self, price, smooth_now, smooth_prev, _vol_ratio):
+        """V1: Simple smoothed DMI cross. $208/day across 14 months."""
+        # Cross detection
+        cross_long = smooth_prev < 0 and smooth_now > 0
+        cross_short = smooth_prev > 0 and smooth_now < 0
+
+        # Initial entry (no cross yet, enter with current direction)
+        if not self._in_trade and not cross_long and not cross_short and self.stats['entries'] == 0:
+            new_dir = 'LONG' if smooth_now > 0 else 'SHORT'
+            self._in_trade = True
+            self._trade_dir = new_dir
+            self._entry_price = price
+            self._last_tp_price = 0.0
+            self._tp_count = 0
+            self.stats['entries'] += 1
+            return FlipperResult(
+                action='ENTER', direction=new_dir,
+                reason=f'ENTER {new_dir} initial dmi={smooth_now:.1f}',
+            )
+
+        if not cross_long and not cross_short:
+            if self._in_trade:
+                return FlipperResult(
+                    reason=f'HOLD {self._trade_dir} TPs={self._tp_count} dmi={smooth_now:.1f} vol={_vol_ratio:.1f}x',
+                )
+            return FlipperResult(reason=f'FLAT dmi={smooth_now:.1f} vol={_vol_ratio:.1f}x')
+
+        new_dir = 'LONG' if cross_long else 'SHORT'
+
+        # FLIP
+        if self._in_trade and new_dir != self._trade_dir:
+            pnl = (price - self._entry_price) / 0.25 if self._trade_dir == 'LONG' else (self._entry_price - price) / 0.25
+            self.stats['flips'] += 1
+            self.stats['exits'] += 1
+            self.stats['entries'] += 1
+            old_dir = self._trade_dir
+            old_tps = self._tp_count
+            self._trade_dir = new_dir
+            self._entry_price = price
+            self._last_tp_price = 0.0
+            self._tp_count = 0
+            return FlipperResult(
+                action='FLIP', direction=new_dir,
+                pnl_ticks=pnl, tp_count=old_tps,
+                reason=f'FLIP {old_dir}->{new_dir} pnl={pnl:+.0f}t (had {old_tps} TPs)',
+            )
+
+        # ENTER after flat
+        if not self._in_trade:
+            self._in_trade = True
+            self._trade_dir = new_dir
+            self._entry_price = price
+            self._last_tp_price = 0.0
+            self._tp_count = 0
+            self.stats['entries'] += 1
+            return FlipperResult(
+                action='ENTER', direction=new_dir,
+                reason=f'ENTER {new_dir} dmi_cross={smooth_now:.1f}',
+            )
+
+        return FlipperResult(reason=f'HOLD {self._trade_dir} dmi={smooth_now:.1f}')
+
+    def _entry_divergence(self, price, smooth_now, smooth_prev, _vol_ratio):
+        """V3: State machine exhaustion detection. $296/day backtest."""
         # --- TWO-PHASE ENTRY: EXHAUSTION SETUP → DIVERGENCE TRIGGER ---
         # Phase 1 (SETUP): DMI gap WIDENING + volume DROPPING = wall absorption
         #   The aggressive side pushes harder but orders hit the wall.
