@@ -186,33 +186,92 @@ class DmiFlipper:
                         reason=f'TP #{self._tp_count} banked (+{self._tp_count * self.tp_ticks}t total)',
                     )
 
-        # --- DIVERGENCE-BASED ENTRY (not cross-based) ---
-        # Enter/flip when dominant DMI starts FADING, not when it crosses zero.
-        # Cross is too late — the move already happened.
-        # Divergence = the approach to the cross, 10-20 bars early.
+        # --- TWO-PHASE ENTRY: EXHAUSTION SETUP → DIVERGENCE TRIGGER ---
+        # Phase 1 (SETUP): DMI gap WIDENING + volume DROPPING = wall absorption
+        #   The aggressive side pushes harder but orders hit the wall.
+        # Phase 2 (TRIGGER): DMI gap starts NARROWING = wall won, enter opposite.
+        #   Only fires if setup phase was detected first.
 
         _vol_ratio = self._last_volume / self._avg_volume if self._avg_volume > 0 else 1.0
-        _vol_ok = self._last_volume >= self._avg_volume if self._avg_volume > 0 else True
 
-        # Detect divergence: the gap between DMI+ and DMI- is NARROWING
-        # DMI- dominant (negative dmi_diff) but gap shrinking = LONG setup
-        # DMI+ dominant (positive dmi_diff) but gap shrinking = SHORT setup
+        # Track setup state machine: progressive exhaustion detection
+        # States: IDLE -> WIDENING -> ABSORBING -> READY -> (trigger fires -> IDLE)
+        if not hasattr(self, '_setup_state'):
+            self._setup_state = 'IDLE'
+            self._setup_dir = ''
+            self._setup_active = False
+
+        # Compute conditions
+        _widening = False
+        _gap_wide = False
+        _vol_below_avg = False
+        _price_slow_or_flat = False
+
+        if len(self._dmi_diffs) >= 3:
+            d0 = self._dmi_diffs[-1]
+            d1 = self._dmi_diffs[-2]
+            d2 = self._dmi_diffs[-3]
+            _widening = abs(d0) > abs(d1) and abs(d1) > abs(d2)
+            _gap_wide = abs(d0) > 5  # DMI gap is meaningful (not noise)
+
+        _vol_below_avg = self._last_volume < self._avg_volume if self._avg_volume > 0 else False
+
+        if len(self._price_hist) >= 3:
+            _dp0 = abs(self._price_hist[-1] - self._price_hist[-2])
+            _dp1 = abs(self._price_hist[-2] - self._price_hist[-3])
+            _price_slow_or_flat = _dp0 <= _dp1  # decelerating OR flat
+
+        # State machine transitions
+        if self._setup_state == 'IDLE':
+            # Transition: DMI starts widening
+            if _widening:
+                self._setup_state = 'WIDENING'
+                self._setup_dir = 'SHORT' if self._dmi_diffs[-1] > 0 else 'LONG'
+
+        elif self._setup_state == 'WIDENING':
+            # Transition: volume drops while gap still wide = wall absorbing
+            if _vol_below_avg and _gap_wide:
+                self._setup_state = 'ABSORBING'
+            elif not _widening and not _gap_wide:
+                self._setup_state = 'IDLE'  # reset, gap collapsed without absorption
+
+        elif self._setup_state == 'ABSORBING':
+            # Transition: price slows/flattens = wall won, ready to trigger
+            if _price_slow_or_flat:
+                self._setup_state = 'READY'
+                self._setup_active = True
+            elif not _gap_wide:
+                self._setup_state = 'IDLE'  # gap collapsed, no longer relevant
+
+        elif self._setup_state == 'READY':
+            # Stay ready until trigger fires or conditions invalidate
+            self._setup_active = True
+            if not _gap_wide:
+                # Gap collapsed on its own — still trigger-ready for a few bars
+                pass
+
+        # Phase 2: detect trigger (gap narrowing AFTER setup)
         _diverge_long = False
         _diverge_short = False
         if len(self._dmi_diffs) >= 3:
-            d0 = self._dmi_diffs[-1]   # current
-            d1 = self._dmi_diffs[-2]   # previous
-            d2 = self._dmi_diffs[-3]   # 2 bars ago
-            # Gap narrowing toward zero from negative = sellers losing grip
+            d0 = self._dmi_diffs[-1]
+            d1 = self._dmi_diffs[-2]
+            d2 = self._dmi_diffs[-3]
+            # Gap narrowing toward zero from negative = sellers losing grip → LONG
             if d0 < 0 and d0 > d1 and d1 > d2:
                 _diverge_long = True
-            # Gap narrowing toward zero from positive = buyers losing grip
+            # Gap narrowing toward zero from positive = buyers losing grip → SHORT
             if d0 > 0 and d0 < d1 and d1 < d2:
                 _diverge_short = True
 
-        # Combined signal: divergence + volume confirmation
-        _signal_long = _diverge_long and (_vol_ok or self._divergence_signal)
-        _signal_short = _diverge_short and (_vol_ok or self._divergence_signal)
+        # Signal requires setup OR strong divergence (for initial entry)
+        _has_setup = self._setup_active
+        _signal_long = _diverge_long and (_has_setup or self._divergence_signal)
+        _signal_short = _diverge_short and (_has_setup or self._divergence_signal)
+
+        # Reset setup once triggered
+        if (_signal_long or _signal_short) and self._setup_active:
+            self._setup_active = False
 
         # No trade yet: enter on first signal or on initial DMI direction
         if not self._in_trade and self.stats['entries'] == 0:
@@ -222,7 +281,7 @@ class DmiFlipper:
                 new_dir = 'SHORT'
             else:
                 return FlipperResult(
-                    reason=f'FLAT dmi={smooth_now:.1f} vol={_vol_ratio:.1f}x divL={_diverge_long} divS={_diverge_short}',
+                    reason=f'FLAT dmi={smooth_now:.1f} vol={_vol_ratio:.1f}x setup={self._setup_active}({self._setup_dir})',
                 )
             self._in_trade = True
             self._trade_dir = new_dir
@@ -249,7 +308,7 @@ class DmiFlipper:
         if not _flip_signal:
             if self._in_trade:
                 return FlipperResult(
-                    reason=f'HOLD {self._trade_dir} TPs={self._tp_count} dmi={smooth_now:.1f} vol={_vol_ratio:.1f}x divL={_diverge_long} divS={_diverge_short}',
+                    reason=f'HOLD {self._trade_dir} TPs={self._tp_count} dmi={smooth_now:.1f} vol={_vol_ratio:.1f}x setup={self._setup_active}({self._setup_dir})',
                 )
             # Not in trade, no signal
             if _signal_long or _signal_short:
