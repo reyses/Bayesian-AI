@@ -657,9 +657,18 @@ class LiveEngine:
                 # Read primary chart period from bridge (v6.4+)
                 self._primary_period = int(msg.get('primary_period_s',
                                                    self._cfg.base_resolution_s))
-                logger.info(f"NT8 CONNECTED: account={msg.get('account')}  "
+                _account = msg.get('account', '')
+                logger.info(f"NT8 CONNECTED: account={_account}  "
                             f"instrument={bridge_inst}  bridge={bridge_ver}  "
                             f"primary={self._primary_period}s")
+                # SAFETY LOCK: refuse to trade on non-sim accounts
+                _ALLOWED_SIM_ACCOUNTS = {'Sim101', 'DEMO6872628', 'Sim102'}
+                if _account and _account not in _ALLOWED_SIM_ACCOUNTS:
+                    logger.error(f"SAFETY LOCK: account '{_account}' is NOT a sim account!")
+                    logger.error(f"Allowed accounts: {_ALLOWED_SIM_ACCOUNTS}")
+                    logger.error(f"REFUSING TO TRADE. Shutting down to protect real money.")
+                    self._shutting_down = True
+                    return
                 # Prepare aggregator for history ingestion (handles NT8 restarts)
                 if self._aggregator.bar_count > 0:
                     # Delta sync: keep existing bars, just enter history mode
