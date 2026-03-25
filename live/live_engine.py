@@ -166,6 +166,7 @@ class LiveEngine:
 
         # System readiness — no trading until HISTORY_DONE + TBN warmed
         self._system_ready = False
+        self._connection_live = True  # assume connected until told otherwise
 
         # Position tracking
         self._position_open = False
@@ -705,6 +706,20 @@ class LiveEngine:
                     'step': 'CONNECTED  -- warming up',
                     'pct': 0,
                 })
+            elif mtype == 'CONNECTION_LOST':
+                logger.error("NT8 CONNECTION LOST — flatten and stop trading")
+                self._connection_live = False
+                if self._position_open:
+                    logger.error("EMERGENCY FLATTEN: closing position due to connection loss")
+                    await self._close_position('connection_lost')
+                if self._dmi_flipper:
+                    self._dmi_flipper._in_trade = False
+
+            elif mtype == 'CONNECTION_RESTORED':
+                logger.info("NT8 CONNECTION RESTORED — waiting for re-sync before trading")
+                self._connection_live = True
+                # Don't trade immediately — wait for HISTORY_DONE to re-sync
+
             elif mtype == 'HISTORY_DONE':
                 count = int(msg.get('bar_count', 0))
                 logger.info(f"History dump complete: {count} bars from NT8")
@@ -1112,6 +1127,7 @@ class LiveEngine:
         # Block entries during maintenance or loss limit
         _cooldown_ok = (time.time() - self._last_exit_time) > float(self._anchor_period)
         _can_enter = (self._system_ready
+                      and self._connection_live
                       and self._orders.can_enter
                       and _cooldown_ok
                       and not self._instrument_mismatch
@@ -2311,6 +2327,14 @@ class LiveEngine:
     def _init_dmi_flipper(self):
         """Create DMI smoothed cross flipper for live trading."""
         from core.dmi_flipper import DmiFlipper
+        # Force-read tuning file to get latest values (defaults may have tp=0)
+        try:
+            import json
+            with open('checkpoints/live_tuning.json') as f:
+                _file_tuning = json.load(f)
+            self._tuning.update({k: v for k, v in _file_tuning.items() if not k.startswith('_')})
+        except Exception:
+            pass
         tp = self._tuning.get('physics_tp_ticks', 10)
         sl = self._tuning.get('physics_sl_ticks', 40)
         _mode = self._tuning.get('dmi_mode', 'cross')
