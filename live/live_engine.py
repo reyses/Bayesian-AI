@@ -2304,7 +2304,9 @@ class LiveEngine:
         from core.dmi_flipper import DmiFlipper
         tp = self._tuning.get('physics_tp_ticks', 10)
         sl = self._tuning.get('physics_sl_ticks', 40)
-        self._dmi_flipper = DmiFlipper(tp_ticks=tp, sl_ticks=sl)
+        _mode = self._tuning.get('dmi_mode', 'cross')
+        self._dmi_flipper = DmiFlipper(tp_ticks=tp, sl_ticks=sl, mode=_mode)
+        logger.info(f"DMI flipper mode: {_mode} (tp={tp}, sl={sl})")
         self._physics_sl_ticks = sl
         logger.info(f"DMI Flipper ready: TP={tp}t repeating, SL={sl}t")
 
