@@ -28,21 +28,22 @@
   **ALWAYS run `date` command to get actual current time** — never guess or use stale timestamps.
 - **Track time**: Periodically check the clock during long sessions. Flag when it's late.
 
-## **AUTO SEEDS + QUANTUM — NEXT PRIORITIES (2026-03-19)**
-- **READ FIRST**: `memory/project_auto_seeds_next.md` — 31K seeds as template library
-- **THEN**: Quantum reconnect as feature enrichment on seed context
-- ADX chop filter: `memory/project_adx_chop_filter.md` — biggest OOS improvement
-- Peak override FAILED: `memory/feedback_peak_override_failed.md` — do NOT re-enable
+## **CURRENT PRIORITIES (2026-03-25)**
+- **DMI Flipper running live** on Sim101 (cross mode, TP=10, SL=40). Backtest: $208/day.
+- **AdvanceEngine V2 BUILT** — run `python -m training.advance_v2_trainer --phase all`
+  - 70D grounded features, K-means templates, per-template configs
+  - See `memory/project_roadmap_q2.md` for full plan
+- **Feature tree**: `memory/project_feature_tree.md` — 7 features × 10 TFs = 70D
+- **TCN v5**: `memory/research_tcn_v5.md` — learned multi-TF pattern matching (future)
+- **NQ goal**: 3 months to NQ ($400 noise budget). See `memory/project_nq_goal.md`
+- **Base measurements grounded**: `memory/feedback_base_measurements.md`
 - **Commit flow**: code first (commit+push), then reports/CSVs separately (commit+push)
 
-## **QUANTUM RECONNECTION (deprioritized, was #1 on 2026-03-15)**
-- **READ FIRST**: `memory/project_quantum_reconnect.md` — full context + action items
-- System is probabilistic by design (quantum model). Gates broke it. Reconnect wave function to scoring.
-- Wave function probs (prob0/1/2), tunnel_prob, coherence computed EVERY BAR but unused in scoring
-- Reference docs: `docs/reference/quantum_field_engine_original.py`, `QUANTUM_STATE_REFERENCE.md`, `NIGHTMARE_PROTOCOL.md`, `THREE_THEORIES.md`
-- Decision funnel validated: 85% accuracy predicting regime starts (funnel tree research)
-- PFMEA: RPN 648 (score competition), 392 (conviction position), 336 (giveback flip)
-- Fresh run needed: `python training/trainer.py --fresh --lookback`
+## **DEPRIORITIZED (historical context only)**
+- Auto seeds: `memory/project_auto_seeds_next.md` — superseded by grounded templates
+- Quantum reconnect: `memory/project_quantum_reconnect.md` — physics metaphors purged
+- ADX chop filter: `memory/project_adx_chop_filter.md` — ADX replaced by variance_ratio
+- Peak override: `memory/feedback_peak_override_failed.md` — do NOT re-enable
 
 ## Architecture
 - **Core engine**: `core/statistical_field_engine.py` — MarketState per bar (CUDA-only since 2026-03-08)

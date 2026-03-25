@@ -1,0 +1,1485 @@
+========================================================================
+LIVE SESSION REPORT  (run: 2026-03-23 06:20:13)
+  Account:    DEMO6872628
+  Instrument: MNQ 03-26
+  Anchor TF:  1m  (depth=5)
+  Duration:   8h 7m  (958 bars)
+========================================================================
+
+── DRAWDOWN & SURVIVAL ──
+  Max Consecutive Losses: 7
+  Max Consec Loss $:      $247.50
+  Peak Equity:            $+1,582.00
+  Max Session Drawdown:   $264.50
+
+======================================================================
+SCORECARD: LIVE 2026-03-23 to 
+  Commit:   |  Generated: 2026-03-23 06:20:13
+  PnL: $1,495.00  |  Trades: 93  |  WR: 44.1%  |  PF: 1.96
+  $/trade: $16.08  |  $/day: $1,495  |  Max DD: $264
+======================================================================
+
+WHAT WORKS (PF > 1.5):
+  physics_flip              41 trades  PF=11.14  $ +2,692.00  $ +65.66/tr  WR=76%
+
+WHAT HURTS (PF < 1.0):
+  ORPHAN_FLATTEN            11 trades  PF= 0.01  $   -572.50  $ -52.05/tr  WR=9%
+  physics_sl                23 trades  PF= 0.06  $   -354.50  $ -15.41/tr  WR=17%
+  physics_hold_expire       18 trades  PF= 0.21  $   -270.00  $ -15.00/tr  WR=28%
+  FIXABLE (50% recovery): ~$598 -> PnL could be $2,094
+
+HOLD DURATION:
+    <30s:    28 trades  $ -11.73/tr <-- OVER-HOLDING
+  30s-1m:     9 trades  $ +14.17/tr
+    1-2m:    33 trades  $ +66.62/tr
+    2-5m:    23 trades  $ -21.85/tr <-- OVER-HOLDING
+
+DIRECTION:
+  LONG:    45 (48%)  WR=36%  PnL=$ +1,361.50
+  SHORT:    48 (52%)  WR=52%  PnL=$   +133.50
+
+======================================================================
+
+========================================================================
+PING-PONG DIRECTION REFINEMENT
+========================================================================
+  Flip count: 0
+  Template                LONG WR   LONG N   SHORT WR  SHORT N
+  ----------------------------------------------------------
+  PHYSICS                     42%       93        58%       93
+
+========================================================================
+GATE REJECTION FUNNEL
+========================================================================
+  Bars with candidates:                  0
+  Total candidates evaluated:            1
+    Pattern Quality  (headroom/physics):          0  (0.0%)
+    Depth Filter     (depth blacklist):           0  (0.0%)
+    Template Match   (cluster dist):              0  (0.0%)
+    Brain Reject     (unprofitable):              0  (0.0%)
+    Low Conviction   (belief too weak):           0  (0.0%)
+    Screening Filter (fission/hours):             0  (0.0%)
+    Direction Unclear (dir conf too low):          0  (0.0%)
+    Passed all gates -> traded:                   0  (0.0%)
+
+========================================================================
+ACCOUNT SNAPSHOT
+========================================================================
+  Cash Value:      $  101,433.50
+  Unrealized PnL:  $       +0.00
+  Net Liquidation: $  101,433.50
+  Profit Factor:   1.96
+  Avg PnL/trade:   $+16.08
+  Gross Win:       $+3,056.50
+  Gross Loss:      $1,561.50
+
+========================================================================
+TRADE LOG
+========================================================================
+    #  Time       Side        Entry       Exit        PnL Reason          Bars
+  --------------------------------------------------------------------
+    1  22:30:39   SHORT   23,988.50  23,964.25 $   +48.50 physics_flip       7
+    2  22:35:00   LONG    23,964.25  23,959.75 $    -9.00 ORPHAN_FLATTEN     9
+    3  22:36:31   SHORT   23,963.00  23,975.75 $   -25.50 physics_sl         1
+    4  22:54:00   SHORT   23,948.75  23,946.75 $    +4.00 physics_flip       9
+    5  22:55:57   LONG    23,946.75  23,964.00 $   +34.50 physics_flip       3
+    6  22:59:03   SHORT   23,963.50  23,967.75 $    -8.50 physics_flip       7
+    7  23:05:02   LONG    23,968.00  23,953.00 $   -30.00 physics_hold_expire    11
+    8  23:13:58   LONG    23,930.25  23,916.00 $   -28.50 ORPHAN_FLATTEN     0
+    9  23:14:01   LONG    23,919.25  23,918.75 $    -1.00 physics_sl         0
+   10  23:17:00   LONG    23,946.25  23,933.75 $   -25.00 physics_flip       2
+   11  23:22:42   SHORT   23,933.75  23,940.50 $   -13.50 physics_hold_expire    11
+   12  23:30:46   LONG    23,919.75  23,910.50 $   -18.50 physics_sl         0
+   13  23:31:01   LONG    23,907.25  23,909.75 $    +5.00 physics_sl         0
+   14  23:43:00   LONG    23,887.25  23,885.25 $    -4.00 physics_flip       1
+   15  23:43:53   SHORT   23,885.25  23,878.50 $   +13.50 physics_flip       1
+   16  23:49:00   LONG    23,878.50  23,868.25 $   -20.50 physics_hold_expire    10
+   17  00:00:00   LONG    23,831.25  23,852.00 $   +41.50 physics_flip       7
+   18  00:03:00   SHORT   23,852.75  23,836.25 $   +33.00 physics_hold_expire     6
+   19  00:09:46   SHORT   23,900.75  23,884.00 $   +33.50 physics_flip       4
+   20  00:12:47   LONG    23,884.00  23,906.00 $   +44.00 physics_flip       6
+   21  00:13:49   SHORT   23,906.00  23,891.75 $   +28.50 physics_flip       2
+   22  00:18:00   LONG    23,891.75  23,884.75 $   -14.00 physics_hold_expire     9
+   23  00:21:00   LONG    23,857.00  23,856.75 $    -0.50 physics_flip       1
+   24  00:22:00   SHORT   23,856.25  23,854.25 $    +4.00 physics_flip       2
+   25  00:26:00   LONG    23,854.75  23,804.25 $  -101.00 ORPHAN_FLATTEN     7
+   26  00:44:38   SHORT   23,823.00  23,832.75 $   -19.50 physics_sl         0
+   27  00:46:29   SHORT   23,860.75  23,871.25 $   -21.00 physics_sl         0
+   28  00:53:03   LONG    23,849.75  23,836.25 $   -27.00 physics_sl         5
+   29  01:00:43   SHORT   23,864.25  23,880.75 $   -33.00 physics_sl         0
+   30  01:01:01   SHORT   23,871.75  23,869.25 $    +5.00 physics_sl         0
+   31  01:14:01   SHORT   23,902.75  23,904.25 $    -3.00 physics_sl         0
+   32  01:17:28   SHORT   23,921.50  23,893.25 $   +56.50 physics_flip       6
+   33  01:22:00   LONG    23,894.00  23,899.25 $   +10.50 physics_hold_expire     9
+   34  01:32:49   SHORT   23,935.25  23,947.75 $   -25.00 physics_sl         0
+   35  01:41:45   LONG    23,934.25  23,934.25 $    +0.00 physics_flip       9
+   36  01:44:47   SHORT   23,934.25  23,917.50 $   +33.50 physics_flip       6
+   37  01:46:49   LONG    23,917.00  23,940.00 $   +46.00 physics_flip       4
+   38  01:51:00   SHORT   23,939.00  23,935.25 $    +7.50 physics_hold_expire     9
+   39  01:58:04   LONG    23,921.00  23,939.75 $   +37.50 physics_flip       4
+   40  02:01:13   SHORT   23,939.75  23,916.00 $   +47.50 physics_flip       6
+   41  02:06:00   LONG    23,917.50  23,912.50 $   -10.00 physics_hold_expire     9
+   42  02:07:46   SHORT   23,930.75  23,944.25 $   -27.00 physics_sl         0
+   43  02:25:05   SHORT   23,962.50  23,932.25 $   +60.50 physics_flip       6
+   44  02:30:14   LONG    23,931.50  23,927.50 $    -8.00 physics_hold_expire    10
+   45  02:34:59   LONG    23,883.25  23,872.25 $   -22.00 physics_sl         0
+   46  02:35:01   LONG    23,873.25  23,873.75 $    +1.00 physics_sl         0
+   47  02:39:01   SHORT   23,860.25  23,861.25 $    -2.00 physics_sl         0
+   48  02:50:42   SHORT   23,888.25  23,871.75 $   +33.00 physics_flip       4
+   49  02:57:22   LONG    23,871.75  23,863.50 $   -16.50 physics_flip      13
+   50  03:03:00   SHORT   23,863.50  23,900.25 $   -73.50 physics_flip      11
+   51  03:08:00   LONG    23,899.75  23,897.75 $    -4.00 physics_hold_expire    10
+   52  03:12:04   SHORT   23,918.00  23,928.50 $   -21.00 ORPHAN_FLATTEN     5
+   53  03:15:05   LONG    23,903.00  23,893.00 $   -20.00 physics_sl         3
+   54  03:21:54   LONG    23,867.00  23,854.25 $   -25.50 ORPHAN_FLATTEN     0
+   55  03:38:57   SHORT   23,884.00  23,862.00 $   +44.00 physics_flip       4
+   56  03:44:00   LONG    23,861.50  23,846.75 $   -29.50 physics_flip      10
+   57  03:47:08   SHORT   23,846.75  23,848.50 $    -3.50 physics_hold_expire     7
+   58  03:49:32   LONG    23,828.25  23,816.75 $   -23.00 ORPHAN_FLATTEN     0
+   59  03:51:18   LONG    23,834.00  23,872.75 $   +77.50 physics_flip       2
+   60  03:55:00   SHORT   23,874.00  23,866.25 $   +15.50 physics_hold_expire     7
+   61  04:04:00   SHORT   23,896.00  23,888.50 $   +15.00 physics_flip       5
+   62  04:07:00   LONG    23,889.00  24,504.25 $+1,230.50 physics_flip       4
+   63  04:10:19   SHORT   24,504.00  24,627.75 $  -247.50 ORPHAN_FLATTEN     7
+   64  04:24:00   SHORT   24,593.00  24,587.00 $   +12.00 physics_sl         1
+   65  04:25:25   SHORT   24,580.00  24,594.50 $   -29.00 physics_sl         0
+   66  04:31:19   LONG    24,484.50  24,603.50 $  +238.00 physics_flip       6
+   67  04:36:19   SHORT   24,603.00  24,649.50 $   -93.00 physics_flip      10
+   68  04:40:00   LONG    24,651.25  24,605.75 $   -91.00 physics_hold_expire     7
+   69  04:46:20   SHORT   24,573.50  24,509.00 $  +129.00 physics_flip       4
+   70  04:50:00   LONG    24,508.75  24,493.50 $   -30.50 ORPHAN_FLATTEN     7
+   71  04:54:19   SHORT   24,493.50  24,494.75 $    -2.50 physics_hold_expire     9
+   72  04:57:30   LONG    24,407.00  24,389.25 $   -35.50 physics_sl         2
+   73  04:58:01   LONG    24,394.25  24,390.25 $    -8.00 ORPHAN_FLATTEN     0
+   74  05:03:22   SHORT   24,400.00  24,415.00 $   -30.00 physics_sl         2
+   75  05:10:19   LONG    24,476.50  24,469.00 $   -15.00 physics_flip       1
+   76  05:13:00   SHORT   24,468.75  24,444.00 $   +49.50 physics_flip       5
+   77  05:17:20   LONG    24,445.00  24,456.00 $   +22.00 physics_flip       9
+   78  05:22:20   SHORT   24,456.25  24,497.75 $   -83.00 ORPHAN_FLATTEN    10
+   79  05:26:20   LONG    24,497.75  24,495.75 $    -4.00 physics_hold_expire     8
+   80  05:30:21   SHORT   24,511.00  24,466.50 $   +89.00 physics_flip       4
+   81  05:33:21   LONG    24,465.75  24,498.75 $   +66.00 physics_flip       6
+   82  05:35:21   SHORT   24,498.75  24,471.50 $   +54.50 physics_flip       4
+   83  05:37:21   LONG    24,471.50  24,501.25 $   +59.50 physics_flip       4
+   84  05:38:21   SHORT   24,501.25  24,454.50 $   +93.50 physics_flip       2
+   85  05:41:21   LONG    24,456.75  24,527.00 $  +140.50 physics_flip       6
+   86  05:47:21   SHORT   24,528.75  24,561.00 $   -64.50 physics_hold_expire    12
+   87  05:52:58   SHORT   24,604.50  24,616.25 $   -23.50 physics_sl         0
+   88  05:53:01   SHORT   24,618.25  24,619.00 $    -1.50 physics_sl         0
+   89  05:55:00   SHORT   24,591.25  24,589.00 $    +4.50 ORPHAN_FLATTEN     1
+   90  06:02:21   SHORT   24,629.25  24,588.00 $   +82.50 physics_flip       4
+   91  06:08:00   LONG    24,588.50  24,550.50 $   -76.00 physics_hold_expire    11
+   92  06:10:00   SHORT   24,575.50  24,582.25 $   -13.50 physics_sl         1
+   93  06:17:00   LONG    24,556.50  24,559.00 $    +5.00 physics_hold_expire     9
+  --------------------------------------------------------------------
+                                         TOTAL $+1,495.00
+
+========================================================================
+========================================================================
+LIVE SESSION REPORT  (run: 2026-03-23 06:22:55)
+  Account:    DEMO6872628
+  Instrument: MNQ 03-26
+  Anchor TF:  1m  (depth=5)
+  Duration:   8h 9m  (963 bars)
+========================================================================
+
+── DRAWDOWN & SURVIVAL ──
+  Max Consecutive Losses: 7
+  Max Consec Loss $:      $247.50
+  Peak Equity:            $+1,582.00
+  Max Session Drawdown:   $264.50
+
+======================================================================
+SCORECARD: LIVE 2026-03-23 to 
+  Commit:   |  Generated: 2026-03-23 06:22:55
+  PnL: $1,495.00  |  Trades: 93  |  WR: 44.1%  |  PF: 1.96
+  $/trade: $16.08  |  $/day: $1,495  |  Max DD: $264
+======================================================================
+
+WHAT WORKS (PF > 1.5):
+  physics_flip              41 trades  PF=11.14  $ +2,692.00  $ +65.66/tr  WR=76%
+
+WHAT HURTS (PF < 1.0):
+  ORPHAN_FLATTEN            11 trades  PF= 0.01  $   -572.50  $ -52.05/tr  WR=9%
+  physics_sl                23 trades  PF= 0.06  $   -354.50  $ -15.41/tr  WR=17%
+  physics_hold_expire       18 trades  PF= 0.21  $   -270.00  $ -15.00/tr  WR=28%
+  FIXABLE (50% recovery): ~$598 -> PnL could be $2,094
+
+HOLD DURATION:
+    <30s:    28 trades  $ -11.73/tr <-- OVER-HOLDING
+  30s-1m:     9 trades  $ +14.17/tr
+    1-2m:    33 trades  $ +66.62/tr
+    2-5m:    23 trades  $ -21.85/tr <-- OVER-HOLDING
+
+DIRECTION:
+  LONG:    45 (48%)  WR=36%  PnL=$ +1,361.50
+  SHORT:    48 (52%)  WR=52%  PnL=$   +133.50
+
+======================================================================
+
+========================================================================
+PING-PONG DIRECTION REFINEMENT
+========================================================================
+  Flip count: 0
+  Template                LONG WR   LONG N   SHORT WR  SHORT N
+  ----------------------------------------------------------
+  PHYSICS                     42%       93        58%       93
+
+========================================================================
+GATE REJECTION FUNNEL
+========================================================================
+  Bars with candidates:                  0
+  Total candidates evaluated:            1
+    Pattern Quality  (headroom/physics):          0  (0.0%)
+    Depth Filter     (depth blacklist):           0  (0.0%)
+    Template Match   (cluster dist):              0  (0.0%)
+    Brain Reject     (unprofitable):              0  (0.0%)
+    Low Conviction   (belief too weak):           0  (0.0%)
+    Screening Filter (fission/hours):             0  (0.0%)
+    Direction Unclear (dir conf too low):          0  (0.0%)
+    Passed all gates -> traded:                   0  (0.0%)
+
+========================================================================
+ACCOUNT SNAPSHOT
+========================================================================
+  Cash Value:      $  101,433.50
+  Unrealized PnL:  $       +0.00
+  Net Liquidation: $  101,433.50
+  Profit Factor:   1.96
+  Avg PnL/trade:   $+16.08
+  Gross Win:       $+3,056.50
+  Gross Loss:      $1,561.50
+
+========================================================================
+TRADE LOG
+========================================================================
+    #  Time       Side        Entry       Exit        PnL Reason          Bars
+  --------------------------------------------------------------------
+    1  22:30:39   SHORT   23,988.50  23,964.25 $   +48.50 physics_flip       7
+    2  22:35:00   LONG    23,964.25  23,959.75 $    -9.00 ORPHAN_FLATTEN     9
+    3  22:36:31   SHORT   23,963.00  23,975.75 $   -25.50 physics_sl         1
+    4  22:54:00   SHORT   23,948.75  23,946.75 $    +4.00 physics_flip       9
+    5  22:55:57   LONG    23,946.75  23,964.00 $   +34.50 physics_flip       3
+    6  22:59:03   SHORT   23,963.50  23,967.75 $    -8.50 physics_flip       7
+    7  23:05:02   LONG    23,968.00  23,953.00 $   -30.00 physics_hold_expire    11
+    8  23:13:58   LONG    23,930.25  23,916.00 $   -28.50 ORPHAN_FLATTEN     0
+    9  23:14:01   LONG    23,919.25  23,918.75 $    -1.00 physics_sl         0
+   10  23:17:00   LONG    23,946.25  23,933.75 $   -25.00 physics_flip       2
+   11  23:22:42   SHORT   23,933.75  23,940.50 $   -13.50 physics_hold_expire    11
+   12  23:30:46   LONG    23,919.75  23,910.50 $   -18.50 physics_sl         0
+   13  23:31:01   LONG    23,907.25  23,909.75 $    +5.00 physics_sl         0
+   14  23:43:00   LONG    23,887.25  23,885.25 $    -4.00 physics_flip       1
+   15  23:43:53   SHORT   23,885.25  23,878.50 $   +13.50 physics_flip       1
+   16  23:49:00   LONG    23,878.50  23,868.25 $   -20.50 physics_hold_expire    10
+   17  00:00:00   LONG    23,831.25  23,852.00 $   +41.50 physics_flip       7
+   18  00:03:00   SHORT   23,852.75  23,836.25 $   +33.00 physics_hold_expire     6
+   19  00:09:46   SHORT   23,900.75  23,884.00 $   +33.50 physics_flip       4
+   20  00:12:47   LONG    23,884.00  23,906.00 $   +44.00 physics_flip       6
+   21  00:13:49   SHORT   23,906.00  23,891.75 $   +28.50 physics_flip       2
+   22  00:18:00   LONG    23,891.75  23,884.75 $   -14.00 physics_hold_expire     9
+   23  00:21:00   LONG    23,857.00  23,856.75 $    -0.50 physics_flip       1
+   24  00:22:00   SHORT   23,856.25  23,854.25 $    +4.00 physics_flip       2
+   25  00:26:00   LONG    23,854.75  23,804.25 $  -101.00 ORPHAN_FLATTEN     7
+   26  00:44:38   SHORT   23,823.00  23,832.75 $   -19.50 physics_sl         0
+   27  00:46:29   SHORT   23,860.75  23,871.25 $   -21.00 physics_sl         0
+   28  00:53:03   LONG    23,849.75  23,836.25 $   -27.00 physics_sl         5
+   29  01:00:43   SHORT   23,864.25  23,880.75 $   -33.00 physics_sl         0
+   30  01:01:01   SHORT   23,871.75  23,869.25 $    +5.00 physics_sl         0
+   31  01:14:01   SHORT   23,902.75  23,904.25 $    -3.00 physics_sl         0
+   32  01:17:28   SHORT   23,921.50  23,893.25 $   +56.50 physics_flip       6
+   33  01:22:00   LONG    23,894.00  23,899.25 $   +10.50 physics_hold_expire     9
+   34  01:32:49   SHORT   23,935.25  23,947.75 $   -25.00 physics_sl         0
+   35  01:41:45   LONG    23,934.25  23,934.25 $    +0.00 physics_flip       9
+   36  01:44:47   SHORT   23,934.25  23,917.50 $   +33.50 physics_flip       6
+   37  01:46:49   LONG    23,917.00  23,940.00 $   +46.00 physics_flip       4
+   38  01:51:00   SHORT   23,939.00  23,935.25 $    +7.50 physics_hold_expire     9
+   39  01:58:04   LONG    23,921.00  23,939.75 $   +37.50 physics_flip       4
+   40  02:01:13   SHORT   23,939.75  23,916.00 $   +47.50 physics_flip       6
+   41  02:06:00   LONG    23,917.50  23,912.50 $   -10.00 physics_hold_expire     9
+   42  02:07:46   SHORT   23,930.75  23,944.25 $   -27.00 physics_sl         0
+   43  02:25:05   SHORT   23,962.50  23,932.25 $   +60.50 physics_flip       6
+   44  02:30:14   LONG    23,931.50  23,927.50 $    -8.00 physics_hold_expire    10
+   45  02:34:59   LONG    23,883.25  23,872.25 $   -22.00 physics_sl         0
+   46  02:35:01   LONG    23,873.25  23,873.75 $    +1.00 physics_sl         0
+   47  02:39:01   SHORT   23,860.25  23,861.25 $    -2.00 physics_sl         0
+   48  02:50:42   SHORT   23,888.25  23,871.75 $   +33.00 physics_flip       4
+   49  02:57:22   LONG    23,871.75  23,863.50 $   -16.50 physics_flip      13
+   50  03:03:00   SHORT   23,863.50  23,900.25 $   -73.50 physics_flip      11
+   51  03:08:00   LONG    23,899.75  23,897.75 $    -4.00 physics_hold_expire    10
+   52  03:12:04   SHORT   23,918.00  23,928.50 $   -21.00 ORPHAN_FLATTEN     5
+   53  03:15:05   LONG    23,903.00  23,893.00 $   -20.00 physics_sl         3
+   54  03:21:54   LONG    23,867.00  23,854.25 $   -25.50 ORPHAN_FLATTEN     0
+   55  03:38:57   SHORT   23,884.00  23,862.00 $   +44.00 physics_flip       4
+   56  03:44:00   LONG    23,861.50  23,846.75 $   -29.50 physics_flip      10
+   57  03:47:08   SHORT   23,846.75  23,848.50 $    -3.50 physics_hold_expire     7
+   58  03:49:32   LONG    23,828.25  23,816.75 $   -23.00 ORPHAN_FLATTEN     0
+   59  03:51:18   LONG    23,834.00  23,872.75 $   +77.50 physics_flip       2
+   60  03:55:00   SHORT   23,874.00  23,866.25 $   +15.50 physics_hold_expire     7
+   61  04:04:00   SHORT   23,896.00  23,888.50 $   +15.00 physics_flip       5
+   62  04:07:00   LONG    23,889.00  24,504.25 $+1,230.50 physics_flip       4
+   63  04:10:19   SHORT   24,504.00  24,627.75 $  -247.50 ORPHAN_FLATTEN     7
+   64  04:24:00   SHORT   24,593.00  24,587.00 $   +12.00 physics_sl         1
+   65  04:25:25   SHORT   24,580.00  24,594.50 $   -29.00 physics_sl         0
+   66  04:31:19   LONG    24,484.50  24,603.50 $  +238.00 physics_flip       6
+   67  04:36:19   SHORT   24,603.00  24,649.50 $   -93.00 physics_flip      10
+   68  04:40:00   LONG    24,651.25  24,605.75 $   -91.00 physics_hold_expire     7
+   69  04:46:20   SHORT   24,573.50  24,509.00 $  +129.00 physics_flip       4
+   70  04:50:00   LONG    24,508.75  24,493.50 $   -30.50 ORPHAN_FLATTEN     7
+   71  04:54:19   SHORT   24,493.50  24,494.75 $    -2.50 physics_hold_expire     9
+   72  04:57:30   LONG    24,407.00  24,389.25 $   -35.50 physics_sl         2
+   73  04:58:01   LONG    24,394.25  24,390.25 $    -8.00 ORPHAN_FLATTEN     0
+   74  05:03:22   SHORT   24,400.00  24,415.00 $   -30.00 physics_sl         2
+   75  05:10:19   LONG    24,476.50  24,469.00 $   -15.00 physics_flip       1
+   76  05:13:00   SHORT   24,468.75  24,444.00 $   +49.50 physics_flip       5
+   77  05:17:20   LONG    24,445.00  24,456.00 $   +22.00 physics_flip       9
+   78  05:22:20   SHORT   24,456.25  24,497.75 $   -83.00 ORPHAN_FLATTEN    10
+   79  05:26:20   LONG    24,497.75  24,495.75 $    -4.00 physics_hold_expire     8
+   80  05:30:21   SHORT   24,511.00  24,466.50 $   +89.00 physics_flip       4
+   81  05:33:21   LONG    24,465.75  24,498.75 $   +66.00 physics_flip       6
+   82  05:35:21   SHORT   24,498.75  24,471.50 $   +54.50 physics_flip       4
+   83  05:37:21   LONG    24,471.50  24,501.25 $   +59.50 physics_flip       4
+   84  05:38:21   SHORT   24,501.25  24,454.50 $   +93.50 physics_flip       2
+   85  05:41:21   LONG    24,456.75  24,527.00 $  +140.50 physics_flip       6
+   86  05:47:21   SHORT   24,528.75  24,561.00 $   -64.50 physics_hold_expire    12
+   87  05:52:58   SHORT   24,604.50  24,616.25 $   -23.50 physics_sl         0
+   88  05:53:01   SHORT   24,618.25  24,619.00 $    -1.50 physics_sl         0
+   89  05:55:00   SHORT   24,591.25  24,589.00 $    +4.50 ORPHAN_FLATTEN     1
+   90  06:02:21   SHORT   24,629.25  24,588.00 $   +82.50 physics_flip       4
+   91  06:08:00   LONG    24,588.50  24,550.50 $   -76.00 physics_hold_expire    11
+   92  06:10:00   SHORT   24,575.50  24,582.25 $   -13.50 physics_sl         1
+   93  06:17:00   LONG    24,556.50  24,559.00 $    +5.00 physics_hold_expire     9
+  --------------------------------------------------------------------
+                                         TOTAL $+1,495.00
+
+========================================================================
+========================================================================
+LIVE SESSION REPORT  (run: 2026-03-23 10:38:52)
+  Account:    DEMO6872628
+  Instrument: MNQ 03-26
+  Anchor TF:  1m  (depth=5)
+  Duration:   12h 25m  (1475 bars)
+========================================================================
+
+── DRAWDOWN & SURVIVAL ──
+  Max Consecutive Losses: 7
+  Max Consec Loss $:      $247.50
+  Peak Equity:            $+1,730.50
+  Max Session Drawdown:   $486.00
+
+======================================================================
+SCORECARD: LIVE 2026-03-23 to 
+  Commit:   |  Generated: 2026-03-23 10:38:52
+  PnL: $1,244.50  |  Trades: 146  |  WR: 43.2%  |  PF: 1.47
+  $/trade: $8.52  |  $/day: $1,244  |  Max DD: $486
+======================================================================
+
+WHAT WORKS (PF > 1.5):
+  physics_flip              58 trades  PF=12.88  $ +3,410.50  $ +58.80/tr  WR=81%
+
+WHAT HURTS (PF < 1.0):
+  physics_sl                47 trades  PF= 0.03  $   -860.50  $ -18.31/tr  WR=15%
+  ORPHAN_FLATTEN            16 trades  PF= 0.01  $   -807.00  $ -50.44/tr  WR=6%
+  physics_hold_expire       25 trades  PF= 0.25  $   -498.50  $ -19.94/tr  WR=32%
+  FIXABLE (50% recovery): ~$1,083 -> PnL could be $2,328
+
+HOLD DURATION:
+    <30s:    51 trades  $ -14.55/tr <-- OVER-HOLDING
+  30s-1m:    13 trades  $ +13.96/tr
+    1-2m:    49 trades  $ +56.06/tr
+    2-5m:    33 trades  $ -28.55/tr <-- OVER-HOLDING
+
+DIRECTION:
+  LONG:    73 (50%)  WR=38%  PnL=$ +1,391.50
+  SHORT:    73 (50%)  WR=48%  PnL=$   -147.00
+
+======================================================================
+
+========================================================================
+PING-PONG DIRECTION REFINEMENT
+========================================================================
+  Flip count: 0
+  Template                LONG WR   LONG N   SHORT WR  SHORT N
+  ----------------------------------------------------------
+  PHYSICS                     45%      146        55%      146
+
+========================================================================
+GATE REJECTION FUNNEL
+========================================================================
+  Bars with candidates:                  0
+  Total candidates evaluated:            1
+    Pattern Quality  (headroom/physics):          0  (0.0%)
+    Depth Filter     (depth blacklist):           0  (0.0%)
+    Template Match   (cluster dist):              0  (0.0%)
+    Brain Reject     (unprofitable):              0  (0.0%)
+    Low Conviction   (belief too weak):           0  (0.0%)
+    Screening Filter (fission/hours):             0  (0.0%)
+    Direction Unclear (dir conf too low):          0  (0.0%)
+    Passed all gates -> traded:                   0  (0.0%)
+
+========================================================================
+ACCOUNT SNAPSHOT
+========================================================================
+  Cash Value:      $  101,183.00
+  Unrealized PnL:  $       +0.00
+  Net Liquidation: $  101,183.00
+  Profit Factor:   1.47
+  Avg PnL/trade:   $+8.52
+  Gross Win:       $+3,896.00
+  Gross Loss:      $2,651.50
+
+========================================================================
+TRADE LOG
+========================================================================
+    #  Time       Side        Entry       Exit        PnL Reason          Bars
+  --------------------------------------------------------------------
+    1  22:30:39   SHORT   23,988.50  23,964.25 $   +48.50 physics_flip       7
+    2  22:35:00   LONG    23,964.25  23,959.75 $    -9.00 ORPHAN_FLATTEN     9
+    3  22:36:31   SHORT   23,963.00  23,975.75 $   -25.50 physics_sl         1
+    4  22:54:00   SHORT   23,948.75  23,946.75 $    +4.00 physics_flip       9
+    5  22:55:57   LONG    23,946.75  23,964.00 $   +34.50 physics_flip       3
+    6  22:59:03   SHORT   23,963.50  23,967.75 $    -8.50 physics_flip       7
+    7  23:05:02   LONG    23,968.00  23,953.00 $   -30.00 physics_hold_expire    11
+    8  23:13:58   LONG    23,930.25  23,916.00 $   -28.50 ORPHAN_FLATTEN     0
+    9  23:14:01   LONG    23,919.25  23,918.75 $    -1.00 physics_sl         0
+   10  23:17:00   LONG    23,946.25  23,933.75 $   -25.00 physics_flip       2
+   11  23:22:42   SHORT   23,933.75  23,940.50 $   -13.50 physics_hold_expire    11
+   12  23:30:46   LONG    23,919.75  23,910.50 $   -18.50 physics_sl         0
+   13  23:31:01   LONG    23,907.25  23,909.75 $    +5.00 physics_sl         0
+   14  23:43:00   LONG    23,887.25  23,885.25 $    -4.00 physics_flip       1
+   15  23:43:53   SHORT   23,885.25  23,878.50 $   +13.50 physics_flip       1
+   16  23:49:00   LONG    23,878.50  23,868.25 $   -20.50 physics_hold_expire    10
+   17  00:00:00   LONG    23,831.25  23,852.00 $   +41.50 physics_flip       7
+   18  00:03:00   SHORT   23,852.75  23,836.25 $   +33.00 physics_hold_expire     6
+   19  00:09:46   SHORT   23,900.75  23,884.00 $   +33.50 physics_flip       4
+   20  00:12:47   LONG    23,884.00  23,906.00 $   +44.00 physics_flip       6
+   21  00:13:49   SHORT   23,906.00  23,891.75 $   +28.50 physics_flip       2
+   22  00:18:00   LONG    23,891.75  23,884.75 $   -14.00 physics_hold_expire     9
+   23  00:21:00   LONG    23,857.00  23,856.75 $    -0.50 physics_flip       1
+   24  00:22:00   SHORT   23,856.25  23,854.25 $    +4.00 physics_flip       2
+   25  00:26:00   LONG    23,854.75  23,804.25 $  -101.00 ORPHAN_FLATTEN     7
+   26  00:44:38   SHORT   23,823.00  23,832.75 $   -19.50 physics_sl         0
+   27  00:46:29   SHORT   23,860.75  23,871.25 $   -21.00 physics_sl         0
+   28  00:53:03   LONG    23,849.75  23,836.25 $   -27.00 physics_sl         5
+   29  01:00:43   SHORT   23,864.25  23,880.75 $   -33.00 physics_sl         0
+   30  01:01:01   SHORT   23,871.75  23,869.25 $    +5.00 physics_sl         0
+   31  01:14:01   SHORT   23,902.75  23,904.25 $    -3.00 physics_sl         0
+   32  01:17:28   SHORT   23,921.50  23,893.25 $   +56.50 physics_flip       6
+   33  01:22:00   LONG    23,894.00  23,899.25 $   +10.50 physics_hold_expire     9
+   34  01:32:49   SHORT   23,935.25  23,947.75 $   -25.00 physics_sl         0
+   35  01:41:45   LONG    23,934.25  23,934.25 $    +0.00 physics_flip       9
+   36  01:44:47   SHORT   23,934.25  23,917.50 $   +33.50 physics_flip       6
+   37  01:46:49   LONG    23,917.00  23,940.00 $   +46.00 physics_flip       4
+   38  01:51:00   SHORT   23,939.00  23,935.25 $    +7.50 physics_hold_expire     9
+   39  01:58:04   LONG    23,921.00  23,939.75 $   +37.50 physics_flip       4
+   40  02:01:13   SHORT   23,939.75  23,916.00 $   +47.50 physics_flip       6
+   41  02:06:00   LONG    23,917.50  23,912.50 $   -10.00 physics_hold_expire     9
+   42  02:07:46   SHORT   23,930.75  23,944.25 $   -27.00 physics_sl         0
+   43  02:25:05   SHORT   23,962.50  23,932.25 $   +60.50 physics_flip       6
+   44  02:30:14   LONG    23,931.50  23,927.50 $    -8.00 physics_hold_expire    10
+   45  02:34:59   LONG    23,883.25  23,872.25 $   -22.00 physics_sl         0
+   46  02:35:01   LONG    23,873.25  23,873.75 $    +1.00 physics_sl         0
+   47  02:39:01   SHORT   23,860.25  23,861.25 $    -2.00 physics_sl         0
+   48  02:50:42   SHORT   23,888.25  23,871.75 $   +33.00 physics_flip       4
+   49  02:57:22   LONG    23,871.75  23,863.50 $   -16.50 physics_flip      13
+   50  03:03:00   SHORT   23,863.50  23,900.25 $   -73.50 physics_flip      11
+   51  03:08:00   LONG    23,899.75  23,897.75 $    -4.00 physics_hold_expire    10
+   52  03:12:04   SHORT   23,918.00  23,928.50 $   -21.00 ORPHAN_FLATTEN     5
+   53  03:15:05   LONG    23,903.00  23,893.00 $   -20.00 physics_sl         3
+   54  03:21:54   LONG    23,867.00  23,854.25 $   -25.50 ORPHAN_FLATTEN     0
+   55  03:38:57   SHORT   23,884.00  23,862.00 $   +44.00 physics_flip       4
+   56  03:44:00   LONG    23,861.50  23,846.75 $   -29.50 physics_flip      10
+   57  03:47:08   SHORT   23,846.75  23,848.50 $    -3.50 physics_hold_expire     7
+   58  03:49:32   LONG    23,828.25  23,816.75 $   -23.00 ORPHAN_FLATTEN     0
+   59  03:51:18   LONG    23,834.00  23,872.75 $   +77.50 physics_flip       2
+   60  03:55:00   SHORT   23,874.00  23,866.25 $   +15.50 physics_hold_expire     7
+   61  04:04:00   SHORT   23,896.00  23,888.50 $   +15.00 physics_flip       5
+   62  04:07:00   LONG    23,889.00  24,504.25 $+1,230.50 physics_flip       4
+   63  04:10:19   SHORT   24,504.00  24,627.75 $  -247.50 ORPHAN_FLATTEN     7
+   64  04:24:00   SHORT   24,593.00  24,587.00 $   +12.00 physics_sl         1
+   65  04:25:25   SHORT   24,580.00  24,594.50 $   -29.00 physics_sl         0
+   66  04:31:19   LONG    24,484.50  24,603.50 $  +238.00 physics_flip       6
+   67  04:36:19   SHORT   24,603.00  24,649.50 $   -93.00 physics_flip      10
+   68  04:40:00   LONG    24,651.25  24,605.75 $   -91.00 physics_hold_expire     7
+   69  04:46:20   SHORT   24,573.50  24,509.00 $  +129.00 physics_flip       4
+   70  04:50:00   LONG    24,508.75  24,493.50 $   -30.50 ORPHAN_FLATTEN     7
+   71  04:54:19   SHORT   24,493.50  24,494.75 $    -2.50 physics_hold_expire     9
+   72  04:57:30   LONG    24,407.00  24,389.25 $   -35.50 physics_sl         2
+   73  04:58:01   LONG    24,394.25  24,390.25 $    -8.00 ORPHAN_FLATTEN     0
+   74  05:03:22   SHORT   24,400.00  24,415.00 $   -30.00 physics_sl         2
+   75  05:10:19   LONG    24,476.50  24,469.00 $   -15.00 physics_flip       1
+   76  05:13:00   SHORT   24,468.75  24,444.00 $   +49.50 physics_flip       5
+   77  05:17:20   LONG    24,445.00  24,456.00 $   +22.00 physics_flip       9
+   78  05:22:20   SHORT   24,456.25  24,497.75 $   -83.00 ORPHAN_FLATTEN    10
+   79  05:26:20   LONG    24,497.75  24,495.75 $    -4.00 physics_hold_expire     8
+   80  05:30:21   SHORT   24,511.00  24,466.50 $   +89.00 physics_flip       4
+   81  05:33:21   LONG    24,465.75  24,498.75 $   +66.00 physics_flip       6
+   82  05:35:21   SHORT   24,498.75  24,471.50 $   +54.50 physics_flip       4
+   83  05:37:21   LONG    24,471.50  24,501.25 $   +59.50 physics_flip       4
+   84  05:38:21   SHORT   24,501.25  24,454.50 $   +93.50 physics_flip       2
+   85  05:41:21   LONG    24,456.75  24,527.00 $  +140.50 physics_flip       6
+   86  05:47:21   SHORT   24,528.75  24,561.00 $   -64.50 physics_hold_expire    12
+   87  05:52:58   SHORT   24,604.50  24,616.25 $   -23.50 physics_sl         0
+   88  05:53:01   SHORT   24,618.25  24,619.00 $    -1.50 physics_sl         0
+   89  05:55:00   SHORT   24,591.25  24,589.00 $    +4.50 ORPHAN_FLATTEN     1
+   90  06:02:21   SHORT   24,629.25  24,588.00 $   +82.50 physics_flip       4
+   91  06:08:00   LONG    24,588.50  24,550.50 $   -76.00 physics_hold_expire    11
+   92  06:10:00   SHORT   24,575.50  24,582.25 $   -13.50 physics_sl         1
+   93  06:17:00   LONG    24,556.50  24,559.00 $    +5.00 physics_hold_expire     9
+   94  06:25:15   LONG    24,532.50  24,522.00 $   -21.00 physics_sl         0
+   95  06:30:26   LONG    24,458.75  24,437.75 $   -42.00 physics_sl         0
+   96  06:31:01   LONG    24,464.75  24,466.75 $    +4.00 physics_sl         0
+   97  06:37:21   LONG    24,492.00  24,501.25 $   +18.50 physics_flip       1
+   98  06:41:21   SHORT   24,509.00  24,478.75 $   +60.50 physics_flip       8
+   99  06:43:21   LONG    24,478.75  24,552.00 $  +146.50 physics_flip       4
+  100  06:45:21   SHORT   24,551.00  24,518.50 $   +65.00 physics_flip       4
+  101  06:48:00   LONG    24,518.75  24,520.75 $    +4.00 physics_flip       5
+  102  06:53:00   SHORT   24,520.50  24,593.50 $  -146.00 physics_hold_expire    10
+  103  06:58:21   LONG    24,552.75  24,576.50 $   +47.50 physics_flip       4
+  104  07:03:00   SHORT   24,578.75  24,608.25 $   -59.00 ORPHAN_FLATTEN     9
+  105  07:04:54   LONG    24,560.50  24,545.25 $   -30.50 physics_sl         0
+  106  07:05:01   LONG    24,552.00  24,547.75 $    -8.50 physics_sl         0
+  107  07:07:55   SHORT   24,564.75  24,581.50 $   -33.50 physics_sl         0
+  108  07:17:21   SHORT   24,624.00  24,616.25 $   +15.50 physics_flip       2
+  109  07:18:21   LONG    24,616.50  24,642.00 $   +51.00 physics_flip       2
+  110  07:22:21   SHORT   24,642.25  24,659.50 $   -34.50 physics_hold_expire     8
+  111  07:26:00   SHORT   24,669.75  24,662.50 $   +14.50 physics_flip       2
+  112  07:31:00   LONG    24,661.25  24,615.50 $   -91.50 physics_hold_expire    10
+  113  07:39:22   LONG    24,614.50  24,606.25 $   -16.50 physics_sl         4
+  114  07:51:00   SHORT   24,641.50  24,598.00 $   +87.00 physics_flip       7
+  115  07:53:21   LONG    24,597.00  24,614.50 $   +35.00 physics_hold_expire     5
+  116  08:02:48   SHORT   24,656.50  24,668.75 $   -24.50 physics_sl         0
+  117  08:03:01   SHORT   24,674.25  24,673.75 $    +1.00 physics_sl         0
+  118  08:09:21   LONG    24,659.25  24,676.50 $   +34.50 physics_hold_expire     4
+  119  08:21:01   LONG    24,614.50  24,610.75 $    -7.50 physics_sl         0
+  120  08:22:59   SHORT   24,640.75  24,649.75 $   -18.00 physics_sl         0
+  121  08:27:51   LONG    24,610.50  24,600.00 $   -21.00 physics_sl         0
+  122  08:34:21   SHORT   24,621.00  24,609.75 $   +22.50 physics_hold_expire     6
+  123  08:37:34   LONG    24,566.75  24,557.25 $   -19.00 physics_sl         0
+  124  08:44:03   SHORT   24,520.75  24,533.00 $   -24.50 physics_sl         1
+  125  08:46:36   LONG    24,499.75  24,493.00 $   -13.50 physics_sl         0
+  126  08:47:01   LONG    24,502.25  24,502.25 $    +0.00 physics_sl         0
+  127  08:55:16   LONG    24,442.50  24,412.50 $   -60.00 physics_sl         5
+  128  09:02:02   SHORT   24,397.00  24,419.25 $   -44.50 physics_sl         1
+  129  09:08:45   SHORT   24,438.00  24,452.75 $   -29.50 ORPHAN_FLATTEN     0
+  130  09:09:01   SHORT   24,451.75  24,450.50 $    +2.50 physics_sl         0
+  131  09:11:06   SHORT   24,430.75  24,442.00 $   -22.50 physics_sl         1
+  132  09:17:54   LONG    24,423.75  24,410.25 $   -27.00 physics_sl         2
+  133  09:25:16   LONG    24,387.75  24,365.75 $   -44.00 physics_sl         0
+  134  09:32:21   LONG    24,324.00  24,360.50 $   +73.00 physics_flip       4
+  135  09:37:00   SHORT   24,362.00  24,394.50 $   -65.00 ORPHAN_FLATTEN     9
+  136  09:49:00   SHORT   24,416.50  24,404.50 $   +24.00 physics_flip       5
+  137  09:54:00   LONG    24,405.00  24,393.25 $   -23.50 ORPHAN_FLATTEN    10
+  138  10:00:21   LONG    24,352.50  24,378.50 $   +52.00 physics_flip       4
+  139  10:04:00   SHORT   24,378.75  24,361.75 $   +34.00 physics_flip       7
+  140  10:09:00   LONG    24,362.50  24,375.25 $   +25.50 physics_flip      10
+  141  10:12:21   SHORT   24,375.25  24,386.00 $   -21.50 physics_flip       7
+  142  10:18:00   LONG    24,386.00  24,357.25 $   -57.50 ORPHAN_FLATTEN    11
+  143  10:23:21   LONG    24,324.50  24,335.25 $   +21.50 physics_flip       4
+  144  10:28:00   SHORT   24,335.50  24,359.75 $   -48.50 physics_hold_expire     9
+  145  10:34:58   SHORT   24,414.00  24,425.50 $   -23.00 physics_sl         0
+  146  10:36:37   SHORT   24,452.50  24,458.75 $   -12.50 physics_sl         0
+  --------------------------------------------------------------------
+                                         TOTAL $+1,244.50
+
+========================================================================
+========================================================================
+LIVE SESSION REPORT  (run: 2026-03-23 10:42:44)
+  Account:    DEMO6872628
+  Instrument: MNQ 03-26
+  Anchor TF:  1m  (depth=5)
+  Duration:   12h 29m  (1483 bars)
+========================================================================
+
+── DRAWDOWN & SURVIVAL ──
+  Max Consecutive Losses: 7
+  Max Consec Loss $:      $247.50
+  Peak Equity:            $+1,730.50
+  Max Session Drawdown:   $519.00
+
+======================================================================
+SCORECARD: LIVE 2026-03-23 to 
+  Commit:   |  Generated: 2026-03-23 10:42:44
+  PnL: $1,211.50  |  Trades: 147  |  WR: 42.9%  |  PF: 1.45
+  $/trade: $8.24  |  $/day: $1,212  |  Max DD: $519
+======================================================================
+
+WHAT WORKS (PF > 1.5):
+  physics_flip              58 trades  PF=12.88  $ +3,410.50  $ +58.80/tr  WR=81%
+
+WHAT HURTS (PF < 1.0):
+  physics_sl                47 trades  PF= 0.03  $   -860.50  $ -18.31/tr  WR=15%
+  ORPHAN_FLATTEN            17 trades  PF= 0.01  $   -840.00  $ -49.41/tr  WR=6%
+  physics_hold_expire       25 trades  PF= 0.25  $   -498.50  $ -19.94/tr  WR=32%
+  FIXABLE (50% recovery): ~$1,100 -> PnL could be $2,311
+
+HOLD DURATION:
+    <30s:    51 trades  $ -14.55/tr <-- OVER-HOLDING
+  30s-1m:    13 trades  $ +13.96/tr
+    1-2m:    50 trades  $ +54.28/tr
+    2-5m:    33 trades  $ -28.55/tr <-- OVER-HOLDING
+
+DIRECTION:
+  LONG:    74 (50%)  WR=38%  PnL=$ +1,358.50
+  SHORT:    73 (50%)  WR=48%  PnL=$   -147.00
+
+======================================================================
+
+========================================================================
+PING-PONG DIRECTION REFINEMENT
+========================================================================
+  Flip count: 0
+  Template                LONG WR   LONG N   SHORT WR  SHORT N
+  ----------------------------------------------------------
+  PHYSICS                     45%      147        55%      147
+
+========================================================================
+GATE REJECTION FUNNEL
+========================================================================
+  Bars with candidates:                  0
+  Total candidates evaluated:            1
+    Pattern Quality  (headroom/physics):          0  (0.0%)
+    Depth Filter     (depth blacklist):           0  (0.0%)
+    Template Match   (cluster dist):              0  (0.0%)
+    Brain Reject     (unprofitable):              0  (0.0%)
+    Low Conviction   (belief too weak):           0  (0.0%)
+    Screening Filter (fission/hours):             0  (0.0%)
+    Direction Unclear (dir conf too low):          0  (0.0%)
+    Passed all gates -> traded:                   0  (0.0%)
+
+========================================================================
+ACCOUNT SNAPSHOT
+========================================================================
+  Cash Value:      $  101,150.00
+  Unrealized PnL:  $       +0.00
+  Net Liquidation: $  101,150.00
+  Profit Factor:   1.45
+  Avg PnL/trade:   $+8.24
+  Gross Win:       $+3,896.00
+  Gross Loss:      $2,684.50
+
+========================================================================
+TRADE LOG
+========================================================================
+    #  Time       Side        Entry       Exit        PnL Reason          Bars
+  --------------------------------------------------------------------
+    1  22:30:39   SHORT   23,988.50  23,964.25 $   +48.50 physics_flip       7
+    2  22:35:00   LONG    23,964.25  23,959.75 $    -9.00 ORPHAN_FLATTEN     9
+    3  22:36:31   SHORT   23,963.00  23,975.75 $   -25.50 physics_sl         1
+    4  22:54:00   SHORT   23,948.75  23,946.75 $    +4.00 physics_flip       9
+    5  22:55:57   LONG    23,946.75  23,964.00 $   +34.50 physics_flip       3
+    6  22:59:03   SHORT   23,963.50  23,967.75 $    -8.50 physics_flip       7
+    7  23:05:02   LONG    23,968.00  23,953.00 $   -30.00 physics_hold_expire    11
+    8  23:13:58   LONG    23,930.25  23,916.00 $   -28.50 ORPHAN_FLATTEN     0
+    9  23:14:01   LONG    23,919.25  23,918.75 $    -1.00 physics_sl         0
+   10  23:17:00   LONG    23,946.25  23,933.75 $   -25.00 physics_flip       2
+   11  23:22:42   SHORT   23,933.75  23,940.50 $   -13.50 physics_hold_expire    11
+   12  23:30:46   LONG    23,919.75  23,910.50 $   -18.50 physics_sl         0
+   13  23:31:01   LONG    23,907.25  23,909.75 $    +5.00 physics_sl         0
+   14  23:43:00   LONG    23,887.25  23,885.25 $    -4.00 physics_flip       1
+   15  23:43:53   SHORT   23,885.25  23,878.50 $   +13.50 physics_flip       1
+   16  23:49:00   LONG    23,878.50  23,868.25 $   -20.50 physics_hold_expire    10
+   17  00:00:00   LONG    23,831.25  23,852.00 $   +41.50 physics_flip       7
+   18  00:03:00   SHORT   23,852.75  23,836.25 $   +33.00 physics_hold_expire     6
+   19  00:09:46   SHORT   23,900.75  23,884.00 $   +33.50 physics_flip       4
+   20  00:12:47   LONG    23,884.00  23,906.00 $   +44.00 physics_flip       6
+   21  00:13:49   SHORT   23,906.00  23,891.75 $   +28.50 physics_flip       2
+   22  00:18:00   LONG    23,891.75  23,884.75 $   -14.00 physics_hold_expire     9
+   23  00:21:00   LONG    23,857.00  23,856.75 $    -0.50 physics_flip       1
+   24  00:22:00   SHORT   23,856.25  23,854.25 $    +4.00 physics_flip       2
+   25  00:26:00   LONG    23,854.75  23,804.25 $  -101.00 ORPHAN_FLATTEN     7
+   26  00:44:38   SHORT   23,823.00  23,832.75 $   -19.50 physics_sl         0
+   27  00:46:29   SHORT   23,860.75  23,871.25 $   -21.00 physics_sl         0
+   28  00:53:03   LONG    23,849.75  23,836.25 $   -27.00 physics_sl         5
+   29  01:00:43   SHORT   23,864.25  23,880.75 $   -33.00 physics_sl         0
+   30  01:01:01   SHORT   23,871.75  23,869.25 $    +5.00 physics_sl         0
+   31  01:14:01   SHORT   23,902.75  23,904.25 $    -3.00 physics_sl         0
+   32  01:17:28   SHORT   23,921.50  23,893.25 $   +56.50 physics_flip       6
+   33  01:22:00   LONG    23,894.00  23,899.25 $   +10.50 physics_hold_expire     9
+   34  01:32:49   SHORT   23,935.25  23,947.75 $   -25.00 physics_sl         0
+   35  01:41:45   LONG    23,934.25  23,934.25 $    +0.00 physics_flip       9
+   36  01:44:47   SHORT   23,934.25  23,917.50 $   +33.50 physics_flip       6
+   37  01:46:49   LONG    23,917.00  23,940.00 $   +46.00 physics_flip       4
+   38  01:51:00   SHORT   23,939.00  23,935.25 $    +7.50 physics_hold_expire     9
+   39  01:58:04   LONG    23,921.00  23,939.75 $   +37.50 physics_flip       4
+   40  02:01:13   SHORT   23,939.75  23,916.00 $   +47.50 physics_flip       6
+   41  02:06:00   LONG    23,917.50  23,912.50 $   -10.00 physics_hold_expire     9
+   42  02:07:46   SHORT   23,930.75  23,944.25 $   -27.00 physics_sl         0
+   43  02:25:05   SHORT   23,962.50  23,932.25 $   +60.50 physics_flip       6
+   44  02:30:14   LONG    23,931.50  23,927.50 $    -8.00 physics_hold_expire    10
+   45  02:34:59   LONG    23,883.25  23,872.25 $   -22.00 physics_sl         0
+   46  02:35:01   LONG    23,873.25  23,873.75 $    +1.00 physics_sl         0
+   47  02:39:01   SHORT   23,860.25  23,861.25 $    -2.00 physics_sl         0
+   48  02:50:42   SHORT   23,888.25  23,871.75 $   +33.00 physics_flip       4
+   49  02:57:22   LONG    23,871.75  23,863.50 $   -16.50 physics_flip      13
+   50  03:03:00   SHORT   23,863.50  23,900.25 $   -73.50 physics_flip      11
+   51  03:08:00   LONG    23,899.75  23,897.75 $    -4.00 physics_hold_expire    10
+   52  03:12:04   SHORT   23,918.00  23,928.50 $   -21.00 ORPHAN_FLATTEN     5
+   53  03:15:05   LONG    23,903.00  23,893.00 $   -20.00 physics_sl         3
+   54  03:21:54   LONG    23,867.00  23,854.25 $   -25.50 ORPHAN_FLATTEN     0
+   55  03:38:57   SHORT   23,884.00  23,862.00 $   +44.00 physics_flip       4
+   56  03:44:00   LONG    23,861.50  23,846.75 $   -29.50 physics_flip      10
+   57  03:47:08   SHORT   23,846.75  23,848.50 $    -3.50 physics_hold_expire     7
+   58  03:49:32   LONG    23,828.25  23,816.75 $   -23.00 ORPHAN_FLATTEN     0
+   59  03:51:18   LONG    23,834.00  23,872.75 $   +77.50 physics_flip       2
+   60  03:55:00   SHORT   23,874.00  23,866.25 $   +15.50 physics_hold_expire     7
+   61  04:04:00   SHORT   23,896.00  23,888.50 $   +15.00 physics_flip       5
+   62  04:07:00   LONG    23,889.00  24,504.25 $+1,230.50 physics_flip       4
+   63  04:10:19   SHORT   24,504.00  24,627.75 $  -247.50 ORPHAN_FLATTEN     7
+   64  04:24:00   SHORT   24,593.00  24,587.00 $   +12.00 physics_sl         1
+   65  04:25:25   SHORT   24,580.00  24,594.50 $   -29.00 physics_sl         0
+   66  04:31:19   LONG    24,484.50  24,603.50 $  +238.00 physics_flip       6
+   67  04:36:19   SHORT   24,603.00  24,649.50 $   -93.00 physics_flip      10
+   68  04:40:00   LONG    24,651.25  24,605.75 $   -91.00 physics_hold_expire     7
+   69  04:46:20   SHORT   24,573.50  24,509.00 $  +129.00 physics_flip       4
+   70  04:50:00   LONG    24,508.75  24,493.50 $   -30.50 ORPHAN_FLATTEN     7
+   71  04:54:19   SHORT   24,493.50  24,494.75 $    -2.50 physics_hold_expire     9
+   72  04:57:30   LONG    24,407.00  24,389.25 $   -35.50 physics_sl         2
+   73  04:58:01   LONG    24,394.25  24,390.25 $    -8.00 ORPHAN_FLATTEN     0
+   74  05:03:22   SHORT   24,400.00  24,415.00 $   -30.00 physics_sl         2
+   75  05:10:19   LONG    24,476.50  24,469.00 $   -15.00 physics_flip       1
+   76  05:13:00   SHORT   24,468.75  24,444.00 $   +49.50 physics_flip       5
+   77  05:17:20   LONG    24,445.00  24,456.00 $   +22.00 physics_flip       9
+   78  05:22:20   SHORT   24,456.25  24,497.75 $   -83.00 ORPHAN_FLATTEN    10
+   79  05:26:20   LONG    24,497.75  24,495.75 $    -4.00 physics_hold_expire     8
+   80  05:30:21   SHORT   24,511.00  24,466.50 $   +89.00 physics_flip       4
+   81  05:33:21   LONG    24,465.75  24,498.75 $   +66.00 physics_flip       6
+   82  05:35:21   SHORT   24,498.75  24,471.50 $   +54.50 physics_flip       4
+   83  05:37:21   LONG    24,471.50  24,501.25 $   +59.50 physics_flip       4
+   84  05:38:21   SHORT   24,501.25  24,454.50 $   +93.50 physics_flip       2
+   85  05:41:21   LONG    24,456.75  24,527.00 $  +140.50 physics_flip       6
+   86  05:47:21   SHORT   24,528.75  24,561.00 $   -64.50 physics_hold_expire    12
+   87  05:52:58   SHORT   24,604.50  24,616.25 $   -23.50 physics_sl         0
+   88  05:53:01   SHORT   24,618.25  24,619.00 $    -1.50 physics_sl         0
+   89  05:55:00   SHORT   24,591.25  24,589.00 $    +4.50 ORPHAN_FLATTEN     1
+   90  06:02:21   SHORT   24,629.25  24,588.00 $   +82.50 physics_flip       4
+   91  06:08:00   LONG    24,588.50  24,550.50 $   -76.00 physics_hold_expire    11
+   92  06:10:00   SHORT   24,575.50  24,582.25 $   -13.50 physics_sl         1
+   93  06:17:00   LONG    24,556.50  24,559.00 $    +5.00 physics_hold_expire     9
+   94  06:25:15   LONG    24,532.50  24,522.00 $   -21.00 physics_sl         0
+   95  06:30:26   LONG    24,458.75  24,437.75 $   -42.00 physics_sl         0
+   96  06:31:01   LONG    24,464.75  24,466.75 $    +4.00 physics_sl         0
+   97  06:37:21   LONG    24,492.00  24,501.25 $   +18.50 physics_flip       1
+   98  06:41:21   SHORT   24,509.00  24,478.75 $   +60.50 physics_flip       8
+   99  06:43:21   LONG    24,478.75  24,552.00 $  +146.50 physics_flip       4
+  100  06:45:21   SHORT   24,551.00  24,518.50 $   +65.00 physics_flip       4
+  101  06:48:00   LONG    24,518.75  24,520.75 $    +4.00 physics_flip       5
+  102  06:53:00   SHORT   24,520.50  24,593.50 $  -146.00 physics_hold_expire    10
+  103  06:58:21   LONG    24,552.75  24,576.50 $   +47.50 physics_flip       4
+  104  07:03:00   SHORT   24,578.75  24,608.25 $   -59.00 ORPHAN_FLATTEN     9
+  105  07:04:54   LONG    24,560.50  24,545.25 $   -30.50 physics_sl         0
+  106  07:05:01   LONG    24,552.00  24,547.75 $    -8.50 physics_sl         0
+  107  07:07:55   SHORT   24,564.75  24,581.50 $   -33.50 physics_sl         0
+  108  07:17:21   SHORT   24,624.00  24,616.25 $   +15.50 physics_flip       2
+  109  07:18:21   LONG    24,616.50  24,642.00 $   +51.00 physics_flip       2
+  110  07:22:21   SHORT   24,642.25  24,659.50 $   -34.50 physics_hold_expire     8
+  111  07:26:00   SHORT   24,669.75  24,662.50 $   +14.50 physics_flip       2
+  112  07:31:00   LONG    24,661.25  24,615.50 $   -91.50 physics_hold_expire    10
+  113  07:39:22   LONG    24,614.50  24,606.25 $   -16.50 physics_sl         4
+  114  07:51:00   SHORT   24,641.50  24,598.00 $   +87.00 physics_flip       7
+  115  07:53:21   LONG    24,597.00  24,614.50 $   +35.00 physics_hold_expire     5
+  116  08:02:48   SHORT   24,656.50  24,668.75 $   -24.50 physics_sl         0
+  117  08:03:01   SHORT   24,674.25  24,673.75 $    +1.00 physics_sl         0
+  118  08:09:21   LONG    24,659.25  24,676.50 $   +34.50 physics_hold_expire     4
+  119  08:21:01   LONG    24,614.50  24,610.75 $    -7.50 physics_sl         0
+  120  08:22:59   SHORT   24,640.75  24,649.75 $   -18.00 physics_sl         0
+  121  08:27:51   LONG    24,610.50  24,600.00 $   -21.00 physics_sl         0
+  122  08:34:21   SHORT   24,621.00  24,609.75 $   +22.50 physics_hold_expire     6
+  123  08:37:34   LONG    24,566.75  24,557.25 $   -19.00 physics_sl         0
+  124  08:44:03   SHORT   24,520.75  24,533.00 $   -24.50 physics_sl         1
+  125  08:46:36   LONG    24,499.75  24,493.00 $   -13.50 physics_sl         0
+  126  08:47:01   LONG    24,502.25  24,502.25 $    +0.00 physics_sl         0
+  127  08:55:16   LONG    24,442.50  24,412.50 $   -60.00 physics_sl         5
+  128  09:02:02   SHORT   24,397.00  24,419.25 $   -44.50 physics_sl         1
+  129  09:08:45   SHORT   24,438.00  24,452.75 $   -29.50 ORPHAN_FLATTEN     0
+  130  09:09:01   SHORT   24,451.75  24,450.50 $    +2.50 physics_sl         0
+  131  09:11:06   SHORT   24,430.75  24,442.00 $   -22.50 physics_sl         1
+  132  09:17:54   LONG    24,423.75  24,410.25 $   -27.00 physics_sl         2
+  133  09:25:16   LONG    24,387.75  24,365.75 $   -44.00 physics_sl         0
+  134  09:32:21   LONG    24,324.00  24,360.50 $   +73.00 physics_flip       4
+  135  09:37:00   SHORT   24,362.00  24,394.50 $   -65.00 ORPHAN_FLATTEN     9
+  136  09:49:00   SHORT   24,416.50  24,404.50 $   +24.00 physics_flip       5
+  137  09:54:00   LONG    24,405.00  24,393.25 $   -23.50 ORPHAN_FLATTEN    10
+  138  10:00:21   LONG    24,352.50  24,378.50 $   +52.00 physics_flip       4
+  139  10:04:00   SHORT   24,378.75  24,361.75 $   +34.00 physics_flip       7
+  140  10:09:00   LONG    24,362.50  24,375.25 $   +25.50 physics_flip      10
+  141  10:12:21   SHORT   24,375.25  24,386.00 $   -21.50 physics_flip       7
+  142  10:18:00   LONG    24,386.00  24,357.25 $   -57.50 ORPHAN_FLATTEN    11
+  143  10:23:21   LONG    24,324.50  24,335.25 $   +21.50 physics_flip       4
+  144  10:28:00   SHORT   24,335.50  24,359.75 $   -48.50 physics_hold_expire     9
+  145  10:34:58   SHORT   24,414.00  24,425.50 $   -23.00 physics_sl         0
+  146  10:36:37   SHORT   24,452.50  24,458.75 $   -12.50 physics_sl         0
+  147  10:41:27   LONG    24,445.00  24,428.50 $   -33.00 ORPHAN_FLATTEN     4
+  --------------------------------------------------------------------
+                                         TOTAL $+1,211.50
+
+========================================================================
+========================================================================
+LIVE SESSION REPORT  (run: 2026-03-23 10:42:50)
+  Account:    DEMO6872628
+  Instrument: MNQ 03-26
+  Anchor TF:  1m  (depth=5)
+  Duration:   12h 29m  (1483 bars)
+========================================================================
+
+── DRAWDOWN & SURVIVAL ──
+  Max Consecutive Losses: 7
+  Max Consec Loss $:      $247.50
+  Peak Equity:            $+1,730.50
+  Max Session Drawdown:   $519.00
+
+======================================================================
+SCORECARD: LIVE 2026-03-23 to 
+  Commit:   |  Generated: 2026-03-23 10:42:50
+  PnL: $1,211.50  |  Trades: 147  |  WR: 42.9%  |  PF: 1.45
+  $/trade: $8.24  |  $/day: $1,212  |  Max DD: $519
+======================================================================
+
+WHAT WORKS (PF > 1.5):
+  physics_flip              58 trades  PF=12.88  $ +3,410.50  $ +58.80/tr  WR=81%
+
+WHAT HURTS (PF < 1.0):
+  physics_sl                47 trades  PF= 0.03  $   -860.50  $ -18.31/tr  WR=15%
+  ORPHAN_FLATTEN            17 trades  PF= 0.01  $   -840.00  $ -49.41/tr  WR=6%
+  physics_hold_expire       25 trades  PF= 0.25  $   -498.50  $ -19.94/tr  WR=32%
+  FIXABLE (50% recovery): ~$1,100 -> PnL could be $2,311
+
+HOLD DURATION:
+    <30s:    51 trades  $ -14.55/tr <-- OVER-HOLDING
+  30s-1m:    13 trades  $ +13.96/tr
+    1-2m:    50 trades  $ +54.28/tr
+    2-5m:    33 trades  $ -28.55/tr <-- OVER-HOLDING
+
+DIRECTION:
+  LONG:    74 (50%)  WR=38%  PnL=$ +1,358.50
+  SHORT:    73 (50%)  WR=48%  PnL=$   -147.00
+
+======================================================================
+
+========================================================================
+PING-PONG DIRECTION REFINEMENT
+========================================================================
+  Flip count: 0
+  Template                LONG WR   LONG N   SHORT WR  SHORT N
+  ----------------------------------------------------------
+  PHYSICS                     45%      147        55%      147
+
+========================================================================
+GATE REJECTION FUNNEL
+========================================================================
+  Bars with candidates:                  0
+  Total candidates evaluated:            1
+    Pattern Quality  (headroom/physics):          0  (0.0%)
+    Depth Filter     (depth blacklist):           0  (0.0%)
+    Template Match   (cluster dist):              0  (0.0%)
+    Brain Reject     (unprofitable):              0  (0.0%)
+    Low Conviction   (belief too weak):           0  (0.0%)
+    Screening Filter (fission/hours):             0  (0.0%)
+    Direction Unclear (dir conf too low):          0  (0.0%)
+    Passed all gates -> traded:                   0  (0.0%)
+
+========================================================================
+ACCOUNT SNAPSHOT
+========================================================================
+  Cash Value:      $  101,150.00
+  Unrealized PnL:  $       +0.00
+  Net Liquidation: $  101,150.00
+  Profit Factor:   1.45
+  Avg PnL/trade:   $+8.24
+  Gross Win:       $+3,896.00
+  Gross Loss:      $2,684.50
+
+========================================================================
+TRADE LOG
+========================================================================
+    #  Time       Side        Entry       Exit        PnL Reason          Bars
+  --------------------------------------------------------------------
+    1  22:30:39   SHORT   23,988.50  23,964.25 $   +48.50 physics_flip       7
+    2  22:35:00   LONG    23,964.25  23,959.75 $    -9.00 ORPHAN_FLATTEN     9
+    3  22:36:31   SHORT   23,963.00  23,975.75 $   -25.50 physics_sl         1
+    4  22:54:00   SHORT   23,948.75  23,946.75 $    +4.00 physics_flip       9
+    5  22:55:57   LONG    23,946.75  23,964.00 $   +34.50 physics_flip       3
+    6  22:59:03   SHORT   23,963.50  23,967.75 $    -8.50 physics_flip       7
+    7  23:05:02   LONG    23,968.00  23,953.00 $   -30.00 physics_hold_expire    11
+    8  23:13:58   LONG    23,930.25  23,916.00 $   -28.50 ORPHAN_FLATTEN     0
+    9  23:14:01   LONG    23,919.25  23,918.75 $    -1.00 physics_sl         0
+   10  23:17:00   LONG    23,946.25  23,933.75 $   -25.00 physics_flip       2
+   11  23:22:42   SHORT   23,933.75  23,940.50 $   -13.50 physics_hold_expire    11
+   12  23:30:46   LONG    23,919.75  23,910.50 $   -18.50 physics_sl         0
+   13  23:31:01   LONG    23,907.25  23,909.75 $    +5.00 physics_sl         0
+   14  23:43:00   LONG    23,887.25  23,885.25 $    -4.00 physics_flip       1
+   15  23:43:53   SHORT   23,885.25  23,878.50 $   +13.50 physics_flip       1
+   16  23:49:00   LONG    23,878.50  23,868.25 $   -20.50 physics_hold_expire    10
+   17  00:00:00   LONG    23,831.25  23,852.00 $   +41.50 physics_flip       7
+   18  00:03:00   SHORT   23,852.75  23,836.25 $   +33.00 physics_hold_expire     6
+   19  00:09:46   SHORT   23,900.75  23,884.00 $   +33.50 physics_flip       4
+   20  00:12:47   LONG    23,884.00  23,906.00 $   +44.00 physics_flip       6
+   21  00:13:49   SHORT   23,906.00  23,891.75 $   +28.50 physics_flip       2
+   22  00:18:00   LONG    23,891.75  23,884.75 $   -14.00 physics_hold_expire     9
+   23  00:21:00   LONG    23,857.00  23,856.75 $    -0.50 physics_flip       1
+   24  00:22:00   SHORT   23,856.25  23,854.25 $    +4.00 physics_flip       2
+   25  00:26:00   LONG    23,854.75  23,804.25 $  -101.00 ORPHAN_FLATTEN     7
+   26  00:44:38   SHORT   23,823.00  23,832.75 $   -19.50 physics_sl         0
+   27  00:46:29   SHORT   23,860.75  23,871.25 $   -21.00 physics_sl         0
+   28  00:53:03   LONG    23,849.75  23,836.25 $   -27.00 physics_sl         5
+   29  01:00:43   SHORT   23,864.25  23,880.75 $   -33.00 physics_sl         0
+   30  01:01:01   SHORT   23,871.75  23,869.25 $    +5.00 physics_sl         0
+   31  01:14:01   SHORT   23,902.75  23,904.25 $    -3.00 physics_sl         0
+   32  01:17:28   SHORT   23,921.50  23,893.25 $   +56.50 physics_flip       6
+   33  01:22:00   LONG    23,894.00  23,899.25 $   +10.50 physics_hold_expire     9
+   34  01:32:49   SHORT   23,935.25  23,947.75 $   -25.00 physics_sl         0
+   35  01:41:45   LONG    23,934.25  23,934.25 $    +0.00 physics_flip       9
+   36  01:44:47   SHORT   23,934.25  23,917.50 $   +33.50 physics_flip       6
+   37  01:46:49   LONG    23,917.00  23,940.00 $   +46.00 physics_flip       4
+   38  01:51:00   SHORT   23,939.00  23,935.25 $    +7.50 physics_hold_expire     9
+   39  01:58:04   LONG    23,921.00  23,939.75 $   +37.50 physics_flip       4
+   40  02:01:13   SHORT   23,939.75  23,916.00 $   +47.50 physics_flip       6
+   41  02:06:00   LONG    23,917.50  23,912.50 $   -10.00 physics_hold_expire     9
+   42  02:07:46   SHORT   23,930.75  23,944.25 $   -27.00 physics_sl         0
+   43  02:25:05   SHORT   23,962.50  23,932.25 $   +60.50 physics_flip       6
+   44  02:30:14   LONG    23,931.50  23,927.50 $    -8.00 physics_hold_expire    10
+   45  02:34:59   LONG    23,883.25  23,872.25 $   -22.00 physics_sl         0
+   46  02:35:01   LONG    23,873.25  23,873.75 $    +1.00 physics_sl         0
+   47  02:39:01   SHORT   23,860.25  23,861.25 $    -2.00 physics_sl         0
+   48  02:50:42   SHORT   23,888.25  23,871.75 $   +33.00 physics_flip       4
+   49  02:57:22   LONG    23,871.75  23,863.50 $   -16.50 physics_flip      13
+   50  03:03:00   SHORT   23,863.50  23,900.25 $   -73.50 physics_flip      11
+   51  03:08:00   LONG    23,899.75  23,897.75 $    -4.00 physics_hold_expire    10
+   52  03:12:04   SHORT   23,918.00  23,928.50 $   -21.00 ORPHAN_FLATTEN     5
+   53  03:15:05   LONG    23,903.00  23,893.00 $   -20.00 physics_sl         3
+   54  03:21:54   LONG    23,867.00  23,854.25 $   -25.50 ORPHAN_FLATTEN     0
+   55  03:38:57   SHORT   23,884.00  23,862.00 $   +44.00 physics_flip       4
+   56  03:44:00   LONG    23,861.50  23,846.75 $   -29.50 physics_flip      10
+   57  03:47:08   SHORT   23,846.75  23,848.50 $    -3.50 physics_hold_expire     7
+   58  03:49:32   LONG    23,828.25  23,816.75 $   -23.00 ORPHAN_FLATTEN     0
+   59  03:51:18   LONG    23,834.00  23,872.75 $   +77.50 physics_flip       2
+   60  03:55:00   SHORT   23,874.00  23,866.25 $   +15.50 physics_hold_expire     7
+   61  04:04:00   SHORT   23,896.00  23,888.50 $   +15.00 physics_flip       5
+   62  04:07:00   LONG    23,889.00  24,504.25 $+1,230.50 physics_flip       4
+   63  04:10:19   SHORT   24,504.00  24,627.75 $  -247.50 ORPHAN_FLATTEN     7
+   64  04:24:00   SHORT   24,593.00  24,587.00 $   +12.00 physics_sl         1
+   65  04:25:25   SHORT   24,580.00  24,594.50 $   -29.00 physics_sl         0
+   66  04:31:19   LONG    24,484.50  24,603.50 $  +238.00 physics_flip       6
+   67  04:36:19   SHORT   24,603.00  24,649.50 $   -93.00 physics_flip      10
+   68  04:40:00   LONG    24,651.25  24,605.75 $   -91.00 physics_hold_expire     7
+   69  04:46:20   SHORT   24,573.50  24,509.00 $  +129.00 physics_flip       4
+   70  04:50:00   LONG    24,508.75  24,493.50 $   -30.50 ORPHAN_FLATTEN     7
+   71  04:54:19   SHORT   24,493.50  24,494.75 $    -2.50 physics_hold_expire     9
+   72  04:57:30   LONG    24,407.00  24,389.25 $   -35.50 physics_sl         2
+   73  04:58:01   LONG    24,394.25  24,390.25 $    -8.00 ORPHAN_FLATTEN     0
+   74  05:03:22   SHORT   24,400.00  24,415.00 $   -30.00 physics_sl         2
+   75  05:10:19   LONG    24,476.50  24,469.00 $   -15.00 physics_flip       1
+   76  05:13:00   SHORT   24,468.75  24,444.00 $   +49.50 physics_flip       5
+   77  05:17:20   LONG    24,445.00  24,456.00 $   +22.00 physics_flip       9
+   78  05:22:20   SHORT   24,456.25  24,497.75 $   -83.00 ORPHAN_FLATTEN    10
+   79  05:26:20   LONG    24,497.75  24,495.75 $    -4.00 physics_hold_expire     8
+   80  05:30:21   SHORT   24,511.00  24,466.50 $   +89.00 physics_flip       4
+   81  05:33:21   LONG    24,465.75  24,498.75 $   +66.00 physics_flip       6
+   82  05:35:21   SHORT   24,498.75  24,471.50 $   +54.50 physics_flip       4
+   83  05:37:21   LONG    24,471.50  24,501.25 $   +59.50 physics_flip       4
+   84  05:38:21   SHORT   24,501.25  24,454.50 $   +93.50 physics_flip       2
+   85  05:41:21   LONG    24,456.75  24,527.00 $  +140.50 physics_flip       6
+   86  05:47:21   SHORT   24,528.75  24,561.00 $   -64.50 physics_hold_expire    12
+   87  05:52:58   SHORT   24,604.50  24,616.25 $   -23.50 physics_sl         0
+   88  05:53:01   SHORT   24,618.25  24,619.00 $    -1.50 physics_sl         0
+   89  05:55:00   SHORT   24,591.25  24,589.00 $    +4.50 ORPHAN_FLATTEN     1
+   90  06:02:21   SHORT   24,629.25  24,588.00 $   +82.50 physics_flip       4
+   91  06:08:00   LONG    24,588.50  24,550.50 $   -76.00 physics_hold_expire    11
+   92  06:10:00   SHORT   24,575.50  24,582.25 $   -13.50 physics_sl         1
+   93  06:17:00   LONG    24,556.50  24,559.00 $    +5.00 physics_hold_expire     9
+   94  06:25:15   LONG    24,532.50  24,522.00 $   -21.00 physics_sl         0
+   95  06:30:26   LONG    24,458.75  24,437.75 $   -42.00 physics_sl         0
+   96  06:31:01   LONG    24,464.75  24,466.75 $    +4.00 physics_sl         0
+   97  06:37:21   LONG    24,492.00  24,501.25 $   +18.50 physics_flip       1
+   98  06:41:21   SHORT   24,509.00  24,478.75 $   +60.50 physics_flip       8
+   99  06:43:21   LONG    24,478.75  24,552.00 $  +146.50 physics_flip       4
+  100  06:45:21   SHORT   24,551.00  24,518.50 $   +65.00 physics_flip       4
+  101  06:48:00   LONG    24,518.75  24,520.75 $    +4.00 physics_flip       5
+  102  06:53:00   SHORT   24,520.50  24,593.50 $  -146.00 physics_hold_expire    10
+  103  06:58:21   LONG    24,552.75  24,576.50 $   +47.50 physics_flip       4
+  104  07:03:00   SHORT   24,578.75  24,608.25 $   -59.00 ORPHAN_FLATTEN     9
+  105  07:04:54   LONG    24,560.50  24,545.25 $   -30.50 physics_sl         0
+  106  07:05:01   LONG    24,552.00  24,547.75 $    -8.50 physics_sl         0
+  107  07:07:55   SHORT   24,564.75  24,581.50 $   -33.50 physics_sl         0
+  108  07:17:21   SHORT   24,624.00  24,616.25 $   +15.50 physics_flip       2
+  109  07:18:21   LONG    24,616.50  24,642.00 $   +51.00 physics_flip       2
+  110  07:22:21   SHORT   24,642.25  24,659.50 $   -34.50 physics_hold_expire     8
+  111  07:26:00   SHORT   24,669.75  24,662.50 $   +14.50 physics_flip       2
+  112  07:31:00   LONG    24,661.25  24,615.50 $   -91.50 physics_hold_expire    10
+  113  07:39:22   LONG    24,614.50  24,606.25 $   -16.50 physics_sl         4
+  114  07:51:00   SHORT   24,641.50  24,598.00 $   +87.00 physics_flip       7
+  115  07:53:21   LONG    24,597.00  24,614.50 $   +35.00 physics_hold_expire     5
+  116  08:02:48   SHORT   24,656.50  24,668.75 $   -24.50 physics_sl         0
+  117  08:03:01   SHORT   24,674.25  24,673.75 $    +1.00 physics_sl         0
+  118  08:09:21   LONG    24,659.25  24,676.50 $   +34.50 physics_hold_expire     4
+  119  08:21:01   LONG    24,614.50  24,610.75 $    -7.50 physics_sl         0
+  120  08:22:59   SHORT   24,640.75  24,649.75 $   -18.00 physics_sl         0
+  121  08:27:51   LONG    24,610.50  24,600.00 $   -21.00 physics_sl         0
+  122  08:34:21   SHORT   24,621.00  24,609.75 $   +22.50 physics_hold_expire     6
+  123  08:37:34   LONG    24,566.75  24,557.25 $   -19.00 physics_sl         0
+  124  08:44:03   SHORT   24,520.75  24,533.00 $   -24.50 physics_sl         1
+  125  08:46:36   LONG    24,499.75  24,493.00 $   -13.50 physics_sl         0
+  126  08:47:01   LONG    24,502.25  24,502.25 $    +0.00 physics_sl         0
+  127  08:55:16   LONG    24,442.50  24,412.50 $   -60.00 physics_sl         5
+  128  09:02:02   SHORT   24,397.00  24,419.25 $   -44.50 physics_sl         1
+  129  09:08:45   SHORT   24,438.00  24,452.75 $   -29.50 ORPHAN_FLATTEN     0
+  130  09:09:01   SHORT   24,451.75  24,450.50 $    +2.50 physics_sl         0
+  131  09:11:06   SHORT   24,430.75  24,442.00 $   -22.50 physics_sl         1
+  132  09:17:54   LONG    24,423.75  24,410.25 $   -27.00 physics_sl         2
+  133  09:25:16   LONG    24,387.75  24,365.75 $   -44.00 physics_sl         0
+  134  09:32:21   LONG    24,324.00  24,360.50 $   +73.00 physics_flip       4
+  135  09:37:00   SHORT   24,362.00  24,394.50 $   -65.00 ORPHAN_FLATTEN     9
+  136  09:49:00   SHORT   24,416.50  24,404.50 $   +24.00 physics_flip       5
+  137  09:54:00   LONG    24,405.00  24,393.25 $   -23.50 ORPHAN_FLATTEN    10
+  138  10:00:21   LONG    24,352.50  24,378.50 $   +52.00 physics_flip       4
+  139  10:04:00   SHORT   24,378.75  24,361.75 $   +34.00 physics_flip       7
+  140  10:09:00   LONG    24,362.50  24,375.25 $   +25.50 physics_flip      10
+  141  10:12:21   SHORT   24,375.25  24,386.00 $   -21.50 physics_flip       7
+  142  10:18:00   LONG    24,386.00  24,357.25 $   -57.50 ORPHAN_FLATTEN    11
+  143  10:23:21   LONG    24,324.50  24,335.25 $   +21.50 physics_flip       4
+  144  10:28:00   SHORT   24,335.50  24,359.75 $   -48.50 physics_hold_expire     9
+  145  10:34:58   SHORT   24,414.00  24,425.50 $   -23.00 physics_sl         0
+  146  10:36:37   SHORT   24,452.50  24,458.75 $   -12.50 physics_sl         0
+  147  10:41:27   LONG    24,445.00  24,428.50 $   -33.00 ORPHAN_FLATTEN     4
+  --------------------------------------------------------------------
+                                         TOTAL $+1,211.50
+
+========================================================================
+========================================================================
+LIVE SESSION REPORT  (run: 2026-03-23 10:53:56)
+  Account:    DEMO6872628
+  Instrument: MNQ 03-26
+  Anchor TF:  1m  (depth=5)
+  Duration:   0h 10m  (20 bars)
+========================================================================
+
+── DRAWDOWN & SURVIVAL ──
+  Max Consecutive Losses: 1
+  Max Consec Loss $:      $19.00
+  Peak Equity:            $+0.00
+  Max Session Drawdown:   $19.00
+
+======================================================================
+SCORECARD: LIVE 2026-03-23 to 
+  Commit:   |  Generated: 2026-03-23 10:53:56
+  PnL: $-19.00  |  Trades: 1  |  WR: 0.0%  |  PF: 0.00
+  $/trade: $-19.00  |  $/day: $-19  |  Max DD: $19
+======================================================================
+
+WHAT WORKS (PF > 1.5):
+
+WHAT HURTS (PF < 1.0):
+  physics_sl                 1 trades  PF= 0.00  $    -19.00  $ -19.00/tr  WR=0%
+  FIXABLE (50% recovery): ~$10 -> PnL could be $-10
+
+HOLD DURATION:
+    <30s:     1 trades  $ -19.00/tr <-- OVER-HOLDING
+
+DIRECTION:
+  SHORT:     1 (100%)  WR=0%  PnL=$    -19.00
+
+======================================================================
+
+========================================================================
+PING-PONG DIRECTION REFINEMENT
+========================================================================
+  Flip count: 0
+  Template                LONG WR   LONG N   SHORT WR  SHORT N
+  ----------------------------------------------------------
+  PHYSICS                    100%        1         0%        1
+
+========================================================================
+GATE REJECTION FUNNEL
+========================================================================
+  Bars with candidates:                  0
+  Total candidates evaluated:            1
+    Pattern Quality  (headroom/physics):          0  (0.0%)
+    Depth Filter     (depth blacklist):           0  (0.0%)
+    Template Match   (cluster dist):              0  (0.0%)
+    Brain Reject     (unprofitable):              0  (0.0%)
+    Low Conviction   (belief too weak):           0  (0.0%)
+    Screening Filter (fission/hours):             0  (0.0%)
+    Direction Unclear (dir conf too low):          0  (0.0%)
+    Passed all gates -> traded:                   0  (0.0%)
+
+========================================================================
+ACCOUNT SNAPSHOT
+========================================================================
+  Cash Value:      $  101,131.00
+  Unrealized PnL:  $       +0.00
+  Net Liquidation: $  101,131.00
+  Profit Factor:   0.00
+  Avg PnL/trade:   $-19.00
+  Gross Win:       $+0.00
+  Gross Loss:      $19.00
+
+========================================================================
+TRADE LOG
+========================================================================
+    #  Time       Side        Entry       Exit        PnL Reason          Bars
+  --------------------------------------------------------------------
+    1  10:48:52   SHORT   24,399.50  24,409.00 $   -19.00 physics_sl         0
+  --------------------------------------------------------------------
+                                         TOTAL $   -19.00
+
+========================================================================
+========================================================================
+LIVE SESSION REPORT  (run: 2026-03-23 14:53:18)
+  Account:    DEMO6872628
+  Instrument: MNQ 03-26
+  Anchor TF:  1m  (depth=5)
+  Duration:   4h 10m  (380 bars)
+========================================================================
+
+── DRAWDOWN & SURVIVAL ──
+  Max Consecutive Losses: 5
+  Max Consec Loss $:      $114.50
+  Peak Equity:            $+106.00
+  Max Session Drawdown:   $114.50
+
+======================================================================
+SCORECARD: LIVE 2026-03-23 to 
+  Commit:   |  Generated: 2026-03-23 14:53:18
+  PnL: $24.00  |  Trades: 26  |  WR: 53.8%  |  PF: 1.12
+  $/trade: $0.92  |  $/day: $24  |  Max DD: $114
+======================================================================
+
+WHAT WORKS (PF > 1.5):
+  physics_flip              10 trades  PF= 5.55  $   +107.00  $ +10.70/tr  WR=70%
+  physics_hold_expire        7 trades  PF= 3.98  $    +73.00  $ +10.43/tr  WR=86%
+
+WHAT HURTS (PF < 1.0):
+  physics_sl                 9 trades  PF= 0.01  $   -156.00  $ -17.33/tr  WR=11%
+  FIXABLE (50% recovery): ~$78 -> PnL could be $102
+
+HOLD DURATION:
+    <30s:     8 trades  $ -13.75/tr <-- OVER-HOLDING
+  30s-1m:     5 trades  $  +6.00/tr
+    1-2m:     5 trades  $ +13.80/tr
+    2-5m:     8 trades  $  +4.38/tr
+
+DIRECTION:
+  LONG:    13 (50%)  WR=46%  PnL=$     +6.00
+  SHORT:    13 (50%)  WR=62%  PnL=$    +18.00
+
+======================================================================
+
+========================================================================
+PING-PONG DIRECTION REFINEMENT
+========================================================================
+  Flip count: 0
+  Template                LONG WR   LONG N   SHORT WR  SHORT N
+  ----------------------------------------------------------
+  PHYSICS                     42%       26        58%       26
+
+========================================================================
+GATE REJECTION FUNNEL
+========================================================================
+  Bars with candidates:                  0
+  Total candidates evaluated:            1
+    Pattern Quality  (headroom/physics):          0  (0.0%)
+    Depth Filter     (depth blacklist):           0  (0.0%)
+    Template Match   (cluster dist):              0  (0.0%)
+    Brain Reject     (unprofitable):              0  (0.0%)
+    Low Conviction   (belief too weak):           0  (0.0%)
+    Screening Filter (fission/hours):             0  (0.0%)
+    Direction Unclear (dir conf too low):          0  (0.0%)
+    Passed all gates -> traded:                   0  (0.0%)
+
+========================================================================
+ACCOUNT SNAPSHOT
+========================================================================
+  Cash Value:      $  101,174.00
+  Unrealized PnL:  $      +11.50
+  Net Liquidation: $  101,185.50
+  Profit Factor:   1.12
+  Avg PnL/trade:   $+0.92
+  Gross Win:       $+229.00
+  Gross Loss:      $205.00
+
+========================================================================
+TRADE LOG
+========================================================================
+    #  Time       Side        Entry       Exit        PnL Reason          Bars
+  --------------------------------------------------------------------
+    1  10:48:52   SHORT   24,399.50  24,409.00 $   -19.00 physics_sl         0
+    2  10:58:00   LONG    24,431.00  24,455.00 $   +48.00 physics_hold_expire     5
+    3  11:02:00   SHORT   24,468.00  24,464.25 $    +7.50 physics_flip       3
+    4  11:06:00   LONG    24,467.00  24,481.00 $   +28.00 physics_flip       8
+    5  11:06:27   SHORT   24,480.00  24,470.50 $   +19.00 physics_flip       1
+    6  11:11:00   LONG    24,470.50  24,461.50 $   -18.00 physics_flip       9
+    7  11:16:27   SHORT   24,461.00  24,449.00 $   +24.00 physics_flip      11
+    8  11:20:00   LONG    24,448.75  24,446.25 $    -5.00 physics_flip       7
+    9  11:25:31   SHORT   24,446.75  24,459.00 $   -24.50 physics_hold_expire    11
+   10  11:33:37   SHORT   24,482.50  24,487.00 $    -9.00 physics_sl         0
+   11  11:34:01   SHORT   24,493.75  24,493.25 $    +1.00 physics_sl         0
+   12  11:36:47   SHORT   24,522.00  24,529.25 $   -14.50 physics_sl         2
+   13  11:44:33   LONG    24,498.25  24,505.00 $   +13.50 physics_hold_expire    10
+   14  12:01:37   SHORT   24,514.75  24,502.00 $   +25.50 physics_flip       3
+   15  12:04:37   LONG    24,502.00  24,503.25 $    +2.50 physics_flip       6
+   16  12:10:41   SHORT   24,503.00  24,501.50 $    +3.00 physics_hold_expire    12
+   17  12:20:00   LONG    24,472.25  24,484.25 $   +24.00 physics_hold_expire     7
+   18  12:46:08   SHORT   24,499.25  24,509.50 $   -20.50 physics_sl         1
+   19  12:50:02   LONG    24,492.50  24,478.25 $   -28.50 physics_sl         1
+   20  12:53:10   LONG    24,460.25  24,454.00 $   -12.50 physics_sl         3
+   21  12:57:02   LONG    24,430.00  24,413.75 $   -32.50 physics_sl         1
+   22  13:01:21   LONG    24,386.00  24,375.75 $   -20.50 physics_sl         1
+   23  13:19:00   LONG    24,404.50  24,408.25 $    +7.50 physics_hold_expire    12
+   24  13:43:33   SHORT   24,428.50  24,427.75 $    +1.50 physics_hold_expire    10
+   25  13:58:02   LONG    24,406.50  24,406.25 $    -0.50 physics_flip       7
+   26  13:59:24   SHORT   24,406.25  24,394.25 $   +24.00 physics_flip       2
+  --------------------------------------------------------------------
+                                         TOTAL $   +24.00
+
+========================================================================
+========================================================================
+LIVE SESSION REPORT  (run: 2026-03-23 14:53:24)
+  Account:    DEMO6872628
+  Instrument: MNQ 03-26
+  Anchor TF:  1m  (depth=5)
+  Duration:   4h 10m  (380 bars)
+========================================================================
+
+── DRAWDOWN & SURVIVAL ──
+  Max Consecutive Losses: 5
+  Max Consec Loss $:      $114.50
+  Peak Equity:            $+106.00
+  Max Session Drawdown:   $114.50
+
+======================================================================
+SCORECARD: LIVE 2026-03-23 to 
+  Commit:   |  Generated: 2026-03-23 14:53:24
+  PnL: $35.50  |  Trades: 27  |  WR: 55.6%  |  PF: 1.17
+  $/trade: $1.31  |  $/day: $36  |  Max DD: $114
+======================================================================
+
+WHAT WORKS (PF > 1.5):
+  physics_flip              10 trades  PF= 5.55  $   +107.00  $ +10.70/tr  WR=70%
+  physics_hold_expire        7 trades  PF= 3.98  $    +73.00  $ +10.43/tr  WR=86%
+  SHUTDOWN                   1 trades  PF= 0.00  $    +11.50  $ +11.50/tr  WR=100%
+
+WHAT HURTS (PF < 1.0):
+  physics_sl                 9 trades  PF= 0.01  $   -156.00  $ -17.33/tr  WR=11%
+  FIXABLE (50% recovery): ~$78 -> PnL could be $114
+
+HOLD DURATION:
+    <30s:     9 trades  $ -10.94/tr <-- OVER-HOLDING
+  30s-1m:     5 trades  $  +6.00/tr
+    1-2m:     5 trades  $ +13.80/tr
+    2-5m:     8 trades  $  +4.38/tr
+
+DIRECTION:
+  LONG:    14 (52%)  WR=50%  PnL=$    +17.50
+  SHORT:    13 (48%)  WR=62%  PnL=$    +18.00
+
+======================================================================
+
+========================================================================
+PING-PONG DIRECTION REFINEMENT
+========================================================================
+  Flip count: 0
+  Template                LONG WR   LONG N   SHORT WR  SHORT N
+  ----------------------------------------------------------
+  PHYSICS                     44%       27        56%       27
+
+========================================================================
+GATE REJECTION FUNNEL
+========================================================================
+  Bars with candidates:                  0
+  Total candidates evaluated:            1
+    Pattern Quality  (headroom/physics):          0  (0.0%)
+    Depth Filter     (depth blacklist):           0  (0.0%)
+    Template Match   (cluster dist):              0  (0.0%)
+    Brain Reject     (unprofitable):              0  (0.0%)
+    Low Conviction   (belief too weak):           0  (0.0%)
+    Screening Filter (fission/hours):             0  (0.0%)
+    Direction Unclear (dir conf too low):          0  (0.0%)
+    Passed all gates -> traded:                   0  (0.0%)
+
+========================================================================
+ACCOUNT SNAPSHOT
+========================================================================
+  Cash Value:      $  101,174.00
+  Unrealized PnL:  $      +11.50
+  Net Liquidation: $  101,185.50
+  Profit Factor:   1.17
+  Avg PnL/trade:   $+1.31
+  Gross Win:       $+240.50
+  Gross Loss:      $205.00
+
+========================================================================
+TRADE LOG
+========================================================================
+    #  Time       Side        Entry       Exit        PnL Reason          Bars
+  --------------------------------------------------------------------
+    1  10:48:52   SHORT   24,399.50  24,409.00 $   -19.00 physics_sl         0
+    2  10:58:00   LONG    24,431.00  24,455.00 $   +48.00 physics_hold_expire     5
+    3  11:02:00   SHORT   24,468.00  24,464.25 $    +7.50 physics_flip       3
+    4  11:06:00   LONG    24,467.00  24,481.00 $   +28.00 physics_flip       8
+    5  11:06:27   SHORT   24,480.00  24,470.50 $   +19.00 physics_flip       1
+    6  11:11:00   LONG    24,470.50  24,461.50 $   -18.00 physics_flip       9
+    7  11:16:27   SHORT   24,461.00  24,449.00 $   +24.00 physics_flip      11
+    8  11:20:00   LONG    24,448.75  24,446.25 $    -5.00 physics_flip       7
+    9  11:25:31   SHORT   24,446.75  24,459.00 $   -24.50 physics_hold_expire    11
+   10  11:33:37   SHORT   24,482.50  24,487.00 $    -9.00 physics_sl         0
+   11  11:34:01   SHORT   24,493.75  24,493.25 $    +1.00 physics_sl         0
+   12  11:36:47   SHORT   24,522.00  24,529.25 $   -14.50 physics_sl         2
+   13  11:44:33   LONG    24,498.25  24,505.00 $   +13.50 physics_hold_expire    10
+   14  12:01:37   SHORT   24,514.75  24,502.00 $   +25.50 physics_flip       3
+   15  12:04:37   LONG    24,502.00  24,503.25 $    +2.50 physics_flip       6
+   16  12:10:41   SHORT   24,503.00  24,501.50 $    +3.00 physics_hold_expire    12
+   17  12:20:00   LONG    24,472.25  24,484.25 $   +24.00 physics_hold_expire     7
+   18  12:46:08   SHORT   24,499.25  24,509.50 $   -20.50 physics_sl         1
+   19  12:50:02   LONG    24,492.50  24,478.25 $   -28.50 physics_sl         1
+   20  12:53:10   LONG    24,460.25  24,454.00 $   -12.50 physics_sl         3
+   21  12:57:02   LONG    24,430.00  24,413.75 $   -32.50 physics_sl         1
+   22  13:01:21   LONG    24,386.00  24,375.75 $   -20.50 physics_sl         1
+   23  13:19:00   LONG    24,404.50  24,408.25 $    +7.50 physics_hold_expire    12
+   24  13:43:33   SHORT   24,428.50  24,427.75 $    +1.50 physics_hold_expire    10
+   25  13:58:02   LONG    24,406.50  24,406.25 $    -0.50 physics_flip       7
+   26  13:59:24   SHORT   24,406.25  24,394.25 $   +24.00 physics_flip       2
+   27  14:53:24   LONG    24,394.50  24,400.25 $   +11.50 SHUTDOWN           0
+  --------------------------------------------------------------------
+                                         TOTAL $   +35.50
+
+========================================================================
+========================================================================
+LIVE SESSION REPORT  (run: 2026-03-23 23:21:23)
+  Account:    DEMO6872628
+  Instrument: MNQ 03-26
+  Anchor TF:  1m  (depth=5)
+  Duration:   0h 11m  (22 bars)
+========================================================================
+
+── DRAWDOWN & SURVIVAL ──
+  Max Consecutive Losses: 0
+  Max Consec Loss $:      $0.00
+  Peak Equity:            $+0.00
+  Max Session Drawdown:   $0.00
+
+SCORECARD: LIVE — no trades
+
+========================================================================
+GATE REJECTION FUNNEL
+========================================================================
+  Bars with candidates:                  0
+  Total candidates evaluated:            1
+    Pattern Quality  (headroom/physics):          0  (0.0%)
+    Depth Filter     (depth blacklist):           0  (0.0%)
+    Template Match   (cluster dist):              0  (0.0%)
+    Brain Reject     (unprofitable):              0  (0.0%)
+    Low Conviction   (belief too weak):           0  (0.0%)
+    Screening Filter (fission/hours):             0  (0.0%)
+    Direction Unclear (dir conf too low):          0  (0.0%)
+    Passed all gates -> traded:                   0  (0.0%)
+
+========================================================================
+ACCOUNT SNAPSHOT
+========================================================================
+  Cash Value:      $   48,356.82
+  Unrealized PnL:  $       +0.00
+  Net Liquidation: $   48,356.82
+  Profit Factor:   0.00
+  Avg PnL/trade:   $+0.00
+  Gross Win:       $+0.00
+  Gross Loss:      $0.00
+
+========================================================================
+TRADE LOG
+========================================================================
+  No trades this session.
+
+========================================================================
+========================================================================
+LIVE SESSION REPORT  (run: 2026-03-23 23:21:29)
+  Account:    DEMO6872628
+  Instrument: MNQ 03-26
+  Anchor TF:  1m  (depth=5)
+  Duration:   0h 11m  (22 bars)
+========================================================================
+
+── DRAWDOWN & SURVIVAL ──
+  Max Consecutive Losses: 0
+  Max Consec Loss $:      $0.00
+  Peak Equity:            $+0.00
+  Max Session Drawdown:   $0.00
+
+SCORECARD: LIVE — no trades
+
+========================================================================
+GATE REJECTION FUNNEL
+========================================================================
+  Bars with candidates:                  0
+  Total candidates evaluated:            1
+    Pattern Quality  (headroom/physics):          0  (0.0%)
+    Depth Filter     (depth blacklist):           0  (0.0%)
+    Template Match   (cluster dist):              0  (0.0%)
+    Brain Reject     (unprofitable):              0  (0.0%)
+    Low Conviction   (belief too weak):           0  (0.0%)
+    Screening Filter (fission/hours):             0  (0.0%)
+    Direction Unclear (dir conf too low):          0  (0.0%)
+    Passed all gates -> traded:                   0  (0.0%)
+
+========================================================================
+ACCOUNT SNAPSHOT
+========================================================================
+  Cash Value:      $   48,356.82
+  Unrealized PnL:  $       +0.00
+  Net Liquidation: $   48,356.82
+  Profit Factor:   0.00
+  Avg PnL/trade:   $+0.00
+  Gross Win:       $+0.00
+  Gross Loss:      $0.00
+
+========================================================================
+TRADE LOG
+========================================================================
+  No trades this session.
+
+========================================================================
+========================================================================
+LIVE SESSION REPORT  (run: 2026-03-23 23:35:12)
+  Account:    DEMO6872628
+  Instrument: MNQ 03-26
+  Anchor TF:  1m  (depth=5)
+  Duration:   0h 13m  (26 bars)
+========================================================================
+
+── DRAWDOWN & SURVIVAL ──
+  Max Consecutive Losses: 0
+  Max Consec Loss $:      $0.00
+  Peak Equity:            $+0.00
+  Max Session Drawdown:   $0.00
+
+SCORECARD: LIVE — no trades
+
+========================================================================
+GATE REJECTION FUNNEL
+========================================================================
+  Bars with candidates:                  0
+  Total candidates evaluated:            1
+    Pattern Quality  (headroom/physics):          0  (0.0%)
+    Depth Filter     (depth blacklist):           0  (0.0%)
+    Template Match   (cluster dist):              0  (0.0%)
+    Brain Reject     (unprofitable):              0  (0.0%)
+    Low Conviction   (belief too weak):           0  (0.0%)
+    Screening Filter (fission/hours):             0  (0.0%)
+    Direction Unclear (dir conf too low):          0  (0.0%)
+    Passed all gates -> traded:                   0  (0.0%)
+
+========================================================================
+ACCOUNT SNAPSHOT
+========================================================================
+  Cash Value:      $   48,356.82
+  Unrealized PnL:  $       +0.00
+  Net Liquidation: $   48,356.82
+  Profit Factor:   0.00
+  Avg PnL/trade:   $+0.00
+  Gross Win:       $+0.00
+  Gross Loss:      $0.00
+
+========================================================================
+TRADE LOG
+========================================================================
+  No trades this session.
+
+========================================================================
