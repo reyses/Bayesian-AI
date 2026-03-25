@@ -1108,7 +1108,7 @@ class ProgressPopup:
 
         # Standard Error bands (1σ, 2σ, 3σ) — rolling 60-bar window
         import numpy as _np
-        _se_window = 15
+        _se_window = 30  # rolling window for std bands
         _full = self._price_full if hasattr(self, '_price_full') else pts
         _full_arr = _np.array(_full)
         _display_offset = len(_full) - len(pts)  # how many extra bars in full buffer
@@ -1128,9 +1128,8 @@ class ProgressPopup:
                     _chunk = _full_arr[fi - _se_window:fi]
                     _mean = _chunk.mean()
                     _std = _chunk.std()
-                    _se = _std / (_se_window ** 0.5)
-                    _up = _mean + _sigma * _se
-                    _lo = _mean - _sigma * _se
+                    _up = _mean + _sigma * _std
+                    _lo = _mean - _sigma * _std
                     _uy = H - pad - ((_up - mn) / span) * (H - 2 * pad)
                     _ly = H - pad - ((_lo - mn) / span) * (H - 2 * pad)
                     _upper_coords.extend([x, _uy])
