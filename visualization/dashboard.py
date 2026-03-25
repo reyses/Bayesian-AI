@@ -1108,7 +1108,7 @@ class ProgressPopup:
 
         # Standard Error bands (1σ, 2σ, 3σ) — rolling 60-bar window
         import numpy as _np
-        _se_window = 60
+        _se_window = 15
         _full = self._price_full if hasattr(self, '_price_full') else pts
         _full_arr = _np.array(_full)
         _display_offset = len(_full) - len(pts)  # how many extra bars in full buffer
