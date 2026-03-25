@@ -1,5 +1,5 @@
 // =============================================================================
-// BayesianBridge 6.8.2 -- 2026-03-25 11:26
+// BayesianBridge 6.9.0 -- 2026-03-25 14:06
 // =============================================================================
 // BayesianBridge — NinjaTrader 8 NinjaScript Indicator
 //
@@ -59,7 +59,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         public int DomLevels { get; set; }
 
         // ── Version ──────────────────────────────────────────────────
-        private const string BRIDGE_VERSION = "6.8.2";
+        private const string BRIDGE_VERSION = "6.9.0";
 
         // ── Internal State ────────────────────────────────────────────
         private TcpListener  _listener;
@@ -91,9 +91,11 @@ namespace NinjaTrader.NinjaScript.Indicators
         // DM: DiPlus = DI+ (0-100), DiMinus = DI- (0-100), ADXPlot = ADX
         // ADX: Average Directional Index, range [0, 100]. <20 = chop, >25 = trend.
         private const int DMI_PERIOD = 14;
+        private const int SE_PERIOD = 60;
         private NinjaTrader.NinjaScript.Indicators.DMI[] _dmiInd;
         private NinjaTrader.NinjaScript.Indicators.DM[] _dmInd;
         private NinjaTrader.NinjaScript.Indicators.ADX[] _adxInd;
+        private NinjaTrader.NinjaScript.Indicators.StdError[] _seInd;
 
         // DOM throttle — send at most every N ms to avoid flooding
         private DateTime _lastDomSend = DateTime.MinValue;
@@ -176,15 +178,17 @@ namespace NinjaTrader.NinjaScript.Indicators
                     return;
                 }
 
-                // Initialize DMI + DM + ADX indicators for each data series
+                // Initialize DMI + DM + ADX + StdError indicators for each data series
                 _dmiInd = new NinjaTrader.NinjaScript.Indicators.DMI[_barLabels.Length];
                 _dmInd = new NinjaTrader.NinjaScript.Indicators.DM[_barLabels.Length];
                 _adxInd = new NinjaTrader.NinjaScript.Indicators.ADX[_barLabels.Length];
+                _seInd = new NinjaTrader.NinjaScript.Indicators.StdError[_barLabels.Length];
                 for (int i = 0; i < _barLabels.Length; i++)
                 {
                     _dmiInd[i] = DMI(Closes[i], DMI_PERIOD);
                     _dmInd[i] = DM(BarsArray[i], DMI_PERIOD);
                     _adxInd[i] = ADX(BarsArray[i], DMI_PERIOD);
+                    _seInd[i] = StdError(Closes[i], SE_PERIOD);
                 }
 
                 // Subscribe to execution events
@@ -312,6 +316,19 @@ namespace NinjaTrader.NinjaScript.Indicators
                 catch { }
             }
 
+            // StdError: regression line + upper/lower bands (observational, for parity logging)
+            double seMiddle = 0, seUpper = 0, seLower = 0;
+            if (_seInd != null && idx < _seInd.Length && _seInd[idx] != null
+                && CurrentBars[idx] >= SE_PERIOD)
+            {
+                try { seMiddle = _seInd[idx].Middle[1]; }
+                catch { }
+                try { seUpper = _seInd[idx].Upper[1]; }
+                catch { }
+                try { seLower = _seInd[idx].Lower[1]; }
+                catch { }
+            }
+
             // Base JSON without live flag (stored in history buffer)
             string jsonBase = "{"
                 + Q("type") + ":" + Q("BAR") + ","
@@ -327,7 +344,10 @@ namespace NinjaTrader.NinjaScript.Indicators
                 + Q("dmi") + ":" + D2S(dmiVal) + ","
                 + Q("dmi_plus") + ":" + D2S(dmiPlus) + ","
                 + Q("dmi_minus") + ":" + D2S(dmiMinus) + ","
-                + Q("adx") + ":" + D2S(adxVal)
+                + Q("adx") + ":" + D2S(adxVal) + ","
+                + Q("se_mid") + ":" + D2S(seMiddle) + ","
+                + Q("se_upper") + ":" + D2S(seUpper) + ","
+                + Q("se_lower") + ":" + D2S(seLower)
                 + "}";
 
             // Buffer bars >= 5s for history dump (WITHOUT live flag)
