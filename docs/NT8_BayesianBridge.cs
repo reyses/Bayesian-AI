@@ -1,5 +1,5 @@
 // =============================================================================
-// BayesianBridge 6.7.4 -- 2026-03-24 10:49
+// BayesianBridge 6.8.0 -- 2026-03-25 05:54
 // =============================================================================
 // BayesianBridge — NinjaTrader 8 NinjaScript Indicator
 //
@@ -59,7 +59,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         public int DomLevels { get; set; }
 
         // ── Version ──────────────────────────────────────────────────
-        private const string BRIDGE_VERSION = "6.7.4";
+        private const string BRIDGE_VERSION = "6.8.0";
 
         // ── Internal State ────────────────────────────────────────────
         private TcpListener  _listener;
@@ -85,7 +85,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         // Capped at MAX_HISTORY to avoid memory blowup with 1-year charts.
         private readonly List<string> _allBars = new List<string>();
         private readonly object _barLock = new object();
-        private const int MAX_HISTORY = 100000;  // ~20MB, covers months of TFs 1-11
+        private const int MAX_HISTORY = 10000;   // ~2MB, 1h buffer for reconnects (Python persists full history)
 
         // DMI: Value = (DI+ - DI-) / (DI+ + DI-), range [-1, +1]
         // DM: DiPlus = DI+ (0-100), DiMinus = DI- (0-100), ADXPlot = ADX
@@ -132,12 +132,12 @@ namespace NinjaTrader.NinjaScript.Indicators
                 _primaryPeriodSecs = GetBarsPeriodSeconds(BarsPeriod);
                 string primaryLabel = GetTFLabel(_primaryPeriodSecs);
 
-                // Standard TFs the engine may need — only add those
-                // STRICTLY LARGER than the primary chart (NT8 requires this).
-                BarsPeriodType[] addTypes  = { BarsPeriodType.Second, BarsPeriodType.Second, BarsPeriodType.Second, BarsPeriodType.Minute, BarsPeriodType.Minute, BarsPeriodType.Minute, BarsPeriodType.Minute, BarsPeriodType.Minute, BarsPeriodType.Minute, BarsPeriodType.Minute, BarsPeriodType.Minute, BarsPeriodType.Day };
-                int[]    addValues = { 5, 15, 30, 1, 2, 3, 5, 15, 30, 60, 240, 1 };
-                string[] addLabels = { "5s", "15s", "30s", "1m", "2m", "3m", "5m", "15m", "30m", "1h", "4h", "1D" };
-                int[]    addSecs   = { 5, 15, 30, 60, 120, 180, 300, 900, 1800, 3600, 14400, 86400 };
+                // Minimal TF set: 1m (anchor) + 1h (structure). Primary is 1s.
+                // Reduced from 12 series to 2 — cuts NT8 memory load by 83%.
+                BarsPeriodType[] addTypes  = { BarsPeriodType.Minute, BarsPeriodType.Minute };
+                int[]    addValues = { 1, 60 };
+                string[] addLabels = { "1m", "1h" };
+                int[]    addSecs   = { 60, 3600 };
 
                 var labels  = new List<string> { primaryLabel };
                 var periods = new List<int>    { _primaryPeriodSecs };
