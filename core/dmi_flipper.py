@@ -41,12 +41,16 @@ class DmiFlipper:
         smooth_window: int = DEFAULT_SMOOTH_WINDOW,
         mode: str = 'cross',  # 'cross' (v1, $208/day) or 'divergence' (v3, $296/day backtest)
         reg_window: int = 60,  # regression mean window for early exit
+        trail_activation: float = 10.0,  # activate trail after this many ticks profit
+        trail_distance: float = 10.0,  # trail follows at this distance from peak
     ):
-        self.tp_ticks = tp_ticks
+        self.tp_ticks = tp_ticks  # kept for compat but not used for TP_BANK
         self.sl_ticks = sl_ticks
         self.smooth_window = smooth_window
         self.mode = mode
         self.reg_window = reg_window
+        self.trail_activation = trail_activation
+        self.trail_distance = trail_distance
 
         # State
         self._dmi_diffs = deque(maxlen=smooth_window + 1)
@@ -58,11 +62,14 @@ class DmiFlipper:
         self._bar_count = 0
         self._entry_bar = 0
         self._entry_dmi_sign = 0
+        self._peak_price = 0.0  # best price seen during trade (for trailing stop)
+        self._trail_active = False  # trailing stop activated
 
         # Stats
         self.stats = {
             'bars': 0, 'entries': 0, 'exits': 0,
             'flips': 0, 'tp_banks': 0, 'sl_exits': 0,
+            'trail_exits': 0,
             'reg_exits': 0, 'vol_exits': 0, 'dmi_invalid_exits': 0,
         }
 
@@ -197,53 +204,50 @@ class DmiFlipper:
                         reason=f'vol_spike {volume:.0f} vs avg {self._avg_volume:.0f} pnl={_pnl:+.0f}t',
                     )
 
+            # Update peak price for trailing stop
             if self._trade_dir == 'LONG':
-                # SL check (from entry)
-                sl_pnl = (low - self._entry_price) / 0.25
-                if sl_pnl <= -self.sl_ticks:
-                    total_pnl = -self.sl_ticks + (self._tp_count * self.tp_ticks)
+                self._peak_price = max(self._peak_price, high)
+                _pnl_from_entry = (low - self._entry_price) / 0.25
+                _peak_pnl = (self._peak_price - self._entry_price) / 0.25
+            else:
+                self._peak_price = min(self._peak_price, low) if self._peak_price > 0 else low
+                _pnl_from_entry = (self._entry_price - high) / 0.25
+                _peak_pnl = (self._entry_price - self._peak_price) / 0.25
+
+            # SL check (fixed, from entry)
+            if _pnl_from_entry <= -self.sl_ticks:
+                self._in_trade = False
+                self.stats['exits'] += 1
+                self.stats['sl_exits'] += 1
+                return FlipperResult(
+                    action='EXIT', direction=self._trade_dir,
+                    pnl_ticks=-self.sl_ticks, tp_count=0,
+                    reason=f'SL at {-self.sl_ticks:.0f}t',
+                )
+
+            # Trailing stop: activate after trail_activation ticks of profit
+            if not self._trail_active and _peak_pnl >= self.trail_activation:
+                self._trail_active = True
+
+            if self._trail_active:
+                # Trail level = peak - trail_distance (for LONG) or peak + trail_distance (for SHORT)
+                if self._trade_dir == 'LONG':
+                    _trail_level = self._peak_price - self.trail_distance * 0.25
+                    _trail_pnl = (low - _trail_level) / 0.25
+                else:
+                    _trail_level = self._peak_price + self.trail_distance * 0.25
+                    _trail_pnl = (_trail_level - high) / 0.25
+
+                if _trail_pnl <= 0:
+                    _final_pnl = (price - self._entry_price) / 0.25 if self._trade_dir == 'LONG' \
+                        else (self._entry_price - price) / 0.25
                     self._in_trade = False
                     self.stats['exits'] += 1
-                    self.stats['sl_exits'] += 1
+                    self.stats['trail_exits'] += 1
                     return FlipperResult(
                         action='EXIT', direction=self._trade_dir,
-                        pnl_ticks=total_pnl, tp_count=self._tp_count,
-                        reason=f'SL after {self._tp_count} TPs (banked {self._tp_count * self.tp_ticks}t)',
-                    )
-                # TP check (from last TP level)
-                tp_pnl = (high - ref) / 0.25
-                if tp_pnl >= self.tp_ticks:
-                    self._tp_count += 1
-                    self._last_tp_price = ref + self.tp_ticks * 0.25
-                    self.stats['tp_banks'] += 1
-                    return FlipperResult(
-                        action='TP_BANK', direction=self._trade_dir,
-                        pnl_ticks=self._tp_count * self.tp_ticks,
-                        tp_count=self._tp_count,
-                        reason=f'TP #{self._tp_count} banked (+{self._tp_count * self.tp_ticks}t total)',
-                    )
-            else:  # SHORT
-                sl_pnl = (self._entry_price - high) / 0.25
-                if sl_pnl <= -self.sl_ticks:
-                    total_pnl = -self.sl_ticks + (self._tp_count * self.tp_ticks)
-                    self._in_trade = False
-                    self.stats['exits'] += 1
-                    self.stats['sl_exits'] += 1
-                    return FlipperResult(
-                        action='EXIT', direction=self._trade_dir,
-                        pnl_ticks=total_pnl, tp_count=self._tp_count,
-                        reason=f'SL after {self._tp_count} TPs (banked {self._tp_count * self.tp_ticks}t)',
-                    )
-                tp_pnl = (ref - low) / 0.25
-                if tp_pnl >= self.tp_ticks:
-                    self._tp_count += 1
-                    self._last_tp_price = ref - self.tp_ticks * 0.25
-                    self.stats['tp_banks'] += 1
-                    return FlipperResult(
-                        action='TP_BANK', direction=self._trade_dir,
-                        pnl_ticks=self._tp_count * self.tp_ticks,
-                        tp_count=self._tp_count,
-                        reason=f'TP #{self._tp_count} banked (+{self._tp_count * self.tp_ticks}t total)',
+                        pnl_ticks=_final_pnl, tp_count=0,
+                        reason=f'TRAIL peak={_peak_pnl:.0f}t trail_lvl={_trail_level:.2f} pnl={_final_pnl:+.0f}t',
                     )
 
         # --- ENTRY LOGIC (mode-dependent) ---
@@ -268,6 +272,8 @@ class DmiFlipper:
             self._entry_price = price
             self._last_tp_price = 0.0
             self._tp_count = 0
+            self._peak_price = 0.0
+            self._trail_active = False
             self._entry_bar = self._bar_count
             self._entry_dmi_sign = 1 if smooth_now > 0 else -1
             self.stats['entries'] += 1
@@ -297,6 +303,8 @@ class DmiFlipper:
             self._entry_price = price
             self._last_tp_price = 0.0
             self._tp_count = 0
+            self._peak_price = 0.0
+            self._trail_active = False
             self._entry_bar = self._bar_count
             self._entry_dmi_sign = 1 if smooth_now > 0 else -1
             return FlipperResult(
@@ -312,6 +320,8 @@ class DmiFlipper:
             self._entry_price = price
             self._last_tp_price = 0.0
             self._tp_count = 0
+            self._peak_price = 0.0
+            self._trail_active = False
             self._entry_bar = self._bar_count
             self._entry_dmi_sign = 1 if smooth_now > 0 else -1
             self.stats['entries'] += 1
@@ -426,6 +436,8 @@ class DmiFlipper:
             self._entry_price = price
             self._last_tp_price = 0.0
             self._tp_count = 0
+            self._peak_price = 0.0
+            self._trail_active = False
             self.stats['entries'] += 1
             return FlipperResult(
                 action='ENTER', direction=new_dir,
@@ -456,6 +468,8 @@ class DmiFlipper:
                 self._entry_price = price
                 self._last_tp_price = 0.0
                 self._tp_count = 0
+                self._peak_price = 0.0
+                self._trail_active = False
                 self.stats['entries'] += 1
                 return FlipperResult(
                     action='ENTER', direction=new_dir,
@@ -543,37 +557,54 @@ class DmiFlipper:
                     reason=f'dmi_invalid_1s after {_bars_held} bars pnl={_pnl:+.0f}t',
                 )
 
-        # SL check
+        # SL check (fixed, from entry)
         if _pnl <= -self.sl_ticks:
-            total_pnl = -self.sl_ticks + (self._tp_count * self.tp_ticks)
             self._in_trade = False
             self.stats['exits'] += 1
             self.stats['sl_exits'] += 1
             return FlipperResult(
                 action='EXIT', direction=self._trade_dir,
-                pnl_ticks=total_pnl, tp_count=self._tp_count,
-                reason=f'SL_1s after {self._tp_count} TPs',
+                pnl_ticks=-self.sl_ticks, tp_count=0,
+                reason=f'SL_1s at {-self.sl_ticks:.0f}t',
             )
 
-        # TP check
-        ref = self._last_tp_price if self._tp_count > 0 else self._entry_price
+        # Update peak price for trailing stop
         if self._trade_dir == 'LONG':
-            tp_pnl = (price - ref) / 0.25
+            self._peak_price = max(self._peak_price, price)
+            _peak_pnl = (self._peak_price - self._entry_price) / 0.25
         else:
-            tp_pnl = (ref - price) / 0.25
+            self._peak_price = min(self._peak_price, price) if self._peak_price > 0 else price
+            _peak_pnl = (self._entry_price - self._peak_price) / 0.25
 
-        if tp_pnl >= self.tp_ticks:
-            self._tp_count += 1
+        # Activate trailing stop after trail_activation ticks
+        if not self._trail_active and _peak_pnl >= self.trail_activation:
+            self._trail_active = True
+
+        # Check trailing stop
+        if self._trail_active:
             if self._trade_dir == 'LONG':
-                self._last_tp_price = ref + self.tp_ticks * 0.25
+                _trail_level = self._peak_price - self.trail_distance * 0.25
+                if price <= _trail_level:
+                    _final_pnl = (price - self._entry_price) / 0.25
+                    self._in_trade = False
+                    self.stats['exits'] += 1
+                    self.stats['trail_exits'] += 1
+                    return FlipperResult(
+                        action='EXIT', direction=self._trade_dir,
+                        pnl_ticks=_final_pnl, tp_count=0,
+                        reason=f'TRAIL_1s peak={_peak_pnl:.0f}t pnl={_final_pnl:+.0f}t',
+                    )
             else:
-                self._last_tp_price = ref - self.tp_ticks * 0.25
-            self.stats['tp_banks'] += 1
-            return FlipperResult(
-                action='TP_BANK', direction=self._trade_dir,
-                pnl_ticks=self._tp_count * self.tp_ticks,
-                tp_count=self._tp_count,
-                reason=f'TP_1s #{self._tp_count}',
-            )
+                _trail_level = self._peak_price + self.trail_distance * 0.25
+                if price >= _trail_level:
+                    _final_pnl = (self._entry_price - price) / 0.25
+                    self._in_trade = False
+                    self.stats['exits'] += 1
+                    self.stats['trail_exits'] += 1
+                    return FlipperResult(
+                        action='EXIT', direction=self._trade_dir,
+                        pnl_ticks=_final_pnl, tp_count=0,
+                        reason=f'TRAIL_1s peak={_peak_pnl:.0f}t pnl={_final_pnl:+.0f}t',
+                    )
 
         return FlipperResult()
