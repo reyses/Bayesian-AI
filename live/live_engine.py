@@ -1317,14 +1317,17 @@ class LiveEngine:
 
         # TP_BANK: close position, re-enter if DMI still valid
         if result.action == 'TP_BANK' and self._position_open:
-            from datetime import datetime, timezone
-            _nt8 = datetime.fromtimestamp(ts, tz=timezone.utc).strftime('%H:%M:%S')
-            logger.info(f"TP BANK: nt8={_nt8} | {result.reason} — closing to bank profit")
-            # Defer re-entry: close first, re-enter on FILL if DMI still agrees
-            self._pending_physics_entry = {
-                'result': result, 'price': price, 'ts': ts,
-            }
-            await self._close_position('dmi_tp')
+            # Guard: don't overwrite if 1s TP already pending
+            if self._pending_tp_reentry:
+                logger.debug("1m TP_BANK skipped: _pending_tp_reentry already set from 1s")
+            else:
+                from datetime import datetime, timezone
+                _nt8 = datetime.fromtimestamp(ts, tz=timezone.utc).strftime('%H:%M:%S')
+                logger.info(f"TP BANK: nt8={_nt8} | {result.reason} — closing to bank profit")
+                self._pending_physics_entry = {
+                    'result': result, 'price': price, 'ts': ts,
+                }
+                await self._close_position('dmi_tp')
             return
 
         if (result.action == 'ENTER' and not self._position_open
@@ -1398,6 +1401,11 @@ class LiveEngine:
         self._active_side = side
         self._active_tid = 'PHYSICS'
         self._max_hold_bars = getattr(result, 'hold_bars', 0)
+        # Sync DMI flipper entry price (corrected to fill price in FILL handler)
+        if self._dmi_flipper:
+            self._dmi_flipper._entry_price = price
+            self._dmi_flipper._in_trade = True
+            self._dmi_flipper._last_tp_price = 0.0
 
         self._trade_logger.start_trade(
             self._session.stats.trades + 1, side, price, ts)
@@ -1637,6 +1645,9 @@ class LiveEngine:
         self._last_exit_side = self._active_side  # for ping-pong flip
         self._closing_position = True  # blocks new entries, prevents orphan detection
         self._last_exit_reason = reason  # for trade log
+        # Reset DMI flipper state on ALL close paths (not just specific exit types)
+        if self._dmi_flipper:
+            self._dmi_flipper._in_trade = False
         # Finish per-trade diagnostic CSV
         self._trade_logger.finish_trade(reason, self._last_price)
         # Snapshot peak before clearing position (for capture bucket + self-tune)
