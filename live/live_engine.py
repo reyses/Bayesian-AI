@@ -821,6 +821,30 @@ class LiveEngine:
                                 ]
                                 self._physics._traj_buffer.append(bar_feats)
                             logger.info(f"Physics trajectory pre-filled: {len(self._physics._traj_buffer)}/10 bars from history")
+                # Pre-fill CNN feature buffer from history
+                if self._cnn_model is not None and hasattr(self, '_cnn_feat_buffer'):
+                    import numpy as _np
+                    _agg_states = self._aggregator.states
+                    _n_prefill = min(self._cnn_lookback + 10, len(_agg_states))
+                    for _si in range(max(0, len(_agg_states) - _n_prefill), len(_agg_states)):
+                        _st = _agg_states[_si]
+                        _dmi_p = getattr(_st, 'dmi_plus', 0.0)
+                        _dmi_m = getattr(_st, 'dmi_minus', 0.0)
+                        _vel = getattr(_st, 'velocity', 0.0)
+                        _vol = abs(getattr(_st, 'volume_delta', 0.0))
+                        _vol_avg = self._dmi_flipper._avg_volume if self._dmi_flipper and self._dmi_flipper._avg_volume > 0 else 1.0
+                        _feats = [
+                            _dmi_p - _dmi_m,
+                            abs(_dmi_p - _dmi_m),
+                            _vol / _vol_avg if _vol_avg > 0 else 1.0,
+                            0.0,  # dir_vol (no prev price in pre-fill)
+                            _vel,
+                            0.0,  # z_se (would need price history)
+                            0.0,  # price_accel (would need prev velocity)
+                        ]
+                        self._cnn_feat_buffer.append(_feats)
+                    logger.info(f"CNN feature buffer pre-filled: {len(self._cnn_feat_buffer)}/{self._cnn_lookback} bars")
+
                 self._system_ready = True
                 logger.info("SYSTEM READY -- trading enabled")
                 # Update ATLAS with NT8 bars so OOS data stays current
