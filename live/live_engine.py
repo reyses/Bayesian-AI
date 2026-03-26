@@ -626,16 +626,27 @@ class LiveEngine:
                     if self._shutting_down:
                         logger.info("TP RE-ENTRY: cancelled (shutting down)")
                     elif self._dmi_flipper and self._dmi_flipper._in_trade:
-                        # DMI still agrees — re-enter same direction
                         fill_px = float(msg.get('fill_price', _tr['price']))
                         _dir = _tr['direction']
-                        logger.info(f"TP RE-ENTRY: {_dir.upper()} @ {fill_px} (TP #{self._dmi_flipper._tp_count})")
-                        from core.dmi_flipper import FlipperResult
-                        _result = FlipperResult(action='ENTER', direction=_dir.upper(),
-                                                reason=f'TP re-entry #{self._dmi_flipper._tp_count}')
-                        await self._physics_enter(_result, fill_px, _tr['ts'])
-                        if self._dmi_flipper and self._dmi_flipper._in_trade:
-                            self._dmi_flipper._entry_price = fill_px
+                        # CNN confirmation on TP re-entry
+                        _cnn_ok = True
+                        if self._cnn_model is not None:
+                            _st = self._aggregator.states[-1] if self._aggregator.states else None
+                            if _st:
+                                _cnn_dir = self._cnn_predict(fill_px, _st)
+                                if _cnn_dir is not None and _cnn_dir != _dir.upper():
+                                    logger.info(f"TP RE-ENTRY CNN VETO: DMI={_dir} CNN={_cnn_dir}")
+                                    _cnn_ok = False
+                        if _cnn_ok:
+                            logger.info(f"TP RE-ENTRY: {_dir.upper()} @ {fill_px} (TP #{self._dmi_flipper._tp_count})")
+                            from core.dmi_flipper import FlipperResult
+                            _result = FlipperResult(action='ENTER', direction=_dir.upper(),
+                                                    reason=f'TP re-entry #{self._dmi_flipper._tp_count}')
+                            await self._physics_enter(_result, fill_px, _tr['ts'])
+                            if self._dmi_flipper and self._dmi_flipper._in_trade:
+                                self._dmi_flipper._entry_price = fill_px
+                        else:
+                            logger.info("TP RE-ENTRY: cancelled (CNN disagrees)")
                     else:
                         logger.info("TP RE-ENTRY: cancelled (DMI no longer agrees)")
                 # Graceful shutdown: confirm flat to GUI, then exit loop
@@ -828,29 +839,60 @@ class LiveEngine:
                                 ]
                                 self._physics._traj_buffer.append(bar_feats)
                             logger.info(f"Physics trajectory pre-filled: {len(self._physics._traj_buffer)}/10 bars from history")
-                # Pre-fill CNN feature buffer from history
+                # Pre-fill CNN feature buffer from history (all 7 features)
                 if self._cnn_model is not None and hasattr(self, '_cnn_feat_buffer'):
                     import numpy as _np
                     _agg_states = self._aggregator.states
-                    _n_prefill = min(self._cnn_lookback + 10, len(_agg_states))
-                    for _si in range(max(0, len(_agg_states) - _n_prefill), len(_agg_states)):
+                    _agg_rows = self._aggregator._rows
+                    _n_prefill = min(self._cnn_lookback + 20, len(_agg_states))
+                    _start = max(0, len(_agg_states) - _n_prefill)
+                    _prev_vel = 0.0
+                    _prev_price = 0.0
+                    _price_window = []
+                    _vol_avg = 1.0
+
+                    for _si in range(_start, len(_agg_states)):
                         _st = _agg_states[_si]
+                        _price = _agg_rows[_si]['close'] if _si < len(_agg_rows) else 0.0
                         _dmi_p = getattr(_st, 'dmi_plus', 0.0)
                         _dmi_m = getattr(_st, 'dmi_minus', 0.0)
                         _vel = getattr(_st, 'velocity', 0.0)
                         _vol = abs(getattr(_st, 'volume_delta', 0.0))
-                        _vol_avg = getattr(self._dmi_flipper, '_avg_volume', 1.0) or 1.0
+                        _vol_avg = _vol_avg * 0.95 + _vol * 0.05 if _vol_avg > 0 else _vol
+
+                        _dir_vol = 0.0
+                        if _prev_price > 0 and _vol_avg > 0:
+                            _dir = 1.0 if _price > _prev_price else -1.0
+                            _dir_vol = _dir * _vol / _vol_avg
+
+                        _price_window.append(_price)
+                        if len(_price_window) > 60:
+                            _price_window = _price_window[-60:]
+                        _z_se = 0.0
+                        if len(_price_window) >= 15:
+                            _mean = sum(_price_window) / len(_price_window)
+                            _std = float(_np.std(_price_window))
+                            _se = _std / (len(_price_window) ** 0.5)
+                            _z_se = (_price - _mean) / _se if _se > 1e-8 else 0.0
+
+                        _accel = _vel - _prev_vel if _si > _start else 0.0
+
                         _feats = [
                             _dmi_p - _dmi_m,
                             abs(_dmi_p - _dmi_m),
                             _vol / _vol_avg if _vol_avg > 0 else 1.0,
-                            0.0,  # dir_vol (no prev price in pre-fill)
+                            _dir_vol,
                             _vel,
-                            0.0,  # z_se (would need price history)
-                            0.0,  # price_accel (would need prev velocity)
+                            _z_se,
+                            _accel,
                         ]
                         self._cnn_feat_buffer.append(_feats)
-                    logger.info(f"CNN feature buffer pre-filled: {len(self._cnn_feat_buffer)}/{self._cnn_lookback} bars")
+                        _prev_vel = _vel
+                        _prev_price = _price
+
+                    self._prev_velocity = _prev_vel
+                    logger.info(f"CNN feature buffer pre-filled: "
+                                f"{len(self._cnn_feat_buffer)}/{self._cnn_lookback} bars (full features)")
 
                 self._system_ready = True
                 logger.info("SYSTEM READY -- trading enabled")
