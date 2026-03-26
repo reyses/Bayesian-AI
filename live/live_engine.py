@@ -1239,6 +1239,17 @@ class LiveEngine:
                                               volume=abs(_vol),
                                               nt8_dmi_plus=_nt8_dp,
                                               nt8_dmi_minus=_nt8_dm)
+
+            # CNN direction filter: confirm/veto ENTER and FLIP signals
+            if self._cnn_model is not None and result.action in ('ENTER', 'FLIP'):
+                _cnn_dir = self._cnn_predict(price, state)
+                if _cnn_dir is not None and _cnn_dir != result.direction:
+                    _old = result.direction
+                    from core.dmi_flipper import FlipperResult
+                    logger.info(f"CNN VETO: DMI says {result.direction} but CNN says {_cnn_dir} — skipping")
+                    result = FlipperResult(reason=f'CNN_VETO dmi={_old} cnn={_cnn_dir}')
+                elif _cnn_dir is not None:
+                    logger.info(f"CNN CONFIRM: {result.direction} (prob={self._last_cnn_prob:.2f})")
         else:
             result = self._physics.on_bar(price, bar_high, bar_low, ts, state)
 
@@ -2380,6 +2391,105 @@ class LiveEngine:
         logger.info(f"DMI flipper mode: {_mode} (tp={tp}, sl={sl})")
         self._physics_sl_ticks = sl
         logger.info(f"DMI Flipper ready: TP={tp}t repeating, SL={sl}t")
+
+        # Load CNN direction model if available
+        self._cnn_model = None
+        self._cnn_device = None
+        _cnn_path = 'checkpoints/direction_cnn/best_model.pt'
+        try:
+            import torch
+            from training.direction_cnn import DirectionCNN, FEATURES_7D, extract_features_from_states
+            _device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            _ckpt = torch.load(_cnn_path, map_location=_device, weights_only=False)
+            _cfg = _ckpt.get('config', {})
+            _n_feat = _cfg.get('n_feat', 7)
+            _lookback = _cfg.get('lookback', 10)
+            _n_layers = _cfg.get('n_layers', 2)
+            _model = DirectionCNN(n_features=_n_feat, lookback=_lookback, n_layers=_n_layers)
+            _model.load_state_dict(_ckpt['model_state'])
+            _model.to(_device)
+            _model.eval()
+            self._cnn_model = _model
+            self._cnn_device = _device
+            self._cnn_lookback = _lookback
+            self._cnn_feat_buffer = []  # rolling buffer of grounded features
+            logger.info(f"CNN direction model loaded: epoch={_ckpt['epoch']} "
+                        f"val_acc={_ckpt.get('val_acc', 0):.1f}% "
+                        f"feat={_cfg.get('features', '7D')} lb={_lookback}")
+        except Exception as e:
+            logger.warning(f"CNN model not loaded: {e}")
+
+    def _cnn_predict(self, price: float, state) -> str:
+        """Run CNN direction prediction. Returns 'LONG', 'SHORT', or None if uncertain."""
+        if self._cnn_model is None:
+            return None
+
+        import torch
+        import numpy as np
+
+        # Extract 7D grounded features for this bar
+        dmi_p = getattr(state, 'dmi_plus', 0.0)
+        dmi_m = getattr(state, 'dmi_minus', 0.0)
+        vel = getattr(state, 'velocity', 0.0)
+
+        # Volume from flipper's rolling data
+        _vol = abs(getattr(state, 'volume_delta', 0.0))
+        _vol_avg = self._dmi_flipper._avg_volume if self._dmi_flipper else 1.0
+
+        feats = [
+            dmi_p - dmi_m,                                    # dmi_diff
+            abs(dmi_p - dmi_m),                               # dmi_gap
+            _vol / _vol_avg if _vol_avg > 0 else 1.0,        # vol_rel
+            0.0,                                               # dir_vol (need prev price)
+            vel,                                               # velocity
+            0.0,                                               # z_se (computed below)
+            0.0,                                               # price_accel (computed below)
+        ]
+
+        # dir_vol: use flipper's price history
+        if hasattr(self._dmi_flipper, '_price_hist') and len(self._dmi_flipper._price_hist) >= 2:
+            _prev = self._dmi_flipper._price_hist[-2]
+            _dir = 1.0 if price > _prev else -1.0
+            feats[3] = _dir * _vol / _vol_avg if _vol_avg > 0 else 0.0
+
+        # z_se: from flipper's price history
+        if hasattr(self._dmi_flipper, '_price_hist') and len(self._dmi_flipper._price_hist) >= 15:
+            _prices = list(self._dmi_flipper._price_hist)
+            _window = _prices[-60:] if len(_prices) >= 60 else _prices
+            _mean = sum(_window) / len(_window)
+            _std = float(np.std(_window))
+            _se = _std / (len(_window) ** 0.5) if len(_window) > 1 else _std
+            feats[5] = (price - _mean) / _se if _se > 1e-8 else 0.0
+
+        # price_accel: need previous velocity
+        if hasattr(self, '_prev_velocity'):
+            feats[6] = vel - self._prev_velocity
+        self._prev_velocity = vel
+
+        # Add to rolling buffer
+        if not hasattr(self, '_cnn_feat_buffer'):
+            self._cnn_feat_buffer = []
+        self._cnn_feat_buffer.append(feats)
+        if len(self._cnn_feat_buffer) > self._cnn_lookback:
+            self._cnn_feat_buffer = self._cnn_feat_buffer[-self._cnn_lookback:]
+
+        # Need full lookback
+        if len(self._cnn_feat_buffer) < self._cnn_lookback:
+            return None
+
+        # Predict
+        x = np.array(self._cnn_feat_buffer[-self._cnn_lookback:])
+        x_t = torch.FloatTensor(x).unsqueeze(0).to(self._cnn_device)
+        with torch.no_grad():
+            prob_long = self._cnn_model(x_t).item()
+
+        self._last_cnn_prob = prob_long
+
+        if prob_long > 0.6:
+            return 'LONG'
+        elif prob_long < 0.4:
+            return 'SHORT'
+        return None  # uncertain — don't veto
 
     def _checkpoint_bundle(self):
         """Build a CheckpointBundle from already-loaded instance attrs."""
