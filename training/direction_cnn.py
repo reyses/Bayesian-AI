@@ -64,7 +64,9 @@ IS_ROOT = 'DATA/ATLAS'
 OOS_ROOT = 'DATA/ATLAS_OOS'
 TICK = 0.25
 
-# No fixed seed — let randomness explore different solutions
+# Fixed seed for reproducibility — model is unstable without it
+torch.manual_seed(42)
+np.random.seed(42)
 
 
 # --- MODEL ---
@@ -373,13 +375,8 @@ def train_model(feats, labels, mags, epochs=EPOCHS):
             x, y, m = x.to(device), y.to(device).squeeze(), m.to(device).squeeze()
             pred = model(x)
             loss_raw = bce(pred, y)
-            # PnL-weighted loss: reward profitable predictions more, punish losses harder
-            # correct prediction with big move = low loss (good)
-            # wrong prediction with big move = high loss (bad, penalize)
-            is_correct = ((pred > 0.5) == (y > 0.5)).float()
-            # Wrong predictions get 2x penalty (asymmetric — protect capital)
-            penalty = torch.where(is_correct > 0.5, 1.0, 2.0)
-            weights = penalty * (1.0 + m / (m.mean() + 1e-8))
+            # Weight by magnitude: big moves matter more
+            weights = 1.0 + m / (m.mean() + 1e-8)
             loss = (loss_raw * weights).mean()
             optimizer.zero_grad()
             loss.backward()
