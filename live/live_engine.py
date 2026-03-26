@@ -832,7 +832,7 @@ class LiveEngine:
                         _dmi_m = getattr(_st, 'dmi_minus', 0.0)
                         _vel = getattr(_st, 'velocity', 0.0)
                         _vol = abs(getattr(_st, 'volume_delta', 0.0))
-                        _vol_avg = self._dmi_flipper._avg_volume if self._dmi_flipper and self._dmi_flipper._avg_volume > 0 else 1.0
+                        _vol_avg = getattr(self._dmi_flipper, '_avg_volume', 1.0) or 1.0
                         _feats = [
                             _dmi_p - _dmi_m,
                             abs(_dmi_p - _dmi_m),
