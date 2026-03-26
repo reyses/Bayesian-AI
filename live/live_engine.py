@@ -591,6 +591,16 @@ class LiveEngine:
                         reason=self._last_exit_reason,
                     )
                 self._sync_position_state()
+                # Sync flipper entry price to actual fill (fixes slippage drift)
+                if pnl is None and self._dmi_flipper and self._dmi_flipper._in_trade:
+                    _fill_px = float(msg.get('fill_price', 0))
+                    if _fill_px > 0:
+                        self._dmi_flipper._entry_price = _fill_px
+                        self._dmi_flipper._peak_price = _fill_px  # reset peak to fill price
+                        self._entry_price = _fill_px
+                        if self._position:
+                            self._position.entry_price = _fill_px
+                        logger.info(f"FILL entry: {self._dmi_flipper._trade_dir} @ {_fill_px}")
                 # Fire deferred manual entry now that position is flat
                 if self._pending_manual_entry and self._orders.is_flat:
                     _pm = self._pending_manual_entry
