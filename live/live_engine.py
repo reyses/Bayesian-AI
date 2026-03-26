@@ -459,8 +459,9 @@ class LiveEngine:
                 self._last_1s_tick = _now
                 # Exit check between bars  -- catches SL/TP/trail within 1s
                 if self._position_open and self._last_price > 0:
-                    if self._physics_mode:
-                        # Physics mode: SL/TP check at 1s resolution
+                    if self._physics_mode and not self._dmi_mode:
+                        # Physics mode (non-DMI): SL/TP check at 1s resolution
+                        # DMI mode: handled by _process_1s() -> check_sl_1s()
                         if self._position:
                             _tick = self._asset.tick_size
                             if self._position.side == 'long':
@@ -604,6 +605,7 @@ class LiveEngine:
                 if self._pending_physics_entry and self._orders.is_flat:
                     _pe = self._pending_physics_entry
                     self._pending_physics_entry = None
+                    self._pending_tp_reentry = None  # clear competing deferred entry
                     if self._shutting_down:
                         logger.info("PHYSICS FLIP: cancelled (shutting down)")
                     else:
@@ -618,6 +620,7 @@ class LiveEngine:
                 if hasattr(self, '_pending_tp_reentry') and self._pending_tp_reentry and self._orders.is_flat:
                     _tr = self._pending_tp_reentry
                     self._pending_tp_reentry = None
+                    self._pending_physics_entry = None  # clear competing deferred entry
                     if self._shutting_down:
                         logger.info("TP RE-ENTRY: cancelled (shutting down)")
                     elif self._dmi_flipper and self._dmi_flipper._in_trade:
@@ -629,6 +632,8 @@ class LiveEngine:
                         _result = FlipperResult(action='ENTER', direction=_dir.upper(),
                                                 reason=f'TP re-entry #{self._dmi_flipper._tp_count}')
                         await self._physics_enter(_result, fill_px, _tr['ts'])
+                        if self._dmi_flipper and self._dmi_flipper._in_trade:
+                            self._dmi_flipper._entry_price = fill_px
                     else:
                         logger.info("TP RE-ENTRY: cancelled (DMI no longer agrees)")
                 # Graceful shutdown: confirm flat to GUI, then exit loop
@@ -1102,14 +1107,16 @@ class LiveEngine:
                     logger.warning(f"DMI EXIT (1s): {r.pnl_ticks:+.1f}t @ {price:.2f} ({r.reason})")
                     await self._close_position(_exit_type)
                 elif r.action == 'TP_BANK':
-                    logger.info(f"DMI TP (1s): {r.reason} @ {price:.2f}")
-                    # Bank profit: close position, re-enter on fill
-                    self._pending_tp_reentry = {
-                        'direction': self._position.side if self._position else '',
-                        'price': price,
-                        'ts': self._last_ts,
-                    }
-                    await self._close_position('dmi_tp')
+                    if self._pending_physics_entry:
+                        logger.debug("TP_BANK skipped: _pending_physics_entry already set")
+                    else:
+                        logger.info(f"DMI TP (1s): {r.reason} @ {price:.2f}")
+                        self._pending_tp_reentry = {
+                            'direction': self._position.side if self._position else '',
+                            'price': price,
+                            'ts': self._last_ts,
+                        }
+                        await self._close_position('dmi_tp')
             elif self._physics_mode:
                 # Physics mode: SL/TP check at 1s resolution
                 if self._position:
@@ -1345,8 +1352,8 @@ class LiveEngine:
             }
             await self._close_position('physics_flip')
 
-        # SL/TP protection
-        if self._position_open and self._position:
+        # SL/TP protection (skip if DMI flipper already handled exit this bar)
+        if self._position_open and self._position and not self._closing_position:
             _tick = self._asset.tick_size
             if self._position.side == 'long':
                 _pnl_ticks = (price - self._position.entry_price) / _tick
