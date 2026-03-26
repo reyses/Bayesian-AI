@@ -606,6 +606,7 @@ class LiveEngine:
                     _pe = self._pending_physics_entry
                     self._pending_physics_entry = None
                     self._pending_tp_reentry = None  # clear competing deferred entry
+                    self._closing_position = False  # previous close confirmed, allow new entry
                     if self._shutting_down:
                         logger.info("PHYSICS FLIP: cancelled (shutting down)")
                     else:
@@ -621,6 +622,7 @@ class LiveEngine:
                     _tr = self._pending_tp_reentry
                     self._pending_tp_reentry = None
                     self._pending_physics_entry = None  # clear competing deferred entry
+                    self._closing_position = False  # previous close confirmed, allow new entry
                     if self._shutting_down:
                         logger.info("TP RE-ENTRY: cancelled (shutting down)")
                     elif self._dmi_flipper and self._dmi_flipper._in_trade:
@@ -1667,6 +1669,11 @@ class LiveEngine:
             self._order_send_ts = time.perf_counter()
             await self._client.send(msg)
             logger.info(f"LATENCY: exit order sent  (reason={reason})")
+        else:
+            # Exit order failed to build (already pending or already flat)
+            # Clear _closing_position to prevent permanent block
+            logger.warning(f"Exit order not sent (reason={reason}) -- clearing _closing_position")
+            self._closing_position = False
 
     async def _auto_tp_reentry(self, exited_side: str, price: float, ts: float):
         """Auto take-profit re-entry: close, bank profit, re-enter same side if belief agrees."""
