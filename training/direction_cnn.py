@@ -411,7 +411,7 @@ def train_model(feats, labels, mags, epochs=EPOCHS):
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             best_epoch = epoch + 1
-            _feat_tag = '22D' if USE_22D else '7D'
+            _feat_tag = f'{FEAT_MODE}D'
             _run_name = f'best_{_feat_tag}_lb{LOOKBACK}_ep{epoch+1}'
             torch.save({
                 'model_state': model.state_dict(),
@@ -422,6 +422,7 @@ def train_model(feats, labels, mags, epochs=EPOCHS):
                     'features': _feat_tag,
                     'n_feat': N_FEAT,
                     'lookback': LOOKBACK,
+                    'n_layers': N_LAYERS,
                     'epochs': epochs,
                 },
             }, os.path.join(CHECKPOINT_DIR, f'{_run_name}.pt'))
@@ -435,6 +436,7 @@ def train_model(feats, labels, mags, epochs=EPOCHS):
                     'features': _feat_tag,
                     'n_feat': N_FEAT,
                     'lookback': LOOKBACK,
+                    'n_layers': N_LAYERS,
                     'epochs': epochs,
                 },
             }, os.path.join(CHECKPOINT_DIR, 'best_model.pt'))
@@ -507,23 +509,25 @@ def train_rf(feats, labels, mags):
     for idx in top_idx:
         print(f"  {feat_names[idx]:<25} importance={importances[idx]:.4f}")
 
-    # Save
-    joblib.dump(rf, os.path.join(CHECKPOINT_DIR, 'rf_model.joblib'))
-    # Save as fake checkpoint for validate_oos compatibility
+    # Save RF to its own directory (don't overwrite CNN's best_model.pt)
+    RF_DIR = 'checkpoints/direction_rf'
+    os.makedirs(RF_DIR, exist_ok=True)
+    joblib.dump(rf, os.path.join(RF_DIR, 'rf_model.joblib'))
     torch.save({
         'epoch': 1, 'val_acc': val_acc, 'val_pnl': 0,
-        'config': {'features': '22D' if USE_22D else '7D', 'n_feat': N_FEAT,
+        'config': {'features': f'{FEAT_MODE}D', 'n_feat': N_FEAT,
                    'lookback': LOOKBACK, 'model': 'rf'},
-    }, os.path.join(CHECKPOINT_DIR, 'best_model.pt'))
+    }, os.path.join(RF_DIR, 'best_model_rf.pt'))
 
-    print(f"  Saved: {CHECKPOINT_DIR}/rf_model.joblib")
+    print(f"  Saved: {RF_DIR}/rf_model.joblib")
     return rf
 
 
 def validate_oos_rf():
     """Validate Random Forest on OOS."""
     import joblib
-    rf = joblib.load(os.path.join(CHECKPOINT_DIR, 'rf_model.joblib'))
+    RF_DIR = 'checkpoints/direction_rf'
+    rf = joblib.load(os.path.join(RF_DIR, 'rf_model.joblib'))
     print(f"Loaded RF model")
 
     feats, labels, mags, df = build_dataset(OOS_ROOT)
@@ -574,6 +578,13 @@ def validate_oos_rf():
             in_trade = True; trade_dir = new_dir; entry_price = price
             tp_count = 0; last_tp_price = 0
 
+    # Flush last trade
+    if in_trade:
+        _last_price = prices[min(len(prices) - 1, len(feats) - FORWARD - 1)]
+        _pnl = (_last_price - entry_price) / TICK if trade_dir == 'LONG' \
+            else (entry_price - _last_price) / TICK
+        trades.append({'pnl': _pnl + tp_count * TP, 'dir': trade_dir, 'tps': tp_count})
+
     total_pnl = sum(t['pnl'] for t in trades)
     n = len(trades)
     w = len([t for t in trades if t['pnl'] > 0])
@@ -607,12 +618,17 @@ def validate_oos_rf():
 def validate_oos(model_path=None):
     """Run trained model on OOS data, simulate trading."""
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = DirectionCNN(n_features=N_FEAT, lookback=LOOKBACK, n_layers=N_LAYERS).to(device)
     ckpt_path = model_path or os.path.join(CHECKPOINT_DIR, 'best_model.pt')
-    ckpt = torch.load(ckpt_path, map_location=device)
+    ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
+    _cfg = ckpt.get('config', {})
+    _n_feat = _cfg.get('n_feat', N_FEAT)
+    _n_layers = _cfg.get('n_layers', N_LAYERS)
+    _lookback = _cfg.get('lookback', LOOKBACK)
+    model = DirectionCNN(n_features=_n_feat, lookback=_lookback, n_layers=_n_layers).to(device)
     model.load_state_dict(ckpt['model_state'])
     model.eval()
-    print(f"Loaded model from epoch {ckpt['epoch']} (val_acc={ckpt['val_acc']:.1f}%)")
+    print(f"Loaded model from epoch {ckpt['epoch']} (val_acc={ckpt['val_acc']:.1f}% "
+          f"feat={_cfg.get('features','?')} lb={_lookback} layers={_n_layers})")
 
     feats, labels, mags, df = build_dataset(OOS_ROOT)
     prices = df['close'].values
@@ -679,6 +695,13 @@ def validate_oos(model_path=None):
             entry_price = price
             tp_count = 0
             last_tp_price = 0
+
+    # Flush last trade
+    if in_trade:
+        _last_price = prices[min(len(prices) - 1, len(feats) - FORWARD - 1)]
+        _pnl = (_last_price - entry_price) / TICK if trade_dir == 'LONG' \
+            else (entry_price - _last_price) / TICK
+        trades.append({'pnl': _pnl + tp_count * TP, 'dir': trade_dir, 'tps': tp_count})
 
     # Summary
     total_pnl = sum(t['pnl'] for t in trades)
