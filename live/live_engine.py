@@ -1065,8 +1065,7 @@ class LiveEngine:
         if self._position_open:
             if self._dmi_mode and self._dmi_flipper:
                 # DMI mode: SL + repeating TP at 1s resolution
-                _1s_vol = float(msg.get('volume', 0))
-                r = self._dmi_flipper.check_sl_1s(price, volume=_1s_vol)
+                r = self._dmi_flipper.check_sl_1s(price, volume=0.0)
                 if r.action == 'EXIT':
                     # Map reason to exit type for session report
                     _exit_type = 'dmi_sl'
