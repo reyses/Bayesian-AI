@@ -1065,10 +1065,19 @@ class LiveEngine:
         if self._position_open:
             if self._dmi_mode and self._dmi_flipper:
                 # DMI mode: SL + repeating TP at 1s resolution
-                r = self._dmi_flipper.check_sl_1s(price)
+                _1s_vol = float(msg.get('volume', 0))
+                r = self._dmi_flipper.check_sl_1s(price, volume=_1s_vol)
                 if r.action == 'EXIT':
-                    logger.warning(f"DMI SL (1s): {r.pnl_ticks:+.1f}t @ {price:.2f} ({r.reason})")
-                    await self._close_position('dmi_sl')
+                    # Map reason to exit type for session report
+                    _exit_type = 'dmi_sl'
+                    if 'reg_cross' in r.reason:
+                        _exit_type = 'reg_cross'
+                    elif 'vol_spike' in r.reason:
+                        _exit_type = 'vol_spike'
+                    elif 'dmi_invalid' in r.reason:
+                        _exit_type = 'dmi_invalid'
+                    logger.warning(f"DMI EXIT (1s): {r.pnl_ticks:+.1f}t @ {price:.2f} ({r.reason})")
+                    await self._close_position(_exit_type)
                 elif r.action == 'TP_BANK':
                     logger.info(f"DMI TP (1s): {r.reason} @ {price:.2f}")
                     # Bank profit: close position, re-enter on fill
