@@ -1382,13 +1382,15 @@ class LiveEngine:
                     f"consensus={result.consensus:.2f}  hold={getattr(result, 'hold_bars', 0)}  "
                     f"matched={getattr(result, 'n_matched', 0)}")
 
-        # Open position with SL protection (no TP — PhysicsEngine handles exits)
-        self._position = self._exit_engine.open_position(
+        # Open position with SL protection (no TP — PhysicsEngine/DMI handles exits)
+        _pos = self._exit_engine.open_position(
             side=side, entry_price=price, entry_bar_index=self._bar_i,
             template_id='PHYSICS',
             sl_ticks=self._physics_sl_ticks,
-            tp_ticks=0,  # no TP — funnel handles exits
+            tp_ticks=0,  # no TP — funnel/flipper handles exits
         )
+        self._position = _pos
+        self._pos_state = _pos  # Bug 7 fix: single PositionState for MFE tracking
         self._position_open = True
         self._entry_price = price
         self._entry_time = ts
@@ -1621,14 +1623,10 @@ class LiveEngine:
 
     def _init_exit_state(self, side: str, price: float, sl_ticks: float,
                          tp_ticks: float, template_id, lib_entry: dict = None):
-        """Create ExitEngine PositionState for a new trade."""
-        self._pos_state = self._exit_engine.open_position(
-            side=side, entry_price=price, entry_bar_index=self._bar_i,
-            template_id=template_id,
-            sl_ticks=sl_ticks, tp_ticks=tp_ticks,
-            max_hold_bars=self._max_hold_bars,
-            lib_entry=lib_entry,
-        )
+        """Sync _pos_state to _position (Bug 6 fix: single PositionState).
+        Callers must set self._position FIRST via open_position().
+        """
+        self._pos_state = self._position  # reuse, don't create a second one
 
     async def _close_position(self, reason: str):
         """Send close order and reset position state.
