@@ -37,6 +37,18 @@ class SessionTracker:
         self._cfg = config
         self._start_time = time.time()
 
+    def record_skip(self, price: float, direction: str, reason: str, prob: float = 0.0):
+        """Record a skipped trade (CNN veto, filter reject, etc.)."""
+        if not hasattr(self, 'skip_log'):
+            self.skip_log = []
+        self.skip_log.append({
+            'time': time.strftime('%H:%M:%S'),
+            'price': price,
+            'direction': direction,
+            'reason': reason,
+            'prob': prob,
+        })
+
     def record_trade(self, pnl: float, trade_info: dict):
         """Record a completed trade. Updates all stats atomically."""
         s = self.stats
@@ -239,6 +251,19 @@ class SessionTracker:
 
         L.append("")
         L.append("=" * 72)
+
+        # Skip log (CNN vetoes, filter rejects)
+        if hasattr(self, 'skip_log') and self.skip_log:
+            L.append("")
+            L.append("=" * 72)
+            L.append("SKIP LOG (vetoed entries)")
+            L.append("=" * 72)
+            L.append(f"    #  Time       Dir      Price       Reason                  Prob")
+            L.append("  " + "-" * 68)
+            for _si, sk in enumerate(self.skip_log, 1):
+                L.append(f"  {_si:>3}  {sk['time']:<10} {sk['direction']:<8} "
+                         f"{sk['price']:>10,.2f}  {sk['reason']:<24} {sk['prob']:.2f}")
+            L.append(f"  Total skips: {len(self.skip_log)}")
 
         with open(path, 'a', encoding='utf-8') as f:
             f.write('\n'.join(L) + '\n')

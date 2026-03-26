@@ -1342,6 +1342,12 @@ class LiveEngine:
                     _old = result.direction
                     from core.dmi_flipper import FlipperResult
                     logger.info(f"CNN VETO: DMI says {result.direction} but CNN says {_cnn_dir} — skipping")
+                    # Log to session for post-analysis
+                    self._session.record_skip(
+                        price=price, direction=_old, reason=f'CNN_VETO dmi={_old} cnn={_cnn_dir}',
+                        prob=self._last_cnn_prob)
+                    self._gui.push({'type': 'TRADE_MARKER', 'action': 'skip',
+                                    'side': _old.lower(), 'price': price})
                     result = FlipperResult(reason=f'CNN_VETO dmi={_old} cnn={_cnn_dir}')
                 elif _cnn_dir is not None:
                     logger.info(f"CNN CONFIRM: {result.direction} (prob={self._last_cnn_prob:.2f})")
