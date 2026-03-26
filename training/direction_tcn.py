@@ -322,6 +322,13 @@ def train_tcn(feats, labels, mags, epochs=EPOCHS):
             }, os.path.join(CHECKPOINT_DIR, 'best_model.pt'))
 
     print(f"\nBest: epoch {best_epoch} val_pnl=${best_val_pnl:,.0f}")
+
+    import gc
+    del train_dl, val_dl, train_ds, val_ds, dataset
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    gc.collect()
+
     return model
 
 

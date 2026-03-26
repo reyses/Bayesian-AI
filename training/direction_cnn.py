@@ -443,6 +443,14 @@ def train_model(feats, labels, mags, epochs=EPOCHS):
             }, os.path.join(CHECKPOINT_DIR, 'best_model.pt'))
 
     print(f"\nBest: epoch {best_epoch} val_acc={best_val_acc:.1f}%")
+
+    # Release GPU memory
+    import gc
+    del train_dl, val_dl, train_ds, val_ds, dataset
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    gc.collect()
+
     return model
 
 
@@ -716,6 +724,13 @@ def validate_oos(model_path=None):
     with open(RESULTS_LOG, 'a') as f:
         f.write(_line)
     print(f"  Logged: {RESULTS_LOG}")
+
+    # Release memory
+    import gc
+    del feats, labels, mags, df, trades
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    gc.collect()
 
 
 # --- MAIN ---
