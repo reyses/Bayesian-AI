@@ -386,10 +386,7 @@ def validate_oos():
                     tp_count += 1
                     last_tp_price = ref - TP * TICK
 
-        # Only trade when CONFIDENT
-        if pred_conf < 0.5:
-            continue
-
+        # Trade on direction (confidence logged but not gated — same as CNN)
         if prob_long > 0.6:
             new_dir = 'LONG'
         elif prob_long < 0.4:
@@ -435,8 +432,8 @@ def validate_oos():
              f"feat={FEAT_MODE}D | model=TCN | "
              f"lookback={LOOKBACK} | dilations={DILATION_DEPTH} | ch={CHANNELS} | "
              f"val_acc={ckpt.get('val_acc', 0):.1f}% | "
-             f"trades={n} | WR={w/n*100:.1f if n > 0 else 0}% | "
-             f"PnL=${total_pnl*0.5:,.0f} | $/day=${total_pnl*0.5/trading_days:.0f if trading_days > 0 else 0}\n")
+             f"trades={n} | WR={w/n*100 if n > 0 else 0:.1f}% | "
+             f"PnL=${total_pnl*0.5:,.0f} | $/day=${total_pnl*0.5/trading_days if trading_days > 0 else 0:.0f}\n")
     with open(RESULTS_LOG, 'a') as f:
         f.write(_line)
     print(f"  Logged: {RESULTS_LOG}")
