@@ -839,7 +839,7 @@ class LiveEngine:
                                 ]
                                 self._physics._traj_buffer.append(bar_feats)
                             logger.info(f"Physics trajectory pre-filled: {len(self._physics._traj_buffer)}/10 bars from history")
-                # Pre-fill CNN feature buffer from history (all 7 features)
+                # Pre-fill CNN feature buffer (30-bar SMA, matches training exactly)
                 if self._cnn_model is not None and hasattr(self, '_cnn_feat_buffer'):
                     import numpy as _np
                     _agg_states = self._aggregator.states
@@ -847,32 +847,49 @@ class LiveEngine:
                     _n_prefill = min(self._cnn_lookback + 20, len(_agg_states))
                     _start = max(0, len(_agg_states) - _n_prefill)
                     _prev_vel = 0.0
-                    _prev_price = 0.0
-                    _price_window = []
-                    _vol_avg = 1.0
+                    _price_buf = []
+                    _vol_buf = []
+
+                    # Pre-seed price/vol buffers from bars BEFORE prefill window
+                    _preseed_start = max(0, _start - 60)
+                    for _pi in range(_preseed_start, _start):
+                        if _pi < len(_agg_rows):
+                            _price_buf.append(_agg_rows[_pi].get('close', 0.0))
+                            _vol_buf.append(_agg_rows[_pi].get('volume', 0.0))
+                            if len(_price_buf) > 61:
+                                _price_buf = _price_buf[-61:]
+                            if len(_vol_buf) > 30:
+                                _vol_buf = _vol_buf[-30:]
 
                     for _si in range(_start, len(_agg_states)):
                         _st = _agg_states[_si]
                         _price = _agg_rows[_si]['close'] if _si < len(_agg_rows) else 0.0
+                        _vol = _agg_rows[_si].get('volume', 0.0) if _si < len(_agg_rows) else 0.0
                         _dmi_p = getattr(_st, 'dmi_plus', 0.0)
                         _dmi_m = getattr(_st, 'dmi_minus', 0.0)
                         _vel = getattr(_st, 'velocity', 0.0)
-                        _vol = abs(getattr(_st, 'volume_delta', 0.0))
-                        _vol_avg = _vol_avg * 0.95 + _vol * 0.05 if _vol_avg > 0 else _vol
+
+                        _vol_buf.append(_vol)
+                        if len(_vol_buf) > 30:
+                            _vol_buf = _vol_buf[-30:]
+                        _vol_avg = sum(_vol_buf) / len(_vol_buf)
+
+                        _price_buf.append(_price)
+                        if len(_price_buf) > 61:
+                            _price_buf = _price_buf[-61:]
 
                         _dir_vol = 0.0
-                        if _prev_price > 0 and _vol_avg > 0:
+                        if len(_price_buf) >= 2 and _vol_avg > 0:
+                            _prev_price = _price_buf[-2]
                             _dir = 1.0 if _price > _prev_price else -1.0
                             _dir_vol = _dir * _vol / _vol_avg
 
-                        _price_window.append(_price)
-                        if len(_price_window) > 60:
-                            _price_window = _price_window[-60:]
                         _z_se = 0.0
-                        if len(_price_window) >= 15:
-                            _mean = sum(_price_window) / len(_price_window)
-                            _std = float(_np.std(_price_window))
-                            _se = _std / (len(_price_window) ** 0.5)
+                        if len(_price_buf) >= 15:
+                            _window = _price_buf[-60:]
+                            _mean = sum(_window) / len(_window)
+                            _std = float(_np.std(_window))
+                            _se = _std / (len(_window) ** 0.5)
                             _z_se = (_price - _mean) / _se if _se > 1e-8 else 0.0
 
                         _accel = _vel - _prev_vel if _si > _start else 0.0
@@ -888,11 +905,14 @@ class LiveEngine:
                         ]
                         self._cnn_feat_buffer.append(_feats)
                         _prev_vel = _vel
-                        _prev_price = _price
 
+                    # Seed live buffers for seamless handoff to _cnn_predict
                     self._prev_velocity = _prev_vel
-                    logger.info(f"CNN feature buffer pre-filled: "
-                                f"{len(self._cnn_feat_buffer)}/{self._cnn_lookback} bars (full features)")
+                    self._cnn_vol_buffer = _vol_buf
+                    self._cnn_price_buffer = _price_buf
+                    logger.info(f"CNN pre-fill: {len(self._cnn_feat_buffer)}/{self._cnn_lookback} bars "
+                                f"(30-bar SMA, vol_buf={len(self._cnn_vol_buffer)}, "
+                                f"price_buf={len(self._cnn_price_buffer)})")
 
                 self._system_ready = True
                 logger.info("SYSTEM READY -- trading enabled")
@@ -2501,6 +2521,8 @@ class LiveEngine:
             self._cnn_device = _device
             self._cnn_lookback = _lookback
             self._cnn_feat_buffer = []  # rolling buffer of grounded features
+            self._cnn_vol_buffer = []    # 30-bar volume SMA buffer (matches training)
+            self._cnn_price_buffer = []  # 60-bar price buffer for z_se + dir_vol
             logger.info(f"CNN direction model loaded: epoch={_ckpt['epoch']} "
                         f"val_acc={_ckpt.get('val_acc', 0):.1f}% "
                         f"feat={_cfg.get('features', '7D')} lb={_lookback}")
@@ -2508,64 +2530,70 @@ class LiveEngine:
             logger.warning(f"CNN model not loaded: {e}")
 
     def _cnn_predict(self, price: float, state) -> str:
-        """Run CNN direction prediction. Returns 'LONG', 'SHORT', or None if uncertain."""
+        """Run CNN direction prediction. Returns 'LONG', 'SHORT', or None.
+        Features computed to match training exactly (30-bar SMA, aggregator bars).
+        """
         if self._cnn_model is None:
             return None
 
         import torch
         import numpy as np
 
-        # Extract 7D grounded features for this bar
         dmi_p = getattr(state, 'dmi_plus', 0.0)
         dmi_m = getattr(state, 'dmi_minus', 0.0)
         vel = getattr(state, 'velocity', 0.0)
 
-        # Volume from flipper's rolling data
-        _vol = abs(getattr(state, 'volume_delta', 0.0))
-        _vol_avg = self._dmi_flipper._avg_volume if self._dmi_flipper else 1.0
+        # Volume: use aggregator bars, 30-bar SMA (matches training)
+        _rows = self._aggregator._rows
+        _vol = _rows[-1].get('volume', 0.0) if _rows else abs(getattr(state, 'volume_delta', 0.0))
 
-        feats = [
-            dmi_p - dmi_m,                                    # dmi_diff
-            abs(dmi_p - dmi_m),                               # dmi_gap
-            _vol / _vol_avg if _vol_avg > 0 else 1.0,        # vol_rel
-            0.0,                                               # dir_vol (need prev price)
-            vel,                                               # velocity
-            0.0,                                               # z_se (computed below)
-            0.0,                                               # price_accel (computed below)
-        ]
+        self._cnn_vol_buffer.append(_vol)
+        if len(self._cnn_vol_buffer) > 30:
+            self._cnn_vol_buffer = self._cnn_vol_buffer[-30:]
+        _vol_avg = sum(self._cnn_vol_buffer) / len(self._cnn_vol_buffer)
 
-        # dir_vol: use flipper's price history
-        if hasattr(self._dmi_flipper, '_price_hist') and len(self._dmi_flipper._price_hist) >= 2:
-            _prev = self._dmi_flipper._price_hist[-2]
-            _dir = 1.0 if price > _prev else -1.0
-            feats[3] = _dir * _vol / _vol_avg if _vol_avg > 0 else 0.0
+        # Price buffer for dir_vol + z_se (matches training)
+        self._cnn_price_buffer.append(price)
+        if len(self._cnn_price_buffer) > 61:
+            self._cnn_price_buffer = self._cnn_price_buffer[-61:]
 
-        # z_se: from flipper's price history
-        if hasattr(self._dmi_flipper, '_price_hist') and len(self._dmi_flipper._price_hist) >= 15:
-            _prices = list(self._dmi_flipper._price_hist)
-            _window = _prices[-60:] if len(_prices) >= 60 else _prices
+        # dir_vol: directional volume
+        _dir_vol = 0.0
+        if len(self._cnn_price_buffer) >= 2 and _vol_avg > 0:
+            _prev_price = self._cnn_price_buffer[-2]
+            _dir = 1.0 if price > _prev_price else -1.0
+            _dir_vol = _dir * _vol / _vol_avg
+
+        # z_se: z-score with standard error
+        _z_se = 0.0
+        if len(self._cnn_price_buffer) >= 15:
+            _window = self._cnn_price_buffer[-60:]
             _mean = sum(_window) / len(_window)
             _std = float(np.std(_window))
             _se = _std / (len(_window) ** 0.5) if len(_window) > 1 else _std
-            feats[5] = (price - _mean) / _se if _se > 1e-8 else 0.0
+            _z_se = (price - _mean) / _se if _se > 1e-8 else 0.0
 
-        # price_accel: need previous velocity
-        if hasattr(self, '_prev_velocity'):
-            feats[6] = vel - self._prev_velocity
+        # price_accel
+        _accel = vel - self._prev_velocity if hasattr(self, '_prev_velocity') else 0.0
         self._prev_velocity = vel
 
-        # Add to rolling buffer
-        if not hasattr(self, '_cnn_feat_buffer'):
-            self._cnn_feat_buffer = []
+        feats = [
+            dmi_p - dmi_m,                                # [0] dmi_diff
+            abs(dmi_p - dmi_m),                           # [1] dmi_gap
+            _vol / _vol_avg if _vol_avg > 0 else 1.0,    # [2] vol_rel (30-bar SMA)
+            _dir_vol,                                      # [3] dir_vol (30-bar SMA)
+            vel,                                           # [4] velocity
+            _z_se,                                         # [5] z_se
+            _accel,                                        # [6] price_accel
+        ]
+
         self._cnn_feat_buffer.append(feats)
         if len(self._cnn_feat_buffer) > self._cnn_lookback:
             self._cnn_feat_buffer = self._cnn_feat_buffer[-self._cnn_lookback:]
 
-        # Need full lookback
         if len(self._cnn_feat_buffer) < self._cnn_lookback:
             return None
 
-        # Predict
         x = np.array(self._cnn_feat_buffer[-self._cnn_lookback:])
         x_t = torch.FloatTensor(x).unsqueeze(0).to(self._cnn_device)
         with torch.no_grad():
@@ -2577,7 +2605,7 @@ class LiveEngine:
             return 'LONG'
         elif prob_long < 0.4:
             return 'SHORT'
-        return None  # uncertain — don't veto
+        return None
 
     def _checkpoint_bundle(self):
         """Build a CheckpointBundle from already-loaded instance attrs."""
