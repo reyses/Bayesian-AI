@@ -485,7 +485,8 @@ class LiveEngine:
                                 if self._dmi_flipper:
                                     self._dmi_flipper._in_trade = False
                                 await self._close_position('physics_tp')
-                    else:
+                    elif not self._dmi_mode:
+                        # AdvanceEngine path (not physics, not DMI)
                         try:
                             _st = self._last_states[-1]['state'] if self._last_states else None
                             if _st is not None:
