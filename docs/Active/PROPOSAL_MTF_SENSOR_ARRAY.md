@@ -34,21 +34,34 @@ as additional features per 1m bar. The CNN sees everything in one snapshot.
 2D context:     vwap_distance, time_of_day
 ```
 
-### Proposed Addition: 12D Multi-TF (4 features × 3 timeframes)
+### Proposed Addition: 16D Multi-TF (4 features × 4 timeframes)
 
-| Feature | 5m | 15m | 1h | Question |
-|---------|-----|------|-----|----------|
-| dmi_diff | 5m_dmi_diff | 15m_dmi_diff | 1h_dmi_diff | Who's winning at this scale? |
-| z_se | 5m_z_se | 15m_z_se | 1h_z_se | Where in the range at this scale? |
-| velocity | 5m_velocity | 15m_velocity | 1h_velocity | How fast at this scale? |
-| vol_rel | 5m_vol_rel | 15m_vol_rel | 1h_vol_rel | How much participation at this scale? |
+| Feature | 1s (pulse) | 5m | 15m | 1h | Question |
+|---------|-----------|-----|------|-----|----------|
+| dmi_diff | 1s_dmi_diff | 5m_dmi_diff | 15m_dmi_diff | 1h_dmi_diff | Who's winning at this scale? |
+| z_se | 1s_z_se | 5m_z_se | 15m_z_se | 1h_z_se | Where in the range at this scale? |
+| velocity | 1s_velocity | 5m_velocity | 15m_velocity | 1h_velocity | How fast at this scale? |
+| vol_rel | 1s_vol_rel | 5m_vol_rel | 15m_vol_rel | 1h_vol_rel | How much participation at this scale? |
 
-### Total: 25D (13D base + 12D multi-TF)
+### Total: 29D (13D base + 16D multi-TF)
 
-### Why These 3 TFs
+### Why These 4 TFs
+- **1s**: the pulse — noise floor, real-time momentum, what's happening NOW inside the 1m bar.
+  std(dP, 1s) = the irreducible noise. 1s velocity = the live feed of the bar under construction.
+  "Everyone else waits for the 1m close. We see the 1s flow 30 seconds early."
 - **5m**: captures the swing structure (5-10 bar swings at 1m = 1-2 bars at 5m)
 - **15m**: intermediate trend (session-level direction)
 - **1h**: structural walls (daily high/low, support/resistance zones)
+
+### Why 1s is Special
+1s is NOT aggregated from lower TFs — it IS the atomic unit. The 1m bar is built FROM
+60 × 1s bars. By including 1s features, the model sees the bar UNDER CONSTRUCTION:
+- 1s velocity spiking → the 1m bar will close with momentum
+- 1s volume surging → institutional participation happening NOW
+- 1s dmi_diff flipping → the micro-reversal is starting before the 1m bar closes
+
+This is the "bottom-up timing" from the research: 1h defines WHERE (structure),
+1m defines WHAT (pattern), 1s defines WHEN (timing).
 
 ### Why These 4 Features Per TF
 From the grounded feature research (March 25-26):
@@ -93,9 +106,9 @@ For each 1m bar, binary search the higher-TF arrays to find the last
 completed bar before the 1m timestamp.
 
 ### Model Change
-- Input: (batch, lookback=10, 25) instead of (batch, lookback=10, 13)
+- Input: (batch, lookback=10, 29) instead of (batch, lookback=10, 13)
 - Architecture unchanged (Conv1d adapts to input width)
-- Parameters increase: ~25K (from ~16K) — still well within safe range for 464K samples
+- Parameters increase: ~28K (from ~16K) — still well within safe range for 464K samples
 
 ### Label Change
 - Labels stay 7D × N_HORIZONS (predict 1m features at t+h)
@@ -148,17 +161,17 @@ With multi-TF context, fewer but higher-quality entries → same or better PnL.
 
 1. Build 25D extractor, cache features
 2. Train on IS with walk-forward (same as current)
-3. Compare OOS: 13D vs 25D
+3. Compare OOS: 13D vs 29D
 4. Check: did direction accuracy improve? Did trade count decrease?
 5. Check: feature importance — which TF features matter most?
-6. If 25D beats 13D → ship to live
+6. If 29D beats 13D → ship to live
 
 ---
 
 ## What NOT to Do
 
 - Do NOT build separate TF workers or TBN consensus voting
-- Do NOT add 1s features (too noisy for 1m model, different resolution)
+- 1s IS included — it's the pulse, not noise. Aggregated to last-completed-second.
 - Do NOT add all 14 TFs (3 higher TFs is enough, diminishing returns)
 - Do NOT use partial/forming bars from higher TFs (lookahead risk)
 - Do NOT change the label structure (still predict 1m features)
@@ -170,7 +183,7 @@ With multi-TF context, fewer but higher-quality entries → same or better PnL.
 
 ```
 TradeCNN 13D (current):  $1,609/day OOS, 271 trades/day, 24% WR
-TradeCNN 25D (proposed): target $2,000+/day with fewer trades
+TradeCNN 29D (proposed): target $2,000+/day with fewer, better trades
 ```
 
 ---
@@ -180,7 +193,22 @@ TradeCNN 25D (proposed): target $2,000+/day with fewer trades
 | File | Change |
 |------|--------|
 | `training/train_trade_cnn.py` | Add `extract_features_25d()`, update `build_dataset()` |
-| `core/trade_cnn.py` | Update `StatePredictor(n_features=25)` |
+| `core/trade_cnn.py` | Update `StatePredictor(n_features=29)` |
 | `live/live_engine.py` | Add higher-TF state lookup in `_trade_cnn_predict()` |
 
 No new files. No architectural changes. Just wider input.
+
+---
+
+## Prior Research (read before reviewing)
+
+| Doc | Location | Key Finding |
+|-----|----------|-------------|
+| RESEARCH_MTF_POSITION.md | docs/Active/ | 1m trade PnL depends on position in 1h structure. A 1m LONG at 90% of 1h SHORT has nowhere to go. |
+| research_telescoping_tf.md | memory/ | Telescoping scope: 1h for structure, 1m for setup, 1s for timing. 192D context carries macro info. |
+| project_physics_price_aware.md | memory/ | PhysicsEngine is NOT price-aware. Missing: where in range, liquidity clusters, higher-TF z-score. |
+| research_tcn_v5.md | memory/ | TCN with multi-TF as spatial dimension — convolve ACROSS TF hierarchy. |
+| RATIONALE_TCN_GROUNDED.md | docs/Active/ | Grounded features work. 7D beats 192D because regime drift kills ungrounded features. |
+| feedback_base_measurements.md | memory/ | Base measurements: Price, Time, Volume. All features must trace back in ≤3 layers. |
+
+**Key insight from telescoping research:** "10 bars at 15s = 2.5 min (too short). 10 bars at 1m = 10 min (meaningful)." The 1s features are NOT 10-bar lookback — they're a SINGLE snapshot of the current moment. The 1s pulse answers "what is happening RIGHT NOW inside this forming 1m bar?"
