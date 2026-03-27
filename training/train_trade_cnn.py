@@ -733,7 +733,7 @@ def oos_single_pass():
 
             # SL check (breakeven-aware)
             if _pnl_from_low <= -_effective_sl:
-                _exit_pnl = -_effective_sl if _effective_sl > 0 else _pnl_from_low
+                _exit_pnl = -_effective_sl  # SL = -40, BE = 0
                 _exit_type = 'BE' if _be_active else 'SL'
                 trades.append({'bar': i, 'pnl': _exit_pnl, 'dir': trade_dir,
                                'held': i - entry_bar, 'exit': _exit_type, 'peak': _peak_pnl})
