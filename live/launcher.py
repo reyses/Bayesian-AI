@@ -158,6 +158,10 @@ def main():
                         help='Use TradeCNN StatePredictor ($1342/day OOS)')
     parser.add_argument('--trade-cnn-model', default=None,
                         help='Path to TradeCNN checkpoint (default: auto-find latest)')
+    parser.add_argument('--cnn3', action='store_true',
+                        help='Use three-layer CNN (L1 direction + L2 duration + L3 retreat)')
+    parser.add_argument('--playback', action='store_true',
+                        help='Playback mode: fresh start, no delta sync, accepts Playback101')
     parser.add_argument('--seed-path', default=None,
                         help='Path to enriched seed JSON for PhysicsEngine')
     parser.add_argument('--yolo', action='store_true',
@@ -213,6 +217,33 @@ def main():
         print(f"[trade-cnn] Model: {args.trade_cnn_model}")
         print(f"[trade-cnn] Anchor: 1m | Trail after $5 | SL=40t")
 
+    # Playback mode: fresh start for NT8 historical replay
+    if args.playback:
+        import shutil
+        _bar_cache = 'checkpoints/live/bars_MNQ_60s.parquet'
+        _bar_backup = 'checkpoints/live/bars_MNQ_60s_real.parquet'
+        if os.path.exists(_bar_cache):
+            shutil.move(_bar_cache, _bar_backup)
+            print(f"[playback] Moved bar cache aside: {_bar_backup}")
+        print(f"[playback] Fresh start — no delta sync, accepting Playback101")
+        print(f"[playback] Bar cache will rebuild from playback data")
+
+    # CNN3 mode: three-layer CNN (L1+L2+L3), 1m anchor
+    if args.cnn3:
+        args.anchor_tf = '1m'
+        args.dmi = True  # reuse 1m bar routing
+        _ckpt_dir = 'checkpoints/trade_cnn_10'
+        _l1 = os.path.join(_ckpt_dir, 'best_model.pt')
+        _l2 = os.path.join(_ckpt_dir, '29d', 'l2_model.pt')
+        _l3 = os.path.join(_ckpt_dir, '29d', 'l3_model.pt')
+        for _p, _name in [(_l1, 'L1'), (_l2, 'L2'), (_l3, 'L3')]:
+            if not os.path.exists(_p):
+                print(f"ERROR: --cnn3 requires {_name} model at {_p}")
+                sys.exit(1)
+        print(f"[cnn3] Engine: Three-Layer CNN (L1+L2+L3)")
+        print(f"[cnn3] Checkpoint: {_ckpt_dir}")
+        print(f"[cnn3] Anchor: 1m | L3 retreat + SL=40t backstop")
+
     # YOLO mode: override warmup + aggression
     if args.yolo:
         args.warmup_bars = 20   # ~5 minutes of 15s bars
@@ -261,6 +292,8 @@ def main():
         'trade_cnn_mode': getattr(args, 'trade_cnn', False),
         'trade_cnn_model': getattr(args, 'trade_cnn_model', None),
         'seed_path': getattr(args, 'seed_path', None),
+        'cnn3_mode': getattr(args, 'cnn3', False),
+        'playback_mode': getattr(args, 'playback', False),
     }
 
     # Launch GUI popup (unless --no-gui)

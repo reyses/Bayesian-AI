@@ -135,6 +135,10 @@ class NT8Client:
             logger.warning(f"Cannot send  -- not connected: {msg.get('type')}")
             return
         try:
+            _mtype = msg.get('type', '?')
+            _side = msg.get('side', msg.get('action', ''))
+            _price = msg.get('price', '')
+            logger.info(f"NT8 >> SEND: type={_mtype} side={_side} price={_price}")
             self._writer.write(encode(msg))
             await self._writer.drain()
         except (ConnectionResetError, BrokenPipeError, OSError) as e:
