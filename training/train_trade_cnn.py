@@ -714,15 +714,24 @@ def oos_single_pass():
                 break
 
         if in_trade:
-            # Update peak
-            if trade_dir == 'LONG':
-                peak_price = max(peak_price, high)
-                _pnl = (price - entry_price) / TICK
-                _pnl_from_low = (low - entry_price) / TICK
+            # Use PREVIOUS bar's high/low for SL/trail checks (no same-bar lookahead)
+            # Peak updates from previous bar too — can't know current bar's extreme
+            # until it closes, but SL fires intra-bar at 1s in live
+            if i > entry_bar:
+                _prev_high = highs[i - 1]
+                _prev_low = lows[i - 1]
             else:
-                peak_price = min(peak_price, low) if peak_price > 0 else low
+                _prev_high = high
+                _prev_low = low
+
+            if trade_dir == 'LONG':
+                peak_price = max(peak_price, _prev_high)
+                _pnl = (price - entry_price) / TICK
+                _pnl_from_low = (_prev_low - entry_price) / TICK
+            else:
+                peak_price = min(peak_price, _prev_low) if peak_price > 0 else _prev_low
                 _pnl = (entry_price - price) / TICK
-                _pnl_from_low = (entry_price - high) / TICK
+                _pnl_from_low = (entry_price - _prev_high) / TICK
 
             _peak_pnl = (peak_price - entry_price) / TICK if trade_dir == 'LONG' \
                 else (entry_price - peak_price) / TICK
@@ -731,9 +740,17 @@ def oos_single_pass():
             _be_active = _peak_pnl >= BE_ACT
             _effective_sl = 0 if _be_active else SL  # 0 = breakeven, SL = full
 
-            # SL check (breakeven-aware)
+            # SL check (breakeven-aware) — exit at 2s fill delay price
             if _pnl_from_low <= -_effective_sl:
-                _exit_pnl = -_effective_sl  # SL = -40, BE = 0
+                # Exit slippage: price 2s after SL trigger (worse than trigger)
+                _sl_fill = _get_fill_price(timestamps[i - 1]) if i > entry_bar else None
+                if _effective_sl > 0:
+                    _exit_pnl = -_effective_sl  # SL capped at -40
+                else:
+                    # BE: exit at fill price, might be slightly negative due to slippage
+                    _exit_pnl = 0 if _sl_fill is None else \
+                        ((_sl_fill - entry_price) / TICK if trade_dir == 'LONG' else \
+                         (entry_price - _sl_fill) / TICK)
                 _exit_type = 'BE' if _be_active else 'SL'
                 trades.append({'bar': i, 'pnl': _exit_pnl, 'dir': trade_dir,
                                'held': i - entry_bar, 'exit': _exit_type, 'peak': _peak_pnl})
@@ -751,12 +768,15 @@ def oos_single_pass():
             if not trail_active and _peak_pnl >= TRAIL_ACT:
                 trail_active = True
 
-            # Trail check
+            # Trail check (uses previous bar's low/high)
             if trail_active:
                 if trade_dir == 'LONG':
                     _trail_level = peak_price - TRAIL_DIST * TICK
-                    if low <= _trail_level:
-                        _exit_pnl = max(0, (_trail_level - entry_price) / TICK)
+                    if _prev_low <= _trail_level:
+                        # Exit at trail level minus 2s slippage
+                        _trail_fill = _get_fill_price(timestamps[i - 1]) if i > entry_bar else None
+                        _exit_price = _trail_fill if _trail_fill else _trail_level
+                        _exit_pnl = max(0, (_exit_price - entry_price) / TICK)
                         trades.append({'bar': i, 'pnl': _exit_pnl, 'dir': trade_dir,
                                        'held': i - entry_bar, 'exit': 'TRAIL', 'peak': _peak_pnl})
                         trade_log.append({
@@ -770,8 +790,10 @@ def oos_single_pass():
                         continue
                 else:
                     _trail_level = peak_price + TRAIL_DIST * TICK
-                    if high >= _trail_level:
-                        _exit_pnl = max(0, (entry_price - _trail_level) / TICK)
+                    if _prev_high >= _trail_level:
+                        _trail_fill = _get_fill_price(timestamps[i - 1]) if i > entry_bar else None
+                        _exit_price = _trail_fill if _trail_fill else _trail_level
+                        _exit_pnl = max(0, (entry_price - _exit_price) / TICK)
                         trades.append({'bar': i, 'pnl': _exit_pnl, 'dir': trade_dir,
                                        'held': i - entry_bar, 'exit': 'TRAIL', 'peak': _peak_pnl})
                         trade_log.append({
