@@ -700,7 +700,7 @@ def validate_pipeline(feats, labels, df):
 def main():
     parser = argparse.ArgumentParser(description='TradeCNN training pipeline')
     parser.add_argument('--phase', default='labels', choices=[
-        'labels', 'labels29', 'train', 'train29', 'all', 'oos', 'oos29', 'layer2', 'layer3'])
+        'labels', 'labels29', 'train', 'train29', 'all', 'oos', 'oos29', 'layer2', 'layer3', 'oos3'])
     parser.add_argument('--model', default='A', choices=['A'])
     parser.add_argument('--max-bars', type=int, default=0)
     parser.add_argument('--horizons', default='fast', choices=['fast', 'hold', '10'],
@@ -849,6 +849,9 @@ def main():
 
     if args.phase in ('layer2', 'layer3'):
         run_layer2_pipeline(IS_ROOT, OOS_ROOT)
+
+    if args.phase == 'oos3':
+        run_oos3(IS_ROOT, OOS_ROOT)
 
 
 def walk_forward_train(feats, labels, df, args, n_features=None):
@@ -1746,7 +1749,7 @@ def simulate_two_layer_oos(feats, df, l1_model, l2_model, device, data_root, l3_
         idx = np.searchsorted(_1s_ts, ts + 2)
         return float(_1s_close[idx]) if idx < len(_1s_close) else None
 
-    HARD_SL = 200  # circuit breaker only — L3 handles all real exits via physics
+    HARD_SL = 40  # non-negotiable backstop — L3 exits early, this catches what L3 misses
     CONF_THRESHOLD = 3.0
     n_h = len(HORIZONS)
 
@@ -2257,6 +2260,64 @@ def run_layer2_pipeline(data_root_is, data_root_oos):
     print(f"IS data: {feats_is.shape}")
     trades = simulate_two_layer_oos(
         feats_is, df_is, l1_model, l2_model, device, data_root_is, l3_model=l3_model)
+
+    return trades
+
+
+def run_oos3(data_root_is, data_root_oos):
+    """Load trained L1+L2+L3 from checkpoints, run three-layer sim on OOS."""
+    from core.trade_cnn import StatePredictor
+    from core.trade_selector import DurationPredictor
+    from core.trade_retreat import RetreatPredictor
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    cache_29d = os.path.join(CHECKPOINT_DIR, '29d')
+
+    # Load L1
+    ckpt = torch.load(os.path.join(CHECKPOINT_DIR, 'best_model.pt'),
+                       map_location=device, weights_only=False)
+    l1_model = StatePredictor(n_features=N_FEAT_29D, latent_dim=64, n_labels=N_LABELS).to(device)
+    l1_model.load_state_dict(ckpt['model_state'])
+    l1_model.eval()
+    print(f"L1 loaded from day {ckpt.get('day', '?')}")
+
+    # Load L2
+    l2_ckpt = torch.load(os.path.join(cache_29d, 'l2_model.pt'),
+                          map_location=device, weights_only=False)
+    l2_model = DurationPredictor(input_dim=l2_ckpt['input_dim']).to(device)
+    l2_model.load_state_dict(l2_ckpt['model_state'])
+    l2_model.eval()
+    print("L2 loaded")
+
+    # Load L3
+    l3_ckpt = torch.load(os.path.join(cache_29d, 'l3_model.pt'),
+                          map_location=device, weights_only=False)
+    l3_model = RetreatPredictor(input_dim=l3_ckpt['input_dim']).to(device)
+    l3_model.load_state_dict(l3_ckpt['model_state'])
+    l3_model.eval()
+    print("L3 loaded")
+
+    # Build or load OOS 29D features
+    oos_cache = os.path.join(cache_29d, 'oos_cache')
+    _oos_feat_path = os.path.join(oos_cache, 'is_features_29d_raw.npy')
+    if os.path.exists(_oos_feat_path):
+        print("Loading cached OOS 29D features...")
+        feats_oos = np.load(_oos_feat_path)
+        files_oos = sorted(glob.glob(os.path.join(data_root_oos, '1m', '*.parquet')))
+        df_oos = pd.concat([pd.read_parquet(f) for f in files_oos], ignore_index=True)
+        df_oos = df_oos.sort_values('timestamp').reset_index(drop=True)
+    else:
+        print("Building OOS 29D features...")
+        feats_13d_oos, _, states_oos, df_oos = build_dataset(data_root_oos)
+        del states_oos
+        _, feats_oos = build_29d_pipeline(data_root_oos, oos_cache, feats_13d_oos, df_oos)
+        del feats_13d_oos
+        gc.collect()
+
+    print(f"OOS data: {feats_oos.shape}, {len(df_oos):,} bars")
+
+    trades = simulate_two_layer_oos(
+        feats_oos, df_oos, l1_model, l2_model, device, data_root_oos, l3_model=l3_model)
 
     return trades
 

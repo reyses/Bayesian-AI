@@ -24,6 +24,7 @@
 - **Track time**: Periodically check the clock during long sessions. Flag when it's late.
 - **Commit flow**: code first (commit+push), then reports/CSVs separately (commit+push)
 - **Base measurements grounded**: See `memory/feedback_base_measurements.md`
+- **Checkpoint every step**: All multi-step pipelines must save to disk after each step. See `memory/feedback_checkpoint_every_step.md`
 
 ## **CURRENT PRIORITIES (2026-03-27)**
 - **MTF Two-Layer Counter-Proposal APPROVED**: See `memory/project_mtf_counter_proposal.md`

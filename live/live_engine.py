@@ -222,6 +222,7 @@ class LiveEngine:
         # Physics engine mode (K-NN trajectory matching, replaces AdvanceEngine)
         self._physics_mode = self._shared_state.get('physics_mode', False)
         self._dmi_mode = self._shared_state.get('dmi_mode', False)
+        self._cnn3 = None  # initialized in _init_dmi_flipper if --cnn3
         if self._dmi_mode:
             self._physics_mode = True  # reuse physics routing (1m anchor, same bar flow)
         self._physics: Optional[PhysicsEngine] = None
@@ -283,7 +284,11 @@ class LiveEngine:
         # ── Connect to NT8 ────────────────────────────────────────────────
         # Brain warm from training (live_brain.pkl).
         # TBN warmed from NT8's 10k bar history dump (in HISTORY_DONE handler).
-        last_ts = self._aggregator.load_from_parquet()
+        if self._shared_state.get('playback_mode'):
+            logger.info("Playback mode: skipping bar cache load, fresh start")
+            last_ts = 0
+        else:
+            last_ts = self._aggregator.load_from_parquet()
         if last_ts > 0:
             self._client.set_resume_timestamp(last_ts)
             logger.info(f"Delta sync enabled: will request bars after ts={last_ts:.0f}")
@@ -567,6 +572,10 @@ class LiveEngine:
             elif mtype == 'PARTIAL_BAR':
                 self._on_partial_bar(msg)
             elif mtype == 'FILL':
+                _fp = msg.get('fill_price', '?')
+                _side = msg.get('side', msg.get('action', '?'))
+                _qty = msg.get('quantity', msg.get('qty', '?'))
+                logger.info(f"NT8 FILL: side={_side} price={_fp} qty={_qty}")
                 if self._order_send_ts:
                     _rt_ms = (time.perf_counter() - self._order_send_ts) * 1000
                     logger.info(f"LATENCY: fill_rtt={_rt_ms:.1f}ms  (order sent->fill)")
@@ -601,6 +610,9 @@ class LiveEngine:
                         if self._position:
                             self._position.entry_price = _fill_px
                         logger.info(f"FILL entry: {self._dmi_flipper._trade_dir} @ {_fill_px}")
+                    # Sync CNN3 entry price to actual fill
+                    if self._cnn3 is not None and _fill_px > 0:
+                        self._cnn3.on_fill(_fill_px, self._active_side)
                 # Fire deferred manual entry now that position is flat
                 if self._pending_manual_entry and self._orders.is_flat:
                     _pm = self._pending_manual_entry
@@ -666,6 +678,9 @@ class LiveEngine:
                     self._prepare_shutdown()
                     break  # exit main loop -> finally: disconnect -> confirmed
             elif mtype == 'ORDER_STATUS':
+                _os_state = msg.get('state', msg.get('status', '?'))
+                _os_name = msg.get('name', msg.get('order_id', '?'))
+                logger.info(f"NT8 << ORDER_STATUS: {_os_name} state={_os_state}")
                 self._orders.on_order_status(msg)
                 # Retry close if exit was rejected (position still open in NT8)
                 if self._orders.exit_rejected:
@@ -675,6 +690,10 @@ class LiveEngine:
                     await self._client.send(
                         close_position(self._cfg.instrument, self._cfg.account))
             elif mtype == 'POSITION':
+                _pos_qty = msg.get('quantity', msg.get('qty', '?'))
+                _pos_side = msg.get('side', msg.get('market_position', '?'))
+                _pos_avg = msg.get('avg_price', msg.get('average_price', '?'))
+                logger.info(f"NT8 << POSITION: side={_pos_side} qty={_pos_qty} avg={_pos_avg}")
                 self._orders.on_position(msg)
                 self._sync_position_state()
                 # Auto-flatten leftover position from previous session
@@ -693,7 +712,7 @@ class LiveEngine:
                             f"instrument={bridge_inst}  bridge={bridge_ver}  "
                             f"primary={self._primary_period}s")
                 # SAFETY LOCK: refuse to trade on non-sim accounts
-                _ALLOWED_SIM_ACCOUNTS = {'Sim101', 'DEMO6872628', 'Sim102'}
+                _ALLOWED_SIM_ACCOUNTS = {'Sim101', 'DEMO6872628', 'Sim102', 'Playback101'}
                 if _account and _account not in _ALLOWED_SIM_ACCOUNTS:
                     logger.error(f"SAFETY LOCK: account '{_account}' is NOT a sim account!")
                     logger.error(f"Allowed accounts: {_ALLOWED_SIM_ACCOUNTS}")
@@ -1127,6 +1146,10 @@ class LiveEngine:
 
     async def _process_1s(self, price: float, ts: float):
         """Sub-second processing: GUI tick, staleness check, exit checks."""
+        # Feed 1s bar to CNN3 MTF buffer
+        if self._cnn3 is not None:
+            self._cnn3.on_1s_bar(price, 0, ts)  # volume not available at 1s tick
+
         # Compute unrealized PnL locally for instant GUI update
         _unreal = 0.0
         if self._position_open and self._position:
@@ -1326,13 +1349,63 @@ class LiveEngine:
         self._exit_watcher.tick(price)
 
     async def _process_1m_physics(self, price: float, ts: float, states: list):
-        """Per-1m-bar processing: PhysicsEngine or DMI flipper."""
+        """Per-1m-bar processing: CNN3Layer, PhysicsEngine, or DMI flipper."""
         state = states[-1]['state'] if states else None
         if state is None:
             return
 
         bar_high = getattr(self, '_last_bar_high', price)
         bar_low = getattr(self, '_last_bar_low', price)
+        _vol = getattr(self._aggregator, '_rows', [{}])
+        _last_vol = _vol[-1].get('volume', 0) if _vol else 0
+
+        # --- CNN3 MODE: three-layer CNN handles everything ---
+        if self._cnn3 is not None:
+            # Feed higher-TF bars if available
+            for _tf_sec, _bars in getattr(self, '_tf_bars', {}).items():
+                if _bars and _tf_sec in (300, 900, 3600):
+                    _last = _bars[-1]
+                    self._cnn3.on_higher_tf_bar(
+                        _tf_sec, _last.get('close', price), _last.get('high', price),
+                        _last.get('low', price), _last.get('volume', 0),
+                        _last.get('timestamp', ts), state)
+
+            signal = self._cnn3.on_bar(price, bar_high, bar_low, _last_vol, ts, state)
+
+            from datetime import datetime, timezone
+            _nt8 = datetime.fromtimestamp(ts, tz=timezone.utc).strftime('%H:%M:%S')
+
+            if signal.action == 'ENTER' and not self._position_open:
+                logger.info(f"[CNN3] {_nt8} ENTER {signal.direction.upper()} "
+                            f"conf={signal.confidence:.1f} hold={signal.hold_bars} "
+                            f"reason={signal.reason}")
+                # Build a minimal result object for _physics_enter
+                class _CNN3Result:
+                    def __init__(self, d, c, h):
+                        self.direction = d
+                        self.consensus = c
+                        self.hold_bars = h
+                        self.n_matched = 0
+                _r = _CNN3Result(signal.direction.upper(), signal.confidence, signal.hold_bars)
+                await self._physics_enter(_r, price, ts)
+                return
+
+            if signal.action == 'EXIT':
+                if self._position_open and not self._closing_position:
+                    logger.info(f"[CNN3] {_nt8} EXIT {signal.direction.upper()} "
+                                f"retreat_p={signal.retreat_prob:.2f} reason={signal.reason}")
+                    await self._close_position(f'CNN3_{signal.reason}')
+                    self._cnn3.on_exit()
+                else:
+                    # Position not confirmed yet or already closing — sync CNN3 state
+                    self._cnn3.on_exit()
+                return
+
+            if signal.action == 'HOLD' and self._position_open:
+                if self._cnn3._bar_count % 10 == 0:  # log every 10 bars
+                    logger.debug(f"[CNN3] {_nt8} HOLD retreat_p={signal.retreat_prob:.2f} "
+                                 f"bars_left={signal.hold_bars}")
+            return
 
         # Route to DMI flipper or PhysicsEngine
         if self._dmi_mode and self._dmi_flipper:
@@ -2556,6 +2629,17 @@ class LiveEngine:
                 logger.info(f"TradeCNN loaded: day={_ckpt.get('day', '?')} from {_tc_path}")
             except Exception as e:
                 logger.warning(f"TradeCNN not loaded: {e}")
+
+        # Load CNN3Layer (three-layer: L1+L2+L3) if --cnn3 mode
+        self._cnn3 = None
+        if self._shared_state.get('cnn3_mode'):
+            try:
+                from live.cnn3_layer import CNN3Layer
+                self._cnn3 = CNN3Layer('checkpoints/trade_cnn_10')
+                self._cnn3.warmup_from_atlas()
+                logger.info("CNN3Layer loaded (L1+L2+L3, 29D features)")
+            except Exception as e:
+                logger.error(f"CNN3Layer failed to load: {e}")
 
         # Load CNN direction model if available (fallback)
         self._cnn_model = None
