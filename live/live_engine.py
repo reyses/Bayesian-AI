@@ -2636,7 +2636,8 @@ class LiveEngine:
             try:
                 from live.cnn3_layer import CNN3Layer
                 self._cnn3 = CNN3Layer('checkpoints/trade_cnn_10')
-                self._cnn3.warmup_from_atlas()
+                _pb_date = self._shared_state.get('playback_date')
+                self._cnn3.warmup_from_atlas(before_date=_pb_date)
                 logger.info("CNN3Layer loaded (L1+L2+L3, 29D features)")
             except Exception as e:
                 logger.error(f"CNN3Layer failed to load: {e}")

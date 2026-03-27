@@ -225,8 +225,15 @@ def main():
         if os.path.exists(_bar_cache):
             shutil.move(_bar_cache, _bar_backup)
             print(f"[playback] Moved bar cache aside: {_bar_backup}")
+        # Ask for playback date
+        _pb_date = input("[playback] Enter playback start date (YYYY-MM-DD): ").strip()
+        if _pb_date:
+            shared_state['playback_date'] = _pb_date
+            print(f"[playback] Date: {_pb_date} — will load warmup data before this date")
+        else:
+            shared_state['playback_date'] = None
+            print(f"[playback] No date — warmup from latest ATLAS_LIVE data")
         print(f"[playback] Fresh start — no delta sync, accepting Playback101")
-        print(f"[playback] Bar cache will rebuild from playback data")
 
     # CNN3 mode: three-layer CNN (L1+L2+L3), 1m anchor
     if args.cnn3:
