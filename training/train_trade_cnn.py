@@ -499,23 +499,25 @@ def _simulate_day_trading(model, feats, device):
         with torch.no_grad():
             pred = model(x_t).cpu().numpy()[0]
 
-        # Extract predicted states
-        _dmi_diff_t1 = pred[0]   # dmi_diff at t+1
-        _dmi_diff_t5 = pred[7]   # dmi_diff at t+5
-        _dmi_diff_t10 = pred[14] # dmi_diff at t+10
-        _dmi_gap_t5 = pred[8]    # dmi_gap at t+5
-        _vel_t5 = pred[11]       # velocity at t+5
+        # Extract predicted states (adaptive to horizon count)
+        n_h = len(HORIZONS)
+        _pred_dmi = pred[0]               # dmi_diff at first/only horizon
+        _pred_gap = pred[1]               # dmi_gap at first/only horizon
+        _pred_vel = pred[4]               # velocity at first/only horizon
+        # For multi-horizon, use the last horizon's dmi_diff
+        if n_h >= 2:
+            _pred_dmi = pred[(n_h - 1) * 7]
+            _pred_gap = pred[(n_h - 1) * 7 + 1]
+            _pred_vel = pred[(n_h - 1) * 7 + 4]
 
         if in_trade:
             bars_held += 1
-            # Current PnL (use feature index for price proxy — dmi_diff as direction indicator)
-            _cur_pnl = feats[i, 4] * (1 if trade_dir == 'LONG' else -1)  # velocity as pnl proxy
 
             # Exit: trend reversed OR momentum fading (after min hold)
             if bars_held >= MIN_HOLD:
-                _trend_reversed = (trade_dir == 'LONG' and _dmi_diff_t5 < -2) or \
-                                  (trade_dir == 'SHORT' and _dmi_diff_t5 > 2)
-                _momentum_fading = _dmi_gap_t5 < feats[i, 1] * 0.5  # gap shrinking
+                _trend_reversed = (trade_dir == 'LONG' and _pred_dmi < -2) or \
+                                  (trade_dir == 'SHORT' and _pred_dmi > 2)
+                _momentum_fading = _pred_gap < feats[i, 1] * 0.5  # gap shrinking
 
                 if _trend_reversed or _momentum_fading:
                     # Compute actual PnL from prices (if available via label reconstruction)
@@ -525,14 +527,14 @@ def _simulate_day_trading(model, feats, device):
                     in_trade = False
 
         if not in_trade:
-            # Entry: dmi_gap building + direction consistent + velocity confirming
-            _gap_building = _dmi_gap_t5 > feats[i, 1] * 1.2  # gap expected to grow 20%
-            _dir_consistent = np.sign(_dmi_diff_t1) == np.sign(_dmi_diff_t5) == np.sign(_dmi_diff_t10)
-            _vel_confirming = abs(_vel_t5) > abs(feats[i, 4])  # velocity expected to increase
+            # Entry: predicted gap growing + velocity confirming + confidence
+            _gap_building = _pred_gap > feats[i, 1] * 1.2
+            _vel_confirming = abs(_pred_vel) > abs(feats[i, 4])
+            _confident = abs(_pred_dmi) > 2.0
 
-            if _gap_building and _dir_consistent and _vel_confirming:
+            if _confident and (_gap_building or _vel_confirming):
                 in_trade = True
-                trade_dir = 'LONG' if _dmi_diff_t5 > 0 else 'SHORT'
+                trade_dir = 'LONG' if _pred_dmi > 0 else 'SHORT'
                 entry_price_idx = i
                 bars_held = 0
 
