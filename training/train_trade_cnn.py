@@ -611,12 +611,38 @@ def oos_single_pass():
     prices = df['close'].values
     highs = df['high'].values
     lows = df['low'].values
+    timestamps = df['timestamp'].values
+
+    # Load 1s data for fill price lookup (actual price 2s after signal)
+    print("Loading 1s data for fill delay...")
+    _1s_files = sorted(glob.glob(os.path.join(OOS_ROOT, '1s', '*.parquet')))
+    if _1s_files:
+        df_1s = pd.concat([pd.read_parquet(f) for f in _1s_files], ignore_index=True)
+        df_1s = df_1s.sort_values('timestamp').reset_index(drop=True)
+        _1s_ts = df_1s['timestamp'].values
+        _1s_close = df_1s['close'].values
+        print(f"  1s bars: {len(df_1s):,}")
+    else:
+        df_1s = None
+        _1s_ts = None
+        _1s_close = None
+        print("  No 1s data — using close price (no delay)")
+
+    def _get_fill_price(signal_ts):
+        """Get price FILL_DELAY_S seconds after signal timestamp."""
+        if _1s_ts is None:
+            return None
+        _target_ts = signal_ts + FILL_DELAY_S
+        _idx = np.searchsorted(_1s_ts, _target_ts)
+        if _idx < len(_1s_close):
+            return float(_1s_close[_idx])
+        return None
 
     # Simple trading: follow predicted direction, trail after $5, SL=40
     SL = 40
     TRAIL_ACT = 10  # activate trail after 10 ticks profit
     TRAIL_DIST = 10  # trail distance from peak
-    FILL_DELAY = 1   # enter at next bar's open (1 bar = worst case for 2s delay on 1m data)
+    FILL_DELAY_S = 2  # seconds from signal to fill
 
     trades = []
     trade_log = []  # full state log per trade
@@ -722,26 +748,24 @@ def oos_single_pass():
                     'pred_dmi_t5': _pred_dmi_t5, 'pred_dmi_t1': _pred_dmi_t1,
                     'actual_dmi': feats[i, 0], 'actual_vel': feats[i, 4],
                 })
-                # Enter opposite direction (fill at next bar's open)
-                _fill_bar = min(i + FILL_DELAY, len(prices) - 1)
-                _fill_price = df.iloc[_fill_bar]['open']
+                # Enter opposite direction (fill at 2s after signal)
+                _fill = _get_fill_price(timestamps[i])
                 in_trade = True
                 trade_dir = _pred_dir
-                entry_price = _fill_price
-                entry_bar = _fill_bar
-                peak_price = _fill_price
+                entry_price = _fill if _fill is not None else price
+                entry_bar = i
+                peak_price = entry_price
                 trail_active = False
                 continue
 
         # Entry: predicted direction with confidence
         if not in_trade and _confidence > 2.0:
-            # Fill at next bar's open (2s delay on 1m = next bar worst case)
-            _fill_bar = min(i + FILL_DELAY, len(prices) - 1)
-            _fill_price = df.iloc[_fill_bar]['open']
             in_trade = True
             trade_dir = _pred_dir
-            entry_price = _fill_price
-            entry_bar = _fill_bar
+            # Fill at actual price 2s after signal (from 1s data)
+            _fill = _get_fill_price(timestamps[i])
+            entry_price = _fill if _fill is not None else price
+            entry_bar = i
             peak_price = entry_price
             trail_active = False
 
