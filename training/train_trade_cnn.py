@@ -465,10 +465,12 @@ def _validate_day(model, dataset, feats, labels, device):
         else:
             corrs.append(0.0)
 
-    # Direction accuracy: sign of predicted dmi_diff_t5 vs actual
-    _dmi_diff_t5_idx = 7 + 0  # horizon 1 (t+5) x feature 0 (dmi_diff) = index 7
-    _pred_dir = pred[:, _dmi_diff_t5_idx] > 0
-    _true_dir = true[:, _dmi_diff_t5_idx] > 0
+    # Direction accuracy: sign of predicted dmi_diff at LAST horizon vs actual
+    # For [1,5,10]: index 14. For [10]: index 0. For [5,10,20]: index 14.
+    _last_h_idx = (len(HORIZONS) - 1) * 7  # dmi_diff at furthest horizon
+    _dir_idx = min(_last_h_idx, pred.shape[1] - 1)
+    _pred_dir = pred[:, _dir_idx] > 0
+    _true_dir = true[:, _dir_idx] > 0
     dir_acc = (_pred_dir == _true_dir).mean() * 100
 
     return {
