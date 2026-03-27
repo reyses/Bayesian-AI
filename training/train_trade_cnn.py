@@ -664,8 +664,10 @@ def oos_single_pass():
 
     # Simple trading: follow predicted direction, trail after $5, SL=40
     SL = 40
-    TRAIL_ACT = 10  # activate trail after 10 ticks profit
+    BE_ACT = 5       # move SL to breakeven after 5 ticks profit (direction confirmed)
+    TRAIL_ACT = 10   # activate trail after 10 ticks profit
     TRAIL_DIST = 10  # trail distance from peak
+    CONF_THRESHOLD = 3.0  # minimum confidence to enter (was 2.0)
     FILL_DELAY_S = 2  # seconds from signal to fill
 
     trades = []
@@ -725,14 +727,19 @@ def oos_single_pass():
             _peak_pnl = (peak_price - entry_price) / TICK if trade_dir == 'LONG' \
                 else (entry_price - peak_price) / TICK
 
-            # SL check
-            if _pnl_from_low <= -SL:
-                _exit_pnl = -SL
+            # Breakeven: once direction confirmed (+5t), move SL to entry
+            _be_active = _peak_pnl >= BE_ACT
+            _effective_sl = 0 if _be_active else SL  # 0 = breakeven, SL = full
+
+            # SL check (breakeven-aware)
+            if _pnl_from_low <= -_effective_sl:
+                _exit_pnl = -_effective_sl if _effective_sl > 0 else _pnl_from_low
+                _exit_type = 'BE' if _be_active else 'SL'
                 trades.append({'bar': i, 'pnl': _exit_pnl, 'dir': trade_dir,
-                               'held': i - entry_bar, 'exit': 'SL', 'peak': _peak_pnl})
+                               'held': i - entry_bar, 'exit': _exit_type, 'peak': _peak_pnl})
                 trade_log.append({
                     'bar': i, 'price': price, 'entry': entry_price,
-                    'pnl': _exit_pnl, 'dir': trade_dir, 'exit': 'SL',
+                    'pnl': _exit_pnl, 'dir': trade_dir, 'exit': _exit_type,
                     'held': i - entry_bar, 'peak': _peak_pnl,
                     'pred_dmi_h0': _h0_dmi, 'pred_dmi_h1': _h1_dmi,
                     'actual_dmi': feats[i, 0], 'actual_vel': feats[i, 4],
@@ -778,7 +785,7 @@ def oos_single_pass():
                         continue
 
             # Flip: predicted direction changed AND all horizons agree
-            if _pred_dir != trade_dir and _confidence > 2.0 and _all_agree:
+            if _pred_dir != trade_dir and _confidence > CONF_THRESHOLD and _all_agree:
                 _exit_pnl = _pnl
                 trades.append({'bar': i, 'pnl': _exit_pnl, 'dir': trade_dir,
                                'held': i - entry_bar, 'exit': 'FLIP', 'peak': _peak_pnl})
@@ -800,7 +807,7 @@ def oos_single_pass():
                 continue
 
         # Entry: all horizons agree + confidence (momentum building optional)
-        if not in_trade and _confidence > 2.0 and _all_agree:
+        if not in_trade and _confidence > CONF_THRESHOLD and _all_agree:
             in_trade = True
             trade_dir = _pred_dir
             # Fill at actual price 2s after signal (from 1s data)
