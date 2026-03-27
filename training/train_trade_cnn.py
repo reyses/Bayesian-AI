@@ -34,8 +34,10 @@ torch.manual_seed(42)
 np.random.seed(42)
 
 # --- PATHS ---
-IS_ROOT = 'DATA/ATLAS'
-OOS_ROOT = 'DATA/ATLAS_OOS'
+ATLAS_ROOT = 'DATA/ATLAS'  # unified data source
+IS_ROOT = 'DATA/ATLAS'     # legacy alias (same dir, split by date in code)
+OOS_ROOT = 'DATA/ATLAS'    # legacy alias — OOS split by --oos-start date
+OOS_START_DATE = '2026-02-01'  # default IS/OOS boundary
 CHECKPOINT_DIR = 'checkpoints/trade_cnn'
 RESULTS_LOG = 'reports/findings/experiment_log.txt'
 TICK = 0.25
@@ -586,14 +588,27 @@ def build_29d_pipeline(data_root, cache_dir, feats_13d=None, df_1m=None):
     return feats_29d, feats_29d_raw
 
 
-def build_dataset(data_root, max_bars=0):
-    """Load data, compute states, extract 13D features, build 21D labels."""
+def build_dataset(data_root, max_bars=0, start_date=None, end_date=None):
+    """Load data, compute states, extract 13D features, build 21D labels.
+
+    Args:
+        start_date: 'YYYY-MM-DD' — only include bars >= this date
+        end_date: 'YYYY-MM-DD' — only include bars < this date
+    """
     from core.statistical_field_engine import StatisticalFieldEngine
 
     print(f"Loading 1m data from {data_root}...")
     files = sorted(glob.glob(os.path.join(data_root, '1m', '*.parquet')))
     dfs = [pd.read_parquet(f) for f in files]
     df = pd.concat(dfs, ignore_index=True).sort_values('timestamp').reset_index(drop=True)
+    if start_date:
+        _ts = pd.Timestamp(start_date).timestamp()
+        df = df[df['timestamp'] >= _ts].reset_index(drop=True)
+        print(f"  Filtered: >= {start_date}")
+    if end_date:
+        _ts = pd.Timestamp(end_date).timestamp()
+        df = df[df['timestamp'] < _ts].reset_index(drop=True)
+        print(f"  Filtered: < {end_date}")
     if max_bars > 0:
         df = df.tail(max_bars).reset_index(drop=True)
     print(f"  Bars: {len(df):,}")
@@ -705,6 +720,8 @@ def main():
     parser.add_argument('--max-bars', type=int, default=0)
     parser.add_argument('--horizons', default='fast', choices=['fast', 'hold', '10'],
                         help='fast=[1,5,10] scalp, hold=[5,10,20] sustained, 10=[10] sweet spot')
+    parser.add_argument('--oos-start', default=OOS_START_DATE,
+                        help=f'IS/OOS split date (default: {OOS_START_DATE}). IS = before, OOS = on or after')
     args = parser.parse_args()
 
     # Set horizons and checkpoint dir based on mode
