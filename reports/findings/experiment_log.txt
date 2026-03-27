@@ -1,3 +1,11 @@
 2026-03-26 06:13 | feat=7D | model=TCN | lookback=30 | dilations=7 | ch=32 | val_acc=51.8% | trades=902 | WR=23.8% | PnL=$13,712 | $/day=$352
 2026-03-26 21:51 | model=TradeCNN_A | days=376 | corr=0.2381 | dir=72.3% | PnL=$-4,291 | $/day=$-11
 2026-03-26 22:35 | model=TradeCNN_A_OOS | days=39 | trades=15363 | WR=66.2% | PnL=$52,370 | $/day=$1343
+2026-03-26 23:27 | model=TradeCNN_A_OOS | days=39 | trades=15639 | WR=61.1% | PnL=$133,426 | $/day=$3421
+2026-03-26 23:47 | model=TradeCNN_A | days=376 | corr=0.1514 | dir=65.2% | PnL=$-3,706 | $/day=$-10
+2026-03-26 23:54 | model=TradeCNN_A_OOS | days=39 | trades=0 | WR=0.0% | PnL=$0 | $/day=$0
+2026-03-27 00:19 | model=TradeCNN_A | days=376 | corr=0.1528 | dir=64.8% | PnL=$1,688 | $/day=$4
+2026-03-27 00:22 | model=TradeCNN_A_OOS | days=39 | trades=14200 | WR=61.3% | PnL=$124,216 | $/day=$3185
+2026-03-27 06:53 | model=TradeCNN_A_OOS | days=39 | trades=10571 | WR=23.9% | PnL=$-4,442 | $/day=$-114
+2026-03-27 06:55 | model=TradeCNN_A_OOS | days=39 | trades=10571 | WR=23.9% | PnL=$62,761 | $/day=$1609
+2026-03-27 07:05 | model=TradeCNN_A_OOS | days=39 | trades=10806 | WR=1.6% | PnL=$-15,837 | $/day=$-406
