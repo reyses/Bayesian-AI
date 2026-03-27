@@ -730,7 +730,7 @@ def oos_single_pass():
                     'bar': i, 'price': price, 'entry': entry_price,
                     'pnl': _exit_pnl, 'dir': trade_dir, 'exit': 'SL',
                     'held': i - entry_bar, 'peak': _peak_pnl,
-                    'pred_dmi_t5': _pred_dmi_t5, 'pred_dmi_t1': _pred_dmi_t1,
+                    'pred_dmi_h0': _h0_dmi, 'pred_dmi_h1': _h1_dmi,
                     'actual_dmi': feats[i, 0], 'actual_vel': feats[i, 4],
                 })
                 in_trade = False
@@ -752,7 +752,7 @@ def oos_single_pass():
                             'bar': i, 'price': price, 'entry': entry_price,
                             'pnl': _exit_pnl, 'dir': trade_dir, 'exit': 'TRAIL',
                             'held': i - entry_bar, 'peak': _peak_pnl,
-                            'pred_dmi_t5': _pred_dmi_t5, 'pred_dmi_t1': _pred_dmi_t1,
+                            'pred_dmi_h0': _h0_dmi, 'pred_dmi_h1': _h1_dmi,
                             'actual_dmi': feats[i, 0], 'actual_vel': feats[i, 4],
                         })
                         in_trade = False
@@ -767,7 +767,7 @@ def oos_single_pass():
                             'bar': i, 'price': price, 'entry': entry_price,
                             'pnl': _exit_pnl, 'dir': trade_dir, 'exit': 'TRAIL',
                             'held': i - entry_bar, 'peak': _peak_pnl,
-                            'pred_dmi_t5': _pred_dmi_t5, 'pred_dmi_t1': _pred_dmi_t1,
+                            'pred_dmi_h0': _h0_dmi, 'pred_dmi_h1': _h1_dmi,
                             'actual_dmi': feats[i, 0], 'actual_vel': feats[i, 4],
                         })
                         in_trade = False
@@ -782,7 +782,7 @@ def oos_single_pass():
                     'bar': i, 'price': price, 'entry': entry_price,
                     'pnl': _exit_pnl, 'dir': trade_dir, 'exit': 'FLIP',
                     'held': i - entry_bar, 'peak': _peak_pnl,
-                    'pred_dmi_t5': _pred_dmi_t5, 'pred_dmi_t1': _pred_dmi_t1,
+                    'pred_dmi_h0': _h0_dmi, 'pred_dmi_h1': _h1_dmi,
                     'actual_dmi': feats[i, 0], 'actual_vel': feats[i, 4],
                 })
                 # Enter opposite direction (fill at 2s after signal)
