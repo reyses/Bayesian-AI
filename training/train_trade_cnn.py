@@ -261,7 +261,7 @@ def validate_pipeline(feats, labels, df):
 # --- MAIN ---
 def main():
     parser = argparse.ArgumentParser(description='TradeCNN training pipeline')
-    parser.add_argument('--phase', default='labels', choices=['labels', 'train', 'all'])
+    parser.add_argument('--phase', default='labels', choices=['labels', 'train', 'all', 'oos'])
     parser.add_argument('--model', default='A', choices=['A'])
     parser.add_argument('--max-bars', type=int, default=0)
     args = parser.parse_args()
@@ -305,6 +305,9 @@ def main():
             return
 
         walk_forward_train(feats, labels, df, args)
+
+    if args.phase == 'oos':
+        oos_single_pass()
 
 
 def walk_forward_train(feats, labels, df, args):
@@ -584,6 +587,219 @@ def walk_forward_report(day_results):
     with open(RESULTS_LOG, 'a') as f:
         f.write(_line)
     print(f"  Logged: {RESULTS_LOG}")
+
+
+def oos_single_pass():
+    """Single forward pass on OOS with the trained model. Simplified trading + full logging."""
+    from core.trade_cnn import StatePredictor
+    import csv
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    _ckpt_path = os.path.join(CHECKPOINT_DIR, 'best_model.pt')
+    if not os.path.exists(_ckpt_path):
+        print(f"No model found at {_ckpt_path} — run --phase train first")
+        return
+
+    ckpt = torch.load(_ckpt_path, map_location=device, weights_only=False)
+    model = StatePredictor(n_features=N_FEAT, latent_dim=64, n_labels=N_LABELS).to(device)
+    model.load_state_dict(ckpt['model_state'])
+    model.eval()
+    print(f"Loaded model from day {ckpt.get('day', '?')}")
+
+    # Build OOS features
+    feats, labels, states, df = build_dataset(OOS_ROOT)
+    prices = df['close'].values
+    highs = df['high'].values
+    lows = df['low'].values
+
+    # Simple trading: follow predicted direction, trail after $5, SL=40
+    SL = 40
+    TRAIL_ACT = 10  # activate trail after 10 ticks profit
+    TRAIL_DIST = 10  # trail distance from peak
+
+    trades = []
+    trade_log = []  # full state log per trade
+    in_trade = False
+    trade_dir = ''
+    entry_price = 0.0
+    entry_bar = 0
+    peak_price = 0.0
+    trail_active = False
+
+    for i in tqdm(range(LOOKBACK, len(feats) - MAX_FORWARD), desc="OOS Single Pass"):
+        x = feats[i - LOOKBACK:i]
+        x_t = torch.FloatTensor(x).unsqueeze(0).to(device)
+
+        with torch.no_grad():
+            pred = model(x_t).cpu().numpy()[0]
+
+        price = prices[i]
+        high = highs[i]
+        low = lows[i]
+
+        # Predicted direction from dmi_diff at t+5
+        _pred_dmi_t5 = pred[7]  # dmi_diff at t+5
+        _pred_dmi_t1 = pred[0]  # dmi_diff at t+1
+        _pred_dir = 'LONG' if _pred_dmi_t5 > 0 else 'SHORT'
+        _confidence = abs(_pred_dmi_t5)
+
+        if in_trade:
+            # Update peak
+            if trade_dir == 'LONG':
+                peak_price = max(peak_price, high)
+                _pnl = (price - entry_price) / TICK
+                _pnl_from_low = (low - entry_price) / TICK
+            else:
+                peak_price = min(peak_price, low) if peak_price > 0 else low
+                _pnl = (entry_price - price) / TICK
+                _pnl_from_low = (entry_price - high) / TICK
+
+            _peak_pnl = (peak_price - entry_price) / TICK if trade_dir == 'LONG' \
+                else (entry_price - peak_price) / TICK
+
+            # SL check
+            if _pnl_from_low <= -SL:
+                _exit_pnl = -SL
+                trades.append({'bar': i, 'pnl': _exit_pnl, 'dir': trade_dir,
+                               'held': i - entry_bar, 'exit': 'SL', 'peak': _peak_pnl})
+                trade_log.append({
+                    'bar': i, 'price': price, 'entry': entry_price,
+                    'pnl': _exit_pnl, 'dir': trade_dir, 'exit': 'SL',
+                    'held': i - entry_bar, 'peak': _peak_pnl,
+                    'pred_dmi_t5': _pred_dmi_t5, 'pred_dmi_t1': _pred_dmi_t1,
+                    'actual_dmi': feats[i, 0], 'actual_vel': feats[i, 4],
+                })
+                in_trade = False
+                continue
+
+            # Trail activation
+            if not trail_active and _peak_pnl >= TRAIL_ACT:
+                trail_active = True
+
+            # Trail check
+            if trail_active:
+                if trade_dir == 'LONG':
+                    _trail_level = peak_price - TRAIL_DIST * TICK
+                    if low <= _trail_level:
+                        _exit_pnl = max(0, (_trail_level - entry_price) / TICK)
+                        trades.append({'bar': i, 'pnl': _exit_pnl, 'dir': trade_dir,
+                                       'held': i - entry_bar, 'exit': 'TRAIL', 'peak': _peak_pnl})
+                        trade_log.append({
+                            'bar': i, 'price': price, 'entry': entry_price,
+                            'pnl': _exit_pnl, 'dir': trade_dir, 'exit': 'TRAIL',
+                            'held': i - entry_bar, 'peak': _peak_pnl,
+                            'pred_dmi_t5': _pred_dmi_t5, 'pred_dmi_t1': _pred_dmi_t1,
+                            'actual_dmi': feats[i, 0], 'actual_vel': feats[i, 4],
+                        })
+                        in_trade = False
+                        continue
+                else:
+                    _trail_level = peak_price + TRAIL_DIST * TICK
+                    if high >= _trail_level:
+                        _exit_pnl = max(0, (entry_price - _trail_level) / TICK)
+                        trades.append({'bar': i, 'pnl': _exit_pnl, 'dir': trade_dir,
+                                       'held': i - entry_bar, 'exit': 'TRAIL', 'peak': _peak_pnl})
+                        trade_log.append({
+                            'bar': i, 'price': price, 'entry': entry_price,
+                            'pnl': _exit_pnl, 'dir': trade_dir, 'exit': 'TRAIL',
+                            'held': i - entry_bar, 'peak': _peak_pnl,
+                            'pred_dmi_t5': _pred_dmi_t5, 'pred_dmi_t1': _pred_dmi_t1,
+                            'actual_dmi': feats[i, 0], 'actual_vel': feats[i, 4],
+                        })
+                        in_trade = False
+                        continue
+
+            # Flip: predicted direction changed
+            if _pred_dir != trade_dir and _confidence > 2.0:
+                _exit_pnl = _pnl
+                trades.append({'bar': i, 'pnl': _exit_pnl, 'dir': trade_dir,
+                               'held': i - entry_bar, 'exit': 'FLIP', 'peak': _peak_pnl})
+                trade_log.append({
+                    'bar': i, 'price': price, 'entry': entry_price,
+                    'pnl': _exit_pnl, 'dir': trade_dir, 'exit': 'FLIP',
+                    'held': i - entry_bar, 'peak': _peak_pnl,
+                    'pred_dmi_t5': _pred_dmi_t5, 'pred_dmi_t1': _pred_dmi_t1,
+                    'actual_dmi': feats[i, 0], 'actual_vel': feats[i, 4],
+                })
+                # Enter opposite direction
+                in_trade = True
+                trade_dir = _pred_dir
+                entry_price = price
+                entry_bar = i
+                peak_price = price
+                trail_active = False
+                continue
+
+        # Entry: predicted direction with confidence
+        if not in_trade and _confidence > 2.0:
+            in_trade = True
+            trade_dir = _pred_dir
+            entry_price = price
+            entry_bar = i
+            peak_price = price
+            trail_active = False
+
+    # Flush last trade
+    if in_trade:
+        _pnl = (prices[-1] - entry_price) / TICK if trade_dir == 'LONG' \
+            else (entry_price - prices[-1]) / TICK
+        trades.append({'bar': len(prices)-1, 'pnl': _pnl, 'dir': trade_dir,
+                       'held': len(prices) - 1 - entry_bar, 'exit': 'EOD', 'peak': 0})
+
+    # Results
+    total_pnl = sum(t['pnl'] for t in trades)
+    n = len(trades)
+    w = len([t for t in trades if t['pnl'] > 0])
+    trading_days = pd.to_datetime(df['timestamp'], unit='s').dt.date.nunique()
+
+    _wr = w / n * 100 if n > 0 else 0
+    _per_day = total_pnl * 0.5 / trading_days if trading_days > 0 else 0
+
+    print(f"\n{'='*60}")
+    print(f"OOS SINGLE PASS: StatePredictor + Trail SL={SL} Trail={TRAIL_ACT}/{TRAIL_DIST}")
+    print(f"{'='*60}")
+    print(f"  Trades: {n}")
+    print(f"  WR: {_wr:.1f}%")
+    print(f"  PnL: {total_pnl:.0f}t (${total_pnl*0.5:,.2f})")
+    print(f"  $/day: ${_per_day:.2f}")
+    print(f"  Trading days: {trading_days}")
+
+    # Exit breakdown
+    _exits = {}
+    for t in trades:
+        ex = t['exit']
+        if ex not in _exits:
+            _exits[ex] = {'n': 0, 'pnl': 0}
+        _exits[ex]['n'] += 1
+        _exits[ex]['pnl'] += t['pnl']
+    print(f"\n  EXIT BREAKDOWN:")
+    for ex, v in sorted(_exits.items(), key=lambda x: x[1]['pnl']):
+        print(f"    {ex:<10} {v['n']:>5} trades  ${v['pnl']*0.5:>10,.2f}")
+
+    # Save trade log
+    _log_path = os.path.join(CHECKPOINT_DIR, 'oos_trade_log.csv')
+    if trade_log:
+        _keys = trade_log[0].keys()
+        with open(_log_path, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=_keys)
+            writer.writeheader()
+            writer.writerows(trade_log)
+        print(f"\n  Trade log: {_log_path} ({len(trade_log)} trades)")
+
+    # Append to experiment log
+    _line = (f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M')} | "
+             f"model=TradeCNN_A_OOS | days={trading_days} | "
+             f"trades={n} | WR={_wr:.1f}% | "
+             f"PnL=${total_pnl*0.5:,.0f} | $/day=${_per_day:.0f}\n")
+    os.makedirs(os.path.dirname(RESULTS_LOG), exist_ok=True)
+    with open(RESULTS_LOG, 'a') as f:
+        f.write(_line)
+
+    # Cleanup
+    del feats, labels, states, df
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    gc.collect()
 
 
 if __name__ == '__main__':
