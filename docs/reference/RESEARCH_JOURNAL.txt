@@ -3109,3 +3109,47 @@ PHYSICS ENGINE DEPLOYED (sim):
   python -m live.launcher --physics
   11 commits, 6 live bugs fixed during first sim run.
   BarProcessor renamed to AdvanceEngine. 1,302 lines dead code removed.
+
+2026-03-27: 29D MTF FEATURE PIPELINE + THREE-LAYER CNN
+=======================================================
+
+29D PIPELINE (Phase A):
+  Built extract_features_29d() with 13D base + 16D multi-TF (1s/5m/15m/1h).
+  4 features per TF: dmi_diff, z_se, velocity, vol_rel.
+  1s: raw extraction (EWM velocity, no SFE on 27.5M bars).
+  5m/15m/1h: full SFE.
+  Zero-lookahead MTF alignment: searchsorted on close_times, validated all 4 TFs.
+  Per-TF z-score normalization (30-day rolling window).
+  1s prices + timestamps cached for 2s slippage fills.
+  Pipeline runs in 29.5s. All cached as .npy.
+
+29D MODEL (Phase B):
+  StatePredictor(n_features=29): walk-forward carry-forward on IS.
+  Direction accuracy: 56.4% (vs 72.3% for 13D). Correlation: 0.09 (vs 0.24).
+  Extra MTF features HURT direction prediction — model struggles with wider input.
+  Key finding: normalized inputs + raw labels = bad. Raw inputs work (matches 13D approach).
+  OOS result: $166/day, 18,700 trades, 48.5% WR.
+
+THREE-LAYER CNN:
+  L1: StatePredictor 29D (direction). Loaded from checkpoint.
+  L2: DurationPredictor (~1K params). Take/skip + hold bars. Trained on L1 signals.
+  L3: RetreatPredictor (~600 params). P(retreat) per bar while in trade.
+  IS result: $602/day, 28,149 trades, 75/day, 13.9 bar avg hold.
+  Duration exits: +$452K ($63/trade). Hard SL: -$225K (21K hits).
+  L2 filter useless: 89.6% of signals have MFE >= 4t, model takes everything.
+
+KEY INSIGHT — FIXED EXITS DON'T WORK:
+  Hard SL, BE, trail thresholds are IS-derived. Don't transfer to OOS (proven 2026-03-19).
+  30-bar holds cross 4+ natural 1m oscillation cycles (~8 min period).
+  Model can't distinguish normal dip from real reversal.
+  Need: measure market structure first (trend duration, oscillation period,
+  cross-TF nesting), THEN build CNNs with structure-aware labels.
+
+PIVOT — OSCILLATION-AWARE LAYERED CNN:
+  Proposal: docs/Active/PROPOSAL_MTF_LAYERED_CNN.md
+  Phase 1 (exploratory): E1 trend characterization, E2 oscillation measurement,
+  E3 cross-TF nesting, E4 optimal entry/exit, E5 1s timing precision.
+  Phase 2 (CNN layers, conditional on Phase 1):
+    L1 Trend regime (1h/15m), L2 Oscillation phase (1m/5m),
+    L3 Entry gate (trough + trend), L4 Exit gate (peak or trend reversal).
+  Key gate: oscillation-timed entry must beat random by > 4 ticks.
