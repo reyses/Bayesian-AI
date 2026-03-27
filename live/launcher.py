@@ -154,6 +154,10 @@ def main():
                         help='Use PhysicsEngine (K-NN trajectory matching) instead of AdvanceEngine')
     parser.add_argument('--dmi', action='store_true',
                         help='Use DMI smoothed cross flipper (simplest profitable engine)')
+    parser.add_argument('--trade-cnn', action='store_true',
+                        help='Use TradeCNN StatePredictor ($1342/day OOS)')
+    parser.add_argument('--trade-cnn-model', default=None,
+                        help='Path to TradeCNN checkpoint (default: auto-find latest)')
     parser.add_argument('--seed-path', default=None,
                         help='Path to enriched seed JSON for PhysicsEngine')
     parser.add_argument('--yolo', action='store_true',
@@ -189,7 +193,25 @@ def main():
     if args.dmi:
         args.anchor_tf = '1m'
         print(f"[dmi] Engine: DMI Smoothed Cross Flipper")
-        print(f"[dmi] Anchor: 1m | TP=10t repeating | SL=40t")
+        print(f"[dmi] Anchor: 1m | Trail after $5 | SL=40t")
+
+    # TradeCNN mode: force 1m anchor, load StatePredictor
+    if args.trade_cnn:
+        args.anchor_tf = '1m'
+        args.dmi = True  # reuse DMI routing (same bar flow)
+        if not args.trade_cnn_model:
+            # Auto-find: prefer trade_cnn_hold, fallback to trade_cnn
+            for _dir in ['checkpoints/trade_cnn_hold', 'checkpoints/trade_cnn']:
+                _p = os.path.join(_dir, 'best_model.pt')
+                if os.path.exists(_p):
+                    args.trade_cnn_model = _p
+                    break
+        if not args.trade_cnn_model:
+            print("ERROR: --trade-cnn requires trained model. Run training first.")
+            sys.exit(1)
+        print(f"[trade-cnn] Engine: TradeCNN StatePredictor")
+        print(f"[trade-cnn] Model: {args.trade_cnn_model}")
+        print(f"[trade-cnn] Anchor: 1m | Trail after $5 | SL=40t")
 
     # YOLO mode: override warmup + aggression
     if args.yolo:
@@ -236,6 +258,8 @@ def main():
         'side_lock': 'long' if args.long_only else ('short' if args.short_only else None),
         'physics_mode': args.physics,
         'dmi_mode': args.dmi,
+        'trade_cnn_mode': getattr(args, 'trade_cnn', False),
+        'trade_cnn_model': getattr(args, 'trade_cnn_model', None),
         'seed_path': getattr(args, 'seed_path', None),
     }
 

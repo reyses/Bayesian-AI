@@ -1345,8 +1345,22 @@ class LiveEngine:
                                               nt8_dmi_plus=_nt8_dp,
                                               nt8_dmi_minus=_nt8_dm)
 
-            # CNN direction filter: confirm/veto ENTER and FLIP signals
-            if self._cnn_model is not None and result.action in ('ENTER', 'FLIP'):
+            # TradeCNN StatePredictor: OVERRIDE direction if available
+            if self._trade_cnn_model is not None and result.action in ('ENTER', 'FLIP'):
+                _tc_dir = self._trade_cnn_predict(price, state)
+                if _tc_dir is not None:
+                    if _tc_dir != result.direction:
+                        logger.info(f"TradeCNN OVERRIDE: DMI={result.direction} -> TradeCNN={_tc_dir}")
+                        # Override direction but keep the action
+                        from core.dmi_flipper import FlipperResult
+                        result = FlipperResult(
+                            action=result.action, direction=_tc_dir,
+                            reason=f'{result.action} {_tc_dir} (TradeCNN override from {result.direction})')
+                    else:
+                        logger.info(f"TradeCNN CONFIRM: {result.direction} (h0={self._last_tc_h0:.1f} h1={self._last_tc_h1:.1f} h2={self._last_tc_h2:.1f})")
+
+            # CNN direction filter (fallback if no TradeCNN): confirm/veto ENTER and FLIP signals
+            elif self._cnn_model is not None and result.action in ('ENTER', 'FLIP'):
                 _cnn_dir = self._cnn_predict(price, state)
                 if _cnn_dir is not None and _cnn_dir != result.direction:
                     _old = result.direction
@@ -2517,7 +2531,33 @@ class LiveEngine:
         self._physics_sl_ticks = sl
         logger.info(f"DMI Flipper ready: TP={tp}t repeating, SL={sl}t")
 
-        # Load CNN direction model if available
+        # Load TradeCNN StatePredictor if available
+        self._trade_cnn_model = None
+        self._trade_cnn_device = None
+        self._last_tc_h0 = 0.0
+        self._last_tc_h1 = 0.0
+        self._last_tc_h2 = 0.0
+        _tc_path = self._shared_state.get('trade_cnn_model')
+        if _tc_path and os.path.exists(_tc_path):
+            try:
+                import torch as _torch
+                from core.trade_cnn import StatePredictor
+                _device = _torch.device('cuda' if _torch.cuda.is_available() else 'cpu')
+                _ckpt = _torch.load(_tc_path, map_location=_device, weights_only=False)
+                _model = StatePredictor(n_features=13, latent_dim=64, n_labels=21)
+                _model.load_state_dict(_ckpt['model_state'])
+                _model.to(_device)
+                _model.eval()
+                self._trade_cnn_model = _model
+                self._trade_cnn_device = _device
+                self._trade_cnn_feat_buffer = []
+                self._trade_cnn_vol_buffer = []
+                self._trade_cnn_price_buffer = []
+                logger.info(f"TradeCNN loaded: day={_ckpt.get('day', '?')} from {_tc_path}")
+            except Exception as e:
+                logger.warning(f"TradeCNN not loaded: {e}")
+
+        # Load CNN direction model if available (fallback)
         self._cnn_model = None
         self._cnn_device = None
         _cnn_path = 'checkpoints/direction_cnn/best_model.pt'
@@ -2545,6 +2585,119 @@ class LiveEngine:
                         f"feat={_cfg.get('features', '7D')} lb={_lookback}")
         except Exception as e:
             logger.warning(f"CNN model not loaded: {e}")
+
+    def _trade_cnn_predict(self, price: float, state) -> str:
+        """Run TradeCNN StatePredictor. Returns 'LONG', 'SHORT', or None."""
+        if self._trade_cnn_model is None:
+            return None
+
+        import torch
+        import numpy as np
+        from training.train_trade_cnn import extract_features_13d, TICK as _TICK
+
+        # Build 13D feature for this bar (simplified — use SFE state directly)
+        dmi_p = getattr(state, 'dmi_plus', 0.0)
+        dmi_m = getattr(state, 'dmi_minus', 0.0)
+        vel = getattr(state, 'velocity', 0.0)
+
+        _rows = self._aggregator._rows
+        _vol = _rows[-1].get('volume', 0.0) if _rows else 0.0
+
+        # Volume SMA (30-bar)
+        self._trade_cnn_vol_buffer.append(_vol)
+        if len(self._trade_cnn_vol_buffer) > 30:
+            self._trade_cnn_vol_buffer = self._trade_cnn_vol_buffer[-30:]
+        _vol_avg = sum(self._trade_cnn_vol_buffer) / len(self._trade_cnn_vol_buffer)
+
+        # Price buffer
+        self._trade_cnn_price_buffer.append(price)
+        if len(self._trade_cnn_price_buffer) > 61:
+            self._trade_cnn_price_buffer = self._trade_cnn_price_buffer[-61:]
+
+        # 13D features
+        _dir_vol = 0.0
+        if len(self._trade_cnn_price_buffer) >= 2 and _vol_avg > 0:
+            _prev = self._trade_cnn_price_buffer[-2]
+            _dir = 1.0 if price > _prev else -1.0
+            _dir_vol = _dir * _vol / _vol_avg
+
+        _z_se = 0.0
+        if len(self._trade_cnn_price_buffer) >= 15:
+            _w = self._trade_cnn_price_buffer[-60:]
+            _mean = sum(_w) / len(_w)
+            _std = float(np.std(_w))
+            _se = _std / (len(_w) ** 0.5) if len(_w) > 1 else _std
+            _z_se = (price - _mean) / _se if _se > 1e-8 else 0.0
+
+        _accel = vel - self._prev_velocity if hasattr(self, '_prev_velocity') else 0.0
+
+        # Regime features
+        _std_price = 0.0
+        _var_ratio = 1.0
+        if len(self._trade_cnn_price_buffer) >= 30:
+            _std_price = float(np.std(self._trade_cnn_price_buffer[-30:]))
+            if len(self._trade_cnn_price_buffer) >= 60:
+                _short = float(np.std(self._trade_cnn_price_buffer[-10:]))
+                _long = float(np.std(self._trade_cnn_price_buffer[-60:]))
+                _var_ratio = _short / _long if _long > 1e-8 else 1.0
+
+        _bar_range = 0.0
+        _wick_ratio = 0.0
+        if _rows:
+            _h = _rows[-1].get('high', price)
+            _l = _rows[-1].get('low', price)
+            _o = _rows[-1].get('open', price)
+            _rng = _h - _l
+            _bar_range = _rng / _TICK
+            if _rng > 0:
+                _wick_ratio = 1.0 - abs(price - _o) / _rng
+
+        _vwap_dist = 0.0
+        if len(self._trade_cnn_price_buffer) >= 30 and len(self._trade_cnn_vol_buffer) >= 30:
+            _vp = np.array(self._trade_cnn_price_buffer[-30:])
+            _vv = np.array(self._trade_cnn_vol_buffer[-30:])
+            _vwap = np.sum(_vp * _vv) / (np.sum(_vv) + 1e-8)
+            _vwap_dist = (price - _vwap) / _TICK
+
+        _ts = self._last_ts if hasattr(self, '_last_ts') else 0
+        _tod = (_ts % 86400) / 86400.0
+
+        feats = [
+            dmi_p - dmi_m, abs(dmi_p - dmi_m),
+            _vol / _vol_avg if _vol_avg > 0 else 1.0, _dir_vol,
+            vel, _z_se, _accel,
+            _std_price, _var_ratio, _bar_range, _wick_ratio,
+            _vwap_dist, _tod,
+        ]
+
+        self._trade_cnn_feat_buffer.append(feats)
+        if len(self._trade_cnn_feat_buffer) > 10:
+            self._trade_cnn_feat_buffer = self._trade_cnn_feat_buffer[-10:]
+
+        if len(self._trade_cnn_feat_buffer) < 10:
+            return None
+
+        x = np.array(self._trade_cnn_feat_buffer[-10:], dtype=np.float32)
+        x_t = torch.FloatTensor(x).unsqueeze(0).to(self._trade_cnn_device)
+
+        with torch.no_grad():
+            pred = self._trade_cnn_model(x_t).cpu().numpy()[0]
+
+        # Extract predicted DMI diff at each horizon
+        _h0 = pred[0]   # dmi_diff at horizon[0]
+        _h1 = pred[7]   # dmi_diff at horizon[1]
+        _h2 = pred[14]  # dmi_diff at horizon[2]
+        self._last_tc_h0 = _h0
+        self._last_tc_h1 = _h1
+        self._last_tc_h2 = _h2
+
+        # All horizons agree AND momentum building
+        _all_agree = np.sign(_h0) == np.sign(_h1) == np.sign(_h2)
+        _momentum = abs(_h2) > abs(_h0)
+
+        if _all_agree and _momentum and abs(_h1) > 2.0:
+            return 'LONG' if _h1 > 0 else 'SHORT'
+        return None
 
     def _cnn_predict(self, price: float, state) -> str:
         """Run CNN direction prediction. Returns 'LONG', 'SHORT', or None.
