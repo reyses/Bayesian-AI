@@ -5,12 +5,14 @@ Predicts future feature states (not price direction directly).
 The trading logic interprets predicted states into entry/exit decisions.
 
 Phases:
-  --phase labels    : Build + validate feature/label pipeline
+  --phase labels    : Build + validate feature/label pipeline (13D)
+  --phase labels29  : Build 29D MTF feature pipeline (13D base + 16D multi-TF)
   --phase train     : Walk-forward training (Model A)
   --phase all       : labels + train
 
 Usage:
   python -m training.train_trade_cnn --phase labels
+  python -m training.train_trade_cnn --phase labels29
   python -m training.train_trade_cnn --phase all --model A
 """
 import argparse
@@ -55,6 +57,31 @@ N_FEAT = len(FEATURE_NAMES_13D)  # 13
 # Label: 7D features at each horizon = 7 * 3 = 21 outputs
 N_LABELS = len(FEATURE_NAMES_7D) * len(HORIZONS)  # 21
 LOOKBACK = 10
+
+# --- 29D FEATURES (13D base + 16D multi-TF) ---
+MTF_TFS = ['1s', '5m', '15m', '1h']
+MTF_FEAT_PER_TF = ['dmi_diff', 'z_se', 'velocity', 'vol_rel']
+MTF_FEATURE_NAMES = [f'{tf}_{f}' for tf in MTF_TFS for f in MTF_FEAT_PER_TF]
+FEATURE_NAMES_29D = FEATURE_NAMES_13D + MTF_FEATURE_NAMES
+N_FEAT_29D = len(FEATURE_NAMES_29D)  # 29
+
+# TF boundary indices for per-TF z-score normalization
+TF_BOUNDARIES = [
+    (0, 13),    # 1m base
+    (13, 17),   # 1s
+    (17, 21),   # 5m
+    (21, 25),   # 15m
+    (25, 29),   # 1h
+]
+
+# Bar durations in seconds (for alignment: bar_close_time = timestamp + duration)
+TF_BAR_DURATION = {'1s': 1, '5m': 300, '15m': 900, '1h': 3600}
+
+# Rolling z-score window: 30 trading days × bars_per_day
+ZSCORE_WINDOW_DAYS = 30
+BARS_PER_DAY_1M = 1380  # ~23 hours of futures trading
+ZSCORE_WINDOW = ZSCORE_WINDOW_DAYS * BARS_PER_DAY_1M  # ~41,400 bars
+ZSCORE_MIN_PERIODS = 100
 
 
 def extract_features_13d(states, df):
@@ -149,6 +176,411 @@ def build_state_labels(feats_7d, horizons=HORIZONS):
                 labels[i, hi * n_feat:(hi + 1) * n_feat] = feats_7d[i + h]
 
     return labels
+
+
+# =============================================================================
+# MTF 29D FEATURE PIPELINE (Phase A of counter-proposal)
+# =============================================================================
+
+def extract_4_features_from_sfe(states, df):
+    """Extract the 4 MTF features from SFE states + OHLCV for one timeframe.
+
+    Returns (n, 4) array: [dmi_diff, z_se, velocity, vol_rel].
+    Uses the same computation as the 13D base features for consistency.
+    """
+    n = len(states)
+    feats = np.zeros((n, 4), dtype=np.float32)
+    volumes = df['volume'].values.astype(np.float64) if 'volume' in df.columns else np.zeros(n)
+    prices = df['close'].values.astype(np.float64)
+
+    # 30-bar rolling volume SMA
+    vol_avg = pd.Series(volumes).rolling(30, min_periods=1).mean().values
+
+    for i in range(n):
+        st = states[i]['state'] if isinstance(states[i], dict) else states[i]
+
+        # dmi_diff
+        feats[i, 0] = getattr(st, 'dmi_plus', 0.0) - getattr(st, 'dmi_minus', 0.0)
+
+        # z_se: (price - mean_60) / SE_60
+        if i >= 15:
+            _window = prices[max(0, i - 60):i + 1]
+            _mean = _window.mean()
+            _std = _window.std()
+            _se = _std / (len(_window) ** 0.5) if len(_window) > 1 else _std
+            feats[i, 1] = (prices[i] - _mean) / _se if _se > 1e-8 else 0.0
+
+        # velocity
+        feats[i, 2] = getattr(st, 'velocity', 0.0)
+
+        # vol_rel
+        _va = vol_avg[i] if vol_avg[i] > 0 else 1.0
+        feats[i, 3] = volumes[i] / _va
+
+    return feats
+
+
+def extract_4_features_from_raw(df):
+    """Extract 4 features from raw 1s OHLCV without SFE.
+
+    For 27.5M 1s bars, running full SFE is too heavy.
+    Computes: dmi_diff proxy (EWM up-down), z_se, velocity, vol_rel.
+    Returns (n, 4) float32 array.
+    """
+    n = len(df)
+    prices = df['close'].values.astype(np.float64)
+    volumes = df['volume'].values.astype(np.float64) if 'volume' in df.columns else np.zeros(n)
+
+    feats = np.zeros((n, 4), dtype=np.float32)
+
+    # --- dmi_diff proxy: EWM of up vs down moves (Wilder's smoothing, period=14) ---
+    price_diff = np.diff(prices, prepend=prices[0])
+    up_moves = np.maximum(price_diff, 0.0)
+    dn_moves = np.maximum(-price_diff, 0.0)
+
+    alpha = 1.0 / 14  # Wilder's smoothing = 1/period
+    smooth_up = pd.Series(up_moves).ewm(alpha=alpha, adjust=False).mean().values
+    smooth_dn = pd.Series(dn_moves).ewm(alpha=alpha, adjust=False).mean().values
+    feats[:, 0] = smooth_up - smooth_dn
+
+    # --- z_se: z-score over 60 bars ---
+    price_series = pd.Series(prices)
+    rolling_mean = price_series.rolling(60, min_periods=1).mean().values
+    rolling_std = price_series.rolling(60, min_periods=1).std().values
+    counts = np.minimum(np.arange(1, n + 1), 60).astype(np.float64)
+    rolling_se = rolling_std / np.sqrt(counts)
+    feats[:, 1] = np.where(rolling_se > 1e-8, (prices - rolling_mean) / rolling_se, 0.0).astype(np.float32)
+
+    # --- velocity: price change per bar ---
+    feats[1:, 2] = np.diff(prices).astype(np.float32)
+
+    # --- vol_rel: volume / 30-bar SMA ---
+    vol_sma = pd.Series(volumes).rolling(30, min_periods=1).mean().values
+    feats[:, 3] = np.where(vol_sma > 0, volumes / vol_sma, 0.0).astype(np.float32)
+
+    return feats
+
+
+def load_tf_data(data_root, tf):
+    """Load all parquet files for a given timeframe, sorted by timestamp."""
+    files = sorted(glob.glob(os.path.join(data_root, tf, '*.parquet')))
+    if not files:
+        raise FileNotFoundError(f"No parquet files in {data_root}/{tf}/")
+    dfs = [pd.read_parquet(f) for f in files]
+    df = pd.concat(dfs, ignore_index=True).sort_values('timestamp').reset_index(drop=True)
+    return df
+
+
+def compute_mtf_features(data_root, cache_dir):
+    """Compute 4 features for each MTF timeframe. Cache as .npy files.
+
+    For 5m/15m/1h: run full SFE.
+    For 1s: use raw extraction (no SFE on 27.5M bars).
+
+    Returns dict: tf -> {'feats': (n,4), 'timestamps': (n,), 'df': DataFrame}
+    """
+    from core.statistical_field_engine import StatisticalFieldEngine
+
+    os.makedirs(cache_dir, exist_ok=True)
+    result = {}
+
+    for tf in MTF_TFS:
+        cache_feats = os.path.join(cache_dir, f'{tf}_features_4d.npy')
+        cache_ts = os.path.join(cache_dir, f'{tf}_timestamps.npy')
+
+        if os.path.exists(cache_feats) and os.path.exists(cache_ts):
+            print(f"  {tf}: loading cached features")
+            feats = np.load(cache_feats)
+            timestamps = np.load(cache_ts)
+            df_tf = load_tf_data(data_root, tf)
+            result[tf] = {'feats': feats, 'timestamps': timestamps, 'df': df_tf}
+            continue
+
+        print(f"  {tf}: loading data...", end=' ')
+        df_tf = load_tf_data(data_root, tf)
+        print(f"{len(df_tf):,} bars")
+
+        if tf == '1s':
+            print(f"  {tf}: extracting features from raw OHLCV (no SFE)...")
+            feats = extract_4_features_from_raw(df_tf)
+        else:
+            print(f"  {tf}: computing SFE states...")
+            sfe = StatisticalFieldEngine()
+            states = sfe.batch_compute_states(df_tf)
+            print(f"  {tf}: extracting 4 features from SFE...")
+            feats = extract_4_features_from_sfe(states, df_tf)
+            del states
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+        timestamps = df_tf['timestamp'].values.astype(np.int64)
+
+        np.save(cache_feats, feats)
+        np.save(cache_ts, timestamps)
+        print(f"  {tf}: cached {feats.shape} features + timestamps")
+
+        result[tf] = {'feats': feats, 'timestamps': timestamps, 'df': df_tf}
+
+    return result
+
+
+def build_alignment_indices(timestamps_1m, mtf_data):
+    """For each 1m bar, find the index of the last COMPLETED bar from each higher TF.
+
+    Rule: a higher-TF bar is usable only if its close_time < 1m_open_time.
+    close_time = bar_timestamp + bar_duration.
+    1m bar timestamp = bar open time.
+
+    Returns dict: tf -> np.ndarray of shape (n_1m,) with indices into that TF's array.
+    Index = -1 means no completed bar available yet.
+    """
+    n = len(timestamps_1m)
+    alignment = {}
+
+    for tf in MTF_TFS:
+        tf_ts = mtf_data[tf]['timestamps']
+        bar_dur = TF_BAR_DURATION[tf]
+
+        # close times for higher-TF bars
+        tf_close_times = tf_ts + bar_dur
+
+        indices = np.full(n, -1, dtype=np.int64)
+
+        # For each 1m bar, find the rightmost higher-TF bar whose close_time < 1m_open_time
+        # Using searchsorted: find where 1m_open_time would be inserted into tf_close_times
+        # Then subtract 1 to get the last bar that closed strictly before.
+        insert_pos = np.searchsorted(tf_close_times, timestamps_1m, side='left')
+        # side='left': returns first position where tf_close_time >= 1m_open_time
+        # So insert_pos - 1 is the last bar where tf_close_time < 1m_open_time
+        indices = insert_pos - 1
+
+        # Clamp: where no bar is available yet, set to -1
+        indices[indices < 0] = -1
+
+        alignment[tf] = indices
+
+    return alignment
+
+
+def validate_mtf_alignment(timestamps_1m, mtf_data, alignment):
+    """Assert zero lookahead in MTF alignment. Hard stop if any violations.
+
+    For every 1m bar at time T, the higher-TF feature must come from
+    a bar whose CLOSE TIME < T (strictly before).
+    """
+    total_violations = 0
+
+    for tf in MTF_TFS:
+        tf_ts = mtf_data[tf]['timestamps']
+        bar_dur = TF_BAR_DURATION[tf]
+        indices = alignment[tf]
+
+        violations = 0
+        n_checked = 0
+        violation_examples = []
+
+        for i in range(len(timestamps_1m)):
+            h_idx = indices[i]
+            if h_idx < 0:
+                continue
+            n_checked += 1
+
+            h_close_time = tf_ts[h_idx] + bar_dur
+            m_open_time = timestamps_1m[i]
+
+            if h_close_time >= m_open_time:
+                violations += 1
+                if len(violation_examples) < 3:
+                    violation_examples.append(
+                        f"    1m bar {i} at {m_open_time} uses {tf} bar {h_idx} "
+                        f"closing at {h_close_time}"
+                    )
+
+        total_violations += violations
+        status = "PASS" if violations == 0 else f"FAIL ({violations})"
+        print(f"  {tf} alignment: {status} ({n_checked:,} bars checked)")
+        for ex in violation_examples:
+            print(ex)
+
+    if total_violations > 0:
+        raise AssertionError(
+            f"MTF alignment has {total_violations} lookahead violations. "
+            f"Fix alignment logic before training."
+        )
+    print(f"  ALL TFs: PASS (zero violations)")
+    return True
+
+
+def assemble_features_29d(feats_13d, mtf_data, alignment):
+    """Concatenate 13D base + 16D MTF features into 29D array.
+
+    For each 1m bar, look up the aligned index in each TF and copy its 4 features.
+    Bars with no available higher-TF data (index=-1) get zeros for that TF.
+    """
+    n = len(feats_13d)
+    feats_29d = np.zeros((n, N_FEAT_29D), dtype=np.float32)
+
+    # Copy 13D base
+    feats_29d[:, :13] = feats_13d
+
+    # Copy 16D MTF (4 features × 4 TFs)
+    for ti, tf in enumerate(MTF_TFS):
+        tf_feats = mtf_data[tf]['feats']  # (n_tf_bars, 4)
+        indices = alignment[tf]           # (n_1m,)
+        col_start = 13 + ti * 4
+        col_end = col_start + 4
+
+        # Vectorized: gather aligned features
+        valid = indices >= 0
+        feats_29d[valid, col_start:col_end] = tf_feats[indices[valid]]
+
+    return feats_29d
+
+
+def normalize_per_tf(feats_29d):
+    """Z-score each TF's features using that TF's own rolling statistics.
+
+    Uses 30-day rolling window to avoid lookahead in normalization.
+    Each TF group is normalized independently because the raw scales differ
+    (e.g., 1h dmi_diff has different range than 1s dmi_diff).
+    """
+    normalized = np.copy(feats_29d)
+
+    for start, end in TF_BOUNDARIES:
+        for col in range(start, end):
+            series = pd.Series(feats_29d[:, col])
+            rolling_mean = series.rolling(ZSCORE_WINDOW, min_periods=ZSCORE_MIN_PERIODS).mean()
+            rolling_std = series.rolling(ZSCORE_WINDOW, min_periods=ZSCORE_MIN_PERIODS).std()
+            normalized[:, col] = ((series - rolling_mean) / (rolling_std + 1e-8)).values
+
+    # Replace NaN from warmup period with 0
+    normalized = np.nan_to_num(normalized, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
+
+    return normalized
+
+
+def print_correlation_matrix_29d(feats, feature_names):
+    """Print feature pairs with |r| > 0.8 and flag |r| > 0.9."""
+    from scipy import stats as sp_stats
+
+    print(f"\n  FEATURE CORRELATION (|r| > 0.8):")
+    high_corr_count = 0
+    dangerous_count = 0
+
+    for i in range(len(feature_names)):
+        for j in range(i + 1, len(feature_names)):
+            # Skip if either column has zero variance
+            if feats[:, i].std() < 1e-8 or feats[:, j].std() < 1e-8:
+                continue
+            r, _ = sp_stats.pearsonr(feats[:, i], feats[:, j])
+            if abs(r) > 0.8:
+                flag = " *** DANGER" if abs(r) > 0.9 else ""
+                print(f"    {feature_names[i]:<20} <-> {feature_names[j]:<20}: r={r:.3f}{flag}")
+                high_corr_count += 1
+                if abs(r) > 0.9:
+                    dangerous_count += 1
+
+    if high_corr_count == 0:
+        print(f"    No pairs with |r| > 0.8")
+    if dangerous_count > 0:
+        print(f"\n  WARNING: {dangerous_count} pairs with |r| > 0.9 — consider dropping one")
+
+
+def build_29d_pipeline(data_root, cache_dir, feats_13d=None, df_1m=None):
+    """Full Phase A pipeline: compute MTF features, align, validate, normalize, cache.
+
+    Returns: feats_29d (normalized), feats_29d_raw (unnormalized), 1s slippage arrays.
+    """
+    from core.statistical_field_engine import StatisticalFieldEngine
+
+    os.makedirs(cache_dir, exist_ok=True)
+
+    # Step 1: Build or load 13D base features
+    if feats_13d is None or df_1m is None:
+        print("Building 13D base features...")
+        feats_13d, _, _, df_1m = build_dataset(data_root)
+
+    timestamps_1m = df_1m['timestamp'].values.astype(np.int64)
+
+    # Step 2: Compute MTF features (SFE for 5m/15m/1h, raw for 1s)
+    print("\nComputing MTF features...")
+    mtf_cache = os.path.join(cache_dir, 'mtf_cache')
+    mtf_data = compute_mtf_features(data_root, mtf_cache)
+
+    # Step 3: Build alignment indices
+    print("\nBuilding MTF alignment indices...")
+    alignment = build_alignment_indices(timestamps_1m, mtf_data)
+
+    # Print alignment coverage stats
+    for tf in MTF_TFS:
+        valid = (alignment[tf] >= 0).sum()
+        print(f"  {tf}: {valid:,}/{len(timestamps_1m):,} bars have aligned data "
+              f"({valid / len(timestamps_1m) * 100:.1f}%)")
+
+    # Step 4: Validate alignment (zero lookahead or die)
+    print("\nValidating MTF alignment (zero-lookahead check)...")
+    validate_mtf_alignment(timestamps_1m, mtf_data, alignment)
+
+    # Step 5: Assemble 29D features
+    print("\nAssembling 29D features...")
+    feats_29d_raw = assemble_features_29d(feats_13d, mtf_data, alignment)
+    print(f"  Shape: {feats_29d_raw.shape}")
+
+    # Step 6: Per-TF z-score normalization
+    print("\nApplying per-TF z-score normalization (30-day rolling window)...")
+    feats_29d = normalize_per_tf(feats_29d_raw)
+
+    # Step 7: Validate the result
+    print(f"\n{'='*60}")
+    print(f"29D PIPELINE VALIDATION")
+    print(f"{'='*60}")
+    print(f"  Samples: {len(feats_29d):,}")
+    print(f"  Features: {feats_29d.shape[1]}D")
+
+    print(f"\n  FEATURE DISTRIBUTIONS (normalized):")
+    print(f"  {'Name':<25} {'Mean':>8} {'Std':>8} {'Min':>8} {'Max':>8} {'Zero%':>6}")
+    for j, name in enumerate(FEATURE_NAMES_29D):
+        col = feats_29d[:, j]
+        _zero = (col == 0).mean() * 100
+        print(f"  {name:<25} {col.mean():>8.3f} {col.std():>8.3f} "
+              f"{col.min():>8.1f} {col.max():>8.1f} {_zero:>5.1f}%")
+
+    # NaN/Inf check
+    _nan = np.isnan(feats_29d).sum()
+    _inf = np.isinf(feats_29d).sum()
+    print(f"\n  NaN: {_nan}, Inf: {_inf}")
+    if _nan > 0 or _inf > 0:
+        print("  WARNING: NaN/Inf in normalized features!")
+
+    # Step 8: Correlation matrix
+    print_correlation_matrix_29d(feats_29d, FEATURE_NAMES_29D)
+
+    # Step 9: Cache everything
+    np.save(os.path.join(cache_dir, 'is_features_29d.npy'), feats_29d)
+    np.save(os.path.join(cache_dir, 'is_features_29d_raw.npy'), feats_29d_raw)
+    print(f"\n  Saved: {cache_dir}/is_features_29d.npy ({feats_29d.shape})")
+    print(f"  Saved: {cache_dir}/is_features_29d_raw.npy ({feats_29d_raw.shape})")
+
+    # Step 10: Cache 1s prices + timestamps for slippage fills
+    print("\nCaching 1s prices + timestamps for slippage fills...")
+    _1s_prices = mtf_data['1s']['df']['close'].values.astype(np.float64)
+    _1s_ts = mtf_data['1s']['timestamps']
+    np.save(os.path.join(cache_dir, '1s_prices.npy'), _1s_prices)
+    np.save(os.path.join(cache_dir, '1s_timestamps.npy'), _1s_ts)
+    print(f"  Saved: {cache_dir}/1s_prices.npy ({len(_1s_prices):,} bars)")
+    print(f"  Saved: {cache_dir}/1s_timestamps.npy")
+
+    # Save alignment indices for reuse
+    for tf in MTF_TFS:
+        np.save(os.path.join(cache_dir, f'alignment_{tf}.npy'), alignment[tf])
+    print(f"  Saved: alignment indices for {MTF_TFS}")
+
+    # Cleanup MTF data to free memory
+    del mtf_data
+    gc.collect()
+
+    return feats_29d, feats_29d_raw
 
 
 def build_dataset(data_root, max_bars=0):
@@ -264,7 +696,7 @@ def validate_pipeline(feats, labels, df):
 # --- MAIN ---
 def main():
     parser = argparse.ArgumentParser(description='TradeCNN training pipeline')
-    parser.add_argument('--phase', default='labels', choices=['labels', 'train', 'all', 'oos'])
+    parser.add_argument('--phase', default='labels', choices=['labels', 'labels29', 'train', 'all', 'oos'])
     parser.add_argument('--model', default='A', choices=['A'])
     parser.add_argument('--max-bars', type=int, default=0)
     parser.add_argument('--horizons', default='fast', choices=['fast', 'hold', '10'],
@@ -304,6 +736,39 @@ def main():
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         gc.collect()
+
+    if args.phase == 'labels29':
+        t0 = time.time()
+
+        # Check if 13D features already cached
+        _feat_path = os.path.join(CHECKPOINT_DIR, 'is_features_13d.npy')
+        _label_path = os.path.join(CHECKPOINT_DIR, 'is_labels_21d.npy')
+        if os.path.exists(_feat_path):
+            print("Loading cached 13D features...")
+            feats_13d = np.load(_feat_path)
+            files = sorted(glob.glob(os.path.join(IS_ROOT, '1m', '*.parquet')))
+            df_1m = pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
+            df_1m = df_1m.sort_values('timestamp').reset_index(drop=True)
+            print(f"  13D features: {feats_13d.shape}, 1m bars: {len(df_1m):,}")
+        else:
+            print("13D features not cached — building from scratch...")
+            feats_13d, _, _, df_1m = build_dataset(IS_ROOT, max_bars=args.max_bars)
+
+        cache_29d = os.path.join(CHECKPOINT_DIR, '29d')
+        feats_29d, feats_29d_raw = build_29d_pipeline(IS_ROOT, cache_29d, feats_13d, df_1m)
+
+        # Also build labels (same 7D × horizons, from 13D directional features)
+        labels = build_state_labels(feats_13d[:, :7], horizons=HORIZONS)
+        np.save(os.path.join(cache_29d, 'is_labels_21d.npy'), labels)
+        print(f"  Saved: {cache_29d}/is_labels_21d.npy ({labels.shape})")
+
+        print(f"\n29D pipeline complete in {time.time()-t0:.1f}s")
+
+        # Cleanup
+        del feats_13d, feats_29d, feats_29d_raw, labels
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     if args.phase in ('train', 'all'):
         from core.trade_cnn import StatePredictor
