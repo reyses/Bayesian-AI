@@ -226,15 +226,26 @@ class CNN3Layer:
         self.hard_sl = 40  # backstop only
         self.n_h = n_h
 
-    def warmup_from_atlas(self, atlas_root='DATA/ATLAS_LIVE', n_bars=300):
+    def warmup_from_atlas(self, atlas_root='DATA/ATLAS_LIVE', n_bars=300, before_date=None):
         """Pre-fill all buffers from ATLAS data so predictions start from bar 1.
 
         Loads the last n_bars from each TF in ATLAS and feeds them through the buffers.
+        If before_date is set (YYYY-MM-DD), only uses bars BEFORE that date.
         No SFE computation — uses raw extraction (same as training pipeline for 1s).
         """
         import glob as _glob
+        from datetime import datetime
 
-        print(f"[CNN3Layer] Warming up from {atlas_root}...")
+        _cutoff_ts = None
+        if before_date:
+            try:
+                _cutoff_ts = int(datetime.strptime(before_date, '%Y-%m-%d').timestamp())
+                print(f"[CNN3Layer] Warming up from {atlas_root} (bars before {before_date})...")
+            except ValueError:
+                print(f"[CNN3Layer] Invalid date '{before_date}', using all data")
+                before_date = None
+        if not before_date:
+            print(f"[CNN3Layer] Warming up from {atlas_root}...")
 
         # 1m bars for base 13D features
         _1m_files = sorted(_glob.glob(os.path.join(atlas_root, '60s', '*.parquet')))
@@ -242,7 +253,10 @@ class CNN3Layer:
             _1m_files = sorted(_glob.glob(os.path.join(atlas_root, '1m', '*.parquet')))
         if _1m_files:
             df_1m = pd.concat([pd.read_parquet(f) for f in _1m_files], ignore_index=True)
-            df_1m = df_1m.sort_values('timestamp').tail(n_bars).reset_index(drop=True)
+            df_1m = df_1m.sort_values('timestamp')
+            if _cutoff_ts:
+                df_1m = df_1m[df_1m['timestamp'] < _cutoff_ts]
+            df_1m = df_1m.tail(n_bars).reset_index(drop=True)
             for _, row in df_1m.iterrows():
                 self._price_buffer.append(row['close'])
                 self._vol_buffer.append(row.get('volume', 0))
@@ -256,7 +270,10 @@ class CNN3Layer:
         _1s_files = sorted(_glob.glob(os.path.join(atlas_root, '1s', '*.parquet')))
         if _1s_files:
             df_1s = pd.read_parquet(_1s_files[-1])  # last file only (most recent)
-            df_1s = df_1s.sort_values('timestamp').tail(500).reset_index(drop=True)
+            df_1s = df_1s.sort_values('timestamp')
+            if _cutoff_ts:
+                df_1s = df_1s[df_1s['timestamp'] < _cutoff_ts]
+            df_1s = df_1s.tail(500).reset_index(drop=True)
             for _, row in df_1s.iterrows():
                 self._buf_1s.add_bar(row['close'], row.get('volume', 0), row['timestamp'])
             print(f"  1s: {len(df_1s)} bars -> MTF buffer ready")
@@ -271,7 +288,10 @@ class CNN3Layer:
                 _files = sorted(_glob.glob(os.path.join(atlas_root, f'{tf_secs}s', '*.parquet')))
             if _files:
                 df_tf = pd.concat([pd.read_parquet(f) for f in _files], ignore_index=True)
-                df_tf = df_tf.sort_values('timestamp').tail(100).reset_index(drop=True)
+                df_tf = df_tf.sort_values('timestamp')
+                if _cutoff_ts:
+                    df_tf = df_tf[df_tf['timestamp'] < _cutoff_ts]
+                df_tf = df_tf.tail(100).reset_index(drop=True)
                 for _, row in df_tf.iterrows():
                     buf.add_bar(row['close'], row.get('volume', 0), row['timestamp'])
                 print(f"  {tf_name}: {len(df_tf)} bars -> MTF buffer ready")
