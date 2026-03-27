@@ -39,7 +39,9 @@ RESULTS_LOG = 'reports/findings/experiment_log.txt'
 TICK = 0.25
 
 # --- HORIZONS ---
-HORIZONS = [1, 5, 10]  # predict state at t+1, t+5, t+10
+HORIZONS_FAST = [1, 5, 10]    # v1: scalping (1-10 bar moves)
+HORIZONS_HOLD = [5, 10, 20]   # v2: sustained moves (5-20 bars)
+HORIZONS = HORIZONS_FAST      # default, overridden by --horizons
 MAX_FORWARD = max(HORIZONS)
 
 # --- 13D FEATURES ---
@@ -264,7 +266,21 @@ def main():
     parser.add_argument('--phase', default='labels', choices=['labels', 'train', 'all', 'oos'])
     parser.add_argument('--model', default='A', choices=['A'])
     parser.add_argument('--max-bars', type=int, default=0)
+    parser.add_argument('--horizons', default='fast', choices=['fast', 'hold'],
+                        help='fast=[1,5,10] scalp, hold=[5,10,20] sustained')
     args = parser.parse_args()
+
+    # Set horizons and checkpoint dir based on mode
+    global HORIZONS, MAX_FORWARD, N_LABELS, CHECKPOINT_DIR
+    if args.horizons == 'hold':
+        HORIZONS = HORIZONS_HOLD
+        CHECKPOINT_DIR = 'checkpoints/trade_cnn_hold'
+    else:
+        HORIZONS = HORIZONS_FAST
+        CHECKPOINT_DIR = 'checkpoints/trade_cnn'
+    MAX_FORWARD = max(HORIZONS)
+    N_LABELS = len(FEATURE_NAMES_7D) * len(HORIZONS)
+    print(f"Horizons: {HORIZONS} -> {N_LABELS}D labels -> {CHECKPOINT_DIR}")
 
     if args.phase in ('labels', 'all'):
         t0 = time.time()
@@ -664,11 +680,15 @@ def oos_single_pass():
         high = highs[i]
         low = lows[i]
 
-        # Predicted direction from dmi_diff at t+5
-        _pred_dmi_t5 = pred[7]  # dmi_diff at t+5
-        _pred_dmi_t1 = pred[0]  # dmi_diff at t+1
-        _pred_dir = 'LONG' if _pred_dmi_t5 > 0 else 'SHORT'
-        _confidence = abs(_pred_dmi_t5)
+        # Predicted direction from dmi_diff at each horizon
+        _h0_dmi = pred[0]                # dmi_diff at horizon[0]
+        _h1_dmi = pred[7]                # dmi_diff at horizon[1]
+        _h2_dmi = pred[14]               # dmi_diff at horizon[2]
+        _pred_dir = 'LONG' if _h1_dmi > 0 else 'SHORT'
+        _confidence = abs(_h1_dmi)
+        # Momentum building: all horizons agree AND magnitude grows
+        _all_agree = np.sign(_h0_dmi) == np.sign(_h1_dmi) == np.sign(_h2_dmi)
+        _momentum_building = abs(_h2_dmi) > abs(_h0_dmi)  # longer horizon stronger
 
         if in_trade:
             # Update peak
@@ -736,8 +756,8 @@ def oos_single_pass():
                         in_trade = False
                         continue
 
-            # Flip: predicted direction changed
-            if _pred_dir != trade_dir and _confidence > 2.0:
+            # Flip: predicted direction changed AND all horizons agree on new direction
+            if _pred_dir != trade_dir and _confidence > 2.0 and _all_agree and _momentum_building:
                 _exit_pnl = _pnl
                 trades.append({'bar': i, 'pnl': _exit_pnl, 'dir': trade_dir,
                                'held': i - entry_bar, 'exit': 'FLIP', 'peak': _peak_pnl})
@@ -758,8 +778,8 @@ def oos_single_pass():
                 trail_active = False
                 continue
 
-        # Entry: predicted direction with confidence
-        if not in_trade and _confidence > 2.0:
+        # Entry: all horizons agree + momentum building + confidence
+        if not in_trade and _confidence > 2.0 and _all_agree and _momentum_building:
             in_trade = True
             trade_dir = _pred_dir
             # Fill at actual price 2s after signal (from 1s data)
