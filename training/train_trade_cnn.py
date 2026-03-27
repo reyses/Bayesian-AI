@@ -41,6 +41,7 @@ TICK = 0.25
 # --- HORIZONS ---
 HORIZONS_FAST = [1, 5, 10]    # v1: scalping (1-10 bar moves)
 HORIZONS_HOLD = [5, 10, 20]   # v2: sustained moves (5-20 bars)
+HORIZONS_10 = [10]            # v3: single horizon at sweet spot (10 min)
 HORIZONS = HORIZONS_FAST      # default, overridden by --horizons
 MAX_FORWARD = max(HORIZONS)
 
@@ -266,8 +267,8 @@ def main():
     parser.add_argument('--phase', default='labels', choices=['labels', 'train', 'all', 'oos'])
     parser.add_argument('--model', default='A', choices=['A'])
     parser.add_argument('--max-bars', type=int, default=0)
-    parser.add_argument('--horizons', default='fast', choices=['fast', 'hold'],
-                        help='fast=[1,5,10] scalp, hold=[5,10,20] sustained')
+    parser.add_argument('--horizons', default='fast', choices=['fast', 'hold', '10'],
+                        help='fast=[1,5,10] scalp, hold=[5,10,20] sustained, 10=[10] sweet spot')
     args = parser.parse_args()
 
     # Set horizons and checkpoint dir based on mode
@@ -275,6 +276,9 @@ def main():
     if args.horizons == 'hold':
         HORIZONS = HORIZONS_HOLD
         CHECKPOINT_DIR = 'checkpoints/trade_cnn_hold'
+    elif args.horizons == '10':
+        HORIZONS = HORIZONS_10
+        CHECKPOINT_DIR = 'checkpoints/trade_cnn_10'
     else:
         HORIZONS = HORIZONS_FAST
         CHECKPOINT_DIR = 'checkpoints/trade_cnn'
@@ -680,15 +684,28 @@ def oos_single_pass():
         high = highs[i]
         low = lows[i]
 
-        # Predicted direction from dmi_diff at each horizon
-        _h0_dmi = pred[0]                # dmi_diff at horizon[0]
-        _h1_dmi = pred[7]                # dmi_diff at horizon[1]
-        _h2_dmi = pred[14]               # dmi_diff at horizon[2]
-        _pred_dir = 'LONG' if _h1_dmi > 0 else 'SHORT'
-        _confidence = abs(_h1_dmi)
-        # Momentum building: all horizons agree AND magnitude grows
-        _all_agree = np.sign(_h0_dmi) == np.sign(_h1_dmi) == np.sign(_h2_dmi)
-        _momentum_building = abs(_h2_dmi) > abs(_h0_dmi)  # longer horizon stronger
+        # Predicted direction from dmi_diff — adapt to number of horizons
+        n_h = len(HORIZONS)
+        _h0_dmi = pred[0]                # dmi_diff at first horizon
+        if n_h >= 2:
+            _h1_dmi = pred[7]
+        else:
+            _h1_dmi = _h0_dmi
+        if n_h >= 3:
+            _h2_dmi = pred[14]
+        else:
+            _h2_dmi = _h1_dmi
+
+        # Primary prediction: last available horizon
+        _pred_dmi = pred[(n_h - 1) * 7]  # dmi_diff at the furthest horizon
+        _pred_dir = 'LONG' if _pred_dmi > 0 else 'SHORT'
+        _confidence = abs(_pred_dmi)
+        # All horizons agree
+        _all_agree = True
+        for _hi in range(1, n_h):
+            if np.sign(pred[_hi * 7]) != np.sign(pred[0]):
+                _all_agree = False
+                break
 
         if in_trade:
             # Update peak
@@ -756,8 +773,8 @@ def oos_single_pass():
                         in_trade = False
                         continue
 
-            # Flip: predicted direction changed AND all horizons agree on new direction
-            if _pred_dir != trade_dir and _confidence > 2.0 and _all_agree and _momentum_building:
+            # Flip: predicted direction changed AND all horizons agree
+            if _pred_dir != trade_dir and _confidence > 2.0 and _all_agree:
                 _exit_pnl = _pnl
                 trades.append({'bar': i, 'pnl': _exit_pnl, 'dir': trade_dir,
                                'held': i - entry_bar, 'exit': 'FLIP', 'peak': _peak_pnl})
@@ -778,8 +795,8 @@ def oos_single_pass():
                 trail_active = False
                 continue
 
-        # Entry: all horizons agree + momentum building + confidence
-        if not in_trade and _confidence > 2.0 and _all_agree and _momentum_building:
+        # Entry: all horizons agree + confidence (momentum building optional)
+        if not in_trade and _confidence > 2.0 and _all_agree:
             in_trade = True
             trade_dir = _pred_dir
             # Fill at actual price 2s after signal (from 1s data)
