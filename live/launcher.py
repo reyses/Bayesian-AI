@@ -218,6 +218,8 @@ def main():
         print(f"[trade-cnn] Anchor: 1m | Trail after $5 | SL=40t")
 
     # Playback mode: fresh start for NT8 historical replay
+    # Store date on args — shared_state isn't created yet
+    args._playback_date = None
     if args.playback:
         import shutil
         _bar_cache = 'checkpoints/live/bars_MNQ_60s.parquet'
@@ -225,14 +227,20 @@ def main():
         if os.path.exists(_bar_cache):
             shutil.move(_bar_cache, _bar_backup)
             print(f"[playback] Moved bar cache aside: {_bar_backup}")
-        # Ask for playback date
-        _pb_date = input("[playback] Enter playback start date (YYYY-MM-DD): ").strip()
-        if _pb_date:
-            shared_state['playback_date'] = _pb_date
-            print(f"[playback] Date: {_pb_date} — will load warmup data before this date")
-        else:
-            shared_state['playback_date'] = None
-            print(f"[playback] No date — warmup from latest ATLAS_LIVE data")
+        # Ask for playback date (accepts MM/DD/YY or YYYY-MM-DD)
+        _pb_raw = input("[playback] Enter playback start date (MM/DD/YY or YYYY-MM-DD): ").strip()
+        if _pb_raw:
+            from datetime import datetime as _dt
+            for _fmt in ('%m/%d/%y', '%Y-%m-%d', '%m/%d/%Y', '%m-%d-%Y'):
+                try:
+                    args._playback_date = _dt.strptime(_pb_raw, _fmt).strftime('%Y-%m-%d')
+                    break
+                except ValueError:
+                    continue
+            if args._playback_date:
+                print(f"[playback] Date: {args._playback_date} — warmup loads bars before this")
+            else:
+                print(f"[playback] Could not parse '{_pb_raw}' — using latest ATLAS_LIVE data")
         print(f"[playback] Fresh start — no delta sync, accepting Playback101")
 
     # CNN3 mode: three-layer CNN (L1+L2+L3), 1m anchor
@@ -301,6 +309,7 @@ def main():
         'seed_path': getattr(args, 'seed_path', None),
         'cnn3_mode': getattr(args, 'cnn3', False),
         'playback_mode': getattr(args, 'playback', False),
+        'playback_date': getattr(args, '_playback_date', None),
     }
 
     # Launch GUI popup (unless --no-gui)
