@@ -1915,7 +1915,7 @@ def simulate_two_layer_oos(feats, df, l1_model, l2_model, device, data_root, l3_
         if entry_fill is None:
             entry_fill = float(price)
         entry_bar = i
-        predicted_hold = max(3, int(hold_bars.item()))
+        predicted_hold = min(10, max(5, int(hold_bars.item())))
         peak_price = entry_fill
         in_trade = True
 

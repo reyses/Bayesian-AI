@@ -224,6 +224,8 @@ class CNN3Layer:
         # Config
         self.conf_threshold = 3.0
         self.hard_sl = 40  # backstop only
+        self.min_hold = 5  # minimum hold (bars) — ride at least half an oscillation
+        self.max_hold = 10  # maximum hold (bars) — one full oscillation cycle (~8 min)
         self.n_h = n_h
 
     def warmup_from_atlas(self, atlas_root='DATA/ATLAS_LIVE', n_bars=300, before_date=None):
@@ -375,7 +377,7 @@ class CNN3Layer:
         if p_take.item() < 0.5:
             return CNN3Signal('NONE', '', confidence, 0, 0, 'l2_skip')
 
-        hold = max(3, int(hold_bars.item()))
+        hold = min(self.max_hold, max(self.min_hold, int(hold_bars.item())))
 
         # Signal entry — do NOT set _in_trade yet.
         # Live engine calls on_fill() after NT8 confirms the entry.
