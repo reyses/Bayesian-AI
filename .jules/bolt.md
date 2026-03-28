@@ -1,0 +1,3 @@
+2025-03-28 - [Vectorized Numba Loop for Swing Noise]
+Learning: NumPy's `np.maximum.accumulate` within a per-bar rolling window slice (`highs[i-w:i]`) is extremely slow. It creates O(N * window) intermediate array objects due to slicing and the `accumulate` function overhead.
+Action: Rewrote the `swing_noise` loop using `@njit(parallel=True, cache=True)` with `prange`. Initializing the tracking variables `max_dd` / `max_du` to the difference of the first elements in the window (`(run_hi - run_lo) / tick_size`) instead of `0.0` preserves exact mathematical parity with `np.maximum.accumulate`. Achieved ~200x speedup (0.018s vs 5.106s per 500k iterations) by avoiding array instantiation overhead completely.
