@@ -285,7 +285,9 @@ class LiveEngine:
         # Brain warm from training (live_brain.pkl).
         # TBN warmed from NT8's 10k bar history dump (in HISTORY_DONE handler).
         if self._shared_state.get('playback_mode'):
-            logger.info("Playback mode: skipping bar cache load, fresh start")
+            _pb_date = self._shared_state.get('playback_date')
+            logger.info(f"Playback mode: preloading aggregator from ATLAS (before {_pb_date})")
+            self._aggregator.preload_from_atlas(before_date=_pb_date, n_bars=300)
             last_ts = 0
         else:
             last_ts = self._aggregator.load_from_parquet()

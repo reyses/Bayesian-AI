@@ -241,6 +241,8 @@ def main():
                 print(f"[playback] Date: {args._playback_date} — warmup loads bars before this")
             else:
                 print(f"[playback] Could not parse '{_pb_raw}' — using latest ATLAS_LIVE data")
+        args.warmup_bars = 0  # zero warmup — aggregator pre-loaded from ATLAS
+        print(f"[playback] Warmup: ZERO — aggregator + CNN3 pre-loaded from ATLAS")
         print(f"[playback] Fresh start — no delta sync, accepting Playback101")
 
     # CNN3 mode: three-layer CNN (L1+L2+L3), 1m anchor
