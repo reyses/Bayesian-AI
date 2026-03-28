@@ -36,7 +36,7 @@ ATLAS_ROOT = 'DATA/ATLAS'
 FORWARD_BARS = {
     '1h': 1,    # 1 hour ahead (structural)
     '1m': 4,    # 4 minutes ahead (half-cycle of ~8 min oscillation)
-    '1s': 10,   # 10 seconds ahead (micro-timing)
+    '1s': 5,    # 5 seconds ahead (micro half-cycle)
 }
 
 FEATURE_NAMES_7D = ['dmi_diff', 'dmi_gap', 'vol_rel', 'dir_vol', 'velocity', 'z_se', 'price_accel']
@@ -748,7 +748,14 @@ def train_1s_walkforward(epochs_per_day=10, cold_epochs=30):
         lf = sf.replace('_feat.npy', '_label.npy')
 
         feats = np.load(sf)
-        labels = np.load(lf)
+        if os.path.exists(lf):
+            labels = np.load(lf)
+        else:
+            # Rebuild labels from cached features with current forward horizon
+            print(f"  {month}: rebuilding labels at t+{forward}...", end=' ', flush=True)
+            labels = build_state_labels(feats[:, :N_FEAT_7D], forward)
+            np.save(lf, labels)
+            print("saved")
 
         # Need timestamps for day splitting — load parquet just for timestamps
         pq_path = os.path.join(ATLAS_ROOT, '1s', f'{month}.parquet')
