@@ -262,6 +262,49 @@ class LiveBarAggregator:
             logger.warning(f"Failed to load persisted bars: {e}")
             return 0.0
 
+    def preload_from_atlas(self, atlas_root='DATA/ATLAS', before_date=None, n_bars=300):
+        """Pre-load historical bars from ATLAS into the aggregator buffer.
+
+        This pre-warms SFE so warmup_bars is already satisfied from bar 1.
+        Loads n_bars of 1m data before the given date, runs recompute.
+        """
+        import glob as _glob
+        from datetime import datetime
+
+        tf_folder = '1m'
+        files = sorted(_glob.glob(os.path.join(atlas_root, tf_folder, '*.parquet')))
+        if not files:
+            logger.warning(f"No ATLAS 1m data in {atlas_root}/{tf_folder}/")
+            return
+
+        dfs = [pd.read_parquet(f) for f in files]
+        df = pd.concat(dfs, ignore_index=True).sort_values('timestamp').reset_index(drop=True)
+
+        if before_date:
+            try:
+                cutoff_ts = datetime.strptime(before_date, '%Y-%m-%d').timestamp()
+                df = df[df['timestamp'] < cutoff_ts]
+            except ValueError:
+                logger.warning(f"Invalid date '{before_date}', using all data")
+
+        df = df.tail(n_bars).reset_index(drop=True)
+
+        if df.empty:
+            logger.warning("No ATLAS bars to preload")
+            return
+
+        # Load into aggregator buffer
+        self._rows = df.to_dict('records')
+
+        # Run SFE to generate states
+        self._states = self._engine.batch_compute_states(df, use_cuda=True)
+        self._warmed_up = True
+
+        ts_min = pd.to_datetime(df['timestamp'].min(), unit='s')
+        ts_max = pd.to_datetime(df['timestamp'].max(), unit='s')
+        logger.info(f"ATLAS preload: {len(self._rows)} bars ({ts_min} -> {ts_max}) "
+                    f"-> SFE warm, {len(self._states)} states")
+
     def daily_maintenance(self):
         """Run during daily break (CME 5PM-6PM ET gap).
 
