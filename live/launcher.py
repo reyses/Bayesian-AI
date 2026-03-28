@@ -160,8 +160,8 @@ def main():
                         help='Path to TradeCNN checkpoint (default: auto-find latest)')
     parser.add_argument('--cnn3', action='store_true',
                         help='Use three-layer CNN (L1 direction + L2 duration + L3 retreat)')
-    parser.add_argument('--playback', action='store_true',
-                        help='Playback mode: fresh start, no delta sync, accepts Playback101')
+    parser.add_argument('--playback', default=None, nargs='?', const='ask',
+                        help='Playback mode with date (MM/DD/YY or YYYY-MM-DD). No arg = prompt.')
     parser.add_argument('--seed-path', default=None,
                         help='Path to enriched seed JSON for PhysicsEngine')
     parser.add_argument('--yolo', action='store_true',
@@ -218,17 +218,18 @@ def main():
         print(f"[trade-cnn] Anchor: 1m | Trail after $5 | SL=40t")
 
     # Playback mode: fresh start for NT8 historical replay
-    # Store date on args — shared_state isn't created yet
+    # --playback 03/25/26  OR  --playback (prompts)
     args._playback_date = None
-    if args.playback:
+    if args.playback is not None:
         import shutil
         _bar_cache = 'checkpoints/live/bars_MNQ_60s.parquet'
         _bar_backup = 'checkpoints/live/bars_MNQ_60s_real.parquet'
         if os.path.exists(_bar_cache):
             shutil.move(_bar_cache, _bar_backup)
             print(f"[playback] Moved bar cache aside: {_bar_backup}")
-        # Ask for playback date (accepts MM/DD/YY or YYYY-MM-DD)
-        _pb_raw = input("[playback] Enter playback start date (MM/DD/YY or YYYY-MM-DD): ").strip()
+        # Get date from CLI or prompt
+        _pb_raw = args.playback if args.playback != 'ask' else \
+            input("[playback] Enter playback start date (MM/DD/YY or YYYY-MM-DD): ").strip()
         if _pb_raw:
             from datetime import datetime as _dt
             for _fmt in ('%m/%d/%y', '%Y-%m-%d', '%m/%d/%Y', '%m-%d-%Y'):
@@ -238,11 +239,12 @@ def main():
                 except ValueError:
                     continue
             if args._playback_date:
-                print(f"[playback] Date: {args._playback_date} — warmup loads bars before this")
+                print(f"[playback] Date: {args._playback_date}")
             else:
-                print(f"[playback] Could not parse '{_pb_raw}' — using latest ATLAS_LIVE data")
-        args.warmup_bars = 0  # zero warmup — aggregator pre-loaded from ATLAS
-        print(f"[playback] Warmup: ZERO — aggregator + CNN3 pre-loaded from ATLAS")
+                print(f"[playback] Could not parse '{_pb_raw}' — using latest ATLAS data")
+        args.playback = True  # normalize to bool for downstream checks
+        args.warmup_bars = 0
+        print(f"[playback] Zero warmup — preloaded from ATLAS")
         print(f"[playback] Fresh start — no delta sync, accepting Playback101")
 
     # CNN3 mode: three-layer CNN (L1+L2+L3), 1m anchor
