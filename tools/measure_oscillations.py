@@ -232,9 +232,11 @@ def run_single_day(date_str, log):
             ratio = all_results[higher]['period_minutes'] / max(0.01, all_results[lower]['period_minutes'])
             log(f"    {higher}/{lower}: {ratio:.1f}x")
 
-    # Chart: all TFs stacked showing real price + peaks/troughs for this day
+    # Chart: all TFs stacked — candlesticks, bar-index x-axis, timestamp labels
     active_tfs = [tf for tf in tfs_to_measure if tf in all_results]
     n_tfs = len(active_tfs)
+    matplotlib.rcParams['savefig.directory'] = os.path.abspath('examples')
+
     if n_tfs >= 2:
         fig, axes = plt.subplots(n_tfs, 1, figsize=(18, 3.5 * n_tfs), sharex=False)
         fig.suptitle(f'Oscillation at Every Timeframe — {date_str}', fontsize=14, fontweight='bold')
@@ -243,24 +245,57 @@ def run_single_day(date_str, log):
             r = all_results[tf]
             ax = axes[idx] if n_tfs > 1 else axes
             prices = r['prices']
+            timestamps_tf = r['timestamps']
             n = len(prices)
             x = np.arange(n)
 
-            ax.plot(x, prices, 'gray', linewidth=0.5, alpha=0.5, label='Price')
-            ax.plot(x, r['trend'], 'r-', linewidth=2.5, label='Trend')
-            ax.plot(x, r['trend'] + r['osc'][:n], 'b-', linewidth=1, alpha=0.7, label='Oscillation')
+            # Try to load OHLC for candlesticks
+            month_str = date_str[:7].replace('-', '_')
+            ohlc_path = os.path.join(ATLAS_ROOT, tf, f'{month_str}.parquet')
+            has_candles = False
+            if os.path.exists(ohlc_path):
+                df_ohlc = pd.read_parquet(ohlc_path).sort_values('timestamp')
+                target = pd.Timestamp(date_str).date()
+                df_ohlc['date'] = pd.to_datetime(df_ohlc['timestamp'], unit='s').dt.date
+                df_ohlc = df_ohlc[df_ohlc['date'] == target].reset_index(drop=True)
+                if len(df_ohlc) == n:
+                    has_candles = True
+                    cw = 0.6
+                    for i in range(n):
+                        o, c = df_ohlc.iloc[i]['open'], df_ohlc.iloc[i]['close']
+                        h, l = df_ohlc.iloc[i]['high'], df_ohlc.iloc[i]['low']
+                        color = '#26A69A' if c >= o else '#EF5350'
+                        ax.plot([x[i], x[i]], [l, h], color='#555', linewidth=0.4)
+                        ax.bar(x[i], max(abs(c - o), TICK), bottom=min(o, c),
+                               width=cw, color=color, edgecolor='#555', linewidth=0.2)
+
+            if not has_candles:
+                ax.plot(x, prices, 'k-', linewidth=0.8)
+
+            # Trend overlay
+            ax.plot(x, r['trend'], 'r-', linewidth=2, alpha=0.7, label='Trend')
+
+            # Timestamp labels
+            n_ticks = min(15, n)
+            tick_step = max(1, n // n_ticks)
+            tick_pos = list(range(0, n, tick_step))
+            tf_fmt = '%m/%d %H:%M' if tf in ('4h', '1h') else '%H:%M'
+            tick_labels = [pd.to_datetime(timestamps_tf[i], unit='s').strftime(tf_fmt) for i in tick_pos]
+            ax.set_xticks(tick_pos)
+            ax.set_xticklabels(tick_labels, rotation=45, ha='right', fontsize=7)
 
             ax.set_title(f"{tf.upper()}: period={r['period_bars_mean']:.0f} bars "
                          f"({r['period_minutes']:.1f}min) | "
                          f"half={r['half_cycle_bars_mean']:.0f} | "
                          f"amp={r['amplitude_ticks_mean']:.0f}t | "
-                         f"cycles={r['n_peaks']}",
-                         fontsize=10)
+                         f"cycles={r['n_peaks']}", fontsize=10)
             ax.set_ylabel('Price')
             ax.legend(fontsize=8, loc='upper left')
+            ax.grid(True, alpha=0.2)
 
         plt.tight_layout()
-        chart_path = f'reports/findings/oscillation_1d_{date_str}.png'
+        chart_path = f'examples/oscillation_1d_{date_str}.png'
+        os.makedirs('examples', exist_ok=True)
         plt.savefig(chart_path, dpi=150, bbox_inches='tight')
         log(f"\n  Chart saved: {chart_path}")
 
@@ -329,7 +364,7 @@ def run_single_day(date_str, log):
         ax.grid(True, alpha=0.2)
 
         plt.tight_layout()
-        overlay_path = f'reports/findings/oscillation_overlay_{date_str}.png'
+        overlay_path = f'examples/oscillation_overlay_{date_str}.png'
         plt.savefig(overlay_path, dpi=150, bbox_inches='tight')
         log(f"  Overlay chart saved: {overlay_path}")
 

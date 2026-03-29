@@ -1,0 +1,52 @@
+{
+  "date": "2025-02-19",
+  "levels": [
+    {
+      "price": 22299.0,
+      "type": "resistance",
+      "color": "#CC0000"
+    },
+    {
+      "price": 22072.0,
+      "type": "resistance",
+      "color": "#CC0000"
+    },
+    {
+      "price": 21878.0,
+      "type": "resistance",
+      "color": "#CC0000"
+    },
+    {
+      "price": 21695.5,
+      "type": "resistance",
+      "color": "#CC0000"
+    },
+    {
+      "price": 21495.25,
+      "type": "resistance",
+      "color": "#CC0000"
+    },
+    {
+      "price": 21334.75,
+      "type": "resistance",
+      "color": "#CC0000"
+    },
+    {
+      "price": 21241.0,
+      "type": "support",
+      "color": "#0066CC"
+    },
+    {
+      "price": 21062.0,
+      "type": "support",
+      "color": "#0066CC"
+    },
+    {
+      "price": 20944.25,
+      "type": "support",
+      "color": "#0066CC"
+    }
+  ],
+  "n_resistance": 6,
+  "n_support": 3
+}

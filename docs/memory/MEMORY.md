@@ -13,6 +13,7 @@
 - **KEEP MEMORY UPDATED**: Update MEMORY.md when discovering new patterns, preferences, or architecture changes
 
 ## Workflow Preference
+- **Data validation FIRST**: Run `tools/validate_data.py` before ANY training or analysis. See `memory/feedback_data_validation_first.md`
 - **No lookahead**: all analyses must mirror live conditions. Use only data available at decision time.
 - **Always discuss before changing**: propose a plan, get approval, then execute
 - **Challenge ideas HARD**: See `memory/feedback_challenge_ideas.md` + `memory/feedback_challenge_harder.md`
