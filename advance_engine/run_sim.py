@@ -63,6 +63,7 @@ def main():
         trade_start_idx = int((df['timestamp'] >= trade_start_ts).argmax())
     else:
         trade_start_idx = WARMUP_BARS
+    timestamps_1m = df['timestamp'].values.astype(np.int64)
     print(f"  Bars: {len(df):,} (warmup={trade_start_idx}, trading={len(df)-trade_start_idx})")
 
     # Compute 1m SFE states
@@ -101,6 +102,36 @@ def main():
     low_1h = df_1h['low'].values
     vol_1h = df_1h['volume'].values if 'volume' in df_1h.columns else np.zeros(len(df_1h))
 
+    # Load 15m data + compute states (same approach as 1h)
+    print("Loading 15m data...")
+    files_15m = sorted(glob.glob(os.path.join(ATLAS_ROOT, '15m', '*.parquet')))
+    df_15m = pd.concat([pd.read_parquet(f) for f in files_15m], ignore_index=True)
+    df_15m = df_15m.sort_values('timestamp').reset_index(drop=True)
+    if args.start:
+        warmup_ts_15m = pd.Timestamp(args.start).timestamp() - 900 * 300  # 300 bars warmup
+        df_15m = df_15m[df_15m['timestamp'] >= warmup_ts_15m].reset_index(drop=True)
+    if args.end:
+        ts = pd.Timestamp(args.end).timestamp()
+        df_15m = df_15m[df_15m['timestamp'] < ts].reset_index(drop=True)
+    print(f"  15m bars: {len(df_15m):,}")
+
+    sfe_15m = StatisticalFieldEngine()
+    states_15m = sfe_15m.batch_compute_states(df_15m)
+    del sfe_15m
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    gc.collect()
+    ts_15m = df_15m['timestamp'].values
+    close_15m = df_15m['close'].values
+    high_15m = df_15m['high'].values
+    low_15m = df_15m['low'].values
+    vol_15m = df_15m['volume'].values if 'volume' in df_15m.columns else np.zeros(len(df_15m))
+
+    # 15m alignment: last completed 15m bar for each 1m bar
+    close_times_15m = ts_15m + 900  # 15m = 900 seconds
+    align_15m = np.searchsorted(close_times_15m, timestamps_1m, side='left') - 1
+    align_15m[align_15m < 0] = -1
+
     # Load 1s data + extract features (no SFE — use raw extraction like training)
     print("Loading 1s data (per-month, lightweight features)...")
     from training.train_direction import extract_features_13d as _extract_13d
@@ -117,10 +148,19 @@ def main():
     ts_1s_all.sort()
     print(f"  1s bars: {len(ts_1s_all):,}")
 
-    # For the sim we need 1s SFE states — too expensive for 15M bars.
-    # Instead: feed the LAST 1s bar before each 1m bar using the 1s trajectory model.
-    # The 1s FeatureBuffer in TrajectoryAdvanceEngine builds features incrementally
-    # from raw OHLCV (same as live). We just need to feed it the 1s bars.
+    # 15s: same sharded streaming approach as 1s
+    print("Loading 15s timestamps...")
+    files_15s = sorted(glob.glob(os.path.join(ATLAS_ROOT, '15s', '*.parquet')))
+    all_15s_ts = []
+    for f in files_15s:
+        _df = pd.read_parquet(f, columns=['timestamp'])
+        all_15s_ts.append(_df['timestamp'].values)
+    ts_15s_all = np.concatenate(all_15s_ts)
+    ts_15s_all.sort()
+    print(f"  15s bars: {len(ts_15s_all):,}")
+
+    # For the sim: feed sub-minute TFs (1s, 15s) incrementally per 1m bar.
+    # FeatureBuffers in TrajectoryAdvanceEngine build features from raw OHLCV.
 
     # Pre-load 1s data per month into a dict for streaming
     _1s_data = {}
@@ -158,7 +198,64 @@ def main():
     trades = []
     daily_pnl = {}
     last_1h_idx = -1
-    last_1s_pos = 0  # position in ts_1s_all for streaming
+    last_15m_idx = -1
+    last_1s_pos = 0
+
+    # 15s streaming: same approach as 1s but for 15s bars
+    _15s_current_month = None
+    _15s_month_df = None
+    _15s_current_date = None
+    _15s_ts = None
+    _15s_close = None
+    _15s_high = None
+    _15s_low = None
+    _15s_vol = None
+    _15s_idx = 0
+
+    def _load_15s_for_date(ts):
+        nonlocal _15s_current_date, _15s_ts, _15s_close, _15s_high, _15s_low, _15s_vol, _15s_idx
+        nonlocal _15s_month_df, _15s_current_month
+        dt = pd.to_datetime(ts, unit='s')
+        date_str = dt.strftime('%Y-%m-%d')
+        if date_str == _15s_current_date:
+            return
+        month = dt.strftime('%Y_%m')
+        if month != _15s_current_month:
+            del _15s_month_df
+            gc.collect()
+            path = os.path.join(ATLAS_ROOT, '15s', f'{month}.parquet')
+            if os.path.exists(path):
+                _15s_month_df = pd.read_parquet(path).sort_values('timestamp').reset_index(drop=True)
+            else:
+                _15s_month_df = None
+            _15s_current_month = month
+        if _15s_month_df is None:
+            _15s_ts = None
+            return
+        day_start = pd.Timestamp(date_str).timestamp()
+        day_end = day_start + 86400
+        mask = (_15s_month_df['timestamp'] >= day_start) & (_15s_month_df['timestamp'] < day_end)
+        day_df = _15s_month_df[mask]
+        if len(day_df) == 0:
+            _15s_ts = None
+        else:
+            _15s_ts = day_df['timestamp'].values
+            _15s_close = day_df['close'].values
+            _15s_high = day_df['high'].values
+            _15s_low = day_df['low'].values
+            _15s_vol = day_df['volume'].values if 'volume' in day_df.columns else np.zeros(len(day_df))
+            _15s_idx = 0
+        _15s_current_date = date_str
+
+    def _feed_15s_bars(engine, up_to_ts):
+        nonlocal _15s_idx
+        if _15s_ts is None:
+            return
+        while _15s_idx < len(_15s_ts) and _15s_ts[_15s_idx] + 15 < up_to_ts:
+            engine.process_bar('15s', float(_15s_close[_15s_idx]), float(_15s_high[_15s_idx]),
+                               float(_15s_low[_15s_idx]), float(_15s_vol[_15s_idx]),
+                               float(_15s_ts[_15s_idx]), _mock_state)
+            _15s_idx += 1
 
     # 1s streaming: load one day at a time to avoid memory issues
     _1s_current_date = None
@@ -247,9 +344,22 @@ def main():
                                vol_1h[h_idx], ts_1h[h_idx], state_1h)
             last_1h_idx = h_idx
 
-        # Feed 1s bars that completed since the previous 1m bar
-        _load_1s_for_date(timestamps[i])
-        _feed_1s_bars(engine, timestamps[i])
+        # Feed 15m bar if a new one completed
+        m15_idx = align_15m[i]
+        if m15_idx >= 0 and m15_idx != last_15m_idx and m15_idx < len(states_15m):
+            state_15m = states_15m[m15_idx]['state'] if isinstance(states_15m[m15_idx], dict) else states_15m[m15_idx]
+            engine.process_bar('15m', close_15m[m15_idx], high_15m[m15_idx], low_15m[m15_idx],
+                               vol_15m[m15_idx], ts_15m[m15_idx], state_15m)
+            last_15m_idx = m15_idx
+
+        # Feed 15s bars that completed since previous 1m bar
+        _load_15s_for_date(timestamps[i])
+        _feed_15s_bars(engine, timestamps[i])
+
+        # 1s: DROPPED from direction decisions (calibration: chop zone = entire range)
+        # Keep the loader code for future price-movement analysis
+        # _load_1s_for_date(timestamps[i])
+        # _feed_1s_bars(engine, timestamps[i])
 
         # Feed 1m bar (primary — decisions happen here)
         result = engine.process_bar(

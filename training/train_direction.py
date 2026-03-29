@@ -35,7 +35,9 @@ ATLAS_ROOT = 'DATA/ATLAS'
 # Direction label: price change over forward window
 FORWARD_BARS = {
     '1h': 1,    # 1 hour ahead (structural)
+    '15m': 4,   # 4 × 15min = 1 hour ahead (session structure)
     '1m': 4,    # 4 minutes ahead (half-cycle of ~8 min oscillation)
+    '15s': 4,   # 4 × 15s = 1 minute ahead (fast execution)
     '1s': 5,    # 5 seconds ahead (micro half-cycle)
 }
 
@@ -117,9 +119,11 @@ class TrajectoryDataset(Dataset):
 
 # TF-specific trajectory horizons
 TRAJECTORY_HORIZONS = {
-    '1h': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],  # 1h: 10 hours ahead (structural + inflection detection)
-    '1m': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],  # 1m: full oscillation + overshoot
-    '1s': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],  # 1s: 10 seconds (micro-cycle + inflection detection)
+    '1h': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    '15m': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    '1m': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    '15s': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    '1s': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
 }
 
 
@@ -911,15 +915,15 @@ def train_epoch_based(tf, max_bars=0, val_start='2026-01-01', n_epochs=100):
     print(f"  GATE (95% at top 5%): {'PASS' if top5_acc >= 95 else 'FAIL'} ({top5_acc:.1f}%)")
 
 
-def build_1s_shards(ckpt_dir='checkpoints/direction_1s'):
-    """Build 13D features + 7D labels per month for 1s data. Saves shards to disk."""
+def build_1s_shards(ckpt_dir='checkpoints/direction_1s', tf='1s'):
+    """Build 13D features + 7D labels per month for high-bar-count TFs. Saves shards to disk."""
     from core.statistical_field_engine import StatisticalFieldEngine
 
     shard_dir = os.path.join(ckpt_dir, 'shards')
     os.makedirs(shard_dir, exist_ok=True)
 
-    files = sorted(glob.glob(os.path.join(ATLAS_ROOT, '1s', '*.parquet')))
-    forward = FORWARD_BARS['1s']
+    files = sorted(glob.glob(os.path.join(ATLAS_ROOT, tf, '*.parquet')))
+    forward = FORWARD_BARS[tf]
 
     for f in tqdm(files, desc="Building 1s shards"):
         month = os.path.basename(f).replace('.parquet', '')
@@ -1281,29 +1285,29 @@ def train_1s_walkforward(epochs_per_day=10, cold_epochs=30):
         print(f"  Saved: {ckpt_dir}/daily_results.csv")
 
 
-def train_1s_trajectory(epochs_per_day=10, cold_epochs=30):
-    """Sharded walk-forward trajectory training for 1s (15M bars)."""
+def train_1s_trajectory(tf='1s', epochs_per_day=10, cold_epochs=30):
+    """Sharded walk-forward trajectory training for high-bar-count TFs (1s, 15s)."""
     from core.direction_cnn import TrajectoryPredictor
     from scipy import stats as sp_stats
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    horizons = TRAJECTORY_HORIZONS['1s']
+    horizons = TRAJECTORY_HORIZONS[tf]
     max_h = max(horizons)
     first_h = horizons[0]
-    ckpt_dir = 'checkpoints/trajectory_1s'
+    ckpt_dir = f'checkpoints/trajectory_{tf}'
     shard_dir = os.path.join(ckpt_dir, 'shards')
     os.makedirs(shard_dir, exist_ok=True)
 
     print(f"\n{'=' * 60}")
-    print(f"TRAJECTORY (SHARDED): 1S | horizons={horizons}")
+    print(f"TRAJECTORY (SHARDED): {tf.upper()} | horizons={horizons}")
     print(f"{'=' * 60}")
 
-    # Build feature shards if needed (reuse from direction_1s if available)
-    src_shard_dir = 'checkpoints/direction_1s/shards'
+    # Build feature shards if needed
+    src_shard_dir = f'checkpoints/direction_{tf}/shards'
     shard_files = sorted(glob.glob(os.path.join(src_shard_dir, '*_feat.npy')))
     if not shard_files:
-        print("  No 1s feature shards found — building...")
-        build_1s_shards('checkpoints/direction_1s')
+        print(f"  No {tf} feature shards found — building...")
+        build_1s_shards(f'checkpoints/direction_{tf}', tf=tf)
         shard_files = sorted(glob.glob(os.path.join(src_shard_dir, '*_feat.npy')))
 
     print(f"  Feature shards: {len(shard_files)} months")
@@ -1338,7 +1342,7 @@ def train_1s_trajectory(epochs_per_day=10, cold_epochs=30):
             print("saved")
 
         # Get timestamps for day splitting
-        pq_path = os.path.join(ATLAS_ROOT, '1s', f'{month}.parquet')
+        pq_path = os.path.join(ATLAS_ROOT, tf, f'{month}.parquet')
         df_ts = pd.read_parquet(pq_path, columns=['timestamp'])
         dates = pd.to_datetime(df_ts['timestamp'].values, unit='s').date
         unique_dates = sorted(set(dates))
@@ -1450,7 +1454,7 @@ def train_1s_trajectory(epochs_per_day=10, cold_epochs=30):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--tf', required=True, choices=['1h', '1m', '1s'],
+    parser.add_argument('--tf', required=True, choices=['1h', '15m', '1m', '15s', '1s'],
                         help='Timeframe to train')
     parser.add_argument('--max-bars', type=int, default=0,
                         help='Limit bars (useful for 1s)')
@@ -1467,8 +1471,8 @@ def main():
         if args.tf == '1h':
             train_trajectory_epoch(args.tf, max_bars=args.max_bars,
                                    n_epochs=args.epochs, val_start=args.val_start)
-        elif args.tf == '1s':
-            train_1s_trajectory(epochs_per_day=args.epochs_per_day, cold_epochs=30)
+        elif args.tf in ('1s', '15s'):
+            train_1s_trajectory(tf=args.tf, epochs_per_day=args.epochs_per_day, cold_epochs=30)
         else:
             train_trajectory(args.tf, max_bars=args.max_bars, epochs_per_day=args.epochs_per_day)
     elif args.tf == '1s':

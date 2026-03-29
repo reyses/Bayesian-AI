@@ -1,0 +1,151 @@
+Calibration Report - 2026-03-29 06:16
+Validation period: >= 2026-01-01
+
+
+============================================================
+1H CALIBRATION
+============================================================
+  Purpose: sustained_4bar
+  Horizons: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+  Per-horizon calibration:
+    n+1: a=5.0718 b=-2.4065 chop=[0.250, 0.770]
+    n+2: a=4.4629 b=-2.1669 chop=[0.250, 0.790]
+    n+3: a=4.0945 b=-2.0451 chop=[0.290, 0.750]
+    n+4: a=3.7516 b=-1.9464 chop=[0.210, 0.770]
+    n+5: a=3.4960 b=-1.7980 chop=[0.210, 0.770]
+    n+6: a=3.2791 b=-1.7306 chop=[0.210, 0.890]
+    n+7: a=3.0380 b=-1.6232 chop=[0.030, 0.910]
+    n+8: a=2.9333 b=-1.5683 chop=[0.130, 0.890]
+    n+9: a=2.7572 b=-1.4879 chop=[0.190, 0.870]
+    n+10: a=2.8026 b=-1.5185 chop=[0.210, 0.850]
+
+  Chop zone n+1: [0.250, 0.770]
+
+  Recommended confidence thresholds (raw P(long)):
+    60% calibrated -> raw P(long) >= 0.554 (confidence >= 0.109)
+    70% calibrated -> raw P(long) >= 0.642 (confidence >= 0.283)
+    80% calibrated -> raw P(long) >= 0.748 (confidence >= 0.496)
+    90% calibrated -> raw P(long) >= 0.908 (confidence >= 0.815)
+    95% calibrated -> raw P(long) >= 1.000 (confidence >= 1.000)
+
+============================================================
+15M CALIBRATION
+============================================================
+  Purpose: flip_detection
+  Horizons: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+  Per-horizon calibration:
+    n+1: a=11.1406 b=-7.6815 chop=[0.710, 0.710]
+    n+2: a=10.2202 b=-6.6794 chop=[0.670, 0.670]
+    n+3: a=9.3720 b=-5.9051 chop=[0.630, 0.650]
+    n+4: a=9.8403 b=-6.1259 chop=[0.000, 1.000]
+    n+5: a=8.4466 b=-5.1856 chop=[0.630, 0.630]
+    n+6: a=9.4482 b=-5.4348 chop=[0.590, 0.590]
+    n+7: a=9.7970 b=-5.5018 chop=[0.000, 1.000]
+    n+8: a=8.4075 b=-4.7214 chop=[0.570, 0.590]
+    n+9: a=9.1196 b=-5.0207 chop=[0.250, 0.570]
+    n+10: a=6.0256 b=-3.1619 chop=[0.550, 0.550]
+
+  Chop zone n+1: [0.710, 0.710]
+
+  Recommended confidence thresholds (raw P(long)):
+    60% calibrated -> raw P(long) >= 0.726 (confidence >= 0.452)
+    70% calibrated -> raw P(long) >= 0.766 (confidence >= 0.531)
+    80% calibrated -> raw P(long) >= 0.814 (confidence >= 0.628)
+    90% calibrated -> raw P(long) >= 0.887 (confidence >= 0.773)
+    95% calibrated -> raw P(long) >= 0.954 (confidence >= 0.908)
+
+============================================================
+1M CALIBRATION
+============================================================
+  Purpose: entry_profitability
+  Horizons: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+  Per-horizon calibration:
+    n+1: a=5.4471 b=-2.6891 chop=[0.430, 0.510]
+    n+2: a=4.8056 b=-2.3961 chop=[0.430, 0.490]
+    n+3: a=4.4245 b=-2.2182 chop=[0.490, 0.490]
+    n+4: a=4.1377 b=-2.0818 chop=[0.490, 0.510]
+    n+5: a=3.9216 b=-1.9631 chop=[0.490, 0.490]
+    n+6: a=3.7553 b=-1.8831 chop=[0.490, 0.510]
+    n+7: a=3.5936 b=-1.8024 chop=[0.490, 0.530]
+    n+8: a=3.4545 b=-1.7218 chop=[0.490, 0.510]
+    n+9: a=3.4028 b=-1.6935 chop=[0.490, 0.510]
+    n+10: a=3.3392 b=-1.6557 chop=[0.490, 0.510]
+
+  Chop zone n+1: [0.430, 0.510]
+
+  Recommended confidence thresholds (raw P(long)):
+    60% calibrated -> raw P(long) >= 0.568 (confidence >= 0.136)
+    70% calibrated -> raw P(long) >= 0.649 (confidence >= 0.298)
+    80% calibrated -> raw P(long) >= 0.748 (confidence >= 0.496)
+    90% calibrated -> raw P(long) >= 0.897 (confidence >= 0.794)
+    95% calibrated -> raw P(long) >= 1.000 (confidence >= 1.000)
+
+============================================================
+15S CALIBRATION
+============================================================
+  Purpose: real_move_detection
+  Horizons: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+  Per-horizon calibration:
+    n+1: a=5.5951 b=-2.6216 chop=[0.450, 0.470]
+    n+2: a=5.1408 b=-2.4523 chop=[0.450, 0.490]
+    n+3: a=4.7749 b=-2.2930 chop=[0.470, 0.490]
+    n+4: a=4.5499 b=-2.2030 chop=[0.490, 0.490]
+    n+5: a=4.3930 b=-2.1184 chop=[0.470, 0.490]
+    n+6: a=4.2184 b=-2.0531 chop=[0.490, 0.490]
+    n+7: a=4.0683 b=-1.9893 chop=[0.490, 0.490]
+    n+8: a=3.9635 b=-1.9414 chop=[0.490, 0.490]
+    n+9: a=3.8297 b=-1.8932 chop=[0.490, 0.510]
+    n+10: a=3.6588 b=-1.8028 chop=[0.490, 0.510]
+
+  Chop zone n+1: [0.450, 0.470]
+
+  Recommended confidence thresholds (raw P(long)):
+    60% calibrated -> raw P(long) >= 0.541 (confidence >= 0.082)
+    70% calibrated -> raw P(long) >= 0.620 (confidence >= 0.240)
+    80% calibrated -> raw P(long) >= 0.716 (confidence >= 0.433)
+    90% calibrated -> raw P(long) >= 0.861 (confidence >= 0.723)
+    95% calibrated -> raw P(long) >= 0.995 (confidence >= 0.990)
+
+============================================================
+1S CALIBRATION
+============================================================
+  Purpose: fill_quality
+  Horizons: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+  Per-horizon calibration:
+    n+1: a=5.8604 b=-2.8832 chop=[0.000, 1.000]
+    n+2: a=5.4271 b=-2.6906 chop=[0.000, 1.000]
+    n+3: a=5.1257 b=-2.5512 chop=[0.000, 1.000]
+    n+4: a=4.9419 b=-2.4659 chop=[0.510, 0.510]
+    n+5: a=4.7483 b=-2.3771 chop=[0.510, 0.510]
+    n+6: a=4.5692 b=-2.2928 chop=[0.510, 0.510]
+    n+7: a=4.4498 b=-2.2341 chop=[0.000, 1.000]
+    n+8: a=4.3650 b=-2.1987 chop=[0.000, 1.000]
+    n+9: a=4.2697 b=-2.1517 chop=[0.000, 1.000]
+    n+10: a=4.2370 b=-2.1362 chop=[0.990, 0.990]
+
+  Chop zone n+1: [0.000, 1.000]
+
+  Recommended confidence thresholds (raw P(long)):
+    60% calibrated -> raw P(long) >= 0.561 (confidence >= 0.122)
+    70% calibrated -> raw P(long) >= 0.637 (confidence >= 0.273)
+    80% calibrated -> raw P(long) >= 0.729 (confidence >= 0.457)
+    90% calibrated -> raw P(long) >= 0.867 (confidence >= 0.734)
+    95% calibrated -> raw P(long) >= 0.994 (confidence >= 0.989)
+
+
+============================================================
+SUMMARY
+============================================================
+============================================================
+CALIBRATION COMPLETE
+============================================================
+  1h: chop_zone n+1=[0.250, 0.770]
+  15m: chop_zone n+1=[0.710, 0.710]
+  1m: chop_zone n+1=[0.430, 0.510]
+  15s: chop_zone n+1=[0.450, 0.470]
+  1s: chop_zone n+1=[0.000, 1.000]

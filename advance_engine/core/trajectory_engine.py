@@ -225,7 +225,9 @@ class TrajectoryEngine:
 
         # Get state per TF (may not all be present)
         s_1h = self.tf_states.get('1h')
+        s_15m = self.tf_states.get('15m')
         s_1m = self.tf_states.get('1m')
+        s_15s = self.tf_states.get('15s')
         s_1s = self.tf_states.get('1s')
 
         # Primary decision TF is 1m (or lowest available)
@@ -235,18 +237,19 @@ class TrajectoryEngine:
 
         # --- IN TRADE: check exits ---
         if self.in_trade:
-            return self._check_exit(s_1h, s_1m, s_1s)
+            return self._check_exit(s_1h, s_15m, s_1m, s_15s, s_1s)
 
         # --- NOT IN TRADE: check entries ---
-        return self._check_entry(s_1h, s_1m, s_1s)
+        return self._check_entry(s_1h, s_15m, s_1m, s_15s, s_1s)
 
-    def _check_entry(self, s_1h, s_1m, s_1s):
-        """Entry logic using structural bias as context.
+    def _check_entry(self, s_1h, s_15m, s_1m, s_15s, s_1s):
+        """Entry logic with calibrated thresholds.
 
-        The 1h structural bias (set once per hour) defines the compass heading.
-        Trades WITH the bias need normal confidence.
-        Trades AGAINST the bias need much higher confidence.
-        No bias (flat) = no entries.
+        1h:  compass heading (bias conf >= 0.50 for 80% calibrated)
+        15m: session filter (conf >= 0.63 to disagree with 1h)
+        1m:  wave entry (conf >= 0.50 with bias, >= 0.80 against)
+        15s: fast confirmation (conf >= 0.43)
+        1s:  DROPPED for direction (chop zone covers entire range)
         """
         bias_dir = self._structural_dir
         bias_conf = self._structural_conf
@@ -255,6 +258,12 @@ class TrajectoryEngine:
         if bias_dir == 'flat':
             return TradeAction('WAIT', 'flat', 0, 0, 'no_structural_bias')
 
+        # 15m session filter: needs calibrated confidence >= 0.63 to override
+        if s_15m and s_15m.curve is not None:
+            if s_15m.direction != bias_dir and s_15m.n1_confidence > 0.63:
+                return TradeAction('WAIT', bias_dir, 0, 0,
+                                   f'15m_against_bias({s_15m.direction} conf={s_15m.n1_confidence:.2f})')
+
         if s_1m is None or s_1m.curve is None:
             return TradeAction('WAIT', bias_dir, 0, 0, '1m_no_data')
 
@@ -262,17 +271,15 @@ class TrajectoryEngine:
         if s_1m.regime == 'CHOP':
             return TradeAction('WAIT', bias_dir, 0, 0, '1m_chop')
 
-        # 1m direction vs structural bias
+        # 1m direction vs structural bias (calibrated thresholds)
         with_bias = (s_1m.direction == bias_dir)
 
         if with_bias:
-            # Trading WITH the 1h compass — normal entry requirements
-            min_conf = 0.3
+            min_conf = 0.50   # 80% calibrated accuracy
             min_sight = 2
         else:
-            # Trading AGAINST the 1h compass — need extra caution
-            min_conf = 0.7  # much higher confidence required
-            min_sight = 4   # need longer runway to justify counter-trend
+            min_conf = 0.80   # ~90% calibrated accuracy to go against trend
+            min_sight = 4
 
         if s_1m.n1_confidence < min_conf:
             return TradeAction('WAIT', s_1m.direction, s_1m.n1_confidence,
@@ -284,9 +291,13 @@ class TrajectoryEngine:
                                s_1m.sight_distance,
                                f'1m_sight_{s_1m.sight_distance}<{min_sight}')
 
-        # 1s timing confirmation (if available)
-        if s_1s and s_1s.direction != s_1m.direction:
-            return TradeAction('WAIT', s_1m.direction, 0, 0, '1s_not_confirming')
+        # 15s fast confirmation (calibrated: conf >= 0.43 for 80%)
+        if s_15s and s_15s.curve is not None:
+            if s_15s.direction != s_1m.direction and s_15s.n1_confidence > 0.43:
+                return TradeAction('WAIT', s_1m.direction, 0, 0,
+                                   f'15s_not_confirming(conf={s_15s.n1_confidence:.2f})')
+
+        # 1s: NOT used for direction (calibration shows chop zone = entire range)
 
         # Enter
         trade_dir = s_1m.direction
@@ -302,12 +313,14 @@ class TrajectoryEngine:
                            f'{_bias_label}_bias bias={bias_dir}({bias_conf:.2f}) '
                            f'sight={sight}')
 
-    def _check_exit(self, s_1h, s_1m, s_1s):
-        """Exit logic using structural bias as context.
+    def _check_exit(self, s_1h, s_15m, s_1m, s_15s, s_1s):
+        """Exit logic with calibrated thresholds.
 
-        Trades WITH the bias get more patience (hold through dips).
-        Trades AGAINST the bias exit at first sign of trouble.
-        Structural bias flip = immediate exit regardless.
+        1h:  structural flip = immediate exit
+        15m: session flip (conf >= 0.63) = exit
+        15s: fast move detection (conf >= 0.43) = quick exit
+        1m:  primary exit via trajectory shape
+        1s:  NOT used for direction exits
         """
         bias_dir = self._structural_dir
         with_bias = (self.trade_dir == bias_dir)
@@ -317,6 +330,20 @@ class TrajectoryEngine:
             self.in_trade = False
             return TradeAction('EXIT', self.trade_dir, 0, 0,
                                f'structural_flip bias={bias_dir}')
+
+        # 15m session turning against our trade (calibrated: 0.63 for reliable flip)
+        if s_15m and s_15m.curve is not None:
+            if s_15m.direction != self.trade_dir and s_15m.n1_confidence > 0.63:
+                self.in_trade = False
+                return TradeAction('EXIT', self.trade_dir, s_15m.n1_confidence, 0,
+                                   f'15m_session_flip({s_15m.direction} conf={s_15m.n1_confidence:.2f})')
+
+        # 15s fast exit (calibrated: 0.43 for 80% real move detection)
+        if s_15s and s_15s.curve is not None:
+            if s_15s.direction != self.trade_dir and s_15s.n1_confidence > 0.43:
+                self.in_trade = False
+                return TradeAction('EXIT', self.trade_dir, s_15s.n1_confidence, 0,
+                                   f'15s_fast_exit({s_15s.direction} conf={s_15s.n1_confidence:.2f})')
 
         # Primary: 1m trajectory
         if s_1m and s_1m.curve is not None:

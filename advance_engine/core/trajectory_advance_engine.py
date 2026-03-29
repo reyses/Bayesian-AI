@@ -162,7 +162,9 @@ class TrajectoryAdvanceEngine:
 
         tf_configs = {
             '1h': f'{checkpoint_base}/trajectory_1h/best_model.pt',
+            '15m': f'{checkpoint_base}/trajectory_15m/best_model.pt',
             '1m': f'{checkpoint_base}/trajectory_1m/best_model.pt',
+            '15s': f'{checkpoint_base}/trajectory_15s/best_model.pt',
             '1s': f'{checkpoint_base}/trajectory_1s/best_model.pt',
         }
 
@@ -180,7 +182,7 @@ class TrajectoryAdvanceEngine:
             model.eval()
 
             self.models[tf] = model
-            self.buffers[tf] = FeatureBuffer(lookback=LOOKBACK, raw_mode=(tf == '1s'))
+            self.buffers[tf] = FeatureBuffer(lookback=LOOKBACK, raw_mode=(tf in ('1s', '15s')))
             horizons_per_tf[tf] = horizons
             print(f"[NavEngine] {tf}: loaded (horizons={horizons})")
 
@@ -236,7 +238,22 @@ class TrajectoryAdvanceEngine:
         # Update trajectory engine
         self.engine.update(tf, raw_curve)
 
-        # Only make decisions on 1m bars (primary TF)
+        # 15s/15m: check fast exits while in trade (don't wait for 1m bar)
+        if tf in ('15s', '15m') and self._in_trade:
+            s_tf = self.engine.tf_states.get(tf)
+            if s_tf and s_tf.curve is not None:
+                if s_tf.direction != self._trade_dir and s_tf.n1_confidence > (0.43 if tf == '15s' else 0.63):
+                    if self._trade_dir == 'long':
+                        pnl = (price - self._entry_price) / TICK
+                    else:
+                        pnl = (self._entry_price - price) / TICK
+                    self._in_trade = False
+                    self.engine.on_exit()
+                    return NavBarResult('EXIT', self._trade_dir, s_tf.n1_confidence, 0,
+                                        f'{tf}_fast_exit({s_tf.direction} conf={s_tf.n1_confidence:.2f})',
+                                        pnl=pnl * TICK * 2)
+
+        # Only make full decisions (entries + 1m exits) on 1m bars
         if tf != '1m':
             return NavBarResult('HOLD', self._trade_dir or 'flat', 0, 0, f'{tf}_update_only')
 
