@@ -36,14 +36,27 @@ class NavBarResult:
 
 
 class FeatureBuffer:
-    """Maintains rolling 13D feature buffer for one TF."""
+    """Maintains rolling 13D feature buffer for one TF.
 
-    def __init__(self, lookback=LOOKBACK):
+    If SFE state is available (1m, 1h), uses state.dmi_plus/velocity.
+    If no SFE (1s), computes proxy features from raw price (EWM DMI, velocity).
+    Matches the training pipeline: 1s was trained on raw extraction.
+    """
+
+    def __init__(self, lookback=LOOKBACK, raw_mode=False):
         self.lookback = lookback
-        self._buffer = []  # list of (13,) feature vectors
+        self.raw_mode = raw_mode  # True for 1s (no SFE)
+        self._buffer = []
         self._prices = []
         self._volumes = []
         self._prev_vel = 0.0
+        # EWM state for raw mode (matches extract_4_features_from_raw)
+        self._smooth_up = 0.0
+        self._smooth_dn = 0.0
+        self._ewm_vel = 0.0
+        self._alpha_dmi = 1.0 / 14   # Wilder's smoothing
+        self._alpha_vel = 2.0 / 6    # EWM span=5
+        self._prev_price = None
 
     @property
     def ready(self):
@@ -53,9 +66,24 @@ class FeatureBuffer:
         """Add bar, extract 13D features, append to buffer."""
         feat = np.zeros(13, dtype=np.float32)
 
-        dmi_p = getattr(state, 'dmi_plus', 0.0)
-        dmi_m = getattr(state, 'dmi_minus', 0.0)
-        vel = getattr(state, 'velocity', 0.0)
+        if self.raw_mode:
+            # Compute from raw price — matches training for 1s
+            if self._prev_price is not None:
+                diff = price - self._prev_price
+                up = max(diff, 0.0)
+                dn = max(-diff, 0.0)
+                self._smooth_up = self._alpha_dmi * up + (1 - self._alpha_dmi) * self._smooth_up
+                self._smooth_dn = self._alpha_dmi * dn + (1 - self._alpha_dmi) * self._smooth_dn
+                raw_vel = diff
+                self._ewm_vel = self._alpha_vel * raw_vel + (1 - self._alpha_vel) * self._ewm_vel
+            dmi_p = self._smooth_up * 100  # scale to match SFE DI range
+            dmi_m = self._smooth_dn * 100
+            vel = self._ewm_vel
+            self._prev_price = price
+        else:
+            dmi_p = getattr(state, 'dmi_plus', 0.0)
+            dmi_m = getattr(state, 'dmi_minus', 0.0)
+            vel = getattr(state, 'velocity', 0.0)
 
         self._prices.append(price)
         self._volumes.append(volume)
@@ -152,7 +180,7 @@ class TrajectoryAdvanceEngine:
             model.eval()
 
             self.models[tf] = model
-            self.buffers[tf] = FeatureBuffer(lookback=LOOKBACK)
+            self.buffers[tf] = FeatureBuffer(lookback=LOOKBACK, raw_mode=(tf == '1s'))
             horizons_per_tf[tf] = horizons
             print(f"[NavEngine] {tf}: loaded (horizons={horizons})")
 

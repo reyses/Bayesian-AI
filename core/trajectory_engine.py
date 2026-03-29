@@ -166,6 +166,12 @@ class TrajectoryEngine:
         self.entry_bar = 0
         self.bar_count = 0
 
+        # 1h structural bias — persists between 1h updates
+        self._structural_dir = 'flat'     # 'long', 'short', 'flat'
+        self._structural_conf = 0.0       # 0-1 how strong the bias is
+        self._structural_sight = 0        # hours of runway
+        self._structural_updated = 0      # bar count when last updated
+
     def update(self, tf, raw_curve):
         """Update one TF with its raw P(D) trajectory and return calibrated curve.
 
@@ -181,6 +187,33 @@ class TrajectoryEngine:
             calibrated = raw_curve
 
         self.tf_states[tf].update(calibrated)
+
+        # Update structural bias when 1h updates
+        if tf == '1h' and calibrated is not None:
+            p_n1 = calibrated[0]
+            conf = abs(p_n1 - 0.5) * 2
+            direction = 'long' if p_n1 > 0.5 else 'short'
+
+            # Sight: count horizons outside chop zone in same direction
+            sight = 0
+            for hi in range(len(calibrated)):
+                if (direction == 'long' and calibrated[hi] > 0.55) or \
+                   (direction == 'short' and calibrated[hi] < 0.45):
+                    sight = hi + 1
+                else:
+                    break
+
+            # Only set bias if confident enough
+            if conf >= 0.5:
+                self._structural_dir = direction
+                self._structural_conf = conf
+                self._structural_sight = sight
+            else:
+                self._structural_dir = 'flat'
+                self._structural_conf = 0.0
+                self._structural_sight = 0
+            self._structural_updated = self.bar_count
+
         return calibrated
 
     def decide(self):
@@ -208,62 +241,111 @@ class TrajectoryEngine:
         return self._check_entry(s_1h, s_1m, s_1s)
 
     def _check_entry(self, s_1h, s_1m, s_1s):
-        """Entry logic: 1h direction + 1m wave starting + 1s confirms."""
+        """Entry logic using structural bias as context.
 
-        # 1h must have direction (not chop)
-        if s_1h and s_1h.regime == 'CHOP':
-            return TradeAction('WAIT', 'flat', 0, 0, '1h_chop')
+        The 1h structural bias (set once per hour) defines the compass heading.
+        Trades WITH the bias need normal confidence.
+        Trades AGAINST the bias need much higher confidence.
+        No bias (flat) = no entries.
+        """
+        bias_dir = self._structural_dir
+        bias_conf = self._structural_conf
 
-        # Structural direction from 1h (or 1m if no 1h)
-        struct_dir = s_1h.direction if s_1h else (s_1m.direction if s_1m else 'flat')
+        # No structural direction = no trade
+        if bias_dir == 'flat':
+            return TradeAction('WAIT', 'flat', 0, 0, 'no_structural_bias')
 
-        # 1m must be leaving chop zone in the 1h direction
-        if s_1m:
-            if s_1m.regime == 'CHOP':
-                return TradeAction('WAIT', struct_dir, 0, 0, '1m_chop')
+        if s_1m is None or s_1m.curve is None:
+            return TradeAction('WAIT', bias_dir, 0, 0, '1m_no_data')
 
-            # 1m direction must agree with 1h
-            if s_1m.direction != struct_dir:
-                return TradeAction('WAIT', struct_dir, 0, 0, '1m_against_1h')
+        # 1m regime check
+        if s_1m.regime == 'CHOP':
+            return TradeAction('WAIT', bias_dir, 0, 0, '1m_chop')
 
-            # 1m must have sight (runway)
-            if s_1m.sight_distance < 2:
-                return TradeAction('WAIT', struct_dir, s_1m.n1_confidence, s_1m.sight_distance,
-                                   '1m_short_sight')
+        # 1m direction vs structural bias
+        with_bias = (s_1m.direction == bias_dir)
+
+        if with_bias:
+            # Trading WITH the 1h compass — normal entry requirements
+            min_conf = 0.3
+            min_sight = 2
+        else:
+            # Trading AGAINST the 1h compass — need extra caution
+            min_conf = 0.7  # much higher confidence required
+            min_sight = 4   # need longer runway to justify counter-trend
+
+        if s_1m.n1_confidence < min_conf:
+            return TradeAction('WAIT', s_1m.direction, s_1m.n1_confidence,
+                               s_1m.sight_distance,
+                               f'1m_conf_{s_1m.n1_confidence:.2f}<{min_conf}')
+
+        if s_1m.sight_distance < min_sight:
+            return TradeAction('WAIT', s_1m.direction, s_1m.n1_confidence,
+                               s_1m.sight_distance,
+                               f'1m_sight_{s_1m.sight_distance}<{min_sight}')
 
         # 1s timing confirmation (if available)
-        if s_1s:
-            if s_1s.direction != struct_dir:
-                return TradeAction('WAIT', struct_dir, 0, 0, '1s_not_confirming')
+        if s_1s and s_1s.direction != s_1m.direction:
+            return TradeAction('WAIT', s_1m.direction, 0, 0, '1s_not_confirming')
 
-        # All conditions met — enter
-        confidence = s_1m.n1_confidence if s_1m else (s_1h.n1_confidence if s_1h else 0)
-        sight = s_1m.sight_distance if s_1m else 0
+        # Enter
+        trade_dir = s_1m.direction
+        confidence = s_1m.n1_confidence
+        sight = s_1m.sight_distance
 
         self.in_trade = True
-        self.trade_dir = struct_dir
+        self.trade_dir = trade_dir
         self.entry_bar = self.bar_count
 
-        return TradeAction('ENTER', struct_dir, confidence, sight,
-                           f'1h={s_1h.direction if s_1h else "?"} '
-                           f'1m_sight={sight} regime={s_1m.regime if s_1m else "?"}')
+        _bias_label = 'WITH' if with_bias else 'AGAINST'
+        return TradeAction('ENTER', trade_dir, confidence, sight,
+                           f'{_bias_label}_bias bias={bias_dir}({bias_conf:.2f}) '
+                           f'sight={sight}')
 
     def _check_exit(self, s_1h, s_1m, s_1s):
-        """Exit logic: trajectory shape drives all exits."""
+        """Exit logic using structural bias as context.
+
+        Trades WITH the bias get more patience (hold through dips).
+        Trades AGAINST the bias exit at first sign of trouble.
+        Structural bias flip = immediate exit regardless.
+        """
+        bias_dir = self._structural_dir
+        with_bias = (self.trade_dir == bias_dir)
+
+        # Structural bias flipped against our trade — exit immediately
+        if bias_dir != 'flat' and bias_dir != self.trade_dir:
+            self.in_trade = False
+            return TradeAction('EXIT', self.trade_dir, 0, 0,
+                               f'structural_flip bias={bias_dir}')
 
         # Primary: 1m trajectory
         if s_1m and s_1m.curve is not None:
-            # 1. n+1 flipped direction — immediate exit
+            # 1. n+1 flipped direction
             if s_1m.direction != self.trade_dir:
-                self.in_trade = False
-                return TradeAction('EXIT', self.trade_dir, s_1m.n1_confidence, 0,
-                                   f'1m_flipped n+1={s_1m.curve[0]:.2f}')
+                # With bias: allow one bar of dip (oscillation)
+                # Against bias: exit immediately
+                if not with_bias:
+                    self.in_trade = False
+                    return TradeAction('EXIT', self.trade_dir, s_1m.n1_confidence, 0,
+                                       f'1m_flipped_against_bias n+1={s_1m.curve[0]:.2f}')
+                # With bias: only exit if n+1 AND n+2 both flipped
+                elif s_1m.n_horizons >= 2 and s_1m.curve[1] < 0.5 if self.trade_dir == 'long' \
+                        else s_1m.curve[1] > 0.5:
+                    self.in_trade = False
+                    return TradeAction('EXIT', self.trade_dir, s_1m.n1_confidence, 0,
+                                       f'1m_flipped_confirmed n+1={s_1m.curve[0]:.2f}')
 
-            # 2. Regime changed to INFLECTION — peak approaching
+            # 2. Regime changed to INFLECTION
             if s_1m.regime == 'INFLECTION':
-                self.in_trade = False
-                return TradeAction('EXIT', self.trade_dir, s_1m.n1_confidence, 0,
-                                   f'1m_inflection')
+                if not with_bias:
+                    self.in_trade = False
+                    return TradeAction('EXIT', self.trade_dir, s_1m.n1_confidence, 0,
+                                       '1m_inflection_against_bias')
+                # With bias: inflection might just be oscillation — only exit if strong
+                elif s_1m.n1_confidence < 0.3:
+                    self.in_trade = False
+                    return TradeAction('EXIT', self.trade_dir, s_1m.n1_confidence, 0,
+                                       '1m_inflection')
 
             # 3. Regime changed to CHOP — signal lost
             if s_1m.regime == 'CHOP':
@@ -272,27 +354,23 @@ class TrajectoryEngine:
 
             # 4. Near-far disagreement spiking — peak imminent
             disagree = s_1m.near_far_disagreement
-            if self.trade_dir == 'long' and disagree > 0.15:
-                # Near horizons dropping while far still confident = peak
+            disagree_thresh = 0.20 if with_bias else 0.12  # more patient with bias
+            if self.trade_dir == 'long' and disagree > disagree_thresh:
                 self.in_trade = False
                 return TradeAction('EXIT', self.trade_dir, s_1m.n1_confidence, 0,
                                    f'1m_disagree={disagree:.2f}')
-            elif self.trade_dir == 'short' and disagree < -0.15:
+            elif self.trade_dir == 'short' and disagree < -disagree_thresh:
                 self.in_trade = False
                 return TradeAction('EXIT', self.trade_dir, s_1m.n1_confidence, 0,
                                    f'1m_disagree={disagree:.2f}')
 
-            # 5. Sight distance contracted to 1 — only see one bar ahead
-            if s_1m.sight_distance <= 1:
+            # 5. Sight distance contracted
+            min_sight = 1 if with_bias else 2  # more patient with bias
+            if s_1m.sight_distance <= min_sight:
                 self.in_trade = False
                 return TradeAction('EXIT', self.trade_dir, s_1m.n1_confidence,
-                                   s_1m.sight_distance, '1m_sight=1')
-
-        # 1h structural flip — hard exit regardless
-        if s_1h and s_1h.direction != self.trade_dir and s_1h.regime != 'CHOP':
-            self.in_trade = False
-            return TradeAction('EXIT', self.trade_dir, 0, 0,
-                               f'1h_flipped to {s_1h.direction}')
+                                   s_1m.sight_distance,
+                                   f'1m_sight={s_1m.sight_distance}')
 
         # Hold
         sight = s_1m.sight_distance if s_1m else 0
