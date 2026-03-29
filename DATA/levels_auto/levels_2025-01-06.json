@@ -1,0 +1,64 @@
+{
+  "date": "2025-01-06",
+  "method": "auto",
+  "levels": [
+    {
+      "price": 21896.75,
+      "type": "resistance",
+      "color": "#CC0000",
+      "strength": 1,
+      "source": "outer_high"
+    },
+    {
+      "price": 21736.25,
+      "type": "resistance",
+      "color": "#CC0000",
+      "strength": 8,
+      "source": "small_bar"
+    },
+    {
+      "price": 21516.5,
+      "type": "resistance",
+      "color": "#CC0000",
+      "strength": 7,
+      "source": "small_bar"
+    },
+    {
+      "price": 21442.5,
+      "type": "resistance",
+      "color": "#CC0000",
+      "strength": 13,
+      "source": "small_bar"
+    },
+    {
+      "price": 21313.5,
+      "type": "support",
+      "color": "#0066CC",
+      "strength": 43,
+      "source": "wick_cluster"
+    },
+    {
+      "price": 21279.5,
+      "type": "support",
+      "color": "#0066CC",
+      "strength": 7,
+      "source": "wick_cluster"
+    },
+    {
+      "price": 21167.75,
+      "type": "support",
+      "color": "#0066CC",
+      "strength": 0,
+      "source": "stddev_1sd_lower"
+    },
+    {
+      "price": 20874.75,
+      "type": "support",
+      "color": "#0066CC",
+      "strength": 1,
+      "source": "outer_low"
+    }
+  ],
+  "n_resistance": 4,
+  "n_support": 4
+}
