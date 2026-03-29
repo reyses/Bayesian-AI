@@ -236,7 +236,8 @@ def main():
     ax.grid(True, alpha=0.2)
 
     plt.tight_layout()
-    chart_path = f'reports/findings/level_cascade_{trade_date}.png'
+    chart_path = f'examples/level_cascade_{trade_date}.png'
+    matplotlib.rcParams['savefig.directory'] = os.path.abspath('examples')
     os.makedirs(os.path.dirname(chart_path), exist_ok=True)
     plt.savefig(chart_path, dpi=150, bbox_inches='tight')
     print(f"\n  Chart saved: {chart_path}")

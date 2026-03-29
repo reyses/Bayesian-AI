@@ -1,0 +1,27 @@
+{
+  "date": "2025-06-04",
+  "levels": [
+    {
+      "price": 21793.0,
+      "type": "resistance",
+      "color": "#CC0000"
+    },
+    {
+      "price": 21579.75,
+      "type": "resistance",
+      "color": "#CC0000"
+    },
+    {
+      "price": 21313.25,
+      "type": "resistance",
+      "color": "#CC0000"
+    },
+    {
+      "price": 20808.5,
+      "type": "resistance",
+      "color": "#CC0000"
+    }
+  ],
+  "n_resistance": 4,
+  "n_support": 0
+}
