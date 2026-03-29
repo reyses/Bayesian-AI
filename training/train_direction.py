@@ -79,6 +79,398 @@ class StateDataset(Dataset):
         return torch.FloatTensor(x), torch.FloatTensor(y)
 
 
+def build_multi_horizon_labels(feats_7d, horizons):
+    """Build direction labels at multiple horizons.
+
+    Returns (n, K) float32 array where K = len(horizons).
+    Label = 1 if dmi_diff at bar i+h is positive, 0 otherwise.
+    """
+    n = len(feats_7d)
+    max_h = max(horizons)
+    labels = np.zeros((n, len(horizons)), dtype=np.float32)
+    for hi, h in enumerate(horizons):
+        for i in range(n - max_h):
+            labels[i, hi] = 1.0 if feats_7d[i + h, 0] > 0 else 0.0  # dmi_diff > 0
+    return labels
+
+
+class TrajectoryDataset(Dataset):
+    """Dataset for trajectory training: 13D input, 7D state label + K direction labels."""
+
+    def __init__(self, features, state_labels, dir_labels, lookback=LOOKBACK, max_forward=4):
+        self.features = features
+        self.state_labels = state_labels   # (n, 7) — state at first horizon
+        self.dir_labels = dir_labels       # (n, K) — direction at each horizon
+        self.lookback = lookback
+        self.n = len(features) - lookback - max_forward
+
+    def __len__(self):
+        return max(0, self.n)
+
+    def __getitem__(self, idx):
+        i = idx + self.lookback
+        x = self.features[i - self.lookback:i]
+        y_state = self.state_labels[i]
+        y_dir = self.dir_labels[i]
+        return torch.FloatTensor(x), torch.FloatTensor(y_state), torch.FloatTensor(y_dir)
+
+
+# TF-specific trajectory horizons
+TRAJECTORY_HORIZONS = {
+    '1h': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],  # 1h: 10 hours ahead (structural + inflection detection)
+    '1m': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],  # 1m: full oscillation + overshoot
+    '1s': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],  # 1s: 10 seconds (micro-cycle + inflection detection)
+}
+
+
+def train_trajectory_epoch(tf, max_bars=0, n_epochs=100, val_start='2026-01-01'):
+    """Epoch-based trajectory training for sparse TFs (1h)."""
+    from core.statistical_field_engine import StatisticalFieldEngine
+    from core.direction_cnn import TrajectoryPredictor
+    from scipy import stats as sp_stats
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    horizons = TRAJECTORY_HORIZONS[tf]
+    max_h = max(horizons)
+    first_h = horizons[0]
+    ckpt_dir = f'checkpoints/trajectory_{tf}'
+    os.makedirs(ckpt_dir, exist_ok=True)
+
+    print(f"\n{'=' * 60}")
+    print(f"TRAJECTORY (EPOCH): {tf.upper()} | horizons={horizons} | val>={val_start}")
+    print(f"{'=' * 60}")
+
+    files = sorted(glob.glob(os.path.join(ATLAS_ROOT, tf, '*.parquet')))
+    df = pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
+    df = df.sort_values('timestamp').reset_index(drop=True)
+    if max_bars > 0:
+        df = df.tail(max_bars).reset_index(drop=True)
+    print(f"  Bars: {len(df):,}")
+
+    feat_cache = os.path.join(ckpt_dir, 'features_13d.npy')
+    if os.path.exists(feat_cache):
+        feats = np.load(feat_cache)
+        if len(feats) != len(df):
+            feats = None
+    else:
+        feats = None
+
+    if feats is None:
+        sfe = StatisticalFieldEngine()
+        states = sfe.batch_compute_states(df)
+        feats = extract_features_13d(states, df)
+        del states; gc.collect()
+        np.save(feat_cache, feats)
+
+    state_labels = build_state_labels(feats[:, :N_FEAT_7D], first_h)
+    dir_labels = build_multi_horizon_labels(feats[:, :N_FEAT_7D], horizons)
+
+    val_ts = pd.Timestamp(val_start).timestamp()
+    train_mask = df['timestamp'].values < val_ts
+    val_mask = df['timestamp'].values >= val_ts
+
+    train_ds = TrajectoryDataset(feats[train_mask], state_labels[train_mask],
+                                  dir_labels[train_mask], lookback=LOOKBACK, max_forward=max_h)
+    val_ds = TrajectoryDataset(feats[val_mask], state_labels[val_mask],
+                                dir_labels[val_mask], lookback=LOOKBACK, max_forward=max_h)
+    print(f"  Train: {len(train_ds):,} | Val: {len(val_ds):,}")
+
+    train_dl = DataLoader(train_ds, batch_size=256, shuffle=True)
+    val_dl = DataLoader(val_ds, batch_size=512, shuffle=False)
+
+    model = TrajectoryPredictor(n_features=13, latent_dim=64, n_state=N_FEAT_7D, horizons=horizons).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=10, factor=0.5)
+    mse_fn = nn.MSELoss()
+    bce_fn = nn.BCELoss()
+    DIR_LOSS_WEIGHT = 0.1
+
+    best_val_metric = 0
+    best_epoch = 0
+
+    for epoch in tqdm(range(1, n_epochs + 1), desc=f"Epochs {tf.upper()}"):
+        model.train()
+        epoch_loss = 0
+        n_batches = 0
+        for x, ys, yd in train_dl:
+            x, ys, yd = x.to(device), ys.to(device), yd.to(device)
+            state_pred, p_longs = model(x)
+            loss_state = mse_fn(state_pred, ys)
+            loss_dir = bce_fn(p_longs, yd)
+            loss = loss_state + DIR_LOSS_WEIGHT * loss_dir
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            epoch_loss += loss.item()
+            n_batches += 1
+
+        if epoch % 10 == 0 or epoch == 1:
+            model.eval()
+            all_p, all_td = [], []
+            with torch.no_grad():
+                for x, ys, yd in val_dl:
+                    x = x.to(device)
+                    _, p_longs = model(x)
+                    all_p.append(p_longs.cpu().numpy())
+                    all_td.append(yd.numpy())
+
+            pred_p = np.concatenate(all_p)
+            true_d = np.concatenate(all_td)
+
+            h_accs = []
+            for hi in range(len(horizons)):
+                acc = ((pred_p[:, hi] > 0.5) == (true_d[:, hi] > 0.5)).mean() * 100
+                h_accs.append(acc)
+
+            p_n1 = pred_p[:, 0]
+            conf_n1 = np.abs(p_n1 - 0.5) * 2
+            top5_thresh = np.percentile(conf_n1, 95)
+            top5_mask = conf_n1 >= top5_thresh
+            top5_acc = ((p_n1[top5_mask] > 0.5) == (true_d[top5_mask, 0] > 0.5)).mean() * 100 if top5_mask.sum() > 0 else 0
+
+            _lr = optimizer.param_groups[0]['lr']
+            scheduler.step(epoch_loss / n_batches)
+
+            h_str = ' '.join([f'n+{h}={a:.0f}%' for h, a in zip(horizons, h_accs)])
+            print(f"  E{epoch:>3}: {h_str} | top5%={top5_acc:.1f}% | lr={_lr:.1e}")
+
+            if top5_acc > best_val_metric:
+                best_val_metric = top5_acc
+                best_epoch = epoch
+                torch.save({
+                    'model_state': model.state_dict(),
+                    'epoch': epoch, 'tf': tf, 'horizons': horizons,
+                    'top5_acc': top5_acc, 'h_accs': h_accs,
+                }, os.path.join(ckpt_dir, 'best_model.pt'))
+
+    print(f"\n  Best epoch: {best_epoch} (top5%={best_val_metric:.1f}%)")
+
+    # Final decay curve
+    print(f"\n  TRAJECTORY DECAY CURVE:")
+    for hi, h in enumerate(horizons):
+        print(f"    n+{h}: {h_accs[hi]:.1f}%")
+    print(f"  GATE (95% at top 5% n+1): {'PASS' if best_val_metric >= 95 else 'FAIL'}")
+    print(f"  Saved: {ckpt_dir}/best_model.pt")
+
+
+def train_trajectory(tf, max_bars=0, epochs_per_day=10):
+    """Train TrajectoryPredictor with multi-horizon P(D) + state head."""
+    from core.statistical_field_engine import StatisticalFieldEngine
+    from core.direction_cnn import TrajectoryPredictor
+    from scipy import stats as sp_stats
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    horizons = TRAJECTORY_HORIZONS[tf]
+    max_h = max(horizons)
+    first_h = horizons[0]  # state label at first horizon
+    ckpt_dir = f'checkpoints/trajectory_{tf}'
+    os.makedirs(ckpt_dir, exist_ok=True)
+
+    print(f"\n{'=' * 60}")
+    print(f"TRAJECTORY PREDICTOR: {tf.upper()} | horizons={horizons}")
+    print(f"{'=' * 60}")
+
+    # Load data
+    files = sorted(glob.glob(os.path.join(ATLAS_ROOT, tf, '*.parquet')))
+    df = pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
+    df = df.sort_values('timestamp').reset_index(drop=True)
+    if max_bars > 0:
+        df = df.tail(max_bars).reset_index(drop=True)
+    print(f"  Bars: {len(df):,}")
+
+    # Features
+    feat_cache = os.path.join(ckpt_dir, 'features_13d.npy')
+    if os.path.exists(feat_cache):
+        feats = np.load(feat_cache)
+        if len(feats) != len(df):
+            feats = None
+    else:
+        feats = None
+
+    if feats is None:
+        sfe = StatisticalFieldEngine()
+        states = sfe.batch_compute_states(df)
+        feats = extract_features_13d(states, df)
+        del states; gc.collect()
+        np.save(feat_cache, feats)
+
+    # Labels: state at first horizon + direction at all horizons
+    state_labels = build_state_labels(feats[:, :N_FEAT_7D], first_h)
+    dir_labels = build_multi_horizon_labels(feats[:, :N_FEAT_7D], horizons)
+    print(f"  State labels: {state_labels.shape}, Dir labels: {dir_labels.shape}")
+
+    # Walk-forward by day
+    df['date'] = pd.to_datetime(df['timestamp'], unit='s').dt.date
+    day_boundaries = []
+    for date, group in df.groupby('date'):
+        day_boundaries.append({'date': date, 'start': group.index[0], 'end': group.index[-1]})
+    print(f"  Trading days: {len(day_boundaries)}")
+
+    model = TrajectoryPredictor(
+        n_features=13, latent_dim=64, n_state=N_FEAT_7D, horizons=horizons
+    ).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    mse_fn = nn.MSELoss()
+    bce_fn = nn.BCELoss()
+    DIR_LOSS_WEIGHT = 0.1
+
+    day_results = []
+    _epochs_per_day = epochs_per_day
+
+    for di, day in enumerate(tqdm(day_boundaries, desc=f"Walk-Forward {tf.upper()}")):
+        _start = day['start']
+        _end = day['end']
+        n_bars = _end - _start + 1
+
+        if n_bars < LOOKBACK + max_h + 5:
+            continue
+
+        day_feats = feats[_start:_end + 1]
+        day_state = state_labels[_start:_end + 1]
+        day_dir = dir_labels[_start:_end + 1]
+
+        # Score BEFORE training
+        if di > 0:
+            model.eval()
+            ds = TrajectoryDataset(day_feats, day_state, day_dir,
+                                   lookback=LOOKBACK, max_forward=max_h)
+            if len(ds) > 0:
+                dl = DataLoader(ds, batch_size=512, shuffle=False)
+                all_state, all_plong, all_true_state, all_true_dir = [], [], [], []
+                with torch.no_grad():
+                    for x, ys, yd in dl:
+                        x = x.to(device)
+                        state_pred, p_longs = model(x)
+                        all_state.append(state_pred.cpu().numpy())
+                        all_plong.append(p_longs.cpu().numpy())
+                        all_true_state.append(ys.numpy())
+                        all_true_dir.append(yd.numpy())
+
+                pred_state = np.concatenate(all_state)
+                pred_p = np.concatenate(all_plong)
+                true_state = np.concatenate(all_true_state)
+                true_dir = np.concatenate(all_true_dir)
+
+                # Per-horizon accuracy
+                h_accs = []
+                for hi in range(len(horizons)):
+                    pred_d = pred_p[:, hi] > 0.5
+                    true_d = true_dir[:, hi] > 0.5
+                    h_accs.append((pred_d == true_d).mean() * 100)
+
+                # State correlation
+                corrs = []
+                for j in range(N_FEAT_7D):
+                    if true_state[:, j].std() > 1e-8 and pred_state[:, j].std() > 1e-8:
+                        r, _ = sp_stats.spearmanr(pred_state[:, j], true_state[:, j])
+                        corrs.append(r)
+                avg_corr = np.mean(corrs) if corrs else 0
+
+                # Trajectory shape: sight distance
+                mean_curve = pred_p.mean(axis=0)
+                confidence_curve = np.abs(mean_curve - 0.5) * 2
+
+                # Top 5% at n+1
+                p_n1 = pred_p[:, 0]
+                conf_n1 = np.abs(p_n1 - 0.5) * 2
+                top5_thresh = np.percentile(conf_n1, 95)
+                top5_mask = conf_n1 >= top5_thresh
+                top5_acc = ((p_n1[top5_mask] > 0.5) == (true_dir[top5_mask, 0] > 0.5)).mean() * 100 if top5_mask.sum() > 0 else 0
+
+                results_row = {
+                    'date': str(day['date']),
+                    'day': di + 1,
+                    'n_bars': n_bars,
+                    'avg_corr': avg_corr,
+                    'top5_acc': top5_acc,
+                }
+                for hi, h in enumerate(horizons):
+                    results_row[f'acc_n{h}'] = h_accs[hi]
+                    results_row[f'mean_p_n{h}'] = float(mean_curve[hi])
+
+                day_results.append(results_row)
+
+                if (di + 1) % 30 == 0:
+                    h_str = ' '.join([f'n+{h}={h_accs[i]:.1f}%' for i, h in enumerate(horizons)])
+                    print(f"  Day {di+1}: {h_str} | corr={avg_corr:.3f} | top5%={top5_acc:.1f}%")
+
+        # Train
+        model.train()
+        ds = TrajectoryDataset(day_feats, day_state, day_dir,
+                               lookback=LOOKBACK, max_forward=max_h)
+        if len(ds) < 10:
+            continue
+        dl = DataLoader(ds, batch_size=min(256, len(ds)), shuffle=True)
+
+        _epochs = 30 if di == 0 else _epochs_per_day
+        _lr = 1e-3 if di == 0 else 1e-4
+        for pg in optimizer.param_groups:
+            pg['lr'] = _lr
+
+        for _ in range(_epochs):
+            for x, ys, yd in dl:
+                x, ys, yd = x.to(device), ys.to(device), yd.to(device)
+                state_pred, p_longs = model(x)
+                loss_state = mse_fn(state_pred, ys)
+                loss_dir = bce_fn(p_longs, yd)
+                loss = loss_state + DIR_LOSS_WEIGHT * loss_dir
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+        if (di + 1) % 30 == 0:
+            torch.save({
+                'model_state': model.state_dict(),
+                'day': di + 1, 'date': str(day['date']),
+                'tf': tf, 'horizons': horizons,
+            }, os.path.join(ckpt_dir, f'model_day{di+1}.pt'))
+
+    # Save final
+    torch.save({
+        'model_state': model.state_dict(),
+        'tf': tf, 'horizons': horizons,
+        'day': len(day_boundaries),
+    }, os.path.join(ckpt_dir, 'best_model.pt'))
+    print(f"  Saved: {ckpt_dir}/best_model.pt")
+
+    # Report
+    if day_results:
+        df_r = pd.DataFrame(day_results)
+
+        print(f"\n{'=' * 60}")
+        print(f"TRAJECTORY PREDICTOR REPORT: {tf.upper()} | horizons={horizons}")
+        print(f"{'=' * 60}")
+        print(f"  Days scored: {len(df_r)}")
+
+        for hi, h in enumerate(horizons):
+            col = f'acc_n{h}'
+            print(f"  n+{h} accuracy: {df_r[col].mean():.1f}%")
+
+        print(f"  Avg correlation: {df_r['avg_corr'].mean():.3f}")
+        print(f"  Top 5% at n+1: {df_r['top5_acc'].mean():.1f}%")
+        print(f"  GATE (95% at top 5% n+1): {'PASS' if df_r['top5_acc'].mean() >= 95 else 'FAIL'}")
+
+        # Decay curve (average across all days)
+        print(f"\n  AVERAGE TRAJECTORY DECAY:")
+        for hi, h in enumerate(horizons):
+            acc = df_r[f'acc_n{h}'].mean()
+            print(f"    n+{h}: {acc:.1f}% accuracy")
+
+        # Monthly
+        df_r['month'] = df_r['date'].str[:7]
+        print(f"\n  MONTHLY (n+1 accuracy):")
+        for month, grp in df_r.groupby('month'):
+            print(f"    {month}: n+1={grp[f'acc_n{horizons[0]}'].mean():.1f}% "
+                  f"top5%={grp['top5_acc'].mean():.1f}%")
+
+        df_r.to_csv(os.path.join(ckpt_dir, 'daily_results.csv'), index=False)
+        print(f"  Saved: {ckpt_dir}/daily_results.csv")
+
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+
 def train_and_validate(tf, max_bars=0, epochs_per_day=10):
     """Full pipeline: load data, extract features, train DualHeadPredictor, evaluate."""
     from core.statistical_field_engine import StatisticalFieldEngine
@@ -889,14 +1281,181 @@ def train_1s_walkforward(epochs_per_day=10, cold_epochs=30):
         print(f"  Saved: {ckpt_dir}/daily_results.csv")
 
 
+def train_1s_trajectory(epochs_per_day=10, cold_epochs=30):
+    """Sharded walk-forward trajectory training for 1s (15M bars)."""
+    from core.direction_cnn import TrajectoryPredictor
+    from scipy import stats as sp_stats
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    horizons = TRAJECTORY_HORIZONS['1s']
+    max_h = max(horizons)
+    first_h = horizons[0]
+    ckpt_dir = 'checkpoints/trajectory_1s'
+    shard_dir = os.path.join(ckpt_dir, 'shards')
+    os.makedirs(shard_dir, exist_ok=True)
+
+    print(f"\n{'=' * 60}")
+    print(f"TRAJECTORY (SHARDED): 1S | horizons={horizons}")
+    print(f"{'=' * 60}")
+
+    # Build feature shards if needed (reuse from direction_1s if available)
+    src_shard_dir = 'checkpoints/direction_1s/shards'
+    shard_files = sorted(glob.glob(os.path.join(src_shard_dir, '*_feat.npy')))
+    if not shard_files:
+        print("  No 1s feature shards found — building...")
+        build_1s_shards('checkpoints/direction_1s')
+        shard_files = sorted(glob.glob(os.path.join(src_shard_dir, '*_feat.npy')))
+
+    print(f"  Feature shards: {len(shard_files)} months")
+
+    model = TrajectoryPredictor(
+        n_features=13, latent_dim=64, n_state=N_FEAT_7D, horizons=horizons
+    ).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    mse_fn = nn.MSELoss()
+    bce_fn = nn.BCELoss()
+    DIR_LOSS_WEIGHT = 0.1
+
+    day_results = []
+    cold_done = False
+
+    for sf in shard_files:
+        month = os.path.basename(sf).replace('_feat.npy', '')
+        feats = np.load(sf)
+
+        # Build multi-horizon labels for this shard
+        label_cache = os.path.join(shard_dir, f'{month}_traj_label.npy')
+        state_cache = os.path.join(shard_dir, f'{month}_traj_state.npy')
+        if os.path.exists(label_cache) and os.path.exists(state_cache):
+            dir_labels = np.load(label_cache)
+            state_labels = np.load(state_cache)
+        else:
+            print(f"  {month}: building trajectory labels...", end=' ', flush=True)
+            state_labels = build_state_labels(feats[:, :N_FEAT_7D], first_h)
+            dir_labels = build_multi_horizon_labels(feats[:, :N_FEAT_7D], horizons)
+            np.save(state_cache, state_labels)
+            np.save(label_cache, dir_labels)
+            print("saved")
+
+        # Get timestamps for day splitting
+        pq_path = os.path.join(ATLAS_ROOT, '1s', f'{month}.parquet')
+        df_ts = pd.read_parquet(pq_path, columns=['timestamp'])
+        dates = pd.to_datetime(df_ts['timestamp'].values, unit='s').date
+        unique_dates = sorted(set(dates))
+
+        print(f"  {month}: {len(feats):,} bars, {len(unique_dates)} days")
+
+        for date in tqdm(unique_dates, desc=f"  {month}", leave=False):
+            day_mask = dates == date
+            idx = np.where(day_mask)[0]
+            if len(idx) < LOOKBACK + max_h + 50:
+                continue
+
+            day_feats = feats[idx]
+            day_state = state_labels[idx]
+            day_dir = dir_labels[idx]
+
+            # Score before training
+            if cold_done:
+                model.eval()
+                ds = TrajectoryDataset(day_feats, day_state, day_dir,
+                                       lookback=LOOKBACK, max_forward=max_h)
+                if len(ds) > 0:
+                    dl = DataLoader(ds, batch_size=1024, shuffle=False)
+                    all_p, all_td = [], []
+                    with torch.no_grad():
+                        for x, ys, yd in dl:
+                            x = x.to(device)
+                            _, p_longs = model(x)
+                            all_p.append(p_longs.cpu().numpy())
+                            all_td.append(yd.numpy())
+
+                    pred_p = np.concatenate(all_p)
+                    true_d = np.concatenate(all_td)
+
+                    h_accs = []
+                    for hi in range(len(horizons)):
+                        acc = ((pred_p[:, hi] > 0.5) == (true_d[:, hi] > 0.5)).mean() * 100
+                        h_accs.append(acc)
+
+                    p_n1 = pred_p[:, 0]
+                    conf_n1 = np.abs(p_n1 - 0.5) * 2
+                    top5_thresh = np.percentile(conf_n1, 95) if len(conf_n1) > 20 else 0.9
+                    top5_mask = conf_n1 >= top5_thresh
+                    top5_acc = ((p_n1[top5_mask] > 0.5) == (true_d[top5_mask, 0] > 0.5)).mean() * 100 if top5_mask.sum() > 0 else 0
+
+                    row = {'date': str(date), 'top5_acc': top5_acc}
+                    for hi, h in enumerate(horizons):
+                        row[f'acc_n{h}'] = h_accs[hi]
+                    day_results.append(row)
+
+            # Train
+            model.train()
+            ds = TrajectoryDataset(day_feats, day_state, day_dir,
+                                   lookback=LOOKBACK, max_forward=max_h)
+            if len(ds) < 50:
+                continue
+            dl = DataLoader(ds, batch_size=512, shuffle=True)
+
+            if not cold_done:
+                _epochs = cold_epochs
+                for pg in optimizer.param_groups:
+                    pg['lr'] = 1e-3
+                cold_done = True
+            else:
+                _epochs = epochs_per_day
+                for pg in optimizer.param_groups:
+                    pg['lr'] = 1e-4
+
+            for _ in range(_epochs):
+                for x, ys, yd in dl:
+                    x, ys, yd = x.to(device), ys.to(device), yd.to(device)
+                    state_pred, p_longs = model(x)
+                    loss = mse_fn(state_pred, ys) + DIR_LOSS_WEIGHT * bce_fn(p_longs, yd)
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
+
+        # Save after each month
+        torch.save({
+            'model_state': model.state_dict(),
+            'month': month, 'tf': '1s', 'horizons': horizons,
+        }, os.path.join(ckpt_dir, f'model_{month}.pt'))
+        print(f"    Saved: model_{month}.pt")
+
+        del feats, state_labels, dir_labels, df_ts
+        gc.collect()
+
+    # Save final
+    torch.save({
+        'model_state': model.state_dict(),
+        'tf': '1s', 'horizons': horizons,
+    }, os.path.join(ckpt_dir, 'best_model.pt'))
+
+    # Report
+    if day_results:
+        df_r = pd.DataFrame(day_results)
+        print(f"\n{'=' * 60}")
+        print(f"TRAJECTORY REPORT: 1S | horizons={horizons}")
+        print(f"{'=' * 60}")
+        print(f"  Days scored: {len(df_r)}")
+        for hi, h in enumerate(horizons):
+            print(f"  n+{h} accuracy: {df_r[f'acc_n{h}'].mean():.1f}%")
+        print(f"  Top 5% at n+1: {df_r['top5_acc'].mean():.1f}%")
+        print(f"  GATE: {'PASS' if df_r['top5_acc'].mean() >= 95 else 'FAIL'}")
+
+        df_r.to_csv(os.path.join(ckpt_dir, 'daily_results.csv'), index=False)
+        print(f"  Saved: {ckpt_dir}/daily_results.csv")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--tf', required=True, choices=['1h', '1m', '1s'],
                         help='Timeframe to train')
     parser.add_argument('--max-bars', type=int, default=0,
                         help='Limit bars (useful for 1s)')
-    parser.add_argument('--mode', default='epoch', choices=['epoch', 'walkforward'],
-                        help='epoch = full dataset training, walkforward = daily carry-forward')
+    parser.add_argument('--mode', default='epoch', choices=['epoch', 'walkforward', 'trajectory'],
+                        help='epoch = full dataset, walkforward = daily, trajectory = multi-horizon P(D)')
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--val-start', default='2026-01-01',
                         help='Validation start date (default: 2026-01-01)')
@@ -904,7 +1463,15 @@ def main():
                         help='Epochs per day in walk-forward mode (default: 10)')
     args = parser.parse_args()
 
-    if args.tf == '1s':
+    if args.mode == 'trajectory':
+        if args.tf == '1h':
+            train_trajectory_epoch(args.tf, max_bars=args.max_bars,
+                                   n_epochs=args.epochs, val_start=args.val_start)
+        elif args.tf == '1s':
+            train_1s_trajectory(epochs_per_day=args.epochs_per_day, cold_epochs=30)
+        else:
+            train_trajectory(args.tf, max_bars=args.max_bars, epochs_per_day=args.epochs_per_day)
+    elif args.tf == '1s':
         # 1s always uses sharded approach (15M bars too large for single pass)
         if args.mode == 'epoch':
             train_1s_from_shards(n_epochs=args.epochs, val_start=args.val_start)

@@ -93,7 +93,105 @@ class DualHeadPredictor(nn.Module):
         p = p_long.item()
         confidence = abs(p - 0.5) * 2
         direction = 'long' if p > 0.5 else 'short'
-        # Cross-check: does state head agree with direction head?
-        state_dir = 'long' if state[0, 0].item() > 0 else 'short'  # dmi_diff sign
+        state_dir = 'long' if state[0, 0].item() > 0 else 'short'
         agreement = state_dir == direction
         return direction, confidence, p, state.cpu().numpy()[0], agreement
+
+
+class TrajectoryPredictor(nn.Module):
+    """Shared backbone, state head + multiple P(D) horizon heads.
+
+    Predicts the trajectory decay curve: P(D) at n+1, n+2, ..., n+K.
+    Each horizon gets its own direction head. State head grounds the
+    prediction in physics.
+
+    Input:  (batch, lookback, n_features)
+    Output: state_7d (batch, 7), p_long (batch, K) where K = number of horizons
+
+    The trajectory shape drives all trading decisions:
+      - Flat curve = strong trend, hold
+      - Steep decay = approaching inflection, prepare to exit
+      - Crossing 50% = direction flipping, exit/enter
+    """
+
+    def __init__(self, n_features=13, latent_dim=64, n_state=7, horizons=None):
+        super().__init__()
+        self.horizons = horizons or [1, 2, 3, 4]
+        self.n_horizons = len(self.horizons)
+        self.backbone = CNNBackbone(n_features=n_features, latent_dim=latent_dim)
+        self.latent_dim = latent_dim
+
+        # State head: 7D physics prediction at first horizon
+        self.state_head = nn.Sequential(
+            nn.Linear(latent_dim, latent_dim),
+            nn.ReLU(),
+            nn.Linear(latent_dim, n_state),
+        )
+
+        # One P(D) head per horizon — shared hidden layer, separate outputs
+        self.dir_shared = nn.Sequential(
+            nn.Linear(latent_dim, 32),
+            nn.ReLU(),
+        )
+        self.dir_outputs = nn.ModuleList([
+            nn.Sequential(nn.Linear(32, 1), nn.Sigmoid())
+            for _ in self.horizons
+        ])
+
+        _total = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        print(f"[TrajectoryPredictor] {_total:,} params | "
+              f"input: ({n_features}D) | output: 7D state + P(D)x{self.n_horizons} "
+              f"horizons={self.horizons}")
+
+    def forward(self, x):
+        """Returns (state_7d, p_long_trajectory).
+
+        state_7d: (batch, 7) predicted features at first horizon
+        p_long_trajectory: (batch, K) P(long) at each horizon
+        """
+        latent = self.backbone(x)
+        state = self.state_head(latent)
+
+        dir_hidden = self.dir_shared(latent)
+        p_longs = torch.cat([head(dir_hidden) for head in self.dir_outputs], dim=-1)
+
+        return state, p_longs
+
+    def forward_with_latent(self, x):
+        """Returns (state_7d, p_long_trajectory, latent)."""
+        latent = self.backbone(x)
+        state = self.state_head(latent)
+        dir_hidden = self.dir_shared(latent)
+        p_longs = torch.cat([head(dir_hidden) for head in self.dir_outputs], dim=-1)
+        return state, p_longs, latent
+
+    def predict_trajectory(self, x):
+        """Returns trajectory dict for one sample."""
+        with torch.no_grad():
+            state, p_longs = self.forward(x)
+        p_arr = p_longs.cpu().numpy()[0]
+        state_arr = state.cpu().numpy()[0]
+
+        trajectory = {}
+        for i, h in enumerate(self.horizons):
+            p = float(p_arr[i])
+            trajectory[f'n+{h}'] = {
+                'p_long': p,
+                'confidence': abs(p - 0.5) * 2,
+                'direction': 'long' if p > 0.5 else 'short',
+            }
+
+        # Sight distance: how many horizons before P(D) drops below chop
+        sight = 0
+        for i in range(self.n_horizons):
+            if abs(p_arr[i] - 0.5) > 0.1:  # outside chop zone
+                sight = i + 1
+            else:
+                break
+
+        return {
+            'trajectory': trajectory,
+            'state': state_arr,
+            'sight_distance': sight,
+            'curve': p_arr,
+        }
