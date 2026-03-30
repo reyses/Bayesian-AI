@@ -3,6 +3,119 @@ RESEARCH JOURNAL
 Started: 2026-02-28
 Tool: tools/standalone_research.py (was tools/waveform_standalone.py)
 
+INDEX (quick reference)
+=======================
+
+FOUNDATIONS (Feb 28):
+  L17   PURPOSE — find WHERE setups live, THEN layer features
+  L27   CHRONOLOGY — 16D failed, I-MR works, cluster FROM price not features
+  L58   I-MR METHOD — SPC control charts on price (the original insight)
+  L88   REGIME DETECTION — |MR| > UCL = regime boundary
+  L114  ORACLE MFE/MAE — forward-looking trade quality measure
+  L154  FULL 16D PIPELINE — 12 TF x 16D hypervolume
+  L223  THREE QUESTIONS — A: explain price (95%), B: direction standalone (DEAD), C: derive from price (71-80%)
+
+KEY FINDINGS (Feb 28):
+  L272  Price model carries directional info ONLY at high confidence
+  L405  SWEET SPOT IS 1-WEEK: 80% at >20pt gate (157 samples)
+  L411  FUNDAMENTAL: 89% price R2 is USELESS for direction at yearly scale
+  L449  CRITICAL BUG: lookahead in higher TF alignment (FIXED same day)
+  L509  N-1 fix IMPROVED results (completed bars = cleaner signals)
+
+ANALYSIS D (Feb 28):
+  L520  RATE OF CHANGE — deltas help direction (+13% R2), not price
+  L558  TOP PREDICTORS: DMI diff CHANGING at 30m, z-score CHANGING at 15m
+  L593  Delta signal decays with scale (overfit on small windows)
+
+ANALYSIS E-Q (Feb 28 - Mar 8):
+  L606  E: dP/dT grouping amplifies direction signal
+  L662  F: Stacked shapes per regime
+  L710  G: Laplacian sub-segmentation
+  L876  H: Iterative shape clustering
+  L967  SEED-FUNCTION SHAPE MATCHING proposal
+  L1078 I: Seed primitive classification
+  L1124 J: Adaptive R2 sub-classification
+  L1219 K: Direction with fractal context
+
+PIPELINE ANALYSIS (Mar 1):
+  L1344 Baseline run results
+  L1431 Q1: I-MR worker effective? YES for price, NO for direction
+  L1458 Q2: Direction predicted? NO — biased SHORT
+  L1643 KEY: Live physics carries the system, not templates
+
+ANALYSIS L-Q (Mar 1-7):
+  L1733 L: Signed MFE OLS
+  L1784 M: Next-price forecast
+  L1813 N: Delta-direct forecast
+  L1841 O: Stepwise delta direction
+  L1877 P: Paired data point direction
+  L1922 Q: Signed magnitude histogram
+  L1976 CROSS-COMPARISON TABLE (all methods: best = 58.3% at 1 week)
+
+EXIT RESEARCH (Mar 7):
+  L2011 S: Band conflict study — exit trend guard
+
+BREAKTHROUGH (Mar 8):
+  L2104 WHY WE ARE HERE — research roadmap
+  L2168 TRAJECTORY EXTRAPOLATION + BRAIN KEY revolution
+  L2179 KEY: Interpolation/extrapolation in 192D space
+  L2185 KEY: 8-point trajectory (Octa-Point)
+  L2227 270-day full ATLAS results
+
+K-NN TRAJECTORY (Mar 9):
+  L2276 Analysis V: trajectory K-NN (coin flip — noise floor too high)
+  L2678 Trade duration fractal analysis
+  L2724 KEY: Why V is a coin flip (noise > signal at execution TF)
+  L2745 MNQ noise floor: 8.8 ticks at 15s
+
+TF MISMATCH (Mar 11-12):
+  L2808 Problem: 12 TFs have different magnitudes
+  L2828 R1: TF-bucketed clustering (fix)
+  L2840 R2: 1-minute anchor discovery
+  L2868 Results: $39,736 IS, $8,200 OOS (V7.0.0)
+  L2949 KEY: Segmentation is the bottleneck
+  L3059 TF agreement = fakeout, disagreement = real reversal
+
+FEATURE REBUILD (Mar 22):
+  L3063 First principles: Price, Volume, Time only
+  L3076 KEY: oscillation_entropy is NOT entropy
+
+29D + THREE-LAYER CNN (Mar 27):
+  L3113 29D pipeline, 56% direction (worse than 13D)
+  L3141 KEY: Fixed exits don't work, need market structure
+
+TRAJECTORY + OSCILLATION (Mar 28):
+  L3157 DualHeadPredictor, all 3 TFs pass 95%
+  L3170 KEY: Forward horizon = half oscillation period
+
+LEVELS + EDA + SHAPES (Mar 29):
+  L3203 Data science workflow, z_se IS the level, shapes are distinct
+  L3267 Model needs: trend begin/end + reversal type (plateau vs sudden)
+
+PROVEN WRONG (accumulated):
+  - Direction standalone: DEAD at all scales (3-9% R2)
+  - ADX chop filter: blocks profitable trades
+  - Peak override: 5.8% WR
+  - Fake peak detection: blocked 93% of PnL
+  - Brain conviction: AUC 0.501 (random)
+  - Single model across full year: coin flip
+  - 29D input without structure: 56% (worse than 13D)
+  - Top 5% metric: vanity metric, not per-bar usable
+
+PROVEN RIGHT (accumulated):
+  - I-MR / SPC approach: regime detection works
+  - Price model derives direction at 1-week scale (80% at high conf)
+  - Rate of change (deltas/trajectory) helps direction
+  - DMI = the ONE direction signal
+  - z_se = the level feature (p=5.6e-18)
+  - Levels persist 3+ weeks (hand-drawn, validated)
+  - 1m half-cycle = 7 bars (~8 min oscillation)
+  - 1m LEADS 1h for direction, 1h LEADS 1m for speed
+  - Shapes at levels are distinct (reversal vs breakout vs bounce)
+  - Harmonics explain 46% of levels (resonance nodes)
+
+=======================================================================
+
 NOTE (2026-03-08): File/term renames since this journal was started:
   tools/waveform_standalone.py -> tools/standalone_research.py
   "quantum physics/states"     -> "market states" / statistical fields
