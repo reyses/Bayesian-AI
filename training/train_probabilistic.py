@@ -647,12 +647,12 @@ def train_epoch(tf='1D', n_epochs=100, val_start='2026-01-01'):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--tf', default='1m', choices=['1D', '1h', '1m'])
+    parser.add_argument('--tf', default='1m', choices=['1D', '4h', '1h', '15m', '1m'])
     parser.add_argument('--epochs-per-day', type=int, default=10)
     args = parser.parse_args()
 
     t0 = time.time()
-    if args.tf == '1D':
+    if args.tf in ('1D', '4h', '1h'):
         train_epoch(tf=args.tf, n_epochs=args.epochs_per_day * 10)
     else:
         train_model(tf=args.tf, epochs_per_day=args.epochs_per_day)

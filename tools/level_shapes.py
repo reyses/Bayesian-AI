@@ -21,6 +21,7 @@ import os
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+import torch
 import matplotlib
 matplotlib.use('Agg')
 matplotlib.rcParams['savefig.directory'] = os.path.abspath('examples')
@@ -175,9 +176,12 @@ def extract_shapes(df, feats, levels):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--tf', default='1h', choices=['1D', '4h', '1h', '15m', '5m', '1m', '15s', '5s', '1s'],
+                        help='Timeframe for shape analysis')
     parser.add_argument('--months', default=None, help='Comma-separated YYYY-MM')
     args = parser.parse_args()
 
+    OUT_DIR = f'reports/findings/shapes/{args.tf}'
     os.makedirs(OUT_DIR, exist_ok=True)
 
     if args.months:
@@ -196,16 +200,52 @@ def main():
         if not levels or len(levels) < 2:
             continue
 
-        df, feats = load_month('1h', month)
-        if df is None:
-            continue
+        # For large TFs (1s, 15s): process per-month parquet directly to avoid OOM
+        tf_folder = os.path.join(ATLAS, args.tf)
+        month_file = os.path.join(tf_folder, f'{month.replace("-", "_")}.parquet')
 
-        shapes, feat_profiles = extract_shapes(df, feats, levels)
-        for cls in shapes:
-            all_shapes[cls].extend(shapes[cls])
-            all_feat_profiles[cls].extend(feat_profiles[cls])
+        if args.tf in ('1s', '15s', '5s') and os.path.exists(month_file):
+            # Sharded: load just this month's parquet
+            from core.statistical_field_engine import StatisticalFieldEngine
+            from training.train_trade_cnn import extract_features_13d
 
-        del df, feats; gc.collect()
+            df_month = pd.read_parquet(month_file).sort_values('timestamp').reset_index(drop=True)
+            if len(df_month) < 30:
+                continue
+            tqdm.write(f"  {args.tf} {month}: {len(df_month):,} bars (sharded)")
+
+            sfe = StatisticalFieldEngine()
+            states = sfe.batch_compute_states(df_month)
+            feats = extract_features_13d(states, df_month)
+            del states
+            del sfe
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+            shapes, feat_profiles = extract_shapes(df_month, feats, levels)
+            for cls in shapes:
+                all_shapes[cls].extend(shapes[cls])
+                all_feat_profiles[cls].extend(feat_profiles[cls])
+
+            del df_month, feats, shapes, feat_profiles
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        else:
+            df, feats = load_month(args.tf, month)
+            if df is None:
+                continue
+
+            shapes, feat_profiles = extract_shapes(df, feats, levels)
+            for cls in shapes:
+                all_shapes[cls].extend(shapes[cls])
+                all_feat_profiles[cls].extend(feat_profiles[cls])
+
+            del df, feats, shapes, feat_profiles
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
     # Summary
     print(f"\n{'='*60}")
