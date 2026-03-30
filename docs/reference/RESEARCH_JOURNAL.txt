@@ -3153,3 +3153,115 @@ PIVOT — OSCILLATION-AWARE LAYERED CNN:
     L1 Trend regime (1h/15m), L2 Oscillation phase (1m/5m),
     L3 Entry gate (trough + trend), L4 Exit gate (peak or trend reversal).
   Key gate: oscillation-timed entry must beat random by > 4 ticks.
+
+2026-03-28: TRAJECTORY PREDICTORS + OSCILLATION RESEARCH
+=========================================================
+
+DUALHEADPREDICTOR:
+  Shared backbone + state head (MSE) + direction head (BCE).
+  State forces physics understanding, direction forces binary answer.
+  Both heads reinforce through shared backbone.
+
+PER-TF TRAINING (all pass 95% at top 5%):
+  1h: t+1, epoch-based (7K bars too sparse for walk-forward). 95.4%
+  1m: t+4, walk-forward. 96.3% — half-cycle of ~8 min oscillation
+  1s: t+5, sharded walk-forward (15M bars). 96.6%
+
+KEY INSIGHT — FORWARD HORIZON = HALF OSCILLATION PERIOD:
+  t+4 at 1m works because it predicts TO the oscillation peak.
+  t+10 predicts PAST the peak into next cycle = noise.
+  Not a tuning parameter — a physical measurement of the market.
+
+TRAJECTORY PREDICTOR (10 horizons per TF):
+  P(D) decay curve: n+1 through n+10. The decay shape IS the signal.
+  Horizon disagreement (near vs far) confirmed at peaks (p=0.0000, t=4.93).
+  Near horizons LEAD far horizons by 3 bars at inflection points.
+
+STATISTICAL SIGNIFICANCE (all models):
+  P-values effectively zero. CI never includes 50%.
+  Cohen h: 0.47-0.61 (medium effect sizes).
+
+CALIBRATION (binomial logistic regression):
+  1h chop zone: [0.250, 0.770] — wide, only trust when very confident
+  1m chop zone: [0.430, 0.510] — tight, well calibrated
+  1s chop zone: [0.000, 1.000] — USELESS for direction (entire range = chop)
+  1s DROPPED from direction decisions. Kept for future price-movement analysis.
+
+CONVICTION DECAY CURVE ARCHITECTURE:
+  Model predicts P(D) at n+1 through n+K every bar.
+  Three regimes from P(D) lookback:
+    TRENDING: P(D) consistently above chop zone
+    INFLECTION: P(D) rapidly crossing 50% (peak/trough)
+    CHOP: P(D) stuck near 50% for multiple bars (not the same as inflection)
+  Decision always on n+1. Curve shape = runway measurement.
+  Not prediction — navigation. Like GPS for price.
+
+TOP 5% METRIC PROVEN MEANINGLESS:
+  Population statistic — can't compute in real-time.
+  Calibrated per-bar accuracy (from logistic regression) is the real metric.
+
+2026-03-29: LEVELS + EDA + SHAPES + DATA SCIENCE WORKFLOW
+==========================================================
+
+DATA SCIENCE WORKFLOW ESTABLISHED:
+  1. Collection ✓, 2. Cleaning ✓, 3. Exploration ✓,
+  4. Feature Engineering (next), 5. Model Training, 6. Validation,
+  7. Deployment, 8. Monitoring.
+  Previous CNN attempts skipped steps 2-3. Fixed.
+
+DATA VALIDATION (Step 2):
+  tools/validate_data.py: checks every TF bar against 1s ground truth.
+  Found corrupted 1m bar (fake high 24628, actual 24429).
+  Upsampled 5s/15s from 1s to March 27.
+  Rule: no model trains on unvalidated data.
+
+HAND-DRAWN LEVELS (Step 3a):
+  67 weekly → 15 monthly levels across Jan 2025 - Mar 2026.
+  Levels persist 3+ weeks. Three eras of market structure.
+  The levels ARE the control lines for the trading system.
+
+AUTO-LEVEL DETECTION:
+  StdDev bands: statistical envelope (where price SHOULD be)
+  Harmonic nodes: resonance (where energy concentrates) — 46% match to human
+  DBSCAN: structural clusters at swing points
+  Combined: 47% match. The remaining 53% = human structural insight.
+
+RESONANCE THEORY:
+  Levels = standing wave nodes. Range = fundamental frequency.
+  Harmonic divisions (1/2, 1/3, 1/4...) explain 46% of human-drawn levels.
+  Resonance nodes where multiple harmonics overlap = strongest levels.
+
+FEATURE EDA (Step 3b — E1 through E7):
+  E2: z_se (p=5.6e-18) IS the level feature. Hand-drawn levels = z-score extremes.
+      std_price drops at levels (compression). bar_range increases.
+  E3: wick_ratio (p=0.019) distinguishes reversal from breakout.
+      dmi_gap (p=0.048) lower at reversals.
+  E4: 1h-1m features mostly INDEPENDENT. Each TF adds unique info.
+      15m bridges 1h and 1m.
+  E5: 1m LEADS 1h for direction (DMI, z_se, volume).
+      1h LEADS 1m for speed (velocity, acceleration).
+  E7: z_se (-0.154), vwap_distance (-0.132), dmi_diff (-0.122) most level-aware.
+
+SHAPE ANALYSIS (Step 3c):
+  2,588 level touch events. Four distinct types:
+    Reversal (1031): V-shape, z_se drops, DMI turns negative
+    Breakout (1058): same approach, continues through, small bars before
+    Plateau (166): consolidation at level, tight range
+    Bounce (333): approach from above, big rejection bar
+  bar_range and wick_ratio diverge BEFORE touch = PREDICTIVE.
+  Feature profiles show distinct signatures per type.
+
+ARCHIVE REVIEW:
+  Old research validated: peak detection (velocity+volume+range), grounded
+  features (Price/Volume/Time), Fibonacci harmonics (46% level match),
+  DMI as direction signal.
+  Old research disproven: ADX filter, peak override, fake peak detection.
+  10 specs archived, 17 findings archived. Clean project structure.
+
+WHAT THE MODEL NEEDS (from EDA):
+  Two events to detect, both at levels:
+  1. Trend begin/end (at levels, signaled by feature shifts)
+  2. Reversals — two types:
+     a. Plateau: slow, visible, safe (small bars, declining velocity, DMI converging)
+     b. Sudden: fast, dangerous (big bar, velocity spike, volume spike)
+  Levels provide WHERE. Features provide WHAT TYPE. TF hierarchy provides SCALE.
