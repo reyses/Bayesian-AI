@@ -233,15 +233,132 @@ ghost references (fractal_dna_tree.py deleted), wrong class names.
 
 ---
 
+---
+
+## MEMORY FILES AUDIT (48 files)
+
+### Critical Forgotten Research
+
+#### 17. Liquidation Anchoring = Hand-Drawn Levels
+**Source:** research_liquidation_anchoring.md
+**Finding:** Three-body model works because liquidation pools are REAL
+gravitational bodies. Statistical anchoring follows price; liquidation
+anchoring PREDICTS it. Projected 67.3% → 70-75% WR with level anchoring.
+**Impact:** The hand-drawn levels we did today ARE liquidation anchoring.
+The theory was validated by Opus but never connected to our level work.
+Same concept, different name. Now proven by the EDA (z_se = levels).
+**Action:** Link the theory to the measured data — levels ARE liquidation anchors
+
+#### 18. Wave Function Probabilities — Entire Model Unused
+**Source:** project_quantum_reconnect.md, THREE_THEORIES.md
+**Finding:** Every MarketState computes: prob_center, prob_upper, prob_lower,
+entropy_normalized, reversion_probability, breakout_probability, tunnel_prob,
+coherence. ALL UNUSED in any gate or scoring logic.
+**Impact:** These are FREE features that directly answer "will price revert
+or break out?" — the exact question our shape analysis is trying to answer.
+**Action:** Add to feature set. P(reversion) vs P(breakout) at levels is the trade signal.
+
+#### 19. Spectral Gates — Priority #1, Nobody Working On It
+**Source:** ROADMAP.md (docs/memory/ROADMAP.md)
+**Finding:** Spectral Fourier gates spec ready, attacks ALL THREE leaks
+(skipped signals 44%, early exits 17%, entry timing). #1 ROI improvement.
+**Impact:** We've been building trajectory models and level detection while
+the highest-priority item sits unstarted.
+**Action:** Review spectral gates spec for integration with current approach
+
+#### 20. Waveform Seed Library — Built, Never Deployed
+**Source:** waveform_research.md, project_auto_seeds_next.md
+**Finding:** 38K enriched seeds with direction, MFE, MAE, duration.
+20 shape primitives identified. 5-part integration spec written.
+92% R² price model enriches shape matching. NEVER WIRED INTO LIVE.
+**Impact:** Completed research sitting unused. Seeds could be level-aware
+shape matching — exactly what we need for the shape classifier.
+**Action:** Wire seed library into trajectory engine as shape context
+
+#### 21. User's Headroom Framework — Not Implemented
+**Source:** user_headroom_framework.md, user_vp_trading_system.md
+**Finding:** "Micro wave must fit in macro container." If |Z_macro| >= 2,
+BLOCKED. 6 features from user's manual system, only 3 implemented.
+Missing: headroom gate, 4σ wall exit, zone mode switching.
+**Impact:** The user's proven manual trading framework is not reflected
+in the automated system. These are concrete, tested rules.
+**Action:** Implement headroom check in entry cascade
+
+#### 22. Feature Tree vs PhysicsEngine — Unresolved Contradiction
+**Source:** project_feature_tree.md, feedback_base_measurements.md
+**Finding:** Feature tree says 3 levels max, machine-specific features bad.
+PhysicsEngine uses level-4 cumsum features (F_momentum, P_at_center) and
+scores well ($264/day). Both can't be right.
+**Decision needed:** Enrich PhysicsEngine with grounded features OR accept
+that cumsum features work pragmatically despite violating the principle.
+
+#### 23. Quantum Model — Probabilistic vs Deterministic
+**Source:** project_quantum_reconnect.md
+**Finding:** System designed as probabilistic (wave function, P(success)),
+implemented as deterministic (binary gate cascade). The wave function is
+COMPUTED but gates make BINARY decisions. This is confused architecture.
+**Decision needed:** Rebuild scoring as P(success) = f(wave_function) with
+no gates, OR commit to deterministic gates and delete wave function code.
+
+#### 24. PID Trance — Don't Trade at 1σ
+**Source:** research_pid_trance.md
+**Finding:** At 1σ from mean, HFT algos run PID control loop. Signals here
+are equilibrium maintenance, not tradeable setups. Real signals at 2σ+.
+If term_pid high → penalize signals. If term_pid low → cascade indicator.
+**Impact:** Our levels sit at 2σ+ (confirmed by EDA: z_se extremes = levels).
+The PID trance research validates WHY the levels work — they're outside the
+algo-controlled zone.
+**Action:** Weight term_pid in entry scoring (penalize high PID signals)
+
+---
+
+## THE META-INSIGHT: RESEARCH-INTEGRATION GAP
+
+The single biggest finding from this audit: **the system has more completed
+research than deployed features.** Multiple high-value items are validated
+but not connected:
+
+| Research Done | Integration Status |
+|--------------|-------------------|
+| Liquidation anchoring theory | NOW CONNECTED via hand-drawn levels |
+| Wave function probabilities | Computed, never scored |
+| 38K enriched seeds | Built, never wired to live |
+| Spectral gates spec | Written, nobody assigned |
+| User's 6 trading rules | 3 of 6 implemented |
+| Shape primitives (20 types) | Identified, not matched |
+| Resonance cascade detection | Sketched, no code |
+| Delta architecture | Partial fix, full refactor deferred |
+
+**The gap is not knowledge — it's wiring.** Every piece exists. They need
+to be CONNECTED, not rebuilt. The hand-drawn levels connected liquidation
+anchoring to the system. The EDA connected features to levels. The shape
+analysis connected patterns to events. Each session connects one more piece.
+
+---
+
 ## TOP 10 ACTIONS FROM THIS REVIEW (updated)
 
-1. **FIX: TF agreement is FAKEOUT signal** — invert entry logic
+1. **FIX: TF agreement is FAKEOUT signal** — invert entry logic (RESEARCH_CONSOLIDATED)
 2. **FIX: Hard cap hold at 5 bars (5 min)** — research proves 5m+ loses money
 3. **FIX: BE activation at 4t (not 5,000t)** — proven +40% PnL
 4. **FIX: Hurst gate relaxation** — 28.4% of profitable signals blocked
-5. **ADD: Wave function probabilities** — free features, already computed
-6. **ADD: Delta features** — solve parity without warmup
-7. **ADD: Stutter suppression** — 1,239 one-bar trades = -$1,568
-8. **BUILD: Resonance cascade detector** — structural regime shift
-9. **CLEAN: MEMORY.md paths** — misdirects every AI session
-10. **CLEAN: 13 code duplications** — prevents silent drift bugs
+5. **ADD: Wave function probabilities** — P(reversion) + P(breakout) at levels
+6. **ADD: User's headroom gate** — |Z_macro| >= 2 = BLOCKED (proven manual rule)
+7. **WIRE: Seed library into shape matching** — 38K seeds built, never deployed
+8. **WIRE: Levels = liquidation anchors** — theory + data now connected
+9. **DECIDE: Probabilistic vs deterministic** — wave function OR binary gates, not both
+10. **CLEAN: MEMORY.md paths + 13 code duplications** — technical debt
+
+## THE FUNDAMENTAL QUESTION (from this audit)
+
+**Are we building a PROBABILISTIC system (wave function, P(success), continuous scoring)
+or a DETERMINISTIC system (binary gates, threshold cascades, yes/no decisions)?**
+
+The original design was probabilistic (THREE_THEORIES.md).
+The implementation is deterministic (gate cascade).
+The EDA shows features are continuous (z_se, dmi_diff have smooth distributions).
+The shapes show events are classifiable (reversal vs breakout vs bounce).
+
+The answer should be: **PROBABILISTIC, with levels as the anchor.**
+P(reversal at this level) = f(z_se, dmi_trajectory, volume, wave_function)
+No binary gates. Continuous confidence. Position size by confidence.
