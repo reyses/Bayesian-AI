@@ -194,10 +194,54 @@ Trade MORE, smaller, with position sizing based on confidence.
 
 ---
 
-## TOP 5 ACTIONS FROM THIS REVIEW
+## ADDITIONAL FINDS FROM DEEP ARCHIVE REVIEW
+
+### 11. Hurst Gate Blocks 28.4% of Profitable Signals
+**Source:** CLAUDE_CODE_EXIT_IMPROVEMENTS.md
+**Finding:** 22,660 FN signals blocked by Hurst gate (Gate 0 Rule 5a).
+Window=100 bars at 15s = 25 min. Potentially +$25K if relaxed.
+**Action:** Build hurst_validation.py confusion matrix at window 50/100/200/400
+
+### 12. Breakeven Lock at 2t MFE = +40% PnL
+**Source:** CLAUDE_CODE_EXIT_IMPROVEMENTS.md
+**Finding:** IS $82K→$115K, OOS $22K→$31K just by activating BE at 2 ticks MFE.
+Currently set to 5,000 ticks (never fires).
+**Action:** Lower BE activation to 4 ticks (noise floor derived)
+
+### 13. One-Bar Stutter Trades = -$1,568
+**Source:** PEAK_TEMPLATES.md, STATEFUL_PEAK_EXIT.md
+**Finding:** 1,239 one-bar trades in OOS from entry stutter. Costs $1,568.
+**Action:** Stateful peak monitor: IDLE→ENTER→TRACKING→EXHAUSTED→COOLDOWN
+
+### 14. 13 Code Duplications (6 HIGH severity)
+**Source:** JULES_CODEBASE_AUDIT.md
+**Finding:** Feature extraction, exit sizing, TBN ticking, trade recording
+all duplicated between live_engine.py and trainer.py.
+**Action:** Merge into shared modules (prevents silent drift bugs)
+
+### 15. MEMORY.md Misdirects Every Session
+**Source:** DOC_STATUS_AUDIT (1).md
+**Finding:** Wrong file paths (quantum_field_engine→statistical_field_engine),
+ghost references (fractal_dna_tree.py deleted), wrong class names.
+**Action:** Surgical update of MEMORY.md paths and references
+
+### 16. IS Lookahead via pattern_map Still Active
+**Source:** IS_BARPROCESSOR_REFACTOR.md
+**Finding:** IS forward pass uses pre-computed pattern_map from ALL bars
+(including future). IS metrics still inflated by lookahead.
+**Action:** Delete inline forward pass, use BarProcessor with oracle post-labeling
+
+---
+
+## TOP 10 ACTIONS FROM THIS REVIEW (updated)
 
 1. **FIX: TF agreement is FAKEOUT signal** — invert entry logic
 2. **FIX: Hard cap hold at 5 bars (5 min)** — research proves 5m+ loses money
-3. **ADD: Wave function probabilities** — free features, already computed
-4. **ADD: Delta features** — solve parity without warmup
-5. **BUILD: Resonance cascade detector** — structural regime shift detection
+3. **FIX: BE activation at 4t (not 5,000t)** — proven +40% PnL
+4. **FIX: Hurst gate relaxation** — 28.4% of profitable signals blocked
+5. **ADD: Wave function probabilities** — free features, already computed
+6. **ADD: Delta features** — solve parity without warmup
+7. **ADD: Stutter suppression** — 1,239 one-bar trades = -$1,568
+8. **BUILD: Resonance cascade detector** — structural regime shift
+9. **CLEAN: MEMORY.md paths** — misdirects every AI session
+10. **CLEAN: 13 code duplications** — prevents silent drift bugs
