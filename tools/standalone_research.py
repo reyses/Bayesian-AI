@@ -1477,7 +1477,7 @@ def main():
                 mean_chg = changes.mean()
                 std_chg = changes.std()
                 wr = (changes > 0).sum() / len(changes) * 100
-                entropy_normalized= feat_c.std(axis=0).mean()
+                coherence = feat_c.std(axis=0).mean()
 
                 cluster_stats.append({
                     'cid': cid, 'count': count, 'mean_chg': mean_chg,
