@@ -73,15 +73,30 @@ class LevelDrawer:
         self.label_objects = []
         self.current_tf_idx = 0
 
-        # Load previously saved levels if they exist
+        # Load saved levels: this date first, else most recent previous week
+        import json as _json
         json_dir = 'DATA/levels'
         json_path = os.path.join(json_dir, f'levels_{date_str}.json')
         if os.path.exists(json_path):
-            import json as _json
             with open(json_path) as f:
                 saved = _json.load(f)
             self.levels = saved.get('levels', [])
-            print(f"  Loaded {len(self.levels)} previously saved levels from {json_path}")
+            print(f"  Loaded {len(self.levels)} saved levels for {date_str}")
+        else:
+            # Find most recent previous week with saved levels
+            import glob as _glob
+            all_level_files = sorted(_glob.glob(os.path.join(json_dir, 'levels_*.json')))
+            prev_levels = None
+            for lf in reversed(all_level_files):
+                lf_date = os.path.basename(lf).replace('levels_', '').replace('.json', '')
+                if lf_date < date_str:
+                    with open(lf) as f:
+                        prev_levels = _json.load(f)
+                    print(f"  Carried forward {len(prev_levels.get('levels', []))} levels from {lf_date}")
+                    self.levels = prev_levels.get('levels', [])
+                    break
+            if prev_levels is None:
+                print(f"  No previous levels found — starting blank")
 
         # Store raw data per TF for cycling
         self.tf_data = {}
@@ -126,6 +141,35 @@ class LevelDrawer:
         self.fig.canvas.mpl_connect('button_press_event', self._on_click)
         self.fig.canvas.mpl_connect('motion_notify_event', self._on_drag)
         self.fig.canvas.mpl_connect('button_release_event', self._on_release)
+
+        # Button panel at bottom
+        from matplotlib.widgets import Button
+        btn_h = 0.04
+        btn_y = 0.01
+        btn_w = 0.1
+        gap = 0.02
+        self.fig.subplots_adjust(bottom=0.12)
+
+        ax_prev = self.fig.add_axes([0.05, btn_y, btn_w, btn_h])
+        ax_macro = self.fig.add_axes([0.05 + (btn_w + gap), btn_y, btn_w, btn_h])
+        ax_micro = self.fig.add_axes([0.05 + 2 * (btn_w + gap), btn_y, btn_w, btn_h])
+        ax_next = self.fig.add_axes([0.05 + 3 * (btn_w + gap), btn_y, btn_w, btn_h])
+        ax_del = self.fig.add_axes([0.05 + 4 * (btn_w + gap), btn_y, btn_w, btn_h])
+        ax_save = self.fig.add_axes([0.05 + 5 * (btn_w + gap), btn_y, btn_w, btn_h])
+
+        self._btn_prev = Button(ax_prev, '<< Week')
+        self._btn_macro = Button(ax_macro, 'X Macro')
+        self._btn_micro = Button(ax_micro, 'Z Micro')
+        self._btn_next = Button(ax_next, 'Week >>')
+        self._btn_del = Button(ax_del, 'D Delete')
+        self._btn_save = Button(ax_save, 'Save')
+
+        self._btn_prev.on_clicked(lambda e: self._btn_action('left'))
+        self._btn_macro.on_clicked(lambda e: self._btn_action('x'))
+        self._btn_micro.on_clicked(lambda e: self._btn_action('z'))
+        self._btn_next.on_clicked(lambda e: self._btn_action('right'))
+        self._btn_del.on_clicked(lambda e: self._btn_action('d'))
+        self._btn_save.on_clicked(lambda e: self.save())
 
         self._draw_chart()
 
@@ -187,6 +231,9 @@ class LevelDrawer:
     def _draw_chart(self):
         """Draw candlestick chart with current TF data."""
         self.ax.clear()
+        self._crosshair_h = None
+        self._crosshair_v = None
+        self._crosshair_txt = None
         tf = self.TF_CYCLE[self.current_tf_idx]
 
         self.fig.suptitle(
@@ -194,22 +241,35 @@ class LevelDrawer:
             f'click+drag=draw/move, D=delete, Z=micro, X=macro',
             fontsize=13, fontweight='bold')
 
+        # Active month: 30 days from date_str (colored candles)
+        # Context month: everything else (gray candles)
+        active_start_ts = pd.Timestamp(self.date_str).timestamp()
+        active_end_ts = active_start_ts + 30 * 86400
+        active_start_bar = 0
+        active_end_bar = self.n
+        for i in range(self.n):
+            if self.timestamps[i] >= active_start_ts and active_start_bar == 0:
+                active_start_bar = i
+            if self.timestamps[i] >= active_end_ts:
+                active_end_bar = i
+                break
+
         # Draw candlesticks
         candle_width = np.median(np.diff(self.x)) * 0.6 if len(self.x) > 1 else 0.5
 
         for i in range(self.n):
-            is_context = (i < self.trade_start_idx)
+            is_active = (active_start_bar <= i < active_end_bar)
             o, c, h, l = self.opens[i], self.prices[i], self.highs[i], self.lows[i]
             x = self.x[i]
 
-            if is_context:
-                body_color = '#CCCCCC' if c >= o else '#AAAAAA'
-                wick_color = '#BBBBBB'
-                alpha = 0.4
-            else:
+            if is_active:
                 body_color = '#26A69A' if c >= o else '#EF5350'  # green / red
                 wick_color = '#555555'
                 alpha = 0.9
+            else:
+                body_color = '#CCCCCC' if c >= o else '#AAAAAA'
+                wick_color = '#BBBBBB'
+                alpha = 0.4
 
             # Wick (high-low line)
             self.ax.plot([x, x], [l, h], color=wick_color, linewidth=0.5, alpha=alpha)
@@ -221,6 +281,18 @@ class LevelDrawer:
                 body_height = TICK  # minimum visible body
             self.ax.bar(x, body_height, bottom=body_bottom, width=candle_width,
                         color=body_color, edgecolor=wick_color, linewidth=0.3, alpha=alpha)
+
+        # Mark active month boundaries
+        if active_start_bar > 0:
+            self.ax.axvline(x=active_start_bar, color='navy', linewidth=1.5, alpha=0.5, linestyle='-')
+        if active_end_bar < self.n:
+            self.ax.axvline(x=active_end_bar, color='navy', linewidth=1.5, alpha=0.5, linestyle='-')
+
+        # Fit y-axis to price data with padding
+        price_min = self.lows.min()
+        price_max = self.highs.max()
+        padding = (price_max - price_min) * 0.05
+        self.ax.set_ylim(price_min - padding, price_max + padding)
 
         # Trade day separator
         if self.trade_start_idx > 0:
@@ -276,20 +348,39 @@ class LevelDrawer:
 
         self.fig.canvas.draw()
 
+    def _btn_action(self, key):
+        """Simulate a key press from a button click."""
+        class FakeEvent:
+            def __init__(self, k, ax):
+                self.key = k
+                self.inaxes = ax
+                self.ydata = None
+        self._on_key(FakeEvent(key, self.ax))
+
     def _shift_week(self, direction):
         """Move to next (+1) or previous (-1) week. Always shows 4-week window."""
         import json as _json
 
         current_dt = pd.Timestamp(self.date_str)
-        new_dt = current_dt + pd.Timedelta(days=7 * direction)
+        # Shift by 1 month
+        if direction > 0:
+            if current_dt.month == 12:
+                new_dt = pd.Timestamp(f'{current_dt.year + 1}-01-01')
+            else:
+                new_dt = pd.Timestamp(f'{current_dt.year}-{current_dt.month + 1:02d}-01')
+        else:
+            if current_dt.month == 1:
+                new_dt = pd.Timestamp(f'{current_dt.year - 1}-12-01')
+            else:
+                new_dt = pd.Timestamp(f'{current_dt.year}-{current_dt.month - 1:02d}-01')
         new_date_str = new_dt.strftime('%Y-%m-%d')
 
         print(f"  Moving to week of {new_date_str}...")
         self.date_str = new_date_str
 
-        # 4-week window: 3 weeks before + current week
-        window_start = new_dt - pd.Timedelta(days=21)
-        window_end = new_dt + pd.Timedelta(days=7)
+        # 2-month window: active month starts at date
+        window_start = new_dt
+        window_end = new_dt + pd.Timedelta(days=60)
 
         self.lookback_str = window_start.strftime('%Y-%m-%d')
         self.trade_end = window_end.strftime('%Y-%m-%d')
@@ -367,27 +458,30 @@ class LevelDrawer:
             self._shift_week(-1)
 
         elif event.key == 'd' or event.key == 'delete':
-            # Delete: if a level is selected, delete it. Otherwise delete nearest to cursor.
             if not self.levels:
                 return
+
+            # If a line is selected, delete it directly
             if self._selected_idx is not None:
                 idx = self._selected_idx
-            elif event.inaxes == self.ax and event.ydata is not None:
-                dists = [abs(l['price'] - event.ydata) for l in self.levels]
-                idx = np.argmin(dists)
-                threshold = (self.prices.max() - self.prices.min()) * 0.02
-                if dists[idx] > threshold:
-                    return
             else:
-                return
+                # No selection — try nearest to cursor
+                if event.inaxes == self.ax and event.ydata is not None:
+                    dists = [abs(l['price'] - event.ydata) for l in self.levels]
+                    idx = np.argmin(dists)
+                    threshold = (self.prices.max() - self.prices.min()) * 0.02
+                    if dists[idx] > threshold:
+                        return
+                else:
+                    return
 
-            # Remove
             removed = self.levels.pop(idx)
             self.line_objects[idx].remove()
             self.line_objects.pop(idx)
             self.label_objects[idx].remove()
             self.label_objects.pop(idx)
             self._selected_idx = None
+            self._dragging = False
             print(f"  Deleted {removed['type']} at {removed['price']:.2f}")
             self._update_status()
             self.fig.canvas.draw()
@@ -405,14 +499,18 @@ class LevelDrawer:
         if self.levels:
             dists = [abs(l['price'] - price) for l in self.levels]
             nearest = np.argmin(dists)
-            threshold = (self.prices.max() - self.prices.min()) * 0.01
+            threshold = (self.prices.max() - self.prices.min()) * 0.05
             if dists[nearest] < threshold:
                 if self._selected_idx == nearest:
-                    # Already selected — deselect
-                    self.line_objects[nearest].set_linewidth(1.5)
-                    self.line_objects[nearest].set_alpha(0.7)
+                    # Already selected — delete it
+                    removed = self.levels.pop(nearest)
+                    self.line_objects[nearest].remove()
+                    self.line_objects.pop(nearest)
+                    self.label_objects[nearest].remove()
+                    self.label_objects.pop(nearest)
                     self._selected_idx = None
                     self._dragging = False
+                    print(f"  Deleted {removed['type']} at {removed['price']:.2f}")
                 else:
                     # Deselect previous
                     if self._selected_idx is not None and self._selected_idx < len(self.line_objects):
@@ -449,18 +547,49 @@ class LevelDrawer:
         self.fig.canvas.draw()
 
     def _on_drag(self, event):
-        """Drag to move selected level."""
-        if self._selected_idx is None or event.inaxes != self.ax:
+        """Mouse move: crosshair + drag selected level."""
+        # Initialize crosshair on first call
+        if not hasattr(self, '_crosshair_h') or self._crosshair_h is None:
+            self._crosshair_h = self.ax.axhline(y=0, color='gray', linewidth=0.5,
+                                                  linestyle=':', alpha=0.5, visible=False)
+            self._crosshair_v = self.ax.axvline(x=0, color='gray', linewidth=0.5,
+                                                  linestyle=':', alpha=0.5, visible=False)
+            # Use annotate with axes transform so it doesn't affect axis limits
+            self._crosshair_txt = self.ax.annotate('', xy=(0, 0), xycoords='data',
+                                                    xytext=(5, 0), textcoords='offset points',
+                                                    fontsize=9, color='#333',
+                                                    bbox=dict(boxstyle='round,pad=0.2',
+                                                              facecolor='yellow', alpha=0.8),
+                                                    visible=False)
+
+        if event.inaxes != self.ax:
+            self._crosshair_h.set_visible(False)
+            self._crosshair_v.set_visible(False)
+            self._crosshair_txt.set_visible(False)
+            self.fig.canvas.draw_idle()
             return
 
         price = event.ydata
+        x_pos = event.xdata
         snapped = round(price / TICK) * TICK
-        idx = self._selected_idx
-        self.levels[idx]['price'] = snapped
-        self.line_objects[idx].set_ydata([snapped, snapped])
-        self.label_objects[idx].set_position(
-            (self.x[-1] + (self.x[-1] - self.x[0]) * 0.01, snapped))
-        self.label_objects[idx].set_text(f'{snapped:.2f}')
+
+        # Update crosshair
+        self._crosshair_h.set_ydata([price, price])
+        self._crosshair_h.set_visible(True)
+        self._crosshair_v.set_xdata([x_pos, x_pos])
+        self._crosshair_v.set_visible(True)
+        self._crosshair_txt.xy = (x_pos, snapped)
+        self._crosshair_txt.set_text(f' {snapped:.2f}')
+        self._crosshair_txt.set_visible(True)
+
+        # Drag selected level
+        if self._selected_idx is not None:
+            idx = self._selected_idx
+            self.levels[idx]['price'] = snapped
+            self.line_objects[idx].set_ydata([snapped, snapped])
+            self.label_objects[idx].set_position(
+                (self.x[-1] + (self.x[-1] - self.x[0]) * 0.01, snapped))
+            self.label_objects[idx].set_text(f'{snapped:.2f}')
 
         self.fig.canvas.draw_idle()
 
@@ -483,53 +612,11 @@ class LevelDrawer:
         self._update_status()
         self.fig.canvas.draw()
 
-    def _on_click(self, event):
-        if event.inaxes != self.ax:
-            return
-
-        price = event.ydata
-
-        if event.button == MouseButton.LEFT:
-            # Add level — determine if support or resistance based on
-            # whether price is above or below current levels center
-            mid = (self.prices[self.trade_start_idx:].max() +
-                   self.prices[self.trade_start_idx:].min()) / 2
-            if price > mid:
-                level_type = 'resistance'
-                color = '#CC0000'  # red
-            else:
-                level_type = 'support'
-                color = '#0066CC'  # blue
-
-            self.levels.append({'price': round(price / TICK) * TICK,
-                                'type': level_type, 'color': color})
-            line = self.ax.axhline(y=round(price / TICK) * TICK, color=color,
-                                    linewidth=1.5, alpha=0.7,
-                                    linestyle='--' if level_type == 'resistance' else '-')
-            # Add price label
-            self.ax.text(self.x[-1] + 5, round(price / TICK) * TICK,
-                         f'{round(price / TICK) * TICK:.2f}',
-                         fontsize=8, color=color, va='center')
-            self.line_objects.append(line)
-
-        elif event.button == MouseButton.RIGHT:
-            # Remove nearest level
-            if self.levels:
-                dists = [abs(l['price'] - price) for l in self.levels]
-                nearest = np.argmin(dists)
-                if dists[nearest] < (self.prices.max() - self.prices.min()) * 0.02:
-                    self.levels.pop(nearest)
-                    self.line_objects[nearest].remove()
-                    self.line_objects.pop(nearest)
-
-        self._update_status()
-        self.fig.canvas.draw()
-
     def _update_status(self):
         n_r = sum(1 for l in self.levels if l['type'] == 'resistance')
         n_s = sum(1 for l in self.levels if l['type'] == 'support')
-        self.status_text.set_text(f'Levels: {len(self.levels)} (R={n_r} S={n_s}) | '
-                                   f'Left-click=add, Right-click=remove')
+        sel = f' | Selected: {self.levels[self._selected_idx]["price"]:.0f}' if self._selected_idx is not None else ''
+        self.status_text.set_text(f'Levels: {len(self.levels)} (R={n_r} S={n_s}){sel}')
 
     def save(self):
         """Save levels to JSON (data dir) and PNG (examples dir)."""
@@ -575,10 +662,9 @@ def main():
 
     trade_dt = pd.Timestamp(args.date)
 
-    # 4-week window centered on the given date's week
-    # 3 weeks before + current week
-    window_start = trade_dt - pd.Timedelta(days=21)
-    window_end = trade_dt + pd.Timedelta(days=7)
+    # 2-month window: active month starts at date, context month follows
+    window_start = trade_dt
+    window_end = trade_dt + pd.Timedelta(days=60)
     date_str = trade_dt.strftime('%Y-%m-%d')
 
     print(f"4-week window: {window_start.strftime('%m/%d/%Y')} -> {window_end.strftime('%m/%d/%Y')}")
