@@ -1,47 +1,42 @@
 {
-  "date": "2025-01-01",
+  "date": "2026-03-01",
   "levels": [
     {
-      "price": 22317.5,
+      "price": 26289.0,
       "type": "resistance",
       "color": "#CC0000"
     },
     {
-      "price": 22140.0,
+      "price": 25987.25,
       "type": "resistance",
       "color": "#CC0000"
     },
     {
-      "price": 21866.0,
+      "price": 25734.5,
       "type": "resistance",
       "color": "#CC0000"
     },
     {
-      "price": 21680.75,
+      "price": 25551.5,
       "type": "resistance",
       "color": "#CC0000"
     },
     {
-      "price": 21453.75,
+      "price": 25278.0,
       "type": "resistance",
       "color": "#CC0000"
     },
     {
-      "price": 21232.75,
-      "type": "support",
-      "color": "#0066CC"
+      "price": 24970.25,
+      "type": "resistance",
+      "color": "#CC0000"
     },
     {
-      "price": 21067.0,
-      "type": "support",
-      "color": "#0066CC"
-    },
-    {
-      "price": 20781.25,
+      "price": 24502.75,
       "type": "support",
       "color": "#0066CC"
     }
   ],
-  "n_resistance": 5,
-  "n_support": 3
+  "n_resistance": 6,
+  "n_support": 1
 }
