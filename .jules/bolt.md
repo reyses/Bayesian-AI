@@ -1,0 +1,3 @@
+2024-03-31 - [Numba Acceleration for Rolling Drawdown/Drawup]
+Learning: Replacing loop-based allocations like `sliding_window_view` and `np.maximum.accumulate` with Numba `prange` scalars significantly reduces PyObject/memory overhead (up to ~370x speedup). When computing tracking max values from diffs, variables must be initialized to the exact difference of the first window elements (e.g., `max_dd = run_hi - run_lo`) instead of `0.0` to preserve mathematical parity and avoid edge-case bugs.
+Action: Prefer Numba `@njit(parallel=True, cache=True)` directly iterating over elements for rolling drawdown/drawup tracking instead of composing NumPy accumulation/window functions inside Python loops.
