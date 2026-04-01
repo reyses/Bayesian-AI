@@ -32,7 +32,9 @@ dates = sorted(set(datetime.utcfromtimestamp(t).strftime('%Y-%m-%d')
 dates = [d for d in dates if d >= '2026-03-02']
 print(f'  Days: {len(dates)}\n')
 
-all_trades = []
+all_trades = []      # trade summaries
+all_ticks = []       # every 1s tick while in a trade
+trade_id = 0
 
 for date_str in tqdm(dates, desc='Days'):
     date_ts = pd.Timestamp(date_str).timestamp()
@@ -54,10 +56,11 @@ for date_str in tqdm(dates, desc='Days'):
     running_1m = warmup_1m.copy()
 
     in_pos = False; direction = None; entry_price = 0; bars_held = 0
-    peak_pnl = 0; was_profitable = False
+    peak_pnl = 0; was_profitable = False; entry_ts = 0; entry_z = 0; entry_score = 0
+    entry_feat = None; entry_dmi_1h = 0; entry_dmi_1d = 0; entry_trend = 0
     current_minute = -1
     agg_open = 0; agg_close = 0; agg_high = -1e9; agg_low = 1e9; agg_vol = 0; agg_ts = 0
-    last_tick_price = 0
+    last_tick_price = 0; last_feat = None; last_dmi_1h = 0; last_dmi_1d = 0
 
     for _, row in day_1s.iterrows():
         tp = row['close']; th = row['high']; tl = row['low']
@@ -71,13 +74,31 @@ for date_str in tqdm(dates, desc='Days'):
         agg_high = max(agg_high, th); agg_low = min(agg_low, tl)
         agg_close = tp; agg_vol += tv
 
-        # 1s SL
+        # 1s tick recording + SL
         if in_pos:
+            pt_now = (tp - entry_price) / TICK if direction == 'LONG' else (entry_price - tp) / TICK
             mae_1s = (entry_price - tl) / TICK if direction == 'LONG' else (th - entry_price) / TICK
+
+            # Record every tick while in trade
+            all_ticks.append({
+                'trade_id': trade_id, 'timestamp': tts, 'price': tp,
+                'high': th, 'low': tl, 'pnl_ticks': pt_now, 'pnl_usd': pt_now * TV,
+                'peak_pnl': peak_pnl, 'mae_ticks': mae_1s,
+                'direction': direction, 'bars_held_1m': bars_held,
+            })
+
             if mae_1s >= 160:
-                pt = (tp - entry_price) / TICK if direction == 'LONG' else (entry_price - tp) / TICK
-                all_trades.append({'day': date_str, 'pnl': pt * TV, 'exit': 'catastrophic_sl', 'dir': direction})
-                in_pos = False
+                all_trades.append({
+                    'trade_id': trade_id, 'day': date_str, 'pnl': pt_now * TV,
+                    'exit': 'catastrophic_sl', 'dir': direction,
+                    'entry_price': entry_price, 'exit_price': tp,
+                    'entry_ts': entry_ts, 'exit_ts': tts,
+                    'bars_held': bars_held, 'peak_pnl': peak_pnl,
+                    'entry_z': entry_z, 'entry_score': entry_score,
+                    'entry_trend': entry_trend,
+                    'entry_dmi_1h': entry_dmi_1h, 'entry_dmi_1d': entry_dmi_1d,
+                })
+                in_pos = False; trade_id += 1
 
         if tick_min == current_minute:
             continue
@@ -100,9 +121,16 @@ for date_str in tqdm(dates, desc='Days'):
         feat = extract_13d_single(st, price, high_1m, low_1m, _bar['open'].iloc[0],
                                    _bar['volume'].iloc[0], agg_ts, price_hist, vol_hist, prev_vel)
         prev_vel = getattr(st, 'velocity', 0.0)
+        last_feat = feat
 
         z = feat[5]; vr = feat[8]; lam = vr - 1.0
         trend = price_hist[-1] - price_hist[-(TREND_LB + 1)] if len(price_hist) > TREND_LB else 0
+
+        # Get macro features for this bar
+        i1h_now = np.searchsorted(ts_1h, agg_ts, side='right') - 1
+        last_dmi_1h = feats_1h[i1h_now, 0] if 0 <= i1h_now < len(feats_1h) else 0
+        i1d_now = np.searchsorted(ts_1d, agg_ts, side='right') - 1
+        last_dmi_1d = feats_1d[i1d_now, 0] if 0 <= i1d_now < len(feats_1d) else 0
 
         # Position management
         if in_pos:
@@ -131,8 +159,23 @@ for date_str in tqdm(dates, desc='Days'):
                 ex = 'max_hold_profit'
 
             if ex:
-                all_trades.append({'day': date_str, 'pnl': pnl, 'exit': ex, 'dir': direction})
-                in_pos = False
+                all_trades.append({
+                    'trade_id': trade_id, 'day': date_str, 'pnl': pnl,
+                    'exit': ex, 'dir': direction,
+                    'entry_price': entry_price, 'exit_price': price,
+                    'entry_ts': entry_ts, 'exit_ts': agg_ts,
+                    'bars_held': bars_held, 'peak_pnl': peak_pnl,
+                    'entry_z': entry_z, 'exit_z': z,
+                    'entry_score': entry_score, 'entry_trend': entry_trend,
+                    'entry_dmi_1h': entry_dmi_1h, 'entry_dmi_1d': entry_dmi_1d,
+                    'exit_vr': vr, 'exit_lam': lam, 'exit_trend': trend,
+                    'exit_dmi_1m': feat[0], 'exit_dmi_1h': last_dmi_1h,
+                    # 13D features at entry (stored as individual columns)
+                    **{f'entry_f{i}': float(entry_feat[i]) for i in range(13)} if entry_feat is not None else {},
+                    # 13D features at exit
+                    **{f'exit_f{i}': float(feat[i]) for i in range(13)},
+                })
+                in_pos = False; trade_id += 1
 
         # Entry
         if not in_pos:
@@ -153,11 +196,24 @@ for date_str in tqdm(dates, desc='Days'):
                 if score >= -0.3:
                     in_pos = True; direction = rev; entry_price = price
                     bars_held = 0; peak_pnl = 0; was_profitable = False
+                    entry_ts = agg_ts; entry_z = z; entry_score = score
+                    entry_trend = trend; entry_feat = feat.copy()
+                    entry_dmi_1h = d1h; entry_dmi_1d = d1d
 
     # Force close
     if in_pos:
         pt = (last_tick_price - entry_price) / TICK if direction == 'LONG' else (entry_price - last_tick_price) / TICK
-        all_trades.append({'day': date_str, 'pnl': pt * TV, 'exit': 'end_of_day', 'dir': direction})
+        all_trades.append({
+            'trade_id': trade_id, 'day': date_str, 'pnl': pt * TV,
+            'exit': 'end_of_day', 'dir': direction,
+            'entry_price': entry_price, 'exit_price': last_tick_price,
+            'entry_ts': entry_ts, 'exit_ts': tts if 'tts' in dir() else 0,
+            'bars_held': bars_held, 'peak_pnl': peak_pnl,
+            'entry_z': entry_z, 'exit_z': z if 'z' in dir() else 0,
+            'entry_score': entry_score, 'entry_trend': entry_trend,
+            'entry_dmi_1h': entry_dmi_1h, 'entry_dmi_1d': entry_dmi_1d,
+        })
+        trade_id += 1
     del running_1m; gc.collect()
 
 # Report
@@ -194,6 +250,15 @@ mode_bucket = Counter([int(p // 100) * 100 for p in daily_pnls]).most_common(3)
 print(f'\nDaily PnL mode (buckets): {mode_bucket}')
 print(f'Winning days: {sum(1 for p in daily_pnls if p > 0)}/{len(daily_pnls)}')
 
-# Save
-t.to_csv('reports/findings/nightmare_ticker_oos.csv', index=False)
-print(f'\nSaved: reports/findings/nightmare_ticker_oos.csv')
+# Save trade summaries as parquet (with full features)
+os.makedirs('reports/findings', exist_ok=True)
+t.to_parquet('reports/findings/nightmare_trades.parquet', index=False)
+t.to_csv('reports/findings/nightmare_trades.csv', index=False)
+print(f'\nTrade summaries: reports/findings/nightmare_trades.parquet ({len(t)} trades)')
+
+# Save tick-level data as parquet (every 1s while in trade)
+ticks_df = pd.DataFrame(all_ticks)
+if len(ticks_df) > 0:
+    ticks_df.to_parquet('reports/findings/nightmare_ticks.parquet', index=False)
+    print(f'Trade ticks: reports/findings/nightmare_ticks.parquet ({len(ticks_df)} ticks)')
+    print(f'  Avg ticks per trade: {len(ticks_df) / trade_id:.0f}')
