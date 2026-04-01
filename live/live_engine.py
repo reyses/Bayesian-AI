@@ -290,6 +290,9 @@ class LiveEngine:
             self._aggregator.preload_from_atlas(before_date=_pb_date, n_bars=300)
             last_ts = 0
         else:
+            # Live/sim: also preload from ATLAS to skip warmup (SUDO: no warmup in live)
+            logger.info("Live mode: preloading aggregator from ATLAS (latest data)")
+            self._aggregator.preload_from_atlas(n_bars=300)
             last_ts = self._aggregator.load_from_parquet()
         if last_ts > 0:
             self._client.set_resume_timestamp(last_ts)
@@ -2674,94 +2677,137 @@ class LiveEngine:
             logger.warning(f"CNN model not loaded: {e}")
 
     def _trade_cnn_predict(self, price: float, state) -> str:
-        """Run TradeCNN StatePredictor. Returns 'LONG', 'SHORT', or None."""
+        """Run TradeCNN StatePredictor on 1m bars. Returns 'LONG', 'SHORT', or None.
+
+        CNN was trained on 1m data. Live gets 15s bars. This method aggregates
+        4 x 15s bars into 1m OHLCV, only runs the CNN when a 1m bar completes,
+        and caches the prediction for inter-minute bars.
+        """
         if self._trade_cnn_model is None:
             return None
 
         import torch
         import numpy as np
-        from training.train_trade_cnn import extract_features_13d, TICK as _TICK
+        from training.train_trade_cnn import TICK as _TICK
 
-        # Build 13D feature for this bar (simplified — use SFE state directly)
+        # ── 1m bar aggregation from 15s bars ──────────────────────
+        _rows = self._aggregator._rows
+        _vol = _rows[-1].get('volume', 0.0) if _rows else 0.0
+        _high = _rows[-1].get('high', price) if _rows else price
+        _low = _rows[-1].get('low', price) if _rows else price
+        _open = _rows[-1].get('open', price) if _rows else price
+
+        # Initialize 1m accumulator on first call
+        if not hasattr(self, '_tc_1m_count'):
+            self._tc_1m_count = 0
+            self._tc_1m_open = price
+            self._tc_1m_high = price
+            self._tc_1m_low = price
+            self._tc_1m_vol = 0.0
+            self._tc_1m_bars = []        # completed 1m bars: list of dicts
+            self._tc_1m_vol_sma = []     # 30-bar 1m volume SMA
+            self._tc_1m_price_hist = []  # 1m close prices (for z_se, std, vwap)
+            self._tc_cached_dir = None   # cached CNN direction between 1m bars
+
+        # Accumulate 15s bar into current 1m bar
+        self._tc_1m_count += 1
+        self._tc_1m_high = max(self._tc_1m_high, _high)
+        self._tc_1m_low = min(self._tc_1m_low, _low)
+        self._tc_1m_vol += _vol
+
+        BARS_PER_MINUTE = 4  # 4 x 15s = 1m
+
+        # Not a complete 1m bar yet — return cached prediction
+        if self._tc_1m_count < BARS_PER_MINUTE:
+            return self._tc_cached_dir
+
+        # ── Complete 1m bar — compute features and run CNN ────────
+        _1m_close = price
+        _1m_open = self._tc_1m_open
+        _1m_high = self._tc_1m_high
+        _1m_low = self._tc_1m_low
+        _1m_vol = self._tc_1m_vol
+
+        # Reset accumulator for next minute
+        self._tc_1m_count = 0
+        self._tc_1m_open = price
+        self._tc_1m_high = price
+        self._tc_1m_low = price
+        self._tc_1m_vol = 0.0
+
+        # Update 1m history
+        self._tc_1m_price_hist.append(_1m_close)
+        if len(self._tc_1m_price_hist) > 61:
+            self._tc_1m_price_hist = self._tc_1m_price_hist[-61:]
+
+        self._tc_1m_vol_sma.append(_1m_vol)
+        if len(self._tc_1m_vol_sma) > 30:
+            self._tc_1m_vol_sma = self._tc_1m_vol_sma[-30:]
+        _vol_avg = sum(self._tc_1m_vol_sma) / len(self._tc_1m_vol_sma) if self._tc_1m_vol_sma else 1.0
+        if _vol_avg <= 0:
+            _vol_avg = 1.0
+
+        # ── Build 13D features from completed 1m bar ─────────────
         dmi_p = getattr(state, 'dmi_plus', 0.0)
         dmi_m = getattr(state, 'dmi_minus', 0.0)
         vel = getattr(state, 'velocity', 0.0)
 
-        _rows = self._aggregator._rows
-        _vol = _rows[-1].get('volume', 0.0) if _rows else 0.0
-
-        # Volume SMA (30-bar)
-        self._trade_cnn_vol_buffer.append(_vol)
-        if len(self._trade_cnn_vol_buffer) > 30:
-            self._trade_cnn_vol_buffer = self._trade_cnn_vol_buffer[-30:]
-        _vol_avg = sum(self._trade_cnn_vol_buffer) / len(self._trade_cnn_vol_buffer)
-
-        # Price buffer
-        self._trade_cnn_price_buffer.append(price)
-        if len(self._trade_cnn_price_buffer) > 61:
-            self._trade_cnn_price_buffer = self._trade_cnn_price_buffer[-61:]
-
-        # 13D features
         _dir_vol = 0.0
-        if len(self._trade_cnn_price_buffer) >= 2 and _vol_avg > 0:
-            _prev = self._trade_cnn_price_buffer[-2]
-            _dir = 1.0 if price > _prev else -1.0
-            _dir_vol = _dir * _vol / _vol_avg
+        if len(self._tc_1m_price_hist) >= 2:
+            _prev = self._tc_1m_price_hist[-2]
+            _dir = 1.0 if _1m_close > _prev else -1.0
+            _dir_vol = _dir * _1m_vol / _vol_avg
 
         _z_se = 0.0
-        if len(self._trade_cnn_price_buffer) >= 15:
-            _w = self._trade_cnn_price_buffer[-60:]
+        if len(self._tc_1m_price_hist) >= 15:
+            _w = self._tc_1m_price_hist[-60:]
             _mean = sum(_w) / len(_w)
             _std = float(np.std(_w))
             _se = _std / (len(_w) ** 0.5) if len(_w) > 1 else _std
-            _z_se = (price - _mean) / _se if _se > 1e-8 else 0.0
+            _z_se = (_1m_close - _mean) / _se if _se > 1e-8 else 0.0
 
         _accel = vel - self._prev_velocity if hasattr(self, '_prev_velocity') else 0.0
 
-        # Regime features
         _std_price = 0.0
         _var_ratio = 1.0
-        if len(self._trade_cnn_price_buffer) >= 30:
-            _std_price = float(np.std(self._trade_cnn_price_buffer[-30:]))
-            if len(self._trade_cnn_price_buffer) >= 60:
-                _short = float(np.std(self._trade_cnn_price_buffer[-10:]))
-                _long = float(np.std(self._trade_cnn_price_buffer[-60:]))
+        if len(self._tc_1m_price_hist) >= 30:
+            _std_price = float(np.std(self._tc_1m_price_hist[-30:]))
+            if len(self._tc_1m_price_hist) >= 60:
+                _short = float(np.std(self._tc_1m_price_hist[-10:]))
+                _long = float(np.std(self._tc_1m_price_hist[-60:]))
                 _var_ratio = _short / _long if _long > 1e-8 else 1.0
 
-        _bar_range = 0.0
+        _rng = _1m_high - _1m_low
+        _bar_range = _rng / _TICK
         _wick_ratio = 0.0
-        if _rows:
-            _h = _rows[-1].get('high', price)
-            _l = _rows[-1].get('low', price)
-            _o = _rows[-1].get('open', price)
-            _rng = _h - _l
-            _bar_range = _rng / _TICK
-            if _rng > 0:
-                _wick_ratio = 1.0 - abs(price - _o) / _rng
+        if _rng > 0:
+            _wick_ratio = 1.0 - abs(_1m_close - _1m_open) / _rng
 
         _vwap_dist = 0.0
-        if len(self._trade_cnn_price_buffer) >= 30 and len(self._trade_cnn_vol_buffer) >= 30:
-            _vp = np.array(self._trade_cnn_price_buffer[-30:])
-            _vv = np.array(self._trade_cnn_vol_buffer[-30:])
+        if len(self._tc_1m_price_hist) >= 30 and len(self._tc_1m_vol_sma) >= 30:
+            _vp = np.array(self._tc_1m_price_hist[-30:])
+            _vv = np.array(self._tc_1m_vol_sma[-30:])
             _vwap = np.sum(_vp * _vv) / (np.sum(_vv) + 1e-8)
-            _vwap_dist = (price - _vwap) / _TICK
+            _vwap_dist = (_1m_close - _vwap) / _TICK
 
         _ts = self._last_ts if hasattr(self, '_last_ts') else 0
         _tod = (_ts % 86400) / 86400.0
 
         feats = [
             dmi_p - dmi_m, abs(dmi_p - dmi_m),
-            _vol / _vol_avg if _vol_avg > 0 else 1.0, _dir_vol,
+            _1m_vol / _vol_avg if _vol_avg > 0 else 1.0, _dir_vol,
             vel, _z_se, _accel,
             _std_price, _var_ratio, _bar_range, _wick_ratio,
             _vwap_dist, _tod,
         ]
 
+        # ── Feed to CNN (10-bar lookback of 1m features) ─────────
         self._trade_cnn_feat_buffer.append(feats)
         if len(self._trade_cnn_feat_buffer) > 10:
             self._trade_cnn_feat_buffer = self._trade_cnn_feat_buffer[-10:]
 
         if len(self._trade_cnn_feat_buffer) < 10:
+            self._tc_cached_dir = None
             return None
 
         x = np.array(self._trade_cnn_feat_buffer[-10:], dtype=np.float32)
@@ -2770,7 +2816,6 @@ class LiveEngine:
         with torch.no_grad():
             pred = self._trade_cnn_model(x_t).cpu().numpy()[0]
 
-        # Extract predicted DMI diff at each horizon
         _h0 = pred[0]   # dmi_diff at horizon[0]
         _h1 = pred[7]   # dmi_diff at horizon[1]
         _h2 = pred[14]  # dmi_diff at horizon[2]
@@ -2783,8 +2828,11 @@ class LiveEngine:
         _momentum = abs(_h2) > abs(_h0)
 
         if _all_agree and _momentum and abs(_h1) > 2.0:
-            return 'LONG' if _h1 > 0 else 'SHORT'
-        return None
+            self._tc_cached_dir = 'LONG' if _h1 > 0 else 'SHORT'
+        else:
+            self._tc_cached_dir = None
+
+        return self._tc_cached_dir
 
     def _cnn_predict(self, price: float, state) -> str:
         """Run CNN direction prediction. Returns 'LONG', 'SHORT', or None.

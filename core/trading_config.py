@@ -164,6 +164,12 @@ class TradingConfig:
     peak_sensor_min_oppose: int = 2         # block when N+ of 3 1m sensors oppose direction
     peak_cooldown_bars: int = 6             # bars to wait after peak exit before next entry
 
+    # === CNN Augmentation (--cnn-augment mode) ===
+    cnn_augment_checkpoint: str = 'checkpoints/trade_cnn/best_model.pt'
+    cnn_augment_horizon_index: int = 1     # index into HORIZONS=[1,5,10] -> t+5
+    cnn_direction_threshold: float = 2.0   # min |predicted dmi_diff| for direction signal
+    cnn_direction_filter_bias_min: float = 0.60  # template long_bias threshold for direction filter
+
     # === Execution: Gate thresholds ===
     gate1_dist: float = 4.5
     hurst_min: float = 0.5

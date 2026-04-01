@@ -14,10 +14,13 @@ Callers provide fully initialized engines via engine_factory.py.
 Context-specific side effects are injected via AdvanceEngineHooks.
 """
 
+import logging
 from dataclasses import dataclass
 from typing import Callable, Optional
 
 import numpy as np
+
+_log = logging.getLogger(__name__)
 
 from core.bayesian_brain import MarketBayesianBrain, record_trade
 from core.execution_engine import ActionType, Candidate, ExecutionEngine, TradeAction
@@ -104,6 +107,9 @@ class AdvanceEngine:
         self._hooks = hooks or AdvanceEngineHooks()
         self._current_entry: Optional[dict] = None
 
+        # CNN augmentor: provides 7D predicted features + direction signal
+        self._cnn_augmentor = kwargs.get('cnn_augmentor', None)
+
         # Cat brain: rolling delta regime classifier (Schrodinger's quantum cat)
         self._use_cat = use_cat
         self._cat = None
@@ -172,10 +178,21 @@ class AdvanceEngine:
             pid=getattr(state, 'term_pid', 0.0),
             osc_coherence=getattr(state, 'oscillation_entropy_normalized', 0.0),
         )
-        # Pad to match scaler dimensions (22D when --lookback, 16D otherwise)
+        # Pad to match scaler dimensions (22D when --lookback, 23D when --cnn-augment)
         _expected = getattr(self.exec_engine.scaler, 'n_features_in_', len(feat))
         if len(feat) < _expected:
             feat = feat + [0.0] * (_expected - len(feat))
+
+        # CNN augmentation: overwrite last 7 slots with predicted features
+        if self._cnn_augmentor is not None and self._cnn_augmentor.is_ready():
+            from core.feature_extraction import CNN_AUGMENT_DIM
+            cnn_7d = self._cnn_augmentor.get_augmented_7d()
+            # Last 7 slots of the feature vector are the CNN predictions
+            cnn_start = len(feat) - CNN_AUGMENT_DIM
+            if cnn_start >= 16:  # sanity: only overwrite CNN slots, not base 16D
+                for j in range(CNN_AUGMENT_DIM):
+                    feat[cnn_start + j] = float(cnn_7d[j])
+
         return np.array([feat])
 
     # ── Candidate Building ───────────────────────────────────────────
@@ -477,12 +494,8 @@ class AdvanceEngine:
             _bar_time = datetime.fromtimestamp(bar_ts, tz=timezone.utc).strftime('%H:%M:%S')
         _py = datetime.now().strftime('%H:%M:%S')
 
-        # Terminal: throttled 1/second
-        import time as _t
-        _now = _t.monotonic()
-        if not hasattr(self, '_last_skip_log') or _now - self._last_skip_log > 1.0:
-            print(f"{_py} [{_bar_time}] [PEAK SKIP] {reason}", flush=True)
-            self._last_skip_log = _now
+        # Log to file only (suppressed from terminal to keep tqdm clean)
+        _log.debug(f"{_py} [{_bar_time}] [PEAK SKIP] {reason}")
 
         # CSV: every skip, append to file
         if not hasattr(self, '_skip_log_file'):
@@ -508,7 +521,8 @@ class AdvanceEngine:
         _fm = abs(getattr(state, 'F_momentum', 0.0))
         _z = getattr(state, 'z_score', 0.0)
 
-        print(f"{_py} [{_nt8}] [PEAK ENTRY] {direction} vol={_vol:.0f} fm={_fm:.1f} z={_z:.2f}", flush=True)
+        # Log to file only (suppressed from terminal to keep tqdm clean)
+        _log.debug(f"{_py} [{_nt8}] [PEAK ENTRY] {direction} vol={_vol:.0f} fm={_fm:.1f} z={_z:.2f}")
 
         # Same CSV file as skips — reason column distinguishes
         if not hasattr(self, '_skip_log_file'):
@@ -558,6 +572,12 @@ class AdvanceEngine:
         TBN tick, candidate building, EE entry/exit, trade recording.
         """
         if not exit_only:
+            # 0. Update CNN augmentor (before any feature building)
+            if self._cnn_augmentor is not None:
+                _vol = getattr(state, 'volume', 0.0)
+                self._cnn_augmentor.update(
+                    state, price, bar_high, bar_low, price, _vol, timestamp)
+
             # 1. Tick TBN workers (only on anchor bars, not sub-bar ticks)
             self.belief_network.tick_all(bar_index)
 

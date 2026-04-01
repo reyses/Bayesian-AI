@@ -409,9 +409,10 @@ class Trainer:
         # Live uses: gate1_dist = 4.5 + aggression * 10.0 (default agg=0.5 -> 9.5)
         # Gate distance same for IS and OOS (unified engine)
 
-        # Feature extractor for IS candidates (22D when --lookback)
+        # Feature extractor for IS candidates (22D when --lookback, 23D when --cnn-augment)
         _use_lb = getattr(self, '_use_lookback', False)
-        _feat_extractor = FractalClusteringEngine(use_lookback=_use_lb)
+        _use_cnn = getattr(self, '_use_cnn_augment', False)
+        _feat_extractor = FractalClusteringEngine(use_lookback=_use_lb, use_cnn_augment=_use_cnn)
 
         # Slippage RNG (seeded for reproducibility)
         _slip_ticks = float(getattr(self, '_slippage_ticks', 0.0))
@@ -716,6 +717,20 @@ class Trainer:
         # sensor gate, and fake peak filter as OOS/live). Only peak detection
         # methods are called -- entry/exit still handled inline until full refactor.
         from core.advance_engine import AdvanceEngine, AdvanceEngineHooks
+        # CNN augmentor for forward pass (must match clustering dimensionality)
+        _fwd_cnn_aug = None
+        if getattr(self, '_use_cnn_augment', False):
+            from core.cnn_augmentor import CNNAugmentor
+            from core.trading_config import TradingConfig as _TCfg
+            _tcfg = _TCfg()
+            try:
+                _fwd_cnn_aug = CNNAugmentor(_tcfg.cnn_augment_checkpoint,
+                                             horizon_index=_tcfg.cnn_augment_horizon_index)
+                _exec_engine.set_cnn_augmentor(_fwd_cnn_aug)
+                print(f"  CNN augmentor loaded for forward pass (23D features)")
+            except FileNotFoundError:
+                print(f"  WARNING: CNN checkpoint not found, forward pass will use 16D+zeros")
+
         _ae = AdvanceEngine(
             exec_engine=_exec_engine,
             belief_network=belief_network,
@@ -725,6 +740,7 @@ class Trainer:
             use_cat=getattr(self, '_use_cat', False),
             use_crow=getattr(self, '_use_crow', False),
             use_observers=getattr(self, '_use_observers', False),
+            cnn_augmentor=_fwd_cnn_aug,
         )
         pending_oracle = None      # oracle facts for currently open trade
         _pending_dm_idx = None     # index into decision_matrix_records for open trade
@@ -3847,6 +3863,89 @@ class Trainer:
         print(f"\n  NOTE: Combined total exceeds normal run because depths trade simultaneously.")
         print(f"  Use this to identify which depths to KEEP vs FILTER in production.\n")
 
+    def _cnn_augment_manifest(self, manifest):
+        """Attach CNN-predicted 7D features to each PatternEvent in the manifest.
+
+        Runs a second pass over IS data: loads 15s parquets, computes SFE states,
+        extracts 13D features, runs frozen StatePredictor, and attaches the t+5
+        7D prediction as pattern.cnn_predicted_7d.
+        """
+        import gc
+        from core.cnn_augmentor import CNNAugmentor, CNN_LOOKBACK
+        from core.statistical_field_engine import StatisticalFieldEngine
+        from core.trading_config import TradingConfig
+        from training.train_trade_cnn import extract_features_13d, HORIZONS
+
+        _tcfg = TradingConfig()
+        ckpt_path = _tcfg.cnn_augment_checkpoint
+        horizon_idx = _tcfg.cnn_augment_horizon_index
+        print(f"\n  CNN Augmentation: loading {ckpt_path} (horizon index {horizon_idx} = t+{HORIZONS[horizon_idx]})")
+
+        augmentor = CNNAugmentor(ckpt_path, horizon_index=horizon_idx)
+
+        # Build timestamp -> pattern index map
+        ts_to_patterns = {}
+        for i, p in enumerate(manifest):
+            ts = getattr(p, 'timestamp', None) or getattr(p, 'bar_ts', None)
+            if ts is not None:
+                ts_key = round(float(ts), 1)
+                if ts_key not in ts_to_patterns:
+                    ts_to_patterns[ts_key] = []
+                ts_to_patterns[ts_key].append(i)
+
+        # Process 15s data files (same as discovery TF)
+        data_root = getattr(self, 'data_root', os.path.join('DATA', 'ATLAS'))
+        tf_dir = os.path.join(data_root, '15s')
+        files = sorted(glob.glob(os.path.join(tf_dir, '*.parquet')))
+        if not files:
+            # Fallback: try 1m
+            tf_dir = os.path.join(data_root, '1m')
+            files = sorted(glob.glob(os.path.join(tf_dir, '*.parquet')))
+
+        n_augmented = 0
+        sfe = StatisticalFieldEngine()
+
+        for fpath in tqdm(files, desc="  CNN augment"):
+            df = pd.read_parquet(fpath).sort_values('timestamp').reset_index(drop=True)
+            if len(df) < CNN_LOOKBACK + 5:
+                continue
+
+            states = sfe.batch_compute_states(df)
+            feats_13d = extract_features_13d(states, df)
+
+            # Run CNN over rolling window
+            import torch
+            device = augmentor.device
+            model = augmentor.model
+
+            for i in range(CNN_LOOKBACK, len(df)):
+                ts_key = round(float(df['timestamp'].iloc[i]), 1)
+                if ts_key not in ts_to_patterns:
+                    continue
+
+                # Build 10-bar window
+                window = feats_13d[i - CNN_LOOKBACK:i]
+                if len(window) < CNN_LOOKBACK:
+                    continue
+
+                with torch.no_grad():
+                    x = torch.FloatTensor(window).unsqueeze(0).to(device)
+                    pred = model(x)[0].cpu().numpy()
+
+                # Extract 7D at selected horizon
+                start = horizon_idx * 7
+                cnn_7d = pred[start:start + 7]
+
+                for pidx in ts_to_patterns[ts_key]:
+                    manifest[pidx].cnn_predicted_7d = cnn_7d
+                    n_augmented += 1
+
+            del df, states, feats_13d
+            gc.collect()
+
+        print(f"  CNN augmented {n_augmented}/{len(manifest)} patterns "
+              f"({n_augmented / max(len(manifest), 1) * 100:.1f}%)")
+
     def train(self, data_source: Any):
         """
         Master training loop (Pattern-Adaptive Walk-Forward)
@@ -3999,7 +4098,7 @@ class Trainer:
                 print("  [Seed Filter] Cleared cached templates (manifest changed)")
 
         # ===================================================================
-        # PHASE 2: Clustering (with checkpoint)
+        # CNN AUGMENTATION PASS (before clustering, if --cnn-augment)
         # ===================================================================
         if ckpt.has_templates():
             templates = ckpt.load_templates()
@@ -4029,8 +4128,15 @@ class Trainer:
             print(f"  Initial clusters: {n_initial} (from {len(manifest)} patterns / {INITIAL_CLUSTER_DIVISOR})")
 
             _use_lb = getattr(self, '_use_lookback', False)
+            _use_cnn = getattr(self, '_use_cnn_augment', False)
+
+            # CNN augmentation: attach 7D predictions to each PatternEvent before clustering
+            if _use_cnn:
+                self._cnn_augment_manifest(manifest)
+
             clustering_engine = FractalClusteringEngine(n_clusters=n_initial, max_variance=0.5,
-                                                        use_lookback=_use_lb)
+                                                        use_lookback=_use_lb,
+                                                        use_cnn_augment=_use_cnn)
             templates = clustering_engine.create_templates(manifest, shape_primitives=shape_primitives)
             print(f"  Condensed {len(manifest)} raw patterns into {len(templates)} Tight Templates.")
 
@@ -4127,8 +4233,10 @@ class Trainer:
         except NameError:
             n_initial = max(10, len(manifest) // INITIAL_CLUSTER_DIVISOR)
             _use_lb = getattr(self, '_use_lookback', False)
+            _use_cnn = getattr(self, '_use_cnn_augment', False)
             clustering_engine = FractalClusteringEngine(n_clusters=n_initial, max_variance=0.5,
-                                                        use_lookback=_use_lb)
+                                                        use_lookback=_use_lb,
+                                                        use_cnn_augment=_use_cnn)
 
         self.pattern_library = self.pattern_library or {}
         processed_count = len(completed_results)
@@ -4847,6 +4955,9 @@ def main():
                         help="Use shape primitives for K-Means init (requires checkpoints/*_primitives.pkl)")
     parser.add_argument('--lookback', action='store_true',
                         help="22D clustering: append 10-bar lookback geometry (6D) to 16D features")
+    parser.add_argument('--cnn-augment', action='store_true',
+                        help="23D clustering: append 7D CNN-predicted state (t+5) to 16D features. "
+                             "Requires trained StatePredictor at checkpoints/trade_cnn/best_model.pt")
     parser.add_argument('--shapes', action='store_true',
                         help="Shape-aware exits: calibrate giveback/envelope per template from member segment shapes")
     parser.add_argument('--seeds', nargs='?', const='AUTO', default=None, metavar='PATH',
@@ -5031,6 +5142,7 @@ def main():
     orchestrator._slippage_ticks = getattr(args, 'slippage', 0.0)
     orchestrator._use_primitives = getattr(args, 'primitives', False)
     orchestrator._use_lookback = True  # 22D features always on (6D lookback geometry)
+    orchestrator._use_cnn_augment = getattr(args, 'cnn_augment', False)
     orchestrator._use_shapes = getattr(args, 'shapes', False)
     orchestrator._use_cat = not getattr(args, 'no_cat', False)
     orchestrator._use_crow = getattr(args, 'crow', False)

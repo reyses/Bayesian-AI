@@ -23,8 +23,10 @@ NOT quantum physics — the physics metaphors are historical and fully purged.
 
 ## Entry Points
 - Training: `python training/trainer.py --fresh`
-- Live: `python -m live.launcher --dry-run`
-- Replay validation: `python -m live.launcher --replay-only`
+- TradeCNN: `python training/train_trade_cnn.py` (walk-forward + OOS sim)
+- Live DMI: `python -m live.launcher --dmi`
+- Live TradeCNN: `python -m live.launcher --trade-cnn`
+- Live dry-run: `python -m live.launcher --dry-run`
 - Research: `python tools/standalone_research.py --data DATA/ATLAS_1WEEK`
 
 ## Key Files
@@ -35,12 +37,18 @@ NOT quantum physics — the physics metaphors are historical and fully purged.
 - `core/timeframe_belief_network.py` — 11-TF worker consensus
 - `core/fractal_clustering.py` — recursive K-Means templates
 - `core/feature_extraction.py` — canonical 16D feature vector
-- `live/live_engine.py` — NT8 bridge orchestrator
-- `live/history_replay.py` — compressed forward pass + parity report
+- `core/dmi_flipper.py` — DMI smoothed cross flipper with trail/breakeven
+- `core/trade_cnn.py` — StatePredictor model (~16K params, 13D→7D state)
+- `training/train_trade_cnn.py` — TradeCNN pipeline (13D features, walk-forward, OOS sim)
+- `training/direction_cnn.py` — 7D CNN direction predictor ($736/day OOS)
+- `live/live_engine.py` — NT8 bridge orchestrator (DMI + TradeCNN modes)
+- `live/launcher.py` — CLI with --dmi, --trade-cnn, --dry-run flags
 - `training/trainer.py` — main pipeline (7 phases)
 
 ## Active Work
-- See `docs/Active/RESEARCH_SPEC_V_TO_FF.md` for async research tasks
+- **BUILDING**: MTF Two-Layer Counter-Proposal — `docs/Active/COUNTER_PROPOSAL_MTF_TWO_LAYER.md`
+  - 29D features (13D base + 16D MTF), Direction + Duration engines
+  - Baseline to beat: TradeCNN $1,609/day OOS
 - See `docs/ROADMAP.md` for future branches
 
 ## Conventions
