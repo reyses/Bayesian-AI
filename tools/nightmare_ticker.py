@@ -1,17 +1,83 @@
 """
 Nightmare Protocol Ticker — zero lookahead forward pass.
 
-Feeds one bar at a time to the system. The SFE and features are computed
-incrementally — the system never sees future bars.
+Feeds 1s data, aggregates to 1m by minute boundary, runs Nightmare Protocol.
+SFE warmed up with 300 1m bars. Macro features from 1h/1D.
+Zero lookahead — each tick only sees the past.
 
-Each bar:
-  1. Append bar to rolling dataframe
-  2. Recompute SFE state for this bar only (using accumulated history)
-  3. Extract 13D features for this bar
-  4. Run Nightmare decision
-  5. Manage position
+=============================================================================
+STRATEGY CHEAT SHEET
+=============================================================================
 
-This mirrors exactly what live would do.
+CONSTANTS:
+  ROCHE = 2.0          z_se threshold (Roche Limit from Nightmare Protocol)
+  HC = 4               half-cycle: bars to audition a loser (reversion)
+  MAX_HOLD = 20        max bars to ride a winner (reversion)
+  TREND_LB = 15        rolling trend lookback (1m bars = 15 minutes)
+  MIN_MOVE = 10        min points for trend to count
+  TREND_STRONG = 20    min points for strong trend (triggers trend_ride)
+  TREND_MAX_HOLD = 30  max bars for trend_ride winners
+  SL = 160 ticks ($80) catastrophic backstop at 1s resolution
+
+ENTRY CONDITION (shared):
+  z_se > ROCHE AND variance_ratio < 1.0 (Roche Limit + stable system)
+
+STRATEGY SELECTION (at entry):
+  ┌─ z + trend + dmi_1m + accel ALL same direction?
+  │   YES → STRATEGY 2: TREND RIDE (enter WITH trend)
+  │   NO  → Is trend > 5 opposing AND dmi_1m > 1 opposing?
+  │          YES → STRATEGY 3: CAUTIOUS REVERSION (shorter leash)
+  │          NO  → Score = 0.5*trend + 0.3*dmi_1h + 0.2*dmi_1d
+  │                Score >= -0.3?
+  │                YES → STRATEGY 1: REVERSION (standard Nightmare)
+  │                NO  → NO TRADE (macro strongly against)
+  └
+
+STRATEGY 1: REVERSION (standard Nightmare Protocol)
+  Entry:  z past Roche, revert toward mean (SHORT if z>0, LONG if z<0)
+  Exits:  (checked in order)
+    1. mean_reached      z_se returned to 0 (|z| < 0.5)     → 100% WR, $37/tr
+    2. lambda_flip       variance_ratio > 1.3 (regime change) → 91% WR, $114/tr
+    3. profit_hold_exit  was profitable, gave back 50% of peak → 53% WR, $1.83/tr
+    4. half_cycle_loss   never profitable after 4 bars         → 0% WR, -$21/tr
+       (early cut at bar 2 if BOTH trend AND dmi oppose)
+    5. max_hold_profit   profitable for 20 bars                → 81% WR, $76/tr
+    6. catastrophic_sl   160 ticks MAE at 1s resolution        → 0% WR, -$87/tr
+
+STRATEGY 2: TREND RIDE
+  Entry:  z past Roche AND trend > 20 same direction AND dmi_1m > 3 same
+          AND price_accel same direction → enter WITH trend (not against)
+  Exits:
+    1. trend_exhausted    15m trend flipped against trade       → breakeven
+    2. trend_profit_hold  was profitable, gave back 50% of peak → 60% WR, $8/tr
+    3. trend_hc_loss      never profitable after 6 bars         → 0% WR, -$10/tr
+    4. trend_max_hold     profitable for 30 bars                → 100% WR, $159/tr
+    5. catastrophic_sl    160 ticks MAE at 1s resolution
+
+STRATEGY 3: CAUTIOUS REVERSION
+  Entry:  same as reversion BUT loser profile detected:
+          trend > 5 opposing AND dmi_1m > 1 opposing
+  Exits:  same as reversion EXCEPT:
+    - half_cycle = 2 bars (not 4) — cut losers faster
+    - giveback = 30% (not 50%) — keep more profit
+
+MACRO FILTER (all strategies):
+  Weighted score from 3 TFs:
+    15m rolling trend: weight 0.5
+    1h DMI:           weight 0.3
+    1D DMI:           weight 0.2
+  Score < -0.3 → NO TRADE (majority of TFs oppose)
+
+TF DATA FLOW:
+  1s → aggregated to 1m by minute boundary → SFE → 13D features → Nightmare
+  1h → pre-loaded, indexed by timestamp → macro DMI
+  1D → pre-loaded, indexed by timestamp → macro DMI
+  SL checked at 1s resolution (every tick)
+  Decisions at 1m resolution (every completed minute)
+
+OOS RESULTS (Mar 2026, 19 days, zero lookahead):
+  $5,819 total | $306/day | 17/19 winning days | 2,561 trades
+=============================================================================
 
 Usage:
   python tools/nightmare_ticker.py 2026-03-20
@@ -187,12 +253,14 @@ def main():
 
     # Trade state
     trades = []
+    trajectory_log = []  # every 1m bar while in trade
     in_pos = False
     direction = None
     entry_price = 0.0
     bars_held_1m = 0
     peak_pnl = 0.0
     was_profitable = False
+    active_strategy = 'reversion'
     last_1m_price = price_hist_1m[-1] if price_hist_1m else 0
 
     # Tick through 1s data
@@ -308,79 +376,154 @@ def main():
                 was_profitable = True
 
             ex = None
-            if abs(z) < 0.5 and bars_held_1m > 1:
-                ex = 'mean_reached'
-            elif lam > 0.3 and bars_held_1m > 1:
-                ex = 'lambda_flip'
-            elif was_profitable and peak_pnl > 2 and pnl < peak_pnl * 0.5:
-                ex = 'profit_hold_exit'
-            elif not was_profitable and bars_held_1m >= 2:
-                # At bar 2: check if BOTH trend and DMI oppose the trade
-                # If both fight → early cut (12x separation from winners)
-                # If only one fights → give it 2 more bars
+            strat = active_strategy if 'active_strategy' in dir() else 'reversion'
+
+            # Trajectory logging — every 1m bar while in trade
+            _trend_now = price_hist_1m[-1] - price_hist_1m[-(TREND_LB+1)] if len(price_hist_1m) > TREND_LB else 0
+            _giveback_pct = (1 - pnl / peak_pnl) * 100 if peak_pnl > 0 else 0
+            _dmi_now = feat[0]
+            trajectory_log.append({
+                'trade_id': len(trades), 'bar': bars_held_1m,
+                'timestamp': timestamp, 'time': time_str,
+                'price': price, 'pnl': pnl, 'peak_pnl': peak_pnl,
+                'giveback_pct': _giveback_pct,
+                'z_se': z, 'lam': lam, 'vr': vr,
+                'trend_15': _trend_now, 'dmi_1m': _dmi_now,
+                'strategy': strat, 'direction': direction,
+                'was_profitable': was_profitable,
+                # Distance to each exit threshold
+                'dist_mean_reached': abs(z) - 0.5,       # negative = close to triggering
+                'dist_lambda_flip': 0.3 - lam,            # negative = close to triggering
+                'dist_giveback_50': (pnl / peak_pnl - 0.5) if peak_pnl > 2 else 99,
+                'dist_sl': 160 - mae,                     # how far from catastrophic SL
+            })
+
+            if strat in ('reversion', 'cautious_reversion'):
+                # STRATEGY 1/3 EXITS: Nightmare reversion (cautious has shorter HC)
+                if abs(z) < 0.5 and bars_held_1m > 1:
+                    ex = 'mean_reached'
+                elif lam > 0.3 and bars_held_1m > 1:
+                    ex = 'lambda_flip'
+                elif was_profitable and peak_pnl > 2 and pnl < peak_pnl * 0.5:
+                    ex = 'profit_hold_exit'
+                elif not was_profitable and bars_held_1m >= 2:
+                    _trend_now = price_hist_1m[-1] - price_hist_1m[-(TREND_LB+1)] if len(price_hist_1m) > TREND_LB else 0
+                    _dmi_now = feat[0]
+                    _trend_opposes = (direction == 'LONG' and _trend_now < -5) or \
+                                     (direction == 'SHORT' and _trend_now > 5)
+                    _dmi_opposes = (direction == 'LONG' and _dmi_now < -2) or \
+                                   (direction == 'SHORT' and _dmi_now > 2)
+
+                    # Cautious reversion: shorter leash (cut at bar 2)
+                    if active_strategy == 'cautious_reversion':
+                        if bars_held_1m >= 2:
+                            ex = 'cautious_hc_loss'
+                    elif (_trend_opposes and _dmi_opposes) or bars_held_1m >= HC:
+                        ex = 'half_cycle_loss'
+                elif was_profitable and bars_held_1m >= MAX_HOLD:
+                    ex = 'max_hold_profit'
+
+            elif strat == 'trend_ride':
+                # STRATEGY 2 EXITS: ride the trend
+                # Hold longer (max 30 bars), exit on trend exhaustion
+                TREND_MAX_HOLD = 30
                 _trend_now = price_hist_1m[-1] - price_hist_1m[-(TREND_LB+1)] if len(price_hist_1m) > TREND_LB else 0
-                _dmi_now = feat[0]
 
-                _trend_opposes = (direction == 'LONG' and _trend_now < -5) or \
-                                 (direction == 'SHORT' and _trend_now > 5)
-                _dmi_opposes = (direction == 'LONG' and _dmi_now < -2) or \
-                               (direction == 'SHORT' and _dmi_now > 2)
-
-                if (_trend_opposes and _dmi_opposes) or bars_held_1m >= HC:
-                    ex = 'half_cycle_loss'
-            elif was_profitable and bars_held_1m >= MAX_HOLD:
-                ex = 'max_hold_profit'
+                # Exit: trend reversed — must flip to OPPOSITE direction, not just weaken
+                # SHORT trade: only exit when trend is clearly POSITIVE (not just less negative)
+                # LONG trade: only exit when trend is clearly NEGATIVE
+                _trend_flipped = (direction == 'LONG' and _trend_now < -MIN_MOVE) or \
+                                 (direction == 'SHORT' and _trend_now > MIN_MOVE)
+                if _trend_flipped and bars_held_1m > 2:
+                    ex = 'trend_exhausted'
+                # Exit: profit hold (50% giveback)
+                elif was_profitable and peak_pnl > 5 and pnl < peak_pnl * 0.5:
+                    ex = 'trend_profit_hold'
+                # Exit: never profitable after 6 bars (trend didn't work)
+                elif not was_profitable and bars_held_1m >= 6:
+                    ex = 'trend_hc_loss'
+                # No max hold — let profitable trend rides run until an exit triggers
+                # Max risk is catastrophic SL ($80). Upside is uncapped.
 
             if ex:
                 trades.append({
                     'time': time_str, 'dir': direction, 'pnl': pnl,
                     'exit': ex, 'held': bars_held_1m, 'peak': peak_pnl,
+                    'strategy': active_strategy,
                 })
                 in_pos = False
 
-        # Entry at 1m resolution
+        # Entry at 1m resolution — TWO STRATEGIES
         if not in_pos:
+            # Get macro state
+            idx_1h = np.searchsorted(ts_1h, timestamp, side='right') - 1
+            dmi_1h = feats_1h[idx_1h, 0] if 0 <= idx_1h < len(feats_1h) else 0
+            idx_1d = np.searchsorted(ts_1d, timestamp, side='right') - 1
+            dmi_1d = feats_1d[idx_1d, 0] if 0 <= idx_1d < len(feats_1d) else 0
+            dmi_1m = feat[0]
+
+            strategy = None
+            direction = None
+
             if abs(z) > ROCHE and lam < 0:
                 rev = 'SHORT' if z > 0 else 'LONG'
-                rev_sign = 1.0 if rev == 'LONG' else -1.0
 
-                # Weighted conviction score across TFs
-                # 15m rolling trend: primary signal (weight 0.5)
-                # 1h DMI: secondary (weight 0.3)
-                # 1D DMI: tertiary (weight 0.2)
-                score = 0.0
+                # Check: is trend STRONG and in the SAME direction as z?
+                # z > 0 means price above mean. trend > 0 means price going up.
+                # If both positive or both negative → trend is pushing z further away
+                TREND_STRONG = 20  # 20 points = strong trend
+                z_and_trend_same = (z > 0 and trend > TREND_STRONG) or (z < 0 and trend < -TREND_STRONG)
+                dmi_with_z = (z > 0 and dmi_1m > 3) or (z < 0 and dmi_1m < -3)
 
-                # 15m trend
-                if abs(trend) > MIN_MOVE:
-                    trend_sign = 1.0 if trend > 0 else -1.0
-                    score += 0.5 * (rev_sign * trend_sign)  # +0.5 if agree, -0.5 if disagree
+                # Accel check: is price still accelerating in the trend direction?
+                accel = feat[6]  # price_accel
+                accel_with_trend = (trend > 0 and accel > 0) or (trend < 0 and accel < 0)
+
+                if z_and_trend_same and dmi_with_z and accel_with_trend:
+                    # STRATEGY 2: TREND RIDE
+                    # z is extreme, trend + DMI + accel all push same direction
+                    # Don't fade — ride the trend
+                    trend_dir = 'LONG' if trend > 0 else 'SHORT'
+                    strategy = 'trend_ride'
+                    direction = trend_dir
                 else:
-                    score += 0.0  # neutral, no penalty
+                    # Loser profile check (tighter thresholds from RCA):
+                    # HCL avg: trend=12.8, dmi=4.05
+                    # WIN avg: trend=5.8,  dmi=0.83
+                    # Threshold at midpoint: trend>10, dmi>2
+                    _trend_opp = (rev == 'LONG' and trend < -10) or (rev == 'SHORT' and trend > 10)
+                    _dmi_opp = (rev == 'LONG' and dmi_1m < -2) or (rev == 'SHORT' and dmi_1m > 2)
 
-                # 1h DMI
-                idx_1h = np.searchsorted(ts_1h, timestamp, side='right') - 1
-                dmi_1h = feats_1h[idx_1h, 0] if 0 <= idx_1h < len(feats_1h) else 0
-                if abs(dmi_1h) > 3:
-                    dmi_1h_sign = 1.0 if dmi_1h > 0 else -1.0
-                    score += 0.3 * (rev_sign * dmi_1h_sign)
+                    rev_sign = 1.0 if rev == 'LONG' else -1.0
+                    score = 0.0
 
-                # 1D DMI
-                idx_1d = np.searchsorted(ts_1d, timestamp, side='right') - 1
-                dmi_1d = feats_1d[idx_1d, 0] if 0 <= idx_1d < len(feats_1d) else 0
-                if abs(dmi_1d) > 3:
-                    dmi_1d_sign = 1.0 if dmi_1d > 0 else -1.0
-                    score += 0.2 * (rev_sign * dmi_1d_sign)
+                    if abs(trend) > MIN_MOVE:
+                        trend_sign = 1.0 if trend > 0 else -1.0
+                        score += 0.5 * (rev_sign * trend_sign)
 
-                # Score: +1.0 = all TFs agree, -1.0 = all oppose, 0 = neutral
-                # Block only when strongly against (score < -0.3)
-                CONVICTION_MIN = -0.3
-                if score >= CONVICTION_MIN:
-                    in_pos = True
-                    direction = rev
-                    entry_price = price
-                    bars_held_1m = 0
-                    peak_pnl = 0.0
-                    was_profitable = False
+                    if abs(dmi_1h) > 3:
+                        dmi_1h_sign = 1.0 if dmi_1h > 0 else -1.0
+                        score += 0.3 * (rev_sign * dmi_1h_sign)
+
+                    if abs(dmi_1d) > 3:
+                        dmi_1d_sign = 1.0 if dmi_1d > 0 else -1.0
+                        score += 0.2 * (rev_sign * dmi_1d_sign)
+
+                    CONVICTION_MIN = -0.3
+                    if score >= CONVICTION_MIN:
+                        if _trend_opp and _dmi_opp:
+                            strategy = 'cautious_reversion'
+                        else:
+                            strategy = 'reversion'
+                        direction = rev
+
+            if strategy and direction:
+                in_pos = True
+                entry_price = price
+                bars_held_1m = 0
+                peak_pnl = 0.0
+                was_profitable = False
+                active_strategy = strategy
 
     # Force close
     if in_pos:
@@ -410,6 +553,15 @@ def main():
     pnl_rounded = (t['pnl'] / 1).round() * 1
     mode = Counter(pnl_rounded).most_common(3)
     print(f'  PnL mode: {mode}')
+
+    # Save trajectory and trades
+    os.makedirs('reports/findings', exist_ok=True)
+    t.to_csv(f'reports/findings/nightmare_day_{TARGET}_trades.csv', index=False)
+    traj = pd.DataFrame(trajectory_log)
+    if len(traj) > 0:
+        traj.to_csv(f'reports/findings/nightmare_day_{TARGET}_trajectory.csv', index=False)
+        print(f'\n  Trades: reports/findings/nightmare_day_{TARGET}_trades.csv ({len(t)} trades)')
+        print(f'  Trajectory: reports/findings/nightmare_day_{TARGET}_trajectory.csv ({len(traj)} bars)')
 
 
 if __name__ == '__main__':

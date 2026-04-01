@@ -132,6 +132,7 @@
 ## User Profile
 - See `memory/user_cognitive_style.md`, `memory/user_schedule.md`
 - See `memory/user_vp_trading_system.md`, `memory/user_level_trading.md`
+- See `memory/user_system_specs.md` — Ryzen 5 5600X, 16GB RAM, RTX 3060 12GB VRAM, can run 7B-13B local LLMs
 
 ## Requirements
 - PyTorch CUDA (cu121), numba, scipy, optuna>=3.5.0, databento

@@ -88,7 +88,7 @@ for date_str in tqdm(dates, desc='Days'):
             })
 
             if mae_1s >= 160:
-                all_trades.append({
+                rec = {
                     'trade_id': trade_id, 'day': date_str, 'pnl': pt_now * TV,
                     'exit': 'catastrophic_sl', 'dir': direction,
                     'entry_price': entry_price, 'exit_price': tp,
@@ -97,7 +97,12 @@ for date_str in tqdm(dates, desc='Days'):
                     'entry_z': entry_z, 'entry_score': entry_score,
                     'entry_trend': entry_trend,
                     'entry_dmi_1h': entry_dmi_1h, 'entry_dmi_1d': entry_dmi_1d,
-                })
+                }
+                # Include 13D entry features
+                if entry_feat is not None:
+                    for fi in range(13):
+                        rec[f'entry_f{fi}'] = float(entry_feat[fi])
+                all_trades.append(rec)
                 in_pos = False; trade_id += 1
 
         if tick_min == current_minute:
@@ -159,7 +164,7 @@ for date_str in tqdm(dates, desc='Days'):
                 ex = 'max_hold_profit'
 
             if ex:
-                all_trades.append({
+                rec = {
                     'trade_id': trade_id, 'day': date_str, 'pnl': pnl,
                     'exit': ex, 'dir': direction,
                     'entry_price': entry_price, 'exit_price': price,
@@ -170,11 +175,15 @@ for date_str in tqdm(dates, desc='Days'):
                     'entry_dmi_1h': entry_dmi_1h, 'entry_dmi_1d': entry_dmi_1d,
                     'exit_vr': vr, 'exit_lam': lam, 'exit_trend': trend,
                     'exit_dmi_1m': feat[0], 'exit_dmi_1h': last_dmi_1h,
-                    # 13D features at entry (stored as individual columns)
-                    **{f'entry_f{i}': float(entry_feat[i]) for i in range(13)} if entry_feat is not None else {},
-                    # 13D features at exit
-                    **{f'exit_f{i}': float(feat[i]) for i in range(13)},
-                })
+                }
+                # 13D features at entry
+                if entry_feat is not None:
+                    for fi in range(13):
+                        rec[f'entry_f{fi}'] = float(entry_feat[fi])
+                # 13D features at exit
+                for fi in range(13):
+                    rec[f'exit_f{fi}'] = float(feat[fi])
+                all_trades.append(rec)
                 in_pos = False; trade_id += 1
 
         # Entry
