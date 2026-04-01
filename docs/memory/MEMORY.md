@@ -13,6 +13,10 @@
 - **KEEP MEMORY UPDATED**: Update MEMORY.md when discovering new patterns, preferences, or architecture changes
 
 ## Workflow Preference
+- **RCA PROCESS MANDATORY**: See `memory/feedback_rca_process.md` — follow the 9-step RCA for ALL system improvements. No shortcuts. No theoretical improvements without data.
+- **1s TICKER IS THE ONLY HONEST TEST**: Batch SFE showed +$777, honest ticker showed +$48. Use `nightmare_ticker.py` for all testing. Always zero lookahead.
+- **ANALYZE BY DAY, NOT MONTH**: See `memory/feedback_daily_hourly_review.md` — each day must stand on its own. Mode > mean.
+- **SESSION PROTOCOL**: See `memory/feedback_session_protocol.md` — session end notes time, session start reads todo list.
 - **Data validation FIRST**: Run `tools/validate_data.py` before ANY training or analysis. See `memory/feedback_data_validation_first.md`
 - **No lookahead**: all analyses must mirror live conditions. Use only data available at decision time.
 - **Always discuss before changing**: propose a plan, get approval, then execute
@@ -22,7 +26,6 @@
 - **Progress bars mandatory**: tqdm with live stats for any loop > 100 iterations
 - **Training via Bash**: show exact command, ask "Confirm to run?" — only execute after user confirms
 - **NT8 bridge deploy**: copy to both `docs/` and NT8 indicators dir. Always bump version + timestamp.
-- **Track time**: Periodically check the clock during long sessions. Flag when it's late.
 - **Commit flow**: code first (commit+push), then reports/CSVs separately (commit+push)
 - **Base measurements grounded**: See `memory/feedback_base_measurements.md`
 - **Checkpoint every step**: All multi-step pipelines must save to disk after each step. See `memory/feedback_checkpoint_every_step.md`
