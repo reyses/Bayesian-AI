@@ -122,6 +122,13 @@ def compute_nightmare_state(feats_1m, feats_1h, feats_1d, i,
     # Macro alignment: does the daily/hourly trend agree?
     macro_direction = np.sign(dmi_1d) if abs(dmi_1d) > 2 else np.sign(dmi_1h)
 
+    # 4-hour trend: price change over last 240 bars (at 1m)
+    LOOKBACK_4H = 240
+    if i >= LOOKBACK_4H:
+        trend_4h = closes_1m[i] - closes_1m[i - LOOKBACK_4H]
+    else:
+        trend_4h = 0.0
+
     return {
         'z_fit': z_fit,
         'lam': lam,
@@ -142,6 +149,7 @@ def compute_nightmare_state(feats_1m, feats_1h, feats_1d, i,
         'macro_direction': macro_direction,
         'z_se_1h': z_se_1h,
         'z_se_1d': z_se_1d,
+        'trend_4h': trend_4h,
     }
 
 
@@ -157,18 +165,25 @@ def nightmare_decision(state, roche_k=ROCHE_K):
     fractal_r = state['fractal_ratio']
 
     # === THE TRIGGER (from the protocol) ===
+    # RULE: Never trade against the daily trend.
+    # If 1D DMI says SHORT (macro_dir < 0), only allow SHORT entries.
+    # If 1D DMI says LONG (macro_dir > 0), only allow LONG entries.
+    # If neutral (macro_dir == 0), allow either direction.
+
+    # Macro bias: trend of the last 4 hours (240 bars at 1m)
+    # Computed from the rolling price change over that window
+    trend_4h = state.get('trend_4h', 0)  # price change over last 240 bars
+    trend_4h_dir = 'LONG' if trend_4h > 0 else 'SHORT' if trend_4h < 0 else 'NEUTRAL'
+    TREND_MIN_MOVE = 10  # minimum price movement (in points) to consider it a trend
 
     # Case 1: Roche Limit + Stable System → FORCE REVERSION
     if abs(z) > roche_k and lam < 0:
-        # Reversion direction: if z > 0 (above mean) → SHORT, z < 0 → LONG
         reversion_dir = 'SHORT' if z > 0 else 'LONG'
 
-        # Macro alignment check: only revert if macro agrees or is neutral
-        if macro_dir != 0 and np.sign(z) == macro_dir:
-            # z is positive (above mean) AND macro is also positive (LONG trend)
-            # Reverting against macro trend — skip unless at singularity
-            if abs(z) < SINGULARITY_K:
-                return None, f'roche_blocked_by_macro (z={z:.1f}, macro={macro_dir})'
+        # HARD RULE: reversion must align with last 4h trend
+        if abs(trend_4h) > TREND_MIN_MOVE:
+            if reversion_dir != trend_4h_dir:
+                return None, f'roche_against_4h (z={z:.1f}, revert={reversion_dir}, 4h={trend_4h_dir} {trend_4h:+.0f}pts)'
 
         # Wick confirmation: high wick = rejection already happening
         if wick > 0.5:
@@ -179,6 +194,11 @@ def nightmare_decision(state, roche_k=ROCHE_K):
     # Case 2: Chaotic Expansion → FORCE TREND
     if lam > 0 and abs(z) > 1.0:
         trend_dir = 'LONG' if z > 0 else 'SHORT'
+
+        # HARD RULE: trend must align with last 4h
+        if abs(trend_4h) > TREND_MIN_MOVE:
+            if trend_dir != trend_4h_dir:
+                return None, f'trend_against_4h (z={z:.1f}, trend={trend_dir}, 4h={trend_4h_dir})'
 
         # Macro must agree for trend trades
         if macro_dir != 0 and np.sign(z) != macro_dir:
@@ -354,10 +374,7 @@ def main():
                         should_exit = True
                         exit_reason = 'lambda_flip'
 
-                    # 3. Z moving AWAY from zero — wrong trade, gravity isn't pulling back
-                    elif abs(ns['z_fit']) > abs(entry_z) * 1.5 and hold_remaining < args.half_cycle - 1:
-                        should_exit = True
-                        exit_reason = 'z_expanding'
+                    # 3. (REMOVED: z_expanding — exits on normal wobble, -$28K damage)
 
                     # 4. Macro reversed against us — higher TF force changed
                     elif ns['macro_direction'] != 0:
