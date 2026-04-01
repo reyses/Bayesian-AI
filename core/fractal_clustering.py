@@ -140,11 +140,13 @@ def generate_semantic_name(centroid: np.ndarray) -> str:
 
 
 class FractalClusteringEngine:
-    def __init__(self, n_clusters=1000, max_variance=0.5, use_lookback=False):
+    def __init__(self, n_clusters=1000, max_variance=0.5, use_lookback=False,
+                 use_cnn_augment=False):
         self.n_clusters = n_clusters
         self.max_variance = max_variance  # Max allowed std deviation for Z-score in a cluster
         self.scaler = StandardScaler()
         self._use_lookback = use_lookback  # 22D mode: append 6D lookback geometry
+        self._use_cnn_augment = use_cnn_augment  # 23D mode: append 7D CNN-predicted state
 
     def _get_kmeans_model(self, n_clusters: int, n_samples: int, random_state: int = 42,
                           n_init: int = 3, use_cuda: bool = True, init_centroids=None):
@@ -216,6 +218,15 @@ class FractalClusteringEngine:
                 feat.extend(geom.tolist())
             else:
                 feat.extend([0.0] * 6)
+
+        # 23D mode: append 7D CNN-predicted state at t+5
+        if self._use_cnn_augment:
+            from core.feature_extraction import CNN_AUGMENT_DIM
+            cnn_7d = getattr(p, 'cnn_predicted_7d', None)
+            if cnn_7d is not None and len(cnn_7d) == CNN_AUGMENT_DIM:
+                feat.extend(list(cnn_7d))
+            else:
+                feat.extend([0.0] * CNN_AUGMENT_DIM)
 
         return feat
 

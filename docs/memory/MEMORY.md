@@ -27,16 +27,19 @@
 - **Base measurements grounded**: See `memory/feedback_base_measurements.md`
 - **Checkpoint every step**: All multi-step pipelines must save to disk after each step. See `memory/feedback_checkpoint_every_step.md`
 
-## **CURRENT PRIORITIES (2026-03-27)**
-- **MTF Two-Layer Counter-Proposal APPROVED**: See `memory/project_mtf_counter_proposal.md`
-  - 29D features (13D base + 16D MTF from 1s/5m/15m/1h)
-  - Two-layer CNN: Direction (Layer 1) + Duration (Layer 2)
-  - Spec: `docs/Active/COUNTER_PROPOSAL_MTF_TWO_LAYER.md`
-  - Build phases: A (features) → B (L1 train) → C (L2 train) → D (simulation)
+## **CURRENT PRIORITIES (2026-03-30)**
+- **PROBABILISTIC SYSTEM**: See `memory/project_probabilistic_system.md`
+  - Frozen Base CNN + Evolving Trade CNN + 4-Brain Cascade + Seed-based templates
+  - Peak→Trend→Reversal lifecycle with trajectory-based exits
+  - Spec: `docs/Active/PROBABILISTIC_4BRAIN_SPEC.md`
+  - Built: brain_cascade.py, probabilistic_engine.py, train_probabilistic_forward.py
+  - TODO: Phase D (live launcher), replay buffer for live CNN evolution, crow integration
+- **CNN-Augmented Templates (23D)**: See plan `joyful-kindling-avalanche.md`
+  - 16D base + 7D CNN-predicted state at t+5. Phases 1-5 built.
+  - First run: $1,002 OOS but brain was empty (augmentor not wired into forward pass — fixed)
+- **Live Sim Running**: TradeCNN on NT8 sim (Sim101), validating bridge tonight
+- **CNN TF Mismatch FIXED**: CNN trained on 1m, live was feeding 15s. Now aggregates 4×15s→1m.
 - **TradeCNN baseline: $1,609/day OOS** — See `memory/project_tradecnn_baseline.md`
-  - 13D features, StatePredictor, breakeven+trail, confidence 3.0, 2s slippage
-  - Backup: `checkpoints/trade_cnn_backup_fast_v1/`
-- **CNN fragility**: seed=42 required, symmetric loss only. See `memory/feedback_cnn_fragility.md`
 - **NQ goal**: 3 months to NQ ($400 noise budget). See `memory/project_nq_goal.md`
 
 ## **DEPRIORITIZED (historical context only)**

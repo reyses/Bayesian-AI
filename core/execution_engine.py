@@ -195,6 +195,7 @@ class ExecutionEngine:
         self.depth_only = depth_only
 
         self.feature_extractor = feature_extractor
+        self._cnn_augmentor = None  # set via set_cnn_augmentor() after construction
 
         # Gate thresholds from config (gate_thresholds.json can still override)
         self.hurst_min = config.hurst_min
@@ -432,6 +433,10 @@ class ExecutionEngine:
     @property
     def in_position(self) -> bool:
         return self.pos_state is not None
+
+    def set_cnn_augmentor(self, augmentor):
+        """Attach a CNNAugmentor for direction pre-filtering."""
+        self._cnn_augmentor = augmentor
 
     # ── MAIN ENTRY POINT ─────────────────────────────────────────────────
 
@@ -679,13 +684,31 @@ class ExecutionEngine:
             tid = self.valid_tids[nearest_idx]
             lib_entry = self.pattern_library.get(tid, {})
 
+        # ── CNN Direction Pre-Filter ──────────────────────────
+        # If CNN augmentor provides a confident direction, reject templates
+        # whose direction bias strongly disagrees.
+        _cfg = self.config
+        if self._cnn_augmentor is not None and self._cnn_augmentor.is_ready():
+            _cnn_dir = self._cnn_augmentor.get_direction()
+            if _cnn_dir is not None and lib_entry:
+                _tpl_long_bias = lib_entry.get('long_bias', 0.5)
+                _bias_min = _cfg.cnn_direction_filter_bias_min
+                # Template has strong LONG bias but CNN says SHORT (or vice versa)
+                _tpl_is_long = _tpl_long_bias >= _bias_min
+                _tpl_is_short = _tpl_long_bias <= (1.0 - _bias_min)
+                if (_cnn_dir == 'LONG' and _tpl_is_short) or \
+                   (_cnn_dir == 'SHORT' and _tpl_is_long):
+                    gr = _GateResult(tid=tid, dist=dist, feat_scaled=feat_scaled,
+                                     lib_entry=lib_entry, passed=False,
+                                     fail_label='gate_cnn_dir',
+                                     score=-1.0)
+                    return gr
+
         # ── Pattern Quality: headroom & physics rules ─────────
         micro_z = abs(cand.z_score)
         micro_pattern = cand.pattern_type
         should_skip = False
         skip_label = 'gate0'
-
-        _cfg = self.config
 
         # ── Improvement A: Regime-aware pattern compatibility ──
         if micro_pattern:

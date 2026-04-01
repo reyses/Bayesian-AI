@@ -82,53 +82,89 @@ def get_levels(month_str):
 def classify_touch(closes, highs, lows, touch_idx, level_price, level_type):
     """Classify what happened when price touched a level.
 
+    Uses 6D shape geometry primitives on the post-touch window instead of
+    hard-coded thresholds. Each class has a geometric signature:
+
+      BREAKOUT:  high efficiency + high slope away from level + high monotonicity
+      BOUNCE:    high curvature (sharp V-turn) + end_position back near start
+      REVERSAL:  moderate slope reversal + moderate efficiency
+      PLATEAU:   low slope + low efficiency + low norm_range (went nowhere)
+
     Returns: 'reversal', 'breakout', 'plateau', 'bounce', or None
     """
+    from core.shape_primitives import extract_lookback_geometry
+
     n = len(closes)
     i = touch_idx
 
-    if i < 3 or i >= n - 5:
+    LOOKAHEAD = 3  # bars after touch to classify outcome (~12h at 4h)
+
+    if i < 3 or i >= n - LOOKAHEAD:
         return None
 
-    # Bar properties at touch
-    bar_body = abs(closes[i] - closes[i-1])
+    # Touch bar + LOOKAHEAD forward
+    future_closes = closes[i:min(i + LOOKAHEAD + 1, n)]
+    if len(future_closes) < LOOKAHEAD + 1:
+        return None
+
+    # Compute 6D geometry on post-touch window
+    geom = extract_lookback_geometry(future_closes)
+    slope, curvature, efficiency, norm_range, end_position, monotonicity = geom
+
+    # Touch bar properties
     bar_range = highs[i] - lows[i]
-    wick = bar_range - abs(closes[i] - (highs[i] + lows[i]) / 2)
+    median_range = np.median(highs[max(0, i-20):i+1] - lows[max(0, i-20):i+1])
+    wick_ratio = 1 - abs(closes[i] - (highs[i] + lows[i]) / 2) / max(bar_range, TICK)
 
-    # What happened in next 5 bars?
-    future_closes = closes[i+1:min(i+6, n)]
-    if len(future_closes) < 3:
-        return None
-
-    # Direction before touch (last 3 bars)
-    approach_dir = closes[i] - closes[max(0, i-3)]
-
-    # Direction after touch (next 3 bars)
-    depart_dir = future_closes[2] - closes[i] if len(future_closes) > 2 else 0
-
-    # Movement magnitude
-    future_range = max(future_closes) - min(future_closes)
-
+    # Direction relative to level type
+    # For resistance: breakout = price went UP, reversal = price went DOWN
+    # For support: breakout = price went DOWN, reversal = price went UP
     if level_type == 'resistance':
-        # At resistance: approaching from below
-        reversed_here = depart_dir < -bar_range * 0.3  # moved away down
-        broke_through = future_closes[-1] > level_price + 20  # closed above
+        signed_slope = slope   # positive = through, negative = away
     else:
-        # At support: approaching from above
-        reversed_here = depart_dir > bar_range * 0.3  # moved away up
-        broke_through = future_closes[-1] < level_price - 20  # closed below
+        signed_slope = -slope  # flip for support
 
-    # Classify
-    if broke_through:
+    # --- Classification using geometry ---
+
+    # Thresholds calibrated from 4h 4-bar window geometry:
+    # norm_range: p10=20, p25=34, med=61, p75=102
+    # efficiency: p10=0.1, p25=0.3, med=0.7
+    # slope: p25=-1.0, med=0.3, p75=1.2
+    # curvature: p25=-0.3, med=0.0, p75=0.3
+    PLATEAU_NORM_RANGE = 34     # bottom 25% of movement = "went nowhere"
+    PLATEAU_EFFICIENCY = 0.4    # low directional commitment
+    PLATEAU_SLOPE = 0.5         # near-flat
+    BREAKOUT_EFFICIENCY = 0.6   # strong directional move
+    BREAKOUT_MONOTONICITY = 0.6 # consistent direction
+    BOUNCE_CURVATURE = 0.15     # sharp turn (higher bar for 3-bar window)
+    BOUNCE_END_POS = 0.40       # price came back near start
+
+    # BREAKOUT: strong directional move through the level
+    if signed_slope > 0.2 and efficiency > BREAKOUT_EFFICIENCY and monotonicity > BREAKOUT_MONOTONICITY:
         return 'breakout'
-    elif reversed_here and bar_range > np.median(highs - lows) * 1.5:
-        return 'bounce'  # big rejection bar
-    elif reversed_here:
+
+    # PLATEAU: price stayed near the level — small range, low efficiency, flat
+    if norm_range < PLATEAU_NORM_RANGE and efficiency < PLATEAU_EFFICIENCY and abs(slope) < PLATEAU_SLOPE:
+        return 'plateau'
+
+    # BOUNCE: sharp V-turn with big rejection bar
+    if abs(curvature) > BOUNCE_CURVATURE and end_position < BOUNCE_END_POS and bar_range > median_range * 1.2:
+        return 'bounce'
+
+    # REVERSAL: moved away from level with conviction
+    if signed_slope < -0.1 and efficiency > 0.25:
         return 'reversal'
-    elif future_range < bar_range * 0.5:
-        return 'plateau'  # sat there, didn't move
-    else:
-        return 'reversal'  # default to reversal if not breakout
+
+    # Edge cases: price stayed near level but didn't meet full plateau criteria
+    if 0.25 < end_position < 0.75 and norm_range < PLATEAU_NORM_RANGE * 1.5:
+        return 'plateau'
+
+    # Moved away = reversal
+    if signed_slope < 0:
+        return 'reversal'
+
+    # Weak move through = breakout
+    return 'breakout'
 
 
 def extract_shapes(df, feats, levels):

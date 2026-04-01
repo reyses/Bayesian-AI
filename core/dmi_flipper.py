@@ -54,6 +54,10 @@ class DmiFlipper:
 
         # State
         self._dmi_diffs = deque(maxlen=smooth_window + 1)
+        self._price_hist = deque(maxlen=max(60, reg_window))
+        self._dmi_p_hist = deque(maxlen=5)
+        self._dmi_m_hist = deque(maxlen=5)
+        self._z_hist = deque(maxlen=5)
         self._in_trade = False
         self._trade_dir = ''
         self._entry_price = 0.0
