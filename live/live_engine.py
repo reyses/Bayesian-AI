@@ -289,6 +289,10 @@ class LiveEngine:
             logger.info(f"Playback mode: preloading aggregator from ATLAS (before {_pb_date})")
             self._aggregator.preload_from_atlas(before_date=_pb_date, n_bars=300)
             last_ts = 0
+        elif self._shared_state.get('backfill_mode'):
+            # Backfill: skip preload, force full history request (no delta sync)
+            logger.info("Backfill mode: requesting FULL history from NT8 (no delta sync)")
+            last_ts = 0
         else:
             # Live/sim: also preload from ATLAS to skip warmup (SUDO: no warmup in live)
             logger.info("Live mode: preloading aggregator from ATLAS (latest data)")
@@ -808,6 +812,20 @@ class LiveEngine:
                 await loop.run_in_executor(None, self._aggregator.finish_history)
                 self._update_live_atr()
                 logger.info(f"Live ATR: {self._live_atr_ticks:.1f} ticks")
+
+                # Append history bars to ATLAS so OOS data stays current
+                try:
+                    self._aggregator.update_atlas(atlas_root='DATA/ATLAS')
+                    self._aggregator.update_atlas(atlas_root='DATA/ATLAS_LIVE')
+                    logger.info("ATLAS updated with NT8 history bars")
+                except Exception as _e:
+                    logger.warning(f"ATLAS update failed: {_e}")
+
+                # Backfill mode: save and exit immediately
+                if self._shared_state.get('backfill_mode'):
+                    logger.info(f"[backfill] Complete. {count} bars saved to ATLAS. Exiting.")
+                    return  # exit the main loop
+
                 # Bootstrap TBN from pre-computed states (physics mode skips TBN)
                 if self._belief_network is not None:
                     df = self._aggregator.df
