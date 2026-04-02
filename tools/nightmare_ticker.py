@@ -100,7 +100,7 @@ from training.train_trade_cnn import extract_features_13d as extract_13d_batch
 TICK = 0.25
 TV = 0.50
 ROCHE = 2.0
-HC = 4          # half cycle: 1m bars to audition
+HC = 3          # half cycle: 1m bars to audition
 MAX_HOLD = 20   # max 1m bars for profitable trades
 TREND_LB = 15   # rolling trend lookback (1m bars)
 MIN_MOVE = 10   # min pts for trend to count
@@ -295,7 +295,7 @@ def main():
                 mae_now = (entry_price - tick_low) / TICK
             else:
                 mae_now = (tick_high - entry_price) / TICK
-            if mae_now >= 160:
+            if mae_now >= 100:
                 pt = (tick_price - entry_price) / TICK if direction == 'LONG' else (entry_price - tick_price) / TICK
                 trades.append({
                     'time': datetime.utcfromtimestamp(tick_ts).strftime('%H:%M:%S'),
@@ -398,7 +398,7 @@ def main():
                 'dist_sl': 160 - mae,                     # how far from catastrophic SL
             })
 
-            if strat in ('reversion', 'cautious_reversion'):
+            if strat in ('reversion', 'cautious_reversion', 'macro_dip'):
                 # STRATEGY 1/3 EXITS: Nightmare reversion (cautious has shorter HC)
                 if abs(z) < 0.5 and bars_held_1m > 1:
                     ex = 'mean_reached'
@@ -423,27 +423,20 @@ def main():
                 elif was_profitable and bars_held_1m >= MAX_HOLD:
                     ex = 'max_hold_profit'
 
-            elif strat == 'trend_ride':
+            elif strat in ('trend_ride', 'reversal_to_trend'):
                 # STRATEGY 2 EXITS: ride the trend
-                # Hold longer (max 30 bars), exit on trend exhaustion
-                TREND_MAX_HOLD = 30
                 _trend_now = price_hist_1m[-1] - price_hist_1m[-(TREND_LB+1)] if len(price_hist_1m) > TREND_LB else 0
 
-                # Exit: trend reversed — must flip to OPPOSITE direction, not just weaken
-                # SHORT trade: only exit when trend is clearly POSITIVE (not just less negative)
-                # LONG trade: only exit when trend is clearly NEGATIVE
+                # Exit: trend flipped to OPPOSITE direction past MIN_MOVE
                 _trend_flipped = (direction == 'LONG' and _trend_now < -MIN_MOVE) or \
                                  (direction == 'SHORT' and _trend_now > MIN_MOVE)
                 if _trend_flipped and bars_held_1m > 2:
                     ex = 'trend_exhausted'
-                # Exit: profit hold (50% giveback)
-                elif was_profitable and peak_pnl > 5 and pnl < peak_pnl * 0.5:
-                    ex = 'trend_profit_hold'
-                # Exit: never profitable after 6 bars (trend didn't work)
+                # Exit: never profitable after 6 bars
                 elif not was_profitable and bars_held_1m >= 6:
                     ex = 'trend_hc_loss'
-                # No max hold — let profitable trend rides run until an exit triggers
-                # Max risk is catastrophic SL ($80). Upside is uncapped.
+                # NO profit_hold — let it ride. Only SL protects.
+                # NO max_hold — uncapped upside. Max risk = $80 SL.
 
             if ex:
                 trades.append({
@@ -451,6 +444,24 @@ def main():
                     'exit': ex, 'held': bars_held_1m, 'peak': peak_pnl,
                     'strategy': active_strategy,
                 })
+
+                # STRATEGY 4: REVERSAL-TO-TREND
+                # When reversion fails (profit_hold_exit), the trend is strong
+                # Immediately flip to trend direction
+                if ex in ('profit_hold_exit', 'half_cycle_loss', 'cautious_hc_loss') and strat in ('reversion', 'cautious_reversion'):
+                    _trend_now = price_hist_1m[-1] - price_hist_1m[-(TREND_LB+1)] if len(price_hist_1m) > TREND_LB else 0
+                    if abs(_trend_now) > MIN_MOVE:
+                        # Re-enter in the trend direction (opposite of failed reversion)
+                        flip_dir = 'SHORT' if direction == 'LONG' else 'LONG'
+                        in_pos = True
+                        direction = flip_dir
+                        entry_price = price
+                        bars_held_1m = 0
+                        peak_pnl = 0.0
+                        was_profitable = False
+                        active_strategy = 'reversal_to_trend'
+                        continue
+
                 in_pos = False
 
         # Entry at 1m resolution — TWO STRATEGIES
@@ -510,6 +521,7 @@ def main():
                         score += 0.2 * (rev_sign * dmi_1d_sign)
 
                     CONVICTION_MIN = -0.3
+
                     if score >= CONVICTION_MIN:
                         if _trend_opp and _dmi_opp:
                             strategy = 'cautious_reversion'
