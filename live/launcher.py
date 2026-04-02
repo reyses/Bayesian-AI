@@ -166,6 +166,8 @@ def main():
                         help='Path to enriched seed JSON for PhysicsEngine')
     parser.add_argument('--yolo', action='store_true',
                         help='Max aggression, minimal warmup  -- force trades fast')
+    parser.add_argument('--backfill', action='store_true',
+                        help='Connect to NT8, receive history, save to ATLAS, then exit. No trading.')
     parser.add_argument('--long-only', action='store_true',
                         help='Force all trades LONG (brain learns long side)')
     parser.add_argument('--short-only', action='store_true',
@@ -324,6 +326,12 @@ def main():
             target=_run_popup, args=(gui_queue, shared_state),
             daemon=True, name='LivePopup')
         gui_thread.start()
+
+    # Backfill mode: connect, get history, save to ATLAS, exit
+    if getattr(args, 'backfill', False):
+        print("[backfill] Connecting to NT8 for history dump...")
+        print("[backfill] Will save to DATA/ATLAS after receiving bars")
+        shared_state['backfill_mode'] = True
 
     engine = LiveEngine(config, gui_queue=gui_queue, shared_state=shared_state)
     try:

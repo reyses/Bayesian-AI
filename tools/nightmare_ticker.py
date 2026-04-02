@@ -229,6 +229,7 @@ def main():
     all_trades_all_days = []
     all_traj_all_days = []
     daily_summary = []
+    global_trade_id = 0
 
     # Initial warmup before first day
     first_date_ts = pd.Timestamp(target_days[0]).timestamp()
@@ -393,20 +394,29 @@ def main():
                 _trend_now = price_hist_1m[-1] - price_hist_1m[-(TREND_LB+1)] if len(price_hist_1m) > TREND_LB else 0
                 _giveback_pct = (1 - pnl / peak_pnl) * 100 if peak_pnl > 0 else 0
                 _dmi_now = feat[0]
+                # Get macro features for this bar
+                _idx_1h = np.searchsorted(ts_1h, timestamp, side='right') - 1
+                _dmi_1h_now = feats_1h[_idx_1h, 0] if 0 <= _idx_1h < len(feats_1h) else 0
+                _idx_1d = np.searchsorted(ts_1d, timestamp, side='right') - 1
+                _dmi_1d_now = feats_1d[_idx_1d, 0] if 0 <= _idx_1d < len(feats_1d) else 0
+
+                # Trajectory: log timestamp + trade state only
+                # Full features at ALL TFs are in ATLAS_FEATURES — join by timestamp
                 trajectory_log.append({
-                    'trade_id': len(trades), 'bar': bars_held_1m,
+                    'trade_id': global_trade_id, 'bar': bars_held_1m,
                     'timestamp': timestamp, 'time': time_str,
                     'price': price, 'pnl': pnl, 'peak_pnl': peak_pnl,
-                    'giveback_pct': _giveback_pct,
-                    'z_se': z, 'lam': lam, 'vr': vr,
-                    'trend_15': _trend_now, 'dmi_1m': _dmi_now,
+                    'giveback_pct': _giveback_pct, 'mae': mae,
                     'strategy': strat, 'direction': direction,
                     'was_profitable': was_profitable,
-                    # Distance to each exit threshold
-                    'dist_mean_reached': abs(z) - 0.5,       # negative = close to triggering
-                    'dist_lambda_flip': 0.3 - lam,            # negative = close to triggering
+                    'trend_15': _trend_now,
+                    # Active TF features (1m — computed live)
+                    'z_se': z, 'lam': lam, 'vr': vr,
+                    'dmi_1m': _dmi_now,
+                    # Exit distances
+                    'dist_mean_reached': abs(z) - 0.5,
+                    'dist_lambda_flip': 0.3 - lam,
                     'dist_giveback_50': (pnl / peak_pnl - 0.5) if peak_pnl > 2 else 99,
-                    'dist_sl': 160 - mae,                     # how far from catastrophic SL
                 })
 
                 if strat in ('reversion', 'cautious_reversion', 'macro_dip', 'open_ride'):
@@ -445,14 +455,12 @@ def main():
 
                 if ex:
                     trades.append({
+                        'trade_id': global_trade_id,
                         'time': time_str, 'dir': direction, 'pnl': pnl,
                         'exit': ex, 'held': bars_held_1m, 'peak': peak_pnl,
                         'strategy': active_strategy,
                     })
-
-                    # REVERSAL-TO-TREND: DISABLED
-                    # Worked on Mar 20 (+$150) but -$12K across 19 days.
-                    # Needs NN driver to know when flipping is safe.
+                    global_trade_id += 1
                     in_pos = False
 
             # Entry at 1m resolution — MULTIPLE STRATEGIES
@@ -553,13 +561,16 @@ def main():
                     peak_pnl = 0.0
                     was_profitable = False
                     active_strategy = strategy
+                    _1s_ticks_since_entry = 0
 
         # Force close at end of day (after all ticks processed)
         if in_pos:
             pt = (tick_price - entry_price) / TICK if direction == 'LONG' else (entry_price - tick_price) / TICK
-            trades.append({'time': time_str, 'dir': direction, 'pnl': pt * TV,
+            trades.append({'trade_id': global_trade_id, 'time': time_str,
+                           'dir': direction, 'pnl': pt * TV,
                            'exit': 'end_of_day', 'held': bars_held_1m, 'peak': peak_pnl,
                            'strategy': active_strategy})
+            global_trade_id += 1
 
         # Per-day results
         day_pnl = sum(t['pnl'] for t in trades)
