@@ -107,6 +107,8 @@ MIN_MOVE = 10   # min pts for trend to count
 WARMUP = 300    # 1m bars of history before target day
 BARS_PER_1M = 60  # 60 x 1s = 1m
 
+# Accept: single day, comma-separated days, or "all" for full OOS
+# Examples: 2026-03-20   2026-03-20,2026-03-24   all
 TARGET = sys.argv[1] if len(sys.argv) > 1 else '2026-03-20'
 
 
@@ -171,58 +173,40 @@ def extract_13d_single(state, price, high, low, open_price, volume, timestamp,
 
 
 def main():
-    print(f'\nNIGHTMARE TICKER — {TARGET}')
+    # Parse target days
+    if TARGET == 'all':
+        # Find all available days from 1s data
+        files_1s = sorted(glob.glob('DATA/ATLAS/1s/*.parquet'))
+        _all_1s = pd.concat([pd.read_parquet(f) for f in files_1s], ignore_index=True)
+        _all_1s = _all_1s.sort_values('timestamp').reset_index(drop=True)
+        from datetime import datetime as _dt
+        _all_dates = sorted(set(_dt.utcfromtimestamp(t).strftime('%Y-%m-%d')
+                                for t in _all_1s['timestamp'].values[::5000]))
+        target_days = [d for d in _all_dates if d >= '2026-03-02']
+        del _all_1s
+    elif ',' in TARGET:
+        target_days = TARGET.split(',')
+    else:
+        target_days = [TARGET]
+
+    print(f'\nNIGHTMARE TICKER — {len(target_days)} day(s)')
     print(f'  Zero lookahead. 1s data aggregated to 1m.')
     print(f'  Roche={ROCHE} HC={HC} MaxHold={MAX_HOLD} TrendLB={TREND_LB}')
     print()
 
-    # Load 1s data for the target day
+    # Pre-load 1s and 1m data
     files_1s = sorted(glob.glob('DATA/ATLAS/1s/*.parquet'))
-    # Find file containing target date
-    date_ts = pd.Timestamp(TARGET).timestamp()
-    month_str = TARGET[:7].replace('-', '_')
+    df_1s_all = pd.concat([pd.read_parquet(f) for f in files_1s], ignore_index=True)
+    df_1s_all = df_1s_all.sort_values('timestamp').reset_index(drop=True)
 
-    df_1s = None
-    for f in files_1s:
-        if month_str in f:
-            df_1s = pd.read_parquet(f).sort_values('timestamp').reset_index(drop=True)
-            break
-
-    if df_1s is None:
-        print(f'  No 1s data for {month_str}')
-        return
-
-    # Filter to target day
-    day_1s = df_1s[(df_1s['timestamp'] >= date_ts) & (df_1s['timestamp'] < date_ts + 86400)].reset_index(drop=True)
-    print(f'  1s bars for {TARGET}: {len(day_1s)}')
-
-    # Load 1m warmup data (before target day)
     files_1m = sorted(glob.glob('DATA/ATLAS/1m/*.parquet'))
     df_1m_all = pd.concat([pd.read_parquet(f) for f in files_1m[-2:]], ignore_index=True)
     df_1m_all = df_1m_all.sort_values('timestamp').reset_index(drop=True)
-    warmup_1m = df_1m_all[df_1m_all['timestamp'] < date_ts].tail(WARMUP).reset_index(drop=True)
 
-    # Warmup SFE with 1m history
-    sfe = StatisticalFieldEngine()
-    warmup_states = sfe.batch_compute_states(warmup_1m)
-    prev_vel = 0.0
-    if warmup_states:
-        last_st = warmup_states[-1]
-        prev_vel = getattr(last_st['state'] if isinstance(last_st, dict) else last_st, 'velocity', 0.0)
-    del warmup_states; gc.collect()
-
-    # Build 1m price/vol history from warmup
-    price_hist_1m = list(warmup_1m['close'].values)
-    vol_hist_1m = list(warmup_1m['volume'].values if 'volume' in warmup_1m.columns else np.zeros(len(warmup_1m)))
-
-    # Running 1m df for SFE recompute
-    running_1m = warmup_1m.copy()
-
-    # Load 1h and 1D macro features (for trend filter)
+    # Load 1h and 1D macro features ONCE (shared across all days)
     print(f'  Loading macro TFs...')
     df_1h = pd.concat([pd.read_parquet(f) for f in sorted(glob.glob('DATA/ATLAS/1h/*.parquet'))],
                        ignore_index=True).sort_values('timestamp').reset_index(drop=True)
-    df_1h = df_1h[df_1h['timestamp'] < date_ts + 86400]  # up to end of target day
     sfe_1h = StatisticalFieldEngine()
     states_1h = sfe_1h.batch_compute_states(df_1h)
     feats_1h = extract_13d_batch(states_1h, df_1h)
@@ -231,327 +215,376 @@ def main():
 
     df_1d = pd.concat([pd.read_parquet(f) for f in sorted(glob.glob('DATA/ATLAS/1D/*.parquet'))],
                        ignore_index=True).sort_values('timestamp').reset_index(drop=True)
-    df_1d = df_1d[df_1d['timestamp'] < date_ts + 86400]
     sfe_1d = StatisticalFieldEngine()
     states_1d = sfe_1d.batch_compute_states(df_1d)
     feats_1d = extract_13d_batch(states_1d, df_1d)
     ts_1d = df_1d['timestamp'].values
     del states_1d, sfe_1d; gc.collect()
+    print(f'  1h: {len(df_1h)} bars | 1D: {len(df_1d)} bars')
 
-    print(f'  Warmup: {len(warmup_1m)} x 1m bars | 1h: {len(df_1h)} bars | 1D: {len(df_1d)} bars')
-    print(f'  Ticking {len(day_1s)} x 1s bars...')
-    print()
+    # === LOOP OVER DAYS ===
+    all_trades_all_days = []
+    all_traj_all_days = []
+    daily_summary = []
 
-    # 1s → 1m aggregator: group by minute boundary (timestamp // 60)
-    current_minute = -1
-    agg_open = 0.0
-    agg_high = -1e9
-    agg_low = 1e9
-    agg_close = 0.0
-    agg_vol = 0.0
-    agg_ts = 0.0
-
-    # Trade state
-    trades = []
-    trajectory_log = []  # every 1m bar while in trade
-    in_pos = False
-    direction = None
-    entry_price = 0.0
-    bars_held_1m = 0
-    peak_pnl = 0.0
-    was_profitable = False
-    active_strategy = 'reversion'
-    last_1m_price = price_hist_1m[-1] if price_hist_1m else 0
-
-    # Tick through 1s data
     from tqdm import tqdm
-    for _, row in tqdm(day_1s.iterrows(), total=len(day_1s), desc='  Ticking'):
-        tick_price = row['close']
-        tick_high = row['high']
-        tick_low = row['low']
-        tick_open = row['open']
-        tick_vol = row.get('volume', 0.0)
-        tick_ts = row['timestamp']
+    for target_date in tqdm(target_days, desc='Days'):
+        date_ts = pd.Timestamp(target_date).timestamp()
 
-        # Accumulate into 1m bar by minute boundary
-        tick_minute = int(tick_ts) // 60
+        # Filter 1s data to this day
+        day_1s = df_1s_all[(df_1s_all['timestamp'] >= date_ts) & (df_1s_all['timestamp'] < date_ts + 86400)]
+        if len(day_1s) < 100:
+            continue
 
-        if current_minute == -1:
-            # First tick
+        # Warmup: 1m bars before this day
+        warmup_1m = df_1m_all[df_1m_all['timestamp'] < date_ts].tail(WARMUP).reset_index(drop=True)
+        if len(warmup_1m) < 60:
+            continue
+
+        sfe = StatisticalFieldEngine()
+        warmup_states = sfe.batch_compute_states(warmup_1m)
+        prev_vel = 0.0
+        if warmup_states:
+            last_st = warmup_states[-1]
+            prev_vel = getattr(last_st['state'] if isinstance(last_st, dict) else last_st, 'velocity', 0.0)
+        del warmup_states; gc.collect()
+
+        price_hist_1m = list(warmup_1m['close'].values)
+        vol_hist_1m = list(warmup_1m['volume'].values if 'volume' in warmup_1m.columns else np.zeros(len(warmup_1m)))
+        running_1m = warmup_1m.copy()
+        print(f'  {target_date}: {len(day_1s)} x 1s bars...')
+
+        # 1s → 1m aggregator: group by minute boundary (timestamp // 60)
+        current_minute = -1
+        agg_open = 0.0
+        agg_high = -1e9
+        agg_low = 1e9
+        agg_close = 0.0
+        agg_vol = 0.0
+        agg_ts = 0.0
+
+        # Trade state
+        trades = []
+        trajectory_log = []  # every 1m bar while in trade
+        in_pos = False
+        direction = None
+        entry_price = 0.0
+        bars_held_1m = 0
+        peak_pnl = 0.0
+        was_profitable = False
+        active_strategy = 'reversion'
+        tick_price = 0.0
+
+        # Tick through 1s data
+        for _, row in day_1s.iterrows():
+            tick_price = row['close']
+            tick_high = row['high']
+            tick_low = row['low']
+            tick_open = row['open']
+            tick_vol = row.get('volume', 0.0)
+            tick_ts = row['timestamp']
+
+            # Accumulate into 1m bar by minute boundary
+            tick_minute = int(tick_ts) // 60
+
+            if current_minute == -1:
+                # First tick
+                current_minute = tick_minute
+                agg_open = tick_open
+                agg_ts = tick_ts
+                agg_high = tick_high
+                agg_low = tick_low
+
+            agg_high = max(agg_high, tick_high)
+            agg_low = min(agg_low, tick_low)
+            agg_close = tick_price
+            agg_vol += tick_vol
+
+            # Check SL at 1s resolution (while in position)
+            if in_pos:
+                if direction == 'LONG':
+                    mae_now = (entry_price - tick_low) / TICK
+                else:
+                    mae_now = (tick_high - entry_price) / TICK
+                if mae_now >= 100:
+                    pt = (tick_price - entry_price) / TICK if direction == 'LONG' else (entry_price - tick_price) / TICK
+                    trades.append({
+                        'time': datetime.utcfromtimestamp(tick_ts).strftime('%H:%M:%S'),
+                        'dir': direction, 'pnl': pt * TV,
+                        'exit': 'catastrophic_sl_1s', 'held': bars_held_1m, 'peak': peak_pnl,
+                    })
+                    in_pos = False
+
+            # 1m bar complete? (minute boundary changed)
+            if tick_minute == current_minute:
+                continue
+
+            # New minute started — process the completed 1m bar
+            completed_minute = current_minute
             current_minute = tick_minute
+
+            # === 1M BAR COMPLETE — run Nightmare ===
+            _1m_bar = pd.DataFrame([{
+                'timestamp': agg_ts, 'open': agg_open, 'high': agg_high,
+                'low': agg_low, 'close': agg_close, 'volume': agg_vol,
+            }])
+
+            # Reset aggregator for the new minute (current tick starts it)
             agg_open = tick_open
             agg_ts = tick_ts
             agg_high = tick_high
             agg_low = tick_low
+            agg_vol = tick_vol
 
-        agg_high = max(agg_high, tick_high)
-        agg_low = min(agg_low, tick_low)
-        agg_close = tick_price
-        agg_vol += tick_vol
+            price = agg_close
+            high = _1m_bar['high'].iloc[0]
+            low = _1m_bar['low'].iloc[0]
+            open_price = _1m_bar['open'].iloc[0]
+            volume = _1m_bar['volume'].iloc[0]
+            timestamp = agg_ts
 
-        # Check SL at 1s resolution (while in position)
-        if in_pos:
-            if direction == 'LONG':
-                mae_now = (entry_price - tick_low) / TICK
+            # Update histories
+            price_hist_1m.append(price)
+            vol_hist_1m.append(volume)
+            if len(price_hist_1m) > 500:
+                price_hist_1m = price_hist_1m[-500:]
+                vol_hist_1m = vol_hist_1m[-500:]
+
+            # SFE on accumulated 1m data
+            running_1m = pd.concat([running_1m, _1m_bar], ignore_index=True)
+            # Keep full day + warmup context for SFE (no trimming)
+
+            states = sfe.batch_compute_states(running_1m)
+            st = states[-1]
+            st = st['state'] if isinstance(st, dict) else st
+            del states
+
+            # 13D features
+            feat = extract_13d_single(st, price, high, low, open_price, volume, timestamp,
+                                       price_hist_1m, vol_hist_1m, prev_vel)
+            prev_vel = getattr(st, 'velocity', 0.0)
+
+            z = feat[5]
+            vr = feat[8]
+            lam = vr - 1.0
+
+            # 15-bar rolling trend
+            if len(price_hist_1m) > TREND_LB:
+                trend = price_hist_1m[-1] - price_hist_1m[-(TREND_LB + 1)]
             else:
-                mae_now = (tick_high - entry_price) / TICK
-            if mae_now >= 100:
-                pt = (tick_price - entry_price) / TICK if direction == 'LONG' else (entry_price - tick_price) / TICK
-                trades.append({
-                    'time': datetime.utcfromtimestamp(tick_ts).strftime('%H:%M:%S'),
-                    'dir': direction, 'pnl': pt * TV,
-                    'exit': 'catastrophic_sl_1s', 'held': bars_held_1m, 'peak': peak_pnl,
-                })
-                in_pos = False
+                trend = 0.0
 
-        # 1m bar complete? (minute boundary changed)
-        if tick_minute == current_minute:
-            continue
+            time_str = datetime.utcfromtimestamp(timestamp).strftime('%H:%M')
 
-        # New minute started — process the completed 1m bar
-        completed_minute = current_minute
-        current_minute = tick_minute
+            # Position management at 1m resolution
+            if in_pos:
+                bars_held_1m += 1
+                pt = (price - entry_price) / TICK if direction == 'LONG' else (entry_price - price) / TICK
+                pnl = pt * TV
+                mae = (entry_price - low) / TICK if direction == 'LONG' else (high - entry_price) / TICK
+                peak_pnl = max(peak_pnl, pnl)
+                if pnl > 0:
+                    was_profitable = True
 
-        # === 1M BAR COMPLETE — run Nightmare ===
-        _1m_bar = pd.DataFrame([{
-            'timestamp': agg_ts, 'open': agg_open, 'high': agg_high,
-            'low': agg_low, 'close': agg_close, 'volume': agg_vol,
-        }])
+                ex = None
+                strat = active_strategy if 'active_strategy' in dir() else 'reversion'
 
-        # Reset aggregator for the new minute (current tick starts it)
-        agg_open = tick_open
-        agg_ts = tick_ts
-        agg_high = tick_high
-        agg_low = tick_low
-        agg_vol = tick_vol
-
-        price = agg_close
-        high = _1m_bar['high'].iloc[0]
-        low = _1m_bar['low'].iloc[0]
-        open_price = _1m_bar['open'].iloc[0]
-        volume = _1m_bar['volume'].iloc[0]
-        timestamp = agg_ts
-
-        # Update histories
-        price_hist_1m.append(price)
-        vol_hist_1m.append(volume)
-        if len(price_hist_1m) > 500:
-            price_hist_1m = price_hist_1m[-500:]
-            vol_hist_1m = vol_hist_1m[-500:]
-
-        # SFE on accumulated 1m data
-        running_1m = pd.concat([running_1m, _1m_bar], ignore_index=True)
-        # Keep full day + warmup context for SFE (no trimming)
-
-        states = sfe.batch_compute_states(running_1m)
-        st = states[-1]
-        st = st['state'] if isinstance(st, dict) else st
-        del states
-
-        # 13D features
-        feat = extract_13d_single(st, price, high, low, open_price, volume, timestamp,
-                                   price_hist_1m, vol_hist_1m, prev_vel)
-        prev_vel = getattr(st, 'velocity', 0.0)
-
-        z = feat[5]
-        vr = feat[8]
-        lam = vr - 1.0
-
-        # 15-bar rolling trend
-        if len(price_hist_1m) > TREND_LB:
-            trend = price_hist_1m[-1] - price_hist_1m[-(TREND_LB + 1)]
-        else:
-            trend = 0.0
-
-        time_str = datetime.utcfromtimestamp(timestamp).strftime('%H:%M')
-
-        # Position management at 1m resolution
-        if in_pos:
-            bars_held_1m += 1
-            pt = (price - entry_price) / TICK if direction == 'LONG' else (entry_price - price) / TICK
-            pnl = pt * TV
-            mae = (entry_price - low) / TICK if direction == 'LONG' else (high - entry_price) / TICK
-            peak_pnl = max(peak_pnl, pnl)
-            if pnl > 0:
-                was_profitable = True
-
-            ex = None
-            strat = active_strategy if 'active_strategy' in dir() else 'reversion'
-
-            # Trajectory logging — every 1m bar while in trade
-            _trend_now = price_hist_1m[-1] - price_hist_1m[-(TREND_LB+1)] if len(price_hist_1m) > TREND_LB else 0
-            _giveback_pct = (1 - pnl / peak_pnl) * 100 if peak_pnl > 0 else 0
-            _dmi_now = feat[0]
-            trajectory_log.append({
-                'trade_id': len(trades), 'bar': bars_held_1m,
-                'timestamp': timestamp, 'time': time_str,
-                'price': price, 'pnl': pnl, 'peak_pnl': peak_pnl,
-                'giveback_pct': _giveback_pct,
-                'z_se': z, 'lam': lam, 'vr': vr,
-                'trend_15': _trend_now, 'dmi_1m': _dmi_now,
-                'strategy': strat, 'direction': direction,
-                'was_profitable': was_profitable,
-                # Distance to each exit threshold
-                'dist_mean_reached': abs(z) - 0.5,       # negative = close to triggering
-                'dist_lambda_flip': 0.3 - lam,            # negative = close to triggering
-                'dist_giveback_50': (pnl / peak_pnl - 0.5) if peak_pnl > 2 else 99,
-                'dist_sl': 160 - mae,                     # how far from catastrophic SL
-            })
-
-            if strat in ('reversion', 'cautious_reversion', 'macro_dip'):
-                # STRATEGY 1/3 EXITS: Nightmare reversion (cautious has shorter HC)
-                if abs(z) < 0.5 and bars_held_1m > 1:
-                    ex = 'mean_reached'
-                elif lam > 0.3 and bars_held_1m > 1:
-                    ex = 'lambda_flip'
-                elif was_profitable and peak_pnl > 2 and pnl < peak_pnl * 0.5:
-                    ex = 'profit_hold_exit'
-                elif not was_profitable and bars_held_1m >= 2:
-                    _trend_now = price_hist_1m[-1] - price_hist_1m[-(TREND_LB+1)] if len(price_hist_1m) > TREND_LB else 0
-                    _dmi_now = feat[0]
-                    _trend_opposes = (direction == 'LONG' and _trend_now < -5) or \
-                                     (direction == 'SHORT' and _trend_now > 5)
-                    _dmi_opposes = (direction == 'LONG' and _dmi_now < -2) or \
-                                   (direction == 'SHORT' and _dmi_now > 2)
-
-                    # Cautious reversion: shorter leash (cut at bar 2)
-                    if active_strategy == 'cautious_reversion':
-                        if bars_held_1m >= 2:
-                            ex = 'cautious_hc_loss'
-                    elif (_trend_opposes and _dmi_opposes) or bars_held_1m >= HC:
-                        ex = 'half_cycle_loss'
-                elif was_profitable and bars_held_1m >= MAX_HOLD:
-                    ex = 'max_hold_profit'
-
-            elif strat in ('trend_ride', 'reversal_to_trend'):
-                # STRATEGY 2 EXITS: ride the trend
+                # Trajectory logging — every 1m bar while in trade
                 _trend_now = price_hist_1m[-1] - price_hist_1m[-(TREND_LB+1)] if len(price_hist_1m) > TREND_LB else 0
-
-                # Exit: trend flipped to OPPOSITE direction past MIN_MOVE
-                _trend_flipped = (direction == 'LONG' and _trend_now < -MIN_MOVE) or \
-                                 (direction == 'SHORT' and _trend_now > MIN_MOVE)
-                if _trend_flipped and bars_held_1m > 2:
-                    ex = 'trend_exhausted'
-                # Exit: never profitable after 6 bars
-                elif not was_profitable and bars_held_1m >= 6:
-                    ex = 'trend_hc_loss'
-                # NO profit_hold — let it ride. Only SL protects.
-                # NO max_hold — uncapped upside. Max risk = $80 SL.
-
-            if ex:
-                trades.append({
-                    'time': time_str, 'dir': direction, 'pnl': pnl,
-                    'exit': ex, 'held': bars_held_1m, 'peak': peak_pnl,
-                    'strategy': active_strategy,
+                _giveback_pct = (1 - pnl / peak_pnl) * 100 if peak_pnl > 0 else 0
+                _dmi_now = feat[0]
+                trajectory_log.append({
+                    'trade_id': len(trades), 'bar': bars_held_1m,
+                    'timestamp': timestamp, 'time': time_str,
+                    'price': price, 'pnl': pnl, 'peak_pnl': peak_pnl,
+                    'giveback_pct': _giveback_pct,
+                    'z_se': z, 'lam': lam, 'vr': vr,
+                    'trend_15': _trend_now, 'dmi_1m': _dmi_now,
+                    'strategy': strat, 'direction': direction,
+                    'was_profitable': was_profitable,
+                    # Distance to each exit threshold
+                    'dist_mean_reached': abs(z) - 0.5,       # negative = close to triggering
+                    'dist_lambda_flip': 0.3 - lam,            # negative = close to triggering
+                    'dist_giveback_50': (pnl / peak_pnl - 0.5) if peak_pnl > 2 else 99,
+                    'dist_sl': 160 - mae,                     # how far from catastrophic SL
                 })
 
-                # STRATEGY 4: REVERSAL-TO-TREND
-                # When reversion fails (profit_hold_exit), the trend is strong
-                # Immediately flip to trend direction
-                if ex in ('profit_hold_exit', 'half_cycle_loss', 'cautious_hc_loss') and strat in ('reversion', 'cautious_reversion'):
+                if strat in ('reversion', 'cautious_reversion', 'macro_dip'):
+                    # STRATEGY 1/3 EXITS: Nightmare reversion (cautious has shorter HC)
+                    if abs(z) < 0.5 and bars_held_1m > 1:
+                        ex = 'mean_reached'
+                    elif lam > 0.3 and bars_held_1m > 1:
+                        ex = 'lambda_flip'
+                    elif was_profitable and peak_pnl > 2 and pnl < peak_pnl * 0.5:
+                        ex = 'profit_hold_exit'
+                    elif not was_profitable and bars_held_1m >= 2:
+                        _trend_now = price_hist_1m[-1] - price_hist_1m[-(TREND_LB+1)] if len(price_hist_1m) > TREND_LB else 0
+                        _dmi_now = feat[0]
+                        _trend_opposes = (direction == 'LONG' and _trend_now < -5) or \
+                                         (direction == 'SHORT' and _trend_now > 5)
+                        _dmi_opposes = (direction == 'LONG' and _dmi_now < -2) or \
+                                       (direction == 'SHORT' and _dmi_now > 2)
+
+                        # Cautious reversion: shorter leash (cut at bar 2)
+                        if active_strategy == 'cautious_reversion':
+                            if bars_held_1m >= 2:
+                                ex = 'cautious_hc_loss'
+                        elif (_trend_opposes and _dmi_opposes) or bars_held_1m >= HC:
+                            ex = 'half_cycle_loss'
+                    elif was_profitable and bars_held_1m >= MAX_HOLD:
+                        ex = 'max_hold_profit'
+
+                elif strat in ('trend_ride', 'reversal_to_trend'):
+                    # STRATEGY 2 EXITS: ride the trend
                     _trend_now = price_hist_1m[-1] - price_hist_1m[-(TREND_LB+1)] if len(price_hist_1m) > TREND_LB else 0
-                    if abs(_trend_now) > MIN_MOVE:
-                        # Re-enter in the trend direction (opposite of failed reversion)
-                        flip_dir = 'SHORT' if direction == 'LONG' else 'LONG'
-                        in_pos = True
-                        direction = flip_dir
-                        entry_price = price
-                        bars_held_1m = 0
-                        peak_pnl = 0.0
-                        was_profitable = False
-                        active_strategy = 'reversal_to_trend'
-                        continue
 
-                in_pos = False
+                    # Exit: trend flipped to OPPOSITE direction past MIN_MOVE
+                    _trend_flipped = (direction == 'LONG' and _trend_now < -MIN_MOVE) or \
+                                     (direction == 'SHORT' and _trend_now > MIN_MOVE)
+                    if _trend_flipped and bars_held_1m > 2:
+                        ex = 'trend_exhausted'
+                    # Exit: never profitable after 6 bars
+                    elif not was_profitable and bars_held_1m >= 6:
+                        ex = 'trend_hc_loss'
+                    # NO profit_hold — let it ride. Only SL protects.
+                    # NO max_hold — uncapped upside. Max risk = $80 SL.
 
-        # Entry at 1m resolution — TWO STRATEGIES
-        if not in_pos:
-            # Get macro state
-            idx_1h = np.searchsorted(ts_1h, timestamp, side='right') - 1
-            dmi_1h = feats_1h[idx_1h, 0] if 0 <= idx_1h < len(feats_1h) else 0
-            idx_1d = np.searchsorted(ts_1d, timestamp, side='right') - 1
-            dmi_1d = feats_1d[idx_1d, 0] if 0 <= idx_1d < len(feats_1d) else 0
-            dmi_1m = feat[0]
+                if ex:
+                    trades.append({
+                        'time': time_str, 'dir': direction, 'pnl': pnl,
+                        'exit': ex, 'held': bars_held_1m, 'peak': peak_pnl,
+                        'strategy': active_strategy,
+                    })
 
-            strategy = None
-            direction = None
+                    # STRATEGY 4: REVERSAL-TO-TREND
+                    # When reversion fails (profit_hold_exit), the trend is strong
+                    # Immediately flip to trend direction
+                    if ex in ('profit_hold_exit', 'half_cycle_loss', 'cautious_hc_loss') and strat in ('reversion', 'cautious_reversion'):
+                        _trend_now = price_hist_1m[-1] - price_hist_1m[-(TREND_LB+1)] if len(price_hist_1m) > TREND_LB else 0
+                        if abs(_trend_now) > MIN_MOVE:
+                            # Re-enter in the trend direction (opposite of failed reversion)
+                            flip_dir = 'SHORT' if direction == 'LONG' else 'LONG'
+                            in_pos = True
+                            direction = flip_dir
+                            entry_price = price
+                            bars_held_1m = 0
+                            peak_pnl = 0.0
+                            was_profitable = False
+                            active_strategy = 'reversal_to_trend'
+                            continue
 
-            if abs(z) > ROCHE and lam < 0:
-                rev = 'SHORT' if z > 0 else 'LONG'
+                    in_pos = False
 
-                # Check: is trend STRONG and in the SAME direction as z?
-                # z > 0 means price above mean. trend > 0 means price going up.
-                # If both positive or both negative → trend is pushing z further away
-                TREND_STRONG = 20  # 20 points = strong trend
-                z_and_trend_same = (z > 0 and trend > TREND_STRONG) or (z < 0 and trend < -TREND_STRONG)
-                dmi_with_z = (z > 0 and dmi_1m > 3) or (z < 0 and dmi_1m < -3)
+            # Entry at 1m resolution — TWO STRATEGIES
+            if not in_pos:
+                # Get macro state
+                idx_1h = np.searchsorted(ts_1h, timestamp, side='right') - 1
+                dmi_1h = feats_1h[idx_1h, 0] if 0 <= idx_1h < len(feats_1h) else 0
+                idx_1d = np.searchsorted(ts_1d, timestamp, side='right') - 1
+                dmi_1d = feats_1d[idx_1d, 0] if 0 <= idx_1d < len(feats_1d) else 0
+                dmi_1m = feat[0]
 
-                # Accel check: is price still accelerating in the trend direction?
-                accel = feat[6]  # price_accel
-                accel_with_trend = (trend > 0 and accel > 0) or (trend < 0 and accel < 0)
+                strategy = None
+                direction = None
 
-                if z_and_trend_same and dmi_with_z and accel_with_trend:
-                    # STRATEGY 2: TREND RIDE
-                    # z is extreme, trend + DMI + accel all push same direction
-                    # Don't fade — ride the trend
-                    trend_dir = 'LONG' if trend > 0 else 'SHORT'
-                    strategy = 'trend_ride'
-                    direction = trend_dir
-                else:
-                    # Loser profile check (tighter thresholds from RCA):
-                    # HCL avg: trend=12.8, dmi=4.05
-                    # WIN avg: trend=5.8,  dmi=0.83
-                    # Threshold at midpoint: trend>10, dmi>2
-                    _trend_opp = (rev == 'LONG' and trend < -10) or (rev == 'SHORT' and trend > 10)
-                    _dmi_opp = (rev == 'LONG' and dmi_1m < -2) or (rev == 'SHORT' and dmi_1m > 2)
+                if abs(z) > ROCHE and lam < 0:
+                    rev = 'SHORT' if z > 0 else 'LONG'
 
-                    rev_sign = 1.0 if rev == 'LONG' else -1.0
-                    score = 0.0
+                    # Check: is trend STRONG and in the SAME direction as z?
+                    # z > 0 means price above mean. trend > 0 means price going up.
+                    # If both positive or both negative → trend is pushing z further away
+                    TREND_STRONG = 20  # 20 points = strong trend
+                    z_and_trend_same = (z > 0 and trend > TREND_STRONG) or (z < 0 and trend < -TREND_STRONG)
+                    dmi_with_z = (z > 0 and dmi_1m > 3) or (z < 0 and dmi_1m < -3)
 
-                    if abs(trend) > MIN_MOVE:
-                        trend_sign = 1.0 if trend > 0 else -1.0
-                        score += 0.5 * (rev_sign * trend_sign)
+                    # Accel check: is price still accelerating in the trend direction?
+                    accel = feat[6]  # price_accel
+                    accel_with_trend = (trend > 0 and accel > 0) or (trend < 0 and accel < 0)
 
-                    if abs(dmi_1h) > 3:
-                        dmi_1h_sign = 1.0 if dmi_1h > 0 else -1.0
-                        score += 0.3 * (rev_sign * dmi_1h_sign)
+                    if z_and_trend_same and dmi_with_z and accel_with_trend:
+                        # STRATEGY 2: TREND RIDE
+                        # z is extreme, trend + DMI + accel all push same direction
+                        # Don't fade — ride the trend
+                        trend_dir = 'LONG' if trend > 0 else 'SHORT'
+                        strategy = 'trend_ride'
+                        direction = trend_dir
+                    else:
+                        # Loser profile check (tighter thresholds from RCA):
+                        # HCL avg: trend=12.8, dmi=4.05
+                        # WIN avg: trend=5.8,  dmi=0.83
+                        # Threshold at midpoint: trend>10, dmi>2
+                        _trend_opp = (rev == 'LONG' and trend < -10) or (rev == 'SHORT' and trend > 10)
+                        _dmi_opp = (rev == 'LONG' and dmi_1m < -2) or (rev == 'SHORT' and dmi_1m > 2)
 
-                    if abs(dmi_1d) > 3:
-                        dmi_1d_sign = 1.0 if dmi_1d > 0 else -1.0
-                        score += 0.2 * (rev_sign * dmi_1d_sign)
+                        rev_sign = 1.0 if rev == 'LONG' else -1.0
+                        score = 0.0
 
-                    CONVICTION_MIN = -0.3
+                        if abs(trend) > MIN_MOVE:
+                            trend_sign = 1.0 if trend > 0 else -1.0
+                            score += 0.5 * (rev_sign * trend_sign)
 
-                    if score >= CONVICTION_MIN:
-                        if _trend_opp and _dmi_opp:
-                            strategy = 'cautious_reversion'
-                        else:
-                            strategy = 'reversion'
-                        direction = rev
+                        if abs(dmi_1h) > 3:
+                            dmi_1h_sign = 1.0 if dmi_1h > 0 else -1.0
+                            score += 0.3 * (rev_sign * dmi_1h_sign)
 
-            if strategy and direction:
-                in_pos = True
-                entry_price = price
-                bars_held_1m = 0
-                peak_pnl = 0.0
-                was_profitable = False
-                active_strategy = strategy
+                        if abs(dmi_1d) > 3:
+                            dmi_1d_sign = 1.0 if dmi_1d > 0 else -1.0
+                            score += 0.2 * (rev_sign * dmi_1d_sign)
 
-    # Force close
-    if in_pos:
-        pt = (tick_price - entry_price) / TICK if direction == 'LONG' else (entry_price - tick_price) / TICK
-        trades.append({'time': time_str, 'dir': direction, 'pnl': pt * TV,
-                       'exit': 'end_of_day', 'held': bars_held_1m, 'peak': peak_pnl})
+                        CONVICTION_MIN = -0.3
 
-    # Report
-    t = pd.DataFrame(trades)
+                        if score >= CONVICTION_MIN:
+                            if _trend_opp and _dmi_opp:
+                                strategy = 'cautious_reversion'
+                            else:
+                                strategy = 'reversion'
+                            direction = rev
+
+                if strategy and direction:
+                    in_pos = True
+                    entry_price = price
+                    bars_held_1m = 0
+                    peak_pnl = 0.0
+                    was_profitable = False
+                    active_strategy = strategy
+
+            # Force close at end of day
+            if in_pos:
+                pt = (tick_price - entry_price) / TICK if direction == 'LONG' else (entry_price - tick_price) / TICK
+                trades.append({'time': time_str, 'dir': direction, 'pnl': pt * TV,
+                               'exit': 'end_of_day', 'held': bars_held_1m, 'peak': peak_pnl,
+                               'strategy': active_strategy})
+
+            # Per-day results
+            day_pnl = sum(t['pnl'] for t in trades)
+            day_trades = len(trades)
+            day_wins = sum(1 for t in trades if t['pnl'] > 0)
+            daily_summary.append({'day': target_date, 'trades': day_trades,
+                                   'pnl': day_pnl, 'wins': day_wins})
+
+            # Add day column and accumulate
+            for t in trades:
+                t['day'] = target_date
+            all_trades_all_days.extend(trades)
+            all_traj_all_days.extend(trajectory_log)
+
+        del running_1m; gc.collect()
+    # === END DAY LOOP ===
+
+    # Aggregate Report
+    t = pd.DataFrame(all_trades_all_days)
+    if len(t) == 0:
+        print('No trades.')
+        return
+
     total = t['pnl'].sum()
     wr = (t['pnl'] > 0).mean() * 100
+    n_days = len(daily_summary)
     nl = len(t[t['dir'] == 'LONG'])
     ns = len(t[t['dir'] == 'SHORT'])
 
-    print(f'RESULTS (zero lookahead):')
-    print(f'  {len(t)} trades | WR={wr:.1f}% | PnL=${total:,.2f} | $/tr=${total/max(len(t),1):,.2f}')
+    print(f'\nRESULTS (zero lookahead, {n_days} days):')
+    print(f'  {len(t)} trades | WR={wr:.1f}% | PnL=${total:,.2f} | $/day=${total/max(n_days,1):,.2f}')
     print(f'  LONG={nl} SHORT={ns} | Avg hold={t["held"].mean():.1f} bars')
     print()
 
@@ -561,19 +594,34 @@ def main():
         print(f'  {ex:<22} {len(et):>5}  WR={wr_e:>5.1f}%  ${et["pnl"].sum():>9,.2f}  ${et["pnl"].mean():>7,.2f}/tr')
 
     print()
+
+    # Daily ledger
+    print(f'DAILY:')
+    cumul = 0
+    for d in daily_summary:
+        cumul += d['pnl']
+        wr_d = d['wins'] / d['trades'] * 100 if d['trades'] else 0
+        marker = ' <<<' if d['pnl'] > 200 else ' !!!' if d['pnl'] < -200 else ''
+        print(f'  {d["day"]} {d["trades"]:>5} trades {wr_d:>4.0f}% ${d["pnl"]:>9,.2f} cumul=${cumul:>9,.2f}{marker}')
+
+    winning_days = sum(1 for d in daily_summary if d['pnl'] > 0)
+    print(f'\n  Winning days: {winning_days}/{n_days}')
+
     # PnL mode
     pnl_rounded = (t['pnl'] / 1).round() * 1
     mode = Counter(pnl_rounded).most_common(3)
     print(f'  PnL mode: {mode}')
 
-    # Save trajectory and trades
+    # Save
     os.makedirs('reports/findings', exist_ok=True)
-    t.to_csv(f'reports/findings/nightmare_day_{TARGET}_trades.csv', index=False)
-    traj = pd.DataFrame(trajectory_log)
+    label = TARGET if len(target_days) == 1 else f'{target_days[0]}_to_{target_days[-1]}'
+    t.to_csv(f'reports/findings/nightmare_{label}_trades.csv', index=False)
+    traj = pd.DataFrame(all_traj_all_days)
     if len(traj) > 0:
-        traj.to_csv(f'reports/findings/nightmare_day_{TARGET}_trajectory.csv', index=False)
-        print(f'\n  Trades: reports/findings/nightmare_day_{TARGET}_trades.csv ({len(t)} trades)')
-        print(f'  Trajectory: reports/findings/nightmare_day_{TARGET}_trajectory.csv ({len(traj)} bars)')
+        traj.to_csv(f'reports/findings/nightmare_{label}_trajectory.csv', index=False)
+    print(f'\n  Trades: reports/findings/nightmare_{label}_trades.csv ({len(t)} trades)')
+    if len(traj) > 0:
+        print(f'  Trajectory: reports/findings/nightmare_{label}_trajectory.csv ({len(traj)} bars)')
 
 
 if __name__ == '__main__':
