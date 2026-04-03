@@ -1,0 +1,3 @@
+2024-05-18 - Optimize swing noise computation with Numba JIT
+Learning: For rolling window aggregations that use `sliding_window_view` combined with slice allocations such as `np.maximum.accumulate` or `.max()` in a loop, Python overhead is massive for large arrays (e.g. 100k rows takes ~1s). Rewriting this as a direct scalar iteration loop with Numba `prange` yields a >100x speedup while exactly preserving the numerical semantics.
+Action: Whenever tracking running metrics (like `max_dd`/`max_du` or cumulative mins/maxes) over a sliding window for every bar in a DataFrame, use a custom `@njit(cache=True, parallel=True)` function rather than vectorized numpy calls inside a python `for` loop.
