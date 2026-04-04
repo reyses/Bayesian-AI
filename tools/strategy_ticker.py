@@ -390,6 +390,9 @@ def run_day(day_file, model, brain, device, history_1m, equity, daily_pnl,
               f'{n_bars/_t_total:.0f} bars/sec | '
               f'{_t_ticker_total/n_bars*1000:.1f}ms/bar')
 
+    if verbose:
+        print(f'\n{ticker.perf_report()}')
+
     # Free GPU memory between days
     ticker.cleanup()
 
