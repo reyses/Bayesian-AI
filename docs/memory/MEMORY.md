@@ -30,18 +30,15 @@
 - **Base measurements grounded**: See `memory/feedback_base_measurements.md`
 - **Checkpoint every step**: All multi-step pipelines must save to disk after each step. See `memory/feedback_checkpoint_every_step.md`
 
-## **CURRENT PRIORITIES (2026-04-03)**
-- **NEW SYSTEM: 79D + NN + Half-Life Exit**: See `memory/project_new_system_design.md`
-  - Spec: `docs/Active/FEATURE_VECTOR_79D_SPEC.md`
-  - Exit math: `docs/Active/EXIT_MATH_ANALYSIS.md`
-  - 10 features x 6 TFs = 60D core + 19D helpers = 79D
-  - NN predicts direction + hold duration (signal half-life)
-  - Unified exit: envelope decay + survival modulation + giveback accelerator
-  - 5s atomic bar, 1m decision anchor
-  - Advance engine ABANDONED (100% peak reversal, 50.1% WR coin flip)
-  - Next: implement extract_79d(), training label generator, NN
-- **Clean ATLAS rebuilt**: Databento NQ 1s + MNQ 1m/1h/1D, all TFs built
-- **Nightmare ticker baseline on clean data**: -$2,427/29 days (phantom spikes were fake edge)
+## **CURRENT PRIORITIES (2026-04-04)**
+- **nn_v2 PIPELINE**: Clean isolated folder, no changes to existing code
+  - Architecture: ticker → aggregator → SFE → 79D → NMP → tree+NN
+  - NMP baseline: $10/day IS (9,252 trades), $65/day OOS (3,172 trades)
+  - Decision tree: 11x PnL improvement by filtering 60% of bad trades ($32K from 3,702 trades)
+  - Top features: 5m_velocity, 15m_velocity, 1m_velocity (TF momentum alignment)
+  - No black boxes: tree splits are readable if/then rules
+  - Next: validate tree on OOS, build segments.py, NN refinement, ai.py glue
+- **79D Dataset**: 345 days at 1m resolution built (DATA/FEATURES_79D_1m/)
 - **NQ goal**: 3 months to NQ ($400 noise budget). See `memory/project_nq_goal.md`
 
 ## **DEPRIORITIZED (2026-04-03)**
