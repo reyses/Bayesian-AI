@@ -37,6 +37,7 @@ from core.features_79d import (
     FEATURE_NAMES_79D, N_FEATURES, TF_ORDER
 )
 from core.incremental_ticker import IncrementalTicker
+from core.regret_tracker import RegretTracker
 from core.statistical_field_engine import StatisticalFieldEngine
 from core.strategy_brain import StrategyBrain, compute_state_bin
 from training.train_strategy_nn import StrategyRouterNN, DIR_CLASSES, DURATION_BUCKETS
@@ -130,8 +131,11 @@ def run_day(day_file, model, brain, device, history_1m, equity, daily_pnl,
     # ════════════════════════════════════════════════════════════════
     # TICKER: feeds bars one at a time. Zero lookahead by construction.
     # History is pre-loaded (all closed, safe). Ticker never sees future.
+    # REGRET: forensics only — uses full day closes AFTER the fact.
     # ════════════════════════════════════════════════════════════════
     ticker = IncrementalTicker(history_1m=history_1m)
+    regret = RegretTracker()
+    closes = today_1m['close'].values  # full day — regret tracker uses this for what-if
 
     # Position state (WRAPPER concern — not the ticker's business)
     in_pos = False
@@ -336,6 +340,15 @@ def run_day(day_file, model, brain, device, history_1m, equity, daily_pnl,
             entry_feat = feat.copy()  # save 79D at entry
             entry_risk_budget = max_risk  # hard stop locked at entry
 
+            # Regret: record what-if (forensics — uses full day closes)
+            regret.record_entry(
+                bar_idx=bar_idx, chosen_dir=direction,
+                chosen_dur=int(calibrated['duration']),
+                entry_price=price, closes=closes,
+                nn_p_profit=calibrated['p_profit'],
+                nn_expected_pnl=calibrated['expected_pnl'],
+            )
+
             if verbose:
                 # Show the 79D state that drove the decision
                 from core.features_79d import N_CORE, CORE_FEATURE_NAMES
@@ -392,6 +405,7 @@ def run_day(day_file, model, brain, device, history_1m, equity, daily_pnl,
 
     if verbose:
         print(f'\n{ticker.perf_report()}')
+        print(f'\n{regret.report()}')
 
     # Free GPU memory between days
     ticker.cleanup()
