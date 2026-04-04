@@ -32,8 +32,8 @@ OUTPUT_DIR = 'DATA/NMP_TREE'
 def parse_args():
     import argparse
     p = argparse.ArgumentParser(description='Iterative decision tree on NMP trades')
-    p.add_argument('--target-wr', type=float, default=0.75, help='Target WR per branch')
-    p.add_argument('--min-ev', type=float, default=1.0, help='Min expected value $/trade')
+    p.add_argument('--target-wr', type=float, default=0.55, help='Min WR per branch (just above noise)')
+    p.add_argument('--min-ev', type=float, default=0.0, help='Min expected value $/trade')
     p.add_argument('--min-leaf', type=int, default=20, help='Min trades per branch')
     p.add_argument('--max-depth', type=int, default=10, help='Max split depth')
     p.add_argument('--n-folds', type=int, default=5, help='CV folds for validation')
@@ -81,10 +81,21 @@ def compute_ev(pnls):
     return wr * avg_win - (1 - wr) * avg_loss
 
 
+def compute_drawdown(pnls):
+    """Max drawdown from cumulative PnL."""
+    cumul = np.cumsum(pnls)
+    peak = np.maximum.accumulate(cumul)
+    dd = cumul - peak
+    return dd.min() if len(dd) > 0 else 0.0
+
+
 def compute_score(pnls):
-    """Score = EV × sqrt(N). Rewards both edge quality and trade frequency."""
-    ev = compute_ev(pnls)
-    return ev * np.sqrt(len(pnls))
+    """Score = total_PnL / (1 + |max_drawdown|). Maximizes PnL, penalizes drawdown."""
+    if len(pnls) == 0:
+        return 0.0
+    total = np.sum(pnls)
+    dd = abs(compute_drawdown(pnls))
+    return total / (1.0 + dd)
 
 
 def validate_tree_cv(X, y, pnls, max_depth, min_leaf, n_folds):
@@ -184,9 +195,13 @@ def iterative_tree(df, feature_cols, args):
                 val_wr = 0.0
                 val_ev = 0.0
 
+            # Branch drawdown
+            dd = compute_drawdown(leaf_pnls)
+
             # Decision: trade this branch?
+            # Tradeable if: validated WR above noise AND EV positive AND PnL positive
             tradeable = (val_wr >= args.target_wr and val_ev >= args.min_ev
-                        and n >= args.min_leaf)
+                        and leaf_pnls.sum() > 0 and n >= args.min_leaf)
 
             if tradeable:
                 trade_mask |= mask
@@ -198,6 +213,8 @@ def iterative_tree(df, feature_cols, args):
                 'ev': ev,
                 'total_pnl': leaf_pnls.sum(),
                 'avg_pnl': leaf_pnls.mean(),
+                'max_dd': dd,
+                'pnl_dd_ratio': leaf_pnls.sum() / (1.0 + abs(dd)),
                 'val_wr': val_wr,
                 'val_ev': val_ev,
                 'tradeable': tradeable,
