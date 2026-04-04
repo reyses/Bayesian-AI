@@ -1,0 +1,286 @@
+========================================================================
+LIVE SESSION REPORT  (run: 2026-03-27 15:39:45)
+  Account:    DEMO6872628
+  Instrument: MNQ 03-26
+  Anchor TF:  1m  (depth=5)
+  Duration:   0h 2m  (0 bars)
+========================================================================
+
+── DRAWDOWN & SURVIVAL ──
+  Max Consecutive Losses: 0
+  Max Consec Loss $:      $0.00
+  Peak Equity:            $+0.00
+  Max Session Drawdown:   $0.00
+
+SCORECARD: LIVE — no trades
+
+========================================================================
+GATE REJECTION FUNNEL
+========================================================================
+  Bars with candidates:                  0
+  Total candidates evaluated:            1
+    Pattern Quality  (headroom/physics):          0  (0.0%)
+    Depth Filter     (depth blacklist):           0  (0.0%)
+    Template Match   (cluster dist):              0  (0.0%)
+    Brain Reject     (unprofitable):              0  (0.0%)
+    Low Conviction   (belief too weak):           0  (0.0%)
+    Screening Filter (fission/hours):             0  (0.0%)
+    Direction Unclear (dir conf too low):          0  (0.0%)
+    Passed all gates -> traded:                   0  (0.0%)
+
+========================================================================
+ACCOUNT SNAPSHOT
+========================================================================
+  Cash Value:      $  100,000.00
+  Unrealized PnL:  $       +0.00
+  Net Liquidation: $  100,000.00
+  Profit Factor:   0.00
+  Avg PnL/trade:   $+0.00
+  Gross Win:       $+0.00
+  Gross Loss:      $0.00
+
+========================================================================
+TRADE LOG
+========================================================================
+  No trades this session.
+
+========================================================================
+========================================================================
+LIVE SESSION REPORT  (run: 2026-03-27 15:47:42)
+  Account:    DEMO6872628
+  Instrument: MNQ 03-26
+  Anchor TF:  1m  (depth=5)
+  Duration:   0h 7m  (0 bars)
+========================================================================
+
+── DRAWDOWN & SURVIVAL ──
+  Max Consecutive Losses: 0
+  Max Consec Loss $:      $0.00
+  Peak Equity:            $+0.00
+  Max Session Drawdown:   $0.00
+
+SCORECARD: LIVE — no trades
+
+========================================================================
+GATE REJECTION FUNNEL
+========================================================================
+  Bars with candidates:                  0
+  Total candidates evaluated:            1
+    Pattern Quality  (headroom/physics):          0  (0.0%)
+    Depth Filter     (depth blacklist):           0  (0.0%)
+    Template Match   (cluster dist):              0  (0.0%)
+    Brain Reject     (unprofitable):              0  (0.0%)
+    Low Conviction   (belief too weak):           0  (0.0%)
+    Screening Filter (fission/hours):             0  (0.0%)
+    Direction Unclear (dir conf too low):          0  (0.0%)
+    Passed all gates -> traded:                   0  (0.0%)
+
+========================================================================
+ACCOUNT SNAPSHOT
+========================================================================
+  Cash Value:      $  100,000.00
+  Unrealized PnL:  $       +0.00
+  Net Liquidation: $  100,000.00
+  Profit Factor:   0.00
+  Avg PnL/trade:   $+0.00
+  Gross Win:       $+0.00
+  Gross Loss:      $0.00
+
+========================================================================
+TRADE LOG
+========================================================================
+  No trades this session.
+
+========================================================================
+========================================================================
+LIVE SESSION REPORT  (run: 2026-03-27 18:18:52)
+  Account:    DEMO6872628
+  Instrument: MNQ 03-26
+  Anchor TF:  1m  (depth=5)
+  Duration:   1h 16m  (0 bars)
+========================================================================
+
+── DRAWDOWN & SURVIVAL ──
+  Max Consecutive Losses: 0
+  Max Consec Loss $:      $0.00
+  Peak Equity:            $+0.00
+  Max Session Drawdown:   $0.00
+
+SCORECARD: LIVE — no trades
+
+========================================================================
+GATE REJECTION FUNNEL
+========================================================================
+  Bars with candidates:                  0
+  Total candidates evaluated:            1
+    Pattern Quality  (headroom/physics):          0  (0.0%)
+    Depth Filter     (depth blacklist):           0  (0.0%)
+    Template Match   (cluster dist):              0  (0.0%)
+    Brain Reject     (unprofitable):              0  (0.0%)
+    Low Conviction   (belief too weak):           0  (0.0%)
+    Screening Filter (fission/hours):             0  (0.0%)
+    Direction Unclear (dir conf too low):          0  (0.0%)
+    Passed all gates -> traded:                   0  (0.0%)
+
+========================================================================
+ACCOUNT SNAPSHOT
+========================================================================
+  Cash Value:      $  100,000.00
+  Unrealized PnL:  $       +0.00
+  Net Liquidation: $  100,000.00
+  Profit Factor:   0.00
+  Avg PnL/trade:   $+0.00
+  Gross Win:       $+0.00
+  Gross Loss:      $0.00
+
+========================================================================
+TRADE LOG
+========================================================================
+  No trades this session.
+
+========================================================================
+========================================================================
+LIVE SESSION REPORT  (run: 2026-03-27 20:21:48)
+  Account:    DEMO6872628
+  Instrument: MNQ 03-26
+  Anchor TF:  1m  (depth=5)
+  Duration:   2h 2m  (533 bars)
+========================================================================
+
+── DRAWDOWN & SURVIVAL ──
+  Max Consecutive Losses: 6
+  Max Consec Loss $:      $86.00
+  Peak Equity:            $+93.00
+  Max Session Drawdown:   $113.00
+
+======================================================================
+SCORECARD: LIVE 2026-03-27 to 
+  Commit:   |  Generated: 2026-03-27 20:21:48
+  PnL: $47.00  |  Trades: 61  |  WR: 42.6%  |  PF: 1.12
+  $/trade: $0.77  |  $/day: $47  |  Max DD: $113
+======================================================================
+
+WHAT WORKS (PF > 1.5):
+  CNN3_duration              1 trades  PF= 0.00  $   +115.50  $+115.50/tr  WR=100%
+  CNN3_hard_sl              11 trades  PF= 1.22  $    +24.50  $  +2.23/tr  WR=27%
+
+WHAT HURTS (PF < 1.0):
+  CNN3_retreat              49 trades  PF= 0.66  $    -93.00  $  -1.90/tr  WR=45%
+  FIXABLE (50% recovery): ~$46 -> PnL could be $94
+
+HOLD DURATION:
+    <30s:     2 trades  $  -5.25/tr <-- OVER-HOLDING
+  30s-1m:    40 trades  $  -0.49/tr
+    1-2m:    17 trades  $  -1.09/tr
+    2-5m:     1 trades  $ -20.00/tr <-- OVER-HOLDING
+    10m+:     1 trades  $+115.50/tr
+
+DIRECTION:
+  LONG:    60 (98%)  WR=42%  PnL=$    -68.50
+  SHORT:     1 (2%)  WR=100%  PnL=$   +115.50
+
+======================================================================
+
+========================================================================
+PING-PONG DIRECTION REFINEMENT
+========================================================================
+  Flip count: 0
+  Template                LONG WR   LONG N   SHORT WR  SHORT N
+  ----------------------------------------------------------
+  PHYSICS                     41%       61        59%       61
+
+========================================================================
+GATE REJECTION FUNNEL
+========================================================================
+  Bars with candidates:                  0
+  Total candidates evaluated:            1
+    Pattern Quality  (headroom/physics):          0  (0.0%)
+    Depth Filter     (depth blacklist):           0  (0.0%)
+    Template Match   (cluster dist):              0  (0.0%)
+    Brain Reject     (unprofitable):              0  (0.0%)
+    Low Conviction   (belief too weak):           0  (0.0%)
+    Screening Filter (fission/hours):             0  (0.0%)
+    Direction Unclear (dir conf too low):          0  (0.0%)
+    Passed all gates -> traded:                   0  (0.0%)
+
+========================================================================
+ACCOUNT SNAPSHOT
+========================================================================
+  Cash Value:      $  100,047.00
+  Unrealized PnL:  $       +0.00
+  Net Liquidation: $  100,047.00
+  Profit Factor:   1.12
+  Avg PnL/trade:   $+0.77
+  Gross Win:       $+435.00
+  Gross Loss:      $388.00
+
+========================================================================
+TRADE LOG
+========================================================================
+    #  Time       Side        Entry       Exit        PnL Reason          Bars
+  --------------------------------------------------------------------
+    1  18:24:11   LONG    24,368.75  24,372.50 $    +7.50 CNN3_retreat       7
+    2  18:24:41   LONG    24,376.00  24,365.00 $   -22.00 CNN3_retreat       2
+    3  18:25:49   LONG    24,369.75  24,370.00 $    +0.50 CNN3_retreat       2
+    4  18:27:49   LONG    24,365.00  24,360.00 $   -10.00 CNN3_retreat       1
+    5  18:31:50   LONG    24,361.75  24,365.25 $    +7.00 CNN3_retreat       6
+    6  18:33:51   LONG    24,359.75  24,356.75 $    -6.00 CNN3_retreat       2
+    7  18:35:51   LONG    24,364.50  24,363.50 $    -2.00 CNN3_retreat       2
+    8  18:37:55   LONG    24,360.75  24,360.50 $    -0.50 CNN3_retreat       1
+    9  18:41:53   LONG    24,361.00  24,356.25 $    -9.50 CNN3_retreat       2
+   10  19:27:05   SHORT   24,359.75  24,302.00 $  +115.50 CNN3_duration     75
+   11  19:29:05   LONG    24,304.25  24,302.50 $    -3.50 CNN3_retreat       2
+   12  19:32:06   LONG    24,304.25  24,298.75 $   -11.00 CNN3_hard_sl       4
+   13  19:34:06   LONG    24,293.00  24,291.00 $    -4.00 CNN3_retreat       2
+   14  19:36:07   LONG    24,270.75  24,263.75 $   -14.00 CNN3_retreat       2
+   15  19:38:08   LONG    24,270.25  24,271.50 $    +2.50 CNN3_retreat       2
+   16  19:40:08   LONG    24,277.75  24,274.75 $    -6.00 CNN3_retreat       2
+   17  19:42:09   LONG    24,272.25  24,274.00 $    +3.50 CNN3_retreat       2
+   18  19:44:09   LONG    24,282.50  24,284.00 $    +3.00 CNN3_retreat       2
+   19  19:46:10   LONG    24,291.50  24,290.75 $    -1.50 CNN3_retreat       2
+   20  19:48:10   LONG    24,279.25  24,280.25 $    +2.00 CNN3_retreat       2
+   21  19:50:11   LONG    24,282.25  24,283.50 $    +2.50 CNN3_retreat       2
+   22  19:52:10   LONG    24,291.75  24,290.00 $    -3.50 CNN3_retreat       2
+   23  19:54:12   LONG    24,283.00  24,276.50 $   -13.00 CNN3_retreat       2
+   24  19:56:12   LONG    24,266.25  24,266.00 $    -0.50 CNN3_retreat       2
+   25  19:58:13   LONG    24,272.50  24,269.75 $    -5.50 CNN3_retreat       2
+   26  20:00:13   LONG    24,272.25  24,267.75 $    -9.00 CNN3_retreat       2
+   27  20:03:14   LONG    24,265.75  24,259.00 $   -13.50 CNN3_hard_sl       4
+   28  20:05:15   LONG    24,258.75  24,259.25 $    +1.00 CNN3_retreat       2
+   29  20:07:15   LONG    24,256.50  24,257.50 $    +2.00 CNN3_retreat       2
+   30  20:10:16   LONG    24,260.50  24,251.25 $   -18.50 CNN3_retreat       4
+   31  20:10:57   LONG    24,257.25  24,262.75 $   +11.00 CNN3_hard_sl       3
+   32  20:10:59   LONG    24,258.50  24,261.50 $    +6.00 CNN3_retreat       2
+   33  20:11:03   LONG    24,254.25  24,245.75 $   -17.00 CNN3_hard_sl       4
+   34  20:11:05   LONG    24,253.25  24,256.25 $    +6.00 CNN3_retreat       2
+   35  20:11:08   LONG    24,255.75  24,250.00 $   -11.50 CNN3_retreat       2
+   36  20:11:11   LONG    24,243.75  24,240.25 $    -7.00 CNN3_retreat       4
+   37  20:11:18   LONG    24,248.75  24,247.75 $    -2.00 CNN3_hard_sl       2
+   38  20:11:23   LONG    24,245.25  24,243.25 $    -4.00 CNN3_retreat       6
+   39  20:11:26   LONG    24,243.50  24,255.75 $   +24.50 CNN3_retreat       2
+   40  20:11:28   LONG    24,261.25  24,281.25 $   +40.00 CNN3_hard_sl       3
+   41  20:11:31   LONG    24,280.25  24,274.00 $   -12.50 CNN3_retreat       2
+   42  20:11:33   LONG    24,282.25  24,279.00 $    -6.50 CNN3_hard_sl       3
+   43  20:11:36   LONG    24,275.50  24,279.00 $    +7.00 CNN3_retreat       2
+   44  20:11:39   LONG    24,289.00  24,281.00 $   -16.00 CNN3_hard_sl       3
+   45  20:11:41   LONG    24,281.00  24,282.25 $    +2.50 CNN3_retreat       2
+   46  20:11:43   LONG    24,284.00  24,282.25 $    -3.50 CNN3_retreat       2
+   47  20:11:47   LONG    24,268.00  24,281.25 $   +26.50 CNN3_retreat       4
+   48  20:11:49   LONG    24,278.00  24,282.50 $    +9.00 CNN3_retreat       2
+   49  20:11:53   LONG    24,278.75  24,285.00 $   +12.50 CNN3_retreat       4
+   50  20:11:58   LONG    24,281.75  24,278.00 $    -7.50 CNN3_retreat       6
+   51  20:12:01   LONG    24,274.25  24,293.75 $   +39.00 CNN3_retreat       4
+   52  20:12:04   LONG    24,287.75  24,289.25 $    +3.00 CNN3_retreat       2
+   53  20:12:07   LONG    24,287.00  24,277.00 $   -20.00 CNN3_hard_sl       8
+   54  20:12:09   LONG    24,276.25  24,243.25 $   -66.00 CNN3_retreat       5
+   55  20:12:10   LONG    24,248.25  24,252.00 $    +7.50 CNN3_retreat       3
+   56  20:12:12   LONG    24,255.75  24,251.75 $    -8.00 CNN3_retreat       5
+   57  20:12:13   LONG    24,254.75  24,250.50 $    -8.50 CNN3_retreat       2
+   58  20:12:15   LONG    24,255.25  24,246.25 $   -18.00 CNN3_retreat       4
+   59  20:12:16   LONG    24,243.00  24,246.75 $    +7.50 CNN3_retreat       3
+   60  20:12:19   LONG    24,219.75  24,262.75 $   +86.00 CNN3_hard_sl       6
+   61  20:12:20   LONG    24,275.00  24,261.75 $   -26.50 CNN3_hard_sl       4
+  --------------------------------------------------------------------
+                                         TOTAL $   +47.00
+
+========================================================================
