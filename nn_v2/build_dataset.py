@@ -61,70 +61,103 @@ def load_tf_data(day_name: str, tf: str) -> pd.DataFrame:
 
 
 def process_day_bulk(day_name: str, resolution: str = '1m') -> pd.DataFrame:
-    """Process one day in bulk — load all TFs, run SFE once per TF on GPU, extract 79D.
+    """Process one day in bulk with partial higher TF bars.
 
-    No sequential bar feeding. Full day loaded at once. GPU batch processing.
+    1. Load anchor TF (1m) bars for the day
+    2. For each anchor bar, aggregate 1m bars up to that point into higher TFs
+       (partial bars — same as live would see at that moment)
+    3. Run SFE on each TF's accumulated bars, extract 79D
+
+    Higher TFs are re-aggregated at each step but SFE is only called when
+    the TF has a new bar (cached otherwise). Fast: ~6 SFE calls per TF per day
+    for higher TFs, 1 call per bar for anchor TF.
     """
     sfe = StatisticalFieldEngine()
 
-    # Load the anchor TF (what we output one row per bar for)
+    # Load anchor TF (also used to build higher TFs via aggregation)
     anchor_df = load_tf_data(day_name, resolution)
     if len(anchor_df) < SFE_MIN_BARS:
         return pd.DataFrame()
 
+    # Also load sub-anchor TFs directly if available (15s, 5s)
+    sub_tfs = {}
+    for tf in ['15s', '5s']:
+        df = load_tf_data(day_name, tf)
+        if len(df) >= SFE_MIN_BARS:
+            sub_tfs[tf] = df
+
     anchor_ts = anchor_df['timestamp'].values
     n_bars = len(anchor_df)
 
-    # Load and run SFE on each TF — ONE batch call per TF (GPU)
-    all_states = {}   # {tf: list of state dicts}
-    all_ohlcv = {}    # {tf: DataFrame}
-    tf_timestamps = {}  # {tf: np.array of timestamps}
-
-    for tf in TF_ORDER:
-        df = load_tf_data(day_name, tf)
-        if len(df) < SFE_MIN_BARS:
-            continue
-
-        all_ohlcv[tf] = df
-        tf_timestamps[tf] = df['timestamp'].values
-
-        # Single GPU batch call for the entire day
-        states = sfe.batch_compute_states(df)
-        if states:
-            all_states[tf] = states
-
-    if '1m' not in all_states:
+    # Run SFE on full anchor TF once — all states at once
+    anchor_states = sfe.batch_compute_states(anchor_df)
+    if not anchor_states:
         del sfe
         return pd.DataFrame()
 
-    # Extract 79D for each anchor bar
+    # For sub-anchor TFs, run SFE once too
+    sub_states = {}
+    sub_ts = {}
+    for tf, df in sub_tfs.items():
+        states = sfe.batch_compute_states(df)
+        if states:
+            sub_states[tf] = states
+            sub_ts[tf] = df['timestamp'].values
+
+    # For higher TFs: aggregate from anchor bars with partials
+    # Cache SFE results per TF — only recompute when bar count changes
+    higher_tf_cache = {}   # {tf: (n_bars_at_compute, states_list)}
+    higher_tfs = ['5m', '15m', '1h', '1D']
+
     rows = []
     prev_velocities = {}
 
     for bar_idx in range(n_bars):
         ts = anchor_ts[bar_idx]
 
-        # For each TF, find the state at this timestamp
-        states_this_bar = {}
-        for tf in TF_ORDER:
-            if tf not in all_states:
-                continue
-            tf_states = all_states[tf]
-            tf_ts = tf_timestamps[tf]
+        # Anchor bars up to this point (partial TF = all bars through current)
+        bars_so_far = anchor_df.iloc[:bar_idx + 1]
 
-            if tf == resolution:
-                # Direct index
-                if bar_idx < len(tf_states):
-                    states_this_bar[tf] = tf_states[bar_idx]
-            else:
-                # Align: latest TF bar <= anchor timestamp
-                tf_bar_idx = np.searchsorted(tf_ts, ts, side='right') - 1
-                if 0 <= tf_bar_idx < len(tf_states):
-                    states_this_bar[tf] = tf_states[tf_bar_idx]
+        # Build states_by_tf for this bar
+        states_this_bar = {}
+        ohlcv_this_bar = {}
+
+        # Anchor TF state (direct index from pre-computed)
+        states_this_bar[resolution] = anchor_states[bar_idx]
+        ohlcv_this_bar[resolution] = bars_so_far
+
+        # Sub-anchor TFs (aligned by timestamp)
+        for tf in sub_tfs:
+            if tf in sub_states and tf in sub_ts:
+                tf_bar_idx = np.searchsorted(sub_ts[tf], ts, side='right') - 1
+                if 0 <= tf_bar_idx < len(sub_states[tf]):
+                    states_this_bar[tf] = sub_states[tf][tf_bar_idx]
+                    ohlcv_this_bar[tf] = sub_tfs[tf].iloc[:tf_bar_idx + 1]
+
+        # Higher TFs: aggregate from anchor bars up to this point
+        for tf in higher_tfs:
+            tf_sec = TF_SECONDS[tf]
+            tf_bars = aggregate_partial_bar(bars_so_far, tf_sec)
+            n_tf = len(tf_bars)
+
+            if n_tf < SFE_MIN_BARS:
+                continue
+
+            ohlcv_this_bar[tf] = tf_bars
+
+            # Only rerun SFE if this TF got a new bar
+            cached_n, cached_states = higher_tf_cache.get(tf, (0, None))
+            if n_tf != cached_n:
+                tf_states = sfe.batch_compute_states(tf_bars)
+                if tf_states:
+                    higher_tf_cache[tf] = (n_tf, tf_states)
+                    states_this_bar[tf] = tf_states[-1]
+            elif cached_states is not None:
+                states_this_bar[tf] = cached_states[-1]
 
         # Extract 79D
         feat, prev_velocities = extract_79d(
-            states_this_bar, all_ohlcv, prev_velocities, ts
+            states_this_bar, ohlcv_this_bar, prev_velocities, ts
         )
 
         rows.append({
@@ -132,7 +165,7 @@ def process_day_bulk(day_name: str, resolution: str = '1m') -> pd.DataFrame:
             **{name: feat[i] for i, name in enumerate(FEATURE_NAMES_79D)}
         })
 
-    del sfe, all_states
+    del sfe, anchor_states, sub_states, higher_tf_cache
     gc.collect()
 
     return pd.DataFrame(rows)
