@@ -231,6 +231,73 @@ def _run_nmp_live(target: str, equity: float = None):
     _print_summary(all_results)
 
 
+def _run_regret():
+    """Run regret analysis on IS trades."""
+    import pickle
+    from nn_v2.regret import compute_all_regrets, summarize_regret_by_branch
+    from nn_v2.gate import Gate
+
+    print('Regret Analysis on IS trades...')
+
+    # Load trades
+    with open('DATA/NMP_TRADES/nmp_is.pkl', 'rb') as f:
+        trades = pickle.load(f)
+    print(f'  Loaded {len(trades)} trades')
+
+    # Classify into tree branches
+    gate = Gate('DATA/NMP_TREE/tree.pkl')
+    import numpy as np
+    from core.features_79d import FEATURE_NAMES_79D
+    for t in trades:
+        feat = np.array(t['entry_79d']).reshape(1, -1)
+        feat = np.nan_to_num(feat)
+        t['leaf_id'] = int(gate.tree.apply(feat)[0])
+
+    # Compute regret
+    regret_df = compute_all_regrets(trades)
+    print(f'  Regret computed for {len(regret_df)} trades')
+
+    # Summary
+    actual_total = regret_df['actual_pnl'].sum()
+    optimal_total = regret_df['best_pnl'].sum()
+    total_regret = regret_df['regret'].sum()
+    print(f'\n  Actual PnL:  ${actual_total:>10.0f}')
+    print(f'  Optimal PnL: ${optimal_total:>10.0f}')
+    print(f'  Total regret: ${total_regret:>10.0f}')
+    print(f'  Capture rate: {actual_total / max(optimal_total, 1) * 100:.1f}%')
+
+    # Best action distribution
+    print(f'\n  Best action distribution:')
+    for action, count in regret_df['best_action'].value_counts().items():
+        pct = count / len(regret_df) * 100
+        avg_pnl = regret_df[regret_df['best_action'] == action]['best_pnl'].mean()
+        print(f'    {action:<20} {count:>5} ({pct:>4.0f}%)  avg=${avg_pnl:.1f}')
+
+    # Early entry gain
+    avg_early_gain = regret_df['early_entry_gain'].mean()
+    early_trades = (regret_df['early_entry_gain'] > 1.0).sum()
+    print(f'\n  Entry timing: {early_trades} trades ({early_trades/len(regret_df)*100:.0f}%) '
+          f'would benefit from earlier entry (avg gain=${avg_early_gain:.1f})')
+
+    # Per-branch summary
+    branch_summary = summarize_regret_by_branch(regret_df)
+    print(f'\n  Per-branch regret (top 15 by regret):')
+    print(f'  {"Leaf":>5} {"N":>5} {"Actual":>8} {"Optimal":>8} {"Regret":>8} {"Action":>18} {"Pct":>5}')
+    print(f'  {"-"*60}')
+    for _, row in branch_summary.head(15).iterrows():
+        print(f'  {int(row["leaf_id"]):>5} {int(row["n_trades"]):>5} '
+              f'${row["actual_total"]:>7.0f} ${row["optimal_total"]:>7.0f} '
+              f'${row["total_regret"]:>7.0f} {row["dominant_action"]:>18} '
+              f'{row["dominant_pct"]:>4.0f}%')
+
+    # Save
+    os.makedirs('DATA/NMP_TREE', exist_ok=True)
+    regret_df.to_csv('DATA/NMP_TREE/regret_analysis.csv', index=False)
+    branch_summary.to_csv('DATA/NMP_TREE/regret_by_branch.csv', index=False)
+    print(f'\n  Saved: DATA/NMP_TREE/regret_analysis.csv')
+    print(f'  Saved: DATA/NMP_TREE/regret_by_branch.csv')
+
+
 def _print_summary(results: list):
     """Print multi-day summary."""
     if not results:
@@ -278,10 +345,8 @@ def main():
             equity_arg = float(sys.argv[idx + 1])
         cmd_nmp(target, fast=fast, equity=equity_arg)
 
-    elif cmd == 'gated':
-        # What-if: NMP runs on all bars, but only scores trades the tree allows
-        target = sys.argv[2] if len(sys.argv) > 2 else 'oos'
-        _run_gated_whatif(target)
+    elif cmd == 'regret':
+        _run_regret()
 
     else:
         print(f'Unknown command: {cmd}')
