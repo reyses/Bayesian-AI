@@ -258,11 +258,17 @@ def iterative_tree(df, feature_cols, args):
     return best_tree, best_branches, best_depth
 
 
-def print_report(tree, branches, depth, feature_cols):
-    """Print detailed report of the best tree."""
-    print(f'\n{"="*70}')
-    print(f'BEST TREE (depth={depth})')
-    print(f'{"="*70}')
+def print_report(tree, branches, depth, feature_cols, save_path=None):
+    """Print detailed report of the best tree. Optionally save to file."""
+    lines = []
+
+    def out(s=''):
+        print(s)
+        lines.append(s)
+
+    out(f'\n{"="*70}')
+    out(f'BEST TREE (depth={depth})')
+    out(f'{"="*70}')
 
     tradeable = [b for b in branches if b['tradeable']]
     skipped = [b for b in branches if not b['tradeable']]
@@ -272,43 +278,51 @@ def print_report(tree, branches, depth, feature_cols):
     skip_total = sum(b['n_trades'] for b in skipped)
     skip_pnl = sum(b['total_pnl'] for b in skipped)
 
-    print(f'\n  TRADE branches: {len(tradeable)} ({trade_total} trades, ${trade_pnl:.0f})')
-    print(f'  SKIP branches:  {len(skipped)} ({skip_total} trades, ${skip_pnl:.0f} avoided)')
-    print(f'  Net improvement: ${trade_pnl - skip_pnl:.0f} (trade) vs ${trade_pnl + skip_pnl:.0f} (all)')
+    out(f'\n  TRADE branches: {len(tradeable)} ({trade_total} trades, ${trade_pnl:.0f})')
+    out(f'  SKIP branches:  {len(skipped)} ({skip_total} trades, ${skip_pnl:.0f} avoided)')
+    out(f'  Net improvement: ${trade_pnl - skip_pnl:.0f} (trade) vs ${trade_pnl + skip_pnl:.0f} (all)')
 
     # Feature importance
     importances = tree.feature_importances_
     top_features = sorted(zip(feature_cols, importances), key=lambda x: -x[1])[:10]
-    print(f'\n  Top Features:')
+    out(f'\n  Top Features:')
     for name, imp in top_features:
         if imp > 0.005:
             bar = '#' * int(imp * 50)
-            print(f'    {name:<25} {imp:.3f} {bar}')
+            out(f'    {name:<25} {imp:.3f} {bar}')
 
     # Tradeable branches detail
-    print(f'\n  TRADEABLE Branches:')
-    print(f'  {"ID":>4} {"N":>5} {"WR":>6} {"ValWR":>6} {"EV":>7} {"ValEV":>7} {"Total$":>8} {"L%":>4}')
-    print(f'  {"-"*55}')
+    out(f'\n  TRADEABLE Branches:')
+    out(f'  {"ID":>4} {"N":>5} {"WR":>6} {"ValWR":>6} {"EV":>7} {"ValEV":>7} {"Total$":>8} {"DD$":>7} {"L%":>4}')
+    out(f'  {"-"*65}')
     for b in sorted(tradeable, key=lambda b: -b['total_pnl']):
-        print(f'  {b["leaf_id"]:>4} {b["n_trades"]:>5} {b["wr"]:>5.0%} '
-              f'{b["val_wr"]:>5.0%} ${b["ev"]:>6.1f} ${b["val_ev"]:>6.1f} '
-              f'${b["total_pnl"]:>7.0f} {b["long_pct"]:>3.0f}%')
+        out(f'  {b["leaf_id"]:>4} {b["n_trades"]:>5} {b["wr"]:>5.0%} '
+            f'{b["val_wr"]:>5.0%} ${b["ev"]:>6.1f} ${b["val_ev"]:>6.1f} '
+            f'${b["total_pnl"]:>7.0f} ${b["max_dd"]:>6.0f} {b["long_pct"]:>3.0f}%')
 
     # Skip branches (biggest losses avoided)
-    print(f'\n  SKIP Branches (losses avoided):')
+    out(f'\n  SKIP Branches (top 5 losses avoided):')
     for b in sorted(skipped, key=lambda b: b['total_pnl'])[:5]:
-        print(f'  {b["leaf_id"]:>4} {b["n_trades"]:>5} {b["wr"]:>5.0%} '
-              f'{b["val_wr"]:>5.0%} ${b["ev"]:>6.1f} ${b["total_pnl"]:>7.0f}')
+        out(f'  {b["leaf_id"]:>4} {b["n_trades"]:>5} {b["wr"]:>5.0%} '
+            f'{b["val_wr"]:>5.0%} ${b["ev"]:>6.1f} ${b["total_pnl"]:>7.0f}')
 
     # Tree rules
-    print(f'\n  Tree Rules:')
-    rules = export_text(tree, feature_names=feature_cols, max_depth=10)
-    lines = rules.split('\n')
-    if len(lines) > 80:
-        print('\n'.join(lines[:80]))
-        print(f'  ... ({len(lines) - 80} more lines)')
+    out(f'\n  Tree Rules:')
+    rules_text = export_text(tree, feature_names=feature_cols, max_depth=10)
+    rule_lines = rules_text.split('\n')
+    if len(rule_lines) > 80:
+        for rl in rule_lines[:80]:
+            out(rl)
+        out(f'  ... ({len(rule_lines) - 80} more lines)')
     else:
-        print(rules)
+        for rl in rule_lines:
+            out(rl)
+
+    # Save report to file
+    if save_path:
+        with open(save_path, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(lines))
+        print(f'\nReport saved: {save_path}')
 
 
 def main():
@@ -320,7 +334,8 @@ def main():
     print(f'  {len(df)} trades | WR={df["win"].mean()*100:.0f}% | EV=${compute_ev(df["pnl"].values):.2f}')
 
     tree, branches, depth = iterative_tree(df, FEATURE_NAMES_79D, args)
-    print_report(tree, branches, depth, FEATURE_NAMES_79D)
+    report_path = os.path.join(OUTPUT_DIR, 'tree_report.txt')
+    print_report(tree, branches, depth, FEATURE_NAMES_79D, save_path=report_path)
 
     # Save
     save_path = os.path.join(OUTPUT_DIR, 'tree.pkl')
