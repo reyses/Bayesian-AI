@@ -409,10 +409,11 @@ class Trainer:
         # Live uses: gate1_dist = 4.5 + aggression * 10.0 (default agg=0.5 -> 9.5)
         # Gate distance same for IS and OOS (unified engine)
 
-        # Feature extractor for IS candidates (22D when --lookback, 23D when --cnn-augment)
+        # Feature extractor for IS candidates (22D when --lookback, 23D when --cnn-augment, 29D+ when --grounded)
         _use_lb = getattr(self, '_use_lookback', False)
         _use_cnn = getattr(self, '_use_cnn_augment', False)
-        _feat_extractor = FractalClusteringEngine(use_lookback=_use_lb, use_cnn_augment=_use_cnn)
+        _use_gnd = getattr(self, '_use_grounded', False)
+        _feat_extractor = FractalClusteringEngine(use_lookback=_use_lb, use_cnn_augment=_use_cnn, use_grounded=_use_gnd)
 
         # Slippage RNG (seeded for reproducibility)
         _slip_ticks = float(getattr(self, '_slippage_ticks', 0.0))
@@ -432,11 +433,15 @@ class Trainer:
 
         def _file_sort_key(fpath):
             """Normalise filename to YYYYMMDD for date filtering/sorting.
-            Monthly YYYY_MM -> YYYYMM01; daily YYYYMMDD stays as-is."""
+            Daily YYYY_MM_DD -> YYYYMMDD; Monthly YYYY_MM -> YYYYMM01."""
             name = os.path.basename(fpath).replace('.parquet', '')
-            if '_' in name:
-                y, m = name.split('_', 1)
-                return f"{y}{m.zfill(2)}01"
+            parts = name.split('_')
+            if len(parts) == 3:
+                # Daily: YYYY_MM_DD -> YYYYMMDD
+                return f"{parts[0]}{parts[1]}{parts[2]}"
+            elif len(parts) == 2:
+                # Monthly: YYYY_MM -> YYYYMM01
+                return f"{parts[0]}{parts[1].zfill(2)}01"
             return name
 
         # ── Time-slice filter ────────────────────────────────────────────────
@@ -4129,6 +4134,7 @@ class Trainer:
 
             _use_lb = getattr(self, '_use_lookback', False)
             _use_cnn = getattr(self, '_use_cnn_augment', False)
+            _use_gnd = getattr(self, '_use_grounded', False)
 
             # CNN augmentation: attach 7D predictions to each PatternEvent before clustering
             if _use_cnn:
@@ -4136,7 +4142,8 @@ class Trainer:
 
             clustering_engine = FractalClusteringEngine(n_clusters=n_initial, max_variance=0.5,
                                                         use_lookback=_use_lb,
-                                                        use_cnn_augment=_use_cnn)
+                                                        use_cnn_augment=_use_cnn,
+                                                        use_grounded=_use_gnd)
             templates = clustering_engine.create_templates(manifest, shape_primitives=shape_primitives)
             print(f"  Condensed {len(manifest)} raw patterns into {len(templates)} Tight Templates.")
 
@@ -4234,9 +4241,11 @@ class Trainer:
             n_initial = max(10, len(manifest) // INITIAL_CLUSTER_DIVISOR)
             _use_lb = getattr(self, '_use_lookback', False)
             _use_cnn = getattr(self, '_use_cnn_augment', False)
+            _use_gnd = getattr(self, '_use_grounded', False)
             clustering_engine = FractalClusteringEngine(n_clusters=n_initial, max_variance=0.5,
                                                         use_lookback=_use_lb,
-                                                        use_cnn_augment=_use_cnn)
+                                                        use_cnn_augment=_use_cnn,
+                                                        use_grounded=_use_gnd)
 
         self.pattern_library = self.pattern_library or {}
         processed_count = len(completed_results)
@@ -4958,6 +4967,9 @@ def main():
     parser.add_argument('--cnn-augment', action='store_true',
                         help="23D clustering: append 7D CNN-predicted state (t+5) to 16D features. "
                              "Requires trained StatePredictor at checkpoints/trade_cnn/best_model.pt")
+    parser.add_argument('--grounded', action='store_true',
+                        help="29D+ clustering: append 13D grounded nightmare protocol features "
+                             "(z_se, variance_ratio, vol_rel, bar_range, etc.) to base features")
     parser.add_argument('--shapes', action='store_true',
                         help="Shape-aware exits: calibrate giveback/envelope per template from member segment shapes")
     parser.add_argument('--seeds', nargs='?', const='AUTO', default=None, metavar='PATH',
@@ -5143,6 +5155,7 @@ def main():
     orchestrator._use_primitives = getattr(args, 'primitives', False)
     orchestrator._use_lookback = True  # 22D features always on (6D lookback geometry)
     orchestrator._use_cnn_augment = getattr(args, 'cnn_augment', False)
+    orchestrator._use_grounded = getattr(args, 'grounded', False)  # 29D+ mode: append 13D nightmare features
     orchestrator._use_shapes = getattr(args, 'shapes', False)
     orchestrator._use_cat = not getattr(args, 'no_cat', False)
     orchestrator._use_crow = getattr(args, 'crow', False)

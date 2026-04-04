@@ -47,12 +47,12 @@ STRATEGY 1: REVERSION (standard Nightmare Protocol)
 STRATEGY 2: TREND RIDE
   Entry:  z past Roche AND trend > 20 same direction AND dmi_1m > 3 same
           AND price_accel same direction → enter WITH trend (not against)
-  Exits:
-    1. trend_exhausted    15m trend flipped against trade       → breakeven
-    2. trend_profit_hold  was profitable, gave back 50% of peak → 60% WR, $8/tr
-    3. trend_hc_loss      never profitable after 6 bars         → 0% WR, -$10/tr
-    4. trend_max_hold     profitable for 30 bars                → 100% WR, $159/tr
-    5. catastrophic_sl    160 ticks MAE at 1s resolution
+  Exits:  (checked in priority order)
+    1. trend_no_pay       never profitable after 5 bars         → cut dead weight
+    2. trend_exhausted    15m trend flipped against > MIN_MOVE   → breakeven
+    3. trend_protect_profit  trend decayed >50% but still profitable → lock profit
+    4. trend_breakeven_protect  trend decayed, was profitable, now negative
+    5. trend_exhausted    trend decayed, never profitable, 3+ bars → early cut
 
 STRATEGY 3: CAUTIOUS REVERSION
   Entry:  same as reversion BUT loser profile detected:
@@ -60,6 +60,13 @@ STRATEGY 3: CAUTIOUS REVERSION
   Exits:  same as reversion EXCEPT:
     - half_cycle = 2 bars (not 4) — cut losers faster
     - giveback = 30% (not 50%) — keep more profit
+
+STRATEGY 6: TREND FADE (exhaustion spike)
+  Entry:  Same triggers as trend_ride BUT volume >= 3000 (exhaustion spike)
+          All trend signals aligned = climax is done, fade the reversal
+  Direction: OPPOSITE of trend (if trend is LONG, we go SHORT)
+  Exits:  Same as reversion (mean_reached, lambda_flip, profit_hold, max_hold)
+  Volume gates: vol < 750 = skip (no conviction), vol >= 3000 = fade, else = trend_ride
 
 MACRO FILTER (all strategies):
   Weighted score from 3 TFs:
@@ -109,6 +116,8 @@ TREND_LB = 15   # rolling trend lookback (1m bars)
 MIN_MOVE = 10   # min pts for trend to count
 WARMUP = 300    # 1m bars of history before target day
 BARS_PER_1M = 60  # 60 x 1s = 1m
+TREND_MIN_VOL = 750     # min 1m volume for trend_ride (below = no conviction)
+TREND_FADE_VOL = 3000   # above this = exhaustion spike, fade instead (57% WR opposite)
 
 # Accept: single day, comma-separated days, or "all" for full OOS
 # Examples: 2026-03-20   2026-03-20,2026-03-24   all
@@ -185,7 +194,7 @@ def main():
         from datetime import datetime as _dt
         _all_dates = sorted(set(_dt.utcfromtimestamp(t).strftime('%Y-%m-%d')
                                 for t in _all_1s['timestamp'].values[::5000]))
-        target_days = [d for d in _all_dates if d >= '2026-03-02']
+        target_days = [d for d in _all_dates if d >= '2026-01-06']
         del _all_1s
     elif ',' in TARGET:
         target_days = TARGET.split(',')
@@ -203,7 +212,7 @@ def main():
     df_1s_all = df_1s_all.sort_values('timestamp').reset_index(drop=True)
 
     files_1m = sorted(glob.glob('DATA/ATLAS/1m/*.parquet'))
-    df_1m_all = pd.concat([pd.read_parquet(f) for f in files_1m[-2:]], ignore_index=True)
+    df_1m_all = pd.concat([pd.read_parquet(f) for f in files_1m], ignore_index=True)
     df_1m_all = df_1m_all.sort_values('timestamp').reset_index(drop=True)
 
     # Load 1h and 1D macro features ONCE (shared across all days)
@@ -419,7 +428,7 @@ def main():
                     'dist_giveback_50': (pnl / peak_pnl - 0.5) if peak_pnl > 2 else 99,
                 })
 
-                if strat in ('reversion', 'cautious_reversion', 'macro_dip', 'open_ride'):
+                if strat in ('reversion', 'cautious_reversion', 'macro_dip', 'open_ride', 'trend_fade'):
                     # STRATEGY 1/3 EXITS: Nightmare reversion (cautious has shorter HC)
                     if abs(z) < 0.5 and bars_held_1m > 1:
                         ex = 'mean_reached'
@@ -434,24 +443,44 @@ def main():
                         ex = 'max_hold_profit'
 
                 elif strat in ('trend_ride', 'reversal_to_trend'):
-                    # STRATEGY 2 EXITS: ride the trend
+                    # STRATEGY 2 EXITS: ride the trend with continuous validity check
                     _trend_now = price_hist_1m[-1] - price_hist_1m[-(TREND_LB+1)] if len(price_hist_1m) > TREND_LB else 0
+
+                    # Trend validity: is the trend still at least half its entry strength?
+                    TREND_DECAY_RATIO = 0.5  # exit when trend drops below 50% of entry
+                    _entry_strength = abs(entry_trend)
+                    _current_strength = abs(_trend_now)
+                    _trend_in_direction = (direction == 'LONG' and _trend_now > 0) or \
+                                          (direction == 'SHORT' and _trend_now < 0)
+                    _trend_valid = _trend_in_direction and _current_strength >= _entry_strength * TREND_DECAY_RATIO
+
+                    # Exit: trend never paid — cut the dead weight
+                    TREND_PATIENCE = 5  # bars to prove itself (EDA median hold for losers was 5)
+                    if not was_profitable and bars_held_1m >= TREND_PATIENCE:
+                        ex = 'trend_no_pay'
+
+                    # Exit: stalled trend — peak is tiny by bar 3, it's a fake trend
+                    # EDA: losers peak $11.50 by bar 2 then die. Winners climb to $46+ by bar 8.
+                    # 59% of losers never exceed $15 peak. Only 10% of winners that low.
+                    TREND_STALL_BAR = 3       # check at this bar
+                    TREND_MIN_PEAK = 15 * TV  # $15 = 30 ticks = must show real movement
+                    if not ex and bars_held_1m == TREND_STALL_BAR and peak_pnl < TREND_MIN_PEAK:
+                        ex = 'trend_stalled'
 
                     # Exit: trend flipped to OPPOSITE direction past MIN_MOVE
                     _trend_flipped = (direction == 'LONG' and _trend_now < -MIN_MOVE) or \
                                      (direction == 'SHORT' and _trend_now > MIN_MOVE)
-                    if _trend_flipped and bars_held_1m > 2:
+                    if not ex and _trend_flipped and bars_held_1m > 2:
                         ex = 'trend_exhausted'
-                    # Trend weakening exit: if was profitable and trend is dying, exit with profit
-                    # Signal: trend magnitude dropped below half of what it was when we entered
-                    # Or: trend flipped direction while still profitable → exit before it turns to loss
-                    elif was_profitable and bars_held_1m > 2:
-                        _trend_weakening = (direction == 'LONG' and _trend_now < 0) or \
-                                           (direction == 'SHORT' and _trend_now > 0)
-                        if _trend_weakening and pnl > 0:
+                    # Exit: trend no longer valid (decayed below half entry strength or flipped)
+                    elif not ex and not _trend_valid and bars_held_1m > 2:
+                        if pnl > 0:
                             ex = 'trend_protect_profit'
-                        elif pnl <= 0:
+                        elif was_profitable:
                             ex = 'trend_breakeven_protect'
+                        # If never profitable and trend dying → cut early
+                        elif bars_held_1m >= 3:
+                            ex = 'trend_exhausted'
 
                 if ex:
                     trades.append({
@@ -499,6 +528,7 @@ def main():
                         peak_pnl = 0.0
                         was_profitable = False
                         active_strategy = strategy
+                        entry_trend = trend
                     continue  # skip normal entry during open window
 
                 if abs(z) > ROCHE and lam < 0:
@@ -516,12 +546,17 @@ def main():
                     accel_with_trend = (trend > 0 and accel > 0) or (trend < 0 and accel < 0)
 
                     if z_and_trend_same and dmi_with_z and accel_with_trend:
-                        # STRATEGY 2: TREND RIDE
-                        # z is extreme, trend + DMI + accel all push same direction
-                        # Don't fade — ride the trend
                         trend_dir = 'LONG' if trend > 0 else 'SHORT'
-                        strategy = 'trend_ride'
-                        direction = trend_dir
+                        if volume >= TREND_FADE_VOL:
+                            # STRATEGY 6: TREND FADE — exhaustion spike detected
+                            # High volume + all trend signals = climax, fade the move
+                            strategy = 'trend_fade'
+                            direction = 'SHORT' if trend_dir == 'LONG' else 'LONG'
+                        elif volume >= TREND_MIN_VOL:
+                            # STRATEGY 2: TREND RIDE — real conviction
+                            strategy = 'trend_ride'
+                            direction = trend_dir
+                        # else: volume too low, skip (no conviction)
                     else:
                         # Loser profile check (tighter thresholds from RCA):
                         # HCL avg: trend=12.8, dmi=4.05
@@ -562,6 +597,7 @@ def main():
                     was_profitable = False
                     active_strategy = strategy
                     _1s_ticks_since_entry = 0
+                    entry_trend = trend  # save trend at entry for validity check
 
         # Force close at end of day (after all ticks processed)
         if in_pos:

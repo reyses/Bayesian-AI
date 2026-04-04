@@ -67,3 +67,6 @@ DATA/nt8_exports/
 reports/live/peak_skips_*.csv
 reports/live/peak_skips_20260321.csv
 reports/live/peak_skips_*.csv
+DATA/MNQ 06-26min .Last.txt
+.gitignore
+DATA/MNQ 06-26.Last.txt

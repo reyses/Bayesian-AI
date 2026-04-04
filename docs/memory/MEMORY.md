@@ -30,20 +30,24 @@
 - **Base measurements grounded**: See `memory/feedback_base_measurements.md`
 - **Checkpoint every step**: All multi-step pipelines must save to disk after each step. See `memory/feedback_checkpoint_every_step.md`
 
-## **CURRENT PRIORITIES (2026-03-30)**
-- **PROBABILISTIC SYSTEM**: See `memory/project_probabilistic_system.md`
-  - Frozen Base CNN + Evolving Trade CNN + 4-Brain Cascade + Seed-based templates
-  - Peak→Trend→Reversal lifecycle with trajectory-based exits
-  - Spec: `docs/Active/PROBABILISTIC_4BRAIN_SPEC.md`
-  - Built: brain_cascade.py, probabilistic_engine.py, train_probabilistic_forward.py
-  - TODO: Phase D (live launcher), replay buffer for live CNN evolution, crow integration
-- **CNN-Augmented Templates (23D)**: See plan `joyful-kindling-avalanche.md`
-  - 16D base + 7D CNN-predicted state at t+5. Phases 1-5 built.
-  - First run: $1,002 OOS but brain was empty (augmentor not wired into forward pass — fixed)
-- **Live Sim Running**: TradeCNN on NT8 sim (Sim101), validating bridge tonight
-- **CNN TF Mismatch FIXED**: CNN trained on 1m, live was feeding 15s. Now aggregates 4×15s→1m.
-- **TradeCNN baseline: $1,609/day OOS** — See `memory/project_tradecnn_baseline.md`
+## **CURRENT PRIORITIES (2026-04-03)**
+- **NEW SYSTEM: 79D + NN + Half-Life Exit**: See `memory/project_new_system_design.md`
+  - Spec: `docs/Active/FEATURE_VECTOR_79D_SPEC.md`
+  - Exit math: `docs/Active/EXIT_MATH_ANALYSIS.md`
+  - 10 features x 6 TFs = 60D core + 19D helpers = 79D
+  - NN predicts direction + hold duration (signal half-life)
+  - Unified exit: envelope decay + survival modulation + giveback accelerator
+  - 5s atomic bar, 1m decision anchor
+  - Advance engine ABANDONED (100% peak reversal, 50.1% WR coin flip)
+  - Next: implement extract_79d(), training label generator, NN
+- **Clean ATLAS rebuilt**: Databento NQ 1s + MNQ 1m/1h/1D, all TFs built
+- **Nightmare ticker baseline on clean data**: -$2,427/29 days (phantom spikes were fake edge)
 - **NQ goal**: 3 months to NQ ($400 noise budget). See `memory/project_nq_goal.md`
+
+## **DEPRIORITIZED (2026-04-03)**
+- Probabilistic system: `memory/project_probabilistic_system.md` — superseded by 79D NN
+- CNN-Augmented Templates (23D): superseded by 79D
+- TradeCNN: baseline was $1,609/day but on NT8 data (phantom spikes)
 
 ## **DEPRIORITIZED (historical context only)**
 - Auto seeds: `memory/project_auto_seeds_next.md` — superseded by grounded templates

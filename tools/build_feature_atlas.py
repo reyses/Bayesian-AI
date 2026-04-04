@@ -31,7 +31,7 @@ ATLAS_ROOT = 'DATA/ATLAS'
 OUT_ROOT = 'DATA/ATLAS_FEATURES'
 
 TFS = sys.argv[1].split(',') if len(sys.argv) > 1 else [
-    '1s', '5s', '15s', '30s', '1m', '3m', '5m', '15m', '30m', '1h', '4h', '1D'
+    '1s', '5s', '15s', '30s', '1m', '5m', '15m', '30m', '1h', '4h', '1D'
 ]
 
 

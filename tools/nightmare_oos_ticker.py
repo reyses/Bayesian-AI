@@ -8,8 +8,8 @@ from core.statistical_field_engine import StatisticalFieldEngine
 from training.train_trade_cnn import extract_features_13d as extract_13d_batch
 from tools.nightmare_ticker import extract_13d_single
 
-TICK = 0.25; TV = 0.50; ROCHE = 2.0; HC = 4; MAX_HOLD = 20
-TREND_LB = 15; MIN_MOVE = 10; WARMUP = 300
+TICK = 0.25; TV = 0.50; ROCHE = 2.0; HC = 3; MAX_HOLD = 20
+TREND_LB = 15; MIN_MOVE = 10; WARMUP = 300; TREND_STRONG = 20
 
 print('Loading data...')
 df_1s = pd.read_parquet('DATA/ATLAS/1s/2026_03.parquet').sort_values('timestamp').reset_index(drop=True)
