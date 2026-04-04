@@ -141,12 +141,13 @@ def generate_semantic_name(centroid: np.ndarray) -> str:
 
 class FractalClusteringEngine:
     def __init__(self, n_clusters=1000, max_variance=0.5, use_lookback=False,
-                 use_cnn_augment=False):
+                 use_cnn_augment=False, use_grounded=False):
         self.n_clusters = n_clusters
         self.max_variance = max_variance  # Max allowed std deviation for Z-score in a cluster
         self.scaler = StandardScaler()
         self._use_lookback = use_lookback  # 22D mode: append 6D lookback geometry
         self._use_cnn_augment = use_cnn_augment  # 23D mode: append 7D CNN-predicted state
+        self._use_grounded = use_grounded  # 29D mode: append 13D grounded features
 
     def _get_kmeans_model(self, n_clusters: int, n_samples: int, random_state: int = 42,
                           n_init: int = 3, use_cuda: bool = True, init_centroids=None):
@@ -227,6 +228,14 @@ class FractalClusteringEngine:
                 feat.extend(list(cnn_7d))
             else:
                 feat.extend([0.0] * CNN_AUGMENT_DIM)
+
+        # 29D mode: append 13D grounded features (nightmare protocol)
+        if self._use_grounded:
+            from core.feature_extraction import extract_grounded_features, GROUNDED_DIM
+            window = getattr(p, 'window_data', None)
+            ts = getattr(p, 'timestamp', 0.0)
+            grounded = extract_grounded_features(state, window, ts)
+            feat.extend(grounded)
 
         return feat
 
@@ -616,7 +625,10 @@ class FractalClusteringEngine:
         if total_valid == 0:
             return []
 
-        _fdim = 22 if self._use_lookback else 16
+        _fdim = 16
+        if self._use_lookback: _fdim += 6
+        if self._use_cnn_augment: _fdim += 7
+        if self._use_grounded: _fdim += 13
         print(f"  Feature matrix: {total_valid} patterns x {_fdim} features (extracted in {_time.perf_counter() - t0:.2f}s)")
         print(f"  TF buckets: {', '.join(f'{tf}={len(v[0])}' for tf, v in sorted(tf_buckets.items(), key=lambda x: -len(x[1][0])))}")
 
