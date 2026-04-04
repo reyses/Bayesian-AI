@@ -154,7 +154,9 @@ def run_day(day_file, model, brain, device, history_1m, equity, daily_pnl,
     _t_ticker_total = 0.0
     _t_nn_total = 0.0
 
-    for bar_idx in range(n_bars):
+    pbar = tqdm(range(n_bars), desc=f'  {day_name}', unit='bar',
+                bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {postfix}')
+    for bar_idx in pbar:
         row = today_1m.iloc[bar_idx]
         bar = {
             'timestamp': row['timestamp'],
@@ -173,6 +175,10 @@ def run_day(day_file, model, brain, device, history_1m, equity, daily_pnl,
         state = ticker.feed_bar(bar)
         _t_ticker_total += _time.perf_counter() - _t0
         feat = state['features_79d']
+
+        # Live progress
+        pos_str = f'{direction[0].upper()}' if in_pos else '-'
+        pbar.set_postfix_str(f'pnl=${daily_pnl:+.0f} eq=${equity:.0f} tr={len(trades)} {pos_str}')
 
         # ── WRAPPER: all decisions happen here ──
 
@@ -211,19 +217,6 @@ def run_day(day_file, model, brain, device, history_1m, equity, daily_pnl,
             if exit_reason:
                 equity += pnl - COST_PER_TRADE
                 daily_pnl += pnl - COST_PER_TRADE
-
-                if verbose:
-                    from core.features_79d import N_CORE
-                    # Show 1m state at exit
-                    tf_1m_offset = 1 * N_CORE  # 1m is index 1 in TF_ORDER
-                    z_now = feat[tf_1m_offset + 0]
-                    dmi_now = feat[tf_1m_offset + 1]
-                    vr_now = feat[tf_1m_offset + 2]
-                    print(f'  EXIT {time_str} | {direction} | {exit_reason} | '
-                          f'held={bars_held} hl={half_life:.0f} | '
-                          f'pnl=${pnl - COST_PER_TRADE:.1f} peak=${peak_pnl:.1f} | '
-                          f'eq=${equity:.0f} | '
-                          f'1m:z={z_now:+.1f}/dmi={dmi_now:+.1f}/vr={vr_now:.2f}')
 
                 from core.features_79d import N_CORE
                 tf_1m = 1 * N_CORE
@@ -291,20 +284,9 @@ def run_day(day_file, model, brain, device, history_1m, equity, daily_pnl,
             else:
                 calibrated = nn_output
 
-            # Verbose: periodic state dump
-            if verbose and bar_idx % 50 == 0:
-                print(f'  [{time_str}] bar={bar_idx} price={price:.2f} '
-                      f'tfs={state["metadata"]["active_tfs"]} | '
-                      f'NN: {calibrated["direction"]} {calibrated["duration"]}bars '
-                      f'p={calibrated["p_profit"]:.2f} pnl=${calibrated["expected_pnl"]:.1f} '
-                      f'dd=${calibrated["expected_drawdown"]:.1f} '
-                      f'conf={calibrated.get("confidence", 0):.2f}')
-
             if calibrated['direction'] == 'skip':
                 continue
             if calibrated['p_profit'] < MIN_P_PROFIT:
-                if verbose:
-                    print(f'  [{time_str}] FILTERED p={calibrated["p_profit"]:.3f} < {MIN_P_PROFIT}')
                 continue
 
             # Execution: leash
@@ -349,28 +331,6 @@ def run_day(day_file, model, brain, device, history_1m, equity, daily_pnl,
                 nn_expected_pnl=calibrated['expected_pnl'],
             )
 
-            if verbose:
-                # Show the 79D state that drove the decision
-                from core.features_79d import N_CORE, CORE_FEATURE_NAMES
-                state_summary = []
-                for tf_idx, tf in enumerate(['1m', '5m', '15m', '1h']):
-                    tf_offset = (['15s', '1m', '5m', '15m', '1h', '1D'].index(tf)) * N_CORE
-                    z = feat[tf_offset + 0]
-                    dmi = feat[tf_offset + 1]
-                    vr = feat[tf_offset + 2]
-                    if abs(z) > 0.01 or abs(dmi) > 0.01:
-                        state_summary.append(f'{tf}:z={z:+.1f}/dmi={dmi:+.1f}/vr={vr:.2f}')
-
-                print(f'  ENTRY {time_str} | {direction} @ {price:.2f} | '
-                      f'hl={half_life:.0f} leash={leash:.2f} | '
-                      f'p={calibrated["p_profit"]:.2f} ev=${ev:.1f} | '
-                      f'expect pnl=${calibrated["expected_pnl"]:.1f} dd=${expected_dd:.1f}')
-                print(f'    state: {" | ".join(state_summary)}'
-                      if state_summary else '    state: (no TF data)')
-                print(f'    dir_probs: skip={calibrated["dir_probs"][0]:.2f} '
-                      f'long={calibrated["dir_probs"][1]:.2f} '
-                      f'short={calibrated["dir_probs"][2]:.2f} | '
-                      f'dur_probs: {" ".join(f"{d}={p:.2f}" for d, p in zip([1,3,5,10,15,20,30], calibrated["dur_probs"]))}')
 
     # Force close at end of day
     if in_pos:
