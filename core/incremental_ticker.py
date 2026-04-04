@@ -65,11 +65,9 @@ class IncrementalTicker:
     def __init__(self, history_1m: pd.DataFrame = None, max_today_bars: int = 1500):
         self.sfe = StatisticalFieldEngine()
 
-        # History: keep only last SFE_ROLLING_WINDOW bars for context
+        # History: keep full history for SFE consistency with training
         if history_1m is not None and len(history_1m) > 0:
-            hist = history_1m.sort_values('timestamp').reset_index(drop=True)
-            # Keep tail for rolling window
-            self._history = hist.tail(SFE_ROLLING_WINDOW).reset_index(drop=True)
+            self._history = history_1m.sort_values('timestamp').reset_index(drop=True)
             self._hist_len = len(self._history)
         else:
             self._history = pd.DataFrame(columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
@@ -121,8 +119,8 @@ class IncrementalTicker:
                     self._sfe_cache[tf] = tf_states[-1]
                     self._tf_bar_counts[tf] = len(tf_bars)
 
-    def _get_rolling_1m(self) -> pd.DataFrame:
-        """Get rolling window of 1m bars for SFE. Only rebuilds when dirty."""
+    def _get_closed_1m(self) -> pd.DataFrame:
+        """Get all closed 1m bars (history + today). Rebuilt only when dirty."""
         if not self._rolling_dirty and self._rolling_df is not None:
             return self._rolling_df
 
@@ -139,12 +137,9 @@ class IncrementalTicker:
                 'volume': self._today_vol[:n],
             })
             if self._hist_len > 0:
-                combined = pd.concat([self._history, today_df], ignore_index=True)
+                self._rolling_df = pd.concat([self._history, today_df], ignore_index=True)
             else:
-                combined = today_df
-
-            # Keep only the rolling window (tail) — SFE doesn't need 25K bars
-            self._rolling_df = combined.tail(SFE_ROLLING_WINDOW).reset_index(drop=True)
+                self._rolling_df = today_df
 
         self._rolling_dirty = False
         return self._rolling_df
@@ -164,7 +159,7 @@ class IncrementalTicker:
         price = bar['close']
 
         # Rolling 1m window for SFE
-        rolling_1m = self._get_rolling_1m()
+        rolling_1m = self._get_closed_1m()
         n_1m = len(rolling_1m)
 
         # Aggregate higher TFs from rolling window
