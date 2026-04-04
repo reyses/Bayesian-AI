@@ -178,7 +178,9 @@ def run_day(day_file, model, brain, device, history_1m, equity, daily_pnl,
 
         # Live progress
         pos_str = f'{direction[0].upper()}' if in_pos else '-'
-        pbar.set_postfix_str(f'pnl=${daily_pnl:+.0f} eq=${equity:.0f} tr={len(trades)} {pos_str}')
+        elapsed = _time.perf_counter() - _t_start_day
+        ms_bar = elapsed / max(bar_idx + 1, 1) * 1000
+        pbar.set_postfix_str(f'pnl=${daily_pnl:+.0f} eq=${equity:.0f} tr={len(trades)} {pos_str} {ms_bar:.0f}ms/bar')
 
         # ── WRAPPER: all decisions happen here ──
 
