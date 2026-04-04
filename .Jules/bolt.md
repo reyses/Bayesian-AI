@@ -1,3 +1,6 @@
 YYYY-MM-DD - [Parallelizing Rolling R/S calculation]
 Learning: Numba's `@njit(parallel=True)` combined with `prange` allows seamless parallelization of sliding window calculations without breaking numerical accuracy or introducing any dependencies. The original `_compute_rs_numba` iterates independently over the output array items, calculating rolling stats. Changing `range` to `numba.prange` takes full advantage of multiple cores without changing the algorithm logic.
 Action: Add `@njit(parallel=True, cache=True)` and replace `range` with `prange` for completely independent tight rolling calculations on 1D arrays, as long as there is no data mutation inside the loop across iterations.
+YYYY-MM-DD - [Parallelizing array slice based rolling aggregations]
+Learning: Array slicing with `np.maximum.accumulate` within Python for loops over rolling windows comes with massive overhead from PyObject allocation and slice creation per iteration.
+Action: Translate array slicing operations and `np.maximum.accumulate` within large Python loops to standalone Numba parallel JIT functions. Use `numba.prange` for concurrent processing across iterations and keep running stats as local scalar variables to completely eliminate intermediate array allocations.
