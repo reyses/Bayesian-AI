@@ -1,0 +1,1 @@
+- fix: revert rolling window — use full history for SFE consistency (4b3724c) <reyses>
