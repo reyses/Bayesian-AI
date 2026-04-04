@@ -20,6 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ATLAS_1S = 'DATA/ATLAS/1s'
 ATLAS_1M = 'DATA/ATLAS/1m'
 FEATURES_DIR = 'DATA/FEATURES_79D'
+FEATURES_DIR_1M = 'DATA/FEATURES_79D_1m'
 
 
 def cmd_build(args):
@@ -64,7 +65,10 @@ def _run_nmp_fast(target: str, equity: float = None):
     from nn_v2.nightmare import NightmareEngine
     from tqdm import tqdm
 
+    # Try 5s features first, fall back to 1m
     feat_files = _resolve_days(target, FEATURES_DIR)
+    if not feat_files:
+        feat_files = _resolve_days(target, FEATURES_DIR_1M)
     if not feat_files:
         print(f'No feature files found for "{target}" in {FEATURES_DIR}/')
         return

@@ -43,8 +43,8 @@ OUTPUT_DIR = 'DATA/FEATURES_79D'
 # SFE needs this many bars minimum
 SFE_MIN_BARS = 21
 
-# Compute 79D at this resolution
-COMPUTE_TF = '5s'  # every 5s close
+# Default compute resolution
+COMPUTE_TF = '5s'
 
 
 def parse_args():
@@ -53,6 +53,8 @@ def parse_args():
     p.add_argument('--start', type=str, default=None, help='Start date YYYY-MM-DD')
     p.add_argument('--end', type=str, default=None, help='End date YYYY-MM-DD')
     p.add_argument('--days', type=int, default=None, help='Process first N days only')
+    p.add_argument('--resolution', type=str, default='5s', choices=['5s', '15s', '1m'],
+                   help='Compute 79D at this TF resolution (default: 5s)')
     return p.parse_args()
 
 
@@ -95,9 +97,9 @@ def compute_79d_from_aggregator(agg: Aggregator, sfe: StatisticalFieldEngine,
     if '1m' not in states_by_tf:
         return None, prev_velocities
 
-    # Get timestamp from latest 5s bar
-    bars_5s = agg.get_closed_bars('5s')
-    ts = bars_5s[-1]['timestamp'] if bars_5s else 0
+    # Get timestamp from latest compute-TF bar
+    bars = agg.get_closed_bars('1m') or agg.get_closed_bars('5s')
+    ts = bars[-1]['timestamp'] if bars else 0
 
     feat, prev_velocities = extract_79d(
         states_by_tf, ohlcv_by_tf, prev_velocities, ts
@@ -105,20 +107,18 @@ def compute_79d_from_aggregator(agg: Aggregator, sfe: StatisticalFieldEngine,
     return feat, prev_velocities
 
 
-def process_day(day_file: str) -> pd.DataFrame:
-    """Process one day of 1s bars → 79D features at 5s resolution."""
+def process_day(day_file: str, resolution: str = '5s') -> pd.DataFrame:
+    """Process one day of 1s bars → 79D features at given resolution."""
     sfe = StatisticalFieldEngine()
     agg = Aggregator(history_limit=2000)
     prev_velocities = {}
 
     rows = []
-    last_5s_count = 0
 
-    # Track which TF triggers the 79D computation
     def on_bar_close(tf, bar):
-        nonlocal last_5s_count, prev_velocities
+        nonlocal prev_velocities
 
-        if tf == COMPUTE_TF:
+        if tf == resolution:
             # 5s bar closed → compute 79D
             feat, prev_velocities = compute_79d_from_aggregator(agg, sfe, prev_velocities)
             if feat is not None:
@@ -145,7 +145,9 @@ def process_day(day_file: str) -> pd.DataFrame:
 
 def main():
     args = parse_args()
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    resolution = args.resolution
+    out_dir = OUTPUT_DIR if resolution == '5s' else f'{OUTPUT_DIR}_{resolution}'
+    os.makedirs(out_dir, exist_ok=True)
 
     # Find all 1s files
     all_files = sorted(glob.glob(os.path.join(ATLAS_1S, '*.parquet')))
@@ -166,8 +168,8 @@ def main():
     if all_files:
         print(f'  From: {file_date(all_files[0])}')
         print(f'  To:   {file_date(all_files[-1])}')
-    print(f'  Output: {OUTPUT_DIR}/')
-    print(f'  Resolution: every {COMPUTE_TF} close')
+    print(f'  Output: {out_dir}/')
+    print(f'  Resolution: every {resolution} close')
     print()
 
     total_rows = 0
@@ -175,14 +177,14 @@ def main():
 
     for day_file in tqdm(all_files, desc='Days', unit='day'):
         day_name = os.path.basename(day_file).replace('.parquet', '')
-        out_path = os.path.join(OUTPUT_DIR, f'{day_name}.parquet')
+        out_path = os.path.join(out_dir, f'{day_name}.parquet')
 
         # Skip if already computed
         if os.path.exists(out_path):
             skipped += 1
             continue
 
-        df = process_day(day_file)
+        df = process_day(day_file, resolution=resolution)
         if len(df) == 0:
             continue
 
@@ -193,7 +195,7 @@ def main():
 
     print(f'\nDone: {total_rows:,} rows across {len(all_files) - skipped} days')
     print(f'Skipped (already exists): {skipped}')
-    print(f'Output: {OUTPUT_DIR}/')
+    print(f'Output: {out_dir}/')
 
 
 if __name__ == '__main__':
