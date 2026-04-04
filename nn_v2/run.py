@@ -13,6 +13,7 @@ import sys
 import os
 import glob
 import gc
+import pandas as pd
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -76,6 +77,7 @@ def _run_nmp_fast(target: str, equity: float = None):
     print(f'NMP (fast mode) — {len(feat_files)} day(s)')
     nmp = NightmareEngine()
     all_results = []
+    all_trades = []  # accumulate ALL trades for tree+NN
 
     for fpath in tqdm(feat_files, desc='Days', unit='day'):
         day_name = os.path.basename(fpath).replace('.parquet', '')
@@ -93,6 +95,11 @@ def _run_nmp_fast(target: str, equity: float = None):
 
         nmp.force_close()
 
+        # Accumulate trades with day label
+        for t in nmp.trades:
+            t['day'] = day_name
+        all_trades.extend(nmp.get_full_trades())
+
         day_pnl = nmp.daily_pnl
         day_trades = len(nmp.trades)
         all_results.append({
@@ -106,6 +113,25 @@ def _run_nmp_fast(target: str, equity: float = None):
 
     # Summary
     _print_summary(all_results)
+
+    # Save trade log (with 79D at entry/exit) for tree+NN training
+    if all_trades:
+        import pickle
+        os.makedirs('DATA/NMP_TRADES', exist_ok=True)
+        # Determine label from target
+        label = target if target in ('is', 'oos', 'all') else 'custom'
+        trade_path = f'DATA/NMP_TRADES/nmp_{label}.pkl'
+        with open(trade_path, 'wb') as f:
+            pickle.dump(all_trades, f)
+        # Also save flat CSV (without 79D arrays) for quick analysis
+        flat = []
+        for t in all_trades:
+            row = {k: v for k, v in t.items() if k not in ('entry_79d', 'exit_79d', 'path')}
+            flat.append(row)
+        csv_path = f'DATA/NMP_TRADES/nmp_{label}.csv'
+        pd.DataFrame(flat).to_csv(csv_path, index=False)
+        print(f'\nTrade log saved: {trade_path} ({len(all_trades)} trades)')
+        print(f'Trade CSV saved: {csv_path}')
 
 
 def _run_nmp_live(target: str, equity: float = None):
