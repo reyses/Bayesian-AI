@@ -65,10 +65,10 @@ def _run_nmp_fast(target: str, equity: float = None):
     from nn_v2.nightmare import NightmareEngine
     from tqdm import tqdm
 
-    # Try 5s features first, fall back to 1m
-    feat_files = _resolve_days(target, FEATURES_DIR)
+    # Try 1m features first (full dataset), fall back to 5s
+    feat_files = _resolve_days(target, FEATURES_DIR_1M)
     if not feat_files:
-        feat_files = _resolve_days(target, FEATURES_DIR_1M)
+        feat_files = _resolve_days(target, FEATURES_DIR)
     if not feat_files:
         print(f'No feature files found for "{target}" in {FEATURES_DIR}/')
         return
