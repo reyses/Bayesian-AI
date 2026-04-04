@@ -1,17 +1,20 @@
 """
-Decision Tree — iterative splitting with validation to maximize WR × PnL.
+Decision Tree V2 — classifies 79D into strategies using regret-derived labels.
 
-Recursively splits NMP trades into branches. Each split is validated on
-held-out data. Only keeps splits that improve EV on unseen trades.
-Iterates until branches can't improve further.
+Instead of predicting win/loss, predicts the OPTIMAL ACTION per setup:
+  - same_extended:    hold same direction longer (peak at ~16 bars)
+  - counter_extended: flip direction and hold (peak at ~17 bars)
+  - same_early:       same direction but exit fast (1-3 bars)
+  - counter_early:    flip and exit fast
+  - skip:             no profitable action exists
 
-Target: highest WR + PnL per branch. Branches below threshold = "don't trade".
+Each branch = a complete strategy: direction + exit timing.
+Trained on regret analysis ground truth from IS NMP trades.
 
 Usage:
-    python nn_v2/tree.py                         # default settings
-    python nn_v2/tree.py --target-wr 0.80        # target 80% WR per branch
-    python nn_v2/tree.py --min-ev 2.0            # min $2 EV per trade
-    python nn_v2/tree.py --max-depth 10          # allow deeper splits
+    python nn_v2/tree.py                         # train with defaults
+    python nn_v2/tree.py --max-depth 8           # deeper tree
+    python nn_v2/tree.py --min-leaf 20           # smaller branches
 """
 import os
 import sys
@@ -20,246 +23,165 @@ import numpy as np
 import pandas as pd
 from sklearn.tree import DecisionTreeClassifier, export_text
 from sklearn.model_selection import KFold
-from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.features_79d import FEATURE_NAMES_79D
 
 TRADE_LOG = 'DATA/NMP_TRADES/nmp_is.pkl'
+REGRET_FILE = 'DATA/NMP_TREE/regret_analysis.csv'
 OUTPUT_DIR = 'DATA/NMP_TREE'
+
+# Strategy classes
+STRATEGIES = ['same_extended', 'counter_extended', 'same_early', 'counter_early', 'same_at_exit', 'counter_at_exit']
+STRAT_TO_IDX = {s: i for i, s in enumerate(STRATEGIES)}
 
 
 def parse_args():
     import argparse
-    p = argparse.ArgumentParser(description='Iterative decision tree on NMP trades')
-    p.add_argument('--target-wr', type=float, default=0.55, help='Min WR per branch (just above noise)')
-    p.add_argument('--min-ev', type=float, default=0.0, help='Min expected value $/trade')
-    p.add_argument('--min-leaf', type=int, default=20, help='Min trades per branch')
-    p.add_argument('--max-depth', type=int, default=10, help='Max split depth')
-    p.add_argument('--n-folds', type=int, default=5, help='CV folds for validation')
-    p.add_argument('--iterations', type=int, default=10, help='Max refinement iterations')
+    p = argparse.ArgumentParser(description='Strategy tree from regret labels')
+    p.add_argument('--max-depth', type=int, default=8, help='Max tree depth')
+    p.add_argument('--min-leaf', type=int, default=20, help='Min trades per leaf')
     return p.parse_args()
 
 
-def load_trades():
-    """Load IS trade log with full 79D at entry."""
+def load_data():
+    """Load 79D features + regret labels."""
+    # 79D from trades
     with open(TRADE_LOG, 'rb') as f:
         trades = pickle.load(f)
 
+    # Regret labels
+    regret = pd.read_csv(REGRET_FILE)
+
     rows = []
-    for t in trades:
+    for i, t in enumerate(trades):
         entry_79d = np.array(t['entry_79d'])
+        r = regret.iloc[i] if i < len(regret) else None
+
         row = {
             'pnl': t['pnl'],
             'dir': t['dir'],
             'held': t['held'],
-            'peak': t['peak'],
-            'exit': t['exit'],
-            'win': 1 if t['pnl'] > 0 else 0,
             'day': t.get('day', ''),
         }
-        for i, name in enumerate(FEATURE_NAMES_79D):
-            row[name] = entry_79d[i] if i < len(entry_79d) else 0.0
+
+        # 79D features
+        for j, name in enumerate(FEATURE_NAMES_79D):
+            row[name] = entry_79d[j] if j < len(entry_79d) else 0.0
+
+        # Regret labels
+        if r is not None:
+            row['best_action'] = r['best_action']
+            row['best_pnl'] = r['best_pnl']
+            row['regret'] = r['regret']
+            row['same_best_bar'] = r['same_best_bar']
+            row['counter_best_bar'] = r['counter_best_bar']
+            row['strategy_idx'] = STRAT_TO_IDX.get(r['best_action'], 0)
+        else:
+            row['best_action'] = 'same_at_exit'
+            row['best_pnl'] = t['pnl']
+            row['regret'] = 0
+            row['same_best_bar'] = t['held']
+            row['counter_best_bar'] = 0
+            row['strategy_idx'] = 0
+
         rows.append(row)
 
     return pd.DataFrame(rows)
 
 
-def compute_ev(pnls):
-    """Expected value per trade."""
-    if len(pnls) == 0:
-        return 0.0
-    wins = pnls[pnls > 0]
-    losses = pnls[pnls <= 0]
-    if len(wins) == 0:
-        return losses.mean() if len(losses) > 0 else 0.0
-    if len(losses) == 0:
-        return wins.mean()
-    wr = len(wins) / len(pnls)
-    avg_win = wins.mean()
-    avg_loss = abs(losses.mean())
-    return wr * avg_win - (1 - wr) * avg_loss
+def train_tree(df, feature_cols, max_depth, min_leaf):
+    """Train tree to classify 79D → strategy (from regret labels)."""
+    X = np.nan_to_num(df[feature_cols].values.astype(np.float32))
+    y = df['strategy_idx'].values
 
-
-def compute_drawdown(pnls):
-    """Max drawdown from cumulative PnL."""
-    cumul = np.cumsum(pnls)
-    peak = np.maximum.accumulate(cumul)
-    dd = cumul - peak
-    return dd.min() if len(dd) > 0 else 0.0
-
-
-def compute_score(pnls):
-    """Score = total_PnL / (1 + |max_drawdown|). Maximizes PnL, penalizes drawdown."""
-    if len(pnls) == 0:
-        return 0.0
-    total = np.sum(pnls)
-    dd = abs(compute_drawdown(pnls))
-    return total / (1.0 + dd)
-
-
-def validate_tree_cv(X, y, pnls, max_depth, min_leaf, n_folds):
-    """Train tree with cross-validation. Returns validated leaf stats."""
-    kf = KFold(n_splits=n_folds, shuffle=True, random_state=42)
-    all_leaf_stats = {}  # leaf_id -> list of fold stats
+    # Cross-validate
+    kf = KFold(n_splits=5, shuffle=True, random_state=42)
+    cv_results = []
 
     for fold, (train_idx, val_idx) in enumerate(kf.split(X)):
-        X_train, X_val = X[train_idx], X[val_idx]
-        y_train, y_val = y[train_idx], y[val_idx]
-        pnl_val = pnls[val_idx]
-
         tree = DecisionTreeClassifier(
-            max_depth=max_depth,
-            min_samples_leaf=min_leaf,
-            class_weight='balanced',
+            max_depth=max_depth, min_samples_leaf=min_leaf,
             random_state=42 + fold,
         )
-        tree.fit(X_train, y_train)
+        tree.fit(X[train_idx], y[train_idx])
+        val_pred = tree.predict(X[val_idx])
+        val_y = y[val_idx]
+        acc = (val_pred == val_y).mean()
 
-        # Get leaf assignments for validation data
-        val_leaves = tree.apply(X_val)
-        for leaf_id in np.unique(val_leaves):
-            mask = val_leaves == leaf_id
-            leaf_pnls = pnl_val[mask]
-            leaf_y = y_val[mask]
-            n = len(leaf_y)
-            if n < 3:
-                continue
-            wr = leaf_y.mean()
-            ev = compute_ev(leaf_pnls)
+        # PnL if we followed the tree's recommended strategy
+        val_best_pnl = df.iloc[val_idx]['best_pnl'].values
+        val_actual_pnl = df.iloc[val_idx]['pnl'].values
 
-            if leaf_id not in all_leaf_stats:
-                all_leaf_stats[leaf_id] = []
-            all_leaf_stats[leaf_id].append({
-                'fold': fold, 'n': n, 'wr': wr, 'ev': ev,
-                'total_pnl': leaf_pnls.sum(),
-            })
+        # For correctly classified trades, use best_pnl. For wrong, use actual.
+        correct_mask = val_pred == val_y
+        sim_pnl = np.where(correct_mask, val_best_pnl, val_actual_pnl)
 
-    return all_leaf_stats
+        cv_results.append({
+            'fold': fold, 'accuracy': acc,
+            'sim_pnl': sim_pnl.sum(), 'actual_pnl': val_actual_pnl.sum(),
+            'optimal_pnl': val_best_pnl.sum(),
+        })
 
+    # Train final tree on all data
+    tree = DecisionTreeClassifier(
+        max_depth=max_depth, min_samples_leaf=min_leaf, random_state=42,
+    )
+    tree.fit(X, y)
 
-def iterative_tree(df, feature_cols, args):
-    """Iteratively train and refine the tree."""
-    X = df[feature_cols].values.astype(np.float32)
-    y = df['win'].values
-    pnls = df['pnl'].values
-
-    X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
-
-    best_tree = None
-    best_score = -999
-    best_branches = None
-    best_depth = 2
-
-    print(f'\nIterating depths 2 to {args.max_depth}...')
-    print(f'  Target WR: {args.target_wr:.0%} | Min EV: ${args.min_ev} | Min leaf: {args.min_leaf}')
-    print(f'  Scoring: EV x sqrt(N) — balances quality and frequency')
-    print()
-    print(f'  {"Depth":>5} {"Leaves":>6} {"Trade":>6} {"Skip":>6} {"WR":>6} {"EV":>7} '
-          f'{"Score":>8} {"ValWR":>6} {"ValEV":>7} {"Best":>5}')
-    print(f'  {"-"*65}')
-
-    for depth in range(2, args.max_depth + 1):
-        # Train on full data
-        tree = DecisionTreeClassifier(
-            max_depth=depth,
-            min_samples_leaf=args.min_leaf,
-            class_weight='balanced',
-            random_state=42,
-        )
-        tree.fit(X, y)
-        leaves = tree.apply(X)
-        unique_leaves = np.unique(leaves)
-
-        # Validate with CV
-        cv_stats = validate_tree_cv(X, y, pnls, depth, args.min_leaf, args.n_folds)
-
-        # Classify each leaf: trade or skip
-        branches = []
-        trade_mask = np.zeros(len(X), dtype=bool)
-
-        for leaf_id in unique_leaves:
-            mask = leaves == leaf_id
-            leaf_pnls = pnls[mask]
-            leaf_y = y[mask]
-            n = len(leaf_y)
-            wr = leaf_y.mean()
-            ev = compute_ev(leaf_pnls)
-
-            # Validation stats (average across folds)
-            val_stats = cv_stats.get(leaf_id, [])
-            if val_stats:
-                val_wr = np.mean([s['wr'] for s in val_stats])
-                val_ev = np.mean([s['ev'] for s in val_stats])
-            else:
-                val_wr = 0.0
-                val_ev = 0.0
-
-            # Branch drawdown
-            dd = compute_drawdown(leaf_pnls)
-
-            # Decision: trade this branch?
-            # Tradeable if: validated WR above noise AND EV positive AND PnL positive
-            tradeable = (val_wr >= args.target_wr and val_ev >= args.min_ev
-                        and leaf_pnls.sum() > 0 and n >= args.min_leaf)
-
-            if tradeable:
-                trade_mask |= mask
-
-            branches.append({
-                'leaf_id': int(leaf_id),
-                'n_trades': n,
-                'wr': wr,
-                'ev': ev,
-                'total_pnl': leaf_pnls.sum(),
-                'avg_pnl': leaf_pnls.mean(),
-                'max_dd': dd,
-                'pnl_dd_ratio': leaf_pnls.sum() / (1.0 + abs(dd)),
-                'val_wr': val_wr,
-                'val_ev': val_ev,
-                'tradeable': tradeable,
-                'prediction': 'TRADE' if tradeable else 'SKIP',
-                'long_pct': (df.iloc[np.where(mask)]['dir'] == 'long').mean() * 100,
-            })
-
-        # Score this depth
-        trade_pnls = pnls[trade_mask]
-        n_trade = trade_mask.sum()
-        n_skip = (~trade_mask).sum()
-
-        if n_trade > 0:
-            overall_wr = y[trade_mask].mean()
-            overall_ev = compute_ev(trade_pnls)
-            overall_score = compute_score(trade_pnls)
-
-            # Validation WR/EV (average across tradeable branches)
-            tradeable_branches = [b for b in branches if b['tradeable']]
-            avg_val_wr = np.mean([b['val_wr'] for b in tradeable_branches]) if tradeable_branches else 0
-            avg_val_ev = np.mean([b['val_ev'] for b in tradeable_branches]) if tradeable_branches else 0
-        else:
-            overall_wr = 0
-            overall_ev = 0
-            overall_score = 0
-            avg_val_wr = 0
-            avg_val_ev = 0
-
-        is_best = overall_score > best_score
-        if is_best:
-            best_score = overall_score
-            best_tree = tree
-            best_branches = branches
-            best_depth = depth
-
-        print(f'  {depth:>5} {len(unique_leaves):>6} {n_trade:>6} {n_skip:>6} '
-              f'{overall_wr:>5.0%} ${overall_ev:>6.1f} {overall_score:>8.0f} '
-              f'{avg_val_wr:>5.0%} ${avg_val_ev:>6.1f} '
-              f'{"<<<" if is_best else "":>5}')
-
-    return best_tree, best_branches, best_depth
+    return tree, X, y, cv_results
 
 
-def print_report(tree, branches, depth, feature_cols, save_path=None):
-    """Print detailed report of the best tree. Optionally save to file."""
+def analyze_branches(tree, X, y, df):
+    """Analyze each leaf — what strategy does it recommend?"""
+    leaves = tree.apply(X)
+    unique_leaves = np.unique(leaves)
+
+    branches = []
+    for lid in unique_leaves:
+        mask = leaves == lid
+        leaf_df = df.iloc[np.where(mask)[0]]
+        n = len(leaf_df)
+        leaf_y = y[mask]
+
+        # Dominant strategy in this leaf
+        strategy_counts = pd.Series(leaf_y).value_counts()
+        dominant_idx = strategy_counts.index[0]
+        dominant_strategy = STRATEGIES[dominant_idx]
+        dominant_pct = strategy_counts.iloc[0] / n * 100
+
+        # PnL stats
+        actual_pnl = leaf_df['pnl'].sum()
+        optimal_pnl = leaf_df['best_pnl'].sum()
+        avg_regret = leaf_df['regret'].mean()
+
+        # Exit timing
+        avg_same_bar = leaf_df['same_best_bar'].mean()
+        avg_counter_bar = leaf_df['counter_best_bar'].mean()
+
+        # Direction
+        long_pct = (leaf_df['dir'] == 'long').mean() * 100
+
+        branches.append({
+            'leaf_id': int(lid),
+            'n_trades': n,
+            'strategy': dominant_strategy,
+            'strategy_pct': dominant_pct,
+            'actual_pnl': actual_pnl,
+            'optimal_pnl': optimal_pnl,
+            'recoverable': optimal_pnl - actual_pnl,
+            'avg_regret': avg_regret,
+            'exit_bar_same': avg_same_bar,
+            'exit_bar_counter': avg_counter_bar,
+            'long_pct': long_pct,
+            'wr': (leaf_df['pnl'] > 0).mean() * 100,
+        })
+
+    return sorted(branches, key=lambda b: -b['optimal_pnl'])
+
+
+def print_report(tree, branches, cv_results, feature_cols, save_path=None):
+    """Print and save report."""
     lines = []
 
     def out(s=''):
@@ -267,20 +189,33 @@ def print_report(tree, branches, depth, feature_cols, save_path=None):
         lines.append(s)
 
     out(f'\n{"="*70}')
-    out(f'BEST TREE (depth={depth})')
+    out(f'STRATEGY TREE (regret-trained)')
     out(f'{"="*70}')
+    out(f'  Depth: {tree.get_depth()} | Leaves: {tree.get_n_leaves()}')
 
-    tradeable = [b for b in branches if b['tradeable']]
-    skipped = [b for b in branches if not b['tradeable']]
+    # CV results
+    avg_acc = np.mean([r['accuracy'] for r in cv_results])
+    avg_sim = np.mean([r['sim_pnl'] for r in cv_results])
+    avg_actual = np.mean([r['actual_pnl'] for r in cv_results])
+    avg_optimal = np.mean([r['optimal_pnl'] for r in cv_results])
+    out(f'  CV Accuracy: {avg_acc:.1%}')
+    out(f'  CV PnL (simulated): ${avg_sim:,.0f} (actual: ${avg_actual:,.0f}, optimal: ${avg_optimal:,.0f})')
 
-    trade_total = sum(b['n_trades'] for b in tradeable)
-    trade_pnl = sum(b['total_pnl'] for b in tradeable)
-    skip_total = sum(b['n_trades'] for b in skipped)
-    skip_pnl = sum(b['total_pnl'] for b in skipped)
-
-    out(f'\n  TRADE branches: {len(tradeable)} ({trade_total} trades, ${trade_pnl:.0f})')
-    out(f'  SKIP branches:  {len(skipped)} ({skip_total} trades, ${skip_pnl:.0f} avoided)')
-    out(f'  Net improvement: ${trade_pnl - skip_pnl:.0f} (trade) vs ${trade_pnl + skip_pnl:.0f} (all)')
+    # Strategy distribution across branches
+    out(f'\n  Strategy Distribution:')
+    strat_counts = {}
+    for b in branches:
+        s = b['strategy']
+        if s not in strat_counts:
+            strat_counts[s] = {'branches': 0, 'trades': 0, 'optimal': 0}
+        strat_counts[s]['branches'] += 1
+        strat_counts[s]['trades'] += b['n_trades']
+        strat_counts[s]['optimal'] += b['optimal_pnl']
+    for s in STRATEGIES:
+        if s in strat_counts:
+            sc = strat_counts[s]
+            out(f'    {s:<22} {sc["branches"]:>3} branches  {sc["trades"]:>5} trades  '
+                f'optimal=${sc["optimal"]:>8,.0f}')
 
     # Feature importance
     importances = tree.feature_importances_
@@ -291,34 +226,25 @@ def print_report(tree, branches, depth, feature_cols, save_path=None):
             bar = '#' * int(imp * 50)
             out(f'    {name:<25} {imp:.3f} {bar}')
 
-    # Tradeable branches detail
-    out(f'\n  TRADEABLE Branches:')
-    out(f'  {"ID":>4} {"N":>5} {"WR":>6} {"ValWR":>6} {"EV":>7} {"ValEV":>7} {"Total$":>8} {"DD$":>7} {"L%":>4}')
-    out(f'  {"-"*65}')
-    for b in sorted(tradeable, key=lambda b: -b['total_pnl']):
-        out(f'  {b["leaf_id"]:>4} {b["n_trades"]:>5} {b["wr"]:>5.0%} '
-            f'{b["val_wr"]:>5.0%} ${b["ev"]:>6.1f} ${b["val_ev"]:>6.1f} '
-            f'${b["total_pnl"]:>7.0f} ${b["max_dd"]:>6.0f} {b["long_pct"]:>3.0f}%')
+    # Branch detail
+    out(f'\n  Branches (by optimal PnL):')
+    out(f'  {"ID":>4} {"N":>5} {"Strategy":<22} {"Pct":>4} {"Actual$":>8} {"Optimal$":>9} {"Recover$":>9} {"ExitBar":>7} {"WR":>5}')
+    out(f'  {"-"*80}')
+    for b in branches[:25]:
+        exit_bar = b['exit_bar_same'] if 'same' in b['strategy'] else b['exit_bar_counter']
+        out(f'  {b["leaf_id"]:>4} {b["n_trades"]:>5} {b["strategy"]:<22} '
+            f'{b["strategy_pct"]:>3.0f}% ${b["actual_pnl"]:>7.0f} ${b["optimal_pnl"]:>8.0f} '
+            f'${b["recoverable"]:>8.0f} {exit_bar:>6.1f} {b["wr"]:>4.0f}%')
 
-    # Skip branches (biggest losses avoided)
-    out(f'\n  SKIP Branches (top 5 losses avoided):')
-    for b in sorted(skipped, key=lambda b: b['total_pnl'])[:5]:
-        out(f'  {b["leaf_id"]:>4} {b["n_trades"]:>5} {b["wr"]:>5.0%} '
-            f'{b["val_wr"]:>5.0%} ${b["ev"]:>6.1f} ${b["total_pnl"]:>7.0f}')
-
-    # Tree rules
+    # Tree rules (first 60 lines)
     out(f'\n  Tree Rules:')
-    rules_text = export_text(tree, feature_names=feature_cols, max_depth=10)
-    rule_lines = rules_text.split('\n')
-    if len(rule_lines) > 80:
-        for rl in rule_lines[:80]:
-            out(rl)
-        out(f'  ... ({len(rule_lines) - 80} more lines)')
-    else:
-        for rl in rule_lines:
-            out(rl)
+    rules = export_text(tree, feature_names=feature_cols, max_depth=10)
+    rule_lines = rules.split('\n')
+    for rl in rule_lines[:60]:
+        out(rl)
+    if len(rule_lines) > 60:
+        out(f'  ... ({len(rule_lines) - 60} more lines)')
 
-    # Save report to file
     if save_path:
         with open(save_path, 'w', encoding='utf-8') as f:
             f.write('\n'.join(lines))
@@ -329,30 +255,38 @@ def main():
     args = parse_args()
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    print(f'Loading IS trades from {TRADE_LOG}...')
-    df = load_trades()
-    print(f'  {len(df)} trades | WR={df["win"].mean()*100:.0f}% | EV=${compute_ev(df["pnl"].values):.2f}')
+    print(f'Loading trades + regret labels...')
+    df = load_data()
+    print(f'  {len(df)} trades | {len(STRATEGIES)} strategy classes')
+    print(f'  Label distribution:')
+    for s in STRATEGIES:
+        n = (df['best_action'] == s).sum()
+        if n > 0:
+            print(f'    {s:<22} {n:>5} ({n/len(df)*100:>4.0f}%)')
 
-    tree, branches, depth = iterative_tree(df, FEATURE_NAMES_79D, args)
-    report_path = os.path.join(OUTPUT_DIR, 'tree_report.txt')
-    print_report(tree, branches, depth, FEATURE_NAMES_79D, save_path=report_path)
+    print(f'\nTraining tree (depth={args.max_depth}, min_leaf={args.min_leaf})...')
+    tree, X, y, cv_results = train_tree(df, FEATURE_NAMES_79D, args.max_depth, args.min_leaf)
+
+    branches = analyze_branches(tree, X, y, df)
+    report_path = os.path.join(OUTPUT_DIR, 'strategy_tree_report.txt')
+    print_report(tree, branches, cv_results, FEATURE_NAMES_79D, save_path=report_path)
 
     # Save
-    save_path = os.path.join(OUTPUT_DIR, 'tree.pkl')
+    save_path = os.path.join(OUTPUT_DIR, 'strategy_tree.pkl')
     with open(save_path, 'wb') as f:
         pickle.dump({
             'tree': tree,
             'branches': branches,
             'feature_names': FEATURE_NAMES_79D,
-            'depth': depth,
+            'strategies': STRATEGIES,
+            'cv_results': cv_results,
             'args': vars(args),
         }, f)
-    print(f'\nTree saved: {save_path}')
+    print(f'Tree saved: {save_path}')
 
     branches_df = pd.DataFrame(branches)
-    branches_csv = os.path.join(OUTPUT_DIR, 'branches.csv')
-    branches_df.to_csv(branches_csv, index=False)
-    print(f'Branches saved: {branches_csv}')
+    branches_df.to_csv(os.path.join(OUTPUT_DIR, 'strategy_branches.csv'), index=False)
+    print(f'Branches saved: {OUTPUT_DIR}/strategy_branches.csv')
 
 
 if __name__ == '__main__':
