@@ -278,6 +278,11 @@ def main():
             equity_arg = float(sys.argv[idx + 1])
         cmd_nmp(target, fast=fast, equity=equity_arg)
 
+    elif cmd == 'gated':
+        # What-if: NMP runs on all bars, but only scores trades the tree allows
+        target = sys.argv[2] if len(sys.argv) > 2 else 'oos'
+        _run_gated_whatif(target)
+
     else:
         print(f'Unknown command: {cmd}')
         print(__doc__)
