@@ -173,24 +173,35 @@ def process_day_bulk(day_name: str, resolution: str = '1m') -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def process_day_sequential(day_name: str, resolution: str = '1m') -> pd.DataFrame:
+def process_day_sequential(day_name: str, resolution: str = '1m',
+                           agg=None, sfe=None, prev_velocities=None):
     """Sheet music mode: feed 1s bars through aggregator, compute 79D honestly.
 
     Zero lookahead. Each bar only sees data up to that point.
     Slow (~9 min/day) but honest — same as live would produce.
+
+    If agg/sfe/prev_velocities are passed, CARRIES HISTORY from previous days.
+    This is critical for 1h and 1D features which need multi-day context.
+
+    Returns: (DataFrame of rows, agg, sfe, prev_velocities) for chaining.
     """
     from nn_v2.ticker import FileTicker
     from nn_v2.aggregator import Aggregator
 
-    sfe = StatisticalFieldEngine()
-    agg = Aggregator(history_limit=2000)
-    prev_velocities = {}
+    # Create fresh if not carrying from previous day
+    if agg is None:
+        agg = Aggregator(history_limit=2000)
+    if sfe is None:
+        sfe = StatisticalFieldEngine()
+    if prev_velocities is None:
+        prev_velocities = {}
+
     rows = []
 
     # Load 1s bars for this day
     path_1s = os.path.join(ATLAS_ROOT, '1s', f'{day_name}.parquet')
     if not os.path.exists(path_1s):
-        return pd.DataFrame()
+        return pd.DataFrame(), agg, sfe, prev_velocities
 
     def on_bar_close(tf, bar):
         nonlocal prev_velocities
@@ -232,9 +243,7 @@ def process_day_sequential(day_name: str, resolution: str = '1m') -> pd.DataFram
     for bar in ticker:
         agg.feed(bar)
 
-    del sfe
-    gc.collect()
-    return pd.DataFrame(rows) if rows else pd.DataFrame()
+    return pd.DataFrame(rows) if rows else pd.DataFrame(), agg, sfe, prev_velocities
 
 
 def main():
@@ -280,16 +289,29 @@ def main():
     total_rows = 0
     skipped = 0
 
+    # Sequential mode: carry aggregator + SFE across days for 1h/1D context
+    carry_agg = None
+    carry_sfe = None
+    carry_vels = None
+
     for fpath in tqdm(all_files, desc='Days', unit='day'):
         day_name = os.path.basename(fpath).replace('.parquet', '')
         out_path = os.path.join(out_dir, f'{day_name}.parquet')
 
         if os.path.exists(out_path):
+            # Still need to process for carry-forward even if output exists
+            if sequential and carry_agg is not None:
+                # Feed through aggregator to maintain history, discard output
+                _, carry_agg, carry_sfe, carry_vels = process_day_sequential(
+                    day_name, resolution=resolution,
+                    agg=carry_agg, sfe=carry_sfe, prev_velocities=carry_vels)
             skipped += 1
             continue
 
         if sequential:
-            df = process_day_sequential(day_name, resolution=resolution)
+            df, carry_agg, carry_sfe, carry_vels = process_day_sequential(
+                day_name, resolution=resolution,
+                agg=carry_agg, sfe=carry_sfe, prev_velocities=carry_vels)
         else:
             df = process_day_bulk(day_name, resolution=resolution)
         if len(df) == 0:
@@ -299,6 +321,13 @@ def main():
         total_rows += len(df)
 
         gc.collect()
+
+    if sequential and carry_agg is not None:
+        # Report 1h/1D bar counts at end
+        from nn_v2.aggregator import Aggregator
+        for tf in ['1h', '1D']:
+            tf_df = carry_agg.get_closed_bars_df(tf)
+            print(f'  {tf} accumulated bars: {len(tf_df)}')
 
     print(f'\nDone: {total_rows:,} rows across {len(all_files) - skipped} days')
     print(f'Skipped (already exists): {skipped}')
