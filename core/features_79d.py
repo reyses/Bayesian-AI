@@ -375,6 +375,22 @@ def extract_79d(
         h_start = HELPER_START + tf_idx * N_HELPER
         features[h_start:h_start + N_HELPER] = helper
 
+    # Fallback: fill missing higher TF z-dependent features from next lower TF
+    # z_se(0), hurst(7), reversion_prob(8), p_at_center(9) need 21+ bars for regression
+    # If a higher TF has zeros, copy from the next lower TF that has data
+    Z_DEPENDENT_INDICES = [0, 7, 8, 9]  # z_se, hurst, reversion_prob, p_at_center
+    for tf_idx in range(1, len(TF_ORDER)):  # skip 15s (index 0), it's always available
+        tf = TF_ORDER[tf_idx]
+        start = tf_idx * N_CORE
+        z_val = features[start + 0]  # z_se for this TF
+
+        if z_val == 0.0 and tf not in states_by_tf:
+            # This TF had no state — fallback from next lower TF
+            lower_idx = tf_idx - 1
+            lower_start = lower_idx * N_CORE
+            for feat_idx in Z_DEPENDENT_INDICES:
+                features[start + feat_idx] = features[lower_start + feat_idx]
+
     # Global: time_of_day
     if timestamp > 0:
         features[GLOBAL_START] = (timestamp % 86400) / 86400
