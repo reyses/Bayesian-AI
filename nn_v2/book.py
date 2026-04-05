@@ -385,10 +385,11 @@ def print_book(strategies, save_path=None):
 # BAYESIAN BOOK — versioned, Dirichlet-updated, human-readable
 # ============================================================
 
-PRIOR_WEIGHT = 10.0           # effective NMP sample size for Dirichlet prior
+PRIOR_WEIGHT = 30.0           # effective NMP sample size for Dirichlet prior (higher = slower learning, less overfit)
 PRIOR_FLOOR = 0.5             # Laplace floor per action (prevents zero prior)
 MAX_EPOCHS_PER_DAY = 5        # max retries per day in LEARN phase
 MIN_PNL_IMPROVEMENT = 1.0     # $ improvement required to keep epoch result
+MIN_EVIDENCE_TRADES = 5       # minimum trades per leaf per day to update (prevents noise updates)
 SPOT_CHECK_DEGRADATION = -5.0 # max $ PnL drop on spot-check before warning
 BOOK_DIR = 'nn_v2/output/books'
 
@@ -446,8 +447,8 @@ class BayesianLeaf:
     def update(self, day_regrets: pd.DataFrame, day_trades: list) -> dict:
         """Bayesian update from one day's evidence. Returns changelog."""
         n_new = len(day_regrets)
-        if n_new == 0:
-            return {'leaf_id': self.leaf_id, 'n_evidence': 0, 'changed': False}
+        if n_new < MIN_EVIDENCE_TRADES:
+            return {'leaf_id': self.leaf_id, 'n_evidence': n_new, 'changed': False}
 
         prev_profile = self._get_profile()
         prev_same_exit = self.post_same_exit
