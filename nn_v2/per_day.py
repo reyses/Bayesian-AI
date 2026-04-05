@@ -218,7 +218,7 @@ def apply_fixes(fixes, iteration):
             'strategies': STRATEGIES,
             'cv_results': [],
             'iteration': iteration,
-        })
+        }, f)
 
     print(f'  Tree retrained: {tree.get_n_leaves()} leaves (depth {tree.get_depth()})')
     return tree, branches
