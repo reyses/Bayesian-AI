@@ -932,26 +932,83 @@ def _run_bayesian_pipeline():
     book = learn_phase(book)
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
-    # Save final book for H1
+    # Save final book
     import pickle
     vn_path = os.path.join(BOOK_DIR, 'book_final.pkl')
     final_book = book.export_for_gate()
     with open(vn_path, 'wb') as f:
         pickle.dump(final_book, f)
 
+    # === PHASE 3b: PICK BEST EPOCH ===
+    # Sample frozen versions to find peak before overfit
+    print(f'\n--- Scanning book versions for best epoch ---')
+    from nn_v2.sfe_ticker import FeatureTicker
+    from nn_v2.ai import AIEngine as _AIEngine
+
+    # Sample every 20th version + first + last
+    n_versions = book.version
+    sample_versions = [0]  # always include v0
+    sample_versions += list(range(20, n_versions, 20))
+    if n_versions - 1 not in sample_versions:
+        sample_versions.append(n_versions - 1)
+
+    # Quick score: run 30 random IS days per version
+    import random as _random
+    _random.seed(42)
+    from nn_v2.per_day import get_day_files as _get_day_files
+    is_pairs, _ = _get_day_files('is')
+    if len(is_pairs) > 30:
+        score_pairs = _random.sample(is_pairs, 30)
+    else:
+        score_pairs = is_pairs
+
+    best_version = 0
+    best_score = float('-inf')
+    version_scores = []
+
+    for v in sample_versions:
+        v_path = os.path.join(BOOK_DIR, f'book_v{v:03d}.pkl')
+        if not os.path.exists(v_path):
+            continue
+        with open(v_path, 'rb') as f:
+            v_book = pickle.load(f)
+
+        ai_tmp = _AIEngine()
+        ai_tmp.set_book(v_book)
+        v_pnl = 0
+        for feat_file, price_file, day_name in score_pairs:
+            ai_tmp.reset()
+            ft = FeatureTicker(feat_file, price_file=price_file)
+            for state in ft:
+                ai_tmp.on_state(state)
+            ai_tmp.force_close()
+            v_pnl += ai_tmp.daily_pnl
+
+        version_scores.append((v, v_pnl))
+        if v_pnl > best_score:
+            best_score = v_pnl
+            best_version = v
+        print(f'    v{v:03d}: ${v_pnl:,.0f} on {len(score_pairs)} days')
+
+    print(f'  Best version: v{best_version:03d} (${best_score:,.0f})')
+
+    # Use best version for H1 (merge of base learning + peak epoch)
+    best_path = os.path.join(BOOK_DIR, f'book_v{best_version:03d}.pkl')
+    h1_book_path = best_path if best_version > 0 else v0_path
+
     # === PHASE 4: VALIDATE (H1) ===
     print(f'\n{"="*40}')
-    print(f'PHASE 4: VALIDATE (H1 — book v{book.version})')
+    print(f'PHASE 4: VALIDATE (H1 — best book v{best_version})')
     print(f'{"="*40}')
 
-    print(f'\n--- Step 9: AI Forward Pass IS (H1) ---')
+    print(f'\n--- Step 9: AI Forward Pass IS (H1, book v{best_version}) ---')
     t0 = _time.perf_counter()
-    _run_ai_with_book('is', vn_path, 'h1')
+    _run_ai_with_book('is', h1_book_path, 'h1')
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
-    print(f'\n--- Step 10: AI Forward Pass OOS (H1) ---')
+    print(f'\n--- Step 10: AI Forward Pass OOS (H1, book v{best_version}) ---')
     t0 = _time.perf_counter()
-    _run_ai_with_book('oos', vn_path, 'h1')
+    _run_ai_with_book('oos', h1_book_path, 'h1')
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
     # === PHASE 5: COMPARE ===
