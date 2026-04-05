@@ -851,7 +851,7 @@ def _run_bayesian_pipeline():
 
     print(f'{"="*60}')
     print(f'BAYESIAN BOOK PIPELINE')
-    print(f'  TRAIN:    NMP → NMP regret → tree → book v0')
+    print(f'  TRAIN:    NMP (seq) → regret → correct trades → tree → book v0')
     print(f'  BASELINE: H0 (book v0)')
     print(f'  LEARN:    Per-day epochs')
     print(f'  VALIDATE: H1 (book vN)')
@@ -874,14 +874,27 @@ def _run_bayesian_pipeline():
     _run_regret()
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
-    print(f'\n--- Step 3: Train Tree ---')
+    print(f'\n--- Step 3: Correct Trades (regret → ground truth) ---')
+    t0 = _time.perf_counter()
+    import pickle as _pickle
+    from nn_v2.regret import correct_trades
+    with open('nn_v2/output/trades/nmp_is.pkl', 'rb') as f:
+        nmp_trades = _pickle.load(f)
+    corrected = correct_trades(nmp_trades)
+    os.makedirs('nn_v2/output/trades', exist_ok=True)
+    with open('nn_v2/output/trades/corrected_is.pkl', 'wb') as f:
+        _pickle.dump(corrected, f)
+    print(f'  {len(corrected)} corrected trades saved')
+    print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    print(f'\n--- Step 4: Train Tree (on corrected trades) ---')
     t0 = _time.perf_counter()
     from nn_v2.tree import main as tree_main
     sys.argv = ['tree.py']
     tree_main()
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
-    print(f'\n--- Step 4: Build Book v0 ---')
+    print(f'\n--- Step 5: Build Book v0 ---')
     t0 = _time.perf_counter()
     from nn_v2.book import main as book_main
     book_main()
@@ -898,12 +911,12 @@ def _run_bayesian_pipeline():
     print(f'PHASE 2: BASELINE (H0 — book v0)')
     print(f'{"="*40}')
 
-    print(f'\n--- Step 5: AI Forward Pass IS (H0) ---')
+    print(f'\n--- Step 6: AI Forward Pass IS (H0) ---')
     t0 = _time.perf_counter()
     _run_ai_with_book('is', v0_path, 'h0')
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
-    print(f'\n--- Step 6: AI Forward Pass OOS (H0) ---')
+    print(f'\n--- Step 7: AI Forward Pass OOS (H0) ---')
     t0 = _time.perf_counter()
     _run_ai_with_book('oos', v0_path, 'h0')
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
@@ -913,7 +926,7 @@ def _run_bayesian_pipeline():
     print(f'PHASE 3: LEARN (epoch learning)')
     print(f'{"="*40}')
 
-    print(f'\n--- Step 7: Per-Day Epochs ---')
+    print(f'\n--- Step 8: Per-Day Epochs ---')
     t0 = _time.perf_counter()
     from nn_v2.per_day import learn_phase
     book = learn_phase(book)
@@ -931,12 +944,12 @@ def _run_bayesian_pipeline():
     print(f'PHASE 4: VALIDATE (H1 — book v{book.version})')
     print(f'{"="*40}')
 
-    print(f'\n--- Step 8: AI Forward Pass IS (H1) ---')
+    print(f'\n--- Step 9: AI Forward Pass IS (H1) ---')
     t0 = _time.perf_counter()
     _run_ai_with_book('is', vn_path, 'h1')
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
-    print(f'\n--- Step 9: AI Forward Pass OOS (H1) ---')
+    print(f'\n--- Step 10: AI Forward Pass OOS (H1) ---')
     t0 = _time.perf_counter()
     _run_ai_with_book('oos', vn_path, 'h1')
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
