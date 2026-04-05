@@ -29,7 +29,9 @@ class BranchStats:
     """Accumulated stats for one tree branch."""
     __slots__ = ['leaf_id', 'n_trades', 'wins', 'losses', 'pnl_list',
                  'peak_list', 'held_list', 'dd_running', 'dd_max',
-                 'expected_wr', 'expected_ev', 'tradeable', 'iteration']
+                 'expected_wr', 'expected_ev', 'tradeable', 'iteration',
+                 'chain_count', 'exit_reasons', 'entry_match_list',
+                 'path_adherence_list']
 
     def __init__(self, leaf_id: int):
         self.leaf_id = leaf_id
@@ -46,6 +48,11 @@ class BranchStats:
         self.expected_ev = 0.0
         self.tradeable = True
         self.iteration = 0
+        # Chain and path tracking
+        self.chain_count = 0              # how many trades had chain updates
+        self.exit_reasons = []            # why trades exited
+        self.entry_match_list = []        # how well 79D matched entry signature
+        self.path_adherence_list = []     # expected vs actual path divergence
 
     @property
     def wr(self):
@@ -72,8 +79,10 @@ class BranchStats:
         wr = len(wins) / len(self.pnl_list)
         return wr * np.mean(wins) - (1 - wr) * abs(np.mean(losses))
 
-    def record(self, pnl: float, peak: float = 0.0, held: int = 0):
-        """Record a trade outcome."""
+    def record(self, pnl: float, peak: float = 0.0, held: int = 0,
+               chain_length: int = 0, exit_reason: str = '',
+               entry_match: float = 0.0, path_adherence: float = 0.0):
+        """Record a trade outcome with chain and path data."""
         self.n_trades += 1
         self.pnl_list.append(pnl)
         self.peak_list.append(peak)
@@ -87,6 +96,15 @@ class BranchStats:
         peak_equity = max(0, max(np.cumsum(self.pnl_list)))
         current_dd = self.dd_running - peak_equity
         self.dd_max = min(self.dd_max, current_dd)
+        # Chain and path tracking
+        if chain_length > 0:
+            self.chain_count += 1
+        if exit_reason:
+            self.exit_reasons.append(exit_reason)
+        if entry_match > 0:
+            self.entry_match_list.append(entry_match)
+        if path_adherence != 0:
+            self.path_adherence_list.append(path_adherence)
 
 
 class BayesianMemory:
@@ -120,11 +138,14 @@ class BayesianMemory:
               f'(iteration {self.iteration}, {n_trade} TRADE, {n_skip} SKIP)')
 
     def record_trade(self, leaf_id: int, pnl: float, peak: float = 0.0,
-                     held: int = 0):
+                     held: int = 0, chain_length: int = 0,
+                     exit_reason: str = '', entry_match: float = 0.0,
+                     path_adherence: float = 0.0):
         """Record a trade outcome for a branch."""
         if leaf_id not in self.branches:
             self.branches[leaf_id] = BranchStats(leaf_id)
-        self.branches[leaf_id].record(pnl, peak, held)
+        self.branches[leaf_id].record(pnl, peak, held, chain_length,
+                                       exit_reason, entry_match, path_adherence)
 
     def should_trade(self, leaf_id: int) -> bool:
         """Should we trade this branch? Based on accumulated evidence."""
@@ -196,13 +217,14 @@ class BayesianMemory:
         ]
 
         if tradeable:
-            lines.append(f'  {"ID":>4} {"N":>5} {"WR":>6} {"EV":>7} {"PnL":>8} {"DD":>7} {"Status":>8}')
-            lines.append(f'  {"-"*50}')
+            lines.append(f'  {"ID":>4} {"N":>5} {"WR":>6} {"EV":>7} {"PnL":>8} {"DD":>7} {"Chain":>5} {"Match":>6}')
+            lines.append(f'  {"-"*60}')
             for b in sorted(tradeable, key=lambda x: -x.total_pnl):
                 if b.n_trades > 0:
+                    avg_match = np.mean(b.entry_match_list) if b.entry_match_list else 0
                     lines.append(f'  {b.leaf_id:>4} {b.n_trades:>5} {b.wr:>5.0%} '
                                f'${b.ev:>6.1f} ${b.total_pnl:>7.0f} ${b.dd_max:>6.0f} '
-                               f'{"TRADE":>8}')
+                               f'{b.chain_count:>5} {avg_match:>5.0%}')
 
         return '\n'.join(lines)
 
