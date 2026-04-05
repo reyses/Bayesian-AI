@@ -32,12 +32,12 @@ def cmd_build(args):
     build_main()
 
 
-def cmd_nmp(target, fast=False, equity=None, extra_args=None):
+def cmd_nmp(target, fast=False, equity=None, extra_args=None, sequential=False):
     """Run Nightmare Protocol."""
     from tqdm import tqdm
 
     if fast:
-        _run_nmp_fast(target, equity)
+        _run_nmp_fast(target, equity, sequential=sequential)
     else:
         _run_nmp_live(target, equity)
 
@@ -61,14 +61,22 @@ def _resolve_days(target: str, source_dir: str) -> list:
         return [f for f in all_files if date_key in os.path.basename(f)]
 
 
-def _run_nmp_fast(target: str, equity: float = None):
+def _run_nmp_fast(target: str, equity: float = None, sequential: bool = False):
     """Run NMP from pre-computed 79D features (fast test mode)."""
     from nn_v2.sfe_ticker import FeatureTicker
     from nn_v2.nightmare import NightmareEngine
     from tqdm import tqdm
 
-    # Try 1m features first (full dataset), fall back to 5s
-    feat_files = _resolve_days(target, FEATURES_DIR_1M)
+    # Sequential = honest features, bulk = fast but has lookahead
+    if sequential:
+        feat_files = _resolve_days(target, FEATURES_DIR_SEQ)
+        if feat_files:
+            print(f'  Using SEQUENTIAL features (honest, no lookahead)')
+    else:
+        feat_files = []
+
+    if not feat_files:
+        feat_files = _resolve_days(target, FEATURES_DIR_1M)
     if not feat_files:
         feat_files = _resolve_days(target, FEATURES_DIR)
     if not feat_files:
@@ -856,9 +864,9 @@ def _run_bayesian_pipeline():
     print(f'PHASE 1: TRAIN')
     print(f'{"="*40}')
 
-    print(f'\n--- Step 1: NMP on IS ---')
+    print(f'\n--- Step 1: NMP on IS (sequential, honest) ---')
     t0 = _time.perf_counter()
-    cmd_nmp('is', fast=True)
+    cmd_nmp('is', fast=True, sequential=True)
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
     print(f'\n--- Step 2: NMP Regret ---')
