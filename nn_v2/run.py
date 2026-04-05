@@ -568,6 +568,64 @@ def _run_ai(target: str):
     print(f'CSV saved: {csv_path}')
 
 
+def _run_full_pipeline():
+    """Full pipeline: NMP → regret → tree → iterations → AI test.
+
+    All on honest sequential IS features. One command.
+    """
+    import time as _time
+
+    print(f'{"="*60}')
+    print(f'FULL PIPELINE — NMP → regret → tree → iterate → AI')
+    print(f'{"="*60}')
+
+    # Step 1: NMP on IS
+    print(f'\n--- STEP 1: NMP on IS ---')
+    t0 = _time.perf_counter()
+    cmd_nmp('is', fast=True)
+    print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    # Step 2: Regret analysis
+    print(f'\n--- STEP 2: Regret Analysis ---')
+    t0 = _time.perf_counter()
+    _run_regret()
+    print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    # Step 3: Train tree
+    print(f'\n--- STEP 3: Train Strategy Tree ---')
+    t0 = _time.perf_counter()
+    from nn_v2.tree import main as tree_main
+    sys.argv = ['tree.py']  # reset argv for tree's argparse
+    tree_main()
+    print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    # Step 4: Per-day iterations
+    print(f'\n--- STEP 4: Per-Day Iterations ---')
+    t0 = _time.perf_counter()
+    from nn_v2.per_day import main as per_day_main
+    sys.argv = ['per_day.py', '--max-iter', '10']
+    per_day_main()
+    print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    # Step 5: AI on IS (check result)
+    print(f'\n--- STEP 5: AI on IS (check) ---')
+    t0 = _time.perf_counter()
+    _run_ai('is')
+    print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    # Step 6: AI on OOS (final validation)
+    print(f'\n--- STEP 6: AI on OOS (honest validation) ---')
+    t0 = _time.perf_counter()
+    _run_ai('oos')
+    print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    print(f'\n{"="*60}')
+    print(f'PIPELINE COMPLETE')
+    print(f'{"="*60}')
+    print(f'  IS report:  DATA/NMP_TREE/ai_is_report.txt')
+    print(f'  OOS report: DATA/NMP_TREE/ai_oos_report.txt')
+
+
 def _print_summary(results: list):
     """Print multi-day summary."""
     if not results:
@@ -625,6 +683,9 @@ def main():
     elif cmd == 'ai':
         target = sys.argv[2] if len(sys.argv) > 2 else 'oos'
         _run_ai(target)
+
+    elif cmd == 'pipeline':
+        _run_full_pipeline()
 
     else:
         print(f'Unknown command: {cmd}')
