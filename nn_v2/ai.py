@@ -55,6 +55,10 @@ class AIEngine:
         self.bars_held = 0
         self.peak_pnl = 0.0
 
+        # Chain tracking: branch updates within a trade
+        self._entry_decision = None
+        self._chain_history = []  # list of {bar, from_branch, to_branch, pnl_at_chain}
+
         # Trade log
         self.trades = []
         self.daily_pnl = 0.0
@@ -64,6 +68,11 @@ class AIEngine:
     def on_state(self, state: Dict) -> Dict:
         """Process one bar. Returns action taken.
 
+        Chain logic:
+          - Same direction signal while in position: STAY + update expected path
+          - Different direction signal: EXIT current + ENTER opposite (flip)
+          - Calibrated exit from book: exit or flip if new signal ready
+
         Args:
             state: {'features_79d': np.array(79), 'price': float, 'timestamp': float}
 
@@ -71,7 +80,7 @@ class AIEngine:
             {
                 'position': 'long'/'short'/'flat',
                 'changed': bool,
-                'action': 'hold'/'enter_long'/'enter_short'/'flip_to_long'/'flip_to_short'/'exit',
+                'action': 'hold'/'enter_long'/'enter_short'/'flip_to_long'/'flip_to_short'/'exit'/'chain_update',
                 'branch': dict or None,
                 'pnl': current unrealized PnL,
             }
@@ -89,11 +98,10 @@ class AIEngine:
         # Gate classifies + calibrates
         decision = self.gate.evaluate(state)
         strategy = decision['strategy']
-        direction = decision['direction']
         leaf_id = decision['leaf_id']
         branch = decision['branch']
 
-        # Determine desired position
+        # Determine desired position from NMP + tree strategy
         desired = self._get_desired_position(z, vr, strategy)
 
         # Current unrealized PnL
@@ -107,45 +115,63 @@ class AIEngine:
         self.peak_pnl = max(self.peak_pnl, unrealized)
         self.bars_held += 1 if self.position != 'flat' else 0
 
-        # Decide action
         action = 'hold'
         changed = False
 
-        # === CALIBRATED EXIT CHECK (when in position) ===
-        if self.position != 'flat' and self._entry_decision is not None:
-            exit_check = self.gate.should_exit(state, self.bars_held, unrealized,
-                                                self._entry_decision)
-            if exit_check['exit']:
-                # Book says exit — check if we should flip or go flat
-                if desired != 'flat' and desired != self.position:
-                    action = f'flip_to_{desired}'
-                    self._exit(price, ts, exit_check['reason'])
-                    self._enter(desired, price, ts, leaf_id, branch)
+        # === WHEN IN POSITION ===
+        if self.position != 'flat':
+
+            # 1. Calibrated exit check (per-branch from book)
+            if self._entry_decision is not None:
+                exit_check = self.gate.should_exit(state, self.bars_held, unrealized,
+                                                    self._entry_decision)
+                if exit_check['exit']:
+                    if desired != 'flat' and desired != self.position:
+                        # Exit + flip
+                        action = f'flip_to_{desired}'
+                        self._exit(price, ts, exit_check['reason'])
+                        self._enter(desired, price, ts, leaf_id, branch)
+                        self._entry_decision = decision
+                    else:
+                        action = 'exit'
+                        self._exit(price, ts, exit_check['reason'])
+                    changed = True
+
+            # 2. Same direction signal: STAY + update path (chain)
+            if not changed and desired == self.position:
+                prev_leaf = self._entry_decision['leaf_id'] if self._entry_decision else -1
+                if leaf_id != prev_leaf:
+                    # New branch confirms same direction — chain update
+                    self._chain_history.append({
+                        'bar': self.bars_held,
+                        'from_branch': prev_leaf,
+                        'to_branch': leaf_id,
+                        'pnl_at_chain': unrealized,
+                    })
                     self._entry_decision = decision
-                else:
-                    action = 'exit'
-                    self._exit(price, ts, exit_check['reason'])
-                changed = True
+                    action = 'chain_update'
+                    changed = True
 
-        # === ENTRY / FLIP (when flat or signal changed) ===
-        if not changed:
-            if self.position == 'flat' and desired != 'flat':
-                action = f'enter_{desired}'
-                self._enter(desired, price, ts, leaf_id, branch)
-                self._entry_decision = decision
-                changed = True
-
-            elif self.position != 'flat' and desired == 'flat':
-                action = 'exit'
-                self._exit(price, ts, 'signal_flat')
-                changed = True
-
-            elif self.position != 'flat' and desired != 'flat' and self.position != desired:
+            # 3. Different direction signal: flip
+            if not changed and desired != 'flat' and desired != self.position:
                 action = f'flip_to_{desired}'
                 self._exit(price, ts, 'flip')
                 self._enter(desired, price, ts, leaf_id, branch)
                 self._entry_decision = decision
                 changed = True
+
+            # 4. Signal gone flat
+            if not changed and desired == 'flat':
+                action = 'exit'
+                self._exit(price, ts, 'signal_flat')
+                changed = True
+
+        # === WHEN FLAT ===
+        elif desired != 'flat':
+            action = f'enter_{desired}'
+            self._enter(desired, price, ts, leaf_id, branch)
+            self._entry_decision = decision
+            changed = True
 
         return {
             'position': self.position,
@@ -158,6 +184,7 @@ class AIEngine:
             'pnl': unrealized,
             'bars_held': self.bars_held,
             'entry_match': decision.get('entry_match', 0),
+            'chain_length': len(self._chain_history),
         }
 
     def _get_desired_position(self, z: float, vr: float, strategy: str) -> str:
@@ -189,6 +216,7 @@ class AIEngine:
         self.entry_branch = branch
         self.bars_held = 0
         self.peak_pnl = 0.0
+        self._chain_history = []
 
     def _exit(self, price: float, ts: float, reason: str):
         """Exit current position, log trade."""
@@ -214,6 +242,8 @@ class AIEngine:
             'peak': self.peak_pnl,
             'exit': reason,
             'branch': self.entry_branch.get('leaf_id', -1) if self.entry_branch else -1,
+            'chain': list(self._chain_history),
+            'chain_length': len(self._chain_history),
         })
 
         self.position = 'flat'
@@ -235,6 +265,8 @@ class AIEngine:
         self._bar_count = 0
         self.bars_held = 0
         self.peak_pnl = 0.0
+        self._entry_decision = None
+        self._chain_history = []
 
     def summary(self) -> str:
         n = len(self.trades)
@@ -243,5 +275,6 @@ class AIEngine:
         wins = sum(1 for t in self.trades if t['pnl'] > 0)
         total = sum(t['pnl'] for t in self.trades)
         flips = sum(1 for t in self.trades if t['exit'] == 'flip')
+        chained = sum(1 for t in self.trades if t.get('chain_length', 0) > 0)
         return (f'AI: {n} trades | WR={wins/n*100:.0f}% | ${total:.0f} | '
-                f'{flips} flips')
+                f'{flips} flips | {chained} chained')
