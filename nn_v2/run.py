@@ -298,6 +298,73 @@ def _run_regret():
     print(f'  Saved: DATA/NMP_TREE/regret_by_branch.csv')
 
 
+def _run_gated(target: str):
+    """Run NMP with strategy gate on target data."""
+    from nn_v2.sfe_ticker import FeatureTicker
+    from nn_v2.nightmare import NightmareEngine
+    from nn_v2.gate import Gate
+    from tqdm import tqdm
+    import numpy as np
+
+    tree_path = 'DATA/NMP_TREE/strategy_tree.pkl'
+    if not os.path.exists(tree_path):
+        print(f'No tree found at {tree_path}. Run tree.py first.')
+        return
+
+    gate = Gate(tree_path)
+
+    feat_files = _resolve_days(target, FEATURES_DIR_1M)
+    if not feat_files:
+        feat_files = _resolve_days(target, FEATURES_DIR)
+    if not feat_files:
+        print(f'No feature files for "{target}"')
+        return
+
+    print(f'GATED NMP — {len(feat_files)} day(s)')
+    nmp = NightmareEngine()
+    all_results = []
+
+    for fpath in tqdm(feat_files, desc='Days', unit='day'):
+        day_name = os.path.basename(fpath).replace('.parquet', '')
+        price_file = os.path.join(ATLAS_1M, f'{day_name}.parquet')
+        if not os.path.exists(price_file):
+            price_file = None
+
+        nmp.reset()
+        ft = FeatureTicker(fpath, price_file=price_file)
+
+        for state in ft:
+            decision = gate.evaluate(state)
+
+            if nmp.in_pos:
+                nmp.on_state(state)
+            elif decision['allowed']:
+                branch = decision['branch']
+                if branch and 'counter' in branch.get('strategy', ''):
+                    flipped = state.copy()
+                    feat = state['features_79d'].copy()
+                    feat[10] = -feat[10]  # flip 1m z_se
+                    flipped['features_79d'] = feat
+                    nmp.on_state(flipped)
+                else:
+                    nmp.on_state(state)
+
+        nmp.force_close()
+
+        day_pnl = nmp.daily_pnl
+        day_trades = len(nmp.trades)
+        all_results.append({
+            'day': day_name,
+            'trades': day_trades,
+            'pnl': day_pnl,
+            'wr': sum(1 for t in nmp.trades if t['pnl'] > 0) / max(day_trades, 1) * 100,
+        })
+
+        tqdm.write(f'  {day_name}: {day_trades} trades  ${day_pnl:>8.2f}')
+
+    _print_summary(all_results)
+
+
 def _print_summary(results: list):
     """Print multi-day summary."""
     if not results:
@@ -347,6 +414,10 @@ def main():
 
     elif cmd == 'regret':
         _run_regret()
+
+    elif cmd == 'gated':
+        target = sys.argv[2] if len(sys.argv) > 2 else 'oos'
+        _run_gated(target)
 
     else:
         print(f'Unknown command: {cmd}')
