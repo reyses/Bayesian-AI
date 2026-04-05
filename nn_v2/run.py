@@ -495,6 +495,73 @@ def _run_gated(target: str):
         print(f'Plot failed: {e}')
 
 
+def _run_ai(target: str):
+    """Run AI continuous positioning system."""
+    from nn_v2.sfe_ticker import FeatureTicker
+    from nn_v2.ai import AIEngine
+    from tqdm import tqdm
+
+    feat_files = _resolve_days(target, FEATURES_DIR_1M)
+    if not feat_files:
+        feat_files = _resolve_days(target, FEATURES_DIR)
+    if not feat_files:
+        print(f'No feature files for "{target}"')
+        return
+
+    print(f'AI CONTINUOUS POSITIONING — {len(feat_files)} day(s)')
+    ai = AIEngine()
+    all_results = []
+    cumul = 0
+
+    for fpath in tqdm(feat_files, desc='Days', unit='day'):
+        day_name = os.path.basename(fpath).replace('.parquet', '')
+        price_file = os.path.join(ATLAS_1M, f'{day_name}.parquet')
+        if not os.path.exists(price_file):
+            price_file = None
+
+        ai.reset()
+        ft = FeatureTicker(fpath, price_file=price_file)
+
+        for state in ft:
+            ai.on_state(state)
+
+        ai.force_close()
+
+        cumul += ai.daily_pnl
+        all_results.append({
+            'day': day_name,
+            'trades': len(ai.trades),
+            'pnl': ai.daily_pnl,
+            'wr': sum(1 for t in ai.trades if t['pnl'] > 0) / max(len(ai.trades), 1) * 100,
+        })
+
+        tqdm.write(f'  {day_name}: {ai.summary()}  cumul=${cumul:.0f}')
+
+    _print_summary(all_results)
+
+    # Save report
+    os.makedirs('DATA/NMP_TREE', exist_ok=True)
+    report_path = f'DATA/NMP_TREE/ai_{target}_report.txt'
+    with open(report_path, 'w', encoding='utf-8') as f:
+        n_days = len(all_results)
+        total_pnl = sum(r['pnl'] for r in all_results)
+        winning = sum(1 for r in all_results if r['pnl'] > 0)
+        f.write(f'AI REPORT — {target.upper()}\n{"="*60}\n')
+        f.write(f'Days: {n_days} | PnL: ${total_pnl:.2f} | $/day: ${total_pnl/max(n_days,1):.2f}\n')
+        f.write(f'Winning: {winning}/{n_days} ({winning/max(n_days,1)*100:.0f}%)\n\n')
+        cumul = 0
+        for r in all_results:
+            cumul += r['pnl']
+            flag = '<<<' if r['pnl'] > 50 else '!!!' if r['pnl'] < -50 else ''
+            f.write(f'  {r["day"]}  {r["trades"]:>3} trades  {r["wr"]:>4.0f}%  '
+                    f'${r["pnl"]:>8.2f}  cumul=${cumul:>8.2f} {flag}\n')
+    print(f'\nReport saved: {report_path}')
+
+    csv_path = f'DATA/NMP_TREE/ai_{target}_daily.csv'
+    pd.DataFrame(all_results).to_csv(csv_path, index=False)
+    print(f'CSV saved: {csv_path}')
+
+
 def _print_summary(results: list):
     """Print multi-day summary."""
     if not results:
@@ -548,6 +615,10 @@ def main():
     elif cmd == 'gated':
         target = sys.argv[2] if len(sys.argv) > 2 else 'oos'
         _run_gated(target)
+
+    elif cmd == 'ai':
+        target = sys.argv[2] if len(sys.argv) > 2 else 'oos'
+        _run_ai(target)
 
     else:
         print(f'Unknown command: {cmd}')
