@@ -599,11 +599,11 @@ def _run_full_pipeline():
     tree_main()
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
-    # Step 4: Per-day iterations
-    print(f'\n--- STEP 4: Per-Day Iterations ---')
+    # Step 4: Per-day ACL (every day, maximize PnL, build brain)
+    print(f'\n--- STEP 4: Per-Day ACL ---')
     t0 = _time.perf_counter()
     from nn_v2.per_day import main as per_day_main
-    sys.argv = ['per_day.py', '--max-iter', '10']
+    sys.argv = ['per_day.py', '--rounds', '5']
     per_day_main()
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
