@@ -569,61 +569,73 @@ def _run_ai(target: str):
 
 
 def _run_full_pipeline():
-    """Full pipeline: NMP → regret → tree → iterations → AI test.
+    """Full pipeline: NMP → regret → tree → book → brain → AI → report.
 
     All on honest sequential IS features. One command.
     """
     import time as _time
 
     print(f'{"="*60}')
-    print(f'FULL PIPELINE — NMP → regret → tree → iterate → AI')
+    print(f'FULL PIPELINE — NMP → regret → tree → book → brain → AI → report')
     print(f'{"="*60}')
+    pipeline_start = _time.perf_counter()
 
-    # Step 1: NMP on IS
+    # Step 1: NMP on IS (generates trades with approach buffer)
     print(f'\n--- STEP 1: NMP on IS ---')
     t0 = _time.perf_counter()
     cmd_nmp('is', fast=True)
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
-    # Step 2: Regret analysis
+    # Step 2: Regret analysis (full counterfactual per trade)
     print(f'\n--- STEP 2: Regret Analysis ---')
     t0 = _time.perf_counter()
     _run_regret()
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
-    # Step 3: Train tree
+    # Step 3: Train tree (frozen after this — no retraining)
     print(f'\n--- STEP 3: Train Strategy Tree ---')
     t0 = _time.perf_counter()
     from nn_v2.tree import main as tree_main
-    sys.argv = ['tree.py']  # reset argv for tree's argparse
+    sys.argv = ['tree.py']
     tree_main()
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
-    # Step 4: Per-day ACL (every day, maximize PnL, build brain)
-    print(f'\n--- STEP 4: Per-Day ACL ---')
+    # Step 4: Build book (raw strategy + regret profiles per leaf)
+    print(f'\n--- STEP 4: Build Strategy Book ---')
+    t0 = _time.perf_counter()
+    from nn_v2.book import main as book_main
+    book_main()
+    print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    # Step 5: Per-day brain builder on IS (brain accumulates evidence)
+    print(f'\n--- STEP 5: Per-Day Brain Builder (IS) ---')
     t0 = _time.perf_counter()
     from nn_v2.per_day import main as per_day_main
-    sys.argv = ['per_day.py', '--rounds', '5']
+    sys.argv = ['per_day.py', '--target', 'is']
     per_day_main()
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
-    # Step 5: AI on IS (check result)
-    print(f'\n--- STEP 5: AI on IS (check) ---')
+    # Step 6: Per-day brain builder on OOS (validation — separate brain)
+    print(f'\n--- STEP 6: Per-Day Brain Builder (OOS) ---')
     t0 = _time.perf_counter()
-    _run_ai('is')
+    sys.argv = ['per_day.py', '--target', 'oos']
+    per_day_main()
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
-    # Step 6: AI on OOS (final validation)
-    print(f'\n--- STEP 6: AI on OOS (honest validation) ---')
-    t0 = _time.perf_counter()
-    _run_ai('oos')
-    print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+    # Step 7: Final report (IS/OOS comparison, modes, typical month)
+    print(f'\n--- STEP 7: System Report ---')
+    from nn_v2.report import main as report_main
+    sys.argv = ['report.py']
+    report_main()
 
+    total_time = _time.perf_counter() - pipeline_start
     print(f'\n{"="*60}')
-    print(f'PIPELINE COMPLETE')
+    print(f'PIPELINE COMPLETE — {total_time:.0f}s total')
     print(f'{"="*60}')
-    print(f'  IS report:  DATA/NMP_TREE/ai_is_report.txt')
-    print(f'  OOS report: DATA/NMP_TREE/ai_oos_report.txt')
+    print(f'  IS brain:   DATA/NMP_TREE/memory_is.pkl')
+    print(f'  OOS brain:  DATA/NMP_TREE/memory_oos.pkl')
+    print(f'  Report:     DATA/NMP_TREE/system_report.txt')
+    print(f'  Book:       DATA/NMP_TREE/strategy_book.txt')
 
 
 def _print_summary(results: list):
