@@ -42,12 +42,10 @@ _1M_OFFSET = 10  # 1m is TF index 1, 10 features per TF
 class AIEngine:
     """Continuous positioning: LONG / SHORT / FLAT at every bar."""
 
-    def __init__(self, tree_path: str = 'DATA/NMP_TREE/strategy_tree.pkl'):
-        with open(tree_path, 'rb') as f:
-            data = pickle.load(f)
-        self.tree = data['tree']
-        self.branches = {b['leaf_id']: b for b in data['branches']}
-        self.strategies = data.get('strategies', [])
+    def __init__(self, tree_path: str = 'DATA/NMP_TREE/strategy_tree.pkl',
+                 book_path: str = 'DATA/NMP_TREE/strategy_book.pkl'):
+        from nn_v2.gate import Gate
+        self.gate = Gate(tree_path, book_path)
 
         # Current position
         self.position = 'flat'  # 'long', 'short', 'flat'
@@ -88,13 +86,14 @@ class AIEngine:
         z = feat[_1M_OFFSET + 0]
         vr = feat[_1M_OFFSET + 2]
 
-        # Tree classifies this bar
-        feat_2d = np.nan_to_num(feat.reshape(1, -1))
-        leaf_id = int(self.tree.apply(feat_2d)[0])
-        branch = self.branches.get(leaf_id, {})
-        strategy = branch.get('strategy', 'same_extended')
+        # Gate classifies + calibrates
+        decision = self.gate.evaluate(state)
+        strategy = decision['strategy']
+        direction = decision['direction']
+        leaf_id = decision['leaf_id']
+        branch = decision['branch']
 
-        # Determine desired position from tree
+        # Determine desired position
         desired = self._get_desired_position(z, vr, strategy)
 
         # Current unrealized PnL
@@ -112,26 +111,41 @@ class AIEngine:
         action = 'hold'
         changed = False
 
-        if self.position == 'flat' and desired != 'flat':
-            # Enter new position
-            action = f'enter_{desired}'
-            self._enter(desired, price, ts, leaf_id, branch)
-            changed = True
+        # === CALIBRATED EXIT CHECK (when in position) ===
+        if self.position != 'flat' and self._entry_decision is not None:
+            exit_check = self.gate.should_exit(state, self.bars_held, unrealized,
+                                                self._entry_decision)
+            if exit_check['exit']:
+                # Book says exit — check if we should flip or go flat
+                if desired != 'flat' and desired != self.position:
+                    action = f'flip_to_{desired}'
+                    self._exit(price, ts, exit_check['reason'])
+                    self._enter(desired, price, ts, leaf_id, branch)
+                    self._entry_decision = decision
+                else:
+                    action = 'exit'
+                    self._exit(price, ts, exit_check['reason'])
+                changed = True
 
-        elif self.position != 'flat' and desired == 'flat':
-            # Exit to flat
-            action = 'exit'
-            self._exit(price, ts, 'signal_flat')
-            changed = True
+        # === ENTRY / FLIP (when flat or signal changed) ===
+        if not changed:
+            if self.position == 'flat' and desired != 'flat':
+                action = f'enter_{desired}'
+                self._enter(desired, price, ts, leaf_id, branch)
+                self._entry_decision = decision
+                changed = True
 
-        elif self.position != 'flat' and desired != 'flat' and self.position != desired:
-            # Flip: close current + open opposite (2 contracts)
-            action = f'flip_to_{desired}'
-            self._exit(price, ts, 'flip')
-            self._enter(desired, price, ts, leaf_id, branch)
-            changed = True
+            elif self.position != 'flat' and desired == 'flat':
+                action = 'exit'
+                self._exit(price, ts, 'signal_flat')
+                changed = True
 
-        # Same position, same direction → hold (update expected path tracking)
+            elif self.position != 'flat' and desired != 'flat' and self.position != desired:
+                action = f'flip_to_{desired}'
+                self._exit(price, ts, 'flip')
+                self._enter(desired, price, ts, leaf_id, branch)
+                self._entry_decision = decision
+                changed = True
 
         return {
             'position': self.position,
@@ -143,6 +157,7 @@ class AIEngine:
             'desired': desired,
             'pnl': unrealized,
             'bars_held': self.bars_held,
+            'entry_match': decision.get('entry_match', 0),
         }
 
     def _get_desired_position(self, z: float, vr: float, strategy: str) -> str:
