@@ -299,10 +299,11 @@ def _run_regret():
 
 
 def _run_gated(target: str):
-    """Run NMP with strategy gate on target data."""
+    """Run NMP with strategy gate. Bayesian memory learns per day. Plots equity."""
     from nn_v2.sfe_ticker import FeatureTicker
     from nn_v2.nightmare import NightmareEngine
     from nn_v2.gate import Gate
+    from nn_v2.memory import BayesianMemory
     from tqdm import tqdm
     import numpy as np
 
@@ -312,6 +313,13 @@ def _run_gated(target: str):
         return
 
     gate = Gate(tree_path)
+    memory = BayesianMemory()
+
+    # Commit tree branches as priors
+    import pickle
+    with open(tree_path, 'rb') as f:
+        tree_data = pickle.load(f)
+    memory.commit_branches(tree_data['branches'])
 
     feat_files = _resolve_days(target, FEATURES_DIR_1M)
     if not feat_files:
@@ -320,9 +328,11 @@ def _run_gated(target: str):
         print(f'No feature files for "{target}"')
         return
 
-    print(f'GATED NMP — {len(feat_files)} day(s)')
+    print(f'GATED NMP — {len(feat_files)} day(s) (with Bayesian learning)')
     nmp = NightmareEngine()
     all_results = []
+    equity_curve = []
+    cumul_pnl = 0
 
     for fpath in tqdm(feat_files, desc='Days', unit='day'):
         day_name = os.path.basename(fpath).replace('.parquet', '')
@@ -343,7 +353,7 @@ def _run_gated(target: str):
                 if branch and 'counter' in branch.get('strategy', ''):
                     flipped = state.copy()
                     feat = state['features_79d'].copy()
-                    feat[10] = -feat[10]  # flip 1m z_se
+                    feat[10] = -feat[10]
                     flipped['features_79d'] = feat
                     nmp.on_state(flipped)
                 else:
@@ -351,18 +361,32 @@ def _run_gated(target: str):
 
         nmp.force_close()
 
+        # Record to Bayesian memory (learn per day)
+        for t in nmp.trades:
+            entry_feat = np.array(t['entry_79d']).reshape(1, -1)
+            entry_feat = np.nan_to_num(entry_feat)
+            leaf_id = int(gate.tree.apply(entry_feat)[0])
+            memory.record_trade(leaf_id, t['pnl'], t['peak'], t['held'])
+
         day_pnl = nmp.daily_pnl
         day_trades = len(nmp.trades)
+        cumul_pnl += day_pnl
+        equity_curve.append(cumul_pnl)
+
         all_results.append({
             'day': day_name,
             'trades': day_trades,
             'pnl': day_pnl,
+            'cumul': cumul_pnl,
             'wr': sum(1 for t in nmp.trades if t['pnl'] > 0) / max(day_trades, 1) * 100,
         })
 
-        tqdm.write(f'  {day_name}: {day_trades} trades  ${day_pnl:>8.2f}')
+        tqdm.write(f'  {day_name}: {day_trades} trades  ${day_pnl:>8.2f}  cumul=${cumul_pnl:>8.2f}')
 
     _print_summary(all_results)
+
+    # Bayesian memory summary
+    print(f'\n{memory.summary()}')
 
     # Save report
     os.makedirs('DATA/NMP_TREE', exist_ok=True)
@@ -384,11 +408,54 @@ def _run_gated(target: str):
             flag = '<<<' if r['pnl'] > 50 else '!!!' if r['pnl'] < -50 else ''
             f.write(f'  {r["day"]}  {r["trades"]:>3} trades  {r["wr"]:>4.0f}%  '
                     f'${r["pnl"]:>8.2f}  cumul=${cumul:>8.2f} {flag}\n')
+        f.write(f'\n{memory.summary()}\n')
     print(f'\nReport saved: {report_path}')
 
     csv_path = f'DATA/NMP_TREE/gated_{target}_daily.csv'
     pd.DataFrame(all_results).to_csv(csv_path, index=False)
     print(f'CSV saved: {csv_path}')
+
+    # Save memory
+    memory.save(f'DATA/NMP_TREE/memory_{target}.pkl')
+
+    # Plot equity curve
+    try:
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+
+        fig, axes = plt.subplots(2, 1, figsize=(14, 8), gridspec_kw={'height_ratios': [3, 1]})
+
+        # Equity curve
+        days = [r['day'].replace('_', '-') for r in all_results]
+        ax1 = axes[0]
+        ax1.plot(equity_curve, 'b-', linewidth=1.5)
+        ax1.fill_between(range(len(equity_curve)), equity_curve, 0,
+                         where=[e >= 0 for e in equity_curve], alpha=0.3, color='green')
+        ax1.fill_between(range(len(equity_curve)), equity_curve, 0,
+                         where=[e < 0 for e in equity_curve], alpha=0.3, color='red')
+        ax1.axhline(y=0, color='k', linestyle='-', linewidth=0.5)
+        ax1.set_title(f'Gated NMP Equity — {target.upper()} ({len(all_results)} days, ${cumul_pnl:,.0f})')
+        ax1.set_ylabel('Cumulative PnL ($)')
+        ax1.grid(True, alpha=0.3)
+
+        # Daily PnL bars
+        ax2 = axes[1]
+        daily_pnls = [r['pnl'] for r in all_results]
+        colors = ['green' if p >= 0 else 'red' for p in daily_pnls]
+        ax2.bar(range(len(daily_pnls)), daily_pnls, color=colors, alpha=0.7)
+        ax2.axhline(y=0, color='k', linewidth=0.5)
+        ax2.set_ylabel('Daily PnL ($)')
+        ax2.set_xlabel('Day')
+        ax2.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        plot_path = f'DATA/NMP_TREE/gated_{target}_equity.png'
+        plt.savefig(plot_path, dpi=150)
+        plt.close()
+        print(f'Plot saved: {plot_path}')
+    except Exception as e:
+        print(f'Plot failed: {e}')
 
 
 def _print_summary(results: list):
