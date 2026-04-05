@@ -59,11 +59,17 @@ class AIEngine:
         self._entry_decision = None
         self._chain_history = []  # list of {bar, from_branch, to_branch, pnl_at_chain}
 
+        # Full trade recording (same format as NMP for regret compatibility)
+        self._entry_79d = None
+        self._trade_path = []
+        self._approach_buffer = []  # rolling 10-bar buffer when flat
+
         # Trade log
         self.trades = []
         self.daily_pnl = 0.0
         self._bar_count = 0
         self._last_price = 0.0
+        self._last_feat = None
 
     def on_state(self, state: Dict) -> Dict:
         """Process one bar. Returns action taken.
@@ -90,10 +96,22 @@ class AIEngine:
         price = state['price']
         ts = state['timestamp']
         self._last_price = price
+        self._last_feat = feat
 
         # Read 1m state
         z = feat[_1M_OFFSET + 0]
         vr = feat[_1M_OFFSET + 2]
+
+        # Approach buffer: record when flat for pre-entry context
+        APPROACH_SIZE = 10
+        if self.position == 'flat':
+            self._approach_buffer.append({
+                'timestamp': ts, 'price': price,
+                'z_1m': z, 'vr_1m': vr,
+                'features_79d': feat.copy(),
+            })
+            if len(self._approach_buffer) > APPROACH_SIZE:
+                self._approach_buffer = self._approach_buffer[-APPROACH_SIZE:]
 
         # Gate classifies + calibrates
         decision = self.gate.evaluate(state)
@@ -114,6 +132,15 @@ class AIEngine:
 
         self.peak_pnl = max(self.peak_pnl, unrealized)
         self.bars_held += 1 if self.position != 'flat' else 0
+
+        # Trade path: record 79D at every bar while in position
+        if self.position != 'flat':
+            self._trade_path.append({
+                'bar': self.bars_held, 'timestamp': ts, 'price': price,
+                'pnl': unrealized, 'peak_pnl': self.peak_pnl,
+                'z_1m': z, 'vr_1m': vr,
+                'features_79d': feat.copy(),
+            })
 
         action = 'hold'
         changed = False
@@ -217,6 +244,9 @@ class AIEngine:
         self.bars_held = 0
         self.peak_pnl = 0.0
         self._chain_history = []
+        self._entry_79d = self._last_feat.copy() if self._last_feat is not None else None
+        self._entry_approach = list(self._approach_buffer)
+        self._trade_path = []
 
     def _exit(self, price: float, ts: float, reason: str):
         """Exit current position, log trade."""
@@ -230,8 +260,10 @@ class AIEngine:
 
         self.daily_pnl += pnl
         time_str = datetime.utcfromtimestamp(ts).strftime('%H:%M')
+        feat = self._last_feat if self._last_feat is not None else np.zeros(len(FEATURE_NAMES_79D))
 
         self.trades.append({
+            'trade_id': len(self.trades),
             'time': time_str,
             'timestamp': ts,
             'dir': self.position,
@@ -242,8 +274,16 @@ class AIEngine:
             'peak': self.peak_pnl,
             'exit': reason,
             'branch': self.entry_branch.get('leaf_id', -1) if self.entry_branch else -1,
+            'leaf_id': self.entry_branch.get('leaf_id', -1) if self.entry_branch else -1,
             'chain': list(self._chain_history),
             'chain_length': len(self._chain_history),
+            # Full data for regret analysis (NMP-compatible)
+            'entry_79d': self._entry_79d.tolist() if self._entry_79d is not None else [],
+            'exit_79d': feat.tolist(),
+            'approach': self._entry_approach if hasattr(self, '_entry_approach') else [],
+            'approach_length': len(self._entry_approach) if hasattr(self, '_entry_approach') else 0,
+            'path': self._trade_path.copy(),
+            'path_length': len(self._trade_path),
         })
 
         self.position = 'flat'
@@ -267,6 +307,15 @@ class AIEngine:
         self.peak_pnl = 0.0
         self._entry_decision = None
         self._chain_history = []
+        self._entry_79d = None
+        self._trade_path = []
+        self._approach_buffer = []
+        self._entry_approach = []
+        self._last_feat = None
+
+    def get_full_trades(self) -> list:
+        """Get trades with full 79D data (for regret analysis)."""
+        return self.trades
 
     def summary(self) -> str:
         n = len(self.trades)
