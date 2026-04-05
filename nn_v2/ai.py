@@ -215,24 +215,29 @@ class AIEngine:
         }
 
     def _get_desired_position(self, z: float, vr: float, strategy: str) -> str:
-        """Determine desired position from 79D state + tree strategy."""
+        """Determine desired position from 79D state + tree strategy.
+
+        If tree was trained on corrected trades, strategy is 'long_medium',
+        'short_extended', etc — direction is baked in. No counter-flipping.
+        Falls back to NMP direction for old-style strategies.
+        """
         # Must have NMP-level signal to trade
         if abs(z) < ROCHE or vr >= VR_ENTRY:
-            # No extreme z → stay flat (or hold current if already in)
             if self.position != 'flat' and self.bars_held < 3:
                 return self.position  # don't exit too fast
             return 'flat' if self.position == 'flat' else self.position
 
-        # NMP direction: fade the z
-        nmp_dir = 'short' if z > 0 else 'long'
+        # New: corrected trade labels have direction baked in
+        if strategy.startswith('long'):
+            return 'long'
+        elif strategy.startswith('short'):
+            return 'short'
 
-        # Tree strategy modifies direction
+        # Fallback: old-style regret labels (same/counter)
+        nmp_dir = 'short' if z > 0 else 'long'
         if 'counter' in strategy:
-            # Counter: flip NMP direction
             return 'long' if nmp_dir == 'short' else 'short'
-        else:
-            # Same: follow NMP
-            return nmp_dir
+        return nmp_dir
 
     def _enter(self, direction: str, price: float, ts: float,
                leaf_id: int, branch: dict):
