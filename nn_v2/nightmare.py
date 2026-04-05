@@ -154,9 +154,7 @@ class NightmareEngine:
 
             # Inverse NMP exit
             exit_reason = None
-            if pnl < -MAX_DRAWDOWN:
-                exit_reason = 'emergency_stop'
-            elif abs(z) < Z_EXIT:
+            if abs(z) < Z_EXIT:
                 exit_reason = 'mean_reached'
             elif vr > VR_EXIT:
                 exit_reason = 'regime_flip'
