@@ -311,3 +311,110 @@ def summarize_regret_by_branch(regret_df: pd.DataFrame) -> pd.DataFrame:
         })
 
     return pd.DataFrame(rows).sort_values('total_regret', ascending=False)
+
+
+def correct_trades(trades: List[Dict], price_dir: str = 'DATA/ATLAS/1m') -> List[Dict]:
+    """Produce corrected trades from regret analysis.
+
+    For each NMP trade, computes the optimal action and produces a new trade
+    record with the CORRECT direction, exit bar, and real PnL from prices.
+
+    The corrected trades are what SHOULD have happened — ground truth for
+    training the tree on natural patterns instead of error predictions.
+
+    Returns list of corrected trade dicts (same format as NMP trades).
+    """
+    import os
+    from tqdm import tqdm
+
+    # Group trades by day
+    by_day = {}
+    for i, t in enumerate(trades):
+        day = t.get('day', '')
+        if day not in by_day:
+            by_day[day] = []
+        by_day[day].append((i, t))
+
+    corrected = []
+
+    for day, day_trades in tqdm(by_day.items(), desc='Correcting trades', unit='day'):
+        price_file = os.path.join(price_dir, f'{day}.parquet')
+        if not os.path.exists(price_file):
+            continue
+
+        df = pd.read_parquet(price_file).sort_values('timestamp')
+        closes = df['close'].values
+        timestamps = df['timestamp'].values
+        n = len(closes)
+
+        for idx, t in day_trades:
+            entry_ts = t.get('timestamp', 0)
+            entry_bar = int(np.searchsorted(timestamps, entry_ts, side='left'))
+            entry_bar = min(entry_bar, n - 1)
+            entry_price = closes[entry_bar]
+
+            # Compute regret for this trade
+            r = compute_regret(t, closes, entry_bar)
+            best_action = r['best_action']
+            best_pnl = r['best_pnl']
+
+            # Determine corrected direction
+            original_dir = t['dir']
+            if 'counter' in best_action:
+                corrected_dir = 'long' if original_dir == 'short' else 'short'
+            else:
+                corrected_dir = original_dir
+
+            # Determine corrected exit bar
+            if 'same' in best_action:
+                corrected_exit_bar = entry_bar + r['same_best_bar']
+            else:
+                corrected_exit_bar = entry_bar + r['counter_best_bar']
+            corrected_exit_bar = min(corrected_exit_bar, n - 1)
+
+            # Real PnL from actual prices
+            exit_price = closes[corrected_exit_bar]
+            if corrected_dir == 'long':
+                corrected_pnl = (exit_price - entry_price) / TICK * TV
+            else:
+                corrected_pnl = (entry_price - exit_price) / TICK * TV
+
+            corrected_held = corrected_exit_bar - entry_bar
+
+            # Build corrected trade (same format as NMP trade)
+            ct = {
+                'trade_id': len(corrected),
+                'day': day,
+                'timestamp': entry_ts,
+                'time': t.get('time', ''),
+                'dir': corrected_dir,
+                'entry_price': entry_price,
+                'exit_price': exit_price,
+                'pnl': corrected_pnl,
+                'held': corrected_held,
+                'peak': best_pnl,
+                'exit': best_action,
+                # Original NMP data (for context)
+                'original_dir': original_dir,
+                'original_pnl': t['pnl'],
+                'original_held': t['held'],
+                'best_action': best_action,
+                'regret': r['regret'],
+                # 79D data (entry conditions unchanged)
+                'entry_79d': t.get('entry_79d', []),
+                'exit_79d': t.get('exit_79d', []),
+                'approach': t.get('approach', []),
+                'approach_length': t.get('approach_length', 0),
+                'path': t.get('path', []),
+                'path_length': t.get('path_length', 0),
+            }
+            corrected.append(ct)
+
+    # Summary
+    n_flipped = sum(1 for c in corrected if c['dir'] != c['original_dir'])
+    total_original = sum(c['original_pnl'] for c in corrected)
+    total_corrected = sum(c['pnl'] for c in corrected)
+    print(f'  Corrected {len(corrected)} trades: {n_flipped} direction-flipped')
+    print(f'  Original PnL: ${total_original:,.0f} → Corrected PnL: ${total_corrected:,.0f}')
+
+    return corrected
