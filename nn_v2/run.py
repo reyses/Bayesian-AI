@@ -497,10 +497,11 @@ def _run_gated(target: str):
 
 
 def _run_ai(target: str):
-    """Run AI continuous positioning system."""
+    """Run AI continuous positioning — clean forward pass, save full trades."""
     from nn_v2.sfe_ticker import FeatureTicker
     from nn_v2.ai import AIEngine
     from tqdm import tqdm
+    import pickle
 
     # Prefer sequential (honest) features, fall back to bulk
     feat_files = _resolve_days(target, FEATURES_DIR_SEQ)
@@ -514,9 +515,10 @@ def _run_ai(target: str):
         print(f'No feature files for "{target}"')
         return
 
-    print(f'AI CONTINUOUS POSITIONING — {len(feat_files)} day(s)')
+    print(f'AI CLEAN FORWARD PASS — {len(feat_files)} day(s)')
     ai = AIEngine()
     all_results = []
+    all_trades = []
     cumul = 0
 
     for fpath in tqdm(feat_files, desc='Days', unit='day'):
@@ -533,20 +535,34 @@ def _run_ai(target: str):
 
         ai.force_close()
 
+        # Tag trades with day and accumulate full trades
+        for t in ai.trades:
+            t['day'] = day_name
+        all_trades.extend(ai.get_full_trades())
+
         cumul += ai.daily_pnl
+        n_chains = sum(1 for t in ai.trades if t.get('chain_length', 0) > 0)
         all_results.append({
             'day': day_name,
             'trades': len(ai.trades),
             'pnl': ai.daily_pnl,
             'wr': sum(1 for t in ai.trades if t['pnl'] > 0) / max(len(ai.trades), 1) * 100,
+            'chained': n_chains,
         })
 
         tqdm.write(f'  {day_name}: {ai.summary()}  cumul=${cumul:.0f}')
 
     _print_summary(all_results)
 
-    # Save report
+    # Save full trade log (with 79D, paths, approach — for regret)
     os.makedirs('DATA/NMP_TREE', exist_ok=True)
+    if all_trades:
+        trade_path = f'DATA/NMP_TREE/ai_{target}_trades.pkl'
+        with open(trade_path, 'wb') as f:
+            pickle.dump(all_trades, f)
+        print(f'Trade log saved: {trade_path} ({len(all_trades)} trades)')
+
+    # Save report
     report_path = f'DATA/NMP_TREE/ai_{target}_report.txt'
     with open(report_path, 'w', encoding='utf-8') as f:
         n_days = len(all_results)
@@ -561,11 +577,66 @@ def _run_ai(target: str):
             flag = '<<<' if r['pnl'] > 50 else '!!!' if r['pnl'] < -50 else ''
             f.write(f'  {r["day"]}  {r["trades"]:>3} trades  {r["wr"]:>4.0f}%  '
                     f'${r["pnl"]:>8.2f}  cumul=${cumul:>8.2f} {flag}\n')
-    print(f'\nReport saved: {report_path}')
+    print(f'Report saved: {report_path}')
 
     csv_path = f'DATA/NMP_TREE/ai_{target}_daily.csv'
     pd.DataFrame(all_results).to_csv(csv_path, index=False)
     print(f'CSV saved: {csv_path}')
+
+
+def _run_ai_regret(target: str):
+    """Run regret analysis on AI trades (not NMP trades)."""
+    import pickle
+    from nn_v2.regret import compute_all_regrets, summarize_regret_by_branch
+
+    trade_path = f'DATA/NMP_TREE/ai_{target}_trades.pkl'
+    if not os.path.exists(trade_path):
+        print(f'No AI trades found at {trade_path}. Run AI forward pass first.')
+        return
+
+    print(f'AI Regret Analysis — {target.upper()}')
+    with open(trade_path, 'rb') as f:
+        trades = pickle.load(f)
+    print(f'  Loaded {len(trades)} AI trades')
+
+    # Compute regret
+    regret_df = compute_all_regrets(trades)
+    print(f'  Regret computed for {len(regret_df)} trades')
+
+    # Summary
+    actual_total = regret_df['actual_pnl'].sum()
+    optimal_total = regret_df['best_pnl'].sum()
+    total_regret = regret_df['regret'].sum()
+    print(f'\n  Actual PnL:   ${actual_total:>10.0f}')
+    print(f'  Optimal PnL:  ${optimal_total:>10.0f}')
+    print(f'  Total regret: ${total_regret:>10.0f}')
+    print(f'  Capture rate: {actual_total / max(optimal_total, 1) * 100:.1f}%')
+
+    # Best action distribution
+    print(f'\n  Best action distribution (what AI SHOULD have done):')
+    for action, count in regret_df['best_action'].value_counts().items():
+        pct = count / len(regret_df) * 100
+        avg_pnl = regret_df[regret_df['best_action'] == action]['best_pnl'].mean()
+        print(f'    {action:<20} {count:>5} ({pct:>4.0f}%)  avg=${avg_pnl:.1f}')
+
+    # Per-branch summary
+    branch_summary = summarize_regret_by_branch(regret_df)
+    print(f'\n  Per-branch regret (top 15 by regret):')
+    print(f'  {"Leaf":>5} {"N":>5} {"Actual":>8} {"Optimal":>8} {"Regret":>8} {"Action":>18} {"Pct":>5}')
+    print(f'  {"-"*60}')
+    for _, row in branch_summary.head(15).iterrows():
+        print(f'  {int(row["leaf_id"]):>5} {int(row["n_trades"]):>5} '
+              f'${row["actual_total"]:>7.0f} ${row["optimal_total"]:>7.0f} '
+              f'${row["total_regret"]:>7.0f} {row["dominant_action"]:>18} '
+              f'{row["dominant_pct"]:>4.0f}%')
+
+    # Save
+    regret_path = f'DATA/NMP_TREE/ai_{target}_regret.csv'
+    regret_df.to_csv(regret_path, index=False)
+    branch_path = f'DATA/NMP_TREE/ai_{target}_regret_by_branch.csv'
+    branch_summary.to_csv(branch_path, index=False)
+    print(f'\n  Saved: {regret_path}')
+    print(f'  Saved: {branch_path}')
 
 
 def _run_full_pipeline():
@@ -576,9 +647,14 @@ def _run_full_pipeline():
     import time as _time
 
     print(f'{"="*60}')
-    print(f'FULL PIPELINE — NMP → regret → tree → book → brain → AI → report')
+    print(f'FULL PIPELINE')
+    print(f'  TRAIN:    NMP → NMP regret → tree → book')
+    print(f'  PREDICT:  AI forward pass (IS + OOS)')
+    print(f'  EVALUATE: AI regret (IS + OOS) → report')
     print(f'{"="*60}')
     pipeline_start = _time.perf_counter()
+
+    # === TRAIN PHASE ===
 
     # Step 1: NMP on IS (generates trades with approach buffer)
     print(f'\n--- STEP 1: NMP on IS ---')
@@ -586,8 +662,8 @@ def _run_full_pipeline():
     cmd_nmp('is', fast=True)
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
-    # Step 2: Regret analysis (full counterfactual per trade)
-    print(f'\n--- STEP 2: Regret Analysis ---')
+    # Step 2: NMP Regret (what NMP did wrong — feeds tree labels)
+    print(f'\n--- STEP 2: NMP Regret Analysis ---')
     t0 = _time.perf_counter()
     _run_regret()
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
@@ -607,35 +683,52 @@ def _run_full_pipeline():
     book_main()
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
-    # Step 5: Per-day brain builder on IS (brain accumulates evidence)
-    print(f'\n--- STEP 5: Per-Day Brain Builder (IS) ---')
+    # === PREDICT PHASE ===
+
+    # Step 5: AI clean forward pass on IS
+    print(f'\n--- STEP 5: AI Forward Pass (IS) ---')
     t0 = _time.perf_counter()
-    from nn_v2.per_day import main as per_day_main
-    sys.argv = ['per_day.py', '--target', 'is']
-    per_day_main()
+    _run_ai('is')
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
-    # Step 6: Per-day brain builder on OOS (validation — separate brain)
-    print(f'\n--- STEP 6: Per-Day Brain Builder (OOS) ---')
+    # Step 6: AI clean forward pass on OOS
+    print(f'\n--- STEP 6: AI Forward Pass (OOS) ---')
     t0 = _time.perf_counter()
-    sys.argv = ['per_day.py', '--target', 'oos']
-    per_day_main()
+    _run_ai('oos')
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
-    # Step 7: Final report (IS/OOS comparison, modes, typical month)
-    print(f'\n--- STEP 7: System Report ---')
+    # === EVALUATE PHASE ===
+
+    # Step 7: AI Regret on IS (what the AI actually did wrong)
+    print(f'\n--- STEP 7: AI Regret (IS) ---')
+    t0 = _time.perf_counter()
+    _run_ai_regret('is')
+    print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    # Step 8: AI Regret on OOS (validation — same analysis)
+    print(f'\n--- STEP 8: AI Regret (OOS) ---')
+    t0 = _time.perf_counter()
+    _run_ai_regret('oos')
+    print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    # Step 9: Final report (IS/OOS comparison, modes, typical month)
+    print(f'\n--- STEP 9: System Report ---')
     from nn_v2.report import main as report_main
-    sys.argv = ['report.py']
+    sys.argv = ['report.py',
+                '--is-csv', 'DATA/NMP_TREE/ai_is_daily.csv',
+                '--oos-csv', 'DATA/NMP_TREE/ai_oos_daily.csv']
     report_main()
 
     total_time = _time.perf_counter() - pipeline_start
     print(f'\n{"="*60}')
     print(f'PIPELINE COMPLETE — {total_time:.0f}s total')
     print(f'{"="*60}')
-    print(f'  IS brain:   DATA/NMP_TREE/memory_is.pkl')
-    print(f'  OOS brain:  DATA/NMP_TREE/memory_oos.pkl')
-    print(f'  Report:     DATA/NMP_TREE/system_report.txt')
-    print(f'  Book:       DATA/NMP_TREE/strategy_book.txt')
+    print(f'  NMP regret:   DATA/NMP_TREE/regret_analysis.csv')
+    print(f'  AI IS trades: DATA/NMP_TREE/ai_is_trades.pkl')
+    print(f'  AI IS regret: DATA/NMP_TREE/ai_is_regret.csv')
+    print(f'  AI OOS regret:DATA/NMP_TREE/ai_oos_regret.csv')
+    print(f'  Report:       DATA/NMP_TREE/system_report.txt')
+    print(f'  Book:         DATA/NMP_TREE/strategy_book.txt')
 
 
 def _print_summary(results: list):
@@ -695,6 +788,10 @@ def main():
     elif cmd == 'ai':
         target = sys.argv[2] if len(sys.argv) > 2 else 'oos'
         _run_ai(target)
+
+    elif cmd == 'ai-regret':
+        target = sys.argv[2] if len(sys.argv) > 2 else 'is'
+        _run_ai_regret(target)
 
     elif cmd == 'pipeline':
         _run_full_pipeline()
