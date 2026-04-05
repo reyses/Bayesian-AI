@@ -46,6 +46,7 @@ VR_ENTRY = 1.0       # variance_ratio must be below this for entry
 Z_EXIT = 0.5         # z_se threshold for exit (mean reached)
 VR_EXIT = 1.0        # variance_ratio above this = regime flip -> exit
 MAX_DRAWDOWN = 50.0  # emergency exit: max $ loss per trade before forced close
+APPROACH_BUFFER_SIZE = 10  # bars of 79D history to keep before entry
 
 # 79D layout: 1m is index 1 in TF_ORDER (15s=0, 1m=1, 5m=2, ...)
 # 10 core features per TF
@@ -97,6 +98,9 @@ class NightmareEngine:
         self.bars_held = 0
         self.peak_pnl = 0.0
 
+        # Approach buffer: rolling window of last N states before entry
+        self._approach_buffer = []
+
         # Trade path: 79D at every bar during the trade (for tree+NN)
         self._trade_path = []
 
@@ -128,6 +132,19 @@ class NightmareEngine:
         s1m = _read_tf(feat, _1M_OFFSET)
         z = s1m['z_se']
         vr = s1m['vr']
+
+        # === APPROACH BUFFER: always record when not in position ===
+        if not self.in_pos:
+            self._approach_buffer.append({
+                'timestamp': ts,
+                'price': price,
+                'z_1m': z,
+                'vr_1m': vr,
+                'features_79d': feat.copy(),
+            })
+            # Keep only last N bars
+            if len(self._approach_buffer) > APPROACH_BUFFER_SIZE:
+                self._approach_buffer = self._approach_buffer[-APPROACH_BUFFER_SIZE:]
 
         # === EXIT CHECK ===
         if self.in_pos:
@@ -179,6 +196,9 @@ class NightmareEngine:
         self.bars_held = 0
         self.peak_pnl = 0.0
         self._trade_path = []
+
+        # Snapshot approach path (79D in bars leading up to entry)
+        self._entry_approach = list(self._approach_buffer)
 
         # Record entry as first path point
         self._trade_path.append({
@@ -236,6 +256,9 @@ class NightmareEngine:
             # Full 79D at entry and exit (for tree+NN)
             'entry_79d': self.entry_79d.tolist(),
             'exit_79d': feat.tolist(),
+            # Approach path (79D in bars before entry — how we got here)
+            'approach': self._entry_approach.copy() if hasattr(self, '_entry_approach') else [],
+            'approach_length': len(self._entry_approach) if hasattr(self, '_entry_approach') else 0,
             # Trade path (79D at every bar — the score sheet)
             'path': self._trade_path.copy(),
             'path_length': len(self._trade_path),
@@ -319,3 +342,5 @@ class NightmareEngine:
         self.daily_pnl = 0.0
         self._bar_count = 0
         self._trade_path = []
+        self._approach_buffer = []
+        self._entry_approach = []
