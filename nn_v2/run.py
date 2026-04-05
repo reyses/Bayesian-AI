@@ -418,6 +418,43 @@ def _run_gated(target: str):
     # Save memory
     memory.save(f'DATA/NMP_TREE/memory_{target}.pkl')
 
+    # Build OOS playbook from memory (separate from IS book)
+    eval_result = memory.evaluate_iteration()
+    playbook_lines = [f'OOS PLAYBOOK — {target.upper()}', '=' * 60, '']
+    playbook_lines.append(f'Tradeable branches: {eval_result["n_tradeable"]}')
+    playbook_lines.append(f'Total trades: {eval_result["total_trades"]}')
+    playbook_lines.append(f'Total PnL: ${eval_result["total_pnl"]:.0f}')
+    playbook_lines.append(f'Avg WR: {eval_result["avg_wr"]:.0%}')
+    playbook_lines.append('')
+
+    # Per-branch comparison: IS expectation vs OOS reality
+    playbook_lines.append(f'Per-branch performance:')
+    playbook_lines.append(f'{"Leaf":>5} {"N":>5} {"WR":>6} {"AvgPnL":>8} {"TotPnL":>8} {"MaxDD":>7}')
+    playbook_lines.append('-' * 45)
+    for lid, bs in sorted(memory.branches.items(), key=lambda x: -x[1].total_pnl):
+        if bs.n_trades == 0:
+            continue
+        playbook_lines.append(
+            f'{lid:>5} {bs.n_trades:>5} {bs.wr:>5.0%} ${bs.avg_pnl:>7.1f} '
+            f'${bs.total_pnl:>7.0f} ${bs.dd_max:>6.0f}'
+        )
+
+    # Demote/promote suggestions
+    if eval_result['demote_candidates']:
+        playbook_lines.append(f'\nDemote candidates (tradeable but losing on OOS):')
+        for lid, wr, pnl in eval_result['demote_candidates']:
+            playbook_lines.append(f'  Branch {lid}: WR={wr:.0%}, PnL=${pnl:.0f}')
+
+    if eval_result['promote_candidates']:
+        playbook_lines.append(f'\nPromote candidates (skipped but winning on OOS):')
+        for lid, wr, pnl in eval_result['promote_candidates']:
+            playbook_lines.append(f'  Branch {lid}: WR={wr:.0%}, PnL=${pnl:.0f}')
+
+    playbook_path = f'DATA/NMP_TREE/playbook_{target}.txt'
+    with open(playbook_path, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(playbook_lines))
+    print(f'Playbook saved: {playbook_path}')
+
     # Plot equity curve
     try:
         import matplotlib
