@@ -182,8 +182,10 @@ def train_tree(df, feature_cols, max_depth, min_leaf):
     return tree, X, y, cv_results
 
 
-def analyze_branches(tree, X, y, df):
+def analyze_branches(tree, X, y, df, strat_list=None):
     """Analyze each leaf — what strategy does it recommend?"""
+    if strat_list is None:
+        strat_list = STRATEGIES
     leaves = tree.apply(X)
     unique_leaves = np.unique(leaves)
 
@@ -197,7 +199,7 @@ def analyze_branches(tree, X, y, df):
         # Dominant strategy in this leaf
         strategy_counts = pd.Series(leaf_y).value_counts()
         dominant_idx = strategy_counts.index[0]
-        dominant_strategy = STRATEGIES[dominant_idx]
+        dominant_strategy = strat_list[dominant_idx] if dominant_idx < len(strat_list) else f'class_{dominant_idx}'
         dominant_pct = strategy_counts.iloc[0] / n * 100
 
         # PnL stats
@@ -329,7 +331,7 @@ def main():
     print(f'\nTraining tree (depth={args.max_depth}, min_leaf={args.min_leaf})...')
     tree, X, y, cv_results = train_tree(df, FEATURE_NAMES_79D, args.max_depth, args.min_leaf)
 
-    branches = analyze_branches(tree, X, y, df)
+    branches = analyze_branches(tree, X, y, df, strat_list=strat_list)
     report_path = os.path.join(OUTPUT_DIR, 'strategy_tree_report.txt')
     print_report(tree, branches, cv_results, FEATURE_NAMES_79D, save_path=report_path)
 
