@@ -1,22 +1,21 @@
 """
-Per-Day IS Iteration — diagnoses each losing IS day individually.
+Per-Day Iteration — iterate EVERY IS day until maximized.
 
-For each losing IS day (worst first):
-  1. Run ALL existing models against it
-  2. Per-trade regret: what should have happened?
-  3. Per-branch on this day: which branches lost and why?
-  4. Fix options:
-     a. Existing branch, wrong exit → create sub-branch with tighter/looser exit
-     b. Existing branch, wrong direction → flip to counter for this condition
-     c. No branch covers this condition → create new specialist
-  5. Verify: new fix doesn't break other days (non-interference)
+For EACH day (not just losers):
+  1. Run all strategies on this day
+  2. Compute regret: what's the gap to optimal?
+  3. If gap > threshold: fix branches, retrain, re-run this day
+  4. Repeat until no improvement or max rounds
+  5. Record to brain (evidence per branch per condition)
+  6. Move to next day
 
-Strictly IS. Never touches OOS.
+Every day gets squeezed for maximum PnL. Winners get improved too.
+Brain accumulates dense evidence across all days and conditions.
 
 Usage:
-    python nn_v2/per_day.py                    # diagnose + fix all IS losers
-    python nn_v2/per_day.py --max-iter 10      # max 10 rounds
-    python nn_v2/per_day.py --target-days 5    # fix worst 5 per round
+    python nn_v2/per_day.py                    # all IS days
+    python nn_v2/per_day.py --rounds 5         # max 5 rounds per day
+    python nn_v2/per_day.py --min-gap 10       # stop when gap < $10
 """
 import os
 import sys
@@ -31,10 +30,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from nn_v2.sfe_ticker import FeatureTicker
 from nn_v2.nightmare import NightmareEngine
 from nn_v2.gate import Gate
+from nn_v2.memory import BayesianMemory
 from nn_v2.regret import compute_regret
 from core.features_79d import FEATURE_NAMES_79D
 
-FEATURES_DIR = 'DATA/FEATURES_79D_1m'
+FEATURES_DIR = 'DATA/FEATURES_79D_1m_seq'
+FEATURES_DIR_BULK = 'DATA/FEATURES_79D_1m'
 PRICE_DIR = 'DATA/ATLAS/1m'
 TREE_DIR = 'DATA/NMP_TREE'
 TRADE_LOG = 'DATA/NMP_TRADES/nmp_is.pkl'
@@ -42,16 +43,20 @@ TRADE_LOG = 'DATA/NMP_TRADES/nmp_is.pkl'
 
 def parse_args():
     import argparse
-    p = argparse.ArgumentParser(description='Per-day IS iteration')
-    p.add_argument('--max-iter', type=int, default=5, help='Max rounds')
-    p.add_argument('--target-days', type=int, default=10, help='Fix worst N days per round')
+    p = argparse.ArgumentParser(description='Per-day iteration — maximize every IS day')
+    p.add_argument('--rounds', type=int, default=5, help='Max rounds per day')
+    p.add_argument('--min-gap', type=float, default=10.0, help='Stop when regret gap < this')
     return p.parse_args()
 
 
 def get_is_files():
     import glob
+    # Prefer sequential, fall back to bulk
     feat_files = sorted(glob.glob(os.path.join(FEATURES_DIR, '*.parquet')))
+    if not feat_files:
+        feat_files = sorted(glob.glob(os.path.join(FEATURES_DIR_BULK, '*.parquet')))
     feat_files = [f for f in feat_files if '2025_' in os.path.basename(f)]
+
     pairs = []
     for ff in feat_files:
         day_name = os.path.basename(ff).replace('.parquet', '')
@@ -60,8 +65,8 @@ def get_is_files():
     return pairs
 
 
-def run_gated_day(gate, feat_file, price_file):
-    """Run one day with gate. Returns trades list."""
+def run_day_gated(gate, feat_file, price_file):
+    """Run one day with gate. Returns trades + PnL."""
     nmp = NightmareEngine()
     ft = FeatureTicker(feat_file, price_file=price_file)
 
@@ -84,101 +89,68 @@ def run_gated_day(gate, feat_file, price_file):
     return nmp.trades, nmp.daily_pnl
 
 
-def diagnose_losing_day(day_name, trades, gate, price_file):
-    """Deep diagnosis of one losing day.
-
-    Returns list of fix recommendations per branch.
-    """
+def compute_day_regret(trades, price_file):
+    """Compute regret for one day's trades."""
     if not trades or not price_file or not os.path.exists(price_file):
-        return []
+        return 0.0, []
 
     price_df = pd.read_parquet(price_file).sort_values('timestamp')
     closes = price_df['close'].values
     timestamps = price_df['timestamp'].values
 
-    # Per-branch analysis
+    total_regret = 0.0
+    fixes = []
+
+    # Group by branch
     branch_trades = defaultdict(list)
     for t in trades:
         entry_feat = np.array(t['entry_79d']).reshape(1, -1)
-        lid = int(gate.tree.apply(np.nan_to_num(entry_feat))[0])
-        t['leaf_id'] = lid
+        branch_trades[t.get('leaf_id', -1)].append(t)
 
-        # Compute regret
-        entry_ts = t.get('timestamp', 0)
-        entry_idx = int(np.searchsorted(timestamps, entry_ts, side='left'))
-        entry_idx = min(entry_idx, len(closes) - 1)
-        t['regret_data'] = compute_regret(t, closes, entry_idx)
-        branch_trades[lid].append(t)
-
-    fixes = []
     for lid, bt in branch_trades.items():
         branch_pnl = sum(t['pnl'] for t in bt)
-        if branch_pnl >= 0:
-            continue  # this branch is winning today
 
-        # What's the best alternative for this branch on this day?
-        same_ext = sum(t['regret_data']['same_ext_best'] for t in bt)
-        counter_ext = sum(t['regret_data']['counter_ext_best'] for t in bt)
-        same_early = sum(t['regret_data']['same_early_best'] for t in bt)
-        counter_early = sum(t['regret_data']['counter_early_best'] for t in bt)
-        skip = 0
+        # Regret per trade
+        branch_regret = 0.0
+        best_actions = defaultdict(float)
+        for t in bt:
+            entry_ts = t.get('timestamp', 0)
+            entry_idx = int(np.searchsorted(timestamps, entry_ts, side='left'))
+            entry_idx = min(entry_idx, len(closes) - 1)
+            r = compute_regret(t, closes, entry_idx)
+            branch_regret += r['regret']
 
-        options = {
-            'same_extended': same_ext,
-            'counter_extended': counter_ext,
-            'same_early': same_early,
-            'counter_early': counter_early,
-            'skip': skip,
-        }
-        best_fix = max(options, key=options.get)
-        best_fix_pnl = options[best_fix]
+            # Accumulate best action PnL
+            best_actions[r['best_action']] += r['best_pnl']
 
-        # Mean 79D for trades in this branch on this day (the condition signature)
-        day_feats = np.array([np.array(t['entry_79d']) for t in bt])
-        day_feats = np.nan_to_num(day_feats)
-        condition_mean = day_feats.mean(axis=0)
-
-        # Optimal exit bar
-        if 'counter' in best_fix:
-            exit_bars = [t['regret_data']['counter_best_bar'] for t in bt]
+        if best_actions:
+            best_fix = max(best_actions, key=best_actions.get)
+            fix_pnl = best_actions[best_fix]
         else:
-            exit_bars = [t['regret_data']['same_best_bar'] for t in bt]
+            best_fix = 'same_at_exit'
+            fix_pnl = branch_pnl
 
-        fixes.append({
-            'day': day_name,
-            'leaf_id': lid,
-            'n_trades': len(bt),
-            'actual_pnl': branch_pnl,
-            'best_fix': best_fix,
-            'fix_pnl': best_fix_pnl,
-            'recovery': best_fix_pnl - branch_pnl,
-            'avg_exit_bar': np.mean(exit_bars),
-            'condition_mean': condition_mean,
-        })
+        total_regret += branch_regret
+        if branch_regret > 0:
+            fixes.append({
+                'leaf_id': lid,
+                'n_trades': len(bt),
+                'actual_pnl': branch_pnl,
+                'best_fix': best_fix,
+                'fix_pnl': fix_pnl,
+                'regret': branch_regret,
+            })
 
-    return sorted(fixes, key=lambda f: -f['recovery'])
-
-
-def verify_non_interference(gate, fix, file_pairs, winning_days):
-    """Check that a fix doesn't break winning days.
-
-    Quick check: does the fix's condition overlap with winning day conditions?
-    If the branch only fires on the losing day's specific conditions, it's safe.
-    """
-    # For now: trust that tree branches don't interfere
-    # (they have narrow activation by construction)
-    # Full verification would re-run all winning days — too slow per fix
-    return True
+    return total_regret, sorted(fixes, key=lambda f: -f['regret'])
 
 
-def apply_fixes(fixes, iteration):
-    """Apply fixes by retraining tree with updated labels."""
-    from nn_v2.tree import load_data, train_tree, analyze_branches, STRATEGIES, print_report
+def apply_day_fixes(fixes, day_name, all_trades_df, iteration):
+    """Apply fixes for one day by updating tree labels and retraining."""
+    from nn_v2.tree import load_data, train_tree, analyze_branches, STRATEGIES
 
     df = load_data()
     X = np.nan_to_num(df[FEATURE_NAMES_79D].values.astype(np.float32))
 
-    # Load current tree to get leaf assignments
     tree_path = os.path.join(TREE_DIR, 'strategy_tree.pkl')
     with open(tree_path, 'rb') as f:
         tree_data = pickle.load(f)
@@ -186,30 +158,25 @@ def apply_fixes(fixes, iteration):
     leaf_ids = current_tree.apply(X)
     df['leaf_id'] = leaf_ids
 
-    # Override strategy labels for diagnosed branches on specific days
     overrides = 0
-    for fix in fixes:
-        mask = (df['day'] == fix['day']) & (df['leaf_id'] == fix['leaf_id'])
-        n_match = mask.sum()
-        if n_match > 0 and fix['best_fix'] in STRATEGIES:
+    for fix in fixes[:5]:  # top 5 fixes per day
+        mask = (df['day'] == day_name) & (df['leaf_id'] == fix['leaf_id'])
+        if mask.sum() > 0 and fix['best_fix'] in STRATEGIES:
             df.loc[mask, 'strategy_idx'] = STRATEGIES.index(fix['best_fix'])
-            overrides += n_match
+            overrides += mask.sum()
 
-    print(f'  Applied {overrides} label overrides from {len(fixes)} fixes')
+    if overrides == 0:
+        return False
 
-    # Retrain with deeper tree to accommodate new sub-branches
+    # Retrain
     from sklearn.tree import DecisionTreeClassifier
     y = df['strategy_idx'].values
-
     tree = DecisionTreeClassifier(
-        max_depth=12,  # deeper to allow sub-branches
-        min_samples_leaf=10,  # smaller leaves for specialists
-        random_state=42 + iteration,
+        max_depth=12, min_samples_leaf=10, random_state=42 + iteration,
     )
     tree.fit(X, y)
     branches = analyze_branches(tree, X, y, df)
 
-    # Save
     with open(tree_path, 'wb') as f:
         pickle.dump({
             'tree': tree,
@@ -220,8 +187,7 @@ def apply_fixes(fixes, iteration):
             'iteration': iteration,
         }, f)
 
-    print(f'  Tree retrained: {tree.get_n_leaves()} leaves (depth {tree.get_depth()})')
-    return tree, branches
+    return True
 
 
 def main():
@@ -229,80 +195,97 @@ def main():
     file_pairs = get_is_files()
     tree_path = os.path.join(TREE_DIR, 'strategy_tree.pkl')
 
-    print(f'PER-DAY IS ITERATION (strictly IS)')
-    print(f'  Max rounds: {args.max_iter}')
-    print(f'  Target days per round: {args.target_days}')
-    print(f'  IS days: {len(file_pairs)}')
+    print(f'PER-DAY ITERATION — maximize every IS day')
+    print(f'  Days: {len(file_pairs)} | Rounds/day: {args.rounds} | Min gap: ${args.min_gap}')
 
-    for round_num in range(1, args.max_iter + 1):
-        print(f'\n{"="*60}')
-        print(f'ROUND {round_num}')
-        print(f'{"="*60}')
+    # Load brain for evidence accumulation
+    memory = BayesianMemory()
+    with open(tree_path, 'rb') as f:
+        tree_data = pickle.load(f)
+    memory.commit_branches(tree_data['branches'])
 
+    # Load all trades for label overrides
+    with open(TRADE_LOG, 'rb') as f:
+        all_trades = pickle.load(f)
+
+    total_improved = 0
+    total_pnl_before = 0
+    total_pnl_after = 0
+    global_iteration = 0
+
+    for day_idx, (feat_file, price_file, day_name) in enumerate(file_pairs):
         gate = Gate(tree_path)
+        trades, pnl = run_day_gated(gate, feat_file, price_file)
 
-        # Run all IS days
-        daily_results = {}
-        for feat_file, price_file, day_name in tqdm(file_pairs, desc='  IS run', unit='day'):
-            trades, pnl = run_gated_day(gate, feat_file, price_file)
-            daily_results[day_name] = {
-                'pnl': pnl,
-                'trades': trades,
-                'n_trades': len(trades),
-            }
+        if len(trades) < 2:
+            continue
 
-        # Stats
-        total_pnl = sum(d['pnl'] for d in daily_results.values())
-        full_days = {k: v for k, v in daily_results.items() if v['n_trades'] >= 5}
-        losing_full = {k: v for k, v in full_days.items() if v['pnl'] < 0}
-        winning_full = {k: v for k, v in full_days.items() if v['pnl'] >= 0}
+        total_pnl_before += pnl
+        day_pnl = pnl
+        best_pnl = pnl
 
-        print(f'\n  Total PnL: ${total_pnl:,.0f} (${total_pnl/len(daily_results):,.0f}/day)')
-        print(f'  Full days: {len(winning_full)} winning, {len(losing_full)} losing '
-              f'({len(winning_full)/(len(winning_full)+len(losing_full))*100:.0f}% winning)')
+        for round_num in range(args.rounds):
+            global_iteration += 1
 
-        if not losing_full:
-            print(f'\n  ALL FULL IS DAYS POSITIVE! Done at round {round_num}.')
-            break
+            # Compute regret
+            total_regret, fixes = compute_day_regret(trades, price_file)
 
-        # Diagnose worst N losing days
-        worst = sorted(losing_full.items(), key=lambda x: x[1]['pnl'])[:args.target_days]
+            if total_regret < args.min_gap:
+                break  # close enough to optimal
 
-        print(f'\n  Diagnosing {len(worst)} worst days:')
-        all_fixes = []
-        for day_name, day_data in worst:
-            price_file = os.path.join(PRICE_DIR, f'{day_name}.parquet')
-            fixes = diagnose_losing_day(day_name, day_data['trades'], gate, price_file)
-            if fixes:
-                all_fixes.extend(fixes[:3])  # top 3 fixes per day
-                top = fixes[0]
-                print(f'    {day_name}: ${day_data["pnl"]:>7.0f} → '
-                      f'branch {top["leaf_id"]} {top["best_fix"]} (+${top["recovery"]:.0f})')
+            # Apply fixes
+            changed = apply_day_fixes(fixes, day_name, None, global_iteration)
+            if not changed:
+                break
+
+            # Re-run with updated tree
+            gate = Gate(tree_path)
+            trades, new_pnl = run_day_gated(gate, feat_file, price_file)
+
+            if new_pnl > day_pnl:
+                day_pnl = new_pnl
+                best_pnl = new_pnl
             else:
-                print(f'    {day_name}: ${day_data["pnl"]:>7.0f} → no fix found')
+                break  # didn't improve, stop
 
-        if all_fixes:
-            print(f'\n  Applying {len(all_fixes)} fixes...')
-            apply_fixes(all_fixes, round_num)
-        else:
-            print(f'\n  No fixes found. Stopping.')
-            break
+        # Record to brain
+        for t in trades:
+            entry_feat = np.array(t['entry_79d']).reshape(1, -1)
+            lid = int(gate.tree.apply(np.nan_to_num(entry_feat))[0])
+            memory.record_trade(lid, t['pnl'], t['peak'], t['held'])
 
-    # Final report
+        improved = best_pnl > pnl
+        total_pnl_after += best_pnl
+        if improved:
+            total_improved += 1
+
+        status = '+' if best_pnl > 0 else '-'
+        delta = best_pnl - pnl
+        tqdm.write(f'  {day_name}: ${pnl:>7.0f} → ${best_pnl:>7.0f} '
+                   f'({"+" if delta>=0 else ""}{delta:.0f}) {status}')
+
+    # Summary
     print(f'\n{"="*60}')
-    print(f'FINAL: {len(winning_full)}/{len(full_days)} full days winning')
-    print(f'  PnL: ${total_pnl:,.0f} (${total_pnl/len(daily_results):,.0f}/day)')
+    print(f'PER-DAY ITERATION COMPLETE')
+    print(f'{"="*60}')
+    print(f'  Days processed: {len(file_pairs)}')
+    print(f'  Days improved: {total_improved}')
+    print(f'  PnL before: ${total_pnl_before:,.0f} (${total_pnl_before/len(file_pairs):.0f}/day)')
+    print(f'  PnL after:  ${total_pnl_after:,.0f} (${total_pnl_after/len(file_pairs):.0f}/day)')
 
+    # Save brain
+    memory.save(os.path.join(TREE_DIR, 'memory_is_perday.pkl'))
+
+    # Save report
     report_path = os.path.join(TREE_DIR, 'per_day_report.txt')
     with open(report_path, 'w', encoding='utf-8') as f:
-        f.write(f'Per-Day IS Iteration Report\n{"="*60}\n')
-        f.write(f'Rounds: {round_num}\n')
-        f.write(f'Full days: {len(winning_full)} winning, {len(losing_full)} losing\n')
-        f.write(f'PnL: ${total_pnl:,.0f} (${total_pnl/len(daily_results):,.0f}/day)\n\n')
-        f.write(f'Remaining losing full days:\n')
-        for day_name in sorted(losing_full.keys()):
-            f.write(f'  {day_name}: ${losing_full[day_name]["pnl"]:.0f}\n')
-    print(f'Report saved: {report_path}')
+        f.write(f'Per-Day Iteration Report\n{"="*60}\n')
+        f.write(f'PnL before: ${total_pnl_before:,.0f}\n')
+        f.write(f'PnL after: ${total_pnl_after:,.0f}\n')
+        f.write(f'Days improved: {total_improved}/{len(file_pairs)}\n')
+        f.write(f'\n{memory.summary()}\n')
+    print(f'Report: {report_path}')
+    print(f'Brain: {TREE_DIR}/memory_is_perday.pkl')
 
 
 if __name__ == '__main__':
