@@ -1,0 +1,146 @@
+
+======================================================================
+STRATEGY BOOK — 75 strategies
+======================================================================
+  Total trades: 9252
+  Actual PnL:  $2,782
+  Optimal PnL: $750,953
+
+  By strategy type:
+    counter_early            2 branches     51 trades  optimal=$    6,056
+    counter_extended        34 branches   3914 trades  optimal=$  359,243
+    same_early               2 branches     59 trades  optimal=$      736
+    same_extended           37 branches   5228 trades  optimal=$  384,918
+
+  Top 20 Strategies:
+    ID     N Action             Dir     ExitBar  Actual$  Optimal$    WR
+  ----------------------------------------------------------------------
+    68  2506 same_extended      same      16.8 $   5918 $  124846  65%
+    60  1187 counter_extended   counter   16.6 $  -2853 $   72571  48%
+    16   334 counter_extended   counter   16.9 $  -4446 $   46455  40%
+    70   538 counter_extended   counter   18.3 $   -232 $   27742  57%
+    76   271 same_extended      same      16.8 $   2811 $   25177  74%
+    83   275 same_extended      same      17.1 $   2093 $   21817  74%
+   143   146 counter_extended   counter   20.0 $  -4982 $   21324  34%
+    19   189 counter_extended   counter   18.1 $  -3485 $   19470  24%
+    38   222 same_extended      same      17.4 $    924 $   18495  74%
+    17   151 same_extended      same      19.0 $    429 $   16610  56%
+   126   211 counter_extended   counter   20.0 $  -3568 $   16326  27%
+    39   183 same_extended      same      18.7 $   1554 $   15723  75%
+    80   225 same_extended      same      17.4 $    158 $   14838  64%
+    48   185 same_extended      same      18.2 $   1908 $   14600  76%
+    20   120 counter_extended   counter   15.5 $  -1510 $   14426  33%
+   140   110 counter_extended   counter   15.9 $  -2639 $   13100  35%
+    84    93 same_extended      same      21.3 $   2428 $   11984  88%
+    96    51 counter_extended   counter   20.2 $    222 $   10282  59%
+    36   126 same_extended      same      17.9 $   1422 $    9784  75%
+     9    31 counter_extended   counter   22.2 $  -2254 $    8669  29%
+
+  ======================================================================
+  DETAILED PLAYBOOKS (top 5)
+  ======================================================================
+
+  --- Strategy 68 (same_extended) ---
+  Trades: 2506 | WR: 65% | Optimal exit: bar 17
+  Actual: $5918 | Optimal: $124846 | Regret: $47/trade
+  ENTRY signature (top features):
+    1h_bar_range              mean= +113.99  std=136.77
+    15m_bar_range             mean=  +68.64  std= 97.43
+    5m_bar_range              mean=  +40.97  std= 43.15
+    1m_bar_range              mean=  +16.55  std= 14.63
+    15s_dmi_gap               mean=  +13.99  std= 10.28
+    1m_dmi_gap                mean=   +9.65  std=  7.52
+    5m_dmi_gap                mean=   +8.75  std=  7.62
+  EXPECTED PATH (PnL per bar):
+    $  +0.0  $  +0.8  $  +1.5  $  +2.1  $  +2.1  $  +2.4  $  +2.5  $  +2.5  $  +2.6  $  +2.5  $  +2.5  $  +2.5  $  +2.4  $  +2.4  $  +2.5
+    Peak: $2.6 at bar 8
+  EXIT signature (top features at optimal exit):
+    1h_bar_range              mean= +132.88
+    15m_bar_range             mean=  +63.38
+    5m_bar_range              mean=  +35.75
+    15s_dmi_gap               mean=  +19.02
+    1m_bar_range              mean=  +17.88
+
+  --- Strategy 60 (counter_extended) ---
+  Trades: 1187 | WR: 48% | Optimal exit: bar 17
+  Actual: $-2853 | Optimal: $72571 | Regret: $64/trade
+  ENTRY signature (top features):
+    1h_bar_range              mean= +117.45  std=137.57
+    15m_bar_range             mean=  +79.14  std= 80.79
+    5m_bar_range              mean=  +53.70  std= 49.09
+    15s_dmi_gap               mean=  +17.80  std= 10.76
+    1m_bar_range              mean=  +17.53  std= 16.40
+    15s_dmi_diff              mean=  -16.15  std= 13.11
+    5m_velocity               mean=  -11.09  std=  6.46
+  EXPECTED PATH (PnL per bar):
+    $  +0.0  $  +2.2  $  +2.9  $  +3.2  $  +2.8  $  +2.8  $  +2.4  $  +2.4  $  +2.3  $  +2.2  $  +2.2  $  +2.2  $  +2.2  $  +2.3  $  +2.3
+    Peak: $3.2 at bar 3
+  EXIT signature (top features at optimal exit):
+    1h_bar_range              mean= +125.62
+    15m_bar_range             mean=  +62.92
+    5m_bar_range              mean=  +39.00
+    1m_bar_range              mean=  +18.27
+    15s_dmi_gap               mean=  +16.17
+
+  --- Strategy 16 (counter_extended) ---
+  Trades: 334 | WR: 40% | Optimal exit: bar 17
+  Actual: $-4446 | Optimal: $46455 | Regret: $152/trade
+  ENTRY signature (top features):
+    1h_bar_range              mean= +217.34  std=153.13
+    15m_bar_range             mean= +103.25  std=106.50
+    5m_bar_range              mean=  +56.34  std= 42.52
+    15m_velocity              mean=  -46.93  std= 13.05
+    5m_velocity               mean=  -31.30  std= 18.85
+    1m_bar_range              mean=  +25.93  std= 13.98
+    1m_velocity               mean=  -20.34  std= 10.95
+  EXPECTED PATH (PnL per bar):
+    $  +0.0  $  +3.7  $  +7.1  $  +9.2  $ +11.1  $ +11.3  $ +11.0  $ +12.2  $ +13.3  $ +12.9  $ +13.2  $ +13.1  $ +12.9  $ +13.1  $ +13.0
+    Peak: $13.3 at bar 25
+  EXIT signature (top features at optimal exit):
+    1h_bar_range              mean= +220.10
+    15m_bar_range             mean=  +92.70
+    5m_bar_range              mean=  +54.10
+    1m_bar_range              mean=  +23.10
+    15m_dmi_gap               mean=  +16.09
+
+  --- Strategy 70 (counter_extended) ---
+  Trades: 538 | WR: 57% | Optimal exit: bar 18
+  Actual: $-232 | Optimal: $27742 | Regret: $52/trade
+  ENTRY signature (top features):
+    1h_bar_range              mean= +131.14  std=129.77
+    15m_bar_range             mean=  +77.91  std= 95.87
+    5m_bar_range              mean=  +44.45  std= 46.95
+    1m_bar_range              mean=  +19.28  std= 15.95
+    15s_dmi_gap               mean=  +12.29  std=  9.32
+    1m_dmi_gap                mean=   +9.82  std=  7.54
+    5m_dmi_gap                mean=   +9.19  std=  7.86
+  EXPECTED PATH (PnL per bar):
+    $  +0.0  $  +0.4  $  +0.8  $  +0.9  $  +1.0  $  +1.4  $  +0.8  $  +0.5  $  +0.5  $  +0.3  $  +0.3  $  +0.3  $  +0.2  $  +0.2  $  +0.3
+    Peak: $1.4 at bar 5
+  EXIT signature (top features at optimal exit):
+    1h_bar_range              mean= +213.38
+    15m_bar_range             mean=  +64.62
+    5m_bar_range              mean=  +37.25
+    1m_bar_range              mean=  +18.38
+    15s_dmi_gap               mean=  +12.84
+
+  --- Strategy 76 (same_extended) ---
+  Trades: 271 | WR: 74% | Optimal exit: bar 17
+  Actual: $2811 | Optimal: $25177 | Regret: $83/trade
+  ENTRY signature (top features):
+    1h_bar_range              mean= +187.18  std=149.70
+    15m_bar_range             mean=  +88.72  std= 83.43
+    5m_bar_range              mean=  +50.06  std= 39.53
+    1m_bar_range              mean=  +24.03  std= 17.98
+    1m_velocity               mean=  +12.39  std=  5.82
+    5m_dmi_gap                mean=  +11.60  std=  9.00
+    15m_dmi_gap               mean=  +11.53  std= 10.00
+  EXPECTED PATH (PnL per bar):
+    $  +0.0  $  +0.6  $  +2.4  $  +2.4  $  +5.0  $  +7.1  $  +8.2  $  +8.8  $  +9.2  $ +10.1  $  +9.6  $  +9.7  $  +9.9  $ +10.0  $ +10.2
+    Peak: $10.5 at bar 20
+  EXIT signature (top features at optimal exit):
+    1h_bar_range              mean= +114.75
+    15m_bar_range             mean=  +48.25
+    5m_bar_range              mean=  +28.25
+    15m_velocity              mean=  -24.31
+    1m_bar_range              mean=  +22.25
