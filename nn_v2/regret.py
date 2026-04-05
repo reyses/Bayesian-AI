@@ -365,21 +365,39 @@ def correct_trades(trades: List[Dict], price_dir: str = 'DATA/ATLAS/1m') -> List
             else:
                 corrected_dir = original_dir
 
-            # Determine corrected exit bar
+            # Early entry: use approach buffer 79D if entering earlier is better
+            early_bars = int(r.get('best_early_bars_before', 0))
+            approach = t.get('approach', [])
+            corrected_entry_79d = t.get('entry_79d', [])
+            corrected_entry_bar = entry_bar
+            corrected_entry_price = entry_price
+
+            if early_bars > 0 and approach and early_bars <= len(approach):
+                # Approach buffer is newest-last: approach[-1] = bar before entry
+                # approach[-early_bars] = the earlier entry point
+                earlier_state = approach[-early_bars]
+                if 'features_79d' in earlier_state:
+                    corrected_entry_79d = earlier_state['features_79d']
+                    if hasattr(corrected_entry_79d, 'tolist'):
+                        corrected_entry_79d = corrected_entry_79d.tolist()
+                corrected_entry_price = earlier_state.get('price', entry_price)
+                corrected_entry_bar = max(0, entry_bar - early_bars)
+
+            # Determine corrected exit bar (from corrected entry point)
             if 'same' in best_action:
-                corrected_exit_bar = entry_bar + r['same_best_bar']
+                corrected_exit_bar = corrected_entry_bar + r['same_best_bar']
             else:
-                corrected_exit_bar = entry_bar + r['counter_best_bar']
+                corrected_exit_bar = corrected_entry_bar + r['counter_best_bar']
             corrected_exit_bar = min(corrected_exit_bar, n - 1)
 
-            # Real PnL from actual prices
+            # Real PnL from actual prices at corrected entry/exit
             exit_price = closes[corrected_exit_bar]
             if corrected_dir == 'long':
-                corrected_pnl = (exit_price - entry_price) / TICK * TV
+                corrected_pnl = (exit_price - corrected_entry_price) / TICK * TV
             else:
-                corrected_pnl = (entry_price - exit_price) / TICK * TV
+                corrected_pnl = (corrected_entry_price - exit_price) / TICK * TV
 
-            corrected_held = corrected_exit_bar - entry_bar
+            corrected_held = corrected_exit_bar - corrected_entry_bar
 
             # Build corrected trade (same format as NMP trade)
             ct = {
@@ -388,22 +406,24 @@ def correct_trades(trades: List[Dict], price_dir: str = 'DATA/ATLAS/1m') -> List
                 'timestamp': entry_ts,
                 'time': t.get('time', ''),
                 'dir': corrected_dir,
-                'entry_price': entry_price,
+                'entry_price': corrected_entry_price,
                 'exit_price': exit_price,
                 'pnl': corrected_pnl,
                 'held': corrected_held,
                 'peak': best_pnl,
                 'exit': best_action,
+                # Early entry info
+                'early_bars': early_bars,
                 # Original NMP data (for context)
                 'original_dir': original_dir,
                 'original_pnl': t['pnl'],
                 'original_held': t['held'],
                 'best_action': best_action,
                 'regret': r['regret'],
-                # 79D data (entry conditions unchanged)
-                'entry_79d': t.get('entry_79d', []),
+                # 79D data — uses approach buffer for early entries
+                'entry_79d': corrected_entry_79d,
                 'exit_79d': t.get('exit_79d', []),
-                'approach': t.get('approach', []),
+                'approach': approach,
                 'approach_length': t.get('approach_length', 0),
                 'path': t.get('path', []),
                 'path_length': t.get('path_length', 0),
@@ -412,9 +432,10 @@ def correct_trades(trades: List[Dict], price_dir: str = 'DATA/ATLAS/1m') -> List
 
     # Summary
     n_flipped = sum(1 for c in corrected if c['dir'] != c['original_dir'])
+    n_early = sum(1 for c in corrected if c.get('early_bars', 0) > 0)
     total_original = sum(c['original_pnl'] for c in corrected)
     total_corrected = sum(c['pnl'] for c in corrected)
-    print(f'  Corrected {len(corrected)} trades: {n_flipped} direction-flipped')
-    print(f'  Original PnL: ${total_original:,.0f} → Corrected PnL: ${total_corrected:,.0f}')
+    print(f'  Corrected {len(corrected)} trades: {n_flipped} direction-flipped, {n_early} early-entry')
+    print(f'  Original PnL: ${total_original:,.0f} -> Corrected PnL: ${total_corrected:,.0f}')
 
     return corrected
