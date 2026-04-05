@@ -386,6 +386,10 @@ def _run_gated(target: str):
                     f'${r["pnl"]:>8.2f}  cumul=${cumul:>8.2f} {flag}\n')
     print(f'\nReport saved: {report_path}')
 
+    csv_path = f'DATA/NMP_TREE/gated_{target}_daily.csv'
+    pd.DataFrame(all_results).to_csv(csv_path, index=False)
+    print(f'CSV saved: {csv_path}')
+
 
 def _print_summary(results: list):
     """Print multi-day summary."""
