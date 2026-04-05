@@ -759,6 +759,241 @@ def _print_summary(results: list):
     print(f'{"="*60}')
 
 
+def _run_ai_with_book(target: str, book_pkl_path: str, label: str):
+    """Run AI forward pass with a specific book version. Saves as label_* files."""
+    from nn_v2.sfe_ticker import FeatureTicker
+    from nn_v2.ai import AIEngine
+    from tqdm import tqdm
+    import pickle
+
+    feat_files = _resolve_days(target, FEATURES_DIR_SEQ)
+    if not feat_files:
+        feat_files = _resolve_days(target, FEATURES_DIR_1M)
+    if not feat_files:
+        print(f'No feature files for "{target}"')
+        return
+
+    print(f'AI Forward Pass ({label}) — {len(feat_files)} day(s)')
+
+    # Load specific book
+    with open(book_pkl_path, 'rb') as f:
+        book_data = pickle.load(f)
+
+    ai = AIEngine()
+    ai.set_book(book_data)
+
+    all_results = []
+    all_trades = []
+    cumul = 0
+
+    for fpath in tqdm(feat_files, desc=f'{label}', unit='day'):
+        day_name = os.path.basename(fpath).replace('.parquet', '')
+        price_file = os.path.join(ATLAS_1M, f'{day_name}.parquet')
+        if not os.path.exists(price_file):
+            price_file = None
+
+        ai.reset()
+        ft = FeatureTicker(fpath, price_file=price_file)
+        for state in ft:
+            ai.on_state(state)
+        ai.force_close()
+
+        for t in ai.trades:
+            t['day'] = day_name
+        all_trades.extend(ai.get_full_trades())
+
+        cumul += ai.daily_pnl
+        all_results.append({
+            'day': day_name,
+            'trades': len(ai.trades),
+            'pnl': ai.daily_pnl,
+            'wr': sum(1 for t in ai.trades if t['pnl'] > 0) / max(len(ai.trades), 1) * 100,
+            'chained': sum(1 for t in ai.trades if t.get('chain_length', 0) > 0),
+        })
+
+    _print_summary(all_results)
+
+    # Save
+    os.makedirs('nn_v2/books', exist_ok=True)
+    if all_trades:
+        with open(f'nn_v2/books/{label}_{target}_trades.pkl', 'wb') as f:
+            pickle.dump(all_trades, f)
+
+    csv_path = f'nn_v2/books/{label}_{target}_daily.csv'
+    pd.DataFrame(all_results).to_csv(csv_path, index=False)
+    print(f'Saved: {csv_path}')
+
+
+def _run_bayesian_pipeline():
+    """Full Bayesian Book pipeline:
+
+    Phase 1 - TRAIN:    NMP → NMP regret → tree → book v0
+    Phase 2 - BASELINE: H0 clean forward pass IS + OOS with book v0
+    Phase 3 - LEARN:    Per-day epochs, book v0 → vN
+    Phase 4 - VALIDATE: H1 clean forward pass IS + OOS with book vN
+    Phase 5 - COMPARE:  H0 vs H1
+    """
+    import time as _time
+    from nn_v2.book import VersionedBook, BOOK_DIR
+
+    print(f'{"="*60}')
+    print(f'BAYESIAN BOOK PIPELINE')
+    print(f'  TRAIN:    NMP → NMP regret → tree → book v0')
+    print(f'  BASELINE: H0 (book v0)')
+    print(f'  LEARN:    Per-day epochs')
+    print(f'  VALIDATE: H1 (book vN)')
+    print(f'  COMPARE:  H0 vs H1')
+    print(f'{"="*60}')
+    pipeline_start = _time.perf_counter()
+
+    # === PHASE 1: TRAIN ===
+    print(f'\n{"="*40}')
+    print(f'PHASE 1: TRAIN')
+    print(f'{"="*40}')
+
+    print(f'\n--- Step 1: NMP on IS ---')
+    t0 = _time.perf_counter()
+    cmd_nmp('is', fast=True)
+    print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    print(f'\n--- Step 2: NMP Regret ---')
+    t0 = _time.perf_counter()
+    _run_regret()
+    print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    print(f'\n--- Step 3: Train Tree ---')
+    t0 = _time.perf_counter()
+    from nn_v2.tree import main as tree_main
+    sys.argv = ['tree.py']
+    tree_main()
+    print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    print(f'\n--- Step 4: Build Book v0 ---')
+    t0 = _time.perf_counter()
+    from nn_v2.book import main as book_main
+    book_main()
+    print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    # Create VersionedBook v0
+    book = VersionedBook.from_nmp_book('DATA/NMP_TREE/strategy_book.pkl')
+    os.makedirs(BOOK_DIR, exist_ok=True)
+    book.freeze(day_name='baseline')  # saves book_v000.pkl + .txt
+    v0_path = os.path.join(BOOK_DIR, 'book_v000.pkl')
+
+    # === PHASE 2: BASELINE (H0) ===
+    print(f'\n{"="*40}')
+    print(f'PHASE 2: BASELINE (H0 — book v0)')
+    print(f'{"="*40}')
+
+    print(f'\n--- Step 5: AI Forward Pass IS (H0) ---')
+    t0 = _time.perf_counter()
+    _run_ai_with_book('is', v0_path, 'h0')
+    print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    print(f'\n--- Step 6: AI Forward Pass OOS (H0) ---')
+    t0 = _time.perf_counter()
+    _run_ai_with_book('oos', v0_path, 'h0')
+    print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    # === PHASE 3: LEARN ===
+    print(f'\n{"="*40}')
+    print(f'PHASE 3: LEARN (epoch learning)')
+    print(f'{"="*40}')
+
+    print(f'\n--- Step 7: Per-Day Epochs ---')
+    t0 = _time.perf_counter()
+    from nn_v2.per_day import learn_phase
+    book = learn_phase(book)
+    print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    # Save final book for H1
+    import pickle
+    vn_path = os.path.join(BOOK_DIR, 'book_final.pkl')
+    final_book = book.export_for_gate()
+    with open(vn_path, 'wb') as f:
+        pickle.dump(final_book, f)
+
+    # === PHASE 4: VALIDATE (H1) ===
+    print(f'\n{"="*40}')
+    print(f'PHASE 4: VALIDATE (H1 — book v{book.version})')
+    print(f'{"="*40}')
+
+    print(f'\n--- Step 8: AI Forward Pass IS (H1) ---')
+    t0 = _time.perf_counter()
+    _run_ai_with_book('is', vn_path, 'h1')
+    print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    print(f'\n--- Step 9: AI Forward Pass OOS (H1) ---')
+    t0 = _time.perf_counter()
+    _run_ai_with_book('oos', vn_path, 'h1')
+    print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    # === PHASE 5: COMPARE ===
+    print(f'\n{"="*40}')
+    print(f'PHASE 5: COMPARE (H0 vs H1)')
+    print(f'{"="*40}')
+
+    from nn_v2.report import compute_stats, format_report
+    h0_is = pd.read_csv('nn_v2/books/h0_is_daily.csv')
+    h1_is = pd.read_csv('nn_v2/books/h1_is_daily.csv')
+
+    h0_is_stats = compute_stats(h0_is, 'H0-IS')
+    h1_is_stats = compute_stats(h1_is, 'H1-IS')
+
+    # Try OOS
+    h0_oos_path = 'nn_v2/books/h0_oos_daily.csv'
+    h1_oos_path = 'nn_v2/books/h1_oos_daily.csv'
+    h0_oos_stats = {}
+    h1_oos_stats = {}
+    if os.path.exists(h0_oos_path) and os.path.exists(h1_oos_path):
+        h0_oos = pd.read_csv(h0_oos_path)
+        h1_oos = pd.read_csv(h1_oos_path)
+        h0_oos_stats = compute_stats(h0_oos, 'H0-OOS')
+        h1_oos_stats = compute_stats(h1_oos, 'H1-OOS')
+
+    # Print comparison
+    print(f'\n{"="*65}')
+    print(f'  H0 vs H1 COMPARISON')
+    print(f'{"="*65}')
+    print(f'  {"":25} {"H0 (book v0)":>15}  {"H1 (book vN)":>15}  {"Delta":>10}')
+    print(f'  {"-"*65}')
+
+    for label, h0, h1 in [('IS', h0_is_stats, h1_is_stats),
+                           ('OOS', h0_oos_stats, h1_oos_stats)]:
+        if not h0 or not h1:
+            continue
+        d_pnl = h1['per_day'] - h0['per_day']
+        d_wr = h1['win_pct'] - h0['win_pct']
+        print(f'\n  {label}:')
+        print(f'  {"$/day":<25} ${h0["per_day"]:>14.0f}  ${h1["per_day"]:>14.0f}  ${d_pnl:>+9.0f}')
+        print(f'  {"Win %":<25} {h0["win_pct"]:>14.0%}  {h1["win_pct"]:>14.0%}  {d_wr:>+9.0%}')
+        print(f'  {"Total PnL":<25} ${h0["total_pnl"]:>13,.0f}  ${h1["total_pnl"]:>13,.0f}  ${h1["total_pnl"]-h0["total_pnl"]:>+9,.0f}')
+        print(f'  {"Max DD":<25} ${h0["max_dd"]:>14.0f}  ${h1["max_dd"]:>14.0f}')
+
+    # Verdict
+    is_improved = h1_is_stats['per_day'] > h0_is_stats['per_day']
+    oos_improved = h1_oos_stats.get('per_day', 0) > h0_oos_stats.get('per_day', 0) if h1_oos_stats else False
+
+    print(f'\n  VERDICT:')
+    if is_improved and oos_improved:
+        print(f'  ✓ H1 ACCEPTED — learning improved both IS and OOS')
+    elif is_improved and not oos_improved:
+        print(f'  ✗ OVERFIT — IS improved but OOS did not')
+    elif not is_improved:
+        print(f'  ✗ H0 WINS — epoch learning did not help')
+
+    # Save comparison report
+    total_time = _time.perf_counter() - pipeline_start
+    print(f'\n{"="*60}')
+    print(f'BAYESIAN PIPELINE COMPLETE — {total_time:.0f}s total')
+    print(f'{"="*60}')
+    print(f'  Book v0:     {v0_path}')
+    print(f'  Book final:  {vn_path}')
+    print(f'  Evolution:   nn_v2/books/evolution.csv')
+    print(f'  H0 IS:       nn_v2/books/h0_is_daily.csv')
+    print(f'  H1 IS:       nn_v2/books/h1_is_daily.csv')
+
+
 def main():
     if len(sys.argv) < 2:
         print(__doc__)
@@ -795,6 +1030,9 @@ def main():
 
     elif cmd == 'pipeline':
         _run_full_pipeline()
+
+    elif cmd == 'bayesian':
+        _run_bayesian_pipeline()
 
     else:
         print(f'Unknown command: {cmd}')

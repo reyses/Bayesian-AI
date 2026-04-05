@@ -390,7 +390,7 @@ PRIOR_FLOOR = 0.5             # Laplace floor per action (prevents zero prior)
 MAX_EPOCHS_PER_DAY = 5        # max retries per day in LEARN phase
 MIN_PNL_IMPROVEMENT = 1.0     # $ improvement required to keep epoch result
 SPOT_CHECK_DEGRADATION = -5.0 # max $ PnL drop on spot-check before warning
-BOOK_DIR = 'DATA/BOOKS'       # versioned books go here
+BOOK_DIR = 'nn_v2/books'      # versioned books go here (inside nn_v2)
 
 
 class BayesianLeaf:
