@@ -25,8 +25,8 @@ from core.features_79d import FEATURE_NAMES_79D
 class Gate:
     """Classifies + calibrates trades from tree + book."""
 
-    def __init__(self, tree_path: str = 'DATA/NMP_TREE/strategy_tree.pkl',
-                 book_path: str = 'DATA/NMP_TREE/strategy_book.pkl'):
+    def __init__(self, tree_path: str = 'nn_v2/output/tree/strategy_tree.pkl',
+                 book_path: str = 'nn_v2/output/tree/strategy_book.pkl'):
 
         with open(tree_path, 'rb') as f:
             data = pickle.load(f)

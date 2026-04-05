@@ -26,10 +26,10 @@ from collections import defaultdict
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.features_79d import FEATURE_NAMES_79D
 
-TRADE_LOG = 'DATA/NMP_TRADES/nmp_is.pkl'
-REGRET_FILE = 'DATA/NMP_TREE/regret_analysis.csv'
-TREE_FILE = 'DATA/NMP_TREE/strategy_tree.pkl'
-OUTPUT_DIR = 'DATA/NMP_TREE'
+TRADE_LOG = 'nn_v2/output/trades/nmp_is.pkl'
+REGRET_FILE = 'nn_v2/output/tree/regret_analysis.csv'
+TREE_FILE = 'nn_v2/output/tree/strategy_tree.pkl'
+OUTPUT_DIR = 'nn_v2/output/tree'
 
 # All 6 regret actions
 REGRET_ACTIONS = [
@@ -390,7 +390,7 @@ PRIOR_FLOOR = 0.5             # Laplace floor per action (prevents zero prior)
 MAX_EPOCHS_PER_DAY = 5        # max retries per day in LEARN phase
 MIN_PNL_IMPROVEMENT = 1.0     # $ improvement required to keep epoch result
 SPOT_CHECK_DEGRADATION = -5.0 # max $ PnL drop on spot-check before warning
-BOOK_DIR = 'nn_v2/books'      # versioned books go here (inside nn_v2)
+BOOK_DIR = 'nn_v2/output/books'
 
 
 class BayesianLeaf:

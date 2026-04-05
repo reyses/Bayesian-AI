@@ -27,9 +27,9 @@ from sklearn.model_selection import KFold
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.features_79d import FEATURE_NAMES_79D
 
-TRADE_LOG = 'DATA/NMP_TRADES/nmp_is.pkl'
-REGRET_FILE = 'DATA/NMP_TREE/regret_analysis.csv'
-OUTPUT_DIR = 'DATA/NMP_TREE'
+TRADE_LOG = 'nn_v2/output/trades/nmp_is.pkl'
+REGRET_FILE = 'nn_v2/output/tree/regret_analysis.csv'
+OUTPUT_DIR = 'nn_v2/output/tree'
 
 # Strategy classes
 STRATEGIES = ['same_extended', 'counter_extended', 'same_early', 'counter_early', 'same_at_exit', 'counter_at_exit']

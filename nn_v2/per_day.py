@@ -35,7 +35,7 @@ from nn_v2.book import (VersionedBook, BOOK_DIR, MAX_EPOCHS_PER_DAY,
 FEATURES_DIR = 'DATA/FEATURES_79D_1m_seq'
 FEATURES_DIR_BULK = 'DATA/FEATURES_79D_1m'
 PRICE_DIR = 'DATA/ATLAS/1m'
-TREE_DIR = 'DATA/NMP_TREE'
+TREE_DIR = 'nn_v2/output/tree'
 TREE_PATH = os.path.join(TREE_DIR, 'strategy_tree.pkl')
 
 

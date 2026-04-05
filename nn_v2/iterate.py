@@ -32,8 +32,8 @@ from core.features_79d import FEATURE_NAMES_79D
 
 FEATURES_DIR = 'DATA/FEATURES_79D_1m'
 PRICE_DIR = 'DATA/ATLAS/1m'
-TRADE_LOG = 'DATA/NMP_TRADES/nmp_is.pkl'
-TREE_DIR = 'DATA/NMP_TREE'
+TRADE_LOG = 'nn_v2/output/trades/nmp_is.pkl'
+TREE_DIR = 'nn_v2/output/tree'
 
 
 def parse_args():

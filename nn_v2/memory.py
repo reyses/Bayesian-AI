@@ -14,8 +14,8 @@ Usage:
     mem = BayesianMemory()
     mem.commit_branches(branches)         # from tree.py
     mem.record_trade(leaf_id, pnl, ...)   # from trial run
-    mem.save('DATA/NMP_TREE/memory.pkl')
-    mem = BayesianMemory.load('DATA/NMP_TREE/memory.pkl')
+    mem.save('nn_v2/output/memory/memory.pkl')
+    mem = BayesianMemory.load('nn_v2/output/memory/memory.pkl')
 """
 import os
 import pickle
@@ -228,7 +228,7 @@ class BayesianMemory:
 
         return '\n'.join(lines)
 
-    def save(self, path: str = 'DATA/NMP_TREE/memory.pkl'):
+    def save(self, path: str = 'nn_v2/output/memory/memory.pkl'):
         """Save to disk."""
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, 'wb') as f:
@@ -236,7 +236,7 @@ class BayesianMemory:
         print(f'  Memory saved: {path}')
 
     @staticmethod
-    def load(path: str = 'DATA/NMP_TREE/memory.pkl') -> 'BayesianMemory':
+    def load(path: str = 'nn_v2/output/memory/memory.pkl') -> 'BayesianMemory':
         """Load from disk."""
         with open(path, 'rb') as f:
             return pickle.load(f)

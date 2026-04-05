@@ -12,7 +12,7 @@ Usage (test mode):
     from nn_v2.ai import AIEngine
     from nn_v2.sfe_ticker import FeatureTicker
 
-    ai = AIEngine('DATA/NMP_TREE/strategy_tree.pkl')
+    ai = AIEngine('nn_v2/output/tree/strategy_tree.pkl')
     for state in FeatureTicker(feat_file, price_file):
         action = ai.on_state(state)
         # action = {'position': 'long'/'short'/'flat', 'changed': bool, ...}
@@ -42,8 +42,8 @@ _1M_OFFSET = 10  # 1m is TF index 1, 10 features per TF
 class AIEngine:
     """Continuous positioning: LONG / SHORT / FLAT at every bar."""
 
-    def __init__(self, tree_path: str = 'DATA/NMP_TREE/strategy_tree.pkl',
-                 book_path: str = 'DATA/NMP_TREE/strategy_book.pkl'):
+    def __init__(self, tree_path: str = 'nn_v2/output/tree/strategy_tree.pkl',
+                 book_path: str = 'nn_v2/output/tree/strategy_book.pkl'):
         from nn_v2.gate import Gate
         self.gate = Gate(tree_path, book_path)
 

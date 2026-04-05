@@ -118,10 +118,10 @@ def _run_nmp_fast(target: str, equity: float = None):
     # Save trade log (with 79D at entry/exit) for tree+NN training
     if all_trades:
         import pickle
-        os.makedirs('DATA/NMP_TRADES', exist_ok=True)
+        os.makedirs('nn_v2/output/trades', exist_ok=True)
         # Determine label from target
         label = target if target in ('is', 'oos', 'all') else 'custom'
-        trade_path = f'DATA/NMP_TRADES/nmp_{label}.pkl'
+        trade_path = f'nn_v2/output/trades/nmp_{label}.pkl'
         with open(trade_path, 'wb') as f:
             pickle.dump(all_trades, f)
         # Also save flat CSV (without 79D arrays) for quick analysis
@@ -129,7 +129,7 @@ def _run_nmp_fast(target: str, equity: float = None):
         for t in all_trades:
             row = {k: v for k, v in t.items() if k not in ('entry_79d', 'exit_79d', 'path')}
             flat.append(row)
-        csv_path = f'DATA/NMP_TRADES/nmp_{label}.csv'
+        csv_path = f'nn_v2/output/trades/nmp_{label}.csv'
         pd.DataFrame(flat).to_csv(csv_path, index=False)
         print(f'\nTrade log saved: {trade_path} ({len(all_trades)} trades)')
         print(f'Trade CSV saved: {csv_path}')
@@ -241,12 +241,12 @@ def _run_regret():
     print('Regret Analysis on IS trades...')
 
     # Load trades
-    with open('DATA/NMP_TRADES/nmp_is.pkl', 'rb') as f:
+    with open('nn_v2/output/trades/nmp_is.pkl', 'rb') as f:
         trades = pickle.load(f)
     print(f'  Loaded {len(trades)} trades')
 
     # Classify into tree branches
-    gate = Gate('DATA/NMP_TREE/tree.pkl')
+    gate = Gate('nn_v2/output/tree/tree.pkl')
     import numpy as np
     from core.features_79d import FEATURE_NAMES_79D
     for t in trades:
@@ -292,11 +292,11 @@ def _run_regret():
               f'{row["dominant_pct"]:>4.0f}%')
 
     # Save
-    os.makedirs('DATA/NMP_TREE', exist_ok=True)
-    regret_df.to_csv('DATA/NMP_TREE/regret_analysis.csv', index=False)
-    branch_summary.to_csv('DATA/NMP_TREE/regret_by_branch.csv', index=False)
-    print(f'\n  Saved: DATA/NMP_TREE/regret_analysis.csv')
-    print(f'  Saved: DATA/NMP_TREE/regret_by_branch.csv')
+    os.makedirs('nn_v2/output/tree', exist_ok=True)
+    regret_df.to_csv('nn_v2/output/tree/regret_analysis.csv', index=False)
+    branch_summary.to_csv('nn_v2/output/tree/regret_by_branch.csv', index=False)
+    print(f'\n  Saved: nn_v2/output/tree/regret_analysis.csv')
+    print(f'  Saved: nn_v2/output/tree/regret_by_branch.csv')
 
 
 def _run_gated(target: str):
@@ -308,7 +308,7 @@ def _run_gated(target: str):
     from tqdm import tqdm
     import numpy as np
 
-    tree_path = 'DATA/NMP_TREE/strategy_tree.pkl'
+    tree_path = 'nn_v2/output/tree/strategy_tree.pkl'
     if not os.path.exists(tree_path):
         print(f'No tree found at {tree_path}. Run tree.py first.')
         return
@@ -390,8 +390,8 @@ def _run_gated(target: str):
     print(f'\n{memory.summary()}')
 
     # Save report
-    os.makedirs('DATA/NMP_TREE', exist_ok=True)
-    report_path = f'DATA/NMP_TREE/gated_{target}_report.txt'
+    os.makedirs('nn_v2/output/tree', exist_ok=True)
+    report_path = f'nn_v2/output/tree/gated_{target}_report.txt'
     with open(report_path, 'w', encoding='utf-8') as f:
         n_days = len(all_results)
         total_pnl = sum(r['pnl'] for r in all_results)
@@ -412,12 +412,12 @@ def _run_gated(target: str):
         f.write(f'\n{memory.summary()}\n')
     print(f'\nReport saved: {report_path}')
 
-    csv_path = f'DATA/NMP_TREE/gated_{target}_daily.csv'
+    csv_path = f'nn_v2/output/tree/gated_{target}_daily.csv'
     pd.DataFrame(all_results).to_csv(csv_path, index=False)
     print(f'CSV saved: {csv_path}')
 
     # Save memory
-    memory.save(f'DATA/NMP_TREE/memory_{target}.pkl')
+    memory.save(f'nn_v2/output/tree/memory_{target}.pkl')
 
     # Build OOS playbook from memory (separate from IS book)
     eval_result = memory.evaluate_iteration()
@@ -451,7 +451,7 @@ def _run_gated(target: str):
         for lid, wr, pnl in eval_result['promote_candidates']:
             playbook_lines.append(f'  Branch {lid}: WR={wr:.0%}, PnL=${pnl:.0f}')
 
-    playbook_path = f'DATA/NMP_TREE/playbook_{target}.txt'
+    playbook_path = f'nn_v2/output/tree/playbook_{target}.txt'
     with open(playbook_path, 'w', encoding='utf-8') as f:
         f.write('\n'.join(playbook_lines))
     print(f'Playbook saved: {playbook_path}')
@@ -488,7 +488,7 @@ def _run_gated(target: str):
         ax2.grid(True, alpha=0.3)
 
         plt.tight_layout()
-        plot_path = f'DATA/NMP_TREE/gated_{target}_equity.png'
+        plot_path = f'nn_v2/output/tree/gated_{target}_equity.png'
         plt.savefig(plot_path, dpi=150)
         plt.close()
         print(f'Plot saved: {plot_path}')
@@ -555,15 +555,15 @@ def _run_ai(target: str):
     _print_summary(all_results)
 
     # Save full trade log (with 79D, paths, approach — for regret)
-    os.makedirs('DATA/NMP_TREE', exist_ok=True)
+    os.makedirs('nn_v2/output/tree', exist_ok=True)
     if all_trades:
-        trade_path = f'DATA/NMP_TREE/ai_{target}_trades.pkl'
+        trade_path = f'nn_v2/output/tree/ai_{target}_trades.pkl'
         with open(trade_path, 'wb') as f:
             pickle.dump(all_trades, f)
         print(f'Trade log saved: {trade_path} ({len(all_trades)} trades)')
 
     # Save report
-    report_path = f'DATA/NMP_TREE/ai_{target}_report.txt'
+    report_path = f'nn_v2/output/tree/ai_{target}_report.txt'
     with open(report_path, 'w', encoding='utf-8') as f:
         n_days = len(all_results)
         total_pnl = sum(r['pnl'] for r in all_results)
@@ -579,7 +579,7 @@ def _run_ai(target: str):
                     f'${r["pnl"]:>8.2f}  cumul=${cumul:>8.2f} {flag}\n')
     print(f'Report saved: {report_path}')
 
-    csv_path = f'DATA/NMP_TREE/ai_{target}_daily.csv'
+    csv_path = f'nn_v2/output/tree/ai_{target}_daily.csv'
     pd.DataFrame(all_results).to_csv(csv_path, index=False)
     print(f'CSV saved: {csv_path}')
 
@@ -589,7 +589,7 @@ def _run_ai_regret(target: str):
     import pickle
     from nn_v2.regret import compute_all_regrets, summarize_regret_by_branch
 
-    trade_path = f'DATA/NMP_TREE/ai_{target}_trades.pkl'
+    trade_path = f'nn_v2/output/tree/ai_{target}_trades.pkl'
     if not os.path.exists(trade_path):
         print(f'No AI trades found at {trade_path}. Run AI forward pass first.')
         return
@@ -631,9 +631,9 @@ def _run_ai_regret(target: str):
               f'{row["dominant_pct"]:>4.0f}%')
 
     # Save
-    regret_path = f'DATA/NMP_TREE/ai_{target}_regret.csv'
+    regret_path = f'nn_v2/output/tree/ai_{target}_regret.csv'
     regret_df.to_csv(regret_path, index=False)
-    branch_path = f'DATA/NMP_TREE/ai_{target}_regret_by_branch.csv'
+    branch_path = f'nn_v2/output/tree/ai_{target}_regret_by_branch.csv'
     branch_summary.to_csv(branch_path, index=False)
     print(f'\n  Saved: {regret_path}')
     print(f'  Saved: {branch_path}')
@@ -715,20 +715,20 @@ def _run_full_pipeline():
     print(f'\n--- STEP 9: System Report ---')
     from nn_v2.report import main as report_main
     sys.argv = ['report.py',
-                '--is-csv', 'DATA/NMP_TREE/ai_is_daily.csv',
-                '--oos-csv', 'DATA/NMP_TREE/ai_oos_daily.csv']
+                '--is-csv', 'nn_v2/output/tree/ai_is_daily.csv',
+                '--oos-csv', 'nn_v2/output/tree/ai_oos_daily.csv']
     report_main()
 
     total_time = _time.perf_counter() - pipeline_start
     print(f'\n{"="*60}')
     print(f'PIPELINE COMPLETE — {total_time:.0f}s total')
     print(f'{"="*60}')
-    print(f'  NMP regret:   DATA/NMP_TREE/regret_analysis.csv')
-    print(f'  AI IS trades: DATA/NMP_TREE/ai_is_trades.pkl')
-    print(f'  AI IS regret: DATA/NMP_TREE/ai_is_regret.csv')
-    print(f'  AI OOS regret:DATA/NMP_TREE/ai_oos_regret.csv')
-    print(f'  Report:       DATA/NMP_TREE/system_report.txt')
-    print(f'  Book:         DATA/NMP_TREE/strategy_book.txt')
+    print(f'  NMP regret:   nn_v2/output/tree/regret_analysis.csv')
+    print(f'  AI IS trades: nn_v2/output/tree/ai_is_trades.pkl')
+    print(f'  AI IS regret: nn_v2/output/tree/ai_is_regret.csv')
+    print(f'  AI OOS regret:nn_v2/output/tree/ai_oos_regret.csv')
+    print(f'  Report:       nn_v2/output/tree/system_report.txt')
+    print(f'  Book:         nn_v2/output/tree/strategy_book.txt')
 
 
 def _print_summary(results: list):
@@ -814,12 +814,12 @@ def _run_ai_with_book(target: str, book_pkl_path: str, label: str):
     _print_summary(all_results)
 
     # Save
-    os.makedirs('nn_v2/books', exist_ok=True)
+    os.makedirs('nn_v2/output/books', exist_ok=True)
     if all_trades:
-        with open(f'nn_v2/books/{label}_{target}_trades.pkl', 'wb') as f:
+        with open(f'nn_v2/output/books/{label}_{target}_trades.pkl', 'wb') as f:
             pickle.dump(all_trades, f)
 
-    csv_path = f'nn_v2/books/{label}_{target}_daily.csv'
+    csv_path = f'nn_v2/output/books/{label}_{target}_daily.csv'
     pd.DataFrame(all_results).to_csv(csv_path, index=False)
     print(f'Saved: {csv_path}')
 
@@ -875,7 +875,7 @@ def _run_bayesian_pipeline():
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
     # Create VersionedBook v0
-    book = VersionedBook.from_nmp_book('DATA/NMP_TREE/strategy_book.pkl')
+    book = VersionedBook.from_nmp_book('nn_v2/output/tree/strategy_book.pkl')
     os.makedirs(BOOK_DIR, exist_ok=True)
     book.freeze(day_name='baseline')  # saves book_v000.pkl + .txt
     v0_path = os.path.join(BOOK_DIR, 'book_v000.pkl')
@@ -934,15 +934,15 @@ def _run_bayesian_pipeline():
     print(f'{"="*40}')
 
     from nn_v2.report import compute_stats, format_report
-    h0_is = pd.read_csv('nn_v2/books/h0_is_daily.csv')
-    h1_is = pd.read_csv('nn_v2/books/h1_is_daily.csv')
+    h0_is = pd.read_csv('nn_v2/output/books/h0_is_daily.csv')
+    h1_is = pd.read_csv('nn_v2/output/books/h1_is_daily.csv')
 
     h0_is_stats = compute_stats(h0_is, 'H0-IS')
     h1_is_stats = compute_stats(h1_is, 'H1-IS')
 
     # Try OOS
-    h0_oos_path = 'nn_v2/books/h0_oos_daily.csv'
-    h1_oos_path = 'nn_v2/books/h1_oos_daily.csv'
+    h0_oos_path = 'nn_v2/output/books/h0_oos_daily.csv'
+    h1_oos_path = 'nn_v2/output/books/h1_oos_daily.csv'
     h0_oos_stats = {}
     h1_oos_stats = {}
     if os.path.exists(h0_oos_path) and os.path.exists(h1_oos_path):
@@ -989,9 +989,9 @@ def _run_bayesian_pipeline():
     print(f'{"="*60}')
     print(f'  Book v0:     {v0_path}')
     print(f'  Book final:  {vn_path}')
-    print(f'  Evolution:   nn_v2/books/evolution.csv')
-    print(f'  H0 IS:       nn_v2/books/h0_is_daily.csv')
-    print(f'  H1 IS:       nn_v2/books/h1_is_daily.csv')
+    print(f'  Evolution:   nn_v2/output/books/evolution.csv')
+    print(f'  H0 IS:       nn_v2/output/books/h0_is_daily.csv')
+    print(f'  H1 IS:       nn_v2/output/books/h1_is_daily.csv')
 
 
 def main():

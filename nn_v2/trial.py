@@ -31,8 +31,8 @@ from core.features_79d import FEATURE_NAMES_79D
 
 FEATURES_DIR = 'DATA/FEATURES_79D_1m'
 PRICE_DIR = 'DATA/ATLAS/1m'
-TREE_PATH = 'DATA/NMP_TREE/tree.pkl'
-MEMORY_PATH = 'DATA/NMP_TREE/memory.pkl'
+TREE_PATH = 'nn_v2/output/tree/tree.pkl'
+MEMORY_PATH = 'nn_v2/output/memory/memory.pkl'
 
 
 def parse_args():

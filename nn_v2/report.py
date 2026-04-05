@@ -17,7 +17,7 @@ from collections import Counter
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-TREE_DIR = 'DATA/NMP_TREE'
+TREE_DIR = 'nn_v2/output/reports'
 
 # Typical trading days per month
 TRADING_DAYS_PER_MONTH = 21
