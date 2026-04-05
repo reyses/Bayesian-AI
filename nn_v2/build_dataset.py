@@ -47,7 +47,7 @@ def parse_args():
     p.add_argument('--start', type=str, default=None, help='Start date YYYY-MM-DD')
     p.add_argument('--end', type=str, default=None, help='End date YYYY-MM-DD')
     p.add_argument('--days', type=int, default=None, help='Process first N days only')
-    p.add_argument('--resolution', type=str, default='1m', choices=['5s', '15s', '1m'],
+    p.add_argument('--resolution', type=str, default='1m', choices=['1s', '5s', '15s', '1m'],
                    help='Output resolution (default: 1m)')
     p.add_argument('--sequential', action='store_true',
                    help='Sheet music mode: sequential 1s through aggregator (honest, slow)')
