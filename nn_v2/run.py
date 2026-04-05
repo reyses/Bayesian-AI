@@ -22,6 +22,7 @@ ATLAS_1S = 'DATA/ATLAS/1s'
 ATLAS_1M = 'DATA/ATLAS/1m'
 FEATURES_DIR = 'DATA/FEATURES_79D'
 FEATURES_DIR_1M = 'DATA/FEATURES_79D_1m'
+FEATURES_DIR_SEQ = 'DATA/FEATURES_79D_1m_seq'  # honest sequential (sheet music)
 
 
 def cmd_build(args):
@@ -501,7 +502,12 @@ def _run_ai(target: str):
     from nn_v2.ai import AIEngine
     from tqdm import tqdm
 
-    feat_files = _resolve_days(target, FEATURES_DIR_1M)
+    # Prefer sequential (honest) features, fall back to bulk
+    feat_files = _resolve_days(target, FEATURES_DIR_SEQ)
+    if feat_files:
+        print(f'  Using SEQUENTIAL features (honest)')
+    else:
+        feat_files = _resolve_days(target, FEATURES_DIR_1M)
     if not feat_files:
         feat_files = _resolve_days(target, FEATURES_DIR)
     if not feat_files:

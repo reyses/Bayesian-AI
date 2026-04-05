@@ -49,6 +49,8 @@ def parse_args():
     p.add_argument('--days', type=int, default=None, help='Process first N days only')
     p.add_argument('--resolution', type=str, default='1m', choices=['5s', '15s', '1m'],
                    help='Output resolution (default: 1m)')
+    p.add_argument('--sequential', action='store_true',
+                   help='Sheet music mode: sequential 1s through aggregator (honest, slow)')
     return p.parse_args()
 
 
@@ -171,14 +173,87 @@ def process_day_bulk(day_name: str, resolution: str = '1m') -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def process_day_sequential(day_name: str, resolution: str = '1m') -> pd.DataFrame:
+    """Sheet music mode: feed 1s bars through aggregator, compute 79D honestly.
+
+    Zero lookahead. Each bar only sees data up to that point.
+    Slow (~9 min/day) but honest — same as live would produce.
+    """
+    from nn_v2.ticker import FileTicker
+    from nn_v2.aggregator import Aggregator
+
+    sfe = StatisticalFieldEngine()
+    agg = Aggregator(history_limit=2000)
+    prev_velocities = {}
+    rows = []
+
+    # Load 1s bars for this day
+    path_1s = os.path.join(ATLAS_ROOT, '1s', f'{day_name}.parquet')
+    if not os.path.exists(path_1s):
+        return pd.DataFrame()
+
+    def on_bar_close(tf, bar):
+        nonlocal prev_velocities
+        if tf != resolution:
+            return
+
+        # Compute 79D from aggregator's accumulated state
+        states_by_tf = {}
+        ohlcv_by_tf = {}
+        for _tf in TF_ORDER:
+            df = agg.get_closed_bars_df(_tf)
+            partial = agg.get_partial_bar(_tf)
+            if partial is not None:
+                partial_df = pd.DataFrame([partial])
+                full_df = pd.concat([df, partial_df], ignore_index=True) if len(df) > 0 else partial_df
+            else:
+                full_df = df
+            if len(full_df) < SFE_MIN_BARS:
+                continue
+            ohlcv_by_tf[_tf] = full_df
+            sfe_input = full_df.tail(300).reset_index(drop=True) if len(full_df) > 300 else full_df
+            states = sfe.batch_compute_states(sfe_input)
+            if states:
+                states_by_tf[_tf] = states[-1]
+
+        if '1m' not in states_by_tf:
+            return
+
+        feat, prev_velocities = extract_79d(
+            states_by_tf, ohlcv_by_tf, prev_velocities, bar['timestamp']
+        )
+        rows.append({
+            'timestamp': bar['timestamp'],
+            **{name: feat[i] for i, name in enumerate(FEATURE_NAMES_79D)}
+        })
+
+    agg.on_bar_close = on_bar_close
+    ticker = FileTicker(path_1s)
+    for bar in ticker:
+        agg.feed(bar)
+
+    del sfe
+    gc.collect()
+    return pd.DataFrame(rows) if rows else pd.DataFrame()
+
+
 def main():
     args = parse_args()
     resolution = args.resolution
-    out_dir = OUTPUT_DIR if resolution == '5s' else f'{OUTPUT_DIR}_{resolution}'
+    sequential = args.sequential
+
+    if sequential:
+        out_dir = f'{OUTPUT_DIR}_{resolution}_seq'
+    else:
+        out_dir = OUTPUT_DIR if resolution == '5s' else f'{OUTPUT_DIR}_{resolution}'
     os.makedirs(out_dir, exist_ok=True)
 
-    # Find all days from 1m (the anchor)
-    anchor_dir = os.path.join(ATLAS_ROOT, resolution)
+    # Find source files
+    if sequential:
+        # Sequential needs 1s source
+        anchor_dir = os.path.join(ATLAS_ROOT, '1s')
+    else:
+        anchor_dir = os.path.join(ATLAS_ROOT, resolution)
     all_files = sorted(glob.glob(os.path.join(anchor_dir, '*.parquet')))
     print(f'Total {resolution} files: {len(all_files)}')
 
@@ -199,7 +274,7 @@ def main():
         print(f'  To:   {file_date(all_files[-1])}')
     print(f'  Output: {out_dir}/')
     print(f'  Resolution: {resolution}')
-    print(f'  Mode: BULK GPU (no sequential constraint)')
+    print(f'  Mode: {"SEQUENTIAL (sheet music, honest)" if sequential else "BULK GPU (fast)"}')
     print()
 
     total_rows = 0
@@ -213,7 +288,10 @@ def main():
             skipped += 1
             continue
 
-        df = process_day_bulk(day_name, resolution=resolution)
+        if sequential:
+            df = process_day_sequential(day_name, resolution=resolution)
+        else:
+            df = process_day_bulk(day_name, resolution=resolution)
         if len(df) == 0:
             continue
 
