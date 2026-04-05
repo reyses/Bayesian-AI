@@ -28,12 +28,21 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.features_79d import FEATURE_NAMES_79D
 
 TRADE_LOG = 'nn_v2/output/trades/nmp_is.pkl'
+CORRECTED_LOG = 'nn_v2/output/trades/corrected_is.pkl'
 REGRET_FILE = 'nn_v2/output/tree/regret_analysis.csv'
 OUTPUT_DIR = 'nn_v2/output/tree'
 
-# Strategy classes
+# Strategy classes (old: regret action labels)
 STRATEGIES = ['same_extended', 'counter_extended', 'same_early', 'counter_early', 'same_at_exit', 'counter_at_exit']
 STRAT_TO_IDX = {s: i for i, s in enumerate(STRATEGIES)}
+
+# Corrected trade labels: direction + hold bucket
+HOLD_BUCKETS = [(0, 3, 'fast'), (3, 8, 'medium'), (8, 16, 'long'), (16, 999, 'extended')]
+CORRECTED_STRATEGIES = []
+for d in ['long', 'short']:
+    for _, _, label in HOLD_BUCKETS:
+        CORRECTED_STRATEGIES.append(f'{d}_{label}')
+CORR_STRAT_TO_IDX = {s: i for i, s in enumerate(CORRECTED_STRATEGIES)}
 
 
 def parse_args():
@@ -84,6 +93,47 @@ def load_data():
             row['same_best_bar'] = t['held']
             row['counter_best_bar'] = 0
             row['strategy_idx'] = 0
+
+        rows.append(row)
+
+    return pd.DataFrame(rows)
+
+
+def load_corrected_data():
+    """Load corrected trades (regret-corrected direction + exit)."""
+    with open(CORRECTED_LOG, 'rb') as f:
+        trades = pickle.load(f)
+
+    rows = []
+    for t in trades:
+        entry_79d = np.array(t['entry_79d'])
+        direction = t['dir']
+        held = t['held']
+
+        # Classify into direction + hold bucket
+        bucket_label = 'extended'  # default
+        for lo, hi, label in HOLD_BUCKETS:
+            if lo <= held < hi:
+                bucket_label = label
+                break
+        strategy = f'{direction}_{bucket_label}'
+
+        row = {
+            'pnl': t['pnl'],
+            'dir': direction,
+            'held': held,
+            'day': t.get('day', ''),
+            'best_action': t.get('best_action', strategy),
+            'best_pnl': t['pnl'],  # corrected PnL IS the best
+            'regret': 0.0,          # no regret — this is the corrected trade
+            'same_best_bar': held if direction == t.get('original_dir', direction) else 0,
+            'counter_best_bar': held if direction != t.get('original_dir', direction) else 0,
+            'strategy_idx': CORR_STRAT_TO_IDX.get(strategy, 0),
+        }
+
+        # 79D features
+        for j, name in enumerate(FEATURE_NAMES_79D):
+            row[name] = entry_79d[j] if j < len(entry_79d) else 0.0
 
         rows.append(row)
 
@@ -255,12 +305,24 @@ def main():
     args = parse_args()
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    print(f'Loading trades + regret labels...')
-    df = load_data()
-    print(f'  {len(df)} trades | {len(STRATEGIES)} strategy classes')
+    # Prefer corrected trades if available
+    use_corrected = os.path.exists(CORRECTED_LOG)
+    if use_corrected:
+        print(f'Loading CORRECTED trades (regret-corrected direction + exit)...')
+        df = load_corrected_data()
+        strat_list = CORRECTED_STRATEGIES
+        strat_map = CORR_STRAT_TO_IDX
+    else:
+        print(f'Loading raw trades + regret labels...')
+        df = load_data()
+        strat_list = STRATEGIES
+        strat_map = STRAT_TO_IDX
+
+    print(f'  {len(df)} trades | {len(strat_list)} strategy classes')
     print(f'  Label distribution:')
-    for s in STRATEGIES:
-        n = (df['best_action'] == s).sum()
+    for s in strat_list:
+        idx = strat_map[s]
+        n = (df['strategy_idx'] == idx).sum()
         if n > 0:
             print(f'    {s:<22} {n:>5} ({n/len(df)*100:>4.0f}%)')
 
@@ -278,9 +340,10 @@ def main():
             'tree': tree,
             'branches': branches,
             'feature_names': FEATURE_NAMES_79D,
-            'strategies': STRATEGIES,
+            'strategies': strat_list,
             'cv_results': cv_results,
             'args': vars(args),
+            'corrected': use_corrected,
         }, f)
     print(f'Tree saved: {save_path}')
 
