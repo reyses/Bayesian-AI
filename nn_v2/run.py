@@ -364,6 +364,28 @@ def _run_gated(target: str):
 
     _print_summary(all_results)
 
+    # Save report
+    os.makedirs('DATA/NMP_TREE', exist_ok=True)
+    report_path = f'DATA/NMP_TREE/gated_{target}_report.txt'
+    with open(report_path, 'w', encoding='utf-8') as f:
+        n_days = len(all_results)
+        total_pnl = sum(r['pnl'] for r in all_results)
+        total_trades = sum(r['trades'] for r in all_results)
+        winning = sum(1 for r in all_results if r['pnl'] > 0)
+        f.write(f'GATED NMP REPORT — {target.upper()}\n')
+        f.write(f'{"="*60}\n')
+        f.write(f'Days: {n_days} | Trades: {total_trades} | PnL: ${total_pnl:.2f}\n')
+        f.write(f'$/day: ${total_pnl / max(n_days, 1):.2f}\n')
+        f.write(f'Winning days: {winning}/{n_days} ({winning/max(n_days,1)*100:.0f}%)\n\n')
+        f.write(f'Daily breakdown:\n')
+        cumul = 0
+        for r in all_results:
+            cumul += r['pnl']
+            flag = '<<<' if r['pnl'] > 50 else '!!!' if r['pnl'] < -50 else ''
+            f.write(f'  {r["day"]}  {r["trades"]:>3} trades  {r["wr"]:>4.0f}%  '
+                    f'${r["pnl"]:>8.2f}  cumul=${cumul:>8.2f} {flag}\n')
+    print(f'\nReport saved: {report_path}')
+
 
 def _print_summary(results: list):
     """Print multi-day summary."""
