@@ -70,3 +70,9 @@ reports/live/peak_skips_*.csv
 DATA/MNQ 06-26min .Last.txt
 .gitignore
 DATA/MNQ 06-26.Last.txt
+
+# Generated data (regenerable)
+DATA/NMP_TRADES/*.pkl
+DATA/NMP_TREE/*.pkl
+DATA/FEATURES_79D*/
+
