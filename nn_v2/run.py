@@ -246,7 +246,7 @@ def _run_regret():
     print(f'  Loaded {len(trades)} trades')
 
     # Classify into tree branches
-    gate = Gate('nn_v2/output/tree/tree.pkl')
+    gate = Gate('nn_v2/output/tree/strategy_tree.pkl')
     import numpy as np
     from core.features_79d import FEATURE_NAMES_79D
     for t in trades:
