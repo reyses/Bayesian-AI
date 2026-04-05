@@ -45,6 +45,7 @@ ROCHE = 2.0          # z_se threshold for entry
 VR_ENTRY = 1.0       # variance_ratio must be below this for entry
 Z_EXIT = 0.5         # z_se threshold for exit (mean reached)
 VR_EXIT = 1.0        # variance_ratio above this = regime flip -> exit
+MAX_DRAWDOWN = 50.0  # emergency exit: max $ loss per trade before forced close
 
 # 79D layout: 1m is index 1 in TF_ORDER (15s=0, 1m=1, 5m=2, ...)
 # 10 core features per TF
@@ -153,7 +154,9 @@ class NightmareEngine:
 
             # Inverse NMP exit
             exit_reason = None
-            if abs(z) < Z_EXIT:
+            if pnl < -MAX_DRAWDOWN:
+                exit_reason = 'emergency_stop'
+            elif abs(z) < Z_EXIT:
                 exit_reason = 'mean_reached'
             elif vr > VR_EXIT:
                 exit_reason = 'regime_flip'
