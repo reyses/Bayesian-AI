@@ -383,11 +383,12 @@ def correct_trades(trades: List[Dict], price_dir: str = 'DATA/ATLAS/1m') -> List
                 corrected_entry_price = earlier_state.get('price', entry_price)
                 corrected_entry_bar = max(0, entry_bar - early_bars)
 
-            # Determine corrected exit bar (from corrected entry point)
+            # Exit bar is absolute — regret computed from original entry
+            # Early entry extends segment backward, exit stays where regret said
             if 'same' in best_action:
-                corrected_exit_bar = corrected_entry_bar + r['same_best_bar']
+                corrected_exit_bar = entry_bar + r['same_best_bar']
             else:
-                corrected_exit_bar = corrected_entry_bar + r['counter_best_bar']
+                corrected_exit_bar = entry_bar + r['counter_best_bar']
             corrected_exit_bar = min(corrected_exit_bar, n - 1)
 
             # Real PnL from actual prices at corrected entry/exit
