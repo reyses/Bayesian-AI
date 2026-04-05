@@ -44,14 +44,9 @@ class Gate:
         self.branches = {b['leaf_id']: b for b in data['branches']}
         self.feature_names = data['feature_names']
 
-        # Build set of tradeable leaf IDs
-        self.tradeable_leaves = set(
-            b['leaf_id'] for b in data['branches'] if b['tradeable']
-        )
-
-        n_trade = sum(1 for b in data['branches'] if b['tradeable'])
-        n_skip = sum(1 for b in data['branches'] if not b['tradeable'])
-        print(f'  Gate loaded: {n_trade} TRADE branches, {n_skip} SKIP branches')
+        # All branches are tradeable in V2 — each has a strategy
+        self.tradeable_leaves = set(b['leaf_id'] for b in data['branches'])
+        print(f'  Gate loaded: {len(self.tradeable_leaves)} strategy branches')
 
     def evaluate(self, state: Dict) -> Dict:
         """Evaluate a 79D state. Returns trade/skip decision with context.
@@ -74,11 +69,11 @@ class Gate:
         branch = self.branches.get(leaf_id)
         allowed = leaf_id in self.tradeable_leaves
 
+        strategy = branch.get('strategy', 'same_extended') if branch else 'unknown'
         if allowed:
-            reason = f'TRADE branch {leaf_id} (WR={branch["wr"]:.0%}, EV=${branch["ev"]:.1f})'
+            reason = f'{strategy} branch {leaf_id} (WR={branch.get("wr", 0):.0%})'
         else:
-            wr = branch['wr'] if branch else 0
-            reason = f'SKIP branch {leaf_id} (WR={wr:.0%})'
+            reason = f'SKIP branch {leaf_id}'
 
         return {
             'allowed': allowed,
