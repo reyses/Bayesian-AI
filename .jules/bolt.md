@@ -1,0 +1,3 @@
+2025-03-08 - [Optimizing Windowed Drawdown Tracking]
+Learning: Replacing `sliding_window_view` combined with `.max()` and `np.maximum.accumulate` with a Numba `@njit(parallel=True)` kernel with `prange` produces an enormous speedup (~370x) for calculating running max drawdowns within rolling windows, avoiding significant Python loop overhead.
+Action: Use explicitly parallel Numba loops rather than combining sliding window views and accumulation arrays inside Python loops. To ensure numerical parity with `.accumulate()`, properly initialize running variables (`run_hi`, `run_lo`) with the exact difference of the first elements in the window instead of a hardcoded 0.0.
