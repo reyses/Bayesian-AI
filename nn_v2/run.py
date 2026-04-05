@@ -245,14 +245,19 @@ def _run_regret():
         trades = pickle.load(f)
     print(f'  Loaded {len(trades)} trades')
 
-    # Classify into tree branches
-    gate = Gate('nn_v2/output/tree/strategy_tree.pkl')
+    # Classify into tree branches (if tree exists — it may not on first run)
     import numpy as np
-    from core.features_79d import FEATURE_NAMES_79D
-    for t in trades:
-        feat = np.array(t['entry_79d']).reshape(1, -1)
-        feat = np.nan_to_num(feat)
-        t['leaf_id'] = int(gate.tree.apply(feat)[0])
+    tree_path = 'nn_v2/output/tree/strategy_tree.pkl'
+    if os.path.exists(tree_path):
+        gate = Gate(tree_path)
+        for t in trades:
+            feat = np.array(t['entry_79d']).reshape(1, -1)
+            feat = np.nan_to_num(feat)
+            t['leaf_id'] = int(gate.tree.apply(feat)[0])
+    else:
+        print('  (tree not built yet — skipping branch classification)')
+        for t in trades:
+            t['leaf_id'] = -1
 
     # Compute regret
     regret_df = compute_all_regrets(trades)
