@@ -43,6 +43,12 @@ class Gate:
         n_calibrated = sum(1 for lid in self.tradeable_leaves if lid in self.book)
         print(f'  Gate: {len(self.tradeable_leaves)} branches, {n_calibrated} calibrated from book')
 
+    def set_book(self, book_dict: dict):
+        """Hot-swap book without reloading tree."""
+        self.book = book_dict
+        n_calibrated = sum(1 for lid in self.tradeable_leaves if lid in self.book)
+        print(f'  Gate: book swapped, {n_calibrated} calibrated')
+
     def evaluate(self, state: Dict) -> Dict:
         """Evaluate 79D state. Returns full playbook for this bar.
 

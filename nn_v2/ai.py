@@ -313,6 +313,10 @@ class AIEngine:
         self._entry_approach = []
         self._last_feat = None
 
+    def set_book(self, book_dict: dict):
+        """Hot-swap book into gate without reloading tree."""
+        self.gate.set_book(book_dict)
+
     def get_full_trades(self) -> list:
         """Get trades with full 79D data (for regret analysis)."""
         return self.trades
