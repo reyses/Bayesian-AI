@@ -381,6 +381,395 @@ def print_book(strategies, save_path=None):
         print(f'\nBook saved: {save_path}')
 
 
+# ============================================================
+# BAYESIAN BOOK — versioned, Dirichlet-updated, human-readable
+# ============================================================
+
+PRIOR_WEIGHT = 10.0           # effective NMP sample size for Dirichlet prior
+PRIOR_FLOOR = 0.5             # Laplace floor per action (prevents zero prior)
+MAX_EPOCHS_PER_DAY = 5        # max retries per day in LEARN phase
+MIN_PNL_IMPROVEMENT = 1.0     # $ improvement required to keep epoch result
+SPOT_CHECK_DEGRADATION = -5.0 # max $ PnL drop on spot-check before warning
+BOOK_DIR = 'DATA/BOOKS'       # versioned books go here
+
+
+class BayesianLeaf:
+    """One leaf with Dirichlet prior → evidence → posterior."""
+
+    def __init__(self, leaf_id: int, strategy_dict: dict):
+        self.leaf_id = leaf_id
+        self.tree_strategy = strategy_dict.get('tree_strategy', 'unknown')
+
+        # Dirichlet parameters per action
+        self.alpha_prior = {}
+        self.alpha_post = {}
+        self.evidence_counts = {a: 0 for a in REGRET_ACTIONS}
+
+        # Exit bars (precision-weighted)
+        self.prior_same_exit = strategy_dict.get('same_exit_bar', 16.0)
+        self.prior_counter_exit = strategy_dict.get('counter_exit_bar', 16.0)
+        self.post_same_exit = self.prior_same_exit
+        self.post_counter_exit = self.prior_counter_exit
+
+        # Paths (precision-weighted, element-wise)
+        self.prior_same_path = list(strategy_dict.get('same_path', []))
+        self.prior_counter_path = list(strategy_dict.get('counter_path', []))
+        self.post_same_path = list(self.prior_same_path)
+        self.post_counter_path = list(self.prior_counter_path)
+
+        # Entry/exit 79D (carried from base, not updated)
+        self.entry_79d_mean = strategy_dict.get('entry_79d_mean', [])
+        self.entry_79d_std = strategy_dict.get('entry_79d_std', [])
+
+        # Tracking
+        self.prior_n = PRIOR_WEIGHT
+        self.evidence_n = 0
+        self.confidence = 0.0
+        self.n_trades = strategy_dict.get('n_trades', 0)
+        self.actual_pnl = strategy_dict.get('actual_pnl', 0.0)
+        self.wr = strategy_dict.get('wr', 0.0)
+
+        # Initialize Dirichlet prior from NMP regret profile
+        self._init_prior(strategy_dict.get('regret_profile', {}))
+
+    def _init_prior(self, regret_profile: dict):
+        """Set Dirichlet prior from NMP regret counts."""
+        total = sum(info.get('count', 0) for info in regret_profile.values())
+        total = max(total, 1)
+
+        for action in REGRET_ACTIONS:
+            info = regret_profile.get(action, {})
+            count = info.get('count', 0)
+            self.alpha_prior[action] = PRIOR_WEIGHT * (count / total) + PRIOR_FLOOR
+            self.alpha_post[action] = self.alpha_prior[action]
+
+    def update(self, day_regrets: pd.DataFrame, day_trades: list) -> dict:
+        """Bayesian update from one day's evidence. Returns changelog."""
+        n_new = len(day_regrets)
+        if n_new == 0:
+            return {'leaf_id': self.leaf_id, 'n_evidence': 0, 'changed': False}
+
+        prev_profile = self._get_profile()
+        prev_same_exit = self.post_same_exit
+        prev_counter_exit = self.post_counter_exit
+
+        # 1. Dirichlet update: count best_action distribution
+        day_counts = {a: 0 for a in REGRET_ACTIONS}
+        for _, row in day_regrets.iterrows():
+            action = row.get('best_action', '')
+            if action in day_counts:
+                day_counts[action] += 1
+
+        for action in REGRET_ACTIONS:
+            self.evidence_counts[action] += day_counts[action]
+            self.alpha_post[action] = self.alpha_prior[action] + self.evidence_counts[action]
+
+        # 2. Exit bar update (precision-weighted)
+        self.evidence_n += n_new
+        total_n = self.prior_n + self.evidence_n
+
+        if 'same_best_bar' in day_regrets.columns:
+            day_same_exit = float(day_regrets['same_best_bar'].mean())
+            self.post_same_exit = (self.prior_n * self.prior_same_exit +
+                                   self.evidence_n * day_same_exit) / total_n
+
+        if 'counter_best_bar' in day_regrets.columns:
+            day_counter_exit = float(day_regrets['counter_best_bar'].mean())
+            self.post_counter_exit = (self.prior_n * self.prior_counter_exit +
+                                      self.evidence_n * day_counter_exit) / total_n
+
+        # 3. Path update (precision-weighted, element-wise)
+        for t in day_trades:
+            path = t.get('path', [])
+            if path:
+                pnls = [p['pnl'] for p in path]
+                counter_pnls = [-p for p in pnls]
+                self._blend_path('same', pnls, total_n)
+                self._blend_path('counter', counter_pnls, total_n)
+
+        # 4. Confidence
+        self.confidence = self.evidence_n / (self.evidence_n + self.prior_n)
+
+        # Build changelog
+        new_profile = self._get_profile()
+        return {
+            'leaf_id': self.leaf_id,
+            'n_evidence': n_new,
+            'changed': True,
+            'confidence': self.confidence,
+            'same_exit_delta': self.post_same_exit - prev_same_exit,
+            'counter_exit_delta': self.post_counter_exit - prev_counter_exit,
+            'profile_deltas': {a: new_profile[a] - prev_profile[a] for a in REGRET_ACTIONS},
+        }
+
+    def _blend_path(self, direction: str, new_pnls: list, total_n: float):
+        """Blend new path data into posterior path."""
+        if direction == 'same':
+            prior_path = self.post_same_path
+        else:
+            prior_path = self.post_counter_path
+
+        if not prior_path:
+            if direction == 'same':
+                self.post_same_path = new_pnls[:30]
+            else:
+                self.post_counter_path = new_pnls[:30]
+            return
+
+        max_len = min(30, max(len(prior_path), len(new_pnls)))
+        result = []
+        for i in range(max_len):
+            prior_val = prior_path[i] if i < len(prior_path) else prior_path[-1]
+            new_val = new_pnls[i] if i < len(new_pnls) else new_pnls[-1]
+            blended = (self.prior_n * prior_val + self.evidence_n * new_val) / total_n
+            result.append(blended)
+
+        if direction == 'same':
+            self.post_same_path = result
+        else:
+            self.post_counter_path = result
+
+    def _get_profile(self) -> dict:
+        """Get current posterior profile as {action: probability}."""
+        total = sum(self.alpha_post.values())
+        return {a: self.alpha_post[a] / max(total, 1e-10) for a in REGRET_ACTIONS}
+
+    def snapshot(self) -> dict:
+        """Deep copy for revert capability."""
+        return {
+            'alpha_post': dict(self.alpha_post),
+            'evidence_counts': dict(self.evidence_counts),
+            'evidence_n': self.evidence_n,
+            'post_same_exit': self.post_same_exit,
+            'post_counter_exit': self.post_counter_exit,
+            'post_same_path': list(self.post_same_path),
+            'post_counter_path': list(self.post_counter_path),
+            'confidence': self.confidence,
+        }
+
+    def revert(self, snap: dict):
+        """Revert to a previous snapshot."""
+        self.alpha_post = dict(snap['alpha_post'])
+        self.evidence_counts = dict(snap['evidence_counts'])
+        self.evidence_n = snap['evidence_n']
+        self.post_same_exit = snap['post_same_exit']
+        self.post_counter_exit = snap['post_counter_exit']
+        self.post_same_path = list(snap['post_same_path'])
+        self.post_counter_path = list(snap['post_counter_path'])
+        self.confidence = snap['confidence']
+
+    def to_book_entry(self) -> dict:
+        """Export as Gate-compatible dict."""
+        profile = self._get_profile()
+
+        # Gate reads 'expected_path' and 'optimal_exit_bar' — pick based on
+        # which direction has higher posterior probability
+        same_weight = sum(profile.get(a, 0) for a in REGRET_ACTIONS if 'counter' not in a)
+        counter_weight = sum(profile.get(a, 0) for a in REGRET_ACTIONS if 'counter' in a)
+
+        if counter_weight > same_weight:
+            expected_path = self.post_counter_path
+            optimal_exit_bar = self.post_counter_exit
+        else:
+            expected_path = self.post_same_path
+            optimal_exit_bar = self.post_same_exit
+
+        return {
+            'leaf_id': self.leaf_id,
+            'tree_strategy': self.tree_strategy,
+            'n_trades': self.n_trades,
+            'regret_profile': {a: {'pct': profile[a]} for a in REGRET_ACTIONS},
+            'entry_79d_mean': self.entry_79d_mean,
+            'entry_79d_std': self.entry_79d_std,
+            'expected_path': expected_path,
+            'optimal_exit_bar': optimal_exit_bar,
+            'same_path': self.post_same_path,
+            'counter_path': self.post_counter_path,
+            'same_exit_bar': self.post_same_exit,
+            'counter_exit_bar': self.post_counter_exit,
+            'confidence': self.confidence,
+            'actual_pnl': self.actual_pnl,
+            'wr': self.wr,
+        }
+
+    def diff(self, prev_snap: dict) -> str:
+        """Human-readable diff vs a previous snapshot."""
+        profile = self._get_profile()
+        prev_total = sum(prev_snap['alpha_post'].values())
+        prev_profile = {a: prev_snap['alpha_post'][a] / max(prev_total, 1e-10) for a in REGRET_ACTIONS}
+
+        parts = [f'L{self.leaf_id}:']
+        # Exit bar changes
+        se_delta = self.post_same_exit - prev_snap['post_same_exit']
+        ce_delta = self.post_counter_exit - prev_snap['post_counter_exit']
+        if abs(se_delta) > 0.1:
+            parts.append(f'same_exit {prev_snap["post_same_exit"]:.1f}→{self.post_same_exit:.1f}')
+        if abs(ce_delta) > 0.1:
+            parts.append(f'counter_exit {prev_snap["post_counter_exit"]:.1f}→{self.post_counter_exit:.1f}')
+        # Profile changes > 2pp
+        for a in REGRET_ACTIONS:
+            delta = profile[a] - prev_profile[a]
+            if abs(delta) > 0.02:
+                parts.append(f'{a} {prev_profile[a]:.0%}→{profile[a]:.0%}')
+        parts.append(f'conf={self.confidence:.0%}')
+        return ' | '.join(parts)
+
+
+class VersionedBook:
+    """Versioned, Bayesian-updating strategy book."""
+
+    def __init__(self):
+        self.leaves = {}         # {leaf_id: BayesianLeaf}
+        self.version = 0
+        self.changelog = []      # list of {version, day, n_changed, changes}
+        self._evolution = []     # for CSV export
+
+    @classmethod
+    def from_nmp_book(cls, book_pkl_path: str) -> 'VersionedBook':
+        """Create v0 from existing NMP book pkl."""
+        vb = cls()
+        with open(book_pkl_path, 'rb') as f:
+            book_data = pickle.load(f)
+
+        for lid, strat_dict in book_data.items():
+            vb.leaves[lid] = BayesianLeaf(lid, strat_dict)
+
+        vb.version = 0
+        vb._record_evolution('baseline')
+        print(f'  VersionedBook v0: {len(vb.leaves)} leaves from {book_pkl_path}')
+        return vb
+
+    def bayesian_update(self, leaf_id: int, day_regrets: pd.DataFrame,
+                        day_trades: list) -> dict:
+        """Update one leaf. Returns changelog dict."""
+        if leaf_id not in self.leaves:
+            return {'leaf_id': leaf_id, 'changed': False}
+        return self.leaves[leaf_id].update(day_regrets, day_trades)
+
+    def snapshot_all(self) -> dict:
+        """Snapshot all leaves for revert."""
+        return {lid: leaf.snapshot() for lid, leaf in self.leaves.items()}
+
+    def revert_all(self, snapshots: dict):
+        """Revert all leaves to snapshots."""
+        for lid, snap in snapshots.items():
+            if lid in self.leaves:
+                self.leaves[lid].revert(snap)
+
+    def freeze(self, day_name: str = ''):
+        """Freeze current version, save immutable snapshot, increment."""
+        os.makedirs(BOOK_DIR, exist_ok=True)
+
+        # Save pkl
+        pkl_path = os.path.join(BOOK_DIR, f'book_v{self.version:03d}.pkl')
+        book_data = self.export_for_gate()
+        with open(pkl_path, 'wb') as f:
+            pickle.dump(book_data, f)
+
+        # Save human-readable
+        txt_path = os.path.join(BOOK_DIR, f'book_v{self.version:03d}.txt')
+        self.print_version(save_path=txt_path)
+
+        self._record_evolution(day_name)
+        self.version += 1
+
+    def export_for_gate(self) -> dict:
+        """Export as dict compatible with Gate's book format."""
+        return {lid: leaf.to_book_entry() for lid, leaf in self.leaves.items()}
+
+    def print_version(self, save_path: str = None):
+        """Human-readable: prior → evidence → posterior per leaf."""
+        lines = []
+        lines.append(f'BAYESIAN BOOK v{self.version} — {len(self.leaves)} leaves')
+        lines.append(f'=' * 60)
+
+        for lid in sorted(self.leaves.keys()):
+            leaf = self.leaves[lid]
+            profile = leaf._get_profile()
+            lines.append(f'\nLeaf {lid} (tree: {leaf.tree_strategy}) — '
+                         f'confidence: {leaf.confidence:.0%} | '
+                         f'evidence: {leaf.evidence_n:.0f} trades')
+
+            # Prior vs posterior
+            lines.append(f'  REGRET PROFILE:')
+            for a in REGRET_ACTIONS:
+                prior_total = sum(leaf.alpha_prior.values())
+                prior_p = leaf.alpha_prior[a] / max(prior_total, 1e-10)
+                post_p = profile[a]
+                delta = post_p - prior_p
+                arrow = '→' if abs(delta) > 0.01 else '='
+                bar = '#' * int(post_p * 20)
+                lines.append(f'    {a:<22} prior={prior_p:>4.0%} {arrow} '
+                             f'post={post_p:>4.0%} ({delta:>+.0%})  {bar}')
+
+            # Exit bars
+            lines.append(f'  EXIT BARS: same={leaf.post_same_exit:.1f} '
+                         f'(prior={leaf.prior_same_exit:.1f}) | '
+                         f'counter={leaf.post_counter_exit:.1f} '
+                         f'(prior={leaf.prior_counter_exit:.1f})')
+
+        output = '\n'.join(lines)
+        if save_path:
+            with open(save_path, 'w', encoding='utf-8') as f:
+                f.write(output)
+        return output
+
+    def print_diff(self, prev_snapshots: dict, save_path: str = None):
+        """Changelog between current state and previous snapshots."""
+        lines = [f'DIFF: → v{self.version}', '-' * 40]
+        changed = 0
+        for lid in sorted(self.leaves.keys()):
+            if lid in prev_snapshots:
+                diff_str = self.leaves[lid].diff(prev_snapshots[lid])
+                if '→' in diff_str:
+                    lines.append(f'  {diff_str}')
+                    changed += 1
+        lines.insert(1, f'Leaves changed: {changed}/{len(self.leaves)}')
+
+        output = '\n'.join(lines)
+        if save_path:
+            with open(save_path, 'w', encoding='utf-8') as f:
+                f.write(output)
+        return output
+
+    def _record_evolution(self, day_name: str):
+        """Record current state for evolution CSV."""
+        for lid, leaf in self.leaves.items():
+            profile = leaf._get_profile()
+            row = {
+                'leaf_id': lid,
+                'version': self.version,
+                'day': day_name,
+                'confidence': leaf.confidence,
+                'evidence_n': leaf.evidence_n,
+                'same_exit_bar': leaf.post_same_exit,
+                'counter_exit_bar': leaf.post_counter_exit,
+            }
+            for a in REGRET_ACTIONS:
+                row[f'{a}_pct'] = profile[a]
+            self._evolution.append(row)
+
+    def evolution_csv(self, save_path: str):
+        """Save evolution as CSV for EDA."""
+        if self._evolution:
+            pd.DataFrame(self._evolution).to_csv(save_path, index=False)
+            print(f'Evolution CSV: {save_path} ({len(self._evolution)} rows)')
+
+    def save(self, path: str = None):
+        """Save current state (for resume)."""
+        if path is None:
+            path = os.path.join(BOOK_DIR, 'book_latest.pkl')
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'wb') as f:
+            pickle.dump(self, f)
+
+    @staticmethod
+    def load(path: str) -> 'VersionedBook':
+        """Load saved state."""
+        with open(path, 'rb') as f:
+            return pickle.load(f)
+
+
 def main():
     print('Building Strategy Book (raw + regret profiles)...')
 
