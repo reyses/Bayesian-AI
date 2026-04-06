@@ -48,10 +48,10 @@ ROCHE = 2.0          # z_se threshold for entry
 VR_ENTRY = 1.0       # variance_ratio must be below this for entry
 APPROACH_BUFFER_SIZE = 10  # bars of 79D history to keep before entry
 
-# Overshoot exit conditions
-VELOCITY_EXHAUSTED = 0.3   # |velocity| below this = momentum faded
-P_CENTER_THROUGH = 0.60    # price must have passed through mean first
-Z_OPPOSITE_EXTREME = 1.0   # z flipped sign and reached this magnitude = overshoot done
+# Energy-based exit
+VELOCITY_AGAINST_THRESHOLD = 0.3  # |velocity| above this in wrong direction = against
+CONSEC_AGAINST_LIMIT = 12         # consecutive bars against before exit (12 bars @ 5s = 1 min)
+WARMUP_BARS = 6                   # ignore first N bars (trade settling)
 
 # 79D layout: 1m is index 1 in TF_ORDER (15s=0, 1m=1, 5m=2, ...)
 # 10 core features per TF
@@ -73,10 +73,8 @@ _HURST = 7
 _REV_PROB = 8
 _P_CENTER = 9
 
-# Absolute indices for overshoot features (from 79D layout)
+# Absolute index for energy monitoring
 _1M_VELOCITY_IDX = 13   # 1m_velocity
-_1M_Z_SE_IDX = 10       # 1m_z_se
-_1M_P_CENTER_IDX = 19   # 1m_p_at_center
 
 
 def _read_tf(feat: np.ndarray, tf_offset: int) -> Dict:
@@ -107,6 +105,7 @@ class OvershootEngine:
         self.entry_1m = None
         self.bars_held = 0
         self.peak_pnl = 0.0
+        self._consec_against = 0  # consecutive bars with velocity against trade
 
         # Approach buffer: rolling window of last N states before entry
         self._approach_buffer = []
@@ -186,25 +185,25 @@ class OvershootEngine:
                 'features_79d': feat.copy(),
             })
 
-            # Overshoot exit — only on 1m boundaries
-            if is_1m_boundary:
-                velocity = feat[_1M_VELOCITY_IDX]
-                p_center = feat[_1M_P_CENTER_IDX]
-                entry_z_sign = 1.0 if self.entry_1m['z_se'] > 0 else -1.0
+            # Energy monitor — every bar (not just 1m)
+            # Track consecutive bars where velocity is against trade direction
+            velocity = feat[_1M_VELOCITY_IDX]
 
-                exit_reason = None
+            if self.bars_held > WARMUP_BARS:
+                against = False
+                if self.direction == 'long' and velocity < -VELOCITY_AGAINST_THRESHOLD:
+                    against = True
+                elif self.direction == 'short' and velocity > VELOCITY_AGAINST_THRESHOLD:
+                    against = True
 
-                # Exit 1: velocity exhausted AND price has passed through mean
-                if abs(velocity) < VELOCITY_EXHAUSTED and p_center > P_CENTER_THROUGH:
-                    exit_reason = 'momentum_exhausted'
+                if against:
+                    self._consec_against += 1
+                else:
+                    self._consec_against = 0  # reset on any bar in your direction
 
-                # Exit 2: z reached opposite extreme (overshoot completed)
-                current_z_sign = 1.0 if z > 0 else -1.0
-                if current_z_sign != entry_z_sign and abs(z) > Z_OPPOSITE_EXTREME:
-                    exit_reason = 'opposite_extreme'
-
-                if exit_reason:
-                    self._close_trade(price, ts, time_str, exit_reason, feat, s1m)
+                # Exit: energy died (sustained adverse velocity)
+                if self._consec_against >= CONSEC_AGAINST_LIMIT:
+                    self._close_trade(price, ts, time_str, 'energy_died', feat, s1m)
 
         # === ENTRY CHECK — base NMP only, 1m boundaries ===
         if not self.in_pos and is_1m_boundary:
@@ -222,6 +221,7 @@ class OvershootEngine:
         self.entry_1m = s1m.copy()
         self.bars_held = 0
         self.peak_pnl = 0.0
+        self._consec_against = 0
         self._trade_path = []
 
         # Snapshot approach path (79D in bars leading up to entry)
@@ -371,3 +371,4 @@ class OvershootEngine:
         self._trade_path = []
         self._approach_buffer = []
         self._entry_approach = []
+        self._consec_against = 0
