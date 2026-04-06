@@ -129,7 +129,6 @@ class AIEngine:
             self._trade_path.append({
                 'bar': self.bars_held, 'timestamp': ts, 'price': price,
                 'pnl': unrealized, 'peak_pnl': self.peak_pnl,
-                'z_1m': z, 'vr_1m': vr,
                 'features_79d': feat.copy(),
             })
 
