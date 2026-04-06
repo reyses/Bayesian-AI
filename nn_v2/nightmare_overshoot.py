@@ -48,10 +48,10 @@ ROCHE = 2.0          # z_se threshold for entry
 VR_ENTRY = 1.0       # variance_ratio must be below this for entry
 APPROACH_BUFFER_SIZE = 10  # bars of 79D history to keep before entry
 
-# Energy-based exit (measured at 1m cadence)
-VELOCITY_AGAINST_THRESHOLD = 0.3  # |velocity| above this in wrong direction = against
-CONSEC_AGAINST_LIMIT = 12         # consecutive 1M BARS against before exit (12 min)
-WARMUP_1M_BARS = 2                # ignore first N 1m bars (trade settling)
+# Overshoot exit — shoot for 3-sigma on the other side
+VELOCITY_EXHAUSTED = 0.3   # |velocity| below this = momentum faded
+P_CENTER_THROUGH = 0.60    # price must have passed through mean first
+Z_OPPOSITE_TARGET = 3.0    # exit when z reaches 3-sigma on opposite side
 
 # 79D layout: 1m is index 1 in TF_ORDER (15s=0, 1m=1, 5m=2, ...)
 # 10 core features per TF
@@ -185,26 +185,25 @@ class OvershootEngine:
                 'features_79d': feat.copy(),
             })
 
-            # Energy monitor — only at 1m boundaries (aggregated signal)
+            # Overshoot exit — only on 1m boundaries
             if is_1m_boundary:
                 velocity = feat[_1M_VELOCITY_IDX]
-                self._1m_bars_in_trade = getattr(self, '_1m_bars_in_trade', 0) + 1
+                p_center = feat[19]  # 1m_p_at_center
+                entry_z_sign = 1.0 if self.entry_1m['z_se'] > 0 else -1.0
+                current_z_sign = 1.0 if z > 0 else -1.0
 
-                if self._1m_bars_in_trade > WARMUP_1M_BARS:
-                    against = False
-                    if self.direction == 'long' and velocity < -VELOCITY_AGAINST_THRESHOLD:
-                        against = True
-                    elif self.direction == 'short' and velocity > VELOCITY_AGAINST_THRESHOLD:
-                        against = True
+                exit_reason = None
 
-                    if against:
-                        self._consec_against += 1
-                    else:
-                        self._consec_against = 0  # reset on any 1m bar in your direction
+                # Exit 1: velocity exhausted AND price has passed through mean
+                if abs(velocity) < VELOCITY_EXHAUSTED and p_center > P_CENTER_THROUGH:
+                    exit_reason = 'momentum_exhausted'
 
-                    # Exit: energy died (12 consecutive 1m bars against = 12 min)
-                    if self._consec_against >= CONSEC_AGAINST_LIMIT:
-                        self._close_trade(price, ts, time_str, 'energy_died', feat, s1m)
+                # Exit 2: z reached 3-sigma on opposite side (big overshoot)
+                if current_z_sign != entry_z_sign and abs(z) > Z_OPPOSITE_TARGET:
+                    exit_reason = 'target_3sigma'
+
+                if exit_reason:
+                    self._close_trade(price, ts, time_str, exit_reason, feat, s1m)
 
         # === ENTRY CHECK — base NMP only, 1m boundaries ===
         if not self.in_pos and is_1m_boundary:
