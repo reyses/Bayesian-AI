@@ -113,6 +113,10 @@ class NightmareEngine:
     def on_state(self, state: Dict):
         """Process one 79D state. Entry and exit decisions happen here.
 
+        Decisions only at 1m boundaries (timestamp aligned to 60s).
+        Between 1m closes, only records approach buffer and trade path.
+        This prevents micro-noise entries/exits at sub-minute resolution.
+
         Args:
             state: dict with at minimum:
                 'features_79d': np.ndarray(79,)
@@ -125,6 +129,9 @@ class NightmareEngine:
         price = state['price']
         ts = state['timestamp']
         self._last_price = price
+
+        # Check if this is a 1m boundary (decisions only on 1m closes)
+        is_1m_boundary = (int(ts) % 60) < 5  # within 5s of a minute mark
 
         time_str = datetime.utcfromtimestamp(ts).strftime('%H:%M')
 
@@ -157,7 +164,7 @@ class NightmareEngine:
 
             self.peak_pnl = max(self.peak_pnl, pnl)
 
-            # Record path (79D at every bar during trade)
+            # Record path (79D at every bar during trade — always, not just 1m)
             self._trade_path.append({
                 'bar': self.bars_held,
                 'timestamp': ts,
@@ -169,18 +176,19 @@ class NightmareEngine:
                 'features_79d': feat.copy(),
             })
 
-            # Inverse NMP exit
-            exit_reason = None
-            if abs(z) < Z_EXIT:
-                exit_reason = 'mean_reached'
-            elif vr > VR_EXIT:
-                exit_reason = 'regime_flip'
+            # Inverse NMP exit — only on 1m boundaries
+            if is_1m_boundary:
+                exit_reason = None
+                if abs(z) < Z_EXIT:
+                    exit_reason = 'mean_reached'
+                elif vr > VR_EXIT:
+                    exit_reason = 'regime_flip'
 
-            if exit_reason:
-                self._close_trade(price, ts, time_str, exit_reason, feat, s1m)
+                if exit_reason:
+                    self._close_trade(price, ts, time_str, exit_reason, feat, s1m)
 
-        # === ENTRY CHECK ===
-        if not self.in_pos:
+        # === ENTRY CHECK — only on 1m boundaries ===
+        if not self.in_pos and is_1m_boundary:
             if abs(z) > ROCHE and vr < VR_ENTRY:
                 direction = 'short' if z > 0 else 'long'
                 self._open_trade(direction, price, ts, time_str, feat, s1m)
