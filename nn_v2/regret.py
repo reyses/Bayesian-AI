@@ -23,8 +23,8 @@ from typing import Dict, List
 
 TICK = 0.25
 TV = 0.50
-LOOKAHEAD = 30  # bars past exit to check
-LOOKBACK = 10   # bars before entry to check
+LOOKAHEAD = 360  # 30 min at 5s resolution (360 bars) — full inverse peak window
+LOOKBACK = 120   # 10 min at 5s resolution (120 bars) — early entry window
 
 
 def compute_regret(trade: Dict, all_closes: np.ndarray, entry_bar_idx: int) -> Dict:
