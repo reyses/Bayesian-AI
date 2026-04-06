@@ -35,7 +35,10 @@ P_CENTER_EXIT = 0.60
 
 # Tier 3 exits (base NMP)
 Z_EXIT = 0.5
-VR_EXIT = 1.0
+
+# Regime shift early detection: DMI leading + VR confirming
+DMI_AGAINST_THRESHOLD = 5.0   # |dmi_diff| opposing trade direction
+VR_CONFIRMING = 0.8           # vr approaching trending (not yet 1.0)
 
 # Tier 3 overshoot: energy check at center
 ENERGY_BAR_RANGE_MIN = 100.0   # 5m_bar_range threshold for "high energy"
@@ -52,6 +55,7 @@ _1H_Z_IDX = 40
 _1M_P_CENTER_IDX = 19
 _1M_VELOCITY_IDX = 13
 _5M_BAR_RANGE_IDX = 26  # 5m block starts at 20, bar_range is index 6
+_1M_DMI_IDX = 11        # 1m_dmi_diff
 
 APPROACH_BUFFER_SIZE = 10
 
@@ -190,11 +194,19 @@ class BlendedEngine:
 
             return None
 
-        # Phase 0: not yet at center — standard NMP exit
+        # Phase 0: not yet at center
+        # Standard NMP mean exit
         if abs(z) < Z_EXIT:
             return 'nmp_mean_reached'
-        if vr > VR_EXIT:
-            return 'nmp_regime_flip'
+
+        # Early regime shift: DMI opposes + VR confirming (approaching trending)
+        dmi = feat[_1M_DMI_IDX]
+        dmi_against = ((self.direction == 'long' and dmi < -DMI_AGAINST_THRESHOLD) or
+                       (self.direction == 'short' and dmi > DMI_AGAINST_THRESHOLD))
+        vr_confirming = vr > VR_CONFIRMING
+
+        if dmi_against and vr_confirming:
+            return 'regime_shift_early'
 
         return None
 
