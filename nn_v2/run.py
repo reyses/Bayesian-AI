@@ -22,7 +22,7 @@ ATLAS_1S = 'DATA/ATLAS/1s'
 ATLAS_1M = 'DATA/ATLAS/1m'
 FEATURES_DIR = 'DATA/FEATURES_79D'
 FEATURES_DIR_1M = 'DATA/FEATURES_79D_1m'
-FEATURES_DIR_SEQ = 'DATA/FEATURES_79D_1m_seq'  # honest sequential (sheet music)
+FEATURES_DIR_SEQ = 'DATA/FEATURES_79D_5s_v2'  # v2: per-TF from ATLAS, 5s resolution, live 1h/1D
 
 
 def cmd_build(args):

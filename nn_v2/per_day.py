@@ -32,7 +32,7 @@ from nn_v2.regret import compute_regret
 from nn_v2.book import (VersionedBook, BOOK_DIR, MAX_EPOCHS_PER_DAY,
                          MIN_PNL_IMPROVEMENT, SPOT_CHECK_DEGRADATION)
 
-FEATURES_DIR = 'DATA/FEATURES_79D_1m_seq'
+FEATURES_DIR = 'DATA/FEATURES_79D_5s_v2'
 FEATURES_DIR_BULK = 'DATA/FEATURES_79D_1m'
 PRICE_DIR = 'DATA/ATLAS/1m'
 TREE_DIR = 'nn_v2/output/tree'
