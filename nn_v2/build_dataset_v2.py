@@ -105,13 +105,21 @@ def process_one_day(day_name: str, anchor_tf: str, days_up_to: list,
 
         ts_arr = cumul['timestamp'].values
 
-        # SFE on tail
-        if len(cumul) > SFE_TAIL:
-            sfe_input = cumul.tail(SFE_TAIL).reset_index(drop=True)
-            tail_offset = len(cumul) - SFE_TAIL
+        # Find where today's data starts in the cumulative array
+        today_path = os.path.join(ATLAS_ROOT, tf, f'{day_name}.parquet')
+        if os.path.exists(today_path):
+            today_df = pd.read_parquet(today_path)
+            today_start_ts = today_df['timestamp'].min() if len(today_df) > 0 else ts_arr[-1]
+            today_start_idx = int(np.searchsorted(ts_arr, today_start_ts, side='left'))
         else:
-            sfe_input = cumul
-            tail_offset = 0
+            today_start_idx = max(0, len(cumul) - SFE_TAIL)
+
+        # SFE must cover today's bars + warmup history before today
+        # Take from (today_start - warmup) to end of cumul
+        warmup = min(SFE_TAIL, today_start_idx)  # up to 300 bars of history before today
+        sfe_start = max(0, today_start_idx - warmup)
+        sfe_input = cumul.iloc[sfe_start:].reset_index(drop=True)
+        tail_offset = sfe_start
 
         states = sfe.batch_compute_states(sfe_input)
         if not states:
@@ -124,8 +132,11 @@ def process_one_day(day_name: str, anchor_tf: str, days_up_to: list,
             'bars': cumul,
         }
 
-    if anchor_tf not in tf_data:
+    # Need at least the smallest TF in TF_ORDER (15s) or the anchor if it's in TF_ORDER
+    min_tf = anchor_tf if anchor_tf in TF_ORDER else TF_ORDER[0]
+    if min_tf not in tf_data:
         return pd.DataFrame(), prev_velocities
+
 
     rows = []
 
@@ -158,7 +169,9 @@ def process_one_day(day_name: str, anchor_tf: str, days_up_to: list,
                 ohlcv = ohlcv.tail(SFE_TAIL).reset_index(drop=True)
             ohlcv_by_tf[tf] = ohlcv
 
-        if anchor_tf not in states_by_tf:
+        # Need at least 15s (smallest TF in 79D) or anchor, whichever is in TF_ORDER
+        min_required_tf = anchor_tf if anchor_tf in TF_ORDER else '15s'
+        if min_required_tf not in states_by_tf:
             continue
 
         feat, prev_velocities = extract_79d(
