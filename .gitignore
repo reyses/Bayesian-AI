@@ -1,5 +1,9 @@
 # Generated pipeline outputs (rebuild from code, don't track)
 nn_v2/output/
+DATA/NMP_TRADES/
+DATA/NMP_TREE/
+DATA/Ninja*
+DATA/regime_seeds/
 
 __pycache__/
 *.pyc
