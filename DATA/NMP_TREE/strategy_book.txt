@@ -1,146 +1,211 @@
 
 ======================================================================
-STRATEGY BOOK — 138 strategies
+STRATEGY BOOK — 75 leaves (raw + regret profiles)
 ======================================================================
   Total trades: 9252
-  Actual PnL:  $28,909
-  Optimal PnL: $750,953
+  Actual PnL:  $2,782
 
-  By strategy type:
-    counter_early            3 branches     55 trades  optimal=$    6,712
-    counter_extended        66 branches   2990 trades  optimal=$  242,690
-    same_early               6 branches    131 trades  optimal=$    8,702
-    same_extended           63 branches   6076 trades  optimal=$  492,849
+  Regret action distribution (what SHOULD have happened):
+    same_early               336 (   4%)  optimal=$   19,406
+    same_at_exit              71 (   1%)  optimal=$    4,442
+    same_extended           4383 (  47%)  optimal=$  350,205
+    counter_early            299 (   3%)  optimal=$   17,108
+    counter_at_exit           53 (   1%)  optimal=$    3,642
+    counter_extended        4110 (  44%)  optimal=$  356,149
 
-  Top 20 Strategies:
-    ID     N Action             Dir     ExitBar  Actual$  Optimal$    WR
-  ----------------------------------------------------------------------
-   189  1055 same_extended      same      19.6 $  13610 $  106433  70%
-   163  1026 same_extended      same      18.1 $   4219 $   57280  63%
-   175   349 same_extended      same      20.4 $    496 $   39454  59%
-   168   590 same_extended      same      19.2 $   2900 $   38246  63%
-   181   490 same_extended      same      18.3 $   5166 $   37981  76%
-    35   390 counter_extended   counter   17.7 $   -702 $   27498  46%
-   185   399 same_extended      same      20.0 $   1689 $   26094  57%
-   178   182 counter_extended   counter   18.3 $  -1576 $   16290  37%
-   164   202 counter_extended   counter   17.3 $     -1 $   13238  52%
-   182   137 same_extended      same      18.5 $   1511 $   12046  78%
-   184   189 same_extended      same      18.0 $    578 $   11742  53%
-   161   173 same_extended      same      15.4 $   1083 $   10481  66%
-   254    72 counter_extended   counter   23.6 $  -2670 $   10457  24%
-    47    80 same_extended      same      18.4 $   2756 $   10112  62%
-   129   230 counter_extended   counter   15.6 $    176 $   10027  50%
-   160   138 counter_extended   counter   18.1 $      0 $    9919  51%
-    40   145 counter_extended   counter   16.7 $    298 $    8262  51%
-   126   183 counter_extended   counter   17.0 $   -190 $    8175  43%
-   255    60 counter_extended   counter   23.9 $  -1976 $    7687  22%
-   223    30 same_extended      same      24.0 $   1840 $    7516  87%
+  All leaves (by trade count):
+    ID     N TreeStrat             WR  Actual$  Regret TopAction          TopPct
+  --------------------------------------------------------------------------------
+    68  2506 same_extended       65% $   5918 $    47 same_extended       53%
+    60  1187 counter_extended    48% $  -2853 $    64 counter_extended    51%
+    70   538 counter_extended    57% $   -232 $    52 counter_extended    52%
+    16   334 counter_extended    40% $  -4446 $   152 counter_extended    60%
+    83   275 same_extended       74% $   2093 $    72 same_extended       64%
+    76   271 same_extended       74% $   2811 $    83 same_extended       58%
+    80   225 same_extended       64% $    158 $    65 same_extended       54%
+    38   222 same_extended       74% $    924 $    79 same_extended       58%
+   126   211 counter_extended    27% $  -3568 $    94 counter_extended    78%
+    19   189 counter_extended    24% $  -3485 $   121 counter_extended    75%
+    48   185 same_extended       76% $   1908 $    69 same_extended       62%
+    39   183 same_extended       75% $   1554 $    77 same_extended       76%
+    71   170 same_extended       71% $    595 $    46 same_extended       56%
+    17   151 same_extended       56% $    429 $   107 same_extended       53%
+   143   146 counter_extended    34% $  -4982 $   180 counter_extended    85%
+    36   126 same_extended       75% $   1422 $    66 same_extended       60%
+    20   120 counter_extended    33% $  -1510 $   133 counter_extended    56%
+   127   111 counter_extended    38% $   -838 $    63 counter_extended    58%
+   140   110 counter_extended    35% $  -2639 $   143 counter_extended    52%
+    84    93 same_extended       88% $   2428 $   103 same_extended       82%
+   135    85 counter_extended    60% $    316 $    83 same_extended       40%
+    49    82 counter_extended    57% $   -440 $    94 counter_extended    50%
+    51    79 counter_extended    61% $    306 $    74 counter_extended    65%
+   112    60 same_extended       88% $   1476 $    64 same_extended       78%
+   142    53 counter_extended    43% $  -1018 $   179 counter_extended    58%
+   136    52 same_extended       60% $    214 $    81 same_extended       69%
+    96    51 counter_extended    59% $    222 $   197 counter_extended    53%
+   139    49 counter_extended    33% $   -938 $   168 counter_extended    80%
+    75    48 counter_extended    67% $    174 $    95 counter_extended    65%
+    61    47 same_extended       70% $    499 $    75 same_extended       72%
+    35    47 counter_extended    66% $    256 $    79 counter_extended    62%
+    64    39 same_extended       79% $    608 $    45 same_extended       85%
+   133    39 counter_extended    59% $    524 $   100 counter_extended    69%
+   115    39 counter_extended    33% $  -1274 $   175 counter_extended    64%
+     5    38 same_extended       50% $    401 $   167 same_extended       63%
+    29    38 same_extended       74% $   1016 $   125 same_extended       50%
+   130    37 same_extended       41% $    -54 $   113 same_extended       51%
+    24    37 same_extended       92% $   1868 $   160 same_extended       95%
+   102    37 same_extended       92% $   1425 $   131 same_extended       97%
+   124    36 counter_extended    22% $   -582 $    86 counter_extended   100%
+    41    35 same_extended       77% $    803 $    80 same_extended       60%
+   117    34 same_extended       62% $    292 $    96 same_extended       74%
+   148    34 same_early          76% $    147 $     6 same_early          71%
+    67    33 counter_extended    58% $    -92 $    64 counter_extended    73%
+    88    33 same_extended       67% $    373 $   123 same_extended       73%
+    97    32 counter_extended    59% $   -237 $   225 counter_extended    81%
+    52    31 same_extended       74% $    244 $    95 same_extended       58%
+    77    31 counter_extended    42% $     -5 $    96 counter_extended    74%
+     9    31 counter_extended    29% $  -2254 $   352 counter_extended    97%
+    94    30 same_extended       67% $    136 $   107 same_extended       60%
+   109    30 same_extended       77% $    478 $   112 same_extended       73%
+    92    28 same_extended       64% $     66 $   117 same_extended       82%
+   146    28 counter_early       29% $   -103 $    20 counter_early       68%
+   129    26 counter_extended    15% $   -914 $   168 counter_extended    77%
+    25    26 same_extended       81% $    946 $   161 same_extended       69%
+   108    26 counter_extended    77% $    562 $   101 counter_extended    50%
+    91    25 counter_extended    60% $    155 $   134 same_extended       40%
+    63    25 same_extended       52% $     -3 $    81 counter_extended    44%
+   147    25 same_early          48% $    -69 $    18 counter_early       36%
+    81    25 counter_extended    68% $    142 $    67 counter_extended    76%
+    10    24 counter_extended    25% $  -1572 $   347 counter_extended    71%
+    13    23 counter_early       17% $  -1660 $   316 counter_extended    35%
+    28    23 counter_extended    87% $   1218 $   113 same_extended       39%
+    27    22 same_extended       86% $    663 $   191 same_extended       91%
+    54    22 same_extended       77% $   1964 $   124 same_extended       91%
+   118    22 counter_extended    32% $   -367 $   120 counter_extended    55%
+   123    22 counter_extended    27% $   -244 $    70 counter_extended    82%
+   105    20 counter_extended    70% $    366 $    90 counter_extended    60%
+   101    20 same_extended       70% $    398 $   188 same_extended       65%
+    44    20 same_extended       95% $    590 $    83 same_extended       85%
+    55    20 same_extended       75% $    254 $    74 same_extended       60%
+   111    20 same_extended       90% $    563 $    62 same_extended       55%
+    43    20 same_extended       95% $    346 $    57 same_extended      100%
+   103    20 same_extended       90% $    837 $    72 same_extended       60%
+    12    20 counter_extended     5% $  -1926 $   332 counter_extended    70%
 
   ======================================================================
-  DETAILED PLAYBOOKS (top 5)
+  DETAILED PLAYBOOKS (top 5 by trade count)
   ======================================================================
 
-  --- Strategy 189 (same_extended) ---
-  Trades: 1055 | WR: 70% | Optimal exit: bar 20
-  Actual: $13610 | Optimal: $106433 | Regret: $88/trade
+  --- Leaf 68 (tree: same_extended) ---
+  Trades: 2506 | WR: 65% | Actual: $5918 | Regret: $47/trade
+  REGRET PROFILE:
+    same_early               96 (  4%) avg=$    33  
+    same_at_exit             14 (  1%) avg=$    40  
+    same_extended          1318 ( 53%) avg=$    51  ##########
+    counter_early            55 (  2%) avg=$    46  
+    counter_at_exit           9 (  0%) avg=$    47  
+    counter_extended       1014 ( 40%) avg=$    51  ########
+  APPROACH: 2 bars pre-entry captured
   ENTRY signature (top features):
-    1h_bar_range              mean= +235.55  std=159.22
-    15m_bar_range             mean= +111.13  std=126.42
-    5m_bar_range              mean=  +58.12  std= 44.98
-    1m_bar_range              mean=  +26.09  std= 12.80
-    15m_velocity              mean=  -13.63  std= 18.64
-    15m_dmi_gap               mean=  +12.39  std=  8.60
-    15s_dmi_gap               mean=  +11.89  std=  9.51
-  EXPECTED PATH (PnL per bar):
-    $  +0.0  $  +3.2  $  +5.9  $  +7.4  $  +9.2  $ +10.8  $ +10.9  $ +11.6  $ +11.7  $ +12.2  $ +12.3  $ +12.5  $ +12.7  $ +12.7  $ +12.6
-    Peak: $12.9 at bar 28
-  EXIT signature (top features at optimal exit):
-    1h_bar_range              mean= +228.17
-    15m_bar_range             mean=  +81.83
-    5m_bar_range              mean=  +55.00
-    1m_bar_range              mean=  +27.83
-    15m_velocity              mean=  -27.17
+    1h_bar_range              mean= +113.99  std=136.77
+    15m_bar_range             mean=  +68.64  std= 97.43
+    5m_bar_range              mean=  +40.97  std= 43.15
+    1m_bar_range              mean=  +16.55  std= 14.63
+    15s_dmi_gap               mean=  +13.99  std= 10.28
+    1m_dmi_gap                mean=   +9.65  std=  7.52
+    5m_dmi_gap                mean=   +8.75  std=  7.62
+  SAME PATH:    $  +0.0  $  +0.8  $  +1.5  $  +2.1  $  +2.1  $  +2.4  $  +2.5  $  +2.5  $  +2.6  $  +2.5 ...
+    Peak: $2.6 at bar 8 | Exit bar: 17
+  COUNTER PATH: $  +0.0  $  -0.8  $  -1.5  $  -2.1  $  -2.1  $  -2.4  $  -2.5  $  -2.5  $  -2.6  $  -2.5 ...
+    Peak: $0.0 at bar 0 | Exit bar: 16
 
-  --- Strategy 163 (same_extended) ---
-  Trades: 1026 | WR: 63% | Optimal exit: bar 18
-  Actual: $4219 | Optimal: $57280 | Regret: $52/trade
+  --- Leaf 60 (tree: counter_extended) ---
+  Trades: 1187 | WR: 48% | Actual: $-2853 | Regret: $64/trade
+  REGRET PROFILE:
+    same_early               17 (  1%) avg=$    57  
+    same_at_exit              5 (  0%) avg=$    27  
+    same_extended           512 ( 43%) avg=$    58  ########
+    counter_early            38 (  3%) avg=$    38  
+    counter_at_exit           5 (  0%) avg=$    37  
+    counter_extended        610 ( 51%) avg=$    65  ##########
+  APPROACH: 10 bars pre-entry captured
   ENTRY signature (top features):
-    1h_bar_range              mean=  +69.46  std= 36.12
-    15m_bar_range             mean=  +52.74  std= 39.04
-    5m_bar_range              mean=  +33.46  std= 36.59
-    1m_bar_range              mean=  +17.97  std= 21.39
-    15s_dmi_gap               mean=  +11.72  std=  8.63
-    1m_dmi_gap                mean=   +8.76  std=  6.81
-    15m_dmi_gap               mean=   +7.90  std=  6.34
-  EXPECTED PATH (PnL per bar):
-    $  +0.0  $  +1.3  $  +2.3  $  +3.0  $  +3.6  $  +3.9  $  +3.9  $  +4.1  $  +4.2  $  +4.2  $  +4.1  $  +4.1  $  +4.1  $  +4.1  $  +4.0
-    Peak: $4.2 at bar 8
-  EXIT signature (top features at optimal exit):
-    1h_bar_range              mean=  +73.62
-    15m_bar_range             mean=  +48.15
-    5m_bar_range              mean=  +25.77
-    5m_dmi_gap                mean=  +14.57
-    1m_bar_range              mean=  +13.31
+    1h_bar_range              mean= +117.45  std=137.57
+    15m_bar_range             mean=  +79.14  std= 80.79
+    5m_bar_range              mean=  +53.70  std= 49.09
+    15s_dmi_gap               mean=  +17.80  std= 10.76
+    1m_bar_range              mean=  +17.53  std= 16.40
+    15s_dmi_diff              mean=  -16.15  std= 13.11
+    5m_velocity               mean=  -11.09  std=  6.46
+  SAME PATH:    $  +0.0  $  -2.2  $  -2.9  $  -3.2  $  -2.8  $  -2.8  $  -2.4  $  -2.4  $  -2.3  $  -2.2 ...
+    Peak: $0.0 at bar 0 | Exit bar: 17
+  COUNTER PATH: $  +0.0  $  +2.2  $  +2.9  $  +3.2  $  +2.8  $  +2.8  $  +2.4  $  +2.4  $  +2.3  $  +2.2 ...
+    Peak: $3.2 at bar 3 | Exit bar: 17
 
-  --- Strategy 175 (same_extended) ---
-  Trades: 349 | WR: 59% | Optimal exit: bar 20
-  Actual: $496 | Optimal: $39454 | Regret: $112/trade
+  --- Leaf 70 (tree: counter_extended) ---
+  Trades: 538 | WR: 57% | Actual: $-232 | Regret: $52/trade
+  REGRET PROFILE:
+    same_early               18 (  3%) avg=$    38  
+    same_at_exit              6 (  1%) avg=$    36  
+    same_extended           216 ( 40%) avg=$    49  ########
+    counter_early            16 (  3%) avg=$    51  
+    counter_at_exit           1 (  0%) avg=$    15  
+    counter_extended        281 ( 52%) avg=$    55  ##########
+  APPROACH: 10 bars pre-entry captured
   ENTRY signature (top features):
-    1h_bar_range              mean= +260.68  std=164.74
-    15m_bar_range             mean= +115.05  std=127.54
-    5m_bar_range              mean=  +60.66  std= 44.58
-    1m_bar_range              mean=  +26.79  std= 13.52
-    15m_velocity              mean=  -26.36  std= 16.26
-    5m_velocity               mean=  -22.06  std= 16.04
-    1m_velocity               mean=  -17.29  std=  9.71
-  EXPECTED PATH (PnL per bar):
-    $  +0.0  $  +1.0  $  -0.3  $  +0.3  $  +0.7  $  +1.0  $  +1.3  $  +1.3  $  +0.9  $  +1.6  $  +1.5  $  +1.4  $  +1.4  $  +1.1  $  +1.4
-    Peak: $1.7 at bar 18
-  EXIT signature (top features at optimal exit):
-    1h_bar_range              mean= +258.33
-    15m_bar_range             mean=  +78.00
-    5m_bar_range              mean=  +41.67
-    5m_dmi_diff               mean=  -20.65
-    5m_dmi_gap                mean=  +20.65
+    1h_bar_range              mean= +131.14  std=129.77
+    15m_bar_range             mean=  +77.91  std= 95.87
+    5m_bar_range              mean=  +44.45  std= 46.95
+    1m_bar_range              mean=  +19.28  std= 15.95
+    15s_dmi_gap               mean=  +12.29  std=  9.32
+    1m_dmi_gap                mean=   +9.82  std=  7.54
+    5m_dmi_gap                mean=   +9.19  std=  7.86
+  SAME PATH:    $  +0.0  $  -0.4  $  -0.8  $  -0.9  $  -1.0  $  -1.4  $  -0.8  $  -0.5  $  -0.5  $  -0.3 ...
+    Peak: $0.0 at bar 0 | Exit bar: 14
+  COUNTER PATH: $  +0.0  $  +0.4  $  +0.8  $  +0.9  $  +1.0  $  +1.4  $  +0.8  $  +0.5  $  +0.5  $  +0.3 ...
+    Peak: $1.4 at bar 5 | Exit bar: 18
 
-  --- Strategy 168 (same_extended) ---
-  Trades: 590 | WR: 63% | Optimal exit: bar 19
-  Actual: $2900 | Optimal: $38246 | Regret: $60/trade
+  --- Leaf 16 (tree: counter_extended) ---
+  Trades: 334 | WR: 40% | Actual: $-4446 | Regret: $152/trade
+  REGRET PROFILE:
+    same_early                1 (  0%) avg=$    85  
+    same_at_exit              2 (  1%) avg=$   118  
+    same_extended           110 ( 33%) avg=$   146  ######
+    counter_early            17 (  5%) avg=$    83  #
+    counter_at_exit           3 (  1%) avg=$   100  
+    counter_extended        201 ( 60%) avg=$   141  ############
+  APPROACH: 10 bars pre-entry captured
   ENTRY signature (top features):
-    1h_bar_range              mean=  +72.14  std= 33.26
-    15m_bar_range             mean=  +58.33  std= 49.78
-    5m_bar_range              mean=  +37.28  std= 48.74
-    1m_bar_range              mean=  +20.77  std= 31.00
-    5m_dmi_gap                mean=  +19.54  std=  5.27
-    15m_dmi_gap               mean=  +16.78  std=  8.78
-    1m_dmi_gap                mean=  +15.48  std=  9.93
-  EXPECTED PATH (PnL per bar):
-    $  +0.0  $  +0.0  $  +1.6  $  +2.5  $  +3.3  $  +3.7  $  +3.9  $  +4.0  $  +4.5  $  +4.4  $  +4.4  $  +4.5  $  +4.7  $  +4.9  $  +5.0
-    Peak: $5.1 at bar 15
-  EXIT signature (top features at optimal exit):
-    1h_bar_range              mean=  +70.86
-    15m_bar_range             mean=  +66.29
-    5m_bar_range              mean=  +46.43
-    1m_bar_range              mean=  +31.29
-    5m_dmi_gap                mean=  +18.43
+    1h_bar_range              mean= +217.34  std=153.13
+    15m_bar_range             mean= +103.25  std=106.50
+    5m_bar_range              mean=  +56.34  std= 42.52
+    15m_velocity              mean=  -46.93  std= 13.05
+    5m_velocity               mean=  -31.30  std= 18.85
+    1m_bar_range              mean=  +25.93  std= 13.98
+    1m_velocity               mean=  -20.34  std= 10.95
+  SAME PATH:    $  +0.0  $  -3.7  $  -7.1  $  -9.2  $ -11.1  $ -11.3  $ -11.0  $ -12.2  $ -13.3  $ -12.9 ...
+    Peak: $0.0 at bar 0 | Exit bar: 17
+  COUNTER PATH: $  +0.0  $  +3.7  $  +7.1  $  +9.2  $ +11.1  $ +11.3  $ +11.0  $ +12.2  $ +13.3  $ +12.9 ...
+    Peak: $13.3 at bar 25 | Exit bar: 17
 
-  --- Strategy 181 (same_extended) ---
-  Trades: 490 | WR: 76% | Optimal exit: bar 18
-  Actual: $5166 | Optimal: $37981 | Regret: $67/trade
+  --- Leaf 83 (tree: same_extended) ---
+  Trades: 275 | WR: 74% | Actual: $2093 | Regret: $72/trade
+  REGRET PROFILE:
+    same_early               13 (  5%) avg=$    41  
+    same_at_exit              2 (  1%) avg=$    25  
+    same_extended           176 ( 64%) avg=$    82  ############
+    counter_early             5 (  2%) avg=$    50  
+    counter_extended         79 ( 29%) avg=$    82  #####
+  APPROACH: 10 bars pre-entry captured
   ENTRY signature (top features):
-    1h_bar_range              mean= +228.33  std=160.20
-    15m_bar_range             mean= +100.34  std=105.69
-    5m_bar_range              mean=  +52.35  std= 38.90
-    1m_bar_range              mean=  +24.92  std= 14.76
-    15s_dmi_gap               mean=  +13.85  std= 11.26
-    1m_dmi_gap                mean=  +11.18  std=  8.90
-    1m_dmi_diff               mean=  -11.16  std=  8.93
-  EXPECTED PATH (PnL per bar):
-    $  +0.0  $  +3.2  $  +7.0  $  +8.6  $  +9.5  $ +10.8  $ +11.4  $ +11.5  $ +11.3  $ +11.1  $ +11.0  $ +10.7  $ +10.9  $ +10.9  $ +10.7
-    Peak: $11.5 at bar 7
-  EXIT signature (top features at optimal exit):
-    1h_bar_range              mean= +308.00
-    15m_bar_range             mean= +113.25
-    5m_bar_range              mean=  +58.50
-    15s_dmi_gap               mean=  +23.54
-    1m_bar_range              mean=  +22.75
+    1h_bar_range              mean= +179.92  std=158.03
+    15m_bar_range             mean=  +94.08  std=103.23
+    5m_bar_range              mean=  +52.44  std= 46.41
+    1m_bar_range              mean=  +25.33  std= 23.02
+    15s_dmi_gap               mean=  +15.56  std= 10.30
+    15m_dmi_gap               mean=  +14.50  std=  7.11
+    15s_dmi_diff              mean=  +14.48  std= 11.77
+  SAME PATH:    $  +0.0  $  +1.5  $  +3.9  $  +6.5  $  +6.8  $  +7.6  $  +7.5  $  +7.9  $  +7.9  $  +8.1 ...
+    Peak: $8.1 at bar 10 | Exit bar: 17
+  COUNTER PATH: $  +0.0  $  -1.5  $  -3.9  $  -6.5  $  -6.8  $  -7.6  $  -7.5  $  -7.9  $  -7.9  $  -8.1 ...
+    Peak: $0.0 at bar 0 | Exit bar: 16

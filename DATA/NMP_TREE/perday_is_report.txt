@@ -1,0 +1,289 @@
+Per-Day Brain Builder — IS
+============================================================
+Days: 277 | Winning: 132/277 (48%)
+Trades: 3726 | Chained: 3040
+PnL: $10,571 | $/day: $38
+
+Daily breakdown:
+  2025_01_01    0 trades     0%  $       0  cumul=$       0  chain=0 
+  2025_01_02   13 trades    23%  $    -145  cumul=$    -145  chain=13 !!!
+  2025_01_03   17 trades    53%  $     -14  cumul=$    -159  chain=16 
+  2025_01_05    0 trades     0%  $       0  cumul=$    -159  chain=0 
+  2025_01_06   13 trades    69%  $     244  cumul=$      85  chain=11 <<<
+  2025_01_07   20 trades    40%  $     -93  cumul=$      -8  chain=18 !!!
+  2025_01_08   16 trades    56%  $     161  cumul=$     153  chain=14 <<<
+  2025_01_09    7 trades    86%  $     155  cumul=$     308  chain=6 <<<
+  2025_01_10   14 trades    50%  $      93  cumul=$     401  chain=12 <<<
+  2025_01_12    1 trades     0%  $     -12  cumul=$     389  chain=0 
+  2025_01_13   15 trades    53%  $     210  cumul=$     599  chain=14 <<<
+  2025_01_14   15 trades    73%  $     740  cumul=$    1339  chain=14 <<<
+  2025_01_15   20 trades    65%  $    -373  cumul=$     966  chain=13 !!!
+  2025_01_16   23 trades    43%  $     -88  cumul=$     878  chain=22 !!!
+  2025_01_17    8 trades    75%  $     294  cumul=$    1172  chain=7 <<<
+  2025_01_19    0 trades     0%  $       0  cumul=$    1172  chain=0 
+  2025_01_20   18 trades    61%  $     -59  cumul=$    1114  chain=12 !!!
+  2025_01_21   15 trades    53%  $    -198  cumul=$     916  chain=13 !!!
+  2025_01_22   17 trades    59%  $     128  cumul=$    1044  chain=13 <<<
+  2025_01_23    9 trades    22%  $    -124  cumul=$     920  chain=7 !!!
+  2025_01_24   19 trades    42%  $      40  cumul=$     960  chain=15 
+  2025_01_26    2 trades    50%  $       1  cumul=$     961  chain=0 
+  2025_01_27   12 trades    42%  $     102  cumul=$    1062  chain=11 <<<
+  2025_01_28   19 trades    68%  $      40  cumul=$    1103  chain=16 
+  2025_01_29   15 trades    33%  $    -214  cumul=$     889  chain=13 !!!
+  2025_01_30   22 trades    55%  $     388  cumul=$    1277  chain=17 <<<
+  2025_01_31   20 trades    50%  $     -25  cumul=$    1252  chain=14 
+  2025_02_02    0 trades     0%  $       0  cumul=$    1252  chain=0 
+  2025_02_03   17 trades    41%  $     244  cumul=$    1496  chain=16 <<<
+  2025_02_04   20 trades    45%  $     124  cumul=$    1619  chain=16 <<<
+  2025_02_05   16 trades    19%  $    -304  cumul=$    1314  chain=13 !!!
+  2025_02_06   12 trades    50%  $     -50  cumul=$    1264  chain=10 
+  2025_02_07   16 trades    75%  $     -15  cumul=$    1250  chain=14 
+  2025_02_09    0 trades     0%  $       0  cumul=$    1250  chain=0 
+  2025_02_10   13 trades    23%  $    -184  cumul=$    1065  chain=10 !!!
+  2025_02_11   20 trades    65%  $     170  cumul=$    1235  chain=14 <<<
+  2025_02_12   19 trades    58%  $     252  cumul=$    1488  chain=13 <<<
+  2025_02_13   20 trades    45%  $    -392  cumul=$    1096  chain=15 !!!
+  2025_02_14   18 trades    44%  $     -10  cumul=$    1086  chain=13 
+  2025_02_16    2 trades    50%  $       4  cumul=$    1090  chain=0 
+  2025_02_17   17 trades    24%  $    -116  cumul=$     974  chain=9 !!!
+  2025_02_18   15 trades    27%  $    -243  cumul=$     732  chain=10 !!!
+  2025_02_19   25 trades    52%  $      94  cumul=$     826  chain=17 <<<
+  2025_02_20   22 trades    36%  $    -142  cumul=$     684  chain=14 !!!
+  2025_02_21   20 trades    45%  $     159  cumul=$     843  chain=14 <<<
+  2025_02_23    0 trades     0%  $       0  cumul=$     843  chain=0 
+  2025_02_24   16 trades    75%  $     172  cumul=$    1016  chain=14 <<<
+  2025_02_25   14 trades    50%  $     -78  cumul=$     938  chain=12 !!!
+  2025_02_26   12 trades    58%  $     384  cumul=$    1322  chain=12 <<<
+  2025_02_27   12 trades    42%  $    -157  cumul=$    1164  chain=11 !!!
+  2025_02_28   11 trades    45%  $    -105  cumul=$    1060  chain=10 !!!
+  2025_03_02    0 trades     0%  $       0  cumul=$    1060  chain=0 
+  2025_03_03    7 trades    43%  $      32  cumul=$    1092  chain=7 
+  2025_03_04   17 trades    59%  $     623  cumul=$    1714  chain=17 <<<
+  2025_03_05   14 trades    50%  $     -20  cumul=$    1694  chain=14 
+  2025_03_06   12 trades    33%  $    -307  cumul=$    1387  chain=11 !!!
+  2025_03_07   11 trades    64%  $     216  cumul=$    1602  chain=11 <<<
+  2025_03_09    0 trades     0%  $       0  cumul=$    1602  chain=0 
+  2025_03_10   11 trades    36%  $    -204  cumul=$    1399  chain=11 !!!
+  2025_03_11   11 trades    36%  $    -370  cumul=$    1029  chain=10 !!!
+  2025_03_12   20 trades    55%  $     477  cumul=$    1506  chain=19 <<<
+  2025_03_13   13 trades    54%  $     327  cumul=$    1833  chain=13 <<<
+  2025_03_14   11 trades    45%  $      92  cumul=$    1924  chain=9 <<<
+  2025_03_16    0 trades     0%  $       0  cumul=$    1924  chain=0 
+  2025_03_17   22 trades    41%  $      54  cumul=$    1978  chain=16 <<<
+  2025_03_18   15 trades    60%  $      71  cumul=$    2050  chain=15 <<<
+  2025_03_19   14 trades    36%  $     -50  cumul=$    1999  chain=13 !!!
+  2025_03_20   21 trades    43%  $     370  cumul=$    2370  chain=18 <<<
+  2025_03_21   25 trades    40%  $     -66  cumul=$    2303  chain=23 !!!
+  2025_04_01   17 trades    53%  $      83  cumul=$    2386  chain=13 <<<
+  2025_04_02   13 trades    46%  $    -314  cumul=$    2072  chain=11 !!!
+  2025_04_03   16 trades    56%  $     254  cumul=$    2326  chain=16 <<<
+  2025_04_04   14 trades    71%  $     536  cumul=$    2862  chain=13 <<<
+  2025_04_06    1 trades   100%  $      58  cumul=$    2921  chain=1 <<<
+  2025_04_07   17 trades    47%  $    2729  cumul=$    5650  chain=13 <<<
+  2025_04_08   21 trades    67%  $    1254  cumul=$    6904  chain=18 <<<
+  2025_04_09   17 trades    65%  $     786  cumul=$    7690  chain=15 <<<
+  2025_04_10   21 trades    48%  $     387  cumul=$    8077  chain=20 <<<
+  2025_04_11    8 trades    62%  $     402  cumul=$    8479  chain=8 <<<
+  2025_04_13    4 trades    25%  $     -65  cumul=$    8414  chain=3 !!!
+  2025_04_14   15 trades    47%  $     270  cumul=$    8684  chain=14 <<<
+  2025_04_15   20 trades    45%  $     282  cumul=$    8966  chain=16 <<<
+  2025_04_16   19 trades    63%  $     456  cumul=$    9421  chain=18 <<<
+  2025_04_17   14 trades    50%  $     454  cumul=$    9875  chain=12 <<<
+  2025_04_20    0 trades     0%  $       0  cumul=$    9875  chain=0 
+  2025_04_21   14 trades    71%  $     303  cumul=$   10178  chain=14 <<<
+  2025_04_22   16 trades    56%  $     642  cumul=$   10820  chain=14 <<<
+  2025_04_23   25 trades    60%  $     246  cumul=$   11066  chain=22 <<<
+  2025_04_24   16 trades    56%  $      40  cumul=$   11107  chain=14 
+  2025_04_25   21 trades    62%  $     448  cumul=$   11554  chain=17 <<<
+  2025_04_27    0 trades     0%  $       0  cumul=$   11554  chain=0 
+  2025_04_28   25 trades    36%  $    -250  cumul=$   11304  chain=19 !!!
+  2025_04_29   19 trades    26%  $    -428  cumul=$   10877  chain=17 !!!
+  2025_04_30   14 trades    79%  $     654  cumul=$   11531  chain=14 <<<
+  2025_05_01   12 trades    50%  $     -67  cumul=$   11464  chain=10 !!!
+  2025_05_02   18 trades    33%  $    -290  cumul=$   11174  chain=16 !!!
+  2025_05_04    0 trades     0%  $       0  cumul=$   11174  chain=0 
+  2025_05_05   19 trades    32%  $      80  cumul=$   11254  chain=19 <<<
+  2025_05_06   14 trades    50%  $     376  cumul=$   11630  chain=14 <<<
+  2025_05_07   21 trades    52%  $     183  cumul=$   11814  chain=18 <<<
+  2025_05_08   18 trades    56%  $    -162  cumul=$   11652  chain=15 !!!
+  2025_05_09   14 trades    79%  $     176  cumul=$   11828  chain=12 <<<
+  2025_05_11    2 trades     0%  $     -58  cumul=$   11770  chain=2 !!!
+  2025_05_12   15 trades    60%  $    -166  cumul=$   11604  chain=14 !!!
+  2025_05_13   19 trades    37%  $    -180  cumul=$   11424  chain=17 !!!
+  2025_05_14   18 trades    50%  $     -52  cumul=$   11373  chain=14 !!!
+  2025_05_15   18 trades    33%  $     -96  cumul=$   11277  chain=16 !!!
+  2025_05_16   21 trades    48%  $     195  cumul=$   11472  chain=15 <<<
+  2025_05_18    1 trades     0%  $     -46  cumul=$   11426  chain=1 
+  2025_05_19   21 trades    38%  $     -71  cumul=$   11356  chain=19 !!!
+  2025_05_20   22 trades    50%  $     128  cumul=$   11483  chain=19 <<<
+  2025_05_21   26 trades    58%  $     266  cumul=$   11749  chain=21 <<<
+  2025_05_22   19 trades    63%  $     266  cumul=$   12015  chain=17 <<<
+  2025_05_23   20 trades    50%  $    -238  cumul=$   11777  chain=17 !!!
+  2025_05_25    2 trades     0%  $     -12  cumul=$   11766  chain=1 
+  2025_05_26   12 trades    50%  $     -50  cumul=$   11715  chain=11 !!!
+  2025_05_27   17 trades    47%  $       2  cumul=$   11716  chain=15 
+  2025_05_28   17 trades    47%  $      66  cumul=$   11782  chain=12 <<<
+  2025_05_29   16 trades    56%  $     272  cumul=$   12054  chain=15 <<<
+  2025_05_30   10 trades    60%  $    -100  cumul=$   11954  chain=10 !!!
+  2025_06_01    2 trades   100%  $      56  cumul=$   12010  chain=1 <<<
+  2025_06_02   10 trades    50%  $       0  cumul=$   12010  chain=9 
+  2025_06_03    9 trades    56%  $      23  cumul=$   12034  chain=7 
+  2025_06_04   18 trades    67%  $      26  cumul=$   12059  chain=16 
+  2025_06_05   18 trades    50%  $    -540  cumul=$   11518  chain=15 !!!
+  2025_06_06   16 trades    50%  $      29  cumul=$   11548  chain=12 
+  2025_06_08    0 trades     0%  $       0  cumul=$   11548  chain=0 
+  2025_06_09   25 trades    48%  $    -106  cumul=$   11441  chain=17 !!!
+  2025_06_10   22 trades    68%  $     234  cumul=$   11675  chain=17 <<<
+  2025_06_11   24 trades    29%  $     -10  cumul=$   11666  chain=18 
+  2025_06_12   19 trades    37%  $     -54  cumul=$   11612  chain=17 !!!
+  2025_06_13   14 trades    36%  $    -192  cumul=$   11420  chain=14 !!!
+  2025_06_15    2 trades   100%  $     103  cumul=$   11523  chain=2 <<<
+  2025_06_16   14 trades    21%  $    -358  cumul=$   11164  chain=14 !!!
+  2025_06_17   27 trades    26%  $    -357  cumul=$   10808  chain=23 !!!
+  2025_06_18   24 trades    46%  $    -209  cumul=$   10598  chain=23 !!!
+  2025_06_19   23 trades    35%  $    -314  cumul=$   10285  chain=16 !!!
+  2025_06_20   24 trades    54%  $      89  cumul=$   10374  chain=22 <<<
+  2025_07_01   17 trades    41%  $       4  cumul=$   10378  chain=15 
+  2025_07_02   17 trades    65%  $     268  cumul=$   10646  chain=15 <<<
+  2025_07_03   13 trades    69%  $     122  cumul=$   10768  chain=11 <<<
+  2025_07_04    7 trades    43%  $      14  cumul=$   10782  chain=3 
+  2025_07_06    2 trades     0%  $     -36  cumul=$   10746  chain=2 
+  2025_07_07   18 trades    39%  $    -122  cumul=$   10624  chain=15 !!!
+  2025_07_08   21 trades    48%  $      18  cumul=$   10642  chain=16 
+  2025_07_09   20 trades    50%  $      25  cumul=$   10668  chain=16 
+  2025_07_10   16 trades    38%  $     158  cumul=$   10826  chain=13 <<<
+  2025_07_11   18 trades    33%  $    -158  cumul=$   10668  chain=12 !!!
+  2025_07_13    1 trades     0%  $     -35  cumul=$   10632  chain=0 
+  2025_07_14   25 trades    48%  $     -21  cumul=$   10612  chain=17 
+  2025_07_15   17 trades    76%  $     251  cumul=$   10862  chain=15 <<<
+  2025_07_16   22 trades    41%  $    -305  cumul=$   10558  chain=18 !!!
+  2025_07_17   16 trades    38%  $     -85  cumul=$   10472  chain=8 !!!
+  2025_07_18   18 trades    50%  $      54  cumul=$   10526  chain=14 <<<
+  2025_07_20    0 trades     0%  $       0  cumul=$   10526  chain=0 
+  2025_07_21   19 trades    37%  $     115  cumul=$   10641  chain=11 <<<
+  2025_07_22    8 trades    12%  $     -50  cumul=$   10591  chain=5 
+  2025_07_23   19 trades    42%  $    -184  cumul=$   10407  chain=12 !!!
+  2025_07_24   14 trades    50%  $       2  cumul=$   10409  chain=8 
+  2025_07_25   11 trades    45%  $     -36  cumul=$   10374  chain=4 
+  2025_07_27    3 trades   100%  $      78  cumul=$   10451  chain=0 <<<
+  2025_07_28   19 trades    47%  $     -18  cumul=$   10434  chain=14 
+  2025_07_29   18 trades    33%  $    -160  cumul=$   10274  chain=9 !!!
+  2025_07_30   11 trades    36%  $    -132  cumul=$   10142  chain=6 !!!
+  2025_07_31   14 trades    21%  $    -650  cumul=$    9491  chain=12 !!!
+  2025_08_01   11 trades    73%  $     357  cumul=$    9848  chain=8 <<<
+  2025_08_03    2 trades    50%  $      26  cumul=$    9874  chain=0 
+  2025_08_04   11 trades    36%  $    -152  cumul=$    9722  chain=10 !!!
+  2025_08_05   20 trades    50%  $     210  cumul=$    9932  chain=14 <<<
+  2025_08_06    9 trades    44%  $      62  cumul=$    9994  chain=9 <<<
+  2025_08_07   16 trades    69%  $     208  cumul=$   10202  chain=14 <<<
+  2025_08_08   12 trades    67%  $     -12  cumul=$   10190  chain=9 
+  2025_08_10    2 trades   100%  $      44  cumul=$   10234  chain=1 
+  2025_08_11   12 trades    67%  $     181  cumul=$   10415  chain=12 <<<
+  2025_08_12   16 trades    56%  $     164  cumul=$   10579  chain=14 <<<
+  2025_08_13   21 trades    43%  $     -76  cumul=$   10503  chain=15 !!!
+  2025_08_14   19 trades    21%  $    -186  cumul=$   10318  chain=13 !!!
+  2025_08_15   10 trades    60%  $      46  cumul=$   10364  chain=7 
+  2025_08_17    1 trades     0%  $      -4  cumul=$   10359  chain=0 
+  2025_08_18   21 trades    43%  $     105  cumul=$   10464  chain=19 <<<
+  2025_08_19   13 trades    54%  $     -14  cumul=$   10450  chain=9 
+  2025_08_20   15 trades    47%  $     -54  cumul=$   10396  chain=12 !!!
+  2025_08_21   14 trades    43%  $    -123  cumul=$   10273  chain=9 !!!
+  2025_08_22   10 trades    50%  $      76  cumul=$   10349  chain=10 <<<
+  2025_08_24    2 trades    50%  $       0  cumul=$   10350  chain=0 
+  2025_08_25   15 trades    80%  $     133  cumul=$   10482  chain=4 <<<
+  2025_08_26   16 trades    31%  $     -83  cumul=$   10400  chain=13 !!!
+  2025_08_27   13 trades    38%  $       0  cumul=$   10400  chain=8 
+  2025_08_28   20 trades    35%  $    -310  cumul=$   10090  chain=14 !!!
+  2025_08_29    9 trades    67%  $      76  cumul=$   10166  chain=8 <<<
+  2025_08_31    0 trades     0%  $       0  cumul=$   10166  chain=0 
+  2025_09_01   11 trades    91%  $     167  cumul=$   10334  chain=8 <<<
+  2025_09_02   15 trades    80%  $     248  cumul=$   10581  chain=8 <<<
+  2025_09_03   22 trades    50%  $      86  cumul=$   10666  chain=20 <<<
+  2025_09_04   17 trades    24%  $    -162  cumul=$   10504  chain=14 !!!
+  2025_09_05   13 trades    46%  $     -32  cumul=$   10472  chain=9 
+  2025_09_07    3 trades    33%  $     -25  cumul=$   10447  chain=1 
+  2025_09_08    9 trades    56%  $     -50  cumul=$   10397  chain=6 
+  2025_09_09   17 trades    35%  $    -123  cumul=$   10274  chain=12 !!!
+  2025_09_10   11 trades    27%  $      52  cumul=$   10326  chain=9 <<<
+  2025_09_11   11 trades    27%  $     -72  cumul=$   10255  chain=6 !!!
+  2025_09_12   13 trades    23%  $    -194  cumul=$   10062  chain=7 !!!
+  2025_09_14    2 trades    50%  $      -2  cumul=$   10060  chain=1 
+  2025_09_15    7 trades    29%  $      -8  cumul=$   10052  chain=5 
+  2025_09_16   12 trades    42%  $     -50  cumul=$   10002  chain=8 !!!
+  2025_09_17   17 trades    59%  $     193  cumul=$   10195  chain=16 <<<
+  2025_09_18   22 trades    59%  $     -60  cumul=$   10135  chain=18 !!!
+  2025_09_19   16 trades    44%  $     -14  cumul=$   10120  chain=13 
+  2025_10_01   11 trades    55%  $     197  cumul=$   10318  chain=8 <<<
+  2025_10_02   13 trades    46%  $      27  cumul=$   10344  chain=6 
+  2025_10_03   13 trades    38%  $    -171  cumul=$   10174  chain=10 !!!
+  2025_10_05    3 trades    33%  $     -14  cumul=$   10160  chain=1 
+  2025_10_06   19 trades    58%  $     132  cumul=$   10292  chain=15 <<<
+  2025_10_07   26 trades    42%  $     -26  cumul=$   10266  chain=18 
+  2025_10_08   18 trades    28%  $    -264  cumul=$   10002  chain=14 !!!
+  2025_10_09   17 trades    53%  $     104  cumul=$   10106  chain=12 <<<
+  2025_10_10   15 trades    47%  $     231  cumul=$   10338  chain=11 <<<
+  2025_10_12    0 trades     0%  $       0  cumul=$   10338  chain=0 
+  2025_10_13   13 trades    62%  $      71  cumul=$   10408  chain=13 <<<
+  2025_10_14   11 trades    82%  $     410  cumul=$   10818  chain=10 <<<
+  2025_10_15   14 trades    36%  $    -136  cumul=$   10682  chain=12 !!!
+  2025_10_16   12 trades    83%  $     246  cumul=$   10928  chain=12 <<<
+  2025_10_17    9 trades    78%  $     371  cumul=$   11298  chain=8 <<<
+  2025_10_19    1 trades     0%  $     -17  cumul=$   11282  chain=0 
+  2025_10_20   17 trades    47%  $     203  cumul=$   11484  chain=13 <<<
+  2025_10_21   13 trades    62%  $     176  cumul=$   11661  chain=10 <<<
+  2025_10_22   13 trades    77%  $     157  cumul=$   11818  chain=13 <<<
+  2025_10_23   19 trades    58%  $     260  cumul=$   12078  chain=16 <<<
+  2025_10_24   14 trades    43%  $    -198  cumul=$   11880  chain=10 !!!
+  2025_10_26    2 trades    50%  $      11  cumul=$   11892  chain=2 
+  2025_10_27   20 trades    15%  $    -207  cumul=$   11684  chain=16 !!!
+  2025_10_28   11 trades    45%  $      20  cumul=$   11705  chain=10 
+  2025_10_29   19 trades    32%  $     -88  cumul=$   11617  chain=14 !!!
+  2025_10_30    9 trades    33%  $    -248  cumul=$   11369  chain=9 !!!
+  2025_10_31   14 trades    50%  $    -190  cumul=$   11179  chain=13 !!!
+  2025_11_02    0 trades     0%  $       0  cumul=$   11179  chain=0 
+  2025_11_03   20 trades    40%  $    -136  cumul=$   11044  chain=16 !!!
+  2025_11_04   13 trades    54%  $     -20  cumul=$   11024  chain=11 
+  2025_11_05   12 trades    25%  $     -98  cumul=$   10925  chain=11 !!!
+  2025_11_06   11 trades    55%  $      32  cumul=$   10956  chain=10 
+  2025_11_07    8 trades    62%  $      53  cumul=$   11010  chain=7 <<<
+  2025_11_09    0 trades     0%  $       0  cumul=$   11010  chain=0 
+  2025_11_10   11 trades    55%  $     114  cumul=$   11123  chain=9 <<<
+  2025_11_11    7 trades    43%  $     -33  cumul=$   11090  chain=6 
+  2025_11_12   14 trades    36%  $      33  cumul=$   11123  chain=11 
+  2025_11_13   12 trades    42%  $    -366  cumul=$   10756  chain=11 !!!
+  2025_11_14    7 trades    43%  $     -17  cumul=$   10740  chain=6 
+  2025_11_16    0 trades     0%  $       0  cumul=$   10740  chain=0 
+  2025_11_17    5 trades    60%  $     174  cumul=$   10914  chain=5 <<<
+  2025_11_18   12 trades    42%  $    -466  cumul=$   10448  chain=12 !!!
+  2025_11_19    8 trades    62%  $      10  cumul=$   10458  chain=8 
+  2025_11_20   12 trades    25%  $      38  cumul=$   10496  chain=11 
+  2025_11_21   10 trades    40%  $    -224  cumul=$   10272  chain=10 !!!
+  2025_11_23    0 trades     0%  $       0  cumul=$   10272  chain=0 
+  2025_11_24   19 trades    47%  $     421  cumul=$   10692  chain=18 <<<
+  2025_11_25   18 trades    28%  $    -699  cumul=$    9994  chain=16 !!!
+  2025_11_26   15 trades    40%  $     -80  cumul=$    9914  chain=13 !!!
+  2025_11_27   19 trades    63%  $     -32  cumul=$    9881  chain=17 
+  2025_11_28    7 trades    43%  $     108  cumul=$    9990  chain=6 <<<
+  2025_11_30    1 trades     0%  $     -52  cumul=$    9937  chain=1 !!!
+  2025_12_01   21 trades    57%  $      84  cumul=$   10021  chain=20 <<<
+  2025_12_02   10 trades    60%  $       6  cumul=$   10027  chain=10 
+  2025_12_03   16 trades    44%  $    -102  cumul=$    9926  chain=13 !!!
+  2025_12_04   19 trades    63%  $     521  cumul=$   10446  chain=15 <<<
+  2025_12_05   22 trades    68%  $     357  cumul=$   10804  chain=16 <<<
+  2025_12_07    0 trades     0%  $       0  cumul=$   10804  chain=0 
+  2025_12_08   14 trades    29%  $    -160  cumul=$   10644  chain=13 !!!
+  2025_12_09   17 trades    53%  $      -4  cumul=$   10640  chain=14 
+  2025_12_10   22 trades    36%  $    -320  cumul=$   10320  chain=15 !!!
+  2025_12_11   18 trades    56%  $      88  cumul=$   10408  chain=16 <<<
+  2025_12_12   14 trades    43%  $     -12  cumul=$   10396  chain=12 
+  2025_12_14    0 trades     0%  $       0  cumul=$   10396  chain=0 
+  2025_12_15   17 trades    35%  $     130  cumul=$   10526  chain=15 <<<
+  2025_12_16   19 trades    42%  $     -67  cumul=$   10458  chain=17 !!!
+  2025_12_17   21 trades    48%  $     -32  cumul=$   10426  chain=20 
+  2025_12_18   18 trades    72%  $      38  cumul=$   10464  chain=14 
+  2025_12_19   18 trades    50%  $     107  cumul=$   10571  chain=15 <<<
+
+Bayesian Memory (iteration 1):
+  TRADE: 0 branches, 0 trades, $0
+  SKIP:  75 branches, 3726 trades, $10571
+
