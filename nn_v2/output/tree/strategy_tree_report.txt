@@ -2,112 +2,112 @@
 ======================================================================
 STRATEGY TREE (regret-trained)
 ======================================================================
-  Depth: 8 | Leaves: 110
-  CV Accuracy: 65.0%
-  CV PnL (simulated): $351,314 (actual: $351,314, optimal: $351,314)
+  Depth: 8 | Leaves: 128
+  CV Accuracy: 66.6%
+  CV PnL (simulated): $755,613 (actual: $755,613, optimal: $755,613)
 
   Strategy Distribution:
 
   Top Features:
-    1h_velocity               0.362 ##################
-    1m_z_se                   0.148 #######
-    1h_wick_ratio             0.105 #####
-    1m_dmi_diff               0.090 ####
-    time_of_day               0.054 ##
-    5m_dmi_diff               0.035 #
-    1D_velocity               0.031 #
-    5m_velocity               0.013 
-    1m_dmi_gap                0.012 
-    15s_dmi_diff              0.012 
+    1D_velocity               0.306 ###############
+    time_of_day               0.119 #####
+    1h_dir_vol                0.073 ###
+    1h_dmi_diff               0.066 ###
+    1h_velocity               0.064 ###
+    1D_wick_ratio             0.057 ##
+    15m_dmi_diff              0.031 #
+    1h_hurst                  0.021 #
+    15m_variance_ratio        0.020 
+    1D_hurst                  0.019 
 
   Branches (by optimal PnL):
     ID     N Strategy                Pct  Actual$  Optimal$  Recover$ ExitBar    WR
   --------------------------------------------------------------------------------
-    62  1059 short_extended          62% $ 151506 $  151506 $       0   30.1   99%
-   119   709 long_extended           83% $ 129837 $  129837 $       0   40.7  100%
-   159  1179 long_extended           49% $ 101500 $  101500 $       0   28.0   99%
-    90   583 short_extended          81% $  89934 $   89934 $       0   37.1  100%
-   120   448 long_extended           91% $  81216 $   81216 $       0   31.6  100%
-   126   714 long_extended           62% $  67474 $   67474 $       0   26.6  100%
-   177   585 short_extended          53% $  66717 $   66717 $       0   33.3   99%
-    30   252 short_extended          84% $  57014 $   57014 $       0   32.8  100%
-   127   382 long_extended           71% $  56154 $   56154 $       0   30.9   99%
-    80   288 short_extended          98% $  54421 $   54421 $       0   40.4  100%
-   163   296 long_extended           75% $  51432 $   51432 $       0   32.9   99%
-   162   330 long_extended           59% $  44954 $   44954 $       0   31.2   98%
-   167   345 long_extended           79% $  43313 $   43313 $       0   44.0   99%
-    49   283 long_extended           52% $  34500 $   34500 $       0   31.4   99%
-    46   144 short_extended          72% $  30895 $   30895 $       0   19.3   99%
-    85   227 short_extended          67% $  30466 $   30466 $       0   25.1  100%
-   174   315 short_extended          73% $  30428 $   30428 $       0   34.7   99%
-    40   114 short_extended          99% $  28354 $   28354 $       0   35.4  100%
-   152   237 long_extended           80% $  24848 $   24848 $       0    6.8  100%
-   134   108 long_extended           94% $  22298 $   22298 $       0   26.9   99%
-   180   156 long_extended           69% $  21405 $   21405 $       0   17.6  100%
-   111   200 long_extended           73% $  20306 $   20306 $       0   34.4   98%
-    59   104 short_extended          90% $  20070 $   20070 $       0    4.3  100%
-   116   333 long_extended           78% $  18754 $   18754 $       0   29.2   99%
-   136   116 long_extended           76% $  18441 $   18441 $       0   26.6   98%
+    55   633 short_extended          84% $ 248562 $  248562 $       0  115.0  100%
+   101   857 short_extended          59% $ 236286 $  236286 $       0  100.8  100%
+   237   579 long_extended           80% $ 201068 $  201068 $       0  138.4  100%
+   240   787 long_extended           61% $ 175296 $  175296 $       0  120.5  100%
+   230   302 long_extended           99% $ 164722 $  164722 $       0  168.1  100%
+    37   385 short_extended          94% $ 145026 $  145026 $       0  134.7  100%
+     9   193 short_extended          95% $ 124467 $  124467 $       0  130.4  100%
+   248   357 long_extended           90% $ 124128 $  124128 $       0  103.8  100%
+    82   193 short_extended          96% $ 107344 $  107344 $       0  156.3  100%
+   110   318 long_extended           72% $  96209 $   96209 $       0   88.1   99%
+    85   128 short_extended          79% $  94872 $   94872 $       0  148.0  100%
+    98   538 long_extended           57% $  81000 $   81000 $       0  142.9  100%
+    26   240 long_extended           55% $  80867 $   80867 $       0  117.0  100%
+    97   406 short_extended          66% $  80590 $   80590 $       0  148.2  100%
+   105   279 short_extended          85% $  80358 $   80358 $       0  118.5  100%
+   215   371 long_extended           64% $  70700 $   70700 $       0  103.2   99%
+    15   127 short_extended          85% $  67006 $   67006 $       0  137.3  100%
+   120   147 short_extended          78% $  61615 $   61615 $       0  113.3  100%
+    39    93 short_extended          89% $  59392 $   59392 $       0  139.5  100%
+   141   102 long_extended           88% $  55558 $   55558 $       0  126.5  100%
+    27   239 short_extended          59% $  51780 $   51780 $       0   90.9  100%
+    51   165 short_extended          68% $  51673 $   51673 $       0  179.3  100%
+   102   227 long_extended           62% $  49898 $   49898 $       0   92.3   99%
+    54   184 short_extended          66% $  44775 $   44775 $       0  138.7  100%
+    95   210 long_extended           54% $  41215 $   41215 $       0  151.4  100%
 
   Tree Rules:
-|--- 1h_velocity <= -8.12
-|   |--- 1m_z_se <= -2.00
-|   |   |--- 15m_dir_vol <= -0.84
-|   |   |   |--- 1D_z_se <= -1.14
-|   |   |   |   |--- class: 3
-|   |   |   |--- 1D_z_se >  -1.14
-|   |   |   |   |--- 1D_velocity <= -64.38
-|   |   |   |   |   |--- class: 3
-|   |   |   |   |--- 1D_velocity >  -64.38
-|   |   |   |   |   |--- 15s_velocity <= -5.38
-|   |   |   |   |   |   |--- class: 3
-|   |   |   |   |   |--- 15s_velocity >  -5.38
-|   |   |   |   |   |   |--- 1D_p_at_center <= 0.73
-|   |   |   |   |   |   |   |--- class: 3
-|   |   |   |   |   |   |--- 1D_p_at_center >  0.73
-|   |   |   |   |   |   |   |--- class: 3
-|   |   |--- 15m_dir_vol >  -0.84
-|   |   |   |--- 15s_dmi_diff <= 1.14
-|   |   |   |   |--- 1D_velocity <= -300.75
-|   |   |   |   |   |--- class: 7
-|   |   |   |   |--- 1D_velocity >  -300.75
-|   |   |   |   |   |--- 1m_dmi_diff <= -5.97
-|   |   |   |   |   |   |--- 1h_hurst <= 0.80
-|   |   |   |   |   |   |   |--- 1h_variance_ratio <= 0.48
+|--- 1D_velocity <= 53.25
+|   |--- 1h_dir_vol <= -0.25
+|   |   |--- time_of_day <= 0.86
+|   |   |   |--- 15m_dmi_diff <= -12.26
+|   |   |   |   |--- 1D_velocity <= -191.00
+|   |   |   |   |   |--- 1h_velocity <= -56.12
+|   |   |   |   |   |   |--- 1h_hurst <= 0.79
+|   |   |   |   |   |   |   |--- 15s_p_at_center <= 0.07
+|   |   |   |   |   |   |   |   |--- class: 7
+|   |   |   |   |   |   |   |--- 15s_p_at_center >  0.07
+|   |   |   |   |   |   |   |   |--- class: 7
+|   |   |   |   |   |   |--- 1h_hurst >  0.79
+|   |   |   |   |   |   |   |--- 1h_wick_ratio <= 0.39
+|   |   |   |   |   |   |   |   |--- class: 7
+|   |   |   |   |   |   |   |--- 1h_wick_ratio >  0.39
 |   |   |   |   |   |   |   |   |--- class: 3
-|   |   |   |   |   |   |   |--- 1h_variance_ratio >  0.48
+|   |   |   |   |   |--- 1h_velocity >  -56.12
+|   |   |   |   |   |   |--- 1D_z_se <= -0.87
+|   |   |   |   |   |   |   |--- 1D_hurst <= 0.78
+|   |   |   |   |   |   |   |   |--- class: 7
+|   |   |   |   |   |   |   |--- 1D_hurst >  0.78
 |   |   |   |   |   |   |   |   |--- class: 3
-|   |   |   |   |   |   |--- 1h_hurst >  0.80
+|   |   |   |   |   |   |--- 1D_z_se >  -0.87
+|   |   |   |   |   |   |   |--- 15m_variance_ratio <= 0.70
+|   |   |   |   |   |   |   |   |--- class: 3
+|   |   |   |   |   |   |   |--- 15m_variance_ratio >  0.70
+|   |   |   |   |   |   |   |   |--- class: 7
+|   |   |   |   |--- 1D_velocity >  -191.00
+|   |   |   |   |   |--- 1m_p_at_center <= 0.12
+|   |   |   |   |   |   |--- 1h_variance_ratio <= 0.23
+|   |   |   |   |   |   |   |--- 1D_bar_range <= 969.50
+|   |   |   |   |   |   |   |   |--- class: 7
+|   |   |   |   |   |   |   |--- 1D_bar_range >  969.50
+|   |   |   |   |   |   |   |   |--- class: 7
+|   |   |   |   |   |   |--- 1h_variance_ratio >  0.23
+|   |   |   |   |   |   |   |--- 1h_dmi_diff <= -15.69
+|   |   |   |   |   |   |   |   |--- class: 3
+|   |   |   |   |   |   |   |--- 1h_dmi_diff >  -15.69
+|   |   |   |   |   |   |   |   |--- class: 7
+|   |   |   |   |   |--- 1m_p_at_center >  0.12
+|   |   |   |   |   |   |--- time_of_day <= 0.41
 |   |   |   |   |   |   |   |--- class: 3
-|   |   |   |   |   |--- 1m_dmi_diff >  -5.97
+|   |   |   |   |   |   |--- time_of_day >  0.41
+|   |   |   |   |   |   |   |--- class: 3
+|   |   |   |--- 15m_dmi_diff >  -12.26
+|   |   |   |   |--- 1h_wick_ratio <= 0.45
+|   |   |   |   |   |--- 15s_dir_vol <= -5.30
 |   |   |   |   |   |   |--- class: 7
-|   |   |   |--- 15s_dmi_diff >  1.14
-|   |   |   |   |--- class: 7
-|   |--- 1m_z_se >  -2.00
-|   |   |--- 5m_dmi_diff <= -4.56
-|   |   |   |--- 1h_wick_ratio <= 0.27
-|   |   |   |   |--- time_of_day <= 0.95
-|   |   |   |   |   |--- 15m_p_at_center <= 0.46
-|   |   |   |   |   |   |--- 1h_hurst <= 0.80
-|   |   |   |   |   |   |   |--- 15s_hurst <= 0.56
+|   |   |   |   |   |--- 15s_dir_vol >  -5.30
+|   |   |   |   |   |   |--- 1D_variance_ratio <= 0.59
+|   |   |   |   |   |   |   |--- 1D_dmi_gap <= 0.96
 |   |   |   |   |   |   |   |   |--- class: 7
-|   |   |   |   |   |   |   |--- 15s_hurst >  0.56
+|   |   |   |   |   |   |   |--- 1D_dmi_gap >  0.96
 |   |   |   |   |   |   |   |   |--- class: 7
-|   |   |   |   |   |   |--- 1h_hurst >  0.80
-|   |   |   |   |   |   |   |--- 1h_p_at_center <= 0.19
+|   |   |   |   |   |   |--- 1D_variance_ratio >  0.59
+|   |   |   |   |   |   |   |--- 1h_z_se <= -0.69
 |   |   |   |   |   |   |   |   |--- class: 7
-|   |   |   |   |   |   |   |--- 1h_p_at_center >  0.19
-|   |   |   |   |   |   |   |   |--- class: 3
-|   |   |   |   |   |--- 15m_p_at_center >  0.46
-|   |   |   |   |   |   |--- 1m_hurst <= 0.61
-|   |   |   |   |   |   |   |--- 15m_dir_vol <= -0.35
+|   |   |   |   |   |   |   |--- 1h_z_se >  -0.69
 |   |   |   |   |   |   |   |   |--- class: 7
-|   |   |   |   |   |   |   |--- 15m_dir_vol >  -0.35
-|   |   |   |   |   |   |   |   |--- class: 7
-|   |   |   |   |   |   |--- 1m_hurst >  0.61
-|   |   |   |   |   |   |   |--- 1h_hurst <= 0.61
-|   |   |   |   |   |   |   |   |--- class: 7
-|   |   |   |   |   |   |   |--- 1h_hurst >  0.61
-|   |   |   |   |   |   |   |   |--- class: 7
-|   |   |   |   |--- time_of_day >  0.95
-  ... (269 more lines)
+|   |   |   |   |--- 1h_wick_ratio >  0.45
+  ... (323 more lines)

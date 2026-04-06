@@ -1,1042 +1,1272 @@
-BAYESIAN BOOK v9 — 104 leaves
+BAYESIAN BOOK v9 — 127 leaves
 ============================================================
 
-Leaf 4 (tree: long_extended) — confidence: 46% | evidence: 26 trades
+Leaf 8 (tree: short_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior=  9% → post=  7% (-2%)  #
-    same_at_exit           prior=  2% = post=  1% (-1%)  
-    same_extended          prior= 16% → post= 17% (+2%)  ###
-    counter_early          prior=  2% = post=  1% (-1%)  
-    counter_at_exit        prior=  3% → post=  2% (-1%)  
-    counter_extended       prior= 69% → post= 73% (+3%)  ##############
-  EXIT BARS: same=37.7 (prior=35.5) | counter=35.8 (prior=50.2)
-
-Leaf 6 (tree: long_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior=  9% = post=  9% (+0%)  #
+    same_early             prior= 18% = post= 18% (+0%)  ###
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 17% = post= 17% (+0%)  ###
-    counter_early          prior=  3% = post=  3% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 67% = post= 67% (+0%)  #############
-  EXIT BARS: same=34.6 (prior=34.6) | counter=44.9 (prior=44.9)
+    same_extended          prior= 40% = post= 40% (+0%)  ########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  5% = post=  5% (+0%)  
+    counter_extended       prior= 34% = post= 34% (+0%)  ######
+  EXIT BARS: same=122.8 (prior=122.8) | counter=96.8 (prior=96.8)
 
-Leaf 8 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+Leaf 9 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  5% = post=  5% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 41% = post= 41% (+0%)  ########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 49% = post= 49% (+0%)  #########
+  EXIT BARS: same=156.5 (prior=156.5) | counter=165.7 (prior=165.7)
+
+Leaf 11 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  3% = post=  3% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 36% = post= 36% (+0%)  #######
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 56% = post= 56% (+0%)  ###########
+  EXIT BARS: same=115.3 (prior=115.3) | counter=125.1 (prior=125.1)
+
+Leaf 12 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  6% = post=  6% (+0%)  #
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 33% = post= 33% (+0%)  ######
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 56% = post= 56% (+0%)  ###########
+  EXIT BARS: same=151.6 (prior=151.6) | counter=97.4 (prior=97.4)
+
+Leaf 15 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  6% = post=  6% (+0%)  #
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 42% = post= 42% (+0%)  ########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 47% = post= 47% (+0%)  #########
+  EXIT BARS: same=175.1 (prior=175.1) | counter=183.4 (prior=183.4)
+
+Leaf 16 (tree: short_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
     same_early             prior= 13% = post= 13% (+0%)  ##
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 20% = post= 20% (+0%)  ###
-    counter_early          prior=  4% = post=  4% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 59% = post= 59% (+0%)  ###########
-  EXIT BARS: same=39.3 (prior=39.3) | counter=34.0 (prior=34.0)
+    same_extended          prior= 33% = post= 33% (+0%)  ######
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  4% = post=  4% (+0%)  
+    counter_extended       prior= 47% = post= 47% (+0%)  #########
+  EXIT BARS: same=153.5 (prior=153.5) | counter=167.7 (prior=167.7)
 
-Leaf 10 (tree: long_extended) — confidence: 21% | evidence: 8 trades
+Leaf 18 (tree: long_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior=  9% = post= 10% (+1%)  #
-    same_at_exit           prior=  2% = post=  1% (-0%)  
-    same_extended          prior= 25% = post= 25% (+0%)  ####
-    counter_early          prior=  3% = post=  3% (-1%)  
-    counter_at_exit        prior=  2% = post=  2% (-0%)  
-    counter_extended       prior= 60% = post= 60% (+1%)  ############
-  EXIT BARS: same=38.3 (prior=41.8) | counter=34.8 (prior=35.3)
-
-Leaf 11 (tree: long_extended) — confidence: 19% | evidence: 7 trades
-  REGRET PROFILE:
-    same_early             prior= 12% → post= 10% (-2%)  #
-    same_at_exit           prior=  2% = post=  2% (-0%)  
-    same_extended          prior= 20% → post= 16% (-3%)  ###
-    counter_early          prior=  3% = post=  2% (-0%)  
-    counter_at_exit        prior=  2% = post=  2% (-0%)  
-    counter_extended       prior= 61% → post= 68% (+7%)  #############
-  EXIT BARS: same=32.5 (prior=35.4) | counter=40.8 (prior=42.1)
-
-Leaf 14 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 12% = post= 12% (+0%)  ##
+    same_early             prior=  7% = post=  7% (+0%)  #
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 18% = post= 18% (+0%)  ###
-    counter_early          prior=  3% = post=  3% (+0%)  
+    same_extended          prior= 36% = post= 36% (+0%)  #######
+    counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 63% = post= 63% (+0%)  ############
-  EXIT BARS: same=28.1 (prior=28.1) | counter=44.6 (prior=44.6)
+    counter_extended       prior= 52% = post= 52% (+0%)  ##########
+  EXIT BARS: same=178.0 (prior=178.0) | counter=172.0 (prior=172.0)
 
-Leaf 18 (tree: long_extended) — confidence: 33% | evidence: 15 trades
+Leaf 19 (tree: short_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior= 17% → post= 20% (+3%)  ####
-    same_at_exit           prior=  2% = post=  1% (-0%)  
-    same_extended          prior= 25% → post= 21% (-4%)  ####
-    counter_early          prior=  4% → post=  7% (+3%)  #
-    counter_at_exit        prior=  2% = post=  2% (-1%)  
-    counter_extended       prior= 50% → post= 49% (-1%)  #########
-  EXIT BARS: same=26.2 (prior=30.1) | counter=32.1 (prior=35.0)
-
-Leaf 19 (tree: long_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 17% = post= 17% (+0%)  ###
+    same_early             prior= 15% = post= 15% (+0%)  ###
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 22% = post= 22% (+0%)  ####
-    counter_early          prior=  4% = post=  4% (+0%)  
+    same_extended          prior= 33% = post= 33% (+0%)  ######
+    counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 54% = post= 54% (+0%)  ##########
-  EXIT BARS: same=28.1 (prior=28.1) | counter=33.4 (prior=33.4)
+    counter_extended       prior= 47% = post= 47% (+0%)  #########
+  EXIT BARS: same=160.7 (prior=160.7) | counter=145.5 (prior=145.5)
 
-Leaf 20 (tree: short_extended) — confidence: 25% | evidence: 10 trades
+Leaf 23 (tree: short_extended) — confidence: 19% | evidence: 7 trades
   REGRET PROFILE:
-    same_early             prior= 10% → post= 19% (+9%)  ###
-    same_at_exit           prior=  2% = post=  2% (-0%)  
-    same_extended          prior= 26% → post= 22% (-4%)  ####
+    same_early             prior=  5% = post=  4% (-1%)  
+    same_at_exit           prior=  2% = post=  1% (-0%)  
+    same_extended          prior= 46% → post= 55% (+9%)  ###########
+    counter_early          prior=  2% = post=  1% (-0%)  
+    counter_at_exit        prior=  2% = post=  1% (-0%)  
+    counter_extended       prior= 45% → post= 37% (-8%)  #######
+  EXIT BARS: same=234.1 (prior=210.2) | counter=229.1 (prior=220.2)
+
+Leaf 24 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  2% = post=  2% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 46% = post= 46% (+0%)  #########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 48% = post= 48% (+0%)  #########
+  EXIT BARS: same=267.6 (prior=267.6) | counter=225.4 (prior=225.4)
+
+Leaf 26 (tree: long_extended) — confidence: 27% | evidence: 11 trades
+  REGRET PROFILE:
+    same_early             prior=  5% → post=  3% (-1%)  
+    same_at_exit           prior=  2% = post=  1% (-0%)  
+    same_extended          prior= 41% → post= 38% (-4%)  #######
     counter_early          prior=  3% = post=  2% (-1%)  
     counter_at_exit        prior=  2% = post=  1% (-0%)  
-    counter_extended       prior= 58% → post= 54% (-4%)  ##########
-  EXIT BARS: same=29.1 (prior=32.0) | counter=34.4 (prior=35.6)
+    counter_extended       prior= 48% → post= 54% (+6%)  ##########
+  EXIT BARS: same=194.9 (prior=185.4) | counter=139.3 (prior=166.7)
 
-Leaf 21 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+Leaf 27 (tree: short_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior= 12% = post= 12% (+0%)  ##
+    same_early             prior= 10% = post= 10% (+0%)  ##
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior=  8% = post=  8% (+0%)  #
-    counter_early          prior=  4% = post=  4% (+0%)  
-    counter_at_exit        prior=  3% = post=  3% (+0%)  
-    counter_extended       prior= 72% = post= 72% (+0%)  ##############
-  EXIT BARS: same=24.7 (prior=24.7) | counter=48.0 (prior=48.0)
-
-Leaf 22 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 12% = post= 12% (+0%)  ##
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 11% = post= 11% (+0%)  ##
-    counter_early          prior=  3% = post=  3% (+0%)  
-    counter_at_exit        prior=  3% = post=  3% (+0%)  
-    counter_extended       prior= 71% = post= 71% (+0%)  ##############
-  EXIT BARS: same=26.7 (prior=26.7) | counter=51.9 (prior=51.9)
-
-Leaf 29 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 30% = post= 30% (+0%)  ######
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 43% = post= 43% (+0%)  ########
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  6% = post=  6% (+0%)  #
-    counter_extended       prior= 18% = post= 18% (+0%)  ###
-  EXIT BARS: same=36.6 (prior=36.6) | counter=33.2 (prior=33.2)
-
-Leaf 30 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 39% = post= 39% (+0%)  #######
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 43% = post= 43% (+0%)  ########
+    same_extended          prior= 41% = post= 41% (+0%)  ########
     counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 13% = post= 13% (+0%)  ##
-  EXIT BARS: same=44.1 (prior=44.1) | counter=28.4 (prior=28.4)
+    counter_extended       prior= 43% = post= 43% (+0%)  ########
+  EXIT BARS: same=165.7 (prior=165.7) | counter=163.8 (prior=163.8)
 
-Leaf 32 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+Leaf 29 (tree: long_extended) — confidence: 14% | evidence: 5 trades
   REGRET PROFILE:
-    same_early             prior= 49% = post= 49% (+0%)  #########
-    same_at_exit           prior=  6% = post=  6% (+0%)  #
-    same_extended          prior= 21% = post= 21% (+0%)  ####
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 21% = post= 21% (+0%)  ####
-  EXIT BARS: same=53.2 (prior=53.2) | counter=64.9 (prior=64.9)
+    same_early             prior=  2% = post=  1% (-0%)  
+    same_at_exit           prior=  2% = post=  1% (-0%)  
+    same_extended          prior= 92% → post= 86% (-7%)  #################
+    counter_early          prior=  2% = post=  1% (-0%)  
+    counter_at_exit        prior=  2% = post=  1% (-0%)  
+    counter_extended       prior=  2% → post=  9% (+8%)  #
+  EXIT BARS: same=344.3 (prior=355.0) | counter=46.5 (prior=7.0)
 
-Leaf 33 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+Leaf 33 (tree: short_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior= 52% = post= 52% (+0%)  ##########
+    same_early             prior=  2% = post=  2% (+0%)  
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 12% = post= 12% (+0%)  ##
+    same_extended          prior= 35% = post= 35% (+0%)  ######
     counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 32% = post= 32% (+0%)  ######
-  EXIT BARS: same=29.7 (prior=29.7) | counter=44.8 (prior=44.8)
+    counter_extended       prior= 59% = post= 59% (+0%)  ###########
+  EXIT BARS: same=138.8 (prior=138.8) | counter=177.8 (prior=177.8)
 
 Leaf 36 (tree: short_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior= 40% = post= 40% (+0%)  ########
+    same_early             prior=  9% = post=  9% (+0%)  #
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 53% = post= 53% (+0%)  ##########
+    same_extended          prior= 38% = post= 38% (+0%)  #######
     counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior=  2% = post=  2% (+0%)  
-  EXIT BARS: same=61.0 (prior=61.0) | counter=20.1 (prior=20.1)
+    counter_extended       prior= 49% = post= 49% (+0%)  #########
+  EXIT BARS: same=126.6 (prior=126.6) | counter=181.0 (prior=181.0)
 
 Leaf 37 (tree: short_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior= 43% = post= 43% (+0%)  ########
+    same_early             prior=  4% = post=  4% (+0%)  
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 29% = post= 29% (+0%)  #####
+    same_extended          prior= 36% = post= 36% (+0%)  #######
     counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 22% = post= 22% (+0%)  ####
-  EXIT BARS: same=37.5 (prior=37.5) | counter=39.4 (prior=39.4)
+    counter_extended       prior= 55% = post= 55% (+0%)  ###########
+  EXIT BARS: same=170.1 (prior=170.1) | counter=184.1 (prior=184.1)
 
-Leaf 39 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+Leaf 39 (tree: short_extended) — confidence: 57% | evidence: 40 trades
   REGRET PROFILE:
-    same_early             prior= 43% = post= 43% (+0%)  ########
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 43% = post= 43% (+0%)  ########
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior=  9% = post=  9% (+0%)  #
-  EXIT BARS: same=47.5 (prior=47.5) | counter=19.5 (prior=19.5)
-
-Leaf 40 (tree: short_extended) — confidence: 14% | evidence: 5 trades
-  REGRET PROFILE:
-    same_early             prior= 40% → post= 35% (-5%)  ######
-    same_at_exit           prior=  2% = post=  1% (-0%)  
-    same_extended          prior= 47% → post= 54% (+7%)  ##########
-    counter_early          prior=  2% = post=  1% (-0%)  
-    counter_at_exit        prior=  2% = post=  1% (-0%)  
-    counter_extended       prior=  8% → post=  7% (-1%)  #
-  EXIT BARS: same=45.5 (prior=49.1) | counter=26.4 (prior=29.8)
-
-Leaf 41 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 77% = post= 77% (+0%)  ###############
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior=  2% = post=  2% (+0%)  
-    counter_early          prior=  9% = post=  9% (+0%)  #
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior=  9% = post=  9% (+0%)  #
-  EXIT BARS: same=9.4 (prior=9.4) | counter=11.8 (prior=11.8)
-
-Leaf 46 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 42% = post= 42% (+0%)  ########
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 35% = post= 35% (+0%)  #######
-    counter_early          prior=  4% = post=  4% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 16% = post= 16% (+0%)  ###
-  EXIT BARS: same=63.2 (prior=63.2) | counter=42.1 (prior=42.1)
-
-Leaf 47 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 35% = post= 35% (+0%)  ######
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 32% = post= 32% (+0%)  ######
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 29% = post= 29% (+0%)  #####
-  EXIT BARS: same=45.8 (prior=45.8) | counter=43.5 (prior=43.5)
-
-Leaf 49 (tree: long_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 24% = post= 24% (+0%)  ####
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 20% = post= 20% (+0%)  ####
-    counter_early          prior=  3% = post=  3% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 50% = post= 50% (+0%)  #########
-  EXIT BARS: same=47.6 (prior=47.6) | counter=71.9 (prior=71.9)
-
-Leaf 50 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 45% = post= 45% (+0%)  ########
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 16% = post= 16% (+0%)  ###
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 35% = post= 35% (+0%)  #######
-  EXIT BARS: same=43.0 (prior=43.0) | counter=47.8 (prior=47.8)
-
-Leaf 53 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 20% = post= 20% (+0%)  ###
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior=  2% = post=  2% (+0%)  
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 74% = post= 74% (+0%)  ##############
-  EXIT BARS: same=4.2 (prior=4.2) | counter=54.0 (prior=54.0)
-
-Leaf 54 (tree: long_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 18% = post= 18% (+0%)  ###
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 18% = post= 18% (+0%)  ###
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 60% = post= 60% (+0%)  ############
-  EXIT BARS: same=43.8 (prior=43.8) | counter=61.5 (prior=61.5)
-
-Leaf 55 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 35% = post= 35% (+0%)  #######
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior=  6% = post=  6% (+0%)  #
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 54% = post= 54% (+0%)  ##########
-  EXIT BARS: same=45.5 (prior=45.5) | counter=59.6 (prior=59.6)
-
-Leaf 59 (tree: short_extended) — confidence: 39% | evidence: 19 trades
-  REGRET PROFILE:
-    same_early             prior= 34% → post= 21% (-12%)  ####
-    same_at_exit           prior=  3% = post=  2% (-1%)  
-    same_extended          prior= 34% → post= 39% (+5%)  #######
+    same_early             prior=  6% → post= 12% (+7%)  ##
+    same_at_exit           prior=  2% = post=  1% (-1%)  
+    same_extended          prior= 38% → post= 62% (+24%)  ############
     counter_early          prior=  2% = post=  1% (-1%)  
     counter_at_exit        prior=  2% = post=  1% (-1%)  
-    counter_extended       prior= 26% → post= 36% (+10%)  #######
-  EXIT BARS: same=36.3 (prior=45.8) | counter=31.9 (prior=34.9)
+    counter_extended       prior= 52% → post= 24% (-29%)  ####
+  EXIT BARS: same=226.0 (prior=147.4) | counter=111.4 (prior=166.7)
 
-Leaf 60 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+Leaf 40 (tree: short_extended) — confidence: 59% | evidence: 43 trades
   REGRET PROFILE:
-    same_early             prior= 28% = post= 28% (+0%)  #####
+    same_early             prior=  4% → post=  8% (+4%)  #
+    same_at_exit           prior=  2% = post=  1% (-1%)  
+    same_extended          prior= 44% → post= 66% (+23%)  #############
+    counter_early          prior=  2% = post=  1% (-1%)  
+    counter_at_exit        prior=  2% = post=  1% (-1%)  
+    counter_extended       prior= 48% → post= 24% (-25%)  ####
+  EXIT BARS: same=105.6 (prior=160.4) | counter=90.2 (prior=183.9)
+
+Leaf 44 (tree: short_extended) — confidence: 17% | evidence: 6 trades
+  REGRET PROFILE:
+    same_early             prior=  6% = post=  5% (-1%)  #
+    same_at_exit           prior=  2% = post=  1% (-0%)  
+    same_extended          prior= 38% → post= 32% (-6%)  ######
+    counter_early          prior=  2% = post=  1% (-0%)  
+    counter_at_exit        prior=  2% = post=  1% (-0%)  
+    counter_extended       prior= 52% → post= 59% (+7%)  ###########
+  EXIT BARS: same=172.2 (prior=203.9) | counter=230.5 (prior=205.9)
+
+Leaf 45 (tree: long_extended) — confidence: 45% | evidence: 25 trades
+  REGRET PROFILE:
+    same_early             prior=  2% = post=  1% (-1%)  
+    same_at_exit           prior=  2% = post=  1% (-1%)  
+    same_extended          prior= 56% → post= 73% (+17%)  ##############
+    counter_early          prior=  2% = post=  1% (-1%)  
+    counter_at_exit        prior=  2% = post=  1% (-1%)  
+    counter_extended       prior= 38% → post= 24% (-15%)  ####
+  EXIT BARS: same=256.6 (prior=201.1) | counter=126.2 (prior=160.5)
+
+Leaf 47 (tree: short_extended) — confidence: 68% | evidence: 63 trades
+  REGRET PROFILE:
+    same_early             prior=  4% → post= 14% (+10%)  ##
+    same_at_exit           prior=  2% = post=  1% (-1%)  
+    same_extended          prior= 43% → post= 57% (+13%)  ###########
+    counter_early          prior=  2% = post=  1% (-1%)  
+    counter_at_exit        prior=  2% = post=  1% (-1%)  
+    counter_extended       prior= 48% → post= 28% (-20%)  #####
+  EXIT BARS: same=272.8 (prior=120.0) | counter=113.3 (prior=129.7)
+
+Leaf 48 (tree: long_extended) — confidence: 42% | evidence: 22 trades
+  REGRET PROFILE:
+    same_early             prior= 14% → post=  8% (-6%)  #
+    same_at_exit           prior=  2% = post=  1% (-1%)  
+    same_extended          prior= 55% → post= 40% (-15%)  ########
+    counter_early          prior=  2% = post=  1% (-1%)  
+    counter_at_exit        prior=  2% = post=  1% (-1%)  
+    counter_extended       prior= 26% → post= 49% (+22%)  #########
+  EXIT BARS: same=166.3 (prior=177.5) | counter=200.0 (prior=167.8)
+
+Leaf 51 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  5% = post=  5% (+0%)  
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 27% = post= 27% (+0%)  #####
+    same_extended          prior= 30% = post= 30% (+0%)  #####
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 61% = post= 61% (+0%)  ############
+  EXIT BARS: same=162.9 (prior=162.9) | counter=233.5 (prior=233.5)
+
+Leaf 52 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  5% = post=  5% (+0%)  #
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 46% = post= 46% (+0%)  #########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 45% = post= 45% (+0%)  ########
+  EXIT BARS: same=168.2 (prior=168.2) | counter=175.6 (prior=175.6)
+
+Leaf 54 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  3% = post=  3% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 52% = post= 52% (+0%)  ##########
     counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
     counter_extended       prior= 40% = post= 40% (+0%)  ########
-  EXIT BARS: same=39.1 (prior=39.1) | counter=50.1 (prior=50.1)
+  EXIT BARS: same=242.2 (prior=242.2) | counter=216.2 (prior=216.2)
 
-Leaf 64 (tree: short_long) — confidence: 0% | evidence: 0 trades
+Leaf 55 (tree: short_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior= 65% = post= 65% (+0%)  #############
-    same_at_exit           prior=  6% = post=  6% (+0%)  #
-    same_extended          prior=  2% = post=  2% (+0%)  
-    counter_early          prior= 11% = post= 11% (+0%)  ##
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 15% = post= 15% (+0%)  ###
-  EXIT BARS: same=3.8 (prior=3.8) | counter=7.6 (prior=7.6)
-
-Leaf 70 (tree: long_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 29% = post= 29% (+0%)  #####
+    same_early             prior=  7% = post=  7% (+0%)  #
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 29% = post= 29% (+0%)  #####
+    same_extended          prior= 41% = post= 41% (+0%)  ########
     counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 36% = post= 36% (+0%)  #######
-  EXIT BARS: same=43.8 (prior=43.8) | counter=50.3 (prior=50.3)
+    counter_extended       prior= 47% = post= 47% (+0%)  #########
+  EXIT BARS: same=168.0 (prior=168.0) | counter=168.6 (prior=168.6)
 
-Leaf 71 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+Leaf 58 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior= 36% = post= 36% (+0%)  #######
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 32% = post= 32% (+0%)  ######
+    counter_early          prior=  4% = post=  4% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 25% = post= 25% (+0%)  ####
+  EXIT BARS: same=39.1 (prior=39.1) | counter=24.7 (prior=24.7)
+
+Leaf 62 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior= 35% = post= 35% (+0%)  ######
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 26% = post= 26% (+0%)  #####
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 35% = post= 35% (+0%)  ######
+  EXIT BARS: same=25.1 (prior=25.1) | counter=28.8 (prior=28.8)
+
+Leaf 63 (tree: short_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
     same_early             prior= 18% = post= 18% (+0%)  ###
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 59% = post= 59% (+0%)  ###########
+    same_extended          prior= 21% = post= 21% (+0%)  ####
     counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 18% = post= 18% (+0%)  ###
-  EXIT BARS: same=51.5 (prior=51.5) | counter=28.3 (prior=28.3)
+    counter_extended       prior= 57% = post= 57% (+0%)  ###########
+  EXIT BARS: same=33.5 (prior=33.5) | counter=36.2 (prior=36.2)
 
-Leaf 73 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+Leaf 64 (tree: short_extended) — confidence: 67% | evidence: 62 trades
   REGRET PROFILE:
-    same_early             prior= 49% = post= 49% (+0%)  #########
-    same_at_exit           prior=  5% = post=  5% (+0%)  #
-    same_extended          prior= 34% = post= 34% (+0%)  ######
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior=  9% = post=  9% (+0%)  #
-  EXIT BARS: same=45.8 (prior=45.8) | counter=27.2 (prior=27.2)
+    same_early             prior= 38% = post= 37% (-1%)  #######
+    same_at_exit           prior=  2% → post=  6% (+4%)  #
+    same_extended          prior= 15% → post= 24% (+9%)  ####
+    counter_early          prior= 15% → post=  8% (-7%)  #
+    counter_at_exit        prior=  2% = post=  1% (-1%)  
+    counter_extended       prior= 29% → post= 24% (-5%)  ####
+  EXIT BARS: same=37.1 (prior=32.5) | counter=22.1 (prior=18.2)
 
-Leaf 74 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+Leaf 66 (tree: long_extended) — confidence: 30% | evidence: 13 trades
   REGRET PROFILE:
-    same_early             prior= 30% = post= 30% (+0%)  #####
+    same_early             prior= 17% → post= 12% (-5%)  ##
+    same_at_exit           prior=  2% = post=  1% (-0%)  
+    same_extended          prior= 25% → post= 46% (+21%)  #########
+    counter_early          prior=  2% = post=  1% (-0%)  
+    counter_at_exit        prior=  2% = post=  1% (-0%)  
+    counter_extended       prior= 53% → post= 38% (-15%)  #######
+  EXIT BARS: same=66.9 (prior=41.0) | counter=36.5 (prior=33.0)
+
+Leaf 68 (tree: short_extended) — confidence: 47% | evidence: 27 trades
+  REGRET PROFILE:
+    same_early             prior= 29% → post= 34% (+5%)  ######
+    same_at_exit           prior=  2% = post=  1% (-1%)  
+    same_extended          prior= 19% → post= 30% (+12%)  ######
+    counter_early          prior=  4% → post=  7% (+3%)  #
+    counter_at_exit        prior=  2% = post=  1% (-1%)  
+    counter_extended       prior= 45% → post= 26% (-19%)  #####
+  EXIT BARS: same=22.6 (prior=24.3) | counter=18.7 (prior=30.9)
+
+Leaf 69 (tree: long_extended) — confidence: 57% | evidence: 40 trades
+  REGRET PROFILE:
+    same_early             prior= 24% → post= 22% (-2%)  ####
+    same_at_exit           prior=  5% → post=  2% (-3%)  
+    same_extended          prior=  9% = post=  8% (-1%)  #
+    counter_early          prior=  9% → post=  7% (-2%)  #
+    counter_at_exit        prior=  2% → post=  3% (+2%)  
+    counter_extended       prior= 51% → post= 57% (+6%)  ###########
+  EXIT BARS: same=18.4 (prior=26.0) | counter=38.6 (prior=38.2)
+
+Leaf 70 (tree: short_fast) — confidence: 63% | evidence: 52 trades
+  REGRET PROFILE:
+    same_early             prior= 52% → post= 49% (-4%)  #########
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 58% = post= 58% (+0%)  ###########
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior=  7% = post=  7% (+0%)  #
-  EXIT BARS: same=44.0 (prior=44.0) | counter=16.1 (prior=16.1)
+    same_extended          prior=  4% → post=  2% (-3%)  
+    counter_early          prior= 20% → post= 27% (+6%)  #####
+    counter_at_exit        prior=  2% → post=  3% (+1%)  
+    counter_extended       prior= 20% → post= 18% (-2%)  ###
+  EXIT BARS: same=2.7 (prior=4.4) | counter=4.2 (prior=4.1)
 
-Leaf 77 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+Leaf 74 (tree: long_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior=  2% = post=  2% (+0%)  
+    same_early             prior= 21% = post= 21% (+0%)  ####
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 92% = post= 92% (+0%)  ##################
+    same_extended          prior= 36% = post= 36% (+0%)  #######
     counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior=  2% = post=  2% (+0%)  
-  EXIT BARS: same=37.0 (prior=37.0) | counter=0.0 (prior=0.0)
+    counter_extended       prior= 38% = post= 38% (+0%)  #######
+  EXIT BARS: same=155.2 (prior=155.2) | counter=158.4 (prior=158.4)
 
 Leaf 78 (tree: short_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior=  2% = post=  2% (+0%)  
+    same_early             prior=  4% = post=  4% (+0%)  
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 62% = post= 62% (+0%)  ############
+    same_extended          prior= 42% = post= 42% (+0%)  ########
     counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 32% = post= 32% (+0%)  ######
-  EXIT BARS: same=42.3 (prior=42.3) | counter=42.0 (prior=42.0)
+    counter_extended       prior= 49% = post= 49% (+0%)  #########
+  EXIT BARS: same=207.2 (prior=207.2) | counter=216.6 (prior=216.6)
 
-Leaf 80 (tree: short_extended) — confidence: 14% | evidence: 5 trades
+Leaf 79 (tree: long_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior= 28% → post= 30% (+2%)  #####
-    same_at_exit           prior=  4% = post=  3% (-0%)  
-    same_extended          prior= 60% = post= 60% (-0%)  ############
-    counter_early          prior=  2% = post=  1% (-0%)  
-    counter_at_exit        prior=  2% = post=  1% (-0%)  
-    counter_extended       prior=  5% = post=  4% (-1%)  
-  EXIT BARS: same=49.0 (prior=50.4) | counter=20.3 (prior=20.1)
+    same_early             prior=  5% = post=  5% (+0%)  #
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 38% = post= 38% (+0%)  #######
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 52% = post= 52% (+0%)  ##########
+  EXIT BARS: same=161.8 (prior=161.8) | counter=196.1 (prior=196.1)
 
 Leaf 81 (tree: short_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior= 28% = post= 28% (+0%)  #####
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 55% = post= 55% (+0%)  ##########
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 12% = post= 12% (+0%)  ##
-  EXIT BARS: same=54.1 (prior=54.1) | counter=32.9 (prior=32.9)
-
-Leaf 85 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 35% = post= 35% (+0%)  #######
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 30% = post= 30% (+0%)  ######
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  3% = post=  3% (+0%)  
-    counter_extended       prior= 29% = post= 29% (+0%)  #####
-  EXIT BARS: same=51.6 (prior=51.6) | counter=42.4 (prior=42.4)
-
-Leaf 86 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 17% = post= 17% (+0%)  ###
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 62% = post= 62% (+0%)  ############
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 17% = post= 17% (+0%)  ###
-  EXIT BARS: same=44.2 (prior=44.2) | counter=26.5 (prior=26.5)
-
-Leaf 87 (tree: long_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 24% = post= 24% (+0%)  ####
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 32% = post= 32% (+0%)  ######
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 39% = post= 39% (+0%)  #######
-  EXIT BARS: same=48.2 (prior=48.2) | counter=47.3 (prior=47.3)
-
-Leaf 90 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 33% = post= 33% (+0%)  ######
+    same_early             prior=  2% = post=  2% (+0%)  
     same_at_exit           prior=  2% = post=  2% (+0%)  
     same_extended          prior= 49% = post= 49% (+0%)  #########
     counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 13% = post= 13% (+0%)  ##
-  EXIT BARS: same=44.8 (prior=44.8) | counter=28.9 (prior=28.9)
+    counter_extended       prior= 45% = post= 45% (+0%)  ########
+  EXIT BARS: same=213.8 (prior=213.8) | counter=205.4 (prior=205.4)
 
-Leaf 91 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+Leaf 82 (tree: short_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior= 26% = post= 26% (+0%)  #####
+    same_early             prior=  2% = post=  2% (+0%)  
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 33% = post= 33% (+0%)  ######
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  5% = post=  5% (+0%)  #
-    counter_extended       prior= 33% = post= 33% (+0%)  ######
-  EXIT BARS: same=38.3 (prior=38.3) | counter=39.2 (prior=39.2)
-
-Leaf 93 (tree: short_extended) — confidence: 17% | evidence: 6 trades
-  REGRET PROFILE:
-    same_early             prior= 28% → post= 26% (-2%)  #####
-    same_at_exit           prior=  2% → post=  4% (+2%)  
-    same_extended          prior= 60% → post= 56% (-4%)  ###########
-    counter_early          prior=  2% = post=  2% (-0%)  
-    counter_at_exit        prior=  2% = post=  1% (-0%)  
-    counter_extended       prior=  7% → post= 11% (+4%)  ##
-  EXIT BARS: same=48.4 (prior=50.3) | counter=27.3 (prior=21.9)
-
-Leaf 94 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 21% = post= 21% (+0%)  ####
-    same_at_exit           prior=  4% = post=  4% (+0%)  
-    same_extended          prior= 59% = post= 59% (+0%)  ###########
+    same_extended          prior= 46% = post= 46% (+0%)  #########
     counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 13% = post= 13% (+0%)  ##
-  EXIT BARS: same=54.1 (prior=54.1) | counter=22.8 (prior=22.8)
+    counter_extended       prior= 47% = post= 47% (+0%)  #########
+  EXIT BARS: same=194.6 (prior=194.6) | counter=208.2 (prior=208.2)
 
-Leaf 97 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+Leaf 85 (tree: short_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior= 40% = post= 40% (+0%)  ########
+    same_early             prior=  6% = post=  6% (+0%)  #
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior=  2% = post=  2% (+0%)  
-    counter_early          prior= 15% = post= 15% (+0%)  ##
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 40% = post= 40% (+0%)  ########
-  EXIT BARS: same=16.6 (prior=16.6) | counter=42.6 (prior=42.6)
-
-Leaf 100 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 39% = post= 39% (+0%)  #######
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 44% = post= 44% (+0%)  ########
+    same_extended          prior= 40% = post= 40% (+0%)  #######
     counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 13% = post= 13% (+0%)  ##
-  EXIT BARS: same=37.1 (prior=37.1) | counter=18.1 (prior=18.1)
+    counter_extended       prior= 50% = post= 50% (+0%)  #########
+  EXIT BARS: same=197.6 (prior=197.6) | counter=196.5 (prior=196.5)
 
-Leaf 101 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+Leaf 86 (tree: long_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior= 70% = post= 70% (+0%)  #############
+    same_early             prior=  2% = post=  2% (+0%)  
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 13% = post= 13% (+0%)  ##
-    counter_early          prior= 13% = post= 13% (+0%)  ##
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior=  2% = post=  2% (+0%)  
-  EXIT BARS: same=8.2 (prior=8.2) | counter=6.2 (prior=6.2)
-
-Leaf 102 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 47% = post= 47% (+0%)  #########
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 13% = post= 13% (+0%)  ##
+    same_extended          prior= 43% = post= 43% (+0%)  ########
     counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 36% = post= 36% (+0%)  #######
-  EXIT BARS: same=30.8 (prior=30.8) | counter=28.6 (prior=28.6)
+    counter_extended       prior= 51% = post= 51% (+0%)  ##########
+  EXIT BARS: same=234.2 (prior=234.2) | counter=207.9 (prior=207.9)
 
-Leaf 103 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+Leaf 88 (tree: long_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior= 29% = post= 29% (+0%)  #####
+    same_early             prior=  8% = post=  8% (+0%)  #
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 15% = post= 15% (+0%)  ###
+    same_extended          prior= 50% = post= 50% (+0%)  ##########
+    counter_early          prior=  5% = post=  5% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 34% = post= 34% (+0%)  ######
+  EXIT BARS: same=197.2 (prior=197.2) | counter=134.4 (prior=134.4)
+
+Leaf 89 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  2% = post=  2% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 43% = post= 43% (+0%)  ########
     counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 52% = post= 52% (+0%)  ##########
-  EXIT BARS: same=16.5 (prior=16.5) | counter=30.4 (prior=30.4)
+    counter_extended       prior= 51% = post= 51% (+0%)  ##########
+  EXIT BARS: same=193.5 (prior=193.5) | counter=279.7 (prior=279.7)
 
-Leaf 111 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+Leaf 94 (tree: long_extended) — confidence: 55% | evidence: 37 trades
   REGRET PROFILE:
-    same_early             prior= 28% = post= 28% (+0%)  #####
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 42% = post= 42% (+0%)  ########
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  3% = post=  3% (+0%)  
-    counter_extended       prior= 23% = post= 23% (+0%)  ####
-  EXIT BARS: same=49.8 (prior=49.8) | counter=33.8 (prior=33.8)
-
-Leaf 112 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 24% = post= 24% (+0%)  ####
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 39% = post= 39% (+0%)  #######
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 32% = post= 32% (+0%)  ######
-  EXIT BARS: same=45.6 (prior=45.6) | counter=36.6 (prior=36.6)
-
-Leaf 113 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 19% = post= 19% (+0%)  ###
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 19% = post= 19% (+0%)  ###
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 58% = post= 58% (+0%)  ###########
-  EXIT BARS: same=54.7 (prior=54.7) | counter=44.1 (prior=44.1)
-
-Leaf 116 (tree: long_extended) — confidence: 45% | evidence: 25 trades
-  REGRET PROFILE:
-    same_early             prior= 24% → post= 31% (+7%)  ######
-    same_at_exit           prior=  3% → post=  2% (-1%)  
-    same_extended          prior= 54% → post= 46% (-8%)  #########
+    same_early             prior=  2% → post=  1% (-1%)  
+    same_at_exit           prior=  2% = post=  1% (-1%)  
+    same_extended          prior= 51% → post= 61% (+10%)  ############
     counter_early          prior=  2% = post=  1% (-1%)  
     counter_at_exit        prior=  2% = post=  1% (-1%)  
-    counter_extended       prior= 17% → post= 20% (+3%)  ###
-  EXIT BARS: same=31.3 (prior=43.2) | counter=35.2 (prior=27.8)
+    counter_extended       prior= 42% → post= 36% (-7%)  #######
+  EXIT BARS: same=290.4 (prior=237.6) | counter=222.4 (prior=222.6)
 
-Leaf 117 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+Leaf 95 (tree: long_extended) — confidence: 68% | evidence: 65 trades
   REGRET PROFILE:
-    same_early             prior= 19% = post= 19% (+0%)  ###
+    same_early             prior=  2% = post=  2% (+0%)  
+    same_at_exit           prior=  2% → post=  1% (-1%)  
+    same_extended          prior= 46% → post= 58% (+12%)  ###########
+    counter_early          prior=  2% → post=  1% (-1%)  
+    counter_at_exit        prior=  2% → post=  1% (-1%)  
+    counter_extended       prior= 48% → post= 39% (-9%)  #######
+  EXIT BARS: same=308.2 (prior=209.1) | counter=255.5 (prior=210.1)
+
+Leaf 97 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  2% = post=  2% (+0%)  
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 56% = post= 56% (+0%)  ###########
+    same_extended          prior= 50% = post= 50% (+0%)  ##########
     counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 20% = post= 20% (+0%)  ####
-  EXIT BARS: same=40.7 (prior=40.7) | counter=26.9 (prior=26.9)
+    counter_extended       prior= 43% = post= 43% (+0%)  ########
+  EXIT BARS: same=233.8 (prior=233.8) | counter=225.8 (prior=225.8)
 
-Leaf 119 (tree: long_extended) — confidence: 27% | evidence: 11 trades
+Leaf 98 (tree: long_extended) — confidence: 75% | evidence: 91 trades
   REGRET PROFILE:
-    same_early             prior= 28% → post= 23% (-5%)  ####
-    same_at_exit           prior=  2% → post=  4% (+2%)  
-    same_extended          prior= 45% → post= 47% (+2%)  #########
+    same_early             prior=  2% → post=  0% (-1%)  
+    same_at_exit           prior=  2% → post=  0% (-1%)  
+    same_extended          prior= 48% → post= 51% (+4%)  ##########
+    counter_early          prior=  2% → post=  0% (-1%)  
+    counter_at_exit        prior=  2% → post=  0% (-1%)  
+    counter_extended       prior= 46% → post= 47% (+1%)  #########
+  EXIT BARS: same=324.7 (prior=216.6) | counter=346.7 (prior=214.4)
+
+Leaf 101 (tree: short_extended) — confidence: 89% | evidence: 235 trades
+  REGRET PROFILE:
+    same_early             prior= 11% → post= 15% (+4%)  ###
+    same_at_exit           prior=  2% → post=  1% (-1%)  
+    same_extended          prior= 40% → post= 59% (+20%)  ###########
+    counter_early          prior=  2% = post=  1% (-1%)  
+    counter_at_exit        prior=  2% → post=  0% (-1%)  
+    counter_extended       prior= 44% → post= 24% (-21%)  ####
+  EXIT BARS: same=219.3 (prior=157.3) | counter=137.3 (prior=161.3)
+
+Leaf 102 (tree: long_extended) — confidence: 64% | evidence: 54 trades
+  REGRET PROFILE:
+    same_early             prior= 10% → post=  7% (-3%)  #
+    same_at_exit           prior=  2% = post=  1% (-1%)  
+    same_extended          prior= 41% → post= 31% (-11%)  ######
+    counter_early          prior=  2% → post=  1% (-1%)  
+    counter_at_exit        prior=  2% = post=  1% (-1%)  
+    counter_extended       prior= 43% → post= 60% (+17%)  ############
+  EXIT BARS: same=63.2 (prior=145.6) | counter=177.1 (prior=142.0)
+
+Leaf 104 (tree: long_extended) — confidence: 67% | evidence: 61 trades
+  REGRET PROFILE:
+    same_early             prior=  4% → post= 13% (+9%)  ##
+    same_at_exit           prior=  3% → post=  1% (-2%)  
+    same_extended          prior= 52% → post= 46% (-6%)  #########
+    counter_early          prior=  2% = post=  1% (-1%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 37% = post= 38% (+0%)  #######
+  EXIT BARS: same=173.5 (prior=176.7) | counter=327.9 (prior=159.0)
+
+Leaf 105 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  2% = post=  2% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 50% = post= 50% (+0%)  ##########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 43% = post= 43% (+0%)  ########
+  EXIT BARS: same=216.1 (prior=216.1) | counter=200.3 (prior=200.3)
+
+Leaf 109 (tree: long_extended) — confidence: 41% | evidence: 21 trades
+  REGRET PROFILE:
+    same_early             prior= 14% → post= 18% (+4%)  ###
+    same_at_exit           prior=  2% = post=  1% (-1%)  
+    same_extended          prior= 39% → post= 48% (+9%)  #########
+    counter_early          prior=  3% → post=  2% (-1%)  
+    counter_at_exit        prior=  2% = post=  1% (-1%)  
+    counter_extended       prior= 41% → post= 31% (-10%)  ######
+  EXIT BARS: same=232.3 (prior=149.3) | counter=98.5 (prior=143.1)
+
+Leaf 110 (tree: long_extended) — confidence: 44% | evidence: 24 trades
+  REGRET PROFILE:
+    same_early             prior= 10% → post= 18% (+8%)  ###
+    same_at_exit           prior=  2% = post=  1% (-1%)  
+    same_extended          prior= 40% → post= 27% (-13%)  #####
+    counter_early          prior=  2% = post=  1% (-1%)  
+    counter_at_exit        prior=  2% = post=  1% (-1%)  
+    counter_extended       prior= 45% → post= 53% (+7%)  ##########
+  EXIT BARS: same=102.9 (prior=147.1) | counter=134.4 (prior=135.0)
+
+Leaf 112 (tree: short_extended) — confidence: 21% | evidence: 8 trades
+  REGRET PROFILE:
+    same_early             prior=  3% = post=  2% (-0%)  
+    same_at_exit           prior=  2% = post=  1% (-0%)  
+    same_extended          prior= 51% → post= 53% (+2%)  ##########
     counter_early          prior=  2% = post=  1% (-0%)  
     counter_at_exit        prior=  2% = post=  1% (-0%)  
-    counter_extended       prior= 22% → post= 23% (+1%)  ####
-  EXIT BARS: same=52.5 (prior=50.9) | counter=28.2 (prior=31.7)
+    counter_extended       prior= 42% = post= 41% (-1%)  ########
+  EXIT BARS: same=245.0 (prior=222.6) | counter=221.0 (prior=201.4)
 
-Leaf 120 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+Leaf 113 (tree: long_extended) — confidence: 21% | evidence: 8 trades
   REGRET PROFILE:
-    same_early             prior= 29% = post= 29% (+0%)  #####
-    same_at_exit           prior=  3% = post=  3% (+0%)  
-    same_extended          prior= 57% = post= 57% (+0%)  ###########
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior=  7% = post=  7% (+0%)  #
-  EXIT BARS: same=50.4 (prior=50.4) | counter=16.1 (prior=16.1)
-
-Leaf 121 (tree: long_long) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 65% = post= 65% (+0%)  #############
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior=  2% = post=  2% (+0%)  
-    counter_early          prior= 11% = post= 11% (+0%)  ##
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 20% = post= 20% (+0%)  ###
-  EXIT BARS: same=4.5 (prior=4.5) | counter=2.1 (prior=2.1)
-
-Leaf 126 (tree: long_extended) — confidence: 14% | evidence: 5 trades
-  REGRET PROFILE:
-    same_early             prior= 24% → post= 21% (-3%)  ####
+    same_early             prior= 20% → post= 26% (+6%)  #####
     same_at_exit           prior=  2% = post=  1% (-0%)  
-    same_extended          prior= 37% → post= 43% (+6%)  ########
-    counter_early          prior=  2% = post=  2% (-0%)  
-    counter_at_exit        prior=  2% = post=  2% (-0%)  
-    counter_extended       prior= 33% → post= 32% (-2%)  ######
-  EXIT BARS: same=52.2 (prior=52.4) | counter=39.2 (prior=43.5)
+    same_extended          prior= 39% → post= 31% (-8%)  ######
+    counter_early          prior=  2% = post=  1% (-0%)  
+    counter_at_exit        prior=  2% = post=  1% (-0%)  
+    counter_extended       prior= 37% → post= 39% (+3%)  #######
+  EXIT BARS: same=86.6 (prior=95.4) | counter=64.9 (prior=76.7)
 
-Leaf 127 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+Leaf 116 (tree: long_extended) — confidence: 55% | evidence: 36 trades
   REGRET PROFILE:
-    same_early             prior= 37% = post= 37% (+0%)  #######
+    same_early             prior=  6% → post= 15% (+8%)  ##
+    same_at_exit           prior=  2% = post=  1% (-1%)  
+    same_extended          prior= 43% = post= 42% (-1%)  ########
+    counter_early          prior=  2% = post=  1% (-1%)  
+    counter_at_exit        prior=  2% = post=  1% (-1%)  
+    counter_extended       prior= 46% → post= 41% (-5%)  ########
+  EXIT BARS: same=185.8 (prior=121.5) | counter=265.1 (prior=173.3)
+
+Leaf 117 (tree: long_extended) — confidence: 52% | evidence: 33 trades
+  REGRET PROFILE:
+    same_early             prior=  8% → post= 10% (+2%)  #
+    same_at_exit           prior=  2% = post=  1% (-1%)  
+    same_extended          prior= 30% → post= 39% (+9%)  #######
+    counter_early          prior=  2% = post=  1% (-1%)  
+    counter_at_exit        prior=  2% = post=  1% (-1%)  
+    counter_extended       prior= 58% → post= 49% (-9%)  #########
+  EXIT BARS: same=220.3 (prior=151.3) | counter=261.4 (prior=163.4)
+
+Leaf 119 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  4% = post=  4% (+0%)  
     same_at_exit           prior=  2% = post=  2% (+0%)  
     same_extended          prior= 35% = post= 35% (+0%)  #######
     counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 22% = post= 22% (+0%)  ####
-  EXIT BARS: same=53.4 (prior=53.4) | counter=37.5 (prior=37.5)
+    counter_extended       prior= 57% = post= 57% (+0%)  ###########
+  EXIT BARS: same=198.0 (prior=198.0) | counter=209.1 (prior=209.1)
 
-Leaf 129 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+Leaf 120 (tree: short_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior= 17% = post= 17% (+0%)  ###
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 47% = post= 47% (+0%)  #########
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 32% = post= 32% (+0%)  ######
-  EXIT BARS: same=61.2 (prior=61.2) | counter=35.3 (prior=35.3)
-
-Leaf 130 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 26% = post= 26% (+0%)  #####
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 19% = post= 19% (+0%)  ###
-    counter_early          prior=  5% = post=  5% (+0%)  #
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 47% = post= 47% (+0%)  #########
-  EXIT BARS: same=45.2 (prior=45.2) | counter=56.2 (prior=56.2)
-
-Leaf 133 (tree: long_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 57% = post= 57% (+0%)  ###########
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 22% = post= 22% (+0%)  ####
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 17% = post= 17% (+0%)  ###
-  EXIT BARS: same=35.5 (prior=35.5) | counter=34.1 (prior=34.1)
-
-Leaf 134 (tree: long_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 50% = post= 50% (+0%)  ##########
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 44% = post= 44% (+0%)  ########
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior=  2% = post=  2% (+0%)  
-  EXIT BARS: same=53.7 (prior=53.7) | counter=16.9 (prior=16.9)
-
-Leaf 136 (tree: long_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 39% = post= 39% (+0%)  #######
+    same_early             prior=  6% = post=  6% (+0%)  #
     same_at_exit           prior=  2% = post=  2% (+0%)  
     same_extended          prior= 42% = post= 42% (+0%)  ########
     counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 15% = post= 15% (+0%)  ##
-  EXIT BARS: same=63.4 (prior=63.4) | counter=40.6 (prior=40.6)
+    counter_extended       prior= 46% = post= 46% (+0%)  #########
+  EXIT BARS: same=162.4 (prior=162.4) | counter=152.8 (prior=152.8)
 
-Leaf 137 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+Leaf 124 (tree: short_medium) — confidence: 54% | evidence: 35 trades
   REGRET PROFILE:
-    same_early             prior= 16% = post= 16% (+0%)  ###
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 22% = post= 22% (+0%)  ####
-    counter_early          prior=  9% = post=  9% (+0%)  #
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 50% = post= 50% (+0%)  ##########
-  EXIT BARS: same=63.3 (prior=63.3) | counter=43.2 (prior=43.2)
+    same_early             prior= 38% → post= 21% (-17%)  ####
+    same_at_exit           prior=  2% = post=  2% (+1%)  
+    same_extended          prior=  2% → post= 38% (+36%)  #######
+    counter_early          prior= 11% → post=  8% (-3%)  #
+    counter_at_exit        prior=  2% = post=  2% (+1%)  
+    counter_extended       prior= 47% → post= 29% (-18%)  #####
+  EXIT BARS: same=17.2 (prior=9.8) | counter=5.0 (prior=6.6)
 
-Leaf 138 (tree: long_long) — confidence: 0% | evidence: 0 trades
+Leaf 126 (tree: short_long) — confidence: 62% | evidence: 50 trades
   REGRET PROFILE:
-    same_early             prior= 51% = post= 51% (+0%)  ##########
+    same_early             prior= 54% → post= 26% (-28%)  #####
+    same_at_exit           prior=  5% → post=  2% (-3%)  
+    same_extended          prior=  5% → post= 25% (+20%)  ####
+    counter_early          prior= 16% → post=  9% (-7%)  #
+    counter_at_exit        prior=  5% → post=  2% (-3%)  
+    counter_extended       prior= 16% → post= 36% (+21%)  #######
+  EXIT BARS: same=12.8 (prior=9.7) | counter=2.9 (prior=7.7)
+
+Leaf 127 (tree: long_long) — confidence: 71% | evidence: 73 trades
+  REGRET PROFILE:
+    same_early             prior= 30% → post= 11% (-19%)  ##
+    same_at_exit           prior=  2% → post=  0% (-1%)  
+    same_extended          prior= 10% → post= 36% (+26%)  #######
+    counter_early          prior=  6% = post=  6% (+1%)  #
+    counter_at_exit        prior=  2% → post=  0% (-1%)  
+    counter_extended       prior= 51% → post= 45% (-6%)  #########
+  EXIT BARS: same=2.3 (prior=7.8) | counter=13.2 (prior=8.9)
+
+Leaf 128 (tree: long_medium) — confidence: 69% | evidence: 67 trades
+  REGRET PROFILE:
+    same_early             prior= 41% → post= 24% (-17%)  ####
+    same_at_exit           prior=  2% = post=  2% (+1%)  
+    same_extended          prior=  5% → post= 25% (+19%)  ####
+    counter_early          prior= 37% → post= 15% (-22%)  ###
+    counter_at_exit        prior=  2% → post=  0% (-1%)  
+    counter_extended       prior= 13% → post= 33% (+20%)  ######
+  EXIT BARS: same=2.8 (prior=2.8) | counter=8.0 (prior=4.0)
+
+Leaf 129 (tree: short_fast) — confidence: 82% | evidence: 135 trades
+  REGRET PROFILE:
+    same_early             prior= 62% → post= 40% (-23%)  #######
+    same_at_exit           prior=  2% = post=  2% (+1%)  
+    same_extended          prior=  2% → post=  9% (+7%)  #
+    counter_early          prior= 32% → post= 40% (+8%)  #######
+    counter_at_exit        prior=  2% = post=  1% (-0%)  
+    counter_extended       prior=  2% → post=  9% (+7%)  #
+  EXIT BARS: same=2.3 (prior=0.1) | counter=0.2 (prior=0.4)
+
+Leaf 135 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  2% = post=  2% (+0%)  
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior=  2% = post=  2% (+0%)  
-    counter_early          prior= 35% = post= 35% (+0%)  ######
+    same_extended          prior= 39% = post= 39% (+0%)  #######
+    counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 10% = post= 10% (+0%)  #
-  EXIT BARS: same=9.2 (prior=9.2) | counter=1.1 (prior=1.1)
+    counter_extended       prior= 55% = post= 55% (+0%)  ###########
+  EXIT BARS: same=251.5 (prior=251.5) | counter=227.7 (prior=227.7)
+
+Leaf 136 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  2% = post=  2% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 42% = post= 42% (+0%)  ########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 52% = post= 52% (+0%)  ##########
+  EXIT BARS: same=183.3 (prior=183.3) | counter=203.0 (prior=203.0)
+
+Leaf 140 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  9% = post=  9% (+0%)  #
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 45% = post= 45% (+0%)  ########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 42% = post= 42% (+0%)  ########
+  EXIT BARS: same=189.9 (prior=189.9) | counter=172.8 (prior=172.8)
+
+Leaf 141 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  3% = post=  3% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 56% = post= 56% (+0%)  ###########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 36% = post= 36% (+0%)  #######
+  EXIT BARS: same=262.4 (prior=262.4) | counter=171.9 (prior=171.9)
+
+Leaf 143 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  2% = post=  2% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 79% = post= 79% (+0%)  ###############
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 15% = post= 15% (+0%)  ###
+  EXIT BARS: same=292.4 (prior=292.4) | counter=80.2 (prior=80.2)
 
 Leaf 144 (tree: long_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior= 18% = post= 18% (+0%)  ###
-    same_at_exit           prior=  4% = post=  4% (+0%)  
-    same_extended          prior= 41% = post= 41% (+0%)  ########
-    counter_early          prior=  4% = post=  4% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 31% = post= 31% (+0%)  ######
-  EXIT BARS: same=37.7 (prior=37.7) | counter=25.3 (prior=25.3)
-
-Leaf 145 (tree: long_extended) — confidence: 17% | evidence: 6 trades
-  REGRET PROFILE:
-    same_early             prior= 20% → post= 17% (-3%)  ###
-    same_at_exit           prior=  2% = post=  1% (-0%)  
-    same_extended          prior= 46% = post= 46% (+1%)  #########
-    counter_early          prior=  4% = post=  3% (-1%)  
-    counter_at_exit        prior=  2% = post=  2% (-0%)  
-    counter_extended       prior= 28% → post= 31% (+3%)  ######
-  EXIT BARS: same=43.5 (prior=44.7) | counter=24.3 (prior=23.9)
-
-Leaf 147 (tree: long_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 22% = post= 22% (+0%)  ####
+    same_early             prior=  2% = post=  2% (+0%)  
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 44% = post= 44% (+0%)  ########
-    counter_early          prior=  3% = post=  3% (+0%)  
+    same_extended          prior= 56% = post= 56% (+0%)  ###########
+    counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 27% = post= 27% (+0%)  #####
-  EXIT BARS: same=44.9 (prior=44.9) | counter=25.0 (prior=25.0)
+    counter_extended       prior= 38% = post= 38% (+0%)  #######
+  EXIT BARS: same=237.6 (prior=237.6) | counter=180.6 (prior=180.6)
 
-Leaf 148 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+Leaf 146 (tree: long_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior= 19% = post= 19% (+0%)  ###
+    same_early             prior=  5% = post=  5% (+0%)  
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 46% = post= 46% (+0%)  #########
-    counter_early          prior=  5% = post=  5% (+0%)  
+    same_extended          prior= 11% = post= 11% (+0%)  ##
+    counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 27% = post= 27% (+0%)  #####
-  EXIT BARS: same=46.9 (prior=46.9) | counter=26.5 (prior=26.5)
+    counter_extended       prior= 80% = post= 80% (+0%)  ################
+  EXIT BARS: same=99.2 (prior=99.2) | counter=287.6 (prior=287.6)
+
+Leaf 147 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior= 14% = post= 14% (+0%)  ##
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 43% = post= 43% (+0%)  ########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 39% = post= 39% (+0%)  #######
+  EXIT BARS: same=197.5 (prior=197.5) | counter=291.5 (prior=291.5)
+
+Leaf 149 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior= 14% = post= 14% (+0%)  ##
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 57% = post= 57% (+0%)  ###########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 24% = post= 24% (+0%)  ####
+  EXIT BARS: same=170.7 (prior=170.7) | counter=86.7 (prior=86.7)
 
 Leaf 151 (tree: long_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
+    same_early             prior=  8% = post=  8% (+0%)  #
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 41% = post= 41% (+0%)  ########
+    counter_early          prior=  5% = post=  5% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 44% = post= 44% (+0%)  ########
+  EXIT BARS: same=144.1 (prior=144.1) | counter=142.7 (prior=142.7)
+
+Leaf 153 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
     same_early             prior= 15% = post= 15% (+0%)  ###
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 44% = post= 44% (+0%)  ########
+    same_extended          prior= 20% = post= 20% (+0%)  ###
     counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 34% = post= 34% (+0%)  ######
-  EXIT BARS: same=35.4 (prior=35.4) | counter=32.5 (prior=32.5)
+    counter_extended       prior= 61% = post= 61% (+0%)  ############
+  EXIT BARS: same=65.0 (prior=65.0) | counter=97.4 (prior=97.4)
 
-Leaf 152 (tree: long_extended) — confidence: 69% | evidence: 66 trades
+Leaf 154 (tree: short_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior= 23% → post= 15% (-8%)  ##
-    same_at_exit           prior=  2% → post=  1% (-2%)  
-    same_extended          prior= 40% → post= 52% (+12%)  ##########
-    counter_early          prior=  2% → post=  1% (-2%)  
-    counter_at_exit        prior=  2% → post=  1% (-1%)  
-    counter_extended       prior= 31% = post= 32% (+0%)  ######
-  EXIT BARS: same=45.1 (prior=43.3) | counter=24.2 (prior=33.4)
+    same_early             prior=  5% = post=  5% (+0%)  #
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 52% = post= 52% (+0%)  ##########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 38% = post= 38% (+0%)  #######
+  EXIT BARS: same=138.9 (prior=138.9) | counter=95.4 (prior=95.4)
 
-Leaf 154 (tree: long_long) — confidence: 0% | evidence: 0 trades
+Leaf 160 (tree: long_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior= 29% = post= 29% (+0%)  #####
+    same_early             prior=  5% = post=  5% (+0%)  #
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 45% = post= 45% (+0%)  #########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 45% = post= 45% (+0%)  #########
+  EXIT BARS: same=234.1 (prior=234.1) | counter=181.5 (prior=181.5)
+
+Leaf 161 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  6% = post=  6% (+0%)  #
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 48% = post= 48% (+0%)  #########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 42% = post= 42% (+0%)  ########
+  EXIT BARS: same=226.4 (prior=226.4) | counter=186.8 (prior=186.8)
+
+Leaf 163 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  2% = post=  2% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 72% = post= 72% (+0%)  ##############
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 22% = post= 22% (+0%)  ####
+  EXIT BARS: same=208.9 (prior=208.9) | counter=222.7 (prior=222.7)
+
+Leaf 164 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  6% = post=  6% (+0%)  #
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 38% = post= 38% (+0%)  #######
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 52% = post= 52% (+0%)  ##########
+  EXIT BARS: same=197.3 (prior=197.3) | counter=229.7 (prior=229.7)
+
+Leaf 166 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  9% = post=  9% (+0%)  #
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 57% = post= 57% (+0%)  ###########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 29% = post= 29% (+0%)  #####
+  EXIT BARS: same=206.0 (prior=206.0) | counter=181.4 (prior=181.4)
+
+Leaf 168 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  2% = post=  2% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 43% = post= 43% (+0%)  ########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 51% = post= 51% (+0%)  ##########
+  EXIT BARS: same=227.1 (prior=227.1) | counter=202.1 (prior=202.1)
+
+Leaf 169 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  2% = post=  2% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 22% = post= 22% (+0%)  ####
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 72% = post= 72% (+0%)  ##############
+  EXIT BARS: same=153.6 (prior=153.6) | counter=279.1 (prior=279.1)
+
+Leaf 173 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  5% = post=  5% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 27% = post= 27% (+0%)  #####
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  5% = post=  5% (+0%)  
+    counter_extended       prior= 60% = post= 60% (+0%)  ###########
+  EXIT BARS: same=179.1 (prior=179.1) | counter=174.9 (prior=174.9)
+
+Leaf 174 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  6% = post=  6% (+0%)  #
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 27% = post= 27% (+0%)  #####
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 62% = post= 62% (+0%)  ############
+  EXIT BARS: same=114.2 (prior=114.2) | counter=112.1 (prior=112.1)
+
+Leaf 176 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  2% = post=  2% (+0%)  
     same_at_exit           prior=  2% = post=  2% (+0%)  
     same_extended          prior= 33% = post= 33% (+0%)  ######
     counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 32% = post= 32% (+0%)  ######
-  EXIT BARS: same=34.5 (prior=34.5) | counter=40.9 (prior=40.9)
+    counter_extended       prior= 61% = post= 61% (+0%)  ############
+  EXIT BARS: same=180.1 (prior=180.1) | counter=292.8 (prior=292.8)
 
-Leaf 155 (tree: long_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 35% = post= 35% (+0%)  #######
-    same_at_exit           prior=  3% = post=  3% (+0%)  
-    same_extended          prior= 27% = post= 27% (+0%)  #####
-    counter_early          prior=  3% = post=  3% (+0%)  
-    counter_at_exit        prior=  3% = post=  3% (+0%)  
-    counter_extended       prior= 27% = post= 27% (+0%)  #####
-  EXIT BARS: same=40.9 (prior=40.9) | counter=39.5 (prior=39.5)
-
-Leaf 159 (tree: long_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior=  2% = post=  2% (+0%)  
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior=  2% = post=  2% (+0%)  
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 92% = post= 92% (+0%)  ##################
-  EXIT BARS: same=14.0 (prior=14.0) | counter=60.0 (prior=60.0)
-
-Leaf 163 (tree: long_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior=  2% = post=  2% (+0%)  
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 92% = post= 92% (+0%)  ##################
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior=  2% = post=  2% (+0%)  
-  EXIT BARS: same=108.0 (prior=108.0) | counter=18.0 (prior=18.0)
-
-Leaf 167 (tree: long_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior=  2% = post=  2% (+0%)  
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior=  2% = post=  2% (+0%)  
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 92% = post= 92% (+0%)  ##################
-  EXIT BARS: same=69.5 (prior=69.5) | counter=45.0 (prior=45.0)
-
-Leaf 173 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 11% = post= 11% (+0%)  ##
-    same_at_exit           prior=  6% = post=  6% (+0%)  #
-    same_extended          prior= 21% = post= 21% (+0%)  ####
-    counter_early          prior= 11% = post= 11% (+0%)  ##
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 49% = post= 49% (+0%)  #########
-  EXIT BARS: same=84.6 (prior=84.6) | counter=40.9 (prior=40.9)
-
-Leaf 174 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 12% = post= 12% (+0%)  ##
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 13% = post= 13% (+0%)  ##
-    counter_early          prior=  4% = post=  4% (+0%)  
-    counter_at_exit        prior=  3% = post=  3% (+0%)  
-    counter_extended       prior= 67% = post= 67% (+0%)  #############
-  EXIT BARS: same=38.9 (prior=38.9) | counter=48.2 (prior=48.2)
-
-Leaf 176 (tree: long_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 26% = post= 26% (+0%)  #####
-    same_at_exit           prior=  3% = post=  3% (+0%)  
-    same_extended          prior= 20% = post= 20% (+0%)  ###
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 47% = post= 47% (+0%)  #########
-  EXIT BARS: same=43.5 (prior=43.5) | counter=49.7 (prior=49.7)
-
-Leaf 177 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 17% = post= 17% (+0%)  ###
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 29% = post= 29% (+0%)  #####
-    counter_early          prior=  4% = post=  4% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 46% = post= 46% (+0%)  #########
-  EXIT BARS: same=42.3 (prior=42.3) | counter=51.5 (prior=51.5)
-
-Leaf 180 (tree: long_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 27% = post= 27% (+0%)  #####
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 31% = post= 31% (+0%)  ######
-    counter_early          prior=  4% = post=  4% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 34% = post= 34% (+0%)  ######
-  EXIT BARS: same=64.4 (prior=64.4) | counter=43.8 (prior=43.8)
-
-Leaf 181 (tree: long_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 20% = post= 20% (+0%)  ####
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 29% = post= 29% (+0%)  #####
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  3% = post=  3% (+0%)  
-    counter_extended       prior= 45% = post= 45% (+0%)  ########
-  EXIT BARS: same=54.9 (prior=54.9) | counter=49.2 (prior=49.2)
-
-Leaf 183 (tree: long_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 92% = post= 92% (+0%)  ##################
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior=  2% = post=  2% (+0%)  
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior=  2% = post=  2% (+0%)  
-  EXIT BARS: same=70.0 (prior=70.0) | counter=97.0 (prior=97.0)
-
-Leaf 184 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 24% = post= 24% (+0%)  ####
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 24% = post= 24% (+0%)  ####
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 47% = post= 47% (+0%)  #########
-  EXIT BARS: same=29.0 (prior=29.0) | counter=33.0 (prior=33.0)
-
-Leaf 185 (tree: short_long) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 35% = post= 35% (+0%)  ######
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior=  2% = post=  2% (+0%)  
-    counter_early          prior= 35% = post= 35% (+0%)  ######
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 26% = post= 26% (+0%)  #####
-  EXIT BARS: same=2.5 (prior=2.5) | counter=1.9 (prior=1.9)
-
-Leaf 189 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior=  8% = post=  8% (+0%)  #
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 19% = post= 19% (+0%)  ###
-    counter_early          prior=  3% = post=  3% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 66% = post= 66% (+0%)  #############
-  EXIT BARS: same=26.5 (prior=26.5) | counter=43.7 (prior=43.7)
-
-Leaf 190 (tree: long_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 16% = post= 16% (+0%)  ###
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 13% = post= 13% (+0%)  ##
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 66% = post= 66% (+0%)  #############
-  EXIT BARS: same=22.6 (prior=22.6) | counter=48.1 (prior=48.1)
-
-Leaf 193 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 26% = post= 26% (+0%)  #####
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 22% = post= 22% (+0%)  ####
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 47% = post= 47% (+0%)  #########
-  EXIT BARS: same=32.5 (prior=32.5) | counter=41.9 (prior=41.9)
-
-Leaf 195 (tree: long_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 14% = post= 14% (+0%)  ##
-    same_at_exit           prior=  3% = post=  3% (+0%)  
-    same_extended          prior= 21% = post= 21% (+0%)  ####
-    counter_early          prior=  4% = post=  4% (+0%)  
-    counter_at_exit        prior=  3% = post=  3% (+0%)  
-    counter_extended       prior= 56% = post= 56% (+0%)  ###########
-  EXIT BARS: same=28.0 (prior=28.0) | counter=50.8 (prior=50.8)
-
-Leaf 196 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 24% = post= 24% (+0%)  ####
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 25% = post= 25% (+0%)  ####
-    counter_early          prior=  3% = post=  3% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 45% = post= 45% (+0%)  ########
-  EXIT BARS: same=36.8 (prior=36.8) | counter=42.2 (prior=42.2)
-
-Leaf 199 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 27% = post= 27% (+0%)  #####
-    same_at_exit           prior=  3% = post=  3% (+0%)  
-    same_extended          prior= 32% = post= 32% (+0%)  ######
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 35% = post= 35% (+0%)  ######
-  EXIT BARS: same=31.2 (prior=31.2) | counter=38.3 (prior=38.3)
-
-Leaf 200 (tree: long_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 36% = post= 36% (+0%)  #######
-    same_at_exit           prior=  3% = post=  3% (+0%)  
-    same_extended          prior= 23% = post= 23% (+0%)  ####
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 36% = post= 36% (+0%)  #######
-  EXIT BARS: same=31.8 (prior=31.8) | counter=39.4 (prior=39.4)
-
-Leaf 202 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 16% = post= 16% (+0%)  ###
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 31% = post= 31% (+0%)  ######
-    counter_early          prior=  3% = post=  3% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 46% = post= 46% (+0%)  #########
-  EXIT BARS: same=34.8 (prior=34.8) | counter=34.4 (prior=34.4)
-
-Leaf 203 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 19% = post= 19% (+0%)  ###
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 36% = post= 36% (+0%)  #######
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 39% = post= 39% (+0%)  #######
-  EXIT BARS: same=41.3 (prior=41.3) | counter=33.3 (prior=33.3)
-
-Leaf 205 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 29% = post= 29% (+0%)  #####
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 14% = post= 14% (+0%)  ##
-    counter_early          prior=  2% = post=  2% (+0%)  
-    counter_at_exit        prior=  3% = post=  3% (+0%)  
-    counter_extended       prior= 50% = post= 50% (+0%)  #########
-  EXIT BARS: same=33.9 (prior=33.9) | counter=50.5 (prior=50.5)
-
-Leaf 207 (tree: short_extended) — confidence: 43% | evidence: 23 trades
-  REGRET PROFILE:
-    same_early             prior=  9% = post=  9% (+0%)  #
-    same_at_exit           prior=  2% = post=  1% (-1%)  
-    same_extended          prior= 11% → post=  8% (-3%)  #
-    counter_early          prior=  3% → post=  2% (-1%)  
-    counter_at_exit        prior=  2% = post=  1% (-1%)  
-    counter_extended       prior= 73% → post= 79% (+6%)  ###############
-  EXIT BARS: same=23.6 (prior=27.7) | counter=43.6 (prior=50.7)
-
-Leaf 211 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 13% = post= 13% (+0%)  ##
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 16% = post= 16% (+0%)  ###
-    counter_early          prior=  4% = post=  4% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 64% = post= 64% (+0%)  ############
-  EXIT BARS: same=39.0 (prior=39.0) | counter=50.1 (prior=50.1)
-
-Leaf 212 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+Leaf 177 (tree: long_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
     same_early             prior= 15% = post= 15% (+0%)  ###
     same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 23% = post= 23% (+0%)  ####
-    counter_early          prior=  4% = post=  4% (+0%)  
+    same_extended          prior= 42% = post= 42% (+0%)  ########
+    counter_early          prior=  2% = post=  2% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 54% = post= 54% (+0%)  ##########
-  EXIT BARS: same=34.3 (prior=34.3) | counter=37.1 (prior=37.1)
+    counter_extended       prior= 38% = post= 38% (+0%)  #######
+  EXIT BARS: same=172.6 (prior=172.6) | counter=120.3 (prior=120.3)
 
-Leaf 214 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+Leaf 180 (tree: short_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior= 21% = post= 21% (+0%)  ####
-    same_at_exit           prior=  2% = post=  2% (+0%)  
-    same_extended          prior= 36% = post= 36% (+0%)  #######
-    counter_early          prior=  3% = post=  3% (+0%)  
-    counter_at_exit        prior=  2% = post=  2% (+0%)  
-    counter_extended       prior= 37% = post= 37% (+0%)  #######
-  EXIT BARS: same=46.2 (prior=46.2) | counter=37.8 (prior=37.8)
-
-Leaf 215 (tree: short_extended) — confidence: 0% | evidence: 0 trades
-  REGRET PROFILE:
-    same_early             prior= 31% = post= 31% (+0%)  ######
+    same_early             prior=  2% = post=  2% (+0%)  
     same_at_exit           prior=  2% = post=  2% (+0%)  
     same_extended          prior= 18% = post= 18% (+0%)  ###
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 76% = post= 76% (+0%)  ###############
+  EXIT BARS: same=128.0 (prior=128.0) | counter=211.6 (prior=211.6)
+
+Leaf 181 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior= 11% = post= 11% (+0%)  ##
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 65% = post= 65% (+0%)  #############
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 20% = post= 20% (+0%)  ###
+  EXIT BARS: same=176.1 (prior=176.1) | counter=130.3 (prior=130.3)
+
+Leaf 183 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior= 12% = post= 12% (+0%)  ##
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 32% = post= 32% (+0%)  ######
+    counter_early          prior=  4% = post=  4% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 49% = post= 49% (+0%)  #########
+  EXIT BARS: same=145.2 (prior=145.2) | counter=151.1 (prior=151.1)
+
+Leaf 184 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior= 22% = post= 22% (+0%)  ####
+    same_at_exit           prior=  4% = post=  4% (+0%)  
+    same_extended          prior= 35% = post= 35% (+0%)  ######
+    counter_early          prior=  4% = post=  4% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 35% = post= 35% (+0%)  ######
+  EXIT BARS: same=118.2 (prior=118.2) | counter=139.7 (prior=139.7)
+
+Leaf 188 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior= 14% = post= 14% (+0%)  ##
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 26% = post= 26% (+0%)  #####
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 55% = post= 55% (+0%)  ###########
+  EXIT BARS: same=159.8 (prior=159.8) | counter=168.0 (prior=168.0)
+
+Leaf 189 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  4% = post=  4% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 51% = post= 51% (+0%)  ##########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 40% = post= 40% (+0%)  ########
+  EXIT BARS: same=199.7 (prior=199.7) | counter=103.2 (prior=103.2)
+
+Leaf 192 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior= 18% = post= 18% (+0%)  ###
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 34% = post= 34% (+0%)  ######
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 44% = post= 44% (+0%)  ########
+  EXIT BARS: same=125.6 (prior=125.6) | counter=114.2 (prior=114.2)
+
+Leaf 193 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior= 11% = post= 11% (+0%)  ##
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 28% = post= 28% (+0%)  #####
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 56% = post= 56% (+0%)  ###########
+  EXIT BARS: same=173.0 (prior=173.0) | counter=181.4 (prior=181.4)
+
+Leaf 194 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior= 39% = post= 39% (+0%)  #######
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 14% = post= 14% (+0%)  ##
+    counter_early          prior=  5% = post=  5% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 39% = post= 39% (+0%)  #######
+  EXIT BARS: same=36.0 (prior=36.0) | counter=28.8 (prior=28.8)
+
+Leaf 198 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  2% = post=  2% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 66% = post= 66% (+0%)  #############
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 27% = post= 27% (+0%)  #####
+  EXIT BARS: same=242.5 (prior=242.5) | counter=157.9 (prior=157.9)
+
+Leaf 199 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  4% = post=  4% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 49% = post= 49% (+0%)  #########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 43% = post= 43% (+0%)  ########
+  EXIT BARS: same=142.1 (prior=142.1) | counter=143.5 (prior=143.5)
+
+Leaf 201 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  2% = post=  2% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 37% = post= 37% (+0%)  #######
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 57% = post= 57% (+0%)  ###########
+  EXIT BARS: same=187.2 (prior=187.2) | counter=111.8 (prior=111.8)
+
+Leaf 202 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  6% = post=  6% (+0%)  #
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 41% = post= 41% (+0%)  ########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 48% = post= 48% (+0%)  #########
+  EXIT BARS: same=200.4 (prior=200.4) | counter=189.8 (prior=189.8)
+
+Leaf 204 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  4% = post=  4% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 49% = post= 49% (+0%)  #########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 42% = post= 42% (+0%)  ########
+  EXIT BARS: same=184.6 (prior=184.6) | counter=187.1 (prior=187.1)
+
+Leaf 205 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  4% = post=  4% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 45% = post= 45% (+0%)  ########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 47% = post= 47% (+0%)  #########
+  EXIT BARS: same=248.4 (prior=248.4) | counter=260.5 (prior=260.5)
+
+Leaf 211 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior= 12% = post= 12% (+0%)  ##
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 33% = post= 33% (+0%)  ######
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 50% = post= 50% (+0%)  ##########
+  EXIT BARS: same=137.8 (prior=137.8) | counter=184.2 (prior=184.2)
+
+Leaf 212 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  4% = post=  4% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 44% = post= 44% (+0%)  ########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 48% = post= 48% (+0%)  #########
+  EXIT BARS: same=195.2 (prior=195.2) | counter=182.5 (prior=182.5)
+
+Leaf 215 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  9% = post=  9% (+0%)  #
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 42% = post= 42% (+0%)  ########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 43% = post= 43% (+0%)  ########
+  EXIT BARS: same=161.3 (prior=161.3) | counter=154.9 (prior=154.9)
+
+Leaf 216 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  4% = post=  4% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 45% = post= 45% (+0%)  ########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 47% = post= 47% (+0%)  #########
+  EXIT BARS: same=182.8 (prior=182.8) | counter=194.2 (prior=194.2)
+
+Leaf 218 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior= 15% = post= 15% (+0%)  ###
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 38% = post= 38% (+0%)  #######
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 42% = post= 42% (+0%)  ########
+  EXIT BARS: same=153.1 (prior=153.1) | counter=108.5 (prior=108.5)
+
+Leaf 219 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  5% = post=  5% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 44% = post= 44% (+0%)  ########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 47% = post= 47% (+0%)  #########
+  EXIT BARS: same=134.7 (prior=134.7) | counter=130.0 (prior=130.0)
+
+Leaf 223 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  2% = post=  2% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 85% = post= 85% (+0%)  #################
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior=  9% = post=  9% (+0%)  #
+  EXIT BARS: same=295.4 (prior=295.4) | counter=138.5 (prior=138.5)
+
+Leaf 224 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  2% = post=  2% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 16% = post= 16% (+0%)  ###
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 78% = post= 78% (+0%)  ###############
+  EXIT BARS: same=161.8 (prior=161.8) | counter=338.3 (prior=338.3)
+
+Leaf 226 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  2% = post=  2% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 43% = post= 43% (+0%)  ########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 51% = post= 51% (+0%)  ##########
+  EXIT BARS: same=254.6 (prior=254.6) | counter=260.7 (prior=260.7)
+
+Leaf 227 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  3% = post=  3% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 37% = post= 37% (+0%)  #######
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 55% = post= 55% (+0%)  ###########
+  EXIT BARS: same=240.4 (prior=240.4) | counter=266.6 (prior=266.6)
+
+Leaf 230 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  2% = post=  2% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 44% = post= 44% (+0%)  ########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 49% = post= 49% (+0%)  #########
+  EXIT BARS: same=193.3 (prior=193.3) | counter=192.5 (prior=192.5)
+
+Leaf 231 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  6% = post=  6% (+0%)  #
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 43% = post= 43% (+0%)  ########
     counter_early          prior=  3% = post=  3% (+0%)  
     counter_at_exit        prior=  2% = post=  2% (+0%)  
     counter_extended       prior= 44% = post= 44% (+0%)  ########
-  EXIT BARS: same=36.3 (prior=36.3) | counter=31.6 (prior=31.6)
+  EXIT BARS: same=155.0 (prior=155.0) | counter=160.2 (prior=160.2)
 
-Leaf 217 (tree: short_extended) — confidence: 48% | evidence: 28 trades
+Leaf 232 (tree: long_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior= 14% → post=  9% (-5%)  #
-    same_at_exit           prior=  2% = post=  1% (-1%)  
-    same_extended          prior= 28% → post= 25% (-3%)  ####
-    counter_early          prior=  3% = post=  3% (+0%)  
-    counter_at_exit        prior=  3% → post=  1% (-1%)  
-    counter_extended       prior= 51% → post= 60% (+9%)  ############
-  EXIT BARS: same=29.0 (prior=36.4) | counter=27.7 (prior=37.4)
+    same_early             prior= 13% = post= 13% (+0%)  ##
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 49% = post= 49% (+0%)  #########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 33% = post= 33% (+0%)  ######
+  EXIT BARS: same=205.1 (prior=205.1) | counter=151.7 (prior=151.7)
 
-Leaf 218 (tree: short_extended) — confidence: 64% | evidence: 53 trades
+Leaf 237 (tree: long_extended) — confidence: 0% | evidence: 0 trades
   REGRET PROFILE:
-    same_early             prior= 13% → post= 12% (-1%)  ##
-    same_at_exit           prior=  2% → post=  1% (-1%)  
-    same_extended          prior= 19% → post= 28% (+9%)  #####
-    counter_early          prior=  4% → post=  3% (-1%)  
-    counter_at_exit        prior=  2% = post=  3% (+1%)  
-    counter_extended       prior= 60% → post= 53% (-6%)  ##########
-  EXIT BARS: same=33.2 (prior=40.0) | counter=31.1 (prior=45.7)
+    same_early             prior=  3% = post=  3% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 49% = post= 49% (+0%)  #########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 44% = post= 44% (+0%)  ########
+  EXIT BARS: same=227.8 (prior=227.8) | counter=213.1 (prior=213.1)
+
+Leaf 238 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  4% = post=  4% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 45% = post= 45% (+0%)  ########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 47% = post= 47% (+0%)  #########
+  EXIT BARS: same=211.7 (prior=211.7) | counter=211.8 (prior=211.8)
+
+Leaf 240 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  7% = post=  7% (+0%)  #
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 41% = post= 41% (+0%)  ########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 46% = post= 46% (+0%)  #########
+  EXIT BARS: same=173.4 (prior=173.4) | counter=177.8 (prior=177.8)
+
+Leaf 241 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  9% = post=  9% (+0%)  #
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 40% = post= 40% (+0%)  ########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 46% = post= 46% (+0%)  #########
+  EXIT BARS: same=174.6 (prior=174.6) | counter=173.8 (prior=173.8)
+
+Leaf 244 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  7% = post=  7% (+0%)  #
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 50% = post= 50% (+0%)  #########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 39% = post= 39% (+0%)  #######
+  EXIT BARS: same=154.6 (prior=154.6) | counter=135.6 (prior=135.6)
+
+Leaf 245 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  4% = post=  4% (+0%)  
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 47% = post= 47% (+0%)  #########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 45% = post= 45% (+0%)  ########
+  EXIT BARS: same=147.1 (prior=147.1) | counter=151.8 (prior=151.8)
+
+Leaf 247 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  5% = post=  5% (+0%)  #
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 45% = post= 45% (+0%)  #########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 45% = post= 45% (+0%)  #########
+  EXIT BARS: same=150.1 (prior=150.1) | counter=147.8 (prior=147.8)
+
+Leaf 248 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior=  7% = post=  7% (+0%)  #
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 40% = post= 40% (+0%)  ########
+    counter_early          prior=  2% = post=  2% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 48% = post= 48% (+0%)  #########
+  EXIT BARS: same=135.4 (prior=135.4) | counter=133.5 (prior=133.5)
+
+Leaf 249 (tree: short_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior= 13% = post= 13% (+0%)  ##
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior= 41% = post= 41% (+0%)  ########
+    counter_early          prior=  4% = post=  4% (+0%)  
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 38% = post= 38% (+0%)  #######
+  EXIT BARS: same=192.3 (prior=192.3) | counter=162.8 (prior=162.8)
+
+Leaf 252 (tree: long_medium) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior= 35% = post= 35% (+0%)  #######
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior=  8% = post=  8% (+0%)  #
+    counter_early          prior= 15% = post= 15% (+0%)  ##
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior= 39% = post= 39% (+0%)  #######
+  EXIT BARS: same=8.9 (prior=8.9) | counter=9.2 (prior=9.2)
+
+Leaf 253 (tree: long_extended) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior= 38% = post= 38% (+0%)  #######
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior=  7% = post=  7% (+0%)  #
+    counter_early          prior= 10% = post= 10% (+0%)  ##
+    counter_at_exit        prior=  4% = post=  4% (+0%)  
+    counter_extended       prior= 38% = post= 38% (+0%)  #######
+  EXIT BARS: same=11.8 (prior=11.8) | counter=9.3 (prior=9.3)
+
+Leaf 254 (tree: short_fast) — confidence: 0% | evidence: 0 trades
+  REGRET PROFILE:
+    same_early             prior= 60% = post= 60% (+0%)  ############
+    same_at_exit           prior=  2% = post=  2% (+0%)  
+    same_extended          prior=  2% = post=  2% (+0%)  
+    counter_early          prior= 31% = post= 31% (+0%)  ######
+    counter_at_exit        prior=  2% = post=  2% (+0%)  
+    counter_extended       prior=  4% = post=  4% (+0%)  
+  EXIT BARS: same=1.1 (prior=1.1) | counter=0.8 (prior=0.8)
