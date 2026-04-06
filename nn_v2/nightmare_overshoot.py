@@ -48,10 +48,10 @@ ROCHE = 2.0          # z_se threshold for entry
 VR_ENTRY = 1.0       # variance_ratio must be below this for entry
 APPROACH_BUFFER_SIZE = 10  # bars of 79D history to keep before entry
 
-# Energy-based exit
+# Energy-based exit (measured at 1m cadence)
 VELOCITY_AGAINST_THRESHOLD = 0.3  # |velocity| above this in wrong direction = against
-CONSEC_AGAINST_LIMIT = 12         # consecutive bars against before exit (12 bars @ 5s = 1 min)
-WARMUP_BARS = 6                   # ignore first N bars (trade settling)
+CONSEC_AGAINST_LIMIT = 12         # consecutive 1M BARS against before exit (12 min)
+WARMUP_1M_BARS = 2                # ignore first N 1m bars (trade settling)
 
 # 79D layout: 1m is index 1 in TF_ORDER (15s=0, 1m=1, 5m=2, ...)
 # 10 core features per TF
@@ -185,25 +185,26 @@ class OvershootEngine:
                 'features_79d': feat.copy(),
             })
 
-            # Energy monitor — every bar (not just 1m)
-            # Track consecutive bars where velocity is against trade direction
-            velocity = feat[_1M_VELOCITY_IDX]
+            # Energy monitor — only at 1m boundaries (aggregated signal)
+            if is_1m_boundary:
+                velocity = feat[_1M_VELOCITY_IDX]
+                self._1m_bars_in_trade = getattr(self, '_1m_bars_in_trade', 0) + 1
 
-            if self.bars_held > WARMUP_BARS:
-                against = False
-                if self.direction == 'long' and velocity < -VELOCITY_AGAINST_THRESHOLD:
-                    against = True
-                elif self.direction == 'short' and velocity > VELOCITY_AGAINST_THRESHOLD:
-                    against = True
+                if self._1m_bars_in_trade > WARMUP_1M_BARS:
+                    against = False
+                    if self.direction == 'long' and velocity < -VELOCITY_AGAINST_THRESHOLD:
+                        against = True
+                    elif self.direction == 'short' and velocity > VELOCITY_AGAINST_THRESHOLD:
+                        against = True
 
-                if against:
-                    self._consec_against += 1
-                else:
-                    self._consec_against = 0  # reset on any bar in your direction
+                    if against:
+                        self._consec_against += 1
+                    else:
+                        self._consec_against = 0  # reset on any 1m bar in your direction
 
-                # Exit: energy died (sustained adverse velocity)
-                if self._consec_against >= CONSEC_AGAINST_LIMIT:
-                    self._close_trade(price, ts, time_str, 'energy_died', feat, s1m)
+                    # Exit: energy died (12 consecutive 1m bars against = 12 min)
+                    if self._consec_against >= CONSEC_AGAINST_LIMIT:
+                        self._close_trade(price, ts, time_str, 'energy_died', feat, s1m)
 
         # === ENTRY CHECK — base NMP only, 1m boundaries ===
         if not self.in_pos and is_1m_boundary:
@@ -222,6 +223,7 @@ class OvershootEngine:
         self.bars_held = 0
         self.peak_pnl = 0.0
         self._consec_against = 0
+        self._1m_bars_in_trade = 0
         self._trade_path = []
 
         # Snapshot approach path (79D in bars leading up to entry)
