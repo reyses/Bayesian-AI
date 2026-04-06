@@ -127,7 +127,13 @@ class BlendedEngine:
             if is_1m:
                 exit_reason = self._check_exit(feat, z, vr, pnl)
                 if exit_reason:
+                    old_direction = self.direction
                     self._close_trade(price, ts, time_str, exit_reason, feat)
+
+                    # FLIP on regime shift: close + immediately enter opposite
+                    if exit_reason == 'regime_shift_early':
+                        flip_dir = 'short' if old_direction == 'long' else 'long'
+                        self._open_trade(flip_dir, price, ts, time_str, feat, 'REGIME_FLIP')
 
         # === ENTRY CHECK — 1m boundaries only ===
         if not self.in_pos and is_1m:
@@ -156,6 +162,22 @@ class BlendedEngine:
 
     def _check_exit(self, feat, z, vr, pnl):
         """Check exit based on entry tier."""
+        # REGIME_FLIP trade: exit when regime normalizes
+        if self.entry_tier == 'REGIME_FLIP':
+            dmi = feat[_1M_DMI_IDX]
+            # Exit when DMI supports our flip direction (trend confirmed and exhausting)
+            dmi_supporting = ((self.direction == 'long' and dmi > DMI_AGAINST_THRESHOLD) or
+                              (self.direction == 'short' and dmi < -DMI_AGAINST_THRESHOLD))
+            vr_normalizing = vr < VR_CONFIRMING
+            # Exit when regime shift is over (VR drops) or momentum exhausts
+            if vr_normalizing:
+                return 'regime_flip_vr_normal'
+            # Also exit at p_center (reversion to new mean)
+            p_center = feat[_1M_P_CENTER_IDX]
+            if p_center > P_CENTER_EXIT:
+                return 'regime_flip_center'
+            return None
+
         if self.entry_tier in ('CASCADE', 'KILL_SHOT'):
             # Tier 1-2: exit at p_center
             p_center = feat[_1M_P_CENTER_IDX]
