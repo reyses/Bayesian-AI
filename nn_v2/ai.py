@@ -31,12 +31,8 @@ from core.features_79d import FEATURE_NAMES_79D
 TICK = 0.25
 TV = 0.50
 
-# NMP entry threshold (only enter if z_se is extreme enough)
-ROCHE = 2.0
-VR_ENTRY = 1.0
-
-# 79D offsets
-_1M_OFFSET = 10  # 1m is TF index 1, 10 features per TF
+# Minimum confidence from book to trade a leaf (skip low-evidence leaves)
+MIN_LEAF_CONFIDENCE = 0.0  # 0 = trade all leaves the tree assigns
 
 
 class AIEngine:
@@ -98,29 +94,24 @@ class AIEngine:
         self._last_price = price
         self._last_feat = feat
 
-        # Read 1m state
-        z = feat[_1M_OFFSET + 0]
-        vr = feat[_1M_OFFSET + 2]
-
         # Approach buffer: record when flat for pre-entry context
         APPROACH_SIZE = 10
         if self.position == 'flat':
             self._approach_buffer.append({
                 'timestamp': ts, 'price': price,
-                'z_1m': z, 'vr_1m': vr,
                 'features_79d': feat.copy(),
             })
             if len(self._approach_buffer) > APPROACH_SIZE:
                 self._approach_buffer = self._approach_buffer[-APPROACH_SIZE:]
 
-        # Gate classifies + calibrates
+        # Gate classifies + calibrates (tree + book)
         decision = self.gate.evaluate(state)
         strategy = decision['strategy']
         leaf_id = decision['leaf_id']
         branch = decision['branch']
 
-        # Determine desired position from NMP + tree strategy
-        desired = self._get_desired_position(z, vr, strategy)
+        # Determine desired position from tree classification
+        desired = self._get_desired_position(decision)
 
         # Current unrealized PnL
         if self.position == 'long':
@@ -214,30 +205,33 @@ class AIEngine:
             'chain_length': len(self._chain_history),
         }
 
-    def _get_desired_position(self, z: float, vr: float, strategy: str) -> str:
-        """Determine desired position from 79D state + tree strategy.
+    def _get_desired_position(self, decision: dict) -> str:
+        """Determine desired position from tree + book classification.
 
-        If tree was trained on corrected trades, strategy is 'long_medium',
-        'short_extended', etc — direction is baked in. No counter-flipping.
-        Falls back to NMP direction for old-style strategies.
+        The tree already evaluated the full 79D. Its leaf assignment IS the
+        entry signal. The strategy label contains the direction.
+        No hardcoded z/vr gate — the tree's splits encode those conditions.
         """
-        # Must have NMP-level signal to trade
-        if abs(z) < ROCHE or vr >= VR_ENTRY:
-            if self.position != 'flat' and self.bars_held < 3:
-                return self.position  # don't exit too fast
+        strategy = decision.get('strategy', '')
+        allowed = decision.get('allowed', False)
+
+        # Tree says this leaf is not tradeable
+        if not allowed:
             return 'flat' if self.position == 'flat' else self.position
 
-        # New: corrected trade labels have direction baked in
+        # Skip low-confidence leaves (if book provides confidence)
+        confidence = decision.get('branch', {}).get('confidence', 1.0)
+        if confidence < MIN_LEAF_CONFIDENCE:
+            return 'flat' if self.position == 'flat' else self.position
+
+        # Direction from corrected trade labels (long_fast, short_extended, etc.)
         if strategy.startswith('long'):
             return 'long'
         elif strategy.startswith('short'):
             return 'short'
 
-        # Fallback: old-style regret labels (same/counter)
-        nmp_dir = 'short' if z > 0 else 'long'
-        if 'counter' in strategy:
-            return 'long' if nmp_dir == 'short' else 'short'
-        return nmp_dir
+        # Fallback for unknown strategy labels
+        return 'flat' if self.position == 'flat' else self.position
 
     def _enter(self, direction: str, price: float, ts: float,
                leaf_id: int, branch: dict):
