@@ -37,6 +37,9 @@ P_CENTER_EXIT = 0.60
 # Tier 3 exits (base NMP)
 Z_EXIT = 0.5
 
+# Hard stop — circuit breaker, overrides all CNNs
+HARD_STOP = -150.0    # max dollar loss per trade
+
 # Regime shift early detection: DMI leading + VR confirming
 DMI_AGAINST_THRESHOLD = 5.0   # |dmi_diff| opposing trade direction
 VR_CONFIRMING = 0.8           # vr approaching trending (not yet 1.0)
@@ -284,8 +287,12 @@ class BlendedEngine:
                 'features_79d': feat.copy(),
             })
 
+            # Hard stop — fires every bar, overrides everything
+            if pnl <= HARD_STOP:
+                self._close_trade(price, ts, time_str, 'hard_stop', feat)
+
             # Exit logic — only at 1m boundaries
-            if is_1m:
+            elif is_1m:
                 # CASCADE and KILL_SHOT: proven physics exit (p_center)
                 # BASE_NMP: CNN hold exit (trained on BASE_NMP regret)
                 if self.entry_tier in ('CASCADE', 'KILL_SHOT'):
