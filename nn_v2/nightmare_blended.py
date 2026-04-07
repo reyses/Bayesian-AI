@@ -240,17 +240,21 @@ class BlendedEngine:
 
             # Exit logic — only at 1m boundaries
             if is_1m:
-                # CNN hold check: if CNN says HOLD, skip physics exit
-                if self.cnn_hold is not None:
+                # CASCADE and KILL_SHOT: proven physics exit (p_center)
+                # BASE_NMP: CNN hold exit (trained on BASE_NMP regret)
+                if self.entry_tier in ('CASCADE', 'KILL_SHOT'):
+                    exit_reason = self._check_exit(feat, z, vr, pnl)
+                    if exit_reason:
+                        self._close_trade(price, ts, time_str, exit_reason, feat)
+                elif self.cnn_hold is not None:
+                    # BASE_NMP: CNN decides
                     hold_pred = self._cnn_predict_hold(
                         feat, self.bars_held, pnl, self.peak_pnl,
                         self.direction, self.entry_tier)
-                    if hold_pred == 1:  # CNN says HOLD → don't exit
-                        pass  # skip exit check entirely
-                    else:  # CNN says EXIT
+                    if hold_pred == 0:  # CNN says EXIT
                         self._close_trade(price, ts, time_str, 'cnn_exit', feat)
                 else:
-                    # No CNN hold → use physics exits
+                    # No CNN → physics exits for all tiers
                     exit_reason = self._check_exit(feat, z, vr, pnl)
                     if exit_reason:
                         self._close_trade(price, ts, time_str, exit_reason, feat)
