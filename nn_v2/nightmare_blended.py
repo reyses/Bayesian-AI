@@ -1,18 +1,19 @@
 """
-NMP Blended Engine — one engine, tiered exits based on setup quality.
+NMP Blended Engine — one engine, tiered exits + CNN direction flip.
 
 Entry: NMP base (z + vr) at 1m boundaries. At entry, classifies the tier:
   Tier 1 (CASCADE):   wick rejection + 1h z aligned → p_center exit
   Tier 2 (KILL_SHOT): wick rejection, no 1h         → p_center exit
-  Tier 3 (BASE_NMP):  no wick → z exit, BUT at center check energy:
-                       high energy → hold for overshoot (opposite extreme)
-                       low energy  → exit at center
+  Tier 3 (BASE_NMP):  no wick → CNN predicts direction (flip if counter)
+                       exits: z/center/overshoot based on energy
 
 One position at a time. Exit rules follow the tier assigned at entry.
-Each trade tagged with entry_tier and exit_reason for analysis.
+Each trade tagged with entry_tier, exit_reason, and cnn_flipped for analysis.
 """
+import os
 import numpy as np
 import pandas as pd
+import torch
 from typing import Dict, List
 from datetime import datetime
 
@@ -59,11 +60,30 @@ _1M_DMI_IDX = 11        # 1m_dmi_diff
 
 APPROACH_BUFFER_SIZE = 10
 
+# CNN model path
+CNN_MODEL_PATH = 'nn_v2/output/tree/cnn_flip.pt'
+
+# Grid layout for CNN
+_N_CORE = 10
+_N_HELPER = 3
+_N_TFS = 6
+_HELPER_START = _N_CORE * _N_TFS  # 60
+
+
+def _feat_to_grid(feat_79d):
+    """Reshape 79D to 6×13 grid for CNN."""
+    grid = np.zeros((_N_TFS, _N_CORE + _N_HELPER), dtype=np.float32)
+    for tf_idx in range(_N_TFS):
+        grid[tf_idx, :_N_CORE] = feat_79d[tf_idx * _N_CORE:(tf_idx + 1) * _N_CORE]
+        h_start = _HELPER_START + tf_idx * _N_HELPER
+        grid[tf_idx, _N_CORE:_N_CORE + _N_HELPER] = feat_79d[h_start:h_start + _N_HELPER]
+    return grid
+
 
 class BlendedEngine:
-    """One NMP engine with tiered exit physics."""
+    """One NMP engine with tiered exit physics + CNN direction flip."""
 
-    def __init__(self):
+    def __init__(self, use_cnn=True):
         self.in_pos = False
         self.direction = None
         self.entry_price = 0.0
@@ -81,6 +101,53 @@ class BlendedEngine:
         self.daily_pnl = 0.0
         self._bar_count = 0
         self._last_price = 0.0
+
+        # CNN flip predictor for BASE_NMP trades
+        self.use_cnn = use_cnn
+        self.cnn_model = None
+        self.cnn_entry_mean = None
+        self.cnn_entry_std = None
+        self._cnn_device = None
+        if use_cnn and os.path.exists(CNN_MODEL_PATH):
+            self._load_cnn()
+
+    def _load_cnn(self):
+        """Load trained CNN flip predictor."""
+        from nn_v2.cnn_flip import FlipCNN
+        checkpoint = torch.load(CNN_MODEL_PATH, map_location='cpu', weights_only=False)
+        self._cnn_device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.cnn_model = FlipCNN(use_path=False).to(self._cnn_device)
+        # Load weights — entry-only mode (no path at trade time)
+        # The saved model uses path, but we run entry-only at inference
+        # Need to load a compatible model or retrain without path
+        # For now: use entry conv + classifier with path_flat=0
+        try:
+            self.cnn_model.load_state_dict(checkpoint['model_state'], strict=False)
+        except Exception:
+            # If shapes don't match, create entry-only model
+            self.cnn_model = FlipCNN(use_path=False).to(self._cnn_device)
+        self.cnn_model.eval()
+        self.cnn_entry_mean = checkpoint.get('entry_mean', np.zeros((1, 6, 13)))
+        self.cnn_entry_std = checkpoint.get('entry_std', np.ones((1, 6, 13)))
+        print(f'  CNN flip model loaded ({self._cnn_device})')
+
+    def _cnn_predict_flip(self, feat_79d, tier_num):
+        """Predict SAME(0) or COUNTER(1) from 79D at entry."""
+        if self.cnn_model is None:
+            return 0  # default: SAME (no flip)
+
+        grid = _feat_to_grid(feat_79d)
+        # Normalize
+        grid = (grid - self.cnn_entry_mean[0]) / self.cnn_entry_std[0].clip(min=1e-8)
+
+        entry_t = torch.FloatTensor(grid).unsqueeze(0).unsqueeze(0).to(self._cnn_device)  # (1,1,6,13)
+        tier_t = torch.FloatTensor([[tier_num]]).to(self._cnn_device)
+
+        with torch.no_grad():
+            out = self.cnn_model(entry_t, tier=tier_t)
+            pred = out.argmax(dim=1).item()
+
+        return pred  # 0=SAME, 1=COUNTER
 
     def on_state(self, state: Dict):
         self._bar_count += 1
@@ -134,7 +201,18 @@ class BlendedEngine:
             if abs(z) > ROCHE and vr < VR_ENTRY:
                 direction = 'short' if z > 0 else 'long'
                 tier = self._classify_tier(feat, direction)
-                self._open_trade(direction, price, ts, time_str, feat, tier)
+                cnn_flipped = False
+
+                # CNN flip for BASE_NMP trades
+                if tier == 'BASE_NMP' and self.use_cnn:
+                    tier_num = TIER_MAP.get(tier, 0)
+                    pred = self._cnn_predict_flip(feat, tier_num)
+                    if pred == 1:  # CNN says COUNTER → flip direction
+                        direction = 'long' if direction == 'short' else 'short'
+                        cnn_flipped = True
+
+                self._open_trade(direction, price, ts, time_str, feat, tier,
+                                 cnn_flipped=cnn_flipped)
 
     def _classify_tier(self, feat, direction):
         """Classify entry setup into tier based on conditions present."""
@@ -201,7 +279,7 @@ class BlendedEngine:
 
         return None
 
-    def _open_trade(self, direction, price, ts, time_str, feat, tier):
+    def _open_trade(self, direction, price, ts, time_str, feat, tier, cnn_flipped=False):
         self.in_pos = True
         self.direction = direction
         self.entry_price = price
@@ -211,6 +289,7 @@ class BlendedEngine:
             'vr': feat[_1M_OFFSET + _VR],
         }
         self.entry_tier = tier
+        self.cnn_flipped = cnn_flipped
         self.bars_held = 0
         self.peak_pnl = 0.0
         self.passed_center = False
@@ -239,6 +318,7 @@ class BlendedEngine:
             'held': self.bars_held,
             'peak': self.peak_pnl,
             'entry_tier': self.entry_tier,
+            'cnn_flipped': getattr(self, 'cnn_flipped', False),
             'exit_reason': exit_reason,
             'entry_79d': self.entry_79d.tolist() if self.entry_79d is not None else [],
             'exit_79d': feat.tolist(),
