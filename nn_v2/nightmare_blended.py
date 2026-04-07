@@ -63,8 +63,9 @@ APPROACH_BUFFER_SIZE = 10
 # Tier encoding for CNN
 TIER_MAP = {'CASCADE': 2, 'KILL_SHOT': 1, 'BASE_NMP': 0}
 
-# CNN model path
-CNN_MODEL_PATH = 'nn_v2/output/tree/cnn_flip.pt'
+# CNN model paths
+CNN_FLIP_PATH = 'nn_v2/output/tree/cnn_flip.pt'
+CNN_HOLD_PATH = 'nn_v2/output/tree/cnn_hold.pt'
 
 # Grid layout for CNN
 _N_CORE = 10
@@ -107,50 +108,94 @@ class BlendedEngine:
 
         # CNN flip predictor for BASE_NMP trades
         self.use_cnn = use_cnn
-        self.cnn_model = None
-        self.cnn_entry_mean = None
-        self.cnn_entry_std = None
         self._cnn_device = None
-        if use_cnn and os.path.exists(CNN_MODEL_PATH):
-            self._load_cnn()
 
-    def _load_cnn(self):
-        """Load trained CNN flip predictor."""
+        # CNN flip (direction)
+        self.cnn_flip = None
+        self.cnn_flip_mean = None
+        self.cnn_flip_std = None
+
+        # CNN hold (exit timing)
+        self.cnn_hold = None
+        self.cnn_hold_mean = None
+        self.cnn_hold_std = None
+
+        if use_cnn:
+            self._cnn_device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            self._load_cnn_flip()
+            self._load_cnn_hold()
+
+    def _load_cnn_flip(self):
+        """Load CNN flip predictor."""
+        if not os.path.exists(CNN_FLIP_PATH):
+            return
         from nn_v2.cnn_flip import FlipCNN
-        checkpoint = torch.load(CNN_MODEL_PATH, map_location='cpu', weights_only=False)
-        self._cnn_device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.cnn_model = FlipCNN(use_path=False).to(self._cnn_device)
-        # Load weights — entry-only mode (no path at trade time)
-        # The saved model uses path, but we run entry-only at inference
-        # Need to load a compatible model or retrain without path
-        # For now: use entry conv + classifier with path_flat=0
+        checkpoint = torch.load(CNN_FLIP_PATH, map_location='cpu', weights_only=False)
+        self.cnn_flip = FlipCNN(use_path=False).to(self._cnn_device)
         try:
-            self.cnn_model.load_state_dict(checkpoint['model_state'], strict=False)
+            self.cnn_flip.load_state_dict(checkpoint['model_state'], strict=False)
         except Exception:
-            # If shapes don't match, create entry-only model
-            self.cnn_model = FlipCNN(use_path=False).to(self._cnn_device)
-        self.cnn_model.eval()
-        self.cnn_entry_mean = checkpoint.get('entry_mean', np.zeros((1, 6, 13)))
-        self.cnn_entry_std = checkpoint.get('entry_std', np.ones((1, 6, 13)))
-        print(f'  CNN flip model loaded ({self._cnn_device})')
+            self.cnn_flip = FlipCNN(use_path=False).to(self._cnn_device)
+        self.cnn_flip.eval()
+        self.cnn_flip_mean = checkpoint.get('entry_mean', np.zeros((1, 6, 13)))
+        self.cnn_flip_std = checkpoint.get('entry_std', np.ones((1, 6, 13)))
+        print(f'  CNN flip loaded ({self._cnn_device})')
+
+    def _load_cnn_hold(self):
+        """Load CNN hold predictor."""
+        if not os.path.exists(CNN_HOLD_PATH):
+            return
+        from nn_v2.cnn_hold import HoldCNN
+        checkpoint = torch.load(CNN_HOLD_PATH, map_location='cpu', weights_only=False)
+        self.cnn_hold = HoldCNN().to(self._cnn_device)
+        self.cnn_hold.load_state_dict(checkpoint['model_state'])
+        self.cnn_hold.eval()
+        self.cnn_hold_mean = checkpoint.get('grid_mean', np.zeros((1, 6, 13)))
+        self.cnn_hold_std = checkpoint.get('grid_std', np.ones((1, 6, 13)))
+        print(f'  CNN hold loaded ({self._cnn_device})')
 
     def _cnn_predict_flip(self, feat_79d, tier_num):
         """Predict SAME(0) or COUNTER(1) from 79D at entry."""
-        if self.cnn_model is None:
+        if self.cnn_flip is None:
             return 0  # default: SAME (no flip)
 
         grid = _feat_to_grid(feat_79d)
-        # Normalize
-        grid = (grid - self.cnn_entry_mean[0]) / self.cnn_entry_std[0].clip(min=1e-8)
+        grid = (grid - self.cnn_flip_mean[0]) / self.cnn_flip_std[0].clip(min=1e-8)
 
-        entry_t = torch.FloatTensor(grid).unsqueeze(0).unsqueeze(0).to(self._cnn_device)  # (1,1,6,13)
+        entry_t = torch.FloatTensor(grid).unsqueeze(0).unsqueeze(0).to(self._cnn_device)
         tier_t = torch.FloatTensor([[tier_num]]).to(self._cnn_device)
 
         with torch.no_grad():
-            out = self.cnn_model(entry_t, tier=tier_t)
+            out = self.cnn_flip(entry_t, tier=tier_t)
             pred = out.argmax(dim=1).item()
 
         return pred  # 0=SAME, 1=COUNTER
+
+    def _cnn_predict_hold(self, feat_79d, bars_held, pnl, peak_pnl, direction, tier):
+        """Predict HOLD(1) or EXIT(0) from current 79D + context."""
+        if self.cnn_hold is None:
+            return None  # no prediction, fall through to physics exit
+
+        grid = _feat_to_grid(feat_79d)
+        grid = (grid - self.cnn_hold_mean[0]) / self.cnn_hold_std[0].clip(min=1e-8)
+
+        grid_t = torch.FloatTensor(grid).unsqueeze(0).unsqueeze(0).to(self._cnn_device)
+
+        # Context: [bars_norm, pnl_norm, peak_norm, dir_sign, tier]
+        path_len = max(bars_held, 1)
+        bars_norm = min(bars_held / 500.0, 1.0)  # normalize to ~0-1
+        pnl_norm = pnl / 50.0
+        peak_norm = peak_pnl / 50.0
+        dir_sign = 1.0 if direction == 'long' else -1.0
+        tier_num = TIER_MAP.get(tier, 0)
+
+        ctx_t = torch.FloatTensor([[bars_norm, pnl_norm, peak_norm, dir_sign, float(tier_num)]]).to(self._cnn_device)
+
+        with torch.no_grad():
+            out = self.cnn_hold(grid_t, ctx_t)
+            pred = out.argmax(dim=1).item()
+
+        return pred  # 0=EXIT, 1=HOLD
 
     def on_state(self, state: Dict):
         self._bar_count += 1
@@ -195,9 +240,20 @@ class BlendedEngine:
 
             # Exit logic — only at 1m boundaries
             if is_1m:
-                exit_reason = self._check_exit(feat, z, vr, pnl)
-                if exit_reason:
-                    self._close_trade(price, ts, time_str, exit_reason, feat)
+                # CNN hold check: if CNN says HOLD, skip physics exit
+                if self.cnn_hold is not None:
+                    hold_pred = self._cnn_predict_hold(
+                        feat, self.bars_held, pnl, self.peak_pnl,
+                        self.direction, self.entry_tier)
+                    if hold_pred == 1:  # CNN says HOLD → don't exit
+                        pass  # skip exit check entirely
+                    else:  # CNN says EXIT
+                        self._close_trade(price, ts, time_str, 'cnn_exit', feat)
+                else:
+                    # No CNN hold → use physics exits
+                    exit_reason = self._check_exit(feat, z, vr, pnl)
+                    if exit_reason:
+                        self._close_trade(price, ts, time_str, exit_reason, feat)
 
         # === ENTRY CHECK — 1m boundaries only ===
         if not self.in_pos and is_1m:
