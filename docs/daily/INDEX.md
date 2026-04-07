@@ -2,7 +2,7 @@
 
 | Date | Summary |
 |------|---------|
-| 2026-04-06 | Kill shot 96% WR validated. Overshoot $75/day OOS. Resonance cascade: 1h alignment → $24/trade (50% lift). Trades peak at 5-7hrs, 59% permanent at $150+. NMP captures 3% of move — exit is bottleneck. Trailing 25% giveback = 98% WR. Wick rejection universal signal. |
+| 2026-04-06 | Kill shot 96% WR. Blended engine (cascade/killshot/base). Pipeline $295 IS, $386 OOS. Tree exhausted: direction 55%, duration 64%, 5-point path 54% — can't predict BASE_NMP flips. Wick is the ONLY direction signal. Regime flip = poison (-$19/trade). Next: CNN for multi-feature patterns. |
 | 2026-04-05 | Bayesian pipeline built. Root cause: counter-flip killed edge. Fix: corrected trades (regret → right dir + exit). IS $62/day (63%), OOS $51/day (52%). First real positive OOS. 17 commits. Next: DOE on 79D entry conditions. |
 | 2026-04-04 | nn_v2 full pipeline. NMP→regret→tree→AI. Bulk OOS $711/day. Honest sequential built. Per-day iteration to $175/day IS. |
 | 2026-04-03 | Clean data = -$2,427 (phantom spikes were fake edge). Template autopsy: 0 template matches, 100% peak reversal coin flip. Designed 79D unified feature vector (10 features x 6 TFs). NN architecture: direction + hold duration (signal half-life). 5s = atomic unit, TFs = aggregation windows. Cord length ceiling: 5% capture at 5s = $2,350/day. |
