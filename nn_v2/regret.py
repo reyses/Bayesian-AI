@@ -415,10 +415,12 @@ def correct_trades(trades: List[Dict], price_dir: str = 'DATA/ATLAS/1m') -> List
                 'exit': best_action,
                 # Early entry info
                 'early_bars': early_bars,
-                # Original NMP data (for context)
+                # Original trade data (for context)
                 'original_dir': original_dir,
                 'original_pnl': t['pnl'],
                 'original_held': t['held'],
+                'entry_tier': t.get('entry_tier', 'NMP'),
+                'original_exit_reason': t.get('exit_reason', t.get('exit', '')),
                 'best_action': best_action,
                 'regret': r['regret'],
                 # 79D data — uses approach buffer for early entries

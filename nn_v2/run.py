@@ -837,6 +837,88 @@ def _run_ai_with_book(target: str, book_pkl_path: str, label: str):
     print(f'Saved: {csv_path}')
 
 
+def _run_blended_nmp(target: str):
+    """Run blended NMP (tiered: cascade/killshot/base) on 5s features."""
+    from nn_v2.sfe_ticker import FeatureTicker
+    from nn_v2.nightmare_blended import BlendedEngine
+    from tqdm import tqdm
+    import pickle
+
+    feat_files = _resolve_days(target, FEATURES_DIR_SEQ)
+    if not feat_files:
+        feat_files = _resolve_days(target, FEATURES_DIR_1M)
+    if not feat_files:
+        print(f'No feature files for "{target}"')
+        return
+
+    print(f'BLENDED NMP — {len(feat_files)} day(s)')
+    engine = BlendedEngine()
+    all_results = []
+    all_trades = []
+
+    for fpath in tqdm(feat_files, desc='Days', unit='day'):
+        day_name = os.path.basename(fpath).replace('.parquet', '')
+        price_file = os.path.join(ATLAS_1M, f'{day_name}.parquet')
+        if not os.path.exists(price_file):
+            price_file = None
+
+        engine.reset()
+        ft = FeatureTicker(fpath, price_file=price_file)
+        for state in ft:
+            engine.on_state(state)
+        engine.force_close()
+
+        for t in engine.trades:
+            t['day'] = day_name
+        all_trades.extend(engine.get_full_trades())
+
+        day_pnl = engine.daily_pnl
+        day_trades = len(engine.trades)
+        all_results.append({
+            'day': day_name,
+            'trades': day_trades,
+            'pnl': day_pnl,
+            'wr': sum(1 for t in engine.trades if t['pnl'] > 0) / max(day_trades, 1) * 100,
+        })
+
+        tqdm.write(f'  {day_name}: {engine.summary()}')
+
+    _print_summary(all_results)
+
+    # Save trades (with entry_tier, exit_reason, 79D paths)
+    if all_trades:
+        os.makedirs('nn_v2/output/trades', exist_ok=True)
+        label = target if target in ('is', 'oos', 'all') else 'custom'
+        # Save as blended
+        trade_path = f'nn_v2/output/trades/blended_{label}.pkl'
+        with open(trade_path, 'wb') as f:
+            pickle.dump(all_trades, f)
+        # Also save to nmp path (pipeline downstream reads nmp_is.pkl)
+        nmp_path = f'nn_v2/output/trades/nmp_{label}.pkl'
+        with open(nmp_path, 'wb') as f:
+            pickle.dump(all_trades, f)
+
+        # Flat CSV
+        flat = []
+        for t in all_trades:
+            row = {k: v for k, v in t.items()
+                   if not isinstance(v, (list, dict, __import__('numpy').ndarray))}
+            flat.append(row)
+        csv_path = f'nn_v2/output/trades/blended_{label}.csv'
+        pd.DataFrame(flat).to_csv(csv_path, index=False)
+        print(f'Trade log: {trade_path} ({len(all_trades)} trades)')
+        print(f'Trade CSV: {csv_path}')
+
+        # Tier breakdown
+        from collections import Counter
+        tiers = Counter(t.get('entry_tier', '?') for t in all_trades)
+        for tier, count in tiers.most_common():
+            sub = [t for t in all_trades if t.get('entry_tier') == tier]
+            wr = sum(1 for t in sub if t['pnl'] > 0) / len(sub) * 100
+            total = sum(t['pnl'] for t in sub)
+            print(f'  {tier}: {count} trades, WR={wr:.0f}%, ${total:,.0f}')
+
+
 def _run_bayesian_pipeline():
     """Full Bayesian Book pipeline:
 
@@ -864,9 +946,9 @@ def _run_bayesian_pipeline():
     print(f'PHASE 1: TRAIN')
     print(f'{"="*40}')
 
-    print(f'\n--- Step 1: NMP on IS (sequential, honest) ---')
+    print(f'\n--- Step 1: Blended NMP on IS (tiered: cascade/killshot/base) ---')
     t0 = _time.perf_counter()
-    cmd_nmp('is', fast=True, sequential=True)
+    _run_blended_nmp('is')
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
     print(f'\n--- Step 2: NMP Regret ---')

@@ -118,11 +118,15 @@ def load_corrected_data():
                 break
         strategy = f'{direction}_{bucket_label}'
 
+        # Include tier from blended engine (CASCADE/KILL_SHOT/BASE_NMP)
+        entry_tier = t.get('entry_tier', 'NMP')
+
         row = {
             'pnl': t['pnl'],
             'dir': direction,
             'held': held,
             'day': t.get('day', ''),
+            'entry_tier': entry_tier,
             'best_action': t.get('best_action', strategy),
             'best_pnl': t['pnl'],  # corrected PnL IS the best
             'regret': 0.0,          # no regret — this is the corrected trade
