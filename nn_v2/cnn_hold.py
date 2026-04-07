@@ -53,7 +53,7 @@ def parse_args():
     p.add_argument('--epochs', type=int, default=30)
     p.add_argument('--batch-size', type=int, default=512)
     p.add_argument('--lr', type=float, default=1e-3)
-    p.add_argument('--sample-bars', type=int, default=10,
+    p.add_argument('--sample-bars', type=int, default=20,
                    help='Sample N bars per trade for training (not all bars)')
     return p.parse_args()
 
@@ -125,7 +125,8 @@ def build_dataset(sample_bars=10):
             grids.append(grid)
 
             # Context: normalized bars held, normalized PnL, direction, tier
-            bars_norm = bar_idx / max(len(path), 1)  # 0-1 progress through trade
+            # Use absolute normalization (same as inference: bar/500)
+            bars_norm = min(bar_idx / 500.0, 1.0)
             pnl = p.get('pnl', 0)
             pnl_norm = pnl / 50.0  # normalize to ~[-1, 1] range
             peak = p.get('peak_pnl', 0)
@@ -164,12 +165,12 @@ class HoldDataset(Dataset):
 
 
 class HoldCNN(nn.Module):
-    """CNN: should this trade stay open?"""
+    """CNN: should this trade stay open? V2 — deeper model."""
 
     def __init__(self):
         super().__init__()
 
-        # 79D grid branch
+        # 79D grid branch — 3 conv layers
         self.conv = nn.Sequential(
             nn.Conv2d(1, 32, kernel_size=(3, 3), padding=1),
             nn.BatchNorm2d(32),
@@ -177,21 +178,26 @@ class HoldCNN(nn.Module):
             nn.Conv2d(32, 64, kernel_size=(3, 3), padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(),
+            nn.Conv2d(64, 128, kernel_size=(3, 3), padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
             nn.AdaptiveAvgPool2d((3, 6)),
         )
-        conv_flat = 64 * 3 * 6  # 1152
+        conv_flat = 128 * 3 * 6  # 2304
 
         # Context branch (bars_held, pnl, peak, direction, tier)
         context_dim = 5
 
-        # Classifier
+        # Classifier — wider
         self.classifier = nn.Sequential(
-            nn.Linear(conv_flat + context_dim, 128),
+            nn.Linear(conv_flat + context_dim, 256),
             nn.ReLU(),
             nn.Dropout(0.3),
-            nn.Linear(128, 64),
+            nn.Linear(256, 128),
             nn.ReLU(),
             nn.Dropout(0.2),
+            nn.Linear(128, 64),
+            nn.ReLU(),
             nn.Linear(64, 2),
         )
 
