@@ -60,6 +60,9 @@ _1M_DMI_IDX = 11        # 1m_dmi_diff
 
 APPROACH_BUFFER_SIZE = 10
 
+# Tier encoding for CNN
+TIER_MAP = {'CASCADE': 2, 'KILL_SHOT': 1, 'BASE_NMP': 0}
+
 # CNN model path
 CNN_MODEL_PATH = 'nn_v2/output/tree/cnn_flip.pt'
 
