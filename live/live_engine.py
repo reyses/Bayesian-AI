@@ -330,9 +330,15 @@ class LiveEngine:
             self._last_center = getattr(state_1m, 'regression_center', bar['close'])
             self._last_sigma = getattr(state_1m, 'regression_sigma', 0)
 
-        # Push 1m bar close to dashboard (blue line + white dashed center)
+        # Push 1m bar to dashboard (candlestick + bands)
+        bar_1m = self._pending_1m_bar or bar
         self._gui.push({
             'type': 'BAR_1M',
+            'open': bar_1m.get('open', bar['close']),
+            'high': bar_1m.get('high', bar['close']),
+            'low': bar_1m.get('low', bar['close']),
+            'close': bar_1m.get('close', bar['close']),
+            'volume': bar_1m.get('volume', 0),
             'price': bar['close'],
             'center': self._last_center,
             'sigma': self._last_sigma,

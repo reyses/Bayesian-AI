@@ -960,14 +960,16 @@ class ProgressPopup:
                 font=("Consolas", 10, "bold"),
             ).grid(row=1, column=col, padx=6)
 
-        # ── Live Price Chart ─────────────────────────────────────────────
-        self._price_history = []  # 1s tick prices (purple line)
+        # ── Live Price Chart (Candlestick + Bands) ─────────────────────
+        self._price_history = []  # 1s tick prices (for marker indexing)
         self._price_full = []    # longer buffer for computation
-        self._price_1m = []      # 1m close prices (blue line)
+        self._candles = []       # list of dicts: {open, high, low, close, volume}
         self._center_history = []  # regression center (white dashed)
+        self._sigma_history = []   # regression sigma (for bands)
         self._active_entry_price = None  # horizontal line while in trade
         self._active_entry_side = None
-        self._MAX_PRICE_PTS = 200  # rolling window
+        self._MAX_PRICE_PTS = 200  # rolling window for ticks
+        self._MAX_CANDLES = 60     # candles shown on chart
         self._trade_markers = []  # (price_index, action, side, price, pnl)
         self._active_side = None  # 'long'/'short' when in position, None when flat
 
@@ -981,33 +983,20 @@ class ProgressPopup:
             font=("Consolas", 10, "bold"))
         self._price_lbl.pack(side="right")
 
+        self._PRICE_CHART_H = 220  # taller for candlesticks
         self._price_canvas = tk.Canvas(
-            root, width=self._CHART_W, height=self._CHART_H,
+            root, width=self._CHART_W, height=self._PRICE_CHART_H,
             bg="#141414", highlightthickness=1, highlightbackground="#333333")
         self._price_canvas.pack(padx=20, fill=tk.X, expand=False)
         self._price_canvas.bind("<Configure>", lambda e: self._redraw_price_chart())
 
-        # ── DMI chart ─────────────────────────────────────────────────────────
-        _dmi_frame = tk.Frame(root, bg=BG)
-        _dmi_frame.pack(fill="x", padx=20, pady=(6, 0))
-        tk.Label(_dmi_frame, text="DMI", bg=BG, fg=FG_GREY,
-                 font=("Consolas", 8)).pack(side="left")
-        self._dmi_label_var = tk.StringVar(value="--")
-        tk.Label(_dmi_frame, textvariable=self._dmi_label_var, bg=BG, fg=FG_WHITE,
-                 font=("Consolas", 8)).pack(side="right")
-
-        self._DMI_CHART_H = 100
-        self._dmi_canvas = tk.Canvas(
-            root, width=self._CHART_W, height=self._DMI_CHART_H,
-            bg="#141414", highlightthickness=1, highlightbackground="#333333")
-        self._dmi_canvas.pack(padx=20, fill=tk.X, expand=False)
-        self._dmi_canvas.bind("<Configure>", lambda e: self._redraw_dmi_chart())
+        # ── DMI data (no panel, kept for data tracking) ──────────────────
         self._dmi_plus_history = []
         self._dmi_minus_history = []
         self._volume_history = []
         self._vwap_history = []
-        self._vwap_cum_pv = 0.0  # cumulative price*volume
-        self._vwap_cum_v = 0.0   # cumulative volume
+        self._vwap_cum_pv = 0.0
+        self._vwap_cum_v = 0.0
         self._MAX_DMI_PTS = self._MAX_PRICE_PTS
 
         # ── Status footer ─────────────────────────────────────────────────────
@@ -1084,165 +1073,158 @@ class ProgressPopup:
                 c.create_text(x, H - 1, text=f"T{j}", fill="#555555",
                               font=("Consolas", 6), anchor="s")
 
-    # ── Price line chart ──────────────────────────────────────────────────
+    # ── Candlestick + Bands chart ─────────────────────────────────────────
     def _redraw_price_chart(self):
         c = self._price_canvas
         c.delete("all")
-        pts = self._price_1m  # 1m close prices (not ticks)
+        candles = self._candles
         W = max(100, c.winfo_width())
-        H = max(40, c.winfo_height())
-        if len(pts) < 2:
+        H = max(60, c.winfo_height())
+        n = len(candles)
+        if n < 2:
             c.create_text(W // 2, H // 2, text="Waiting for 1m bars...",
                           fill=FG_GREY, font=("Consolas", 9))
             return
 
-        pad = 6
-        # Scale from 1m + center data for consistent range
-        all_vals = list(pts) + list(self._center_history)
-        mn, mx = min(all_vals), max(all_vals)
+        pad_l = 6      # left padding
+        pad_r = 50     # right padding for price labels
+        pad_tb = 10    # top/bottom padding
+        chart_w = W - pad_l - pad_r
+        chart_h = H - 2 * pad_tb
+
+        # Compute price range from candles + bands
+        all_vals = []
+        for cd in candles:
+            all_vals.extend([cd['high'], cd['low']])
+        # Include bands in range
+        for i in range(len(self._center_history)):
+            ci = len(self._center_history) - len(candles) + i
+            if 0 <= ci < len(self._center_history) and ci < len(self._sigma_history):
+                ctr = self._center_history[ci]
+                sig = self._sigma_history[ci]
+                if ctr and sig:
+                    all_vals.extend([ctr + 2 * sig, ctr - 2 * sig])
+        if not all_vals:
+            return
+        mn = min(all_vals)
+        mx = max(all_vals)
+        margin = (mx - mn) * 0.05 if mx != mn else 1.0
+        mn -= margin
+        mx += margin
         span = mx - mn if mx != mn else 1.0
 
-        # Price grid lines (3 levels)
-        for frac in (0.25, 0.5, 0.75):
-            gy = pad + frac * (H - 2 * pad)
-            price_at = mx - frac * span
-            c.create_line(pad, gy, W - pad, gy, fill="#282828", dash=(2, 4))
-            c.create_text(W - pad + 2, gy, text=f"{price_at:,.0f}",
-                          fill="#444444", font=("Consolas", 5), anchor="w")
+        def _y(price):
+            return pad_tb + (1 - (price - mn) / span) * chart_h
 
-        # === LINES (all from 1m SFE data, not ticks) ===
+        def _x(i):
+            return pad_l + (i + 0.5) / n * chart_w
 
-        # Helper to build coords from a data list
-        def _build_coords(data, n_ref):
-            """Build polyline coords aligned to right edge, using n_ref for scaling."""
-            if len(data) < 2:
-                return []
-            n = min(len(data), n_ref)
-            coords = []
-            for i in range(n):
-                x = pad + (n_ref - n + i) / max(1, n_ref - 1) * (W - 2 * pad)
-                v = data[len(data) - n + i]
-                if v and mn <= v <= mx:
-                    y = H - pad - ((v - mn) / span) * (H - 2 * pad)
-                    coords.extend([x, y])
-            return coords
+        # Price grid lines (every ~2 points or so)
+        grid_step = max(0.5, round(span / 6, 1))
+        grid_start = int(mn / grid_step) * grid_step
+        gv = grid_start
+        while gv <= mx:
+            if mn < gv < mx:
+                gy = _y(gv)
+                c.create_line(pad_l, gy, W - pad_r, gy, fill="#282828", dash=(2, 4))
+                c.create_text(W - pad_r + 4, gy, text=f"{gv:,.2f}",
+                              fill="#555555", font=("Consolas", 7), anchor="w")
+            gv += grid_step
 
-        n_ref = max(len(pts), 2)
+        # === BANDS (center ± 1σ cyan, ± 2σ darker cyan) ===
+        n_ctr = min(len(self._center_history), len(self._sigma_history), n)
+        if n_ctr >= 2:
+            offset = n - n_ctr
+            for mult, color, width in [(2, '#1a4a5a', 1), (1, '#2a8a9a', 1)]:
+                upper_coords = []
+                lower_coords = []
+                for i in range(n_ctr):
+                    ci = len(self._center_history) - n_ctr + i
+                    ctr = self._center_history[ci]
+                    sig = self._sigma_history[ci]
+                    if ctr and sig:
+                        x = _x(offset + i)
+                        upper_coords.extend([x, _y(ctr + mult * sig)])
+                        lower_coords.extend([x, _y(ctr - mult * sig)])
+                if len(upper_coords) >= 4:
+                    c.create_line(upper_coords, fill=color, width=width, smooth=True)
+                if len(lower_coords) >= 4:
+                    c.create_line(lower_coords, fill=color, width=width, smooth=True)
 
-        # 1. White dashed — 1m regression center
-        center_coords = _build_coords(self._center_history, n_ref)
-        if len(center_coords) >= 4:
-            c.create_line(center_coords, fill='#FFFFFF', width=1, dash=(4, 3))
+            # Center line (white dashed)
+            center_coords = []
+            for i in range(n_ctr):
+                ci = len(self._center_history) - n_ctr + i
+                ctr = self._center_history[ci]
+                if ctr:
+                    center_coords.extend([_x(offset + i), _y(ctr)])
+            if len(center_coords) >= 4:
+                c.create_line(center_coords, fill='#FFFFFF', width=1, dash=(4, 3))
 
-        # 2. Blue — 1m close prices
-        coords_1m = _build_coords(self._price_1m, n_ref)
-        if len(coords_1m) >= 4:
-            c.create_line(coords_1m, fill='#4A9EFF', width=2, smooth=True)
+        # === CANDLESTICKS ===
+        bar_w = max(2, chart_w / n * 0.6)  # 60% of slot width
+        for i, cd in enumerate(candles):
+            x = _x(i)
+            o, hi, lo, cl = cd['open'], cd['high'], cd['low'], cd['close']
+            bullish = cl >= o
+            body_color = '#00CC00' if bullish else '#CC0000'
+            wick_color = '#00AA00' if bullish else '#AA0000'
 
-        # 3. Current price dot (latest 1m close)
-        if len(coords_1m) >= 4:
-            c.create_oval(coords_1m[-2] - 3, coords_1m[-1] - 3,
-                          coords_1m[-2] + 3, coords_1m[-1] + 3,
-                          fill='#4A9EFF', outline="")
+            # Wick (high-low line)
+            c.create_line(x, _y(hi), x, _y(lo), fill=wick_color, width=1)
 
-        # VWAP line (cyan, session cumulative)
-        vwap = self._vwap_history
-        n_vwap = min(len(vwap), len(pts))
-        if n_vwap >= 2:
-            vwap_coords = []
-            for i in range(n_vwap):
-                x = pad + (len(pts) - n_vwap + i) / max(1, len(pts) - 1) * (W - 2 * pad)
-                v = vwap[len(vwap) - n_vwap + i]
-                if mn <= v <= mx:
-                    y = H - pad - ((v - mn) / span) * (H - 2 * pad)
-                    vwap_coords.extend([x, y])
-            if len(vwap_coords) >= 4:
-                c.create_line(vwap_coords, fill="#00FFFF", width=1, smooth=True, dash=(3, 2))
+            # Body (open-close rectangle)
+            y_top = _y(max(o, cl))
+            y_bot = _y(min(o, cl))
+            if abs(y_bot - y_top) < 1:
+                y_bot = y_top + 1  # minimum 1px body
+            c.create_rectangle(
+                x - bar_w / 2, y_top, x + bar_w / 2, y_bot,
+                fill=body_color, outline=body_color)
 
-        # Active trade: horizontal entry line (persists until exit)
+        # Active trade: horizontal entry line
         if self._active_entry_price is not None and mn <= self._active_entry_price <= mx:
-            _ey = H - pad - ((self._active_entry_price - mn) / span) * (H - 2 * pad)
+            _ey = _y(self._active_entry_price)
             _ec = "#00FF00" if self._active_entry_side == 'long' else "#FF4444"
-            c.create_line(pad, _ey, W - pad, _ey, fill=_ec, width=1, dash=(4, 3))
-            c.create_text(pad + 4, _ey - 8,
+            c.create_line(pad_l, _ey, W - pad_r, _ey, fill=_ec, width=1, dash=(4, 3))
+            c.create_text(pad_l + 4, _ey - 8,
                           text=f"{self._active_entry_side.upper()} @ {self._active_entry_price:,.2f}",
-                          fill=_ec, font=("Consolas", 6), anchor="w")
+                          fill=_ec, font=("Consolas", 7), anchor="w")
 
-        # DMI overlay on price chart (secondary Y-axis, semi-transparent)
-        dp = self._dmi_plus_history
-        dm = self._dmi_minus_history
-        _dmi_n = min(len(dp), len(dm), len(pts))
-        if _dmi_n >= 2:
-            _dmi_all = dp[-_dmi_n:] + dm[-_dmi_n:]
-            _dmi_mn = max(0, min(_dmi_all) - 2)
-            _dmi_mx = max(_dmi_all) + 2
-            _dmi_span = _dmi_mx - _dmi_mn if _dmi_mx != _dmi_mn else 1.0
-            if _dmi_span < 40:
-                _dmi_mid = (_dmi_mn + _dmi_mx) / 2
-                _dmi_mn = max(0, _dmi_mid - 20)
-                _dmi_mx = _dmi_mn + 40
-                _dmi_span = 40.0
+        # Current price label on right axis
+        if candles:
+            last_close = candles[-1]['close']
+            ly = _y(last_close)
+            _lc = '#00CC00' if len(candles) < 2 or last_close >= candles[-2]['close'] else '#CC0000'
+            c.create_rectangle(W - pad_r + 1, ly - 8, W - 1, ly + 8,
+                               fill=_lc, outline=_lc)
+            c.create_text(W - pad_r + 4, ly, text=f"{last_close:,.2f}",
+                          fill='#FFFFFF', font=("Consolas", 7, "bold"), anchor="w")
 
-            def _dmi_y(v):
-                return H - pad - ((v - _dmi_mn) / _dmi_span) * (H - 2 * pad)
-
-            # DMI+ (green, thin)
-            _dp_coords = []
-            for i in range(_dmi_n):
-                x = pad + i / max(1, _dmi_n - 1) * (W - 2 * pad)
-                _dp_coords.extend([x, _dmi_y(dp[len(dp) - _dmi_n + i])])
-            if len(_dp_coords) >= 4:
-                c.create_line(_dp_coords, fill="#00CC00", width=1, smooth=True, dash=(2, 2))
-
-            # DMI- (red, thin)
-            _dm_coords = []
-            for i in range(_dmi_n):
-                x = pad + i / max(1, _dmi_n - 1) * (W - 2 * pad)
-                _dm_coords.extend([x, _dmi_y(dm[len(dm) - _dmi_n + i])])
-            if len(_dm_coords) >= 4:
-                c.create_line(_dm_coords, fill="#CC0000", width=1, smooth=True, dash=(2, 2))
-
-        # Trade markers: entry = up triangle (direction), exit = down triangle (outcome)
-        n_pts = len(pts)
+        # Trade markers on candle chart
+        n_pts = len(self._price_history)
         for (idx, action, side, mprice, mpnl) in self._trade_markers:
-            if idx < 0 or idx >= n_pts:
+            if idx < 0 or idx >= n_pts or mprice < mn or mprice > mx:
                 continue
-            mx_pos = pad + idx / max(1, n_pts - 1) * (W - 2 * pad)
-            my_pos = H - pad - ((mprice - mn) / span) * (H - 2 * pad)
+            # Map tick index to candle x position (approximate)
+            candle_idx = int(idx / max(1, n_pts) * n)
+            candle_idx = min(candle_idx, n - 1)
+            mx_pos = _x(candle_idx)
+            my_pos = _y(mprice)
             sz = 5
             if action == 'entry':
-                # Up triangle: green=LONG, red=SHORT
                 mc = "#00FF00" if side == 'long' else "#FF4444"
-                c.create_polygon(mx_pos, my_pos - sz, mx_pos - sz, my_pos + sz,
-                                 mx_pos + sz, my_pos + sz, fill=mc, outline="#000")
-            elif action == 'skip':
-                # Yellow triangle: up=LONG skip, down=SHORT skip
+                c.create_polygon(mx_pos, my_pos - sz - 2, mx_pos - sz, my_pos + sz - 2,
+                                 mx_pos + sz, my_pos + sz - 2, fill=mc, outline="#000")
+            elif action in ('skip', 'peak_skip'):
                 sz = 3
-                if side == 'long':
-                    c.create_polygon(mx_pos, my_pos - sz, mx_pos - sz, my_pos + sz,
-                                     mx_pos + sz, my_pos + sz, fill="#FFAA00", outline="")
-                else:
-                    c.create_polygon(mx_pos, my_pos + sz, mx_pos - sz, my_pos - sz,
-                                     mx_pos + sz, my_pos - sz, fill="#FFAA00", outline="")
-            elif action == 'peak_skip':
-                # Purple triangle: up=LONG skip, down=SHORT skip
-                sz = 3
-                if side == 'long':
-                    c.create_polygon(mx_pos, my_pos - sz, mx_pos - sz, my_pos + sz,
-                                     mx_pos + sz, my_pos + sz, fill="#CC44FF", outline="")
-                else:
-                    c.create_polygon(mx_pos, my_pos + sz, mx_pos - sz, my_pos - sz,
-                                     mx_pos + sz, my_pos - sz, fill="#CC44FF", outline="")
-            elif action == 'peak_entry':
-                # Purple up triangle: peak detection entry
-                mc = "#CC44FF"
+                mc = "#FFAA00" if action == 'skip' else "#CC44FF"
                 c.create_polygon(mx_pos, my_pos - sz, mx_pos - sz, my_pos + sz,
-                                 mx_pos + sz, my_pos + sz, fill=mc, outline="#000")
+                                 mx_pos + sz, my_pos + sz, fill=mc, outline="")
             else:
-                # Down triangle: green=win, red=loss
                 mc = "#00FF00" if mpnl and mpnl > 0 else "#FF4444"
-                c.create_polygon(mx_pos, my_pos + sz, mx_pos - sz, my_pos - sz,
-                                 mx_pos + sz, my_pos - sz, fill=mc, outline="#000")
+                c.create_polygon(mx_pos, my_pos + sz + 2, mx_pos - sz, my_pos - sz + 2,
+                                 mx_pos + sz, my_pos - sz + 2, fill=mc, outline="#000")
 
     def _save_chart_data(self):
         """Save price history + trade markers to CSV at end of phase."""
@@ -1285,109 +1267,6 @@ class ProgressPopup:
             print(f"  [CHART] Canvas saved: {_ps_path}")
         except Exception as e:
             print(f"  [CHART] Canvas save failed: {e}")
-
-    def _redraw_dmi_chart(self):
-        """Draw DMI+/DMI- overlay chart."""
-        c = self._dmi_canvas
-        c.delete("all")
-        W = max(100, c.winfo_width())
-        H = max(30, c.winfo_height())
-        pad = 4
-
-        dp = self._dmi_plus_history
-        dm = self._dmi_minus_history
-        n = min(len(dp), len(dm))
-        if n < 2:
-            c.create_text(W // 2, H // 2, text="Waiting for DMI...",
-                          fill="#444444", font=("Consolas", 7))
-            return
-
-        # Auto-scale to data range, enforce minimum span for visibility
-        all_vals = dp[-n:] + dm[-n:]
-        mn = max(0, min(all_vals) - 2)
-        mx = max(all_vals) + 2
-        # Minimum span of 40 so lines don't look flat when DMI is stable
-        MIN_SPAN = 40.0
-        span = mx - mn if mx != mn else 1.0
-        if span < MIN_SPAN:
-            mid = (mn + mx) / 2
-            mn = max(0, mid - MIN_SPAN / 2)
-            mx = mn + MIN_SPAN
-            span = MIN_SPAN
-
-        def _y(v):
-            return H - pad - ((v - mn) / span) * (H - 2 * pad)
-
-        # Grid: 20 and 30 reference lines
-        for ref in (20, 30):
-            if mn <= ref <= mx:
-                gy = _y(ref)
-                c.create_line(pad, gy, W - pad, gy, fill="#282828", dash=(2, 4))
-                c.create_text(W - pad + 2, gy, text=str(ref),
-                              fill="#444444", font=("Consolas", 5), anchor="w")
-
-        # DMI+ line (green)
-        coords_p = []
-        for i in range(n):
-            x = pad + i / max(1, n - 1) * (W - 2 * pad)
-            coords_p.extend([x, _y(dp[len(dp) - n + i])])
-        if len(coords_p) >= 4:
-            c.create_line(coords_p, fill="#00CC00", width=1, smooth=True)
-
-        # DMI- line (red)
-        coords_m = []
-        for i in range(n):
-            x = pad + i / max(1, n - 1) * (W - 2 * pad)
-            coords_m.extend([x, _y(dm[len(dm) - n + i])])
-        if len(coords_m) >= 4:
-            c.create_line(coords_m, fill="#CC0000", width=1, smooth=True)
-
-        # Volume as yellow line (scaled to DMI panel Y range)
-        vol = self._volume_history
-        n_vol = min(len(vol), n)
-        if n_vol >= 2:
-            vol_slice = vol[-n_vol:]
-            vol_max = max(vol_slice) if vol_slice else 1.0
-            if vol_max > 0:
-                coords_v = []
-                for i in range(n_vol):
-                    x = pad + (n - n_vol + i) / max(1, n - 1) * (W - 2 * pad)
-                    # Scale volume to DMI Y range (0 = bottom, vol_max = top of chart)
-                    v_scaled = mn + (vol_slice[i] / vol_max) * span
-                    coords_v.extend([x, _y(v_scaled)])
-                if len(coords_v) >= 4:
-                    c.create_line(coords_v, fill="#CCAA00", width=1, smooth=True, dash=(1, 2))
-
-        # Current values at right edge
-        if dp and dm:
-            c.create_text(W - 2, _y(dp[-1]) - 6, text=f"+{dp[-1]:.0f}",
-                          fill="#00CC00", font=("Consolas", 6), anchor="e")
-            c.create_text(W - 2, _y(dm[-1]) + 6, text=f"-{dm[-1]:.0f}",
-                          fill="#CC0000", font=("Consolas", 6), anchor="e")
-
-        # Overlay trade markers on DMI chart (same indices as price chart)
-        # Shows where entries/exits/skips occurred relative to DMI state
-        n_pts = len(self._price_history)  # markers indexed to price history
-        _mid_y = H // 2  # place markers at vertical center of DMI chart
-        for (idx, action, side, mprice, mpnl) in self._trade_markers:
-            if idx < 0 or idx >= n_pts:
-                continue
-            mx = pad + idx / max(1, n_pts - 1) * (W - 2 * pad)
-            sz = 3
-            if action == 'entry':
-                mc = "#00FF00" if side == 'long' else "#FF4444"
-                c.create_line(mx, pad, mx, H - pad, fill=mc, width=1, dash=(1, 3))
-            elif action == 'peak_entry':
-                c.create_line(mx, pad, mx, H - pad, fill="#CC44FF", width=1, dash=(1, 3))
-            elif action == 'peak_skip':
-                c.create_polygon(mx, _mid_y - sz, mx - sz, _mid_y,
-                                 mx, _mid_y + sz, mx + sz, _mid_y,
-                                 fill="#CC44FF", outline="")
-            elif action == 'skip' or action == 'SKIP':
-                c.create_line(mx, pad, mx, H - pad, fill="#FFAA00", width=1, dash=(2, 4))
-            elif action == 'exit':
-                mc = "#00FF00" if mpnl and mpnl > 0 else "#FF4444"
-                c.create_line(mx, pad, mx, H - pad, fill=mc, width=1, dash=(2, 2))
 
     def _on_aggression_change(self, val):
         """Slider callback  -- update shared state so engine reads it."""
@@ -1472,6 +1351,9 @@ class ProgressPopup:
                 self._pnl_history = [0]
                 self._price_history = []
                 self._price_full = []
+                self._candles = []
+                self._center_history = []
+                self._sigma_history = []
                 self._trade_markers = []
                 self._active_entry_price = None
                 self._active_entry_side = None
@@ -1636,24 +1518,40 @@ class ProgressPopup:
                     # Clear chart after history sync — start fresh for live data
                     self._price_history = []
                     self._price_full = []
-                    self._price_1m = []
+                    self._candles = []
                     self._center_history = []
+                    self._sigma_history = []
                     self._trade_markers = []
                     self._tick_counter = 0
                     self._redraw_price_chart()
 
                 elif mtype == "BAR_1M":
-                    # 1m bar close — update blue line + white dashed center
-                    _p1m = msg.get('price', 0)
+                    # 1m bar close — store candle + bands
+                    _o = msg.get('open', 0)
+                    _h = msg.get('high', 0)
+                    _l = msg.get('low', 0)
+                    _cl = msg.get('close', msg.get('price', 0))
+                    _vol = msg.get('volume', 0)
                     _ctr = msg.get('center', 0)
-                    if _p1m:
-                        self._price_1m.append(float(_p1m))
-                        if len(self._price_1m) > self._MAX_PRICE_PTS:
-                            self._price_1m = self._price_1m[-self._MAX_PRICE_PTS:]
+                    _sig = msg.get('sigma', 0)
+                    if _cl:
+                        self._candles.append({
+                            'open': float(_o) if _o else float(_cl),
+                            'high': float(_h) if _h else float(_cl),
+                            'low': float(_l) if _l else float(_cl),
+                            'close': float(_cl),
+                            'volume': float(_vol),
+                        })
+                        if len(self._candles) > self._MAX_CANDLES:
+                            self._candles = self._candles[-self._MAX_CANDLES:]
                     if _ctr:
                         self._center_history.append(float(_ctr))
-                        if len(self._center_history) > self._MAX_PRICE_PTS:
-                            self._center_history = self._center_history[-self._MAX_PRICE_PTS:]
+                        if len(self._center_history) > self._MAX_CANDLES:
+                            self._center_history = self._center_history[-self._MAX_CANDLES:]
+                    if _sig is not None:
+                        self._sigma_history.append(float(_sig))
+                        if len(self._sigma_history) > self._MAX_CANDLES:
+                            self._sigma_history = self._sigma_history[-self._MAX_CANDLES:]
                     # Update z_se display only on 1m close
                     _z = msg.get('z_se', 0)
                     _vr = msg.get('vr', 0) if 'vr' in msg else getattr(self, '_last_vr_display', 0)
@@ -1809,7 +1707,6 @@ class ProgressPopup:
         # Single redraw per poll cycle (not per message)
         if getattr(self, '_needs_redraw', False):
             self._redraw_price_chart()
-            self._redraw_dmi_chart()
             self._needs_redraw = False
         # Training: poll every 5s (weekly redraws, no urgency)
         # Live: poll every 1s (real-time updates needed)
