@@ -114,6 +114,12 @@ class LiveEngine:
         self._session = SessionTracker(config)
         # Post-trade regret analysis (nn_v2 regret engine)
         self._regret_buffer = []  # stores recent closes for regret computation
+        self._live_trades_for_brain = []  # accumulate trades for CNN retraining
+        self._regret_log = []  # daily regret CSV data
+
+        # Live brain paths (separate from backtest brain)
+        self._live_brain_dir = os.path.join('live', 'brains')
+        os.makedirs(self._live_brain_dir, exist_ok=True)
         self._trade_logger = TradeLogger(
             os.path.join('reports', 'live', 'trades'))
 
@@ -355,9 +361,8 @@ class LiveEngine:
         self._trade_logger.end_trade(
             pnl, trade.get('exit_reason', ''), self._last_price)
 
-        # Post-trade regret analysis
+        # Post-trade regret analysis + accumulate for live brain
         if len(self._regret_buffer) > 50:
-            import numpy as np
             closes = np.array(self._regret_buffer)
             entry_idx = max(0, len(closes) - trade.get('held', 10) - 1)
             try:
@@ -365,8 +370,26 @@ class LiveEngine:
                 regret_pnl = r['best_pnl'] - r['actual_pnl']
                 logger.info(f'  REGRET: best={r["best_action"]} ${r["best_pnl"]:.0f} '
                            f'(left ${regret_pnl:.0f} on table)')
-            except Exception:
-                pass
+
+                # Accumulate for daily regret CSV
+                self._regret_log.append({
+                    'timestamp': self._last_ts,
+                    'dir': trade.get('dir', ''),
+                    'tier': trade.get('entry_tier', ''),
+                    'exit_reason': trade.get('exit_reason', ''),
+                    'pnl': pnl,
+                    'best_action': r['best_action'],
+                    'best_pnl': r['best_pnl'],
+                    'regret': regret_pnl,
+                })
+
+                # Accumulate full trade for brain retraining
+                self._live_trades_for_brain.append({
+                    **trade,
+                    'regret': r,
+                })
+            except Exception as e:
+                logger.warning(f'Regret computation failed: {e}')
 
         # Close NT8 position
         await self._close_position(trade.get('exit_reason', 'cnn'))
@@ -461,7 +484,7 @@ class LiveEngine:
     # ── Shutdown ───────────────────────────────────────────────────────
 
     async def _shutdown(self):
-        """Graceful shutdown: flatten, save, disconnect."""
+        """Graceful shutdown: flatten, save regret, retrain brain, disconnect."""
         self._shutting_down = True
 
         # Flatten if in position
@@ -480,7 +503,42 @@ class LiveEngine:
         with open(report_path, 'w') as f:
             f.write(report)
 
+        # Save daily regret CSV
+        if self._regret_log:
+            import pandas as pd
+            date_str = time.strftime('%Y%m%d')
+            regret_path = os.path.join(self._reports_dir, f'regret_{date_str}.csv')
+            pd.DataFrame(self._regret_log).to_csv(regret_path, index=False)
+            logger.info(f'Regret log saved: {regret_path} ({len(self._regret_log)} trades)')
+
+        # Retrain live brain from accumulated trades
+        if self._live_trades_for_brain:
+            self._retrain_live_brain()
+
         # Disconnect
         await self._client.disconnect()
         logger.info('Shutdown complete')
         self._shared_state['shutdown_confirmed'] = True
+
+    def _retrain_live_brain(self):
+        """Retrain CNNs on live trades → save as live brain (separate from backtest)."""
+        import pickle
+
+        n_trades = len(self._live_trades_for_brain)
+        logger.info(f'Retraining live brain from {n_trades} trades...')
+
+        if n_trades < 10:
+            logger.info('Too few trades for retraining — skipping')
+            return
+
+        # Save raw live trades for offline analysis
+        trades_path = os.path.join(self._live_brain_dir, 'live_trades.pkl')
+        with open(trades_path, 'wb') as f:
+            pickle.dump(self._live_trades_for_brain, f)
+        logger.info(f'Live trades saved: {trades_path}')
+
+        # For now: save trades only. Full retraining requires more data.
+        # The maintenance script can retrain from accumulated live trades.
+        # This prevents slow shutdown from GPU training.
+        logger.info('Live brain retraining deferred to maintenance window')
+        logger.info(f'  Run: python -m live.maintenance --retrain')
