@@ -16,7 +16,7 @@ from typing import Optional
 
 from live.config import LiveConfig
 from live.protocol import (
-    encode, MessageReader, subscribe, heartbeat as hb_msg,
+    encode, MessageReader, MsgType, subscribe, heartbeat as hb_msg,
     request_history, resume_from, validate,
 )
 
