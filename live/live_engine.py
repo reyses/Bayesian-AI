@@ -233,6 +233,24 @@ class LiveEngine:
         if len(self._regret_buffer) > 5000:
             self._regret_buffer = self._regret_buffer[-5000:]
 
+        # Per-bar: push tick + unrealized PnL to dashboard
+        unrealized = 0.0
+        if self._engine.in_pos:
+            if self._engine.direction == 'long':
+                unrealized = (bar['close'] - self._engine.entry_price) / 0.25 * 0.50
+            else:
+                unrealized = (self._engine.entry_price - bar['close']) / 0.25 * 0.50
+        self._gui.push({
+            'type': 'TICK_UPDATE',
+            'price': bar['close'],
+            'bars': self._bar_count,
+            'unrealized': unrealized,
+            'daily_pnl': self._daily_pnl,
+            'in_position': self._engine.in_pos,
+            'direction': self._engine.direction or '',
+            'tier': self._engine.entry_tier or '',
+        })
+
         # Status line every 60 bars
         if self._bar_count % 60 == 0:
             self._print_status(bar)
