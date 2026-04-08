@@ -52,10 +52,22 @@ class LiveBlendedEngine:
         self.client = NT8Client(config)
         self.order_mgr = OrderManager(config)
 
-        # SFE + Aggregator
+        # SFE
         self.sfe = StatisticalFieldEngine()
-        self.agg = Aggregator(history_limit=2000)
-        self.prev_velocities = {}
+
+        # Try loading warm state from maintenance
+        from live.maintenance import load_state
+        warm = load_state()
+        if warm:
+            self.agg, self.prev_velocities, self._warmup_info = warm
+            self._warmed_up = True
+            logger.info('Loaded warm aggregator state from maintenance')
+        else:
+            self.agg = Aggregator(history_limit=2000)
+            self.prev_velocities = {}
+            self._warmup_info = None
+            self._warmed_up = False
+            logger.warning('No warm state found — cold start, 1h/1D will be thin')
 
         # Blended engine with all 3 CNNs
         self.engine = BlendedEngine(use_cnn=True)
@@ -63,7 +75,6 @@ class LiveBlendedEngine:
         # State
         self._bar_count = 0
         self._last_79d_ts = 0
-        self._warmed_up = False
         self._history_done = False
         self._position = 'flat'  # track what NT8 says
         self._daily_pnl = 0.0
