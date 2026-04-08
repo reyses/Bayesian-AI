@@ -153,6 +153,11 @@ class LiveEngine:
         self._reports_dir = os.path.join('reports', 'live')
         os.makedirs(self._reports_dir, exist_ok=True)
 
+        # Live data capture
+        self._live_1s_bars = []       # raw 1s bars for ATLAS_LIVE
+        self._live_79d = []           # 79D features per 1m close
+        self._session_date = time.strftime('%Y_%m_%d')
+
     # ── Main Loop ──────────────────────────────────────────────────────
 
     async def run(self):
@@ -244,6 +249,9 @@ class LiveEngine:
         self._last_price = bar['close']
         self._last_ts = bar['timestamp']
 
+        # Capture raw 1s bar for ATLAS_LIVE
+        self._live_1s_bars.append(bar)
+
         # Feed aggregator — this may trigger _on_tf_bar_close for 1m
         self._pending_1m_bar = None
         self._agg.feed(bar)
@@ -315,6 +323,12 @@ class LiveEngine:
         # Store features for status display
         self._last_z_se = feat[10]      # 1m_z_se
         self._last_vr = feat[12]        # 1m_variance_ratio
+
+        # Capture 79D for FEATURES_LIVE
+        self._live_79d.append({
+            'timestamp': ts,
+            **{name: feat[i] for i, name in enumerate(FEATURE_NAMES_79D)}
+        })
 
         # Regression center for dashboard
         if '1m' in states_by_tf:
@@ -592,6 +606,9 @@ class LiveEngine:
             pd.DataFrame(self._regret_log).to_csv(regret_path, index=False)
             logger.info(f'Regret log saved: {regret_path} ({len(self._regret_log)} trades)')
 
+        # Save live data (ATLAS_LIVE + FEATURES_LIVE)
+        self._save_live_data()
+
         # Retrain live brain from accumulated trades
         if self._live_trades_for_brain:
             self._retrain_live_brain()
@@ -600,6 +617,46 @@ class LiveEngine:
         await self._client.disconnect()
         logger.info('Shutdown complete')
         self._shared_state['shutdown_confirmed'] = True
+
+    def _save_live_data(self):
+        """Save live session data: ATLAS_LIVE (all TFs) + FEATURES_LIVE (79D)."""
+        import pandas as pd
+
+        day = self._session_date
+
+        # 1. Save raw 1s bars
+        if self._live_1s_bars:
+            out_dir = os.path.join('DATA', 'ATLAS_LIVE', '1s')
+            os.makedirs(out_dir, exist_ok=True)
+            df = pd.DataFrame(self._live_1s_bars)
+            path = os.path.join(out_dir, f'{day}.parquet')
+            df.to_parquet(path, index=False)
+            logger.info(f'ATLAS_LIVE 1s: {len(df)} bars → {path}')
+
+        # 2. Save aggregated TF bars from aggregator history
+        for tf in ['15s', '1m', '5m', '15m', '1h', '1D']:
+            bars = self._agg.get_closed_bars(tf)
+            if not bars:
+                continue
+            # Filter to today's bars only (by timestamp)
+            today_start = pd.Timestamp(day.replace('_', '-')).timestamp()
+            today_bars = [b for b in bars if b.get('timestamp', 0) >= today_start]
+            if today_bars:
+                out_dir = os.path.join('DATA', 'ATLAS_LIVE', tf)
+                os.makedirs(out_dir, exist_ok=True)
+                df = pd.DataFrame(today_bars)
+                path = os.path.join(out_dir, f'{day}.parquet')
+                df.to_parquet(path, index=False)
+                logger.info(f'ATLAS_LIVE {tf}: {len(df)} bars → {path}')
+
+        # 3. Save 79D features
+        if self._live_79d:
+            out_dir = 'DATA/FEATURES_79D_5s_live'
+            os.makedirs(out_dir, exist_ok=True)
+            df = pd.DataFrame(self._live_79d)
+            path = os.path.join(out_dir, f'{day}.parquet')
+            df.to_parquet(path, index=False)
+            logger.info(f'FEATURES_LIVE: {len(df)} rows → {path}')
 
     def _retrain_live_brain(self):
         """Retrain CNNs on live trades → save as live brain (separate from backtest)."""
