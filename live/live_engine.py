@@ -511,6 +511,9 @@ class LiveEngine:
         wins = sum(1 for t in self._engine.trades if t['pnl'] > 0)
         gross_win = sum(t['pnl'] for t in self._engine.trades if t['pnl'] > 0)
         gross_loss = sum(t['pnl'] for t in self._engine.trades if t['pnl'] <= 0)
+        # z_se proximity to trigger: |z|/2.0 * 100, capped at 100%
+        z_pct = min(abs(self._last_z_se) / 2.0 * 100, 100)
+
         self._gui.push_stats(
             session_pnl=self._daily_pnl,
             session_wins=wins,
@@ -518,7 +521,7 @@ class LiveEngine:
             gross_win=gross_win,
             gross_loss=gross_loss,
             exit_buckets={'reversed': 0, 'q1': 0, 'q2': 0, 'q3': 0, 'q4': 0, 'q100plus': 0},
-            belief_pct=0,
+            belief_pct=z_pct,
             in_position=self._engine.in_pos,
             daily_pnl=self._daily_pnl,
         )

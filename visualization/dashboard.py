@@ -735,7 +735,7 @@ class ProgressPopup:
             agg_frame = tk.Frame(root, bg=BG)
             agg_frame.pack(fill="x", padx=20, pady=(4, 0))
 
-            self._agg_label_var = tk.StringVar(value="Aggression: 50%")
+            self._agg_label_var = tk.StringVar(value="Signal: 0% (z=0.0)")
             tk.Label(
                 agg_frame, textvariable=self._agg_label_var,
                 bg=BG, fg=FG_AMBER, font=("Consolas", 9, "bold"),
@@ -1682,6 +1682,14 @@ class ProgressPopup:
                             self._price_lbl.config(
                                 fg=FG_GREEN if p >= prev else FG_RED)
                         self._prev_price = p
+                        # Update z_se proximity on aggression label
+                        _z = msg.get('z_se', 0)
+                        _vr = msg.get('vr', 0)
+                        if _z and hasattr(self, '_agg_label_var'):
+                            _z_pct = min(abs(float(_z)) / 2.0 * 100, 100)
+                            _dir = 'SHORT' if float(_z) > 0 else 'LONG'
+                            self._agg_label_var.set(
+                                f"Signal: {_z_pct:.0f}% | z={float(_z):+.2f} vr={float(_vr):.2f} → {_dir}")
                         # Store regression center if provided
                         _center = msg.get('center', 0)
                         self._center_history.append(_center if _center else p)
