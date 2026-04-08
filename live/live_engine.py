@@ -166,6 +166,13 @@ class LiveEngine:
         logger.info(f"  Daily loss: ${self._daily_loss_limit:.0f}")
         logger.info("=" * 60)
 
+        # Set resume timestamp from warm state so NT8 only sends new bars
+        if self._warmup_info:
+            last_ts = self._warmup_info.get('last_ts', 0)
+            if last_ts > 0:
+                self._client.set_resume_timestamp(last_ts)
+                logger.info(f'Delta sync from ts={last_ts:.0f} (ATLAS data loaded)')
+
         connected = await self._client.connect()
         if not connected:
             logger.error("Failed to connect to NT8 — exiting")
