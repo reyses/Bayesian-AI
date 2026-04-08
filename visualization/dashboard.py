@@ -1671,6 +1671,14 @@ class ProgressPopup:
                         self._netliq_lbl.config(
                             fg=FG_GREEN if unreal >= 0 else FG_BLUE)
 
+                elif mtype == "HISTORY_DONE":
+                    # Clear chart after history sync — start fresh for live data
+                    self._price_history = []
+                    self._price_full = []
+                    self._center_history = []
+                    self._trade_markers = []
+                    self._redraw_price_chart()
+
                 elif mtype == "TICK_UPDATE":
                     price = msg.get("price")
                     if price is not None:

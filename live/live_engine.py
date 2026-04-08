@@ -212,6 +212,7 @@ class LiveEngine:
                 self._history_done = True
                 self._system_ready = True
                 logger.info(f'History done. {self._bar_count} bars. System READY.')
+                self._gui.push({'type': 'HISTORY_DONE'})
             elif msg_type == MsgType.FILL:
                 self._orders.on_fill(msg)
             elif msg_type == MsgType.ORDER_STATUS:
