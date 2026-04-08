@@ -138,7 +138,7 @@ class NT8Client:
             _mtype = msg.get('type', '?')
             # Only log heartbeats for first 10 minutes, always log orders
             _is_hb = _mtype in ('HEARTBEAT', MsgType.HEARTBEAT)
-            _startup_window = (time.time() - self._last_connect_time) < 600
+            _startup_window = (time.time() - self._last_connect_time) < 60  # 1 min startup logging
             if not _is_hb or _startup_window:
                 _side = msg.get('side', msg.get('action', ''))
                 _price = msg.get('price', '')
