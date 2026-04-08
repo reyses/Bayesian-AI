@@ -237,33 +237,78 @@ def merge_atlas_live():
         print(f'  No new live data to merge')
 
 
+def build_features_for_new_days():
+    """Build 79D features for any ATLAS days missing from FEATURES_79D_5s_v2."""
+    import subprocess
+    feat_dir = 'DATA/FEATURES_79D_5s_v2'
+    atlas_1m = 'DATA/ATLAS/1m'
+
+    if not os.path.exists(atlas_1m):
+        print('  No ATLAS 1m data')
+        return
+
+    existing = set()
+    if os.path.exists(feat_dir):
+        existing = {f.replace('.parquet', '') for f in os.listdir(feat_dir) if f.endswith('.parquet')}
+
+    atlas_days = {f.replace('.parquet', '') for f in os.listdir(atlas_1m) if f.endswith('.parquet')}
+    missing = sorted(atlas_days - existing)
+
+    if not missing:
+        print('  All ATLAS days have features — nothing to build')
+        return
+
+    print(f'  {len(missing)} days need 79D features: {missing[0]} to {missing[-1]}')
+    print(f'  Running build_dataset_v2...')
+
+    # Run the feature builder for missing days
+    result = subprocess.run(
+        ['python', 'nn_v2/build_dataset_v2.py', '--resolution', '1m',
+         '--start', missing[0].replace('_', '-'),
+         '--end', missing[-1].replace('_', '-')],
+        capture_output=True, text=True, timeout=3600)
+
+    if result.returncode == 0:
+        print(f'  Features built successfully')
+    else:
+        print(f'  Feature build failed: {result.stderr[-200:] if result.stderr else "unknown"}')
+
+
 def main():
     args = parse_args()
 
     print(f'{"="*60}')
-    print(f'MAINTENANCE — Warmup for Live Trading')
+    print(f'MAINTENANCE — Full Data Pipeline + Warmup')
     print(f'{"="*60}')
 
-    # Step 0: Merge any live session data into main ATLAS
-    print(f'\nMerging ATLAS_LIVE into ATLAS...')
+    # Step 0: Merge live session data into main ATLAS
+    print(f'\n--- Step 0: Merge ATLAS_LIVE → ATLAS ---')
     merge_atlas_live()
 
+    # Step 1: Build 79D features for any new ATLAS days
+    print(f'\n--- Step 1: Build 79D features for new days ---')
+    build_features_for_new_days()
+
+    # Step 2: Warm aggregator
     if not args.skip_download:
         print(f'\nNote: download fresh data from Databento first if needed:')
         print(f'  python tools/databento_to_atlas.py <path_to_raw_folder>')
 
+    print(f'\n--- Step 2: Warm aggregator ---')
     day_files = get_recent_days(args.days)
     if not day_files:
         print('No data available. Download data first.')
         return
 
-    print(f'\nUsing {len(day_files)} days: {os.path.basename(day_files[0])} to {os.path.basename(day_files[-1])}')
+    print(f'Using {len(day_files)} days: {os.path.basename(day_files[0])} to {os.path.basename(day_files[-1])}')
 
     t0 = time.perf_counter()
     agg, sfe, prev_vel, last_ts, total_bars = warm_aggregator(day_files)
     elapsed = time.perf_counter() - t0
     print(f'Warmup took {elapsed:.0f}s')
 
+    # Step 3: Save state
+    print(f'\n--- Step 3: Save state ---')
     save_state(agg, prev_vel, last_ts, total_bars)
 
     print(f'\n{"="*60}')
