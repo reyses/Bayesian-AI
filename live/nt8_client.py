@@ -136,9 +136,13 @@ class NT8Client:
             return
         try:
             _mtype = msg.get('type', '?')
-            _side = msg.get('side', msg.get('action', ''))
-            _price = msg.get('price', '')
-            logger.info(f"NT8 >> SEND: type={_mtype} side={_side} price={_price}")
+            # Only log heartbeats for first 10 minutes, always log orders
+            _is_hb = _mtype in ('HEARTBEAT', MsgType.HEARTBEAT)
+            _startup_window = (time.time() - self._last_connect_time) < 600
+            if not _is_hb or _startup_window:
+                _side = msg.get('side', msg.get('action', ''))
+                _price = msg.get('price', '')
+                logger.info(f"NT8 >> SEND: type={_mtype} side={_side} price={_price}")
             self._writer.write(encode(msg))
             await self._writer.drain()
         except (ConnectionResetError, BrokenPipeError, OSError) as e:
