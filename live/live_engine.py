@@ -461,6 +461,22 @@ class LiveEngine:
         # Push to GUI
         self._gui.push_tick(bar['close'], self._bar_count)
 
+        # Push stats to dashboard
+        wins = sum(1 for t in self._engine.trades if t['pnl'] > 0)
+        gross_win = sum(t['pnl'] for t in self._engine.trades if t['pnl'] > 0)
+        gross_loss = sum(t['pnl'] for t in self._engine.trades if t['pnl'] <= 0)
+        self._gui.push_stats(
+            session_pnl=self._daily_pnl,
+            session_wins=wins,
+            session_trades=self._live_trade_count,
+            gross_win=gross_win,
+            gross_loss=gross_loss,
+            exit_buckets={},
+            belief_pct=0,
+            in_position=self._engine.in_pos,
+            daily_pnl=self._daily_pnl,
+        )
+
     # ── Tuning Hot Reload ──────────────────────────────────────────────
 
     def _load_tuning(self, force=False):
