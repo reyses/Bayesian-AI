@@ -278,9 +278,8 @@ class LiveEngine:
             'sigma': self._last_sigma,
         })
 
-        # Status line: every bar during sync, every 60 bars when live
-        if not self._system_ready or self._bar_count % 60 == 0:
-            self._print_status(bar)
+        # Status line: single line, overwritten every bar
+        self._print_status(bar)
 
         # Hot-reload tuning every ~5 min
         if self._bar_count % 300 == 0:
