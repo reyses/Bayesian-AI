@@ -318,8 +318,8 @@ class LiveEngine:
         # Regression center for dashboard
         if '1m' in states_by_tf:
             state_1m = states_by_tf['1m']
-            self._last_center = getattr(state_1m, 'center', bar['close'])
-            self._last_sigma = getattr(state_1m, 'sigma', 0)
+            self._last_center = getattr(state_1m, 'regression_center', bar['close'])
+            self._last_sigma = getattr(state_1m, 'regression_sigma', 0)
 
         # Warmup: need enough 1m bars for meaningful regression
         n_1m = len(self._agg.get_closed_bars_df('1m'))
