@@ -287,7 +287,7 @@ async def download_from_nt8():
         files = sorted(glob.glob(os.path.join(atlas_1m, '*.parquet')))
         if files:
             last_df = pd.read_parquet(files[-1])
-            last_ts = last_df['timestamp'].max()
+            last_ts = float(last_df['timestamp'].max())
             last_day = os.path.basename(files[-1]).replace('.parquet', '')
             print(f'  Last ATLAS 1m: {last_day} (ts={last_ts:.0f})')
         else:
