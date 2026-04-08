@@ -14,6 +14,7 @@ Produces:
     live/state/velocities.pkl   — prev_velocities for 79D
     live/state/warmup_info.json — metadata (last bar ts, bar counts per TF)
 """
+import asyncio
 import os
 import sys
 import glob
@@ -274,6 +275,112 @@ def build_features_for_new_days():
         print(f'  Feature build failed: {result.stderr[-200:] if result.stderr else "unknown"}')
 
 
+async def download_from_nt8():
+    """Connect to NT8, download bars from last ATLAS to now, save to ATLAS."""
+    from live.config import LiveConfig
+    from live.nt8_client import NT8Client
+    from live.protocol import MsgType
+
+    # Find last ATLAS 1m timestamp
+    atlas_1m = 'DATA/ATLAS/1m'
+    if os.path.exists(atlas_1m):
+        files = sorted(glob.glob(os.path.join(atlas_1m, '*.parquet')))
+        if files:
+            last_df = pd.read_parquet(files[-1])
+            last_ts = last_df['timestamp'].max()
+            last_day = os.path.basename(files[-1]).replace('.parquet', '')
+            print(f'  Last ATLAS 1m: {last_day} (ts={last_ts:.0f})')
+        else:
+            last_ts = 0
+    else:
+        last_ts = 0
+
+    if last_ts == 0:
+        print(f'  No ATLAS data — requesting full history')
+
+    config = LiveConfig()
+    client = NT8Client(config)
+
+    if last_ts > 0:
+        client.set_resume_timestamp(last_ts)
+
+    print(f'  Connecting to NT8...')
+    if not await client.connect():
+        print(f'  Failed to connect to NT8 — skipping download')
+        return
+
+    print(f'  Connected. Receiving bars...')
+
+    bars_1s = []
+    history_done = False
+    timeout_start = time.time()
+
+    while not history_done and (time.time() - timeout_start) < 300:  # 5 min timeout
+        try:
+            msg = await asyncio.wait_for(client.inbound.get(), timeout=10.0)
+        except asyncio.TimeoutError:
+            if bars_1s:
+                # Got some bars, no more coming
+                history_done = True
+            continue
+
+        msg_type = msg.get('type', '')
+        if msg_type == MsgType.BAR:
+            bars_1s.append({
+                'timestamp': msg.get('timestamp', 0),
+                'open': msg.get('open', 0),
+                'high': msg.get('high', 0),
+                'low': msg.get('low', 0),
+                'close': msg.get('close', 0),
+                'volume': msg.get('volume', 0),
+            })
+            if len(bars_1s) % 10000 == 0:
+                print(f'    {len(bars_1s):,} bars received...')
+        elif msg_type == MsgType.HISTORY_DONE:
+            history_done = True
+
+    await client.disconnect()
+    print(f'  Received {len(bars_1s):,} bars')
+
+    if not bars_1s:
+        print(f'  No new bars')
+        return
+
+    # Save 1s bars to ATLAS
+    df = pd.DataFrame(bars_1s)
+    df['date'] = pd.to_datetime(df['timestamp'], unit='s').dt.strftime('%Y_%m_%d')
+
+    for day, day_df in df.groupby('date'):
+        # Save 1s
+        out_dir = os.path.join('DATA', 'ATLAS', '1s')
+        os.makedirs(out_dir, exist_ok=True)
+        out_path = os.path.join(out_dir, f'{day}.parquet')
+        if not os.path.exists(out_path):
+            day_df.drop(columns=['date']).to_parquet(out_path, index=False)
+            print(f'    ATLAS 1s: {day} ({len(day_df)} bars)')
+
+        # Aggregate to 1m and save
+        day_sorted = day_df.sort_values('timestamp')
+        day_sorted['minute'] = (day_sorted['timestamp'] // 60).astype(int) * 60
+        bars_1m = day_sorted.groupby('minute').agg({
+            'timestamp': 'first',
+            'open': 'first',
+            'high': 'max',
+            'low': 'min',
+            'close': 'last',
+            'volume': 'sum',
+        }).reset_index(drop=True)
+
+        out_dir = os.path.join('DATA', 'ATLAS', '1m')
+        os.makedirs(out_dir, exist_ok=True)
+        out_path = os.path.join(out_dir, f'{day}.parquet')
+        if not os.path.exists(out_path):
+            bars_1m.to_parquet(out_path, index=False)
+            print(f'    ATLAS 1m: {day} ({len(bars_1m)} bars)')
+
+    print(f'  Download complete')
+
+
 def main():
     args = parse_args()
 
@@ -289,10 +396,14 @@ def main():
     print(f'\n--- Step 1: Build 79D features for new days ---')
     build_features_for_new_days()
 
-    # Step 2: Warm aggregator
+    # Step 1b: Download missing days from NT8
     if not args.skip_download:
-        print(f'\nNote: download fresh data from Databento first if needed:')
-        print(f'  python tools/databento_to_atlas.py <path_to_raw_folder>')
+        print(f'\n--- Step 1b: Download missing data from NT8 ---')
+        asyncio.run(download_from_nt8())
+
+        # Rebuild features for any new days
+        print(f'\n--- Step 1c: Build features for newly downloaded days ---')
+        build_features_for_new_days()
 
     print(f'\n--- Step 2: Warm aggregator ---')
     day_files = get_recent_days(args.days)
