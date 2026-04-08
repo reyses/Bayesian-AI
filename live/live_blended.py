@@ -143,6 +143,24 @@ class LiveBlendedEngine:
         self._bar_count += 1
         self.agg.feed(bar)
 
+        # Status line every 60 bars (~1 min of 1s bars)
+        if self._bar_count % 60 == 0:
+            pos = self.engine.direction or 'FLAT'
+            pnl_str = ''
+            if self.engine.in_pos:
+                if self.engine.direction == 'long':
+                    unrealized = (bar['close'] - self.engine.entry_price) / 0.25 * 0.50
+                else:
+                    unrealized = (self.engine.entry_price - bar['close']) / 0.25 * 0.50
+                pnl_str = f'unreal=${unrealized:>+.0f} peak=${self.engine.peak_pnl:>.0f}'
+            tier = self.engine.entry_tier or '-'
+            n_trades = len(self.engine.trades)
+            from datetime import datetime
+            t_str = datetime.utcfromtimestamp(bar['timestamp']).strftime('%H:%M:%S')
+            print(f'\r  {t_str} | {bar["close"]:>10.2f} | {pos:>5} {tier:>10} | '
+                  f'trades={n_trades} daily=${self._daily_pnl:>+.0f} {pnl_str}    ',
+                  end='', flush=True)
+
         # Only compute 79D at 1m bar close
         ts = bar['timestamp']
         if (int(ts) % 60) >= 5:
