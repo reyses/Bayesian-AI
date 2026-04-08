@@ -16,6 +16,9 @@ Usage:
     python -m live.live_blended                     # connect to NT8 SIM
     python -m live.live_blended --account Sim101     # specific account
 """
+import warnings
+warnings.filterwarnings('ignore', module='numba')
+
 import asyncio
 import logging
 import os
@@ -25,6 +28,10 @@ import uuid
 import numpy as np
 import pandas as pd
 from typing import Optional, Dict
+
+# Suppress numba CUDA debug spam
+logging.getLogger('numba.cuda.cudadrv.driver').setLevel(logging.WARNING)
+logging.getLogger('numba').setLevel(logging.WARNING)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
