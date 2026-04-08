@@ -961,9 +961,10 @@ class ProgressPopup:
             ).grid(row=1, column=col, padx=6)
 
         # ── Live Price Chart ─────────────────────────────────────────────
-        self._price_history = []  # last N prices for line chart (display)
-        self._price_full = []    # longer buffer for computation (SE bands, regression)
-        self._center_history = []  # regression center per tick (from engine)
+        self._price_history = []  # 1s tick prices (purple line)
+        self._price_full = []    # longer buffer for computation
+        self._price_1m = []      # 1m close prices (blue line)
+        self._center_history = []  # regression center (white dashed)
         self._active_entry_price = None  # horizontal line while in trade
         self._active_entry_side = None
         self._MAX_PRICE_PTS = 200  # rolling window
@@ -1154,21 +1155,43 @@ class ProgressPopup:
             if len(_center_coords) >= 4:
                 c.create_line(_center_coords, fill='#FFFFFF', width=1, dash=(3, 3))
 
-        # Polyline
-        coords = []
-        for i, v in enumerate(pts):
-            x = pad + i / (len(pts) - 1) * (W - 2 * pad)
-            y = H - pad - ((v - mn) / span) * (H - 2 * pad)
-            coords.extend([x, y])
+        # === THREE LINES ===
 
-        # Neutral blue  -- no buy/sell connotation
-        color = "#4A9EFF"
-        c.create_line(coords, fill=color, width=2, smooth=True)
+        # Helper to build coords from a data list
+        def _build_coords(data, n_ref):
+            """Build polyline coords aligned to right edge, using n_ref for scaling."""
+            if len(data) < 2:
+                return []
+            n = min(len(data), n_ref)
+            coords = []
+            for i in range(n):
+                x = pad + (n_ref - n + i) / max(1, n_ref - 1) * (W - 2 * pad)
+                v = data[len(data) - n + i]
+                if v and mn <= v <= mx:
+                    y = H - pad - ((v - mn) / span) * (H - 2 * pad)
+                    coords.extend([x, y])
+            return coords
 
-        # Current price dot at right end
-        c.create_oval(coords[-2] - 3, coords[-1] - 3,
-                      coords[-2] + 3, coords[-1] + 3,
-                      fill=color, outline="")
+        n_ref = max(len(pts), len(self._price_1m), 2)
+
+        # 1. White dashed — 1m regression center
+        center_coords = _build_coords(self._center_history, n_ref)
+        if len(center_coords) >= 4:
+            c.create_line(center_coords, fill='#FFFFFF', width=1, dash=(4, 3))
+
+        # 2. Blue — 1m close prices
+        coords_1m = _build_coords(self._price_1m, n_ref)
+        if len(coords_1m) >= 4:
+            c.create_line(coords_1m, fill='#4A9EFF', width=2, smooth=True)
+
+        # 3. Purple — 5s tick prices
+        coords_5s = _build_coords(pts, n_ref)
+        if len(coords_5s) >= 4:
+            c.create_line(coords_5s, fill='#AA44FF', width=1, smooth=True)
+            # Current price dot
+            c.create_oval(coords_5s[-2] - 3, coords_5s[-1] - 3,
+                          coords_5s[-2] + 3, coords_5s[-1] + 3,
+                          fill='#AA44FF', outline="")
 
         # VWAP line (cyan, session cumulative)
         vwap = self._vwap_history
@@ -1183,20 +1206,6 @@ class ProgressPopup:
                     vwap_coords.extend([x, y])
             if len(vwap_coords) >= 4:
                 c.create_line(vwap_coords, fill="#00FFFF", width=1, smooth=True, dash=(3, 2))
-
-        # SFE regression center (purple line from engine)
-        _centers = self._center_history
-        n_center = min(len(_centers), len(pts))
-        if n_center >= 2:
-            center_coords = []
-            for i in range(n_center):
-                x = pad + (len(pts) - n_center + i) / max(1, len(pts) - 1) * (W - 2 * pad)
-                v = _centers[len(_centers) - n_center + i]
-                if v > 0 and mn <= v <= mx:
-                    y = H - pad - ((v - mn) / span) * (H - 2 * pad)
-                    center_coords.extend([x, y])
-            if len(center_coords) >= 4:
-                c.create_line(center_coords, fill="#AA44FF", width=2, smooth=True)
 
         # Active trade: horizontal entry line (persists until exit)
         if self._active_entry_price is not None and mn <= self._active_entry_price <= mx:
@@ -1675,9 +1684,24 @@ class ProgressPopup:
                     # Clear chart after history sync — start fresh for live data
                     self._price_history = []
                     self._price_full = []
+                    self._price_1m = []
                     self._center_history = []
                     self._trade_markers = []
+                    self._tick_counter = 0
                     self._redraw_price_chart()
+
+                elif mtype == "BAR_1M":
+                    # 1m bar close — update blue line + white dashed center
+                    _p1m = msg.get('price', 0)
+                    _ctr = msg.get('center', 0)
+                    if _p1m:
+                        self._price_1m.append(float(_p1m))
+                        if len(self._price_1m) > self._MAX_PRICE_PTS:
+                            self._price_1m = self._price_1m[-self._MAX_PRICE_PTS:]
+                    if _ctr:
+                        self._center_history.append(float(_ctr))
+                        if len(self._center_history) > self._MAX_PRICE_PTS:
+                            self._center_history = self._center_history[-self._MAX_PRICE_PTS:]
 
                 elif mtype == "TICK_UPDATE":
                     price = msg.get("price")
@@ -1698,13 +1722,10 @@ class ProgressPopup:
                             _dir = 'SHORT' if float(_z) > 0 else 'LONG'
                             self._agg_label_var.set(
                                 f"Signal: {_z_pct:.0f}% | z={float(_z):+.2f} vr={float(_vr):.2f} → {_dir}")
-                        # Store regression center if provided
-                        _center = msg.get('center', 0)
-                        self._center_history.append(_center if _center else p)
-                        if len(self._center_history) > self._MAX_PRICE_PTS:
-                            self._center_history = self._center_history[-self._MAX_PRICE_PTS:]
-                        # Feed price chart + computation buffer
-                        self._price_history.append(p)
+                        # Feed 5s price chart (every 5th 1s tick = purple line)
+                        self._tick_counter = getattr(self, '_tick_counter', 0) + 1
+                        if self._tick_counter % 5 == 0:
+                            self._price_history.append(p)
                         self._price_full.append(p)
                         _MAX_FULL = self._MAX_PRICE_PTS + 200  # 200 display + 200 lookback
                         if len(self._price_full) > _MAX_FULL:

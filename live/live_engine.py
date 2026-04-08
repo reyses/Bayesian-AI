@@ -266,7 +266,7 @@ class LiveEngine:
                 unrealized = (self._engine.entry_price - bar['close']) / 0.25 * 0.50
         self._gui.push({
             'type': 'TICK_UPDATE',
-            'price': bar['close'],
+            'price': bar['close'],         # 1s tick price (purple)
             'bars': self._bar_count,
             'unrealized': unrealized,
             'daily_pnl': self._daily_pnl,
@@ -275,8 +275,9 @@ class LiveEngine:
             'tier': self._engine.entry_tier or '',
             'z_se': self._last_z_se,
             'vr': self._last_vr,
-            'center': self._last_center,
+            'center': self._last_center,    # regression center (white dashed)
             'sigma': self._last_sigma,
+            'is_1m': False,                 # not a 1m close
         })
 
         # Status line: single line, overwritten every bar
@@ -320,6 +321,15 @@ class LiveEngine:
             state_1m = states_by_tf['1m']
             self._last_center = getattr(state_1m, 'regression_center', bar['close'])
             self._last_sigma = getattr(state_1m, 'regression_sigma', 0)
+
+        # Push 1m bar close to dashboard (blue line + white dashed center)
+        self._gui.push({
+            'type': 'BAR_1M',
+            'price': bar['close'],
+            'center': self._last_center,
+            'sigma': self._last_sigma,
+            'z_se': self._last_z_se,
+        })
 
         # Warmup: need enough 1m bars for meaningful regression
         n_1m = len(self._agg.get_closed_bars_df('1m'))
