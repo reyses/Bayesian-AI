@@ -1,31 +1,18 @@
 ---
-name: MTF Two-Layer Counter-Proposal (Approved)
-description: Approved architecture — 29D features, two-layer CNN (Direction + Duration), per-TF z-score norm
+name: MTF Two-Layer Counter-Proposal (SUPERSEDED)
+description: 29D MTF architecture superseded by nn_v2 79D pipeline with 3-CNN system
 type: project
 ---
 
-## Counter-Proposal: MTF Two-Layer Architecture
+## SUPERSEDED (2026-04-03)
 
-**Status**: APPROVED (2026-03-27). Spec: `docs/Active/COUNTER_PROPOSAL_MTF_TWO_LAYER.md`
+The MTF Two-Layer Counter-Proposal (29D features, Direction + Duration CNNs) was
+superseded by the nn_v2 pipeline which uses 79D features and a 3-CNN system:
+- CNN Flip (direction at entry, 70.6%)
+- CNN Hold (hold/exit during trade, 94.8%)
+- CNN Risk (cut losers early)
 
-**29D Features** (13D base + 16D MTF):
-- 13D base: dmi_diff, dmi_gap, vol_rel, dir_vol, velocity, z_se, price_accel + 4D regime + 2D context
-- 16D MTF: 4 TFs (1s, 5m, 15m, 1h) × 4 features each
-  - 1s = pulse/noise floor (what's happening NOW inside forming bar)
-  - 5m = swing structure
-  - 15m = session trend
-  - 1h = structural walls
-- Per-TF z-score normalization (each TF independent before concatenation)
+Result: $613/day OOS vs the counter-proposal's untested spec.
 
-**Two Layers**:
-- Layer 1: StatePredictor (direction) — 29D input, predicts feature state at t+10
-- Layer 2: DurationPredictor (take/skip + hold commitment) — reduces trade fragmentation
-
-**Build Order (4 phases)**:
-- Phase A: 29D feature pipeline + MTF alignment validation + .npy cache
-- Phase B: Train Layer 1 on 29D
-- Phase C: Train Layer 2 DurationPredictor
-- Phase D: Full two-layer simulation with 2s slippage
-
-**Why:** Trade fragmentation (271-400 trades/day at 1m) costs 4 ticks round-trip. Layer 2 fixes this.
-**How to apply:** Execute phases A→D sequentially. Baseline to beat: $1,609/day from 13D single-layer.
+**Why:** nn_v2 was built from clean data discovery, not theoretical architecture.
+**How to apply:** Spec at `docs/Active/COUNTER_PROPOSAL_MTF_TWO_LAYER.md` is historical only.

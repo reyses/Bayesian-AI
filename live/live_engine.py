@@ -14,8 +14,8 @@ Production trading loop with full infrastructure:
   - Reconnection handling
 
 Architecture:
-  NT8 → 1s bars → nn_v2.Aggregator → SFE → extract_79d → BlendedEngine
-  BlendedEngine → entry/exit decisions → OrderManager → NT8
+  NT8 -> 1s bars -> nn_v2.Aggregator -> SFE -> extract_79d -> BlendedEngine
+  BlendedEngine -> entry/exit decisions -> OrderManager -> NT8
 
 Usage (via launcher):
     python -m live.launcher --account Sim101
@@ -38,11 +38,12 @@ logging.getLogger('numba').setLevel(logging.WARNING)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from core.features_79d import FEATURE_NAMES_79D, TF_ORDER, N_FEATURES
 from core.statistical_field_engine import StatisticalFieldEngine
-from core.features_79d import extract_79d, FEATURE_NAMES_79D, TF_ORDER, N_FEATURES
 
 from nn_v2.nightmare_blended import BlendedEngine
 from nn_v2.aggregator import Aggregator
+from nn_v2.compute_79d import compute_79d_from_aggregator, SFE_MIN_BARS
 
 from live.config import LiveConfig
 from live.nt8_client import NT8Client
@@ -55,8 +56,6 @@ from nn_v2.regret import compute_regret
 from config.symbols import SYMBOL_MAP
 
 logger = logging.getLogger(__name__)
-
-SFE_MIN_BARS = 21
 
 # Daily loss limit
 DEFAULT_DAILY_LOSS_LIMIT = 200.0  # USD — stop trading if daily loss exceeds this
@@ -100,8 +99,10 @@ class LiveEngine:
             self._warmed_up = False
             logger.warning('No warm state — cold start')
 
-        # BlendedEngine + 3 CNNs
-        self._engine = BlendedEngine(use_cnn=True)
+        # BlendedEngine + 3 CNNs (loads from live release if available)
+        from nn_v2.nightmare_blended import LIVE_RELEASE_DIR
+        release_dir = LIVE_RELEASE_DIR if os.path.isdir(LIVE_RELEASE_DIR) else None
+        self._engine = BlendedEngine(use_cnn=True, release_dir=release_dir)
 
         # Wire aggregator callback — triggers on 1m bar close
         self._agg.on_bar_close = self._on_tf_bar_close
@@ -138,7 +139,7 @@ class LiveEngine:
         self._position_open = False
         self._closing_position = False
         self._daily_pnl = 0.0
-        self._daily_loss_limit = DEFAULT_DAILY_LOSS_LIMIT
+        self._daily_loss_limit = config.max_daily_loss_usd or DEFAULT_DAILY_LOSS_LIMIT
         self._daily_loss_limit_hit = False
         self._last_price = 0.0
         self._last_ts = 0.0
@@ -196,12 +197,15 @@ class LiveEngine:
     async def _main_loop(self):
         """Dispatch NT8 messages."""
         while not self._shutting_down:
-            # Check GUI shutdown request
+            # Check GUI shutdown request — let _shutdown() handle flatten + save
             if self._shared_state.get('shutdown') or self._shared_state.get('shutdown_flatten'):
-                if self._position_open:
-                    await self._close_position('gui_shutdown')
                 self._shutting_down = True
                 break
+
+            # Check manual order buttons (BUY/SELL/FLATTEN)
+            manual = self._shared_state.pop('manual_order', None)
+            if manual:
+                await self._handle_manual_order(manual)
 
             try:
                 msg = await asyncio.wait_for(
@@ -291,9 +295,10 @@ class LiveEngine:
         # Status line: single line, overwritten every bar
         self._print_status(bar)
 
-        # Hot-reload tuning every ~5 min
+        # Periodic maintenance every ~5 min
         if self._bar_count % 300 == 0:
             self._load_tuning()
+            self._orders.cleanup_stale_orders(max_age_s=120.0)
 
         # === ONLY PROCESS ON 1m BAR CLOSE (from aggregator callback) ===
         if self._pending_1m_bar is None:
@@ -301,24 +306,13 @@ class LiveEngine:
 
         ts = bar['timestamp']
 
-        # Build 79D from aggregator's accumulated TF bars
-        states_by_tf = {}
-        ohlcv_by_tf = {}
-        for tf in TF_ORDER:
-            df = self._agg.get_closed_bars_df(tf)
-            if len(df) < SFE_MIN_BARS:
-                continue
-            ohlcv_by_tf[tf] = df
-            sfe_input = df.tail(300).reset_index(drop=True) if len(df) > 300 else df
-            states = self._sfe.batch_compute_states(sfe_input)
-            if states:
-                states_by_tf[tf] = states[-1]
+        # Build 79D via nn_v2 (single source of truth)
+        feat, self._prev_velocities, states_by_tf, ohlcv_by_tf = \
+            compute_79d_from_aggregator(
+                self._agg, self._sfe, self._prev_velocities, ts)
 
-        if '1m' not in states_by_tf:
+        if feat is None:
             return
-
-        feat, self._prev_velocities = extract_79d(
-            states_by_tf, ohlcv_by_tf, self._prev_velocities, ts)
 
         # Store features for status display
         self._last_z_se = feat[10]      # 1m_z_se
@@ -332,7 +326,7 @@ class LiveEngine:
 
         # Regression center for dashboard
         if '1m' in states_by_tf:
-            state_1m = states_by_tf['1m']
+            state_1m = states_by_tf['1m']['state']
             self._last_center = getattr(state_1m, 'regression_center', bar['close'])
             self._last_sigma = getattr(state_1m, 'regression_sigma', 0)
 
@@ -343,6 +337,7 @@ class LiveEngine:
             'center': self._last_center,
             'sigma': self._last_sigma,
             'z_se': self._last_z_se,
+            'vr': self._last_vr,
         })
 
         # Warmup: need enough 1m bars for meaningful regression
@@ -405,9 +400,63 @@ class LiveEngine:
         else:
             logger.warning(f'OrderManager rejected entry: {side} {tier}')
 
+    async def _handle_manual_order(self, action: str):
+        """Handle BUY/SELL/FLATTEN from dashboard buttons.
+        Manual trades go through BlendedEngine for full CNN exit management."""
+        logger.info(f'Manual order: {action}')
+        if action == 'FLATTEN':
+            if self._position_open:
+                prev_n = len(self._engine.trades)
+                self._engine.force_close('manual_flatten')
+                await self._close_position('manual_flatten')
+                # Process the trade record so _on_bar doesn't double-close
+                if len(self._engine.trades) > prev_n:
+                    t = self._engine.trades[-1]
+                    self._daily_pnl += t['pnl']
+                    self._live_trade_count += 1
+                    self._session.record_trade(t['pnl'], t)
+                    logger.info(f'MANUAL FLATTEN: pnl=${t["pnl"]:.1f}')
+                self._position_open = False
+                self._closing_position = False
+            else:
+                # Flatten any orphan NT8 position
+                msg = close_position(
+                    instrument=self._cfg.instrument,
+                    account=self._cfg.account)
+                await self._client.send(msg)
+                logger.info('FLATTEN sent (no local position)')
+        elif action in ('BUY', 'SELL'):
+            if self._position_open:
+                prev_n = len(self._engine.trades)
+                self._engine.force_close('manual_flip')
+                await self._close_position('manual_flip')
+                # Process the closed trade so _on_bar doesn't double-close
+                if len(self._engine.trades) > prev_n:
+                    t = self._engine.trades[-1]
+                    self._daily_pnl += t['pnl']
+                    self._live_trade_count += 1
+                    self._session.record_trade(t['pnl'], t)
+                    logger.info(f'MANUAL FLIP close: pnl=${t["pnl"]:.1f}')
+                self._position_open = False
+                self._closing_position = False
+            direction = 'long' if action == 'BUY' else 'short'
+            # Build last known 79D for CNN context
+            feat = np.zeros(79)
+            if self._live_79d:
+                last = self._live_79d[-1]
+                feat = np.array([last.get(n, 0) for n in FEATURE_NAMES_79D])
+            # Register with BlendedEngine (gets CNN exit management)
+            self._engine.inject_manual_trade(
+                direction, self._last_price, self._last_ts, feat)
+            # Send to NT8
+            await self._send_entry(direction, 'MANUAL')
+
     async def _close_position(self, reason: str):
-        """Close current position."""
-        if not self._position_open or self._closing_position:
+        """Close current position (or orphan)."""
+        if self._closing_position:
+            return
+        # Allow orphan flatten even if _position_open is False
+        if not self._position_open and reason != 'orphan_flatten':
             return
         self._closing_position = True
         msg = close_position(
@@ -422,15 +471,20 @@ class LiveEngine:
         pnl = trade['pnl']
         self._daily_pnl += pnl
         self._live_trade_count += 1
+
+        # Close NT8 position FIRST (before resetting _position_open)
+        await self._close_position(trade.get('exit_reason', 'cnn'))
+
+        # NOW reset state (after close message sent)
         self._position_open = False
         self._closing_position = False
 
         # Session tracker
-        self._session.record_trade(pnl, trade.get('peak', 0))
+        self._session.record_trade(pnl, trade)
 
         # Trade logger
-        self._trade_logger.end_trade(
-            pnl, trade.get('exit_reason', ''), self._last_price)
+        self._trade_logger.finish_trade(
+            trade.get('exit_reason', ''), self._last_price)
 
         # Post-trade regret analysis + accumulate for live brain
         if len(self._regret_buffer) > 50:
@@ -462,9 +516,6 @@ class LiveEngine:
             except Exception as e:
                 logger.warning(f'Regret computation failed: {e}')
 
-        # Close NT8 position
-        await self._close_position(trade.get('exit_reason', 'cnn'))
-
         # Log
         logger.info(
             f'TRADE: {trade["dir"]} | tier={trade.get("entry_tier", "?")} | '
@@ -494,12 +545,26 @@ class LiveEngine:
     # ── Position & Account ─────────────────────────────────────────────
 
     def _on_position(self, msg: dict):
-        """Sync position state from NT8."""
-        qty = msg.get('quantity', 0)
+        """Sync position state from NT8 — source of truth for orphan detection."""
+        # Delegate to OrderManager (maintains position shadow)
+        self._orders.on_position(msg)
+
+        qty = int(msg.get('qty', msg.get('quantity', 0)))
+
         if qty == 0 and self._position_open:
-            # NT8 says flat but we think we're in — sync
+            # NT8 says flat but we think we're in -> sync to flat
+            logger.warning('NT8 position sync: flat (was open locally)')
             self._position_open = False
             self._closing_position = False
+
+        elif qty != 0 and not self._position_open:
+            # NT8 has position but we think we're flat -> orphan detected
+            side = 'LONG' if qty > 0 else 'SHORT'
+            avg_px = float(msg.get('avg_price', 0))
+            logger.warning(f'ORPHAN POSITION detected: {side} {abs(qty)} @ {avg_px}')
+            logger.warning('Flattening orphan position...')
+            # Close it immediately — we have no context on this trade
+            asyncio.ensure_future(self._close_position('orphan_flatten'))
 
     def _on_account_update(self, msg: dict):
         """Track account equity from NT8."""
@@ -631,7 +696,7 @@ class LiveEngine:
             df = pd.DataFrame(self._live_1s_bars)
             path = os.path.join(out_dir, f'{day}.parquet')
             df.to_parquet(path, index=False)
-            logger.info(f'ATLAS_LIVE 1s: {len(df)} bars → {path}')
+            logger.info(f'ATLAS_LIVE 1s: {len(df)} bars -> {path}')
 
         # 2. Save aggregated TF bars from aggregator history
         for tf in ['15s', '1m', '5m', '15m', '1h', '1D']:
@@ -647,7 +712,7 @@ class LiveEngine:
                 df = pd.DataFrame(today_bars)
                 path = os.path.join(out_dir, f'{day}.parquet')
                 df.to_parquet(path, index=False)
-                logger.info(f'ATLAS_LIVE {tf}: {len(df)} bars → {path}')
+                logger.info(f'ATLAS_LIVE {tf}: {len(df)} bars -> {path}')
 
         # 3. Save 79D features
         if self._live_79d:
@@ -656,10 +721,10 @@ class LiveEngine:
             df = pd.DataFrame(self._live_79d)
             path = os.path.join(out_dir, f'{day}.parquet')
             df.to_parquet(path, index=False)
-            logger.info(f'FEATURES_LIVE: {len(df)} rows → {path}')
+            logger.info(f'FEATURES_LIVE: {len(df)} rows -> {path}')
 
     def _retrain_live_brain(self):
-        """Retrain CNNs on live trades → save as live brain (separate from backtest)."""
+        """Retrain CNNs on live trades -> save as live brain (separate from backtest)."""
         import pickle
 
         n_trades = len(self._live_trades_for_brain)

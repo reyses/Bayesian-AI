@@ -40,6 +40,10 @@ Z_EXIT = 0.5
 # Hard stop — circuit breaker, overrides all CNNs
 HARD_STOP = -150.0    # max dollar loss per trade
 
+# Giveback stop — protect profits from round-tripping
+GIVEBACK_MIN_PEAK = 99999.0   # disabled — set to ~$10 to activate
+GIVEBACK_KEEP = 0.0           # disabled — set to ~0.40 to activate
+
 # Regime shift early detection: DMI leading + VR confirming
 DMI_AGAINST_THRESHOLD = 5.0   # |dmi_diff| opposing trade direction
 VR_CONFIRMING = 0.8           # vr approaching trending (not yet 1.0)
@@ -66,10 +70,13 @@ APPROACH_BUFFER_SIZE = 10
 # Tier encoding for CNN
 TIER_MAP = {'CASCADE': 2, 'KILL_SHOT': 1, 'BASE_NMP': 0}
 
-# CNN model paths
+# CNN model paths (default — training output dir)
 CNN_FLIP_PATH = 'nn_v2/output/tree/cnn_flip.pt'
 CNN_HOLD_PATH = 'nn_v2/output/tree/cnn_hold.pt'
 CNN_RISK_PATH = 'nn_v2/output/tree/cnn_risk.pt'
+
+# Live release dir (packaged by nn_v2/release.py)
+LIVE_RELEASE_DIR = 'checkpoints/live_release'
 
 # Grid layout for CNN
 _N_CORE = 10
@@ -91,7 +98,7 @@ def _feat_to_grid(feat_79d):
 class BlendedEngine:
     """One NMP engine with tiered exit physics + CNN direction flip."""
 
-    def __init__(self, use_cnn=True):
+    def __init__(self, use_cnn=True, release_dir=None):
         self.in_pos = False
         self.direction = None
         self.entry_price = 0.0
@@ -109,6 +116,12 @@ class BlendedEngine:
         self.daily_pnl = 0.0
         self._bar_count = 0
         self._last_price = 0.0
+
+        # CNN model directory — release_dir overrides defaults
+        self._model_dir = release_dir
+        if self._model_dir and not os.path.isdir(self._model_dir):
+            print(f'  WARNING: release_dir {self._model_dir} not found, falling back to defaults')
+            self._model_dir = None
 
         # CNN flip predictor for BASE_NMP trades
         self.use_cnn = use_cnn
@@ -135,12 +148,19 @@ class BlendedEngine:
             self._load_cnn_hold()
             self._load_cnn_risk()
 
+    def _resolve_cnn_path(self, default_path: str) -> str:
+        """Resolve CNN path: release_dir if set, else default."""
+        if self._model_dir:
+            return os.path.join(self._model_dir, os.path.basename(default_path))
+        return default_path
+
     def _load_cnn_flip(self):
         """Load CNN flip predictor."""
-        if not os.path.exists(CNN_FLIP_PATH):
+        path = self._resolve_cnn_path(CNN_FLIP_PATH)
+        if not os.path.exists(path):
             return
         from nn_v2.cnn_flip import FlipCNN
-        checkpoint = torch.load(CNN_FLIP_PATH, map_location='cpu', weights_only=False)
+        checkpoint = torch.load(path, map_location='cpu', weights_only=False)
         self.cnn_flip = FlipCNN(use_path=False).to(self._cnn_device)
         try:
             self.cnn_flip.load_state_dict(checkpoint['model_state'], strict=False)
@@ -153,10 +173,11 @@ class BlendedEngine:
 
     def _load_cnn_hold(self):
         """Load CNN hold predictor."""
-        if not os.path.exists(CNN_HOLD_PATH):
+        path = self._resolve_cnn_path(CNN_HOLD_PATH)
+        if not os.path.exists(path):
             return
         from nn_v2.cnn_hold import HoldCNN
-        checkpoint = torch.load(CNN_HOLD_PATH, map_location='cpu', weights_only=False)
+        checkpoint = torch.load(path, map_location='cpu', weights_only=False)
         self.cnn_hold = HoldCNN().to(self._cnn_device)
         self.cnn_hold.load_state_dict(checkpoint['model_state'])
         self.cnn_hold.eval()
@@ -166,10 +187,11 @@ class BlendedEngine:
 
     def _load_cnn_risk(self):
         """Load CNN risk predictor."""
-        if not os.path.exists(CNN_RISK_PATH):
+        path = self._resolve_cnn_path(CNN_RISK_PATH)
+        if not os.path.exists(path):
             return
         from nn_v2.cnn_risk import RiskCNN
-        checkpoint = torch.load(CNN_RISK_PATH, map_location='cpu', weights_only=False)
+        checkpoint = torch.load(path, map_location='cpu', weights_only=False)
         self.cnn_risk = RiskCNN().to(self._cnn_device)
         self.cnn_risk.load_state_dict(checkpoint['model_state'])
         self.cnn_risk.eval()
@@ -299,14 +321,17 @@ class BlendedEngine:
                     exit_reason = self._check_exit(feat, z, vr, pnl)
                     if exit_reason:
                         self._close_trade(price, ts, time_str, exit_reason, feat)
-                elif self.entry_tier == 'BASE_NMP':
-                    # BASE_NMP: two CNNs based on PnL state
-                    if pnl < 0 and self.cnn_risk is not None:
+                elif self.entry_tier in ('BASE_NMP', 'MANUAL'):
+                    # Giveback stop: if peak was meaningful and we gave back too much, exit
+                    if self.peak_pnl >= GIVEBACK_MIN_PEAK and pnl < self.peak_pnl * GIVEBACK_KEEP:
+                        self._close_trade(price, ts, time_str, 'giveback_stop', feat)
+                    # CNN exit layer (within giveback safe zone)
+                    elif pnl < 0 and self.cnn_risk is not None:
                         # Negative: CNN risk decides recover or cut
                         risk_pred = self._cnn_predict_risk(
                             feat, self.bars_held, pnl, self.peak_pnl,
                             self.direction, self.entry_tier)
-                        if risk_pred == 0:  # DEAD → cut the trade
+                        if risk_pred == 0:  # DEAD -> cut the trade
                             self._close_trade(price, ts, time_str, 'cnn_risk_cut', feat)
                     elif self.cnn_hold is not None:
                         # Positive or no risk CNN: CNN hold decides
@@ -403,6 +428,11 @@ class BlendedEngine:
             return 'nmp_mean_reached'
 
         return None
+
+    def inject_manual_trade(self, direction: str, price: float, ts: float, feat):
+        """Open a trade from external trigger (dashboard button). Gets full CNN management."""
+        time_str = datetime.utcfromtimestamp(ts).strftime('%H:%M')
+        self._open_trade(direction, price, ts, time_str, feat, 'MANUAL')
 
     def _open_trade(self, direction, price, ts, time_str, feat, tier, cnn_flipped=False):
         self.in_pos = True

@@ -29,8 +29,9 @@ from tqdm import tqdm
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.statistical_field_engine import StatisticalFieldEngine
-from core.features_79d import extract_79d, FEATURE_NAMES_79D, TF_ORDER, N_FEATURES
+from core.features_79d import FEATURE_NAMES_79D, TF_ORDER, N_FEATURES
 from nn_v2.aggregator import Aggregator
+from nn_v2.compute_79d import compute_79d_from_aggregator
 
 ATLAS_1S = 'DATA/ATLAS/1s'
 STATE_DIR = 'live/state'
@@ -84,21 +85,10 @@ def warm_aggregator(day_files: list):
             last_ts = row['timestamp']
 
         # Compute one 79D at end of day to verify warmup
-        states_by_tf = {}
-        ohlcv_by_tf = {}
-        for tf in TF_ORDER:
-            tf_df = agg.get_closed_bars_df(tf)
-            if len(tf_df) < SFE_MIN_BARS:
-                continue
-            ohlcv_by_tf[tf] = tf_df
-            sfe_input = tf_df.tail(300).reset_index(drop=True) if len(tf_df) > 300 else tf_df
-            states = sfe.batch_compute_states(sfe_input)
-            if states:
-                states_by_tf[tf] = states[-1]
-
-        if '1m' in states_by_tf:
-            last_79d, prev_velocities = extract_79d(
-                states_by_tf, ohlcv_by_tf, prev_velocities, last_ts)
+        result, prev_velocities, _, _ = compute_79d_from_aggregator(
+            agg, sfe, prev_velocities, last_ts)
+        if result is not None:
+            last_79d = result
 
     # Report bar counts per TF
     print(f'\nWarmup complete:')
@@ -444,7 +434,7 @@ def main():
 
     print(f'\n{"="*60}')
     print(f'READY FOR LIVE')
-    print(f'  Run: python -m live.live_blended')
+    print(f'  Run: python -m live.launcher')
     print(f'{"="*60}')
 
 

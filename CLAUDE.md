@@ -46,9 +46,10 @@ NOT quantum physics — the physics metaphors are historical and fully purged.
 - `training/trainer.py` — main pipeline (7 phases)
 
 ## Active Work
-- **BUILDING**: MTF Two-Layer Counter-Proposal — `docs/Active/COUNTER_PROPOSAL_MTF_TWO_LAYER.md`
-  - 29D features (13D base + 16D MTF), Direction + Duration engines
-  - Baseline to beat: TradeCNN $1,609/day OOS
+- **nn_v2 3-CNN System**: $620/day IS, $613/day OOS, 91% win days
+  - Pipeline: NMP → regret → blended (cascade/killshot/base) → 3 CNNs
+  - CNN Flip (70.6%), CNN Hold (94.8%), CNN Risk
+  - Next: Stage 2 — regret on CNN trades → discover new entry physics
 - See `docs/ROADMAP.md` for future branches
 
 ## Conventions

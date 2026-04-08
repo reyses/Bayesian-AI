@@ -30,21 +30,25 @@
 - **Base measurements grounded**: See `memory/feedback_base_measurements.md`
 - **Checkpoint every step**: All multi-step pipelines must save to disk after each step. See `memory/feedback_checkpoint_every_step.md`
 
-## **CURRENT PRIORITIES (2026-04-04)**
-- **nn_v2 PIPELINE**: Clean isolated folder, no changes to existing code
-  - Architecture: ticker → aggregator → SFE → 79D → NMP → tree+NN
-  - NMP baseline: $10/day IS (9,252 trades), $65/day OOS (3,172 trades)
-  - Decision tree: 11x PnL improvement by filtering 60% of bad trades ($32K from 3,702 trades)
-  - Top features: 5m_velocity, 15m_velocity, 1m_velocity (TF momentum alignment)
-  - No black boxes: tree splits are readable if/then rules
-  - Next: validate tree on OOS, build segments.py, NN refinement, ai.py glue
-- **79D Dataset**: 345 days at 1m resolution built (DATA/FEATURES_79D_1m/)
+## **CURRENT PRIORITIES (2026-04-08)**
+- **nn_v2 3-CNN SYSTEM**: $620/day IS, $613/day OOS, 91% win days
+  - Architecture: NMP → regret → blended (cascade/killshot/base) → 3 CNNs
+  - **CNN Flip** (70.6%): entry direction from 6×13 TF grid. See `nn_v2/cnn_flip.py`
+  - **CNN Hold** (94.8%): hold/exit decision during trade. See `nn_v2/cnn_hold.py`
+  - **CNN Risk**: cuts losing trades early. See `nn_v2/cnn_risk.py`
+  - Kill shot: |z|>2 + vr<1 + wick rejection (96% WR, $42/day standalone)
+  - Blended engine: `nn_v2/nightmare_blended.py` (cascade + killshot + base_nmp tiers)
+  - Next: Stage 2 — regret on CNN trades → discover new entry physics → expand roster
+- **79D Dataset**: 345 days at 1m resolution (DATA/FEATURES_79D_1m/)
 - **NQ goal**: 3 months to NQ ($400 noise budget). See `memory/project_nq_goal.md`
+- **Key insight**: Regret is the teacher, CNN is the student. Trees exhausted at 55% direction.
+- **Lookahead audit**: bars_norm mismatch (training vs inference) — needs fix
 
 ## **DEPRIORITIZED (2026-04-03)**
 - Probabilistic system: `memory/project_probabilistic_system.md` — superseded by 79D NN
 - CNN-Augmented Templates (23D): superseded by 79D
 - TradeCNN: baseline was $1,609/day but on NT8 data (phantom spikes)
+- MTF Two-Layer Counter-Proposal: superseded by nn_v2 pipeline
 
 ## **DEPRIORITIZED (historical context only)**
 - Auto seeds: `memory/project_auto_seeds_next.md` — superseded by grounded templates
@@ -53,29 +57,32 @@
 - Peak override: `memory/feedback_peak_override_failed.md` — do NOT re-enable
 - AdvanceEngine V2: paused, CNN/TradeCNN took priority
 
-## Architecture — Core
-- **SFE**: `core/statistical_field_engine.py` — MarketState per bar (CUDA-only)
-- **Brain**: `core/bayesian_brain.py` — Bayesian table with hash-based state lookups
-- **Trainer**: `training/trainer.py` — 7-phase pipeline. Run: `python training/trainer.py --fresh`
-- **Exit Engine**: `core/exit_engine.py` — SL→TP→BandUrgent→EnvelopeDecay→BE→BeliefFlip→Hold
-- **Execution Engine**: `core/execution_engine.py` — gate/direction/sizing
-- **Feature Extraction**: `core/feature_extraction.py` — canonical 16D feature vector
-- **Belief Network**: `core/timeframe_belief_network.py` — 11 TF workers, band confluence
-- **Clustering**: `core/fractal_clustering.py` — TF-bucketed recursive K-Means
+## Architecture — nn_v2 (ACTIVE)
+- **Pipeline**: ticker → aggregator → SFE → 79D → NMP → blended → 3 CNNs
+- **Ticker**: `nn_v2/ticker.py` — dumb 1s bar pipe
+- **Aggregator**: `nn_v2/aggregator.py` — 1s to all TFs + events
+- **79D Builder**: `nn_v2/build_dataset.py` / `build_dataset_v2.py` — bulk GPU feature computation
+- **NMP**: `nn_v2/nightmare.py` — z_se>2 + vr<1, inverse exit, 10-bar approach buffer
+- **Blended**: `nn_v2/nightmare_blended.py` — cascade + killshot + base_nmp tiers
+- **Kill Shot**: `nn_v2/nightmare_killshot.py` — wick rejection entry (96% WR)
+- **CNN Flip**: `nn_v2/cnn_flip.py` — entry direction from 6×13 TF grid (70.6%)
+- **CNN Hold**: `nn_v2/cnn_hold.py` — hold/exit during trade (94.8%, 98.9% HOLD acc)
+- **CNN Risk**: `nn_v2/cnn_risk.py` — cut losing trades early
+- **Regret**: `nn_v2/regret.py` — counterfactual (5 curves + entry lookback)
+- **Tree**: `nn_v2/tree.py` — 79D → strategy (from corrected trade labels)
+- **Book**: `nn_v2/book.py` — Bayesian leaf + versioned book + evolution CSV
+- **AI**: `nn_v2/ai.py` — continuous positioning (LONG/SHORT/FLAT every bar)
+- **Run**: `nn_v2/run.py` — single entry point for all commands
 
-## Architecture — CNN/Trade
-- **DMI Flipper**: `core/dmi_flipper.py` — smoothed cross, trail stop, breakeven, early exits
-- **StatePredictor**: `core/trade_cnn.py` — CNNBackbone (13→32→64) + Head (64→7), ~16K params
-- **TradeCNN Pipeline**: `training/train_trade_cnn.py` — 13D features, state labels, walk-forward
-- **Direction CNN**: `training/direction_cnn.py` — 7D, seed=42, $736/day OOS
-- **Direction TCN**: `training/direction_tcn.py` — dilated causal conv, $352/day OOS
+## Architecture — Core (legacy, still used by live)
+- **SFE**: `core/statistical_field_engine.py` — MarketState per bar (CUDA-only)
+- **DMI Flipper**: `core/dmi_flipper.py` — smoothed cross, trail stop, breakeven
+- **Feature Extraction**: `core/feature_extraction.py` — 16D + 13D + 29D vectors
 
 ## Architecture — Live
 - **Live Engine**: `live/live_engine.py` — NT8 bridge orchestrator, DMI + TradeCNN modes
 - **Launcher**: `live/launcher.py` — `--dmi`, `--trade-cnn`, `--dry-run` flags
 - **Session Tracker**: `live/session_tracker.py` — PnL, drawdowns, trade log
-- **Trade Logger**: `live/trade_logger.py` — per-trade diagnostic CSV
-- **Atlas Loader**: `live/atlas_loader.py` — ATLAS parquet reader
 
 ## Report & Output Locations
 | Path | Contents |
@@ -111,29 +118,41 @@
 ## Validation Ladder (5 gates)
 1. IS (ATLAS) → 2. OOS (ATLAS_OOS) → 3. Phase 7 Replay → 4. Live Sim → 5. Live Real
 
-## Current Baselines
-- **TradeCNN (2026-03-27)**: $1,609/day OOS, 24% WR, 10,571 trades. See `memory/project_tradecnn_baseline.md`
-- **CNN 7D (2026-03-25)**: $736/day OOS, 31.7% WR, 4,021 trades
-- **DMI cross (2026-03-25)**: $208/day, 30% WR, 25K trades. $400/day with early exits.
-- **V7.0.0 TF binning (2026-03-12)**: $39,736 IS, $8,200 OOS, 96.6%/100% WR
+## Current Baselines (2026-04-07)
+- **3-CNN Blended (nn_v2)**: $620/day IS, $613/day OOS, 91% win days, $22/trade
+- **2-CNN Blended**: $605/day IS, $563/day OOS, 85% win days
+- **Kill shot standalone**: $42/day OOS, 96% WR, 2.8 trades/day
+- **Base NMP**: $10/day IS, $65/day OOS (raw, no CNN)
 
-## C&E Matrix Methodology
-> Full methodology: `memory/ce_methodology.md`
+## Key Discoveries (from journals)
+- **Phantom spikes were fake edge**: clean Databento data turned $4,350 into -$2,427
+- **Wick rejection is universal quality signal**: predicts winners across all strategies
+- **Tree exhausted at 55% direction**: CNN convolves full 6×13 grid, sees cross-TF patterns tree can't
+- **Counter-flipping destroyed edge**: 54% WR on flipped trades (coin flip). Fix: corrected trades from regret
+- **NMP exits throw away 97% of profit**: avg peak $98, captured $22 (overshoot), $0.40 (base)
+- **Zero crossing pattern**: odd crossings = 100% winners, even = 100% losers
+- **Breakeven lifespan**: 90% of winners clear BE permanently by bar 287 (24 min)
 
-## Research Lines
-- **R4**: Regime Trading Framework — see `docs/REGIME_TRADING_SPEC.md`
-- **Shape Primitives**: `tools/shape_primitive_builder.py`, `core/shape_primitives.py`
-- **Telescoping TF**: see `memory/research_telescoping_tf.md`
+## Data Pipeline
+- ATLAS: `DATA/ATLAS/{tf}/YYYY_MM.parquet` — 14 TFs, 12 months (Jan-Dec 2025)
+- ATLAS_OOS: `DATA/ATLAS_OOS/` — 2 months (Jan-Feb 2026)
+- FEATURES_79D_1m: `DATA/FEATURES_79D_1m/` — 345 days at 1m resolution
+
+## Analysis Tools
+- `tools/nightmare_eda.py` — deep exit analysis on clean data
+- `tools/strategy_miner.py` — data-driven strategy discovery
+- `tools/killshot_test.py` — kill shot validation
+- `tools/derive_physics.py` — extract entry rules from corrected trades
+- `tools/trade_cnn_imr_overlay.py` — I-MR overlay + trade chart
 
 ## Design Docs
-- `docs/Active/` — COUNTER_PROPOSAL_MTF_TWO_LAYER, PROPOSAL_MTF_SENSOR_ARRAY, RATIONALE_TCN_GROUNDED
-- `docs/specs/` — LEVEL_DETECTOR, EXPECTED_PROFIT, WAVEFORM_SEED
+- `docs/Active/` — MONTECARLO_VALIDATION_SPEC, SESSION_CONTEXT_FEATURES
+- `docs/specs/` — FEATURE_VECTOR_79D_SPEC
 - `docs/archive/` — completed specs
 
 ## User Profile
 - See `memory/user_cognitive_style.md`, `memory/user_schedule.md`
-- See `memory/user_vp_trading_system.md`, `memory/user_level_trading.md`
-- See `memory/user_system_specs.md` — Ryzen 5 5600X, 16GB RAM, RTX 3060 12GB VRAM, can run 7B-13B local LLMs
+- See `memory/user_system_specs.md` — Ryzen 5 5600X, 16GB RAM, RTX 3060 12GB VRAM
 
 ## Requirements
 - PyTorch CUDA (cu121), numba, scipy, optuna>=3.5.0, databento

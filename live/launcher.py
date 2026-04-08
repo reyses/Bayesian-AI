@@ -137,6 +137,7 @@ def main():
         account=args.account,
         instrument=args.instrument,
         warmup_bars=args.warmup_bars,
+        max_daily_loss_usd=args.max_daily_loss,
     )
 
     # Shared state between GUI and engine
