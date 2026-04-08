@@ -382,7 +382,8 @@ class LiveEngine:
         if msg:
             await self._client.send(msg)
             self._position_open = True
-            self._trade_logger.start_trade(side, self._last_price, self._last_ts)
+            self._trade_logger.start_trade(
+                self._live_trade_count + 1, side, self._last_price, self._last_ts)
 
             logger.info(f'ENTRY: {side} | tier={tier} | price={self._last_price:.2f}')
             self._gui.push({'type': 'TRADE_MARKER', 'side': side,
