@@ -280,3 +280,50 @@ TRADE LOG
   No trades this session.
 
 ========================================================================
+========================================================================
+LIVE SESSION REPORT  (run: 2026-04-07 22:25:03)
+  Account:    Sim101
+  Instrument: MNQ 06-26
+  Anchor TF:  15s  (depth=8)
+  Duration:   0h 12m  (739 bars)
+========================================================================
+
+── DRAWDOWN & SURVIVAL ──
+  Max Consecutive Losses: 0
+  Max Consec Loss $:      $0.00
+  Peak Equity:            $+0.00
+  Max Session Drawdown:   $0.00
+
+SCORECARD: LIVE — no trades
+
+========================================================================
+GATE REJECTION FUNNEL
+========================================================================
+  Bars with candidates:                  0
+  Total candidates evaluated:            1
+    Pattern Quality  (headroom/physics):          0  (0.0%)
+    Depth Filter     (depth blacklist):           0  (0.0%)
+    Template Match   (cluster dist):              0  (0.0%)
+    Brain Reject     (unprofitable):              0  (0.0%)
+    Low Conviction   (belief too weak):           0  (0.0%)
+    Screening Filter (fission/hours):             0  (0.0%)
+    Direction Unclear (dir conf too low):          0  (0.0%)
+    Passed all gates -> traded:                   0  (0.0%)
+
+========================================================================
+ACCOUNT SNAPSHOT
+========================================================================
+  Cash Value:      $        0.00
+  Unrealized PnL:  $       +0.00
+  Net Liquidation: $        0.00
+  Profit Factor:   0.00
+  Avg PnL/trade:   $+0.00
+  Gross Win:       $+0.00
+  Gross Loss:      $0.00
+
+========================================================================
+TRADE LOG
+========================================================================
+  No trades this session.
+
+========================================================================
