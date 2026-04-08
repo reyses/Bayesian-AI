@@ -188,12 +188,65 @@ def load_state():
     return agg, prev_velocities, info
 
 
+def merge_atlas_live():
+    """Merge ATLAS_LIVE data into main ATLAS (extends the dataset)."""
+    import shutil
+
+    live_root = 'DATA/ATLAS_LIVE'
+    atlas_root = 'DATA/ATLAS'
+
+    if not os.path.exists(live_root):
+        return
+
+    merged = 0
+    for tf in os.listdir(live_root):
+        tf_live = os.path.join(live_root, tf)
+        tf_atlas = os.path.join(atlas_root, tf)
+        if not os.path.isdir(tf_live):
+            continue
+        os.makedirs(tf_atlas, exist_ok=True)
+
+        for f in sorted(os.listdir(tf_live)):
+            if not f.endswith('.parquet'):
+                continue
+            src = os.path.join(tf_live, f)
+            dst = os.path.join(tf_atlas, f)
+            if not os.path.exists(dst):
+                shutil.copy2(src, dst)
+                merged += 1
+                print(f'  Merged: {tf}/{f}')
+
+    # Also merge FEATURES_79D_5s_live into FEATURES_79D_5s_v2
+    feat_live = 'DATA/FEATURES_79D_5s_live'
+    feat_main = 'DATA/FEATURES_79D_5s_v2'
+    if os.path.exists(feat_live):
+        os.makedirs(feat_main, exist_ok=True)
+        for f in sorted(os.listdir(feat_live)):
+            if not f.endswith('.parquet'):
+                continue
+            src = os.path.join(feat_live, f)
+            dst = os.path.join(feat_main, f)
+            if not os.path.exists(dst):
+                shutil.copy2(src, dst)
+                merged += 1
+                print(f'  Merged: features/{f}')
+
+    if merged:
+        print(f'  Total merged: {merged} files')
+    else:
+        print(f'  No new live data to merge')
+
+
 def main():
     args = parse_args()
 
     print(f'{"="*60}')
     print(f'MAINTENANCE — Warmup for Live Trading')
     print(f'{"="*60}')
+
+    # Step 0: Merge any live session data into main ATLAS
+    print(f'\nMerging ATLAS_LIVE into ATLAS...')
+    merge_atlas_live()
 
     if not args.skip_download:
         print(f'\nNote: download fresh data from Databento first if needed:')
