@@ -138,11 +138,14 @@ class NT8Client:
             _mtype = msg.get('type', '?')
             # Only log heartbeats for first 10 minutes, always log orders
             _is_hb = _mtype in ('HEARTBEAT', MsgType.HEARTBEAT)
-            _startup_window = (time.time() - self._last_connect_time) < 60  # 1 min startup logging
-            if not _is_hb or _startup_window:
-                _side = msg.get('side', msg.get('action', ''))
-                _price = msg.get('price', '')
-                logger.info(f"NT8 >> SEND: type={_mtype} side={_side} price={_price}")
+            if not _is_hb:
+                # Log all non-heartbeat messages with relevant fields
+                _parts = [f"NT8 >> {_mtype}"]
+                for k in ('side', 'instrument', 'order_id'):
+                    v = msg.get(k)
+                    if v:
+                        _parts.append(f"{k}={v}")
+                logger.info(' '.join(_parts))
             self._writer.write(encode(msg))
             await self._writer.drain()
         except (ConnectionResetError, BrokenPipeError, OSError) as e:
