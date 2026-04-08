@@ -216,6 +216,15 @@ class LiveEngine:
             msg_type = msg.get('type', '')
 
             if msg_type == MsgType.BAR:
+                # Staleness gate: skip bars older than 30s from wall clock
+                bar_ts = msg.get('timestamp', 0)
+                wall_ts = time.time()
+                stale_s = wall_ts - bar_ts if bar_ts > 0 else 0
+                if stale_s > 30 and self._system_ready:
+                    # History replay after reconnect — feed aggregator but don't trade
+                    self._system_ready = False
+                    logger.warning(f'Stale bar detected ({stale_s:.0f}s old) — '
+                                   f'suppressing trading until HISTORY_DONE')
                 await self._on_bar(msg)
             elif msg_type == MsgType.HISTORY_DONE:
                 self._history_done = True
