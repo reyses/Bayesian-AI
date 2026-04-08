@@ -2,12 +2,11 @@
 CLI launcher for the live trading connector.
 
 Usage:
-    python -m live.launcher                     # connect to NT8 (account controls sim/real)
-    python -m live.launcher --account MyAccount  # specific NT8 account
-    python -m live.launcher --no-gui            # headless (no popup)
-    python -m live.launcher --checkpoint-dir checkpoints_v2
-    python -m live.launcher --physics                       # PhysicsEngine (K-NN trajectory matching)
-    python -m live.launcher --physics --seed-path path.json # custom seed file
+    python -m live.launcher                         # connect to NT8 SIM
+    python -m live.launcher --account Sim101        # specific account
+    python -m live.launcher --instrument "MNQ 06-26" # specific contract
+    python -m live.launcher --no-gui                # headless
+    python -m live.launcher --max-daily-loss 100    # custom daily limit
 """
 
 import argparse
@@ -23,40 +22,22 @@ from live.live_engine import LiveEngine
 
 
 def _kill_stale_live_engines():
-    """Kill any leftover Python live engine processes from previous runs.
-
-    Without this, a stale Python process holds the C# bridge connection
-    and new connections go into the OS backlog unserviced.
-    """
-    import subprocess
-    my_pid = os.getpid()
+    """Kill any leftover Python live engine processes from previous runs."""
     try:
-        # Find all python processes with 'live.launcher' in their command line
-        result = subprocess.run(
-            ['powershell', '-Command',
-             'Get-CimInstance Win32_Process -Filter "Name like \'python%\'" '
-             '| Select-Object ProcessId, CommandLine '
-             '| ConvertTo-Json'],
-            capture_output=True, text=True, timeout=5,
-        )
-        if result.returncode != 0:
-            return
-        import json
-        procs = json.loads(result.stdout or '[]')
-        if isinstance(procs, dict):
-            procs = [procs]  # single result comes as dict
-        for p in procs:
-            pid = int(p.get('ProcessId', 0))
-            cmd = p.get('CommandLine', '') or ''
-            if pid != my_pid and 'live.launcher' in cmd:
-                logging.getLogger(__name__).warning(
-                    f"Killing stale live engine PID {pid}")
-                subprocess.run(
-                    ['powershell', '-Command', f'Stop-Process -Id {pid} -Force'],
-                    timeout=3,
-                )
-    except Exception:
-        pass  # best-effort; don't crash if cleanup fails
+        import psutil
+        current_pid = os.getpid()
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                cmdline = proc.info.get('cmdline') or []
+                if (proc.info['pid'] != current_pid and
+                    'python' in (proc.info.get('name') or '').lower() and
+                    any('live' in (c or '') for c in cmdline)):
+                    print(f"[cleanup] Killing stale process PID={proc.info['pid']}")
+                    proc.kill()
+            except (psutil.AccessDenied, psutil.NoSuchProcess):
+                pass
+    except ImportError:
+        pass  # psutil not installed, skip
 
 
 def _run_popup(gui_queue, shared_state):
@@ -66,23 +47,20 @@ def _run_popup(gui_queue, shared_state):
 
     root = tk.Tk()
     popup = ProgressPopup(root, gui_queue, shared_state=shared_state)
-    root.title("Bayesian-AI  LIVE")
+    root.title("Bayesian-AI  BLENDED LIVE")
 
     def _on_close():
-        # If already shutting down, force-close
         if shared_state.get('shutdown'):
-            root.quit()  # break mainloop; cleanup below
+            root.quit()
             return
-        # First close: flatten + wait for confirmation
         shared_state['shutdown_flatten'] = True
         root.title("Bayesian-AI  LIVE  [CLOSING...]")
-        _check_shutdown()  # start polling for confirmation
+        _check_shutdown()
 
     def _check_shutdown():
-        """Poll until engine confirms flat, then quit mainloop."""
         if shared_state.get('shutdown_confirmed'):
             shared_state['shutdown'] = True
-            root.quit()  # break mainloop; cleanup below
+            root.quit()
             return
         root.after(200, _check_shutdown)
 
@@ -92,8 +70,6 @@ def _run_popup(gui_queue, shared_state):
     except Exception:
         pass
 
-    # ── Post-mainloop cleanup (still in GUI thread) ──────────────
-    # Must GC all tkinter/matplotlib objects HERE, not in the main thread.
     try:
         import matplotlib.pyplot as plt
         plt.close("all")
@@ -103,7 +79,6 @@ def _run_popup(gui_queue, shared_state):
         root.destroy()
     except Exception:
         pass
-    # Release all references so GC collects tkinter objects in THIS thread
     del popup, root
     import gc
     gc.collect()
@@ -111,176 +86,38 @@ def _run_popup(gui_queue, shared_state):
     shared_state['shutdown'] = True
 
 
-def _clean_nt8_cache():
-    """Delete NinjaTrader.sqlite to prevent stale connection issues."""
-    import pathlib
-    db_path = pathlib.Path.home() / 'OneDrive' / 'Documents' / 'NinjaTrader 8' / 'db' / 'NinjaTrader.sqlite'
-    if db_path.exists():
-        try:
-            db_path.unlink()
-            print(f"[cleanup] Deleted {db_path}")
-        except PermissionError:
-            print(f"[cleanup] Cannot delete {db_path}  -- NT8 may be running. Close NT8 first.")
-        except Exception as e:
-            print(f"[cleanup] Failed to delete {db_path}: {e}")
-
-
 def main():
-    """Entry point for live trading. Connects to NT8 and trades."""
+    """Entry point for live trading."""
     parser = argparse.ArgumentParser(
-        description='Bayesian-AI NinjaTrader 8 Live Connector')
-    parser.add_argument('--host', default='127.0.0.1',
-                        help='NT8 bridge host (default: 127.0.0.1)')
-    parser.add_argument('--port', type=int, default=5199,
-                        help='NT8 bridge port (default: 5199)')
+        description='Bayesian-AI Live Trading — BlendedEngine + 3 CNNs')
+    parser.add_argument('--host', default='127.0.0.1')
+    parser.add_argument('--port', type=int, default=5199)
     parser.add_argument('--account', default='DEMO6872628',
-                        help='NT8 account name (default: DEMO6872628)')
-    parser.add_argument('--instrument', default='MNQ 03-26',
-                        help='NT8 instrument name (default: MNQ 03-26)')
-    parser.add_argument('--checkpoint-dir', default='checkpoints',
-                        help='Training checkpoint directory')
+                        help='NT8 account name')
+    parser.add_argument('--instrument', default='MNQ 06-26',
+                        help='NT8 instrument name (front month)')
     parser.add_argument('--no-gui', action='store_true',
-                        help='Run headless without progress popup')
+                        help='Run headless without dashboard popup')
     parser.add_argument('--max-daily-loss', type=float, default=200.0,
-                        help='Max daily loss in USD before stopping (default: 200)')
-    parser.add_argument('--warmup-bars', type=int, default=240,
-                        help='Bars to accumulate before first signal (default: 240 = 1h)')
-    parser.add_argument('--anchor-tf', default='15s',
-                        choices=['1s', '5s', '15s', '30s', '1m', '3m', '5m'],
-                        help='Primary signal timeframe (default: 15s)')
-    parser.add_argument('--ping-pong', action='store_true',
-                        help='Continuous wave-riding with direction refinement')
-    parser.add_argument('--physics', action='store_true',
-                        help='Use PhysicsEngine (K-NN trajectory matching) instead of AdvanceEngine')
-    parser.add_argument('--dmi', action='store_true',
-                        help='Use DMI smoothed cross flipper (simplest profitable engine)')
-    parser.add_argument('--trade-cnn', action='store_true',
-                        help='Use TradeCNN StatePredictor ($1342/day OOS)')
-    parser.add_argument('--trade-cnn-model', default=None,
-                        help='Path to TradeCNN checkpoint (default: auto-find latest)')
-    parser.add_argument('--cnn3', action='store_true',
-                        help='Use three-layer CNN (L1 direction + L2 duration + L3 retreat)')
-    parser.add_argument('--playback', default=None, nargs='?', const='ask',
-                        help='Playback mode with date (MM/DD/YY or YYYY-MM-DD). No arg = prompt.')
-    parser.add_argument('--seed-path', default=None,
-                        help='Path to enriched seed JSON for PhysicsEngine')
-    parser.add_argument('--yolo', action='store_true',
-                        help='Max aggression, minimal warmup  -- force trades fast')
-    parser.add_argument('--backfill', action='store_true',
-                        help='Connect to NT8, receive history, save to ATLAS, then exit. No trading.')
-    parser.add_argument('--long-only', action='store_true',
-                        help='Force all trades LONG (brain learns long side)')
-    parser.add_argument('--short-only', action='store_true',
-                        help='Force all trades SHORT (brain learns short side)')
+                        help='Max daily loss in USD before stopping')
+    parser.add_argument('--warmup-bars', type=int, default=60,
+                        help='Bars before first signal (default: 60 = 1 min)')
     parser.add_argument('--log-level', default='INFO',
-                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
-                        help='Logging level (default: INFO)')
+                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'])
     args = parser.parse_args()
 
     _kill_stale_live_engines()
-    _clean_nt8_cache()
-
-    # Physics mode: force 1m anchor, auto-find seeds
-    if args.physics:
-        args.anchor_tf = '1m'
-        if not args.seed_path:
-            import glob as _glob
-            _candidates = sorted(_glob.glob('DATA/regime_seeds/auto_seeds_all_*.json'))
-            if _candidates:
-                args.seed_path = _candidates[-1]  # most recent
-            else:
-                print("ERROR: --physics requires seed JSON. Use --seed-path or place in DATA/regime_seeds/")
-                sys.exit(1)
-        print(f"[physics] Engine: PhysicsEngine (K-NN trajectory matching)")
-        print(f"[physics] Seeds:  {args.seed_path}")
-        print(f"[physics] Anchor: 1m")
-
-    # DMI mode: force 1m anchor, no seeds needed
-    if args.dmi:
-        args.anchor_tf = '1m'
-        print(f"[dmi] Engine: DMI Smoothed Cross Flipper")
-        print(f"[dmi] Anchor: 1m | Trail after $5 | SL=40t")
-
-    # TradeCNN mode: force 1m anchor, load StatePredictor
-    if args.trade_cnn:
-        args.anchor_tf = '1m'
-        args.dmi = True  # reuse DMI routing (same bar flow)
-        if not args.trade_cnn_model:
-            # Auto-find: prefer trade_cnn_hold, fallback to trade_cnn
-            for _dir in ['checkpoints/trade_cnn_hold', 'checkpoints/trade_cnn']:
-                _p = os.path.join(_dir, 'best_model.pt')
-                if os.path.exists(_p):
-                    args.trade_cnn_model = _p
-                    break
-        if not args.trade_cnn_model:
-            print("ERROR: --trade-cnn requires trained model. Run training first.")
-            sys.exit(1)
-        print(f"[trade-cnn] Engine: TradeCNN StatePredictor")
-        print(f"[trade-cnn] Model: {args.trade_cnn_model}")
-        print(f"[trade-cnn] Anchor: 1m | Trail after $5 | SL=40t")
-
-    # Playback mode: fresh start for NT8 historical replay
-    # --playback 03/25/26  OR  --playback (prompts)
-    args._playback_date = None
-    if args.playback is not None:
-        import shutil
-        _bar_cache = 'checkpoints/live/bars_MNQ_60s.parquet'
-        _bar_backup = 'checkpoints/live/bars_MNQ_60s_real.parquet'
-        if os.path.exists(_bar_cache):
-            shutil.move(_bar_cache, _bar_backup)
-            print(f"[playback] Moved bar cache aside: {_bar_backup}")
-        # Get date from CLI or prompt
-        _pb_raw = args.playback if args.playback != 'ask' else \
-            input("[playback] Enter playback start date (MM/DD/YY or YYYY-MM-DD): ").strip()
-        if _pb_raw:
-            from datetime import datetime as _dt
-            for _fmt in ('%m/%d/%y', '%Y-%m-%d', '%m/%d/%Y', '%m-%d-%Y'):
-                try:
-                    args._playback_date = _dt.strptime(_pb_raw, _fmt).strftime('%Y-%m-%d')
-                    break
-                except ValueError:
-                    continue
-            if args._playback_date:
-                print(f"[playback] Date: {args._playback_date}")
-            else:
-                print(f"[playback] Could not parse '{_pb_raw}' — using latest ATLAS data")
-        args.playback = True  # normalize to bool for downstream checks
-        args.warmup_bars = 0
-        print(f"[playback] Zero warmup — preloaded from ATLAS")
-        print(f"[playback] Fresh start — no delta sync, accepting Playback101")
-
-    # CNN3 mode: three-layer CNN (L1+L2+L3), 1m anchor
-    if args.cnn3:
-        args.anchor_tf = '1m'
-        args.dmi = True  # reuse 1m bar routing
-        _ckpt_dir = 'checkpoints/trade_cnn_10'
-        _l1 = os.path.join(_ckpt_dir, 'best_model.pt')
-        _l2 = os.path.join(_ckpt_dir, '29d', 'l2_model.pt')
-        _l3 = os.path.join(_ckpt_dir, '29d', 'l3_model.pt')
-        for _p, _name in [(_l1, 'L1'), (_l2, 'L2'), (_l3, 'L3')]:
-            if not os.path.exists(_p):
-                print(f"ERROR: --cnn3 requires {_name} model at {_p}")
-                sys.exit(1)
-        print(f"[cnn3] Engine: Three-Layer CNN (L1+L2+L3)")
-        print(f"[cnn3] Checkpoint: {_ckpt_dir}")
-        print(f"[cnn3] Anchor: 1m | L3 retreat + SL=40t backstop")
-
-    # YOLO mode: override warmup + aggression
-    if args.yolo:
-        args.warmup_bars = 20   # ~5 minutes of 15s bars
-        args.log_level = 'DEBUG'
 
     # Configure logging
     logging.basicConfig(
         level=getattr(logging, args.log_level),
-        format='%(asctime)s %(levelname)s: %(message)s',
+        format='%(asctime)s [%(name)s] %(message)s',
         datefmt='%H:%M:%S',
         handlers=[
             logging.StreamHandler(sys.stdout),
             logging.FileHandler('live_trading.log', mode='a'),
         ]
     )
-    # Silence numba CUDA debug spam
     logging.getLogger('numba').setLevel(logging.ERROR)
     logging.getLogger('numba.cuda').setLevel(logging.ERROR)
     import warnings
@@ -291,34 +128,13 @@ def main():
         nt8_port=args.port,
         account=args.account,
         instrument=args.instrument,
-        checkpoint_dir=args.checkpoint_dir,
         warmup_bars=args.warmup_bars,
-        max_daily_loss_usd=args.max_daily_loss,
-        anchor_tf=args.anchor_tf,
-        ping_pong=args.ping_pong,
     )
 
-    # Validate side lock
-    if args.long_only and args.short_only:
-        print("ERROR: --long-only and --short-only are mutually exclusive")
-        sys.exit(1)
+    # Shared state between GUI and engine
+    shared_state = {}
 
-    # Shared mutable state between GUI and engine (thread-safe via GIL)
-    shared_state = {
-        'aggression': 1.0 if args.yolo else 0.5,
-        'ping_pong': args.ping_pong,
-        'side_lock': 'long' if args.long_only else ('short' if args.short_only else None),
-        'physics_mode': args.physics,
-        'dmi_mode': args.dmi,
-        'trade_cnn_mode': getattr(args, 'trade_cnn', False),
-        'trade_cnn_model': getattr(args, 'trade_cnn_model', None),
-        'seed_path': getattr(args, 'seed_path', None),
-        'cnn3_mode': getattr(args, 'cnn3', False),
-        'playback_mode': getattr(args, 'playback', False),
-        'playback_date': getattr(args, '_playback_date', None),
-    }
-
-    # Launch GUI popup (unless --no-gui)
+    # Launch GUI
     gui_queue = None
     if not args.no_gui:
         gui_queue = stdlib_queue.Queue(maxsize=5000)
@@ -327,24 +143,9 @@ def main():
             daemon=True, name='LivePopup')
         gui_thread.start()
 
-    # Backfill mode: connect, get history, save to ATLAS, exit
-    if getattr(args, 'backfill', False):
-        print("[backfill] Connecting to NT8 for history dump...")
-        print("[backfill] Will save to DATA/ATLAS after receiving bars")
-        shared_state['backfill_mode'] = True
-
+    # Create and run engine
     engine = LiveEngine(config, gui_queue=gui_queue, shared_state=shared_state)
-    try:
-        asyncio.run(engine.run())
-    except KeyboardInterrupt:
-        pass
-    finally:
-        # Signal GUI to exit cleanly (avoids Tcl_AsyncDelete crash)
-        shared_state['shutdown'] = True
-        if gui_queue is not None:
-            gui_queue.put({'type': 'SHUTDOWN'})
-        if not args.no_gui:
-            gui_thread.join(timeout=3)
+    asyncio.run(engine.run())
 
 
 if __name__ == '__main__':
