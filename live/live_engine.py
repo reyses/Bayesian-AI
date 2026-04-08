@@ -120,6 +120,10 @@ class LiveEngine:
         # Live brain paths (separate from backtest brain)
         self._live_brain_dir = os.path.join('live', 'brains')
         os.makedirs(self._live_brain_dir, exist_ok=True)
+
+        # Last 79D state for status display
+        self._last_z_se = 0.0
+        self._last_vr = 0.0
         self._trade_logger = TradeLogger(
             os.path.join('reports', 'live', 'trades'))
 
@@ -288,6 +292,10 @@ class LiveEngine:
 
         feat, self._prev_velocities = extract_79d(
             states_by_tf, ohlcv_by_tf, self._prev_velocities, ts)
+
+        # Store z_se and vr for status display (1m block starts at index 10)
+        self._last_z_se = feat[10]  # 1m_z_se
+        self._last_vr = feat[12]    # 1m_variance_ratio
 
         # Warmup check
         if not self._warmed_up:
@@ -472,8 +480,9 @@ class LiveEngine:
             pnl_str = f'unrl=${unrealized:>+.0f} pk=${self._engine.peak_pnl:>.0f}'
         tier = self._engine.entry_tier or '-'
         t_str = datetime.utcfromtimestamp(bar['timestamp']).strftime('%H:%M:%S')
+        z_str = f'z={self._last_z_se:>+.1f} vr={self._last_vr:.2f}'
         print(f'\r  {t_str} | {bar["close"]:>10.2f} | {pos:>5} {tier:>10} | '
-              f'tr={self._live_trade_count} day=${self._daily_pnl:>+.0f} {pnl_str}    ',
+              f'{z_str} | tr={self._live_trade_count} day=${self._daily_pnl:>+.0f} {pnl_str}    ',
               end='', flush=True)
 
         # Push to GUI
