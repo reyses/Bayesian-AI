@@ -39,6 +39,7 @@ AGG_FROM_1M = [
     ('1m', '5m', 5),
     ('1m', '15m', 15),
     ('1m', '30m', 30),
+    ('1m', '1h', 60),
 ]
 AGG_FROM_1H = [
     ('1h', '4h', 4),
@@ -168,6 +169,38 @@ def validate_pair(fine_tf, coarse_tf, fine_per_coarse, label):
     print(f'  {fine_tf} vs {coarse_tf} ({label}): {status} — {errors}/{checked} mismatches ({pct:.1f}%)')
 
 
+def build_1d_from_1m():
+    """Build 1D bars from 1m — one bar per day file."""
+    source_dir = os.path.join(ATLAS, '1m')
+    target_dir = os.path.join(ATLAS, '1D')
+    os.makedirs(target_dir, exist_ok=True)
+
+    files = sorted(glob.glob(os.path.join(source_dir, '*.parquet')))
+    total = 0
+    for fpath in tqdm(files, desc='  1m->1D'):
+        fname = os.path.basename(fpath)
+        target_path = os.path.join(target_dir, fname)
+        if os.path.exists(target_path):
+            continue
+
+        df = pd.read_parquet(fpath)
+        if len(df) < 2:
+            continue
+
+        row = pd.DataFrame([{
+            'timestamp': int(df['timestamp'].iloc[0]),
+            'open': float(df['open'].iloc[0]),
+            'high': float(df['high'].max()),
+            'low': float(df['low'].min()),
+            'close': float(df['close'].iloc[-1]),
+            'volume': int(df['volume'].sum()) if 'volume' in df.columns else 0,
+        }])
+        row.to_parquet(target_path, index=False)
+        total += 1
+
+    print(f'    {total} daily bars written')
+
+
 def main():
     print(f'BUILD TIMEFRAMES + VALIDATE')
     print(f'  ATLAS: {ATLAS}/')
@@ -184,13 +217,17 @@ def main():
         # Build from 1m
         print('Aggregating from 1m:')
         for src, tgt, n in AGG_FROM_1M:
-            tf_secs = {'3m': 180, '5m': 300, '15m': 900, '30m': 1800}
+            tf_secs = {'3m': 180, '5m': 300, '15m': 900, '30m': 1800, '1h': 3600}
             build_tf(src, tgt, tf_secs[tgt])
 
         # Build from 1h
         print('Aggregating from 1h:')
         for src, tgt, n in AGG_FROM_1H:
             build_tf(src, tgt, 14400)
+
+    # Build 1D from 1m (one bar per day = all bars in file)
+    print('Building 1D from 1m:')
+    build_1d_from_1m()
 
     # Validate
     print(f'\nVALIDATION:')

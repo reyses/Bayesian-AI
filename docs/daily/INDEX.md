@@ -2,6 +2,7 @@
 
 | Date | Summary |
 |------|---------|
+| 2026-04-08 | Live hardening: SFE audit (CRITICAL OHLCV mismatch fixed), dashboard tick noise removed, 8 live bugs fixed, manual trades get CNN management, ATLAS backfill complete, compute_79d.py single source of truth. |
 | 2026-04-07 | CNN flip 70.6% → blended $367 IS, $397 OOS, 85% win. BASE_NMP $0.30→$7.90/trade. Entry-only CNN > path CNN. Stage 2 architecture: regret discovers new entry physics → CNN clusters → validate → expand ExNMP roster. |
 | 2026-04-06 | Kill shot 96% WR. Blended engine (cascade/killshot/base). Pipeline $295 IS, $386 OOS. Tree exhausted: direction 55%, duration 64%, 5-point path 54% — can't predict BASE_NMP flips. Wick is the ONLY direction signal. Regime flip = poison (-$19/trade). Next: CNN for multi-feature patterns. |
 | 2026-04-05 | Bayesian pipeline built. Root cause: counter-flip killed edge. Fix: corrected trades (regret → right dir + exit). IS $62/day (63%), OOS $51/day (52%). First real positive OOS. 17 commits. Next: DOE on 79D entry conditions. |

@@ -1088,16 +1088,18 @@ class ProgressPopup:
     def _redraw_price_chart(self):
         c = self._price_canvas
         c.delete("all")
-        pts = self._price_history
+        pts = self._price_1m  # 1m close prices (not ticks)
         W = max(100, c.winfo_width())
         H = max(40, c.winfo_height())
         if len(pts) < 2:
-            c.create_text(W // 2, H // 2, text="Waiting for bars...",
+            c.create_text(W // 2, H // 2, text="Waiting for 1m bars...",
                           fill=FG_GREY, font=("Consolas", 9))
             return
 
         pad = 6
-        mn, mx = min(pts), max(pts)
+        # Scale from 1m + center data for consistent range
+        all_vals = list(pts) + list(self._center_history)
+        mn, mx = min(all_vals), max(all_vals)
         span = mx - mn if mx != mn else 1.0
 
         # Price grid lines (3 levels)
@@ -1108,54 +1110,7 @@ class ProgressPopup:
             c.create_text(W - pad + 2, gy, text=f"{price_at:,.0f}",
                           fill="#444444", font=("Consolas", 5), anchor="w")
 
-        # Standard Error bands (1σ, 2σ, 3σ) — rolling 60-bar window
-        import numpy as _np
-        _se_window = 30  # rolling window for std bands
-        _full = self._price_full if hasattr(self, '_price_full') else pts
-        _full_arr = _np.array(_full)
-        _display_offset = len(_full) - len(pts)  # how many extra bars in full buffer
-        if len(_full) >= _se_window:
-            _pts_arr = _np.array(pts)
-            _band_colors = {1: '#333355', 2: '#333344', 3: '#332233'}  # subtle fills
-            _line_colors = {1: '#5555AA', 2: '#6666AA', 3: '#7744AA'}  # band edges
-
-            for _sigma in (3, 2, 1):  # draw outer first
-                _upper_coords = []
-                _lower_coords = []
-                for i in range(len(pts)):
-                    x = pad + i / (len(pts) - 1) * (W - 2 * pad)
-                    fi = i + _display_offset  # index into full buffer
-                    if fi < _se_window:
-                        continue  # skip warmup
-                    _chunk = _full_arr[fi - _se_window:fi]
-                    _mean = _chunk.mean()
-                    _std = _chunk.std()
-                    _up = _mean + _sigma * _std
-                    _lo = _mean - _sigma * _std
-                    _uy = H - pad - ((_up - mn) / span) * (H - 2 * pad)
-                    _ly = H - pad - ((_lo - mn) / span) * (H - 2 * pad)
-                    _upper_coords.extend([x, _uy])
-                    _lower_coords.extend([x, _ly])
-
-                if len(_upper_coords) >= 4:
-                    c.create_line(_upper_coords, fill=_line_colors[_sigma], width=1, dash=(1, 2))
-                    c.create_line(_lower_coords, fill=_line_colors[_sigma], width=1, dash=(1, 2))
-
-            # Regression center line
-            _center_coords = []
-            for i in range(len(pts)):
-                x = pad + i / (len(pts) - 1) * (W - 2 * pad)
-                fi = i + _display_offset
-                if fi < _se_window:
-                    continue
-                _chunk = _full_arr[fi - _se_window:fi]
-                _mean = _chunk.mean()
-                _cy = H - pad - ((_mean - mn) / span) * (H - 2 * pad)
-                _center_coords.extend([x, _cy])
-            if len(_center_coords) >= 4:
-                c.create_line(_center_coords, fill='#FFFFFF', width=1, dash=(3, 3))
-
-        # === THREE LINES ===
+        # === LINES (all from 1m SFE data, not ticks) ===
 
         # Helper to build coords from a data list
         def _build_coords(data, n_ref):
@@ -1172,7 +1127,7 @@ class ProgressPopup:
                     coords.extend([x, y])
             return coords
 
-        n_ref = max(len(pts), len(self._price_1m), 2)
+        n_ref = max(len(pts), 2)
 
         # 1. White dashed — 1m regression center
         center_coords = _build_coords(self._center_history, n_ref)
@@ -1184,14 +1139,11 @@ class ProgressPopup:
         if len(coords_1m) >= 4:
             c.create_line(coords_1m, fill='#4A9EFF', width=2, smooth=True)
 
-        # 3. Purple — 5s tick prices
-        coords_5s = _build_coords(pts, n_ref)
-        if len(coords_5s) >= 4:
-            c.create_line(coords_5s, fill='#AA44FF', width=1, smooth=True)
-            # Current price dot
-            c.create_oval(coords_5s[-2] - 3, coords_5s[-1] - 3,
-                          coords_5s[-2] + 3, coords_5s[-1] + 3,
-                          fill='#AA44FF', outline="")
+        # 3. Current price dot (latest 1m close)
+        if len(coords_1m) >= 4:
+            c.create_oval(coords_1m[-2] - 3, coords_1m[-1] - 3,
+                          coords_1m[-2] + 3, coords_1m[-1] + 3,
+                          fill='#4A9EFF', outline="")
 
         # VWAP line (cyan, session cumulative)
         vwap = self._vwap_history
@@ -1702,6 +1654,14 @@ class ProgressPopup:
                         self._center_history.append(float(_ctr))
                         if len(self._center_history) > self._MAX_PRICE_PTS:
                             self._center_history = self._center_history[-self._MAX_PRICE_PTS:]
+                    # Update z_se display only on 1m close
+                    _z = msg.get('z_se', 0)
+                    _vr = msg.get('vr', 0) if 'vr' in msg else getattr(self, '_last_vr_display', 0)
+                    if _z and hasattr(self, '_agg_label_var'):
+                        _z_pct = min(abs(float(_z)) / 2.0 * 100, 100)
+                        _dir = 'SHORT' if float(_z) > 0 else 'LONG'
+                        self._agg_label_var.set(
+                            f"Signal: {_z_pct:.0f}% | z={float(_z):+.2f} vr={float(_vr):.2f} -> {_dir}")
 
                 elif mtype == "TICK_UPDATE":
                     price = msg.get("price")
@@ -1714,14 +1674,7 @@ class ProgressPopup:
                             self._price_lbl.config(
                                 fg=FG_GREEN if p >= prev else FG_RED)
                         self._prev_price = p
-                        # Update z_se proximity on aggression label
-                        _z = msg.get('z_se', 0)
-                        _vr = msg.get('vr', 0)
-                        if _z and hasattr(self, '_agg_label_var'):
-                            _z_pct = min(abs(float(_z)) / 2.0 * 100, 100)
-                            _dir = 'SHORT' if float(_z) > 0 else 'LONG'
-                            self._agg_label_var.set(
-                                f"Signal: {_z_pct:.0f}% | z={float(_z):+.2f} vr={float(_vr):.2f} → {_dir}")
+                        # z_se display moved to BAR_1M handler (1m cadence only)
                         # Feed 5s price chart (every 5th 1s tick = purple line)
                         self._tick_counter = getattr(self, '_tick_counter', 0) + 1
                         if self._tick_counter % 5 == 0:
