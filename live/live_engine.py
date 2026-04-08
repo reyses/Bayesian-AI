@@ -123,6 +123,8 @@ class LiveEngine:
         # Last 79D state for status display
         self._last_z_se = 0.0
         self._last_vr = 0.0
+        self._last_center = 0.0
+        self._last_sigma = 0.0
         self._trade_logger = TradeLogger(
             os.path.join('reports', 'live', 'trades'))
 
@@ -252,6 +254,10 @@ class LiveEngine:
             'in_position': self._engine.in_pos,
             'direction': self._engine.direction or '',
             'tier': self._engine.entry_tier or '',
+            'z_se': self._last_z_se,
+            'vr': self._last_vr,
+            'center': self._last_center,
+            'sigma': self._last_sigma,
         })
 
         # Status line every 60 bars
@@ -292,9 +298,19 @@ class LiveEngine:
         feat, self._prev_velocities = extract_79d(
             states_by_tf, ohlcv_by_tf, self._prev_velocities, ts)
 
-        # Store z_se and vr for status display (1m block starts at index 10)
-        self._last_z_se = feat[10]  # 1m_z_se
-        self._last_vr = feat[12]    # 1m_variance_ratio
+        # Store key features for status display and dashboard
+        # 1m block starts at index 10: z_se=0, dmi=1, vr=2
+        self._last_z_se = feat[10]      # 1m_z_se
+        self._last_vr = feat[12]        # 1m_variance_ratio
+
+        # Compute regression center + bands for dashboard
+        if '1m' in states_by_tf:
+            state_1m = states_by_tf['1m']
+            self._last_center = getattr(state_1m, 'center', bar['close'])
+            self._last_sigma = getattr(state_1m, 'sigma', 0)
+        else:
+            self._last_center = bar['close']
+            self._last_sigma = 0
 
         # Warmup check
         if not self._warmed_up:

@@ -963,6 +963,7 @@ class ProgressPopup:
         # ── Live Price Chart ─────────────────────────────────────────────
         self._price_history = []  # last N prices for line chart (display)
         self._price_full = []    # longer buffer for computation (SE bands, regression)
+        self._center_history = []  # regression center per tick (from engine)
         self._active_entry_price = None  # horizontal line while in trade
         self._active_entry_side = None
         self._MAX_PRICE_PTS = 200  # rolling window
@@ -1182,6 +1183,20 @@ class ProgressPopup:
                     vwap_coords.extend([x, y])
             if len(vwap_coords) >= 4:
                 c.create_line(vwap_coords, fill="#00FFFF", width=1, smooth=True, dash=(3, 2))
+
+        # SFE regression center (purple line from engine)
+        _centers = self._center_history
+        n_center = min(len(_centers), len(pts))
+        if n_center >= 2:
+            center_coords = []
+            for i in range(n_center):
+                x = pad + (len(pts) - n_center + i) / max(1, len(pts) - 1) * (W - 2 * pad)
+                v = _centers[len(_centers) - n_center + i]
+                if v > 0 and mn <= v <= mx:
+                    y = H - pad - ((v - mn) / span) * (H - 2 * pad)
+                    center_coords.extend([x, y])
+            if len(center_coords) >= 4:
+                c.create_line(center_coords, fill="#AA44FF", width=2, smooth=True)
 
         # Active trade: horizontal entry line (persists until exit)
         if self._active_entry_price is not None and mn <= self._active_entry_price <= mx:
@@ -1667,6 +1682,11 @@ class ProgressPopup:
                             self._price_lbl.config(
                                 fg=FG_GREEN if p >= prev else FG_RED)
                         self._prev_price = p
+                        # Store regression center if provided
+                        _center = msg.get('center', 0)
+                        self._center_history.append(_center if _center else p)
+                        if len(self._center_history) > self._MAX_PRICE_PTS:
+                            self._center_history = self._center_history[-self._MAX_PRICE_PTS:]
                         # Feed price chart + computation buffer
                         self._price_history.append(p)
                         self._price_full.append(p)
