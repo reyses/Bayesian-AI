@@ -100,7 +100,7 @@ def main():
         description='Bayesian-AI Live Trading — BlendedEngine + 3 CNNs')
     parser.add_argument('--host', default='127.0.0.1')
     parser.add_argument('--port', type=int, default=5199)
-    parser.add_argument('--account', default='DEMO6872628',
+    parser.add_argument('--account', default='Sim101',
                         help='NT8 account name')
     parser.add_argument('--instrument', default='MNQ 06-26',
                         help='NT8 instrument name (front month)')

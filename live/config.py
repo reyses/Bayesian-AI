@@ -13,8 +13,8 @@ class LiveConfig:
     heartbeat_interval_s: float = 5.0
 
     # ── Instrument ──────────────────────────────────────────────────────
-    instrument: str = "MNQ 03-26"     # NT8 instrument name (front month)
-    account: str = "DEMO6872628"      # Must match NT8 BayesianBridge account
+    instrument: str = "MNQ 06-26"     # NT8 instrument name (front month)
+    account: str = "Sim101"           # Must match NT8 BayesianBridge account
     asset_ticker: str = "MNQ"         # Maps to config.symbols.SYMBOL_MAP
     point_value: float = 2.0          # $/point  -- MNQ=$2, NQ=$20, ES=$50, MES=$5
     tick_size: float = 0.25           # Min price increment
