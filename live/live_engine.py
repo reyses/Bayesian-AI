@@ -30,7 +30,6 @@ import os
 import sys
 import time
 import numpy as np
-import pandas as pd
 from typing import Optional, Dict
 
 # Suppress numba CUDA debug spam
@@ -103,6 +102,10 @@ class LiveEngine:
 
         # BlendedEngine + 3 CNNs
         self._engine = BlendedEngine(use_cnn=True)
+
+        # Wire aggregator callback — triggers on 1m bar close
+        self._agg.on_bar_close = self._on_tf_bar_close
+        self._pending_1m_bar = None  # set when 1m closes, processed in _on_bar
 
         # NT8 connection
         self._client = client if client is not None else NT8Client(config)
@@ -213,8 +216,13 @@ class LiveEngine:
 
     # ── Bar Processing ─────────────────────────────────────────────────
 
+    def _on_tf_bar_close(self, tf: str, bar: dict):
+        """Aggregator callback — fires when any TF bar closes."""
+        if tf == '1m':
+            self._pending_1m_bar = bar
+
     async def _on_bar(self, msg: dict):
-        """Process one 1s bar."""
+        """Process one 1s bar from NT8."""
         bar = {
             'timestamp': msg.get('timestamp', 0),
             'open': msg.get('open', 0),
@@ -227,18 +235,21 @@ class LiveEngine:
         self._bar_count += 1
         self._last_price = bar['close']
         self._last_ts = bar['timestamp']
+
+        # Feed aggregator — this may trigger _on_tf_bar_close for 1m
+        self._pending_1m_bar = None
         self._agg.feed(bar)
 
         # Log trade path if in position
         if self._position_open:
             self._trade_logger.log_bar(bar)
 
-        # Buffer prices for post-trade regret (keep last 1000 bars)
+        # Buffer prices for post-trade regret
         self._regret_buffer.append(bar['close'])
         if len(self._regret_buffer) > 5000:
             self._regret_buffer = self._regret_buffer[-5000:]
 
-        # Per-bar: push tick + unrealized PnL to dashboard
+        # Per-bar: push 1s tick + unrealized PnL to dashboard
         unrealized = 0.0
         if self._engine.in_pos:
             if self._engine.direction == 'long':
@@ -260,34 +271,29 @@ class LiveEngine:
             'sigma': self._last_sigma,
         })
 
-        # Status line every 60 bars
+        # Status line every 60 bars (~1 min)
         if self._bar_count % 60 == 0:
             self._print_status(bar)
 
-        # Hot-reload tuning every ~5 min (300 bars)
+        # Hot-reload tuning every ~5 min
         if self._bar_count % 300 == 0:
             self._load_tuning()
 
-        # Only compute 79D at 1m boundary
-        ts = bar['timestamp']
-        if (int(ts) % 60) >= 5:
+        # === ONLY PROCESS ON 1m BAR CLOSE (from aggregator callback) ===
+        if self._pending_1m_bar is None:
             return
 
-        # Build 79D
+        ts = bar['timestamp']
+
+        # Build 79D from aggregator's accumulated TF bars
         states_by_tf = {}
         ohlcv_by_tf = {}
         for tf in TF_ORDER:
             df = self._agg.get_closed_bars_df(tf)
-            partial = self._agg.get_partial_bar(tf)
-            if partial is not None:
-                partial_df = pd.DataFrame([partial])
-                full_df = pd.concat([df, partial_df], ignore_index=True) if len(df) > 0 else partial_df
-            else:
-                full_df = df
-            if len(full_df) < SFE_MIN_BARS:
+            if len(df) < SFE_MIN_BARS:
                 continue
-            ohlcv_by_tf[tf] = full_df
-            sfe_input = full_df.tail(300).reset_index(drop=True) if len(full_df) > 300 else full_df
+            ohlcv_by_tf[tf] = df
+            sfe_input = df.tail(300).reset_index(drop=True) if len(df) > 300 else df
             states = self._sfe.batch_compute_states(sfe_input)
             if states:
                 states_by_tf[tf] = states[-1]
@@ -298,26 +304,23 @@ class LiveEngine:
         feat, self._prev_velocities = extract_79d(
             states_by_tf, ohlcv_by_tf, self._prev_velocities, ts)
 
-        # Store key features for status display and dashboard
-        # 1m block starts at index 10: z_se=0, dmi=1, vr=2
+        # Store features for status display
         self._last_z_se = feat[10]      # 1m_z_se
         self._last_vr = feat[12]        # 1m_variance_ratio
 
-        # Compute regression center + bands for dashboard
+        # Regression center for dashboard
         if '1m' in states_by_tf:
             state_1m = states_by_tf['1m']
             self._last_center = getattr(state_1m, 'center', bar['close'])
             self._last_sigma = getattr(state_1m, 'sigma', 0)
-        else:
-            self._last_center = bar['close']
-            self._last_sigma = 0
 
-        # Warmup check
+        # Warmup: need enough 1m bars for meaningful regression
+        n_1m = len(self._agg.get_closed_bars_df('1m'))
         if not self._warmed_up:
-            if self._bar_count < self._cfg.warmup_bars:
+            if n_1m < SFE_MIN_BARS:
                 return
             self._warmed_up = True
-            logger.info(f'Warmed up after {self._bar_count} bars')
+            logger.info(f'Warmed up: {n_1m} 1m bars, {self._bar_count} total bars')
 
         # Don't trade during history replay
         if not self._system_ready:
@@ -327,7 +330,7 @@ class LiveEngine:
         if self._daily_loss_limit_hit:
             return
 
-        # Feed BlendedEngine
+        # Feed BlendedEngine at 1m close
         state = {
             'features_79d': feat,
             'price': bar['close'],
