@@ -388,6 +388,26 @@ def main():
     print(f'MAINTENANCE — Full Data Pipeline + Warmup')
     print(f'{"="*60}')
 
+    # Inventory: what do we have?
+    print(f'\n--- DATA INVENTORY ---')
+    for label, path in [('ATLAS 1s', 'DATA/ATLAS/1s'), ('ATLAS 1m', 'DATA/ATLAS/1m'),
+                         ('ATLAS_LIVE 1s', 'DATA/ATLAS_LIVE/1s'), ('ATLAS_LIVE 1m', 'DATA/ATLAS_LIVE/1m'),
+                         ('FEATURES 5s_v2', 'DATA/FEATURES_79D_5s_v2')]:
+        if os.path.exists(path):
+            files = sorted([f for f in os.listdir(path) if f.endswith('.parquet')])
+            if files:
+                print(f'  {label:<20} {len(files):>4} days | {files[0]} → {files[-1]}')
+            else:
+                print(f'  {label:<20}    0 days')
+        else:
+            print(f'  {label:<20}    MISSING')
+
+    today = time.strftime('%Y_%m_%d')
+    atlas_1m = 'DATA/ATLAS/1m'
+    if os.path.exists(atlas_1m):
+        last_file = sorted(os.listdir(atlas_1m))[-1].replace('.parquet', '')
+        print(f'\n  Today: {today} | Last ATLAS: {last_file} | Gap: {last_file} → {today}')
+
     # Step 0: Merge live session data into main ATLAS
     print(f'\n--- Step 0: Merge ATLAS_LIVE → ATLAS ---')
     merge_atlas_live()
