@@ -15,6 +15,7 @@ import logging
 import os
 import queue as stdlib_queue
 import sys
+import time
 import threading
 
 from live.config import LiveConfig
@@ -49,17 +50,24 @@ def _run_popup(gui_queue, shared_state):
     popup = ProgressPopup(root, gui_queue, shared_state=shared_state)
     root.title("Bayesian-AI  BLENDED LIVE")
 
+    _close_start = [0]
+
     def _on_close():
         if shared_state.get('shutdown'):
             root.quit()
             return
         shared_state['shutdown_flatten'] = True
+        shared_state['shutdown'] = True
+        _close_start[0] = time.time()
         root.title("Bayesian-AI  LIVE  [CLOSING...]")
         _check_shutdown()
 
     def _check_shutdown():
         if shared_state.get('shutdown_confirmed'):
-            shared_state['shutdown'] = True
+            root.quit()
+            return
+        # Force close after 5 seconds
+        if time.time() - _close_start[0] > 5.0:
             root.quit()
             return
         root.after(200, _check_shutdown)
