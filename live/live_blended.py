@@ -45,6 +45,7 @@ from live.config import LiveConfig
 from live.nt8_client import NT8Client
 from live.order_manager import OrderManager
 from live.protocol import MsgType, place_order, close_position
+from live.gui_bridge import GUIBridge
 
 logger = logging.getLogger(__name__)
 
@@ -86,11 +87,41 @@ class LiveBlendedEngine:
         self._position = 'flat'  # track what NT8 says
         self._daily_pnl = 0.0
 
+        # Dashboard
+        self._gui_queue = None
+        self._shared_state = {}
+        self._gui = GUIBridge(None)
+
+    def _start_dashboard(self):
+        """Launch Tk dashboard in daemon thread."""
+        import queue, threading
+        self._gui_queue = queue.Queue(maxsize=500)
+        self._shared_state = {'shutdown': False}
+        self._gui = GUIBridge(self._gui_queue)
+
+        def _run_popup():
+            import tkinter as tk
+            from visualization.dashboard import ProgressPopup
+            root = tk.Tk()
+            popup = ProgressPopup(root, self._gui_queue, shared_state=self._shared_state)
+            root.title('Bayesian-AI BLENDED LIVE')
+            root.protocol('WM_DELETE_WINDOW', lambda: self._shared_state.update({'shutdown': True}) or root.quit())
+            try:
+                root.mainloop()
+            except Exception:
+                pass
+
+        t = threading.Thread(target=_run_popup, daemon=True)
+        t.start()
+        logger.info('Dashboard started')
+
     async def run(self):
         """Main event loop."""
         logger.info('LiveBlendedEngine starting...')
         logger.info(f'  Instrument: {self.cfg.instrument}')
         logger.info(f'  Account: {self.cfg.account}')
+
+        self._start_dashboard()
 
         if not await self.client.connect():
             logger.error('Failed to connect to NT8')
@@ -234,6 +265,16 @@ class LiveBlendedEngine:
             logger.info(f'TRADE CLOSED: {t["dir"]} | tier={t["entry_tier"]} | '
                         f'exit={t["exit_reason"]} | pnl=${t["pnl"]:.1f} | '
                         f'daily=${self._daily_pnl:.0f}')
+            # Push to dashboard
+            self._gui.push({
+                'type': 'TRADE',
+                'dir': t['dir'],
+                'tier': t['entry_tier'],
+                'exit': t['exit_reason'],
+                'pnl': t['pnl'],
+                'daily_pnl': self._daily_pnl,
+                'n_trades': len(self.engine.trades),
+            })
 
         if new_trade and not entered:
             # Trade closed, need to close NT8 position
