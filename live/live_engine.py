@@ -489,7 +489,7 @@ class LiveEngine:
             session_trades=self._live_trade_count,
             gross_win=gross_win,
             gross_loss=gross_loss,
-            exit_buckets={},
+            exit_buckets={'reversed': 0, 'q1': 0, 'q2': 0, 'q3': 0, 'q4': 0, 'q100+': 0},
             belief_pct=0,
             in_position=self._engine.in_pos,
             daily_pnl=self._daily_pnl,
@@ -531,11 +531,16 @@ class LiveEngine:
         self._engine.force_close()
 
         # Session report
-        report = self._session.summary()
-        logger.info(f'\n{report}')
-        report_path = os.path.join(self._reports_dir, 'session_report.txt')
-        with open(report_path, 'w') as f:
-            f.write(report)
+        try:
+            report_path = os.path.join(self._reports_dir, 'session_report.txt')
+            self._session.write_report(
+                gate_stats={}, brain_dir_bias={},
+                path=report_path)
+            logger.info(f'Session report saved: {report_path}')
+        except Exception as e:
+            logger.warning(f'Session report failed: {e}')
+            # Fallback: simple summary
+            logger.info(f'Session: {self._live_trade_count} trades, ${self._daily_pnl:.0f}')
 
         # Save daily regret CSV
         if self._regret_log:
