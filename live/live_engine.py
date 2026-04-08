@@ -216,19 +216,41 @@ class LiveEngine:
             msg_type = msg.get('type', '')
 
             if msg_type == MsgType.BAR:
-                # Staleness gate: skip bars older than 30s from wall clock
                 bar_ts = msg.get('timestamp', 0)
-                wall_ts = time.time()
-                stale_s = wall_ts - bar_ts if bar_ts > 0 else 0
-                if stale_s > 30 and self._system_ready:
-                    # History replay after reconnect — feed aggregator but don't trade
-                    self._system_ready = False
-                    logger.warning(f'Stale bar detected ({stale_s:.0f}s old) — '
-                                   f'suppressing trading until HISTORY_DONE')
+
+                # Gap detection: if >5 min since last bar, we had a disconnect
+                if self._last_ts > 0 and bar_ts > 0:
+                    gap_s = bar_ts - self._last_ts
+                    if gap_s > 300 and self._system_ready:
+                        logger.warning(
+                            f'Bar gap detected ({gap_s:.0f}s) — '
+                            f'suppressing trading until HISTORY_DONE')
+                        self._system_ready = False
+                        # Flatten if in position — price moved during gap
+                        if self._position_open:
+                            logger.warning(
+                                'POSITION OPEN DURING GAP — flattening immediately')
+                            self._engine.force_close('gap_flatten')
+                            await self._close_position('gap_flatten')
+                            self._position_open = False
+                            self._closing_position = False
+
+                # Update resume timestamp so reconnect uses latest bar
+                if bar_ts > 0:
+                    self._client.set_resume_timestamp(bar_ts)
+
                 await self._on_bar(msg)
             elif msg_type == MsgType.HISTORY_DONE:
                 self._history_done = True
                 self._system_ready = True
+                # Flatten any position that survived through reconnect
+                if self._position_open:
+                    logger.warning(
+                        'Position still open after history replay — flattening')
+                    self._engine.force_close('reconnect_flatten')
+                    await self._close_position('reconnect_flatten')
+                    self._position_open = False
+                    self._closing_position = False
                 logger.info(f'History done. {self._bar_count} bars. System READY.')
                 self._gui.push({'type': 'HISTORY_DONE'})
             elif msg_type == MsgType.FILL:
