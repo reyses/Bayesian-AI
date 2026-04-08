@@ -29,7 +29,6 @@ import logging
 import os
 import sys
 import time
-import uuid
 import numpy as np
 import pandas as pd
 from typing import Optional, Dict
@@ -49,7 +48,7 @@ from nn_v2.aggregator import Aggregator
 from live.config import LiveConfig
 from live.nt8_client import NT8Client
 from live.order_manager import OrderManager
-from live.protocol import MsgType, place_order, close_position
+from live.protocol import MsgType, close_position
 from live.gui_bridge import GUIBridge
 from live.session_tracker import SessionTracker
 from live.trade_logger import TradeLogger
@@ -342,23 +341,18 @@ class LiveEngine:
     async def _send_entry(self, direction: str, tier: str):
         """Send entry order to NT8."""
         side = 'BUY' if direction == 'long' else 'SELL'
-        order_id = f'blended_{tier}_{uuid.uuid4().hex[:8]}'
 
-        msg = place_order(
-            order_id=order_id,
-            instrument=self._cfg.instrument,
-            account=self._cfg.account,
-            side=side,
-            qty=1,
-        )
-        await self._client.send(msg)
-        self._orders.on_order_sent(order_id, side, 1)
-        self._position_open = True
-        self._trade_logger.start_trade(side, self._last_price, self._last_ts)
+        msg = self._orders.build_entry_order(side)
+        if msg:
+            await self._client.send(msg)
+            self._position_open = True
+            self._trade_logger.start_trade(side, self._last_price, self._last_ts)
 
-        logger.info(f'ENTRY: {side} | tier={tier} | price={self._last_price:.2f}')
-        self._gui.push({'type': 'TRADE_MARKER', 'side': side,
-                        'price': self._last_price, 'action': 'ENTRY'})
+            logger.info(f'ENTRY: {side} | tier={tier} | price={self._last_price:.2f}')
+            self._gui.push({'type': 'TRADE_MARKER', 'side': side,
+                            'price': self._last_price, 'action': 'ENTRY'})
+        else:
+            logger.warning(f'OrderManager rejected entry: {side} {tier}')
 
     async def _close_position(self, reason: str):
         """Close current position."""
