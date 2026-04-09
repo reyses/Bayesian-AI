@@ -40,7 +40,8 @@ H1_Z_MIN = 1.0
 
 # Tier 1-2 exit (kill shot / cascade)
 P_CENTER_EXIT = 0.60
-P_CENTER_EXIT_BARS = 3         # consecutive bars above threshold
+P_CENTER_EXIT_BARS_CASCADE = 3   # cascade: 3-bar confirmation (rare, high conviction)
+P_CENTER_EXIT_BARS_KILLSHOT = 2  # kill shot: 2-bar confirmation (faster exit)
 
 # Tier 3 exits (base NMP)
 Z_EXIT = 0.5
@@ -504,13 +505,15 @@ class BlendedEngine:
     def _check_exit(self, feat, z, vr, pnl):
         """Check exit based on entry tier."""
         if self.entry_tier in ('CASCADE', 'KILL_SHOT'):
-            # Tier 1-2: exit at p_center (3-bar confirmation)
+            # Tier 1-2: exit at p_center (per-tier bar confirmation)
             p_center = feat[_1M_P_CENTER_IDX]
             if p_center > P_CENTER_EXIT:
                 self._tier_p_center_bars += 1
             else:
                 self._tier_p_center_bars = 0
-            if self._tier_p_center_bars >= P_CENTER_EXIT_BARS:
+            required_bars = (P_CENTER_EXIT_BARS_CASCADE if self.entry_tier == 'CASCADE'
+                             else P_CENTER_EXIT_BARS_KILLSHOT)
+            if self._tier_p_center_bars >= required_bars:
                 return f'{self.entry_tier.lower()}_center'
             return None
 
