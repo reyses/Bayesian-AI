@@ -24,11 +24,22 @@ TV = 0.50
 ROCHE = 2.0
 VR_ENTRY = 1.0
 
-# PEAK entry — DMI extreme + wick + low volume = reversal imminent
+# PEAK entry — DISABLED (DMI extreme is late signal, not the entry)
+# Regret shows optimal entry is 60 bars earlier at vr drop + 5m deceleration
+# Replaced by REGIME_FLIP and MTF_EXHAUSTION below
+PEAK_DMI_MIN = 99999.0   # disabled
+
+# REGIME_FLIP entry — variance_ratio dropping = regime changing
 # Fires when |z| < ROCHE (NMP wouldn't trigger)
-PEAK_DMI_MIN = 22.0      # |dmi_diff| P90 — extreme directional push
-PEAK_WICK_MIN = 0.50     # wick_ratio — rejection candles
-PEAK_VOL_MAX = 0.50      # vol_rel — volume drying up
+REGIME_VR_DROP = 0.15     # vr dropped by at least this from recent high
+REGIME_VR_MAX = 0.35      # current vr must be below this (mean-reverting confirmed)
+REGIME_HURST_MAX = 0.45   # hurst below 0.5 = mean-reverting
+
+# MTF_EXHAUSTION entry — 5m decelerating while 1m still has energy
+# Lower TF still moving but higher TF momentum dying
+MTF_5M_VEL_MIN = 2.0     # 5m had velocity (was trending)
+MTF_5M_DECEL = 0.50      # 5m velocity dropped to < 50% of recent peak
+MTF_1M_VEL_ALIVE = 1.0   # 1m velocity still above this (micro still moving)
 
 # Wick rejection thresholds
 WICK_5M_MIN = 0.83
@@ -103,6 +114,9 @@ _1M_P_CENTER_IDX = 19
 _1M_VELOCITY_IDX = 13
 _5M_BAR_RANGE_IDX = 26  # 5m block starts at 20, bar_range is index 6
 _5M_VELOCITY_IDX = 23   # 5m block starts at 20, velocity is core[3]
+_5M_ACCEL_IDX = 24      # 5m acceleration (core[4])
+_1M_HURST_IDX = 17      # 1m hurst exponent (core[7])
+_1M_VOL_REL_IDX = 15    # 1m vol_rel (core[5])
 _1M_DMI_IDX = 11        # 1m_dmi_diff
 _1M_WICK_IDX = 65       # 1m_wick_ratio (helper: 60+1*3+2)
 _1M_REVERSION_IDX = 18  # 1m_reversion_prob (core: 10+8)
@@ -116,7 +130,9 @@ TIER_MAP = {
     'FADE_AGAINST': 3,   # fading z but 1h extreme against you
     'RIDE_CALM': 2, 'RIDE_MOMENTUM': 1,
     'RIDE_AGAINST': 0,   # CNN flipped but 1h opposes
-    'PEAK': -2,
+    'PEAK': -2,  # disabled
+    'REGIME_FLIP': -3,
+    'MTF_EXHAUSTION': -4,
     'FREIGHT_TRAIN': -1,
     'BASE_NMP': 0, 'MANUAL': 0,  # legacy compat
 }
@@ -391,7 +407,8 @@ class BlendedEngine:
                         self._close_trade(price, ts, time_str, exit_reason, feat)
                 elif self.entry_tier in ('FADE_CALM', 'FADE_MOMENTUM', 'FADE_AGAINST',
                                         'RIDE_CALM', 'RIDE_MOMENTUM',
-                                        'RIDE_AGAINST', 'FREIGHT_TRAIN', 'PEAK',
+                                        'RIDE_AGAINST', 'FREIGHT_TRAIN',
+                                        'PEAK', 'REGIME_FLIP', 'MTF_EXHAUSTION',
                                         'BASE_NMP', 'MANUAL'):
                     # Giveback stop: if peak was meaningful and we gave back too much, exit
                     if self.peak_pnl >= GIVEBACK_MIN_PEAK and pnl < self.peak_pnl * GIVEBACK_KEEP:
@@ -436,15 +453,26 @@ class BlendedEngine:
                 self._open_trade(direction, price, ts, time_str, feat, tier,
                                  cnn_flipped=cnn_flipped)
 
-            # Path 2: PEAK entry (DMI extreme + wicks + low volume, z NOT extreme)
+            # Path 2: Non-NMP entries (z NOT extreme, other physics trigger)
             elif abs(z) <= ROCHE and vr < VR_ENTRY:
+                hurst = feat[_1M_HURST_IDX]
+                v5 = abs(feat[_5M_VELOCITY_IDX])
+                v5_accel = feat[_5M_ACCEL_IDX]
+                v1 = abs(feat[_1M_VELOCITY_IDX])
                 dmi = feat[_1M_DMI_IDX]
-                wick = feat[_1M_WICK_IDX]
-                vol_rel = feat[_1M_OFFSET + 5]  # vol_rel is core[5]
-                if abs(dmi) > PEAK_DMI_MIN and wick > PEAK_WICK_MIN and vol_rel < PEAK_VOL_MAX:
-                    # Fade the DMI: dmi > 0 means DI+ winning (price up) → short
-                    direction = 'short' if dmi > 0 else 'long'
-                    self._open_trade(direction, price, ts, time_str, feat, 'PEAK',
+
+                # REGIME_FLIP: vr low + hurst low = just shifted to mean-reverting
+                if vr < REGIME_VR_MAX and hurst < REGIME_HURST_MAX:
+                    # Direction: fade the current z (price will revert to mean)
+                    direction = 'short' if z > 0 else 'long'
+                    self._open_trade(direction, price, ts, time_str, feat, 'REGIME_FLIP',
+                                     cnn_flipped=False)
+
+                # MTF_EXHAUSTION: 5m decelerating + 1m still alive
+                elif v5_accel < 0 and v5 > MTF_5M_VEL_MIN and v1 > MTF_1M_VEL_ALIVE:
+                    # 5m is slowing down — fade the 5m direction
+                    direction = 'short' if feat[_5M_VELOCITY_IDX] > 0 else 'long'
+                    self._open_trade(direction, price, ts, time_str, feat, 'MTF_EXHAUSTION',
                                      cnn_flipped=False)
 
     def _classify_full_tier(self, feat, z):
@@ -544,21 +572,29 @@ class BlendedEngine:
                 return f'{self.entry_tier.lower()}_center'
             return None
 
-        # PEAK exit: reverse of entry conditions (DMI normalizing)
-        if self.entry_tier == 'PEAK':
-            dmi = abs(feat[_1M_DMI_IDX])
-            wick = feat[_1M_WICK_IDX]
-            vol_rel = feat[_1M_OFFSET + 5]  # vol_rel is core[5]
-            # Exit when ANY entry condition unwinds:
-            # DMI dropped below half of entry threshold
-            if dmi < PEAK_DMI_MIN * 0.5:
-                return 'peak_dmi_normalized'
-            # Wicks gone (clean bars = reversal done or failed)
-            if wick < 0.25:
-                return 'peak_wick_gone'
-            # Volume returned (absorption over)
-            if vol_rel > 1.0:
-                return 'peak_volume_returned'
+        # REGIME_FLIP exit: regime shifts back to trending
+        if self.entry_tier == 'REGIME_FLIP':
+            hurst = feat[_1M_HURST_IDX]
+            # Exit when regime reverts to trending (our mean-reversion thesis is done)
+            if vr > 0.7:  # vr rising back toward trending
+                return 'regime_vr_rising'
+            if hurst > 0.55:  # hurst back to persistent
+                return 'regime_hurst_rising'
+            # Also exit at mean (z near zero = reversion complete)
+            if abs(z) < 0.3:
+                return 'regime_mean_reached'
+            return None
+
+        # MTF_EXHAUSTION exit: 5m recovers or 1m dies
+        if self.entry_tier == 'MTF_EXHAUSTION':
+            v5_accel = feat[_5M_ACCEL_IDX]
+            v1 = abs(feat[_1M_VELOCITY_IDX])
+            # Exit when 5m re-accelerates (exhaustion over, trend resuming)
+            if v5_accel > 0:
+                return 'mtf_5m_reaccelerated'
+            # Exit when 1m also exhausts (no more micro energy)
+            if v1 < 0.3:
+                return 'mtf_1m_exhausted'
             return None
 
         # Other tiers: two exit modes based on trade type

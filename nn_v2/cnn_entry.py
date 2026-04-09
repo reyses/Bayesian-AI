@@ -66,7 +66,8 @@ TIER_MAP = {
 
 # All tradeable tiers for pattern discovery
 ALL_TIERS = ['CASCADE', 'KILL_SHOT', 'FADE_CALM', 'FADE_MOMENTUM', 'FADE_AGAINST',
-             'RIDE_CALM', 'RIDE_MOMENTUM', 'RIDE_AGAINST', 'FREIGHT_TRAIN', 'PEAK']
+             'RIDE_CALM', 'RIDE_MOMENTUM', 'RIDE_AGAINST', 'FREIGHT_TRAIN',
+             'REGIME_FLIP', 'MTF_EXHAUSTION']
 
 # Profitable threshold (regret best_pnl must exceed this)
 MIN_PROFITABLE_PNL = 2.0  # $2 minimum to count as "good trade"
