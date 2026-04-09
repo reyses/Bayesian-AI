@@ -96,6 +96,7 @@ _1H_VELOCITY_IDX = 43  # 1h block starts at 40, velocity is core[3]
 _1M_P_CENTER_IDX = 19
 _1M_VELOCITY_IDX = 13
 _5M_BAR_RANGE_IDX = 26  # 5m block starts at 20, bar_range is index 6
+_5M_VELOCITY_IDX = 23   # 5m block starts at 20, velocity is core[3]
 _1M_DMI_IDX = 11        # 1m_dmi_diff
 _1M_WICK_IDX = 65       # 1m_wick_ratio (helper: 60+1*3+2)
 _1M_REVERSION_IDX = 18  # 1m_reversion_prob (core: 10+8)
@@ -545,11 +546,17 @@ class BlendedEngine:
             else:
                 self._z_near_zero_bars = 0
 
+            # 5m alignment adjusts exit patience
+            # Aligned (85% WR): hold longer. Opposed (63% WR): exit faster.
+            v5_ok = getattr(self, '_v5_aligned', True)
+            fade_z_bars = FADE_Z_EXIT_BARS if v5_ok else max(1, FADE_Z_EXIT_BARS - 1)
+            fade_pc_bars = FADE_P_CENTER_BARS if v5_ok else max(1, FADE_P_CENTER_BARS - 1)
+
             # Phase 0: approaching mean
             if self._zero_crossings == 0:
-                if self._z_near_zero_bars >= FADE_Z_EXIT_BARS:
+                if self._z_near_zero_bars >= fade_z_bars:
                     return 'fade_mean_reached'
-                if self._p_center_bars >= FADE_P_CENTER_BARS:
+                if self._p_center_bars >= fade_pc_bars:
                     return 'fade_p_center'
                 return None
 
@@ -637,8 +644,12 @@ class BlendedEngine:
         self._ride_vr_bars = 0         # RIDE regime shift
         self._ride_rev_wick_bars = 0   # RIDE reversion + wick
 
-        # Entry 1h_z for tiered RIDE exits
+        # Entry context for tiered exits
         self._entry_h1_z = abs(feat[_1H_Z_IDX])
+        # 5m velocity alignment with trade direction (exit patience signal)
+        v5 = feat[_5M_VELOCITY_IDX]
+        self._v5_aligned = ((direction == 'long' and v5 > 0) or
+                            (direction == 'short' and v5 < 0))
         if self._entry_h1_z > 2.0:
             self._ride_exit_bars = RIDE_EXIT_BARS_TIERS['strong']
         elif self._entry_h1_z > 1.5:
@@ -677,6 +688,7 @@ class BlendedEngine:
             'peak': self.peak_pnl,
             'entry_tier': self.entry_tier,
             'cnn_flipped': getattr(self, 'cnn_flipped', False),
+            'v5_aligned': getattr(self, '_v5_aligned', True),
             'exit_reason': exit_reason,
             'entry_79d': self.entry_79d.tolist() if self.entry_79d is not None else [],
             'exit_79d': feat.tolist(),
