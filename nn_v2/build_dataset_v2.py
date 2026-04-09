@@ -192,10 +192,12 @@ def main():
     out_dir = f'{OUTPUT_DIR}_{anchor_tf}_v2'
     os.makedirs(out_dir, exist_ok=True)
 
-    all_days = get_all_days(anchor_tf)
-    print(f'Total days in ATLAS/{anchor_tf}: {len(all_days)}')
+    # Full day list (unfiltered) — needed for higher TF cross-day history
+    all_days_full = get_all_days(anchor_tf)
+    print(f'Total days in ATLAS/{anchor_tf}: {len(all_days_full)}')
 
-    # Filter
+    # Filter to build range
+    all_days = list(all_days_full)
     def d2date(d):
         return d.replace('_', '-')
     if args.start:
@@ -227,9 +229,9 @@ def main():
     total_rows = 0
 
     for i, day_name in enumerate(tqdm(to_build, desc='Days', unit='day')):
-        # All days up to and including this one (for higher TF history)
-        day_idx_in_all = all_days.index(day_name) if day_name in all_days else i
-        days_up_to = all_days[:day_idx_in_all + 1]
+        # All days up to and including this one from FULL history (for higher TF)
+        day_idx_in_full = all_days_full.index(day_name) if day_name in all_days_full else 0
+        days_up_to = all_days_full[:day_idx_in_full + 1]
 
         df, prev_velocities = process_one_day(
             day_name, anchor_tf, days_up_to, sfe, prev_velocities)

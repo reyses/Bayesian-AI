@@ -1,7 +1,7 @@
 """
 CNN Entry — Pattern Discovery on Profitable Trades.
 
-For each tier (CASCADE, KILL_SHOT, BASE_NMP), trains an encoder on profitable
+For each ExNMP tier, trains an encoder on profitable
 trade entry 79D. Clusters the embeddings to discover distinct physics patterns.
 
 NOT a classifier. All inputs are profitable (regret-confirmed). The question:
@@ -56,7 +56,17 @@ APPROACH_BARS = 10  # bars of 79D before the (early) entry
 EMBEDDING_DIM = 16
 
 # Tier encoding
-TIER_MAP = {'CASCADE': 2, 'KILL_SHOT': 1, 'BASE_NMP': 0}
+TIER_MAP = {
+    'CASCADE': 6, 'KILL_SHOT': 5,
+    'FADE_CALM': 4, 'FADE_MOMENTUM': 3,
+    'RIDE_CALM': 2, 'RIDE_MOMENTUM': 1,
+    'RIDE_AGAINST': 0, 'FREIGHT_TRAIN': -1,
+    'BASE_NMP': 0, 'MANUAL': 0,
+}
+
+# All tradeable tiers for pattern discovery
+ALL_TIERS = ['CASCADE', 'KILL_SHOT', 'FADE_CALM', 'FADE_MOMENTUM', 'FADE_AGAINST',
+             'RIDE_CALM', 'RIDE_MOMENTUM', 'RIDE_AGAINST', 'FREIGHT_TRAIN']
 
 # Profitable threshold (regret best_pnl must exceed this)
 MIN_PROFITABLE_PNL = 2.0  # $2 minimum to count as "good trade"
@@ -558,7 +568,7 @@ def run_tier(tier_name, trades, regret_df, min_k=2, max_k=10, epochs=50):
 def parse_args():
     p = argparse.ArgumentParser(description='CNN Entry Pattern Discovery')
     p.add_argument('--tier', type=str, default=None,
-                   choices=['CASCADE', 'KILL_SHOT', 'BASE_NMP'],
+                   choices=ALL_TIERS,
                    help='Single tier to process (default: all)')
     p.add_argument('--min-k', type=int, default=2,
                    help='Min clusters per tier (default: 2)')
@@ -591,7 +601,7 @@ def main():
     trades = trades[:n]
     regret_df = regret_df.iloc[:n]
 
-    tiers = [args.tier] if args.tier else ['CASCADE', 'KILL_SHOT', 'BASE_NMP']
+    tiers = [args.tier] if args.tier else ALL_TIERS
 
     for tier in tiers:
         run_tier(tier, trades, regret_df, min_k=args.min_k, max_k=args.max_k,

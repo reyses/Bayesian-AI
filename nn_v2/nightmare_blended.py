@@ -29,7 +29,11 @@ WICK_5M_MIN = 0.83
 WICK_15M_MIN = 0.77
 
 # Velocity threshold: separates calm (mean-reversion) from momentum (freight train)
-VELOCITY_THRESHOLD = 50.0  # |1m_velocity| above this = momentum entry
+VELOCITY_THRESHOLD = 50.0    # |1m_velocity| above this = momentum entry
+FREIGHT_TRAIN_THRESHOLD = 100.0  # |1m_velocity| above this = always ride, never fade
+
+# Bar range gate — disabled (low bar_range still profitable via volume)
+BAR_RANGE_MIN = 0.0  # set to ~30 to activate (filters tight chop)
 
 # Cascade: 1h z alignment
 H1_Z_MIN = 1.0
@@ -80,6 +84,7 @@ _VR = 2
 _5M_WICK_IDX = 68
 _15M_WICK_IDX = 71
 _1H_Z_IDX = 40
+_1H_VELOCITY_IDX = 43  # 1h block starts at 40, velocity is core[3]
 _1M_P_CENTER_IDX = 19
 _1M_VELOCITY_IDX = 13
 _5M_BAR_RANGE_IDX = 26  # 5m block starts at 20, bar_range is index 6
@@ -91,11 +96,17 @@ APPROACH_BUFFER_SIZE = 10  # CNN 1 loads approach from feature files directly, n
 
 # Tier encoding for CNN
 TIER_MAP = {
-    'CASCADE': 4, 'KILL_SHOT': 3,
-    'FADE_CALM': 2, 'FADE_MOMENTUM': 1,
-    'RIDE_CALM': 0, 'RIDE_MOMENTUM': -1,
+    'CASCADE': 7, 'KILL_SHOT': 6,
+    'FADE_CALM': 5, 'FADE_MOMENTUM': 4,
+    'FADE_AGAINST': 3,   # fading z but 1h extreme against you
+    'RIDE_CALM': 2, 'RIDE_MOMENTUM': 1,
+    'RIDE_AGAINST': 0,   # CNN flipped but 1h opposes
+    'FREIGHT_TRAIN': -1,
     'BASE_NMP': 0, 'MANUAL': 0,  # legacy compat
 }
+
+# 1h opposition threshold for FADE_AGAINST / RIDE_AGAINST
+H1_AGAINST_Z_MIN = 1.5  # |1h_z| must be this extreme to count as "against"
 
 # CNN model paths (default — training output dir)
 CNN_FLIP_PATH = 'nn_v2/output/tree/cnn_flip.pt'
@@ -252,9 +263,9 @@ class BlendedEngine:
         return pred  # 0=DEAD, 1=RECOVER
 
     def _cnn_predict_flip(self, feat_79d, tier_num):
-        """Predict SAME(0) or COUNTER(1) from 79D at entry."""
+        """Predict FADE(0), RIDE(1), or SKIP(2) from 79D at entry."""
         if self.cnn_flip is None:
-            return 0  # default: SAME (no flip)
+            return 0  # default: FADE
 
         grid = _feat_to_grid(feat_79d)
         grid = (grid - self.cnn_flip_mean[0]) / self.cnn_flip_std[0].clip(min=1e-8)
@@ -266,7 +277,7 @@ class BlendedEngine:
             out = self.cnn_flip(entry_t, tier=tier_t)
             pred = out.argmax(dim=1).item()
 
-        return pred  # 0=SAME, 1=COUNTER
+        return pred  # 0=FADE, 1=RIDE, 2=SKIP
 
     def _cnn_predict_hold(self, feat_79d, bars_held, pnl, peak_pnl, direction, tier):
         """Predict HOLD(1) or EXIT(0) from current 79D + context."""
@@ -362,8 +373,9 @@ class BlendedEngine:
                     exit_reason = self._check_exit(feat, z, vr, pnl)
                     if exit_reason:
                         self._close_trade(price, ts, time_str, exit_reason, feat)
-                elif self.entry_tier in ('FADE_CALM', 'FADE_MOMENTUM',
+                elif self.entry_tier in ('FADE_CALM', 'FADE_MOMENTUM', 'FADE_AGAINST',
                                         'RIDE_CALM', 'RIDE_MOMENTUM',
+                                        'RIDE_AGAINST', 'FREIGHT_TRAIN',
                                         'BASE_NMP', 'MANUAL'):
                     # Giveback stop: if peak was meaningful and we gave back too much, exit
                     if self.peak_pnl >= GIVEBACK_MIN_PEAK and pnl < self.peak_pnl * GIVEBACK_KEEP:
@@ -397,47 +409,105 @@ class BlendedEngine:
         # === ENTRY CHECK — 1m boundaries only ===
         if not self.in_pos and is_1m:
             if abs(z) > ROCHE and vr < VR_ENTRY:
-                direction = 'short' if z > 0 else 'long'
-                tier = self._classify_tier(feat, direction)
-                cnn_flipped = False
+                # Bar range gate (disabled by default)
+                if feat[_5M_BAR_RANGE_IDX] < BAR_RANGE_MIN:
+                    return  # skip — too tight
 
-                # CNN flip for BASE_NMP trades
-                if tier == 'BASE_NMP' and self.use_cnn:
-                    tier_num = TIER_MAP.get(tier, 0)
-                    pred = self._cnn_predict_flip(feat, tier_num)
-                    if pred == 1:  # CNN says COUNTER -> flip direction
-                        direction = 'long' if direction == 'short' else 'short'
-                        cnn_flipped = True
+                # Classify the full ExNMP tier + direction
+                direction, tier, cnn_flipped = self._classify_full_tier(feat, z)
 
-                # Sub-classify BASE_NMP into 4 ExNMP types
-                if tier == 'BASE_NMP':
-                    velocity = feat[_1M_VELOCITY_IDX]
-                    is_momentum = abs(velocity) >= VELOCITY_THRESHOLD
-                    if cnn_flipped:
-                        tier = 'RIDE_MOMENTUM' if is_momentum else 'RIDE_CALM'
-                    else:
-                        tier = 'FADE_MOMENTUM' if is_momentum else 'FADE_CALM'
+                if tier is None:
+                    return  # CNN said SKIP
 
                 self._open_trade(direction, price, ts, time_str, feat, tier,
                                  cnn_flipped=cnn_flipped)
 
-    def _classify_tier(self, feat, direction):
-        """Classify entry setup into tier based on conditions present."""
+    def _classify_full_tier(self, feat, z):
+        """Classify entry into one of 8 ExNMP tiers.
+
+        Returns (direction, tier, cnn_flipped).
+
+        Tier priority (waterfall):
+          1. CASCADE:        wick rejection + 1h z aligned
+          2. KILL_SHOT:      wick rejection, no 1h alignment
+          3. FREIGHT_TRAIN:  |velocity| > 100, ride the momentum
+          4. FADE_MOMENTUM:  |velocity| > 50, fade z (no flip)
+          5. FADE_CALM:      |velocity| < 50, fade z (no flip)
+          -- CNN flip applied below this line --
+          6. RIDE_AGAINST:   CNN flipped + 1h velocity opposes
+          7. RIDE_MOMENTUM:  CNN flipped + |velocity| > 50
+          8. RIDE_CALM:      CNN flipped + |velocity| < 50
+        """
+        # NMP default direction: fade the z
+        direction = 'short' if z > 0 else 'long'
+        cnn_flipped = False
+
+        # Read conditions
         wick_5m = feat[_5M_WICK_IDX]
         wick_15m = feat[_15M_WICK_IDX]
         h1_z = feat[_1H_Z_IDX]
+        velocity = feat[_1M_VELOCITY_IDX]
+        h1_vel = feat[_1H_VELOCITY_IDX]
+        abs_vel = abs(velocity)
 
         has_wick = wick_5m > WICK_5M_MIN and wick_15m > WICK_15M_MIN
-
         h1_aligned = ((direction == 'long' and h1_z < -H1_Z_MIN) or
                       (direction == 'short' and h1_z > H1_Z_MIN))
 
+        # Tier 1: CASCADE — wick + 1h aligned
         if has_wick and h1_aligned:
-            return 'CASCADE'
-        elif has_wick:
-            return 'KILL_SHOT'
-        else:
-            return 'BASE_NMP'
+            return direction, 'CASCADE', False
+
+        # Tier 2: KILL_SHOT — wick, no 1h
+        if has_wick:
+            return direction, 'KILL_SHOT', False
+
+        # Tier 3: FREIGHT_TRAIN — extreme velocity, always ride
+        if abs_vel >= FREIGHT_TRAIN_THRESHOLD:
+            direction = 'long' if velocity > 0 else 'short'
+            return direction, 'FREIGHT_TRAIN', True
+
+        # Check if 1h z is extreme against the fade direction
+        h1_against_fade = ((direction == 'long' and h1_z > H1_AGAINST_Z_MIN) or
+                           (direction == 'short' and h1_z < -H1_AGAINST_Z_MIN))
+
+        # 1h disagrees with fade direction -> follow the 1h (no CNN needed)
+        # FADE_AGAINST: 1h_z extreme against fade
+        if h1_against_fade:
+            direction = 'short' if h1_z > 0 else 'long'
+            return direction, 'FADE_AGAINST', False
+
+        # RIDE_AGAINST: 1h_vel opposes fade direction (milder than z, but velocity confirms)
+        h1_vel_against = ((direction == 'long' and h1_vel < -H1_AGAINST_Z_MIN) or
+                          (direction == 'short' and h1_vel > H1_AGAINST_Z_MIN))
+        if h1_vel_against:
+            direction = 'long' if h1_vel > 0 else 'short'
+            return direction, 'RIDE_AGAINST', False
+
+        # CNN predicts FADE/RIDE/SKIP (1h is not opposing, physics tiers exhausted)
+        if self.use_cnn and self.cnn_flip is not None:
+            tier_num = TIER_MAP.get('FADE_CALM', 0)
+            pred = self._cnn_predict_flip(feat, tier_num)
+
+            if pred == 2:  # SKIP — CNN says don't trade this
+                return None, None, False
+
+            if pred == 1:  # RIDE — CNN says go with momentum
+                direction = 'long' if direction == 'short' else 'short'
+
+                # RIDE_MOMENTUM
+                if abs_vel >= VELOCITY_THRESHOLD:
+                    return direction, 'RIDE_MOMENTUM', True
+
+                # RIDE_CALM
+                return direction, 'RIDE_CALM', True
+
+        # FADE_MOMENTUM
+        if abs_vel >= VELOCITY_THRESHOLD:
+            return direction, 'FADE_MOMENTUM', False
+
+        # FADE_CALM (default)
+        return direction, 'FADE_CALM', False
 
     def _check_exit(self, feat, z, vr, pnl):
         """Check exit based on entry tier."""

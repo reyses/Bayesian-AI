@@ -1,5 +1,5 @@
 """
-CNN Flip Predictor — detects multi-TF patterns for SAME vs COUNTER.
+CNN Flip Predictor — classifies entry as FADE / RIDE / SKIP from 79D grid.
 
 Reshapes 79D into 6×13 grid (6 TFs × 13 features per TF).
 CNN convolves across TFs AND features simultaneously — detects
@@ -85,9 +85,11 @@ def build_dataset(use_path=True):
 
     entries = []      # 6×13 grids at entry
     paths = []        # 5×6×13 volumes (entry + 4 path points)
-    labels = []       # 0=same, 1=counter
+    labels = []       # 0=FADE, 1=RIDE, 2=SKIP
     tiers = []        # tier as numeric
     pnls = []
+
+    SKIP_THRESHOLD = 2.0  # best_pnl below this = untradeable
 
     for i, t in enumerate(trades):
         e = np.array(t.get('entry_79d', []))
@@ -95,13 +97,21 @@ def build_dataset(use_path=True):
             continue
 
         r = regret.iloc[i]
-        is_counter = 1 if 'counter' in r['best_action'] else 0
+        best_pnl = r.get('best_pnl', 0)
+
+        # 3-class label: FADE / RIDE / SKIP
+        if best_pnl <= SKIP_THRESHOLD:
+            label = 2  # SKIP
+        elif 'counter' in r['best_action']:
+            label = 1  # RIDE (counter = go with z instead of fading)
+        else:
+            label = 0  # FADE (same = fade z as NMP intended)
 
         # Entry grid
         entry_grid = feat_to_grid(e)
         entries.append(entry_grid)
-        labels.append(is_counter)
-        tiers.append(TIER_MAP.get(t.get('entry_tier', 'BASE_NMP'), 0))
+        labels.append(label)
+        tiers.append(TIER_MAP.get(t.get('entry_tier', 'FADE_CALM'), 0))
         pnls.append(t['pnl'])
 
         # Path: 5 points (entry, 25%, 50%, 75%, exit)
@@ -133,7 +143,7 @@ def build_dataset(use_path=True):
     else:
         paths = None
 
-    print(f'Dataset: {len(entries)} trades | SAME: {(labels==0).sum()} | COUNTER: {(labels==1).sum()}')
+    print(f'Dataset: {len(entries)} trades | FADE: {(labels==0).sum()} | RIDE: {(labels==1).sum()} | SKIP: {(labels==2).sum()}')
     return entries, paths, labels, tiers, pnls
 
 
@@ -201,7 +211,7 @@ class FlipCNN(nn.Module):
             nn.Linear(128, 64),
             nn.ReLU(),
             nn.Dropout(0.2),
-            nn.Linear(64, 2),
+            nn.Linear(64, 3),  # FADE=0, RIDE=1, SKIP=2
         )
 
     def forward(self, entry, path=None, tier=None):

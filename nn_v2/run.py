@@ -292,10 +292,6 @@ def _run_gated(target: str):
     """Run NMP with strategy gate. Bayesian memory learns per day. Plots equity."""
     from nn_v2.sfe_ticker import FeatureTicker
     from nn_v2.nightmare import NightmareEngine
-    from nn_v2.gate import Gate
-    from nn_v2.memory import BayesianMemory
-    from tqdm import tqdm
-    import numpy as np
 
     tree_path = 'nn_v2/output/tree/strategy_tree.pkl'
     if not os.path.exists(tree_path):
@@ -1166,6 +1162,7 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
     print(f'  5c. Regret on flip+hold  ->  risk ground truth')
     print(f'  6.  CNN risk             ->  loser detector')
     print(f'  7.  Forward pass IS+OOS  ->  final results')
+    print(f'  Started: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
     print(f'{"="*60}')
 
     # Phase ordering for --from / --to
@@ -1327,7 +1324,8 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
 
     elapsed = _time.perf_counter() - pipeline_start
     print(f'\n{"="*60}')
-    print(f'BLENDED PIPELINE COMPLETE — {elapsed:.0f}s total')
+    print(f'BLENDED PIPELINE COMPLETE — {elapsed:.0f}s ({elapsed/60:.1f} min)')
+    print(f'  Finished: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
     print(f'{"="*60}')
 
 
@@ -1422,24 +1420,6 @@ def main():
 
     elif cmd == 'regret':
         _run_regret()
-
-    elif cmd == 'gated':
-        target = sys.argv[2] if len(sys.argv) > 2 else 'oos'
-        _run_gated(target)
-
-    elif cmd == 'ai':
-        target = sys.argv[2] if len(sys.argv) > 2 else 'oos'
-        _run_ai(target)
-
-    elif cmd == 'ai-regret':
-        target = sys.argv[2] if len(sys.argv) > 2 else 'is'
-        _run_ai_regret(target)
-
-    elif cmd == 'pipeline':
-        _run_full_pipeline()
-
-    elif cmd == 'bayesian':
-        _run_bayesian_pipeline()
 
     elif cmd == 'blended':
         # Support: blended --from 3 (start from phase 3)
