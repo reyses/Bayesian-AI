@@ -99,13 +99,11 @@ def build_dataset(use_path=True):
         r = regret.iloc[i]
         best_pnl = r.get('best_pnl', 0)
 
-        # 3-class label: FADE / RIDE / SKIP
-        if best_pnl <= SKIP_THRESHOLD:
-            label = 2  # SKIP
-        elif 'counter' in r['best_action']:
-            label = 1  # RIDE (counter = go with z instead of fading)
+        # 2-class label: SAME(0) / COUNTER(1)
+        if 'counter' in r['best_action']:
+            label = 1  # COUNTER (ride)
         else:
-            label = 0  # FADE (same = fade z as NMP intended)
+            label = 0  # SAME (fade)
 
         # Entry grid
         entry_grid = feat_to_grid(e)
@@ -143,7 +141,7 @@ def build_dataset(use_path=True):
     else:
         paths = None
 
-    print(f'Dataset: {len(entries)} trades | FADE: {(labels==0).sum()} | RIDE: {(labels==1).sum()} | SKIP: {(labels==2).sum()}')
+    print(f'Dataset: {len(entries)} trades | SAME: {(labels==0).sum()} | COUNTER: {(labels==1).sum()}')
     return entries, paths, labels, tiers, pnls
 
 
@@ -211,7 +209,7 @@ class FlipCNN(nn.Module):
             nn.Linear(128, 64),
             nn.ReLU(),
             nn.Dropout(0.2),
-            nn.Linear(64, 3),  # FADE=0, RIDE=1, SKIP=2
+            nn.Linear(64, 2),  # SAME=0, COUNTER=1
         )
 
     def forward(self, entry, path=None, tier=None):

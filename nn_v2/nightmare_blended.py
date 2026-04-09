@@ -263,9 +263,9 @@ class BlendedEngine:
         return pred  # 0=DEAD, 1=RECOVER
 
     def _cnn_predict_flip(self, feat_79d, tier_num):
-        """Predict FADE(0), RIDE(1), or SKIP(2) from 79D at entry."""
+        """Predict SAME(0) or COUNTER(1) from 79D at entry."""
         if self.cnn_flip is None:
-            return 0  # default: FADE
+            return 0  # default: SAME (no flip)
 
         grid = _feat_to_grid(feat_79d)
         grid = (grid - self.cnn_flip_mean[0]) / self.cnn_flip_std[0].clip(min=1e-8)
@@ -277,7 +277,7 @@ class BlendedEngine:
             out = self.cnn_flip(entry_t, tier=tier_t)
             pred = out.argmax(dim=1).item()
 
-        return pred  # 0=FADE, 1=RIDE, 2=SKIP
+        return pred  # 0=SAME, 1=COUNTER
 
     def _cnn_predict_hold(self, feat_79d, bars_held, pnl, peak_pnl, direction, tier):
         """Predict HOLD(1) or EXIT(0) from current 79D + context."""
@@ -416,9 +416,6 @@ class BlendedEngine:
                 # Classify the full ExNMP tier + direction
                 direction, tier, cnn_flipped = self._classify_full_tier(feat, z)
 
-                if tier is None:
-                    return  # CNN said SKIP
-
                 self._open_trade(direction, price, ts, time_str, feat, tier,
                                  cnn_flipped=cnn_flipped)
 
@@ -484,15 +481,12 @@ class BlendedEngine:
             direction = 'long' if h1_vel > 0 else 'short'
             return direction, 'RIDE_AGAINST', False
 
-        # CNN predicts FADE/RIDE/SKIP (1h is not opposing, physics tiers exhausted)
+        # CNN predicts SAME/COUNTER (1h is not opposing, physics tiers exhausted)
         if self.use_cnn and self.cnn_flip is not None:
             tier_num = TIER_MAP.get('FADE_CALM', 0)
             pred = self._cnn_predict_flip(feat, tier_num)
 
-            if pred == 2:  # SKIP — CNN says don't trade this
-                return None, None, False
-
-            if pred == 1:  # RIDE — CNN says go with momentum
+            if pred == 1:  # COUNTER — flip direction, ride momentum
                 direction = 'long' if direction == 'short' else 'short'
 
                 # RIDE_MOMENTUM
