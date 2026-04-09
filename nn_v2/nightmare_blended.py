@@ -35,11 +35,11 @@ REGIME_VR_DROP = 0.15     # vr dropped by at least this from recent high
 REGIME_VR_MAX = 0.35      # current vr must be below this (mean-reverting confirmed)
 REGIME_HURST_MAX = 0.45   # hurst below 0.5 = mean-reverting
 
-# MTF_EXHAUSTION entry — 5m decelerating while 1m still has energy
-# Lower TF still moving but higher TF momentum dying
-MTF_5M_VEL_MIN = 2.0     # 5m had velocity (was trending)
-MTF_5M_DECEL = 0.50      # 5m velocity dropped to < 50% of recent peak
-MTF_1M_VEL_ALIVE = 1.0   # 1m velocity still above this (micro still moving)
+# MTF_EXHAUSTION entry — DISABLED (triggers 7862 trades at 21% WR = -$142K)
+# Too loose: 5m deceleration happens constantly
+MTF_5M_VEL_MIN = 99999.0   # disabled
+MTF_5M_DECEL = 0.50
+MTF_1M_VEL_ALIVE = 99999.0 # disabled
 
 # EXHAUSTION_BAR entry — bar_range climax + velocity decelerating
 EXHAUST_BAR_RANGE_MIN = 80.0   # 1m_bar_range climax
