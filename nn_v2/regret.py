@@ -249,13 +249,12 @@ def compute_all_regrets(trades: List[Dict], price_dir: str = 'DATA/ATLAS/1m') ->
                 entry_idx = int(np.searchsorted(timestamps, entry_ts, side='left'))
                 entry_idx = min(entry_idx, len(closes) - 1)
             else:
-                # Fallback: estimate from trade's path
                 entry_idx = 0
 
             regret = compute_regret(t, closes, entry_idx)
             regret['trade_id'] = t.get('trade_id', i)
             regret['day'] = day
-            regret['leaf_id'] = t.get('leaf_id', -1)
+            regret['entry_tier'] = t.get('entry_tier', 'NMP')
             results[i] = regret
 
     # Fill any None results
@@ -263,10 +262,11 @@ def compute_all_regrets(trades: List[Dict], price_dir: str = 'DATA/ATLAS/1m') ->
         if results[i] is None:
             results[i] = _empty_regret(trades[i]['pnl'])
 
-    # Build DataFrame (without curve arrays)
+    # Build DataFrame (without curve/array columns)
     flat = []
     for r in results:
-        row = {k: v for k, v in r.items() if k not in ('same_curve', 'counter_curve')}
+        row = {k: v for k, v in r.items()
+               if k not in ('same_curve', 'counter_curve', 'early_entries', 'early_approach_79d')}
         flat.append(row)
 
     return pd.DataFrame(flat)
@@ -427,9 +427,9 @@ def correct_trades(trades: List[Dict], price_dir: str = 'DATA/ATLAS/1m') -> List
                 'entry_79d': corrected_entry_79d,
                 'exit_79d': t.get('exit_79d', []),
                 'approach': approach,
-                'approach_length': t.get('approach_length', 0),
+                'approach_length': len(approach),
                 'path': t.get('path', []),
-                'path_length': t.get('path_length', 0),
+                'path_length': len(t.get('path', [])),
             }
             corrected.append(ct)
 

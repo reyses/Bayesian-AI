@@ -28,17 +28,22 @@ VR_ENTRY = 1.0
 WICK_5M_MIN = 0.83
 WICK_15M_MIN = 0.77
 
+# Velocity threshold: separates calm (mean-reversion) from momentum (freight train)
+VELOCITY_THRESHOLD = 50.0  # |1m_velocity| above this = momentum entry
+
 # Cascade: 1h z alignment
 H1_Z_MIN = 1.0
 
 # Tier 1-2 exit (kill shot / cascade)
 P_CENTER_EXIT = 0.60
+P_CENTER_EXIT_BARS = 3         # consecutive bars above threshold
 
 # Tier 3 exits (base NMP)
 Z_EXIT = 0.5
 
 # Hard stop — circuit breaker, overrides all CNNs
-HARD_STOP = -150.0    # max dollar loss per trade
+# Disabled for training (let regret see full paths). Live engine has its own hard stop.
+HARD_STOP = -99999.0  # disabled — set to -150.0 for live
 
 # Giveback stop — protect profits from round-tripping
 GIVEBACK_MIN_PEAK = 99999.0   # disabled — set to ~$10 to activate
@@ -53,6 +58,21 @@ ENERGY_BAR_RANGE_MIN = 100.0   # 5m_bar_range threshold for "high energy"
 VELOCITY_EXHAUSTED = 0.3
 Z_OPPOSITE_EXTREME = 1.0
 
+# ── BASE_NMP Exit Physics (two modes) ──────────────────────────────
+# FADE exit (same direction as NMP): entered against z, fading to mean
+FADE_Z_EXIT = 0.5              # exit when |z| approaches zero
+FADE_Z_EXIT_BARS = 3           # must hold below threshold for N consecutive bars
+FADE_P_CENTER_CI = 0.60        # confidence that price is at the mean
+FADE_P_CENTER_BARS = 3         # must hold above CI for N consecutive bars
+FADE_OSCILLATION_DECAY = 0.40  # if oscillating: exit when amplitude < 40% of peak amplitude
+
+# RIDE exit (flipped by CNN): entered with z, riding momentum
+RIDE_VELOCITY_EXHAUSTED = 0.3  # exit when 1m velocity near zero (momentum dead)
+RIDE_VR_TRENDING = 1.0         # exit when vr > 1.0 (regime shift, trend forming against us)
+RIDE_REVERSION_HIGH = 0.95     # exit when reversion_prob very high (market wants to snap back)
+RIDE_WICK_HIGH = 0.60          # exit when wick_ratio high (indecision = momentum lost)
+RIDE_EXIT_BARS = 3             # consecutive bars for ride exit confirmation
+
 # 79D absolute indices
 _1M_OFFSET = 10
 _Z = 0
@@ -64,11 +84,18 @@ _1M_P_CENTER_IDX = 19
 _1M_VELOCITY_IDX = 13
 _5M_BAR_RANGE_IDX = 26  # 5m block starts at 20, bar_range is index 6
 _1M_DMI_IDX = 11        # 1m_dmi_diff
+_1M_WICK_IDX = 65       # 1m_wick_ratio (helper: 60+1*3+2)
+_1M_REVERSION_IDX = 18  # 1m_reversion_prob (core: 10+8)
 
-APPROACH_BUFFER_SIZE = 10
+APPROACH_BUFFER_SIZE = 10  # CNN 1 loads approach from feature files directly, not buffer
 
 # Tier encoding for CNN
-TIER_MAP = {'CASCADE': 2, 'KILL_SHOT': 1, 'BASE_NMP': 0}
+TIER_MAP = {
+    'CASCADE': 4, 'KILL_SHOT': 3,
+    'FADE_CALM': 2, 'FADE_MOMENTUM': 1,
+    'RIDE_CALM': 0, 'RIDE_MOMENTUM': -1,
+    'BASE_NMP': 0, 'MANUAL': 0,  # legacy compat
+}
 
 # CNN model paths (default — training output dir)
 CNN_FLIP_PATH = 'nn_v2/output/tree/cnn_flip.pt'
@@ -302,6 +329,20 @@ class BlendedEngine:
 
             self.peak_pnl = max(self.peak_pnl, pnl)
 
+            # Update oscillation tracker
+            curr_z_sign = 1.0 if z > 0 else -1.0
+            if curr_z_sign != self._z_sign:
+                self._zero_crossings += 1
+                self._z_sign = curr_z_sign
+                # New half-cycle: amplitude = distance from last extreme to zero
+                self._current_amplitude = max(self._z_peak, self._z_trough)
+                self._peak_amplitude = max(self._peak_amplitude, self._current_amplitude)
+                self._z_peak = abs(z)
+                self._z_trough = abs(z)
+            else:
+                self._z_peak = max(self._z_peak, abs(z))
+                self._z_trough = min(self._z_trough, abs(z))
+
             # Record path
             self._trade_path.append({
                 'bar': self.bars_held, 'timestamp': ts, 'price': price,
@@ -321,11 +362,13 @@ class BlendedEngine:
                     exit_reason = self._check_exit(feat, z, vr, pnl)
                     if exit_reason:
                         self._close_trade(price, ts, time_str, exit_reason, feat)
-                elif self.entry_tier in ('BASE_NMP', 'MANUAL'):
+                elif self.entry_tier in ('FADE_CALM', 'FADE_MOMENTUM',
+                                        'RIDE_CALM', 'RIDE_MOMENTUM',
+                                        'BASE_NMP', 'MANUAL'):
                     # Giveback stop: if peak was meaningful and we gave back too much, exit
                     if self.peak_pnl >= GIVEBACK_MIN_PEAK and pnl < self.peak_pnl * GIVEBACK_KEEP:
                         self._close_trade(price, ts, time_str, 'giveback_stop', feat)
-                    # CNN exit layer (within giveback safe zone)
+                    # CNN exit layer
                     elif pnl < 0 and self.cnn_risk is not None:
                         # Negative: CNN risk decides recover or cut
                         risk_pred = self._cnn_predict_risk(
@@ -334,12 +377,17 @@ class BlendedEngine:
                         if risk_pred == 0:  # DEAD -> cut the trade
                             self._close_trade(price, ts, time_str, 'cnn_risk_cut', feat)
                     elif self.cnn_hold is not None:
-                        # Positive or no risk CNN: CNN hold decides
+                        # Positive: CNN hold decides
                         hold_pred = self._cnn_predict_hold(
                             feat, self.bars_held, pnl, self.peak_pnl,
                             self.direction, self.entry_tier)
                         if hold_pred == 0:  # CNN says EXIT
                             self._close_trade(price, ts, time_str, 'cnn_exit', feat)
+                    else:
+                        # No CNN loaded — fall back to physics exits
+                        exit_reason = self._check_exit(feat, z, vr, pnl)
+                        if exit_reason:
+                            self._close_trade(price, ts, time_str, exit_reason, feat)
                 else:
                     # No CNN → physics exits for all tiers
                     exit_reason = self._check_exit(feat, z, vr, pnl)
@@ -357,9 +405,18 @@ class BlendedEngine:
                 if tier == 'BASE_NMP' and self.use_cnn:
                     tier_num = TIER_MAP.get(tier, 0)
                     pred = self._cnn_predict_flip(feat, tier_num)
-                    if pred == 1:  # CNN says COUNTER → flip direction
+                    if pred == 1:  # CNN says COUNTER -> flip direction
                         direction = 'long' if direction == 'short' else 'short'
                         cnn_flipped = True
+
+                # Sub-classify BASE_NMP into 4 ExNMP types
+                if tier == 'BASE_NMP':
+                    velocity = feat[_1M_VELOCITY_IDX]
+                    is_momentum = abs(velocity) >= VELOCITY_THRESHOLD
+                    if cnn_flipped:
+                        tier = 'RIDE_MOMENTUM' if is_momentum else 'RIDE_CALM'
+                    else:
+                        tier = 'FADE_MOMENTUM' if is_momentum else 'FADE_CALM'
 
                 self._open_trade(direction, price, ts, time_str, feat, tier,
                                  cnn_flipped=cnn_flipped)
@@ -385,49 +442,95 @@ class BlendedEngine:
     def _check_exit(self, feat, z, vr, pnl):
         """Check exit based on entry tier."""
         if self.entry_tier in ('CASCADE', 'KILL_SHOT'):
-            # Tier 1-2: exit at p_center
+            # Tier 1-2: exit at p_center (3-bar confirmation)
             p_center = feat[_1M_P_CENTER_IDX]
             if p_center > P_CENTER_EXIT:
+                self._tier_p_center_bars += 1
+            else:
+                self._tier_p_center_bars = 0
+            if self._tier_p_center_bars >= P_CENTER_EXIT_BARS:
                 return f'{self.entry_tier.lower()}_center'
             return None
 
-        # Tier 3: BASE_NMP — multi-phase exit
+        # Tier 3: BASE_NMP — two exit modes based on trade type
         p_center = feat[_1M_P_CENTER_IDX]
         velocity = feat[_1M_VELOCITY_IDX]
-        bar_range_5m = feat[_5M_BAR_RANGE_IDX]
+        wick = feat[_1M_WICK_IDX]
+        reversion = feat[_1M_REVERSION_IDX]
 
-        # Phase 1: approaching center
-        if not self.passed_center and p_center > P_CENTER_EXIT:
-            self.passed_center = True
+        if not getattr(self, 'cnn_flipped', False):
+            # ── FADE MODE: entered against z, fading toward mean ──
+            # 54% never cross zero, 26% oscillate
 
-            # Energy check at center: high energy → hold for overshoot
-            if bar_range_5m > ENERGY_BAR_RANGE_MIN:
-                return None  # hold — overshoot likely
+            # Track consecutive bars for exit confirmation
+            if p_center > FADE_P_CENTER_CI:
+                self._p_center_bars += 1
+            else:
+                self._p_center_bars = 0
 
-            # Low energy → exit at center (reversion done)
-            return 'nmp_center_low_energy'
+            if abs(z) < FADE_Z_EXIT:
+                self._z_near_zero_bars += 1
+            else:
+                self._z_near_zero_bars = 0
 
-        # Phase 2: passed center, holding for overshoot
-        if self.passed_center:
-            entry_z_sign = 1.0 if self.entry_1m['z_se'] > 0 else -1.0
-            current_z_sign = 1.0 if z > 0 else -1.0
+            # Phase 0: approaching mean
+            if self._zero_crossings == 0:
+                if self._z_near_zero_bars >= FADE_Z_EXIT_BARS:
+                    return 'fade_mean_reached'
+                if self._p_center_bars >= FADE_P_CENTER_BARS:
+                    return 'fade_p_center'
+                return None
 
-            # Exit: reached opposite extreme
-            if current_z_sign != entry_z_sign and abs(z) > Z_OPPOSITE_EXTREME:
-                return 'nmp_opposite_extreme'
+            # Phase 1: crossed zero at least once — oscillation mode
+            # Exit when amplitude decays (oscillation dying)
+            if (self._peak_amplitude > 0 and
+                    self._current_amplitude < self._peak_amplitude * FADE_OSCILLATION_DECAY):
+                # Oscillation energy decayed — exit on favorable z
+                entry_z_sign = 1.0 if self.entry_1m['z_se'] > 0 else -1.0
+                # Favorable = z opposite to entry (we profited from the fade)
+                z_favorable = (z > 0) != (entry_z_sign > 0)
+                if z_favorable or self._zero_crossings >= 3:
+                    return 'fade_oscillation_decay'
 
-            # Exit: momentum exhausted after passing center
-            if abs(velocity) < VELOCITY_EXHAUSTED:
-                return 'nmp_momentum_exhausted'
+            # Safety: if oscillating and sustained at center, take the profit
+            if self._zero_crossings >= 2 and self._p_center_bars >= FADE_P_CENTER_BARS:
+                return 'fade_oscillation_center'
 
             return None
 
-        # Phase 0: not yet at center
-        # Standard NMP mean exit
-        if abs(z) < Z_EXIT:
-            return 'nmp_mean_reached'
+        else:
+            # ── RIDE MODE: flipped by CNN, riding with z ──
+            # 69% never cross zero, momentum trades
 
-        return None
+            # Track consecutive bars for each condition
+            if abs(velocity) < RIDE_VELOCITY_EXHAUSTED:
+                self._ride_vel_bars += 1
+            else:
+                self._ride_vel_bars = 0
+
+            if vr > RIDE_VR_TRENDING:
+                self._ride_vr_bars += 1
+            else:
+                self._ride_vr_bars = 0
+
+            if reversion > RIDE_REVERSION_HIGH and wick > RIDE_WICK_HIGH:
+                self._ride_rev_wick_bars += 1
+            else:
+                self._ride_rev_wick_bars = 0
+
+            # Exit when momentum exhausted (sustained)
+            if self._ride_vel_bars >= RIDE_EXIT_BARS:
+                return 'ride_velocity_exhausted'
+
+            # Exit when regime shifts (sustained)
+            if self._ride_vr_bars >= RIDE_EXIT_BARS:
+                return 'ride_regime_shift'
+
+            # Exit when market wants to snap back (sustained)
+            if self._ride_rev_wick_bars >= RIDE_EXIT_BARS:
+                return 'ride_reversion_wick'
+
+            return None
 
     def inject_manual_trade(self, direction: str, price: float, ts: float, feat):
         """Open a trade from external trigger (dashboard button). Gets full CNN management."""
@@ -450,6 +553,22 @@ class BlendedEngine:
         self.passed_center = False
         self._entry_approach = list(self._approach_buffer)
         self._trade_path = []
+
+        # Consecutive bar counters for exit confirmation
+        self._p_center_bars = 0
+        self._z_near_zero_bars = 0
+        self._tier_p_center_bars = 0   # CASCADE/KILL_SHOT p_center
+        self._ride_vel_bars = 0        # RIDE velocity exhausted
+        self._ride_vr_bars = 0         # RIDE regime shift
+        self._ride_rev_wick_bars = 0   # RIDE reversion + wick
+
+        # Oscillation tracking (for FADE exit mode)
+        self._z_sign = 1.0 if feat[_1M_OFFSET + _Z] > 0 else -1.0
+        self._zero_crossings = 0
+        self._z_peak = abs(feat[_1M_OFFSET + _Z])  # entry |z| = initial amplitude
+        self._z_trough = abs(feat[_1M_OFFSET + _Z])
+        self._peak_amplitude = abs(feat[_1M_OFFSET + _Z])  # tracks max oscillation swing
+        self._current_amplitude = abs(feat[_1M_OFFSET + _Z])
 
     def _close_trade(self, price, ts, time_str, exit_reason, feat):
         if not self.in_pos:

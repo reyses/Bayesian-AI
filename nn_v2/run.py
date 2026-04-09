@@ -243,8 +243,7 @@ def _run_nmp_live(target: str, equity: float = None):
 def _run_regret():
     """Run regret analysis on IS trades."""
     import pickle
-    from nn_v2.regret import compute_all_regrets, summarize_regret_by_branch
-    from nn_v2.gate import Gate
+    from nn_v2.regret import compute_all_regrets
 
     print('Regret Analysis on IS trades...')
 
@@ -252,20 +251,6 @@ def _run_regret():
     with open('nn_v2/output/trades/nmp_is.pkl', 'rb') as f:
         trades = pickle.load(f)
     print(f'  Loaded {len(trades)} trades')
-
-    # Classify into tree branches (if tree exists — it may not on first run)
-    import numpy as np
-    tree_path = 'nn_v2/output/tree/strategy_tree.pkl'
-    if os.path.exists(tree_path):
-        gate = Gate(tree_path)
-        for t in trades:
-            feat = np.array(t['entry_79d']).reshape(1, -1)
-            feat = np.nan_to_num(feat)
-            t['leaf_id'] = int(gate.tree.apply(feat)[0])
-    else:
-        print('  (tree not built yet — skipping branch classification)')
-        for t in trades:
-            t['leaf_id'] = -1
 
     # Compute regret
     regret_df = compute_all_regrets(trades)
@@ -287,29 +272,20 @@ def _run_regret():
         avg_pnl = regret_df[regret_df['best_action'] == action]['best_pnl'].mean()
         print(f'    {action:<20} {count:>5} ({pct:>4.0f}%)  avg=${avg_pnl:.1f}')
 
-    # Early entry gain
-    avg_early_gain = regret_df['early_entry_gain'].mean()
-    early_trades = (regret_df['early_entry_gain'] > 1.0).sum()
-    print(f'\n  Entry timing: {early_trades} trades ({early_trades/len(regret_df)*100:.0f}%) '
-          f'would benefit from earlier entry (avg gain=${avg_early_gain:.1f})')
-
-    # Per-branch summary
-    branch_summary = summarize_regret_by_branch(regret_df)
-    print(f'\n  Per-branch regret (top 15 by regret):')
-    print(f'  {"Leaf":>5} {"N":>5} {"Actual":>8} {"Optimal":>8} {"Regret":>8} {"Action":>18} {"Pct":>5}')
-    print(f'  {"-"*60}')
-    for _, row in branch_summary.head(15).iterrows():
-        print(f'  {int(row["leaf_id"]):>5} {int(row["n_trades"]):>5} '
-              f'${row["actual_total"]:>7.0f} ${row["optimal_total"]:>7.0f} '
-              f'${row["total_regret"]:>7.0f} {row["dominant_action"]:>18} '
-              f'{row["dominant_pct"]:>4.0f}%')
+    # Per-tier summary (blended pipeline uses tiers, not tree leaves)
+    if 'entry_tier' in regret_df.columns:
+        print(f'\n  Per-tier regret:')
+        for tier in regret_df['entry_tier'].unique():
+            sub = regret_df[regret_df['entry_tier'] == tier]
+            print(f'    {tier}: {len(sub)} trades, '
+                  f'actual=${sub["actual_pnl"].sum():,.0f}, '
+                  f'optimal=${sub["best_pnl"].sum():,.0f}, '
+                  f'capture={sub["actual_pnl"].sum() / max(sub["best_pnl"].sum(), 1) * 100:.0f}%')
 
     # Save
     os.makedirs('nn_v2/output/tree', exist_ok=True)
     regret_df.to_csv('nn_v2/output/tree/regret_analysis.csv', index=False)
-    branch_summary.to_csv('nn_v2/output/tree/regret_by_branch.csv', index=False)
     print(f'\n  Saved: nn_v2/output/tree/regret_analysis.csv')
-    print(f'  Saved: nn_v2/output/tree/regret_by_branch.csv')
 
 
 def _run_gated(target: str):
@@ -837,7 +813,7 @@ def _run_ai_with_book(target: str, book_pkl_path: str, label: str):
     print(f'Saved: {csv_path}')
 
 
-def _run_blended_nmp(target: str):
+def _run_blended_nmp(target: str, use_cnn: bool = True):
     """Run blended NMP (tiered: cascade/killshot/base) on 5s features."""
     from nn_v2.sfe_ticker import FeatureTicker
     from nn_v2.nightmare_blended import BlendedEngine
@@ -851,8 +827,9 @@ def _run_blended_nmp(target: str):
         print(f'No feature files for "{target}"')
         return
 
-    print(f'BLENDED NMP — {len(feat_files)} day(s)')
-    engine = BlendedEngine()
+    cnn_label = '+ CNN' if use_cnn else '(no CNN)'
+    print(f'BLENDED NMP {cnn_label} — {len(feat_files)} day(s)')
+    engine = BlendedEngine(use_cnn=use_cnn)
     all_results = []
     all_trades = []
 
@@ -1159,6 +1136,271 @@ def _run_bayesian_pipeline():
     print(f'  H1 IS:       nn_v2/output/books/h1_is_daily.csv')
 
 
+def _run_blended_pipeline(from_phase=None, to_phase=None):
+    """Full Blended CNN pipeline:
+
+    Phase 1 - NMP:      Blended NMP on IS (no CNN) -> trades
+    Phase 2 - REGRET:   Regret on NMP trades -> optimal direction/exit
+    Phase 3 - CNN FLIP: Train direction predictor (entry 79D -> SAME/COUNTER)
+    Phase 4 - RERUN:    Blended NMP + CNN flip on IS -> new trades
+    Phase 5 - REGRET 2: Regret on flipped trades -> optimal exit timing
+    Phase 6 - CNN HOLD: Train exit timing predictor (79D + context -> HOLD/EXIT)
+    Phase 7 - CNN RISK: Train loser detector (79D + context -> RECOVER/DEAD)
+    Phase 8 - FORWARD:  Full BlendedEngine (3 CNNs) forward pass IS + OOS
+    """
+    import time as _time
+    import subprocess
+
+    print(f'{"="*60}')
+    print(f'BLENDED CNN PIPELINE')
+    print(f'  1.  NMP (no CNN)         ->  raw trades (3 tiers)')
+    print(f'  2.  Regret               ->  optimal direction/exit')
+    print(f'  2b. CNN entry            ->  pattern discovery per tier')
+    print(f'  2c. Forward pass         ->  trades tagged with patterns')
+    print(f'  2d. Regret on patterns   ->  per-pattern ground truth')
+    print(f'  3.  CNN flip             ->  direction predictor (pattern-aware)')
+    print(f'  4.  NMP + flip           ->  corrected trades')
+    print(f'  4b. Regret on corrected  ->  exit timing ground truth')
+    print(f'  5.  CNN hold             ->  exit timing predictor')
+    print(f'  5b. Forward pass         ->  flip + hold trades')
+    print(f'  5c. Regret on flip+hold  ->  risk ground truth')
+    print(f'  6.  CNN risk             ->  loser detector')
+    print(f'  7.  Forward pass IS+OOS  ->  final results')
+    print(f'{"="*60}')
+
+    # Phase ordering for --from / --to
+    PHASES = ['1', '2', '2b', '2c', '2d', '3', '4', '4b', '5', '5b', '5c', '6', '7']
+
+    def _should_run(phase_id):
+        idx = PHASES.index(phase_id)
+        if from_phase:
+            if PHASES.index(from_phase) > idx:
+                return False
+        if to_phase:
+            if PHASES.index(to_phase) < idx:
+                return False
+        return True
+
+    if from_phase or to_phase:
+        f_str = from_phase or PHASES[0]
+        t_str = to_phase or PHASES[-1]
+        print(f'  Running phases {f_str} -> {t_str}')
+
+    pipeline_start = _time.perf_counter()
+
+    if _should_run('1'):
+        print(f'\n{"="*40}')
+        print(f'PHASE 1: Blended NMP on IS (cascade/killshot/base, no CNN)')
+        print(f'{"="*40}')
+        t0 = _time.perf_counter()
+        _run_blended_nmp('is', use_cnn=False)
+        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    if _should_run('2'):
+        print(f'\n{"="*40}')
+        print(f'PHASE 2: Regret on NMP trades')
+        print(f'{"="*40}')
+        t0 = _time.perf_counter()
+        _run_regret()
+        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    if _should_run('2b'):
+        print(f'\n{"="*40}')
+        print(f'PHASE 2b: CNN entry (pattern discovery per tier)')
+        print(f'{"="*40}')
+        t0 = _time.perf_counter()
+        result = subprocess.run(
+            [sys.executable, 'nn_v2/cnn_entry.py', '--min-k', '4', '--max-k', '10'],
+            timeout=3600, capture_output=False)
+        if result.returncode != 0:
+            print(f'  CNN entry FAILED (exit code {result.returncode})')
+            return
+        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    if _should_run('2c'):
+        print(f'\n{"="*40}')
+        print(f'PHASE 2c: Forward pass IS (trades tagged with patterns)')
+        print(f'{"="*40}')
+        t0 = _time.perf_counter()
+        _run_blended_nmp('is', use_cnn=False)
+        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    if _should_run('2d'):
+        print(f'\n{"="*40}')
+        print(f'PHASE 2d: Regret on pattern-tagged trades')
+        print(f'{"="*40}')
+        t0 = _time.perf_counter()
+        _run_regret()
+        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    if _should_run('3'):
+        print(f'\n{"="*40}')
+        print(f'PHASE 3: Train CNN flip (direction, pattern-aware)')
+        print(f'{"="*40}')
+        t0 = _time.perf_counter()
+        result = subprocess.run(
+            [sys.executable, 'nn_v2/cnn_flip.py', '--no-path'],
+            timeout=3600, capture_output=False)
+        if result.returncode != 0:
+            print(f'  CNN flip training FAILED (exit code {result.returncode})')
+            return
+        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    if _should_run('4'):
+        print(f'\n{"="*40}')
+        print(f'PHASE 4: NMP + CNN flip on IS (corrected trades)')
+        print(f'{"="*40}')
+        t0 = _time.perf_counter()
+        _run_blended_nmp('is', use_cnn=True)
+        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    if _should_run('4b'):
+        print(f'\n{"="*40}')
+        print(f'PHASE 4b: Regret on corrected trades (exit ground truth)')
+        print(f'{"="*40}')
+        t0 = _time.perf_counter()
+        _run_regret()
+        import shutil
+        src = 'nn_v2/output/tree/regret_analysis.csv'
+        dst = 'nn_v2/output/tree/regret_cnn_flipped.csv'
+        if os.path.exists(src):
+            shutil.copy2(src, dst)
+            print(f'  Saved: {dst}')
+        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    if _should_run('5'):
+        print(f'\n{"="*40}')
+        print(f'PHASE 5: Train CNN hold (exit timing)')
+        print(f'{"="*40}')
+        t0 = _time.perf_counter()
+        result = subprocess.run(
+            [sys.executable, 'nn_v2/cnn_hold.py'],
+            timeout=3600, capture_output=False)
+        if result.returncode != 0:
+            print(f'  CNN hold training FAILED (exit code {result.returncode})')
+            return
+        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    if _should_run('5b'):
+        print(f'\n{"="*40}')
+        print(f'PHASE 5b: Forward pass IS (flip + hold, no risk)')
+        print(f'{"="*40}')
+        t0 = _time.perf_counter()
+        _run_blended_nmp('is', use_cnn=True)
+        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    if _should_run('5c'):
+        print(f'\n{"="*40}')
+        print(f'PHASE 5c: Regret on flip+hold trades (risk ground truth)')
+        print(f'{"="*40}')
+        t0 = _time.perf_counter()
+        _run_regret()
+        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    if _should_run('6'):
+        print(f'\n{"="*40}')
+        print(f'PHASE 6: Train CNN risk (loser detector)')
+        print(f'{"="*40}')
+        t0 = _time.perf_counter()
+        result = subprocess.run(
+            [sys.executable, 'nn_v2/cnn_risk.py'],
+            timeout=3600, capture_output=False)
+        if result.returncode != 0:
+            print(f'  CNN risk training FAILED (exit code {result.returncode})')
+            return
+        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    if _should_run('7'):
+        print(f'\n{"="*40}')
+        print(f'PHASE 7: Forward pass (full BlendedEngine + 3 CNNs)')
+        print(f'{"="*40}')
+
+        print(f'\n--- IS ---')
+        t0 = _time.perf_counter()
+        _run_blended_forward('is')
+        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+        print(f'\n--- OOS ---')
+        t0 = _time.perf_counter()
+        _run_blended_forward('oos')
+        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    elapsed = _time.perf_counter() - pipeline_start
+    print(f'\n{"="*60}')
+    print(f'BLENDED PIPELINE COMPLETE — {elapsed:.0f}s total')
+    print(f'{"="*60}')
+
+
+def _run_blended_forward(target: str):
+    """Forward pass with full BlendedEngine (3 CNNs loaded)."""
+    from nn_v2.sfe_ticker import FeatureTicker
+    from nn_v2.nightmare_blended import BlendedEngine
+    from tqdm import tqdm
+    import pickle
+
+    feat_files = _resolve_days(target, FEATURES_DIR_SEQ)
+    if not feat_files:
+        feat_files = _resolve_days(target, FEATURES_DIR_1M)
+    if not feat_files:
+        print(f'No feature files for "{target}"')
+        return
+
+    print(f'BLENDED FORWARD — {len(feat_files)} day(s) (3 CNNs loaded)')
+    engine = BlendedEngine(use_cnn=True)
+    all_results = []
+    all_trades = []
+
+    for fpath in tqdm(feat_files, desc='Days', unit='day'):
+        day_name = os.path.basename(fpath).replace('.parquet', '')
+        price_file = os.path.join(ATLAS_1M, f'{day_name}.parquet')
+        if not os.path.exists(price_file):
+            price_file = None
+
+        engine.reset()
+        ft = FeatureTicker(fpath, price_file=price_file)
+        for state in ft:
+            engine.on_state(state)
+        engine.force_close()
+
+        for t in engine.trades:
+            t['day'] = day_name
+        all_trades.extend(engine.get_full_trades())
+
+        day_pnl = engine.daily_pnl
+        day_trades = len(engine.trades)
+        all_results.append({
+            'day': day_name,
+            'trades': day_trades,
+            'pnl': day_pnl,
+            'wr': sum(1 for t in engine.trades if t['pnl'] > 0) / max(day_trades, 1) * 100,
+        })
+
+    _print_summary(all_results)
+
+    # Save
+    os.makedirs('nn_v2/output/blended', exist_ok=True)
+    label = target if target in ('is', 'oos', 'all') else 'custom'
+
+    if all_trades:
+        trade_path = f'nn_v2/output/blended/{label}_trades.pkl'
+        with open(trade_path, 'wb') as f:
+            pickle.dump(all_trades, f)
+
+    csv_path = f'nn_v2/output/blended/{label}_daily.csv'
+    pd.DataFrame(all_results).to_csv(csv_path, index=False)
+    print(f'Saved: {csv_path}')
+
+    # Tier breakdown
+    if all_trades:
+        from collections import Counter
+        tiers = Counter(t.get('entry_tier', '?') for t in all_trades)
+        for tier, count in tiers.most_common():
+            sub = [t for t in all_trades if t.get('entry_tier') == tier]
+            wr = sum(1 for t in sub if t['pnl'] > 0) / len(sub) * 100
+            total = sum(t['pnl'] for t in sub)
+            print(f'  {tier}: {count} trades, WR={wr:.0f}%, ${total:,.0f}')
+
+
 def main():
     if len(sys.argv) < 2:
         print(__doc__)
@@ -1198,6 +1440,16 @@ def main():
 
     elif cmd == 'bayesian':
         _run_bayesian_pipeline()
+
+    elif cmd == 'blended':
+        # Support: blended --from 3 (start from phase 3)
+        from_phase = None
+        to_phase = None
+        if '--from' in sys.argv:
+            from_phase = sys.argv[sys.argv.index('--from') + 1]
+        if '--to' in sys.argv:
+            to_phase = sys.argv[sys.argv.index('--to') + 1]
+        _run_blended_pipeline(from_phase=from_phase, to_phase=to_phase)
 
     else:
         print(f'Unknown command: {cmd}')

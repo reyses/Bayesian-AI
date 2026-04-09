@@ -46,7 +46,7 @@ VR_ENTRY = 1.0       # variance_ratio must be below this for entry
 Z_EXIT = 0.5         # z_se threshold for exit (mean reached)
 VR_EXIT = 1.0        # variance_ratio above this = regime flip -> exit
 MAX_DRAWDOWN = 50.0  # emergency exit: max $ loss per trade before forced close
-APPROACH_BUFFER_SIZE = 10  # bars of 79D history to keep before entry
+APPROACH_BUFFER_SIZE = 10  # CNN 1 loads approach from feature files directly, not buffer
 
 # 79D layout: 1m is index 1 in TF_ORDER (15s=0, 1m=1, 5m=2, ...)
 # 10 core features per TF
