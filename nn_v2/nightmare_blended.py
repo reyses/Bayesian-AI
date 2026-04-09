@@ -24,6 +24,12 @@ TV = 0.50
 ROCHE = 2.0
 VR_ENTRY = 1.0
 
+# PEAK entry — DMI extreme + wick + low volume = reversal imminent
+# Fires when |z| < ROCHE (NMP wouldn't trigger)
+PEAK_DMI_MIN = 22.0      # |dmi_diff| P90 — extreme directional push
+PEAK_WICK_MIN = 0.50     # wick_ratio — rejection candles
+PEAK_VOL_MAX = 0.50      # vol_rel — volume drying up
+
 # Wick rejection thresholds
 WICK_5M_MIN = 0.83
 WICK_15M_MIN = 0.77
@@ -110,6 +116,7 @@ TIER_MAP = {
     'FADE_AGAINST': 3,   # fading z but 1h extreme against you
     'RIDE_CALM': 2, 'RIDE_MOMENTUM': 1,
     'RIDE_AGAINST': 0,   # CNN flipped but 1h opposes
+    'PEAK': -2,
     'FREIGHT_TRAIN': -1,
     'BASE_NMP': 0, 'MANUAL': 0,  # legacy compat
 }
@@ -384,7 +391,7 @@ class BlendedEngine:
                         self._close_trade(price, ts, time_str, exit_reason, feat)
                 elif self.entry_tier in ('FADE_CALM', 'FADE_MOMENTUM', 'FADE_AGAINST',
                                         'RIDE_CALM', 'RIDE_MOMENTUM',
-                                        'RIDE_AGAINST', 'FREIGHT_TRAIN',
+                                        'RIDE_AGAINST', 'FREIGHT_TRAIN', 'PEAK',
                                         'BASE_NMP', 'MANUAL'):
                     # Giveback stop: if peak was meaningful and we gave back too much, exit
                     if self.peak_pnl >= GIVEBACK_MIN_PEAK and pnl < self.peak_pnl * GIVEBACK_KEEP:
@@ -417,6 +424,7 @@ class BlendedEngine:
 
         # === ENTRY CHECK — 1m boundaries only ===
         if not self.in_pos and is_1m:
+            # Path 1: NMP entry (z extreme + vr < 1)
             if abs(z) > ROCHE and vr < VR_ENTRY:
                 # Bar range gate (disabled by default)
                 if feat[_5M_BAR_RANGE_IDX] < BAR_RANGE_MIN:
@@ -427,6 +435,17 @@ class BlendedEngine:
 
                 self._open_trade(direction, price, ts, time_str, feat, tier,
                                  cnn_flipped=cnn_flipped)
+
+            # Path 2: PEAK entry (DMI extreme + wicks + low volume, z NOT extreme)
+            elif abs(z) <= ROCHE and vr < VR_ENTRY:
+                dmi = feat[_1M_DMI_IDX]
+                wick = feat[_1M_WICK_IDX]
+                vol_rel = feat[_1M_OFFSET + 5]  # vol_rel is core[5]
+                if abs(dmi) > PEAK_DMI_MIN and wick > PEAK_WICK_MIN and vol_rel < PEAK_VOL_MAX:
+                    # Fade the DMI: dmi > 0 means DI+ winning (price up) → short
+                    direction = 'short' if dmi > 0 else 'long'
+                    self._open_trade(direction, price, ts, time_str, feat, 'PEAK',
+                                     cnn_flipped=False)
 
     def _classify_full_tier(self, feat, z):
         """Classify entry into one of 8 ExNMP tiers.
