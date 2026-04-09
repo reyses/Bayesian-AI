@@ -78,6 +78,13 @@ RIDE_REVERSION_HIGH = 0.95     # exit when reversion_prob very high (market want
 RIDE_WICK_HIGH = 0.60          # exit when wick_ratio high (indecision = momentum lost)
 RIDE_EXIT_BARS = 3             # consecutive bars for ride exit confirmation
 
+# Tiered RIDE exits — stronger 1h = more patient
+RIDE_EXIT_BARS_TIERS = {
+    'strong': 5,    # |1h_z| > 2.0 at entry — hold longer, high conviction
+    'medium': 3,    # |1h_z| 1.5-2.0 — standard
+    'weak': 2,      # |1h_z| < 1.5 — exit fast, weak signal
+}
+
 # 79D absolute indices
 _1M_OFFSET = 10
 _Z = 0
@@ -583,16 +590,19 @@ class BlendedEngine:
             else:
                 self._ride_rev_wick_bars = 0
 
+            # Tiered exit patience based on 1h_z at entry
+            required_bars = getattr(self, '_ride_exit_bars', RIDE_EXIT_BARS)
+
             # Exit when momentum exhausted (sustained)
-            if self._ride_vel_bars >= RIDE_EXIT_BARS:
+            if self._ride_vel_bars >= required_bars:
                 return 'ride_velocity_exhausted'
 
             # Exit when regime shifts (sustained)
-            if self._ride_vr_bars >= RIDE_EXIT_BARS:
+            if self._ride_vr_bars >= required_bars:
                 return 'ride_regime_shift'
 
             # Exit when market wants to snap back (sustained)
-            if self._ride_rev_wick_bars >= RIDE_EXIT_BARS:
+            if self._ride_rev_wick_bars >= required_bars:
                 return 'ride_reversion_wick'
 
             return None
@@ -626,6 +636,15 @@ class BlendedEngine:
         self._ride_vel_bars = 0        # RIDE velocity exhausted
         self._ride_vr_bars = 0         # RIDE regime shift
         self._ride_rev_wick_bars = 0   # RIDE reversion + wick
+
+        # Entry 1h_z for tiered RIDE exits
+        self._entry_h1_z = abs(feat[_1H_Z_IDX])
+        if self._entry_h1_z > 2.0:
+            self._ride_exit_bars = RIDE_EXIT_BARS_TIERS['strong']
+        elif self._entry_h1_z > 1.5:
+            self._ride_exit_bars = RIDE_EXIT_BARS_TIERS['medium']
+        else:
+            self._ride_exit_bars = RIDE_EXIT_BARS_TIERS['weak']
 
         # Oscillation tracking (for FADE exit mode)
         self._z_sign = 1.0 if feat[_1M_OFFSET + _Z] > 0 else -1.0
