@@ -41,7 +41,7 @@ H1_Z_MIN = 1.0
 # Tier 1-2 exit (kill shot / cascade)
 P_CENTER_EXIT = 0.60
 P_CENTER_EXIT_BARS_CASCADE = 3   # cascade: 3-bar confirmation (rare, high conviction)
-P_CENTER_EXIT_BARS_KILLSHOT = 2  # kill shot: 2-bar confirmation (faster exit)
+P_CENTER_EXIT_BARS_KILLSHOT = 1  # kill shot: 1-bar instant exit (max WR for heavy sizing)
 
 # Tier 3 exits (base NMP)
 Z_EXIT = 0.5
