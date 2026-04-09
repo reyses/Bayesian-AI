@@ -544,7 +544,24 @@ class BlendedEngine:
                 return f'{self.entry_tier.lower()}_center'
             return None
 
-        # Tier 3: BASE_NMP — two exit modes based on trade type
+        # PEAK exit: reverse of entry conditions (DMI normalizing)
+        if self.entry_tier == 'PEAK':
+            dmi = abs(feat[_1M_DMI_IDX])
+            wick = feat[_1M_WICK_IDX]
+            vol_rel = feat[_1M_OFFSET + 5]  # vol_rel is core[5]
+            # Exit when ANY entry condition unwinds:
+            # DMI dropped below half of entry threshold
+            if dmi < PEAK_DMI_MIN * 0.5:
+                return 'peak_dmi_normalized'
+            # Wicks gone (clean bars = reversal done or failed)
+            if wick < 0.25:
+                return 'peak_wick_gone'
+            # Volume returned (absorption over)
+            if vol_rel > 1.0:
+                return 'peak_volume_returned'
+            return None
+
+        # Other tiers: two exit modes based on trade type
         p_center = feat[_1M_P_CENTER_IDX]
         velocity = feat[_1M_VELOCITY_IDX]
         wick = feat[_1M_WICK_IDX]
