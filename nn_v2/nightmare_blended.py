@@ -41,6 +41,16 @@ MTF_5M_VEL_MIN = 2.0     # 5m had velocity (was trending)
 MTF_5M_DECEL = 0.50      # 5m velocity dropped to < 50% of recent peak
 MTF_1M_VEL_ALIVE = 1.0   # 1m velocity still above this (micro still moving)
 
+# EXHAUSTION_BAR entry — bar_range climax + velocity decelerating
+EXHAUST_BAR_RANGE_MIN = 80.0   # 1m_bar_range climax
+EXHAUST_ACCEL_MIN = 2.0        # |acceleration| must be extreme
+# Direction: decel means velocity and acceleration have opposite signs
+
+# ABSORPTION entry — high volume + low range = big player absorbing
+ABSORB_VOL_MIN = 1.5           # vol_rel must be high
+ABSORB_RANGE_MAX = 20.0        # bar_range must be low
+ABSORB_WICK_MIN = 0.50         # wick_ratio = rejection
+
 # Wick rejection thresholds
 WICK_5M_MIN = 0.83
 WICK_15M_MIN = 0.77
@@ -133,6 +143,8 @@ TIER_MAP = {
     'PEAK': -2,  # disabled
     'REGIME_FLIP': -3,
     'MTF_EXHAUSTION': -4,
+    'EXHAUSTION_BAR': -5,
+    'ABSORPTION': -6,
     'FREIGHT_TRAIN': -1,
     'BASE_NMP': 0, 'MANUAL': 0,  # legacy compat
 }
@@ -409,6 +421,7 @@ class BlendedEngine:
                                         'RIDE_CALM', 'RIDE_MOMENTUM',
                                         'RIDE_AGAINST', 'FREIGHT_TRAIN',
                                         'PEAK', 'REGIME_FLIP', 'MTF_EXHAUSTION',
+                                        'EXHAUSTION_BAR', 'ABSORPTION',
                                         'BASE_NMP', 'MANUAL'):
                     # Giveback stop: if peak was meaningful and we gave back too much, exit
                     if self.peak_pnl >= GIVEBACK_MIN_PEAK and pnl < self.peak_pnl * GIVEBACK_KEEP:
@@ -473,6 +486,22 @@ class BlendedEngine:
                     # 5m is slowing down — fade the 5m direction
                     direction = 'short' if feat[_5M_VELOCITY_IDX] > 0 else 'long'
                     self._open_trade(direction, price, ts, time_str, feat, 'MTF_EXHAUSTION',
+                                     cnn_flipped=False)
+
+                # EXHAUSTION_BAR: bar_range climax + decelerating
+                elif (feat[_1M_OFFSET + 6] > EXHAUST_BAR_RANGE_MIN and  # bar_range
+                      abs(feat[_1M_OFFSET + 4]) > EXHAUST_ACCEL_MIN and  # |acceleration|
+                      feat[_1M_OFFSET + 4] * feat[_1M_VELOCITY_IDX] < 0):  # decel
+                    direction = 'short' if feat[_1M_VELOCITY_IDX] > 0 else 'long'
+                    self._open_trade(direction, price, ts, time_str, feat, 'EXHAUSTION_BAR',
+                                     cnn_flipped=False)
+
+                # ABSORPTION: high volume + low range + wicks
+                elif (feat[_1M_VOL_REL_IDX] > ABSORB_VOL_MIN and
+                      feat[_1M_OFFSET + 6] < ABSORB_RANGE_MAX and  # bar_range
+                      feat[_1M_WICK_IDX] > ABSORB_WICK_MIN):
+                    direction = 'short' if z > 0 else 'long'
+                    self._open_trade(direction, price, ts, time_str, feat, 'ABSORPTION',
                                      cnn_flipped=False)
 
     def _classify_full_tier(self, feat, z):
@@ -589,12 +618,33 @@ class BlendedEngine:
         if self.entry_tier == 'MTF_EXHAUSTION':
             v5_accel = feat[_5M_ACCEL_IDX]
             v1 = abs(feat[_1M_VELOCITY_IDX])
-            # Exit when 5m re-accelerates (exhaustion over, trend resuming)
             if v5_accel > 0:
                 return 'mtf_5m_reaccelerated'
-            # Exit when 1m also exhausts (no more micro energy)
             if v1 < 0.3:
                 return 'mtf_1m_exhausted'
+            return None
+
+        # EXHAUSTION_BAR exit: range compresses or velocity dies
+        if self.entry_tier == 'EXHAUSTION_BAR':
+            bar_range = feat[_1M_OFFSET + 6]
+            vel = abs(feat[_1M_VELOCITY_IDX])
+            if bar_range < 30:
+                return 'exhaust_range_compressed'
+            if vel < 0.3:
+                return 'exhaust_velocity_dead'
+            return None
+
+        # ABSORPTION exit: volume dies or range expands or wicks gone
+        if self.entry_tier == 'ABSORPTION':
+            vol = feat[_1M_VOL_REL_IDX]
+            bar_range = feat[_1M_OFFSET + 6]
+            wick = feat[_1M_WICK_IDX]
+            if vol < 0.5:
+                return 'absorb_volume_died'
+            if bar_range > 50:
+                return 'absorb_range_expanded'
+            if wick < 0.25:
+                return 'absorb_wicks_gone'
             return None
 
         # Other tiers: two exit modes based on trade type
