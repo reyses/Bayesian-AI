@@ -468,10 +468,8 @@ class BlendedEngine:
         h1_against_fade = ((direction == 'long' and h1_z > H1_AGAINST_Z_MIN) or
                            (direction == 'short' and h1_z < -H1_AGAINST_Z_MIN))
 
-        # 1h disagrees with fade direction -> follow the 1h (no CNN needed)
-        # FADE_AGAINST: 1h_z extreme against fade
+        # FADE_AGAINST: 1h_z extreme against fade — keep fading (don't follow 1h)
         if h1_against_fade:
-            direction = 'short' if h1_z > 0 else 'long'
             return direction, 'FADE_AGAINST', False
 
         # RIDE_AGAINST: 1h_vel opposes fade direction (milder than z, but velocity confirms)
