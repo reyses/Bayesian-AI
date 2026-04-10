@@ -722,16 +722,58 @@ def _print_summary(results: list):
         print('No results.')
         return
 
+    import numpy as _np
+    from collections import Counter as _Counter
+
     n_days = len(results)
-    total_pnl = sum(r['pnl'] for r in results)
+    pnls = [r['pnl'] for r in results]
+    total_pnl = sum(pnls)
     total_trades = sum(r['trades'] for r in results)
-    winning_days = sum(1 for r in results if r['pnl'] > 0)
+    winning_days = sum(1 for p in pnls if p > 0)
+    losing_days = sum(1 for p in pnls if p <= 0)
 
     print(f'\n{"="*60}')
-    print(f'RESULTS: {n_days} days | {total_trades} trades | ${total_pnl:.2f}')
-    print(f'  $/day: ${total_pnl / max(n_days, 1):.2f}')
-    print(f'  Winning days: {winning_days}/{n_days}')
+    print(f'RESULTS: {n_days} days | {total_trades} trades')
+    print(f'{"="*60}')
 
+    # Win/loss days
+    print(f'  Winning days: {winning_days}/{n_days} ({winning_days/n_days*100:.0f}%)')
+    print(f'  Losing days:  {losing_days}/{n_days} ({losing_days/n_days*100:.0f}%)')
+
+    # PnL stats
+    print(f'  Accumulated:  ${total_pnl:>12,.0f}')
+    print(f'  Avg $/day:    ${total_pnl / max(n_days, 1):>12,.0f}')
+    print(f'  Best day:     ${max(pnls):>12,.0f}')
+    print(f'  Worst day:    ${min(pnls):>12,.0f}')
+    print(f'  Median day:   ${_np.median(pnls):>12,.0f}')
+
+    # PnL buckets (mode)
+    buckets = []
+    for p in pnls:
+        if p <= -500: buckets.append('<-$500')
+        elif p <= -200: buckets.append('-$500:-$200')
+        elif p <= -50: buckets.append('-$200:-$50')
+        elif p <= 0: buckets.append('-$50:$0')
+        elif p <= 50: buckets.append('$0:$50')
+        elif p <= 200: buckets.append('$50:$200')
+        elif p <= 500: buckets.append('$200:$500')
+        elif p <= 1000: buckets.append('$500:$1000')
+        else: buckets.append('>$1000')
+
+    bucket_order = ['<-$500', '-$500:-$200', '-$200:-$50', '-$50:$0',
+                    '$0:$50', '$50:$200', '$200:$500', '$500:$1000', '>$1000']
+    bucket_counts = _Counter(buckets)
+    mode_bucket = max(bucket_counts, key=bucket_counts.get)
+
+    print(f'  Mode bucket:  {mode_bucket} ({bucket_counts[mode_bucket]} days)')
+    print(f'  Distribution:')
+    for b in bucket_order:
+        c = bucket_counts.get(b, 0)
+        if c > 0:
+            bar = '#' * min(c, 40)
+            print(f'    {b:>14}: {c:>3} {bar}')
+
+    # Daily breakdown
     if n_days > 1:
         print(f'\n  Daily breakdown:')
         cumul = 0
@@ -1353,6 +1395,30 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
         t0 = _time.perf_counter()
         _run_blended_forward('oos')
         print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+    # Phase 1 vs Phase 7 comparison
+    p1_is = 'nn_v2/output/trades/blended_is.csv'
+    p7_is = 'nn_v2/output/blended/is_daily.csv'
+    p7_oos = 'nn_v2/output/blended/oos_daily.csv'
+    if os.path.exists(p7_is):
+        print(f'\n{"="*60}')
+        print(f'PIPELINE COMPARISON: Phase 1 (no CNN) vs Phase 7 (all CNNs)')
+        print(f'{"="*60}')
+        import numpy as _np
+        for label, path in [('IS', p7_is), ('OOS', p7_oos)]:
+            if not os.path.exists(path):
+                continue
+            df = pd.read_csv(path)
+            pnls = df['pnl'].values
+            n = len(df)
+            win = (pnls > 0).sum()
+            print(f'\n  {label}: {n} days')
+            print(f'    Win/Loss:    {win}/{n-win} ({win/n*100:.0f}%)')
+            print(f'    Accumulated: ${pnls.sum():>10,.0f}')
+            print(f'    Avg $/day:   ${pnls.mean():>10,.0f}')
+            print(f'    Best day:    ${pnls.max():>10,.0f}')
+            print(f'    Worst day:   ${pnls.min():>10,.0f}')
+            print(f'    Median:      ${_np.median(pnls):>10,.0f}')
 
     elapsed = _time.perf_counter() - pipeline_start
     print(f'\n{"="*60}')
