@@ -260,6 +260,7 @@ class LiveEngine:
                 self._gui.push({'type': 'HISTORY_DONE'})
             elif msg_type == MsgType.FILL:
                 self._orders.on_fill(msg)
+                self._on_fill(msg)
             elif msg_type == MsgType.ORDER_STATUS:
                 self._orders.on_order_status(msg)
             elif msg_type == MsgType.POSITION:
@@ -610,6 +611,19 @@ class LiveEngine:
             logger.warning('Flattening orphan position...')
             # Close it immediately — we have no context on this trade
             asyncio.ensure_future(self._close_position('orphan_flatten'))
+
+    def _on_fill(self, msg: dict):
+        """Update BlendedEngine with real fill price from NT8."""
+        fill_price = float(msg.get('fill_price', 0))
+        if not fill_price:
+            return
+
+        if self._engine.in_pos and self._engine.entry_price != fill_price:
+            slippage = abs(fill_price - self._engine.entry_price)
+            logger.info(f'Fill correction: {self._engine.entry_price:.2f} -> {fill_price:.2f} '
+                        f'(slippage: {slippage:.2f})')
+            self._engine.entry_price = fill_price
+            self._save_active_trade()
 
     def _on_account_update(self, msg: dict):
         """Track account equity from NT8."""
