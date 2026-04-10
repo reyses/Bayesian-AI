@@ -732,15 +732,22 @@ def _print_summary(results: list):
     winning_days = sum(1 for p in pnls if p > 0)
     losing_days = sum(1 for p in pnls if p <= 0)
 
-    print(f'\n{"="*60}')
-    print(f'RESULTS: {n_days} days | {total_trades} trades')
-    print(f'{"="*60}')
+    # Daily breakdown first
+    if n_days > 1:
+        print(f'\n  Daily breakdown:')
+        cumul = 0
+        for r in results:
+            cumul += r['pnl']
+            flag = '<<<' if r['pnl'] > 50 else '!!!' if r['pnl'] < -50 else ''
+            print(f'    {r["day"]}  {r["trades"]:>3} trades  {r["wr"]:>4.0f}%  '
+                  f'${r["pnl"]:>8.2f}  cumul=${cumul:>8.2f} {flag}')
 
-    # Win/loss days
+    # Summary after daily stats
+    print(f'\n{"="*60}')
+    print(f'SUMMARY: {n_days} days | {total_trades} trades')
+    print(f'{"="*60}')
     print(f'  Winning days: {winning_days}/{n_days} ({winning_days/n_days*100:.0f}%)')
     print(f'  Losing days:  {losing_days}/{n_days} ({losing_days/n_days*100:.0f}%)')
-
-    # PnL stats
     print(f'  Accumulated:  ${total_pnl:>12,.0f}')
     print(f'  Avg $/day:    ${total_pnl / max(n_days, 1):>12,.0f}')
     print(f'  Best day:     ${max(pnls):>12,.0f}')
@@ -772,17 +779,6 @@ def _print_summary(results: list):
         if c > 0:
             bar = '#' * min(c, 40)
             print(f'    {b:>14}: {c:>3} {bar}')
-
-    # Daily breakdown
-    if n_days > 1:
-        print(f'\n  Daily breakdown:')
-        cumul = 0
-        for r in results:
-            cumul += r['pnl']
-            flag = '<<<' if r['pnl'] > 50 else '!!!' if r['pnl'] < -50 else ''
-            print(f'    {r["day"]}  {r["trades"]:>3} trades  {r["wr"]:>4.0f}%  '
-                  f'${r["pnl"]:>8.2f}  cumul=${cumul:>8.2f} {flag}')
-
     print(f'{"="*60}')
 
 
