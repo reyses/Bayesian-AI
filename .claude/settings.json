@@ -3,7 +3,12 @@
     "allow": [
       "Bash(git show e787169 --no-stat)",
       "Bash(git reset --hard origin/main)",
-      "Bash(test -f core/keep_awake.py)"
+      "Bash(test -f core/keep_awake.py)",
+      "Bash(git restore:*)",
+      "Bash(git tag:*)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\reyse\\OneDrive\\Desktop\\Bayesian-AI\\nn_v2\\output\\tree"
     ]
   }
 }
