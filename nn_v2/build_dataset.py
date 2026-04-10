@@ -71,53 +71,123 @@ def load_tf_cumulative(tf: str, days_up_to: list) -> pd.DataFrame:
     return pd.concat(dfs, ignore_index=True).sort_values('timestamp').reset_index(drop=True)
 
 
-def process_one_day(day_name: str, anchor_tf: str, days_up_to: list,
-                    sfe, prev_velocities: dict):
+class AtlasCache:
+    """Pre-loads all ATLAS data per TF once. Slices by day index — no re-reading.
+
+    Eliminates the O(days² × TFs) parquet read bottleneck.
+    Each TF's full history is loaded once, then day boundaries are used
+    to slice "all bars up to day N" in O(1).
+    """
+
+    def __init__(self, tfs: list):
+        self._data = {}        # {tf: DataFrame} — full history, sorted
+        self._day_ends = {}    # {tf: {day_name: end_idx}} — cumulative bar count per day
+
+        for tf in tqdm(tfs, desc='Loading ATLAS', unit='tf'):
+            tf_dir = os.path.join(ATLAS_ROOT, tf)
+            files = sorted(glob.glob(os.path.join(tf_dir, '*.parquet')))
+            if not files:
+                continue
+
+            dfs = []
+            day_ends = {}
+            cumul_len = 0
+            for f in files:
+                day_name = os.path.basename(f).replace('.parquet', '')
+                df = pd.read_parquet(f)
+                dfs.append(df)
+                cumul_len += len(df)
+                day_ends[day_name] = cumul_len
+
+            full = pd.concat(dfs, ignore_index=True).sort_values('timestamp').reset_index(drop=True)
+            self._data[tf] = full
+            self._day_ends[tf] = day_ends
+
+    def get_cumulative(self, tf: str, up_to_day: str) -> pd.DataFrame:
+        """Get all bars for a TF up to and including the given day. O(1) slice."""
+        if tf not in self._data:
+            return pd.DataFrame()
+        ends = self._day_ends[tf]
+        if up_to_day not in ends:
+            # Day not in this TF — find the latest day <= up_to_day
+            valid = [d for d in ends if d <= up_to_day]
+            if not valid:
+                return pd.DataFrame()
+            up_to_day = valid[-1]
+        end_idx = ends[up_to_day]
+        return self._data[tf].iloc[:end_idx]
+
+    def get_day_start(self, tf: str, day_name: str) -> int:
+        """Get the index where a day starts in the full history."""
+        ends = self._day_ends.get(tf, {})
+        # Day start = previous day's end
+        days_sorted = sorted(ends.keys())
+        day_idx = days_sorted.index(day_name) if day_name in days_sorted else -1
+        if day_idx <= 0:
+            return 0
+        prev_day = days_sorted[day_idx - 1]
+        return ends[prev_day]
+
+    def memory_mb(self) -> float:
+        return sum(df.memory_usage(deep=True).sum() for df in self._data.values()) / 1e6
+
+
+def process_one_day(day_name: str, anchor_tf: str, cache: 'AtlasCache',
+                    sfe, prev_velocities: dict, sfe_cache: dict = None):
     """Process one day: for each anchor bar, assemble 79D from all TFs.
 
     Args:
         day_name: the day to produce output for
         anchor_tf: resolution TF (e.g. '1m')
-        days_up_to: all days up to and including this day (for history)
+        cache: AtlasCache with pre-loaded ATLAS data
         sfe: StatisticalFieldEngine instance (reused)
         prev_velocities: velocity state from previous day
+        sfe_cache: {tf: (n_bars, states, tail_offset)} — reuse SFE if bar count unchanged
 
     Returns:
-        (DataFrame, updated prev_velocities)
+        (DataFrame, updated prev_velocities, updated sfe_cache)
     """
+    if sfe_cache is None:
+        sfe_cache = {}
+
     # Load anchor bars for this day only
     anchor_path = os.path.join(ATLAS_ROOT, anchor_tf, f'{day_name}.parquet')
     if not os.path.exists(anchor_path):
-        return pd.DataFrame(), prev_velocities
+        return pd.DataFrame(), prev_velocities, sfe_cache
 
     anchor_df = pd.read_parquet(anchor_path).sort_values('timestamp').reset_index(drop=True)
     if len(anchor_df) < SFE_MIN_BARS:
-        return pd.DataFrame(), prev_velocities
+        return pd.DataFrame(), prev_velocities, sfe_cache
 
     anchor_ts = anchor_df['timestamp'].values
 
-    # For each TF: load cumulative history, run SFE on tail
+    # For each TF: get cumulative history from cache, run SFE on tail
     tf_data = {}  # {tf: (timestamps, states, bars_df)}
 
     for tf in TF_ORDER:
-        cumul = load_tf_cumulative(tf, days_up_to)
+        cumul = cache.get_cumulative(tf, day_name)
         if len(cumul) < SFE_MIN_BARS:
             continue
 
         ts_arr = cumul['timestamp'].values
+        n_bars = len(cumul)
 
-        # Find where today's data starts in the cumulative array
-        today_path = os.path.join(ATLAS_ROOT, tf, f'{day_name}.parquet')
-        if os.path.exists(today_path):
-            today_df = pd.read_parquet(today_path)
-            today_start_ts = today_df['timestamp'].min() if len(today_df) > 0 else ts_arr[-1]
-            today_start_idx = int(np.searchsorted(ts_arr, today_start_ts, side='left'))
-        else:
-            today_start_idx = max(0, len(cumul) - SFE_WINDOW)
+        # Check SFE cache — skip recompute if this TF has no new bars
+        cached = sfe_cache.get(tf)
+        if cached and cached[0] == n_bars:
+            tf_data[tf] = {
+                'timestamps': ts_arr,
+                'states': cached[1],
+                'tail_offset': cached[2],
+                'bars': cumul,
+            }
+            continue
+
+        # Find where today's data starts
+        today_start_idx = cache.get_day_start(tf, day_name)
 
         # SFE must cover today's bars + warmup history before today
-        # Take from (today_start - warmup) to end of cumul
-        warmup = min(SFE_WINDOW, today_start_idx)  # up to 300 bars of history before today
+        warmup = min(SFE_WINDOW, today_start_idx)
         sfe_start = max(0, today_start_idx - warmup)
         sfe_input = cumul.iloc[sfe_start:].reset_index(drop=True)
         tail_offset = sfe_start
@@ -125,6 +195,9 @@ def process_one_day(day_name: str, anchor_tf: str, days_up_to: list,
         states = sfe.batch_compute_states(sfe_input)
         if not states:
             continue
+
+        # Cache for next day
+        sfe_cache[tf] = (n_bars, states, tail_offset)
 
         tf_data[tf] = {
             'timestamps': ts_arr,
@@ -184,7 +257,7 @@ def process_one_day(day_name: str, anchor_tf: str, days_up_to: list,
             **{name: feat[i] for i, name in enumerate(FEATURE_NAMES_79D)}
         })
 
-    return pd.DataFrame(rows) if rows else pd.DataFrame(), prev_velocities
+    return pd.DataFrame(rows) if rows else pd.DataFrame(), prev_velocities, sfe_cache
 
 
 def main():
@@ -225,17 +298,18 @@ def main():
     print(f'  Anchor: {anchor_tf} | Output: {out_dir}/')
     print()
 
+    # Pre-load all ATLAS data per TF (one-time cost, eliminates O(days²) I/O)
+    cache = AtlasCache(TF_ORDER)
+    print(f'  ATLAS loaded: {cache.memory_mb():.0f} MB in memory')
+
     sfe = StatisticalFieldEngine()
     prev_velocities = {}
+    sfe_cache = {}  # {tf: (n_bars, states, offset)} — skip SFE if no new bars
     total_rows = 0
 
     for i, day_name in enumerate(tqdm(to_build, desc='Days', unit='day')):
-        # All days up to and including this one from FULL history (for higher TF)
-        day_idx_in_full = all_days_full.index(day_name) if day_name in all_days_full else 0
-        days_up_to = all_days_full[:day_idx_in_full + 1]
-
-        df, prev_velocities = process_one_day(
-            day_name, anchor_tf, days_up_to, sfe, prev_velocities)
+        df, prev_velocities, sfe_cache = process_one_day(
+            day_name, anchor_tf, cache, sfe, prev_velocities, sfe_cache)
 
         if len(df) > 0:
             out_path = os.path.join(out_dir, f'{day_name}.parquet')
@@ -246,7 +320,7 @@ def main():
         if i % 10 == 0:
             gc.collect()
 
-    del sfe
+    del sfe, cache
     gc.collect()
 
     print(f'\nDone: {total_rows:,} rows across {len(to_build)} days')

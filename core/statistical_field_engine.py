@@ -109,6 +109,49 @@ def _compute_swing_noise_numba(highs, lows, n, noise_window, tick_size):
     return swing_noise
 
 
+class _IncrementalState:
+    """Internal state for feed_bar() incremental computation."""
+    __slots__ = [
+        'bar_count', 'prices', 'highs', 'lows', 'closes', 'z_scores',
+        'prev_close', 'prev_high', 'prev_low',
+        # ADX/DMI Wilder smoothing
+        'adx_init_tr', 'adx_init_plus', 'adx_init_minus',
+        'smooth_tr', 'smooth_plus', 'smooth_minus',
+        'dx_sum', 'dx_count', 'prev_adx', 'prev_dmi_plus', 'prev_dmi_minus',
+        # Previous bar values for derivative/prev fields
+        'prev_z',
+    ]
+
+    def __init__(self):
+        self.bar_count = 0
+        # Ring buffers as plain lists (trimmed to maxlen manually)
+        self.prices = []    # maxlen 30 (hurst window)
+        self.highs = []     # maxlen 30 (swing noise)
+        self.lows = []      # maxlen 30
+        self.closes = []    # maxlen 30 (DM/TR needs prev close)
+        self.z_scores = []  # maxlen 30 (PID integral)
+        self.prev_close = 0.0
+        self.prev_high = 0.0
+        self.prev_low = 0.0
+        # ADX/DMI — accumulate raw values during warmup, then Wilder smooth
+        self.adx_init_tr = []   # collect first ADX_PERIOD TR values (indices 1..period)
+        self.adx_init_plus = []
+        self.adx_init_minus = []
+        self.smooth_tr = 0.0
+        self.smooth_plus = 0.0
+        self.smooth_minus = 0.0
+        self.dx_sum = 0.0
+        self.dx_count = 0
+        self.prev_adx = 0.0
+        self.prev_dmi_plus = 0.0
+        self.prev_dmi_minus = 0.0
+        self.prev_z = 0.0
+
+    def _trim(self, buf, maxlen=30):
+        if len(buf) > maxlen:
+            del buf[:-maxlen]
+
+
 class StatisticalFieldEngine:
     """
     Unified statistical field calculator  -- GPU-accelerated when CUDA available.
@@ -167,7 +210,469 @@ class StatisticalFieldEngine:
              else:
                  logger.warning("CUDA accelerator not available. Falling back to vectorized CPU execution.")
 
-    
+        # Incremental state (lazy-initialized on first feed_bar call)
+        self._inc = _IncrementalState()
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # INCREMENTAL API — feed one bar at a time, maintain state
+    # ═══════════════════════════════════════════════════════════════════════
+
+    def feed_bar(self, open_: float, high: float, low: float, close: float,
+                 volume: float, timestamp: float = 0.0) -> 'MarketState | None':
+        """Process one bar incrementally. Returns MarketState or None during warmup.
+
+        Produces identical output to batch_compute_states(df)[-1] for the same
+        input sequence. CPU-only — O(80) ops per bar.
+
+        Args:
+            open_, high, low, close, volume: bar OHLCV
+            timestamp: bar timestamp (epoch seconds)
+
+        Returns:
+            MarketState if warmed up (bar_count >= 30), else None.
+        """
+        import math
+        inc = self._inc
+        rp = self.regression_period
+
+        price = close  # SFE uses close as price
+        inc.bar_count += 1
+
+        # Append to ring buffers
+        # prices: 30 (hurst window). highs/lows: 31 (swing noise uses noise_window+1).
+        # z_scores: populated during warmup with 0.0 to match batch's z_scores array.
+        inc.prices.append(price)
+        inc.highs.append(high)
+        inc.lows.append(low)
+        inc.closes.append(close)
+        inc._trim(inc.prices, 31)  # hurst needs i >= 30 (31st bar) + 30 lookback
+        inc._trim(inc.highs, 31)
+        inc._trim(inc.lows, 31)
+        inc._trim(inc.closes, 31)
+
+        # --- DM/TR raw (needs prev bar) ---
+        if inc.bar_count == 1:
+            tr = high - low
+            plus_dm = 0.0
+            minus_dm = 0.0
+        else:
+            hl = high - low
+            hc = abs(high - inc.prev_close)
+            lc = abs(low - inc.prev_close)
+            tr = max(hl, hc, lc)
+
+            up_move = high - inc.prev_high
+            down_move = inc.prev_low - low
+
+            plus_dm = up_move if (up_move > down_move and up_move > 0) else 0.0
+            minus_dm = down_move if (down_move > up_move and down_move > 0) else 0.0
+
+        # --- ADX/DMI Wilder smoothing (mirrors physics_utils.compute_adx_dmi_cpu) ---
+        # Bar indexing: batch skips index 0 for initial sums (tr_raw[1:period+1])
+        # So we accumulate bars 2..ADX_PERIOD+1 (bar_count 2 through ADX_PERIOD+1)
+        adx_val = 0.0
+        dmi_plus_val = 0.0
+        dmi_minus_val = 0.0
+
+        if inc.bar_count >= 2 and len(inc.adx_init_tr) < ADX_PERIOD:
+            # Accumulation phase (bars 2 through ADX_PERIOD+1)
+            inc.adx_init_tr.append(tr)
+            inc.adx_init_plus.append(plus_dm)
+            inc.adx_init_minus.append(minus_dm)
+
+            if len(inc.adx_init_tr) == ADX_PERIOD:
+                # First DI values
+                inc.smooth_tr = sum(inc.adx_init_tr)
+                inc.smooth_plus = sum(inc.adx_init_plus)
+                inc.smooth_minus = sum(inc.adx_init_minus)
+
+                if inc.smooth_tr > 0:
+                    dmi_plus_val = 100.0 * inc.smooth_plus / inc.smooth_tr
+                    dmi_minus_val = 100.0 * inc.smooth_minus / inc.smooth_tr
+
+                # First DX
+                di_sum = dmi_plus_val + dmi_minus_val
+                dx = 100.0 * abs(dmi_plus_val - dmi_minus_val) / di_sum if di_sum > 0 else 0.0
+                inc.dx_sum = dx
+                inc.dx_count = 1
+
+        elif len(inc.adx_init_tr) >= ADX_PERIOD:
+            # Wilder smoothing phase
+            inc.smooth_tr = inc.smooth_tr - (inc.smooth_tr / ADX_PERIOD) + tr
+            inc.smooth_plus = inc.smooth_plus - (inc.smooth_plus / ADX_PERIOD) + plus_dm
+            inc.smooth_minus = inc.smooth_minus - (inc.smooth_minus / ADX_PERIOD) + minus_dm
+
+            if inc.smooth_tr > 0:
+                dmi_plus_val = 100.0 * inc.smooth_plus / inc.smooth_tr
+                dmi_minus_val = 100.0 * inc.smooth_minus / inc.smooth_tr
+
+            di_sum = dmi_plus_val + dmi_minus_val
+            dx = 100.0 * abs(dmi_plus_val - dmi_minus_val) / di_sum if di_sum > 0 else 0.0
+
+            if inc.dx_count < ADX_PERIOD:
+                inc.dx_sum += dx
+                inc.dx_count += 1
+                if inc.dx_count == ADX_PERIOD:
+                    adx_val = inc.dx_sum / ADX_PERIOD
+            else:
+                adx_val = (inc.prev_adx * (ADX_PERIOD - 1) + dx) / ADX_PERIOD
+
+        # Store prev values for next bar
+        prev_adx_out = inc.prev_adx
+        prev_dmi_plus_out = inc.prev_dmi_plus
+        prev_dmi_minus_out = inc.prev_dmi_minus
+        inc.prev_adx = adx_val
+        inc.prev_dmi_plus = dmi_plus_val
+        inc.prev_dmi_minus = dmi_minus_val
+        inc.prev_close = close
+        inc.prev_high = high
+        inc.prev_low = low
+
+        # --- Warmup check ---
+        # Match batch behavior: return states from bar rp (21), not hurst window (30)
+        # Batch returns states for bars >= rp-1 with hurst=0.5 default for bars < 30
+        # Populate z_scores with 0.0 during warmup (batch has z=0 for bars < rp)
+        # Buffer sized to SFE_WINDOW (300) so rolling window matches batch exactly
+        if inc.bar_count < rp:
+            inc.z_scores.append(0.0)
+            inc._trim(inc.z_scores, 300)
+            return None
+
+        # --- Regression (21-bar OLS) ---
+        # Port from compute_regression_kernel lines 61-109
+        buf = inc.prices
+        n_buf = len(buf)
+        sum_y = 0.0
+        sum_xy = 0.0
+        sum_yy = 0.0
+        for k in range(rp):
+            val = buf[n_buf - rp + k]
+            x = float(k)
+            sum_y += val
+            sum_xy += x * val
+            sum_yy += val * val
+
+        mean_y = sum_y * self.inv_reg_period
+        slope = (sum_xy - self.mean_x * sum_y) * self.inv_denom
+        center = mean_y + slope * ((rp - 1) - self.mean_x)
+
+        sst = sum_yy - rp * mean_y * mean_y
+        rss = sst - slope * slope * self.denom
+        if rss < 0.0:
+            rss = 0.0
+        sigma = math.sqrt(rss / (rp - 2)) if rp > 2 else 0.0
+        if sigma < 1e-6:
+            sigma = 1e-6
+
+        z = (price - center) / sigma
+
+        # --- Velocity & Momentum ---
+        velocity = price - buf[n_buf - 2] if n_buf >= 2 else 0.0
+        momentum_val = (velocity * volume) / sigma
+
+        # --- Forces (kernel lines 123-146) ---
+        F_gravity = -self.REVERSION_THETA * (z * sigma)
+        upper_sing = center + self.SIGMA_EXTREME_MULTIPLIER * sigma
+        lower_sing = center - self.SIGMA_EXTREME_MULTIPLIER * sigma
+        dist_upper = abs(price - upper_sing) / sigma
+        dist_lower = abs(price - lower_sing) / sigma
+
+        F_upper = 0.0
+        if z > 0:
+            F_upper = 1.0 / (dist_upper ** 3 + self.BAND_PRESSURE_EPSILON)
+            if F_upper > self.BAND_PRESSURE_CAP:
+                F_upper = self.BAND_PRESSURE_CAP
+        F_lower = 0.0
+        if z < 0:
+            F_lower = 1.0 / (dist_lower ** 3 + self.BAND_PRESSURE_EPSILON)
+            if F_lower > self.BAND_PRESSURE_CAP:
+                F_lower = self.BAND_PRESSURE_CAP
+        repulsion = -F_upper if z > 0 else F_lower
+        net_force = F_gravity + momentum_val + repulsion
+
+        # --- Probabilities & Entropy (kernel lines 148-176) ---
+        E0 = -(z * z) / 2.0
+        E1 = -((z - 2.0) ** 2) / 2.0
+        E2 = -((z + 2.0) ** 2) / 2.0
+        max_E = max(E0, E1, E2)
+        p0 = math.exp(E0 - max_E)
+        p1 = math.exp(E1 - max_E)
+        p2 = math.exp(E2 - max_E)
+        total_p = p0 + p1 + p2
+        p0 /= total_p
+        p1 /= total_p
+        p2 /= total_p
+        eps = 1e-10
+        entropy_val = -(p0 * math.log(p0 + eps) + p1 * math.log(p1 + eps) + p2 * math.log(p2 + eps))
+        entropy_norm = entropy_val / self.LOG_3
+
+        # --- Hurst exponent (kernel lines 248-319) ---
+        # Batch returns hurst=0.5 (default) for bars with i < HURST_WINDOW
+        h_buf = inc.prices
+        h_n = len(h_buf)
+        ws = HURST_WINDOW
+
+        hurst = 0.5  # default — matches CUDA kernel for i < window_size
+        # CUDA kernel: `if i < window_size: return` -> needs index >= 30 (31+ bars total)
+        if h_n > ws:
+            sizes = [max(ws // 8, 4), max(ws // 4, 8), max(ws // 2, 16), ws]
+            log_n_arr = []
+            log_rs_arr = []
+
+            for sz in sizes:
+                start = h_n - sz
+                p_start = h_buf[start]
+                p_end = h_buf[h_n - 1]
+                mean_ret = (p_end - p_start) / (sz - 1) if sz > 1 else 0.0
+
+                cum_dev = 0.0
+                max_dev = -1e30
+                min_dev = 1e30
+                std_sum = 0.0
+                prev_p = p_start
+
+                for k_idx in range(start + 1, h_n):
+                    curr_p = h_buf[k_idx]
+                    ret = (curr_p - prev_p) - mean_ret
+                    cum_dev += ret
+                    if cum_dev > max_dev:
+                        max_dev = cum_dev
+                    if cum_dev < min_dev:
+                        min_dev = cum_dev
+                    std_sum += ret * ret
+                    prev_p = curr_p
+
+                R = max_dev - min_dev
+                S = math.sqrt(std_sum / (sz - 1)) if sz > 1 else 1e-10
+                S = max(S, 1e-10)
+                rs = R / S
+                log_n_arr.append(math.log(float(sz)))
+                log_rs_arr.append(math.log(max(rs, 1e-10)))
+
+            # Linear regression: log(R/S) = H * log(n) + c
+            sx = sum(log_n_arr)
+            sy = sum(log_rs_arr)
+            sxy = sum(a * b for a, b in zip(log_n_arr, log_rs_arr))
+            sxx = sum(a * a for a in log_n_arr)
+            d = 4.0 * sxx - sx * sx
+            hurst = (4.0 * sxy - sx * sy) / d if abs(d) > 1e-12 else 0.5
+            hurst = max(0.0, min(1.0, hurst))
+
+        # --- z_scores buffer for PID & oscillation ---
+        # Sized to SFE_WINDOW (300) so PID rolling window matches batch's cumsum
+        inc.z_scores.append(z)
+        inc._trim(inc.z_scores, 300)
+
+        # --- PID Control Force ---
+        # Batch: rolling mean of z_scores over _pid_window (30).
+        # For bars < window: expanding mean (cumsum[i] / (i+1)).
+        # For bars >= window: (cumsum[i] - cumsum[i-window]) / window.
+        # feed_bar's z_scores buffer matches batch's z_scores array (includes warmup zeros).
+        pid_kp = DEFAULT_PID_KP
+        pid_ki = DEFAULT_PID_KI
+        pid_kd = DEFAULT_PID_KD
+        _pid_window = DEFAULT_PID_INTEGRAL_WINDOW  # 30
+        pid_p = pid_kp * z
+        zs = inc.z_scores
+        n_zs = len(zs)
+        if n_zs > _pid_window:
+            # Batch: rolling mean when n > _pid_window
+            rolling_integral = sum(zs[-_pid_window:]) / _pid_window
+        else:
+            # Batch fallback: raw cumulative sum (NOT mean) when n <= _pid_window
+            rolling_integral = sum(zs)
+        pid_i_val = pid_ki * max(-10.0, min(10.0, rolling_integral))
+        pid_d_val = pid_kd * (z - inc.prev_z)
+        term_pid = pid_p + pid_i_val + pid_d_val
+        inc.prev_z = z
+
+        # --- Oscillation Entropy (5-bar rolling std, ddof=1) ---
+        # Batch uses _compute_rolling_std_numba which backfills first (window-1) bars
+        # with osc_std[window-1]. We match by requiring full window before computing.
+        _ow = min(5, rp)
+        if n_zs >= _ow:
+            osc_slice = zs[-_ow:]
+            osc_mean = sum(osc_slice) / _ow
+            osc_var = sum((v - osc_mean) ** 2 for v in osc_slice) / (_ow - 1)
+            osc_std = math.sqrt(max(osc_var, 0.0))
+        else:
+            osc_std = 0.0
+        osc_entropy_norm = 1.0 / (1.0 + osc_std)
+
+        # --- Swing Noise (30-bar max drawdown/drawup) ---
+        # Batch kernel: start_idx = _ni - noise_window, loop start_idx+1.._ni inclusive
+        # That's noise_window+1 bars total (start_idx through _ni). Need 31 in buffer.
+        _noise_window = 30
+        _tick_size = 0.25
+        h_arr = inc.highs
+        l_arr = inc.lows
+        sw_n = len(h_arr)
+        if sw_n > _noise_window:  # need noise_window+1 bars (31)
+            sw_start = sw_n - _noise_window - 1
+            run_hi = h_arr[sw_start]
+            run_lo = l_arr[sw_start]
+            max_dd = run_hi - l_arr[sw_start]
+            max_du = h_arr[sw_start] - run_lo
+            for j in range(sw_start + 1, sw_n):
+                if h_arr[j] > run_hi:
+                    run_hi = h_arr[j]
+                dd = run_hi - l_arr[j]
+                if dd > max_dd:
+                    max_dd = dd
+                if l_arr[j] < run_lo:
+                    run_lo = l_arr[j]
+                du = h_arr[j] - run_lo
+                if du > max_du:
+                    max_du = du
+            swing_noise = max(max_dd, max_du) / _tick_size
+        else:
+            swing_noise = 35.0
+
+        # --- OU First-Passage Probabilities ---
+        _B = 3.0
+        _inv_sqrt2 = 1.0 / math.sqrt(2.0)
+        _erfi_B = float(erfi(_B * _inv_sqrt2))
+        _erfi_z_val = float(erfi(abs(z) * _inv_sqrt2))
+        rev_prob = max(0.0, min(1.0, 1.0 - _erfi_z_val / _erfi_B))
+        brk_prob = max(0.0, min(1.0, _erfi_z_val / _erfi_B))
+        rev_potential = max(0.0, 0.025 * (9.0 - z * z))
+
+        # --- Band Zone ---
+        abs_z = abs(z)
+        if abs_z < 1.0:
+            band_zone = 'INNER'
+        elif abs_z < 2.0:
+            band_zone = 'CHAOS'
+        elif z >= 2.0:
+            band_zone = 'UPPER_EXTREME'
+        else:
+            band_zone = 'LOWER_EXTREME'
+
+        # --- Band flags ---
+        cascade_detected = abs_z > 2.0 and abs(velocity) > self.VELOCITY_THRESHOLD
+        structure_confirmed = abs(momentum_val) > self.MOMENTUM_THRESHOLD and entropy_norm < self.ENTROPY_THRESHOLD
+
+        # --- Trend Direction ---
+        slope_strength = (abs(slope) * rp) / (sigma + 1e-6)
+        if slope_strength > 1.0:
+            trend_dir = 'UP' if slope > 0 else 'DOWN'
+        else:
+            trend_dir = 'RANGE'
+
+        # --- Volume Delta ---
+        vol_delta = volume if close > open_ else (-volume if close < open_ else 0.0)
+
+        # --- Construct MarketState ---
+        state = MarketState(
+            regression_center=center,
+            upper_band_2sigma=center + 2.0 * sigma,
+            lower_band_2sigma=center - 2.0 * sigma,
+            upper_band_3sigma=center + 3.0 * sigma,
+            lower_band_3sigma=center - 3.0 * sigma,
+            price=price,
+            velocity=velocity,
+            z_score=z,
+            mean_reversion_force=-0.5 * z * sigma,
+            F_upper_band=0.0,
+            F_lower_band=0.0,
+            F_momentum=momentum_val,
+            net_force=net_force,
+            prob_weight_center=math.sqrt(p0),
+            prob_weight_upper=math.sqrt(p1),
+            prob_weight_lower=math.sqrt(p2),
+            P_at_center=p0,
+            P_near_upper=p1,
+            P_near_lower=p2,
+            entropy=entropy_val,
+            entropy_normalized=entropy_norm,
+            pattern_maturity=0.0,
+            momentum_strength=momentum_val,
+            structure_confirmed=structure_confirmed,
+            cascade_detected=cascade_detected,
+            reversal_confirmed=False,
+            band_zone=band_zone,
+            stability_index=1.0,
+            reversion_probability=rev_prob,
+            breakout_probability=brk_prob,
+            reversion_potential=rev_potential,
+            pattern_type='NONE',
+            candlestick_pattern='NONE',
+            trend_direction_15m=trend_dir,
+            hurst_exponent=hurst,
+            adx_strength=adx_val,
+            dmi_plus=dmi_plus_val,
+            dmi_minus=dmi_minus_val,
+            adx_prev=prev_adx_out,
+            di_plus_prev=prev_dmi_plus_out,
+            di_minus_prev=prev_dmi_minus_out,
+            volume_delta=vol_delta,
+            regression_sigma=sigma,
+            term_pid=term_pid,
+            oscillation_entropy_normalized=osc_entropy_norm,
+            lyapunov_exponent=0.0,
+            market_regime='STABLE',
+            swing_noise_ticks=swing_noise,
+            timestamp=timestamp,
+        )
+
+        return state
+
+    def reset_incremental(self):
+        """Clear all incremental state, start fresh."""
+        self._inc = _IncrementalState()
+
+    def get_incremental_state(self) -> dict:
+        """Serializable snapshot of incremental state."""
+        inc = self._inc
+        return {
+            'bar_count': inc.bar_count,
+            'prices': list(inc.prices),
+            'highs': list(inc.highs),
+            'lows': list(inc.lows),
+            'closes': list(inc.closes),
+            'z_scores': list(inc.z_scores),
+            'prev_close': inc.prev_close,
+            'prev_high': inc.prev_high,
+            'prev_low': inc.prev_low,
+            'adx_init_tr': list(inc.adx_init_tr),
+            'adx_init_plus': list(inc.adx_init_plus),
+            'adx_init_minus': list(inc.adx_init_minus),
+            'smooth_tr': inc.smooth_tr,
+            'smooth_plus': inc.smooth_plus,
+            'smooth_minus': inc.smooth_minus,
+            'dx_sum': inc.dx_sum,
+            'dx_count': inc.dx_count,
+            'prev_adx': inc.prev_adx,
+            'prev_dmi_plus': inc.prev_dmi_plus,
+            'prev_dmi_minus': inc.prev_dmi_minus,
+            'prev_z': inc.prev_z,
+        }
+
+    def set_incremental_state(self, state: dict):
+        """Restore incremental state from snapshot."""
+        inc = self._inc
+        inc.bar_count = state['bar_count']
+        inc.prices = list(state['prices'])
+        inc.highs = list(state['highs'])
+        inc.lows = list(state['lows'])
+        inc.closes = list(state['closes'])
+        inc.z_scores = list(state['z_scores'])
+        inc.prev_close = state['prev_close']
+        inc.prev_high = state['prev_high']
+        inc.prev_low = state['prev_low']
+        inc.adx_init_tr = list(state['adx_init_tr'])
+        inc.adx_init_plus = list(state['adx_init_plus'])
+        inc.adx_init_minus = list(state['adx_init_minus'])
+        inc.smooth_tr = state['smooth_tr']
+        inc.smooth_plus = state['smooth_plus']
+        inc.smooth_minus = state['smooth_minus']
+        inc.dx_sum = state['dx_sum']
+        inc.dx_count = state['dx_count']
+        inc.prev_adx = state['prev_adx']
+        inc.prev_dmi_plus = state['prev_dmi_plus']
+        inc.prev_dmi_minus = state['prev_dmi_minus']
+        inc.prev_z = state['prev_z']
+
     def calculate_market_state(
         self, 
         df_macro: pd.DataFrame,   # 15min bars
