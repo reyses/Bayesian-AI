@@ -32,9 +32,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.features_79d import FEATURE_NAMES_79D, N_FEATURES
 
 # Data paths
-BLENDED_TRADES = 'nn_v2/output/trades/blended_is.pkl'
-REGRET_FILE = 'nn_v2/output/tree/regret_cnn_flipped.csv'
-OUTPUT_DIR = 'nn_v2/output/tree'
+BLENDED_TRADES = os.environ.get('CNN_TRADES_PATH', 'nn_v2/output/trades/blended_is.pkl')
+REGRET_FILE = os.environ.get('CNN_REGRET_PATH', 'nn_v2/output/tree/regret_cnn_flipped.csv')
+OUTPUT_DIR = os.environ.get('CNN_OUTPUT_DIR', 'nn_v2/output/tree')
 
 # Grid layout
 GRID_H = 6

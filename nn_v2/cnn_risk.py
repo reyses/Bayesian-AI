@@ -29,8 +29,8 @@ from tqdm import tqdm
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.features_79d import FEATURE_NAMES_79D, N_CORE, N_HELPER
 
-BLENDED_TRADES = 'nn_v2/output/trades/blended_is.pkl'
-OUTPUT_DIR = 'nn_v2/output/tree'
+BLENDED_TRADES = os.environ.get('CNN_TRADES_PATH', 'nn_v2/output/trades/blended_is.pkl')
+OUTPUT_DIR = os.environ.get('CNN_OUTPUT_DIR', 'nn_v2/output/tree')
 
 N_TFS = 6
 N_FEAT_PER_TF = N_CORE + N_HELPER  # 13
