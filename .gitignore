@@ -1,5 +1,7 @@
 # Generated pipeline outputs (rebuild from code, don't track)
 nn_v2/output/
+nn_v2_iso/output/
+.claude/worktrees/
 # BUT track CNN models (small, needed for reproducibility + live)
 !nn_v2/output/tree/
 !nn_v2/output/tree/cnn_*.pt
