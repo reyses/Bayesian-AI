@@ -223,21 +223,18 @@ class LiveEngine:
                 bar_ts = msg.get('timestamp', 0)
 
                 # Gap detection: if >5 min since last bar, we had a disconnect
+                # Daily maintenance window (4-5pm CT) = 3600s gap is NORMAL
                 if self._last_ts > 0 and bar_ts > 0:
                     gap_s = bar_ts - self._last_ts
                     if gap_s > 300 and self._system_ready:
-                        logger.warning(
-                            f'Bar gap detected ({gap_s:.0f}s) — '
-                            f'suppressing trading until HISTORY_DONE')
-                        self._system_ready = False
-                        # Flatten if in position — price moved during gap
-                        if self._position_open:
+                        if gap_s <= 4200:  # <= 70 min = daily maintenance, normal
+                            logger.info(
+                                f'Session gap ({gap_s:.0f}s) — normal maintenance window')
+                        else:  # > 70 min = real disconnect
                             logger.warning(
-                                'POSITION OPEN DURING GAP — flattening immediately')
-                            self._engine.force_close('gap_flatten')
-                            await self._close_position('gap_flatten')
-                            self._position_open = False
-                            self._closing_position = False
+                                f'Bar gap detected ({gap_s:.0f}s) — '
+                                f'suppressing trading until HISTORY_DONE')
+                            self._system_ready = False
 
                 # Update resume timestamp so reconnect uses latest bar
                 if bar_ts > 0:
